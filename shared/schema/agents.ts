@@ -72,7 +72,11 @@ export const customerCareAgents = pgTable("customer_care_agents", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertCustomerCareAgentSchema = createInsertSchema(customerCareAgents).omit({
+export const insertCustomerCareAgentSchema = createInsertSchema(customerCareAgents).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -113,9 +117,16 @@ export const quizAttempts = pgTable("quiz_attempts", {
   index("idx_qa_agent").on(table.agentId),
 ]);
 
-export const insertQuizAttemptSchema = createInsertSchema(quizAttempts).omit({ id: true, createdAt: true });
+export const insertQuizAttemptSchema = createInsertSchema(quizAttempts).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 export type QuizAttempt = typeof quizAttempts.$inferSelect;
-export const insertCertificationQuizSchema = createInsertSchema(certificationQuizzes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCertificationQuizSchema = createInsertSchema(certificationQuizzes).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 export type CertificationQuiz = typeof certificationQuizzes.$inferSelect;
 
 // --- Auto-Migrated Tables ---
@@ -296,7 +307,11 @@ export const agents = pgTable("agents", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertAgentSchema = createInsertSchema(agents).omit({
+export const insertAgentSchema = createInsertSchema(agents).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -411,7 +426,10 @@ export const abTestingMetrics = pgTable("ab_testing_metrics", {
 ]);
 
 // Insert schemas for profit-optimized tables
-export const insertAgentOverrideAuditLogSchema = createInsertSchema(agentOverrideAuditLog).omit({ id: true, createdAt: true });
+export const insertAgentOverrideAuditLogSchema = createInsertSchema(agentOverrideAuditLog).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export type AgentOverrideAuditLog = typeof agentOverrideAuditLog.$inferSelect;
 
@@ -537,17 +555,28 @@ export const agentCertifications = pgTable("agent_certifications", {
 ]);
 
 // Agent Compliance Document Repository (for SEBI inspection-ready docs)
-export const insertAgentPerformanceMetricsSchema = createInsertSchema(agentPerformanceMetrics).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAgentPerformanceMetricsSchema = createInsertSchema(agentPerformanceMetrics).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 export type AgentPerformanceMetrics = typeof agentPerformanceMetrics.$inferSelect;
 export type InsertAgentPerformanceMetrics = z.infer<typeof insertAgentPerformanceMetricsSchema>;
 
-export const insertAgentPortfolioOutcomesSchema = createInsertSchema(agentPortfolioOutcomes).omit({ id: true, calculatedAt: true });
+export const insertAgentPortfolioOutcomesSchema = createInsertSchema(agentPortfolioOutcomes).extend({
+  id: z.any(),
+  calculatedAt: z.any(),
+}).omit({ id: true, calculatedAt: true });
 
 export type AgentPortfolioOutcomes = typeof agentPortfolioOutcomes.$inferSelect;
 
 export type InsertAgentPortfolioOutcomes = z.infer<typeof insertAgentPortfolioOutcomesSchema>;
 
-export const insertAgentCertificationsSchema = createInsertSchema(agentCertifications).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAgentCertificationsSchema = createInsertSchema(agentCertifications).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export type AgentCertifications = typeof agentCertifications.$inferSelect;
 
@@ -593,7 +622,11 @@ export const agentLeads = pgTable("agent_leads", {
   index("idx_agent_leads_created").on(table.createdAt),
 ]);
 
-export const insertAgentLeadSchema = createInsertSchema(agentLeads).omit({
+export const insertAgentLeadSchema = createInsertSchema(agentLeads).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -740,7 +773,11 @@ export const itrPricingConfig = pgTable("itr_pricing_config", {
   index("idx_itr_pricing_active").on(table.isActive),
 ]);
 
-export const insertItrPricingConfigSchema = createInsertSchema(itrPricingConfig).omit({
+export const insertItrPricingConfigSchema = createInsertSchema(itrPricingConfig).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -846,7 +883,11 @@ export const caProfiles = pgTable("ca_profiles", {
   index("idx_ca_profiles_available").on(table.isAvailable),
 ]);
 
-export const insertCaProfileSchema = createInsertSchema(caProfiles).omit({
+export const insertCaProfileSchema = createInsertSchema(caProfiles).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -855,7 +896,11 @@ export const insertCaProfileSchema = createInsertSchema(caProfiles).omit({
 });
 
 // Insert schemas and types for Agent ITR Filing
-export const insertAgentItrCaseSchema = createInsertSchema(agentItrCases).omit({
+export const insertAgentItrCaseSchema = createInsertSchema(agentItrCases).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -901,7 +946,12 @@ export const agentAppointments = pgTable("agent_appointments", {
   index("idx_agent_appointments_status").on(table.status),
 ]);
 
-export const insertAgentAppointmentSchema = createInsertSchema(agentAppointments).omit({
+export const insertAgentAppointmentSchema = createInsertSchema(agentAppointments).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+  completedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -952,7 +1002,11 @@ export const agentClientMappingRequests = pgTable("agent_client_mapping_requests
   index("idx_mapping_requests_pan").on(table.clientPan),
 ]);
 
-export const insertAgentClientMappingRequestSchema = createInsertSchema(agentClientMappingRequests).omit({ id: true, createdAt: true, updatedAt: true }).extend({
+export const insertAgentClientMappingRequestSchema = createInsertSchema(agentClientMappingRequests).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true }).extend({
   clientPan: z.string().regex(PAN_REGEX, "Invalid PAN format").optional().nullable(),
 });
 
@@ -971,4 +1025,11 @@ export const agentBasketItems = pgTable("agent_basket_items", {
 
 export type AgentBasketItem = typeof agentBasketItems.$inferSelect;
 export type InsertAgentBasketItem = typeof agentBasketItems.$inferInsert;
-export const insertAgentBasketItemSchema = createInsertSchema(agentBasketItems).omit({ id: true, addedAt: true });
+export const insertAgentBasketItemSchema = createInsertSchema(agentBasketItems).extend({
+  id: z.any(),
+  addedAt: z.any(),
+}).omit({ id: true, addedAt: true });
+export type Agent = typeof agents.$inferSelect;
+export type InsertAgent = typeof agents.$inferInsert;
+export type CustomerCareAgent = typeof customerCareAgents.$inferSelect;
+export type InsertCustomerCareAgent = typeof customerCareAgents.$inferInsert;

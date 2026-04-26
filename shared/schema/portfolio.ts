@@ -43,6 +43,13 @@ export const portfolioHoldings = pgTable("portfolio_holdings", {
   investedValue: decimal("invested_value", { precision: 15, scale: 2 }),
   assetType: text("asset_type").notNull(),
   sector: text("sector"),
+  assetClass: text("asset_class"),
+  folioNumber: text("folio_number"),
+  purchaseDate: timestamp("purchase_date"),
+  productType: text("product_type"),
+  returnPercentage: decimal("return_percentage", { precision: 10, scale: 2 }),
+  source: text("source"),
+  notes: text("notes"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -265,42 +272,30 @@ export const symbolMapping = pgTable("symbol_mapping", {
   uniqueIndex("idx_symbol_mapping_isin_provider").on(table.isin, table.provider),
 ]);
 
-// ── Credit Ratings Layer — full history of rating changes per ISIN ───────────
-export const creditRatings = pgTable("credit_ratings", {
-  id: serial("id").primaryKey(),
-  isin: varchar("isin", { length: 20 }).notNull(),
-  instrumentName: text("instrument_name"),
-  rating: varchar("rating", { length: 20 }).notNull(), // AAA, AA+, AA, AA-, A+, A, A-, BBB+, ...
-  ratingOutlook: varchar("rating_outlook", { length: 30 }), // Stable, Positive, Negative, Watch Positive, Watch Negative
-  agency: varchar("agency", { length: 30 }).notNull(), // CRISIL, ICRA, CARE, INDIA_RATINGS, BRICKWORK, ACUITE
-  ratingDate: date("rating_date").notNull(),
-  previousRating: varchar("previous_rating", { length: 20 }),
-  ratingAction: varchar("rating_action", { length: 40 }), // Assigned, Affirmed, Upgraded, Downgraded, Watch, Withdrawn
-  isCurrent: boolean("is_current").default(true),
-  source: varchar("source", { length: 50 }).default("bonds_table"),
-  rawData: jsonb("raw_data"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => [
-  index("idx_credit_ratings_isin").on(table.isin),
-  index("idx_credit_ratings_agency").on(table.agency),
-  index("idx_credit_ratings_date").on(table.ratingDate),
-  index("idx_credit_ratings_current").on(table.isCurrent),
-]);
+
 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { Agent, Commodity, Document, investmentProposals, User } from '../schema';
-import { Product } from './products';
+import type { User } from './users';
+import type { Agent } from './agents';
+import type { Document } from './documents';
+import { investmentProposals } from './proposals-base';
+
+import type { Product } from './products';
 import { mfHoldings } from './mutual-funds';
-import { aiProfitPicks } from './ai';
+
 import { advisorySessions, suitabilityChecks, insertAdvisorySessionSchema } from './advisory';
 import { agents } from './agents';
 import { rebalancingRecommendations } from './clients';
 
 // Types
 
+export type Portfolio = typeof portfolios.$inferSelect;
+export type InsertPortfolio = typeof portfolios.$inferInsert;
+
 export type PortfolioHolding = typeof portfolioHoldings.$inferSelect;
 export type InsertPortfolioHolding = typeof portfolioHoldings.$inferInsert;
+
 
 export type ExternalHolding = typeof externalHoldings.$inferSelect;
 export type InsertExternalHolding = typeof externalHoldings.$inferInsert;
@@ -320,17 +315,35 @@ export type InsertComprehensiveHolding = typeof comprehensiveHoldings.$inferInse
 
 // Zod Schemas
 
-export const insertPortfolioHoldingSchema = createInsertSchema(portfolioHoldings).omit({
-  id: true,
-  updatedAt: true,
-});
-
-export const insertWatchlistSchema = createInsertSchema(watchlists).omit({
+export const insertPortfolioSchema = createInsertSchema(portfolios).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertAssetAllocationSchema = createInsertSchema(assetAllocation).omit({
+export const insertPortfolioHoldingSchema = createInsertSchema(portfolioHoldings).extend({
+  id: z.any(),
+  updatedAt: z.any(),
+}).omit({
+  id: true,
+  updatedAt: true,
+});
+
+
+export const insertWatchlistSchema = createInsertSchema(watchlists).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAssetAllocationSchema = createInsertSchema(assetAllocation).extend({
+  id: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   updatedAt: true,
 });
@@ -1177,202 +1190,7 @@ export const holdingLotsV2 = pgTable("holding_lots_v2", {
 // InsertAdvisorySession is already exported from shared/schema/advisory.ts
 
 
-export const portfolioAlerts = pgTable("portfolio_alerts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clientId: varchar("client_id").references(() => users.id).notNull(),
-  portfolioId: varchar("portfolio_id").references(() => portfolios.id),
-  holdingId: varchar("holding_id").references(() => portfolioHoldings.id),
-  
-  // Alert classification
-  alertType: varchar("alert_type").notNull(), // concentration, loss_trigger, profit_trigger, sector_overweight, risk_mismatch, horizon_mismatch, benchmark_breach, valuation_warning, rebalancing_needed
-  alertCategory: varchar("alert_category").notNull(), // risk, performance, compliance, rebalancing
-  severity: varchar("severity").notNull().default("medium"), // low, medium, high, critical
-  
-  // Alert details
-  alertTitle: varchar("alert_title").notNull(),
-  alertMessage: text("alert_message").notNull(),
-  alertDescription: text("alert_description"),
-  
-  // Trigger information
-  triggerMetric: varchar("trigger_metric"), // The metric that triggered the alert
-  triggerValue: decimal("trigger_value", { precision: 15, scale: 4 }), // Current value of the metric
-  triggerThreshold: decimal("trigger_threshold", { precision: 15, scale: 4 }), // Threshold that was breached
-  triggerDirection: varchar("trigger_direction"), // above, below, equals
-  
-  // Benchmark data
-  benchmarkName: varchar("benchmark_name"), // NIFTY50, SENSEX, sector index
-  benchmarkValue: decimal("benchmark_value", { precision: 15, scale: 4 }),
-  benchmarkChange: decimal("benchmark_change", { precision: 8, scale: 4 }),
-  
-  // Stock/Holding specific
-  symbol: varchar("symbol"),
-  stockName: varchar("stock_name"),
-  currentWeight: decimal("current_weight", { precision: 8, scale: 4 }),
-  recommendedWeight: decimal("recommended_weight", { precision: 8, scale: 4 }),
-  
-  // Recommended action
-  recommendedAction: varchar("recommended_action"), // buy, sell, hold, rebalance, review
-  actionUrgency: varchar("action_urgency").default("normal"), // immediate, urgent, normal, low
-  actionDescription: text("action_description"),
-  
-  // AI analysis
-  aiInsight: text("ai_insight"),
-  aiRecommendation: text("ai_recommendation"),
-  
-  // Agent interaction
-  agentViewed: boolean("agent_viewed").default(false),
-  agentViewedAt: timestamp("agent_viewed_at"),
-  agentAction: varchar("agent_action"), // acknowledged, acted, dismissed, deferred
-  agentActionAt: timestamp("agent_action_at"),
-  agentNotes: text("agent_notes"),
-  
-  // Client notification
-  clientNotified: boolean("client_notified").default(false),
-  clientNotifiedAt: timestamp("client_notified_at"),
-  clientViewed: boolean("client_viewed").default(false),
-  clientViewedAt: timestamp("client_viewed_at"),
-  
-  // Status
-  status: varchar("status").default("active"), // active, acknowledged, resolved, dismissed, expired
-  resolvedAt: timestamp("resolved_at"),
-  resolutionNotes: text("resolution_notes"),
-  
-  // Timestamps
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  expiresAt: timestamp("expires_at"),
-}, (table) => [
-  index("idx_portfolio_alerts_client").on(table.clientId),
-  index("idx_portfolio_alerts_portfolio").on(table.portfolioId),
-  index("idx_portfolio_alerts_type").on(table.alertType),
-  index("idx_portfolio_alerts_severity").on(table.severity),
-  index("idx_portfolio_alerts_status").on(table.status),
-]);
 
-// AI Portfolio Analysis - Stores comprehensive portfolio analysis results
-export const aiPortfolioAnalysis = pgTable("ai_portfolio_analysis", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clientId: varchar("client_id").references(() => users.id).notNull(),
-  portfolioId: varchar("portfolio_id").references(() => portfolios.id).notNull(),
-  agentId: varchar("agent_id").references(() => users.id),
-  
-  // Analysis timestamp
-  analysisDate: timestamp("analysis_date").defaultNow().notNull(),
-  
-  // Portfolio metrics
-  totalValue: decimal("total_value", { precision: 15, scale: 2 }),
-  totalInvested: decimal("total_invested", { precision: 15, scale: 2 }),
-  totalGainLoss: decimal("total_gain_loss", { precision: 15, scale: 2 }),
-  totalGainLossPercent: decimal("total_gain_loss_percent", { precision: 8, scale: 4 }),
-  
-  // Return metrics
-  cagr1y: decimal("cagr_1y", { precision: 8, scale: 4 }),
-  cagr3y: decimal("cagr_3y", { precision: 8, scale: 4 }),
-  cagr5y: decimal("cagr_5y", { precision: 8, scale: 4 }),
-  xirr: decimal("xirr", { precision: 8, scale: 4 }),
-  absoluteReturn: decimal("absolute_return", { precision: 8, scale: 4 }),
-  
-  // Risk metrics
-  portfolioBeta: decimal("portfolio_beta", { precision: 8, scale: 4 }),
-  sharpeRatio: decimal("sharpe_ratio", { precision: 8, scale: 4 }),
-  standardDeviation: decimal("standard_deviation", { precision: 8, scale: 4 }),
-  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }),
-  riskScore: integer("risk_score"), // 0-100
-  
-  // Concentration analysis
-  topHoldingWeight: decimal("top_holding_weight", { precision: 8, scale: 4 }),
-  top5HoldingsWeight: decimal("top_5_holdings_weight", { precision: 8, scale: 4 }),
-  sectorConcentration: jsonb("sector_concentration").$type<Record<string, number>>(),
-  
-  // Allocation breakdown
-  equityAllocation: decimal("equity_allocation", { precision: 8, scale: 4 }),
-  debtAllocation: decimal("debt_allocation", { precision: 8, scale: 4 }),
-  goldAllocation: decimal("gold_allocation", { precision: 8, scale: 4 }),
-  cashAllocation: decimal("cash_allocation", { precision: 8, scale: 4 }),
-  alternativeAllocation: decimal("alternative_allocation", { precision: 8, scale: 4 }),
-  
-  // Horizon analysis
-  ultraShortTermAllocation: decimal("ultra_short_term_allocation", { precision: 8, scale: 4 }),
-  shortTermAllocation: decimal("short_term_allocation", { precision: 8, scale: 4 }),
-  mediumTermAllocation: decimal("medium_term_allocation", { precision: 8, scale: 4 }),
-  longTermAllocation: decimal("long_term_allocation", { precision: 8, scale: 4 }),
-  
-  // Client profile alignment
-  clientRiskProfile: varchar("client_risk_profile"), // conservative, moderate, aggressive
-  portfolioRiskAlignment: varchar("portfolio_risk_alignment"), // aligned, slightly_misaligned, misaligned
-  riskMismatchDetails: text("risk_mismatch_details"),
-  
-  // AI insights
-  overallHealthScore: integer("overall_health_score"), // 0-100
-  aiSummary: text("ai_summary"),
-  keyStrengths: jsonb("key_strengths").$type<string[]>(),
-  keyWeaknesses: jsonb("key_weaknesses").$type<string[]>(),
-  recommendations: jsonb("recommendations").$type<string[]>(),
-  
-  // Detailed analysis
-  sectorAnalysis: jsonb("sector_analysis"),
-  holdingsAnalysis: jsonb("holdings_analysis"),
-  benchmarkComparison: jsonb("benchmark_comparison"),
-  
-  // Status
-  status: varchar("status").default("completed"), // in_progress, completed, error
-  
-  // Timestamps
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => [
-  index("idx_ai_portfolio_analysis_client").on(table.clientId),
-  index("idx_ai_portfolio_analysis_portfolio").on(table.portfolioId),
-  index("idx_ai_portfolio_analysis_date").on(table.analysisDate),
-]);
-
-// AI Talking Points - Agent communication scripts for client conversations
-export const aiTalkingPoints = pgTable("ai_talking_points", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  clientId: varchar("client_id").references(() => users.id).notNull(),
-  agentId: varchar("agent_id").references(() => users.id),
-  analysisId: varchar("analysis_id").references(() => aiPortfolioAnalysis.id),
-  profitPickId: varchar("profit_pick_id").references(() => aiProfitPicks.id),
-  
-  // Talking point classification
-  pointType: varchar("point_type").notNull(), // greeting, portfolio_summary, recommendation, risk_warning, action_item, closing, objection_handler
-  category: varchar("category"), // performance, risk, allocation, recommendation, compliance
-  
-  // Content
-  title: varchar("title").notNull(),
-  agentScript: text("agent_script").notNull(), // What agent should say
-  clientFacingVersion: text("client_facing_version"), // Simplified version for client understanding
-  
-  // Supporting data
-  supportingData: jsonb("supporting_data"), // Numbers, charts, facts to reference
-  visualAid: varchar("visual_aid"), // Reference to any chart/graph to show
-  
-  // Customization
-  tone: varchar("tone").default("professional"), // professional, friendly, cautious, urgent
-  emphasis: varchar("emphasis"), // positive, neutral, cautionary
-  
-  // Ordering
-  sequenceOrder: integer("sequence_order").default(0),
-  isRequired: boolean("is_required").default(false),
-  
-  // Agent interaction
-  agentUsed: boolean("agent_used").default(false),
-  agentUsedAt: timestamp("agent_used_at"),
-  agentModified: boolean("agent_modified").default(false),
-  agentVersion: text("agent_version"), // Agent's modified version
-  
-  // Status
-  status: varchar("status").default("active"), // active, used, expired
-  
-  // Timestamps
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => [
-  index("idx_ai_talking_points_client").on(table.clientId),
-  index("idx_ai_talking_points_agent").on(table.agentId),
-  index("idx_ai_talking_points_type").on(table.pointType),
-  index("idx_ai_talking_points_analysis").on(table.analysisId),
-]);
 
 // Insert schemas and types for AI Investment Advisory
 
@@ -1439,22 +1257,29 @@ export const portfolioReportAuditLogs = pgTable("portfolio_report_audit_logs", {
 ]);
 
 // Insert Schemas and Types for Portfolio Report Templates
-export const insertPortfolioReportTemplateSchema = createInsertSchema(portfolioReportTemplates).omit({
+export const insertPortfolioReportTemplateSchema = createInsertSchema(portfolioReportTemplates).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertPortfolioAlertSchema = createInsertSchema(portfolioAlerts).omit({ id: true, createdAt: true, updatedAt: true });
-export type PortfolioAlert = typeof portfolioAlerts.$inferSelect;
 export type InsertPortfolioDiagnostics = z.infer<typeof insertPortfolioDiagnosticsSchema>;
+
 
 // Note: watchlists, comprehensiveHoldings, insertWatchlistSchema, and their associated
 // types (Watchlist, InsertWatchlist, ComprehensiveHolding, InsertComprehensiveHolding)
 // are declared at the top of this file (lines ~81 and ~143). The duplicate declarations
 // below were removed to fix "Cannot redeclare block-scoped variable" errors.
 
-export const insertComprehensiveHoldingSchema = createInsertSchema(comprehensiveHoldings).omit({
+export const insertComprehensiveHoldingSchema = createInsertSchema(comprehensiveHoldings).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -1533,7 +1358,10 @@ export const portfolioMetricsDaily = pgTable("portfolio_metrics_daily", {
   index("idx_pmd_needs_rebal").on(table.needsRebalancing),
 ]);
 
-export const insertPortfolioMetricsDailySchema = createInsertSchema(portfolioMetricsDaily).omit({ id: true, computedAt: true });
+export const insertPortfolioMetricsDailySchema = createInsertSchema(portfolioMetricsDaily).extend({
+  id: z.any(),
+  computedAt: z.any(),
+}).omit({ id: true, computedAt: true });
 
 export type PortfolioMetricsDaily = typeof portfolioMetricsDaily.$inferSelect;
 
@@ -1572,26 +1400,41 @@ export const portfolioMetricsCache = pgTable("portfolio_metrics_cache", {
   index("idx_portfolio_metrics_expiry").on(table.expiresAt),
 ]);
 
-export const insertPortfolioMetricsCacheSchema = createInsertSchema(portfolioMetricsCache).omit({ id: true, createdAt: true, calculatedAt: true });
+export const insertPortfolioMetricsCacheSchema = createInsertSchema(portfolioMetricsCache).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  calculatedAt: z.any(),
+}).omit({ id: true, createdAt: true, calculatedAt: true });
 
 export type PortfolioMetricsCache = typeof portfolioMetricsCache.$inferSelect;
 
 export type InsertPortfolioMetricsCache = z.infer<typeof insertPortfolioMetricsCacheSchema>;
 
 
-export const insertPortfolioPredictionSchema = createInsertSchema(portfolioPredictions).omit({
+export const insertPortfolioPredictionSchema = createInsertSchema(portfolioPredictions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertPortfolioSnapshotSchema = createInsertSchema(portfolioSnapshots).omit({
+export const insertPortfolioSnapshotSchema = createInsertSchema(portfolioSnapshots).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertPortfolioDiagnosticsSchema = createInsertSchema(portfolioDiagnostics).omit({
+export const insertPortfolioDiagnosticsSchema = createInsertSchema(portfolioDiagnostics).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -1802,7 +1645,12 @@ export const apyAccounts = pgTable("apy_accounts", {
 export type PpfHolding = typeof ppfHoldings.$inferSelect;
 export type InsertPpfHolding = typeof ppfHoldings.$inferInsert;
 
-export const insertPpfHoldingSchema = createInsertSchema(ppfHoldings).omit({
+export const insertPpfHoldingSchema = createInsertSchema(ppfHoldings).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+  lastUpdated: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -1813,7 +1661,12 @@ export const insertPpfHoldingSchema = createInsertSchema(ppfHoldings).omit({
 export type EpsHolding = typeof epsHoldings.$inferSelect;
 export type InsertEpsHolding = typeof epsHoldings.$inferInsert;
 
-export const insertEpsHoldingSchema = createInsertSchema(epsHoldings).omit({
+export const insertEpsHoldingSchema = createInsertSchema(epsHoldings).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+  lastUpdated: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -1824,7 +1677,12 @@ export const insertEpsHoldingSchema = createInsertSchema(epsHoldings).omit({
 export type NpsAccount = typeof npsAccounts.$inferSelect;
 export type InsertNpsAccount = typeof npsAccounts.$inferInsert;
 
-export const insertNpsAccountSchema = createInsertSchema(npsAccounts).omit({
+export const insertNpsAccountSchema = createInsertSchema(npsAccounts).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+  lastUpdated: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -1835,7 +1693,12 @@ export const insertNpsAccountSchema = createInsertSchema(npsAccounts).omit({
 export type ApyAccount = typeof apyAccounts.$inferSelect;
 export type InsertApyAccount = typeof apyAccounts.$inferInsert;
 
-export const insertApyAccountSchema = createInsertSchema(apyAccounts).omit({
+export const insertApyAccountSchema = createInsertSchema(apyAccounts).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+  lastUpdated: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

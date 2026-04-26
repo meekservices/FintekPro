@@ -491,7 +491,11 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { investmentProposals } from './proposals-base';
 
-export const insertFinancialGoalSchema = createInsertSchema(financialGoals).omit({
+export const insertFinancialGoalSchema = createInsertSchema(financialGoals).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -499,14 +503,21 @@ export const insertFinancialGoalSchema = createInsertSchema(financialGoals).omit
 export type FinancialGoal = typeof financialGoals.$inferSelect;
 export type InsertFinancialGoal = typeof financialGoals.$inferInsert;
 
-export const insertGoalMilestoneSchema = createInsertSchema(goalMilestones).omit({
+export const insertGoalMilestoneSchema = createInsertSchema(goalMilestones).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
 export type GoalMilestone = typeof goalMilestones.$inferSelect;
 export type InsertGoalMilestone = typeof goalMilestones.$inferInsert;
 
-export const insertGoalInvestmentLinkSchema = createInsertSchema(goalInvestmentLinks).omit({
+export const insertGoalInvestmentLinkSchema = createInsertSchema(goalInvestmentLinks).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -514,7 +525,11 @@ export const insertGoalInvestmentLinkSchema = createInsertSchema(goalInvestmentL
 export type GoalInvestmentLink = typeof goalInvestmentLinks.$inferSelect;
 export type InsertGoalInvestmentLink = typeof goalInvestmentLinks.$inferInsert;
 
-export const insertClientRiskProfileSchema = createInsertSchema(clientRiskProfiles).omit({
+export const insertClientRiskProfileSchema = createInsertSchema(clientRiskProfiles).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -522,7 +537,11 @@ export const insertClientRiskProfileSchema = createInsertSchema(clientRiskProfil
 export type ClientRiskProfile = typeof clientRiskProfiles.$inferSelect;
 export type InsertClientRiskProfile = typeof clientRiskProfiles.$inferInsert;
 
-export const insertAdvisorySessionSchema = createInsertSchema(advisorySessions).omit({
+export const insertAdvisorySessionSchema = createInsertSchema(advisorySessions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -530,14 +549,21 @@ export const insertAdvisorySessionSchema = createInsertSchema(advisorySessions).
 export type AdvisorySession = typeof advisorySessions.$inferSelect;
 export type InsertAdvisorySession = typeof advisorySessions.$inferInsert;
 
-export const insertSuitabilityCheckSchema = createInsertSchema(suitabilityChecks).omit({
+export const insertSuitabilityCheckSchema = createInsertSchema(suitabilityChecks).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
 export type SuitabilityCheck = typeof suitabilityChecks.$inferSelect;
 export type InsertSuitabilityCheck = typeof suitabilityChecks.$inferInsert;
 
-export const insertSebiRiskProfilesMasterSchema = createInsertSchema(sebiRiskProfilesMaster).omit({
+export const insertSebiRiskProfilesMasterSchema = createInsertSchema(sebiRiskProfilesMaster).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -545,7 +571,11 @@ export const insertSebiRiskProfilesMasterSchema = createInsertSchema(sebiRiskPro
 export type SebiRiskProfileMaster = typeof sebiRiskProfilesMaster.$inferSelect;
 export type InsertSebiRiskProfileMaster = typeof sebiRiskProfilesMaster.$inferInsert;
 
-export const insertSebiQuestionnaireVersionSchema = createInsertSchema(sebiQuestionnaireVersions).omit({
+export const insertSebiQuestionnaireVersionSchema = createInsertSchema(sebiQuestionnaireVersions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -553,7 +583,11 @@ export const insertSebiQuestionnaireVersionSchema = createInsertSchema(sebiQuest
 export type SebiQuestionnaireVersion = typeof sebiQuestionnaireVersions.$inferSelect;
 export type InsertSebiQuestionnaireVersion = typeof sebiQuestionnaireVersions.$inferInsert;
 
-export const insertSebiClientRiskAssessmentSchema = createInsertSchema(sebiClientRiskAssessments).omit({
+export const insertSebiClientRiskAssessmentSchema = createInsertSchema(sebiClientRiskAssessments).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -561,7 +595,11 @@ export const insertSebiClientRiskAssessmentSchema = createInsertSchema(sebiClien
 export type SebiClientRiskAssessment = typeof sebiClientRiskAssessments.$inferSelect;
 export type InsertSebiClientRiskAssessment = typeof sebiClientRiskAssessments.$inferInsert;
 
-export const insertGoalBenchmarkMappingSchema = createInsertSchema(goalBenchmarkMapping).omit({
+export const insertGoalBenchmarkMappingSchema = createInsertSchema(goalBenchmarkMapping).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -569,7 +607,10 @@ export const insertGoalBenchmarkMappingSchema = createInsertSchema(goalBenchmark
 export type GoalBenchmarkMapping = typeof goalBenchmarkMapping.$inferSelect;
 export type InsertGoalBenchmarkMapping = typeof goalBenchmarkMapping.$inferInsert;
 
-export const insertGoalProgressSnapshotSchema = createInsertSchema(goalProgressSnapshots).omit({
+export const insertGoalProgressSnapshotSchema = createInsertSchema(goalProgressSnapshots).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });

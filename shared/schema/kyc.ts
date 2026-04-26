@@ -75,19 +75,31 @@ export const digilockerUserSessions = pgTable("digilocker_user_sessions", {
 });
 
 // DigiLocker Zod schemas
-export const insertDigilockerAppSchema = createInsertSchema(digilockerApps).omit({
+export const insertDigilockerAppSchema = createInsertSchema(digilockerApps).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertDigilockerSharedDocumentSchema = createInsertSchema(digilockerSharedDocuments).omit({
+export const insertDigilockerSharedDocumentSchema = createInsertSchema(digilockerSharedDocuments).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertDigilockerUserSessionSchema = createInsertSchema(digilockerUserSessions).omit({
+export const insertDigilockerUserSessionSchema = createInsertSchema(digilockerUserSessions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -1068,7 +1080,11 @@ export const digilockerKycMappings = pgTable("digilocker_kyc_mappings", {
 });
 
 // Cons consolidated Zod Schemas
-export const insertKycVerificationSessionSchema = createInsertSchema(kycVerificationSessions).omit({
+export const insertKycVerificationSessionSchema = createInsertSchema(kycVerificationSessions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -1077,13 +1093,21 @@ export const insertKycVerificationSessionSchema = createInsertSchema(kycVerifica
   aadhaarNumber: z.string().regex(AADHAAR_REGEX, "Invalid Aadhaar format").optional().nullable(),
 });
 
-export const insertComplianceDocumentSchema = createInsertSchema(complianceDocuments).omit({
+export const insertComplianceDocumentSchema = createInsertSchema(complianceDocuments).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertCkycRecordSchema = createInsertSchema(ckycRecords).omit({
+export const insertCkycRecordSchema = createInsertSchema(ckycRecords).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -1093,138 +1117,253 @@ export const insertCkycRecordSchema = createInsertSchema(ckycRecords).omit({
   pincode: z.string().regex(PINCODE_REGEX, "Invalid Pincode format"),
 });
 
-export const insertSmartKycProgressSchema = createInsertSchema(smartKycProgress).omit({
+export const insertSmartKycProgressSchema = createInsertSchema(smartKycProgress).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertCorporateKycProgressSchema = createInsertSchema(corporateKycProgress).omit({
+export const insertCorporateKycProgressSchema = createInsertSchema(corporateKycProgress).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertNriKycProgressSchema = createInsertSchema(nriKycProgress).omit({
+export const insertNriKycProgressSchema = createInsertSchema(nriKycProgress).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertCkycDocumentSchema = createInsertSchema(ckycDocuments).omit({
+export const insertCkycDocumentSchema = createInsertSchema(ckycDocuments).extend({
+  id: z.any(),
+  uploadedAt: z.any(),
+  verifiedAt: z.any(),
+}).omit({
   id: true,
   uploadedAt: true,
   verifiedAt: true,
 });
 
-export const insertKycUpgradeReminderSchema = createInsertSchema(kycUpgradeReminders).omit({
+export const insertKycUpgradeReminderSchema = createInsertSchema(kycUpgradeReminders).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertKycConsentLogSchema = createInsertSchema(kycConsentLogs).omit({
+export const insertKycConsentLogSchema = createInsertSchema(kycConsentLogs).extend({
+  id: z.any(),
+  consentTimestamp: z.any(),
+}).omit({
   id: true,
   consentTimestamp: true,
 });
 
-export const insertKycRegulatoryAuditLogSchema = createInsertSchema(kycRegulatoryAuditLogs).omit({
+export const insertKycRegulatoryAuditLogSchema = createInsertSchema(kycRegulatoryAuditLogs).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertKycAuditLogSchema = createInsertSchema(kycAuditLogs).omit({
+export const insertKycAuditLogSchema = createInsertSchema(kycAuditLogs).extend({
+  id: z.any(),
+  accessedAt: z.any(),
+}).omit({
   id: true,
   accessedAt: true,
 });
 
-export const insertKycTokenMapSchema = createInsertSchema(kycTokenMap).omit({
+export const insertKycTokenMapSchema = createInsertSchema(kycTokenMap).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertKycReuseTokenSchema = createInsertSchema(kycReuseTokens).omit({
+export const insertKycReuseTokenSchema = createInsertSchema(kycReuseTokens).extend({
+  id: z.any(),
+  issuedAt: z.any(),
+}).omit({
   id: true,
   issuedAt: true,
 });
 
-export const insertKycVaultSchema = createInsertSchema(kycVault).omit({
+export const insertKycVaultSchema = createInsertSchema(kycVault).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertCkycNotificationTriggerSchema = createInsertSchema(ckycNotificationTriggers).omit({
+export const insertCkycNotificationTriggerSchema = createInsertSchema(ckycNotificationTriggers).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, createdAt: true,
 });
 
-export const insertCkycProgressStepSchema = createInsertSchema(ckycProgressSteps).omit({
+export const insertCkycProgressStepSchema = createInsertSchema(ckycProgressSteps).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true, createdAt: true, updatedAt: true,
 });
 
-export const insertCkycActionLogSchema = createInsertSchema(ckycActionLogs).omit({
+export const insertCkycActionLogSchema = createInsertSchema(ckycActionLogs).extend({
+  id: z.any(),
+  actionAt: z.any(),
+}).omit({
   id: true, actionAt: true,
 });
 
-export const insertKycFormProgressSchema = createInsertSchema(kycFormProgress).omit({
+export const insertKycFormProgressSchema = createInsertSchema(kycFormProgress).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true, createdAt: true, updatedAt: true,
 });
 
-export const insertManualKycSubmissionSchema = createInsertSchema(manualKycSubmissions).omit({
+export const insertManualKycSubmissionSchema = createInsertSchema(manualKycSubmissions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true, createdAt: true, updatedAt: true,
 }).extend({
   pan: z.string().regex(PAN_REGEX, "Invalid PAN format"),
   pincode: z.string().regex(PINCODE_REGEX, "Invalid Pincode format"),
 });
 
-export const insertManualKycDocumentSchema = createInsertSchema(manualKycDocuments).omit({
+export const insertManualKycDocumentSchema = createInsertSchema(manualKycDocuments).extend({
+  id: z.any(),
+  uploadedAt: z.any(),
+}).omit({
   id: true, uploadedAt: true,
 });
 
-export const insertKycStepResetSchema = createInsertSchema(kycStepResets).omit({
+export const insertKycStepResetSchema = createInsertSchema(kycStepResets).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, createdAt: true,
 });
 
-export const insertKycProductEligibilityRuleSchema = createInsertSchema(kycProductEligibilityRules).omit({
+export const insertKycProductEligibilityRuleSchema = createInsertSchema(kycProductEligibilityRules).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true, createdAt: true, updatedAt: true,
 });
 
-export const insertKycAuditPackSchema = createInsertSchema(kycAuditPacks).omit({
+export const insertKycAuditPackSchema = createInsertSchema(kycAuditPacks).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, createdAt: true,
 });
 
-export const insertKycWebhookEventSchema = createInsertSchema(kycWebhookEvents).omit({
+export const insertKycWebhookEventSchema = createInsertSchema(kycWebhookEvents).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, createdAt: true,
 });
 
-export const insertKycRateLimitCounterSchema = createInsertSchema(kycRateLimitCounters).omit({
+export const insertKycRateLimitCounterSchema = createInsertSchema(kycRateLimitCounters).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, createdAt: true,
 });
 
-export const insertKycProviderSchema = createInsertSchema(kycProviders).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertKycProviderPrioritySchema = createInsertSchema(kycProviderPriority).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertKycFlowVersionSchema = createInsertSchema(kycFlowVersions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertKycProviderSchema = createInsertSchema(kycProviders).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertKycProviderPrioritySchema = createInsertSchema(kycProviderPriority).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertKycFlowVersionSchema = createInsertSchema(kycFlowVersions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
-export const insertKycVideoSessionSchema = createInsertSchema(kycVideoSessions).omit({
+export const insertKycVideoSessionSchema = createInsertSchema(kycVideoSessions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true, createdAt: true, updatedAt: true,
 });
 
-export const insertKycApprovalSchema = createInsertSchema(kycApprovals).omit({
+export const insertKycApprovalSchema = createInsertSchema(kycApprovals).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, createdAt: true,
 });
 
-export const insertKycRejectionEventSchema = createInsertSchema(kycRejectionEvents).omit({
+export const insertKycRejectionEventSchema = createInsertSchema(kycRejectionEvents).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, createdAt: true,
 });
 
-export const insertCkycProviderConfigSchema = createInsertSchema(ckycProviderConfig).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCkycProviderConfigSchema = createInsertSchema(ckycProviderConfig).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
-export const insertCkycProviderAuditLogSchema = createInsertSchema(ckycProviderAuditLog).omit({ id: true, createdAt: true });
+export const insertCkycProviderAuditLogSchema = createInsertSchema(ckycProviderAuditLog).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
-export const insertCkycVerificationRequestSchema = createInsertSchema(ckycVerificationRequests).omit({ id: true, requestedAt: true });
+export const insertCkycVerificationRequestSchema = createInsertSchema(ckycVerificationRequests).extend({
+  id: z.any(),
+  requestedAt: z.any(),
+}).omit({ id: true, requestedAt: true });
 
-export const insertCkycDeferredCaseSchema = createInsertSchema(ckycDeferredCases).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCkycDeferredCaseSchema = createInsertSchema(ckycDeferredCases).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
-export const insertDigilockerKycMappingSchema = createInsertSchema(digilockerKycMappings).omit({
+export const insertDigilockerKycMappingSchema = createInsertSchema(digilockerKycMappings).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -1472,19 +1611,29 @@ export const agentPerformanceScores = pgTable("agent_performance_scores", {
 
 // Insert schemas for agent governance tables
 
-export const insertAgentComplianceDocRepositorySchema = createInsertSchema(agentComplianceDocRepository).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAgentComplianceDocRepositorySchema = createInsertSchema(agentComplianceDocRepository).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export type AgentComplianceDocRepository = typeof agentComplianceDocRepository.$inferSelect;
 
 export type InsertAgentComplianceDocRepository = z.infer<typeof insertAgentComplianceDocRepositorySchema>;
 
-export const insertInspectionEvidenceSchema = createInsertSchema(inspectionEvidence).omit({ id: true, createdAt: true });
+export const insertInspectionEvidenceSchema = createInsertSchema(inspectionEvidence).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export type InspectionEvidence = typeof inspectionEvidence.$inferSelect;
 
 export type InsertInspectionEvidence = z.infer<typeof insertInspectionEvidenceSchema>;
 
-export const insertAgentPerformanceScoresSchema = createInsertSchema(agentPerformanceScores).omit({ id: true, calculatedAt: true });
+export const insertAgentPerformanceScoresSchema = createInsertSchema(agentPerformanceScores).extend({
+  id: z.any(),
+  calculatedAt: z.any(),
+}).omit({ id: true, calculatedAt: true });
 
 export type AgentPerformanceScores = typeof agentPerformanceScores.$inferSelect;
 
@@ -1617,13 +1766,20 @@ export const panConsentAuditLog = pgTable("pan_consent_audit_log", {
 ]);
 
 // PAN Consent Zod schemas
-export const insertPanConsentSchema = createInsertSchema(panConsents).omit({
+export const insertPanConsentSchema = createInsertSchema(panConsents).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertPanConsentAuditLogSchema = createInsertSchema(panConsentAuditLog).omit({
+export const insertPanConsentAuditLogSchema = createInsertSchema(panConsentAuditLog).extend({
+  id: z.any(),
+  timestamp: z.any(),
+}).omit({
   id: true,
   timestamp: true,
 });
@@ -1856,13 +2012,20 @@ export const aaDataFetchLogs = pgTable("aa_data_fetch_logs", {
 ]);
 
 // Insert schemas and types for AA tables
-export const insertAAConsentSessionSchema = createInsertSchema(aaConsentSessions).omit({
+export const insertAAConsentSessionSchema = createInsertSchema(aaConsentSessions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertAutoPopulationStatusSchema = createInsertSchema(autoPopulationStatus).omit({
+export const insertAutoPopulationStatusSchema = createInsertSchema(autoPopulationStatus).extend({
+  id: z.any(),
+  initiatedAt: z.any(),
+}).omit({
   id: true,
   initiatedAt: true,
 });
@@ -2971,7 +3134,11 @@ export type FixedIncomeAgentCommission = typeof fixedIncomeAgentCommissions.$inf
 export type InsertFixedIncomeAgentCommission = typeof fixedIncomeAgentCommissions.$inferInsert;
 
 // Drizzle Zod schemas for Fixed Income
-export const insertNcdPublicIssueSchema = createInsertSchema(ncdPublicIssues).omit({ id: true, createdAt: true, lastUpdated: true });
+export const insertNcdPublicIssueSchema = createInsertSchema(ncdPublicIssues).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  lastUpdated: z.any(),
+}).omit({ id: true, createdAt: true, lastUpdated: true });
 
 export const agentComplianceAuditLogs = pgTable("agent_compliance_audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -3066,7 +3233,10 @@ export const usConsents = pgTable("us_consents", {
   index("idx_us_consents_hash").on(table.consentHash),
 ]);
 
-export const insertUsConsentSchema = createInsertSchema(usConsents).omit({ id: true, createdAt: true });
+export const insertUsConsentSchema = createInsertSchema(usConsents).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const entityComplianceScores = pgTable("entity_compliance_scores", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -3110,7 +3280,11 @@ export const entityComplianceScores = pgTable("entity_compliance_scores", {
   index("idx_entity_scores_pan").on(table.entityPan),
 ]);
 
-export const insertEntityComplianceScoreSchema = createInsertSchema(entityComplianceScores).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEntityComplianceScoreSchema = createInsertSchema(entityComplianceScores).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export const ckycMockBlockedAttempts = pgTable("ckyc_mock_blocked_attempts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -3138,7 +3312,10 @@ export const ckycMockBlockedAttempts = pgTable("ckyc_mock_blocked_attempts", {
   index("idx_mock_blocked_env").on(table.environmentMode),
 ]);
 
-export const insertCkycMockBlockedAttemptSchema = createInsertSchema(ckycMockBlockedAttempts).omit({ id: true, attemptedAt: true });
+export const insertCkycMockBlockedAttemptSchema = createInsertSchema(ckycMockBlockedAttempts).extend({
+  id: z.any(),
+  attemptedAt: z.any(),
+}).omit({ id: true, attemptedAt: true });
 
 export const ckycAuditLog = pgTable("ckyc_audit_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -3185,7 +3362,10 @@ export const ckycAuditLog = pgTable("ckyc_audit_log", {
   index("idx_ckyc_case_audit_pan").on(table.panNumber),
 ]);
 
-export const insertCkycAuditLogSchema = createInsertSchema(ckycAuditLog).omit({ id: true, createdAt: true });
+export const insertCkycAuditLogSchema = createInsertSchema(ckycAuditLog).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export type CkycAuditLog = typeof ckycAuditLog.$inferSelect;
 
@@ -3227,7 +3407,10 @@ export const ckycEscalationHistory = pgTable("ckyc_escalation_history", {
   index("idx_escalation_time").on(table.escalatedAt),
 ]);
 
-export const insertCkycEscalationHistorySchema = createInsertSchema(ckycEscalationHistory).omit({ id: true, escalatedAt: true });
+export const insertCkycEscalationHistorySchema = createInsertSchema(ckycEscalationHistory).extend({
+  id: z.any(),
+  escalatedAt: z.any(),
+}).omit({ id: true, escalatedAt: true });
 
 export type CkycEscalationHistory = typeof ckycEscalationHistory.$inferSelect;
 
@@ -3264,7 +3447,10 @@ export const orderFeeConsentLog = pgTable("order_fee_consent_log", {
   index("idx_ofcl_mode").on(table.feeMode),
 ]);
 
-export const insertOrderFeeConsentLogSchema = createInsertSchema(orderFeeConsentLog).omit({ id: true, createdAt: true });
+export const insertOrderFeeConsentLogSchema = createInsertSchema(orderFeeConsentLog).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export type OrderFeeConsentLog = typeof orderFeeConsentLog.$inferSelect;
 
@@ -3305,7 +3491,11 @@ export const lrsComplianceTracking = pgTable("lrs_compliance_tracking", {
   index("idx_lrs_user_fy").on(table.userId, table.financialYear),
 ]);
 
-export const insertLrsComplianceTrackingSchema = createInsertSchema(lrsComplianceTracking).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertLrsComplianceTrackingSchema = createInsertSchema(lrsComplianceTracking).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export type LrsComplianceTracking = typeof lrsComplianceTracking.$inferSelect;
 
@@ -3337,7 +3527,10 @@ export const consentAuditLog = pgTable("consent_audit_log", {
   index("idx_consent_audit_created").on(table.createdAt),
 ]);
 
-export const insertConsentAuditLogSchema = createInsertSchema(consentAuditLog).omit({
+export const insertConsentAuditLogSchema = createInsertSchema(consentAuditLog).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, createdAt: true,
 });
 
@@ -3569,7 +3762,11 @@ export const agentBaskets = pgTable("agent_baskets", {
 
 export type AgentBasket = typeof agentBaskets.$inferSelect;
 export type InsertAgentBasket = typeof agentBaskets.$inferInsert;
-export const insertAgentBasketSchema = createInsertSchema(agentBaskets).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAgentBasketSchema = createInsertSchema(agentBaskets).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export const aadhaarConsentArtifacts = pgTable("aadhaar_consent_artifacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -3589,4 +3786,381 @@ export const aadhaarConsentArtifacts = pgTable("aadhaar_consent_artifacts", {
   index("idx_aadhaar_consent_date").on(table.consentGivenAt),
 ]);
 export type AadhaarConsentArtifact = typeof aadhaarConsentArtifacts.$inferSelect;
-export const insertAadhaarConsentArtifactSchema = createInsertSchema(aadhaarConsentArtifacts).omit({ id: true, createdAt: true });
+export const insertAadhaarConsentArtifactSchema = createInsertSchema(aadhaarConsentArtifacts).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
+
+// --- Tables extracted from shared/schema.ts ---
+
+// SEBI Registered Depository Participants Registry
+export const sebiDepositoryParticipants = pgTable("sebi_depository_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dpId: varchar("dp_id").unique().notNull(),
+  dpName: varchar("dp_name").notNull(),
+  sebiRegistrationNumber: varchar("sebi_registration_number").notNull(),
+  depository: varchar("depository").notNull(),
+  nsdlDpId: varchar("nsdl_dp_id").unique(),
+  cdslDpId: varchar("cdsl_dp_id").unique(),
+  isPrimaryNsdl: boolean("is_primary_nsdl").default(false),
+  isPrimaryCdsl: boolean("is_primary_cdsl").default(false),
+  registrationDate: timestamp("registration_date", { withTimezone: true }),
+  registrationValidUntil: timestamp("registration_valid_until", { withTimezone: true }),
+  registeredAddress: text("registered_address"),
+  city: varchar("city"),
+  state: varchar("state"),
+  pincode: varchar("pincode"),
+  contactEmail: varchar("contact_email"),
+  contactPhone: varchar("contact_phone"),
+  website: varchar("website"),
+  status: varchar("status").notNull().default("active"),
+  statusReason: text("status_reason"),
+  statusUpdatedAt: timestamp("status_updated_at", { withTimezone: true }),
+  lastSebiVerification: timestamp("last_sebi_verification", { withTimezone: true }),
+  complianceScore: integer("compliance_score"),
+  dataSource: varchar("data_source").notNull(),
+  externalId: varchar("external_id"),
+  syncHash: varchar("sync_hash"),
+  lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertSebiDepositoryParticipantSchema = createInsertSchema(sebiDepositoryParticipants).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSebiDepositoryParticipant = z.infer<typeof insertSebiDepositoryParticipantSchema>;
+export type SebiDepositoryParticipant = typeof sebiDepositoryParticipants.$inferSelect;
+
+export const otpVerifications = pgTable("otp_verifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  identifier: varchar("identifier").notNull(),
+  otp: varchar("otp", { length: 6 }).notNull(),
+  type: varchar("type").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  verified: boolean("verified").default(false),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOtpVerificationSchema = createInsertSchema(otpVerifications).omit({
+  id: true,
+  createdAt: true,
+});
+export type OtpVerification = typeof otpVerifications.$inferSelect;
+export type InsertOtpVerification = z.infer<typeof insertOtpVerificationSchema>;
+
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  identifier: varchar("identifier").notNull(),
+  token: varchar("token", { length: 6 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  isUsed: boolean("is_used").default(false),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({
+  id: true,
+  createdAt: true,
+});
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
+
+export const incomeStreams = pgTable("income_streams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  incomeType: varchar("income_type").notNull(),
+  sourceName: varchar("source_name").notNull(),
+  grossAmount: decimal("gross_amount", { precision: 15, scale: 2 }).notNull(),
+  netAmount: decimal("net_amount", { precision: 15, scale: 2 }).notNull(),
+  frequency: varchar("frequency").notNull().default("monthly"),
+  currency: varchar("currency").default("INR"),
+  isGuaranteed: boolean("is_guaranteed").default(true),
+  stabilityScore: integer("stability_score").default(100),
+  variabilityPercent: decimal("variability_percent", { precision: 5, scale: 2 }).default("0"),
+  isVerified: boolean("is_verified").default(false),
+  verificationMethod: varchar("verification_method"),
+  verificationDate: timestamp("verification_date"),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_income_streams_user").on(table.userId),
+  index("idx_income_streams_type").on(table.incomeType),
+]);
+
+export const insertIncomeStreamSchema = createInsertSchema(incomeStreams).omit({ id: true, createdAt: true, updatedAt: true });
+export type IncomeStream = typeof incomeStreams.$inferSelect;
+export type InsertIncomeStream = z.infer<typeof insertIncomeStreamSchema>;
+
+export const financialObligations = pgTable("financial_obligations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  obligationType: varchar("obligation_type").notNull(),
+  institutionName: varchar("institution_name"),
+  accountNumber: varchar("account_number"),
+  monthlyAmount: decimal("monthly_amount", { precision: 15, scale: 2 }).notNull(),
+  totalOutstanding: decimal("total_outstanding", { precision: 15, scale: 2 }),
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  remainingTenure: integer("remaining_tenure"),
+  priority: varchar("priority").notNull().default("essential"),
+  isFixed: boolean("is_fixed").default(true),
+  cibilReported: boolean("cibil_reported").default(false),
+  cibilAccountType: varchar("cibil_account_type"),
+  paymentHistory: varchar("payment_history"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_financial_obligations_user").on(table.userId),
+  index("idx_financial_obligations_type").on(table.obligationType),
+]);
+
+export const insertFinancialObligationSchema = createInsertSchema(financialObligations).omit({ id: true, createdAt: true, updatedAt: true });
+export type FinancialObligation = typeof financialObligations.$inferSelect;
+export type InsertFinancialObligation = z.infer<typeof insertFinancialObligationSchema>;
+
+export const emergencyFunds = pgTable("emergency_funds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  monthlyExpenses: decimal("monthly_expenses", { precision: 15, scale: 2 }).notNull(),
+  requiredEmergencyFund: decimal("required_emergency_fund", { precision: 15, scale: 2 }).notNull(),
+  currentEmergencyFund: decimal("current_emergency_fund", { precision: 15, scale: 2 }).default("0"),
+  emergencyFundCoverage: decimal("emergency_fund_coverage", { precision: 5, scale: 2 }).default("0"),
+  fundAllocation: jsonb("fund_allocation").$type<{
+    savings: number;
+    fd: number;
+    liquid_mf: number;
+    other: number;
+  }>(),
+  isAdequate: boolean("is_adequate").default(false),
+  shortfall: decimal("shortfall", { precision: 15, scale: 2 }).default("0"),
+  lastAssessedAt: timestamp("last_assessed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_emergency_funds_user").on(table.userId),
+]);
+
+export const insertEmergencyFundSchema = createInsertSchema(emergencyFunds).omit({ id: true, createdAt: true, updatedAt: true });
+export type EmergencyFund = typeof emergencyFunds.$inferSelect;
+export type InsertEmergencyFund = z.infer<typeof insertEmergencyFundSchema>;
+
+export const investableSurplus = pgTable("investable_surplus", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  calculationDate: timestamp("calculation_date").defaultNow(),
+  periodType: varchar("period_type").notNull().default("annual"), // monthly/quarterly/annual
+  totalGrossIncome: decimal("total_gross_income", { precision: 15, scale: 2 }).notNull(),
+  totalNetIncome: decimal("total_net_income", { precision: 15, scale: 2 }).notNull(),
+  incomeBreakdown: jsonb("income_breakdown").$type<{
+    salary: number;
+    business: number;
+    rental: number;
+    interest: number;
+    dividend: number;
+    other: number;
+  }>(),
+  totalObligations: decimal("total_obligations", { precision: 15, scale: 2 }).notNull(),
+  obligationsBreakdown: jsonb("obligations_breakdown").$type<{
+    loans: number;
+    insurance: number;
+    rent: number;
+    utilities: number;
+    other: number;
+  }>(),
+  emergencyBufferAmount: decimal("emergency_buffer_amount", { precision: 15, scale: 2 }).notNull(),
+  emergencyBufferStatus: varchar("emergency_buffer_status").notNull(), // adequate/partial/inadequate
+  annualInvestableSurplus: decimal("annual_investable_surplus", { precision: 15, scale: 2 }).notNull(),
+  monthlyInvestableSurplus: decimal("monthly_investable_surplus", { precision: 15, scale: 2 }).notNull(),
+  surplusStability: varchar("surplus_stability").default("stable"), // stable/moderate/volatile
+  confidenceScore: integer("confidence_score").default(80), // 0-100
+  surplusRecommendations: jsonb("surplus_recommendations").$type<{
+    immediate: string[];
+    shortTerm: string[];
+    longTerm: string[];
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_investable_surplus_user").on(table.userId),
+  index("idx_investable_surplus_date").on(table.calculationDate),
+]);
+
+export const insertInvestableSurplusSchema = createInsertSchema(investableSurplus).omit({ id: true, createdAt: true });
+export type InvestableSurplus = typeof investableSurplus.$inferSelect;
+export type InsertInvestableSurplus = z.infer<typeof insertInvestableSurplusSchema>;
+
+export const identityProfiles = pgTable("identity_profiles", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  identityTokenId: varchar("identity_token_id", { length: 100 }).unique().notNull(),
+  panNumber: varchar("pan_number", { length: 10 }),
+  panVerified: boolean("pan_verified").default(false),
+  panVerifiedAt: timestamp("pan_verified_at"),
+  panProvider: varchar("pan_provider", { length: 50 }),
+  aadhaarLastFour: varchar("aadhaar_last_four", { length: 4 }),
+  aadhaarVerified: boolean("aadhaar_verified").default(false),
+  aadhaarVerifiedAt: timestamp("aadhaar_verified_at"),
+  aadhaarProvider: varchar("aadhaar_provider", { length: 50 }),
+  ckycNumber: varchar("ckyc_number", { length: 20 }),
+  ckycVerified: boolean("ckyc_verified").default(false),
+  ckycVerifiedAt: timestamp("ckyc_verified_at"),
+  ckycProvider: varchar("ckyc_provider", { length: 50 }),
+  bankVerified: boolean("bank_verified").default(false),
+  bankVerifiedAt: timestamp("bank_verified_at"),
+  bankProvider: varchar("bank_provider", { length: 50 }),
+  addressVerified: boolean("address_verified").default(false),
+  addressVerifiedAt: timestamp("address_verified_at"),
+  addressProvider: varchar("address_provider", { length: 50 }),
+  fatcaDeclared: boolean("fatca_declared").default(false),
+  fatcaDeclaredAt: timestamp("fatca_declared_at"),
+  riskCategory: varchar("risk_category", { length: 20 }),
+  riskScore: integer("risk_score"),
+  riskAssessedAt: timestamp("risk_assessed_at"),
+  kycLevel: varchar("kyc_level", { length: 20 }).default("NONE"),
+  kycVersion: integer("kyc_version").default(1),
+  overallStatus: varchar("overall_status", { length: 20 }).default("PENDING"),
+  lastVerifiedAt: timestamp("last_verified_at"),
+  expiresAt: timestamp("expires_at"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertIdentityProfileSchema = createInsertSchema(identityProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export type IdentityProfile = typeof identityProfiles.$inferSelect;
+export type InsertIdentityProfile = z.infer<typeof insertIdentityProfileSchema>;
+
+export const conversionFunnels = pgTable("conversion_funnels", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id),
+  sessionId: varchar("session_id", { length: 100 }),
+  funnelType: varchar("funnel_type", { length: 50 }).notNull(),
+  productType: varchar("product_type", { length: 50 }),
+  currentStep: varchar("current_step", { length: 50 }).notNull(),
+  stepSequence: integer("step_sequence").notNull(),
+  enteredAt: timestamp("entered_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  droppedAt: timestamp("dropped_at"),
+  dropReason: varchar("drop_reason", { length: 200 }),
+  durationMs: integer("duration_ms"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertConversionFunnelSchema = createInsertSchema(conversionFunnels).omit({ id: true, createdAt: true });
+export type ConversionFunnel = typeof conversionFunnels.$inferSelect;
+export type InsertConversionFunnel = z.infer<typeof insertConversionFunnelSchema>;
+
+export const verificationCache = pgTable("verification_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  verificationType: varchar("verification_type", { length: 50 }).notNull(),
+  identifierHash: varchar("identifier_hash", { length: 64 }).notNull(),
+  identifierMasked: varchar("identifier_masked", { length: 50 }),
+  verified: boolean("verified").notNull(),
+  verificationStatus: varchar("verification_status", { length: 50 }),
+  registeredName: varchar("registered_name", { length: 500 }),
+  nameMatchScore: integer("name_match_score"),
+  additionalData: jsonb("additional_data").default({}),
+  provider: varchar("provider", { length: 50 }).notNull(),
+  providerReferenceId: varchar("provider_reference_id", { length: 100 }),
+  verifiedAt: timestamp("verified_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  requestedBy: varchar("requested_by").references(() => users.id),
+  requestContext: varchar("request_context", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_vc_type_hash").on(table.verificationType, table.identifierHash),
+  index("idx_vc_expires").on(table.expiresAt),
+  index("idx_vc_provider").on(table.provider),
+]);
+
+export const insertVerificationCacheSchema = createInsertSchema(verificationCache).omit({ id: true, createdAt: true });
+export type VerificationCache = typeof verificationCache.$inferSelect;
+export type InsertVerificationCache = typeof verificationCache.$inferInsert;
+
+export const insertConsentLogSchema = createInsertSchema(consentLogs).omit({ id: true, createdAt: true });
+export type ConsentLog = typeof consentLogs.$inferSelect;
+export type InsertConsentLog = z.infer<typeof insertConsentLogSchema>;
+
+
+export const onboardingInvitations = pgTable("onboarding_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  referralCode: varchar("referral_code").notNull().unique(),
+  inviterId: varchar("inviter_id").notNull(),
+  inviterType: varchar("inviter_type").notNull(), // 'agent' or 'partner'
+  inviterName: varchar("inviter_name"),
+  clientEmail: varchar("client_email"),
+  clientMobile: varchar("client_mobile"),
+  clientName: varchar("client_name"),
+  suggestedEntityType: varchar("suggested_entity_type"), // individual, company, huf, etc.
+  suggestedMode: varchar("suggested_mode"), // 'smart' or 'manual'
+  status: varchar("status").notNull().default("pending"), // pending, sent, opened, started, in_progress, completed, expired
+  currentStep: varchar("current_step"),
+  completedSteps: jsonb("completed_steps").$type<string[]>().default([]),
+  progressPercentage: integer("progress_percentage").default(0),
+  onboardingSessionId: varchar("onboarding_session_id"),
+  linkedUserId: varchar("linked_user_id").references(() => users.id),
+  inviteSentAt: timestamp("invite_sent_at"),
+  inviteOpenedAt: timestamp("invite_opened_at"),
+  onboardingStartedAt: timestamp("onboarding_started_at"),
+  onboardingCompletedAt: timestamp("onboarding_completed_at"),
+  lastActivityAt: timestamp("last_activity_at"),
+  expiresAt: timestamp("expires_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_onboarding_invitations_referral_code").on(table.referralCode),
+  index("idx_onboarding_invitations_inviter").on(table.inviterId, table.inviterType),
+  index("idx_onboarding_invitations_status").on(table.status),
+  index("idx_onboarding_invitations_client_email").on(table.clientEmail),
+]);
+
+export const onboardingInvitationEvents = pgTable("onboarding_invitation_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invitationId: varchar("invitation_id").references(() => onboardingInvitations.id).notNull(),
+  eventType: varchar("event_type").notNull(), // created, sent, resent, opened, started, step_completed, completed, expired
+  eventData: jsonb("event_data"),
+  actorId: varchar("actor_id"),
+  actorType: varchar("actor_type"), // system, agent, partner, client
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => [
+  index("idx_invitation_events_invitation").on(table.invitationId),
+  index("idx_invitation_events_type").on(table.eventType),
+]);
+
+export const insertOnboardingInvitationSchema = createInsertSchema(onboardingInvitations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type OnboardingInvitation = typeof onboardingInvitations.$inferSelect;
+export type InsertOnboardingInvitation = z.infer<typeof insertOnboardingInvitationSchema>;
+
+export const insertOnboardingInvitationEventSchema = createInsertSchema(onboardingInvitationEvents).omit({
+  id: true,
+  timestamp: true,
+});
+export type OnboardingInvitationEvent = typeof onboardingInvitationEvents.$inferSelect;
+export type InsertOnboardingInvitationEvent = z.infer<typeof insertOnboardingInvitationEventSchema>;
+
+

@@ -88,13 +88,20 @@ export const CartItemSourceEnum = z.enum(['client', 'agent', 'ai']);
 export const CartItemStatusEnum = z.enum(['active', 'pending_approval', 'removed', 'ordered']);
 
 // Zod Schemas
-export const insertUserCartSchema = createInsertSchema(userCart).omit({
+export const insertUserCartSchema = createInsertSchema(userCart).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertUserCartItemSchema = createInsertSchema(userCartItems).omit({
+export const insertUserCartItemSchema = createInsertSchema(userCartItems).extend({
+  id: z.any(),
+  addedAt: z.any(),
+}).omit({
   id: true,
   addedAt: true,
 }).refine((data) => {
@@ -107,13 +114,21 @@ export const insertUserCartItemSchema = createInsertSchema(userCartItems).omit({
   message: "Exactly one of productId, proposalId, or investmentId must be provided",
 });
 
-export const insertUnlistedCartSchema = createInsertSchema(unlistedCart).omit({
+export const insertUnlistedCartSchema = createInsertSchema(unlistedCart).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertUnifiedCartItemSchema = createInsertSchema(unifiedCartItems).omit({
+export const insertUnifiedCartItemSchema = createInsertSchema(unifiedCartItems).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

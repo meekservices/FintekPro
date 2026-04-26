@@ -2,9 +2,56 @@ import { sql } from "drizzle-orm";
 import { boolean, date, decimal, index, integer, jsonb, pgTable, real, serial, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { caVerificationStatus, Product } from '../schema';
-import { users } from './users';
+import { users } from "./users";
+
+export const caVerificationStatus = pgTable("ca_verification_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // CA Details
+  caId: varchar("ca_id").references(() => users.id).notNull(), // The CA performing the verification
+  verificationType: varchar("verification_type").notNull(), // 'networth_certificate', 'tax_audit', 'income_verification', 'entity_audit'
+  
+  // Status tracking
+  status: varchar("status").notNull().default("pending"), // 'pending', 'in_review', 'verified', 'rejected', 'expired'
+  
+  // Document information
+  documentId: varchar("document_id"), // Reference to a document in document_versions or similar
+  certificateNumber: varchar("certificate_number"),
+  issueDate: date("issue_date"),
+  expiryDate: date("expiry_date"),
+  
+  // Financial details verified
+  verifiedNetworth: decimal("verified_networth", { precision: 20, scale: 2 }),
+  verifiedIncome: decimal("verified_income", { precision: 20, scale: 2 }),
+  financialYear: varchar("financial_year"),
+  
+  // UDIN (Unique Document Identification Number) - mandatory for ICAI compliance
+  udin: varchar("udin"),
+  udinVerified: boolean("udin_verified").default(false),
+  udinVerifiedAt: timestamp("udin_verified_at"),
+  
+  // Admin/Reviewer notes
+  notes: text("notes"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  lastSyncedAt: timestamp("last_synced_at"),
+});
+
+export const insertCaVerificationStatusSchema = createInsertSchema(caVerificationStatus).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CaVerificationStatus = typeof caVerificationStatus.$inferSelect;
+export type InsertCaVerificationStatus = z.infer<typeof insertCaVerificationStatusSchema>;
+
 import { agents } from './agents';
+import { Product } from './products';
 
 // --- Auto-Migrated Tables ---
 export const partners = pgTable("partners", {
@@ -280,7 +327,10 @@ export const partnerCommissionLedger = pgTable("partner_commission_ledger", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertPartnerCommissionLedgerSchema = createInsertSchema(partnerCommissionLedger).omit({
+export const insertPartnerCommissionLedgerSchema = createInsertSchema(partnerCommissionLedger).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -313,7 +363,11 @@ export const partnerClientOwnership = pgTable("partner_client_ownership", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertPartnerClientOwnershipSchema = createInsertSchema(partnerClientOwnership).omit({
+export const insertPartnerClientOwnershipSchema = createInsertSchema(partnerClientOwnership).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -418,3 +472,336 @@ export const partnerApplicationDocuments = pgTable("partner_application_document
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
+
+// ========================================
+// FORM 15CA/15CB & CA PROFESSIONAL VERIFICATION
+// ========================================
+
+export const form15Cases = pgTable("form_15_cases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseNumber: varchar("case_number").notNull().unique(),
+  
+  // Parties involved
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  caId: varchar("ca_id").references(() => users.id), // Assigned CA
+  agentId: varchar("agent_id").references(() => users.id), // Subordinate agent who prepared
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdByRole: varchar("created_by_role").notNull(), // client, ca_subordinate_agent, ca
+  
+  // Case status
+  status: varchar("status").default("draft").notNull(), // draft, pending_documents, pending_ca_review, ca_reviewing, approved, 15cb_signed, 15ca_filed, completed
+  subStatus: varchar("sub_status"), // detailed sub-status
+  
+  // Client Information
+  clientPan: varchar("client_pan").notNull(),
+  clientName: varchar("client_name").notNull(),
+  clientResidentialStatus: varchar("client_residential_status").notNull(), // resident, non_resident, not_ordinarily_resident
+  clientAddress: text("client_address"),
+  clientEmail: varchar("client_email"),
+  clientPhone: varchar("client_phone"),
+  
+  // Remittance Details
+  remittanceAmount: decimal("remittance_amount", { precision: 18, scale: 2 }).notNull(),
+  remittanceCurrency: varchar("remittance_currency").default("USD").notNull(),
+  remittanceAmountInr: decimal("remittance_amount_inr", { precision: 18, scale: 2 }),
+  exchangeRate: decimal("exchange_rate", { precision: 12, scale: 6 }),
+  
+  // Beneficiary Details
+  beneficiaryName: varchar("beneficiary_name").notNull(),
+  beneficiaryCountry: varchar("beneficiary_country").notNull(),
+  beneficiaryAddress: text("beneficiary_address"),
+  beneficiaryBankName: varchar("beneficiary_bank_name"),
+  beneficiaryAccountNumber: varchar("beneficiary_account_number"),
+  beneficiarySwiftCode: varchar("beneficiary_swift_code"),
+  
+  // RBI Purpose & Nature
+  rbiPurposeCode: varchar("rbi_purpose_code").notNull(),
+  rbiPurposeDescription: text("rbi_purpose_description"),
+  natureOfPayment: varchar("nature_of_payment").notNull(),
+  sectionUnderWhichTaxDeducted: varchar("section_under_which_tax_deducted"),
+  
+  // DTAA Details
+  dtaaApplicable: boolean("dtaa_applicable").default(false),
+  dtaaCountry: varchar("dtaa_country"),
+  dtaaArticle: varchar("dtaa_article"),
+  dtaaRate: decimal("dtaa_rate", { precision: 5, scale: 2 }),
+  dtaaAnalysis: text("dtaa_analysis"),
+  trcAvailable: boolean("trc_available").default(false),
+  form10fAvailable: boolean("form_10f_available").default(false),
+  noPeDeclaration: boolean("no_pe_declaration").default(false),
+  
+  // Rule 37BB Determination
+  form15caRequired: boolean("form_15ca_required").default(true),
+  form15caPart: varchar("form_15ca_part"), // A, B, C, D
+  form15cbRequired: boolean("form_15cb_required").default(false),
+  rule37bbJustification: text("rule_37bb_justification"),
+  caOverrideReason: text("ca_override_reason"), // If CA overrides auto-determination
+  
+  // Tax Computation
+  grossAmount: decimal("gross_amount", { precision: 18, scale: 2 }),
+  taxableAmount: decimal("taxable_amount", { precision: 18, scale: 2 }),
+  tdsRate: decimal("tds_rate", { precision: 5, scale: 2 }),
+  tdsAmount: decimal("tds_amount", { precision: 18, scale: 2 }),
+  surcharge: decimal("surcharge", { precision: 18, scale: 2 }),
+  cesss: decimal("cess", { precision: 18, scale: 2 }),
+  totalTaxDeducted: decimal("total_tax_deducted", { precision: 18, scale: 2 }),
+  netRemittance: decimal("net_remittance", { precision: 18, scale: 2 }),
+  
+  // Agent Preparation
+  agentRemarks: text("agent_remarks"),
+  agentPreparedAt: timestamp("agent_prepared_at"),
+  agentSubmittedForReview: boolean("agent_submitted_for_review").default(false),
+  agentSubmittedAt: timestamp("agent_submitted_at"),
+  
+  // CA Review & Approval
+  caReviewStartedAt: timestamp("ca_review_started_at"),
+  caReviewCompletedAt: timestamp("ca_review_completed_at"),
+  caRemarks: text("ca_remarks"),
+  caSentBackToAgent: boolean("ca_sent_back_to_agent").default(false),
+  caSentBackReason: text("ca_sent_back_reason"),
+  
+  // CA Approval Checklist (all must be true for approval)
+  caDocumentsReviewed: boolean("ca_documents_reviewed").default(false),
+  caDtaaVerified: boolean("ca_dtaa_verified").default(false),
+  caTaxComputationConfirmed: boolean("ca_tax_computation_confirmed").default(false),
+  caLegalResponsibilityAccepted: boolean("ca_legal_responsibility_accepted").default(false),
+  caApprovalTimestamp: timestamp("ca_approval_timestamp"),
+  
+  // Form 15CB Details (CA Only)
+  form15cbNumber: varchar("form_15cb_number"),
+  form15cbDate: timestamp("form_15cb_date"),
+  form15cbDscSerialNumber: varchar("form_15cb_dsc_serial_number"),
+  form15cbSignedAt: timestamp("form_15cb_signed_at"),
+  form15cbSignedByIcai: varchar("form_15cb_signed_by_icai"), // ICAI membership number
+  form15cbPdfUrl: text("form_15cb_pdf_url"),
+  form15cbLocked: boolean("form_15cb_locked").default(false),
+  
+  // Form 15CA Details
+  form15caPartA: jsonb("form_15ca_part_a"),
+  form15caPartB: jsonb("form_15ca_part_b"),
+  form15caPartC: jsonb("form_15ca_part_c"),
+  form15caPartD: jsonb("form_15ca_part_d"),
+  form15caAcknowledgementNumber: varchar("form_15ca_acknowledgement_number"),
+  form15caFiledAt: timestamp("form_15ca_filed_at"),
+  form15caPdfUrl: text("form_15ca_pdf_url"),
+  form15caEverified: boolean("form_15ca_everified").default(false),
+  form15caEverifiedAt: timestamp("form_15ca_everified_at"),
+  form15caEverifiedBy: varchar("form_15ca_everified_by").references(() => users.id),
+  
+  // Bank Compliance Pack
+  compliancePackGenerated: boolean("compliance_pack_generated").default(false),
+  compliancePackUrl: text("compliance_pack_url"),
+  compliancePackGeneratedAt: timestamp("compliance_pack_generated_at"),
+  compliancePackSharedLink: varchar("compliance_pack_shared_link"),
+  compliancePackSharedLinkExpiry: timestamp("compliance_pack_shared_link_expiry"),
+  
+  // Internal Notes
+  internalNotes: jsonb("internal_notes").default([]),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_form15_cases_client").on(table.clientId),
+  index("idx_form15_cases_ca").on(table.caId),
+  index("idx_form15_cases_agent").on(table.agentId),
+  index("idx_form15_cases_status").on(table.status),
+  index("idx_form15_cases_case_number").on(table.caseNumber),
+]);
+
+export const form15Documents = pgTable("form_15_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").references(() => form15Cases.id).notNull(),
+  
+  documentType: varchar("document_type").notNull(), // invoice, agreement, trc, form_10f, no_pe_declaration, bank_advice, other
+  documentName: varchar("document_name").notNull(),
+  documentUrl: text("document_url"),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type"),
+  version: integer("version").default(1),
+  
+  isMandatory: boolean("is_mandatory").default(false),
+  status: varchar("status").default("uploaded"), // uploaded, verified, rejected
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  isLockedAfterSigning: boolean("is_locked_after_signing").default(false),
+  lockedAt: timestamp("locked_at"),
+  
+  uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_form15_docs_case").on(table.caseId),
+  index("idx_form15_docs_type").on(table.documentType),
+]);
+
+export const form15AuditLog = pgTable("form_15_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").references(() => form15Cases.id).notNull(),
+  
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Prospect support - for goals created by agents before user registration
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  userRole: varchar("user_role").notNull(), // client, ca_subordinate_agent, ca, admin
+  userEmail: varchar("user_email"),
+  
+  actionType: varchar("action_type").notNull(), // created, updated, status_change, document_upload, document_delete, ca_review_started, ca_approved, ca_sent_back, 15cb_signed, 15ca_filed, everified
+  actionDescription: text("action_description").notNull(),
+  
+  fieldChanged: varchar("field_changed"),
+  previousValue: text("previous_value"),
+  newValue: text("new_value"),
+  
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  
+  dscSerialNumber: varchar("dsc_serial_number"), // For signing actions
+  icaiMembershipNumber: varchar("icai_membership_number"), // For CA actions
+  
+  metadata: jsonb("metadata"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_form15_audit_case").on(table.caseId),
+  index("idx_form15_audit_user").on(table.userId),
+  index("idx_form15_audit_action").on(table.actionType),
+  index("idx_form15_audit_created").on(table.createdAt),
+]);
+
+export const caProfessionalVerification = pgTable("ca_professional_verification", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  
+  // ICAI Verification
+  icaiMembershipNumber: varchar("icai_membership_number").notNull(),
+  icaiVerified: boolean("icai_verified").default(false),
+  icaiVerifiedAt: timestamp("icai_verified_at"),
+  icaiVerifiedBy: varchar("icai_verified_by").references(() => users.id),
+  
+  // COP (Certificate of Practice) Validity
+  copNumber: varchar("cop_number"),
+  copValidFrom: date("cop_valid_from"),
+  copValidTo: date("cop_valid_to"),
+  copVerified: boolean("cop_verified").default(false),
+  copVerifiedAt: timestamp("cop_verified_at"),
+  
+  // PAN Verification
+  panNumber: varchar("pan_number").notNull(),
+  panVerified: boolean("pan_verified").default(false),
+  panVerifiedAt: timestamp("pan_verified_at"),
+  
+  // DSC (Digital Signature Certificate) Availability
+  dscAvailable: boolean("dsc_available").default(false),
+  dscSerialNumber: varchar("dsc_serial_number"),
+  dscValidFrom: date("dsc_valid_from"),
+  dscValidTo: date("dsc_valid_to"),
+  dscVerifiedAt: timestamp("dsc_verified_at"),
+  
+  // Overall Status
+  overallStatus: varchar("overall_status").default("pending"), // pending, approved, rejected, suspended
+  canSignForm15cb: boolean("can_sign_form_15cb").default(false),
+  approvedAt: timestamp("approved_at"),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  rejectionReason: text("rejection_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ca_prof_verification_user").on(table.userId),
+  index("idx_ca_prof_verification_icai").on(table.icaiMembershipNumber),
+  index("idx_ca_prof_verification_status").on(table.overallStatus),
+]);
+
+// Zod schemas and types for Form 15 & CA Prof Verification
+export const insertForm15CaseSchema = createInsertSchema(form15Cases).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type Form15Case = typeof form15Cases.$inferSelect;
+export type InsertForm15Case = z.infer<typeof insertForm15CaseSchema>;
+
+export const insertForm15DocumentSchema = createInsertSchema(form15Documents).omit({
+  id: true,
+  uploadedAt: true,
+  updatedAt: true,
+});
+export type Form15Document = typeof form15Documents.$inferSelect;
+export type InsertForm15Document = z.infer<typeof insertForm15DocumentSchema>;
+
+export const insertForm15AuditLogSchema = createInsertSchema(form15AuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+export type Form15AuditLog = typeof form15AuditLog.$inferSelect;
+export type InsertForm15AuditLog = z.infer<typeof insertForm15AuditLogSchema>;
+
+export const insertCaProfessionalVerificationSchema = createInsertSchema(caProfessionalVerification).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CaProfessionalVerification = typeof caProfessionalVerification.$inferSelect;
+export type InsertCaProfessionalVerification = z.infer<typeof insertCaProfessionalVerificationSchema>;
+
+// Form 15 Enums
+export const Form15StatusEnum = z.enum([
+  'draft',
+  'pending_documents',
+  'pending_ca_review',
+  'ca_reviewing',
+  'sent_back_to_agent',
+  'approved',
+  '15cb_signed',
+  '15ca_filed',
+  'everified',
+  'completed'
+]);
+
+export const Form15CaPartEnum = z.enum(['A', 'B', 'C', 'D']);
+
+export const Form15DocumentTypeEnum = z.enum([
+  'invoice',
+  'agreement',
+  'trc',
+  'form_10f',
+  'no_pe_declaration',
+  'bank_advice',
+  'pan_card',
+  'passport',
+  'other'
+]);
+
+// RBI Purpose Code Categories
+export const RbiPurposeCodeCategories = {
+  capital_account: [
+    { code: 'S0001', description: 'Inward remittance from overseas offices of authorized dealers' },
+    { code: 'S0002', description: 'Loans extended to Non-Residents' },
+    { code: 'S0003', description: 'Investment in JV/WOS abroad' },
+  ],
+  current_account: [
+    { code: 'S0101', description: 'Trade credits for goods (suppliers credit)' },
+    { code: 'S0102', description: 'Advance payment for import of goods' },
+    { code: 'S0103', description: 'Import payments' },
+    { code: 'S0201', description: 'Export proceeds' },
+    { code: 'S0301', description: 'Royalty and technical fees' },
+    { code: 'S0302', description: 'Dividend income' },
+    { code: 'S0303', description: 'Interest income' },
+    { code: 'S0304', description: 'Commission and brokerage' },
+    { code: 'S0305', description: 'Legal services' },
+    { code: 'S0306', description: 'Accounting, auditing, bookkeeping' },
+    { code: 'S0307', description: 'Business and management consultancy' },
+  ],
+  personal_remittances: [
+    { code: 'S1301', description: 'Maintenance of close relatives abroad' },
+    { code: 'S1302', description: 'Education expenses' },
+    { code: 'S1303', description: 'Medical treatment abroad' },
+    { code: 'S1304', description: 'Gift remittances' },
+    { code: 'S1305', description: 'Donations' },
+  ],
+};

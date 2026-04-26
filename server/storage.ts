@@ -736,7 +736,7 @@ export interface IStorage {
   
   createFamilyBudget(data: InsertFamilyBudget): Promise<FamilyBudget>;
   getFamilyBudgets(familyId: string): Promise<FamilyBudget[]>;
-  updateBudgetSpend(budgetId: string, amount: number): Promise<FamilyBudget>;
+  updateBudgetSpendById(budgetId: string, amount: number): Promise<FamilyBudget>;
   
   grantPortfolioPermission(data: InsertFamilyPortfolioPermission): Promise<FamilyPortfolioPermission>;
   checkPortfolioPermission(portfolioId: string, userId: string): Promise<FamilyPortfolioPermission | undefined>;
@@ -825,7 +825,7 @@ export interface IStorage {
   getUserBudgets(userId: string, isActive?: boolean): Promise<UserBudget[]>;
   updateBudget(id: string, updates: Partial<UserBudget>): Promise<UserBudget | undefined>;
   deleteBudget(id: string): Promise<void>;
-  updateBudgetSpend(userId: string, category: string, amount: number): Promise<void>;
+  updateBudgetSpendByUser(userId: string, category: string, amount: number): Promise<void>;
   resetBudgets(userId: string): Promise<void>;
   
   // Expense Insights methods
@@ -9123,6 +9123,293 @@ export class DatabaseStorage implements IStorage {
     await db.execute(sql`
       UPDATE agent_notifications SET read_at = NOW() WHERE id = ${id}
     `);
+  }
+  async createPortfolioSnapshot(snapshot: any): Promise<any> {
+    throw new Error("Method not implemented: createPortfolioSnapshot");
+  }
+
+  async getPortfolioSnapshots(portfolioId: string, fromDate?: string, toDate?: string): Promise<any[]> {
+    throw new Error("Method not implemented: getPortfolioSnapshots");
+  }
+
+  async getPortfolioSnapshotByDate(portfolioId: string, date: string): Promise<any | undefined> {
+    throw new Error("Method not implemented: getPortfolioSnapshotByDate");
+  }
+
+  async createComprehensiveHolding(holding: any): Promise<any> {
+    throw new Error("Method not implemented: createComprehensiveHolding");
+  }
+
+  async getComprehensiveHoldings(portfolioId: string, date?: string): Promise<any[]> {
+    throw new Error("Method not implemented: getComprehensiveHoldings");
+  }
+
+  async updateComprehensiveHolding(id: string, updates: any): Promise<any | undefined> {
+    throw new Error("Method not implemented: updateComprehensiveHolding");
+  }
+
+  async deleteComprehensiveHolding(id: string): Promise<boolean> {
+    throw new Error("Method not implemented: deleteComprehensiveHolding");
+  }
+
+  async getComprehensiveHoldingsByUser(userId: string, date?: string): Promise<any[]> {
+    throw new Error("Method not implemented: getComprehensiveHoldingsByUser");
+  }
+
+  async populatePortfolioFromCams(userId: string, panNumber: string, date: string): Promise<any[]> {
+    throw new Error("Method not implemented: populatePortfolioFromCams");
+  }
+
+  async populatePortfolioFromKfintech(userId: string, panNumber: string, date: string): Promise<any[]> {
+    throw new Error("Method not implemented: populatePortfolioFromKfintech");
+  }
+
+  async populatePortfolioFromNsdl(userId: string, accountNumber: string, date: string): Promise<any[]> {
+    throw new Error("Method not implemented: populatePortfolioFromNsdl");
+  }
+
+  async populatePortfolioFromCdsl(userId: string, boId: string, date: string): Promise<any[]> {
+    throw new Error("Method not implemented: populatePortfolioFromCdsl");
+  }
+
+  async populateGovernmentSchemeHoldings(userId: string, date: string): Promise<any[]> {
+    throw new Error("Method not implemented: populateGovernmentSchemeHoldings");
+  }
+
+  async createCkycNotificationTrigger(trigger: InsertCkycNotificationTrigger): Promise<CkycNotificationTrigger> {
+    throw new Error("Method not implemented: createCkycNotificationTrigger");
+  }
+
+  async updateCkycNotificationStatus(id: string, status: string, sentAt?: Date, failureReason?: string): Promise<CkycNotificationTrigger | undefined> {
+    throw new Error("Method not implemented: updateCkycNotificationStatus");
+  }
+
+  async getAllAgents(filters?: { search?: string; status?: string; agentType?: string; page?: number; limit?: number }): Promise<{ data: Agent[]; total: number }> {
+    throw new Error("Method not implemented: getAllAgents");
+  }
+
+  async getAgent(id: string): Promise<Agent | undefined> {
+    throw new Error("Method not implemented: getAgent");
+  }
+
+  async createAgent(agent: InsertAgent): Promise<Agent> {
+    throw new Error("Method not implemented: createAgent");
+  }
+
+  async updateAgent(id: string, updates: Partial<Agent>): Promise<Agent | undefined> {
+    throw new Error("Method not implemented: updateAgent");
+  }
+
+  async deleteAgent(id: string): Promise<boolean> {
+    throw new Error("Method not implemented: deleteAgent");
+  }
+
+  async getAgentStats(): Promise<{ total: number; active: number; inactive: number; byType: Record<string, number> }> {
+    throw new Error("Method not implemented: getAgentStats");
+  }
+
+  async getSupplierStats(): Promise<{ total: number; active: number; byCategory: Record<string, number> }> {
+    throw new Error("Method not implemented: getSupplierStats");
+  }
+
+  async getLoanApplication(id: string): Promise<any | undefined> {
+    throw new Error("Method not implemented: getLoanApplication");
+  }
+
+  async getUserLoans(userId: string): Promise<any[]> {
+    throw new Error("Method not implemented: getUserLoans");
+  }
+
+  async updateLoanStatus(id: string, updates: any): Promise<any | undefined> {
+    throw new Error("Method not implemented: updateLoanStatus");
+  }
+
+  async getCollateralValuation(loanId: string): Promise<any | undefined> {
+    throw new Error("Method not implemented: getCollateralValuation");
+  }
+
+  async listFunds(params?: FundSearchParams): Promise<FundListResponse> {
+    throw new Error("Method not implemented: listFunds");
+  }
+
+  async getFund(schemeCode: string): Promise<FundExtended | undefined> {
+    throw new Error("Method not implemented: getFund");
+  }
+
+  async searchFunds(query: string): Promise<FundExtended[]> {
+    throw new Error("Method not implemented: searchFunds");
+  }
+
+  async upsertFund(fund: FundExtended): Promise<FundExtended> {
+    throw new Error("Method not implemented: upsertFund");
+  }
+
+  async getPopularFunds(): Promise<FundExtended[]> {
+    throw new Error("Method not implemented: getPopularFunds");
+  }
+
+  async getProvenance(schemeCode: string): Promise<Provenance | undefined> {
+    throw new Error("Method not implemented: getProvenance");
+  }
+
+  async markStale(schemeCodes: string[]): Promise<void> {
+    throw new Error("Method not implemented: markStale");
+  }
+
+  async refreshFundCache(): Promise<void> {
+    throw new Error("Method not implemented: refreshFundCache");
+  }
+
+  async getFundsCacheStats(): Promise<{ totalCount: number; staleCount: number; lastUpdated: Date }> {
+    throw new Error("Method not implemented: getFundsCacheStats");
+  }
+
+  async getSourcesStatus(): Promise<MultiSourceStatus> {
+    throw new Error("Method not implemented: getSourcesStatus");
+  }
+
+  async updateSourceStatus(status: SourceStatus): Promise<void> {
+    throw new Error("Method not implemented: updateSourceStatus");
+  }
+
+  async createTaxSession(session: InsertTaxSession): Promise<TaxSession> {
+    throw new Error("Method not implemented: createTaxSession");
+  }
+
+  async getTaxSessions(userId: string): Promise<TaxSession[]> {
+    throw new Error("Method not implemented: getTaxSessions");
+  }
+
+  async getTaxSession(id: string): Promise<TaxSession | undefined> {
+    throw new Error("Method not implemented: getTaxSession");
+  }
+
+  async getTaxSessionByPanAndYear(userId: string, panNumber: string, assessmentYear: string): Promise<TaxSession | undefined> {
+    throw new Error("Method not implemented: getTaxSessionByPanAndYear");
+  }
+
+  async updateTaxSession(id: string, updates: Partial<TaxSession>): Promise<TaxSession | undefined> {
+    throw new Error("Method not implemented: updateTaxSession");
+  }
+
+  async deleteTaxSession(id: string): Promise<boolean> {
+    throw new Error("Method not implemented: deleteTaxSession");
+  }
+
+  async updateTaxSessionStatus(id: string, status: string, currentStep?: number): Promise<TaxSession | undefined> {
+    throw new Error("Method not implemented: updateTaxSessionStatus");
+  }
+
+  async getTaxDataSources(sessionId: string): Promise<TaxDataSource[]> {
+    throw new Error("Method not implemented: getTaxDataSources");
+  }
+
+  async getTaxDataSource(id: string): Promise<TaxDataSource | undefined> {
+    throw new Error("Method not implemented: getTaxDataSource");
+  }
+
+  async createTaxDataSource(dataSource: InsertTaxDataSource): Promise<TaxDataSource> {
+    throw new Error("Method not implemented: createTaxDataSource");
+  }
+
+  async updateTaxDataSource(id: string, updates: Partial<TaxDataSource>): Promise<TaxDataSource | undefined> {
+    throw new Error("Method not implemented: updateTaxDataSource");
+  }
+
+  async deleteTaxDataSource(id: string): Promise<boolean> {
+    throw new Error("Method not implemented: deleteTaxDataSource");
+  }
+
+  async updateDataSourceStatus(id: string, status: string, recordsCount?: number, lastSync?: Date): Promise<TaxDataSource | undefined> {
+    throw new Error("Method not implemented: updateDataSourceStatus");
+  }
+
+  async getValidationIssues(sessionId: string, severity?: string): Promise<ValidationIssue[]> {
+    throw new Error("Method not implemented: getValidationIssues");
+  }
+
+  async getValidationIssue(id: string): Promise<ValidationIssue | undefined> {
+    throw new Error("Method not implemented: getValidationIssue");
+  }
+
+  async createValidationIssue(issue: InsertValidationIssue): Promise<ValidationIssue> {
+    throw new Error("Method not implemented: createValidationIssue");
+  }
+
+  async updateValidationIssue(id: string, updates: Partial<ValidationIssue>): Promise<ValidationIssue | undefined> {
+    throw new Error("Method not implemented: updateValidationIssue");
+  }
+
+  async deleteValidationIssue(id: string): Promise<boolean> {
+    throw new Error("Method not implemented: deleteValidationIssue");
+  }
+
+  async resolveValidationIssue(id: string, resolvedBy: string): Promise<ValidationIssue | undefined> {
+    throw new Error("Method not implemented: resolveValidationIssue");
+  }
+
+  async getValidationIssuesBySection(sessionId: string, section: string): Promise<ValidationIssue[]> {
+    throw new Error("Method not implemented: getValidationIssuesBySection");
+  }
+
+  async getFilingRecords(sessionId: string): Promise<FilingRecord[]> {
+    throw new Error("Method not implemented: getFilingRecords");
+  }
+
+  async getFilingRecord(id: string): Promise<FilingRecord | undefined> {
+    throw new Error("Method not implemented: getFilingRecord");
+  }
+
+  async getFilingRecordByAckNumber(acknowledgmentNumber: string): Promise<FilingRecord | undefined> {
+    throw new Error("Method not implemented: getFilingRecordByAckNumber");
+  }
+
+  async createFilingRecord(record: InsertFilingRecord): Promise<FilingRecord> {
+    throw new Error("Method not implemented: createFilingRecord");
+  }
+
+  async updateFilingRecord(id: string, updates: Partial<FilingRecord>): Promise<FilingRecord | undefined> {
+    throw new Error("Method not implemented: updateFilingRecord");
+  }
+
+  async updateFilingStatus(id: string, status: string, verificationDate?: Date): Promise<FilingRecord | undefined> {
+    throw new Error("Method not implemented: updateFilingStatus");
+  }
+
+  async getAiOptimizationSuggestions(sessionId: string, category?: string): Promise<AiOptimizationSuggestion[]> {
+    throw new Error("Method not implemented: getAiOptimizationSuggestions");
+  }
+
+  async getAiOptimizationSuggestion(id: string): Promise<AiOptimizationSuggestion | undefined> {
+    throw new Error("Method not implemented: getAiOptimizationSuggestion");
+  }
+
+  async createAiOptimizationSuggestion(suggestion: InsertAiOptimizationSuggestion): Promise<AiOptimizationSuggestion> {
+    throw new Error("Method not implemented: createAiOptimizationSuggestion");
+  }
+
+  async updateAiOptimizationSuggestion(id: string, updates: Partial<AiOptimizationSuggestion>): Promise<AiOptimizationSuggestion | undefined> {
+    throw new Error("Method not implemented: updateAiOptimizationSuggestion");
+  }
+
+  async respondToSuggestion(id: string, status: string, userResponse?: string): Promise<AiOptimizationSuggestion | undefined> {
+    throw new Error("Method not implemented: respondToSuggestion");
+  }
+
+  async getPendingSuggestions(sessionId: string): Promise<AiOptimizationSuggestion[]> {
+    throw new Error("Method not implemented: getPendingSuggestions");
+  }
+
+  async updateBudgetSpendById(budgetId: string, amount: number): Promise<FamilyBudget> {
+    throw new Error("Method not implemented: updateBudgetSpendById");
+  }
+
+  async markAlertAsRead(historyId: string): Promise<AlertHistory | undefined> {
+    throw new Error("Method not implemented: markAlertAsRead");
+  }
+
+  async updateBudgetSpendByUser(userId: string, category: string, amount: number): Promise<void> {
+    throw new Error("Method not implemented: updateBudgetSpendByUser");
   }
 }
 

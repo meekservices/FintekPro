@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, boolean, index, integer, jsonb, decimal, date, serial, real, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { storeProducts, products } from '../schema';
+import { storeProducts, products, storeCategories } from '../schema';
 import { users } from './users';
 import { agents } from './agents';
 
@@ -159,7 +159,11 @@ export const zohoCommerceConfig = pgTable("zoho_commerce_config", {
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const insertZohoCommerceConfigSchema = createInsertSchema(zohoCommerceConfig).omit({
+export const insertZohoCommerceConfigSchema = createInsertSchema(zohoCommerceConfig).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -299,7 +303,11 @@ export const zohoInventory = pgTable("zoho_inventory", {
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const insertZohoInventorySchema = createInsertSchema(zohoInventory).omit({
+export const insertZohoInventorySchema = createInsertSchema(zohoInventory).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
