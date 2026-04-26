@@ -3,11 +3,11 @@ import { boolean, date, decimal, index, integer, jsonb, numeric, pgTable, real, 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from './users';
-import { investmentProposals, investmentProposalItems } from './proposals-base';
+import { investmentProposals, investmentProposalItems, instrumentMaster } from './proposals-base';
 import { portfolios, assetAllocation } from './portfolio';
 import { agents as Agent } from './agents';
 import { documents as Document } from './documents';
-import { onboardingInvitations } from '../schema'; // Will move this later if needed
+import { onboardingInvitations } from './kyc';
 
 // --- Core Prospect & E-Sign Tables ---
 
@@ -142,7 +142,11 @@ export const prospectProposalEvents = pgTable("prospect_proposal_events", {
   index("idx_prospect_proposal_events_type").on(table.eventType),
 ]);
 
-export const insertProspectProposalSchema = createInsertSchema(prospectProposals).omit({
+export const insertProspectProposalSchema = createInsertSchema(prospectProposals).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -255,7 +259,11 @@ export const prospectClients = pgTable("prospect_clients", {
   index("idx_prospect_clients_readiness").on(table.readinessStatus),
 ]);
 
-export const insertProspectClientSchema = createInsertSchema(prospectClients).omit({
+export const insertProspectClientSchema = createInsertSchema(prospectClients).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -336,7 +344,11 @@ export const esignAuditLog = pgTable("esign_audit_log", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertEsignRequestSchema = createInsertSchema(esignRequests).omit({
+export const insertEsignRequestSchema = createInsertSchema(esignRequests).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -364,7 +376,12 @@ export const userSignatures = pgTable("user_signatures", {
   index("idx_user_signatures_default").on(table.userId, table.isDefault),
 ]);
 
-export const insertUserSignatureSchema = createInsertSchema(userSignatures).omit({
+export const insertUserSignatureSchema = createInsertSchema(userSignatures).extend({
+  userId: z.any(),
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   userId: true,
   id: true,
   createdAt: true,
@@ -433,7 +450,10 @@ export const proposalAuditLog = pgTable("proposal_audit_log", {
   createdAtIdx: index("idx_proposal_audit_log_created").on(table.createdAt),
 }));
 
-export const insertProposalAuditLogSchema = createInsertSchema(proposalAuditLog).omit({ id: true, createdAt: true });
+export const insertProposalAuditLogSchema = createInsertSchema(proposalAuditLog).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export type ProposalAuditLog = typeof proposalAuditLog.$inferSelect;
 
@@ -456,7 +476,10 @@ export const proposalVersions = pgTable("proposal_versions", {
   versionIdx: index("idx_proposal_versions_version").on(table.proposalId, table.versionNumber),
 }));
 
-export const insertProposalVersionSchema = createInsertSchema(proposalVersions).omit({ id: true, createdAt: true });
+export const insertProposalVersionSchema = createInsertSchema(proposalVersions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const proposalBacktestResults = pgTable("proposal_backtest_results", {
   id: serial("id").primaryKey(),
@@ -476,7 +499,10 @@ export const proposalBacktestResults = pgTable("proposal_backtest_results", {
   proposalIdIdx: index("idx_proposal_backtest_proposal").on(table.proposalId),
 }));
 
-export const insertProposalBacktestResultSchema = createInsertSchema(proposalBacktestResults).omit({ id: true, createdAt: true });
+export const insertProposalBacktestResultSchema = createInsertSchema(proposalBacktestResults).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const proposalInteractions = pgTable("proposal_interactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -508,7 +534,10 @@ export const proposalInteractions = pgTable("proposal_interactions", {
   index("idx_proposal_interactions_type").on(table.type),
 ]);
 
-export const insertProposalInteractionSchema = createInsertSchema(proposalInteractions).omit({
+export const insertProposalInteractionSchema = createInsertSchema(proposalInteractions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -555,7 +584,11 @@ export const proposalApprovals = pgTable("proposal_approvals", {
   index("idx_proposal_approvals_status").on(table.status),
 ]);
 
-export const insertProposalApprovalSchema = createInsertSchema(proposalApprovals).omit({
+export const insertProposalApprovalSchema = createInsertSchema(proposalApprovals).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -606,7 +639,11 @@ export const proposalHoldings = pgTable("proposal_holdings", {
   index("idx_proposal_holdings_asset_class").on(table.assetClass),
 ]);
 
-export const insertProposalHoldingSchema = createInsertSchema(proposalHoldings).omit({
+export const insertProposalHoldingSchema = createInsertSchema(proposalHoldings).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -674,7 +711,11 @@ export const proposalMaterializations = pgTable("proposal_materializations", {
   index("idx_pm_type").on(table.proposalType),
 ]);
 
-export const insertProposalMaterializationSchema = createInsertSchema(proposalMaterializations).omit({ id: true, createdAt: true, hitCount: true });
+export const insertProposalMaterializationSchema = createInsertSchema(proposalMaterializations).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  hitCount: z.any(),
+}).omit({ id: true, createdAt: true, hitCount: true });
 
 export const proposalEsignWorkflows = pgTable("proposal_esign_workflows", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -981,7 +1022,11 @@ export const proposalEsignAuditLogs = pgTable("proposal_esign_audit_logs", {
 ]);
 
 // Insert schemas and types
-export const insertProposalEsignWorkflowSchema = createInsertSchema(proposalEsignWorkflows).omit({
+export const insertProposalEsignWorkflowSchema = createInsertSchema(proposalEsignWorkflows).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true, createdAt: true, updatedAt: true,
 });
 
@@ -1021,7 +1066,11 @@ export const proposalFlowState = pgTable("proposal_flow_state", {
   index("idx_proposal_flow_state_proposal").on(table.proposalId),
 ]);
 
-export const insertProposalFlowStateSchema = createInsertSchema(proposalFlowState).omit({
+export const insertProposalFlowStateSchema = createInsertSchema(proposalFlowState).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true, createdAt: true, updatedAt: true,
 });
 
@@ -1064,7 +1113,11 @@ export const proposalVerdicts = pgTable("proposal_verdicts", {
   index("idx_proposal_verdicts_isin").on(table.instrumentIsin),
 ]);
 
-export const insertProposalVerdictSchema = createInsertSchema(proposalVerdicts).omit({
+export const insertProposalVerdictSchema = createInsertSchema(proposalVerdicts).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true, createdAt: true, updatedAt: true,
 });
 
@@ -1099,7 +1152,11 @@ export const proposalSipRecommendations = pgTable("proposal_sip_recommendations"
   index("idx_proposal_sip_source").on(table.sipSource),
 ]);
 
-export const insertProposalSipRecommendationSchema = createInsertSchema(proposalSipRecommendations).omit({
+export const insertProposalSipRecommendationSchema = createInsertSchema(proposalSipRecommendations).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true, createdAt: true, updatedAt: true,
 });
 
@@ -1137,7 +1194,11 @@ export const proposalWhatIfScenarios = pgTable("proposal_what_if_scenarios", {
   index("idx_what_if_mode").on(table.mode),
 ]);
 
-export const insertProposalWhatIfScenarioSchema = createInsertSchema(proposalWhatIfScenarios).omit({
+export const insertProposalWhatIfScenarioSchema = createInsertSchema(proposalWhatIfScenarios).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true, createdAt: true, updatedAt: true,
 });
 
@@ -1166,7 +1227,11 @@ export const proposalReportSections = pgTable("proposal_report_sections", {
   index("idx_report_sections_proposal").on(table.proposalId),
 ]);
 
-export const insertProposalReportSectionSchema = createInsertSchema(proposalReportSections).omit({
+export const insertProposalReportSectionSchema = createInsertSchema(proposalReportSections).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true, createdAt: true, updatedAt: true,
 });
 
@@ -1210,7 +1275,10 @@ export const proposalPdfMetadata = pgTable("proposal_pdf_metadata", {
   index("idx_pdf_metadata_hash").on(table.pdfHash),
 ]);
 
-export const insertProposalPdfMetadataSchema = createInsertSchema(proposalPdfMetadata).omit({
+export const insertProposalPdfMetadataSchema = createInsertSchema(proposalPdfMetadata).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, createdAt: true,
 });
 
@@ -1270,6 +1338,9 @@ export const proposalAuditEvents = pgTable("proposal_audit_events", {
   index("idx_proposal_audit_created").on(table.createdAt),
 ]);
 
-export const insertProposalAuditEventSchema = createInsertSchema(proposalAuditEvents).omit({
+export const insertProposalAuditEventSchema = createInsertSchema(proposalAuditEvents).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true, createdAt: true,
 });

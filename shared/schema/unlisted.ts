@@ -6,6 +6,66 @@ import { agents } from './agents';
 import { users } from './users';
 
 // --- Auto-Migrated Tables ---
+export const preIpoCompanies = pgTable("pre_ipo_companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyName: text("company_name").notNull(),
+  sector: varchar("sector").notNull(), // 'technology', 'healthcare', 'fintech', 'retail', etc.
+  industry: varchar("industry").notNull(), // more specific industry classification
+  foundedYear: integer("founded_year"),
+  headquarters: varchar("headquarters"),
+  website: varchar("website"),
+  description: text("description"),
+  businessModel: text("business_model"),
+  keyProducts: text("key_products").array().default([]),
+  
+  // Valuation and Financial Info
+  currentValuation: decimal("current_valuation", { precision: 20, scale: 2 }),
+  lastRoundValuation: decimal("last_round_valuation", { precision: 20, scale: 2 }),
+  lastRoundDate: timestamp("last_round_date"),
+  totalFundingRaised: decimal("total_funding_raised", { precision: 20, scale: 2 }),
+  revenue: decimal("revenue", { precision: 20, scale: 2 }),
+  revenueGrowthRate: decimal("revenue_growth_rate", { precision: 5, scale: 2 }),
+  profitability: varchar("profitability"), // 'profitable', 'break_even', 'loss_making'
+  burnRate: decimal("burn_rate", { precision: 15, scale: 2 }),
+  
+  // Pre-IPO Status
+  ipoStatus: varchar("ipo_status").notNull().default("preparation"), // 'preparation', 'filed', 'roadshow', 'priced', 'listed', 'withdrawn'
+  expectedIpoDate: timestamp("expected_ipo_date"),
+  expectedPriceRange: jsonb("expected_price_range"), // {min: number, max: number}
+  proposedExchange: varchar("proposed_exchange"), // 'NSE', 'BSE', 'NASDAQ', 'NYSE'
+  leadUnderwriters: text("lead_underwriters").array().default([]),
+  
+  // Company Metrics
+  employees: integer("employees"),
+  marketPosition: varchar("market_position"), // 'market_leader', 'strong_competitor', 'niche_player'
+  competitiveAdvantage: text("competitive_advantage"),
+  keyRisks: text("key_risks").array().default([]),
+  keyOpportunities: text("key_opportunities").array().default([]),
+  
+  // Investment Metrics
+  minimumInvestment: decimal("minimum_investment", { precision: 15, scale: 2 }),
+  investmentTier: varchar("investment_tier"), // 'tier_1', 'tier_2', 'tier_3' based on company quality
+  riskRating: varchar("risk_rating"), // 'low', 'medium', 'high', 'very_high'
+  expectedReturns: decimal("expected_returns", { precision: 5, scale: 2 }), // percentage
+  lockInPeriod: integer("lock_in_period"), // months
+  
+  // Tracking and Status
+  isAvailableForInvestment: boolean("is_available_for_investment").default(false),
+  investmentDeadline: timestamp("investment_deadline"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPreIpoCompanySchema = createInsertSchema(preIpoCompanies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type PreIpoCompany = typeof preIpoCompanies.$inferSelect;
+export type InsertPreIpoCompany = z.infer<typeof insertPreIpoCompanySchema>;
+
 export const unlistedCompanies = pgTable("unlisted_companies", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
@@ -514,13 +574,20 @@ export const probe42SyncLog = pgTable("probe42_sync_log", {
 ]);
 
 // Zod schemas for unlisted marketplace
-export const insertUnlistedCompanySchema = createInsertSchema(unlistedCompanies).omit({
+export const insertUnlistedCompanySchema = createInsertSchema(unlistedCompanies).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertUnlistedAuditLogSchema = createInsertSchema(unlistedAuditLog).omit({
+export const insertUnlistedAuditLogSchema = createInsertSchema(unlistedAuditLog).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -529,7 +596,10 @@ export type UnlistedAuditLog = typeof unlistedAuditLog.$inferSelect;
 
 export type InsertUnlistedAuditLog = z.infer<typeof insertUnlistedAuditLogSchema>;
 
-export const insertUnlistedPriceHistorySchema = createInsertSchema(unlistedPriceHistory).omit({
+export const insertUnlistedPriceHistorySchema = createInsertSchema(unlistedPriceHistory).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -644,7 +714,11 @@ export const unlistedSTRFlags = pgTable("unlisted_str_flags", {
   index("idx_str_due_date").on(table.strDueDate),
 ]);
 
-export const insertUnlistedInvestorTrackingSchema = createInsertSchema(unlistedInvestorTracking).omit({
+export const insertUnlistedInvestorTrackingSchema = createInsertSchema(unlistedInvestorTracking).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -654,7 +728,11 @@ export type UnlistedInvestorTracking = typeof unlistedInvestorTracking.$inferSel
 
 export type InsertUnlistedInvestorTracking = z.infer<typeof insertUnlistedInvestorTrackingSchema>;
 
-export const insertUnlistedShareLockInSchema = createInsertSchema(unlistedShareLockIn).omit({
+export const insertUnlistedShareLockInSchema = createInsertSchema(unlistedShareLockIn).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -664,7 +742,10 @@ export type UnlistedShareLockIn = typeof unlistedShareLockIn.$inferSelect;
 
 export type InsertUnlistedShareLockIn = z.infer<typeof insertUnlistedShareLockInSchema>;
 
-export const insertUnlistedCompanyStatusLogSchema = createInsertSchema(unlistedCompanyStatusLog).omit({
+export const insertUnlistedCompanyStatusLogSchema = createInsertSchema(unlistedCompanyStatusLog).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -673,7 +754,11 @@ export type UnlistedCompanyStatusLog = typeof unlistedCompanyStatusLog.$inferSel
 
 export type InsertUnlistedCompanyStatusLog = z.infer<typeof insertUnlistedCompanyStatusLogSchema>;
 
-export const insertUnlistedSTRFlagsSchema = createInsertSchema(unlistedSTRFlags).omit({
+export const insertUnlistedSTRFlagsSchema = createInsertSchema(unlistedSTRFlags).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -699,7 +784,10 @@ export const unlistedEquityValuationHistory = pgTable("unlisted_equity_valuation
   index("idx_unlisted_val_history_method").on(table.valuationMethod),
 ]);
 
-export const insertUnlistedEquityValuationHistorySchema = createInsertSchema(unlistedEquityValuationHistory).omit({
+export const insertUnlistedEquityValuationHistorySchema = createInsertSchema(unlistedEquityValuationHistory).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -748,7 +836,10 @@ export const unlistedRiskDisclosureAcknowledgments = pgTable("unlisted_risk_disc
   index("idx_unlisted_risk_disclosure_version").on(table.disclosureVersion),
 ]);
 
-export const insertUnlistedRiskDisclosureAcknowledgmentSchema = createInsertSchema(unlistedRiskDisclosureAcknowledgments).omit({
+export const insertUnlistedRiskDisclosureAcknowledgmentSchema = createInsertSchema(unlistedRiskDisclosureAcknowledgments).extend({
+  id: z.any(),
+  acknowledgedAt: z.any(),
+}).omit({
   id: true,
   acknowledgedAt: true,
 });
@@ -811,7 +902,23 @@ export const unlistedEscrowApprovals = pgTable("unlisted_escrow_approvals", {
   index("idx_escrow_approval_status").on(table.status),
 ]);
 
-export const insertUnlistedEscrowApprovalSchema = createInsertSchema(unlistedEscrowApprovals).omit({
+export const insertUnlistedEscrowApprovalSchema = createInsertSchema(unlistedEscrowApprovals).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+  checkerUserId: z.any(),
+  checkerName: z.any(),
+  checkerApprovedAt: z.any(),
+  checkerNotes: z.any(),
+  checkerAction: z.any(),
+  rejectionReason: z.any(),
+  rejectedBy: z.any(),
+  rejectedAt: z.any(),
+  executedAt: z.any(),
+  executionResult: z.any(),
+  ipAddressChecker: z.any(),
+  userAgentChecker: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -917,7 +1024,10 @@ export const unlistedRegulatoryAuditLog = pgTable("unlisted_regulatory_audit_log
   index("idx_unlisted_reg_audit_sebi").on(table.sebiReportable),
 ]);
 
-export const insertUnlistedRegulatoryAuditLogSchema = createInsertSchema(unlistedRegulatoryAuditLog).omit({
+export const insertUnlistedRegulatoryAuditLogSchema = createInsertSchema(unlistedRegulatoryAuditLog).extend({
+  id: z.any(),
+  timestamp: z.any(),
+}).omit({
   id: true,
   timestamp: true,
 });

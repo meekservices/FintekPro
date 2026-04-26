@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import axios, { AxiosInstance } from 'axios';
 
 export interface HDFCBankConfig {

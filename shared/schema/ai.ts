@@ -2,15 +2,150 @@ import { sql } from "drizzle-orm";
 import { boolean, date, decimal, index, integer, jsonb, numeric, pgTable, real, serial, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { users as User } from './users';
 import { users } from './users';
-import { portfolioAlerts, aiPortfolioAnalysis, portfolios as Portfolio, assetAllocation } from './portfolio';
+import { portfolios as Portfolio, assetAllocation, portfolioHoldings } from './portfolio';
+
 import { agents } from './agents';
 import { taxSessions } from './itr';
 import { investmentProposals } from './proposals-base';
 import { pickCategoryEnum, pickStatusEnum } from './enums';
+import { fundManagers } from './products';
+
+
+export const portfolioAlerts = pgTable("portfolio_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => Portfolio.id),
+  holdingId: varchar("holding_id").references(() => portfolioHoldings.id),
+  alertType: varchar("alert_type").notNull(),
+  alertCategory: varchar("alert_category").notNull(),
+  severity: varchar("severity").notNull().default("medium"),
+  alertTitle: varchar("alert_title").notNull(),
+  alertMessage: text("alert_message").notNull(),
+  alertDescription: text("alert_description"),
+  triggerMetric: varchar("trigger_metric"),
+  triggerValue: decimal("trigger_value", { precision: 15, scale: 4 }),
+  triggerThreshold: decimal("trigger_threshold", { precision: 15, scale: 4 }),
+  triggerDirection: varchar("trigger_direction"),
+  benchmarkName: varchar("benchmark_name"),
+  benchmarkValue: decimal("benchmark_value", { precision: 15, scale: 4 }),
+  benchmarkChange: decimal("benchmark_change", { precision: 8, scale: 4 }),
+  symbol: varchar("symbol"),
+  stockName: varchar("stock_name"),
+  currentWeight: decimal("current_weight", { precision: 8, scale: 4 }),
+  recommendedWeight: decimal("recommended_weight", { precision: 8, scale: 4 }),
+  recommendedAction: varchar("recommended_action"),
+  actionUrgency: varchar("action_urgency").default("normal"),
+  actionDescription: text("action_description"),
+  aiInsight: text("ai_insight"),
+  aiRecommendation: text("ai_recommendation"),
+  agentViewed: boolean("agent_viewed").default(false),
+  agentViewedAt: timestamp("agent_viewed_at"),
+  agentAction: varchar("agent_action"),
+  agentActionAt: timestamp("agent_action_at"),
+  agentNotes: text("agent_notes"),
+  clientNotified: boolean("client_notified").default(false),
+  clientNotifiedAt: timestamp("client_notified_at"),
+  clientViewed: boolean("client_viewed").default(false),
+  clientViewedAt: timestamp("client_viewed_at"),
+  status: varchar("status").default("active"),
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNotes: text("resolution_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+}, (table) => [
+  index("idx_portfolio_alerts_client").on(table.clientId),
+  index("idx_portfolio_alerts_portfolio").on(table.portfolioId),
+  index("idx_portfolio_alerts_type").on(table.alertType),
+  index("idx_portfolio_alerts_severity").on(table.severity),
+  index("idx_portfolio_alerts_status").on(table.status),
+]);
+
+export const aiPortfolioAnalysis = pgTable("ai_portfolio_analysis", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  portfolioId: varchar("portfolio_id").references(() => Portfolio.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id),
+  analysisDate: timestamp("analysis_date").defaultNow().notNull(),
+  totalValue: decimal("total_value", { precision: 15, scale: 2 }),
+  totalInvested: decimal("total_invested", { precision: 15, scale: 2 }),
+  totalGainLoss: decimal("total_gain_loss", { precision: 15, scale: 2 }),
+  totalGainLossPercent: decimal("total_gain_loss_percent", { precision: 8, scale: 4 }),
+  cagr1y: decimal("cagr_1y", { precision: 8, scale: 4 }),
+  cagr3y: decimal("cagr_3y", { precision: 8, scale: 4 }),
+  cagr5y: decimal("cagr_5y", { precision: 8, scale: 4 }),
+  xirr: decimal("xirr", { precision: 8, scale: 4 }),
+  absoluteReturn: decimal("absolute_return", { precision: 8, scale: 4 }),
+  portfolioBeta: decimal("portfolio_beta", { precision: 8, scale: 4 }),
+  sharpeRatio: decimal("sharpe_ratio", { precision: 8, scale: 4 }),
+  standardDeviation: decimal("standard_deviation", { precision: 8, scale: 4 }),
+  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }),
+  riskScore: integer("risk_score"),
+  topHoldingWeight: decimal("top_holding_weight", { precision: 8, scale: 4 }),
+  top5HoldingsWeight: decimal("top_5_holdings_weight", { precision: 8, scale: 4 }),
+  sectorConcentration: jsonb("sector_concentration").$type<Record<string, number>>(),
+  equityAllocation: decimal("equity_allocation", { precision: 8, scale: 4 }),
+  debtAllocation: decimal("debt_allocation", { precision: 8, scale: 4 }),
+  goldAllocation: decimal("gold_allocation", { precision: 8, scale: 4 }),
+  cashAllocation: decimal("cash_allocation", { precision: 8, scale: 4 }),
+  alternativeAllocation: decimal("alternative_allocation", { precision: 8, scale: 4 }),
+  ultraShortTermAllocation: decimal("ultra_short_term_allocation", { precision: 8, scale: 4 }),
+  shortTermAllocation: decimal("short_term_allocation", { precision: 8, scale: 4 }),
+  mediumTermAllocation: decimal("medium_term_allocation", { precision: 8, scale: 4 }),
+  longTermAllocation: decimal("long_term_allocation", { precision: 8, scale: 4 }),
+  clientRiskProfile: varchar("client_risk_profile"),
+  portfolioRiskAlignment: varchar("portfolio_risk_alignment"),
+  riskMismatchDetails: text("risk_mismatch_details"),
+  overallHealthScore: integer("overall_health_score"),
+  aiSummary: text("ai_summary"),
+  keyStrengths: jsonb("key_strengths").$type<string[]>(),
+  keyWeaknesses: jsonb("key_weaknesses").$type<string[]>(),
+  recommendations: jsonb("recommendations").$type<string[]>(),
+  sectorAnalysis: jsonb("sector_analysis"),
+  holdingsAnalysis: jsonb("holdings_analysis"),
+  benchmarkComparison: jsonb("benchmark_comparison"),
+  status: varchar("status").default("completed"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ai_portfolio_analysis_client").on(table.clientId),
+  index("idx_ai_portfolio_analysis_portfolio").on(table.portfolioId),
+  index("idx_ai_portfolio_analysis_date").on(table.analysisDate),
+]);
+
+export const aiTalkingPoints = pgTable("ai_talking_points", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id),
+  analysisId: varchar("analysis_id").references(() => aiPortfolioAnalysis.id),
+  pointType: varchar("point_type").notNull(),
+  category: varchar("category"),
+  title: varchar("title").notNull(),
+  agentScript: text("agent_script").notNull(),
+  clientFacingVersion: text("client_facing_version"),
+  supportingData: jsonb("supporting_data"),
+  visualAid: varchar("visual_aid"),
+  tone: varchar("tone").default("professional"),
+  emphasis: varchar("emphasis"),
+  sequenceOrder: integer("sequence_order").default(0),
+  isRequired: boolean("is_required").default(false),
+  agentUsed: boolean("agent_used").default(false),
+  agentUsedAt: timestamp("agent_used_at"),
+  agentModified: boolean("agent_modified").default(false),
+  agentVersion: text("agent_version"),
+  status: varchar("status").default("active"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ai_talking_points_client").on(table.clientId),
+  index("idx_ai_talking_points_agent").on(table.agentId),
+  index("idx_ai_talking_points_type").on(table.pointType),
+  index("idx_ai_talking_points_analysis").on(table.analysisId),
+]);
 
 export const dailyPicks = pgTable("daily_picks", {
+
   id: serial("id").primaryKey(),
   
   category: pickCategoryEnum("category").notNull(),
@@ -65,7 +200,11 @@ export const dailyPicks = pgTable("daily_picks", {
   uniqueIndex("idx_daily_picks_unique_reco").on(table.category, table.recoDate, table.instrumentId, table.symbol),
 ]);
 
-export const insertDailyPickSchema = createInsertSchema(dailyPicks).omit({
+export const insertDailyPickSchema = createInsertSchema(dailyPicks).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true, createdAt: true, updatedAt: true,
 });
 export type DailyPick = typeof dailyPicks.$inferSelect;
@@ -237,7 +376,11 @@ export const aiTransactionTracking = pgTable("ai_transaction_tracking", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertAiTransactionTrackingSchema = createInsertSchema(aiTransactionTracking).omit({
+export const insertAiTransactionTrackingSchema = createInsertSchema(aiTransactionTracking).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -273,6 +416,15 @@ export const aiOptimizationSuggestions = pgTable("ai_optimization_suggestions", 
   
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const insertAiOptimizationSuggestionSchema = createInsertSchema(aiOptimizationSuggestions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
+
+export type AiOptimizationSuggestion = typeof aiOptimizationSuggestions.$inferSelect;
+export type InsertAiOptimizationSuggestion = z.infer<typeof insertAiOptimizationSuggestionSchema>;
+
 
 export const aiProfitPicks = pgTable("ai_profit_picks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -367,13 +519,31 @@ export const aiProfitPicks = pgTable("ai_profit_picks", {
 ]);
 
 // Portfolio Alerts - Benchmark and risk trigger alerts
+export const insertAiProfitPickSchema = createInsertSchema(aiProfitPicks).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertAiPortfolioAnalysisSchema = createInsertSchema(aiPortfolioAnalysis).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
+
+export const insertPortfolioAlertSchema = createInsertSchema(portfolioAlerts).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
 export type AiProfitPick = typeof aiProfitPicks.$inferSelect;
 export type InsertAiProfitPick = z.infer<typeof insertAiProfitPickSchema>;
-
-
-
-
 export type InsertAiPortfolioAnalysis = z.infer<typeof insertAiPortfolioAnalysisSchema>;
+export type PortfolioAlert = typeof portfolioAlerts.$inferSelect;
+export type AiPortfolioAnalysis = typeof aiPortfolioAnalysis.$inferSelect;
+export type AiTalkingPoint = typeof aiTalkingPoints.$inferSelect;
+
+
 
 export const aifMaster = pgTable("aif_master", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -442,7 +612,11 @@ export const aifMaster = pgTable("aif_master", {
   index("idx_aif_master_status").on(table.fundStatus),
 ]);
 
-export const insertAifMasterSchema = createInsertSchema(aifMaster).omit({
+export const insertAifMasterSchema = createInsertSchema(aifMaster).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -506,7 +680,11 @@ export const aiRecommendationTracking = pgTable("ai_recommendation_tracking", {
   index("idx_ai_rec_tracking_expiry").on(table.expiryDate),
 ]);
 
-export const insertAiRecommendationTrackingSchema = createInsertSchema(aiRecommendationTracking).omit({
+export const insertAiRecommendationTrackingSchema = createInsertSchema(aiRecommendationTracking).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -564,7 +742,10 @@ export const aiRationaleCache = pgTable("ai_rationale_cache", {
   uniqueIndex("idx_arc_hash_type_unique").on(table.inputHash, table.rationaleType),
 ]);
 
-export const insertAiRationaleCacheSchema = createInsertSchema(aiRationaleCache).omit({ id: true, createdAt: true, hitCount: true });
+export const insertAiRationaleCacheSchema = createInsertSchema(aiRationaleCache).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true, hitCount: true });
 
 export type AiRationaleCache = typeof aiRationaleCache.$inferSelect;
 
@@ -586,7 +767,10 @@ export const aiFeatureSnapshots = pgTable("ai_feature_snapshots", {
   index("idx_ai_feature_snapshots_class").on(table.assetClass),
 ]);
 
-export const insertAiFeatureSnapshotSchema = createInsertSchema(aiFeatureSnapshots).omit({ id: true, createdAt: true });
+export const insertAiFeatureSnapshotSchema = createInsertSchema(aiFeatureSnapshots).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const aiPriceHistory = pgTable("ai_price_history", {
   id: serial("id").primaryKey(),
@@ -608,7 +792,10 @@ export const aiPriceHistory = pgTable("ai_price_history", {
   index("idx_ai_price_history_class").on(table.assetClass),
 ]);
 
-export const insertAiPriceHistorySchema = createInsertSchema(aiPriceHistory).omit({ id: true, createdAt: true });
+export const insertAiPriceHistorySchema = createInsertSchema(aiPriceHistory).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export type AiPriceHistory = typeof aiPriceHistory.$inferSelect;
 
@@ -634,7 +821,10 @@ export const aiRegimeHistory = pgTable("ai_regime_history", {
   index("idx_ai_regime_history_label").on(table.regimeLabel),
 ]);
 
-export const insertAiRegimeHistorySchema = createInsertSchema(aiRegimeHistory).omit({ id: true, createdAt: true });
+export const insertAiRegimeHistorySchema = createInsertSchema(aiRegimeHistory).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export type AiRegimeHistory = typeof aiRegimeHistory.$inferSelect;
 
@@ -662,7 +852,11 @@ export const aiModelRegistry = pgTable("ai_model_registry", {
   index("idx_ai_model_registry_class").on(table.assetClass),
 ]);
 
-export const insertAiModelRegistrySchema = createInsertSchema(aiModelRegistry).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAiModelRegistrySchema = createInsertSchema(aiModelRegistry).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export type AiModelRegistry = typeof aiModelRegistry.$inferSelect;
 
@@ -683,7 +877,10 @@ export const aiUserInteractions = pgTable("ai_user_interactions", {
   index("idx_ai_user_interactions_type").on(table.interactionType),
 ]);
 
-export const insertAiUserInteractionSchema = createInsertSchema(aiUserInteractions).omit({ id: true, createdAt: true });
+export const insertAiUserInteractionSchema = createInsertSchema(aiUserInteractions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const aiUserProfiles = pgTable("ai_user_profiles", {
   id: serial("id").primaryKey(),
@@ -706,7 +903,11 @@ export const aiUserProfiles = pgTable("ai_user_profiles", {
   index("idx_ai_user_profiles_risk").on(table.riskToleranceScore),
 ]);
 
-export const insertAiUserProfileSchema = createInsertSchema(aiUserProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAiUserProfileSchema = createInsertSchema(aiUserProfiles).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export const aiPredictionLogs = pgTable("ai_prediction_logs", {
   id: serial("id").primaryKey(),
@@ -730,7 +931,10 @@ export const aiPredictionLogs = pgTable("ai_prediction_logs", {
   index("idx_ai_prediction_logs_date").on(table.predictionDate),
 ]);
 
-export const insertAiPredictionLogSchema = createInsertSchema(aiPredictionLogs).omit({ id: true, createdAt: true });
+export const insertAiPredictionLogSchema = createInsertSchema(aiPredictionLogs).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const aiPromptVersions = pgTable("ai_prompt_versions", {
   id: serial("id").primaryKey(),
@@ -748,7 +952,9 @@ export const aiPromptVersions = pgTable("ai_prompt_versions", {
 
 export type AiPromptVersion = typeof aiPromptVersions.$inferSelect;
 export type InsertAiPromptVersion = typeof aiPromptVersions.$inferInsert;
-export const insertAiPromptVersionSchema = createInsertSchema(aiPromptVersions).omit({ id: true, usedAt: true });
+export const insertAiPromptVersionSchema = createInsertSchema(aiPromptVersions).extend({
+  id: z.any(),
+}).omit({ id: true, usedAt: true });
 
 export const aiGovernanceAuditLogs = pgTable("ai_governance_audit_logs", {
   auditId: varchar("audit_id", { length: 255 }).primaryKey(),
@@ -767,7 +973,9 @@ export const aiGovernanceAuditLogs = pgTable("ai_governance_audit_logs", {
 
 export type AiGovernanceAuditLog = typeof aiGovernanceAuditLogs.$inferSelect;
 export type InsertAiGovernanceAuditLog = typeof aiGovernanceAuditLogs.$inferInsert;
-export const insertAiGovernanceAuditLogSchema = createInsertSchema(aiGovernanceAuditLogs).omit({ timestamp: true });
+export const insertAiGovernanceAuditLogSchema = createInsertSchema(aiGovernanceAuditLogs).extend({
+  timestamp: z.any(),
+}).omit({ timestamp: true });
 
 // ARSE: Recommendations tracked for scoring
 export const arRecommendations = pgTable("ar_recommendations", {

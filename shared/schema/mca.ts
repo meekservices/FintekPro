@@ -35,7 +35,10 @@ export const mcaCompanyMaster = pgTable("mca_company_master", {
   index("idx_mca_last_filing_year").on(table.lastFilingYear),
 ]);
 
-export const insertMcaCompanyMasterSchema = createInsertSchema(mcaCompanyMaster).omit({ createdAt: true, updatedAt: true });
+export const insertMcaCompanyMasterSchema = createInsertSchema(mcaCompanyMaster).extend({
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ createdAt: true, updatedAt: true });
 
 export type McaCompanyMaster = typeof mcaCompanyMaster.$inferSelect;
 
@@ -70,7 +73,10 @@ export const mcaFinancialSnapshot = pgTable("mca_financial_snapshot", {
   index("idx_mca_fs_revenue").on(table.revenue),
 ]);
 
-export const insertMcaFinancialSnapshotSchema = createInsertSchema(mcaFinancialSnapshot).omit({ id: true, derivedAt: true });
+export const insertMcaFinancialSnapshotSchema = createInsertSchema(mcaFinancialSnapshot).extend({
+  id: z.any(),
+  derivedAt: z.any(),
+}).omit({ id: true, derivedAt: true });
 
 export type McaFinancialSnapshot = typeof mcaFinancialSnapshot.$inferSelect;
 
@@ -100,7 +106,10 @@ export const mcaFilingTracker = pgTable("mca_filing_tracker", {
   index("idx_mca_ft_download_date").on(table.downloadDate),
 ]);
 
-export const insertMcaFilingTrackerSchema = createInsertSchema(mcaFilingTracker).omit({ id: true, downloadDate: true });
+export const insertMcaFilingTrackerSchema = createInsertSchema(mcaFilingTracker).extend({
+  id: z.any(),
+  downloadDate: z.any(),
+}).omit({ id: true, downloadDate: true });
 
 export type McaFilingTracker = typeof mcaFilingTracker.$inferSelect;
 
@@ -130,7 +139,10 @@ export const mcaQueryLog = pgTable("mca_query_log", {
   index("idx_mca_ql_created").on(table.createdAt),
 ]);
 
-export const insertMcaQueryLogSchema = createInsertSchema(mcaQueryLog).omit({ id: true, createdAt: true });
+export const insertMcaQueryLogSchema = createInsertSchema(mcaQueryLog).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export type McaQueryLog = typeof mcaQueryLog.$inferSelect;
 
@@ -148,7 +160,10 @@ export const mcaWalletStatus = pgTable("mca_wallet_status", {
   lastUpdated: timestamp("last_updated").defaultNow().notNull(),
 });
 
-export const insertMcaWalletStatusSchema = createInsertSchema(mcaWalletStatus).omit({ id: true, lastUpdated: true });
+export const insertMcaWalletStatusSchema = createInsertSchema(mcaWalletStatus).extend({
+  id: z.any(),
+  lastUpdated: z.any(),
+}).omit({ id: true, lastUpdated: true });
 
 export type McaWalletStatus = typeof mcaWalletStatus.$inferSelect;
 
@@ -177,7 +192,11 @@ export const mcaWalletPayments = pgTable("mca_wallet_payments", {
   index("idx_mca_wp_user").on(table.initiatedBy),
 ]);
 
-export const insertMcaWalletPaymentSchema = createInsertSchema(mcaWalletPayments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMcaWalletPaymentSchema = createInsertSchema(mcaWalletPayments).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export const mcaDirectPayments = pgTable("mca_direct_payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -214,7 +233,11 @@ export const mcaDirectPayments = pgTable("mca_direct_payments", {
   index("idx_mca_dp_initiated_by").on(table.initiatedBy),
 ]);
 
-export const insertMcaDirectPaymentSchema = createInsertSchema(mcaDirectPayments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMcaDirectPaymentSchema = createInsertSchema(mcaDirectPayments).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export const mcaDataSources = pgTable("mca_data_sources", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -236,7 +259,11 @@ export const mcaDataSources = pgTable("mca_data_sources", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertMcaDataSourcesSchema = createInsertSchema(mcaDataSources).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMcaDataSourcesSchema = createInsertSchema(mcaDataSources).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export const mcaDirectors = pgTable("mca_directors", {
   din: varchar("din", { length: 20 }).primaryKey(),
@@ -262,7 +289,10 @@ export const mcaDirectors = pgTable("mca_directors", {
   index("idx_mca_directors_status").on(table.dinStatus),
 ]);
 
-export const insertMcaDirectorsSchema = createInsertSchema(mcaDirectors).omit({ createdAt: true, updatedAt: true });
+export const insertMcaDirectorsSchema = createInsertSchema(mcaDirectors).extend({
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ createdAt: true, updatedAt: true });
 
 export const mcaDirectorCompanyMap = pgTable("mca_director_company_map", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -285,7 +315,11 @@ export const mcaDirectorCompanyMap = pgTable("mca_director_company_map", {
   index("idx_mca_dcm_active").on(table.isCurrentlyActive),
 ]);
 
-export const insertMcaDirectorCompanyMapSchema = createInsertSchema(mcaDirectorCompanyMap).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMcaDirectorCompanyMapSchema = createInsertSchema(mcaDirectorCompanyMap).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export type McaDirectorCompanyMap = typeof mcaDirectorCompanyMap.$inferSelect;
 
@@ -317,7 +351,11 @@ export const mcaCharges = pgTable("mca_charges", {
   index("idx_mca_charges_creation").on(table.creationDate),
 ]);
 
-export const insertMcaChargesSchema = createInsertSchema(mcaCharges).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMcaChargesSchema = createInsertSchema(mcaCharges).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export const mcaShareholdingPattern = pgTable("mca_shareholding_pattern", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -356,7 +394,11 @@ export const mcaShareholdingPattern = pgTable("mca_shareholding_pattern", {
   index("idx_mca_shp_latest").on(table.isLatest),
 ]);
 
-export const insertMcaShareholdingPatternSchema = createInsertSchema(mcaShareholdingPattern).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMcaShareholdingPatternSchema = createInsertSchema(mcaShareholdingPattern).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export type McaShareholdingPattern = typeof mcaShareholdingPattern.$inferSelect;
 
@@ -398,7 +440,10 @@ export const mcaDerivedMetrics = pgTable("mca_derived_metrics", {
   index("idx_mca_dm_roe").on(table.returnOnEquity),
 ]);
 
-export const insertMcaDerivedMetricsSchema = createInsertSchema(mcaDerivedMetrics).omit({ id: true, computedAt: true });
+export const insertMcaDerivedMetricsSchema = createInsertSchema(mcaDerivedMetrics).extend({
+  id: z.any(),
+  computedAt: z.any(),
+}).omit({ id: true, computedAt: true });
 
 export type McaDerivedMetrics = typeof mcaDerivedMetrics.$inferSelect;
 
@@ -432,7 +477,10 @@ export const mcaRiskScores = pgTable("mca_risk_scores", {
   index("idx_mca_rs_latest").on(table.isLatest),
 ]);
 
-export const insertMcaRiskScoresSchema = createInsertSchema(mcaRiskScores).omit({ id: true, createdAt: true });
+export const insertMcaRiskScoresSchema = createInsertSchema(mcaRiskScores).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const mcaIngestionLogs = pgTable("mca_ingestion_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -462,7 +510,10 @@ export const mcaIngestionLogs = pgTable("mca_ingestion_logs", {
   index("idx_mca_il_started").on(table.startedAt),
 ]);
 
-export const insertMcaIngestionLogsSchema = createInsertSchema(mcaIngestionLogs).omit({ id: true, startedAt: true });
+export const insertMcaIngestionLogsSchema = createInsertSchema(mcaIngestionLogs).extend({
+  id: z.any(),
+  startedAt: z.any(),
+}).omit({ id: true, startedAt: true });
 
 export const mcaVersionHistory = pgTable("mca_version_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -485,7 +536,10 @@ export const mcaVersionHistory = pgTable("mca_version_history", {
   index("idx_mca_vh_created").on(table.createdAt),
 ]);
 
-export const insertMcaVersionHistorySchema = createInsertSchema(mcaVersionHistory).omit({ id: true, createdAt: true });
+export const insertMcaVersionHistorySchema = createInsertSchema(mcaVersionHistory).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export type McaVersionHistory = typeof mcaVersionHistory.$inferSelect;
 

@@ -193,7 +193,11 @@ export const reitInvitHoldings = pgTable("reit_invit_holdings", {
 ]);
 
 // Insert Schemas and Types
-export const insertReitSchema = createInsertSchema(reits).omit({
+export const insertReitSchema = createInsertSchema(reits).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  lastUpdated: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   lastUpdated: true,
@@ -201,7 +205,11 @@ export const insertReitSchema = createInsertSchema(reits).omit({
 export type Reit = typeof reits.$inferSelect;
 export type InsertReit = z.infer<typeof insertReitSchema>;
 
-export const insertInvitSchema = createInsertSchema(invits).omit({
+export const insertInvitSchema = createInsertSchema(invits).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  lastUpdated: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   lastUpdated: true,
@@ -209,7 +217,11 @@ export const insertInvitSchema = createInsertSchema(invits).omit({
 export type Invit = typeof invits.$inferSelect;
 export type InsertInvit = z.infer<typeof insertInvitSchema>;
 
-export const insertReitInvitHoldingSchema = createInsertSchema(reitInvitHoldings).omit({
+export const insertReitInvitHoldingSchema = createInsertSchema(reitInvitHoldings).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

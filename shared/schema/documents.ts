@@ -3,7 +3,7 @@ import { pgTable, text, varchar, timestamp, boolean, index, integer, jsonb, deci
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from './users';
-import { Document, sebiClauseChecklist } from '../schema';
+// import { sebiClauseChecklist } from '../schema'; // Moved here to break circularity
 
 export const changeOperationEnum = pgEnum("change_operation", [
   "insert",
@@ -117,7 +117,11 @@ export const documents = pgTable("documents", {
   index("idx_documents_agreement_type").on(table.agreementType),
 ]);
 
-export const insertDocumentSchema = createInsertSchema(documents).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDocumentSchema = createInsertSchema(documents).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export const documentVersions = pgTable("document_versions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -160,7 +164,10 @@ export const documentVersions = pgTable("document_versions", {
   index("idx_doc_versions_number").on(table.documentId, table.versionNumber),
 ]);
 
-export const insertDocumentVersionSchema = createInsertSchema(documentVersions).omit({ id: true, createdAt: true });
+export const insertDocumentVersionSchema = createInsertSchema(documentVersions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const documentWorkflowTransitions = pgTable("document_workflow_transitions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -200,7 +207,10 @@ export const documentWorkflowTransitions = pgTable("document_workflow_transition
   index("idx_workflow_transitions_status").on(table.fromStatus, table.toStatus),
 ]);
 
-export const insertDocumentWorkflowTransitionSchema = createInsertSchema(documentWorkflowTransitions).omit({ id: true, createdAt: true });
+export const insertDocumentWorkflowTransitionSchema = createInsertSchema(documentWorkflowTransitions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const documentClauses = pgTable("document_clauses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -238,7 +248,11 @@ export const documentClauses = pgTable("document_clauses", {
   index("idx_clauses_sebi").on(table.sebiClauseId),
 ]);
 
-export const insertDocumentClauseSchema = createInsertSchema(documentClauses).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDocumentClauseSchema = createInsertSchema(documentClauses).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export const documentTrackedChanges = pgTable("document_tracked_changes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -274,7 +288,10 @@ export const documentTrackedChanges = pgTable("document_tracked_changes", {
   index("idx_tracked_changes_status").on(table.status),
 ]);
 
-export const insertDocumentTrackedChangeSchema = createInsertSchema(documentTrackedChanges).omit({ id: true, createdAt: true });
+export const insertDocumentTrackedChangeSchema = createInsertSchema(documentTrackedChanges).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const documentComments = pgTable("document_comments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -317,7 +334,51 @@ export const documentComments = pgTable("document_comments", {
   index("idx_comments_author").on(table.authorId),
 ]);
 
-export const insertDocumentCommentSchema = createInsertSchema(documentComments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDocumentCommentSchema = createInsertSchema(documentComments).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+export const sebiClauseChecklist = pgTable("sebi_clause_checklist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Clause Identity
+  clauseCode: varchar("clause_code", { length: 50 }).unique().notNull(),
+  clauseCategory: varchar("clause_category", { length: 100 }).notNull(),
+  clauseTitle: varchar("clause_title", { length: 500 }).notNull(),
+  clauseDescription: text("clause_description"),
+  
+  // Applicability
+  isMandatory: boolean("is_mandatory").default(true),
+  isConditional: boolean("is_conditional").default(false),
+  conditionDescription: text("condition_description"),
+  applicableEntityTypes: text("applicable_entity_types").array(), // vendor, partner, agent, etc.
+  applicableAgreementTypes: text("applicable_agreement_types").array(),
+  
+  // Risk & Compliance
+  riskWeight: integer("risk_weight").default(1), // 1-10 importance
+  regulatoryReference: varchar("regulatory_reference", { length: 255 }), // SEBI circular/guideline reference
+  
+  // Template
+  suggestedClauseText: text("suggested_clause_text"),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  effectiveFrom: date("effective_from"),
+  effectiveTo: date("effective_to"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_sebi_checklist_category").on(table.clauseCategory),
+  index("idx_sebi_checklist_mandatory").on(table.isMandatory),
+]);
+
+export const insertSebiClauseChecklistSchema = createInsertSchema(sebiClauseChecklist).omit({ id: true, createdAt: true, updatedAt: true });
+export type SebiClauseChecklist = typeof sebiClauseChecklist.$inferSelect;
+export type InsertSebiClauseChecklist = z.infer<typeof insertSebiClauseChecklistSchema>;
+
 
 export const documentChecklistRuns = pgTable("document_checklist_runs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -357,7 +418,10 @@ export const documentChecklistRuns = pgTable("document_checklist_runs", {
   index("idx_checklist_runs_status").on(table.status),
 ]);
 
-export const insertDocumentChecklistRunSchema = createInsertSchema(documentChecklistRuns).omit({ id: true, createdAt: true });
+export const insertDocumentChecklistRunSchema = createInsertSchema(documentChecklistRuns).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const documentChecklistItems = pgTable("document_checklist_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -394,7 +458,11 @@ export const documentChecklistItems = pgTable("document_checklist_items", {
   index("idx_checklist_items_status").on(table.status),
 ]);
 
-export const insertDocumentChecklistItemSchema = createInsertSchema(documentChecklistItems).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDocumentChecklistItemSchema = createInsertSchema(documentChecklistItems).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
 
 export const documentAiReviews = pgTable("document_ai_reviews", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -444,7 +512,10 @@ export const documentAiReviews = pgTable("document_ai_reviews", {
   index("idx_ai_reviews_score").on(table.overallScore),
 ]);
 
-export const insertDocumentAiReviewSchema = createInsertSchema(documentAiReviews).omit({ id: true, createdAt: true });
+export const insertDocumentAiReviewSchema = createInsertSchema(documentAiReviews).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const documentAuditEvents = pgTable("document_audit_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -484,7 +555,10 @@ export const documentAuditEvents = pgTable("document_audit_events", {
   index("idx_audit_events_time").on(table.createdAt),
 ]);
 
-export const insertDocumentAuditEventSchema = createInsertSchema(documentAuditEvents).omit({ id: true, createdAt: true });
+export const insertDocumentAuditEventSchema = createInsertSchema(documentAuditEvents).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const documentSignatures = pgTable("document_signatures", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -540,7 +614,10 @@ export const documentSignatures = pgTable("document_signatures", {
   index("idx_signatures_ref").on(table.signatureRef),
 ]);
 
-export const insertDocumentSignatureSchema = createInsertSchema(documentSignatures).omit({ id: true, requestedAt: true });
+export const insertDocumentSignatureSchema = createInsertSchema(documentSignatures).extend({
+  id: z.any(),
+  requestedAt: z.any(),
+}).omit({ id: true, requestedAt: true });
 
 export const documentRenewals = pgTable("document_renewals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -574,7 +651,10 @@ export const documentRenewals = pgTable("document_renewals", {
   index("idx_renewals_status").on(table.status),
 ]);
 
-export const insertDocumentRenewalSchema = createInsertSchema(documentRenewals).omit({ id: true, createdAt: true });
+export const insertDocumentRenewalSchema = createInsertSchema(documentRenewals).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
 
 export const documentOverrides = pgTable("document_overrides", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -611,4 +691,11 @@ export const documentOverrides = pgTable("document_overrides", {
   index("idx_overrides_clause").on(table.clauseCode),
 ]);
 
-export const insertDocumentOverrideSchema = createInsertSchema(documentOverrides).omit({ id: true, createdAt: true });
+export const insertDocumentOverrideSchema = createInsertSchema(documentOverrides).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
+export type Document = typeof documents.$inferSelect;
+export type InsertDocument = typeof documents.$inferInsert;
+export type DocumentVersion = typeof documentVersions.$inferSelect;
+export type InsertDocumentVersion = typeof documentVersions.$inferInsert;

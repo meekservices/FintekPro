@@ -117,32 +117,55 @@ export const ibTradingSessions = pgTable("ib_trading_sessions", {
 });
 
 // Zod Schemas
-export const insertIBAccountSchema = createInsertSchema(ibAccounts).omit({
+export const insertIBAccountSchema = createInsertSchema(ibAccounts).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
-export const insertIBOrderSchema = createInsertSchema(ibOrders).omit({
+export const insertIBOrderSchema = createInsertSchema(ibOrders).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
-export const insertIBPositionSchema = createInsertSchema(ibPositions).omit({
+export const insertIBPositionSchema = createInsertSchema(ibPositions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  lastUpdated: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   lastUpdated: true,
 });
-export const insertIBAccountSummarySchema = createInsertSchema(ibAccountSummary).omit({
+export const insertIBAccountSummarySchema = createInsertSchema(ibAccountSummary).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  lastUpdated: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   lastUpdated: true,
 });
-export const insertIBMarketDataSubscriptionSchema = createInsertSchema(ibMarketDataSubscriptions).omit({
+export const insertIBMarketDataSubscriptionSchema = createInsertSchema(ibMarketDataSubscriptions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
-export const insertIBTradingSessionSchema = createInsertSchema(ibTradingSessions).omit({
+export const insertIBTradingSessionSchema = createInsertSchema(ibTradingSessions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });

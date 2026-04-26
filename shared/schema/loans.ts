@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, boolean, index, integer, jsonb, decimal, date, serial, real, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { Product } from '../schema';
+
 import { users } from './users';
 import { portfolios } from './portfolio';
 import { agents } from './agents';
@@ -290,7 +290,10 @@ export const loanComparisonAnalytics = pgTable("loan_comparison_analytics", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertLoanComparisonAnalyticsSchema = createInsertSchema(loanComparisonAnalytics).omit({
+export const insertLoanComparisonAnalyticsSchema = createInsertSchema(loanComparisonAnalytics).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -360,7 +363,11 @@ export const loanCommissionLedger = pgTable("loan_commission_ledger", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertLoanCommissionLedgerSchema = createInsertSchema(loanCommissionLedger).omit({
+export const insertLoanCommissionLedgerSchema = createInsertSchema(loanCommissionLedger).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -443,7 +450,11 @@ export const loanLeads = pgTable("loan_leads", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertLoanLeadsSchema = createInsertSchema(loanLeads).omit({
+export const insertLoanLeadsSchema = createInsertSchema(loanLeads).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -598,17 +609,312 @@ export const providerProductCommissions = pgTable("provider_product_commissions"
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertLenderStaffSchema = createInsertSchema(lenderStaff).omit({
+export const insertLenderStaffSchema = createInsertSchema(lenderStaff).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
 });
 export type LenderStaff = typeof lenderStaff.$inferSelect;
 export type InsertLenderStaff = z.infer<typeof insertLenderStaffSchema>;
 
-export const insertProviderProductCommissionsSchema = createInsertSchema(providerProductCommissions).omit({
+export const insertProviderProductCommissionsSchema = createInsertSchema(providerProductCommissions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 export type ProviderProductCommissions = typeof providerProductCommissions.$inferSelect;
 export type InsertProviderProductCommissions = z.infer<typeof insertProviderProductCommissionsSchema>;
+
+// Provider-specific products and pricing
+export const providerProducts = pgTable("provider_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").references(() => loanProviders.id).notNull(),
+  productId: varchar("product_id").references(() => loanProducts.id).notNull(),
+  providerProductName: varchar("provider_product_name"),
+  baseInterestRate: decimal("base_interest_rate", { precision: 5, scale: 2 }).notNull(),
+  minInterestRate: decimal("min_interest_rate", { precision: 5, scale: 2 }).notNull(),
+  maxInterestRate: decimal("max_interest_rate", { precision: 5, scale: 2 }).notNull(),
+  rateType: varchar("rate_type").default("floating"), // fixed, floating, hybrid
+  processingFeeType: varchar("processing_fee_type").default("percentage"), // percentage, fixed
+  processingFeeValue: decimal("processing_fee_value", { precision: 8, scale: 2 }).notNull(),
+  maxProcessingFee: decimal("max_processing_fee", { precision: 15, scale: 2 }),
+  prepaymentCharges: decimal("prepayment_charges", { precision: 5, scale: 2 }).default("0"),
+  latePaymentFee: decimal("late_payment_fee", { precision: 15, scale: 2 }),
+  minAmount: decimal("min_amount", { precision: 15, scale: 2 }),
+  maxAmount: decimal("max_amount", { precision: 15, scale: 2 }),
+  minTenure: integer("min_tenure"),
+  maxTenure: integer("max_tenure"),
+  eligibilityRules: jsonb("eligibility_rules").default({}),
+  pricingModel: jsonb("pricing_model").default({}),
+  documentsRequired: jsonb("documents_required").default([]),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Enhanced client credit information
+export const creditProfiles = pgTable("credit_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  cibilScore: integer("cibil_score"),
+  experianScore: integer("experian_score"),
+  equifaxScore: integer("equifax_score"),
+  highMarkScore: integer("high_mark_score"),
+  lastCreditPullDate: timestamp("last_credit_pull_date"),
+  monthlyIncome: decimal("monthly_income", { precision: 15, scale: 2 }),
+  annualIncome: decimal("annual_income", { precision: 15, scale: 2 }),
+  employmentType: varchar("employment_type"), // salaried, self_employed, business, professional
+  workExperience: integer("work_experience"), // years
+  companyType: varchar("company_type"), // government, private, psu, mnc, sme
+  existingEMIs: decimal("existing_emis", { precision: 15, scale: 2 }).default("0"),
+  existingCreditCards: integer("existing_credit_cards").default(0),
+  totalCreditLimit: decimal("total_credit_limit", { precision: 15, scale: 2 }).default("0"),
+  creditUtilization: decimal("credit_utilization", { precision: 5, scale: 2 }).default("0"),
+  netWorth: decimal("net_worth", { precision: 15, scale: 2 }),
+  currentAssets: decimal("current_assets", { precision: 15, scale: 2 }),
+  totalLiabilities: decimal("total_liabilities", { precision: 15, scale: 2 }),
+  propertyOwnership: boolean("property_ownership").default(false),
+  propertyValue: decimal("property_value", { precision: 15, scale: 2 }),
+  securitiesPortfolio: decimal("securities_portfolio", { precision: 15, scale: 2 }),
+  bankingHistory: integer("banking_history").default(0), // years with current bank
+  primaryBankName: varchar("primary_bank_name"),
+  averageMonthlyBalance: decimal("average_monthly_balance", { precision: 15, scale: 2 }),
+  totalLoansAvailed: integer("total_loans_availed").default(0),
+  loansClosedSuccessfully: integer("loans_closed_successfully").default(0),
+  anyDefaultHistory: boolean("any_default_history").default(false),
+  lastLoanDate: timestamp("last_loan_date"),
+  riskProfile: varchar("risk_profile").default("medium"), // low, medium, high
+  debtToIncomeRatio: decimal("debt_to_income_ratio", { precision: 5, scale: 2 }),
+  bureauRawData: jsonb("bureau_raw_data"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// API integration configurations for loan providers
+export const providerIntegrations = pgTable("provider_integrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").references(() => loanProviders.id).notNull(),
+  adapterKey: varchar("adapter_key").notNull(), // icici_api, hdfc_api, bajaj_rules, etc.
+  integrationName: varchar("integration_name").notNull(),
+  integrationType: varchar("integration_type").notNull(), // api, rules_engine, webhook
+  baseUrl: varchar("base_url"),
+  authenticationMethod: varchar("authentication_method"), // api_key, oauth2, certificate
+  authConfig: jsonb("auth_config"), // Store auth credentials securely
+  webhookUrl: varchar("webhook_url"),
+  webhookSecret: varchar("webhook_secret"),
+  webhookEvents: jsonb("webhook_events").default([]),
+  isEnabled: boolean("is_enabled").default(true),
+  lastHealthCheck: timestamp("last_health_check"),
+  healthStatus: varchar("health_status").default("unknown"), // healthy, warning, error, unknown
+  rateLimitPerMinute: integer("rate_limit_per_minute").default(60),
+  rateLimitPerDay: integer("rate_limit_per_day").default(1000),
+  configVersion: varchar("config_version").default("1.0"),
+  supportedFeatures: jsonb("supported_features").default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Document management for loan applications
+export const applicationDocuments = pgTable("application_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  applicationId: varchar("application_id").references(() => loanApplicationsMarketplace.id).notNull(),
+  documentType: varchar("document_type").notNull(), // pan_card, aadhar, salary_slip, bank_statement, etc.
+  documentName: varchar("document_name").notNull(),
+  documentCategory: varchar("document_category").notNull(), // identity, income, address, collateral
+  fileName: varchar("file_name").notNull(),
+  fileFormat: varchar("file_format").notNull(), // pdf, jpg, png
+  fileSize: integer("file_size"), // in bytes
+  objectStorageKey: varchar("object_storage_key"), // Reference to object storage
+  status: varchar("status").default("uploaded"), // uploaded, processing, verified, rejected
+  verificationStatus: varchar("verification_status").default("pending"), // pending, verified, rejected
+  verificationNotes: text("verification_notes"),
+  verifiedBy: varchar("verified_by"),
+  verifiedAt: timestamp("verified_at"),
+  providerDocumentId: varchar("provider_document_id"), // Provider's document reference
+  sentToProvider: boolean("sent_to_provider").default(false),
+  sentToProviderAt: timestamp("sent_to_provider_at"),
+  isRequired: boolean("is_required").default(true),
+  uploadedVia: varchar("uploaded_via").default("web"), // web, mobile, email, whatsapp
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ICICI Bank Specific Tables
+export const iciciBankLoanApplications = pgTable("icici_bank_loan_applications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  applicationId: varchar("application_id").unique(), // ICICI application ID
+  loanType: varchar("loan_type").notNull(), // personal/home/business/education/vehicle
+  status: varchar("status").default("submitted"), // submitted/under_review/approved/rejected/pending_documents
+  requestedAmount: decimal("requested_amount", { precision: 15, scale: 2 }).notNull(),
+  sanctionedAmount: decimal("sanctioned_amount", { precision: 15, scale: 2 }),
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
+  tenure: integer("tenure"), // in months
+  emi: decimal("emi", { precision: 15, scale: 2 }),
+  processingFee: decimal("processing_fee", { precision: 15, scale: 2 }),
+  applicantDetails: jsonb("applicant_details").notNull(),
+  addressDetails: jsonb("address_details").notNull(),
+  employmentDetails: jsonb("employment_details").notNull(),
+  bankingDetails: jsonb("banking_details").notNull(),
+  loanDetails: jsonb("loan_details").notNull(),
+  documents: jsonb("documents").default([]),
+  cibilConsent: boolean("cibil_consent").default(false),
+  termsAccepted: boolean("terms_accepted").default(false),
+  statusHistory: jsonb("status_history").default([]),
+  applicationDate: timestamp("application_date").defaultNow(),
+  expectedDecisionDate: timestamp("expected_decision_date"),
+  decisionDate: timestamp("decision_date"),
+  disbursementDate: timestamp("disbursement_date"),
+  nextSteps: jsonb("next_steps").default([]),
+  documentsRequired: jsonb("documents_required").default([]),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const iciciBankCreditScores = pgTable("icici_bank_credit_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  cibilScore: integer("cibil_score"),
+  scoreDate: timestamp("score_date"),
+  factors: jsonb("factors").default([]),
+  recommendations: jsonb("recommendations").default([]),
+  requestedAt: timestamp("requested_at").defaultNow(),
+  panNumber: varchar("pan_number"),
+  mobileNumber: varchar("mobile_number"),
+  status: varchar("status").default("pending"), // pending/completed/failed
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Pre-Approved Loan Offers
+export const preApprovedLoanOffers = pgTable("pre_approved_loan_offers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  lenderName: varchar("lender_name").notNull(),
+  lenderLogo: varchar("lender_logo"),
+  lenderType: varchar("lender_type").default("nbfc"),
+  productType: varchar("product_type").notNull(),
+  productName: varchar("product_name").notNull(),
+  offerAmount: decimal("offer_amount", { precision: 15, scale: 2 }).notNull(),
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }).notNull(),
+  processingFee: decimal("processing_fee", { precision: 15, scale: 2 }).default("0"),
+  processingFeePercentage: decimal("processing_fee_percentage", { precision: 5, scale: 2 }),
+  minTenureMonths: integer("min_tenure_months").notNull(),
+  maxTenureMonths: integer("max_tenure_months").notNull(),
+  defaultTenureMonths: integer("default_tenure_months").notNull(),
+  monthlyEmi: decimal("monthly_emi", { precision: 15, scale: 2 }).notNull(),
+  totalInterest: decimal("total_interest", { precision: 15, scale: 2 }),
+  totalRepayment: decimal("total_repayment", { precision: 15, scale: 2 }),
+  eligibilityStatus: varchar("eligibility_status").default("pre_approved"),
+  eligibilityCriteria: jsonb("eligibility_criteria"),
+  offerValidUntil: timestamp("offer_valid_until").notNull(),
+  offerCode: varchar("offer_code"),
+  features: jsonb("features"),
+  benefits: text("benefits"),
+  documentsRequired: jsonb("documents_required"),
+  applicationStatus: varchar("application_status").default("not_started"),
+  applicationId: varchar("application_id"),
+  appliedAt: timestamp("applied_at"),
+  approvedAt: timestamp("approved_at"),
+  disbursedAt: timestamp("disbursed_at"),
+  disbursedAmount: decimal("disbursed_amount", { precision: 15, scale: 2 }),
+  displayPriority: integer("display_priority").default(0),
+  isFeatured: boolean("is_featured").default(false),
+  isRecommended: boolean("is_recommended").default(false),
+  recommendationReason: text("recommendation_reason"),
+  partnerOfferId: varchar("partner_offer_id"),
+  partnerApiEndpoint: varchar("partner_api_endpoint"),
+  partnerApplicationUrl: varchar("partner_application_url"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  viewedAt: timestamp("viewed_at"),
+}, (table) => [
+  index("idx_pre_approved_loan_offers_user").on(table.userId),
+  index("idx_pre_approved_loan_offers_lender").on(table.lenderName),
+  index("idx_pre_approved_loan_offers_product_type").on(table.productType),
+  index("idx_pre_approved_loan_offers_eligibility").on(table.eligibilityStatus),
+  index("idx_pre_approved_loan_offers_application").on(table.applicationStatus),
+  index("idx_pre_approved_loan_offers_validity").on(table.offerValidUntil),
+]);
+
+// Credit Ratings history per ISIN
+export const creditRatings = pgTable("credit_ratings", {
+  id: serial("id").primaryKey(),
+  isin: varchar("isin", { length: 20 }).notNull(),
+  instrumentName: text("instrument_name"),
+  rating: varchar("rating", { length: 20 }).notNull(),
+  ratingOutlook: varchar("rating_outlook", { length: 30 }),
+  agency: varchar("agency", { length: 30 }).notNull(),
+  ratingDate: date("rating_date").notNull(),
+  previousRating: varchar("previous_rating", { length: 20 }),
+  ratingAction: varchar("rating_action", { length: 40 }),
+  isCurrent: boolean("is_current").default(true),
+  source: varchar("source", { length: 50 }).default("bonds_table"),
+  rawData: jsonb("raw_data"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_credit_ratings_isin").on(table.isin),
+  index("idx_credit_ratings_agency").on(table.agency),
+  index("idx_credit_ratings_date").on(table.ratingDate),
+  index("idx_credit_ratings_current").on(table.isCurrent),
+]);
+
+// Insert schemas
+export const insertLoanProductSchema = createInsertSchema(loanProducts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertLoanProviderSchema = createInsertSchema(loanProviders).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProviderProductSchema = createInsertSchema(providerProducts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCreditProfileSchema = createInsertSchema(creditProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertLoanRequestSchema = createInsertSchema(loanRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertLoanOfferSchema = createInsertSchema(loanOffers).omit({ id: true, createdAt: true });
+export const insertLoanApplicationMarketplaceSchema = createInsertSchema(loanApplicationsMarketplace).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProviderIntegrationSchema = createInsertSchema(providerIntegrations).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertApplicationDocumentSchema = createInsertSchema(applicationDocuments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertICICILoanApplicationSchema = createInsertSchema(iciciBankLoanApplications).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertICICICreditScoreSchema = createInsertSchema(iciciBankCreditScores).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPreApprovedLoanOfferSchema = createInsertSchema(preApprovedLoanOffers).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCreditRatingSchema = createInsertSchema(creditRatings).omit({ id: true, createdAt: true });
+
+// Export types
+export type LoanProduct = typeof loanProducts.$inferSelect;
+export type InsertLoanProduct = z.infer<typeof insertLoanProductSchema>;
+export type LoanProvider = typeof loanProviders.$inferSelect;
+export type InsertLoanProvider = z.infer<typeof insertLoanProviderSchema>;
+export type ProviderProduct = typeof providerProducts.$inferSelect;
+export type InsertProviderProduct = z.infer<typeof insertProviderProductSchema>;
+export type CreditProfile = typeof creditProfiles.$inferSelect;
+export type InsertCreditProfile = z.infer<typeof insertCreditProfileSchema>;
+export type LoanRequest = typeof loanRequests.$inferSelect;
+export type InsertLoanRequest = z.infer<typeof insertLoanRequestSchema>;
+export type LoanOffer = typeof loanOffers.$inferSelect;
+export type InsertLoanOffer = z.infer<typeof insertLoanOfferSchema>;
+export type LoanApplicationMarketplace = typeof loanApplicationsMarketplace.$inferSelect;
+export type InsertLoanApplicationMarketplace = z.infer<typeof insertLoanApplicationMarketplaceSchema>;
+export type ProviderIntegration = typeof providerIntegrations.$inferSelect;
+export type InsertProviderIntegration = z.infer<typeof insertProviderIntegrationSchema>;
+export type ApplicationDocument = typeof applicationDocuments.$inferSelect;
+export type InsertApplicationDocument = z.infer<typeof insertApplicationDocumentSchema>;
+export type ICICILoanApplication = typeof iciciBankLoanApplications.$inferSelect;
+export type InsertICICILoanApplication = z.infer<typeof insertICICILoanApplicationSchema>;
+export type ICICICreditScore = typeof iciciBankCreditScores.$inferSelect;
+export type InsertICICICreditScore = z.infer<typeof insertICICICreditScoreSchema>;
+export type PreApprovedLoanOffer = typeof preApprovedLoanOffers.$inferSelect;
+export type InsertPreApprovedLoanOffer = z.infer<typeof insertPreApprovedLoanOfferSchema>;
+export type CreditRating = typeof creditRatings.$inferSelect;
+export type InsertCreditRating = typeof creditRatings.$inferInsert;
+export type LoanComparison = typeof loanComparisons.$inferSelect;
+

@@ -29,9 +29,9 @@ export function ComingSoonCategory({
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [formData, setFormData] = useState({
-    name: user?.fullName || "",
+    name: user ? [user.firstName, user.lastName].filter(Boolean).join(" ") : "",
     email: user?.email || "",
-    phone: user?.phone || "",
+    phone: user?.mobile || "",
     message: "",
   });
 

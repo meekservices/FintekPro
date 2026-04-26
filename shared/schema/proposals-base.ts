@@ -127,12 +127,19 @@ export const investmentProposalItems = pgTable("investment_proposal_items", {
 });
 
 // Types and Schemas
-export const insertInvestmentProposalSchema = createInsertSchema(investmentProposals).omit({
+export const insertInvestmentProposalSchema = createInsertSchema(investmentProposals).extend({
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertInvestmentProposalItemSchema = createInsertSchema(investmentProposalItems).omit({
+export const insertInvestmentProposalItemSchema = createInsertSchema(investmentProposalItems).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -159,7 +166,7 @@ export const InstrumentAssetClassEnum = pgEnum('instrument_asset_class', [
   'real_estate',
   'other'
 ]);
-export type InstrumentAssetClass = z.infer<typeof InstrumentAssetClassEnum>;
+export type InstrumentAssetClass = (typeof InstrumentAssetClassEnum.enumValues)[number];
 
 export const instrumentMaster = pgTable("instrument_master", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -201,7 +208,11 @@ export const instrumentMaster = pgTable("instrument_master", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertInstrumentMasterSchema = createInsertSchema(instrumentMaster).omit({
+export const insertInstrumentMasterSchema = createInsertSchema(instrumentMaster).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
