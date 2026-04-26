@@ -106,4 +106,10 @@ cloudrun-env.yaml
 # Scratch artifacts
 scratch/*.js
 scratch/*.cjs
+scratch/*.ts
+scratch/*.txt
 .env.local
+
+# TSC diagnostic dumps
+tsc_errors*.txt
+tsc_*_errors*.txt

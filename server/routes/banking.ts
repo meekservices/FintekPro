@@ -153,12 +153,12 @@ export function registerBankingRoutes(app: Express) {
         });
       }
 
-      const result = await iciciBankAPI.generateStatement({
+      const result = await iciciBankAPI.getAccountStatement(
         accountNumber, 
         fromDate, 
         toDate, 
-        format: format || 'PDF'
-      });
+        (format?.toLowerCase() as 'pdf' | 'excel') || 'pdf'
+      );
       res.json(result);
     } catch (error) {
       console.error("Error generating account statement:", error);
@@ -241,7 +241,8 @@ export function registerBankingRoutes(app: Express) {
         'ifscCode', 
         'amount', 
         'beneficiaryName', 
-        'purpose'
+        'purpose',
+        'paymentMode'
       ];
       
       for (const field of requiredFields) {
@@ -253,7 +254,17 @@ export function registerBankingRoutes(app: Express) {
         }
       }
 
-      const result = await hdfcBankAPI.initiateTransfer(paymentRequest);
+      const result = await hdfcBankAPI.initiatePayment({
+        debitAccountNumber: paymentRequest.sourceAccount,
+        creditAccountNumber: paymentRequest.destinationAccount,
+        creditIFSC: paymentRequest.ifscCode,
+        amount: paymentRequest.amount,
+        currency: paymentRequest.currency || 'INR',
+        purpose: paymentRequest.purpose,
+        remarks: paymentRequest.remarks,
+        beneficiaryName: paymentRequest.beneficiaryName,
+        paymentMode: paymentRequest.paymentMode || 'IMPS'
+      });
       res.json(result);
     } catch (error) {
       console.error("Error initiating HDFC transfer:", error);
@@ -275,7 +286,7 @@ export function registerBankingRoutes(app: Express) {
         });
       }
 
-      const result = await hdfcBankAPI.checkPaymentStatus(referenceNumber);
+      const result = await hdfcBankAPI.getPaymentStatus(referenceNumber);
       res.json(result);
     } catch (error) {
       console.error("Error fetching HDFC payment status:", error);

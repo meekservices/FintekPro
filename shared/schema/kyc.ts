@@ -3790,3 +3790,377 @@ export const insertAadhaarConsentArtifactSchema = createInsertSchema(aadhaarCons
   id: z.any(),
   createdAt: z.any(),
 }).omit({ id: true, createdAt: true });
+
+// --- Tables extracted from shared/schema.ts ---
+
+// SEBI Registered Depository Participants Registry
+export const sebiDepositoryParticipants = pgTable("sebi_depository_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dpId: varchar("dp_id").unique().notNull(),
+  dpName: varchar("dp_name").notNull(),
+  sebiRegistrationNumber: varchar("sebi_registration_number").notNull(),
+  depository: varchar("depository").notNull(),
+  nsdlDpId: varchar("nsdl_dp_id").unique(),
+  cdslDpId: varchar("cdsl_dp_id").unique(),
+  isPrimaryNsdl: boolean("is_primary_nsdl").default(false),
+  isPrimaryCdsl: boolean("is_primary_cdsl").default(false),
+  registrationDate: timestamp("registration_date", { withTimezone: true }),
+  registrationValidUntil: timestamp("registration_valid_until", { withTimezone: true }),
+  registeredAddress: text("registered_address"),
+  city: varchar("city"),
+  state: varchar("state"),
+  pincode: varchar("pincode"),
+  contactEmail: varchar("contact_email"),
+  contactPhone: varchar("contact_phone"),
+  website: varchar("website"),
+  status: varchar("status").notNull().default("active"),
+  statusReason: text("status_reason"),
+  statusUpdatedAt: timestamp("status_updated_at", { withTimezone: true }),
+  lastSebiVerification: timestamp("last_sebi_verification", { withTimezone: true }),
+  complianceScore: integer("compliance_score"),
+  dataSource: varchar("data_source").notNull(),
+  externalId: varchar("external_id"),
+  syncHash: varchar("sync_hash"),
+  lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertSebiDepositoryParticipantSchema = createInsertSchema(sebiDepositoryParticipants).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSebiDepositoryParticipant = z.infer<typeof insertSebiDepositoryParticipantSchema>;
+export type SebiDepositoryParticipant = typeof sebiDepositoryParticipants.$inferSelect;
+
+export const otpVerifications = pgTable("otp_verifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  identifier: varchar("identifier").notNull(),
+  otp: varchar("otp", { length: 6 }).notNull(),
+  type: varchar("type").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  verified: boolean("verified").default(false),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOtpVerificationSchema = createInsertSchema(otpVerifications).omit({
+  id: true,
+  createdAt: true,
+});
+export type OtpVerification = typeof otpVerifications.$inferSelect;
+export type InsertOtpVerification = z.infer<typeof insertOtpVerificationSchema>;
+
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  identifier: varchar("identifier").notNull(),
+  token: varchar("token", { length: 6 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  isUsed: boolean("is_used").default(false),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({
+  id: true,
+  createdAt: true,
+});
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
+
+export const incomeStreams = pgTable("income_streams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  incomeType: varchar("income_type").notNull(),
+  sourceName: varchar("source_name").notNull(),
+  grossAmount: decimal("gross_amount", { precision: 15, scale: 2 }).notNull(),
+  netAmount: decimal("net_amount", { precision: 15, scale: 2 }).notNull(),
+  frequency: varchar("frequency").notNull().default("monthly"),
+  currency: varchar("currency").default("INR"),
+  isGuaranteed: boolean("is_guaranteed").default(true),
+  stabilityScore: integer("stability_score").default(100),
+  variabilityPercent: decimal("variability_percent", { precision: 5, scale: 2 }).default("0"),
+  isVerified: boolean("is_verified").default(false),
+  verificationMethod: varchar("verification_method"),
+  verificationDate: timestamp("verification_date"),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_income_streams_user").on(table.userId),
+  index("idx_income_streams_type").on(table.incomeType),
+]);
+
+export const insertIncomeStreamSchema = createInsertSchema(incomeStreams).omit({ id: true, createdAt: true, updatedAt: true });
+export type IncomeStream = typeof incomeStreams.$inferSelect;
+export type InsertIncomeStream = z.infer<typeof insertIncomeStreamSchema>;
+
+export const financialObligations = pgTable("financial_obligations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  obligationType: varchar("obligation_type").notNull(),
+  institutionName: varchar("institution_name"),
+  accountNumber: varchar("account_number"),
+  monthlyAmount: decimal("monthly_amount", { precision: 15, scale: 2 }).notNull(),
+  totalOutstanding: decimal("total_outstanding", { precision: 15, scale: 2 }),
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  remainingTenure: integer("remaining_tenure"),
+  priority: varchar("priority").notNull().default("essential"),
+  isFixed: boolean("is_fixed").default(true),
+  cibilReported: boolean("cibil_reported").default(false),
+  cibilAccountType: varchar("cibil_account_type"),
+  paymentHistory: varchar("payment_history"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_financial_obligations_user").on(table.userId),
+  index("idx_financial_obligations_type").on(table.obligationType),
+]);
+
+export const insertFinancialObligationSchema = createInsertSchema(financialObligations).omit({ id: true, createdAt: true, updatedAt: true });
+export type FinancialObligation = typeof financialObligations.$inferSelect;
+export type InsertFinancialObligation = z.infer<typeof insertFinancialObligationSchema>;
+
+export const emergencyFunds = pgTable("emergency_funds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  monthlyExpenses: decimal("monthly_expenses", { precision: 15, scale: 2 }).notNull(),
+  requiredEmergencyFund: decimal("required_emergency_fund", { precision: 15, scale: 2 }).notNull(),
+  currentEmergencyFund: decimal("current_emergency_fund", { precision: 15, scale: 2 }).default("0"),
+  emergencyFundCoverage: decimal("emergency_fund_coverage", { precision: 5, scale: 2 }).default("0"),
+  fundAllocation: jsonb("fund_allocation").$type<{
+    savings: number;
+    fd: number;
+    liquid_mf: number;
+    other: number;
+  }>(),
+  isAdequate: boolean("is_adequate").default(false),
+  shortfall: decimal("shortfall", { precision: 15, scale: 2 }).default("0"),
+  lastAssessedAt: timestamp("last_assessed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_emergency_funds_user").on(table.userId),
+]);
+
+export const insertEmergencyFundSchema = createInsertSchema(emergencyFunds).omit({ id: true, createdAt: true, updatedAt: true });
+export type EmergencyFund = typeof emergencyFunds.$inferSelect;
+export type InsertEmergencyFund = z.infer<typeof insertEmergencyFundSchema>;
+
+export const investableSurplus = pgTable("investable_surplus", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  calculationDate: timestamp("calculation_date").defaultNow(),
+  periodType: varchar("period_type").notNull().default("annual"), // monthly/quarterly/annual
+  totalGrossIncome: decimal("total_gross_income", { precision: 15, scale: 2 }).notNull(),
+  totalNetIncome: decimal("total_net_income", { precision: 15, scale: 2 }).notNull(),
+  incomeBreakdown: jsonb("income_breakdown").$type<{
+    salary: number;
+    business: number;
+    rental: number;
+    interest: number;
+    dividend: number;
+    other: number;
+  }>(),
+  totalObligations: decimal("total_obligations", { precision: 15, scale: 2 }).notNull(),
+  obligationsBreakdown: jsonb("obligations_breakdown").$type<{
+    loans: number;
+    insurance: number;
+    rent: number;
+    utilities: number;
+    other: number;
+  }>(),
+  emergencyBufferAmount: decimal("emergency_buffer_amount", { precision: 15, scale: 2 }).notNull(),
+  emergencyBufferStatus: varchar("emergency_buffer_status").notNull(), // adequate/partial/inadequate
+  annualInvestableSurplus: decimal("annual_investable_surplus", { precision: 15, scale: 2 }).notNull(),
+  monthlyInvestableSurplus: decimal("monthly_investable_surplus", { precision: 15, scale: 2 }).notNull(),
+  surplusStability: varchar("surplus_stability").default("stable"), // stable/moderate/volatile
+  confidenceScore: integer("confidence_score").default(80), // 0-100
+  surplusRecommendations: jsonb("surplus_recommendations").$type<{
+    immediate: string[];
+    shortTerm: string[];
+    longTerm: string[];
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_investable_surplus_user").on(table.userId),
+  index("idx_investable_surplus_date").on(table.calculationDate),
+]);
+
+export const insertInvestableSurplusSchema = createInsertSchema(investableSurplus).omit({ id: true, createdAt: true });
+export type InvestableSurplus = typeof investableSurplus.$inferSelect;
+export type InsertInvestableSurplus = z.infer<typeof insertInvestableSurplusSchema>;
+
+export const identityProfiles = pgTable("identity_profiles", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  identityTokenId: varchar("identity_token_id", { length: 100 }).unique().notNull(),
+  panNumber: varchar("pan_number", { length: 10 }),
+  panVerified: boolean("pan_verified").default(false),
+  panVerifiedAt: timestamp("pan_verified_at"),
+  panProvider: varchar("pan_provider", { length: 50 }),
+  aadhaarLastFour: varchar("aadhaar_last_four", { length: 4 }),
+  aadhaarVerified: boolean("aadhaar_verified").default(false),
+  aadhaarVerifiedAt: timestamp("aadhaar_verified_at"),
+  aadhaarProvider: varchar("aadhaar_provider", { length: 50 }),
+  ckycNumber: varchar("ckyc_number", { length: 20 }),
+  ckycVerified: boolean("ckyc_verified").default(false),
+  ckycVerifiedAt: timestamp("ckyc_verified_at"),
+  ckycProvider: varchar("ckyc_provider", { length: 50 }),
+  bankVerified: boolean("bank_verified").default(false),
+  bankVerifiedAt: timestamp("bank_verified_at"),
+  bankProvider: varchar("bank_provider", { length: 50 }),
+  addressVerified: boolean("address_verified").default(false),
+  addressVerifiedAt: timestamp("address_verified_at"),
+  addressProvider: varchar("address_provider", { length: 50 }),
+  fatcaDeclared: boolean("fatca_declared").default(false),
+  fatcaDeclaredAt: timestamp("fatca_declared_at"),
+  riskCategory: varchar("risk_category", { length: 20 }),
+  riskScore: integer("risk_score"),
+  riskAssessedAt: timestamp("risk_assessed_at"),
+  kycLevel: varchar("kyc_level", { length: 20 }).default("NONE"),
+  kycVersion: integer("kyc_version").default(1),
+  overallStatus: varchar("overall_status", { length: 20 }).default("PENDING"),
+  lastVerifiedAt: timestamp("last_verified_at"),
+  expiresAt: timestamp("expires_at"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertIdentityProfileSchema = createInsertSchema(identityProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export type IdentityProfile = typeof identityProfiles.$inferSelect;
+export type InsertIdentityProfile = z.infer<typeof insertIdentityProfileSchema>;
+
+export const conversionFunnels = pgTable("conversion_funnels", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id),
+  sessionId: varchar("session_id", { length: 100 }),
+  funnelType: varchar("funnel_type", { length: 50 }).notNull(),
+  productType: varchar("product_type", { length: 50 }),
+  currentStep: varchar("current_step", { length: 50 }).notNull(),
+  stepSequence: integer("step_sequence").notNull(),
+  enteredAt: timestamp("entered_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  droppedAt: timestamp("dropped_at"),
+  dropReason: varchar("drop_reason", { length: 200 }),
+  durationMs: integer("duration_ms"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertConversionFunnelSchema = createInsertSchema(conversionFunnels).omit({ id: true, createdAt: true });
+export type ConversionFunnel = typeof conversionFunnels.$inferSelect;
+export type InsertConversionFunnel = z.infer<typeof insertConversionFunnelSchema>;
+
+export const verificationCache = pgTable("verification_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  verificationType: varchar("verification_type", { length: 50 }).notNull(),
+  identifierHash: varchar("identifier_hash", { length: 64 }).notNull(),
+  identifierMasked: varchar("identifier_masked", { length: 50 }),
+  verified: boolean("verified").notNull(),
+  verificationStatus: varchar("verification_status", { length: 50 }),
+  registeredName: varchar("registered_name", { length: 500 }),
+  nameMatchScore: integer("name_match_score"),
+  additionalData: jsonb("additional_data").default({}),
+  provider: varchar("provider", { length: 50 }).notNull(),
+  providerReferenceId: varchar("provider_reference_id", { length: 100 }),
+  verifiedAt: timestamp("verified_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  requestedBy: varchar("requested_by").references(() => users.id),
+  requestContext: varchar("request_context", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_vc_type_hash").on(table.verificationType, table.identifierHash),
+  index("idx_vc_expires").on(table.expiresAt),
+  index("idx_vc_provider").on(table.provider),
+]);
+
+export const insertVerificationCacheSchema = createInsertSchema(verificationCache).omit({ id: true, createdAt: true });
+export type VerificationCache = typeof verificationCache.$inferSelect;
+export type InsertVerificationCache = typeof verificationCache.$inferInsert;
+
+export const insertConsentLogSchema = createInsertSchema(consentLogs).omit({ id: true, createdAt: true });
+export type ConsentLog = typeof consentLogs.$inferSelect;
+export type InsertConsentLog = z.infer<typeof insertConsentLogSchema>;
+
+
+export const onboardingInvitations = pgTable("onboarding_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  referralCode: varchar("referral_code").notNull().unique(),
+  inviterId: varchar("inviter_id").notNull(),
+  inviterType: varchar("inviter_type").notNull(), // 'agent' or 'partner'
+  inviterName: varchar("inviter_name"),
+  clientEmail: varchar("client_email"),
+  clientMobile: varchar("client_mobile"),
+  clientName: varchar("client_name"),
+  suggestedEntityType: varchar("suggested_entity_type"), // individual, company, huf, etc.
+  suggestedMode: varchar("suggested_mode"), // 'smart' or 'manual'
+  status: varchar("status").notNull().default("pending"), // pending, sent, opened, started, in_progress, completed, expired
+  currentStep: varchar("current_step"),
+  completedSteps: jsonb("completed_steps").$type<string[]>().default([]),
+  progressPercentage: integer("progress_percentage").default(0),
+  onboardingSessionId: varchar("onboarding_session_id"),
+  linkedUserId: varchar("linked_user_id").references(() => users.id),
+  inviteSentAt: timestamp("invite_sent_at"),
+  inviteOpenedAt: timestamp("invite_opened_at"),
+  onboardingStartedAt: timestamp("onboarding_started_at"),
+  onboardingCompletedAt: timestamp("onboarding_completed_at"),
+  lastActivityAt: timestamp("last_activity_at"),
+  expiresAt: timestamp("expires_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_onboarding_invitations_referral_code").on(table.referralCode),
+  index("idx_onboarding_invitations_inviter").on(table.inviterId, table.inviterType),
+  index("idx_onboarding_invitations_status").on(table.status),
+  index("idx_onboarding_invitations_client_email").on(table.clientEmail),
+]);
+
+export const onboardingInvitationEvents = pgTable("onboarding_invitation_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invitationId: varchar("invitation_id").references(() => onboardingInvitations.id).notNull(),
+  eventType: varchar("event_type").notNull(), // created, sent, resent, opened, started, step_completed, completed, expired
+  eventData: jsonb("event_data"),
+  actorId: varchar("actor_id"),
+  actorType: varchar("actor_type"), // system, agent, partner, client
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => [
+  index("idx_invitation_events_invitation").on(table.invitationId),
+  index("idx_invitation_events_type").on(table.eventType),
+]);
+
+export const insertOnboardingInvitationSchema = createInsertSchema(onboardingInvitations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type OnboardingInvitation = typeof onboardingInvitations.$inferSelect;
+export type InsertOnboardingInvitation = z.infer<typeof insertOnboardingInvitationSchema>;
+
+export const insertOnboardingInvitationEventSchema = createInsertSchema(onboardingInvitationEvents).omit({
+  id: true,
+  timestamp: true,
+});
+export type OnboardingInvitationEvent = typeof onboardingInvitationEvents.$inferSelect;
+export type InsertOnboardingInvitationEvent = z.infer<typeof insertOnboardingInvitationEventSchema>;
+
+
