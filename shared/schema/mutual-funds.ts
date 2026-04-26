@@ -251,7 +251,7 @@ export const mfContractNotes = pgTable("mf_contract_notes", {
 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { Portfolio, User } from '../schema';
+import type { Portfolio, User } from '../schema';
 
 
 export const insertMfFolioSchema = createInsertSchema(mfFolios).extend({
@@ -1034,3 +1034,300 @@ export const insertGoldenPriceSchema = createInsertSchema(goldenPrices).extend({
   createdAt: z.any(),
   updatedAt: z.any(),
 }).omit({ id: true, createdAt: true, updatedAt: true });
+
+// --- Mutual Fund Analytics and Comparisons ---
+
+export const schemeRenameLog = pgTable("scheme_rename_log", {
+  id: serial("id").primaryKey(),
+  isin: varchar("isin"),
+  schemeCode: text("scheme_code").notNull(),
+  oldName: text("old_name").notNull(),
+  newName: text("new_name").notNull(),
+  detectedAt: timestamp("detected_at").defaultNow(),
+  syncSource: varchar("sync_source").default("AMFI"),
+}, (table) => ({
+  isinIdx: index("idx_scheme_rename_log_isin").on(table.isin),
+  schemeCodeIdx: index("idx_scheme_rename_log_scheme_code").on(table.schemeCode),
+  detectedAtIdx: index("idx_scheme_rename_log_detected_at").on(table.detectedAt),
+}));
+
+export const insertSchemeRenameLogSchema = createInsertSchema(schemeRenameLog).omit({ id: true, detectedAt: true });
+export type SchemeRenameLog = typeof schemeRenameLog.$inferSelect;
+export type InsertSchemeRenameLog = z.infer<typeof insertSchemeRenameLogSchema>;
+
+export const schemeTransactionRules = pgTable("scheme_transaction_rules", {
+  id: serial("id").primaryKey(),
+  isin: varchar("isin"),
+  schemeCode: text("scheme_code").notNull(),
+  schemeName: text("scheme_name"),
+  lumpsumAllowed: boolean("lumpsum_allowed").default(true),
+  sipAllowed: boolean("sip_allowed").default(true),
+  minLumpsumAmount: decimal("min_lumpsum_amount", { precision: 15, scale: 2 }),
+  maxLumpsumAmount: decimal("max_lumpsum_amount", { precision: 15, scale: 2 }),
+  minSipAmount: decimal("min_sip_amount", { precision: 15, scale: 2 }),
+  subscriptionStatus: varchar("subscription_status").default("OPEN"),
+  restrictionReason: text("restriction_reason"),
+  alternativeIsin: varchar("alternative_isin"),
+  alternativeSchemeName: text("alternative_scheme_name"),
+  effectiveFrom: date("effective_from"),
+  lastCheckedAt: timestamp("last_checked_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  isinIdx: index("idx_scheme_txn_rules_isin").on(table.isin),
+  schemeCodeIdx: index("idx_scheme_txn_rules_scheme_code").on(table.schemeCode),
+  subscriptionStatusIdx: index("idx_scheme_txn_rules_status").on(table.subscriptionStatus),
+}));
+
+export const insertSchemeTransactionRuleSchema = createInsertSchema(schemeTransactionRules).omit({ id: true, lastCheckedAt: true, updatedAt: true });
+export type SchemeTransactionRule = typeof schemeTransactionRules.$inferSelect;
+export type InsertSchemeTransactionRule = z.infer<typeof insertSchemeTransactionRuleSchema>;
+
+export const fundComparisons = pgTable("fund_comparisons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  fundCodes: jsonb("fund_codes").notNull(),
+  comparisonType: varchar("comparison_type").default("detailed"),
+  timePeriod: varchar("time_period").default("1Y"),
+  results: jsonb("results"),
+  returns: jsonb("returns"),
+  riskMetrics: jsonb("risk_metrics"),
+  expenseAnalysis: jsonb("expense_analysis"),
+  performanceRanking: jsonb("performance_ranking"),
+  bestPerformer: varchar("best_performer"),
+  recommendation: text("recommendation"),
+  riskLevel: varchar("risk_level"),
+  requestedAt: timestamp("requested_at").defaultNow(),
+  status: varchar("status").default("completed"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const comparisonHistory = pgTable("comparison_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  prospectId: varchar("prospect_id"),
+  createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
+  comparisonType: varchar("comparison_type").notNull(),
+  comparisonId: varchar("comparison_id"),
+  itemsCompared: jsonb("items_compared"),
+  viewDuration: integer("view_duration"),
+  actionsPerformed: jsonb("actions_performed"),
+  savedComparison: boolean("saved_comparison").default(false),
+  sharedComparison: boolean("shared_comparison").default(false),
+  accessedAt: timestamp("accessed_at").defaultNow(),
+  lastViewedAt: timestamp("last_viewed_at"),
+  userAgent: varchar("user_agent"),
+  ipAddress: varchar("ip_address"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const fundFinancialRatios = pgTable("fund_financial_ratios", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schemeCode: varchar("scheme_code").notNull().unique(),
+  peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
+  pbRatio: decimal("pb_ratio", { precision: 10, scale: 2 }),
+  sharpeRatio: decimal("sharpe_ratio", { precision: 10, scale: 2 }),
+  alpha: decimal("alpha", { precision: 10, scale: 2 }),
+  beta: decimal("beta", { precision: 10, scale: 2 }),
+  standardDeviation: decimal("standard_deviation", { precision: 10, scale: 2 }),
+  sortinoRatio: decimal("sortino_ratio", { precision: 10, scale: 2 }),
+  portfolioTurnover: decimal("portfolio_turnover", { precision: 10, scale: 2 }),
+  avgMarketCap: decimal("avg_market_cap", { precision: 20, scale: 2 }),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_fund_ratios_scheme").on(table.schemeCode),
+]);
+
+export const stockFinancialRatios = pgTable("stock_financial_ratios", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol: varchar("symbol").notNull().unique(),
+  companyName: text("company_name"),
+  sector: varchar("sector"),
+  industry: varchar("industry"),
+  marketCap: varchar("market_cap_category"),
+  peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
+  pbRatio: decimal("pb_ratio", { precision: 10, scale: 2 }),
+  evToEbitda: decimal("ev_to_ebitda", { precision: 10, scale: 2 }),
+  priceToSales: decimal("price_to_sales", { precision: 10, scale: 2 }),
+  sectorAvgPE: decimal("sector_avg_pe", { precision: 10, scale: 2 }),
+  peVsSector: decimal("pe_vs_sector", { precision: 8, scale: 2 }),
+  roe: decimal("roe", { precision: 8, scale: 2 }),
+  roce: decimal("roce", { precision: 8, scale: 2 }),
+  netProfitMargin: decimal("net_profit_margin", { precision: 8, scale: 2 }),
+  operatingMargin: decimal("operating_margin", { precision: 8, scale: 2 }),
+  debtToEquity: decimal("debt_to_equity", { precision: 10, scale: 2 }),
+  currentRatio: decimal("current_ratio", { precision: 8, scale: 2 }),
+  quickRatio: decimal("quick_ratio", { precision: 8, scale: 2 }),
+  interestCoverage: decimal("interest_coverage", { precision: 10, scale: 2 }),
+  eps: decimal("eps", { precision: 15, scale: 2 }),
+  bookValue: decimal("book_value", { precision: 15, scale: 2 }),
+  dividendYield: decimal("dividend_yield", { precision: 8, scale: 4 }),
+  currentPrice: decimal("current_price", { precision: 15, scale: 2 }),
+  weekHigh52: decimal("week_high_52", { precision: 15, scale: 2 }),
+  weekLow52: decimal("week_low_52", { precision: 15, scale: 2 }),
+  returns1M: decimal("returns_1m", { precision: 8, scale: 4 }),
+  returns3M: decimal("returns_3m", { precision: 8, scale: 4 }),
+  returns1Y: decimal("returns_1y", { precision: 8, scale: 4 }),
+  returns3Y: decimal("returns_3y", { precision: 8, scale: 4 }),
+  beta: decimal("beta", { precision: 6, scale: 4 }),
+  volatility: decimal("volatility", { precision: 8, scale: 4 }),
+  aiSignal: varchar("ai_signal").default("hold"),
+  aiConfidence: decimal("ai_confidence", { precision: 5, scale: 2 }),
+  aiRationale: text("ai_rationale"),
+  targetPrice: decimal("target_price", { precision: 15, scale: 2 }),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_stock_ratios_symbol").on(table.symbol),
+  index("idx_stock_ratios_sector").on(table.sector),
+  index("idx_stock_ratios_ai_signal").on(table.aiSignal),
+]);
+
+export const recommendationPerformance = pgTable("recommendation_performance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assetType: varchar("asset_type").notNull(),
+  assetCode: varchar("asset_code").notNull(),
+  assetName: text("asset_name"),
+  recommendationType: varchar("recommendation_type").notNull(),
+  recommendationDate: timestamp("recommendation_date").notNull(),
+  recommendedPrice: decimal("recommended_price", { precision: 15, scale: 4 }),
+  targetPrice: decimal("target_price", { precision: 15, scale: 4 }),
+  aiConfidence: decimal("ai_confidence", { precision: 5, scale: 2 }),
+  aiRationale: text("ai_rationale"),
+  priceAfter1Week: decimal("price_after_1_week", { precision: 15, scale: 4 }),
+  priceAfter1Month: decimal("price_after_1_month", { precision: 15, scale: 4 }),
+  priceAfter3Months: decimal("price_after_3_months", { precision: 15, scale: 4 }),
+  priceAfter6Months: decimal("price_after_6_months", { precision: 15, scale: 4 }),
+  priceAfter1Year: decimal("price_after_1_year", { precision: 15, scale: 4 }),
+  return1Week: decimal("return_1_week", { precision: 8, scale: 4 }),
+  return1Month: decimal("return_1_month", { precision: 8, scale: 4 }),
+  return3Months: decimal("return_3_months", { precision: 8, scale: 4 }),
+  return6Months: decimal("return_6_months", { precision: 8, scale: 4 }),
+  return1Year: decimal("return_1_year", { precision: 8, scale: 4 }),
+  benchmarkReturn1Month: decimal("benchmark_return_1_month", { precision: 8, scale: 4 }),
+  benchmarkReturn3Months: decimal("benchmark_return_3_months", { precision: 8, scale: 4 }),
+  alphaGenerated: decimal("alpha_generated", { precision: 8, scale: 4 }),
+  hitTarget: boolean("hit_target"),
+  isSuccess: boolean("is_success"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_rec_perf_asset_type").on(table.assetType),
+  index("idx_rec_perf_date").on(table.recommendationDate),
+]);
+
+export const productFundamentalsCache = pgTable("product_fundamentals_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productType: varchar("product_type", { length: 50 }).notNull(),
+  productId: varchar("product_id", { length: 100 }).notNull(),
+  productName: varchar("product_name", { length: 255 }),
+  marketCap: numeric("market_cap", { precision: 18, scale: 2 }),
+  peRatio: numeric("pe_ratio", { precision: 10, scale: 2 }),
+  pbRatio: numeric("pb_ratio", { precision: 10, scale: 2 }),
+  eps: numeric("eps", { precision: 12, scale: 4 }),
+  dividendYield: numeric("dividend_yield", { precision: 8, scale: 4 }),
+  roe: numeric("roe", { precision: 8, scale: 4 }),
+  roce: numeric("roce", { precision: 8, scale: 4 }),
+  debtToEquity: numeric("debt_to_equity", { precision: 10, scale: 4 }),
+  revenueGrowth3Y: numeric("revenue_growth_3y", { precision: 8, scale: 4 }),
+  profitGrowth3Y: numeric("profit_growth_3y", { precision: 8, scale: 4 }),
+  expenseRatio: numeric("expense_ratio", { precision: 6, scale: 4 }),
+  exitLoad: numeric("exit_load", { precision: 6, scale: 4 }),
+  alpha: numeric("alpha", { precision: 8, scale: 4 }),
+  beta: numeric("beta", { precision: 8, scale: 4 }),
+  sharpeRatio: numeric("sharpe_ratio", { precision: 8, scale: 4 }),
+  sortinoRatio: numeric("sortino_ratio", { precision: 8, scale: 4 }),
+  standardDeviation: numeric("standard_deviation", { precision: 8, scale: 4 }),
+  maxDrawdown: numeric("max_drawdown", { precision: 8, scale: 4 }),
+  creditRating: varchar("credit_rating", { length: 20 }),
+  creditRatingAgency: varchar("credit_rating_agency", { length: 50 }),
+  maturityDate: date("maturity_date"),
+  faceValue: numeric("face_value", { precision: 12, scale: 2 }),
+  riskScore: integer("risk_score"),
+  volatilityScore: integer("volatility_score"),
+  liquidityScore: integer("liquidity_score"),
+  fintekproRating: numeric("fintekpro_rating", { precision: 4, scale: 2 }),
+  morningstarRating: integer("morningstar_rating"),
+  valueResearchRating: integer("value_research_rating"),
+  sector: varchar("sector", { length: 100 }),
+  industry: varchar("industry", { length: 100 }),
+  category: varchar("category", { length: 100 }),
+  subcategory: varchar("subcategory", { length: 100 }),
+  flowDirection: varchar("flow_direction", { length: 20 }).default("inbound").notNull(),
+  regulatoryFramework: varchar("regulatory_framework", { length: 100 }),
+  investorType: varchar("investor_type", { length: 100 }),
+  lrsApplicable: boolean("lrs_applicable").default(false).notNull(),
+  lrsCategory: varchar("lrs_category", { length: 100 }),
+  fundManagerId: varchar("fund_manager_id"),
+  fundManagerName: varchar("fund_manager_name", { length: 255 }),
+  dataSource: varchar("data_source", { length: 50 }),
+  cachedAt: timestamp("cached_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  ttlHours: integer("ttl_hours").default(24),
+  rawData: jsonb("raw_data"),
+}, (table) => [
+  index("idx_pfc_product_type").on(table.productType),
+  index("idx_pfc_product_id").on(table.productId),
+  index("idx_pfc_expires").on(table.expiresAt),
+  uniqueIndex("idx_pfc_product_unique").on(table.productType, table.productId),
+  index("idx_pfc_sector").on(table.sector),
+]);
+
+export const amfiSchemeBenchmarks = pgTable("amfi_scheme_benchmarks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mfIsin: varchar("mf_isin", { length: 20 }).unique(),
+  schemeCode: varchar("scheme_code", { length: 20 }),
+  schemeName: text("scheme_name"),
+  schemeCategory: varchar("scheme_category", { length: 100 }),
+  rawBenchmark: text("raw_benchmark"),
+  normalizedBenchmark: varchar("normalized_benchmark", { length: 30 }),
+  normalizationStatus: varchar("normalization_status", { length: 20 }).default("pending"),
+  parsedAt: timestamp("parsed_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_amfi_scheme_benchmarks_isin").on(table.mfIsin),
+  index("idx_amfi_scheme_benchmarks_code").on(table.schemeCode),
+  index("idx_amfi_scheme_benchmarks_normalized").on(table.normalizedBenchmark),
+]);
+
+// Insert schemas and types
+export const insertFundComparisonSchema = createInsertSchema(fundComparisons).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertComparisonHistorySchema = createInsertSchema(comparisonHistory).omit({ id: true, createdAt: true });
+export const insertFundFinancialRatiosSchema = createInsertSchema(fundFinancialRatios).omit({ id: true, createdAt: true, lastUpdated: true });
+export const insertStockFinancialRatiosSchema = createInsertSchema(stockFinancialRatios).omit({ id: true, createdAt: true, lastUpdated: true });
+export const insertRecommendationPerformanceSchema = createInsertSchema(recommendationPerformance).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProductFundamentalsCacheSchema = createInsertSchema(productFundamentalsCache).omit({ id: true, cachedAt: true });
+export const insertAmfiSchemeBenchmarkSchema = createInsertSchema(amfiSchemeBenchmarks).omit({ id: true, parsedAt: true, updatedAt: true });
+
+export type FundComparison = typeof fundComparisons.$inferSelect;
+export type ComparisonHistory = typeof comparisonHistory.$inferSelect;
+export type FundFinancialRatios = typeof fundFinancialRatios.$inferSelect;
+export type StockFinancialRatios = typeof stockFinancialRatios.$inferSelect;
+export type RecommendationPerformance = typeof recommendationPerformance.$inferSelect;
+export type ProductFundamentalsCache = typeof productFundamentalsCache.$inferSelect;
+export type AmfiSchemeBenchmark = typeof amfiSchemeBenchmarks.$inferSelect;
+
+export type InsertFundComparison = z.infer<typeof insertFundComparisonSchema>;
+export type InsertComparisonHistory = z.infer<typeof insertComparisonHistorySchema>;
+export type InsertFundFinancialRatios = z.infer<typeof insertFundFinancialRatiosSchema>;
+export type InsertStockFinancialRatios = z.infer<typeof insertStockFinancialRatiosSchema>;
+export type InsertRecommendationPerformance = z.infer<typeof insertRecommendationPerformanceSchema>;
+export type InsertProductFundamentalsCache = z.infer<typeof insertProductFundamentalsCacheSchema>;
+export type InsertAmfiSchemeBenchmark = z.infer<typeof insertAmfiSchemeBenchmarkSchema>;
+
+export const insertMutualFundAmcSchema = createInsertSchema(mutualFundAmcs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type MutualFundAmc = typeof mutualFundAmcs.$inferSelect;
+export type InsertMutualFundAmc = z.infer<typeof insertMutualFundAmcSchema>;
+
+export const insertMutualFundSchema = createInsertSchema(mutualFunds).omit({
+  id: true,
+  lastUpdated: true,
+});
+export type MutualFund = typeof mutualFunds.$inferSelect;
+export type InsertMutualFund = z.infer<typeof insertMutualFundSchema>;
