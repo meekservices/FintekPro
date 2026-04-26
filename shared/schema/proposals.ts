@@ -7,7 +7,7 @@ import { investmentProposals, investmentProposalItems, instrumentMaster } from '
 import { portfolios, assetAllocation } from './portfolio';
 import { agents as Agent } from './agents';
 import { documents as Document } from './documents';
-import { onboardingInvitations } from './users';
+import { onboardingInvitations } from './kyc';
 
 // --- Core Prospect & E-Sign Tables ---
 

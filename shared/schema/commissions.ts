@@ -15,7 +15,7 @@ import {
 import { users } from './users';
 import { loanApplications, loanLeads, loanCommissionLedger } from './loans';
 import { partners } from './partners';
-import { agents } from './agents';
+import { agents, customerCareAgents } from './agents';
 
 // Referral Payout Transactions - Track individual payouts
 export const referralPayoutTransactions = pgTable("referral_payout_transactions", {
@@ -400,6 +400,88 @@ export const masterDsaPayments = pgTable("master_dsa_payments", {
   index("idx_master_dsa_payments_claim").on(table.dsaClaimId),
 ]);
 
+// AMFI Verification Log - Track all AMFI API calls for audit
+export const amfiVerificationLog = pgTable("amfi_verification_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => customerCareAgents.id),
+  // Verification Details
+  verificationType: varchar("verification_type").notNull(),
+  // arn_verification, euin_verification, distributor_details
+  arnCode: varchar("arn_code"),
+  euinNumber: varchar("euin_number"),
+  // API Response
+  apiRequest: jsonb("api_request"),
+  // Request payload
+  apiResponse: jsonb("api_response"),
+  // Response from AMFI
+  verificationStatus: varchar("verification_status").notNull(),
+  // success, failed, error
+  errorMessage: text("error_message"),
+  // Extracted Data
+  distributorName: varchar("distributor_name"),
+  distributorStatus: varchar("distributor_status"),
+  // active, inactive, suspended
+  arnExpiryDate: timestamp("arn_expiry_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Progressive Commission Config - per-product payout configuration
+export const commissionConfig = pgTable("commission_config", {
+  configId: varchar("config_id").primaryKey().default(sql`gen_random_uuid()`),
+  productType: varchar("product_type").notNull(),
+  agentPct: decimal("agent_pct", { precision: 5, scale: 2 }).notNull().default("70.00"),
+  platformPct: decimal("platform_pct", { precision: 5, scale: 2 }).notNull().default("15.00"),
+  uplineIncentivePct: decimal("upline_incentive_pct", { precision: 5, scale: 2 }).notNull().default("5.00"),
+  minResidualThreshold: decimal("min_residual_threshold", { precision: 10, scale: 2 }).notNull().default("1.00"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+// Progressive Commission Ledger - role-based entries with level offset
+export const progressiveCommissionLedger = pgTable("progressive_commission_ledger", {
+  ledgerId: varchar("ledger_id").primaryKey().default(sql`gen_random_uuid()`),
+  transactionId: varchar("transaction_id").notNull(),
+  partnerId: varchar("partner_id"),
+  role: varchar("role").notNull(),
+  levelOffset: integer("level_offset"),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+// Commission Execution - idempotency guard
+export const commissionExecution = pgTable("commission_execution", {
+  transactionId: varchar("transaction_id").primaryKey(),
+  executedAt: timestamp("executed_at").defaultNow()
+});
+
+// Dispute Cases - commission dispute tracking
+export const disputeCases = pgTable("dispute_cases", {
+  disputeId: varchar("dispute_id").primaryKey().default(sql`gen_random_uuid()`),
+  transactionId: varchar("transaction_id").notNull(),
+  raisedByPartnerId: varchar("raised_by_partner_id").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("OPEN"),
+  reasonCode: varchar("reason_code", { length: 100 }).notNull(),
+  description: text("description"),
+  resolvedBy: varchar("resolved_by"),
+  resolutionNotes: text("resolution_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// Reversal Ledger - mirror entries for reversed commissions (never deletions)
+export const reversalLedger = pgTable("reversal_ledger", {
+  reversalId: varchar("reversal_id").primaryKey().default(sql`gen_random_uuid()`),
+  originalLedgerId: varchar("original_ledger_id").notNull(),
+  transactionId: varchar("transaction_id").notNull(),
+  partnerId: varchar("partner_id"),
+  reversalAmount: decimal("reversal_amount", { precision: 12, scale: 2 }).notNull(),
+  reversalType: varchar("reversal_type", { length: 30 }).notNull().default("FULL"),
+  walletDebited: boolean("wallet_debited").default(false),
+  negativeCarryForward: decimal("negative_carry_forward", { precision: 12, scale: 2 }).default("0.00"),
+  disputeId: varchar("dispute_id"),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
 // Schemas
 export const insertReferralPayoutConfigSchema = createInsertSchema(referralPayoutConfig).omit({
   id: true,
@@ -487,6 +569,36 @@ export const insertMasterDsaPaymentSchema = createInsertSchema(masterDsaPayments
   paymentId: true, createdAt: true,
 });
 
+export const insertCommissionConfigSchema = createInsertSchema(commissionConfig).omit({
+  configId: true,
+  createdAt: true
+});
+
+export const insertProgressiveCommissionLedgerSchema = createInsertSchema(progressiveCommissionLedger).omit({
+  ledgerId: true,
+  createdAt: true
+});
+
+export const insertCommissionExecutionSchema = createInsertSchema(commissionExecution).omit({
+  executedAt: true
+});
+
+export const insertDisputeCaseSchema = createInsertSchema(disputeCases).omit({
+  disputeId: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertReversalLedgerSchema = createInsertSchema(reversalLedger).omit({
+  reversalId: true,
+  createdAt: true
+});
+
+export const insertAmfiVerificationLogSchema = createInsertSchema(amfiVerificationLog).omit({
+  id: true,
+  createdAt: true
+});
+
 // Types
 export type ReferralPayoutConfig = typeof referralPayoutConfig.$inferSelect;
 export type InsertReferralPayoutConfig = z.infer<typeof insertReferralPayoutConfigSchema>;
@@ -520,3 +632,11 @@ export type MasterDsaAttachment = typeof masterDsaAttachments.$inferSelect;
 export type InsertMasterDsaAttachment = z.infer<typeof insertMasterDsaAttachmentSchema>;
 export type MasterDsaPayment = typeof masterDsaPayments.$inferSelect;
 export type InsertMasterDsaPayment = z.infer<typeof insertMasterDsaPaymentSchema>;
+
+// Recovered types
+export type AmfiVerificationLog = typeof amfiVerificationLog.$inferSelect;
+export type CommissionConfig = typeof commissionConfig.$inferSelect;
+export type ProgressiveCommissionLedger = typeof progressiveCommissionLedger.$inferSelect;
+export type CommissionExecution = typeof commissionExecution.$inferSelect;
+export type DisputeCase = typeof disputeCases.$inferSelect;
+export type ReversalLedger = typeof reversalLedger.$inferSelect;
