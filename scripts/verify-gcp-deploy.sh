@@ -81,11 +81,30 @@ echo "════════════════════════�
 PASS=0
 FAIL=0
 
-check_endpoint "Node.js App — /health"   "${NODE_URL}/health"   200 && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
-check_endpoint "Python Service — /health" "${PYTHON_URL}/health" 200 && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+check_endpoint "Node.js App — /health"    "${NODE_URL}/health"    200 && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+check_endpoint "Python Service — /health" "${PYTHON_URL}/health"  200 && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
 
-# Optional: test a lightweight API route on the Node.js app
-check_endpoint "Node.js App — /api/status" "${NODE_URL}/api/status" 200 && PASS=$((PASS+1)) || FAIL=$((FAIL+1)) || true
+# /api/health returns JSON with boot state — this is the real status endpoint
+check_endpoint "Node.js App — /api/health (boot check)" "${NODE_URL}/api/health" 200 && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+
+# Verify boot is actually complete (status should be "ready", not "booting")
+echo ""
+echo "──────────────────────────────────────────"
+echo "🔍  Checking boot completion status..."
+HEALTH_BODY=$(curl -s --max-time 10 "${NODE_URL}/api/health" 2>/dev/null || echo '{}')
+BOOT_STATUS=$(echo "$HEALTH_BODY" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+if [[ "$BOOT_STATUS" == "ready" ]]; then
+  echo "✅  Boot complete — all routes registered and ready"
+  PASS=$((PASS+1))
+elif [[ "$BOOT_STATUS" == "booting" ]]; then
+  MILESTONE=$(echo "$HEALTH_BODY" | grep -o '"milestone":"[^"]*"' | cut -d'"' -f4)
+  echo "⚠️  Still booting: $MILESTONE"
+  echo "    The app needs ~15 minutes to register all routes on a cold start."
+  echo "    Re-run this script once boot completes."
+else
+  echo "❌  Unexpected boot status: '$BOOT_STATUS'"
+  FAIL=$((FAIL+1))
+fi
 
 echo ""
 echo "═══════════════════════════════════════════"
