@@ -18,8 +18,31 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-ENV NODE_ENV=production
-ENV PORT=8080
+# ─── Chromium for WhatsApp (whatsapp-web.js / Puppeteer) ───────────────────────
+# Alpine's Chromium package pulls in all required shared libraries
+# (NSS, ATK, libX11, cairo, pango, etc.) in one step.
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    font-noto-emoji \
+    dbus \
+    udev \
+    # Audio/video stubs required by Chromium sandbox
+    alsa-lib \
+    # Extra required .so files
+    libstdc++ \
+    libgcc
+
+# Tell Puppeteer / whatsapp-web.js to skip downloading its own Chromium
+# and point it at the system-installed binary instead
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    NODE_ENV=production \
+    PORT=8080
 
 # Layer cache production dependencies
 COPY package*.json ./
