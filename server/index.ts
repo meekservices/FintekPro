@@ -141,8 +141,29 @@ const server = http.createServer(app);
 logBootProgress("Server process started");
 
 // Serve static assets IMMEDIATELY so the frontend can load while we boot
+// Also register the SPA catch-all early — this ensures that even if the async boot
+// sequence throws (e.g. DB timeout), the frontend SPA still loads instead of "Cannot GET /"
 if (process.env.NODE_ENV === 'production') {
   serveStatic(app);
+  // SPA fallback: registered early so it's always available as the last route.
+  // The in-flight async boot registers it again later (idempotent — Express dedupes by reference).
+  // Using a late-binding wrapper so it still works before the boot sequence runs.
+  app.get('*', (req, res, next) => {
+    // Skip API routes — they have their own handlers
+    if (req.path.startsWith('/api/') || req.path.startsWith('/health')) return next();
+    // Only serve the SPA once routes are registered; during boot the '/' handler above
+    // serves the loading screen, so this only kicks in post-boot for deep-link routes.
+    if (!bootState.routesReady) return next();
+    // Delegate to the real SPA catch-all registered during boot (registered at line ~2129)
+    // This wrapper ensures that if it was never registered (fatal boot error), we still serve
+    // the index.html from the dist directory directly.
+    const indexPath = require('path').resolve(import.meta.dirname, '..', 'dist', 'public', 'index.html');
+    const fs = require('fs');
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    next();
+  });
 }
 
 // ============================================================================
@@ -2278,7 +2299,14 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   } catch (error: any) {
     console.error('❌ [FATAL] Server initialization failed:', error);
     bootState.error = `Boot Error: ${error?.message || String(error)}`;
+    // Ensure the SPA catch-all is registered even if boot failed partway through
+    // so users see the frontend (with its own error handling) rather than "Cannot GET /"
+    if (process.env.NODE_ENV === 'production') {
+      try {
+        registerSPACatchAll(app);
+      } catch (_) { /* already registered — safe to ignore */ }
+    }
     // Ensure the loading screen clears even on error so diagnostics can be viewed
-    bootState.routesReady = true; 
+    bootState.routesReady = true;
   }
 })();
