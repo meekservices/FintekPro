@@ -167,15 +167,7 @@ export async function runProductionBootstrap(): Promise<BootstrapResult[]> {
   results.push(await seedQuantGovernancePolicies());
   results.push(await triggerMLTraining());
 
-  // Restore Marketplace and Assignments
-  const { seedMarketplace } = await import('./seed-marketplace');
-  const { fixAssignments } = await import('./fix-user-assignments');
-  const { seedHoldings } = await import('./seed-holdings');
-  
-  console.log('[ProductionBootstrap] Restoring marketplace, assignments and holdings...');
-  await seedMarketplace();
-  await fixAssignments();
-  await seedHoldings();
+  console.log('[ProductionBootstrap] Skipping marketplace, assignments and holdings restoration (files not present)...');
 
   const summary = results.map(r => `${r.category}: ${r.seeded} new (${r.total} total)`).join(', ');
   console.log(`[ProductionBootstrap] Complete: ${summary}`);
