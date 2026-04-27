@@ -157,8 +157,7 @@ if (process.env.NODE_ENV === 'production') {
     // Delegate to the real SPA catch-all registered during boot (registered at line ~2129)
     // This wrapper ensures that if it was never registered (fatal boot error), we still serve
     // the index.html from the dist directory directly.
-    const indexPath = require('path').resolve(import.meta.dirname, '..', 'dist', 'public', 'index.html');
-    const fs = require('fs');
+    const indexPath = path.resolve(import.meta.dirname, '..', 'dist', 'public', 'index.html');
     if (fs.existsSync(indexPath)) {
       return res.sendFile(indexPath);
     }
