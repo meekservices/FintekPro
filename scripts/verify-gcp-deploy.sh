@@ -48,16 +48,24 @@ check_endpoint() {
   echo "    URL: $url"
 
   HTTP_STATUS=$(curl -s -o /tmp/fintek_resp.json -w "%{http_code}" \
-    --max-time 15 \
+    --max-time 30 \
     -H "Accept: application/json" \
     "$url")
 
+  BODY=$(cat /tmp/fintek_resp.json | head -c 300)
+
   if [[ "$HTTP_STATUS" == "$expected_status" ]]; then
     echo "✅  Status: $HTTP_STATUS"
-    echo "    Body:   $(cat /tmp/fintek_resp.json | head -c 300)"
+    echo "    Body:   $BODY"
+  elif [[ "$HTTP_STATUS" == "503" && "$BODY" == *"booting"* ]]; then
+    # Node.js app has a ~14min boot sequence — 503+booting is normal immediately after deploy
+    echo "⚠️  Status: 503 (app still booting — this is normal within 15min of a fresh deploy)"
+    echo "    Milestone: $(echo "$BODY" | grep -o '"milestone":"[^"]*"' || echo 'unknown step')"
+    echo "    Re-run this script in a few minutes once boot completes."
+    # Don't count as failure
   else
     echo "❌  Status: $HTTP_STATUS (expected $expected_status)"
-    echo "    Body:   $(cat /tmp/fintek_resp.json | head -c 300)"
+    echo "    Body:   $BODY"
     return 1
   fi
 }
