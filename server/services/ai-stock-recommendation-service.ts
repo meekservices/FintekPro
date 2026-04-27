@@ -263,7 +263,7 @@ class AIStockRecommendationService {
 
   private async enhanceWithLiveData(stocks: any[]): Promise<any[]> {
     try {
-      const yahooFinance = require('yahoo-finance2').default;
+      const yahooFinance = (await import('yahoo-finance2')).default;
       
       const enhancedStocks = await Promise.all(
         stocks.map(async (stock) => {

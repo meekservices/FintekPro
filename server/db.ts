@@ -26,13 +26,16 @@ export const isUsingProductionDb = true; // Always true now since we only use th
 // Force SSL for all non-local production URLs unless using Unix sockets
 const cloudSqlSocketPath = '/cloudsql/fintekpro:asia-south1:fintekpro-db';
 const isCloudSqlSocketAvailable = fs.existsSync(cloudSqlSocketPath);
-const needsSsl =
-  !isCloudSqlSocketAvailable && (
-    selectedDbUrl.includes('google.com') ||
-    isProduction ||
-    // Ensure all PRODUCTION_DATABASE_URL connections use SSL if not using a socket
-    !selectedDbUrl.includes('host=')
-  );
+
+// SSL is ONLY needed if:
+// 1. Not using a Unix socket
+// 2. Not connecting to localhost/127.0.0.1 (proxy)
+// 3. The URL actually supports/needs it (contains google.com or is a remote host)
+const needsSsl = 
+  !isCloudSqlSocketAvailable && 
+  !selectedDbUrl.includes('localhost') && 
+  !selectedDbUrl.includes('127.0.0.1') &&
+  !selectedDbUrl.includes('host=');
 
 const dbUrlSource = 'PRODUCTION_DATABASE_URL';
 
@@ -50,7 +53,10 @@ const POOL_CONFIG: any = {
   connectionTimeoutMillis: 15000,
   statement_timeout: isProduction ? 30000 : 60000,
   allowExitOnIdle: false,
-  ssl: needsSsl ? { rejectUnauthorized: false } : false,
+  ssl: needsSsl ? { 
+    rejectUnauthorized: false,
+    servername: new URL(selectedDbUrl).hostname 
+  } : false,
 };
 
 // If Cloud SQL Unix socket is available, leverage it for maximum performance and security
