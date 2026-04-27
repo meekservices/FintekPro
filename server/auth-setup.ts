@@ -52,6 +52,7 @@ export function getSession() {
   
   // Set domain for session cookie to share across subdomains
   const cookieDomain = isProduction ? `.${customDomain}` : undefined;
+  console.log(`[Session] Initializing session with domain: ${cookieDomain || 'localhost'}`);
   
   const sessionMiddleware = session({
     name: 'fintekpro.sid',

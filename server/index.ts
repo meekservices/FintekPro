@@ -342,11 +342,14 @@ app.use(cors({
       return callback(null, true);
     }
     
-    // Allow Railway domains
-    const isRailwayOrigin = origin.endsWith('.railway.app') ||
-        origin.endsWith('.up.railway.app');
+    // Allow Railway and Firebase domains
+    const isAllowedProviderDomain = 
+        origin.endsWith('.railway.app') ||
+        origin.endsWith('.up.railway.app') ||
+        origin.endsWith('.web.app') ||
+        origin.endsWith('.firebaseapp.com');
 
-    if (isRailwayOrigin) {
+    if (isAllowedProviderDomain) {
       return callback(null, true);
     }
     
@@ -507,7 +510,11 @@ const createCsrfProtection = () => (req: Request, res: Response, next: NextFunct
       ? requestOrigin.endsWith('.railway.app') || requestOrigin.endsWith('.up.railway.app')
       : false;
 
-    if (requestOrigin && !isRailwayRequest && !allowedOrigins.some(allowed => requestOrigin.startsWith(allowed.replace(/\/$/, '')))) {
+    const isFirebaseRequest = requestOrigin
+      ? requestOrigin.endsWith('.web.app') || requestOrigin.endsWith('.firebaseapp.com')
+      : false;
+
+    if (requestOrigin && !isRailwayRequest && !isFirebaseRequest && !allowedOrigins.some(allowed => requestOrigin.startsWith(allowed.replace(/\/$/, '')))) {
       logger.warn(`[CSRF] Blocked request from: ${requestOrigin}`);
       return res.status(403).json({ error: 'Invalid request origin' });
     }
@@ -1609,482 +1616,408 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     console.warn('[Migration] UNIQUE index sequence skipped:', e?.message);
   }
 
-  // Boot-time: add missing columns to tables that exist in Railway DB but predate schema additions.
-  try {
-    const { db: colDb } = await import('./db');
-    const { sql: colSql } = await import('drizzle-orm');
+  // PHASE 2 MIGRATIONS (BACKGROUND)
+  // ============================================================================
+  // These migrations add missing columns and create utility tables. They are
+  // executed in the background via setImmediate to avoid blocking the main boot
+  // sequence and triggering Cloud Run timeouts.
+  setImmediate(async () => {
+    try {
+      const { db: migDb } = await import('./db');
+      const { sql: migSql } = await import('drizzle-orm');
 
-    // mca_financial_snapshot.data_completeness — queried by MCA refresh scheduler
-    await colDb.execute(colSql`
-      ALTER TABLE mca_financial_snapshot
-        ADD COLUMN IF NOT EXISTS data_completeness NUMERIC DEFAULT 0
-    `);
+      logBootProgress("Background: Starting Phase 2 Database Migrations...");
 
-    console.log('✅ [Migration] mca_financial_snapshot.data_completeness verified/added');
-  } catch (e: any) {
-    console.warn('[Migration] mca_financial_snapshot column skipped:', e?.message);
-  }
+      // 1. mca_financial_snapshot.data_completeness
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE mca_financial_snapshot
+            ADD COLUMN IF NOT EXISTS data_completeness NUMERIC DEFAULT 0
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] mca_financial_snapshot column skipped:', e?.message);
+      }
 
-  // Migrate capital_gains_tax_reminders: add prospect_id + created_by_agent_id if missing
-  try {
-    const { db: mainDb } = await import('./db');
-    const { sql: migSql } = await import('drizzle-orm');
-    await mainDb.execute(migSql`
-      ALTER TABLE capital_gains_tax_reminders
-        ADD COLUMN IF NOT EXISTS prospect_id VARCHAR,
-        ADD COLUMN IF NOT EXISTS created_by_agent_id VARCHAR REFERENCES users(id)
-    `);
-    console.log('✅ [Migration] capital_gains_tax_reminders columns verified/added');
-  } catch (e: any) {
-    console.error('[Migration] capital_gains_tax_reminders error:', e?.message);
-  }
+      // 2. capital_gains_tax_reminders
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE capital_gains_tax_reminders
+            ADD COLUMN IF NOT EXISTS prospect_id VARCHAR,
+            ADD COLUMN IF NOT EXISTS created_by_agent_id VARCHAR REFERENCES users(id)
+        `);
+      } catch (e: any) {
+        console.error('[Migration] capital_gains_tax_reminders error:', e?.message);
+      }
 
-  // Migrate agents + partners: add arn_expiry_date if missing (KYC Expiry Monitor depends on this)
-  try {
-    const { db: mainDb } = await import('./db');
-    const { sql: migSql } = await import('drizzle-orm');
-    await mainDb.execute(migSql`
-      ALTER TABLE agents ADD COLUMN IF NOT EXISTS arn_expiry_date TIMESTAMPTZ;
-      ALTER TABLE partners ADD COLUMN IF NOT EXISTS arn_expiry_date TIMESTAMPTZ
-    `);
-    console.log('✅ [Migration] agents/partners arn_expiry_date columns verified/added');
-  } catch (e: any) {
-    console.error('[Migration] agents/partners arn_expiry_date error:', e?.message);
-  }
+      // 3. agents + partners
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE agents ADD COLUMN IF NOT EXISTS arn_expiry_date TIMESTAMPTZ;
+          ALTER TABLE partners ADD COLUMN IF NOT EXISTS arn_expiry_date TIMESTAMPTZ
+        `);
+      } catch (e: any) {
+        console.error('[Migration] agents/partners arn_expiry_date error:', e?.message);
+      }
 
-  // Migrate prospect_id into tables that reference prospects/agents
-  try {
-    const { db: mainDb } = await import('./db');
-    const { sql: migSql } = await import('drizzle-orm');
-    await mainDb.execute(migSql`
-      ALTER TABLE tax_reminder_subscriptions ADD COLUMN IF NOT EXISTS prospect_id VARCHAR;
-      ALTER TABLE kyc_approvals              ADD COLUMN IF NOT EXISTS prospect_id VARCHAR;
-      ALTER TABLE mf_orders                  ADD COLUMN IF NOT EXISTS prospect_id VARCHAR;
-      ALTER TABLE prospect_proposals         ADD COLUMN IF NOT EXISTS prospect_id VARCHAR
-    `);
-    console.log('✅ [Migration] prospect_id columns verified/added (tax_reminders, kyc_approvals, mf_orders, prospect_proposals)');
-  } catch (e: any) {
-    console.error('[Migration] prospect_id columns error:', e?.message);
-  }
+      // 4. prospect_id in multiple tables
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE tax_reminder_subscriptions ADD COLUMN IF NOT EXISTS prospect_id VARCHAR;
+          ALTER TABLE kyc_approvals              ADD COLUMN IF NOT EXISTS prospect_id VARCHAR;
+          ALTER TABLE mf_orders                  ADD COLUMN IF NOT EXISTS prospect_id VARCHAR;
+          ALTER TABLE prospect_proposals         ADD COLUMN IF NOT EXISTS prospect_id VARCHAR
+        `);
+      } catch (e: any) {
+        console.error('[Migration] prospect_id columns error:', e?.message);
+      }
 
-  // Migrate created_by_agent_id into tables that link agent-created records
-  try {
-    const { db: mainDb } = await import('./db');
-    const { sql: migSql } = await import('drizzle-orm');
-    await mainDb.execute(migSql`
-      ALTER TABLE tax_reminder_subscriptions ADD COLUMN IF NOT EXISTS created_by_agent_id VARCHAR REFERENCES users(id);
-      ALTER TABLE capital_gains_tax_reminders ADD COLUMN IF NOT EXISTS created_by_agent_id VARCHAR REFERENCES users(id)
-    `);
-    console.log('✅ [Migration] created_by_agent_id columns verified/added (tax_reminder_subscriptions, capital_gains_tax_reminders)');
-  } catch (e: any) {
-    console.error('[Migration] created_by_agent_id columns error:', e?.message);
-  }
+      // 5. created_by_agent_id
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE tax_reminder_subscriptions ADD COLUMN IF NOT EXISTS created_by_agent_id VARCHAR REFERENCES users(id);
+          ALTER TABLE capital_gains_tax_reminders ADD COLUMN IF NOT EXISTS created_by_agent_id VARCHAR REFERENCES users(id)
+        `);
+      } catch (e: any) {
+        console.error('[Migration] created_by_agent_id columns error:', e?.message);
+      }
 
-  try {
-    const { db: mainDb } = await import('./db');
-    const { sql: migSql } = await import('drizzle-orm');
-    await mainDb.execute(migSql`
-      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
-      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS current_price NUMERIC(20,6);
-      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS market_cap_value NUMERIC(20,2);
-      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS market_cap_category VARCHAR(20);
-      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS country VARCHAR(10) DEFAULT 'IN';
-      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'INR';
-      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS data_source VARCHAR(50);
-      ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()
-    `);
-    console.log('✅ [Migration] screener_stocks columns verified/added');
-  } catch (e: any) {
-    console.error('[Migration] screener_stocks columns error:', e?.message);
-  }
+      // 6. screener_stocks
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+          ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS current_price NUMERIC(20,6);
+          ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS market_cap_value NUMERIC(20,2);
+          ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS market_cap_category VARCHAR(20);
+          ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS country VARCHAR(10) DEFAULT 'IN';
+          ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'INR';
+          ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS data_source VARCHAR(50);
+          ALTER TABLE screener_stocks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()
+        `);
+      } catch (e: any) {
+        console.error('[Migration] screener_stocks columns error:', e?.message);
+      }
 
-  // mutual_funds — add columns introduced after initial production deployment
-  try {
-    const { db } = await import('./db');
-    const { sql } = await import('drizzle-orm');
-    await db.execute(sql`
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS plan_type VARCHAR DEFAULT 'regular';
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT false;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS published_by VARCHAR;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS amfi_code VARCHAR;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS isin VARCHAR;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS option_type VARCHAR;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS scheme_status VARCHAR DEFAULT 'active';
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS last_verified_at TIMESTAMPTZ;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS data_source VARCHAR;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS isin_dividend_payout VARCHAR;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS isin_dividend_reinvest VARCHAR;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS isin_growth VARCHAR;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS repurchase_price NUMERIC(15,4);
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS sale_price NUMERIC(15,4);
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS launch_date DATE;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS min_sip_amount NUMERIC(15,2);
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS min_lumpsum_amount NUMERIC(15,2);
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS amc_code VARCHAR;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS exit_load_percent NUMERIC(8,4);
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS exit_load_days INTEGER;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS scheme_sub_category VARCHAR;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS benchmark_index VARCHAR;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS benchmark_index_code VARCHAR;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS benchmark_confidence_score NUMERIC(3,2);
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS taxonomy_version VARCHAR(20) DEFAULT 'SEBI_2017';
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS compliance_status VARCHAR(30) DEFAULT 'PENDING';
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS naming_validation_status VARCHAR(10) DEFAULT 'PENDING';
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS lifecycle_metadata JSONB;
-      ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS compliance_blocked_reason TEXT
-    `);
-    console.log('✅ [Migration] mutual_funds columns verified/added');
-  } catch (e: any) {
-    console.error('[Migration] mutual_funds columns error:', e?.message);
-  }
+      // 7. mutual_funds
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS plan_type VARCHAR DEFAULT 'regular';
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT false;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS published_by VARCHAR;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS amfi_code VARCHAR;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS isin VARCHAR;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS option_type VARCHAR;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS scheme_status VARCHAR DEFAULT 'active';
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS last_verified_at TIMESTAMPTZ;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS data_source VARCHAR;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS isin_dividend_payout VARCHAR;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS isin_dividend_reinvest VARCHAR;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS isin_growth VARCHAR;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS repurchase_price NUMERIC(15,4);
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS sale_price NUMERIC(15,4);
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS launch_date DATE;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS min_sip_amount NUMERIC(15,2);
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS min_lumpsum_amount NUMERIC(15,2);
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS amc_code VARCHAR;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS exit_load_percent NUMERIC(8,4);
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS exit_load_days INTEGER;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS scheme_sub_category VARCHAR;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS benchmark_index VARCHAR;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS benchmark_index_code VARCHAR;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS benchmark_confidence_score NUMERIC(3,2);
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS taxonomy_version VARCHAR(20) DEFAULT 'SEBI_2017';
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS compliance_status VARCHAR(30) DEFAULT 'PENDING';
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS naming_validation_status VARCHAR(10) DEFAULT 'PENDING';
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS lifecycle_metadata JSONB;
+          ALTER TABLE mutual_funds ADD COLUMN IF NOT EXISTS compliance_blocked_reason TEXT
+        `);
+      } catch (e: any) {
+        console.error('[Migration] mutual_funds columns error:', e?.message);
+      }
 
-  // Boot-time: add new Alpaca account opening columns to us_broker_accounts
-  try {
-    const { db: migDb } = await import('./db');
-    const { sql: migSql } = await import('drizzle-orm');
-    await migDb.execute(migSql`
-      ALTER TABLE us_broker_accounts
-        ADD COLUMN IF NOT EXISTS alpaca_account_number VARCHAR,
-        ADD COLUMN IF NOT EXISTS alpaca_status VARCHAR DEFAULT 'not_applied',
-        ADD COLUMN IF NOT EXISTS action_required TEXT,
-        ADD COLUMN IF NOT EXISTS application_step VARCHAR DEFAULT 'identity',
-        ADD COLUMN IF NOT EXISTS application_data TEXT,
-        ADD COLUMN IF NOT EXISTS agreements_signed_at TIMESTAMPTZ,
-        ADD COLUMN IF NOT EXISTS cip_submitted_at TIMESTAMPTZ,
-        ADD COLUMN IF NOT EXISTS account_approved_at TIMESTAMPTZ
-    `);
-    console.log('✅ [Migration] us_broker_accounts account opening columns verified/added');
-  } catch (e: any) {
-    console.warn('[Migration] us_broker_accounts account opening columns skipped:', e?.message);
-  }
+      // 8. us_broker_accounts
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE us_broker_accounts
+            ADD COLUMN IF NOT EXISTS alpaca_account_number VARCHAR,
+            ADD COLUMN IF NOT EXISTS alpaca_status VARCHAR DEFAULT 'not_applied',
+            ADD COLUMN IF NOT EXISTS action_required TEXT,
+            ADD COLUMN IF NOT EXISTS application_step VARCHAR DEFAULT 'identity',
+            ADD COLUMN IF NOT EXISTS application_data TEXT,
+            ADD COLUMN IF NOT EXISTS agreements_signed_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS cip_submitted_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS account_approved_at TIMESTAMPTZ
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] us_broker_accounts account opening columns skipped:', e?.message);
+      }
 
-  // agent_services column on users + agent_notifications table
-  try {
-    const { db: agDb } = await import('./db');
-    const { sql: agSql } = await import('drizzle-orm');
-    await agDb.execute(agSql`
-      ALTER TABLE users
-        ADD COLUMN IF NOT EXISTS agent_services TEXT[]
-    `);
-    await agDb.execute(agSql`
-      CREATE TABLE IF NOT EXISTS agent_notifications (
-        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        agent_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        type VARCHAR NOT NULL DEFAULT 'info',
-        title VARCHAR NOT NULL DEFAULT '',
-        message TEXT NOT NULL DEFAULT '',
-        read BOOLEAN NOT NULL DEFAULT false,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-    await agDb.execute(agSql`
-      CREATE INDEX IF NOT EXISTS idx_agent_notifications_agent_id
-        ON agent_notifications(agent_id)
-    `);
-    console.log('✅ [Migration] agent_services column + agent_notifications table verified/created');
-  } catch (e: any) {
-    console.warn('[Migration] agent_services/agent_notifications skipped:', e?.message);
-  }
+      // 9. agent_notifications
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS agent_services TEXT[];
+          CREATE TABLE IF NOT EXISTS agent_notifications (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            agent_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            type VARCHAR NOT NULL DEFAULT 'info',
+            title VARCHAR NOT NULL DEFAULT '',
+            message TEXT NOT NULL DEFAULT '',
+            read BOOLEAN NOT NULL DEFAULT false,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_agent_notifications_agent_id
+            ON agent_notifications(agent_id);
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] agent_services/agent_notifications skipped:', e?.message);
+      }
 
-  // agent_empanelment_status column on users (tracks empanelment workflow state)
-  try {
-    const { db: aeDb } = await import('./db');
-    const { sql: aeSql } = await import('drizzle-orm');
-    await aeDb.execute(aeSql`
-      ALTER TABLE users
-        ADD COLUMN IF NOT EXISTS agent_empanelment_status TEXT DEFAULT 'draft'
-    `);
-    // Backfill from agent_empanelments table
-    await aeDb.execute(aeSql`
-      UPDATE users u
-      SET agent_empanelment_status = e.status
-      FROM agent_empanelments e
-      WHERE e.agent_id = u.id
-        AND u.agent_empanelment_status IS DISTINCT FROM e.status
-    `);
-    console.log('✅ [Migration] agent_empanelment_status column verified/backfilled on users');
-  } catch (e: any) {
-    console.warn('[Migration] agent_empanelment_status skipped:', e?.message);
-  }
+      // 10. agent_empanelment_status
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE users ADD COLUMN IF NOT EXISTS agent_empanelment_status TEXT DEFAULT 'draft';
+          UPDATE users u
+          SET agent_empanelment_status = e.status
+          FROM agent_empanelments e
+          WHERE e.agent_id = u.id
+            AND u.agent_empanelment_status IS DISTINCT FROM e.status;
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] agent_empanelment_status skipped:', e?.message);
+      }
 
-  // prospect_leads scoring engine columns — added after initial table creation
-  try {
-    const { db: plDb } = await import('./db');
-    const { sql: plSql } = await import('drizzle-orm');
-    await plDb.execute(plSql`
-      ALTER TABLE prospect_leads
-        ADD COLUMN IF NOT EXISTS estimated_networth   NUMERIC(18,2),
-        ADD COLUMN IF NOT EXISTS investable_surplus   NUMERIC(15,2),
-        ADD COLUMN IF NOT EXISTS wealth_score         NUMERIC(6,2),
-        ADD COLUMN IF NOT EXISTS activity_score       NUMERIC(6,2),
-        ADD COLUMN IF NOT EXISTS relationship_score   NUMERIC(6,2),
-        ADD COLUMN IF NOT EXISTS composite_score      NUMERIC(6,2),
-        ADD COLUMN IF NOT EXISTS scoring_version      VARCHAR,
-        ADD COLUMN IF NOT EXISTS scored_at            TIMESTAMPTZ
-    `);
-    console.log('✅ [Migration] prospect_leads scoring columns verified/added');
-  } catch (e: any) {
-    console.warn('[Migration] prospect_leads scoring columns skipped:', e?.message);
-  }
+      // 11. prospect_leads scoring
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE prospect_leads
+            ADD COLUMN IF NOT EXISTS estimated_networth   NUMERIC(18,2),
+            ADD COLUMN IF NOT EXISTS investable_surplus   NUMERIC(15,2),
+            ADD COLUMN IF NOT EXISTS wealth_score         NUMERIC(6,2),
+            ADD COLUMN IF NOT EXISTS activity_score       NUMERIC(6,2),
+            ADD COLUMN IF NOT EXISTS relationship_score   NUMERIC(6,2),
+            ADD COLUMN IF NOT EXISTS composite_score      NUMERIC(6,2),
+            ADD COLUMN IF NOT EXISTS scoring_version      VARCHAR,
+            ADD COLUMN IF NOT EXISTS scored_at            TIMESTAMPTZ
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] prospect_leads scoring columns skipped:', e?.message);
+      }
 
-  // ca_verification_status — create table + add any columns missing from earlier deployments
-  try {
-    const { db: caDb } = await import('./db');
-    const { sql: caSql } = await import('drizzle-orm');
-    await caDb.execute(caSql`
-      CREATE TABLE IF NOT EXISTS ca_verification_status (
-        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id VARCHAR NOT NULL UNIQUE REFERENCES users(id),
-        icai_membership_number VARCHAR NOT NULL,
-        icai_verified BOOLEAN DEFAULT false,
-        icai_verified_at TIMESTAMPTZ,
-        icai_verified_by VARCHAR REFERENCES users(id),
-        cop_number VARCHAR,
-        cop_valid_from DATE,
-        cop_valid_to DATE,
-        cop_verified BOOLEAN DEFAULT false,
-        cop_verified_at TIMESTAMPTZ,
-        pan_verified BOOLEAN DEFAULT false,
-        pan_verified_at TIMESTAMPTZ,
-        dsc_available BOOLEAN DEFAULT false,
-        dsc_serial_number VARCHAR,
-        dsc_valid_from DATE,
-        dsc_valid_to DATE,
-        dsc_verified_at TIMESTAMPTZ,
-        overall_status VARCHAR DEFAULT 'pending',
-        can_sign_form_15cb BOOLEAN DEFAULT false,
-        approved_at TIMESTAMPTZ,
-        approved_by VARCHAR REFERENCES users(id),
-        rejection_reason TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-    // Add any columns missing from older table instances
-    // NOTE: user_id / icai_membership_number are included here so that tables
-    // created before this schema revision (which used ca_id) get the new columns.
-    // They are nullable because pre-existing rows were written under the old schema.
-    await caDb.execute(caSql`
-      ALTER TABLE ca_verification_status
-        ADD COLUMN IF NOT EXISTS user_id VARCHAR REFERENCES users(id),
-        ADD COLUMN IF NOT EXISTS icai_membership_number VARCHAR,
-        ADD COLUMN IF NOT EXISTS pan_number VARCHAR,
-        ADD COLUMN IF NOT EXISTS overall_status VARCHAR DEFAULT 'pending',
-        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW(),
-        ADD COLUMN IF NOT EXISTS icai_verified BOOLEAN DEFAULT false,
-        ADD COLUMN IF NOT EXISTS icai_verified_at TIMESTAMPTZ,
-        ADD COLUMN IF NOT EXISTS icai_verified_by VARCHAR REFERENCES users(id),
-        ADD COLUMN IF NOT EXISTS cop_number VARCHAR,
-        ADD COLUMN IF NOT EXISTS cop_valid_from DATE,
-        ADD COLUMN IF NOT EXISTS cop_valid_to DATE,
-        ADD COLUMN IF NOT EXISTS cop_verified BOOLEAN DEFAULT false,
-        ADD COLUMN IF NOT EXISTS cop_verified_at TIMESTAMPTZ,
-        ADD COLUMN IF NOT EXISTS pan_verified BOOLEAN DEFAULT false,
-        ADD COLUMN IF NOT EXISTS pan_verified_at TIMESTAMPTZ,
-        ADD COLUMN IF NOT EXISTS dsc_available BOOLEAN DEFAULT false,
-        ADD COLUMN IF NOT EXISTS dsc_serial_number VARCHAR,
-        ADD COLUMN IF NOT EXISTS dsc_valid_from DATE,
-        ADD COLUMN IF NOT EXISTS dsc_valid_to DATE,
-        ADD COLUMN IF NOT EXISTS dsc_verified_at TIMESTAMPTZ,
-        ADD COLUMN IF NOT EXISTS can_sign_form_15cb BOOLEAN DEFAULT false,
-        ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ,
-        ADD COLUMN IF NOT EXISTS approved_by VARCHAR REFERENCES users(id),
-        ADD COLUMN IF NOT EXISTS rejection_reason TEXT,
-        ADD COLUMN IF NOT EXISTS icai_scraped_name      VARCHAR,
-        ADD COLUMN IF NOT EXISTS icai_membership_status VARCHAR,
-        ADD COLUMN IF NOT EXISTS icai_membership_type   VARCHAR,
-        ADD COLUMN IF NOT EXISTS icai_cop_status        VARCHAR,
-        ADD COLUMN IF NOT EXISTS icai_confidence_score  NUMERIC(4,2),
-        ADD COLUMN IF NOT EXISTS icai_scraped_at        TIMESTAMPTZ,
-        ADD COLUMN IF NOT EXISTS icai_source            VARCHAR,
-        ADD COLUMN IF NOT EXISTS icai_raw_html          TEXT,
-        ADD COLUMN IF NOT EXISTS icai_error             TEXT
-    `);
-    console.log('✅ [Migration] ca_verification_status table verified/created');
-  } catch (e: any) {
-    console.warn('[Migration] ca_verification_status schema skipped:', e?.message);
-  }
+      // 12. ca_verification_status
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS ca_verification_status (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id VARCHAR NOT NULL UNIQUE REFERENCES users(id),
+            icai_membership_number VARCHAR NOT NULL,
+            icai_verified BOOLEAN DEFAULT false,
+            icai_verified_at TIMESTAMPTZ,
+            icai_verified_by VARCHAR REFERENCES users(id),
+            cop_number VARCHAR,
+            cop_valid_from DATE,
+            cop_valid_to DATE,
+            cop_verified BOOLEAN DEFAULT false,
+            cop_verified_at TIMESTAMPTZ,
+            pan_verified BOOLEAN DEFAULT false,
+            pan_verified_at TIMESTAMPTZ,
+            dsc_available BOOLEAN DEFAULT false,
+            dsc_serial_number VARCHAR,
+            dsc_valid_from DATE,
+            dsc_valid_to DATE,
+            dsc_verified_at TIMESTAMPTZ,
+            overall_status VARCHAR DEFAULT 'pending',
+            can_sign_form_15cb BOOLEAN DEFAULT false,
+            approved_at TIMESTAMPTZ,
+            approved_by VARCHAR REFERENCES users(id),
+            rejection_reason TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+          ALTER TABLE ca_verification_status
+            ADD COLUMN IF NOT EXISTS user_id VARCHAR REFERENCES users(id),
+            ADD COLUMN IF NOT EXISTS icai_membership_number VARCHAR,
+            ADD COLUMN IF NOT EXISTS pan_number VARCHAR,
+            ADD COLUMN IF NOT EXISTS overall_status VARCHAR DEFAULT 'pending',
+            ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW(),
+            ADD COLUMN IF NOT EXISTS icai_verified BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS icai_verified_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS icai_verified_by VARCHAR REFERENCES users(id),
+            ADD COLUMN IF NOT EXISTS cop_number VARCHAR,
+            ADD COLUMN IF NOT EXISTS cop_valid_from DATE,
+            ADD COLUMN IF NOT EXISTS cop_valid_to DATE,
+            ADD COLUMN IF NOT EXISTS cop_verified BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS cop_verified_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS pan_verified BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS pan_verified_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS dsc_available BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS dsc_serial_number VARCHAR,
+            ADD COLUMN IF NOT EXISTS dsc_valid_from DATE,
+            ADD COLUMN IF NOT EXISTS dsc_valid_to DATE,
+            ADD COLUMN IF NOT EXISTS dsc_verified_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS can_sign_form_15cb BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS approved_by VARCHAR REFERENCES users(id),
+            ADD COLUMN IF NOT EXISTS rejection_reason TEXT,
+            ADD COLUMN IF NOT EXISTS icai_scraped_name      VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_membership_status VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_membership_type   VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_cop_status        VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_confidence_score  NUMERIC(4,2),
+            ADD COLUMN IF NOT EXISTS icai_scraped_at        TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS icai_source            VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_raw_html          TEXT,
+            ADD COLUMN IF NOT EXISTS icai_error             TEXT
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] ca_verification_status schema skipped:', e?.message);
+      }
 
-  // partners — ICAI scraper result columns
-  try {
-    const { db: icaiDb } = await import('./db');
-    const { sql: icaiSql } = await import('drizzle-orm');
-    await icaiDb.execute(icaiSql`
-      ALTER TABLE partners
-        ADD COLUMN IF NOT EXISTS icai_scraped_name       VARCHAR,
-        ADD COLUMN IF NOT EXISTS icai_scraper_status     VARCHAR DEFAULT 'pending',
-        ADD COLUMN IF NOT EXISTS icai_scraper_run_at     TIMESTAMPTZ,
-        ADD COLUMN IF NOT EXISTS icai_scraper_source     VARCHAR,
-        ADD COLUMN IF NOT EXISTS icai_confidence_score   NUMERIC(4,2),
-        ADD COLUMN IF NOT EXISTS icai_cop_status         VARCHAR
-    `);
-    console.log('✅ [Migration] partners ICAI scraper columns verified/added');
-  } catch (e: any) {
-    console.warn('[Migration] partners ICAI scraper columns skipped:', e?.message);
-  }
+      // 13. partners ICAI
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE partners
+            ADD COLUMN IF NOT EXISTS icai_scraped_name       VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_scraper_status     VARCHAR DEFAULT 'pending',
+            ADD COLUMN IF NOT EXISTS icai_scraper_run_at     TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS icai_scraper_source     VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_confidence_score   NUMERIC(4,2),
+            ADD COLUMN IF NOT EXISTS icai_cop_status         VARCHAR
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] partners ICAI scraper columns skipped:', e?.message);
+      }
 
-  // FintekPro Subscription / Monetization columns on users table
-  try {
-    const { db: subDb } = await import('./db');
-    const { sql: subSql } = await import('drizzle-orm');
-    await subDb.execute(subSql`
-      ALTER TABLE users
-        ADD COLUMN IF NOT EXISTS plan_tier VARCHAR DEFAULT 'free',
-        ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ,
-        ADD COLUMN IF NOT EXISTS cashfree_subscription_id VARCHAR
-    `);
-    await subDb.execute(subSql`
-      CREATE TABLE IF NOT EXISTS platform_subscriptions (
-        id                        VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id                   VARCHAR NOT NULL REFERENCES users(id),
-        plan_tier                 VARCHAR NOT NULL,
-        billing_cycle             VARCHAR NOT NULL,
-        amount_paise              INTEGER NOT NULL,
-        currency                  VARCHAR DEFAULT 'INR' NOT NULL,
-        cashfree_order_id         VARCHAR,
-        cashfree_payment_id       VARCHAR,
-        cashfree_payment_session_id VARCHAR,
-        status                    VARCHAR DEFAULT 'pending' NOT NULL,
-        starts_at                 TIMESTAMPTZ,
-        expires_at                TIMESTAMPTZ,
-        metadata                  JSONB,
-        created_at                TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-        updated_at                TIMESTAMPTZ DEFAULT NOW() NOT NULL
-      )
-    `);
-    await subDb.execute(subSql`
-      CREATE INDEX IF NOT EXISTS idx_platform_subs_user   ON platform_subscriptions(user_id);
-      CREATE INDEX IF NOT EXISTS idx_platform_subs_status ON platform_subscriptions(status);
-      CREATE INDEX IF NOT EXISTS idx_platform_subs_tier   ON platform_subscriptions(plan_tier);
-    `);
-    console.log('✅ [Migration] Subscription monetization schema verified/created');
-  } catch (e: any) {
-    console.warn('[Migration] Subscription monetization schema skipped:', e?.message);
-  }
+      // 14. Subscriptions
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS plan_tier VARCHAR DEFAULT 'free',
+            ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS cashfree_subscription_id VARCHAR;
+          CREATE TABLE IF NOT EXISTS platform_subscriptions (
+            id                        VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id                   VARCHAR NOT NULL REFERENCES users(id),
+            plan_tier                 VARCHAR NOT NULL,
+            billing_cycle             VARCHAR NOT NULL,
+            amount_paise              INTEGER NOT NULL,
+            currency                  VARCHAR DEFAULT 'INR' NOT NULL,
+            cashfree_order_id         VARCHAR,
+            cashfree_payment_id       VARCHAR,
+            cashfree_payment_session_id VARCHAR,
+            status                    VARCHAR DEFAULT 'pending' NOT NULL,
+            starts_at                 TIMESTAMPTZ,
+            expires_at                TIMESTAMPTZ,
+            metadata                  JSONB,
+            created_at                TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+            updated_at                TIMESTAMPTZ DEFAULT NOW() NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS idx_platform_subs_user   ON platform_subscriptions(user_id);
+          CREATE INDEX IF NOT EXISTS idx_platform_subs_status ON platform_subscriptions(status);
+          CREATE INDEX IF NOT EXISTS idx_platform_subs_tier   ON platform_subscriptions(plan_tier);
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] Subscription monetization schema skipped:', e?.message);
+      }
 
-  // Boot-time: create audit_trail table if missing (used by audit-trail middleware)
-  try {
-    const { db: auditDb } = await import('./db');
-    const { sql: auditSql } = await import('drizzle-orm');
-    await auditDb.execute(auditSql`
-      CREATE TABLE IF NOT EXISTS audit_trail (
-        id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id     VARCHAR,
-        actor_type  VARCHAR,
-        action      VARCHAR NOT NULL,
-        category    VARCHAR NOT NULL,
-        details     TEXT,
-        ip_address  VARCHAR,
-        user_agent  TEXT,
-        outcome     VARCHAR,
-        risk_level  VARCHAR,
-        created_at  TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-    await auditDb.execute(auditSql`
-      ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS actor_type VARCHAR;
-    `);
-    console.log('✅ [Migration] audit_trail table verified/created');
-  } catch (e: any) {
-    console.error('[Migration] audit_trail table error:', e?.message);
-  }
+      // 15. audit_trail
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS audit_trail (
+            id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id     VARCHAR,
+            actor_type  VARCHAR,
+            action      VARCHAR NOT NULL,
+            category    VARCHAR NOT NULL,
+            details     TEXT,
+            ip_address  VARCHAR,
+            user_agent  TEXT,
+            outcome     VARCHAR,
+            risk_level  VARCHAR,
+            created_at  TIMESTAMPTZ DEFAULT NOW()
+          );
+          ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS actor_type VARCHAR;
+        `);
+      } catch (e: any) {
+        console.error('[Migration] audit_trail table error:', e?.message);
+      }
 
-  // Boot-time: self_healing_events table for auto-recovery audit log
-  try {
-    const { db: shDb } = await import('./db');
-    const { sql: shSql } = await import('drizzle-orm');
-    await shDb.execute(shSql`
-      CREATE TABLE IF NOT EXISTS self_healing_events (
-        id            SERIAL PRIMARY KEY,
-        event_type    VARCHAR(50) NOT NULL,
-        trigger_message TEXT,
-        action_taken  VARCHAR(100),
-        success       BOOLEAN,
-        message       TEXT,
-        context       TEXT,
-        occurred_at   TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-    await shDb.execute(shSql`
-      CREATE INDEX IF NOT EXISTS idx_self_healing_events_occurred_at
-        ON self_healing_events (occurred_at DESC)
-    `);
-    console.log('✅ [Migration] self_healing_events table verified/created');
-  } catch (e: any) {
-    console.error('[Migration] self_healing_events table error:', e?.message);
-  }
+      // 16. self_healing
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS self_healing_events (
+            id            SERIAL PRIMARY KEY,
+            event_type    VARCHAR(50) NOT NULL,
+            trigger_message TEXT,
+            action_taken  VARCHAR(100),
+            success       BOOLEAN,
+            message       TEXT,
+            context       TEXT,
+            occurred_at   TIMESTAMPTZ DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_self_healing_events_occurred_at
+            ON self_healing_events (occurred_at DESC);
+          CREATE TABLE IF NOT EXISTS self_healing_feedback (
+            id            SERIAL PRIMARY KEY,
+            module        VARCHAR(50)  NOT NULL,
+            operation     VARCHAR(100) NOT NULL,
+            duration_ms   INTEGER,
+            success       BOOLEAN      NOT NULL DEFAULT true,
+            error_message TEXT,
+            risk_level    VARCHAR(10),
+            fallback_used BOOLEAN      DEFAULT false,
+            occurred_at   TIMESTAMPTZ  DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_self_healing_feedback_module_occurred
+            ON self_healing_feedback (module, occurred_at DESC);
+        `);
+      } catch (e: any) {
+        console.error('[Migration] self_healing tables error:', e?.message);
+      }
 
-  // Boot-time: self_healing_feedback table (execution feedback loop)
-  try {
-    const { db: fbDb } = await import('./db');
-    const { sql: fbSql } = await import('drizzle-orm');
-    await fbDb.execute(fbSql`
-      CREATE TABLE IF NOT EXISTS self_healing_feedback (
-        id            SERIAL PRIMARY KEY,
-        module        VARCHAR(50)  NOT NULL,
-        operation     VARCHAR(100) NOT NULL,
-        duration_ms   INTEGER,
-        success       BOOLEAN      NOT NULL DEFAULT true,
-        error_message TEXT,
-        risk_level    VARCHAR(10),
-        fallback_used BOOLEAN      DEFAULT false,
-        occurred_at   TIMESTAMPTZ  DEFAULT NOW()
-      )
-    `);
-    await fbDb.execute(fbSql`
-      CREATE INDEX IF NOT EXISTS idx_self_healing_feedback_module_occurred
-        ON self_healing_feedback (module, occurred_at DESC)
-    `);
-    console.log('✅ [Migration] self_healing_feedback table verified/created');
-  } catch (e: any) {
-    console.error('[Migration] self_healing_feedback table error:', e?.message);
-  }
+      // 17. iris_sessions
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS iris_sessions (
+            id           VARCHAR PRIMARY KEY,
+            pan          VARCHAR NOT NULL UNIQUE,
+            access_token TEXT    NOT NULL,
+            refresh_token TEXT,
+            expires_at   TIMESTAMPTZ,
+            created_at   TIMESTAMPTZ DEFAULT NOW(),
+            updated_at   TIMESTAMPTZ DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_iris_sessions_pan ON iris_sessions (pan);
+        `);
+      } catch (e: any) {
+        console.error('[Migration] iris_sessions table error:', e?.message);
+      }
 
-  // iris_sessions — persist IRIS/KFintech JWT tokens across restarts
-  try {
-    const { db: mainDb } = await import('./db');
-    const { sql: migSql } = await import('drizzle-orm');
-    await mainDb.execute(migSql`
-      CREATE TABLE IF NOT EXISTS iris_sessions (
-        id           VARCHAR PRIMARY KEY,
-        pan          VARCHAR NOT NULL UNIQUE,
-        access_token TEXT    NOT NULL,
-        refresh_token TEXT,
-        expires_at   TIMESTAMPTZ,
-        created_at   TIMESTAMPTZ DEFAULT NOW(),
-        updated_at   TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS idx_iris_sessions_pan ON iris_sessions (pan);
-    `);
-    console.log('✅ [Migration] iris_sessions table verified/created');
-  } catch (e: any) {
-    console.error('[Migration] iris_sessions table error:', e?.message);
-  }
+      // 18. lrs_remittance_logs
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS lrs_remittance_logs (
+            id                   VARCHAR PRIMARY KEY,
+            user_id              VARCHAR NOT NULL REFERENCES users(id),
+            alpaca_account_id    VARCHAR,
+            transfer_id          VARCHAR NOT NULL UNIQUE,
+            amount_usd           NUMERIC(18,4) NOT NULL,
+            amount_inr           NUMERIC(18,2),
+            usd_inr_rate         NUMERIC(10,4),
+            financial_year       VARCHAR(10) NOT NULL,
+            transfer_date        TIMESTAMPTZ  DEFAULT NOW(),
+            created_at           TIMESTAMPTZ  DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_lrs_logs_user_fy ON lrs_remittance_logs (user_id, financial_year);
+        `);
+      } catch (e: any) {
+        console.error('[Migration] lrs_remittance_logs table error:', e?.message);
+      }
 
-  // lrs_remittance_logs — track LRS remittances (USD transfers under FEMA/LRS)
-  try {
-    const { db: mainDb } = await import('./db');
-    const { sql: migSql } = await import('drizzle-orm');
-    await mainDb.execute(migSql`
-      CREATE TABLE IF NOT EXISTS lrs_remittance_logs (
-        id                   VARCHAR PRIMARY KEY,
-        user_id              VARCHAR NOT NULL REFERENCES users(id),
-        alpaca_account_id    VARCHAR,
-        transfer_id          VARCHAR NOT NULL UNIQUE,
-        amount_usd           NUMERIC(18,4) NOT NULL,
-        amount_inr           NUMERIC(18,2),
-        usd_inr_rate         NUMERIC(10,4),
-        financial_year       VARCHAR(10) NOT NULL,
-        transfer_date        TIMESTAMPTZ  DEFAULT NOW(),
-        created_at           TIMESTAMPTZ  DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS idx_lrs_logs_user_fy ON lrs_remittance_logs (user_id, financial_year);
-    `);
-    console.log('✅ [Migration] lrs_remittance_logs table verified/created');
-  } catch (e: any) {
-    console.error('[Migration] lrs_remittance_logs table error:', e?.message);
-  }
+      logBootProgress("Background: Phase 2 Database Migrations complete.");
+    } catch (err: any) {
+      console.error("❌ [Migration] Critical background migration failure:", err);
+    }
+  });
 
   // Init auto-recovery service (circuit breaker registry + service registration)
   try {

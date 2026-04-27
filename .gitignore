@@ -113,3 +113,16 @@ scratch/*.txt
 # TSC diagnostic dumps
 tsc_errors*.txt
 tsc_*_errors*.txt
+
+# Antigravity artifacts
+artifacts/
+
+# Firebase
+.firebase/
+.firebaserc
+firebase.json
+run-bootstrap.ts
+server/fix-user-assignments.ts
+server/seed-holdings.ts
+server/seed-marketplace.ts
+server/seed-sangram.ts
