@@ -59,7 +59,6 @@ jobs:
           secrets: |-
             PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest
             FINNHUB_API_KEY=FINNHUB_API_KEY:latest
-            ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest
           flags: |-
             --port=8002
             --memory=2Gi
