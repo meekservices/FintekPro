@@ -8,6 +8,7 @@ on:
       - 'workers/enrichment-worker.ts'
       - 'server/cron-enrichment.ts'
       - 'Dockerfile.worker'
+      - '.github/workflows/deploy-worker.yml'
 
 env:
   PROJECT_ID: fintekpro
