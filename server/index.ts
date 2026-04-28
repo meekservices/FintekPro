@@ -142,7 +142,7 @@ logBootProgress("Server process started");
 
 // Serve static assets IMMEDIATELY so the frontend can load while we boot
 // Also register the SPA catch-all early — this ensures that even if the async boot
-// sequence throws (e.g. DB timeout), the frontend SPA still loads instead of \"Cannot GET /\"
+// sequence throws (e.g. DB timeout), the frontend SPA still loads instead of "Cannot GET /"
 if (process.env.NODE_ENV === 'production') {
   serveStatic(app);
   // SPA fallback: registered early so it's always available as the last route.
@@ -184,7 +184,7 @@ app.get(['/health', '/healthz', '/ready', '/live'], (_req, res) => {
   res.status(200).send(bootState.routesReady ? 'OK' : 'BOOTING');
 });
 
-// Primary Root Handler - serves the \"Initializing\" screen or delegates to the frontend
+// Primary Root Handler - serves the "Initializing" screen or delegates to the frontend
 app.get('/', (req, res, next) => {
   if (bootState.routesReady) return next();
   
@@ -259,7 +259,7 @@ for (const envVar of requiredEnvVars) {
 if (process.env.NODE_ENV === 'production') {
   const missingOptional = optionalButRecommended.filter(v => !process.env[v]);
   if (missingOptional.length > 0) {
-    console.warn(\`⚠️ Recommended env vars not set: \${missingOptional.join(', ')}\`);
+    console.warn(`⚠️ Recommended env vars not set: \${missingOptional.join(', ')}`);
   }
 }
 
@@ -344,7 +344,7 @@ app.use(cors({
     
     // Log the origin for debugging in Cloud Run
     if (isProduction) {
-      console.log(\`[CORS] Request from origin: \${origin}\`);
+      console.log(`[CORS] Request from origin: \${origin}`);
     }
     
     // Allow Railway, Cloud Run and Firebase domains
@@ -368,8 +368,8 @@ app.use(cors({
     
     // Block unknown origins in production with detailed logging
     if (isProduction) {
-      logger.warn(\`[CORS] Blocked request from unknown origin: \${origin}\`);
-      return callback(new Error(\`Not allowed by CORS: \${origin}\`), false);
+      logger.warn(`[CORS] Blocked request from unknown origin: \${origin}`);
+      return callback(new Error(`Not allowed by CORS: \${origin}`), false);
     }
     
     // In development, allow all origins for testing
@@ -468,7 +468,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     next();
   } catch (error) {
     // Log the malformed request but don't crash - likely a bot/scanner
-    logger.warn(\`[URL] Failed to decode malformed URL: \${req.url}\`);
+    logger.warn(`[URL] Failed to decode malformed URL: \${req.url}`);
     return res.status(400).json({ error: 'Malformed URL encoding' });
   }
 });
@@ -504,7 +504,7 @@ const createCsrfProtection = () => (req: Request, res: Response, next: NextFunct
     ];
 
     if (process.env.RAILWAY_PUBLIC_DOMAIN) {
-      allowedOrigins.push(\`https://\${process.env.RAILWAY_PUBLIC_DOMAIN}\`);
+      allowedOrigins.push(`https://\${process.env.RAILWAY_PUBLIC_DOMAIN}`);
     }
     
     if (!isProduction) {
@@ -526,7 +526,7 @@ const createCsrfProtection = () => (req: Request, res: Response, next: NextFunct
       : false;
 
     if (requestOrigin && !isRailwayRequest && !isCloudRunRequest && !isFirebaseRequest && !allowedOrigins.some(allowed => requestOrigin.startsWith(allowed.replace(/\/$/, '')))) {
-      logger.warn(\`[CSRF] Blocked request from: \${requestOrigin}\`);
+      logger.warn(`[CSRF] Blocked request from: \${requestOrigin}`);
       return res.status(403).json({ error: 'Invalid request origin' });
     }
   }
@@ -541,7 +541,7 @@ const createCsrfProtection = () => (req: Request, res: Response, next: NextFunct
     }
     
     if (!csrfToken || csrfToken !== sessionToken) {
-      logger.warn(\`[CSRF] Token mismatch for user \${(req.session as any).user?.id}\`);
+      logger.warn(`[CSRF] Token mismatch for user \${(req.session as any).user?.id}`);
       return res.status(403).json({ error: 'Invalid CSRF token', code: 'CSRF_TOKEN_REQUIRED' });
     }
   }
@@ -625,7 +625,7 @@ app.use((req, res, next) => {
   const host = req.hostname;
   const customDomain = process.env.CUSTOM_DOMAIN || 'fintekpro.com';
   if (host === customDomain) {
-    return res.redirect(301, \`https://www.\${customDomain}\${req.originalUrl}\`);
+    return res.redirect(301, `https://www.\${customDomain}\${req.originalUrl}`);
   }
   next();
 });
@@ -709,8 +709,8 @@ setupGracefulShutdown(server);
 // is still holding the port during a supervisor restart — no fuser/lsof needed.
 server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   bootState.serverListening = true;
-  console.log(\`🚀 Server listening on port \${PORT} (boot time: \${bootState.getBootTime()}ms)\`);
-  logger.info(\`Server listening on port \${PORT}\`, { port: PORT, environment: process.env.NODE_ENV || 'development', bootTime: bootState.getBootTime() });
+  console.log(`🚀 Server listening on port \${PORT} (boot time: \${bootState.getBootTime()}ms)`);
+  logger.info(`Server listening on port \${PORT}`, { port: PORT, environment: process.env.NODE_ENV || 'development', bootTime: bootState.getBootTime() });
 });
 
 (async () => {
@@ -720,13 +720,13 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     // Masked DB URL for debugging
     const dbUrl = process.env.PRODUCTION_DATABASE_URL || "MISSING";
     const maskedUrl = dbUrl.replace(/:([^:@/]+)@/, ':****@').split('?')[0];
-    console.log(\`🔗 [Boot] DB Configuration: \${maskedUrl}\`);
+    console.log(`🔗 [Boot] DB Configuration: \${maskedUrl}`);
 
   // Python analytics micro-service (Railway private network or public URL via PYTHON_SERVICE_URL).
   // Log the configured URL so it's visible in every boot.
   const pyUrl = process.env.PYTHON_SERVICE_URL;
   if (pyUrl) {
-    console.log(\`ℹ️  [Python] Using external service at \${pyUrl}\`);
+    console.log(`ℹ️  [Python] Using external service at \${pyUrl}`);
   } else {
     console.warn('⚠️  [Python] PYTHON_SERVICE_URL not set — quant/AI analytics will return 503');
   }
@@ -746,7 +746,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
 
   logBootProgress("Step 1: Setting up Health Checks & Verifying Database...");
   
-  // CRITICAL: Setup health check routes IMMEDIATELY so the load balancer sees us as \"up\"
+  // CRITICAL: Setup health check routes IMMEDIATELY so the load balancer sees us as "up"
   // even if the database initialization takes a while.
   const { readinessCheck, livenessCheck } = await import('./health-check');
   app.get('/ready', (req, res) => {
@@ -766,7 +766,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   });
 
   app.get('/live', (req, res) => {
-    // Liveness is just \"process is running and listening\"
+    // Liveness is just "process is running and listening"
     return livenessCheck(req, res);
   });
 
@@ -790,7 +790,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   // Auth is now ready
   bootState.authReady = true;
   logBootProgress("Step 3: Auth Ready. Auditing Regulatory Env...");
-  console.log(\`✅ Auth ready (\${bootState.getBootTime()}ms)\`);
+  console.log(`✅ Auth ready (\${bootState.getBootTime()}ms)`);
 
   try {
     logBootProgress("Step 3a: Logging Gateway Readiness...");
@@ -844,7 +844,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     // Signal that the server is fully ready to handle business traffic
     bootState.routesReady = true;
     logBootProgress("Initialization Complete!");
-    console.log(\`✅ Boot sequence finished successfully in \${bootState.getBootTime()}ms\`);
+    console.log(`✅ Boot sequence finished successfully in \${bootState.getBootTime()}ms`);
     logger.info('Boot sequence finished', { bootTime: bootState.getBootTime() });
     
   } catch (err) {
