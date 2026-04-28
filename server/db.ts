@@ -61,34 +61,63 @@ const POOL_CONFIG: any = {
 };
 
 
-// If Cloud SQL Unix socket is available, leverage it for maximum performance and security
+// Extract connection parameters robustly
+let user = '';
+let password = '';
+let database = 'fintekpro';
+
 try {
-  const url = new URL(selectedDbUrl);
-  if (isCloudSqlSocketAvailable) {
-    // On Cloud Run, the socket is inside the instance-named directory
-    POOL_CONFIG.host = cloudSqlSocketDir;
-    POOL_CONFIG.port = 5432;
-    POOL_CONFIG.user = decodeURIComponent(url.username);
-    POOL_CONFIG.password = decodeURIComponent(url.password);
-    POOL_CONFIG.database = url.pathname.split('/')[1] || 'fintekpro';
-    
-    console.log(`[DB] Configured for Unix Socket: host=${POOL_CONFIG.host}, user=${POOL_CONFIG.user}, db=${POOL_CONFIG.database}`);
-  } else {
-    // Fallback to connection string or explicit host
-    if (selectedDbUrl.includes('host=')) {
-      // Special case: connection string already specifies host (e.g. for local proxy)
-      POOL_CONFIG.connectionString = selectedDbUrl;
-      console.log(`[DB] Using connection string with explicit host param`);
+  // Manual parsing to handle missing hostnames (common for Unix socket URLs)
+  // Format: postgresql://user:password@/database?options
+  const protocolEnd = selectedDbUrl.indexOf('://');
+  const pathStart = selectedDbUrl.indexOf('/', protocolEnd + 3);
+  const lastAt = selectedDbUrl.lastIndexOf('@', pathStart === -1 ? undefined : pathStart);
+  
+  if (lastAt > protocolEnd) {
+    const userinfo = selectedDbUrl.substring(protocolEnd + 3, lastAt);
+    const colonIndex = userinfo.indexOf(':');
+    if (colonIndex !== -1) {
+      user = decodeURIComponent(userinfo.substring(0, colonIndex));
+      password = decodeURIComponent(userinfo.substring(colonIndex + 1));
     } else {
-      POOL_CONFIG.connectionString = selectedDbUrl;
-      const maskedHost = url.hostname || 'localhost';
-      console.log(`[DB] Using TCP connection to ${maskedHost}`);
+      user = decodeURIComponent(userinfo);
     }
+    
+    if (pathStart !== -1) {
+      const dbPart = selectedDbUrl.substring(pathStart + 1).split('?')[0];
+      if (dbPart) database = dbPart;
+    }
+  } else {
+    // Fallback to URL parser if simple parsing fails
+    const url = new URL(selectedDbUrl.replace('postgresql://', 'http://').replace('postgres://', 'http://'));
+    user = decodeURIComponent(url.username);
+    password = decodeURIComponent(url.password);
+    database = url.pathname.split('/')[1] || 'fintekpro';
   }
 } catch (e: any) {
-  console.error(`[DB] ❌ Failed to parse connection string: ${e.message}`);
-  // Last resort fallback
-  POOL_CONFIG.connectionString = selectedDbUrl;
+  console.warn(`[DB] 🟡 Non-fatal: Manual URL parsing failed (${e.message}). Falling back to connection string.`);
+}
+
+if (isCloudSqlSocketAvailable) {
+  // On Cloud Run, the socket is inside the instance-named directory
+  POOL_CONFIG.host = cloudSqlSocketDir;
+  POOL_CONFIG.port = 5432;
+  POOL_CONFIG.user = user;
+  POOL_CONFIG.password = password;
+  POOL_CONFIG.database = database;
+  
+  console.log(`[DB] 🟢 Configured for Unix Socket: host=${POOL_CONFIG.host}, user=${POOL_CONFIG.user}, db=${POOL_CONFIG.database}`);
+} else {
+  // Fallback to connection string or explicit host
+  if (selectedDbUrl.includes('host=')) {
+    // Special case: connection string already specifies host (e.g. for local proxy)
+    POOL_CONFIG.connectionString = selectedDbUrl;
+    console.log(`[DB] Using connection string with explicit host param`);
+  } else {
+    POOL_CONFIG.connectionString = selectedDbUrl;
+    const maskedHost = selectedDbUrl.split('@')[1]?.split('/')[0] || 'localhost';
+    console.log(`[DB] Using TCP connection to ${maskedHost}`);
+  }
 }
 
 export const pool = new Pool(POOL_CONFIG);

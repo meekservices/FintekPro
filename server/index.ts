@@ -342,12 +342,13 @@ app.use(cors({
       return callback(null, true);
     }
     
-    // Allow Railway and Firebase domains
+    // Allow Railway, Cloud Run and Firebase domains
     const isAllowedProviderDomain = 
         origin.endsWith('.railway.app') ||
         origin.endsWith('.up.railway.app') ||
         origin.endsWith('.web.app') ||
         origin.endsWith('.run.app') ||
+        origin.includes('.a.run.app') || // Specific for Cloud Run region-based domains
         origin.endsWith('.firebaseapp.com');
 
     if (isAllowedProviderDomain) {
@@ -363,7 +364,7 @@ app.use(cors({
     // Block unknown origins in production with detailed logging
     if (isProduction) {
       logger.warn(`[CORS] Blocked request from unknown origin: ${origin}`);
-      return callback(new Error('Not allowed by CORS'), false);
+      return callback(new Error(`Not allowed by CORS: ${origin}`), false);
     }
     
     // In development, allow all origins for testing
@@ -511,11 +512,15 @@ const createCsrfProtection = () => (req: Request, res: Response, next: NextFunct
       ? requestOrigin.endsWith('.railway.app') || requestOrigin.endsWith('.up.railway.app')
       : false;
 
+    const isCloudRunRequest = requestOrigin
+      ? requestOrigin.endsWith('.run.app') || requestOrigin.includes('.a.run.app')
+      : false;
+
     const isFirebaseRequest = requestOrigin
       ? requestOrigin.endsWith('.web.app') || requestOrigin.endsWith('.firebaseapp.com')
       : false;
 
-    if (requestOrigin && !isRailwayRequest && !isFirebaseRequest && !allowedOrigins.some(allowed => requestOrigin.startsWith(allowed.replace(/\/$/, '')))) {
+    if (requestOrigin && !isRailwayRequest && !isCloudRunRequest && !isFirebaseRequest && !allowedOrigins.some(allowed => requestOrigin.startsWith(allowed.replace(/\/$/, '')))) {
       logger.warn(`[CSRF] Blocked request from: ${requestOrigin}`);
       return res.status(403).json({ error: 'Invalid request origin' });
     }
@@ -793,8 +798,3 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     }
 
     logBootProgress("Step 3b: Auditing Env Vars...");
-
-  // ── Regulatory environment variable audit (boot-time) ──────────────────────
-  // These variables are required for regulatory compliance features.
-  // Missing vars → silent failures in compliance-critical paths.
-  const REQUIRED_COMPLIANCE_ENVS: { key: string; purpose: string; severity: 'critical' | 'high' | 'medium' }[] = [
