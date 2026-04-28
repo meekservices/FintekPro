@@ -535,8 +535,8 @@ export function setupAuth(app: Express) {
         isEUResident: false,
         gdprConsent: false,
         gdprConsentDate: null,
-        dataProcessingConsent: false,
-        marketingConsent: false,
+        dataProcessingConsent: boolean("data_processing_consent").default(false),
+        marketingConsent: boolean("marketing_consent").default(false),
         investorType: null,
         investorCategory: null,
         financialSituation: null,
@@ -1157,7 +1157,7 @@ export function setupAuth(app: Express) {
       const activeSessions = await db
         .select()
         .from(schema.sessions)
-        .where(sql`(sess->'passport'->>'user')::text = ${user.id}::text`)
+        .where(sql`sess->'passport'->>'user' = ${user.id}`)
         .execute();
 
       console.log(`[Session Check] Found ${activeSessions.length} active session(s) for user ${user.id}`);
@@ -1205,7 +1205,7 @@ export function setupAuth(app: Express) {
       // Using raw SQL to query JSONB column
       const result = await db
         .delete(schema.sessions)
-        .where(sql`(sess->'passport'->>'user') = ${user.id}`)
+        .where(sql`sess->'passport'->>'user' = ${user.id}`)
         .execute();
 
       console.log(`[Force Logout] Destroyed ${result.rowCount || 0} session(s) for user ${user.id}`);
