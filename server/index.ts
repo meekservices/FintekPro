@@ -679,8 +679,6 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
   const healthPaths = ['/health', '/ready', '/live'];
   if (healthPaths.includes(req.path)) return next();
   
-  // Allow essential auth routes to try and load (may fail gracefully)
-  if (req.path.startsWith('/auth') || req.path.startsWith('/login') || req.path === '/csrf-token') return next();
   
   res.status(503).json({
     status: 'booting',
@@ -690,6 +688,7 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
     retryAfter: 5
   });
 });
+
 
 
 setupGracefulShutdown(server);

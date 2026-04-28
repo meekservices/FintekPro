@@ -1,0 +1,39 @@
+# Stage 1: Build environment
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Layer cache the package.json and install dependencies
+COPY package*.json ./
+RUN npm ci
+
+# Copy all source files
+COPY . .
+
+# We don't need the vite build for the worker, but we need the server build 
+# if we want to run the compiled version. For simplicity, we'll use tsx to run the worker.
+RUN npm install -g tsx
+
+# Stage 2: Production runtime
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install tsx for running .ts files directly in production
+RUN npm install -g tsx
+
+# Copy package files and install production dependencies
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy all source files (required for tsx to run workers/enrichment-worker.ts)
+COPY . .
+
+ENV NODE_ENV=production \
+    PORT=8002
+
+# Expose the health check port
+EXPOSE 8002
+
+# Run the enrichment worker using tsx
+CMD ["tsx", "workers/enrichment-worker.ts"]
