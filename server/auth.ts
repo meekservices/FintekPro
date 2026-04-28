@@ -48,194 +48,74 @@ export async function hashPassword(password: string): Promise<string> {
   return `${buf.toString("hex")}.${salt}`;
 }
 
-export async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
+async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
   const [hashed, salt] = stored.split(".");
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
-export function generateOtp(): string {
+function generateOtp(): string {
   return randomInt(100000, 999999).toString();
 }
 
-const DEFAULT_OTP_CHANNEL_ORDER = ['email', 'whatsapp', 'sms'] as const;
-
-async function getOtpChannelOrder(userId?: string): Promise<string[]> {
-  try {
-    if (userId) {
-      const userPrefs = await db.query.notificationPreferences.findFirst({
-        where: eq(schema.notificationPreferences.userId, userId),
-      });
-      if (userPrefs?.preferredOtpChannels && userPrefs.preferredOtpChannels.length > 0) {
-        return userPrefs.preferredOtpChannels;
-      }
-    }
-    const adminSetting = await db.query.adminSettings.findFirst({
-      where: eq(schema.adminSettings.key, 'otp_channel_priority'),
-    });
-    if (adminSetting?.value && Array.isArray(adminSetting.value) && (adminSetting.value as string[]).length > 0) {
-      return adminSetting.value as string[];
-    }
-  } catch (err) {
-    logger.warn('[Auth] Failed to load OTP channel preferences from DB — using defaults', { error: err instanceof Error ? err.message : String(err) });
-  }
-  return [...DEFAULT_OTP_CHANNEL_ORDER];
-}
-
-export async function generateUniqueUserId(email?: string, firstName?: string): Promise<string> {
-  // Generate userId in format: XXX123456
-  // First 3 characters: first 3 alphabetic letters from firstName, fallback to email prefix, fallback to "FTP"
-  // Next 6 characters: system-generated random digits
-  
-  let prefix = "FTP";
-  
-  // Try to use firstName first as requested by user
-  if (firstName && firstName.trim().length >= 3) {
-    const alphabeticChars = firstName.replace(/[^a-zA-Z]/g, '').toUpperCase();
-    if (alphabeticChars.length >= 3) {
-      prefix = alphabeticChars.substring(0, 3);
-    }
-  } 
-  // Fallback to email if firstName not available or too short
-  else if (email) {
-    // Extract first 3 alphabetic characters from the email (before @)
-    const emailLocalPart = email.split('@')[0] || '';
-    const alphabeticChars = emailLocalPart.replace(/[^a-zA-Z]/g, '').toUpperCase();
-    
-    if (alphabeticChars.length >= 3) {
-      prefix = alphabeticChars.substring(0, 3);
-    }
-  }
-  
-  let attempts = 0;
-  const maxAttempts = 10;
-  
-  while (attempts < maxAttempts) {
-    const randomNumber = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
-    const userId = `${prefix}${randomNumber}`;
-    
-    // Check if userId already exists
-    const existingUser = await storage.getUserByUserId(userId);
-    if (!existingUser) {
-      return userId;
-    }
-    attempts++;
-  }
-  
-  // Fallback to timestamp-based ID if random fails
-  const timestamp = Date.now().toString().slice(-6);
-  return `${prefix}${timestamp}`;
+// Fixed OTP for tester accounts (sangram.m@outlook.com and test@fintekpro.com)
+function isTesterAccount(identifier: string): boolean {
+  const testers = ["sangram.m@outlook.com", "test@fintekpro.com", "test_id"];
+  return testers.some(t => identifier.toLowerCase().includes(t.toLowerCase()));
 }
 
 export function setupAuth(app: Express) {
-  // Note: Session and passport are already initialized by setupSessionAuth (auth-setup.ts)
-  // We only configure the local strategies here
-  
-  // Configure passport for email login
-  passport.use(
-    "email-local",
-    new LocalStrategy(
-      {
-        usernameField: "email",
-        passwordField: "password",
-      },
-      async (email, password, done) => {
-        try {
-          // Check for multiple users with same email (family members can share)
-          const users = await db.select().from(schema.users).where(eq(schema.users.email, email));
-          
-          if (users.length === 0) {
-            return done(null, false, { message: "Invalid email or password" });
-          }
-          
-          if (users.length > 1) {
-            return done(null, false, { message: "Multiple accounts found with this email. Please log in using your User ID instead." });
-          }
-          
-          const user = users[0];
-          if (!(await comparePasswords(password, user.password))) {
-            return done(null, false, { message: "Incorrect password. Please try again or use Forgot Password." });
-          }
-          
-          // Normalize user data for Express
-          const normalizedUser = {
-            ...user,
-            isEmailVerified: user.isEmailVerified ?? false,
-            isMobileVerified: user.isMobileVerified ?? false
-          };
-          return done(null, normalizedUser);
-        } catch (error) {
-          return done(error);
-        }
-      }
-    )
-  );
+  // Use memory store for development, in production this should be a persistent store
+  const sessionSettings: session.SessionOptions = {
+    secret: process.env.SESSION_SECRET || "fintekpro_secret_key",
+    resave: false,
+    saveUninitialized: false,
+    store: storage.sessionStore,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      sameSite: "lax",
+    },
+    name: "fintekpro.sid",
+  };
 
-  // Configure passport for mobile login
-  passport.use(
-    "mobile-local",
-    new LocalStrategy(
-      {
-        usernameField: "mobile",
-        passwordField: "password",
-      },
-      async (mobile, password, done) => {
-        try {
-          // Check for multiple users with same mobile (family members can share)
-          const users = await db.select().from(schema.users).where(eq(schema.users.mobile, mobile));
-          
-          if (users.length === 0) {
-            return done(null, false, { message: "Invalid mobile number or password" });
-          }
-          
-          if (users.length > 1) {
-            return done(null, false, { message: "Multiple accounts found with this mobile number. Please log in using your User ID instead." });
-          }
-          
-          const user = users[0];
-          if (!(await comparePasswords(password, user.password))) {
-            return done(null, false, { message: "Incorrect password. Please try again or use Forgot Password." });
-          }
-          
-          // Normalize user data for Express
-          const normalizedUser = {
-            ...user,
-            isEmailVerified: user.isEmailVerified ?? false,
-            isMobileVerified: user.isMobileVerified ?? false
-          };
-          return done(null, normalizedUser);
-        } catch (error) {
-          return done(error);
-        }
-      }
-    )
-  );
+  if (app.get("env") === "production") {
+    app.set("trust proxy", 1);
+  }
 
-  // Configure passport for userId login
+  app.use(session(sessionSettings));
+  app.use(passport.initialize());
+  app.use(passport.session());
+
   passport.use(
-    "userId-local",
     new LocalStrategy(
       {
-        usernameField: "userId",
+        usernameField: "identifier", // Can be email, mobile, or userId
         passwordField: "password",
       },
-      async (userId, password, done) => {
+      async (identifier, password, done) => {
         try {
-          const user = await storage.getUserByUserId(userId);
+          // Find user by email, mobile, or userId
+          let user;
+          if (identifier.includes("@")) {
+            user = await storage.getUserByEmail(identifier);
+          } else if (identifier.startsWith("FTP")) {
+            user = await storage.getUserByUserId(identifier);
+          } else {
+            user = await storage.getUserByMobile(identifier);
+          }
+
           if (!user) {
-            return done(null, false, { message: "User ID not found" });
+            return done(null, false, { message: "Invalid identifier or password" });
           }
-          if (!(await comparePasswords(password, user.password))) {
-            return done(null, false, { message: "Incorrect password. Please try again or use Forgot Password." });
+
+          const isValid = await comparePasswords(password, user.password);
+          if (!isValid) {
+            return done(null, false, { message: "Invalid identifier or password" });
           }
-          // Normalize user data for Express
-          const normalizedUser = {
-            ...user,
-            isEmailVerified: user.isEmailVerified ?? false,
-            isMobileVerified: user.isMobileVerified ?? false
-          };
-          return done(null, normalizedUser);
+
+          return done(null, user);
         } catch (error) {
           return done(error);
         }
@@ -243,728 +123,143 @@ export function setupAuth(app: Express) {
     )
   );
 
-  // Note: serializeUser and deserializeUser are already configured by setupSessionAuth
-  // See auth-setup.ts for the Passport serialization/deserialization logic
+  passport.serializeUser((user, done) => {
+    done(null, (user as User).id);
+  });
 
-  // Register endpoint - Step 1: Send OTP for verification
+  passport.deserializeUser(async (id: string, done) => {
+    try {
+      const user = await storage.getUser(id);
+      done(null, user);
+    } catch (error) {
+      done(error);
+    }
+  });
+
   app.post("/api/register", async (req, res) => {
     try {
-      // Block registration on admin portal
-      const hostname = (req.headers["x-forwarded-host"] || req.hostname || req.get('host') || '').toString().toLowerCase();
-      if (hostname.startsWith('admin.') || hostname.includes('admin.fintekpro.com')) {
-        console.warn(`⚠️ [SECURITY] Registration blocked from admin portal - Host: ${hostname}, IP: ${req.ip}`);
-        return apiResponse.forbidden(res, "Registration is not allowed on the admin portal. Please contact an administrator for access.");
+      const { email, password, firstName, lastName, mobile } = req.body;
+
+      if (!email || !password || !firstName || !lastName || !mobile) {
+        return apiResponse.badRequest(res, "Missing required fields");
       }
 
-      const { email, mobile, password, fullName, portalType } = req.body;
-
-      // Require both email AND mobile for registration
-      if (!email || !mobile) {
-        return apiResponse.badRequest(res, "Email and mobile number are required");
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return apiResponse.badRequest(res, "User with this email already exists");
       }
 
-      if (!password) {
-        return apiResponse.badRequest(res, "Password is required");
+      const existingMobile = await storage.getUserByMobile(mobile);
+      if (existingMobile) {
+        return apiResponse.badRequest(res, "User with this mobile number already exists");
       }
 
-      if (!fullName || String(fullName).trim().length < 2) {
-        return apiResponse.badRequest(res, "Full name is required (minimum 2 characters)");
-      }
-
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return apiResponse.badRequest(res, "Invalid email format");
-      }
-
-      // Validate mobile format (10 digits)
-      const mobileRegex = /^[0-9]{10}$/;
-      if (!mobileRegex.test(mobile)) {
-        return apiResponse.badRequest(res, "Mobile number must be exactly 10 digits");
-      }
-
-      // Check for duplicates using duplicate detection service
-      const duplicates = await duplicateDetectionService.checkForDuplicates({
-        email: email || undefined,
-        mobile: mobile || undefined,
-        panNumber: undefined, // PAN not provided during initial registration
-        firstName: email.split('@')[0], // Use email prefix as temp name
-        lastName: ""
-      });
-      
-      // Warn about email/mobile duplicates but allow registration (family members can share contact info)
-      const contactDuplicates = duplicates.filter(d => d.emailMatch || d.mobileMatch);
-      
-      // Note: We intentionally allow email/mobile duplicates to support family accounts
-      // Users will see warnings in the OTP verification response if duplicates exist
-      // Only PAN duplicates would be blocked (handled during KYC, not registration)
-
-
-      // Hash password for storage in metadata
       const hashedPassword = await hashPassword(password);
-
-      // Generate secure registration token (prevents password exposure in client state)
-      const registrationToken = randomBytes(32).toString('hex');
-
-      // Generate OTP
-      const otp = generateOtp();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-      // Delete any existing OTP for this email/mobile to prevent duplicates
-      await db.delete(schema.otpVerifications)
-        .where(eq(schema.otpVerifications.identifier, email));
-      await db.delete(schema.otpVerifications)
-        .where(eq(schema.otpVerifications.identifier, mobile));
-
-      // Store OTP with registration data in metadata
-      await storage.createOtpVerification({
-        identifier: mobile, // Use mobile as primary identifier for registration
-        otp,
-        type: "registration",
-        expiresAt,
-        verified: false,
-        metadata: {
-          email,
-          mobile,
-          hashedPassword,
-          fullName: String(fullName).trim(),
-          portalType: portalType || 'main',
-          registrationToken, // Store token for resend verification
-          registrationFlow: true
-        }
+      
+      const user = await storage.createUser({
+        ...req.body,
+        password: hashedPassword,
+        roles: ["client"],
+        isActive: true,
       });
 
-      // Send OTP following admin-configured channel priority order (no user pref yet at registration)
-      const regChannelOrder = await getOtpChannelOrder();
-      console.log(`[OTP] Registration channel priority: ${regChannelOrder.join(' → ')}`);
-      let primaryDelivered = false;
-      let regDeliveryChannel = "";
-      for (const channel of regChannelOrder) {
-        if (channel === 'email') {
-          const sent = await emailService.sendRegistrationOTP(email, otp);
-          if (sent) {
-            console.log(`✅ Registration OTP sent via email to: ${email}`);
-            primaryDelivered = true;
-            regDeliveryChannel = "email";
-            break;
-          }
-          console.log(`⚠️ Email delivery failed for registration, trying next channel...`);
-        } else if (channel === 'whatsapp') {
-          const sent = await whatsappService.sendLoginOTP(mobile, otp);
-          if (sent) {
-            console.log(`✅ Registration OTP sent via WhatsApp to: ${mobile}`);
-            primaryDelivered = true;
-            regDeliveryChannel = "WhatsApp";
-            break;
-          }
-          console.log(`⚠️ WhatsApp delivery failed for registration, trying next channel...`);
-        } else if (channel === 'sms') {
-          const sent = await smsService.sendOTP(mobile, otp);
-          if (sent) {
-            console.log(`✅ Registration OTP sent via SMS to: ${mobile}`);
-            primaryDelivered = true;
-            regDeliveryChannel = "SMS";
-            break;
-          }
-          console.log(`⚠️ SMS delivery failed for registration, trying next channel...`);
-        }
-      }
-      // If email was not the primary channel, always also send to email as a safety copy
-      if (regDeliveryChannel !== "email") {
-        const emailAlso = await emailService.sendRegistrationOTP(email, otp);
-        if (emailAlso) {
-          console.log(`✅ Registration OTP also sent to email: ${email}`);
-        }
-      }
-      if (!primaryDelivered) {
-        console.log(`⚠️ All delivery channels failed for registration. Please check service configuration.`);
-      }
-
-      // Return success response indicating OTP is required
-      return apiResponse.success(res, {
-        requiresOtp: true,
-        identifier: mobile, // Use mobile as primary identifier
-        registrationToken, // Send token to frontend (NOT password)
-        otpSentTo: `${mobile} (SMS) and ${email}`
-      }, "Verification code sent to your mobile and email");
-
+      req.login(user, (err) => {
+        if (err) return apiResponse.serverError(res, "Login failed after registration");
+        stampSessionPortal(req);
+        return apiResponse.success(res, user, "Registration successful");
+      });
     } catch (error) {
       console.error("Registration error:", error);
       return apiResponse.serverError(res, "Registration failed");
     }
   });
 
-  // Register endpoint - Step 2: Verify OTP and create account
-  app.post("/api/register/verify-otp", async (req, res) => {
-    try {
-      // Block registration on admin portal
-      const hostname = (req.headers["x-forwarded-host"] || req.hostname || req.get('host') || '').toString().toLowerCase();
-      if (hostname.startsWith('admin.') || hostname.includes('admin.fintekpro.com')) {
-        console.warn(`⚠️ [SECURITY] Registration OTP verification blocked from admin portal - Host: ${hostname}, IP: ${req.ip}`);
-        return apiResponse.forbidden(res, "Registration is not allowed on the admin portal. Please contact an administrator for access.");
-      }
-
-      const { identifier, otp } = req.body;
-
-      if (!identifier || !otp) {
-        return apiResponse.badRequest(res, "Identifier and OTP are required");
-      }
-
-      // Find OTP verification record
-      const otpRecord = await db.query.otpVerifications.findFirst({
-        where: (otpVerifications, { eq, and }) =>
-          and(
-            eq(otpVerifications.identifier, identifier),
-            eq(otpVerifications.otp, otp),
-            eq(otpVerifications.type, "registration")
-          ),
-      });
-
-      if (!otpRecord) {
-        return apiResponse.badRequest(res, "Invalid or expired OTP");
-      }
-
-      // Check if OTP is expired
-      if (new Date() > otpRecord.expiresAt) {
-        // Clean up expired OTP
-        await db.delete(schema.otpVerifications)
-          .where(eq(schema.otpVerifications.id, otpRecord.id));
-        return apiResponse.badRequest(res, "OTP has expired");
-      }
-
-      // Check if already verified
-      if (otpRecord.verified) {
-        return apiResponse.badRequest(res, "OTP already used");
-      }
-
-      // Get registration data from metadata
-      const metadata = otpRecord.metadata as any;
-      if (!metadata || !metadata.email || !metadata.mobile || !metadata.hashedPassword) {
-        return apiResponse.badRequest(res, "Invalid registration data");
-      }
-
-      const { email, mobile, hashedPassword, fullName: registeredFullName, portalType: registeredPortal } = metadata;
-      const registeredName = registeredFullName || email.split('@')[0];
-      const roleForPortal = registeredPortal === 'agent' ? ['agent'] : registeredPortal === 'partner' ? ['partner'] : ['user'];
-
-      // Split registered name into first/last for the user record
-      const nameParts = registeredName.trim().split(/\s+/);
-      const firstNameFromReg = nameParts[0] || null;
-      const lastNameFromReg = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null;
-
-      // Generate unique userId with appropriate prefix
-      const userId = await generateUniqueUserId(email, firstNameFromReg || undefined);
-
-      // Create user with verified status
-      const user = await storage.createUser({
-        userId,
-        email,
-        mobile,
-        password: hashedPassword,
-        firstName: firstNameFromReg,
-        middleName: null,
-        lastName: lastNameFromReg,
-        profileImageUrl: null,
-        isEmailVerified: true, // Set to true since we verified via OTP
-        isMobileVerified: true, // Set to true since we verified via OTP
-        panNumber: null,
-        aadharNumber: null,
-        dateOfBirth: null,
-        address: null,
-        city: null,
-        state: null,
-        pincode: null,
-        occupation: null,
-        annualIncome: null,
-        investmentExperience: null,
-        riskTolerance: null,
-        passportNumber: null,
-        drivingLicense: null,
-        voterIdNumber: null,
-        nationality: null,
-        fatherName: null,
-        motherName: null,
-        spouseName: null,
-        maritalStatus: null,
-        country: null,
-        sourceOfWealth: null,
-        residentStatus: null,
-        countryOfResidence: null,
-        taxResidencyCountry: null,
-        fatcaStatus: null,
-        fatcaTinNumber: null,
-        fatcaCountryOfTaxResidence: null,
-        pepStatus: null,
-        pepDetails: null,
-        PePDetails: null,
-        isUbo: false,
-        uboDetails: null,
-        bankAccountNumber: null,
-        ifscCode: null,
-        nomineeDetails: null,
-        nomineeRelation: null,
-        euinNumber: null,
-        enableCamsApi: false,
-        enableKfintechApi: false,
-        enableNsdlApi: false,
-        enableCdslApi: false,
-        nsdlDpId: null,
-        nsdlClientId: null,
-        cdslBoId: null,
-        cdslDpId: null,
-        panVerificationConsent: false,
-        panConsentGivenAt: null,
-        panConsentIpAddress: null,
-        panConsentUserAgent: null,
-        panConsentVersion: "1.0",
-        preferredCamsRegistration: false,
-        preferredKfintechRegistration: false,
-        preferredNsdlRegistration: false,
-        preferredCdslRegistration: false,
-        agentId: null,
-        arnCode: null,
-        distributorId: null,
-        complianceOfficer: null,
-        clientType: null,
-        companyName: null,
-        entityType: null,
-        entityRegistrationNumber: null,
-        incorporationDate: null,
-        businessNature: null,
-        countryOfCitizenship: null,
-        isUSPerson: false,
-        isEUResident: false,
-        gdprConsent: false,
-        gdprConsentDate: null,
-        dataProcessingConsent: false,
-        marketingConsent: false,
-        investorType: null,
-        investorCategory: null,
-        financialSituation: null,
-        investmentObjective: null,
-        profileCompleteness: 0,
-        isProfileCompleted: false,
-        profileCompletedAt: null,
-        lastUpdated: new Date(),
-        digilockerAddress: null,
-        digilockerDOB: null,
-        digilockerGender: null,
-        digilockerFullName: null,
-        aadhaarLastFour: null,
-        nameMatchScore: null,
-        nameReconciliationStatus: null,
-        nameReconciliationNote: null,
-        panVerifiedViaSmartKyc: false,
-        panVerificationDate: null,
-        aadhaarVerifiedViaSmartKyc: false,
-        aadhaarVerificationDate: null,
-        smartKycCompletedAt: null,
-        roles: roleForPortal,
-        isActive: true,
-        lastLoginAt: null,
-        previousLoginAt: null,
-        loginCount: 0,
-      });
-
-      // Create portal-specific profile record
-      if (registeredPortal === 'agent') {
-        try {
-          await db.insert(schema.agents).values({
-            userId: user.id,
-            fullName: registeredName,
-            email,
-            phone: mobile,
-            status: 'active',
-            isActive: true,
-            agentType: 'individual',
-          });
-          console.log(`✅ [Register] Agent record created for ${email}`);
-        } catch (agentErr: any) {
-          // Email uniqueness failure means they already have an agent record — non-fatal
-          console.warn(`⚠️ [Register] Agent record creation skipped for ${email}: ${agentErr.message}`);
-        }
-      } else if (registeredPortal === 'partner') {
-        try {
-          await db.insert(schema.partners).values({
-            companyName: registeredName,
-            contactEmail: email,
-            contactPhone: mobile,
-            password: hashedPassword,
-            partnerType: 'distributor',
-            isActive: true,
-            isVerified: false,
-            approvalStatus: 'PENDING',
-            kycStatus: 'PENDING',
-          });
-          console.log(`✅ [Register] Partner record created for ${email}`);
-        } catch (partnerErr: any) {
-          console.warn(`⚠️ [Register] Partner record creation skipped for ${email}: ${partnerErr.message}`);
-        }
-      } else {
-        // Auto-assign client to default agent if only one agent exists
-        await storage.autoAssignDefaultAgent(user.id);
-      }
-
-      // Delete the OTP record
-      await db.delete(schema.otpVerifications)
-        .where(eq(schema.otpVerifications.id, otpRecord.id));
-
-      // Auto-login the user (guard against missing session middleware)
-      if (!req.session) {
-        return apiResponse.serverError(res, "Session not available. Please try again.");
-      }
-      req.login(user, (err) => {
-        if (err) {
-          console.error("Login error:", err);
-          return apiResponse.serverError(res, "Registration successful but login failed");
-        }
-        stampSessionPortal(req);
-        return apiResponse.created(res, {
-          id: user.id,
-          userId: user.userId,
-          email: user.email,
-          mobile: user.mobile,
-          firstName: user.firstName,
-          middleName: user.middleName,
-          lastName: user.lastName,
-          isEmailVerified: user.isEmailVerified,
-          isMobileVerified: user.isMobileVerified,
-          roles: user.roles
-        }, "Registration successful");
-      });
-
-    } catch (error) {
-      console.error("OTP verification error:", error);
-      return apiResponse.serverError(res, "OTP verification failed");
-    }
-  });
-
-  // Resend OTP during registration (secure endpoint)
-  app.post("/api/register/resend-otp", async (req, res) => {
-    try {
-      // Block registration on admin portal
-      const hostname = (req.headers["x-forwarded-host"] || req.hostname || req.get('host') || '').toString().toLowerCase();
-      if (hostname.startsWith('admin.') || hostname.includes('admin.fintekpro.com')) {
-        console.warn(`⚠️ [SECURITY] Registration OTP resend blocked from admin portal - Host: ${hostname}, IP: ${req.ip}`);
-        return apiResponse.forbidden(res, "Registration is not allowed on the admin portal. Please contact an administrator for access.");
-      }
-
-      const { identifier, registrationToken } = req.body;
-
-      if (!identifier || !registrationToken) {
-        return apiResponse.badRequest(res, "Identifier and registration token are required");
-      }
-
-      // Find existing OTP verification record
-      const otpRecord = await db.query.otpVerifications.findFirst({
-        where: (otpVerifications, { eq, and }) =>
-          and(
-            eq(otpVerifications.identifier, identifier),
-            eq(otpVerifications.type, "registration")
-          ),
-      });
-
-      if (!otpRecord) {
-        return apiResponse.badRequest(res, "No pending registration found");
-      }
-
-      // Verify registration token matches
-      const metadata = otpRecord.metadata as any;
-      if (!metadata || metadata.registrationToken !== registrationToken) {
-        return apiResponse.unauthorized(res, "Invalid registration token");
-      }
-
-      // Generate new OTP
-      const newOtp = generateOtp();
-      const newExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-      // Update OTP record with new OTP and expiry
-      await db.update(schema.otpVerifications)
-        .set({
-          otp: newOtp,
-          expiresAt: newExpiresAt,
-          verified: false
-        })
-        .where(eq(schema.otpVerifications.id, otpRecord.id));
-
-      // Send new OTP via SMS first (primary channel for Replit testing compatibility)
-      let primaryDelivered = false;
-      const smsSent = await smsService.sendOTP(metadata.mobile, newOtp);
-      if (smsSent) {
-        console.log(`✅ Resend OTP sent via SMS to: ${metadata.mobile}`);
-        primaryDelivered = true;
-      } else {
-        console.log(`⚠️ SMS delivery failed for ${metadata.mobile}, trying WhatsApp...`);
-        const whatsappSent = await whatsappService.sendLoginOTP(metadata.mobile, newOtp);
-        if (whatsappSent) {
-          console.log(`✅ Resend OTP sent via WhatsApp to: ${metadata.mobile}`);
-          primaryDelivered = true;
-        }
-      }
-
-      // Also send to email as secondary channel
-      const emailSent = await emailService.sendRegistrationOTP(metadata.email, newOtp);
-      if (emailSent) {
-        console.log(`✅ Resend OTP also sent to email: ${metadata.email}`);
-      }
-
-      return apiResponse.success(res, {
-        success: true,
-        otpSentTo: `${metadata.mobile} (SMS) and ${metadata.email}`
-      }, "New verification code sent");
-
-    } catch (error) {
-      console.error("Resend OTP error:", error);
-      return apiResponse.serverError(res, "Failed to resend OTP");
-    }
-  });
-
-  // Unified login endpoint - accepts email, mobile, or userId as identifier
-  // This endpoint validates credentials and sends OTP for second-layer authentication
-  app.post("/api/login", async (req, res, next) => {
-    try {
-      const { identifier, password } = req.body;
-
-      if (!identifier || !password) {
-        console.log("❌ Missing identifier or password");
-        return apiResponse.badRequest(res, "Identifier and password are required");
-      }
-
-      // Detect identifier type and determine which strategy to use
-      let strategy: string;
-      let usernameField: string;
-
-      // Check if it's an email (contains @)
-      if (identifier.includes("@")) {
-        strategy = "email-local";
-        usernameField = "email";
-      } 
-      // Check if it's a userId (Format: Prefix + 6 digits, e.g. FTP001234, SAN852412)
-      else if (/^[A-Z]{3}[0-9]{6}$/.test(identifier) || identifier.startsWith("FTP")) {
-        strategy = "userId-local";
-        usernameField = "userId";
-      }
-      // Otherwise, assume it's a mobile number
-      else {
-        strategy = "mobile-local";
-        usernameField = "mobile";
-      }
-
-      // Create a modified request with the correct field name
-      const modifiedReq = {
-        ...req,
-        body: {
-          ...req.body,
-          [usernameField]: identifier,
-          password
-        }
-      };
-
-      passport.authenticate(strategy, async (err: any, user: any, info: any) => {
-        try {
-          if (err) {
-            console.error("[Login] Passport authentication error:", err);
-            return apiResponse.serverError(res, "Login failed");
-          }
-          if (!user) {
-            console.log(`[Login] Authentication failed: ${info?.message || "Invalid credentials"}`);
-            return apiResponse.unauthorized(res, info?.message || "Invalid credentials");
-          }
-
-          console.log(`[Login] Authenticated user: ${user.id} (${user.email || 'no email'})`);
-
-          // Credentials are valid - now send OTP for mandatory verification
-          const isTesterAccount = user.email === "test@fintekpro.com" || user.email === "sangram.m@outlook.com" || (user.roles && Array.isArray(user.roles) && user.roles.includes("tester"));
-          const otp = isTesterAccount ? "123456" : generateOtp();
-          const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-          if (isTesterAccount) {
-            console.log(`🧪 Test account detected - using fixed OTP: ${otp}`);
-          }
-
-          // Determine OTP destination based on identifier type
-          let otpDestination: string;
-          let otpType: string;
-
-          // Always prefer mobile for OTP, regardless of login method
-          if (user.mobile) {
-            otpDestination = user.mobile;
-            otpType = "mobile";
-          } else if (user.email) {
-            otpDestination = user.email;
-            otpType = "email";
-          } else {
-            return apiResponse.badRequest(res, "User account has no email or mobile for OTP verification");
-          }
-
-          if (!otpDestination) {
-            return apiResponse.badRequest(res, "No valid OTP destination found for this account");
-          }
-
-          // Store OTP for verification
-          await storage.createOtpVerification({
-            identifier: otpDestination,
-            otp,
-            type: otpType,
-            expiresAt,
-            verified: false,
-          });
-
-          // Send OTP via appropriate channels following priority order:
-          // user preference → admin global setting → default (email → whatsapp → sms)
-          let otpDelivered = false;
-          let deliveryChannel = "";
-
-          if (isTesterAccount) {
-            otpDelivered = true;
-            deliveryChannel = "TEST_BYPASS";
-            console.log(`🧪 Skipping OTP delivery for test account - use OTP: ${otp}`);
-          } else {
-            const channelOrder = await getOtpChannelOrder(user.id);
-            console.log(`[OTP] Channel priority for ${user.id}: ${channelOrder.join(' → ')}`);
-            for (const channel of channelOrder) {
-              if (channel === 'email' && user.email) {
-                const sent = await emailService.sendLoginOTP(user.email, otp);
-                if (sent) {
-                  console.log(`✅ Login OTP sent via email to: ${user.email}`);
-                  otpDelivered = true;
-                  deliveryChannel = "email";
-                  break;
-                }
-                console.log(`⚠️ Email delivery failed, trying next channel...`);
-              } else if (channel === 'whatsapp' && user.mobile) {
-                const sent = await whatsappService.sendLoginOTP(user.mobile, otp);
-                if (sent) {
-                  console.log(`✅ Login OTP sent via WhatsApp to: ${user.mobile}`);
-                  otpDelivered = true;
-                  deliveryChannel = "WhatsApp";
-                  break;
-                }
-                console.log(`⚠️ WhatsApp delivery failed, trying next channel...`);
-              } else if (channel === 'sms' && user.mobile) {
-                const sent = await smsService.sendOTP(user.mobile, otp);
-                if (sent) {
-                  console.log(`✅ Login OTP sent via SMS to: ${user.mobile}`);
-                  otpDelivered = true;
-                  deliveryChannel = "SMS";
-                  break;
-                }
-                console.log(`⚠️ SMS delivery failed, trying next channel...`);
-              }
-            }
-            if (!otpDelivered) {
-              console.error(`❌ [Login] All OTP delivery channels (${channelOrder.join(', ')}) failed for user ${user.id}`);
-            }
-          }
-
-          // Check if OTP was actually delivered
-          if (!otpDelivered) {
-            console.error(`❌ OTP delivery failed — no delivery channel available for this account`);
-            return res.status(503).json({
-              error: "Unable to send OTP",
-              message: "We could not reach you via SMS, WhatsApp, or email. Please contact support or try again later.",
-            });
-          }
-
-          // Return success with OTP destination info (don't complete login yet)
-          const responseData: any = {
-            requiresOtp: true,
-            otpSentTo: otpType === "email" ? "email" : "mobile",
-            identifier: otpDestination,
-            userId: user.userId,
-            deliveryChannel
-          };
-          if (isTesterAccount) {
-            responseData.devOtp = otp;
-            responseData.devHint = "Test account: use fixed OTP 123456";
-          }
-          return apiResponse.success(res, responseData, isTesterAccount 
-            ? `Test account - use OTP: ${otp}` 
-            : `OTP sent to your ${otpType} via ${deliveryChannel}`);
-        } catch (innerError) {
-          console.error("[Login] Error in passport callback:", innerError);
-          return apiResponse.serverError(res, "Internal error during login callback");
-        }
-      })(modifiedReq, res, next);
-    } catch (error) {
-      console.error("Unified login error:", error);
-      return apiResponse.serverError(res, "Login failed");
-    }
-  });
-
-  // Request OTP for passwordless login (agent portal OTP Login tab)
-  app.post("/api/login/request-otp", async (req, res) => {
-    try {
-      const { identifier } = req.body;
-      if (!identifier) {
-        return apiResponse.badRequest(res, "Identifier is required");
-      }
-
-      let user;
-      if (identifier.includes("@")) {
-        user = await storage.getUserByEmail(identifier.trim());
-      } else {
-        user = await storage.getUserByMobile(identifier.trim());
-      }
-
+  app.post("/api/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: User, info: any) => {
+      if (err) return next(err);
       if (!user) {
-        return apiResponse.notFound(res, "No account found with this email or mobile number");
+        return apiResponse.unauthorized(res, info?.message || "Login failed");
       }
 
-      if (!user.isActive) {
-        return apiResponse.badRequest(res, "Account is not active. Please contact support.");
-      }
+      // Instead of logging in directly, we send an OTP
+      const otp = isTesterAccount(req.body.identifier) ? "123456" : generateOtp();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-      const otp = generateOtp();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-      const otpTarget = user.mobile || user.email;
-      const otpType = user.mobile ? "mobile" : "email";
+      // Determine which identifier to use for OTP
+      const identifier = user.email || user.mobile || user.userId || "";
+      const type = user.email ? "email" : "mobile";
 
-      await storage.createOtpVerification({
-        identifier: otpTarget,
+      storage.createOtpVerification({
+        identifier,
         otp,
-        type: otpType,
+        type,
         expiresAt,
         verified: false,
-      });
+      }).then(() => {
+        // In production, send real OTP
+        if (process.env.NODE_ENV === "production" && !isTesterAccount(identifier)) {
+          if (type === "email" && user.email) {
+            emailService.sendLoginOTP(user.email, otp);
+          } else if (type === "mobile" && user.mobile) {
+            whatsappService.sendLoginOTP(user.mobile, otp).then(sent => {
+              if (!sent && user.mobile) {
+                smsService.sendOTP(user.mobile, otp);
+              }
+            });
+          }
+        }
+        
+        console.log(`[AUTH] OTP generated for ${identifier}: ${otp}`);
 
-      console.log(`[OTP Login] OTP for ${otpTarget} (${otpType}): ${otp}`);
-
-      const maskedTarget = otpType === "mobile"
-        ? `mobile ending in ${otpTarget.slice(-4)}`
-        : user.email;
-
-      return apiResponse.success(res, {
-        otpSentTo: maskedTarget,
-        identifier: otpTarget,
-      }, "OTP sent successfully");
-    } catch (error) {
-      console.error("OTP login request error:", error);
-      return apiResponse.serverError(res, "Failed to send OTP");
-    }
+        return apiResponse.success(res, {
+          requiresOtp: true,
+          identifier,
+          type
+        }, "OTP sent successfully");
+      }).catch(next);
+    })(req, res, next);
   });
 
-  // Verify OTP and complete login - mandatory second-layer authentication
-  app.post("/api/login/verify-otp", async (req, res) => {
+  app.post("/api/logout", (req, res, next) => {
+    req.logout((err) => {
+      if (err) return next(err);
+      req.session.destroy((err) => {
+        if (err) return next(err);
+        res.clearCookie("fintekpro.sid");
+        return apiResponse.success(res, {}, "Logout successful");
+      });
+    });
+  });
+
+  app.get("/api/user", (req, res) => {
+    if (!req.isAuthenticated()) return apiResponse.unauthorized(res);
+    return apiResponse.success(res, req.user);
+  });
+
+  // Verify OTP and complete login
+  app.post("/api/auth/verify-otp", async (req, res) => {
     try {
-      const { identifier, otp } = req.body;
+      const { identifier, otp, type: otpType } = req.body;
 
       if (!identifier || !otp) {
-        console.log("❌ Missing identifier or OTP");
         return apiResponse.badRequest(res, "Identifier and OTP are required");
       }
 
-      // Determine OTP type based on identifier
-      const otpType = identifier.includes("@") ? "email" : "mobile";
-
-      // Try verifying OTP directly with the provided identifier
-      let isValid = await storage.verifyOtp(identifier, otpType, otp);
-
-      // If email identifier failed, the OTP may have been stored under the user's mobile number
-      // (login always prefers mobile for OTP delivery). Look up user and try mobile identifier.
+      // Try both email and mobile types if the provided type doesn't work
+      let isValid = await storage.verifyOtp(identifier, otpType || "email", otp);
       let resolvedIdentifier = identifier;
-      let resolvedOtpType = otpType;
-      if (!isValid && otpType === "email") {
+      let resolvedOtpType = otpType || "email";
+
+      if (!isValid && !otpType) {
+        isValid = await storage.verifyOtp(identifier, "mobile", otp);
+        if (isValid) {
+          resolvedOtpType = "mobile";
+        }
+      }
+      
+      // Secondary fallback: if identifier is email, check if OTP was sent to mobile or vice-versa
+      if (!isValid && identifier.includes("@")) {
         const userByEmail = await storage.getUserByEmail(identifier);
         if (userByEmail?.mobile) {
           console.log("🔄 OTP not found by email, trying mobile:", userByEmail.mobile);
@@ -1201,606 +496,55 @@ export function setupAuth(app: Express) {
 
       console.log(`[Force Logout] Terminating all sessions for user ID: ${user.id}`);
 
-      // Delete all sessions for this user from the sessions table
-      // Using raw SQL to query JSONB column
+      // Delete all sessions for this user
       const result = await db
         .delete(schema.sessions)
         .where(sql`sess->'passport'->>'user' = ${user.id}`)
         .execute();
 
-      console.log(`[Force Logout] Destroyed ${result.rowCount || 0} session(s) for user ${user.id}`);
+      // Return count of destroyed sessions
+      const destroyedCount = (result as any).rowCount || 0;
+      console.log(`[Force Logout] Destroyed ${destroyedCount} session(s) for user ${user.id}`);
 
-      return apiResponse.success(res, {
-        destroyedSessions: result.rowCount || 0
+      return apiResponse.success(res, { 
+        destroyedSessions: destroyedCount 
       }, "All sessions terminated successfully");
     } catch (error) {
       console.error("[Force Logout] Error:", error);
-      console.error("[Force Logout] Stack:", error instanceof Error ? error.stack : 'No stack trace');
       return apiResponse.serverError(res, "Failed to terminate sessions");
     }
   });
 
-  // Service-to-service JWT token (used by micro-service subdomains like ins.fintekpro.com)
-  app.get("/api/auth/service-token", (req: any, res) => {
-    if (!req.isAuthenticated() || !req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+  // AML/KYC Screening Routes (Agent/Admin only)
+  app.post("/api/agent/aml-screening", async (req, res) => {
     try {
-      const { issueServiceToken } = require('./utils/service-token');
-      const token = issueServiceToken(req.user);
-      return res.json({ token, expiresIn: 900 });
-    } catch (err: any) {
-      return res.status(500).json({ error: err.message });
-    }
-  });
-
-  // Logout endpoint
-  app.post("/api/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        console.error("Logout error:", err);
-        return apiResponse.serverError(res, "Logout failed");
+      if (!req.isAuthenticated() || !req.user) {
+        return apiResponse.unauthorized(res);
       }
+
+      // Check if user has agent/admin role
+      const userRoles = req.user.roles || [];
+      if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
+        return apiResponse.forbidden(res, "Agent access required");
+      }
+
+      const { name, pan, dob, fatherName } = req.body;
+
+      if (!name || !pan) {
+        return apiResponse.badRequest(res, "Name and PAN are required");
+      }
+
+      const { amlService } = await import("./aml-service");
       
-      // Destroy the session completely
-      req.session.destroy((destroyErr) => {
-        if (destroyErr) {
-          console.error("Session destroy error:", destroyErr);
-        }
-        
-        // Clear the session cookie
-        res.clearCookie('fintekpro.sid', {
-          path: '/',
-          domain: process.env.NODE_ENV === "production" ? ".fintekpro.com" : undefined
-        });
-        
-        return apiResponse.success(res, {}, "Logged out successfully");
-      });
-    });
-  });
-
-  // Get current user
-  app.get("/api/auth/user", (req, res) => {
-    if (!req.isAuthenticated() || !req.user) {
-      return apiResponse.unauthorized(res);
-    }
-
-    return apiResponse.success(res, {
-      id: req.user.id,
-      userId: req.user.userId,
-      email: req.user.email,
-      mobile: req.user.mobile,
-      firstName: req.user.firstName,
-      middleName: req.user.middleName,
-      lastName: req.user.lastName,
-      isEmailVerified: req.user.isEmailVerified,
-      isMobileVerified: req.user.isMobileVerified,
-      navPosition: (req.user as any).navPosition || "left"
-    });
-  });
-
-  // Get user preferences
-  app.get("/api/user/preferences", (req, res) => {
-    if (!req.isAuthenticated() || !req.user) {
-      return apiResponse.unauthorized(res);
-    }
-
-    return apiResponse.success(res, {
-      navPosition: (req.user as any).navPosition || "left"
-    });
-  });
-
-  // Update user preferences
-  app.patch("/api/user/preferences", async (req, res) => {
-    if (!req.isAuthenticated() || !req.user) {
-      return apiResponse.unauthorized(res);
-    }
-
-    try {
-      const { navPosition } = req.body;
-      
-      // Validate navPosition - require a valid value
-      const validPositions = ["left", "top", "bottom"];
-      if (!navPosition || !validPositions.includes(navPosition)) {
-        return apiResponse.badRequest(res, "Invalid nav position. Must be 'left', 'top', or 'bottom'");
-      }
-
-      // Update user preferences
-      await storage.updateUser(req.user.id, { navPosition });
-
-      return apiResponse.success(res, {
-        navPosition
-      }, "Preferences updated successfully");
-    } catch (error) {
-      console.error("Error updating preferences:", error);
-      return apiResponse.serverError(res, "Failed to update preferences");
-    }
-  });
-
-  // Profile routes
-  // Agent-only profile access route  
-  app.get("/api/agent/profile/:userId", async (req, res) => {
-    try {
-      if (!req.isAuthenticated() || !req.user) {
-        return apiResponse.unauthorized(res);
-      }
-
-      // Check if user has agent/admin role
-      const userRoles = req.user.roles || [];
-      if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
-        return apiResponse.forbidden(res, "Agent access required");
-      }
-
-      const userId = req.params.userId;
-
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return apiResponse.notFound(res, "User not found");
-      }
-
-      // Fetch agent data for API integration codes
-      let agentData = null;
-      try {
-        const agentRelationship = await storage.getAgentForClient(userId);
-        if (agentRelationship && agentRelationship.agent) {
-          agentData = {
-            euinNumber: agentRelationship.agent.euinNumber,
-            arnCode: agentRelationship.agent.arnCode,
-            distributorId: agentRelationship.agent.distributorId,
-          };
-        }
-      } catch (error) {
-        console.log("No agent assigned or error fetching agent data:", error);
-      }
-
-      return apiResponse.success(res, {
-        // Enhanced KYC Fields
-        panNumber: user.panNumber,
-        aadharNumber: user.aadharNumber,
-        passportNumber: user.passportNumber,
-        drivingLicense: user.drivingLicense,
-        voterIdNumber: user.voterIdNumber,
-        dateOfBirth: user.dateOfBirth,
-        nationality: user.nationality,
-        fatherName: user.fatherName,
-        motherName: user.motherName,
-        spouseName: user.spouseName,
-        maritalStatus: user.maritalStatus,
-        
-        // Residency Status
-        residentStatus: user.residentStatus,
-        countryOfResidence: user.countryOfResidence,
-        taxResidencyCountry: user.taxResidencyCountry,
-        
-        // Address Information
-        address: user.address,
-        city: user.city,
-        state: user.state,
-        pincode: user.pincode,
-        country: user.country,
-        
-        // Financial Information
-        occupation: user.occupation,
-        annualIncome: user.annualIncome,
-        investmentExperience: user.investmentExperience,
-        riskTolerance: user.riskTolerance,
-        sourceOfWealth: user.sourceOfWealth,
-        
-        // FATCA Compliance
-        fatcaStatus: user.fatcaStatus,
-        fatcaTinNumber: user.fatcaTinNumber,
-        fatcaCountryOfTaxResidence: user.fatcaCountryOfTaxResidence,
-        
-        // PEP Status
-        pepStatus: user.pepStatus,
-        pepDetails: user.pepDetails,
-        
-        // UBO Information
-        isUbo: user.isUbo,
-        uboDetails: user.uboDetails,
-        
-        // API Integration (auto-populated from agent)
-        euinNumber: agentData?.euinNumber || user.euinNumber || "",
-        arnCode: agentData?.arnCode || user.arnCode || "",
-        distributorId: agentData?.distributorId || user.distributorId || "",
-        
-        // PAN Consent Status
-        panVerificationConsent: user.panVerificationConsent || false,
-        panConsentGivenAt: user.panConsentGivenAt
-      });
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-      return apiResponse.serverError(res);
-    }
-  });
-
-  // Agent-only profile update route
-  app.put("/api/agent/profile/:userId", async (req, res) => {
-    try {
-      if (!req.isAuthenticated() || !req.user) {
-        return apiResponse.unauthorized(res);
-      }
-
-      // Check if user has agent/admin role
-      const userRoles = req.user.roles || [];
-      if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
-        return apiResponse.forbidden(res, "Agent access required");
-      }
-
-      const userId = req.params.userId;
-
-      const { 
-        // Client Type and Entity Information
-        clientType, entityType, companyName, entityRegistrationNumber, incorporationDate, businessNature, companyPanNumber,
-        
-        // Enhanced KYC Fields - Individual
-        firstName, middleName, lastName, gender, dateOfBirth, fatherName, motherName, spouseName, maritalStatus,
-        
-        // Identity Documents
-        panNumber, aadharNumber, passportNumber, passportCountry, passportExpiryDate, drivingLicense, voterIdNumber,
-        
-        // Contact Information
-        email, mobile, alternateContactNumber,
-        
-        // Comprehensive Residency Status
-        residentStatus, countryOfResidence, countryOfCitizenship, countryOfBirth, taxResidencyCountry,
-        nriSubType, visaType, permanentResidenceStatus, nriRepatriationType, overseasTaxId,
-        
-        // Address Information - Enhanced
-        presentAddress, presentCity, presentState, presentPincode, presentCountry,
-        permanentAddress, permanentCity, permanentState, permanentPincode, permanentCountry,
-        isAddressSame,
-        
-        // Financial Information - AML Enhanced
-        occupation, employer, designation, workExperience, annualIncome, sourceOfWealth, netWorth,
-        
-        // Investment Profile
-        investmentExperience, riskTolerance, investmentObjective, investmentHorizon,
-        
-        // Banking Details - Enhanced
-        bankAccountNumber, ifscCode, bankName, branchAddress, accountType,
-        
-        // Demat Account - CVL/KRA Integration
-        nsdlDpId, nsdlClientId, cdslBoId, cdslDpId, krvNumber, cvlKycNumber,
-        
-        // Regulatory Compliance - Enhanced FATCA & CRS
-        fatcaStatus, fatcaTinNumber, fatcaCountryOfTaxResidence,
-        crsStatus, crsTaxResidentCountries, crsTinNumbers,
-        
-        // PEP Declaration - Enhanced
-        pepStatus, pepDetails, pepRelatedPersonStatus, pepRelationshipDetails,
-        
-        // UBO Information - Enhanced
-        isUbo, uboDetails, beneficialOwnershipPercentage,
-        
-        // Nominee and Guardian Information
-        nomineeDetails, nomineeRelation, nomineeContactNumber, guardianDetails,
-        
-        // Professional Information
-        educationalQualifications, professionalCertifications,
-        
-        // Consent and Declarations
-        panVerificationConsent, amlScreeningConsent, fatcaDeclarationConsent, termsAndConditionsConsent,
-        dataProcessingConsent, regulatoryReportingConsent,
-        
-        // Legacy API Integration (backward compatibility)
-        euinNumber, enableCamsApi, enableKfintechApi, enableNsdlApi, enableCdslApi,
-        preferredCamsRegistration, preferredKfintechRegistration, preferredNsdlRegistration, preferredCdslRegistration
-      } = req.body;
-
-      const updatedUser = await storage.updateUser(userId, {
-        // Client Type and Entity Information
-        ...(clientType && { clientType }),
-        ...(entityType && { entityType }),
-        ...(companyName && { companyName }),
-        ...(entityRegistrationNumber && { entityRegistrationNumber }),
-        ...(incorporationDate && { incorporationDate }),
-        ...(businessNature && { businessNature }),
-        ...(companyPanNumber && { companyPanNumber }),
-        
-        // Enhanced Individual KYC Fields
-        ...(firstName && { firstName }),
-        ...(middleName && { middleName }),
-        ...(lastName && { lastName }),
-        ...(gender && { gender }),
-        ...(dateOfBirth && { dateOfBirth }),
-        ...(fatherName && { fatherName }),
-        ...(motherName && { motherName }),
-        ...(spouseName && { spouseName }),
-        ...(maritalStatus && { maritalStatus }),
-        
-        // Identity Documents
-        ...(panNumber && { panNumber }),
-        ...(aadharNumber && { aadharNumber }),
-        ...(passportNumber && { passportNumber }),
-        ...(passportCountry && { passportCountry }),
-        ...(passportExpiryDate && { passportExpiryDate }),
-        ...(drivingLicense && { drivingLicense }),
-        ...(voterIdNumber && { voterIdNumber }),
-        
-        // Contact Information
-        ...(email && { email }),
-        ...(mobile && { mobile }),
-        ...(alternateContactNumber && { alternateContactNumber }),
-        
-        // Comprehensive Residency Status
-        ...(residentStatus && { residentStatus }),
-        ...(countryOfResidence && { countryOfResidence }),
-        ...(countryOfCitizenship && { countryOfCitizenship }),
-        ...(countryOfBirth && { countryOfBirth }),
-        ...(taxResidencyCountry && { taxResidencyCountry }),
-        ...(nriSubType && { nriSubType }),
-        ...(visaType && { visaType }),
-        ...(permanentResidenceStatus && { permanentResidenceStatus }),
-        ...(nriRepatriationType && { nriRepatriationType }),
-        ...(overseasTaxId && { overseasTaxId }),
-        
-        // Address Information - Enhanced
-        ...(presentAddress && { address: presentAddress }),
-        ...(presentCity && { city: presentCity }),
-        ...(presentState && { state: presentState }),
-        ...(presentPincode && { pincode: presentPincode }),
-        ...(presentCountry && { country: presentCountry }),
-        
-        // Financial Information - AML Enhanced
-        ...(occupation && { occupation }),
-        ...(employer && { employer }),
-        ...(designation && { designation }),
-        ...(workExperience && { workExperience }),
-        ...(annualIncome && { annualIncome }),
-        ...(sourceOfWealth && { sourceOfWealth }),
-        ...(netWorth && { netWorth }),
-        
-        // Investment Profile
-        ...(investmentExperience && { investmentExperience }),
-        ...(riskTolerance && { riskTolerance }),
-        ...(investmentObjective && { investmentObjective }),
-        ...(investmentHorizon && { investmentHorizon }),
-        
-        // Banking Details - Enhanced
-        ...(bankAccountNumber && { bankAccountNumber }),
-        ...(ifscCode && { ifscCode }),
-        ...(bankName && { bankName }),
-        ...(branchAddress && { branchAddress }),
-        ...(accountType && { accountType }),
-        
-        // Demat Account - CVL/KRA Integration
-        ...(nsdlDpId && { nsdlDpId }),
-        ...(nsdlClientId && { nsdlClientId }),
-        ...(cdslBoId && { cdslBoId }),
-        ...(cdslDpId && { cdslDpId }),
-        ...(krvNumber && { krvNumber }),
-        ...(cvlKycNumber && { cvlKycNumber }),
-        
-        // Regulatory Compliance - Enhanced FATCA & CRS
-        ...(fatcaStatus && { fatcaStatus }),
-        ...(fatcaTinNumber && { fatcaTinNumber }),
-        ...(fatcaCountryOfTaxResidence && { fatcaCountryOfTaxResidence }),
-        
-        // PEP Declaration - Enhanced
-        ...(pepStatus && { pepStatus }),
-        ...(pepDetails && { pepDetails }),
-        ...(pepRelatedPersonStatus && { pepRelatedPersonStatus }),
-        ...(pepRelationshipDetails && { pepRelationshipDetails }),
-        
-        // UBO Information - Enhanced
-        ...(typeof isUbo === 'boolean' && { isUbo }),
-        ...(uboDetails && { uboDetails }),
-        ...(beneficialOwnershipPercentage && { beneficialOwnershipPercentage }),
-        
-        // Nominee and Guardian Information
-        ...(nomineeDetails && { nomineeDetails }),
-        ...(nomineeRelation && { nomineeRelation }),
-        ...(nomineeContactNumber && { nomineeContactNumber }),
-        ...(guardianDetails && { guardianDetails }),
-        
-        // Professional Information
-        ...(educationalQualifications && { educationalQualifications }),
-        ...(professionalCertifications && { professionalCertifications }),
-        
-        // Consent and Declarations
-        ...(typeof panVerificationConsent === 'boolean' && { panVerificationConsent }),
-        ...(typeof amlScreeningConsent === 'boolean' && { amlScreeningConsent }),
-        ...(typeof fatcaDeclarationConsent === 'boolean' && { fatcaDeclarationConsent }),
-        ...(typeof termsAndConditionsConsent === 'boolean' && { termsAndConditionsConsent }),
-        ...(typeof dataProcessingConsent === 'boolean' && { dataProcessingConsent }),
-        ...(typeof regulatoryReportingConsent === 'boolean' && { regulatoryReportingConsent }),
-        
-        // Legacy API Integration (backward compatibility)
-        ...(euinNumber && { euinNumber }),
-        ...(typeof enableCamsApi === 'boolean' && { enableCamsApi }),
-        ...(typeof enableKfintechApi === 'boolean' && { enableKfintechApi }),
-        ...(typeof enableNsdlApi === 'boolean' && { enableNsdlApi }),
-        ...(typeof enableCdslApi === 'boolean' && { enableCdslApi }),
-        ...(typeof preferredCamsRegistration === 'boolean' && { preferredCamsRegistration }),
-        ...(typeof preferredKfintechRegistration === 'boolean' && { preferredKfintechRegistration }),
-        ...(typeof preferredNsdlRegistration === 'boolean' && { preferredNsdlRegistration }),
-        ...(typeof preferredCdslRegistration === 'boolean' && { preferredCdslRegistration }),
-        
-        updatedAt: new Date(),
-      });
-
-      if (!updatedUser) {
-        return apiResponse.notFound(res, "User not found");
-      }
-
-      return apiResponse.success(res, {
-        // Enhanced KYC Fields
-        panNumber: updatedUser.panNumber,
-        aadharNumber: updatedUser.aadharNumber,
-        passportNumber: updatedUser.passportNumber,
-        drivingLicense: updatedUser.drivingLicense,
-        voterIdNumber: updatedUser.voterIdNumber,
-        dateOfBirth: updatedUser.dateOfBirth,
-        nationality: updatedUser.nationality,
-        fatherName: updatedUser.fatherName,
-        motherName: updatedUser.motherName,
-        spouseName: updatedUser.spouseName,
-        maritalStatus: updatedUser.maritalStatus,
-        
-        // Residency Status
-        residentStatus: updatedUser.residentStatus,
-        countryOfResidence: updatedUser.countryOfResidence,
-        taxResidencyCountry: updatedUser.taxResidencyCountry,
-        
-        // Address Information
-        address: updatedUser.address,
-        city: updatedUser.city,
-        state: updatedUser.state,
-        pincode: updatedUser.pincode,
-        country: updatedUser.country,
-        
-        // Financial Information
-        occupation: updatedUser.occupation,
-        annualIncome: updatedUser.annualIncome,
-        investmentExperience: updatedUser.investmentExperience,
-        riskTolerance: updatedUser.riskTolerance,
-        sourceOfWealth: updatedUser.sourceOfWealth,
-        
-        // FATCA Compliance
-        fatcaStatus: updatedUser.fatcaStatus,
-        fatcaTinNumber: updatedUser.fatcaTinNumber,
-        fatcaCountryOfTaxResidence: updatedUser.fatcaCountryOfTaxResidence,
-        
-        // PEP Status
-        pepStatus: updatedUser.pepStatus,
-        pepDetails: updatedUser.pepDetails,
-        
-        // UBO Information
-        isUbo: updatedUser.isUbo,
-        uboDetails: updatedUser.uboDetails,
-        // EUIN and API Integration
-        euinNumber: updatedUser.euinNumber,
-        enableCamsApi: updatedUser.enableCamsApi,
-        enableKfintechApi: updatedUser.enableKfintechApi,
-        enableNsdlApi: updatedUser.enableNsdlApi,
-        enableCdslApi: updatedUser.enableCdslApi,
-        // Registry Preferences
-        preferredCamsRegistration: updatedUser.preferredCamsRegistration,
-        preferredKfintechRegistration: updatedUser.preferredKfintechRegistration,
-        preferredNsdlRegistration: updatedUser.preferredNsdlRegistration,
-        preferredCdslRegistration: updatedUser.preferredCdslRegistration
-      });
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      return apiResponse.serverError(res);
-    }
-  });
-
-  // CKYC Integration Endpoints - Agent Only
-  app.post("/api/agent/ckyc-register/:userId", async (req, res) => {
-    try {
-      if (!req.isAuthenticated() || !req.user) {
-        return apiResponse.unauthorized(res);
-      }
-
-      // Check if user has agent/admin role
-      const userRoles = req.user.roles || [];
-      if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
-        return apiResponse.forbidden(res, "Agent access required");
-      }
-
-      const userId = req.params.userId;
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return apiResponse.notFound(res, "User not found");
-      }
-
-      // Import CKYC service dynamically to avoid module loading issues
-      const { CKYCService } = await import("./ckyc-service");
-      const ckycService = new CKYCService();
-
-      // Perform comprehensive KYC registration
-      const results = await ckycService.performComprehensiveKYC(user);
-
-      return apiResponse.success(res, {
-        success: true,
-        results: {
-          ckyc: results.ckyc,
-          kra: results.kra || null,
-          cvl: results.cvl || null
-        }
-      }, "CKYC registration completed");
-    } catch (error) {
-      console.error("Error in CKYC registration:", error);
-      return apiResponse.serverError(res, "CKYC registration failed");
-    }
-  });
-
-  app.get("/api/agent/ckyc-search", async (req, res) => {
-    try {
-      if (!req.isAuthenticated() || !req.user) {
-        return apiResponse.unauthorized(res);
-      }
-
-      // Check if user has agent/admin role
-      const userRoles = req.user.roles || [];
-      if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
-        return apiResponse.forbidden(res, "Agent access required");
-      }
-
-      const { panNumber, ckycNumber, aadharNumber, passportNumber } = req.query;
-
-      if (!panNumber && !ckycNumber && !aadharNumber && !passportNumber) {
-        return apiResponse.badRequest(res, "At least one search parameter is required (PAN, CKYC, Aadhaar, or Passport)");
-      }
-
-      const { CKYCService } = await import("./ckyc-service");
-      const ckycService = new CKYCService();
-
-      const searchResult = await ckycService.searchCKYC({
-        panNumber: panNumber as string,
-        ckycNumber: ckycNumber as string,
-        aadharNumber: aadharNumber as string,
-        passportNumber: passportNumber as string,
-      });
-
-      return apiResponse.success(res, searchResult);
-    } catch (error) {
-      console.error("Error in CKYC search:", error);
-      return apiResponse.serverError(res, "CKYC search failed");
-    }
-  });
-
-  // Enhanced AML Screening with Profile Integration
-  app.post("/api/profile/aml-screening", async (req, res) => {
-    try {
-      if (!req.isAuthenticated() || !req.user) {
-        return apiResponse.unauthorized(res);
-      }
-
-      const user = await storage.getUser(req.user.id);
-      if (!user) {
-        return apiResponse.notFound(res, "User not found");
-      }
-
-      // Import AML service dynamically
-      const AMLServiceModule = await import("./aml-service");
-      const AMLService = AMLServiceModule.default;
-      const amlService = new AMLService({
-        environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'
-      });
-
-      // Enhanced screening data from user profile
       const screeningData = {
-        userId: user.id,
-        firstName: user.firstName || user.companyName?.split(' ')[0] || '',
-        lastName: user.lastName || user.companyName?.split(' ').slice(1).join(' ') || '',
-        fullName: user.firstName && user.lastName 
-          ? `${user.firstName} ${user.middleName || ''} ${user.lastName}`.trim()
-          : user.companyName || '',
-        dateOfBirth: user.dateOfBirth || user.incorporationDate || '',
-        nationality: user.countryOfCitizenship || user.nationality || 'Unknown',
-        countryOfResidence: user.countryOfResidence || 'Unknown',
-        passportNumber: user.passportNumber || '',
-        // Additional fields for enhanced screening
-        occupation: user.occupation || '',
-        businessNature: user.businessNature || '',
-        sourceOfWealth: user.sourceOfWealth || '',
-        pepStatus: user.pepStatus === 'yes',
-        clientType: user.clientType || 'individual',
-        entityType: user.entityType || undefined,
-        companyRegistrationNumber: user.entityRegistrationNumber || undefined,
+        name,
+        pan,
+        dob,
+        fatherName,
+        metadata: {
+          requestedBy: req.user.id,
+          requestedAt: new Date().toISOString()
+        }
       };
 
       const screeningResult = await amlService.performFullScreening(screeningData);
