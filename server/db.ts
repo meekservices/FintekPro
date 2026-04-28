@@ -24,7 +24,8 @@ export const isUsingProductionDb = true; // Always true now since we only use th
 //   Railway internal (.internal)   → no SSL (private network, no cert needed)
 //   Local / Replit Helium          → no SSL
 // Force SSL for all non-local production URLs unless using Unix sockets
-const cloudSqlSocketPath = '/cloudsql/fintekpro:asia-south1:fintekpro-db';
+const instanceConnectionName = process.env.INSTANCE_CONNECTION_NAME || 'fintekpro:asia-south1:fintekpro-db';
+const cloudSqlSocketPath = `/cloudsql/${instanceConnectionName}`;
 const isCloudSqlSocketAvailable = fs.existsSync(cloudSqlSocketPath);
 
 // SSL is ONLY needed if:
@@ -40,17 +41,17 @@ const needsSsl =
 const dbUrlSource = 'PRODUCTION_DATABASE_URL';
 
 if (isCloudSqlSocketAvailable) {
-  logger.info(`[DB] Connected to ${dbUrlSource} via Cloud SQL Unix Socket`);
+  logger.info(`[DB] Detected Cloud SQL Unix Socket: ${cloudSqlSocketPath}`);
 } else {
-  logger.info(`[DB] Connected to ${dbUrlSource} (${needsSsl ? 'SSL' : 'TCP'})`);
+  logger.info(`[DB] Unix Socket not found at ${cloudSqlSocketPath}. Using ${needsSsl ? 'SSL' : 'TCP'} connection strategy.`);
 }
 
 const POOL_CONFIG: any = {
   connectionString: selectedDbUrl,
-  max: isProduction ? 15 : 5,
+  max: isProduction ? 20 : 5,
   min: isProduction ? 2 : 0,
   idleTimeoutMillis: isProduction ? 60000 : 30000,
-  connectionTimeoutMillis: 15000,
+  connectionTimeoutMillis: 10000,
   statement_timeout: isProduction ? 30000 : 60000,
   allowExitOnIdle: false,
   ssl: needsSsl ? { 
@@ -58,6 +59,7 @@ const POOL_CONFIG: any = {
     servername: new URL(selectedDbUrl).hostname 
   } : false,
 };
+
 
 // If Cloud SQL Unix socket is available, leverage it for maximum performance and security
 if (isCloudSqlSocketAvailable) {

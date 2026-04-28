@@ -1,0 +1,74 @@
+name: Deploy Enrichment Worker to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'workers/enrichment-worker.ts'
+      - 'server/cron-enrichment.ts'
+      - 'Dockerfile.worker'
+
+env:
+  PROJECT_ID: fintekpro
+  REGION: asia-south1
+  SERVICE_NAME: fintekpro-enrichment
+  REPO_NAME: fintekpro-repo
+
+jobs:
+  deploy:
+    name: Build and Deploy Worker to Cloud Run
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker to use Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Build Docker Image
+        run: |
+          docker build -f Dockerfile.worker \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:latest .
+
+      - name: Push Docker Image to Artifact Registry
+        run: |
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }} --all-tags
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          env_vars: |-
+            NODE_ENV=production
+          secrets: |-
+            PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest
+            FINNHUB_API_KEY=FINNHUB_API_KEY:latest
+            ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest
+          flags: |-
+            --port=8002
+            --memory=2Gi
+            --cpu=1
+            --timeout=300
+            --min-instances=1
+            --max-instances=2
+            --allow-unauthenticated
+            --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db
+
+      - name: Show Output URL
+        run: echo ${{ steps.deploy.outputs.url }}
