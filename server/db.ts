@@ -68,8 +68,8 @@ try {
     // On Cloud Run, the socket is inside the instance-named directory
     POOL_CONFIG.host = cloudSqlSocketDir;
     POOL_CONFIG.port = 5432;
-    POOL_CONFIG.user = url.username;
-    POOL_CONFIG.password = url.password;
+    POOL_CONFIG.user = decodeURIComponent(url.username);
+    POOL_CONFIG.password = decodeURIComponent(url.password);
     POOL_CONFIG.database = url.pathname.split('/')[1] || 'fintekpro';
     
     console.log(`[DB] Configured for Unix Socket: host=${POOL_CONFIG.host}, user=${POOL_CONFIG.user}, db=${POOL_CONFIG.database}`);
