@@ -49,26 +49,23 @@ jobs:
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }} --all-tags
 
       - name: Deploy to Cloud Run
-        id: deploy
-        uses: google-github-actions/deploy-cloudrun@v2
-        with:
-          service: ${{ env.SERVICE_NAME }}
-          region: ${{ env.REGION }}
-          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          env_vars: |-
-            NODE_ENV=production
-          secrets: |-
-            PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest
-            FINNHUB_API_KEY=FINNHUB_API_KEY:latest
-          flags: |-
-            --port=8002
-            --memory=2Gi
-            --cpu=1
-            --timeout=300
-            --min-instances=1
-            --max-instances=2
-            --allow-unauthenticated
-            --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --port 8002 \
+            --memory 2Gi \
+            --cpu 1 \
+            --timeout 300 \
+            --min-instances 1 \
+            --max-instances 2 \
+            --allow-unauthenticated \
+            --set-env-vars "NODE_ENV=production" \
+            --set-secrets "PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,FINNHUB_API_KEY=FINNHUB_API_KEY:latest" \
+            --add-cloudsql-instances fintekpro:asia-south1:fintekpro-db
 
       - name: Show Output URL
-        run: echo ${{ steps.deploy.outputs.url }}
+        run: |
+          echo "Deployment successful! Worker URL:"
+          gcloud run services describe ${{ env.SERVICE_NAME }} --platform managed --region ${{ env.REGION }} --format 'value(status.url)'
