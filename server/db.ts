@@ -25,33 +25,33 @@ export const isUsingProductionDb = true; // Always true now since we only use th
 //   Local / Replit Helium          → no SSL
 // Force SSL for all non-local production URLs unless using Unix sockets
 const instanceConnectionName = process.env.INSTANCE_CONNECTION_NAME || 'fintekpro:asia-south1:fintekpro-db';
-const cloudSqlSocketPath = `/cloudsql/${instanceConnectionName}`;
-const isCloudSqlSocketAvailable = fs.existsSync(cloudSqlSocketPath);
+
+// Cloud Run standard path for Cloud SQL sockets is /cloudsql/<INSTANCE_CONNECTION_NAME>
+// However, the actual socket file is inside that directory as .s.PGSQL.5432
+const cloudSqlSocketDir = `/cloudsql/${instanceConnectionName}`;
+const isCloudSqlSocketAvailable = fs.existsSync(cloudSqlSocketDir);
 
 // SSL is ONLY needed if:
 // 1. Not using a Unix socket
 // 2. Not connecting to localhost/127.0.0.1 (proxy)
-// 3. The URL actually supports/needs it (contains google.com or is a remote host)
+// 3. The URL actually supports/needs it
 const needsSsl = 
   !isCloudSqlSocketAvailable && 
   !selectedDbUrl.includes('localhost') && 
   !selectedDbUrl.includes('127.0.0.1') &&
   !selectedDbUrl.includes('host=');
 
-const dbUrlSource = 'PRODUCTION_DATABASE_URL';
-
 if (isCloudSqlSocketAvailable) {
-  logger.info(`[DB] Detected Cloud SQL Unix Socket: ${cloudSqlSocketPath}`);
+  console.log(`[DB] 🟢 Detected Cloud SQL Unix Socket directory: ${cloudSqlSocketDir}`);
 } else {
-  logger.info(`[DB] Unix Socket not found at ${cloudSqlSocketPath}. Using ${needsSsl ? 'SSL' : 'TCP'} connection strategy.`);
+  console.warn(`[DB] 🟡 Unix Socket directory not found at ${cloudSqlSocketDir}. (ENV: ${process.env.NODE_ENV}, INSTANCE: ${instanceConnectionName})`);
 }
 
 const POOL_CONFIG: any = {
-  connectionString: selectedDbUrl,
   max: isProduction ? 20 : 5,
   min: isProduction ? 2 : 0,
   idleTimeoutMillis: isProduction ? 60000 : 30000,
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 15000, // Increased to 15s for Cloud SQL cold-start tolerance
   statement_timeout: isProduction ? 30000 : 60000,
   allowExitOnIdle: false,
   ssl: needsSsl ? { 
@@ -62,40 +62,37 @@ const POOL_CONFIG: any = {
 
 
 // If Cloud SQL Unix socket is available, leverage it for maximum performance and security
-if (isCloudSqlSocketAvailable) {
-  // Extract user, password, and database from the connection string
-  try {
-    const url = new URL(selectedDbUrl);
-    POOL_CONFIG.host = cloudSqlSocketPath;
+try {
+  const url = new URL(selectedDbUrl);
+  if (isCloudSqlSocketAvailable) {
+    // On Cloud Run, the socket is inside the instance-named directory
+    POOL_CONFIG.host = cloudSqlSocketDir;
     POOL_CONFIG.port = 5432;
     POOL_CONFIG.user = url.username;
     POOL_CONFIG.password = url.password;
     POOL_CONFIG.database = url.pathname.split('/')[1] || 'fintekpro';
-    // Delete connectionString to ensure host/user/password win
-    delete POOL_CONFIG.connectionString;
-  } catch (e: any) {
-    logger.warn(`[DB] Failed to parse connection string for Unix socket optimization: ${e.message}`);
+    
+    console.log(`[DB] Configured for Unix Socket: host=${POOL_CONFIG.host}, user=${POOL_CONFIG.user}, db=${POOL_CONFIG.database}`);
+  } else {
+    // Fallback to connection string or explicit host
+    if (selectedDbUrl.includes('host=')) {
+      // Special case: connection string already specifies host (e.g. for local proxy)
+      POOL_CONFIG.connectionString = selectedDbUrl;
+      console.log(`[DB] Using connection string with explicit host param`);
+    } else {
+      POOL_CONFIG.connectionString = selectedDbUrl;
+      const maskedHost = url.hostname || 'localhost';
+      console.log(`[DB] Using TCP connection to ${maskedHost}`);
+    }
   }
-} else if (selectedDbUrl.includes('host=')) {
-  // Fallback: If socket path doesn't exist (local dev), connect to 127.0.0.1 (Cloud SQL Proxy default)
-  try {
-    const url = new URL(selectedDbUrl);
-    POOL_CONFIG.host = '127.0.0.1';
-    POOL_CONFIG.port = 5432;
-    POOL_CONFIG.user = url.username;
-    POOL_CONFIG.password = url.password;
-    POOL_CONFIG.database = url.pathname.split('/')[1] || 'fintekpro';
-    POOL_CONFIG.ssl = false; // Proxy handles encryption, local connection must be plain
-    delete POOL_CONFIG.connectionString;
-    logger.info(`[DB] Unix socket not found. Falling back to 127.0.0.1 for Cloud SQL Auth Proxy (SSL disabled).`);
-  } catch (e) {
-    // Fall back to raw connection string
-  }
+} catch (e: any) {
+  console.error(`[DB] ❌ Failed to parse connection string: ${e.message}`);
+  // Last resort fallback
+  POOL_CONFIG.connectionString = selectedDbUrl;
 }
 
 export const pool = new Pool(POOL_CONFIG);
 
-// Track pool health metrics
 let poolHealthWarnings = 0;
 let waitingWarnings = 0;
 const MAX_WARNINGS_BEFORE_LOG = 5;
@@ -166,12 +163,12 @@ export function getPoolStats() {
 
 export async function testConnection(): Promise<boolean> {
   const source = 'PRODUCTION_DATABASE_URL';
-  logger.info(`[DB] Attempting to verify connection to ${source}...`);
+  console.log(`[DB] Attempting to verify connection to ${source}...`);
 
   return new Promise((resolve) => {
     // 15-second safety timeout for the connection test itself
     const timeout = setTimeout(() => {
-      logger.error(`[DB] Connection test TIMED OUT after 15s. Format may be incorrect or database unreachable.`);
+      console.error(`[DB] Connection test TIMED OUT after 15s. Format may be incorrect or database unreachable.`);
       resolve(false);
     }, 15000);
 
@@ -181,19 +178,19 @@ export async function testConnection(): Promise<boolean> {
           .then(() => {
             client.release();
             clearTimeout(timeout);
-            logger.info('[DB] Connection verified successfully');
+            console.log('[DB] Connection verified successfully');
             resolve(true);
           })
           .catch((err) => {
             client.release();
             clearTimeout(timeout);
-            logger.error(`[DB] Query failed during connection test: ${err.message}`);
+            console.error(`[DB] Query failed during connection test: ${err.message}`);
             resolve(false);
           });
       })
       .catch((err) => {
         clearTimeout(timeout);
-        logger.error(`[DB] Pool connection failed: ${err.message}`);
+        console.error(`[DB] Pool connection failed: ${err.message}`);
         resolve(false);
       });
   });
@@ -214,9 +211,11 @@ export async function closePool(): Promise<void> {
     await pool.end();
     logger.info('[DB Pool] Pool closed gracefully');
   } catch (err: any) {
-    // Ignore "pool already ended" errors — can happen on repeated SIGTERM
+    // Ignore \"pool already ended\" errors — can happen on repeated SIGTERM
     if (!(err?.message || '').includes('end on the pool')) {
       logger.error('[DB Pool] Error closing pool', { error: err?.message || String(err) });
     }
   }
 }
+EOF
+

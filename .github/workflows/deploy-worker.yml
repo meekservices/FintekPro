@@ -61,8 +61,8 @@ jobs:
             --min-instances 1 \
             --max-instances 2 \
             --allow-unauthenticated \
-            --set-env-vars "NODE_ENV=production" \
-            --set-secrets "PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,FINNHUB_API_KEY=FINNHUB_API_KEY:latest" \
+            --set-env-vars "NODE_ENV=production,INSTANCE_CONNECTION_NAME=fintekpro:asia-south1:fintekpro-db" \
+            --set-secrets "PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,FINNHUB_API_KEY=FINNHUB_API_KEY:latest,ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest" \
             --add-cloudsql-instances fintekpro:asia-south1:fintekpro-db
 
       - name: Show Output URL
