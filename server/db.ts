@@ -122,13 +122,127 @@ if (isCloudSqlSocketAvailable) {
 
 export const pool = new Pool(POOL_CONFIG);
 
-pool.on('error', (err: Error) => {
-  if (err.message?.includes('terminating connection due to administrator command') || 
-      err.message?.includes('closed by the server') ||
-      (err as any).code === '57P01') {
-    return;
+let poolHealthWarnings = 0;
+let waitingWarnings = 0;
+const MAX_WARNINGS_BEFORE_LOG = 5;
+
+let lastPoolErrorTime = 0;
+let poolErrorCount = 0;
+pool.on('error', (err) => {
+  const now = Date.now();
+  poolErrorCount++;
+  if (now - lastPoolErrorTime > 10000) {
+    const suffix = poolErrorCount > 1 ? ` (${poolErrorCount} errors in last batch)` : '';
+    logger.warn(`[DB Pool] Connection error (auto-recovering): ${err?.message || err}${suffix}`);
+    lastPoolErrorTime = now;
+    poolErrorCount = 0;
   }
-  console.error('[DB] Pool unexpected error:', err);
 });
 
-export const db = drizzle(pool, { schema });
+let connectCount = 0;
+pool.on('connect', () => {
+  connectCount++;
+  if (connectCount <= 5 || connectCount % 10 === 0) {
+    logger.debug(`[DB Pool] Client connected (total: ${connectCount})`);
+  }
+});
+
+function checkPoolHealth() {
+  const waiting = pool.waitingCount;
+  const total = pool.totalCount;
+  const idle = pool.idleCount;
+  const maxConnections = POOL_CONFIG.max;
+
+  if (total > 0 && (total - idle) / maxConnections > 0.8) {
+    poolHealthWarnings++;
+    if (poolHealthWarnings >= MAX_WARNINGS_BEFORE_LOG) {
+      logger.warn(`[DB Pool] Pool health warning: ${total - idle}/${maxConnections} connections in use, ${waiting} waiting, ${idle} idle`);
+      poolHealthWarnings = 0;
+    }
+  } else {
+    poolHealthWarnings = 0;
+  }
+
+  if (waiting > 0) {
+    waitingWarnings++;
+    if (waitingWarnings >= MAX_WARNINGS_BEFORE_LOG) {
+      logger.warn(`[DB Pool] ${waiting} clients waiting for connections (pool: ${total - idle}/${maxConnections} active, ${idle} idle)`);
+      waitingWarnings = 0;
+    }
+  } else {
+    waitingWarnings = 0;
+  }
+}
+
+setInterval(checkPoolHealth, 30000);
+
+export const db = drizzle({ client: pool, schema });
+
+export function getPoolStats() {
+  return {
+    totalCount: pool.totalCount,
+    idleCount: pool.idleCount,
+    waitingCount: pool.waitingCount,
+    maxConnections: POOL_CONFIG.max,
+    utilizationPercent: pool.totalCount > 0
+      ? Math.round(((pool.totalCount - pool.idleCount) / POOL_CONFIG.max) * 100)
+      : 0
+  };
+}
+
+export async function testConnection(): Promise<boolean> {
+  const source = 'PRODUCTION_DATABASE_URL';
+  console.log(`[DB] Attempting to verify connection to ${source}...`);
+
+  return new Promise((resolve) => {
+    // 15-second safety timeout for the connection test itself
+    const timeout = setTimeout(() => {
+      console.error(`[DB] Connection test TIMED OUT after 15s. Format may be incorrect or database unreachable.`);
+      resolve(false);
+    }, 15000);
+
+    pool.connect()
+      .then((client) => {
+        return client.query('SELECT 1')
+          .then(() => {
+            client.release();
+            clearTimeout(timeout);
+            console.log('[DB] Connection verified successfully');
+            resolve(true);
+          })
+          .catch((err) => {
+            client.release();
+            clearTimeout(timeout);
+            console.error(`[DB] Query failed during connection test: ${err.message}`);
+            resolve(false);
+          });
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        console.error(`[DB] Pool connection failed: ${err.message}`);
+        resolve(false);
+      });
+  });
+}
+
+// Tracks whether pool.end() has been called — background jobs check this
+// before making DB calls during shutdown so they can bail gracefully.
+let _poolClosing = false;
+
+export function isPoolClosed(): boolean {
+  return _poolClosing;
+}
+
+export async function closePool(): Promise<void> {
+  // Set flag BEFORE calling pool.end() so in-flight jobs see it immediately
+  _poolClosing = true;
+  try {
+    await pool.end();
+    logger.info('[DB Pool] Pool closed gracefully');
+  } catch (err: any) {
+    // Ignore \"pool already ended\" errors — can happen on repeated SIGTERM
+    if (!(err?.message || '').includes('end on the pool')) {
+      logger.error('[DB Pool] Error closing pool', { error: err?.message || String(err) });
+    }
+  }
+}
