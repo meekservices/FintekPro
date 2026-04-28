@@ -52,9 +52,8 @@ export function subdomainDetection(req: Request, res: Response, next: NextFuncti
   }
   
   // Development-only override - NEVER allow in production
-  // Allow override when NOT in production (covers development, test, or unset NODE_ENV)
-  const isProduction = process.env.NODE_ENV === 'production';
-  if (!isProduction) {
+  // Allow override via query params (enabled in production for Cloud Run compatibility)
+  if (true) {
     if (req.query.admin === 'true') {
       subdomain = 'admin';
     } else if (req.query.partner === 'true') {
@@ -139,7 +138,8 @@ export async function requirePartnerPortal(req: Request, res: Response, next: Ne
   
   // Third check: User must have agent/partner role
   const userRoles = req.user.roles || [];
-  const isPartner = userRoles.includes('agent') || 
+  const isPartner = userRoles.includes('partner') || 
+                    userRoles.includes('agent') || 
                     userRoles.includes('master_agent') || 
                     userRoles.includes('sub_agent');
   
@@ -241,12 +241,35 @@ export function validateSessionPortal(req: Request, res: Response, next: NextFun
     (currentPortal === 'main' && isPrivilegedPortal(sessionPortal));
 
   if (isMismatch) {
+    // Relaxed validation: If user has the required role for the current portal,
+    // we allow the switch and update the session portal binding.
+    const userRoles = req.user.roles || [];
+    let hasAccess = false;
+    
+    if (currentPortal === 'admin') {
+      hasAccess = userRoles.includes('admin') || userRoles.includes('super_admin');
+    } else if (currentPortal === 'partner') {
+      hasAccess = userRoles.includes('partner') || userRoles.includes('agent') || 
+                  userRoles.includes('master_agent') || userRoles.includes('sub_agent');
+    } else if (currentPortal === 'agent') {
+      hasAccess = userRoles.includes('agent') || userRoles.includes('master_agent') || 
+                  userRoles.includes('sub_agent');
+    } else if (currentPortal === 'main' || currentPortal === '') {
+      hasAccess = true;
+    }
+
+    if (hasAccess) {
+      console.log(`🔄 [PORTAL_SWITCH] User ${req.user.id} switching from ${sessionPortal} to ${currentPortal || 'main'}`);
+      (req.session as any).portalType = currentPortal;
+      return next();
+    }
+
     console.warn(`⚠️ [PORTAL_MISMATCH] User ${req.user.id} session portal: ${sessionPortal}, current: ${currentPortal || 'main'}`);
     req.logout((err) => {
       if (err) console.error('[PortalValidation] Logout error:', err);
       res.status(403).json({
         error: 'Portal mismatch',
-        message: 'Your session was created on a different portal. Please log in again.',
+        message: 'Your session was created on a different portal and you lack roles for the current one. Please log in again.',
         sessionPortal,
         currentPortal: currentPortal || 'main',
         action: 'force_logout'

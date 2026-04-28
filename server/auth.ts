@@ -1157,7 +1157,7 @@ export function setupAuth(app: Express) {
       const activeSessions = await db
         .select()
         .from(schema.sessions)
-        .where(sql`(sess->'passport'->>'user') = ${user.id}`)
+        .where(sql`(sess->'passport'->>'user')::text = ${user.id}::text`)
         .execute();
 
       console.log(`[Session Check] Found ${activeSessions.length} active session(s) for user ${user.id}`);
