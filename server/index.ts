@@ -710,6 +710,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
     const dbUrl = process.env.PRODUCTION_DATABASE_URL || "MISSING";
     const maskedUrl = dbUrl.replace(/:([^:@/]+)@/, ':****@').split('?')[0];
     console.log(`🔗 [Boot] DB Configuration: ${maskedUrl}`);
+
   // Python analytics micro-service (Railway private network or public URL via PYTHON_SERVICE_URL).
   // Log the configured URL so it's visible in every boot.
   const pyUrl = process.env.PYTHON_SERVICE_URL;
@@ -733,15 +734,9 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   }, 45_000);
 
   logBootProgress("Step 1: Setting up Health Checks & Verifying Database...");
-  // Verify database connectivity before proceeding with heavy service initialization
-  const isDbUp = await testConnection();
-  if (!isDbUp) {
-    console.error('❌ [CRITICAL] Database handshake failed. Boot sequence will likely hang or fail at Step 7.');
-    console.error('👉 Check PRODUCTION_DATABASE_URL and Cloud SQL socket connectivity.');
-  } else {
-    console.log('✅ Database connectivity verified.');
-  }
-
+  
+  // CRITICAL: Setup health check routes IMMEDIATELY so the load balancer sees us as "up"
+  // even if the database initialization takes a while.
   const { readinessCheck, livenessCheck } = await import('./health-check');
   app.get('/ready', (req, res) => {
     if (bootState.isFullyReady()) {
@@ -758,7 +753,21 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
       }
     });
   });
-  app.get('/live', livenessCheck);
+
+  app.get('/live', (req, res) => {
+    // Liveness is just "process is running and listening"
+    return livenessCheck(req, res);
+  });
+
+  // Verify database connectivity before proceeding with heavy service initialization
+  const isDbUp = await testConnection();
+  if (!isDbUp) {
+    console.error('❌ [CRITICAL] Database handshake failed. Boot sequence will continue in degraded mode.');
+    console.error('👉 Check PRODUCTION_DATABASE_URL and Cloud SQL socket connectivity.');
+    // We don't crash here - we want the server to stay alive so we can access diagnostics
+  } else {
+    console.log('✅ Database connectivity verified.');
+  }
   
   logBootProgress("Step 2: Initializing Session Authentication...");
   // Initialize authentication (Passport & sessions must be set up first)
