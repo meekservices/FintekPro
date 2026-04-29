@@ -9,11 +9,11 @@ import fs from 'fs';
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Connection strategy:
-//   PRODUCTION_DATABASE_URL MUST be set (GCP Cloud SQL)
-const selectedDbUrl = process.env.PRODUCTION_DATABASE_URL;
+//   PRODUCTION_DATABASE_URL or DATABASE_URL MUST be set (GCP Cloud SQL)
+const selectedDbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
 
 if (!selectedDbUrl) {
-  throw new Error("No database URL found. Set PRODUCTION_DATABASE_URL in your environment secrets.");
+  throw new Error("No database URL found. Set PRODUCTION_DATABASE_URL or DATABASE_URL in your environment secrets.");
 }
 
 export const isUsingProductionDb = true; // Always true now since we only use the production DB
