@@ -1,35 +1,52 @@
 /**
- * Shared boot-state singleton used by server/index.ts to track the
- * server initialisation lifecycle and report progress to health-check
- * endpoints and audit logs.
+ * BootState Manager
+ * 
+ * Tracks the asynchronous initialization phases of the application.
+ * Useful for health checks and debugging "Why is the app taking so long to start?".
  */
 
-const bootStartTime = Date.now();
+type PhaseStatus = "pending" | "connecting" | "registering" | "setting_up" | "starting" | "ready" | "error";
 
-export const bootState = {
-  /** Set to true once all routes are registered and the server is ready. */
-  routesReady: false,
+interface Phase {
+  id: number;
+  name: string;
+  status: PhaseStatus;
+  message?: string;
+  updatedAt: Date;
+}
 
-  /** Contains an error message if the boot sequence failed. */
-  error: null as string | null,
+class BootStateManager {
+  private phases: Map<number, Phase> = new Map([
+    [0, { id: 0, name: "Core Setup", status: "ready", updatedAt: new Date() }],
+    [1, { id: 1, name: "Database Connectivity", status: "pending", updatedAt: new Date() }],
+    [2, { id: 2, name: "Route Registration", status: "pending", updatedAt: new Date() }],
+    [3, { id: 3, name: "Middleware/Security", status: "pending", updatedAt: new Date() }],
+    [4, { id: 4, name: "Frontend/Vite", status: "pending", updatedAt: new Date() }],
+    [5, { id: 5, name: "Execution Readiness", status: "pending", updatedAt: new Date() }],
+    [6, { id: 6, name: "System Overall", status: "pending", updatedAt: new Date() }],
+  ]);
 
-  /** Returns elapsed milliseconds since the boot sequence started. */
-  getBootTime(): number {
-    return Date.now() - bootStartTime;
-  },
-};
+  setPhase(id: number, status: PhaseStatus, message?: string) {
+    const phase = this.phases.get(id);
+    if (phase) {
+      phase.status = status;
+      phase.message = message;
+      phase.updatedAt = new Date();
+      
+      if (status === "error" && id !== 1) { // Phase 1 (DB) is non-critical for boot
+        this.phases.get(6)!.status = "error";
+        this.phases.get(6)!.message = `Failed at phase ${id}: ${message}`;
+      }
+    }
+  }
 
-/**
- * Log a boot-sequence progress message.
- * In production this emits a structured console log; in development it
- * also includes a timestamp so the startup timeline is easy to read.
- */
-export function logBootProgress(message: string): void {
-  const elapsed = bootState.getBootTime();
-  if (process.env.NODE_ENV === 'production') {
-    console.log(`🔄 [Boot +${elapsed}ms] ${message}`);
-  } else {
-    const ts = new Date().toISOString();
-    console.log(`🔄 [Boot ${ts} +${elapsed}ms] ${message}`);
+  getSnapshot() {
+    return Array.from(this.phases.values());
+  }
+
+  isReady() {
+    return this.phases.get(6)?.status === "ready";
   }
 }
+
+export const bootState = new BootStateManager();
