@@ -97,17 +97,19 @@ pnpm-lock.yaml
 npm_cache/
 find_user.ts
 fintek_data.dump
-fintek_data.dump
 cloudrun-env.yaml
 .gcloud/
+.gcloud_config/
 .gcloud_tmp_config/
 .tmp/
+deploy_temp/
 
 # Scratch artifacts
 scratch/*.js
 scratch/*.cjs
 scratch/*.ts
 scratch/*.txt
+scratch/*.sql
 .env.local
 
 # TSC diagnostic dumps
@@ -117,12 +119,5 @@ tsc_*_errors*.txt
 # Antigravity artifacts
 artifacts/
 
-# Firebase
+# Firebase — keep local cache dir out; config files must be committed for CI/CD
 .firebase/
-.firebaserc
-firebase.json
-run-bootstrap.ts
-server/fix-user-assignments.ts
-server/seed-holdings.ts
-server/seed-marketplace.ts
-server/seed-sangram.ts
