@@ -55,11 +55,20 @@ jobs:
           echo "✅ Build output verified"
           ls -lh dist/public/
 
+      - name: Check Secret Visibility (Diagnostic)
+        run: |
+          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" ]; then
+            echo "❌ FIREBASE_SERVICE_ACCOUNT is EMPTY or NOT FOUND"
+            echo "Please ensure it is a REPOSITORY SECRET (not an environment secret or variable)."
+            exit 1
+          else
+            echo "✅ FIREBASE_SERVICE_ACCOUNT is present"
+          fi
+
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: ${{ env.PROJECT_ID }}
-          target: fintekpro
