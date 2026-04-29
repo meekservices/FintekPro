@@ -1,0 +1,150 @@
+        });
+      });
+    } catch (error) {
+      console.error("OTP verification error:", error);
+      return apiResponse.serverError(res, "OTP verification failed");
+    }
+  });
+
+  // Send OTP for mobile verification
+  app.post("/api/otp/send", async (req, res) => {
+    try {
+      const { identifier, type } = req.body; // identifier = email or mobile, type = 'email' or 'mobile'
+
+      if (!identifier || !type) {
+        return apiResponse.badRequest(res, "Identifier and type are required");
+      }
+
+      if (type !== "email" && type !== "mobile") {
+        return apiResponse.badRequest(res, "Type must be either 'email' or 'mobile'");
+      }
+
+      const otp = generateOtp();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+      await storage.createOtpVerification({
+        identifier,
+        otp,
+        type,
+        expiresAt,
+        verified: false,
+      });
+
+      // In production, you would send SMS/Email here
+      // For development, we'll just log the OTP
+      console.log(`OTP for ${identifier} (${type}): ${otp}`);
+
+      return apiResponse.success(res, {}, "OTP sent successfully");
+    } catch (error) {
+      console.error("OTP send error:", error);
+      return apiResponse.serverError(res, "Failed to send OTP");
+    }
+  });
+
+  // Verify OTP
+  app.post("/api/otp/verify", async (req, res) => {
+    try {
+      const { identifier, type, otp } = req.body;
+
+      if (!identifier || !type || !otp) {
+        return apiResponse.badRequest(res, "Identifier, type, and OTP are required");
+      }
+
+      const isValid = await storage.verifyOtp(identifier, type, otp);
+
+      if (!isValid) {
+        return apiResponse.badRequest(res, "Invalid or expired OTP");
+      }
+
+      // Update user verification status if logged in
+      if (req.user) {
+        const updates: Partial<User> = {};
+        if (type === "email") {
+          updates.isEmailVerified = true;
+        } else if (type === "mobile") {
+          updates.isMobileVerified = true;
+        }
+
+        await storage.updateUser(req.user.id, updates);
+      }
+
+      return apiResponse.success(res, {}, "OTP verified successfully");
+    } catch (error) {
+      console.error("OTP verify error:", error);
+      return apiResponse.serverError(res, "OTP verification failed");
+    }
+  });
+
+  // Check if user has active sessions (used before login to detect session conflicts)
+  app.post("/api/sessions/check", async (req, res) => {
+    try {
+      const { identifier } = req.body;
+
+      if (!identifier) {
+        return apiResponse.badRequest(res, "Identifier is required");
+      }
+
+      // Find user by identifier
+      let user;
+      if (identifier.includes("@")) {
+        user = await storage.getUserByEmail(identifier);
+      } else if (identifier.startsWith("FTP")) {
+        user = await storage.getUserByUserId(identifier);
+      } else {
+        user = await storage.getUserByMobile(identifier);
+      }
+
+      if (!user) {
+        // Don't reveal that user doesn't exist (security)
+        return apiResponse.success(res, { hasActiveSession: false });
+      }
+
+      console.log(`[Session Check] Checking sessions for user ID: ${user.id}`);
+
+      // Query sessions table for active sessions for this user
+      // Using raw SQL to query JSONB column
+      const activeSessions = await db
+        .select()
+        .from(schema.sessions)
+        .where(sql`sess->'passport'->>'user' = ${user.id}`)
+        .execute();
+
+      console.log(`[Session Check] Found ${activeSessions.length} active session(s) for user ${user.id}`);
+
+      const hasActiveSession = activeSessions.length > 0;
+
+      return apiResponse.success(res, {
+        hasActiveSession,
+        sessionCount: activeSessions.length
+      });
+    } catch (error) {
+      console.error("[Session Check] Error:", error);
+      console.error("[Session Check] Stack:", error instanceof Error ? error.stack : 'No stack trace');
+      return apiResponse.serverError(res, "Failed to check sessions");
+    }
+  });
+
+  // Force logout all sessions for a user (destroys all their active sessions)
+  app.post("/api/sessions/force-logout", async (req, res) => {
+    try {
+      const { identifier } = req.body;
+
+      if (!identifier) {
+        return apiResponse.badRequest(res, "Identifier is required");
+      }
+
+      // Find user by identifier
+      let user;
+      if (identifier.includes("@")) {
+        user = await storage.getUserByEmail(identifier);
+      } else if (identifier.startsWith("FTP")) {
+        user = await storage.getUserByUserId(identifier);
+      } else {
+        user = await storage.getUserByMobile(identifier);
+      }
+
+      if (!user) {
+        // Still return success even if user not found (security)
+        return apiResponse.success(res, { destroyedSessions: 0 }, "All sessions terminated");
+      }
+

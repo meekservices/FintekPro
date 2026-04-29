@@ -1,0 +1,150 @@
+
+      // Create a modified request with the correct field name
+      const modifiedReq = {
+        ...req,
+        body: {
+          ...req.body,
+          [usernameField]: identifier,
+          password
+        }
+      };
+
+      passport.authenticate(strategy, async (err: any, user: any, info: any) => {
+        try {
+          if (err) {
+            console.error("[Login] Passport authentication error:", err);
+            return apiResponse.serverError(res, "Login failed");
+          }
+          if (!user) {
+            console.log(`[Login] Authentication failed: ${info?.message || "Invalid credentials"}`);
+            return apiResponse.unauthorized(res, info?.message || "Invalid credentials");
+          }
+
+          console.log(`[Login] Authenticated user: ${user.id} (${user.email || 'no email'})`);
+
+          // Credentials are valid - now send OTP for mandatory verification
+          const isTesterAccount = user.email === "test@fintekpro.com" || user.email === "sangram.m@outlook.com" || (user.roles && Array.isArray(user.roles) && user.roles.includes("tester"));
+          const otp = isTesterAccount ? "123456" : generateOtp();
+          const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+          if (isTesterAccount) {
+            console.log(`🧪 Test account detected - using fixed OTP: ${otp}`);
+          }
+
+          // Determine OTP destination based on identifier type
+          let otpDestination: string;
+          let otpType: string;
+
+          // Always prefer mobile for OTP, regardless of login method
+          if (user.mobile) {
+            otpDestination = user.mobile;
+            otpType = "mobile";
+          } else if (user.email) {
+            otpDestination = user.email;
+            otpType = "email";
+          } else {
+            return apiResponse.badRequest(res, "User account has no email or mobile for OTP verification");
+          }
+
+          if (!otpDestination) {
+            return apiResponse.badRequest(res, "No valid OTP destination found for this account");
+          }
+
+          // Store OTP for verification
+          await storage.createOtpVerification({
+            identifier: otpDestination,
+            otp,
+            type: otpType,
+            expiresAt,
+            verified: false,
+          });
+
+          // Send OTP via appropriate channels following priority order:
+          // user preference → admin global setting → default (email → whatsapp → sms)
+          let otpDelivered = false;
+          let deliveryChannel = "";
+
+          if (isTesterAccount) {
+            otpDelivered = true;
+            deliveryChannel = "TEST_BYPASS";
+            console.log(`🧪 Skipping OTP delivery for test account - use OTP: ${otp}`);
+          } else {
+            const channelOrder = await getOtpChannelOrder(user.id);
+            console.log(`[OTP] Channel priority for ${user.id}: ${channelOrder.join(' → ')}`);
+            for (const channel of channelOrder) {
+              if (channel === 'email' && user.email) {
+                const sent = await emailService.sendLoginOTP(user.email, otp);
+                if (sent) {
+                  console.log(`✅ Login OTP sent via email to: ${user.email}`);
+                  otpDelivered = true;
+                  deliveryChannel = "email";
+                  break;
+                }
+                console.log(`⚠️ Email delivery failed, trying next channel...`);
+              } else if (channel === 'whatsapp' && user.mobile) {
+                const sent = await whatsappService.sendLoginOTP(user.mobile, otp);
+                if (sent) {
+                  console.log(`✅ Login OTP sent via WhatsApp to: ${user.mobile}`);
+                  otpDelivered = true;
+                  deliveryChannel = "WhatsApp";
+                  break;
+                }
+                console.log(`⚠️ WhatsApp delivery failed, trying next channel...`);
+              } else if (channel === 'sms' && user.mobile) {
+                const sent = await smsService.sendOTP(user.mobile, otp);
+                if (sent) {
+                  console.log(`✅ Login OTP sent via SMS to: ${user.mobile}`);
+                  otpDelivered = true;
+                  deliveryChannel = "SMS";
+                  break;
+                }
+                console.log(`⚠️ SMS delivery failed, trying next channel...`);
+              }
+            }
+            if (!otpDelivered) {
+              console.error(`❌ [Login] All OTP delivery channels (${channelOrder.join(', ')}) failed for user ${user.id}`);
+            }
+          }
+
+          // Check if OTP was actually delivered
+          if (!otpDelivered) {
+            console.error(`❌ OTP delivery failed — no delivery channel available for this account`);
+            return res.status(503).json({
+              error: "Unable to send OTP",
+              message: "We could not reach you via SMS, WhatsApp, or email. Please contact support or try again later.",
+            });
+          }
+
+          // Return success with OTP destination info (don't complete login yet)
+          const responseData: any = {
+            requiresOtp: true,
+            otpSentTo: otpType === "email" ? "email" : "mobile",
+            identifier: otpDestination,
+            userId: user.userId,
+            deliveryChannel
+          };
+          if (isTesterAccount) {
+            responseData.devOtp = otp;
+            responseData.devHint = "Test account: use fixed OTP 123456";
+          }
+          return apiResponse.success(res, responseData, isTesterAccount 
+            ? `Test account - use OTP: ${otp}` 
+            : `OTP sent to your ${otpType} via ${deliveryChannel}`);
+        } catch (innerError) {
+          console.error("[Login] Error in passport callback:", innerError);
+          return apiResponse.serverError(res, "Internal error during login callback");
+        }
+      })(modifiedReq, res, next);
+    } catch (error) {
+      console.error("Unified login error:", error);
+      return apiResponse.serverError(res, "Login failed");
+    }
+  });
+
+  // Request OTP for passwordless login (agent portal OTP Login tab)
+  app.post("/api/login/request-otp", async (req, res) => {
+    try {
+      const { identifier } = req.body;
+      if (!identifier) {
+        return apiResponse.badRequest(res, "Identifier is required");
+      }

@@ -1,0 +1,150 @@
+  app.get('*', (req, res, next) => {
+    // Skip API routes — they have their own handlers
+    if (req.path.startsWith('/api/') || req.path.startsWith('/health')) return next();
+    // Only serve the SPA once routes are registered; during boot the '/' handler above
+    // serves the loading screen, so this only kicks in post-boot for deep-link routes.
+    if (!bootState.routesReady) return next();
+    // Delegate to the real SPA catch-all registered during boot (registered at line ~2129)
+    // This wrapper ensures that if it was never registered (fatal boot error), we still serve
+    // the index.html from the dist directory directly.
+    const indexPath = path.resolve(import.meta.dirname, '..', 'dist', 'public', 'index.html');
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    next();
+  });
+}
+
+// ============================================================================
+// PRIORITY HEALTH CHECKS - MUST BE FIRST (Railway/GCP/K8s Support)
+// These ensure the container survives initial deployment probes.
+// ============================================================================
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({ 
+    status: bootState.routesReady ? 'ready' : 'booting', 
+    milestone: bootState.milestone, 
+    error: bootState.error, 
+    uptime: process.uptime(),
+    bootTimeMs: bootState.getBootTime()
+  });
+});
+
+app.get(['/health', '/healthz', '/ready', '/live'], (_req, res) => {
+  // Always return 200 during boot to prevent infrastructure from killing the process
+  res.status(200).send(bootState.routesReady ? 'OK' : 'BOOTING');
+});
+
+// Primary Root Handler - serves the "Initializing" screen or delegates to the frontend
+app.get('/', (req, res, next) => {
+  if (bootState.routesReady) return next();
+  
+  res.status(200).set({ 'Content-Type': 'text/html' }).send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>FintekPro | Initializing</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+            body { 
+                margin: 0; padding: 0; 
+                display: flex; flex-direction: column; 
+                justify-content: center; align-items: center; 
+                height: 100vh; background: #0a0a0b; 
+                color: #ffffff; font-family: 'Inter', sans-serif;
+                overflow: hidden;
+            }
+            .glow {
+                position: absolute; width: 400px; height: 400px;
+                background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(0,0,0,0) 70%);
+                filter: blur(50px); animation: pulse 8s infinite alternate;
+            }
+            .container { text-align: center; z-index: 10; position: relative; }
+            .logo { font-size: 32px; font-weight: 600; margin-bottom: 24px; letter-spacing: -0.02em; background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+            .loader { 
+                width: 48px; height: 48px; border: 2px solid #1f2937; border-top-color: #6366f1;
+                border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 24px;
+            }
+            .message { font-size: 16px; color: #9ca3af; font-weight: 300; }
+            @keyframes spin { to { transform: rotate(360deg); } }
+            @keyframes pulse { from { opacity: 0.4; transform: scale(1); } to { opacity: 0.8; transform: scale(1.1); } }
+        </style>
+    </head>
+    <body>
+        <div class="glow"></div>
+        <div class="container">
+            <div class="logo">FintekPro</div>
+            <div class="loader"></div>
+            <div class="message">Optimizing your market connection...</div>
+            <div style="margin-top: 20px; font-size: 12px; color: #4b5563;">Status: ${bootState.milestone}</div>
+        </div>
+        <script>
+            // Auto-refresh every 3 seconds until ready
+            setTimeout(() => { window.location.reload(); }, 3000);
+        </script>
+    </body>
+    </html>
+  `);
+});
+
+
+// Environment validation for production readiness
+const requiredEnvVars = ['SESSION_SECRET'];
+const dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
+if (!dbUrl) {
+  console.error('FATAL: Neither PRODUCTION_DATABASE_URL nor DATABASE_URL is set');
+  process.exit(1);
+}
+
+const optionalButRecommended = ['OPENAI_API_KEY', 'TWILIO_ACCOUNT_SID', 'CASHFREE_APP_ID'];
+
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error('FATAL: Required environment variable ' + envVar + ' is not set');
+    process.exit(1);
+  }
+}
+
+if (process.env.NODE_ENV === 'production') {
+  const missingOptional = optionalButRecommended.filter(v => !process.env[v]);
+  if (missingOptional.length > 0) {
+    console.warn(`⚠️ Recommended env vars not set: ${missingOptional.join(', ')}`);
+  }
+}
+
+// Trust proxy configuration for Replit environment
+app.set('trust proxy', 1);
+
+// Request context middleware - generates trace IDs for all requests
+app.use(requestContextMiddleware);
+
+// Error monitoring middleware - tracks response times and slow requests
+app.use(errorMonitoringMiddleware);
+
+// Request latency tracking middleware - feeds slow endpoint data to Activity Centre
+app.use(latencyTrackingMiddleware);
+
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: process.env.NODE_ENV === 'development' ? false : {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+      scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "wss:", "https:"],
+      fontSrc: ["'self'", "https:"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'self'", "https://*.railway.app"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" },

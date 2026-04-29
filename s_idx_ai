@@ -1,0 +1,150 @@
+
+  // Boot-time: create agent_notifications table if missing
+  try {
+    const { db: notifDb } = await import('./db');
+    const { sql: notifSql } = await import('drizzle-orm');
+    await notifDb.execute(notifSql`
+      CREATE TABLE IF NOT EXISTS agent_notifications (
+        id          SERIAL PRIMARY KEY,
+        agent_id    TEXT NOT NULL,
+        title       TEXT NOT NULL,
+        body        TEXT NOT NULL,
+        type        TEXT NOT NULL DEFAULT 'info',
+        link        TEXT,
+        read_at     TIMESTAMPTZ,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    // Migrate agent_id from INTEGER to TEXT if still an integer column (old deployments)
+    await notifDb.execute(notifSql`
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'agent_notifications'
+            AND column_name = 'agent_id'
+            AND data_type = 'integer'
+        ) THEN
+          ALTER TABLE agent_notifications ALTER COLUMN agent_id TYPE TEXT USING agent_id::TEXT;
+        END IF;
+      END $$;
+    `);
+    await notifDb.execute(notifSql`
+      CREATE INDEX IF NOT EXISTS idx_agent_notifications_agent_id
+        ON agent_notifications (agent_id)
+    `);
+  } catch (e: any) {
+    console.error('[Migration] agent_notifications table error:', e?.message);
+  }
+
+  // Boot-time: ensure UNIQUE indexes on cache tables so ON CONFLICT upserts work correctly.
+  // Must deduplicate first — Railway DB may have duplicate rows from runs before the
+  // unique constraint was present; CREATE UNIQUE INDEX fails if duplicates exist.
+  try {
+    const { db: cacheDb } = await import('./db');
+    const { sql: cacheSql } = await import('drizzle-orm');
+
+    // ── stock_prices_cache ────────────────────────────────────────────────────
+    // Deduplicate: keep the most-recently-updated row per symbol
+    await cacheDb.execute(cacheSql`
+      DELETE FROM stock_prices_cache
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (symbol) id
+        FROM stock_prices_cache
+        ORDER BY symbol, updated_at DESC NULLS LAST
+      )
+    `);
+    await cacheDb.execute(cacheSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_stock_prices_cache_symbol
+        ON stock_prices_cache (symbol)
+    `);
+
+    // ── financial_instruments_cache ───────────────────────────────────────────
+    // Deduplicate: keep the most-recently-updated row per (instrument_type, symbol, exchange)
+    await cacheDb.execute(cacheSql`
+      DELETE FROM financial_instruments_cache
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (instrument_type, symbol, COALESCE(exchange, '')) id
+        FROM financial_instruments_cache
+        ORDER BY instrument_type, symbol, COALESCE(exchange, ''), updated_at DESC NULLS LAST
+      )
+    `);
+    await cacheDb.execute(cacheSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_financial_instruments_cache_type_symbol_exchange
+        ON financial_instruments_cache (instrument_type, symbol, exchange)
+    `);
+
+    console.log('✅ [Migration] cache table UNIQUE indexes verified/created');
+  } catch (e: any) {
+    // Non-fatal: tables may not exist on very first boot (created lazily by their services)
+    console.warn('[Migration] cache UNIQUE index skipped:', e?.message);
+  }
+
+  // Boot-time: add missing UNIQUE indexes so ON CONFLICT upserts work correctly.
+  // These tables have .unique() / uniqueIndex() in the Drizzle schema but the
+  // constraints were never applied to the existing Railway DB.
+  try {
+    const { db: uqDb } = await import('./db');
+    const { sql: uqSql } = await import('drizzle-orm');
+
+    // ── currency_rates (base_currency, target_currency) ───────────────────────
+    await uqDb.execute(uqSql`
+      DELETE FROM currency_rates
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (base_currency, target_currency) id
+        FROM currency_rates
+        ORDER BY base_currency, target_currency, last_updated DESC NULLS LAST
+      )
+    `);
+    await uqDb.execute(uqSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_currency_rates_base_target
+        ON currency_rates (base_currency, target_currency)
+    `);
+
+    // ── mf_taxonomy_versions (version) ───────────────────────────────────────
+    await uqDb.execute(uqSql`
+      DELETE FROM mf_taxonomy_versions
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (version) id
+        FROM mf_taxonomy_versions
+        ORDER BY version, id ASC
+      )
+    `);
+    await uqDb.execute(uqSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_taxonomy_versions_version
+        ON mf_taxonomy_versions (version)
+    `);
+
+    // ── mf_category_master (taxonomy_version, group_code) ────────────────────
+    await uqDb.execute(uqSql`
+      DELETE FROM mf_category_master
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (taxonomy_version, group_code) id
+        FROM mf_category_master
+        ORDER BY taxonomy_version, group_code, id ASC
+      )
+    `);
+    await uqDb.execute(uqSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_category_master_version_code
+        ON mf_category_master (taxonomy_version, group_code)
+    `);
+
+    // ── mf_subcategory_master (subcategory_code) ──────────────────────────────
+    await uqDb.execute(uqSql`
+      DELETE FROM mf_subcategory_master
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (subcategory_code) id
+        FROM mf_subcategory_master
+        ORDER BY subcategory_code, id ASC
+      )
+    `);
+    await uqDb.execute(uqSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_subcategory_code
+        ON mf_subcategory_master (subcategory_code)
+    `);
+
+    // ── quant_governance_policy (risk_profile) ────────────────────────────────
+    await uqDb.execute(uqSql`
+      DELETE FROM quant_governance_policy
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (risk_profile) id
+        FROM quant_governance_policy

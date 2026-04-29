@@ -36,5 +36,4 @@ ENV NODE_ENV=production \
 EXPOSE 8002
 
 # Run the enrichment worker using tsx
-# Redeploy trigger: 2026-04-29 - force rebuild to clear corrupted db.ts in cloud
 CMD ["tsx", "workers/enrichment-worker.ts"]

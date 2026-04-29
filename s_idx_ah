@@ -1,0 +1,150 @@
+          WHERE status IN ('target_hit','stoploss_hit','expired')
+        `);
+        const count = Number((result.rows[0] as any)?.cnt ?? 0);
+        if (count >= 20) {
+          const { callPython: cp } = await import('./clients/python-client');
+          await cp('/api/ml/train', 'POST', { assetClass: 'all', maxSamples: 5000 });
+          console.log(`[ML Cron] Auto-training triggered with ${count} completed picks`);
+        } else {
+          console.log(`[ML Cron] Skipped — only ${count} completed picks (need ≥20)`);
+        }
+      } catch (e) {
+        console.error('[ML Cron] Auto-training failed:', e);
+      }
+    }, { timezone: 'UTC' });
+    // Nightly IRIS CAS portfolio sync at 01:00 UTC (6:30 AM IST) — reconciles MF holdings from KFintech
+    if (process.env.NODE_ENV === 'production') {
+      cron.schedule('0 1 * * *', async () => {
+        console.log('[IRISSync] Starting nightly IRIS CAS sync (01:00 UTC)…');
+        try {
+          const { runNightlyIrisCasSync } = await import('./services/iris-portfolio-sync-service');
+          await runNightlyIrisCasSync();
+          console.log('✅ [IRISSync] Nightly CAS sync completed');
+        } catch (e: any) {
+          console.error('[IRISSync] Nightly CAS sync failed:', e?.message);
+        }
+      }, { timezone: 'UTC' });
+      console.log('✅ [IRISSync] Nightly IRIS CAS sync cron registered (01:00 UTC, production only)');
+    }
+
+    // Daily pick expiry sweep at 01:30 UTC (7:00 AM IST) — expires picks past their expiry_date
+    cron.schedule('30 1 * * *', async () => {
+      console.log('[PicksExpiry] Running daily expiry sweep...');
+      try {
+        const { db: cronDb } = await import('./db');
+        const { sql: cronSql } = await import('drizzle-orm');
+        // 1. Expire picks past their scheduled expiry date
+        const result = await cronDb.execute(cronSql`
+          UPDATE daily_picks
+          SET status = 'expired', updated_at = NOW()
+          WHERE status = 'live'
+            AND expiry_date IS NOT NULL
+            AND expiry_date < CURRENT_DATE
+        `);
+        const count = (result as any).rowCount ?? 0;
+        console.log(`[PicksExpiry] Expired ${count} picks past their expiry date`);
+
+        // 2. Expire mutual fund picks whose NAV data is >45 days stale (discontinued/closed funds)
+        const staleMfResult = await cronDb.execute(cronSql`
+          UPDATE daily_picks dp
+          SET status = 'expired', updated_at = NOW()
+          FROM mutual_funds mf
+          WHERE dp.status = 'live'
+            AND dp.category = 'mutual_funds'
+            AND dp.instrument_id = mf.scheme_code
+            AND mf.last_updated < NOW() - INTERVAL '45 days'
+        `);
+        const staleMfCount = (staleMfResult as any).rowCount ?? 0;
+        if (staleMfCount > 0) {
+          console.log(`[PicksExpiry] Expired ${staleMfCount} MF picks with stale NAV data (>45 days)`);
+        }
+
+        // 3. Safety net: expire any live picks that are >180 days old regardless of expiry_date
+        const ageResult = await cronDb.execute(cronSql`
+          UPDATE daily_picks
+          SET status = 'expired', updated_at = NOW()
+          WHERE status = 'live'
+            AND reco_date < CURRENT_DATE - INTERVAL '180 days'
+        `);
+        const ageCount = (ageResult as any).rowCount ?? 0;
+        if (ageCount > 0) {
+          console.log(`[PicksExpiry] Force-expired ${ageCount} picks older than 180 days`);
+        }
+
+        // Also run the service's full status update (target/stoploss hits)
+        const { pickOfTheDayService: svc } = await import('./services/pick-of-the-day-service');
+        const r = await svc.refreshLivePicks();
+        console.log(`[PicksExpiry] Status sweep complete: ${r.updated} picks updated`);
+      } catch (e) {
+        console.error('[PicksExpiry] Expiry sweep failed:', e);
+      }
+    }, { timezone: 'UTC' });
+  } else {
+    console.log('⏭️ [AI Regime/Governance] Daily schedulers skipped (development mode - production only)');
+  }
+  
+  // ── MF + order routes: import all in parallel, register in order ─────────────
+  const [mfOrdersRoutes, orderRoutesMod, mfEnrichmentMod, aiMFRecommendationRoutes] = await Promise.all([
+    import('./routes/mf-orders'),
+    import('./order-routes'),
+    import('./routes/mf-enrichment-routes'),
+    import('./routes/ai-mf-recommendation-routes'),
+  ]);
+  app.use(mfOrdersRoutes.default);
+  orderRoutesMod.registerOrderRoutes(app);
+  mfEnrichmentMod.registerMFEnrichmentRoutes(app);
+  app.use(aiMFRecommendationRoutes.default);
+  console.log('✅ MF orders, enrichment, AI recommendations, unified order routes registered');
+  
+  // ── eSign + document routes: import all in parallel, register in order ───────
+  const [
+    esignRoutes, adminEsignRoutes, dscEsignRoutes, proposalEsignRoutes,
+    esignAiRoutes, eaadhaarDglRoutes, documentUploadRoutes, caRoutes,
+    reitInvitRoutes, adminDatabaseRoutes,
+  ] = await Promise.all([
+    import('./routes/esign-routes'),
+    import('./routes/admin-esign-routes'),
+    import('./routes/dsc-esign-routes'),
+    import('./routes/proposal-esign-routes'),
+    import('./routes/esign-ai-routes'),
+    import('./routes/truthscreen-eaadhaar-routes'),
+    import('./routes/document-upload-routes'),
+    import('./routes/ca-routes'),
+    import('./routes/reit-invit-routes'),
+    import('./routes/admin-database'),
+  ]);
+  app.use(esignRoutes.default);
+  app.use(adminEsignRoutes.default);
+  app.use('/api/esign', dscEsignRoutes.default);
+  app.use('/api/proposal-esign', proposalEsignRoutes.default);
+  app.use('/api/esign/ai', esignAiRoutes.default);
+  app.use(eaadhaarDglRoutes.default);
+  app.use('/api/documents', documentUploadRoutes.default);
+  app.use('/api/ca', caRoutes.default);
+  app.use('/api/reit-invit', reitInvitRoutes.default);
+  app.use('/api/admin/database', adminDatabaseRoutes.default);
+  console.log('✅ eSign, document upload, CA, REIT/InvIT routes registered');
+
+  // Register error testing routes (development only)
+  if (process.env.NODE_ENV === 'development') {
+    const testErrorRoutes = await import('./test-error-handling');
+    app.use('/api', testErrorRoutes.default);
+  }
+  
+  registerRoleRoutes(app);
+  
+  // Boot-time migrations (CREATE TABLE IF NOT EXISTS — idempotent and safe)
+  const { runGoldenPricingMigration } = await import("./db-migrations/golden-pricing-migration");
+  await runGoldenPricingMigration();
+
+  const { runGovernanceNcdRepair } = await import("./db-migrations/governance-ncd-repair");
+  await runGovernanceNcdRepair();
+
+  const { runInstitutionalDataMigration } = await import("./db-migrations/institutional-data-migration");
+  await runInstitutionalDataMigration();
+
+  const { runHistoricalNavIndexRepair } = await import("./db-migrations/historical-nav-repair");
+  await runHistoricalNavIndexRepair();
+
+  const { initializeSecurityMaster } = await import("./db-migrations/security-master-migration");
+  await initializeSecurityMaster();

@@ -1,0 +1,150 @@
+          WHERE e.agent_id = u.id
+            AND u.agent_empanelment_status IS DISTINCT FROM e.status;
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] agent_empanelment_status skipped:', e?.message);
+      }
+
+      // 11. prospect_leads scoring
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE prospect_leads
+            ADD COLUMN IF NOT EXISTS estimated_networth   NUMERIC(18,2),
+            ADD COLUMN IF NOT EXISTS investable_surplus   NUMERIC(15,2),
+            ADD COLUMN IF NOT EXISTS wealth_score         NUMERIC(6,2),
+            ADD COLUMN IF NOT EXISTS activity_score       NUMERIC(6,2),
+            ADD COLUMN IF NOT EXISTS relationship_score   NUMERIC(6,2),
+            ADD COLUMN IF NOT EXISTS composite_score      NUMERIC(6,2),
+            ADD COLUMN IF NOT EXISTS scoring_version      VARCHAR,
+            ADD COLUMN IF NOT EXISTS scored_at            TIMESTAMPTZ
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] prospect_leads scoring columns skipped:', e?.message);
+      }
+
+      // 12. ca_verification_status
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS ca_verification_status (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id VARCHAR NOT NULL UNIQUE REFERENCES users(id),
+            icai_membership_number VARCHAR NOT NULL,
+            icai_verified BOOLEAN DEFAULT false,
+            icai_verified_at TIMESTAMPTZ,
+            icai_verified_by VARCHAR REFERENCES users(id),
+            cop_number VARCHAR,
+            cop_valid_from DATE,
+            cop_valid_to DATE,
+            cop_verified BOOLEAN DEFAULT false,
+            cop_verified_at TIMESTAMPTZ,
+            pan_verified BOOLEAN DEFAULT false,
+            pan_verified_at TIMESTAMPTZ,
+            dsc_available BOOLEAN DEFAULT false,
+            dsc_serial_number VARCHAR,
+            dsc_valid_from DATE,
+            dsc_valid_to DATE,
+            dsc_verified_at TIMESTAMPTZ,
+            overall_status VARCHAR DEFAULT 'pending',
+            can_sign_form_15cb BOOLEAN DEFAULT false,
+            approved_at TIMESTAMPTZ,
+            approved_by VARCHAR REFERENCES users(id),
+            rejection_reason TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+          ALTER TABLE ca_verification_status
+            ADD COLUMN IF NOT EXISTS user_id VARCHAR REFERENCES users(id),
+            ADD COLUMN IF NOT EXISTS icai_membership_number VARCHAR,
+            ADD COLUMN IF NOT EXISTS pan_number VARCHAR,
+            ADD COLUMN IF NOT EXISTS overall_status VARCHAR DEFAULT 'pending',
+            ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW(),
+            ADD COLUMN IF NOT EXISTS icai_verified BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS icai_verified_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS icai_verified_by VARCHAR REFERENCES users(id),
+            ADD COLUMN IF NOT EXISTS cop_number VARCHAR,
+            ADD COLUMN IF NOT EXISTS cop_valid_from DATE,
+            ADD COLUMN IF NOT EXISTS cop_valid_to DATE,
+            ADD COLUMN IF NOT EXISTS cop_verified BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS cop_verified_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS pan_verified BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS pan_verified_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS dsc_available BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS dsc_serial_number VARCHAR,
+            ADD COLUMN IF NOT EXISTS dsc_valid_from DATE,
+            ADD COLUMN IF NOT EXISTS dsc_valid_to DATE,
+            ADD COLUMN IF NOT EXISTS dsc_verified_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS can_sign_form_15cb BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS approved_by VARCHAR REFERENCES users(id),
+            ADD COLUMN IF NOT EXISTS rejection_reason TEXT,
+            ADD COLUMN IF NOT EXISTS icai_scraped_name      VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_membership_status VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_membership_type   VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_cop_status        VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_confidence_score  NUMERIC(4,2),
+            ADD COLUMN IF NOT EXISTS icai_scraped_at        TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS icai_source            VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_raw_html          TEXT,
+            ADD COLUMN IF NOT EXISTS icai_error             TEXT
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] ca_verification_status schema skipped:', e?.message);
+      }
+
+      // 13. partners ICAI
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE partners
+            ADD COLUMN IF NOT EXISTS icai_scraped_name       VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_scraper_status     VARCHAR DEFAULT 'pending',
+            ADD COLUMN IF NOT EXISTS icai_scraper_run_at     TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS icai_scraper_source     VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_confidence_score   NUMERIC(4,2),
+            ADD COLUMN IF NOT EXISTS icai_cop_status         VARCHAR
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] partners ICAI scraper columns skipped:', e?.message);
+      }
+
+      // 14. Subscriptions
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS plan_tier VARCHAR DEFAULT 'free',
+            ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS cashfree_subscription_id VARCHAR;
+          CREATE TABLE IF NOT EXISTS platform_subscriptions (
+            id                        VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id                   VARCHAR NOT NULL REFERENCES users(id),
+            plan_tier                 VARCHAR NOT NULL,
+            billing_cycle             VARCHAR NOT NULL,
+            amount_paise              INTEGER NOT NULL,
+            currency                  VARCHAR DEFAULT 'INR' NOT NULL,
+            cashfree_order_id         VARCHAR,
+            cashfree_payment_id       VARCHAR,
+            cashfree_payment_session_id VARCHAR,
+            status                    VARCHAR DEFAULT 'pending' NOT NULL,
+            starts_at                 TIMESTAMPTZ,
+            expires_at                TIMESTAMPTZ,
+            metadata                  JSONB,
+            created_at                TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+            updated_at                TIMESTAMPTZ DEFAULT NOW() NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS idx_platform_subs_user   ON platform_subscriptions(user_id);
+          CREATE INDEX IF NOT EXISTS idx_platform_subs_status ON platform_subscriptions(status);
+          CREATE INDEX IF NOT EXISTS idx_platform_subs_tier   ON platform_subscriptions(plan_tier);
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] Subscription monetization schema skipped:', e?.message);
+      }
+
+      // 15. audit_trail
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS audit_trail (
+            id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id     VARCHAR,
+            actor_type  VARCHAR,
+            action      VARCHAR NOT NULL,
+            category    VARCHAR NOT NULL,
+            details     TEXT,

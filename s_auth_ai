@@ -1,0 +1,150 @@
+      console.log(`[Force Logout] Terminating all sessions for user ID: ${user.id}`);
+
+      // Delete all sessions for this user from the sessions table
+      // Using raw SQL to query JSONB column
+      const result = await db
+        .delete(schema.sessions)
+        .where(sql`sess->'passport'->>'user' = ${user.id}`)
+        .execute();
+
+      console.log(`[Force Logout] Destroyed ${result.rowCount || 0} session(s) for user ${user.id}`);
+
+      return apiResponse.success(res, {
+        destroyedSessions: result.rowCount || 0
+      }, "All sessions terminated successfully");
+    } catch (error) {
+      console.error("[Force Logout] Error:", error);
+      console.error("[Force Logout] Stack:", error instanceof Error ? error.stack : 'No stack trace');
+      return apiResponse.serverError(res, "Failed to terminate sessions");
+    }
+  });
+
+  // Service-to-service JWT token (used by micro-service subdomains like ins.fintekpro.com)
+  app.get("/api/auth/service-token", (req: any, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    try {
+      const { issueServiceToken } = require('./utils/service-token');
+      const token = issueServiceToken(req.user);
+      return res.json({ token, expiresIn: 900 });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Logout endpoint
+  app.post("/api/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return apiResponse.serverError(res, "Logout failed");
+      }
+      
+      // Destroy the session completely
+      req.session.destroy((destroyErr) => {
+        if (destroyErr) {
+          console.error("Session destroy error:", destroyErr);
+        }
+        
+        // Clear the session cookie
+        res.clearCookie('fintekpro.sid', {
+          path: '/',
+          domain: process.env.NODE_ENV === "production" ? ".fintekpro.com" : undefined
+        });
+        
+        return apiResponse.success(res, {}, "Logged out successfully");
+      });
+    });
+  });
+
+  // Get current user
+  app.get("/api/auth/user", (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return apiResponse.unauthorized(res);
+    }
+
+    return apiResponse.success(res, {
+      id: req.user.id,
+      userId: req.user.userId,
+      email: req.user.email,
+      mobile: req.user.mobile,
+      firstName: req.user.firstName,
+      middleName: req.user.middleName,
+      lastName: req.user.lastName,
+      isEmailVerified: req.user.isEmailVerified,
+      isMobileVerified: req.user.isMobileVerified,
+      navPosition: (req.user as any).navPosition || "left"
+    });
+  });
+
+  // Get user preferences
+  app.get("/api/user/preferences", (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return apiResponse.unauthorized(res);
+    }
+
+    return apiResponse.success(res, {
+      navPosition: (req.user as any).navPosition || "left"
+    });
+  });
+
+  // Update user preferences
+  app.patch("/api/user/preferences", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return apiResponse.unauthorized(res);
+    }
+
+    try {
+      const { navPosition } = req.body;
+      
+      // Validate navPosition - require a valid value
+      const validPositions = ["left", "top", "bottom"];
+      if (!navPosition || !validPositions.includes(navPosition)) {
+        return apiResponse.badRequest(res, "Invalid nav position. Must be 'left', 'top', or 'bottom'");
+      }
+
+      // Update user preferences
+      await storage.updateUser(req.user.id, { navPosition });
+
+      return apiResponse.success(res, {
+        navPosition
+      }, "Preferences updated successfully");
+    } catch (error) {
+      console.error("Error updating preferences:", error);
+      return apiResponse.serverError(res, "Failed to update preferences");
+    }
+  });
+
+  // Profile routes
+  // Agent-only profile access route  
+  app.get("/api/agent/profile/:userId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return apiResponse.unauthorized(res);
+      }
+
+      // Check if user has agent/admin role
+      const userRoles = req.user.roles || [];
+      if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
+        return apiResponse.forbidden(res, "Agent access required");
+      }
+
+      const userId = req.params.userId;
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return apiResponse.notFound(res, "User not found");
+      }
+
+      // Fetch agent data for API integration codes
+      let agentData = null;
+      try {
+        const agentRelationship = await storage.getAgentForClient(userId);
+        if (agentRelationship && agentRelationship.agent) {
+          agentData = {
+            euinNumber: agentRelationship.agent.euinNumber,
+            arnCode: agentRelationship.agent.arnCode,
+            distributorId: agentRelationship.agent.distributorId,
+          };
+        }

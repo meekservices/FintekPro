@@ -1,0 +1,150 @@
+        }
+      } else {
+        // Auto-assign client to default agent if only one agent exists
+        await storage.autoAssignDefaultAgent(user.id);
+      }
+
+      // Delete the OTP record
+      await db.delete(schema.otpVerifications)
+        .where(eq(schema.otpVerifications.id, otpRecord.id));
+
+      // Auto-login the user (guard against missing session middleware)
+      if (!req.session) {
+        return apiResponse.serverError(res, "Session not available. Please try again.");
+      }
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Login error:", err);
+          return apiResponse.serverError(res, "Registration successful but login failed");
+        }
+        stampSessionPortal(req);
+        return apiResponse.created(res, {
+          id: user.id,
+          userId: user.userId,
+          email: user.email,
+          mobile: user.mobile,
+          firstName: user.firstName,
+          middleName: user.middleName,
+          lastName: user.lastName,
+          isEmailVerified: user.isEmailVerified,
+          isMobileVerified: user.isMobileVerified,
+          roles: user.roles
+        }, "Registration successful");
+      });
+
+    } catch (error) {
+      console.error("OTP verification error:", error);
+      return apiResponse.serverError(res, "OTP verification failed");
+    }
+  });
+
+  // Resend OTP during registration (secure endpoint)
+  app.post("/api/register/resend-otp", async (req, res) => {
+    try {
+      // Block registration on admin portal
+      const hostname = (req.headers["x-forwarded-host"] || req.hostname || req.get('host') || '').toString().toLowerCase();
+      if (hostname.startsWith('admin.') || hostname.includes('admin.fintekpro.com')) {
+        console.warn(`⚠️ [SECURITY] Registration OTP resend blocked from admin portal - Host: ${hostname}, IP: ${req.ip}`);
+        return apiResponse.forbidden(res, "Registration is not allowed on the admin portal. Please contact an administrator for access.");
+      }
+
+      const { identifier, registrationToken } = req.body;
+
+      if (!identifier || !registrationToken) {
+        return apiResponse.badRequest(res, "Identifier and registration token are required");
+      }
+
+      // Find existing OTP verification record
+      const otpRecord = await db.query.otpVerifications.findFirst({
+        where: (otpVerifications, { eq, and }) =>
+          and(
+            eq(otpVerifications.identifier, identifier),
+            eq(otpVerifications.type, "registration")
+          ),
+      });
+
+      if (!otpRecord) {
+        return apiResponse.badRequest(res, "No pending registration found");
+      }
+
+      // Verify registration token matches
+      const metadata = otpRecord.metadata as any;
+      if (!metadata || metadata.registrationToken !== registrationToken) {
+        return apiResponse.unauthorized(res, "Invalid registration token");
+      }
+
+      // Generate new OTP
+      const newOtp = generateOtp();
+      const newExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+      // Update OTP record with new OTP and expiry
+      await db.update(schema.otpVerifications)
+        .set({
+          otp: newOtp,
+          expiresAt: newExpiresAt,
+          verified: false
+        })
+        .where(eq(schema.otpVerifications.id, otpRecord.id));
+
+      // Send new OTP via SMS first (primary channel for Replit testing compatibility)
+      let primaryDelivered = false;
+      const smsSent = await smsService.sendOTP(metadata.mobile, newOtp);
+      if (smsSent) {
+        console.log(`✅ Resend OTP sent via SMS to: ${metadata.mobile}`);
+        primaryDelivered = true;
+      } else {
+        console.log(`⚠️ SMS delivery failed for ${metadata.mobile}, trying WhatsApp...`);
+        const whatsappSent = await whatsappService.sendLoginOTP(metadata.mobile, newOtp);
+        if (whatsappSent) {
+          console.log(`✅ Resend OTP sent via WhatsApp to: ${metadata.mobile}`);
+          primaryDelivered = true;
+        }
+      }
+
+      // Also send to email as secondary channel
+      const emailSent = await emailService.sendRegistrationOTP(metadata.email, newOtp);
+      if (emailSent) {
+        console.log(`✅ Resend OTP also sent to email: ${metadata.email}`);
+      }
+
+      return apiResponse.success(res, {
+        success: true,
+        otpSentTo: `${metadata.mobile} (SMS) and ${metadata.email}`
+      }, "New verification code sent");
+
+    } catch (error) {
+      console.error("Resend OTP error:", error);
+      return apiResponse.serverError(res, "Failed to resend OTP");
+    }
+  });
+
+  // Unified login endpoint - accepts email, mobile, or userId as identifier
+  // This endpoint validates credentials and sends OTP for second-layer authentication
+  app.post("/api/login", async (req, res, next) => {
+    try {
+      const { identifier, password } = req.body;
+
+      if (!identifier || !password) {
+        console.log("❌ Missing identifier or password");
+        return apiResponse.badRequest(res, "Identifier and password are required");
+      }
+
+      // Detect identifier type and determine which strategy to use
+      let strategy: string;
+      let usernameField: string;
+
+      // Check if it's an email (contains @)
+      if (identifier.includes("@")) {
+        strategy = "email-local";
+        usernameField = "email";
+      } 
+      // Check if it's a userId (Format: Prefix + 6 digits, e.g. FTP001234, SAN852412)
+      else if (/^[A-Z]{3}[0-9]{6}$/.test(identifier) || identifier.startsWith("FTP")) {
+        strategy = "userId-local";
+        usernameField = "userId";
+      }
+      // Otherwise, assume it's a mobile number
+      else {
+        strategy = "mobile-local";
+        usernameField = "mobile";
+      }

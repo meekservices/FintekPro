@@ -1,0 +1,150 @@
+        ...(firstName && { firstName }),
+        ...(middleName && { middleName }),
+        ...(lastName && { lastName }),
+        ...(gender && { gender }),
+        ...(dateOfBirth && { dateOfBirth }),
+        ...(fatherName && { fatherName }),
+        ...(motherName && { motherName }),
+        ...(spouseName && { spouseName }),
+        ...(maritalStatus && { maritalStatus }),
+        
+        // Identity Documents
+        ...(panNumber && { panNumber }),
+        ...(aadharNumber && { aadharNumber }),
+        ...(passportNumber && { passportNumber }),
+        ...(passportCountry && { passportCountry }),
+        ...(passportExpiryDate && { passportExpiryDate }),
+        ...(drivingLicense && { drivingLicense }),
+        ...(voterIdNumber && { voterIdNumber }),
+        
+        // Contact Information
+        ...(email && { email }),
+        ...(mobile && { mobile }),
+        ...(alternateContactNumber && { alternateContactNumber }),
+        
+        // Comprehensive Residency Status
+        ...(residentStatus && { residentStatus }),
+        ...(countryOfResidence && { countryOfResidence }),
+        ...(countryOfCitizenship && { countryOfCitizenship }),
+        ...(countryOfBirth && { countryOfBirth }),
+        ...(taxResidencyCountry && { taxResidencyCountry }),
+        ...(nriSubType && { nriSubType }),
+        ...(visaType && { visaType }),
+        ...(permanentResidenceStatus && { permanentResidenceStatus }),
+        ...(nriRepatriationType && { nriRepatriationType }),
+        ...(overseasTaxId && { overseasTaxId }),
+        
+        // Address Information - Enhanced
+        ...(presentAddress && { address: presentAddress }),
+        ...(presentCity && { city: presentCity }),
+        ...(presentState && { state: presentState }),
+        ...(presentPincode && { pincode: presentPincode }),
+        ...(presentCountry && { country: presentCountry }),
+        
+        // Financial Information - AML Enhanced
+        ...(occupation && { occupation }),
+        ...(employer && { employer }),
+        ...(designation && { designation }),
+        ...(workExperience && { workExperience }),
+        ...(annualIncome && { annualIncome }),
+        ...(sourceOfWealth && { sourceOfWealth }),
+        ...(netWorth && { netWorth }),
+        
+        // Investment Profile
+        ...(investmentExperience && { investmentExperience }),
+        ...(riskTolerance && { riskTolerance }),
+        ...(investmentObjective && { investmentObjective }),
+        ...(investmentHorizon && { investmentHorizon }),
+        
+        // Banking Details - Enhanced
+        ...(bankAccountNumber && { bankAccountNumber }),
+        ...(ifscCode && { ifscCode }),
+        ...(bankName && { bankName }),
+        ...(branchAddress && { branchAddress }),
+        ...(accountType && { accountType }),
+        
+        // Demat Account - CVL/KRA Integration
+        ...(nsdlDpId && { nsdlDpId }),
+        ...(nsdlClientId && { nsdlClientId }),
+        ...(cdslBoId && { cdslBoId }),
+        ...(cdslDpId && { cdslDpId }),
+        ...(krvNumber && { krvNumber }),
+        ...(cvlKycNumber && { cvlKycNumber }),
+        
+        // Regulatory Compliance - Enhanced FATCA & CRS
+        ...(fatcaStatus && { fatcaStatus }),
+        ...(fatcaTinNumber && { fatcaTinNumber }),
+        ...(fatcaCountryOfTaxResidence && { fatcaCountryOfTaxResidence }),
+        
+        // PEP Declaration - Enhanced
+        ...(pepStatus && { pepStatus }),
+        ...(pepDetails && { pepDetails }),
+        ...(pepRelatedPersonStatus && { pepRelatedPersonStatus }),
+        ...(pepRelationshipDetails && { pepRelationshipDetails }),
+        
+        // UBO Information - Enhanced
+        ...(typeof isUbo === 'boolean' && { isUbo }),
+        ...(uboDetails && { uboDetails }),
+        ...(beneficialOwnershipPercentage && { beneficialOwnershipPercentage }),
+        
+        // Nominee and Guardian Information
+        ...(nomineeDetails && { nomineeDetails }),
+        ...(nomineeRelation && { nomineeRelation }),
+        ...(nomineeContactNumber && { nomineeContactNumber }),
+        ...(guardianDetails && { guardianDetails }),
+        
+        // Professional Information
+        ...(educationalQualifications && { educationalQualifications }),
+        ...(professionalCertifications && { professionalCertifications }),
+        
+        // Consent and Declarations
+        ...(typeof panVerificationConsent === 'boolean' && { panVerificationConsent }),
+        ...(typeof amlScreeningConsent === 'boolean' && { amlScreeningConsent }),
+        ...(typeof fatcaDeclarationConsent === 'boolean' && { fatcaDeclarationConsent }),
+        ...(typeof termsAndConditionsConsent === 'boolean' && { termsAndConditionsConsent }),
+        ...(typeof dataProcessingConsent === 'boolean' && { dataProcessingConsent }),
+        ...(typeof regulatoryReportingConsent === 'boolean' && { regulatoryReportingConsent }),
+        
+        // Legacy API Integration (backward compatibility)
+        ...(euinNumber && { euinNumber }),
+        ...(typeof enableCamsApi === 'boolean' && { enableCamsApi }),
+        ...(typeof enableKfintechApi === 'boolean' && { enableKfintechApi }),
+        ...(typeof enableNsdlApi === 'boolean' && { enableNsdlApi }),
+        ...(typeof enableCdslApi === 'boolean' && { enableCdslApi }),
+        ...(typeof preferredCamsRegistration === 'boolean' && { preferredCamsRegistration }),
+        ...(typeof preferredKfintechRegistration === 'boolean' && { preferredKfintechRegistration }),
+        ...(typeof preferredNsdlRegistration === 'boolean' && { preferredNsdlRegistration }),
+        ...(typeof preferredCdslRegistration === 'boolean' && { preferredCdslRegistration }),
+        
+        updatedAt: new Date(),
+      });
+
+      if (!updatedUser) {
+        return apiResponse.notFound(res, "User not found");
+      }
+
+      return apiResponse.success(res, {
+        // Enhanced KYC Fields
+        panNumber: updatedUser.panNumber,
+        aadharNumber: updatedUser.aadharNumber,
+        passportNumber: updatedUser.passportNumber,
+        drivingLicense: updatedUser.drivingLicense,
+        voterIdNumber: updatedUser.voterIdNumber,
+        dateOfBirth: updatedUser.dateOfBirth,
+        nationality: updatedUser.nationality,
+        fatherName: updatedUser.fatherName,
+        motherName: updatedUser.motherName,
+        spouseName: updatedUser.spouseName,
+        maritalStatus: updatedUser.maritalStatus,
+        
+        // Residency Status
+        residentStatus: updatedUser.residentStatus,
+        countryOfResidence: updatedUser.countryOfResidence,
+        taxResidencyCountry: updatedUser.taxResidencyCountry,
+        
+        // Address Information
+        address: updatedUser.address,
+        city: updatedUser.city,
+        state: updatedUser.state,
+        pincode: updatedUser.pincode,
+        country: updatedUser.country,

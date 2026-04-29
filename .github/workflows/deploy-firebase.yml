@@ -1,0 +1,65 @@
+name: Deploy Frontend to Firebase Hosting
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'client/**'
+      - 'shared/**'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'postcss.config.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'firebase.json'
+      - '.firebaserc'
+
+  # Allow manual trigger from GitHub Actions tab
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: fintekpro
+
+jobs:
+  build-and-deploy:
+    name: Build Vite Frontend & Deploy to Firebase
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npx vite build
+        env:
+          NODE_ENV: production
+          # Vite strips server-only code; these vars are not needed at build time
+          # but listed here for clarity if you add VITE_* env vars in the future
+
+      - name: Verify build output exists
+        run: |
+          if [ ! -f dist/public/index.html ]; then
+            echo "❌ Build failed: dist/public/index.html not found"
+            exit 1
+          fi
+          echo "✅ Build output verified"
+          ls -lh dist/public/
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          channelId: live
+          projectId: ${{ env.PROJECT_ID }}
+          target: fintekpro

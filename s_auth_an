@@ -1,0 +1,79 @@
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { identifier, otp, newPassword } = req.body;
+
+      if (!identifier || !otp || !newPassword) {
+        return apiResponse.badRequest(res, "Identifier, OTP, and new password are required");
+      }
+
+      // Validate password strength
+      if (newPassword.length < 6) {
+        return apiResponse.badRequest(res, "Password must be at least 6 characters long");
+      }
+
+      // Find user by identifier
+      let user;
+      if (identifier.includes("@")) {
+        user = await storage.getUserByEmail(identifier);
+      } else if (identifier.startsWith("FTP")) {
+        user = await storage.getUserByUserId(identifier);
+      } else {
+        user = await storage.getUserByMobile(identifier);
+      }
+
+      if (!user) {
+        return apiResponse.badRequest(res, "Invalid identifier or OTP");
+      }
+
+      // Get the OTP verification record
+      const otpIdentifier = user.email || user.mobile || user.userId;
+      const otpRecord = await storage.getOtpVerification(
+        otpIdentifier,
+        "password_reset"
+      );
+
+      if (!otpRecord) {
+        return apiResponse.badRequest(res, "Invalid or expired OTP");
+      }
+
+      // Check if OTP is expired
+      const isExpired = new Date() > new Date(otpRecord.expiresAt);
+      if (isExpired) {
+        return apiResponse.badRequest(res, "OTP has expired. Please request a new one");
+      }
+
+      // Verify OTP matches
+      if (otpRecord.otp !== otp) {
+        return apiResponse.badRequest(res, "Invalid OTP");
+      }
+
+      // Hash the new password
+      const hashedPassword = await hashPassword(newPassword);
+
+      // Update user password
+      await storage.updateUser(user.id, { password: hashedPassword });
+
+      // Delete the used OTP
+      await db.delete(schema.otpVerifications)
+        .where(eq(schema.otpVerifications.id, otpRecord.id));
+
+      console.log(`✅ Password reset successful for user: ${user.userId}`);
+
+      return apiResponse.success(res, {
+        message: "Password reset successful. You can now log in with your new password."
+      });
+    } catch (error) {
+      console.error("Error in reset password:", error);
+      return apiResponse.serverError(res, "Failed to reset password");
+    }
+  });
+
+  // Cleanup expired OTPs periodically
+  setInterval(async () => {
+    try {
+      await storage.cleanupExpiredOtps();
+    } catch (error) {
+      console.error("OTP cleanup error:", error);
+    }
+  }, 10 * 60 * 1000); // Every 10 minutes
+}

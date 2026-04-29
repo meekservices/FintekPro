@@ -15,6 +15,5 @@ docs
 *.sql
 *.pgdump
 *.gz
-*.dump
 tsc_errors.txt
 diagnostics_output.txt

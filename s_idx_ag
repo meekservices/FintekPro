@@ -1,0 +1,150 @@
+  app.use(agentSipHealthRoutes.default);
+  app.use(agentPortfolioDriftRoutes.default);
+  app.use(agentClientOrdersRoutes.default);
+  app.use(agentMarketAlertsRoutes.default);
+  app.use(agentTrackerRoutes.default);
+
+  // Register Python Analytics Service proxy (proxies to PYTHON_SERVICE_URL when set)
+  const pythonProxyRoutes = await import('./routes/python-proxy');
+  app.use(pythonProxyRoutes.default);
+  console.log(`✅ Python Analytics Service proxy registered${process.env.PYTHON_SERVICE_URL ? ` → ${process.env.PYTHON_SERVICE_URL}` : ' (stub — set PYTHON_SERVICE_URL to activate)'}`);
+  logBootProgress("Step 5: Registering KYC & User Management Routes...");
+  
+  // ── KYC, marketing, user management: import all in parallel ─────────────────
+  const [
+    kycVaultMod, marketingMod, adminProspectsMod, twilioWebhookMod,
+    credhiveAnalyticsMod, userMgmtMod, stakeholderMod, autoPopMod,
+  ] = await Promise.all([
+    import('./kyc-vault-routes'),
+    import('./marketing-routes'),
+    import('./routes/admin-prospects'),
+    import('./services/twilio-webhook-service'),
+    import('./routes/credhive-analytics-routes'),
+    import('./user-management-routes'),
+    import('./stakeholder-routes'),
+    import('./auto-population-routes'),
+  ]);
+  kycVaultMod.registerKYCVaultRoutes(app);
+  // Initialize Zoho Campaigns using shared refresh token (non-blocking)
+  import('./zoho-campaigns-service').then(m => m.initZohoCampaignsService()).catch(() => {});
+  marketingMod.registerMarketingRoutes(app);
+  adminProspectsMod.registerAdminProspectRoutes(app);
+  app.use('/api/twilio', twilioWebhookMod.createTwilioWebhookRouter());
+  app.use('/api/admin/analytics', credhiveAnalyticsMod.default);
+  userMgmtMod.registerUserManagementRoutes(app);
+  stakeholderMod.registerStakeholderRoutes(app);
+  app.use('/api/auto-population', autoPopMod.autoPopulationRouter);
+  console.log('✅ KYC, marketing, prospect, user management routes registered');
+  
+  // ── Marketplace routes: import sequentially to isolate any hang ────────────
+  logBootProgress("Step 6a: importing unlisted routes...");
+  const unlistedRoutes = await import('./routes/unlisted');
+  logBootProgress("Step 6b: importing compliance routes...");
+  const complianceRoutes = await import('./routes/compliance');
+  logBootProgress("Step 6c: importing bond-marketplace routes...");
+  const bondMarketplaceRoutes = await import('./routes/bond-marketplace');
+  logBootProgress("Step 6d: importing bond-seed-admin routes...");
+  const bondSeedAdminRoutes = await import('./routes/bond-seed-admin');
+  logBootProgress("Step 6e: importing gold-admin routes...");
+  const goldAdminRoutes = await import('./routes/gold-admin');
+  logBootProgress("Step 6f: importing bond-marketplace-improvements routes...");
+  const bondMarketplaceImprovements = await import('./routes/bond-marketplace-improvements');
+  logBootProgress("Step 6g: importing bond-calendar routes...");
+  const bondCalendarRoutes = await import('./routes/bond-calendar-routes');
+  logBootProgress("Step 6h: registering marketplace routes...");
+  app.use('/api/unlisted', unlistedRoutes.default);
+  app.use('/api/compliance', complianceRoutes.default);
+
+  // Regulatory Audit Norms — centralised SEBI/AMFI/PMLA/RBI norm definitions + health checks
+  logBootProgress("Step 6i: importing regulatory-audit-norms routes...");
+  const { default: regulatoryAuditNormsRoutes } = await import('./routes/regulatory-audit-norms-routes');
+  logBootProgress("Step 6j: registering regulatory routes...");
+  app.use('/api/admin/regulatory-audit', regulatoryAuditNormsRoutes);
+  console.log('✅ Regulatory Audit Norms routes registered (/api/admin/regulatory-audit/*)');
+
+  app.use('/api/bonds', bondMarketplaceRoutes.default);
+  app.use('/api/admin/bond-seed', bondSeedAdminRoutes.default);
+  app.use('/api/migration', bondSeedAdminRoutes.migrationRouter);
+  app.use('/api/admin/gold', goldAdminRoutes.default);
+  app.use('/api/bonds', bondMarketplaceImprovements.default);
+  app.use('/api/bond-calendar', bondCalendarRoutes.default);
+  
+  // Initialize Financial Calendar Service
+  import('./services/financial-calendar-service').then(({ financialCalendarService }) => {
+    financialCalendarService.initialize().catch(err => {
+      console.error('Failed to initialize financial calendar service:', err);
+    });
+  });
+  
+  // ── Commission, regulatory, ISIN, picks, AI alpha: import all in parallel ───
+  const [
+    commissionConfigRoutes, regulatoryFrameworkRoutes, isinIntelligenceRoutes,
+    pickOfTheDayRoutes, pickOfTheDayMod, enrichmentGuardMod,
+    aiAlphaEngineRoutes, cron,
+  ] = await Promise.all([
+    import('./commission-config-routes'),
+    import('./routes/regulatory-framework-routes'),
+    import('./routes/isin-intelligence'),
+    import('./routes/pick-of-the-day'),
+    import('./services/pick-of-the-day-service'),
+    import('./utils/enrichment-guard'),
+    import('./routes/ai-alpha-engine'),
+    import('node-cron'),
+  ]);
+  app.use('/api/admin', commissionConfigRoutes.default);
+  app.use('/api/regulatory', regulatoryFrameworkRoutes.default);
+  app.use('/api/isin', isinIntelligenceRoutes.default);
+  app.use('/api/ai', aiAlphaEngineRoutes.default);
+  const { pickOfTheDayService } = pickOfTheDayMod;
+  const { isProductionEnvironment } = enrichmentGuardMod;
+  if (isProductionEnvironment()) {
+    setTimeout(() => pickOfTheDayService.startDailyScheduler(), 60000);
+  } else {
+    console.log('⏭️ [PickOfTheDay] Daily scheduler skipped (development mode - production only)');
+  }
+  console.log('✅ Commission, regulatory, ISIN, picks, AI alpha routes registered');
+
+  // AI Regime Detection & Model Governance schedulers (production only - writes to DB)
+  if (isProductionEnvironment()) {
+    const { aiRegimeDetectionEngine } = await import('./services/ai-regime-detection-engine');
+    cron.schedule('0 3 * * *', async () => {
+      console.log('[AI Regime] Running daily regime detection (8:30 AM IST / 3:00 AM UTC)...');
+      try {
+        const result = await aiRegimeDetectionEngine.detectCurrentRegime();
+        await aiRegimeDetectionEngine.persistRegime(result);
+        console.log(`[AI Regime] Detected: ${result.regimeLabel} (confidence: ${result.confidence.toFixed(1)}%)`);
+      } catch (error) {
+        console.error('[AI Regime] Detection failed:', error);
+      }
+    }, { timezone: 'UTC' });
+
+    const { aiModelGovernance } = await import('./services/ai-model-governance');
+    cron.schedule('30 2 * * *', async () => {
+      console.log('[AI Governance] Running daily governance check (8:00 AM IST)...');
+      try {
+        await aiModelGovernance.updatePredictionOutcomes();
+        const summary = await aiModelGovernance.runGovernanceCheck();
+        console.log(`[AI Governance] Models: ${summary.healthyModels} healthy, ${summary.warningModels} warning, ${summary.criticalModels} critical`);
+        if (summary.modelsNeedingRetrain.length > 0) {
+          console.log(`[AI Governance] Auto-retraining: ${summary.modelsNeedingRetrain.join(', ')}`);
+          for (const assetClass of summary.modelsNeedingRetrain) {
+            try {
+              await aiModelGovernance.triggerRetrain(assetClass);
+              console.log(`[AI Governance] Retrained model for ${assetClass}`);
+            } catch (err) {
+              console.error(`[AI Governance] Retrain failed for ${assetClass}:`, err);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[AI Governance] Check failed:', error);
+      }
+    }, { timezone: 'UTC' });
+    // ML model nightly auto-training at 02:00 UTC (requires ≥20 completed daily_picks outcomes)
+    cron.schedule('0 2 * * *', async () => {
+      console.log('[ML Cron] Running nightly ML auto-training (02:00 UTC)...');
+      try {
+        const { db: cronDb } = await import('./db');
+        const { sql: cronSql } = await import('drizzle-orm');
+        const result = await cronDb.execute(cronSql`
+          SELECT COUNT(*) AS cnt FROM daily_picks

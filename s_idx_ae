@@ -1,0 +1,150 @@
+  };
+
+  // Sanitize request body (skip if Buffer for webhook signature verification)
+  if (req.body && !Buffer.isBuffer(req.body)) {
+    req.body = sanitizeObject(req.body);
+  }
+
+  // Sanitize query parameters
+  if (req.query) {
+    req.query = sanitizeObject(req.query);
+  }
+
+  next();
+});
+
+// PAN/Aadhaar masking middleware - SEBI/RBI data protection compliance
+app.use(sensitiveDataMaskingMiddleware);
+
+// Subdomain detection middleware - must come early to be available in all routes
+app.use(subdomainDetection);
+
+// Redirect bare root domain → www (e.g. fintekpro.com → www.fintekpro.com)
+// Needed because most DNS providers don't allow CNAME on the apex (@) record.
+app.use((req, res, next) => {
+  const host = req.hostname;
+  const customDomain = process.env.CUSTOM_DOMAIN || 'fintekpro.com';
+  if (host === customDomain) {
+    return res.redirect(301, `https://www.${customDomain}${req.originalUrl}`);
+  }
+  next();
+});
+
+// Portal-bound session validation - enforce portal mismatch security
+app.use(validateSessionPortal);
+
+// Compliance monitoring middleware
+app.use(complianceMiddleware);
+
+// Regulatory audit trail middleware - SEBI/RBI compliance logging
+app.use(auditTrailMiddleware);
+
+// Universal KYC Gate — PMLA/SEBI/RBI compliance for ALL roles
+// Blocks any authenticated user whose KYC level is below the minimum for their role.
+// Exempt paths: /api/auth, /api/kyc, /api/user, health checks, webhooks, onboarding.
+app.use('/api', universalKycGate);
+
+// MFA Enforcement Gate (GAP-2: SEBI CSCRF 2023 §4.3)
+// Privileged roles (superadmin, admin, compliance, finance, regulatory) must complete
+// WebAuthn or TOTP before any API access is granted.
+import('./middleware/mfa-enforcement').then(({ requireMFA }) => {
+  app.use('/api', requireMFA);
+}).catch(() => { /* non-fatal if MFA module unavailable — logged at module load */ });
+
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  const isProduction = process.env.NODE_ENV === 'production';
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  if (!isProduction) {
+    const originalResJson = res.json;
+    res.json = function (bodyJson, ...args) {
+      capturedJsonResponse = bodyJson;
+      return originalResJson.apply(res, [bodyJson, ...args]);
+    };
+  }
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      if (isProduction && path === '/api/health') return;
+      logger.http(req.method, path, res.statusCode, duration, capturedJsonResponse ? { response: capturedJsonResponse } : undefined);
+    }
+  });
+
+  next();
+});
+
+// ============================================================================
+// ============================================================================
+// BOOT-TIME MIDDLEWARES
+// ============================================================================
+
+// Boot-in-progress API gate - returns 503 for non-health API routes while booting
+app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+  if (bootState.routesReady) return next();
+  
+  // Allow health checks to pass through
+  const healthPaths = ['/health', '/ready', '/live'];
+  if (healthPaths.includes(req.path)) return next();
+  
+  
+  res.status(503).json({
+    status: 'booting',
+    message: 'Server is starting up, please wait a moment...',
+    milestone: bootState.milestone,
+    bootTimeMs: bootState.getBootTime(),
+    retryAfter: 5
+  });
+});
+
+
+
+setupGracefulShutdown(server);
+
+// Start listening IMMEDIATELY - before ANY async initialization
+// reusePort: true (SO_REUSEPORT) lets a new instance bind even if the old one
+// is still holding the port during a supervisor restart — no fuser/lsof needed.
+server.listen({ port: PORT, host: '0.0.0.0' }, () => {
+  bootState.serverListening = true;
+  console.log(`🚀 Server listening on port ${PORT} (boot time: ${bootState.getBootTime()}ms)`);
+  logger.info(`Server listening on port ${PORT}`, { port: PORT, environment: process.env.NODE_ENV || 'development', bootTime: bootState.getBootTime() });
+});
+
+(async () => {
+  try {
+    logBootProgress("Starting async boot sequence...");
+    
+    // Masked DB URL for debugging
+    const dbUrl = process.env.PRODUCTION_DATABASE_URL || "MISSING";
+    const maskedUrl = dbUrl.replace(/:([^:@/]+)@/, ':****@').split('?')[0];
+    console.log(`🔗 [Boot] DB Configuration: ${maskedUrl}`);
+
+  // Python analytics micro-service (Railway private network or public URL via PYTHON_SERVICE_URL).
+  // Log the configured URL so it's visible in every boot.
+  const pyUrl = process.env.PYTHON_SERVICE_URL;
+  if (pyUrl) {
+    console.log(`ℹ️  [Python] Using external service at ${pyUrl}`);
+  } else {
+    console.warn('⚠️  [Python] PYTHON_SERVICE_URL not set — quant/AI analytics will return 503');
+  }
+
+  // Delayed health probe — fires 45 s after boot so the Python service
+  // (cold-start ~30 s on Railway) is ready before we validate the connection.
+  // Also resets the circuit breaker if it opened during the initial 502 storm.
+  setTimeout(async () => {
+    try {
+      const { probePythonHealth, startPythonKeepAlive } = await import('./clients/python-client');
+      await probePythonHealth();
+      // Start keep-alive pinger AFTER initial probe — prevents Railway from
+      // sleeping the Python service between the hourly market-quotes cron runs.
+      startPythonKeepAlive();
+    } catch (_) { /* best-effort — never crash the main server */ }
+  }, 45_000);
+
+  logBootProgress("Step 1: Setting up Health Checks & Verifying Database...");
+  
+  // CRITICAL: Setup health check routes IMMEDIATELY so the load balancer sees us as "up"
+  // even if the database initialization takes a while.

@@ -1,46 +1,25 @@
 import { Request, Response, NextFunction } from "express";
-import csrf from "csurf";
+import crypto from "crypto";
 
-/**
- * CSRF Protection Middleware
- * 
- * In production (Cloud Run behind Firebase Hosting), we use cookie-based 
- * CSRF tokens. This ensures that even if the frontend is served via CDN,
- * the API calls are protected against cross-site requests.
- */
+export function generateCsrfToken(): string {
+  return crypto.randomBytes(32).toString("hex");
+}
 
-const csrfProtection = csrf({
-  cookie: {
-    key: "_csrf",
-    path: "/",
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-  },
-});
-
-export const setupCsrf = (app: any) => {
-  // Apply CSRF protection to all routes except explicitly excluded ones
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    // Skip CSRF for health checks and specific webhooks if needed
-    if (req.path === "/api/health" || req.path.startsWith("/api/webhooks")) {
+export function createCsrfProtection() {
+  return (req: Request, res: Response, next: NextFunction) => {
+    // Skip CSRF for safe methods
+    if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {
       return next();
     }
-    csrfProtection(req, res, next);
-  });
 
-  // Provide the token to the frontend via a custom header or cookie
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.csrfToken) {
-      const token = req.csrfToken();
-      res.cookie("XSRF-TOKEN", token, {
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-      });
+    const token = req.headers["x-csrf-token"];
+    const sessionToken = req.session.csrfToken;
+
+    if (!token || !sessionToken || token !== sessionToken) {
+      console.error(`CSRF validation failed for ${req.method} ${req.path}`);
+      return res.status(403).json({ error: "Invalid CSRF token" });
     }
-    next();
-  });
-};
 
-export { csrfProtection };
+    next();
+  };
+}

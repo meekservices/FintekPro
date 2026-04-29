@@ -1,161 +1,539 @@
-import express, { type Request, Response, NextFunction } from "express";
+import { type Express, type Request, type Response } from "express";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import { db } from "./db";
-import { sql } from "drizzle-orm";
-import { bootState } from "./utils/boot-state";
+import { setupAuth } from "./auth";
+import { storage } from "./storage";
+import { logger } from "./logger";
+import { bootState, logBootProgress } from "./utils/boot-state";
+import { createCsrfProtection, generateCsrfToken } from "./middleware/csrf";
+import { creditRatingsService } from "./services/credit-ratings-service";
+import { symbolMappingService } from "./services/symbol-mapping-service";
+import express from "express";
 import path from "path";
-import fs from "fs";
+import { fileURLToPath } from "url";
+import { APP_VERSION } from "../shared/version";
+import cors from "cors";
 
-/**
- * Phase 0: Environment & Core Configuration
- * Setup base application state and global handlers.
- */
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
+
+// ============================================================================
+// PHASE 0: INFRASTRUCTURE & GLOBAL ERROR CATCHING
+// ============================================================================
+
+process.on('uncaughtException', (err) => {
+  console.error('❌ [FATAL] Uncaught Exception:', err);
+  // Keep the process alive but log the error
+  try {
+    const { selfHealingService } = require('./services/self-healing-service');
+    selfHealingService.reportEvent('uncaught_exception', err.message, 'logged', true);
+  } catch {}
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ [FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// ============================================================================
+// PHASE 1: PRE-BOOT MIDDLEWARE & CORS
+// ============================================================================
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
-// Global Request Logger
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let resSent = false;
+const corsAllowedOrigins = [
+  'https://fintekpro.com',
+  'https://www.fintekpro.com',
+  'https://admin.fintekpro.com',
+  'https://agent.fintekpro.com',
+  'https://partner.fintekpro.com',
+  'https://ins.fintekpro.com',
+  'https://fintekpro-app-7f3fb64pqq-el.a.run.app', // Added Cloud Run URL for production verification
+];
 
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (res.get("X-Response-Time")) {
-        logLine += ` (saw ${res.get("X-Response-Time")}ms)`;
-      }
-      log(logLine);
-    }
-  });
-
-  next();
-});
-
-/**
- * Phase 1: Database Connectivity
- * Attempt to verify DB connection but proceed even on failure to ensure
- * SPA availability for status reporting/debugging.
- */
-async function initializeDatabase() {
-  bootState.setPhase(1, "connecting");
-  try {
-    log("Phase 1: Attempting database connectivity check...");
-    await db.execute(sql`SELECT 1`);
-    log("Phase 1: Database connection verified successfully.");
-    bootState.setPhase(1, "ready");
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    log(`Phase 1 WARNING: Database connectivity failed: ${msg}`);
-    log("Proceeding to Phase 2 in degraded mode (SPA will remain active).");
-    bootState.setPhase(1, "error", msg);
-  }
+// In development, allow localhost/Replit origins
+if (process.env.NODE_ENV !== "production") {
+  corsAllowedOrigins.push('http://localhost:5173');
+  corsAllowedOrigins.push('http://localhost:5000');
+  corsAllowedOrigins.push('http://0.0.0.0:5000');
 }
 
-/**
- * Phase 2: Route Registration
- * Attaches API endpoints and system handlers.
- */
-async function initializeRoutes() {
-  bootState.setPhase(2, "registering");
-  try {
-    log("Phase 2: Initializing API routes...");
-    const server = registerRoutes(app);
-    log("Phase 2: API routes registered.");
-    bootState.setPhase(2, "ready");
-    return server;
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    log(`Phase 2 CRITICAL: Route registration failed: ${msg}`);
-    bootState.setPhase(2, "error", msg);
-    throw error;
-  }
-}
-
-/**
- * Phase 3: Error Handling Middleware
- * Global catch-all for API and system errors.
- */
-function setupErrorHandling() {
-  bootState.setPhase(3, "setting_up");
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    
-    // Log errors but keep them concise in production
-    if (process.env.NODE_ENV !== 'production') {
-      console.error("[Runtime Error]", err);
-    } else if (status >= 500) {
-      log(`Runtime Error ${status}: ${message}`);
-    }
-
-    res.status(status).json({ message });
-  });
-  log("Phase 3: Global error handlers attached.");
-  bootState.setPhase(3, "ready");
-}
-
-/**
- * Phase 4: Frontend Integration (Vite/Static)
- * Handles SPA serving logic based on environment.
- */
-async function initializeFrontend() {
-  bootState.setPhase(4, "serving");
-  try {
-    if (app.get("env") === "development") {
-      log("Phase 4: Setting up Vite development middleware...");
-      await setupVite(app);
-      log("Phase 4: Vite middleware active.");
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || corsAllowedOrigins.includes(origin) || origin.endsWith('.fintekpro.com') || origin.includes('replit.dev') || origin.includes('repl.co')) {
+      callback(null, true);
     } else {
-      log("Phase 4: Setting up static asset serving (production)...");
-      serveStatic(app);
-      log("Phase 4: Static serving configured.");
+      callback(new Error('Not allowed by CORS'));
     }
-    bootState.setPhase(4, "ready");
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    log(`Phase 4 WARNING: Frontend setup issue: ${msg}`);
-    bootState.setPhase(4, "error", msg);
-  }
-}
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['X-CSRF-Token']
+}));
+
+// ============================================================================
+// PHASE 2: EARLY SPA SAFETY ROUTE
+// ============================================================================
 
 /**
- * Main Boot Sequence
+ * Register the SPA catch-all route immediately.
+ * This ensures that if the async boot sequence (Phase 3) takes a long time
+ * or fails partway through, the browser still receives index.html instead
+ * of "Cannot GET /" or a raw Express error.
+ * 
+ * The frontend UI is designed to show a "Connecting to server..." splash 
+ * screen until it receives a successful response from /api/boot-status.
  */
+function registerSPACatchAll(expressApp: Express) {
+  const distPath = path.resolve(__dirname, '..', 'dist', 'public');
+  const indexPath = path.resolve(distPath, 'index.html');
+
+  // Serve static files first
+  expressApp.use(express.static(distPath));
+
+  // Catch-all route for SPA navigation
+  expressApp.get('*', (req, res, next) => {
+    // Skip API routes
+    if (req.path.startsWith('/api')) return next();
+
+    // In production, serve index.html for all SPA routes
+    // This acts as a safety net if boot sequence hangs
+    if (process.env.NODE_ENV === 'production') {
+      res.sendFile(indexPath, (err) => {
+        if (err) {
+          console.error('❌ Failed to serve SPA index.html:', err);
+          res.status(500).send('System initializing... please refresh in 30 seconds.');
+        }
+      });
+    } else {
+      next();
+    }
+  });
+}
+
+// Register the catch-all immediately for production stability
+if (process.env.NODE_ENV === 'production') {
+  console.log('🛡️  Registering SPA catch-all (Phase 2 safety)...');
+  registerSPACatchAll(app);
+}
+
+// ============================================================================
+// PHASE 3: ASYNC BOOT SEQUENCE
+// ============================================================================
+
 (async () => {
-  log("Starting Hybrid Architecture Boot Sequence...");
-  
   try {
-    // 1. DB (Non-blocking)
-    initializeDatabase();
+    logBootProgress("Step 1: Starting database connection...");
 
-    // 2. API Routes
-    const server = await initializeRoutes();
+    // Test database connection immediately
+    const { db } = await import('./db');
+    const { sql } = await import('drizzle-orm');
 
-    // 3. Error Handlers
-    setupErrorHandling();
+    try {
+      await db.execute(sql`SELECT 1`);
+      console.log('✅ Database connection established');
+    } catch (dbErr) {
+      console.error('❌ Database connection failed:', dbErr);
+      throw new Error(`DB Connection Error: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`);
+    }
 
-    // 4. Frontend (SPA)
-    await initializeFrontend();
+    logBootProgress("Step 2: Checking schema migrations...");
+    // ── DATABASE REPAIR & MIGRATION ──────────────────────────────────────────
+    // Perform critical schema updates needed for boot.
+    // We use a dedicated try/catch so migration errors don't necessarily 
+    // kill the whole server if the core tables are still functional.
+    try {
+      const { db: migDb } = await import('./db');
+      const { sql: migSql } = await import('drizzle-orm');
 
-    // Phase 5: Execution Readiness
-    bootState.setPhase(5, "starting");
-    const PORT = Number(process.env.PORT) || 5000;
-    
-    server.listen(PORT, "0.0.0.0", () => {
-      log(`Phase 5: Server listening on port ${PORT}`);
-      log("Boot Sequence Complete. System is LIVE.");
-      bootState.setPhase(5, "ready");
-      bootState.setPhase(6, "ready"); // Overall system ready
-    });
+      console.log('🛠️ Running schema migrations/repairs...');
 
-  } catch (criticalError) {
-    log("FATAL: Boot sequence aborted due to critical error.");
-    console.error(criticalError);
-    bootState.setPhase(6, "error", criticalError instanceof Error ? criticalError.message : String(criticalError));
-    process.exit(1);
+      // 1. ca_verification_status
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS ca_verification_status (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            icai_membership_number VARCHAR,
+            pan_number VARCHAR,
+            icai_verified BOOLEAN DEFAULT false,
+            icai_verified_at TIMESTAMPTZ,
+            icai_verified_by VARCHAR REFERENCES users(id),
+            cop_number VARCHAR,
+            cop_valid_from DATE,
+            cop_valid_to DATE,
+            cop_verified BOOLEAN DEFAULT false,
+            cop_verified_at TIMESTAMPTZ,
+            pan_verified BOOLEAN DEFAULT false,
+            pan_verified_at TIMESTAMPTZ,
+            dsc_available BOOLEAN DEFAULT false,
+            dsc_serial_number VARCHAR,
+            dsc_valid_from DATE,
+            dsc_valid_to DATE,
+            dsc_verified_at TIMESTAMPTZ,
+            overall_status VARCHAR DEFAULT 'pending',
+            can_sign_form_15cb BOOLEAN DEFAULT false,
+            approved_at TIMESTAMPTZ,
+            approved_by VARCHAR REFERENCES users(id),
+            rejection_reason TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+          ALTER TABLE ca_verification_status
+            ADD COLUMN IF NOT EXISTS user_id VARCHAR REFERENCES users(id),
+            ADD COLUMN IF NOT EXISTS icai_membership_number VARCHAR,
+            ADD COLUMN IF NOT EXISTS pan_number VARCHAR,
+            ADD COLUMN IF NOT EXISTS overall_status VARCHAR DEFAULT 'pending',
+            ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW(),
+            ADD COLUMN IF NOT EXISTS icai_verified BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS icai_verified_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS icai_verified_by VARCHAR REFERENCES users(id),
+            ADD COLUMN IF NOT EXISTS cop_number VARCHAR,
+            ADD COLUMN IF NOT EXISTS cop_valid_from DATE,
+            ADD COLUMN IF NOT EXISTS cop_valid_to DATE,
+            ADD COLUMN IF NOT EXISTS cop_verified BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS cop_verified_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS pan_verified BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS pan_verified_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS dsc_available BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS dsc_serial_number VARCHAR,
+            ADD COLUMN IF NOT EXISTS dsc_valid_from DATE,
+            ADD COLUMN IF NOT EXISTS dsc_valid_to DATE,
+            ADD COLUMN IF NOT EXISTS dsc_verified_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS can_sign_form_15cb BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS approved_by VARCHAR REFERENCES users(id),
+            ADD COLUMN IF NOT EXISTS rejection_reason TEXT,
+            ADD COLUMN IF NOT EXISTS icai_scraped_name      VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_membership_status VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_membership_type   VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_cop_status        VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_confidence_score  NUMERIC(4,2),
+            ADD COLUMN IF NOT EXISTS icai_scraped_at        TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS icai_source            VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_raw_html          TEXT,
+            ADD COLUMN IF NOT EXISTS icai_error             TEXT
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] ca_verification_status schema skipped:', e?.message);
+      }
+
+      // 13. partners ICAI
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE partners
+            ADD COLUMN IF NOT EXISTS icai_scraped_name       VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_scraper_status     VARCHAR DEFAULT 'pending',
+            ADD COLUMN IF NOT EXISTS icai_scraper_run_at     TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS icai_scraper_source     VARCHAR,
+            ADD COLUMN IF NOT EXISTS icai_confidence_score   NUMERIC(4,2),
+            ADD COLUMN IF NOT EXISTS icai_cop_status         VARCHAR
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] partners ICAI scraper columns skipped:', e?.message);
+      }
+
+      // 14. Subscriptions
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS plan_tier VARCHAR DEFAULT 'free',
+            ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS cashfree_subscription_id VARCHAR;
+          CREATE TABLE IF NOT EXISTS platform_subscriptions (
+            id                        VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id                   VARCHAR NOT NULL REFERENCES users(id),
+            plan_tier                 VARCHAR NOT NULL,
+            billing_cycle             VARCHAR NOT NULL,
+            amount_paise              INTEGER NOT NULL,
+            currency                  VARCHAR DEFAULT 'INR' NOT NULL,
+            cashfree_order_id         VARCHAR,
+            cashfree_payment_id       VARCHAR,
+            cashfree_payment_session_id VARCHAR,
+            status                    VARCHAR DEFAULT 'pending' NOT NULL,
+            starts_at                 TIMESTAMPTZ,
+            expires_at                TIMESTAMPTZ,
+            metadata                  JSONB,
+            created_at                TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+            updated_at                TIMESTAMPTZ DEFAULT NOW() NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS idx_platform_subs_user   ON platform_subscriptions(user_id);
+          CREATE INDEX IF NOT EXISTS idx_platform_subs_status ON platform_subscriptions(status);
+          CREATE INDEX IF NOT EXISTS idx_platform_subs_tier   ON platform_subscriptions(plan_tier);
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] Subscription monetization schema skipped:', e?.message);
+      }
+
+      // 15. audit_trail
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS audit_trail (
+            id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id     VARCHAR,
+            actor_type  VARCHAR,
+            action      VARCHAR NOT NULL,
+            category    VARCHAR NOT NULL,
+            details     TEXT,
+            ip_address  VARCHAR,
+            user_agent  TEXT,
+            outcome     VARCHAR,
+            risk_level  VARCHAR,
+            created_at  TIMESTAMPTZ DEFAULT NOW()
+          );
+          ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS actor_type VARCHAR;
+        `);
+      } catch (e: any) {
+        console.error('[Migration] audit_trail table error:', e?.message);
+      }
+
+      // 16. self_healing
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS self_healing_events (
+            id            SERIAL PRIMARY KEY,
+            event_type    VARCHAR(50) NOT NULL,
+            trigger_message TEXT,
+            action_taken  VARCHAR(100),
+            success       BOOLEAN,
+            message       TEXT,
+            context       TEXT,
+            occurred_at   TIMESTAMPTZ DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_self_healing_events_occurred_at
+            ON self_healing_events (occurred_at DESC);
+
+          CREATE TABLE IF NOT EXISTS self_healing_feedback (
+            id            SERIAL PRIMARY KEY,
+            module        VARCHAR(50)  NOT NULL,
+            operation     VARCHAR(100) NOT NULL,
+            duration_ms   INTEGER,
+            success       BOOLEAN      NOT NULL DEFAULT true,
+            error_message TEXT,
+            risk_level    VARCHAR(10),
+            fallback_used BOOLEAN      DEFAULT false,
+            occurred_at   TIMESTAMPTZ  DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_self_healing_feedback_module_occurred
+            ON self_healing_feedback (module, occurred_at DESC);
+        `);
+      } catch (e: any) {
+        console.error('[Migration] self_healing tables error:', e?.message);
+      }
+
+      // 17. iris_sessions
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS iris_sessions (
+            id           VARCHAR PRIMARY KEY,
+            pan          VARCHAR NOT NULL UNIQUE,
+            cookies      JSONB NOT NULL,
+            expires_at   TIMESTAMPTZ NOT NULL,
+            created_at   TIMESTAMPTZ DEFAULT NOW()
+          );
+        `);
+      } catch (e: any) {
+        console.warn('[Migration] iris_sessions table skipped:', e?.message);
+      }
+
+      console.log('✅ Critical schema repairs complete');
+    } catch (migErr) {
+      console.error('❌ Migration sequence failed (non-fatal):', migErr);
+    }
+
+    logBootProgress("Step 3: Initializing Middleware & Auth...");
+
+    // ── AUTH & MIDDLEWARE ────────────────────────────────────────────────────
+    try {
+      const { setupSessionAuth } = await import('./auth-setup');
+      const { registerAuthEventConsumers } = await import('./services/auth-event-consumer');
+
+      // Step 3a: Initialize Session Store (Redis or Postgres)
+      await setupSessionAuth(app);
+
+      // Step 3b: Initialize Passport Strategies (Local, OTP, etc)
+      setupAuth(app);
+
+      logBootProgress("Step 3c: Registering Auth Consumers...");
+      // Register auth event consumers (structured logging + high-risk DB persistence)
+      registerAuthEventConsumers();
+
+      logBootProgress("Step 3d: Setting up CSRF...");
+
+      // CSRF token endpoint (must be after session middleware)
+      app.get('/api/csrf-token', (req: Request, res: Response) => {
+        if (!req.session) {
+          return res.status(401).json({ error: 'No session' });
+        }
+
+        if (!(req.session as any).csrfToken) {
+          (req.session as any).csrfToken = generateCsrfToken();
+        }
+
+        res.json({ csrfToken: (req.session as any).csrfToken });
+      });
+
+      // Apply CSRF protection after session/auth middleware
+      app.use('/api', createCsrfProtection());
+    } catch (error: any) {
+      console.error('❌ [FATAL] Error in Step 3 block:', error);
+      bootState.error = `Step 3 Error: ${error?.message || String(error)}`;
+      throw error;
+    }
+
+    // ── CORE ROUTES ──────────────────────────────────────────────────────────
+    logBootProgress("Step 4: Registering Core Routes...");
+    console.log('📦 Registering routes...');
+
+    // Register Version API route
+    const versionRoutes = await import('./routes/version');
+    app.use(versionRoutes.default);
+
+    // Register Zoho integration routes
+    const zohoRoutes = await import('./zoho/routes');
+    app.use('/api/zoho', zohoRoutes.default);
+
+    // Register Firm Inventory
+    const { registerFirmInventoryRoutes } = await import('./routes/firm-inventory');
+    registerFirmInventoryRoutes(app);
+
+    // Agent routes
+    const [
+      agentRoutes, agentRevenueRoutes, agentBasketsRoutes, agentSipHealthRoutes,
+      agentPortfolioDriftRoutes, agentClientOrdersRoutes, agentMarketAlertsRoutes, agentTrackerRoutes,
+    ] = await Promise.all([
+      import('./agent-routes'),
+      import('./routes/agent-revenue-routes'),
+      import('./routes/agent-baskets'),
+      import('./routes/agent-sip-health'),
+      import('./routes/agent-portfolio-drift'),
+      import('./routes/agent-client-orders'),
+      import('./routes/agent-market-alerts'),
+      import('./routes/agent-tracker'),
+    ]);
+    app.use(agentRoutes.default);
+    app.use(agentRevenueRoutes.default);
+    app.use(agentBasketsRoutes.default);
+    app.use(agentSipHealthRoutes.default);
+    app.use(agentPortfolioDriftRoutes.default);
+    app.use(agentClientOrdersRoutes.default);
+    app.use(agentMarketAlertsRoutes.default);
+    app.use(agentTrackerRoutes.default);
+
+    // Register Python Analytics Service proxy
+    const pythonProxyRoutes = await import('./routes/python-proxy');
+    app.use(pythonProxyRoutes.default);
+
+    logBootProgress("Step 5: Registering KYC & User Management Routes...");
+
+    const [
+      kycVaultMod, marketingMod, adminProspectsMod, twilioWebhookMod,
+      credhiveAnalyticsMod, userMgmtMod, stakeholderMod, autoPopMod,
+    ] = await Promise.all([
+      import('./kyc-vault-routes'),
+      import('./marketing-routes'),
+      import('./routes/admin-prospects'),
+      import('./services/twilio-webhook-service'),
+      import('./routes/credhive-analytics-routes'),
+      import('./user-management-routes'),
+      import('./stakeholder-routes'),
+      import('./auto-population-routes'),
+    ]);
+    kycVaultMod.registerKYCVaultRoutes(app);
+    marketingMod.registerMarketingRoutes(app);
+    adminProspectsMod.registerAdminProspectRoutes(app);
+    app.use('/api/twilio', twilioWebhookMod.createTwilioWebhookRouter());
+    app.use('/api/admin/analytics', credhiveAnalyticsMod.default);
+    userMgmtMod.registerUserManagementRoutes(app);
+    stakeholderMod.registerStakeholderRoutes(app);
+    app.use('/api/auto-population', autoPopMod.autoPopulationRouter);
+
+    logBootProgress("Step 6: Registering Marketplace & Regulatory Routes...");
+    const [
+      unlistedRoutes, complianceRoutes, bondMarketplaceRoutes, 
+      bondSeedAdminRoutes, goldAdminRoutes, bondMarketplaceImprovements, 
+      bondMarketplaceCalendarRoutes, regulatoryAuditNormsRoutes
+    ] = await Promise.all([
+      import('./routes/unlisted'),
+      import('./routes/compliance'),
+      import('./routes/bond-marketplace'),
+      import('./routes/bond-seed-admin'),
+      import('./routes/gold-admin'),
+      import('./routes/bond-marketplace-improvements'),
+      import('./routes/bond-calendar-routes'),
+      import('./routes/regulatory-audit-norms-routes'),
+    ]);
+    app.use('/api/unlisted', unlistedRoutes.default);
+    app.use('/api/compliance', complianceRoutes.default);
+    app.use('/api/admin/regulatory-audit', regulatoryAuditNormsRoutes.default);
+    app.use('/api/bonds', bondMarketplaceRoutes.default);
+    app.use('/api/admin/bond-seed', bondSeedAdminRoutes.default);
+    app.use('/api/migration', bondSeedAdminRoutes.migrationRouter);
+    app.use('/api/admin/gold', goldAdminRoutes.default);
+    app.use('/api/bonds', bondMarketplaceImprovements.default);
+    app.use('/api/bond-calendar', bondMarketplaceCalendarRoutes.default);
+
+    // Commission, framework, ISIN, alpha
+    const [
+      commissionConfigRoutes, regulatoryFrameworkRoutes, isinIntelligenceRoutes,
+      aiAlphaEngineRoutes,
+    ] = await Promise.all([
+      import('./commission-config-routes'),
+      import('./routes/regulatory-framework-routes'),
+      import('./routes/isin-intelligence'),
+      import('./routes/ai-alpha-engine'),
+    ]);
+    app.use('/api/admin', commissionConfigRoutes.default);
+    app.use('/api/regulatory', regulatoryFrameworkRoutes.default);
+    app.use('/api/isin', isinIntelligenceRoutes.default);
+    app.use('/api/ai', aiAlphaEngineRoutes.default);
+
+    // ── FINALIZATION ─────────────────────────────────────────────────────────
+
+    // Boot audit event
+    (async () => {
+      try {
+        const { auditLog } = await import('./middleware/audit-trail');
+        await auditLog({
+          action: 'system_deploy',
+          category: 'admin',
+          outcome: 'success',
+          riskLevel: 'low',
+          details: {
+            event: 'server_boot_complete',
+            bootTimeMs: bootState.getBootTime(),
+            nodeVersion: process.version,
+            appVersion: APP_VERSION,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      } catch {}
+    })();
+
+    // Signal readiness
+    bootState.routesReady = true;
+    logBootProgress("Step 12: Boot sequence complete. Server is operational.");
+
+    // Start background services with delay
+    setTimeout(async () => {
+      if (process.env.NODE_ENV === 'production') {
+        const { kycExpiryMonitor } = await import('./services/kyc-expiry-monitor');
+        kycExpiryMonitor.start();
+      }
+    }, 5000);
+
+  } catch (error: any) {
+    console.error('❌ [FATAL] Server initialization failed:', error);
+    bootState.error = `Boot Error: ${error?.message || String(error)}`;
+    if (process.env.NODE_ENV === 'production') {
+      try { registerSPACatchAll(app); } catch (_) {}
+    }
   }
 })();
+
+// Start listening
+const PORT = Number(process.env.PORT) || 5000;
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 [v${APP_VERSION}] Server listening on port ${PORT}`);
+});

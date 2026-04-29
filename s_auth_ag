@@ -1,0 +1,150 @@
+
+      let user;
+      if (identifier.includes("@")) {
+        user = await storage.getUserByEmail(identifier.trim());
+      } else {
+        user = await storage.getUserByMobile(identifier.trim());
+      }
+
+      if (!user) {
+        return apiResponse.notFound(res, "No account found with this email or mobile number");
+      }
+
+      if (!user.isActive) {
+        return apiResponse.badRequest(res, "Account is not active. Please contact support.");
+      }
+
+      const otp = generateOtp();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+      const otpTarget = user.mobile || user.email;
+      const otpType = user.mobile ? "mobile" : "email";
+
+      await storage.createOtpVerification({
+        identifier: otpTarget,
+        otp,
+        type: otpType,
+        expiresAt,
+        verified: false,
+      });
+
+      console.log(`[OTP Login] OTP for ${otpTarget} (${otpType}): ${otp}`);
+
+      const maskedTarget = otpType === "mobile"
+        ? `mobile ending in ${otpTarget.slice(-4)}`
+        : user.email;
+
+      return apiResponse.success(res, {
+        otpSentTo: maskedTarget,
+        identifier: otpTarget,
+      }, "OTP sent successfully");
+    } catch (error) {
+      console.error("OTP login request error:", error);
+      return apiResponse.serverError(res, "Failed to send OTP");
+    }
+  });
+
+  // Verify OTP and complete login - mandatory second-layer authentication
+  app.post("/api/login/verify-otp", async (req, res) => {
+    try {
+      const { identifier, otp } = req.body;
+
+      if (!identifier || !otp) {
+        console.log("❌ Missing identifier or OTP");
+        return apiResponse.badRequest(res, "Identifier and OTP are required");
+      }
+
+      // Determine OTP type based on identifier
+      const otpType = identifier.includes("@") ? "email" : "mobile";
+
+      // Try verifying OTP directly with the provided identifier
+      let isValid = await storage.verifyOtp(identifier, otpType, otp);
+
+      // If email identifier failed, the OTP may have been stored under the user's mobile number
+      // (login always prefers mobile for OTP delivery). Look up user and try mobile identifier.
+      let resolvedIdentifier = identifier;
+      let resolvedOtpType = otpType;
+      if (!isValid && otpType === "email") {
+        const userByEmail = await storage.getUserByEmail(identifier);
+        if (userByEmail?.mobile) {
+          console.log("🔄 OTP not found by email, trying mobile:", userByEmail.mobile);
+          isValid = await storage.verifyOtp(userByEmail.mobile, "mobile", otp);
+          if (isValid) {
+            resolvedIdentifier = userByEmail.mobile;
+            resolvedOtpType = "mobile";
+          }
+        }
+      }
+
+      if (!isValid) {
+        return apiResponse.badRequest(res, "Invalid or expired OTP");
+      }
+
+      // OTP is valid - find user and complete login
+      let user;
+      if (resolvedOtpType === "email") {
+        user = await storage.getUserByEmail(resolvedIdentifier);
+      } else {
+        user = await storage.getUserByMobile(resolvedIdentifier);
+      }
+
+      if (!user) {
+        return apiResponse.notFound(res, "User not found");
+      }
+
+      // Update verification status and login timestamps
+      const updates: Partial<User> = {};
+      if (otpType === "email") {
+        updates.isEmailVerified = true;
+      } else {
+        updates.isMobileVerified = true;
+      }
+      
+      // Track login timestamps
+      const currentTime = new Date();
+      if (user.lastLoginAt) {
+        updates.previousLoginAt = user.lastLoginAt;
+      }
+      updates.lastLoginAt = currentTime;
+      updates.loginCount = (user.loginCount || 0) + 1;
+      
+      await storage.updateUser(user.id, updates);
+
+      // Fetch updated user data after saving timestamps
+      const updatedUser = await storage.getUser(user.id);
+      if (!updatedUser) {
+        return apiResponse.serverError(res, "Failed to retrieve updated user data");
+      }
+
+      // Complete login by creating session with updated user data (guard against missing session middleware)
+      if (!req.session) {
+        return apiResponse.serverError(res, "Session not available. Please try again.");
+      }
+      req.login(updatedUser, (loginErr) => {
+        if (loginErr) {
+          console.error("❌ Login session error:", loginErr);
+          return apiResponse.serverError(res, "Login failed");
+        }
+        stampSessionPortal(req);
+        
+        // Explicitly save session to ensure it persists
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("❌ Session save error:", saveErr);
+            return apiResponse.serverError(res, "Session save failed");
+          }
+          
+          return apiResponse.success(res, {
+            id: updatedUser.id,
+            userId: updatedUser.userId,
+            email: updatedUser.email,
+            mobile: updatedUser.mobile,
+            firstName: updatedUser.firstName,
+            middleName: updatedUser.middleName,
+            lastName: updatedUser.lastName,
+            roles: updatedUser.roles,
+            isEmailVerified: updatedUser.isEmailVerified,
+            isMobileVerified: updatedUser.isMobileVerified,
+            lastLoginAt: updatedUser.lastLoginAt,
+            previousLoginAt: updatedUser.previousLoginAt,
+            loginCount: updatedUser.loginCount
+          }, "Login successful");

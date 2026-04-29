@@ -1,0 +1,150 @@
+      const nameParts = registeredName.trim().split(/\s+/);
+      const firstNameFromReg = nameParts[0] || null;
+      const lastNameFromReg = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null;
+
+      // Generate unique userId with appropriate prefix
+      const userId = await generateUniqueUserId(email, firstNameFromReg || undefined);
+
+      // Create user with verified status
+      const user = await storage.createUser({
+        userId,
+        email,
+        mobile,
+        password: hashedPassword,
+        firstName: firstNameFromReg,
+        middleName: null,
+        lastName: lastNameFromReg,
+        profileImageUrl: null,
+        isEmailVerified: true, // Set to true since we verified via OTP
+        isMobileVerified: true, // Set to true since we verified via OTP
+        panNumber: null,
+        aadharNumber: null,
+        dateOfBirth: null,
+        address: null,
+        city: null,
+        state: null,
+        pincode: null,
+        occupation: null,
+        annualIncome: null,
+        investmentExperience: null,
+        riskTolerance: null,
+        passportNumber: null,
+        drivingLicense: null,
+        voterIdNumber: null,
+        nationality: null,
+        fatherName: null,
+        motherName: null,
+        spouseName: null,
+        maritalStatus: null,
+        country: null,
+        sourceOfWealth: null,
+        residentStatus: null,
+        countryOfResidence: null,
+        taxResidencyCountry: null,
+        fatcaStatus: null,
+        fatcaTinNumber: null,
+        fatcaCountryOfTaxResidence: null,
+        pepStatus: null,
+        pepDetails: null,
+        isUbo: false,
+        uboDetails: null,
+        bankAccountNumber: null,
+        ifscCode: null,
+        nomineeDetails: null,
+        nomineeRelation: null,
+        euinNumber: null,
+        enableCamsApi: false,
+        enableKfintechApi: false,
+        enableNsdlApi: false,
+        enableCdslApi: false,
+        nsdlDpId: null,
+        nsdlClientId: null,
+        cdslBoId: null,
+        cdslDpId: null,
+        panVerificationConsent: false,
+        panConsentGivenAt: null,
+        panConsentIpAddress: null,
+        panConsentUserAgent: null,
+        panConsentVersion: "1.0",
+        preferredCamsRegistration: false,
+        preferredKfintechRegistration: false,
+        preferredNsdlRegistration: false,
+        preferredCdslRegistration: false,
+        agentId: null,
+        arnCode: null,
+        distributorId: null,
+        complianceOfficer: null,
+        clientType: null,
+        companyName: null,
+        entityType: null,
+        entityRegistrationNumber: null,
+        incorporationDate: null,
+        businessNature: null,
+        countryOfCitizenship: null,
+        isUSPerson: false,
+        isEUResident: false,
+        gdprConsent: false,
+        gdprConsentDate: null,
+        dataProcessingConsent: false,
+        marketingConsent: false,
+        investorType: null,
+        investorCategory: null,
+        financialSituation: null,
+        investmentObjective: null,
+        profileCompleteness: 0,
+        isProfileCompleted: false,
+        profileCompletedAt: null,
+        lastUpdated: new Date(),
+        digilockerAddress: null,
+        digilockerDOB: null,
+        digilockerGender: null,
+        digilockerFullName: null,
+        aadhaarLastFour: null,
+        nameMatchScore: null,
+        nameReconciliationStatus: null,
+        nameReconciliationNote: null,
+        panVerifiedViaSmartKyc: false,
+        panVerificationDate: null,
+        aadhaarVerifiedViaSmartKyc: false,
+        aadhaarVerificationDate: null,
+        smartKycCompletedAt: null,
+        roles: roleForPortal,
+        isActive: true,
+        lastLoginAt: null,
+        previousLoginAt: null,
+        loginCount: 0,
+      });
+
+      // Create portal-specific profile record
+      if (registeredPortal === 'agent') {
+        try {
+          await db.insert(schema.agents).values({
+            userId: user.id,
+            fullName: registeredName,
+            email,
+            phone: mobile,
+            status: 'active',
+            isActive: true,
+            agentType: 'individual',
+          });
+          console.log(`✅ [Register] Agent record created for ${email}`);
+        } catch (agentErr: any) {
+          // Email uniqueness failure means they already have an agent record — non-fatal
+          console.warn(`⚠️ [Register] Agent record creation skipped for ${email}: ${agentErr.message}`);
+        }
+      } else if (registeredPortal === 'partner') {
+        try {
+          await db.insert(schema.partners).values({
+            companyName: registeredName,
+            contactEmail: email,
+            contactPhone: mobile,
+            password: hashedPassword,
+            partnerType: 'distributor',
+            isActive: true,
+            isVerified: false,
+            approvalStatus: 'PENDING',
+            kycStatus: 'PENDING',
+          });
+          console.log(`✅ [Register] Partner record created for ${email}`);
+        } catch (partnerErr: any) {
+          console.warn(`⚠️ [Register] Partner record creation skipped for ${email}: ${partnerErr.message}`);

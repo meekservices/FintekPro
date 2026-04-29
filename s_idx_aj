@@ -1,0 +1,150 @@
+        ORDER BY risk_profile, id ASC
+      )
+    `);
+    await uqDb.execute(uqSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_quant_governance_policy_risk_profile
+        ON quant_governance_policy (risk_profile)
+    `);
+
+    console.log('✅ [Migration] ON CONFLICT UNIQUE indexes verified/created');
+
+    // ── Background unique-index repair ────────────────────────────────────────
+    // All tables below have ON CONFLICT clauses in their services but the
+    // corresponding unique indexes were never pushed to the production DB.
+    // Each block: dedup rows (keep latest), then CREATE UNIQUE INDEX IF NOT EXISTS.
+    // Runs via setImmediate so it never blocks route registration / boot.
+    setImmediate(async () => {
+      const { db: bgDb } = await import('./db');
+      const { sql: bgSql } = await import('drizzle-orm');
+
+      // Helper: dedup by arbitrary columns, keeping row with max id
+      const dedupAndIndex = async (
+        label: string,
+        dedupsql: string,
+        indexsql: string
+      ) => {
+        try {
+          await Promise.race([
+            bgDb.execute(bgSql.raw(dedupsql)),
+            new Promise((_, reject) => setTimeout(() => reject(new Error(`Deduplication of ${label} timed out after 60s`)), 60000))
+          ]);
+          await Promise.race([
+            bgDb.execute(bgSql.raw(indexsql)),
+            new Promise((_, reject) => setTimeout(() => reject(new Error(`Indexing of ${label} timed out after 60s`)), 60000))
+          ]);
+          console.log(`✅ [Migration] ${label} unique index created (background)`);
+        } catch (e: any) {
+          console.warn(`[Migration] ${label} (background):`, e?.message);
+        }
+      };
+
+      // 1. historical_nav_data (identifier, identifier_type, date)
+      // The table may have 9M+ rows — the standard IN (SELECT DISTINCT ON ...) dedup
+      // query exceeds the 30s statement_timeout. Use a dedicated pool client with
+      // timeout disabled, and a faster self-join DELETE, then CONCURRENTLY index.
+      try {
+        const { pool: bgPool } = await import('./db');
+        const client = await bgPool.connect();
+        try {
+          await client.query('SET statement_timeout = 0');
+          // Self-join DELETE: keeps the row with the largest id (latest fetched) per key.
+          // Far more efficient on large tables than IN (SELECT DISTINCT ON ...).
+          await client.query(`
+            DELETE FROM historical_nav_data a
+            USING historical_nav_data b
+            WHERE a.identifier = b.identifier
+              AND a.identifier_type = b.identifier_type
+              AND a.date = b.date
+              AND a.id < b.id
+          `);
+          // CONCURRENTLY allows reads/writes during index build; cannot run in a transaction.
+          await client.query(`
+            CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_historical_nav_unique
+              ON historical_nav_data (identifier, identifier_type, date)
+          `);
+          console.log('✅ [Migration] historical_nav_data unique index created (background)');
+        } catch (e: any) {
+          console.warn('[Migration] historical_nav_data (background):', e?.message);
+        } finally {
+          client.release();
+        }
+      } catch (e: any) {
+        console.warn('[Migration] historical_nav_data pool error:', e?.message);
+      }
+
+      // 2. mutual_fund_metrics (scheme_code, fiscal_year)
+      await dedupAndIndex(
+        'mutual_fund_metrics',
+        `DELETE FROM mutual_fund_metrics
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (scheme_code, fiscal_year) id
+           FROM mutual_fund_metrics
+           ORDER BY scheme_code, fiscal_year, last_updated DESC NULLS LAST
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_metrics_scheme_fy
+           ON mutual_fund_metrics (scheme_code, fiscal_year)`
+      );
+
+      // 3. mf_taxonomy_versions (version)
+      await dedupAndIndex(
+        'mf_taxonomy_versions',
+        `DELETE FROM mf_taxonomy_versions
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (version) id
+           FROM mf_taxonomy_versions
+           ORDER BY version, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_taxonomy_version
+           ON mf_taxonomy_versions (version)`
+      );
+
+      // 4. mf_category_master (taxonomy_version, group_code)
+      await dedupAndIndex(
+        'mf_category_master',
+        `DELETE FROM mf_category_master
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (taxonomy_version, group_code) id
+           FROM mf_category_master
+           ORDER BY taxonomy_version, group_code, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_mf_category_master_version_code
+           ON mf_category_master (taxonomy_version, group_code)`
+      );
+
+      // 5. mf_subcategory_master (subcategory_code)
+      await dedupAndIndex(
+        'mf_subcategory_master',
+        `DELETE FROM mf_subcategory_master
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (subcategory_code) id
+           FROM mf_subcategory_master
+           ORDER BY subcategory_code, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_mf_subcategory_code
+           ON mf_subcategory_master (subcategory_code)`
+      );
+
+      // 6. mf_portfolio_holdings (scheme_code, isin, as_of_date)
+      await dedupAndIndex(
+        'mf_portfolio_holdings',
+        `DELETE FROM mf_portfolio_holdings
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (scheme_code, isin, as_of_date) id
+           FROM mf_portfolio_holdings
+           ORDER BY scheme_code, isin, as_of_date, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_mf_portfolio_holdings_unique
+           ON mf_portfolio_holdings (scheme_code, isin, as_of_date)`
+      );
+
+      // 7. mf_overlap_matrix (scheme_code_a, scheme_code_b)
+      await dedupAndIndex(
+        'mf_overlap_matrix',
+        `DELETE FROM mf_overlap_matrix
+         WHERE id NOT IN (
+           SELECT DISTINCT ON (scheme_code_a, scheme_code_b) id
+           FROM mf_overlap_matrix
+           ORDER BY scheme_code_a, scheme_code_b, id DESC
+         )`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_mf_overlap_matrix_pair
+           ON mf_overlap_matrix (scheme_code_a, scheme_code_b)`
