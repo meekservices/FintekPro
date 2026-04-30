@@ -105,11 +105,12 @@ cloudrun-env.yaml
 deploy_temp/
 
 # Scratch artifacts
-scratch/*.js
-scratch/*.cjs
-scratch/*.ts
-scratch/*.txt
-scratch/*.sql
+scratch/
+server/**/*.js
+shared/**/*.js
+server/**/*.map
+shared/**/*.map
+
 .env.local
 
 # TSC diagnostic dumps
