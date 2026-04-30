@@ -10,8 +10,8 @@ import { db } from "./db";
 import * as schema from "@shared/schema";
 import { emailService } from "./email-service";
 import { whatsappService } from "./whatsapp";
-import { smsService } from "./sms-service";
-import { apiResponse } from "./utils/api-response";
+import { smsService } from "./services/sms-service";
+import { apiResponse } from "./utils/responses";
 import { stampSessionPortal } from "./subdomain-middleware";
 
 const scryptAsync = promisify(scrypt);
