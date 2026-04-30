@@ -31,9 +31,11 @@ async function comparePasswords(supplied: string, stored: string) {
 
 export async function setupSessionAuth(app: Express) {
   const isProduction = process.env.NODE_ENV === "production";
-  const customDomain = process.env.CUSTOM_DOMAIN || ".fintekpro.com";
-
-  console.log(`[Session] Initializing session with domain: ${isProduction ? customDomain : 'localhost'}`);
+  const customDomain = process.env.CUSTOM_DOMAIN || "fintekpro.com";
+  // CRITICAL: Explicitly set the domain attribute of the session cookie to .fintekpro.com. 
+  // This is required for the browser to share the session across subdomains.
+  const cookieDomain = isProduction ? (customDomain.startsWith(".") ? customDomain : `.${customDomain}`) : undefined;
+  console.log(`[Session] Initializing session with domain: ${cookieDomain || "localhost"}`);
 
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "fintekpro-secret-key-change-this",
@@ -51,7 +53,7 @@ export async function setupSessionAuth(app: Express) {
       httpOnly: true,
       secure: isProduction,
       sameSite: "lax",
-      domain: isProduction ? customDomain : undefined,
+      domain: cookieDomain,
     },
     name: "fintekpro.sid",
   };
@@ -154,11 +156,8 @@ export async function setupSessionAuth(app: Express) {
       if (err) return next(err);
       
       // Clear session cookie with explicit domain for multi-portal reliability
-      const isProduction = process.env.NODE_ENV === "production";
-      const customDomain = process.env.CUSTOM_DOMAIN || ".fintekpro.com";
-      
       res.clearCookie("fintekpro.sid", {
-        domain: isProduction ? customDomain : undefined,
+        domain: process.env.NODE_ENV === "production" ? (process.env.CUSTOM_DOMAIN ? (process.env.CUSTOM_DOMAIN.startsWith(".") ? process.env.CUSTOM_DOMAIN : `.${process.env.CUSTOM_DOMAIN}`) : ".fintekpro.com") : undefined,
         path: "/",
       });
       

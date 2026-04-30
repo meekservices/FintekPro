@@ -1252,7 +1252,7 @@ export function setupAuth(app: Express) {
         // Clear the session cookie
         res.clearCookie('fintekpro.sid', {
           path: '/',
-          domain: process.env.NODE_ENV === \"production\" ? (process.env.CUSTOM_DOMAIN ? (process.env.CUSTOM_DOMAIN.startsWith('.') ? process.env.CUSTOM_DOMAIN : `.${process.env.CUSTOM_DOMAIN}`) : \".fintekpro.com\") : undefined
+          domain: process.env.NODE_ENV === "production" ? (process.env.CUSTOM_DOMAIN ? (process.env.CUSTOM_DOMAIN.startsWith(".") ? process.env.CUSTOM_DOMAIN : `.${process.env.CUSTOM_DOMAIN}`) : ".fintekpro.com") : undefined
         });
         
         return apiResponse.success(res, {}, \"Logged out successfully\");
