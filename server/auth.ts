@@ -2,7 +2,7 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
-import { User } from "@shared/schema";
+import { User, users } from "@shared/schema";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { eq, sql } from "drizzle-orm";
@@ -16,17 +16,51 @@ import { stampSessionPortal } from "./subdomain-middleware";
 
 const scryptAsync = promisify(scrypt);
 
-async function hashPassword(password: string) {
+export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${buf.toString("hex")}.${salt}`;
 }
 
-async function comparePasswords(supplied: string, stored: string) {
+export async function comparePasswords(supplied: string, stored: string) {
   const [hashed, salt] = stored.split(".");
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
   return timingSafeEqual(hashedBuf, suppliedBuf);
+}
+
+export async function generateUniqueUserId(email?: string): Promise<string> {
+  let prefix = "FTP";
+  
+  if (email) {
+    const emailLocalPart = email.split('@')[0] || '';
+    const alphabeticChars = emailLocalPart.replace(/[^a-zA-Z]/g, '').toUpperCase();
+    if (alphabeticChars.length >= 3) {
+      prefix = alphabeticChars.substring(0, 3);
+    }
+  }
+  
+  let attempts = 0;
+  const maxAttempts = 10;
+  
+  while (attempts < maxAttempts) {
+    const randomNumber = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+    const userId = `${prefix}${randomNumber}`;
+    
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.userId, userId))
+      .limit(1);
+    
+    if (existingUser.length === 0) {
+      return userId;
+    }
+    
+    attempts++;
+  }
+  
+  throw new Error("Failed to generate unique userId after maximum attempts");
 }
 
 function generateOtp(): string {
