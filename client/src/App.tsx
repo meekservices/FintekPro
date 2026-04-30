@@ -1850,9 +1850,19 @@ function PartnerRoutes() {
 // AgentRoot: shows AuthPage if not logged in, FieldAgentPortal if logged in.
 // This makes /?agent=true work as the agent sign-in page directly.
 function AgentRoot() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, error } = useAuth();
+  
   if (isLoading) return <LoadingState variant="agent-dashboard" />;
+  
+  // If we get a persistent error and no user, show the auth page as fallback.
+  // This prevents the "white page" (stuck loading) issue if the initial auth check fails.
+  if (error && !user) {
+    console.warn("⚠️ Agent Portal authentication check failed:", error);
+    return <AuthPage />;
+  }
+  
   if (!user) return <AuthPage />;
+  
   return (
     <AgentLayout>
       <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
@@ -1861,6 +1871,7 @@ function AgentRoot() {
     </AgentLayout>
   );
 }
+
 
 function AgentRoutes() {
   return (

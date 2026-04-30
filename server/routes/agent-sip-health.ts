@@ -3,14 +3,12 @@ import { db } from "../db";
 import { comprehensiveHoldings, portfolios, portfolioHoldings, users } from "@shared/schema";
 import { eq, and, sql, inArray, or } from "drizzle-orm";
 
+import { requireAgentPortal } from "../middleware/roleMiddleware";
+
 const router = Router();
 
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-  next();
-};
+// Middleware is imported above
+const requireAuth = requireAgentPortal;
 
 function deriveSipStatus(holding: any): "active" | "expiring" | "lapsed" | "paused" {
   const now = new Date();

@@ -3,14 +3,12 @@ import { db } from "../db";
 import { portfolios, portfolioHoldings, users, agentPortfolioOutcomes } from "@shared/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 
+import { requireAgentPortal } from "../middleware/roleMiddleware";
+
 const router = Router();
 
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-  next();
-};
+// Middleware is imported above
+const requireAuth = requireAgentPortal;
 
 const RISK_PROFILE_TARGETS: Record<string, Record<string, number>> = {
   aggressive: { equity: 80, debt: 10, gold: 5, real_estate: 3, alternatives: 2, cash: 0 },

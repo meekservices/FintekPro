@@ -4,14 +4,12 @@ import { unifiedOrders, users } from "@shared/schema";
 import { eq, and, sql, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
+import { requireAgentPortal } from "../middleware/roleMiddleware";
+
 const router = Router();
 
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-  next();
-};
+// Middleware is imported above
+const requireAuth = requireAgentPortal;
 
 function generateOrderNumber(): string {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");

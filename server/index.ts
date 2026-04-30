@@ -12,6 +12,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { APP_VERSION } from "../shared/version";
 import cors from "cors";
+import { subdomainDetection } from "./subdomain-middleware";
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -112,6 +114,7 @@ function registerSPACatchAll(expressApp: Express) {
     }
   });
 }
+
 
 // Register the catch-all immediately for production stability
 if (process.env.NODE_ENV === 'production') {
@@ -344,6 +347,11 @@ if (process.env.NODE_ENV === 'production') {
 
     logBootProgress("Step 3: Initializing Middleware & Auth...");
 
+    // ── GLOBAL MIDDLEWARE ────────────────────────────────────────────────────
+    // Subdomain detection must be first to set portal context flags
+    app.use(subdomainDetection);
+
+
     // ── AUTH & MIDDLEWARE ────────────────────────────────────────────────────
     try {
       const { setupAuth: setupSessionAuth } = await import('./auth-setup');
@@ -513,7 +521,19 @@ if (process.env.NODE_ENV === 'production') {
 
     // Signal readiness
     bootState.routesReady = true;
+
+    // ── REGISTER BUSINESS ROUTES ─────────────────────────────────────────────
+    // Call the centralized route registration to ensure all API endpoints are up
+    logBootProgress("Step 11: Registering Business Logic Routes...");
+    await registerRoutes(app);
+
     logBootProgress("Step 12: Boot sequence complete. Server is operational.");
+
+    // Start listening AFTER routes are registered
+    const PORT = Number(process.env.PORT) || 5000;
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`🚀 [v${APP_VERSION}] Server listening on port ${PORT}`);
+    });
 
     // Start background services with delay
     setTimeout(async () => {
@@ -526,14 +546,17 @@ if (process.env.NODE_ENV === 'production') {
   } catch (error: any) {
     console.error('❌ [FATAL] Server initialization failed:', error);
     bootState.error = `Boot Error: ${error?.message || String(error)}`;
+    
+    // In production, try to serve SPA even if boot failed partially
     if (process.env.NODE_ENV === 'production') {
       try { registerSPACatchAll(app); } catch (_) {}
+      
+      // Still listen so we can serve the "System initializing" error message
+      const PORT = Number(process.env.PORT) || 5000;
+      app.listen(PORT, "0.0.0.0", () => {
+        console.log(`⚠️ Server listening in fallback mode on port ${PORT}`);
+      });
     }
   }
 })();
 
-// Start listening
-const PORT = Number(process.env.PORT) || 5000;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 [v${APP_VERSION}] Server listening on port ${PORT}`);
-});

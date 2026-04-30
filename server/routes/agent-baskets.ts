@@ -4,14 +4,12 @@ import { agentBaskets, agentBasketItems, users } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getAppBaseUrl } from "../utils/app-url";
 
+import { requireAgentPortal } from "../middleware/roleMiddleware";
+
 const router = Router();
 
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-  next();
-};
+// Middleware is imported above
+const requireAuth = requireAgentPortal;
 
 // GET /api/agent/baskets — list all baskets for the authenticated agent
 router.get("/api/agent/baskets", requireAuth, async (req, res) => {

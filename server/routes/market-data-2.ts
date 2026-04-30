@@ -2,7 +2,7 @@ import { Express } from 'express';
 import { storage } from '../storage';
 import { finnhubService } from '../finnhub-service';
 import { marketMoversCache } from '../services/market-movers-cache';
-import { requireAdmin } from '../middleware/roleMiddleware';
+import { requireAdmin, requireAuth } from '../middleware/roleMiddleware';
 import { and } from 'drizzle-orm';
 
 export function registerMarketDataPart2Routes(app: Express): void {
@@ -305,22 +305,6 @@ app.get("/api/market/sector-performance", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch sector performance" });
   }
 });
-
-// Authentication middleware for user-specific portfolio access
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.user) {
-    // In development mode, use demo user for easier testing
-    // Check for Replit development environment or non-production conditions
-    const isDevelopment = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.REPL_ID;
-    if (isDevelopment) {
-      req.user = { id: 'central-test-user' };
-    } else {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-  }
-  next();
-};
-
 
 // Chat Session Routes
 }
