@@ -25,14 +25,23 @@ declare global {
  * - localhost:5000 → Client Portal (dev)
  */
 export function subdomainDetection(req: Request, res: Response, next: NextFunction) {
-  const hostname = req.hostname || req.get('host') || '';
+  const xForwardedHost = req.get('x-forwarded-host');
+  const hostname = xForwardedHost || req.hostname || req.get('host') || '';
   
+  if (process.env.DEBUG_SUBDOMAIN === 'true') {
+    console.log(`[SUBDOMAIN_DEBUG] Raw Host: ${req.get('host')} | X-Forwarded-Host: ${xForwardedHost} | Using Hostname: ${hostname}`);
+  }
+
   // Extract subdomain
   const parts = hostname.split('.');
   let subdomain = '';
   
+  // Skip portal parsing for Cloud Run internal URLs or common GCP domains
+  if (hostname.includes('.a.run.app') || hostname.includes('cloudfunctions.net')) {
+    subdomain = '';
+  }
   // For localhost development (admin.localhost, partner.localhost, agent.localhost, or just localhost)
-  if (hostname.includes('localhost')) {
+  else if (hostname.includes('localhost')) {
     if (parts[0] === 'admin') {
       subdomain = 'admin';
     } else if (parts[0] === 'partner') {
@@ -53,14 +62,14 @@ export function subdomainDetection(req: Request, res: Response, next: NextFuncti
   
   // Development-only override - NEVER allow in production
   // Allow override via query params (enabled in production for Cloud Run compatibility)
-  if (true) {
-    if (req.query.admin === 'true') {
-      subdomain = 'admin';
-    } else if (req.query.partner === 'true') {
-      subdomain = 'partner';
-    } else if (req.query.agent === 'true') {
-      subdomain = 'agent';
-    }
+  if (req.query.portal) {
+    subdomain = String(req.query.portal);
+  } else if (req.query.admin === 'true') {
+    subdomain = 'admin';
+  } else if (req.query.partner === 'true') {
+    subdomain = 'partner';
+  } else if (req.query.agent === 'true') {
+    subdomain = 'agent';
   }
   
   // Set flags on request
@@ -72,7 +81,7 @@ export function subdomainDetection(req: Request, res: Response, next: NextFuncti
   // Log only for portal requests to reduce noise (disabled by default)
   // Enable with DEBUG_SUBDOMAIN=true for troubleshooting
   if (process.env.DEBUG_SUBDOMAIN === 'true' && (req.isAdminPortal || req.isPartnerPortal || req.isAgentPortal)) {
-    console.log(`🌐 Portal: ${subdomain} | Host: ${hostname}`);
+    console.log(`🌐 [SUBDOMAIN] Detected Portal: ${subdomain} | Final Hostname: ${hostname}`);
   }
   
   next();

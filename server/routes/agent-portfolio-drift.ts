@@ -39,7 +39,7 @@ router.get("/api/agent/portfolio-drift", requireAuth, async (req, res) => {
         id: users.id,
         firstName: users.firstName,
         lastName: users.lastName,
-        riskCategory: users.riskCategory,
+        riskCategory: users.riskTolerance,
       })
       .from(users)
       .where(sql`${users.agentId} = ${agentId} AND 'client' = ANY(${users.roles})`);

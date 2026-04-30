@@ -1024,6 +1024,7 @@ export function setupAuth(app: Express) {
           console.error("❌ Login session error:", loginErr);
           return apiResponse.serverError(res, "Login failed");
         }
+        console.log(`[LOGIN_SUCCESS] User ${updatedUser.id} logging in to portal: ${req.subdomain || 'main'}`);
         stampSessionPortal(req);
         
         // Explicitly save session to ensure it persists

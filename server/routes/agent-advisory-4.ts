@@ -64,7 +64,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
         .where(and(
           eq(clientAgentRelationships.agentId, agentId),
           eq(clientAgentRelationships.clientId, clientId),
-          eq(clientAgentRelationships.status, 'active')
+          eq(clientAgentRelationships.isActive, true)
         ))
         .limit(1);
 
@@ -222,7 +222,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
         .where(and(
           eq(clientAgentRelationships.agentId, agentId),
           eq(clientAgentRelationships.clientId, clientId),
-          eq(clientAgentRelationships.status, 'active')
+          eq(clientAgentRelationships.isActive, true)
         ))
         .limit(1);
 

@@ -33,7 +33,7 @@ router.get("/api/agent/client-context/:clientId", requireAuth, async (req, res) 
         id: users.id,
         firstName: users.firstName,
         lastName: users.lastName,
-        riskProfile: users.riskProfile,
+        riskProfile: users.riskTolerance,
         investmentHorizon: users.investmentHorizon,
         liquidityNeeds: users.liquidityNeeds,
         kycStatus: users.kycStatus,
@@ -127,7 +127,7 @@ router.get("/api/agent/clients", requireAuth, async (req, res) => {
         firstName: users.firstName,
         lastName: users.lastName,
         email: users.email,
-        riskCategory: users.riskCategory,
+        riskCategory: users.riskTolerance,
         kycStatus: users.kycStatus,
         updatedAt: users.updatedAt,
       })

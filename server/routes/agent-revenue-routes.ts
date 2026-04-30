@@ -69,21 +69,20 @@ async function calculateAgentAUM(clientIds: string[]): Promise<{ current: number
 router.get("/api/agent/revenue/metrics/:period?", async (req, res) => {
   try {
     const userId = (req as any).user?.id;
-    const agentId = await getAgentIdForUser(userId);
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const ccAgentId = await getAgentIdForUser(userId);
     const period = req.params.period || '6m';
     
-    // Return empty metrics if no agent mapping found
-    if (!agentId) {
-      return res.json({
-        totalAUM: 0, aumGrowth: 0, totalRevenue: 0, revenueGrowth: 0,
-        pendingCommissions: 0, realizedCommissions: 0,
-        totalClients: 0, activeClients: 0,
-        proposalsSent: 0, proposalsConverted: 0, conversionRate: 0, avgDealSize: 0
-      });
-    }
-    
-    // Get agent's clients
-    const clientIds = await getAgentClientIds(agentId);
+    // Get agent's clients using USER ID (as clientAgentRelationships.agentId references users.id)
+    const clients = await db
+      .select({ clientId: clientAgentRelationships.clientId })
+      .from(clientAgentRelationships)
+      .where(and(
+        eq(clientAgentRelationships.agentId, userId),
+        eq(clientAgentRelationships.isActive, true)
+      ));
+    const clientIds = clients.map(c => c.clientId).filter(Boolean) as string[];
     
     // Calculate period date range
     const periodMonths = period === '1m' ? 1 : period === '3m' ? 3 : period === '1y' ? 12 : 6;
@@ -96,15 +95,15 @@ router.get("/api/agent/revenue/metrics/:period?", async (req, res) => {
     const { current: currentAUM, previous: previousAUM } = await calculateAgentAUM(clientIds);
     const aumGrowth = previousAUM > 0 ? ((currentAUM - previousAUM) / previousAUM) * 100 : 0;
     
-    // Get real commissions from agentCommissions table
-    const commissions = await db
+    // Get real commissions from agentCommissions table using customerCareAgent.id
+    const commissions = ccAgentId ? await db
       .select({
         agentNetCommission: agentCommissions.agentNetCommission,
         agentSettlementStatus: agentCommissions.agentSettlementStatus,
         transactionDate: agentCommissions.transactionDate
       })
       .from(agentCommissions)
-      .where(eq(agentCommissions.agentId, agentId));
+      .where(eq(agentCommissions.agentId, ccAgentId)) : [];
     
     // Calculate commission metrics
     const pendingCommissions = commissions
@@ -131,13 +130,13 @@ router.get("/api/agent/revenue/metrics/:period?", async (req, res) => {
       : 0;
 
     // Get client counts from clientAgentRelationships
-    const totalClients = await db
+    const totalClientsResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(clientAgentRelationships)
-      .where(eq(clientAgentRelationships.agentId, agentId));
+      .where(eq(clientAgentRelationships.agentId, userId));
     
     // Get active clients (with portfolio activity in last 90 days)
-    const activeClients = await db
+    const activeClientsResult = await db
       .select({ count: sql<number>`count(DISTINCT user_id)` })
       .from(portfolios)
       .where(and(
@@ -145,11 +144,11 @@ router.get("/api/agent/revenue/metrics/:period?", async (req, res) => {
         gte(portfolios.updatedAt, new Date(Date.now() - 90 * 24 * 60 * 60 * 1000))
       ));
 
-    // Get proposal metrics
+    // Get proposal metrics using USER ID
     const proposals = await db
       .select()
       .from(investmentProposals)
-      .where(eq(investmentProposals.agentId, agentId || ''));
+      .where(eq(investmentProposals.agentId, userId));
 
     const proposalsSent = proposals.length;
     const proposalsConverted = proposals.filter(p => p.status === 'approved').length;
@@ -165,8 +164,8 @@ router.get("/api/agent/revenue/metrics/:period?", async (req, res) => {
       revenueGrowth: Math.round(revenueGrowth * 10) / 10,
       pendingCommissions,
       realizedCommissions,
-      totalClients: Number(totalClients[0]?.count) || 0,
-      activeClients: Number(activeClients[0]?.count) || 0,
+      totalClients: Number(totalClientsResult[0]?.count) || 0,
+      activeClients: Number(activeClientsResult[0]?.count) || 0,
       proposalsSent,
       proposalsConverted,
       conversionRate: Math.round(conversionRate * 10) / 10,
@@ -183,10 +182,11 @@ router.get("/api/agent/revenue/metrics/:period?", async (req, res) => {
 router.get("/api/agent/revenue/product-mix", async (req, res) => {
   try {
     const userId = (req as any).user?.id;
-    const agentId = await getAgentIdForUser(userId);
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    const ccAgentId = await getAgentIdForUser(userId);
     
     // Return empty array if no agent mapping found
-    if (!agentId) {
+    if (!ccAgentId) {
       return res.json([]);
     }
     
@@ -209,7 +209,7 @@ router.get("/api/agent/revenue/product-mix", async (req, res) => {
         totalCommission: sql<string>`SUM(CAST(agent_net_commission AS DECIMAL))`
       })
       .from(agentCommissions)
-      .where(eq(agentCommissions.agentId, agentId))
+      .where(eq(agentCommissions.agentId, ccAgentId))
       .groupBy(agentCommissions.productType);
     
     const totalCommission = commissionsByProduct.reduce(
@@ -238,44 +238,47 @@ router.get("/api/agent/revenue/product-mix", async (req, res) => {
 router.get("/api/agent/revenue/trends/:period?", async (req, res) => {
   try {
     const userId = (req as any).user?.id;
-    const agentId = await getAgentIdForUser(userId);
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    const ccAgentId = await getAgentIdForUser(userId);
     const period = req.params.period || '6m';
-    
-    // Return empty array if no agent mapping found
-    if (!agentId) {
-      return res.json([]);
-    }
     
     // Calculate how many months to show
     const periodMonths = period === '1m' ? 1 : period === '3m' ? 3 : period === '1y' ? 12 : 6;
     
-    // Get commissions grouped by month
-    const monthlyCommissions = await db
+    // Get commissions grouped by month using ccAgentId
+    const monthlyCommissions = ccAgentId ? await db
       .select({
         month: agentCommissions.month,
         revenue: sql<string>`SUM(CAST(agent_net_commission AS DECIMAL))`,
         transactionCount: sql<number>`COUNT(*)`
       })
       .from(agentCommissions)
-      .where(eq(agentCommissions.agentId, agentId))
+      .where(eq(agentCommissions.agentId, ccAgentId))
       .groupBy(agentCommissions.month)
       .orderBy(desc(agentCommissions.month))
-      .limit(periodMonths);
+      .limit(periodMonths) : [];
     
-    // Get client counts by onboarding month from clientAgentRelationships
-    const clientIds = await getAgentClientIds(agentId);
+    // Get agent's clients using USER ID
+    const clients = await db
+      .select({ clientId: clientAgentRelationships.clientId })
+      .from(clientAgentRelationships)
+      .where(and(
+        eq(clientAgentRelationships.agentId, userId),
+        eq(clientAgentRelationships.isActive, true)
+      ));
+    const clientIds = clients.map(c => c.clientId).filter(Boolean) as string[];
     
     // Get monthly AUM snapshots from portfolios
-    const portfolioData = await db
+    const portfolioData = clientIds.length > 0 ? await db
       .select({
         month: sql<string>`TO_CHAR(updated_at, 'YYYY-MM')`,
         aum: sql<string>`SUM(CAST(total_value AS DECIMAL))`
       })
       .from(portfolios)
-      .where(inArray(portfolios.userId, clientIds.length > 0 ? clientIds : ['']))
+      .where(inArray(portfolios.userId, clientIds))
       .groupBy(sql`TO_CHAR(updated_at, 'YYYY-MM')`)
       .orderBy(desc(sql`TO_CHAR(updated_at, 'YYYY-MM')`))
-      .limit(periodMonths);
+      .limit(periodMonths) : [];
     
     // Build month labels for last N months
     const monthLabels: string[] = [];
@@ -319,10 +322,11 @@ router.get("/api/agent/revenue/trends/:period?", async (req, res) => {
 router.get("/api/agent/revenue/commissions", async (req, res) => {
   try {
     const userId = (req as any).user?.id;
-    const agentId = await getAgentIdForUser(userId);
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    const ccAgentId = await getAgentIdForUser(userId);
     
     // Return empty array if no agent mapping found
-    if (!agentId) {
+    if (!ccAgentId) {
       return res.json([]);
     }
     
@@ -346,7 +350,7 @@ router.get("/api/agent/revenue/commissions", async (req, res) => {
         total: sql<string>`SUM(CAST(agent_net_commission AS DECIMAL))`
       })
       .from(agentCommissions)
-      .where(eq(agentCommissions.agentId, agentId))
+      .where(eq(agentCommissions.agentId, ccAgentId))
       .groupBy(agentCommissions.productType, agentCommissions.agentSettlementStatus);
     
     // Aggregate by product

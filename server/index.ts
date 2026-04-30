@@ -429,6 +429,21 @@ if (process.env.NODE_ENV === 'production') {
     app.use(agentMarketAlertsRoutes.default);
     app.use(agentTrackerRoutes.default);
 
+    // Diagnostics for subdomain detection
+    app.get("/api/internal/diagnostics", (req: any, res: any) => {
+      res.json({
+        hostname: req.hostname,
+        subdomain: req.subdomain,
+        portal: req.subdomain || 'main',
+        headers: {
+          host: req.get('host'),
+          'x-forwarded-host': req.get('x-forwarded-host'),
+          'x-forwarded-proto': req.get('x-forwarded-proto')
+        },
+        trustProxy: app.get('trust proxy')
+      });
+    });
+
     // Register Python Analytics Service proxy
     const pythonProxyRoutes = await import('./routes/python-proxy');
     app.use(pythonProxyRoutes.default);

@@ -103,7 +103,7 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
         .from(clientAgentRelationships)
         .where(and(
           eq(clientAgentRelationships.agentId, agentId),
-          eq(clientAgentRelationships.status, 'active')
+          eq(clientAgentRelationships.isActive, true)
         ));
       
       const totalClients = Number(clientCount[0]?.count || 0);
@@ -269,7 +269,7 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
           email: users.email,
           mobile: users.mobile,
           kycStatus: sql<string>`COALESCE(${users.kycStatus}, 'pending')`,
-          riskProfile: sql<string>`COALESCE(${users.riskCategory}, 'moderate')`,
+          riskProfile: sql<string>`COALESCE(${users.riskTolerance}, 'moderate')`,
           createdAt: users.createdAt,
           relationshipType: clientAgentRelationships.relationshipType,
           relationshipStatus: clientAgentRelationships.isActive
@@ -340,9 +340,9 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
           .select({
             id: prospectLeads.id,
             companyName: prospectLeads.companyName,
-            contactName: (prospectLeads as any).contactName,
-            contactEmail: (prospectLeads as any).contactEmail,
-            contactPhone: (prospectLeads as any).contactPhone,
+            contactName: prospectLeads.companyName,
+            contactEmail: prospectLeads.primaryEmail,
+            contactPhone: prospectLeads.primaryMobile,
             status: prospectLeads.status,
             leadQuality: prospectLeads.leadQuality,
             createdAt: prospectLeads.createdAt

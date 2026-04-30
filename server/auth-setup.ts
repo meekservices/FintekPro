@@ -64,7 +64,7 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? "none" : "lax",
+      sameSite: "lax",
       maxAge: sessionTtl,
       path: '/',
       domain: cookieDomain,
@@ -126,7 +126,7 @@ export function getSession() {
 }
 
 export async function setupAuth(app: Express) {
-  app.set("trust proxy", 1);
+  app.set("trust proxy", true);
   
   const isViteDevRoute = (path: string) => {
     return path.startsWith('/@') || 

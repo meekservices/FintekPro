@@ -7,7 +7,7 @@ import {
   insertMfOrderAuditLogSchema, insertSuitabilityAcknowledgementSchema,
   users, userProfiles, riskProfiles
 } from '@shared/schema';
-import { eq, desc, and, gte, lte, like, or, sql, count, isNull } from 'drizzle-orm';
+import { eq, desc, and, gte, lte, like, or, sql, count, isNull, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { requireAuth, requireRole } from '../middleware/roleMiddleware';
@@ -231,7 +231,7 @@ router.get('/api/admin/mf-orders/pending', isAuthenticated, async (req: Request,
     })
       .from(mfOrders)
       .leftJoin(users, eq(mfOrders.userId, users.id))
-      .where(sql`${mfOrders.status} = ANY(${pendingStatuses})`)
+      .where(inArray(mfOrders.status, pendingStatuses))
       .orderBy(desc(mfOrders.createdAt))
       .limit(100);
 

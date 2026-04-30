@@ -272,13 +272,27 @@ export function registerRoleRoutes(app: Express) {
         agentCommissions,
         portfolios,
         prospectClients,
-        users
+        users,
+        customerCareAgents
       } = await import('@shared/schema');
-      const { eq, and, gte, sql, count, sum, desc } = await import('drizzle-orm');
+      const { eq, and, gte, sql, count, sum, desc, inArray } = await import('drizzle-orm');
       
       const agentId = req.user?.id;
       if (!agentId) {
         return res.status(401).json({ success: false, message: 'Agent ID not found' });
+      }
+
+      // Lookup customerCareAgent.id for commission queries
+      const userRecord = await db.select({ email: users.email }).from(users).where(eq(users.id, agentId)).limit(1);
+      const userEmail = userRecord[0]?.email;
+      let ccAgentId = null;
+      
+      if (userEmail) {
+        const ccAgent = await db.select({ id: customerCareAgents.id })
+          .from(customerCareAgents)
+          .where(eq(customerCareAgents.email, userEmail))
+          .limit(1);
+        ccAgentId = ccAgent[0]?.id;
       }
       
       // Get client relationships for agent
@@ -313,7 +327,7 @@ export function registerRoleRoutes(app: Express) {
           totalValue: portfolios.totalValue 
         })
           .from(portfolios)
-          .where(sql`${portfolios.userId} = ANY(${clientIds})`);
+          .where(inArray(portfolios.userId, clientIds));
         
         totalAUM = portfolioValues.reduce((sum, p) => sum + (parseFloat(p.totalValue || '0') || 0), 0);
       }
@@ -328,7 +342,7 @@ export function registerRoleRoutes(app: Express) {
       })
         .from(agentCommissions)
         .where(and(
-          eq(agentCommissions.agentId, agentId),
+          eq(agentCommissions.agentId, ccAgentId || 'none'),
           gte(agentCommissions.createdAt, monthStart)
         ));
       const monthlyEarned = parseFloat(monthlyCommissions[0]?.total || '0') || 0;
@@ -339,7 +353,7 @@ export function registerRoleRoutes(app: Express) {
       })
         .from(agentCommissions)
         .where(and(
-          eq(agentCommissions.agentId, agentId),
+          eq(agentCommissions.agentId, ccAgentId || 'none'),
           eq(agentCommissions.status, 'pending')
         ));
       const pendingEarned = parseFloat(pendingCommissions[0]?.total || '0') || 0;
@@ -596,7 +610,7 @@ export function registerRoleRoutes(app: Express) {
     try {
       const { db } = await import('./db');
       const { clientAgentRelationships, agentLeads, portfolios, prospectClients } = await import('@shared/schema');
-      const { eq, sql, and, gte } = await import('drizzle-orm');
+      const { eq, sql, and, gte, inArray } = await import('drizzle-orm');
       
       const agentId = req.user?.id;
       if (!agentId) {
@@ -641,10 +655,9 @@ export function registerRoleRoutes(app: Express) {
         if (clientIds.length > 0) {
           const ids = clientIds.map(c => c.clientId).filter(Boolean);
           if (ids.length > 0) {
-            const { inArray } = await import('drizzle-orm');
             const aumResult = await db.select({ total: sql<number>`COALESCE(SUM(CAST(total_value AS NUMERIC)), 0)` })
               .from(portfolios)
-              .where(inArray(portfolios.userId, ids));
+              .where(inArray(portfolios.userId, ids as string[]));
             totalAUM = Number(aumResult[0]?.total) || 0;
           }
         }
