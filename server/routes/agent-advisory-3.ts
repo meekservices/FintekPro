@@ -1,4 +1,5 @@
 import { Express, Request, Response, NextFunction } from 'express';
+import { requireAgentPortal } from '../middleware/roleMiddleware';
 import multer from 'multer';
 import { db } from '../db';
 import { ProposalOrchestrator } from '../services/proposal-orchestrator';
@@ -45,19 +46,10 @@ const upload = multer({
   }
 });
 
-const requireAgent = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.user) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  const userRoles = (req.user as any).roles || [];
-  if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('superadmin')) {
-    return res.status(403).json({ error: "Agent access required" });
-  }
-  next();
-};
+
 
 export function registerAgentAdvisoryPart3Routes(app: Express) {
-  app.post("/api/agent/advisory-sessions/:sessionId/validate-transition", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/advisory-sessions/:sessionId/validate-transition", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const { sessionId } = req.params;
       const { targetState } = req.body;
@@ -75,7 +67,7 @@ export function registerAgentAdvisoryPart3Routes(app: Express) {
     }
   });
 
-  app.get("/api/agent/treasury/eligible-clients", requireAgent, async (req: Request, res: Response) => {
+  app.get("/api/agent/treasury/eligible-clients", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       
@@ -106,7 +98,7 @@ export function registerAgentAdvisoryPart3Routes(app: Express) {
     }
   });
 
-  app.post("/api/agent/treasury/mandates", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/treasury/mandates", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const {
@@ -222,7 +214,7 @@ export function registerAgentAdvisoryPart3Routes(app: Express) {
     }
   });
 
-  app.patch("/api/agent/treasury/mandates/:mandateId", requireAgent, async (req: Request, res: Response) => {
+  app.patch("/api/agent/treasury/mandates/:mandateId", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { mandateId } = req.params;
@@ -290,7 +282,7 @@ export function registerAgentAdvisoryPart3Routes(app: Express) {
     }
   });
 
-  app.post("/api/agent/treasury/mandates/:mandateId/deactivate", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/treasury/mandates/:mandateId/deactivate", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { mandateId } = req.params;
@@ -348,7 +340,7 @@ export function registerAgentAdvisoryPart3Routes(app: Express) {
     }
   });
 
-  app.get("/api/agent/treasury/clients", requireAgent, async (req: Request, res: Response) => {
+  app.get("/api/agent/treasury/clients", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       
@@ -378,7 +370,7 @@ export function registerAgentAdvisoryPart3Routes(app: Express) {
     }
   });
 
-  app.get("/api/agent/treasury/proposals", requireAgent, async (req: Request, res: Response) => {
+  app.get("/api/agent/treasury/proposals", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       
@@ -414,7 +406,7 @@ export function registerAgentAdvisoryPart3Routes(app: Express) {
     }
   });
 
-  app.post("/api/agent/treasury/proposals/generate", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/treasury/proposals/generate", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { mandateId, proposalType } = req.body;
@@ -520,7 +512,7 @@ export function registerAgentAdvisoryPart3Routes(app: Express) {
     }
   });
 
-  app.post("/api/agent/treasury/proposals/:proposalId/maker-action", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/treasury/proposals/:proposalId/maker-action", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { proposalId } = req.params;
@@ -582,7 +574,7 @@ export function registerAgentAdvisoryPart3Routes(app: Express) {
     }
   });
 
-  app.post("/api/agent/treasury/proposals/:proposalId/single-approval", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/treasury/proposals/:proposalId/single-approval", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { proposalId } = req.params;
@@ -676,7 +668,7 @@ export function registerAgentAdvisoryPart3Routes(app: Express) {
     }
   });
 
-  app.post("/api/agent/treasury/proposals/:proposalId/checker-action", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/treasury/proposals/:proposalId/checker-action", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { proposalId } = req.params;

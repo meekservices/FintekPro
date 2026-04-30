@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { requireAdmin } from "../middleware/roleMiddleware";
 import { db } from "../db";
 import { bondFeeProfiles, bondFeeOverrides, bondCatalog, governmentSecurities, corporateBonds, bondMarketplaceAuditLogs } from "@shared/schema";
 import { bondFeeCalibrationService, REGULATORY_FEE_CAPS, type InstrumentType } from "../services/bond-fee-calibration-service";
@@ -8,17 +9,7 @@ import { eq, and, desc, sql, or, ilike, count } from "drizzle-orm";
 const router = Router();
 
 // Admin authentication middleware
-const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  const user = (req as any).user;
-  if (!user) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  const roles = user.roles || [];
-  if (!roles.includes('admin') && !roles.includes('superadmin')) {
-    return res.status(403).json({ error: "Admin access required" });
-  }
-  next();
-};
+
 
 // Apply admin auth to all routes
 router.use(requireAdmin);

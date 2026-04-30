@@ -5,6 +5,7 @@ import { aiPromptVersions } from '@shared/schema';
 import { eq, desc } from 'drizzle-orm';
 import { ALL_PROMPTS } from '../../ai/prompts/registry';
 import { adminService } from '../../admin-service';
+import { requireAdmin } from '../../middleware/roleMiddleware';
 
 const router = Router();
 
@@ -38,16 +39,7 @@ async function ensureAiPromptVersionsTable() {
 
 ensureAiPromptVersionsTable();
 
-const requireAdmin = async (req: any, res: any, next: any) => {
-  if (!req.user) {
-    return res.status(401).json({ message: 'Authentication required' });
-  }
-  const isAdmin = await adminService.isAdmin(req.user.id);
-  if (!isAdmin) {
-    return res.status(403).json({ message: 'Admin access required' });
-  }
-  next();
-};
+
 
 router.get('/api/admin/ai/prompts', requireAdmin, async (_req, res) => {
   try {

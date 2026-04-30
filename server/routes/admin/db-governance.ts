@@ -13,28 +13,9 @@ import { db, pool } from '../../db';
 import { sql } from 'drizzle-orm';
 import { adminService } from '../../admin-service';
 import { logger } from '../../logger';
+import { requireAdmin, requireSuperadmin as requireSuperAdmin } from '../../middleware/roleMiddleware';
 
-const requireAdmin = async (req: any, res: Response, next: any) => {
-  if (!req.user) {
-    return res.status(401).json({ message: "Authentication required" });
-  }
-  const isAdmin = await adminService.isAdmin(req.user.id);
-  if (!isAdmin) {
-    return res.status(403).json({ message: "Admin access required" });
-  }
-  next();
-};
 
-const requireSuperAdmin = async (req: any, res: Response, next: any) => {
-  if (!req.user) {
-    return res.status(401).json({ message: "Authentication required" });
-  }
-  const isSuperAdmin = await adminService.isSuperAdmin(req.user.id);
-  if (!isSuperAdmin) {
-    return res.status(403).json({ message: "Superadmin access required" });
-  }
-  next();
-};
 
 /**
  * Derive a usageStatus classification from pg_stat_user_tables metrics.

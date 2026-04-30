@@ -10,8 +10,10 @@ import {
   dsaCommissionTracking,
 } from "@shared/schema";
 import { dsaLoanService } from "../services/dsa-loan-service";
+import { requireAdmin } from "../middleware/roleMiddleware";
 
 const router = Router();
+router.use(requireAdmin);
 
 router.get("/dashboard/stats", async (req: Request, res: Response) => {
   try {

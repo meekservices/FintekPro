@@ -44,7 +44,7 @@ import {
   type UnlistedCartItem,
 } from '@shared/schema';
 import { requireLevel2 } from '../middleware/kyc-level-gate';
-import { requireAuth } from '../middleware/roleMiddleware';
+import { requireAuth, requireAdmin } from '../middleware/roleMiddleware';
 import { orderAuditHook } from '../services/order-audit-hook';
 import { dataEnrichmentService } from '../services/data-enrichment-service';
 import { unlistedValuationGovernanceService } from '../services/unlisted-valuation-governance-service';
@@ -55,19 +55,7 @@ import {
   unlistedEquityValuationHistory,
 } from '@shared/schema';
 
-// Admin middleware for unlisted marketplace admin routes
-const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return apiResponse.unauthorized(res, 'Authentication required');
-  }
 
-  const userRoles = (req.user as any)?.roles || [];
-  if (!userRoles.includes('admin') && !userRoles.includes('superadmin')) {
-    return apiResponse.forbidden(res, 'Admin access required');
-  }
-
-  next();
-};
 
 const router = Router();
 
@@ -80,11 +68,8 @@ const router = Router();
  * List only STORE-PUBLISHED unlisted companies (public - no KYC required for browsing)
  * Only returns companies where storeProductId is not null (published to store)
  */
-router.get('/moneycontrol/preview', requireAuth, async (req: Request, res: Response) => {
+router.get('/moneycontrol/preview', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { moneyControlScraper } = await import('../services/moneycontrol-scraper');
     const result = await moneyControlScraper.previewImport();
@@ -100,11 +85,8 @@ router.get('/moneycontrol/preview', requireAuth, async (req: Request, res: Respo
  * POST /api/unlisted/moneycontrol/import
  * Execute import of prices from MoneyControl (Admin only)
  */
-router.post('/moneycontrol/import', requireAuth, async (req: Request, res: Response) => {
+router.post('/moneycontrol/import', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { moneyControlScraper } = await import('../services/moneycontrol-scraper');
     const result = await moneyControlScraper.executeImport();
@@ -124,11 +106,8 @@ router.post('/moneycontrol/import', requireAuth, async (req: Request, res: Respo
  * Add a missing company from MoneyControl with CredHive enrichment (Admin only)
  * Creates company -> Searches CredHive -> Syncs data -> Imports MC price
  */
-router.post('/moneycontrol/add-company', requireAuth, async (req: Request, res: Response) => {
+router.post('/moneycontrol/add-company', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const schema = z.object({
       name: z.string().min(2, 'Company name is required'),
@@ -301,11 +280,8 @@ router.post('/moneycontrol/add-company', requireAuth, async (req: Request, res: 
  * Search for ISIN codes by company name from NSDL database
  * Admin only - no KYC requirement as this is an admin tool
  */
-router.get('/nsdl/search-isin', async (req: Request, res: Response) => {
+router.get('/nsdl/search-isin', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { name, securityType, limit } = req.query;
     
@@ -336,11 +312,8 @@ router.get('/nsdl/search-isin', async (req: Request, res: Response) => {
  * Refresh the NSDL ISIN data cache
  * Admin only - no KYC requirement as this is an admin tool
  */
-router.post('/nsdl/refresh-cache', async (req: Request, res: Response) => {
+router.post('/nsdl/refresh-cache', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { nsdlISINService } = await import('../services/nsdl-isin-service');
     

@@ -44,7 +44,7 @@ import {
   type UnlistedCartItem,
 } from '@shared/schema';
 import { requireLevel2 } from '../middleware/kyc-level-gate';
-import { requireAuth } from '../middleware/roleMiddleware';
+import { requireAuth, requireAdmin } from '../middleware/roleMiddleware';
 import { orderAuditHook } from '../services/order-audit-hook';
 import { dataEnrichmentService } from '../services/data-enrichment-service';
 import { unlistedValuationGovernanceService } from '../services/unlisted-valuation-governance-service';
@@ -55,19 +55,7 @@ import {
   unlistedEquityValuationHistory,
 } from '@shared/schema';
 
-// Admin middleware for unlisted marketplace admin routes
-const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return apiResponse.unauthorized(res, 'Authentication required');
-  }
 
-  const userRoles = (req.user as any)?.roles || [];
-  if (!userRoles.includes('admin') && !userRoles.includes('superadmin')) {
-    return apiResponse.forbidden(res, 'Admin access required');
-  }
-
-  next();
-};
 
 const router = Router();
 
@@ -159,16 +147,8 @@ router.get('/companies/:id/data-quality', async (req: Request, res: Response) =>
   }
 });
 
-/**
- * POST /api/unlisted/companies
- * Create a new unlisted company (Admin only - no investor KYC required)
- */
-router.post('/companies', requireAuth, async (req: Request, res: Response) => {
+router.post('/companies', requireAdmin, async (req: Request, res: Response) => {
   try {
-    // Admin-only operation
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const validatedData = insertUnlistedCompanySchema.parse(req.body);
     
@@ -197,16 +177,8 @@ router.post('/companies', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-/**
- * PATCH /api/unlisted/companies/:id
- * Update company information (admin only)
- */
-router.patch('/companies/:id', async (req: Request, res: Response) => {
+router.patch('/companies/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
-    // Check if user is admin
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { id } = req.params;
     
@@ -231,15 +203,8 @@ router.patch('/companies/:id', async (req: Request, res: Response) => {
   }
 });
 
-/**
- * DELETE /api/unlisted/companies/:id
- * Delete a company and all related data (admin only)
- */
-router.delete('/companies/:id', async (req: Request, res: Response) => {
+router.delete('/companies/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { id } = req.params;
     
@@ -261,15 +226,8 @@ router.delete('/companies/:id', async (req: Request, res: Response) => {
 // CREDHIVE INTEGRATION ROUTES
 // ===================================================================
 
-/**
- * GET /api/unlisted/credhive/status
- * Check Credhive API health and configuration status
- */
-router.get('/credhive/status', requireAuth, async (req: Request, res: Response) => {
+router.get('/credhive/status', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     const available = credhiveService.isAvailable();
     let healthy = false;
     let healthMessage = 'API key not configured';

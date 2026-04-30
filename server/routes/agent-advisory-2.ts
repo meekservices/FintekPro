@@ -1,4 +1,5 @@
 import { Express, Request, Response, NextFunction } from 'express';
+import { requireAgentPortal } from '../middleware/roleMiddleware';
 import multer from 'multer';
 import { db } from '../db';
 import { ProposalOrchestrator } from '../services/proposal-orchestrator';
@@ -45,19 +46,10 @@ const upload = multer({
   }
 });
 
-const requireAgent = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.user) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  const userRoles = (req.user as any).roles || [];
-  if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('superadmin')) {
-    return res.status(403).json({ error: "Agent access required" });
-  }
-  next();
-};
+
 
 export function registerAgentAdvisoryPart2Routes(app: Express) {
-  app.get("/api/agent/proposals", requireAgent, async (req: Request, res: Response) => {
+  app.get("/api/agent/proposals", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       
@@ -185,7 +177,7 @@ export function registerAgentAdvisoryPart2Routes(app: Express) {
     }
   });
 
-  app.get("/api/agent/proposals/:proposalId/items", requireAgent, async (req: Request, res: Response) => {
+  app.get("/api/agent/proposals/:proposalId/items", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const { proposalId } = req.params;
       
@@ -202,7 +194,7 @@ export function registerAgentAdvisoryPart2Routes(app: Express) {
     }
   });
 
-  app.post("/api/agent/proposals/:proposalId/notes", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/proposals/:proposalId/notes", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { proposalId } = req.params;
@@ -263,7 +255,7 @@ export function registerAgentAdvisoryPart2Routes(app: Express) {
     }
   });
 
-  app.post("/api/agent/proposals/:proposalId/share", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/proposals/:proposalId/share", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { proposalId } = req.params;
@@ -340,7 +332,7 @@ export function registerAgentAdvisoryPart2Routes(app: Express) {
   });
 
   // Delete a proposal (supports both investment_proposals and prospect_proposals)
-  app.delete("/api/agent/proposals/:proposalId", requireAgent, async (req: Request, res: Response) => {
+  app.delete("/api/agent/proposals/:proposalId", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { proposalId } = req.params;
@@ -543,7 +535,7 @@ export function registerAgentAdvisoryPart2Routes(app: Express) {
     }
   });
 
-  app.get("/api/agent/compliance-audit", requireAgent, async (req: Request, res: Response) => {
+  app.get("/api/agent/compliance-audit", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { startDate, endDate, actionCategory, limit = 100 } = req.query;
@@ -568,7 +560,7 @@ export function registerAgentAdvisoryPart2Routes(app: Express) {
     }
   });
 
-  app.post("/api/agent/advisory-sessions/:sessionId/suitability-check", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/advisory-sessions/:sessionId/suitability-check", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { sessionId } = req.params;
@@ -594,7 +586,7 @@ export function registerAgentAdvisoryPart2Routes(app: Express) {
     }
   });
 
-  app.post("/api/agent/advisory-sessions/:sessionId/optimize", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/advisory-sessions/:sessionId/optimize", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { sessionId } = req.params;
@@ -619,7 +611,7 @@ export function registerAgentAdvisoryPart2Routes(app: Express) {
     }
   });
 
-  app.get("/api/agent/advisory-sessions/:sessionId/status", requireAgent, async (req: Request, res: Response) => {
+  app.get("/api/agent/advisory-sessions/:sessionId/status", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const { sessionId } = req.params;
 

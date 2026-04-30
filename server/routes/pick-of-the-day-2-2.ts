@@ -5,6 +5,7 @@ import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, 
 import { eq, like, or, sql, desc, and, count } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import { z } from "zod";
+import { requireAuth, requireAdmin } from "../middleware/roleMiddleware";
 
 const watchlistAddSchema = z.object({
   pickId: z.number(),
@@ -37,26 +38,7 @@ const alertUpdateSchema = z.object({
 
 const router = Router();
 
-const requireAuth = (req: Request, res: Response, next: NextFunction) => {
-  if (!(req as any).user) {
-    return res.status(401).json({ success: false, error: "Authentication required" });
-  }
-  next();
-};
 
-const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (!(req as any).user) {
-    return res.status(401).json({ success: false, error: "Authentication required" });
-  }
-  const user = (req as any).user;
-  const role = user.role;
-  const roles: string[] = Array.isArray(user.roles) ? user.roles : [];
-  const isAdmin = role === 'admin' || role === 'superadmin' || roles.includes('admin') || roles.includes('superadmin');
-  if (!isAdmin) {
-    return res.status(403).json({ success: false, error: "Admin access required" });
-  }
-  next();
-};
 
 const REGULATORY_DISCLAIMER = "Investment recommendations are AI-generated and for informational purposes only. Past performance does not guarantee future results. Investors should conduct independent due diligence and consult a SEBI-registered investment advisor before making investment decisions. FintekPro does not guarantee accuracy of third-party data. Data sourced from NSE, BSE, AMFI, Alpha Vantage, and Yahoo Finance.";
 

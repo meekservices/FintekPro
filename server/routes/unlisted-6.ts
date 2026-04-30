@@ -44,7 +44,7 @@ import {
   type UnlistedCartItem,
 } from '@shared/schema';
 import { requireLevel2 } from '../middleware/kyc-level-gate';
-import { requireAuth } from '../middleware/roleMiddleware';
+import { requireAuth, requireAdmin } from '../middleware/roleMiddleware';
 import { orderAuditHook } from '../services/order-audit-hook';
 import { dataEnrichmentService } from '../services/data-enrichment-service';
 import { unlistedValuationGovernanceService } from '../services/unlisted-valuation-governance-service';
@@ -55,19 +55,7 @@ import {
   unlistedEquityValuationHistory,
 } from '@shared/schema';
 
-// Admin middleware for unlisted marketplace admin routes
-const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return apiResponse.unauthorized(res, 'Authentication required');
-  }
 
-  const userRoles = (req.user as any)?.roles || [];
-  if (!userRoles.includes('admin') && !userRoles.includes('superadmin')) {
-    return apiResponse.forbidden(res, 'Admin access required');
-  }
-
-  next();
-};
 
 const router = Router();
 
@@ -239,12 +227,8 @@ router.post('/admin/publish-existing-to-store', requireAdmin, async (req: Reques
  * POST /api/unlisted/admin/sync-store-product/:companyId
  * Sync store product data with source unlisted company (Admin only)
  */
-router.post('/admin/sync-store-product/:companyId', async (req: Request, res: Response) => {
+router.post('/admin/sync-store-product/:companyId', requireAdmin, async (req: Request, res: Response) => {
   try {
-    // Check if user is admin
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { companyId } = req.params;
     
@@ -299,7 +283,7 @@ router.post('/admin/sync-store-product/:companyId', async (req: Request, res: Re
  * GET /api/unlisted/admin/store-status/:companyId
  * Check if a company is published to store (Admin only)
  */
-router.get('/admin/store-status/:companyId', async (req: Request, res: Response) => {
+router.get('/admin/store-status/:companyId', requireAdmin, async (req: Request, res: Response) => {
   try {
     // Check if user is admin
     if (!req.user?.roles?.includes('admin')) {
@@ -341,7 +325,7 @@ router.get('/admin/store-status/:companyId', async (req: Request, res: Response)
  * GET /api/unlisted/admin/price-suggestions/:companyId
  * Get aggregated price suggestions from all sources (Admin only)
  */
-router.get('/admin/price-suggestions/:companyId', async (req: Request, res: Response) => {
+router.get('/admin/price-suggestions/:companyId', requireAdmin, async (req: Request, res: Response) => {
   try {
     // Check if user is admin
     if (!req.user?.roles?.includes('admin')) {
@@ -363,7 +347,7 @@ router.get('/admin/price-suggestions/:companyId', async (req: Request, res: Resp
  * POST /api/unlisted/admin/price-suggestions/batch
  * Get price suggestions for multiple companies (Admin only)
  */
-router.post('/admin/price-suggestions/batch', async (req: Request, res: Response) => {
+router.post('/admin/price-suggestions/batch', requireAdmin, async (req: Request, res: Response) => {
   try {
     // Check if user is admin
     if (!req.user?.roles?.includes('admin')) {
@@ -393,7 +377,7 @@ router.post('/admin/price-suggestions/batch', async (req: Request, res: Response
  * POST /api/unlisted/admin/refresh-moneycontrol/:companyId
  * Refresh MoneyControl price for a company (Admin only)
  */
-router.post('/admin/refresh-moneycontrol/:companyId', async (req: Request, res: Response) => {
+router.post('/admin/refresh-moneycontrol/:companyId', requireAdmin, async (req: Request, res: Response) => {
   try {
     // Check if user is admin
     if (!req.user?.roles?.includes('admin')) {
@@ -415,11 +399,8 @@ router.post('/admin/refresh-moneycontrol/:companyId', async (req: Request, res: 
  * GET /api/unlisted/admin/companies/:id
  * Get company details (Admin only - bypasses KYC requirements)
  */
-router.get('/admin/companies/:id', async (req: Request, res: Response) => {
+router.get('/admin/companies/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { id } = req.params;
     const company = await storage.getUnlistedCompanyById(id);
@@ -439,11 +420,8 @@ router.get('/admin/companies/:id', async (req: Request, res: Response) => {
  * GET /api/unlisted/admin/companies/:id/financials
  * Get company financials (Admin only - bypasses KYC requirements)
  */
-router.get('/admin/companies/:id/financials', async (req: Request, res: Response) => {
+router.get('/admin/companies/:id/financials', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { id } = req.params;
     
@@ -464,11 +442,8 @@ router.get('/admin/companies/:id/financials', async (req: Request, res: Response
  * POST /api/unlisted/admin/companies/:id/financials
  * Add manual financial data (Admin only - for when external APIs are unavailable)
  */
-router.post('/admin/companies/:id/financials', async (req: Request, res: Response) => {
+router.post('/admin/companies/:id/financials', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { id } = req.params;
     const company = await storage.getUnlistedCompanyById(id);
@@ -546,11 +521,8 @@ router.post('/admin/companies/:id/financials', async (req: Request, res: Respons
  * GET /api/unlisted/admin/companies/:id/ratios
  * Get company ratios (Admin only - bypasses KYC requirements)
  */
-router.get('/admin/companies/:id/ratios', async (req: Request, res: Response) => {
+router.get('/admin/companies/:id/ratios', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { id } = req.params;
     
@@ -571,11 +543,8 @@ router.get('/admin/companies/:id/ratios', async (req: Request, res: Response) =>
  * GET /api/unlisted/admin/companies/:id/data-quality
  * Get data quality information (Admin only - bypasses KYC requirements)
  */
-router.get('/admin/companies/:id/data-quality', async (req: Request, res: Response) => {
+router.get('/admin/companies/:id/data-quality', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { id } = req.params;
     

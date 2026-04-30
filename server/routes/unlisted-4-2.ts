@@ -44,7 +44,7 @@ import {
   type UnlistedCartItem,
 } from '@shared/schema';
 import { requireLevel2 } from '../middleware/kyc-level-gate';
-import { requireAuth } from '../middleware/roleMiddleware';
+import { requireAuth, requireAdmin } from '../middleware/roleMiddleware';
 import { orderAuditHook } from '../services/order-audit-hook';
 import { dataEnrichmentService } from '../services/data-enrichment-service';
 import { unlistedValuationGovernanceService } from '../services/unlisted-valuation-governance-service';
@@ -55,19 +55,7 @@ import {
   unlistedEquityValuationHistory,
 } from '@shared/schema';
 
-// Admin middleware for unlisted marketplace admin routes
-const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return apiResponse.unauthorized(res, 'Authentication required');
-  }
 
-  const userRoles = (req.user as any)?.roles || [];
-  if (!userRoles.includes('admin') && !userRoles.includes('superadmin')) {
-    return apiResponse.forbidden(res, 'Admin access required');
-  }
-
-  next();
-};
 
 const router = Router();
 
@@ -80,11 +68,8 @@ const router = Router();
  * List only STORE-PUBLISHED unlisted companies (public - no KYC required for browsing)
  * Only returns companies where storeProductId is not null (published to store)
  */
-router.get('/admin/companies', async (req: Request, res: Response) => {
+router.get('/admin/companies', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { status, sector } = req.query;
     
@@ -104,11 +89,8 @@ router.get('/admin/companies', async (req: Request, res: Response) => {
  * PATCH /api/unlisted/admin/companies/:id
  * Update company information (admin only) - supports CIN, sector, industry, etc.
  */
-router.patch('/admin/companies/:id', async (req: Request, res: Response) => {
+router.patch('/admin/companies/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { id } = req.params;
     
@@ -437,11 +419,8 @@ router.get('/admin/compliance/alerts', requireAdmin, async (req: Request, res: R
  * GET /api/unlisted/admin/all-listings
  * Get all sell listings across companies (admin only)
  */
-router.get('/admin/all-listings', async (req: Request, res: Response) => {
+router.get('/admin/all-listings', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { status, page = '1', limit = '50' } = req.query;
     const pageNum = parseInt(page as string);
@@ -493,11 +472,8 @@ router.get('/admin/all-listings', async (req: Request, res: Response) => {
  * GET /api/unlisted/admin/all-buy-requests
  * Get all buy requests across companies (admin only)
  */
-router.get('/admin/all-buy-requests', async (req: Request, res: Response) => {
+router.get('/admin/all-buy-requests', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { status, page = '1', limit = '50' } = req.query;
     const pageNum = parseInt(page as string);

@@ -8,29 +8,11 @@ import {
   agentLoanActions,
 } from "@shared/dsa-loan-schema";
 import { users } from "@shared/schema";
+import { requireAdmin } from "../middleware/roleMiddleware";
 
 const router = Router();
 
-const ADMIN_ROLES = ["admin", "superadmin", "master_agent"];
-
-async function requireAdminRole(req: Request, res: Response, next: NextFunction) {
-  const user = (req as any).user;
-  if (!user) {
-    return res.status(401).json({ success: false, error: "Unauthorized" });
-  }
-  
-  const userRole = user.role || user.roles?.[0];
-  if (!userRole || !ADMIN_ROLES.includes(userRole)) {
-    return res.status(403).json({ 
-      success: false, 
-      error: "Access denied. Admin role required.",
-    });
-  }
-  
-  next();
-}
-
-router.use(requireAdminRole);
+router.use(requireAdmin);
 
 router.get("/payout-claims", async (req: Request, res: Response) => {
   try {

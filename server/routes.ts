@@ -97,6 +97,7 @@ import { marketingService } from "./marketing-automation";
 import { portfolioIntelligence } from "./portfolio-intelligence";
 import { adminService } from "./admin-service";
 import { partnerService } from "./partner-service";
+import { requireAdmin, requireAgent, requirePartner } from "./middleware/roleMiddleware";
 import { z } from "zod";
 import { NseIndia } from 'stock-nse-india';
 import { comprehensiveAIFPMSAPI } from "./comprehensive-aif-pms-api";
@@ -481,30 +482,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     next();
   });
 
-  // Admin middleware to check admin role
-  const requireAdmin = async (req: any, res: any, next: any) => {
-    // SECURITY: Development bypass removed - all environments now require proper authentication
-    // if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
-    //   // Mock admin user for testing
-    //   req.user = { 
-    //     id: 'dc41e192-05de-481c-b1cc-947d8ea42cff',
-    //     role: 'admin',
-    //     email: 'skmohanty0@gmail.com'
-    //   };
-    //   return next();
-    // }
-    
-    if (!req.user) {
-      return res.status(401).json({ message: "Authentication required" });
-    }
-    
-    const isAdmin = await adminService.isAdmin(req.user.id);
-    if (!isAdmin) {
-      return res.status(403).json({ message: "Admin access required" });
-    }
-    
-    next();
-  };
+
 
   // WhatsApp Web admin endpoints (requireAdmin is now in scope)
   registerAdminMiscRoutes(app);
@@ -806,8 +784,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerLoanComparisonRoutes(app);
   app.use("/api/dsa-loans", dsaLoanRoutes);
   app.use("/api/admin/dsa-loans", adminDsaLoanRoutes);
-  app.use("/api/agent/loans", isAuthenticated, agentLoanRoutes);
-  app.use("/api/admin/agent-payouts", isAuthenticated, adminAgentPayoutRoutes);
+  app.use("/api/agent/loans", requireAgent, agentLoanRoutes);
+  app.use("/api/admin/agent-payouts", requireAdmin, adminAgentPayoutRoutes);
   app.use("/api/developer-finance", developerFinanceRoutes);
   console.log("✅ DSA Multi-Financier Loan routes registered");
   registerLoanCommissionRoutes(app);

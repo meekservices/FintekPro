@@ -8,17 +8,9 @@ import mfLifecycleGlidePathService from '../../services/mf-lifecycle-glide-path-
 import mfSebiOverlapService from '../../services/mf-sebi-overlap-service';
 import sebiCategoryEngine from '../../services/mf-sebi-category-engine';
 import { amfiSubscriptionSyncService } from '../../services/amfi-subscription-sync-service';
+import { requireAdmin } from '../../middleware/roleMiddleware';
 
-const requireAdmin = async (req: any, res: Response, next: any) => {
-  if (!req.user) {
-    return res.status(401).json({ message: 'Authentication required' });
-  }
-  const isAdmin = await adminService.isAdmin(req.user.id);
-  if (!isAdmin) {
-    return res.status(403).json({ message: 'Admin access required' });
-  }
-  next();
-};
+
 
 export function registerSEBIComplianceRoutes(app: Express): void {
 

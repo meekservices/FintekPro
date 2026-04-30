@@ -44,7 +44,7 @@ import {
   type UnlistedCartItem,
 } from '@shared/schema';
 import { requireLevel2 } from '../middleware/kyc-level-gate';
-import { requireAuth } from '../middleware/roleMiddleware';
+import { requireAuth, requireAdmin } from '../middleware/roleMiddleware';
 import { orderAuditHook } from '../services/order-audit-hook';
 import { dataEnrichmentService } from '../services/data-enrichment-service';
 import { unlistedValuationGovernanceService } from '../services/unlisted-valuation-governance-service';
@@ -55,19 +55,7 @@ import {
   unlistedEquityValuationHistory,
 } from '@shared/schema';
 
-// Admin middleware for unlisted marketplace admin routes
-const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return apiResponse.unauthorized(res, 'Authentication required');
-  }
 
-  const userRoles = (req.user as any)?.roles || [];
-  if (!userRoles.includes('admin') && !userRoles.includes('superadmin')) {
-    return apiResponse.forbidden(res, 'Admin access required');
-  }
-
-  next();
-};
 
 const router = Router();
 
@@ -80,11 +68,8 @@ const router = Router();
  * List only STORE-PUBLISHED unlisted companies (public - no KYC required for browsing)
  * Only returns companies where storeProductId is not null (published to store)
  */
-router.get('/credhive/search', requireAuth, async (req: Request, res: Response) => {
+router.get('/credhive/search', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     const { q } = req.query;
     if (!q || typeof q !== 'string') {
       return apiResponse.badRequest(res, 'Query parameter "q" is required');
@@ -104,11 +89,8 @@ router.get('/credhive/search', requireAuth, async (req: Request, res: Response) 
  * POST /api/unlisted/credhive/sync/:companyId
  * Sync company data from Credhive (Admin only)
  */
-router.post('/credhive/sync/:companyId', requireAuth, async (req: Request, res: Response) => {
+router.post('/credhive/sync/:companyId', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { companyId } = req.params;
     const company = await storage.getUnlistedCompanyById(companyId);
@@ -354,11 +336,8 @@ router.post('/credhive/sync/:companyId', requireAuth, async (req: Request, res: 
  * POST /api/unlisted/credhive/sync-all
  * Bulk sync all companies with Credhive (admin only)
  */
-router.post('/credhive/sync-all', requireAuth, async (req: Request, res: Response) => {
+router.post('/credhive/sync-all', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { onlyUnsynced } = req.body;
     const allCompanies = await storage.getAllUnlistedCompanies({});
@@ -556,11 +535,8 @@ router.get('/companies/:id/price-history', requireAuth, async (req: Request, res
  * Admin: Add price history entry for a company (Admin only - no investor KYC required)
  * Since there's no public API for unlisted stock prices, this allows manual entry
  */
-router.post('/companies/:id/price-history', requireAuth, async (req: Request, res: Response) => {
+router.post('/companies/:id/price-history', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { id } = req.params;
     
@@ -591,11 +567,8 @@ router.post('/companies/:id/price-history', requireAuth, async (req: Request, re
  * POST /api/unlisted/companies/:id/price-history/bulk
  * Admin: Bulk upload price history from CSV/array data (Admin only - no investor KYC required)
  */
-router.post('/companies/:id/price-history/bulk', requireAuth, async (req: Request, res: Response) => {
+router.post('/companies/:id/price-history/bulk', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { id } = req.params;
     const { prices } = req.body;

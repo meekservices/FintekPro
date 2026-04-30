@@ -44,7 +44,7 @@ import {
   type UnlistedCartItem,
 } from '@shared/schema';
 import { requireLevel2 } from '../middleware/kyc-level-gate';
-import { requireAuth } from '../middleware/roleMiddleware';
+import { requireAuth, requireAdmin } from '../middleware/roleMiddleware';
 import { orderAuditHook } from '../services/order-audit-hook';
 import { dataEnrichmentService } from '../services/data-enrichment-service';
 import { unlistedValuationGovernanceService } from '../services/unlisted-valuation-governance-service';
@@ -55,19 +55,7 @@ import {
   unlistedEquityValuationHistory,
 } from '@shared/schema';
 
-// Admin middleware for unlisted marketplace admin routes
-const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return apiResponse.unauthorized(res, 'Authentication required');
-  }
 
-  const userRoles = (req.user as any)?.roles || [];
-  if (!userRoles.includes('admin') && !userRoles.includes('superadmin')) {
-    return apiResponse.forbidden(res, 'Admin access required');
-  }
-
-  next();
-};
 
 const router = Router();
 
@@ -80,11 +68,8 @@ const router = Router();
  * List only STORE-PUBLISHED unlisted companies (public - no KYC required for browsing)
  * Only returns companies where storeProductId is not null (published to store)
  */
-router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: Response) => {
+router.post('/admin/refresh-company-data/:companyId', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { companyId } = req.params;
     
@@ -363,11 +348,8 @@ router.post('/admin/refresh-company-data/:companyId', async (req: Request, res: 
  * Auto-enrich company metadata (name, sector, industry) from MCA using CIN
  * with CredHive fallback. Used when sector/industry are "Unknown"
  */
-router.post('/admin/auto-enrich/:companyId', async (req: Request, res: Response) => {
+router.post('/admin/auto-enrich/:companyId', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { companyId } = req.params;
     

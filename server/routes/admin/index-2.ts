@@ -15,19 +15,9 @@ import { proxyToInsurance } from '../../clients/insurance-client';
 import { beneficialOwnershipService } from '../../services/beneficial-ownership-service';
 import { sebiScoresService } from '../../services/sebi-scores-service';
 import { mfReturnsSyncService } from '../../services/mf-returns-sync-service';
+import { requireAdmin } from '../../middleware/roleMiddleware';
 
-const requireAdmin = async (req: any, res: Response, next: any) => {
-  if (!req.user) {
-    return res.status(401).json({ message: "Authentication required" });
-  }
-  
-  const isAdmin = await adminService.isAdmin(req.user.id);
-  if (!isAdmin) {
-    return res.status(403).json({ message: "Admin access required" });
-  }
-  
-  next();
-};
+
 
 async function ensureAgentNotificationsTable() {
   try {

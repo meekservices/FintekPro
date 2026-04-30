@@ -1,4 +1,5 @@
 import { Express, Request, Response, NextFunction } from 'express';
+import { requireAgentPortal } from '../middleware/roleMiddleware';
 import multer from 'multer';
 import { db } from '../db';
 import { ProposalOrchestrator } from '../services/proposal-orchestrator';
@@ -63,19 +64,10 @@ const upload = multer({
   }
 });
 
-const requireAgent = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.user) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  const userRoles = (req.user as any).roles || [];
-  if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('superadmin')) {
-    return res.status(403).json({ error: "Agent access required" });
-  }
-  next();
-};
+
 
 export function registerAgentAdvisoryPart1Routes(app: Express) {
-  app.get("/api/agent/profile", requireAgent, async (req: Request, res: Response) => {
+  app.get("/api/agent/profile", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const user = req.user as any;
       
@@ -101,7 +93,7 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
   });
 
   // Agent Statistics endpoint
-  app.get("/api/agent/stats", requireAgent, async (req: Request, res: Response) => {
+  app.get("/api/agent/stats", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       
@@ -147,7 +139,7 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
   });
 
   // Agent Partners endpoint - returns all active partners from partners table
-  app.get("/api/agent/partners", requireAgent, async (req: Request, res: Response) => {
+  app.get("/api/agent/partners", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       // Get all active partners directly from partners table
       let partnersList: any[] = [];
@@ -190,7 +182,7 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
   });
 
   // Add Partner endpoint - persists to database
-  app.post("/api/agent/partners", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/partners", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const partnerData = req.body;
@@ -262,7 +254,7 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
     }
   });
 
-  app.get("/api/agent/clients", requireAgent, async (req: Request, res: Response) => {
+  app.get("/api/agent/clients", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const includeProspects = req.query.includeProspects !== 'false'; // Include by default
@@ -411,7 +403,7 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
     }
   });
 
-  app.get("/api/agent/portfolio-uploads/pending", requireAgent, async (req: Request, res: Response) => {
+  app.get("/api/agent/portfolio-uploads/pending", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       
@@ -446,7 +438,7 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
     }
   });
 
-  app.post("/api/agent/portfolio-upload", requireAgent, upload.single('file'), async (req: Request, res: Response) => {
+  app.post("/api/agent/portfolio-upload", requireAgentPortal, upload.single('file'), async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const clientId = req.body.clientId;
@@ -512,7 +504,7 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
     }
   });
 
-  app.post("/api/agent/portfolio-upload/:uploadId/confirm-otp", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/portfolio-upload/:uploadId/confirm-otp", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { uploadId } = req.params;
@@ -590,7 +582,7 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
     }
   });
 
-  app.get("/api/agent/advisory-sessions", requireAgent, async (req: Request, res: Response) => {
+  app.get("/api/agent/advisory-sessions", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const clientId = req.query.clientId as string | undefined;
@@ -614,7 +606,7 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
     }
   });
 
-  app.post("/api/agent/advisory-sessions", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/advisory-sessions", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { clientId, sessionPurpose, investmentAmount } = req.body;
@@ -671,7 +663,7 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
     }
   });
 
-  app.patch("/api/agent/advisory-sessions/:sessionId/workflow", requireAgent, async (req: Request, res: Response) => {
+  app.patch("/api/agent/advisory-sessions/:sessionId/workflow", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { sessionId } = req.params;

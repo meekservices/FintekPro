@@ -44,7 +44,7 @@ import {
   type UnlistedCartItem,
 } from '@shared/schema';
 import { requireLevel2 } from '../middleware/kyc-level-gate';
-import { requireAuth } from '../middleware/roleMiddleware';
+import { requireAuth, requireAdmin } from '../middleware/roleMiddleware';
 import { orderAuditHook } from '../services/order-audit-hook';
 import { dataEnrichmentService } from '../services/data-enrichment-service';
 import { unlistedValuationGovernanceService } from '../services/unlisted-valuation-governance-service';
@@ -55,19 +55,7 @@ import {
   unlistedEquityValuationHistory,
 } from '@shared/schema';
 
-// Admin middleware for unlisted marketplace admin routes
-const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return apiResponse.unauthorized(res, 'Authentication required');
-  }
 
-  const userRoles = (req.user as any)?.roles || [];
-  if (!userRoles.includes('admin') && !userRoles.includes('superadmin')) {
-    return apiResponse.forbidden(res, 'Admin access required');
-  }
-
-  next();
-};
 
 const router = Router();
 
@@ -80,12 +68,8 @@ const router = Router();
  * List only STORE-PUBLISHED unlisted companies (public - no KYC required for browsing)
  * Only returns companies where storeProductId is not null (published to store)
  */
-router.post('/companies/:companyId/publish-to-store-with-prices', async (req: Request, res: Response) => {
+router.post('/companies/:companyId/publish-to-store-with-prices', requireAdmin, async (req: Request, res: Response) => {
   try {
-    // Check if user is admin
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { companyId } = req.params;
     const { buyPrice, sellPrice, priceSource } = req.body;
@@ -264,12 +248,8 @@ router.post('/companies/:companyId/publish-to-store-with-prices', async (req: Re
  * PATCH /api/unlisted/admin/update-store-prices/:productId
  * Update buy/sell prices for an existing store product (Admin only)
  */
-router.patch('/admin/update-store-prices/:productId', async (req: Request, res: Response) => {
+router.patch('/admin/update-store-prices/:productId', requireAdmin, async (req: Request, res: Response) => {
   try {
-    // Check if user is admin
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { productId } = req.params;
     const { buyPrice, sellPrice, priceSource } = req.body;

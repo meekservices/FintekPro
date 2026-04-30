@@ -1,4 +1,5 @@
 import { Express, Request, Response, NextFunction } from 'express';
+import { requireAgentPortal } from '../middleware/roleMiddleware';
 import multer from 'multer';
 import { db } from '../db';
 import { ProposalOrchestrator } from '../services/proposal-orchestrator';
@@ -47,19 +48,10 @@ const upload = multer({
   }
 });
 
-const requireAgent = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.user) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  const userRoles = (req.user as any).roles || [];
-  if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('superadmin')) {
-    return res.status(403).json({ error: "Agent access required" });
-  }
-  next();
-};
+
 
 export function registerAgentAdvisoryPart4Routes(app: Express) {
-  app.post("/api/agent/client/:clientId/auto-fetch-portfolio", requireAgent, async (req: Request, res: Response) => {
+  app.post("/api/agent/client/:clientId/auto-fetch-portfolio", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { clientId } = req.params;
@@ -218,7 +210,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
   });
 
   // Get client portfolio with AI analysis (without re-fetching)
-  app.get("/api/agent/client/:clientId/portfolio-analysis", requireAgent, async (req: Request, res: Response) => {
+  app.get("/api/agent/client/:clientId/portfolio-analysis", requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const agentId = (req.user as any).id;
       const { clientId } = req.params;
@@ -339,7 +331,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
   // PROPOSAL BUILDER UPGRADE - Allocation, Strategy, Backtest APIs
   // ============================================================================
 
-  app.post('/api/proposals/:proposalId/allocation-mode', requireAgent, async (req: Request, res: Response) => {
+  app.post('/api/proposals/:proposalId/allocation-mode', requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const { proposalId } = req.params;
       const { mode, agentId } = req.body;
@@ -353,7 +345,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
     }
   });
 
-  app.get('/api/proposals/:proposalId/ai-allocation', requireAgent, async (req: Request, res: Response) => {
+  app.get('/api/proposals/:proposalId/ai-allocation', requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const { proposalId } = req.params;
       const result = await ProposalOrchestrator.suggestAiAllocation(proposalId, 'system');
@@ -363,7 +355,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
     }
   });
 
-  app.post('/api/proposals/:proposalId/lock-strategy', requireAgent, async (req: Request, res: Response) => {
+  app.post('/api/proposals/:proposalId/lock-strategy', requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const { proposalId } = req.params;
       const { allocationMode, allocation, agentId } = req.body;
@@ -381,7 +373,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
     }
   });
 
-  app.get('/api/proposals/:proposalId/locked-strategy', requireAgent, async (req: Request, res: Response) => {
+  app.get('/api/proposals/:proposalId/locked-strategy', requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const { proposalId } = req.params;
       const result = await ProposalOrchestrator.getLockedStrategy(proposalId);
@@ -391,7 +383,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
     }
   });
 
-  app.post('/api/proposals/:proposalId/select-instruments', requireAgent, async (req: Request, res: Response) => {
+  app.post('/api/proposals/:proposalId/select-instruments', requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const { proposalId } = req.params;
       const { agentId } = req.body;
@@ -402,7 +394,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
     }
   });
 
-  app.post('/api/proposals/:proposalId/fair-backtest', requireAgent, async (req: Request, res: Response) => {
+  app.post('/api/proposals/:proposalId/fair-backtest', requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const { proposalId } = req.params;
       const { oldHoldings, agentId } = req.body;
@@ -416,7 +408,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
     }
   });
 
-  app.post('/api/proposals/:proposalId/portfolio-difference', requireAgent, async (req: Request, res: Response) => {
+  app.post('/api/proposals/:proposalId/portfolio-difference', requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const { proposalId } = req.params;
       const { oldAllocation, agentId } = req.body;
@@ -430,7 +422,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
     }
   });
 
-  app.post('/api/proposals/:proposalId/validate-override', requireAgent, async (req: Request, res: Response) => {
+  app.post('/api/proposals/:proposalId/validate-override', requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const { proposalId } = req.params;
       const { proposedAllocation, agentId } = req.body;
@@ -442,7 +434,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
     }
   });
 
-  app.get('/api/proposals/:proposalId/strategy-integrity', requireAgent, async (req: Request, res: Response) => {
+  app.get('/api/proposals/:proposalId/strategy-integrity', requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const { proposalId } = req.params;
       const { ProposalFlowGatekeeper } = await import('../services/proposal-flow-gatekeeper');
@@ -453,7 +445,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
     }
   });
 
-  app.post('/api/proposals/:proposalId/new-version', requireAgent, async (req: Request, res: Response) => {
+  app.post('/api/proposals/:proposalId/new-version', requireAgentPortal, async (req: Request, res: Response) => {
     try {
       const { proposalId } = req.params;
       const { newAllocation, allocationMode, agentId, changeReason } = req.body;

@@ -4,7 +4,7 @@ import * as schema from "@shared/schema";
 import { eq, and, desc, like, gte, lte, sql } from "drizzle-orm";
 import { DLMWorkflowService } from "../services/dlm-workflow-service";
 import { DLMAIComplianceService } from "../services/dlm-ai-compliance-service";
-import { z } from "zod";
+import { requireRole } from "../middleware/roleMiddleware";
 
 // Validation schemas
 const createDocumentSchema = z.object({
@@ -75,17 +75,8 @@ const addCommentSchema = z.object({
 });
 
 export function registerDLMRoutes(app: Express) {
-  // Middleware to check admin access (reuse existing)
-  const requireAdmin = (req: any, res: Response, next: Function) => {
-    if (!req.user) {
-      return res.status(401).json({ success: false, error: "Authentication required" });
-    }
-    const adminRoles = ["admin", "superadmin", "compliance_officer", "legal"];
-    if (!adminRoles.includes(req.user.role)) {
-      return res.status(403).json({ success: false, error: "Admin access required" });
-    }
-    next();
-  };
+  // Use centralized middleware for DLM access
+  const requireAdmin = requireRole(['admin', 'superadmin', 'master_agent', 'compliance_officer']);
 
   // ===== DOCUMENT CRUD =====
 

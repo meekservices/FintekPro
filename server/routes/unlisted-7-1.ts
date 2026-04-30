@@ -44,7 +44,7 @@ import {
   type UnlistedCartItem,
 } from '@shared/schema';
 import { requireLevel2 } from '../middleware/kyc-level-gate';
-import { requireAuth } from '../middleware/roleMiddleware';
+import { requireAuth, requireAdmin } from '../middleware/roleMiddleware';
 import { orderAuditHook } from '../services/order-audit-hook';
 import { dataEnrichmentService } from '../services/data-enrichment-service';
 import { unlistedValuationGovernanceService } from '../services/unlisted-valuation-governance-service';
@@ -55,19 +55,7 @@ import {
   unlistedEquityValuationHistory,
 } from '@shared/schema';
 
-// Admin middleware for unlisted marketplace admin routes
-const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.isAuthenticated || !req.isAuthenticated()) {
-    return apiResponse.unauthorized(res, 'Authentication required');
-  }
 
-  const userRoles = (req.user as any)?.roles || [];
-  if (!userRoles.includes('admin') && !userRoles.includes('superadmin')) {
-    return apiResponse.forbidden(res, 'Admin access required');
-  }
-
-  next();
-};
 
 const router = Router();
 
@@ -333,11 +321,8 @@ router.get('/financial-reports/:symbol', async (req: Request, res: Response) => 
  * PUT /api/unlisted/admin/companies/:id/peers
  * Update listed peer companies for comparison (Admin only)
  */
-router.put('/admin/companies/:id/peers', async (req: Request, res: Response) => {
+router.put('/admin/companies/:id/peers', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { id } = req.params;
     const { listedPeers } = req.body;
@@ -369,11 +354,8 @@ router.put('/admin/companies/:id/peers', async (req: Request, res: Response) => 
  * POST /api/unlisted/admin/companies/:id/auto-fetch-peers
  * Auto-fetch listed peer companies based on sector/industry using Yahoo Finance (Admin only)
  */
-router.post('/admin/companies/:id/auto-fetch-peers', async (req: Request, res: Response) => {
+router.post('/admin/companies/:id/auto-fetch-peers', requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!req.user?.roles?.includes('admin')) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
     
     const { id } = req.params;
     const { referenceSymbol, maxPeers = 5 } = req.body;

@@ -7,6 +7,8 @@ import { commissionPayoutService } from "../../services/commission-payout-servic
 import { partnerStatementService } from "../../services/partner-statement-service";
 import { commissionDisputeService } from "../../services/commission-dispute-service";
 
+import { requireAuth, requireAdmin, requirePartnerPortal } from "../../middleware/roleMiddleware";
+
 const createPartnerSchema = z.object({
   companyName: z.string().min(1),
   contactEmail: z.string().email(),
@@ -69,39 +71,7 @@ const auditQuerySchema = z.object({
 });
 
 export function registerPartnerHierarchyPart2Routes(app: Express) {
-  const requireAdmin = (req: any, res: any, next: any) => {
-    if (!req.user) {
-      const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === "development" || process.env.REPL_ID;
-      if (isDev) {
-        req.user = { id: "central-test-user", roles: ["superadmin", "admin", "partner", "agent", "client", "user", "tester"], firstName: "Test", lastName: "SuperUser", email: "test@fintekpro.com" };
-      } else {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-    }
-    const isAdmin = req.user.roles?.includes("admin") || req.user.roles?.includes("superadmin");
-    if (!isAdmin) {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-    next();
-  };
-
-  const requirePartnerOrAdmin = (req: any, res: any, next: any) => {
-    if (!req.user) {
-      const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === "development" || process.env.REPL_ID;
-      if (isDev) {
-        req.user = { id: "central-test-user", roles: ["superadmin", "admin", "partner", "agent", "client", "user", "tester"], firstName: "Test", lastName: "SuperUser", email: "test@fintekpro.com" };
-      } else {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-    }
-    const hasAccess = req.user.roles?.includes("partner") ||
-                      req.user.roles?.includes("admin") ||
-                      req.user.roles?.includes("superadmin");
-    if (!hasAccess) {
-      return res.status(403).json({ error: "Partner or admin access required" });
-    }
-    next();
-  };
+  const requirePartnerOrAdmin = requirePartnerPortal;
 
   // === TICKET 2: Partner Creation API ===
   app.get("/api/partner-hierarchy/wallet/:partnerId", requirePartnerOrAdmin, async (req: any, res) => {
