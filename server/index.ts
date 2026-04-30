@@ -346,7 +346,7 @@ if (process.env.NODE_ENV === 'production') {
 
     // ── AUTH & MIDDLEWARE ────────────────────────────────────────────────────
     try {
-      const { setupSessionAuth } = await import('./auth-setup');
+      const { setupAuth: setupSessionAuth } = await import('./auth-setup');
       const { registerAuthEventConsumers } = await import('./services/auth-event-consumer');
 
       // Step 3a: Initialize Session Store (Redis or Postgres)
