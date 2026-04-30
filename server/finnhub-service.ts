@@ -44,7 +44,8 @@ export class FinnhubService {
   constructor() {
     this.apiKey = process.env.FINNHUB_API_KEY || '';
     if (!this.apiKey) {
-      throw new Error('FINNHUB_API_KEY environment variable is required');
+      console.warn('⚠️ FINNHUB_API_KEY environment variable is required for real-time market data. Finnhub service will be disabled.');
+      return;
     }
     console.log('Initializing Finnhub with API key length:', this.apiKey.length);
     this.client = new finnhub.DefaultApi(this.apiKey);

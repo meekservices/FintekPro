@@ -13,6 +13,7 @@ import { fileURLToPath } from "url";
 import { APP_VERSION } from "../shared/version";
 import cors from "cors";
 import { subdomainDetection } from "./subdomain-middleware";
+import { registerAuthEventConsumers } from "./services/auth-event-consumers";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,11 +27,7 @@ const app = express();
 
 process.on('uncaughtException', (err) => {
   console.error('❌ [FATAL] Uncaught Exception:', err);
-  // Keep the process alive but log the error
-  try {
-    const { selfHealingService } = await import('./services/self-healing-service');
-    selfHealingService.reportEvent('uncaught_exception', err.message, 'logged', true);
-  } catch {}
+  // Recovery actions are handled by auto-recovery-service if initialized
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -365,7 +362,7 @@ if (process.env.NODE_ENV === 'production') {
     // ── AUTH & MIDDLEWARE ────────────────────────────────────────────────────
     try {
       const { setupAuth: setupSessionAuth } = await import('./auth-setup');
-      const { registerAuthEventConsumers } = await import('./services/auth-event-consumers');
+      // registerAuthEventConsumers is now statically imported at top level
 
       // Step 3a: Initialize Session Store (Redis or Postgres)
       await setupSessionAuth(app);
