@@ -13,6 +13,11 @@ import { eq, or } from "drizzle-orm";
 import { users } from "@shared/schema";
 import { stampSessionPortal } from "./subdomain-middleware";
 
+export function isAuthenticated(req: Request, res: Response, next: NextFunction) {
+  if (req.isAuthenticated()) return next();
+  res.status(401).json({ message: "Unauthorized" });
+}
+
 const scryptAsync = promisify(scrypt);
 const PostgresSessionStore = ConnectPgSimple(session);
 
