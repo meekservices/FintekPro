@@ -51,8 +51,9 @@ export function getSession() {
   const customDomain = process.env.CUSTOM_DOMAIN || 'fintekpro.com';
   
   // Set domain for session cookie to share across subdomains
-  const cookieDomain = isProduction ? `.${customDomain}` : undefined;
-  console.log(`[Session] Initializing session with domain: ${cookieDomain || 'localhost'}`);
+  // CRITICAL: Must start with a dot (e.g. .fintekpro.com) to be shared across subdomains
+  const cookieDomain = isProduction ? (customDomain.startsWith('.') ? customDomain : `.${customDomain}`) : undefined;
+  console.log(`[Session] Initializing session with domain: ${cookieDomain || 'localhost'} (Source: ${customDomain})`);
   
   const sessionMiddleware = session({
     name: 'fintekpro.sid',
@@ -126,7 +127,7 @@ export function getSession() {
 }
 
 export async function setupAuth(app: Express) {
-  app.set("trust proxy", true);
+  app.set(\"trust proxy\", true);
   
   const isViteDevRoute = (path: string) => {
     return path.startsWith('/@') || 
@@ -153,9 +154,9 @@ export async function setupAuth(app: Express) {
     passport.session()(req, res, next);
   });
 
-  app.get("/api/user", isAuthenticated, async (req, res) => {
+  app.get(\"/api/user\", isAuthenticated, async (req, res) => {
     const user = req.user as any;
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ message: \"User not found\" });
 
     let panNumber: string | null = null;
     try {
@@ -172,7 +173,7 @@ export async function setupAuth(app: Express) {
         }
       }
     } catch (err) {
-      console.error("Error fetching user profile PAN:", err);
+      console.error(\"Error fetching user profile PAN:\", err);
     }
 
     res.json({
@@ -205,16 +206,16 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  app.get("/api/logout", (req, res) => {
+  app.get(\"/api/logout\", (req, res) => {
     req.logout(() => {
-      res.redirect("/");
+      res.redirect(\"/\");
     });
   });
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "Unauthorized" });
+    return res.status(401).json({ message: \"Unauthorized\" });
   }
   next();
 };

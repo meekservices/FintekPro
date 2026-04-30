@@ -25,11 +25,12 @@ declare global {
  * - localhost:5000 → Client Portal (dev)
  */
 export function subdomainDetection(req: Request, res: Response, next: NextFunction) {
+  // CRITICAL: Prioritize X-Forwarded-Host for Cloud Run / Firebase Proxy compatibility
   const xForwardedHost = req.get('x-forwarded-host');
-  const hostname = xForwardedHost || req.hostname || req.get('host') || '';
+  const hostname = (xForwardedHost || req.hostname || req.get('host') || '').toLowerCase();
   
-  if (process.env.DEBUG_SUBDOMAIN === 'true') {
-    console.log(`[SUBDOMAIN_DEBUG] Raw Host: ${req.get('host')} | X-Forwarded-Host: ${xForwardedHost} | Using Hostname: ${hostname}`);
+  if (process.env.DEBUG_SUBDOMAIN === 'true' || process.env.NODE_ENV !== 'production') {
+    console.log(`[SUBDOMAIN_DEBUG] Host: ${req.get('host')} | X-Forwarded-Host: ${xForwardedHost} | req.hostname: ${req.hostname} | Using: ${hostname}`);
   }
 
   // Extract subdomain
