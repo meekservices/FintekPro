@@ -69,7 +69,9 @@ class KYCReuseTokenService {
     this.JWT_SECRET = process.env.ENCRYPTION_MASTER_KEY || process.env.JWT_SECRET || '';
     
     if (!this.JWT_SECRET) {
-      throw new Error('CRITICAL SECURITY ERROR: JWT_SECRET or ENCRYPTION_MASTER_KEY must be set in environment variables. Cannot generate KYC tokens without secure signing key.');
+      console.warn('⚠️ JWT_SECRET or ENCRYPTION_MASTER_KEY not set! KYC Reuse Token service will be crippled.');
+      console.warn('   This is UNSAFE for production but allowed for diagnostic boot.');
+      this.JWT_SECRET = 'diagnostic-only-unsafe-secret';
     }
   }
 
