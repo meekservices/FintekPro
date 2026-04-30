@@ -373,6 +373,7 @@ export function setupAuth(app: Express) {
   app.post("/api/login/verify-otp", async (req, res) => {
     try {
       const { identifier, otp } = req.body;
+      console.log(`[VERIFY_OTP] Request: identifier=${identifier}, otp=${otp}`);
 
       if (!identifier || !otp) {
         console.log("❌ Missing identifier or OTP");
@@ -383,6 +384,7 @@ export function setupAuth(app: Express) {
       const otpType = identifier.includes("@") ? "email" : "mobile";
 
       // Try verifying OTP directly with the provided identifier
+      console.log(`[VERIFY_OTP] Checking OTP for ${identifier} (${otpType})...`);
       let isValid = await storage.verifyOtp(identifier, otpType, otp);
 
       // If email identifier failed, the OTP may have been stored under the user's mobile number
@@ -392,20 +394,23 @@ export function setupAuth(app: Express) {
       if (!isValid && otpType === "email") {
         const userByEmail = await storage.getUserByEmail(identifier);
         if (userByEmail?.mobile) {
-          console.log("🔄 OTP not found by email, trying mobile:", userByEmail.mobile);
+          console.log(`[VERIFY_OTP] OTP not found by email, trying mobile: ${userByEmail.mobile}`);
           isValid = await storage.verifyOtp(userByEmail.mobile, "mobile", otp);
           if (isValid) {
             resolvedIdentifier = userByEmail.mobile;
             resolvedOtpType = "mobile";
+            console.log(`[VERIFY_OTP] Validated OTP via mobile fallback`);
           }
         }
       }
 
       if (!isValid) {
+        console.log(`❌ [VERIFY_OTP] Invalid or expired OTP for ${identifier}`);
         return apiResponse.badRequest(res, "Invalid or expired OTP");
       }
 
       // OTP is valid - find user and complete login
+      console.log(`[VERIFY_OTP] OTP valid. Resolving user...`);
       let user;
       if (resolvedOtpType === "email") {
         user = await storage.getUserByEmail(resolvedIdentifier);
@@ -414,8 +419,11 @@ export function setupAuth(app: Express) {
       }
 
       if (!user) {
+        console.error(`❌ [VERIFY_OTP] User not found after valid OTP: ${resolvedIdentifier}`);
         return apiResponse.notFound(res, "User not found");
       }
+
+      console.log(`[VERIFY_OTP] Found user ${user.id}. Updating login stats...`);
 
       // Update verification status and login timestamps
       const updates: Partial<User> = {};
@@ -438,28 +446,34 @@ export function setupAuth(app: Express) {
       // Fetch updated user data after saving timestamps
       const updatedUser = await storage.getUser(user.id);
       if (!updatedUser) {
+        console.error(`❌ [VERIFY_OTP] Failed to retrieve updated user data for ${user.id}`);
         return apiResponse.serverError(res, "Failed to retrieve updated user data");
       }
 
-      // Complete login by creating session with updated user data (guard against missing session middleware)
+      // Complete login by creating session with updated user data
       if (!req.session) {
+        console.error(`❌ [VERIFY_OTP] Session not available for ${updatedUser.id}`);
         return apiResponse.serverError(res, "Session not available. Please try again.");
       }
+
+      console.log(`[VERIFY_OTP] Finalizing login for user ${updatedUser.id}...`);
       req.login(updatedUser, (loginErr) => {
         if (loginErr) {
-          console.error("❌ Login session error:", loginErr);
+          console.error("❌ [VERIFY_OTP] Login session error:", loginErr);
           return apiResponse.serverError(res, "Login failed");
         }
-        console.log(`[LOGIN_SUCCESS] User ${updatedUser.id} logging in to portal: ${req.subdomain || 'main'}`);
+        
+        console.log(`[VERIFY_OTP] Session created. Stamping portal type...`);
         stampSessionPortal(req);
         
         // Explicitly save session to ensure it persists
         req.session.save((saveErr) => {
           if (saveErr) {
-            console.error("❌ Session save error:", saveErr);
+            console.error("❌ [VERIFY_OTP] Session save error:", saveErr);
             return apiResponse.serverError(res, "Session save failed");
           }
           
+          console.log(`✅ [VERIFY_OTP] Success! User ${updatedUser.id} logged in.`);
           return apiResponse.success(res, {
             id: updatedUser.id,
             userId: updatedUser.userId,
@@ -478,7 +492,7 @@ export function setupAuth(app: Express) {
         });
       });
     } catch (error) {
-      console.error("OTP verification error:", error);
+      console.error("❌ [VERIFY_OTP] Fatal error:", error);
       return apiResponse.serverError(res, "OTP verification failed");
     }
   });
