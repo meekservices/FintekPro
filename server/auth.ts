@@ -16,7 +16,7 @@ import { stampSessionPortal } from "./subdomain-middleware";
 
 const scryptAsync = promisify(scrypt);
 
-async function hashPassword(password: string) {
+export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${buf.toString("hex")}.${salt}`;
@@ -27,6 +27,41 @@ async function comparePasswords(supplied: string, stored: string) {
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
   return timingSafeEqual(hashedBuf, suppliedBuf);
+}
+
+export async function generateUniqueUserId(email?: string): Promise<string> {
+  // Generate userId in format: XXX123456
+  // First 3 characters: first 3 alphabetic letters from email (uppercase), fallback to "FTP"
+  // Next 6 characters: system-generated random digits
+  
+  let prefix = "FTP";
+  
+  if (email) {
+    const emailLocalPart = email.split('@')[0] || '';
+    const alphabeticChars = emailLocalPart.replace(/[^a-zA-Z]/g, '').toUpperCase();
+    if (alphabeticChars.length >= 3) {
+      prefix = alphabeticChars.substring(0, 3);
+    }
+  }
+  
+  let attempts = 0;
+  const maxAttempts = 10;
+  
+  while (attempts < maxAttempts) {
+    const randomNumber = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+    const userId = `${prefix}${randomNumber}`;
+    
+    // Check if userId already exists using storage
+    const existingUser = await storage.getUserByUserId(userId);
+    
+    if (!existingUser) {
+      return userId;
+    }
+    
+    attempts++;
+  }
+  
+  throw new Error("Failed to generate unique userId after maximum attempts");
 }
 
 function generateOtp(): string {
