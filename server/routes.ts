@@ -1,5 +1,5 @@
-import type { Express, Request } from "express";
-import { logBootProgress } from "./boot-status";
+import type { Express, Request } from \"express\";
+import { logBootProgress } from \"./boot-status\";
 import { alpacaSseService } from './services/alpaca-sse-service';
 import { registerSecurityMasterCreditRatingRoutes } from './routes/security-master-credit-ratings';
 import { registerBondsMarketRoutes } from './routes/bonds-market';
@@ -26,7 +26,7 @@ import { registerAlertSystemRoutes } from './routes/alert-system';
 import { registerSystemAdminRoutes } from './routes/system-admin';
 import policyStatusRoutes from './routes/admin/policy-status-routes';
 import { registerIrisKfintechRoutes } from './routes/iris-kfintech-routes';
-import { executionGuard } from "./middleware/execution-guard";
+import { executionGuard } from \"./middleware/execution-guard\";
 import { proxyToInsurance } from './clients/insurance-client';
 import { registerCrmRoutes } from './routes/crm';
 import { registerZohoBooksRoutes } from './routes/zoho-books';
@@ -49,11 +49,11 @@ import { registerRevenueSheetRoutes } from './routes/revenue-sheet-routes';
 import { registerPreIPORoutes } from './routes/pre-ipo';
 import { registerCartRoutes } from './routes/cart';
 import { registerDLMRoutes } from './routes/dlm-routes';
-import dsaLoanRoutes from "./routes/dsa-loan-routes";
-import adminDsaLoanRoutes from "./routes/admin-dsa-loan-routes";
-import agentLoanRoutes from "./routes/agent-loan-routes";
-import adminAgentPayoutRoutes from "./routes/admin-agent-payout-routes";
-import developerFinanceRoutes from "./routes/developer-finance-routes";
+import dsaLoanRoutes from \"./routes/dsa-loan-routes\";
+import adminDsaLoanRoutes from \"./routes/admin-dsa-loan-routes\";
+import agentLoanRoutes from \"./routes/agent-loan-routes\";
+import adminAgentPayoutRoutes from \"./routes/admin-agent-payout-routes\";
+import developerFinanceRoutes from \"./routes/developer-finance-routes\";
 import { registerFinancialDataRoutes } from './routes/financial-data-routes';
 import { webauthnRouter } from './routes/webauthn-routes';
 import knowledgeHubRoutes from './routes/knowledge-hub-routes';
@@ -67,15 +67,15 @@ import screenerRoutes from './routes/screener-routes';
 import intrinsicValueRoutes from './routes/intrinsic-value';
 import signatureRoutes from './routes/signature-routes';
 import userSignatureESignRoutes from './routes/user-signature-esign-routes';
-import { mcaFinancialRefreshScheduler } from "./services/mca-financial-refresh-scheduler";
+import { mcaFinancialRefreshScheduler } from \"./services/mca-financial-refresh-scheduler\";
 import { registerSandboxWebhookRoutes } from './routes/sandbox-webhooks';
 import { registerSandboxTDSRoutes } from './routes/sandbox-tds';
 import { registerSandboxGSTRoutes } from './routes/sandbox-gst';
 import { registerEntityLockerRoutes } from './routes/sandbox-entitylocker';
 import { registerSandboxITReportRoutes } from './routes/sandbox-it-report';
 import { registerM2PCardRoutes } from './routes/m2p-card-routes';
-import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { createServer, type Server } from \"http\";
+import { storage } from \"./storage\";
 
 // Extend Express Request to include partner property
 declare global {
@@ -85,22 +85,22 @@ declare global {
     }
   }
 }
-import { sql, eq, and, or, like, desc, asc, count, inArray, gte, lte, lt } from "drizzle-orm";
-import { db } from "./db";
-import { setupAuth as setupSessionAuth, isAuthenticated } from "./auth-setup";
-import { setupAuth as setupLocalAuth } from "./auth";
-import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, userCart, userCartItems, storeProducts, storeCategories, storeProductInquiries, storeTransactionLogs, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema, mutualFunds, mutualFundAmcs, agentLeads, prospectClients, proposalInteractions, proposalApprovals, insertProspectClientSchema, insertProposalInteractionSchema, insertProposalApprovalSchema, prospectProposals } from "@shared/schema";
-import { marketStoryService, type MarketData as StoryMarketData } from "./market-story-service";
-import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "./gemini";
-import { whatsappService } from "./whatsapp";
-import { marketingService } from "./marketing-automation";
-import { portfolioIntelligence } from "./portfolio-intelligence";
-import { adminService } from "./admin-service";
-import { partnerService } from "./partner-service";
-import { requireAdmin, requireAgent, requirePartner } from "./middleware/roleMiddleware";
-import { z } from "zod";
+import { sql, eq, and, or, like, desc, asc, count, inArray, gte, lte, lt } from \"drizzle-orm\";
+import { db } from \"./db\";
+import { setupAuth as setupSessionAuth, isAuthenticated } from \"./auth-setup\";
+import { setupAuth as setupLocalAuth } from \"./auth\";
+import { insertPortfolioSchema, insertPortfolioHoldingSchema, insertWatchlistSchema, insertMutualFundSchema, insertCapitalGainsReportSchema, insertTransactionReportSchema, insertTransactionRecordSchema, insertCkycRecordSchema, insertCkycDocumentSchema, userCart, userCartItems, storeProducts, storeCategories, storeProductInquiries, storeTransactionLogs, fundComparisons, portfolioComparisons, comparisonHistory, insertFamilyGroupSchema, insertFamilyMemberSchema, insertFamilyGoalSchema, insertFamilyGoalContributionSchema, insertFamilyActivityLogSchema, insertFamilyDiscussionSchema, insertFamilyBudgetSchema, kycFormProgress, insertProductAccountPreferenceSchema, mutualFunds, mutualFundAmcs, agentLeads, prospectClients, proposalInteractions, proposalApprovals, insertProspectClientSchema, insertProposalInteractionSchema, insertProposalApprovalSchema, prospectProposals } from \"@shared/schema\";
+import { marketStoryService, type MarketData as StoryMarketData } from \"./market-story-service\";
+import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from \"./gemini\";
+import { whatsappService } from \"./whatsapp\";
+import { marketingService } from \"./marketing-automation\";
+import { portfolioIntelligence } from \"./portfolio-intelligence\";
+import { adminService } from \"./admin-service\";
+import { partnerService } from \"./partner-service\";
+import { requireAdmin, requireAgent, requirePartner } from \"./middleware/roleMiddleware\";
+import { z } from \"zod\";
 import { NseIndia } from 'stock-nse-india';
-import { comprehensiveAIFPMSAPI } from "./comprehensive-aif-pms-api";
+import { comprehensiveAIFPMSAPI } from \"./comprehensive-aif-pms-api\";
 import { camsApi } from './cams-api';
 import { kfintechApi } from './kfintech-api';
 import { iciciBankAPI } from './icici-bank-api';
@@ -141,7 +141,7 @@ import { LoanOrchestrator } from './loan-marketplace/loan-orchestrator';
 import { taxOrchestrator } from './services/tax-orchestrator';
 import { PANConsentService } from './services/pan-consent-service';
 import { sandboxKYCService } from './services/sandbox-kyc-service';
-import { apiUsageTrackingService } from "./services/api-usage-tracking-service";
+import { apiUsageTrackingService } from \"./services/api-usage-tracking-service\";
 import { sandboxITRService } from './sandbox-itr-service';
 import { sandboxTDSService } from './sandbox-tds-service';
 import { unifiedOCRService, type DocumentMimeType, type DocumentHint } from './services/unified-ocr-service';
@@ -168,95 +168,95 @@ import { bseDirectApi } from './bseDirectApi';
 import { governmentSecurities, corporateBonds, bondOrders, bondHoldings, insertBondOrderSchema } from '@shared/schema';
 import { businessIntelligence } from './business-intelligence-service';
 import { isProductionEnvironment } from './utils/enrichment-guard';
-import { bondOrderNotificationService } from "./services/bond-order-notification-service";
+import { bondOrderNotificationService } from \"./services/bond-order-notification-service\";
 import { verifyBankAccountPennyDrop, validateIFSC, validateAccountNumber, isNameMatchAcceptable } from './penny-drop-service';
 import { lookupIFSC, isValidIFSCFormat } from './ifsc-lookup-service';
 import { ProductAccountService } from './product-account-service';
 import { BSEStarKYCService } from './services/bse-star-kyc-service';
 import { marketMoversCache } from './services/market-movers-cache';
 import { platformStatsCache } from './services/platform-stats-cache';
-import * as schema from "@shared/schema";
-import adminMutualFundsRoutes from "./routes/admin-mutual-funds-routes";
-import adminGlobalInstrumentsRoutes from "./routes/admin-global-instruments";
-import adminApiUsageRoutes from "./routes/admin-api-usage-routes";
-import derivativesRoutes from "./routes/derivatives-routes";
-import excelAddinRoutes from "./routes/excel-addin-routes";
-import taxServicesRoutes from "./routes/tax-services-routes";
-import listedStocksAdminRoutes from "./routes/listed-stocks-admin";
-import demoProposalsRoutes, { agentDemoRouter } from "./routes/demo-proposals";
-import schemeGovernanceRoutes from "./routes/scheme-governance-routes";
-import stockEnrichmentRoutes from "./routes/stock-enrichment-routes";
+import * as schema from \"@shared/schema\";
+import adminMutualFundsRoutes from \"./routes/admin-mutual-funds-routes\";
+import adminGlobalInstrumentsRoutes from \"./routes/admin-global-instruments\";
+import adminApiUsageRoutes from \"./routes/admin-api-usage-routes\";
+import derivativesRoutes from \"./routes/derivatives-routes\";
+import excelAddinRoutes from \"./routes/excel-addin-routes\";
+import taxServicesRoutes from \"./routes/tax-services-routes\";
+import listedStocksAdminRoutes from \"./routes/listed-stocks-admin\";
+import demoProposalsRoutes, { agentDemoRouter } from \"./routes/demo-proposals\";
+import schemeGovernanceRoutes from \"./routes/scheme-governance-routes\";
+import stockEnrichmentRoutes from \"./routes/stock-enrichment-routes\";
 import exchangeStockSyncRoutes from './routes/exchange-stock-sync';
-import unifiedCartRoutes from "./routes/unified-cart";
-import aiProposalRoutes from "./routes/ai-proposal-routes";
-import goalPlanningRoutes from "./routes/goal-planning-routes";
-import recommendationProductsRoutes, { publicRouter as recommendationProductsPublicRoutes } from "./routes/recommendation-products";
-import investableSurplusRoutes from "./routes/investable-surplus-routes";
-import riskSuitabilityRoutes from "./routes/risk-suitability-routes";
-import returnForecastingRoutes from "./routes/return-forecasting-routes";
-import assetAllocationRoutes from "./routes/asset-allocation-routes";
-import portfolioImportRoutes from "./routes/portfolio-import";
-import casStatementRoutes from "./routes/cas-statement-routes";
-import clientDocumentsRoutes from "./routes/client-documents-routes";
-import treasuryRoutes from "./routes/treasury-routes";
-import proposalExecutionRoutes from "./routes/proposal-execution-routes";
-import explainabilityRoutes from "./routes/explainability-routes";
-import investmentAdvisoryComplianceRoutes from "./routes/investment-advisory-compliance-routes";
+import unifiedCartRoutes from \"./routes/unified-cart\";
+import aiProposalRoutes from \"./routes/ai-proposal-routes\";
+import goalPlanningRoutes from \"./routes/goal-planning-routes\";
+import recommendationProductsRoutes, { publicRouter as recommendationProductsPublicRoutes } from \"./routes/recommendation-products\";
+import investableSurplusRoutes from \"./routes/investable-surplus-routes\";
+import riskSuitabilityRoutes from \"./routes/risk-suitability-routes\";
+import returnForecastingRoutes from \"./routes/return-forecasting-routes\";
+import assetAllocationRoutes from \"./routes/asset-allocation-routes\";
+import portfolioImportRoutes from \"./routes/portfolio-import\";
+import casStatementRoutes from \"./routes/cas-statement-routes\";
+import clientDocumentsRoutes from \"./routes/client-documents-routes\";
+import treasuryRoutes from \"./routes/treasury-routes\";
+import proposalExecutionRoutes from \"./routes/proposal-execution-routes\";
+import explainabilityRoutes from \"./routes/explainability-routes\";
+import investmentAdvisoryComplianceRoutes from \"./routes/investment-advisory-compliance-routes\";
 import { setupChatRoutes } from './routes/chat-routes';
 import { registerAIStockRecommendationRoutes } from './routes/ai-stock-recommendation-routes';
-import { registerAgentAdvisoryRoutes } from "./routes/agent-advisory";
-import onboardingInvitationsRoutes from "./routes/onboarding-invitations";
-import prospectProposalsRoutes from "./routes/prospect-proposals";
-import instrumentsRoutes from "./routes/instruments";
-import storeAifPmsRoutes from "./routes/store-aif-pms";
-import itrPricingRoutes from "./routes/itr-pricing";
-import platformFeesRoutes from "./routes/platform-fees";
-import subscriptionRoutes from "./routes/subscription";
-import storeMldRoutes from "./routes/store-mld";
-import giftCityRoutes from "./routes/gift-city-routes";
-import aiInvestmentRoutes from "./routes/ai-investment-routes";
-import unifiedAdvisoryRoutes from "./routes/unified-advisory-routes";
-import bondRecommendationsRoutes from "./routes/bond-recommendations";
-import fixedIncomeStatusRoutes from "./routes/fixed-income-status-routes";
-import commodityRecommendationsRoutes from "./routes/commodity-recommendations";
-import { taxRoutes } from "./tax-routes";
-import meetingBookingsRoutes from "./routes/meeting-bookings";
-import sebiRiskProfilingRoutes from "./routes/sebi-risk-profiling-routes";
-import portfolioReportsRoutes from "./routes/portfolio-reports";
-import kycFlowRoutes, { ensureAdminSettingsTable } from "./routes/kyc-flow-routes";
-import cashfreeVrsRoutes from "./routes/cashfree-vrs-routes";
-import kycEngineRoutes from "./routes/kyc-engine-routes";
-import aiRecommendationTrackingRoutes from "./routes/ai-recommendation-tracking-routes";
-import errorTrackingRoutes from "./routes/error-tracking-routes";
-import testerDiagnosticsRoutes from "./routes/tester-diagnostics-routes";
-import engineHealthCheckRoutes from "./routes/engine-health-check";
-import mfAnalyticsAdminRoutes from "./routes/mf-analytics-admin";
-import activityCentreRoutes from "./routes/activity-centre-routes";
-import taskOversightRoutes from "./routes/task-oversight-routes";
-import usTradingRoutes from "./routes/us-trading";
+import { registerAgentAdvisoryRoutes } from \"./routes/agent-advisory\";
+import onboardingInvitationsRoutes from \"./routes/onboarding-invitations\";
+import prospectProposalsRoutes from \"./routes/prospect-proposals\";
+import instrumentsRoutes from \"./routes/instruments\";
+import storeAifPmsRoutes from \"./routes/store-aif-pms\";
+import itrPricingRoutes from \"./routes/itr-pricing\";
+import platformFeesRoutes from \"./routes/platform-fees\";
+import subscriptionRoutes from \"./routes/subscription\";
+import storeMldRoutes from \"./routes/store-mld\";
+import giftCityRoutes from \"./routes/gift-city-routes\";
+import aiInvestmentRoutes from \"./routes/ai-investment-routes\";
+import unifiedAdvisoryRoutes from \"./routes/unified-advisory-routes\";
+import bondRecommendationsRoutes from \"./routes/bond-recommendations\";
+import fixedIncomeStatusRoutes from \"./routes/fixed-income-status-routes\";
+import commodityRecommendationsRoutes from \"./routes/commodity-recommendations\";
+import { taxRoutes } from \"./tax-routes\";
+import meetingBookingsRoutes from \"./routes/meeting-bookings\";
+import sebiRiskProfilingRoutes from \"./routes/sebi-risk-profiling-routes\";
+import portfolioReportsRoutes from \"./routes/portfolio-reports\";
+import kycFlowRoutes, { ensureAdminSettingsTable } from \"./routes/kyc-flow-routes\";
+import cashfreeVrsRoutes from \"./routes/cashfree-vrs-routes\";
+import kycEngineRoutes from \"./routes/kyc-engine-routes\";
+import aiRecommendationTrackingRoutes from \"./routes/ai-recommendation-tracking-routes\";
+import errorTrackingRoutes from \"./routes/error-tracking-routes\";
+import testerDiagnosticsRoutes from \"./routes/tester-diagnostics-routes\";
+import engineHealthCheckRoutes from \"./routes/engine-health-check\";
+import mfAnalyticsAdminRoutes from \"./routes/mf-analytics-admin\";
+import activityCentreRoutes from \"./routes/activity-centre-routes\";
+import taskOversightRoutes from \"./routes/task-oversight-routes\";
+import usTradingRoutes from \"./routes/us-trading\";
 import { registerBondTradingOrdersRoutes } from './routes/bond-trading-orders';
 import { registerReportsInlineRoutes } from './routes/reports-inline';
 import { registerMFMonthwiseRoutes } from './routes/mf-monthwise';
 import { registerAgentCapitalGainsRoutes } from './routes/agent-capital-gains';
-import { registerAIInvestmentOrchestratorRoutes } from "./routes/ai-investment-orchestrator-routes";
-import { registerProfitOptimizedRoutes } from "./routes/profit-optimized-routes";
-import { registerAgentGovernanceRoutes } from "./routes/agent-governance-routes";
-import { registerLeadLeakageRoutes } from "./routes/lead-leakage-routes";
-import { registerAppointmentManagementRoutes } from "./routes/appointment-management-routes";
-import unifiedPortfolioRoutes from "./routes/unified-portfolio-routes";
-import aiRebalancingRoutes from "./routes/ai-rebalancing-routes";
-import unifiedProposalsRoutes from "./routes/unified-proposals-routes";
-import proposalBuilderRoutes from "./routes/proposal-builder-routes";
-import globalAdvisoryRoutes from "./routes/global-advisory";
-import feeModeRoutes from "./routes/fee-mode";
-import cacheAdminRoutes from "./routes/cache-admin";
-import quantAdminRoutes from "./routes/quant-admin-routes";
-import parserAdminRoutes from "./routes/parser-admin";
-import institutionalRoutes from "./routes/institutional-routes";
-import historicalNavRoutes from "./routes/historical-nav";
-import { cacheCleanupScheduler } from "./services/cache-cleanup-scheduler";
-import { exitLoadSyncScheduler } from "./services/exit-load-sync-scheduler";
-import exchangeFilingsRoutes from "./routes/exchange-filings-routes";
+import { registerAIInvestmentOrchestratorRoutes } from \"./routes/ai-investment-orchestrator-routes\";
+import { registerProfitOptimizedRoutes } from \"./routes/profit-optimized-routes\";
+import { registerAgentGovernanceRoutes } from \"./routes/agent-governance-routes\";
+import { registerLeadLeakageRoutes } from \"./routes/lead-leakage-routes\";
+import { registerAppointmentManagementRoutes } from \"./routes/appointment-management-routes\";
+import unifiedPortfolioRoutes from \"./routes/unified-portfolio-routes\";
+import aiRebalancingRoutes from \"./routes/ai-rebalancing-routes\";
+import unifiedProposalsRoutes from \"./routes/unified-proposals-routes\";
+import proposalBuilderRoutes from \"./routes/proposal-builder-routes\";
+import globalAdvisoryRoutes from \"./routes/global-advisory\";
+import feeModeRoutes from \"./routes/fee-mode\";
+import cacheAdminRoutes from \"./routes/cache-admin\";
+import quantAdminRoutes from \"./routes/quant-admin-routes\";
+import parserAdminRoutes from \"./routes/parser-admin\";
+import institutionalRoutes from \"./routes/institutional-routes\";
+import historicalNavRoutes from \"./routes/historical-nav\";
+import { cacheCleanupScheduler } from \"./services/cache-cleanup-scheduler\";
+import { exitLoadSyncScheduler } from \"./services/exit-load-sync-scheduler\";
+import exchangeFilingsRoutes from \"./routes/exchange-filings-routes\";
 import financialMetricsRoutes from './routes/financial-metrics-routes';
 import financialMetricsAdminRoutes from './routes/financial-metrics-admin';
 import aaConsentRoutes from './routes/aa-consent-routes';
@@ -267,22 +267,13 @@ import sipSimulatorRoutes from './routes/sip-simulator';
 import sebiAuditRoutes from './routes/sebi-audit';
 import regulatoryComplianceRoutes from './routes/regulatory-compliance-routes';
 export async function registerRoutes(app: Express, existingServer?: Server): Promise<Server> {
-  logBootProgress("registerRoutes: Started");
+  logBootProgress(\"registerRoutes: Started\");
   const server = existingServer || createServer(app);
   registerSecurityMasterCreditRatingRoutes(app);
   
-  // Health check endpoint - skip if already registered in index.ts (fast boot mode)
-  if (!existingServer) {
-    app.get("/api/health", (req, res) => {
-      res.status(200).json({ 
-        status: "ok", 
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime()
-      });
-    });
-  }
+  // Health check is now handled at the top level in index.ts for earlier availability
 
-  app.get("/sitemap.xml", (req, res) => {
+  app.get(\"/sitemap.xml\", (req, res) => {
     const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT === '1';
     const baseUrl = isProduction ? 'https://fintekpro.in' : (req.protocol + '://' + req.get('host'));
     const today = new Date().toISOString().split('T')[0];
@@ -301,13 +292,13 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     const urls = publicRoutes.map(r =>
       `  <url>\n    <loc>${baseUrl}${r.loc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${r.changefreq}</changefreq>\n    <priority>${r.priority}</priority>\n  </url>`
     ).join('\n');
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
+    const xml = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n${urls}\n</urlset>`;
     res.set('Content-Type', 'application/xml');
     res.send(xml);
   });
 
   // Diagnostics endpoint to help debug production issues (admin only)
-  app.get("/api/internal/diagnostics", async (req, res) => {
+  app.get(\"/api/internal/diagnostics\", async (req, res) => {
     const diagnostics: Record<string, any> = {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
@@ -378,18 +369,18 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
   // Initialize market movers cache at startup (production only - external API calls + DB writes)
   if (isProductionEnvironment()) {
-    marketMoversCache.initialize().catch(err => console.error("Failed to initialize market movers cache:", err));
+    marketMoversCache.initialize().catch(err => console.error(\"Failed to initialize market movers cache:\", err));
   } else {
     console.log('⏭️ [MarketMoversCache] Initialization skipped (development mode - production only)');
   }
   // Initialize platform stats cache at startup (production only - periodic DB queries)
   if (isProductionEnvironment()) {
-    platformStatsCache.initialize().catch(err => console.error("Failed to initialize platform stats cache:", err));
+    platformStatsCache.initialize().catch(err => console.error(\"Failed to initialize platform stats cache:\", err));
   } else {
     console.log('⏭️ [PlatformStatsCache] Initialization skipped (development mode - production only)');
   }
   // Initialize API usage tracking service
-  apiUsageTrackingService.initialize().catch(err => console.error("Failed to initialize API usage tracking:", err)); // Deferred startup
+  apiUsageTrackingService.initialize().catch(err => console.error(\"Failed to initialize API usage tracking:\", err)); // Deferred startup
   
   // Auth middleware is set up in index.ts before registerRoutes is called
   // to prevent duplicate session/auth strategy registration
@@ -398,9 +389,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use(executionGuard({ logExecution: true, blockOfflineExecution: true }));
   
   // Initialize user passwords with proper hashing
-  logBootProgress("registerRoutes: Initializing user passwords...");
+  logBootProgress(\"registerRoutes: Initializing user passwords...\");
   await storage.initializeUserPasswords();
-  logBootProgress("registerRoutes: User passwords initialized");
+  logBootProgress(\"registerRoutes: User passwords initialized\");
   
   // Initialize AI Portfolio Service
   const aiPortfolioService = new AIPortfolioService(storage as any);
@@ -418,9 +409,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // In production, use the admin endpoint GET /api/admin/whatsapp/qr to scan the QR.
   if (process.env.ENABLE_WHATSAPP === 'true') {
     try {
-      logBootProgress("registerRoutes: Initializing WhatsApp...");
+      logBootProgress(\"registerRoutes: Initializing WhatsApp...\");
       await whatsappService.initialize();
-      logBootProgress("registerRoutes: WhatsApp initialized");
+      logBootProgress(\"registerRoutes: WhatsApp initialized\");
       console.log('✅ WhatsApp Web client initialized');
     } catch (error) {
       console.log('⚠️ WhatsApp Web client init failed (non-critical):', error instanceof Error ? error.message : error);
@@ -433,7 +424,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   if (isProductionEnvironment()) {
     mutualFundsRefreshJob.start();
   } else {
-    console.log("⏭️ [MF Refresh Job] Skipped (development mode - production only)");
+    console.log(\"⏭️ [MF Refresh Job] Skipped (development mode - production only)\");
   }
   registerAgentItrRoutes(app);
   registerForm15Routes(app);
@@ -442,7 +433,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   if (isProductionEnvironment()) {
     initReKYCCron();
   } else {
-    console.log("⏭️ [Re-KYC Cron] Skipped (development mode - production only)");
+    console.log(\"⏭️ [Re-KYC Cron] Skipped (development mode - production only)\");
   }
   
   // Check products - no auto-seeding with mock data
@@ -486,42 +477,42 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
   // WhatsApp Web admin endpoints (requireAdmin is now in scope)
   registerAdminMiscRoutes(app);
-  logBootProgress("registerRoutes: Registering Platform Stats...");
+  logBootProgress(\"registerRoutes: Registering Platform Stats...\");
   await registerPlatformStatsRoutes(app);
-  logBootProgress("registerRoutes: Platform Stats registered");
+  logBootProgress(\"registerRoutes: Platform Stats registered\");
 
   // Route registrations from platform-stats-routes
   // Admin Mutual Funds Management Routes
-  app.use("/api/admin", requireAdmin, adminMutualFundsRoutes);
-  app.use("/api/admin/global-instruments", requireAdmin, adminGlobalInstrumentsRoutes);
+  app.use(\"/api/admin\", requireAdmin, adminMutualFundsRoutes);
+  app.use(\"/api/admin/global-instruments\", requireAdmin, adminGlobalInstrumentsRoutes);
   app.use(adminApiUsageRoutes);
-  app.use("/api/derivatives", derivativesRoutes);
-  app.use("/api/excel", excelAddinRoutes);
-  console.log("✅ Excel Add-in routes registered (/api/excel/*)");
-  app.use("/api/admin/tax-services", requireAdmin, taxServicesRoutes);
-  app.use("/api/unified-cart", unifiedCartRoutes);
-  app.use("/api/admin", requireAdmin, listedStocksAdminRoutes);
-  app.use("/api/admin/stocks", requireAdmin, stockEnrichmentRoutes);
-  app.use("/api/admin/demo-proposals", requireAdmin, demoProposalsRoutes);
-  app.use("/api/admin/scheme-governance", requireAdmin, schemeGovernanceRoutes);
-  app.use("/api/agent/demo-proposals", isAuthenticated, agentDemoRouter);
-  app.use("/api/agent", portfolioImportRoutes);
-  app.use("/api/cas-statement", isAuthenticated, casStatementRoutes);
+  app.use(\"/api/derivatives\", derivativesRoutes);
+  app.use(\"/api/excel\", excelAddinRoutes);
+  console.log(\"✅ Excel Add-in routes registered (/api/excel/*)\");
+  app.use(\"/api/admin/tax-services\", requireAdmin, taxServicesRoutes);
+  app.use(\"/api/unified-cart\", unifiedCartRoutes);
+  app.use(\"/api/admin\", requireAdmin, listedStocksAdminRoutes);
+  app.use(\"/api/admin/stocks\", requireAdmin, stockEnrichmentRoutes);
+  app.use(\"/api/admin/demo-proposals\", requireAdmin, demoProposalsRoutes);
+  app.use(\"/api/admin/scheme-governance\", requireAdmin, schemeGovernanceRoutes);
+  app.use(\"/api/agent/demo-proposals\", isAuthenticated, agentDemoRouter);
+  app.use(\"/api/agent\", portfolioImportRoutes);
+  app.use(\"/api/cas-statement\", isAuthenticated, casStatementRoutes);
   app.use(signatureRoutes);
   app.use(userSignatureESignRoutes);
-  app.use("/api/client", isAuthenticated, clientDocumentsRoutes);
-  app.use("/api/admin/exchange-sync", requireAdmin, exchangeStockSyncRoutes);
+  app.use(\"/api/client\", isAuthenticated, clientDocumentsRoutes);
+  app.use(\"/api/admin/exchange-sync\", requireAdmin, exchangeStockSyncRoutes);
   // AI Proposal Engine Routes
-  app.use("/api/ai-proposals", aiProposalRoutes);
-  app.use("/api/goals", goalPlanningRoutes);
-  app.use("/api/surplus", investableSurplusRoutes);
-  app.use("/api/risk", riskSuitabilityRoutes);
-  app.use("/api/returns", returnForecastingRoutes);
-  app.use("/api/allocation", assetAllocationRoutes);
-  app.use("/api/treasury", treasuryRoutes);
-  app.use("/api/execution", proposalExecutionRoutes);
-  app.use("/api/explainability", explainabilityRoutes);
-  app.use("/api/advisory-compliance", investmentAdvisoryComplianceRoutes);
+  app.use(\"/api/ai-proposals\", aiProposalRoutes);
+  app.use(\"/api/goals\", goalPlanningRoutes);
+  app.use(\"/api/surplus\", investableSurplusRoutes);
+  app.use(\"/api/risk\", riskSuitabilityRoutes);
+  app.use(\"/api/returns\", returnForecastingRoutes);
+  app.use(\"/api/allocation\", assetAllocationRoutes);
+  app.use(\"/api/treasury\", treasuryRoutes);
+  app.use(\"/api/execution\", proposalExecutionRoutes);
+  app.use(\"/api/explainability\", explainabilityRoutes);
+  app.use(\"/api/advisory-compliance\", investmentAdvisoryComplianceRoutes);
   registerAgentAdvisoryRoutes(app);
   registerAIStockRecommendationRoutes(app);
   registerAIInvestmentOrchestratorRoutes(app);
@@ -532,223 +523,223 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.use(onboardingInvitationsRoutes);
   app.use(prospectProposalsRoutes);
   app.use(instrumentsRoutes);
-  app.use("/api/store", storeAifPmsRoutes);
-  app.use("/api/admin/itr-pricing", requireAdmin, itrPricingRoutes);
-  app.use("/api/admin/platform-fees", requireAdmin, platformFeesRoutes);
-  console.log("✅ ITR Pricing routes registered");
-  app.use("/api/store", storeMldRoutes);
-  app.use("/api/store/gift-city", giftCityRoutes);
-  app.use("/api/ai-investment", aiInvestmentRoutes);
-  app.use("/api/unified-advisory", unifiedAdvisoryRoutes);
-  app.use("/api/bond-recommendations", bondRecommendationsRoutes);
-  app.use("/api/commodity-recommendations", commodityRecommendationsRoutes);
-  app.use("/api/fixed-income", fixedIncomeStatusRoutes);
-  app.use("/api/tax", taxRoutes);
-  app.use("/api/meetings", meetingBookingsRoutes);
-  app.use("/api/sebi-risk-profiling", sebiRiskProfilingRoutes);
+  app.use(\"/api/store\", storeAifPmsRoutes);
+  app.use(\"/api/admin/itr-pricing\", requireAdmin, itrPricingRoutes);
+  app.use(\"/api/admin/platform-fees\", requireAdmin, platformFeesRoutes);
+  console.log(\"✅ ITR Pricing routes registered\");
+  app.use(\"/api/store\", storeMldRoutes);
+  app.use(\"/api/store/gift-city\", giftCityRoutes);
+  app.use(\"/api/ai-investment\", aiInvestmentRoutes);
+  app.use(\"/api/unified-advisory\", unifiedAdvisoryRoutes);
+  app.use(\"/api/bond-recommendations\", bondRecommendationsRoutes);
+  app.use(\"/api/commodity-recommendations\", commodityRecommendationsRoutes);
+  app.use(\"/api/fixed-income\", fixedIncomeStatusRoutes);
+  app.use(\"/api/tax\", taxRoutes);
+  app.use(\"/api/meetings\", meetingBookingsRoutes);
+  app.use(\"/api/sebi-risk-profiling\", sebiRiskProfilingRoutes);
   app.use(portfolioReportsRoutes);
-  app.use("/api/ai-recommendations-tracking", aiRecommendationTrackingRoutes);
-  app.use("/api/errors", errorTrackingRoutes);
-  app.use("/api/tester", testerDiagnosticsRoutes);
-  app.use("/api/engine-health", engineHealthCheckRoutes);
-  console.log("✅ Engine Health Check routes registered");
+  app.use(\"/api/ai-recommendations-tracking\", aiRecommendationTrackingRoutes);
+  app.use(\"/api/errors\", errorTrackingRoutes);
+  app.use(\"/api/tester\", testerDiagnosticsRoutes);
+  app.use(\"/api/engine-health\", engineHealthCheckRoutes);
+  console.log(\"✅ Engine Health Check routes registered\");
   app.use(mfAnalyticsAdminRoutes);
   app.use(institutionalRoutes);
-  console.log("✅ Institutional routes registered");
-  console.log("✅ MF Analytics Admin routes registered");
-  app.use("/api/activity-centre", activityCentreRoutes);
-  app.use("/api/admin/task-oversight", taskOversightRoutes);
-  console.log("✅ Task Oversight routes registered");
-  console.log("✅ Activity Centre routes registered");
-  app.use("/api/us-trading", usTradingRoutes);
+  console.log(\"✅ Institutional routes registered\");
+  console.log(\"✅ MF Analytics Admin routes registered\");
+  app.use(\"/api/activity-centre\", activityCentreRoutes);
+  app.use(\"/api/admin/task-oversight\", taskOversightRoutes);
+  console.log(\"✅ Task Oversight routes registered\");
+  console.log(\"✅ Activity Centre routes registered\");
+  app.use(\"/api/us-trading\", usTradingRoutes);
   app.use(unifiedPortfolioRoutes);
   app.use(aiRebalancingRoutes);
-  app.use("/api/unified-proposals", unifiedProposalsRoutes);
-  app.use("/api/proposal-builder", proposalBuilderRoutes);
-  console.log("✅ Proposal Builder routes registered");
-  console.log("✅ US Trading routes registered");
+  app.use(\"/api/unified-proposals\", unifiedProposalsRoutes);
+  app.use(\"/api/proposal-builder\", proposalBuilderRoutes);
+  console.log(\"✅ Proposal Builder routes registered\");
+  console.log(\"✅ US Trading routes registered\");
   // Start Alpaca SSE event streams (trade fills, account/journal/transfer status)
   if (process.env.ALPACA_API_KEY) {
-    alpacaSseService.start(["trade_updates", "account_updates", "journal_updates", "transfer_updates"]);
-    console.log("✅ Alpaca SSE event streams started");
+    alpacaSseService.start([\"trade_updates\", \"account_updates\", \"journal_updates\", \"transfer_updates\"]);
+    console.log(\"✅ Alpaca SSE event streams started\");
   } else {
-    console.log("⏭️ [AlpacaSSE] Skipped — ALPACA_API_KEY not configured");
+    console.log(\"⏭️ [AlpacaSSE] Skipped — ALPACA_API_KEY not configured\");
   }
-  console.log("✅ Unified Portfolio routes registered");
-  console.log("✅ AI Rebalancing routes registered");
-  console.log("✅ Unified Proposals routes registered");
-  console.log("✅ Error Tracking routes registered");
-  console.log("✅ Tester Diagnostics routes registered");
-  console.log("✅ AI Recommendation Tracking routes registered");
+  console.log(\"✅ Unified Portfolio routes registered\");
+  console.log(\"✅ AI Rebalancing routes registered\");
+  console.log(\"✅ Unified Proposals routes registered\");
+  console.log(\"✅ Error Tracking routes registered\");
+  console.log(\"✅ Tester Diagnostics routes registered\");
+  console.log(\"✅ AI Recommendation Tracking routes registered\");
   
   // KYC Flow Configuration Routes (unified single source of truth for all KYC providers)
   ensureAdminSettingsTable().catch(() => {});
-  app.use("/api/admin/kyc", requireAdmin, kycFlowRoutes);
-  console.log("✅ KYC Flow Configuration routes registered");
+  app.use(\"/api/admin/kyc\", requireAdmin, kycFlowRoutes);
+  console.log(\"✅ KYC Flow Configuration routes registered\");
 
   // Cashfree VRS (Secure ID) Routes — admin testing for all verification APIs
-  app.use("/api/admin/cashfree-vrs", cashfreeVrsRoutes);
-  console.log("✅ Cashfree VRS (Secure ID) routes registered (/api/admin/cashfree-vrs/*)");
+  app.use(\"/api/admin/cashfree-vrs\", cashfreeVrsRoutes);
+  console.log(\"✅ Cashfree VRS (Secure ID) routes registered (/api/admin/cashfree-vrs/*)\");
 
   
   // KYC Engine Routes (orchestration, identity, consent, admin)
-  app.use("/api/kyc-engine", kycEngineRoutes);
-  console.log("✅ KYC Engine routes registered");
+  app.use(\"/api/kyc-engine\", kycEngineRoutes);
+  console.log(\"✅ KYC Engine routes registered\");
   
   // Quant Infrastructure Admin Routes
-  app.use("/api/admin/quant", requireAdmin, quantAdminRoutes);
-  console.log("✅ Quant Admin routes registered");
+  app.use(\"/api/admin/quant\", requireAdmin, quantAdminRoutes);
+  console.log(\"✅ Quant Admin routes registered\");
   
   // Cache Admin Routes (Data Caching & Cost Optimization)
-  app.use("/api/admin/cache", requireAdmin, cacheAdminRoutes);
-  app.use("/api/admin/parser", requireAdmin, parserAdminRoutes);
-  console.log("✅ Parser Admin routes registered");
-  app.use("/api/admin/exchange-filings", requireAdmin, exchangeFilingsRoutes);
-  console.log("✅ Exchange Filings routes registered (admin-only)");
+  app.use(\"/api/admin/cache\", requireAdmin, cacheAdminRoutes);
+  app.use(\"/api/admin/parser\", requireAdmin, parserAdminRoutes);
+  console.log(\"✅ Parser Admin routes registered\");
+  app.use(\"/api/admin/exchange-filings\", requireAdmin, exchangeFilingsRoutes);
+  console.log(\"✅ Exchange Filings routes registered (admin-only)\");
   if (isProductionEnvironment()) {
     cacheCleanupScheduler.initialize();
   } else {
     console.log('⏭️ [CacheCleanupScheduler] Skipped (development mode - production only)');
   }
-  console.log("✅ Cache Admin routes registered");
+  console.log(\"✅ Cache Admin routes registered\");
   
   // Historical NAV Data Service (Portfolio Metrics from Real Data)
-  app.use("/api/historical-nav", historicalNavRoutes);
-  console.log("✅ Historical NAV Data routes registered");
-  console.log("⏭️ [HistoricalNavRefresh] Auto-refresh disabled — MFAPI dependency removed");
+  app.use(\"/api/historical-nav\", historicalNavRoutes);
+  console.log(\"✅ Historical NAV Data routes registered\");
+  console.log(\"⏭️ [HistoricalNavRefresh] Auto-refresh disabled — MFAPI dependency removed\");
   
   // Global Advisory Routes (EPIC 1 & 2)
-  app.use("/api/global-advisory", globalAdvisoryRoutes);
-  console.log("✅ Global Advisory routes registered");
+  app.use(\"/api/global-advisory\", globalAdvisoryRoutes);
+  console.log(\"✅ Global Advisory routes registered\");
   
   // Client Fee Mode Routes (Advisory + Platform vs Platform-Only)
-  app.use("/api/fee-mode", feeModeRoutes);
-  console.log("✅ Client Fee Mode routes registered");
+  app.use(\"/api/fee-mode\", feeModeRoutes);
+  console.log(\"✅ Client Fee Mode routes registered\");
   
   // Subscription & Monetization Routes (Cashfree-powered)
-  app.use("/api/subscriptions", subscriptionRoutes);
-  console.log("✅ Subscription & Monetization routes registered");
+  app.use(\"/api/subscriptions\", subscriptionRoutes);
+  console.log(\"✅ Subscription & Monetization routes registered\");
   
   // Improvement Features Routes (Dashboard, Referral, Reports, Alerts, Theme)
-  const improvementFeaturesRoutes = (await import("./routes/improvement-features")).default;
-  app.use("/api/features", improvementFeaturesRoutes);
-  console.log("✅ Improvement Features routes registered");
+  const improvementFeaturesRoutes = (await import(\"./routes/improvement-features\")).default;
+  app.use(\"/api/features\", improvementFeaturesRoutes);
+  console.log(\"✅ Improvement Features routes registered\");
   
   // Agent Prospect Wizard Routes
-  const agentProspectWizardRoutes = (await import("./routes/agent-prospect-wizard")).default;
-  app.use("/api/agent-wizard", agentProspectWizardRoutes);
-  console.log("✅ Agent Prospect Wizard routes registered");
+  const agentProspectWizardRoutes = (await import(\"./routes/agent-prospect-wizard\")).default;
+  app.use(\"/api/agent-wizard\", agentProspectWizardRoutes);
+  console.log(\"✅ Agent Prospect Wizard routes registered\");
   
-  const agentEmpanelmentRoutes = (await import("./routes/agent-empanelment")).default;
-  app.use("/api/agent/empanelment", agentEmpanelmentRoutes);
-  console.log("✅ Agent Empanelment KYC routes registered");
+  const agentEmpanelmentRoutes = (await import(\"./routes/agent-empanelment\")).default;
+  app.use(\"/api/agent/empanelment\", agentEmpanelmentRoutes);
+  console.log(\"✅ Agent Empanelment KYC routes registered\");
   
   // Knowledge Hub Routes
-  app.use("/api/knowledge-hub", knowledgeHubRoutes);
-  app.use("/api/research-lists", isAuthenticated, researchWorkspaceRoutes);
-  app.use("/api/research-note", researchNoteRoutes);
+  app.use(\"/api/knowledge-hub\", knowledgeHubRoutes);
+  app.use(\"/api/research-lists\", isAuthenticated, researchWorkspaceRoutes);
+  app.use(\"/api/research-note\", researchNoteRoutes);
   app.use(screenerRoutes);
-  console.log("✅ Knowledge Hub & Screener routes registered");
+  console.log(\"✅ Knowledge Hub & Screener routes registered\");
   
   // Golden Source Pricing Engine (Bloomberg-style multi-source golden price)
-  app.use("/api/pricing", goldenPricingRoutes);
-  console.log("✅ Golden Source Pricing Engine routes registered (/api/pricing/*)");
+  app.use(\"/api/pricing\", goldenPricingRoutes);
+  console.log(\"✅ Golden Source Pricing Engine routes registered (/api/pricing/*)\");
   
   // MCA Intelligence Routes (Query Console, Filing Tracker, Analytics)
-  app.use("/api/mca", mcaIntelligenceRoutes);
-  app.use("/api/mca/direct-payments", mcaDirectPaymentRoutes);
-  console.log("✅ MCA Direct Payment routes registered");
-  app.use("/api/admin/mca-backfill", mcaFinancialBackfillRoutes);
-  console.log("✅ MCA Financial Backfill routes registered");
+  app.use(\"/api/mca\", mcaIntelligenceRoutes);
+  app.use(\"/api/mca/direct-payments\", mcaDirectPaymentRoutes);
+  console.log(\"✅ MCA Direct Payment routes registered\");
+  app.use(\"/api/admin/mca-backfill\", mcaFinancialBackfillRoutes);
+  console.log(\"✅ MCA Financial Backfill routes registered\");
   if (isProductionEnvironment()) {
     mcaFinancialRefreshScheduler.start();
-    console.log("✅ MCA Financial Refresh Scheduler started (daily auto-refresh)");
+    console.log(\"✅ MCA Financial Refresh Scheduler started (daily auto-refresh)\");
   
     const { quantRetrainingScheduler } = await import('./services/quant/quant-retraining-scheduler');
     quantRetrainingScheduler.start();
-    console.log("✅ Quant Retraining Scheduler started (automated model lifecycle)");
+    console.log(\"✅ Quant Retraining Scheduler started (automated model lifecycle)\");
   } else {
-    console.log("⏭️ [MCA Refresh/Quant Retraining] Skipped (development mode - production only)");
+    console.log(\"⏭️ [MCA Refresh/Quant Retraining] Skipped (development mode - production only)\");
   }
-  console.log("✅ MCA Intelligence routes registered");
+  console.log(\"✅ MCA Intelligence routes registered\");
   
-  app.use("/api/admin/recommendation-products", recommendationProductsRoutes);
-  app.use("/api/recommendation-products", recommendationProductsPublicRoutes);
-  console.log("✅ Recommendation Products routes registered");
+  app.use(\"/api/admin/recommendation-products\", recommendationProductsRoutes);
+  app.use(\"/api/recommendation-products\", recommendationProductsPublicRoutes);
+  console.log(\"✅ Recommendation Products routes registered\");
   
-  app.use("/api/financial-metrics", financialMetricsRoutes);
-  app.use("/api/admin/financial-metrics", requireAdmin, financialMetricsAdminRoutes);
-  app.use("/api/aa", aaConsentRoutes);
-  console.log("✅ Financial Metrics routes registered");
+  app.use(\"/api/financial-metrics\", financialMetricsRoutes);
+  app.use(\"/api/admin/financial-metrics\", requireAdmin, financialMetricsAdminRoutes);
+  app.use(\"/api/aa\", aaConsentRoutes);
+  console.log(\"✅ Financial Metrics routes registered\");
   
   // Intrinsic Value Calculator Routes
-  app.use("/api", intrinsicValueRoutes);
-  console.log("✅ Intrinsic Value Calculator routes registered");
-  app.use("/api/portfolio/staging", portfolioStagingRoutes);
+  app.use(\"/api\", intrinsicValueRoutes);
+  console.log(\"✅ Intrinsic Value Calculator routes registered\");
+  app.use(\"/api/portfolio/staging\", portfolioStagingRoutes);
   
   // Stock Intersection Analysis routes
-  app.use("/api/stock-intersection", stockIntersectionRoutes);
+  app.use(\"/api/stock-intersection\", stockIntersectionRoutes);
   
   // Overlap Intelligence Engine routes
-  app.use("/api/portfolio", overlapIntelligenceRoutes);
-  console.log("✅ Overlap Intelligence Engine routes registered");
+  app.use(\"/api/portfolio\", overlapIntelligenceRoutes);
+  console.log(\"✅ Overlap Intelligence Engine routes registered\");
   
   // SIP Simulator and SEBI Audit routes
-  app.use("/api/sip", sipSimulatorRoutes);
-  app.use("/api/sebi-audit", sebiAuditRoutes);
+  app.use(\"/api/sip\", sipSimulatorRoutes);
+  app.use(\"/api/sebi-audit\", sebiAuditRoutes);
   // Regulatory compliance routes (grievance/SCORES, data erasure, ARN/EUIN, MFA, nominee)
-  app.use("/api", regulatoryComplianceRoutes);
-  console.log("✅ SIP Simulator, SEBI Audit, and Regulatory Compliance routes registered");
+  app.use(\"/api\", regulatoryComplianceRoutes);
+  console.log(\"✅ SIP Simulator, SEBI Audit, and Regulatory Compliance routes registered\");
   registerReportsInlineRoutes(app);
   registerMFMonthwiseRoutes(app);
   registerAgentCapitalGainsRoutes(app);
   registerAdminComplianceTestRoutes(app);
-  app.use("/api/system/policy-status", policyStatusRoutes);
+  app.use(\"/api/system/policy-status\", policyStatusRoutes);
 
   // =================================================================
   // CLIENT ENRICHMENT API ENDPOINTS
   // =================================================================
 
   // Comprehensive client enrichment endpoint
-  app.post("/api/client/enrich", clientEnrichmentService.enrichClient);
+  app.post(\"/api/client/enrich\", clientEnrichmentService.enrichClient);
 
   // Get client enrichment history
-  app.get("/api/client/enrichment/history", clientEnrichmentService.getEnrichmentHistory);
+  app.get(\"/api/client/enrichment/history\", clientEnrichmentService.getEnrichmentHistory);
 
   // Get detailed enrichment insights
-  app.get("/api/client/enrichment/:enrichmentId", clientEnrichmentService.getEnrichmentInsights);
+  app.get(\"/api/client/enrichment/:enrichmentId\", clientEnrichmentService.getEnrichmentInsights);
 
   // Get available enrichment data sources
-  app.get("/api/client/enrichment/sources", clientEnrichmentService.getEnrichmentSources);
+  app.get(\"/api/client/enrichment/sources\", clientEnrichmentService.getEnrichmentSources);
 
   // =================================================================
   // AI TRANSACTION TRACKING API ENDPOINTS
   // =================================================================
 
   // Track a new transaction with AI analysis
-  app.post("/api/transactions/track", aiTransactionTrackerService.trackTransaction);
+  app.post(\"/api/transactions/track\", aiTransactionTrackerService.trackTransaction);
 
   // Analyze user's transaction patterns
-  app.get("/api/transactions/analyze", aiTransactionTrackerService.analyzeTransactions);
+  app.get(\"/api/transactions/analyze\", aiTransactionTrackerService.analyzeTransactions);
 
   // Get transaction history with AI insights
-  app.get("/api/transactions/history", aiTransactionTrackerService.getTransactionHistory);
+  app.get(\"/api/transactions/history\", aiTransactionTrackerService.getTransactionHistory);
 
   // Get transaction alerts and anomalies
-  app.get("/api/transactions/alerts", aiTransactionTrackerService.getTransactionAlerts);
+  app.get(\"/api/transactions/alerts\", aiTransactionTrackerService.getTransactionAlerts);
 
   // =================================================================
   // AI INVESTSMART MONITOR API ENDPOINTS
   // =================================================================
 
   // Get comprehensive AI insights for InvestSmart page
-  app.get("/api/ai-investsmart-insights", aiInvestSmartMonitorService.getAIInsights);
+  app.get(\"/api/ai-investsmart-insights\", aiInvestSmartMonitorService.getAIInsights);
 
   // Get AI-generated actionables based on current data
-  app.get("/api/ai-investsmart-actionables", aiInvestSmartMonitorService.getActionables);
+  app.get(\"/api/ai-investsmart-actionables\", aiInvestSmartMonitorService.getActionables);
 
   // Monitor InvestSmart page health and generate alerts
-  app.get("/api/ai-investsmart-health", aiInvestSmartMonitorService.monitorPageHealth);
+  app.get(\"/api/ai-investsmart-health\", aiInvestSmartMonitorService.monitorPageHealth);
   
   registerBondsMarketRoutes(app);
   registerBondTradingOrdersRoutes(app);
@@ -778,16 +769,16 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerM2PCardRoutes(app);
   registerBankingRoutes(app);
   registerLoanRoutes(app);
-  logBootProgress("registerRoutes: Registering Loan Processing...");
+  logBootProgress(\"registerRoutes: Registering Loan Processing...\");
   await registerLoanProcessingRoutes(app);
-  logBootProgress("registerRoutes: Loan Processing registered");
+  logBootProgress(\"registerRoutes: Loan Processing registered\");
   registerLoanComparisonRoutes(app);
-  app.use("/api/dsa-loans", dsaLoanRoutes);
-  app.use("/api/admin/dsa-loans", adminDsaLoanRoutes);
-  app.use("/api/agent/loans", requireAgent, agentLoanRoutes);
-  app.use("/api/admin/agent-payouts", requireAdmin, adminAgentPayoutRoutes);
-  app.use("/api/developer-finance", developerFinanceRoutes);
-  console.log("✅ DSA Multi-Financier Loan routes registered");
+  app.use(\"/api/dsa-loans\", dsaLoanRoutes);
+  app.use(\"/api/admin/dsa-loans\", adminDsaLoanRoutes);
+  app.use(\"/api/agent/loans\", requireAgent, agentLoanRoutes);
+  app.use(\"/api/admin/agent-payouts\", requireAdmin, adminAgentPayoutRoutes);
+  app.use(\"/api/developer-finance\", developerFinanceRoutes);
+  console.log(\"✅ DSA Multi-Financier Loan routes registered\");
   registerLoanCommissionRoutes(app);
   registerEligibilityMatrixRoutes(app);
   registerRevenueSheetRoutes(app);
@@ -798,8 +789,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   
   // Document Lifecycle Management (DLM) System
   registerFinancialDataRoutes(app);
-  app.use("/api/webauthn", webauthnRouter);
-  console.log("✅ WebAuthn Biometric Authentication routes registered");
+  app.use(\"/api/webauthn\", webauthnRouter);
+  console.log(\"✅ WebAuthn Biometric Authentication routes registered\");
   registerDLMRoutes(app);
   app.use(aiGovernanceRouter);
   console.log('✅ AI Governance routes registered');
@@ -812,10 +803,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   registerIrisKfintechRoutes(app);
   
   // Pick of the Day Recommendation Engine
-  const pickOfTheDayRoutes = (await import("./routes/pick-of-the-day")).default;
-  app.use("/api/picks", pickOfTheDayRoutes);
-  console.log("✅ Pick of the Day routes registered (/api/picks/*)");
+  const pickOfTheDayRoutes = (await import(\"./routes/pick-of-the-day\")).default;
+  app.use(\"/api/picks\", pickOfTheDayRoutes);
+  console.log(\"✅ Pick of the Day routes registered (/api/picks/*)\");
   
-  logBootProgress("registerRoutes: Finished");
+  logBootProgress(\"registerRoutes: Finished\");
   return server;
 }

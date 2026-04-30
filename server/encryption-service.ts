@@ -21,8 +21,9 @@ class EncryptionService {
     this.masterKey = process.env.ENCRYPTION_MASTER_KEY || '';
     
     if (!this.masterKey) {
-      console.error('❌ CRITICAL: ENCRYPTION_MASTER_KEY is not set. PII encryption is MANDATORY for production.');
-      throw new Error('ENCRYPTION_MASTER_KEY environment variable is required for PII encryption');
+      console.error('❌ CRITICAL: ENCRYPTION_MASTER_KEY is not set. PII encryption/decryption will fail.');
+      // We don't throw here to allow the server to boot for diagnostics, 
+      // but individual encrypt/decrypt calls will fail if they require the key.
     }
   }
 

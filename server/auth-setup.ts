@@ -1,49 +1,49 @@
-import { type Express, type Request, type Response, NextFunction } from "express";
-import { setupAuth } from "./auth";
-import { storage } from "./storage";
-import { User, insertUserSchema } from "@shared/schema";
-import session from "express-session";
-import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
-import ConnectPgSimple from "connect-pg-simple";
-import { db } from "./db";
-import { eq, or } from "drizzle-orm";
-import { users } from "@shared/schema";
-import { stampSessionPortal } from "./subdomain-middleware";
+import { type Express, type Request, type Response, NextFunction } from \"express\";
+import { setupAuth } from \"./auth\";
+import { storage } from \"./storage\";
+import { User, insertUserSchema } from \"@shared/schema\";
+import session from \"express-session\";
+import passport from \"passport\";
+import { Strategy as LocalStrategy } from \"passport-local\";
+import { scrypt, randomBytes, timingSafeEqual } from \"crypto\";
+import { promisify } from \"util\";
+import ConnectPgSimple from \"connect-pg-simple\";
+import { db } from \"./db\";
+import { eq, or } from \"drizzle-orm\";
+import { users } from \"@shared/schema\";
+import { stampSessionPortal } from \"./subdomain-middleware\";
 
 export function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   if (req.isAuthenticated()) return next();
-  res.status(401).json({ message: "Unauthorized" });
+  res.status(401).json({ message: \"Unauthorized\" });
 }
 
 const scryptAsync = promisify(scrypt);
 const PostgresSessionStore = ConnectPgSimple(session);
 
 async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
+  const salt = randomBytes(16).toString(\"hex\");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
+  return `${buf.toString(\"hex\")}.${salt}`;
 }
 
 async function comparePasswords(supplied: string, stored: string) {
-  const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
+  const [hashed, salt] = stored.split(\".\");
+  const hashedBuf = Buffer.from(hashed, \"hex\");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
 export async function setupSessionAuth(app: Express) {
-  const isProduction = process.env.NODE_ENV === "production";
-  const customDomain = process.env.CUSTOM_DOMAIN || "fintekpro.com";
+  const isProduction = process.env.NODE_ENV === \"production\";
+  const customDomain = process.env.CUSTOM_DOMAIN || \"fintekpro.com\";
   // CRITICAL: Explicitly set the domain attribute of the session cookie to .fintekpro.com. 
   // This is required for the browser to share the session across subdomains.
-  const cookieDomain = isProduction ? (customDomain.startsWith(".") ? customDomain : `.${customDomain}`) : undefined;
-  console.log(`[Session] Initializing session with domain: ${cookieDomain || "localhost"}`);
+  const cookieDomain = isProduction ? (customDomain.startsWith(\".\") ? customDomain : `.${customDomain}`) : undefined;
+  console.log(`[Session] Initializing session with domain: ${cookieDomain || \"localhost\"}`);
 
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "fintekpro-secret-key-change-this",
+    secret: process.env.SESSION_SECRET || \"fintekpro-secret-key-change-this\",
     resave: false,
     saveUninitialized: false,
     store: new PostgresSessionStore({
@@ -57,13 +57,13 @@ export async function setupSessionAuth(app: Express) {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       httpOnly: true,
       secure: isProduction,
-      sameSite: "lax",
+      sameSite: \"lax\",
       domain: cookieDomain,
     },
-    name: "fintekpro.sid",
+    name: \"fintekpro.sid\",
   };
 
-  app.set("trust proxy", 1);
+  app.set(\"trust proxy\", 1);
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
@@ -78,7 +78,7 @@ export async function setupSessionAuth(app: Express) {
           .limit(1);
 
         if (!user || !(await comparePasswords(password, user.password))) {
-          return done(null, false, { message: "Invalid username or password" });
+          return done(null, false, { message: \"Invalid username or password\" });
         }
 
         return done(null, user);
@@ -101,7 +101,7 @@ export async function setupSessionAuth(app: Express) {
     }
   });
 
-  app.post("/api/register", async (req, res) => {
+  app.post(\"/api/register\", async (req, res) => {
     try {
       const result = insertUserSchema.safeParse(req.body);
       if (!result.success) {
@@ -115,7 +115,7 @@ export async function setupSessionAuth(app: Express) {
         .limit(1);
 
       if (existingUser) {
-        return res.status(400).json({ error: "Username or email already exists" });
+        return res.status(400).json({ error: \"Username or email already exists\" });
       }
 
       const hashedPassword = await hashPassword(result.data.password);
@@ -128,7 +128,7 @@ export async function setupSessionAuth(app: Express) {
         .returning();
 
       req.login(user, (err) => {
-        if (err) return res.status(500).json({ error: "Login after registration failed" });
+        if (err) return res.status(500).json({ error: \"Login after registration failed\" });
         
         // Stamp the session with the portal context
         stampSessionPortal(req);
@@ -136,14 +136,14 @@ export async function setupSessionAuth(app: Express) {
         res.status(201).json(user);
       });
     } catch (err) {
-      res.status(500).json({ error: "Registration failed" });
+      res.status(500).json({ error: \"Registration failed\" });
     }
   });
 
-  app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: any, info: any) => {
+  app.post(\"/api/login\", (req, res, next) => {
+    passport.authenticate(\"local\", (err: any, user: any, info: any) => {
       if (err) return next(err);
-      if (!user) return res.status(401).json({ error: info?.message || "Authentication failed" });
+      if (!user) return res.status(401).json({ error: info?.message || \"Authentication failed\" });
 
       req.login(user, (err) => {
         if (err) return next(err);
@@ -156,21 +156,21 @@ export async function setupSessionAuth(app: Express) {
     })(req, res, next);
   });
 
-  app.post("/api/logout", (req, res, next) => {
+  app.post(\"/api/logout\", (req, res, next) => {
     req.logout((err) => {
       if (err) return next(err);
       
       // Clear session cookie with explicit domain for multi-portal reliability
-      res.clearCookie("fintekpro.sid", {
-        domain: process.env.NODE_ENV === "production" ? (process.env.CUSTOM_DOMAIN ? (process.env.CUSTOM_DOMAIN.startsWith(".") ? process.env.CUSTOM_DOMAIN : `.${process.env.CUSTOM_DOMAIN}`) : ".fintekpro.com") : undefined,
-        path: "/",
+      res.clearCookie(\"fintekpro.sid\", {
+        domain: process.env.NODE_ENV === \"production\" ? (process.env.CUSTOM_DOMAIN ? (process.env.CUSTOM_DOMAIN.startsWith(\".\") ? process.env.CUSTOM_DOMAIN : `.${process.env.CUSTOM_DOMAIN}`) : \".fintekpro.com\") : undefined,
+        path: \"/\",
       });
       
       res.sendStatus(200);
     });
   });
 
-  app.get("/api/user", (req, res) => {
+  app.get(\"/api/user\", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     res.json(req.user);
   });

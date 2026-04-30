@@ -1,19 +1,19 @@
-import { type Express, type Request, type Response } from "express";
-import { registerRoutes } from "./routes";
-import { setupAuth } from "./auth";
-import { storage } from "./storage";
-import { logger } from "./logger";
-import { bootState, logBootProgress } from "./utils/boot-state";
-import { createCsrfProtection, generateCsrfToken } from "./middleware/csrf";
-import { creditRatingsService } from "./services/credit-ratings-service";
-import { symbolMappingService } from "./services/symbol-mapping-service";
-import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
-import { APP_VERSION } from "../shared/version";
-import cors from "cors";
-import { subdomainDetection } from "./subdomain-middleware";
-import { registerAuthEventConsumers } from "./services/auth-event-consumers";
+import { type Express, type Request, type Response } from \"express\";
+import { registerRoutes } from \"./routes\";
+import { setupAuth } from \"./auth\";
+import { storage } from \"./storage\";
+import { logger } from \"./logger\";
+import { bootState, logBootProgress } from \"./utils/boot-state\";
+import { createCsrfProtection, generateCsrfToken } from \"./middleware/csrf\";
+import { creditRatingsService } from \"./services/credit-ratings-service\";
+import { symbolMappingService } from \"./services/symbol-mapping-service\";
+import express from \"express\";
+import path from \"path\";
+import { fileURLToPath } from \"url\";
+import { APP_VERSION } from \"../shared/version\";
+import cors from \"cors\";
+import { subdomainDetection } from \"./subdomain-middleware\";
+import { registerAuthEventConsumers } from \"./services/auth-event-consumers\";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -38,8 +38,21 @@ process.on('unhandledRejection', (reason, promise) => {
 // PHASE 1: PRE-BOOT MIDDLEWARE & CORS
 // ============================================================================
 
+app.get(\"/api/health\", (req, res) => {
+  res.status(200).json({ 
+    status: \"ok\", 
+    booting: !bootState.routesReady,
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+// Critical Health Check (Phase 1)
+// registered early so Cloud Run health probes succeed during boot
+
 
 const corsAllowedOrigins = [
   'https://fintekpro.com',
@@ -52,7 +65,7 @@ const corsAllowedOrigins = [
 ];
 
 // In development, allow localhost/Replit origins
-if (process.env.NODE_ENV !== "production") {
+if (process.env.NODE_ENV !== \"production\") {
   corsAllowedOrigins.push('http://localhost:5173');
   corsAllowedOrigins.push('http://localhost:5000');
   corsAllowedOrigins.push('http://0.0.0.0:5000');
@@ -90,9 +103,9 @@ app.get('/api/boot-status', (req, res) => {
  * Register the SPA catch-all route immediately.
  * This ensures that if the async boot sequence (Phase 3) takes a long time
  * or fails partway through, the browser still receives index.html instead
- * of "Cannot GET /" or a raw Express error.
+ * of \"Cannot GET /\" or a raw Express error.
  * 
- * The frontend UI is designed to show a "Connecting to server..." splash 
+ * The frontend UI is designed to show a \"Connecting to server...\" splash 
  * screen until it receives a successful response from /api/boot-status.
  */
 function registerSPACatchAll(expressApp: Express) {
@@ -135,7 +148,7 @@ if (process.env.NODE_ENV === 'production') {
 
 (async () => {
   try {
-    logBootProgress("Step 1: Starting database connection...");
+    logBootProgress(\"Step 1: Starting database connection...\");
 
     // Test database connection immediately
     const { db } = await import('./db');
@@ -149,7 +162,7 @@ if (process.env.NODE_ENV === 'production') {
       throw new Error(`DB Connection Error: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`);
     }
 
-    logBootProgress("Step 2: Checking schema migrations...");
+    logBootProgress(\"Step 2: Checking schema migrations...\");
     // ── DATABASE REPAIR & MIGRATION ──────────────────────────────────────────
     // Perform critical schema updates needed for boot.
     // We use a dedicated try/catch so migration errors don't necessarily 
@@ -352,7 +365,7 @@ if (process.env.NODE_ENV === 'production') {
       console.error('❌ Migration sequence failed (non-fatal):', migErr);
     }
 
-    logBootProgress("Step 3: Initializing Middleware & Auth...");
+    logBootProgress(\"Step 3: Initializing Middleware & Auth...\");
 
     // ── GLOBAL MIDDLEWARE ────────────────────────────────────────────────────
     // Subdomain detection must be first to set portal context flags
@@ -370,11 +383,11 @@ if (process.env.NODE_ENV === 'production') {
       // Step 3b: Initialize Passport Strategies (Local, OTP, etc)
       setupAuth(app);
 
-      logBootProgress("Step 3c: Registering Auth Consumers...");
+      logBootProgress(\"Step 3c: Registering Auth Consumers...\");
       // Register auth event consumers (structured logging + high-risk DB persistence)
       registerAuthEventConsumers();
 
-      logBootProgress("Step 3d: Setting up CSRF...");
+      logBootProgress(\"Step 3d: Setting up CSRF...\");
 
       // CSRF token endpoint (must be after session middleware)
       app.get('/api/csrf-token', (req: Request, res: Response) => {
@@ -398,7 +411,7 @@ if (process.env.NODE_ENV === 'production') {
     }
 
     // ── CORE ROUTES ──────────────────────────────────────────────────────────
-    logBootProgress("Step 4: Registering Core Routes...");
+    logBootProgress(\"Step 4: Registering Core Routes...\");
     console.log('📦 Registering routes...');
 
     // Register Version API route
@@ -437,7 +450,7 @@ if (process.env.NODE_ENV === 'production') {
     app.use(agentTrackerRoutes.default);
 
     // Diagnostics for subdomain detection
-    app.get("/api/internal/diagnostics", (req: any, res: any) => {
+    app.get(\"/api/internal/diagnostics\", (req: any, res: any) => {
       res.json({
         hostname: req.hostname,
         subdomain: req.subdomain,
@@ -455,7 +468,7 @@ if (process.env.NODE_ENV === 'production') {
     const pythonProxyRoutes = await import('./routes/python-proxy');
     app.use(pythonProxyRoutes.default);
 
-    logBootProgress("Step 5: Registering KYC & User Management Routes...");
+    logBootProgress(\"Step 5: Registering KYC & User Management Routes...\");
 
     const [
       kycVaultMod, marketingMod, adminProspectsMod, twilioWebhookMod,
@@ -479,7 +492,7 @@ if (process.env.NODE_ENV === 'production') {
     stakeholderMod.registerStakeholderRoutes(app);
     app.use('/api/auto-population', autoPopMod.autoPopulationRouter);
 
-    logBootProgress("Step 6: Registering Marketplace & Regulatory Routes...");
+    logBootProgress(\"Step 6: Registering Marketplace & Regulatory Routes...\");
     const [
       unlistedRoutes, complianceRoutes, bondMarketplaceRoutes, 
       bondSeedAdminRoutes, goldAdminRoutes, bondMarketplaceImprovements, 
@@ -515,7 +528,7 @@ if (process.env.NODE_ENV === 'production') {
       import('./routes/ai-alpha-engine'),
     ]);
     app.use('/api/admin', commissionConfigRoutes.default);
-    app.use('/api/regulatory', regulatoryFrameworkOrigins.default);
+    app.use('/api/regulatory', regulatoryFrameworkRoutes.default);
     app.use('/api/isin', isinIntelligenceRoutes.default);
     app.use('/api/ai', aiAlphaEngineRoutes.default);
 
@@ -546,14 +559,14 @@ if (process.env.NODE_ENV === 'production') {
 
     // ── REGISTER BUSINESS ROUTES ─────────────────────────────────────────────
     // Call the centralized route registration to ensure all API endpoints are up
-    logBootProgress("Step 11: Registering Business Logic Routes...");
+    logBootProgress(\"Step 11: Registering Business Logic Routes...\");
     await registerRoutes(app);
 
-    logBootProgress("Step 12: Boot sequence complete. Server is operational.");
+    logBootProgress(\"Step 12: Boot sequence complete. Server is operational.\");
 
     // Start listening AFTER routes are registered
     const PORT = Number(process.env.PORT) || 5000;
-    app.listen(PORT, "0.0.0.0", () => {
+    app.listen(PORT, \"0.0.0.0\", () => {
       console.log(`🚀 [v${APP_VERSION}] Server listening on port ${PORT}`);
     });
 
@@ -573,9 +586,9 @@ if (process.env.NODE_ENV === 'production') {
     if (process.env.NODE_ENV === 'production') {
       try { registerSPACatchAll(app); } catch (_) {}
       
-      // Still listen so we can serve the "System initializing" error message
+      // Still listen so we can serve the \"System initializing\" error message
       const PORT = Number(process.env.PORT) || 5000;
-      app.listen(PORT, "0.0.0.0", () => {
+      app.listen(PORT, \"0.0.0.0\", () => {
         console.log(`⚠️ Server listening in fallback mode on port ${PORT}`);
       });
     }
