@@ -495,6 +495,19 @@ router.put("/commission-plan/:id", requireCommissionPermission('canEdit'), async
 });
 
 router.post("/commission-plan/:id/activate", requireCommissionPermission('canActivate'), async (req: Request, res: Response) => {
+  try {
+    const planId = parseInt(req.params.id);
+    const userId = (req as any).session?.userId;
+    
+    if (isNaN(planId)) {
+      return res.status(400).json({ error: "Invalid plan ID" });
+    }
+    
+    const [plan] = await db.select().from(commissionPlans).where(eq(commissionPlans.id, planId));
+    if (!plan) {
+      return res.status(404).json({ error: "Commission plan not found" });
+    }
+
     // Instead of direct activation, create an approval request (Maker)
     const request = await AdminApprovalService.createRequest({
       entityType: 'commission_plan',

@@ -647,7 +647,7 @@ if (process.env.NODE_ENV === 'production') {
     const [
       unlistedRoutes, complianceRoutes, bondMarketplaceRoutes, 
       bondSeedAdminRoutes, goldAdminRoutes, bondMarketplaceImprovements, 
-      bondMarketplaceCalendarRoutes, regulatoryAuditNormsRoutes
+      bondMarketplaceCalendarRoutes, regulatoryAuditNormsRoutes, regulatoryComplianceRoutes
     ] = await Promise.all([
       import('./routes/unlisted'),
       import('./routes/compliance'),
@@ -657,9 +657,11 @@ if (process.env.NODE_ENV === 'production') {
       import('./routes/bond-marketplace-improvements'),
       import('./routes/bond-calendar-routes'),
       import('./routes/regulatory-audit-norms-routes'),
+      import('./routes/regulatory-compliance-routes'),
     ]);
     app.use('/api/unlisted', unlistedRoutes.default);
     app.use('/api/compliance', complianceRoutes.default);
+    app.use('/api', regulatoryComplianceRoutes.default);
     app.use('/api/admin/regulatory-audit', regulatoryAuditNormsRoutes.default);
     app.use('/api/bonds', bondMarketplaceRoutes.default);
     app.use('/api/admin/bond-seed', bondSeedAdminRoutes.default);
