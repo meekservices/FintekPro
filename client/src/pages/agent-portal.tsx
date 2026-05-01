@@ -24,6 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { ComplianceStatusBadge } from "@/components/regulatory/ComplianceStatusBadge";
 import { 
   Users, 
   UserPlus, 
@@ -580,18 +581,21 @@ export default function AgentPortal() {
               <p className="text-muted-foreground mt-1 text-sm sm:text-base">
                 Welcome back, {agentProfile?.fullName || 'Partner'}
               </p>
-              {agentProfile?.euinNumber && (
-                <div className="flex items-center gap-4 mt-2">
-                  <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">
-                    EUIN: {agentProfile.euinNumber}
-                  </Badge>
-                  {agentProfile.arnCode && (
-                    <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
-                      ARN: {agentProfile.arnCode}
+              <div className="flex items-center gap-4 mt-3">
+                <ComplianceStatusBadge />
+                {agentProfile?.euinNumber && (
+                  <>
+                    <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">
+                      EUIN: {agentProfile.euinNumber}
                     </Badge>
-                  )}
-                </div>
-              )}
+                    {agentProfile.arnCode && (
+                      <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
+                        ARN: {agentProfile.arnCode}
+                      </Badge>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
             <div className="text-right">
               <p className="text-sm text-muted-foreground">partner.fintekpro.com</p>

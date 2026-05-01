@@ -39,21 +39,6 @@ const alertUpdateSchema = z.object({
 
 const router = Router();
 
-const watchlistAddSchema = z.object({
-  pickId: z.number(),
-  notes: z.string().optional(),
-  priceAlertEnabled: z.boolean().optional(),
-  alertThreshold: z.number().optional(),
-  alertType: z.enum(['above', 'below', 'target_hit', 'stoploss_hit']).optional(),
-});
-
-const alertUpdateSchema = z.object({
-  priceAlertEnabled: z.boolean().optional(),
-  alertThreshold: z.number().optional(),
-  alertType: z.enum(['above', 'below', 'target_hit', 'stoploss_hit']).optional(),
-});
-
-
 
 router.get("/search/products", requireAuth, async (req, res) => {
   try {

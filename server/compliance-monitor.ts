@@ -1,4 +1,8 @@
 import { Request, Response, NextFunction } from "express";
+import { db } from "./db";
+import { immutableAuditLogs } from "@shared/schema";
+import { sql, desc } from "drizzle-orm";
+import * as crypto from "crypto";
 
 export interface ComplianceEvent {
   id: string;
@@ -30,6 +34,7 @@ class ComplianceMonitor {
   private alerts: SecurityAlert[] = [];
   private loginAttempts: Map<string, { count: number; lastAttempt: Date }> = new Map();
   private ipTracking: Map<string, { requests: number; firstSeen: Date; flagged: boolean }> = new Map();
+  private lastChecksum: string | null = null;
 
   constructor() {
     // Clean up old events every hour
@@ -38,7 +43,7 @@ class ComplianceMonitor {
     }, 3600000); // 1 hour
   }
 
-  logEvent(event: Omit<ComplianceEvent, 'id' | 'timestamp'>): string {
+  async logEvent(event: Omit<ComplianceEvent, 'id' | 'timestamp'>): Promise<string> {
     const eventId = `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     const complianceEvent: ComplianceEvent = {
@@ -47,7 +52,44 @@ class ComplianceMonitor {
       ...event
     };
 
+    // Keep in memory for quick reports, but prioritize database
     this.events.push(complianceEvent);
+
+    // Calculate checksum for immutability
+    if (!this.lastChecksum) {
+      const lastEntry = await db.select({ checksum: immutableAuditLogs.checksum })
+        .from(immutableAuditLogs)
+        .orderBy(desc(immutableAuditLogs.timestamp))
+        .limit(1);
+      this.lastChecksum = lastEntry[0]?.checksum || '0'.repeat(64);
+    }
+
+    const eventContent = JSON.stringify({
+      eventType: complianceEvent.eventType,
+      action: complianceEvent.action,
+      userId: complianceEvent.userId,
+      timestamp: complianceEvent.timestamp.toISOString(),
+      details: complianceEvent.details
+    });
+
+    const currentChecksum = crypto.createHash('sha256')
+      .update(eventContent + this.lastChecksum)
+      .digest('hex');
+
+    try {
+      await db.insert(immutableAuditLogs).values({
+        eventType: complianceEvent.eventType,
+        action: complianceEvent.action,
+        userId: complianceEvent.userId,
+        metadata: complianceEvent.details || {},
+        checksum: currentChecksum,
+        previousChecksum: this.lastChecksum,
+        entityType: complianceEvent.resource
+      });
+      this.lastChecksum = currentChecksum;
+    } catch (error) {
+      console.error('[COMPLIANCE] Failed to persist audit log:', error);
+    }
 
     // Analyze event for security concerns
     this.analyzeEvent(complianceEvent);
@@ -383,10 +425,9 @@ export const complianceMiddleware = (req: Request, res: Response, next: NextFunc
     return next();
   }
 
-  const originalSend = res.send;
   const startTime = Date.now();
 
-  res.send = function(data) {
+  res.on('finish', () => {
     const responseTime = Date.now() - startTime;
     const isSuccess = res.statusCode < 400;
     
@@ -403,8 +444,6 @@ export const complianceMiddleware = (req: Request, res: Response, next: NextFunc
       riskLevel = req.method === 'GET' ? 'low' : 'medium';
     } else if (req.path.includes('/admin')) {
       eventType = 'admin_action';
-      // Only flag mutating admin operations as high-risk
-      // GET requests (dashboard views, counts, etc.) are low-risk read-only operations
       riskLevel = req.method === 'GET' ? 'low' : 'high';
     } else if (req.path.includes('/transaction') || req.path.includes('/payment')) {
       eventType = 'transaction';
@@ -417,7 +456,7 @@ export const complianceMiddleware = (req: Request, res: Response, next: NextFunc
       riskLevel = 'high';
     }
 
-    // Log the compliance event
+    // Log the compliance event (async, fire and forget)
     complianceMonitor.logEvent({
       userId: (req as any).user?.id,
       eventType,
@@ -433,10 +472,8 @@ export const complianceMiddleware = (req: Request, res: Response, next: NextFunc
         queryParams: Object.keys(req.query).length > 0 ? req.query : undefined,
         bodySize: req.get('Content-Length') || 0
       }
-    });
-
-    return originalSend.call(this, data);
-  };
+    }).catch(err => console.error('[COMPLIANCE] Background logging failed:', err));
+  });
 
   next();
 };

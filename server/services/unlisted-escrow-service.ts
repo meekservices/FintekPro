@@ -68,6 +68,7 @@ export class UnlistedEscrowService {
   private readonly BUYER_FEE_PERCENT = 0.5;
   private readonly SELLER_FEE_PERCENT = 1.0;
   private readonly GST_PERCENT = 18;
+  private readonly STAMP_DUTY_PERCENT = 0.015;
 
   constructor() {
     this.cashfree = cashfreeService;
@@ -80,6 +81,7 @@ export class UnlistedEscrowService {
     platformFee: number;
     buyerFee: number;
     sellerFee: number;
+    stampDuty: number;
     buyerTotal: number;
     sellerPayout: number;
     gstOnFees: number;
@@ -87,16 +89,21 @@ export class UnlistedEscrowService {
     const platformFee = totalValue * (this.PLATFORM_FEE_PERCENT / 100);
     const buyerFee = totalValue * (this.BUYER_FEE_PERCENT / 100);
     const sellerFee = totalValue * (this.SELLER_FEE_PERCENT / 100);
+    const stampDuty = totalValue * (this.STAMP_DUTY_PERCENT / 100);
+    
     const totalFees = platformFee + buyerFee + sellerFee;
     const gstOnFees = totalFees * (this.GST_PERCENT / 100);
     
-    const buyerTotal = totalValue + buyerFee + (gstOnFees / 2);
+    // Buyer pays transaction value + buyer fee + half of GST + stamp duty
+    const buyerTotal = totalValue + buyerFee + stampDuty + (gstOnFees / 2);
+    // Seller receives transaction value - seller fee - platform fee - half of GST
     const sellerPayout = totalValue - sellerFee - platformFee - (gstOnFees / 2);
 
     return {
       platformFee: Math.round(platformFee * 100) / 100,
       buyerFee: Math.round(buyerFee * 100) / 100,
       sellerFee: Math.round(sellerFee * 100) / 100,
+      stampDuty: Math.round(stampDuty * 100) / 100,
       buyerTotal: Math.round(buyerTotal * 100) / 100,
       sellerPayout: Math.round(sellerPayout * 100) / 100,
       gstOnFees: Math.round(gstOnFees * 100) / 100,
@@ -146,6 +153,75 @@ export class UnlistedEscrowService {
       const totalValue = parseFloat(deal.totalValue);
       const fees = this.calculateFees(totalValue);
       
+      // Regulatory: Check Valuation Deviation (>20% from FMV)
+      let complianceNotes = deal.complianceNotes || '';
+      let valuationDeviation = 0;
+      let fmvPrice = 0;
+
+      try {
+        const { unlistedValuationGovernanceService } = await import('./unlisted-valuation-governance-service');
+        const latestVal = await unlistedValuationGovernanceService.getLatestValuation(deal.companyId);
+        
+        if (latestVal) {
+          fmvPrice = parseFloat(latestVal.price.toString());
+          const agreedPrice = parseFloat(deal.agreedPrice);
+          valuationDeviation = Math.abs((agreedPrice - fmvPrice) / fmvPrice) * 100;
+          
+          if (valuationDeviation > 20) {
+            complianceNotes += ` [VALUATION_ALERT] Price ₹${agreedPrice} deviates by ${valuationDeviation.toFixed(2)}% from FMV ₹${fmvPrice}. Potential tax risk under Section 56(2)(x).`;
+            console.warn(`[Escrow] Valuation deviation alert for deal ${deal.id}: ${valuationDeviation.toFixed(2)}%`);
+          }
+        }
+      } catch (e) {
+        console.error('[Escrow] Failed to check valuation deviation:', e);
+      }
+
+      // Regulatory: Check 200 Investor Limit (Companies Act Section 42)
+      try {
+        const { regulatoryComplianceService } = await import('./unlisted-regulatory-compliance-service');
+        const limitCheck = await regulatoryComplianceService.checkInvestorLimit(deal.companyId, request.buyerUserId);
+        
+        if (!limitCheck.allowed) {
+          return {
+            success: false,
+            message: limitCheck.reason || 'Investor limit reached for this company.',
+            errorCode: 'INVESTOR_LIMIT_REACHED'
+          };
+        }
+      } catch (e) {
+        console.error('[Escrow] Failed to check investor limit:', e);
+      }
+
+      // Regulatory: Check Source of Funds for High-Value Trades (>₹50 Lakhs)
+      try {
+        const { regulatoryComplianceService } = await import('./unlisted-regulatory-compliance-service');
+        if (regulatoryComplianceService.requiresSourceOfFundsVerification(totalValue)) {
+          // This should have been verified during KYC, but we double check the flag
+          const investorRecord = await db.query.unlistedInvestorTracking.findFirst({
+            where: and(
+              eq(unlistedInvestorTracking.userId, request.buyerUserId),
+              eq(unlistedInvestorTracking.companyId, deal.companyId)
+            ),
+          });
+
+          if (!investorRecord?.sourceOfFundsVerified) {
+             complianceNotes += ` [STR_FLAG] High-value trade (₹${(totalValue/100000).toFixed(2)}L) without SOF verification.`;
+             // We allow the payment but flag it for STR reporting
+             await regulatoryComplianceService.recordSTRFlag({
+                userId: request.buyerUserId,
+                companyId: deal.companyId,
+                dealId: deal.id,
+                flagType: 'source_of_funds',
+                severity: 'high',
+                transactionAmount: totalValue,
+                flagReason: `High-value trade exceeding ₹50L threshold initiated without pre-verified Source of Funds.`
+             });
+          }
+        }
+      } catch (e) {
+        console.error('[Escrow] Failed to check SOF verification:', e);
+      }
+
       const escrowId = `escrow_${deal.id}_${Date.now()}`;
       const returnUrl = request.returnUrl || 
         `${getAppBaseUrl()}/api/unlisted/payment/callback`;
@@ -174,8 +250,12 @@ export class UnlistedEscrowService {
           platformFee: fees.platformFee.toString(),
           buyerFee: fees.buyerFee.toString(),
           sellerFee: fees.sellerFee.toString(),
+          stampDuty: fees.stampDuty.toString(),
           buyerCharge: fees.buyerTotal.toString(),
           sellerPayout: fees.sellerPayout.toString(),
+          fmvAtTransaction: fmvPrice.toString(),
+          valuationDeviation: valuationDeviation.toString(),
+          complianceNotes: complianceNotes,
           updatedAt: new Date()
         })
         .where(eq(unlistedDeals.id, deal.id));

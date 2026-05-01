@@ -17,6 +17,8 @@ import {
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { emailService } from "./email-service";
+import { AdminApprovalService } from "./services/admin-approval-service";
+import { adminApprovalRequests } from "@shared/schema";
 
 interface CommissionNotification {
   eventType: 'plan_activated' | 'plan_frozen' | 'plan_created' | 'plan_updated' | 'percentages_changed';
@@ -493,78 +495,91 @@ router.put("/commission-plan/:id", requireCommissionPermission('canEdit'), async
 });
 
 router.post("/commission-plan/:id/activate", requireCommissionPermission('canActivate'), async (req: Request, res: Response) => {
-  try {
-    const planId = parseInt(req.params.id);
-    const userId = (req as any).session?.userId;
+    // Instead of direct activation, create an approval request (Maker)
+    const request = await AdminApprovalService.createRequest({
+      entityType: 'commission_plan',
+      entityId: planId.toString(),
+      action: 'activate',
+      requestedBy: userId,
+      requestData: { planId, productType: plan.productType, version: plan.version },
+      priority: 'high',
+      justification: `Activation requested for ${plan.productType} v${plan.version}`
+    });
     
-    if (isNaN(planId)) {
-      return res.status(400).json({ error: "Invalid plan ID" });
-    }
-    
-    const [plan] = await db.select().from(commissionPlans).where(eq(commissionPlans.id, planId));
-    
-    if (!plan) {
-      return res.status(404).json({ error: "Commission plan not found" });
-    }
-    
-    if (plan.status === 'frozen') {
-      return res.status(400).json({ error: "Cannot activate frozen plan" });
-    }
-    
-    const roleMaps = await db.select().from(commissionRoleMaps)
-      .where(eq(commissionRoleMaps.commissionPlanId, planId));
-    
-    if (roleMaps.length === 0) {
-      return res.status(400).json({ error: "Cannot activate plan without role mappings" });
-    }
-    
-    const effectiveDate = new Date(plan.effectiveFrom);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    if (effectiveDate < today) {
-      return res.status(400).json({ error: "Cannot activate plan with past effective date" });
-    }
-    
-    await db.update(commissionPlans)
-      .set({ isActive: false, status: 'archived' })
-      .where(and(
-        eq(commissionPlans.productType, plan.productType),
-        eq(commissionPlans.isActive, true)
-      ));
-    
-    await db.update(commissionPlans)
-      .set({ 
-        isActive: true, 
-        status: 'active',
-        updatedBy: userId,
-        updatedAt: new Date(),
-      })
-      .where(eq(commissionPlans.id, planId));
-    
-    await logCommissionAudit(
-      planId,
-      'plan_activated',
-      'draft',
-      'active',
-      userId,
-      req.ip,
-      `Plan activated for ${plan.productType}`
-    );
-    
-    sendCommissionNotification({
-      eventType: 'plan_activated',
-      productType: plan.productType,
-      planVersion: plan.version,
-      changedBy: `User #${userId}`,
-      affectedRoles: roleMaps.map(rm => rm.roleId),
-      reason: `Plan activated for ${plan.productType}`,
-    }).catch(err => console.error('Notification failed:', err));
-    
-    res.json({ message: "Plan activated successfully" });
+    res.json({ 
+      message: "Activation request submitted for approval", 
+      requestId: request.id,
+      requiresApproval: true 
+    });
   } catch (error) {
-    console.error("Error activating commission plan:", error);
-    res.status(500).json({ error: "Failed to activate commission plan" });
+    console.error("Error creating activation request:", error);
+    res.status(500).json({ error: "Failed to submit activation request" });
+  }
+});
+
+// Admin Approval Routes (Checker)
+router.get("/approval-requests", requireCommissionPermission('canView'), async (req, res) => {
+  try {
+    const requests = await AdminApprovalService.getPendingRequests();
+    res.json(requests);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch approval requests" });
+  }
+});
+
+router.post("/approval-requests/:id/process", requireCommissionPermission('canActivate'), async (req, res) => {
+  try {
+    const requestId = parseInt(req.params.id);
+    const { status, comments } = req.body;
+    const userId = (req as any).session?.userId;
+
+    if (status !== 'approved' && status !== 'rejected') {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    const updatedRequest = await AdminApprovalService.updateStatus(requestId, {
+      status,
+      reviewedBy: userId,
+      reviewComments: comments
+    });
+
+    if (status === 'approved' && updatedRequest.entityType === 'commission_plan' && updatedRequest.action === 'activate') {
+      const planId = updatedRequest.requestData.planId;
+      
+      const [plan] = await db.select().from(commissionPlans).where(eq(commissionPlans.id, planId));
+      
+      // Perform the actual activation
+      await db.update(commissionPlans)
+        .set({ isActive: false, status: 'archived' })
+        .where(and(
+          eq(commissionPlans.productType, plan.productType),
+          eq(commissionPlans.isActive, true)
+        ));
+      
+      await db.update(commissionPlans)
+        .set({ 
+          isActive: true, 
+          status: 'active',
+          updatedBy: userId,
+          updatedAt: new Date(),
+        })
+        .where(eq(commissionPlans.id, planId));
+
+      await logCommissionAudit(
+        planId,
+        'plan_activated',
+        'pending_approval',
+        'active',
+        userId,
+        req.ip,
+        `Plan approved and activated. Request ID: ${requestId}`
+      );
+    }
+
+    res.json({ message: `Request ${status} successfully`, request: updatedRequest });
+  } catch (error: any) {
+    console.error("Error processing approval request:", error);
+    res.status(400).json({ error: error.message || "Failed to process request" });
   }
 });
 

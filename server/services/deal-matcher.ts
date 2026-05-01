@@ -288,9 +288,13 @@ export class DealMatcherService {
     // Determine quantity (use minimum of available quantities)
     const quantity = Math.min(sellListing.quantity, buyRequest.quantity);
 
-    // Calculate total value and fees
-    const totalValue = (finalPrice * quantity).toFixed(2);
-    const platformFee = (finalPrice * quantity * 0.01).toFixed(2);
+    // Calculate total value and fees using UnlistedEscrowService for consistency
+    const totalValueNum = finalPrice * quantity;
+    const totalValue = totalValueNum.toFixed(2);
+    
+    const { unlistedEscrowService } = await import('./unlisted-escrow-service');
+    const fees = unlistedEscrowService.calculateFees(totalValueNum);
+    const platformFee = fees.platformFee.toString();
 
     // Execute all DB operations in a transaction for atomicity
     return await this.storage.withTransaction(async (tx) => {
@@ -307,6 +311,8 @@ export class DealMatcherService {
           totalValue,
           platformFee,
           status: 'pending_payment',
+          // Additional metadata for compliance tracking
+          complianceNotes: `Initial deal creation. Fees: Platform(₹${fees.platformFee}), Buyer(₹${fees.buyerFee}), Seller(₹${fees.sellerFee}), GST(₹${fees.gstOnFees}), Stamp Duty(₹${fees.stampDuty})`,
         })
         .returning();
 

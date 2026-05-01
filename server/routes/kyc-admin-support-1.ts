@@ -7,6 +7,10 @@ import { requireAuth, requireAdmin } from '../middleware/roleMiddleware';
 import * as schema from '../../shared/schema';
 import { insertManualKycSubmissionSchema } from '../../shared/schema';
 import { complianceMonitor } from '../compliance-monitor';
+import { maskPan, maskEmail, maskMobile } from '../utils/pii-utils';
+import { requireAdmin } from '../middleware/roleMiddleware';
+import { eq } from 'drizzle-orm';
+import { users } from '../../shared/schema';
 
 export function registerKYCAdminSupporPart1Routes(app: Express): void {
 app.post('/api/kyc/manual-submit', async (req: any, res) => {
@@ -236,6 +240,8 @@ app.get('/api/admin/kyc/submissions', requireAdmin, async (req, res) => {
       data: submissions.map((s: any) => ({
         userName: s.companyName || [s.firstName, s.lastName].filter(Boolean).join(' ') || 'N/A',
         ...s,
+        userEmail: maskEmail(s.userEmail),
+        pan: maskPan(s.pan),
         tier: 'tier1', // Default tier since users table has no kycStatus
         submittedAt: s.submittedAt?.toISOString() || null,
         reviewedAt: s.reviewedAt?.toISOString() || null,
@@ -617,8 +623,8 @@ app.get('/api/admin/duplicates', requireAdmin, async (req, res) => {
           users: users.map(u => ({
             id: u.id,
             userId: u.userId || u.id,
-            email: u.email || '',
-            mobile: u.mobile || '',
+            email: maskEmail(u.email || ''),
+            mobile: maskMobile(u.mobile || ''),
             firstName: u.firstName || '',
             middleName: u.middleName,
             lastName: u.lastName || '',

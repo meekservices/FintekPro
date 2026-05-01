@@ -9,7 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Users, Plus, Pencil, Trash2, Search, Shield, UserCheck, UserX, TrendingUp, Download } from 'lucide-react';
+import { Users, Plus, Pencil, Trash2, Search, Shield, UserCheck, UserX, TrendingUp, Download, Eye, EyeOff, Lock } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -53,6 +55,11 @@ export default function UserManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  
+  // PII Unmasking state
+  const [unmaskingData, setUnmaskingData] = useState<{ userId: string; field: string; maskedValue: string } | null>(null);
+  const [unmaskReason, setUnmaskReason] = useState("");
+  const [unmaskedValues, setUnmaskedValues] = useState<Record<string, string>>({});
 
   // Fetch user statistics
   const { data: stats } = useQuery<UserStats>({
@@ -131,6 +138,32 @@ export default function UserManagement() {
       toast({ 
         title: 'Failed to delete user',
         description: error.message || 'An error occurred',
+        variant: 'destructive'
+      });
+    }
+  });
+
+  // Unmask mutation
+  const unmaskMutation = useMutation({
+    mutationFn: async (data: { userId: string; field: string; reason: string }) => {
+      const response = await apiRequest('/api/admin/unmask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      return response;
+    },
+    onSuccess: (data, variables) => {
+      const key = `${variables.userId}-${variables.field}`;
+      setUnmaskedValues(prev => ({ ...prev, [key]: data.rawValue }));
+      setUnmaskingData(null);
+      setUnmaskReason("");
+      toast({ title: 'Data Unmasked', description: 'Access has been logged for audit purposes.' });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: 'Unmasking Failed',
+        description: error.message || 'Unauthorized or invalid reason',
         variant: 'destructive'
       });
     }
@@ -223,12 +256,52 @@ export default function UserManagement() {
     {
       id: "email",
       header: "Email",
-      cell: (user) => <span data-testid={`text-email-${user.id}`}>{user.email || 'N/A'}</span>,
+      cell: (user) => {
+        const key = `${user.id}-email`;
+        const isUnmasked = !!unmaskedValues[key];
+        return (
+          <div className="flex items-center gap-2">
+            <span className="truncate max-w-[150px]">
+              {isUnmasked ? unmaskedValues[key] : (user.email || 'N/A')}
+            </span>
+            {!isUnmasked && user.email?.includes('*') && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6" 
+                onClick={() => setUnmaskingData({ userId: user.id, field: 'email', maskedValue: user.email! })}
+              >
+                <Eye className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: "mobile",
       header: "Mobile",
-      cell: (user) => <span data-testid={`text-mobile-${user.id}`}>{user.mobile || 'N/A'}</span>,
+      cell: (user) => {
+        const key = `${user.id}-mobile`;
+        const isUnmasked = !!unmaskedValues[key];
+        return (
+          <div className="flex items-center gap-2">
+            <span>
+              {isUnmasked ? unmaskedValues[key] : (user.mobile || 'N/A')}
+            </span>
+            {!isUnmasked && user.mobile?.includes('*') && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6" 
+                onClick={() => setUnmaskingData({ userId: user.id, field: 'mobile', maskedValue: user.mobile! })}
+              >
+                <Eye className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: "role",
@@ -724,6 +797,60 @@ export default function UserManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* PII Unmasking Dialog */}
+      <Dialog open={!!unmaskingData} onOpenChange={(open) => !open && setUnmaskingData(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Lock className="h-5 w-5" />
+              Sensitive Data Access
+            </DialogTitle>
+            <DialogDescription>
+              You are requesting access to raw PII for user ID: {unmaskingData?.userId}. 
+              This action will be permanently logged in the immutable audit trail.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md">
+              <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                Field: {unmaskingData?.field.toUpperCase()}
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                Masked: {unmaskingData?.maskedValue}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Justification / Reason *</Label>
+              <Textarea 
+                placeholder="e.g., Compliance audit, KYC verification, Customer support request..."
+                value={unmaskReason}
+                onChange={(e) => setUnmaskReason(e.target.value)}
+                required
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Minimum 10 characters required for regulatory compliance.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUnmaskingData(null)}>Cancel</Button>
+            <Button 
+              variant="destructive"
+              disabled={unmaskReason.length < 10 || unmaskMutation.isPending}
+              onClick={() => unmaskingData && unmaskMutation.mutate({ 
+                userId: unmaskingData.userId, 
+                field: unmaskingData.field, 
+                reason: unmaskReason 
+              })}
+            >
+              {unmaskMutation.isPending ? 'Unmasking...' : 'Unmask & Log'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

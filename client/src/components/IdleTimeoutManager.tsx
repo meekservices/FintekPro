@@ -125,7 +125,7 @@ export function IdleTimeoutManager({ isAuthenticated, timeoutMinutes = 15 }: Idl
         clearInterval(countdownTimerRef.current);
       }
     };
-  }, [isAuthenticated, showWarning, resetIdleTimer]);
+  }, [isAuthenticated, resetIdleTimer]);
 
   if (!isAuthenticated) return null;
 

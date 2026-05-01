@@ -25,7 +25,9 @@ export type PlatformTaskType =
   | 'KYC_AUTO_REJECTED'
   | 'REKYC_LIMIT_REACHED'
   | 'PARTNER_KYC_SUBMITTED'
-  | 'BUSINESS_VERIFICATION_NEEDED';
+  | 'BUSINESS_VERIFICATION_NEEDED'
+  | 'UNLISTED_REGULATORY_BREACH'
+  | 'VALUATION_DEVIATION_ALERT';
 
 interface NotifyPayload {
   taskType: PlatformTaskType;

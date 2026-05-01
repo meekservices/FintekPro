@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { format, formatDistanceToNow, addDays, isPast, isWithinInterval } from "date-fns";
+import { ForensicAuditTrail } from "@/components/regulatory/ForensicAuditTrail";
+import { useLocation } from "wouter";
 
 interface ComplianceDeadline {
   id: string;
@@ -93,6 +95,10 @@ export default function ComplianceDashboard() {
   const { data, isLoading, refetch, isFetching } = useQuery<ComplianceDashboardData>({
     queryKey: ["/api/admin/compliance-dashboard"],
   });
+
+  const [location] = useLocation();
+  const searchParams = new URLSearchParams(window.location.search);
+  const defaultTab = searchParams.get("alertId") ? "forensic" : "deadlines";
 
   const { data: grievanceData } = useQuery<{ success: boolean; data: GrievanceMetrics }>({
     queryKey: ["/api/admin/grievances/metrics"],
@@ -204,13 +210,14 @@ export default function ComplianceDashboard() {
         </Card>
       </div>
 
-      <Tabs defaultValue="deadlines" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList>
           <TabsTrigger value="deadlines" data-testid="tab-deadlines">Deadlines</TabsTrigger>
           <TabsTrigger value="status" data-testid="tab-status">Status by Category</TabsTrigger>
           <TabsTrigger value="updates" data-testid="tab-updates">Regulatory Updates</TabsTrigger>
           <TabsTrigger value="gaps" data-testid="tab-gaps">Regulatory Gaps</TabsTrigger>
           <TabsTrigger value="grievances" data-testid="tab-grievances">SEBI SCORES</TabsTrigger>
+          <TabsTrigger value="forensic" data-testid="tab-forensic">Forensic Audit</TabsTrigger>
         </TabsList>
 
         <TabsContent value="deadlines" className="mt-4">
@@ -564,6 +571,10 @@ export default function ComplianceDashboard() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="forensic" className="mt-4">
+          <ForensicAuditTrail />
         </TabsContent>
       </Tabs>
     </div>

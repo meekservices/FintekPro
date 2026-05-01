@@ -16,6 +16,7 @@ import { beneficialOwnershipService } from '../../services/beneficial-ownership-
 import { sebiScoresService } from '../../services/sebi-scores-service';
 import { mfReturnsSyncService } from '../../services/mf-returns-sync-service';
 import { requireAdmin } from '../../middleware/roleMiddleware';
+import { maskPan, maskEmail, maskMobile } from '../../utils/pii-utils';
 
 
 
@@ -158,7 +159,16 @@ export function registerAdminPanelPart4Sub1Sub2Routes(app: Express): void {
         limit: parseInt(limit)
       });
       
-      res.json(records);
+      const maskedRecords = records.map((record: any) => ({
+        ...record,
+        panNumber: record.panNumber ? maskPan(record.panNumber) : record.panNumber,
+        emailAddress: record.emailAddress ? maskEmail(record.emailAddress) : record.emailAddress,
+        mobileNumber: record.mobileNumber ? maskMobile(record.mobileNumber) : record.mobileNumber,
+        aadharNumber: record.aadharNumber ? '********' + record.aadharNumber.slice(-4) : record.aadharNumber,
+        ckycNumber: record.ckycNumber ? '********' + record.ckycNumber.slice(-4) : record.ckycNumber,
+      }));
+      
+      res.json(maskedRecords);
     } catch (error) {
       console.error("Error fetching all CKYC records:", error);
       res.status(500).json({ error: "Failed to fetch CKYC records" });

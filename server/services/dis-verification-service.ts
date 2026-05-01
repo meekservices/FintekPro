@@ -21,7 +21,7 @@ export interface DISDocument {
   dealId: string;
   uploadedBy: string;
   uploadedAt: Date;
-  documentType: 'dis_slip' | 'depository_confirmation' | 'share_certificate' | 'transfer_deed';
+  documentType: 'dis_slip' | 'depository_confirmation' | 'share_certificate' | 'transfer_deed' | 'cml' | 'exercise_letter';
   depository?: DepositoryType;
   documentHash: string;
   originalFileName: string;
@@ -277,6 +277,28 @@ class DISVerificationService {
       severity: 'critical',
       regulatoryReference: 'SEBI (Depositories and Participants) Regulations, 2018 - Regulation 38'
     });
+    
+    const cml = dealDocuments.find(d => d.documentType === 'cml');
+    checks.push({
+      checkName: 'cml_present',
+      status: cml ? 'passed' : 'failed',
+      details: cml 
+        ? `Client Master List (CML) uploaded: ${cml.originalFileName}` 
+        : 'CML not uploaded - required for demat account verification',
+      severity: 'high',
+      regulatoryReference: 'KYC & Demat Validation - PMLA/SEBI'
+    });
+
+    const exerciseLetter = dealDocuments.find(d => d.documentType === 'exercise_letter');
+    // Only mandatory for primary/ESOP deals, but we track it if present
+    checks.push({
+      checkName: 'exercise_letter_check',
+      status: exerciseLetter ? 'passed' : 'not_applicable',
+      details: exerciseLetter 
+        ? `Exercise Letter verified: ${exerciseLetter.originalFileName}` 
+        : 'Exercise Letter not provided (only required for primary issuance/ESOPs)',
+      severity: 'medium'
+    });
 
     if (disSlip && disSlip.verificationStatus !== 'verified') {
       checks.push({
@@ -377,6 +399,7 @@ class DISVerificationService {
     const mandatoryCheckNames = [
       'dis_slip_present',
       'depository_confirmation_present',
+      'cml_present',
       'trustee_escrow_validation'
     ];
 

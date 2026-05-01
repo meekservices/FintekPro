@@ -18,6 +18,8 @@ import { apiResponse } from "./utils/responses";
 import { auditLog } from "./middleware/audit-trail";
 import { creditRatingsService } from "./services/credit-ratings-service";
 import { symbolMappingService } from "./services/symbol-mapping-service";
+import { registerAuditExportRoutes } from "./routes/admin/audit-export-routes";
+import { maskEmail, maskMobile } from "./utils/pii-utils";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -107,7 +109,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .where(whereClause)
       .limit(20);
 
-      return apiResponse.success(res, results);
+      const maskedResults = results.map(u => ({
+        ...u,
+        email: maskEmail(u.email),
+        mobile: maskMobile(u.mobile)
+      }));
+
+      return apiResponse.success(res, maskedResults);
     } catch (error) {
       console.error("User search error:", error);
       return apiResponse.serverError(res);
@@ -135,6 +143,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return apiResponse.serverError(res);
     }
   });
+
+  // Compliance Audit Export Routes
+  registerAuditExportRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

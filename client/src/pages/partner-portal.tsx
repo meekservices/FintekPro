@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ComplianceStatusBadge } from '@/components/regulatory/ComplianceStatusBadge';
 
 export default function PartnerPortal() {
   const [location] = useLocation();
@@ -158,6 +159,7 @@ export default function PartnerPortal() {
               </p>
             </div>
             <div className="flex items-center space-x-4">
+              <ComplianceStatusBadge />
               <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300">
                 Active Partner
               </Badge>

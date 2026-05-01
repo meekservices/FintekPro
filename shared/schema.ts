@@ -584,6 +584,21 @@ export const adminSettings = pgTable("admin_settings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Admin Approval Requests (Maker-Checker Workflow)
+export const adminApprovalRequests = pgTable("admin_approval_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requestedBy: varchar("requested_by").references(() => users.id).notNull(),
+  checkerId: varchar("checker_id").references(() => users.id),
+  entityType: varchar("entity_type").notNull(), // 'bond_commission', 'fee_model', etc.
+  entityId: varchar("entity_id"),
+  action: varchar("action").notNull(), // 'create', 'update', 'delete'
+  data: jsonb("data").notNull(), // The new state to be applied
+  status: varchar("status").notNull().default("pending"), // 'pending', 'approved', 'rejected'
+  reason: text("reason"), // Reason for rejection or approval note
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // User Notifications/Guidance
 export const userNotifications = pgTable("user_notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -11051,6 +11066,14 @@ export * from "./schema/mca";
 export * from "./schema/family";
 export * from "./schema/portfolio";
 export * from "./schema/users";
-export * from "./schema/mutual-funds";
 export * from "./schema/products";
+
+// Zod schemas for Admin items
+export const insertAdminSettingsSchema = createInsertSchema(adminSettings).omit({ id: true, updatedAt: true });
+export type AdminSetting = typeof adminSettings.$inferSelect;
+export type InsertAdminSetting = z.infer<typeof insertAdminSettingsSchema>;
+
+export const insertAdminApprovalRequestSchema = createInsertSchema(adminApprovalRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export type AdminApprovalRequest = typeof adminApprovalRequests.$inferSelect;
+export type InsertAdminApprovalRequest = z.infer<typeof insertAdminApprovalRequestSchema>;
 

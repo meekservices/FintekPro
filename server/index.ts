@@ -741,6 +741,14 @@ if (process.env.NODE_ENV === 'production') {
       } catch (error) {
         console.error('❌ Failed to start Pick of the Day Scheduler:', error);
       }
+
+      // Initialize AI Regulatory Monitoring
+      try {
+        const { activityInsightsService } = await import('./services/activity-insights-service');
+        activityInsightsService.startAutomatedMonitoring();
+      } catch (error) {
+        console.error('❌ Failed to start AI Regulatory Monitoring:', error);
+      }
     }, 5000);
 
   } catch (error: any) {

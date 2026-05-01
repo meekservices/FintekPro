@@ -499,6 +499,9 @@ export const unlistedDeals = pgTable("unlisted_deals", {
   sellerPayout: decimal("seller_payout", { precision: 20, scale: 2 }),
   buyerCharge: decimal("buyer_charge", { precision: 20, scale: 2 }),
   settlementDate: timestamp("settlement_date"),
+  stampDuty: decimal("stamp_duty", { precision: 20, scale: 2 }),
+  fmvAtTransaction: decimal("fmv_at_transaction", { precision: 20, scale: 2 }),
+  valuationDeviation: decimal("valuation_deviation", { precision: 10, scale: 2 }),
   
   // Compliance
   complianceChecked: boolean("compliance_checked").default(false),
@@ -1011,6 +1014,10 @@ export const unlistedRegulatoryAuditLog = pgTable("unlisted_regulatory_audit_log
   
   // Metadata
   metadata: jsonb("metadata").default({}),
+
+  // Forensic Integrity (Chain of Trust)
+  forensicHash: varchar("forensic_hash", { length: 64 }),
+  prevHash: varchar("prev_hash", { length: 64 }),
 }, (table) => [
   index("idx_unlisted_reg_audit_user").on(table.userId),
   index("idx_unlisted_reg_audit_action").on(table.action),

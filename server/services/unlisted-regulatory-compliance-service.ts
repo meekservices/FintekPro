@@ -16,6 +16,7 @@ import {
   unlistedCompanyStatusLog,
   unlistedSTRFlags,
   unlistedCompanies,
+  unlistedDeals,
   users,
   type InsertUnlistedInvestorTracking,
   type InsertUnlistedShareLockIn,
@@ -543,6 +544,19 @@ class UnlistedRegulatoryComplianceService {
       return { success: false, error: error.message };
     }
   }
+
+  // ==================== VALUATION DEVIATION MONITORING ====================
+
+  /**
+   * Get transactions with high valuation deviation (>20%)
+   * Critical for Section 56(2)(x) tax compliance
+   */
+  async getHighDeviationTransactions(): Promise<any[]> {
+    return await db.select()
+      .from(unlistedDeals)
+      .where(sql`CAST(valuation_deviation AS NUMERIC) > 20`)
+      .orderBy(desc(unlistedDeals.createdAt));
+  }
   
   /**
    * Get pending STR flags requiring action
@@ -612,6 +626,54 @@ class UnlistedRegulatoryComplianceService {
     }
   }
   
+  // ==================== DOCUMENT VERIFICATION ====================
+  
+  /**
+   * Verify trade documents (DIS, CML, Exercise Letter)
+   */
+  async verifyTradeDocuments(dealId: string, documents: {
+    type: 'DIS' | 'CML' | 'EXERCISE_LETTER' | 'OTHER';
+    documentUrl: string;
+    verifiedBy: string;
+    remarks?: string;
+  }): Promise<{ success: boolean; auditLogId?: string }> {
+    try {
+      const deal = await db.query.unlistedDeals.findFirst({
+        where: eq(unlistedDeals.id, dealId),
+      });
+
+      if (!deal) {
+        throw new Error('Deal not found');
+      }
+
+      // Record in audit log
+      const [log] = await db.insert(unlistedCompanyStatusLog).values({
+        companyId: deal.companyId,
+        previousStatus: deal.status,
+        newStatus: deal.status, // Status doesn't change here, just adding a log entry
+        statusSource: 'admin_verification',
+        adminUserId: documents.verifiedBy,
+        notes: `Document Verified: ${documents.type}. URL: ${documents.documentUrl}. Remarks: ${documents.remarks || 'None'}`,
+      } as any).returning({ id: unlistedCompanyStatusLog.id });
+
+      // Update deal compliance notes
+      const now = new Date();
+      const updatedNotes = (deal.complianceNotes || '') + `\n[VERIFIED] ${documents.type} at ${now.toISOString()} by ${documents.verifiedBy}`;
+      
+      await db.update(unlistedDeals)
+        .set({ 
+          complianceNotes: updatedNotes,
+          updatedAt: now 
+        })
+        .where(eq(unlistedDeals.id, dealId));
+
+      return { success: true, auditLogId: log.id };
+    } catch (error: any) {
+      console.error('[RegCompliance] Error verifying documents:', error);
+      return { success: false };
+    }
+  }
+
   // ==================== ADMIN DASHBOARD DATA ====================
   
   /**
@@ -635,6 +697,9 @@ class UnlistedRegulatoryComplianceService {
     statusChanges: {
       listedThisMonth: number;
       suspended: number;
+    };
+    valuationDeviations: {
+      highDeviationCount: number;
     };
   }> {
     const now = new Date();
@@ -691,6 +756,11 @@ class UnlistedRegulatoryComplianceService {
       .from(unlistedCompanies)
       .where(eq(unlistedCompanies.tradingEnabled, false));
     
+    // Valuation Deviations
+    const highDeviations = await db.select({ count: count() })
+      .from(unlistedDeals)
+      .where(sql`CAST(valuation_deviation AS NUMERIC) > 20`);
+
     return {
       investorLimits: {
         companiesNearLimit,
@@ -709,6 +779,9 @@ class UnlistedRegulatoryComplianceService {
       statusChanges: {
         listedThisMonth: listedThisMonth[0]?.count || 0,
         suspended: suspended[0]?.count || 0,
+      },
+      valuationDeviations: {
+        highDeviationCount: highDeviations[0]?.count || 0,
       },
     };
   }

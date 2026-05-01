@@ -11,6 +11,7 @@ import { kycEncryptionService } from '../../services/kyc-encryption-service';
 import { db } from '../../db';
 import { kycVerificationSessions, kycStepResets, kycAuditLogs, users } from '@shared/schema';
 import { eq, desc, and, sql as drizzleSql } from 'drizzle-orm';
+import { maskEmail, maskMobile, maskPan } from '../../utils/pii-utils';
 
 function hasRole(user: any, requiredRoles: string[]): boolean {
   if (!user) return false;
@@ -112,7 +113,15 @@ export function registerKycV2ExtensionPart1Routes(app: Express) {
   app.get("/api/kyc/video/admin/pending", requireAdminOrAgent, async (req: any, res) => {
     try {
       const sessions = await kycVideoService.getPendingSessions();
-      res.json({ success: true, sessions });
+      
+      // Mask User ID if it looks like an email or mobile
+      const maskedSessions = sessions.map(session => ({
+        ...session,
+        userId: session.userId.includes('@') ? maskEmail(session.userId) : 
+                (session.userId.match(/^\d{10}$/) ? maskMobile(session.userId) : session.userId)
+      }));
+
+      res.json({ success: true, sessions: maskedSessions });
     } catch (error) {
       res.status(500).json({ success: false, error: 'Failed to get pending sessions' });
     }
@@ -187,7 +196,15 @@ export function registerKycV2ExtensionPart1Routes(app: Express) {
   app.get("/api/kyc/approval/pending", requireAdmin, async (req: any, res) => {
     try {
       const approvals = await kycMakerCheckerService.getPendingApprovals();
-      res.json({ success: true, approvals });
+      
+      const maskedApprovals = approvals.map(approval => ({
+        ...approval,
+        userId: approval.userId.includes('@') ? maskEmail(approval.userId) : 
+                (approval.userId.match(/^\d{10}$/) ? maskMobile(approval.userId) : approval.userId),
+        makerId: approval.makerId.includes('@') ? maskEmail(approval.makerId) : approval.makerId
+      }));
+
+      res.json({ success: true, approvals: maskedApprovals });
     } catch (error) {
       res.status(500).json({ success: false, error: 'Failed to get pending approvals' });
     }
@@ -197,7 +214,16 @@ export function registerKycV2ExtensionPart1Routes(app: Express) {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const approvals = await kycMakerCheckerService.getApprovalHistory(limit);
-      res.json({ success: true, approvals });
+      
+      const maskedApprovals = approvals.map(approval => ({
+        ...approval,
+        userId: approval.userId.includes('@') ? maskEmail(approval.userId) : 
+                (approval.userId.match(/^\d{10}$/) ? maskMobile(approval.userId) : approval.userId),
+        makerId: approval.makerId.includes('@') ? maskEmail(approval.makerId) : approval.makerId,
+        checkerId: approval.checkerId?.includes('@') ? maskEmail(approval.checkerId) : approval.checkerId
+      }));
+
+      res.json({ success: true, approvals: maskedApprovals });
     } catch (error) {
       res.status(500).json({ success: false, error: 'Failed to get approval history' });
     }
