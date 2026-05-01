@@ -10,13 +10,14 @@
  * - SEBI/RBI reportable event flagging
  * - Automated retention cleanup
  * - Forensic-grade request context capture
- */
+ * */
 
 import { db } from '../db';
 import { unlistedRegulatoryAuditLog, users, unlistedCompanies, unlistedDeals } from '@shared/schema';
 import { eq, and, gte, lte, desc, sql, lt } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import crypto from 'crypto';
+import { auditLogArchivalService } from './audit-log-archival';
 
 // ==================== TYPES ====================
 
@@ -204,6 +205,18 @@ class UnlistedRegulatoryAuditService {
       const rbiReportable = this.isRbiReportable(entry);
       const complianceRelated = this.isComplianceRelated(entry);
       const riskLevel = entry.complianceContext?.riskLevel || this.calculateRiskLevel(entry);
+
+      // Get previous hash for chain
+      const lastLog = await db
+        .select({ forensicHash: unlistedRegulatoryAuditLog.forensicHash })
+        .from(unlistedRegulatoryAuditLog)
+        .orderBy(desc(unlistedRegulatoryAuditLog.timestamp))
+        .limit(1);
+      
+      const prevHash = lastLog[0]?.forensicHash || 'genesis_block';
+      const content = JSON.stringify({ ...entry, auditId, timestamp, prevHash });
+      const secret = process.env.COMPLIANCE_SECRET || 'dev-compliance-secret';
+      const forensicHash = crypto.createHmac('sha256', secret).update(content).digest('hex');
       
       await db.insert(unlistedRegulatoryAuditLog).values({
         id: auditId,
@@ -247,6 +260,8 @@ class UnlistedRegulatoryAuditService {
         documentIds: entry.documentIds || [],
         retentionExpiresAt: retentionExpiresAt,
         metadata: entry.metadata || {},
+        forensicHash: forensicHash,
+        prevHash: prevHash,
       });
       
       console.log(`[UnlistedAudit] Logged ${entry.action} for ${entry.entityType}:${entry.entityId}`);
@@ -489,6 +504,110 @@ class UnlistedRegulatoryAuditService {
       throw error;
     }
   }
+
+  /**
+   * Get audit logs with filtering and pagination
+   */
+  async getLogs(options: {
+    page?: number;
+    limit?: number;
+    riskLevel?: string;
+    actionType?: string;
+    userId?: string;
+    id?: string;
+  }) {
+    try {
+      const page = options.page || 1;
+      const limit = options.limit || 50;
+      const offset = (page - 1) * limit;
+
+      const conditions: any[] = [];
+      if (options.riskLevel && options.riskLevel !== 'all') {
+        conditions.push(eq(unlistedRegulatoryAuditLog.riskLevel, options.riskLevel));
+      }
+      if (options.actionType && options.actionType !== 'all') {
+        conditions.push(eq(unlistedRegulatoryAuditLog.action, options.actionType));
+      }
+      if (options.userId) {
+        conditions.push(eq(unlistedRegulatoryAuditLog.userId, options.userId));
+      }
+      if (options.id) {
+        conditions.push(eq(unlistedRegulatoryAuditLog.id, options.id));
+      }
+
+      const query = db
+        .select()
+        .from(unlistedRegulatoryAuditLog)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(unlistedRegulatoryAuditLog.timestamp))
+        .limit(limit)
+        .offset(offset);
+
+      const [entries, countResult] = await Promise.all([
+        query,
+        db.select({ count: sql<number>`count(*)` })
+          .from(unlistedRegulatoryAuditLog)
+          .where(conditions.length > 0 ? and(...conditions) : undefined)
+      ]);
+
+      const total = Number(countResult[0]?.count || 0);
+
+      return {
+        entries,
+        pagination: {
+          total,
+          page,
+          totalPages: Math.ceil(total / limit),
+          limit
+        }
+      };
+    } catch (error) {
+      console.error('[UnlistedAudit] Failed to get logs:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get forensic heartbeat status
+   */
+  async getHeartbeat() {
+    try {
+      const logs = await db
+        .select({ 
+          timestamp: unlistedRegulatoryAuditLog.timestamp,
+          forensicHash: unlistedRegulatoryAuditLog.forensicHash,
+          prevHash: unlistedRegulatoryAuditLog.prevHash
+        })
+        .from(unlistedRegulatoryAuditLog)
+        .orderBy(desc(unlistedRegulatoryAuditLog.timestamp))
+        .limit(5);
+
+      if (logs.length === 0) {
+        return { status: 'healthy', lastVerified: new Date().toISOString(), integrityCheck: true };
+      }
+
+      const lastPulse = logs[0].timestamp || new Date();
+      const diffMinutes = (new Date().getTime() - new Date(lastPulse).getTime()) / (1000 * 60);
+
+      // Verify chain integrity for last 5 logs
+      let integrityCheck = true;
+      for (let i = 0; i < logs.length - 1; i++) {
+        if (logs[i].prevHash !== logs[i+1].forensicHash) {
+          integrityCheck = false;
+          break;
+        }
+      }
+
+      return {
+        status: diffMinutes < 60 && integrityCheck ? 'healthy' : 'warning',
+        lastVerified: lastPulse.toISOString(),
+        integrityCheck,
+      };
+    } catch (error) {
+      console.error('[UnlistedAudit] Failed to get heartbeat:', error);
+      return { status: 'critical', lastVerified: new Date().toISOString(), integrityCheck: false };
+    }
+  }
   
   /**
    * Get SEBI reportable events
@@ -603,21 +722,63 @@ class UnlistedRegulatoryAuditService {
       const now = new Date();
       
       const expiredRecords = await db
-        .select({ id: unlistedRegulatoryAuditLog.id })
+        .select()
         .from(unlistedRegulatoryAuditLog)
         .where(lt(unlistedRegulatoryAuditLog.retentionExpiresAt, now));
       
       console.log(`[UnlistedAudit] Found ${expiredRecords.length} expired records`);
       
-      if (!dryRun && expiredRecords.length > 0) {
-        // In production, export to permanent archive before deletion
-        console.warn('[UnlistedAudit] Deletion disabled - records should be exported to permanent archive first');
+      if (expiredRecords.length === 0) {
+        return { expiredCount: 0, dryRun, deleted: false };
       }
+
+      if (dryRun) {
+        return {
+          expiredCount: expiredRecords.length,
+          dryRun,
+          message: `[DRY_RUN] Would archive and delete ${expiredRecords.length} records.`,
+          deleted: false,
+        };
+      }
+
+      // Archive to cold storage before deletion
+      console.log(`[UnlistedAudit] Archiving ${expiredRecords.length} records to cold storage...`);
+      const archivalPromises = expiredRecords.map(record => 
+        auditLogArchivalService.archiveComplianceEvent({
+          eventType: 'kyc_verification', // Fallback type for general audit
+          userId: record.userId || undefined,
+          entityId: record.entityId || undefined,
+          entityType: record.entityType || undefined,
+          action: `ARCHIVE_EXPIRED:${record.action}`,
+          details: {
+            ...(record.metadata as Record<string, any> || {}),
+            before_state: record.beforeState,
+            after_state: record.afterState,
+            original_timestamp: record.timestamp,
+            original_id: record.id,
+            retention_expired_at: record.retentionExpiresAt
+          },
+          riskLevel: record.riskLevel as any
+        })
+      );
+
+      const archivalResults = await Promise.all(archivalPromises);
+      const failedArchivals = archivalResults.filter(r => !r.success);
+
+      if (failedArchivals.length > 0) {
+        throw new Error(`Failed to archive ${failedArchivals.length} records. Aborting deletion to prevent data loss.`);
+      }
+
+      // Perform deletion
+      await db
+        .delete(unlistedRegulatoryAuditLog)
+        .where(lt(unlistedRegulatoryAuditLog.retentionExpiresAt, now));
       
       return {
         expiredCount: expiredRecords.length,
         dryRun,
-        deleted: false,
+        deleted: true,
+        message: `Successfully archived to GCS and deleted ${expiredRecords.length} records.`
       };
     } catch (error) {
       console.error('[UnlistedAudit] Failed to cleanup expired records:', error);

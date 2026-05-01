@@ -3,7 +3,7 @@ import {
   users, errorLedger, immutableAuditLogs, auditTrail,
   kycAuditLogs, storeAuditLogs, aiAuditLogs, agentComplianceAuditLogs,
   knowledgeAuditLogs, bondMarketplaceAuditLogs, bondOrders, unlistedDeals,
-  mfOrders, kycVerificationSessions, manualKycSubmissions
+  mfOrders, kycVerificationSessions, manualKycSubmissions, unlistedSTRFlags
 } from "@shared/schema";
 import { eq, sql, desc, gte, and, count, lt, isNotNull, isNull, or, notInArray, ne, inArray } from "drizzle-orm";
 import { aiService } from "./ai-service";
@@ -37,6 +37,13 @@ interface ActivityMetrics {
   performance: {
     slowEndpoints: string[];
     highErrorRateModules: string[];
+  };
+  regulatory: {
+    highDeviationDeals: number;
+    pendingStrFlags: number;
+    investorLimitAlerts: number;
+    companiesNearLimit: number;
+    companiesAtLimit: number;
   };
 }
 
@@ -86,7 +93,10 @@ class ActivityInsightsService {
         pendingMfOrders,
         pendingBondValue,
         pendingUnlistedValue,
-        authSecurityEvents
+        authSecurityEvents,
+        highDeviationDeals,
+        pendingStrFlags,
+        investorCounts
       ] = await Promise.all([
         db.select({ count: count() }).from(errorLedger).where(gte(errorLedger.createdAt, oneDayAgo)).catch(() => [{ count: 0 }]),
         db.select({ count: count() }).from(errorLedger).where(and(
@@ -165,7 +175,18 @@ class ActivityInsightsService {
         }).from(immutableAuditLogs).where(and(
           gte(immutableAuditLogs.timestamp, oneDayAgo),
           sql`${immutableAuditLogs.eventType} IN ('security', 'authentication', 'authorization', 'login')`
-        )).catch(() => [])
+        )).catch(() => []),
+        
+        // Regulatory metrics
+        db.select({ count: count() }).from(unlistedDeals).where(sql`CAST(valuation_deviation AS NUMERIC) > 20`).catch(() => [{ count: 0 }]),
+        db.select({ count: count() }).from(unlistedSTRFlags).where(eq(unlistedSTRFlags.status, 'pending')).catch(() => [{ count: 0 }]),
+        db.select({ 
+          companyId: unlistedDeals.companyId, 
+          investorCount: sql<number>`count(distinct ${unlistedDeals.buyerUserId})`
+        })
+        .from(unlistedDeals)
+        .groupBy(unlistedDeals.companyId)
+        .catch(() => [])
       ]);
 
       const errorsByModule = await db.select({
@@ -235,6 +256,20 @@ class ActivityInsightsService {
 
       const slowEndpoints = requestLatencyTracker.getSlowEndpoints();
 
+      // Calculate companies near investor limit (SEBI mandate for private companies is 200)
+      const nearLimitThreshold = 150;
+      const atLimitThreshold = 195; // Close to 200
+
+      const companiesNearLimit = (investorCounts as any[]).filter(
+        (c: any) => c.investorCount >= nearLimitThreshold && c.investorCount < atLimitThreshold
+      ).length;
+
+      const companiesAtLimit = (investorCounts as any[]).filter(
+        (c: any) => c.investorCount >= atLimitThreshold
+      ).length;
+
+      const investorLimitAlerts = companiesNearLimit + companiesAtLimit;
+
       return {
         errors: {
           total: todayCount,
@@ -262,6 +297,13 @@ class ActivityInsightsService {
         performance: {
           slowEndpoints,
           highErrorRateModules: highErrorModules
+        },
+        regulatory: {
+          highDeviationDeals: Number(highDeviationDeals[0]?.count || 0),
+          pendingStrFlags: Number(pendingStrFlags[0]?.count || 0),
+          investorLimitAlerts,
+          companiesNearLimit,
+          companiesAtLimit
         }
       };
     } catch (error: any) {
@@ -271,7 +313,8 @@ class ActivityInsightsService {
         users: { activeToday: 0, newThisWeek: 0, dormant30Days: 0, incompleteKyc: 0 },
         revenue: { pendingOrders: 0, abandonedCarts: 0, completedDeals: 0, potentialRevenue: 0 },
         security: { failedLogins: 0, rateLimitViolations: 0, suspiciousActivity: 0 },
-        performance: { slowEndpoints: [], highErrorRateModules: [] }
+        performance: { slowEndpoints: [], highErrorRateModules: [] },
+        regulatory: { highDeviationDeals: 0, pendingStrFlags: 0, investorLimitAlerts: 0, companiesNearLimit: 0, companiesAtLimit: 0 }
       };
     }
   }
@@ -284,42 +327,50 @@ class ActivityInsightsService {
     this.analysisInProgress = true;
 
     try {
-      const prompt = `You are FintekPro's AI business analyst. Analyze these platform metrics and provide actionable insights.
+      const [securityAlerts, recentActivity] = await Promise.all([
+        this.getSecurityAlerts(),
+        this.getRecentActivity(20)
+      ]);
 
-METRICS:
+      const prompt = `You are FintekPro's AI forensic business analyst. Analyze these platform metrics and actual activity logs to provide deep actionable insights.
+
+METRICS SUMMARY:
 ${JSON.stringify(metrics, null, 2)}
 
+RECENT SECURITY ALERTS:
+${JSON.stringify(securityAlerts, null, 2)}
+
+RECENT PLATFORM ACTIVITY:
+${JSON.stringify(recentActivity, null, 2)}
+
 Generate exactly 5-8 insights in the following JSON format. Focus on:
-1. PERFORMANCE: Identify slow modules, high error rates, optimization opportunities
-2. SECURITY/ABUSE: Detect unusual patterns, potential abuse, security risks
-3. REVENUE: Cart abandonment recovery, incomplete KYC follow-ups, dormant user re-engagement, upsell opportunities
-4. ENGAGEMENT: User behavior patterns, drop-off points, feature adoption
+1. SECURITY FORENSICS: Identify malicious patterns in the logs (brute force, scraping, suspicious IPs, or internal policy violations).
+2. PERFORMANCE: Identify slow modules or modules with high error rates from the logs.
+4. REGULATORY GOVERNANCE (Unlisted): Monitor for SEBI/Income Tax risks (valuation deviations >20%, companies with >150 investors approaching 200 limit, pending STR flags).
+5. OPERATIONAL EFFICIENCY: Suggestions for optimizing system performance based on slow endpoints.
 
 Return a JSON array of insights:
 [
   {
     "category": "performance|abuse|revenue|engagement|security",
     "priority": "critical|high|medium|low",
-    "title": "Short actionable title",
-    "description": "2-3 sentence explanation of the insight",
-    "suggestedAction": "Specific action to take",
-    "estimatedImpact": "Expected outcome (e.g., '15% error reduction', '₹50,000 potential recovery')",
+    "title": "Short forensic title",
+    "description": "2-3 sentence technical and business explanation",
+    "suggestedAction": "Specific action (e.g. 'Block IP X', 'Notify user Y', 'Fix module Z')",
+    "estimatedImpact": "Expected outcome",
     "actionType": "email|notification|config|manual"
   }
 ]
 
-IMPORTANT: 
-- Be specific with numbers from the metrics
-- Prioritize revenue-generating and security insights
-- Make suggestions actionable and measurable
-- For dormant users (${metrics.users.dormant30Days}), suggest re-engagement campaigns
-- For incomplete KYC users (${metrics.users.incompleteKyc}), suggest follow-up strategies
-- For pending orders (${metrics.revenue.pendingOrders}), suggest conversion tactics
-- For high-error modules, suggest specific fixes`;
+IMPORTANT:
+- Use specific User IDs, IPs, and Error Codes found in the logs to make your insights precise.
+- Detect "unaccepted activity" (unauthorized access attempts, policy breaches).
+- For unlisted shares, prioritize flagging tax risks (Section 56(2)(x)) if valuation deviation is high.
+- Prioritize revenue-critical and security-critical items.`;
 
       const aiResponse = await aiService.chat([
         { role: 'user', content: prompt }
-      ], { model: 'gemini-2.5-flash', maxTokens: 2000 });
+      ], { model: 'gemini-2.5-flash', maxTokens: 2500 });
       
       if (!aiResponse?.content) {
         console.error('[ActivityInsights] No AI response received');
@@ -429,6 +480,34 @@ IMPORTANT:
         description: `These modules have unusually high error rates that may affect user experience.`,
         suggestedAction: 'Review error logs and deploy fixes for these modules.',
         estimatedImpact: 'Improved reliability and user satisfaction',
+        actionType: 'manual',
+        createdAt: new Date()
+      });
+    }
+
+    if (metrics.regulatory.highDeviationDeals > 0) {
+      insights.push({
+        id: `insight-reg-dev-${Date.now()}`,
+        category: 'security',
+        priority: 'high',
+        title: `${metrics.regulatory.highDeviationDeals} High-Deviation Deals`,
+        description: `Transactions detected with >20% deviation from FMV, posing Section 56(2)(x) tax risks.`,
+        suggestedAction: 'Review compliance notes and audit the valuation source for these deals.',
+        estimatedImpact: 'Avoid regulatory penalties and tax notices',
+        actionType: 'manual',
+        createdAt: new Date()
+      });
+    }
+
+    if (metrics.regulatory.investorLimitAlerts > 0) {
+      insights.push({
+        id: `insight-reg-limit-${Date.now()}`,
+        category: 'security',
+        priority: 'critical',
+        title: `${metrics.regulatory.investorLimitAlerts} Companies Near Investor Limit`,
+        description: `Some companies are approaching or at the 200-investor limit for private companies.`,
+        suggestedAction: 'Halt new buy orders for these companies to avoid forced public listing compliance.',
+        estimatedImpact: 'Ensure MCA compliance for private placements',
         actionType: 'manual',
         createdAt: new Date()
       });
@@ -634,6 +713,44 @@ IMPORTANT:
       priority: 'low', 
       helperText: 'User has not started the KYC process recently.' 
     };
+  }
+
+  /**
+   * Start background monitoring for unaccepted activities and regulatory breaches.
+   */
+  startAutomatedMonitoring() {
+    console.log('[ActivityInsights] Starting automated regulatory monitoring...');
+    
+    // Run every 15 minutes
+    setInterval(async () => {
+      try {
+        console.log('[ActivityInsights] Running periodic compliance scan...');
+        const metrics = await this.getActivityMetrics();
+        const insights = await this.generateAIInsights(metrics);
+        
+        // Dispatch alerts for critical insights
+        const criticalInsights = insights.filter(i => i.priority === 'critical' || i.priority === 'high');
+        
+        for (const insight of criticalInsights) {
+          const { adminParallelNotifier } = await import('./admin-parallel-notifier');
+          
+          let taskType: any = 'UNLISTED_REGULATORY_BREACH';
+          if (insight.title.toLowerCase().includes('valuation') || insight.title.toLowerCase().includes('fmv')) {
+            taskType = 'VALUATION_DEVIATION_ALERT';
+          }
+
+          adminParallelNotifier.dispatch({
+            taskType,
+            title: insight.title,
+            body: insight.description + '\n\nSuggested Action: ' + insight.suggestedAction,
+            priority: insight.priority as any,
+            metadata: { insightId: insight.id, category: insight.category }
+          });
+        }
+      } catch (error) {
+        console.error('[ActivityInsights] Automated monitoring error:', error);
+      }
+    }, 15 * 60 * 1000);
   }
 }
 
