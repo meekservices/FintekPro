@@ -398,24 +398,52 @@ if (process.env.NODE_ENV === 'production') {
         console.warn('[Migration] compliance_audit_trail repair skipped:', e?.message);
       }
 
-      // 19. daily_picks table
+      // 19. daily_picks table and enums
       try {
+        // Create enums if they don't exist
+        await migDb.execute(migSql`
+          DO $$ 
+          BEGIN
+              IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'pick_category') THEN
+                  CREATE TYPE pick_category AS ENUM ('listed_stocks', 'mutual_funds', 'bonds', 'unlisted', 'global_stocks', 'etfs', 'reits_invits', 'fixed_deposits', 'sgb', 'derivatives');
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'pick_status') THEN
+                  CREATE TYPE pick_status AS ENUM ('live', 'target_hit', 'stoploss_hit', 'expired');
+              END IF;
+          END $$;
+        `);
+
         await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS daily_picks (
             id SERIAL PRIMARY KEY,
-            symbol VARCHAR NOT NULL,
-            name VARCHAR NOT NULL,
-            type VARCHAR NOT NULL,
-            rating VARCHAR NOT NULL,
-            target_price NUMERIC(15, 2),
-            stop_loss NUMERIC(15, 2),
-            entry_price NUMERIC(15, 2),
-            current_price NUMERIC(15, 2),
-            performance_pct NUMERIC(5, 2),
-            rational TEXT,
-            technical_analysis TEXT,
-            fundamental_analysis TEXT,
-            risk_assessment TEXT,
+            category pick_category NOT NULL DEFAULT 'listed_stocks',
+            instrument_id VARCHAR(100),
+            instrument_name VARCHAR(255) NOT NULL,
+            isin VARCHAR(12),
+            symbol VARCHAR(50),
+            market VARCHAR(20),
+            exchange VARCHAR(20),
+            reco_date DATE,
+            reco_price NUMERIC(18, 4),
+            target_price NUMERIC(18, 4),
+            stoploss_price NUMERIC(18, 4),
+            current_price NUMERIC(18, 4),
+            status pick_status DEFAULT 'live',
+            expiry_date DATE,
+            status_updated_at TIMESTAMPTZ,
+            return_pct NUMERIC(8, 2),
+            days_held INTEGER,
+            rationale TEXT,
+            risk_level VARCHAR(20),
+            suitable_for TEXT[],
+            time_horizon VARCHAR(20),
+            confidence_score INTEGER,
+            sector_category VARCHAR(100),
+            key_metrics JSONB,
+            generated_by VARCHAR(50),
+            scoring_version VARCHAR(20),
+            scoring_breakdown JSONB,
+            risk_score INTEGER,
             is_active BOOLEAN DEFAULT true,
             is_live BOOLEAN DEFAULT false,
             published_at TIMESTAMPTZ,
@@ -423,7 +451,62 @@ if (process.env.NODE_ENV === 'production') {
             updated_at TIMESTAMPTZ DEFAULT NOW()
           );
         `);
-        console.log('✅ daily_picks schema verified');
+
+        // Add missing columns if table already existed with old schema
+        await migDb.execute(migSql`
+          DO $$ 
+          BEGIN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='category') THEN
+                  ALTER TABLE daily_picks ADD COLUMN category pick_category NOT NULL DEFAULT 'listed_stocks';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='instrument_id') THEN
+                  ALTER TABLE daily_picks ADD COLUMN instrument_id VARCHAR(100);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='instrument_name') THEN
+                  ALTER TABLE daily_picks ADD COLUMN instrument_name VARCHAR(255) DEFAULT '';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='isin') THEN
+                  ALTER TABLE daily_picks ADD COLUMN isin VARCHAR(12);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='reco_date') THEN
+                  ALTER TABLE daily_picks ADD COLUMN reco_date DATE;
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='reco_price') THEN
+                  ALTER TABLE daily_picks ADD COLUMN reco_price NUMERIC(18, 4);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='stoploss_price') THEN
+                  ALTER TABLE daily_picks ADD COLUMN stoploss_price NUMERIC(18, 4);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='status') THEN
+                  ALTER TABLE daily_picks ADD COLUMN status pick_status DEFAULT 'live';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='expiry_date') THEN
+                  ALTER TABLE daily_picks ADD COLUMN expiry_date DATE;
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='suitable_for') THEN
+                  ALTER TABLE daily_picks ADD COLUMN suitable_for TEXT[];
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='confidence_score') THEN
+                  ALTER TABLE daily_picks ADD COLUMN confidence_score INTEGER;
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='target_price') THEN
+                  ALTER TABLE daily_picks ADD COLUMN target_price NUMERIC(18, 4);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='current_price') THEN
+                  ALTER TABLE daily_picks ADD COLUMN current_price NUMERIC(18, 4);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='time_horizon') THEN
+                  ALTER TABLE daily_picks ADD COLUMN time_horizon VARCHAR(20);
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='key_metrics') THEN
+                  ALTER TABLE daily_picks ADD COLUMN key_metrics JSONB;
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='rationale') THEN
+                  ALTER TABLE daily_picks ADD COLUMN rationale TEXT;
+              END IF;
+          END $$;
+        `);
+        console.log('✅ daily_picks schema verified and updated');
       } catch (e: any) {
         console.error('[Migration] daily_picks table error:', e?.message);
       }

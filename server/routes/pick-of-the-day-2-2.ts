@@ -6,6 +6,7 @@ import { eq, like, or, sql, desc, and, count } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 import { requireAuth, requireAdmin } from "../middleware/roleMiddleware";
+import { REGULATORY_DISCLAIMER } from "./pick-of-the-day-utils";
 
 const watchlistAddSchema = z.object({
   pickId: z.number(),
@@ -37,10 +38,6 @@ const alertUpdateSchema = z.object({
 });
 
 const router = Router();
-
-
-
-const REGULATORY_DISCLAIMER = "Investment recommendations are AI-generated and for informational purposes only. Past performance does not guarantee future results. Investors should conduct independent due diligence and consult a SEBI-registered investment advisor before making investment decisions. FintekPro does not guarantee accuracy of third-party data. Data sourced from NSE, BSE, AMFI, Alpha Vantage, and Yahoo Finance.";
 
 
 // --- Core Routes ---
