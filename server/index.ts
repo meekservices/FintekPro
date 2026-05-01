@@ -61,7 +61,8 @@ const corsAllowedOrigins = [
   'https://agent.fintekpro.com',
   'https://partner.fintekpro.com',
   'https://ins.fintekpro.com',
-  'https://fintekpro-app-7f3fb64pqq-el.a.run.app', // Added Cloud Run URL for production verification
+  'https://fintekpro-app-7f3fb64pqq-el.a.run.app', 
+  'https://fintekpro-app-124901641600.asia-south1.run.app', // Current production URL
 ];
 
 // In development, allow localhost/Replit origins
@@ -73,9 +74,24 @@ if (process.env.NODE_ENV !== "production") {
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || corsAllowedOrigins.includes(origin) || (typeof origin === 'string' && origin.endsWith('.fintekpro.com')) || (typeof origin === 'string' && (origin.includes('replit.dev') || origin.includes('repl.co')))) {
+    // Allow if:
+    // 1. No origin (server-to-server or local)
+    // 2. Explicitly listed in corsAllowedOrigins
+    // 3. Subdomain of fintekpro.com
+    // 4. Any GCP Cloud Run service in our project (fintekpro-app-*.run.app)
+    const isAllowed = !origin || 
+      corsAllowedOrigins.includes(origin) || 
+      (typeof origin === 'string' && (
+        origin.endsWith('.fintekpro.com') || 
+        origin.includes('fintekpro-app') && origin.includes('.run.app') ||
+        origin.includes('replit.dev') || 
+        origin.includes('repl.co')
+      ));
+
+    if (isAllowed) {
       callback(null, true);
     } else {
+      console.warn(`[CORS] Blocked request from unauthorized origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -360,6 +376,58 @@ if (process.env.NODE_ENV === 'production') {
         console.warn('[Migration] iris_sessions table skipped:', e?.message);
       }
 
+      // 18. compliance_audit_trail repair
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE compliance_audit_trail 
+            ADD COLUMN IF NOT EXISTS field_changed varchar,
+            ADD COLUMN IF NOT EXISTS entity_id varchar,
+            ADD COLUMN IF NOT EXISTS entity_type varchar,
+            ADD COLUMN IF NOT EXISTS performed_by varchar,
+            ADD COLUMN IF NOT EXISTS performed_by_role varchar,
+            ADD COLUMN IF NOT EXISTS old_value jsonb,
+            ADD COLUMN IF NOT EXISTS new_value jsonb,
+            ADD COLUMN IF NOT EXISTS risk_impact varchar,
+            ADD COLUMN IF NOT EXISTS compliance_impact varchar,
+            ADD COLUMN IF NOT EXISTS reason text,
+            ADD COLUMN IF NOT EXISTS metadata jsonb,
+            ADD COLUMN IF NOT EXISTS timestamp timestamp DEFAULT NOW();
+        `);
+        console.log('✅ compliance_audit_trail schema verified');
+      } catch (e: any) {
+        console.warn('[Migration] compliance_audit_trail repair skipped:', e?.message);
+      }
+
+      // 19. daily_picks table
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS daily_picks (
+            id SERIAL PRIMARY KEY,
+            symbol VARCHAR NOT NULL,
+            name VARCHAR NOT NULL,
+            type VARCHAR NOT NULL,
+            rating VARCHAR NOT NULL,
+            target_price NUMERIC(15, 2),
+            stop_loss NUMERIC(15, 2),
+            entry_price NUMERIC(15, 2),
+            current_price NUMERIC(15, 2),
+            performance_pct NUMERIC(5, 2),
+            rational TEXT,
+            technical_analysis TEXT,
+            fundamental_analysis TEXT,
+            risk_assessment TEXT,
+            is_active BOOLEAN DEFAULT true,
+            is_live BOOLEAN DEFAULT false,
+            published_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+        `);
+        console.log('✅ daily_picks schema verified');
+      } catch (e: any) {
+        console.error('[Migration] daily_picks table error:', e?.message);
+      }
+
       console.log('✅ Critical schema repairs complete');
     } catch (migErr) {
       console.error('❌ Migration sequence failed (non-fatal):', migErr);
@@ -532,6 +600,11 @@ if (process.env.NODE_ENV === 'production') {
     app.use('/api/isin', isinIntelligenceRoutes.default);
     app.use('/api/ai', aiAlphaEngineRoutes.default);
 
+    // Pick of the Day Routes
+    logBootProgress("Step 7: Registering Pick of the Day Routes...");
+    const picksRoutes = await import('./routes/pick-of-the-day');
+    app.use('/api/picks', picksRoutes.default);
+
     // ── FINALIZATION ─────────────────────────────────────────────────────────
 
     // Boot audit event
@@ -575,6 +648,15 @@ if (process.env.NODE_ENV === 'production') {
       if (process.env.NODE_ENV === 'production') {
         const { kycExpiryMonitor } = await import('./services/kyc-expiry-monitor');
         kycExpiryMonitor.start();
+      }
+
+      // Initialize Pick of the Day Scheduler
+      try {
+        console.log('📈 Starting Pick of the Day Scheduler...');
+        const { pickOfTheDayService } = await import('./services/pick-of-the-day-service');
+        pickOfTheDayService.startDailyScheduler();
+      } catch (error) {
+        console.error('❌ Failed to start Pick of the Day Scheduler:', error);
       }
     }, 5000);
 

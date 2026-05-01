@@ -54,17 +54,16 @@ export async function setupAuth(app: Express) {
   if (process.env.NODE_ENV === "production") {
     // Priority: CUSTOM_DOMAIN env var -> .fintekpro.com
     // Robust sanitization: trim whitespace and hidden characters
-    const rawDomain = (process.env.CUSTOM_DOMAIN || "fintekpro.com").trim();
+    const rawDomain = (process.env.CUSTOM_DOMAIN || "fintekpro.com")
+      .trim()
+      .replace(/^https?:\/\//, "")
+      .split(":")[0];
     
-    // Validate domain format to prevent TypeError: option domain is invalid
-    // Valid characters: a-z, 0-9, dot, and hyphen
     if (rawDomain && /^[a-z0-9.-]+$/i.test(rawDomain)) {
-      cookieOptions.domain = rawDomain.startsWith(".") ? rawDomain : `.${rawDomain}`;
+      cookieOptions.domain = rawDomain;
       console.log(`🛡️  Session Cookie Domain set to: ${cookieOptions.domain}`);
     } else {
       console.warn(`⚠️ [AUTH_SETUP] Invalid CUSTOM_DOMAIN detected: "${rawDomain}". Falling back to default browser scoping.`);
-      // If domain is invalid, we don't set cookieOptions.domain, 
-      // letting the browser scope it to the current host automatically.
     }
   }
 
@@ -77,14 +76,12 @@ export async function setupAuth(app: Express) {
       saveUninitialized: false,
       store: sessionStore,
       cookie: cookieOptions,
-      proxy: true, // Required for Cloud Run/Firebase Hosting proxy chain
+      proxy: true,
     })
   );
 
   // 4. Trust Proxy Configuration
-  // Cloud Run and Firebase Hosting use a proxy chain. We must trust them to 
-  // correctly parse X-Forwarded-For and X-Forwarded-Proto headers.
-  app.set("trust proxy", 1);
+  app.set("trust proxy", true);
 
   // 5. Initialize Passport
   app.use(passport.initialize());

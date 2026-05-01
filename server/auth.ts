@@ -688,10 +688,9 @@ export function setupAuth(app: Express) {
           console.error("Session destroy error:", destroyErr);
         }
         
-        // Clear the session cookie
         res.clearCookie('fintekpro.sid', {
           path: '/',
-          domain: process.env.NODE_ENV === "production" ? (process.env.CUSTOM_DOMAIN ? (process.env.CUSTOM_DOMAIN.startsWith(".") ? process.env.CUSTOM_DOMAIN : `.${process.env.CUSTOM_DOMAIN}`) : ".fintekpro.com") : undefined
+          domain: process.env.NODE_ENV === "production" ? (process.env.CUSTOM_DOMAIN ? process.env.CUSTOM_DOMAIN.trim().replace(/^https?:\/\//, "").split(":")[0] : "fintekpro.com") : undefined
         });
         
         return apiResponse.success(res, {}, "Logged out successfully");

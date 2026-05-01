@@ -20,6 +20,7 @@ import { eq, and, isNotNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { irisKfintechService } from './iris-kfintech-service';
 import { currencyExchangeService } from './currency-exchange-service';
+import { logger } from '../logger';
 
 // ─── Portfolio helpers ────────────────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ async function getOrCreateDefaultPortfolio(userId: string): Promise<string> {
     .values({ userId, name: 'Default Portfolio', isDefault: true, totalValue: '0', cash: '0' })
     .returning({ id: portfolios.id });
 
-  console.log(`[IRISSync] Created default portfolio for user ${userId}`);
+  logger.info('[IRISSync] Created default portfolio', { userId });
   return created.id;
 }
 
@@ -54,7 +55,7 @@ export function scheduleIrisPortfolioRefresh(pan: string, userId?: string): void
     try {
       await syncIrisHoldingsForPan(pan, userId);
     } catch (err: any) {
-      console.warn(`[IRISSync] Deferred refresh failed for PAN ${pan}:`, err?.message);
+      logger.error('[IRISSync] Deferred refresh failed', { pan, error: err?.message });
     }
   }, 5_000);
 }
@@ -81,7 +82,7 @@ export async function syncIrisHoldingsForPan(pan: string, userId?: string): Prom
   }
 
   if (!resolvedUserId) {
-    console.warn(`[IRISSync] No user found for PAN ${pan}. Aborting sync.`);
+    logger.warn('[IRISSync] No user found for PAN. Aborting sync.', { pan });
     return { synced: 0, errors: [`No user found with PAN ${pan}`] };
   }
 
@@ -91,13 +92,13 @@ export async function syncIrisHoldingsForPan(pan: string, userId?: string): Prom
   try {
     portfolioData = await irisKfintechService.getPortfolioSummary(pan);
   } catch (err: any) {
-    console.error(`[IRISSync] IRIS portfolio fetch failed for PAN ${pan}:`, err?.message);
+    logger.error('[IRISSync] IRIS portfolio fetch failed', { pan, error: err?.message });
     return { synced: 0, errors: [`IRIS fetch failed: ${err?.message}`] };
   }
 
   const holdings: any[] = portfolioData?.holdings ?? portfolioData?.data?.holdings ?? [];
   if (!holdings.length) {
-    console.log(`[IRISSync] IRIS returned 0 holdings for PAN ${pan}`);
+    logger.info('[IRISSync] IRIS returned 0 holdings', { pan });
     return { synced: 0, errors: [] };
   }
 
@@ -106,7 +107,7 @@ export async function syncIrisHoldingsForPan(pan: string, userId?: string): Prom
   try {
     portfolioId = await getOrCreateDefaultPortfolio(resolvedUserId);
   } catch (e: any) {
-    console.error(`[IRISSync] Portfolio lookup failed for user ${resolvedUserId}:`, e?.message);
+    logger.error('[IRISSync] Portfolio lookup failed', { userId: resolvedUserId, error: e?.message });
     return { synced: 0, errors: [`Portfolio link failed: ${e?.message}`] };
   }
 
@@ -164,12 +165,12 @@ export async function syncIrisHoldingsForPan(pan: string, userId?: string): Prom
 
       synced++;
     } catch (e: any) {
-      console.error(`[IRISSync] Holding record failed for ISIN ${h.isin}:`, e.message);
+      logger.error('[IRISSync] Holding record failed', { isin: h.isin, error: e.message });
       errors.push(`Holding record failed (${h.isin ?? '?'}): ${e?.message}`);
     }
   }
 
-  console.log(`[IRISSync] Synced ${synced} holdings for PAN ${pan} (userId ${resolvedUserId})`);
+  logger.info('[IRISSync] Sync complete', { pan, synced, errorCount: errors.length });
   return { synced, errors };
 }
 
@@ -179,7 +180,7 @@ export async function syncIrisHoldingsForPan(pan: string, userId?: string): Prom
  * Nightly job: sync IRIS portfolio for all active investors.
  */
 export async function runNightlyIrisCasSync(): Promise<void> {
-  console.log('[IRISSync] Starting nightly CAS sync…');
+  logger.info('[IRISSync] Starting nightly CAS sync…');
   let total = 0, success = 0, failed = 0;
 
   const usersWithPan = await db
@@ -200,7 +201,7 @@ export async function runNightlyIrisCasSync(): Promise<void> {
       failed++;
     }
   }
-  console.log(`[IRISSync] Nightly CAS sync complete: ${total} users, ${success} ok, ${failed} errors`);
+  logger.info('[IRISSync] Nightly CAS sync complete', { total, success, failed });
 }
 
 // ─── LRS Remittance Logging ───────────────────────────────────────────────────
@@ -243,8 +244,8 @@ export async function recordLrsRemittance(params: {
       })
       .where(eq(usBrokerAccounts.clientId, userId));
 
-    console.log(`[LRS] Recorded remittance $${amountUsd} for user ${userId} (FY ${financialYear})`);
+    logger.info('[LRS] Recorded remittance', { userId, amountUsd, financialYear });
   } catch (err: any) {
-    console.error('[LRS] Remittance log failed:', err?.message);
+    logger.error('[LRS] Remittance log failed', { error: err?.message });
   }
 }

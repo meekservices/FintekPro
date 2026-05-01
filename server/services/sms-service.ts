@@ -5,9 +5,9 @@ class SMSService {
   private messagingServiceSid: string = '';
 
   constructor() {
-    this.primaryPhone = process.env.TWILIO_PRIMARY_PHONE || '';
+    this.primaryPhone = process.env.TWILIO_PRIMARY_PHONE || process.env.TWILIO_PHONE_NUMBER || '';
     this.messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID || '';
-    console.log('📱 SMS service initialized (using Replit Twilio connector)');
+    console.log('📱 SMS service initialized');
     if (this.primaryPhone) {
       console.log(`   Primary phone: ${this.primaryPhone}`);
     }

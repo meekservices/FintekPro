@@ -195,7 +195,16 @@ function computeReadiness(instrumentType: InstrumentType): GatewayReadiness {
   }
 
   // All required env keys must be non-empty
-  const missingKeys = config.envKeys.filter(k => !process.env[k] || process.env[k]!.trim() === '');
+  let missingKeys = config.envKeys.filter(k => !process.env[k] || process.env[k]!.trim() === '');
+
+  // Special handling for iris_kfintech which supports both IRIS_ and KFINTECH_ prefixes
+  if (config.provider === 'iris_kfintech') {
+    const hasIris = !!(process.env.IRIS_USERNAME && process.env.IRIS_PASSWORD);
+    const hasKfin = !!(process.env.KFINTECH_USERNAME && process.env.KFINTECH_PASSWORD);
+    if (hasIris || hasKfin) {
+      missingKeys = [];
+    }
+  }
 
   return {
     ready: missingKeys.length === 0,

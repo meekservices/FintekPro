@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import { db } from '../db';
 import { irisSessions } from '@shared/schema';
 import { desc } from 'drizzle-orm';
+import { logger } from '../logger';
 
 const IRIS_BASE_URL = 'https://iris-api.kfintech.com/v2';
 
@@ -22,7 +23,7 @@ class IrisKfintechService {
       timeout: 30000,
       headers: { 'Content-Type': 'application/json' },
     });
-    console.log('✅ IRIS KFintech service initialized');
+    logger.info('[IRIS] KFintech service initialized', { baseUrl: IRIS_BASE_URL });
   }
 
   get isConfigured(): boolean {
@@ -45,7 +46,7 @@ class IrisKfintechService {
         refreshedAt: new Date(),
       });
     } catch (err: any) {
-      console.warn('[IRIS] Token DB save failed (non-fatal):', err?.message);
+      logger.warn('[IRIS] Token DB save failed (non-fatal)', { error: err?.message });
     }
   }
 
@@ -67,12 +68,12 @@ class IrisKfintechService {
       if (Date.now() < expiresAt - 60_000) {
         this.tokenData = { token: row.token, expiresAt };
         this.client.defaults.headers.common['Authorization'] = `Bearer ${row.token}`;
-        console.log('[IRIS] Token restored from DB — expires', new Date(expiresAt).toISOString());
+        logger.debug('[IRIS] Token restored from DB', { expiresAt: new Date(expiresAt).toISOString() });
       } else {
-        console.log('[IRIS] Persisted token expired — re-authentication required');
+        logger.info('[IRIS] Persisted token expired — re-authentication required');
       }
     } catch (err: any) {
-      console.warn('[IRIS] Token DB load failed (non-fatal):', err?.message);
+      logger.warn('[IRIS] Token DB load failed (non-fatal)', { error: err?.message });
     }
   }
 
@@ -103,7 +104,10 @@ class IrisKfintechService {
       }
       return { success: false, message: data?.message || 'Login failed' };
     } catch (err: any) {
-      console.error('IRIS login error:', err?.response?.data || err.message);
+      logger.error('[IRIS] Login failed', { 
+        error: err?.response?.data || err.message,
+        status: err?.response?.status 
+      });
       return { success: false, message: err?.response?.data?.message || err.message };
     }
   }
@@ -178,11 +182,14 @@ class IrisKfintechService {
     return resp.data;
   }
 
-  getStatus(): { configured: boolean; authenticated: boolean; tokenExpiresAt?: number } {
+  getStatus(): { configured: boolean; authenticated: boolean; tokenExpiresAt?: number; credentialsSource?: string } {
+    const hasIris = !!(process.env.IRIS_USERNAME && process.env.IRIS_PASSWORD);
+    const hasKfin = !!(process.env.KFINTECH_USERNAME && process.env.KFINTECH_PASSWORD);
     return {
-      configured: !!(process.env.IRIS_USERNAME && process.env.IRIS_PASSWORD),
+      configured: hasIris || hasKfin,
       authenticated: this.isTokenValid(),
       tokenExpiresAt: this.tokenData?.expiresAt,
+      credentialsSource: hasIris ? 'IRIS_ prefix' : (hasKfin ? 'KFINTECH_ prefix' : 'none')
     };
   }
 
