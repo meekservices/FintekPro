@@ -184,13 +184,17 @@ export const complianceAuditTrail = pgTable("compliance_audit_trail", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id),
   action: varchar("action").notNull(),
+  fieldChanged: varchar("field_changed"),
   performedBy: varchar("performed_by"),
   performedByRole: varchar("performed_by_role"),
   oldValue: jsonb("old_value"),
   newValue: jsonb("new_value"),
+  riskImpact: varchar("risk_impact"),
+  complianceImpact: varchar("compliance_impact"),
   ipAddress: varchar("ip_address"),
   userAgent: text("user_agent"),
   reason: text("reason"),
+  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1103,6 +1107,14 @@ export const insertComplianceDocumentSchema = createInsertSchema(complianceDocum
   updatedAt: true,
 });
 
+export const insertComplianceAuditTrailSchema = createInsertSchema(complianceAuditTrail).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertCkycRecordSchema = createInsertSchema(ckycRecords).extend({
   id: z.any(),
   createdAt: z.any(),
@@ -1375,6 +1387,9 @@ export type InsertKycVerificationSession = z.infer<typeof insertKycVerificationS
 
 export type ComplianceDocument = typeof complianceDocuments.$inferSelect;
 export type InsertComplianceDocument = z.infer<typeof insertComplianceDocumentSchema>;
+
+export type ComplianceAuditTrail = typeof complianceAuditTrail.$inferSelect;
+export type InsertComplianceAuditTrail = z.infer<typeof insertComplianceAuditTrailSchema>;
 
 export type CkycRecord = typeof ckycRecords.$inferSelect;
 export type InsertCkycRecord = z.infer<typeof insertCkycRecordSchema>;
