@@ -87,6 +87,16 @@ export function ForensicAuditTrail() {
     }
   });
 
+  const clearFilters = () => {
+    setSearchQuery("");
+    setRiskFilter("all");
+    setPage(1);
+    if (alertId) {
+      window.history.pushState({}, '', window.location.pathname);
+    }
+    refetch();
+  };
+
   const data = response?.data;
   const entries = data?.entries || [];
   const heartbeat = data?.heartbeat;
@@ -196,6 +206,12 @@ export function ForensicAuditTrail() {
               />
             </div>
             <div className="flex items-center gap-2">
+              {(riskFilter !== "all" || searchQuery || alertId) && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-10 text-xs">
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
+              )}
               <Filter className="w-4 h-4 text-muted-foreground" />
               <Select value={riskFilter} onValueChange={setRiskFilter}>
                 <SelectTrigger className="w-[180px]">
