@@ -919,18 +919,18 @@ Rules:
         action: event.eventType,
         fieldChanged: 'unified_advisory',
         oldValue: null,
-        newValue: JSON.stringify({
+        newValue: {
           decisionId: event.decisionId,
           productType: event.productType,
           riskProfile: event.riskProfileUsed,
           clientCategory: event.clientCategoryUsed
-        }),
+        },
         reason: event.aiReasoningSnapshot || 'Unified advisory event',
         performedBy: event.agentId,
         performedByRole: event.agentId === 'system' ? 'system' : 'agent',
         riskImpact: 'medium',
         complianceImpact: 'minor',
-        metadata: event.metadata
+        metadata: event.metadata || {}
       });
     } catch (error) {
       console.error('[Unified Advisory] Audit log write failed:', error);
@@ -953,7 +953,7 @@ Rules:
         .limit(limit);
 
       return rows.map((row: any) => {
-        const meta = (row.newValue ? JSON.parse(row.newValue) : {}) as Record<string, any>;
+        const meta = (typeof row.newValue === 'string' ? JSON.parse(row.newValue) : row.newValue || {}) as Record<string, any>;
         return {
           logId: String(row.id),
           sessionId: meta.sessionId || nanoid(),

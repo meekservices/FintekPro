@@ -185,6 +185,8 @@ export const complianceAuditTrail = pgTable("compliance_audit_trail", {
   userId: varchar("user_id").references(() => users.id),
   action: varchar("action").notNull(),
   fieldChanged: varchar("field_changed"),
+  entityId: varchar("entity_id"),
+  entityType: varchar("entity_type"),
   performedBy: varchar("performed_by"),
   performedByRole: varchar("performed_by_role"),
   oldValue: jsonb("old_value"),
@@ -195,6 +197,7 @@ export const complianceAuditTrail = pgTable("compliance_audit_trail", {
   userAgent: text("user_agent"),
   reason: text("reason"),
   metadata: jsonb("metadata"),
+  timestamp: timestamp("timestamp").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -427,13 +427,19 @@ class DailyReconciliationService {
   private async persistAuditRecord(report: ReconciliationReport): Promise<void> {
     try {
       await db.insert(complianceAuditTrail).values({
-        id: nanoid(),
-        eventType: 'reconciliation',
-        action: 'daily_reconciliation_completed',
-        resource: report.id,
-        outcome: report.status === 'completed' ? 'success' : 'partial',
-        riskLevel: report.discrepancies.length > 0 ? 'medium' : 'low',
         userId: report.generatedBy,
+        action: 'daily_reconciliation_completed',
+        entityType: 'reconciliation',
+        entityId: report.id,
+        newValue: {
+          status: report.status,
+          totalTransactions: report.summary.totalTransactions,
+          reconciliationRate: report.summary.reconciliationRate
+        },
+        riskImpact: report.discrepancies.length > 0 ? 'medium' : 'low',
+        complianceImpact: report.status === 'completed' ? 'none' : 'major',
+        performedBy: 'reconciliation_system',
+        performedByRole: 'compliance_system',
         metadata: {
           reportDate: report.reportDate.toISOString(),
           totalTransactions: report.summary.totalTransactions,
@@ -441,8 +447,7 @@ class DailyReconciliationService {
           reconciliationRate: report.summary.reconciliationRate,
           discrepancyCount: report.discrepancies.length,
           checksum: report.checksum
-        },
-        timestamp: new Date()
+        }
       });
     } catch (error) {
       console.error('[Reconciliation] Failed to persist audit record:', error);

@@ -578,7 +578,7 @@ class FATCACRSService {
         userId,
         action: `fatca_crs_${action}`,
         fieldChanged: 'fatca_crs',
-        newValue: JSON.stringify(details),
+        newValue: details,
         performedBy: 'fatca_crs_system',
         performedByRole: 'compliance_system',
         riskImpact: 'low',

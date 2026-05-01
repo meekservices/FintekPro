@@ -192,7 +192,7 @@ class OrderRetentionService {
       action: 'order_archived',
       fieldChanged: 'bond_order',
       oldValue: null,
-      newValue: JSON.stringify({
+      newValue: {
         archiveId,
         orderId,
         orderData,
@@ -203,7 +203,7 @@ class OrderRetentionService {
         compressionType: 'gzip',
         sizeBytes,
         verificationStatus: 'verified'
-      }),
+      },
       reason: 'SEBI/PMLA 7-year retention policy',
       performedBy: 'retention_system',
       performedByRole: 'archive_system',
@@ -436,12 +436,12 @@ class OrderRetentionService {
             action: 'archive_retention_expired',
             fieldChanged: 'bond_order',
             oldValue: record.newValue,
-            newValue: JSON.stringify({
+            newValue: {
               originalArchiveId: (record.metadata as any)?.archiveId,
               expiredAt: now.toISOString(),
               retentionYears: this.RETENTION_YEARS,
               status: 'marked_for_deletion'
-            }),
+            },
             reason: 'Retention period expired per SEBI regulations',
             performedBy: 'retention_system',
             performedByRole: 'archive_system',
@@ -593,7 +593,7 @@ class OrderRetentionService {
         userId: 'system',
         action: `retention_${action}`,
         fieldChanged: 'order_retention',
-        newValue: JSON.stringify(details),
+        newValue: details,
         performedBy: 'retention_system',
         performedByRole: 'archive_system',
         riskImpact: 'low',

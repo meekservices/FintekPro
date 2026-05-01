@@ -690,10 +690,9 @@ class DematComplianceService {
         action: `demat_${action}`,
         entityType: 'demat_compliance',
         entityId: userId,
-        newValue: JSON.stringify(details),
+        newValue: details,
         performedBy: 'system',
         performedByRole: 'compliance_system',
-        timestamp: new Date(),
         complianceImpact: 'none'
       });
     } catch (error) {

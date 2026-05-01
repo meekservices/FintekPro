@@ -406,22 +406,25 @@ class ClientMoneySegregationService {
 
     try {
       await db.insert(complianceAuditTrail).values({
-        id: auditRecord.id,
-        eventType: 'client_money_segregation',
-        action: `${auditRecord.paymentFlow}_${auditRecord.productType}`,
-        resource: auditRecord.orderId,
-        outcome: auditRecord.segregationVerified ? 'success' : 'failure',
-        riskLevel: auditRecord.segregationVerified ? 'low' : 'high',
         userId: auditRecord.userId,
-        metadata: {
+        action: `${auditRecord.paymentFlow}_${auditRecord.productType}`,
+        fieldChanged: 'client_money_segregation',
+        entityType: 'payment_flow',
+        entityId: auditRecord.orderId,
+        newValue: {
           amount: auditRecord.amount,
           currency: auditRecord.currency,
-          counterparty: auditRecord.counterparty,
+          counterparty: auditRecord.counterparty
+        },
+        performedBy: auditRecord.userId,
+        performedByRole: 'user',
+        riskImpact: auditRecord.segregationVerified ? 'low' : 'high',
+        complianceImpact: auditRecord.segregationVerified ? 'none' : 'critical',
+        metadata: {
           verificationMethod: auditRecord.verificationMethod,
           evidenceHash: auditRecord.evidenceHash,
           regulatoryReference: auditRecord.regulatoryReference
-        },
-        timestamp: auditRecord.timestamp
+        }
       });
     } catch (error) {
       console.error('[Client Money Segregation] Failed to persist audit record:', error);

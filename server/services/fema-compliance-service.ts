@@ -862,26 +862,32 @@ class FEMAComplianceService {
   }
 
   private async logAudit(
-    entityType: string,
-    entityId: string,
+    type: 'purpose_validation' | 'lrs_check' | 'tcs_calc' | 'a2_form' | 'ad_certificate' | 'transaction',
+    id: string,
     action: string,
-    performedBy: string,
-    details: Record<string, any>
+    userId: string,
+    details: any
   ): Promise<void> {
     try {
       await db.insert(complianceAuditTrail).values({
-        entityType: `fema_${entityType}`,
-        entityId,
-        action,
-        performedBy,
-        details: {
+        userId,
+        action: `fema_${type}_${action}`,
+        fieldChanged: type,
+        entityId: id,
+        entityType: 'fema_compliance',
+        newValue: details,
+        performedBy: 'fema_compliance_system',
+        performedByRole: 'compliance_system',
+        riskImpact: 'low',
+        complianceImpact: 'none',
+        metadata: {
           ...details,
           timestamp: new Date().toISOString(),
           service: 'FEMAComplianceService'
         }
       });
     } catch (error) {
-      console.error('[FEMA] Failed to log audit:', error);
+      console.error(`[FEMA Audit] Failed to log ${type} audit:`, error);
     }
   }
 

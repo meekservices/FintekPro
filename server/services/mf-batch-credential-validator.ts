@@ -227,17 +227,21 @@ class MfBatchCredentialValidator {
       }).returning();
 
       await db.insert(complianceAuditTrail).values({
+        userId: batch.agentId,
+        action: result.canProceed ? 'approved' : 'blocked',
         entityType: 'mf_batch_validation',
         entityId: inserted.id,
-        action: result.canProceed ? 'approved' : 'blocked',
-        performedBy: batch.agentId,
-        details: {
+        newValue: {
           batchId: batch.batchId,
           arnCode: batch.arnCode,
           canProceed: result.canProceed,
           errorCount: result.errors.length,
           warningCount: result.warnings.length
-        }
+        },
+        performedBy: batch.agentId,
+        performedByRole: 'agent',
+        riskImpact: result.canProceed ? 'low' : 'medium',
+        complianceImpact: result.canProceed ? 'none' : 'major'
       });
 
       console.log('[MFBatchValidator] Validation persisted:', {

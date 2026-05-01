@@ -746,7 +746,7 @@ class SEBIComplianceService {
       action: entry.eventType,
       fieldChanged: 'pmla_audit',
       oldValue: null,
-      newValue: JSON.stringify({
+      newValue: {
         auditId,
         eventCategory: entry.eventCategory,
         description: entry.description,
@@ -757,7 +757,7 @@ class SEBIComplianceService {
         reportedToFIU: entry.reportedToFIU,
         transactionId: entry.transactionId,
         retentionExpiry: retentionExpiry.toISOString()
-      }),
+      },
       performedBy: 'system',
       performedByRole: 'compliance_system',
       ipAddress: entry.ipAddress,
@@ -873,7 +873,7 @@ class SEBIComplianceService {
       action: 'order_archive',
       fieldChanged: 'bond_order',
       oldValue: null,
-      newValue: JSON.stringify({
+      newValue: {
         archiveId,
         orderId,
         orderData,
@@ -881,7 +881,7 @@ class SEBIComplianceService {
         retentionExpiry: retentionExpiry.toISOString(),
         encryptionKeyId: ARCHIVE_CIPHER_SPEC,
         storageLocation: 'gcp-encrypted-archive'
-      }),
+      },
       performedBy: 'system',
       performedByRole: 'archive_system',
       riskImpact: 'low',
@@ -910,7 +910,7 @@ class SEBIComplianceService {
         userId,
         action,
         fieldChanged: 'compliance_check',
-        newValue: JSON.stringify(details),
+        newValue: details,
         performedBy: 'system',
         performedByRole: 'compliance_system',
         riskImpact: 'low',

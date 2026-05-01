@@ -131,15 +131,19 @@ class ExternalRemittanceService {
       }).returning();
 
       await db.insert(complianceAuditTrail).values({
+        userId: request.userId,
+        action: 'remittance_request_created',
         entityType: 'remittance_proof',
         entityId: inserted.id,
-        action: 'created',
-        performedBy: request.userId,
-        details: {
+        newValue: {
           productType: request.productType,
           productId: request.productId,
           expectedAmount: request.expectedAmount
-        }
+        },
+        performedBy: request.userId,
+        performedByRole: 'user',
+        riskImpact: 'low',
+        complianceImpact: 'none'
       });
 
       complianceMonitor.logEvent({
@@ -250,14 +254,18 @@ class ExternalRemittanceService {
         .where(eq(externalRemittanceProofs.id, upload.remittanceId));
 
       await db.insert(complianceAuditTrail).values({
+        userId: upload.userId,
+        action: 'remittance_proof_uploaded',
         entityType: 'remittance_proof',
         entityId: upload.remittanceId,
-        action: 'proof_uploaded',
-        performedBy: upload.userId,
-        details: {
+        newValue: {
           documentHash,
           utrNumber: upload.bankDetails.utrNumber
-        }
+        },
+        performedBy: upload.userId,
+        performedByRole: 'user',
+        riskImpact: 'low',
+        complianceImpact: 'none'
       });
 
       complianceMonitor.logEvent({
@@ -312,11 +320,15 @@ class ExternalRemittanceService {
           .where(eq(externalRemittanceProofs.id, request.remittanceId));
 
         await db.insert(complianceAuditTrail).values({
+          userId: remittance.userId,
+          action: 'remittance_verified',
           entityType: 'remittance_proof',
           entityId: request.remittanceId,
-          action: 'verified',
+          newValue: { notes: request.notes },
           performedBy: request.verifierId,
-          details: { notes: request.notes }
+          performedByRole: 'compliance_officer',
+          riskImpact: 'low',
+          complianceImpact: 'none'
         });
         
         complianceMonitor.logEvent({
@@ -352,11 +364,15 @@ class ExternalRemittanceService {
           .where(eq(externalRemittanceProofs.id, request.remittanceId));
 
         await db.insert(complianceAuditTrail).values({
+          userId: remittance.userId,
+          action: 'remittance_rejected',
           entityType: 'remittance_proof',
           entityId: request.remittanceId,
-          action: 'rejected',
+          newValue: { rejectionReason, notes: request.notes },
           performedBy: request.verifierId,
-          details: { rejectionReason, notes: request.notes }
+          performedByRole: 'compliance_officer',
+          riskImpact: 'medium',
+          complianceImpact: 'major'
         });
 
         complianceMonitor.logEvent({

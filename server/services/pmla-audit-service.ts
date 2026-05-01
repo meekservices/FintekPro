@@ -142,10 +142,10 @@ class PMLAAuditService {
         userId: event.userId,
         action: event.eventType,
         fieldChanged: event.eventCategory,
-        newValue: JSON.stringify({
+        newValue: {
           ...eventData,
           checksum
-        }),
+        },
         reason: event.description,
         performedBy: 'pmla_system',
         performedByRole: 'compliance_system',

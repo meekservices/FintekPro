@@ -597,11 +597,11 @@ class RegulatoryReportingService {
         userId: report.userId || 'system',
         action: `regulatory_${action}`,
         fieldChanged: 'regulatory_report',
-        newValue: JSON.stringify({
+        newValue: {
           reportId: report.reportId,
           reportType: report.reportType,
           status: report.status,
-        }),
+        },
         reason: `${report.reportType} report ${action}`,
         performedBy: report.createdBy,
         performedByRole: 'compliance_officer',
