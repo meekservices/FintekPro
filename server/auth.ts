@@ -853,4 +853,77 @@ export function setupAuth(app: Express) {
       return apiResponse.serverError(res);
     }
   });
+
+  // Check PAN Verification Consent status for a user (Agent only)
+  app.get("/api/agent/pan-consent/check/:userId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return apiResponse.unauthorized(res);
+      }
+
+      const userRoles = req.user.roles || [];
+      if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
+        return apiResponse.forbidden(res, "Agent access required");
+      }
+
+      const userId = req.params.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return apiResponse.notFound(res, "User not found");
+      }
+
+      return apiResponse.success(res, {
+        userId: user.id,
+        panVerificationConsent: user.panVerificationConsent || false,
+        panConsentGivenAt: user.panConsentGivenAt || null
+      });
+    } catch (error) {
+      console.error("[PAN_CONSENT] Check error:", error);
+      return apiResponse.serverError(res, "Failed to check consent status");
+    }
+  });
+
+  // Record PAN Verification Consent for a user (Agent only)
+  app.post("/api/agent/pan-consent/record/:userId", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return apiResponse.unauthorized(res);
+      }
+
+      const userRoles = req.user.roles || [];
+      if (!userRoles.includes('agent') && !userRoles.includes('admin') && !userRoles.includes('super_admin')) {
+        return apiResponse.forbidden(res, "Agent access required");
+      }
+
+      const userId = req.params.userId;
+      const { consent, source, ipAddress } = req.body;
+
+      if (consent === undefined) {
+        return apiResponse.badRequest(res, "Consent status (true/false) is required");
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return apiResponse.notFound(res, "User not found");
+      }
+
+      // Update user with consent status
+      await storage.updateUser(user.id, {
+        panVerificationConsent: !!consent,
+        panConsentGivenAt: consent ? new Date() : null
+      });
+
+      console.log(`[PAN_CONSENT] Recorded ${consent ? 'CONSENT_GIVEN' : 'CONSENT_WITHDRAWN'} for user ${user.id} by agent ${req.user.id}`);
+
+      return apiResponse.success(res, {
+        userId: user.id,
+        panVerificationConsent: !!consent,
+        recordedAt: new Date()
+      }, "Consent status updated successfully");
+    } catch (error) {
+      console.error("[PAN_CONSENT] Recording error:", error);
+      return apiResponse.serverError(res, "Failed to record consent status");
+    }
+  });
 }

@@ -181,6 +181,9 @@ export interface IStorage {
   
   // Agent mapping counts
   getAgentMappingCounts(agentId: string): Promise<{partnerCount: number, clientCount: number}>;
+  
+  // Admin settings methods
+  getAdminSettings(): Promise<any>;
 
   // Achievement System Methods
   // Achievement Categories
@@ -2073,6 +2076,20 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error getting agent mapping counts:", error);
       return { partnerCount: 0, clientCount: 0 };
+    }
+  }
+
+  async getAdminSettings(): Promise<any> {
+    try {
+      const settings = await db.select().from(schema.adminSettings);
+      const result: any = {};
+      settings.forEach(s => {
+        if (s.key) result[s.key] = s.value;
+      });
+      return result;
+    } catch (error) {
+      console.error('[STORAGE] Error fetching admin settings:', error);
+      return {}; // Fallback to empty object
     }
   }
 

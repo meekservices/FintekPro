@@ -42,7 +42,7 @@ export function subdomainDetection(req: Request, res: Response, next: NextFuncti
     subdomain = '';
   }
   // For localhost development (admin.localhost, partner.localhost, agent.localhost, or just localhost)
-  else if (hostname.includes('localhost')) {
+  else if (hostname.includes('localhost') || hostname.includes('0.0.0.0') || hostname.includes('127.0.0.1')) {
     if (parts[0] === 'admin') {
       subdomain = 'admin';
     } else if (parts[0] === 'partner') {
@@ -53,11 +53,14 @@ export function subdomainDetection(req: Request, res: Response, next: NextFuncti
       subdomain = '';
     }
   }
-  // For production domains (admin.fintekpro.com or fintekpro.com)
+  // For production domains (e.g. agent.fintekpro.com or fintekpro.com)
   else if (parts.length >= 2) {
-    // Check if first part is a subdomain (not www)
-    if (parts[0] !== 'www' && parts.length > 2) {
+    // If we have more than 2 parts, the first part is likely a subdomain
+    // Example: agent.fintekpro.com -> parts = ['agent', 'fintekpro', 'com'] -> length 3
+    if (parts.length > 2 && parts[0] !== 'www') {
       subdomain = parts[0];
+    } else {
+      subdomain = '';
     }
   }
   

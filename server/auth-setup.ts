@@ -53,9 +53,19 @@ export async function setupAuth(app: Express) {
   // In production, set the domain attribute for SSO across subdomains
   if (process.env.NODE_ENV === "production") {
     // Priority: CUSTOM_DOMAIN env var -> .fintekpro.com
-    const domain = process.env.CUSTOM_DOMAIN || "fintekpro.com";
-    cookieOptions.domain = domain.startsWith(".") ? domain : `.${domain}`;
-    console.log(`🛡️  Session Cookie Domain set to: ${cookieOptions.domain}`);
+    // Robust sanitization: trim whitespace and hidden characters
+    const rawDomain = (process.env.CUSTOM_DOMAIN || "fintekpro.com").trim();
+    
+    // Validate domain format to prevent TypeError: option domain is invalid
+    // Valid characters: a-z, 0-9, dot, and hyphen
+    if (rawDomain && /^[a-z0-9.-]+$/i.test(rawDomain)) {
+      cookieOptions.domain = rawDomain.startsWith(".") ? rawDomain : `.${rawDomain}`;
+      console.log(`🛡️  Session Cookie Domain set to: ${cookieOptions.domain}`);
+    } else {
+      console.warn(`⚠️ [AUTH_SETUP] Invalid CUSTOM_DOMAIN detected: "${rawDomain}". Falling back to default browser scoping.`);
+      // If domain is invalid, we don't set cookieOptions.domain, 
+      // letting the browser scope it to the current host automatically.
+    }
   }
 
   // 3. Register Session Middleware

@@ -48,7 +48,7 @@ async function seedProductionTestUser(): Promise<void> {
   try {
     const testEmail = "test@fintekpro.com";
     const testPassword = "Test@123456";
-    const testMobile = "9876543210";
+    const testMobile = "7795048528";
     const allRoles = ["superadmin", "admin", "partner", "agent", "client", "user", "tester"];
 
     const existingUser = await prodDb.select().from(users).where(eq(users.email, testEmail)).limit(1);
@@ -58,6 +58,7 @@ async function seedProductionTestUser(): Promise<void> {
       await prodDb
         .update(users)
         .set({
+          mobile: testMobile,
           password: hashedPassword,
           roles: allRoles,
           isActive: true,
