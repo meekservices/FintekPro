@@ -661,5 +661,3 @@ export default function UnlistedRegulatoryCompliance() {
     </div>
   );
 }
- );
-}
