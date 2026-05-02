@@ -683,6 +683,7 @@ class UnlistedRegulatoryComplianceService {
     investorLimits: {
       companiesNearLimit: number;
       companiesAtLimit: number;
+      companiesAtRisk: any[];
     };
     lockIns: {
       activeRecords: number;
@@ -716,9 +717,33 @@ class UnlistedRegulatoryComplianceService {
       .where(eq(unlistedInvestorTracking.financialYear, fy))
       .groupBy(unlistedInvestorTracking.companyId);
     
-    const companiesNearLimit = investorCounts.filter(c => c.count >= 180 && c.count < 200).length;
-    const companiesAtLimit = investorCounts.filter(c => c.count >= 200).length;
+    const companiesNearLimit = investorCounts.filter(c => c.count >= 180 && c.count < 200);
+    const companiesAtLimit = investorCounts.filter(c => c.count >= 200);
     
+    // Fetch company names for those near or at limit
+    const atRiskIds = [...companiesNearLimit, ...companiesAtLimit].map(c => c.companyId);
+    let companiesAtRisk: { id: string; name: string; count: number; status: 'near_limit' | 'at_limit' }[] = [];
+    
+    if (atRiskIds.length > 0) {
+      const companyDetails = await db.select({
+        id: unlistedCompanies.id,
+        name: unlistedCompanies.name,
+      })
+        .from(unlistedCompanies)
+        .where(sql`${unlistedCompanies.id} IN ${atRiskIds}`);
+      
+      companiesAtRisk = atRiskIds.map(id => {
+        const detail = companyDetails.find(d => d.id === id);
+        const invCount = investorCounts.find(c => c.companyId === id)?.count || 0;
+        return {
+          id,
+          name: detail?.name || 'Unknown Company',
+          count: invCount,
+          status: invCount >= 200 ? 'at_limit' : 'near_limit',
+        };
+      });
+    }
+
     // Lock-ins
     const activeLockIns = await db.select({
       count: count(),
@@ -763,8 +788,9 @@ class UnlistedRegulatoryComplianceService {
 
     return {
       investorLimits: {
-        companiesNearLimit,
-        companiesAtLimit,
+        companiesNearLimit: companiesNearLimit.length,
+        companiesAtLimit: companiesAtLimit.length,
+        companiesAtRisk,
       },
       lockIns: {
         activeRecords: activeLockIns[0]?.count || 0,

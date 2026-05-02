@@ -398,7 +398,76 @@ if (process.env.NODE_ENV === 'production') {
         console.warn('[Migration] compliance_audit_trail repair skipped:', e?.message);
       }
 
-      // 19. daily_picks table and enums
+      // 19. unlisted_regulatory_audit_log repair
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS unlisted_regulatory_audit_log (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id VARCHAR REFERENCES users(id),
+            user_email VARCHAR,
+            user_name VARCHAR,
+            user_role VARCHAR,
+            user_kyc_tier VARCHAR,
+            user_pan VARCHAR,
+            action VARCHAR NOT NULL,
+            action_category VARCHAR NOT NULL,
+            entity_type VARCHAR NOT NULL,
+            entity_id VARCHAR NOT NULL,
+            company_id VARCHAR REFERENCES unlisted_companies(id),
+            company_cin VARCHAR,
+            company_name VARCHAR,
+            deal_id VARCHAR,
+            counterparty_user_id VARCHAR,
+            counterparty_pan VARCHAR,
+            quantity BIGINT,
+            price_per_share DECIMAL(20, 2),
+            total_value DECIMAL(20, 2),
+            platform_fee DECIMAL(20, 2),
+            gst_amount DECIMAL(20, 2),
+            escrow_amount DECIMAL(20, 2),
+            before_state JSONB,
+            after_state JSONB,
+            change_description TEXT,
+            compliance_related BOOLEAN DEFAULT false,
+            compliance_flags JSONB DEFAULT '[]',
+            risk_level VARCHAR,
+            compliance_officer VARCHAR,
+            compliance_notes TEXT,
+            sebi_reportable BOOLEAN DEFAULT false,
+            sebi_reported_at TIMESTAMPTZ,
+            sebi_report_ref VARCHAR,
+            rbi_reportable BOOLEAN DEFAULT false,
+            rbi_reported_at TIMESTAMPTZ,
+            rbi_report_ref VARCHAR,
+            ip_address VARCHAR,
+            user_agent TEXT,
+            session_id VARCHAR,
+            device_fingerprint VARCHAR,
+            geo_location VARCHAR,
+            document_ids JSONB DEFAULT '[]',
+            timestamp TIMESTAMPTZ DEFAULT NOW(),
+            retention_expires_at TIMESTAMPTZ,
+            archived BOOLEAN DEFAULT false,
+            archived_at TIMESTAMPTZ,
+            metadata JSONB DEFAULT '{}',
+            forensic_hash VARCHAR(64),
+            prev_hash VARCHAR(64)
+          );
+          CREATE INDEX IF NOT EXISTS idx_unlisted_reg_audit_user ON unlisted_regulatory_audit_log(user_id);
+          CREATE INDEX IF NOT EXISTS idx_unlisted_reg_audit_action ON unlisted_regulatory_audit_log(action);
+          CREATE INDEX IF NOT EXISTS idx_unlisted_reg_audit_category ON unlisted_regulatory_audit_log(action_category);
+          CREATE INDEX IF NOT EXISTS idx_unlisted_reg_audit_entity ON unlisted_regulatory_audit_log(entity_type, entity_id);
+          CREATE INDEX IF NOT EXISTS idx_unlisted_reg_audit_company ON unlisted_regulatory_audit_log(company_id);
+          CREATE INDEX IF NOT EXISTS idx_unlisted_reg_audit_deal ON unlisted_regulatory_audit_log(deal_id);
+          CREATE INDEX IF NOT EXISTS idx_unlisted_reg_audit_timestamp ON unlisted_regulatory_audit_log(timestamp);
+          CREATE INDEX IF NOT EXISTS idx_unlisted_reg_audit_retention ON unlisted_regulatory_audit_log(retention_expires_at);
+        `);
+        console.log('✅ unlisted_regulatory_audit_log schema verified');
+      } catch (e: any) {
+        console.error('[Migration] unlisted_regulatory_audit_log table error:', e?.message);
+      }
+
+      // 20. daily_picks table and enums
       try {
         // Create enums if they don't exist
         await migDb.execute(migSql`
@@ -750,6 +819,25 @@ if (process.env.NODE_ENV === 'production') {
         activityInsightsService.startAutomatedMonitoring();
       } catch (error) {
         console.error('❌ Failed to start AI Regulatory Monitoring:', error);
+      }
+
+      // Initialize Unlisted Regulatory Audit Cleanup (7-year retention)
+      try {
+        console.log('🛡️ Starting Unlisted Regulatory Audit Cleanup Scheduler...');
+        const { unlistedRegulatoryAuditService } = await import('./services/unlisted-regulatory-audit-service');
+        
+        // Run once on boot with dryRun=false to verify state, then schedule daily
+        await unlistedRegulatoryAuditService.cleanupExpiredRecords(false);
+        
+        setInterval(async () => {
+          try {
+            await unlistedRegulatoryAuditService.cleanupExpiredRecords(false);
+          } catch (e) {
+            console.error('❌ Failed to run periodic audit cleanup:', e);
+          }
+        }, 24 * 60 * 60 * 1000); // 24 hours
+      } catch (error) {
+        console.error('❌ Failed to start Unlisted Regulatory Audit Cleanup:', error);
       }
     }, 5000);
 

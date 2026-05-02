@@ -18,7 +18,8 @@ async function main() {
     logger.info("✅ [Sync] Schema updates applied successfully!");
     process.exit(0);
   } catch (error) {
-    logger.error("❌ [Sync] Schema update failed", { error: error instanceof Error ? error.message : String(error) });
+    logger.error("❌ [Sync] Schema update failed", { error: error });
+    console.error(error);
     process.exit(1);
   } finally {
     // Release the pool

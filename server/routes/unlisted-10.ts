@@ -543,6 +543,41 @@ router.get('/admin/compliance/investor-count/:companyId', requireAdmin, async (r
 });
 
 /**
+ * GET /api/unlisted/admin/compliance/audit-trail
+ * Get forensic audit trail for admin dashboard
+ */
+router.get('/admin/compliance/audit-trail', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { unlistedRegulatoryAuditService } = await import('../services/unlisted-regulatory-audit-service');
+    const logs = await unlistedRegulatoryAuditService.queryAuditLogs({
+      limit: 50,
+      complianceRelated: true
+    });
+
+    const formattedLogs = logs.map(log => ({
+      id: log.id,
+      timestamp: log.timestamp,
+      action: log.action,
+      userName: log.userName || 'System',
+      userEmail: log.userEmail || 'N/A',
+      companyName: log.companyName || 'N/A',
+      changeDescription: log.changeDescription,
+      riskLevel: log.riskLevel,
+      forensicHash: log.forensicHash,
+      prevHash: log.prevHash
+    }));
+
+    return apiResponse.success(res, {
+      message: 'Forensic audit trail retrieved',
+      data: formattedLogs,
+    });
+  } catch (error: any) {
+    console.error('[RegCompliance] Error fetching audit trail:', error);
+    return apiResponse.serverError(res, 'Failed to fetch forensic audit trail');
+  }
+});
+
+/**
  * POST /api/unlisted/admin/compliance/check-investor-limit
  * Check if a transaction would exceed the 200 investor limit
  */

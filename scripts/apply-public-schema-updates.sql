@@ -40,6 +40,69 @@ ADD COLUMN IF NOT EXISTS "disposable_income" numeric(15,2),
 ADD COLUMN IF NOT EXISTS "investment_capacity" numeric(15,2),
 ADD COLUMN IF NOT EXISTS "emergency_fund_status" varchar,
 ADD COLUMN IF NOT EXISTS "debt_to_income_ratio" numeric(5,2),
-ADD COLUMN IF NOT EXISTS "ai_model_version" varchar,
-ADD COLUMN IF NOT EXISTS "analysis_confidence" numeric(5,2),
-ADD COLUMN IF NOT EXISTS "next_analysis_date" timestamp;
+
+-- 3. Create unlisted_regulatory_audit_log table if not exists
+CREATE TABLE IF NOT EXISTS "unlisted_regulatory_audit_log" (
+  "id" varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+  "user_id" varchar REFERENCES "users"("id"),
+  "user_email" varchar,
+  "user_name" varchar,
+  "user_role" varchar,
+  "user_kyc_tier" varchar,
+  "user_pan" varchar,
+  "action" varchar NOT NULL,
+  "action_category" varchar NOT NULL,
+  "entity_type" varchar NOT NULL,
+  "entity_id" varchar NOT NULL,
+  "company_id" varchar REFERENCES "unlisted_companies"("id"),
+  "company_cin" varchar,
+  "company_name" varchar,
+  "deal_id" varchar,
+  "counterparty_user_id" varchar,
+  "counterparty_pan" varchar,
+  "quantity" bigint,
+  "price_per_share" numeric(20,2),
+  "total_value" numeric(20,2),
+  "platform_fee" numeric(20,2),
+  "gst_amount" numeric(20,2),
+  "escrow_amount" numeric(20,2),
+  "before_state" jsonb,
+  "after_state" jsonb,
+  "change_description" text,
+  "compliance_related" boolean DEFAULT false,
+  "compliance_flags" jsonb DEFAULT '[]',
+  "risk_level" varchar,
+  "compliance_officer" varchar,
+  "compliance_notes" text,
+  "sebi_reportable" boolean DEFAULT false,
+  "sebi_reported_at" timestamp,
+  "sebi_report_ref" varchar,
+  "rbi_reportable" boolean DEFAULT false,
+  "rbi_reported_at" timestamp,
+  "rbi_report_ref" varchar,
+  "ip_address" varchar,
+  "user_agent" text,
+  "session_id" varchar,
+  "device_fingerprint" varchar,
+  "geo_location" varchar,
+  "document_ids" jsonb DEFAULT '[]',
+  "timestamp" timestamp DEFAULT now(),
+  "retention_expires_at" timestamp,
+  "archived" boolean DEFAULT false,
+  "archived_at" timestamp,
+  "metadata" jsonb DEFAULT '{}',
+  "forensic_hash" varchar(64),
+  "prev_hash" varchar(64)
+);
+
+-- Indices for audit log
+CREATE INDEX IF NOT EXISTS "idx_unlisted_reg_audit_user" ON "unlisted_regulatory_audit_log" ("user_id");
+CREATE INDEX IF NOT EXISTS "idx_unlisted_reg_audit_action" ON "unlisted_regulatory_audit_log" ("action");
+CREATE INDEX IF NOT EXISTS "idx_unlisted_reg_audit_category" ON "unlisted_regulatory_audit_log" ("action_category");
+CREATE INDEX IF NOT EXISTS "idx_unlisted_reg_audit_entity" ON "unlisted_regulatory_audit_log" ("entity_type", "entity_id");
+CREATE INDEX IF NOT EXISTS "idx_unlisted_reg_audit_company" ON "unlisted_regulatory_audit_log" ("company_id");
+CREATE INDEX IF NOT EXISTS "idx_unlisted_reg_audit_deal" ON "unlisted_regulatory_audit_log" ("deal_id");
+CREATE INDEX IF NOT EXISTS "idx_unlisted_reg_audit_timestamp" ON "unlisted_regulatory_audit_log" ("timestamp");
+CREATE INDEX IF NOT EXISTS "idx_unlisted_reg_audit_retention" ON "unlisted_regulatory_audit_log" ("retention_expires_at");
+CREATE INDEX IF NOT EXISTS "idx_unlisted_reg_audit_compliance" ON "unlisted_regulatory_audit_log" ("compliance_related");
+CREATE INDEX IF NOT EXISTS "idx_unlisted_reg_audit_sebi" ON "unlisted_regulatory_audit_log" ("sebi_reportable");

@@ -138,7 +138,7 @@ export default function PartnerPortal() {
 
   const agents = Array.isArray(agentsData) ? agentsData : (agentsData as any)?.agents || [];
   const activeAgents = agents.filter((a: any) => a.status === 'active' || a.isActive);
-  const totalCommission = (commissionData as any)?.totalCommission || dashboardData?.stats?.commission || 0;
+  const totalCommission = (commissionData as any)?.totalCommission || (dashboardData as any)?.stats?.commission || 0;
   const ticketsList = Array.isArray(tickets) ? tickets : [];
 
   if (dashboardLoading) {
@@ -239,10 +239,10 @@ export default function PartnerPortal() {
                     <div className="ml-4">
                       <p className="text-sm font-medium text-muted-foreground">Support Tickets</p>
                       <p className="text-2xl font-bold text-foreground">
-                        {dashboardData?.stats?.totalTickets || ticketsList.length}
+                        {(dashboardData as any)?.stats?.totalTickets || ticketsList.length}
                       </p>
                       <p className="text-xs text-orange-600">
-                        {dashboardData?.stats?.openTickets || ticketsList.filter((t: any) => t.status === 'open').length} open
+                        {(dashboardData as any)?.stats?.openTickets || ticketsList.filter((t: any) => t.status === 'open').length} open
                       </p>
                     </div>
                   </div>

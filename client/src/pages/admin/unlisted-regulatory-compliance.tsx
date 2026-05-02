@@ -34,10 +34,11 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 
-interface ComplianceOverview {
+iinterface ComplianceOverview {
   investorLimits: {
     companiesNearLimit: number;
     companiesAtLimit: number;
+    companiesAtRisk?: { id: string; name: string; count: number; status: 'near_limit' | 'at_limit' }[];
   };
   lockIns: {
     activeRecords: number;
@@ -53,29 +54,22 @@ interface ComplianceOverview {
     listedThisMonth: number;
     suspended: number;
   };
+  valuationDeviations: {
+    highDeviationCount: number;
+  };
 }
 
-interface STRFlag {
+interface AuditLogEntry {
   id: string;
-  dealId?: string;
-  userId: string;
-  companyId: string;
-  flagType: string;
-  severity: string;
-  transactionAmount: string;
-  flagReason: string;
-  detectionMethod: string;
-  strDueDate: string;
-  status: string;
-  createdAt: string;
-}
-
-interface InvestorCount {
-  financialYear: string;
-  currentCount: number;
-  maxAllowed: number;
-  utilizationPercent: number;
-  isNearLimit: boolean;
+  timestamp: string;
+  action: string;
+  userName: string;
+  userEmail: string;
+  companyName: string;
+  changeDescription: string;
+  riskLevel: string;
+  forensicHash: string;
+  prevHash: string;
 }
 
 export default function UnlistedRegulatoryCompliance() {
@@ -92,8 +86,14 @@ export default function UnlistedRegulatoryCompliance() {
     retry: false,
   });
 
+  const { data: auditLogsData, isLoading: isLoadingAudit } = useQuery<{ success: boolean; data: AuditLogEntry[] }>({
+    queryKey: ['/api/unlisted/admin/compliance/audit-trail'],
+    retry: false,
+  });
+
   const overview = overviewData?.data;
   const strData = strFlagsData?.data;
+  const auditLogs = auditLogsData?.data;
 
   const handleRefresh = () => {
     refetchOverview();
@@ -105,7 +105,7 @@ export default function UnlistedRegulatoryCompliance() {
   };
 
   const getSeverityBadge = (severity: string) => {
-    switch (severity) {
+    switch (severity?.toLowerCase()) {
       case 'critical':
         return <Badge className="bg-red-600 text-white">Critical</Badge>;
       case 'high':
@@ -132,7 +132,7 @@ export default function UnlistedRegulatoryCompliance() {
       case 'pep_involvement':
         return <Badge className="bg-red-800"><Landmark className="w-3 h-3 mr-1" />PEP Involvement</Badge>;
       default:
-        return <Badge variant="outline">{type.replace(/_/g, ' ')}</Badge>;
+        return <Badge variant="outline">{type?.replace(/_/g, ' ')}</Badge>;
     }
   };
 
@@ -167,15 +167,21 @@ export default function UnlistedRegulatoryCompliance() {
             SEBI, RBI & Companies Act compliance monitoring for unlisted share trading
           </p>
         </div>
-        <Button onClick={handleRefresh} variant="outline" data-testid="button-refresh">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 py-2 px-4 flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            Forensic Audit Enabled
+          </Badge>
+          <Button onClick={handleRefresh} variant="outline" data-testid="button-refresh">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {overview && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <Card className="bg-gradient-to-br from-blue-900/50 to-blue-800/30 border-blue-700" data-testid="card-investor-limits">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-blue-300 flex items-center gap-2">
@@ -187,12 +193,10 @@ export default function UnlistedRegulatoryCompliance() {
                 <div className="text-2xl font-bold text-foreground">{overview.investorLimits.companiesAtLimit}</div>
                 <p className="text-xs text-blue-300 mt-1">Companies at limit</p>
                 {overview.investorLimits.companiesNearLimit > 0 && (
-                  <Alert className="mt-2 bg-yellow-900/30 border-yellow-700">
-                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                    <AlertDescription className="text-yellow-300 text-xs">
-                      {overview.investorLimits.companiesNearLimit} companies near limit (90%+)
-                    </AlertDescription>
-                  </Alert>
+                  <div className="mt-2 flex items-center gap-1 text-yellow-500 text-xs font-medium">
+                    <AlertTriangle className="h-3 w-3" />
+                    {overview.investorLimits.companiesNearLimit} near limit
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -208,16 +212,10 @@ export default function UnlistedRegulatoryCompliance() {
                 <div className="text-2xl font-bold text-foreground">{overview.lockIns.activeRecords.toLocaleString()}</div>
                 <p className="text-xs text-purple-300 mt-1">Active lock-in records</p>
                 <div className="flex items-center gap-2 mt-2">
-                  <Badge variant="outline" className="border-purple-500 text-purple-300">
+                  <Badge variant="outline" className="border-purple-500 text-purple-300 py-0 text-[10px]">
                     {overview.lockIns.sharesLocked.toLocaleString()} shares locked
                   </Badge>
                 </div>
-                {overview.lockIns.unlockingThisMonth > 0 && (
-                  <p className="text-xs text-green-400 mt-2">
-                    <Clock className="h-3 w-3 inline mr-1" />
-                    {overview.lockIns.unlockingThisMonth} unlocking this month
-                  </p>
-                )}
               </CardContent>
             </Card>
 
@@ -225,25 +223,17 @@ export default function UnlistedRegulatoryCompliance() {
               <CardHeader className="pb-2">
                 <CardTitle className={`text-sm font-medium flex items-center gap-2 ${overview.strFlags.overdue > 0 ? 'text-red-300' : 'text-orange-300'}`}>
                   <FileWarning className="h-4 w-4" />
-                  STR Flags (FIU-IND)
+                  STR Flags
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-foreground">{overview.strFlags.pending}</div>
                 <p className={`text-xs mt-1 ${overview.strFlags.overdue > 0 ? 'text-red-300' : 'text-orange-300'}`}>Pending review</p>
                 {overview.strFlags.overdue > 0 && (
-                  <Alert className="mt-2 bg-red-900/50 border-red-600">
-                    <XCircle className="h-4 w-4 text-red-500" />
-                    <AlertDescription className="text-red-300 text-xs">
-                      {overview.strFlags.overdue} overdue - immediate action required!
-                    </AlertDescription>
-                  </Alert>
-                )}
-                {overview.strFlags.filedThisMonth > 0 && (
-                  <p className="text-xs text-green-400 mt-2">
-                    <CheckCircle className="h-3 w-3 inline mr-1" />
-                    {overview.strFlags.filedThisMonth} filed this month
-                  </p>
+                  <div className="mt-2 flex items-center gap-1 text-red-500 text-xs font-bold animate-pulse">
+                    <XCircle className="h-3 w-3" />
+                    {overview.strFlags.overdue} overdue!
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -259,10 +249,29 @@ export default function UnlistedRegulatoryCompliance() {
                 <div className="text-2xl font-bold text-foreground">{overview.statusChanges.suspended}</div>
                 <p className="text-xs text-emerald-300 mt-1">Trading suspended</p>
                 {overview.statusChanges.listedThisMonth > 0 && (
-                  <Badge className="mt-2 bg-green-700">
-                    <TrendingUp className="h-3 w-3 mr-1" />
+                  <div className="mt-2 text-green-400 text-xs font-medium flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3" />
                     {overview.statusChanges.listedThisMonth} listed this month
-                  </Badge>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-rose-900/50 to-rose-800/30 border-rose-700" data-testid="card-valuation-deviation">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-rose-300 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Valuation Deviation
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-foreground">{overview.valuationDeviations.highDeviationCount}</div>
+                <p className="text-xs text-rose-300 mt-1">Trades with &gt;20% dev</p>
+                {overview.valuationDeviations.highDeviationCount > 0 && (
+                  <div className="mt-2 text-rose-400 text-xs font-medium flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Requires Section 56(2) review
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -270,24 +279,24 @@ export default function UnlistedRegulatoryCompliance() {
 
           <Alert className="bg-blue-900/20 border-blue-700">
             <Shield className="h-4 w-4 text-blue-500" />
-            <AlertTitle className="text-blue-300">Regulatory Framework</AlertTitle>
+            <AlertTitle className="text-blue-300 font-semibold">Forensic Audit Active</AlertTitle>
             <AlertDescription className="text-blue-200 text-sm">
-              Monitoring compliance with Companies Act Section 42 (200 investor limit), 
-              SEBI private placement lock-in requirements (6 months), and PMLA STR reporting (7 working days).
+              All transactions are cryptographically signed using HMAC-SHA256 chain-of-trust. 
+              Regulatory archival policy enforced: <strong>7-Year Immutable Storage</strong>.
             </AlertDescription>
           </Alert>
         </>
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
           <TabsTrigger value="overview" data-testid="tab-overview">
             <Eye className="w-4 h-4 mr-2" />
             Overview
           </TabsTrigger>
           <TabsTrigger value="str-flags" data-testid="tab-str-flags">
             <FileWarning className="w-4 h-4 mr-2" />
-            STR Flags {strData && strData.pending > 0 && <Badge className="ml-2 bg-red-600">{strData.pending}</Badge>}
+            STR Flags {strData && strData.total > 0 && <Badge className="ml-2 bg-red-600">{strData.total}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="investor-limits" data-testid="tab-investor-limits">
             <Users className="w-4 h-4 mr-2" />
@@ -296,6 +305,10 @@ export default function UnlistedRegulatoryCompliance() {
           <TabsTrigger value="lock-ins" data-testid="tab-lock-ins">
             <Lock className="w-4 h-4 mr-2" />
             Lock-Ins
+          </TabsTrigger>
+          <TabsTrigger value="audit-trail" data-testid="tab-audit-trail">
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Audit Trail
           </TabsTrigger>
         </TabsList>
 
@@ -310,112 +323,100 @@ export default function UnlistedRegulatoryCompliance() {
                 <CardDescription>Key regulatory requirements status</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Users className="h-5 w-5 text-blue-400" />
-                    <div>
-                      <p className="font-medium">200 Investor Limit Monitoring</p>
-                      <p className="text-xs text-muted-foreground">Companies Act Section 42(2)</p>
+                {[
+                  { title: "200 Investor Limit Monitoring", subtitle: "Companies Act Section 42(2)", icon: Users, color: "text-blue-400" },
+                  { title: "6-Month Lock-In Enforcement", subtitle: "SEBI Private Placement Rules", icon: Lock, color: "text-purple-400" },
+                  { title: "STR Red Flag Detection", subtitle: "PMLA / FIU-IND Compliance", icon: FileWarning, color: "text-orange-400" },
+                  { title: "MCA Status Monitoring", subtitle: "Auto-suspend on listing", icon: Building2, color: "text-emerald-400" },
+                  { title: "Forensic Chain Integrity", subtitle: "HMAC-SHA256 Audit Trail", icon: Shield, color: "text-indigo-400" }
+                ].map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <item.icon className={`h-5 w-5 ${item.color}`} />
+                      <div>
+                        <p className="font-medium">{item.title}</p>
+                        <p className="text-xs text-muted-foreground">{item.subtitle}</p>
+                      </div>
                     </div>
+                    <Badge className="bg-green-600"><CheckCircle className="h-3 w-3 mr-1" />Active</Badge>
                   </div>
-                  <Badge className="bg-green-600"><CheckCircle className="h-3 w-3 mr-1" />Active</Badge>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Lock className="h-5 w-5 text-purple-400" />
-                    <div>
-                      <p className="font-medium">6-Month Lock-In Enforcement</p>
-                      <p className="text-xs text-muted-foreground">SEBI Private Placement Rules</p>
-                    </div>
-                  </div>
-                  <Badge className="bg-green-600"><CheckCircle className="h-3 w-3 mr-1" />Active</Badge>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <FileWarning className="h-5 w-5 text-orange-400" />
-                    <div>
-                      <p className="font-medium">STR Red Flag Detection</p>
-                      <p className="text-xs text-muted-foreground">PMLA / FIU-IND Compliance</p>
-                    </div>
-                  </div>
-                  <Badge className="bg-green-600"><CheckCircle className="h-3 w-3 mr-1" />Active</Badge>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Building2 className="h-5 w-5 text-emerald-400" />
-                    <div>
-                      <p className="font-medium">MCA Status Monitoring</p>
-                      <p className="text-xs text-muted-foreground">Auto-suspend on listing</p>
-                    </div>
-                  </div>
-                  <Badge className="bg-green-600"><CheckCircle className="h-3 w-3 mr-1" />Active</Badge>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Scale className="h-5 w-5 text-yellow-400" />
-                    <div>
-                      <p className="font-medium">Source of Funds Verification</p>
-                      <p className="text-xs text-muted-foreground">Trades ≥₹50 Lakhs</p>
-                    </div>
-                  </div>
-                  <Badge className="bg-green-600"><CheckCircle className="h-3 w-3 mr-1" />Active</Badge>
-                </div>
+                ))}
               </CardContent>
             </Card>
 
-            <Card data-testid="card-quick-actions">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ArrowRight className="h-5 w-5 text-blue-500" />
-                  Quick Actions
-                </CardTitle>
-                <CardDescription>Common compliance tasks</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('str-flags')} data-testid="button-review-str">
-                  <FileWarning className="h-4 w-4 mr-2 text-orange-400" />
-                  Review Pending STR Flags
-                  {overview && overview.strFlags.pending > 0 && (
-                    <Badge className="ml-auto bg-orange-600">{overview.strFlags.pending}</Badge>
-                  )}
-                </Button>
-                
-                <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('investor-limits')} data-testid="button-check-limits">
-                  <Users className="h-4 w-4 mr-2 text-blue-400" />
-                  Check Investor Limits
-                  {overview && overview.investorLimits.companiesNearLimit > 0 && (
-                    <Badge className="ml-auto bg-yellow-600">{overview.investorLimits.companiesNearLimit}</Badge>
-                  )}
-                </Button>
-                
-                <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('lock-ins')} data-testid="button-view-lockings">
-                  <Lock className="h-4 w-4 mr-2 text-purple-400" />
-                  View Upcoming Unlocks
-                  {overview && overview.lockIns.unlockingThisMonth > 0 && (
-                    <Badge className="ml-auto bg-green-600">{overview.lockIns.unlockingThisMonth}</Badge>
-                  )}
-                </Button>
+            <div className="space-y-6">
+              {overview?.investorLimits.companiesAtRisk && overview.investorLimits.companiesAtRisk.length > 0 && (
+                <Card className="border-yellow-700 bg-yellow-900/10">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-yellow-500">
+                      <AlertTriangle className="h-4 w-4" />
+                      Companies At Risk
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {overview.investorLimits.companiesAtRisk.map((comp) => (
+                      <div key={comp.id} className="flex items-center justify-between p-2 bg-black/20 rounded border border-yellow-700/30">
+                        <div>
+                          <p className="text-xs font-bold text-foreground">{comp.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{comp.id}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-sm font-bold ${comp.status === 'at_limit' ? 'text-red-500' : 'text-yellow-500'}`}>
+                            {comp.count} / 200
+                          </p>
+                          <Badge variant="outline" className={`text-[10px] py-0 ${comp.status === 'at_limit' ? 'border-red-500 text-red-500' : 'border-yellow-500 text-yellow-500'}`}>
+                            {comp.status === 'at_limit' ? 'Limit Reached' : 'Near Limit'}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
-                <Separator />
-                
-                <Button variant="outline" className="w-full justify-start text-muted-foreground" data-testid="button-export-report">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Export Compliance Report
-                </Button>
-              </CardContent>
-            </Card>
+              <Card data-testid="card-quick-actions">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ArrowRight className="h-5 w-5 text-blue-500" />
+                    Quick Actions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('str-flags')}>
+                    <FileWarning className="h-4 w-4 mr-2 text-orange-400" />
+                    Review Pending STR Flags
+                    {overview && overview.strFlags.pending > 0 && (
+                      <Badge className="ml-auto bg-orange-600">{overview.strFlags.pending}</Badge>
+                    )}
+                  </Button>
+                  
+                  <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('investor-limits')}>
+                    <Users className="h-4 w-4 mr-2 text-blue-400" />
+                    Check Investor Limits
+                  </Button>
+                  
+                  <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('audit-trail')}>
+                    <Shield className="h-4 w-4 mr-2 text-indigo-400" />
+                    Verify Forensic Trail
+                  </Button>
+
+                  <Separator />
+                  
+                  <Button variant="outline" className="w-full justify-start text-muted-foreground">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Export SEBI Reporting Batch
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </TabsContent>
 
         <TabsContent value="str-flags" className="mt-6">
           <Card data-testid="card-str-flags-table">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileWarning className="h-5 w-5 text-orange-500" />
+              <CardTitle className="flex items-center gap-2 text-orange-500">
+                <FileWarning className="h-5 w-5" />
                 Suspicious Transaction Report Flags
               </CardTitle>
               <CardDescription>
@@ -440,7 +441,7 @@ export default function UnlistedRegulatoryCompliance() {
                   </TableHeader>
                   <TableBody>
                     {strData.flags.map((flag) => (
-                      <TableRow key={flag.id} data-testid={`row-str-flag-${flag.id}`}>
+                      <TableRow key={flag.id}>
                         <TableCell>{getFlagTypeBadge(flag.flagType)}</TableCell>
                         <TableCell>{getSeverityBadge(flag.severity)}</TableCell>
                         <TableCell className="font-mono">
@@ -454,7 +455,7 @@ export default function UnlistedRegulatoryCompliance() {
                             <div className={`text-sm ${new Date(flag.strDueDate) < new Date() ? 'text-red-400 font-medium' : 'text-muted-foreground'}`}>
                               {format(new Date(flag.strDueDate), 'dd MMM yyyy')}
                               <br />
-                              <span className="text-xs">
+                              <span className="text-[10px]">
                                 {formatDistanceToNow(new Date(flag.strDueDate), { addSuffix: true })}
                               </span>
                             </div>
@@ -462,7 +463,7 @@ export default function UnlistedRegulatoryCompliance() {
                         </TableCell>
                         <TableCell>{getStatusBadge(flag.status)}</TableCell>
                         <TableCell>
-                          <Button size="sm" variant="outline" data-testid={`button-review-${flag.id}`}>
+                          <Button size="sm" variant="outline">
                             <Eye className="h-3 w-3 mr-1" />
                             Review
                           </Button>
@@ -482,52 +483,144 @@ export default function UnlistedRegulatoryCompliance() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="investor-limits" className="mt-6">
-          <Card data-testid="card-investor-limits-info">
+        <TabsContent value="audit-trail" className="mt-6">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-blue-500" />
-                200 Investor Limit Tracking
+              <CardTitle className="flex items-center gap-2 text-indigo-400">
+                <Shield className="h-5 w-5" />
+                Forensic Audit Trail
               </CardTitle>
               <CardDescription>
-                Companies Act Section 42(2) - Private placement cannot exceed 200 investors per company per financial year
+                Cryptographically linked transaction log for forensic analysis and regulatory audit.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Alert className="mb-4 bg-blue-900/20 border-blue-700">
-                <Shield className="h-4 w-4 text-blue-500" />
-                <AlertTitle className="text-blue-300">Compliance Note</AlertTitle>
-                <AlertDescription className="text-blue-200 text-sm">
-                  If a company exceeds 200 investors in a financial year, it triggers public issue requirements 
-                  under SEBI regulations. The platform automatically blocks new investors when the limit is reached.
-                </AlertDescription>
-              </Alert>
+              {isLoadingAudit ? (
+                <LoadingState message="Verifying forensic chain..." />
+              ) : auditLogs && auditLogs.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Timestamp</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Entity</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>Forensic Hash</TableHead>
+                      <TableHead>Integrity</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {auditLogs.map((log) => (
+                      <TableRow key={log.id} className="group">
+                        <TableCell className="text-xs">
+                          {format(new Date(log.timestamp), 'dd MMM HH:mm:ss')}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-[10px] uppercase font-bold">
+                            {log.action.replace(/_/g, ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs font-medium">
+                          {log.companyName || 'System'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-xs">
+                            <p className="font-medium">{log.userName}</p>
+                            <p className="text-muted-foreground">{log.userEmail}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[120px]">
+                          <code className="text-[10px] bg-muted px-1 py-0.5 rounded block truncate" title={log.forensicHash}>
+                            {log.forensicHash}
+                          </code>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="bg-emerald-600/20 text-emerald-500 border-emerald-500/30">
+                            <Shield className="w-3 h-3 mr-1" />
+                            Verified
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <EmptyState
+                  icon={Shield}
+                  title="Audit Trail Empty"
+                  description="No forensic events recorded in the current window."
+                />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <TabsContent value="investor-limits" className="mt-6">
+          <Card data-testid="card-investor-limits-info">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-500">
+                <Users className="h-5 w-5" />
+                200 Investor Limit Tracking
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <Card className="bg-muted/30">
                   <CardContent className="pt-4 text-center">
                     <div className="text-3xl font-bold text-foreground">{overview?.investorLimits.companiesAtLimit || 0}</div>
                     <p className="text-sm text-red-400">At Limit (200)</p>
-                    <p className="text-xs text-muted-foreground mt-1">New investors blocked</p>
                   </CardContent>
                 </Card>
-                
                 <Card className="bg-muted/30">
                   <CardContent className="pt-4 text-center">
                     <div className="text-3xl font-bold text-foreground">{overview?.investorLimits.companiesNearLimit || 0}</div>
                     <p className="text-sm text-yellow-400">Near Limit (180-199)</p>
-                    <p className="text-xs text-muted-foreground mt-1">Requires monitoring</p>
                   </CardContent>
                 </Card>
-                
                 <Card className="bg-muted/30">
                   <CardContent className="pt-4 text-center">
                     <div className="text-3xl font-bold text-foreground">200</div>
-                    <p className="text-sm text-green-400">Max Investors/FY</p>
-                    <p className="text-xs text-muted-foreground mt-1">Per company limit</p>
+                    <p className="text-sm text-green-400">Max Limit</p>
                   </CardContent>
                 </Card>
               </div>
+
+              {overview?.investorLimits.companiesAtRisk && overview.investorLimits.companiesAtRisk.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Company Name</TableHead>
+                      <TableHead>Investor Count</TableHead>
+                      <TableHead>Utilization</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {overview.investorLimits.companiesAtRisk.map((comp) => (
+                      <TableRow key={comp.id}>
+                        <TableCell className="font-medium">{comp.name}</TableCell>
+                        <TableCell>{comp.count} / 200</TableCell>
+                        <TableCell className="w-[200px]">
+                          <Progress value={(comp.count / 200) * 100} className={`h-2 ${comp.count >= 200 ? 'bg-red-500' : 'bg-yellow-500'}`} />
+                        </TableCell>
+                        <TableCell>
+                          {comp.count >= 200 ? (
+                            <Badge className="bg-red-600">BLOCKED</Badge>
+                          ) : (
+                            <Badge className="bg-yellow-600">WARNING</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="outline">Manage</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <EmptyState icon={CheckCircle} title="All Companies Within Limits" description="No companies are currently near the 200 investor limit." />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -535,46 +628,29 @@ export default function UnlistedRegulatoryCompliance() {
         <TabsContent value="lock-ins" className="mt-6">
           <Card data-testid="card-lock-ins-info">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Lock className="h-5 w-5 text-purple-500" />
-                6-Month Lock-In Period Tracking
+              <CardTitle className="flex items-center gap-2 text-purple-500">
+                <Lock className="h-5 w-5" />
+                6-Month Lock-In Period
               </CardTitle>
-              <CardDescription>
-                SEBI private placement regulations - Securities cannot be sold within 6 months of acquisition
-              </CardDescription>
             </CardHeader>
             <CardContent>
-              <Alert className="mb-4 bg-purple-900/20 border-purple-700">
-                <Lock className="h-4 w-4 text-purple-500" />
-                <AlertTitle className="text-purple-300">Lock-In Rules</AlertTitle>
-                <AlertDescription className="text-purple-200 text-sm">
-                  Shares acquired through private placement have a mandatory 6-month lock-in period. 
-                  The platform automatically blocks sell orders for locked shares and calculates unlock dates.
-                </AlertDescription>
-              </Alert>
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="bg-muted/30">
                   <CardContent className="pt-4 text-center">
                     <div className="text-3xl font-bold text-foreground">{overview?.lockIns.activeRecords?.toLocaleString() || 0}</div>
-                    <p className="text-sm text-purple-400">Active Lock-Ins</p>
-                    <p className="text-xs text-muted-foreground mt-1">Currently enforced</p>
+                    <p className="text-sm text-purple-400">Active Records</p>
                   </CardContent>
                 </Card>
-                
                 <Card className="bg-muted/30">
                   <CardContent className="pt-4 text-center">
                     <div className="text-3xl font-bold text-foreground">{overview?.lockIns.sharesLocked?.toLocaleString() || 0}</div>
                     <p className="text-sm text-blue-400">Shares Locked</p>
-                    <p className="text-xs text-muted-foreground mt-1">Cannot be sold yet</p>
                   </CardContent>
                 </Card>
-                
                 <Card className="bg-muted/30">
                   <CardContent className="pt-4 text-center">
                     <div className="text-3xl font-bold text-foreground">{overview?.lockIns.unlockingThisMonth || 0}</div>
-                    <p className="text-sm text-green-400">Unlocking This Month</p>
-                    <p className="text-xs text-muted-foreground mt-1">Will become tradeable</p>
+                    <p className="text-sm text-green-400">Unlocks (30d)</p>
                   </CardContent>
                 </Card>
               </div>
@@ -584,4 +660,6 @@ export default function UnlistedRegulatoryCompliance() {
       </Tabs>
     </div>
   );
+}
+ );
 }

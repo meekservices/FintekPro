@@ -127,7 +127,7 @@ export function ForensicAuditTrail() {
                 <Heart className={`w-5 h-5 ${heartbeat?.status === 'healthy' ? 'text-rose-500 animate-pulse' : 'text-muted-foreground'}`} />
                 <span className="font-semibold text-sm">System Heartbeat</span>
               </div>
-              <Badge variant={heartbeat?.status === 'healthy' ? 'success' : 'warning'}>
+              <Badge className={heartbeat?.status === 'healthy' ? 'bg-emerald-500 hover:bg-emerald-600 text-white border-none' : 'bg-amber-500 hover:bg-amber-600 text-white border-none'}>
                 {heartbeat?.status?.toUpperCase() || 'VERIFYING'}
               </Badge>
             </div>
@@ -144,7 +144,7 @@ export function ForensicAuditTrail() {
                 <Fingerprint className="w-5 h-5 text-indigo-500" />
                 <span className="font-semibold text-sm">Forensic Integrity</span>
               </div>
-              <Badge variant={heartbeat?.integrityCheck ? 'success' : 'destructive'}>
+              <Badge variant={heartbeat?.integrityCheck ? 'default' : 'destructive'} className={heartbeat?.integrityCheck ? 'bg-emerald-500 hover:bg-emerald-600 text-white border-none' : ''}>
                 {heartbeat?.integrityCheck ? 'HASH VERIFIED' : 'UNVERIFIED'}
               </Badge>
             </div>
