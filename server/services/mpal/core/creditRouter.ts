@@ -1,7 +1,7 @@
 import { providerRegistry } from './providerRegistry';
 import { CreditApplication } from '../interfaces/ICreditProvider';
 import { creditScoringEngine } from './creditScoringEngine';
-import { logger } from '../../../../logger';
+import { logger } from '../../../logger';
 
 export class CreditRouter {
   

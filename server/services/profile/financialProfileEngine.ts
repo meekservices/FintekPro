@@ -1,4 +1,4 @@
-import { logger } from '../../../logger';
+import { logger } from '../../logger';
 import { portfolioAggregator } from '../portfolio/portfolioAggregator';
 
 export class FinancialProfileEngine {

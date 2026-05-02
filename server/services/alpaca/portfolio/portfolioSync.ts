@@ -1,6 +1,6 @@
 import { alpacaClient } from '../core/alpacaClient';
-import { logger } from '../../../../logger';
-import { db } from '../../../../db';
+import { logger } from '../../../logger';
+import { db } from '../../../db';
 import { users } from '../../../../shared/schema';
 import { eq } from 'drizzle-orm';
 

@@ -1,5 +1,5 @@
 import { ICreditProvider, CreditApplication } from '../interfaces/ICreditProvider';
-import { logger } from '../../../../logger';
+import { logger } from '../../../logger';
 import { financialProfileEngine } from '../../profile/financialProfileEngine';
 
 export class CreditScoringEngine {
