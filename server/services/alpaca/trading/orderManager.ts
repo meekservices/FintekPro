@@ -100,5 +100,3 @@ export class OrderManager {
 }
 
 export const orderManager = new OrderManager();
-
-export const orderManager = new OrderManager();

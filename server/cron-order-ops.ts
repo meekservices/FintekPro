@@ -143,4 +143,16 @@ export function initializeOrderOpsCrons(): void {
       console.error('[CRON] KYC reminder job failed:', error.message);
     }
   });
+
+  // ── Alpaca Order Reconciliation — every 4 hours at :00 ─────────────────────
+  cron.schedule('0 */4 * * *', async () => {
+    console.log('[CRON] Starting Alpaca order reconciliation...');
+    try {
+      const { alpacaReconciliationService } = await import('./services/alpaca/trading/reconciliationService');
+      const stats = await alpacaReconciliationService.reconcileAllUsers();
+      console.log(`[CRON] Alpaca reconciliation complete. Synced: ${stats.totalSynced} orders.`);
+    } catch (error: any) {
+      console.error('[CRON] Alpaca reconciliation job failed:', error.message);
+    }
+  });
 }

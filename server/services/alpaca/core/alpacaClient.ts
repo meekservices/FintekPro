@@ -120,6 +120,12 @@ export class AlpacaClient {
     const qs = params ? '?' + new URLSearchParams(params).toString() : '';
     return this.call(`/trading/accounts/${accountId}/orders${qs}`);
   }
+
+  async uploadDocument(accountId: string, documentData: { document_type: string, content: string, description?: string, mime_type?: string }) {
+    // Alpaca document upload expects multipart/form-data or a specific object format
+    // For simplicity in this environment, we'll use the documented API structure
+    return this.call(`/accounts/${accountId}/documents`, 'POST', documentData);
+  }
 }
 
 export const alpacaClient = new AlpacaClient();

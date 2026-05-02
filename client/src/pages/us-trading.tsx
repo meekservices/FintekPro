@@ -283,6 +283,8 @@ export default function USTradingPage() {
     },
   });
 
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
   const handleTrade = (stock: StockQuote, side: "buy" | "sell") => {
     setSelectedStock(stock);
     setOrderType(side);
@@ -298,6 +300,11 @@ export default function USTradingPage() {
       });
       return;
     }
+    
+    if (!showConfirmation) {
+      setShowConfirmation(true);
+      return;
+    }
 
     placeOrderMutation.mutate({
       symbol: selectedStock.symbol,
@@ -307,6 +314,14 @@ export default function USTradingPage() {
       consent: consentChecked,
       lrsDeclaration,
     });
+  };
+
+  const resetTradeState = () => {
+    setTradeModalOpen(false);
+    setShowConfirmation(false);
+    setQuantity("");
+    setConsentChecked(false);
+    setLrsDeclaration(false);
   };
 
   const exchangeRate = marketData?.exchangeRate?.rate || 83.5;
@@ -345,8 +360,12 @@ export default function USTradingPage() {
               <Globe className="h-8 w-8 text-blue-600" />
               US Equity Trading
             </h1>
-            <p className="text-muted-foreground mt-1">
-              Trade NASDAQ & S&P 500 stocks with full LRS compliance
+            <p className="text-muted-foreground mt-1 flex items-center gap-2">
+              Trade NASDAQ & S&P 500 stocks | 
+              <span className="flex items-center gap-1 font-medium text-blue-600">
+                <Shield className="h-3 w-3" />
+                Powered by Alpaca
+              </span>
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -1029,7 +1048,10 @@ export default function USTradingPage() {
           </TabsContent>
         </Tabs>
 
-        <Dialog open={tradeModalOpen} onOpenChange={setTradeModalOpen}>
+        <Dialog open={tradeModalOpen} onOpenChange={(open) => {
+          setTradeModalOpen(open);
+          if (!open) resetTradeState();
+        }}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -1038,7 +1060,7 @@ export default function USTradingPage() {
                 ) : (
                   <ArrowDownRight className="h-5 w-5 text-red-600" />
                 )}
-                {orderType === "buy" ? "Buy" : "Sell"} {selectedStock?.symbol}
+                {showConfirmation ? "Confirm Order" : `${orderType === "buy" ? "Buy" : "Sell"} ${selectedStock?.symbol}`}
               </DialogTitle>
               <DialogDescription>
                 {selectedStock?.name} - Current Price: ${selectedStock?.price?.toFixed(2)}
@@ -1046,104 +1068,153 @@ export default function USTradingPage() {
             </DialogHeader>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-                <div>
-                  <p className="text-sm text-muted-foreground">Price (USD)</p>
-                  <p className="text-xl font-bold">${selectedStock?.price?.toFixed(2)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Price (INR)</p>
-                  <p className="text-xl font-bold">
-                    ₹{((selectedStock?.price || 0) * exchangeRate).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-2 block">Quantity</label>
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={() => setQuantity(String(Math.max(0, (parseInt(quantity) || 0) - 1)))}
-                    data-testid="decrease-quantity"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <Input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    placeholder="Enter quantity"
-                    className="text-center"
-                    min="1"
-                    data-testid="quantity-input"
-                  />
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={() => setQuantity(String((parseInt(quantity) || 0) + 1))}
-                    data-testid="increase-quantity"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {quantity && selectedStock && (
-                <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-                  <div className="flex justify-between mb-2">
-                    <span>Estimated Total (USD)</span>
-                    <span className="font-bold">
-                      ${(parseInt(quantity) * selectedStock.price).toFixed(2)}
-                    </span>
+              {!showConfirmation ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Price (USD)</p>
+                      <p className="text-xl font-bold">${selectedStock?.price?.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Price (INR)</p>
+                      <p className="text-xl font-bold">
+                        ₹{((selectedStock?.price || 0) * exchangeRate).toFixed(2)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Estimated Total (INR)</span>
-                    <span className="font-bold">
-                      ₹{(parseInt(quantity) * selectedStock.price * exchangeRate).toFixed(2)}
-                    </span>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Quantity</label>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={() => setQuantity(String(Math.max(0, (parseInt(quantity) || 0) - 1)))}
+                        data-testid="decrease-quantity"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <Input
+                        type="number"
+                        value={quantity}
+                        onChange={(e) => setQuantity(e.target.value)}
+                        placeholder="Enter quantity"
+                        className="text-center"
+                        min="1"
+                        data-testid="quantity-input"
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={() => setQuantity(String((parseInt(quantity) || 0) + 1))}
+                        data-testid="increase-quantity"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {quantity && selectedStock && (
+                    <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                      <div className="flex justify-between mb-2">
+                        <span>Estimated Total (USD)</span>
+                        <span className="font-bold">
+                          ${(parseInt(quantity) * selectedStock.price).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Estimated Total (INR)</span>
+                        <span className="font-bold">
+                          ₹{(parseInt(quantity) * selectedStock.price * exchangeRate).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-950/30">
+                    <AlertTriangle className="h-4 w-4 text-orange-600" />
+                    <AlertTitle className="text-orange-800 dark:text-orange-200">Important Disclosures</AlertTitle>
+                    <AlertDescription className="text-orange-700 dark:text-orange-300 text-sm">
+                      US equity trading is subject to FEMA regulations. This investment counts towards your LRS annual limit of $250,000.
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2">
+                      <Checkbox 
+                        id="consent" 
+                        checked={consentChecked}
+                        onCheckedChange={(checked) => setConsentChecked(checked as boolean)}
+                        data-testid="consent-checkbox"
+                      />
+                      <label htmlFor="consent" className="text-sm leading-tight cursor-pointer">
+                        I understand and accept the risks associated with US equity trading, including currency fluctuation and regulatory risks.
+                      </label>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Checkbox 
+                        id="lrs" 
+                        checked={lrsDeclaration}
+                        onCheckedChange={(checked) => setLrsDeclaration(checked as boolean)}
+                        data-testid="lrs-checkbox"
+                      />
+                      <label htmlFor="lrs" className="text-sm leading-tight cursor-pointer">
+                        I declare this transaction is within my LRS limit and complies with FEMA regulations for Indian residents.
+                      </label>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-6">
+                  <div className="p-6 bg-slate-50 dark:bg-slate-900 border rounded-xl space-y-4">
+                    <div className="flex justify-between border-b pb-3">
+                      <span className="text-muted-foreground">Asset</span>
+                      <span className="font-bold text-lg">{selectedStock?.symbol}</span>
+                    </div>
+                    <div className="flex justify-between border-b pb-3">
+                      <span className="text-muted-foreground">Action</span>
+                      <Badge variant={orderType === "buy" ? "default" : "secondary"}>
+                        {orderType?.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between border-b pb-3">
+                      <span className="text-muted-foreground">Quantity</span>
+                      <span className="font-bold">{quantity} Shares</span>
+                    </div>
+                    <div className="flex justify-between border-b pb-3">
+                      <span className="text-muted-foreground">Order Type</span>
+                      <span className="font-bold">Market Order</span>
+                    </div>
+                    <div className="flex justify-between pt-2">
+                      <span className="text-lg font-semibold">Total Value</span>
+                      <div className="text-right">
+                        <p className="text-xl font-bold text-blue-600">
+                          ${(parseInt(quantity) * (selectedStock?.price || 0)).toFixed(2)}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          ≈ ₹{(parseInt(quantity) * (selectedStock?.price || 0) * exchangeRate).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg">
+                    <div className="flex gap-3">
+                      <Shield className="h-5 w-5 text-amber-600 shrink-0" />
+                      <div className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
+                        <p className="font-semibold">Brokerage Disclosure</p>
+                        <p>FintekPro acts as an introducing agent. Securities are held by Alpaca Securities LLC, a member of FINRA/SIPC.</p>
+                        <p>By clicking "Confirm", you authorize this trade and acknowledge that execution is subject to market availability.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
-
-              <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-950/30">
-                <AlertTriangle className="h-4 w-4 text-orange-600" />
-                <AlertTitle className="text-orange-800 dark:text-orange-200">Important Disclosures</AlertTitle>
-                <AlertDescription className="text-orange-700 dark:text-orange-300 text-sm">
-                  US equity trading is subject to FEMA regulations. This investment counts towards your LRS annual limit of $250,000.
-                </AlertDescription>
-              </Alert>
-
-              <div className="space-y-3">
-                <div className="flex items-start gap-2">
-                  <Checkbox 
-                    id="consent" 
-                    checked={consentChecked}
-                    onCheckedChange={(checked) => setConsentChecked(checked as boolean)}
-                    data-testid="consent-checkbox"
-                  />
-                  <label htmlFor="consent" className="text-sm leading-tight cursor-pointer">
-                    I understand and accept the risks associated with US equity trading, including currency fluctuation and regulatory risks.
-                  </label>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Checkbox 
-                    id="lrs" 
-                    checked={lrsDeclaration}
-                    onCheckedChange={(checked) => setLrsDeclaration(checked as boolean)}
-                    data-testid="lrs-checkbox"
-                  />
-                  <label htmlFor="lrs" className="text-sm leading-tight cursor-pointer">
-                    I declare this transaction is within my LRS limit and complies with FEMA regulations for Indian residents.
-                  </label>
-                </div>
-              </div>
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setTradeModalOpen(false)}>
-                Cancel
+              <Button variant="outline" onClick={() => showConfirmation ? setShowConfirmation(false) : resetTradeState()}>
+                {showConfirmation ? "Back" : "Cancel"}
               </Button>
               <Button
                 onClick={handlePlaceOrder}
@@ -1154,7 +1225,7 @@ export default function USTradingPage() {
                 {placeOrderMutation.isPending ? (
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                 ) : null}
-                {orderType === "buy" ? "Place Buy Order" : "Place Sell Order"}
+                {showConfirmation ? "Confirm & Transact" : "Review Order"}
               </Button>
             </DialogFooter>
           </DialogContent>
