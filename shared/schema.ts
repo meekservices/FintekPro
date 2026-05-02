@@ -462,6 +462,7 @@ export * from "./schema/orders";
 export * from "./schema/market-data";
 export * from "./schema/cart";
 export * from "./schema/reit-invit";
+export * from "./schema/mpal";
 
 // Session storage table
 export const sessions = pgTable(

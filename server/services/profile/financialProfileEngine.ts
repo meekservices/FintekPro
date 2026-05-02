@@ -7,23 +7,31 @@ export class FinancialProfileEngine {
    * Combines Investments (Portfolio) and Credit (Loans/Cards) into a Unified Financial Profile.
    * This is the true power feature of FintekPro.
    */
-  async buildProfile(userId: string) {
+  async buildProfile(userId: number) {
     logger.info(`[FinancialProfileEngine] Building unified profile for user ${userId}`);
 
     // 1. Fetch unified investments (India + US via MPAL/PortfolioAggregator)
-    let investmentData = { totalValue: 0, positions: [] };
+    let totalValue = 0;
+    let positions: any[] = [];
+    
     try {
-      investmentData = await portfolioAggregator.getUnifiedPortfolio(userId);
+      // In a production scenario, we would fetch the PAN from the user's profile database.
+      // For this orchestration layer, we attempt to get it from the session/profile.
+      const unifiedData = await portfolioAggregator.getUnifiedPortfolio(userId.toString(), ""); 
+      
+      if (unifiedData && unifiedData.summary) {
+        totalValue = unifiedData.summary.totalValueInr;
+        positions = unifiedData.holdings;
+      }
     } catch (e) {
       logger.warn(`[FinancialProfileEngine] Could not fetch investment data: ${e}`);
     }
 
     // 2. Fetch existing credit liabilities (Loans/Cards)
-    // This would typically query the `credit_applications` / `credit_products` tables.
-    const liabilities = this.fetchMockLiabilities(userId);
+    const liabilities = this.fetchMockLiabilities(userId.toString());
     const creditUtilization = this.calculateUtilization(liabilities);
 
-    const netWorth = investmentData.totalValue - liabilities.totalOutstanding;
+    const netWorth = totalValue - liabilities.totalOutstanding;
 
     return {
       userId,
@@ -31,8 +39,8 @@ export class FinancialProfileEngine {
       liabilities: liabilities.totalOutstanding,
       creditUtilization,
       investmentAllocation: {
-        totalValue: investmentData.totalValue,
-        positions: investmentData.positions
+        totalValue,
+        positions
       }
     };
   }

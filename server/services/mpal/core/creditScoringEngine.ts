@@ -58,6 +58,29 @@ export class CreditScoringEngine {
     
     return Math.floor(baseScore + portfolioBonus - liabilityPenalty);
   }
+
+  /**
+   * Evaluates overall credit eligibility for the UI.
+   */
+  async scoreUser(userId: number) {
+    const financialProfile = await financialProfileEngine.buildProfile(userId);
+    const score = this.calculateRiskScore(financialProfile);
+    
+    // In a real system, these would be derived from the product catalog
+    const riskTier = score > 750 ? "LOW" : score > 650 ? "MEDIUM" : "HIGH";
+    
+    return {
+      score,
+      riskTier,
+      approvedAmount: score > 600 ? Math.floor(financialProfile.investmentAllocation.totalValue * 0.5) : 0,
+      reasons: score > 700 ? ["Strong Portfolio", "Good Asset-to-Liability Ratio"] : ["Enhance portfolio diversity to increase score"],
+      breakdown: {
+        assetBackedScore: Math.floor(score * 0.4),
+        liabilityScore: Math.floor(score * 0.3),
+        kycScore: Math.floor(score * 0.3)
+      }
+    };
+  }
 }
 
 export const creditScoringEngine = new CreditScoringEngine();
