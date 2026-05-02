@@ -10,8 +10,8 @@ export class AlpacaAccountCreator {
   /**
    * Orchestrates the creation of an Alpaca account from a local FintekPro user
    */
-  async createAccountForUser(userId: string) {
-    logger.info(`[AlpacaAccountCreator] Initiating Alpaca onboarding for user: ${userId}`);
+  async createAccountForUser(userId: string, ipAddress: string = '127.0.0.1') {
+    logger.info(`[AlpacaAccountCreator] Initiating Alpaca onboarding for user: ${userId} from IP: ${ipAddress}`);
 
     // Fetch user and profile from DB
     const userRecord = await db.query.users.findFirst({
@@ -31,8 +31,8 @@ export class AlpacaAccountCreator {
       return userRecord.alpacaAccountId;
     }
 
-    // Map KYC
-    const payload = alpacaKycMapper.mapToAlpacaSchema(userRecord as any, profileRecord as any);
+    // Map KYC with real IP
+    const payload = alpacaKycMapper.mapToAlpacaSchema(userRecord as any, profileRecord as any, ipAddress);
 
     try {
       // Call Alpaca API

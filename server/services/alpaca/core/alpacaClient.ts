@@ -16,10 +16,11 @@ export class AlpacaClient {
     });
 
     // Request interceptor to attach dynamic headers
-    this.client.interceptors.request.use((config) => {
+    this.client.interceptors.request.use(async (config) => {
+      const authHeaders = await alpacaAuthManager.getAuthHeaders();
       config.headers = {
         ...config.headers,
-        ...alpacaAuthManager.getAuthHeaders()
+        ...authHeaders
       } as any;
       return config;
     });

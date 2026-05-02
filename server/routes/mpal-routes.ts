@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { investmentRouter } from "../services/mpal/core/investmentRouter";
 import { creditRouter } from "../services/mpal/core/creditRouter";
-import { creditScoringEngine } from "../services/mpal/core/creditScoringEngine";
+import { financialProfileEngine } from "../services/profile/financialProfileEngine";
 import { logger } from "../logger";
 
 export const mpalRouter = Router();
@@ -15,20 +15,18 @@ mpalRouter.get("/financial-profile", async (req, res) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
     
-    // In a real system, this would call FinancialProfileEngine
-    // Since we didn't fully implement the database query for the engine, we mock the payload for the UI.
-    const mockProfile = {
-      id: "prof_123",
-      userId: req.user.id,
-      netWorth: "1250000",
-      totalAssets: "1500000",
-      totalLiabilities: "250000",
-      creditUtilization: "35.5",
-      riskScore: "750",
+    // Call the engine to build a live profile (Alpaca + IRIS + Credit)
+    const profile = await financialProfileEngine.buildProfile(req.user.id);
+    
+    // Add additional metadata for UI
+    const enrichedProfile = {
+      ...profile,
+      id: `prof_${req.user.id}`,
+      riskScore: "750", // Still mocked for now, but scoring engine could be called here
       lastUpdated: new Date().toISOString()
     };
     
-    res.json(mockProfile);
+    res.json(enrichedProfile);
   } catch (error) {
     logger.error("Error fetching financial profile", error);
     res.status(500).json({ error: "Internal Server Error" });

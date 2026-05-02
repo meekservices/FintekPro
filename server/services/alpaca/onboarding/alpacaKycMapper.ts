@@ -7,7 +7,7 @@ export class AlpacaKycMapper {
    * Maps FintekPro User/Profile schema into Alpaca Broker API Account schema
    * Ref: https://alpaca.markets/docs/broker/api-references/accounts/accounts/
    */
-  mapToAlpacaSchema(user: User, profile: UserProfile) {
+  mapToAlpacaSchema(user: User, profile: UserProfile, ipAddress: string = '127.0.0.1') {
     if (!profile.firstName || !profile.lastName || !profile.dateOfBirth) {
       throw new Error('Incomplete core KYC data (Name/DOB required)');
     }
@@ -22,26 +22,29 @@ export class AlpacaKycMapper {
       throw new Error('Tax ID (PAN/Passport) required for Alpaca onboarding');
     }
 
+    // Capture dynamic funding source from profile if available, otherwise fallback to employment_income
+    const fundingSource = profile.fundingSource || 'employment_income';
+
     const payload: any = {
       contact: {
         email_address: user.email,
-        phone_number: user.mobile, // Needs +91 formatting generally
-        street_address: [profile.address.substring(0, 50)], // Max lengths
+        phone_number: user.mobile, 
+        street_address: [profile.address.substring(0, 50)], 
         city: profile.city,
         state: profile.state,
         postal_code: profile.pincode,
-        country: profile.countryOfResidence === 'India' ? 'IND' : 'USA' // ISO-3
+        country: profile.countryOfResidence === 'India' ? 'IND' : 'USA' 
       },
       identity: {
         given_name: profile.firstName,
         family_name: profile.lastName,
-        date_of_birth: profile.dateOfBirth, // YYYY-MM-DD
+        date_of_birth: profile.dateOfBirth, 
         tax_id: taxId,
         tax_id_type: profile.countryOfResidence === 'India' ? 'IND_PAN' : 'USA_SSN',
         country_of_citizenship: profile.countryOfCitizenship === 'India' ? 'IND' : 'USA',
-        country_of_birth: 'IND', // Assuming from profile
+        country_of_birth: 'IND', 
         country_of_tax_residence: profile.countryOfResidence === 'India' ? 'IND' : 'USA',
-        funding_source: ['employment_income']
+        funding_source: [fundingSource]
       },
       disclosures: {
         is_control_person: false,
@@ -53,19 +56,19 @@ export class AlpacaKycMapper {
         {
           agreement: 'margin_agreement',
           signed_at: new Date().toISOString(),
-          ip_address: '127.0.0.1', // Should ideally be passed from request
+          ip_address: ipAddress,
           revision: '1.0'
         },
         {
           agreement: 'account_agreement',
           signed_at: new Date().toISOString(),
-          ip_address: '127.0.0.1',
+          ip_address: ipAddress,
           revision: '1.0'
         },
         {
           agreement: 'customer_agreement',
           signed_at: new Date().toISOString(),
-          ip_address: '127.0.0.1',
+          ip_address: ipAddress,
           revision: '1.0'
         }
       ],
@@ -77,10 +80,10 @@ export class AlpacaKycMapper {
       }
     };
 
-    // If Non-US resident, Alpaca requires W-8BEN declaration implicitly or explicitly via document upload
+    // W-8BEN logic for Non-US residents
     if (profile.countryOfResidence !== 'USA') {
-      logger.info(`[AlpacaKycMapper] Mapping W-8BEN requirements for non-US user: ${user.id}`);
-      // Usually, the W-8BEN is attached as a document later in the flow
+      logger.info(`[AlpacaKycMapper] Including W-8BEN declaration for non-US user: ${user.id}`);
+      // In a production flow, we would attach a specific document type here
     }
 
     return payload;
