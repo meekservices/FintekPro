@@ -1,4 +1,4 @@
-import { logger } from '../../../../logger';
+import { logger } from '../../../logger';
 import { User, UserProfile } from '../../../../shared/schema';
 
 export class AlpacaKycMapper {

@@ -1,5 +1,5 @@
 import { alpacaMarketDataService } from '../core/alpacaMarketDataService';
-import { logger } from '../../../../logger';
+import { logger } from '../../../logger';
 
 export class QuoteService {
   

@@ -1,4 +1,4 @@
-import { logger } from '../../../../logger';
+import { logger } from '../../../logger';
 import { irisWebhookHandler } from '../../../iris/irisWebhookHandler';
 import { alpacaWebhookHandler } from '../../../alpaca/core/alpacaWebhookHandler';
 // Import credit webhook handlers when built (e.g. m2pWebhookHandler)

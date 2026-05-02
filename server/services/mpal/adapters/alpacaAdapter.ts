@@ -1,7 +1,7 @@
 import { IBroker } from '../interfaces/IBroker';
 import { alpacaClient } from '../../alpaca/core/alpacaClient';
 import { alpacaAccountService } from '../../alpaca/core/alpacaAccountService';
-import { portfolioSync } from '../../alpaca/portfolio/portfolioSync';
+import { alpacaPortfolioSync } from '../../alpaca/portfolio/portfolioSync';
 import { orderManager } from '../../alpaca/trading/orderManager';
 
 export class AlpacaAdapter implements IBroker {
@@ -12,7 +12,7 @@ export class AlpacaAdapter implements IBroker {
   }
 
   async getPositions(accountId: string): Promise<any[]> {
-    return portfolioSync.fetchNormalizedPositions(accountId);
+    return alpacaPortfolioSync.getNormalizedPositions(accountId);
   }
 
   async placeOrder(order: any): Promise<any> {
