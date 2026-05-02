@@ -759,6 +759,11 @@ if (process.env.NODE_ENV === 'production') {
     const picksRoutes = await import('./routes/pick-of-the-day');
     app.use('/api/picks', picksRoutes.default);
 
+    // MPAL Routes
+    logBootProgress("Step 8: Registering MPAL Routes...");
+    const mpalRoutes = await import('./routes/mpal-routes');
+    app.use('/api/mpal', mpalRoutes.mpalRouter);
+
     // ── FINALIZATION ─────────────────────────────────────────────────────────
 
     // Boot audit event

@@ -9,7 +9,7 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, pgEnum, serial, uuid, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { users, userBankAccounts, userProfiles, userDematAccounts } from './schema/users';
+import { users, userBankAccounts, userProfiles, userDematAccounts, alpacaAccounts, alpacaOrders, alpacaPositions, alpacaTradeLogs, insertAlpacaAccountSchema, insertAlpacaOrderSchema, insertAlpacaPositionSchema, insertAlpacaTradeLogSchema } from './schema/users';
 import { bbpsTransactions, lrsTransactions } from './schema/banking';
 import {
   digilockerApps, insertDigilockerAppSchema, DigilockerApp, InsertDigilockerApp,

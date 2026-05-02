@@ -126,6 +126,8 @@ export const users = pgTable("users", {
   twoFactorSecret: text("two_factor_secret"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  irisInvestorId: varchar("iris_investor_id"),
+  alpacaAccountId: varchar("alpaca_account_id"),
 }, (table) => [
   index("idx_users_email").on(table.email),
   index("idx_users_mobile").on(table.mobile),
@@ -381,3 +383,74 @@ export const insertPlatformSubscriptionSchema = createInsertSchema(platformSubsc
   createdAt: true,
   updatedAt: true,
 });
+
+// --- Alpaca Integrations Tables ---
+
+export const alpacaAccounts = pgTable("alpaca_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  alpacaAccountId: varchar("alpaca_account_id").notNull().unique(),
+  status: varchar("status").notNull(),
+  accountNumber: varchar("account_number"),
+  currency: varchar("currency").default("USD"),
+  cryptoStatus: varchar("crypto_status"),
+  buyingPower: decimal("buying_power", { precision: 15, scale: 2 }),
+  cash: decimal("cash", { precision: 15, scale: 2 }),
+  portfolioValue: decimal("portfolio_value", { precision: 15, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const alpacaOrders = pgTable("alpaca_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  alpacaAccountId: varchar("alpaca_account_id").notNull(),
+  providerOrderId: varchar("provider_order_id").notNull().unique(),
+  clientOrderId: varchar("client_order_id").notNull().unique(),
+  symbol: varchar("symbol").notNull(),
+  qty: decimal("qty", { precision: 15, scale: 4 }),
+  notional: decimal("notional", { precision: 15, scale: 2 }),
+  side: varchar("side").notNull(), // 'buy' | 'sell'
+  type: varchar("type").notNull(), // 'market' | 'limit'
+  timeInForce: varchar("time_in_force").notNull(), // 'day' | 'gtc'
+  status: varchar("status").notNull(), // 'new', 'partially_filled', 'filled', 'done_for_day', 'canceled', 'expired', 'replaced', 'pending_cancel', 'pending_replace', 'accepted', 'pending_new', 'accepted_for_bidding', 'stopped', 'rejected', 'suspended', 'calculated'
+  filledQty: decimal("filled_qty", { precision: 15, scale: 4 }),
+  filledAvgPrice: decimal("filled_avg_price", { precision: 15, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const alpacaPositions = pgTable("alpaca_positions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  alpacaAccountId: varchar("alpaca_account_id").notNull(),
+  symbol: varchar("symbol").notNull(),
+  qty: decimal("qty", { precision: 15, scale: 4 }).notNull(),
+  avgEntryPrice: decimal("avg_entry_price", { precision: 15, scale: 2 }).notNull(),
+  currentPrice: decimal("current_price", { precision: 15, scale: 2 }).notNull(),
+  marketValue: decimal("market_value", { precision: 15, scale: 2 }).notNull(),
+  unrealizedPl: decimal("unrealized_pl", { precision: 15, scale: 2 }).notNull(),
+  unrealizedPlpc: decimal("unrealized_plpc", { precision: 15, scale: 4 }).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const alpacaTradeLogs = pgTable("alpaca_trade_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  alpacaAccountId: varchar("alpaca_account_id").notNull(),
+  symbol: varchar("symbol").notNull(),
+  side: varchar("side").notNull(),
+  quantity: decimal("quantity", { precision: 15, scale: 4 }),
+  notional: decimal("notional", { precision: 15, scale: 2 }),
+  status: varchar("status").notNull(), // 'success', 'failed', 'rejected', 'queued'
+  providerOrderId: varchar("provider_order_id"),
+  errorMessage: text("error_message"),
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+// Zod schemas for Alpaca Tables
+export const insertAlpacaAccountSchema = createInsertSchema(alpacaAccounts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAlpacaOrderSchema = createInsertSchema(alpacaOrders).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAlpacaPositionSchema = createInsertSchema(alpacaPositions).omit({ id: true, updatedAt: true });
+export const insertAlpacaTradeLogSchema = createInsertSchema(alpacaTradeLogs).omit({ id: true, timestamp: true });
+

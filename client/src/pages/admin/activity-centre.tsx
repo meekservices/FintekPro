@@ -996,10 +996,12 @@ function GlobalPlatformHealth() {
 }
 
 function StuckKycTable({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { data: users, isLoading } = useQuery<StuckKycUser[]>({
+  const { data: usersData, isLoading } = useQuery<{ success: boolean; users: StuckKycUser[] }>({
     queryKey: ['/api/activity-centre/stuck-kyc'],
     enabled: open,
   });
+  
+  const users = usersData?.users;
 
   const [search, setSearch] = useState("");
   
@@ -1137,9 +1139,11 @@ export default function ActivityCentre() {
   const [severityFilter, setSeverityFilter] = useState("all");
   const [selectedError, setSelectedError] = useState<ErrorEntry | null>(null);
 
-  const { data: errors, isLoading, refetch } = useQuery<ErrorEntry[]>({
+  const { data: errorsData, isLoading, refetch } = useQuery<{ errors: ErrorEntry[]; total: number }>({
     queryKey: ["/api/errors"],
   });
+  
+  const errors = errorsData?.errors;
 
   const { data: metrics, isLoading: metricsLoading } = useQuery<ErrorMetrics>({
     queryKey: ["/api/errors/metrics"],

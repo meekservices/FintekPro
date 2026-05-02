@@ -12,6 +12,7 @@ import { PortfolioPerformanceChart } from "@/components/portfolio/PortfolioPerfo
 import { AssetAllocationChart } from "@/components/portfolio/AssetAllocationChart";
 import { QuickInsights } from "@/components/portfolio/QuickInsights";
 import { ExternalPortfolioSync } from "@/components/portfolio-sync/ExternalPortfolioSync";
+import { UnifiedFinancialProfile } from "@/components/dashboard/UnifiedFinancialProfile";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -582,6 +583,11 @@ export default function Portfolio() {
       {/* Sync Status Indicator */}
       <div className="flex justify-end px-4">
         <SyncStatusIndicator status="synced" />
+      </div>
+
+      {/* Unified MPAL Financial Profile */}
+      <div className="px-4 lg:px-0">
+        <UnifiedFinancialProfile />
       </div>
 
       <div className="space-y-6">

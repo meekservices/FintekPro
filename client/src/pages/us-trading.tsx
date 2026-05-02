@@ -230,11 +230,19 @@ export default function USTradingPage() {
       consent: boolean;
       lrsDeclaration: boolean;
     }) => {
-      const response = await apiRequest("/api/us-trading/orders", {
-        method: "POST",
-        body: JSON.stringify(orderData),
-      });
-      return response;
+      // Format payload for canonical MPAL order
+      const mpalPayload = {
+        symbol: orderData.symbol,
+        side: orderData.side,
+        qty: orderData.quantity,
+        type: orderData.orderType,
+        timeInForce: "day"
+      };
+      const response = await apiRequest("POST", "/api/mpal/broker/US_EQUITY/orders", mpalPayload);
+      if (!response.ok) {
+        throw new Error("Failed to place order via MPAL");
+      }
+      return response.json();
     },
     onSuccess: () => {
       toast({

@@ -16,6 +16,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
+import { useCreditProducts, useCreditEligibility, useSubmitCreditApplication, useCreditApplications } from "@/hooks/use-mpal";
 
 // Marketplace schemas for form validation
 const loanRequestSchema = z.object({
@@ -111,10 +112,15 @@ export default function Loans() {
     },
   });
 
-  // Fetch marketplace data
-  const { data: loanProducts, isLoading: productsLoading } = useQuery({
-    queryKey: ["/api/marketplace/loan-products"],
-  });
+  // MPAL Hooks Migration
+  const { data: mpalProducts, isLoading: productsLoading } = useCreditProducts();
+  const { data: mpalEligibility } = useCreditEligibility();
+  const submitCreditAppMutation = useSubmitCreditApplication();
+  const { data: mpalApplications } = useCreditApplications();
+
+  // Legacy mappings for existing UI compatibility
+  const loanProducts = { data: mpalProducts || [] };
+  const applications = { data: mpalApplications || [] };
 
   const { data: loanProviders } = useQuery({
     queryKey: ["/api/marketplace/loan-providers"],
@@ -126,10 +132,6 @@ export default function Loans() {
 
   const { data: myRequests } = useQuery({
     queryKey: ["/api/marketplace/my-requests"],
-  });
-
-  const { data: applications } = useQuery({
-    queryKey: ["/api/marketplace/applications"],
   });
 
   // Mutations
@@ -216,34 +218,24 @@ export default function Loans() {
       const offer = offers.find(o => o.id === offerId);
       if (!offer) return;
 
-      const response = await fetch("/api/marketplace/applications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          requestId: lastRequestId,
-          offerId: offerId,
-          providerId: offer.providerId,
-          amount: offer.amount,
-          interestRate: offer.interestRate,
-          tenure: offer.tenure,
-          monthlyEmi: offer.monthlyEmi,
-        }),
+      await submitCreditAppMutation.mutateAsync({
+        productId: offerId,
+        providerId: offer.providerId,
+        requestedAmount: offer.amount.toString(),
+        requestedTenureMonths: offer.tenure * 12,
+        providerRef: lastRequestId,
       });
-      
-      if (!response.ok) throw new Error("Failed to submit application");
       
       toast({
-        title: "Application Submitted",
-        description: `Your application to ${offer.providerName} has been submitted successfully!`,
+        title: "Application Submitted via MPAL",
+        description: `Your application to ${offer.providerName || offer.providerId} has been submitted successfully!`,
       });
       
-      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/applications"] });
       setActiveTab("applications");
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to submit application. Please try again.",
+        description: "Failed to submit application via MPAL. Please try again.",
         variant: "destructive",
       });
     }
@@ -358,6 +350,35 @@ export default function Loans() {
               <span>Best Rates</span>
             </div>
           </div>
+
+          {mpalEligibility && mpalEligibility.score > 0 && (
+            <Card className="bg-gradient-to-r from-blue-900 via-indigo-900 to-purple-900 border-none text-white shadow-xl overflow-hidden mt-6">
+              <CardContent className="p-6 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+                    Pre-approved based on your Portfolio!
+                  </h3>
+                  <p className="text-white/80 mt-1 text-sm">
+                    Because of your existing investments, you qualify for instant liquidity up to 
+                    <span className="font-bold text-green-400 ml-1">
+                      ₹{mpalEligibility.approvedAmount.toLocaleString('en-IN')}
+                    </span>
+                    .
+                  </p>
+                </div>
+                <Button 
+                  onClick={() => {
+                    setActiveTab("marketplace");
+                    toast({ title: "Portfolio-Backed Offers Unlocked" });
+                  }} 
+                  className="bg-white text-blue-900 hover:bg-white/90 shadow-lg shrink-0 ml-4"
+                >
+                  View Instant Offers
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
