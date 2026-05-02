@@ -34,7 +34,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 
-iinterface ComplianceOverview {
+interface ComplianceOverview {
   investorLimits: {
     companiesNearLimit: number;
     companiesAtLimit: number;
