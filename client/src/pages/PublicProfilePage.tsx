@@ -1,11 +1,10 @@
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, Users, Award, Shield, UserCircle, ArrowUpRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 export default function PublicProfilePage() {
   const { code } = useParams<{ code: string }>();

@@ -2636,6 +2636,7 @@ function Router() {
         <Route path="/admin" component={AdminPanel} />
         <Route path="/agent" component={AgentDashboard} />
         
+        <Route path="/p/:code" component={PublicProfilePage} />
         {/* User routes - require both authentication and profile completion */}
         <Route component={UserProtectedRoutes} />
       </Switch>
