@@ -2008,6 +2008,8 @@ class AlpacaBrokerService {
       if (e.response?.status === 404) return null;
       throw e;
     }
+  }
+
   /**
    * Get the primary Firm Account details (Equity, Cash, Commissions).
    * For FD BDs, this is the main account under the partner.
