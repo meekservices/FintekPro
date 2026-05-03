@@ -729,6 +729,17 @@ if (process.env.NODE_ENV === 'production') {
         console.warn('[Migration] sovereign_gold_bonds issue_name skipped:', e?.message);
       }
 
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE unlisted_regulatory_audit_log
+            ADD COLUMN IF NOT EXISTS forensic_hash VARCHAR(64),
+            ADD COLUMN IF NOT EXISTS prev_hash VARCHAR(64);
+        `);
+        console.log('✅ forensic_hash/prev_hash columns on unlisted_regulatory_audit_log verified');
+      } catch (e: any) {
+        console.warn('[Migration] unlisted_regulatory_audit_log forensic columns skipped:', e?.message);
+      }
+
       console.log('✅ Critical schema repairs complete');
     } catch (migErr) {
 
