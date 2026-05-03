@@ -708,6 +708,27 @@ if (process.env.NODE_ENV === 'production') {
         console.error('[Migration] iris_investor_id column error:', e?.message);
       }
 
+      // 25. Alpaca account type + SGB issue_name (missing from production DB)
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS alpaca_account_type VARCHAR DEFAULT 'individual';
+        `);
+        console.log('✅ alpaca_account_type column on users verified');
+      } catch (e: any) {
+        console.error('[Migration] alpaca_account_type column error:', e?.message);
+      }
+
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE sovereign_gold_bonds
+            ADD COLUMN IF NOT EXISTS issue_name TEXT;
+        `);
+        console.log('✅ issue_name column on sovereign_gold_bonds verified');
+      } catch (e: any) {
+        console.warn('[Migration] sovereign_gold_bonds issue_name skipped:', e?.message);
+      }
+
       console.log('✅ Critical schema repairs complete');
     } catch (migErr) {
 
