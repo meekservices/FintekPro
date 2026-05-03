@@ -697,6 +697,17 @@ if (process.env.NODE_ENV === 'production') {
         console.error('[Migration] Metadata enrichment error:', e?.message);
       }
 
+      // 24. IRIS KFintech investor ID column on users (missing from production DB)
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS iris_investor_id VARCHAR;
+        `);
+        console.log('✅ iris_investor_id column on users verified');
+      } catch (e: any) {
+        console.error('[Migration] iris_investor_id column error:', e?.message);
+      }
+
       console.log('✅ Critical schema repairs complete');
     } catch (migErr) {
 
