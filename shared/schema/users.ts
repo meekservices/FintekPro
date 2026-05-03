@@ -128,6 +128,9 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
   irisInvestorId: varchar("iris_investor_id"),
   alpacaAccountId: varchar("alpaca_account_id"),
+  alpacaAccountType: varchar("alpaca_account_type").default("individual"), // 'individual', 'custodial', 'omnibus'
+  referralCode: varchar("referral_code").unique(),
+  shareableProfileEnabled: boolean("shareable_profile_enabled").default(false),
 }, (table) => [
   index("idx_users_email").on(table.email),
   index("idx_users_mobile").on(table.mobile),
@@ -179,7 +182,7 @@ export const userProfiles = pgTable("user_profiles", {
   pincode: varchar("pincode"),
   country: varchar("country"),
   occupation: varchar("occupation"),
-  annualIncome: varchar("annual_income"),
+  annualIncome: decimal("annual_income", { precision: 15, scale: 2 }),
   investmentExperience: varchar("investment_experience"),
   riskTolerance: varchar("risk_tolerance"),
   bankAccountNumber: varchar("bank_account_number"),
@@ -238,6 +241,17 @@ export const userProfiles = pgTable("user_profiles", {
   professionalQualification: varchar("professional_qualification"),
   professionalQualificationVerified: boolean("professional_qualification_verified").default(false),
   professionalExperienceYears: integer("professional_experience_years"),
+  minorIdentity: jsonb("minor_identity"), // For custodial accounts: {given_name, family_name, date_of_birth, tax_id, tax_id_type, country_of_citizenship}
+  
+  // Financial Profile for Options Approval
+  netWorth: decimal("net_worth", { precision: 15, scale: 2 }),
+  liquidNetWorth: decimal("liquid_net_worth", { precision: 15, scale: 2 }),
+  liquidityNeeds: varchar("liquidity_needs"), // 'none', 'low', 'medium', 'high'
+  investmentRiskTolerance: varchar("investment_risk_tolerance"), // 'low', 'medium', 'high'
+  investmentObjective: varchar("investment_objective"), // 'speculation', 'income', 'capital_appreciation'
+  investmentTimeHorizon: varchar("investment_time_horizon"), // 'short', 'medium', 'long'
+  numberOfDependents: integer("number_of_dependents"),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -444,6 +458,7 @@ export const alpacaTradeLogs = pgTable("alpaca_trade_logs", {
   notional: decimal("notional", { precision: 15, scale: 2 }),
   status: varchar("status").notNull(), // 'success', 'failed', 'rejected', 'queued'
   providerOrderId: varchar("provider_order_id"),
+  commission: decimal("commission", { precision: 12, scale: 2 }).default("0.00"),
   errorMessage: text("error_message"),
   timestamp: timestamp("timestamp").defaultNow(),
 });

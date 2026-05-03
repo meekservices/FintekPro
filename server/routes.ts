@@ -20,6 +20,8 @@ import { creditRatingsService } from "./services/credit-ratings-service";
 import { symbolMappingService } from "./services/symbol-mapping-service";
 import { registerAuditExportRoutes } from "./routes/admin/audit-export-routes";
 import { maskEmail, maskMobile } from "./utils/pii-utils";
+import usTradingRoutes from "./routes/us-trading";
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -146,6 +148,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Compliance Audit Export Routes
   registerAuditExportRoutes(app);
+
+  // US Trading & Alpaca Broker Routes
+  app.use("/api/us-trading", usTradingRoutes);
+
+  // Profile Sharing Toggle
+  app.patch("/api/user/profile/sharing", async (req, res) => {
+    if (!req.isAuthenticated()) return apiResponse.unauthorized(res);
+    try {
+      const { enabled } = req.body;
+      await db.update(users)
+        .set({ shareableProfileEnabled: enabled })
+        .where(eq(users.id, req.user!.id));
+      
+      return apiResponse.success(res, { success: true });
+    } catch (error) {
+      console.error("Profile sharing toggle error:", error);
+      return apiResponse.serverError(res);
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

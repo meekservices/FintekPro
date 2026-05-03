@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 export interface AuditLogEntry {
   id: string;
@@ -86,14 +87,18 @@ class AuditLogService {
   }
 
   private generateChecksum(entry: Omit<AuditLogEntry, 'checksum' | 'previousChecksum'>, previousChecksum: string): string {
-    const crypto = require('crypto');
     const data = JSON.stringify({
       ...entry,
       timestamp: entry.timestamp.toISOString(),
       previousChecksum,
     });
     
-    return crypto.createHash('sha256').update(data).digest('hex');
+    const secret = process.env.COMPLIANCE_SECRET || 'fintekpro_audit_fallback_key_2024';
+    
+    return crypto
+      .createHmac('sha256', secret)
+      .update(data)
+      .digest('hex');
   }
 
   async log(
@@ -335,8 +340,9 @@ class AuditLogService {
     totalVerified: number;
   }> {
     try {
+      // Select all columns to reconstruct the data for hash verification
       const result = await db.execute(sql`
-        SELECT id, checksum, previous_checksum
+        SELECT *
         FROM immutable_audit_logs
         ORDER BY timestamp ASC
       `);
@@ -345,13 +351,43 @@ class AuditLogService {
       let valid = true;
       const brokenLinks: string[] = [];
 
-      for (let i = 1; i < rows.length; i++) {
-        const current = rows[i] as any;
-        const previous = rows[i - 1] as any;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i] as any;
+        
+        // Reconstruct the entry for checksum verification
+        // Note: Field names in result.rows might be snake_case depending on driver, 
+        // but Drizzle usually returns camelCase if using the ORM.
+        // Since we are using db.execute(sql`...`), we might get snake_case.
+        
+        const entry: Omit<AuditLogEntry, 'checksum' | 'previousChecksum'> = {
+          id: row.id,
+          timestamp: new Date(row.timestamp),
+          eventType: row.event_type,
+          action: row.action,
+          userId: row.user_id,
+          userRole: row.user_role,
+          entityType: row.entity_type,
+          entityId: row.entity_id,
+          previousState: row.previous_state,
+          newState: row.new_state,
+          metadata: row.metadata || {},
+        };
 
-        if (current.previous_checksum && current.previous_checksum !== previous.checksum) {
+        const recalculated = this.generateChecksum(entry, row.previous_checksum || '');
+        
+        if (recalculated !== row.checksum) {
           valid = false;
-          brokenLinks.push(current.id);
+          brokenLinks.push(`${row.id} (HASH_MISMATCH: expected ${recalculated.substring(0,8)}, got ${row.checksum.substring(0,8)})`);
+          continue;
+        }
+
+        // Verify the chain link
+        if (i > 0) {
+          const previous = rows[i - 1] as any;
+          if (row.previous_checksum !== previous.checksum) {
+            valid = false;
+            brokenLinks.push(`${row.id} (CHAIN_BREAK: previous_checksum mismatch)`);
+          }
         }
       }
 

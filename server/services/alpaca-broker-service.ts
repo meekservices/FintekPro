@@ -2008,6 +2008,57 @@ class AlpacaBrokerService {
       if (e.response?.status === 404) return null;
       throw e;
     }
+  /**
+   * Get the primary Firm Account details (Equity, Cash, Commissions).
+   * For FD BDs, this is the main account under the partner.
+   */
+  async getFirmAccount(): Promise<AlpacaAccount | null> {
+    if (!this.isConfigured() || !this._isBrokerApi()) return null;
+    try {
+      // In Broker API, the first account in the list is typically the firm's main account
+      // or we can fetch a specific account if the ID was known. 
+      // Fetching max: 1 sorted by created_at asc usually gives the root account.
+      const response = await this.client.get("/v1/accounts", { params: { max: 1, sort: "asc" } });
+      return Array.isArray(response.data) ? response.data[0] : response.data;
+    } catch (error: any) {
+      console.error("[FirmAccount] getFirmAccount error:", error.message);
+      return null;
+    }
+  }
+
+  // ─── IP Allowlist (Security) ──────────────────────────────────────────────
+
+  /**
+   * List all IPs in the team's allowlist.
+   * GET /v1/team/ip_allowlist
+   */
+  async getIpAllowlist(): Promise<string[]> {
+    if (!this.isConfigured()) return [];
+    try {
+      const response = await this.client.get("/v1/team/ip_allowlist");
+      // Alpaca returns { ips: ["1.2.3.4", ...] }
+      return response.data?.ips || [];
+    } catch (error: any) {
+      // 403 usually means feature disabled (Sandbox)
+      if (error.response?.status !== 403) console.error("[Security] getIpAllowlist error:", error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Add an IP to the allowlist.
+   * POST /v1/team/ip_allowlist
+   */
+  async addIpToAllowlist(ip: string): Promise<void> {
+    await this.client.post("/v1/team/ip_allowlist", { ips: [ip] });
+  }
+
+  /**
+   * Remove an IP from the allowlist.
+   * DELETE /v1/team/ip_allowlist
+   */
+  async removeIpFromAllowlist(ip: string): Promise<void> {
+    await this.client.delete("/v1/team/ip_allowlist", { data: { ips: [ip] } });
   }
 }
 

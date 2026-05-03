@@ -42,7 +42,7 @@ gcloud run deploy $SERVICE_NAME \
     --min-instances 0 \
     --max-instances 3 \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
-    --set-env-vars="NODE_ENV=production,NODE_OPTIONS=--max-old-space-size=3072" \
+    --set-env-vars="NODE_ENV=production,NODE_OPTIONS=--max-old-space-size=3072,DEBUG_SUBDOMAIN=true,CUSTOM_DOMAIN=fintekpro.com" \
     --set-secrets="\
 PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,\
 DATABASE_URL=DATABASE_URL:latest,\
@@ -71,7 +71,8 @@ FINNHUB_API_KEY=FINNHUB_API_KEY:latest,\
 ZOHO_CLIENT_ID=ZOHO_CLIENT_ID:latest,\
 ZOHO_CLIENT_SECRET=ZOHO_CLIENT_SECRET:latest,\
 ZOHO_REFRESH_TOKEN=ZOHO_REFRESH_TOKEN:latest,\
-ZOHO_WEBHOOK_SECRET=ZOHO_WEBHOOK_SECRET:latest\
+ZOHO_WEBHOOK_SECRET=ZOHO_WEBHOOK_SECRET:latest,\
+COMPLIANCE_SECRET=COMPLIANCE_SECRET:latest\
 "
 
 echo "✅ Deployment complete!"

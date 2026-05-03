@@ -5,15 +5,21 @@ import { alpacaMarketDataService } from "../services/alpaca-market-data-service"
 import { alpacaBrokerService } from "../services/alpaca-broker-service";
 import { massiveWebSocketService } from "../services/massive-websocket-service";
 import type { AuthRequest } from "../types/broker-types";
+import { requireAuth, requireAdmin } from "../middleware/auth";
+import { alpacaAccountGuard } from "../middleware/rbac";
 
 const router: Router = Router();
+
+// Apply authentication to all routes in this file
+router.use(requireAuth);
+
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-// Get user positions (live from Alpaca when configured, graceful fallback otherwise)
-router.get("/broker/test-connection", async (_req: Request, res: Response): Promise<void> => {
+// Test connections (Admin only)
+router.get("/broker/test-connection", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
   try {
     const alpacaResult = await alpacaBrokerService.testConnection();
     const polygonResult = alpacaMarketDataService.testConnection();
@@ -37,7 +43,8 @@ router.get("/broker/test-connection", async (_req: Request, res: Response): Prom
 
 // ─── Alpaca Account Dashboard Routes ──────────────────────────────────────────
 
-router.post("/alpaca/credentials", async (req: Request, res: Response): Promise<void> => {
+/** Configure Alpaca credentials (Admin only) */
+router.post("/alpaca/credentials", requireAdmin, async (req: Request, res: Response): Promise<void> => {
   try {
     const { apiKey, secretKey, baseUrl } = req.body as { apiKey?: string; secretKey?: string; baseUrl?: string };
     if (!apiKey || !secretKey) {
@@ -61,7 +68,8 @@ router.post("/alpaca/credentials", async (req: Request, res: Response): Promise<
   }
 });
 
-router.get("/alpaca/config", async (_req: Request, res: Response): Promise<void> => {
+/** Get Alpaca config (Admin only) */
+router.get("/alpaca/config", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
   const configured = alpacaBrokerService.isConfigured();
   let authOk = false;
   let authError: string | undefined;
@@ -85,8 +93,8 @@ router.get("/alpaca/config", async (_req: Request, res: Response): Promise<void>
   });
 });
 
-// Activate all US trading feature flags at once (admin convenience)
-router.post("/activate-us-trading", async (_req: Request, res: Response): Promise<void> => {
+/** Activate US Trading (Admin only) */
+router.post("/activate-us-trading", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
   try {
     const test = await alpacaBrokerService.testConnection();
     if (!test.success) {
@@ -109,8 +117,8 @@ router.post("/activate-us-trading", async (_req: Request, res: Response): Promis
   }
 });
 
-// List all broker-managed accounts (broker API only)
-router.get("/alpaca/broker/accounts", async (_req: Request, res: Response): Promise<void> => {
+/** List all broker-managed accounts (Admin only) */
+router.get("/alpaca/broker/accounts", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       res.json({ configured: false, accounts: [] });
@@ -123,7 +131,8 @@ router.get("/alpaca/broker/accounts", async (_req: Request, res: Response): Prom
   }
 });
 
-router.get("/account", async (req: Request, res: Response): Promise<void> => {
+/** Get account summary (Admin/Agent/Owner) */
+router.get("/account", alpacaAccountGuard, async (req: Request, res: Response): Promise<void> => {
   try {
     const accountId = req.query.accountId as string | undefined;
     const account = await alpacaBrokerService.getAccount(accountId);
@@ -145,7 +154,8 @@ router.get("/account", async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.get("/alpaca/account", async (req: Request, res: Response): Promise<void> => {
+/** Get Alpaca account details (Admin/Agent/Owner) */
+router.get("/alpaca/account", alpacaAccountGuard, async (req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       res.json({ configured: false, isPaper: true });
@@ -172,7 +182,8 @@ router.get("/alpaca/market-clock", async (_req: Request, res: Response): Promise
   }
 });
 
-router.get("/alpaca/portfolio/history", async (req: Request, res: Response): Promise<void> => {
+/** Get portfolio history (Admin/Agent/Owner) */
+router.get("/alpaca/portfolio/history", alpacaAccountGuard, async (req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       res.json({ configured: false });
@@ -188,7 +199,8 @@ router.get("/alpaca/portfolio/history", async (req: Request, res: Response): Pro
   }
 });
 
-router.get("/alpaca/orders", async (req: Request, res: Response): Promise<void> => {
+/** List orders for an account (Admin/Agent/Owner) */
+router.get("/alpaca/orders", alpacaAccountGuard, async (req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       res.json({ configured: false, orders: [] });
@@ -204,7 +216,8 @@ router.get("/alpaca/orders", async (req: Request, res: Response): Promise<void> 
   }
 });
 
-router.delete("/alpaca/orders", async (req: Request, res: Response): Promise<void> => {
+/** Cancel all orders (Admin/Agent/Owner) */
+router.delete("/alpaca/orders", alpacaAccountGuard, async (req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       res.status(400).json({ success: false, error: "Alpaca API not configured" });
@@ -218,7 +231,8 @@ router.delete("/alpaca/orders", async (req: Request, res: Response): Promise<voi
   }
 });
 
-router.delete("/alpaca/orders/:orderId", async (req: Request, res: Response): Promise<void> => {
+/** Cancel specific order (Admin/Agent/Owner) */
+router.delete("/alpaca/orders/:orderId", alpacaAccountGuard, async (req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       res.status(400).json({ success: false, error: "Alpaca API not configured" });
@@ -232,7 +246,8 @@ router.delete("/alpaca/orders/:orderId", async (req: Request, res: Response): Pr
   }
 });
 
-router.delete("/alpaca/positions/:symbol", async (req: Request, res: Response): Promise<void> => {
+/** Close specific position (Admin/Agent/Owner) */
+router.delete("/alpaca/positions/:symbol", alpacaAccountGuard, async (req: Request, res: Response): Promise<void> => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       res.status(400).json({ success: false, error: "Alpaca API not configured" });

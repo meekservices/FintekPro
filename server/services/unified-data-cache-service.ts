@@ -383,6 +383,10 @@ export class UnifiedDataCacheService {
     volume?: number;
     change?: number;
     changePercent?: number;
+    marketCap?: number;
+    beta?: number;
+    dividendYield?: number;
+    peRatio?: number;
     additionalData?: any;
     provider: string;
   }): Promise<string | null> {
@@ -404,12 +408,14 @@ export class UnifiedDataCacheService {
       const result = await db.execute(sql`
         INSERT INTO market_data_cache (
           symbol, exchange, data_type, last_price, previous_close, open, high, low,
-          volume, change, change_percent, additional_data, provider, expires_at
+          volume, change, change_percent, market_cap, beta, dividend_yield, pe_ratio,
+          additional_data, provider, expires_at
         ) VALUES (
           ${upperSymbol}, ${params.exchange ?? null}, ${params.dataType}, 
           ${params.lastPrice ?? null}, ${params.previousClose ?? null}, ${params.open ?? null}, 
           ${params.high ?? null}, ${params.low ?? null}, ${params.volume ?? null}, 
           ${params.change ?? null}, ${params.changePercent ?? null}, 
+          ${params.marketCap ?? null}, ${params.beta ?? null}, ${params.dividendYield ?? null}, ${params.peRatio ?? null},
           ${additionalDataJson}, ${params.provider}, ${expiresAtStr}
         )
         RETURNING id

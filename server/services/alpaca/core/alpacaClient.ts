@@ -126,6 +126,24 @@ export class AlpacaClient {
     // For simplicity in this environment, we'll use the documented API structure
     return this.call(`/accounts/${accountId}/documents`, 'POST', documentData);
   }
+
+  // --- Funding & Banking ---
+
+  async createAchRelationship(accountId: string, achData: any) {
+    return this.call(`/accounts/${accountId}/ach_relationships`, 'POST', achData);
+  }
+
+  async getAchRelationships(accountId: string) {
+    return this.call(`/accounts/${accountId}/ach_relationships`);
+  }
+
+  async initiateTransfer(accountId: string, transferData: any) {
+    return this.call(`/accounts/${accountId}/transfers`, 'POST', transferData);
+  }
+
+  async getTransfers(accountId: string) {
+    return this.call(`/accounts/${accountId}/transfers`);
+  }
 }
 
 export const alpacaClient = new AlpacaClient();

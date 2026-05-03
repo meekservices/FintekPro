@@ -411,6 +411,14 @@ function AccountsTab() {
                                       </div>
                                     ))}
                                   </div>
+                                  {cipData.cip.kyc?.action_flags?.length > 0 && (
+                                    <Alert className="border-red-200 bg-red-50 dark:bg-red-950/20 py-2">
+                                      <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+                                      <AlertDescription className="text-xs text-red-700 dark:text-red-300">
+                                        <strong>Action Required:</strong> {cipData.cip.kyc.action_flags.join(", ").replace(/_/g, " ")}
+                                      </AlertDescription>
+                                    </Alert>
+                                  )}
                                   <p className="text-xs text-muted-foreground">Providers: {cipData.cip.provider_name?.join(", ") || "—"}</p>
                                 </div>
                               ) : (
@@ -568,6 +576,7 @@ function JournalsTab() {
                   <TableHead>To</TableHead>
                   <TableHead>Amount / Symbol</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Forensic</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -575,10 +584,10 @@ function JournalsTab() {
               <TableBody>
                 {isLoading ? (
                   [...Array(3)].map((_, i) => (
-                    <TableRow key={i}>{[...Array(8)].map((_, j) => <TableCell key={j}><div className="h-4 bg-muted animate-pulse rounded w-20" /></TableCell>)}</TableRow>
+                    <TableRow key={i}>{[...Array(9)].map((_, j) => <TableCell key={j}><div className="h-4 bg-muted animate-pulse rounded w-20" /></TableCell>)}</TableRow>
                   ))
                 ) : journals.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No journal entries</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No journal entries</TableCell></TableRow>
                 ) : (
                   journals.map((j: any) => (
                     <TableRow key={j.id}>
@@ -588,6 +597,18 @@ function JournalsTab() {
                       <TableCell className="font-mono text-xs">{j.to_account?.slice(0, 8)}…</TableCell>
                       <TableCell>{j.net_amount ? usd(j.net_amount) : j.symbol ? `${j.qty} × ${j.symbol}` : "—"}</TableCell>
                       <TableCell>{statusBadge(j.status)}</TableCell>
+                      <TableCell>
+                        {j.compliance_signature ? (
+                          <div className="flex items-center gap-1 group cursor-help">
+                            <Lock className="h-3 w-3 text-green-500" />
+                            <span className="text-[10px] text-muted-foreground opacity-50 group-hover:opacity-100 transition-opacity">
+                              {j.compliance_signature.slice(0, 8)}…
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground italic">No signature</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{fmtDate(j.settle_date)}</TableCell>
                       <TableCell className="text-right">
                         {j.status === "PENDING" && (
@@ -1350,7 +1371,128 @@ function AppRegistrationTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Security: IP Allowlist */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Shield className="h-4 w-4 text-primary" />
+            IP Allowlist (Security Hardening)
+          </CardTitle>
+          <CardDescription>
+            Restrict Broker API access to specific production server IPs.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input id="new-ip" placeholder="e.g. 34.120.10.5" className="max-w-[200px] h-8 text-xs" />
+            <Button 
+              size="sm" 
+              className="h-8 text-xs"
+              onClick={() => {
+                const val = (document.getElementById("new-ip") as HTMLInputElement).value;
+                if (val) addIpMutation.mutate(val);
+              }}
+              disabled={addIpMutation.isPending}
+            >
+              Add IP
+            </Button>
+          </div>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs h-8">Allowed IP Address</TableHead>
+                  <TableHead className="text-xs h-8 text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(!ipData?.ips || ipData.ips.length === 0) ? (
+                  <TableRow>
+                    <TableCell colSpan={2} className="text-center text-xs py-4 text-muted-foreground">
+                      No IPs restricted. API is open to all (Default for Sandbox).
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  ipData.ips.map(ip => (
+                    <TableRow key={ip}>
+                      <TableCell className="text-xs font-mono">{ip}</TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-xs text-red-500"
+                          onClick={() => removeIpMutation.mutate(ip)}
+                          disabled={removeIpMutation.isPending}
+                        >
+                          Remove
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Staff & Team Visibility */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary" />
+            Broker Staff & Administrative Access
+          </CardTitle>
+          <CardDescription>
+            Internal users with access to the Broker Dashboard.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs h-8">Staff Member</TableHead>
+                  <TableHead className="text-xs h-8">Roles</TableHead>
+                  <TableHead className="text-xs h-8">Last Activity</TableHead>
+                  <TableHead className="text-xs h-8 text-right">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {teamData?.team?.map((member: any) => (
+                  <TableRow key={member.id}>
+                    <TableCell>
+                      <div className="text-xs font-medium">{member.firstName} {member.lastName}</div>
+                      <div className="text-[10px] text-muted-foreground">{member.email}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 flex-wrap">
+                        {member.roles?.map((r: string) => (
+                          <Badge key={r} variant="secondary" className="text-[10px] px-1 py-0 h-4">{r}</Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-[10px] text-muted-foreground">
+                      {fmtDate(member.lastLoginAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {member.isActive ? (
+                        <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 text-[10px] h-4">Active</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] h-4 text-muted-foreground">Inactive</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
+
   );
 }
 
@@ -1414,6 +1556,46 @@ export default function BrokerDashboard() {
     queryKey: ["/api/us-trading/broker/accounts"],
     queryFn: () => fetch(`${BASE}/broker/accounts`).then(r => r.json()),
     enabled: authOk && isBrokerApi,
+  });
+
+  const { data: firmData } = useQuery<{ success: boolean; account: any }>({
+    queryKey: ["/api/us-trading/broker/firm-account"],
+    queryFn: () => fetch(`${BASE}/broker/firm-account`).then(r => r.json()),
+    enabled: authOk && isBrokerApi,
+  });
+
+  const { data: ipData, refetch: refetchIps } = useQuery<{ success: boolean; ips: string[] }>({
+    queryKey: ["/api/us-trading/broker/ip-allowlist"],
+    queryFn: () => fetch(`${BASE}/broker/ip-allowlist`).then(r => r.json()),
+    enabled: authOk && isBrokerApi,
+  });
+
+  const { data: teamData } = useQuery<{ success: boolean; team: any[] }>({
+    queryKey: ["/api/us-trading/admin/team"],
+    queryFn: () => fetch(`${BASE}/admin/team`).then(r => r.json()),
+    enabled: authOk,
+  });
+
+  const { data: lrsSummary } = useQuery<{ success: boolean; summary: { totalUsed: number; count: number } }>({
+    queryKey: ["/api/us-trading/broker/lrs-summary"],
+    queryFn: () => fetch(`${BASE}/broker/lrs-summary`).then(r => r.json()),
+    enabled: authOk,
+  });
+
+  const addIpMutation = useMutation({
+    mutationFn: (ip: string) => apiRequest(`${BASE}/broker/ip-allowlist`, { method: "POST", body: { ip } }),
+    onSuccess: () => {
+      toast({ title: "IP Added", description: "IP allowlist updated." });
+      refetchIps();
+    },
+  });
+
+  const removeIpMutation = useMutation({
+    mutationFn: (ip: string) => apiRequest(`${BASE}/broker/ip-allowlist`, { method: "DELETE", body: { ip } }),
+    onSuccess: () => {
+      toast({ title: "IP Removed", description: "IP allowlist updated." });
+      refetchIps();
+    },
   });
 
   const accounts = accountsData?.accounts || [];
@@ -1524,8 +1706,10 @@ export default function BrokerDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { title: "Total Accounts", value: accounts.length, icon: Users, color: "text-blue-500" },
+            { title: "Firm Balance", value: usd(firmData?.account?.equity || 0), icon: Landmark, color: "text-amber-500" },
             { title: "Active", value: activeCount, icon: CheckCircle2, color: "text-green-500" },
-            { title: "Pending Review", value: pendingCount, icon: Clock, color: "text-yellow-500" },
+            { title: "Pending", value: pendingCount, icon: Clock, color: "text-yellow-500" },
+            { title: "LRS Remitted", value: usd(lrsSummary?.summary?.totalUsed || 0), icon: Globe, color: "text-indigo-500" },
             { title: "Environment", value: configData?.baseUrl?.includes("sandbox") ? "Sandbox" : "Live", icon: Shield, color: "text-purple-500" },
           ].map(({ title, value, icon: Icon, color }) => (
             <Card key={title}>

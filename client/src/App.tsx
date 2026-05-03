@@ -398,7 +398,10 @@ const AgentInvestmentBaskets = lazyWithRetry(() => import("@/pages/agent-investm
 const AgentSipHealth = lazyWithRetry(() => import("@/pages/agent-sip-health"));
 const AgentPortfolioDrift = lazyWithRetry(() => import("@/pages/agent-portfolio-drift"));
 const AgentMarketAlerts = lazyWithRetry(() => import("@/pages/agent-market-alerts"));
+const PublicProfilePage = lazyWithRetry(() => import("@/pages/PublicProfilePage"));
 const AgentTracker = lazyWithRetry(() => import("@/pages/agent-tracker"));
+const AlpacaMarketExplorer = lazyWithRetry(() => import("@/pages/alpaca-market-explorer"));
+
 
 function UserProtectedRoutes() {
   return (
@@ -625,7 +628,9 @@ function UserProtectedRoutes() {
         <Route path="/admin/mld-seed">
           {() => <Suspense fallback={<LoadingState variant="dashboard" />}><MldSeedAdmin /></Suspense>}
         </Route>
+        <Route path="/alpaca-market-explorer" component={AlpacaMarketExplorer} />
         <Route component={NotFound} />
+
       </Switch>
     </ProfileCompletionGuard>
   );
@@ -2590,6 +2595,7 @@ function Router() {
         <Route path="/auth" component={AuthPage} />
         <Route path="/excel-addin" component={ExcelAddin} />
         <Route path="/profile" component={Profile} />
+        <Route path="/profile/p/:code" component={PublicProfilePage} />
         <Route path="/proposal/:shareToken" component={PublicProposalPage} />
         <Route path="/onboarding" component={OnboardingPage} />
         <Route path="/ca-registration" component={CARegistration} />

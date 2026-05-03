@@ -90,6 +90,10 @@ export interface StockDetails {
   marketCap?: number;
   description?: string;
   logo_url?: string;
+  beta?: number;
+  peRatio?: number;
+  dividendYield?: number;
+  lastEnrichedAt?: string;
 }
 
 export type BarTimeframe =
@@ -882,6 +886,33 @@ class AlpacaMarketDataService {
   async getHistoricalDayAggs(_date: string): Promise<any[]> {
     logger.info("MarketData: getHistoricalDayAggs — use getBars() with 1Day timeframe instead");
     return [];
+  }
+
+  // ─── Enriched Fundamentals (Yahoo Fallback) ────────────────────────────────
+  
+  async getEnrichedMarketData(symbol: string): Promise<Partial<StockDetails> | null> {
+    const upper = symbol.toUpperCase();
+    try {
+      const res = await axios.get(`${YF_BASE}/v7/finance/quote`, {
+        params: { symbols: upper },
+        headers: YF_HDRS,
+        timeout: 5000
+      });
+      const q = res.data?.quoteResponse?.result?.[0];
+      if (!q) return null;
+      
+      return {
+        symbol: upper,
+        marketCap: q.marketCap,
+        beta: q.beta,
+        peRatio: q.trailingPE || q.forwardPE,
+        dividendYield: q.dividendYield,
+        lastEnrichedAt: new Date().toISOString(),
+      };
+    } catch (err: any) {
+      logger.warn(`MarketData: Failed to fetch enriched data for ${upper}: ${err.message}`);
+      return null;
+    }
   }
 
   // ─── Diagnostics ───────────────────────────────────────────────────────────

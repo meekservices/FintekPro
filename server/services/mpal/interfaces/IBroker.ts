@@ -28,4 +28,9 @@ export interface IBroker {
    * Submits a normalized order payload to the broker
    */
   placeOrder(order: any): Promise<any>;
+
+  /**
+   * Submits a notional (dollar/rupee based) order
+   */
+  placeNotionalOrder(userId: string, symbol: string, notional: number, side: 'buy' | 'sell'): Promise<any>;
 }

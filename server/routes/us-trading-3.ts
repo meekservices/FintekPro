@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "../db";
-import { users, kycVault } from "@shared/schema";
+import { users, kycVault, usLrsDeclarations } from "@shared/schema";
 import { usTradingService } from "../services/us-trading-service";
 import { alpacaMarketDataService } from "../services/alpaca-market-data-service";
 import { alpacaBrokerService } from "../services/alpaca-broker-service";
@@ -14,7 +14,14 @@ import { orderAuditHook } from "../services/order-audit-hook";
 import { kycEncryptionService } from "../services/kyc-encryption-service";
 import crypto from "crypto";
 
+import { requireAuth, requireAdmin } from "../middleware/auth";
+import { alpacaAccountGuard } from "../middleware/rbac";
+
 const router = Router();
+
+// Apply authentication to all routes in this file
+router.use(requireAuth);
+
 
 const orderSchema = z.object({
   symbol: z.string().min(1).max(10),
@@ -29,8 +36,8 @@ const orderSchema = z.object({
   lrsDeclaration: z.boolean(),
 });
 
-// Get user positions (live from Alpaca when configured, graceful fallback otherwise)
-router.get("/broker/accounts", async (req, res) => {
+// Get all accounts (Admin only)
+router.get("/broker/accounts", requireAdmin, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.json({ configured: false, accounts: [] });
@@ -49,8 +56,8 @@ router.get("/broker/accounts", async (req, res) => {
   }
 });
 
-/** Create a new end-user trading account (admin) */
-router.post("/broker/accounts", async (req, res) => {
+/** Create a new end-user trading account (Admin only) */
+router.post("/broker/accounts", requireAdmin, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -63,8 +70,8 @@ router.post("/broker/accounts", async (req, res) => {
   }
 });
 
-/** Get a single account (admin/agent) */
-router.get("/broker/accounts/:accountId", async (req, res) => {
+/** Get a single account (Admin/Agent/Owner) */
+router.get("/broker/accounts/:accountId", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -77,8 +84,8 @@ router.get("/broker/accounts/:accountId", async (req, res) => {
   }
 });
 
-/** Update account information (admin) */
-router.patch("/broker/accounts/:accountId", async (req, res) => {
+/** Update account information (Admin only) */
+router.patch("/broker/accounts/:accountId", requireAdmin, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -91,8 +98,8 @@ router.patch("/broker/accounts/:accountId", async (req, res) => {
   }
 });
 
-/** Close / deactivate an account (admin) */
-router.delete("/broker/accounts/:accountId", async (req, res) => {
+/** Close / deactivate an account (Admin only) */
+router.delete("/broker/accounts/:accountId", requireAdmin, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -106,7 +113,7 @@ router.delete("/broker/accounts/:accountId", async (req, res) => {
 });
 
 /** Get trading account details (equity, cash, buying power) for a sub-account */
-router.get("/broker/accounts/:accountId/trading", async (req, res) => {
+router.get("/broker/accounts/:accountId/trading", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -120,8 +127,8 @@ router.get("/broker/accounts/:accountId/trading", async (req, res) => {
 
 // ─── CIP / KYC ────────────────────────────────────────────────────────────────
 
-/** Submit CIP (Customer Identification Program) data for an account (admin) */
-router.post("/broker/accounts/:accountId/cip", async (req, res) => {
+/** Submit CIP (Customer Identification Program) data for an account (Admin only) */
+router.post("/broker/accounts/:accountId/cip", requireAdmin, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -134,8 +141,8 @@ router.post("/broker/accounts/:accountId/cip", async (req, res) => {
   }
 });
 
-/** Get CIP status for an account (admin/agent) */
-router.get("/broker/accounts/:accountId/cip", async (req, res) => {
+/** Get CIP status for an account (Admin/Agent/Owner) */
+router.get("/broker/accounts/:accountId/cip", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -149,8 +156,8 @@ router.get("/broker/accounts/:accountId/cip", async (req, res) => {
 
 // ─── Documents ────────────────────────────────────────────────────────────────
 
-/** List documents for an account (admin/agent/client) */
-router.get("/broker/accounts/:accountId/documents", async (req, res) => {
+/** List documents for an account (Admin/Agent/Owner) */
+router.get("/broker/accounts/:accountId/documents", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -166,8 +173,8 @@ router.get("/broker/accounts/:accountId/documents", async (req, res) => {
   }
 });
 
-/** Upload a KYC/compliance document (admin) */
-router.post("/broker/accounts/:accountId/documents", async (req, res) => {
+/** Upload a KYC/compliance document (Admin only) */
+router.post("/broker/accounts/:accountId/documents", requireAdmin, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -180,8 +187,8 @@ router.post("/broker/accounts/:accountId/documents", async (req, res) => {
   }
 });
 
-/** Get a signed download URL for a document */
-router.get("/broker/accounts/:accountId/documents/:documentId/download", async (req, res) => {
+/** Get a signed download URL for a document (Admin/Agent/Owner) */
+router.get("/broker/accounts/:accountId/documents/:documentId/download", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -958,6 +965,91 @@ router.delete("/broker/rebalancing/portfolios/:portfolioId", async (req, res) =>
   } catch (error: any) {
     const status = error.response?.status || 500;
     res.status(status).json({ success: false, error: error.response?.data?.message || error.message });
+  }
+});
+
+// ─── Admin Oversight & Production Readiness ───────────────────────────────────
+
+/** Get Firm Account details (Admin only) */
+router.get("/broker/firm-account", requireAdmin, async (req, res) => {
+  try {
+    const account = await alpacaBrokerService.getFirmAccount();
+    res.json({ success: true, account });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/** Get IP Allowlist (Admin only) */
+router.get("/broker/ip-allowlist", requireAdmin, async (req, res) => {
+  try {
+    const ips = await alpacaBrokerService.getIpAllowlist();
+    res.json({ success: true, ips });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/** Add IP to allowlist (Admin only) */
+router.post("/broker/ip-allowlist", requireAdmin, async (req, res) => {
+  try {
+    const { ip } = req.body;
+    if (!ip) return res.status(400).json({ success: false, error: "IP address required" });
+    await alpacaBrokerService.addIpToAllowlist(ip);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ success: false, error: error.response?.data?.message || error.message });
+  }
+});
+
+/** Remove IP from allowlist (Admin only) */
+router.delete("/broker/ip-allowlist", requireAdmin, async (req, res) => {
+  try {
+    const { ip } = req.body;
+    if (!ip) return res.status(400).json({ success: false, error: "IP address required" });
+    await alpacaBrokerService.removeIpFromAllowlist(ip);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ success: false, error: error.response?.data?.message || error.message });
+  }
+});
+
+/** Get Global LRS Summary (Admin only) */
+router.get("/broker/lrs-summary", requireAdmin, async (req, res) => {
+  try {
+    const fy = new Date().getMonth() + 1 >= 4 
+      ? `${new Date().getFullYear()}-${(new Date().getFullYear() + 1).toString().slice(-2)}`
+      : `${new Date().getFullYear() - 1}-${new Date().getFullYear().toString().slice(-2)}`;
+    
+    const summary = await db.select({
+      totalUsed: sql<number>`SUM(CAST(${usLrsDeclarations.amountUsd} AS NUMERIC))`,
+      count: sql<number>`COUNT(*)`,
+    }).from(usLrsDeclarations).where(eq(usLrsDeclarations.financialYear, fy));
+
+    res.json({ success: true, summary: summary[0] || { totalUsed: 0, count: 0 } });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/** List Team Members (Admins/Agents) with enhanced audit data */
+router.get("/admin/team", requireAdmin, async (req, res) => {
+  try {
+    const team = await db.select({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      roles: users.roles,
+      lastLoginAt: users.lastLoginAt,
+      lastLoginIp: users.lastLoginIp,
+      isActive: users.isActive,
+    }).from(users).where(
+      sql`'admin' = ANY(${users.roles}) OR 'superadmin' = ANY(${users.roles}) OR 'agent' = ANY(${users.roles})`
+    );
+    res.json({ success: true, team });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

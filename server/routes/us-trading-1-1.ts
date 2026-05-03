@@ -19,7 +19,14 @@ import type { AuthRequest, AgreementInput, AlpacaAccountCreated, AlpacaBrokerAcc
 import { extractErrorMessage, resolveRiskTolerance, resolveInvestmentObjective } from "../types/broker-types";
 
 
+import { requireAuth, requireAdmin } from "../middleware/auth";
+import { alpacaAccountGuard } from "../middleware/rbac";
+
 const router: Router = Router();
+
+// Apply authentication to all routes in this file
+router.use(requireAuth);
+
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -94,7 +101,8 @@ router.get("/feature-flags", async (_req: Request, res: Response): Promise<void>
   }
 });
 
-router.post("/feature-flags/initialize", async (_req: Request, res: Response): Promise<void> => {
+/** Initialize feature flags (Admin only) */
+router.post("/feature-flags/initialize", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
   try {
     await usTradingService.initializeFeatureFlags();
     const flags = await usTradingService.getFeatureFlags();
@@ -104,7 +112,8 @@ router.post("/feature-flags/initialize", async (_req: Request, res: Response): P
   }
 });
 
-router.patch("/feature-flags/:flagName", async (req: Request, res: Response): Promise<void> => {
+/** Update feature flag (Admin only) */
+router.patch("/feature-flags/:flagName", requireAdmin, async (req: Request, res: Response): Promise<void> => {
   try {
     const { flagName } = req.params;
     const { isEnabled } = req.body as { isEnabled: boolean };

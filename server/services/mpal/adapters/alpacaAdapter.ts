@@ -1,6 +1,7 @@
 import { IBroker } from '../interfaces/IBroker';
 import { alpacaClient } from '../../alpaca/core/alpacaClient';
 import { alpacaAccountService } from '../../alpaca/core/alpacaAccountService';
+import { alpacaAccountCreator } from '../../alpaca/onboarding/alpacaAccountCreator';
 import { alpacaPortfolioSync } from '../../alpaca/portfolio/portfolioSync';
 import { orderManager } from '../../alpaca/trading/orderManager';
 
@@ -8,7 +9,7 @@ export class AlpacaAdapter implements IBroker {
   public readonly brokerId = 'ALPACA';
 
   async createAccount(user: any): Promise<any> {
-    return alpacaAccountService.createAccount(user.id);
+    return alpacaAccountCreator.createAccountForUser(user.id);
   }
 
   async getPositions(accountId: string): Promise<any[]> {
@@ -16,8 +17,23 @@ export class AlpacaAdapter implements IBroker {
   }
 
   async placeOrder(order: any): Promise<any> {
-    // Adapter logic bridging canonical MPAL order object to Alpaca's OrderManager
-    return orderManager.submitOrder(order.userId, order.symbol, order.qty, order.side, order.type, order.timeInForce);
+    return orderManager.placeOrder(order.userId, {
+      symbol: order.symbol,
+      qty: order.qty,
+      side: order.side,
+      type: order.type,
+      time_in_force: order.timeInForce
+    });
+  }
+
+  async placeNotionalOrder(userId: string, symbol: string, notional: number, side: 'buy' | 'sell'): Promise<any> {
+    return orderManager.placeOrder(userId, {
+      symbol,
+      notional,
+      side,
+      type: 'market',
+      time_in_force: 'day'
+    });
   }
 }
 

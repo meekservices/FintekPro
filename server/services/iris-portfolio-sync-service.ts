@@ -143,13 +143,20 @@ export async function syncIrisHoldingsForPan(pan: string, userId?: string): Prom
           currentPrice:   String(nav),
           marketValue:    String(mktValue),
           investedValue:  String(invested),
+          currency:       'INR',
+          isAdr:          false,
+          exchangeMic:    h.exchange === 'BSE' ? 'XBOM' : 'XNSE',
           dataSource:     'kfintech',
+          enrichmentSource: 'kfintech',
+          lastEnrichedAt: new Date(),
           folio:          folioNo,
           lastUpdated:    new Date(),
           metadata: {
             amcName:      h.amcName || h.amc || null,
             registrar:    'kfintech',
             syncedAt:     new Date().toISOString(),
+            kfintechId:   h.kfintechId || null,
+            folioNature:  h.folioNature || null,
           },
         })
         .onConflictDoUpdate({
@@ -158,6 +165,7 @@ export async function syncIrisHoldingsForPan(pan: string, userId?: string): Prom
             units:          String(units),
             marketValue:    String(mktValue),
             currentPrice:   String(nav),
+            lastEnrichedAt: new Date(),
             lastUpdated:    new Date(),
             updatedAt:      new Date(),
           }

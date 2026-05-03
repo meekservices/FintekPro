@@ -41,6 +41,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 // Component types live in a dedicated module — no interface declarations in component file
 import type { AccountQueryResponse, NavItemProps } from "./hub-types";
+import { USFundingCard } from "@/components/social/USFundingCard";
+import { USTradingCard } from "@/components/social/USTradingCard";
 
 
 // Mock data for initial design - will be replaced with real Alpaca API calls via usTradingService
@@ -445,6 +447,12 @@ export default function AlpacaClientHub() {
                             <Button variant="link" className="p-0 h-auto mt-2 text-indigo-200 text-[10px] font-black hover:text-white uppercase transition-colors">Security Details</Button>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Social & Alpaca Features */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
+                      <USFundingCard />
+                      <USTradingCard />
                     </div>
                   </div>
                 )}

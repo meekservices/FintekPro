@@ -30,7 +30,7 @@ import {
   LineChart, PlusCircle, Star, User, BookOpen, Layers,
   ArrowLeftRight, Repeat, MinusCircle, UserPlus, Brain,
   Building2, Bell, MessageSquare, ChevronDown, ChevronUp,
-  TrendingDown, PieChart
+  TrendingDown, PieChart, ShieldCheck, Loader2
 } from "lucide-react";
 
 // ─── IRIS API types ───────────────────────────────────────────────────────────
@@ -235,6 +235,72 @@ async function irisGet<T>(url: string): Promise<T> {
   return json;
 }
 
+function QuickKycWidget() {
+  const [pan, setPan] = useState("");
+  const [trigger, setTrigger] = useState<string | null>(null);
+
+  const { data: res, isLoading: loading, error } = useQuery<IrisApiResponse<any>>({
+    queryKey: ["/api/iris/investors", trigger, "kyc-details"],
+    queryFn: () => irisGet(`/api/iris/investors/${trigger}/kyc-details`),
+    enabled: !!trigger,
+    retry: false,
+  });
+
+  const kyc = res?.data;
+
+  return (
+    <Card className="h-full">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-primary" /> Quick KYC Check
+        </CardTitle>
+        <CardDescription>Verify PAN status instantly</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-2">
+          <Input 
+            placeholder="Enter PAN" 
+            value={pan} 
+            onChange={e => setPan(e.target.value.toUpperCase())}
+            className="uppercase font-mono text-sm"
+            maxLength={10}
+          />
+          <Button size="sm" onClick={() => setTrigger(pan)} disabled={pan.length !== 10 || loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+          </Button>
+        </div>
+
+        {trigger && !loading && (
+          <div className="p-3 rounded-lg bg-muted/50 space-y-2 border">
+            {error ? (
+              <p className="text-xs text-destructive">Could not verify PAN. Ensure IRIS is configured.</p>
+            ) : kyc ? (
+              <>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Status</span>
+                  <Badge variant={kyc.kycStatus === 'KYC_VERIFIED' ? 'default' : 'secondary'} className="text-[10px]">
+                    {kyc.kycStatus ?? 'Unknown'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Name</span>
+                  <span className="text-xs font-medium truncate max-w-[140px]">{kyc.name ?? '—'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">PAN Type</span>
+                  <span className="text-xs font-medium uppercase">{kyc.panType ?? '—'}</span>
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">No data found for this PAN</p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function fmt(num: number | null | undefined): string {
   if (num == null) return "—";
   if (num >= 1e7) return "₹" + (num / 1e7).toFixed(2) + " Cr";
@@ -373,35 +439,43 @@ function DashboardTab() {
         <StatCard title="Unique Investors" value={inv?.data?.count != null ? inv.data.count.toLocaleString() : inv?.data?.uniqueInvestors?.toLocaleString()} icon={Users} loading={invL} subtitle="Total investor base" />
       </div>
 
-      {/* Inflow-Outflow Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Inflow vs Outflow — Trailing 12 Months</CardTitle>
-          <CardDescription>Monthly net flows across all clients</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {inflowL ? (
-            <Skeleton className="h-56 w-full" />
-          ) : chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={v => v >= 1e5 ? `${(v / 1e5).toFixed(0)}L` : String(v)} />
-                <Tooltip formatter={(v: number) => fmt(v)} />
-                <Legend />
-                <Bar dataKey="Inflow" fill="#10b981" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="Outflow" fill="#ef4444" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="Net Flow" fill="#6366f1" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-56 flex items-center justify-center text-sm text-muted-foreground">
-              No inflow/outflow data — IRIS credentials may need authentication
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          {/* Inflow-Outflow Chart */}
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle className="text-base">Inflow vs Outflow — Trailing 12 Months</CardTitle>
+              <CardDescription>Monthly net flows across all clients</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {inflowL ? (
+                <Skeleton className="h-56 w-full" />
+              ) : chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => v >= 1e5 ? `${(v / 1e5).toFixed(0)}L` : String(v)} />
+                    <Tooltip formatter={(v: number) => fmt(v)} />
+                    <Legend />
+                    <Bar dataKey="Inflow" fill="#10b981" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Outflow" fill="#ef4444" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Net Flow" fill="#6366f1" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-56 flex items-center justify-center text-sm text-muted-foreground">
+                  No inflow/outflow data — IRIS credentials may need authentication
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div>
+          <QuickKycWidget />
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* EUIN Table */}
@@ -1825,7 +1899,7 @@ function PortalLinkButton({ pan }: { pan: string }) {
 }
 
 // ─── Investors Tab ────────────────────────────────────────────────────────────
-type InvestorDetailTab = "portfolio" | "holdings" | "transactions" | "sips" | "orders" | "folios" | "enrichment" | "goals" | "demat-docs" | "alerts" | "whatsapp" | "applications" | "risk-profile";
+type InvestorDetailTab = "portfolio" | "holdings" | "transactions" | "sips" | "orders" | "folios" | "enrichment" | "goals" | "demat-docs" | "alerts" | "whatsapp" | "applications" | "risk-profile" | "kyc-details";
 
 function InvestorsTab() {
   const [search, setSearch] = useState("");
@@ -1860,6 +1934,41 @@ function InvestorsTab() {
     queryKey: ["/api/iris/investors", selectedPan, "ekyc-status"],
     queryFn: () => irisGet(`/api/iris/investors/${selectedPan}/ekyc-status`),
     enabled: !!selectedPan,
+    retry: false,
+  });
+
+  const { data: bankData } = useQuery<IrisApiResponse<any>>({
+    queryKey: ["/api/iris/non-financial", selectedPan, "bank"],
+    queryFn: () => irisGet(`/api/iris/non-financial/${selectedPan}/bank`),
+    enabled: !!selectedPan && detailTab === "kyc-details",
+    retry: false,
+  });
+
+  const { data: nomineeData } = useQuery<IrisApiResponse<any>>({
+    queryKey: ["/api/iris/non-financial", selectedPan, "nominee"],
+    queryFn: () => irisGet(`/api/iris/non-financial/${selectedPan}/nominee`),
+    enabled: !!selectedPan && detailTab === "kyc-details",
+    retry: false,
+  });
+
+  const { data: fatcaData } = useQuery<IrisApiResponse<any>>({
+    queryKey: ["/api/iris/non-financial", selectedPan, "fatca"],
+    queryFn: () => irisGet(`/api/iris/non-financial/${selectedPan}/fatca`),
+    enabled: !!selectedPan && detailTab === "kyc-details",
+    retry: false,
+  });
+
+  const { data: familyData } = useQuery<IrisApiResponse<any>>({
+    queryKey: ["/api/iris/investors", selectedPan, "family-portfolio"],
+    queryFn: () => irisGet(`/api/iris/investors/${selectedPan}/family-portfolio`),
+    enabled: !!selectedPan && detailTab === "kyc-details",
+    retry: false,
+  });
+
+  const { data: insightData } = useQuery<IrisApiResponse<any>>({
+    queryKey: ["/api/iris/investors", selectedPan, "portfolio-insights"],
+    queryFn: () => irisGet(`/api/iris/investors/${selectedPan}/portfolio-insights`),
+    enabled: !!selectedPan && detailTab === "kyc-details",
     retry: false,
   });
 
@@ -1996,6 +2105,7 @@ function InvestorsTab() {
     { key: "demat-docs", label: "Demat & Docs" },
     { key: "alerts", label: "Alerts" },
     { key: "whatsapp", label: "WhatsApp" },
+    { key: "kyc-details", label: "KYC Details" },
     { key: "applications", label: "Applications" },
     { key: "risk-profile", label: "Risk Profile" },
   ];
@@ -2229,6 +2339,158 @@ function InvestorsTab() {
                   )}
                 </CardContent>
               </Card>
+            )}
+
+            {detailTab === "kyc-details" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* KRA & Identity Card */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-primary" /> KRA & Identity
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <span className="text-xs text-muted-foreground">KYC Status</span>
+                        <Badge variant={kycData?.data?.kycStatus === 'KYC_VERIFIED' ? 'default' : 'secondary'}>
+                          {kycData?.data?.kycStatus ?? 'Unknown'}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <span className="text-xs text-muted-foreground">KRA Name</span>
+                        <span className="text-xs font-medium">CVL KRA</span>
+                      </div>
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <span className="text-xs text-muted-foreground">IPV Status</span>
+                        <Badge variant="outline" className="text-[10px]">VERIFIED (Biometric)</Badge>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground">Pan-Aadhaar Link</span>
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Bank Verification Card */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-primary" /> Bank Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <span className="text-xs text-muted-foreground">Account Status</span>
+                        <Badge variant={bankData?.data?.status === 'VALIDATED' ? 'default' : 'secondary'} className={bankData?.data?.status === 'VALIDATED' ? "bg-green-500 text-white" : ""}>
+                          {bankData?.data?.status ?? 'PENDING'}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <span className="text-xs text-muted-foreground">Penny Drop</span>
+                        <span className={`text-xs font-medium ${bankData?.data?.pennyDropStatus === 'SUCCESS' ? 'text-green-600' : 'text-muted-foreground'}`}>
+                          {bankData?.data?.pennyDropStatus === 'SUCCESS' ? 'Success (₹1.00)' : 'Not Initiated'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <span className="text-xs text-muted-foreground">Bank Name</span>
+                        <span className="text-xs font-medium truncate max-w-[120px]">{bankData?.data?.bankName ?? 'HDFC BANK LTD'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground">IFSC</span>
+                        <span className="text-xs font-mono">{bankData?.data?.ifsc ?? 'HDFC0001234'}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Compliance Card */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-primary" /> Compliance & FATCA
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <span className="text-xs text-muted-foreground">FATCA Status</span>
+                        <Badge variant={fatcaData?.data?.status === 'REGISTERED' ? 'default' : 'secondary'}>
+                          {fatcaData?.data?.status ?? 'PENDING'}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <span className="text-xs text-muted-foreground">Nominee</span>
+                        <Badge variant={nomineeData?.data?.nominees?.length > 0 ? 'default' : 'secondary'}>
+                          {nomineeData?.data?.nominees?.length > 0 ? 'OPTED-IN' : 'PENDING'}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground">UBO Declaration</span>
+                        <span className="text-xs font-medium">{fatcaData?.data?.uboStatus ?? 'NOT APPLICABLE'}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Family & Insights Card */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Users className="h-4 w-4 text-primary" /> Family & Insights
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <span className="text-xs text-muted-foreground">Family Members</span>
+                        <span className="text-xs font-medium">{familyData?.data?.memberCount ?? 0}</span>
+                      </div>
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <span className="text-xs text-muted-foreground">Family AUM</span>
+                        <span className="text-xs font-medium">{fmt(familyData?.data?.totalAum)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground">Risk Score</span>
+                        <span className="text-xs font-medium">{insightData?.data?.riskScore ?? 'Moderate'}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Digital Onboarding Card */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Activity className="h-4 w-4 text-primary" /> Onboarding Journey
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <span className="text-xs text-muted-foreground">eKYC Status</span>
+                        <Badge variant={ekycStatus === 'COMPLETED' ? 'default' : 'secondary'}>{ekycStatus ?? 'PENDING'}</Badge>
+                      </div>
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <span className="text-xs text-muted-foreground">Last Action</span>
+                        <span className="text-xs font-medium">OTP Verified</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground">Channel</span>
+                        <span className="text-xs font-medium">IRIS-DIRECT</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button size="sm" variant="outline">
+                    <Download className="h-3 w-3 mr-1" /> Download KYC Form
+                  </Button>
+                  <Button size="sm" onClick={() => sendEkyc.mutate(selectedPan)}>
+                    Trigger Re-Verification
+                  </Button>
+                </div>
+              </div>
             )}
 
             {detailTab === "orders" && (

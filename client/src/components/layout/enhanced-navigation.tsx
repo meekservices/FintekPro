@@ -214,10 +214,12 @@ export function EnhancedNavigation() {
       name: "🌍 Global & US Markets",
       description: "NYSE / NASDAQ / International",
       subItems: [
+        { name: "Market Explorer", href: "/alpaca-market-explorer", description: "Real-time US market data", badge: "LIVE" },
         { name: "International Markets", href: "/global-trading", description: "Multi-country exchanges" },
         { name: "US Stocks & ETFs", href: "/us-trading", description: "NYSE/NASDAQ via Alpaca broker", badge: "LRS" },
       ]
     }
+
   ];
 
   const navigationGroups: NavigationGroup[] = [

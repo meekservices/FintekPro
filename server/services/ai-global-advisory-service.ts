@@ -218,40 +218,41 @@ class AIGlobalAdvisoryService {
 
   async fetchGlobalInstrumentData(symbol: string): Promise<GlobalInstrumentData | null> {
     try {
-      const quote = await this.fetchWithRetry(() => yahooFinance.quote(symbol), 3, 2000);
+      const { alpacaMarketDataService } = await import("./alpaca-market-data-service");
+      
+      const [quote, enriched] = await Promise.all([
+        alpacaMarketDataService.getQuote(symbol),
+        alpacaMarketDataService.getEnrichedMarketData(symbol)
+      ]);
+
       if (!quote) return null;
 
       const currency = quote.currency || 'USD';
-      const currentPrice = quote.regularMarketPrice || 0;
+      const currentPrice = quote.price || 0;
       const exchangeRate = await currencyExchangeService.getExchangeRate(currency, 'INR');
       const currentPriceInr = currentPrice * exchangeRate;
 
       let assetClass: 'stock' | 'etf' | 'bond' | 'mutual_fund' = 'stock';
-      if (quote.quoteType === 'ETF') assetClass = 'etf';
-      else if (quote.quoteType === 'MUTUALFUND') assetClass = 'mutual_fund';
+      // In a real app, we'd check symbol types from Alpaca details, but for now:
+      if (symbol.endsWith('ETF') || ['SPY', 'QQQ', 'VOO', 'DIA'].includes(symbol)) assetClass = 'etf';
 
       return {
         symbol: quote.symbol,
-        name: quote.shortName || quote.longName || symbol,
+        name: enriched?.name || quote.symbol,
         assetClass,
-        exchange: quote.exchange || 'UNKNOWN',
-        market: this.getMarketFromExchange(quote.exchange || ''),
+        exchange: enriched?.primaryExchange || 'UNKNOWN',
+        market: this.getMarketFromExchange(enriched?.primaryExchange || ''),
         currency,
         currentPrice,
         currentPriceInr,
-        priceChange: quote.regularMarketChange || 0,
-        priceChangePercent: quote.regularMarketChangePercent || 0,
-        marketCap: quote.marketCap,
-        peRatio: quote.trailingPE,
-        pbRatio: quote.priceToBook,
-        dividendYield: quote.dividendYield ? quote.dividendYield * 100 : undefined,
-        week52High: quote.fiftyTwoWeekHigh,
-        week52Low: quote.fiftyTwoWeekLow,
-        avgVolume: quote.averageVolume,
-        beta: quote.beta,
-        sector: quote.sector,
-        industry: quote.industry,
-      };
+        priceChange: quote.change || 0,
+        priceChangePercent: quote.changePercent || 0,
+        marketCap: enriched?.marketCap,
+        peRatio: enriched?.peRatio,
+        dividendYield: enriched?.dividendYield,
+        beta: enriched?.beta,
+        lastEnrichedAt: enriched?.lastEnrichedAt ? new Date(enriched.lastEnrichedAt) : undefined,
+      } as any;
     } catch (error: any) {
       console.error(`[GlobalAdvisory] Failed to fetch data for ${symbol}: ${error.message}`);
       return null;

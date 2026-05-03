@@ -163,6 +163,7 @@ export function setupAuth(app: Express) {
       // Modify the request to pass portal context to passport callback
       const modifiedReq = req as any;
       modifiedReq.targetPortal = targetPortal;
+      (req.session as any).targetPortal = targetPortal; // Persist in session for verify-otp step
 
       passport.authenticate("local", async (err: any, user: User | false, info: any) => {
         try {
@@ -464,7 +465,8 @@ export function setupAuth(app: Express) {
         }
         
         console.log(`[VERIFY_OTP] Session created. Stamping portal type...`);
-        stampSessionPortal(req);
+        const targetPortal = (req.session as any).targetPortal || req.subdomain;
+        stampSessionPortal(req, targetPortal);
         
         // Explicitly save session to ensure it persists
         req.session.save((saveErr) => {

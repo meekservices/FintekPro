@@ -31,6 +31,23 @@ export class AlpacaAccountCreator {
       return userRecord.alpacaAccountId;
     }
 
+    // Handle Omnibus account type
+    if (userRecord.alpacaAccountType === 'omnibus') {
+      logger.info(`[AlpacaAccountCreator] User ${userId} flagged for OMNIBUS. Linking to platform account.`);
+      
+      // Fetch platform omnibus account ID from settings or env
+      const omnibusId = process.env.ALPACA_OMNIBUS_ACCOUNT_ID;
+      if (!omnibusId) {
+        throw new Error('ALPACA_OMNIBUS_ACCOUNT_ID is not configured for omnibus onboarding.');
+      }
+
+      await db.update(users)
+        .set({ alpacaAccountId: omnibusId })
+        .where(eq(users.id, userId));
+        
+      return omnibusId;
+    }
+
     // Map KYC with real IP
     const payload = alpacaKycMapper.mapToAlpacaSchema(userRecord as any, profileRecord as any, ipAddress);
 

@@ -580,8 +580,126 @@ if (process.env.NODE_ENV === 'production') {
         console.error('[Migration] daily_picks table error:', e?.message);
       }
 
+      // 21. Alpaca Integration Tables
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS alpaca_accounts (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id VARCHAR NOT NULL REFERENCES users(id),
+            alpaca_account_id VARCHAR NOT NULL UNIQUE,
+            status VARCHAR NOT NULL,
+            account_number VARCHAR,
+            currency VARCHAR DEFAULT 'USD',
+            crypto_status VARCHAR,
+            buying_power DECIMAL(15, 2),
+            cash DECIMAL(15, 2),
+            portfolio_value DECIMAL(15, 2),
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+
+          CREATE TABLE IF NOT EXISTS alpaca_orders (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id VARCHAR NOT NULL REFERENCES users(id),
+            alpaca_account_id VARCHAR NOT NULL,
+            provider_order_id VARCHAR NOT NULL UNIQUE,
+            client_order_id VARCHAR NOT NULL UNIQUE,
+            symbol VARCHAR NOT NULL,
+            qty DECIMAL(15, 4),
+            notional DECIMAL(15, 2),
+            side VARCHAR NOT NULL,
+            type VARCHAR NOT NULL,
+            time_in_force VARCHAR NOT NULL,
+            status VARCHAR NOT NULL,
+            filled_qty DECIMAL(15, 4),
+            filled_avg_price DECIMAL(15, 2),
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+
+          CREATE TABLE IF NOT EXISTS alpaca_positions (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id VARCHAR NOT NULL REFERENCES users(id),
+            alpaca_account_id VARCHAR NOT NULL,
+            symbol VARCHAR NOT NULL,
+            qty DECIMAL(15, 4) NOT NULL,
+            avg_entry_price DECIMAL(15, 2) NOT NULL,
+            current_price DECIMAL(15, 2) NOT NULL,
+            market_value DECIMAL(15, 2) NOT NULL,
+            unrealized_pl DECIMAL(15, 2) NOT NULL,
+            unrealized_plpc DECIMAL(15, 4) NOT NULL,
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+
+          CREATE TABLE IF NOT EXISTS alpaca_trade_logs (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id VARCHAR NOT NULL REFERENCES users(id),
+            alpaca_account_id VARCHAR NOT NULL,
+            symbol VARCHAR NOT NULL,
+            side VARCHAR NOT NULL,
+            quantity DECIMAL(15, 4),
+            notional DECIMAL(15, 2),
+            status VARCHAR NOT NULL,
+            provider_order_id VARCHAR,
+            commission DECIMAL(12, 2) DEFAULT '0.00',
+            error_message TEXT,
+            timestamp TIMESTAMPTZ DEFAULT NOW()
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_alpaca_accounts_user ON alpaca_accounts(user_id);
+          CREATE INDEX IF NOT EXISTS idx_alpaca_orders_user ON alpaca_orders(user_id);
+          CREATE INDEX IF NOT EXISTS idx_alpaca_positions_user ON alpaca_positions(user_id);
+        `);
+        console.log('✅ Alpaca integration tables verified');
+      } catch (e: any) {
+        console.error('[Migration] Alpaca tables error:', e?.message);
+      }
+
+      // 22. User Social Referral Columns
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE users 
+            ADD COLUMN IF NOT EXISTS referral_code VARCHAR UNIQUE,
+            ADD COLUMN IF NOT EXISTS shareable_profile_enabled BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS alpaca_account_id VARCHAR;
+          CREATE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code);
+        `);
+        console.log('✅ User social referral columns verified');
+      } catch (e: any) {
+        console.error('[Migration] User social columns error:', e?.message);
+      }
+
+      // 23. Global Asset & RTA Metadata Enrichment
+      try {
+        await migDb.execute(migSql`
+          -- Comprehensive Holdings Metadata
+          ALTER TABLE comprehensive_holdings
+            ADD COLUMN IF NOT EXISTS currency VARCHAR DEFAULT 'INR',
+            ADD COLUMN IF NOT EXISTS is_adr BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS exchange_mic VARCHAR,
+            ADD COLUMN IF NOT EXISTS enrichment_source VARCHAR,
+            ADD COLUMN IF NOT EXISTS last_enriched_at TIMESTAMPTZ;
+
+          -- Market Data Cache Fundamental Metrics
+          ALTER TABLE market_data_cache
+            ADD COLUMN IF NOT EXISTS market_cap NUMERIC(20, 2),
+            ADD COLUMN IF NOT EXISTS beta NUMERIC(10, 4),
+            ADD COLUMN IF NOT EXISTS dividend_yield NUMERIC(10, 4),
+            ADD COLUMN IF NOT EXISTS pe_ratio NUMERIC(10, 4);
+
+          -- Mutual Funds RTA Tracking
+          ALTER TABLE mutual_funds
+            ADD COLUMN IF NOT EXISTS kfintech_id VARCHAR,
+            ADD COLUMN IF NOT EXISTS folio_nature VARCHAR;
+        `);
+        console.log('✅ Global asset and RTA metadata columns verified');
+      } catch (e: any) {
+        console.error('[Migration] Metadata enrichment error:', e?.message);
+      }
+
       console.log('✅ Critical schema repairs complete');
     } catch (migErr) {
+
       console.error('❌ Migration sequence failed (non-fatal):', migErr);
     }
 
@@ -764,6 +882,15 @@ if (process.env.NODE_ENV === 'production') {
     const mpalRoutes = await import('./routes/mpal-routes');
     app.use('/api/mpal', mpalRoutes.mpalRouter);
 
+    // Alpaca Ribbit Integration Routes
+    const alpacaRoutes = await import('./routes/alpaca/index');
+    app.use('/api/alpaca', alpacaRoutes.default);
+
+    // IRIS KFintech Integration Routes
+    logBootProgress("Step 9: Registering IRIS KFintech Routes...");
+    const { registerIrisKfintechRoutes } = await import('./routes/iris-kfintech-routes');
+    registerIrisKfintechRoutes(app);
+
     // ── FINALIZATION ─────────────────────────────────────────────────────────
 
     // Boot audit event
@@ -843,6 +970,35 @@ if (process.env.NODE_ENV === 'production') {
         }, 24 * 60 * 60 * 1000); // 24 hours
       } catch (error) {
         console.error('❌ Failed to start Unlisted Regulatory Audit Cleanup:', error);
+      }
+
+      // Initialize KYC LRS/TCS Monitor Service
+      try {
+        console.log('📊 Starting KYC LRS/TCS Monitor Service...');
+        const { kycLrsMonitorService } = await import('./services/kyc-lrs-monitor-service');
+        kycLrsMonitorService.start(); // Default: daily at midnight
+      } catch (error) {
+        console.error('❌ Failed to start KYC LRS/TCS Monitor Service:', error);
+      }
+
+      // Initialize Forensic Audit Integrity Verification
+      try {
+        console.log('🔍 Running Forensic Audit Integrity Verification...');
+        const { auditLogService } = await import('./services/audit-log-service');
+        const integrityResult = await auditLogService.verifyChainIntegrity();
+        
+        if (integrityResult.valid) {
+          console.log('✅ Forensic Audit Chain Integrity: VERIFIED (HMAC-SHA256 Chain Intact)');
+        } else {
+          console.error('❌ [CRITICAL] Forensic Audit Chain BREACHED! Tampering detected.');
+          console.error('Broken Links:', JSON.stringify(integrityResult.brokenLinks, null, 2));
+        }
+
+        if (!process.env.COMPLIANCE_SECRET) {
+          console.warn('⚠️ [WARNING] COMPLIANCE_SECRET is not set. Forensic integrity is compromised.');
+        }
+      } catch (error) {
+        console.error('❌ Failed to verify Forensic Audit Integrity:', error);
       }
     }, 5000);
 

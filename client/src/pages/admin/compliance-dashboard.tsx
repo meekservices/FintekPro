@@ -76,6 +76,12 @@ interface GrievanceMetrics {
 
 interface ComplianceDashboardData {
   overallScore: number;
+  forensicStatus?: {
+    status: 'passed' | 'failed' | 'warning';
+    lastCheckedAt: string;
+    totalVerified: number;
+    issuesFound: number;
+  };
   deadlines: ComplianceDeadline[];
   statusByCategory: ComplianceStatus[];
   recentUpdates: { title: string; date: string; regulator: string }[];
@@ -156,7 +162,7 @@ export default function ComplianceDashboard() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card className="bg-gradient-to-br from-emerald-500 to-green-600 text-foreground">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -206,6 +212,26 @@ export default function ComplianceDashboard() {
           <CardContent>
             <p className="text-2xl font-bold text-blue-600">{data?.alerts?.length || 0}</p>
             <p className="text-xs text-muted-foreground">Regulatory updates</p>
+          </CardContent>
+        </Card>
+
+        <Card className={data?.forensicStatus?.status === 'failed' ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : ''}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Shield className={`w-4 h-4 ${data?.forensicStatus?.status === 'failed' ? 'text-red-600' : 'text-emerald-600'}`} />
+              Forensic Integrity
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <p className={`text-2xl font-bold ${data?.forensicStatus?.status === 'failed' ? 'text-red-600' : 'text-emerald-600'}`}>
+                {data?.forensicStatus?.status === 'failed' ? 'BREACHED' : 'VERIFIED'}
+              </p>
+              {data?.forensicStatus?.status === 'passed' && <CheckCircle className="w-5 h-5 text-emerald-600" />}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {data?.forensicStatus?.totalVerified || 0} records secured via HMAC-SHA256
+            </p>
           </CardContent>
         </Card>
       </div>

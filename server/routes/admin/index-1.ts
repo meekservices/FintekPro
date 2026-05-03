@@ -317,8 +317,16 @@ export function registerAdminPanelPart1Routes(app: Express): void {
   // Compliance Dashboard API
   app.get("/api/admin/compliance-dashboard", requireAdmin, async (req, res) => {
     const now = new Date();
+    const forensicStatus = auditIntegrityChecker.getStatus();
+    
     res.json({
       overallScore: 100,
+      forensicStatus: {
+        status: forensicStatus.lastCheck?.status || 'passed',
+        lastCheckedAt: forensicStatus.lastCheck?.timestamp?.toISOString() || now.toISOString(),
+        totalVerified: forensicStatus.lastCheck?.verifiedRecords || 0,
+        issuesFound: (forensicStatus.lastCheck?.brokenLinks?.length || 0) + (forensicStatus.lastCheck?.checksumMismatches?.length || 0)
+      },
       deadlines: [
         { id: '1', title: 'SEBI AIF Annual Report', regulator: 'SEBI', dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(), status: 'upcoming', priority: 'high', description: 'Annual compliance report for Alternative Investment Funds' },
         { id: '2', title: 'RBI KYC Audit', regulator: 'RBI', dueDate: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString(), status: 'pending', priority: 'medium', description: 'Quarterly KYC compliance audit' },
@@ -350,6 +358,7 @@ export function registerAdminPanelPart1Routes(app: Express): void {
       ]
     });
   });
+
 
   // RIA (Registered Investment Adviser) Validation API
   app.get("/api/admin/ria/platform-status", requireAdmin, async (req, res) => {

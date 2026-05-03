@@ -140,7 +140,26 @@ export function registerIrisKfintechRoutes(app: Express): void {
   });
 
   app.get('/api/iris/investors/:pan/systematic-plans', requireAuth, requireAgent, async (req, res) => {
-    await wrap(res, () => irisKfintechService.getSystematicPlanDetails(req.params.pan));
+    try {
+      const data = await irisKfintechService.getSystematicPlanDetails(req.params.pan);
+      res.json({ success: true, data });
+    } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
+  });
+
+  app.get('/api/iris/investors/:pan/family-portfolio', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getFamilyPortfolio(req.params.pan));
+  });
+
+  app.get('/api/iris/investors/:pan/portfolio-insights', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getPortfolioInsights(req.params.pan));
+  });
+
+  app.get('/api/iris/investors/:pan/kra-status', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getKraStatus(req.params.pan));
+  });
+
+  app.get('/api/iris/investors/:pan/sip-health', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getSipHealth(req.params.pan));
   });
 
   app.post('/api/iris/investors/:pan/send-ekyc-mail', requireAuth, requireAgent, async (req, res) => {

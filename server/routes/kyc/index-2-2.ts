@@ -447,6 +447,8 @@ export function registerKYCWizardPart2Sub2Routes(app: Express) {
 
       const aadhaarVerifiedFlag = !!(stepStatus.aadhaar_verified || session.aadhaarVerified);
 
+      const riskProfile = (session as any).riskProfileData || {};
+
       await db.update(schema.userProfiles)
         .set({
           kycLevel: '2',
@@ -456,11 +458,25 @@ export function registerKYCWizardPart2Sub2Routes(app: Express) {
           kraVerifiedViaProtean: !!stepStatus.kra_verified,
           panVerifiedViaSmartKyc: true,
           aadhaarVerifiedViaSmartKyc: aadhaarVerifiedFlag,
-          // NOTE: videoKycCompleted is NOT set here — V-CIP requires an actual video session (SEBI/RBI)
           kycTier: tierResult.kyc_tier,
           kycTierStatus: tierResult.tier_status,
           kycTierUpgradedAt: new Date(),
           fatcaDeclarationDate: new Date(),
+          
+          // Sync Risk Profile fields
+          investmentObjective: riskProfile.investmentObjective,
+          investmentTimeHorizon: riskProfile.investmentHorizon,
+          investmentRiskTolerance: riskProfile.riskTolerance,
+          riskTolerance: riskProfile.riskTolerance, // Duplicate for legacy support
+          annualIncome: riskProfile.incomeLevel,
+          annualIncomeAmount: riskProfile.incomeLevel,
+          investmentExperience: riskProfile.tradingExperience,
+          
+          // Advanced fields for Alpaca / Options
+          netWorth: riskProfile.netWorth,
+          liquidNetWorth: riskProfile.liquidNetWorth,
+          liquidityNeeds: riskProfile.liquidityNeeds,
+          numberOfDependents: riskProfile.numberOfDependents ? parseInt(riskProfile.numberOfDependents) : 0,
         } as any)
         .where(eq(schema.userProfiles.userId, userId));
 

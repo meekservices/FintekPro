@@ -12,9 +12,14 @@ import { usOrderNotificationService } from "../services/us-order-notification-se
 import { usRebalancingEngine } from "../services/us-rebalancing-engine";
 import { orderAuditHook } from "../services/order-audit-hook";
 import { kycEncryptionService } from "../services/kyc-encryption-service";
-import crypto from "crypto";
+import { requireAuth, requireAdmin } from "../middleware/auth";
+import { alpacaAccountGuard } from "../middleware/rbac";
 
 const router = Router();
+
+// Apply authentication to all routes in this file
+router.use(requireAuth);
+
 
 const orderSchema = z.object({
   symbol: z.string().min(1).max(10),

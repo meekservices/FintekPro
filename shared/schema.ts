@@ -161,6 +161,7 @@ import {
   MutualFund,
   InsertMutualFund
 } from './schema/mutual-funds';
+import { usBrokerAccounts } from './schema/orders';
 import { mcaCharges, mcaIngestionLogs, insertMcaDirectorsSchema, mcaDataSources, insertMcaWalletPaymentSchema, insertMcaDataSourcesSchema, mcaDirectors, mcaDirectPayments, insertMcaChargesSchema, insertMcaRiskScoresSchema, mcaWalletPayments, insertMcaDirectPaymentSchema, mcaRiskScores, insertMcaIngestionLogsSchema } from './schema/mca';
 import { partnerCommissions, partnerHierarchyAgreements, partners, partnerCommissionRules, partnerApplicationDocuments, partnerWallets, partnerReferrals, partnerApplications, partnerAuditLogs, partnerSettlements } from './schema/partners';
 import { 
@@ -418,6 +419,45 @@ export {
   insertCampaignRecipientSchema
 } from './schema/products';
 
+import { 
+  storeCategories, 
+  advisorySubscriptions, 
+  storeProducts, 
+  storeProductImages, 
+  storeProductTags, 
+  storeProductTagMappings, 
+  userWishlist, 
+  fundManagers, 
+  products, 
+  productAccountPreferences, 
+  productApplications, 
+  pmsMaster, 
+  mldMaster, 
+  giftCityProducts, 
+  fundPerformanceMonthwise, 
+  marketingCampaigns, 
+  campaignRecipients, 
+  fundPerformanceRolling,
+  insertStoreCategorySchema,
+  insertAdvisorySubscriptionSchema,
+  insertStoreProductSchema,
+  insertStoreProductImageSchema,
+  insertStoreProductTagSchema,
+  insertStoreProductTagMappingSchema,
+  insertUserWishlistSchema,
+  insertFundManagerSchema,
+  insertProductSchema,
+  insertProductAccountPreferenceSchema,
+  insertProductApplicationSchema,
+  insertPmsMasterSchema,
+  insertMldMasterSchema,
+  insertGiftCityProductSchema,
+  insertFundPerformanceMonthwiseSchema,
+  insertMarketingCampaignSchema,
+  insertCampaignRecipientSchema,
+  insertFundPerformanceRollingSchema
+} from './schema/products';
+
 export type {
   Product,
   ProductAccountPreference,
@@ -463,6 +503,7 @@ export * from "./schema/market-data";
 export * from "./schema/cart";
 export * from "./schema/reit-invit";
 export * from "./schema/mpal";
+export * from "./schema/alpaca-config";
 
 // Session storage table
 export const sessions = pgTable(

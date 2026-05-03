@@ -14,8 +14,14 @@ import { orderAuditHook } from "../services/order-audit-hook";
 import { kycEncryptionService } from "../services/kyc-encryption-service";
 import crypto from "crypto";
 import * as schema from "@shared/schema";
+import { requireAuth, requireAdmin } from "../middleware/auth";
+import { alpacaAccountGuard } from "../middleware/rbac";
 
 const router = Router();
+
+// Apply authentication to all routes in this file
+router.use(requireAuth);
+
 
 const orderSchema = z.object({
   symbol: z.string().min(1).max(10),
@@ -30,8 +36,8 @@ const orderSchema = z.object({
   lrsDeclaration: z.boolean(),
 });
 
-// Get user positions (live from Alpaca when configured, graceful fallback otherwise)
-router.delete("/broker/accounts/:accountId/watchlists/:watchlistId", async (req, res) => {
+// Watchlist operations (Admin/Agent/Owner)
+router.delete("/broker/accounts/:accountId/watchlists/:watchlistId", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -45,8 +51,8 @@ router.delete("/broker/accounts/:accountId/watchlists/:watchlistId", async (req,
 
 // ─── Reports ──────────────────────────────────────────────────────────────────
 
-/** List generated reports (admin) */
-router.get("/broker/reports", async (req, res) => {
+/** List generated reports (Admin only) */
+router.get("/broker/reports", requireAdmin, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -61,8 +67,8 @@ router.get("/broker/reports", async (req, res) => {
   }
 });
 
-/** Create / request a report (account_statement, trade_confirmation, tax_1099) */
-router.post("/broker/reports", async (req, res) => {
+/** Create / request a report (Admin only) */
+router.post("/broker/reports", requireAdmin, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -75,8 +81,8 @@ router.post("/broker/reports", async (req, res) => {
   }
 });
 
-/** Get a specific report */
-router.get("/broker/reports/:reportId", async (req, res) => {
+/** Get a specific report (Admin only) */
+router.get("/broker/reports/:reportId", requireAdmin, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -131,7 +137,7 @@ router.get("/broker/corporate-actions", async (req, res) => {
 
 // ─── Assets ───────────────────────────────────────────────────────────────────
 
-/** List tradable assets */
+/** List tradable assets (Authenticated) */
 router.get("/broker/assets", async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
@@ -181,7 +187,8 @@ router.get("/broker/calendar", async (req, res) => {
 
 // ─── Funding Wallets ──────────────────────────────────────────────────────────
 
-router.get("/broker/accounts/:accountId/funding-wallet", async (req, res) => {
+/** Get funding wallet details (Admin/Agent/Owner) */
+router.get("/broker/accounts/:accountId/funding-wallet", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const { accountId } = req.params;
@@ -201,7 +208,8 @@ router.get("/broker/accounts/:accountId/funding-wallet", async (req, res) => {
   }
 });
 
-router.post("/broker/accounts/:accountId/funding-wallet/deposit-simulation", async (req, res) => {
+/** Simulate funding deposit (Admin only - Testing) */
+router.post("/broker/accounts/:accountId/funding-wallet/deposit-simulation", requireAdmin, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const { accountId } = req.params;
@@ -218,7 +226,8 @@ router.post("/broker/accounts/:accountId/funding-wallet/deposit-simulation", asy
 
 // ─── Recipient Banks ──────────────────────────────────────────────────────────
 
-router.get("/broker/accounts/:accountId/recipient-banks", async (req, res) => {
+/** List recipient banks (Admin/Agent/Owner) */
+router.get("/broker/accounts/:accountId/recipient-banks", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const banks = await alpacaBrokerService.listRecipientBanks(req.params.accountId);
@@ -228,7 +237,8 @@ router.get("/broker/accounts/:accountId/recipient-banks", async (req, res) => {
   }
 });
 
-router.post("/broker/accounts/:accountId/recipient-banks", async (req, res) => {
+/** Create recipient bank (Admin/Agent/Owner) */
+router.post("/broker/accounts/:accountId/recipient-banks", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const schema = z.object({
@@ -252,7 +262,8 @@ router.post("/broker/accounts/:accountId/recipient-banks", async (req, res) => {
   }
 });
 
-router.delete("/broker/accounts/:accountId/recipient-banks/:bankId", async (req, res) => {
+/** Delete recipient bank (Admin/Agent/Owner) */
+router.delete("/broker/accounts/:accountId/recipient-banks/:bankId", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     await alpacaBrokerService.deleteRecipientBank(req.params.accountId, req.params.bankId);
@@ -262,7 +273,8 @@ router.delete("/broker/accounts/:accountId/recipient-banks/:bankId", async (req,
   }
 });
 
-router.post("/broker/accounts/:accountId/wire-withdrawal", async (req, res) => {
+/** Initiate wire withdrawal (Admin/Agent/Owner) */
+router.post("/broker/accounts/:accountId/wire-withdrawal", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const { amount, currency = "USD", recipient_bank_id, memo } = req.body;
@@ -324,6 +336,7 @@ router.get("/account/config", async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const accountId = (req as any).user?.alpacaAccountId;
+    if (!accountId) return res.status(400).json({ error: "No Alpaca account linked to user" });
     const config = await alpacaBrokerService.getAccountConfig(accountId);
     if (!config) return res.status(404).json({ error: "Config not found" });
     res.json({ success: true, config });
@@ -343,7 +356,8 @@ router.patch("/account/config", async (req, res) => {
   }
 });
 
-router.get("/broker/accounts/:accountId/config", async (req, res) => {
+/** Get account config (Admin/Agent/Owner) */
+router.get("/broker/accounts/:accountId/config", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const config = await alpacaBrokerService.getAccountConfig(req.params.accountId);
@@ -353,7 +367,8 @@ router.get("/broker/accounts/:accountId/config", async (req, res) => {
   }
 });
 
-router.patch("/broker/accounts/:accountId/config", async (req, res) => {
+/** Update account config (Admin only) */
+router.patch("/broker/accounts/:accountId/config", requireAdmin, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const config = await alpacaBrokerService.updateAccountConfig(req.body, req.params.accountId);
@@ -365,7 +380,8 @@ router.patch("/broker/accounts/:accountId/config", async (req, res) => {
 
 // ─── Batch Journals ───────────────────────────────────────────────────────────
 
-router.post("/broker/journals/batch", async (req, res) => {
+/** Create batch journals (Admin only) */
+router.post("/broker/journals/batch", requireAdmin, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const { journals } = req.body;
@@ -381,7 +397,8 @@ router.post("/broker/journals/batch", async (req, res) => {
 
 // ─── Alpaca Rebalancing Portfolios ────────────────────────────────────────────
 
-router.get("/broker/rebalancing/portfolios", async (req, res) => {
+/** List rebalancing portfolios (Admin/Agent) */
+router.get("/broker/rebalancing/portfolios", requireAgent, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const portfolios = await alpacaBrokerService.listRebalancingPortfolios();
@@ -391,7 +408,8 @@ router.get("/broker/rebalancing/portfolios", async (req, res) => {
   }
 });
 
-router.post("/broker/rebalancing/portfolios", async (req, res) => {
+/** Create rebalancing portfolio (Admin only) */
+router.post("/broker/rebalancing/portfolios", requireAdmin, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const portfolio = await alpacaBrokerService.createRebalancingPortfolio(req.body);
@@ -432,7 +450,8 @@ router.get("/broker/rebalancing/portfolios/:portfolioId/subscriptions", async (r
   }
 });
 
-router.post("/broker/rebalancing/portfolios/:portfolioId/subscriptions", async (req, res) => {
+/** Subscribe account to portfolio (Admin/Agent) */
+router.post("/broker/rebalancing/portfolios/:portfolioId/subscriptions", requireAgent, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const { account_id } = req.body;
@@ -505,7 +524,8 @@ router.get("/cash-interest/tiers", async (req, res) => {
   }
 });
 
-router.post("/broker/accounts/:accountId/cash-interest/enroll", async (req, res) => {
+/** Enroll account in cash interest (Admin/Agent/Owner) */
+router.post("/broker/accounts/:accountId/cash-interest/enroll", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const { accountId } = req.params;
@@ -531,7 +551,8 @@ router.post("/broker/accounts/:accountId/cash-interest/unenroll", async (req, re
 
 // ─── Fully Paid Securities Lending (FPSL) ───────────────────────────────────
 
-router.get("/broker/accounts/:accountId/fpsl/status", async (req, res) => {
+/** Get FPSL status (Admin/Agent/Owner) */
+router.get("/broker/accounts/:accountId/fpsl/status", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const { accountId } = req.params;
@@ -542,7 +563,8 @@ router.get("/broker/accounts/:accountId/fpsl/status", async (req, res) => {
   }
 });
 
-router.post("/broker/accounts/:accountId/fpsl/enroll", async (req, res) => {
+/** Enroll in FPSL (Admin/Agent/Owner) */
+router.post("/broker/accounts/:accountId/fpsl/enroll", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) return res.status(400).json({ error: "Not configured" });
     const { accountId } = req.params;
@@ -572,7 +594,8 @@ router.post("/broker/accounts/:accountId/fpsl/unenroll", async (req, res) => {
  * List options exercise requests for an account.
  * GET /api/broker/accounts/:accountId/options/exercises
  */
-router.get("/broker/accounts/:accountId/options/exercises", async (req, res) => {
+/** List options exercise requests (Admin/Agent/Owner) */
+router.get("/broker/accounts/:accountId/options/exercises", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -598,7 +621,8 @@ router.get("/broker/accounts/:accountId/options/exercises", async (req, res) => 
  * India tax note: US options gains = USD income; reportable under Schedule FA of ITR-2/3.
  * DTAA Article 13 applies for capital gains; withholding at 25% may apply via IRS Form W-8BEN.
  */
-router.post("/broker/accounts/:accountId/options/exercises", async (req, res) => {
+/** Exercise options (Admin/Agent/Owner) */
+router.post("/broker/accounts/:accountId/options/exercises", alpacaAccountGuard, async (req, res) => {
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -712,7 +736,8 @@ router.post("/crypto/orders", async (req, res) => {
 
 // ─── Account Restrictions & Compliance ─────────────────────────────────────
 
-router.get("/broker/accounts/:accountId/restrictions", async (req, res) => {
+/** Get account restrictions (Admin/Agent/Owner) */
+router.get("/broker/accounts/:accountId/restrictions", alpacaAccountGuard, async (req, res) => {
   try {
     const restrictions = await alpacaBrokerService.getAccountRestrictions(req.params.accountId);
     res.json({ success: true, restrictions });
@@ -721,7 +746,8 @@ router.get("/broker/accounts/:accountId/restrictions", async (req, res) => {
   }
 });
 
-router.patch("/broker/accounts/:accountId/restrictions", async (req, res) => {
+/** Update account restrictions (Admin only) */
+router.patch("/broker/accounts/:accountId/restrictions", requireAdmin, async (req, res) => {
   try {
     const result = await alpacaBrokerService.updateAccountRestrictions(
       req.params.accountId,
@@ -733,7 +759,8 @@ router.patch("/broker/accounts/:accountId/restrictions", async (req, res) => {
   }
 });
 
-router.post("/broker/accounts/:accountId/suspend", async (req, res) => {
+/** Suspend account (Admin only) */
+router.post("/broker/accounts/:accountId/suspend", requireAdmin, async (req, res) => {
   try {
     const { reason } = req.body;
     if (!reason) return res.status(400).json({ success: false, error: "reason is required" });
@@ -790,7 +817,8 @@ router.patch("/broker/accounts/:accountId/orders/:orderId", async (req, res) => 
 
 // ─── All Transfers (broker-level) ──────────────────────────────────────────
 
-router.get("/broker/transfers", async (req, res) => {
+/** List all transfers (Admin only) */
+router.get("/broker/transfers", requireAdmin, async (req, res) => {
   try {
     const params: any = {};
     if (req.query.direction) params.direction = req.query.direction as string;

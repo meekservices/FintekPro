@@ -69,6 +69,13 @@ export const marketDataCache = pgTable("market_data_cache", {
   volume: bigint("volume", { mode: "number" }),
   change: numeric("change"),
   changePercent: numeric("change_percent"),
+  
+  // Enrichment Data Caching
+  marketCap: numeric("market_cap"),
+  beta: numeric("beta"),
+  dividendYield: numeric("dividend_yield"),
+  peRatio: numeric("pe_ratio"),
+  
   additionalData: jsonb("additional_data").default({}),
   provider: varchar("provider", { length: 50 }).notNull(),
   fetchedAt: timestamp("fetched_at").defaultNow().notNull(),

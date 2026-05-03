@@ -20,6 +20,11 @@ export class IrisAdapter implements IBroker {
     logger.info(`[IrisAdapter] Routing order through KFintech IRIS`, order);
     return { orderId: 'IRIS_ORD_123', status: 'PROCESSING' };
   }
+
+  async placeNotionalOrder(userId: string, symbol: string, notional: number, side: 'buy' | 'sell'): Promise<any> {
+    // IRIS usually handles notional for Mutual Funds (SIP/Lumpsum)
+    return { orderId: 'IRIS_NOTIONAL_123', status: 'PROCESSING', notional };
+  }
 }
 
 export const irisAdapter = new IrisAdapter();

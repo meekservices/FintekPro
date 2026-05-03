@@ -192,6 +192,13 @@ export const comprehensiveHoldings = pgTable("comprehensive_holdings", {
   maturityDate: date("maturity_date"), // For bonds, FDs, government schemes
   interestRate: decimal("interest_rate", { precision: 5, scale: 2 }),
   
+  // Global & Enrichment Enhancements
+  currency: varchar("currency", { length: 10 }).default("INR"), // Holding native currency (e.g. USD, EUR)
+  isAdr: boolean("is_adr").default(false), // Whether it's an ADR (for US-listed global stocks)
+  exchangeMic: varchar("exchange_mic", { length: 20 }), // Market Identifier Code (e.g. XNAS, XNYS)
+  lastEnrichedAt: timestamp("last_enriched_at"), // Last AI enrichment timestamp
+  enrichmentSource: varchar("enrichment_source", { length: 50 }), // Source of enrichment (e.g. 'alpaca', 'iris')
+  
   // Government Scheme Specific
   contributionFrequency: varchar("contribution_frequency"), // monthly, quarterly, yearly
   nomineeName: text("nominee_name"),

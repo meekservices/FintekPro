@@ -222,6 +222,10 @@ class IrisKfintechService {
     return this.call(`/user/investors/${pan}/transactions${qs}`);
   }
   async getSystematicPlanDetails(pan: string) { return this.call(`/user/investors/${pan}/systematic-plans`); }
+  async getFamilyPortfolio(pan: string) { return this.call(`/user/investors/${pan}/family-portfolio`); }
+  async getPortfolioInsights(pan: string) { return this.call(`/user/investors/${pan}/portfolio-insights`); }
+  async getKraStatus(pan: string) { return this.call(`/user/investors/${pan}/kra-status`); }
+  async getSipHealth(pan: string) { return this.call(`/user/investors/${pan}/sip-health`); }
   async sendEkycMail(pan: string) { return this.call(`/user/investors/${pan}/send-ekyc-mail`, 'POST'); }
   async sendReminderMail(pan: string, body?: any) { return this.call(`/user/investors/${pan}/send-reminder`, 'POST', body); }
 

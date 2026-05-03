@@ -18,6 +18,10 @@ export class IIFLAdapter implements IBroker {
     logger.info(`[IIFLAdapter] Mock placeOrder`, order);
     return { orderId: 'IIFL_ORDER_123', status: 'QUEUED' };
   }
+
+  async placeNotionalOrder(userId: string, symbol: string, notional: number, side: 'buy' | 'sell'): Promise<any> {
+    throw new Error('Notional orders not supported by IIFL');
+  }
 }
 
 export const iiflAdapter = new IIFLAdapter();

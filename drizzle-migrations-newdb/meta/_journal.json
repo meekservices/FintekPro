@@ -8,6 +8,13 @@
       "when": 1774769120496,
       "tag": "0000_lowly_northstar",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777836388689,
+      "tag": "0001_next_sentinel",
+      "breakpoints": true
     }
   ]
 }

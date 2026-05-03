@@ -14,7 +14,13 @@ import { orderAuditHook } from "../services/order-audit-hook";
 import { kycEncryptionService } from "../services/kyc-encryption-service";
 import crypto from "crypto";
 
+import { requireAuth, requireAdmin } from "../middleware/auth";
+
 const router = Router();
+
+// Apply authentication to all routes in this file
+router.use(requireAuth);
+
 
 const orderSchema = z.object({
   symbol: z.string().min(1).max(10),
@@ -234,7 +240,8 @@ router.get("/ws/status", async (req, res) => {
   }
 });
 
-router.post("/ws/connect", async (req, res) => {
+/** Connect to Alpaca Data WebSocket (Admin only) */
+router.post("/ws/connect", requireAdmin, async (req, res) => {
   try {
     const { feed } = req.body || {};
     if (!alpacaWsStreamingService.isConfigured()) {
@@ -253,7 +260,8 @@ router.post("/ws/connect", async (req, res) => {
   }
 });
 
-router.post("/ws/disconnect", async (req, res) => {
+/** Disconnect from Alpaca Data WebSocket (Admin only) */
+router.post("/ws/disconnect", requireAdmin, async (req, res) => {
   try {
     alpacaWsStreamingService.disconnect();
     res.json({ success: true, message: "Disconnected from Alpaca Data WebSocket" });

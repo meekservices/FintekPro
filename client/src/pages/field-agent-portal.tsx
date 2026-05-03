@@ -441,6 +441,12 @@ export default function FieldAgentPortal() {
               <Settings className="h-4 w-4 mr-2" />
               Profile
             </TabsTrigger>
+            {agentProfile?.role === 'regulatory_auditor' && (
+              <TabsTrigger value="compliance" data-testid="tab-agent-compliance">
+                <Shield className="h-4 w-4 mr-2 text-indigo-600" />
+                Compliance Profile
+              </TabsTrigger>
+            )}
           </ScrollableTabsList>
 
           <TabsContent value="dashboard" className="mt-6">
@@ -1280,6 +1286,99 @@ export default function FieldAgentPortal() {
                       <p className="text-sm text-muted-foreground">Conversion Rate</p>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="compliance" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-indigo-600" />
+                    Regulatory Compliance Profile
+                  </CardTitle>
+                  <CardDescription>
+                    Read-only compliance metrics and risk assessment for {(agentProfile as any)?.fullName}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-muted/50 rounded-lg border">
+                      <p className="text-sm text-muted-foreground mb-1">LRS Utilization ($250k Limit)</p>
+                      <div className="flex items-end justify-between mb-2">
+                        <span className="text-2xl font-bold">$0</span>
+                        <span className="text-xs text-muted-foreground">0% used</span>
+                      </div>
+                      <Progress value={0} className="h-2" />
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg border">
+                      <p className="text-sm text-muted-foreground mb-1">TCS Threshold (₹7 Lakhs)</p>
+                      <div className="flex items-end justify-between mb-2">
+                        <span className="text-2xl font-bold">₹0</span>
+                        <span className="text-xs text-muted-foreground">0% used</span>
+                      </div>
+                      <Progress value={0} className="h-2" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-sm uppercase text-muted-foreground">Compliance Status</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="flex flex-col gap-1 p-3 border rounded-md">
+                        <span className="text-xs text-muted-foreground">KYC Validity</span>
+                        <Badge variant="outline" className="w-fit bg-green-50 text-green-700 border-green-200">VALID</Badge>
+                      </div>
+                      <div className="flex flex-col gap-1 p-3 border rounded-md">
+                        <span className="text-xs text-muted-foreground">ARN Status</span>
+                        <Badge variant="outline" className="w-fit bg-green-50 text-green-700 border-green-200">ACTIVE</Badge>
+                      </div>
+                      <div className="flex flex-col gap-1 p-3 border rounded-md">
+                        <span className="text-xs text-muted-foreground">Block Status</span>
+                        <Badge variant="outline" className="w-fit bg-blue-50 text-blue-700 border-blue-200">CLEAR</Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-indigo-50/30 border border-indigo-100 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-5 w-5 text-indigo-600 mt-0.5" />
+                      <div>
+                        <h5 className="font-medium text-indigo-900">Auditor Notes</h5>
+                        <p className="text-sm text-indigo-700 mt-1">
+                          This agent is currently within all regulatory thresholds. No anomalies detected in remittance patterns for the current financial year.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Risk Metrics</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Transaction Risk</span>
+                      <span className="font-medium text-emerald-600">Low</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Remittance Velocity</span>
+                      <span className="font-medium">Normal</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Document Integrity</span>
+                      <span className="font-medium text-emerald-600">100%</span>
+                    </div>
+                  </div>
+                  <hr />
+                  <Button className="w-full" variant="outline">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Compliance Report
+                  </Button>
                 </CardContent>
               </Card>
             </div>

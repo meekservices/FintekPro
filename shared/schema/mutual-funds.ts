@@ -429,6 +429,10 @@ export const mutualFunds = pgTable("mutual_funds", {
   lifecycleMetadata: jsonb("lifecycle_metadata"),
   complianceBlockedReason: text("compliance_blocked_reason"),
 
+  // IRIS / KFintech Specific
+  kfintechId: varchar("kfintech_id", { length: 100 }), // Proprietary ID from KFintech IRIS
+  folioNature: varchar("folio_nature", { length: 50 }), // e.g., 'E-FOLIO', 'PHYSICAL'
+
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 

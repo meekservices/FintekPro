@@ -32,6 +32,7 @@ import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { LoanOffersCard } from "@/components/LoanOffersCard";
 import { ProductAccountPreferences } from "@/components/ProductAccountPreferences";
+import { ProfileShareCard } from "@/components/social/ProfileShareCard";
 
 // Exchange Rates Table Component
 function ExchangeRatesTable({ baseCurrency }: { baseCurrency: string }) {
@@ -1157,6 +1158,11 @@ export default function ProfilePage() {
                                 verified={isEmailVerified}
                                 action={{ label: 'Update', onClick: () => setLocation(wizardStep('profile_completion')) }}
                               />
+                            </div>
+
+                            {/* Profile Sharing & Social Card */}
+                            <div className="mt-6 mb-6">
+                              <ProfileShareCard />
                             </div>
 
                             {/* Section: Financial & Compliance */}

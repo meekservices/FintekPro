@@ -29,8 +29,11 @@ export function subdomainDetection(req: Request, res: Response, next: NextFuncti
   const xForwardedHost = req.get('x-forwarded-host');
   const hostname = (xForwardedHost || req.hostname || req.get('host') || '').toLowerCase();
   
-  if (process.env.DEBUG_SUBDOMAIN === 'true' || process.env.NODE_ENV !== 'production') {
+  const debugEnabled = process.env.DEBUG_SUBDOMAIN === 'true' || process.env.NODE_ENV !== 'production';
+  if (debugEnabled) {
+    console.log(`[SUBDOMAIN_DEBUG] Request Path: ${req.path}`);
     console.log(`[SUBDOMAIN_DEBUG] Host: ${req.get('host')} | X-Forwarded-Host: ${xForwardedHost} | req.hostname: ${req.hostname} | Using: ${hostname}`);
+    console.log(`[SUBDOMAIN_DEBUG] X-Forwarded-Proto: ${req.get('x-forwarded-proto')} | Origin: ${req.get('origin')}`);
   }
 
   // Extract subdomain
@@ -219,12 +222,17 @@ export function requireClientPortal(req: Request, res: Response, next: NextFunct
 }
 
 /**
- * Middleware to stamp session with portal type on login.
- * Call this after successful authentication to bind the session to a portal.
+ * Stamped the session with the current portal type to prevent portal hopping
+ * called during login verification.
  */
-export function stampSessionPortal(req: Request) {
+export function stampSessionPortal(req: Request, portalType?: string) {
   if (req.session) {
-    (req.session as any).portalType = req.subdomain || 'main';
+    const finalPortalType = portalType || req.subdomain || 'main';
+    (req.session as any).portalType = finalPortalType;
+    
+    if (process.env.DEBUG_SUBDOMAIN === 'true') {
+      console.log(`[SUBDOMAIN_STAMP] Session ${req.sessionID} stamped with portal: ${finalPortalType}`);
+    }
   }
 }
 

@@ -253,7 +253,12 @@ export default function SmartKYCOnboarding() {
     investmentHorizon: '',
     riskTolerance: '',
     incomeLevel: '',
-    tradingExperience: ''
+    tradingExperience: '',
+    // New fields for Alpaca / Options approval
+    netWorth: '',
+    liquidNetWorth: '',
+    liquidityNeeds: 'medium',
+    numberOfDependents: '0'
   });
   
   // Compliance Sign-off State
@@ -2099,7 +2104,9 @@ export default function SmartKYCOnboarding() {
       riskProfileAnswers.investmentHorizon &&
       riskProfileAnswers.riskTolerance &&
       riskProfileAnswers.incomeLevel &&
-      riskProfileAnswers.tradingExperience;
+      riskProfileAnswers.tradingExperience &&
+      riskProfileAnswers.netWorth &&
+      riskProfileAnswers.liquidNetWorth;
     
     return (
       <Card className="max-w-2xl mx-auto">
@@ -2177,19 +2184,16 @@ export default function SmartKYCOnboarding() {
           </div>
           
           <div className="space-y-2">
-            <Label>Annual Income</Label>
-            <Select value={riskProfileAnswers.incomeLevel} onValueChange={(value) => setRiskProfileAnswers({...riskProfileAnswers, incomeLevel: value})}>
-              <SelectTrigger data-testid="select-income" aria-label="Annual income">
-                <SelectValue placeholder="Select your income range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="below_5l">Below ₹5 Lakhs</SelectItem>
-                <SelectItem value="5l_to_10l">₹5-10 Lakhs</SelectItem>
-                <SelectItem value="10l_to_25l">₹10-25 Lakhs</SelectItem>
-                <SelectItem value="25l_to_1cr">₹25 Lakhs - ₹1 Crore</SelectItem>
-                <SelectItem value="above_1cr">Above ₹1 Crore</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="incomeLevel">Annual Income (₹)</Label>
+            <Input
+              id="incomeLevel"
+              type="number"
+              placeholder="e.g. 1000000"
+              value={riskProfileAnswers.incomeLevel}
+              onChange={(e) => setRiskProfileAnswers({...riskProfileAnswers, incomeLevel: e.target.value})}
+              data-testid="input-income"
+            />
+            <p className="text-[10px] text-muted-foreground">Your total annual income from all sources</p>
           </div>
           
           <div className="space-y-2">
@@ -2211,6 +2215,64 @@ export default function SmartKYCOnboarding() {
                 <Label htmlFor="experienced" className="font-normal">Experienced (More than 3 years)</Label>
               </div>
             </RadioGroup>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="netWorth">Total Net Worth (₹)</Label>
+              <Input
+                id="netWorth"
+                type="number"
+                placeholder="e.g. 500000"
+                value={riskProfileAnswers.netWorth}
+                onChange={(e) => setRiskProfileAnswers({...riskProfileAnswers, netWorth: e.target.value})}
+                data-testid="input-net-worth"
+              />
+              <p className="text-[10px] text-muted-foreground">Total assets minus total liabilities</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="liquidNetWorth">Liquid Net Worth (₹)</Label>
+              <Input
+                id="liquidNetWorth"
+                type="number"
+                placeholder="e.g. 200000"
+                value={riskProfileAnswers.liquidNetWorth}
+                onChange={(e) => setRiskProfileAnswers({...riskProfileAnswers, liquidNetWorth: e.target.value})}
+                data-testid="input-liquid-net-worth"
+              />
+              <p className="text-[10px] text-muted-foreground">Assets easily convertible to cash</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="liquidityNeeds">Liquidity Needs</Label>
+              <Select 
+                value={riskProfileAnswers.liquidityNeeds} 
+                onValueChange={(value) => setRiskProfileAnswers({...riskProfileAnswers, liquidityNeeds: value})}
+              >
+                <SelectTrigger id="liquidityNeeds" data-testid="select-liquidity-needs">
+                  <SelectValue placeholder="Select liquidity needs" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No immediate need</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="numberOfDependents">Number of Dependents</Label>
+              <Input
+                id="numberOfDependents"
+                type="number"
+                min="0"
+                value={riskProfileAnswers.numberOfDependents}
+                onChange={(e) => setRiskProfileAnswers({...riskProfileAnswers, numberOfDependents: e.target.value})}
+                data-testid="input-dependents"
+              />
+            </div>
           </div>
           
           <Button

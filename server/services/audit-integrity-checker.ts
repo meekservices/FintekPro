@@ -107,47 +107,33 @@ class AuditIntegrityChecker {
     };
 
     try {
-      const rows = await this.fetchAllAuditLogs();
-      result.totalRecords = rows.length;
-
-      if (rows.length === 0) {
-        result.details = 'No audit logs found to verify';
-        result.executionTimeMs = Date.now() - startTime;
-        this.storeResult(result);
-        return result;
-      }
-
-      for (let i = 0; i < rows.length; i++) {
-        const current = rows[i];
-        const previous = i > 0 ? rows[i - 1] : null;
-
-        if (i > 0 && current.previous_checksum) {
-          if (current.previous_checksum !== previous?.checksum) {
-            result.brokenLinks.push(current.id);
-            result.status = 'failed';
+      console.log('[AuditIntegrity] Starting forensic chain verification...');
+      const verification = await auditLogService.verifyChainIntegrity();
+      
+      result.totalRecords = verification.totalVerified;
+      result.verifiedRecords = verification.totalVerified;
+      
+      if (!verification.valid) {
+        result.status = 'failed';
+        // Categorize errors into brokenLinks and checksumMismatches based on the message
+        verification.brokenLinks.forEach(link => {
+          if (link.includes('HASH_MISMATCH')) {
+            result.checksumMismatches.push(link);
+          } else {
+            result.brokenLinks.push(link);
           }
-        }
-
-        const expectedChecksum = this.calculateChecksum(current, previous?.checksum || '');
-        if (expectedChecksum !== current.checksum) {
-          result.checksumMismatches.push(current.id);
-          result.status = 'failed';
-        }
-
-        result.verifiedRecords++;
-      }
-
-      if (result.status === 'failed') {
-        result.details = `Integrity violations detected: ${result.brokenLinks.length} broken links, ${result.checksumMismatches.length} checksum mismatches`;
+        });
+        
+        result.details = `Forensic integrity violations detected: ${result.brokenLinks.length} chain breaks, ${result.checksumMismatches.length} content hash mismatches`;
         await this.handleIntegrityFailure(result);
       } else {
-        result.details = `All ${result.verifiedRecords} records verified successfully`;
+        result.details = `All ${result.verifiedRecords} audit records verified against HMAC-SHA256 chain.`;
         this.failureCount = 0;
       }
 
     } catch (error: any) {
       result.status = 'failed';
-      result.details = `Error during integrity check: ${error.message}`;
+      result.details = `Error during forensic integrity check: ${error.message}`;
       console.error('[AuditIntegrity] Check failed with error:', error);
     }
 
@@ -161,7 +147,8 @@ class AuditIntegrityChecker {
         totalRecords: result.totalRecords.toString(),
         verifiedRecords: result.verifiedRecords.toString(),
         brokenLinks: result.brokenLinks.length.toString(),
-        checksumMismatches: result.checksumMismatches.length.toString()
+        checksumMismatches: result.checksumMismatches.length.toString(),
+        forensicType: 'HMAC-SHA256'
       }
     });
 
@@ -240,56 +227,6 @@ class AuditIntegrityChecker {
     return result;
   }
 
-  private async fetchAllAuditLogs(): Promise<any[]> {
-    try {
-      const result = await db.execute(sql`
-        SELECT 
-          id, 
-          timestamp, 
-          event_type, 
-          action, 
-          user_id, 
-          user_role,
-          entity_type, 
-          entity_id, 
-          previous_state, 
-          new_state,
-          metadata, 
-          checksum, 
-          previous_checksum
-        FROM immutable_audit_logs
-        ORDER BY timestamp ASC
-      `);
-      return result.rows || [];
-    } catch (error: any) {
-      console.error('[AuditIntegrity] Failed to fetch audit logs:', error);
-      return [];
-    }
-  }
-
-  private calculateChecksum(row: any, previousChecksum: string): string {
-    const entry = {
-      id: row.id,
-      timestamp: new Date(row.timestamp),
-      eventType: row.event_type,
-      action: row.action,
-      userId: row.user_id,
-      userRole: row.user_role,
-      entityType: row.entity_type,
-      entityId: row.entity_id,
-      previousState: row.previous_state ? (typeof row.previous_state === 'string' ? JSON.parse(row.previous_state) : row.previous_state) : undefined,
-      newState: row.new_state ? (typeof row.new_state === 'string' ? JSON.parse(row.new_state) : row.new_state) : undefined,
-      metadata: row.metadata ? (typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata) : {}
-    };
-
-    const data = JSON.stringify({
-      ...entry,
-      timestamp: entry.timestamp.toISOString(),
-      previousChecksum
-    });
-
-    return crypto.createHash('sha256').update(data).digest('hex');
-  }
 
   private storeResult(result: IntegrityCheckResult): void {
     this.lastCheckResult = result;
