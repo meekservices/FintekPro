@@ -14,7 +14,7 @@ import { orderAuditHook } from "../services/order-audit-hook";
 import { kycEncryptionService } from "../services/kyc-encryption-service";
 import crypto from "crypto";
 import * as schema from "@shared/schema";
-import { requireAuth, requireAdmin } from "../middleware/auth";
+import { requireAuth, requireAdmin, requireAgent } from "../middleware/auth";
 import { alpacaAccountGuard } from "../middleware/rbac";
 
 const router = Router();
