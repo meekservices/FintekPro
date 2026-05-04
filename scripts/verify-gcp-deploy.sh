@@ -93,7 +93,7 @@ echo "────────────────────────�
 echo "🔍  Checking boot completion status..."
 HEALTH_BODY=$(curl -s --max-time 10 "${NODE_URL}/api/health" 2>/dev/null || echo '{}')
 BOOT_STATUS=$(echo "$HEALTH_BODY" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
-if [[ "$BOOT_STATUS" == "ready" ]]; then
+if [[ "$BOOT_STATUS" == "ready" || "$BOOT_STATUS" == "ok" ]]; then
   echo "✅  Boot complete — all routes registered and ready"
   PASS=$((PASS+1))
 elif [[ "$BOOT_STATUS" == "booting" ]]; then

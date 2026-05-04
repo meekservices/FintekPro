@@ -10,7 +10,7 @@ export class SGBStrategy extends BaseStrategy {
   async generate(context: StrategyContext): Promise<DailyPickData | null> {
     try {
       const sgbList = await db.execute(sql`
-        SELECT id, issue_name as name, issue_price as "issuePrice", issue_status as "issueStatus"
+        SELECT id, series_name as name, issue_price as "issuePrice", issue_status as "issueStatus"
         FROM sgb_primary_issues WHERE issue_status IN ('open', 'upcoming') LIMIT 5
       `);
       
