@@ -397,7 +397,7 @@ export const proposalPayments = pgTable("proposal_payments", {
   proposalItemId: varchar("proposal_item_id").references(() => investmentProposalItems.id),
   
   // Payment gateway details
-  gateway: varchar("gateway").notNull(), // mf_central, cams, kfintech
+  gateway: varchar("gateway").notNull(), // iris, cams, kfintech
   gatewayTransactionId: varchar("gateway_transaction_id"),
   paymentMethod: varchar("payment_method"), // netbanking, upi, card, wallet
   

@@ -50,27 +50,27 @@ export function CapitalGainsReportViewer() {
     }
   });
 
-  const fetchFromMFCentralMutation = useMutation({
+  const fetchFromIrisMutation = useMutation({
     mutationFn: async (params: { clientId: string; financialYear: string; panNumber: string }) => {
-      const response = await fetch('/api/reports/fetch-from-mf-central', {
+      const response = await fetch('/api/reports/fetch-from-iris', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
       });
-      if (!response.ok) throw new Error('Failed to fetch from MF Central');
+      if (!response.ok) throw new Error('Failed to fetch from IRIS');
       return response.json();
     },
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Capital gains report fetched from MF Central successfully",
+        description: "Capital gains report fetched from IRIS successfully",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/capital-gains-reports'] });
     },
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: `Failed to fetch from MF Central: ${error.message}`,
+        description: `Failed to fetch from IRIS: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -82,15 +82,15 @@ export function CapitalGainsReportViewer() {
 
   const sources = [
     { value: 'all', label: 'All Sources' },
-    { value: 'mf_central', label: 'MF Central' },
+    { value: 'iris', label: 'IRIS (KFintech)' },
     { value: 'nsdl', label: 'NSDL' },
     { value: 'cdsl', label: 'CDSL' },
     { value: 'kfintech', label: 'KFintech' },
     { value: 'cams', label: 'CAMS' }
   ];
 
-  const handleFetchFromMFCentral = () => {
-    fetchFromMFCentralMutation.mutate({
+  const handleFetchFromIris = () => {
+    fetchFromIrisMutation.mutate({
       clientId: selectedClientId,
       financialYear: selectedFY,
       panNumber: 'ABCDE1234F' // Mock PAN number
@@ -219,16 +219,16 @@ export function CapitalGainsReportViewer() {
           
           <div className="flex gap-2">
             <Button 
-              onClick={handleFetchFromMFCentral}
-              disabled={fetchFromMFCentralMutation.isPending}
-              data-testid="button-fetch-mf-central"
+              onClick={handleFetchFromIris}
+              disabled={fetchFromIrisMutation.isPending}
+              data-testid="button-fetch-iris"
             >
-              {fetchFromMFCentralMutation.isPending ? (
+              {fetchFromIrisMutation.isPending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <RefreshCw className="h-4 w-4 mr-2" />
               )}
-              Fetch from MF Central
+              Fetch from IRIS
             </Button>
             <Button variant="outline" data-testid="button-refresh-reports">
               <RefreshCw className="h-4 w-4 mr-2" />

@@ -137,7 +137,7 @@ app.get("/api/admin/transaction-reports/export", requireAdmin, async (req, res) 
         userName: "John Doe",
         financialYear: "2023-24",
         reportType: "transaction_summary",
-        source: "mf_central",
+        source: "iris",
         assetType: "mutual_funds",
         totalPurchases: "500000.00",
         totalRedemptions: "250000.00",

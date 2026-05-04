@@ -1752,7 +1752,7 @@ export const capitalGainsReports = pgTable("capital_gains_reports", {
   createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   financialYear: varchar("financial_year").notNull(), // e.g., "2023-24"
   reportType: varchar("report_type").notNull(), // 'capital_gains', 'transaction_summary'
-  source: varchar("source").notNull(), // 'mf_central', 'nsdl', 'cdsl', 'kfintech', 'cams'
+  source: varchar("source").notNull(), // 'iris', 'nsdl', 'cdsl', 'kfintech', 'cams'
   totalShortTermGains: decimal("total_short_term_gains", { precision: 15, scale: 2 }).default("0"),
   totalLongTermGains: decimal("total_long_term_gains", { precision: 15, scale: 2 }).default("0"),
   totalDividend: decimal("total_dividend", { precision: 15, scale: 2 }).default("0"),
@@ -1775,7 +1775,7 @@ export const transactionReports = pgTable("transaction_reports", {
   prospectId: varchar("prospect_id"),
   createdByAgentId: varchar("created_by_agent_id").references(() => users.id),
   financialYear: varchar("financial_year").notNull(),
-  source: varchar("source").notNull(), // 'mf_central', 'nsdl', 'cdsl', 'kfintech', 'cams'
+  source: varchar("source").notNull(), // 'iris', 'nsdl', 'cdsl', 'kfintech', 'cams'
   assetType: varchar("asset_type").notNull(), // 'mutual_fund', 'equity', 'bond', 'etf'
   totalPurchases: decimal("total_purchases", { precision: 15, scale: 2 }).default("0"),
   totalRedemptions: decimal("total_redemptions", { precision: 15, scale: 2 }).default("0"),

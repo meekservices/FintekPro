@@ -48,9 +48,8 @@ interface TrackerData {
   };
   monthlyTrend: { month: string; aum: number; label: string }[];
   topAmcs: { name: string; aum: number; sipCount: number; trailMonthly: number }[];
-  clientConnectivity: { total: number; withHoldings: number; mfcentralCapable: number };
+  clientConnectivity: { total: number; withHoldings: number; irisCapable: number };
   pendingActions: { sigsExpiring: number; kycPending: number; totalActions: number };
-  mfcentralEnabled: boolean;
   irisEnabled: boolean;
   generatedAt: string;
 }
@@ -94,27 +93,27 @@ export default function AgentTracker() {
     }
     setIsSubmitting(true);
     try {
-      const r = await apiRequest("POST", "/api/agent/mfcentral/initiate", { pan, mobile });
+      const r = await apiRequest("POST", "/api/agent/iris/initiate", { pan, mobile });
       const data = await r.json();
-      if (data.requestId) {
-        setRequestId(data.requestId);
+      if (data.requestId || data.success) {
+        setRequestId(data.requestId || "iris-otp");
         setOtpStep(true);
         toast({ title: "OTP Sent", description: data.message || "Check client's registered mobile" });
       } else {
         toast({ title: "Failed", description: data.error || "Could not initiate", variant: "destructive" });
       }
     } catch {
-      toast({ title: "Error", description: "Failed to contact MFCentral", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to contact IRIS KFintech service", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleVerify = async () => {
-    if (!requestId || !otp) return;
+    if (!otp) return;
     setIsSubmitting(true);
     try {
-      const r = await apiRequest("POST", "/api/agent/mfcentral/verify", { requestId, otp });
+      const r = await apiRequest("POST", "/api/agent/iris/verify", { pan, otp });
       const data = await r.json();
       if (data.success) {
         toast({ title: "Portfolio Imported!", description: data.message });
@@ -123,10 +122,10 @@ export default function AgentTracker() {
         setOtpStep(false); setRequestId(null);
         refetch();
       } else {
-        toast({ title: "OTP Invalid", description: data.error, variant: "destructive" });
+        toast({ title: "Verification Failed", description: data.error, variant: "destructive" });
       }
     } catch {
-      toast({ title: "Error", description: "Verification failed", variant: "destructive" });
+      toast({ title: "Error", description: "IRIS verification failed", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -212,17 +211,12 @@ export default function AgentTracker() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {t?.mfcentralEnabled && (
-            <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
-              <CheckCircle2 className="w-3 h-3 mr-1" /> MFCentral Ready
-            </Badge>
-          )}
           {t?.irisEnabled && (
             <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
-              <RefreshCw className="w-3 h-3 mr-1" /> Iris Sync Ready
+              <CheckCircle2 className="w-3 h-3 mr-1" /> IRIS Registry Ready
             </Badge>
           )}
-          {!t?.mfcentralEnabled && !t?.irisEnabled && (
+          {!t?.irisEnabled && (
             <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
               <Info className="w-3 h-3 mr-1" /> Stub Mode
             </Badge>
@@ -242,31 +236,37 @@ export default function AgentTracker() {
                 </DialogDescription>
               </DialogHeader>
 
-              <Tabs defaultValue={t?.irisEnabled ? "iris" : "mfcentral"} className="w-full">
+              <Tabs defaultValue="iris_otp" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="iris" disabled={!t?.irisEnabled}>IRIS (Registry)</TabsTrigger>
-                  <TabsTrigger value="mfcentral" disabled={!t?.mfcentralEnabled}>MFCentral (OTP)</TabsTrigger>
+                  <TabsTrigger value="iris_otp">IRIS (OTP)</TabsTrigger>
+                  <TabsTrigger value="iris_registry">IRIS (Direct Sync)</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="mfcentral" className="pt-4">
+                <TabsContent value="iris_otp" className="pt-4">
                   {!otpStep ? (
                     <div className="space-y-4">
+                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4">
+                        <p className="text-sm text-blue-700 font-medium">KFintech OTP Flow</p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          Sends an official OTP from KFintech to the client's registered mobile number for CAS authorization.
+                        </p>
+                      </div>
                       <div>
                         <Label>Client PAN</Label>
                         <Input placeholder="ABCDE1234F" value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())} maxLength={10} />
                       </div>
                       <div>
-                        <Label>Client Registered Mobile</Label>
+                        <Label>Client Registered Mobile (Optional)</Label>
                         <Input placeholder="9876543210" value={mobile} onChange={(e) => setMobile(e.target.value)} maxLength={10} type="tel" />
                       </div>
                       <Button onClick={handleInitiate} disabled={isSubmitting} className="w-full">
-                        {isSubmitting ? "Sending OTP..." : "Send OTP to Client"}
+                        {isSubmitting ? "Sending OTP..." : "Send OTP via IRIS"}
                       </Button>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       <p className="text-sm text-muted-foreground">
-                        OTP sent to client's mobile via MFCentral.
+                        OTP sent to client's registered mobile via IRIS KFintech.
                       </p>
                       <div>
                         <Label>OTP</Label>
@@ -274,7 +274,7 @@ export default function AgentTracker() {
                       </div>
                       <div className="flex gap-2">
                         <Button variant="outline" onClick={() => setOtpStep(false)} className="flex-1">Back</Button>
-                        <Button onClick={handleVerify} disabled={isSubmitting} className="flex-1">
+                        <Button onClick={handleVerify} disabled={isSubmitting} className="flex-1 bg-blue-600 hover:bg-blue-700">
                           {isSubmitting ? "Verifying..." : "Verify & Import"}
                         </Button>
                       </div>
@@ -282,11 +282,11 @@ export default function AgentTracker() {
                   )}
                 </TabsContent>
 
-                <TabsContent value="iris" className="pt-4">
+                <TabsContent value="iris_registry" className="pt-4">
                   <div className="space-y-4">
-                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4">
-                      <p className="text-sm text-blue-700 font-medium">Registry Direct Fetch</p>
-                      <p className="text-xs text-blue-600 mt-1">
+                    <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100 mb-4">
+                      <p className="text-sm text-indigo-700 font-medium">Registry Direct Fetch</p>
+                      <p className="text-xs text-indigo-600 mt-1">
                         Fetches structured KFintech + CAMS holdings directly via the IRIS API. Fast, reliable, and OTP-less for previously linked clients.
                       </p>
                     </div>
@@ -294,7 +294,7 @@ export default function AgentTracker() {
                       <Label>Client PAN</Label>
                       <Input placeholder="ABCDE1234F" value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())} maxLength={10} />
                     </div>
-                    <Button onClick={handleIrisSync} disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={handleIrisSync} disabled={isSubmitting} className="w-full bg-indigo-600 hover:bg-indigo-700">
                       {isSubmitting ? "Communicating with IRIS..." : "Sync via IRIS Registry"}
                     </Button>
                   </div>
@@ -405,7 +405,7 @@ export default function AgentTracker() {
               />
             </div>
             <p className="text-xs text-teal-600 mt-2">
-              {t?.clientConnectivity.mfcentralCapable ?? 0} IRIS/KFintech linked
+              {t?.clientConnectivity.irisCapable ?? 0} IRIS/KFintech linked
             </p>
           </CardContent>
         </Card>

@@ -47,7 +47,7 @@ export const investmentProposals = pgTable("investment_proposals", {
   cartItemId: varchar("cart_item_id"), // Reference to cart item
   
   // Payment and execution tracking
-  paymentMethod: varchar("payment_method"), // mf_central, cams, kfintech
+  paymentMethod: varchar("payment_method"), // iris, cams, kfintech
   paymentStatus: varchar("payment_status"), // pending, processing, completed, failed
   paymentId: varchar("payment_id"), // External payment reference
   executionStatus: varchar("execution_status"), // pending, processing, completed, failed

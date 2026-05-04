@@ -162,6 +162,10 @@ const BROKER_PATTERNS: Record<string, { name: string; patterns: RegExp[] }> = {
     name: 'MF Central',
     patterns: [/mf\s*central/i, /mfcentral/i, /cams/i]
   },
+  iris: {
+    name: 'IRIS KFintech',
+    patterns: [/iris/i, /kfintech/i, /kfin/i, /investor\.kfintech/i]
+  },
   wealthy: {
     name: 'Wealthy.in',
     patterns: [/wealthy\.in/i, /wealthy/i]

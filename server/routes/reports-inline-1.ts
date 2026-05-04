@@ -239,14 +239,14 @@ export function registerReportsInlinePart1Routes(app: Express): void {
   });
 
   // External API Integration Endpoints for Fetching Reports
-  app.post("/api/reports/fetch-from-mf-central", async (req, res) => {
+  app.post("/api/reports/fetch-from-iris", async (req, res) => {
     try {
       const { userId, financialYear, panNumber } = req.body;
       
-      // Mock external API call to MF Central
-      // In real implementation, this would call MF Central API
+      // Mock external API call to IRIS KFintech
+      // In real implementation, this would call IRIS KFintech API
       const mockReportData = {
-        source: "mf_central",
+        source: "iris",
         totalShortTermGains: "25000.00",
         totalLongTermGains: "75000.00",
         totalDividend: "12000.00",
@@ -267,12 +267,12 @@ export function registerReportsInlinePart1Routes(app: Express): void {
       });
 
       res.status(201).json({
-        message: "Report fetched successfully from MF Central",
+        message: "Report fetched successfully from IRIS",
         report
       });
     } catch (error) {
-      console.error("Error fetching from MF Central:", error);
-      res.status(500).json({ error: "Failed to fetch report from MF Central" });
+      console.error("Error fetching from IRIS:", error);
+      res.status(500).json({ error: "Failed to fetch report from IRIS" });
     }
   });
 

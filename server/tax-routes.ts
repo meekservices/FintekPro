@@ -2019,7 +2019,8 @@ const BROKER_REGISTRY: BrokerInfo[] = [
   { id: 'funds_india', name: 'Funds India', category: 'aggregator', supportedFormats: ['xlsx', 'csv'], fileFormatHint: 'Capital Gains statement from Funds India portal', assetTypes: ['mutual_fund'], pdfType: 'aggregator_fundsindia', isSupported: true },
   { id: 'cams', name: 'CAMS', category: 'fund_house', supportedFormats: ['pdf'], fileFormatHint: 'Consolidated Account Statement (CAS) from mycams.camsonline.com', assetTypes: ['mutual_fund'], pdfType: 'cas_cams', isSupported: true },
   { id: 'kfintech', name: 'KFintech', category: 'fund_house', supportedFormats: ['pdf'], fileFormatHint: 'CAS from KFintech (mfs.kfintech.com)', assetTypes: ['mutual_fund'], pdfType: 'cas_kfintech', isSupported: true },
-  { id: 'mfcentral', name: 'MF Central', category: 'fund_house', supportedFormats: ['pdf'], fileFormatHint: 'Combined CAS from mfcentral.com (CAMS + KFintech)', assetTypes: ['mutual_fund'], pdfType: 'cas_combined', isSupported: true },
+  { id: 'iris', name: 'IRIS (KFintech)', category: 'fund_house', supportedFormats: ['pdf'], fileFormatHint: 'CAS from IRIS / KFintech', assetTypes: ['mutual_fund'], pdfType: 'cas_combined', isSupported: true },
+  { id: 'mfcentral', name: 'MF Central / IRIS', category: 'fund_house', supportedFormats: ['pdf'], fileFormatHint: 'Combined CAS from mfcentral.com or IRIS (CAMS + KFintech)', assetTypes: ['mutual_fund'], pdfType: 'cas_combined', isSupported: true },
   { id: 'indmoney', name: 'IND Money (MF)', category: 'aggregator', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Capital Gains from INDmoney app > Reports', assetTypes: ['mutual_fund'], pdfType: 'aggregator_indmoney', isSupported: true },
   { id: 'kuvera', name: 'Kuvera', category: 'aggregator', supportedFormats: ['pdf', 'xlsx'], fileFormatHint: 'Tax report from Kuvera > Reports > Capital Gains', assetTypes: ['mutual_fund'], pdfType: 'aggregator_kuvera', isSupported: true },
   { id: 'etmoney', name: 'ET Money', category: 'aggregator', supportedFormats: ['pdf'], fileFormatHint: 'Capital Gains statement from ET Money app', assetTypes: ['mutual_fund'], pdfType: 'aggregator_etmoney', isSupported: true },
@@ -3503,7 +3504,8 @@ const SUPPORTED_BROKERS = [
   { id: "cams", name: "CAMS (MF)", format: "CSV", columns: ["Scheme Name", "ISIN", "Transaction Date", "Units", "NAV", "Amount", "Transaction Type"] },
   { id: "karvy_kfin", name: "KFintech/Karvy (MF)", format: "CSV", columns: ["Fund Name", "Folio", "Transaction Date", "Units", "NAV", "Amount", "Type"] },
   { id: "coin_zerodha", name: "Coin by Zerodha (MF)", format: "CSV", columns: ["Fund", "ISIN", "Date", "Units", "NAV", "Amount", "Type"] },
-  { id: "mfcentral", name: "MFCentral (CAS)", format: "PDF/CSV", columns: ["Scheme", "ISIN", "Date", "Units", "NAV", "Amount"] },
+  { id: "iris", name: "IRIS (KFintech)", format: "JSON/PDF", columns: ["Scheme", "ISIN", "Units", "Amount"] },
+  { id: "mfcentral", name: "MFCentral / IRIS (CAS)", format: "PDF/CSV", columns: ["Scheme", "ISIN", "Date", "Units", "NAV", "Amount"] },
 ];
 
 router.get("/api/tax/brokers/supported", (_req: Request, res: Response) => {
@@ -3817,6 +3819,7 @@ router.get("/api/tax/lookup/tan/:tan", async (req: Request, res: Response) => {
   try {
     const tan = req.params.tan?.toUpperCase();
     if (!tan || tan.length !== 10) return res.status(400).json({ success: false, message: "TAN must be 10 characters (e.g., DELH12345A)" });
+    if (/iris|kfintech|mf\s*central|mfcentral\.com/i.test(text)) return 'aggregator_mfcentral';
     if (!/^[A-Z]{4}\d{5}[A-Z]$/.test(tan)) return res.status(400).json({ success: false, message: "Invalid TAN format" });
 
     const cityCode = tan.substring(0, 3);

@@ -1656,7 +1656,7 @@ class UnifiedPDFParser {
     const enrichmentSources: string[] = [];
 
     if (isSummaryOnly) {
-      enrichmentSources.push('mf_central_api');
+      enrichmentSources.push('iris_api');
       enrichmentSources.push('bse_star_mfd');
     }
 

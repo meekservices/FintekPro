@@ -204,7 +204,7 @@ app.post("/api/proposals/:proposalId/payments", authenticateUser, async (req, re
       return res.status(403).json({ error: "Only the client can initiate payment" });
     }
     
-    if (!gateway || !['mf_central', 'cams', 'kfintech'].includes(gateway)) {
+    if (!gateway || !['iris', 'cams', 'kfintech'].includes(gateway)) {
       return res.status(400).json({ error: "Valid payment gateway is required" });
     }
     

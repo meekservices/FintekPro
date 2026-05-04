@@ -10,7 +10,6 @@ import { Router, Request, Response, NextFunction } from "express";
 import { db } from "../db";
 import { comprehensiveHoldings, users, portfolios } from "@shared/schema";
 import { eq, and, sql, inArray, gte, isNotNull } from "drizzle-orm";
-import { mfCentralService } from "../services/mfcentral-service";
 import { irisKfintechService } from "../services/iris-kfintech-service";
 
 const router = Router();
@@ -208,8 +207,8 @@ router.get("/api/agent/tracker", requireAuth, async (req: Request, res: Response
       .sort((a, b) => b.aum - a.aum)
       .slice(0, 10);
 
-    // 7. Client connectivity
-    const mfcentralConnected = await db
+    // 7. Client connectivity (IRIS/KFintech capable)
+    const irisConnected = await db
       .select({ id: users.id })
       .from(users)
       .where(
@@ -248,15 +247,15 @@ router.get("/api/agent/tracker", requireAuth, async (req: Request, res: Response
       clientConnectivity: {
         total: agentClients.length,
         withHoldings: clientAumMap.size,
-        mfcentralCapable: mfcentralConnected.length,
+        irisCapable: irisConnected.length,
       },
       pendingActions: {
         sigsExpiring: expiringSips,
         kycPending: 0,
         totalActions: expiringSips,
       },
-      mfcentralEnabled: mfCentralService.isConfigured,
       irisEnabled: irisKfintechService.isConfigured,
+      irisStatus: irisKfintechService.getStatus(),
       generatedAt: new Date().toISOString(),
     };
 
@@ -267,64 +266,71 @@ router.get("/api/agent/tracker", requireAuth, async (req: Request, res: Response
   }
 });
 
-// ─── POST /api/agent/mfcentral/initiate ─────────────────────────────────────
-// Initiate MFCentral CAS OTP for a specific client
-router.post("/api/agent/mfcentral/initiate", requireAuth, async (req, res): Promise<void> => {
+// ─── POST /api/agent/iris/initiate ─────────────────────────────────────
+// Initiate IRIS KFintech CAS fetch for a specific client (sends OTP)
+router.post("/api/agent/iris/initiate", requireAuth, async (req, res): Promise<void> => {
   try {
     const { pan, mobile } = req.body;
-    if (!pan || !mobile) {
-      res.status(400).json({ error: "PAN and mobile are required" });
+    if (!pan) {
+      res.status(400).json({ error: "PAN is required" });
       return;
     }
 
-    if (!mfCentralService.isConfigured) {
+    if (!irisKfintechService.isConfigured) {
       res.status(503).json({
-        error: "MFCentral not configured",
-        message: "Set MFCENTRAL_CLIENT_ID, MFCENTRAL_CLIENT_SECRET, MFCENTRAL_USERNAME, MFCENTRAL_PASSWORD, MFCENTRAL_ENC_KEY to enable live data fetch.",
+        error: "IRIS KFintech not configured",
+        message: "Set IRIS_USERNAME and IRIS_PASSWORD to enable live data fetch.",
       });
       return;
     }
 
-    const result = await mfCentralService.initiateCASRequest(pan, mobile, "mobile");
-    res.json({ success: true, requestId: result.requestId, message: result.message });
+    // IRIS sendOtp can take mobile, but often uses the one registered with PAN
+    const result = await irisKfintechService.sendOtp(mobile);
+    res.json({ success: true, requestId: result.success ? "iris-otp-sent" : null, message: result.message });
   } catch (err: unknown) {
-    console.error("[MFCentral Initiate] Error:", err);
+    console.error("[IRIS Initiate] Error:", err);
     const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: "Failed to initiate MFCentral request", detail: msg });
+    res.status(500).json({ error: "Failed to initiate IRIS request", detail: msg });
   }
 });
 
-// ─── POST /api/agent/mfcentral/verify ──────────────────────────────────────
-// Validate OTP and import CAS data for the client
-router.post("/api/agent/mfcentral/verify", requireAuth, async (req, res): Promise<void> => {
+// ─── POST /api/agent/iris/verify ──────────────────────────────────────
+// Validate OTP and import CAS data from KFintech Registry
+router.post("/api/agent/iris/verify", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { requestId, otp } = req.body;
-    if (!requestId || !otp) {
-      res.status(400).json({ error: "requestId and otp are required" });
+    const { pan, otp } = req.body;
+    if (!pan || !otp) {
+      res.status(400).json({ error: "PAN and otp are required" });
       return;
     }
 
-    const casData = await mfCentralService.validateOTPAndFetchCAS(requestId, otp);
+    // 1. Verify OTP
+    const verifyResult = await irisKfintechService.submitOtp(otp);
+    if (!verifyResult.success) {
+      res.status(400).json({ error: verifyResult.message || "OTP verification failed" });
+      return;
+    }
+
+    // 2. Fetch CAS from Registry
+    const casData = await irisKfintechService.fetchCasFromRegistry(pan);
 
     if (!casData) {
-      res.status(400).json({ error: "Invalid OTP or CAS fetch failed" });
+      res.status(400).json({ error: "CAS fetch from IRIS failed" });
       return;
     }
 
     res.json({
       success: true,
       investor: {
-        pan: casData.investor.pan,
-        name: casData.investor.name,
-        folioCount: casData.investor.folios.length,
-        totalMarketValue: casData.investor.totalMarketValue,
+        pan: pan.toUpperCase(),
+        data: casData,
       },
-      message: `CAS data fetched: ${casData.investor.folios.length} folios imported`,
+      message: "CAS data fetched and synced from KFintech Registry",
     });
   } catch (err: unknown) {
-    console.error("[MFCentral Verify] Error:", err);
+    console.error("[IRIS Verify] Error:", err);
     const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: "OTP verification failed", detail: msg });
+    res.status(500).json({ error: "IRIS OTP verification failed", detail: msg });
   }
 });
 
@@ -337,9 +343,8 @@ function emptyTrackerResponse() {
     commission: { monthlyTrailEstimate: 0, annualTrailEstimate: 0, note: "" },
     monthlyTrend: [],
     topAmcs: [],
-    clientConnectivity: { total: 0, withHoldings: 0, mfcentralCapable: 0 },
+    clientConnectivity: { total: 0, withHoldings: 0, irisCapable: 0 },
     pendingActions: { sigsExpiring: 0, kycPending: 0, totalActions: 0 },
-    mfcentralEnabled: mfCentralService.isConfigured,
     irisEnabled: irisKfintechService.isConfigured,
     generatedAt: new Date().toISOString(),
   };

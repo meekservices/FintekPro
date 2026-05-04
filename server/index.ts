@@ -721,10 +721,63 @@ if (process.env.NODE_ENV === 'production') {
 
       try {
         await migDb.execute(migSql`
-          ALTER TABLE sovereign_gold_bonds
-            ADD COLUMN IF NOT EXISTS issue_name TEXT;
+          CREATE TABLE IF NOT EXISTS sovereign_gold_bonds (
+            id SERIAL PRIMARY KEY,
+            series_code VARCHAR(50),
+            series_name VARCHAR(255),
+            issue_open_date DATE,
+            issue_close_date DATE,
+            issue_price_per_gram NUMERIC(18, 4),
+            gold_weight_grams NUMERIC(18, 4),
+            minimum_investment_grams NUMERIC(18, 4),
+            maximum_investment_grams NUMERIC(18, 4),
+            interest_rate NUMERIC(8, 4),
+            tenor_years INTEGER,
+            premature_exit_year INTEGER,
+            listing_date DATE,
+            issue_status VARCHAR(50),
+            subscription_type VARCHAR(50),
+            discount_on_digital NUMERIC(18, 4),
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            last_updated TIMESTAMPTZ DEFAULT NOW(),
+            tranche_number VARCHAR(50),
+            fiscal_year VARCHAR(20),
+            issue_name TEXT,
+            issue_year INTEGER,
+            minimum_grams NUMERIC(18, 4),
+            maximum_grams NUMERIC(18, 4),
+            gold_purity VARCHAR(50),
+            redemption_period_years INTEGER,
+            early_redemption_year INTEGER,
+            subscription_modes TEXT[],
+            discount_digital NUMERIC(18, 4),
+            application_link TEXT,
+            settlement_date DATE,
+            date_of_issuance DATE,
+            discount_online_payment NUMERIC(18, 4),
+            effective_price NUMERIC(18, 4),
+            gold_reference_price NUMERIC(18, 4),
+            gold_reference_period_start DATE,
+            gold_reference_period_end DATE,
+            maximum_individual_limit NUMERIC(18, 4),
+            maximum_huf_limit NUMERIC(18, 4),
+            maximum_trust_limit NUMERIC(18, 4),
+            early_redemption_allowed BOOLEAN,
+            early_redemption_from_year INTEGER,
+            capital_gains_tax_exempt BOOLEAN,
+            interest_taxable BOOLEAN,
+            application_channels TEXT[],
+            rbi_notification_number VARCHAR(100),
+            rbi_notification_date DATE,
+            data_source VARCHAR(100),
+            maturity_date DATE,
+            issue_price NUMERIC(18, 4),
+            interest_payment_frequency VARCHAR(50),
+            minimum_investment NUMERIC(18, 4)
+          );
+          ALTER TABLE sovereign_gold_bonds ADD COLUMN IF NOT EXISTS issue_name TEXT;
         `);
-        console.log('✅ issue_name column on sovereign_gold_bonds verified');
+        console.log('✅ sovereign_gold_bonds table and issue_name column verified');
       } catch (e: any) {
         console.warn('[Migration] sovereign_gold_bonds issue_name skipped:', e?.message);
       }

@@ -4,6 +4,7 @@ import { storage } from '../storage';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, sql, and, or } from 'drizzle-orm';
+import { irisKfintechService } from '../services/iris-kfintech-service';
 
 export function registerMFMonthwiPart1Part1Routes(app: Express): void {
   app.get("/api/mutual-funds/:schemeCode/monthwise-performance", async (req, res) => {
@@ -71,107 +72,47 @@ export function registerMFMonthwiPart1Part1Routes(app: Express): void {
   });
 
 
-  // MF Central style endpoints
-  app.get("/api/mfcentral/all-schemes", async (req, res) => {
+  app.get("/api/iris/schemes", async (req, res) => {
     try {
-      // Try to fetch from API, with fallback to cached/demo data
-      let allSchemes = [];
+      const { q } = req.query;
+      let schemes;
       
-      try {
-        const response = await fetch(`${MF_CENTRAL_API_BASE}/mf`);
-        if (response.ok) {
-          allSchemes = await response.json();
-        } else {
-          throw new Error('API response not ok');
-        }
-      } catch (apiError) {
-        console.warn('MF API unavailable, using demo data');
-        // Fallback to demo data
-        allSchemes = POPULAR_MF_SCHEMES.map(scheme => ({
-          schemeCode: scheme.code,
-          schemeName: scheme.name,
-          schemeType: 'Open Ended',
-          schemeCategory: 'Equity',
-          fundHouse: scheme.name.split(' ')[0] + ' Mutual Fund'
-        }));
+      if (q) {
+        schemes = await irisKfintechService.searchSchemes(q as string);
+      } else {
+        schemes = await irisKfintechService.getAllFunds();
       }
       
       res.json({
         status: "success",
-        data: allSchemes,
-        count: allSchemes.length,
+        data: schemes,
         message: "Mutual fund schemes fetched successfully"
       });
-    } catch (error) {
-      console.error("Error fetching all MF schemes:", error);
-      res.status(500).json({ 
-        status: "error",
-        error: "Failed to fetch all mutual fund schemes" 
-      });
+    } catch (error: any) {
+      console.error("Error fetching IRIS schemes:", error);
+      res.status(500).json({ status: "error", error: error.message });
     }
   });
 
-  app.get("/api/mfcentral/scheme/:schemeCode/nav-history", async (req, res) => {
+  app.get("/api/iris/scheme/:schemeCode/details", async (req, res) => {
     try {
       const { schemeCode } = req.params;
-      let fundData;
-      
-      try {
-        fundData = await fetchMFAPI(`/mf/${schemeCode}`);
-      } catch (apiError) {
-        console.warn(`MF API unavailable for scheme ${schemeCode}, using demo data`);
-        // Find matching scheme or create demo data
-        const scheme = POPULAR_MF_SCHEMES.find(s => s.code === schemeCode);
-        fundData = {
-          meta: {
-            scheme_name: scheme?.name || `Demo Mutual Fund ${schemeCode}`,
-            fund_house: scheme?.name.split(' ')[0] + ' Mutual Fund' || 'Demo AMC',
-            scheme_category: 'Equity',
-            scheme_type: 'Open Ended'
-          },
-          data: [
-            { nav: (Math.random() * 100 + 10).toFixed(4), date: new Date().toISOString().split('T')[0] },
-            { nav: (Math.random() * 100 + 10).toFixed(4), date: new Date(Date.now() - 86400000).toISOString().split('T')[0] }
-          ]
-        };
-      }
+      const fundData = await irisKfintechService.getSchemeDetails(schemeCode);
       
       res.json({
         status: "success",
         schemeCode,
-        schemeName: fundData.meta?.scheme_name || "Unknown Fund",
-        data: {
-          current_nav: fundData.data?.[0]?.nav || "0",
-          nav_date: fundData.data?.[0]?.date || new Date().toISOString().split('T')[0],
-          historical_nav: fundData.data || [],
-          fund_house: fundData.meta?.fund_house || "Unknown AMC",
-          scheme_category: fundData.meta?.scheme_category || "Unknown Category",
-          scheme_type: fundData.meta?.scheme_type || "Open Ended"
-        }
+        data: fundData
       });
-    } catch (error) {
-      console.error(`Error fetching NAV history for ${req.params.schemeCode}:`, error);
-      res.status(500).json({ 
-        status: "error",
-        error: "Failed to fetch NAV history" 
-      });
+    } catch (error: any) {
+      console.error(`Error fetching IRIS scheme details for ${req.params.schemeCode}:`, error);
+      res.status(500).json({ status: "error", error: error.message });
     }
   });
 
-  app.get("/api/mfcentral/holdings/:userId/import", async (req, res) => {
+  app.post("/api/iris/import-holdings", async (req, res) => {
     try {
-      const { userId } = req.params;
-      const { pan, mobile } = req.query;
-      
-      if (!pan || !mobile) {
-        return res.status(400).json({
-          status: "error",
-          error: "PAN and mobile number are required"
-        });
-      }
-
-      // Simulate MF Central holdings import flow
-      // In real implementation, this would integrate with actual MF Central APIs
+      const { userId, pan, mobile } = req.body;
       const holdingsData = {
         userId,
         pan,
@@ -222,7 +163,7 @@ export function registerMFMonthwiPart1Part1Routes(app: Express): void {
   // Advanced MF Central Features
 
   // SIP Calculator
-  app.post("/api/mfcentral/sip-calculator", async (req, res) => {
+  app.post("/api/iris/sip-calculator", async (req, res) => {
     try {
       const { monthlyAmount, years, expectedReturn } = req.body;
       
@@ -257,7 +198,7 @@ export function registerMFMonthwiPart1Part1Routes(app: Express): void {
   });
 
   // Lumpsum Calculator
-  app.post("/api/mfcentral/lumpsum-calculator", async (req, res) => {
+  app.post("/api/iris/lumpsum-calculator", async (req, res) => {
     try {
       const { amount, years, expectedReturn } = req.body;
       
@@ -288,7 +229,7 @@ export function registerMFMonthwiPart1Part1Routes(app: Express): void {
   });
 
   // Scheme Comparison
-  app.post("/api/mfcentral/compare", async (req, res) => {
+  app.post("/api/iris/compare", async (req, res) => {
     try {
       const { schemeCodes } = req.body;
       
@@ -349,7 +290,7 @@ export function registerMFMonthwiPart1Part1Routes(app: Express): void {
   });
 
   // Goal Planning
-  app.post("/api/mfcentral/goal-planner", async (req, res) => {
+  app.post("/api/iris/goal-planner", async (req, res) => {
     try {
       const { goalAmount, timeHorizon, currentSavings, expectedReturn, inflationRate } = req.body;
       

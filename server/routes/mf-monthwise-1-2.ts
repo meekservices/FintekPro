@@ -12,7 +12,7 @@ import { portfolioIntelligence } from "../portfolio-intelligence";
 import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "../gemini";
 
 export function registerMFMonthwiPart1Part2Routes(app: Express): void {
-  app.get("/api/mfcentral/analytics/:userId", async (req, res) => {
+  app.get("/api/iris/analytics/:userId", async (req, res) => {
     try {
       const { userId } = req.params;
       
