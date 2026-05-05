@@ -62,10 +62,14 @@ jobs:
           gcloud run deploy ${{ env.APP_SERVICE }} \
             --region=${{ env.REGION }} \
             --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.APP_SERVICE }}:${{ github.sha }} \
-            --set-env-vars="NODE_ENV=production,INSTANCE_CONNECTION_NAME=fintekpro:asia-south1:fintekpro-db" \
-            --set-secrets="DATABASE_URL=DATABASE_URL:latest,SESSION_SECRET=SESSION_SECRET:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,COMPLIANCE_SECRET=COMPLIANCE_SECRET:latest" \
+            --set-env-vars="NODE_ENV=production,INSTANCE_CONNECTION_NAME=fintekpro:asia-south1:fintekpro-db,CUSTOM_DOMAIN=fintekpro.com" \
+            --set-secrets="DATABASE_URL=DATABASE_URL:latest,SESSION_SECRET=SESSION_SECRET:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,COMPLIANCE_SECRET=COMPLIANCE_SECRET:latest,GROQ_API_KEY=GROQ_API_KEY:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,PYTHON_SERVICE_URL=PYTHON_SERVICE_URL:latest,PYTHON_SERVICE_SECRET=PYTHON_SERVICE_SECRET:latest" \
             --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
-            --allow-unauthenticated
+            --allow-unauthenticated \
+            --memory=4Gi \
+            --cpu=2 \
+            --timeout=300 \
+            --cpu-boost
 
       # 2. Build & Deploy Python Analytics
       - name: Build Python Image
