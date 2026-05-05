@@ -33,6 +33,12 @@ import amlRoutes from "./aml-routes";
 import orderStatusRoutes from "./routes/fixed-income-status-routes";
 import aiInvestmentRoutes from "./routes/ai-investment-routes";
 import engineHealthRoutes from "./routes/engine-health-check";
+import { registerMarketDataRoutes } from "./routes/market-data";
+import { registerPlatformStatsRoutes } from "./routes/platform-stats-routes";
+import { registerPortalSystemRoutes } from "./routes/portal-system";
+import { registerBondsMarketRoutes } from "./routes/bonds-market";
+import { registerUserProfileKYCRoutes } from "./routes/user-profile-kyc";
+import yieldCurveRoutes from "./routes/yield-curve";
 import { Router } from "express";
 
 
@@ -187,6 +193,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/fixed-income", orderStatusRoutes);
   app.use("/api/ai-investment", aiInvestmentRoutes);
   app.use("/api/engine", engineHealthRoutes);
+
+  // Missing Production Routes
+  registerMarketDataRoutes(app);
+  registerPlatformStatsRoutes(app);
+  registerPortalSystemRoutes(app);
+  registerBondsMarketRoutes(app);
+  registerUserProfileKYCRoutes(app);
+  app.use("/api/bonds/yield-curve", yieldCurveRoutes);
 
   // Specialized registrations
   registerAppointmentManagementRoutes(app);
