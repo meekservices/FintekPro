@@ -21,6 +21,19 @@ import { symbolMappingService } from "./services/symbol-mapping-service";
 import { registerAuditExportRoutes } from "./routes/admin/audit-export-routes";
 import { maskEmail, maskMobile } from "./utils/pii-utils";
 import usTradingRoutes from "./routes/us-trading";
+import agentRoutes from "./agent-routes";
+import meetingRoutes from "./routes/meeting-bookings-1";
+import { registerOrderRoutes } from "./order-routes";
+import { taxRoutes } from "./tax-routes";
+import { registerKYCVaultRoutes } from "./kyc-vault-routes";
+import { registerAppointmentManagementRoutes } from "./routes/appointment-management-routes";
+import { setupChatRoutes } from "./routes/chat-routes";
+import complianceRoutes from "./compliance-routes";
+import amlRoutes from "./aml-routes";
+import orderStatusRoutes from "./routes/fixed-income-status-routes";
+import aiInvestmentRoutes from "./routes/ai-investment-routes";
+import engineHealthRoutes from "./routes/engine-health-check";
+import { Router } from "express";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -151,6 +164,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // US Trading & Alpaca Broker Routes
   app.use("/api/us-trading", usTradingRoutes);
+
+  // Business Logic Routes
+  app.use("/api/agent", agentRoutes);
+  app.use("/api/meetings", meetingRoutes);
+  
+  // Named export registrations
+  registerOrderRoutes(app);
+  app.use("/api/tax", taxRoutes);
+  registerKYCVaultRoutes(app);
+  
+  // Chat routes setup
+  const chatRouter = Router();
+  setupChatRoutes(chatRouter, storage, (req, res, next) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
+    next();
+  });
+  app.use(chatRouter);
+
+  app.use("/api/compliance", complianceRoutes);
+  app.use("/api/aml", amlRoutes);
+  app.use("/api/fixed-income", orderStatusRoutes);
+  app.use("/api/ai-investment", aiInvestmentRoutes);
+  app.use("/api/engine", engineHealthRoutes);
+
+  // Specialized registrations
+  registerAppointmentManagementRoutes(app);
 
   // Profile Sharing Toggle
   app.patch("/api/user/profile/sharing", async (req, res) => {
