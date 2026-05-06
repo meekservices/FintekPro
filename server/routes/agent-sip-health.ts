@@ -39,8 +39,8 @@ function deriveSipStatus(holding: any): "active" | "expiring" | "lapsed" | "paus
   return "active";
 }
 
-// GET /api/agent/sip-health
-router.get("/api/agent/sip-health", requireAuth, async (req, res) => {
+// GET /sip-health
+router.get("/sip-health", requireAuth, async (req, res) => {
   try {
     const agentId = (req.user as any)?.id;
 

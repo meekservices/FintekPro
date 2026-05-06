@@ -59,9 +59,9 @@ function classifyAsset(assetType: string): "equity" | "debt" | "gold" | "alterna
   return "equity";
 }
 
-// ─── GET /api/agent/tracker ──────────────────────────────────────────────────
+// ─── GET /tracker ──────────────────────────────────────────────────
 // Main aggregation endpoint — all business performance metrics for this agent
-router.get("/api/agent/tracker", requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.get("/tracker", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const agentId = (req as AuthRequest).user?.id;
     if (!agentId) {
@@ -266,9 +266,9 @@ router.get("/api/agent/tracker", requireAuth, async (req: Request, res: Response
   }
 });
 
-// ─── POST /api/agent/iris/initiate ─────────────────────────────────────
+// ─── POST /iris/initiate ─────────────────────────────────────
 // Initiate IRIS KFintech CAS fetch for a specific client (sends OTP)
-router.post("/api/agent/iris/initiate", requireAuth, async (req, res): Promise<void> => {
+router.post("/iris/initiate", requireAuth, async (req, res): Promise<void> => {
   try {
     const { pan, mobile } = req.body;
     if (!pan) {
@@ -294,9 +294,9 @@ router.post("/api/agent/iris/initiate", requireAuth, async (req, res): Promise<v
   }
 });
 
-// ─── POST /api/agent/iris/verify ──────────────────────────────────────
+// ─── POST /iris/verify ──────────────────────────────────────
 // Validate OTP and import CAS data from KFintech Registry
-router.post("/api/agent/iris/verify", requireAuth, async (req, res): Promise<void> => {
+router.post("/iris/verify", requireAuth, async (req, res): Promise<void> => {
   try {
     const { pan, otp } = req.body;
     if (!pan || !otp) {

@@ -27,8 +27,8 @@ async function fetchQuote(symbol: string): Promise<{ changePercent: number; curr
   return null;
 }
 
-// GET /api/agent/market-alerts
-router.get("/api/agent/market-alerts", requireAuth, async (req, res) => {
+// GET /market-alerts
+router.get("/market-alerts", requireAuth, async (req, res) => {
   try {
     const agentId = (req.user as any)?.id;
     const minMove = parseFloat(String(req.query.minMove || "2.5"));

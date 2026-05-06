@@ -28,8 +28,8 @@ function classifyAssetClass(holding: any): string {
   return "equity";
 }
 
-// GET /api/agent/portfolio-drift
-router.get("/api/agent/portfolio-drift", requireAuth, async (req, res) => {
+// GET /portfolio-drift
+router.get("/portfolio-drift", requireAuth, async (req, res) => {
   try {
     const agentId = (req.user as any)?.id;
 

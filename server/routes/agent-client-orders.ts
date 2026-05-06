@@ -17,8 +17,8 @@ function generateOrderNumber(): string {
   return `ORD-${date}-${rand}`;
 }
 
-// GET /api/agent/client-orders — list orders placed by this agent for clients
-router.get("/api/agent/client-orders", requireAuth, async (req, res) => {
+// GET /client-orders — list orders placed by this agent for clients
+router.get("/client-orders", requireAuth, async (req, res) => {
   try {
     const agentId = (req.user as any)?.id;
     const clientId = req.query.clientId as string | undefined;
@@ -62,8 +62,8 @@ router.get("/api/agent/client-orders", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/agent/client-orders — place order on behalf of client
-router.post("/api/agent/client-orders", requireAuth, async (req, res) => {
+// POST /client-orders — place order on behalf of client
+router.post("/client-orders", requireAuth, async (req, res) => {
   try {
     const agentId = (req.user as any)?.id;
     const { clientId, productType, productName, symbol, isin, action, quantity, orderType, price, notes, consentConfirmed } = req.body;
