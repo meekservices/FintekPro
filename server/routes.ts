@@ -1,10 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { storage } from "./storage";
+import { logger } from "./logger";
+import { insertUserSchema, users } from "@shared/schema";
 import { setupAuth } from "./auth";
 import { eq, or, and, sql, desc, ilike } from "drizzle-orm";
 import { db } from "./db";
-import { storage } from "./storage";
-import { users } from "@shared/schema/users";
 import { emailService } from "./email-service";
 import { whatsappService } from "./whatsapp";
 import { smsService } from "./services/sms-service";
@@ -21,14 +22,14 @@ import { registerAuditExportRoutes } from "./routes/admin/audit-export-routes";
 import { maskEmail, maskMobile } from "./utils/pii-utils";
 import usTradingRoutes from "./routes/us-trading";
 import agentRoutes from "./agent-routes";
-import agentTrackerRouter from "./routes/agent-tracker";
+import agentTrackerRoutes from "./routes/agent-tracker";
 import { registerAgentCapitalGainPart1Part1Routes } from "./routes/agent-capital-gains-1-1";
-import agentRevenueRouter from "./routes/agent-revenue-routes";
-import agentBasketsRouter from "./routes/agent-baskets";
-import agentSipHealthRouter from "./routes/agent-sip-health";
-import agentPortfolioDriftRouter from "./routes/agent-portfolio-drift";
-import agentClientOrdersRouter from "./routes/agent-client-orders";
-import agentMarketAlertsRouter from "./routes/agent-market-alerts";
+import agentRevenueRoutes from "./routes/agent-revenue-routes";
+import agentBasketsRoutes from "./routes/agent-baskets";
+import agentSipHealthRoutes from "./routes/agent-sip-health";
+import agentPortfolioDriftRoutes from "./routes/agent-portfolio-drift";
+import agentClientOrdersRoutes from "./routes/agent-client-orders";
+import agentMarketAlertsRoutes from "./routes/agent-market-alerts";
 import meetingRoutes from "./routes/meeting-bookings-1";
 import { registerOrderRoutes } from "./order-routes";
 import { taxRoutes } from "./tax-routes";
@@ -46,17 +47,51 @@ import { registerPortalSystemRoutes } from "./routes/portal-system";
 import { registerBondsMarketRoutes } from "./routes/bonds-market";
 import { registerUserProfileKYCRoutes } from "./routes/user-profile-kyc";
 import yieldCurveRoutes from "./routes/yield-curve";
-import { registerReportsInlineRoutes } from "./routes/reports-inline";
-import adminMutualFundsRouter from "./routes/admin-mutual-funds-routes";
-import liveMFDataRouter from "./routes/live-mf-data-routes";
-import treasuryCopilotRoutes from "./routes/treasury-copilot-routes";
-import treasuryRoutes from "./routes/treasury-routes";
-import versionRouter from "./routes/version";
-import { registerBankingRoutes } from "./routes/banking";
 import { Router } from "express";
 
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Configure multer for file uploads
+const storage_config = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = 'uploads';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage_config,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only JPG, PNG, PDF, and Word documents are allowed.'));
+    }
+  }
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
-  setupAuth(app);
+  // setupAuth is now handled in the main index.ts boot sequence Phase 3
+  // setupAuth(app);
+
+  // Note: Health check is now handled in Phase 1 of index.ts for immediate availability
+  /*
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+  */
 
   // Search users API (Admin & Agent)
   app.get("/api/users/search", async (req, res) => {
@@ -78,7 +113,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ilike(users.email, `%${query}%`),
           ilike(users.mobile, `%${query}%`),
           ilike(users.firstName, `%${query}%`),
-          ilike(users.lastName, `%${query}%`)
+          ilike(users.lastName, `%${query}%`),
+          ilike(users.userId, `%${query}%`)
         );
       }
 
@@ -144,14 +180,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Business Logic Routes
   app.use("/api/agent", agentRoutes);
-  app.use("/api/agent", agentTrackerRouter);
-  registerAgentCapitalGainPart1Part1Routes(app); 
-  app.use("/api/agent", agentRevenueRouter);
-  app.use("/api/agent", agentBasketsRouter);
-  app.use("/api/agent", agentSipHealthRouter);
-  app.use("/api/agent", agentPortfolioDriftRouter);
-  app.use("/api/agent", agentClientOrdersRouter);
-  app.use("/api/agent", agentMarketAlertsRouter);
+  app.use("/api/agent", agentTrackerRoutes);
+  registerAgentCapitalGainPart1Part1Routes(app); // Registered to fix /api/agent/activity 404
+  app.use("/api/agent", agentRevenueRoutes);
+  app.use("/api/agent", agentBasketsRoutes);
+  app.use("/api/agent", agentSipHealthRoutes);
+  app.use("/api/agent", agentPortfolioDriftRoutes);
+  app.use("/api/agent", agentClientOrdersRoutes);
+  app.use("/api/agent", agentMarketAlertsRoutes);
   
   app.use("/api/meetings", meetingRoutes);
   
@@ -172,8 +208,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/aml", amlRoutes);
   app.use("/api/fixed-income", orderStatusRoutes);
   app.use("/api/ai-investment", aiInvestmentRoutes);
-  app.use("/api/ai/copilot", treasuryCopilotRoutes);
-  app.use("/api/treasury", treasuryRoutes);
   app.use("/api/engine", engineHealthRoutes);
 
   // Missing Production Routes
@@ -182,15 +216,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerPortalSystemRoutes(app);
   registerBondsMarketRoutes(app);
   registerUserProfileKYCRoutes(app);
-  registerBankingRoutes(app);
-  app.use(versionRouter);
   app.use("/api/bonds/yield-curve", yieldCurveRoutes);
 
   // Specialized registrations
   registerAppointmentManagementRoutes(app);
-  registerReportsInlineRoutes(app);
-  app.use("/api/admin/mutual-funds", adminMutualFundsRouter);
-  app.use("/api/live-mf", liveMFDataRouter);
 
   // Profile Sharing Toggle
   app.patch("/api/user/profile/sharing", async (req, res) => {
@@ -198,19 +227,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { enabled } = req.body;
       await db.update(users)
-          .set({ shareableProfileEnabled: enabled })
-          .where(eq(users.id, req.user!.id));
+        .set({ shareableProfileEnabled: enabled })
+        .where(eq(users.id, req.user!.id));
       
       return apiResponse.success(res, { success: true });
     } catch (error) {
       console.error("Profile sharing toggle error:", error);
       return apiResponse.serverError(res);
     }
-  });
-
-  // Fallback for non-existent API routes
-  app.use("/api/*", (req, res) => {
-    res.status(404).json({ error: "Not Found" });
   });
 
   const httpServer = createServer(app);
