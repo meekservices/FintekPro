@@ -66,7 +66,7 @@ async function calculateAgentAUM(clientIds: string[]): Promise<{ current: number
   return { current: currentAUM, previous: currentAUM * 0.9 };
 }
 
-router.get("/api/agent/revenue/metrics/:period?", async (req, res) => {
+router.get("/revenue/metrics/:period?", async (req, res) => {
   try {
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
@@ -179,7 +179,7 @@ router.get("/api/agent/revenue/metrics/:period?", async (req, res) => {
   }
 });
 
-router.get("/api/agent/revenue/product-mix", async (req, res) => {
+router.get("/revenue/product-mix", async (req, res) => {
   try {
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
@@ -235,7 +235,7 @@ router.get("/api/agent/revenue/product-mix", async (req, res) => {
   }
 });
 
-router.get("/api/agent/revenue/trends/:period?", async (req, res) => {
+router.get("/revenue/trends/:period?", async (req, res) => {
   try {
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
@@ -319,7 +319,7 @@ router.get("/api/agent/revenue/trends/:period?", async (req, res) => {
   }
 });
 
-router.get("/api/agent/revenue/commissions", async (req, res) => {
+router.get("/revenue/commissions", async (req, res) => {
   try {
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ error: "Unauthorized" });

@@ -22,6 +22,14 @@ import { registerAuditExportRoutes } from "./routes/admin/audit-export-routes";
 import { maskEmail, maskMobile } from "./utils/pii-utils";
 import usTradingRoutes from "./routes/us-trading";
 import agentRoutes from "./agent-routes";
+import agentTrackerRoutes from "./routes/agent-tracker";
+import { registerAgentCapitalGainPart1Part1Routes } from "./routes/agent-capital-gains-1-1";
+import agentRevenueRoutes from "./routes/agent-revenue-routes";
+import agentBasketsRoutes from "./routes/agent-baskets";
+import agentSipHealthRoutes from "./routes/agent-sip-health";
+import agentPortfolioDriftRoutes from "./routes/agent-portfolio-drift";
+import agentClientOrdersRoutes from "./routes/agent-client-orders";
+import agentMarketAlertsRoutes from "./routes/agent-market-alerts";
 import meetingRoutes from "./routes/meeting-bookings-1";
 import { registerOrderRoutes } from "./order-routes";
 import { taxRoutes } from "./tax-routes";
@@ -172,6 +180,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Business Logic Routes
   app.use("/api/agent", agentRoutes);
+  app.use("/api/agent", agentTrackerRoutes);
+  registerAgentCapitalGainPart1Part1Routes(app); // Registered to fix /api/agent/activity 404
+  app.use("/api/agent", agentRevenueRoutes);
+  app.use("/api/agent", agentBasketsRoutes);
+  app.use("/api/agent", agentSipHealthRoutes);
+  app.use("/api/agent", agentPortfolioDriftRoutes);
+  app.use("/api/agent", agentClientOrdersRoutes);
+  app.use("/api/agent", agentMarketAlertsRoutes);
+  
   app.use("/api/meetings", meetingRoutes);
   
   // Named export registrations

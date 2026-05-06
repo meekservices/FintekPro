@@ -11,8 +11,8 @@ const router = Router();
 // Middleware is imported above
 const requireAuth = requireAgentPortal;
 
-// GET /api/agent/baskets — list all baskets for the authenticated agent
-router.get("/api/agent/baskets", requireAuth, async (req, res) => {
+// GET /baskets — list all baskets for the authenticated agent
+router.get("/baskets", requireAuth, async (req, res) => {
   try {
     const agentId = (req.user as any)?.id;
     const baskets = await db
@@ -38,8 +38,8 @@ router.get("/api/agent/baskets", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/agent/baskets — create a basket
-router.post("/api/agent/baskets", requireAuth, async (req, res) => {
+// POST /baskets — create a basket
+router.post("/baskets", requireAuth, async (req, res) => {
   try {
     const agentId = (req.user as any)?.id;
     const { name, theme, description, isPublic } = req.body;
@@ -57,8 +57,8 @@ router.post("/api/agent/baskets", requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/agent/baskets/:id — basket detail + items
-router.get("/api/agent/baskets/:id", requireAuth, async (req, res) => {
+// GET /baskets/:id — basket detail + items
+router.get("/baskets/:id", requireAuth, async (req, res) => {
   try {
     const agentId = (req.user as any)?.id;
     const { id } = req.params;
@@ -83,8 +83,8 @@ router.get("/api/agent/baskets/:id", requireAuth, async (req, res) => {
   }
 });
 
-// PUT /api/agent/baskets/:id — update basket metadata
-router.put("/api/agent/baskets/:id", requireAuth, async (req, res) => {
+// PUT /baskets/:id — update basket metadata
+router.put("/baskets/:id", requireAuth, async (req, res) => {
   try {
     const agentId = (req.user as any)?.id;
     const { id } = req.params;
@@ -104,8 +104,8 @@ router.put("/api/agent/baskets/:id", requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/agent/baskets/:id — delete basket
-router.delete("/api/agent/baskets/:id", requireAuth, async (req, res) => {
+// DELETE /baskets/:id — delete basket
+router.delete("/baskets/:id", requireAuth, async (req, res) => {
   try {
     const agentId = (req.user as any)?.id;
     const { id } = req.params;
@@ -121,8 +121,8 @@ router.delete("/api/agent/baskets/:id", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/agent/baskets/:id/items — add instrument
-router.post("/api/agent/baskets/:id/items", requireAuth, async (req, res) => {
+// POST /baskets/:id/items — add instrument
+router.post("/baskets/:id/items", requireAuth, async (req, res) => {
   try {
     const agentId = (req.user as any)?.id;
     const { id } = req.params;
@@ -150,8 +150,8 @@ router.post("/api/agent/baskets/:id/items", requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/agent/baskets/:id/items/:itemId — remove item
-router.delete("/api/agent/baskets/:id/items/:itemId", requireAuth, async (req, res) => {
+// DELETE /baskets/:id/items/:itemId — remove item
+router.delete("/baskets/:id/items/:itemId", requireAuth, async (req, res) => {
   try {
     const agentId = (req.user as any)?.id;
     const { id, itemId } = req.params;
@@ -172,8 +172,8 @@ router.delete("/api/agent/baskets/:id/items/:itemId", requireAuth, async (req, r
   }
 });
 
-// POST /api/agent/baskets/:id/share — generate share text + link
-router.post("/api/agent/baskets/:id/share", requireAuth, async (req, res) => {
+// POST /baskets/:id/share — generate share text + link
+router.post("/baskets/:id/share", requireAuth, async (req, res) => {
   try {
     const agentId = (req.user as any)?.id;
     const { id } = req.params;
