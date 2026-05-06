@@ -219,7 +219,17 @@ router.get("/tracker", requireAuth, async (req: Request, res: Response): Promise
       );
 
     // 8. KYC pending count
-    // const kycPendingCount = ... (logic not fully implemented in original)
+    const kycPendingCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(
+        and(
+          inArray(users.id, clientIds),
+          sql`${users.kycStatus} IS NULL OR ${users.kycStatus} NOT IN ('verified', 'completed', 'verified_kyc')`
+        )
+      );
+
+    const kycPending = Number(kycPendingCount[0]?.count || 0);
 
     const response = {
       summary: {
@@ -251,8 +261,8 @@ router.get("/tracker", requireAuth, async (req: Request, res: Response): Promise
       },
       pendingActions: {
         sigsExpiring: expiringSips,
-        kycPending: 0,
-        totalActions: expiringSips,
+        kycPending: kycPending,
+        totalActions: expiringSips + kycPending,
       },
       irisEnabled: irisKfintechService.isConfigured,
       irisStatus: irisKfintechService.getStatus(),
