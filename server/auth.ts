@@ -14,6 +14,14 @@ import { smsService } from "./services/sms-service";
 import { apiResponse } from "./utils/responses";
 import { stampSessionPortal } from "./subdomain-middleware";
 
+// Extend Express.User so req.user is typed as User throughout the app
+declare global {
+  namespace Express {
+    // eslint-disable-next-line @typescript-eslint/no-empty-interface
+    interface User extends import("@shared/schema").User {}
+  }
+}
+
 const scryptAsync = promisify(scrypt);
 
 export async function hashPassword(password: string) {
@@ -198,13 +206,13 @@ export function setupAuth(app: Express) {
 
           // 2. Test Account Bypass Logic
           const isTesterAccount = 
-            user.username?.toLowerCase().startsWith('tester_') || 
+            user.userId?.toLowerCase().startsWith('tester_') || 
             user.email?.startsWith('test_') ||
             user.email === 'test@fintekpro.com' ||
             user.email === 'tester@fintekpro.com';
           
           if (isTesterAccount) {
-             console.log(`🧪 Detected tester account: ${user.username || user.email}`);
+             console.log(`🧪 Detected tester account: ${user.userId || user.email}`);
           }
 
           // 3. Multi-Factor Authentication (OTP Layer)

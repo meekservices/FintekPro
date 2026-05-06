@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { type Express, type Request, type Response } from "express";
 import { registerRoutes } from "./routes";
 import { setupAuth } from "./auth";
@@ -708,7 +709,7 @@ if (process.env.NODE_ENV === 'production') {
         console.error('[Migration] iris_investor_id column error:', e?.message);
       }
 
-      // 25. Alpaca account type + SGB issue_name (missing from production DB)
+      // 25. Alpaca account type
       try {
         await migDb.execute(migSql`
           ALTER TABLE users
@@ -719,7 +720,9 @@ if (process.env.NODE_ENV === 'production') {
         console.error('[Migration] alpaca_account_type column error:', e?.message);
       }
 
+      // 26. SGB Schema & Repairs (sgb_primary_issues, sovereign_gold_bonds)
       try {
+        console.log('🛠️ Verifying sovereign_gold_bonds table...');
         await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS sovereign_gold_bonds (
             id SERIAL PRIMARY KEY,
@@ -744,42 +747,23 @@ if (process.env.NODE_ENV === 'production') {
             fiscal_year VARCHAR(20),
             issue_name TEXT,
             issue_year INTEGER,
-            minimum_grams NUMERIC(18, 4),
-            maximum_grams NUMERIC(18, 4),
-            gold_purity VARCHAR(50),
-            redemption_period_years INTEGER,
-            early_redemption_year INTEGER,
-            subscription_modes TEXT[],
-            discount_digital NUMERIC(18, 4),
-            application_link TEXT,
-            settlement_date DATE,
-            date_of_issuance DATE,
-            discount_online_payment NUMERIC(18, 4),
-            effective_price NUMERIC(18, 4),
-            gold_reference_price NUMERIC(18, 4),
-            gold_reference_period_start DATE,
-            gold_reference_period_end DATE,
-            maximum_individual_limit NUMERIC(18, 4),
-            maximum_huf_limit NUMERIC(18, 4),
-            maximum_trust_limit NUMERIC(18, 4),
-            early_redemption_allowed BOOLEAN,
-            early_redemption_from_year INTEGER,
-            capital_gains_tax_exempt BOOLEAN,
-            interest_taxable BOOLEAN,
-            application_channels TEXT[],
-            rbi_notification_number VARCHAR(100),
-            rbi_notification_date DATE,
-            data_source VARCHAR(100),
             maturity_date DATE,
-            issue_price NUMERIC(18, 4),
-            interest_payment_frequency VARCHAR(50),
-            minimum_investment NUMERIC(18, 4)
+            issue_price NUMERIC(18, 4)
           );
-          ALTER TABLE sovereign_gold_bonds ADD COLUMN IF NOT EXISTS issue_name TEXT;
         `);
-        console.log('✅ sovereign_gold_bonds table and issue_name column verified');
+
+        const { runSgbRepair } = await import("./db-migrations/sgb-repair");
+        await runSgbRepair();
       } catch (e: any) {
-        console.warn('[Migration] sovereign_gold_bonds issue_name skipped:', e?.message);
+        console.warn('[Migration] SGB repair sequence skipped:', e?.message);
+      }
+
+      // 27. NCD & Governance Schema Repair (Fixes SQL 42703 issue_name)
+      try {
+        const { runGovernanceNcdRepair } = await import("./db-migrations/governance-ncd-repair");
+        await runGovernanceNcdRepair();
+      } catch (e: any) {
+        console.warn('[Migration] Governance/NCD repair skipped:', e?.message);
       }
 
       try {

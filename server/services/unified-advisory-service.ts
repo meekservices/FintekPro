@@ -26,6 +26,7 @@ import {
 } from '@shared/schema';
 import { eq, and, desc, sql, like, or, isNotNull, inArray, ne } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { aiService } from './ai-service';
 import {
   ProductType,
   ActionType,
@@ -45,7 +46,6 @@ import {
   determineClientCategory,
   getRiskScoreForCategory
 } from '@shared/unified-advisory-types';
-import { GoogleGenAI } from "@google/genai";
 import { callPython } from '../clients/python-client';
 
 interface ClientProfile {
@@ -80,18 +80,11 @@ interface PortfolioSummary {
   }>;
 }
 
-class UnifiedAdvisoryService {
-  private genAI: GoogleGenAI | null = null;
-  private auditLogs: Map<string, AdvisoryAuditLog> = new Map();
+export class UnifiedAdvisoryService {
+  private auditLogs = new Map<string, AdvisoryAuditLog>();
 
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.AI_INTEGRATIONS_GOOGLE_API_KEY;
-    if (apiKey) {
-      this.genAI = new GoogleGenAI({ apiKey });
-      console.log("✅ Unified Advisory Engine initialized with Gemini AI");
-    } else {
-      console.log("⚠️ Unified Advisory Engine running in rule-based mode");
-    }
+    console.log("✅ Unified Advisory Engine initialized with multi-provider AI support (Preferred: Groq)");
   }
 
   async validateTriggerConditions(clientId: string): Promise<TriggerValidationResult> {
@@ -448,20 +441,18 @@ class UnifiedAdvisoryService {
       return dbRecs;
     }
 
-    // DB returned fewer results than requested — try Gemini to fill the gap
-    if (this.genAI) {
-      try {
-        const aiRecs = await this.generateAIRecommendations(productType, profile, portfolio, count - dbRecs.length, marketRegime);
-        const usedNames = new Set(dbRecs.map((r: any) => r.productName));
-        for (const rec of aiRecs) {
-          if (!usedNames.has(rec.productName)) {
-            rec.regulatoryDisclosures = disclosures;
-            recommendations.push(rec);
-          }
+    // DB returned fewer results than requested — try AI to fill the gap
+    try {
+      const aiRecs = await this.generateAIRecommendations(productType, profile, portfolio, count - dbRecs.length, marketRegime);
+      const usedNames = new Set(dbRecs.map((r: any) => r.productName));
+      for (const rec of aiRecs) {
+        if (!usedNames.has(rec.productName)) {
+          rec.regulatoryDisclosures = disclosures;
+          recommendations.push(rec);
         }
-      } catch (error) {
-        console.error(`[UnifiedAdvisory] Gemini supplement failed for ${productType}:`, error);
       }
+    } catch (error) {
+      console.error(`[UnifiedAdvisory] Gemini supplement failed for ${productType}:`, error);
     }
 
     return [...dbRecs, ...recommendations];
@@ -474,7 +465,7 @@ class UnifiedAdvisoryService {
     count: number,
     marketRegime: { regime: string; signal_score: number; confidence: number } | null = null,
   ): Promise<UnifiedAdvisoryDecision[]> {
-    if (!this.genAI) return [];
+    // aiService handles provider availability and fallbacks internally
 
     // Regime context section for the prompt
     const regimeSection = marketRegime
@@ -506,42 +497,17 @@ Rules:
 - Never guarantee returns
 - If regime is bear or high_vol, prefer defensive products`;
 
-    const result = await this.genAI.models.generateContent({
-      model: 'gemini-2.5-flash',
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'object',
-          properties: {
-            recommendations: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  productName: { type: 'string' },
-                  productSymbol: { type: 'string' },
-                  action: { type: 'string' },
-                  amount: { type: 'number' },
-                  primaryReason: { type: 'string' },
-                  supportingFactors: { type: 'array', items: { type: 'string' } },
-                  riskNotes: { type: 'array', items: { type: 'string' } },
-                  confidence: { type: 'number' },
-                  returnBefore: { type: 'number' },
-                  returnAfter: { type: 'number' },
-                  riskBefore: { type: 'string' },
-                  riskAfter: { type: 'string' },
-                },
-                required: ['productName', 'action', 'amount', 'primaryReason', 'confidence'],
-              },
-            },
-          },
-          required: ['recommendations'],
-        },
-      },
-      contents: prompt,
-    });
+    const response = await aiService.chat(
+      [{ role: 'user', content: prompt }],
+      { 
+        provider: 'groq', 
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.3,
+        maxTokens: 2048
+      }
+    );
 
-    const text = result.text || '';
+    const text = response.content || '';
     let parsed: any;
     try {
       parsed = JSON.parse(text);

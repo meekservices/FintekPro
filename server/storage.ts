@@ -2607,7 +2607,7 @@ export class DatabaseStorage implements IStorage {
       return await db
         .select({
           id: schema.users.id,
-          name: schema.users.username,
+          name: sql<string>`COALESCE(NULLIF(TRIM(CONCAT(${schema.users.firstName}, ' ', ${schema.users.lastName})), ''), ${schema.users.userId})`,
           email: schema.users.email
         })
         .from(schema.users)

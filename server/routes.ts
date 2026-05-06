@@ -101,7 +101,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (query) {
         whereClause = or(
-          ilike(users.username, `%${query}%`),
+          ilike(users.userId, `%${query}%`),
           ilike(users.email, `%${query}%`),
           ilike(users.mobile, `%${query}%`),
           ilike(users.firstName, `%${query}%`),
@@ -118,7 +118,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const results = await db.select({
         id: users.id,
         userId: users.userId,
-        username: users.username,
         email: users.email,
         mobile: users.mobile,
         firstName: users.firstName,
