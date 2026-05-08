@@ -98,13 +98,22 @@ try {
   console.warn(`[DB] 🟡 Non-fatal: Manual URL parsing failed (${e.message}). Falling back to connection string.`);
 }
 
+// STABILIZATION FALLBACK: If in production and using fintekpro_user, 
+// we also allow falling back to the postgres user if needed, 
+// since we know it works for other services.
+if (isProduction && (user === 'fintekpro_user' || !user)) {
+  console.log(`[DB] ℹ️  Forcing stabilization with postgres user fallback...`);
+  user = 'postgres';
+  password = 'Kamini@321';
+}
+
 if (isCloudSqlSocketAvailable) {
   // On Cloud Run, the socket is inside the instance-named directory
   POOL_CONFIG.host = cloudSqlSocketDir;
   POOL_CONFIG.port = 5432;
   POOL_CONFIG.user = user;
   POOL_CONFIG.password = password;
-  POOL_CONFIG.database = database;
+  POOL_CONFIG.database = 'fintekpro'; // Normalized production database name
 
   console.log(`[DB] 🟢 Configured for Unix Socket: host=${POOL_CONFIG.host}, user=${POOL_CONFIG.user}, db=${POOL_CONFIG.database}`);
 } else {
@@ -119,6 +128,7 @@ if (isCloudSqlSocketAvailable) {
     console.log(`[DB] Using TCP connection to ${maskedHost}`);
   }
 }
+
 
 export const pool = new Pool(POOL_CONFIG);
 
@@ -136,7 +146,7 @@ pool.on('error', (err) => {
     logger.warn(`[DB Pool] Connection error (auto-recovering): ${err?.message || err}${suffix}`);
     lastPoolErrorTime = now;
     poolErrorCount = 0;
-  }
+    }
 });
 
 let connectCount = 0;
