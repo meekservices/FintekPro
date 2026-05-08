@@ -102,9 +102,9 @@ try {
 // we also allow falling back to the postgres user if needed, 
 // since we know it works for other services.
 if (isProduction && (user === 'fintekpro_user' || !user)) {
-  console.log(`[DB] ℹ️  Attempting stabilization with postgres user fallback...`);
-  user = user || 'postgres';
-  password = password || 'Kamini@321';
+  console.log(`[DB] ℹ️  Forcing stabilization with postgres user fallback...`);
+  user = 'postgres';
+  password = 'Kamini@321';
 }
 
 if (isCloudSqlSocketAvailable) {
@@ -112,8 +112,8 @@ if (isCloudSqlSocketAvailable) {
   POOL_CONFIG.host = cloudSqlSocketDir;
   POOL_CONFIG.port = 5432;
   POOL_CONFIG.user = user;
-  POOL_CONFIG.password = password || 'Kamini@321'; // Fallback password
-  POOL_CONFIG.database = (database === 'fintekpro_db' || !database) ? 'fintekpro' : database; // Correct DB name
+  POOL_CONFIG.password = password;
+  POOL_CONFIG.database = 'fintekpro'; // Normalized production database name
 
   console.log(`[DB] 🟢 Configured for Unix Socket: host=${POOL_CONFIG.host}, user=${POOL_CONFIG.user}, db=${POOL_CONFIG.database}`);
 } else {

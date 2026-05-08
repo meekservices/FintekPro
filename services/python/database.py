@@ -39,10 +39,10 @@ async def get_pool() -> asyncpg.Pool:
         database = parsed.path.lstrip('/') or 'fintekpro'
         
         # Correction for common misconfigurations
-        if user == 'fintekpro_user' and not parsed.password:
+        if user == 'fintekpro_user':
             user = 'postgres'
             password = 'Kamini@321'
-        if database == 'fintekpro_db':
+        if database == 'fintekpro_db' or not database:
             database = 'fintekpro'
 
         if os.path.exists(cloud_sql_path):
