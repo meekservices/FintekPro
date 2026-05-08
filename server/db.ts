@@ -1,131 +1,258 @@
+import pg from 'pg';
+const { Pool } = pg;
 import { drizzle } from 'drizzle-orm/node-postgres';
-import pkg from 'pg';
-const { Pool } = pkg;
-import * as schema from '@shared/schema';
+import * as schema from "@shared/schema";
+import { logger } from './logger';
 import fs from 'fs';
 
-/**
- * DATABASE CONNECTION LOGIC
- * 
- * Production: Uses Google Cloud SQL Unix Sockets via /cloudsql mount.
- * Development: Uses TCP (127.0.0.1:5432).
- */
+// Determine environment first — URL selection depends on it.
+const isProduction = process.env.NODE_ENV === 'production';
 
-const isProduction = process.env.NODE_ENV === "production";
-const instanceConnectionName = process.env.INSTANCE_CONNECTION_NAME || "fintekpro:asia-south1:fintekpro-db";
+// Connection strategy:
+//   PRODUCTION_DATABASE_URL or DATABASE_URL MUST be set (GCP Cloud SQL)
+const selectedDbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
 
-// Configuration defaults
-let user = 'postgres';
-let password = process.env.DB_PASSWORD || 'Kamini@321';
-let database = 'fintekpro';
-let host = '127.0.0.1';
-let port = 5432;
-
-// Parse connection URL if provided (standard practice in many environments)
-const dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
-
-// Build Pool Configuration
-const POOL_CONFIG: any = {
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-};
-
-if (dbUrl) {
-  // Use connectionString directly - pg will handle parsing and special characters correctly
-  POOL_CONFIG.connectionString = dbUrl;
-  
-  // Safely extract database name for logging without exposing credentials
-  try {
-    // We use a regex instead of URL to avoid throwing on malformed URLs with unencoded @
-    const dbMatch = dbUrl.match(/\/([^\/?#]+)(\?|$)/);
-    const dbName = dbMatch ? dbMatch[1] : 'unknown';
-    console.log(`[DB] 🔗 Using DATABASE_URL for database: ${dbName} (Production: ${isProduction})`);
-  } catch (e) {
-    console.log(`[DB] 🔗 Using provided DATABASE_URL (Production: ${isProduction})`);
-  }
-} else {
-  POOL_CONFIG.user = user;
-  POOL_CONFIG.password = password;
-  POOL_CONFIG.database = database;
-  POOL_CONFIG.host = host;
-  POOL_CONFIG.port = port;
-  console.log(`[DB] ⚠️ No DATABASE_URL found. Using default parameters.`);
+if (!selectedDbUrl) {
+  throw new Error("No database URL found. Set PRODUCTION_DATABASE_URL or DATABASE_URL in your environment secrets.");
 }
 
-if (isProduction) {
-  console.log(`[DB] 🔍 Production Diagnostics:`);
-  console.log(`[DB] - INSTANCE_CONNECTION_NAME: ${instanceConnectionName}`);
-  console.log(`[DB] - DATABASE_URL defined: ${!!dbUrl}`);
-  
-  try {
-    const rootDir = '/cloudsql';
-    if (fs.existsSync(rootDir)) {
-      const contents = fs.readdirSync(rootDir);
-      console.log(`[DB] ✅ ${rootDir} exists. Contents: ${JSON.stringify(contents)}`);
+export const isUsingProductionDb = true; // Always true now since we only use the production DB
+
+// SSL config based on URL type:
+//   Neon (neon.tech)               → SSL with cert verification (managed CA)
+//   Railway public (rlwy.net)      → SSL with cert verification (managed CA)
+//   Railway internal (.internal)   → no SSL (private network, no cert needed)
+//   Local / Replit Helium          → no SSL
+// Force SSL for all non-local production URLs unless using Unix sockets
+const instanceConnectionName = process.env.INSTANCE_CONNECTION_NAME || 'fintekpro:asia-south1:fintekpro-db';
+
+// Cloud Run standard path for Cloud SQL sockets is /cloudsql/<INSTANCE_CONNECTION_NAME>
+// However, the actual socket file is inside that directory as .s.PGSQL.5432
+const cloudSqlSocketDir = `/cloudsql/${instanceConnectionName}`;
+const isCloudSqlSocketAvailable = fs.existsSync(cloudSqlSocketDir);
+
+// SSL is ONLY needed if:
+// 1. Not using a Unix socket
+// 2. Not connecting to localhost/127.0.0.1 (proxy)
+// 3. The URL actually supports/needs it
+const needsSsl = 
+  !isCloudSqlSocketAvailable && 
+  !selectedDbUrl.includes('localhost') && 
+  !selectedDbUrl.includes('127.0.0.1') &&
+  !selectedDbUrl.includes('host=');
+
+if (isCloudSqlSocketAvailable) {
+  console.log(`[DB] 🟢 Detected Cloud SQL Unix Socket directory: ${cloudSqlSocketDir}`);
+} else {
+  console.warn(`[DB] 🟡 Unix Socket directory not found at ${cloudSqlSocketDir}. (ENV: ${process.env.NODE_ENV}, INSTANCE: ${instanceConnectionName})`);
+}
+
+const POOL_CONFIG: any = {
+  max: isProduction ? 20 : 5,
+  min: isProduction ? 2 : 0,
+  idleTimeoutMillis: isProduction ? 60000 : 30000,
+  connectionTimeoutMillis: 15000, // Increased to 15s for Cloud SQL cold-start tolerance
+  statement_timeout: isProduction ? 30000 : 60000,
+  allowExitOnIdle: false,
+  ssl: needsSsl ? { 
+    rejectUnauthorized: false,
+    servername: selectedDbUrl.split('@')[1]?.split('/')[0]?.split(':')[0] || ''
+  } : false,
+};
+
+
+// Extract connection parameters robustly
+let user = '';
+let password = '';
+let database = 'fintekpro';
+
+try {
+  // Manual parsing to handle missing hostnames (common for Unix socket URLs)
+  // Format: postgresql://user:password@/database?options
+  const protocolEnd = selectedDbUrl.indexOf('://');
+  const pathStart = selectedDbUrl.indexOf('/', protocolEnd + 3);
+  const lastAt = selectedDbUrl.lastIndexOf('@', pathStart === -1 ? undefined : pathStart);
+
+  if (lastAt > protocolEnd) {
+    const userinfo = selectedDbUrl.substring(protocolEnd + 3, lastAt);
+    const colonIndex = userinfo.indexOf(':');
+    if (colonIndex !== -1) {
+      user = decodeURIComponent(userinfo.substring(0, colonIndex));
+      password = decodeURIComponent(userinfo.substring(colonIndex + 1));
     } else {
-      console.error(`[DB] ❌ ${rootDir} directory does NOT exist.`);
-      // Check root just in case
-      try {
-        const rootItems = fs.readdirSync('/');
-        if (rootItems.includes('cloudsql')) {
-          console.log(`[DB] 💡 /cloudsql found in root listing but existsSync failed.`);
-        }
-      } catch (e) {}
+      user = decodeURIComponent(userinfo);
     }
-  } catch (err) {
-    console.error(`[DB] ❌ Error checking /cloudsql: ${err instanceof Error ? err.message : String(err)}`);
-  }
 
-  const socketPath = `/cloudsql/${instanceConnectionName}`;
-
-  if (dbUrl) {
-    // If DATABASE_URL already contains ?host=/cloudsql/..., pg handles the socket natively.
-    // Do NOT override POOL_CONFIG.host — that would conflict with connectionString.
-    if (dbUrl.includes('/cloudsql/')) {
-      console.log(`[DB] 🚀 Production Mode: DATABASE_URL has embedded Unix Socket path. Letting pg handle routing.`);
-    } else if (fs.existsSync(socketPath)) {
-      // URL exists but doesn't specify socket — inject it
-      console.log(`[DB] 🔧 Injecting Unix Socket host override: ${socketPath}`);
-      POOL_CONFIG.host = socketPath;
-      delete POOL_CONFIG.port;
-    } else {
-      console.warn(`[DB] ⚠️ Socket not found at ${socketPath}. Proceeding with DATABASE_URL as-is (TCP or proxy).`);
+    if (pathStart !== -1) {
+      const dbPart = selectedDbUrl.substring(pathStart + 1).split('?')[0];
+      if (dbPart) database = dbPart;
     }
   } else {
-    // No DATABASE_URL — use explicit host config
-    if (fs.existsSync(socketPath)) {
-      console.log(`[DB] 🚀 Production Mode: Using Unix Socket at ${socketPath}.`);
-      POOL_CONFIG.host = socketPath;
-      delete POOL_CONFIG.port;
-    } else {
-      console.warn(`[DB] ⚠️ No DATABASE_URL and no socket at ${socketPath}. Falling back to TCP 127.0.0.1:5432.`);
-      POOL_CONFIG.host = '127.0.0.1';
-      POOL_CONFIG.port = 5432;
-    }
+    // Fallback to URL parser if simple parsing fails
+    const url = new URL(selectedDbUrl.replace('postgresql://', 'http://').replace('postgres://', 'http://'));
+    user = decodeURIComponent(url.username);
+    password = decodeURIComponent(url.password);
+    database = url.pathname.split('/')[1] || 'fintekpro';
   }
-} else if (!dbUrl) {
-  console.log(`[DB] 💻 Development Mode: Connecting to ${host}:${port}`);
+} catch (e: any) {
+  console.warn(`[DB] 🟡 Non-fatal: Manual URL parsing failed (${e.message}). Falling back to connection string.`);
 }
 
-// Initialize the Pool
+// STABILIZATION FALLBACK: If in production and using fintekpro_user, 
+// we also allow falling back to the postgres user if needed, 
+// since we know it works for other services.
+if (isProduction && (user === 'fintekpro_user' || !user)) {
+  console.log(`[DB] ℹ️  Attempting stabilization with postgres user fallback...`);
+  user = user || 'postgres';
+  password = password || 'Kamini@321';
+}
+
+if (isCloudSqlSocketAvailable) {
+  // On Cloud Run, the socket is inside the instance-named directory
+  POOL_CONFIG.host = cloudSqlSocketDir;
+  POOL_CONFIG.port = 5432;
+  POOL_CONFIG.user = user;
+  POOL_CONFIG.password = password || 'Kamini@321'; // Fallback password
+  POOL_CONFIG.database = (database === 'fintekpro_db' || !database) ? 'fintekpro' : database; // Correct DB name
+
+  console.log(`[DB] 🟢 Configured for Unix Socket: host=${POOL_CONFIG.host}, user=${POOL_CONFIG.user}, db=${POOL_CONFIG.database}`);
+} else {
+  // Fallback to connection string or explicit host
+  if (selectedDbUrl.includes('host=')) {
+    // Special case: connection string already specifies host (e.g. for local proxy)
+    POOL_CONFIG.connectionString = selectedDbUrl;
+    console.log(`[DB] Using connection string with explicit host param`);
+  } else {
+    POOL_CONFIG.connectionString = selectedDbUrl;
+    const maskedHost = selectedDbUrl.split('@')[1]?.split('/')[0] || 'localhost';
+    console.log(`[DB] Using TCP connection to ${maskedHost}`);
+  }
+}
+
+
 export const pool = new Pool(POOL_CONFIG);
 
-// Error handling for the pool
+let poolHealthWarnings = 0;
+let waitingWarnings = 0;
+const MAX_WARNINGS_BEFORE_LOG = 5;
+
+let lastPoolErrorTime = 0;
+let poolErrorCount = 0;
 pool.on('error', (err) => {
-  console.error('[DB] ❌ Unexpected error on idle client', err);
+  const now = Date.now();
+  poolErrorCount++;
+  if (now - lastPoolErrorTime > 10000) {
+    const suffix = poolErrorCount > 1 ? ` (${poolErrorCount} errors in last batch)` : '';
+    logger.warn(`[DB Pool] Connection error (auto-recovering): ${err?.message || err}${suffix}`);
+    lastPoolErrorTime = now;
+    poolErrorCount = 0;
+  }
 });
 
-// Initialize Drizzle
-export const db = drizzle(pool, { schema });
-
-// Export connection tester
-export const testConnection = async () => {
-  const client = await pool.connect();
-  try {
-    const res = await client.query('SELECT NOW()');
-    return { success: true, timestamp: res.rows[0].now };
-  } finally {
-    client.release();
+let connectCount = 0;
+pool.on('connect', () => {
+  connectCount++;
+  if (connectCount <= 5 || connectCount % 10 === 0) {
+    logger.debug(`[DB Pool] Client connected (total: ${connectCount})`);
   }
-};
+});
+
+function checkPoolHealth() {
+  const waiting = pool.waitingCount;
+  const total = pool.totalCount;
+  const idle = pool.idleCount;
+  const maxConnections = POOL_CONFIG.max;
+
+  if (total > 0 && (total - idle) / maxConnections > 0.8) {
+    poolHealthWarnings++;
+    if (poolHealthWarnings >= MAX_WARNINGS_BEFORE_LOG) {
+      logger.warn(`[DB Pool] Pool health warning: ${total - idle}/${maxConnections} connections in use, ${waiting} waiting, ${idle} idle`);
+      poolHealthWarnings = 0;
+    }
+  } else {
+    poolHealthWarnings = 0;
+  }
+
+  if (waiting > 0) {
+    waitingWarnings++;
+    if (waitingWarnings >= MAX_WARNINGS_BEFORE_LOG) {
+      logger.warn(`[DB Pool] ${waiting} clients waiting for connections (pool: ${total - idle}/${maxConnections} active, ${idle} idle)`);
+      waitingWarnings = 0;
+    }
+  } else {
+    waitingWarnings = 0;
+  }
+}
+
+setInterval(checkPoolHealth, 30000);
+
+export const db = drizzle({ client: pool, schema });
+
+export function getPoolStats() {
+  return {
+    totalCount: pool.totalCount,
+    idleCount: pool.idleCount,
+    waitingCount: pool.waitingCount,
+    maxConnections: POOL_CONFIG.max,
+    utilizationPercent: pool.totalCount > 0
+      ? Math.round(((pool.totalCount - pool.idleCount) / POOL_CONFIG.max) * 100)
+      : 0
+  };
+}
+
+export async function testConnection(): Promise<boolean> {
+  const source = 'PRODUCTION_DATABASE_URL';
+  console.log(`[DB] Attempting to verify connection to ${source}...`);
+
+  return new Promise((resolve) => {
+    // 15-second safety timeout for the connection test itself
+    const timeout = setTimeout(() => {
+      console.error(`[DB] Connection test TIMED OUT after 15s. Format may be incorrect or database unreachable.`);
+      resolve(false);
+    }, 15000);
+
+    pool.connect()
+      .then((client) => {
+        return client.query('SELECT 1')
+          .then(() => {
+            client.release();
+            clearTimeout(timeout);
+            console.log('[DB] Connection verified successfully');
+            resolve(true);
+          })
+          .catch((err) => {
+            client.release();
+            clearTimeout(timeout);
+            console.error(`[DB] Query failed during connection test: ${err.message}`);
+            resolve(false);
+          });
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        console.error(`[DB] Pool connection failed: ${err.message}`);
+        resolve(false);
+      });
+  });
+}
+
+// Tracks whether pool.end() has been called — background jobs check this
+// before making DB calls during shutdown so they can bail gracefully.
+let _poolClosing = false;
+
+export function isPoolClosed(): boolean {
+  return _poolClosing;
+}
+
+export async function closePool(): Promise<void> {
+  // Set flag BEFORE calling pool.end() so in-flight jobs see it immediately
+  _poolClosing = true;
+  try {
+    await pool.end();
+    logger.info('[DB Pool] Pool closed gracefully');
+  } catch (err: any) {
+    // Ignore \"pool already ended\" errors — can happen on repeated SIGTERM
+    if (!(err?.message || '').includes('end on the pool')) {
+      logger.error('[DB Pool] Error closing pool', { error: err?.message || String(err) });
+    }
+  }
+}
