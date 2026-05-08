@@ -47,6 +47,9 @@ import { registerPortalSystemRoutes } from "./routes/portal-system";
 import { registerBondsMarketRoutes } from "./routes/bonds-market";
 import { registerUserProfileKYCRoutes } from "./routes/user-profile-kyc";
 import yieldCurveRoutes from "./routes/yield-curve";
+import { registerReportsInlineRoutes } from "./routes/reports-inline";
+import adminMutualFundsRouter from "./routes/admin-mutual-funds-routes";
+import liveMFDataRouter from "./routes/live-mf-data-routes";
 import { Router } from "express";
 
 
@@ -220,6 +223,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Specialized registrations
   registerAppointmentManagementRoutes(app);
+  registerReportsInlineRoutes(app);
+  app.use("/api/admin/mutual-funds", adminMutualFundsRouter);
+  app.use("/api/live-mf", liveMFDataRouter);
 
   // Profile Sharing Toggle
   app.patch("/api/user/profile/sharing", async (req, res) => {
