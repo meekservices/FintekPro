@@ -57,22 +57,43 @@ export function useVersionCheck(): VersionCheckResult {
   }, []);
 
   const forceUpdate = useCallback(async () => {
+    console.log("[VersionCheck] Force update triggered");
+    
+    // 1. Try to tell Service Worker to skip waiting
     if ("serviceWorker" in navigator) {
       try {
         const registration = await navigator.serviceWorker.getRegistration();
         if (registration) {
+          console.log("[VersionCheck] Updating service worker...");
           await registration.update();
-          if (registration.waiting) {
-            registration.waiting.postMessage({ type: "SKIP_WAITING" });
+          
+          // Check waiting, installing, or active
+          const worker = registration.waiting || registration.installing || registration.active;
+          if (worker) {
+            // Send both formats to be safe
+            worker.postMessage("skipWaiting");
+            worker.postMessage({ type: "SKIP_WAITING" });
+            worker.postMessage({ type: "skipWaiting" });
           }
         }
       } catch (err) {
-        console.error("Service worker update failed:", err);
+        console.error("[VersionCheck] Service worker update failed:", err);
       }
     }
     
+    // 2. Clear dismiss flag so we don't get stuck if reload fails
     sessionStorage.removeItem("versionDismissed");
-    window.location.reload();
+    
+    // 3. Reload with cache busting
+    console.log("[VersionCheck] Reloading page...");
+    const url = new URL(window.location.href);
+    url.searchParams.set("v", Date.now().toString());
+    window.location.assign(url.toString());
+    
+    // Fallback if assign doesn't work
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
   }, []);
 
   const dismissUpdate = useCallback(() => {

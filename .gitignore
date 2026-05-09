@@ -102,6 +102,13 @@ fintek_data.dump
 cloudrun-env.yaml
 .gcloud/
 .gcloud_tmp_config/
+.gcloud_temp/
+test-*.ts
+test-*.js
+test-*.mjs
+test-*.cjs
+test-*.sh
+test-*.txt
 .tmp/
 
 # Scratch artifacts

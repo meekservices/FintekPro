@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 import {
   Dialog,
@@ -20,12 +21,21 @@ export function VersionCheckModal() {
     isChecking
   } = useVersionCheck();
 
-  if (!isOutdated) {
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  if (!isOutdated && !isUpdating) {
     return null;
   }
 
+  const handleUpdate = async () => {
+    setIsUpdating(true);
+    // Dismiss locally so the modal closes immediately while reload is happening
+    dismissUpdate();
+    await forceUpdate();
+  };
+
   return (
-    <Dialog open={isOutdated} onOpenChange={(open) => !open && dismissUpdate()}>
+    <Dialog open={isOutdated || isUpdating} onOpenChange={(open) => !open && !isUpdating && dismissUpdate()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
@@ -60,17 +70,18 @@ export function VersionCheckModal() {
           <Button
             variant="outline"
             onClick={dismissUpdate}
+            disabled={isUpdating}
             className="w-full sm:w-auto"
           >
             Remind Me Later
           </Button>
           <Button
-            onClick={forceUpdate}
-            disabled={isChecking}
+            onClick={handleUpdate}
+            disabled={isChecking || isUpdating}
             className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isChecking ? 'animate-spin' : ''}`} />
-            Update Now
+            <RefreshCw className={`h-4 w-4 mr-2 ${(isChecking || isUpdating) ? 'animate-spin' : ''}`} />
+            {isUpdating ? "Updating..." : "Update Now"}
           </Button>
         </DialogFooter>
       </DialogContent>

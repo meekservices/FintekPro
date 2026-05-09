@@ -155,15 +155,24 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('message', (event) => {
   const data = event.data;
-  if (data === 'skipWaiting') {
+  if (!data) return;
+
+  // Handle both string and object messages
+  const type = (typeof data === 'string' ? data : data.type || '').toLowerCase();
+
+  if (type === 'skipwaiting' || type === 'skip_waiting') {
+    console.log('[ServiceWorker] Skip waiting triggered');
     self.skipWaiting();
     return;
   }
-  if (data === 'clearCache') {
+  
+  if (type === 'clearcache' || type === 'clear_cache') {
+    console.log('[ServiceWorker] Clearing all caches');
     caches.keys().then((names) => Promise.all(names.map((n) => caches.delete(n))));
     return;
   }
-  if (data === 'getVersion' && event.ports && event.ports[0]) {
+  
+  if (type === 'getversion' && event.ports && event.ports[0]) {
     event.ports[0].postMessage({ version: VERSION });
     return;
   }
