@@ -1,4 +1,4 @@
-import { pgTable, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, pgEnum, serial, uuid, text } from "drizzle-orm/pg-core";
+import { pgTable, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, pgEnum, serial, uuid, text, sql } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./users";
@@ -111,7 +111,6 @@ export const cashFlows = pgTable("cash_flows", {
   entityDateIdx: index("idx_cash_flow_entity_date").on(table.entityId, table.transactionDate),
 }));
 
-import { sql } from "drizzle-orm";
 
 export const insertTreasuryEntitySchema = createInsertSchema(treasuryEntities);
 export const insertTreasuryAccountSchema = createInsertSchema(treasuryAccounts);

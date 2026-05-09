@@ -103,12 +103,12 @@ cloudrun-env.yaml
 .gcloud/
 .gcloud_tmp_config/
 .gcloud_temp/
-test-*.ts
-test-*.js
-test-*.mjs
-test-*.cjs
-test-*.sh
-test-*.txt
+test-*
+*.tgz
+*.db
+build_errors.txt
+routes_base64.txt
+deploy_test/
 .tmp/
 
 # Scratch artifacts

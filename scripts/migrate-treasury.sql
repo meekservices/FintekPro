@@ -74,3 +74,16 @@ CREATE TABLE IF NOT EXISTS approval_requests (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Fix Database Permissions for Platform Statistics & Cache
+-- Ensure the application user has access to all core tables
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;
+GRANT USAGE ON SCHEMA public TO postgres;
+
+-- Specifically ensure read access to core tables for PlatformStatsCache
+GRANT SELECT ON users TO postgres;
+GRANT SELECT ON agents TO postgres;
+GRANT SELECT ON agent_commissions TO postgres;
+GRANT SELECT ON platform_subscriptions TO postgres;
+
