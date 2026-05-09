@@ -1,0 +1,405 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --base-font-size: 16px;
+  --background: 0 0% 100%;
+  --foreground: 217 33% 17%;
+  --card: 0 0% 100%;
+  --card-foreground: 217 33% 17%;
+  --popover: 0 0% 98%;
+  --popover-foreground: 217 33% 17%;
+  --primary: 214 84% 56%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 20% 96%;
+  --secondary-foreground: 217 33% 17%;
+  --muted: 210 20% 96%;
+  --muted-foreground: 215 16% 46%;
+  --accent: 210 40% 92%;
+  --accent-foreground: 217 33% 17%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 32% 85%;
+  --input: 214 32% 94%;
+  --ring: 214 84% 56%;
+  --chart-1: 214 84% 56%;
+  --chart-2: 150 80% 40%;
+  --chart-3: 42 93% 56%;
+  --chart-4: 147 79% 42%;
+  --chart-5: 341 75% 51%;
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 217 33% 17%;
+  --sidebar-primary: 214 84% 56%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 210 20% 95%;
+  --sidebar-accent-foreground: 214 84% 56%;
+  --sidebar-border: 214 32% 91%;
+  --sidebar-ring: 214 84% 56%;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --font-serif: 'Georgia', serif;
+  --font-mono: 'Fira Code', 'Consolas', 'Monaco', monospace;
+  --radius: 0.5rem;
+  --status-warning: 48 96% 89%;
+  --status-warning-fg: 32 81% 29%;
+  --status-info: 214 100% 93%;
+  --status-info-fg: 214 72% 35%;
+  --status-viewed: 238 100% 93%;
+  --status-viewed-fg: 238 55% 40%;
+  --status-success: 142 76% 90%;
+  --status-success-fg: 142 60% 28%;
+  --status-executed: 152 76% 90%;
+  --status-executed-fg: 152 60% 30%;
+  --status-expired: 33 100% 92%;
+  --status-expired-fg: 21 70% 40%;
+}
+
+.dark {
+  --background: 222 47% 11%;
+  --foreground: 210 40% 98%;
+  --card: 222 47% 16%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 47% 13%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 214 84% 56%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 217 33% 24%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217 33% 22%;
+  --muted-foreground: 215 20% 82%;
+  --accent: 217 33% 28%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 217 33% 35%;
+  --input: 217 33% 24%;
+  --ring: 214 84% 56%;
+  --chart-1: 214 84% 56%;
+  --chart-2: 150 80% 50%;
+  --chart-3: 42 93% 60%;
+  --chart-4: 147 79% 50%;
+  --chart-5: 341 75% 55%;
+  --sidebar-background: 222 47% 11%;
+  --sidebar-foreground: 210 40% 98%;
+  --sidebar-primary: 214 84% 56%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 217 33% 18%;
+  --sidebar-accent-foreground: 214 84% 60%;
+  --sidebar-border: 217 33% 28%;
+  --sidebar-ring: 214 84% 56%;
+  --status-warning: 32 81% 20%;
+  --status-warning-fg: 48 96% 77%;
+  --status-info: 214 84% 22%;
+  --status-info-fg: 214 100% 80%;
+  --status-viewed: 238 55% 22%;
+  --status-viewed-fg: 238 100% 85%;
+  --status-success: 142 60% 18%;
+  --status-success-fg: 142 76% 72%;
+  --status-executed: 152 60% 18%;
+  --status-executed-fg: 152 76% 72%;
+  --status-expired: 21 70% 18%;
+  --status-expired-fg: 33 100% 77%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-size: var(--base-font-size, 16px);
+  }
+
+  body {
+    @apply bg-background text-foreground font-inter;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-inter;
+  }
+}
+
+@layer components {
+  .glass-card {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-400;
+  }
+}
+
+/* Smooth scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* Custom radix select styling */
+[data-radix-popper-content-wrapper] {
+  z-index: 50 !important;
+}
+
+/* Radix UI Combobox / Command styling */
+[cmdk-root] {
+  background: hsl(var(--muted));
+}
+
+[cmdk-separator] {
+  background: hsl(var(--border));
+}
+
+[cmdk-input] {
+  border: 2px solid hsl(var(--border)) !important;
+  background: hsl(var(--popover)) !important;
+}
+
+[cmdk-input]:focus {
+  color: hsl(var(--popover-foreground)) !important;
+}
+
+[cmdk-item] {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+[cmdk-group-heading] {
+  border: 2px solid hsl(var(--border)) !important;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+[cmdk-item][data-selected="true"] {
+  border-color: hsl(var(--primary)) !important;
+  box-shadow: 0 0 0 2px hsl(var(--ring)) !important;
+}
+
+[cmdk-empty] {
+  background: hsl(var(--accent-foreground));
+}
+
+.focus\:ring-2:focus {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Low Data Mode Styles */
+.low-data-mode {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  *[class*="shadow"] {
+    box-shadow: none !important;
+  }
+  
+  .decorative-image {
+    display: none !important;
+  }
+  
+  *[class*="gradient"] {
+    background: hsl(var(--background)) !important;
+  }
+}
+
+/* Dark Mode Visibility Improvements */
+.dark .bg-green-500\/10 {
+  background-color: hsla(142, 76%, 36%, 0.2) !important;
+}
+.dark .bg-amber-500\/10 {
+  background-color: hsla(38, 92%, 50%, 0.2) !important;
+}
+.dark .bg-red-500\/10 {
+  background-color: hsla(0, 84%, 60%, 0.2) !important;
+}
+.dark ::placeholder {
+  color: hsl(215, 20%, 55%) !important;
+}
+.dark td {
+  color: hsl(var(--foreground));
+}
+.dark th {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+.dark p {
+  color: hsl(var(--foreground));
+}
+.dark label {
+  color: hsl(var(--foreground));
+}
+.dark li {
+  color: hsl(var(--foreground));
+}
+.dark span {
+  color: inherit;
+}
+.dark input, .dark select, .dark textarea {
+  color: hsl(var(--foreground));
+}
+.dark .text-muted-foreground {
+  color: hsl(var(--muted-foreground));
+}
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: hsl(var(--foreground));
+}
+.dark [data-slot="card-description"] {
+  color: hsl(var(--muted-foreground));
+}
+.dark [class*="border-border"] {
+  border-color: hsl(var(--border));
+}
+.dark [data-slot="badge"],
+.dark .inline-flex.rounded-full.border {
+  color: hsl(var(--muted-foreground));
+  border-color: hsl(var(--border));
+}
+
+/* Reduced motion preference */
+.reduce-motion,
+.reduce-motion * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* High contrast mode */
+.high-contrast {
+  --border: 217 33% 50%;
+}
+
+.high-contrast.dark {
+  --muted-foreground: 215 15% 85%;
+  --foreground: 0 0% 100%;
+}
+
+.high-contrast:not(.dark) {
+  --muted-foreground: 215 16% 30%;
+  --foreground: 0 0% 0%;
+}
+
+/* Compact mode - tighter spacing throughout */
+.compact-mode {
+  --radius: 0.375rem;
+}
+
+.compact-mode .container {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.compact-mode [data-slot="card"] {
+  padding: 0.75rem;
+}
+
+.compact-mode [data-slot="card-header"] {
+  padding: 0.5rem 0.75rem;
+  gap: 0.25rem;
+}
+
+.compact-mode [data-slot="card-content"] {
+  padding: 0.5rem 0.75rem;
+}
+
+.compact-mode .space-y-6 > * + * {
+  margin-top: 1rem;
+}
+
+.compact-mode .space-y-4 > * + * {
+  margin-top: 0.5rem;
+}
+
+.compact-mode .gap-6 {
+  gap: 1rem;
+}
+
+.compact-mode .gap-4 {
+  gap: 0.5rem;
+}
+
+.compact-mode .p-6 {
+  padding: 1rem;
+}
+
+.compact-mode .p-4 {
+  padding: 0.75rem;
+}
+
+.compact-mode .py-6 {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.compact-mode .mb-6 {
+  margin-bottom: 1rem;
+}
+
+.compact-mode .text-3xl {
+  font-size: 1.5rem;
+}
+
+.compact-mode .text-2xl {
+  font-size: 1.25rem;
+}
+
+/* Mobile-safe area insets for notched devices */
+.safe-area-inset-bottom,
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Prevent horizontal page overflow globally */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Responsive table wrapper for mobile */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure all images and media stay within their containers */
+img, video, iframe, embed, object {
+  max-width: 100%;
+}
+
+/* All tables scrollable on mobile */
+table {
+  min-width: 0;
+}
+
+/* Mobile portal layout overlay for sidebars */
+.mobile-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  z-index: 40;
+}

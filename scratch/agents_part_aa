@@ -1,0 +1,675 @@
+import { sql } from "drizzle-orm";
+import { boolean, date, decimal, index, integer, jsonb, numeric, pgTable, real, serial, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+import { users } from './users';
+import { agentBaskets } from './kyc';
+import { partners } from './partners';
+
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+const AADHAAR_REGEX = /^[2-9]{1}[0-9]{11}$/;
+const ARN_REGEX = /^ARN-[0-9]+$/;
+const ICAI_MEMBERSHIP_REGEX = /^[0-9]{6}$/;
+// --- Core Agent Master Tables ---
+
+// Agents table
+export const customerCareAgents = pgTable("customer_care_agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fullName: varchar("full_name").notNull(),
+  email: varchar("email").unique().notNull(),
+  phone: varchar("phone"),
+  employeeId: varchar("employee_id").unique(),
+  euinNumber: varchar("euin_number").unique(),
+  arnCode: varchar("arn_code"),
+  distributorId: varchar("distributor_id"),
+  distributorName: varchar("distributor_name"), 
+  password: text("password"),
+  specializations: text("specializations").array().default([]),
+  languages: text("languages").array().default(["en"]),
+  productTypes: text("product_types").array().default([]),
+  regulatoryCategory: varchar("regulatory_category").default("loan_dsa"),
+  masterAgentId: varchar("master_agent_id"),
+  agentLevel: varchar("agent_level").default("master"),
+  hierarchyPath: varchar("hierarchy_path"),
+  arnVerificationStatus: varchar("arn_verification_status").default("pending"),
+  euinVerificationStatus: varchar("euin_verification_status").default("pending"),
+  amfiVerifiedAt: timestamp("amfi_verified_at"),
+  amfiVerificationResponse: jsonb("amfi_verification_response"),
+  arnExpiryDate: timestamp("arn_expiry_date"),
+  commissionSplitModel: varchar("commission_split_model").default("standard"),
+  defaultCommissionShare: decimal("default_commission_share", { precision: 5, scale: 2 }).default("100.00"),
+  masterAgentShare: decimal("master_agent_share", { precision: 5, scale: 2 }).default("0.00"),
+  onboardingStatus: varchar("onboarding_status").default("pending"),
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+  rejectionReason: text("rejection_reason"),
+  panNumber: varchar("pan_number", { length: 10 }),
+  panName: varchar("pan_name"),
+  aadharNumber: varchar("aadhar_number", { length: 12 }),
+  aadharName: varchar("aadhar_name"),
+  bankAccountNumber: varchar("bank_account_number"),
+  bankIfscCode: varchar("bank_ifsc_code"),
+  bankName: varchar("bank_name"),
+  bankBranch: varchar("bank_branch"),
+  accountHolderName: varchar("account_holder_name"),
+  panVerified: boolean("pan_verified").default(false),
+  aadharVerified: boolean("aadhar_verified").default(false),
+  bankAccountVerified: boolean("bank_account_verified").default(false),
+  amfiCertificateVerified: boolean("amfi_certificate_verified").default(false),
+  euinCardVerified: boolean("euin_card_verified").default(false),
+  status: varchar("status").default("active"),
+  maxTicketsPerDay: integer("max_tickets_per_day").default(50),
+  currentTicketCount: integer("current_ticket_count").default(0),
+  totalTicketsHandled: integer("total_tickets_handled").default(0),
+  averageResolutionTime: decimal("average_resolution_time", { precision: 8, scale: 2 }),
+  customerSatisfactionRating: decimal("customer_satisfaction_rating", { precision: 3, scale: 2 }),
+  totalClientsAssigned: integer("total_clients_assigned").default(0),
+  activeClientsCount: integer("active_clients_count").default(0),
+  totalCommissionsEarned: decimal("total_commissions_earned", { precision: 15, scale: 2 }).default("0.00"),
+  totalCommissionsPaid: decimal("total_commissions_paid", { precision: 15, scale: 2 }).default("0.00"),
+  pendingCommissions: decimal("pending_commissions", { precision: 15, scale: 2 }).default("0.00"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCustomerCareAgentSchema = createInsertSchema(customerCareAgents).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  panNumber: z.string().regex(PAN_REGEX, "Invalid PAN format").optional().nullable(),
+  aadharNumber: z.string().regex(AADHAAR_REGEX, "Invalid Aadhaar format").optional().nullable(),
+  arnCode: z.string().regex(ARN_REGEX, "Invalid ARN format (should be ARN-XXXXX)").optional().nullable(),
+});
+
+export const certificationQuizzes = pgTable("certification_quizzes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  certificationLevel: varchar("certification_level", { length: 5 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  questions: jsonb("questions").default([]).notNull(),
+  passingScore: integer("passing_score").default(70).notNull(),
+  timeLimitMinutes: integer("time_limit_minutes").default(30),
+  maxAttempts: integer("max_attempts").default(3),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_cq_level").on(table.certificationLevel),
+]);
+
+export const quizAttempts = pgTable("quiz_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quizId: varchar("quiz_id").references(() => certificationQuizzes.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  answers: jsonb("answers").default([]),
+  score: integer("score").notNull(),
+  passed: boolean("passed").notNull(),
+  timeTakenSeconds: integer("time_taken_seconds"),
+  attemptNumber: integer("attempt_number").default(1).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_qa_quiz").on(table.quizId),
+  index("idx_qa_agent").on(table.agentId),
+]);
+
+export const insertQuizAttemptSchema = createInsertSchema(quizAttempts).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
+export type QuizAttempt = typeof quizAttempts.$inferSelect;
+export const insertCertificationQuizSchema = createInsertSchema(certificationQuizzes).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+export type CertificationQuiz = typeof certificationQuizzes.$inferSelect;
+
+// --- Auto-Migrated Tables ---
+export const agentPartnerMappings = pgTable("agent_partner_mappings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => customerCareAgents.id).notNull(),
+  partnerId: varchar("partner_id").references(() => partners.id).notNull(),
+  // Mapping details
+  isActive: boolean("is_active").default(true),
+  priority: integer("priority").default(1), // 1 = primary, 2 = secondary, etc.
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  assignedBy: varchar("assigned_by").references(() => users.id), // Admin who made the assignment
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const agentCommissionSplits = pgTable("agent_commission_splits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subAgentId: varchar("sub_agent_id").references(() => customerCareAgents.id).notNull(),
+  masterAgentId: varchar("master_agent_id").references(() => customerCareAgents.id).notNull(),
+  
+  // Split Configuration
+  splitModel: varchar("split_model").default("percentage"), // percentage, fixed_amount, tiered
+  productType: varchar("product_type"), // mutual_funds, insurance, loans, equity - null means all products
+  
+  // Percentage Split (most common)
+  subAgentShare: decimal("sub_agent_share", { precision: 5, scale: 2 }).notNull(), // % for sub-agent
+  masterAgentShare: decimal("master_agent_share", { precision: 5, scale: 2 }).notNull(), // % for master
+  
+  // Fixed Amount Split (optional)
+  fixedSubAgentAmount: decimal("fixed_sub_agent_amount", { precision: 10, scale: 2 }),
+  fixedMasterAmount: decimal("fixed_master_amount", { precision: 10, scale: 2 }),
+  
+  // Tiered Split (based on volume)
+  tieredRules: jsonb("tiered_rules"), // [{minVolume: 0, maxVolume: 100000, subShare: 60, masterShare: 40}, ...]
+  
+  // Validity
+  effectiveFrom: timestamp("effective_from").notNull().defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+  isActive: boolean("is_active").default(true),
+  
+  // Audit
+  createdBy: varchar("created_by").references(() => users.id),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const agentDocuments = pgTable("agent_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => customerCareAgents.id).notNull(),
+  
+  // Document Details
+  documentType: varchar("document_type").notNull(), // pan_card, aadhar_card, amfi_certificate, euin_card, bank_proof, cancelled_cheque
+  documentName: varchar("document_name").notNull(),
+  documentUrl: text("document_url").notNull(), // Object storage URL
+  documentNumber: varchar("document_number"), // PAN number, Aadhar number, etc.
+  
+  // Verification Status
+  verificationStatus: varchar("verification_status").default("pending"), // pending, verified, rejected
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Metadata
+  fileSize: integer("file_size"), // in bytes
+  mimeType: varchar("mime_type"),
+  uploadedFrom: varchar("uploaded_from"), // web, mobile, admin
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const agentCommissions = pgTable("agent_commissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => customerCareAgents.id).notNull(),
+  masterAgentId: varchar("master_agent_id").references(() => customerCareAgents.id), // Null if this is master agent
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  
+  // Transaction Reference
+  orderId: varchar("order_id").notNull(), // Link to unified_orders or product-specific order
+  productType: varchar("product_type").notNull(), // mutual_funds, insurance, loans, equity
+  transactionType: varchar("transaction_type").notNull(), // purchase, sip, renewal, redemption
+  
+  // Amount Breakdown
+  transactionAmount: decimal("transaction_amount", { precision: 15, scale: 2 }).notNull(),
+  totalCommissionAmount: decimal("total_commission_amount", { precision: 15, scale: 2 }).notNull(), // Total commission on transaction
+  
+  // Agent's Share
+  agentCommissionRate: decimal("agent_commission_rate", { precision: 5, scale: 2 }).notNull(),
+  agentCommissionAmount: decimal("agent_commission_amount", { precision: 15, scale: 2 }).notNull(),
+  agentTdsAmount: decimal("agent_tds_amount", { precision: 15, scale: 2 }).default("0.00"),
+  agentNetCommission: decimal("agent_net_commission", { precision: 15, scale: 2 }).notNull(),
+  
+  // Master Agent's Share (if applicable)
+  masterCommissionRate: decimal("master_commission_rate", { precision: 5, scale: 2 }).default("0.00"),
+  masterCommissionAmount: decimal("master_commission_amount", { precision: 15, scale: 2 }).default("0.00"),
+  masterTdsAmount: decimal("master_tds_amount", { precision: 15, scale: 2 }).default("0.00"),
+  masterNetCommission: decimal("master_net_commission", { precision: 15, scale: 2 }).default("0.00"),
+  
+  // Split Rule Applied
+  splitRuleId: varchar("split_rule_id").references(() => agentCommissionSplits.id),
+  
+  // Settlement Status
+  agentSettlementStatus: varchar("agent_settlement_status").default("pending"), // pending, settled, cancelled
+  masterSettlementStatus: varchar("master_settlement_status").default("pending"),
+  agentSettledAt: timestamp("agent_settled_at"),
+  masterSettledAt: timestamp("master_settled_at"),
+  
+  // Metadata
+  transactionDate: timestamp("transaction_date").notNull().defaultNow(),
+  month: varchar("month").notNull(), // YYYY-MM
+  financialYear: varchar("financial_year"), // FY2024-25
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Alias for revenue tracking routes that expect this name
+export const agentRevenueTracking = agentCommissions;
+
+
+export const agents = pgTable("agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // Optional link to user account
+  
+  // Personal Information
+  fullName: varchar("full_name").notNull(),
+  email: varchar("email").unique().notNull(),
+  phone: varchar("phone"),
+  address: text("address"),
+  
+  // Agent Identification
+  employeeId: varchar("employee_id").unique(), // Internal employee/agent ID
+  arnCode: varchar("arn_code"), // AMFI Registration Number for MF distributors
+  euinNumber: varchar("euin_number"), // Employee Unique Identification Number
+  pospNumber: varchar("posp_number"), // Point of Sales Person for insurance
+  dsaCode: varchar("dsa_code"), // Direct Selling Agent code for loans
+  
+  // KYC & Bank Details
+  panNumber: varchar("pan_number"),
+  aadharNumber: varchar("aadhar_number"),
+  bankAccountNumber: varchar("bank_account_number"),
+  ifscCode: varchar("ifsc_code"),
+  upiId: varchar("upi_id"),
+  
+  // Agent Type and Status
+  agentType: varchar("agent_type").default("individual"), // individual, corporate, sub_broker
+  status: varchar("status").default("active"), // active, inactive, suspended, terminated
+  isActive: boolean("is_active").default(true),
+  
+  // Performance Metrics
+  activeClients: integer("active_clients").default(0),
+  totalClients: integer("total_clients").default(0),
+  totalRevenue: decimal("total_revenue", { precision: 15, scale: 2 }).default("0.00"),
+  monthlyRevenue: decimal("monthly_revenue", { precision: 15, scale: 2 }).default("0.00"),
+  totalCommissionsEarned: decimal("total_commissions_earned", { precision: 15, scale: 2 }).default("0.00"),
+  
+  // Hierarchy and Reporting
+  reportingTo: varchar("reporting_to"), // Manager/supervisor agent ID - self-reference
+  teamSize: integer("team_size").default(0), // Number of agents reporting to this agent
+  hierarchyLevel: integer("hierarchy_level").default(1), // 1 = frontline, 2 = team lead, 3 = manager, etc.
+  
+  // Joining and Contract Details
+  joiningDate: timestamp("joining_date"),
+  terminationDate: timestamp("termination_date"),
+  contractType: varchar("contract_type").default("full_time"), // full_time, part_time, freelance, commission_only
+  
+  // Commission Structure
+  commissionTier: varchar("commission_tier").default("standard"), // standard, silver, gold, platinum
+  baseCommissionRate: decimal("base_commission_rate", { precision: 5, scale: 2 }).default("0.00"), // Base % commission
+  
+  // Marketing Profile - for festival greetings and marketing materials
+  marketingName: varchar("marketing_name"), // Display name for marketing materials
+  marketingDesignation: varchar("marketing_designation"), // Display designation
+  marketingEmail: varchar("marketing_email"), // Contact email for marketing
+  marketingPhone: varchar("marketing_phone"), // Contact phone for marketing
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAgentSchema = createInsertSchema(agents).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  panNumber: z.string().regex(PAN_REGEX, "Invalid PAN format").optional().nullable(),
+  aadharNumber: z.string().regex(AADHAAR_REGEX, "Invalid Aadhaar format").optional().nullable(),
+  arnCode: z.string().regex(ARN_REGEX, "Invalid ARN format (should be ARN-XXXXX)").optional().nullable(),
+});
+
+export const agentOverrideAuditLog = pgTable("agent_override_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Agent identification
+  agentId: varchar("agent_id").notNull(),
+  agentName: varchar("agent_name"),
+  
+  // Client context
+  clientId: varchar("client_id").notNull(),
+  basketId: varchar("basket_id"),
+  
+  // Override details
+  overrideType: varchar("override_type").notNull(), // mode_downgrade, asset_class_lock, allocation_cap
+  previousValue: text("previous_value"),
+  newValue: text("new_value"),
+  reason: text("reason").notNull(),
+  
+  // Mode context
+  originalMode: varchar("original_mode").notNull(), // conservative, balanced, growth
+  overriddenMode: varchar("overridden_mode"),
+  
+  // Scoring snapshot (immutable at time of override)
+  scoringSnapshot: jsonb("scoring_snapshot").$type<{
+    suitabilityScore: number;
+    upsideScore: number;
+    finalScore: number;
+    productId?: string;
+    productType?: string;
+  }>(),
+  
+  // Compliance metadata
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  complianceFlag: boolean("compliance_flag").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_override_agent").on(table.agentId),
+  index("idx_agent_override_client").on(table.clientId),
+  index("idx_agent_override_type").on(table.overrideType),
+  index("idx_agent_override_created").on(table.createdAt),
+]);
+
+// A/B Testing Experiment State - Persistent kill switch and config
+export const abTestingExperimentState = pgTable("ab_testing_experiment_state", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  experimentId: varchar("experiment_id").notNull().unique(),
+  experimentName: varchar("experiment_name").notNull(),
+  
+  // Kill switch state
+  isActive: boolean("is_active").default(true).notNull(),
+  killSwitchActivated: boolean("kill_switch_activated").default(false).notNull(),
+  killSwitchActivatedAt: timestamp("kill_switch_activated_at"),
+  killSwitchActivatedBy: varchar("kill_switch_activated_by"),
+  killSwitchReason: text("kill_switch_reason"),
+  
+  // Experiment configuration
+  controlGroup: varchar("control_group").default("balanced"),
+  treatmentGroup: varchar("treatment_group").default("growth"),
+  trafficAllocation: integer("traffic_allocation").default(50), // Percentage to treatment
+  
+  // Safety thresholds
+  safetyThresholds: jsonb("safety_thresholds").$type<{
+    maxAcceptanceRateDiff: number;
+    maxAllocationDiff: number;
+    minSampleSize: number;
+  }>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ab_experiment_id").on(table.experimentId),
+  index("idx_ab_experiment_active").on(table.isActive),
+]);
+
+// A/B Testing Metrics Collection
+export const abTestingMetrics = pgTable("ab_testing_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  experimentId: varchar("experiment_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  
+  // Assignment info
+  assignedGroup: varchar("assigned_group").notNull(), // control or treatment
+  assignedMode: varchar("assigned_mode").notNull(), // balanced or growth
+  
+  // Engagement metrics
+  recommendationsViewed: integer("recommendations_viewed").default(0),
+  recommendationsAccepted: integer("recommendations_accepted").default(0),
+  totalAllocationAmount: decimal("total_allocation_amount", { precision: 18, scale: 2 }).default("0"),
+  timeToDecisionMs: integer("time_to_decision_ms"),
+  
+  // Outcome tracking
+  sessionStartedAt: timestamp("session_started_at").defaultNow(),
+  lastActivityAt: timestamp("last_activity_at").defaultNow(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ab_metrics_experiment").on(table.experimentId),
+  index("idx_ab_metrics_user").on(table.userId),
+  index("idx_ab_metrics_group").on(table.assignedGroup),
+]);
+
+// Insert schemas for profit-optimized tables
+export const insertAgentOverrideAuditLogSchema = createInsertSchema(agentOverrideAuditLog).extend({
+  id: z.any(),
+  createdAt: z.any(),
+}).omit({ id: true, createdAt: true });
+
+export type AgentOverrideAuditLog = typeof agentOverrideAuditLog.$inferSelect;
+
+export type InsertAgentOverrideAuditLog = z.infer<typeof insertAgentOverrideAuditLogSchema>;
+
+export const agentPerformanceMetrics = pgTable("agent_performance_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  agentId: varchar("agent_id").notNull(),
+  agentName: varchar("agent_name"),
+  
+  // Time period
+  periodStart: date("period_start").notNull(),
+  periodEnd: date("period_end").notNull(),
+  periodType: varchar("period_type").notNull(), // daily, weekly, monthly, quarterly
+  
+  // Recommendation metrics
+  totalRecommendations: integer("total_recommendations").default(0),
+  acceptedRecommendations: integer("accepted_recommendations").default(0),
+  rejectedRecommendations: integer("rejected_recommendations").default(0),
+  pendingRecommendations: integer("pending_recommendations").default(0),
+  
+  // Mode usage
+  conservativeModeCount: integer("conservative_mode_count").default(0),
+  balancedModeCount: integer("balanced_mode_count").default(0),
+  growthModeCount: integer("growth_mode_count").default(0),
+  
+  // Override metrics
+  totalOverrides: integer("total_overrides").default(0),
+  modeDowngradeOverrides: integer("mode_downgrade_overrides").default(0),
+  assetClassLockOverrides: integer("asset_class_lock_overrides").default(0),
+  allocationCapOverrides: integer("allocation_cap_overrides").default(0),
+  
+  // Compliance metrics
+  complianceViolations: integer("compliance_violations").default(0),
+  clientComplaints: integer("client_complaints").default(0),
+  
+  // AUM and revenue
+  totalAumManaged: decimal("total_aum_managed", { precision: 18, scale: 2 }).default("0"),
+  newAumBrought: decimal("new_aum_brought", { precision: 18, scale: 2 }).default("0"),
+  totalCommissionEarned: decimal("total_commission_earned", { precision: 18, scale: 2 }).default("0"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_perf_agent").on(table.agentId),
+  index("idx_agent_perf_period").on(table.periodStart, table.periodEnd),
+  index("idx_agent_perf_type").on(table.periodType),
+]);
+
+// Agent Portfolio Outcomes - Ex-post performance attribution
+export const agentPortfolioOutcomes = pgTable("agent_portfolio_outcomes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  agentId: varchar("agent_id").notNull(),
+  clientId: varchar("client_id").notNull(),
+  proposalId: varchar("proposal_id"),
+  
+  // Performance metrics
+  portfolioIrr: decimal("portfolio_irr", { precision: 8, scale: 4 }),
+  benchmarkReturn: decimal("benchmark_return", { precision: 8, scale: 4 }),
+  excessReturn: decimal("excess_return", { precision: 8, scale: 4 }),
+  
+  // Risk metrics
+  upsideCaptureRatio: decimal("upside_capture_ratio", { precision: 8, scale: 4 }),
+  downsideCaptureRatio: decimal("downside_capture_ratio", { precision: 8, scale: 4 }),
+  maxDrawdown: decimal("max_drawdown", { precision: 8, scale: 4 }),
+  portfolioVolatility: decimal("portfolio_volatility", { precision: 8, scale: 4 }),
+  
+  // Client risk band comparison
+  clientRiskProfile: varchar("client_risk_profile"), // conservative, moderate, aggressive
+  actualRiskLevel: varchar("actual_risk_level"),
+  withinRiskBand: boolean("within_risk_band").default(true),
+  
+  // Benchmark info
+  benchmarkUsed: varchar("benchmark_used"), // NIFTY_50, CRISIL_COMPOSITE_BOND, etc.
+  evaluationPeriodMonths: integer("evaluation_period_months"),
+  
+  calculatedAt: timestamp("calculated_at").defaultNow().notNull(),
+  dataAsOfDate: date("data_as_of_date"),
+}, (table) => [
+  index("idx_portfolio_outcome_agent").on(table.agentId),
+  index("idx_portfolio_outcome_client").on(table.clientId),
+]);
+
+// Agent Certification & Training
+export const agentCertifications = pgTable("agent_certifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  agentId: varchar("agent_id").notNull(),
+  
+  // Certification type
+  certificationType: varchar("certification_type").notNull(), // growth_optimized, advanced_advisory, compliance_expert
+  certificationName: varchar("certification_name").notNull(),
+  
+  // Training completion
+  trainingCompletedAt: timestamp("training_completed_at"),
+  trainingModulesCompleted: integer("training_modules_completed").default(0),
+  totalTrainingModules: integer("total_training_modules").default(0),
+  
+  // Quiz results
+  quizAttempts: integer("quiz_attempts").default(0),
+  quizPassedAt: timestamp("quiz_passed_at"),
+  quizScore: integer("quiz_score"), // Percentage
+  passingScore: integer("passing_score").default(80),
+  
+  // Certification status
+  isCertified: boolean("is_certified").default(false),
+  certifiedAt: timestamp("certified_at"),
+  expiresAt: timestamp("expires_at"),
+  
+  // Revocation
+  isRevoked: boolean("is_revoked").default(false),
+  revokedAt: timestamp("revoked_at"),
+  revocationReason: text("revocation_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_agent_cert_agent").on(table.agentId),
+  index("idx_agent_cert_type").on(table.certificationType),
+  index("idx_agent_cert_status").on(table.isCertified),
+]);
+
+// Agent Compliance Document Repository (for SEBI inspection-ready docs)
+export const insertAgentPerformanceMetricsSchema = createInsertSchema(agentPerformanceMetrics).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+export type AgentPerformanceMetrics = typeof agentPerformanceMetrics.$inferSelect;
+export type InsertAgentPerformanceMetrics = z.infer<typeof insertAgentPerformanceMetricsSchema>;
+
+export const insertAgentPortfolioOutcomesSchema = createInsertSchema(agentPortfolioOutcomes).extend({
+  id: z.any(),
+  calculatedAt: z.any(),
+}).omit({ id: true, calculatedAt: true });
+
+export type AgentPortfolioOutcomes = typeof agentPortfolioOutcomes.$inferSelect;
+
+export type InsertAgentPortfolioOutcomes = z.infer<typeof insertAgentPortfolioOutcomesSchema>;
+
+export const insertAgentCertificationsSchema = createInsertSchema(agentCertifications).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export type AgentCertifications = typeof agentCertifications.$inferSelect;
+
+export type InsertAgentCertifications = z.infer<typeof insertAgentCertificationsSchema>;
+
+export const agentLeads = pgTable("agent_leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Agent assignment
+  agentId: varchar("agent_id").references(() => users.id),
+  
+  // Lead details
+  name: varchar("name").notNull(),
+  email: varchar("email"),
+  phone: varchar("phone"),
+  
+  // Pipeline stage
+  stage: varchar("stage").notNull().default("new"), // new, contacted, proposal_sent, negotiating, converted, lost
+  
+  // Lead source and scoring
+  source: varchar("source").default("manual"), // website, referral, linkedin, event, cold_call, manual
+  potentialValue: numeric("potential_value").default("0"),
+  score: integer("score").default(50), // 0-100 lead score
+  
+  // Notes and follow-ups
+  notes: text("notes"),
+  lastContactAt: timestamp("last_contact_at"),
+  nextFollowUpAt: timestamp("next_follow_up_at"),
+  
+  // Tags for categorization
+  tags: text("tags").array(),
+  
+  // Conversion tracking
+  convertedToUserId: varchar("converted_to_user_id").references(() => users.id),
+  convertedAt: timestamp("converted_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_agent_leads_agent").on(table.agentId),
+  index("idx_agent_leads_stage").on(table.stage),
+  index("idx_agent_leads_created").on(table.createdAt),
+]);
+
+export const insertAgentLeadSchema = createInsertSchema(agentLeads).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const agentItrCases = pgTable("agent_itr_cases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: varchar("client_id").references(() => users.id).notNull(),
+  agentId: varchar("agent_id").references(() => users.id).notNull(),
+  caId: varchar("ca_id").references(() => users.id), // Assigned Chartered Accountant
+  
+  // Assessment Year
+  assessmentYear: varchar("assessment_year").notNull(), // e.g., "2024-25"
+  financialYear: varchar("financial_year").notNull(), // e.g., "2023-24"
+  
+  // ITR Details
+  itrFormType: varchar("itr_form_type"), // ITR-1, ITR-2, ITR-3, ITR-4
+  filingType: varchar("filing_type").default("original"), // original, revised, belated
+  
+  // Status Workflow
+  status: varchar("status").default("initiated").notNull(), // initiated, documents_pending, documents_received, under_review, ca_assigned, processing, filed, acknowledged, completed
+  subStatus: varchar("sub_status"), // more granular status
+  
+  // Income Details (Pre-filled from portfolio)
+  salaryIncome: decimal("salary_income", { precision: 15, scale: 2 }).default("0"),
+  interestIncome: decimal("interest_income", { precision: 15, scale: 2 }).default("0"),
+  dividendIncome: decimal("dividend_income", { precision: 15, scale: 2 }).default("0"),
+  capitalGainsStcg: decimal("capital_gains_stcg", { precision: 15, scale: 2 }).default("0"),
+  capitalGainsLtcg: decimal("capital_gains_ltcg", { precision: 15, scale: 2 }).default("0"),
+  businessIncome: decimal("business_income", { precision: 15, scale: 2 }).default("0"),
+  otherIncome: decimal("other_income", { precision: 15, scale: 2 }).default("0"),
+  totalGrossIncome: decimal("total_gross_income", { precision: 15, scale: 2 }).default("0"),
+  
+  // Deductions
+  section80c: decimal("section_80c", { precision: 15, scale: 2 }).default("0"),
+  section80d: decimal("section_80d", { precision: 15, scale: 2 }).default("0"),
+  otherDeductions: decimal("other_deductions", { precision: 15, scale: 2 }).default("0"),
+  totalDeductions: decimal("total_deductions", { precision: 15, scale: 2 }).default("0"),
+  
+  // Tax Computation
+  taxableIncome: decimal("taxable_income", { precision: 15, scale: 2 }).default("0"),
+  taxRegime: varchar("tax_regime").default("new"), /

@@ -246,6 +246,10 @@ export const agentCommissions = pgTable("agent_commissions", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Alias for revenue tracking routes that expect this name
+export const agentRevenueTracking = agentCommissions;
+
+
 export const agents = pgTable("agents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id), // Optional link to user account

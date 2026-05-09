@@ -1,5 +1,4 @@
 import { pgTable, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, pgEnum, serial, uuid, text } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./users";
@@ -52,8 +51,7 @@ export const treasuryAccounts = pgTable("treasury_accounts", {
   branchName: varchar("branch_name"),
   accountType: treasuryAccountTypeEnum("account_type").notNull().default("current"),
   currency: varchar("currency").default("INR"),
-  provider: varchar("provider"), // Primary: Cashfree, Decentro. Deprecated: RazorpayX
-
+  provider: varchar("provider"), // RazorpayX, Cashfree, Decentro, etc.
   providerAccountId: varchar("provider_account_id"),
   isVirtual: boolean("is_virtual").default(false),
   status: varchar("status").default("active"),
@@ -113,6 +111,7 @@ export const cashFlows = pgTable("cash_flows", {
   entityDateIdx: index("idx_cash_flow_entity_date").on(table.entityId, table.transactionDate),
 }));
 
+import { sql } from "drizzle-orm";
 
 export const insertTreasuryEntitySchema = createInsertSchema(treasuryEntities);
 export const insertTreasuryAccountSchema = createInsertSchema(treasuryAccounts);

@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, boolean, index, integer, jsonb, decimal, date } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -329,77 +331,6 @@ export const platformSubscriptions = pgTable("platform_subscriptions", {
 });
 
 
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
-
-// Types
-export type User = typeof users.$inferSelect;
-export type InsertUser = typeof users.$inferInsert;
-export type UpsertUser = Partial<User> & { userId: string; email?: string; mobile?: string };
-
-export type UserProfile = typeof userProfiles.$inferSelect;
-export type InsertUserProfile = typeof userProfiles.$inferInsert;
-
-export type UserBankAccount = typeof userBankAccounts.$inferSelect;
-export type InsertUserBankAccount = typeof userBankAccounts.$inferInsert;
-
-export type UserDematAccount = typeof userDematAccounts.$inferSelect;
-export type InsertUserDematAccount = typeof userDematAccounts.$inferInsert;
-
-export type PlatformSubscription = typeof platformSubscriptions.$inferSelect;
-export type InsertPlatformSubscription = typeof platformSubscriptions.$inferInsert;
-
-// Zod Schemas
-export const insertUserSchema = createInsertSchema(users).extend({
-  id: z.any(),
-  createdAt: z.any(),
-  updatedAt: z.any(),
-}).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertUserProfileSchema = createInsertSchema(userProfiles).extend({
-  id: z.any(),
-  createdAt: z.any(),
-  updatedAt: z.any(),
-}).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertUserBankAccountSchema = createInsertSchema(userBankAccounts).extend({
-  id: z.any(),
-  createdAt: z.any(),
-  updatedAt: z.any(),
-}).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertUserDematAccountSchema = createInsertSchema(userDematAccounts).extend({
-  id: z.any(),
-  createdAt: z.any(),
-  updatedAt: z.any(),
-}).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertPlatformSubscriptionSchema = createInsertSchema(platformSubscriptions).extend({
-  id: z.any(),
-  createdAt: z.any(),
-  updatedAt: z.any(),
-}).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
 // --- Alpaca Integrations Tables ---
 
 export const alpacaAccounts = pgTable("alpaca_accounts", {
@@ -470,4 +401,3 @@ export const insertAlpacaAccountSchema = createInsertSchema(alpacaAccounts).omit
 export const insertAlpacaOrderSchema = createInsertSchema(alpacaOrders).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAlpacaPositionSchema = createInsertSchema(alpacaPositions).omit({ id: true, updatedAt: true });
 export const insertAlpacaTradeLogSchema = createInsertSchema(alpacaTradeLogs).omit({ id: true, timestamp: true });
-

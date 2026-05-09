@@ -1,0 +1,5 @@
+
+// Zoho Integration Routes
+import zohoRoutes from "./zoho/routes";
+app.use("/api/zoho", zohoRoutes);
+

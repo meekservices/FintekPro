@@ -1,0 +1,1416 @@
+ue },
+      { id: 'cat-stocks', name: 'Stocks & Equities', slug: 'stocks', icon: 'BarChart3', displayOrder: 4, isActive: true },
+      { id: 'cat-ipo-preipo', name: 'IPO & Pre-IPO', slug: 'ipo-preipo', icon: 'Rocket', displayOrder: 5, isActive: true },
+      { id: 'cat-unlisted', name: 'Unlisted Shares', slug: 'unlisted', icon: 'Building2', displayOrder: 6, isActive: true },
+      { id: 'cat-aif', name: 'AIF', slug: 'aif', icon: 'Briefcase', displayOrder: 7, isActive: true },
+      { id: 'cat-pms', name: 'PMS', slug: 'pms', icon: 'Wallet', displayOrder: 8, isActive: true },
+      { id: 'cat-mlds', name: 'MLDs', slug: 'mlds', icon: 'Layers', displayOrder: 9, isActive: true },
+      { id: 'cat-insurance', name: 'Insurance', slug: 'insurance', icon: 'Shield', displayOrder: 10, isActive: true },
+      { id: 'cat-loans', name: 'Loans & Credit', slug: 'loans', icon: 'CreditCard', displayOrder: 11, isActive: false },
+      { id: 'cat-tax', name: 'Tax Services', slug: 'tax', icon: 'Calculator', displayOrder: 12, isActive: true },
+      { id: 'cat-gold', name: 'Gold & Commodities', slug: 'gold', icon: 'Coins', displayOrder: 13, isActive: true },
+      { id: 'cat-global', name: 'Global Products', slug: 'global-products', icon: 'Globe', displayOrder: 14, isActive: true },
+      { id: 'cat-subscriptions', name: 'Subscriptions', slug: 'subscriptions', icon: 'Star', displayOrder: 15, isActive: true },
+    ];
+
+    for (const category of defaultCategories) {
+      try {
+        await db.insert(schema.storeCategories)
+          .values({
+            ...category,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .onConflictDoNothing();
+      } catch (error) {
+        console.error(`Failed to seed category ${category.name}:`, error);
+      }
+    }
+
+    console.log(`✅ Seeded ${defaultCategories.length} default store categories`);
+  }
+
+  // Subcategory Methods
+  async getAllStoreSubcategories(): Promise<any[]> {
+    const subcategories = await db.select()
+      .from(schema.storeSubcategories)
+      .orderBy(asc(schema.storeSubcategories.displayOrder), asc(schema.storeSubcategories.name));
+    return subcategories;
+  }
+
+  async getStoreSubcategoriesByCategory(categoryId: string): Promise<any[]> {
+    const subcategories = await db.select()
+      .from(schema.storeSubcategories)
+      .where(eq(schema.storeSubcategories.categoryId, categoryId))
+      .orderBy(asc(schema.storeSubcategories.displayOrder), asc(schema.storeSubcategories.name));
+    return subcategories;
+  }
+
+  async getStoreSubcategoryById(id: string): Promise<any | undefined> {
+    const [subcategory] = await db.select()
+      .from(schema.storeSubcategories)
+      .where(eq(schema.storeSubcategories.id, id));
+    return subcategory || undefined;
+  }
+
+  async getStoreSubcategoryBySlug(slug: string): Promise<any | undefined> {
+    const [subcategory] = await db.select()
+      .from(schema.storeSubcategories)
+      .where(eq(schema.storeSubcategories.slug, slug));
+    return subcategory || undefined;
+  }
+
+  async createStoreSubcategory(data: any): Promise<any> {
+    const [subcategory] = await db.insert(schema.storeSubcategories)
+      .values({
+        ...data,
+        id: randomUUID(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return subcategory;
+  }
+
+  async updateStoreSubcategory(id: string, data: any): Promise<any | undefined> {
+    const [updated] = await db.update(schema.storeSubcategories)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.storeSubcategories.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async updateStoreSubcategoryStatus(id: string, isActive: boolean): Promise<any | undefined> {
+    const [updated] = await db.update(schema.storeSubcategories)
+      .set({ 
+        isActive, 
+        updatedAt: new Date() 
+      })
+      .where(eq(schema.storeSubcategories.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteStoreSubcategory(id: string): Promise<boolean> {
+    await db.delete(schema.storeSubcategories)
+      .where(eq(schema.storeSubcategories.id, id));
+    return true;
+  }
+
+  // Enhanced Product Methods
+  async getStoreProductById(id: string): Promise<any | undefined> {
+    const [product] = await db.select()
+      .from(schema.storeProducts)
+      .where(eq(schema.storeProducts.id, id));
+    return product || undefined;
+  }
+
+  async getStoreProductsByCategory(categoryId: string): Promise<any[]> {
+    const products = await db.select()
+      .from(schema.storeProducts)
+      .where(eq(schema.storeProducts.categoryId, categoryId))
+      .orderBy(asc(schema.storeProducts.displayOrder), asc(schema.storeProducts.name));
+    return products;
+  }
+
+  async getStoreProductsBySubcategory(subcategoryId: string): Promise<any[]> {
+    const products = await db.select()
+      .from(schema.storeProducts)
+      .where(eq(schema.storeProducts.subcategoryId, subcategoryId))
+      .orderBy(asc(schema.storeProducts.displayOrder), asc(schema.storeProducts.name));
+    return products;
+  }
+
+  async createStoreProduct(data: any): Promise<any> {
+    const [product] = await db.insert(schema.storeProducts)
+      .values({
+        ...data,
+        id: randomUUID(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return product;
+  }
+
+  async updateStoreProduct(id: string, data: any): Promise<any | undefined> {
+    const [updated] = await db.update(schema.storeProducts)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.storeProducts.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteStoreProduct(id: string): Promise<boolean> {
+    await db.delete(schema.storeProducts)
+      .where(eq(schema.storeProducts.id, id));
+    return true;
+  }
+
+  // Store Audit Log Methods
+  async createStoreAuditLog(data: any): Promise<any> {
+    const [log] = await db.insert(schema.storeAuditLogs)
+      .values({
+        ...data,
+        id: randomUUID(),
+        timestamp: new Date(),
+      })
+      .returning();
+    return log;
+  }
+
+  async getStoreAuditLogs(filters?: { targetType?: string; targetId?: string; adminId?: string; limit?: number }): Promise<any[]> {
+    let query = db.select().from(schema.storeAuditLogs);
+    
+    const conditions: any[] = [];
+    if (filters?.targetType) {
+      conditions.push(eq(schema.storeAuditLogs.targetType, filters.targetType));
+    }
+    if (filters?.targetId) {
+      conditions.push(eq(schema.storeAuditLogs.targetId, filters.targetId));
+    }
+    if (filters?.adminId) {
+      conditions.push(eq(schema.storeAuditLogs.adminId, filters.adminId));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const logs = await query.orderBy(desc(schema.storeAuditLogs.timestamp)).limit(filters?.limit || 100);
+    return logs;
+  }
+
+  // Store Product Inquiry Methods
+  async createStoreProductInquiry(data: any): Promise<any> {
+    const [inquiry] = await db.insert(schema.storeProductInquiries)
+      .values({
+        ...data,
+        id: randomUUID(),
+        createdAt: new Date(),
+      })
+      .returning();
+    return inquiry;
+  }
+
+  async getStoreProductInquiries(filters?: { status?: string; productId?: string; categoryId?: string }): Promise<any[]> {
+    let query = db.select().from(schema.storeProductInquiries);
+    
+    const conditions: any[] = [];
+    if (filters?.status) {
+      conditions.push(eq(schema.storeProductInquiries.status, filters.status));
+    }
+    if (filters?.productId) {
+      conditions.push(eq(schema.storeProductInquiries.productId, filters.productId));
+    }
+    if (filters?.categoryId) {
+      conditions.push(eq(schema.storeProductInquiries.categoryId, filters.categoryId));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    const inquiries = await query.orderBy(desc(schema.storeProductInquiries.createdAt));
+    return inquiries;
+  }
+
+  async updateStoreProductInquiry(id: string, data: any): Promise<any | undefined> {
+    const [updated] = await db.update(schema.storeProductInquiries)
+      .set(data)
+      .where(eq(schema.storeProductInquiries.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Cascading Toggle Methods
+  async toggleCategoryWithCascade(categoryId: string, isActive: boolean, adminId: string, adminEmail: string): Promise<{ category: any; subcategories: any[]; products: any[] }> {
+    // Get the category first
+    const category = await this.getStoreCategoryById(categoryId);
+    if (!category) {
+      throw new Error('Category not found');
+    }
+
+    // Log the category toggle
+    await this.createStoreAuditLog({
+      adminId,
+      adminEmail,
+      action: 'toggle',
+      targetType: 'category',
+      targetId: categoryId,
+      targetName: category.name,
+      beforeValue: { isActive: category.isActive },
+      afterValue: { isActive },
+    });
+
+    // Update category
+    const updatedCategory = await this.updateStoreCategoryStatus(categoryId, isActive);
+
+    // Get and update all subcategories
+    const subcategories = await this.getStoreSubcategoriesByCategory(categoryId);
+    const updatedSubcategories: any[] = [];
+    for (const subcat of subcategories) {
+      await this.createStoreAuditLog({
+        adminId,
+        adminEmail,
+        action: 'cascade_toggle',
+        targetType: 'subcategory',
+        targetId: subcat.id,
+        targetName: subcat.name,
+        beforeValue: { isActive: subcat.isActive },
+        afterValue: { isActive },
+      });
+      const updated = await this.updateStoreSubcategoryStatus(subcat.id, isActive);
+      if (updated) updatedSubcategories.push(updated);
+    }
+
+    // Get and update all products in this category
+    const products = await this.getStoreProductsByCategory(categoryId);
+    const updatedProducts: any[] = [];
+    for (const product of products) {
+      await this.createStoreAuditLog({
+        adminId,
+        adminEmail,
+        action: 'cascade_toggle',
+        targetType: 'product',
+        targetId: product.id,
+        targetName: product.name,
+        beforeValue: { isActive: product.isActive },
+        afterValue: { isActive },
+      });
+      const updated = await this.updateStoreProductStatus(product.id, isActive);
+      if (updated) updatedProducts.push(updated);
+    }
+
+    return {
+      category: updatedCategory,
+      subcategories: updatedSubcategories,
+      products: updatedProducts,
+    };
+  }
+
+  async toggleSubcategoryWithCascade(subcategoryId: string, isActive: boolean, adminId: string, adminEmail: string): Promise<{ subcategory: any; products: any[] }> {
+    // Get the subcategory first
+    const subcategory = await this.getStoreSubcategoryById(subcategoryId);
+    if (!subcategory) {
+      throw new Error('Subcategory not found');
+    }
+
+    // Log the subcategory toggle
+    await this.createStoreAuditLog({
+      adminId,
+      adminEmail,
+      action: 'toggle',
+      targetType: 'subcategory',
+      targetId: subcategoryId,
+      targetName: subcategory.name,
+      beforeValue: { isActive: subcategory.isActive },
+      afterValue: { isActive },
+    });
+
+    // Update subcategory
+    const updatedSubcategory = await this.updateStoreSubcategoryStatus(subcategoryId, isActive);
+
+    // Get and update all products in this subcategory
+    const products = await this.getStoreProductsBySubcategory(subcategoryId);
+    const updatedProducts: any[] = [];
+    for (const product of products) {
+      await this.createStoreAuditLog({
+        adminId,
+        adminEmail,
+        action: 'cascade_toggle',
+        targetType: 'product',
+        targetId: product.id,
+        targetName: product.name,
+        beforeValue: { isActive: product.isActive },
+        afterValue: { isActive },
+      });
+      const updated = await this.updateStoreProductStatus(product.id, isActive);
+      if (updated) updatedProducts.push(updated);
+    }
+
+    return {
+      subcategory: updatedSubcategory,
+      products: updatedProducts,
+    };
+  }
+  
+  // Predictive Analytics Methods Implementation
+  async getPortfolioPredictions(userId: string, portfolioId?: string): Promise<any[]> {
+    let query = db.select()
+      .from(schema.portfolioPredictions)
+      .where(eq(schema.portfolioPredictions.userId, userId));
+    
+    if (portfolioId) {
+      const predictions = await db.select()
+        .from(schema.portfolioPredictions)
+        .where(and(
+          eq(schema.portfolioPredictions.userId, userId),
+          eq(schema.portfolioPredictions.portfolioId, portfolioId)
+        ))
+        .orderBy(desc(schema.portfolioPredictions.predictionDate));
+      return predictions;
+    }
+    
+    const predictions = await query.orderBy(desc(schema.portfolioPredictions.predictionDate));
+    return predictions;
+  }
+  
+  async getAssetForecasts(userId: string, holdingId?: string): Promise<any[]> {
+    let query = db.select()
+      .from(schema.assetForecasts)
+      .where(eq(schema.assetForecasts.userId, userId));
+    
+    if (holdingId) {
+      const forecasts = await db.select()
+        .from(schema.assetForecasts)
+        .where(and(
+          eq(schema.assetForecasts.userId, userId),
+          eq(schema.assetForecasts.holdingId, holdingId)
+        ))
+        .orderBy(desc(schema.assetForecasts.forecastDate));
+      return forecasts;
+    }
+    
+    const forecasts = await query.orderBy(desc(schema.assetForecasts.forecastDate));
+    return forecasts;
+  }
+  
+  async getRiskAnalysis(userId: string, portfolioId?: string): Promise<any[]> {
+    let query = db.select()
+      .from(schema.riskAnalysis)
+      .where(eq(schema.riskAnalysis.userId, userId));
+    
+    if (portfolioId) {
+      const analysis = await db.select()
+        .from(schema.riskAnalysis)
+        .where(and(
+          eq(schema.riskAnalysis.userId, userId),
+          eq(schema.riskAnalysis.portfolioId, portfolioId)
+        ))
+        .orderBy(desc(schema.riskAnalysis.analysisDate));
+      return analysis;
+    }
+    
+    const analysis = await query.orderBy(desc(schema.riskAnalysis.analysisDate));
+    return analysis;
+  }
+  
+  async getPredictionAccuracy(predictionId?: string): Promise<any[]> {
+    if (predictionId) {
+      const accuracy = await db.select()
+        .from(schema.predictionAccuracy)
+        .where(eq(schema.predictionAccuracy.predictionId, predictionId))
+        .orderBy(desc(schema.predictionAccuracy.actualDate));
+      return accuracy;
+    }
+    
+    const accuracy = await db.select()
+      .from(schema.predictionAccuracy)
+      .orderBy(desc(schema.predictionAccuracy.actualDate));
+    return accuracy;
+  }
+  
+  async createPortfolioPrediction(prediction: any): Promise<any> {
+    const [newPrediction] = await db.insert(schema.portfolioPredictions)
+      .values(prediction)
+      .returning();
+    return newPrediction;
+  }
+  
+  async createAssetForecast(forecast: any): Promise<any> {
+    const [newForecast] = await db.insert(schema.assetForecasts)
+      .values(forecast)
+      .returning();
+    return newForecast;
+  }
+  
+  async createRiskAnalysis(analysis: any): Promise<any> {
+    const [newAnalysis] = await db.insert(schema.riskAnalysis)
+      .values(analysis)
+      .returning();
+    return newAnalysis;
+  }
+  
+  async createPredictionAccuracy(accuracy: any): Promise<any> {
+    const [newAccuracy] = await db.insert(schema.predictionAccuracy)
+      .values(accuracy)
+      .returning();
+    return newAccuracy;
+  }
+
+  // ===================================================================
+  // UNLISTED MARKETPLACE METHODS IMPLEMENTATION
+  // ===================================================================
+
+  // Unlisted Companies
+  async createUnlistedCompany(data: InsertUnlistedCompany): Promise<UnlistedCompany> {
+    const [company] = await db.insert(schema.unlistedCompanies)
+      .values(data)
+      .returning();
+    return company;
+  }
+
+  async getUnlistedCompanyById(id: string): Promise<UnlistedCompany | null> {
+    const [company] = await db.select()
+      .from(schema.unlistedCompanies)
+      .where(eq(schema.unlistedCompanies.id, id));
+    return company || null;
+  }
+
+  async getUnlistedCompanyByName(name: string): Promise<UnlistedCompany | null> {
+    const [company] = await db.select()
+      .from(schema.unlistedCompanies)
+      .where(eq(schema.unlistedCompanies.name, name));
+    return company || null;
+  }
+
+  async getUnlistedCompanyByCIN(cin: string): Promise<UnlistedCompany | null> {
+    const [company] = await db.select()
+      .from(schema.unlistedCompanies)
+      .where(eq(schema.unlistedCompanies.cin, cin));
+    return company || null;
+  }
+
+  async getUnlistedCompanyByISIN(isin: string): Promise<UnlistedCompany | null> {
+    const [company] = await db.select()
+      .from(schema.unlistedCompanies)
+      .where(eq(schema.unlistedCompanies.isin, isin));
+    return company || null;
+  }
+
+  async getAllUnlistedCompanies(filters?: { status?: string; sector?: string; storePublishedOnly?: boolean }): Promise<UnlistedCompany[]> {
+    const conditions = [];
+    if (filters?.status) {
+      conditions.push(eq(schema.unlistedCompanies.status, filters.status));
+    }
+    if (filters?.sector) {
+      conditions.push(eq(schema.unlistedCompanies.sector, filters.sector));
+    }
+    
+    // If storePublishedOnly is true, only return companies linked to a store product
+    if (filters?.storePublishedOnly) {
+      // Get companies that have a store product with matching sourceCompanyId
+      const storeLinkedCompanyIds = await db.select({ sourceCompanyId: schema.storeProducts.sourceCompanyId })
+        .from(schema.storeProducts)
+        .where(and(
+          isNotNull(schema.storeProducts.sourceCompanyId),
+          eq(schema.storeProducts.isActive, true)
+        ));
+      
+      const linkedIds = storeLinkedCompanyIds.map(p => p.sourceCompanyId).filter(Boolean) as string[];
+      
+      if (linkedIds.length === 0) {
+        return [];
+      }
+      
+      conditions.push(inArray(schema.unlistedCompanies.id, linkedIds));
+    }
+    
+    let query = db.select().from(schema.unlistedCompanies);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    const companies = await query.orderBy(desc(schema.unlistedCompanies.createdAt));
+    return companies;
+  }
+
+  async updateUnlistedCompany(id: string, data: Partial<InsertUnlistedCompany>): Promise<UnlistedCompany> {
+    const [updated] = await db.update(schema.unlistedCompanies)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.unlistedCompanies.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteUnlistedCompany(id: string): Promise<boolean> {
+    await db.delete(schema.companyFinancials).where(eq(schema.companyFinancials.companyId, id));
+    await db.delete(schema.companyRatios).where(eq(schema.companyRatios.companyId, id));
+    await db.delete(schema.unlistedPriceHistory).where(eq(schema.unlistedPriceHistory.companyId, id));
+    await db.delete(schema.sellListings).where(eq(schema.sellListings.companyId, id));
+    await db.delete(schema.buyRequests).where(eq(schema.buyRequests.companyId, id));
+    await db.delete(schema.probe42SyncLog).where(eq(schema.probe42SyncLog.companyId, id));
+    const result = await db.delete(schema.unlistedCompanies).where(eq(schema.unlistedCompanies.id, id));
+    return true;
+  }
+
+  // Company Financials
+  async createCompanyFinancials(data: InsertCompanyFinancials): Promise<CompanyFinancials> {
+    const [financials] = await db.insert(schema.companyFinancials)
+      .values(data)
+      .returning();
+    return financials;
+  }
+
+  async getCompanyFinancials(companyId: string): Promise<CompanyFinancials[]> {
+    const financials = await db.select()
+      .from(schema.companyFinancials)
+      .where(eq(schema.companyFinancials.companyId, companyId))
+      .orderBy(desc(schema.companyFinancials.financialYear));
+    return financials;
+  }
+
+  async getCompanyFinancialsByYear(companyId: string, financialYear: string): Promise<CompanyFinancials | null> {
+    const [financials] = await db.select()
+      .from(schema.companyFinancials)
+      .where(and(
+        eq(schema.companyFinancials.companyId, companyId),
+        eq(schema.companyFinancials.financialYear, financialYear)
+      ));
+    return financials || null;
+  }
+
+  async updateCompanyFinancials(id: string, data: Partial<InsertCompanyFinancials>): Promise<CompanyFinancials> {
+    const { companyId, financialYear, ...mutableData } = data;
+    const [updated] = await db.update(schema.companyFinancials)
+      .set({ ...mutableData, updatedAt: new Date() })
+      .where(eq(schema.companyFinancials.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Company Ratios
+  async createCompanyRatios(data: InsertCompanyRatios): Promise<CompanyRatios> {
+    const [ratios] = await db.insert(schema.companyRatios)
+      .values(data)
+      .returning();
+    return ratios;
+  }
+
+  async getCompanyRatios(companyId: string): Promise<CompanyRatios[]> {
+    const ratios = await db.select()
+      .from(schema.companyRatios)
+      .where(eq(schema.companyRatios.companyId, companyId))
+      .orderBy(desc(schema.companyRatios.financialYear));
+    return ratios;
+  }
+
+  async getCompanyRatiosByYear(companyId: string, financialYear: string): Promise<CompanyRatios | null> {
+    const [ratios] = await db.select()
+      .from(schema.companyRatios)
+      .where(and(
+        eq(schema.companyRatios.companyId, companyId),
+        eq(schema.companyRatios.financialYear, financialYear)
+      ));
+    return ratios || null;
+  }
+
+  async updateCompanyRatios(id: string, data: Partial<InsertCompanyRatios>): Promise<CompanyRatios> {
+    const { companyId, financialYear, ...mutableData } = data;
+    const [updated] = await db.update(schema.companyRatios)
+      .set({ ...mutableData, updatedAt: new Date() })
+      .where(eq(schema.companyRatios.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Price History
+  async createPriceHistory(data: InsertUnlistedPriceHistory): Promise<UnlistedPriceHistory> {
+    const [priceHistory] = await db.insert(schema.unlistedPriceHistory)
+      .values(data)
+      .returning();
+    return priceHistory;
+  }
+
+  async getPriceHistoryByDate(companyId: string, date: Date): Promise<UnlistedPriceHistory | null> {
+    const [priceHistory] = await db.select()
+      .from(schema.unlistedPriceHistory)
+      .where(and(
+        eq(schema.unlistedPriceHistory.companyId, companyId),
+        eq(schema.unlistedPriceHistory.date, date)
+      ));
+    return priceHistory || null;
+  }
+
+  async upsertPriceHistory(data: InsertUnlistedPriceHistory): Promise<UnlistedPriceHistory> {
+    const existing = await this.getPriceHistoryByDate(data.companyId, data.date);
+    if (existing) {
+      const [updated] = await db.update(schema.unlistedPriceHistory)
+        .set({
+          price: data.price,
+          volume: data.volume,
+          sourceType: data.sourceType,
+          sourceDealId: data.sourceDealId,
+          notes: data.notes,
+        })
+        .where(eq(schema.unlistedPriceHistory.id, existing.id))
+        .returning();
+      return updated;
+    }
+    return this.createPriceHistory(data);
+  }
+
+  async getPriceHistory(companyId: string, limit?: number): Promise<UnlistedPriceHistory[]> {
+    let query = db.select()
+      .from(schema.unlistedPriceHistory)
+      .where(eq(schema.unlistedPriceHistory.companyId, companyId))
+      .orderBy(desc(schema.unlistedPriceHistory.date));
+    
+    if (limit) {
+      query = query.limit(limit) as any;
+    }
+    
+    return await query;
+  }
+
+  // Sell Listings
+  async createSellListing(data: InsertSellListing): Promise<SellListing> {
+    const [listing] = await db.insert(schema.sellListings)
+      .values(data)
+      .returning();
+    return listing;
+  }
+
+  async getSellListingById(id: string): Promise<SellListing | null> {
+    const [listing] = await db.select()
+      .from(schema.sellListings)
+      .where(eq(schema.sellListings.id, id));
+    return listing || null;
+  }
+
+  async getSellListingsByCompany(companyId: string): Promise<SellListing[]> {
+    const listings = await db.select()
+      .from(schema.sellListings)
+      .where(eq(schema.sellListings.companyId, companyId))
+      .orderBy(desc(schema.sellListings.createdAt));
+    return listings;
+  }
+
+  async updateSellListing(id: string, data: Partial<InsertSellListing>): Promise<SellListing> {
+    const [updated] = await db.update(schema.sellListings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.sellListings.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Buy Requests
+  async createBuyRequest(data: InsertBuyRequest): Promise<BuyRequest> {
+    const [request] = await db.insert(schema.buyRequests)
+      .values(data)
+      .returning();
+    return request;
+  }
+
+  async getBuyRequestById(id: string): Promise<BuyRequest | null> {
+    const [request] = await db.select()
+      .from(schema.buyRequests)
+      .where(eq(schema.buyRequests.id, id));
+    return request || null;
+  }
+
+  async getBuyRequestsByCompany(companyId: string): Promise<BuyRequest[]> {
+    const requests = await db.select()
+      .from(schema.buyRequests)
+      .where(eq(schema.buyRequests.companyId, companyId))
+      .orderBy(desc(schema.buyRequests.createdAt));
+    return requests;
+  }
+
+  async updateBuyRequest(id: string, data: Partial<InsertBuyRequest>): Promise<BuyRequest> {
+    const [updated] = await db.update(schema.buyRequests)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.buyRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Deals
+  async createUnlistedDeal(data: InsertUnlistedDeal): Promise<UnlistedDeal> {
+    const [deal] = await db.insert(schema.unlistedDeals)
+      .values(data)
+      .returning();
+    return deal;
+  }
+
+  async getUnlistedDealById(id: string): Promise<UnlistedDeal | null> {
+    const [deal] = await db.select()
+      .from(schema.unlistedDeals)
+      .where(eq(schema.unlistedDeals.id, id));
+    return deal || null;
+  }
+
+  async getUnlistedDealsByCompany(companyId: string): Promise<UnlistedDeal[]> {
+    const deals = await db.select()
+      .from(schema.unlistedDeals)
+      .where(eq(schema.unlistedDeals.companyId, companyId))
+      .orderBy(desc(schema.unlistedDeals.matchedAt));
+    return deals;
+  }
+
+  async updateUnlistedDeal(id: string, data: Partial<InsertUnlistedDeal>): Promise<UnlistedDeal> {
+    const [updated] = await db.update(schema.unlistedDeals)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.unlistedDeals.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getUnlistedDealsByUser(userId: string): Promise<UnlistedDeal[]> {
+    const deals = await db.select()
+      .from(schema.unlistedDeals)
+      .where(or(
+        eq(schema.unlistedDeals.buyerUserId, userId),
+        eq(schema.unlistedDeals.sellerUserId, userId)
+      ))
+      .orderBy(desc(schema.unlistedDeals.matchedAt));
+    return deals;
+  }
+
+  async getUnlistedDealsPendingAcceptance(userId: string): Promise<UnlistedDeal[]> {
+    const deals = await db.select()
+      .from(schema.unlistedDeals)
+      .where(and(
+        or(
+          eq(schema.unlistedDeals.buyerUserId, userId),
+          eq(schema.unlistedDeals.sellerUserId, userId)
+        ),
+        or(
+          eq(schema.unlistedDeals.status, 'pending'),
+          eq(schema.unlistedDeals.status, 'awaiting_acceptance')
+        )
+      ))
+      .orderBy(desc(schema.unlistedDeals.matchedAt));
+    return deals;
+  }
+
+  // Probe42 Sync Log
+  async createProbe42SyncLog(data: InsertProbe42SyncLog): Promise<Probe42SyncLog> {
+    const [log] = await db.insert(schema.probe42SyncLog)
+      .values(data)
+      .returning();
+    return log;
+  }
+
+  async getLatestSyncLog(companyId: string): Promise<Probe42SyncLog | null> {
+    const [log] = await db.select()
+      .from(schema.probe42SyncLog)
+      .where(eq(schema.probe42SyncLog.companyId, companyId))
+      .orderBy(desc(schema.probe42SyncLog.lastSyncAt))
+      .limit(1);
+    return log || null;
+  }
+
+  // CA Support System - Templates
+  async createSupportTemplate(data: InsertSupportTemplate): Promise<SupportTemplate> {
+    const id = randomUUID();
+    const [template] = await db.insert(schema.supportTemplates)
+      .values({ ...data, id, createdAt: new Date(), updatedAt: new Date() })
+      .returning();
+    return template;
+  }
+
+  async getSupportTemplates(category?: string): Promise<SupportTemplate[]> {
+    if (category) {
+      return await db.select()
+        .from(schema.supportTemplates)
+        .where(and(
+          eq(schema.supportTemplates.category, category),
+          eq(schema.supportTemplates.isActive, true)
+        ))
+        .orderBy(asc(schema.supportTemplates.name));
+    }
+    return await db.select()
+      .from(schema.supportTemplates)
+      .where(eq(schema.supportTemplates.isActive, true))
+      .orderBy(asc(schema.supportTemplates.name));
+  }
+
+  async getSupportTemplateById(id: string): Promise<SupportTemplate | null> {
+    const [template] = await db.select()
+      .from(schema.supportTemplates)
+      .where(eq(schema.supportTemplates.id, id));
+    return template || null;
+  }
+
+  async updateSupportTemplate(id: string, data: Partial<InsertSupportTemplate>): Promise<SupportTemplate | null> {
+    const [updated] = await db.update(schema.supportTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.supportTemplates.id, id))
+      .returning();
+    return updated || null;
+  }
+
+  async deleteSupportTemplate(id: string): Promise<boolean> {
+    const [deleted] = await db.delete(schema.supportTemplates)
+      .where(eq(schema.supportTemplates.id, id))
+      .returning();
+    return !!deleted;
+  }
+
+  // CA Support System - Steps
+  async createSupportStep(data: InsertSupportStep): Promise<SupportStep> {
+    const id = randomUUID();
+    const [step] = await db.insert(schema.supportSteps)
+      .values({ ...data, id, createdAt: new Date(), updatedAt: new Date() })
+      .returning();
+    return step;
+  }
+
+  async getSupportStepsByTemplateId(templateId: string): Promise<SupportStep[]> {
+    return await db.select()
+      .from(schema.supportSteps)
+      .where(eq(schema.supportSteps.templateId, templateId))
+      .orderBy(asc((schema.supportSteps as any).order));
+  }
+
+  async getSupportStepsByTicketId(ticketId: string): Promise<SupportStep[]> {
+    return await db.select()
+      .from(schema.supportSteps)
+      .where(eq(schema.supportSteps.ticketId, ticketId))
+      .orderBy(asc((schema.supportSteps as any).order));
+  }
+
+  async getSupportStepById(id: string): Promise<SupportStep | null> {
+    const [step] = await db.select()
+      .from(schema.supportSteps)
+      .where(eq(schema.supportSteps.id, id));
+    return step || null;
+  }
+
+  async updateSupportStep(id: string, data: Partial<InsertSupportStep>): Promise<SupportStep | null> {
+    const [updated] = await db.update(schema.supportSteps)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.supportSteps.id, id))
+      .returning();
+    return updated || null;
+  }
+
+  async deleteSupportStep(id: string): Promise<boolean> {
+    const [deleted] = await db.delete(schema.supportSteps)
+      .where(eq(schema.supportSteps.id, id))
+      .returning();
+    return !!deleted;
+  }
+
+  // CA Support System - Step Comments
+  async createSupportStepComment(data: InsertSupportStepComment): Promise<SupportStepComment> {
+    const id = randomUUID();
+    const [comment] = await db.insert(schema.supportStepComments)
+      .values({ ...data, id, createdAt: new Date() })
+      .returning();
+    return comment;
+  }
+
+  async getSupportStepComments(stepId: string): Promise<SupportStepComment[]> {
+    return await db.select()
+      .from(schema.supportStepComments)
+      .where(eq(schema.supportStepComments.stepId, stepId))
+      .orderBy(asc(schema.supportStepComments.createdAt));
+  }
+
+  async deleteSupportStepComment(id: string): Promise<boolean> {
+    const [deleted] = await db.delete(schema.supportStepComments)
+      .where(eq(schema.supportStepComments.id, id))
+      .returning();
+    return !!deleted;
+  }
+
+  // Transaction Support
+  async withTransaction<T>(callback: (tx: any) => Promise<T>): Promise<T> {
+    return await db.transaction(callback);
+  }
+
+  // Unified Cart methods
+  async getUnifiedCartItems(userId: string): Promise<UnifiedCartItem[]> {
+    return await db.select()
+      .from(schema.unifiedCartItems)
+      .where(and(
+        eq(schema.unifiedCartItems.userId, userId),
+        eq(schema.unifiedCartItems.status, 'active')
+      ))
+      .orderBy(desc(schema.unifiedCartItems.createdAt));
+  }
+
+  async getUnifiedCartItem(id: string): Promise<UnifiedCartItem | undefined> {
+    const [item] = await db.select()
+      .from(schema.unifiedCartItems)
+      .where(eq(schema.unifiedCartItems.id, id));
+    return item || undefined;
+  }
+
+  async createUnifiedCartItem(item: InsertUnifiedCartItem): Promise<UnifiedCartItem> {
+    const [newItem] = await db.insert(schema.unifiedCartItems)
+      .values({
+        ...item,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    return newItem;
+  }
+
+  async updateUnifiedCartItem(id: string, updates: Partial<UnifiedCartItem>): Promise<UnifiedCartItem | undefined> {
+    const [updated] = await db.update(schema.unifiedCartItems)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(schema.unifiedCartItems.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteUnifiedCartItem(id: string): Promise<boolean> {
+    const [deleted] = await db.delete(schema.unifiedCartItems)
+      .where(eq(schema.unifiedCartItems.id, id))
+      .returning();
+    return !!deleted;
+  }
+
+  async getUnifiedCartByCategory(userId: string, category: string): Promise<UnifiedCartItem[]> {
+    return await db.select()
+      .from(schema.unifiedCartItems)
+      .where(and(
+        eq(schema.unifiedCartItems.userId, userId),
+        eq(schema.unifiedCartItems.productCategory, category),
+        eq(schema.unifiedCartItems.status, 'active')
+      ))
+      .orderBy(desc(schema.unifiedCartItems.createdAt));
+  }
+
+  async clearUnifiedCart(userId: string): Promise<boolean> {
+    await db.delete(schema.unifiedCartItems)
+      .where(eq(schema.unifiedCartItems.userId, userId));
+    return true;
+  }
+
+  async getUnifiedCartCount(userId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(schema.unifiedCartItems)
+      .where(and(
+        eq(schema.unifiedCartItems.userId, userId),
+        eq(schema.unifiedCartItems.status, 'active')
+      ));
+    return Number(result[0]?.count || 0);
+  }
+
+  async approveCartItem(id: string): Promise<UnifiedCartItem | undefined> {
+    const [updated] = await db.update(schema.unifiedCartItems)
+      .set({ 
+        clientApproved: true, 
+        approvedAt: new Date(),
+        updatedAt: new Date() 
+      })
+      .where(eq(schema.unifiedCartItems.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getAllUnifiedCartItemsForAdmin(filters?: { userId?: string; category?: string; source?: string; status?: string }): Promise<UnifiedCartItem[]> {
+    const conditions: any[] = [];
+    
+    if (filters?.userId) {
+      conditions.push(eq(schema.unifiedCartItems.userId, filters.userId));
+    }
+    if (filters?.category) {
+      conditions.push(eq(schema.unifiedCartItems.productCategory, filters.category));
+    }
+    if (filters?.source) {
+      conditions.push(eq(schema.unifiedCartItems.source, filters.source));
+    }
+    if (filters?.status) {
+      conditions.push(eq(schema.unifiedCartItems.status, filters.status));
+    }
+    
+    if (conditions.length === 0) {
+      return await db.select()
+        .from(schema.unifiedCartItems)
+        .orderBy(desc(schema.unifiedCartItems.createdAt));
+    }
+    
+    return await db.select()
+      .from(schema.unifiedCartItems)
+      .where(and(...conditions))
+      .orderBy(desc(schema.unifiedCartItems.createdAt));
+  }
+
+  async checkoutCartItems(userId: string, cartItemIds: string[]): Promise<any[]> {
+    const createdOrders: any[] = [];
+    
+    for (const cartItemId of cartItemIds) {
+      const cartItem = await this.getUnifiedCartItem(cartItemId);
+      
+      if (!cartItem || cartItem.userId !== userId || cartItem.status !== 'active') {
+        continue;
+      }
+      
+      const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+      
+      const productTypeMap: Record<string, string> = {
+        'store': 'store',
+        'unlisted': 'unlisted',
+        'mutual_fund': 'mutual_fund',
+        'bond': 'bond',
+        'ncd': 'ncd',
+        'ipo': 'ipo'
+      };
+      
+      const [order] = await db.insert(schema.unifiedOrders)
+        .values({
+          orderNumber,
+          userId: cartItem.userId,
+          productType: productTypeMap[cartItem.productCategory] || cartItem.productCategory,
+          productId: cartItem.storeProductId || cartItem.unlistedCompanyId || cartItem.mutualFundSchemeCode || cartItem.bondIsin || cartItem.ncdIsin || cartItem.ipoId || undefined,
+          productName: cartItem.displayName || `${cartItem.productCategory} Item`,
+          orderType: 'buy',
+          quantity: cartItem.quantity?.toString() || '1',
+          amount: cartItem.amount || '0',
+          currency: 'INR',
+          cartId: cartItem.id,
+          status: 'initiated',
+          paymentStatus: 'pending',
+          executionStatus: 'pending',
+          metadata: {
+            source: cartItem.source,
+            sourceUserId: cartItem.sourceUserId,
+            sourceProposalId: cartItem.sourceProposalId,
+            originalCartItem: cartItem.metadata
+          },
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      
+      await db.update(schema.unifiedCartItems)
+        .set({ 
+          status: 'ordered',
+          updatedAt: new Date()
+        })
+        .where(eq(schema.unifiedCartItems.id, cartItemId));
+      
+      createdOrders.push(order);
+    }
+    
+    return createdOrders;
+  }
+
+  async createAgentNotification(data: { agentId: string; title: string; body: string; type?: string; link?: string }): Promise<void> {
+    await db.execute(sql`
+      INSERT INTO agent_notifications (agent_id, title, body, type, link)
+      VALUES (${data.agentId}, ${data.title}, ${data.body}, ${data.type || 'prospect'}, ${data.link || null})
+    `);
+  }
+
+  async getAgentNotifications(agentId: string): Promise<any[]> {
+    const result = await db.execute(sql`
+      SELECT id, agent_id, title, body, type, link, read_at, created_at
+      FROM agent_notifications
+      WHERE agent_id = ${agentId}
+      ORDER BY created_at DESC
+      LIMIT 50
+    `);
+    return (result.rows || []).map((r: any) => ({
+      id: r.id,
+      agentId: r.agent_id,
+      title: r.title,
+      body: r.body,
+      type: r.type,
+      link: r.link ?? null,
+      readAt: r.read_at ?? null,
+      createdAt: r.created_at,
+      unread: r.read_at === null,
+    }));
+  }
+
+  async markAgentNotificationRead(id: string): Promise<void> {
+    await db.execute(sql`
+      UPDATE agent_notifications SET read_at = NOW() WHERE id = ${id}
+    `);
+  }
+  async createPortfolioSnapshot(snapshot: any): Promise<any> {
+    throw new Error("Method not implemented: createPortfolioSnapshot");
+  }
+
+  async getPortfolioSnapshots(portfolioId: string, fromDate?: string, toDate?: string): Promise<any[]> {
+    throw new Error("Method not implemented: getPortfolioSnapshots");
+  }
+
+  async getPortfolioSnapshotByDate(portfolioId: string, date: string): Promise<any | undefined> {
+    throw new Error("Method not implemented: getPortfolioSnapshotByDate");
+  }
+
+  async createComprehensiveHolding(holding: any): Promise<any> {
+    throw new Error("Method not implemented: createComprehensiveHolding");
+  }
+
+  async getComprehensiveHoldings(portfolioId: string, date?: string): Promise<any[]> {
+    throw new Error("Method not implemented: getComprehensiveHoldings");
+  }
+
+  async updateComprehensiveHolding(id: string, updates: any): Promise<any | undefined> {
+    throw new Error("Method not implemented: updateComprehensiveHolding");
+  }
+
+  async deleteComprehensiveHolding(id: string): Promise<boolean> {
+    throw new Error("Method not implemented: deleteComprehensiveHolding");
+  }
+
+  async getComprehensiveHoldingsByUser(userId: string, date?: string): Promise<any[]> {
+    throw new Error("Method not implemented: getComprehensiveHoldingsByUser");
+  }
+
+  async populatePortfolioFromCams(userId: string, panNumber: string, date: string): Promise<any[]> {
+    throw new Error("Method not implemented: populatePortfolioFromCams");
+  }
+
+  async populatePortfolioFromKfintech(userId: string, panNumber: string, date: string): Promise<any[]> {
+    throw new Error("Method not implemented: populatePortfolioFromKfintech");
+  }
+
+  async populatePortfolioFromNsdl(userId: string, accountNumber: string, date: string): Promise<any[]> {
+    throw new Error("Method not implemented: populatePortfolioFromNsdl");
+  }
+
+  async populatePortfolioFromCdsl(userId: string, boId: string, date: string): Promise<any[]> {
+    throw new Error("Method not implemented: populatePortfolioFromCdsl");
+  }
+
+  async populateGovernmentSchemeHoldings(userId: string, date: string): Promise<any[]> {
+    throw new Error("Method not implemented: populateGovernmentSchemeHoldings");
+  }
+
+  async createCkycNotificationTrigger(trigger: InsertCkycNotificationTrigger): Promise<CkycNotificationTrigger> {
+    throw new Error("Method not implemented: createCkycNotificationTrigger");
+  }
+
+  async updateCkycNotificationStatus(id: string, status: string, sentAt?: Date, failureReason?: string): Promise<CkycNotificationTrigger | undefined> {
+    throw new Error("Method not implemented: updateCkycNotificationStatus");
+  }
+
+  async getAllAgents(filters?: { search?: string; status?: string; agentType?: string; page?: number; limit?: number }): Promise<{ data: Agent[]; total: number }> {
+    throw new Error("Method not implemented: getAllAgents");
+  }
+
+  async getAgent(id: string): Promise<Agent | undefined> {
+    throw new Error("Method not implemented: getAgent");
+  }
+
+  async createAgent(agent: InsertAgent): Promise<Agent> {
+    throw new Error("Method not implemented: createAgent");
+  }
+
+  async updateAgent(id: string, updates: Partial<Agent>): Promise<Agent | undefined> {
+    throw new Error("Method not implemented: updateAgent");
+  }
+
+  async deleteAgent(id: string): Promise<boolean> {
+    throw new Error("Method not implemented: deleteAgent");
+  }
+
+  async getAgentStats(): Promise<{ total: number; active: number; inactive: number; byType: Record<string, number> }> {
+    throw new Error("Method not implemented: getAgentStats");
+  }
+
+  async getSupplierStats(): Promise<{ total: number; active: number; byCategory: Record<string, number> }> {
+    throw new Error("Method not implemented: getSupplierStats");
+  }
+
+  async getLoanApplication(id: string): Promise<any | undefined> {
+    throw new Error("Method not implemented: getLoanApplication");
+  }
+
+  async getUserLoans(userId: string): Promise<any[]> {
+    throw new Error("Method not implemented: getUserLoans");
+  }
+
+  async updateLoanStatus(id: string, updates: any): Promise<any | undefined> {
+    throw new Error("Method not implemented: updateLoanStatus");
+  }
+
+  async getCollateralValuation(loanId: string): Promise<any | undefined> {
+    throw new Error("Method not implemented: getCollateralValuation");
+  }
+
+  async listFunds(params?: FundSearchParams): Promise<FundListResponse> {
+    throw new Error("Method not implemented: listFunds");
+  }
+
+  async getFund(schemeCode: string): Promise<FundExtended | undefined> {
+    throw new Error("Method not implemented: getFund");
+  }
+
+  async searchFunds(query: string): Promise<FundExtended[]> {
+    throw new Error("Method not implemented: searchFunds");
+  }
+
+  async upsertFund(fund: FundExtended): Promise<FundExtended> {
+    throw new Error("Method not implemented: upsertFund");
+  }
+
+  async getPopularFunds(): Promise<FundExtended[]> {
+    throw new Error("Method not implemented: getPopularFunds");
+  }
+
+  async getProvenance(schemeCode: string): Promise<Provenance | undefined> {
+    throw new Error("Method not implemented: getProvenance");
+  }
+
+  async markStale(schemeCodes: string[]): Promise<void> {
+    throw new Error("Method not implemented: markStale");
+  }
+
+  async refreshFundCache(): Promise<void> {
+    throw new Error("Method not implemented: refreshFundCache");
+  }
+
+  async getFundsCacheStats(): Promise<{ totalCount: number; staleCount: number; lastUpdated: Date }> {
+    throw new Error("Method not implemented: getFundsCacheStats");
+  }
+
+  async getSourcesStatus(): Promise<MultiSourceStatus> {
+    throw new Error("Method not implemented: getSourcesStatus");
+  }
+
+  async updateSourceStatus(status: SourceStatus): Promise<void> {
+    throw new Error("Method not implemented: updateSourceStatus");
+  }
+
+  async createTaxSession(session: InsertTaxSession): Promise<TaxSession> {
+    throw new Error("Method not implemented: createTaxSession");
+  }
+
+  async getTaxSessions(userId: string): Promise<TaxSession[]> {
+    throw new Error("Method not implemented: getTaxSessions");
+  }
+
+  async getTaxSession(id: string): Promise<TaxSession | undefined> {
+    throw new Error("Method not implemented: getTaxSession");
+  }
+
+  async getTaxSessionByPanAndYear(userId: string, panNumber: string, assessmentYear: string): Promise<TaxSession | undefined> {
+    throw new Error("Method not implemented: getTaxSessionByPanAndYear");
+  }
+
+  async updateTaxSession(id: string, updates: Partial<TaxSession>): Promise<TaxSession | undefined> {
+    throw new Error("Method not implemented: updateTaxSession");
+  }
+
+  async deleteTaxSession(id: string): Promise<boolean> {
+    throw new Error("Method not implemented: deleteTaxSession");
+  }
+
+  async updateTaxSessionStatus(id: string, status: string, currentStep?: number): Promise<TaxSession | undefined> {
+    throw new Error("Method not implemented: updateTaxSessionStatus");
+  }
+
+  async getTaxDataSources(sessionId: string): Promise<TaxDataSource[]> {
+    throw new Error("Method not implemented: getTaxDataSources");
+  }
+
+  async getTaxDataSource(id: string): Promise<TaxDataSource | undefined> {
+    throw new Error("Method not implemented: getTaxDataSource");
+  }
+
+  async createTaxDataSource(dataSource: InsertTaxDataSource): Promise<TaxDataSource> {
+    throw new Error("Method not implemented: createTaxDataSource");
+  }
+
+  async updateTaxDataSource(id: string, updates: Partial<TaxDataSource>): Promise<TaxDataSource | undefined> {
+    throw new Error("Method not implemented: updateTaxDataSource");
+  }
+
+  async deleteTaxDataSource(id: string): Promise<boolean> {
+    throw new Error("Method not implemented: deleteTaxDataSource");
+  }
+
+  async updateDataSourceStatus(id: string, status: string, recordsCount?: number, lastSync?: Date): Promise<TaxDataSource | undefined> {
+    throw new Error("Method not implemented: updateDataSourceStatus");
+  }
+
+  async getValidationIssues(sessionId: string, severity?: string): Promise<ValidationIssue[]> {
+    throw new Error("Method not implemented: getValidationIssues");
+  }
+
+  async getValidationIssue(id: string): Promise<ValidationIssue | undefined> {
+    throw new Error("Method not implemented: getValidationIssue");
+  }
+
+  async createValidationIssue(issue: InsertValidationIssue): Promise<ValidationIssue> {
+    throw new Error("Method not implemented: createValidationIssue");
+  }
+
+  async updateValidationIssue(id: string, updates: Partial<ValidationIssue>): Promise<ValidationIssue | undefined> {
+    throw new Error("Method not implemented: updateValidationIssue");
+  }
+
+  async deleteValidationIssue(id: string): Promise<boolean> {
+    throw new Error("Method not implemented: deleteValidationIssue");
+  }
+
+  async resolveValidationIssue(id: string, resolvedBy: string): Promise<ValidationIssue | undefined> {
+    throw new Error("Method not implemented: resolveValidationIssue");
+  }
+
+  async getValidationIssuesBySection(sessionId: string, section: string): Promise<ValidationIssue[]> {
+    throw new Error("Method not implemented: getValidationIssuesBySection");
+  }
+
+  async getFilingRecords(sessionId: string): Promise<FilingRecord[]> {
+    throw new Error("Method not implemented: getFilingRecords");
+  }
+
+  async getFilingRecord(id: string): Promise<FilingRecord | undefined> {
+    throw new Error("Method not implemented: getFilingRecord");
+  }
+
+  async getFilingRecordByAckNumber(acknowledgmentNumber: string): Promise<FilingRecord | undefined> {
+    throw new Error("Method not implemented: getFilingRecordByAckNumber");
+  }
+
+  async createFilingRecord(record: InsertFilingRecord): Promise<FilingRecord> {
+    throw new Error("Method not implemented: createFilingRecord");
+  }
+
+  async updateFilingRecord(id: string, updates: Partial<FilingRecord>): Promise<FilingRecord | undefined> {
+    throw new Error("Method not implemented: updateFilingRecord");
+  }
+
+  async updateFilingStatus(id: string, status: string, verificationDate?: Date): Promise<FilingRecord | undefined> {
+    throw new Error("Method not implemented: updateFilingStatus");
+  }
+
+  async getAiOptimizationSuggestions(sessionId: string, category?: string): Promise<AiOptimizationSuggestion[]> {
+    throw new Error("Method not implemented: getAiOptimizationSuggestions");
+  }
+
+  async getAiOptimizationSuggestion(id: string): Promise<AiOptimizationSuggestion | undefined> {
+    throw new Error("Method not implemented: getAiOptimizationSuggestion");
+  }
+
+  async createAiOptimizationSuggestion(suggestion: InsertAiOptimizationSuggestion): Promise<AiOptimizationSuggestion> {
+    throw new Error("Method not implemented: createAiOptimizationSuggestion");
+  }
+
+  async updateAiOptimizationSuggestion(id: string, updates: Partial<AiOptimizationSuggestion>): Promise<AiOptimizationSuggestion | undefined> {
+    throw new Error("Method not implemented: updateAiOptimizationSuggestion");
+  }
+
+  async respondToSuggestion(id: string, status: string, userResponse?: string): Promise<AiOptimizationSuggestion | undefined> {
+    throw new Error("Method not implemented: respondToSuggestion");
+  }
+
+  async getPendingSuggestions(sessionId: string): Promise<AiOptimizationSuggestion[]> {
+    throw new Error("Method not implemented: getPendingSuggestions");
+  }
+
+  async updateBudgetSpendById(budgetId: string, amount: number): Promise<FamilyBudget> {
+    throw new Error("Method not implemented: updateBudgetSpendById");
+  }
+
+  async markAlertAsRead(historyId: string): Promise<AlertHistory | undefined> {
+    throw new Error("Method not implemented: markAlertAsRead");
+  }
+
+  async updateBudgetSpendByUser(userId: string, category: string, amount: number): Promise<void> {
+    throw new Error("Method not implemented: updateBudgetSpendByUser");
+  }
+}
+
+// Use DatabaseStorage instead of MemStorage
+export const storage = new DatabaseStorage();

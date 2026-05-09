@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>FintekPro - Smart Financial Services Platform</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5" />
+    <meta name="theme-color" content="#1e40af" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="FintekPro" />
+    <meta name="description" content="FintekPro is India's leading SEBI-compliant financial services platform for personal finance, portfolio management, mutual funds, stocks, bonds, and AI-powered investment insights." />
+    <link rel="canonical" href="https://fintekpro.in/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://fintekpro.in/" />
+    <meta property="og:title" content="FintekPro - Smart Financial Services Platform" />
+    <meta property="og:description" content="Comprehensive SEBI-compliant platform for portfolio management, mutual funds, stocks, bonds, and AI-powered investment insights. Empowering investors and financial advisors." />
+    <meta property="og:image" content="/icon-512.png" />
+    <meta property="og:site_name" content="FintekPro" />
+    <meta property="og:locale" content="en_IN" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="FintekPro - Smart Financial Services Platform" />
+    <meta name="twitter:description" content="India's leading SEBI-compliant financial services platform for personal finance, portfolio management, and AI-powered investment insights." />
+    <meta name="twitter:image" content="/icon-512.png" />
+    <link rel="icon" type="image/png" href="/icon-192.png" id="favicon-link" />
+    <link rel="manifest" href="/api/system/portal-manifest.json" id="manifest-link" />
+    <link rel="apple-touch-icon" href="/icon-192.png" id="apple-touch-icon-link" />
+    <script>
+      (function() {
+        fetch('/api/system/portal-meta')
+          .then(function(r) { return r.json(); })
+          .then(function(meta) {
+            var iconMap = { main: '/icon-192.png', partner: '/icon-partner.png', agent: '/icon-agent.png', admin: '/icon-admin.png' };
+            var icon = iconMap[meta.portal_type] || '/icon-192.png';
+            document.getElementById('favicon-link').href = icon;
+            document.getElementById('apple-touch-icon-link').href = icon;
+            var tc = document.querySelector('meta[name="theme-color"]');
+            if (tc) tc.content = meta.primary_color;
+            var awt = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+            if (awt) awt.content = meta.label;
+          })
+          .catch(function() {});
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..700;1,14..32,300..700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="root">
+      <style>
+        #initial-loader{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;z-index:9999;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+        #initial-loader .logo{font-size:22px;font-weight:700;color:#1e40af;letter-spacing:-0.5px;margin-bottom:20px}
+        #initial-loader .logo span{color:#3b82f6}
+        #initial-loader .spinner{width:36px;height:36px;border:3px solid #e2e8f0;border-top-color:#1e40af;border-radius:50%;animation:spin 0.7s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        #initial-loader .hint{margin-top:14px;font-size:12px;color:#94a3b8}
+      </style>
+      <div id="initial-loader">
+        <div class="logo">Fintek<span>Pro</span></div>
+        <div class="spinner"></div>
+        <div class="hint">Loading your financial dashboard…</div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,448 @@
+/**
+ * Universal KYC Compliance Gate
+ *
+ * Regulatory Basis:
+ * - PMLA 2002, Section 12: Reporting entities must maintain KYC records for ALL
+ *   persons associated with the entity, including staff and agents.
+ * - RBI Master Direction on KYC 2016 (amended 2023), Part B: All employees of
+ *   regulated entities handling financial transactions must be KYC-verified.
+ * - SEBI KYC Registration (KRA) Regulations: All intermediaries and their staff
+ *   must complete KYC before conducting any regulated activity.
+ * - AMFI Circular on ARN Holders: All ARN/EUIN holders must be KYC-compliant
+ *   through a KYC Registration Agency before distributing mutual funds.
+ * - IRDAI Regulations: All insurance agents must complete KYC before soliciting.
+ *
+ * This middleware applies to EVERY authenticated API request regardless of role.
+ * Internal operations (webhooks, health checks, KYC completion routes) are exempt.
+ */
+
+import { Request, Response, NextFunction } from 'express';
+import { getUserKYCLevel } from './kyc-level-gate';
+import type { RoleId } from '@shared/roles';
+import { logger } from '../logger';
+import { distributedCache } from '../utils/distributed-cache';
+
+const COMPLIANCE_CACHE_TTL_S = 5 * 60; // 5 minutes (Redis TTL in seconds)
+const COMPLIANCE_CACHE_KEY = (userId: string) => `kyc:compliance:${userId}`;
+
+/**
+ * Minimum KYC level required per role.
+ *
+ * Level 0 = no KYC required (browse only / internal testing)
+ * Level 1 = PAN + Address OVD + Photograph  (Standard KYC — RBI / PMLA)
+ * Level 2 = Level 1 + CKYC/KRA + Video KYC + Bank verification  (Full KYC — SEBI)
+ *
+ * Regulatory mapping:
+ *  superadmin      → L1  PMLA §12 — all reporting-entity personnel
+ *  master_agent    → L2  SEBI/AMFI — ARN/EUIN/POSP compliance anchor
+ *  admin           → L1  PMLA — internal admin staff
+ *  bd_head/team    → L1  PMLA — business development staff
+ *  compliance_*    → L2  SEBI/PMLA — compliance function personnel
+ *  finance_*       → L1  PMLA — finance staff
+ *  ops_*           → L1  PMLA — operations staff
+ *  hr_*            → L1  PMLA — HR staff
+ *  tech_*          → L1  PMLA — technology staff
+ *  regulatory_*    → L2  SEBI — regulatory audit function
+ *  partner         → L2  SEBI LODR + AMFI — distribution partner
+ *  partner_ops     → L1  PMLA — partner support staff
+ *  agent           → L1  AMFI/IRDAI — individual agent
+ *  sub_agent       → L1  AMFI — field executive
+ *  associate       → L1  AMFI — business associate
+ *  client          → L1  RBI — retail client minimum
+ *  business_client → L1  RBI/PMLA — business client
+ *  user            → L1  RBI — default user
+ *  tester          → L0  Internal — exempt for platform testing
+ */
+export const ROLE_KYC_MINIMUM: Record<string, '0' | '1' | '2'> = {
+  // ── Internal staff — KYC gate NEVER blocks the admin portal ──────────────
+  // These are company employees who operate the platform. They must complete
+  // their own KYC separately (for personal investing), but the portal itself
+  // must remain fully operational regardless of their own KYC status.
+  superadmin: '0',
+  master_agent: '0',
+
+  // Admin department heads
+  admin: '0',
+  bd_head: '0',
+  compliance_officer: '0',
+  finance_head: '0',
+  ops_head: '0',
+  hr_head: '0',
+  tech_head: '0',
+  regulatory_auditor: '0',
+
+  // Admin team members
+  bd_team: '0',
+  compliance_team: '0',
+  finance_team: '0',
+  ops_team: '0',
+  hr_team: '0',
+  tech_backend: '0',
+  tech_frontend: '0',
+  tech_devops: '0',
+
+  // External distribution — regulatory KYC still required (AMFI/SEBI rules)
+  // They distribute products to clients and handle client money; they must
+  // complete KYC before these regulated activities.
+  // BROWSE is allowed; KYC gate fires at transaction time (handled in explore logic below).
+  partner: '0',
+  partner_ops: '0',
+  agent: '0',
+  sub_agent: '0',
+  associate: '0',
+
+  // Client types — Level 0 so they can explore freely.
+  // Transaction endpoints enforce Level 1 separately via isClientTransactionPath().
+  client: '0',
+  business_client: '0',
+  user: '0',
+
+  // Internal testing — exempt
+  tester: '0',
+};
+
+/**
+ * Roles that can explore the platform freely but need KYC before transacting.
+ * Partners and agents are included — they must submit KYC before placing client
+ * orders, but should NOT be blocked from browsing the platform while their KYC
+ * is pending admin review/approval. Blocking browse access creates an infinite
+ * redirect loop for users who have already submitted their KYC.
+ */
+const CLIENT_EXPLORE_ROLES = new Set(['client', 'user', 'business_client', 'partner', 'partner_ops', 'agent', 'sub_agent', 'associate']);
+
+/**
+ * PARTNER_TRANSACTION_PATHS: paths where partner/agent KYC must be verified
+ * before they can act on behalf of a client or commit a financial transaction.
+ */
+const PARTNER_TRANSACTION_PATHS = [
+  '/api/mf/purchase',
+  '/api/mf/redeem',
+  '/api/mf/switch',
+  '/api/mf/lumpsum',
+  '/api/mf/sip',
+  '/api/sip',
+  '/api/orders',
+  '/api/bonds/orders',
+  '/api/bonds/purchase',
+  '/api/unlisted/orders',
+  '/api/unlisted/purchase',
+  '/api/investments',
+  '/api/payments/cashfree/create-order',
+  '/api/payments/create',
+  '/api/payments/initiate',
+  '/api/ipo/apply',
+  '/api/nps/invest',
+  '/api/portfolio/rebalance',
+  '/api/portfolio/buy',
+  '/api/portfolio/sell',
+  '/api/fixed-deposits/book',
+  '/api/insurance/purchase',
+  '/api/loan/apply',
+  '/api/gold/buy',
+  '/api/gold/sell',
+  '/api/us-trading/accounts',
+  '/api/us-trading/orders',
+  '/api/us-trading/activate',
+  '/api/agent/place-order',
+  '/api/agent/sip',
+  '/api/agent/transaction',
+];
+
+const PARTNER_EXPLORE_ROLES = new Set(['partner', 'partner_ops', 'agent', 'sub_agent', 'associate']);
+
+function isPartnerTransactionPath(path: string): boolean {
+  return PARTNER_TRANSACTION_PATHS.some(prefix => path.startsWith(prefix));
+}
+
+/**
+ * Transaction paths that require KYC Level 1 even for explore-mode client roles.
+ * Anything not in this list is considered "explore" and allowed without KYC.
+ */
+const CLIENT_TRANSACTION_PATHS = [
+  '/api/orders',
+  '/api/mf/purchase',
+  '/api/mf/redeem',
+  '/api/mf/switch',
+  '/api/mf/lumpsum',
+  '/api/mf/folio',
+  '/api/sip',
+  '/api/us-trading/accounts',
+  '/api/us-trading/orders',
+  '/api/us-trading/activate',
+  '/api/bonds/orders',
+  '/api/bonds/purchase',
+  '/api/unlisted/orders',
+  '/api/unlisted/purchase',
+  '/api/investments',
+  '/api/withdrawal',
+  '/api/transfer',
+  '/api/payments/cashfree/create-order',
+  '/api/payments/create',
+  '/api/payments/initiate',
+  '/api/ipo/apply',
+  '/api/nps/invest',
+  '/api/portfolio/rebalance',
+  '/api/portfolio/buy',
+  '/api/portfolio/sell',
+  '/api/fixed-deposits/book',
+  '/api/insurance/purchase',
+  '/api/loan/apply',
+  '/api/loan/apply-now',
+  '/api/gold/buy',
+  '/api/gold/sell',
+];
+
+function isClientTransactionPath(path: string): boolean {
+  return CLIENT_TRANSACTION_PATHS.some(prefix => path.startsWith(prefix));
+}
+
+/**
+ * Paths that are exempt from KYC enforcement.
+ * These are required to allow users to log in and complete their KYC.
+ */
+const EXEMPT_PREFIXES = [
+  '/api/auth',        // Login / register / OAuth
+  '/api/kyc',         // All KYC completion and re-KYC routes (cannot block these!)
+  '/api/user',        // Own profile reads (needed for UI to load)
+  '/api/health',      // Infrastructure
+  '/api/admin',       // ENTIRE admin portal — must be fully operational at all times
+  '/api/agent/kyc',   // Agent KYC empanelment flow
+  '/api/ready',
+  '/api/live',
+  '/api/webhooks',    // External webhooks
+  '/api/twilio',      // Twilio webhooks
+  '/api/zoho/webhooks',
+  '/api/payments/cashfree/webhook',
+  '/api/payments/phonepe/callback',
+  '/api/webhooks/sandbox',
+  '/api/onboarding',  // Profile setup (prerequisite to KYC)
+  '/api/uploads',     // Document uploads for KYC
+  '/api/bbps',        // DigiLocker / BBPS (used during Aadhaar OTP)
+  '/api/digilocker',
+  '/api/agent-empanelment', // Agent KYC empanelment flow
+];
+
+const EXEMPT_EXACT = new Set([
+  '/api/version',
+  '/api/user',
+  '/api/login',
+  '/api/register',
+  '/api/logout',
+]);
+
+function isExempt(path: string): boolean {
+  if (EXEMPT_EXACT.has(path)) return true;
+  return EXEMPT_PREFIXES.some(prefix => path.startsWith(prefix));
+}
+
+/**
+ * Derive the highest-priority role from the user's roles array.
+ * Uses the ROLE_KYC_MINIMUM map — highest required level wins.
+ */
+function getRequiredKycLevel(roles: string[]): '0' | '1' | '2' {
+  let required: '0' | '1' | '2' = '0';
+  for (const role of roles) {
+    const min = ROLE_KYC_MINIMUM[role] ?? '1'; // default Level 1 for unknown roles
+    if (min === '2') return '2';               // short-circuit — can't go higher
+    if (min === '1' && required === '0') required = '1';
+  }
+  return required;
+}
+
+function hasRequiredLevel(current: '0' | '1' | '2', required: '0' | '1' | '2'): boolean {
+  return parseInt(current) >= parseInt(required);
+}
+
+interface CachedCompliance {
+  compliant: boolean;
+  currentLevel: '0' | '1' | '2';
+  requiredLevel: '0' | '1' | '2';
+  missingRequirements: string[];
+}
+
+/**
+ * Get the compliance status for a user (with distributed caching).
+ */
+export async function getComplianceStatus(user: any): Promise<{
+  compliant: boolean;
+  currentLevel: '0' | '1' | '2';
+  requiredLevel: '0' | '1' | '2';
+  missingRequirements: string[];
+  regulatoryBasis: string[];
+}> {
+  const userId: string = user.id;
+  const userRoles: string[] = user.roles || (user.role ? [user.role] : ['user']);
+  const requiredLevel = getRequiredKycLevel(userRoles);
+
+  // Tester role or required level 0 — always compliant
+  if (requiredLevel === '0') {
+    return {
+      compliant: true,
+      currentLevel: '0',
+      requiredLevel: '0',
+      missingRequirements: [],
+      regulatoryBasis: ['Internal testing role — KYC not required'],
+    };
+  }
+
+  // Check distributed cache (Redis in prod, LRU Map in dev/single-pod)
+  const cached = await distributedCache.getJson<CachedCompliance>(COMPLIANCE_CACHE_KEY(userId));
+  if (cached) {
+    return {
+      ...cached,
+      regulatoryBasis: buildRegulatoryBasis(userRoles, requiredLevel),
+    };
+  }
+
+  // Compute from DB
+  const { level: currentLevel, complianceDetails } = await getUserKYCLevel(userId);
+  const compliant = hasRequiredLevel(currentLevel, requiredLevel);
+
+  const entry: CachedCompliance = {
+    compliant,
+    currentLevel,
+    requiredLevel,
+    missingRequirements: complianceDetails.missingRequirements,
+  };
+  await distributedCache.setJson(COMPLIANCE_CACHE_KEY(userId), entry, COMPLIANCE_CACHE_TTL_S);
+
+  return {
+    ...entry,
+    regulatoryBasis: buildRegulatoryBasis(userRoles, requiredLevel),
+  };
+}
+
+function buildRegulatoryBasis(roles: string[], requiredLevel: '0' | '1' | '2'): string[] {
+  const basis: string[] = ['PMLA 2002, Section 12 — KYC for all persons in Reporting Entity'];
+
+  if (roles.some(r => ['master_agent', 'partner'].includes(r))) {
+    basis.push('SEBI KRA Regulations — ARN/EUIN holders must complete Full KYC');
+    basis.push('AMFI Circular — Distributors must be KYC-compliant before soliciting');
+  }
+  if (roles.some(r => ['agent', 'sub_agent', 'associate'].includes(r))) {
+    basis.push('AMFI/IRDAI Circular — Agents must complete KYC before distributing products');
+  }
+  if (roles.some(r => ['compliance_officer', 'regulatory_auditor'].includes(r))) {
+    basis.push('SEBI LODR — Compliance function personnel require Full KYC');
+  }
+  if (roles.some(r => ['client', 'user', 'business_client'].includes(r))) {
+    basis.push('RBI Master Direction on KYC 2016 — Minimum Standard KYC for all account holders');
+  }
+
+  return basis;
+}
+
+/**
+ * Express middleware: blocks any authenticated user whose KYC level is below
+ * the minimum required for their role.
+ *
+ * Returns HTTP 403 with:
+ *   { code: 'KYC_REQUIRED', requiredLevel, currentLevel, missingRequirements, redirectTo }
+ */
+export async function universalKycGate(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  // Not authenticated — auth middleware handles this separately
+  if (!req.user) return next();
+
+  // Exempt paths — KYC completion flows, webhooks, health checks
+  if (isExempt(req.path)) return next();
+
+  // ── Partner / Agent / Client explore-mode logic ───────────────────────────
+  // Partners, agents, and clients can BROWSE the platform freely.
+  // KYC is only enforced when they attempt an actual financial transaction.
+  //
+  // This prevents the infinite-redirect bug where a partner who has SUBMITTED
+  // their KYC (and is pending admin approval) gets locked out of the platform
+  // because their KYC hasn't been "approved" yet in the system.
+  const userRolesEarly: string[] = (req.user as any).roles
+    || ((req.user as any).role ? [(req.user as any).role] : ['user']);
+  const isPureClientRole = userRolesEarly.every(r => CLIENT_EXPLORE_ROLES.has(r));
+  const isPartnerAgentRole = userRolesEarly.some(r => PARTNER_EXPLORE_ROLES.has(r));
+
+  if (isPureClientRole) {
+    // Partner/Agent: transaction path enforcement
+    if (isPartnerAgentRole && isPartnerTransactionPath(req.path)) {
+      try {
+        const { level: currentLevel } = await getUserKYCLevel((req.user as any).id);
+        if (parseInt(currentLevel) >= 1) return next();
+        res.status(403).json({
+          code: 'KYC_PENDING_APPROVAL',
+          message: 'Your KYC submission is under review by our compliance team. You will be notified once approved. Financial transactions will be enabled after approval.',
+          requiredLevel: '1',
+          currentLevel,
+          redirectTo: '/profile?tab=kyc-dashboard',
+          transactionBlocked: true,
+        });
+        return;
+      } catch {
+        return next(); // fail-open
+      }
+    }
+
+    // Client transaction path enforcement (non-partner)
+    if (!isPartnerAgentRole && isClientTransactionPath(req.path)) {
+      try {
+        const { level: currentLevel } = await getUserKYCLevel((req.user as any).id);
+        if (parseInt(currentLevel) >= 1) return next();
+        res.status(403).json({
+          code: 'KYC_REQUIRED',
+          message: 'Please complete your KYC verification before placing orders or investing.',
+          requiredLevel: '1',
+          currentLevel,
+          redirectTo: '/onboarding',
+          transactionBlocked: true,
+        });
+        return;
+      } catch {
+        return next(); // fail-open
+      }
+    }
+
+    return next(); // Browsing — allow through
+  }
+  // ────────────────────────────────────────────────────────────────────────────
+
+  try {
+    const user = req.user as any;
+    const status = await getComplianceStatus(user);
+
+    if (status.compliant) return next();
+
+    res.status(403).json({
+      code: 'KYC_REQUIRED',
+      message: `KYC verification required before accessing this platform. Complete your ${status.requiredLevel === '2' ? 'Full KYC (Level 2)' : 'Standard KYC (Level 1)'} to continue.`,
+      requiredLevel: status.requiredLevel,
+      currentLevel: status.currentLevel,
+      missingRequirements: status.missingRequirements,
+      regulatoryBasis: status.regulatoryBasis,
+      redirectTo: '/profile?tab=kyc-dashboard',
+    });
+  } catch (err) {
+    // Never crash the request — if KYC check fails, allow through and log
+    logger.error('[UniversalKycGate] Error checking compliance, allowing through', { error: err instanceof Error ? err.message : String(err) });
+    next();
+  }
+}
+
+/**
+ * Invalidate the compliance cache for a user.
+ * Call this after auto-KYC writes new verification flags to the DB,
+ * so the next request immediately picks up the new KYC level without
+ * waiting for the 5-minute cache TTL to expire.
+ */
+export async function invalidateComplianceCache(userId: string): Promise<void> {
+  try {
+    const cacheKey = COMPLIANCE_CACHE_KEY(userId);
+    await distributedCache.del(cacheKey);
+    logger.info('[UniversalKycGate] Compliance cache invalidated', { userId });
+  } catch (err) {
+    // Non-fatal — cache miss on next request forces a fresh DB lookup
+    logger.warn('[UniversalKycGate] Failed to invalidate compliance cache', {
+      userId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}

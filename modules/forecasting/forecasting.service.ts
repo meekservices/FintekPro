@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { db } from '../../server/db';
 import { cashFlows, liquiditySnapshots } from '../../shared/schema/treasury';
-import { eq, sql, gte, and } from 'drizzle-orm';
+import { eq, sql, gte } from 'drizzle-orm';
 
 @Injectable()
 export class ForecastingService {
@@ -49,27 +49,7 @@ export class ForecastingService {
     return projections;
   }
 
-  async generateAIAnalysis(entityId: string, projections: any[]) {
-    const { aiService } = await import('../../server/services/ai-service');
-    const { treasuryPrompts } = await import('../../server/ai/prompts/treasury');
-    
-    const dataString = JSON.stringify(projections.slice(0, 15), null, 2); // Send first 15 days for context
-    const prompt = treasuryPrompts['liquidity-forecasting'].userPrompt(dataString);
-    const system = treasuryPrompts['liquidity-forecasting'].systemPrompt;
-
-    const response = await aiService.chat([
-      { role: 'system', content: system },
-      { role: 'user', content: prompt }
-    ], {
-      feature: 'treasury-forecasting',
-      userId: entityId
-    });
-
-    return response.content;
-  }
-
   private calculateAverage(flows: any[]) {
-
     if (flows.length === 0) return 0;
     const total = flows.reduce((sum, f) => sum + parseFloat(f.amount), 0);
     return total / 90; // Avg over 90 days

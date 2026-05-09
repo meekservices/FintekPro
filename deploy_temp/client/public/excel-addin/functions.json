@@ -1,0 +1,58 @@
+{
+  "functions": [
+    {
+      "id": "SPOT",
+      "name": "SPOT",
+      "description": "Returns the current spot/underlying price for an NSE F&O symbol.",
+      "parameters": [
+        { "name": "symbol", "description": "NSE symbol e.g. \"NIFTY\", \"BANKNIFTY\", \"RELIANCE\"", "type": "string" }
+      ],
+      "result": { "type": "number", "dimensionality": "scalar" }
+    },
+    {
+      "id": "OC",
+      "name": "OC",
+      "description": "Returns a single data point from the NSE option chain. Fields: LTP, OI, IV, CHANGE, CHANGE_PCT, VOLUME, BID, ASK, BID_QTY, ASK_QTY, SPOT, GREEKS.",
+      "parameters": [
+        { "name": "symbol",  "description": "NSE F&O symbol e.g. \"NIFTY\"", "type": "string" },
+        { "name": "type",    "description": "Option type: \"CE\" or \"PE\"", "type": "string" },
+        { "name": "strike",  "description": "Strike price as a number e.g. 24000", "type": "number" },
+        { "name": "expiry",  "description": "Expiry date in YYYY-MM-DD format", "type": "string" },
+        { "name": "field",   "description": "Data field: LTP | OI | IV | CHANGE | CHANGE_PCT | VOLUME | BID | ASK", "type": "string" }
+      ],
+      "result": { "type": "number", "dimensionality": "scalar" }
+    },
+    {
+      "id": "EXPIRY",
+      "name": "EXPIRY",
+      "description": "Returns the Nth expiry date for an NSE F&O symbol as a text string (YYYY-MM-DD).",
+      "parameters": [
+        { "name": "symbol", "description": "NSE F&O symbol e.g. \"NIFTY\"", "type": "string" },
+        { "name": "n",      "description": "Expiry number: 1 = nearest, 2 = next, etc.", "type": "number" }
+      ],
+      "result": { "type": "string", "dimensionality": "scalar" }
+    },
+    {
+      "id": "CHAIN",
+      "name": "CHAIN",
+      "description": "Returns the full option chain as a dynamic 2-D array. Spill across rows: STRIKE | CALL_LTP | CALL_OI | CALL_IV | PUT_LTP | PUT_OI | PUT_IV.",
+      "parameters": [
+        { "name": "symbol", "description": "NSE F&O symbol e.g. \"NIFTY\"", "type": "string" },
+        { "name": "expiry", "description": "Expiry date in YYYY-MM-DD format", "type": "string" }
+      ],
+      "result": { "type": "number", "dimensionality": "matrix" }
+    },
+    {
+      "id": "GREEKS",
+      "name": "GREEKS",
+      "description": "Returns option Greeks as a 1-row dynamic array: DELTA | GAMMA | THETA | VEGA | RHO | IV.",
+      "parameters": [
+        { "name": "symbol",  "description": "NSE F&O symbol", "type": "string" },
+        { "name": "type",    "description": "\"CE\" or \"PE\"", "type": "string" },
+        { "name": "strike",  "description": "Strike price", "type": "number" },
+        { "name": "expiry",  "description": "Expiry date YYYY-MM-DD", "type": "string" }
+      ],
+      "result": { "type": "number", "dimensionality": "matrix" }
+    }
+  ]
+}

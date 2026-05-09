@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>FintekPro Custom Functions Host</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
+  <script>
+    Office.onReady(function() {
+      console.log("[FintekPro] Custom functions host ready");
+    });
+  </script>
+  <script src="/excel-addin/functions.js"></script>
+</head>
+<body>
+  <!-- This page is the invisible host for Excel custom functions. -->
+  <!-- It must be loaded by Excel before FINTEKPRO.* formulas work. -->
+</body>
+</html>
