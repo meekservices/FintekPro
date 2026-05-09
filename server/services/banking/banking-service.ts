@@ -9,11 +9,11 @@ export class BankingService {
   }
 
   private initializeProviders() {
-    const cfClientId = process.env.CASHFREE_CLIENT_ID;
-    const cfClientSecret = process.env.CASHFREE_CLIENT_SECRET;
+    const cfClientId = process.env.CASHFREE_CLIENT_ID || process.env.CASHFREE_APP_ID;
+    const cfClientSecret = process.env.CASHFREE_CLIENT_SECRET || process.env.CASHFREE_SECRET_KEY;
 
     if (cfClientId && cfClientSecret) {
-      this.providers.set('cashfree', new CashfreeProvider(cfClientId, cfClientSecret));
+      this.providers.set('cashfree', new CashfreeProvider(cfClientId, cfClientSecret, process.env.CASHFREE_ENVIRONMENT === 'production'));
     }
   }
 
