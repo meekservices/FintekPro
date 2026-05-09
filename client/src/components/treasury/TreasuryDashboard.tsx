@@ -41,7 +41,7 @@ const allocationData = [
   { name: 'HDFC Bank', value: 4500000, color: '#1e40af' },
   { name: 'ICICI Bank', value: 3200000, color: '#ea580c' },
   { name: 'Kotak Bank', value: 2800000, color: '#dc2626' },
-  { name: 'RazorpayX', value: 1500000, color: '#2563eb' },
+  { name: 'Cashfree', value: 1500000, color: '#2563eb' },
 ];
 
 import { TreasuryCopilotUI } from './TreasuryCopilotUI';
@@ -253,7 +253,7 @@ export function TreasuryDashboard() {
               </thead>
               <tbody className="divide-y dark:divide-slate-800">
                 {[
-                  { name: 'Cloud Services Inc', method: 'RazorpayX', amount: '₹4.50 L', status: 'Success', date: 'Today' },
+                  { name: 'Cloud Services Inc', method: 'Cashfree', amount: '₹4.50 L', status: 'Success', date: 'Today' },
                   { name: 'Stellar Logistics', method: 'HDFC NEFT', amount: '₹12.80 L', status: 'Processing', date: 'Today' },
                   { name: 'Global Rent Co', method: 'ICICI IMPS', amount: '₹8.25 L', status: 'Success', date: 'Yesterday' },
                   { name: 'Payroll Batch #42', method: 'Bulk Payout', amount: '₹85.40 L', status: 'Success', date: '2 days ago' },

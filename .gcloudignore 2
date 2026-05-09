@@ -1,0 +1,24 @@
+.gcloudignore
+.git/
+.gitignore
+node_modules/
+dist/
+.env
+.env.*
+!package-lock.json
+*.dump
+*.sql.gz
+npm_cache/
+deploy_temp/
+.temp_home/
+.tmp/
+# attached_assets/ (Required for build)
+!attached_assets/
+cloud-sql-proxy
+*.log
+*.txt
+tmp/
+scratch/
+# services/ removed to ensure server/services is included
+/services/
+

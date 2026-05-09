@@ -29,9 +29,20 @@ export function VersionCheckModal() {
 
   const handleUpdate = async () => {
     setIsUpdating(true);
-    // Dismiss locally so the modal closes immediately while reload is happening
-    dismissUpdate();
-    await forceUpdate();
+    
+    // Set a safety timeout to reset isUpdating if reload doesn't happen
+    const safetyTimeout = setTimeout(() => {
+      setIsUpdating(false);
+      dismissUpdate(); // At least close the modal if it's stuck
+    }, 5000);
+
+    try {
+      await forceUpdate();
+    } catch (err) {
+      console.error("Update failed:", err);
+      setIsUpdating(false);
+      clearTimeout(safetyTimeout);
+    }
   };
 
   return (

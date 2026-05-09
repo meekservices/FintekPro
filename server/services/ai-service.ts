@@ -72,7 +72,7 @@ export interface AIUsageMetrics {
   timestamp: Date;
 }
 
-class AIService {
+export class AIService {
   private usageMetrics: AIUsageMetrics[] = [];
   private _defaultProvider: AIProvider = 'groq';
   private _defaultModel: AIModel = 'llama-3.3-70b-versatile';
@@ -111,6 +111,22 @@ class AIService {
     } catch (err: any) {
       console.warn('[AIService] Failed to log prompt usage:', err.message);
     }
+  }
+
+  /**
+   * Convenience method for single prompt completion
+   */
+  async generateResponse(prompt: string, options: AIServiceOptions = {}): Promise<string> {
+    const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
+    const result = await this.chat(messages, options);
+    return result.content;
+  }
+
+  /**
+   * Check for model availability
+   */
+  isGpt52Available(): boolean {
+    return !!openaiDirect;
   }
 
   /**
@@ -202,8 +218,8 @@ class AIService {
                         error.message?.toLowerCase().includes('rate limit');
           
           if (is429 && attempt < MAX_RETRIES) {
-            // Exponential backoff: 2s, 4s, 8s... plus jitter
-            const delay = Math.pow(2, attempt) * 3000 + Math.random() * 1000;
+            // Exponential backoff: 3s, 6s, 12s... plus jitter
+            const delay = Math.pow(2, attempt) * 4000 + Math.random() * 2000;
             console.warn(`[AIService] Rate limit (429) hit for ${provider}. Retrying in ${Math.round(delay)}ms...`);
             await new Promise(resolve => setTimeout(resolve, delay));
             attempt++;

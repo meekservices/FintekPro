@@ -14,7 +14,7 @@ export function TreasuryCopilotUI() {
   ]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!query.trim()) return;
     
     const userMsg = { role: 'user' as const, text: query };
@@ -22,15 +22,33 @@ export function TreasuryCopilotUI() {
     setQuery('');
     setIsLoading(true);
 
-    // Mock AI response
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/ai/copilot/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          entityId: 'demo-entity', // In production, this would come from context/auth
+          query 
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to get AI response');
+      
+      const data = await response.json();
       const botMsg = { 
         role: 'bot' as const, 
-        text: `Based on your current position of ₹12.45 Cr, you have ₹2.3 Cr in excess liquidity in HDFC Bank. I recommend deploying ₹1.5 Cr into a 7-day Liquid Fund to earn an additional 6.2% APY.` 
+        text: data.answer 
       };
       setMessages(prev => [...prev, botMsg]);
+    } catch (error) {
+      console.error('Copilot error:', error);
+      setMessages(prev => [...prev, { 
+        role: 'bot', 
+        text: 'Sorry, I encountered an error. Please try again later.' 
+      }]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   if (!isOpen) {

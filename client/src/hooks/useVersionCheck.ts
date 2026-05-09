@@ -63,37 +63,37 @@ export function useVersionCheck(): VersionCheckResult {
     if ("serviceWorker" in navigator) {
       try {
         const registration = await navigator.serviceWorker.getRegistration();
-        if (registration) {
+        if (registration && (registration.waiting || registration.installing)) {
           console.log("[VersionCheck] Updating service worker...");
-          await registration.update();
-          
-          // Check waiting, installing, or active
-          const worker = registration.waiting || registration.installing || registration.active;
+          const worker = registration.waiting || registration.installing;
           if (worker) {
-            // Send both formats to be safe
-            worker.postMessage("skipWaiting");
             worker.postMessage({ type: "SKIP_WAITING" });
-            worker.postMessage({ type: "skipWaiting" });
           }
         }
       } catch (err) {
-        console.error("[VersionCheck] Service worker update failed:", err);
+        console.error("[VersionCheck] Service worker communication failed:", err);
       }
     }
     
-    // 2. Clear dismiss flag so we don't get stuck if reload fails
+    // 2. Clear dismiss flag
     sessionStorage.removeItem("versionDismissed");
     
     // 3. Reload with cache busting
     console.log("[VersionCheck] Reloading page...");
     const url = new URL(window.location.href);
     url.searchParams.set("v", Date.now().toString());
-    window.location.assign(url.toString());
     
-    // Fallback if assign doesn't work
+    // Use multiple methods to ensure reload
+    try {
+      window.location.href = url.toString();
+    } catch (e) {
+      window.location.assign(url.toString());
+    }
+    
+    // Fallback if the above doesn't trigger immediately
     setTimeout(() => {
       window.location.reload();
-    }, 500);
+    }, 1000);
   }, []);
 
   const dismissUpdate = useCallback(() => {
