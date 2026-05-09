@@ -52,7 +52,8 @@ export const treasuryAccounts = pgTable("treasury_accounts", {
   branchName: varchar("branch_name"),
   accountType: treasuryAccountTypeEnum("account_type").notNull().default("current"),
   currency: varchar("currency").default("INR"),
-  provider: varchar("provider"), // RazorpayX, Cashfree, Decentro, etc.
+  provider: varchar("provider"), // Primary: Cashfree, Decentro. Deprecated: RazorpayX
+
   providerAccountId: varchar("provider_account_id"),
   isVirtual: boolean("is_virtual").default(false),
   status: varchar("status").default("active"),

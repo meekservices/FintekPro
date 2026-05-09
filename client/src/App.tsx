@@ -403,13 +403,17 @@ const AgentTracker = lazyWithRetry(() => import("@/pages/agent-tracker"));
 const AlpacaMarketExplorer = lazyWithRetry(() => import("@/pages/alpaca-market-explorer"));
 
 
+const TreasuryDashboard = lazyWithRetry(() => import("@/pages/treasury-dashboard"));
+
 function UserProtectedRoutes() {
   return (
     <ProfileCompletionGuard>
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/dashboard" component={Home} />
+        <Route path="/treasury-dashboard" component={TreasuryDashboard} />
         <Route path="/portfolio" component={Portfolio} />
+
         <Route path="/portfolio/holdings" component={PortfolioHoldings} />
         <Route path="/portfolio/goals" component={PortfolioGoals} />
         <Route path="/portfolio/retirement" component={PortfolioRetirement} />

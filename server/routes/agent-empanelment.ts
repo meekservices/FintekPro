@@ -266,13 +266,14 @@ router.post("/step/4/verify-bank", requireAuth, async (req: Request, res: Respon
     let bankName = "";
     let bankBranch = "";
     try {
-      const ifscRes = await fetch(`https://ifsc.razorpay.com/${ifscCode.toUpperCase()}`);
-      if (ifscRes.ok) {
-        const ifscData = await ifscRes.json() as any;
-        bankName = ifscData.BANK || "";
-        bankBranch = ifscData.BRANCH || "";
+      const { lookupIFSC } = await import("../ifsc-lookup-service");
+      const ifscResult = await lookupIFSC(ifscCode);
+      if (ifscResult.success && ifscResult.data) {
+        bankName = ifscResult.data.bank;
+        bankBranch = ifscResult.data.branch;
       }
     } catch { /* non-fatal */ }
+
 
     console.log(`[AgentEmpanelment] Bank verify: acct=****${accountNumber.slice(-4)} ifsc=${ifscCode.toUpperCase()} name="${accountHolderName}"`);
     const result = await verifyBankAccountPennyDrop(accountNumber, ifscCode.toUpperCase(), accountHolderName);

@@ -1,7 +1,7 @@
-import axios from 'axios';
+import { verifyIFSC } from './services/cashfree-vrs-service';
 
-// Razorpay IFSC Lookup API (Free, no authentication required)
-const RAZORPAY_IFSC_API = 'https://ifsc.razorpay.com';
+// Cashfree IFSC Lookup is now used via the VRS (Verification & Risk Suite)
+// Documentation: https://www.cashfree.com/docs/api-reference/vrs/overview
 
 export interface IFSCDetails {
   ifsc: string;
@@ -24,7 +24,7 @@ export interface IFSCLookupResult {
 
 /**
  * Lookup bank and branch details from IFSC code
- * Uses Razorpay's free IFSC API
+ * Uses Cashfree's Verification & Risk Suite (VRS)
  */
 export async function lookupIFSC(ifscCode: string): Promise<IFSCLookupResult> {
   try {
@@ -39,17 +39,19 @@ export async function lookupIFSC(ifscCode: string): Promise<IFSCLookupResult> {
       };
     }
 
-    console.log(`🔍 Looking up IFSC: ${normalizedIFSC}`);
+    console.log(`🔍 Looking up IFSC via Cashfree: ${normalizedIFSC}`);
 
-    // Call Razorpay IFSC API
-    const response = await axios.get(`${RAZORPAY_IFSC_API}/${normalizedIFSC}`, {
-      timeout: 10000,
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
+    // Call Cashfree IFSC API
+    const result = await verifyIFSC({ ifsc: normalizedIFSC });
 
-    const apiData = response.data;
+    if (!result.success || !result.data) {
+      return {
+        success: false,
+        errorMessage: result.error || 'IFSC code not found or verification failed.'
+      };
+    }
+
+    const apiData = result.data as any;
 
     // Extract bank code and branch code from IFSC
     const bankCode = normalizedIFSC.substring(0, 4);
@@ -57,18 +59,18 @@ export async function lookupIFSC(ifscCode: string): Promise<IFSCLookupResult> {
 
     const ifscDetails: IFSCDetails = {
       ifsc: normalizedIFSC,
-      bank: apiData.BANK || apiData.bank || '',
-      branch: apiData.BRANCH || apiData.branch || '',
-      address: apiData.ADDRESS || apiData.address || '',
-      contact: apiData.CONTACT || apiData.contact || '',
-      city: apiData.CITY || apiData.city || '',
-      district: apiData.DISTRICT || apiData.district || '',
-      state: apiData.STATE || apiData.state || '',
+      bank: apiData.bank_name || apiData.bank || '',
+      branch: apiData.branch_name || apiData.branch || '',
+      address: apiData.address || '',
+      contact: apiData.contact || '',
+      city: apiData.city || '',
+      district: apiData.district || '',
+      state: apiData.state || '',
       bankCode,
       branchCode
     };
 
-    console.log(`✅ IFSC lookup successful: ${ifscDetails.bank} - ${ifscDetails.branch}`);
+    console.log(`✅ Cashfree IFSC lookup successful: ${ifscDetails.bank} - ${ifscDetails.branch}`);
 
     return {
       success: true,
@@ -78,34 +80,13 @@ export async function lookupIFSC(ifscCode: string): Promise<IFSCLookupResult> {
   } catch (error: any) {
     console.error('❌ IFSC lookup error:', error.message);
 
-    // Handle specific error cases
-    if (error.response?.status === 404) {
-      return {
-        success: false,
-        errorMessage: 'IFSC code not found. Please verify and try again.'
-      };
-    }
-
-    if (error.code === 'ECONNABORTED') {
-      return {
-        success: false,
-        errorMessage: 'Request timed out. Please try again.'
-      };
-    }
-
-    if (error.response?.data) {
-      return {
-        success: false,
-        errorMessage: error.response.data.message || 'Failed to lookup IFSC code'
-      };
-    }
-
     return {
       success: false,
       errorMessage: error.message || 'Failed to lookup IFSC code'
     };
   }
 }
+
 
 /**
  * Validate IFSC code format

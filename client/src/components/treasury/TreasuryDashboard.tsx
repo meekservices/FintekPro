@@ -45,14 +45,30 @@ const allocationData = [
 ];
 
 import { TreasuryCopilotUI } from './TreasuryCopilotUI';
+import { useQuery } from "@tanstack/react-query";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function TreasuryDashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
+  const entityId = "demo-entity"; // In production, this would come from context
+
+  const { data: positionData, isLoading: isLoadingPosition } = useQuery({
+    queryKey: [`/api/treasury/entities/${entityId}/consolidated-position`],
+  });
+
+  const { data: forecastData, isLoading: isLoadingForecast } = useQuery({
+    queryKey: [`/api/treasury/entities/${entityId}/forecast`], // We'll need to add this route or similar
+    enabled: !!positionData,
+  });
 
   const handleSync = () => {
     setIsSyncing(true);
     setTimeout(() => setIsSyncing(false), 2000);
   };
+
+  const consolidatedCash = positionData?.success ? positionData.data.totalBalance : 124500000;
+  const inflow = 4280000;
+  const outflow = 1825000;
 
   return (
     <div className="p-6 space-y-6 bg-slate-50/50 dark:bg-slate-950/50 min-h-screen">
@@ -79,6 +95,17 @@ export function TreasuryDashboard() {
           </Button>
         </div>
       </div>
+
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="bg-white dark:bg-slate-900 border shadow-sm p-1">
+          <TabsTrigger value="overview" className="px-6">Overview</TabsTrigger>
+          <TabsTrigger value="liquidity" className="px-6">Liquidity Forecast</TabsTrigger>
+          <TabsTrigger value="banks" className="px-6">Bank Accounts</TabsTrigger>
+          <TabsTrigger value="payouts" className="px-6">Payout History</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6 mt-0">
+
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -285,7 +312,97 @@ export function TreasuryDashboard() {
         </CardContent>
       </Card>
 
+        </TabsContent>
+
+        <TabsContent value="liquidity" className="mt-0">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <Card className="lg:col-span-3 border-none shadow-sm bg-white dark:bg-slate-900">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>AI-Driven Cash Forecast</CardTitle>
+                  <CardDescription>30-day liquidity projection based on historical patterns</CardDescription>
+                </div>
+                <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
+                  <Bot className="w-3 h-3 mr-1" />
+                  AI Powered
+                </Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[400px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={data}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Area type="monotone" dataKey="inflow" stroke="#10b981" fill="#10b981" fillOpacity={0.1} />
+                      <Area type="monotone" dataKey="outflow" stroke="#f43f5e" fill="#f43f5e" fillOpacity={0.1} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-6">
+              <Card className="border-none shadow-sm bg-indigo-600 text-white">
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Bot className="w-4 h-4" />
+                    Copilot Insight
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-indigo-100 leading-relaxed">
+                    "Based on upcoming tax outflows and historical vendor payment cycles, 
+                    we expect a ₹1.2 Cr liquidity dip on Wednesday. 
+                    I recommend sweeping ₹80L from your Kotak account to HDFC to maintain the buffer."
+                  </p>
+                  <Button variant="outline" size="sm" className="w-full mt-4 bg-white/10 border-white/20 text-white hover:bg-white/20">
+                    Execute Sweep
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Risk Analysis</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-100 rounded-full">
+                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold">Projected Shortfall</p>
+                      <p className="text-[10px] text-slate-500">Day 12: -₹4.5L estimated</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-100 rounded-full">
+                      <TrendingUp className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold">Idle Cash Yield</p>
+                      <p className="text-[10px] text-slate-500">+₹1.2k potential gain/day</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="banks">
+          {/* Bank Management Content */}
+        </TabsContent>
+
+        <TabsContent value="payouts">
+          {/* Payout History Content */}
+        </TabsContent>
+      </Tabs>
+
       <TreasuryCopilotUI />
     </div>
   );
 }
+

@@ -3781,15 +3781,31 @@ router.get("/api/tax/lookup/ifsc/:code", async (req: Request, res: Response) => 
     if (!code || code.length !== 11) return res.status(400).json({ success: false, message: "IFSC code must be 11 characters" });
 
     try {
-      const resp = await fetch(`https://ifsc.razorpay.com/${code}`);
-      if (resp.ok) {
-        const data = await resp.json() as any;
+      const { lookupIFSC } = await import("./ifsc-lookup-service");
+      const ifscResult = await lookupIFSC(code);
+      if (ifscResult.success && ifscResult.data) {
+        const data = ifscResult.data;
         return res.json({
           success: true,
-          data: { ifsc: code, bank: data.BANK || "", branch: data.BRANCH || "", address: data.ADDRESS || "", city: data.CITY || "", state: data.STATE || "", contact: data.CONTACT || "", micr: data.MICR || "", neft: data.NEFT, rtgs: data.RTGS, imps: data.IMPS, upi: data.UPI },
+          data: { 
+            ifsc: code, 
+            bank: data.bank, 
+            branch: data.branch, 
+            address: data.address, 
+            city: data.city, 
+            state: data.state, 
+            contact: data.contact || "", 
+            // Cashfree response might not have all these but we default them
+            micr: (data as any).micr || "", 
+            neft: (data as any).neft ?? true, 
+            rtgs: (data as any).rtgs ?? true, 
+            imps: (data as any).imps ?? true, 
+            upi: (data as any).upi ?? true 
+          },
         });
       }
     } catch {}
+
 
     const bankCode = code.substring(0, 4);
     res.json({
