@@ -14,8 +14,12 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "moduleResolution": "bundler",
+    "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
-    "types": ["node", "vite/client"],
+    "types": ["node", "react", "react-dom"],
+    "typeRoots": [
+      "/Users/sangrammohanty/Documents/GitHub/FintekPro/node_modules/@types"
+    ],
     "paths": {
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"]

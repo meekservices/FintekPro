@@ -98,9 +98,7 @@ try {
   console.warn(`[DB] 🟡 Non-fatal: Manual URL parsing failed (${e.message}). Falling back to connection string.`);
 }
 
-// STABILIZATION FALLBACK: If in production and using fintekpro_user, 
-// we also allow falling back to the postgres user if needed, 
-// since we know it works for other services.
+// STABILIZATION FALLBACK: Force 'postgres' user if using 'fintekpro_user' or if unconfigured
 if (isProduction && (user === 'fintekpro_user' || !user)) {
   console.log(`[DB] ℹ️  Forcing stabilization with postgres user fallback...`);
   user = 'postgres';
@@ -129,7 +127,6 @@ if (isCloudSqlSocketAvailable) {
   }
 }
 
-
 export const pool = new Pool(POOL_CONFIG);
 
 let poolHealthWarnings = 0;
@@ -146,7 +143,7 @@ pool.on('error', (err) => {
     logger.warn(`[DB Pool] Connection error (auto-recovering): ${err?.message || err}${suffix}`);
     lastPoolErrorTime = now;
     poolErrorCount = 0;
-    }
+  }
 });
 
 let connectCount = 0;

@@ -34,7 +34,7 @@ gcloud run deploy $SERVICE_NAME \
     --platform managed \
     --region $REGION \
     --allow-unauthenticated \
-    --port 5000 \
+    --port 8080 \
     --memory 4Gi \
     --cpu 2 \
     --timeout 300 \
@@ -72,7 +72,8 @@ ZOHO_CLIENT_ID=ZOHO_CLIENT_ID:latest,\
 ZOHO_CLIENT_SECRET=ZOHO_CLIENT_SECRET:latest,\
 ZOHO_REFRESH_TOKEN=ZOHO_REFRESH_TOKEN:latest,\
 ZOHO_WEBHOOK_SECRET=ZOHO_WEBHOOK_SECRET:latest,\
-COMPLIANCE_SECRET=COMPLIANCE_SECRET:latest\
+COMPLIANCE_SECRET=COMPLIANCE_SECRET:latest,\
+GROQ_API_KEY=GROQ_API_KEY:latest\
 "
 
 echo "✅ Deployment complete!"

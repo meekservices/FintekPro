@@ -5,7 +5,7 @@ import {
   clientAgentRelationships, 
   portfolios, 
   portfolioHoldings, 
-  agentRevenueTracking, 
+  agentCommissions, 
   kycRegulatoryAuditLogs 
 } from "@shared/schema";
 import { eq, and, sql, desc, inArray, gte, or } from "drizzle-orm";
@@ -75,11 +75,11 @@ router.get("/tracker", requireAuth, async (req, res) => {
     startOfMonth.setHours(0, 0, 0, 0);
 
     const revenueData = await db
-      .select({ commission: agentRevenueTracking.agentNetCommission })
-      .from(agentRevenueTracking)
+      .select({ commission: agentCommissions.agentNetCommission })
+      .from(agentCommissions)
       .where(and(
-        eq(agentRevenueTracking.agentId, agentId),
-        gte(agentRevenueTracking.transactionDate, startOfMonth)
+        eq(agentCommissions.agentId, agentId),
+        gte(agentCommissions.transactionDate, startOfMonth)
       ));
 
     const revenueMTD = revenueData.reduce((sum, r) => sum + parseFloat(r.commission || "0"), 0);

@@ -121,8 +121,9 @@ app.get('/api/boot-status', (req, res) => {
  * This ensures that if the async boot sequence (Phase 3) takes a long time
  * or fails partway through, the browser still receives index.html instead
  * of "Cannot GET /" or a raw Express error.
- * 
- * The frontend UI is designed to show a "Connecting to server..." splash 
+ *
+
+* The frontend UI is designed to show a "Connecting to server..." splash 
  * screen until it receives a successful response from /api/boot-status.
  */
 function registerSPACatchAll(expressApp: Express) {
@@ -229,7 +230,8 @@ if (process.env.NODE_ENV === 'production') {
             ADD COLUMN IF NOT EXISTS icai_verified BOOLEAN DEFAULT false,
             ADD COLUMN IF NOT EXISTS icai_verified_at TIMESTAMPTZ,
             ADD COLUMN IF NOT EXISTS icai_verified_by VARCHAR REFERENCES users(id),
-            ADD COLUMN IF NOT EXISTS cop_number VARCHAR,
+
+ADD COLUMN IF NOT EXISTS cop_number VARCHAR,
             ADD COLUMN IF NOT EXISTS cop_valid_from DATE,
             ADD COLUMN IF NOT EXISTS cop_valid_to DATE,
             ADD COLUMN IF NOT EXISTS cop_verified BOOLEAN DEFAULT false,
@@ -313,7 +315,8 @@ if (process.env.NODE_ENV === 'production') {
             id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id     VARCHAR,
             actor_type  VARCHAR,
-            action      VARCHAR NOT NULL,
+
+action      VARCHAR NOT NULL,
             category    VARCHAR NOT NULL,
             details     TEXT,
             ip_address  VARCHAR,
@@ -426,7 +429,8 @@ if (process.env.NODE_ENV === 'production') {
             platform_fee DECIMAL(20, 2),
             gst_amount DECIMAL(20, 2),
             escrow_amount DECIMAL(20, 2),
-            before_state JSONB,
+
+before_state JSONB,
             after_state JSONB,
             change_description TEXT,
             compliance_related BOOLEAN DEFAULT false,
@@ -524,8 +528,9 @@ if (process.env.NODE_ENV === 'production') {
 
         // Add missing columns if table already existed with old schema
         await migDb.execute(migSql`
-          DO $$ 
-          BEGIN
+          DO $$
+
+BEGIN
               IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='daily_picks' AND column_name='category') THEN
                   ALTER TABLE daily_picks ADD COLUMN category pick_category NOT NULL DEFAULT 'listed_stocks';
               END IF;
@@ -591,7 +596,8 @@ if (process.env.NODE_ENV === 'production') {
             status VARCHAR NOT NULL,
             account_number VARCHAR,
             currency VARCHAR DEFAULT 'USD',
-            crypto_status VARCHAR,
+
+crypto_status VARCHAR,
             buying_power DECIMAL(15, 2),
             cash DECIMAL(15, 2),
             portfolio_value DECIMAL(15, 2),
@@ -695,7 +701,8 @@ if (process.env.NODE_ENV === 'production') {
         `);
         console.log('✅ Global asset and RTA metadata columns verified');
       } catch (e: any) {
-        console.error('[Migration] Metadata enrichment error:', e?.message);
+
+console.error('[Migration] Metadata enrichment error:', e?.message);
       }
 
       // 24. IRIS KFintech investor ID column on users (missing from production DB)
@@ -807,7 +814,7 @@ if (process.env.NODE_ENV === 'production') {
 
       logBootProgress("Step 3d: Setting up CSRF...");
 
-      // CSRF token endpoint (must be after session middleware)
+// CSRF token endpoint (must be after session middleware)
       app.get('/api/csrf-token', (req: Request, res: Response) => {
         if (!req.session) {
           return res.status(401).json({ error: 'No session' });
@@ -917,7 +924,8 @@ if (process.env.NODE_ENV === 'production') {
       bondMarketplaceCalendarRoutes, regulatoryAuditNormsRoutes, regulatoryComplianceRoutes
     ] = await Promise.all([
       import('./routes/unlisted'),
-      import('./routes/compliance'),
+
+import('./routes/compliance'),
       import('./routes/bond-marketplace'),
       import('./routes/bond-seed-admin'),
       import('./routes/gold-admin'),
@@ -1022,7 +1030,8 @@ if (process.env.NODE_ENV === 'production') {
         const { pickOfTheDayService } = await import('./services/pick-of-the-day-service');
         pickOfTheDayService.startDailyScheduler();
       } catch (error) {
-        console.error('❌ Failed to start Pick of the Day Scheduler:', error);
+
+console.error('❌ Failed to start Pick of the Day Scheduler:', error);
       }
 
       // Initialize AI Regulatory Monitoring
@@ -1037,10 +1046,10 @@ if (process.env.NODE_ENV === 'production') {
       try {
         console.log('🛡️ Starting Unlisted Regulatory Audit Cleanup Scheduler...');
         const { unlistedRegulatoryAuditService } = await import('./services/unlisted-regulatory-audit-service');
-        
+
         // Run once on boot with dryRun=false to verify state, then schedule daily
         await unlistedRegulatoryAuditService.cleanupExpiredRecords(false);
-        
+
         setInterval(async () => {
           try {
             await unlistedRegulatoryAuditService.cleanupExpiredRecords(false);
@@ -1066,7 +1075,7 @@ if (process.env.NODE_ENV === 'production') {
         console.log('🔍 Running Forensic Audit Integrity Verification...');
         const { auditLogService } = await import('./services/audit-log-service');
         const integrityResult = await auditLogService.verifyChainIntegrity();
-        
+
         if (integrityResult.valid) {
           console.log('✅ Forensic Audit Chain Integrity: VERIFIED (HMAC-SHA256 Chain Intact)');
         } else {
@@ -1085,11 +1094,11 @@ if (process.env.NODE_ENV === 'production') {
   } catch (error: any) {
     console.error('❌ [FATAL] Server initialization failed:', error);
     bootState.error = `Boot Error: ${error?.message || String(error)}`;
-    
+
     // In production, try to serve SPA even if boot failed partially
     if (process.env.NODE_ENV === 'production') {
       try { registerSPACatchAll(app); } catch (_) {}
-      
+
       // Still listen so we can serve the "System initializing" error message
       const PORT = Number(process.env.PORT) || 5000;
       app.listen(PORT, "0.0.0.0", () => {

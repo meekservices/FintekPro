@@ -13,8 +13,8 @@ import type {
   InsertAiOptimizationSuggestion
 } from "@shared/schema";
 
-// Tax orchestrator uses GPT-5.1 via Replit AI Integrations for accurate tax analysis
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+// Tax orchestrator uses Gemini for accurate tax analysis
+// the newest OpenAI model is "gpt-4o" which was released August 7, 2025. do not change this unless explicitly requested by the user
 
 // Tax orchestrator service for unified smart filing workflow
 export class TaxOrchestrator {
@@ -100,7 +100,7 @@ export class TaxOrchestrator {
     return dataSources;
   }
 
-  // AI-powered ITR form suggestion using GPT-5.1 via Replit AI Integrations
+  // AI-powered ITR form suggestion using Gemini
   private async suggestItrForm(userProfile: any): Promise<{
     form: string;
     reason: string;
@@ -132,7 +132,7 @@ Respond with JSON only:
 
       const response = await aiService.chat(
         [{ role: 'user', content: prompt }],
-        { provider: 'openai', model: 'gpt-5.1', temperature: 0.3, maxTokens: 1024 }
+        { provider: 'groq', model: 'llama-3.3-70b-versatile', temperature: 0.3, maxTokens: 1024 }
       );
 
       const jsonMatch = response.content.match(/\{[\s\S]*\}/);
@@ -152,7 +152,7 @@ Respond with JSON only:
     }
   }
 
-  // AI-powered tax regime recommendation using GPT-5.1 via Replit AI Integrations
+  // AI-powered tax regime recommendation using Gemini
   private async suggestTaxRegime(userProfile: any): Promise<{
     regime: "old" | "new";
     reason: string;
@@ -182,7 +182,7 @@ Respond with JSON only:
 
       const response = await aiService.chat(
         [{ role: 'user', content: prompt }],
-        { provider: 'openai', model: 'gpt-5.1', temperature: 0.3, maxTokens: 1024 }
+        { provider: 'groq', model: 'llama-3.3-70b-versatile', temperature: 0.3, maxTokens: 1024 }
       );
 
       const jsonMatch = response.content.match(/\{[\s\S]*\}/);

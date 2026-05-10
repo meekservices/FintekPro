@@ -54,7 +54,7 @@ interface PendingAction {
 
 type SessionType = 'general' | 'portfolio_analysis' | 'tax_advice' | 'transaction';
 type AIProvider = 'openai' | 'gemini';
-type AIModel = 'gpt-5' | 'gpt-5-mini' | 'gpt-4.1' | 'gemini-2.0-flash-exp';
+type AIModel = 'gpt-4o' | 'gpt-4o-mini' | 'gpt-4.1' | 'gemini-2.0-flash-exp';
 
 export default function AIChat() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -63,7 +63,7 @@ export default function AIChat() {
   const [confirmAction, setConfirmAction] = useState<PendingAction | null>(null);
   const [sessionType, setSessionType] = useState<SessionType>('general');
   const [provider, setProvider] = useState<AIProvider>('openai');
-  const [model, setModel] = useState<AIModel>('gpt-5');
+  const [model, setModel] = useState<AIModel>('gpt-4o');
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -201,7 +201,7 @@ export default function AIChat() {
   // Update model when provider changes
   useEffect(() => {
     if (provider === 'openai') {
-      setModel('gpt-5');
+      setModel('gpt-4o');
     } else if (provider === 'gemini') {
       setModel('gemini-2.0-flash-exp');
     }
@@ -370,8 +370,8 @@ export default function AIChat() {
                       <SelectContent>
                         {provider === 'openai' ? (
                           <>
-                            <SelectItem value="gpt-5">GPT-5 (Recommended)</SelectItem>
-                            <SelectItem value="gpt-5-mini">GPT-5 Mini</SelectItem>
+                            <SelectItem value="gpt-4o">GPT-5 (Recommended)</SelectItem>
+                            <SelectItem value="gpt-4o-mini">GPT-5 Mini</SelectItem>
                             <SelectItem value="gpt-4.1">GPT-4.1</SelectItem>
                           </>
                         ) : (

@@ -411,7 +411,7 @@ router.get("/export", async (req: Request, res: Response) => {
   }
 });
 
-// AI-powered error analysis routes (GPT-5.1)
+// AI-powered error analysis routes (GPT-4o.1)
 router.post("/ai-analyze/:id", async (req: Request, res: Response) => {
   try {
     const analysis = await errorTrackingService.analyzeErrorWithAI(req.params.id);

@@ -310,9 +310,9 @@ class UnifiedAIRecommendationEngine {
     }
 
     const status = ['Python sidecar (primary scoring)'];
-    if (this.gemini) status.push('Gemini (text generation / advisory)');
-    if (this.groq)   status.push('Groq/Llama-3.3-70B (free fallback)');
-    if (this.openai) status.push('OpenAI (paid fallback)');
+    if (this.groq)   status.push('Groq/Llama-3.3-70B (primary text generation)');
+    if (this.gemini) status.push('Gemini (secondary fallback)');
+    if (this.openai) status.push('OpenAI (final fallback)');
     
     console.log(`✅ Unified AI Recommendation Engine initialized: ${status.join(', ')}`);
   }
@@ -520,7 +520,7 @@ class UnifiedAIRecommendationEngine {
     const prompt = this.buildAnalysisPrompt(product, clientProfile);
     
     const model = this.gemini!.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: prompt,
     });
 
@@ -1298,9 +1298,12 @@ Provide analysis as JSON with these fields:
 
     const useOpenAIFirst = this.modelPreference === 'openai';
     const primaryClient = useOpenAIFirst ? this.openai : this.gemini;
-    const fallbackClient = useOpenAIFirst ? this.gemini : this.openai;
-    const primaryName: 'openai' | 'gemini' = useOpenAIFirst ? 'openai' : 'gemini';
-    const fallbackName: 'openai' | 'gemini' = useOpenAIFirst ? 'gemini' : 'openai';
+    const secondaryClient = useOpenAIFirst ? this.gemini : this.openai;
+    const tertiaryClient = this.groq;
+
+    const primaryName = useOpenAIFirst ? 'openai' : 'gemini';
+    const secondaryName = useOpenAIFirst ? 'gemini' : 'openai';
+    const tertiaryName = 'groq';
 
     const callOpenAI = async () => {
       const response = await this.openai!.chat.completions.create({
@@ -1317,24 +1320,41 @@ Provide analysis as JSON with these fields:
 
     const callGemini = async () => {
       const response = await this.gemini!.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-1.5-flash',
         contents: prompt,
       });
       return response.text || '';
     };
 
+    const callGroq = async () => {
+      const response = await this.groq!.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt || 'You are a SEBI-registered investment advisor. Respond with valid JSON only.' },
+          { role: 'user', content: prompt },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+      });
+      return response.choices[0]?.message?.content || '{}';
+    };
+
     const callPrimary = primaryName === 'openai' ? callOpenAI : callGemini;
-    const callFallbackFn = fallbackName === 'openai' ? callOpenAI : callGemini;
+    const callSecondary = secondaryName === 'openai' ? callOpenAI : callGemini;
 
     try {
       if (primaryClient) {
         const text = await callPrimary();
         result = parse(text);
         modelUsed = primaryName;
-      } else if (fallbackClient) {
-        const text = await callFallbackFn();
+      } else if (secondaryClient) {
+        const text = await callSecondary();
         result = parse(text);
-        modelUsed = fallbackName;
+        modelUsed = secondaryName;
+      } else if (tertiaryClient) {
+        const text = await callGroq();
+        result = parse(text);
+        modelUsed = 'fallback'; // mapping to 'fallback' as per interface, or we can update interface
       } else if (fallback) {
         result = fallback();
         modelUsed = 'fallback';
@@ -1344,21 +1364,31 @@ Provide analysis as JSON with these fields:
     } catch (error: any) {
       console.error(`[UnifiedAI:runPrompt] ${primaryName} failed for ${category}:`, error.message);
 
-      if (fallbackClient && modelUsed !== fallbackName) {
+      // Try secondary
+      if (secondaryClient && modelUsed !== secondaryName) {
         try {
-          const text = await callFallbackFn();
+          const text = await callSecondary();
           result = parse(text);
-          modelUsed = fallbackName;
-        } catch (fallbackError: any) {
-          console.error(`[UnifiedAI:runPrompt] ${fallbackName} fallback failed:`, fallbackError.message);
-          if (fallback) {
-            result = fallback();
-            modelUsed = 'fallback';
-          } else {
-            throw fallbackError;
-          }
+          modelUsed = secondaryName;
+          return { result, modelUsed, cacheHit: false };
+        } catch (secError: any) {
+          console.error(`[UnifiedAI:runPrompt] ${secondaryName} failed:`, secError.message);
         }
-      } else if (fallback) {
+      }
+
+      // Try tertiary (Groq)
+      if (tertiaryClient) {
+        try {
+          const text = await callGroq();
+          result = parse(text);
+          modelUsed = 'fallback';
+          return { result, modelUsed, cacheHit: false };
+        } catch (groqError: any) {
+          console.error(`[UnifiedAI:runPrompt] Groq failed:`, groqError.message);
+        }
+      }
+
+      if (fallback) {
         result = fallback();
         modelUsed = 'fallback';
       } else {

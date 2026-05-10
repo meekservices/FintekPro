@@ -63,7 +63,37 @@ jobs:
             --region=${{ env.REGION }} \
             --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.APP_SERVICE }}:${{ github.sha }} \
             --set-env-vars="NODE_ENV=production,INSTANCE_CONNECTION_NAME=fintekpro:asia-south1:fintekpro-db,CUSTOM_DOMAIN=fintekpro.com" \
-            --set-secrets="DATABASE_URL=DATABASE_URL:latest,SESSION_SECRET=SESSION_SECRET:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,COMPLIANCE_SECRET=COMPLIANCE_SECRET:latest,GROQ_API_KEY=GROQ_API_KEY:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,PYTHON_SERVICE_URL=PYTHON_SERVICE_URL:latest,PYTHON_SERVICE_SECRET=PYTHON_SERVICE_SECRET:latest" \
+            --set-secrets="\
+              PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,\
+              DATABASE_URL=DATABASE_URL:latest,\
+              SESSION_SECRET=SESSION_SECRET:latest,\
+              FIELD_ENCRYPTION_KEY=FIELD_ENCRYPTION_KEY:latest,\
+              ENCRYPTION_MASTER_KEY=ENCRYPTION_MASTER_KEY:latest,\
+              CASHFREE_APP_ID=CASHFREE_APP_ID:latest,\
+              CASHFREE_SECRET_KEY=CASHFREE_SECRET_KEY:latest,\
+              CASHFREE_ENVIRONMENT=CASHFREE_ENVIRONMENT:latest,\
+              OPENAI_API_KEY=OPENAI_API_KEY:latest,\
+              GEMINI_API_KEY=GEMINI_API_KEY:latest,\
+              SANDBOX_API_KEY=SANDBOX_API_KEY:latest,\
+              SANDBOX_API_SECRET=SANDBOX_API_SECRET:latest,\
+              SANDBOX_BASE_URL=SANDBOX_BASE_URL:latest,\
+              TRUTHSCREEN_USERNAME=TRUTHSCREEN_USERNAME:latest,\
+              TRUTHSCREEN_PASSWORD=TRUTHSCREEN_PASSWORD:latest,\
+              TWILIO_ACCOUNT_SID=TWILIO_ACCOUNT_SID:latest,\
+              TWILIO_AUTH_TOKEN=TWILIO_AUTH_TOKEN:latest,\
+              TWILIO_PHONE_NUMBER=TWILIO_PHONE_NUMBER:latest,\
+              TWILIO_PRIMARY_PHONE=TWILIO_PRIMARY_PHONE:latest,\
+              TWILIO_MESSAGING_SERVICE_SID=TWILIO_MESSAGING_SERVICE_SID:latest,\
+              TWILIO_VERIFY_SERVICE_SID=TWILIO_VERIFY_SERVICE_SID:latest,\
+              PYTHON_SERVICE_URL=PYTHON_SERVICE_URL:latest,\
+              PYTHON_SERVICE_SECRET=PYTHON_SERVICE_SECRET:latest,\
+              FINNHUB_API_KEY=FINNHUB_API_KEY:latest,\
+              ZOHO_CLIENT_ID=ZOHO_CLIENT_ID:latest,\
+              ZOHO_CLIENT_SECRET=ZOHO_CLIENT_SECRET:latest,\
+              ZOHO_REFRESH_TOKEN=ZOHO_REFRESH_TOKEN:latest,\
+              ZOHO_WEBHOOK_SECRET=ZOHO_WEBHOOK_SECRET:latest,\
+              COMPLIANCE_SECRET=COMPLIANCE_SECRET:latest,\
+              GROQ_API_KEY=GROQ_API_KEY:latest" \
             --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
             --allow-unauthenticated \
             --memory=4Gi \
@@ -82,6 +112,6 @@ jobs:
           gcloud run deploy ${{ env.PYTHON_SERVICE }} \
             --region=${{ env.REGION }} \
             --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.PYTHON_SERVICE }}:${{ github.sha }} \
-            --set-secrets="DATABASE_URL=DATABASE_URL:latest" \
+            --set-secrets="DATABASE_URL=DATABASE_URL:latest,PYTHON_SERVICE_SECRET=PYTHON_SERVICE_SECRET:latest" \
             --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
             --allow-unauthenticated

@@ -289,9 +289,9 @@ class AIInvestSmartMonitor {
       // Prepare comprehensive context for AI analysis
       const context = this.prepareAIContext(pageStructure);
       
-      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      // Using GPT-4o for analysis
       const response = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-4o",
         messages: [
           {
             role: "system",

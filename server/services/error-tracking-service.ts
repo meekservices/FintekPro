@@ -374,7 +374,7 @@ class ErrorTrackingService {
   }
 
   /**
-   * AI-powered error analysis using GPT-5.1
+   * AI-powered error analysis using Gemini
    * Provides root cause analysis, fix suggestions, and impact assessment
    */
   async analyzeErrorWithAI(errorId: string): Promise<AIErrorAnalysis | null> {
@@ -419,17 +419,16 @@ Respond ONLY in valid JSON format:
   "confidence": 85
 }`;
 
-      // Use GPT-5.1 via Replit AI Integrations for analysis
-      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      // Use Gemini for analysis
       const response = await aiService.chat(
         [{ role: 'user', content: prompt }],
-        { provider: 'openai', model: 'gpt-5.1', temperature: 0.3, maxTokens: 2048 }
+        { provider: 'gemini', model: 'gemini-1.5-flash', temperature: 0.3, maxTokens: 2048 }
       );
 
       const jsonMatch = response.content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const analysis = JSON.parse(jsonMatch[0]) as AIErrorAnalysis;
-        console.log(`🤖 AI error analysis completed for ${errorId} using GPT-5.1`);
+        console.log(`🤖 AI error analysis completed for ${errorId} using Gemini`);
         return analysis;
       }
 
@@ -487,7 +486,7 @@ Respond in JSON:
 
       const response = await aiService.chat(
         [{ role: 'user', content: prompt }],
-        { provider: 'openai', model: 'gpt-5.1', temperature: 0.2, maxTokens: 2048 }
+        { provider: 'gemini', model: 'gemini-1.5-flash', temperature: 0.2, maxTokens: 2048 }
       );
 
       const jsonMatch = response.content.match(/\{[\s\S]*\}/);

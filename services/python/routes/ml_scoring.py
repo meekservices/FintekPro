@@ -69,7 +69,7 @@ async def train_model_internal(
                 FROM daily_picks
                 WHERE status IN ('target_hit', 'stoploss_hit', 'expired')
                   AND return_pct IS NOT NULL
-                  AND ($1 = 'all' OR category::text = $1)
+                  AND ($1 = 'all' OR category = $1)
                 ORDER BY reco_date DESC
                 LIMIT $2
                 """,
@@ -121,7 +121,6 @@ async def train_model_internal(
         )
 
         kf = KFold(n_splits=min(n_folds, len(records) // 5), shuffle=True, random_state=42)
-
         cv_r2   = cross_val_score(model, X_scaled, y, cv=kf, scoring="r2")
         cv_rmse = np.sqrt(-cross_val_score(model, X_scaled, y, cv=kf, scoring="neg_mean_squared_error"))
 
@@ -359,7 +358,6 @@ async def cross_validate(
 ):
     """
     Run k-fold cross-validation and return detailed per-fold metrics.
-
     Same data loading as /train but returns fold-level breakdown.
     """
     if token.role not in ("admin", "agent"):
@@ -376,7 +374,7 @@ async def cross_validate(
                 FROM daily_picks
                 WHERE status IN ('target_hit', 'stoploss_hit', 'expired')
                   AND return_pct IS NOT NULL
-                  AND ($1 = 'all' OR category::text = $1)
+                  AND ($1 = 'all' OR category = $1)
                 ORDER BY reco_date DESC
                 LIMIT 5000
                 """,

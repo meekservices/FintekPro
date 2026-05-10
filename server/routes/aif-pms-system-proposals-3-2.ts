@@ -396,7 +396,7 @@ app.post("/api/admin/api-config/test/:serviceId", requireAdmin, async (req, res)
             result = {
               success: true,
               message: 'API key configured',
-              details: { model: 'gemini-2.5-flash' },
+              details: { model: 'gemini-1.5-flash' },
               latency: Date.now() - startTime
             };
           } catch (e: any) {
@@ -566,7 +566,7 @@ app.post("/api/admin/ai-provider/switch", requireAdmin, async (req, res) => {
       message: `AI provider switched to ${provider === 'openai' ? 'OpenAI' : 'Google Gemini'}`,
       provider: {
         current: provider,
-        model: provider === 'openai' ? 'gpt-5' : 'gemini-2.5-flash',
+        model: provider === 'openai' ? 'gpt-4o' : 'gemini-1.5-flash',
       }
     });
   } catch (error: any) {

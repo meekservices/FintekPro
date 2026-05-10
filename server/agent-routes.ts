@@ -273,7 +273,7 @@ const commissionSplitSchema = z.object({
 });
 
 // Agent Onboarding: Register new agent (public route for self-registration)
-router.post("/api/agents/register", async (req, res) => {
+router.post("/register", async (req, res) => {
   try {
     // Validate request body
     const validation = agentRegistrationSchema.safeParse(req.body);
@@ -492,7 +492,7 @@ router.post("/api/agents/register", async (req, res) => {
 });
 
 // Validate ARN code (public endpoint for pre-validation)
-router.post("/api/agents/validate-arn", async (req, res) => {
+router.post("/validate-arn", async (req, res) => {
   try {
     const validation = arnValidationSchema.safeParse(req.body);
     if (!validation.success) {
@@ -518,7 +518,7 @@ router.post("/api/agents/validate-arn", async (req, res) => {
 });
 
 // Validate EUIN number (public endpoint for pre-validation)
-router.post("/api/agents/validate-euin", async (req, res) => {
+router.post("/validate-euin", async (req, res) => {
   try {
     const validation = euinValidationSchema.safeParse(req.body);
     if (!validation.success) {
@@ -544,7 +544,7 @@ router.post("/api/agents/validate-euin", async (req, res) => {
 });
 
 // Generate OTP for Aadhaar verification (for sub-agent onboarding)
-router.post("/api/agents/:agentId/aadhaar/generate-otp", requireAuth, async (req, res) => {
+router.post("/:agentId/aadhaar/generate-otp", requireAuth, async (req, res) => {
   try {
     const { agentId } = req.params;
     const { aadhaarNumber } = req.body;
@@ -594,7 +594,7 @@ router.post("/api/agents/:agentId/aadhaar/generate-otp", requireAuth, async (req
 });
 
 // Verify Aadhaar OTP and update agent verification status
-router.post("/api/agents/:agentId/aadhaar/verify-otp", requireAuth, async (req, res) => {
+router.post("/:agentId/aadhaar/verify-otp", requireAuth, async (req, res) => {
   try {
     const { agentId } = req.params;
     const { otp, refId } = req.body;
@@ -662,7 +662,7 @@ router.post("/api/agents/:agentId/aadhaar/verify-otp", requireAuth, async (req, 
 });
 
 // Upload agent document
-router.post("/api/agents/:agentId/documents", requireAuth, async (req, res) => {
+router.post("/:agentId/documents", requireAuth, async (req, res) => {
   try {
     const { agentId } = req.params;
     
@@ -710,7 +710,7 @@ router.post("/api/agents/:agentId/documents", requireAuth, async (req, res) => {
 });
 
 // Get agent documents
-router.get("/api/agents/:agentId/documents", requireAuth, async (req, res) => {
+router.get("/:agentId/documents", requireAuth, async (req, res) => {
   try {
     const { agentId } = req.params;
     
@@ -1146,7 +1146,7 @@ let appointmentsStore: any[] = [
 ];
 
 // Get all appointments
-router.get("/api/agent/appointments", requireAuth, async (req, res) => {
+router.get("/appointments", requireAuth, async (req, res) => {
   try {
     const { startDate, endDate, clientId, type, status } = req.query;
     
@@ -1176,7 +1176,7 @@ router.get("/api/agent/appointments", requireAuth, async (req, res) => {
 });
 
 // Create appointment
-router.post("/api/agent/appointments", requireAuth, async (req, res) => {
+router.post("/appointments", requireAuth, async (req, res) => {
   try {
     const validation = appointmentSchema.safeParse(req.body);
     if (!validation.success) {
@@ -1218,7 +1218,7 @@ router.post("/api/agent/appointments", requireAuth, async (req, res) => {
 });
 
 // Update appointment
-router.patch("/api/agent/appointments/:id", requireAuth, async (req, res) => {
+router.patch("/appointments/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const appointmentIndex = appointmentsStore.findIndex(apt => apt.id === id);
@@ -1256,7 +1256,7 @@ router.patch("/api/agent/appointments/:id", requireAuth, async (req, res) => {
 });
 
 // Delete appointment
-router.delete("/api/agent/appointments/:id", requireAuth, async (req, res) => {
+router.delete("/appointments/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const appointmentIndex = appointmentsStore.findIndex(apt => apt.id === id);
@@ -1275,7 +1275,7 @@ router.delete("/api/agent/appointments/:id", requireAuth, async (req, res) => {
 });
 
 // Get clients for appointment selector
-router.get("/api/agent/clients", requireAuth, async (req, res) => {
+router.get("/clients", requireAuth, async (req, res) => {
   try {
     const { users, prospectClients } = await import("@shared/schema");
     const { db } = await import("./db");
@@ -1412,7 +1412,7 @@ const clientOnboardingSchema = z.object({
 });
 
 // Submit new client onboarding
-router.post("/api/agent/clients/onboard", requireAuth, async (req, res) => {
+router.post("/clients/onboard", requireAuth, async (req, res) => {
   try {
     const validationResult = clientOnboardingSchema.safeParse(req.body);
     
@@ -1457,7 +1457,7 @@ router.post("/api/agent/clients/onboard", requireAuth, async (req, res) => {
 });
 
 // Save draft
-router.post("/api/agent/clients/onboard/draft", requireAuth, async (req, res) => {
+router.post("/clients/onboard/draft", requireAuth, async (req, res) => {
   try {
     const agentId = req.user?.id;
     const draftData = req.body;
@@ -1490,7 +1490,7 @@ router.post("/api/agent/clients/onboard/draft", requireAuth, async (req, res) =>
 });
 
 // Resume draft
-router.get("/api/agent/clients/onboard/draft/:id", requireAuth, async (req, res) => {
+router.get("/clients/onboard/draft/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const agentId = req.user?.id;
@@ -1526,7 +1526,7 @@ router.get("/api/agent/clients/onboard/draft/:id", requireAuth, async (req, res)
 });
 
 // List all drafts for agent
-router.get("/api/agent/clients/onboard/drafts", requireAuth, async (req, res) => {
+router.get("/clients/onboard/drafts", requireAuth, async (req, res) => {
   try {
     const agentId = req.user?.id;
     
@@ -1548,7 +1548,7 @@ router.get("/api/agent/clients/onboard/drafts", requireAuth, async (req, res) =>
 });
 
 // Delete draft
-router.delete("/api/agent/clients/onboard/draft/:id", requireAuth, async (req, res) => {
+router.delete("/clients/onboard/draft/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const agentId = req.user?.id;
@@ -1589,7 +1589,7 @@ router.delete("/api/agent/clients/onboard/draft/:id", requireAuth, async (req, r
 // ============================================================================
 
 // Get leads from Zoho CRM for agent (uses agent-specific connection resolution)
-router.get("/api/agent/zoho/leads", requireAuth, async (req, res) => {
+router.get("/zoho/leads", requireAuth, async (req, res) => {
   try {
     const agentId = (req as any).user?.id;
     if (!agentId) {
@@ -1632,7 +1632,7 @@ router.get("/api/agent/zoho/leads", requireAuth, async (req, res) => {
 });
 
 // Sync leads from Zoho CRM (refresh) - uses agent-specific connection
-router.post("/api/agent/zoho/sync", requireAuth, async (req, res) => {
+router.post("/zoho/sync", requireAuth, async (req, res) => {
   try {
     const agentId = (req as any).user?.id;
     if (!agentId) {
@@ -1667,7 +1667,7 @@ router.post("/api/agent/zoho/sync", requireAuth, async (req, res) => {
 });
 
 // Get single lead details from Zoho CRM - uses agent-specific connection
-router.get("/api/agent/zoho/leads/:leadId", requireAuth, async (req, res) => {
+router.get("/zoho/leads/:leadId", requireAuth, async (req, res) => {
   try {
     const agentId = (req as any).user?.id;
     if (!agentId) {
@@ -1704,7 +1704,7 @@ router.get("/api/agent/zoho/leads/:leadId", requireAuth, async (req, res) => {
 });
 
 // Log proposal activity back to Zoho CRM as a note - uses agent-specific connection
-router.post("/api/agent/zoho/leads/:leadId/proposal", requireAuth, async (req, res) => {
+router.post("/zoho/leads/:leadId/proposal", requireAuth, async (req, res) => {
   try {
     const agentId = (req as any).user?.id;
     if (!agentId) {

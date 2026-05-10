@@ -102,9 +102,9 @@ export class ChatGPTService {
     const messages = this.buildMessagesFromHistory(history, session, options.systemPrompt);
     messages.push({ role: 'user', content });
 
-    // Get AI response using GPT-5.1 via Replit AI Integrations
-    // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-    const { provider = 'openai', model = 'gpt-5.1' } = options;
+    // Get AI response
+    // the newest OpenAI model is "gpt-4o" which was released August 7, 2025. do not change this unless explicitly requested by the user
+    const { provider = 'openai', model = 'gpt-4o' } = options;
     const result = await aiService.chat(messages, { provider, model, ...options });
 
     // Save AI message
@@ -170,7 +170,7 @@ export class ChatGPTService {
     messages.push({ role: 'user', content });
 
     // Get AI response with streaming
-    const { provider = 'openai', model = 'gpt-5.1' } = options;
+    const { provider = 'openai', model = 'gpt-4o' } = options;
     const result = await aiService.streamChat(messages, onChunk, { provider, model, ...options });
 
     // Save AI message
@@ -261,7 +261,7 @@ Respond in JSON format with the following structure:
       { role: 'user', content: prompt }
     ], {
       provider: 'openai',
-      model: 'gpt-5',
+      model: 'gpt-4o',
       temperature: 0.7,
     });
 
@@ -324,7 +324,7 @@ Recommend the top 5 ${productType} for this user. Respond in JSON format:
       { role: 'user', content: prompt }
     ], {
       provider: 'openai',
-      model: 'gpt-5',
+      model: 'gpt-4o',
       temperature: 0.6,
     });
 
@@ -367,7 +367,7 @@ Recommend the top 5 ${productType} for this user. Respond in JSON format:
       { role: 'user', content: prompt }
     ], {
       provider: 'openai',
-      model: 'gpt-5',
+      model: 'gpt-4o',
       temperature: 0.5,
       maxTokens: 8192,
     });
@@ -409,7 +409,7 @@ Respond in JSON format:
       { role: 'user', content: prompt }
     ], {
       provider: 'openai',
-      model: 'gpt-5',
+      model: 'gpt-4o',
       temperature: 0.7,
     });
 

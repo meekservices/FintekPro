@@ -1,37 +1,37 @@
 {
   // ─── TypeScript ───────────────────────────────────────────────────────────
-  \"typescript.tsdk\": \"node_modules/typescript/lib\",
-  \"typescript.preferences.importModuleSpecifier\": \"relative\",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.preferences.importModuleSpecifier": "relative",
 
   // ─── Matt Pocock 'ts-error-translator' (mattpocock.ts-error-translator) ─────
   // This extension shows TypeScript tips with diagnostic codes like
   // 'interface-declaration', 'basic-types', 'union-type', etc.
   // Tips are suppressed via the two settings below (confirmed valid keys):
-  \"totalTypeScript.hideAllTips\": true,
-  \"totalTypeScript.hideBasicTips\": true,
+  "totalTypeScript.hideAllTips": true,
+  "totalTypeScript.hideBasicTips": true,
 
   // ─── Editor ───────────────────────────────────────────────────────────────
-  \"editor.formatOnSave\": false,
-  \"[typescript]\": {
-    \"editor.defaultFormatter\": \"vscode.typescript-language-features\"
+  "editor.formatOnSave": false,
+  "[typescript]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
   },
-  \"[typescriptreact]\": {
-    \"editor.defaultFormatter\": \"vscode.typescript-language-features\"
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
   },
 
   // ─── Python ───────────────────────────────────────────────────────────────
   // Point the IDE at the venv created inside the python service directory.
   // To create it: cd services/python && python3.12 -m venv .venv && pip install -r requirements.txt
   // Then reload the IDE window so this interpreter is picked up automatically.
-  \"python.defaultInterpreterPath\": \"${workspaceFolder}/services/python/.venv/bin/python\",
-  \"python.analysis.extraPaths\": [
-    \"${workspaceFolder}/services/python\"
+  "python.defaultInterpreterPath": "${workspaceFolder}/services/python/.venv/bin/python",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/services/python"
   ],
 
   // ─── File exclusions ──────────────────────────────────────────────────────
-  \"files.watcherExclude\": {
-    \"**/node_modules/**\": true,
-    \"**/.git/**\": true,
-    \"**/dist/**\": true
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.git/**": true,
+    "**/dist/**": true
   }
 }

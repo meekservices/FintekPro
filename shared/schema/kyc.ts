@@ -2465,6 +2465,7 @@ export const sgbPrimaryIssues = pgTable("sgb_primary_issues", {
   
   // Issue identification
   seriesName: varchar("series_name").notNull().unique(), // e.g., "SGB 2024-25 Series I"
+  issueName: text("issue_name"), // Display name backfilled from series_name
   trancheNumber: varchar("tranche_number").notNull(),
   fiscalYear: varchar("fiscal_year").notNull(), // e.g., "2024-25"
   
