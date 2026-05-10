@@ -1,4 +1,3 @@
-import { Injectable, Logger } from '@nestjs/common';
 import { db } from '../../server/db';
 import { pgTable, varchar, jsonb, timestamp } from 'drizzle-orm/pg-core';
 import { eq } from 'drizzle-orm';
@@ -17,9 +16,12 @@ export const approvalRequests = pgTable('approval_requests', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
-@Injectable()
+// @Injectable()
 export class ApprovalWorkflowService {
-  private readonly logger = new Logger(ApprovalWorkflowService.name);
+  private readonly logger = { 
+    log: (msg: string) => console.log(`[ApprovalWorkflowService] ${msg}`),
+    error: (msg: string) => console.error(`[ApprovalWorkflowService] ${msg}`)
+  };
 
   async createRequest(data: {
     entityId: string;

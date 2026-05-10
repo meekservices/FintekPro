@@ -1,11 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+// import { Injectable, Logger } from '@nestjs/common';
 import { db } from '../../server/db';
 import { cashFlows, liquiditySnapshots } from '../../shared/schema/treasury';
 import { eq, sql, gte, and } from 'drizzle-orm';
 
-@Injectable()
+// @Injectable()
 export class ForecastingService {
-  private readonly logger = new Logger(ForecastingService.name);
+  private readonly logger = { 
+    log: (msg: string) => console.log(`[ForecastingService] ${msg}`),
+    error: (msg: string) => console.error(`[ForecastingService] ${msg}`)
+  };
 
   async generateLiquidityForecast(entityId: string, days: number = 30) {
     // 1. Fetch historical cash flows for context

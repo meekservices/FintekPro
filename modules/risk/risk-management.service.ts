@@ -1,11 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+// import { Injectable, Logger } from '@nestjs/common';
 import { CashService } from '../cash/cash.service';
 import { db } from '../../server/db';
 import { treasuryPositions } from '../../shared/schema/treasury';
 
-@Injectable()
+// @Injectable()
 export class RiskManagementService {
-  private readonly logger = new Logger(RiskManagementService.name);
+  private readonly logger = { 
+    log: (msg: string) => console.log(`[RiskManagementService] ${msg}`),
+    error: (msg: string) => console.error(`[RiskManagementService] ${msg}`)
+  };
 
   constructor(private readonly cashService: CashService) {}
 

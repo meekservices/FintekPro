@@ -1,12 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+// import { Injectable, Logger } from '@nestjs/common';
 import { BankingService } from '../banking/banking.service';
 import { db } from '../../server/db';
 import { pgTable, varchar, decimal, timestamp, jsonb } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-@Injectable()
+// @Injectable()
 export class PaymentsService {
-  private readonly logger = new Logger(PaymentsService.name);
+  private readonly logger = { 
+    log: (msg: string) => console.log(`[PaymentsService] ${msg}`),
+    error: (msg: string) => console.error(`[PaymentsService] ${msg}`)
+  };
 
   constructor(private readonly bankingService: BankingService) {}
 
