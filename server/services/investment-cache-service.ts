@@ -6,7 +6,7 @@
  */
 
 import { db } from "../db";
-import { eq, and, gte, lte, sql, or, desc } from "drizzle-orm";
+import { eq, and, gte, lte, sql, or, desc, type SQL } from "drizzle-orm";
 import { 
   marketDataSnapshots, 
   productFundamentalsCache, 
@@ -47,7 +47,7 @@ const CACHE_TTL = {
 /**
  * Generate SHA-256 hash for cache key
  */
-function generateHash(input: any): string {
+function generateHash(input: Record<string, unknown>): string {
   const normalized = JSON.stringify(input, Object.keys(input).sort());
   return crypto.createHash("sha256").update(normalized).digest("hex");
 }
@@ -175,13 +175,13 @@ export async function invalidateMarketData(assetType?: string, assetId?: string)
     query = query.where(and(
       eq(marketDataSnapshots.assetType, assetType),
       eq(marketDataSnapshots.assetId, assetId)
-    )) as any;
+    ));
   } else if (assetType) {
-    query = query.where(eq(marketDataSnapshots.assetType, assetType)) as any;
+    query = query.where(eq(marketDataSnapshots.assetType, assetType));
   }
   
   const result = await query;
-  return (result as any).rowCount || 0;
+  return result.rowCount || 0;
 }
 
 // =====================================================
@@ -298,7 +298,7 @@ export async function cacheFundamentals(
 
 export async function getCachedRationale(
   rationaleType: string,
-  inputParams: any
+  inputParams: Record<string, unknown>
 ): Promise<AiRationaleCache | null> {
   const inputHash = generateHash(inputParams);
   
@@ -331,12 +331,12 @@ export async function getCachedRationale(
 
 export async function cacheRationale(
   rationaleType: string,
-  inputParams: any,
+  inputParams: Record<string, unknown>,
   rationale: string,
   options: {
     summary?: string;
-    keyPoints?: any[];
-    riskWarnings?: any[];
+    keyPoints?: unknown[];
+    riskWarnings?: unknown[];
     confidenceScore?: number;
     modelUsed?: string;
     tokensUsed?: number;
@@ -397,7 +397,7 @@ export async function invalidateRationale(
   productType?: string,
   productId?: string
 ): Promise<number> {
-  let conditions: any[] = [];
+  let conditions: SQL[] = [];
   
   if (rationaleType) conditions.push(eq(aiRationaleCache.rationaleType, rationaleType));
   if (productType) conditions.push(eq(aiRationaleCache.productType, productType));
@@ -408,7 +408,7 @@ export async function invalidateRationale(
     .set({ isInvalidated: true })
     .where(conditions.length > 0 ? and(...conditions) : sql`1=1`);
   
-  return (result as any).rowCount || 0;
+  return (result as { rowCount?: number }).rowCount || 0;
 }
 
 // =====================================================
@@ -423,7 +423,7 @@ export async function getCachedPortfolioMetrics(
   const targetDate = date || new Date();
   const dateStr = targetDate.toISOString().split("T")[0];
   
-  let conditions: any[] = [
+  let conditions: SQL[] = [
     eq(portfolioMetricsDaily.userId, userId),
     eq(portfolioMetricsDaily.metricsDate, dateStr)
   ];
@@ -504,7 +504,7 @@ export async function getCachedRebalanceSummary(
   userId: string,
   portfolioId?: string
 ): Promise<RebalanceSummary | null> {
-  let conditions: any[] = [
+  let conditions: SQL[] = [
     eq(rebalanceSummaries.userId, userId),
     eq(rebalanceSummaries.status, "pending"),
     gte(rebalanceSummaries.expiresAt, new Date())
@@ -544,7 +544,7 @@ export async function cacheRebalanceSummary(
 // =====================================================
 
 export async function getCachedProposal(
-  inputParams: any,
+  inputParams: Record<string, unknown>,
   proposalType: string
 ): Promise<ProposalMaterialization | null> {
   const inputHash = generateHash(inputParams);
@@ -579,7 +579,7 @@ export async function getCachedProposal(
 
 export async function cacheProposal(
   data: Omit<InsertProposalMaterialization, "expiresAt" | "priceValidUntil" | "inputHash">,
-  inputParams: any,
+  inputParams: Record<string, unknown>,
   ttlHours: number = CACHE_TTL.PROPOSAL,
   priceValidityHours: number = CACHE_TTL.PRICE_VALIDITY
 ): Promise<ProposalMaterialization> {
@@ -650,29 +650,35 @@ export async function getCacheStats(): Promise<{
     FROM proposal_materializations
   `);
   
+  const marketStatsResult = marketStats as unknown as Array<{ total: string; valid: string; stale: string }>;
+  const fundStatsResult = fundStats as unknown as Array<{ total: string; valid: string }>;
+  const rationaleStatsResult = rationaleStats as unknown as Array<{ total: string; valid: string; total_hits: string }>;
+  const portfolioStatsResult = portfolioStats as unknown as Array<{ total: string; today: string }>;
+  const proposalStatsResult = proposalStats as unknown as Array<{ total: string; valid: string; total_hits: string }>;
+
   return {
     marketData: {
-      total: Number((marketStats as any)?.total || 0),
-      valid: Number((marketStats as any)?.valid || 0),
-      stale: Number((marketStats as any)?.stale || 0)
+      total: Number(marketStatsResult[0]?.total || 0),
+      valid: Number(marketStatsResult[0]?.valid || 0),
+      stale: Number(marketStatsResult[0]?.stale || 0)
     },
     fundamentals: {
-      total: Number((fundStats as any)?.total || 0),
-      valid: Number((fundStats as any)?.valid || 0)
+      total: Number(fundStatsResult[0]?.total || 0),
+      valid: Number(fundStatsResult[0]?.valid || 0)
     },
     rationales: {
-      total: Number((rationaleStats as any)?.total || 0),
-      valid: Number((rationaleStats as any)?.valid || 0),
-      totalHits: Number((rationaleStats as any)?.total_hits || 0)
+      total: Number(rationaleStatsResult[0]?.total || 0),
+      valid: Number(rationaleStatsResult[0]?.valid || 0),
+      totalHits: Number(rationaleStatsResult[0]?.total_hits || 0)
     },
     portfolioMetrics: {
-      total: Number((portfolioStats as any)?.total || 0),
-      today: Number((portfolioStats as any)?.today || 0)
+      total: Number(portfolioStatsResult[0]?.total || 0),
+      today: Number(portfolioStatsResult[0]?.today || 0)
     },
     proposals: {
-      total: Number((proposalStats as any)?.total || 0),
-      valid: Number((proposalStats as any)?.valid || 0),
-      totalHits: Number((proposalStats as any)?.total_hits || 0)
+      total: Number(proposalStatsResult[0]?.total || 0),
+      valid: Number(proposalStatsResult[0]?.valid || 0),
+      totalHits: Number(proposalStatsResult[0]?.total_hits || 0)
     }
   };
 }

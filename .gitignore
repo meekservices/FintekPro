@@ -130,3 +130,4 @@ artifacts/
 
 # Firebase — keep local cache dir out; config files must be committed for CI/CD
 .firebase/
+tmp/

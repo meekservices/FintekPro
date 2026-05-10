@@ -11,7 +11,7 @@ import { verificationCache } from '../../shared/schema/kyc';
 import { eq, and, gte } from 'drizzle-orm';
 import crypto from 'crypto';
 
-export interface DecentroResponse<T = any> {
+export interface DecentroResponse<T = unknown> {
   status: string;
   response_code: string;
   message: string;
@@ -60,7 +60,7 @@ export class DecentroService {
       }
 
       const baseUrl = getDecentroBaseUrl();
-      const response = await axios.post<DecentroResponse>(
+      const response = await axios.post<DecentroResponse<Record<string, unknown>>>(
         `${baseUrl}/core_banking/money_transfer/validate_bank_account`,
         {
           beneficiary_details: {
@@ -86,10 +86,10 @@ export class DecentroService {
           identifierMasked: `${accountNumber.slice(0, 2)}xxxx${accountNumber.slice(-4)}`,
           verified: true,
           verificationStatus: 'SUCCESS',
-          registeredName: response.data.data?.full_name || name,
+          registeredName: (response.data.data as Record<string, unknown>)?.full_name as string || name,
           provider: 'decentro',
           providerReferenceId: response.data.decentro_txn_id,
-          additionalData: response.data.data,
+          additionalData: response.data.data as Record<string, unknown>,
           expiresAt: expiry
         }).onConflictDoUpdate({
           target: [verificationCache.verificationType, verificationCache.identifierHash],
@@ -107,11 +107,13 @@ export class DecentroService {
         data: response.data.data,
         message: response.data.message
       };
-    } catch (error: any) {
-      logger.error('[DecentroService] Account validation failed:', error.response?.data || error.message);
+    } catch (error: unknown) {
+      const errorData = axios.isAxiosError(error) ? error.response?.data : null;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('[DecentroService] Account validation failed:', errorData || errorMessage);
       return {
         success: false,
-        message: error.response?.data?.message || 'Account validation failed'
+        message: (errorData as Record<string, unknown>)?.message as string || errorMessage || 'Account validation failed'
       };
     }
   }
@@ -122,21 +124,23 @@ export class DecentroService {
   async getBalance(accountNumber: string) {
     try {
       const baseUrl = getDecentroBaseUrl();
-      const response = await axios.get<DecentroResponse>(
+      const response = await axios.get<DecentroResponse<Record<string, unknown>>>(
         `${baseUrl}/core_banking/money_transfer/balance?account_number=${accountNumber}`,
         { headers: this.getHeaders() }
       );
 
       return {
         success: response.data.status === 'SUCCESS',
-        balance: response.data.data?.balance || 0,
-        currency: response.data.data?.currency || 'INR'
+        balance: (response.data.data as Record<string, unknown>)?.balance as number || 0,
+        currency: (response.data.data as Record<string, unknown>)?.currency as string || 'INR'
       };
-    } catch (error: any) {
-      logger.error('[DecentroService] Balance check failed:', error.response?.data || error.message);
+    } catch (error: unknown) {
+      const errorData = axios.isAxiosError(error) ? error.response?.data : null;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('[DecentroService] Balance check failed:', errorData || errorMessage);
       return {
         success: false,
-        message: error.response?.data?.message || 'Balance check failed'
+        message: (errorData as Record<string, unknown>)?.message as string || errorMessage || 'Balance check failed'
       };
     }
   }
@@ -147,20 +151,22 @@ export class DecentroService {
   async getTransactions(accountNumber: string, fromDate: string, toDate: string) {
     try {
       const baseUrl = getDecentroBaseUrl();
-      const response = await axios.get<DecentroResponse>(
+      const response = await axios.get<DecentroResponse<Record<string, unknown>>>(
         `${baseUrl}/core_banking/money_transfer/statement?account_number=${accountNumber}&from=${fromDate}&to=${toDate}`,
         { headers: this.getHeaders() }
       );
 
       return {
         success: response.data.status === 'SUCCESS',
-        transactions: response.data.data?.statement || []
+        transactions: (response.data.data as Record<string, unknown>)?.statement as unknown[] || []
       };
-    } catch (error: any) {
-      logger.error('[DecentroService] Statement fetch failed:', error.response?.data || error.message);
+    } catch (error: unknown) {
+      const errorData = axios.isAxiosError(error) ? error.response?.data : null;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('[DecentroService] Statement fetch failed:', errorData || errorMessage);
       return {
         success: false,
-        message: error.response?.data?.message || 'Statement fetch failed'
+        message: (errorData as Record<string, unknown>)?.message as string || errorMessage || 'Statement fetch failed'
       };
     }
   }

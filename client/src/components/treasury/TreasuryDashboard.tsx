@@ -51,6 +51,26 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
+import { motion, AnimatePresence } from "framer-motion";
++
++interface ForecastData {
++  date: string;
++  expectedInflow: string;
++  expectedOutflow: string;
++  projectedLiquidity: string;
++}
++
++interface BankBalance {
++  bankName: string;
++  balance: string;
++}
++
++interface AllocationItem {
++  name: string;
++  value: number;
++  color: string;
++}
+
 export function TreasuryDashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();
@@ -102,7 +122,7 @@ export function TreasuryDashboard() {
 
   const forecastData = forecastResponse?.data || [];
   const chartData = forecastData.length > 0 
-    ? forecastData.map((d: any) => ({
+    ? forecastData.map((d: ForecastData) => ({
         name: new Date(d.date).toLocaleDateString('en-IN', { weekday: 'short' }),
         inflow: parseFloat(d.expectedInflow),
         outflow: parseFloat(d.expectedOutflow),
@@ -118,7 +138,7 @@ export function TreasuryDashboard() {
         { name: 'Sun', inflow: 3490, outflow: 4300 },
       ];
 
-  const allocationData = positionData?.data?.breakdown?.bankBalances?.map((b: any) => ({
+  const allocationData: AllocationItem[] = positionData?.data?.breakdown?.bankBalances?.map((b: BankBalance) => ({
     name: b.bankName,
     value: parseFloat(b.balance),
     color: b.bankName.includes('HDFC') ? '#1e40af' : b.bankName.includes('ICICI') ? '#ea580c' : '#2563eb'
@@ -133,7 +153,12 @@ export function TreasuryDashboard() {
   const aiInsight = aiAnalysisResponse?.data?.analysis || "Analyzing your cash flow patterns for risks and opportunities...";
 
   return (
-    <div className="p-6 space-y-6 bg-slate-50/50 dark:bg-slate-950/50 min-h-screen">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="p-6 space-y-6 bg-slate-50/50 dark:bg-slate-950/50 min-h-screen"
+    >
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -146,20 +171,22 @@ export function TreasuryDashboard() {
             size="sm" 
             onClick={handleSync}
             disabled={isSyncing}
-            className="bg-white dark:bg-slate-900 shadow-sm"
+            className="bg-white dark:bg-slate-900 shadow-sm backdrop-blur-sm"
           >
             <RefreshCcw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
             Sync All Banks
           </Button>
-          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all active:scale-95">
-            <Plus className="w-4 h-4 mr-2" />
-            New Payout
-          </Button>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all">
+              <Plus className="w-4 h-4 mr-2" />
+              New Payout
+            </Button>
+          </motion.div>
         </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="bg-white dark:bg-slate-900 border shadow-sm p-1">
+        <TabsList className="bg-white/80 dark:bg-slate-900/80 border shadow-sm p-1 backdrop-blur-md sticky top-0 z-10">
           <TabsTrigger value="overview" className="px-6">Overview</TabsTrigger>
           <TabsTrigger value="liquidity" className="px-6">Liquidity Forecast</TabsTrigger>
           <TabsTrigger value="banks" className="px-6">Bank Accounts</TabsTrigger>
@@ -170,75 +197,96 @@ export function TreasuryDashboard() {
 
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-none shadow-sm bg-gradient-to-br from-indigo-500 to-indigo-600 text-white">
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-indigo-100 text-sm font-medium">Consolidated Cash</p>
-                <h3 className="text-2xl font-bold mt-1">{consolidatedCash}</h3>
-                <p className="text-indigo-100 text-xs mt-1 flex items-center">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  +4.2% from last week
-                </p>
-              </div>
-              <div className="p-2 bg-indigo-400/30 rounded-lg">
-                <Wallet className="w-5 h-5" />
-              </div>
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2, staggerChildren: 0.1 }}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+      >
+        <motion.div whileHover={{ y: -5 }} transition={{ type: "spring", stiffness: 300 }}>
+          <Card className="border-none shadow-sm bg-gradient-to-br from-indigo-500 to-indigo-600 text-white overflow-hidden relative">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <Wallet className="w-24 h-24" />
             </div>
-          </CardContent>
-        </Card>
+            <CardContent className="pt-6 relative z-10">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-indigo-100 text-sm font-medium">Consolidated Cash</p>
+                  <h3 className="text-2xl font-bold mt-1">{consolidatedCash}</h3>
+                  <p className="text-indigo-100 text-xs mt-1 flex items-center">
+                    <TrendingUp className="w-3 h-3 mr-1" />
+                    +4.2% from last week
+                  </p>
+                </div>
+                <div className="p-2 bg-indigo-400/30 rounded-lg">
+                  <Wallet className="w-5 h-5" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Daily Inflow</p>
-                <h3 className="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">₹42.80 L</h3>
-                <p className="text-slate-400 text-xs mt-1">Across 128 transactions</p>
+        <motion.div whileHover={{ y: -5 }} transition={{ type: "spring", stiffness: 300 }}>
+          <Card className="border-none shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+            <CardContent className="pt-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Daily Inflow</p>
+                  <h3 className="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">₹42.80 L</h3>
+                  <p className="text-slate-400 text-xs mt-1">Across 128 transactions</p>
+                </div>
+                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+                  <ArrowUpRight className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
               </div>
-              <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
-                <ArrowUpRight className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Daily Outflow</p>
-                <h3 className="text-2xl font-bold mt-1 text-rose-600 dark:text-rose-400">₹18.25 L</h3>
-                <p className="text-slate-400 text-xs mt-1">94.2% payout success rate</p>
+        <motion.div whileHover={{ y: -5 }} transition={{ type: "spring", stiffness: 300 }}>
+          <Card className="border-none shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+            <CardContent className="pt-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Daily Outflow</p>
+                  <h3 className="text-2xl font-bold mt-1 text-rose-600 dark:text-rose-400">₹18.25 L</h3>
+                  <p className="text-slate-400 text-xs mt-1">94.2% payout success rate</p>
+                </div>
+                <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg">
+                  <ArrowDownLeft className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                </div>
               </div>
-              <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg">
-                <ArrowDownLeft className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
-          <CardContent className="pt-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">FX Exposure</p>
-                <h3 className="text-2xl font-bold mt-1">$450.2k</h3>
-                <p className="text-amber-500 text-xs mt-1 flex items-center">
-                  <AlertCircle className="w-3 h-3 mr-1" />
-                  Hedge coverage: 65%
-                </p>
+        <motion.div whileHover={{ y: -5 }} transition={{ type: "spring", stiffness: 300 }}>
+          <Card className="border-none shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+            <CardContent className="pt-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">FX Exposure</p>
+                  <h3 className="text-2xl font-bold mt-1">$450.2k</h3>
+                  <p className="text-amber-500 text-xs mt-1 flex items-center">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    Hedge coverage: 65%
+                  </p>
+                </div>
+                <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                  <TrendingUp className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                </div>
               </div>
-              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                <TrendingUp className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+      >
         {/* Cash Flow Chart */}
         <Card className="lg:col-span-2 border-none shadow-sm bg-white dark:bg-slate-900">
           <CardHeader>
@@ -292,7 +340,7 @@ export function TreasuryDashboard() {
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {allocationData.map((entry: any, index: number) => (
+                    {allocationData.map((entry: AllocationItem, index: number) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -301,7 +349,7 @@ export function TreasuryDashboard() {
               </ResponsiveContainer>
             </div>
             <div className="mt-4 space-y-2">
-              {allocationData.map((bank: any) => (
+              {allocationData.map((bank: AllocationItem) => (
                 <div key={bank.name} className="flex justify-between items-center text-sm">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{backgroundColor: bank.color}} />
@@ -315,64 +363,70 @@ export function TreasuryDashboard() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
       {/* Recent Payouts Table */}
-      <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-lg">Recent Treasury Payouts</CardTitle>
-            <CardDescription>Monitor your corporate disbursements</CardDescription>
-          </div>
-          <Button variant="ghost" size="sm" className="text-indigo-600">
-            View All <ArrowRight className="w-4 h-4 ml-1" />
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="relative w-full overflow-auto">
-            <table className="w-full text-sm text-left">
-              <thead>
-                <tr className="border-b dark:border-slate-800 text-slate-500 dark:text-slate-400">
-                  <th className="pb-3 font-medium">Beneficiary</th>
-                  <th className="pb-3 font-medium">Bank / Method</th>
-                  <th className="pb-3 font-medium">Amount</th>
-                  <th className="pb-3 font-medium">Status</th>
-                  <th className="pb-3 font-medium">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y dark:divide-slate-800">
-                {[
-                  { name: 'Cloud Services Inc', method: 'Cashfree', amount: '₹4.50 L', status: 'Success', date: 'Today' },
-                  { name: 'Stellar Logistics', method: 'HDFC NEFT', amount: '₹12.80 L', status: 'Processing', date: 'Today' },
-                  { name: 'Global Rent Co', method: 'ICICI IMPS', amount: '₹8.25 L', status: 'Success', date: 'Yesterday' },
-                  { name: 'Payroll Batch #42', method: 'Bulk Payout', amount: '₹85.40 L', status: 'Success', date: '2 days ago' },
-                ].map((item, i) => (
-                  <tr key={i} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="py-4 font-medium text-slate-900 dark:text-slate-100">{item.name}</td>
-                    <td className="py-4 text-slate-500 dark:text-slate-400">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4" />
-                        {item.method}
-                      </div>
-                    </td>
-                    <td className="py-4 font-semibold text-slate-900 dark:text-slate-100">{item.amount}</td>
-                    <td className="py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        item.status === 'Success' 
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' 
-                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                      }`}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="py-4 text-slate-400">{item.date}</td>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.6 }}
+      >
+        <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Recent Treasury Payouts</CardTitle>
+              <CardDescription>Monitor your corporate disbursements</CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" className="text-indigo-600">
+              View All <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="relative w-full overflow-auto">
+              <table className="w-full text-sm text-left">
+                <thead>
+                  <tr className="border-b dark:border-slate-800 text-slate-500 dark:text-slate-400">
+                    <th className="pb-3 font-medium">Beneficiary</th>
+                    <th className="pb-3 font-medium">Bank / Method</th>
+                    <th className="pb-3 font-medium">Amount</th>
+                    <th className="pb-3 font-medium">Status</th>
+                    <th className="pb-3 font-medium">Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                </thead>
+                <tbody className="divide-y dark:divide-slate-800">
+                  {[
+                    { name: 'Cloud Services Inc', method: 'Cashfree', amount: '₹4.50 L', status: 'Success', date: 'Today' },
+                    { name: 'Stellar Logistics', method: 'HDFC NEFT', amount: '₹12.80 L', status: 'Processing', date: 'Today' },
+                    { name: 'Global Rent Co', method: 'ICICI IMPS', amount: '₹8.25 L', status: 'Success', date: 'Yesterday' },
+                    { name: 'Payroll Batch #42', method: 'Bulk Payout', amount: '₹85.40 L', status: 'Success', date: '2 days ago' },
+                  ].map((item, i) => (
+                    <tr key={i} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      <td className="py-4 font-medium text-slate-900 dark:text-slate-100">{item.name}</td>
+                      <td className="py-4 text-slate-500 dark:text-slate-400">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4" />
+                          {item.method}
+                        </div>
+                      </td>
+                      <td className="py-4 font-semibold text-slate-900 dark:text-slate-100">{item.amount}</td>
+                      <td className="py-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          item.status === 'Success' 
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' 
+                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                        }`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="py-4 text-slate-400">{item.date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
         </TabsContent>
 

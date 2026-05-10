@@ -58,9 +58,10 @@ Provide concise, professional, and actionable advice.`;
     });
 
     res.json({ answer: result.content, isCached: false });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Treasury Copilot Error:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: errorMessage });
   }
 });
 

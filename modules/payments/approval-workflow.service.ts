@@ -16,6 +16,11 @@ export const approvalRequests = pgTable('approval_requests', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+interface ApprovalEntry {
+  userId: string;
+  timestamp: Date;
+}
+
 // @Injectable()
 export class ApprovalWorkflowService {
   private readonly logger = { 
@@ -27,7 +32,7 @@ export class ApprovalWorkflowService {
     entityId: string;
     resourceType: string;
     resourceId: string;
-    payload: any;
+    payload: Record<string, unknown>;
     approvers: string[];
   }) {
     const id = `REQ_${Date.now()}`;
@@ -52,11 +57,19 @@ export class ApprovalWorkflowService {
       throw new Error('Invalid or non-pending request');
     }
 
-    const approvals = [...(request.approvalsReceived as any[]), { userId, timestamp: new Date() }];
+    const currentApprovals = (request.approvalsReceived as ApprovalEntry[] | null) || [];
     
-    // Check if all required approvals are met
-    const isComplete = (request.requiredApprovals as string[]).every(role => 
-      approvals.some(a => a.userId === userId) // This is a simplified check
+    // Prevent duplicate approvals from same user
+    if (currentApprovals.some(a => a.userId === userId)) {
+      return { isComplete: false, status: 'pending' };
+    }
+
+    const approvals: ApprovalEntry[] = [...currentApprovals, { userId, timestamp: new Date() }];
+    
+    // Check if all required approvers/roles are met
+    const requiredApprovers = request.requiredApprovals as string[];
+    const isComplete = requiredApprovers.every(approverId => 
+      approvals.some(a => a.userId === approverId)
     );
 
     await db.update(approvalRequests)
