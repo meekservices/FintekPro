@@ -67,6 +67,49 @@ export class TreasuryService {
   async getEntityAccounts(entityId: string) {
     return db.select().from(treasuryAccounts).where(eq(treasuryAccounts.entityId, entityId));
   }
+
+  async syncBalance(accountId: string) {
+
+    const [account] = await db.select().from(treasuryAccounts).where(eq(treasuryAccounts.id, accountId));
+    if (!account) throw new Error('Account not found');
+
+    let balance = 0;
+    let success = false;
+
+    if (account.provider === 'decentro') {
+      const { decentroService } = await import('./decentro-service');
+      const result = await decentroService.getBalance(account.accountNumber);
+      if (result.success) {
+        balance = result.balance;
+        success = true;
+      }
+    } else if (account.provider === 'setu') {
+      // Setu balance sync usually happens via AA (Account Aggregator)
+      // For now we placeholder or use a specific API if available
+      success = false; 
+    }
+
+    if (success) {
+      const { treasuryPositions } = await import('../../shared/schema/treasury');
+      await db.insert(treasuryPositions).values({
+        accountId,
+        availableBalance: balance.toString(),
+        ledgerBalance: balance.toString(),
+        lastSyncedAt: new Date()
+      }).onConflictDoUpdate({
+        target: treasuryPositions.accountId,
+        set: {
+          availableBalance: balance.toString(),
+          ledgerBalance: balance.toString(),
+          lastSyncedAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+    }
+
+    return { success, balance };
+  }
 }
+
 
 export const treasuryService = new TreasuryService();

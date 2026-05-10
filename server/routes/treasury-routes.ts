@@ -65,4 +65,15 @@ router.get("/entities/:id/accounts", isAuthenticated, async (req, res) => {
   }
 });
 
+router.get("/entities/:id/consolidated-position", isAuthenticated, async (req, res) => {
+  const { cashService } = await import("../services/cash-service");
+  try {
+    const position = await cashService.getConsolidatedPosition(req.params.id);
+    return apiResponse.success(res, position);
+  } catch (error) {
+    console.error("[TreasuryRoutes] Get consolidated position error:", error);
+    return apiResponse.serverError(res);
+  }
+});
+
 export default router;
