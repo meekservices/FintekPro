@@ -10,8 +10,10 @@ import {
   AlertCircle,
   RefreshCcw,
   Plus,
-  ArrowRight
+  ArrowRight,
+  Bot
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { 
   BarChart, 
   Bar, 
@@ -45,30 +47,90 @@ const allocationData = [
 ];
 
 import { TreasuryCopilotUI } from './TreasuryCopilotUI';
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 
 export function TreasuryDashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const entityId = "demo-entity"; // In production, this would come from context
 
   const { data: positionData, isLoading: isLoadingPosition } = useQuery({
     queryKey: [`/api/treasury/entities/${entityId}/consolidated-position`],
   });
 
-  const { data: forecastData, isLoading: isLoadingForecast } = useQuery({
-    queryKey: [`/api/treasury/entities/${entityId}/forecast`], // We'll need to add this route or similar
+  const { data: forecastResponse, isLoading: isLoadingForecast } = useQuery({
+    queryKey: [`/api/treasury/entities/${entityId}/forecast`],
     enabled: !!positionData,
+  });
+
+  const { data: aiAnalysisResponse } = useQuery({
+    queryKey: [`/api/treasury/entities/${entityId}/forecast-analysis`],
+    enabled: !!forecastResponse,
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/treasury/entities/${entityId}/sync`, { method: 'POST' });
+      if (!response.ok) throw new Error('Sync failed');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/treasury/entities/${entityId}/consolidated-position`] });
+      toast({
+        title: "Sync Complete",
+        description: "Your treasury balances have been updated across all banks.",
+      });
+      setIsSyncing(false);
+    },
+    onError: () => {
+      toast({
+        title: "Sync Failed",
+        description: "Could not synchronize with banking providers. Please try again.",
+        variant: "destructive",
+      });
+      setIsSyncing(false);
+    }
   });
 
   const handleSync = () => {
     setIsSyncing(true);
-    setTimeout(() => setIsSyncing(false), 2000);
+    syncMutation.mutate();
   };
 
-  const consolidatedCash = positionData?.success ? positionData.data.totalBalance : 124500000;
-  const inflow = 4280000;
-  const outflow = 1825000;
+  const forecastData = forecastResponse?.data || [];
+  const chartData = forecastData.length > 0 
+    ? forecastData.map((d: any) => ({
+        name: new Date(d.date).toLocaleDateString('en-IN', { weekday: 'short' }),
+        inflow: parseFloat(d.expectedInflow),
+        outflow: parseFloat(d.expectedOutflow),
+        liquidity: parseFloat(d.projectedLiquidity)
+      }))
+    : [
+        { name: 'Mon', inflow: 4000, outflow: 2400 },
+        { name: 'Tue', inflow: 3000, outflow: 1398 },
+        { name: 'Wed', inflow: 2000, outflow: 9800 },
+        { name: 'Thu', inflow: 2780, outflow: 3908 },
+        { name: 'Fri', inflow: 1890, outflow: 4800 },
+        { name: 'Sat', inflow: 2390, outflow: 3800 },
+        { name: 'Sun', inflow: 3490, outflow: 4300 },
+      ];
+
+  const allocationData = positionData?.data?.breakdown?.bankBalances?.map((b: any) => ({
+    name: b.bankName,
+    value: parseFloat(b.balance),
+    color: b.bankName.includes('HDFC') ? '#1e40af' : b.bankName.includes('ICICI') ? '#ea580c' : '#2563eb'
+  })) || [
+    { name: 'HDFC Bank', value: 4500000, color: '#1e40af' },
+    { name: 'ICICI Bank', value: 3200000, color: '#ea580c' },
+    { name: 'Kotak Bank', value: 2800000, color: '#dc2626' },
+    { name: 'Cashfree', value: 1500000, color: '#2563eb' },
+  ];
+
+  const consolidatedCash = positionData?.data?.totalBalance ? `₹${(parseFloat(positionData.data.totalBalance) / 10000000).toFixed(2)} Cr` : "₹12.45 Cr";
+  const aiInsight = aiAnalysisResponse?.data?.analysis || "Analyzing your cash flow patterns for risks and opportunities...";
 
   return (
     <div className="p-6 space-y-6 bg-slate-50/50 dark:bg-slate-950/50 min-h-screen">
@@ -114,7 +176,7 @@ export function TreasuryDashboard() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-indigo-100 text-sm font-medium">Consolidated Cash</p>
-                <h3 className="text-2xl font-bold mt-1">₹12.45 Cr</h3>
+                <h3 className="text-2xl font-bold mt-1">{consolidatedCash}</h3>
                 <p className="text-indigo-100 text-xs mt-1 flex items-center">
                   <TrendingUp className="w-3 h-3 mr-1" />
                   +4.2% from last week
@@ -186,7 +248,7 @@ export function TreasuryDashboard() {
           <CardContent>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data}>
+                <AreaChart data={chartData.slice(0, 7)}>
                   <defs>
                     <linearGradient id="colorInflow" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
@@ -230,7 +292,7 @@ export function TreasuryDashboard() {
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {allocationData.map((entry, index) => (
+                    {allocationData.map((entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -239,7 +301,7 @@ export function TreasuryDashboard() {
               </ResponsiveContainer>
             </div>
             <div className="mt-4 space-y-2">
-              {allocationData.map((bank) => (
+              {allocationData.map((bank: any) => (
                 <div key={bank.name} className="flex justify-between items-center text-sm">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{backgroundColor: bank.color}} />
@@ -330,13 +392,14 @@ export function TreasuryDashboard() {
               <CardContent>
                 <div className="h-[400px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data}>
+                    <AreaChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="name" />
                       <YAxis />
                       <Tooltip />
                       <Area type="monotone" dataKey="inflow" stroke="#10b981" fill="#10b981" fillOpacity={0.1} />
                       <Area type="monotone" dataKey="outflow" stroke="#f43f5e" fill="#f43f5e" fillOpacity={0.1} />
+                      <Area type="monotone" dataKey="liquidity" stroke="#6366f1" fill="#6366f1" fillOpacity={0.05} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -352,13 +415,11 @@ export function TreasuryDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-xs text-indigo-100 leading-relaxed">
-                    "Based on upcoming tax outflows and historical vendor payment cycles, 
-                    we expect a ₹1.2 Cr liquidity dip on Wednesday. 
-                    I recommend sweeping ₹80L from your Kotak account to HDFC to maintain the buffer."
+                  <p className="text-xs text-indigo-100 leading-relaxed italic">
+                    "{aiInsight}"
                   </p>
                   <Button variant="outline" size="sm" className="w-full mt-4 bg-white/10 border-white/20 text-white hover:bg-white/20">
-                    Execute Sweep
+                    Execute Optimization
                   </Button>
                 </CardContent>
               </Card>
@@ -374,7 +435,7 @@ export function TreasuryDashboard() {
                     </div>
                     <div>
                       <p className="text-xs font-semibold">Projected Shortfall</p>
-                      <p className="text-[10px] text-slate-500">Day 12: -₹4.5L estimated</p>
+                      <p className="text-[10px] text-slate-500">None detected in 30 days</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">

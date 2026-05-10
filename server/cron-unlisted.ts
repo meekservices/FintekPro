@@ -36,28 +36,6 @@ export function initializeUnlistedCrons(): void {
     return;
   }
 
-  // ── Credhive unlisted company sync — every 6 hours ─────────────────────────
-  cron.schedule('5 */6 * * *', async () => {
-    console.log('[CRON] Starting Credhive sync job...');
-    try {
-      const companies = await storage.getAllUnlistedCompanies({});
-      let synced = 0;
-      let failed = 0;
-      for (const company of companies) {
-        if (!company.cin) continue;
-        try {
-          await unlistedFinancialEnrichmentService.enrichCompany(company.id);
-          synced++;
-        } catch (error: any) {
-          console.error(`Failed to sync company ${company.id}:`, error);
-          failed++;
-        }
-      }
-      console.log(`[CRON] Credhive sync: ${synced} succeeded, ${failed} failed`);
-    } catch (error: any) {
-      console.error('[CRON] Credhive sync job failed:', error);
-    }
-  });
 
   // ── Expired unlisted listings / buy-requests — every 12 hours ─────────────
   cron.schedule('0 */12 * * *', async () => {
@@ -300,13 +278,6 @@ export function initializeUnlistedCrons(): void {
   }, { timezone: 'Asia/Kolkata' });
   console.log('⚡ [ProspectAutoScoring] Nightly scoring cron scheduled (3:00 AM IST)');
 
-  // ── Company data refresh ────────────────────────────────────────────────────
-  try {
-    companyDataRefreshScheduler.start();
-    console.log('[CRON] Company Data Refresh Scheduler started (checks daily, refreshes every 90 days)');
-  } catch (error: any) {
-    console.error('[CRON] Failed to start Company Data Refresh Scheduler:', error.message);
-  }
 
   // ── Proactive cache warming ─────────────────────────────────────────────────
   try {
@@ -317,45 +288,6 @@ export function initializeUnlistedCrons(): void {
   }
 }
 
-// ── MCA Enrichment Sweep — daily at 2:00 AM IST (8:30 PM UTC) ─────────────
-// Only processes companies stale > 90 days.
-if (isProductionEnvironment()) {
-  cron.schedule('30 20 * * *', async () => {
-    console.log('[CRON][UnlistedEnrichment] Starting daily MCA enrichment sweep...');
-    try {
-      const { sql } = await import('drizzle-orm');
-      const { enrichUnlistedCompanyWithMCAData } = await import('./services/mca-enrichment-service');
-
-      const staleRows = await db.execute(sql`
-        SELECT id, name, cin FROM unlisted_companies
-        WHERE cin IS NOT NULL
-          AND (last_synced_at IS NULL OR last_synced_at < NOW() - INTERVAL '90 days')
-          AND status = 'active'
-        LIMIT 50
-      `);
-
-      let succeeded = 0;
-      let failed = 0;
-      for (const row of staleRows.rows as any[]) {
-        try {
-          await enrichUnlistedCompanyWithMCAData(row.id, row.cin);
-          await db.execute(sql`UPDATE unlisted_companies SET last_synced_at = NOW(), enrichment_failed_at = NULL WHERE id = ${row.id}`);
-          succeeded++;
-        } catch (err: any) {
-          await db.execute(sql`UPDATE unlisted_companies SET enrichment_failed_at = NOW() WHERE id = ${row.id}`);
-          failed++;
-          console.error(`[CRON][UnlistedEnrichment] Failed for ${row.name} (${row.cin}):`, err.message);
-        }
-      }
-      console.log(`[CRON][UnlistedEnrichment] Sweep done: ${succeeded} enriched, ${failed} failed out of ${staleRows.rows.length} candidates`);
-    } catch (error: any) {
-      console.error('[CRON][UnlistedEnrichment] Sweep job failed:', error.message);
-    }
-  }, { timezone: 'Asia/Kolkata' });
-  console.log('📊 [UnlistedEnrichment] Daily MCA enrichment cron scheduled (2:00 AM IST)');
-} else {
-  console.log('⏭️ [UnlistedEnrichment] Daily enrichment cron skipped (development mode - production only)');
-}
 
 // ── Valuation Governance — quarterly, 1st of Jan/Apr/Jul/Oct at 3 AM IST ───
 if (isProductionEnvironment()) {

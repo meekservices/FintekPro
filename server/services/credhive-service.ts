@@ -15,6 +15,7 @@
 
 import axios, { AxiosInstance } from 'axios';
 import { guardedExecution, validateCredhiveProfile, validateProspectData } from './guarded-execution';
+import { distributedCache } from '../utils/distributed-cache';
 
 const CREDHIVE_API_KEY  = process.env.CREDHIVE_API_KEY  || '';
 const CREDHIVE_BASE_URL = process.env.CREDHIVE_BASE_URL || 'https://api.credhive.in/v1';
@@ -199,10 +200,20 @@ class CredhiveService {
   /**
    * Fetch full company profile by CIN
    */
-  async getCompanyProfile(cin: string): Promise<CredhiveProfileResponse> {
+  async getCompanyProfile(cin: string, forceRefresh = false): Promise<CredhiveProfileResponse> {
     if (!this.available) {
       return { success: false, isApiKeyMissing: true, error: 'CREDHIVE_API_KEY not configured' };
     }
+
+    const cacheKey = `credhive:profile:${cin}`;
+    if (!forceRefresh) {
+      const cached = await distributedCache.getJson<CredhiveCompanyProfile>(cacheKey);
+      if (cached) {
+        console.log(`[CredhiveService] Serving cached profile for ${cin}`);
+        return { success: true, data: cached };
+      }
+    }
+
     return guardedExecution(
       async () => {
         const response = await this.client.get(`/company/${encodeURIComponent(cin)}`);
@@ -243,6 +254,9 @@ class CredhiveService {
           'Credhive company profile',
         );
 
+        // Cache for 24 hours
+        await distributedCache.setJson(cacheKey, profile, 86400);
+
         return { success: true, data: profile };
       },
       {
@@ -258,10 +272,20 @@ class CredhiveService {
   /**
    * Fetch financial statements (up to 5 years) by CIN
    */
-  async getFinancials(cin: string): Promise<CredhiveFinancialsResponse> {
+  async getFinancials(cin: string, forceRefresh = false): Promise<CredhiveFinancialsResponse> {
     if (!this.available) {
       return { success: false, isApiKeyMissing: true, error: 'CREDHIVE_API_KEY not configured' };
     }
+
+    const cacheKey = `credhive:financials:${cin}`;
+    if (!forceRefresh) {
+      const cached = await distributedCache.getJson<CredhiveFinancialStatement[]>(cacheKey);
+      if (cached) {
+        console.log(`[CredhiveService] Serving cached financials for ${cin}`);
+        return { success: true, data: cached };
+      }
+    }
+
     try {
       const response = await this.client.get(`/company/${encodeURIComponent(cin)}/financials`);
       const raw: any[] = response.data?.data || response.data?.financials || response.data || [];
@@ -289,6 +313,10 @@ class CredhiveService {
         free_cash_flow: this._num(r.free_cash_flow),
         capex: this._num(r.capex || r.capital_expenditure),
       }));
+
+      // Cache for 24 hours
+      await distributedCache.setJson(cacheKey, mapped, 86400);
+
       return { success: true, data: mapped };
     } catch (err: any) {
       return { success: false, error: err?.message || 'Credhive financials fetch failed' };
@@ -298,10 +326,20 @@ class CredhiveService {
   /**
    * Fetch director information by CIN
    */
-  async getDirectors(cin: string): Promise<CredhiveDirectorsResponse> {
+  async getDirectors(cin: string, forceRefresh = false): Promise<CredhiveDirectorsResponse> {
     if (!this.available) {
       return { success: false, isApiKeyMissing: true, error: 'CREDHIVE_API_KEY not configured' };
     }
+
+    const cacheKey = `credhive:directors:${cin}`;
+    if (!forceRefresh) {
+      const cached = await distributedCache.getJson<CredhiveDirector[]>(cacheKey);
+      if (cached) {
+        console.log(`[CredhiveService] Serving cached directors for ${cin}`);
+        return { success: true, data: cached };
+      }
+    }
+
     try {
       const response = await this.client.get(`/company/${encodeURIComponent(cin)}/directors`);
       const raw: any[] = response.data?.data || response.data?.directors || response.data || [];
@@ -313,6 +351,10 @@ class CredhiveService {
         date_of_cessation: r.date_of_cessation || r.end_date,
         is_active: r.is_active !== false && !r.date_of_cessation && !r.end_date,
       }));
+
+      // Cache for 24 hours
+      await distributedCache.setJson(cacheKey, mapped, 86400);
+
       return { success: true, data: mapped };
     } catch (err: any) {
       return { success: false, error: err?.message || 'Credhive directors fetch failed' };
@@ -322,10 +364,20 @@ class CredhiveService {
   /**
    * Fetch compliance signals and risk flags by CIN
    */
-  async getCompliance(cin: string): Promise<CredhiveComplianceResponse> {
+  async getCompliance(cin: string, forceRefresh = false): Promise<CredhiveComplianceResponse> {
     if (!this.available) {
       return { success: false, isApiKeyMissing: true, error: 'CREDHIVE_API_KEY not configured' };
     }
+
+    const cacheKey = `credhive:compliance:${cin}`;
+    if (!forceRefresh) {
+      const cached = await distributedCache.getJson<CredhiveComplianceData>(cacheKey);
+      if (cached) {
+        console.log(`[CredhiveService] Serving cached compliance for ${cin}`);
+        return { success: true, data: cached };
+      }
+    }
+
     try {
       const response = await this.client.get(`/company/${encodeURIComponent(cin)}/compliance`);
       const d: any = response.data?.data || response.data;
@@ -345,6 +397,10 @@ class CredhiveService {
         last_balance_sheet_date: d?.last_balance_sheet_date,
         active_compliance: d?.active_compliance,
       };
+
+      // Cache for 24 hours
+      await distributedCache.setJson(cacheKey, compliance, 86400);
+
       return { success: true, data: compliance };
     } catch (err: any) {
       return { success: false, error: err?.message || 'Credhive compliance fetch failed' };

@@ -76,5 +76,50 @@ router.get("/entities/:id/consolidated-position", isAuthenticated, async (req, r
   }
 });
 
+// --- Forecasting & AI Insights ---
+
+router.get("/entities/:id/forecast", isAuthenticated, async (req, res) => {
+  try {
+    const { ForecastingService } = await import("../../modules/forecasting/forecasting.service");
+    const forecastingService = new ForecastingService();
+    
+    const days = parseInt(req.query.days as string) || 30;
+    const forecast = await forecastingService.generateLiquidityForecast(req.params.id, days);
+    
+    return apiResponse.success(res, forecast);
+  } catch (error) {
+    console.error("[TreasuryRoutes] Get forecast error:", error);
+    return apiResponse.serverError(res);
+  }
+});
+
+router.get("/entities/:id/forecast-analysis", isAuthenticated, async (req, res) => {
+  try {
+    const { ForecastingService } = await import("../../modules/forecasting/forecasting.service");
+    const forecastingService = new ForecastingService();
+    
+    // 1. Get forecast data
+    const forecast = await forecastingService.generateLiquidityForecast(req.params.id, 30);
+    
+    // 2. Generate AI analysis
+    const analysis = await forecastingService.generateAIAnalysis(req.params.id, forecast);
+    
+    return apiResponse.success(res, { analysis });
+  } catch (error) {
+    console.error("[TreasuryRoutes] Get forecast analysis error:", error);
+    return apiResponse.serverError(res);
+  }
+});
+
+router.post("/entities/:id/sync", isAuthenticated, async (req, res) => {
+  try {
+    const results = await treasuryService.syncAllBalances(req.params.id);
+    return apiResponse.success(res, results);
+  } catch (error) {
+    console.error("[TreasuryRoutes] Sync balance error:", error);
+    return apiResponse.serverError(res);
+  }
+});
+
 export default router;
 

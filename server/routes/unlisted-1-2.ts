@@ -86,6 +86,109 @@ router.get('/credhive/search', requireAdmin, async (req: Request, res: Response)
 });
 
 /**
+ * GET /api/unlisted/credhive/research/:cin
+ * On-demand deep research for a company by CIN (Admin/Agent only)
+ * This triggers a sync with Credhive if data is missing or stale.
+ */
+router.get('/credhive/research/:cin', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { cin } = req.params;
+    const { force = 'false' } = req.query;
+    const forceRefresh = force === 'true';
+
+    // Verify user is Agent or Admin
+    const user = await storage.getUser(req.user!.id);
+    if (user?.role !== 'admin' && user?.role !== 'agent') {
+      return apiResponse.forbidden(res, 'Only Agents and Admins can trigger deep research');
+    }
+
+    // Check if company exists in DB
+    let company = await storage.getUnlistedCompanyByCin(cin);
+    
+    const STALE_THRESHOLD = 7 * 24 * 60 * 60 * 1000; // 7 days
+    const isStale = company && company.lastSyncedAt && (Date.now() - new Date(company.lastSyncedAt).getTime() > STALE_THRESHOLD);
+
+    if (!company || isStale || forceRefresh) {
+      console.log(`[Unlisted Research] Syncing ${cin} from Credhive (reason: ${!company ? 'new' : isStale ? 'stale' : 'forced'})`);
+      
+      // Fetch profile
+      const profileResp = await credhiveService.getCompanyProfile(cin, forceRefresh);
+      if (!profileResp.success || !profileResp.data) {
+        return apiResponse.notFound(res, 'Company not found on Credhive');
+      }
+      const credhiveDetails = profileResp.data;
+
+      // Create or get company ID
+      let companyId: string;
+      if (!company) {
+        // Create skeleton company
+        const newCompany = await storage.createUnlistedCompany({
+          name: credhiveDetails.company_name,
+          cin: cin,
+          status: 'active',
+          sector: credhiveDetails.sector || 'Unknown',
+          industry: credhiveDetails.industry || 'Unknown',
+          listingStage: 'PRE_IPO',
+        });
+        companyId = newCompany.id;
+      } else {
+        companyId = company.id;
+      }
+
+      // Trigger sync logic (re-using the logic from the sync endpoint but as a function would be better)
+      // For now, I'll call the existing sync logic if I can refactor it, 
+      // but let's just implement the call to getFinancials and getRatios here.
+      
+      const financialsResp = await credhiveService.getFinancials(cin, forceRefresh);
+      const financialsData = financialsResp.data ?? [];
+      const ratiosData = await credhiveAdapter.fetchRatios(cin, 5);
+
+      // Save financials
+      for (const finData of financialsData) {
+        const dbFinancials = {
+          companyId,
+          financialYear: finData.financial_year,
+          revenue: finData.revenue?.toString() ?? null,
+          ebitda: finData.ebitda?.toString() ?? null,
+          pat: finData.pat?.toString() ?? null,
+          networth: finData.networth?.toString() ?? null,
+          dataSource: 'credhive',
+        };
+        const existing = await storage.getCompanyFinancialsByYear(companyId, finData.financial_year);
+        if (existing) {
+          await storage.updateCompanyFinancials(existing.id, dbFinancials);
+        } else {
+          await storage.createCompanyFinancials(dbFinancials);
+        }
+      }
+
+      // Update company metadata
+      company = await storage.updateUnlistedCompany(companyId, {
+        lastSyncedAt: new Date(),
+        description: credhiveDetails.description || (company?.description),
+        website: credhiveDetails.website || (company?.website),
+        isin: credhiveDetails.isin || (company?.isin),
+      });
+    }
+
+    // Return the enriched company data
+    const financials = await storage.getCompanyFinancials(company!.id);
+    const ratios = await storage.getCompanyRatios(company!.id);
+
+    return apiResponse.success(res, {
+      company,
+      financials,
+      ratios,
+      source: 'credhive',
+      lastSyncedAt: company!.lastSyncedAt
+    });
+  } catch (error: any) {
+    console.error('Error in on-demand research:', error);
+    return apiResponse.serverError(res, error.message || 'Research failed');
+  }
+});
+
+/**
  * POST /api/unlisted/credhive/sync/:companyId
  * Sync company data from Credhive (Admin only)
  */

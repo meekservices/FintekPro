@@ -777,6 +777,105 @@ if (process.env.NODE_ENV === 'production') {
         console.warn('[Migration] unlisted_regulatory_audit_log forensic columns skipped:', e?.message);
       }
 
+      // 28. Treasury OS Schema
+      try {
+        console.log('🛠️ Verifying Treasury OS schema...');
+        await migDb.execute(migSql`
+          DO $$ 
+          BEGIN
+              IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'treasury_account_type') THEN
+                  CREATE TYPE treasury_account_type AS ENUM ('current', 'savings', 'escrow', 'virtual', 'investment', 'debt', 'collection', 'disbursement');
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'treasury_entity_type') THEN
+                  CREATE TYPE treasury_entity_type AS ENUM ('parent', 'subsidiary', 'joint_venture', 'branch', 'associate');
+              END IF;
+          END $$;
+        `);
+
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS treasury_entities (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            name VARCHAR NOT NULL,
+            type treasury_entity_type NOT NULL DEFAULT 'subsidiary',
+            parent_id VARCHAR REFERENCES treasury_entities(id),
+            registration_number VARCHAR,
+            tax_id VARCHAR,
+            country VARCHAR DEFAULT 'IN',
+            currency VARCHAR DEFAULT 'INR',
+            metadata JSONB DEFAULT '{}',
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+
+          CREATE TABLE IF NOT EXISTS treasury_accounts (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            entity_id VARCHAR NOT NULL REFERENCES treasury_entities(id),
+            account_name VARCHAR NOT NULL,
+            account_number VARCHAR NOT NULL UNIQUE,
+            ifsc_code VARCHAR NOT NULL,
+            bank_name VARCHAR NOT NULL,
+            branch_name VARCHAR,
+            account_type treasury_account_type NOT NULL DEFAULT 'current',
+            currency VARCHAR DEFAULT 'INR',
+            provider VARCHAR,
+            provider_account_id VARCHAR,
+            is_virtual BOOLEAN DEFAULT false,
+            status VARCHAR DEFAULT 'active',
+            metadata JSONB DEFAULT '{}',
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+
+          CREATE TABLE IF NOT EXISTS treasury_positions (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            account_id VARCHAR NOT NULL REFERENCES treasury_accounts(id) UNIQUE,
+            ledger_balance NUMERIC(20, 2) NOT NULL DEFAULT 0,
+            available_balance NUMERIC(20, 2) NOT NULL DEFAULT 0,
+            blocked_balance NUMERIC(20, 2) NOT NULL DEFAULT 0,
+            currency VARCHAR DEFAULT 'INR',
+            last_synced_at TIMESTAMPTZ DEFAULT NOW(),
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+
+          CREATE TABLE IF NOT EXISTS liquidity_snapshots (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            entity_id VARCHAR NOT NULL REFERENCES treasury_entities(id),
+            total_liquidity NUMERIC(20, 2) NOT NULL,
+            currency VARCHAR DEFAULT 'INR',
+            snapshot_date DATE NOT NULL,
+            breakdown JSONB NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+          );
+
+          CREATE TABLE IF NOT EXISTS cash_flows (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            entity_id VARCHAR NOT NULL REFERENCES treasury_entities(id),
+            account_id VARCHAR REFERENCES treasury_accounts(id),
+            type VARCHAR NOT NULL,
+            category VARCHAR NOT NULL,
+            amount NUMERIC(20, 2) NOT NULL,
+            currency VARCHAR DEFAULT 'INR',
+            description TEXT,
+            transaction_date DATE NOT NULL,
+            is_forecast BOOLEAN DEFAULT false,
+            confidence_score NUMERIC(3, 2),
+            source_system VARCHAR,
+            status VARCHAR DEFAULT 'pending',
+            metadata JSONB DEFAULT '{}',
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_treasury_acc_entity ON treasury_accounts(entity_id);
+          CREATE INDEX IF NOT EXISTS idx_cash_flow_entity_date ON cash_flows(entity_id, transaction_date);
+        `);
+        console.log('✅ Treasury OS schema verified');
+      } catch (e: any) {
+        console.error('[Migration] Treasury OS schema error:', e?.message);
+      }
+
       console.log('✅ Critical schema repairs complete');
     } catch (migErr) {
 

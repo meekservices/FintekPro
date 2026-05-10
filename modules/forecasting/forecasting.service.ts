@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { db } from '../../server/db';
 import { cashFlows, liquiditySnapshots } from '../../shared/schema/treasury';
-import { eq, sql, gte } from 'drizzle-orm';
+import { eq, sql, gte, and } from 'drizzle-orm';
 
 @Injectable()
 export class ForecastingService {

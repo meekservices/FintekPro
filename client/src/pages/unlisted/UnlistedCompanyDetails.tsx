@@ -172,6 +172,26 @@ export default function UnlistedCompanyDetails() {
     enabled: !!id && !!company,
   });
 
+  // Research mutation
+  const researchMutation = useMutation({
+    mutationFn: async () => {
+      if (!company?.cin) throw new Error("CIN missing");
+      return apiRequest(`/api/unlisted/credhive/research/${company.cin}?force=true`, { method: 'GET' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies', id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies', id, 'financials'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies', id, 'ratios'] });
+      toast({ title: 'Research Complete', description: 'Financial data has been refreshed from Credhive' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Research Failed', description: error.message || 'Failed to refresh data', variant: 'destructive' });
+    },
+  });
+
+  const { user } = useAuth();
+  const canResearch = user?.role === 'admin' || user?.role === 'agent';
+
   // Fetch MCA Intelligence financial ratios (if company has CIN)
   interface McaFinancialRatios {
     cin: string;
@@ -448,7 +468,21 @@ export default function UnlistedCompanyDetails() {
                 <BarChart3 className="h-5 w-5" />
                 Financial Ratios
               </CardTitle>
-              <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <div className="flex items-center gap-2">
+                {canResearch && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => researchMutation.mutate()}
+                    disabled={researchMutation.isPending || !company.cin}
+                    className="h-8 gap-1"
+                    data-testid="button-refresh-financials"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${researchMutation.isPending ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                )}
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
                 <SelectTrigger className="w-40" data-testid="select-financial-year">
                   <SelectValue placeholder="Select Year" />
                 </SelectTrigger>
@@ -512,7 +546,10 @@ export default function UnlistedCompanyDetails() {
                   No ratio data available
                 </p>
               )}
-              <div className="flex justify-end mt-4">
+              <div className="flex justify-between items-center mt-4">
+                <div className="text-[10px] text-muted-foreground italic">
+                  {company.lastSyncedAt && `Last synced: ${new Date(company.lastSyncedAt).toLocaleDateString()}`}
+                </div>
                 <DataSourceBadge source={selectedYearRatios?.dataSource} />
               </div>
             </CardContent>

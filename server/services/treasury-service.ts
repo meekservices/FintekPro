@@ -109,6 +109,17 @@ export class TreasuryService {
 
     return { success, balance };
   }
+
+  async syncAllBalances(entityId: string) {
+    const accounts = await this.getEntityAccounts(entityId);
+    const results = await Promise.all(accounts.map(acc => this.syncBalance(acc.id)));
+    
+    return {
+      totalSynced: results.filter(r => r.success).length,
+      totalFailed: results.filter(r => !r.success).length,
+      results
+    };
+  }
 }
 
 
