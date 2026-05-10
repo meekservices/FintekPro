@@ -1,15 +1,29 @@
+# ── Web framework ─────────────────────────────────────────────────────────────
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
+
+# ── Database ──────────────────────────────────────────────────────────────────
+# asyncpg handles all DB connections — psycopg2 is not used in this service.
 asyncpg==0.30.0
+
+# ── Data science ──────────────────────────────────────────────────────────────
+# Pinned to versions that ship pre-built cp313 macOS-ARM64 wheels.
+# numpy 2.0.x has no cp313 wheel and fails to compile on clang 16+.
+# scipy 1.13.x / scikit-learn 1.5.x likewise have no cp313 wheels.
 pandas==2.2.3
-numpy==2.0.2
-scipy==1.13.1
-scikit-learn==1.5.2
+numpy==2.2.4
+scipy==1.15.3
+scikit-learn==1.6.1
+
+# ── Auth / crypto ─────────────────────────────────────────────────────────────
 PyJWT==2.12.0
 python-jose[cryptography]==3.4.0
+
+# ── HTTP / env ────────────────────────────────────────────────────────────────
 python-dotenv==1.0.1
 httpx==0.27.0
-psycopg2-binary==2.9.9
 requests>=2.32.0
+
+# ── Finance data ──────────────────────────────────────────────────────────────
 yfinance==0.2.43
 quandl==3.7.0

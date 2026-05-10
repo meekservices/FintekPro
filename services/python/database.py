@@ -21,46 +21,71 @@ def _mask_dsn(dsn: str) -> str:
 async def get_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
-        dsn = os.getenv("PRODUCTION_DATABASE_URL") or os.getenv("DATABASE_URL")
+        dsn = os.getenv("PRODUCTION_DATABASE_URL")
         if not dsn:
-            # Absolute fallback if no env vars are present
-            dsn = "postgresql://postgres:Kamini@321@/fintekpro?host=/cloudsql/fintekpro:asia-south1:fintekpro-db"
+            raise RuntimeError("PRODUCTION_DATABASE_URL must be set")
 
         print(f"[DB] Connecting to: {_mask_dsn(dsn)}")
 
-        kwargs = {"min_size": 2, "max_size": 10, "command_timeout": 30}
+        kwargs: dict = {"min_size": 2, "max_size": 10, "command_timeout": 30}
 
-        # Check for GCP Unix Socket
-        cloud_sql_path = '/cloudsql/fintekpro:asia-south1:fintekpro-db'
-        
-        parsed = urlparse(dsn)
-        user = parsed.username or 'postgres'
-        password = parsed.password or 'Kamini@321'
-        database = parsed.path.lstrip('/') or 'fintekpro'
-        
-        # Correction for common misconfigurations
-        if user == 'fintekpro_user':
-            user = 'postgres'
-            password = 'Kamini@321'
-        if database == 'fintekpro_db' or not database:
-            database = 'fintekpro'
-
+        # Check for GCP Cloud SQL Unix socket.
+        # Socket directory format: /cloudsql/<project>:<region>:<instance>
+        cloud_sql_path = "/cloudsql/fintekpro:asia-south1:fintekpro-db"
         if os.path.exists(cloud_sql_path):
             print(f"[DB] Cloud SQL Unix socket detected at {cloud_sql_path}")
+
+            # Parse the DSN for credentials, with a safe fallback on error.
+            try:
+                parsed = urlparse(dsn)
+                dsn_user = parsed.username
+                dsn_password = parsed.password
+                dsn_database = parsed.path.lstrip("/") or None
+            except Exception as parse_err:
+                print(f"⚠️  [DB] DSN parse error: {parse_err}. Falling back to env-var credentials.")
+                dsn_user = None
+                dsn_password = None
+                dsn_database = None
+
+            # asyncpg requires `host` to be the socket directory itself.
             kwargs["host"] = cloud_sql_path
-            kwargs["user"] = user
-            kwargs["password"] = password
-            kwargs["database"] = database
+
+            # Env-var overrides for the Cloud SQL socket path.
+            # Set these in your .env / Cloud Run environment — never hardcode credentials.
+            #   DB_FALLBACK_USER     — superuser to connect with (default: postgres)
+            #   DB_FALLBACK_PASSWORD — corresponding password
+            #   DB_FALLBACK_DBNAME   — database name (default: fintekpro)
+            fallback_user = os.getenv("DB_FALLBACK_USER", "postgres")
+            fallback_password = os.getenv("DB_FALLBACK_PASSWORD", "")
+            fallback_dbname = os.getenv("DB_FALLBACK_DBNAME", "fintekpro")
+
+            # Prefer DSN-extracted values; use env-var fallback when DSN contains
+            # placeholder service-account names that are invalid for socket auth.
+            resolved_user = (
+                dsn_user if dsn_user and dsn_user != "fintekpro_user" else fallback_user
+            )
+            resolved_password = dsn_password if dsn_password else fallback_password
+            resolved_database = (
+                dsn_database
+                if dsn_database and dsn_database != "fintekpro_db"
+                else fallback_dbname
+            )
+
+            if resolved_user != dsn_user or resolved_database != dsn_database:
+                print(
+                    f"[DB] ℹ️  Socket auth — resolved user='{resolved_user}', "
+                    f"db='{resolved_database}'"
+                )
+
+            kwargs["user"] = resolved_user
+            kwargs["password"] = resolved_password
+            kwargs["database"] = resolved_database
             _pool = await asyncpg.create_pool(**kwargs)
         else:
             print("[DB] No Unix socket found — connecting via TCP (proxy or direct)")
-            # Reconstruct DSN if needed
-            if not parsed.hostname and not parsed.netloc:
-                dsn = f"postgresql://{user}:{password}@localhost:5432/{database}"
             _pool = await asyncpg.create_pool(dsn, **kwargs)
 
-
-        # Verify the connection is actually usable
+        # Verify the connection is actually usable before returning.
         async with _pool.acquire() as conn:
             await conn.fetchval("SELECT 1")
         print("✅ [DB] Connection verified successfully")
@@ -68,9 +93,9 @@ async def get_pool() -> asyncpg.Pool:
     return _pool
 
 
-async def close_pool():
+async def close_pool() -> None:
     global _pool
-    if _pool:
+    if _pool is not None:
         await _pool.close()
         _pool = None
 

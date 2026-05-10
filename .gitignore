@@ -1,32 +1,141 @@
-# GCloud context
-tmp/gcloud/
-.gcloudignore
-
-# Build artifacts
-dist/
-build/
-*.tsbuildinfo
-
-# Dependencies
-node_modules/
-
-# Environment
+venv/
+.venv/
+__pycache__/
+*.pyc
 .env
-.env.production
-.env.staging
-
-# OS files
+.env.example
+.git
+.gitignore
+.dockerignore
+Dockerfile
+nixpacks.toml
 .DS_Store
-Thumbs.db
+node_modules
+dist
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
 
-# Test files
-*.test.ts
-*.spec.ts
-coverage/
-__tests__/
+# Environment files - NEVER commit secrets
+.env
+.env.*
+!.env.example
 
-# Scratch and temp
-scratch/
-tmp/
-.tempmediaStorage/
-.system_generated/
+# Logs
+logs/
+*.log
+
+# WhatsApp session files - contain sensitive data
+whatsapp-session/
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Browser session artifacts - contain sensitive cookies and tokens
+cookies.txt
+*.cookies
+session/
+Local Storage/
+IndexedDB/
+Service Worker/
+Cache/
+
+# Replit-specific internals
+.replit
+.config/
+.cache/
+.upm/
+.local/
+.pythonlibs/
+.agents/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+pyproject.toml
+
+# Large data exports - not for version control
+bond-catalog-export.json
+
+# Replit-specific utility scripts
+copy-bonds-to-prod.ts
+sync-bonds-to-prod.ts
+sync-to-production.ts
+export-bonds.sql
+
+# Test result files, audit reports, and internal documentation (broad patterns)
+*_REPORT.md
+*_RESULTS.md
+*_AUDIT*.md
+*_CHECKLIST.md
+*_ANALYSIS.md
+*_SUMMARY.md
+*_UPDATE.md
+*_SETUP.md
+*_READINESS.md
+*_INSTRUCTIONS.md
+QUICK_PUBLISH_GUIDE.md
+ENV_VARIABLES.md
+test-*.txt
+test-*.sh
+
+# Temp files
+temp_*.txt
+
+# Attached assets — exclude everything EXCEPT fintekpro_*.png brand logos
+# (brand PNGs must be committed so Railway Docker build can find them)
+attached_assets/*.txt
+attached_assets/*.pdf
+attached_assets/*.csv
+attached_assets/*.json
+attached_assets/*.xlsx
+attached_assets/*.pptx
+attached_assets/*.log
+attached_assets/*.html
+attached_assets/*.md
+attached_assets/*.jpeg
+attached_assets/*.jpg
+attached_assets/screenshot-*.png
+attached_assets/Screenshot_*.png
+
+# Drizzle local config (Replit-specific)
+drizzle.local.config.ts
+pnpm-lock.yaml
+
+# Local development and cache
+npm_cache/
+find_user.ts
+fintek_data.dump
+fintek_data.dump
+cloudrun-env.yaml
+.gcloud/
+.gcloud_tmp_config/
+.tmp/
+
+# Scratch artifacts
+scratch/*.js
+scratch/*.cjs
+scratch/*.ts
+scratch/*.txt
+.env.local
+
+# TSC diagnostic dumps
+tsc_errors*.txt
+tsc_*_errors*.txt
+
+# Antigravity artifacts
+artifacts/
+
+# Firebase
+.firebase/
+.firebaserc
+firebase.json
+run-bootstrap.ts
+server/fix-user-assignments.ts
+server/seed-holdings.ts
+server/seed-marketplace.ts
+server/seed-sangram.ts
