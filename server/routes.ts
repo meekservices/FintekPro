@@ -50,6 +50,9 @@ import { registerReportsInlineRoutes } from "./routes/reports-inline";
 import adminMutualFundsRouter from "./routes/admin-mutual-funds-routes";
 import liveMFDataRouter from "./routes/live-mf-data-routes";
 import treasuryCopilotRoutes from "./routes/treasury-copilot-routes";
+import treasuryRoutes from "./routes/treasury-routes";
+import versionRouter from "./routes/version";
+import { registerBankingRoutes } from "./routes/banking";
 import { Router } from "express";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -170,6 +173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/fixed-income", orderStatusRoutes);
   app.use("/api/ai-investment", aiInvestmentRoutes);
   app.use("/api/ai/copilot", treasuryCopilotRoutes);
+  app.use("/api/treasury", treasuryRoutes);
   app.use("/api/engine", engineHealthRoutes);
 
   // Missing Production Routes
@@ -178,6 +182,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerPortalSystemRoutes(app);
   registerBondsMarketRoutes(app);
   registerUserProfileKYCRoutes(app);
+  registerBankingRoutes(app);
+  app.use(versionRouter);
   app.use("/api/bonds/yield-curve", yieldCurveRoutes);
 
   // Specialized registrations
