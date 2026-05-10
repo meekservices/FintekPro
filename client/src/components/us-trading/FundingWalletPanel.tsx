@@ -53,7 +53,7 @@ export default function FundingWalletPanel({ alpacaAccountId, isSandbox }: Fundi
   const simulateMutation = useMutation({
     mutationFn: () => apiRequest(`/api/us-trading/broker/accounts/${alpacaAccountId}/funding-wallet/deposit-simulation`, {
       method: "POST",
-      body: { amount_usd: parseFloat(simAmount) },
+      body: JSON.stringify({ amount_usd: parseFloat(simAmount) }),
     }),
     onSuccess: () => {
       toast({ title: "Simulated deposit triggered", description: `$${simAmount} deposit queued in sandbox` });

@@ -133,10 +133,10 @@ export default function SupplierDashboard() {
   });
 
   // Calculate totals
-  const totalRevenue = productPerformance?.reduce((sum, product) => sum + product.revenue, 0) || 0;
-  const averageMargin = productPerformance?.reduce((sum, product) => sum + product.profitMargin, 0) / (productPerformance?.length || 1) || 0;
-  const highMarginProducts = productPerformance?.filter(product => product.profitMargin > 15).length || 0;
-  const promotedProducts = productPerformance?.filter(product => product.isPromoted).length || 0;
+  const totalRevenue = productPerformance?.reduce((sum: number, product: ProductPerformance) => sum + product.revenue, 0) || 0;
+  const averageMargin = productPerformance?.reduce((sum: number, product: ProductPerformance) => sum + product.profitMargin, 0) / (productPerformance?.length || 1) || 0;
+  const highMarginProducts = productPerformance?.filter((product: ProductPerformance) => product.profitMargin > 15).length || 0;
+  const promotedProducts = productPerformance?.filter((product: ProductPerformance) => product.isPromoted).length || 0;
 
   const getProfitColor = (margin: number) => {
     if (margin >= 20) return "text-green-600";
@@ -269,7 +269,7 @@ export default function SupplierDashboard() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Suppliers</SelectItem>
-                      {suppliers?.map((supplier) => (
+                      {suppliers?.map((supplier: Supplier) => (
                         <SelectItem key={supplier.id} value={supplier.id}>{supplier.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -307,7 +307,7 @@ export default function SupplierDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {productPerformance?.map((product) => (
+                    {productPerformance?.map((product: ProductPerformance) => (
                       <TableRow key={product.id}>
                         <TableCell>
                           <div>
@@ -381,7 +381,7 @@ export default function SupplierDashboard() {
                   <div className="text-center py-8">Analyzing product data...</div>
                 ) : (
                   <div className="space-y-4">
-                    {optimizationSuggestions?.map((suggestion, index) => (
+                    {optimizationSuggestions?.map((suggestion: ProductOptimizationSuggestion, index: number) => (
                       <div key={index} className="border rounded-lg p-4">
                         <div className="flex justify-between items-start mb-2">
                           <h4 className="font-semibold text-foreground">{suggestion.productName}</h4>
@@ -532,7 +532,7 @@ export default function SupplierDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {suppliers?.map((supplier) => (
+                    {suppliers?.map((supplier: Supplier) => (
                       <TableRow key={supplier.id}>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -542,7 +542,7 @@ export default function SupplierDashboard() {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {supplier.productCategories.slice(0, 2).map((category, index) => (
+                            {supplier.productCategories.slice(0, 2).map((category: string, index: number) => (
                               <Badge key={index} variant="outline" className="text-xs">
                                 {category}
                               </Badge>

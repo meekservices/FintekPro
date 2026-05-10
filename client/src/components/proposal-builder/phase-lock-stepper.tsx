@@ -217,7 +217,7 @@ export function PhaseLockStepper({ proposalId, onPhaseClick, currentActivePhase 
                     <div>
                       <p className="font-medium">{config.label}</p>
                       <p className="text-xs text-muted-foreground">{config.description}</p>
-                      {isLocked && validation?.missingPrerequisites.length > 0 && (
+                      {isLocked && validation?.missingPrerequisites && validation.missingPrerequisites.length > 0 && (
                         <div className="mt-2">
                           <p className="text-xs font-medium text-destructive">Missing:</p>
                           <ul className="text-xs text-muted-foreground">

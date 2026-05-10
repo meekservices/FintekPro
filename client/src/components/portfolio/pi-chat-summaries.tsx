@@ -25,7 +25,7 @@ export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
     enabled: !!portfolioId,
   });
 
-  const getAssetClassIcon = (assetClass) => {
+  const getAssetClassIcon = (assetClass: string) => {
     switch (assetClass.toLowerCase()) {
       case 'equity': return '📈';
       case 'debt': return '🏦';
@@ -35,7 +35,7 @@ export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
     }
   };
 
-  const getAssetClassColor = (assetClass) => {
+  const getAssetClassColor = (assetClass: string) => {
     switch (assetClass.toLowerCase()) {
       case 'equity': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
       case 'debt': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';

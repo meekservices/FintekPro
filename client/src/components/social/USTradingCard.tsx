@@ -65,7 +65,7 @@ export function USTradingCard() {
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               value={symbol}
-              onChange={(e) => setSymbol(e.target.toUpperCase())}
+              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
               className="pl-9 font-bold uppercase"
               placeholder="e.g. NVDA"
             />

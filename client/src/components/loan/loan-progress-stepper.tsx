@@ -128,7 +128,7 @@ export function LoanProgressStepper({ status, compact = false }: LoanProgressSte
         </div>
       )}
       
-      {isTerminal && status !== "approved" && (
+      {isTerminal && (
         <div className="mt-3 text-center">
           <span className={`text-sm font-medium ${
             status === "rejected" ? "text-red-600 dark:text-red-400" :
