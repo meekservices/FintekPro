@@ -13,9 +13,27 @@ router.post("/copilot/query", async (req, res) => {
       return res.status(400).json({ error: "Query is required" });
     }
 
-    // In a real app, we'd fetch actual entity data to provide context
+    // 0. Fetch Context Data
     const entityData = await treasuryService.getPositions(entityId || "default");
     const dataString = JSON.stringify(entityData, null, 2);
+
+    // 1. Generate Cache Key (hash of query + data context)
+    const inputParams = { query, entityData };
+    const { getCachedRationale, cacheRationale } = await import("../services/investment-cache-service");
+    
+    // 2. Check Cache
+    const cachedResult = await getCachedRationale("treasury_copilot", inputParams);
+    
+    if (cachedResult) {
+      console.log(`[TreasuryCopilot] Cache HIT for query: ${query.slice(0, 50)}...`);
+      return res.json({ 
+        answer: cachedResult.rationale,
+        isCached: true,
+        cachedAt: cachedResult.createdAt
+      });
+    }
+
+    console.log(`[TreasuryCopilot] Cache MISS for query: ${query.slice(0, 50)}...`);
 
     const systemPrompt = `You are the FintekPro Treasury Copilot. 
 You help corporate users manage their liquidity, bank balances, and payouts.
@@ -24,7 +42,7 @@ ${dataString}
 
 Provide concise, professional, and actionable advice.`;
 
-    const response = await aiService.chat([
+    const result = await aiService.chat([
       { role: "system", content: systemPrompt },
       { role: "user", content: query }
     ], {
@@ -32,7 +50,14 @@ Provide concise, professional, and actionable advice.`;
       userId: entityId || "demo-user"
     });
 
-    res.json({ answer: response.content });
+    // 3. Store in Cache
+    await cacheRationale("treasury_copilot", inputParams, result.content, {
+      userId: entityId || "demo-user",
+      modelUsed: result.usage.model,
+      tokensUsed: result.usage.totalTokens
+    });
+
+    res.json({ answer: result.content, isCached: false });
   } catch (error: any) {
     console.error("Treasury Copilot Error:", error);
     res.status(500).json({ error: error.message });

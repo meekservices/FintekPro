@@ -6,6 +6,10 @@ import {
   getDecentroBaseUrl 
 } from '../utils/decentro-config';
 import { logger } from '../logger';
+import { db } from '../db';
+import { verificationCache } from '../../shared/schema/kyc';
+import { eq, and, gte } from 'drizzle-orm';
+import crypto from 'crypto';
 
 export interface DecentroResponse<T = any> {
   status: string;
@@ -30,6 +34,31 @@ export class DecentroService {
    */
   async validateAccount(accountNumber: string, ifsc: string, name: string) {
     try {
+      // 1. Check Cache first
+      const identifierHash = crypto.createHash('sha256').update(`${accountNumber}_${ifsc}`).digest('hex');
+      
+      const [cached] = await db.select()
+        .from(verificationCache)
+        .where(
+          and(
+            eq(verificationCache.verificationType, 'bank_account'),
+            eq(verificationCache.identifierHash, identifierHash),
+            eq(verificationCache.verified, true),
+            gte(verificationCache.expiresAt, new Date())
+          )
+        )
+        .limit(1);
+
+      if (cached) {
+        logger.info(`[DecentroService] Cache HIT for account validation: ${accountNumber}`);
+        return {
+          success: true,
+          data: cached.additionalData,
+          message: 'Verification served from cache',
+          isCached: true
+        };
+      }
+
       const baseUrl = getDecentroBaseUrl();
       const response = await axios.post<DecentroResponse>(
         `${baseUrl}/core_banking/money_transfer/validate_bank_account`,
@@ -44,8 +73,37 @@ export class DecentroService {
         { headers: this.getHeaders() }
       );
 
+      const success = response.data.status === 'SUCCESS';
+
+      // 2. Cache the result if successful
+      if (success) {
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + 30); // 30 days cache
+
+        await db.insert(verificationCache).values({
+          verificationType: 'bank_account',
+          identifierHash,
+          identifierMasked: `${accountNumber.slice(0, 2)}xxxx${accountNumber.slice(-4)}`,
+          verified: true,
+          verificationStatus: 'SUCCESS',
+          registeredName: response.data.data?.full_name || name,
+          provider: 'decentro',
+          providerReferenceId: response.data.decentro_txn_id,
+          additionalData: response.data.data,
+          expiresAt: expiry
+        }).onConflictDoUpdate({
+          target: [verificationCache.verificationType, verificationCache.identifierHash],
+          set: {
+            verified: true,
+            verifiedAt: new Date(),
+            expiresAt: expiry,
+            additionalData: response.data.data
+          }
+        });
+      }
+
       return {
-        success: response.data.status === 'SUCCESS',
+        success,
         data: response.data.data,
         message: response.data.message
       };

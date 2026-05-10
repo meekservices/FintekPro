@@ -1,6 +1,6 @@
 import { db } from '../db';
-import { treasuryEntities, treasuryAccounts } from '../../shared/schema/treasury';
-import { eq } from 'drizzle-orm';
+import { treasuryEntities, treasuryAccounts, treasuryPositions } from '../../shared/schema/treasury';
+import { eq, and } from 'drizzle-orm';
 
 export class TreasuryService {
   async createEntity(data: {
@@ -68,6 +68,23 @@ export class TreasuryService {
     return db.select().from(treasuryAccounts).where(eq(treasuryAccounts.entityId, entityId));
   }
 
+  async getPositions(entityId: string) {
+    return db.select({
+      accountId: treasuryAccounts.id,
+      accountName: treasuryAccounts.accountName,
+      accountNumber: treasuryAccounts.accountNumber,
+      bankName: treasuryAccounts.bankName,
+      accountType: treasuryAccounts.accountType,
+      currency: treasuryAccounts.currency,
+      availableBalance: treasuryPositions.availableBalance,
+      ledgerBalance: treasuryPositions.ledgerBalance,
+      lastSyncedAt: treasuryPositions.lastSyncedAt
+    })
+    .from(treasuryAccounts)
+    .leftJoin(treasuryPositions, eq(treasuryAccounts.id, treasuryPositions.accountId))
+    .where(eq(treasuryAccounts.entityId, entityId));
+  }
+
   async syncBalance(accountId: string) {
 
     const [account] = await db.select().from(treasuryAccounts).where(eq(treasuryAccounts.id, accountId));
@@ -90,7 +107,6 @@ export class TreasuryService {
     }
 
     if (success) {
-      const { treasuryPositions } = await import('../../shared/schema/treasury');
       await db.insert(treasuryPositions).values({
         accountId,
         availableBalance: balance.toString(),

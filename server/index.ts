@@ -174,9 +174,11 @@ if (process.env.NODE_ENV === 'production') {
     try {
       await db.execute(sql`SELECT 1`);
       console.log('✅ Database connection established');
-    } catch (dbErr) {
-      console.error('❌ Database connection failed:', dbErr);
-      throw new Error(`DB Connection Error: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`);
+    } catch (dbErr: any) {
+      console.error('❌ Database connection failed:', dbErr.message);
+      console.warn('⚠️ [WARNING] Server starting in DEGRADED MODE (No Database). Core features will be unavailable.');
+      bootState.error = `Database Offline: ${dbErr.message}`;
+      // Do not throw — allow the server to boot so /api/health and SPA can be served
     }
 
     logBootProgress("Step 2: Checking schema migrations...");
