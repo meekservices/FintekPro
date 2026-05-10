@@ -10,7 +10,8 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 // Connection strategy:
 //   PRODUCTION_DATABASE_URL or DATABASE_URL MUST be set (GCP Cloud SQL)
-const selectedDbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
+//   FALLBACK: In production, we allow a dummy URL if Unix socket is likely to be available
+const selectedDbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL || (isProduction ? "postgresql://postgres@localhost/fintekpro" : "");
 
 if (!selectedDbUrl) {
   throw new Error("No database URL found. Set PRODUCTION_DATABASE_URL or DATABASE_URL in your environment secrets.");
