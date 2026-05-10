@@ -228,9 +228,9 @@ export default function ProjectFinanceWizard({ applicationId, loanSubType, onCom
     tenure: 60,
   });
 
-  const developerForm = useForm({ resolver: zodResolver(developerSchema), defaultValues: { developerCompanyName: "", cin: "", pan: "", promoterName: "", din: "", contactEmail: "", contactPhone: "" } });
-  const projectForm = useForm({ resolver: zodResolver(projectSchema), defaultValues: { projectName: "", reraNumber: "", reraState: "", city: "", state: "", address: "", projectStage: "", projectType: "", totalUnits: undefined, totalSalableArea: undefined, expectedCompletionDate: "", tenureMonths: undefined } });
-  const landForm = useForm({ resolver: zodResolver(landSchema), defaultValues: { surveyNumber: "", plotNumber: "", totalLandArea: undefined, unit: "sqft", landUseZone: "", encumbranceStatus: "", titleStatus: "", landOwnership: "", registrationNumber: "", registrationDate: "", marketValue: undefined, guidanceValue: undefined, purchaseValue: undefined } });
+  const developerForm = useForm<z.infer<typeof developerSchema>>({ resolver: zodResolver(developerSchema), defaultValues: { developerCompanyName: "", cin: "", pan: "", promoterName: "", din: "", contactEmail: "", contactPhone: "" } });
+  const projectForm = useForm<z.infer<typeof projectSchema>>({ resolver: zodResolver(projectSchema), defaultValues: { projectName: "", reraNumber: "", reraState: "", city: "", state: "", address: "", projectStage: "", projectType: "", totalUnits: undefined, totalSalableArea: undefined, expectedCompletionDate: "", tenureMonths: undefined } });
+  const landForm = useForm<z.infer<typeof landSchema>>({ resolver: zodResolver(landSchema), defaultValues: { surveyNumber: "", plotNumber: "", totalLandArea: undefined, unit: "sqft", landUseZone: "", encumbranceStatus: "", titleStatus: "", landOwnership: "", registrationNumber: "", registrationDate: "", marketValue: undefined, guidanceValue: undefined, purchaseValue: undefined } });
 
   const { data: projectData, isLoading: loadingProject } = useQuery<any>({
     queryKey: ["/api/developer-finance/projects", projectId],

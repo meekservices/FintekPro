@@ -5,14 +5,20 @@ interface LoadingStateProps {
   variant?: 'card' | 'list' | 'table' | 'form' | 'stats' | 'chart' | 'dashboard' | 'portfolio' | 'market-movers' | 'agent-dashboard' | 'partner-dashboard' | 'section-table' | 'section-chart' | 'section-stats-row';
   count?: number;
   className?: string;
+  message?: string;
 }
 
-export function LoadingState({ variant = 'card', count = 1, className = '' }: LoadingStateProps) {
+export function LoadingState({ variant = 'card', count = 1, className = '', message }: LoadingStateProps) {
   const items = Array.from({ length: count }, (_, i) => i);
 
   if (variant === 'card') {
     return (
       <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${className}`}>
+        {message && (
+          <div className="col-span-full mb-4 text-sm text-muted-foreground animate-pulse">
+            {message}
+          </div>
+        )}
         {items.map((i) => (
           <Card key={i} data-testid={`loading-card-${i}`}>
             <CardHeader>
@@ -281,7 +287,7 @@ export function LoadingState({ variant = 'card', count = 1, className = '' }: Lo
 
   if (variant === 'agent-dashboard') {
     return (
-      <div className={`space-y-6 ${className}`} data-testid="loading-agent-dashboard" style={{ minHeight: '600px' }}>
+      <div className={`space-y-6 min-h-[600px] ${className}`} data-testid="loading-agent-dashboard">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i} className="bg-card/50 border-border">
@@ -354,7 +360,7 @@ export function LoadingState({ variant = 'card', count = 1, className = '' }: Lo
 
   if (variant === 'partner-dashboard') {
     return (
-      <div className={`space-y-6 ${className}`} data-testid="loading-partner-dashboard" style={{ minHeight: '600px' }}>
+      <div className={`space-y-6 min-h-[600px] ${className}`} data-testid="loading-partner-dashboard">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Card key={i} className="bg-indigo-800/30 border-indigo-700">

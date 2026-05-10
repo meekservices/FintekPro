@@ -612,73 +612,67 @@ export async function getCacheStats(): Promise<{
   const now = new Date();
   const today = now.toISOString().split("T")[0];
   
-  const [marketStats] = await db.execute(sql`
+  const marketStats = (await db.execute(sql`
     SELECT 
       COUNT(*) as total,
       SUM(CASE WHEN expires_at > NOW() AND is_stale = false THEN 1 ELSE 0 END) as valid,
       SUM(CASE WHEN is_stale = true THEN 1 ELSE 0 END) as stale
     FROM market_data_snapshots
-  `);
+  `)).rows[0] as { total: string; valid: string; stale: string };
   
-  const [fundStats] = await db.execute(sql`
+  const fundStats = (await db.execute(sql`
     SELECT 
       COUNT(*) as total,
       SUM(CASE WHEN expires_at > NOW() THEN 1 ELSE 0 END) as valid
     FROM product_fundamentals_cache
-  `);
+  `)).rows[0] as { total: string; valid: string };
   
-  const [rationaleStats] = await db.execute(sql`
+  const rationaleStats = (await db.execute(sql`
     SELECT 
       COUNT(*) as total,
       SUM(CASE WHEN expires_at > NOW() AND is_invalidated = false THEN 1 ELSE 0 END) as valid,
       SUM(hit_count) as total_hits
     FROM ai_rationale_cache
-  `);
+  `)).rows[0] as { total: string; valid: string; total_hits: string };
   
-  const [portfolioStats] = await db.execute(sql`
+  const portfolioStats = (await db.execute(sql`
     SELECT 
       COUNT(*) as total,
       SUM(CASE WHEN metrics_date = ${today} THEN 1 ELSE 0 END) as today
     FROM portfolio_metrics_daily
-  `);
+  `)).rows[0] as { total: string; today: string };
   
-  const [proposalStats] = await db.execute(sql`
+  const proposalStats = (await db.execute(sql`
     SELECT 
       COUNT(*) as total,
       SUM(CASE WHEN expires_at > NOW() THEN 1 ELSE 0 END) as valid,
       SUM(hit_count) as total_hits
     FROM proposal_materializations
-  `);
+  `)).rows[0] as { total: string; valid: string; total_hits: string };
   
-  const marketStatsResult = marketStats as unknown as Array<{ total: string; valid: string; stale: string }>;
-  const fundStatsResult = fundStats as unknown as Array<{ total: string; valid: string }>;
-  const rationaleStatsResult = rationaleStats as unknown as Array<{ total: string; valid: string; total_hits: string }>;
-  const portfolioStatsResult = portfolioStats as unknown as Array<{ total: string; today: string }>;
-  const proposalStatsResult = proposalStats as unknown as Array<{ total: string; valid: string; total_hits: string }>;
-
   return {
     marketData: {
-      total: Number(marketStatsResult[0]?.total || 0),
-      valid: Number(marketStatsResult[0]?.valid || 0),
-      stale: Number(marketStatsResult[0]?.stale || 0)
+      total: Number(marketStats?.total || 0),
+      valid: Number(marketStats?.valid || 0),
+      stale: Number(marketStats?.stale || 0)
     },
     fundamentals: {
-      total: Number(fundStatsResult[0]?.total || 0),
-      valid: Number(fundStatsResult[0]?.valid || 0)
+      total: Number(fundStats?.total || 0),
+      valid: Number(fundStats?.valid || 0)
     },
     rationales: {
-      total: Number(rationaleStatsResult[0]?.total || 0),
-      valid: Number(rationaleStatsResult[0]?.valid || 0),
-      totalHits: Number(rationaleStatsResult[0]?.total_hits || 0)
+      total: Number(rationaleStats?.total || 0),
+      valid: Number(rationaleStats?.valid || 0),
+      totalHits: Number(rationaleStats?.total_hits || 0)
     },
     portfolioMetrics: {
-      total: Number(portfolioStatsResult[0]?.total || 0),
-      today: Number(portfolioStatsResult[0]?.today || 0)
+      total: Number(portfolioStats?.total || 0),
+      today: Number(portfolioStats?.today || 0)
     },
     proposals: {
-      total: Number(proposalStatsResult[0]?.total || 0),
-      valid: Number(proposalStatsResult[0]?.valid || 0),
-      totalHits: Number(proposalStatsResult[0]?.total_hits || 0)
+      total: Number(proposalStats?.total || 0),
+      valid: Number(proposalStats?.valid || 0),
+      totalHits: Number(proposalStats?.total_hits || 0)
     }
   };
 }

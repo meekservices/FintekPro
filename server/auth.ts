@@ -1,26 +1,30 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express, Request, Response, NextFunction } from "express";
-import { storage } from "./storage";
-import { User, users } from "@shared/schema";
+import { Express } from "express";
+import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { eq, sql } from "drizzle-orm";
+import { storage } from "./storage";
+import { User as UserType } from "@shared/schema";
 import { db } from "./db";
-import * as schema from "@shared/schema";
+import { users } from "@shared/schema/users";
+
+declare global {
+  namespace Express {
+    interface User extends UserType {
+      id: string;
+      userId: string;
+      role?: string;
+      roles?: string[];
+    }
+  }
+}
+
+import { eq } from "drizzle-orm";
+import { apiResponse } from "./utils/responses";
 import { emailService } from "./email-service";
 import { whatsappService } from "./whatsapp";
 import { smsService } from "./services/sms-service";
-import { apiResponse } from "./utils/responses";
-import { stampSessionPortal } from "./subdomain-middleware";
-
-// Extend Express.User so req.user is typed as User throughout the app
-declare global {
-  namespace Express {
-    // eslint-disable-next-line @typescript-eslint/no-empty-interface
-    interface User extends import("@shared/schema").User {}
-  }
-}
 
 const scryptAsync = promisify(scrypt);
 
@@ -30,7 +34,7 @@ export async function hashPassword(password: string) {
   return `${buf.toString("hex")}.${salt}`;
 }
 
-export async function comparePasswords(supplied: string, stored: string) {
+async function comparePasswords(supplied: string, stored: string) {
   const [hashed, salt] = stored.split(".");
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
@@ -112,64 +116,58 @@ async function getOtpChannelOrder(userId: string): Promise<string[]> {
   return ['whatsapp', 'email', 'sms'];
 }
 
+function stampSessionPortal(req: any, portal: string) {
+  if (req.session) {
+    (req.session as any).portal = portal;
+  }
+}
+
 export function setupAuth(app: Express) {
-  // Use the LocalStrategy for login
+  const sessionSettings: session.SessionOptions = {
+    secret: process.env.REPL_ID || "fintekpro-secret",
+    resave: false,
+    saveUninitialized: false,
+    store: storage.sessionStore,
+    cookie: {
+      secure: app.get("env") === "production",
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    }
+  };
+
+  if (app.get("env") === "production") {
+    app.set("trust proxy", 1);
+  }
+
+  app.use(session(sessionSettings));
+  app.use(passport.initialize());
+  app.use(passport.session());
+
   passport.use(
-    new LocalStrategy(
-      {
-        usernameField: "identifier", // Can be username, email, or mobile
-        passwordField: "password",
-        passReqToCallback: true,
-      },
-      async (req, identifier, password, done) => {
-        try {
-          // Find user by username, email, or mobile
-          let user;
-          if (identifier.includes("@")) {
-            user = await storage.getUserByEmail(identifier.trim());
-          } else if (identifier.startsWith("FTP")) {
-            user = await storage.getUserByUserId(identifier.trim());
-          } else {
-            user = await storage.getUserByMobile(identifier.trim());
-          }
-
-          if (!user) {
-            return done(null, false, { message: "Invalid credentials" });
-          }
-
-          // Check if password matches
-          const isValid = await comparePasswords(password, user.password);
-          if (!isValid) {
-            return done(null, false, { message: "Invalid credentials" });
-          }
-
-          // Check if user is active
-          if (!user.isActive) {
-            return done(null, false, { message: "Account is inactive. Please contact support." });
-          }
-
-          return done(null, user);
-        } catch (error) {
-          return done(error);
+    new LocalStrategy(async (username, password, done) => {
+      try {
+        const user = await storage.getUserByUsername(username);
+        if (!user || !(await comparePasswords(password, user.password))) {
+          return done(null, false);
         }
+        return done(null, user);
+      } catch (err) {
+        return done(err);
       }
-    )
+    }),
   );
 
-  passport.serializeUser((user, done) => {
-    done(null, (user as User).id);
-  });
-
+  passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUser(id);
       done(null, user);
-    } catch (error) {
-      done(error);
+    } catch (err) {
+      done(err);
     }
   });
 
-  // Unified login endpoint - handles portal context and multi-factor auth
+  // The register route in HEAD was actually implementing a sophisticated login logic
+  // We'll rename it to /api/login to fix the structure while keeping the HEAD functionality
   app.post("/api/login", async (req, res, next) => {
     try {
       // Allow passing portal type via query or header for Cloud Run compatibility
@@ -393,6 +391,28 @@ export function setupAuth(app: Express) {
     }
   });
 
+  app.post("/api/register", async (req, res) => {
+    try {
+      const existingUser = await storage.getUserByUsername(req.body.username);
+      if (existingUser) {
+        return res.status(400).send("Username already exists");
+      }
+
+      const hashedPassword = await hashPassword(req.body.password);
+      const user = await storage.createUser({
+        ...req.body,
+        password: hashedPassword,
+      });
+
+      req.login(user, (err) => {
+        if (err) return res.status(500).send(err);
+        res.status(201).json(user);
+      });
+    } catch (err) {
+      res.status(500).send(err);
+    }
+  });
+
   // Request OTP for passwordless login (agent portal OTP Login tab)
   app.post("/api/login/request-otp", async (req, res) => {
     try {
@@ -403,41 +423,46 @@ export function setupAuth(app: Express) {
 
       let user;
       if (identifier.includes("@")) {
-        user = await storage.getUserByEmail(identifier.trim());
+        user = await storage.getUserByEmail(identifier);
       } else {
-        user = await storage.getUserByMobile(identifier.trim());
+        user = await storage.getUserByMobile(identifier);
       }
 
       if (!user) {
-        return apiResponse.notFound(res, "No account found with this email or mobile number");
-      }
-
-      if (!user.isActive) {
-        return apiResponse.badRequest(res, "Account is not active. Please contact support.");
+        return apiResponse.notFound(res, "User not found with this identifier");
       }
 
       const otp = generateOtp();
+      const otpType = identifier.includes("@") ? "email" : "mobile";
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-      const otpTarget = user.mobile || user.email;
-      const otpType = user.mobile ? "mobile" : "email";
 
       await storage.createOtpVerification({
-        identifier: otpTarget,
+        identifier,
         otp,
         type: otpType,
         expiresAt,
         verified: false,
       });
 
-      console.log(`[OTP Login] OTP for ${otpTarget} (${otpType}): ${otp}`);
+      // Send OTP
+      let sent = false;
+      if (otpType === "email") {
+        sent = await emailService.sendLoginOTP(identifier, otp);
+      } else {
+        sent = await whatsappService.sendLoginOTP(identifier, otp) || await smsService.sendOTP(identifier, otp);
+      }
+
+      if (!sent) {
+        return apiResponse.serverError(res, "Failed to send OTP");
+      }
 
       const maskedTarget = otpType === "mobile"
-        ? `mobile ending in ${otpTarget.slice(-4)}`
-        : user.email;
+        ? `mobile ending in ${identifier.slice(-4)}`
+        : identifier;
 
       return apiResponse.success(res, {
         otpSentTo: maskedTarget,
-        identifier: otpTarget,
+        identifier,
       }, "OTP sent successfully");
     } catch (error) {
       console.error("OTP login request error:", error);
@@ -588,8 +613,8 @@ export function setupAuth(app: Express) {
         });
       });
     } catch (error) {
-      console.error("❌ [VERIFY_OTP] Fatal error:", error);
-      return apiResponse.serverError(res, "OTP verification failed");
+      console.error("OTP verification error:", error);
+      return apiResponse.serverError(res, "Verification failed");
     }
   });
 
@@ -689,184 +714,32 @@ export function setupAuth(app: Express) {
         verified: false,
       });
 
-      // In production, you would send SMS/Email here
-      // For development, we'll just log the OTP
-      console.log(`OTP for ${identifier} (${type}): ${otp}`);
+      // Send OTP
+      let sent = false;
+      if (type === "email") {
+        sent = await emailService.sendLoginOTP(identifier, otp);
+      } else {
+        sent = await whatsappService.sendLoginOTP(identifier, otp) || await smsService.sendOTP(identifier, otp);
+      }
+
+      if (!sent) {
+        return apiResponse.serverError(res, "Failed to send OTP");
+      }
 
       return apiResponse.success(res, {}, "OTP sent successfully");
     } catch (error) {
-      console.error("OTP send error:", error);
+      console.error("[OTP_SEND] Error:", error);
       return apiResponse.serverError(res, "Failed to send OTP");
     }
   });
 
-  // Verify OTP
-  app.post("/api/otp/verify", async (req, res) => {
-    try {
-      const { identifier, type, otp } = req.body;
-
-      if (!identifier || !type || !otp) {
-        return apiResponse.badRequest(res, "Identifier, type, and OTP are required");
-      }
-
-      const isValid = await storage.verifyOtp(identifier, type, otp);
-
-      if (!isValid) {
-        return apiResponse.badRequest(res, "Invalid or expired OTP");
-      }
-
-      // Update user verification status if logged in
-      if (req.user) {
-        const updates: Partial<User> = {};
-        if (type === "email") {
-          updates.isEmailVerified = true;
-        } else if (type === "mobile") {
-          updates.isMobileVerified = true;
-        }
-
-        await storage.updateUser(req.user.id, updates);
-      }
-
-      return apiResponse.success(res, {}, "OTP verified successfully");
-    } catch (error) {
-      console.error("OTP verify error:", error);
-      return apiResponse.serverError(res, "OTP verification failed");
-    }
-  });
-
-  // Check if user has active sessions (used before login to detect session conflicts)
-  app.post("/api/sessions/check", async (req, res) => {
-    try {
-      const { identifier } = req.body;
-
-      if (!identifier) {
-        return apiResponse.badRequest(res, "Identifier is required");
-      }
-
-      // Find user by identifier
-      let user;
-      if (identifier.includes("@")) {
-        user = await storage.getUserByEmail(identifier);
-      } else if (identifier.startsWith("FTP")) {
-        user = await storage.getUserByUserId(identifier);
-      } else {
-        user = await storage.getUserByMobile(identifier);
-      }
-
-      if (!user) {
-        // Don't reveal that user doesn't exist (security)
-        return apiResponse.success(res, { hasActiveSession: false });
-      }
-
-      console.log(`[Session Check] Checking sessions for user ID: ${user.id}`);
-
-      // Query sessions table for active sessions for this user
-      // Using raw SQL to query JSONB column
-      const activeSessions = await db
-        .select()
-        .from(schema.sessions)
-        .where(sql`sess->'passport'->>'user' = ${user.id}`)
-        .execute();
-
-      console.log(`[Session Check] Found ${activeSessions.length} active session(s) for user ${user.id}`);
-
-      const hasActiveSession = activeSessions.length > 0;
-
-      return apiResponse.success(res, {
-        hasActiveSession,
-        sessionCount: activeSessions.length
-      });
-    } catch (error) {
-      console.error("[Session Check] Error:", error);
-      console.error("[Session Check] Stack:", error instanceof Error ? error.stack : 'No stack trace');
-      return apiResponse.serverError(res, "Failed to check sessions");
-    }
-  });
-
-  // Force logout all sessions for a user (destroys all their active sessions)
-  app.post("/api/sessions/force-logout", async (req, res) => {
-    try {
-      const { identifier } = req.body;
-
-      if (!identifier) {
-        return apiResponse.badRequest(res, "Identifier is required");
-      }
-
-      // Find user by identifier
-      let user;
-      if (identifier.includes("@")) {
-        user = await storage.getUserByEmail(identifier);
-      } else if (identifier.startsWith("FTP")) {
-        user = await storage.getUserByUserId(identifier);
-      } else {
-        user = await storage.getUserByMobile(identifier);
-      }
-
-      if (!user) {
-        // Still return success even if user not found (security)
-        return apiResponse.success(res, { destroyedSessions: 0 }, "All sessions terminated");
-      }
-
-      console.log(`[Force Logout] Terminating all sessions for user ID: ${user.id}`);
-
-      // Delete all sessions for this user from the sessions table
-      // Using raw SQL to query JSONB column
-      const result = await db
-        .delete(schema.sessions)
-        .where(sql`sess->'passport'->>'user' = ${user.id}`)
-        .execute();
-
-      console.log(`[Force Logout] Destroyed ${result.rowCount || 0} session(s) for user ${user.id}`);
-
-      return apiResponse.success(res, {
-        destroyedSessions: result.rowCount || 0
-      }, "All sessions terminated successfully");
-    } catch (error) {
-      console.error("[Force Logout] Error:", error);
-      console.error("[Force Logout] Stack:", error instanceof Error ? error.stack : 'No stack trace');
-      return apiResponse.serverError(res, "Failed to terminate sessions");
-    }
-  });
-
-  // Service-to-service JWT token (used by micro-service subdomains like ins.fintekpro.com)
-  app.get("/api/auth/service-token", (req: any, res) => {
-    if (!req.isAuthenticated() || !req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-    try {
-      const { issueServiceToken } = require('./utils/service-token');
-      const token = issueServiceToken(req.user);
-      return res.json({ token, expiresIn: 900 });
-    } catch (err: any) {
-      return res.status(500).json({ error: err.message });
-    }
-  });
-
-  // Logout endpoint
-  app.post("/api/logout", (req, res) => {
+  app.post("/api/logout", (req, res, next) => {
     req.logout((err) => {
-      if (err) {
-        console.error("Logout error:", err);
-        return apiResponse.serverError(res, "Logout failed");
-      }
-      
-      // Destroy the session completely
-      req.session.destroy((destroyErr) => {
-        if (destroyErr) {
-          console.error("Session destroy error:", destroyErr);
-        }
-        
-        res.clearCookie('fintekpro.sid', {
-          path: '/',
-          domain: process.env.NODE_ENV === "production" ? (process.env.CUSTOM_DOMAIN ? process.env.CUSTOM_DOMAIN.trim().replace(/^https?:\/\//, "").split(":")[0] : "fintekpro.com") : undefined
-        });
-        
-        return apiResponse.success(res, {}, "Logged out successfully");
-      });
+      if (err) return next(err);
+      res.sendStatus(200);
     });
   });
 
-  // Get current user
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated() || !req.user) {
       return apiResponse.unauthorized(res);

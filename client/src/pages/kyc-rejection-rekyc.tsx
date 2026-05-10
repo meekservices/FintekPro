@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -66,7 +67,7 @@ const DISPUTE_STATUS_CONFIG: Record<string, { color: string; icon: typeof CheckC
   DISMISSED: { color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200", icon: XCircle },
 };
 
-function getReasonBadgeClass(code: string) {
+function getReasonBadgeClass(code: string): string {
   return REASON_CODE_COLORS[code] || "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
 }
 
@@ -82,7 +83,7 @@ export default function KycRejectionRekyc() {
   const [agentRejectNotes, setAgentRejectNotes] = useState("");
   const [agentRequireReKyc, setAgentRequireReKyc] = useState(true);
 
-  const isAgent = user?.role === "agent";
+  const isAgent = user?.roles?.includes("agent");
 
   const params = new URLSearchParams(window.location.search);
   const clientUserId = isAgent ? (params.get("userId") || undefined) : undefined;
@@ -138,7 +139,7 @@ export default function KycRejectionRekyc() {
       queryClient.invalidateQueries({ queryKey: ["/api/kyc/rejections/user", userId] });
       queryClient.invalidateQueries({ queryKey: ["/api/kyc/active-session", clientUserId] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Rejection failed", description: error.message || "Please try again.", variant: "destructive" });
     },
   });
@@ -475,11 +476,13 @@ export default function KycRejectionRekyc() {
             </Alert>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium">Rejection Reason <span className="text-destructive">*</span></label>
+              <label htmlFor="rejection-reason" className="text-sm font-medium">Rejection Reason <span className="text-destructive">*</span></label>
               <select
+                id="rejection-reason"
                 value={agentRejectReasonCode}
                 onChange={e => setAgentRejectReasonCode(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Select rejection reason"
               >
                 <option value="">Select a reason...</option>
                 {Object.entries(reasonsData?.reasons || {}).map(([code, desc]) => (
@@ -504,15 +507,12 @@ export default function KycRejectionRekyc() {
                 <p className="text-sm font-medium">Require Re-KYC</p>
                 <p className="text-xs text-muted-foreground">Client must restart the KYC process</p>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={agentRequireReKyc}
-                onClick={() => setAgentRequireReKyc(v => !v)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${agentRequireReKyc ? "bg-destructive" : "bg-muted"}`}
-              >
-                <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${agentRequireReKyc ? "translate-x-6" : "translate-x-1"}`} />
-              </button>
+              <Switch
+                checked={agentRequireReKyc}
+                onCheckedChange={setAgentRequireReKyc}
+                className={agentRequireReKyc ? "data-[state=checked]:bg-destructive" : ""}
+                aria-label="Require Re-KYC toggle"
+              />
             </div>
           </div>
 

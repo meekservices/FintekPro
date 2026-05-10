@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
 import { CheckCircle2, XCircle, Clock, AlertCircle, FileText, User } from "lucide-react";
 import { format } from "date-fns";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
 
 interface ApprovalRequest {
   id: number;

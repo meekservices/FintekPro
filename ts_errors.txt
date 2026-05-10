@@ -3,70 +3,54 @@
 > NODE_OPTIONS=--max-old-space-size=8192 tsc
 
 client/src/components/loan/loan-progress-stepper.tsx(131,22): error TS2367: This comparison appears to be unintentional because the types '"rejected" | "expired" | "withdrawn"' and '"approved"' have no overlap.
-client/src/components/portfolio/commodity-tracker.tsx(134,39): error TS2551: Property 'toFixed' does not exist on type 'string'. Did you mean 'fixed'?
-client/src/components/portfolio/commodity-tracker.tsx(137,22): error TS18047: 'commodity.changePercent' is possibly 'null'.
-client/src/components/portfolio/commodity-tracker.tsx(137,22): error TS2365: Operator '>=' cannot be applied to types 'string' and 'number'.
-client/src/components/portfolio/commodity-tracker.tsx(143,23): error TS18047: 'commodity.changePercent' is possibly 'null'.
-client/src/components/portfolio/commodity-tracker.tsx(143,23): error TS2365: Operator '>=' cannot be applied to types 'string' and 'number'.
-client/src/components/portfolio/commodity-tracker.tsx(145,24): error TS18047: 'commodity.changePercent' is possibly 'null'.
-client/src/components/portfolio/commodity-tracker.tsx(145,24): error TS2365: Operator '>=' cannot be applied to types 'string' and 'number'.
-client/src/components/portfolio/commodity-tracker.tsx(145,65): error TS18047: 'commodity.changePercent' is possibly 'null'.
-client/src/components/portfolio/commodity-tracker.tsx(145,89): error TS2551: Property 'toFixed' does not exist on type 'string'. Did you mean 'fixed'?
-client/src/components/portfolio/commodity-tracker.tsx(149,22): error TS18047: 'commodity.changePercent' is possibly 'null'.
-client/src/components/portfolio/commodity-tracker.tsx(149,22): error TS2365: Operator '>=' cannot be applied to types 'string' and 'number'.
-client/src/components/portfolio/commodity-tracker.tsx(149,64): error TS18047: 'commodity.change' is possibly 'null'.
-client/src/components/portfolio/commodity-tracker.tsx(149,81): error TS2551: Property 'toFixed' does not exist on type 'string'. Did you mean 'fixed'?
-client/src/components/portfolio/commodity-tracker.tsx(160,57): error TS2769: No overload matches this call.
-  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
-    Argument of type 'Date | null' is not assignable to parameter of type 'string | number | Date'.
-      Type 'null' is not assignable to type 'string | number | Date'.
-  Overload 2 of 4, '(value: string | number): Date', gave the following error.
-    Argument of type 'Date | null' is not assignable to parameter of type 'string | number'.
-      Type 'null' is not assignable to type 'string | number'.
-client/src/components/portfolio/pi-chat-summaries.tsx(147,40): error TS2339: Property 'allocation' does not exist on type '{}'.
-client/src/components/portfolio/pi-chat-summaries.tsx(149,43): error TS2339: Property 'allocation' does not exist on type '{}'.
-client/src/components/portfolio/pi-chat-summaries.tsx(154,39): error TS2769: No overload matches this call.
-  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
-    Argument of type 'Date | null' is not assignable to parameter of type 'string | number | Date'.
-      Type 'null' is not assignable to type 'string | number | Date'.
-  Overload 2 of 4, '(value: string | number): Date', gave the following error.
-    Argument of type 'Date | null' is not assignable to parameter of type 'string | number'.
-      Type 'null' is not assignable to type 'string | number'.
-client/src/components/portfolio/pi-chat-summaries.tsx(158,17): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
-client/src/components/portfolio/pi-chat-summaries.tsx(171,39): error TS2339: Property 'totalValue' does not exist on type '{}'.
-client/src/components/portfolio/pi-chat-summaries.tsx(174,94): error TS2339: Property 'totalValue' does not exist on type '{}'.
-client/src/components/portfolio/pi-chat-summaries.tsx(177,39): error TS2339: Property 'expectedReturn' does not exist on type '{}'.
-client/src/components/portfolio/pi-chat-summaries.tsx(180,95): error TS2339: Property 'expectedReturn' does not exist on type '{}'.
-client/src/components/portfolio/pi-chat-summaries.tsx(183,39): error TS2339: Property 'riskLevel' does not exist on type '{}'.
-client/src/components/portfolio/pi-chat-summaries.tsx(186,97): error TS2339: Property 'riskLevel' does not exist on type '{}'.
-client/src/components/portfolio/pi-chat-summaries.tsx(189,39): error TS2339: Property 'topSectors' does not exist on type '{}'.
-client/src/components/portfolio/pi-chat-summaries.tsx(192,97): error TS2339: Property 'topSectors' does not exist on type '{}'.
-client/src/components/portfolio/pi-chat-summaries.tsx(223,46): error TS2769: No overload matches this call.
-  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
-    Argument of type 'Date | null' is not assignable to parameter of type 'string | number | Date'.
-      Type 'null' is not assignable to type 'string | number | Date'.
-  Overload 2 of 4, '(value: string | number): Date', gave the following error.
-    Argument of type 'Date | null' is not assignable to parameter of type 'string | number'.
-      Type 'null' is not assignable to type 'string | number'.
+client/src/components/portfolio/commodity-tracker.tsx(102,38): error TS2339: Property 'length' does not exist on type '{}'.
+client/src/components/portfolio/commodity-tracker.tsx(109,26): error TS2339: Property 'map' does not exist on type '{}'.
+client/src/components/portfolio/commodity-tracker.tsx(159,29): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type '{}'.
+  Property '0' does not exist on type '{}'.
+client/src/components/portfolio/commodity-tracker.tsx(159,57): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type '{}'.
+  Property '0' does not exist on type '{}'.
+client/src/components/portfolio/pi-chat-summaries.tsx(50,31): error TS2339: Property 'length' does not exist on type '{}'.
+client/src/components/portfolio/pi-chat-summaries.tsx(133,24): error TS2339: Property 'map' does not exist on type '{}'.
+client/src/components/portfolio/PortfolioImportPanel.tsx(261,32): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+client/src/components/portfolio/PortfolioImportPanel.tsx(335,44): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
 client/src/components/proposal-builder/phase-lock-stepper.tsx(220,36): error TS18048: 'validation.missingPrerequisites.length' is possibly 'undefined'.
 client/src/components/proposal-builder/phase-lock-stepper.tsx(224,30): error TS18048: 'validation' is possibly 'undefined'.
 client/src/components/re-ckyc-workflow.tsx(375,34): error TS2339: Property 'data' does not exist on type '{}'.
 client/src/components/re-ckyc-workflow.tsx(379,39): error TS2339: Property 'data' does not exist on type '{}'.
+client/src/components/risk-profiling/risk-profile-viewer.tsx(98,27): error TS18046: 'riskProfiles' is of type 'unknown'.
+client/src/components/risk-profiling/risk-profile-viewer.tsx(99,39): error TS2339: Property 'userId' does not exist on type 'RiskProfile'.
+client/src/components/risk-profiling/risk-profile-viewer.tsx(102,24): error TS18046: 'users' is of type 'unknown'.
+client/src/components/risk-profiling/risk-profile-viewer.tsx(179,20): error TS18046: 'users' is of type 'unknown'.
 client/src/components/social-sharing.tsx(256,43): error TS2345: Argument of type '{ name: string; color?: string | undefined; icon?: string | undefined; } | undefined' is not assignable to parameter of type 'string'.
   Type 'undefined' is not assignable to type 'string'.
 client/src/components/social/USTradingCard.tsx(68,51): error TS2339: Property 'toUpperCase' does not exist on type 'EventTarget & HTMLInputElement'.
 client/src/components/store/CommissionReconciliation.tsx(316,46): error TS2554: Expected 1-2 arguments, but got 0.
 client/src/components/us-trading/FundingWalletPanel.tsx(56,15): error TS2353: Object literal may only specify known properties, and 'amount_usd' does not exist in type 'ArrayBuffer | ReadableStream<any> | Blob | ArrayBufferView<ArrayBuffer> | FormData | URLSearchParams'.
+client/src/hooks/use-dsc-signature-sync.tsx(19,11): error TS2339: Property 'networkState' does not exist on type 'NetworkContextValue'.
 client/src/hooks/use-form-autosave.ts(5,23): error TS2344: Type 'T' does not satisfy the constraint 'FieldValues'.
 client/src/hooks/use-pan-consent.ts(24,30): error TS2339: Property 'hasConsent' does not exist on type '{}'.
+client/src/hooks/useAuth.ts(18,54): error TS2344: Type '"password" | "username"' does not satisfy the constraint 'requiredKeys<baseObjectOutputType<Omit<{ id: ZodOptional<ZodString>; userId: ZodString; email: ZodOptional<ZodNullable<ZodString>>; ... 127 more ...; shareableProfileEnabled: ZodOptional<...>; }, "id" | ... 1 more ... | "updatedAt">>> | optionalKeys<...>'.
+  Type '"username"' is not assignable to type 'requiredKeys<baseObjectOutputType<Omit<{ id: ZodOptional<ZodString>; userId: ZodString; email: ZodOptional<ZodNullable<ZodString>>; ... 127 more ...; shareableProfileEnabled: ZodOptional<...>; }, "id" | ... 1 more ... | "updatedAt">>> | optionalKeys<...>'.
 client/src/lib/api-error-handler.ts(149,9): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
 client/src/lib/api-error-handler.ts(159,9): error TS2554: Expected 3-4 arguments, but got 5.
 client/src/pages/admin-prospect-dashboard.tsx(1035,112): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
   Type 'undefined' is not assignable to type 'number'.
-client/src/pages/admin/broker-dashboard.tsx(1067,101): error TS2353: Object literal may only specify known properties, and 'ip' does not exist in type 'ArrayBuffer | ReadableStream<any> | Blob | ArrayBufferView<ArrayBuffer> | FormData | URLSearchParams'.
-client/src/pages/admin/broker-dashboard.tsx(1075,103): error TS2353: Object literal may only specify known properties, and 'ip' does not exist in type 'ArrayBuffer | ReadableStream<any> | Blob | ArrayBufferView<ArrayBuffer> | FormData | URLSearchParams'.
+client/src/pages/admin/broker-dashboard.tsx(1054,9): error TS2451: Cannot redeclare block-scoped variable 'authOk'.
+client/src/pages/admin/broker-dashboard.tsx(1067,101): error TS2353: Object literal may only specify known properties, and 'ip' does not exist in type 'ArrayBuffer | URLSearchParams | ReadableStream<any> | Blob | ArrayBufferView<ArrayBuffer> | FormData'.
+client/src/pages/admin/broker-dashboard.tsx(1075,103): error TS2353: Object literal may only specify known properties, and 'ip' does not exist in type 'ArrayBuffer | URLSearchParams | ReadableStream<any> | Blob | ArrayBufferView<ArrayBuffer> | FormData'.
+client/src/pages/admin/broker-dashboard.tsx(1100,9): error TS2451: Cannot redeclare block-scoped variable 'authOk'.
+client/src/pages/admin/data-providers.tsx(117,43): error TS2322: Type '{ message: string; }' is not assignable to type 'IntrinsicAttributes & LoadingStateProps'.
+  Property 'message' does not exist on type 'IntrinsicAttributes & LoadingStateProps'.
+client/src/pages/admin/mca-intelligence.tsx(444,27): error TS2322: Type '{ message: string; }' is not assignable to type 'IntrinsicAttributes & LoadingStateProps'.
+  Property 'message' does not exist on type 'IntrinsicAttributes & LoadingStateProps'.
+client/src/pages/admin/mca-intelligence.tsx(681,31): error TS2322: Type '{ message: string; }' is not assignable to type 'IntrinsicAttributes & LoadingStateProps'.
+  Property 'message' does not exist on type 'IntrinsicAttributes & LoadingStateProps'.
+client/src/pages/admin/mca-intelligence.tsx(1184,31): error TS2322: Type '{ message: string; }' is not assignable to type 'IntrinsicAttributes & LoadingStateProps'.
+  Property 'message' does not exist on type 'IntrinsicAttributes & LoadingStateProps'.
 client/src/pages/admin/mf-analytics-ops.tsx(149,39): error TS2558: Expected 0 type arguments, but got 1.
-client/src/pages/admin/order-audit.tsx(54,7): error TS2741: Property 'ordered' is missing in type '{ all: string; active: string; pending_approval: string; removed: string; }' but required in type 'Record<"active" | "all" | "pending_approval" | "removed" | "ordered", string>'.
+client/src/pages/admin/order-audit.tsx(54,7): error TS2741: Property 'ordered' is missing in type '{ all: string; active: string; pending_approval: string; removed: string; }' but required in type 'Record<"active" | "all" | "removed" | "pending_approval" | "ordered", string>'.
 client/src/pages/admin/order-audit.tsx(185,7): error TS18047: 'order.userId' is possibly 'null'.
 client/src/pages/admin/order-audit.tsx(444,32): error TS18047: 'order.userId' is possibly 'null'.
 client/src/pages/admin/store-manager.tsx(914,73): error TS2783: 'id' is specified more than once, so this usage will be overwritten.
@@ -98,6 +82,12 @@ client/src/pages/admin/unlisted-preview.tsx(877,54): error TS18048: 'company' is
 client/src/pages/admin/unlisted-preview.tsx(880,18): error TS18048: 'company' is possibly 'undefined'.
 client/src/pages/admin/unlisted-preview.tsx(883,60): error TS18048: 'company' is possibly 'undefined'.
 client/src/pages/admin/unlisted-regulatory-compliance.tsx(84,177): error TS2304: Cannot find name 'STRFlag'.
+client/src/pages/admin/unlisted-regulatory-compliance.tsx(155,26): error TS2322: Type '{ message: string; }' is not assignable to type 'IntrinsicAttributes & LoadingStateProps'.
+  Property 'message' does not exist on type 'IntrinsicAttributes & LoadingStateProps'.
+client/src/pages/admin/unlisted-regulatory-compliance.tsx(428,31): error TS2322: Type '{ message: string; }' is not assignable to type 'IntrinsicAttributes & LoadingStateProps'.
+  Property 'message' does not exist on type 'IntrinsicAttributes & LoadingStateProps'.
+client/src/pages/admin/unlisted-regulatory-compliance.tsx(499,31): error TS2322: Type '{ message: string; }' is not assignable to type 'IntrinsicAttributes & LoadingStateProps'.
+  Property 'message' does not exist on type 'IntrinsicAttributes & LoadingStateProps'.
 client/src/pages/admin/user-management.tsx(838,12): error TS2304: Cannot find name 'DialogFooter'.
 client/src/pages/admin/user-management.tsx(851,13): error TS2304: Cannot find name 'DialogFooter'.
 client/src/pages/admin/whatsapp-setup.tsx(52,17): error TS7022: 'status' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
@@ -224,8 +214,8 @@ client/src/pages/icici-banking.tsx(155,9): error TS2322: Type '{ fromDate: strin
 client/src/pages/icici-banking.tsx(196,28): error TS2345: Argument of type '{ accountNumber: string; beneficiaryAccountNumber: string; beneficiaryIFSC: string; amount: string; purpose: string; remarks: string; beneficiaryName: string; }' is not assignable to parameter of type 'void'.
 client/src/pages/icici-banking.tsx(203,36): error TS2345: Argument of type '{ accountNumber: string; ifscCode: string; }' is not assignable to parameter of type 'void'.
 client/src/pages/icici-banking.tsx(216,30): error TS2345: Argument of type '{ accountNumber: string; fromDate: string; toDate: string; format: string; }' is not assignable to parameter of type 'void'.
-client/src/pages/icici-banking.tsx(533,44): error TS2322: Type '"destructive" | "success"' is not assignable to type '"default" | "destructive" | "outline" | "secondary" | null | undefined'.
-  Type '"success"' is not assignable to type '"default" | "destructive" | "outline" | "secondary" | null | undefined'.
+client/src/pages/icici-banking.tsx(533,44): error TS2322: Type '"destructive" | "success"' is not assignable to type '"default" | "secondary" | "destructive" | "outline" | null | undefined'.
+  Type '"success"' is not assignable to type '"default" | "secondary" | "destructive" | "outline" | null | undefined'.
 client/src/pages/icici-loans.tsx(211,12): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ submitted: string; under_review: string; approved: string; rejected: string; disbursed: string; }'.
   No index signature with a parameter of type 'string' was found on type '{ submitted: string; under_review: string; approved: string; rejected: string; disbursed: string; }'.
 client/src/pages/loan-recommendations.tsx(340,9): error TS2322: Type '{ recommendationId: string; action: "view" | "dismiss" | "compare" | "apply" | "save"; metadata?: any; }' is not assignable to type 'BodyInit | null | undefined'.
@@ -239,7 +229,7 @@ client/src/pages/onboarding.tsx(4643,42): error TS2345: Argument of type '{ otpV
   Property 'otpVerified' is incompatible with index signature.
     Type 'boolean | undefined' is not assignable to type 'string'.
       Type 'undefined' is not assignable to type 'string'.
-client/src/pages/orders.tsx(57,7): error TS2741: Property 'ordered' is missing in type '{ all: string; active: string; pending_approval: string; removed: string; }' but required in type 'Record<"active" | "all" | "pending_approval" | "removed" | "ordered", string>'.
+client/src/pages/orders.tsx(57,7): error TS2741: Property 'ordered' is missing in type '{ all: string; active: string; pending_approval: string; removed: string; }' but required in type 'Record<"active" | "all" | "removed" | "pending_approval" | "ordered", string>'.
 client/src/pages/partner-application.tsx(116,38): error TS2339: Property 'data' does not exist on type '{}'.
 client/src/pages/partner-application.tsx(158,22): error TS2339: Property 'data' does not exist on type '{}'.
 client/src/pages/partner-application.tsx(159,32): error TS2339: Property 'data' does not exist on type '{}'.
@@ -259,7 +249,7 @@ client/src/pages/portfolio-holdings.tsx(248,12): error TS2741: Property 'portfol
 client/src/pages/portfolio-rebalancing.tsx(65,111): error TS2554: Expected 1 arguments, but got 2.
 client/src/pages/portfolio.tsx(182,87): error TS2694: Namespace '"/Users/sangrammohanty/Documents/GitHub/FintekPro/client/src/hooks/use-portfolio"' has no exported member 'EnhancedHolding'.
 client/src/pages/portfolio.tsx(254,82): error TS2694: Namespace '"/Users/sangrammohanty/Documents/GitHub/FintekPro/client/src/hooks/use-portfolio"' has no exported member 'PortfolioPerformance'.
-client/src/pages/portfolio.tsx(283,5): error TS2353: Object literal may only specify known properties, and 'enabled' does not exist in type 'UseSuspenseQueryOptions<{ id: string; userId: string | null; kycStatus: string | null; createdAt: Date | null; updatedAt: Date | null; status: string; metadata: unknown; prospectId: string | null; createdBy: string | null; ... 34 more ...; assignedTo: string | null; }[], Error, { ...; }[], QueryKey>'.
+client/src/pages/portfolio.tsx(283,5): error TS2353: Object literal may only specify known properties, and 'enabled' does not exist in type 'UseSuspenseQueryOptions<{ id: string; userId: string | null; kycStatus: string | null; createdAt: Date | null; updatedAt: Date | null; status: string; metadata: unknown; prospectId: string | null; createdBy: string | null; ... 34 more ...; cancelledAt: Date | null; }[], Error, { ...; }[], QueryKey>'.
 client/src/pages/portfolio.tsx(913,22): error TS2367: This comparison appears to be unintentional because the types 'NetworkContextValue' and 'string' have no overlap.
 client/src/pages/portfolio.tsx(1101,22): error TS2367: This comparison appears to be unintentional because the types 'NetworkContextValue' and 'string' have no overlap.
 client/src/pages/portfolio.tsx(1103,43): error TS2322: Type 'NetworkContextValue' is not assignable to type 'ReactNode'.
@@ -269,14 +259,22 @@ client/src/pages/PredictiveAnalytics.tsx(82,68): error TS7053: Element implicitl
 client/src/pages/PredictiveAnalytics.tsx(83,51): error TS2339: Property 'length' does not exist on type '{}'.
 client/src/pages/PredictiveAnalytics.tsx(83,64): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type '{}'.
   Property '0' does not exist on type '{}'.
+client/src/pages/PredictiveAnalytics.tsx(86,26): error TS2322: Type '{ message: string; }' is not assignable to type 'IntrinsicAttributes & LoadingStateProps'.
+  Property 'message' does not exist on type 'IntrinsicAttributes & LoadingStateProps'.
 client/src/pages/PredictiveAnalytics.tsx(116,30): error TS2339: Property 'map' does not exist on type '{}'.
+client/src/pages/PredictiveAnalytics.tsx(171,29): error TS2322: Type '{ message: string; }' is not assignable to type 'IntrinsicAttributes & LoadingStateProps'.
+  Property 'message' does not exist on type 'IntrinsicAttributes & LoadingStateProps'.
+client/src/pages/PredictiveAnalytics.tsx(316,29): error TS2322: Type '{ message: string; }' is not assignable to type 'IntrinsicAttributes & LoadingStateProps'.
+  Property 'message' does not exist on type 'IntrinsicAttributes & LoadingStateProps'.
+client/src/pages/PredictiveAnalytics.tsx(490,29): error TS2322: Type '{ message: string; }' is not assignable to type 'IntrinsicAttributes & LoadingStateProps'.
+  Property 'message' does not exist on type 'IntrinsicAttributes & LoadingStateProps'.
 client/src/pages/PredictiveAnalytics.tsx(491,40): error TS2339: Property 'length' does not exist on type '{}'.
 client/src/pages/PredictiveAnalytics.tsx(493,28): error TS2339: Property 'map' does not exist on type '{}'.
 client/src/pages/profile.tsx(1177,100): error TS7006: Parameter 'l' implicitly has an 'any' type.
 client/src/pages/profile.tsx(1201,40): error TS2367: This comparison appears to be unintentional because the types '"us_person" | "non_us_person" | "specified_us_person"' and '"Y"' have no overlap.
 client/src/pages/profile.tsx(1201,89): error TS2367: This comparison appears to be unintentional because the types '"us_person" | "non_us_person" | "specified_us_person"' and '"N"' have no overlap.
-client/src/pages/profile.tsx(1209,40): error TS2367: This comparison appears to be unintentional because the types '"no" | "yes"' and '"Y"' have no overlap.
-client/src/pages/profile.tsx(1209,91): error TS2367: This comparison appears to be unintentional because the types '"no" | "yes"' and '"N"' have no overlap.
+client/src/pages/profile.tsx(1209,40): error TS2367: This comparison appears to be unintentional because the types '"yes" | "no"' and '"Y"' have no overlap.
+client/src/pages/profile.tsx(1209,91): error TS2367: This comparison appears to be unintentional because the types '"yes" | "no"' and '"N"' have no overlap.
 client/src/pages/store.tsx(403,32): error TS2551: Property 'categoryName' does not exist on type 'Product'. Did you mean 'category'?
 client/src/pages/store.tsx(430,41): error TS2551: Property 'subcategoryName' does not exist on type 'Product'. Did you mean 'subcategory'?
 client/src/pages/store.tsx(867,52): error TS2551: Property 'categoryName' does not exist on type 'Product'. Did you mean 'category'?

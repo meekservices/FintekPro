@@ -80,12 +80,12 @@ export function RiskAssessmentForm() {
   });
 
   // Fetch users
-  const { data: users = [], isLoading: usersLoading } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
   });
 
   // Fetch assessment questions
-  const { data: questions = [], isLoading: questionsLoading } = useQuery({
+  const { data: questions = [], isLoading: questionsLoading } = useQuery<AssessmentQuestion[]>({
     queryKey: ["/api/risk-assessment-questions"],
   });
 

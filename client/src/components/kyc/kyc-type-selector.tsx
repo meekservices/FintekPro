@@ -100,13 +100,13 @@ export function KYCTypeSelector() {
 
   // Auto-resume incomplete KYC
   useEffect(() => {
-    if (individualProgress && !individualProgress.isCompleted && individualProgress.currentStep > 0) {
+    if (individualProgress && !individualProgress.isCompleted && (individualProgress.currentStep ?? 0) > 0) {
       setSelectedType("individual");
       setIsStarted(true);
-    } else if (corporateProgress && !corporateProgress.isCompleted && corporateProgress.currentStep > 0) {
+    } else if (corporateProgress && !corporateProgress.isCompleted && (corporateProgress.currentStep ?? 0) > 0) {
       setSelectedType("corporate");
       setIsStarted(true);
-    } else if (nriProgress && !nriProgress.isCompleted && nriProgress.currentStep > 0) {
+    } else if (nriProgress && !nriProgress.isCompleted && (nriProgress.currentStep ?? 0) > 0) {
       setSelectedType("nri");
       setIsStarted(true);
     }
@@ -125,7 +125,7 @@ export function KYCTypeSelector() {
         "Fastest verification (4 steps)"
       ],
       completed: individualProgress?.isCompleted,
-      inProgress: individualProgress?.currentStep > 0 && !individualProgress?.isCompleted
+      inProgress: (individualProgress?.currentStep ?? 0) > 0 && !individualProgress?.isCompleted
     },
     {
       type: "corporate" as KYCType,
@@ -139,7 +139,7 @@ export function KYCTypeSelector() {
         "Corporate account discovery"
       ],
       completed: corporateProgress?.isCompleted,
-      inProgress: corporateProgress?.currentStep > 0 && !corporateProgress?.isCompleted
+      inProgress: (corporateProgress?.currentStep ?? 0) > 0 && !corporateProgress?.isCompleted
     },
     {
       type: "nri" as KYCType,
@@ -153,7 +153,7 @@ export function KYCTypeSelector() {
         "FATCA/CRS tax compliance"
       ],
       completed: nriProgress?.isCompleted,
-      inProgress: nriProgress?.currentStep > 0 && !nriProgress?.isCompleted
+      inProgress: (nriProgress?.currentStep ?? 0) > 0 && !nriProgress?.isCompleted
     }
   ];
 

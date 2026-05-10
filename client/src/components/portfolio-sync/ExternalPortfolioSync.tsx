@@ -97,6 +97,8 @@ export function ExternalPortfolioSync() {
     enabled: !!userId,
   });
 
+  const [showReviewUI, setShowReviewUI] = useState(false);
+
   const { data: pendingStagingSession } = useQuery<{
     id: string | null;
     holdings: any[];
@@ -106,7 +108,7 @@ export function ExternalPortfolioSync() {
     enabled: !!userId && !showReviewUI,
   });
 
-  const hasPendingStaging = pendingStagingSession?.holdings?.length > 0 && 
+  const hasPendingStaging = (pendingStagingSession?.holdings?.length ?? 0) > 0 && 
     pendingStagingSession?.status !== 'synced';
 
   const createConsentMutation = useMutation({
@@ -151,7 +153,6 @@ export function ExternalPortfolioSync() {
     }
   });
 
-  const [showReviewUI, setShowReviewUI] = useState(false);
 
   const fetchDataMutation = useMutation({
     mutationFn: async (consentSessionId: string) => {

@@ -635,6 +635,7 @@ export type InsertMasterDsaPayment = z.infer<typeof insertMasterDsaPaymentSchema
 
 // Recovered types
 export type AmfiVerificationLog = typeof amfiVerificationLog.$inferSelect;
+export type InsertAmfiVerificationLog = z.infer<typeof insertAmfiVerificationLogSchema>;
 export type CommissionConfig = typeof commissionConfig.$inferSelect;
 export type ProgressiveCommissionLedger = typeof progressiveCommissionLedger.$inferSelect;
 export type CommissionExecution = typeof commissionExecution.$inferSelect;

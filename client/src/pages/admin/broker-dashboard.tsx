@@ -36,7 +36,7 @@ const BASE = "/api/us-trading";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function statusBadge(status: string) {
-  const map: Record<string, string> = {
+  const map: { [key: string]: string } = {
     ACTIVE: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
     APPROVED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
     SUBMITTED: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
@@ -86,8 +86,140 @@ function ConfigBanner({ configured }: { configured: boolean }) {
 
 // ─── Revenue & Monetization Tab ──────────────────────────────────────────────
 
+type RevenueData = {
+  stats: {
+    mrr_paise: string | number;
+    active_subscriptions: number;
+    pro_count: number;
+    elite_count: number;
+    total_revenue_paise: string | number;
+  }[];
+  tierBreakdown: { plan_tier: string; cnt: string }[];
+  recent: {
+    id: number;
+    userId: string;
+    userName: string;
+    planTier: string;
+    billingCycle: string;
+    amountPaise: number;
+    status: string;
+    createdAt: string;
+  }[];
+}
+
+type BrokerAccount = {
+  id: string;
+  account_number: string;
+  status: string;
+  currency: string;
+  created_at: string;
+  last_equity?: string;
+  account_type?: string;
+  identity?: {
+    given_name: string;
+    family_name: string;
+  };
+  contact?: {
+    email_address: string;
+  };
+  kyc_results?: {
+    approved: boolean;
+  };
+};
+
+type JournalEntry = {
+  id: string;
+  entry_type: string;
+  from_account: string;
+  to_account: string;
+  amount: string;
+  status: string;
+  settle_date: string;
+  description?: string;
+  net_amount?: string;
+  symbol?: string;
+  qty?: string;
+  compliance_signature?: string;
+};
+
+type BrokerReport = {
+  id: string;
+  type: string;
+  status: string;
+  created_at: string;
+  period_start: string;
+  period_end: string;
+  name?: string;
+  date?: string;
+  url?: string;
+};
+
+type BrokerActivity = {
+  id: string;
+  activity_type: string;
+  transaction_time: string;
+  symbol?: string;
+  qty?: string;
+  price?: string;
+  net_amount?: string;
+  date?: string;
+  account_id?: string;
+};
+
+type CorporateAction = {
+  id: string;
+  action_type: string;
+  symbol: string;
+  effective_date: string;
+  status: string;
+  initiating_symbol?: string;
+  corporate_action_type: string;
+  cash?: string;
+  ex_date?: string;
+  record_date?: string;
+  payable_date?: string;
+};
+
+type TeamMember = {
+  id: string;
+  user_id: string;
+  role: string;
+  status: string;
+  last_login?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  roles?: string[];
+  lastLoginAt?: string;
+  isActive?: boolean;
+};
+
+type CipData = {
+  kyc?: {
+    result: string;
+    status: string;
+    risk_level: string;
+    risk_score: string;
+    action_flags: string[];
+  };
+  document?: { result: string };
+  photo?: { result: string };
+  identity?: { result: string };
+  watchlist?: { result: string };
+  provider_name?: string[];
+};
+
+type FirmAccount = {
+  id: string;
+  account_number: string;
+  status: string;
+  currency: string;
+  equity: string;
+  created_at: string;
+};
+
 function RevenueTab() {
-  const { data, isLoading } = useQuery<any>({
+  const { data, isLoading } = useQuery<RevenueData>({
     queryKey: ["/api/subscriptions/admin/revenue"],
     staleTime: 30_000,
   });
@@ -97,18 +229,24 @@ function RevenueTab() {
     return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n / 100);
   }
 
-  const stats = data?.stats?.[0] ?? {};
-  const tierBreakdown: { plan_tier: string; cnt: string }[] = data?.tierBreakdown ?? [];
-  const recent: any[] = data?.recent ?? [];
+  const stats = data?.stats?.[0] ?? {
+    mrr_paise: 0,
+    active_subscriptions: 0,
+    pro_count: 0,
+    elite_count: 0,
+    total_revenue_paise: 0
+  };
+  const tierBreakdown = data?.tierBreakdown ?? [];
+  const recent = data?.recent ?? [];
 
   const kpis = [
     { icon: BadgeIndianRupee, label: "MRR", value: isLoading ? "…" : formatInr(stats.mrr_paise || 0), sub: "This month", color: "text-blue-600" },
-    { icon: TrendingUp, label: "ARR (run-rate)", value: isLoading ? "…" : formatInr((parseInt(stats.mrr_paise || "0") * 12).toString()), sub: "Annualised", color: "text-green-600" },
+    { icon: TrendingUp, label: "ARR (run-rate)", value: isLoading ? "…" : formatInr(Number(stats.mrr_paise || 0) * 12), sub: "Annualised", color: "text-green-600" },
     { icon: Users, label: "Active Subscribers", value: isLoading ? "…" : (stats.active_subscriptions || 0), sub: `${stats.pro_count || 0} Pro · ${stats.elite_count || 0} Elite`, color: "text-purple-600" },
     { icon: DollarSign, label: "Total Revenue", value: isLoading ? "…" : formatInr(stats.total_revenue_paise || 0), sub: "All time", color: "text-amber-600" },
   ];
 
-  const tierMeta: Record<string, { icon: typeof Zap; label: string; color: string }> = {
+  const tierMeta = {
     pro: { icon: Zap, label: "Pro", color: "text-blue-600" },
     elite: { icon: Crown, label: "Elite", color: "text-yellow-600" },
   };
@@ -160,7 +298,7 @@ function RevenueTab() {
                   <div className="text-center py-4 text-sm text-muted-foreground">No paid subscriptions yet</div>
                 ) : (
                   tierBreakdown.map(({ plan_tier, cnt }) => {
-                    const m = tierMeta[plan_tier];
+                    const m = tierMeta[plan_tier as keyof typeof tierMeta];
                     if (!m) return null;
                     return (
                       <div key={plan_tier} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
@@ -232,7 +370,7 @@ function RevenueTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recent.map((sub: any) => (
+                {recent.map((sub) => (
                   <TableRow key={sub.id}>
                     <TableCell className="font-mono text-xs">{sub.userId?.slice(0, 12)}…</TableCell>
                     <TableCell>
@@ -263,20 +401,25 @@ function AccountsTab() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
-  const [selectedAccount, setSelectedAccount] = useState<any>(null);
+  const [selectedAccount, setSelectedAccount] = useState<BrokerAccount | null>(null);
   const [cipDialogOpen, setCipDialogOpen] = useState(false);
 
-  const { data, isLoading, refetch } = useQuery<{ configured: boolean; accounts: any[] }>({
+  type AccountsResponse = { configured: boolean; accounts: BrokerAccount[] };
+  const { data, isLoading, refetch } = useQuery<AccountsResponse>({
     queryKey: ["/api/us-trading/broker/accounts", status, search],
     queryFn: () =>
       fetch(`${BASE}/broker/accounts?${new URLSearchParams({ ...(search ? { query: search } : {}), ...(status !== "all" ? { status } : {}) })}`)
         .then(r => r.json()),
   });
 
-  const { data: cipData, isLoading: cipLoading } = useQuery<{ success: boolean; cip: any }>({
+  type CipResponse = { success: boolean; cip: CipData };
+  const { data: cipData, isLoading: cipLoading } = useQuery<CipResponse>({
     queryKey: ["/api/us-trading/broker/accounts/:id/cip", selectedAccount?.id],
     enabled: !!selectedAccount?.id && cipDialogOpen,
-    queryFn: () => fetch(`${BASE}/broker/accounts/${selectedAccount.id}/cip`).then(r => r.json()),
+    queryFn: () => {
+      if (!selectedAccount?.id) throw new Error("No account selected");
+      return fetch(`${BASE}/broker/accounts/${selectedAccount.id}/cip`).then(r => r.json());
+    },
   });
 
   const closeMutation = useMutation({
@@ -286,7 +429,7 @@ function AccountsTab() {
       toast({ title: "Account closure initiated" });
       refetch();
     },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const accounts = data?.accounts || [];
@@ -358,7 +501,7 @@ function AccountsTab() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  accounts.map((acc: any) => (
+                  accounts.map((acc: BrokerAccount) => (
                     <TableRow key={acc.id}>
                       <TableCell className="font-mono text-xs">{acc.account_number || acc.id?.slice(0, 8)}</TableCell>
                       <TableCell className="font-medium">
@@ -411,11 +554,11 @@ function AccountsTab() {
                                       </div>
                                     ))}
                                   </div>
-                                  {cipData.cip.kyc?.action_flags?.length > 0 && (
+                                  {(cipData.cip.kyc?.action_flags?.length ?? 0) > 0 && (
                                     <Alert className="border-red-200 bg-red-50 dark:bg-red-950/20 py-2">
                                       <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
                                       <AlertDescription className="text-xs text-red-700 dark:text-red-300">
-                                        <strong>Action Required:</strong> {cipData.cip.kyc.action_flags.join(", ").replace(/_/g, " ")}
+                                        <strong>Action Required:</strong> {cipData.cip.kyc?.action_flags?.join(", ").replace(/_/g, " ")}
                                       </AlertDescription>
                                     </Alert>
                                   )}
@@ -453,9 +596,17 @@ function JournalsTab() {
   const { toast } = useToast();
   const [entryType, setEntryType] = useState("all");
   const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState({ from_account: "", to_account: "", entry_type: "JNLC", amount: "", symbol: "", qty: "", description: "" });
+  const [form, setForm] = useState<{
+    from_account: string;
+    to_account: string;
+    entry_type: "JNLC" | "JNLS";
+    amount: string;
+    symbol: string;
+    qty: string;
+    description: string;
+  }>({ from_account: "", to_account: "", entry_type: "JNLC", amount: "", symbol: "", qty: "", description: "" });
 
-  const { data, isLoading, refetch } = useQuery<{ success: boolean; journals: any[] }>({
+  const { data, isLoading, refetch } = useQuery<{ success: boolean; journals: JournalEntry[] }>({
     queryKey: ["/api/us-trading/broker/journals", entryType],
     queryFn: () => fetch(`${BASE}/broker/journals${entryType !== "all" ? `?entry_type=${entryType}` : ""}`).then(r => r.json()),
   });
@@ -464,7 +615,7 @@ function JournalsTab() {
     mutationFn: () => apiRequest("POST", `${BASE}/broker/journals`, {
       from_account: form.from_account,
       to_account: form.to_account,
-      entry_type: form.entry_type as "JNLC" | "JNLS",
+      entry_type: form.entry_type,
       ...(form.amount ? { amount: form.amount } : {}),
       ...(form.symbol ? { symbol: form.symbol } : {}),
       ...(form.qty ? { qty: form.qty } : {}),
@@ -476,13 +627,13 @@ function JournalsTab() {
       setForm({ from_account: "", to_account: "", entry_type: "JNLC", amount: "", symbol: "", qty: "", description: "" });
       refetch();
     },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const cancelMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `${BASE}/broker/journals/${id}`),
     onSuccess: () => { toast({ title: "Journal cancelled" }); refetch(); },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const journals = data?.journals || [];
@@ -517,7 +668,7 @@ function JournalsTab() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Entry Type</Label>
-                  <Select value={form.entry_type} onValueChange={v => setForm(f => ({ ...f, entry_type: v }))}>
+                  <Select value={form.entry_type} onValueChange={v => setForm(f => ({ ...f, entry_type: v as "JNLC" | "JNLS" }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="JNLC">JNLC — Cash</SelectItem>
@@ -589,7 +740,7 @@ function JournalsTab() {
                 ) : journals.length === 0 ? (
                   <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No journal entries</TableCell></TableRow>
                 ) : (
-                  journals.map((j: any) => (
+                  journals.map((j: JournalEntry) => (
                     <TableRow key={j.id}>
                       <TableCell className="font-mono text-xs">{j.id?.slice(0, 8)}…</TableCell>
                       <TableCell><Badge variant="outline">{j.entry_type}</Badge></TableCell>
@@ -634,7 +785,7 @@ function ReportsTab() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState({ type: "account_statement", start: "", end: "", account_ids: "" });
 
-  const { data, isLoading, refetch } = useQuery<{ success: boolean; reports: any[] }>({
+  const { data, isLoading, refetch } = useQuery<{ success: boolean; reports: BrokerReport[] }>({
     queryKey: ["/api/us-trading/broker/reports"],
     queryFn: () => fetch(`${BASE}/broker/reports`).then(r => r.json()),
   });
@@ -651,17 +802,17 @@ function ReportsTab() {
       setFormOpen(false);
       refetch();
     },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const downloadMutation = useMutation({
     mutationFn: (reportId: string) =>
       fetch(`${BASE}/broker/reports/${reportId}/download`).then(r => r.json()),
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       if (data?.url) window.open(data.url, "_blank");
       else toast({ title: "Download unavailable", description: "Report may still be processing.", variant: "destructive" });
     },
-    onError: (e: any) => toast({ title: "Download failed", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: "Download failed", description: e.message, variant: "destructive" }),
   });
 
   const reports = data?.reports || [];
@@ -738,7 +889,7 @@ function ReportsTab() {
                 ) : reports.length === 0 ? (
                   <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No reports generated yet</TableCell></TableRow>
                 ) : (
-                  reports.map((r: any) => (
+                  reports.map((r: BrokerReport) => (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">{r.name || r.id?.slice(0, 8)}</TableCell>
                       <TableCell><Badge variant="outline">{r.type?.replace(/_/g, " ")}</Badge></TableCell>
@@ -748,7 +899,7 @@ function ReportsTab() {
                         {r.status === "complete" || r.url ? (
                           r.url ? (
                             <Button size="sm" variant="ghost" asChild>
-                              <a href={r.url} target="_blank" rel="noopener noreferrer">
+                              <a href={r.url} target="_blank" rel="noopener noreferrer" aria-label="Download report">
                                 <Download className="h-4 w-4" />
                               </a>
                             </Button>
@@ -781,7 +932,7 @@ function ReportsTab() {
 function ActivitiesTab() {
   const [activityType, setActivityType] = useState("");
 
-  const { data, isLoading, refetch } = useQuery<{ success: boolean; activities: any[] }>({
+  const { data, isLoading, refetch } = useQuery<{ success: boolean; activities: BrokerActivity[] }>({
     queryKey: ["/api/us-trading/broker/activities", activityType],
     queryFn: () =>
       fetch(`${BASE}/broker/activities${activityType ? `?activity_type=${activityType}` : ""}`).then(r => r.json()),
@@ -789,7 +940,7 @@ function ActivitiesTab() {
 
   const activities = data?.activities || [];
 
-  const activityIcon: Record<string, any> = {
+  const activityIcon: Record<string, React.ComponentType<{ className?: string }>> = {
     FILL: TrendingUp,
     ACATC: ArrowRightLeft,
     ACATS: ArrowRightLeft,
@@ -846,7 +997,7 @@ function ActivitiesTab() {
                 ) : activities.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No activities found</TableCell></TableRow>
                 ) : (
-                  activities.map((a: any) => {
+                  activities.map((a) => {
                     const Icon = activityIcon[a.activity_type] || Activity;
                     return (
                       <TableRow key={a.id}>
@@ -881,7 +1032,7 @@ function CorporateActionsTab() {
   const [caType, setCaType] = useState("");
   const [symbol, setSymbol] = useState("");
 
-  const { data, isLoading, refetch } = useQuery<{ success: boolean; corporate_actions: any[] }>({
+  const { data, isLoading, refetch } = useQuery<{ success: boolean; corporate_actions: CorporateAction[] }>({
     queryKey: ["/api/us-trading/broker/corporate-actions", caType, symbol],
     queryFn: () =>
       fetch(`${BASE}/broker/corporate-actions?${new URLSearchParams({ ...(caType ? { ca_types: caType } : {}), ...(symbol ? { symbol } : {}) })}`)
@@ -945,7 +1096,7 @@ function CorporateActionsTab() {
                 ) : actions.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No corporate actions found</TableCell></TableRow>
                 ) : (
-                  actions.map((a: any) => (
+                  actions.map((a: CorporateAction) => (
                     <TableRow key={a.id}>
                       <TableCell className="font-bold">{a.initiating_symbol}</TableCell>
                       <TableCell><Badge variant="outline">{typeLabel[a.corporate_action_type] || a.corporate_action_type}</Badge></TableCell>
@@ -1051,10 +1202,39 @@ function AppRegistrationTab() {
     staleTime: 30000,
   });
 
+  const authOk = configData?.authOk ?? false;
+
+  const { data: ipData, refetch: refetchIps } = useQuery<{ success: boolean; ips: string[] }>({
+    queryKey: ["/api/us-trading/broker/ip-allowlist"],
+    queryFn: () => fetch(`${BASE}/broker/ip-allowlist`).then(r => r.json()),
+  });
+
+  const { data: teamData } = useQuery<{ success: boolean; team: TeamMember[] }>({
+    queryKey: ["/api/us-trading/admin/team"],
+    queryFn: () => fetch(`${BASE}/admin/team`).then(r => r.json()),
+  });
+
+  const addIpMutation = useMutation({
+    mutationFn: (ip: string) => apiRequest("POST", `${BASE}/broker/ip-allowlist`, { ip }),
+    onSuccess: () => {
+      toast({ title: "IP Added", description: "IP allowlist updated." });
+      refetchIps();
+    },
+  });
+
+  const removeIpMutation = useMutation({
+    mutationFn: (ip: string) => apiRequest("DELETE", `${BASE}/broker/ip-allowlist`, { ip }),
+    onSuccess: () => {
+      toast({ title: "IP Removed", description: "IP allowlist updated." });
+      refetchIps();
+    },
+  });
+
   const credentialsMutation = useMutation({
-    mutationFn: () => apiRequest(`${BASE}/alpaca/credentials`, {
-      method: "POST",
-      body: JSON.stringify({ apiKey: apiKey.trim(), secretKey: secretKey.trim(), baseUrl }),
+    mutationFn: () => apiRequest("POST", `${BASE}/alpaca/credentials`, { 
+      apiKey: apiKey.trim(), 
+      secretKey: secretKey.trim(), 
+      baseUrl 
     }),
     onSuccess: () => {
       toast({ title: "Credentials saved", description: "Alpaca auth verified. Click Activate US Trading on the dashboard." });
@@ -1062,14 +1242,13 @@ function AppRegistrationTab() {
       refetchConfig();
       queryClient.invalidateQueries({ queryKey: ["/api/us-trading/alpaca/config"] });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast({ title: "Invalid credentials", description: err?.message || "Auth test failed — check Key ID and Secret.", variant: "destructive" });
     },
   });
 
   const isSandbox = configData?.baseUrl?.includes("sandbox");
   const configured = configData?.configured ?? false;
-  const authOk = (configData as any)?.authOk ?? false;
 
   const setupSteps = [
     {
@@ -1196,7 +1375,7 @@ function AppRegistrationTab() {
                 <CheckCircle2 className="h-3.5 w-3.5" /> Auth OK — go back to the dashboard and click Activate US Trading
               </span>
             )}
-            {configured && !authOk && (configData as any)?.authError && (
+            {configured && !authOk && configData?.authError && (
               <span className="flex items-center gap-1 text-xs text-red-600">
                 <XCircle className="h-3.5 w-3.5" /> Auth failing — enter the correct secret above
               </span>
@@ -1461,7 +1640,7 @@ function AppRegistrationTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {teamData?.team?.map((member: any) => (
+                {teamData?.team?.map((member: TeamMember) => (
                   <TableRow key={member.id}>
                     <TableCell>
                       <div className="text-xs font-medium">{member.firstName} {member.lastName}</div>
@@ -1469,7 +1648,7 @@ function AppRegistrationTab() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
-                        {member.roles?.map((r: string) => (
+                        {member.roles?.map(r => (
                           <Badge key={r} variant="secondary" className="text-[10px] px-1 py-0 h-4">{r}</Badge>
                         ))}
                       </div>
@@ -1501,7 +1680,7 @@ function AppRegistrationTab() {
 const VALID_TABS = ["accounts", "activities", "journals", "reports", "corporate-actions", "app-registration", "revenue"] as const;
 type TabValue = (typeof VALID_TABS)[number];
 
-function tabFromSearch(search: string): TabValue {
+function tabFromSearch(search: string) {
   const tab = new URLSearchParams(search).get("tab");
   return (VALID_TABS as readonly string[]).includes(tab ?? "") ? (tab as TabValue) : "accounts";
 }
@@ -1533,12 +1712,12 @@ export default function BrokerDashboard() {
 
   const activateMutation = useMutation({
     mutationFn: () => apiRequest(`${BASE}/activate-us-trading`, { method: "POST" }),
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       toast({ title: "US Trading Activated", description: "All trading flags enabled successfully." });
       refetchConfig();
       refetchFlags();
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast({
         title: "Activation Failed",
         description: err?.message || "Check ALPACA_SECRET_KEY in Replit Secrets.",
@@ -1552,28 +1731,16 @@ export default function BrokerDashboard() {
   const isBrokerApi = configData?.isBrokerApi ?? false;
   const tradingActive = flagsData?.US_TRADING_ENABLED && flagsData?.US_TRADING_ALPACA;
 
-  const { data: accountsData } = useQuery<{ configured: boolean; accounts: any[] }>({
+  const { data: accountsData } = useQuery<{ configured: boolean; accounts: BrokerAccount[] }>({
     queryKey: ["/api/us-trading/broker/accounts"],
     queryFn: () => fetch(`${BASE}/broker/accounts`).then(r => r.json()),
     enabled: authOk && isBrokerApi,
   });
 
-  const { data: firmData } = useQuery<{ success: boolean; account: any }>({
+  const { data: firmData } = useQuery<{ success: boolean; account: FirmAccount }>({
     queryKey: ["/api/us-trading/broker/firm-account"],
     queryFn: () => fetch(`${BASE}/broker/firm-account`).then(r => r.json()),
     enabled: authOk && isBrokerApi,
-  });
-
-  const { data: ipData, refetch: refetchIps } = useQuery<{ success: boolean; ips: string[] }>({
-    queryKey: ["/api/us-trading/broker/ip-allowlist"],
-    queryFn: () => fetch(`${BASE}/broker/ip-allowlist`).then(r => r.json()),
-    enabled: authOk && isBrokerApi,
-  });
-
-  const { data: teamData } = useQuery<{ success: boolean; team: any[] }>({
-    queryKey: ["/api/us-trading/admin/team"],
-    queryFn: () => fetch(`${BASE}/admin/team`).then(r => r.json()),
-    enabled: authOk,
   });
 
   const { data: lrsSummary } = useQuery<{ success: boolean; summary: { totalUsed: number; count: number } }>({
@@ -1582,25 +1749,9 @@ export default function BrokerDashboard() {
     enabled: authOk,
   });
 
-  const addIpMutation = useMutation({
-    mutationFn: (ip: string) => apiRequest(`${BASE}/broker/ip-allowlist`, { method: "POST", body: { ip } }),
-    onSuccess: () => {
-      toast({ title: "IP Added", description: "IP allowlist updated." });
-      refetchIps();
-    },
-  });
-
-  const removeIpMutation = useMutation({
-    mutationFn: (ip: string) => apiRequest(`${BASE}/broker/ip-allowlist`, { method: "DELETE", body: { ip } }),
-    onSuccess: () => {
-      toast({ title: "IP Removed", description: "IP allowlist updated." });
-      refetchIps();
-    },
-  });
-
   const accounts = accountsData?.accounts || [];
-  const activeCount = accounts.filter((a: any) => a.status === "ACTIVE").length;
-  const pendingCount = accounts.filter((a: any) => ["SUBMITTED", "PENDING", "ACTION_REQUIRED"].includes(a.status)).length;
+  const activeCount = accounts.filter((a: BrokerAccount) => a.status === "ACTIVE").length;
+  const pendingCount = accounts.filter((a: BrokerAccount) => ["SUBMITTED", "PENDING", "ACTION_REQUIRED"].includes(a.status)).length;
 
   return (
     <div className="space-y-6">

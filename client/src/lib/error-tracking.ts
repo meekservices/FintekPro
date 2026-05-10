@@ -44,11 +44,11 @@ export async function initSentry() {
   sentryInitialized = true;
 }
 
-export function setSentryUser(user: { id: string; email?: string; role?: string }) {
+export function setSentryUser(user: { id: string; email?: string; roles?: string[] }) {
   if (sentryInstance) {
     sentryInstance.setUser({
       id: user.id,
-      role: user.role
+      roles: user.roles
     });
   }
 }
@@ -227,25 +227,19 @@ export function trackPaymentError(
   });
 }
 
-export function trackKYCError(
-  step: string,
+export function trackKycError(
   errorCode: string,
   message: string,
-  pan?: string,
+  severity: ErrorSeverity | string = 'error',
   context?: Partial<ErrorContext>
 ): Promise<string | null> {
   return trackError({
     errorCode: errorCode || 'KYC_PAN_VERIFY_FAILED',
     message,
-    severity: 'error',
+    severity: (severity as ErrorSeverity) || 'error',
     context: {
       ...context,
       module: 'kyc',
-      pan,
-      metadata: {
-        ...context?.metadata,
-        kycStep: step
-      }
     }
   });
 }

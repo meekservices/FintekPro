@@ -55,7 +55,7 @@ export function Header() {
   ];
 
   // Add admin navigation for admin clients
-  const isAdmin = user?.roles?.includes('admin') || user?.roles?.includes('super_admin');
+  const isAdmin = user?.roles?.includes('admin') || user?.roles?.includes('superadmin');
   const adminNavigation = isAdmin ? [
     { name: "Admin Panel", href: "/admin" },
     { name: "Supplier Management", href: "/suppliers" }

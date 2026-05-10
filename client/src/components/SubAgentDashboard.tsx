@@ -40,6 +40,44 @@ const clientReferralSchema = z.object({
 
 type ClientReferralData = z.infer<typeof clientReferralSchema>;
 
+interface SubAgentData {
+  totalReferrals: number;
+  newReferralsThisMonth: number;
+  activeClients: number;
+  conversionRate: number;
+  totalEarnings: number;
+  earningsThisMonth: number;
+  pendingCommission: number;
+  nextPayoutDate: string;
+}
+
+interface ReferredClient {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  mobile: string;
+  status: string;
+  interestedProducts: string[];
+  referredDate: string;
+  totalEarnings: number;
+}
+
+interface Earning {
+  id: string;
+  transactionDate: string;
+  clientName: string;
+  productType: string;
+  transactionType: string;
+  transactionAmount: number;
+  commissionRate: number;
+  marketingFee: number;
+  tdsAmount: number;
+  netEarnings: number;
+  paymentStatus: string;
+}
+
+
 interface SubAgentDashboardProps {
   agentId: string;
 }
@@ -49,15 +87,15 @@ export function SubAgentDashboard({ agentId }: SubAgentDashboardProps) {
   const [isReferralDialogOpen, setIsReferralDialogOpen] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
 
-  const { data: referralStats } = useQuery({
+  const { data: referralStats } = useQuery<SubAgentData>({
     queryKey: [`/api/agents/${agentId}/referral-stats`],
   });
 
-  const { data: referredClients, isLoading: clientsLoading } = useQuery({
+  const { data: referredClients, isLoading: clientsLoading } = useQuery<ReferredClient[]>({
     queryKey: [`/api/agents/${agentId}/referred-clients`],
   });
 
-  const { data: earnings, isLoading: earningsLoading } = useQuery({
+  const { data: earnings, isLoading: earningsLoading } = useQuery<Earning[]>({
     queryKey: [`/api/agents/${agentId}/earnings`],
   });
 
@@ -407,7 +445,7 @@ export function SubAgentDashboard({ agentId }: SubAgentDashboardProps) {
                         </TableCell>
                       </TableRow>
                     ) : referredClients && referredClients.length > 0 ? (
-                      referredClients.map((client: any) => (
+                      referredClients.map((client: ReferredClient) => (
                         <TableRow key={client.id} data-testid={`row-client-${client.id}`}>
                           <TableCell className="font-medium">
                             {client.firstName} {client.lastName}
@@ -475,7 +513,7 @@ export function SubAgentDashboard({ agentId }: SubAgentDashboardProps) {
                         </TableCell>
                       </TableRow>
                     ) : earnings && earnings.length > 0 ? (
-                      earnings.map((earning: any) => (
+                      earnings.map((earning: Earning) => (
                         <TableRow key={earning.id} data-testid={`row-earning-${earning.id}`}>
                           <TableCell className="text-sm">
                             {new Date(earning.transactionDate).toLocaleDateString()}

@@ -1,5 +1,7 @@
 import { useParams, useLocation, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +31,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { useState } from "react";
 import type { UnlistedCompany, CompanyFinancials, CompanyRatios, UnlistedPriceHistory, UnlistedDeal } from "@shared/schema";
 
-const getDataSourceLabel = (source: string | null | undefined) => {
+const getDataSourceLabel = (source: string | null | undefined): { label: string; color: string; description: string } => {
   const sourceConfig: Record<string, { label: string; color: string; description: string }> = {
     mca: { 
       label: 'MCA', 
@@ -57,7 +59,7 @@ const getDataSourceLabel = (source: string | null | undefined) => {
   return config;
 };
 
-const DataSourceBadge = ({ source }: { source: string | null | undefined }) => {
+const DataSourceBadge = ({ source }: { source: string | null | undefined }): JSX.Element => {
   const config = getDataSourceLabel(source);
   
   return (
@@ -88,7 +90,7 @@ interface DataQualityInfo {
   lastUpdated?: string;
 }
 
-const DataQualityWarning = ({ quality }: { quality: DataQualityInfo | null | undefined }) => {
+const DataQualityWarning = ({ quality }: { quality: DataQualityInfo | null | undefined }): JSX.Element | null => {
   if (!quality) return null;
   
   const hasWarnings = quality.fallbackUsed || quality.warnings.length > 0 || (quality.missingData && quality.missingData.length > 0);
@@ -134,6 +136,7 @@ export default function UnlistedCompanyDetails() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [selectedYear, setSelectedYear] = useState<string>("");
 
   // Fetch company details
@@ -184,13 +187,14 @@ export default function UnlistedCompanyDetails() {
       queryClient.invalidateQueries({ queryKey: ['/api/unlisted/companies', id, 'ratios'] });
       toast({ title: 'Research Complete', description: 'Financial data has been refreshed from Credhive' });
     },
-    onError: (error: any) => {
-      toast({ title: 'Research Failed', description: error.message || 'Failed to refresh data', variant: 'destructive' });
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Failed to refresh data';
+      toast({ title: 'Research Failed', description: message, variant: 'destructive' });
     },
   });
 
   const { user } = useAuth();
-  const canResearch = user?.role === 'admin' || user?.role === 'agent';
+  const canResearch = user?.roles?.includes('admin') || user?.roles?.includes('agent');
 
   // Fetch MCA Intelligence financial ratios (if company has CIN)
   interface McaFinancialRatios {
@@ -273,7 +277,7 @@ export default function UnlistedCompanyDetails() {
     : 0;
   const totalVolume = dealsData.reduce((sum, d) => sum + Number(d.quantity), 0);
 
-  const formatCurrency = (amount: number | string | null | undefined) => {
+  const formatCurrency = (amount: number | string | null | undefined): string => {
     if (!amount) return '₹0';
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
     if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)}Cr`;
@@ -281,7 +285,7 @@ export default function UnlistedCompanyDetails() {
     return `₹${num.toLocaleString('en-IN')}`;
   };
 
-  const formatNumber = (num: number | string | null | undefined) => {
+  const formatNumber = (num: number | string | null | undefined): string => {
     if (!num) return '0';
     const n = typeof num === 'string' ? parseFloat(num) : num;
     return n.toLocaleString('en-IN');
@@ -494,6 +498,7 @@ export default function UnlistedCompanyDetails() {
                   ))}
                 </SelectContent>
               </Select>
+              </div>
             </CardHeader>
             <CardContent>
               {selectedYearRatios ? (
@@ -619,7 +624,7 @@ export default function UnlistedCompanyDetails() {
                       <div className="p-3 bg-muted rounded-lg">
                         <p className="text-xs text-muted-foreground mb-1">PAT Margin</p>
                         <p className="text-lg font-bold text-foreground" data-testid="mca-pat-margin">
-                          {mcaFinancials.data.ratios?.patMargin !== null 
+                          {mcaFinancials.data.ratios?.patMargin !== undefined && mcaFinancials.data.ratios?.patMargin !== null 
                             ? `${mcaFinancials.data.ratios.patMargin}%`
                             : 'N/A'}
                         </p>
@@ -627,7 +632,7 @@ export default function UnlistedCompanyDetails() {
                       <div className="p-3 bg-muted rounded-lg">
                         <p className="text-xs text-muted-foreground mb-1">Return on Equity</p>
                         <p className="text-lg font-bold text-foreground" data-testid="mca-roe">
-                          {mcaFinancials.data.ratios?.returnOnEquity !== null 
+                          {mcaFinancials.data.ratios?.returnOnEquity !== undefined && mcaFinancials.data.ratios?.returnOnEquity !== null 
                             ? `${mcaFinancials.data.ratios.returnOnEquity}%`
                             : 'N/A'}
                         </p>
@@ -635,7 +640,7 @@ export default function UnlistedCompanyDetails() {
                       <div className="p-3 bg-muted rounded-lg">
                         <p className="text-xs text-muted-foreground mb-1">Debt to Equity</p>
                         <p className="text-lg font-bold text-foreground" data-testid="mca-debt-equity">
-                          {mcaFinancials.data.ratios?.debtToEquity !== null 
+                          {mcaFinancials.data.ratios?.debtToEquity !== undefined && mcaFinancials.data.ratios?.debtToEquity !== null 
                             ? mcaFinancials.data.ratios.debtToEquity.toFixed(2)
                             : 'N/A'}
                         </p>
@@ -643,7 +648,7 @@ export default function UnlistedCompanyDetails() {
                       <div className="p-3 bg-muted rounded-lg">
                         <p className="text-xs text-muted-foreground mb-1">Asset Turnover</p>
                         <p className="text-lg font-bold text-foreground" data-testid="mca-asset-turnover">
-                          {mcaFinancials.data.ratios?.assetTurnover !== null 
+                          {mcaFinancials.data.ratios?.assetTurnover !== undefined && mcaFinancials.data.ratios?.assetTurnover !== null 
                             ? mcaFinancials.data.ratios.assetTurnover.toFixed(2)
                             : 'N/A'}
                         </p>

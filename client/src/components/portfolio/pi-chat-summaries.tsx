@@ -1,43 +1,65 @@
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
-import { MessageCircle, TrendingUp, Lightbulb, RefreshCw, Bot } from 'lucide-react';
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { MessageCircle, Lightbulb, TrendingUp, TrendingDown, RefreshCw, AlertTriangle } from "lucide-react";
+import { PiChatSummary } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
-interface PiChatSummariesProps {
+type PiChatInsights = {
+  allocation?: string;
+  totalValue?: number;
+  expectedReturn?: string;
+  riskLevel?: string;
+  opportunities?: string[];
+};
+
+type PiChatSummariesProps = {
   portfolioId: string;
-}
+};
 
 export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
-  const { data: summaries, isLoading, refetch } = useQuery({
-    queryKey: [`/api/portfolios/${portfolioId}/pi-chat-summaries`],
+  const { data: summaries, isLoading, refetch } = useQuery<PiChatSummary[]>({
+    queryKey: [`/api/portfolio/${portfolioId}/summaries`],
     enabled: !!portfolioId,
-    refetchInterval: 300000, // Refresh every 5 minutes
   });
+
+  const getAssetClassIcon = (assetClass) => {
+    switch (assetClass.toLowerCase()) {
+      case 'equity': return '📈';
+      case 'debt': return '🏦';
+      case 'gold': return '🟡';
+      case 'cash': return '💵';
+      default: return '📊';
+    }
+  };
+
+  const getAssetClassColor = (assetClass) => {
+    switch (assetClass.toLowerCase()) {
+      case 'equity': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+      case 'debt': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
+      case 'gold': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+      case 'cash': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+    }
+  };
 
   if (isLoading) {
     return (
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Bot className="h-5 w-5 text-blue-600" />
-              <CardTitle>Pi Chat - Asset Class Insights</CardTitle>
-            </div>
-            <Skeleton className="h-8 w-20" />
-          </div>
+          <CardTitle>AI Asset Insights</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="space-y-2">
-                <Skeleton className="h-4 w-20" />
-                <Skeleton className="h-16 w-full" />
-                <div className="flex space-x-2">
-                  <Skeleton className="h-6 w-16" />
-                  <Skeleton className="h-6 w-20" />
+              <div key={i} className="space-y-3">
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-20 w-full" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-20" />
                 </div>
               </div>
             ))}
@@ -51,71 +73,42 @@ export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
     return (
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Bot className="h-5 w-5 text-blue-600" />
-              <CardTitle>Pi Chat - Asset Class Insights</CardTitle>
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => refetch()}
-              data-testid="refresh-pi-chat"
-            >
-              <RefreshCw className="h-3 w-3 mr-1" />
-              Refresh
-            </Button>
-          </div>
+          <CardTitle>AI Asset Insights</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <Bot className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <p>No asset class insights available</p>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="bg-muted p-4 rounded-full mb-4">
+              <Lightbulb className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="text-muted-foreground font-medium">No insights generated yet</p>
+            <p className="text-sm text-muted-foreground max-w-xs mt-1">
+              AI analysis will appear here once your portfolio is processed.
+            </p>
+            <Button 
+              variant="outline" 
+              className="mt-6"
+              onClick={() => refetch()}
+            >
+              Check Again
+            </Button>
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  const getAssetClassColor = (assetClass: string) => {
-    const colors: Record<string, string> = {
-      equity: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
-      debt: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200", 
-      commodity: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200",
-      alternative: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200",
-    };
-    return colors[assetClass] || "bg-muted text-foreground";
-  };
-
-  const getAssetClassIcon = (assetClass: string) => {
-    switch (assetClass) {
-      case 'equity':
-        return '📈';
-      case 'debt':
-        return '🏛️';
-      case 'commodity':
-        return '🥇';
-      case 'alternative':
-        return '🏗️';
-      default:
-        return '💼';
-    }
-  };
-
   return (
-    <Card className="h-[600px]" data-testid="pi-chat-summaries">
+    <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Bot className="h-5 w-5 text-blue-600" />
-            <CardTitle className="flex items-center">
-              Pi Chat - Asset Class Insights
-              <Badge variant="secondary" className="ml-2 text-xs">AI Powered</Badge>
-            </CardTitle>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Lightbulb className="h-5 w-5 text-yellow-500" />
+            AI Asset Insights
+          </CardTitle>
           <Button 
-            variant="outline" 
+            variant="ghost" 
             size="sm" 
+            className="h-8 text-xs"
             onClick={() => refetch()}
             data-testid="refresh-pi-chat"
           >
@@ -130,100 +123,79 @@ export function PiChatSummaries({ portfolioId }: PiChatSummariesProps) {
       <CardContent>
         <ScrollArea className="h-[450px]">
           <div className="space-y-6">
-            {summaries.map((summary: any) => (
-              <div 
-                key={summary.id} 
-                className="border rounded-lg p-4 space-y-3"
-                data-testid={`pi-chat-summary-${summary.assetClass}`}
-              >
-                {/* Asset Class Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-lg">{getAssetClassIcon(summary.assetClass)}</span>
-                    <Badge className={getAssetClassColor(summary.assetClass)}>
-                      {summary.assetClass.charAt(0).toUpperCase() + summary.assetClass.slice(1)}
-                    </Badge>
-                    {summary.insights?.allocation && (
-                      <Badge variant="outline" className="text-xs">
-                        {summary.insights.allocation} of portfolio
+            {summaries.map(summary => {
+              const insights = summary.insights as PiChatInsights;
+              return (
+                <div 
+                  key={summary.id} 
+                  className="border rounded-lg p-4 space-y-3"
+                  data-testid={`pi-chat-summary-${summary.assetClass}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">{getAssetClassIcon(summary.assetClass)}</span>
+                      <Badge className={getAssetClassColor(summary.assetClass)}>
+                        {summary.assetClass.charAt(0).toUpperCase() + summary.assetClass.slice(1)}
                       </Badge>
-                    )}
-                  </div>
+                      {insights?.allocation && (
+                        <Badge variant="outline" className="text-xs">
+                          {insights.allocation} of portfolio
+                        </Badge>
+                      )}
+                    </div>
                   <div className="text-xs text-muted-foreground">
-                    Updated {new Date(summary.lastAnalyzed).toLocaleDateString()}
+                    Updated {summary.lastAnalyzed ? new Date(summary.lastAnalyzed).toLocaleDateString() : 'Recently'}
                   </div>
                 </div>
 
-                {/* Summary Text */}
+
                 <div className="bg-muted p-3 rounded-lg">
                   <div className="flex items-start space-x-2">
                     <MessageCircle className="h-4 w-4 text-blue-600 mt-1 flex-shrink-0" />
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      {summary.summary}
+                      {String(summary.summary)}
                     </p>
                   </div>
                 </div>
 
-                {/* Key Insights */}
-                {summary.insights && (
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    {summary.insights.totalValue && (
-                      <div className="bg-blue-50 dark:bg-blue-950/30 p-2 rounded">
-                        <div className="font-medium text-blue-900 dark:text-blue-100">Total Value</div>
-                        <div className="text-blue-700 dark:text-blue-300">₹{summary.insights.totalValue.toLocaleString()}</div>
-                      </div>
-                    )}
-                    {summary.insights.expectedReturn && (
-                      <div className="bg-green-50 dark:bg-green-950/30 p-2 rounded">
-                        <div className="font-medium text-green-900 dark:text-green-100">Expected Return</div>
-                        <div className="text-green-700 dark:text-green-300">{summary.insights.expectedReturn}</div>
-                      </div>
-                    )}
-                    {summary.insights.riskLevel && (
-                      <div className="bg-orange-50 dark:bg-orange-950/30 p-2 rounded">
-                        <div className="font-medium text-orange-900 dark:text-orange-100">Risk Level</div>
-                        <div className="text-orange-700 dark:text-orange-300">{summary.insights.riskLevel}</div>
-                      </div>
-                    )}
-                    {summary.insights.topSectors && (
-                      <div className="bg-purple-50 dark:bg-purple-950/30 p-2 rounded">
-                        <div className="font-medium text-purple-900 dark:text-purple-100">Top Sectors</div>
-                        <div className="text-purple-700 dark:text-purple-300">{summary.insights.topSectors.slice(0, 2).join(', ')}</div>
-                      </div>
-                    )}
-                  </div>
-                )}
 
-                {/* AI Recommendations */}
+                  {insights && (
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      {insights.totalValue && (
+                        <div className="bg-blue-50 dark:bg-blue-950/30 p-2 rounded">
+                          <div className="font-medium text-blue-900 dark:text-blue-100">Total Value</div>
+                          <div className="text-blue-700 dark:text-blue-300">₹{insights.totalValue.toLocaleString()}</div>
+                        </div>
+                      )}
+                      {insights.expectedReturn && (
+                        <div className="bg-green-50 dark:bg-green-950/30 p-2 rounded">
+                          <div className="font-medium text-green-900 dark:text-green-100">Expected Return</div>
+                          <div className="text-green-700 dark:text-green-300">{insights.expectedReturn}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+
                 {summary.recommendations && summary.recommendations.length > 0 && (
                   <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Lightbulb className="h-4 w-4 text-yellow-600" />
-                      <span className="text-sm font-medium text-foreground">AI Recommendations</span>
+                    <div className="flex items-center text-xs font-semibold text-primary">
+                      <TrendingUp className="h-3 w-3 mr-1" />
+                      Recommendations
                     </div>
-                    <div className="space-y-1 pl-6">
-                      {summary.recommendations.slice(0, 3).map((rec: string, index: number) => (
-                        <div key={index} className="text-xs text-muted-foreground flex items-start">
-                          <span className="text-yellow-500 mr-2">•</span>
-                          <span>{rec}</span>
-                        </div>
+                    <ul className="space-y-1">
+                      {summary.recommendations.map((rec, idx) => (
+                        <li key={idx} className="text-xs text-muted-foreground flex items-start">
+                          <span className="mr-2 mt-1 h-1 w-1 rounded-full bg-primary flex-shrink-0" />
+                          {String(rec)}
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   </div>
                 )}
-
-                {/* Performance Indicator */}
-                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-                  <div className="flex items-center space-x-1">
-                    <TrendingUp className="h-3 w-3" />
-                    <span>AI Confidence: High</span>
-                  </div>
-                  <div>
-                    Last analysis: {new Date(summary.lastAnalyzed).toLocaleTimeString()}
-                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </ScrollArea>
       </CardContent>

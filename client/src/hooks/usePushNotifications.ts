@@ -186,7 +186,7 @@ export function usePushNotifications() {
       };
 
       if (PUBLIC_VAPID_KEY) {
-        subscribeOptions.applicationServerKey = urlBase64ToUint8Array(PUBLIC_VAPID_KEY);
+        subscribeOptions.applicationServerKey = urlBase64ToUint8Array(PUBLIC_VAPID_KEY) as any;
       }
 
       const subscription = await registration.pushManager.subscribe(subscribeOptions);

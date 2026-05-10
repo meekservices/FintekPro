@@ -258,7 +258,7 @@ export function PortfolioImportPanel({
 
   if (previewMode) {
     const totalValue = previewHoldings.reduce((sum, h) => {
-      return sum + (parseFloat(h.currentValue) || 0);
+      return sum + (parseFloat(h.currentValue || '0') || 0);
     }, 0);
 
     return (
@@ -332,7 +332,7 @@ export function PortfolioImportPanel({
               <TableBody>
                 {previewHoldings.map((holding, index) => {
                   const isEditing = editingIndex === index;
-                  const value = parseFloat(holding.currentValue) || 0;
+                  const value = parseFloat(holding.currentValue || '0') || 0;
 
                   return (
                     <TableRow key={holding.id || index}>
@@ -607,9 +607,11 @@ export function PortfolioImportPanel({
             >
               <input
                 ref={fileInputRef}
+                id="portfolio-file-upload"
                 type="file"
                 accept=".pdf,.csv,.xlsx,.xls,.html,.htm"
                 className="hidden"
+                aria-label="Upload portfolio file"
                 onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
               />
               {selectedFile ? (

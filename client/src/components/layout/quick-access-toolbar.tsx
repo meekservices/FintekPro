@@ -23,24 +23,25 @@ import {
   ShoppingCart,
   CreditCard,
   Timer,
+  LucideIcon,
 } from "lucide-react";
 
-interface QuickAction {
+type QuickAction = {
   id: string;
   label: string;
-  icon: any;
+  icon: LucideIcon;
   href?: string;
   action?: () => void;
   shortcut?: string;
   badge?: string | number;
   priority: number;
   category: "trading" | "investment" | "tools" | "quick";
-}
+};
 
 export function QuickAccessToolbar() {
   const [location] = useLocation();
   const { user, isAuthenticated } = useAuth();
-  const { cart } = useCart();
+  const { totalItems } = useCart();
   const [recentActions, setRecentActions] = useState<string[]>([]);
 
   // Load recent actions from localStorage
@@ -56,7 +57,7 @@ export function QuickAccessToolbar() {
   }, []);
 
   // Save recent actions
-  const addToRecent = (actionId: string) => {
+  const addToRecent = (actionId: string): void => {
     const filtered = recentActions.filter(id => id !== actionId);
     const updated = [actionId, ...filtered].slice(0, 5);
     try {
@@ -163,7 +164,7 @@ export function QuickAccessToolbar() {
       label: "Shopping Cart",
       icon: ShoppingCart,
       href: "/cart",
-      badge: cart?.totalItems || 0,
+      badge: totalItems,
       priority: 10,
       category: "quick",
     },
@@ -188,7 +189,7 @@ export function QuickAccessToolbar() {
   // Get actions by category with recent priority
   const getActionsByCategory = (category: string) => {
     return quickActions
-      .filter(action => action.category === category)
+      .filter((action) => action.category === category)
       .sort((a, b) => {
         // Prioritize recent actions
         const aRecent = recentActions.indexOf(a.id);
@@ -212,23 +213,14 @@ export function QuickAccessToolbar() {
       contextual.push(...getActionsByCategory("quick").slice(0, 2));
       contextual.push(...getActionsByCategory("trading").slice(0, 2));
     } else if (location.startsWith("/portfolio")) {
-      contextual.push(
-        quickActions.find(a => a.id === "start-sip")!,
-        quickActions.find(a => a.id === "markets")!,
-        quickActions.find(a => a.id === "capital-gains")!
-      );
+      const ids = ["start-sip", "markets", "capital-gains"];
+      contextual.push(...quickActions.filter(a => ids.includes(a.id)));
     } else if (location.startsWith("/markets")) {
-      contextual.push(
-        quickActions.find(a => a.id === "broking")!,
-        quickActions.find(a => a.id === "portfolio")!,
-        quickActions.find(a => a.id === "ipo")!
-      );
+      const ids = ["broking", "portfolio", "ipo"];
+      contextual.push(...quickActions.filter(a => ids.includes(a.id)));
     } else if (location.startsWith("/mutual-funds")) {
-      contextual.push(
-        quickActions.find(a => a.id === "sip-calculator")!,
-        quickActions.find(a => a.id === "portfolio")!,
-        quickActions.find(a => a.id === "start-sip")!
-      );
+      const ids = ["sip-calculator", "portfolio", "start-sip"];
+      contextual.push(...quickActions.filter(a => ids.includes(a.id)));
     } else {
       // Default contextual actions
       contextual.push(...getActionsByCategory("trading").slice(0, 2));
@@ -254,7 +246,7 @@ export function QuickAccessToolbar() {
               <div key={action.id}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Link href={action.href!}>
+                    <Link href={action.href || "#"}>
                       <Button
                         variant="ghost"
                         size="sm"

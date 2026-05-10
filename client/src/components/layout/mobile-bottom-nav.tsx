@@ -16,9 +16,9 @@ const navItems = [
 export function MobileBottomNav() {
   const [location] = useLocation();
   const { isAuthenticated } = useAuth();
-  const { cart } = useCart();
+  const { totalItems } = useCart();
   
-  const cartItemCount = cart?.items?.length || 0;
+  const cartItemCount = totalItems;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border safe-area-inset-bottom">

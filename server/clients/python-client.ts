@@ -122,6 +122,13 @@ function recordSuccess(): void {
 // ── URL helpers ───────────────────────────────────────────────────────────
 function getBaseUrl(): string {
   let url = process.env.PYTHON_SERVICE_URL?.trim() || '';
+
+  // PRODUCTION STABILIZATION FALLBACK:
+  // If we are in production and no URL is configured, use the verified Cloud Run endpoint.
+  if (!url && process.env.NODE_ENV === 'production') {
+    url = 'https://fintekpro-python-7f3fb64pqq-el.a.run.app';
+  }
+
   if (!url) return '';
   url = url.replace(/\/$/, '');
   if (!url.startsWith('http://') && !url.startsWith('https://')) {

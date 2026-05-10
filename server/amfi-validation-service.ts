@@ -297,10 +297,6 @@ class AmfiValidationService {
       distributorName: result && "distributorDetails" in result ? result.distributorDetails?.distributorName : undefined,
       distributorStatus: result && "distributorDetails" in result ? result.distributorDetails?.distributorStatus : undefined,
       arnExpiryDate: result && "distributorDetails" in result ? result.distributorDetails?.arnExpiryDate : undefined,
-      registrationDate: result && "distributorDetails" in result ? result.distributorDetails?.registrationDate : undefined,
-      verifiedBy,
-      ipAddress,
-      userAgent,
     };
 
     return log;

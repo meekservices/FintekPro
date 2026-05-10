@@ -52,24 +52,41 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
 import { motion, AnimatePresence } from "framer-motion";
-+
-+interface ForecastData {
-+  date: string;
-+  expectedInflow: string;
-+  expectedOutflow: string;
-+  projectedLiquidity: string;
-+}
-+
-+interface BankBalance {
-+  bankName: string;
-+  balance: string;
-+}
-+
-+interface AllocationItem {
-+  name: string;
-+  value: number;
-+  color: string;
-+}
+type ForecastData = {
+  date: string;
+  expectedInflow: number;
+  expectedOutflow: number;
+  projectedLiquidity: number;
+};
+
+type BankBalance = {
+  bankName: string;
+  balance: number;
+  color: string;
+};
+
+type ConsolidatedPosition = {
+  totalBalance: number;
+  breakdown: {
+    bankBalances: BankBalance[];
+  };
+};
+
+type AllocationItem = {
+  name: string;
+  value: number;
+  color: string;
+};
+
+const getBankColorClass = (color: string) => {
+  const colorMap: Record<string, string> = {
+    '#1e40af': 'bg-blue-800',
+    '#ea580c': 'bg-orange-600',
+    '#dc2626': 'bg-red-600',
+    '#2563eb': 'bg-blue-600'
+  };
+  return colorMap[color] || 'bg-slate-400';
+};
 
 export function TreasuryDashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -77,16 +94,19 @@ export function TreasuryDashboard() {
   const queryClient = useQueryClient();
   const entityId = "demo-entity"; // In production, this would come from context
 
-  const { data: positionData, isLoading: isLoadingPosition } = useQuery({
+  type PositionResponse = { success: boolean; data: ConsolidatedPosition };
+  const { data: positionData, isLoading: isLoadingPosition } = useQuery<PositionResponse>({
     queryKey: [`/api/treasury/entities/${entityId}/consolidated-position`],
   });
-
-  const { data: forecastResponse, isLoading: isLoadingForecast } = useQuery({
+  
+  type ForecastResponse = { success: boolean; data: ForecastData[] };
+  const { data: forecastResponse, isLoading: isLoadingForecast } = useQuery<ForecastResponse>({
     queryKey: [`/api/treasury/entities/${entityId}/forecast`],
     enabled: !!positionData,
   });
-
-  const { data: aiAnalysisResponse } = useQuery({
+  
+  type AnalysisResponse = { success: boolean; data: string };
+  const { data: aiAnalysisResponse } = useQuery<AnalysisResponse>({
     queryKey: [`/api/treasury/entities/${entityId}/forecast-analysis`],
     enabled: !!forecastResponse,
   });
@@ -122,11 +142,11 @@ export function TreasuryDashboard() {
 
   const forecastData = forecastResponse?.data || [];
   const chartData = forecastData.length > 0 
-    ? forecastData.map((d: ForecastData) => ({
+    ? forecastData.map((d) => ({
         name: new Date(d.date).toLocaleDateString('en-IN', { weekday: 'short' }),
-        inflow: parseFloat(d.expectedInflow),
-        outflow: parseFloat(d.expectedOutflow),
-        liquidity: parseFloat(d.projectedLiquidity)
+        inflow: d.expectedInflow,
+        outflow: d.expectedOutflow,
+        liquidity: d.projectedLiquidity
       }))
     : [
         { name: 'Mon', inflow: 4000, outflow: 2400 },
@@ -138,9 +158,9 @@ export function TreasuryDashboard() {
         { name: 'Sun', inflow: 3490, outflow: 4300 },
       ];
 
-  const allocationData: AllocationItem[] = positionData?.data?.breakdown?.bankBalances?.map((b: BankBalance) => ({
+  const allocationData = positionData?.data?.breakdown?.bankBalances?.map((b) => ({
     name: b.bankName,
-    value: parseFloat(b.balance),
+    value: b.balance,
     color: b.bankName.includes('HDFC') ? '#1e40af' : b.bankName.includes('ICICI') ? '#ea580c' : '#2563eb'
   })) || [
     { name: 'HDFC Bank', value: 4500000, color: '#1e40af' },
@@ -149,8 +169,8 @@ export function TreasuryDashboard() {
     { name: 'Cashfree', value: 1500000, color: '#2563eb' },
   ];
 
-  const consolidatedCash = positionData?.data?.totalBalance ? `₹${(parseFloat(positionData.data.totalBalance) / 10000000).toFixed(2)} Cr` : "₹12.45 Cr";
-  const aiInsight = aiAnalysisResponse?.data?.analysis || "Analyzing your cash flow patterns for risks and opportunities...";
+  const consolidatedCash = positionData?.data?.totalBalance ? `₹${(positionData.data.totalBalance / 10000000).toFixed(2)} Cr` : "₹12.45 Cr";
+  const aiInsight = aiAnalysisResponse?.data || "Analyzing your cash flow patterns for risks and opportunities...";
 
   return (
     <motion.div 
@@ -340,7 +360,7 @@ export function TreasuryDashboard() {
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {allocationData.map((entry: AllocationItem, index: number) => (
+                    {allocationData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -349,10 +369,10 @@ export function TreasuryDashboard() {
               </ResponsiveContainer>
             </div>
             <div className="mt-4 space-y-2">
-              {allocationData.map((bank: AllocationItem) => (
+              {allocationData.map((bank) => (
                 <div key={bank.name} className="flex justify-between items-center text-sm">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{backgroundColor: bank.color}} />
+                    <div className={`w-3 h-3 rounded-full ${getBankColorClass(bank.color)}`} />
                     <span className="text-slate-600 dark:text-slate-300">{bank.name}</span>
                   </div>
                   <span className="font-semibold text-slate-900 dark:text-slate-100">
@@ -517,7 +537,7 @@ export function TreasuryDashboard() {
       </Tabs>
 
       <TreasuryCopilotUI />
-    </div>
+    </motion.div>
   );
 }
 

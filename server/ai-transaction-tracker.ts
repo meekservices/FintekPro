@@ -211,7 +211,7 @@ class AITransactionTracker {
         emergencyFundStatus: analysis.investment.emergencyFundStatus,
         debtToIncomeRatio: analysis.investment.debtToIncomeRatio.toString(),
         aiModelVersion: 'gpt-4-transaction-v1',
-        analysisConfidence: analysis.confidence,
+        analysisConfidence: analysis.confidence.toString(),
         nextAnalysisDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Next week
       };
 
@@ -801,33 +801,25 @@ export const aiTransactionTrackerService = {
 
       const { page = 1, limit = 20, transactionType, fromDate, toDate } = req.query;
 
-      let query = db.select()
-        .from(aiTransactionTracking)
-        .where(eq(aiTransactionTracking.userId, userId))
-        .orderBy(desc(aiTransactionTracking.transactionDate))
-        .limit(Number(limit))
-        .offset((Number(page) - 1) * Number(limit));
-
+      const conditions = [eq(aiTransactionTracking.userId, userId)];
+      
       if (transactionType) {
-        query = query.where(
-          and(
-            eq(aiTransactionTracking.userId, userId),
-            eq(aiTransactionTracking.transactionType, String(transactionType))
-          )
-        );
+        conditions.push(eq(aiTransactionTracking.userId, userId));
+        conditions.push(eq(aiTransactionTracking.transactionType, String(transactionType)));
       }
 
       if (fromDate && toDate) {
-        query = query.where(
-          and(
-            eq(aiTransactionTracking.userId, userId),
-            gte(aiTransactionTracking.transactionDate, new Date(String(fromDate))),
-            lte(aiTransactionTracking.transactionDate, new Date(String(toDate)))
-          )
-        );
+        conditions.push(eq(aiTransactionTracking.userId, userId));
+        conditions.push(gte(aiTransactionTracking.transactionDate, new Date(String(fromDate))));
+        conditions.push(lte(aiTransactionTracking.transactionDate, new Date(String(toDate))));
       }
 
-      const transactions = await query;
+      const transactions = await db.select()
+        .from(aiTransactionTracking)
+        .where(and(...conditions))
+        .orderBy(desc(aiTransactionTracking.transactionDate))
+        .limit(Number(limit))
+        .offset((Number(page) - 1) * Number(limit));
 
       return res.json({
         success: true,

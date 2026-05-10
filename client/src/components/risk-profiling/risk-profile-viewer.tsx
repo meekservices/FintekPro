@@ -31,7 +31,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 interface RiskProfile {
   id: string;
-  clientId: string;
+  userId: string;
   riskTolerance: string;
   investmentHorizon: string;
   investmentExperience: string;
@@ -85,12 +85,12 @@ export function RiskProfileViewer() {
   const [editingReviewDate, setEditingReviewDate] = useState("");
 
   // Fetch all users
-  const { data: users = [], isLoading: usersLoading } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
   });
 
   // Fetch risk profiles
-  const { data: riskProfiles = [], isLoading: profilesLoading } = useQuery({
+  const { data: riskProfiles = [], isLoading: profilesLoading } = useQuery<RiskProfile[]>({
     queryKey: ["/api/risk-profiles"],
   });
 

@@ -13,13 +13,63 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingState } from "@/components/LoadingState";
 
+type Supplier = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  contactEmail?: string;
+  contactPhone?: string;
+  performanceRating?: string;
+  commissionRate?: string;
+};
+
+type Product = {
+  id: string;
+  name: string;
+};
+
+type ProfitAnalysis = {
+  totalSuppliers: number;
+  avgProfitMargin: number;
+  totalRevenue: number;
+  bestMargin: number;
+  recommendations: string[];
+};
+
+type SupplierComparison = {
+  supplierId: string;
+  supplierName: string;
+  isActive: boolean;
+  costPrice: number;
+  sellingPrice: number;
+  profitMargin: number;
+  performanceRating: number;
+  salesVolume: number;
+  revenue: number;
+  commissionRate: number;
+  notes?: string;
+};
+
+type OptimalSupplier = {
+  supplierId: string;
+  supplierName: string;
+  profitMargin: number;
+  profitScore: number;
+};
+
+type SuppliersResponse = { suppliers: Supplier[] };
+type ProductsResponse = { products: Product[] };
+type AnalysisResponse = { analysis: ProfitAnalysis };
+type ComparisonResponse = { suppliers: SupplierComparison[] };
+type OptimalResponse = { optimalSupplier: OptimalSupplier };
+
 export function SupplierManagement() {
-  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [selectedProductId, setSelectedProductId] = useState("");
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
 
   // Check if user is admin
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isAdmin = user?.roles?.includes('admin') || user?.roles?.includes('superadmin');
 
   // Redirect non-admin users
   useEffect(() => {
@@ -47,25 +97,25 @@ export function SupplierManagement() {
     }
   }, [isAuthenticated, isLoading, isAdmin, toast]);
 
-  const { data: suppliersData } = useQuery({
+  const { data: suppliersData } = useQuery<SuppliersResponse>({
     queryKey: ["/api/suppliers"],
   });
 
-  const { data: storeProductsData } = useQuery({
+  const { data: storeProductsData } = useQuery<ProductsResponse>({
     queryKey: ["/api/store-products"],
   });
 
-  const { data: profitAnalysis, isLoading: isAnalysisLoading } = useQuery({
+  const { data: profitAnalysis, isLoading: isAnalysisLoading } = useQuery<AnalysisResponse>({
     queryKey: ["/api/products", selectedProductId, "profit-analysis"],
     enabled: !!selectedProductId,
   });
 
-  const { data: supplierComparison, isLoading: isComparisonLoading } = useQuery({
+  const { data: supplierComparison, isLoading: isComparisonLoading } = useQuery<ComparisonResponse>({
     queryKey: ["/api/products", selectedProductId, "supplier-comparison"],
     enabled: !!selectedProductId,
   });
 
-  const { data: optimalSupplier } = useQuery({
+  const { data: optimalSupplierData } = useQuery<OptimalResponse>({
     queryKey: ["/api/products", selectedProductId, "optimal-supplier"],
     enabled: !!selectedProductId,
   });
@@ -74,7 +124,7 @@ export function SupplierManagement() {
   const storeProducts = storeProductsData?.products || [];
   const analysis = profitAnalysis?.analysis;
   const comparison = supplierComparison?.suppliers || [];
-  const optimal = optimalSupplier?.optimalSupplier;
+  const optimal = optimalSupplierData?.optimalSupplier;
 
   // Show loading state
   if (isLoading) {
@@ -140,7 +190,7 @@ export function SupplierManagement() {
               <SelectValue placeholder="Select a product to analyze" />
             </SelectTrigger>
             <SelectContent>
-              {storeProducts.map((product: any) => (
+              {storeProducts.map(product => (
                 <SelectItem key={product.id} value={product.id}>
                   {product.name}
                 </SelectItem>
@@ -259,7 +309,7 @@ export function SupplierManagement() {
                     </CardHeader>
                     <CardContent>
                       <ul className="space-y-2">
-                        {analysis.recommendations.map((rec: string, index: number) => (
+                        {analysis.recommendations.map((rec, index) => (
                           <li key={index} className="flex items-start space-x-2">
                             <span className="text-orange-500 mt-1">•</span>
                             <span data-testid={`text-recommendation-${index}`}>{rec}</span>
@@ -282,7 +332,7 @@ export function SupplierManagement() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 gap-4">
-                {comparison.map((supplier: any, index: number) => (
+                {comparison.map((supplier, index) => (
                   <Card key={supplier.supplierId} className={index === 0 ? "border-green-500 bg-green-50 dark:bg-green-950" : ""}>
                     <CardHeader>
                       <div className="flex justify-between items-center">
@@ -376,7 +426,7 @@ export function SupplierManagement() {
 
           <TabsContent value="suppliers" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {suppliers.map((supplier: any) => (
+              {suppliers.map(supplier => (
                 <Card key={supplier.id}>
                   <CardHeader>
                     <div className="flex justify-between items-center">

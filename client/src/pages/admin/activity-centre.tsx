@@ -12,6 +12,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { 
   AlertTriangle, AlertCircle, CheckCircle, Clock, Search, Filter, RefreshCw, 
   Eye, ExternalLink, ChevronRight, Bug, Shield, Zap, Server, Database, 
   Globe, Smartphone, Users, TrendingUp, BarChart3, Activity, Download,
@@ -1134,6 +1142,7 @@ function StuckKycTable({ open, onOpenChange }: { open: boolean; onOpenChange: (o
 
 export default function ActivityCentre() {
   const { toast } = useToast();
+  const [isStuckKycOpen, setIsStuckKycOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("insights");
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState("all");
@@ -1530,7 +1539,7 @@ export default function ActivityCentre() {
               <div className="flex-1" />
               <Button 
                 className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700"
-                onClick={() => setSelectedError(selectedError)} // Placeholder for "View Report"
+                onClick={() => setSelectedError(selectedError)}
                 asChild
               >
                 <div className="flex items-center">

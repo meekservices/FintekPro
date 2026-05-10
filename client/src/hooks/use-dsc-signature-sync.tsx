@@ -3,7 +3,7 @@ import { useNetworkState } from './use-network-state';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from './use-toast';
 
-interface QueuedSignature {
+type QueuedSignature = {
   id: string;
   transactionId: string;
   signature: string;
@@ -11,15 +11,15 @@ interface QueuedSignature {
   signedAt: string;
   documentName: string;
   queuedAt: string;
-}
+};
 
 const QUEUE_KEY = 'dsc_pending_signatures';
 
 export function useDSCSignatureSync() {
-  const { networkState } = useNetworkState();
+  const { status } = useNetworkState();
   const { toast } = useToast();
 
-  const getQueuedSignatures = useCallback((): QueuedSignature[] => {
+  const getQueuedSignatures = useCallback(() => {
     try {
       const stored = localStorage.getItem(QUEUE_KEY);
       return stored ? JSON.parse(stored) : [];
@@ -28,13 +28,13 @@ export function useDSCSignatureSync() {
     }
   }, []);
 
-  const removeFromQueue = useCallback((id: string) => {
+  const removeFromQueue = useCallback((id) => {
     const queue = getQueuedSignatures();
     const updated = queue.filter(sig => sig.id !== id);
     localStorage.setItem(QUEUE_KEY, JSON.stringify(updated));
   }, [getQueuedSignatures]);
 
-  const submitSignature = useCallback(async (sig: QueuedSignature): Promise<boolean> => {
+  const submitSignature = useCallback(async (sig) => {
     try {
       const submitResponse = await apiRequest('/api/esign/dsc/submit-signature', {
         method: 'POST',
@@ -98,14 +98,14 @@ export function useDSCSignatureSync() {
   }, [getQueuedSignatures, submitSignature, removeFromQueue, toast]);
 
   useEffect(() => {
-    if (networkState === 'online') {
+    if (status === 'online') {
       const queue = getQueuedSignatures();
       if (queue.length > 0) {
         console.log('[DSC Sync] Network restored, syncing queued signatures...');
         syncQueuedSignatures();
       }
     }
-  }, [networkState, getQueuedSignatures, syncQueuedSignatures]);
+  }, [status, getQueuedSignatures, syncQueuedSignatures]);
 
   return {
     queuedCount: getQueuedSignatures().length,
