@@ -53,17 +53,37 @@ const POOL_CONFIG: any = {
 };
 
 if (isProduction) {
+  console.log(`[DB] 🔍 Production Diagnostics:`);
+  console.log(`[DB] - INSTANCE_CONNECTION_NAME: ${instanceConnectionName}`);
+  console.log(`[DB] - PRODUCTION_DATABASE_URL defined: ${!!process.env.PRODUCTION_DATABASE_URL}`);
+  
+  try {
+    const rootDir = '/cloudsql';
+    if (fs.existsSync(rootDir)) {
+      const contents = fs.readdirSync(rootDir);
+      console.log(`[DB] ✅ ${rootDir} exists. Contents: ${JSON.stringify(contents)}`);
+    } else {
+      console.error(`[DB] ❌ ${rootDir} directory does NOT exist.`);
+      // Check parent just in case
+      try {
+        const rootParent = fs.readdirSync('/');
+        console.log(`[DB] Root directory contents: ${JSON.stringify(rootParent)}`);
+      } catch (e) {}
+    }
+  } catch (err) {
+    console.error(`[DB] ❌ Error checking /cloudsql: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
   // GCP Cloud Run standard Unix socket path
   const socketPath = `/cloudsql/${instanceConnectionName}`;
   
-  // Verify socket directory exists
+  // Verify specific socket exists
   if (fs.existsSync(socketPath)) {
     console.log(`[DB] 🚀 Production Mode: Using Cloud SQL Unix Socket at ${socketPath}`);
     POOL_CONFIG.host = socketPath;
-    // Note: When using host as a directory path, pg uses it as the Unix socket directory
   } else {
     console.warn(`[DB] ⚠️ Unix Socket directory not found at ${socketPath}.`);
-    console.warn(`[DB] Fallback: Attempting TCP connection (Expect failure in Cloud Run unless Cloud SQL Proxy is running).`);
+    console.warn(`[DB] Fallback: Attempting TCP connection via 127.0.0.1:5432 (Requires Cloud SQL Auth Proxy).`);
     POOL_CONFIG.host = '127.0.0.1';
     POOL_CONFIG.port = 5432;
   }
