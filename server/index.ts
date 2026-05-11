@@ -2,7 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { setupAuth } from "./auth";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, logRoute } from "./vite";
+import { setupVite, log as logRoute } from "./vite";
+import { serveStatic } from "./static";
 import { testConnection } from "./db";
 import { logger } from "./logger";
 
