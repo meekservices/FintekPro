@@ -173,3 +173,203 @@ export const insertAdminSettingsSchema = createInsertSchema(adminSettings).omit(
 export const insertAdminApprovalRequestSchema = createInsertSchema(adminApprovalRequests).omit({ id: true, createdAt: true, updatedAt: true });
 export type AdminApprovalRequest = typeof adminApprovalRequests.$inferSelect;
 export type InsertAdminApprovalRequest = z.infer<typeof insertAdminApprovalRequestSchema>;
+
+
+// --- US Trading Tables ---
+import { usOrders, usBrokerAccounts } from "./schema/orders";
+
+export const usHoldings = pgTable("us_holdings", {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    clientId: varchar("client_id").references(() => users.id).notNull(),
+    brokerAccountId: varchar("broker_account_id").references(() => usBrokerAccounts.id),
+    symbol: varchar("symbol", { length: 10 }).notNull(),
+    assetType: varchar("asset_type", { length: 20 }).default("stock"),
+    quantity: decimal("quantity", { precision: 15, scale: 6 }).notNull(),
+    avgPriceUsd: decimal("avg_price_usd", { precision: 15, scale: 4 }).notNull(),
+    currentPriceUsd: decimal("current_price_usd", { precision: 15, scale: 4 }),
+    marketValueUsd: decimal("market_value_usd", { precision: 15, scale: 2 }),
+    unrealizedPlUsd: decimal("unrealized_pl_usd", { precision: 15, scale: 2 }),
+    unrealizedPlPercent: decimal("unrealized_pl_percent", { precision: 8, scale: 4 }),
+    fxRateAtBuy: decimal("fx_rate_at_buy", { precision: 10, scale: 4 }),
+    currentFxRate: decimal("current_fx_rate", { precision: 10, scale: 4 }),
+    marketValueInr: decimal("market_value_inr", { precision: 15, scale: 2 }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+    lastSyncAt: timestamp("last_sync_at"),
+}, (table) => [
+    index("idx_us_holdings_client").on(table.clientId),
+    index("idx_us_holdings_symbol").on(table.symbol),
+  ]);
+
+export const usConsents = pgTable("us_consents", {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    clientId: varchar("client_id").references(() => users.id).notNull(),
+    orderId: varchar("order_id").references(() => usOrders.id),
+    consentType: varchar("consent_type", { length: 50 }).notNull(),
+    consentHash: varchar("consent_hash", { length: 128 }).notNull(),
+    consentData: jsonb("consent_data").notNull(),
+    verificationMethod: varchar("verification_method", { length: 50 }),
+    verificationRef: varchar("verification_ref"),
+    ipAddress: varchar("ip_address", { length: 50 }),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+    index("idx_us_consents_client").on(table.clientId),
+    index("idx_us_consents_order").on(table.orderId),
+    index("idx_us_consents_hash").on(table.consentHash),
+  ]);
+
+export const usLrsDeclarations = pgTable("us_lrs_declarations", {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    clientId: varchar("client_id").references(() => users.id).notNull(),
+    financialYear: varchar("financial_year", { length: 10 }).notNull(),
+    purposeCode: varchar("purpose_code", { length: 20 }).default("S0001"),
+    amountUsd: decimal("amount_usd", { precision: 15, scale: 2 }).notNull(),
+    declarationText: text("declaration_text").notNull(),
+    declarationHash: varchar("declaration_hash", { length: 128 }).notNull(),
+    declaredAt: timestamp("declared_at").defaultNow().notNull(),
+}, (table) => [
+    index("idx_us_lrs_client").on(table.clientId),
+    index("idx_us_lrs_fy").on(table.financialYear),
+  ]);
+
+export const usWatchlist = pgTable("us_watchlist", {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    clientId: varchar("client_id").references(() => users.id).notNull(),
+    symbol: varchar("symbol", { length: 10 }).notNull(),
+    addedAt: timestamp("added_at").defaultNow().notNull(),
+    notes: text("notes"),
+}, (table) => [
+    index("idx_us_watchlist_client").on(table.clientId),
+  ]);
+
+export const usFeatureFlags = pgTable("us_feature_flags", {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    flagName: varchar("flag_name", { length: 100 }).notNull().unique(),
+    isEnabled: boolean("is_enabled").default(false).notNull(),
+    description: text("description"),
+    metadata: jsonb("metadata").default({}),
+    updatedAt: timestamp("updated_at").defaultNow(),
+    updatedBy: varchar("updated_by"),
+});
+
+// Zod schemas and types for US Trading
+export const insertUsHoldingSchema = createInsertSchema(usHoldings).omit({ id: true, createdAt: true, updatedAt: true });
+export type UsHolding = typeof usHoldings.$inferSelect;
+export type InsertUsHolding = z.infer<typeof insertUsHoldingSchema>;
+
+export const insertUsConsentSchema = createInsertSchema(usConsents).omit({ id: true, createdAt: true });
+export type UsConsent = typeof usConsents.$inferSelect;
+export type InsertUsConsent = z.infer<typeof insertUsConsentSchema>;
+
+export const insertUsLrsDeclarationSchema = createInsertSchema(usLrsDeclarations).omit({ id: true, declaredAt: true });
+export type UsLrsDeclaration = typeof usLrsDeclarations.$inferSelect;
+export type InsertUsLrsDeclaration = z.infer<typeof insertUsLrsDeclarationSchema>;
+
+export const insertUsWatchlistSchema = createInsertSchema(usWatchlist).omit({ id: true, addedAt: true });
+export type UsWatchlist = typeof usWatchlist.$inferSelect;
+export type InsertUsWatchlist = z.infer<typeof insertUsWatchlistSchema>;
+
+export const insertUsFeatureFlagSchema = createInsertSchema(usFeatureFlags).omit({ id: true, updatedAt: true });
+export type UsFeatureFlag = typeof usFeatureFlags.$inferSelect;
+export type InsertUsFeatureFlag = z.infer<typeof insertUsFeatureFlagSchema>;
+
+  amountUsd: decimal("amount_usd", { precision: 15, scale: 2 }).notNull(),
+      declarationText: text("declaration_text").notNull(),
+      declarationHash: varchar("declaration_hash", { length: 128 }).notNull(),
+      declaredAt: timestamp("declared_at").defaultNow().notNull(),
+    }, (table) => [
+        index("idx_us_lrs_client").on(table.clientId),
+        index("idx_us_lrs_fy").on(table.financialYear),
+      ]);
+
+export const usWatchlist = pgTable("us_watchlist", {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    clientId: varchar("client_id").references(() => users.id).notNull(),
+    symbol: varchar("symbol", { length: 10 }).notNull(),
+    addedAt: timestamp("added_at").defaultNow().notNull(),
+    notes: text("notes"),
+}, (table) => [
+    index("idx_us_watchlist_client").on(table.clientId),
+  ]);
+
+export const usFeatureFlags = pgTable("us_feature_flags", {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    flagName: varchar("flag_name", { length: 100 }).notNull().unique(),
+    isEnabled: boolean("is_enabled").default(false).notNull(),
+    description: text("description"),
+    metadata: jsonb("metadata").default({}),
+    updatedAt: timestamp("updated_at").defaultNow(),
+    updatedBy: varchar("updated_by"),
+});
+
+// Zod schemas and types for US Trading
+export const insertUsHoldingSchema = createInsertSchema(usHoldings).omit({ id: true, createdAt: true, updatedAt: true });
+export type UsHolding = typeof usHoldings.$inferSelect;
+export type InsertUsHolding = z.infer<typeof insertUsHoldingSchema>;
+
+export const insertUsConsentSchema = createInsertSchema(usConsents).omit({ id: true, createdAt: true });
+export type UsConsent = typeof usConsents.$inferSelect;
+export type InsertUsConsent = z.infer<typeof insertUsConsentSchema>;
+
+export const insertUsLrsDeclarationSchema = createInsertSchema(usLrsDeclarations).omit({ id: true, declaredAt: true });
+export type UsLrsDeclaration = typeof usLrsDeclarations.$inferSelect;
+export type InsertUsLrsDeclaration = z.infer<typeof insertUsLrsDeclarationSchema>;
+
+export const insertUsWatchlistSchema = createInsertSchema(usWatchlist).omit({ id: true, addedAt: true });
+export type UsWatchlist = typeof usWatchlist.$inferSelect;
+export type InsertUsWatchlist = z.infer<typeof insertUsWatchlistSchema>;
+
+export const insertUsFeatureFlagSchema = createInsertSchema(usFeatureFlags).omit({ id: true, updatedAt: true });
+export type UsFeatureFlag = typeof usFeatureFlags.$inferSelect;
+export type InsertUsFeatureFlag = z.infer<typeof insertUsFeatureFlagSchema>;
+
+  amountUsd: decimal("amount_usd", { precision: 15, scale: 2 }).notNull(),
+      declarationText: text("declaration_text").notNull(),
+      declarationHash: varchar("declaration_hash", { length: 128 }).notNull(),
+      declaredAt: timestamp("declared_at").defaultNow().notNull(),
+    }, (table) => [
+        index("idx_us_lrs_client").on(table.clientId),
+        index("idx_us_lrs_fy").on(table.financialYear),
+      ]);
+
+export const usWatchlist = pgTable("us_watchlist", {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    clientId: varchar("client_id").references(() => users.id).notNull(),
+    symbol: varchar("symbol", { length: 10 }).notNull(),
+    addedAt: timestamp("added_at").defaultNow().notNull(),
+    notes: text("notes"),
+}, (table) => [
+    index("idx_us_watchlist_client").on(table.clientId),
+  ]);
+
+export const usFeatureFlags = pgTable("us_feature_flags", {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    flagName: varchar("flag_name", { length: 100 }).notNull().unique(),
+    isEnabled: boolean("is_enabled").default(false).notNull(),
+    description: text("description"),
+    metadata: jsonb("metadata").default({}),
+    updatedAt: timestamp("updated_at").defaultNow(),
+    updatedBy: varchar("updated_by"),
+});
+
+// Zod schemas and types for US Trading
+export const insertUsHoldingSchema = createInsertSchema(usHoldings).omit({ id: true, createdAt: true, updatedAt: true });
+export type UsHolding = typeof usHoldings.$inferSelect;
+export type InsertUsHolding = z.infer<typeof insertUsHoldingSchema>;
+
+export const insertUsConsentSchema = createInsertSchema(usConsents).omit({ id: true, createdAt: true });
+export type UsConsent = typeof usConsents.$inferSelect;
+export type InsertUsConsent = z.infer<typeof insertUsConsentSchema>;
+
+export const insertUsLrsDeclarationSchema = createInsertSchema(usLrsDeclarations).omit({ id: true, declaredAt: true });
+export type UsLrsDeclaration = typeof usLrsDeclarations.$inferSelect;
+export type InsertUsLrsDeclaration = z.infer<typeof insertUsLrsDeclarationSchema>;
+
+export const insertUsWatchlistSchema = createInsertSchema(usWatchlist).omit({ id: true, addedAt: true });
+export type UsWatchlist = typeof usWatchlist.$inferSelect;
+export type InsertUsWatchlist = z.infer<typeof insertUsWatchlistSchema>;
+
+export const insertUsFeatureFlagSchema = createInsertSchema(usFeatureFlags).omit({ id: true, updatedAt: true });
+export type UsFeatureFlag = typeof usFeatureFlags.$inferSelect;
+export type InsertUsFeatureFlag = z.infer<typeof insertUsFeatureFlagSchema>;
