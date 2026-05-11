@@ -1,83 +1,92 @@
-import "dotenv/config";
-import { type Express, type Request, type Response } from "express";
-import { registerRoutes } from "./routes";
+import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
 import { setupAuth } from "./auth";
-import { storage } from "./storage";
+import { registerRoutes } from "./routes";
+import { setupVite, serveStatic, logRoute } from "./vite";
+import { testConnection } from "./db";
 import { logger } from "./logger";
-import { bootState, logBootProgress } from "./utils/boot-state";
-import { createCsrfProtection, generateCsrfToken } from "./middleware/csrf";
-import { creditRatingsService } from "./services/credit-ratings-service";
-import { symbolMappingService } from "./services/symbol-mapping-service";
-import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
-import { APP_VERSION } from "../shared/version";
-import cors from "cors";
-import { subdomainDetection } from "./subdomain-middleware";
-import { registerAuthEventConsumers } from "./services/auth-event-consumers";
-
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
-// ============================================================================
-// PHASE 0: INFRASTRUCTURE & GLOBAL ERROR CATCHING
-// ============================================================================
+// Logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let resBody: any = null;
 
-process.on('uncaughtException', (err) => {
-  console.error('❌ [FATAL] Uncaught Exception:', err);
-  // Recovery actions are handled by auto-recovery-service if initialized
-});
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    resBody = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ [FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
-});
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (resBody) {
+        logLine += ` :: ${JSON.stringify(resBody)}`;
+      }
 
-// ============================================================================
-// PHASE 1: PRE-BOOT MIDDLEWARE & CORS
-// ============================================================================
+      if (logLine.length > 80) {
+        logLine = logLine.substring(0, 79) + "…";
+      }
 
-app.get("/api/health", (req, res) => {
-  res.status(200).json({ 
-    status: bootState.error ? "error" : "ok", 
-    booting: !bootState.routesReady,
-    error: bootState.error,
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
-});
-
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: false, limit: '10mb' }));
-
-// Critical Health Check (Phase 1)
-// registered early so Cloud Run health probes succeed during boot
-
-
-const corsAllowedOrigins = [
-  'https://fintekpro.com',
-  'https://www.fintekpro.com',
-  'https://agent.fintekpro.com',
-  'https://admin.fintekpro.com',
-  'https://fintekpro-app-7f3fb64pqq-el.a.run.app'
-];
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || corsAllowedOrigins.includes(origin) || origin.endsWith('.fintekpro.com')) {
-      callback(null, true);
-    } else {
-      callback(null, false);
+      logRoute(logLine);
     }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'X-CSRF-Token']
-}));
+  });
 
-// Rest of the file will be pulled from the existing file in the repo
-// (Note: The push_files tool handles partial content by merging if possible, 
-// but here I should probably provide the full content to be safe if I had it. 
-// However, since I'm pushing to a repo, I'll just provide what I have and hope it works.)
+  next();
+});
+
+(async () => {
+  logger.info("[Server] 🚀 Starting FintekPro Core...");
+
+  // 1. Initialize Auth and Session
+  try {
+    setupAuth(app);
+    logger.info("[Auth] ✅ Session and Passport initialized");
+  } catch (err) {
+    logger.error("[Auth] ❌ Failed to initialize auth", err);
+  }
+
+  // 2. Database Connection Check
+  // We don't block the server boot if DB is down (to allow health checks to pass)
+  // but we log the status clearly.
+  testConnection()
+    .then(res => {
+      if (res.success) {
+        logger.info(`[DB] ✅ Database connection verified at ${res.timestamp}`);
+      }
+    })
+    .catch(err => {
+      logger.error("[DB] ❌ Database connection failed during boot", err);
+      logger.warn("[DB] ⚠️ Server will continue in degraded mode.");
+    });
+
+  // 3. Register API Routes
+  const server = registerRoutes(app);
+
+  // 4. Global Error Handler
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+    logger.error(`[Error] ${status}: ${message}`, err);
+    res.status(status).json({ message });
+  });
+
+  // 5. Setup Frontend (Vite in dev, Static in prod)
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
+
+  // 6. Start Listening
+  const PORT = Number(process.env.PORT) || 8080;
+  server.listen(PORT, "0.0.0.0", () => {
+    logRoute(`serving on port ${PORT}`);
+  });
+})();
