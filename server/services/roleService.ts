@@ -20,7 +20,7 @@ import {
   ADMIN_PORTAL_ROLES,
   PARTNER_PORTAL_ROLES,
   AGENT_PORTAL_ROLES,
-} from '@shared/schema';
+} from '@shared/roles';
 
 export interface RoleCheckResult {
   allowed: boolean;
