@@ -5,7 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { roleService } from '../services/roleService';
-import { RoleId, ROLE_DEFINITIONS, ADMIN_PORTAL_ROLES, PARTNER_PORTAL_ROLES, AGENT_PORTAL_ROLES } from '@shared/schema';
+import { RoleId, ROLE_DEFINITIONS, ADMIN_PORTAL_ROLES, PARTNER_PORTAL_ROLES, AGENT_PORTAL_ROLES } from '@shared/roles';
 
 // Note: Express.User is already extended in auth.ts
 // We use the existing User type that includes id, email, mobile, roles, role
