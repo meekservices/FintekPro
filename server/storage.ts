@@ -1242,21 +1242,26 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  public sessionStore: session.Store;
+  private _sessionStore: session.Store | null = null;
 
-  constructor() {
-    if (process.env.NODE_ENV === "production") {
-      const PostgresStore = connectPg(session);
-      this.sessionStore = new PostgresStore({
-        pool: pool,
-        createTableIfMissing: true,
-      });
-    } else {
-      const MemoryStoreSession = MemoryStore(session);
-      this.sessionStore = new MemoryStoreSession({
-        checkPeriod: 86400000, // prune expired entries every 24h
-      });
+  constructor() {}
+
+  public get sessionStore(): session.Store {
+    if (!this._sessionStore) {
+      if (process.env.NODE_ENV === "production") {
+        const PostgresStore = connectPg(session);
+        this._sessionStore = new PostgresStore({
+          pool: pool,
+          createTableIfMissing: true,
+        });
+      } else {
+        const MemoryStoreSession = MemoryStore(session);
+        this._sessionStore = new MemoryStoreSession({
+          checkPeriod: 86400000,
+        });
+      }
     }
+    return this._sessionStore;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {

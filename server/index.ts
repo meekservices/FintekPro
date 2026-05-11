@@ -1,4 +1,5 @@
 import "dotenv/config";
+console.log('[ENTRY] server/index.ts is starting...');
 import { type Express, type Request, type Response } from "express";
 import { registerRoutes } from "./routes";
 import { setupAuth } from "./auth";
@@ -41,8 +42,9 @@ process.on('unhandledRejection', (reason, promise) => {
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({ 
-    status: "ok", 
+    status: bootState.error ? "error" : "ok", 
     booting: !bootState.routesReady,
+    error: bootState.error,
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
