@@ -3,7 +3,7 @@ import { boolean, date, decimal, index, integer, jsonb, numeric, pgTable, real, 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from './users';
-import { investmentProposals, investmentProposalItems, instrumentMaster } from './proposals-base';
+export * from './proposals-base';
 import { portfolios, assetAllocation } from './portfolio';
 import { agents as Agent } from './agents';
 import { documents as Document } from './documents';
