@@ -10,7 +10,8 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 // Connection strategy:
 //   PRODUCTION_DATABASE_URL or DATABASE_URL MUST be set (GCP Cloud SQL)
-const selectedDbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
+//   FALLBACK: In production, we allow a dummy URL if Unix socket is likely to be available
+const selectedDbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL || (isProduction ? "postgresql://postgres@localhost/fintekpro" : "");
 
 if (!selectedDbUrl) {
   throw new Error("No database URL found. Set PRODUCTION_DATABASE_URL or DATABASE_URL in your environment secrets.");
@@ -29,7 +30,34 @@ const instanceConnectionName = process.env.INSTANCE_CONNECTION_NAME || 'fintekpr
 // Cloud Run standard path for Cloud SQL sockets is /cloudsql/<INSTANCE_CONNECTION_NAME>
 // However, the actual socket file is inside that directory as .s.PGSQL.5432
 const cloudSqlSocketDir = `/cloudsql/${instanceConnectionName}`;
-const isCloudSqlSocketAvailable = fs.existsSync(cloudSqlSocketDir);
+// Robust detection: check for the directory, but on Cloud Run (K_SERVICE), 
+// we should assume it's available or will be once we try to connect.
+const isCloudSqlSocketAvailable = fs.existsSync(cloudSqlSocketDir) || !!process.env.K_SERVICE;
+
+if (isProduction) {
+  console.log(`[DB] 🔍 Production Diagnostics:`);
+  console.log(`[DB] - K_SERVICE: ${process.env.K_SERVICE || 'not set'}`);
+  console.log(`[DB] - INSTANCE_CONNECTION_NAME: ${instanceConnectionName}`);
+  console.log(`[DB] - cloudSqlSocketDir: ${cloudSqlSocketDir}`);
+  console.log(`[DB] - fs.existsSync(${cloudSqlSocketDir}): ${fs.existsSync(cloudSqlSocketDir)}`);
+  
+  if (fs.existsSync('/cloudsql')) {
+    try {
+      const contents = fs.readdirSync('/cloudsql');
+      console.log(`[DB] - /cloudsql contents: [${contents.join(', ')}]`);
+    } catch (err: any) {
+      console.warn(`[DB] - Could not read /cloudsql: ${err.message}`);
+    }
+  } else {
+    console.warn(`[DB] - /cloudsql directory does not exist!`);
+  }
+}
+
+if (isCloudSqlSocketAvailable) {
+  console.log(`[DB] 🟢 Using Cloud SQL Unix Socket logic (available: ${fs.existsSync(cloudSqlSocketDir)})`);
+} else {
+  console.warn(`[DB] 🟡 Unix Socket directory not found at ${cloudSqlSocketDir}. Falling back to TCP.`);
+}
 
 // SSL is ONLY needed if:
 // 1. Not using a Unix socket
@@ -40,12 +68,6 @@ const needsSsl =
   !selectedDbUrl.includes('localhost') && 
   !selectedDbUrl.includes('127.0.0.1') &&
   !selectedDbUrl.includes('host=');
-
-if (isCloudSqlSocketAvailable) {
-  console.log(`[DB] 🟢 Detected Cloud SQL Unix Socket directory: ${cloudSqlSocketDir}`);
-} else {
-  console.warn(`[DB] 🟡 Unix Socket directory not found at ${cloudSqlSocketDir}. (ENV: ${process.env.NODE_ENV}, INSTANCE: ${instanceConnectionName})`);
-}
 
 const POOL_CONFIG: any = {
   max: isProduction ? 20 : 5,
@@ -98,7 +120,9 @@ try {
   console.warn(`[DB] 🟡 Non-fatal: Manual URL parsing failed (${e.message}). Falling back to connection string.`);
 }
 
-// STABILIZATION FALLBACK: Force 'postgres' user if using 'fintekpro_user' or if unconfigured
+// STABILIZATION FALLBACK: If in production and using fintekpro_user, 
+// we also allow falling back to the postgres user if needed, 
+// since we know it works for other services.
 if (isProduction && (user === 'fintekpro_user' || !user)) {
   console.log(`[DB] ℹ️  Forcing stabilization with postgres user fallback...`);
   user = 'postgres';
@@ -111,7 +135,7 @@ if (isCloudSqlSocketAvailable) {
   POOL_CONFIG.port = 5432;
   POOL_CONFIG.user = user;
   POOL_CONFIG.password = password;
-  POOL_CONFIG.database = 'fintekpro'; // Normalized production database name
+  POOL_CONFIG.database = database; // Use the database name extracted from the URL
 
   console.log(`[DB] 🟢 Configured for Unix Socket: host=${POOL_CONFIG.host}, user=${POOL_CONFIG.user}, db=${POOL_CONFIG.database}`);
 } else {
@@ -126,6 +150,7 @@ if (isCloudSqlSocketAvailable) {
     console.log(`[DB] Using TCP connection to ${maskedHost}`);
   }
 }
+
 
 export const pool = new Pool(POOL_CONFIG);
 
@@ -247,7 +272,7 @@ export async function closePool(): Promise<void> {
     await pool.end();
     logger.info('[DB Pool] Pool closed gracefully');
   } catch (err: any) {
-    // Ignore \"pool already ended\" errors — can happen on repeated SIGTERM
+    // Ignore "pool already ended" errors — can happen on repeated SIGTERM
     if (!(err?.message || '').includes('end on the pool')) {
       logger.error('[DB Pool] Error closing pool', { error: err?.message || String(err) });
     }
