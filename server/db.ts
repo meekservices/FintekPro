@@ -23,39 +23,40 @@ let port = 5432;
 
 // Parse connection URL if provided (standard practice in many environments)
 const dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
-if (dbUrl) {
-  try {
-    const url = new URL(dbUrl);
-    user = url.username || user;
-    password = url.password || password;
-    database = url.pathname.split('/')[1] || database;
-    
-    // In production, we override host/port anyway for Unix sockets, 
-    // but in dev, we use the URL components.
-    if (!isProduction) {
-      host = url.hostname || host;
-      port = parseInt(url.port) || port;
-    }
-    console.log(`[DB] 🔗 Parsed connection parameters for database: ${database}`);
-  } catch (e) {
-    console.error(`[DB] ❌ Failed to parse DATABASE_URL: ${e instanceof Error ? e.message : String(e)}`);
-  }
-}
 
 // Build Pool Configuration
 const POOL_CONFIG: any = {
-  user,
-  password,
-  database,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
 };
 
+if (dbUrl) {
+  // Use connectionString directly - pg will handle parsing and special characters correctly
+  POOL_CONFIG.connectionString = dbUrl;
+  
+  // Safely extract database name for logging without exposing credentials
+  try {
+    // We use a regex instead of URL to avoid throwing on malformed URLs with unencoded @
+    const dbMatch = dbUrl.match(/\/([^\/?#]+)(\?|$)/);
+    const dbName = dbMatch ? dbMatch[1] : 'unknown';
+    console.log(`[DB] 🔗 Using DATABASE_URL for database: ${dbName} (Production: ${isProduction})`);
+  } catch (e) {
+    console.log(`[DB] 🔗 Using provided DATABASE_URL (Production: ${isProduction})`);
+  }
+} else {
+  POOL_CONFIG.user = user;
+  POOL_CONFIG.password = password;
+  POOL_CONFIG.database = database;
+  POOL_CONFIG.host = host;
+  POOL_CONFIG.port = port;
+  console.log(`[DB] ⚠️ No DATABASE_URL found. Using default parameters.`);
+}
+
 if (isProduction) {
   console.log(`[DB] 🔍 Production Diagnostics:`);
   console.log(`[DB] - INSTANCE_CONNECTION_NAME: ${instanceConnectionName}`);
-  console.log(`[DB] - PRODUCTION_DATABASE_URL defined: ${!!process.env.PRODUCTION_DATABASE_URL}`);
+  console.log(`[DB] - DATABASE_URL defined: ${!!dbUrl}`);
   
   try {
     const rootDir = '/cloudsql';
@@ -64,33 +65,47 @@ if (isProduction) {
       console.log(`[DB] ✅ ${rootDir} exists. Contents: ${JSON.stringify(contents)}`);
     } else {
       console.error(`[DB] ❌ ${rootDir} directory does NOT exist.`);
-      // Check parent just in case
+      // Check root just in case
       try {
-        const rootParent = fs.readdirSync('/');
-        console.log(`[DB] Root directory contents: ${JSON.stringify(rootParent)}`);
+        const rootItems = fs.readdirSync('/');
+        if (rootItems.includes('cloudsql')) {
+          console.log(`[DB] 💡 /cloudsql found in root listing but existsSync failed.`);
+        }
       } catch (e) {}
     }
   } catch (err) {
     console.error(`[DB] ❌ Error checking /cloudsql: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // GCP Cloud Run standard Unix socket path
   const socketPath = `/cloudsql/${instanceConnectionName}`;
-  
-  // Verify specific socket exists
-  if (fs.existsSync(socketPath)) {
-    console.log(`[DB] 🚀 Production Mode: Using Cloud SQL Unix Socket at ${socketPath}`);
-    POOL_CONFIG.host = socketPath;
+
+  if (dbUrl) {
+    // If DATABASE_URL already contains ?host=/cloudsql/..., pg handles the socket natively.
+    // Do NOT override POOL_CONFIG.host — that would conflict with connectionString.
+    if (dbUrl.includes('/cloudsql/')) {
+      console.log(`[DB] 🚀 Production Mode: DATABASE_URL has embedded Unix Socket path. Letting pg handle routing.`);
+    } else if (fs.existsSync(socketPath)) {
+      // URL exists but doesn't specify socket — inject it
+      console.log(`[DB] 🔧 Injecting Unix Socket host override: ${socketPath}`);
+      POOL_CONFIG.host = socketPath;
+      delete POOL_CONFIG.port;
+    } else {
+      console.warn(`[DB] ⚠️ Socket not found at ${socketPath}. Proceeding with DATABASE_URL as-is (TCP or proxy).`);
+    }
   } else {
-    console.warn(`[DB] ⚠️ Unix Socket directory not found at ${socketPath}.`);
-    console.warn(`[DB] Fallback: Attempting TCP connection via 127.0.0.1:5432 (Requires Cloud SQL Auth Proxy).`);
-    POOL_CONFIG.host = '127.0.0.1';
-    POOL_CONFIG.port = 5432;
+    // No DATABASE_URL — use explicit host config
+    if (fs.existsSync(socketPath)) {
+      console.log(`[DB] 🚀 Production Mode: Using Unix Socket at ${socketPath}.`);
+      POOL_CONFIG.host = socketPath;
+      delete POOL_CONFIG.port;
+    } else {
+      console.warn(`[DB] ⚠️ No DATABASE_URL and no socket at ${socketPath}. Falling back to TCP 127.0.0.1:5432.`);
+      POOL_CONFIG.host = '127.0.0.1';
+      POOL_CONFIG.port = 5432;
+    }
   }
-} else {
+} else if (!dbUrl) {
   console.log(`[DB] 💻 Development Mode: Connecting to ${host}:${port}`);
-  POOL_CONFIG.host = host;
-  POOL_CONFIG.port = port;
 }
 
 // Initialize the Pool
