@@ -7,7 +7,8 @@ import { users } from "./schema/users";
 // --- Admin Tables ---
 
 export const adminSettings = pgTable("admin_settings", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`278
+  gen_random_uuid()`),
   key: varchar("key").notNull().unique(),
   value: jsonb("value").notNull(),
   description: text("description"),
@@ -274,16 +275,7 @@ export const insertUsFeatureFlagSchema = createInsertSchema(usFeatureFlags).omit
 export type UsFeatureFlag = typeof usFeatureFlags.$inferSelect;
 export type InsertUsFeatureFlag = z.infer<typeof insertUsFeatureFlagSchema>;
 
-  amountUsd: decimal("amount_usd", { precision: 15, scale: 2 }).notNull(),
-      declarationText: text("declaration_text").notNull(),
-      declarationHash: varchar("declaration_hash", { length: 128 }).notNull(),
-      declaredAt: timestamp("declared_at").defaultNow().notNull(),
-    }, (table) => [
-        index("idx_us_lrs_client").on(table.clientId),
-        index("idx_us_lrs_fy").on(table.financialYear),
-      ]);
-
-export const usWatchlist = pgTable("us_watchlist", {
+  export const usWatchlist = pgTable("us_watchlist", {
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
     clientId: varchar("client_id").references(() => users.id).notNull(),
     symbol: varchar("symbol", { length: 10 }).notNull(),
