@@ -80,22 +80,29 @@ if (isProduction) {
     const rootDir = '/cloudsql';
     const socketPath = `/cloudsql/${instanceConnectionName}`;
 
+    console.log(`[DB] 🔍 Checking for Cloud SQL Socket at: ${socketPath}`);
+
     if (fs.existsSync(rootDir)) {
       const contents = fs.readdirSync(rootDir);
-      console.log(`[DB] ✅ ${rootDir} exists. Contents: ${JSON.stringify(contents)}`);
+      console.log(`[DB] ✅ ${rootDir} exists. Found: ${contents.join(', ')}`);
     } else {
-      console.error(`[DB] ❌ ${rootDir} directory does NOT exist.`);
+      console.warn(`[DB] ⚠️ ${rootDir} directory does NOT exist. This usually means the Cloud SQL instance is not attached to the Cloud Run service.`);
     }
 
-    if (dbUrl && dbUrl.includes('/cloudsql/')) {
-      console.log(`[DB] 🚀 Unix Socket path detected in connection string.`);
+    if (dbUrl && (dbUrl.includes('/cloudsql/') || dbUrl.includes('host='))) {
+      console.log(`[DB] 🚀 Socket path detected in connection string.`);
     } else if (fs.existsSync(socketPath)) {
       console.log(`[DB] 🔧 Injecting Unix Socket host override: ${socketPath}`);
       POOL_CONFIG.host = socketPath;
       delete POOL_CONFIG.port;
       delete POOL_CONFIG.connectionString; // Prefer explicit host if socket is found
     } else {
-      console.warn(`[DB] ⚠️ No socket found at ${socketPath}.`);
+      console.warn(`[DB] ⚠️ No socket found at ${socketPath}. Attempting to proceed with current configuration...`);
+      
+      // Fallback: If no socket, and we have a connection string, check if it's usable
+      if (!dbUrl) {
+        console.error(`[DB] ❌ CRITICAL: No DATABASE_URL and no Unix Socket found. Connection will likely fail.`);
+      }
     }
   } catch (err) {
     console.error(`[DB] ❌ Error in socket diagnostic: ${err instanceof Error ? err.message : String(err)}`);
