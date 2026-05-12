@@ -724,6 +724,24 @@ if (process.env.NODE_ENV === 'production') {
         console.error('[Migration] alpaca_account_type column error:', e?.message);
       }
 
+      // 25b. PIN / MPIN / Social / Referral / Analytics columns — missing from production DB
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS is_pin_set BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS login_pin TEXT,
+            ADD COLUMN IF NOT EXISTS mpin_hash VARCHAR,
+            ADD COLUMN IF NOT EXISTS shareable_profile_enabled BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS referral_code VARCHAR,
+            ADD COLUMN IF NOT EXISTS previous_login_at TIMESTAMP,
+            ADD COLUMN IF NOT EXISTS login_count INTEGER DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS nav_position VARCHAR DEFAULT 'left';
+        `);
+        console.log('✅ is_pin_set / login_pin / mpin_hash / analytics columns on users verified');
+      } catch (e: any) {
+        console.error('[Migration] is_pin_set column error:', e?.message);
+      }
+
       // 26. SGB Schema & Repairs (sgb_primary_issues, sovereign_gold_bonds)
       try {
         console.log('🛠️ Verifying sovereign_gold_bonds table...');

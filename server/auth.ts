@@ -143,17 +143,20 @@ export function setupAuth(app: Express) {
   app.use(passport.session());
 
   passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        const user = await storage.getUserByUsername(username);
-        if (!user || !(await comparePasswords(password, user.password))) {
-          return done(null, false);
+    new LocalStrategy(
+      { usernameField: "identifier", passwordField: "password" },
+      async (identifier, password, done) => {
+        try {
+          const user = await storage.getUserByUsername(identifier);
+          if (!user || !(await comparePasswords(password, user.password))) {
+            return done(null, false, { message: "Invalid credentials" });
+          }
+          return done(null, user);
+        } catch (err) {
+          return done(err);
         }
-        return done(null, user);
-      } catch (err) {
-        return done(err);
       }
-    }),
+    ),
   );
 
   passport.serializeUser((user, done) => done(null, user.id));
