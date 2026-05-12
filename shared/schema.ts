@@ -8,6 +8,7 @@ import { users } from "./schema/users";
 
 export const adminSettings = pgTable("admin_settings", {
   id: varchar("id").primaryKey().default(sql gen_random_uuid()`),
+  
   key: varchar("key").notNull().unique(),
   value: jsonb("value").notNull(),
   description: text("description"),
