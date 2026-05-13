@@ -1,15 +1,8 @@
 import twilio from 'twilio';
+import { getTwilioClient, getTwilioFromPhoneNumber } from './twilio-client';
 import { db } from '../db';
 import { users, marketingCampaigns, campaignRecipients } from '@shared/schema';
 import { eq, and, inArray, sql } from 'drizzle-orm';
-
-// Twilio credentials interface from Replit connector
-interface TwilioCredentials {
-  accountSid: string;
-  apiKey: string;
-  apiKeySecret: string;
-  phoneNumber?: string;
-}
 
 interface SMSMarketingResult {
   success: boolean;
@@ -38,50 +31,6 @@ interface SMSCampaignConfig {
   scheduledAt?: Date;
 }
 
-// Secure credential retrieval via Replit connector (uses API Key auth, not Auth Token)
-async function getTwilioCredentials(): Promise<TwilioCredentials | null> {
-  try {
-    const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-    const xReplitToken = process.env.REPL_IDENTITY 
-      ? 'repl ' + process.env.REPL_IDENTITY 
-      : process.env.WEB_REPL_RENEWAL 
-      ? 'depl ' + process.env.WEB_REPL_RENEWAL 
-      : null;
-
-    if (!hostname || !xReplitToken) {
-      return null;
-    }
-
-    const response = await fetch(
-      'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=twilio',
-      {
-        headers: {
-          'Accept': 'application/json',
-          'X_REPLIT_TOKEN': xReplitToken
-        }
-      }
-    );
-    
-    const data = await response.json();
-    const connectionSettings = data.items?.[0];
-
-    if (!connectionSettings?.settings?.account_sid || 
-        !connectionSettings?.settings?.api_key || 
-        !connectionSettings?.settings?.api_key_secret) {
-      return null;
-    }
-
-    return {
-      accountSid: connectionSettings.settings.account_sid,
-      apiKey: connectionSettings.settings.api_key,
-      apiKeySecret: connectionSettings.settings.api_key_secret,
-      phoneNumber: connectionSettings.settings.phone_number
-    };
-  } catch (error) {
-    console.error('Failed to retrieve Twilio credentials from connector:', error);
-    return null;
-  }
-}
 
 class SMSMarketingService {
   private client: any = null;
@@ -95,27 +44,15 @@ class SMSMarketingService {
   }
 
   private async initialize(): Promise<void> {
-    // Use Replit connector for secure credential management (API Key auth)
-    const credentials = await getTwilioCredentials();
-    
-    if (credentials) {
-      // API Key authentication (more secure than Auth Token)
-      this.client = twilio(credentials.apiKey, credentials.apiKeySecret, {
-        accountSid: credentials.accountSid
-      });
-      this.fromNumber = credentials.phoneNumber || '';
+    try {
+      this.client = await getTwilioClient();
+      this.fromNumber = await getTwilioFromPhoneNumber() || '';
       this.messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID || '';
       this.isConfigured = true;
-      console.log('✅ SMS Marketing service initialized via Replit connector (API Key auth)');
-      if (this.messagingServiceSid) {
-        console.log(`   Using Messaging Service: ${this.messagingServiceSid.substring(0, 10)}...`);
-      }
-      if (this.fromNumber) {
-        console.log(`   Phone number configured`);
-      }
-    } else {
+      console.log('✅ SMS Marketing service initialized via shared Twilio client');
+    } catch (error) {
       this.isConfigured = false;
-      console.log('⚠️ SMS Marketing service not configured - Twilio connector not available');
+      console.log('⚠️ SMS Marketing service not configured - Twilio credentials missing');
     }
   }
 

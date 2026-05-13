@@ -77,6 +77,32 @@ export class AIService {
   private _defaultProvider: AIProvider = 'groq';
   private _defaultModel: AIModel = 'llama-3.3-70b-versatile';
 
+  private providerStatus: Record<AIProvider, { healthy: boolean, lastErrorTime: number }> = {
+    openai: { healthy: true, lastErrorTime: 0 },
+    'openai-direct': { healthy: true, lastErrorTime: 0 },
+    gemini: { healthy: true, lastErrorTime: 0 },
+    groq: { healthy: true, lastErrorTime: 0 }
+  };
+  private COOL_DOWN_MS = 5 * 60 * 1000; // 5 minutes cool-down for 429s
+
+  private isProviderHealthy(provider: AIProvider): boolean {
+    const status = this.providerStatus[provider];
+    if (status.healthy) return true;
+    if (Date.now() - status.lastErrorTime > this.COOL_DOWN_MS) {
+      status.healthy = true;
+      return true;
+    }
+    return false;
+  }
+
+  private markProviderUnhealthy(provider: AIProvider) {
+    console.warn(`[AIService] Marking ${provider} as unhealthy (cool-down starting)`);
+    this.providerStatus[provider] = {
+      healthy: false,
+      lastErrorTime: Date.now()
+    };
+  }
+
   setDefaultProvider(provider: AIProvider) {
     this._defaultProvider = provider;
     this._defaultModel = provider === 'gemini' ? 'gemini-1.5-flash-latest' : 'gpt-4o';
@@ -177,9 +203,14 @@ export class AIService {
     ];
 
     let lastError: Error | null = null;
-    const MAX_RETRIES = 2;
+    const MAX_RETRIES = 1; // Reduced since we have fallback
 
     for (const { provider, model } of finalChain) {
+      if (!this.isProviderHealthy(provider)) {
+        console.log(`[AIService] Skipping unhealthy provider: ${provider}`);
+        continue;
+      }
+
       let attempt = 0;
       while (attempt <= MAX_RETRIES) {
         try {
@@ -192,7 +223,7 @@ export class AIService {
           } else if (provider === 'groq' && groq) {
             result = await this.chatWithGroq(messages, model, temperature, maxTokens);
           } else if (provider === 'gemini') {
-            result = await this.chatWithGemini(messages, model, temperature, maxTokens);
+            result = await this.chatWithGemini(messages, model, temperature, maxTokens, options);
           } else {
             throw new Error(`Provider ${provider} not configured or available`);
           }
@@ -217,13 +248,17 @@ export class AIService {
                         error.message?.toLowerCase().includes('quota') || 
                         error.message?.toLowerCase().includes('rate limit');
           
-          if (is429 && attempt < MAX_RETRIES) {
-            // Exponential backoff: 3s, 6s, 12s... plus jitter
-            const delay = Math.pow(2, attempt) * 4000 + Math.random() * 2000;
-            console.warn(`[AIService] Rate limit (429) hit for ${provider}. Retrying in ${Math.round(delay)}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            attempt++;
-            continue;
+          if (is429) {
+            if (attempt < MAX_RETRIES) {
+              const delay = (attempt + 1) * 3000;
+              console.warn(`[AIService] Rate limit (429) hit for ${provider}. Retrying in ${delay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              attempt++;
+              continue;
+            } else {
+              this.markProviderUnhealthy(provider);
+              break; // Move to next provider
+            }
           }
           
           console.error(`[AIService] ${provider} failed (non-retryable or max retries):`, error.message);
@@ -280,6 +315,8 @@ export class AIService {
     let lastError: Error | null = null;
 
     for (const { provider, model } of finalChain) {
+      if (!this.isProviderHealthy(provider)) continue;
+
       try {
         console.log(`[AIService] Attempting stream with ${provider} (${model})...`);
         
@@ -288,13 +325,16 @@ export class AIService {
         } else if (provider === 'gemini' && gemini) {
           return await this.streamGemini(messages, model, temperature, maxTokens, onChunk);
         } else if (provider === 'groq' && groq) {
-          return await this.streamOpenAI(messages, model, temperature, maxTokens, onChunk, true);
+          return await this.streamOpenAI(messages, model, temperature, maxTokens, onChunk);
         } else {
           throw new Error(`Provider ${provider} not available for streaming`);
         }
       } catch (error: any) {
         lastError = error;
         console.error(`[AIService] Streaming ${provider} failed:`, error.message);
+        if (error.status === 429 || error.message?.includes('429')) {
+          this.markProviderUnhealthy(provider);
+        }
       }
     }
 
@@ -306,7 +346,7 @@ export class AIService {
    */
   private async chatWithOpenAI(
     messages: ChatMessage[],
-    model: AIModel,
+    model: string,
     temperature: number,
     maxTokens: number,
     stream: boolean
@@ -332,7 +372,7 @@ export class AIService {
       content = JSON.stringify(content);
     }
     const usage: AIUsageMetrics = {
-      provider: 'openai',
+      provider: openaiDirect ? 'openai-direct' : 'openai',
       model,
       promptTokens: response.usage?.prompt_tokens || 0,
       completionTokens: response.usage?.completion_tokens || 0,
@@ -352,7 +392,7 @@ export class AIService {
    */
   private async chatWithGroq(
     messages: ChatMessage[],
-    model: AIModel,
+    model: string,
     temperature: number,
     maxTokens: number,
   ): Promise<{ content: string; usage: AIUsageMetrics }> {
@@ -388,7 +428,7 @@ export class AIService {
    */
   private async streamOpenAI(
     messages: ChatMessage[],
-    model: AIModel,
+    model: string,
     temperature: number,
     maxTokens: number,
     onChunk: (chunk: string) => void
@@ -422,7 +462,7 @@ export class AIService {
     }
 
     const usage: AIUsageMetrics = {
-      provider: 'openai',
+      provider: openaiDirect ? 'openai-direct' : 'openai',
       model,
       promptTokens: 0, // Not available in streaming
       completionTokens: 0,
@@ -440,9 +480,10 @@ export class AIService {
    */
   private async chatWithGemini(
     messages: ChatMessage[],
-    model: AIModel,
+    model: string,
     temperature: number,
-    maxTokens: number
+    maxTokens: number,
+    options: AIServiceOptions = {}
   ): Promise<{ content: string; usage: AIUsageMetrics }> {
     if (!gemini) {
       throw new Error('Gemini API key not configured');
@@ -455,44 +496,30 @@ export class AIService {
     const fullPrompt = systemMessage ? `${systemMessage}\n\n${prompt}` : prompt;
 
     const geminiModel = model.includes('gemini') ? model : 'gemini-1.5-flash-latest';
-    const maxRetries = 2;
-    let lastError: any;
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        if (!gemini) throw new Error("Gemini SDK not initialized");
-        const modelInstance = gemini.getGenerativeModel({ 
-          model: geminiModel,
-          generationConfig: { temperature, maxOutputTokens: maxTokens }
-        });
-        const result = await modelInstance.generateContent(fullPrompt);
-        const response = result.response;
-        const content = response.text() || "";
-        
-        const usage: AIUsageMetrics = {
-          provider: 'gemini',
-          model: geminiModel,
-          promptTokens: response.usageMetadata?.promptTokenCount || 0,
-          completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
-          totalTokens: response.usageMetadata?.totalTokenCount || 0,
-          requestId: `gemini-${Date.now()}`,
-          timestamp: new Date()
-        };
-        this.usageMetrics.push(usage);
-        return { content, usage };
-      } catch (err: any) {
-        lastError = err;
-        const isAuthError = err?.message?.toLowerCase().includes('key') || err?.status === 401 || err?.status === 403;
-        const is429 = err?.status === 429 || err?.message?.includes('429') || err?.message?.toLowerCase().includes('quota') || err?.message?.toLowerCase().includes('rate limit');
-        if (is429 && attempt < maxRetries) {
-          const delay = (attempt + 1) * 2000;
-          await new Promise(r => setTimeout(r, delay));
-          continue;
-        }
-        if (isAuthError) break; // Don't retry auth errors
-        throw err;
-      }
-    }
-    throw lastError;
+    
+    // Updated for @google/genai SDK structure
+    const response = await gemini.models.generateContent({
+      model: geminiModel,
+      config: { 
+        temperature, 
+        maxOutputTokens: maxTokens,
+        responseMimeType: options.json ? 'application/json' : 'text/plain',
+      },
+      contents: [{ role: 'user', parts: [{ text: fullPrompt }] }]
+    });
+
+    const content = response.text || "";
+    const usage: AIUsageMetrics = {
+      provider: 'gemini',
+      model: geminiModel,
+      promptTokens: response.usageMetadata?.promptTokenCount || 0,
+      completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
+      totalTokens: response.usageMetadata?.totalTokenCount || 0,
+      requestId: `gemini-${Date.now()}`,
+      timestamp: new Date()
+    };
+    this.usageMetrics.push(usage);
+    return { content, usage };
   }
 
 
@@ -501,7 +528,7 @@ export class AIService {
    */
   private async streamGemini(
     messages: ChatMessage[],
-    model: AIModel,
+    model: string,
     temperature: number,
     maxTokens: number,
     onChunk: (chunk: string) => void
@@ -517,12 +544,13 @@ export class AIService {
     const fullPrompt = systemMessage ? `${systemMessage}\n\n${prompt}` : prompt;
 
     const geminiModel = model.includes('gemini') ? model : 'gemini-1.5-flash-latest';
-    const modelInstance = gemini.getGenerativeModel({ 
+    
+    // Updated for @google/genai SDK structure
+    const stream = await gemini.models.generateContentStream({
       model: geminiModel,
-      generationConfig: { temperature, maxOutputTokens: maxTokens }
+      config: { temperature, maxOutputTokens: maxTokens },
+      contents: [{ role: 'user', parts: [{ text: fullPrompt }] }]
     });
-    const result = await modelInstance.generateContentStream(fullPrompt);
-    const stream = result.stream;
 
     let fullContent = '';
     let finalResponse: any = null;
@@ -533,9 +561,10 @@ export class AIService {
       onChunk(chunkText);
       finalResponse = chunk;
     }
+
     const usage: AIUsageMetrics = {
       provider: 'gemini',
-      model: model.includes('gemini') ? model : 'gemini-1.5-flash-latest',
+      model: geminiModel,
       promptTokens: finalResponse?.usageMetadata?.promptTokenCount || 0,
       completionTokens: finalResponse?.usageMetadata?.candidatesTokenCount || 0,
       totalTokens: finalResponse?.usageMetadata?.totalTokenCount || 0,
@@ -562,7 +591,7 @@ export class AIService {
     let geminiCost = 0;
 
     this.usageMetrics.forEach(metric => {
-      if (metric.provider === 'openai') {
+      if (metric.provider === 'openai' || metric.provider === 'openai-direct') {
         // Rough estimate: $0.01 per 1K tokens
         openaiCost += (metric.totalTokens / 1000) * 0.01;
       } else if (metric.provider === 'gemini') {
@@ -589,6 +618,9 @@ export class AIService {
    * Get recommended model for complex financial analysis
    */
   getComplexAnalysisModel(): { provider: AIProvider; model: AIModel } {
+    if (this.isGpt52Available() && this.isProviderHealthy('openai-direct')) {
+      return { provider: 'openai-direct', model: 'gpt-4o' };
+    }
     return { provider: 'gemini', model: 'gemini-1.5-flash-latest' };
   }
 }

@@ -1,4 +1,6 @@
 import { db } from "../db";
+import { aiService, AICapability } from "./ai-service";
+
 import { 
   marketBriefs, 
   productKnowledge, 
@@ -511,10 +513,6 @@ export class KnowledgeHubService {
 
   async simplifyTextWithAI(complexText: string): Promise<string> {
     try {
-      const { GoogleGenerativeAI } = await import("@google/genai");
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      
       const prompt = `You are a financial education expert helping financial advisors explain complex concepts to retail clients in India. 
 
 Simplify the following technical financial text into plain, easy-to-understand language that a non-expert client can understand. 
@@ -530,9 +528,15 @@ ${complexText}
 
 Simplified explanation:`;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      return response.text() || "Unable to simplify the text. Please try again.";
+      const response = await aiService.chat([
+        { role: 'user', content: prompt }
+      ], {
+        capability: AICapability.STANDARD,
+        temperature: 0.7,
+        maxTokens: 500
+      });
+
+      return response.content || "Unable to simplify the text. Please try again.";
     } catch (error) {
       console.error("Error simplifying text with AI:", error);
       return "AI simplification is temporarily unavailable. Please try again later.";

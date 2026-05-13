@@ -1,4 +1,5 @@
 import twilio from 'twilio';
+import { getTwilioClient } from './twilio-client';
 import { db } from '../db';
 import { users, marketingCampaigns, campaignRecipients, whatsappContacts } from '@shared/schema';
 import { eq, and, sql } from 'drizzle-orm';
@@ -189,28 +190,44 @@ class WhatsAppMarketingService {
   private fromNumber: string = '';
   private isConfigured: boolean;
 
-  constructor() {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER;
+  private initPromise: Promise<void> | null = null;
 
-    if (accountSid && authToken && whatsappNumber) {
-      this.client = twilio(accountSid, authToken);
-      this.fromNumber = whatsappNumber.startsWith('whatsapp:') 
-        ? whatsappNumber 
-        : `whatsapp:${whatsappNumber}`;
-      this.isConfigured = true;
-      console.log('✅ WhatsApp Marketing service initialized');
-      console.log(`   From: ${this.fromNumber}`);
-    } else {
+  constructor() {
+    this.initPromise = this.initialize();
+  }
+
+  private async initialize(): Promise<void> {
+    try {
+      this.client = await getTwilioClient();
+      const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER;
+      
+      if (whatsappNumber) {
+        this.fromNumber = whatsappNumber.startsWith('whatsapp:') 
+          ? whatsappNumber 
+          : `whatsapp:${whatsappNumber}`;
+        this.isConfigured = true;
+        console.log('✅ WhatsApp Marketing service initialized via shared Twilio client');
+        console.log(`   From: ${this.fromNumber}`);
+      } else {
+        throw new Error('TWILIO_WHATSAPP_NUMBER missing');
+      }
+    } catch (error: any) {
       this.isConfigured = false;
-      console.log('⚠️ WhatsApp Marketing service not configured - missing credentials');
+      console.log(`⚠️ WhatsApp Marketing service not configured: ${error.message}`);
     }
   }
 
-  isAvailable(): boolean {
+  private async ensureInitialized(): Promise<void> {
+    if (this.initPromise) {
+      await this.initPromise;
+    }
+  }
+
+  async isAvailable(): Promise<boolean> {
+    await this.ensureInitialized();
     return this.isConfigured;
   }
+
 
   private formatWhatsAppNumber(mobile: string): string {
     const cleaned = mobile.replace(/\D/g, '');
@@ -228,6 +245,8 @@ class WhatsAppMarketingService {
     templateType: keyof typeof MARKETING_TEMPLATES,
     variables: Record<string, string>
   ): Promise<WhatsAppMarketingResult> {
+    await this.ensureInitialized();
+
     if (!this.isConfigured) {
       console.log(`📱 WhatsApp template to ${to.substring(0, 6)}**** (not configured)`);
       return { success: false, error: 'WhatsApp Marketing service not configured', usedTemplate: true };

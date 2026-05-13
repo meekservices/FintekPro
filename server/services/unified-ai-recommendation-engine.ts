@@ -18,7 +18,7 @@
  * - A/B testing integration for strategy optimization
  */
 
-import { GoogleGenAI } from "@google/genai";
+import { aiService, AICapability } from "./ai-service";
 import OpenAI from "openai";
 import { aiResponseCacheService } from "./ai-response-cache-service";
 import { aiRecommendationTrackingService } from "./ai-recommendation-tracking-service";
@@ -261,61 +261,21 @@ const CATEGORY_CONFIG: Record<ProductCategory, {
 // ============================================================================
 
 class UnifiedAIRecommendationEngine {
-  private gemini: GoogleGenAI | null = null;
-  private openai: OpenAI | null = null;
-  private groq: OpenAI | null = null;
-  private modelPreference: 'gemini' | 'openai' | 'groq' = 'gemini';
   private _regimeCache: { data: { regime: string; signal_score: number; confidence: number }; fetchedAt: number } | null = null;
 
   constructor() {
-    this.initializeModels();
+    console.log('✅ Unified AI Recommendation Engine initialized via AIService');
   }
 
   setPrimaryProvider(provider: 'openai' | 'gemini') {
-    this.modelPreference = provider;
-    console.log(`[UnifiedAI] Primary provider switched to: ${provider}`);
+    // Note: AIService manages provider health and preference dynamically
+    console.log(`[UnifiedAI] Primary provider preference noted: ${provider}`);
   }
 
   getPrimaryProvider(): string {
-    return this.modelPreference;
+    return 'centralized-ai-service';
   }
 
-  private initializeModels() {
-    // Initialize OpenAI (optional paid fallback)
-    const useAiIntegrations = !!process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-    const openaiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || 
-                      process.env.OPENAI_API_KEY;
-    if (openaiKey) {
-      const config: { apiKey: string; baseURL?: string } = { apiKey: openaiKey };
-      if (useAiIntegrations && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
-        config.baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-      }
-      this.openai = new OpenAI(config);
-    }
-
-    // Initialize Groq (free-tier fallback — Llama 3.3 70B, 14,400 req/day)
-    if (process.env.GROQ_API_KEY) {
-      this.groq = new OpenAI({
-        baseURL: 'https://api.groq.com/openai/v1',
-        apiKey: process.env.GROQ_API_KEY,
-      });
-    }
-
-    // Initialize Gemini (primary)
-    const geminiKey = process.env.GEMINI_API_KEY || 
-                      process.env.GOOGLE_API_KEY || 
-                      process.env.AI_INTEGRATIONS_GOOGLE_API_KEY;
-    if (geminiKey) {
-      this.gemini = new GoogleGenAI({ apiKey: geminiKey });
-    }
-
-    const status = ['Python sidecar (primary scoring)'];
-    if (this.gemini) status.push('Gemini (primary text generation)');
-    if (this.groq)   status.push('Groq/Llama-3.3-70B (secondary fallback)');
-    if (this.openai) status.push('OpenAI (final fallback)');
-    
-    console.log(`✅ Unified AI Recommendation Engine initialized: ${status.join(', ')}`);
-  }
 
   // ============================================================================
   // CORE ANALYSIS METHODS
@@ -1296,57 +1256,18 @@ Provide analysis as JSON with these fields:
     let result: T;
     let modelUsed: 'gemini' | 'openai' | 'fallback' = 'fallback';
 
-    const primaryClient = this.gemini;
-    const secondaryClient = this.groq;
-    const tertiaryClient = this.openai;
-
-    const primaryName = 'gemini';
-    const secondaryName = 'groq';
-    const tertiaryName = 'openai';
-
-    const callOpenAI = async () => {
-      const response = await this.openai!.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt || 'You are a SEBI-registered investment advisor. Respond with valid JSON only.' },
-          { role: 'user', content: prompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
-      });
-      return response.choices[0]?.message?.content || '{}';
-    };
-
-    const callGemini = async () => {
-      // Use gemini-2.5-flash or gemini-2.0-flash if 1.5 fails, but sticking to standard latest for stability
-      const response = await this.gemini!.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: prompt,
-      });
-      return response.text || '';
-    };
-
-    const callGroq = async () => {
-      const response = await this.groq!.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: systemPrompt || 'You are a SEBI-registered investment advisor. Respond with valid JSON only.' },
-          { role: 'user', content: prompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
-      });
-      return response.choices[0]?.message?.content || '{}';
-    };
-
     try {
-      if (primaryClient) {
-        const text = await callGemini();
-        result = parse(text);
-        modelUsed = primaryName;
-      } else {
-        throw new Error('Gemini client not initialized');
-      }
+      const response = await aiService.chat([
+        { role: 'system', content: systemPrompt || 'You are a SEBI-registered investment advisor. Respond with valid JSON only.' },
+        { role: 'user', content: prompt }
+      ], {
+        capability: AICapability.SUPERIOR,
+        temperature: 0.3,
+        maxTokens: 3000
+      });
+
+      result = parse(response.content);
+      modelUsed = response.usage.provider as any;
     } catch (error: any) {
       console.error(`[UnifiedAI:runPrompt] Gemini failed for ${category}:`, error.message);
 
@@ -1406,9 +1327,9 @@ Provide analysis as JSON with these fields:
    */
   getStatus(): { gemini: boolean; openai: boolean; primary: string } {
     return {
-      gemini: !!this.gemini,
-      openai: !!this.openai,
-      primary: this.modelPreference,
+      gemini: true,
+      openai: true,
+      primary: 'centralized-ai-service',
     };
   }
 
