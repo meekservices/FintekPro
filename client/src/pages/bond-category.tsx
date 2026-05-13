@@ -8,7 +8,7 @@ import {
   SortAsc, 
   SortDesc,
   Building2,
-  Shield,
+  Shield as LucideShield,
   TrendingUp,
   IndianRupee,
   Star,
@@ -39,7 +39,7 @@ const categoryConfig: Record<string, {
   government: {
     title: "Government Securities",
     description: "Risk-free investments backed by the Government of India including G-Secs, T-Bills, and SDLs",
-    icon: Shield,
+    icon: LucideShield,
     headerClass: "bg-gradient-to-r from-blue-600 to-blue-700",
     instrumentTypes: ["gsec", "tbill", "sdl"]
   },

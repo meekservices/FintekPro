@@ -23,7 +23,7 @@ import {
   Building2,
   Star,
   Crown,
-  Shield,
+  Shield as LucideShield,
   Briefcase,
   Pencil
 } from "lucide-react";
@@ -675,7 +675,7 @@ export function GoalPlanning() {
               <CardContent className="p-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <LucideShield className="w-5 h-5 text-green-600 dark:text-green-400" />
                     <h4 className="font-semibold text-green-900 dark:text-green-100">Retirement Planning</h4>
                   </div>
                   <div className="space-y-2">

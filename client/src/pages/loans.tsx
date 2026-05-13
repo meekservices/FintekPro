@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { Home, Car, User, Building2, Calculator, Clock, CheckCircle, IndianRupee, GraduationCap, Star, TrendingUp, Shield, RefreshCw, Search, Filter, ArrowRight, Plus, GitCompare, Target, Zap, FileText, ExternalLink, Info, AlertTriangle } from "lucide-react";
+import { Home, Car, User, Building2, Calculator, Clock, CheckCircle, IndianRupee, GraduationCap, Star, TrendingUp, Shield as LucideShield, RefreshCw, Search, Filter, ArrowRight, Plus, GitCompare, Target, Zap, FileText, ExternalLink, Info, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -338,7 +338,7 @@ export default function Loans() {
           <p className="text-xl text-muted-foreground">Compare loan offers from multiple banks and NBFCs</p>
           <div className="flex justify-center gap-6 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
+              <LucideShield className="h-4 w-4" />
               <span>Secure & Transparent</span>
             </div>
             <div className="flex items-center gap-2">
@@ -1413,7 +1413,7 @@ export default function Loans() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div className="space-y-2">
                     <h4 className="font-medium text-foreground flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-green-600" />
+                      <LucideShield className="h-4 w-4 text-green-600" />
                       Ranking Methodology
                     </h4>
                     <p className="text-muted-foreground">

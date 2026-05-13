@@ -15,7 +15,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Package, FolderTree, Search, Loader2, ChevronRight, ChevronDown, 
   AlertTriangle, History, Eye, EyeOff, FileText, RefreshCw,
-  Plus, Edit, Trash2, ArrowLeft, Shield, ShieldAlert, Sparkles, Award, Sprout
+  Plus, Edit, Trash2, ArrowLeft, Shield as LucideShield, ShieldAlert, Sparkles, Award, Sprout
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
@@ -314,7 +314,7 @@ function PortfolioApprovalsTab() {
             </div>
           ) : filteredAIF.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <LucideShield className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No {statusFilter === 'all' ? '' : statusFilter} AIF entries found</p>
             </div>
           ) : (
@@ -395,7 +395,7 @@ function PortfolioApprovalsTab() {
             </div>
           ) : filteredPMS.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <LucideShield className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No {statusFilter === 'all' ? '' : statusFilter} PMS entries found</p>
             </div>
           ) : (
@@ -480,7 +480,7 @@ function PortfolioApprovalsTab() {
             </div>
           ) : filteredMLD.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <LucideShield className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No {statusFilter === 'all' ? '' : statusFilter} MLD entries found</p>
             </div>
           ) : (
@@ -771,7 +771,7 @@ export default function StoreManagement() {
         label: 'ARN Licensed',
         description: 'Distribution license active',
         color: 'bg-green-500/20 text-green-400 border-green-500/30',
-        icon: Shield,
+        icon: LucideShield,
         authorized: true
       };
     }
@@ -817,7 +817,7 @@ export default function StoreManagement() {
             Products
           </TabsTrigger>
           <TabsTrigger value="portfolio-approvals" data-testid="tab-portfolio-approvals">
-            <Shield className="w-4 h-4 mr-2" />
+            <LucideShield className="w-4 h-4 mr-2" />
             Portfolio Approvals
           </TabsTrigger>
           <TabsTrigger value="audit" data-testid="tab-audit">

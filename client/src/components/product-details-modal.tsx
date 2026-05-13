@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
-import { Heart, ShoppingCart, Star, TrendingUp, Shield, Clock, CheckCircle, Info } from "lucide-react";
+import { Heart, ShoppingCart, Star, TrendingUp, Shield as LucideShield, Clock, CheckCircle, Info } from "lucide-react";
 import { useKycGuard, TransactionType } from "@/hooks/use-kyc-guard";
 import { KycGuardModal } from "@/components/kyc/KycGuardModal";
 
@@ -174,7 +174,7 @@ export function ProductDetailsModal({
                         {product.riskLevel.charAt(0).toUpperCase() + product.riskLevel.slice(1)}
                       </p>
                     </div>
-                    <Shield className="h-8 w-8 text-yellow-600" />
+                    <LucideShield className="h-8 w-8 text-yellow-600" />
                   </div>
                 </CardContent>
               </Card>

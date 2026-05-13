@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, IndianRupee, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe, Mail, Target, TrendingDown, Share2, Megaphone, MousePointer, Users2, BarChart3, PieChart, LineChart, Phone, ChevronLeft, ChevronRight, Menu, MessageCircle, Smartphone, Link, UserCheck, Building, Network, ArrowRightLeft, Handshake, Lightbulb, TestTube, AlertCircle, Info, Database, RefreshCw, Briefcase, ChevronDown, LayoutDashboard, Cog } from "lucide-react";
+import { AlertTriangle, Users, Activity, TrendingUp, MessageSquare, Settings, Search, Filter, Shield as LucideShield, FileText, Building2, Plus, Edit3, Trash2, Server, Brain, Zap, Lock, Receipt, CheckCircle, Calendar, Download, Loader2, IndianRupee, Clock, Eye, Edit, Send, UserPlus, MoreVertical, ShieldCheck, ShieldAlert, Bot, Monitor, BarChart, Globe, Mail, Target, TrendingDown, Share2, Megaphone, MousePointer, Users2, BarChart3, PieChart, LineChart, Phone, ChevronLeft, ChevronRight, Menu, MessageCircle, Smartphone, Link, UserCheck, Building, Network, ArrowRightLeft, Handshake, Lightbulb, TestTube, AlertCircle, Info, Database, RefreshCw, Briefcase, ChevronDown, LayoutDashboard, Cog } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -1542,7 +1542,7 @@ export default function AdminPanel() {
                     className="gap-2"
                     data-testid="nav-compliance-kyc"
                   >
-                    <Shield className="w-4 h-4" />
+                    <LucideShield className="w-4 h-4" />
                     Compliance & KYC
                     {complianceAlerts.length > 0 && (
                       <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
@@ -1558,7 +1558,7 @@ export default function AdminPanel() {
                     className={selectedTab === "ckyc" ? "bg-accent" : ""}
                     data-testid="nav-ckyc"
                   >
-                    <Shield className="w-4 h-4 mr-2" />
+                    <LucideShield className="w-4 h-4 mr-2" />
                     CKYC Management
                   </DropdownMenuItem>
                   <DropdownMenuItem 
@@ -1863,7 +1863,7 @@ export default function AdminPanel() {
                   <RouterLink href="/admin/bond-seed">
                     <Card className="cursor-pointer hover:bg-muted/50 transition-colors h-full" data-testid="link-bond-seed">
                       <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                        <Shield className="w-8 h-8 text-amber-500 mb-2" />
+                        <LucideShield className="w-8 h-8 text-amber-500 mb-2" />
                         <p className="font-medium text-sm">Bond Seed</p>
                         <p className="text-xs text-muted-foreground">Fixed Income</p>
                       </CardContent>

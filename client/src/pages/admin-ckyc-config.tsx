@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Settings, Shield, AlertCircle, RefreshCw, BarChart3,
+  Settings, Shield as LucideShield, AlertCircle, RefreshCw, BarChart3,
   CheckCircle, XCircle, Key, ArrowUpDown, Zap
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -172,7 +172,7 @@ export default function AdminCkycConfig() {
       <Tabs defaultValue="providers" className="space-y-4">
         <TabsList>
           <TabsTrigger value="providers">
-            <Shield className="h-4 w-4 mr-2" />
+            <LucideShield className="h-4 w-4 mr-2" />
             Provider Chain
           </TabsTrigger>
           <TabsTrigger value="config">

@@ -1,7 +1,7 @@
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Shield, Award, Users, Clock, IndianRupee, Globe, Linkedin,
+  Shield as LucideShield, Award, Users, Clock, IndianRupee, Globe, Linkedin,
   Twitter, Phone, Mail, MapPin, Star, CheckCircle, ExternalLink,
   TrendingUp, Building2,
 } from "lucide-react";
@@ -117,7 +117,7 @@ export default function PublicAdvisorProfile() {
           <Card>
             <CardContent className="py-4">
               <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <Shield className="h-4 w-4 text-primary" /> Regulatory Registrations
+                <LucideShield className="h-4 w-4 text-primary" /> Regulatory Registrations
               </h3>
               <div className="flex flex-wrap gap-2">
                 {profile.arnCode && (
@@ -127,12 +127,12 @@ export default function PublicAdvisorProfile() {
                 )}
                 {profile.sebiRegNumber && (
                   <Badge variant="outline" className="flex items-center gap-1 text-blue-600 border-blue-500">
-                    <Shield className="h-3 w-3" /> SEBI: {profile.sebiRegNumber}
+                    <LucideShield className="h-3 w-3" /> SEBI: {profile.sebiRegNumber}
                   </Badge>
                 )}
                 {profile.irdaiRegNumber && (
                   <Badge variant="outline" className="flex items-center gap-1 text-purple-600 border-purple-500">
-                    <Shield className="h-3 w-3" /> IRDAI: {profile.irdaiRegNumber}
+                    <LucideShield className="h-3 w-3" /> IRDAI: {profile.irdaiRegNumber}
                   </Badge>
                 )}
               </div>

@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Search, Building2, Star, TrendingUp, Users, Download, Calendar, MapPin, Globe, Mail, Phone, Briefcase, IndianRupee, CheckCircle2, AlertTriangle, Shield, CreditCard, Scale, UserCheck, FileWarning, Landmark, Eye, Building, FileText, User, Network, Loader2 } from 'lucide-react';
+import { Search, Building2, Star, TrendingUp, Users, Download, Calendar, MapPin, Globe, Mail, Phone, Briefcase, IndianRupee, CheckCircle2, AlertTriangle, Shield as LucideShield, CreditCard, Scale, UserCheck, FileWarning, Landmark, Eye, Building, FileText, User, Network, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -965,7 +965,7 @@ export default function LeadProspecting() {
                     {/* Entity & Compliance */}
                     <div className="space-y-2">
                       <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                        <Shield className="h-3 w-3" /> Entity & Compliance
+                        <LucideShield className="h-3 w-3" /> Entity & Compliance
                       </h4>
                       <div className="text-sm space-y-1">
                         {lead.listingStatus && (
@@ -1342,7 +1342,7 @@ export default function LeadProspecting() {
                     <Separator />
                     <div>
                       <h4 className="font-semibold mb-3 flex items-center gap-2">
-                        <Shield className="h-4 w-4" />
+                        <LucideShield className="h-4 w-4" />
                         Compliance & Entity
                       </h4>
                       <div className="grid gap-2 text-sm">

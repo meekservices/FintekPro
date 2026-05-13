@@ -29,7 +29,7 @@ import {
   ArrowRight,
   ArrowLeft,
   Loader2,
-  Shield,
+  Shield as LucideShield,
   Upload,
   FileText,
   AlertCircle,
@@ -440,7 +440,7 @@ export default function AgentClientOnboarding() {
 
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 space-y-2">
               <h4 className="font-medium text-amber-400 flex items-center gap-2">
-                <Shield className="w-4 h-4" />
+                <LucideShield className="w-4 h-4" />
                 Agent-Restricted KYC Steps
               </h4>
               <p className="text-xs text-muted-foreground">
@@ -722,7 +722,7 @@ export default function AgentClientOnboarding() {
                   </div>
 
                   <Alert className="bg-blue-500/10 border-blue-500/20">
-                    <Shield className="w-4 h-4 text-blue-400" />
+                    <LucideShield className="w-4 h-4 text-blue-400" />
                     <AlertTitle className="text-blue-400">Identity Verification</AlertTitle>
                     <AlertDescription className="text-blue-300/80">
                       PAN verification is mandatory for KYC compliance. The details will be verified using Cashfree APIs.

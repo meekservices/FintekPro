@@ -32,7 +32,7 @@ import {
   Play,
   Eye,
   Edit,
-  Shield,
+  Shield as LucideShield,
   Database,
   BarChart3,
   Download,
@@ -530,7 +530,7 @@ export default function ExchangeFilingsAdmin() {
                 <div className="border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-medium flex items-center gap-2">
-                      <Shield className="h-4 w-4" />
+                      <LucideShield className="h-4 w-4" />
                       Extracted Metrics
                     </h3>
                     <a href={detail.viewOriginalUrl} target="_blank" rel="noopener noreferrer">

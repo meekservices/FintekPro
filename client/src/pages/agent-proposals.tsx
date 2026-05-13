@@ -49,7 +49,7 @@ import {
   TrendingUp,
   PieChart,
   Wallet,
-  Shield
+  Shield as LucideShield
 } from "lucide-react";
 
 interface Proposal {
@@ -101,7 +101,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const WORKFLOW_STEPS = [
   { key: 'purpose_selection', label: 'Purpose', icon: Target },
-  { key: 'suitability_check', label: 'Suitability', icon: Shield },
+  { key: 'suitability_check', label: 'Suitability', icon: LucideShield },
   { key: 'optimization', label: 'Optimization', icon: TrendingUp },
   { key: 'draft_review', label: 'Draft Review', icon: FileText },
   { key: 'client_sharing', label: 'Share', icon: Share2 },
@@ -807,7 +807,7 @@ export default function AgentProposalsPage() {
             </div>
 
             <Alert>
-              <Shield className="h-4 w-4" />
+              <LucideShield className="h-4 w-4" />
               <AlertDescription>
                 All shares are logged and tracked. Client actions (view, approve, reject) 
                 are recorded for compliance.

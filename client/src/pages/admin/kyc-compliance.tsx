@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
-  Shield, 
+  Shield as LucideShield, 
   FileCheck, 
   AlertTriangle, 
   CheckCircle, 
@@ -394,7 +394,7 @@ export default function KycCompliancePage() {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ActiveTab)}>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="dashboard" data-testid="tab-kyc-dashboard">
-            <Shield className="h-4 w-4 mr-2" />
+            <LucideShield className="h-4 w-4 mr-2" />
             Dashboard
           </TabsTrigger>
           <TabsTrigger value="submissions" data-testid="tab-kyc-submissions">

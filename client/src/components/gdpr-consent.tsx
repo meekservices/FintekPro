@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Cookie, Database, Mail, Users } from "lucide-react";
+import { Shield as LucideShield, Cookie, Database, Mail, Users } from "lucide-react";
 import { Link } from "wouter";
 
 interface ConsentPreferences {
@@ -91,7 +91,7 @@ export function GDPRConsent() {
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="gdpr-consent-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <Shield className="w-6 h-6 text-blue-600" />
+            <LucideShield className="w-6 h-6 text-blue-600" />
             Your Privacy Matters
           </DialogTitle>
           <DialogDescription className="text-base">
@@ -154,7 +154,7 @@ export function GDPRConsent() {
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-lg">
-                      <Shield className="w-5 h-5 text-green-600" />
+                      <LucideShield className="w-5 h-5 text-green-600" />
                       Essential Services
                     </CardTitle>
                   </CardHeader>

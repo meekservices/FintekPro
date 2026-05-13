@@ -17,7 +17,7 @@ import {
   Wallet,
   CheckCircle,
   Clock,
-  Shield,
+  Shield as LucideShield,
   IndianRupee,
   FileText,
   Lock,
@@ -355,14 +355,14 @@ export default function TaxITRPaymentPage() {
               </Button>
 
               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                <Shield className="h-3 w-3" />
+                <LucideShield className="h-3 w-3" />
                 <span>Secured by 256-bit SSL encryption</span>
               </div>
             </CardContent>
           </Card>
 
           <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-            <Shield className="h-4 w-4 text-blue-600" />
+            <LucideShield className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-sm">
               Your payment information is secure. We use industry-standard encryption to protect your data.
             </AlertDescription>

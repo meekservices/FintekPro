@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { CreditCard, FileText, TrendingUp, IndianRupee, Shield, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { CreditCard, FileText, TrendingUp, IndianRupee, Shield as LucideShield, Clock, CheckCircle, AlertCircle } from "lucide-react";
 
 interface DematAccount {
   clientId: string;
@@ -264,7 +264,7 @@ export default function NSDLServices() {
           <Card data-testid="stat-service-centers">
             <CardContent className="p-6">
               <div className="flex items-center">
-                <Shield className="h-8 w-8 text-finance-purple" />
+                <LucideShield className="h-8 w-8 text-finance-purple" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-muted-foreground">Service Centers</p>
                   <p className="text-2xl font-bold">55,702</p>

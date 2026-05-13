@@ -20,7 +20,7 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Shield,
+  Shield as LucideShield,
   TrendingUp,
   TrendingDown,
   Clock,
@@ -548,7 +548,7 @@ export default function UnlistedPricingPreviewPage() {
         <Card className="bg-card border-border" data-testid="card-compliance-summary">
           <CardHeader>
             <CardTitle className="text-foreground flex items-center gap-2">
-              <Shield className="w-5 h-5 text-blue-400" />
+              <LucideShield className="w-5 h-5 text-blue-400" />
               Compliance Summary
             </CardTitle>
             <CardDescription className="text-muted-foreground">
@@ -641,7 +641,7 @@ export default function UnlistedPricingPreviewPage() {
               {checkComplianceMutation.isPending ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
-                <Shield className="w-4 h-4 mr-2" />
+                <LucideShield className="w-4 h-4 mr-2" />
               )}
               Re-check Compliance
             </Button>

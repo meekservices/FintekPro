@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Shield, TrendingUp, AlertTriangle, Scale, Info, Lock } from "lucide-react";
+import { Shield as LucideShield, TrendingUp, AlertTriangle, Scale, Info, Lock } from "lucide-react";
 
 interface RecommendationMode {
   id: string;
@@ -51,7 +51,7 @@ export function RecommendationModeSelector({
   const getModeIcon = (modeId: string) => {
     switch (modeId) {
       case "conservative":
-        return <Shield className="h-5 w-5 text-blue-500" />;
+        return <LucideShield className="h-5 w-5 text-blue-500" />;
       case "balanced":
         return <Scale className="h-5 w-5 text-green-500" />;
       case "growth_optimized":

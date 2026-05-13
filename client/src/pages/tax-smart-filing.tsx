@@ -24,7 +24,7 @@ import {
   Clock, 
   Download, 
   FileText, 
-  Shield, 
+  Shield as LucideShield, 
   Brain, 
   ChevronRight, 
   ChevronDown,
@@ -324,7 +324,7 @@ export default function TaxSmartFiling() {
     <Card data-testid="card-consent-step">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Shield className="h-5 w-5" />
+          <LucideShield className="h-5 w-5" />
           Tax Filing Consent & Setup
         </CardTitle>
         <CardDescription>
@@ -390,7 +390,7 @@ export default function TaxSmartFiling() {
             />
 
             <Alert>
-              <Shield className="h-4 w-4" />
+              <LucideShield className="h-4 w-4" />
               <AlertDescription>
                 Your data is encrypted and secure. We only access tax-related information with your explicit consent.
               </AlertDescription>

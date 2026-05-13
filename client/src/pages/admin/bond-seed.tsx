@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   RefreshCw, Search, Loader2, ArrowLeft, Building2, Landmark, FileText, 
-  TrendingUp, AlertTriangle, History, Eye, Shield, DollarSign, Percent,
+  TrendingUp, AlertTriangle, History, Eye, Shield as LucideShield, DollarSign, Percent,
   Plus, Upload, Download, Check, X, ChevronDown, ChevronUp, ExternalLink,
   Play, Pause, Clock, Activity, Database
 } from "lucide-react";
@@ -1053,7 +1053,7 @@ export default function BondSeedAdmin() {
       </div>
 
       <Alert>
-        <Shield className="h-4 w-4" />
+        <LucideShield className="h-4 w-4" />
         <AlertDescription>
           <strong>Regulatory Compliance:</strong> All brokerage rates are capped as per SEBI/RBI guidelines. 
           Government securities: max 0.025% (G-Secs, SDLs), 0.0125% (T-Bills), 0.50% (SGBs). 

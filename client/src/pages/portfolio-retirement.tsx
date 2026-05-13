@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Shield, 
+  Shield as LucideShield, 
   Sparkles,
   ArrowRight,
   CheckCircle,
@@ -57,7 +57,7 @@ export default function PortfolioRetirement() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Shield className="w-6 h-6 text-green-600" />
+            <LucideShield className="w-6 h-6 text-green-600" />
             Retirement Planning
           </h1>
           <p className="text-muted-foreground">Build your retirement corpus with AI-optimized investments</p>

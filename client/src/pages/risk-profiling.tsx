@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Shield, ChevronRight, ChevronLeft, CheckCircle, AlertTriangle, Info, Clock, Target, TrendingUp, DollarSign, Calendar, Briefcase } from "lucide-react";
+import { Shield as LucideShield, ChevronRight, ChevronLeft, CheckCircle, AlertTriangle, Info, Clock, Target, TrendingUp, DollarSign, Calendar, Briefcase } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -51,7 +51,7 @@ const CATEGORY_ICONS: Record<string, any> = {
   income_stability: DollarSign,
   net_worth: TrendingUp,
   investment_horizon: Target,
-  risk_tolerance: Shield,
+  risk_tolerance: LucideShield,
   investment_experience: Briefcase,
 };
 
@@ -182,7 +182,7 @@ export default function RiskProfilingPage() {
         <Card>
           <CardHeader className="text-center">
             <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-              <Shield className="h-8 w-8 text-primary" />
+              <LucideShield className="h-8 w-8 text-primary" />
             </div>
             <CardTitle className="text-2xl">SEBI Risk Profiling Assessment</CardTitle>
             <CardDescription className="text-base mt-2">
@@ -512,7 +512,7 @@ export default function RiskProfilingPage() {
         <Card className="border-2 border-primary/20">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-              <Shield className="h-10 w-10 text-primary" />
+              <LucideShield className="h-10 w-10 text-primary" />
             </div>
             <CardTitle className="text-2xl">Your Risk Profile</CardTitle>
             <CardDescription>Based on your assessment responses</CardDescription>

@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Download, FileText, Calendar, BarChart3, Shield, AlertTriangle, CheckCircle, Clock, RefreshCw } from "lucide-react";
+import { Download, FileText, Calendar, BarChart3, Shield as LucideShield, AlertTriangle, CheckCircle, Clock, RefreshCw } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -343,7 +343,7 @@ export default function RiskComplianceExport() {
       )}
 
       <Alert>
-        <Shield className="h-4 w-4" />
+        <LucideShield className="h-4 w-4" />
         <AlertTitle>SEBI Compliance Notice</AlertTitle>
         <AlertDescription>
           All risk profiling data is retained for 8 years as per SEBI regulations. Audit logs are immutable

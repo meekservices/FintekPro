@@ -12,7 +12,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Separator } from "@/components/ui/separator";
 import {
   TrendingUp,
-  Shield,
+  Shield as LucideShield,
   Clock,
   Calculator,
   FileText,
@@ -487,7 +487,7 @@ export default function LoanRecommendationsPage() {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                      <Shield className="w-5 h-5 text-green-600" />
+                      <LucideShield className="w-5 h-5 text-green-600" />
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-green-600">

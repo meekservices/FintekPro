@@ -14,7 +14,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { ArrowLeft, TrendingUp, Shield, AlertCircle } from "lucide-react";
+import { ArrowLeft, TrendingUp, Shield as LucideShield, AlertCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { UnlistedCompany, User } from "@shared/schema";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -159,7 +159,7 @@ export default function CreateSellListing() {
             <div className="mb-6">
               <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                 <div className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-primary" />
+                  <LucideShield className="h-5 w-5 text-primary" />
                   <span className="font-medium">KYC Tier:</span>
                   <Badge 
                     variant={isKycEligible ? "default" : "secondary"}

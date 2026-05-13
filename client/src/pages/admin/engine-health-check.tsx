@@ -18,7 +18,7 @@ import {
   ChevronDown,
   ChevronRight,
   Cpu,
-  Shield,
+  Shield as LucideShield,
   Calculator,
   TrendingUp,
   PieChart,
@@ -119,7 +119,7 @@ const CATEGORY_ICONS: Record<string, any> = {
   "Financial Planning": TrendingUp,
   "Return Metrics": BarChart3,
   "Valuation Models": Cpu,
-  "Compliance": Shield,
+  "Compliance": LucideShield,
   "AI Services": Brain,
   "Quant": Zap,
   "Financial": Calculator,
@@ -676,7 +676,7 @@ export default function EngineHealthCheck() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-primary" />
+                  <LucideShield className="h-5 w-5 text-primary" />
                   Gemini Deep Audit Report
                 </CardTitle>
               </CardHeader>

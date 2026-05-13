@@ -13,7 +13,7 @@ import {
   Check, 
   IndianRupee, 
   Zap, 
-  Shield, 
+  Shield as LucideShield, 
   AlertCircle,
   RefreshCw,
   TrendingDown,
@@ -603,7 +603,7 @@ export default function AdminAadhaarConfig() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <h4 className="font-medium flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
+                  <LucideShield className="h-4 w-4" />
                   Verification Flow
                 </h4>
                 <ol className="list-decimal list-inside text-sm text-muted-foreground space-y-1">

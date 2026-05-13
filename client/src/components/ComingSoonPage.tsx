@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Bell, ArrowLeft, Sparkles, Shield, TrendingUp, Building2 } from "lucide-react";
+import { Clock, Bell, ArrowLeft, Sparkles, Shield as LucideShield, TrendingUp, Building2 } from "lucide-react";
 import { Link } from "wouter";
 
 interface ComingSoonPageProps {
@@ -78,7 +78,7 @@ export function ComingSoonPage({
                     className="flex items-center gap-3 p-3 bg-muted rounded-lg"
                     data-testid={`feature-item-${index}`}
                   >
-                    {index === 0 && <Shield className="h-5 w-5 text-green-600" />}
+                    {index === 0 && <LucideShield className="h-5 w-5 text-green-600" />}
                     {index === 1 && <TrendingUp className="h-5 w-5 text-blue-600" />}
                     {index === 2 && <Building2 className="h-5 w-5 text-purple-600" />}
                     {index >= 3 && <Sparkles className="h-5 w-5 text-orange-600" />}

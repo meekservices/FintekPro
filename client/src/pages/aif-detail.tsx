@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  ArrowLeft, Building2, TrendingUp, TrendingDown, Shield, 
+  ArrowLeft, Building2, TrendingUp, TrendingDown, Shield as LucideShield, 
   BarChart3, PieChart, Calendar, Award, Clock, Target,
   AlertTriangle, DollarSign, Briefcase, Info, LineChart
 } from "lucide-react";
@@ -338,7 +338,7 @@ export default function AIFDetail() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground flex items-center gap-1"><Shield className="w-4 h-4" /> Risk</p>
+            <p className="text-sm text-muted-foreground flex items-center gap-1"><LucideShield className="w-4 h-4" /> Risk</p>
             <div className="mt-1">{getRiskBadge(scheme.riskScore)}</div>
           </CardContent>
         </Card>

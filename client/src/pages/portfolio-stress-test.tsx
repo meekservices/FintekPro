@@ -17,7 +17,7 @@ import {
   RefreshCw,
   Download,
   Info,
-  Shield,
+  Shield as LucideShield,
   Target,
   ArrowDown,
   ArrowUp,

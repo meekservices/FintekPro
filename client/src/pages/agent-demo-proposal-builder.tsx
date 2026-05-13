@@ -35,7 +35,7 @@ import {
   PieChart,
   TrendingUp,
   BarChart3,
-  Shield,
+  Shield as LucideShield,
   IndianRupee,
   CheckCircle,
   RefreshCw,
@@ -242,7 +242,7 @@ const PROPOSAL_SECTIONS = [
   { id: 'exitLoadSummary', name: 'Exit Load Summary', description: 'Lock-in periods and exit charges analysis', icon: Clock, category: 'tax', requiresData: 'exitLoads' },
   { id: 'taxImpactSummary', name: 'Tax Impact Summary', description: 'Overall tax implications with optimization tips', icon: Percent, category: 'tax' },
   { id: 'rebalancingSipRecommendations', name: 'Rebalancing & SIP Recommendations', description: 'Monthly SIP plan with source attribution', icon: RefreshCw, category: 'recommendations' },
-  { id: 'portfolioHealthScore', name: 'Portfolio Health Score', description: 'Diversification and risk-adjusted metrics', icon: Shield, category: 'analysis' },
+  { id: 'portfolioHealthScore', name: 'Portfolio Health Score', description: 'Diversification and risk-adjusted metrics', icon: LucideShield, category: 'analysis' },
   { id: 'expenseRatioAnalysis', name: 'Expense Ratio Analysis', description: 'Fund cost comparison and optimization', icon: Percent, category: 'analysis' },
   { id: 'riskHeatMap', name: 'Risk Heat Map', description: 'Visual risk distribution across holdings', icon: AlertTriangle, category: 'analysis' },
   { id: 'benchmarkComparison', name: 'Benchmark Comparison', description: 'Performance vs goal-appropriate benchmarks', icon: BarChart3, category: 'analysis' },
@@ -250,7 +250,7 @@ const PROPOSAL_SECTIONS = [
   { id: 'dividendProjection', name: 'Dividend Projection', description: 'Expected dividend income over time', icon: IndianRupee, category: 'projections' },
   { id: 'priorityRecommendations', name: 'Priority Recommendations', description: 'Top 5 actionable items for immediate focus', icon: Target, category: 'recommendations' },
   { id: 'portfolioGrowthProjection', name: 'Portfolio Growth Projection', description: 'Future value projections with confidence bands', icon: TrendingUp, category: 'projections' },
-  { id: 'mandatoryDisclaimers', name: 'Mandatory Disclaimers', description: 'SEBI/AMFI regulatory disclaimers', icon: Shield, category: 'compliance', required: true },
+  { id: 'mandatoryDisclaimers', name: 'Mandatory Disclaimers', description: 'SEBI/AMFI regulatory disclaimers', icon: LucideShield, category: 'compliance', required: true },
   { id: 'advisorDeclaration', name: 'Advisor Declaration', description: 'ARN holder declaration and signature', icon: CheckCircle, category: 'compliance', required: true },
 ];
 
@@ -2121,7 +2121,7 @@ export default function AgentDemoProposalBuilder() {
                         <Card className="mt-6">
                           <CardHeader>
                             <CardTitle className="text-base flex items-center gap-2">
-                              <Shield className="h-5 w-5 text-primary" />
+                              <LucideShield className="h-5 w-5 text-primary" />
                               SEBI Audit & Compliance Export
                             </CardTitle>
                             <CardDescription>

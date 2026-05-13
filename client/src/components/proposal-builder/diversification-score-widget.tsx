@@ -8,7 +8,7 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from "@/components/ui/tooltip";
-import { AlertTriangle, CheckCircle2, Info, TrendingDown, Shield } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, TrendingDown, Shield as LucideShield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DiversificationPenalty {
@@ -33,7 +33,7 @@ interface DiversificationScoreWidgetProps {
 
 const gradeConfig = {
   EXCELLENT: { color: "text-green-600", bg: "bg-green-50 dark:bg-green-950/30", border: "border-green-200 dark:border-green-800", icon: CheckCircle2 },
-  GOOD: { color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30", border: "border-blue-200 dark:border-blue-800", icon: Shield },
+  GOOD: { color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30", border: "border-blue-200 dark:border-blue-800", icon: LucideShield },
   FAIR: { color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-200 dark:border-amber-800", icon: AlertTriangle },
   POOR: { color: "text-red-600", bg: "bg-red-50 dark:bg-red-950/30", border: "border-red-200 dark:border-red-800", icon: TrendingDown },
 };
@@ -89,7 +89,7 @@ export function DiversificationScoreWidget({ data, compact = false }: Diversific
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-base flex items-center gap-2">
-              <Shield className={cn("h-5 w-5", config.color)} />
+              <LucideShield className={cn("h-5 w-5", config.color)} />
               Diversification Score
             </CardTitle>
             <CardDescription className="flex items-center gap-1">

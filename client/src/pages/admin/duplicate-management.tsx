@@ -4,7 +4,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, AlertTriangle, Mail, Phone, CreditCard, TrendingUp, CheckCircle, XCircle, Merge, Info, Shield } from "lucide-react";
+import { Users, AlertTriangle, Mail, Phone, CreditCard, TrendingUp, CheckCircle, XCircle, Merge, Info, Shield as LucideShield } from "lucide-react";
 import { format } from "date-fns";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";

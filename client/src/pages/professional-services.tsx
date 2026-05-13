@@ -8,7 +8,7 @@ import {
   TrendingUp,
   FileText,
   Target,
-  Shield,
+  Shield as LucideShield,
   Users,
   BookOpen,
   LineChart,
@@ -247,7 +247,7 @@ export default function ProfessionalServicesPage() {
             Research Services
           </TabsTrigger>
           <TabsTrigger value="specialized" data-testid="tab-specialized">
-            <Shield className="h-4 w-4 mr-2" />
+            <LucideShield className="h-4 w-4 mr-2" />
             Specialized Services
           </TabsTrigger>
           <TabsTrigger value="team" data-testid="tab-team">
@@ -375,7 +375,7 @@ export default function ProfessionalServicesPage() {
                       <CardTitle>{service.name}</CardTitle>
                       <CardDescription>{service.category}</CardDescription>
                     </div>
-                    <Shield className="h-5 w-5 text-primary" />
+                    <LucideShield className="h-5 w-5 text-primary" />
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">

@@ -10,7 +10,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Globe, PlaneTakeoff, Building2, CreditCard, FileText, Shield, 
+  Globe, PlaneTakeoff, Building2, CreditCard, FileText, Shield as LucideShield, 
   Calculator, Users, Phone, Mail, MapPin, Clock, CheckCircle, 
   ArrowRight, Sparkles, TrendingUp, Banknote, Receipt, 
   Home, Car, GraduationCap, Heart, AlertTriangle, Info,
@@ -200,7 +200,7 @@ const nriServices: NRIService[] = [
     processingTime: "5-7 business days",
     currency: "INR",
     rating: 4.6,
-    icon: Shield,
+    icon: LucideShield,
     benefits: ["Expert FEMA guidance", "Compliance documentation", "Penalty protection", "Regular updates"]
   },
   {
@@ -482,7 +482,7 @@ export default function NRIServices() {
               <div className="space-y-1">
                 {selectedCountryData?.regulations.map(regulation => (
                   <div key={regulation} className="text-sm text-muted-foreground flex items-center">
-                    <Shield className="h-3 w-3 mr-2 text-blue-500" />
+                    <LucideShield className="h-3 w-3 mr-2 text-blue-500" />
                     {regulation}
                   </div>
                 ))}

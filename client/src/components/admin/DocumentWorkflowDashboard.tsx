@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { 
   FileText, Search, Filter, Clock, CheckCircle, XCircle, 
   AlertTriangle, Users, Eye, History, Send, RefreshCw,
-  Download, Shield, FileSignature, Calendar
+  Download, Shield as LucideShield, FileSignature, Calendar
 } from 'lucide-react';
 
 interface WorkflowSummary {
@@ -307,7 +307,7 @@ export default function DocumentWorkflowDashboard() {
                                       <div>
                                         <label className="text-sm text-muted-foreground">Retention Until</label>
                                         <div className="mt-1 font-medium flex items-center gap-1">
-                                          <Shield className="h-4 w-4 text-green-600" />
+                                          <LucideShield className="h-4 w-4 text-green-600" />
                                           {workflowDetails?.workflow?.retentionExpiresAt ? formatDate(workflowDetails.workflow.retentionExpiresAt) : '8 Years'}
                                         </div>
                                       </div>

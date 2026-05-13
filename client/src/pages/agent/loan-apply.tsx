@@ -47,7 +47,7 @@ import {
   Calendar,
   CreditCard,
   Upload,
-  Shield,
+  Shield as LucideShield,
   AlertTriangle,
   CheckCircle
 } from "lucide-react";
@@ -1900,7 +1900,7 @@ export default function AgentLoanApplyPage() {
           {isAgentOrPartner && <Card className="mt-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-emerald-600" />
+                <LucideShield className="h-5 w-5 text-emerald-600" />
                 Lead Registry
               </CardTitle>
               <CardDescription>All registered leads and their current status</CardDescription>
@@ -1910,7 +1910,7 @@ export default function AgentLoanApplyPage() {
                 <LoadingState variant="list" count={3} />
               ) : leads.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <Shield className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <LucideShield className="h-10 w-10 mx-auto mb-3 opacity-30" />
                   <p>No leads registered yet. Leads are auto-registered when you submit loan applications.</p>
                 </div>
               ) : (
@@ -2788,7 +2788,7 @@ export default function AgentLoanApplyPage() {
               </div>
               {auditLead.processingMode && (
                 <div className="flex items-center gap-3 p-3 bg-muted rounded-lg border">
-                  <Shield className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                  <LucideShield className="h-4 w-4 text-blue-500 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-medium">
                       Processing Mode: {auditLead.processingMode}

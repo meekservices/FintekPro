@@ -11,7 +11,7 @@ import {
   Edit3,
   MessageSquare,
   RefreshCw,
-  Shield,
+  Shield as LucideShield,
   TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,7 +34,7 @@ interface AdvisorTalkingPointsProps {
 const typeConfig = {
   OVERLAP_RISK: { icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50 dark:bg-red-950/30" },
   REPLACE_FUND: { icon: RefreshCw, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30" },
-  DIVERSIFICATION: { icon: Shield, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30" },
+  DIVERSIFICATION: { icon: LucideShield, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30" },
   SECTOR_CONCENTRATION: { icon: Building2, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-950/30" },
 };
 

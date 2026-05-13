@@ -38,7 +38,7 @@ import {
   Settings,
   Award,
   Target,
-  Shield,
+  Shield as LucideShield,
   UserPlus,
   Copy,
   Link2,
@@ -229,7 +229,7 @@ export default function CADashboard() {
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <Shield className="h-16 w-16 text-muted-foreground" />
+        <LucideShield className="h-16 w-16 text-muted-foreground" />
         <h2 className="text-xl font-semibold text-muted-foreground">Authentication Required</h2>
         <p className="text-muted-foreground">Please log in to access your CA Dashboard</p>
         <Button onClick={() => setLocation('/login')}>Go to Login</Button>

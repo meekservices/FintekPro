@@ -20,7 +20,7 @@ import {
   CheckCircle,
   Clock,
   Users,
-  Shield,
+  Shield as LucideShield,
   Star,
   IndianRupee,
   AlertTriangle,
@@ -595,7 +595,7 @@ export default function TaxITRExpertPage() {
         </Card>
 
         <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
-          <Shield className="h-4 w-4 text-green-600" />
+          <LucideShield className="h-4 w-4 text-green-600" />
           <AlertDescription>
             Your data is secure and will only be shared with your assigned expert. Payment will be collected after draft review.
           </AlertDescription>

@@ -9,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { 
-  Shield, 
+  Shield as LucideShield, 
   Users, 
   Lock, 
   AlertTriangle, 
@@ -160,7 +160,7 @@ export default function UnlistedRegulatoryCompliance() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <Shield className="h-8 w-8 text-blue-500" />
+            <LucideShield className="h-8 w-8 text-blue-500" />
             Regulatory Compliance Dashboard
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -169,7 +169,7 @@ export default function UnlistedRegulatoryCompliance() {
         </div>
         <div className="flex gap-2">
           <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 py-2 px-4 flex items-center gap-2">
-            <Shield className="w-4 h-4" />
+            <LucideShield className="w-4 h-4" />
             Forensic Audit Enabled
           </Badge>
           <Button onClick={handleRefresh} variant="outline" data-testid="button-refresh">
@@ -278,7 +278,7 @@ export default function UnlistedRegulatoryCompliance() {
           </div>
 
           <Alert className="bg-blue-900/20 border-blue-700">
-            <Shield className="h-4 w-4 text-blue-500" />
+            <LucideShield className="h-4 w-4 text-blue-500" />
             <AlertTitle className="text-blue-300 font-semibold">Forensic Audit Active</AlertTitle>
             <AlertDescription className="text-blue-200 text-sm">
               All transactions are cryptographically signed using HMAC-SHA256 chain-of-trust. 
@@ -328,7 +328,7 @@ export default function UnlistedRegulatoryCompliance() {
                   { title: "6-Month Lock-In Enforcement", subtitle: "SEBI Private Placement Rules", icon: Lock, color: "text-purple-400" },
                   { title: "STR Red Flag Detection", subtitle: "PMLA / FIU-IND Compliance", icon: FileWarning, color: "text-orange-400" },
                   { title: "MCA Status Monitoring", subtitle: "Auto-suspend on listing", icon: Building2, color: "text-emerald-400" },
-                  { title: "Forensic Chain Integrity", subtitle: "HMAC-SHA256 Audit Trail", icon: Shield, color: "text-indigo-400" }
+                  { title: "Forensic Chain Integrity", subtitle: "HMAC-SHA256 Audit Trail", icon: LucideShield, color: "text-indigo-400" }
                 ].map((item, idx) => (
                   <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <div className="flex items-center gap-3">
@@ -396,7 +396,7 @@ export default function UnlistedRegulatoryCompliance() {
                   </Button>
                   
                   <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('audit-trail')}>
-                    <Shield className="h-4 w-4 mr-2 text-indigo-400" />
+                    <LucideShield className="h-4 w-4 mr-2 text-indigo-400" />
                     Verify Forensic Trail
                   </Button>
 
@@ -487,7 +487,7 @@ export default function UnlistedRegulatoryCompliance() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-indigo-400">
-                <Shield className="h-5 w-5" />
+                <LucideShield className="h-5 w-5" />
                 Forensic Audit Trail
               </CardTitle>
               <CardDescription>
@@ -536,7 +536,7 @@ export default function UnlistedRegulatoryCompliance() {
                         </TableCell>
                         <TableCell>
                           <Badge className="bg-emerald-600/20 text-emerald-500 border-emerald-500/30">
-                            <Shield className="w-3 h-3 mr-1" />
+                            <LucideShield className="w-3 h-3 mr-1" />
                             Verified
                           </Badge>
                         </TableCell>

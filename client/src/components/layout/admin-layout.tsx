@@ -34,7 +34,7 @@ import {
   Users,
   BarChart3,
   ShieldCheck,
-  Shield,
+  Shield as LucideShield,
   Database,
   Activity,
   Key,
@@ -235,9 +235,9 @@ const navCategories: NavCategory[] = [
   {
     id: "compliance",
     title: "Compliance",
-    icon: Shield,
+    icon: LucideShield,
     items: [
-      { title: "Regulatory Dashboard", href: "/admin/compliance-dashboard", icon: Shield, description: "SEBI/RBI compliance" },
+      { title: "Regulatory Dashboard", href: "/admin/compliance-dashboard", icon: LucideShield, description: "SEBI/RBI compliance" },
       { title: "Audit Norms", href: "/admin/regulatory-audit-norms", icon: Scale, description: "SEBI/AMFI/PMLA/RBI norms" },
       { title: "SEBI MF Compliance", href: "/admin/sebi-mf-compliance", icon: Scale, description: "SEBI 2026 MF categorisation" },
       { title: "Governance Queue", href: "/admin/approval-queue", icon: Workflow, description: "Maker-Checker approval queue" },

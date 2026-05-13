@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import { 
-  FileText, Scale, AlertTriangle, Shield, Users, CreditCard, 
+  FileText, Scale, AlertTriangle, Shield as LucideShield, Users, CreditCard, 
   Building2, TrendingUp, Landmark, Globe, Briefcase, Calculator,
   Ban, Gavel, Phone
 } from "lucide-react";
@@ -289,7 +289,7 @@ export default function TermsOfService() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <Shield className="w-5 h-5 mr-2 text-blue-600" />
+                  <LucideShield className="w-5 h-5 mr-2 text-blue-600" />
                   Data Protection & Privacy
                 </CardTitle>
               </CardHeader>

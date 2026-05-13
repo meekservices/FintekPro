@@ -19,7 +19,7 @@ import {
   Search,
   Download,
   BarChart3,
-  Shield,
+  Shield as LucideShield,
   Activity,
   AlertCircle
 } from "lucide-react";
@@ -363,7 +363,7 @@ export default function AdminAgentOversightPage() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
+                <LucideShield className="h-5 w-5" />
                 Agent Details
               </DialogTitle>
               <DialogDescription>Detailed view of agent activity and compliance</DialogDescription>

@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   Calculator, FileText, Download, Upload, AlertTriangle, CheckCircle,
-  Clock, TrendingUp, Building2, Users, Receipt, Shield, Info,
+  Clock, TrendingUp, Building2, Users, Receipt, Shield as LucideShield, Info,
   Calendar, DollarSign, PieChart, BarChart3, ArrowRight, RefreshCw,
   FileCheck, AlertCircle, HelpCircle, Banknote, Plus
 } from "lucide-react";
@@ -1511,7 +1511,7 @@ export default function TDSCompliancePage() {
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
-                        <Shield className="h-5 w-5 text-green-600" />
+                        <LucideShield className="h-5 w-5 text-green-600" />
                         Compliance Status
                       </CardTitle>
                     </CardHeader>

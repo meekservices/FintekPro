@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   PieChart, 
-  Shield, 
+  Shield as LucideShield, 
   Landmark, 
   Coins,
   Globe,
@@ -91,7 +91,7 @@ export default function PortfolioHoldings() {
             Global
           </TabsTrigger>
           <TabsTrigger value="insurance" data-testid="tab-insurance">
-            <Shield className="w-4 h-4 mr-2" />
+            <LucideShield className="w-4 h-4 mr-2" />
             Insurance
           </TabsTrigger>
           <TabsTrigger value="epf" data-testid="tab-epf">

@@ -5,7 +5,7 @@ import { PortalLogo } from "@/components/portal/PortalLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, User as UserIcon, HelpCircle, LogOut, Shield, Store, ShoppingCart } from "lucide-react";
+import { Menu, User as UserIcon, HelpCircle, LogOut, Shield as LucideShield, Store, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/use-cart";
 import { useUnifiedCartCount } from "@/contexts/UnifiedCartContext";
@@ -259,7 +259,7 @@ export function Header() {
                           onClick={() => setIsOpen(false)}
                           data-testid="mobile-kyc-dashboard-button"
                         >
-                          <Shield className="h-4 w-4 mr-2" />
+                          <LucideShield className="h-4 w-4 mr-2" />
                           KYC Dashboard
                         </Button>
                       </Link>

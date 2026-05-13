@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Circle, Loader2, ArrowRight, ArrowLeft, Shield, User, MapPin, CreditCard, FileText, Eye, Sparkles, Save, Check } from "lucide-react";
+import { CheckCircle2, Circle, Loader2, ArrowRight, ArrowLeft, Shield as LucideShield, User, MapPin, CreditCard, FileText, Eye, Sparkles, Save, Check } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { Progress } from "@/components/ui/progress";
@@ -809,7 +809,7 @@ export function MultiStepKYCWizard() {
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6 md:p-8 border">
         <div className="flex items-center gap-4">
           <div className="p-3 rounded-xl bg-primary/10 backdrop-blur-sm">
-            <Shield className="h-8 w-8 text-primary" />
+            <LucideShield className="h-8 w-8 text-primary" />
           </div>
           <div>
             <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">

@@ -18,7 +18,7 @@ import {
   ShoppingCart,
   Store,
   Lock,
-  Shield,
+  Shield as LucideShield,
   AlertTriangle
 } from 'lucide-react';
 import { LoadingState } from '@/components/LoadingState';
@@ -295,7 +295,7 @@ export default function CompanyDetails() {
       {/* Trading Eligibility Info Banner */}
       {!isNotLoggedIn && !canTrade && (
         <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/30" data-testid="alert-trading-eligibility">
-          <Shield className="h-5 w-5 text-amber-600" />
+          <LucideShield className="h-5 w-5 text-amber-600" />
           <AlertTitle className="text-amber-800 dark:text-amber-400">Trading Eligibility Required</AlertTitle>
           <AlertDescription className="text-amber-700 dark:text-amber-300">
             <p className="mb-3">

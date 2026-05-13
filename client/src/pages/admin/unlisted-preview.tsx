@@ -29,7 +29,7 @@ import {
   Users,
   Lightbulb,
   TrendingDown,
-  Shield,
+  Shield as LucideShield,
   Target,
   Scale,
   ArrowUpRight,
@@ -1653,7 +1653,7 @@ export default function UnlistedPreviewPage() {
               {/* Risk Factors */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-amber-400 font-medium mb-2">
-                  <Shield className="w-4 h-4" />
+                  <LucideShield className="w-4 h-4" />
                   Risk Factors
                 </div>
                 <ul className="space-y-2">

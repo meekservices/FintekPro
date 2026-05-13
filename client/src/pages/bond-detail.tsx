@@ -4,7 +4,7 @@ import { useRoute, useLocation, Link } from "wouter";
 import { 
   ArrowLeft, 
   Building2,
-  Shield,
+  Shield as LucideShield,
   TrendingUp,
   Calendar,
   IndianRupee,

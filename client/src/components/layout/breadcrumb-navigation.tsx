@@ -15,7 +15,7 @@ import {
   TrendingUp,
   PieChart,
   CreditCard,
-  Shield,
+  Shield as LucideShield,
   FileText,
   Calculator,
   Building2,
@@ -237,7 +237,7 @@ export function BreadcrumbNavigation() {
       breadcrumbs: (pathname) => {
         const breadcrumbs: BreadcrumbItem[] = [
           { label: "Dashboard", href: "/", icon: Home },
-          { label: "Insurance", href: "/insurance", icon: Shield }
+          { label: "Insurance", href: "/insurance", icon: LucideShield }
         ];
 
         if (pathname.includes("/health")) {

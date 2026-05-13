@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Settings, Shield, Lock, Percent, ChevronDown, ChevronUp, Clock, User, AlertTriangle, Plus } from "lucide-react";
+import { Settings, Shield as LucideShield, Lock, Percent, ChevronDown, ChevronUp, Clock, User, AlertTriangle, Plus } from "lucide-react";
 
 interface AgentOverride {
   overrideId: string;
@@ -129,7 +129,7 @@ export function AgentOverrideControls({
   const getOverrideIcon = (type: string) => {
     switch (type) {
       case "mode_downgrade":
-        return <Shield className="h-4 w-4 text-blue-500" />;
+        return <LucideShield className="h-4 w-4 text-blue-500" />;
       case "asset_class_lock":
         return <Lock className="h-4 w-4 text-orange-500" />;
       case "allocation_cap":
@@ -198,7 +198,7 @@ export function AgentOverrideControls({
                       <SelectContent>
                         <SelectItem value="mode_downgrade">
                           <div className="flex items-center gap-2">
-                            <Shield className="h-4 w-4 text-blue-500" />
+                            <LucideShield className="h-4 w-4 text-blue-500" />
                             Mode Downgrade
                           </div>
                         </SelectItem>

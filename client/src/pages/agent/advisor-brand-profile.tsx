@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   User, Building2, Award, BarChart3, Link2, Share2, Copy, CheckCircle,
   Camera, Globe, Linkedin, Twitter, Phone, Mail, MapPin, Star,
-  Shield, FileText, Calendar, TrendingUp, Users, Briefcase, Plus, X,
+  Shield as LucideShield, FileText, Calendar, TrendingUp, Users, Briefcase, Plus, X,
   ExternalLink, QrCode, Eye, EyeOff, IndianRupee, Clock, Sparkles,
 } from "lucide-react";
 
@@ -162,7 +162,7 @@ export default function AdvisorBrandProfile() {
       <Tabs defaultValue="branding">
         <TabsList className="flex flex-wrap gap-1 h-auto">
           <TabsTrigger value="branding"><User className="h-4 w-4 mr-1" />Photo & Brand</TabsTrigger>
-          <TabsTrigger value="credentials"><Shield className="h-4 w-4 mr-1" />Credentials</TabsTrigger>
+          <TabsTrigger value="credentials"><LucideShield className="h-4 w-4 mr-1" />Credentials</TabsTrigger>
           <TabsTrigger value="business"><BarChart3 className="h-4 w-4 mr-1" />Business Stats</TabsTrigger>
           <TabsTrigger value="specializations"><Star className="h-4 w-4 mr-1" />Specialisations</TabsTrigger>
           <TabsTrigger value="social"><Link2 className="h-4 w-4 mr-1" />Social Links</TabsTrigger>
@@ -241,7 +241,7 @@ export default function AdvisorBrandProfile() {
         <TabsContent value="credentials" className="space-y-4 mt-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" />Regulatory Registrations</CardTitle>
+              <CardTitle className="flex items-center gap-2"><LucideShield className="h-5 w-5" />Regulatory Registrations</CardTitle>
               <CardDescription>These are shown as verified badges on your public profile.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -313,12 +313,12 @@ export default function AdvisorBrandProfile() {
               )}
               {form.sebiRegNumber && (
                 <Badge variant="outline" className="flex items-center gap-1 text-blue-600 border-blue-600">
-                  <Shield className="h-3 w-3" /> SEBI: {form.sebiRegNumber}
+                  <LucideShield className="h-3 w-3" /> SEBI: {form.sebiRegNumber}
                 </Badge>
               )}
               {form.irdaiRegNumber && (
                 <Badge variant="outline" className="flex items-center gap-1 text-purple-600 border-purple-600">
-                  <Shield className="h-3 w-3" /> IRDAI: {form.irdaiRegNumber}
+                  <LucideShield className="h-3 w-3" /> IRDAI: {form.irdaiRegNumber}
                 </Badge>
               )}
               {form.nismCertNumber && (

@@ -21,7 +21,7 @@ import {
   User,
   Building2,
   Globe,
-  Shield,
+  Shield as LucideShield,
   File,
   Info
 } from "lucide-react";
@@ -1666,7 +1666,7 @@ export default function ManualKYCPage() {
       {currentStep === 'documents' && (
         <div className="space-y-6">
           <Alert>
-            <Shield className="h-4 w-4" />
+            <LucideShield className="h-4 w-4" />
             <AlertDescription>
               <strong>Document Guidelines:</strong> Upload clear, legible scans or photos. Ensure all text is readable and there's no glare or shadow on documents.
             </AlertDescription>

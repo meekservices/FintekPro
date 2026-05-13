@@ -11,7 +11,7 @@ import {
   CheckCircle2, 
   AlertCircle, 
   RefreshCw,
-  Shield,
+  Shield as LucideShield,
   User,
   Smile,
   Eye,
@@ -179,7 +179,7 @@ export default function VideoKYC() {
       <div className="max-w-2xl mx-auto py-12">
         <Card className="text-center">
           <CardContent className="pt-6">
-            <Shield className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <LucideShield className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Login Required</h2>
             <p className="text-muted-foreground mb-4">Please log in to complete video KYC verification.</p>
             <Link href="/auth">

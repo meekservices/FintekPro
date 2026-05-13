@@ -25,7 +25,7 @@ import {
   TrendingUp,
   TrendingDown,
   Target,
-  Shield,
+  Shield as LucideShield,
   Sparkles,
   BarChart3,
   Landmark,
@@ -218,7 +218,7 @@ const categoryIcons: Record<string, any> = {
   global_stocks: Globe,
   etfs: Coins,
   reits_invits: Building2,
-  fixed_deposits: Shield,
+  fixed_deposits: LucideShield,
   sgb: Coins,
   derivatives: Activity,
 };
@@ -286,7 +286,7 @@ const allCategories = [
   { key: "global_stocks", label: "Global", icon: Globe },
   { key: "etfs", label: "ETFs", icon: Coins },
   { key: "reits_invits", label: "REITs", icon: Building2 },
-  { key: "fixed_deposits", label: "FDs", icon: Shield },
+  { key: "fixed_deposits", label: "FDs", icon: LucideShield },
   { key: "sgb", label: "SGBs", icon: Coins },
   { key: "derivatives", label: "F&O", icon: Activity },
 ];
@@ -1962,7 +1962,7 @@ export default function AgentPicksPage() {
                 )}
                 {selectedPick.riskLevel && (
                   <Badge variant="outline">
-                    <Shield className="h-3 w-3 mr-1" />
+                    <LucideShield className="h-3 w-3 mr-1" />
                     {selectedPick.riskLevel.charAt(0).toUpperCase() + selectedPick.riskLevel.slice(1)} Risk
                   </Badge>
                 )}

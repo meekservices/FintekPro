@@ -16,7 +16,7 @@ import {
   Calculator, 
   IndianRupee, 
   TrendingUp, 
-  Shield, 
+  Shield as LucideShield, 
   CheckCircle, 
   AlertCircle, 
   Clock, 
@@ -808,7 +808,7 @@ export default function LoanApplication() {
                     <span className="text-sm">Document verification (1-2 business days)</span>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <Shield className="w-5 h-5 text-blue-600" />
+                    <LucideShield className="w-5 h-5 text-blue-600" />
                     <span className="text-sm">Credit assessment and approval (2-3 business days)</span>
                   </div>
                   <div className="flex items-center space-x-3">

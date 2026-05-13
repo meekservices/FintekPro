@@ -18,7 +18,7 @@ import {
   Settings as SettingsIcon, 
   User, 
   Bell, 
-  Shield, 
+  Shield as LucideShield, 
   Link as LinkIcon,
   Mail,
   Smartphone,
@@ -394,7 +394,7 @@ export default function SettingsPage() {
             Notifications
           </TabsTrigger>
           <TabsTrigger value="security" data-testid="tab-security">
-            <Shield className="h-4 w-4 mr-2" />
+            <LucideShield className="h-4 w-4 mr-2" />
             Security & Privacy
           </TabsTrigger>
           <TabsTrigger value="appearance" data-testid="tab-appearance">

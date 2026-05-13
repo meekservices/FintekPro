@@ -31,7 +31,7 @@ import {
   User,
   Phone,
   Mail,
-  Shield,
+  Shield as LucideShield,
   IndianRupee
 } from 'lucide-react';
 
@@ -218,7 +218,7 @@ export default function CARegistrationPage() {
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Shield className="h-8 w-8 text-blue-600" />
+            <LucideShield className="h-8 w-8 text-blue-600" />
             <h1 className="text-3xl font-bold text-foreground">CA Partner Registration</h1>
           </div>
           <p className="text-muted-foreground">
@@ -673,7 +673,7 @@ export default function CARegistrationPage() {
                 {currentStep === 5 && (
                   <div className="space-y-4">
                     <Alert>
-                      <Shield className="h-4 w-4" />
+                      <LucideShield className="h-4 w-4" />
                       <AlertDescription>
                         Banking details are required for commission payouts. All information is encrypted and secure.
                       </AlertDescription>

@@ -17,7 +17,7 @@ import { z } from "zod";
 import { 
   TrendingUp, TrendingDown, Wallet, AlertTriangle, CheckCircle, 
   DollarSign, PiggyBank, CreditCard, Users, Calculator,
-  Plus, Trash2, Edit, RefreshCw, Shield, Target, Landmark
+  Plus, Trash2, Edit, RefreshCw, Shield as LucideShield, Target, Landmark
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -332,7 +332,7 @@ export default function InvestableSurplusPage() {
       {/* Emergency Fund Status Alert */}
       {emergencyFund && (
         <Alert variant={emergencyFund.status === 'adequate' ? 'default' : 'destructive'} data-testid="alert-emergency-fund">
-          <Shield className="h-4 w-4" />
+          <LucideShield className="h-4 w-4" />
           <AlertTitle>Emergency Fund Status: {(emergencyFund.status || 'unknown').toUpperCase()}</AlertTitle>
           <AlertDescription className="flex items-center justify-between">
             <span>

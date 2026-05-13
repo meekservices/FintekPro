@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Shield, ShieldCheck, Crown, CheckCircle2, XCircle, AlertCircle, Lock, Unlock, Edit, ArrowRight, FileCheck, TrendingUp, Clock, Video, AlertTriangle } from 'lucide-react';
+import { Shield as LucideShield, ShieldCheck, Crown, CheckCircle2, XCircle, AlertCircle, Lock, Unlock, Edit, ArrowRight, FileCheck, TrendingUp, Clock, Video, AlertTriangle } from 'lucide-react';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -97,13 +97,13 @@ export default function KYCDashboard() {
   const getTierIcon = (tier: string) => {
     switch (tier) {
       case 'basic':
-        return <Shield className="h-5 w-5" />;
+        return <LucideShield className="h-5 w-5" />;
       case 'enhanced':
         return <ShieldCheck className="h-5 w-5" />;
       case 'accredited_investor':
         return <Crown className="h-5 w-5" />;
       default:
-        return <Shield className="h-5 w-5" />;
+        return <LucideShield className="h-5 w-5" />;
     }
   };
 

@@ -9,7 +9,7 @@ import {
   XCircle,
   Clock,
   Loader2,
-  Shield,
+  Shield as LucideShield,
   TrendingUp,
   Wallet,
   Building,
@@ -55,7 +55,7 @@ const DATA_SOURCE_CONFIG: Record<string, { icon: any; label: string; color: stri
   demat: { icon: Wallet, label: 'Demat Holdings', color: 'text-green-600 dark:text-green-400' },
   bank: { icon: Building, label: 'Bank Accounts', color: 'text-purple-600 dark:text-purple-400' },
   loans: { icon: CreditCard, label: 'Loan Liabilities', color: 'text-orange-600 dark:text-orange-400' },
-  insurance: { icon: Shield, label: 'Insurance Policies', color: 'text-indigo-600 dark:text-indigo-400' },
+  insurance: { icon: LucideShield, label: 'Insurance Policies', color: 'text-indigo-600 dark:text-indigo-400' },
   epf: { icon: Users, label: 'EPF/VPF Accounts', color: 'text-cyan-600 dark:text-cyan-400' },
   nps: { icon: PiggyBank, label: 'NPS Accounts', color: 'text-pink-600 dark:text-pink-400' },
   apy: { icon: Gift, label: 'APY Benefits', color: 'text-amber-600 dark:text-amber-400' }

@@ -21,7 +21,7 @@ import {
   IndianRupee,
   Database,
   Calendar,
-  Shield,
+  Shield as LucideShield,
   Sparkles,
   ArrowRight,
   Clock,
@@ -438,7 +438,7 @@ export default function OneClickTaxFiling() {
                       {formatCurrency(itrData.tdsDeducted)}
                     </p>
                   </div>
-                  <Shield className="h-8 w-8 text-purple-600" />
+                  <LucideShield className="h-8 w-8 text-purple-600" />
                 </div>
               </CardContent>
             </Card>

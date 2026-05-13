@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { 
-  Shield, 
+  Shield as LucideShield, 
   Lock, 
   FileText, 
   Eye, 
@@ -126,7 +126,7 @@ export function PANConsentModal({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="modal-pan-consent">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl" data-testid="heading-pan-consent">
-            <Shield className="h-5 w-5 text-blue-600" />
+            <LucideShield className="h-5 w-5 text-blue-600" />
             {title}
           </DialogTitle>
           <DialogDescription className="text-base">
@@ -167,7 +167,7 @@ export function PANConsentModal({
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
-                  <Shield className="h-4 w-4 text-green-600 mt-0.5" />
+                  <LucideShield className="h-4 w-4 text-green-600 mt-0.5" />
                   <div>
                     <p className="font-medium">Revocable Consent</p>
                     <p className="text-muted-foreground">You can withdraw consent anytime</p>

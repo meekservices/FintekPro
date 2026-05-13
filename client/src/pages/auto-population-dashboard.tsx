@@ -14,7 +14,7 @@ import {
   Clock,
   AlertTriangle,
   RefreshCw,
-  Shield,
+  Shield as LucideShield,
   Database,
   TrendingUp,
   Wallet,
@@ -72,10 +72,10 @@ const DATA_SOURCE_CONFIG = {
   demat: { icon: Wallet, label: 'Demat Holdings', color: 'text-green-600', provider: 'NSDL/CDSL', description: 'View your stocks, ETFs, and bonds from demat accounts' },
   bank: { icon: Building, label: 'Bank Accounts', color: 'text-purple-600', provider: 'Account Aggregator', description: 'Aggregate savings, current, and FD accounts' },
   loans: { icon: CreditCard, label: 'Loan Liabilities', color: 'text-orange-600', provider: 'CIBIL', description: 'Track home loans, personal loans, and credit cards' },
-  insurance: { icon: Shield, label: 'Insurance Policies', color: 'text-indigo-600', provider: 'Turtlefin API', description: 'View life, health, and general insurance policies' },
+  insurance: { icon: LucideShield, label: 'Insurance Policies', color: 'text-indigo-600', provider: 'Turtlefin API', description: 'View life, health, and general insurance policies' },
   epf: { icon: Wallet, label: 'EPF/VPF Account', color: 'text-amber-600', provider: 'EPFO', description: 'Track your provident fund balance and contributions' },
   nps: { icon: TrendingUp, label: 'NPS Account', color: 'text-cyan-600', provider: 'NPS CRA', description: 'National Pension System investments and balance' },
-  apy: { icon: Shield, label: 'APY Benefits', color: 'text-rose-600', provider: 'NSDL/APY', description: 'Atal Pension Yojana pension benefits' }
+  apy: { icon: LucideShield, label: 'APY Benefits', color: 'text-rose-600', provider: 'NSDL/APY', description: 'Atal Pension Yojana pension benefits' }
 };
 
 export default function AutoPopulationDashboard() {

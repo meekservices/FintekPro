@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Calculator, CreditCard, Home, Building, Car, TrendingUp, Shield, CheckCircle, ArrowRight } from 'lucide-react';
+import { AlertCircle, Calculator, CreditCard, Home, Building, Car, TrendingUp, Shield as LucideShield, CheckCircle, ArrowRight } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { useQuery } from '@tanstack/react-query';
 
@@ -271,7 +271,7 @@ export default function TataCapital() {
               Used Car Loan
             </TabsTrigger>
             <TabsTrigger value="property-loan" className="data-[state=active]:bg-red-100 dark:bg-red-900/30 data-[state=active]:text-red-800 dark:text-red-200">
-              <Shield className="w-4 h-4 mr-2" />
+              <LucideShield className="w-4 h-4 mr-2" />
               Loan Against Property
             </TabsTrigger>
           </ScrollableTabsList>
@@ -552,7 +552,7 @@ export default function TataCapital() {
                       )}
                       {businessLoanResult.collateralRequired && (
                         <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
-                          <Shield className="w-4 h-4 mr-1" />
+                          <LucideShield className="w-4 h-4 mr-1" />
                           Collateral Required
                         </Badge>
                       )}
@@ -669,7 +669,7 @@ export default function TataCapital() {
             <Card className="border-red-200 dark:border-red-800">
               <CardHeader className="bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20">
                 <CardTitle className="flex items-center gap-2 text-red-800 dark:text-red-200">
-                  <Shield className="w-5 h-5" />
+                  <LucideShield className="w-5 h-5" />
                   Loan Against Property Calculator
                 </CardTitle>
                 <CardDescription>Calculate EMI for loans against residential and commercial property</CardDescription>
@@ -795,7 +795,7 @@ export default function TataCapital() {
           <Card className="border-purple-200 dark:border-purple-800">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-purple-800 dark:text-purple-200">
-                <Shield className="w-5 h-5" />
+                <LucideShield className="w-5 h-5" />
                 Digital KYC & Verification
               </CardTitle>
             </CardHeader>

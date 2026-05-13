@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, AlertTriangle, Shield, Info } from "lucide-react";
+import { TrendingUp, AlertTriangle, Shield as LucideShield, Info } from "lucide-react";
 
 interface GrowthOptimizedDisclosureProps {
   variant?: "banner" | "card" | "inline";
@@ -106,7 +106,7 @@ export function RecommendationFooter({ mode, className = "" }: RecommendationFoo
       data-testid="recommendation-footer"
     >
       <div className="flex items-start gap-2">
-        <Shield className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+        <LucideShield className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
         <div className="space-y-1">
           <p className="text-xs text-muted-foreground font-medium">
             Important Disclosure

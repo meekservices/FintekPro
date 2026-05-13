@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Calculator, 
   TrendingUp, 
-  Shield, 
+  Shield as LucideShield, 
   Database, 
   Banknote, 
   BarChart3, 
@@ -238,7 +238,7 @@ export default function Home() {
       category: "Investment Services",
       services: [
         { name: "NSDL Services", desc: "Depository services integration", icon: Database, route: "/nsdl-services" },
-        { name: "CDSL Services", desc: "Depository account access", icon: Shield, route: "/cdsl-services" },
+        { name: "CDSL Services", desc: "Depository account access", icon: LucideShield, route: "/cdsl-services" },
         { name: "Pre-IPO Access", desc: "Unicorn equity stakes", icon: Sparkles, route: "/pre-ipo" },
         { name: "Unlisted Securities", desc: "Pre-IPO opportunities", icon: Building2, route: "/unlisted" }
       ]
@@ -613,7 +613,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               {[
                 {
-                  icon: Shield,
+                  icon: LucideShield,
                   title: "Bank-Grade Security",
                   description: "256-bit SSL encryption and multi-factor authentication"
                 },

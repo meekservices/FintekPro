@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Shield, Wifi } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Shield as LucideShield, Wifi } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export function KycEnvironmentBanner() {

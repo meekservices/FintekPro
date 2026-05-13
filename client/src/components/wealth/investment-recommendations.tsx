@@ -14,7 +14,7 @@ import {
   ArrowRight,
   IndianRupee,
   Calendar,
-  Shield,
+  Shield as LucideShield,
   BarChart3,
   Lightbulb,
   Brain,
@@ -404,7 +404,7 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
                     <span>Monthly: {formatCurrency(rec.monthlyInvestment)}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-purple-600" />
+                    <LucideShield className="w-4 h-4 text-purple-600" />
                     <span>Risk: {rec.risk}</span>
                   </div>
                 </div>
@@ -541,7 +541,7 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
             <div className="p-4 border rounded-lg space-y-3" data-testid="suggestion-tax-saving">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-lg">
-                  <Shield className="w-5 h-5" />
+                  <LucideShield className="w-5 h-5" />
                 </div>
                 <div>
                   <h4 className="font-medium">Tax-Saving Investment</h4>
@@ -631,7 +631,7 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
                 </div>
               </div>
               <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-                <Shield className="w-4 h-4 text-blue-600 mt-0.5" />
+                <LucideShield className="w-4 h-4 text-blue-600 mt-0.5" />
                 <div>
                   <p className="font-medium text-blue-800 dark:text-blue-200">Risk Management</p>
                   <p className="text-blue-700 dark:text-blue-300">Diversification across asset classes is recommended</p>
@@ -760,7 +760,7 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
                 data-testid="button-conservative-risk"
                 onClick={() => setSelectedRiskProfile('conservative')}
               >
-                <Shield className="w-4 h-4" />
+                <LucideShield className="w-4 h-4" />
                 <span className="text-xs font-medium">Conservative</span>
                 <span className="text-xs text-muted-foreground">Low Risk</span>
               </Button>
@@ -932,7 +932,7 @@ export function InvestmentRecommendations({ portfolioId, goalId }: InvestmentRec
                     </div>
                     <div className="flex items-center justify-between p-2 bg-green-100 dark:bg-green-900/30 rounded">
                       <div className="flex items-center gap-2">
-                        <Shield className="w-3 h-3 text-green-600" />
+                        <LucideShield className="w-3 h-3 text-green-600" />
                         <span className="text-xs font-medium text-green-800 dark:text-green-200">Premium Bonds</span>
                       </div>
                       <div className="text-right">

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import { 
-  Shield, Eye, Lock, Database, UserCheck, AlertTriangle, 
+  Shield as LucideShield, Eye, Lock, Database, UserCheck, AlertTriangle, 
   Clock, Globe, Server, FileCheck, Phone
 } from "lucide-react";
 
@@ -31,7 +31,7 @@ export default function PrivacyPolicy() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <div className="flex items-center justify-center mb-4">
-              <Shield className="w-12 h-12 text-blue-600 mr-3" />
+              <LucideShield className="w-12 h-12 text-blue-600 mr-3" />
               <h1 className="text-4xl font-bold text-foreground">Privacy Policy</h1>
             </div>
             <p className="text-lg text-muted-foreground">

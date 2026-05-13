@@ -19,7 +19,7 @@ import {
   Search,
   ArrowRight,
   TrendingUp,
-  Shield,
+  Shield as LucideShield,
   Star,
   Coins
 } from "lucide-react";
@@ -216,7 +216,7 @@ export default function AgentLoanMarketplace() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-green-600" />
+            <LucideShield className="h-5 w-5 text-green-600" />
             DSA Benefits
           </CardTitle>
         </CardHeader>

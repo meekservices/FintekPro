@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { 
   Leaf, 
   Users, 
-  Shield, 
+  Shield as LucideShield, 
   TrendingUp, 
   Info,
   Award,
@@ -210,7 +210,7 @@ export function ESGScoreWidget({ portfolioId }: ESGScoreWidgetProps) {
 
           <div className="flex items-center gap-3">
             <div className="p-1.5 bg-purple-100 dark:bg-purple-900 rounded">
-              <Shield className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <LucideShield className="h-4 w-4 text-purple-600 dark:text-purple-400" />
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">

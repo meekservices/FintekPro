@@ -20,7 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { SessionConflictDialog } from "@/components/SessionConflictDialog";
 import { useSession } from "@/contexts/session-context";
-import { Loader2, Eye, EyeOff, Shield, TrendingUp, BarChart3, MessageSquare, CheckCircle2, Mail, Smartphone, User, Info, Clock, RefreshCw, AlertCircle, Phone, LogIn, Users, Lock } from "lucide-react";
+import { Loader2, Eye, EyeOff, Shield as LucideShield, TrendingUp, BarChart3, MessageSquare, CheckCircle2, Mail, Smartphone, User, Info, Clock, RefreshCw, AlertCircle, Phone, LogIn, Users, Lock } from "lucide-react";
 import { usePortalMeta } from "@/components/portal/PortalLogo";
 import { PORTAL_BRAND_CONFIG, resolvePortalType } from "@shared/portal";
 import mainLogoImg from "@assets/fintekpro_main_1772539048013.png";
@@ -746,7 +746,7 @@ export default function AuthPage() {
   };
 
   const featureIcons = {
-    shield: Shield,
+    shield: LucideShield,
     trending: TrendingUp,
     chart: BarChart3,
     message: MessageSquare,
@@ -881,7 +881,7 @@ export default function AuthPage() {
         <div className="lg:w-7/12 bg-white flex flex-col items-center justify-center px-4 py-8 sm:px-8 sm:py-10 relative min-h-[500px]">
           {/* SSL badge */}
           <div className="absolute top-4 right-5 flex items-center gap-1.5 text-xs text-green-600 font-medium">
-            <Shield className="h-3.5 w-3.5" />
+            <LucideShield className="h-3.5 w-3.5" />
             Secure SSL Connection
           </div>
 
@@ -1109,7 +1109,7 @@ export default function AuthPage() {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-blue-600" />
+                <LucideShield className="h-5 w-5 text-blue-600" />
                 Enter Verification Code
               </DialogTitle>
               <DialogDescription>We've sent a 6-digit code to <strong>{otpChannel}</strong></DialogDescription>
@@ -1159,7 +1159,7 @@ export default function AuthPage() {
           >
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-blue-600" />
+                <LucideShield className="h-5 w-5 text-blue-600" />
                 Verify Your Email & Mobile
               </DialogTitle>
               <DialogDescription>
@@ -1436,7 +1436,7 @@ export default function AuthPage() {
                                 Credentials
                               </span>
                               <span className="flex items-center gap-1 font-medium" style={{ color: loginStep === "complete" ? '#16a34a' : portalColor }}>
-                                {loginStep === "complete" ? <CheckCircle2 className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
+                                {loginStep === "complete" ? <CheckCircle2 className="h-4 w-4" /> : <LucideShield className="h-4 w-4" />}
                                 OTP Verification
                               </span>
                               <span className={`flex items-center gap-1 ${loginStep === "complete" ? "text-green-600 font-medium" : "text-muted-foreground"}`}>
@@ -1507,7 +1507,7 @@ export default function AuthPage() {
                           </div>
 
                           <Alert className="border" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}30` }}>
-                            <Shield className="h-4 w-4" style={{ color: portalColor }} />
+                            <LucideShield className="h-4 w-4" style={{ color: portalColor }} />
                             <AlertDescription className="text-sm" style={{ color: portalColor }}>
                               After entering credentials, you'll receive a 6-digit OTP via email/SMS for verification.
                             </AlertDescription>
@@ -1691,7 +1691,7 @@ export default function AuthPage() {
                                 style={{ backgroundColor: "#F59E0B", color: "white" }}
                                 onClick={() => setRegistrationOtpDialogOpen(true)}
                               >
-                                <Shield className="h-4 w-4 mr-2" />
+                                <LucideShield className="h-4 w-4 mr-2" />
                                 Enter Verification Code
                               </Button>
                             </AlertDescription>
@@ -1837,7 +1837,7 @@ export default function AuthPage() {
         <DialogContent className="sm:max-w-md" data-testid="dialog-otp-verification">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" style={{ color: portalColor }} />
+              <LucideShield className="h-5 w-5" style={{ color: portalColor }} />
               Enter Verification Code
             </DialogTitle>
             <DialogDescription>
@@ -1941,7 +1941,7 @@ export default function AuthPage() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" style={{ color: portalColor }} />
+              <LucideShield className="h-5 w-5" style={{ color: portalColor }} />
               Verify Your Email & Mobile
             </DialogTitle>
             <DialogDescription>

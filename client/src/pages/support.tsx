@@ -24,7 +24,7 @@ import {
   Settings,
   HelpCircle,
   Download,
-  Shield,
+  Shield as LucideShield,
   Building,
   AlertTriangle,
   ChevronDown,
@@ -241,7 +241,7 @@ export default function Support() {
     {
       title: "Update KYC Documents", 
       description: "Upload or update your KYC",
-      icon: Shield,
+      icon: LucideShield,
       action: "update-kyc"
     },
     {

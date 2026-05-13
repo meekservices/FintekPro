@@ -19,7 +19,7 @@ import {
   TrendingDown,
   AlertTriangle,
   Target,
-  Shield,
+  Shield as LucideShield,
   Search,
   Download,
   RefreshCw,
@@ -209,7 +209,7 @@ export default function AdminAIInsights() {
         <Card className="bg-card border-border border-l-4 border-l-orange-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Risk Score</CardTitle>
-            <Shield className="h-4 w-4 text-orange-400" />
+            <LucideShield className="h-4 w-4 text-orange-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground" data-testid="text-risk-score">{riskScore}/100</div>

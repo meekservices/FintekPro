@@ -41,7 +41,7 @@ import {
   Download,
   FileText,
   TrendingUp,
-  Shield,
+  Shield as LucideShield,
   Star,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -227,7 +227,7 @@ export default function AgentResearchListDetail() {
                     Performance
                   </TabsTrigger>
                   <TabsTrigger value="risk" className="gap-2">
-                    <Shield className="h-4 w-4" />
+                    <LucideShield className="h-4 w-4" />
                     Risk
                   </TabsTrigger>
                 </TabsList>

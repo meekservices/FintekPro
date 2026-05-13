@@ -37,7 +37,7 @@ import {
   FileCheck,
   ArrowUpRight,
   CheckCircle,
-  Shield,
+  Shield as LucideShield,
   Calendar,
   User,
   Clock,
@@ -162,7 +162,7 @@ const REPORT_SECTIONS = [
     id: 'disclosureMaterials', 
     name: 'Disclosures', 
     description: 'SEBI-compliant disclaimers and risk warnings',
-    icon: Shield,
+    icon: LucideShield,
     category: 'compliance'
   },
 ];

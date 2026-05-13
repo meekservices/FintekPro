@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Shield, CreditCard, Building, TrendingUp, Database, FileText, Eye, Phone, Mail, Users, Link, Info, Loader2, CheckCircle, Lock } from "lucide-react";
+import { User, Shield as LucideShield, CreditCard, Building, TrendingUp, Database, FileText, Eye, Phone, Mail, Users, Link, Info, Loader2, CheckCircle, Lock } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { usePanConsent } from "@/hooks/use-pan-consent";
 import { PANDataDashboard } from "@/components/pan-data-dashboard";
@@ -532,7 +532,7 @@ export default function ProfilePage() {
               
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <Shield className="h-4 w-4" />
+                  <LucideShield className="h-4 w-4" />
                   <span>KYC Status:</span>
                   <span className={`font-medium ${profileData?.panNumber ? 'text-green-600' : 'text-orange-600'}`}>
                     {profileData?.panNumber ? 'Completed' : 'Pending'}
@@ -563,7 +563,7 @@ export default function ProfilePage() {
                     className="w-full text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-700 dark:hover:bg-orange-950"
                     data-testid="button-start-re-ckyc"
                   >
-                    <Shield className="h-4 w-4 mr-2" />
+                    <LucideShield className="h-4 w-4 mr-2" />
                     Update Protected Data
                   </Button>
                   <p className="text-xs text-muted-foreground text-center mt-1">
@@ -823,7 +823,7 @@ export default function ProfilePage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
+                  <LucideShield className="h-5 w-5" />
                   KYC Information
                 </CardTitle>
               </CardHeader>
@@ -1202,7 +1202,7 @@ export default function ProfilePage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-blue-600" />
+                  <LucideShield className="h-5 w-5 text-blue-600" />
                   Investment Risk Profile
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -1371,7 +1371,7 @@ export default function ProfilePage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
+                  <LucideShield className="h-5 w-5" />
                   PEP Status & Beneficial Ownership
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">

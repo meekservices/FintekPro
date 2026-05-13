@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Users, CheckCircle, XCircle, AlertTriangle, Shield, Clock,
+  Users, CheckCircle, XCircle, AlertTriangle, Shield as LucideShield, Clock,
   ChevronRight, GitBranch, IndianRupee, FileText, Search,
   RefreshCw, Wallet, Ban, Trash2, Eye, Settings2, Activity,
   BadgeCheck, Building2, Phone, Mail, Hash
@@ -317,7 +317,7 @@ export default function AdminPartnerHierarchy() {
           <p className="text-muted-foreground text-sm">Approve partners, manage hierarchy, configure commissions and payouts</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => integrityMutation.mutate()} disabled={integrityMutation.isPending}>
-          <Shield className="h-4 w-4 mr-2" />
+          <LucideShield className="h-4 w-4 mr-2" />
           {integrityMutation.isPending ? "Checking..." : "Integrity Check"}
         </Button>
       </div>

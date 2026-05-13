@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   RefreshCw,
-  Shield,
+  Shield as LucideShield,
   CheckCircle2,
   XCircle,
   Clock,
@@ -454,7 +454,7 @@ export function ExternalPortfolioSync() {
         {/* Data Sources */}
         <div className="bg-background rounded-lg p-4 border border-border">
           <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
-            <Shield className="w-4 h-4 text-indigo-600" />
+            <LucideShield className="w-4 h-4 text-indigo-600" />
             Supported Data Sources
           </h4>
           

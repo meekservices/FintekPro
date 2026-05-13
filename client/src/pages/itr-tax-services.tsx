@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { 
   FileText, Calculator, Users, Clock, CheckCircle, AlertTriangle,
-  TrendingUp, Shield, Receipt, Building2, CreditCard, Phone,
+  TrendingUp, Shield as LucideShield, Receipt, Building2, CreditCard, Phone,
   Mail, Calendar, Star, Award, Target, Zap, ChevronRight,
   BookOpen, DollarSign, PieChart, BarChart3, Download,
   Upload, Send, Eye, Edit, Save, ArrowRight, Info
@@ -231,7 +231,7 @@ const taxServices: TaxService[] = [
     processingTime: "15-20 business days",
     rating: 4.6,
     isPremium: true,
-    icon: Shield,
+    icon: LucideShield,
     benefits: ["Statutory compliance", "Clean audit report", "Tax optimization", "Audit defense"],
     documents: ["Books of Accounts", "Financial Statements", "Supporting Documents"]
   },
@@ -268,7 +268,7 @@ const taxPlanningStrategies: TaxPlanning[] = [
     description: "Save taxes through health insurance premiums under Section 80D",
     potentialSavings: "₹31,200",
     category: "Deductions",
-    icon: Shield,
+    icon: LucideShield,
     details: ["Self & Family - ₹25,000", "Parents - ₹25,000", "Senior Citizen Bonus - ₹50,000", "Preventive Health Checkup"]
   },
   {
@@ -760,7 +760,7 @@ export default function ITRTaxServices() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-green-600" />
+                  <LucideShield className="h-5 w-5 text-green-600" />
                   Compliance Health Check
                 </CardTitle>
               </CardHeader>

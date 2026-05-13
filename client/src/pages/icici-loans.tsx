@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { CreditCard, IndianRupee, Send, CheckCircle, AlertCircle, Clock, Eye, Download, RefreshCw, Building2, Calculator, FileText, Shield, Users, TrendingUp, PlusCircle } from "lucide-react";
+import { CreditCard, IndianRupee, Send, CheckCircle, AlertCircle, Clock, Eye, Download, RefreshCw, Building2, Calculator, FileText, Shield as LucideShield, Users, TrendingUp, PlusCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";

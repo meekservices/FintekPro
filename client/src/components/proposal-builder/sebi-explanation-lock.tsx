@@ -10,7 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { AlertTriangle, Check, Copy, Edit3, FileText, Lock, Shield, X } from "lucide-react";
+import { AlertTriangle, Check, Copy, Edit3, FileText, Lock, Shield as LucideShield, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -119,7 +119,7 @@ export function SEBIExplanationLock({
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
+              <LucideShield className="h-5 w-5 text-primary" />
               SEBI-Compliant Explanations
             </CardTitle>
             <CardDescription>

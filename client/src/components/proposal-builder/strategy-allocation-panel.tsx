@@ -22,7 +22,7 @@ import {
   TrendingUp,
   TrendingDown,
   BarChart3,
-  Shield,
+  Shield as LucideShield,
   ArrowRight,
   Loader2,
   PieChart,
@@ -443,7 +443,7 @@ export default function StrategyAllocationPanel({ proposalId, currentHoldings = 
             <Card className="border-green-200 dark:border-green-800">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2 text-green-700 dark:text-green-400">
-                  <Shield className="h-4 w-4" />
+                  <LucideShield className="h-4 w-4" />
                   Locked Strategy Snapshot (v{lockedStrategy.versionNumber})
                 </CardTitle>
               </CardHeader>
@@ -580,7 +580,7 @@ export default function StrategyAllocationPanel({ proposalId, currentHoldings = 
                   </div>
 
                   <Alert>
-                    <Shield className="h-4 w-4" />
+                    <LucideShield className="h-4 w-4" />
                     <AlertDescription className="text-xs">
                       This comparison uses static allocation enforcement with no tactical reallocation, AI reweighting, or period optimization. Both portfolios are measured over the same common time window.
                     </AlertDescription>
@@ -665,7 +665,7 @@ export default function StrategyAllocationPanel({ proposalId, currentHoldings = 
                   {/* Risk Metric Delta */}
                   <div>
                     <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                      <Shield className="h-4 w-4" /> Risk Metrics Impact
+                      <LucideShield className="h-4 w-4" /> Risk Metrics Impact
                     </h4>
                     <div className="grid grid-cols-1 gap-2">
                       {differenceSummary.riskMetricDelta.map((r) => (

@@ -40,7 +40,7 @@ import {
   Clock,
   AlertTriangle,
   FileText,
-  Shield,
+  Shield as LucideShield,
   User,
   ArrowUpRight
 } from "lucide-react";
@@ -88,7 +88,7 @@ const statusIcons: Record<string, typeof Clock> = {
   approved: CheckCircle,
   rejected: XCircle,
   expired: AlertTriangle,
-  revoked: Shield,
+  revoked: LucideShield,
 };
 
 export function OverrideProposalManagement() {
@@ -163,7 +163,7 @@ export function OverrideProposalManagement() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
+              <LucideShield className="h-5 w-5" />
               Investment Limit Override Proposals
             </CardTitle>
             <CardDescription>

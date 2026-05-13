@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
 import {
-  Settings, Sparkles, Zap, Calculator, Shield, AlertTriangle,
+  Settings, Sparkles, Zap, Calculator, Shield as LucideShield, AlertTriangle,
   TrendingUp, Users, History, Download, RefreshCw, Save, 
   CheckCircle, XCircle, Edit, Eye, BarChart2
 } from "lucide-react";
@@ -329,7 +329,7 @@ export default function GlobalFeeModelAdmin() {
 
               {settings?.lastUpdatedBy && (
                 <Alert>
-                  <Shield className="h-4 w-4" />
+                  <LucideShield className="h-4 w-4" />
                   <AlertTitle>Last Updated</AlertTitle>
                   <AlertDescription>
                     Policy v{settings.policyVersion} was last modified on {format(new Date(settings.updatedAt), 'PPpp')}

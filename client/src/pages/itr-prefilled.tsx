@@ -32,7 +32,7 @@ import {
   Brain,
   Zap,
   Target,
-  Shield,
+  Shield as LucideShield,
   Archive,
   Calculator
 } from 'lucide-react';
@@ -343,7 +343,7 @@ export default function ITRPrefilledPage() {
                       {itrData?.filingStatus || 'Draft'}
                     </p>
                   </div>
-                  <Shield className="h-8 w-8 text-purple-600" />
+                  <LucideShield className="h-8 w-8 text-purple-600" />
                 </div>
                 {itrData?.readyForFiling && (
                   <Badge className="mt-2 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200">Ready for Filing</Badge>

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
-import { Shield, Heart, Car, Home, Users, TrendingUp, Calculator } from "lucide-react";
+import { Shield as LucideShield, Heart, Car, Home, Users, TrendingUp, Calculator } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { LoadingState } from "@/components/LoadingState";
@@ -35,7 +35,7 @@ export default function Insurance() {
     {
       id: "health",
       name: "Health Insurance",
-      icon: Shield,
+      icon: LucideShield,
       description: "Medical coverage for individuals and families",
       color: "green",
       count: 67
@@ -159,7 +159,7 @@ export default function Insurance() {
                   ))
                 ) : (
                   <div className="col-span-full text-center py-12">
-                    <Shield className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                    <LucideShield className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground">No insurance plans available in this category.</p>
                     <p className="text-muted-foreground text-sm mt-2">Please check other categories or try again later.</p>
                   </div>

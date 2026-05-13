@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  Shield, 
+  Shield as LucideShield, 
   Calendar, 
   AlertTriangle, 
   CheckCircle, 
@@ -166,7 +166,7 @@ export default function ComplianceDashboard() {
         <Card className="bg-gradient-to-br from-emerald-500 to-green-600 text-foreground">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Shield className="w-5 h-5" />
+              <LucideShield className="w-5 h-5" />
               Compliance Score
             </CardTitle>
           </CardHeader>
@@ -218,7 +218,7 @@ export default function ComplianceDashboard() {
         <Card className={data?.forensicStatus?.status === 'failed' ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : ''}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Shield className={`w-4 h-4 ${data?.forensicStatus?.status === 'failed' ? 'text-red-600' : 'text-emerald-600'}`} />
+              <LucideShield className={`w-4 h-4 ${data?.forensicStatus?.status === 'failed' ? 'text-red-600' : 'text-emerald-600'}`} />
               Forensic Integrity
             </CardTitle>
           </CardHeader>

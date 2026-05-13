@@ -22,7 +22,7 @@ import {
   Activity,
   DollarSign,
   Users,
-  Shield,
+  Shield as LucideShield,
   FileText,
   ArrowRight,
   RefreshCw,
@@ -519,7 +519,7 @@ export default function UnlistedDashboard() {
                   <span className="text-xs text-muted-foreground">Stale Valuations</span>
                 </div>
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${healthData.data.summary.totalComplianceFlagged > 0 ? 'bg-yellow-950/30 border-yellow-800' : 'bg-green-950/30 border-green-800'}`}>
-                  <Shield className={`h-4 w-4 ${healthData.data.summary.totalComplianceFlagged > 0 ? 'text-yellow-400' : 'text-green-400'}`} />
+                  <LucideShield className={`h-4 w-4 ${healthData.data.summary.totalComplianceFlagged > 0 ? 'text-yellow-400' : 'text-green-400'}`} />
                   <span className="text-sm font-medium text-foreground">{healthData.data.summary.totalComplianceFlagged}</span>
                   <span className="text-xs text-muted-foreground">Compliance Flagged</span>
                 </div>

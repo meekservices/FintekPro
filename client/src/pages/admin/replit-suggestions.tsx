@@ -13,7 +13,7 @@ import {
   Lightbulb, 
   Brain, 
   Key, 
-  Shield, 
+  Shield as LucideShield, 
   Zap,
   AlertTriangle,
   AlertCircle,
@@ -415,7 +415,7 @@ export default function ReplitSuggestions() {
       case "ai_enablement": return <Brain className="h-5 w-5" />;
       case "production_apis": return <Key className="h-5 w-5" />;
       case "features": return <Zap className="h-5 w-5" />;
-      case "security": return <Shield className="h-5 w-5" />;
+      case "security": return <LucideShield className="h-5 w-5" />;
       case "performance": return <Activity className="h-5 w-5" />;
     }
   };

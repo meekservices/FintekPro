@@ -7,7 +7,7 @@ import {
   TrendingUp,
   TrendingDown,
   RefreshCw,
-  Shield,
+  Shield as LucideShield,
   ArrowUpRight,
   ArrowDownRight,
   Eye,
@@ -91,7 +91,7 @@ export function PortfolioHero({
             <div className="flex items-center gap-3">
               {panVerified && (
                 <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30">
-                  <Shield className="h-3 w-3 mr-1" />
+                  <LucideShield className="h-3 w-3 mr-1" />
                   PAN Verified
                 </Badge>
               )}

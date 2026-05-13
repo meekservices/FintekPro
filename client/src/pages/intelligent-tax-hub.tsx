@@ -33,7 +33,7 @@ import {
   Target,
   Sparkles,
   Eye,
-  Shield,
+  Shield as LucideShield,
   ArrowUpDown,
   PieChart,
   BarChart3,
@@ -662,10 +662,10 @@ export default function IntelligentTaxHub() {
                 const getTypeIcon = (type: string) => {
                   switch (type) {
                     case "salary": return <Building2 className="h-4 w-4" />;
-                    case "government": return <Shield className="h-4 w-4" />;
+                    case "government": return <LucideShield className="h-4 w-4" />;
                     case "bank": return <Banknote className="h-4 w-4" />;
                     case "investments": return <TrendingUp className="h-4 w-4" />;
-                    case "insurance": return <Shield className="h-4 w-4" />;
+                    case "insurance": return <LucideShield className="h-4 w-4" />;
                     default: return <Database className="h-4 w-4" />;
                   }
                 };

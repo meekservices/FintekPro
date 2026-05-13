@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, TrendingUp, Shield, AlertTriangle, Info, ShoppingCart, ChevronRight } from "lucide-react";
+import { Sparkles, TrendingUp, Shield as LucideShield, AlertTriangle, Info, ShoppingCart, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface EvaluatedProduct {

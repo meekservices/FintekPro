@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { 
   Globe, 
   Settings, 
-  Shield, 
+  Shield as LucideShield, 
   ToggleLeft, 
   ToggleRight, 
   AlertTriangle, 
@@ -264,7 +264,7 @@ export default function GlobalAdvisoryManagement() {
                           <div className="flex items-center gap-4">
                             <Badge variant={market.advisoryLevel === "FULL" ? "default" : "secondary"}>
                               {market.advisoryLevel === "FULL" ? (
-                                <><Shield className="h-3 w-3 mr-1" /> Full</>
+                                <><LucideShield className="h-3 w-3 mr-1" /> Full</>
                               ) : (
                                 <><BarChart3 className="h-3 w-3 mr-1" /> Analytics</>
                               )}

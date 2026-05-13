@@ -1,7 +1,7 @@
 import React from "react";
 import { 
   Eye, Globe, Building2, Clock, Calculator, CheckCircle, 
-  AlertTriangle, XCircle, Shield, FileText, Trash2, Upload, 
+  AlertTriangle, XCircle, Shield as LucideShield, FileText, Trash2, Upload, 
   Send, Banknote, Lightbulb, Wallet, FileSearch, HelpCircle,
   TrendingUp, Scale
 } from "lucide-react";
@@ -221,7 +221,7 @@ export const ReviewSection: React.FC = (): React.ReactElement => {
           <Card className="dark:border-border border-red-200 dark:border-red-800">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Shield className="h-4 w-4 text-red-600" />
+                <LucideShield className="h-4 w-4 text-red-600" />
                 Schedule FA — Foreign Assets ({foreignIncomeDetails.foreignAssets.length})
                 <Badge variant="outline" className="text-[10px] text-red-600 border-red-300">Mandatory</Badge>
               </CardTitle>
@@ -528,7 +528,7 @@ export const ReviewSection: React.FC = (): React.ReactElement => {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="h-4 w-4" /> Advanced Options
+              <LucideShield className="h-4 w-4" /> Advanced Options
             </CardTitle>
             <Button variant="ghost" size="sm" onClick={(): void => setShowAdvancedOptions(!showAdvancedOptions)}>
               {showAdvancedOptions ? "Hide" : "Show"}
@@ -838,7 +838,7 @@ export const ReviewSection: React.FC = (): React.ReactElement => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="h-4 w-4" /> Filing Utilities
+              <LucideShield className="h-4 w-4" /> Filing Utilities
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -1144,7 +1144,7 @@ export const ReviewSection: React.FC = (): React.ReactElement => {
           <CardContent className="p-4">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-green-600" />
+                <LucideShield className="h-5 w-5 text-green-600" />
                 <div>
                   <p className="text-xs font-semibold text-green-700 dark:text-green-400">Security & Compliance</p>
                   <p className="text-[10px] text-muted-foreground">128-bit SSL | AES-256 Encryption | SEBI/IT Dept Compliant</p>

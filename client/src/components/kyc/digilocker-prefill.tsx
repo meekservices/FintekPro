@@ -6,7 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { 
   FileText, 
-  Shield, 
+  Shield as LucideShield, 
   CheckCircle2, 
   Loader2, 
   ArrowRight,
@@ -206,7 +206,7 @@ export function DigiLockerPrefill({ onDocumentsFetched, requiredDocuments = ['aa
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-100 dark:bg-green-900 rounded-full">
-              <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
+              <LucideShield className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
               <CardTitle className="text-lg">DigiLocker Connected</CardTitle>

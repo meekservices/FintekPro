@@ -23,7 +23,7 @@ import {
   Wifi, 
   Home,
   Car,
-  Shield,
+  Shield as LucideShield,
   Building,
   IndianRupee,
   Calendar,
@@ -102,7 +102,7 @@ const categoryIcons: Record<string, any> = {
   TELECOM_PREPAID: Smartphone,
   DTH: Wifi,
   BROADBAND: Wifi,
-  INSURANCE: Shield,
+  INSURANCE: LucideShield,
   LOAN_REPAYMENT: Building,
   MUNICIPAL: Building,
 };

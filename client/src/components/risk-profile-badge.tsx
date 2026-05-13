@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Shield, AlertTriangle, CheckCircle, Lock } from "lucide-react";
+import { Shield as LucideShield, AlertTriangle, CheckCircle, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface RiskProfile {
@@ -57,7 +57,7 @@ export function RiskProfileBadge({
   if (isLoading) {
     return (
       <Badge variant="outline" className={cn("animate-pulse", className)}>
-        <Shield className="h-3 w-3 mr-1" />
+        <LucideShield className="h-3 w-3 mr-1" />
         Loading...
       </Badge>
     );
@@ -104,7 +104,7 @@ export function RiskProfileBadge({
             onClick={() => setLocation("/risk-profiling")}
             data-testid="badge-risk-profile"
           >
-            <Shield className={cn(
+            <LucideShield className={cn(
               "mr-1",
               size === "small" && "h-3 w-3",
               size === "default" && "h-3.5 w-3.5",

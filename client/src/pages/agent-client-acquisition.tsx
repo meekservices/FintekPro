@@ -41,7 +41,7 @@ import {
   MessageSquare,
   ThumbsUp,
   XCircle,
-  Shield,
+  Shield as LucideShield,
   Sparkles,
   Building2,
   Wallet,
@@ -965,7 +965,7 @@ export default function AgentClientAcquisitionPage() {
                 </div>
                 <div className="text-center">
                   <div className="h-20 w-20 mx-auto rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center mb-2">
-                    <Shield className="h-10 w-10 text-amber-600" />
+                    <LucideShield className="h-10 w-10 text-amber-600" />
                   </div>
                   <p className="text-2xl font-bold">0</p>
                   <p className="text-sm text-muted-foreground">Compliance Flags</p>

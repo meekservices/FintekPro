@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, TrendingDown, IndianRupee, Package, Users, AlertTriangle, Shield } from "lucide-react";
+import { TrendingUp, TrendingDown, IndianRupee, Package, Users, AlertTriangle, Shield as LucideShield } from "lucide-react";
 import { ProfitDashboard } from "@/components/supplier/profit-dashboard";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -141,7 +141,7 @@ export function SupplierManagement() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card>
           <CardContent className="p-12 text-center">
-            <Shield className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <LucideShield className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Access Denied</h3>
             <p className="text-muted-foreground">You don't have permission to access supplier management. Admin access required.</p>
           </CardContent>
@@ -156,7 +156,7 @@ export function SupplierManagement() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card>
           <CardContent className="p-12 text-center">
-            <Shield className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+            <LucideShield className="h-12 w-12 text-blue-500 mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Authentication Required</h3>
             <p className="text-muted-foreground mb-4">Please log in to access supplier management.</p>
             <Button onClick={() => window.location.href = "/api/login"}>

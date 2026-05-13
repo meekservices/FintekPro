@@ -7,7 +7,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { 
   ShoppingCart, IndianRupee, RefreshCw, Trash2, CreditCard, AlertOctagon,
   Package, CheckCircle2, Building2, Briefcase, BarChart3, FileText, 
-  TrendingUp, ArrowRight, Clock, Shield
+  TrendingUp, ArrowRight, Clock, Shield as LucideShield
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -348,7 +348,7 @@ export default function UnifiedCart() {
 
                 <div className="bg-amber-100 dark:bg-amber-900/30 rounded-lg p-3 text-sm">
                   <div className="flex items-start gap-2">
-                    <Shield className="w-4 h-4 text-amber-600 mt-0.5" />
+                    <LucideShield className="w-4 h-4 text-amber-600 mt-0.5" />
                     <div>
                       <p className="font-medium text-amber-800 dark:text-amber-300">Regulatory Compliance</p>
                       <p className="text-amber-700 dark:text-amber-400 text-xs">

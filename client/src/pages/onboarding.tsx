@@ -26,7 +26,7 @@ import {
   CheckCircle, 
   Loader2,
   AlertCircle,
-  Shield,
+  Shield as LucideShield,
   Sparkles,
   ArrowRight,
   ArrowLeft,
@@ -1157,7 +1157,7 @@ export default function SmartKYCOnboarding() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Shield className="h-6 w-6 text-primary" />
+                <LucideShield className="h-6 w-6 text-primary" />
                 <CardTitle>PAN-Driven Smart Onboarding</CardTitle>
               </div>
               <div className="flex items-center gap-2">
@@ -1575,7 +1575,7 @@ export default function SmartKYCOnboarding() {
       <Card className="max-w-2xl mx-auto">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Shield className="h-6 w-6 text-primary" />
+            <LucideShield className="h-6 w-6 text-primary" />
             <CardTitle>Step 1: PAN Verification</CardTitle>
           </div>
           <CardDescription>
@@ -1639,7 +1639,7 @@ export default function SmartKYCOnboarding() {
 
               {v2EntityInfo && (
                 <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
-                  <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <LucideShield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   <AlertDescription className="text-blue-800 dark:text-blue-300">
                     <div className="flex items-center justify-between">
                       <span>
@@ -1772,7 +1772,7 @@ export default function SmartKYCOnboarding() {
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Shield className="h-6 w-6 text-primary" />
+          <LucideShield className="h-6 w-6 text-primary" />
           <CardTitle>Step 3: Aadhaar Verification</CardTitle>
         </div>
         <CardDescription>
@@ -1847,7 +1847,7 @@ export default function SmartKYCOnboarding() {
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Shield className="h-6 w-6 text-primary" />
+          <LucideShield className="h-6 w-6 text-primary" />
           <CardTitle>Step 4: Verify OTP</CardTitle>
         </div>
         <CardDescription>
@@ -1913,7 +1913,7 @@ export default function SmartKYCOnboarding() {
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Shield className="h-6 w-6 text-primary" />
+          <LucideShield className="h-6 w-6 text-primary" />
           <CardTitle>Step 2: Central KYC Registry Check</CardTitle>
         </div>
         <CardDescription>
@@ -1944,7 +1944,7 @@ export default function SmartKYCOnboarding() {
               className="w-full"
               data-testid="btn-check-ckyc"
             >
-              <Shield className="mr-2 h-4 w-4" />
+              <LucideShield className="mr-2 h-4 w-4" />
               Check CKYC/KRA Status
             </Button>
           </div>
@@ -2112,7 +2112,7 @@ export default function SmartKYCOnboarding() {
       <Card className="max-w-2xl mx-auto">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Shield className="h-6 w-6 text-primary" />
+            <LucideShield className="h-6 w-6 text-primary" />
             <CardTitle>Step 6: Risk Profiling</CardTitle>
           </div>
           <CardDescription>
@@ -2578,7 +2578,7 @@ export default function SmartKYCOnboarding() {
                 onClick={() => setExpandedSignCategory(expandedSignCategory === 'aadhaar' ? null : 'aadhaar')}
               >
                 <div className="flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-green-600" />
+                  <LucideShield className="h-4 w-4 text-green-600" />
                   <span className="font-medium text-sm">Aadhaar eSign</span>
                   <Badge className="bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300 text-[10px] px-1.5 py-0">Highest Acceptance</Badge>
                 </div>
@@ -2631,7 +2631,7 @@ export default function SmartKYCOnboarding() {
                             className="w-full"
                             data-testid="btn-aadhaar-esign"
                           >
-                            <Shield className="mr-2 h-4 w-4" /> Initiate Aadhaar OTP eSign
+                            <LucideShield className="mr-2 h-4 w-4" /> Initiate Aadhaar OTP eSign
                           </Button>
                         </div>
                       )}
@@ -3771,7 +3771,7 @@ export default function SmartKYCOnboarding() {
           <div className="space-y-6">
             {/* Regulatory Notice */}
             <Alert>
-              <Shield className="h-4 w-4" />
+              <LucideShield className="h-4 w-4" />
               <AlertTitle>Regulatory Compliance</AlertTitle>
               <AlertDescription>
                 As per SEBI/RBI KYC guidelines, certain fields cannot be modified after verification. 
@@ -3807,7 +3807,7 @@ export default function SmartKYCOnboarding() {
             <Card className="border-amber-200 dark:border-amber-800">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-amber-500" />
+                  <LucideShield className="h-5 w-5 text-amber-500" />
                   Verified Identity Information
                 </CardTitle>
                 <CardDescription>
@@ -3818,7 +3818,7 @@ export default function SmartKYCOnboarding() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
-                  <Shield className="h-4 w-4 text-amber-600" />
+                  <LucideShield className="h-4 w-4 text-amber-600" />
                   <AlertDescription className="text-amber-800 dark:text-amber-300 text-xs">
                     <strong>Regulatory Note:</strong> As per SEBI KYC Master Circular 2024 &amp; PMLA Rules 2005,
                     changes to PAN or Date of Birth on a verified KYC require a fresh Re-KYC verification.
@@ -3859,7 +3859,7 @@ export default function SmartKYCOnboarding() {
                           setRekycDialogOpen(true);
                         }}
                       >
-                        <Shield className="h-3 w-3 mr-2" />
+                        <LucideShield className="h-3 w-3 mr-2" />
                         Request PAN Correction (Triggers Re-KYC)
                       </Button>
                     )}
@@ -3896,7 +3896,7 @@ export default function SmartKYCOnboarding() {
                           setRekycDialogOpen(true);
                         }}
                       >
-                        <Shield className="h-3 w-3 mr-2" />
+                        <LucideShield className="h-3 w-3 mr-2" />
                         Request DOB Correction (Triggers Re-KYC)
                       </Button>
                     )}
@@ -3915,7 +3915,7 @@ export default function SmartKYCOnboarding() {
               <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-amber-500" />
+                    <LucideShield className="h-5 w-5 text-amber-500" />
                     Request {rekycField === 'panNumber' ? 'PAN Number' : 'Date of Birth'} Correction
                   </DialogTitle>
                   <DialogDescription>
@@ -4082,7 +4082,7 @@ export default function SmartKYCOnboarding() {
                         {rekycSubmitting ? (
                           <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting...</>
                         ) : (
-                          <><Shield className="h-4 w-4 mr-2" />Submit Re-KYC Request</>
+                          <><LucideShield className="h-4 w-4 mr-2" />Submit Re-KYC Request</>
                         )}
                       </Button>
                     </DialogFooter>
@@ -4298,7 +4298,7 @@ export default function SmartKYCOnboarding() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-purple-500" />
+                  <LucideShield className="h-5 w-5 text-purple-500" />
                   Contact Information (OTP Verification Required)
                 </CardTitle>
                 <CardDescription>
@@ -4422,7 +4422,7 @@ export default function SmartKYCOnboarding() {
                 {/* OTP Input Dialog */}
                 {editOtpSent && editOtpType && !editOtpVerified[editOtpType] && (
                   <Alert className="mt-4">
-                    <Shield className="h-4 w-4" />
+                    <LucideShield className="h-4 w-4" />
                     <AlertTitle>Enter OTP sent to your {editOtpType}</AlertTitle>
                     <AlertDescription>
                       <div className="flex gap-2 mt-2">

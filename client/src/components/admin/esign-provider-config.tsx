@@ -12,7 +12,7 @@ import {
   Check, 
   IndianRupee, 
   Zap, 
-  Shield, 
+  Shield as LucideShield, 
   AlertCircle,
   RefreshCw,
   TrendingDown
@@ -247,7 +247,7 @@ export function ESignProviderConfig() {
               </div>
 
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Shield className="h-4 w-4" />
+                <LucideShield className="h-4 w-4" />
                 <span>Environment: {provider.environment.toUpperCase()}</span>
               </div>
 

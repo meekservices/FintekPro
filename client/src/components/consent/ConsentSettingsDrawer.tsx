@@ -21,7 +21,7 @@ import {
   Calendar, 
   RefreshCw, 
   Building, 
-  Shield, 
+  Shield as LucideShield, 
   AlertTriangle,
   CheckCircle2
 } from 'lucide-react';
@@ -75,7 +75,7 @@ export function ConsentSettingsDrawer({
       <SheetContent className="w-[400px] sm:w-[540px]" data-testid="drawer-consent-settings">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-blue-600" />
+            <LucideShield className="h-5 w-5 text-blue-600" />
             {sourceLabel} Settings
           </SheetTitle>
           <SheetDescription>{sourceDescription}</SheetDescription>

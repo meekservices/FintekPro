@@ -8,7 +8,7 @@ import {
   AlertTriangle,
   Brain,
   RefreshCw,
-  Shield,
+  Shield as LucideShield,
   MessageSquare,
   TrendingUp,
 } from "lucide-react";
@@ -291,7 +291,7 @@ export function PortfolioIntelligencePanel({
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4 mb-4">
             <TabsTrigger value="overview" className="text-xs">
-              <Shield className="h-3.5 w-3.5 mr-1" />
+              <LucideShield className="h-3.5 w-3.5 mr-1" />
               Score
             </TabsTrigger>
             <TabsTrigger value="replace" className="text-xs">
@@ -326,7 +326,7 @@ export function PortfolioIntelligencePanel({
               />
             ) : (
               <div className="p-6 bg-green-50 dark:bg-green-950/30 rounded-lg text-center">
-                <Shield className="h-10 w-10 text-green-500 mx-auto mb-2" />
+                <LucideShield className="h-10 w-10 text-green-500 mx-auto mb-2" />
                 <p className="font-medium text-green-700 dark:text-green-300">
                   No Redundant Funds Detected
                 </p>

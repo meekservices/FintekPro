@@ -18,7 +18,7 @@ import {
   Send,
   Clock,
   Calculator,
-  Shield,
+  Shield as LucideShield,
   RefreshCw
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -313,7 +313,7 @@ export default function SandboxITRFiling() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Shield className="h-5 w-5" />
+                      <LucideShield className="h-5 w-5" />
                       ITR Validation Results
                     </CardTitle>
                     <CardDescription>

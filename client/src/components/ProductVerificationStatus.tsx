@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, XCircle, AlertTriangle, Shield, TrendingUp, Globe, Building2, Landmark, Coins, Briefcase } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, Shield as LucideShield, TrendingUp, Globe, Building2, Landmark, Coins, Briefcase } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ProductVerificationItem {
@@ -55,7 +55,7 @@ export function ProductVerificationStatus({
       name: "AIF (Alternative Investment Funds)",
       verified: currentKYCLevel === "enhanced",
       required: "enhanced",
-      icon: Shield,
+      icon: LucideShield,
       description: "Enhanced KYC required for alternative investments",
       entityTypes: ["all"]
     },
@@ -141,7 +141,7 @@ export function ProductVerificationStatus({
     <Card data-testid="product-verification-status-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Shield className="h-5 w-5" />
+          <LucideShield className="h-5 w-5" />
           Product Verification Status
         </CardTitle>
         <CardDescription>

@@ -25,7 +25,7 @@ import {
   Filter,
   RefreshCw,
   Zap,
-  Shield,
+  Shield as LucideShield,
   BarChart3,
   MapPin,
   Calendar,
@@ -581,7 +581,7 @@ export default function ReitInvitPage() {
 
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className={getRiskColor(reit.riskLevel)}>
-                        <Shield className="h-3 w-3 mr-1" />
+                        <LucideShield className="h-3 w-3 mr-1" />
                         {reit.riskLevel}
                       </Badge>
                       <Badge variant="outline">
@@ -740,7 +740,7 @@ export default function ReitInvitPage() {
 
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="outline" className={getRiskColor(invit.riskLevel)}>
-                        <Shield className="h-3 w-3 mr-1" />
+                        <LucideShield className="h-3 w-3 mr-1" />
                         {invit.riskLevel}
                       </Badge>
                       <Badge variant="outline">
@@ -1010,7 +1010,7 @@ export default function ReitInvitPage() {
 
                         <div className="flex items-center gap-4">
                           <Badge variant="outline" className={getRiskColor(rec.riskLevel)}>
-                            <Shield className="h-3 w-3 mr-1" />
+                            <LucideShield className="h-3 w-3 mr-1" />
                             {rec.riskLevel} risk
                           </Badge>
                           <div className="flex items-center gap-2">

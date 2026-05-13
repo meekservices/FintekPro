@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import fintekproLogo from "@assets/fintekpro_main_1772539048013.png";
 import { 
   Facebook, Twitter, Linkedin, Instagram, Home, UserCheck, Briefcase, Calculator, 
-  Store, TrendingUp, CreditCard, Receipt, Users, Bell, Settings, HelpCircle, Shield,
+  Store, TrendingUp, CreditCard, Receipt, Users, Bell, Settings, HelpCircle, Shield as LucideShield,
   Crown, Sparkles
 } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -316,7 +316,7 @@ export function Footer() {
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="flex items-center space-x-4 mb-4 md:mb-0">
                 <div className="flex items-center space-x-2">
-                  <Shield className="h-5 w-5 text-blue-400" />
+                  <LucideShield className="h-5 w-5 text-blue-400" />
                   <span className="text-muted-foreground font-medium">Your Credit Score:</span>
                 </div>
                 <div className="flex items-center space-x-2">

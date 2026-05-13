@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, Clock, UserCheck, XCircle, Shield, RefreshCw, Eye, Play, VideoIcon, Ban } from "lucide-react";
+import { AlertCircle, Clock, UserCheck, XCircle, Shield as LucideShield, RefreshCw, Eye, Play, VideoIcon, Ban } from "lucide-react";
 import { useState } from "react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
@@ -123,7 +123,7 @@ export function CkycDeferredDashboard() {
       {/* Environment Status Alert */}
       {stats && (
         <Alert variant={stats.environmentMode === 'PROD' ? 'default' : 'destructive'} data-testid="alert-environment">
-          <Shield className="h-4 w-4" />
+          <LucideShield className="h-4 w-4" />
           <AlertTitle>CKYC Environment: {stats.environmentMode}</AlertTitle>
           <AlertDescription>
             {stats.environmentMode === 'PROD' 

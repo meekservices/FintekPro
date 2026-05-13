@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  Shield, ShieldCheck, ShieldAlert, ShieldX,
+  Shield as LucideShield, ShieldCheck, ShieldAlert, ShieldX,
   AlertTriangle, CheckCircle2, XCircle, Clock,
   RefreshCw, BookOpen, FileText, Scale,
   Building2, Banknote, Server, Zap, Info,
@@ -90,7 +90,7 @@ const REGULATOR_COLORS: Record<Regulator, string> = {
 const REGULATOR_ICONS: Record<Regulator, JSX.Element> = {
   SEBI: <Scale className="h-3.5 w-3.5" />,
   AMFI: <Banknote className="h-3.5 w-3.5" />,
-  PMLA: <Shield className="h-3.5 w-3.5" />,
+  PMLA: <LucideShield className="h-3.5 w-3.5" />,
   RBI: <Building2 className="h-3.5 w-3.5" />,
   SYSTEM: <Server className="h-3.5 w-3.5" />,
 };
@@ -190,7 +190,7 @@ export default function RegulatoryAuditNorms() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              <Shield className="h-6 w-6 text-blue-600" />
+              <LucideShield className="h-6 w-6 text-blue-600" />
               Regulatory Audit Norms
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">

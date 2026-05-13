@@ -18,7 +18,7 @@ import {
   Mail,
   MessageSquare,
   Receipt,
-  Shield,
+  Shield as LucideShield,
   Sparkles,
   TrendingUp,
   Zap,
@@ -491,7 +491,7 @@ export default function TaxReminderSubscription() {
 
         <Card data-testid="feature-card-compliance">
           <CardHeader>
-            <Shield className="h-8 w-8 text-indigo-500 mb-2" />
+            <LucideShield className="h-8 w-8 text-indigo-500 mb-2" />
             <CardTitle>Stay Compliant</CardTitle>
           </CardHeader>
           <CardContent>

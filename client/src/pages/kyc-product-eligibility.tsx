@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Lock, Unlock, Shield, CheckCircle2, AlertTriangle, Info, ArrowUpRight } from "lucide-react";
+import { Lock, Unlock, Shield as LucideShield, CheckCircle2, AlertTriangle, Info, ArrowUpRight } from "lucide-react";
 import { KycGapNudge } from "@/components/kyc/kyc-gap-nudge";
 
 interface ProductEligibility {
@@ -108,7 +108,7 @@ function TierUpgradeProgress({ eligibility }: { eligibility: ProductEligibility[
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-primary" />
+          <LucideShield className="h-5 w-5 text-primary" />
           KYC Tier Progress
         </CardTitle>
         <CardDescription>

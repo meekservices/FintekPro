@@ -20,7 +20,7 @@ import {
   Info,
   RefreshCw,
   BarChart3,
-  Shield,
+  Shield as LucideShield,
   FileText
 } from "lucide-react";
 
@@ -215,7 +215,7 @@ function RecommendationCard({ rec }: { rec: GlobalRecommendation }) {
             </div>
             <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
               <p className="text-sm font-medium mb-1 flex items-center gap-1">
-                <Shield className="h-4 w-4" /> LRS Considerations
+                <LucideShield className="h-4 w-4" /> LRS Considerations
               </p>
               <p className="text-xs text-muted-foreground">{rec.lrsConsiderations}</p>
             </div>
@@ -324,7 +324,7 @@ function GlobalAdvisoryPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Shield className="h-4 w-4 text-blue-600" />
+              <LucideShield className="h-4 w-4 text-blue-600" />
               FATCA Status
             </CardTitle>
           </CardHeader>
@@ -393,7 +393,7 @@ function GlobalAdvisoryPage() {
             ETFs
           </TabsTrigger>
           <TabsTrigger value="bonds" className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
+            <LucideShield className="h-4 w-4" />
             Bonds
           </TabsTrigger>
           <TabsTrigger value="rebalancing" className="flex items-center gap-2">

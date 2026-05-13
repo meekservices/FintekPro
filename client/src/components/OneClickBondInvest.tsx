@@ -6,7 +6,7 @@ import {
   CheckCircle, 
   AlertCircle,
   IndianRupee,
-  Shield,
+  Shield as LucideShield,
   Clock,
   Percent,
   CreditCard
@@ -460,7 +460,7 @@ export function OneClickBondInvest({
 
                 <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-blue-600" />
+                    <LucideShield className="h-4 w-4 text-blue-600" />
                     <span className="text-sm text-muted-foreground">Add to cart instead</span>
                   </div>
                   <Switch
@@ -510,7 +510,7 @@ export function OneClickBondInvest({
                     </>
                   ) : addToCartInstead ? (
                     <>
-                      <Shield className="h-4 w-4 mr-2" />
+                      <LucideShield className="h-4 w-4 mr-2" />
                       Add to Cart
                     </>
                   ) : (

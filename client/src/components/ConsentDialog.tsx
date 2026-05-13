@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Shield, Clock, FileText } from "lucide-react";
+import { AlertTriangle, Shield as LucideShield, Clock, FileText } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { type SchemeType } from "@/hooks/use-consent";
@@ -105,7 +105,7 @@ export function ConsentDialog({
       <DialogContent className="max-w-2xl" data-testid="dialog-consent">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2" data-testid="text-consent-title">
-            <Shield className="h-5 w-5 text-blue-600" />
+            <LucideShield className="h-5 w-5 text-blue-600" />
             Data Access Consent Required
           </DialogTitle>
           <DialogDescription data-testid="text-consent-description">

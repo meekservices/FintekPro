@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { 
-  Shield, 
+  Shield as LucideShield, 
   Search, 
   FileText, 
   Activity, 
@@ -175,7 +175,7 @@ export function ForensicAuditTrail() {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <CardTitle className="text-xl flex items-center gap-2">
-                <Shield className="w-5 h-5 text-indigo-600" />
+                <LucideShield className="w-5 h-5 text-indigo-600" />
                 Forensic Audit Trail
               </CardTitle>
               <CardDescription>

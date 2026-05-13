@@ -18,7 +18,7 @@ import {
   Search, Building2, TrendingUp, Download, Calendar, IndianRupee, 
   CheckCircle2, AlertTriangle, Wallet, FileText, Database, Activity,
   Filter, RefreshCw, Upload, Eye, ArrowUpDown, Loader2, BarChart3,
-  Shield, Scale, Clock, Users, Landmark, AlertCircle
+  Shield as LucideShield, Scale, Clock, Users, Landmark, AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
@@ -433,7 +433,7 @@ export default function McaIntelligence() {
             Filing Tracker
           </TabsTrigger>
           <TabsTrigger value="audit" className="flex items-center gap-1">
-            <Shield className="h-4 w-4" />
+            <LucideShield className="h-4 w-4" />
             Audit Log
           </TabsTrigger>
         </TabsList>
@@ -1172,7 +1172,7 @@ export default function McaIntelligence() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
+                <LucideShield className="h-5 w-5" />
                 Query Audit Log
               </CardTitle>
               <CardDescription>
@@ -1230,7 +1230,7 @@ export default function McaIntelligence() {
                 </div>
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
-                  <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <LucideShield className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No queries logged yet.</p>
                   <p className="text-sm">Execute queries to see audit trail.</p>
                 </div>

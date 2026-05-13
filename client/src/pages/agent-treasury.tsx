@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Building2, Search, Plus, DollarSign, TrendingUp, Shield, Clock, 
+  Building2, Search, Plus, DollarSign, TrendingUp, Shield as LucideShield, Clock, 
   CheckCircle2, XCircle, AlertTriangle, FileText, Users, Eye,
   ArrowRight, Lock, Unlock, Calendar, PieChart, UserPlus
 } from "lucide-react";
@@ -734,7 +734,7 @@ export default function AgentTreasuryPage() {
             Proposals
           </TabsTrigger>
           <TabsTrigger value="approvals" data-testid="tab-approvals" className="relative">
-            <Shield className="h-4 w-4 mr-2" />
+            <LucideShield className="h-4 w-4 mr-2" />
             Pending Approvals
             {pendingApprovals.length > 0 && (
               <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-orange-500 text-white text-xs flex items-center justify-center">

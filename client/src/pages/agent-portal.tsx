@@ -33,7 +33,7 @@ import {
   TrendingUp, 
   FileText, 
   Settings, 
-  Shield, 
+  Shield as LucideShield, 
   Eye, 
   Edit3, 
   Trash2, 
@@ -510,7 +510,7 @@ export default function AgentPortal() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Shield className="w-5 h-5" />
+              <LucideShield className="w-5 h-5" />
               Partner Portal Access
             </CardTitle>
             <CardDescription>
@@ -526,7 +526,7 @@ export default function AgentPortal() {
               onClick={() => window.location.href = '/login'}
               data-testid="button-login"
             >
-              <Shield className="w-4 h-4 mr-2" />
+              <LucideShield className="w-4 h-4 mr-2" />
               Log In to Continue
             </Button>
           </CardContent>

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, Plus, ArrowRight, Crown, Shield, Eye, User } from 'lucide-react';
+import { Users, Plus, ArrowRight, Crown, Shield as LucideShield, Eye, User } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -84,7 +84,7 @@ export default function FamilyList() {
       case 'owner':
         return <Crown className="h-4 w-4" />;
       case 'admin':
-        return <Shield className="h-4 w-4" />;
+        return <LucideShield className="h-4 w-4" />;
       case 'member':
         return <User className="h-4 w-4" />;
       case 'view_only':

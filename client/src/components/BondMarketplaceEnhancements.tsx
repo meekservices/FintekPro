@@ -16,7 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Shield, 
+  Shield as LucideShield, 
   TrendingUp, 
   Calendar, 
   IndianRupee, 
@@ -133,7 +133,7 @@ export function KYCTierBadge({ tier }: { tier: string }) {
         return { label: 'Accredited', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800', icon: Star };
       case 'enhanced':
       case 'tier_2':
-        return { label: 'Enhanced KYC', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800', icon: Shield };
+        return { label: 'Enhanced KYC', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800', icon: LucideShield };
       case 'basic':
       case 'tier_1':
       default:

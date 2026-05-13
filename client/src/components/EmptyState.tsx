@@ -1,4 +1,4 @@
-import { LucideIcon, Briefcase, PiggyBank, TrendingUp, FileText, Users, CreditCard, Building2, Shield, Bell, Calendar, Target, Wallet } from "lucide-react";
+import { LucideIcon, Briefcase, PiggyBank, TrendingUp, FileText, Users, CreditCard, Building2, Shield as LucideShield, Bell, Calendar, Target, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 
@@ -121,7 +121,7 @@ const EMPTY_STATE_PRESETS: Record<EmptyStatePreset, {
     actionRoute: '/bonds'
   },
   epf: {
-    icon: Shield,
+    icon: LucideShield,
     title: 'EPF account not linked',
     description: 'Link your Employee Provident Fund account to track your retirement savings automatically.',
     actionLabel: 'Link EPF Account'
@@ -133,7 +133,7 @@ const EMPTY_STATE_PRESETS: Record<EmptyStatePreset, {
     actionLabel: 'Link PPF Account'
   },
   insurance: {
-    icon: Shield,
+    icon: LucideShield,
     title: 'No insurance policies',
     description: 'Protect yourself and your family. Add your life, health, and motor insurance policies.',
     actionLabel: 'Add Insurance',

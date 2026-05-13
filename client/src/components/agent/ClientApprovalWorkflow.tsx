@@ -16,7 +16,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Shield,
+  Shield as LucideShield,
   FileSignature,
   AlertCircle,
   Loader2,
@@ -274,7 +274,7 @@ export function ClientApprovalWorkflow({
                 I acknowledge that this proposal is advisory in nature and I have understood all the terms, conditions, and risks involved.
               </p>
             </div>
-            <Shield className="h-5 w-5 text-amber-500" />
+            <LucideShield className="h-5 w-5 text-amber-500" />
           </div>
 
           <div className="flex items-start space-x-3 p-3 border rounded-lg">

@@ -23,7 +23,7 @@ import {
   IndianRupee,
   Calculator,
   FileCheck,
-  Shield,
+  Shield as LucideShield,
   Eye,
   Printer,
   AlertCircle,
@@ -499,7 +499,7 @@ export default function TaxITRPreviewPage() {
             <FileCheck className="h-4 w-4" /> Deductions
           </TabsTrigger>
           <TabsTrigger value="validation" className="gap-2 relative">
-            <Shield className="h-4 w-4" /> Validation
+            <LucideShield className="h-4 w-4" /> Validation
             {hasErrors && (
               <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full" />
             )}

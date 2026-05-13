@@ -25,7 +25,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Users, TrendingUp, ArrowUp, ArrowDown, RefreshCw,
   CheckCircle2, Clock, AlertTriangle, Search, Activity,
-  Globe, Shield, Wallet, DollarSign, BarChart3, LineChart,
+  Globe, Shield as LucideShield, Wallet, DollarSign, BarChart3, LineChart,
   ChevronRight, ExternalLink, Info, ArrowRightLeft, FileText,
   Building2, BadgeIndianRupee, Landmark, XCircle,
 } from "lucide-react";
@@ -112,7 +112,7 @@ function AgentOverviewCards() {
       color: "text-purple-600", bg: "from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900",
     },
     {
-      icon: Shield, label: "Compliance", value: active > 0 ? "✓ KYC OK" : "Pending",
+      icon: LucideShield, label: "Compliance", value: active > 0 ? "✓ KYC OK" : "Pending",
       sub: `${active} accounts fully approved`,
       color: active > 0 ? "text-emerald-600" : "text-amber-600",
       bg: active > 0

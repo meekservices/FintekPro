@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { X, Shield, AlertTriangle, ChevronRight, Lock } from "lucide-react";
+import { X, Shield as LucideShield, AlertTriangle, ChevronRight, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -93,7 +93,7 @@ export function KycUpgradeBanner() {
             {urgencyLevel === 'high' ? (
               <AlertTriangle className={`h-5 w-5 ${getIconStyle()} flex-shrink-0`} />
             ) : (
-              <Shield className={`h-5 w-5 ${getIconStyle()} flex-shrink-0`} />
+              <LucideShield className={`h-5 w-5 ${getIconStyle()} flex-shrink-0`} />
             )}
             
             <div className="flex-1 min-w-0">
@@ -208,7 +208,7 @@ export function KycProgressWidget() {
         data-testid="kyc-complete-widget"
       >
         <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
+          <LucideShield className="h-5 w-5 text-green-600 dark:text-green-400" />
           <span className="font-medium text-green-700 dark:text-green-300">KYC Complete</span>
         </div>
         <p className="text-sm text-green-600 dark:text-green-400 mt-1">

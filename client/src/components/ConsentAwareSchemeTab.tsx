@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Shield, Lock, CheckCircle, RefreshCw, AlertCircle, Clock } from "lucide-react";
+import { Shield as LucideShield, Lock, CheckCircle, RefreshCw, AlertCircle, Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -226,7 +226,7 @@ export function ConsentAwareSchemeTab({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <Shield className="h-5 w-5 text-orange-600" />
+              <LucideShield className="h-5 w-5 text-orange-600" />
               <span>PAN Verification Required</span>
             </CardTitle>
           </CardHeader>
@@ -254,7 +254,7 @@ export function ConsentAwareSchemeTab({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <Shield className="h-5 w-5 text-blue-600" />
+              <LucideShield className="h-5 w-5 text-blue-600" />
               <span>Consent Required</span>
             </CardTitle>
           </CardHeader>
@@ -269,7 +269,7 @@ export function ConsentAwareSchemeTab({
               </p>
               <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
                 <div className="flex items-start gap-3">
-                  <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <LucideShield className="h-5 w-5 text-blue-600 mt-0.5" />
                   <div className="text-left">
                     <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
                       Secure & Compliant Access
@@ -332,7 +332,7 @@ export function ConsentAwareSchemeTab({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-blue-600" />
+              <LucideShield className="h-5 w-5 text-blue-600" />
               OTP Verification Required
             </DialogTitle>
             <DialogDescription>

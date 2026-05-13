@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Target, 
   TrendingUp, 
-  Shield,
+  Shield as LucideShield,
   Calculator,
   PieChart,
   CreditCard,
@@ -303,7 +303,7 @@ export default function PremiumInvestments() {
               Return Forecast
             </TabsTrigger>
             <TabsTrigger value="retirement" data-testid="tab-retirement">
-              <Shield className="w-4 h-4 mr-2" />
+              <LucideShield className="w-4 h-4 mr-2" />
               Retirement
             </TabsTrigger>
             <TabsTrigger value="obligations" data-testid="tab-obligations">
@@ -567,7 +567,7 @@ export default function PremiumInvestments() {
                   
                   <div className="p-4 bg-gradient-to-r from-purple-50 dark:from-purple-950/30 to-violet-50 dark:to-violet-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
                     <div className="flex items-center gap-3 mb-3">
-                      <Shield className="w-6 h-6 text-purple-600" />
+                      <LucideShield className="w-6 h-6 text-purple-600" />
                       <div>
                         <p className="font-semibold text-purple-900 dark:text-purple-100">Credit Health</p>
                         <p className="text-sm text-purple-700 dark:text-purple-300">Score & payment history</p>
@@ -635,7 +635,7 @@ export default function PremiumInvestments() {
             <Card data-testid="card-cibil-financial-health">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-blue-600" />
+                  <LucideShield className="w-5 h-5 text-blue-600" />
                   CIBIL-Based Financial Health
                 </CardTitle>
                 <CardDescription>Real-time credit health analysis from your CIBIL report</CardDescription>
@@ -766,7 +766,7 @@ export default function PremiumInvestments() {
                   <div className="p-4 bg-gradient-to-br from-purple-50 dark:from-purple-950/30 to-purple-100 dark:to-purple-900/30 rounded-lg border border-purple-200 dark:border-purple-800">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="p-2 bg-purple-600 text-white rounded-lg">
-                        <Shield className="w-5 h-5" />
+                        <LucideShield className="w-5 h-5" />
                       </div>
                       <div>
                         <p className="font-bold text-purple-900 dark:text-purple-100">Retirement Fund</p>

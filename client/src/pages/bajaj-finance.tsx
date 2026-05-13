@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
-import { Calculator, IndianRupee, TrendingUp, Shield, Bike, PiggyBank, Target, CheckCircle } from "lucide-react";
+import { Calculator, IndianRupee, TrendingUp, Shield as LucideShield, Bike, PiggyBank, Target, CheckCircle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface EMIResult {

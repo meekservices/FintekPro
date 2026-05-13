@@ -24,7 +24,7 @@ import {
   BarChart3,
   Users,
   DollarSign,
-  Shield,
+  Shield as LucideShield,
   TrendingUp
 } from "lucide-react";
 import { useState } from "react";
@@ -75,9 +75,9 @@ interface ReportBuilderData {
 const categoryIcons: Record<string, any> = {
   users: Users,
   revenue: DollarSign,
-  kyc: Shield,
+  kyc: LucideShield,
   analytics: TrendingUp,
-  compliance: Shield,
+  compliance: LucideShield,
 };
 
 export default function ReportBuilder() {

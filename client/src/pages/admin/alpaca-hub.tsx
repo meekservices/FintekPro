@@ -33,7 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import {
-  Users, ArrowRightLeft, FileText, TrendingUp, Shield,
+  Users, ArrowRightLeft, FileText, TrendingUp, Shield as LucideShield,
   RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle,
   Search, Plus, Download, BarChart3, Activity, DollarSign,
   Landmark, Wallet, BookOpen, Globe, ExternalLink, Info,
@@ -293,7 +293,7 @@ function AccountsTab() {
                             <DialogTrigger asChild>
                               <Button size="sm" variant="outline" className="h-7 text-xs px-2"
                                 onClick={() => setSelectedAcc(acc)}>
-                                <Shield className="h-3 w-3 mr-1" /> CIP
+                                <LucideShield className="h-3 w-3 mr-1" /> CIP
                               </Button>
                             </DialogTrigger>
                             <DialogContent className="max-w-2xl">
@@ -862,7 +862,7 @@ function ComplianceTab() {
         <Card className="md:col-span-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Shield className="h-4 w-4 text-primary" /> Compliance Score
+              <LucideShield className="h-4 w-4 text-primary" /> Compliance Score
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1126,7 +1126,7 @@ const TABS = [
   { value: "positions",   label: "Positions",   icon: LineChart },
   { value: "activities",  label: "Activities",  icon: Activity },
   { value: "funding",     label: "Funding",     icon: Wallet },
-  { value: "compliance",  label: "Compliance",  icon: Shield },
+  { value: "compliance",  label: "Compliance",  icon: LucideShield },
   { value: "reports",     label: "Reports",     icon: FileText },
 ] as const;
 

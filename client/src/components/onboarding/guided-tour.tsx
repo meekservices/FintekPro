@@ -8,7 +8,7 @@ import {
   ChevronRight, 
   CheckCircle2,
   TrendingUp,
-  Shield,
+  Shield as LucideShield,
   PieChart,
   Calculator,
   HelpCircle
@@ -46,7 +46,7 @@ const tourSteps: TourStep[] = [
     id: 'kyc-progress',
     title: 'Complete Your KYC',
     description: 'Track your KYC verification progress. Higher KYC levels unlock premium features like AIF, PMS, and unlisted shares trading.',
-    icon: Shield,
+    icon: LucideShield,
     targetSelector: '[data-testid="kyc-progress-widget"]',
     position: 'bottom'
   },

@@ -41,7 +41,7 @@ import {
   Calendar,
   DollarSign,
   Percent,
-  Shield,
+  Shield as LucideShield,
   ShieldAlert,
   Info,
   ChevronRight,
@@ -564,7 +564,7 @@ export default function AgentStockAI() {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-2">
-                                  <Shield className={`h-4 w-4 ${getRiskColor(stock.riskScore)}`} />
+                                  <LucideShield className={`h-4 w-4 ${getRiskColor(stock.riskScore)}`} />
                                   <span className="text-xs text-muted-foreground">Risk: {stock.riskScore}/10</span>
                                 </div>
                                 <div className="flex gap-1">

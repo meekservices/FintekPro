@@ -23,7 +23,7 @@ import {
   Receipt,
   File,
   FolderOpen,
-  Shield,
+  Shield as LucideShield,
   Lock,
   Inbox
 } from "lucide-react";
@@ -46,7 +46,7 @@ const DOCUMENT_CATEGORIES = [
   { type: "form26as", name: "Form 26AS", icon: FileCheck, color: "text-purple-600 bg-purple-100 dark:bg-purple-900/30" },
   { type: "ais", name: "AIS", icon: File, color: "text-orange-600 bg-orange-100 dark:bg-orange-900/30" },
   { type: "tis", name: "TIS", icon: File, color: "text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30" },
-  { type: "form15", name: "Form 15CA/CB", icon: Shield, color: "text-red-600 bg-red-100 dark:bg-red-900/30" },
+  { type: "form15", name: "Form 15CA/CB", icon: LucideShield, color: "text-red-600 bg-red-100 dark:bg-red-900/30" },
   { type: "acknowledgement", name: "Acknowledgements", icon: CheckCircle, color: "text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30" }
 ];
 

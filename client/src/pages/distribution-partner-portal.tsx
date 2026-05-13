@@ -28,7 +28,7 @@ import {
   Wallet,
   PiggyBank,
   Target,
-  Shield,
+  Shield as LucideShield,
   UserCheck,
   Briefcase
 } from "lucide-react";
@@ -123,7 +123,7 @@ export default function DistributionPartnerPortal() {
           </div>
           <div className="flex gap-2">
             <Badge variant="outline" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-              <Shield className="h-3 w-3 mr-1" />
+              <LucideShield className="h-3 w-3 mr-1" />
               {(partnerProfile as any)?.commissionTier || 'Standard'} Tier
             </Badge>
             {(partnerProfile as any)?.arnCode && (
@@ -639,7 +639,7 @@ export default function DistributionPartnerPortal() {
                 { title: "Client Report", desc: "Client portfolio summaries", icon: Building2, testId: "client" },
                 { title: "Agent Performance", desc: "Agent-wise business analysis", icon: Users, testId: "agent" },
                 { title: "Transaction Report", desc: "All transactions history", icon: FileText, testId: "transaction" },
-                { title: "Compliance Report", desc: "KYC and regulatory status", icon: Shield, testId: "compliance" },
+                { title: "Compliance Report", desc: "KYC and regulatory status", icon: LucideShield, testId: "compliance" },
               ].map((report) => (
                 <Card key={report.testId} className="cursor-pointer hover:shadow-md transition-shadow" data-testid={`card-report-${report.testId}`}>
                   <CardHeader>

@@ -26,7 +26,7 @@ import {
   RefreshCw,
   Users,
   Calendar as CalendarIcon,
-  Shield,
+  Shield as LucideShield,
   Phone,
   Video,
   FileText,
@@ -89,7 +89,7 @@ interface TaskTypeBreakdown {
 }
 
 const TASK_TYPE_CONFIG: Record<string, { label: string; icon: typeof Shield; color: string }> = {
-  kyc_renewal: { label: 'KYC Renewal', icon: Shield, color: 'bg-indigo-500/20 text-indigo-400' },
+  kyc_renewal: { label: 'KYC Renewal', icon: LucideShield, color: 'bg-indigo-500/20 text-indigo-400' },
   document_submission: { label: 'Document', icon: FileText, color: 'bg-amber-500/20 text-amber-400' },
   payment_due: { label: 'Payment Due', icon: Bell, color: 'bg-red-500/20 text-red-400' },
   review_scheduled: { label: 'Review', icon: Video, color: 'bg-purple-500/20 text-purple-400' },

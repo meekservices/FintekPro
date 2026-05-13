@@ -19,7 +19,7 @@ import {
   ArrowDownRight,
   FileText,
   BookOpen,
-  Shield,
+  Shield as LucideShield,
   Download,
   Calendar,
   AlertTriangle,
@@ -527,7 +527,7 @@ export default function PartnerPortal() {
                 <p className="text-sm text-muted-foreground">Transparent, performance-linked incentive model</p>
               </div>
               <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300">
-                <Shield className="h-3 w-3 mr-1" /> Regulator Compliant
+                <LucideShield className="h-3 w-3 mr-1" /> Regulator Compliant
               </Badge>
             </div>
 
@@ -632,7 +632,7 @@ export default function PartnerPortal() {
                 <p className="text-sm text-muted-foreground">SEBI / RBI compliant commission and incentive disclosure</p>
               </div>
               <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300">
-                <Shield className="h-3 w-3 mr-1" /> SEBI / RBI Aligned
+                <LucideShield className="h-3 w-3 mr-1" /> SEBI / RBI Aligned
               </Badge>
             </div>
 

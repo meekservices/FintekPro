@@ -23,7 +23,7 @@ import {
   AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  UserCheck, Plus, Pencil, Trash2, RefreshCw, Info, Phone, Mail, MapPin, Shield,
+  UserCheck, Plus, Pencil, Trash2, RefreshCw, Info, Phone, Mail, MapPin, Shield as LucideShield,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -166,7 +166,7 @@ export default function TrustedContactPanel({ accountId }: TrustedContactPanelPr
       </div>
 
       <Alert className="border-blue-200 bg-blue-50/50 py-2">
-        <Shield className="h-3.5 w-3.5 text-blue-600" />
+        <LucideShield className="h-3.5 w-3.5 text-blue-600" />
         <AlertDescription className="text-xs text-blue-700">
           <strong>India note:</strong> Under FINRA Rule 4512, US brokers must attempt to obtain a trusted contact for each retail account. This person may be contacted in cases of possible financial exploitation, incapacitation, or when the broker cannot reach the account holder. The trusted contact does not receive any authority over the account.
         </AlertDescription>

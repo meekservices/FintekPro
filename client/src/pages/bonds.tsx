@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Shield, TrendingUp, Calendar, IndianRupee, Building2, Calculator, AlertCircle, CheckCircle2, Clock, ChevronRight, Database } from "lucide-react";
+import { Shield as LucideShield, TrendingUp, Calendar, IndianRupee, Building2, Calculator, AlertCircle, CheckCircle2, Clock, ChevronRight, Database } from "lucide-react";
 import { ClientTransactionHistory } from "@/components/store/ClientTransactionHistory";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -465,7 +465,7 @@ function GovernmentSecurities() {
       {bonds.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="p-8 text-center">
-            <Shield className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <LucideShield className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground">No government securities available for auction</p>
           </CardContent>
         </Card>
@@ -1745,7 +1745,7 @@ function BondMarketplace() {
       {/* KYC Eligibility Status Banner */}
       {eligibility && (
         <Alert className={(eligibility as any)?.eligible ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800" : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800"}>
-          <Shield className="h-4 w-4" />
+          <LucideShield className="h-4 w-4" />
           <AlertDescription>
             {(eligibility as any)?.eligible 
               ? `You are eligible to trade bonds. KYC Tier: ${(eligibility as any)?.tier || 'Basic'}`
@@ -1778,7 +1778,7 @@ function BondMarketplace() {
               {/* Eligibility Banner */}
               {eligibility && (
                 <Alert className={(eligibility as any)?.eligible ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800" : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800"}>
-                  <Shield className="h-4 w-4" />
+                  <LucideShield className="h-4 w-4" />
                   <AlertDescription>
                     {(eligibility as any)?.eligible 
                       ? `KYC Tier: ${(eligibility as any)?.tier || 'Basic'} - You are eligible to create sell listings`
@@ -2087,7 +2087,7 @@ function BondMarketplace() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <Shield className="h-5 w-5 text-purple-600" />
+            <LucideShield className="h-5 w-5 text-purple-600" />
             My Buy Requests
           </CardTitle>
         </CardHeader>
@@ -3080,7 +3080,7 @@ export default function Bonds() {
                   <h3 className="font-bold text-foreground mb-4">Benefits of Bond Investment</h3>
                   <div className="space-y-3">
                     <div className="flex items-start gap-3">
-                      <Shield className="h-5 w-5 text-finance-blue mt-0.5" />
+                      <LucideShield className="h-5 w-5 text-finance-blue mt-0.5" />
                       <div>
                         <h4 className="font-medium text-foreground">Capital Protection</h4>
                         <p className="text-sm text-muted-foreground">Your principal is protected</p>

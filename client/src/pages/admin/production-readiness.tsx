@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, XCircle, AlertTriangle, Server, Database, Key, Shield, Zap, Globe } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, Server, Database, Key, Shield as LucideShield, Zap, Globe } from "lucide-react";
 
 interface ReadinessCheck {
   category: string;
@@ -209,7 +209,7 @@ export default function ProductionReadiness() {
       case 'API Configuration':
         return <Key className="h-5 w-5" />;
       case 'Security & Compliance':
-        return <Shield className="h-5 w-5" />;
+        return <LucideShield className="h-5 w-5" />;
       case 'Database & Storage':
         return <Database className="h-5 w-5" />;
       case 'Infrastructure':

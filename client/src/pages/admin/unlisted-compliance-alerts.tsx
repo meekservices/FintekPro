@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   AlertTriangle, 
-  Shield, 
+  Shield as LucideShield, 
   XCircle, 
   AlertCircle,
   Search,
@@ -127,7 +127,7 @@ export default function UnlistedComplianceAlerts() {
       case 'blocked_trade':
         return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" />Blocked Trade</Badge>;
       case 'kyc_failure':
-        return <Badge className="bg-amber-600"><Shield className="w-3 h-3 mr-1" />KYC Failure</Badge>;
+        return <Badge className="bg-amber-600"><LucideShield className="w-3 h-3 mr-1" />KYC Failure</Badge>;
       case 'high_risk':
         return <Badge className="bg-purple-600"><TrendingDown className="w-3 h-3 mr-1" />High Risk</Badge>;
       case 'eligibility_block':
@@ -222,7 +222,7 @@ export default function UnlistedComplianceAlerts() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-amber-500" />
+              <LucideShield className="w-5 h-5 text-amber-500" />
               <span className="text-2xl font-bold text-foreground">{stats.kycFailures}</span>
             </div>
           </CardContent>
@@ -299,7 +299,7 @@ export default function UnlistedComplianceAlerts() {
                 Blocked Trades
               </TabsTrigger>
               <TabsTrigger value="kyc_failure" className="data-[state=active]:bg-blue-600">
-                <Shield className="w-4 h-4 mr-1" />
+                <LucideShield className="w-4 h-4 mr-1" />
                 KYC Failures
               </TabsTrigger>
               <TabsTrigger value="high_risk" className="data-[state=active]:bg-blue-600">

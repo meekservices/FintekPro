@@ -27,7 +27,7 @@ import {
   Building2,
   Globe,
   Zap,
-  Shield,
+  Shield as LucideShield,
   ArrowRight,
 } from "lucide-react";
 import { useState } from "react";
@@ -91,7 +91,7 @@ const PRODUCT_META: Record<string, { icon: React.ElementType; category: string; 
   PMS_AIF:             { icon: Building2,   category: "Premium",      color: "text-purple-600" },
   LOANS_PERSONAL:      { icon: DollarSign,  category: "Credit",       color: "text-rose-600" },
   LOANS_BUSINESS:      { icon: Building2,   category: "Credit",       color: "text-red-600" },
-  INSURANCE_LIFE:      { icon: Shield,      category: "Insurance",    color: "text-sky-600" },
+  INSURANCE_LIFE:      { icon: LucideShield,      category: "Insurance",    color: "text-sky-600" },
   INSURANCE_HEALTH:    { icon: Heart,       category: "Insurance",    color: "text-pink-600" },
   ITR_FILING:          { icon: FileText,    category: "Tax",          color: "text-amber-600" },
   CRYPTO:              { icon: Globe,       category: "Investments",  color: "text-yellow-600" },
@@ -334,7 +334,7 @@ export function KYCProductAccessPanel() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-blue-600" />
+            <LucideShield className="h-5 w-5 text-blue-600" />
             Product Access — KYC Status
           </CardTitle>
         </CardHeader>
@@ -355,7 +355,7 @@ export function KYCProductAccessPanel() {
         <div className="flex items-start justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-blue-600" />
+              <LucideShield className="h-5 w-5 text-blue-600" />
               Product Access — KYC Status
             </CardTitle>
             <CardDescription className="mt-1">

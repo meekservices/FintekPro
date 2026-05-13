@@ -12,7 +12,7 @@ import {
   LogIn,
   FileText,
   CreditCard,
-  Shield,
+  Shield as LucideShield,
   Eye,
   Edit,
   Clock,
@@ -57,11 +57,11 @@ const eventTypeColors: Record<string, string> = {
 const eventTypeIcons: Record<string, any> = {
   login: LogIn,
   logout: LogIn,
-  kyc: Shield,
+  kyc: LucideShield,
   transaction: CreditCard,
   profile: Edit,
   document: FileText,
-  security: Shield,
+  security: LucideShield,
   view: Eye,
 };
 

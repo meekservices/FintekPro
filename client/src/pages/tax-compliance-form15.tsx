@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   FileText, Plus, Eye, CheckCircle2, Clock, AlertTriangle, 
-  Upload, Download, Send, ArrowRight, Shield, User, Building2,
+  Upload, Download, Send, ArrowRight, Shield as LucideShield, User, Building2,
   Globe, FileCheck, Stamp, History, ChevronRight, Loader2
 } from "lucide-react";
 
@@ -33,7 +33,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
   approved: { label: "CA Approved", color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300", icon: CheckCircle2 },
   "15cb_signed": { label: "15CB Signed", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300", icon: Stamp },
   "15ca_filed": { label: "15CA Filed", color: "bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300", icon: FileCheck },
-  everified: { label: "E-Verified", color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300", icon: Shield },
+  everified: { label: "E-Verified", color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300", icon: LucideShield },
   completed: { label: "Completed", color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300", icon: CheckCircle2 },
 };
 
@@ -404,7 +404,7 @@ export default function TaxComplianceForm15Page() {
 
               <div className="space-y-4">
                 <h3 className="font-medium flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
+                  <LucideShield className="h-4 w-4" />
                   DTAA Details
                 </h3>
                 <div className="flex items-center gap-4">

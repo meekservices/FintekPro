@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, TrendingUp, TrendingDown, Shield, RefreshCw, Search, AlertCircle } from 'lucide-react';
+import { Building2, TrendingUp, TrendingDown, Shield as LucideShield, RefreshCw, Search, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';
 import { queryClient, apiRequest } from '@/lib/queryClient';
@@ -253,7 +253,7 @@ export default function ClientIntelligence() {
                               ) : (intel.credhiveScore || intel.probe42Score || 0) <= 2 && (intel.credhiveScore || intel.probe42Score) ? (
                                 <TrendingDown className="h-5 w-5 text-red-600" />
                               ) : (
-                                <Shield className="h-5 w-5 text-yellow-600" />
+                                <LucideShield className="h-5 w-5 text-yellow-600" />
                               )}
                             </div>
                             <div>

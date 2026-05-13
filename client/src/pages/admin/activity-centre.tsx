@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { 
   AlertTriangle, AlertCircle, CheckCircle, Clock, Search, Filter, RefreshCw, 
-  Eye, ExternalLink, ChevronRight, Bug, Shield, Zap, Server, Database, 
+  Eye, ExternalLink, ChevronRight, Bug, Shield as LucideShield, Zap, Server, Database, 
   Globe, Smartphone, Users, TrendingUp, BarChart3, Activity, Download,
   Copy, FileText, MessageSquareWarning, HelpCircle, Loader2
 } from "lucide-react";
@@ -542,10 +542,10 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 const CATEGORY_ICONS: Record<string, any> = {
   performance: Zap,
-  abuse: Shield,
+  abuse: LucideShield,
   revenue: TrendingUp,
   engagement: Users,
-  security: Shield
+  security: LucideShield
 };
 
 function AIInsightsPanel() {
@@ -699,7 +699,7 @@ function AIInsightsPanel() {
                 <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                   Compliance Monitoring
                 </CardTitle>
-                <Shield className={`h-4 w-4 ${metrics.regulatory.highDeviationDeals > 0 || metrics.regulatory.investorLimitAlerts > 0 ? "text-red-500 animate-pulse" : "text-indigo-500"}`} />
+                <LucideShield className={`h-4 w-4 ${metrics.regulatory.highDeviationDeals > 0 || metrics.regulatory.investorLimitAlerts > 0 ? "text-red-500 animate-pulse" : "text-indigo-500"}`} />
               </div>
             </CardHeader>
             <CardContent>
@@ -719,7 +719,7 @@ function AIInsightsPanel() {
               
               {/* Subtle background decoration */}
               <div className="absolute -right-2 -bottom-2 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity pointer-events-none">
-                <Shield className="h-24 w-24" />
+                <LucideShield className="h-24 w-24" />
               </div>
             </CardContent>
           </Card>
@@ -1543,7 +1543,7 @@ export default function ActivityCentre() {
                 asChild
               >
                 <div className="flex items-center">
-                  <Shield className="h-4 w-4 mr-2" />
+                  <LucideShield className="h-4 w-4 mr-2" />
                   Generate Support Bundle
                 </div>
               </Button>

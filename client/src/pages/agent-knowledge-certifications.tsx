@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
-  Shield,
+  Shield as LucideShield,
   ChevronLeft,
   Award,
   BookOpen,
@@ -201,7 +201,7 @@ export default function AgentKnowledgeCertifications() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Shield className="h-7 w-7 text-purple-500" />
+            <LucideShield className="h-7 w-7 text-purple-500" />
             My Certifications
           </h1>
           <p className="text-muted-foreground mt-1">Track your knowledge certifications (optional)</p>

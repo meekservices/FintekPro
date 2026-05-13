@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Settings, IndianRupee, Percent, Save, Edit2, RefreshCw, TrendingUp, Shield, Building2, Landmark, Coins, Calculator } from "lucide-react";
+import { ArrowLeft, Settings, IndianRupee, Percent, Save, Edit2, RefreshCw, TrendingUp, Shield as LucideShield, Building2, Landmark, Coins, Calculator } from "lucide-react";
 import { Link } from "wouter";
 
 interface BondCommissionConfig {
@@ -37,7 +37,7 @@ const bondTypeIcons: Record<string, any> = {
   g_sec: Landmark,
   corporate: Building2,
   ncd: TrendingUp,
-  tax_free: Shield,
+  tax_free: LucideShield,
   sgb: Coins,
   sdl: Landmark,
   t_bill: IndianRupee,

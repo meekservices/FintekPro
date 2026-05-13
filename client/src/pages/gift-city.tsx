@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { useAuth } from "@/hooks/useAuth";
 import { 
-  Building2, Crown, Globe, TrendingUp, Shield, Award, ArrowRight, Sparkles,
+  Building2, Crown, Globe, TrendingUp, Shield as LucideShield, Award, ArrowRight, Sparkles,
   Banknote, Target, FileText, Users, Briefcase, Calculator, Phone, Mail,
   CheckCircle, Star, Lock, Zap, PiggyBank, DollarSign, Percent, Clock,
   BarChart3, LineChart, Activity, Wallet, CreditCard, MapPin, Calendar
@@ -185,7 +185,7 @@ const regulatoryAdvantages = [
   {
     title: "Regulatory Arbitrage",
     description: "Benefit from IFSC's liberal regulatory framework",
-    icon: Shield
+    icon: LucideShield
   },
   {
     title: "FPI Benefits",

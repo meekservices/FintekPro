@@ -10,7 +10,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, IndianRupee, Send, CheckCircle, AlertCircle, Clock, Eye, Download, RefreshCw, Building2, Banknote, Receipt, History, Shield, Users, TrendingUp } from "lucide-react";
+import { CreditCard, IndianRupee, Send, CheckCircle, AlertCircle, Clock, Eye, Download, RefreshCw, Building2, Banknote, Receipt, History, Shield as LucideShield, Users, TrendingUp } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -348,7 +348,7 @@ export default function ICICIBanking() {
                     Statements
                   </TabsTrigger>
                   <TabsTrigger value="validation" data-testid="validation-tab" className="flex-shrink-0">
-                    <Shield className="h-4 w-4 mr-2" />
+                    <LucideShield className="h-4 w-4 mr-2" />
                     Validation
                   </TabsTrigger>
                 </ScrollableTabsList>
@@ -668,7 +668,7 @@ export default function ICICIBanking() {
                           </>
                         ) : (
                           <>
-                            <Shield className="h-4 w-4 mr-2" />
+                            <LucideShield className="h-4 w-4 mr-2" />
                             Validate Account
                           </>
                         )}

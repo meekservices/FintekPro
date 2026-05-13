@@ -1,5 +1,5 @@
 import React from "react";
-import { Globe, TrendingUp, Receipt, Scale, Shield, Plus, Trash2, CheckCircle, AlertTriangle } from "lucide-react";
+import { Globe, TrendingUp, Receipt, Scale, Shield as LucideShield, Plus, Trash2, CheckCircle, AlertTriangle } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -310,7 +310,7 @@ export const ForeignIncomeSection: React.FC = (): React.ReactElement => {
       <Card className="border-red-200 dark:border-red-800">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
-            <Shield className="h-4 w-4 text-red-600" /> Schedule FA — Foreign Asset Disclosure
+            <LucideShield className="h-4 w-4 text-red-600" /> Schedule FA — Foreign Asset Disclosure
             <Badge variant="outline" className="text-[10px] text-red-600 border-red-300">Mandatory</Badge>
           </CardTitle>
           <CardDescription>

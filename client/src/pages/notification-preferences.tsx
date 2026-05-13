@@ -18,7 +18,7 @@ import {
   TrendingUp,
   FileText,
   Calendar,
-  Shield,
+  Shield as LucideShield,
   AlertTriangle,
   CheckCircle2,
   Save,
@@ -100,7 +100,7 @@ export default function NotificationPreferences() {
       id: 'kyc_updates', 
       name: 'KYC Updates', 
       description: 'Verification status, document expiry reminders',
-      icon: Shield,
+      icon: LucideShield,
       channels: { email: true, sms: true, push: true, whatsapp: false }
     },
     { 

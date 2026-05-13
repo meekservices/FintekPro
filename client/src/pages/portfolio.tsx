@@ -22,7 +22,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerformance, useEpfHoldings, usePpfHoldings, useEpsHoldings, useInsuranceHoldings, useNpsAccounts, useApyAccounts } from "@/hooks/use-portfolio";
 import { LoadingState } from "@/components/LoadingState";
-import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield, Target, Calculator, AlertTriangle, Building2, ExternalLink, Briefcase, History, FileText, CheckCircle2, Clock, XCircle, Loader2, ChevronDown, Landmark } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield as LucideShield, Target, Calculator, AlertTriangle, Building2, ExternalLink, Briefcase, History, FileText, CheckCircle2, Clock, XCircle, Loader2, ChevronDown, Landmark } from "lucide-react";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useState, useEffect, Suspense } from "react";
 import { useConsent, type SchemeType } from "@/hooks/use-consent";
@@ -492,7 +492,7 @@ export default function Portfolio() {
       <div className="min-h-screen bg-finance-light" data-testid="portfolio-page">
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
           <div className="text-center py-16">
-            <Shield className="h-16 w-16 text-blue-500 mx-auto mb-4" />
+            <LucideShield className="h-16 w-16 text-blue-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-foreground mb-2">Sign In Required</h1>
             <p className="text-muted-foreground mb-4">
               Please sign in to view your portfolio holdings and performance
@@ -516,7 +516,7 @@ export default function Portfolio() {
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 lg:pt-0">
           <div className="text-center py-16">
-            <Shield className="h-16 w-16 text-orange-500 mx-auto mb-4" />
+            <LucideShield className="h-16 w-16 text-orange-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-foreground mb-2">PAN Card Required</h1>
             <p className="text-muted-foreground mb-4">
               Complete your KYC by adding your PAN card to access portfolio data
@@ -613,7 +613,7 @@ export default function Portfolio() {
               <span>External Portfolio</span>
             </TabsTrigger>
             <TabsTrigger value="insurance" className="flex items-center space-x-1">
-              <Shield className="h-4 w-4" />
+              <LucideShield className="h-4 w-4" />
               <span>Insurance</span>
             </TabsTrigger>
             <TabsTrigger value="epf" className="flex items-center space-x-1">
@@ -625,7 +625,7 @@ export default function Portfolio() {
               <span>PPF Holdings</span>
             </TabsTrigger>
             <TabsTrigger value="eps" className="flex items-center space-x-1">
-              <Shield className="h-4 w-4" />
+              <LucideShield className="h-4 w-4" />
               <span>EPS Pension</span>
             </TabsTrigger>
             <TabsTrigger value="nps" className="flex items-center space-x-1">
@@ -851,7 +851,7 @@ export default function Portfolio() {
                     </CardDescription>
                   </div>
                   <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800">
-                    <Shield className="h-3 w-3 mr-1" />
+                    <LucideShield className="h-3 w-3 mr-1" />
                     PAN Verified
                   </Badge>
                 </div>
@@ -938,7 +938,7 @@ export default function Portfolio() {
                     </CardDescription>
                   </div>
                   <Badge className="bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200 border-teal-200 dark:border-teal-800">
-                    <Shield className="h-3 w-3 mr-1" />
+                    <LucideShield className="h-3 w-3 mr-1" />
                     PAN Verified
                   </Badge>
                 </div>
@@ -1278,7 +1278,7 @@ export default function Portfolio() {
             >
               {/* PAN Verification Banner */}
               <div className="flex items-center mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
-                <Shield className="h-4 w-4 text-green-600 mr-2" />
+                <LucideShield className="h-4 w-4 text-green-600 mr-2" />
                 <span className="text-sm text-green-700 dark:text-green-300">
                   Insurance holdings verified with your PAN card for secure access
                 </span>
@@ -1289,7 +1289,7 @@ export default function Portfolio() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
-                      <Shield className="h-5 w-5 text-blue-600" />
+                      <LucideShield className="h-5 w-5 text-blue-600" />
                       <span>Insurance Holdings Overview</span>
                     </CardTitle>
                     <CardDescription>
@@ -1360,7 +1360,7 @@ export default function Portfolio() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
-                      <Shield className="h-5 w-5 text-green-600" />
+                      <LucideShield className="h-5 w-5 text-green-600" />
                       <span>Active Insurance Policies</span>
                     </CardTitle>
                   </CardHeader>
@@ -1419,7 +1419,7 @@ export default function Portfolio() {
                         ))
                       ) : (
                         <div className="text-center py-8 text-muted-foreground">
-                          <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                          <LucideShield className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                           <p>No insurance policies found</p>
                           <p className="text-sm">Connect your NSDL/CDSL account to view your insurance holdings</p>
                         </div>
@@ -1434,7 +1434,7 @@ export default function Portfolio() {
               <Card className="mt-6">
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
-                    <Shield className="h-5 w-5 text-orange-600" />
+                    <LucideShield className="h-5 w-5 text-orange-600" />
                     <span>Insurance Portfolio Analytics</span>
                   </CardTitle>
                 </CardHeader>
@@ -1532,7 +1532,7 @@ export default function Portfolio() {
             >
               {/* PAN Verification Banner */}
               <div className="flex items-center mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
-                <Shield className="h-4 w-4 text-green-600 mr-2" />
+                <LucideShield className="h-4 w-4 text-green-600 mr-2" />
                 <span className="text-sm text-green-700 dark:text-green-300">
                   EPF data verified with your PAN card and UAN for secure access
                 </span>
@@ -1798,7 +1798,7 @@ export default function Portfolio() {
             >
               {/* PAN Verification Banner */}
               <div className="flex items-center mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
-                <Shield className="h-4 w-4 text-green-600 mr-2" />
+                <LucideShield className="h-4 w-4 text-green-600 mr-2" />
                 <span className="text-sm text-green-700 dark:text-green-300">
                   PPF data verified with your PAN card and PPF account number for secure access
                 </span>
@@ -2140,7 +2140,7 @@ export default function Portfolio() {
             >
               {/* PAN Verification Banner */}
               <div className="flex items-center mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
-                <Shield className="h-4 w-4 text-green-600 mr-2" />
+                <LucideShield className="h-4 w-4 text-green-600 mr-2" />
                 <span className="text-sm text-green-700 dark:text-green-300">
                   EPS pension data verified with your PAN card and UAN for secure access
                 </span>
@@ -2157,7 +2157,7 @@ export default function Portfolio() {
                       <CardHeader>
                         <div className="flex items-center justify-between">
                           <CardTitle className="flex items-center space-x-2">
-                            <Shield className="h-5 w-5 text-blue-600" />
+                            <LucideShield className="h-5 w-5 text-blue-600" />
                             <span>EPS Pension Account</span>
                           </CardTitle>
                           <Badge variant="outline" className="text-blue-600 border-blue-600">{eps.schemeType?.toUpperCase() || 'EPS-95'}</Badge>
@@ -2373,7 +2373,7 @@ export default function Portfolio() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center space-x-2">
-                      <Shield className="h-5 w-5 text-green-600" />
+                      <LucideShield className="h-5 w-5 text-green-600" />
                       <span>APY - Atal Pension Yojana</span>
                     </CardTitle>
                     <Badge variant="outline" className="text-green-600 border-green-600">Enrolled</Badge>
@@ -2600,7 +2600,7 @@ export default function Portfolio() {
               <Card className="xl:col-span-2">
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
-                    <Shield className="h-5 w-5 text-blue-600" />
+                    <LucideShield className="h-5 w-5 text-blue-600" />
                     <span>EPS in Your Retirement Planning</span>
                   </CardTitle>
                 </CardHeader>
@@ -2766,7 +2766,7 @@ export default function Portfolio() {
               onRequestConsent={handleRequestConsent}
             >
               <div className="flex items-center mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
-                <Shield className="h-4 w-4 text-green-600 mr-2" />
+                <LucideShield className="h-4 w-4 text-green-600 mr-2" />
                 <span className="text-sm text-green-700 dark:text-green-300">
                   NPS data verified with your PAN and PRAN for secure access
                 </span>
@@ -2864,7 +2864,7 @@ export default function Portfolio() {
               onRequestConsent={handleRequestConsent}
             >
               <div className="flex items-center mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
-                <Shield className="h-4 w-4 text-green-600 mr-2" />
+                <LucideShield className="h-4 w-4 text-green-600 mr-2" />
                 <span className="text-sm text-green-700 dark:text-green-300">
                   APY data verified with your PAN and Aadhaar for secure access
                 </span>
@@ -2952,7 +2952,7 @@ export default function Portfolio() {
           <TabsContent value="rebalance" className="space-y-8">
             {/* PAN Verification Banner */}
             <div className="flex items-center mb-6 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
-              <Shield className="h-4 w-4 text-green-600 mr-2" />
+              <LucideShield className="h-4 w-4 text-green-600 mr-2" />
               <span className="text-sm text-green-700 dark:text-green-300">
                 AI rebalancing analysis using your PAN-verified portfolio data for secure recommendations
               </span>

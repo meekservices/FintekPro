@@ -15,7 +15,7 @@ import {
   IndianRupee,
   PieChart,
   Calculator,
-  Shield,
+  Shield as LucideShield,
   Clock,
   Briefcase,
   Building,
@@ -224,7 +224,7 @@ export function RetirementPlanning() {
                   {readiness.status}
                 </Badge>
               </div>
-              <Shield className={`w-8 h-8 text-${readiness.color}-500`} />
+              <LucideShield className={`w-8 h-8 text-${readiness.color}-500`} />
             </div>
           </CardContent>
         </Card>
@@ -553,7 +553,7 @@ export function RetirementPlanning() {
                     <span className="text-sm">Review and rebalance portfolio annually</span>
                   </div>
                   <div className="flex items-center gap-2 p-2 bg-yellow-50 dark:bg-yellow-950/30 rounded">
-                    <Shield className="w-4 h-4 text-yellow-600" />
+                    <LucideShield className="w-4 h-4 text-yellow-600" />
                     <span className="text-sm">Gradually shift to conservative allocation near retirement</span>
                   </div>
                   <div className="flex items-center gap-2 p-2 bg-pink-50 dark:bg-pink-950/30 rounded">

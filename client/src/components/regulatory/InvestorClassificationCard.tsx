@@ -23,7 +23,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   User, 
   TrendingUp, 
-  Shield, 
+  Shield as LucideShield, 
   Building2, 
   Crown, 
   Info,
@@ -73,7 +73,7 @@ const investorTypeIcons: Record<string, typeof User> = {
   sHNI: TrendingUp,
   bHNI: Crown,
   qib: Building2,
-  anchor: Shield,
+  anchor: LucideShield,
 };
 
 const investorTypeColors: Record<string, string> = {

@@ -19,7 +19,7 @@ import {
   Clock,
   CheckCircle,
   Loader2,
-  Shield,
+  Shield as LucideShield,
   Users,
   IndianRupee,
   Activity,
@@ -336,7 +336,7 @@ export default function AdminReportsHub() {
           const stats = getCategoryStats(category);
           const categoryIcons = {
             business: Briefcase,
-            compliance: Shield,
+            compliance: LucideShield,
             revenue: IndianRupee,
             operations: Gauge
           };
@@ -396,7 +396,7 @@ export default function AdminReportsHub() {
             Business Analytics
           </TabsTrigger>
           <TabsTrigger value="compliance" className="data-[state=active]:bg-emerald-600" data-testid="tab-compliance">
-            <Shield className="h-4 w-4 mr-2" />
+            <LucideShield className="h-4 w-4 mr-2" />
             Compliance
           </TabsTrigger>
           <TabsTrigger value="revenue" className="data-[state=active]:bg-amber-600" data-testid="tab-revenue">

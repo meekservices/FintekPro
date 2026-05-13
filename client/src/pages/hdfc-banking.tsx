@@ -10,7 +10,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, IndianRupee, Send, CheckCircle, AlertCircle, Clock, Eye, Download, RefreshCw, Building2, Banknote, Receipt, History, Shield, Users, TrendingUp, ArrowUpDown } from "lucide-react";
+import { CreditCard, IndianRupee, Send, CheckCircle, AlertCircle, Clock, Eye, Download, RefreshCw, Building2, Banknote, Receipt, History, Shield as LucideShield, Users, TrendingUp, ArrowUpDown } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -373,7 +373,7 @@ export default function HDFCBanking() {
                   Statements
                 </TabsTrigger>
                 <TabsTrigger value="validation" data-testid="validation-tab">
-                  <Shield className="h-4 w-4 mr-2" />
+                  <LucideShield className="h-4 w-4 mr-2" />
                   Validation
                 </TabsTrigger>
               </ScrollableTabsList>
@@ -736,7 +736,7 @@ export default function HDFCBanking() {
                           </>
                         ) : (
                           <>
-                            <Shield className="h-4 w-4 mr-2" />
+                            <LucideShield className="h-4 w-4 mr-2" />
                             Validate Account
                           </>
                         )}
@@ -775,7 +775,7 @@ export default function HDFCBanking() {
             </div>
             <div className="mt-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
-                <Shield className="h-5 w-5 text-orange-600" />
+                <LucideShield className="h-5 w-5 text-orange-600" />
                 <p className="font-medium text-orange-800 dark:text-orange-200">Security Features</p>
               </div>
               <ul className="text-sm text-orange-700 dark:text-orange-300 space-y-1">

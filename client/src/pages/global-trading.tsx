@@ -14,7 +14,7 @@ import { queryClient } from "@/lib/queryClient";
 import { 
   Globe, TrendingUp, TrendingDown, BarChart3, PieChart, 
   Clock, RefreshCw, ArrowUpRight, ArrowDownRight, Search,
-  Zap, Shield, Bell, Star, Eye, Play, Square,
+  Zap, Shield as LucideShield, Bell, Star, Eye, Play, Square,
   Activity, Target, DollarSign, Banknote, CreditCard,
   Moon, Sun, Calendar, AlertCircle, CheckCircle,
   Building2, MapPin, Percent, Users, Settings, Wallet
@@ -473,7 +473,7 @@ export default function GlobalTrading() {
                 <p className="text-sm text-muted-foreground">LRS Available</p>
                 <p className="text-lg font-bold">${((eligibilityData?.lrsRemaining || 250000) / 1000).toFixed(0)}K</p>
               </div>
-              <Shield className="h-6 w-6 text-blue-600" />
+              <LucideShield className="h-6 w-6 text-blue-600" />
             </div>
           </CardContent>
         </Card>
@@ -997,7 +997,7 @@ export default function GlobalTrading() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-green-600" />
+                <LucideShield className="h-5 w-5 text-green-600" />
                 Global Trading Tools
               </CardTitle>
             </CardHeader>
@@ -1011,7 +1011,7 @@ export default function GlobalTrading() {
                 International News
               </Button>
               <Button variant="outline" className="w-full justify-start" data-testid="button-currency-hedging">
-                <Shield className="h-4 w-4 mr-2" />
+                <LucideShield className="h-4 w-4 mr-2" />
                 Currency Hedging
               </Button>
               <Button variant="outline" className="w-full justify-start" data-testid="button-adr-screening">

@@ -25,7 +25,7 @@ import {
   Search,
   Loader2,
   UserPlus,
-  Shield
+  Shield as LucideShield
 } from "lucide-react";
 
 // Entity Type Schema
@@ -378,7 +378,7 @@ export default function CorporateKYCPage() {
                         </>
                       ) : (
                         <>
-                          <Shield className="mr-2 h-4 w-4" />
+                          <LucideShield className="mr-2 h-4 w-4" />
                           Verify Entity
                         </>
                       )}

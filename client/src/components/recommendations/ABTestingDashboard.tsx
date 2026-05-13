@@ -17,7 +17,7 @@ import {
   Users, 
   TrendingUp, 
   AlertTriangle, 
-  Shield, 
+  Shield as LucideShield, 
   Activity, 
   Power, 
   PowerOff,
@@ -352,7 +352,7 @@ export function ABTestingDashboard({ className = "" }: { className?: string }) {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-emerald-500" />
+              <LucideShield className="h-5 w-5 text-emerald-500" />
               <div>
                 <p className="text-sm text-muted-foreground">Safety Status</p>
                 <Badge variant={summary?.safetyStatus?.safe ? "default" : "destructive"}>

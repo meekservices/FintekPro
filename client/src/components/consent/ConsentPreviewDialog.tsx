@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Shield, Building, Lock, Clock, AlertCircle } from 'lucide-react';
+import { Shield as LucideShield, Building, Lock, Clock, AlertCircle } from 'lucide-react';
 
 interface ConsentPreviewDialogProps {
   open: boolean;
@@ -60,7 +60,7 @@ export function ConsentPreviewDialog({
       <DialogContent className="max-w-2xl max-h-[90vh]" data-testid="dialog-consent-preview">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-blue-600" />
+            <LucideShield className="h-5 w-5 text-blue-600" />
             Grant Data Access Consent
           </DialogTitle>
           <DialogDescription>

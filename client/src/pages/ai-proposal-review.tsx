@@ -27,7 +27,7 @@ import {
   PieChart,
   BarChart3,
   AlertTriangle,
-  Shield,
+  Shield as LucideShield,
   ShoppingCart,
   ThumbsUp,
   ThumbsDown,
@@ -385,7 +385,7 @@ export default function AIProposalReviewPage() {
       )}
 
       <Alert className="mb-6 bg-amber-50 dark:bg-amber-950 border-amber-200">
-        <Shield className="h-4 w-4" />
+        <LucideShield className="h-4 w-4" />
         <AlertTitle>SEBI Compliance Disclaimer</AlertTitle>
         <AlertDescription className="text-xs mt-2">
           {selectedProposal.sebiDisclaimer}

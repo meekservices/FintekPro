@@ -27,7 +27,7 @@ import {
   Calendar,
   IndianRupee,
   PiggyBank,
-  Shield,
+  Shield as LucideShield,
   Briefcase,
   BarChart3,
   Lock,
@@ -365,7 +365,7 @@ export default function ReportsHub() {
         </div>
 
         <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
-          <Shield className="h-4 w-4 text-blue-600" />
+          <LucideShield className="h-4 w-4 text-blue-600" />
           <AlertDescription className="text-blue-800 dark:text-blue-200">
             <span className="font-semibold">SEBI & PMLA Compliant:</span> All reports are encrypted, audit-logged, and stored securely for 7 years as per regulatory requirements.
           </AlertDescription>
@@ -641,7 +641,7 @@ export default function ReportsHub() {
               <Card className="bg-gradient-to-br from-blue-50 dark:from-blue-950/30 to-indigo-50 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2 text-blue-800 dark:text-blue-200">
-                    <Shield className="w-5 h-5" />
+                    <LucideShield className="w-5 h-5" />
                     Your KYC Status
                   </CardTitle>
                 </CardHeader>

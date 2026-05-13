@@ -8,7 +8,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Badge } from "@/components/ui/badge";
 import { 
   Briefcase, IndianRupee, TrendingUp, ArrowUpRight, Search, BarChart3, 
-  PieChart, Clock, Shield, Award, Target, Star, Eye, RefreshCw, ShoppingCart,
+  PieChart, Clock, Shield as LucideShield, Award, Target, Star, Eye, RefreshCw, ShoppingCart,
   ClipboardList, Wallet, Package, FileText, CheckCircle2, AlertTriangle,
   ThumbsUp, ThumbsDown, Bot, UserCheck, Trash2, CreditCard, AlertOctagon,
   Sparkles, Calculator, ChevronRight, Zap

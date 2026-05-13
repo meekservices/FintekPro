@@ -13,7 +13,7 @@ import {
   TrendingUp, 
   PieChart, 
   CreditCard, 
-  Shield, 
+  Shield as LucideShield, 
   FileText, 
   Calculator,
   Building2,
@@ -299,7 +299,7 @@ export function EnhancedNavigation() {
         {
           name: "Insurance Hub",
           href: "/insurance",
-          icon: Shield,
+          icon: LucideShield,
           description: "Life, health & general insurance"
         },
         {

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, AlertTriangle, CheckCircle, User, Activity } from "lucide-react";
+import { Shield as LucideShield, AlertTriangle, CheckCircle, User, Activity } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingState } from "@/components/LoadingState";
@@ -96,7 +96,7 @@ export default function AMLMonitoring() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3 mb-6">
-        <Shield className="h-8 w-8 text-blue-600" />
+        <LucideShield className="h-8 w-8 text-blue-600" />
         <div>
           <h1 className="text-3xl font-bold">AML Monitoring & Compliance</h1>
           <p className="text-muted-foreground">Anti-Money Laundering screening and monitoring dashboard</p>
@@ -246,7 +246,7 @@ export default function AMLMonitoring() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
+            <LucideShield className="h-5 w-5" />
             AML Service Status
           </CardTitle>
         </CardHeader>

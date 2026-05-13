@@ -23,7 +23,7 @@ import {
   User, ArrowRight, ArrowLeft, Check, Target, PieChart, Scale, 
   TrendingUp, TrendingDown, Sparkles, Share2, Mail, MessageSquare, 
   Copy, ExternalLink, Plus, Trash2, Loader2, CheckCircle, AlertTriangle,
-  IndianRupee, Percent, Clock, Shield, Zap, RefreshCw, Search, Users, Download,
+  IndianRupee, Percent, Clock, Shield as LucideShield, Zap, RefreshCw, Search, Users, Download,
   Upload, Link, FileText, AlertCircle, Settings2, Globe, ChevronUp, ChevronDown, Info,
   Pencil, RotateCcw, Save, X, Lightbulb, Calculator, LayoutGrid, Wand2,
   Activity, Wallet, BarChart3, ListChecks, ArrowUpCircle, FileCheck,
@@ -6009,7 +6009,7 @@ export default function AgentProspectWizard() {
                   <div className="space-y-4 p-4 border rounded-lg bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20">
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-muted-foreground flex items-center gap-2">
-                        <Shield className="h-4 w-4" />
+                        <LucideShield className="h-4 w-4" />
                         <span>Enhanced KYC required for global investments</span>
                       </div>
                       <div className="flex gap-2">
@@ -6550,7 +6550,7 @@ export default function AgentProspectWizard() {
                           )}
                           {taxSummary.grandfatheringBenefitTotal > 0 && (
                             <div className="flex items-center gap-2 px-3 py-1 bg-green-100 dark:bg-green-900/30 rounded-full">
-                              <Shield className="h-4 w-4 text-green-600" />
+                              <LucideShield className="h-4 w-4 text-green-600" />
                               <span className="text-sm text-green-700 dark:text-green-300">
                                 Grandfathering Benefit: {formatCurrency(taxSummary.grandfatheringBenefitTotal)}
                               </span>
@@ -6704,7 +6704,7 @@ export default function AgentProspectWizard() {
                 {/* Grandfathering Benefit */}
                 {(taxSummary.grandfatheringBenefitTotal ?? 0) > 0 && (
                   <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-green-600" />
+                    <LucideShield className="h-5 w-5 text-green-600" />
                     <span className="text-sm text-green-700 dark:text-green-300">
                       Grandfathering benefit applied: {formatCurrency(taxSummary.grandfatheringBenefitTotal)} saved on pre-2018 holdings
                     </span>

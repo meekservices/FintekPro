@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TrendingUp, Users, Award, Shield, UserCircle, ArrowUpRight } from 'lucide-react';
+import { TrendingUp, Users, Award, Shield as LucideShield, UserCircle, ArrowUpRight } from 'lucide-react';
 
 export default function PublicProfilePage() {
   const { code } = useParams<{ code: string }>();
@@ -57,7 +57,7 @@ export default function PublicProfilePage() {
               <div className="flex items-center gap-2 mb-1">
                 <h1 className="text-3xl font-bold">{profile.firstName} {profile.lastName}</h1>
                 <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                  <Shield className="h-3 w-3 mr-1" /> Verified
+                  <LucideShield className="h-3 w-3 mr-1" /> Verified
                 </Badge>
               </div>
               <p className="text-muted-foreground">Joined {new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>

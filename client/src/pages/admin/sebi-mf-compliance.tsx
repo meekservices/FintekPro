@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
-  Shield, RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle,
+  Shield as LucideShield, RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle,
   ChevronDown, ChevronRight, Search, Loader2, Database, FileText,
   ArrowRight, Activity, BarChart3, GitBranch, BookOpen, Layers
 } from "lucide-react";
@@ -854,7 +854,7 @@ export default function SEBIMFCompliance() {
     <div className="p-6 max-w-[1400px] mx-auto space-y-6">
       <div className="flex items-start gap-3">
         <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-          <Shield className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+          <LucideShield className="h-6 w-6 text-blue-600 dark:text-blue-400" />
         </div>
         <div>
           <h1 className="text-2xl font-bold">SEBI 2026 MF Compliance Centre</h1>

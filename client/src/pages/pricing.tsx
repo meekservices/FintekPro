@@ -16,7 +16,7 @@ import {
   Crown,
   Globe,
   TrendingUp,
-  Shield,
+  Shield as LucideShield,
   BarChart3,
   FileText,
   Users,
@@ -214,7 +214,7 @@ function ComparisonTable({ plans }: { plans: Plan[] }) {
     { label: 'US Stock Investing', key: 'usTrading', icon: Globe },
     { label: 'Real-time Market Data', key: 'realTimeData', icon: TrendingUp },
     { label: 'AI Research Reports', key: 'aiReports', icon: BarChart3 },
-    { label: 'Portfolio Health Scoring', key: 'portfolioScoring', icon: Shield },
+    { label: 'Portfolio Health Scoring', key: 'portfolioScoring', icon: LucideShield },
     { label: 'Tax-ready Reports (India)', key: 'taxReports', icon: FileText },
     { label: 'Advisor Dashboard', key: 'advisorDashboard', icon: Users },
     { label: 'Dedicated RM / WhatsApp', key: 'dedicatedRM', icon: Users },
@@ -282,7 +282,7 @@ function RevenueInfo() {
   const items = [
     { icon: TrendingUp, title: 'FX Spread Revenue', desc: '0.25–1% on every USD remittance. ₹10L investment = up to ₹10,000 FintekPro revenue per transaction.' },
     { icon: BarChart3, title: 'Idle Cash Yield', desc: 'Alpaca yields ~4–5% on uninvested cash. FintekPro retains 1–1.5%, you receive 2.5–3.5%.' },
-    { icon: Shield, title: 'Securities Lending', desc: '30–50% of lending income shared passively. Completely hands-off income for investors.' },
+    { icon: LucideShield, title: 'Securities Lending', desc: '30–50% of lending income shared passively. Completely hands-off income for investors.' },
     { icon: Sparkles, title: 'Referral Rewards', desc: '₹500–₹1,000 per funded account you refer. Funded from FX spread margin.' },
   ];
 
@@ -353,7 +353,7 @@ function PaymentModal({ tier, cycle, onClose }: PaymentModalProps) {
 
         <div className="space-y-3 text-sm">
           <div className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
-            <Shield className="h-5 w-5 text-green-500 shrink-0" />
+            <LucideShield className="h-5 w-5 text-green-500 shrink-0" />
             <div>
               <div className="font-medium">Secure payment via Cashfree</div>
               <div className="text-xs text-muted-foreground">UPI, Netbanking, Cards, Wallets accepted</div>

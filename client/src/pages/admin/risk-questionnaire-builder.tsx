@@ -15,7 +15,7 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Edit, Trash2, Save, RefreshCw, Settings, FileText, Scale, Shield, AlertTriangle, CheckCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Save, RefreshCw, Settings, FileText, Scale, Shield as LucideShield, AlertTriangle, CheckCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -202,7 +202,7 @@ export default function RiskQuestionnaireBuilder() {
             Questions
           </TabsTrigger>
           <TabsTrigger value="products" data-testid="tab-products">
-            <Shield className="h-4 w-4 mr-2" />
+            <LucideShield className="h-4 w-4 mr-2" />
             Product Matrix
           </TabsTrigger>
           <TabsTrigger value="overrides" data-testid="tab-overrides">

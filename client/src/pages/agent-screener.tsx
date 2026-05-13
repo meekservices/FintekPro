@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Filter, Search, Save, Play, TrendingUp, TrendingDown, Percent, IndianRupee,
   ArrowUpDown, ArrowUp, ArrowDown, Star, BarChart3, RefreshCw, ChevronLeft,
-  ChevronRight, Database, Loader2, Activity, PieChart, Target, Shield,
+  ChevronRight, Database, Loader2, Activity, PieChart, Target, Shield as LucideShield,
   Zap, Eye, X, SlidersHorizontal, Download, LayoutGrid, List, Info,
   Building2, Sparkles, Settings, Clock, AlertTriangle, CheckCircle2, Calculator
 } from "lucide-react";
@@ -122,7 +122,7 @@ function ScoreBreakdownTooltip({ stock }: { stock: any }) {
                 { label: 'Growth', score: stock.growthScore, icon: TrendingUp, weight: '25%', color: 'text-blue-500' },
                 { label: 'Quality', score: stock.qualityScore, icon: Sparkles, weight: '30%', color: 'text-purple-500' },
                 { label: 'Value', score: stock.valueScore, icon: Target, weight: '25%', color: 'text-emerald-500' },
-                { label: 'Risk', score: stock.riskScore, icon: Shield, weight: '20%', color: 'text-orange-500' },
+                { label: 'Risk', score: stock.riskScore, icon: LucideShield, weight: '20%', color: 'text-orange-500' },
               ].map(({ label, score, icon: Icon, weight, color }) => {
                 const s = parseFloat(score || '0');
                 return (
@@ -949,7 +949,7 @@ export default function AgentScreener() {
                                                         { label: 'Growth', score: stockDetail.derivedMetrics.growthScore, icon: TrendingUp, color: 'bg-blue-500', weight: '25%' },
                                                         { label: 'Quality', score: stockDetail.derivedMetrics.qualityScore, icon: Sparkles, color: 'bg-purple-500', weight: '30%' },
                                                         { label: 'Value', score: stockDetail.derivedMetrics.valueScore, icon: Target, color: 'bg-emerald-500', weight: '25%' },
-                                                        { label: 'Risk', score: stockDetail.derivedMetrics.riskScore, icon: Shield, color: 'bg-orange-500', weight: '20%' },
+                                                        { label: 'Risk', score: stockDetail.derivedMetrics.riskScore, icon: LucideShield, color: 'bg-orange-500', weight: '20%' },
                                                       ].map(({ label, score, icon: Icon, color, weight }) => {
                                                         const s = parseFloat(score || '0');
                                                         return (

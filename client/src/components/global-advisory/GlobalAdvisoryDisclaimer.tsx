@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, Shield, ExternalLink, CheckCircle } from "lucide-react";
+import { AlertTriangle, Shield as LucideShield, ExternalLink, CheckCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -123,7 +123,7 @@ export function GlobalAdvisoryDisclaimer({
       <DialogContent className="max-w-2xl max-h-[90vh]" data-testid="global-advisory-disclaimer-modal">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <Shield className="h-6 w-6 text-primary" />
+            <LucideShield className="h-6 w-6 text-primary" />
             Global Advisory Disclaimer
           </DialogTitle>
           <DialogDescription>

@@ -1,6 +1,6 @@
 import React from "react";
 import { 
-  Upload, Plus, BarChart3, Save, Trash2, FileText, Info, Shield, TrendingUp 
+  Upload, Plus, BarChart3, Save, Trash2, FileText, Info, Shield as LucideShield, TrendingUp 
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -408,7 +408,7 @@ export const CapitalGainsSection: React.FC = (): React.ReactElement => {
           )}
 
           <Alert>
-            <Shield className="h-4 w-4" />
+            <LucideShield className="h-4 w-4" />
             <AlertDescription className="text-xs">
               <strong>F&O / Intraday Trading:</strong> If you have Futures & Options or frequent intraday activity, these are classified as Business Income (ITR-3). 
               Use the Business & Profession section instead. Only equity delivery-based trades are reported as Capital Gains.
@@ -580,7 +580,7 @@ export const CapitalGainsSection: React.FC = (): React.ReactElement => {
               </div>
 
               <Alert>
-                <Shield className="h-4 w-4" />
+                <LucideShield className="h-4 w-4" />
                 <AlertDescription className="text-xs">
                   All uploads and manual entries are logged with SHA-256 hash chain integrity for ITR department audit compliance. 
                   File checksums, parse confidence scores, and entry timestamps are immutably recorded.

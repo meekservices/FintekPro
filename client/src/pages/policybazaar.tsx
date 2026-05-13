@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
-import { Shield, Heart, Car, Plane, Home, Calculator, Users, Clock, CheckCircle, Star } from "lucide-react";
+import { Shield as LucideShield, Heart, Car, Plane, Home, Calculator, Users, Clock, CheckCircle, Star } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
@@ -222,7 +222,7 @@ function EnhancedInsuranceMarketplace({ selectedInsurance, age, coverage, city }
       ) : (
         <Card>
           <CardContent className="text-center py-12">
-            <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <LucideShield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-2">Ready to Compare Insurance Plans?</h3>
             <p className="text-muted-foreground mb-4">
               Get quotes from 15+ top insurers and find the best coverage for your needs
@@ -647,7 +647,7 @@ export default function PolicyBazaar() {
 
   const insuranceTypes = [
     { value: "health insurance", label: "Health Insurance", icon: Heart, color: "text-red-600" },
-    { value: "life insurance", label: "Life Insurance", icon: Shield, color: "text-blue-600" },
+    { value: "life insurance", label: "Life Insurance", icon: LucideShield, color: "text-blue-600" },
     { value: "motor insurance", label: "Motor Insurance", icon: Car, color: "text-green-600" },
     { value: "travel insurance", label: "Travel Insurance", icon: Plane, color: "text-purple-600" }
   ];
@@ -1055,7 +1055,7 @@ export default function PolicyBazaar() {
           <TabsContent value="policies" className="space-y-6" data-testid="policies-tab">
             <Card className="border-dashed border-2 border-border">
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <Shield className="h-12 w-12 text-muted-foreground mb-4" />
+                <LucideShield className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">No Policies Found</h3>
                 <p className="text-muted-foreground text-center mb-4">
                   Your purchased insurance policies will appear here

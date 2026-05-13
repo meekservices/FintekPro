@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { 
-  Shield, 
+  Shield as LucideShield, 
   CheckCircle2, 
   AlertTriangle, 
   FileText, 
@@ -117,7 +117,7 @@ export function KYCVerificationDashboard() {
     if (level === "enhanced") {
       return (
         <Badge className="bg-purple-600 hover:bg-purple-700 text-white" data-testid="kyc-level-enhanced">
-          <Shield className="h-3 w-3 mr-1" />
+          <LucideShield className="h-3 w-3 mr-1" />
           Enhanced KYC
         </Badge>
       );
@@ -272,7 +272,7 @@ export function KYCVerificationDashboard() {
             </p>
             <Link href="/profile">
               <Button variant="default" className="bg-purple-600 hover:bg-purple-700" data-testid="button-upgrade-tier">
-                <Shield className="h-4 w-4 mr-2" />
+                <LucideShield className="h-4 w-4 mr-2" />
                 {productAccess.tier === "basic" ? "Upgrade to Enhanced KYC" : "Apply for Accredited Status"}
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
@@ -290,7 +290,7 @@ export function KYCVerificationDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
+                <LucideShield className="h-5 w-5" />
                 KYC Verification Status
               </CardTitle>
               <CardDescription>

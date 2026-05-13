@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Shield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar, RefreshCw, ShieldCheck, Crown, CheckCircle2, XCircle, Edit, ArrowRight, Unlock, TrendingUp, Clock, AlertCircle, Sparkles, Home, BarChart3, Briefcase, IndianRupee, LineChart, Receipt, ExternalLink, ChevronRight, Package, ShoppingCart, Info, Settings, Activity, Copy, Eye, EyeOff, LogOut, ChevronDown } from "lucide-react";
+import { User, Shield as LucideShield, AlertTriangle, CheckCircle, FileText, Building2, Globe, Star, Award, Lock, Heart, MapPin, Phone, Mail, CreditCard, Banknote, Users, Calendar, RefreshCw, ShieldCheck, Crown, CheckCircle2, XCircle, Edit, ArrowRight, Unlock, TrendingUp, Clock, AlertCircle, Sparkles, Home, BarChart3, Briefcase, IndianRupee, LineChart, Receipt, ExternalLink, ChevronRight, Package, ShoppingCart, Info, Settings, Activity, Copy, Eye, EyeOff, LogOut, ChevronDown } from "lucide-react";
 import { useLocation } from 'wouter';
 import { BankingTab } from "@/components/BankingDematTab";
 import { DematTab } from "@/components/DematTab";
@@ -572,13 +572,13 @@ export default function ProfilePage() {
   const getTierIcon = (tier: string) => {
     switch (tier) {
       case 'basic':
-        return <Shield className="h-5 w-5" />;
+        return <LucideShield className="h-5 w-5" />;
       case 'enhanced':
         return <ShieldCheck className="h-5 w-5" />;
       case 'accredited_investor':
         return <Crown className="h-5 w-5" />;
       default:
-        return <Shield className="h-5 w-5" />;
+        return <LucideShield className="h-5 w-5" />;
     }
   };
 
@@ -811,7 +811,7 @@ export default function ProfilePage() {
                         )}
                         {kycTier && (
                           <span className="flex items-center gap-1 bg-white/20 text-white text-xs px-2 py-0.5 rounded-full">
-                            {kycTier === 'accredited_investor' ? <Crown className="h-3 w-3" /> : kycTier === 'enhanced' ? <ShieldCheck className="h-3 w-3" /> : <Shield className="h-3 w-3" />}
+                            {kycTier === 'accredited_investor' ? <Crown className="h-3 w-3" /> : kycTier === 'enhanced' ? <ShieldCheck className="h-3 w-3" /> : <LucideShield className="h-3 w-3" />}
                             {kycTier === 'accredited_investor' ? 'Accredited' : kycTier === 'enhanced' ? 'Enhanced' : 'Standard'} KYC
                           </span>
                         )}
@@ -847,7 +847,7 @@ export default function ProfilePage() {
                 {[
                   { id: 'overview', icon: <Home className="h-4 w-4" />, label: 'Personal Details', testId: 'tab-overview' },
                   { id: 'kyc-dashboard', icon: <Award className="h-4 w-4" />, label: 'KYC Dashboard', testId: 'tab-kyc-dashboard' },
-                  { id: 'kyc-verification', icon: <Shield className="h-4 w-4" />, label: 'Verifications', testId: 'tab-kyc-verification' },
+                  { id: 'kyc-verification', icon: <LucideShield className="h-4 w-4" />, label: 'Verifications', testId: 'tab-kyc-verification' },
                   { id: 'accounts', icon: <CreditCard className="h-4 w-4" />, label: 'Bank & Demat', testId: 'tab-accounts' },
                   { id: 'compliance', icon: <FileText className="h-4 w-4" />, label: 'Compliance', testId: 'tab-compliance' },
                 ].map(nav => (
@@ -890,7 +890,7 @@ export default function ProfilePage() {
                   <>
                     <p className="text-xs text-gray-400 dark:text-gray-500 px-3 py-1">Admin Tools</p>
                     {[
-                      { label: 'KYC Management', icon: <Shield className="h-4 w-4" />, path: '/kyc-dashboard' },
+                      { label: 'KYC Management', icon: <LucideShield className="h-4 w-4" />, path: '/kyc-dashboard' },
                       { label: 'User Management', icon: <Users className="h-4 w-4" />, path: '/users' },
                       { label: 'Audit Logs', icon: <FileText className="h-4 w-4" />, path: '/audit-logs' },
                       { label: 'System Settings', icon: <Settings className="h-4 w-4" />, path: '/settings' },
@@ -952,7 +952,7 @@ export default function ProfilePage() {
                   <Award className="h-4 w-4 mr-1" />Dashboard
                 </TabsTrigger>
                 <TabsTrigger value="kyc-verification" data-testid="tab-kyc-verification-mobile" className="flex-shrink-0">
-                  <Shield className="h-4 w-4 mr-1" />Verify
+                  <LucideShield className="h-4 w-4 mr-1" />Verify
                 </TabsTrigger>
                 <TabsTrigger value="accounts" data-testid="tab-accounts-mobile" className="flex-shrink-0">
                   <CreditCard className="h-4 w-4 mr-1" />Accounts
@@ -1134,7 +1134,7 @@ export default function ProfilePage() {
                               <ProfileDetailRow
                                 label="Aadhaar Number"
                                 value={aadhaarLast4 ? maskAadhaar(aadhaarLast4) : 'Not verified'}
-                                icon={<Shield className="h-4 w-4" />}
+                                icon={<LucideShield className="h-4 w-4" />}
                                 verified={kycProfileData?.aadhaarVerified}
                                 action={!kycProfileData?.aadhaarVerified
                                   ? { label: 'Verify Now', onClick: () => setLocation('/onboarding?step=aadhaar_otp') }
@@ -1343,7 +1343,7 @@ export default function ProfilePage() {
                                     { label: 'Bank Account', verified: kycProfileData?.bankVerified, icon: <Banknote className="h-4 w-4" />, action: () => setActiveTab('accounts') },
                                     { label: 'Demat Account', verified: kycProfileData?.dematLinked, icon: <Building2 className="h-4 w-4" />, action: () => setActiveTab('accounts') },
                                     { label: 'PAN', verified: isPanVerified, icon: <CreditCard className="h-4 w-4" />, action: () => setActiveTab('kyc-verification') },
-                                    { label: 'Aadhaar OTP', verified: kycProfileData?.aadhaarVerified, icon: <Shield className="h-4 w-4" />, action: () => setActiveTab('kyc-verification') },
+                                    { label: 'Aadhaar OTP', verified: kycProfileData?.aadhaarVerified, icon: <LucideShield className="h-4 w-4" />, action: () => setActiveTab('kyc-verification') },
                                   ].map(acc => (
                                     <div key={acc.label} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
                                       <div className="flex items-center gap-3">
@@ -1427,7 +1427,7 @@ export default function ProfilePage() {
                               </CardHeader>
                               <CardContent className="pt-0 space-y-1">
                                 {[
-                                  { label: 'KYC Management', icon: <Shield className="h-4 w-4 text-blue-500" />, path: '/kyc-dashboard' },
+                                  { label: 'KYC Management', icon: <LucideShield className="h-4 w-4 text-blue-500" />, path: '/kyc-dashboard' },
                                   { label: 'User Management', icon: <Users className="h-4 w-4 text-purple-500" />, path: '/users' },
                                   { label: 'Audit Logs', icon: <Activity className="h-4 w-4 text-green-500" />, path: '/audit-logs' },
                                   { label: 'Rejections & Re-KYC', icon: <XCircle className="h-4 w-4 text-red-500" />, path: '/kyc-rejections' },
@@ -1629,7 +1629,7 @@ export default function ProfilePage() {
                                     <span className="text-sm text-muted-foreground">Entity:</span>
                                     <span className="text-sm font-medium">{kycProfileData.entityType}</span>
                                     {kycProfileData?.entityTypeLocked && (
-                                      <Shield className="h-3 w-3 text-blue-500" />
+                                      <LucideShield className="h-3 w-3 text-blue-500" />
                                     )}
                                   </div>
                                 )}

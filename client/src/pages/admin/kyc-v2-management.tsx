@@ -6,7 +6,7 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  Shield,
+  Shield as LucideShield,
   Search,
   RefreshCw,
   Clock,
@@ -1064,7 +1064,7 @@ function EnvironmentStatusTab() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="h-4 w-4" />
+              <LucideShield className="h-4 w-4" />
               Fixed OTP
             </CardTitle>
           </CardHeader>
@@ -1891,7 +1891,7 @@ function RegulatoryMatrixTab() {
       </div>
 
       <Alert className="border-blue-300 bg-blue-50 dark:bg-blue-950">
-        <Shield className="h-4 w-4" />
+        <LucideShield className="h-4 w-4" />
         <AlertTitle>Compliance Architecture</AlertTitle>
         <AlertDescription className="text-sm mt-1">
           <strong>Two-tier gate:</strong> Admin portal is always fully accessible to internal staff (no KYC gate).
@@ -2249,7 +2249,7 @@ export default function KycV2ManagementPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Shield className="h-6 w-6" />
+            <LucideShield className="h-6 w-6" />
             KYC Admin Management
           </h1>
           <p className="text-muted-foreground">Comprehensive KYC operations, approvals, and monitoring</p>

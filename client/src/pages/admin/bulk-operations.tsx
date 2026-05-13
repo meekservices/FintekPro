@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   Users, 
   Package, 
-  Shield, 
+  Shield as LucideShield, 
   Play,
   Pause,
   CheckCircle,
@@ -199,14 +199,14 @@ export default function BulkOperations() {
             <Card className="cursor-pointer hover:border-emerald-500 transition-colors" onClick={() => startOperationMutation.mutate('kyc_verification')}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-emerald-600" />
+                  <LucideShield className="w-5 h-5 text-emerald-600" />
                   Bulk KYC Verify
                 </CardTitle>
                 <CardDescription>Process pending KYC verifications</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button className="w-full" variant="outline" data-testid="button-kyc-verify">
-                  <Shield className="w-4 h-4 mr-2" />
+                  <LucideShield className="w-4 h-4 mr-2" />
                   Start Verification
                 </Button>
               </CardContent>

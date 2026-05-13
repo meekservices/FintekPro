@@ -19,7 +19,7 @@ import {
   TrendingDown, 
   Clock, 
   Building2, 
-  Shield, 
+  Shield as LucideShield, 
   AlertTriangle,
   Info,
   ArrowRight,
@@ -220,7 +220,7 @@ const MldCard = ({ mld }: { mld: MldMaster }) => {
         {mld.barrierLevel && (
           <div className="mt-2 p-2 bg-muted/50 rounded text-xs">
             <div className="flex items-center gap-1">
-              <Shield className="w-3 h-3" />
+              <LucideShield className="w-3 h-3" />
               <span>Barrier: {mld.barrierLevel}%</span>
               {mld.participationRate && <span>| Participation: {mld.participationRate}%</span>}
             </div>

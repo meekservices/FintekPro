@@ -10,7 +10,7 @@ import {
   Globe, 
   Calculator, 
   Building2, 
-  Shield, 
+  Shield as LucideShield, 
   Star, 
   Clock, 
   CheckCircle,
@@ -86,7 +86,7 @@ const CA_SERVICES: CAService[] = [
     price: "₹3,499",
     duration: "2-3 days",
     features: ["Rule 37BB check", "CA certification", "Digital signing", "RBI compliance"],
-    icon: Shield,
+    icon: LucideShield,
     badge: "CA Certified",
     route: "/tax/15ca-cb"
   },
@@ -272,7 +272,7 @@ export default function TaxCADeskPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
               { step: 1, title: "Select Service", description: "Choose the tax service you need", icon: FileText },
-              { step: 2, title: "Upload Documents", description: "Share required documents securely", icon: Shield },
+              { step: 2, title: "Upload Documents", description: "Share required documents securely", icon: LucideShield },
               { step: 3, title: "CA Review", description: "Expert CA reviews and prepares filing", icon: Users },
               { step: 4, title: "Submit & Pay", description: "Review, approve and complete payment", icon: CheckCircle }
             ].map((item) => {

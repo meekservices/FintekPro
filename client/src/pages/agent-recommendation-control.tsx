@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Users, ArrowRight, Target, Shield, AlertCircle } from "lucide-react";
+import { Search, Users, ArrowRight, Target, Shield as LucideShield, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Client {
@@ -43,7 +43,7 @@ export default function AgentRecommendationControlPage() {
             <Card className="w-full max-w-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Shield className="w-5 h-5" />
+                  <LucideShield className="w-5 h-5" />
                   Authentication Required
                 </CardTitle>
                 <CardDescription>

@@ -22,7 +22,7 @@ import {
   TrendingDown, 
   Clock, 
   Building2, 
-  Shield, 
+  Shield as LucideShield, 
   AlertTriangle,
   Info,
   ChartLine,

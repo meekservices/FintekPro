@@ -17,7 +17,7 @@ import {
   Phone,
   CreditCard,
   Brain,
-  Shield,
+  Shield as LucideShield,
   Zap,
   MemoryStick,
   Timer,
@@ -127,7 +127,7 @@ function getServiceIcon(name: string) {
   if (name.toLowerCase().includes('sms') || name.toLowerCase().includes('twilio')) return <Phone className="w-5 h-5" />;
   if (name.toLowerCase().includes('payment')) return <CreditCard className="w-5 h-5" />;
   if (name.toLowerCase().includes('ai')) return <Brain className="w-5 h-5" />;
-  if (name.toLowerCase().includes('kyc') || name.toLowerCase().includes('verification')) return <Shield className="w-5 h-5" />;
+  if (name.toLowerCase().includes('kyc') || name.toLowerCase().includes('verification')) return <LucideShield className="w-5 h-5" />;
   return <Server className="w-5 h-5" />;
 }
 

@@ -24,7 +24,7 @@ import {
   Plus,
   ArrowLeft,
   Crown,
-  Shield,
+  Shield as LucideShield,
   Eye,
   User,
   MoreVertical,
@@ -368,7 +368,7 @@ export default function FamilyDashboard() {
       case 'owner':
         return <Crown className="h-4 w-4" />;
       case 'admin':
-        return <Shield className="h-4 w-4" />;
+        return <LucideShield className="h-4 w-4" />;
       case 'member':
         return <User className="h-4 w-4" />;
       case 'view_only':
@@ -703,7 +703,7 @@ export default function FamilyDashboard() {
                                 onClick={() => updateRoleMutation.mutate({ memberId: member.id, role: 'admin' })}
                                 data-testid={`action-promote-admin-${member.id}`}
                               >
-                                <Shield className="h-4 w-4 mr-2" />
+                                <LucideShield className="h-4 w-4 mr-2" />
                                 Make Admin
                               </DropdownMenuItem>
                               <DropdownMenuItem

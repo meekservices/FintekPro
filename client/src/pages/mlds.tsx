@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Badge } from "@/components/ui/badge";
 import { 
-  TrendingUp, Shield, Calendar, BarChart3, IndianRupee, Search, RefreshCw,
+  TrendingUp, Shield as LucideShield, Calendar, BarChart3, IndianRupee, Search, RefreshCw,
   ShoppingCart, ClipboardList, Wallet, Package, FileText, Calculator,
   ThumbsUp, ThumbsDown, Bot, UserCheck, Trash2, CreditCard, AlertOctagon,
   Sparkles, PieChart, Target, Award, Info
@@ -331,7 +331,7 @@ export default function MLDs() {
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Total MLDs</p><p className="text-3xl font-bold text-teal-600">{statistics.totalProducts}</p></div><BarChart3 className="w-10 h-10 text-teal-600" /></div></CardContent></Card>
-          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Avg. Protection</p><p className="text-3xl font-bold text-green-600">{statistics.avgProtection}</p></div><Shield className="w-10 h-10 text-green-600" /></div></CardContent></Card>
+          <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Avg. Protection</p><p className="text-3xl font-bold text-green-600">{statistics.avgProtection}</p></div><LucideShield className="w-10 h-10 text-green-600" /></div></CardContent></Card>
           <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Avg. Participation</p><p className="text-3xl font-bold text-blue-600">{statistics.avgParticipation}</p></div><TrendingUp className="w-10 h-10 text-blue-600" /></div></CardContent></Card>
           <Card><CardContent className="p-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Tenure Options</p><p className="text-3xl font-bold text-purple-600">{statistics.activeTenures}</p></div><Calendar className="w-10 h-10 text-purple-600" /></div></CardContent></Card>
         </div>
@@ -349,7 +349,7 @@ export default function MLDs() {
           <TabsContent value="schemes" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <Card><CardHeader><div className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-finance-blue" /><CardTitle className="text-lg">Market Linked Returns</CardTitle></div></CardHeader><CardContent><p className="text-sm text-muted-foreground">Returns based on underlying index performance (NIFTY, SENSEX, etc.)</p></CardContent></Card>
-              <Card><CardHeader><div className="flex items-center gap-2"><Shield className="h-5 w-5 text-finance-green" /><CardTitle className="text-lg">Capital Protection</CardTitle></div></CardHeader><CardContent><p className="text-sm text-muted-foreground">Options with 100%, 90%, or 80% principal protection at maturity</p></CardContent></Card>
+              <Card><CardHeader><div className="flex items-center gap-2"><LucideShield className="h-5 w-5 text-finance-green" /><CardTitle className="text-lg">Capital Protection</CardTitle></div></CardHeader><CardContent><p className="text-sm text-muted-foreground">Options with 100%, 90%, or 80% principal protection at maturity</p></CardContent></Card>
               <Card><CardHeader><div className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-finance-purple" /><CardTitle className="text-lg">Structured Payoffs</CardTitle></div></CardHeader><CardContent><p className="text-sm text-muted-foreground">Digital, range accrual, or step-up payoff structures</p></CardContent></Card>
             </div>
 

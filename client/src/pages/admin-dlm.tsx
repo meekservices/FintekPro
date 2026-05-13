@@ -31,7 +31,7 @@ import {
   Calendar,
   Building2,
   Users,
-  Shield,
+  Shield as LucideShield,
   History,
   BarChart3,
   RefreshCw,
@@ -55,7 +55,7 @@ const STATUS_ICONS: Record<string, any> = {
   negotiation: RefreshCw,
   review: Eye,
   approved: CheckCircle,
-  signed: Shield,
+  signed: LucideShield,
   legacy: FileText,
   expired: AlertTriangle,
   rejected: XCircle,
@@ -822,7 +822,7 @@ export default function AdminDLMPage() {
                       onClick={() => transitionMutation.mutate({ documentId: selectedDocument.id, action: "sign" })}
                       data-testid="action-sign"
                     >
-                      <Shield className="w-4 h-4 mr-2" />
+                      <LucideShield className="w-4 h-4 mr-2" />
                       Mark as Signed
                     </Button>
                   )}

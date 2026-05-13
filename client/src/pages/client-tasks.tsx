@@ -15,7 +15,7 @@ import {
   FileText,
   CreditCard,
   Video,
-  Shield,
+  Shield as LucideShield,
   Bell,
   ArrowRight,
   ListTodo,
@@ -43,7 +43,7 @@ interface TaskStats {
 }
 
 const TASK_TYPE_CONFIG = {
-  kyc_renewal: { label: 'KYC Renewal', icon: Shield, color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' },
+  kyc_renewal: { label: 'KYC Renewal', icon: LucideShield, color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' },
   document_submission: { label: 'Document Upload', icon: FileText, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800' },
   payment_due: { label: 'Payment Due', icon: CreditCard, color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' },
   review_scheduled: { label: 'Review Meeting', icon: Video, color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800' },

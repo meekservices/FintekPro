@@ -19,7 +19,7 @@ import {
   Star,
   Target,
   Flame,
-  Shield,
+  Shield as LucideShield,
   Zap,
   ShoppingCart,
   Eye,
@@ -68,12 +68,12 @@ const formatCurrency = (amount: number) => {
 const typeConfig: Record<string, { label: string; color: string; icon: any }> = {
   mutual_fund: { label: 'Mutual Fund', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300', icon: PieChart },
   stock: { label: 'Stock', color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300', icon: TrendingUp },
-  bond: { label: 'Bond', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300', icon: Shield },
+  bond: { label: 'Bond', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300', icon: LucideShield },
   etf: { label: 'ETF', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300', icon: BarChart3 },
   ipo: { label: 'IPO', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300', icon: Zap },
   aif: { label: 'AIF', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300', icon: Target },
   pms: { label: 'PMS', color: 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300', icon: Star },
-  fd: { label: 'FD', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300', icon: Shield },
+  fd: { label: 'FD', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300', icon: LucideShield },
   sgb: { label: 'Gold Bond', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300', icon: Star }
 };
 
@@ -271,7 +271,7 @@ export default function FreshInvestmentDiscovery() {
         </Select>
         <Select value={riskFilter} onValueChange={setRiskFilter}>
           <SelectTrigger className="w-[150px]" data-testid="select-risk">
-            <Shield className="w-4 h-4 mr-2" />
+            <LucideShield className="w-4 h-4 mr-2" />
             <SelectValue placeholder="Risk Level" />
           </SelectTrigger>
           <SelectContent>

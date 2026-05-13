@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Target, Plus, Home, GraduationCap, Car, Heart, Plane, Shield, TrendingUp, 
+  Target, Plus, Home, GraduationCap, Car, Heart, Plane, Shield as LucideShield, TrendingUp, 
   Gem, Umbrella, Calendar, IndianRupee, Loader2, CheckCircle2, AlertTriangle,
   ArrowRight, Sparkles, PieChart, Trophy, Flag, ChevronRight, Eye, Trash2,
   TrendingDown, Clock
@@ -31,7 +31,7 @@ const GOAL_CATEGORIES = {
   car: { icon: Car, color: "#3b82f6", name: "Car Purchase", defaultReturn: 10, defaultInflation: 5 },
   wedding: { icon: Heart, color: "#ec4899", name: "Wedding", defaultReturn: 10, defaultInflation: 8 },
   child_marriage: { icon: Gem, color: "#d946ef", name: "Child Marriage", defaultReturn: 10, defaultInflation: 8 },
-  emergency: { icon: Shield, color: "#ef4444", name: "Emergency Fund", defaultReturn: 6, defaultInflation: 6 },
+  emergency: { icon: LucideShield, color: "#ef4444", name: "Emergency Fund", defaultReturn: 6, defaultInflation: 6 },
   travel: { icon: Plane, color: "#06b6d4", name: "Dream Vacation", defaultReturn: 8, defaultInflation: 5 },
   wealth_building: { icon: TrendingUp, color: "#10b981", name: "Wealth Building", defaultReturn: 12, defaultInflation: 6 },
   custom: { icon: Target, color: "#6b7280", name: "Custom Goal", defaultReturn: 10, defaultInflation: 6 },

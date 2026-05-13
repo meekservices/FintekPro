@@ -17,7 +17,7 @@ import { useClientCapabilities } from "@/hooks/useClientCapabilities";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Search, TrendingUp, TrendingDown, Star, Globe, DollarSign, ArrowUpRight, 
-  ArrowDownRight, Clock, Info, Shield, AlertTriangle, CheckCircle, BarChart3,
+  ArrowDownRight, Clock, Info, Shield as LucideShield, AlertTriangle, CheckCircle, BarChart3,
   Wallet, RefreshCw, Plus, Minus, Building2, Sparkles, ArrowRight, LineChart,
   Bell, Scale, Target, ChevronRight
 } from "lucide-react";
@@ -339,7 +339,7 @@ export default function USTradingPage() {
       <div className="container mx-auto p-6">
         <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800">
           <CardContent className="p-6 text-center">
-            <Shield className="h-12 w-12 mx-auto mb-4 text-orange-600" />
+            <LucideShield className="h-12 w-12 mx-auto mb-4 text-orange-600" />
             <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
             <p className="text-muted-foreground mb-4">
               Please log in to access US equity trading features.
@@ -363,7 +363,7 @@ export default function USTradingPage() {
             <p className="text-muted-foreground mt-1 flex items-center gap-2">
               Trade NASDAQ & S&P 500 stocks | 
               <span className="flex items-center gap-1 font-medium text-blue-600">
-                <Shield className="h-3 w-3" />
+                <LucideShield className="h-3 w-3" />
                 Powered by Alpaca
               </span>
             </p>
@@ -1200,7 +1200,7 @@ export default function USTradingPage() {
 
                   <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg">
                     <div className="flex gap-3">
-                      <Shield className="h-5 w-5 text-amber-600 shrink-0" />
+                      <LucideShield className="h-5 w-5 text-amber-600 shrink-0" />
                       <div className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
                         <p className="font-semibold">Brokerage Disclosure</p>
                         <p>FintekPro acts as an introducing agent. Securities are held by Alpaca Securities LLC, a member of FINRA/SIPC.</p>

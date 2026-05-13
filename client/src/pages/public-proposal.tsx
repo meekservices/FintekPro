@@ -22,7 +22,7 @@ import {
   Mail,
   Building2,
   Sparkles,
-  Shield,
+  Shield as LucideShield,
   BarChart3,
   Wallet,
   Calendar,
@@ -1923,7 +1923,7 @@ export default function PublicProposalPage() {
               <Card className="mb-6">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-blue-600" />
+                    <LucideShield className="w-5 h-5 text-blue-600" />
                     Portfolio Health Score
                   </CardTitle>
                   <CardDescription>Overall assessment of your portfolio health</CardDescription>
@@ -2669,7 +2669,7 @@ export default function PublicProposalPage() {
                         {stressTest && (
                           <div className="p-4 bg-slate-50 dark:bg-slate-900/20 rounded-lg border border-slate-200 dark:border-slate-700">
                             <div className="flex items-center gap-2 mb-3">
-                              <Shield className="w-5 h-5 text-slate-600" />
+                              <LucideShield className="w-5 h-5 text-slate-600" />
                               <h4 className="font-semibold">Stress Test Summary</h4>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2831,7 +2831,7 @@ export default function PublicProposalPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="text-center">
             <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Shield className="w-6 h-6 text-indigo-600" />
+              <LucideShield className="w-6 h-6 text-indigo-600" />
             </div>
             <h4 className="font-semibold mb-1">SEBI Registered</h4>
             <p className="text-sm text-muted-foreground">Fully compliant with regulatory guidelines</p>
@@ -2858,7 +2858,7 @@ export default function PublicProposalPage() {
         <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2 text-amber-700 dark:text-amber-400">
-              <Shield className="w-4 h-4" />
+              <LucideShield className="w-4 h-4" />
               Important Disclosures (SEBI Compliance)
             </CardTitle>
           </CardHeader>

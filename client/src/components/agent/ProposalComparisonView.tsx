@@ -12,7 +12,7 @@ import {
   ArrowRight,
   PieChart,
   Target,
-  Shield,
+  Shield as LucideShield,
   Info,
   Lightbulb,
 } from "lucide-react";
@@ -194,7 +194,7 @@ export function ProposalComparisonView({
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="h-4 w-4" />
+              <LucideShield className="h-4 w-4" />
               Risk Impact Summary
             </CardTitle>
           </CardHeader>
@@ -313,7 +313,7 @@ export function GuidedWalkthroughPanel({
   const getTypeIcon = (type: TalkingPoint['type']) => {
     switch (type) {
       case 'rationale': return <Lightbulb className="h-4 w-4 text-blue-500" />;
-      case 'disclosure': return <Shield className="h-4 w-4 text-amber-500" />;
+      case 'disclosure': return <LucideShield className="h-4 w-4 text-amber-500" />;
       case 'benefit': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
       case 'risk': return <AlertCircle className="h-4 w-4 text-red-500" />;
     }

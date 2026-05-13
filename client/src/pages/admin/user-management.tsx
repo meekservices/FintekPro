@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Users, Plus, Pencil, Trash2, Search, Shield, UserCheck, UserX, TrendingUp, Download, Eye, EyeOff, Lock } from 'lucide-react';
+import { Users, Plus, Pencil, Trash2, Search, Shield as LucideShield, UserCheck, UserX, TrendingUp, Download, Eye, EyeOff, Lock } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -582,7 +582,7 @@ export default function UserManagement() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-red-500" />
+                <LucideShield className="w-4 h-4 text-red-500" />
                 <span className="text-2xl font-bold" data-testid="stat-admins">{stats.admins}</span>
               </div>
             </CardContent>

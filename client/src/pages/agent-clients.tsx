@@ -26,7 +26,7 @@ import {
   Mail,
   MapPin,
   Calendar,
-  Shield,
+  Shield as LucideShield,
   CheckCircle2,
   AlertTriangle,
   Clock,
@@ -543,9 +543,9 @@ export default function AgentClientsPage() {
                                 <TableCell>
                                   <Badge className={KYC_STATUS_COLORS[client.kycStatus]}>
                                     {client.kycStatus === "pending" && <Clock className="h-3 w-3 mr-1" />}
-                                    {client.kycStatus === "basic" && <Shield className="h-3 w-3 mr-1" />}
+                                    {client.kycStatus === "basic" && <LucideShield className="h-3 w-3 mr-1" />}
                                     {client.kycStatus === "enhanced" && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                                    {client.kycStatus === "accredited" && <Shield className="h-3 w-3 mr-1" />}
+                                    {client.kycStatus === "accredited" && <LucideShield className="h-3 w-3 mr-1" />}
                                     {client.kycStatus.charAt(0).toUpperCase() + client.kycStatus.slice(1)}
                                   </Badge>
                                 </TableCell>
@@ -677,7 +677,7 @@ export default function AgentClientsPage() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Shield className="h-4 w-4" />
+                      <LucideShield className="h-4 w-4" />
                       Product Eligibility
                     </CardTitle>
                   </CardHeader>

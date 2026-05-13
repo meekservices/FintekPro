@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Search, Building2, TrendingUp, Calendar, IndianRupee, 
   CheckCircle2, AlertTriangle, Users, Landmark, RefreshCw, 
-  Loader2, BarChart3, Shield, MapPin, Mail, FileText,
+  Loader2, BarChart3, Shield as LucideShield, MapPin, Mail, FileText,
   ChevronLeft, ExternalLink, Clock, AlertCircle, CircleDollarSign
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -236,7 +236,7 @@ function RiskScoreCard({ cin }: { cin: string }) {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          <Shield className="w-5 h-5 text-primary" />
+          <LucideShield className="w-5 h-5 text-primary" />
           Risk Assessment
         </CardTitle>
         <CardDescription>Composite risk score based on financial and compliance metrics</CardDescription>
@@ -718,7 +718,7 @@ export default function McaCompanyProfile() {
                     <div className="text-sm text-muted-foreground">Directors</div>
                   </div>
                   <div className="text-center p-4 bg-muted rounded-lg">
-                    <Shield className="w-8 h-8 mx-auto text-orange-500 mb-2" />
+                    <LucideShield className="w-8 h-8 mx-auto text-orange-500 mb-2" />
                     <div className="text-2xl font-bold">{summary.activeCharges}</div>
                     <div className="text-sm text-muted-foreground">Active Charges</div>
                   </div>
@@ -798,7 +798,7 @@ export default function McaCompanyProfile() {
               <CardContent>
                 {charges.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <LucideShield className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>No charges registered</p>
                   </div>
                 ) : (

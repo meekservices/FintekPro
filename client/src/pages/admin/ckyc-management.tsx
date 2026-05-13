@@ -29,7 +29,7 @@ import {
   Trash2,
   Eye,
   Send,
-  Shield,
+  Shield as LucideShield,
   Activity,
   RefreshCw,
   ArrowUpDown,
@@ -278,7 +278,7 @@ export default function CkycManagement() {
               Action Logs
             </TabsTrigger>
             <TabsTrigger value="providers" className="flex items-center gap-2 flex-shrink-0">
-              <Shield size={16} />
+              <LucideShield size={16} />
               Provider Settings
             </TabsTrigger>
           </ScrollableTabsList>
@@ -922,11 +922,11 @@ function CkycProviderSettings() {
 
   const getProviderIcon = (code: string) => {
     switch (code) {
-      case 'truthscreen': return <Shield className="h-5 w-5 text-blue-600" />;
+      case 'truthscreen': return <LucideShield className="h-5 w-5 text-blue-600" />;
       case 'sandbox': return <Zap className="h-5 w-5 text-green-600" />;
       case 'cashfree': return <Activity className="h-5 w-5 text-violet-600" />;
       case 'bse_star': return <FileText className="h-5 w-5 text-red-600" />;
-      case 'nsdl': return <Shield className="h-5 w-5 text-purple-600" />;
+      case 'nsdl': return <LucideShield className="h-5 w-5 text-purple-600" />;
       case 'kra': return <FileText className="h-5 w-5 text-teal-600" />;
       case 'offline_aadhaar': return <FileText className="h-5 w-5 text-orange-600" />;
       case 'digilocker': return <FileText className="h-5 w-5 text-indigo-600" />;
@@ -979,7 +979,7 @@ function CkycProviderSettings() {
     {
       title: "Aadhaar Verification",
       description: "Aadhaar-based identity verification with OTP or offline XML",
-      icon: <Shield className="h-5 w-5 text-green-600" />,
+      icon: <LucideShield className="h-5 w-5 text-green-600" />,
       providers: [
         { code: 'sandbox', name: 'Sandbox.co.in', description: 'Aadhaar OTP verification via Sandbox API', data: sandbox, role: 'Primary', configured: meta?.sandboxConfigured },
         { code: 'truthscreen', name: 'TruthScreen', description: 'Aadhaar eKYC & PAN-Aadhaar linkage via TruthScreen', data: truthscreen, role: 'Fallback', configured: meta?.truthscreenConfigured },
@@ -990,7 +990,7 @@ function CkycProviderSettings() {
     {
       title: "CKYC Lookup",
       description: "Central KYC (CKYC) record lookup via KIN/PAN from CERSAI registry",
-      icon: <Shield className="h-5 w-5 text-blue-600" />,
+      icon: <LucideShield className="h-5 w-5 text-blue-600" />,
       providers: [
         { code: 'truthscreen', name: 'TruthScreen', description: 'CKYC/KRA record lookup via TruthScreen API', data: truthscreen, role: 'Primary', configured: meta?.truthscreenConfigured },
         { code: 'nsdl', name: 'NSDL CKYC', description: 'Direct NSDL CKYC registry lookup', data: null, role: 'Non-functional', configured: meta?.nsdlCkycConfigured },
@@ -1016,7 +1016,7 @@ function CkycProviderSettings() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Shield size={20} />
+                <LucideShield size={20} />
                 KYC Verification Providers
               </CardTitle>
               <CardDescription>

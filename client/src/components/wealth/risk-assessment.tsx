@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { 
-  Shield, 
+  Shield as LucideShield, 
   TrendingUp, 
   Target,
   AlertTriangle,
@@ -442,7 +442,7 @@ export function RiskAssessment() {
           <Card data-testid="card-risk-profile-result">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Shield className={`w-5 h-5 text-${profileInfo.color}-600`} />
+                <LucideShield className={`w-5 h-5 text-${profileInfo.color}-600`} />
                 Your Risk Profile: {profileInfo.title}
               </CardTitle>
               <CardDescription>{profileInfo.description}</CardDescription>
@@ -519,7 +519,7 @@ export function RiskAssessment() {
                                 rec.riskLevel === 'High' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600' :
                                 'bg-red-100 dark:bg-red-900/30 text-red-600'
                               }`}>
-                                {rec.riskLevel === 'Low' ? <Shield className="w-4 h-4" /> :
+                                {rec.riskLevel === 'Low' ? <LucideShield className="w-4 h-4" /> :
                                  rec.riskLevel === 'Medium' ? <BarChart3 className="w-4 h-4" /> :
                                  rec.riskLevel === 'High' ? <TrendingUp className="w-4 h-4" /> :
                                  <Zap className="w-4 h-4" />}
@@ -743,7 +743,7 @@ export function RiskAssessment() {
                             </div>
                           </div>
                           <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-                            <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
+                            <LucideShield className="w-5 h-5 text-blue-600 mt-0.5" />
                             <div>
                               <p className="font-medium">Emergency Fund Priority</p>
                               <p className="text-sm text-muted-foreground">Maintain 12 months of expenses in liquid funds</p>

@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Activity, Server, Database, AlertTriangle, AlertCircle, CheckCircle,
-  Download, Bug, Shield, Clock, ChevronDown, ChevronRight, RefreshCw,
+  Download, Bug, Shield as LucideShield, Clock, ChevronDown, ChevronRight, RefreshCw,
   Cpu, HardDrive, Globe, FileText, Send, Loader2, XCircle, Info
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -138,7 +138,7 @@ function SystemHealthTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" />Health Checks</CardTitle>
+          <CardTitle className="flex items-center gap-2"><LucideShield className="h-5 w-5" />Health Checks</CardTitle>
           <CardDescription>Auto-refreshes every 30 seconds</CardDescription>
         </CardHeader>
         <CardContent>
@@ -558,7 +558,7 @@ export default function TesterDiagnostics() {
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="py-16 text-center">
-            <Shield className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+            <LucideShield className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
             <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
             <p className="text-muted-foreground">Please sign in with a tester account to access diagnostics.</p>
           </CardContent>

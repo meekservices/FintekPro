@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
-import { Landmark, CreditCard, PiggyBank, TrendingUp, Shield, Star } from "lucide-react";
+import { Landmark, CreditCard, PiggyBank, TrendingUp, Shield as LucideShield, Star } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -205,7 +205,7 @@ export default function BankingProducts() {
           <Card className="bg-gradient-to-br from-blue-50 dark:from-blue-950/30 to-blue-100 dark:to-blue-900/30">
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Shield className="h-6 w-6 text-finance-blue" />
+                <LucideShield className="h-6 w-6 text-finance-blue" />
                 <CardTitle>Why Choose Through FintekPro?</CardTitle>
               </div>
             </CardHeader>

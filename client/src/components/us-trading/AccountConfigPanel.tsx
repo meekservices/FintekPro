@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Settings, Shield, AlertTriangle, RefreshCw, TrendingDown, Percent, Landmark, TrendingUp, Info, BadgePercent, Banknote, Lock, Unlock, ShieldAlert } from "lucide-react";
+import { Settings, Shield as LucideShield, AlertTriangle, RefreshCw, TrendingDown, Percent, Landmark, TrendingUp, Info, BadgePercent, Banknote, Lock, Unlock, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AlpacaAccountConfig } from "@/components/us-trading/types";
@@ -178,7 +178,7 @@ export default function AccountConfigPanel({ accountId }: AccountConfigPanelProp
       key: "suspend_trade" as const,
       label: "Suspend All Trading",
       description: "Immediately block all new orders. Existing positions remain open.",
-      icon: Shield,
+      icon: LucideShield,
       value: config.suspend_trade,
       warning: config.suspend_trade ? "Trading is currently suspended on this account." : undefined,
     },
@@ -260,7 +260,7 @@ export default function AccountConfigPanel({ accountId }: AccountConfigPanelProp
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 rounded-md bg-muted p-1.5">
-                  <Shield className="h-4 w-4 text-muted-foreground" />
+                  <LucideShield className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div>
                   <div className="text-sm font-medium">PDT (Pattern Day Trader) Check</div>

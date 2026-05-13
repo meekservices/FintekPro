@@ -16,7 +16,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
-  CheckCircle2, Circle, AlertTriangle, User, DollarSign, Shield, FileText,
+  CheckCircle2, Circle, AlertTriangle, User, DollarSign, Shield as LucideShield, FileText,
   ClipboardCheck, ChevronRight, ChevronLeft, RefreshCw, Globe, Landmark,
   ExternalLink, Lock, Info, XCircle,
 } from "lucide-react";
@@ -61,7 +61,7 @@ interface FormState {
 const STEPS = [
   { id: "identity", label: "Identity", icon: User },
   { id: "financial", label: "Financial Profile", icon: DollarSign },
-  { id: "disclosures", label: "Disclosures", icon: Shield },
+  { id: "disclosures", label: "Disclosures", icon: LucideShield },
   { id: "agreements", label: "Agreements", icon: FileText },
   { id: "review", label: "Review & Submit", icon: ClipboardCheck },
 ];

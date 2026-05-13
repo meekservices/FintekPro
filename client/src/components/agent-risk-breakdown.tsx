@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Shield, TrendingUp, Calendar, DollarSign, Target, Briefcase, AlertTriangle, CheckCircle, Clock, FileText } from "lucide-react";
+import { Shield as LucideShield, TrendingUp, Calendar, DollarSign, Target, Briefcase, AlertTriangle, CheckCircle, Clock, FileText } from "lucide-react";
 
 interface RiskAssessment {
   id: string;
@@ -58,7 +58,7 @@ const CATEGORY_ICONS: Record<string, any> = {
   income_stability: DollarSign,
   net_worth: TrendingUp,
   investment_horizon: Target,
-  risk_tolerance: Shield,
+  risk_tolerance: LucideShield,
   investment_experience: Briefcase,
 };
 
@@ -126,7 +126,7 @@ export function AgentRiskBreakdown({ clientId, clientPan }: Props) {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
+                <LucideShield className="h-5 w-5" />
                 Client Risk Profile
               </CardTitle>
               <CardDescription>

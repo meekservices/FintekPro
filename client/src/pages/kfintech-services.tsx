@@ -37,7 +37,7 @@ import {
   Repeat,
   UserCog,
   Landmark,
-  Shield,
+  Shield as LucideShield,
   Phone,
   Mail,
   CreditCard,
@@ -1704,7 +1704,7 @@ export default function KfintechServices() {
 
             {nftType === 'fatca' && (
               <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5 text-red-600" />FATCA / CRS Declaration</CardTitle>
+                <CardHeader><CardTitle className="flex items-center gap-2"><LucideShield className="h-5 w-5 text-red-600" />FATCA / CRS Declaration</CardTitle>
                 <CardDescription>Foreign Account Tax Compliance Act — required for investors with foreign tax residency</CardDescription></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1813,7 +1813,7 @@ export default function KfintechServices() {
           {/* NPS Tab */}
           <TabsContent value="nps" className="space-y-6">
             <Alert>
-              <Shield className="h-4 w-4" />
+              <LucideShield className="h-4 w-4" />
               <AlertTitle>National Pension System (NPS)</AlertTitle>
               <AlertDescription>KFintech is India's largest NPS CRA. Access subscriber lookup, onboarding, and contribution via the IRIS NPS API stack. PFRDA-approved POP required for live transactions.</AlertDescription>
             </Alert>
@@ -3158,14 +3158,14 @@ export default function KfintechServices() {
           {/* ── Compliance / AML Tab ─────────────────────────────────────────── */}
           <TabsContent value="compliance" className="space-y-6">
             <Alert>
-              <Shield className="h-4 w-4" />
+              <LucideShield className="h-4 w-4" />
               <AlertTitle>Compliance Reports — Admin Only</AlertTitle>
               <AlertDescription>PMLA/AML reports are generated for regulatory filing. All access is logged.</AlertDescription>
             </Alert>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><Shield className="h-5 w-5" />PMLA / AML Report</CardTitle>
+                  <CardTitle className="flex items-center gap-2"><LucideShield className="h-5 w-5" />PMLA / AML Report</CardTitle>
                   <CardDescription>Prevention of Money Laundering Act compliance data</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -3180,7 +3180,7 @@ export default function KfintechServices() {
                     </div>
                   ) : (
                     <div className="text-center py-6 text-muted-foreground">
-                      <Shield className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <LucideShield className="h-8 w-8 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">PMLA report data will load here</p>
                     </div>
                   )}

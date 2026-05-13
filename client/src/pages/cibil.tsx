@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { 
   CreditCard, 
-  Shield, 
+  Shield as LucideShield, 
   TrendingUp, 
   AlertCircle, 
   CheckCircle, 
@@ -177,7 +177,7 @@ export default function Cibil() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-finance-blue" />
+                    <LucideShield className="h-5 w-5 text-finance-blue" />
                     Check Your Credit Score
                   </CardTitle>
                 </CardHeader>
@@ -354,7 +354,7 @@ export default function Cibil() {
                     </div>
                   ) : (
                     <div className="text-center py-12">
-                      <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <LucideShield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground">
                         Fill in your details and check consent to get your credit score
                       </p>

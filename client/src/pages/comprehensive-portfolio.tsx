@@ -13,7 +13,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { RefreshCw, TrendingUp, TrendingDown, Calendar, PieChart, BarChart3, Database, Wallet, Building, Shield, Landmark } from "lucide-react";
+import { RefreshCw, TrendingUp, TrendingDown, Calendar, PieChart, BarChart3, Database, Wallet, Building, Shield as LucideShield, Landmark } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface ComprehensiveHolding {
@@ -168,7 +168,7 @@ export default function ComprehensivePortfolioPage() {
       case 'epf':
       case 'ppf':
       case 'eps': return <Landmark className="h-4 w-4" />;
-      case 'insurance': return <Shield className="h-4 w-4" />;
+      case 'insurance': return <LucideShield className="h-4 w-4" />;
       default: return <BarChart3 className="h-4 w-4" />;
     }
   };

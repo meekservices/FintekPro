@@ -10,7 +10,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Brain, TrendingUp, AlertTriangle, CheckCircle, RefreshCw, Lightbulb, Target, Shield, Clock, IndianRupee, PieChart } from "lucide-react";
+import { Brain, TrendingUp, AlertTriangle, CheckCircle, RefreshCw, Lightbulb, Target, Shield as LucideShield, Clock, IndianRupee, PieChart } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";

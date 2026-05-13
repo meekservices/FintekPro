@@ -30,7 +30,7 @@ import {
   Mail,
   Video,
   FileText,
-  Shield,
+  Shield as LucideShield,
   TrendingUp,
   RefreshCw,
   MoreHorizontal,
@@ -73,7 +73,7 @@ interface TaskStats {
 }
 
 const TASK_TYPE_CONFIG = {
-  kyc_renewal: { label: 'KYC Renewal', icon: Shield, color: 'bg-indigo-500/20 text-indigo-400' },
+  kyc_renewal: { label: 'KYC Renewal', icon: LucideShield, color: 'bg-indigo-500/20 text-indigo-400' },
   follow_up: { label: 'Follow Up', icon: Phone, color: 'bg-blue-500/20 text-blue-400' },
   review_meeting: { label: 'Review Meeting', icon: Video, color: 'bg-purple-500/20 text-purple-400' },
   proposal: { label: 'Proposal', icon: FileText, color: 'bg-emerald-500/20 text-emerald-400' },

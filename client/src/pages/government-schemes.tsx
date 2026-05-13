@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { 
   Wallet, 
   Building2, 
-  Shield, 
+  Shield as LucideShield, 
   Clock, 
   CheckCircle2, 
   XCircle, 
@@ -138,7 +138,7 @@ const schemeInfo: Record<SchemeType, { title: string; description: string; icon:
   apy: {
     title: "Atal Pension Yojana",
     description: "Check your APY contribution status and pension details from PFRDA",
-    icon: Shield,
+    icon: LucideShield,
     source: "PFRDA"
   },
   insurance: {
@@ -801,7 +801,7 @@ export default function GovernmentSchemes() {
         </div>
 
         <Alert>
-          <Shield className="h-4 w-4" />
+          <LucideShield className="h-4 w-4" />
           <AlertTitle>Secure Data Access</AlertTitle>
           <AlertDescription>
             Your data is fetched directly from government sources (EPFO, NSDL CRA, PFRDA) using OTP-based consent. 
@@ -828,7 +828,7 @@ export default function GovernmentSchemes() {
               PPF
             </TabsTrigger>
             <TabsTrigger value="apy" data-testid="tab-apy">
-              <Shield className="h-4 w-4 mr-2" />
+              <LucideShield className="h-4 w-4 mr-2" />
               APY
             </TabsTrigger>
             <TabsTrigger value="insurance" data-testid="tab-insurance">

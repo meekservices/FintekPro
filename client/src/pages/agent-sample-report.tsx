@@ -16,7 +16,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, RadialBarChart, RadialBar
 } from "recharts";
 import {
-  ArrowUpRight, ArrowDownRight, TrendingUp, Target, AlertTriangle, CheckCircle, Lightbulb, Download, Share2, FileText, Briefcase, PiggyBank, Shield, Star, Clock, User, Building2, Wallet, BarChart3, Activity, Settings, Loader2,
+  ArrowUpRight, ArrowDownRight, TrendingUp, Target, AlertTriangle, CheckCircle, Lightbulb, Download, Share2, FileText, Briefcase, PiggyBank, Shield as LucideShield, Star, Clock, User, Building2, Wallet, BarChart3, Activity, Settings, Loader2,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import jsPDF from "jspdf";
@@ -794,7 +794,7 @@ export default function AgentSampleReport() {
         <Card className="bg-muted" data-testid="card-disclaimers">
           <CardContent className="p-4">
             <h4 className="font-semibold mb-2 flex items-center gap-2">
-              <Shield className="h-4 w-4" /> Disclaimers
+              <LucideShield className="h-4 w-4" /> Disclaimers
             </h4>
             <ul className="text-xs text-muted-foreground space-y-1" data-testid="list-disclaimers">
               {report.disclaimers.map((disclaimer: string, index: number) => (

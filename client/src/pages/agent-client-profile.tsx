@@ -25,7 +25,7 @@ import {
   IndianRupee,
   TrendingUp,
   TrendingDown,
-  Shield,
+  Shield as LucideShield,
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -123,7 +123,7 @@ const GOAL_ICONS = {
   education: GraduationCap,
   house: Home,
   travel: Plane,
-  emergency: Shield,
+  emergency: LucideShield,
   other: Target
 };
 

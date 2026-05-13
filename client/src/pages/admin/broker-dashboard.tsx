@@ -20,7 +20,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  Users, ArrowRightLeft, FileText, TrendingUp, Shield,
+  Users, ArrowRightLeft, FileText, TrendingUp, Shield as LucideShield,
   RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle,
   Search, Plus, Download, BarChart3, Activity, ChevronRight,
   Landmark, Building2, Wallet, BookOpen, Calendar,
@@ -524,7 +524,7 @@ function AccountsTab() {
                           <Dialog open={cipDialogOpen && selectedAccount?.id === acc.id} onOpenChange={open => { setCipDialogOpen(open); if (open) setSelectedAccount(acc); }}>
                             <DialogTrigger asChild>
                               <Button size="sm" variant="outline" onClick={() => setSelectedAccount(acc)}>
-                                <Shield className="h-3.5 w-3.5 mr-1" /> CIP
+                                <LucideShield className="h-3.5 w-3.5 mr-1" /> CIP
                               </Button>
                             </DialogTrigger>
                             <DialogContent className="max-w-2xl">
@@ -1402,7 +1402,7 @@ function AppRegistrationTab() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
               {
-                icon: Shield,
+                icon: LucideShield,
                 color: "text-blue-500",
                 bg: "bg-blue-50 dark:bg-blue-950/20",
                 title: "FintekPro (You)",
@@ -1555,7 +1555,7 @@ function AppRegistrationTab() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Shield className="h-4 w-4 text-primary" />
+            <LucideShield className="h-4 w-4 text-primary" />
             IP Allowlist (Security Hardening)
           </CardTitle>
           <CardDescription>
@@ -1861,7 +1861,7 @@ export default function BrokerDashboard() {
             { title: "Active", value: activeCount, icon: CheckCircle2, color: "text-green-500" },
             { title: "Pending", value: pendingCount, icon: Clock, color: "text-yellow-500" },
             { title: "LRS Remitted", value: usd(lrsSummary?.summary?.totalUsed || 0), icon: Globe, color: "text-indigo-500" },
-            { title: "Environment", value: configData?.baseUrl?.includes("sandbox") ? "Sandbox" : "Live", icon: Shield, color: "text-purple-500" },
+            { title: "Environment", value: configData?.baseUrl?.includes("sandbox") ? "Sandbox" : "Live", icon: LucideShield, color: "text-purple-500" },
           ].map(({ title, value, icon: Icon, color }) => (
             <Card key={title}>
               <CardContent className="p-4 flex items-center gap-3">

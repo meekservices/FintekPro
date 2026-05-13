@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, AlertTriangle, XCircle, Clock, Shield, TrendingUp, Globe } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, Clock, Shield as LucideShield, TrendingUp, Globe } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -151,7 +151,7 @@ export function KYCStatusCard() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
+              <LucideShield className="h-5 w-5" />
               KYC Verification Status
             </CardTitle>
             <CardDescription>
@@ -294,7 +294,7 @@ export function KYCStatusCard() {
               variant="outline"
               data-testid="button-view-verification"
             >
-              <Shield className="h-4 w-4 mr-2" />
+              <LucideShield className="h-4 w-4 mr-2" />
               View Full Verification Status
             </Button>
             {status.currentLevel !== "enhanced" && (

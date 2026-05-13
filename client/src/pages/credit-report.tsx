@@ -18,7 +18,7 @@ import {
   CheckCircle,
   XCircle,
   MinusCircle,
-  Shield
+  Shield as LucideShield
 } from "lucide-react";
 
 interface CreditAccount {
@@ -247,7 +247,7 @@ export default function CreditReportPage() {
             Score Analysis
           </TabsTrigger>
           <TabsTrigger value="recommendations" data-testid="tab-recommendations">
-            <Shield className="h-4 w-4 mr-2" />
+            <LucideShield className="h-4 w-4 mr-2" />
             Recommendations
           </TabsTrigger>
         </ScrollableTabsList>

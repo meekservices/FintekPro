@@ -21,7 +21,7 @@ import {
   PieChart, Pie, Cell, Legend
 } from "recharts";
 import {
-  TrendingUp, Users, IndianRupee, Activity, Shield, FileText,
+  TrendingUp, Users, IndianRupee, Activity, Shield as LucideShield, FileText,
   BarChart3, RefreshCw, Search, ExternalLink, ArrowUpRight,
   ChevronRight, AlertCircle, CheckCircle2, Clock, Download, KeyRound, XCircle,
   FolderOpen, Inbox, Unlink, Link2, Send, CloudDownload, Calculator, Calendar,
@@ -2348,7 +2348,7 @@ function InvestorsTab() {
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm flex items-center gap-2">
-                        <Shield className="h-4 w-4 text-primary" /> KRA & Identity
+                        <LucideShield className="h-4 w-4 text-primary" /> KRA & Identity
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -7257,7 +7257,7 @@ function ComplianceTab() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Shield className="h-4 w-4 text-amber-500" /> Compliance & AML Reports (Admin Only)</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><LucideShield className="h-4 w-4 text-amber-500" /> Compliance & AML Reports (Admin Only)</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div><Label>From Date</Label><Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} /></div>
@@ -7552,7 +7552,7 @@ export default function AgentIrisHub() {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="flex items-center gap-1">
-            <Shield className="h-3 w-3" /> Distributor Portal
+            <LucideShield className="h-3 w-3" /> Distributor Portal
           </Badge>
           {isAdmin && (
             <Button size="sm" variant="outline" onClick={() => setOtpDialogOpen(true)}>
@@ -7567,7 +7567,7 @@ export default function AgentIrisHub() {
           <TabsTrigger value="dashboard"><BarChart3 className="h-4 w-4 mr-1 inline" />Dashboard</TabsTrigger>
           <TabsTrigger value="onboarding"><UserPlus className="h-4 w-4 mr-1 inline" />Onboarding</TabsTrigger>
           <TabsTrigger value="nfo"><Layers className="h-4 w-4 mr-1 inline" />NFO</TabsTrigger>
-          <TabsTrigger value="empanelment"><Shield className="h-4 w-4 mr-1 inline" />Empanelment</TabsTrigger>
+          <TabsTrigger value="empanelment"><LucideShield className="h-4 w-4 mr-1 inline" />Empanelment</TabsTrigger>
           <TabsTrigger value="investors"><Users className="h-4 w-4 mr-1 inline" />Investors</TabsTrigger>
           <TabsTrigger value="transact"><TrendingUp className="h-4 w-4 mr-1 inline" />Transact</TabsTrigger>
           <TabsTrigger value="mandates"><CreditCard className="h-4 w-4 mr-1 inline" />Mandates</TabsTrigger>
@@ -7578,7 +7578,7 @@ export default function AgentIrisHub() {
           <TabsTrigger value="commissions"><CreditCard className="h-4 w-4 mr-1 inline" />Commissions</TabsTrigger>
           <TabsTrigger value="reports"><Download className="h-4 w-4 mr-1 inline" />Reports</TabsTrigger>
           <TabsTrigger value="hierarchy"><Building2 className="h-4 w-4 mr-1 inline" />Hierarchy</TabsTrigger>
-          {isAdmin && <TabsTrigger value="compliance"><Shield className="h-4 w-4 mr-1 inline" />Compliance</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="compliance"><LucideShield className="h-4 w-4 mr-1 inline" />Compliance</TabsTrigger>}
           <TabsTrigger value="cas-import"><FolderOpen className="h-4 w-4 mr-1 inline" />CAS Import</TabsTrigger>
         </TabsList>
 

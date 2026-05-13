@@ -5,7 +5,7 @@ import {
   TrendingUp, 
   FileCheck, 
   Lightbulb, 
-  Shield, 
+  Shield as LucideShield, 
   Clock,
   ArrowRight,
   AlertTriangle,
@@ -81,7 +81,7 @@ export default function AgentKnowledgeHub() {
     {
       title: "My Certifications",
       description: "Track your certifications",
-      icon: Shield,
+      icon: LucideShield,
       href: "/agent/knowledge-hub/certifications",
       color: "text-purple-500",
       bgColor: "bg-purple-500/10",
@@ -255,7 +255,7 @@ export default function AgentKnowledgeHub() {
         <Card className="bg-background border-border">
           <CardHeader>
             <CardTitle className="text-foreground flex items-center gap-2">
-              <Shield className="h-5 w-5 text-purple-500" />
+              <LucideShield className="h-5 w-5 text-purple-500" />
               Your Knowledge Stats
             </CardTitle>
             <CardDescription className="text-muted-foreground">

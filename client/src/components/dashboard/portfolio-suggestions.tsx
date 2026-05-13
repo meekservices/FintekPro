@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { usePortfolioRebalancingSuggestions } from "@/hooks/use-portfolio";
-import { AlertTriangle, TrendingUp, TrendingDown, Shield, Target, ChevronRight } from "lucide-react";
+import { AlertTriangle, TrendingUp, TrendingDown, Shield as LucideShield, Target, ChevronRight } from "lucide-react";
 
 interface PortfolioSuggestionsProps {
   portfolioId: string;
@@ -19,7 +19,7 @@ export function PortfolioSuggestions({ portfolioId }: PortfolioSuggestionsProps)
       case 'medium':
         return <Target className="h-4 w-4 text-yellow-500" />;
       case 'low':
-        return <Shield className="h-4 w-4 text-green-500" />;
+        return <LucideShield className="h-4 w-4 text-green-500" />;
       default:
         return <TrendingUp className="h-4 w-4 text-blue-500" />;
     }
@@ -41,7 +41,7 @@ export function PortfolioSuggestions({ portfolioId }: PortfolioSuggestionsProps)
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'risk_reduction':
-        return <Shield className="h-4 w-4" />;
+        return <LucideShield className="h-4 w-4" />;
       case 'diversification':
         return <TrendingUp className="h-4 w-4" />;
       case 'yield_optimization':

@@ -19,7 +19,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoanOffersCard } from "@/components/LoanOffersCard";
 import { 
-  Heart, ShoppingCart, Search, Star, TrendingUp, Shield, Globe, CreditCard, FileText, 
+  Heart, ShoppingCart, Search, Star, TrendingUp, Shield as LucideShield, Globe, CreditCard, FileText, 
   Briefcase, Banknote, Target, Crown, Landmark, Store as StoreIcon, ArrowRight, Sparkles, 
   Zap, ChevronRight, Plus, Building2, Award, Package, Flame, RefreshCw, Lock, AlertCircle,
   MessageSquare, CheckCircle, XCircle, Info
@@ -57,7 +57,7 @@ const categoryLinks = [
   { name: "Pre-IPO & Unlisted", icon: Sparkles, path: "/ipo", color: "from-purple-500 to-purple-600" },
   { name: "Loans & Credit", icon: CreditCard, path: "/store?category=Loans+%26+Credit", color: "from-yellow-500 to-yellow-600" },
   { name: "GIFT City / IFSC", icon: Globe, path: "/global-trading", color: "from-indigo-500 to-indigo-600" },
-  { name: "Insurance", icon: Shield, path: "/policybazaar", color: "from-red-500 to-red-600" },
+  { name: "Insurance", icon: LucideShield, path: "/policybazaar", color: "from-red-500 to-red-600" },
   { name: "Services", icon: Briefcase, path: "/itr-tax-services", color: "from-orange-500 to-orange-600" },
 ];
 
@@ -906,7 +906,7 @@ export default function StorePage() {
         <DialogContent className="sm:max-w-[500px] bg-card">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
-              <Shield className="h-5 w-5 text-amber-500" />
+              <LucideShield className="h-5 w-5 text-amber-500" />
               KYC Upgrade Required
             </DialogTitle>
             <DialogDescription asChild>
@@ -975,7 +975,7 @@ export default function StorePage() {
               }}
               className="bg-finance-blue hover:bg-finance-blue/90"
             >
-              <Shield className="h-4 w-4 mr-2" />
+              <LucideShield className="h-4 w-4 mr-2" />
               Complete KYC
             </Button>
           </DialogFooter>

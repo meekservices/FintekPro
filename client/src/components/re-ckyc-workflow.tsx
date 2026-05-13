@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { 
-  Shield, 
+  Shield as LucideShield, 
   FileText, 
   Clock, 
   CheckCircle, 
@@ -100,7 +100,7 @@ export function ReCKYCWorkflow({
     switch (step) {
       case 'overview': return <Info className="h-4 w-4" />;
       case 'documents': return <Upload className="h-4 w-4" />;
-      case 'verification': return <Shield className="h-4 w-4" />;
+      case 'verification': return <LucideShield className="h-4 w-4" />;
       case 'status': return <Clock className="h-4 w-4" />;
       default: return <Info className="h-4 w-4" />;
     }
@@ -111,7 +111,7 @@ export function ReCKYCWorkflow({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="modal-re-ckyc">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl" data-testid="heading-re-ckyc">
-            <Shield className="h-5 w-5 text-blue-600" />
+            <LucideShield className="h-5 w-5 text-blue-600" />
             Re-CKYC Verification Required
           </DialogTitle>
           <DialogDescription className="text-base">
@@ -287,7 +287,7 @@ export function ReCKYCWorkflow({
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-green-600" />
+                    <LucideShield className="h-5 w-5 text-green-600" />
                     Verification Details
                   </CardTitle>
                   <CardDescription>

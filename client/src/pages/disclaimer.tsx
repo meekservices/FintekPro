@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import { 
   AlertTriangle, TrendingUp, Building2, Landmark, Globe, 
-  Shield, Scale, Briefcase, Phone, FileWarning
+  Shield as LucideShield, Scale, Briefcase, Phone, FileWarning
 } from "lucide-react";
 
 export default function InvestmentDisclaimer() {
@@ -284,7 +284,7 @@ export default function InvestmentDisclaimer() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <Shield className="w-5 h-5 mr-2 text-blue-600" />
+                  <LucideShield className="w-5 h-5 mr-2 text-blue-600" />
                   Insurance Product Risks
                 </CardTitle>
               </CardHeader>

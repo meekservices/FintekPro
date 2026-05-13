@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, TrendingUp, TrendingDown, Activity, Shield, Target, Brain } from "lucide-react";
+import { AlertCircle, TrendingUp, TrendingDown, Activity, Shield as LucideShield, Target, Brain } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { LoadingState } from "@/components/LoadingState";
 import { useToast } from "@/hooks/use-toast";
@@ -150,7 +150,7 @@ export default function PredictiveAnalytics() {
               disabled={!selectedPortfolio || generateRiskAnalysis.isPending}
               data-testid="button-generate-risk"
             >
-              <Shield className="mr-2 h-4 w-4" />
+              <LucideShield className="mr-2 h-4 w-4" />
               {generateRiskAnalysis.isPending ? "Analyzing..." : "Analyze Risk"}
             </Button>
           </div>
@@ -475,7 +475,7 @@ export default function PredictiveAnalytics() {
             ) : (
               <Card>
                 <CardContent className="text-center py-12">
-                  <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <LucideShield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">
                     No risk analysis available. Generate risk analysis to see portfolio risk metrics.
                   </p>

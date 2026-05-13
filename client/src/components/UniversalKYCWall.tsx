@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Shield, AlertTriangle, CheckCircle, ArrowRight, FileText, Lock } from "lucide-react";
+import { Shield as LucideShield, AlertTriangle, CheckCircle, ArrowRight, FileText, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
@@ -176,7 +176,7 @@ export function UniversalKYCWall({ children }: { children: React.ReactNode }) {
 
         {/* Footer note */}
         <p className="text-center text-xs text-gray-400 dark:text-gray-600">
-          <Shield className="inline w-3 h-3 mr-1" />
+          <LucideShield className="inline w-3 h-3 mr-1" />
           This requirement applies to all FintekPro users regardless of role, in compliance with
           PMLA 2002, RBI Master Direction on KYC (2016), and SEBI regulations.
         </p>

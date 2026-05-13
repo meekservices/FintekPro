@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   CreditCard, Star, Gift, Plane, ShoppingBag, Fuel,
-  DollarSign, Percent, Shield, Check, Search, Filter,
+  DollarSign, Percent, Shield as LucideShield, Check, Search, Filter,
   AlertCircle, Wallet, Zap, ChevronRight, ExternalLink,
   Building2, Info, TrendingUp
 } from "lucide-react";
@@ -433,7 +433,7 @@ export default function CreditCardsPage() {
             Compare
           </TabsTrigger>
           <TabsTrigger value="eligibility">
-            <Shield className="h-4 w-4 mr-2" />
+            <LucideShield className="h-4 w-4 mr-2" />
             Check Eligibility
           </TabsTrigger>
         </ScrollableTabsList>
@@ -745,7 +745,7 @@ export default function CreditCardsPage() {
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <Shield className="h-6 w-6 text-primary" />
+                  <LucideShield className="h-6 w-6 text-primary" />
                   <div>
                     <CardTitle>Credit Card Eligibility Check</CardTitle>
                     <CardDescription>Get matched to cards you qualify for — soft pull, no CIBIL impact</CardDescription>

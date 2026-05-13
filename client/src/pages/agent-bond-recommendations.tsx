@@ -42,7 +42,7 @@ import {
   Landmark,
   Coins,
   DollarSign,
-  Shield,
+  Shield as LucideShield,
   BadgeCheck,
   ChevronRight,
   ArrowUpRight,
@@ -132,7 +132,7 @@ const BOND_TYPES = [
 ];
 
 const QUICK_PROFILES = [
-  { id: 'conservative', label: 'Conservative', description: 'Safety-first approach with government securities', icon: Shield, color: 'text-blue-500' },
+  { id: 'conservative', label: 'Conservative', description: 'Safety-first approach with government securities', icon: LucideShield, color: 'text-blue-500' },
   { id: 'balanced', label: 'Balanced', description: 'Mix of safety and yield optimization', icon: Scale, color: 'text-green-500' },
   { id: 'income', label: 'Income Focus', description: 'Maximize regular income from bond portfolio', icon: DollarSign, color: 'text-amber-500' },
   { id: 'tax_saver', label: 'Tax Saver', description: 'Optimize for post-tax returns', icon: BadgeCheck, color: 'text-purple-500' }
@@ -480,7 +480,7 @@ export default function AgentBondRecommendations() {
 
                       <div className="flex items-center justify-between p-4 rounded-lg bg-card border border-border">
                         <div className="flex items-center gap-2">
-                          <Shield className="h-5 w-5 text-amber-400" />
+                          <LucideShield className="h-5 w-5 text-amber-400" />
                           <Label className="text-muted-foreground cursor-pointer">Inflation Protection</Label>
                         </div>
                         <Switch

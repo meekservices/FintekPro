@@ -11,7 +11,7 @@ import {
   TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
   PieChart, BarChart3, Target, Zap, RefreshCw, Download,
   Lightbulb, AlertTriangle, ChevronRight, Calendar as CalendarIcon,
-  Shield, Activity, Wallet, Brain, ArrowRight,
+  Shield as LucideShield, Activity, Wallet, Brain, ArrowRight,
 } from "lucide-react";
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
@@ -265,7 +265,7 @@ export function PortfolioV3Dashboard({
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-muted-foreground text-sm font-medium">Risk Score</span>
-                <Shield className="h-5 w-5 text-amber-500" />
+                <LucideShield className="h-5 w-5 text-amber-500" />
               </div>
               <div className="flex items-center gap-3">
                 <p className={cn("text-3xl font-bold", riskScore.color)}>{riskScore.score}/10</p>

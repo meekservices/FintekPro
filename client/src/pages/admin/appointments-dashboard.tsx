@@ -26,7 +26,7 @@ import {
   Ban,
   FileText,
   Download,
-  Shield
+  Shield as LucideShield
 } from "lucide-react";
 
 interface PendingAppointment {
@@ -182,7 +182,7 @@ export default function AdminAppointmentsDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-3">
-              <Shield className="h-8 w-8 text-primary" />
+              <LucideShield className="h-8 w-8 text-primary" />
               Appointments Approval Queue
             </h1>
             <p className="text-muted-foreground mt-2">

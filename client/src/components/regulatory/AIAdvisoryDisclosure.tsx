@@ -1,4 +1,4 @@
-import { AlertTriangle, Info, Shield } from "lucide-react";
+import { AlertTriangle, Info, Shield as LucideShield } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Accordion,
@@ -50,7 +50,7 @@ export function AIAdvisoryDisclosure({
       <AccordionItem value="ai-disclosure" className="border-amber-200 dark:border-amber-800">
         <AccordionTrigger className="text-sm hover:no-underline py-2">
           <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-amber-600" />
+            <LucideShield className="h-4 w-4 text-amber-600" />
             <span className="text-amber-800 dark:text-amber-300">AI Advisory Risk Disclosure</span>
           </div>
         </AccordionTrigger>
@@ -83,7 +83,7 @@ export function AIAdvisoryDisclosure({
             </div>
 
             <div className="flex items-start gap-2">
-              <Shield className="h-4 w-4 mt-0.5 text-amber-600 flex-shrink-0" />
+              <LucideShield className="h-4 w-4 mt-0.5 text-amber-600 flex-shrink-0" />
               <div>
                 <p className="font-medium text-amber-800 dark:text-amber-300">Model Limitations</p>
                 <ul className="mt-1 list-disc list-inside space-y-1">

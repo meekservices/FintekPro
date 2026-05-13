@@ -11,7 +11,7 @@ import {
   Building2, 
   Calculator, 
   Calendar, 
-  Shield, 
+  Shield as LucideShield, 
   AlertTriangle, 
   Phone, 
   Mail, 
@@ -243,7 +243,7 @@ export function KeyFactsStatement({ kfs, onAcknowledge, showAcknowledgement = tr
         <Card className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Shield className="h-5 w-5 text-purple-600" />
+              <LucideShield className="h-5 w-5 text-purple-600" />
               Cooling-Off Period (Look-Up Period)
             </CardTitle>
           </CardHeader>

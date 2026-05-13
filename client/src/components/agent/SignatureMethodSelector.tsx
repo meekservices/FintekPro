@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
   FileSignature, Fingerprint, Key, Smartphone, 
-  Shield, Clock, CheckCircle, AlertTriangle, Info, PenTool, Plus, ArrowLeft, Star
+  Shield as LucideShield, Clock, CheckCircle, AlertTriangle, Info, PenTool, Plus, ArrowLeft, Star
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { SignatureCanvas, SignatureData } from '@/components/esign/SignatureCanvas';
@@ -332,7 +332,7 @@ export default function SignatureMethodSelector({
       </CardHeader>
       <CardContent className="space-y-4">
         <Alert>
-          <Shield className="h-4 w-4" />
+          <LucideShield className="h-4 w-4" />
           <AlertDescription>
             All signature methods are SEBI-compliant and legally binding for investment agreements in India.
           </AlertDescription>

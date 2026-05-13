@@ -8,7 +8,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { 
-  Shield, 
+  Shield as LucideShield, 
   Eye, 
   Clock, 
   Activity, 
@@ -97,7 +97,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
         <Card>
           <CardContent className="p-6">
             <div className="text-center py-8">
-              <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <LucideShield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">
                 No PAN Consent Found
               </h3>
@@ -216,7 +216,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-green-600" />
+                  <LucideShield className="h-5 w-5 text-green-600" />
                   Security & Privacy
                 </CardTitle>
                 <CardDescription>
@@ -263,7 +263,7 @@ export function PANDataDashboard({ className }: PANDataDashboardProps) {
                   
                   <div className="flex items-start gap-3">
                     <div className="bg-purple-100 dark:bg-purple-900/20 p-2 rounded-full">
-                      <Shield className="h-4 w-4 text-purple-600" />
+                      <LucideShield className="h-4 w-4 text-purple-600" />
                     </div>
                     <div>
                       <p className="font-medium">Revocable Consent</p>

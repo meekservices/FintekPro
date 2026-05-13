@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Shield, Clock, Database, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, Shield as LucideShield, Clock, Database, CheckCircle2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -154,7 +154,7 @@ export function AutoPopulationConsentDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-auto-population-consent">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2" data-testid="text-auto-pop-consent-title">
-            <Shield className="h-5 w-5 text-blue-600" />
+            <LucideShield className="h-5 w-5 text-blue-600" />
             Auto-Populate Your Financial Portfolio
           </DialogTitle>
           <DialogDescription data-testid="text-auto-pop-consent-description">

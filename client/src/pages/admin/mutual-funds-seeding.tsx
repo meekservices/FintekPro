@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Building2, Search, Loader2, ArrowLeft, 
-  Shield, TrendingUp, CheckCircle2, XCircle, RefreshCw,
+  Shield as LucideShield, TrendingUp, CheckCircle2, XCircle, RefreshCw,
   Eye, EyeOff, FileText, AlertTriangle, Plus, Download, Database
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
@@ -443,7 +443,7 @@ export default function MutualFundsSeeding() {
 
         {/* Info Alert */}
         <Alert>
-          <Shield className="h-4 w-4" />
+          <LucideShield className="h-4 w-4" />
           <AlertDescription>
             <strong>AMC Toggle Behavior:</strong> When an AMC toggle is turned ON, all Regular schemes under that AMC become published and visible to clients. 
             When OFF, all schemes are unpublished. You can override individual schemes only when the AMC toggle is ON.

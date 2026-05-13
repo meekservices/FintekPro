@@ -15,7 +15,7 @@ import {
   Clock, 
   AlertTriangle,
   ArrowRight,
-  Shield,
+  Shield as LucideShield,
   Sparkles,
   UserCheck,
   Receipt,
@@ -105,7 +105,7 @@ export default function TaxITRPage(): React.ReactElement {
       case "huf": return <Users className="h-5 w-5" />;
       case "firm": return <Briefcase className="h-5 w-5" />;
       case "company": return <Building2 className="h-5 w-5" />;
-      case "trust": return <Shield className="h-5 w-5" />;
+      case "trust": return <LucideShield className="h-5 w-5" />;
       case "nri": return <HomeIcon className="h-5 w-5" />;
       default: return <UserCheck className="h-5 w-5" />;
     }
@@ -468,7 +468,7 @@ export default function TaxITRPage(): React.ReactElement {
                   <p className="text-sm text-muted-foreground">Personal tax expert assigned to your case</p>
                 </div>
                 <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
-                  <Shield className="h-6 w-6 text-green-600 mb-2" />
+                  <LucideShield className="h-6 w-6 text-green-600 mb-2" />
                   <h4 className="font-semibold">100% Accuracy</h4>
                   <p className="text-sm text-muted-foreground">Expert review ensures error-free filing</p>
                 </div>

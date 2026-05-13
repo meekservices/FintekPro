@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { 
   Key, Check, X, AlertCircle, Settings, RefreshCw, Loader2, 
-  ExternalLink, Play, Zap, Shield, Cloud, Database, 
+  ExternalLink, Play, Zap, Shield as LucideShield, Cloud, Database, 
   MessageSquare, BarChart, CreditCard, Bot, Mail, Phone,
   Info, Clock, Activity, Link2, FileText, CheckCircle2, XCircle,
 } from "lucide-react";
@@ -60,7 +60,7 @@ interface TestResult {
 
 const categoryIcons: Record<string, any> = {
   payments: CreditCard,
-  verification: Shield,
+  verification: LucideShield,
   ai: Bot,
   communication: MessageSquare,
   marketing: Mail,
@@ -484,7 +484,7 @@ export default function APIConfiguration() {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-purple-500/20 rounded-lg">
-                  <Shield className="h-5 w-5 text-purple-400" />
+                  <LucideShield className="h-5 w-5 text-purple-400" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-purple-400">{summary.production}</p>
@@ -521,7 +521,7 @@ export default function APIConfiguration() {
             Payments
           </TabsTrigger>
           <TabsTrigger value="verification" className="data-[state=active]:bg-muted">
-            <Shield className="h-4 w-4 mr-2" />
+            <LucideShield className="h-4 w-4 mr-2" />
             Verification
           </TabsTrigger>
           <TabsTrigger value="ai" className="data-[state=active]:bg-muted">

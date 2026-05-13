@@ -1,4 +1,4 @@
-import { Shield, BarChart3, AlertTriangle } from "lucide-react";
+import { Shield as LucideShield, BarChart3, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
