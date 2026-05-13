@@ -25,7 +25,7 @@ import {
   IndianRupee,
   TrendingUp,
   TrendingDown,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   AlertTriangle,
   CheckCircle,
   XCircle,

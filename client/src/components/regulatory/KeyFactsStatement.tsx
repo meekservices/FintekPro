@@ -11,7 +11,7 @@ import {
   Building2, 
   Calculator, 
   Calendar, 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   AlertTriangle, 
   Phone, 
   Mail, 

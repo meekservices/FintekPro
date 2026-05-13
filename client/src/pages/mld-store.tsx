@@ -19,7 +19,7 @@ import {
   TrendingDown, 
   Clock, 
   Building2, 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   AlertTriangle,
   Info,
   ArrowRight,

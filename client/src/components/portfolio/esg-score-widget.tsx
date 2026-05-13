@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { 
   Leaf, 
   Users, 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   TrendingUp, 
   Info,
   Award,

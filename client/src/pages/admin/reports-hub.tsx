@@ -19,7 +19,7 @@ import {
   Clock,
   CheckCircle,
   Loader2,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Users,
   IndianRupee,
   Activity,

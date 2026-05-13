@@ -41,7 +41,7 @@ import {
   Calendar,
   DollarSign,
   Percent,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   ShieldAlert,
   Info,
   ChevronRight,

@@ -23,7 +23,7 @@ import {
   User, ArrowRight, ArrowLeft, Check, Target, PieChart, Scale, 
   TrendingUp, TrendingDown, Sparkles, Share2, Mail, MessageSquare, 
   Copy, ExternalLink, Plus, Trash2, Loader2, CheckCircle, AlertTriangle,
-  IndianRupee, Percent, Clock, LucideShield as LucideShield, Zap, RefreshCw, Search, Users, Download,
+  IndianRupee, Percent, Clock, Shield as LucideShield, Zap, RefreshCw, Search, Users, Download,
   Upload, Link, FileText, AlertCircle, Settings2, Globe, ChevronUp, ChevronDown, Info,
   Pencil, RotateCcw, Save, X, Lightbulb, Calculator, LayoutGrid, Wand2,
   Activity, Wallet, BarChart3, ListChecks, ArrowUpCircle, FileCheck,

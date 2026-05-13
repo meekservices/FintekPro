@@ -261,29 +261,17 @@ export async function apiRequest(
 
   if (res.status === 403 && isMutatingRequest) {
     const data = await res.clone().json().catch(() => ({}));
-    if (data.code === "CSRF_TOKEN_REQUIRED") {
+    if (data.code === "CSRF_TOKEN_REQUIRED" || data.code === "CSRF_TOKEN_INVALID") {
+      if (data.code === "CSRF_TOKEN_INVALID") {
+        clearCsrfToken();
+      }
+      
       await fetchCsrfToken();
+      
       if (csrfToken) {
         requestHeaders["X-CSRF-Token"] = csrfToken;
         res = await fetch(url, {
           method: method.toUpperCase(),
-          headers: requestHeaders,
-          body: serializedBody,
-          credentials: "include",
-          ...otherOptions,
-        });
-      }
-    }
-  }
-
-  if (res.status === 403 && isMutatingRequest) {
-    const data = await res.clone().json().catch(() => ({}));
-    if (data.code === 'CSRF_TOKEN_REQUIRED') {
-      await fetchCsrfToken();
-      if (csrfToken) {
-        requestHeaders['X-CSRF-Token'] = csrfToken;
-        res = await fetch(url, {
-          method,
           headers: requestHeaders,
           body: serializedBody,
           credentials: "include",

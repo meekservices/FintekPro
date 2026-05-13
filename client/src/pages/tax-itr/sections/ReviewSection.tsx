@@ -1,7 +1,7 @@
 import React from "react";
 import { 
   Eye, Globe, Building2, Clock, Calculator, CheckCircle, 
-  AlertTriangle, XCircle, LucideShield as LucideShield, FileText, Trash2, Upload, 
+  AlertTriangle, XCircle, Shield as LucideShield, FileText, Trash2, Upload, 
   Send, Banknote, Lightbulb, Wallet, FileSearch, HelpCircle,
   TrendingUp, Scale
 } from "lucide-react";

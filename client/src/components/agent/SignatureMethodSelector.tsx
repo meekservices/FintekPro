@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
   FileSignature, Fingerprint, Key, Smartphone, 
-  LucideShield as LucideShield, Clock, CheckCircle, AlertTriangle, Info, PenTool, Plus, ArrowLeft, Star
+  Shield as LucideShield, Clock, CheckCircle, AlertTriangle, Info, PenTool, Plus, ArrowLeft, Star
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { SignatureCanvas, SignatureData } from '@/components/esign/SignatureCanvas';

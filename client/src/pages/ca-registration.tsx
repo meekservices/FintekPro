@@ -31,7 +31,7 @@ import {
   User,
   Phone,
   Mail,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   IndianRupee
 } from 'lucide-react';
 

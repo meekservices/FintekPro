@@ -30,7 +30,7 @@ import {
   Mail,
   Video,
   FileText,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   TrendingUp,
   RefreshCw,
   MoreHorizontal,

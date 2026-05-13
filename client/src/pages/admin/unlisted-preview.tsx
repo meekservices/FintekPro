@@ -29,7 +29,7 @@ import {
   Users,
   Lightbulb,
   TrendingDown,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Target,
   Scale,
   ArrowUpRight,

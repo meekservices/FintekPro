@@ -35,7 +35,7 @@ import {
   PieChart,
   TrendingUp,
   BarChart3,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   IndianRupee,
   CheckCircle,
   RefreshCw,

@@ -49,7 +49,7 @@ import {
   TrendingUp,
   PieChart,
   Wallet,
-  LucideShield as LucideShield
+  Shield as LucideShield
 } from "lucide-react";
 
 interface Proposal {

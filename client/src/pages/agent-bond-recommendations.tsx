@@ -42,7 +42,7 @@ import {
   Landmark,
   Coins,
   DollarSign,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   BadgeCheck,
   ChevronRight,
   ArrowUpRight,

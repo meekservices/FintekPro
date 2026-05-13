@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { 
   Globe, 
   Settings, 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   ToggleLeft, 
   ToggleRight, 
   AlertTriangle, 

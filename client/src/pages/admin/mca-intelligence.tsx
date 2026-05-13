@@ -18,7 +18,7 @@ import {
   Search, Building2, TrendingUp, Download, Calendar, IndianRupee, 
   CheckCircle2, AlertTriangle, Wallet, FileText, Database, Activity,
   Filter, RefreshCw, Upload, Eye, ArrowUpDown, Loader2, BarChart3,
-  LucideShield as LucideShield, Scale, Clock, Users, Landmark, AlertCircle
+  Shield as LucideShield, Scale, Clock, Users, Landmark, AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingState } from '@/components/LoadingState';

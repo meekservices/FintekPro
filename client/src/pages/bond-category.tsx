@@ -8,7 +8,7 @@ import {
   SortAsc, 
   SortDesc,
   Building2,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   TrendingUp,
   IndianRupee,
   Star,

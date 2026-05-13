@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Building2, Search, Plus, DollarSign, TrendingUp, LucideShield as LucideShield, Clock, 
+  Building2, Search, Plus, DollarSign, TrendingUp, Shield as LucideShield, Clock, 
   CheckCircle2, XCircle, AlertTriangle, FileText, Users, Eye,
   ArrowRight, Lock, Unlock, Calendar, PieChart, UserPlus
 } from "lucide-react";

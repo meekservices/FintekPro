@@ -34,7 +34,7 @@ import {
   Users,
   BarChart3,
   ShieldCheck,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Database,
   Activity,
   Key,

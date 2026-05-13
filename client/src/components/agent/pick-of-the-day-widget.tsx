@@ -8,7 +8,7 @@ import {
   TrendingUp,
   TrendingDown,
   Target,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   ArrowRight,
   Sparkles,
   BarChart3,

@@ -2,7 +2,7 @@ import "dotenv/config";
 console.log('[ENTRY] server/index.ts is starting...');
 import { type Express, type Request, type Response } from "express";
 import { registerRoutes } from "./routes";
-import { setupAuth } from "./auth";
+import { registerAuthRoutes } from "./auth";
 import { storage } from "./storage";
 import { logger } from "./logger";
 import { bootState, logBootProgress } from "./utils/boot-state";
@@ -933,7 +933,7 @@ if (process.env.NODE_ENV === 'production') {
       await setupSessionAuth(app);
 
       // Step 3b: Initialize Passport Strategies (Local, OTP, etc)
-      setupAuth(app);
+      registerAuthRoutes(app);
 
       logBootProgress("Step 3c: Registering Auth Consumers...");
       // Register auth event consumers (structured logging + high-risk DB persistence)

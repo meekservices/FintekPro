@@ -33,7 +33,7 @@ import {
   TrendingUp, 
   FileText, 
   Settings, 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   Eye, 
   Edit3, 
   Trash2, 

@@ -14,7 +14,7 @@ import {
   ArrowRight,
   IndianRupee,
   Calendar,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   BarChart3,
   Lightbulb,
   Brain,

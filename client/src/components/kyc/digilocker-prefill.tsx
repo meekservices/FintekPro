@@ -6,7 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { 
   FileText, 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   CheckCircle2, 
   Loader2, 
   ArrowRight,

@@ -11,7 +11,7 @@ import {
   CheckCircle2, 
   AlertCircle, 
   RefreshCw,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   User,
   Smile,
   Eye,

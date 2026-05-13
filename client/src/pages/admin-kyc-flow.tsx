@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  LucideShield as LucideShield, AlertCircle, RefreshCw, CheckCircle, XCircle, 
+  Shield as LucideShield, AlertCircle, RefreshCw, CheckCircle, XCircle, 
   ArrowUpDown, Zap, IndianRupee, Settings, GripVertical,
   Scale, FileCheck, CreditCard, Landmark, User, BookOpen
 } from "lucide-react";

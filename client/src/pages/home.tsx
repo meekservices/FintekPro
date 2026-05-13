@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Calculator, 
   TrendingUp, 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   Database, 
   Banknote, 
   BarChart3, 

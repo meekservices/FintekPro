@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Target, Plus, Home, GraduationCap, Car, Heart, Plane, LucideShield as LucideShield, TrendingUp, 
+  Target, Plus, Home, GraduationCap, Car, Heart, Plane, Shield as LucideShield, TrendingUp, 
   Gem, Umbrella, Calendar, IndianRupee, Loader2, CheckCircle2, AlertTriangle,
   ArrowRight, Sparkles, PieChart, Trophy, Flag, ChevronRight, Eye, Trash2,
   TrendingDown, Clock

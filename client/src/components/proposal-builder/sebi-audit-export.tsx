@@ -20,7 +20,7 @@ import {
   FileSpreadsheet,
   FileText,
   Search,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   CheckCircle2,
   AlertTriangle,
   Clock,

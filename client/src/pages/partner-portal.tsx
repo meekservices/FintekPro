@@ -19,7 +19,7 @@ import {
   ArrowDownRight,
   FileText,
   BookOpen,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Download,
   Calendar,
   AlertTriangle,

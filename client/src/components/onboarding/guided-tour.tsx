@@ -8,7 +8,7 @@ import {
   ChevronRight, 
   CheckCircle2,
   TrendingUp,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   PieChart,
   Calculator,
   HelpCircle

@@ -11,7 +11,7 @@ import {
   TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
   PieChart, BarChart3, Target, Zap, RefreshCw, Download,
   Lightbulb, AlertTriangle, ChevronRight, Calendar as CalendarIcon,
-  LucideShield as LucideShield, Activity, Wallet, Brain, ArrowRight,
+  Shield as LucideShield, Activity, Wallet, Brain, ArrowRight,
 } from "lucide-react";
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 

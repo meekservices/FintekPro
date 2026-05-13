@@ -34,7 +34,7 @@ import {
   ChevronRight,
   TrendingUp,
   AlertCircle,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Calendar
 } from "lucide-react";
 

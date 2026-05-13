@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Filter, Search, Save, Play, TrendingUp, TrendingDown, Percent, IndianRupee,
   ArrowUpDown, ArrowUp, ArrowDown, Star, BarChart3, RefreshCw, ChevronLeft,
-  ChevronRight, Database, Loader2, Activity, PieChart, Target, LucideShield as LucideShield,
+  ChevronRight, Database, Loader2, Activity, PieChart, Target, Shield as LucideShield,
   Zap, Eye, X, SlidersHorizontal, Download, LayoutGrid, List, Info,
   Building2, Sparkles, Settings, Clock, AlertTriangle, CheckCircle2, Calculator
 } from "lucide-react";

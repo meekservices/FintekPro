@@ -22,7 +22,7 @@ import {
   Mail,
   Building2,
   Sparkles,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   BarChart3,
   Wallet,
   Calendar,

@@ -1,7 +1,7 @@
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
-  LucideShield as LucideShield, Award, Users, Clock, IndianRupee, Globe, Linkedin,
+  Shield as LucideShield, Award, Users, Clock, IndianRupee, Globe, Linkedin,
   Twitter, Phone, Mail, MapPin, Star, CheckCircle, ExternalLink,
   TrendingUp, Building2,
 } from "lucide-react";

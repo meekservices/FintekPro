@@ -11,7 +11,7 @@ import {
   Edit3,
   MessageSquare,
   RefreshCw,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";

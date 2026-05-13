@@ -24,7 +24,7 @@ import {
   BarChart3,
   Users,
   DollarSign,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   TrendingUp
 } from "lucide-react";
 import { useState } from "react";

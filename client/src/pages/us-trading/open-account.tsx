@@ -16,7 +16,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
-  CheckCircle2, Circle, AlertTriangle, User, DollarSign, LucideShield as LucideShield, FileText,
+  CheckCircle2, Circle, AlertTriangle, User, DollarSign, Shield as LucideShield, FileText,
   ClipboardCheck, ChevronRight, ChevronLeft, RefreshCw, Globe, Landmark,
   ExternalLink, Lock, Info, XCircle,
 } from "lucide-react";

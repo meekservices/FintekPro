@@ -41,7 +41,7 @@ import {
   Download,
   FileText,
   TrendingUp,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Star,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";

@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   FileText, Plus, Eye, CheckCircle2, Clock, AlertTriangle, 
-  Upload, Download, Send, ArrowRight, LucideShield as LucideShield, User, Building2,
+  Upload, Download, Send, ArrowRight, Shield as LucideShield, User, Building2,
   Globe, FileCheck, Stamp, History, ChevronRight, Loader2
 } from "lucide-react";
 

@@ -27,7 +27,7 @@ import {
   Clock,
   Check,
   X,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Edit3,
   Scale,
   Info,

@@ -16,8 +16,20 @@ export function createCsrfProtection() {
     const sessionToken = req.session.csrfToken;
 
     if (!token || !sessionToken || token !== sessionToken) {
-      console.error(`CSRF validation failed for ${req.method} ${req.path}`);
-      return res.status(403).json({ error: "Invalid CSRF token", code: "CSRF_TOKEN_REQUIRED" });
+      console.error(`[CSRF] Validation failed for ${req.method} ${req.path}`);
+      console.error(`  - Header Token: ${token ? 'present' : 'missing'}`);
+      console.error(`  - Session Token: ${sessionToken ? 'present' : 'missing'}`);
+      if (token && sessionToken && token !== sessionToken) {
+        console.error('  - Error: Token mismatch');
+      }
+
+      const errorCode = !token ? "CSRF_TOKEN_REQUIRED" : "CSRF_TOKEN_INVALID";
+
+      return res.status(403).json({ 
+        error: !token ? "CSRF token required" : "Invalid CSRF token", 
+        code: errorCode,
+        message: "Your session may have expired or been initialized in another tab. Please refresh."
+      });
     }
 
     next();

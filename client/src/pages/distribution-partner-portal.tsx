@@ -28,7 +28,7 @@ import {
   Wallet,
   PiggyBank,
   Target,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   UserCheck,
   Briefcase
 } from "lucide-react";

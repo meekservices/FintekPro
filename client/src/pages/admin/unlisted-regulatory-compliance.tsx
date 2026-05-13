@@ -9,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   Users, 
   Lock, 
   AlertTriangle, 

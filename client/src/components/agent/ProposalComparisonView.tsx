@@ -12,7 +12,7 @@ import {
   ArrowRight,
   PieChart,
   Target,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Info,
   Lightbulb,
 } from "lucide-react";

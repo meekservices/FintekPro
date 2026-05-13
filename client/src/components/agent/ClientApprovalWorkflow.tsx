@@ -16,7 +16,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   FileSignature,
   AlertCircle,
   Loader2,

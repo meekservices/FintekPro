@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { 
   Wallet, 
   Building2, 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   Clock, 
   CheckCircle2, 
   XCircle, 

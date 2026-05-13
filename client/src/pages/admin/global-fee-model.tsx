@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
 import {
-  Settings, Sparkles, Zap, Calculator, LucideShield as LucideShield, AlertTriangle,
+  Settings, Sparkles, Zap, Calculator, Shield as LucideShield, AlertTriangle,
   TrendingUp, Users, History, Download, RefreshCw, Save, 
   CheckCircle, XCircle, Edit, Eye, BarChart2
 } from "lucide-react";

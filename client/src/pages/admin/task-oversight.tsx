@@ -26,7 +26,7 @@ import {
   RefreshCw,
   Users,
   Calendar as CalendarIcon,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Phone,
   Video,
   FileText,

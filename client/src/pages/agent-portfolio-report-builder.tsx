@@ -37,7 +37,7 @@ import {
   FileCheck,
   ArrowUpRight,
   CheckCircle,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Calendar,
   User,
   Clock,

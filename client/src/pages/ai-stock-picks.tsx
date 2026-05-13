@@ -17,7 +17,7 @@ import {
   TrendingDown, 
   Star, 
   Target, 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   Clock, 
   BarChart3, 
   Brain,

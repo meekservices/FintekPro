@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   TrendingUp, 
   Target,
   AlertTriangle,

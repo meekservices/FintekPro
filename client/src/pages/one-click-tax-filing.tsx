@@ -21,7 +21,7 @@ import {
   IndianRupee,
   Database,
   Calendar,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Sparkles,
   ArrowRight,
   Clock,

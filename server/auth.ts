@@ -20,7 +20,7 @@ declare global {
   }
 }
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { apiResponse } from "./utils/responses";
 import { emailService } from "./email-service";
 import { whatsappService } from "./whatsapp";
@@ -122,26 +122,7 @@ function stampSessionPortal(req: any, portal: string) {
   }
 }
 
-export function setupAuth(app: Express) {
-  const sessionSettings: session.SessionOptions = {
-    secret: process.env.REPL_ID || "fintekpro-secret",
-    resave: false,
-    saveUninitialized: false,
-    store: storage.sessionStore,
-    cookie: {
-      secure: app.get("env") === "production",
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    }
-  };
-
-  if (app.get("env") === "production") {
-    app.set("trust proxy", 1);
-  }
-
-  app.use(session(sessionSettings));
-  app.use(passport.initialize());
-  app.use(passport.session());
-
+export function registerAuthRoutes(app: Express) {
   passport.use(
     new LocalStrategy(
       { usernameField: "identifier", passwordField: "password" },
@@ -158,16 +139,6 @@ export function setupAuth(app: Express) {
       }
     ),
   );
-
-  passport.serializeUser((user, done) => done(null, user.id));
-  passport.deserializeUser(async (id: string, done) => {
-    try {
-      const user = await storage.getUser(id);
-      done(null, user);
-    } catch (err) {
-      done(err);
-    }
-  });
 
   // The register route in HEAD was actually implementing a sophisticated login logic
   // We'll rename it to /api/login to fix the structure while keeping the HEAD functionality

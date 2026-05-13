@@ -23,7 +23,7 @@ import {
   Receipt,
   File,
   FolderOpen,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Lock,
   Inbox
 } from "lucide-react";

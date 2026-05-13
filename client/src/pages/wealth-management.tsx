@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Target, 
   TrendingUp, 
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Calculator,
   PieChart,
   CreditCard,

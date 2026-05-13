@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import fintekproLogo from "@assets/fintekpro_main_1772539048013.png";
 import { 
   Facebook, Twitter, Linkedin, Instagram, Home, UserCheck, Briefcase, Calculator, 
-  Store, TrendingUp, CreditCard, Receipt, Users, Bell, Settings, HelpCircle, LucideShield as LucideShield,
+  Store, TrendingUp, CreditCard, Receipt, Users, Bell, Settings, HelpCircle, Shield as LucideShield,
   Crown, Sparkles
 } from "lucide-react";
 import { useState, useEffect } from "react";

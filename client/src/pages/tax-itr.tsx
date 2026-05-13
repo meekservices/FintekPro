@@ -15,7 +15,7 @@ import {
   Clock, 
   AlertTriangle,
   ArrowRight,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Sparkles,
   UserCheck,
   Receipt,

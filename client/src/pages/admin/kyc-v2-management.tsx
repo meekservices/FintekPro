@@ -6,7 +6,7 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Search,
   RefreshCw,
   Clock,

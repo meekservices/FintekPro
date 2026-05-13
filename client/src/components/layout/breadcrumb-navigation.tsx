@@ -15,7 +15,7 @@ import {
   TrendingUp,
   PieChart,
   CreditCard,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   FileText,
   Calculator,
   Building2,

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import { 
-  FileText, Scale, AlertTriangle, LucideShield as LucideShield, Users, CreditCard, 
+  FileText, Scale, AlertTriangle, Shield as LucideShield, Users, CreditCard, 
   Building2, TrendingUp, Landmark, Globe, Briefcase, Calculator,
   Ban, Gavel, Phone
 } from "lucide-react";

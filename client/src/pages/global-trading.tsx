@@ -14,7 +14,7 @@ import { queryClient } from "@/lib/queryClient";
 import { 
   Globe, TrendingUp, TrendingDown, BarChart3, PieChart, 
   Clock, RefreshCw, ArrowUpRight, ArrowDownRight, Search,
-  Zap, LucideShield as LucideShield, Bell, Star, Eye, Play, Square,
+  Zap, Shield as LucideShield, Bell, Star, Eye, Play, Square,
   Activity, Target, DollarSign, Banknote, CreditCard,
   Moon, Sun, Calendar, AlertCircle, CheckCircle,
   Building2, MapPin, Percent, Users, Settings, Wallet

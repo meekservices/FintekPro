@@ -19,7 +19,7 @@ import { queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoanOffersCard } from "@/components/LoanOffersCard";
 import { 
-  Heart, ShoppingCart, Search, Star, TrendingUp, LucideShield as LucideShield, Globe, CreditCard, FileText, 
+  Heart, ShoppingCart, Search, Star, TrendingUp, Shield as LucideShield, Globe, CreditCard, FileText, 
   Briefcase, Banknote, Target, Crown, Landmark, Store as StoreIcon, ArrowRight, Sparkles, 
   Zap, ChevronRight, Plus, Building2, Award, Package, Flame, RefreshCw, Lock, AlertCircle,
   MessageSquare, CheckCircle, XCircle, Info

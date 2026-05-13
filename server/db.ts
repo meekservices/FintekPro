@@ -57,9 +57,9 @@ if (isProduction) {
 
 // 3. Build Pool Configuration
 const POOL_CONFIG: any = {
-  max: 20,
+  max: 50,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 30000,
 };
 
 if (dbUrl) {

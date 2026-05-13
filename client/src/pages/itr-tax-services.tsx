@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { 
   FileText, Calculator, Users, Clock, CheckCircle, AlertTriangle,
-  TrendingUp, LucideShield as LucideShield, Receipt, Building2, CreditCard, Phone,
+  TrendingUp, Shield as LucideShield, Receipt, Building2, CreditCard, Phone,
   Mail, Calendar, Star, Award, Target, Zap, ChevronRight,
   BookOpen, DollarSign, PieChart, BarChart3, Download,
   Upload, Send, Eye, Edit, Save, ArrowRight, Info

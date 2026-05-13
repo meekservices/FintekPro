@@ -32,7 +32,7 @@ import {
   Play,
   Eye,
   Edit,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Database,
   BarChart3,
   Download,

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   ChevronLeft,
   Award,
   BookOpen,

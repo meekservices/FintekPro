@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { 
   AlertTriangle, AlertCircle, CheckCircle, Clock, Search, Filter, RefreshCw, 
-  Eye, ExternalLink, ChevronRight, Bug, LucideShield as LucideShield, Zap, Server, Database, 
+  Eye, ExternalLink, ChevronRight, Bug, Shield as LucideShield, Zap, Server, Database, 
   Globe, Smartphone, Users, TrendingUp, BarChart3, Activity, Download,
   Copy, FileText, MessageSquareWarning, HelpCircle, Loader2
 } from "lucide-react";

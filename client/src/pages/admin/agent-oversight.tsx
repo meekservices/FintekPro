@@ -19,7 +19,7 @@ import {
   Search,
   Download,
   BarChart3,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Activity,
   AlertCircle
 } from "lucide-react";

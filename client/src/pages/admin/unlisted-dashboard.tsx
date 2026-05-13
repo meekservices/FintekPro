@@ -22,7 +22,7 @@ import {
   Activity,
   DollarSign,
   Users,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   FileText,
   ArrowRight,
   RefreshCw,

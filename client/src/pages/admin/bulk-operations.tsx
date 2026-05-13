@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   Users, 
   Package, 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   Play,
   Pause,
   CheckCircle,

@@ -25,7 +25,7 @@ import {
   Filter,
   RefreshCw,
   Zap,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   BarChart3,
   MapPin,
   Calendar,

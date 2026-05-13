@@ -32,12 +32,8 @@ export function isAuthenticated(req: Request, res: Response, next: NextFunction)
 
 export async function setupAuth(app: Express) {
   // 1. Session Store Configuration
-  // We use Postgres for session persistence to survive Cloud Run container restarts
-  const sessionStore = new PostgresStore({
-    pool,
-    tableName: "sessions",
-    createTableIfMissing: true,
-  });
+  // We use the centralized storage.sessionStore instance to ensure pool consistency
+  const sessionStore = storage.sessionStore;
 
   // 2. Cookie Configuration for Multi-Portal Persistence
   // CRITICAL: We set the domain to '.fintekpro.com' so the session cookie
@@ -71,7 +67,7 @@ export async function setupAuth(app: Express) {
   app.use(
     session({
       name: "fintekpro.sid",
-      secret: process.env.SESSION_SECRET || "fintek-secure-session-secret-2024",
+      secret: process.env.SESSION_SECRET || process.env.REPL_ID || "fintek-secure-session-secret-2024",
       resave: false,
       saveUninitialized: false,
       store: sessionStore,

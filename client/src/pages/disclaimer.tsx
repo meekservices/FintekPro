@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import { 
   AlertTriangle, TrendingUp, Building2, Landmark, Globe, 
-  LucideShield as LucideShield, Scale, Briefcase, Phone, FileWarning
+  Shield as LucideShield, Scale, Briefcase, Phone, FileWarning
 } from "lucide-react";
 
 export default function InvestmentDisclaimer() {

@@ -17,7 +17,7 @@ import {
   Wallet,
   CheckCircle,
   Clock,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   IndianRupee,
   FileText,
   Lock,

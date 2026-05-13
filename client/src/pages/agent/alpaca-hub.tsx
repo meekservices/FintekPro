@@ -25,7 +25,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Users, TrendingUp, ArrowUp, ArrowDown, RefreshCw,
   CheckCircle2, Clock, AlertTriangle, Search, Activity,
-  Globe, LucideShield as LucideShield, Wallet, DollarSign, BarChart3, LineChart,
+  Globe, Shield as LucideShield, Wallet, DollarSign, BarChart3, LineChart,
   ChevronRight, ExternalLink, Info, ArrowRightLeft, FileText,
   Building2, BadgeIndianRupee, Landmark, XCircle,
 } from "lucide-react";

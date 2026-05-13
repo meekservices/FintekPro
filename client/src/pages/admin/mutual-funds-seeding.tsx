@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Building2, Search, Loader2, ArrowLeft, 
-  LucideShield as LucideShield, TrendingUp, CheckCircle2, XCircle, RefreshCw,
+  Shield as LucideShield, TrendingUp, CheckCircle2, XCircle, RefreshCw,
   Eye, EyeOff, FileText, AlertTriangle, Plus, Download, Database
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";

@@ -18,7 +18,7 @@ import {
   Send,
   Clock,
   Calculator,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   RefreshCw
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";

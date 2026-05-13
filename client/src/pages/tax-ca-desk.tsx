@@ -10,7 +10,7 @@ import {
   Globe, 
   Calculator, 
   Building2, 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   Star, 
   Clock, 
   CheckCircle,

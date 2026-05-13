@@ -23,7 +23,7 @@ import {
   IndianRupee,
   Calculator,
   FileCheck,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Eye,
   Printer,
   AlertCircle,

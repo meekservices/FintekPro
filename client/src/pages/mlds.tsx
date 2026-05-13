@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Badge } from "@/components/ui/badge";
 import { 
-  TrendingUp, LucideShield as LucideShield, Calendar, BarChart3, IndianRupee, Search, RefreshCw,
+  TrendingUp, Shield as LucideShield, Calendar, BarChart3, IndianRupee, Search, RefreshCw,
   ShoppingCart, ClipboardList, Wallet, Package, FileText, Calculator,
   ThumbsUp, ThumbsDown, Bot, UserCheck, Trash2, CreditCard, AlertOctagon,
   Sparkles, PieChart, Target, Award, Info

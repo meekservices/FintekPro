@@ -21,7 +21,7 @@ import {
   User,
   Building2,
   Globe,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   File,
   Info
 } from "lucide-react";

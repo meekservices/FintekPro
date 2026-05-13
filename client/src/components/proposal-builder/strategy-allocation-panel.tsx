@@ -22,7 +22,7 @@ import {
   TrendingUp,
   TrendingDown,
   BarChart3,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   ArrowRight,
   Loader2,
   PieChart,

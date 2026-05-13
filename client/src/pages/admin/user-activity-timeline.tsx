@@ -12,7 +12,7 @@ import {
   LogIn,
   FileText,
   CreditCard,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Eye,
   Edit,
   Clock,

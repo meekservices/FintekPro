@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Users, CheckCircle, XCircle, AlertTriangle, LucideShield as LucideShield, Clock,
+  Users, CheckCircle, XCircle, AlertTriangle, Shield as LucideShield, Clock,
   ChevronRight, GitBranch, IndianRupee, FileText, Search,
   RefreshCw, Wallet, Ban, Trash2, Eye, Settings2, Activity,
   BadgeCheck, Building2, Phone, Mail, Hash

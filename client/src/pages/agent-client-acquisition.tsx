@@ -41,7 +41,7 @@ import {
   MessageSquare,
   ThumbsUp,
   XCircle,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Sparkles,
   Building2,
   Wallet,

@@ -32,7 +32,7 @@ import {
   Brain,
   Zap,
   Target,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Archive,
   Calculator
 } from 'lucide-react';

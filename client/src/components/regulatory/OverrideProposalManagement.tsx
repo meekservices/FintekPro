@@ -40,7 +40,7 @@ import {
   Clock,
   AlertTriangle,
   FileText,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   User,
   ArrowUpRight
 } from "lucide-react";

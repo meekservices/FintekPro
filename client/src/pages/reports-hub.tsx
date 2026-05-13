@@ -27,7 +27,7 @@ import {
   Calendar,
   IndianRupee,
   PiggyBank,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Briefcase,
   BarChart3,
   Lock,

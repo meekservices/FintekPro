@@ -18,7 +18,7 @@ import {
   CheckCircle,
   XCircle,
   MinusCircle,
-  LucideShield as LucideShield
+  Shield as LucideShield
 } from "lucide-react";
 
 interface CreditAccount {

@@ -29,7 +29,7 @@ import {
   ArrowRight,
   ArrowLeft,
   Loader2,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Upload,
   FileText,
   AlertCircle,

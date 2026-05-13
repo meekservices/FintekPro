@@ -13,7 +13,7 @@ import {
   Check, 
   IndianRupee, 
   Zap, 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   AlertCircle,
   RefreshCw,
   TrendingDown,

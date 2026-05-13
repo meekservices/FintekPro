@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   Calculator, FileText, Download, Upload, AlertTriangle, CheckCircle,
-  Clock, TrendingUp, Building2, Users, Receipt, LucideShield as LucideShield, Info,
+  Clock, TrendingUp, Building2, Users, Receipt, Shield as LucideShield, Info,
   Calendar, DollarSign, PieChart, BarChart3, ArrowRight, RefreshCw,
   FileCheck, AlertCircle, HelpCircle, Banknote, Plus
 } from "lucide-react";

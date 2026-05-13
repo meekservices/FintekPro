@@ -18,7 +18,7 @@ import {
   Mail,
   MessageSquare,
   Receipt,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Sparkles,
   TrendingUp,
   Zap,

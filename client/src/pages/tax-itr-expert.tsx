@@ -20,7 +20,7 @@ import {
   CheckCircle,
   Clock,
   Users,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Star,
   IndianRupee,
   AlertTriangle,

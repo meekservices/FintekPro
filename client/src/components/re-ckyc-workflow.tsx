@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { 
-  LucideShield as LucideShield, 
+  Shield as LucideShield, 
   FileText, 
   Clock, 
   CheckCircle, 

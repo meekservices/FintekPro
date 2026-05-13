@@ -23,7 +23,7 @@ import {
   AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  UserCheck, Plus, Pencil, Trash2, RefreshCw, Info, Phone, Mail, MapPin, LucideShield as LucideShield,
+  UserCheck, Plus, Pencil, Trash2, RefreshCw, Info, Phone, Mail, MapPin, Shield as LucideShield,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";

@@ -24,7 +24,7 @@ import {
   Settings,
   HelpCircle,
   Download,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Building,
   AlertTriangle,
   ChevronDown,

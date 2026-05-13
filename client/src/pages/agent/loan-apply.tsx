@@ -47,7 +47,7 @@ import {
   Calendar,
   CreditCard,
   Upload,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   AlertTriangle,
   CheckCircle
 } from "lucide-react";

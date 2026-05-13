@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   Building2, IndianRupee, TrendingUp, ArrowUpRight, Search, Filter, BarChart3, 
-  PieChart, Clock, LucideShield as LucideShield, Award, Target, Zap, Star, Eye, RefreshCw, ShoppingCart,
+  PieChart, Clock, Shield as LucideShield, Award, Target, Zap, Star, Eye, RefreshCw, ShoppingCart,
   ClipboardList, Wallet, Package, FileText, CheckCircle2, AlertTriangle, Banknote,
   ThumbsUp, ThumbsDown, Edit2, Bot, UserCheck, Trash2, CreditCard, AlertOctagon,
   Sparkles, Calculator, ArrowRight

@@ -6,7 +6,7 @@ import {
   CheckCircle, 
   AlertCircle,
   IndianRupee,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Clock,
   Percent,
   CreditCard

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  ArrowLeft, Building2, TrendingUp, TrendingDown, LucideShield as LucideShield, 
+  ArrowLeft, Building2, TrendingUp, TrendingDown, Shield as LucideShield, 
   BarChart3, PieChart, Calendar, Award, Clock, Target,
   AlertTriangle, DollarSign, Briefcase, Info, LineChart
 } from "lucide-react";

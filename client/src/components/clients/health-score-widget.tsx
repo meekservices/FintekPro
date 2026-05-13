@@ -9,7 +9,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Info,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   PieChart,
   Activity,
   Clock

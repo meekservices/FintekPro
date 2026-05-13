@@ -15,7 +15,7 @@ import {
   IndianRupee,
   PieChart,
   Calculator,
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Clock,
   Briefcase,
   Building,

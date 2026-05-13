@@ -6,7 +6,7 @@ import {
   TrendingUp, 
   FileText, 
   Calculator, 
-  LucideShield as LucideShield,
+  Shield as LucideShield,
   Zap
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
