@@ -50,7 +50,7 @@ import {
   GraduationCap,
   BookOpen,
   Lightbulb,
-  Shield as LucideShield as LucideShield,
+  Shield as LucideShield,
   FileCheck,
   Star,
   Palette,

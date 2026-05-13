@@ -9,7 +9,7 @@ import {
   TrendingDown,
   AlertTriangle,
   Target,
-  Shield as LucideShield as LucideShield,
+  Shield as LucideShield,
   Phone,
   Mail,
   Calendar,
