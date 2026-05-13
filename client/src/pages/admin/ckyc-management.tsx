@@ -29,7 +29,7 @@ import {
   Trash2,
   Eye,
   Send,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Activity,
   RefreshCw,
   ArrowUpDown,

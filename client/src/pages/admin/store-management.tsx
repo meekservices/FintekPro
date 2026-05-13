@@ -15,7 +15,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Package, FolderTree, Search, Loader2, ChevronRight, ChevronDown, 
   AlertTriangle, History, Eye, EyeOff, FileText, RefreshCw,
-  Plus, Edit, Trash2, ArrowLeft, Shield as LucideShield, ShieldAlert, Sparkles, Award, Sprout
+  Plus, Edit, Trash2, ArrowLeft, LucideShield as LucideShield, ShieldAlert, Sparkles, Award, Sprout
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { format } from "date-fns";

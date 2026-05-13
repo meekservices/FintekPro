@@ -37,7 +37,7 @@ import {
   PieChart,
   BarChart3,
   AlertCircle,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Info,
   ChevronRight,
   Plus

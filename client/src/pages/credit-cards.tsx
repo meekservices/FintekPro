@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   CreditCard, Star, Gift, Plane, ShoppingBag, Fuel,
-  DollarSign, Percent, Shield as LucideShield, Check, Search, Filter,
+  DollarSign, Percent, LucideShield as LucideShield, Check, Search, Filter,
   AlertCircle, Wallet, Zap, ChevronRight, ExternalLink,
   Building2, Info, TrendingUp
 } from "lucide-react";

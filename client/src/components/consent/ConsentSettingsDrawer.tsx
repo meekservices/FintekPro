@@ -21,7 +21,7 @@ import {
   Calendar, 
   RefreshCw, 
   Building, 
-  Shield as LucideShield, 
+  LucideShield as LucideShield, 
   AlertTriangle,
   CheckCircle2
 } from 'lucide-react';

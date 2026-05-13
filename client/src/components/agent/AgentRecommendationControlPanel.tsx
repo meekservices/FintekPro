@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   User,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   TrendingUp,
   AlertTriangle,
   CheckCircle2,

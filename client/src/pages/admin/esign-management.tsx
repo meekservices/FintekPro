@@ -24,7 +24,7 @@ import {
   RefreshCw,
   IndianRupee,
   Zap,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   TrendingUp,
   Search,
   Download,

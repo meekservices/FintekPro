@@ -17,7 +17,7 @@ import { useClientCapabilities } from "@/hooks/useClientCapabilities";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Search, TrendingUp, TrendingDown, Star, Globe, DollarSign, ArrowUpRight, 
-  ArrowDownRight, Clock, Info, Shield as LucideShield, AlertTriangle, CheckCircle, BarChart3,
+  ArrowDownRight, Clock, Info, LucideShield as LucideShield, AlertTriangle, CheckCircle, BarChart3,
   Wallet, RefreshCw, Plus, Minus, Building2, Sparkles, ArrowRight, LineChart,
   Bell, Scale, Target, ChevronRight
 } from "lucide-react";

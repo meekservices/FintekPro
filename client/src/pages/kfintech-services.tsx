@@ -37,7 +37,7 @@ import {
   Repeat,
   UserCog,
   Landmark,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Phone,
   Mail,
   CreditCard,

@@ -33,7 +33,7 @@ import {
   Target,
   Sparkles,
   Eye,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   ArrowUpDown,
   PieChart,
   BarChart3,

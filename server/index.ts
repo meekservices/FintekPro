@@ -16,6 +16,7 @@ import { APP_VERSION } from "../shared/version";
 import cors from "cors";
 import { subdomainDetection } from "./subdomain-middleware";
 import { registerAuthEventConsumers } from "./services/auth-event-consumers";
+import helmet from "helmet";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -75,13 +76,25 @@ if (process.env.NODE_ENV !== "production") {
   corsAllowedOrigins.push('http://0.0.0.0:5000');
 }
 
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://*.fintekpro.com", "https://*.run.app"],
+      connectSrc: ["'self'", "https://*.fintekpro.com", "https://*.run.app", "wss://*.run.app"],
+      imgSrc: ["'self'", "data:", "https:", "https://*.fintekpro.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      frameSrc: ["'self'", "https://*.fintekpro.com"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false
+}));
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow if:
-    // 1. No origin (server-to-server or local)
-    // 2. Explicitly listed in corsAllowedOrigins
-    // 3. Subdomain of fintekpro.com
-    // 4. Any GCP Cloud Run service in our project (fintekpro-app-*.run.app)
     const isAllowed = !origin || 
       corsAllowedOrigins.includes(origin) || 
       (typeof origin === 'string' && (

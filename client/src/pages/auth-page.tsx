@@ -1384,7 +1384,7 @@ export default function AuthPage() {
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                 {portalDesc.features.map((feature, index) => {
-                  const IconComponent = featureIcons[feature.icon as keyof typeof featureIcons] || Shield;
+                  const IconComponent = featureIcons[feature.icon as keyof typeof featureIcons] || LucideShield;
                   return (
                     <div key={index} className="flex items-start space-x-3">
                       <IconComponent className="h-6 w-6 mt-1 flex-shrink-0" style={{ color: portalColor }} />

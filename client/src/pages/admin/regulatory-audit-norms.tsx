@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  Shield as LucideShield, ShieldCheck, ShieldAlert, ShieldX,
+  LucideShield as LucideShield, ShieldCheck, ShieldAlert, ShieldX,
   AlertTriangle, CheckCircle2, XCircle, Clock,
   RefreshCw, BookOpen, FileText, Scale,
   Building2, Banknote, Server, Zap, Info,

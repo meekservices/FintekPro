@@ -16,7 +16,7 @@ import {
   FileStack,
   Video,
   MessageSquare,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Check,
   Info,
   Zap,

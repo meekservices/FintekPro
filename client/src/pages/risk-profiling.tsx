@@ -322,7 +322,7 @@ export default function RiskProfilingPage() {
       );
     }
 
-    const CategoryIcon = CATEGORY_ICONS[currentQuestion.category] || Shield;
+    const CategoryIcon = CATEGORY_ICONS[currentQuestion.category] || LucideShield;
 
     return (
       <div className="container mx-auto py-8 max-w-3xl">
@@ -568,7 +568,7 @@ export default function RiskProfilingPage() {
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2">
               {existingProfile.categoryScores && Object.entries(existingProfile.categoryScores).map(([category, score]) => {
-                const CategoryIcon = CATEGORY_ICONS[category] || Shield;
+                const CategoryIcon = CATEGORY_ICONS[category] || LucideShield;
                 return (
                   <div key={category} className="p-4 bg-muted/30 rounded-lg">
                     <div className="flex items-center gap-2 mb-2">

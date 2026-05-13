@@ -24,7 +24,7 @@ import {
   Clock, 
   Download, 
   FileText, 
-  Shield as LucideShield, 
+  LucideShield as LucideShield, 
   Brain, 
   ChevronRight, 
   ChevronDown,

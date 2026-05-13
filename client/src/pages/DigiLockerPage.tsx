@@ -11,7 +11,7 @@ import {
   FileText,
   Download,
   RefreshCw,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Clock,
   CheckCircle,
   AlertCircle,

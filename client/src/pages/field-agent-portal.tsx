@@ -46,7 +46,9 @@ import {
   XCircle,
   Loader2,
   Send,
-  Sparkles
+  Sparkles,
+  Shield as LucideShield,
+  Download
 } from "lucide-react";
 
 interface MeetingBooking {
@@ -443,7 +445,7 @@ export default function FieldAgentPortal() {
             </TabsTrigger>
             {agentProfile?.role === 'regulatory_auditor' && (
               <TabsTrigger value="compliance" data-testid="tab-agent-compliance">
-                <Shield className="h-4 w-4 mr-2 text-indigo-600" />
+                <LucideShield className="h-4 w-4 mr-2 text-indigo-600" />
                 Compliance Profile
               </TabsTrigger>
             )}
@@ -1296,7 +1298,7 @@ export default function FieldAgentPortal() {
               <Card className="lg:col-span-2">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-indigo-600" />
+                    <LucideShield className="h-5 w-5 text-indigo-600" />
                     Regulatory Compliance Profile
                   </CardTitle>
                   <CardDescription>

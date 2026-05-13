@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
-  Sparkles, Shield as LucideShield, TrendingUp, Calculator, AlertTriangle, 
+  Sparkles, LucideShield as LucideShield, TrendingUp, Calculator, AlertTriangle, 
   CheckCircle, Info, Zap, Lock
 } from "lucide-react";
 

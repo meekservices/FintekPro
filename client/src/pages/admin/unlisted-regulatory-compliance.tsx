@@ -9,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { 
-  Shield as LucideShield, 
+  LucideShield as LucideShield, 
   Users, 
   Lock, 
   AlertTriangle, 
@@ -546,7 +546,7 @@ export default function UnlistedRegulatoryCompliance() {
                 </Table>
               ) : (
                 <EmptyState
-                  icon={Shield}
+                  icon={LucideShield}
                   title="Audit Trail Empty"
                   description="No forensic events recorded in the current window."
                 />

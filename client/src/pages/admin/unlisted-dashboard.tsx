@@ -22,7 +22,7 @@ import {
   Activity,
   DollarSign,
   Users,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   FileText,
   ArrowRight,
   RefreshCw,
@@ -332,7 +332,7 @@ export default function UnlistedDashboard() {
           title="High Risk"
           value={metrics.highRiskCompanies}
           description="Blocked or flagged"
-          icon={Shield}
+          icon={LucideShield}
           variant={metrics.highRiskCompanies > 0 ? 'error' : 'default'}
         />
       </div>

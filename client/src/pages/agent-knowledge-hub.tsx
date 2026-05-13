@@ -5,7 +5,7 @@ import {
   TrendingUp, 
   FileCheck, 
   Lightbulb, 
-  Shield as LucideShield, 
+  LucideShield as LucideShield, 
   Clock,
   ArrowRight,
   AlertTriangle,

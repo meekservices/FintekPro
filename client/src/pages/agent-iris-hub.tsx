@@ -21,7 +21,7 @@ import {
   PieChart, Pie, Cell, Legend
 } from "recharts";
 import {
-  TrendingUp, Users, IndianRupee, Activity, Shield as LucideShield, FileText,
+  TrendingUp, Users, IndianRupee, Activity, LucideShield as LucideShield, FileText,
   BarChart3, RefreshCw, Search, ExternalLink, ArrowUpRight,
   ChevronRight, AlertCircle, CheckCircle2, Clock, Download, KeyRound, XCircle,
   FolderOpen, Inbox, Unlink, Link2, Send, CloudDownload, Calculator, Calendar,

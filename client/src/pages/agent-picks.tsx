@@ -25,7 +25,7 @@ import {
   TrendingUp,
   TrendingDown,
   Target,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Sparkles,
   BarChart3,
   Landmark,

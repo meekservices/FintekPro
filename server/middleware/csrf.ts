@@ -17,7 +17,7 @@ export function createCsrfProtection() {
 
     if (!token || !sessionToken || token !== sessionToken) {
       console.error(`CSRF validation failed for ${req.method} ${req.path}`);
-      return res.status(403).json({ error: "Invalid CSRF token" });
+      return res.status(403).json({ error: "Invalid CSRF token", code: "CSRF_TOKEN_REQUIRED" });
     }
 
     next();

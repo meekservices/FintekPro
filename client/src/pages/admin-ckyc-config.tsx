@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Settings, Shield as LucideShield, AlertCircle, RefreshCw, BarChart3,
+  Settings, LucideShield as LucideShield, AlertCircle, RefreshCw, BarChart3,
   CheckCircle, XCircle, Key, ArrowUpDown, Zap
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";

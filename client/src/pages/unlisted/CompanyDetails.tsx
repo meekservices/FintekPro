@@ -18,7 +18,7 @@ import {
   ShoppingCart,
   Store,
   Lock,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   AlertTriangle
 } from 'lucide-react';
 import { LoadingState } from '@/components/LoadingState';

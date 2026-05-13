@@ -18,7 +18,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   RefreshCw, Search, Loader2, ArrowLeft, Globe, Building2, 
   TrendingUp, AlertTriangle, Eye, EyeOff, Plus, Edit, Trash2,
-  DollarSign, Percent, IndianRupee, Clock, Shield as LucideShield, Check, X,
+  DollarSign, Percent, IndianRupee, Clock, LucideShield as LucideShield, Check, X,
   Briefcase, Crown, Banknote, Target, ArrowDownToLine, ArrowUpFromLine,
   Scale, FileCheck, Users, Database, Sparkles, Package
 } from "lucide-react";

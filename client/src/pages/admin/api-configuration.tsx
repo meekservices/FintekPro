@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { 
   Key, Check, X, AlertCircle, Settings, RefreshCw, Loader2, 
-  ExternalLink, Play, Zap, Shield as LucideShield, Cloud, Database, 
+  ExternalLink, Play, Zap, LucideShield as LucideShield, Cloud, Database, 
   MessageSquare, BarChart, CreditCard, Bot, Mail, Phone,
   Info, Clock, Activity, Link2, FileText, CheckCircle2, XCircle,
 } from "lucide-react";

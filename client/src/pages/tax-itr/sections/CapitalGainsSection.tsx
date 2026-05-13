@@ -1,6 +1,6 @@
 import React from "react";
 import { 
-  Upload, Plus, BarChart3, Save, Trash2, FileText, Info, Shield as LucideShield, TrendingUp 
+  Upload, Plus, BarChart3, Save, Trash2, FileText, Info, LucideShield as LucideShield, TrendingUp 
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

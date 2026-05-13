@@ -26,7 +26,7 @@ import {
   Mail,
   MapPin,
   Calendar,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   CheckCircle2,
   AlertTriangle,
   Clock,

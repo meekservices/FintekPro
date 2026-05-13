@@ -20,7 +20,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  Users, ArrowRightLeft, FileText, TrendingUp, Shield as LucideShield,
+  Users, ArrowRightLeft, FileText, TrendingUp, LucideShield as LucideShield,
   RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle,
   Search, Plus, Download, BarChart3, Activity, ChevronRight,
   Landmark, Building2, Wallet, BookOpen, Calendar,

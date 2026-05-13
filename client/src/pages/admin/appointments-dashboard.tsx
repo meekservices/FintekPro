@@ -26,7 +26,7 @@ import {
   Ban,
   FileText,
   Download,
-  Shield as LucideShield
+  LucideShield as LucideShield
 } from "lucide-react";
 
 interface PendingAppointment {

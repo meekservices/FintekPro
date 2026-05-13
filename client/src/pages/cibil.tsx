@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { 
   CreditCard, 
-  Shield as LucideShield, 
+  LucideShield as LucideShield, 
   TrendingUp, 
   AlertCircle, 
   CheckCircle, 

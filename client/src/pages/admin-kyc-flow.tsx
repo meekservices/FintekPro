@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Shield as LucideShield, AlertCircle, RefreshCw, CheckCircle, XCircle, 
+  LucideShield as LucideShield, AlertCircle, RefreshCw, CheckCircle, XCircle, 
   ArrowUpDown, Zap, IndianRupee, Settings, GripVertical,
   Scale, FileCheck, CreditCard, Landmark, User, BookOpen
 } from "lucide-react";
@@ -49,7 +49,7 @@ interface KycFlowResponse {
   };
 }
 
-const stepIcons: Record<string, typeof Shield> = {
+const stepIcons: Record<string, typeof LucideShield> = {
   pan_verification: CreditCard,
   aadhaar_verification: User,
   address_verification: Landmark,
@@ -183,7 +183,7 @@ export default function AdminKycFlow() {
 
       <Accordion type="multiple" defaultValue={steps.map(s => s.stepId)} className="space-y-3">
         {steps.map((step) => {
-          const StepIcon = stepIcons[step.stepId] || Shield;
+          const StepIcon = stepIcons[step.stepId] || LucideShield;
           const configuredCount = step.providers.filter(p => p.isConfigured).length;
           const sortedProviders = [...step.providers].sort((a, b) => a.priority - b.priority);
 

@@ -19,7 +19,7 @@ import {
   TrendingDown,
   AlertTriangle,
   Target,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Search,
   Download,
   RefreshCw,

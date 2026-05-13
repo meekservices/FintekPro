@@ -19,7 +19,7 @@ import {
   Search,
   ArrowRight,
   TrendingUp,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Star,
   Coins
 } from "lucide-react";

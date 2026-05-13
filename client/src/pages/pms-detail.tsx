@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  ArrowLeft, Building2, TrendingUp, Shield as LucideShield, 
+  ArrowLeft, Building2, TrendingUp, LucideShield as LucideShield, 
   BarChart3, PieChart, Award, Briefcase, LineChart, DollarSign, AlertTriangle
 } from "lucide-react";
 import { useLocation } from "wouter";

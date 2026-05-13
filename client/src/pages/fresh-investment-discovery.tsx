@@ -19,7 +19,7 @@ import {
   Star,
   Target,
   Flame,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Zap,
   ShoppingCart,
   Eye,

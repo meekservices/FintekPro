@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   User, Building2, Award, BarChart3, Link2, Share2, Copy, CheckCircle,
   Camera, Globe, Linkedin, Twitter, Phone, Mail, MapPin, Star,
-  Shield as LucideShield, FileText, Calendar, TrendingUp, Users, Briefcase, Plus, X,
+  LucideShield as LucideShield, FileText, Calendar, TrendingUp, Users, Briefcase, Plus, X,
   ExternalLink, QrCode, Eye, EyeOff, IndianRupee, Clock, Sparkles,
 } from "lucide-react";
 

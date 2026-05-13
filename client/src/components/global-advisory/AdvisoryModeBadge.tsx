@@ -23,7 +23,7 @@ export function AdvisoryModeBadge({
 }: AdvisoryModeBadgeProps) {
   const config = getAdvisoryBadgeConfig(advisoryLevel);
   
-  const Icon = advisoryLevel === "FULL" ? Shield : advisoryLevel === "ANALYTICS_ONLY" ? BarChart3 : AlertTriangle;
+  const Icon = advisoryLevel === "FULL" ? LucideShield : advisoryLevel === "ANALYTICS_ONLY" ? BarChart3 : AlertTriangle;
   
   const sizeClasses = {
     sm: "text-xs px-2 py-0.5",

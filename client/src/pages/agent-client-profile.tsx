@@ -25,7 +25,7 @@ import {
   IndianRupee,
   TrendingUp,
   TrendingDown,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -282,7 +282,7 @@ export default function AgentClientProfile() {
       case 'withdrawal': return TrendingDown;
       case 'document': return FileText;
       case 'alert': return Bell;
-      case 'kyc': return Shield;
+      case 'kyc': return LucideShield;
       default: return Activity;
     }
   };

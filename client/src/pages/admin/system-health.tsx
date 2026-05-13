@@ -17,7 +17,7 @@ import {
   Phone,
   CreditCard,
   Brain,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Zap,
   MemoryStick,
   Timer,

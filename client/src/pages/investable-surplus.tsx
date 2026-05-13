@@ -17,7 +17,7 @@ import { z } from "zod";
 import { 
   TrendingUp, TrendingDown, Wallet, AlertTriangle, CheckCircle, 
   DollarSign, PiggyBank, CreditCard, Users, Calculator,
-  Plus, Trash2, Edit, RefreshCw, Shield as LucideShield, Target, Landmark
+  Plus, Trash2, Edit, RefreshCw, LucideShield as LucideShield, Target, Landmark
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";

@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   Search, Building2, Eye, EyeOff, RefreshCw, TrendingUp, 
-  AlertTriangle, Shield as LucideShield, BarChart3, Settings, Users, Plus, Pencil, Trash2, Award, Calculator
+  AlertTriangle, LucideShield as LucideShield, BarChart3, Settings, Users, Plus, Pencil, Trash2, Award, Calculator
 } from "lucide-react";
 
 interface FundManager {

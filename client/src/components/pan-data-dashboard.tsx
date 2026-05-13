@@ -8,7 +8,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { 
-  Shield as LucideShield, 
+  LucideShield as LucideShield, 
   Eye, 
   Clock, 
   Activity, 

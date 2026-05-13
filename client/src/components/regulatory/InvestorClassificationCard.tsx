@@ -23,7 +23,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   User, 
   TrendingUp, 
-  Shield as LucideShield, 
+  LucideShield as LucideShield, 
   Building2, 
   Crown, 
   Info,

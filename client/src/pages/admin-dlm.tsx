@@ -31,7 +31,7 @@ import {
   Calendar,
   Building2,
   Users,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   History,
   BarChart3,
   RefreshCw,

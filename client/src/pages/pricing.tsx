@@ -16,7 +16,7 @@ import {
   Crown,
   Globe,
   TrendingUp,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   BarChart3,
   FileText,
   Users,

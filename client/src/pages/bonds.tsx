@@ -285,8 +285,8 @@ function BondCategoriesSection({ onCategoryClick }: { onCategoryClick?: (categor
   }
 
   const getIcon = (iconName: string) => {
-    const icons = { Shield, TrendingUp, Building2, IndianRupee };
-    return icons[iconName as keyof typeof icons] || Shield;
+    const icons = { LucideShield, TrendingUp, Building2, IndianRupee };
+    return icons[iconName as keyof typeof icons] || LucideShield;
   };
 
   const getCategoryColors = (color: string) => {

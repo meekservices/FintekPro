@@ -27,7 +27,7 @@ import {
   PieChart,
   BarChart3,
   AlertTriangle,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   ShoppingCart,
   ThumbsUp,
   ThumbsDown,

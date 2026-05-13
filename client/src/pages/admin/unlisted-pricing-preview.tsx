@@ -20,7 +20,7 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   TrendingUp,
   TrendingDown,
   Clock,

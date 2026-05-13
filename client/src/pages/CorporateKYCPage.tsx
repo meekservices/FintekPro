@@ -25,7 +25,7 @@ import {
   Search,
   Loader2,
   UserPlus,
-  Shield as LucideShield
+  LucideShield as LucideShield
 } from "lucide-react";
 
 // Entity Type Schema

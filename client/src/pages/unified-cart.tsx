@@ -7,7 +7,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { 
   ShoppingCart, IndianRupee, RefreshCw, Trash2, CreditCard, AlertOctagon,
   Package, CheckCircle2, Building2, Briefcase, BarChart3, FileText, 
-  TrendingUp, ArrowRight, Clock, Shield as LucideShield
+  TrendingUp, ArrowRight, Clock, LucideShield as LucideShield
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";

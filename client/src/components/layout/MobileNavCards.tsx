@@ -8,7 +8,7 @@ import {
   Brain, 
   FileText, 
   DollarSign, 
-  Shield as LucideShield as ShieldIcon,
+  LucideShield as LucideShield as ShieldIcon,
   HelpCircle,
   Store,
   ShoppingCart,

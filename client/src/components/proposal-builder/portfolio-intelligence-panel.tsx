@@ -8,7 +8,7 @@ import {
   AlertTriangle,
   Brain,
   RefreshCw,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   MessageSquare,
   TrendingUp,
 } from "lucide-react";

@@ -20,7 +20,7 @@ import {
   Info,
   RefreshCw,
   BarChart3,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   FileText
 } from "lucide-react";
 

@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   RefreshCw,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   CheckCircle2,
   XCircle,
   Clock,

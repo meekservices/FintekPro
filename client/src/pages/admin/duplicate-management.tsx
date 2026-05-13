@@ -375,7 +375,7 @@ export default function DuplicateManagementPage() {
         <Card className="bg-gradient-to-br from-green-50 to-white dark:from-green-950/30 dark:to-background border-2 border-green-200 dark:border-green-800">
           <CardContent className="py-16">
             <EmptyState
-              icon={Shield}
+              icon={LucideShield}
               title="No Duplicate Accounts Found"
               description="All user accounts are unique. The intelligent duplicate detection system found no matches."
             />

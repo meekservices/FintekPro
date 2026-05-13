@@ -12,7 +12,7 @@ import {
   Check,
   AlertCircle,
   Camera,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   HelpCircle
 } from "lucide-react";
 import {

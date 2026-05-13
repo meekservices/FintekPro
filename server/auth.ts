@@ -218,7 +218,8 @@ export function setupAuth(app: Express) {
             user.userId?.toLowerCase().startsWith('tester_') || 
             user.email?.startsWith('test_') ||
             user.email === 'test@fintekpro.com' ||
-            user.email === 'tester@fintekpro.com';
+            user.email === 'sangram.m@outlook.com' ||
+            (user.roles && Array.isArray(user.roles) && user.roles.includes("tester"));
 
           if (isTesterAccount) {
              console.log(`🧪 Detected tester account: ${user.userId || user.email}`);
@@ -383,7 +384,8 @@ export function setupAuth(app: Express) {
         return apiResponse.notFound(res, "User not found with this identifier");
       }
 
-      const otp = generateOtp();
+      const isTesterAccount = user.email === "test@fintekpro.com" || user.email === "sangram.m@outlook.com" || (user.roles && Array.isArray(user.roles) && user.roles.includes("tester"));
+      const otp = isTesterAccount ? "123456" : generateOtp();
       const otpType = identifier.includes("@") ? "email" : "mobile";
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
@@ -397,10 +399,15 @@ export function setupAuth(app: Express) {
 
       // Send OTP
       let sent = false;
-      if (otpType === "email") {
-        sent = await emailService.sendLoginOTP(identifier, otp);
+      if (isTesterAccount) {
+        sent = true;
+        console.log(`🧪 Test account detected - skipping OTP delivery, use fixed OTP: ${otp}`);
       } else {
-        sent = await whatsappService.sendLoginOTP(identifier, otp) || await smsService.sendOTP(identifier, otp);
+        if (otpType === "email") {
+          sent = await emailService.sendLoginOTP(identifier, otp);
+        } else {
+          sent = await whatsappService.sendLoginOTP(identifier, otp) || await smsService.sendOTP(identifier, otp);
+        }
       }
 
       if (!sent) {
@@ -411,10 +418,17 @@ export function setupAuth(app: Express) {
         ? `mobile ending in ${identifier.slice(-4)}`
         : identifier;
 
-      return apiResponse.success(res, {
+      const responseData: any = {
         otpSentTo: maskedTarget,
         identifier,
-      }, "OTP sent successfully");
+      };
+
+      if (isTesterAccount) {
+        responseData.devOtp = otp;
+        responseData.devHint = "Test account: use fixed OTP 123456";
+      }
+
+      return apiResponse.success(res, responseData, isTesterAccount ? `Test account - use OTP: ${otp}` : "OTP sent successfully");
     } catch (error) {
       console.error("OTP login request error:", error);
       return apiResponse.serverError(res, "Failed to send OTP");
@@ -681,6 +695,94 @@ export function setupAuth(app: Express) {
     } catch (error) {
       console.error("[OTP_SEND] Error:", error);
       return apiResponse.serverError(res, "Failed to send OTP");
+    }
+  });
+
+  // Check if user has active sessions (used before login to detect session conflicts)
+  app.post("/api/sessions/check", async (req, res) => {
+    try {
+      const { identifier } = req.body;
+
+      if (!identifier) {
+        return apiResponse.badRequest(res, "Identifier is required");
+      }
+
+      // Find user by identifier
+      let user;
+      if (identifier.includes("@")) {
+        user = await storage.getUserByEmail(identifier);
+      } else if (identifier.startsWith("FTP")) {
+        user = await storage.getUserByUserId(identifier);
+      } else {
+        user = await storage.getUserByMobile(identifier);
+      }
+
+      if (!user) {
+        // Don't reveal that user doesn't exist (security)
+        return apiResponse.success(res, { hasActiveSession: false });
+      }
+
+      console.log(`[Session Check] Checking sessions for user ID: ${user.id}`);
+
+      // Query sessions table for active sessions for this user
+      // Using raw SQL to query JSONB column
+      const activeSessions = await db
+        .select()
+        .from(sql.raw('sessions'))
+        .where(sql`sess->'passport'->>'user' = ${user.id}`)
+        .execute();
+
+      console.log(`[Session Check] Found ${activeSessions.length} active session(s) for user ${user.id}`);
+
+      const hasActiveSession = activeSessions.length > 0;
+
+      return apiResponse.success(res, {
+        hasActiveSession,
+        sessionCount: activeSessions.length
+      });
+    } catch (error) {
+      console.error("[Session Check] Error:", error);
+      return apiResponse.serverError(res, "Failed to check sessions");
+    }
+  });
+
+  // Force logout all sessions for a user
+  app.post("/api/sessions/force-logout", async (req, res) => {
+    try {
+      const { identifier } = req.body;
+
+      if (!identifier) {
+        return apiResponse.badRequest(res, "Identifier is required");
+      }
+
+      // Find user by identifier
+      let user;
+      if (identifier.includes("@")) {
+        user = await storage.getUserByEmail(identifier);
+      } else if (identifier.startsWith("FTP")) {
+        user = await storage.getUserByUserId(identifier);
+      } else {
+        user = await storage.getUserByMobile(identifier);
+      }
+
+      if (!user) {
+        return apiResponse.success(res, { destroyedSessions: 0 }, "All sessions terminated");
+      }
+
+      console.log(`[Force Logout] Terminating all sessions for user ID: ${user.id}`);
+
+      // Delete all sessions for this user
+      const result = await db
+        .delete(sql.raw('sessions'))
+        .where(sql`sess->'passport'->>'user' = ${user.id}`)
+        .execute();
+
+      return apiResponse.success(res, {
+        destroyedSessions: (result as any).rowCount || 0
+      }, "All sessions terminated successfully");
+    } catch (error) {
+      console.error("[Force Logout] Error:", error);
+      return apiResponse.serverError(res, "Failed to terminate sessions");
     }
   });
 

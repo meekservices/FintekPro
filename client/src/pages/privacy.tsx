@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import { 
-  Shield as LucideShield, Eye, Lock, Database, UserCheck, AlertTriangle, 
+  LucideShield as LucideShield, Eye, Lock, Database, UserCheck, AlertTriangle, 
   Clock, Globe, Server, FileCheck, Phone
 } from "lucide-react";
 

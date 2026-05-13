@@ -24,7 +24,7 @@ import {
   Plus,
   ArrowLeft,
   Crown,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Eye,
   User,
   MoreVertical,

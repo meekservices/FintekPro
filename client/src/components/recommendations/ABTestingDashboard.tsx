@@ -17,7 +17,7 @@ import {
   Users, 
   TrendingUp, 
   AlertTriangle, 
-  Shield as LucideShield, 
+  LucideShield as LucideShield, 
   Activity, 
   Power, 
   PowerOff,

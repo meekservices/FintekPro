@@ -16,7 +16,7 @@ import {
   Calculator, 
   IndianRupee, 
   TrendingUp, 
-  Shield as LucideShield, 
+  LucideShield as LucideShield, 
   CheckCircle, 
   AlertCircle, 
   Clock, 

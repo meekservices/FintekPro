@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   PieChart, 
-  Shield as LucideShield, 
+  LucideShield as LucideShield, 
   Landmark, 
   Coins,
   Globe,

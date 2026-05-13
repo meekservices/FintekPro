@@ -15,7 +15,7 @@ import {
   AlertTriangle, 
   CheckCircle2, 
   User, 
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Clock,
   MessageSquare,
   Undo2,

@@ -7,7 +7,7 @@ import {
   TrendingUp,
   TrendingDown,
   RefreshCw,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   ArrowUpRight,
   ArrowDownRight,
   Eye,

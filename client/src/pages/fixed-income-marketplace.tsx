@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { 
-  Shield as LucideShield, TrendingUp, Calendar, IndianRupee, Building2, Calculator, 
+  LucideShield as LucideShield, TrendingUp, Calendar, IndianRupee, Building2, Calculator, 
   AlertCircle, CheckCircle2, Clock, Search, Filter, Star, StarOff,
   Briefcase, Wallet, Bell, FileText, TrendingDown, ArrowRight,
   Landmark, Coins, Receipt, ShieldCheck, Info, ChevronRight, PlusCircle

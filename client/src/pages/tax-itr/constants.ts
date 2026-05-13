@@ -1,4 +1,4 @@
-import { FileText, Wallet, Building2, Briefcase, Home, TrendingUp, Globe, Receipt, Shield, Calculator, IndianRupee, CheckCircle, BarChart3, Users, Scale } from "lucide-react";
+import { FileText, Wallet, Building2, Briefcase, Home, TrendingUp, Globe, Receipt, Shield as LucideShield, Calculator, IndianRupee, CheckCircle, BarChart3, Users, Scale } from "lucide-react";
 import { Step } from "./types";
 
 export const ASSESSMENT_YEARS = ["2026-27", "2025-26", "2024-25", "2023-24"];
@@ -14,12 +14,12 @@ export const STEPS: Step[] = [
   { id: "capital", title: "Capital Gains", icon: TrendingUp, description: "Investment gains and losses" },
   { id: "foreign", title: "Foreign Income", icon: Globe, description: "Global stocks, DTAA relief, Schedule FA" },
   { id: "other", title: "Other Income", icon: Receipt, description: "Interest, dividends, and more" },
-  { id: "disclosures", title: "Disclosures", icon: Shield, description: "Director, unlisted shares, loss carry-forward" },
+  { id: "disclosures", title: "Disclosures", icon: LucideShield, description: "Director, unlisted shares, loss carry-forward" },
   { id: "trust_income", title: "Trust / Exemptions", icon: Scale, description: "Corpus, voluntary contributions, exemptions" },
   { id: "deductions", title: "Deductions", icon: Calculator, description: "Tax-saving investments" },
   { id: "schedule_al", title: "Schedule AL", icon: Scale, description: "Assets & liabilities disclosure" },
   { id: "loss_adjustment", title: "Loss Adjustment", icon: Scale, description: "CYLA, BFLA, CFL set-off schedules" },
-  { id: "schedule_si_ei", title: "Special / Exempt", icon: Shield, description: "Schedule SI & EI — special rate and exempt income" },
+  { id: "schedule_si_ei", title: "Special / Exempt", icon: LucideShield, description: "Schedule SI & EI — special rate and exempt income" },
   { id: "schedule_spi", title: "Schedule SPI", icon: Users, description: "Spousal/minor income clubbing (Sec 64)" },
   { id: "schedule_5a", title: "Schedule 5A", icon: Scale, description: "Portuguese Civil Code apportionment" },
   { id: "schedule_if", title: "Schedule IF", icon: Building2, description: "Income from partnership firms" },

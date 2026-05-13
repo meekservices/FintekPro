@@ -23,7 +23,7 @@ import {
   Wifi, 
   Home,
   Car,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Building,
   IndianRupee,
   Calendar,

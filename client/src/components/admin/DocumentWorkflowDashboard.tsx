@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { 
   FileText, Search, Filter, Clock, CheckCircle, XCircle, 
   AlertTriangle, Users, Eye, History, Send, RefreshCw,
-  Download, Shield as LucideShield, FileSignature, Calendar
+  Download, LucideShield as LucideShield, FileSignature, Calendar
 } from 'lucide-react';
 
 interface WorkflowSummary {

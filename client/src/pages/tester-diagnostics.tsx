@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Activity, Server, Database, AlertTriangle, AlertCircle, CheckCircle,
-  Download, Bug, Shield as LucideShield, Clock, ChevronDown, ChevronRight, RefreshCw,
+  Download, Bug, LucideShield as LucideShield, Clock, ChevronDown, ChevronRight, RefreshCw,
   Cpu, HardDrive, Globe, FileText, Send, Loader2, XCircle, Info
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";

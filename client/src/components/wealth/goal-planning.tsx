@@ -23,7 +23,7 @@ import {
   Building2,
   Star,
   Crown,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Briefcase,
   Pencil
 } from "lucide-react";

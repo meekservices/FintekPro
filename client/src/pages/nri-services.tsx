@@ -10,7 +10,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Globe, PlaneTakeoff, Building2, CreditCard, FileText, Shield as LucideShield, 
+  Globe, PlaneTakeoff, Building2, CreditCard, FileText, LucideShield as LucideShield, 
   Calculator, Users, Phone, Mail, MapPin, Clock, CheckCircle, 
   ArrowRight, Sparkles, TrendingUp, Banknote, Receipt, 
   Home, Car, GraduationCap, Heart, AlertTriangle, Info,

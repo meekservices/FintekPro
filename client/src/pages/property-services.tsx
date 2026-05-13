@@ -16,7 +16,7 @@ import {
   Building2,
   MapPin,
   CreditCard,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   DollarSign,
   Banknote,
   PieChart,

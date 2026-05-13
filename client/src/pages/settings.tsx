@@ -18,7 +18,7 @@ import {
   Settings as SettingsIcon, 
   User, 
   Bell, 
-  Shield as LucideShield, 
+  LucideShield as LucideShield, 
   Link as LinkIcon,
   Mail,
   Smartphone,

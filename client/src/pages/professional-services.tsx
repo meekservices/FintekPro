@@ -8,7 +8,7 @@ import {
   TrendingUp,
   FileText,
   Target,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Users,
   BookOpen,
   LineChart,

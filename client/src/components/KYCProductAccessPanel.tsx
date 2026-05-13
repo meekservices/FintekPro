@@ -27,7 +27,7 @@ import {
   Building2,
   Globe,
   Zap,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   ArrowRight,
 } from "lucide-react";
 import { useState } from "react";

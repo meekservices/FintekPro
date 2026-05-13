@@ -188,7 +188,7 @@ export function AgentRiskBreakdown({ clientId, clientPan }: Props) {
               <AccordionContent>
                 <div className="space-y-4 pt-2">
                   {assessment.categoryScores?.map((cat) => {
-                    const Icon = CATEGORY_ICONS[cat.categoryCode] || Shield;
+                    const Icon = CATEGORY_ICONS[cat.categoryCode] || LucideShield;
                     return (
                       <div key={cat.categoryCode} className="space-y-2">
                         <div className="flex items-center justify-between">

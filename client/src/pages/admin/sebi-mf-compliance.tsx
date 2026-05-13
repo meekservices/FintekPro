@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
-  Shield as LucideShield, RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle,
+  LucideShield as LucideShield, RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle,
   ChevronDown, ChevronRight, Search, Loader2, Database, FileText,
   ArrowRight, Activity, BarChart3, GitBranch, BookOpen, Layers
 } from "lucide-react";

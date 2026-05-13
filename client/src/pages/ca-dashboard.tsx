@@ -38,7 +38,7 @@ import {
   Settings,
   Award,
   Target,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   UserPlus,
   Copy,
   Link2,

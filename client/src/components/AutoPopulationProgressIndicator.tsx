@@ -9,7 +9,7 @@ import {
   XCircle,
   Clock,
   Loader2,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   TrendingUp,
   Wallet,
   Building,

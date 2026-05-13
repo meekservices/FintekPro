@@ -13,7 +13,7 @@ import {
   Lightbulb, 
   Brain, 
   Key, 
-  Shield as LucideShield, 
+  LucideShield as LucideShield, 
   Zap,
   AlertTriangle,
   AlertCircle,

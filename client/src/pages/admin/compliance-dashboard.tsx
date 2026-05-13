@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  Shield as LucideShield, 
+  LucideShield as LucideShield, 
   Calendar, 
   AlertTriangle, 
   CheckCircle, 

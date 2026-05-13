@@ -26,7 +26,7 @@ import {
   CheckCircle, 
   Loader2,
   AlertCircle,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Sparkles,
   ArrowRight,
   ArrowLeft,

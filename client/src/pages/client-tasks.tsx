@@ -15,7 +15,7 @@ import {
   FileText,
   CreditCard,
   Video,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Bell,
   ArrowRight,
   ListTodo,

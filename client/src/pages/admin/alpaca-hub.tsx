@@ -33,7 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import {
-  Users, ArrowRightLeft, FileText, TrendingUp, Shield as LucideShield,
+  Users, ArrowRightLeft, FileText, TrendingUp, LucideShield as LucideShield,
   RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle,
   Search, Plus, Download, BarChart3, Activity, DollarSign,
   Landmark, Wallet, BookOpen, Globe, ExternalLink, Info,

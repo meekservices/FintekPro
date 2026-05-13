@@ -16,7 +16,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, RadialBarChart, RadialBar
 } from "recharts";
 import {
-  ArrowUpRight, ArrowDownRight, TrendingUp, Target, AlertTriangle, CheckCircle, Lightbulb, Download, Share2, FileText, Briefcase, PiggyBank, Shield as LucideShield, Star, Clock, User, Building2, Wallet, BarChart3, Activity, Settings, Loader2,
+  ArrowUpRight, ArrowDownRight, TrendingUp, Target, AlertTriangle, CheckCircle, Lightbulb, Download, Share2, FileText, Briefcase, PiggyBank, LucideShield as LucideShield, Star, Clock, User, Building2, Wallet, BarChart3, Activity, Settings, Loader2,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import jsPDF from "jspdf";

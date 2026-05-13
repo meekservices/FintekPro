@@ -12,7 +12,7 @@ import {
   CheckCircle, 
   IndianRupee,
   Calendar,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   BarChart3,
   Lightbulb,
   ArrowRight,

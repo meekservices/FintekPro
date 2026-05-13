@@ -18,7 +18,7 @@ import {
   ChevronDown,
   ChevronRight,
   Cpu,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Calculator,
   TrendingUp,
   PieChart,

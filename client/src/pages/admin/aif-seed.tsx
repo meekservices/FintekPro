@@ -17,7 +17,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   RefreshCw, Search, Loader2, ArrowLeft, Building2, Layers, 
   TrendingUp, AlertTriangle, Eye, EyeOff, Plus, Edit, Trash2,
-  ChartLine, Percent, IndianRupee, Clock, Shield as LucideShield, Check, X,
+  ChartLine, Percent, IndianRupee, Clock, LucideShield as LucideShield, Check, X,
   Download, CloudDownload, CheckCircle2, XCircle, Database, Sparkles
 } from "lucide-react";
 import { Link } from "wouter";

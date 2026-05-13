@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   RefreshCw, Search, Loader2, ArrowLeft, Building2, Landmark, FileText, 
-  TrendingUp, AlertTriangle, History, Eye, Shield as LucideShield, DollarSign, Percent,
+  TrendingUp, AlertTriangle, History, Eye, LucideShield as LucideShield, DollarSign, Percent,
   Plus, Upload, Download, Check, X, ChevronDown, ChevronUp, ExternalLink,
   Play, Pause, Clock, Activity, Database
 } from "lucide-react";

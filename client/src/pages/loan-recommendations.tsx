@@ -12,7 +12,7 @@ import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { Separator } from "@/components/ui/separator";
 import {
   TrendingUp,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Clock,
   Calculator,
   FileText,

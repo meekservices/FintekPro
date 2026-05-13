@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Settings, Check, IndianRupee, Zap, Shield as LucideShield, AlertCircle,
+  Settings, Check, IndianRupee, Zap, LucideShield as LucideShield, AlertCircle,
   RefreshCw, TrendingDown, BarChart3, Calculator, Key,
   CheckCircle, XCircle, CreditCard
 } from "lucide-react";

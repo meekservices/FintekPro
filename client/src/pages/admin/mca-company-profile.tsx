@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Search, Building2, TrendingUp, Calendar, IndianRupee, 
   CheckCircle2, AlertTriangle, Users, Landmark, RefreshCw, 
-  Loader2, BarChart3, Shield as LucideShield, MapPin, Mail, FileText,
+  Loader2, BarChart3, LucideShield as LucideShield, MapPin, Mail, FileText,
   ChevronLeft, ExternalLink, Clock, AlertCircle, CircleDollarSign
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';

@@ -14,7 +14,7 @@ import {
   Clock,
   AlertTriangle,
   RefreshCw,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   Database,
   TrendingUp,
   Wallet,

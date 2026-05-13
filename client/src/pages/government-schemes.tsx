@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { 
   Wallet, 
   Building2, 
-  Shield as LucideShield, 
+  LucideShield as LucideShield, 
   Clock, 
   CheckCircle2, 
   XCircle, 
@@ -685,7 +685,7 @@ export default function GovernmentSchemes() {
     if (!apyData || apyData.length === 0) {
       return (
         <EmptyState
-          icon={Shield}
+          icon={LucideShield}
           title="No APY Data Found"
           description="Grant consent to fetch your APY records from PFRDA"
         />

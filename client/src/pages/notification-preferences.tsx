@@ -18,7 +18,7 @@ import {
   TrendingUp,
   FileText,
   Calendar,
-  Shield as LucideShield,
+  LucideShield as LucideShield,
   AlertTriangle,
   CheckCircle2,
   Save,
