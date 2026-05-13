@@ -18,11 +18,13 @@ import { subdomainDetection } from "./subdomain-middleware";
 import { registerAuthEventConsumers } from "./services/auth-event-consumers";
 import helmet from "helmet";
 
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+
+// Infrastructure initialized
 const app = express();
+
 
 // ============================================================================
 // PHASE 0: INFRASTRUCTURE & GLOBAL ERROR CATCHING
