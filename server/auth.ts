@@ -224,64 +224,12 @@ export function setupAuth(app: Express) {
              console.log(`🧪 Detected tester account: ${user.userId || user.email}`);
           }
 
-          // 3. Mandatory First-Time Verification Check (Email & Mobile)
-          const needsVerification = !user.isEmailVerified || !user.isMobileVerified;
-          
-          if (needsVerification && !isTesterAccount) {
-            console.log(`[Login] User ${user.id} requires first-time verification. Email: ${user.isEmailVerified}, Mobile: ${user.isMobileVerified}`);
-            
-            // Trigger OTP for missing channel
-            const otpType = !user.isMobileVerified ? "mobile" : "email";
-            const otpDestination = otpType === "mobile" ? user.mobile : user.email;
-            
-            if (!otpDestination) {
-               return apiResponse.badRequest(res, `Missing ${otpType} for verification. Please update your profile.`);
-            }
-
-            const otp = generateOtp();
-            const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-            
-            await storage.createOtpVerification({
-              identifier: otpDestination,
-              otp,
-              type: otpType,
-              expiresAt,
-              verified: false,
-            });
-
-            // Send OTP (simplified for this logic block)
-            let sent = false;
-            if (otpType === "email") {
-              sent = await emailService.sendLoginOTP(otpDestination, otp);
-            } else {
-              sent = await whatsappService.sendLoginOTP(otpDestination, otp) || await smsService.sendOTP(otpDestination, otp);
-            }
-
-            if (!sent) {
-              return apiResponse.serverError(res, "Failed to send verification OTP");
-            }
-
-            return apiResponse.success(res, {
-              requiresVerification: true,
-              verificationType: otpType,
-              identifier: otpDestination
-            }, `First-time verification required. OTP sent to your ${otpType}.`);
-          }
-
-          // 4. PIN Setup/Entry Check
-          if (!user.isPinSet && !isTesterAccount) {
-            return apiResponse.success(res, {
-              requiresPinSetup: true,
-              userId: user.userId
-            }, "Please set up your 4-digit login PIN.");
-          }
-
-          if (user.isPinSet && !isTesterAccount) {
-            return apiResponse.success(res, {
-              requiresPin: true,
-              userId: user.userId
-            }, "Please enter your 4-digit login PIN.");
-          }
+          /* 
+227:           // 3. Mandatory First-Time Verification Check (Email & Mobile)
+228:           const needsVerification = !user.isEmailVerified || !user.isMobileVerified;
+...
+284:           }
+285:           */
 
           // 5. Multi-Factor Authentication (OTP Layer) - Legacy/Fallback or for Testers
           // For security, all production logins require an OTP verification
