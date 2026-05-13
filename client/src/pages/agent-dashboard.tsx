@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import AINextActions from "@/components/agent/ai-next-actions";
 import PickOfTheDayWidget from "@/components/agent/pick-of-the-day-widget";
 import { 
-  Shield, 
+  LucideShield, 
   Bell, 
   Users, 
   MessageSquare, 
@@ -336,7 +336,7 @@ function AgentKeyMetricsSection() {
               </div>
               <p className="text-xs text-amber-600 dark:text-amber-400">Excellent</p>
             </div>
-            <Shield className="h-8 w-8 text-amber-500" />
+            <LucideShield className="h-8 w-8 text-amber-500" />
           </div>
         </CardContent>
       </Card>
@@ -809,7 +809,7 @@ export default function AgentDashboard() {
       <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold flex items-center gap-2">
-            <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
+            <LucideShield className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
             Care Agent Dashboard
           </h1>
           <p className="text-muted-foreground text-sm sm:text-base">Manage CKYC client communications and support</p>
@@ -866,7 +866,7 @@ export default function AgentDashboard() {
             Clients
           </TabsTrigger>
           <TabsTrigger value="compliance" className="flex items-center gap-2">
-            <Shield size={16} />
+            <LucideShield size={16} />
             Compliance
           </TabsTrigger>
           <TabsTrigger value="notifications" className="flex items-center gap-2">
@@ -1846,7 +1846,7 @@ export default function AgentDashboard() {
                   <Card>
                     <CardContent className="pt-6">
                       <div className="flex items-center space-x-2">
-                        <Shield className="h-4 w-4 text-green-600" />
+                        <LucideShield className="h-4 w-4 text-green-600" />
                         <div>
                           <p className="text-2xl font-bold">0</p>
                           <p className="text-xs text-muted-foreground">Pending AML Screenings</p>

@@ -8,7 +8,7 @@ import {
   TrendingUp,
   TrendingDown,
   Target,
-  Shield,
+  Shield as LucideShield,
   ArrowRight,
   Sparkles,
   BarChart3,
@@ -66,7 +66,7 @@ const categoryIcons: Record<string, any> = {
   global_stocks: Globe,
   etfs: Coins,
   reits_invits: Building2,
-  fixed_deposits: Shield,
+  fixed_deposits: LucideShield,
   sgb: Coins,
   derivatives: Activity,
 };
@@ -178,7 +178,7 @@ export default function PickOfTheDayWidget() {
                       +{upside}%
                     </span>
                     <span className="flex items-center gap-1">
-                      <Shield className="h-3 w-3" />
+                      <LucideShield className="h-3 w-3" />
                       {formatPrice(pick.stoplossPrice, pick.category)}
                     </span>
                     {currentReturn && (

@@ -9,7 +9,7 @@ import {
   TrendingDown,
   AlertTriangle,
   Target,
-  Shield,
+  Shield as LucideShield,
   Phone,
   Mail,
   Calendar,
@@ -153,7 +153,7 @@ const TYPE_CONFIG = {
   exit_alert: { label: 'Exit Alert', icon: AlertTriangle, color: 'bg-red-500/20 text-red-400 border-red-500/30' },
   rebalance: { label: 'Rebalance', icon: TrendingUp, color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
   tax_harvest: { label: 'Tax Saving', icon: IndianRupee, color: 'bg-green-500/20 text-green-400 border-green-500/30' },
-  kyc: { label: 'Compliance', icon: Shield, color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' },
+  kyc: { label: 'Compliance', icon: LucideShield, color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' },
   follow_up: { label: 'Follow Up', icon: Phone, color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
   upsell: { label: 'Opportunity', icon: Star, color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
   review: { label: 'Review', icon: Calendar, color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' }

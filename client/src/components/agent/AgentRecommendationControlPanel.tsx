@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   User,
-  Shield,
+  Shield as LucideShield,
   TrendingUp,
   AlertTriangle,
   CheckCircle2,
@@ -278,7 +278,7 @@ export function AgentRecommendationControlPanel({ clientId, onProposalCreated }:
                   <div>
                     <Label className="text-muted-foreground text-xs">Risk Profile</Label>
                     <Badge variant="outline" className="mt-1">
-                      <Shield className="h-3 w-3 mr-1" />
+                      <LucideShield className="h-3 w-3 mr-1" />
                       {clientContext.riskProfile}
                     </Badge>
                   </div>
@@ -351,7 +351,7 @@ export function AgentRecommendationControlPanel({ clientId, onProposalCreated }:
                 onClick={() => handleModeChange("conservative")}
                 data-testid="mode-conservative"
               >
-                <Shield className="h-6 w-6 mb-2" />
+                <LucideShield className="h-6 w-6 mb-2" />
                 <span className="font-medium">Conservative</span>
                 <span className="text-xs text-muted-foreground mt-1">85% Suitability / 15% Upside</span>
               </Button>
