@@ -69,6 +69,9 @@ const corsAllowedOrigins = [
   'https://ins.fintekpro.com',
   'https://fintekpro-app-7f3fb64pqq-el.a.run.app', 
   'https://fintekpro-app-124901641600.asia-south1.run.app', // Current production URL
+  'capacitor://localhost',
+  'http://localhost',
+  'http://localhost:8080',
 ];
 
 // In development, allow localhost/Replit origins
