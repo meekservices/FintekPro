@@ -2623,7 +2623,7 @@ ${truncatedText}`;
 
   try {
     const response = await geminiAi.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-3-flash-preview',
       config: {
         responseMimeType: 'application/json',
         responseSchema: {

@@ -186,11 +186,13 @@ export function registerAuthRoutes(app: Express) {
 
           // 2. Test Account Bypass Logic
           const isTesterAccount = 
-            user.userId?.toLowerCase().startsWith('tester_') || 
-            user.email?.startsWith('test_') ||
-            user.email === 'test@fintekpro.com' ||
-            user.email === 'sangram.m@outlook.com' ||
-            (user.roles && Array.isArray(user.roles) && user.roles.includes("tester"));
+            (process.env.ALLOW_TESTER_BYPASS !== 'false') && (
+              user.userId?.toLowerCase().startsWith('tester_') || 
+              user.email?.startsWith('test_') ||
+              user.email === 'test@fintekpro.com' ||
+              user.email === 'sangram.m@outlook.com' ||
+              (user.roles && Array.isArray(user.roles) && user.roles.includes("tester"))
+            );
 
           if (isTesterAccount) {
              console.log(`🧪 Detected tester account: ${user.userId || user.email}`);

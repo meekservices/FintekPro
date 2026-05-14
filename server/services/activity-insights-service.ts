@@ -370,7 +370,7 @@ IMPORTANT:
 
       const aiResponse = await aiService.chat([
         { role: 'user', content: prompt }
-      ], { model: 'gemini-1.5-flash', maxTokens: 2500 });
+      ], { model: 'gemini-3-flash-preview', maxTokens: 2500 });
       
       if (!aiResponse?.content) {
         console.error('[ActivityInsights] No AI response received');
@@ -721,9 +721,13 @@ IMPORTANT:
   startAutomatedMonitoring() {
     console.log('[ActivityInsights] Starting automated regulatory monitoring...');
     
-    // Run every 15 minutes
-    setInterval(async () => {
+    // Run every 15 minutes with jitter to prevent concurrent spikes across instances
+    const runScan = async () => {
       try {
+        // Add random jitter up to 30 seconds
+        const jitter = Math.random() * 30000;
+        await new Promise(resolve => setTimeout(resolve, jitter));
+
         console.log('[ActivityInsights] Running periodic compliance scan...');
         const metrics = await this.getActivityMetrics();
         const insights = await this.generateAIInsights(metrics);
@@ -750,7 +754,11 @@ IMPORTANT:
       } catch (error) {
         console.error('[ActivityInsights] Automated monitoring error:', error);
       }
-    }, 15 * 60 * 1000);
+    };
+
+    setInterval(runScan, 15 * 60 * 1000);
+    // Also run once on startup (after a small delay)
+    setTimeout(runScan, 10000);
   }
 }
 

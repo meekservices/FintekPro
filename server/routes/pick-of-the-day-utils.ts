@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments, instrumentMaster, dailyPicks } from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, inArray, and } from "drizzle-orm";
 
 export const REGULATORY_DISCLAIMER = "Investment recommendations are AI-generated and for informational purposes only. Past performance does not guarantee future results. Investors should conduct independent due diligence and consult a SEBI-registered investment advisor before making investment decisions. FintekPro does not guarantee accuracy of third-party data. Data sourced from NSE, BSE, AMFI, Alpha Vantage, and Yahoo Finance.";
 
@@ -208,9 +208,10 @@ export async function enrichPicksWithDataSource(picks: any[]) {
   
   if (expiredPickIds.length > 0) {
     try {
-      await db.execute(
-        sql`UPDATE daily_picks SET status = 'expired', updated_at = NOW() WHERE id IN (${sql.join(expiredPickIds, sql`, `)}) AND status = 'live'`
-      );
+      // Use Drizzle's update method instead of raw SQL to avoid ANY() error
+      await db.update(dailyPicks)
+        .set({ status: 'expired', updatedAt: new Date() })
+        .where(and(inArray(dailyPicks.id, expiredPickIds), eq(dailyPicks.status, 'live' as any)));
     } catch (err) {
       console.warn('[PickOfDay] Failed to auto-expire picks in DB:', err);
     }
