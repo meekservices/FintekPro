@@ -48,17 +48,11 @@ export async function setupAuth(app: Express) {
 
   // In production, set the domain attribute for SSO across subdomains
   if (process.env.NODE_ENV === "production") {
-    // Only set domain if we are on the actual production domain or a subdomain of it
-    const currentHost = process.env.CUSTOM_DOMAIN || "fintekpro.com";
-    const sanitizedDomain = currentHost.trim().replace(/^https?:\/\//, "").split(":")[0];
-    
-    // Check if the current environment matches the domain (e.g. not a .run.app URL)
-    if (sanitizedDomain && sanitizedDomain === "fintekpro.com") {
-      cookieOptions.domain = ".fintekpro.com";
-      console.log(`🛡️  Session Cookie Domain set to: ${cookieOptions.domain}`);
-    } else {
-      console.warn(`⚠️ [AUTH_SETUP] CUSTOM_DOMAIN not set or on Cloud Run URL. Skipping domain scoping to ensure session persistence.`);
-    }
+    // TEMPORARILY DISABLED: setting the domain to 'fintekpro.com' caused
+    // "TypeError: option domain is invalid" from the cookie library.
+    // Need to investigate if express-session is receiving an invalid string
+    // from another context, or if the cookie library version behaves differently.
+    console.log(`⚠️ [AUTH_SETUP] CUSTOM_DOMAIN scoping disabled to ensure session persistence.`);
   }
 
   // 3. Register Session Middleware
