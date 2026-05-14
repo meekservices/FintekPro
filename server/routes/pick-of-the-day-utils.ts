@@ -209,7 +209,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
   if (expiredPickIds.length > 0) {
     try {
       await db.execute(
-        sql`UPDATE daily_picks SET status = 'expired', updated_at = NOW() WHERE id = ANY(${expiredPickIds}) AND status = 'live'`
+        sql`UPDATE daily_picks SET status = 'expired', updated_at = NOW() WHERE id IN (${sql.join(expiredPickIds, sql`, `)}) AND status = 'live'`
       );
     } catch (err) {
       console.warn('[PickOfDay] Failed to auto-expire picks in DB:', err);

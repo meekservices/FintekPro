@@ -41,8 +41,6 @@ if (isProduction) {
   for (const envPath of possiblePaths) {
     if (fs.existsSync(envPath)) {
       try {
-      try {
-
         const content = fs.readFileSync(envPath, 'utf8');
         let count = 0;
         content.split('\n').forEach(line => {

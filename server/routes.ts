@@ -54,6 +54,15 @@ import treasuryCopilotRoutes from "./routes/treasury-copilot-routes";
 import treasuryRoutes from "./routes/treasury-routes";
 import versionRouter from "./routes/version";
 import { registerBankingRoutes } from "./routes/banking";
+import prospectWizardRoutes1 from "./routes/agent-prospect-wizard-1";
+import prospectWizardRoutes2 from "./routes/agent-prospect-wizard-5-2";
+import { registerAgentCapitalGainPart1Part2Routes } from "./routes/agent-capital-gains-1-2";
+import { registerAgentCapitalGainPart1Routes } from "./routes/agent-capital-gains-1";
+import { registerAgentCapitalGainPart2Part2Routes } from "./routes/agent-capital-gains-2-2";
+import { registerAgentAdvisoryPart1Routes } from "./routes/agent-advisory-1";
+import { registerAgentAdvisoryPart2Routes } from "./routes/agent-advisory-2";
+import { registerAgentAdvisoryPart3Routes } from "./routes/agent-advisory-3";
+import { registerAgentProspectAcquisitionPart1Routes } from "./routes/agent-prospect-acquisition-1";
 import { Router } from "express";
 
 
@@ -195,6 +204,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/agent", agentPortfolioDriftRoutes);
   app.use("/api/agent", agentClientOrdersRoutes);
   app.use("/api/agent", agentMarketAlertsRoutes);
+  
+  // Agent Wizard & Prospect Management Routes
+  app.use("/api/agent-wizard", prospectWizardRoutes1);
+  app.use("/api/agent-wizard", prospectWizardRoutes2);
+  registerAgentCapitalGainPart1Part2Routes(app);
+  registerAgentCapitalGainPart1Routes(app);
+  registerAgentCapitalGainPart2Part2Routes(app);
+  registerAgentAdvisoryPart1Routes(app);
+  registerAgentAdvisoryPart2Routes(app);
+  registerAgentAdvisoryPart3Routes(app);
+  registerAgentProspectAcquisitionPart1Routes(app);
   
   app.use("/api/meetings", meetingRoutes);
   

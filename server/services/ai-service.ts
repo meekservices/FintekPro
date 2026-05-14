@@ -32,7 +32,7 @@ export type AIProvider = 'openai' | 'openai-direct' | 'gemini' | 'groq';
 export type AIModel = 
   | 'gpt-4o'          // Superior Reasoning
   | 'gpt-4o-mini'     // Balanced Efficiency
-  | 'gemini-1.5-flash-latest'// Standard High-Speed
+  | 'gemini-1.5-flash'// Standard High-Speed
   | 'gemini-1.5-pro'  // Advanced Context
   | 'llama-3.3-70b-versatile' // Optimized Fallback
   | 'llama-3.1-8b-instant';   // Ultra-Fast
@@ -105,7 +105,7 @@ export class AIService {
 
   setDefaultProvider(provider: AIProvider) {
     this._defaultProvider = provider;
-    this._defaultModel = provider === 'gemini' ? 'gemini-1.5-flash-latest' : 'gpt-4o';
+    this._defaultModel = provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o';
     console.log(`[AIService] Default provider switched to: ${provider} (model: ${this._defaultModel})`);
   }
 
@@ -187,12 +187,12 @@ export class AIService {
       initialModel = 'llama-3.3-70b-versatile';
     } else if (capability === AICapability.STANDARD) {
       initialProvider = 'gemini';
-      initialModel = 'gemini-1.5-flash-latest';
+      initialModel = 'gemini-1.5-flash';
     }
 
     const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
       { provider: 'groq', model: 'llama-3.3-70b-versatile' },
-      { provider: 'gemini', model: 'gemini-1.5-flash-latest' },
+      { provider: 'gemini', model: 'gemini-1.5-flash' },
       { provider: 'openai', model: 'gpt-4o' }
     ];
 
@@ -298,12 +298,12 @@ export class AIService {
       initialModel = 'llama-3.3-70b-versatile';
     } else if (capability === AICapability.STANDARD) {
       initialProvider = 'gemini';
-      initialModel = 'gemini-1.5-flash-latest';
+      initialModel = 'gemini-1.5-flash';
     }
 
     const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
       { provider: 'groq', model: 'llama-3.3-70b-versatile' },
-      { provider: 'gemini', model: 'gemini-1.5-flash-latest' },
+      { provider: 'gemini', model: 'gemini-1.5-flash' },
       { provider: 'openai', model: 'gpt-4o' }
     ];
 
@@ -495,7 +495,7 @@ export class AIService {
     const prompt = userMessages.map(m => m.content).join('\n\n');
     const fullPrompt = systemMessage ? `${systemMessage}\n\n${prompt}` : prompt;
 
-    const geminiModel = model.includes('gemini') ? model : 'gemini-1.5-flash-latest';
+    const geminiModel = model.includes('gemini') ? model : 'gemini-1.5-flash';
     
     // Updated for @google/genai SDK structure
     const response = await gemini.models.generateContent({
@@ -543,7 +543,7 @@ export class AIService {
     const prompt = userMessages.map(m => m.content).join('\n\n');
     const fullPrompt = systemMessage ? `${systemMessage}\n\n${prompt}` : prompt;
 
-    const geminiModel = model.includes('gemini') ? model : 'gemini-1.5-flash-latest';
+    const geminiModel = model.includes('gemini') ? model : 'gemini-1.5-flash';
     
     // Updated for @google/genai SDK structure
     const stream = await gemini.models.generateContentStream({
@@ -621,7 +621,7 @@ export class AIService {
     if (this.isGpt52Available() && this.isProviderHealthy('openai-direct')) {
       return { provider: 'openai-direct', model: 'gpt-4o' };
     }
-    return { provider: 'gemini', model: 'gemini-1.5-flash-latest' };
+    return { provider: 'gemini', model: 'gemini-1.5-flash' };
   }
 }
 
