@@ -96,5 +96,5 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  console.log("✅ [AUTH_SETUP] Session and Passport middleware initialized");
+  console.log("✅ [AUTH_SETUP] Session and Passport middleware initialized!");
 }
