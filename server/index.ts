@@ -180,6 +180,17 @@ if (process.env.NODE_ENV === 'production') {
       throw new Error(`DB Connection Error: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`);
     }
 
+    // ============================================================================
+    // IMMEDIATE LISTENER START
+    // ============================================================================
+    // Start listening as soon as Step 1 is done. This prevents 502 Gateway errors
+    // on Cloud Run/GCP by ensuring the container is reachable within seconds.
+    const PORT = Number(process.env.PORT) || 5000;
+    const server = app.listen(PORT, "0.0.0.0", () => {
+      console.log(`🚀 [v${APP_VERSION}] Server listening on port ${PORT} (Booting...)`);
+      bootState.serverListening = true;
+    });
+
     logBootProgress("Step 2: Checking schema migrations...");
     // ── DATABASE REPAIR & MIGRATION ──────────────────────────────────────────
     // Perform critical schema updates needed for boot.
@@ -1012,14 +1023,9 @@ import('./routes/compliance'),
     // Call the centralized route registration to ensure all API endpoints are up
     logBootProgress("Step 11: Registering Business Logic Routes...");
     await registerRoutes(app);
+    bootState.routesReady = true;
 
     logBootProgress("Step 12: Boot sequence complete. Server is operational.");
-
-    // Start listening AFTER routes are registered
-    const PORT = Number(process.env.PORT) || 5000;
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 [v${APP_VERSION}] Server listening on port ${PORT}`);
-    });
 
     // Start background services with delay
     setTimeout(async () => {
@@ -1103,11 +1109,6 @@ console.error('❌ Failed to start Pick of the Day Scheduler:', error);
     if (process.env.NODE_ENV === 'production') {
       try { registerSPACatchAll(app); } catch (_) {}
 
-      // Still listen so we can serve the "System initializing" error message
-      const PORT = Number(process.env.PORT) || 5000;
-      app.listen(PORT, "0.0.0.0", () => {
-        console.log(`⚠️ Server listening in fallback mode on port ${PORT}`);
-      });
     }
   }
 })();
