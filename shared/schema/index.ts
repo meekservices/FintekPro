@@ -1,5 +1,6 @@
 export * from "./enums";
 export * from "./users";
+export * from "./proposals-base";
 export * from "./agents";
 export * from "./ai";
 export * from "./b2b";
@@ -21,7 +22,6 @@ export * from "./orders";
 export * from "./partners";
 export * from "./portfolio";
 export * from "./products";
-export * from "./proposals-base";
 export * from "./proposals";
 export * from "./reit-invit";
 export * from "./screener";
