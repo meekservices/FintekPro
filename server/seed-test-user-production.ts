@@ -48,7 +48,7 @@ async function seedProductionTestUser(): Promise<void> {
   try {
     const testEmail = "test@fintekpro.com";
     const testPassword = "Test@123456";
-    const testMobile = "7795048528";
+    const testMobile = "9686579294";
     const allRoles = ["superadmin", "admin", "partner", "agent", "client", "user", "tester"];
 
     const existingUser = await prodDb.select().from(users).where(eq(users.email, testEmail)).limit(1);

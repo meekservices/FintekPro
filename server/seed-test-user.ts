@@ -54,7 +54,7 @@ export async function seedTestUser(): Promise<void> {
   try {
     const testEmail = "test@fintekpro.com";
     const testPassword = "Test@123456";
-    const testMobile = "7795048528";
+    const testMobile = "9686579294";
     
     const existingUser = await db
       .select()
@@ -83,7 +83,7 @@ export async function seedTestUser(): Promise<void> {
       console.log("║       TEST USER LOGIN CREDENTIALS          ║");
       console.log("╠════════════════════════════════════════════╣");
       console.log("║ Email:    test@fintekpro.com               ║");
-      console.log("║ Mobile:   7795048528                       ║");
+      console.log("║ Mobile:   9686579294                       ║");
       console.log("║ Password: Test@123456                      ║");
       console.log("║ Roles:    ALL (superadmin, admin, partner, ║");
       console.log("║           agent, client, user, tester)     ║");
@@ -119,7 +119,7 @@ export async function seedTestUser(): Promise<void> {
     console.log("╠════════════════════════════════════════════╣");
     console.log("║ User ID:  " + userId.padEnd(33) + "║");
     console.log("║ Email:    test@fintekpro.com               ║");
-    console.log("║ Mobile:   7795048528                       ║");
+    console.log("║ Mobile:   9686579294                       ║");
     console.log("║ Password: Test@123456                      ║");
     console.log("║ OTP:      123456 (fixed for test account)  ║");
     console.log("║ Roles:    ALL (superadmin, admin, partner, ║");
