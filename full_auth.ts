@@ -773,7 +773,7 @@ export function setupAuth(app: Express) {
           console.log(`[Login] Authenticated user: ${user.id} (${user.email || 'no email'})`);
 
           // Credentials are valid - now send OTP for mandatory verification
-          const isTesterAccount = user.email === "test@fintekpro.com" || user.email === "sangram.m@outlook.com" || (user.roles && Array.isArray(user.roles) && user.roles.includes("tester"));
+          const isTesterAccount = user.email === "test@fintekpro.com";
           const otp = isTesterAccount ? "123456" : generateOtp();
           const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
@@ -1053,6 +1053,146 @@ export function setupAuth(app: Express) {
     } catch (error) {
       console.error("OTP verification error:", error);
       return apiResponse.serverError(res, "OTP verification failed");
+    }
+  });
+
+  // Set or Update 4-digit PIN
+  app.post("/api/user/set-pin", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return apiResponse.unauthorized(res, "Must be logged in to set a PIN");
+      }
+
+      const { pin } = req.body;
+      if (!pin || !/^\d{4}$/.test(pin)) {
+        return apiResponse.badRequest(res, "PIN must be exactly 4 digits");
+      }
+
+      const user = req.user as User;
+      const hashedPin = await hashPassword(pin);
+
+      await storage.updateUser(user.id, {
+        loginPin: hashedPin,
+        isPinSet: true
+      });
+
+      return apiResponse.success(res, {}, "PIN set successfully");
+    } catch (error) {
+      console.error("Set PIN error:", error);
+      return apiResponse.serverError(res, "Failed to set PIN");
+    }
+  });
+
+  // Check if PIN is set for an identifier
+  app.post("/api/login/check-pin-status", async (req, res) => {
+    try {
+      const { identifier } = req.body;
+      if (!identifier) {
+        return apiResponse.badRequest(res, "Identifier is required");
+      }
+
+      let user;
+      const trimmedId = String(identifier).trim();
+      if (trimmedId.includes("@")) {
+        user = await storage.getUserByEmail(trimmedId);
+      } else if (trimmedId.startsWith("FTP")) {
+        user = await storage.getUserByUserId(trimmedId);
+      } else {
+        user = await storage.getUserByMobile(trimmedId);
+      }
+
+      if (!user) {
+        return apiResponse.notFound(res, "User not found");
+      }
+
+      return apiResponse.success(res, {
+        isPinSet: !!user.isPinSet,
+        maskedTarget: user.mobile ? `mobile ending in ${user.mobile.slice(-4)}` : user.email
+      }, "PIN status retrieved");
+    } catch (error) {
+      console.error("Check PIN status error:", error);
+      return apiResponse.serverError(res, "Failed to check PIN status");
+    }
+  });
+
+  // Verify PIN and login
+  app.post("/api/login/verify-pin", async (req, res) => {
+    try {
+      const { identifier, pin } = req.body;
+
+      if (!identifier || !pin) {
+        return apiResponse.badRequest(res, "Identifier and PIN are required");
+      }
+
+      let user;
+      const trimmedId = String(identifier).trim();
+      if (trimmedId.includes("@")) {
+        user = await storage.getUserByEmail(trimmedId);
+      } else if (trimmedId.startsWith("FTP")) {
+        user = await storage.getUserByUserId(trimmedId);
+      } else {
+        user = await storage.getUserByMobile(trimmedId);
+      }
+
+      if (!user) {
+        return apiResponse.notFound(res, "User not found");
+      }
+
+      if (!user.isPinSet || !user.loginPin) {
+        return apiResponse.badRequest(res, "PIN is not set for this account. Please login using OTP first.");
+      }
+
+      const isValid = await comparePasswords(pin, user.loginPin);
+      if (!isValid) {
+        return apiResponse.unauthorized(res, "Invalid PIN");
+      }
+
+      // Track login timestamps
+      const updates: Partial<User> = {};
+      const currentTime = new Date();
+      if (user.lastLoginAt) {
+        updates.previousLoginAt = user.lastLoginAt;
+      }
+      updates.lastLoginAt = currentTime;
+      updates.loginCount = (user.loginCount || 0) + 1;
+      
+      await storage.updateUser(user.id, updates);
+
+      const updatedUser = await storage.getUser(user.id);
+      if (!updatedUser) {
+        return apiResponse.serverError(res, "Failed to retrieve updated user data");
+      }
+
+      if (!req.session) {
+        return apiResponse.serverError(res, "Session not available");
+      }
+
+      req.login(updatedUser, (loginErr) => {
+        if (loginErr) {
+          console.error("❌ PIN login session error:", loginErr);
+          return apiResponse.serverError(res, "Login failed");
+        }
+        stampSessionPortal(req);
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("❌ Session save error:", saveErr);
+            return apiResponse.serverError(res, "Session save failed");
+          }
+          return apiResponse.success(res, {
+            id: updatedUser.id,
+            userId: updatedUser.userId,
+            email: updatedUser.email,
+            mobile: updatedUser.mobile,
+            firstName: updatedUser.firstName,
+            roles: updatedUser.roles,
+            lastLoginAt: updatedUser.lastLoginAt,
+            loginCount: updatedUser.loginCount
+          }, "Login successful with PIN");
+        });
+      });
+    } catch (error) {
+      console.error("PIN verification error:", error);
+      return apiResponse.serverError(res, "PIN verification failed");
     }
   });
 

@@ -759,6 +759,30 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
+  app.post("/api/setup-pin", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const { pin } = req.body;
+    if (!pin || typeof pin !== "string" || pin.length !== 4 || !/^\d+$/.test(pin)) {
+      return res.status(400).send("PIN must be a 4-digit number");
+    }
+
+    try {
+      const hashedPin = await hashPassword(pin);
+      const user = req.user as User;
+      const updatedUser = await storage.updateUser(user.id, {
+        loginPin: hashedPin,
+        isPinSet: true
+      });
+
+      if (!updatedUser) return res.status(500).send("Failed to update PIN");
+      
+      res.json(updatedUser);
+    } catch (err) {
+      res.status(500).send(err);
+    }
+  });
+
   app.post("/api/logout", (req, res, next) => {
     req.logout((err) => {
       if (err) return next(err);
