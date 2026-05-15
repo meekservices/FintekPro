@@ -211,7 +211,7 @@ export function registerAuthRoutes(app: Express) {
           
           // Force fixed OTP for testers to ensure stable automated/manual tests
           if (isTesterAccount) {
-            otp = "12345";
+            otp = "123456";
           }
           
           const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
@@ -398,7 +398,7 @@ export function registerAuthRoutes(app: Express) {
 
       if (isTesterAccount) {
         responseData.devOtp = otp;
-        responseData.devHint = "Test account: use fixed OTP 12345";
+        responseData.devHint = "Test account: use fixed OTP 123456";
       }
 
       return apiResponse.success(res, responseData, isTesterAccount ? `Test account - use OTP: ${otp}` : "OTP sent successfully");

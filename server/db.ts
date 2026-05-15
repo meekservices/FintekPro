@@ -72,7 +72,7 @@ if (isProduction) {
 
 // 3. Build Pool Configuration
 const POOL_CONFIG: any = {
-  max: 8,
+  max: isProduction ? 3 : 8,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 30000,
 };

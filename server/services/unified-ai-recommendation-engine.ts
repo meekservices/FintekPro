@@ -18,8 +18,7 @@
  * - A/B testing integration for strategy optimization
  */
 
-import { aiService, AICapability } from "./ai-service";
-import OpenAI from "openai";
+import { aiService, AICapability, AIProvider } from "./ai-service";
 import { aiResponseCacheService } from "./ai-response-cache-service";
 import { aiRecommendationTrackingService } from "./ai-recommendation-tracking-service";
 import { abTestingService } from "./ab-testing-service";
@@ -145,7 +144,7 @@ export interface ProductAnalysis {
   
   // Metadata
   analyzedAt: string;
-  modelUsed: 'gemini' | 'openai' | 'rule_based' | 'python_sidecar';
+  modelUsed: AIProvider | 'rule_based' | 'python_sidecar';
   cacheHit: boolean;
 }
 
@@ -267,15 +266,6 @@ class UnifiedAIRecommendationEngine {
     console.log('✅ Unified AI Recommendation Engine initialized via AIService');
   }
 
-  setPrimaryProvider(provider: 'openai' | 'gemini') {
-    // Note: AIService manages provider health and preference dynamically
-    console.log(`[UnifiedAI] Primary provider preference noted: ${provider}`);
-  }
-
-  getPrimaryProvider(): string {
-    return 'centralized-ai-service';
-  }
-
 
   // ============================================================================
   // CORE ANALYSIS METHODS
@@ -293,7 +283,7 @@ class UnifiedAIRecommendationEngine {
     // Check cache first
     const cached = aiResponseCacheService.get(cacheKey, `${product.category}_recommendation`);
     if (cached) {
-      return { ...cached, cacheHit: true };
+      return { ...(cached as ProductAnalysis), cacheHit: true };
     }
 
     let enrichedProduct = product;
@@ -467,53 +457,6 @@ class UnifiedAIRecommendationEngine {
       generatedAt: new Date().toISOString(),
       trackingId,
     };
-  }
-
-  // ============================================================================
-  // AI ANALYSIS IMPLEMENTATIONS
-  // ============================================================================
-
-  private async analyzeWithGemini(
-    product: ProductData,
-    clientProfile?: ClientProfile
-  ): Promise<ProductAnalysis> {
-    const prompt = this.buildAnalysisPrompt(product, clientProfile);
-    
-    const model = this.gemini!.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: prompt,
-    });
-
-    const response = await model;
-    const text = response.text || '';
-    
-    return this.parseAIResponse(text, product, clientProfile);
-  }
-
-  private async analyzeWithOpenAI(
-    product: ProductData,
-    clientProfile?: ClientProfile
-  ): Promise<ProductAnalysis> {
-    const prompt = this.buildAnalysisPrompt(product, clientProfile);
-    
-    const response = await this.openai!.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a SEBI-registered investment advisor providing analysis for Indian financial products. Respond with valid JSON only.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
-    });
-
-    const text = response.choices[0]?.message?.content || '{}';
-    return this.parseAIResponse(text, product, clientProfile);
   }
 
   // ── Python Sidecar: regime cache + enhanced scoring ──────────────────────
@@ -1234,7 +1177,7 @@ Provide analysis as JSON with these fields:
     systemPrompt?: string;
     responseParser?: (text: string) => T;
     fallback?: () => T;
-  }): Promise<{ result: T; modelUsed: 'gemini' | 'openai' | 'fallback'; cacheHit: boolean }> {
+  }): Promise<{ result: T; modelUsed: AIProvider | 'fallback'; cacheHit: boolean }> {
     const { prompt, category, systemPrompt, responseParser, fallback } = options;
 
     const cacheKey = options.cacheKey || `runPrompt:${category}:${this.hashPrompt(prompt)}`;
@@ -1254,7 +1197,7 @@ Provide analysis as JSON with these fields:
     const parse = responseParser || defaultParser;
 
     let result: T;
-    let modelUsed: 'gemini' | 'openai' | 'fallback' = 'fallback';
+    let modelUsed: AIProvider | 'fallback' = 'fallback';
 
     try {
       const response = await aiService.chat([
@@ -1267,35 +1210,9 @@ Provide analysis as JSON with these fields:
       });
 
       result = parse(response.content);
-      modelUsed = response.usage.provider as any;
+      modelUsed = response.usage.provider;
     } catch (error: any) {
-      console.error(`[UnifiedAI:runPrompt] Gemini failed for ${category}:`, error.message);
-
-      // Try Groq
-      if (secondaryClient) {
-        try {
-          const text = await callGroq();
-          result = parse(text);
-          modelUsed = secondaryName;
-          aiResponseCacheService.set(cacheKey, result, cacheNamespace);
-          return { result, modelUsed, cacheHit: false };
-        } catch (secError: any) {
-          console.error(`[UnifiedAI:runPrompt] Groq failed:`, secError.message);
-        }
-      }
-
-      // Try OpenAI
-      if (tertiaryClient) {
-        try {
-          const text = await callOpenAI();
-          result = parse(text);
-          modelUsed = tertiaryName;
-          aiResponseCacheService.set(cacheKey, result, cacheNamespace);
-          return { result, modelUsed, cacheHit: false };
-        } catch (openaiError: any) {
-          console.error(`[UnifiedAI:runPrompt] OpenAI failed:`, openaiError.message);
-        }
-      }
+      console.error(`[UnifiedAI:runPrompt] AI failed for ${category}:`, error.message);
 
       if (fallback) {
         result = fallback();
