@@ -315,8 +315,24 @@ class HoldingNormalizationService {
       .replace(/\s*-\s*/g, ' - ')
       .replace(/\(\s+/g, '(')
       .replace(/\s+\)/g, ')')
+      // Strip CAS specific artifacts and metadata often found in statement exports
+      .replace(/\(?Folio[:\s]*[A-Z0-9\/]+\)?/gi, '')
+      .replace(/\(?PAN[:\s]*[A-Z0-9]+\)?/gi, '')
+      .replace(/\(?Advisor[:\s]*ARN[^\)]*\)?/gi, '')
+      .replace(/\(formerly[^\)]*\)/gi, '')
+      .replace(/\(erstwhile[^\)]*\)/gi, '')
+      .replace(/Registrar[:\s]*[A-Z]+/gi, '')
+      .replace(/ISIN[:\s]*[A-Z0-9]{12}/gi, '')
       .trim();
     
+    // Final cleanup of empty parentheses or trailing dashes
+    normalized = normalized
+      .replace(/\(\s*\)/g, '')
+      .replace(/\s*-\s*$/, '')
+      .replace(/^\s*-\s*/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
     normalized = this.toTitleCase(normalized);
     
     return normalized;

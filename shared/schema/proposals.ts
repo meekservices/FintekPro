@@ -4,6 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from './users';
 export * from './proposals-base';
+import { investmentProposals, investmentProposalItems, instrumentMaster, InstrumentAssetClassEnum } from './proposals-base';
 import { portfolios, assetAllocation } from './portfolio';
 import { agents as Agent } from './agents';
 import { documents as Document } from './documents';

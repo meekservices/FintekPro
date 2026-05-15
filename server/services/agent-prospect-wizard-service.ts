@@ -29,8 +29,11 @@ import { signalOrchestrator, OrchestratedRecommendation } from './signal-orchest
 import { pickOfTheDayService } from './pick-of-the-day-service';
 import { quantOrchestrator } from './quant/quant-orchestrator';
 import { mfSebiOverlapService } from './mf-sebi-overlap-service';
+import { complianceService } from './compliance/compliance-service';
+import { driftEngine } from './rebalancing/drift-engine';
+import { recommendationEngine } from './recommendations/recommendation-engine';
 
-const SEBI_BLOCKED_STATUSES = new Set(['BLOCKED', 'OVERLAP_BREACH', 'GLIDE_PATH_INVALID']);
+
 
 // Format amount in Indian currency format (₹X.XX L for lakhs, ₹X.XX Cr for crores)
 const formatAmount = (amount: number): string => {
@@ -3106,53 +3109,19 @@ class AgentProspectWizardService {
     }
 
     // ── SEBI 2026 Blocked Fund Exit Pass ─────────────────────────────────────
-    // Check all MF-type holdings against compliance_status. BLOCKED/OVERLAP_BREACH
-    // holdings must be exited regardless of performance. Run before drift analysis.
-    const mfLikeTypes = new Set(['mutual_fund', 'mf', 'equity', 'debt', 'hybrid', 'index_fund', 'etf', 'gold_fof', 'silver_fof']);
-    const sebiExitedNames = new Set<string>();
+    const fundNames = normalizedHoldings
+      .filter(h => new Set(['mutual_fund', 'mf', 'equity', 'debt', 'hybrid', 'index_fund', 'etf', 'gold_fof', 'silver_fof']).has((h.productType || h.assetType || '').toLowerCase()))
+      .map(h => (h.name || h.productName || '').trim())
+      .filter(Boolean);
 
-    try {
-      for (const holding of normalizedHoldings) {
-        const holdingType = (holding.productType || holding.assetType || '').toLowerCase();
-        if (!mfLikeTypes.has(holdingType)) continue;
+    const complianceResults = await complianceService.checkFundsCompliance(fundNames);
 
-        const searchName = (holding.name || holding.productName || '').replace(/- Regular \(G\)|- Growth|- Direct.*$/gi, '').trim();
-        if (!searchName) continue;
+    for (const holding of normalizedHoldings) {
+      const holdingName = (holding.name || holding.productName || '').trim();
+      const compRes = complianceResults.get(holdingName);
 
-        const [dbFund] = await db.select({
-          schemeCode: mutualFunds.schemeCode,
-          schemeName: mutualFunds.schemeName,
-          category: mutualFunds.category,
-          complianceStatus: mutualFunds.complianceStatus,
-          complianceBlockedReason: mutualFunds.complianceBlockedReason,
-        })
-        .from(mutualFunds)
-        .where(sql`LOWER(${mutualFunds.schemeName}) LIKE LOWER(${'%' + searchName.split(' ').slice(0, 3).join(' ') + '%'})`)
-        .limit(1);
-
-        if (!dbFund || !SEBI_BLOCKED_STATUSES.has(dbFund.complianceStatus || '')) continue;
-
-        const holdingName = holding.name || holding.productName || 'Unknown';
-        sebiExitedNames.add(holdingName.toLowerCase());
-
-        console.log(`[SEBICompliance] Rebalancing: marking ${holdingName} for SELL — compliance_status=${dbFund.complianceStatus}`);
-
-        // Find a compliant substitute from the same category
-        const [substitute] = await db.select({
-          schemeName: mutualFunds.schemeName,
-          schemeCode: mutualFunds.schemeCode,
-          category: mutualFunds.category,
-          returns1y: mutualFunds.returns1y,
-        })
-        .from(mutualFunds)
-        .where(
-          sql`${mutualFunds.isPublished} = true
-            AND ${mutualFunds.category} = ${dbFund.category || ''}
-            AND ${mutualFunds.complianceStatus} IN ('VALIDATED', 'APPROVED', 'PENDING')
-            AND LOWER(${mutualFunds.schemeName}) NOT LIKE LOWER(${'%' + searchName.split(' ').slice(0, 3).join(' ') + '%'})`
-        )
-        .orderBy(sql`${mutualFunds.returns1y}::numeric DESC NULLS LAST`)
-        .limit(1);
+      if (compRes && !compRes.isCompliant) {
+        console.log(`[SEBICompliance] Rebalancing: marking ${holdingName} for SELL — compliance_status=${compRes.status}`);
 
         // SELL recommendation for the blocked fund
         recommendations.push({
@@ -3162,28 +3131,26 @@ class AgentProspectWizardService {
           currentValue: holding.currentValue,
           suggestedValue: 0,
           changeAmount: -holding.currentValue,
-          rationale: `[SEBI 2026 EXIT] This fund is non-compliant (${dbFund.complianceStatus}). ${dbFund.complianceBlockedReason ? `Reason: ${dbFund.complianceBlockedReason}. ` : ''}Mandatory exit per SEBI Circular SEBI/HO/IMD/CIR/P/2026/26.`,
+          rationale: `[SEBI 2026 EXIT] This fund is non-compliant (${compRes.status}). ${compRes.reason ? `Reason: ${compRes.reason}. ` : ''}Mandatory exit per SEBI Circular SEBI/HO/IMD/CIR/P/2026/26.`,
           priority: 'urgent',
           sebi_exit: true,
         } as any);
 
         // BUY recommendation for the compliant substitute
-        if (substitute) {
+        if (compRes.substitute) {
           recommendations.push({
             action: 'BUY',
             productType: 'mutual_fund',
-            productName: substitute.schemeName,
+            productName: compRes.substitute.schemeName,
             currentValue: 0,
             suggestedValue: holding.currentValue,
             changeAmount: holding.currentValue,
-            rationale: `[SEBI 2026 SUBSTITUTE] Compliant replacement for exited fund in the same category (${dbFund.category || 'N/A'}). SEBI 2026 validated.`,
+            rationale: `[SEBI 2026 SUBSTITUTE] Compliant replacement for exited fund in the same category (${compRes.substitute.category}). SEBI 2026 validated.`,
             priority: 'urgent',
             sebi_substitute: true,
           } as any);
         }
       }
-    } catch (sebiErr) {
-      console.error('[SEBICompliance] Blocked fund exit check failed (non-fatal):', sebiErr);
     }
 
     // Default allocations by risk profile (expanded with new asset classes and global regions)
@@ -3416,148 +3383,19 @@ class AgentProspectWizardService {
       rationaleDetail?: string;
     }
 
-    const driftMetrics: DriftMetric[] = [];
+    // ── Step 2-5: Drift Calculation & Action Determination (Moved to DriftEngine) ──
+    const driftMetrics = await driftEngine.calculateDrift(
+      categories,
+      targetAllocations,
+      currentByCategory,
+      totalPortfolioValue,
+      totalValue,
+      policy,
+      riskProfile,
+      (globalThis as any).__prospectId__ || 'unknown'
+    );
 
-    for (const category of categories) {
-      const targetPercent = targetAllocations[category as keyof typeof targetAllocations] || 0;
-      const targetValue = (targetPercent / 100) * totalPortfolioValue;
-      const currentValue = currentByCategory[category]?.value || 0;
-      const currentPercent = totalValue > 0 ? (currentValue / totalValue) * 100 : 0;
-      const drift = currentPercent - targetPercent;
-      const driftPercent = targetPercent > 0 ? drift / targetPercent : 0;
-      const driftStatus: 'DRIFT_BREACH' | 'WITHIN_BAND' = Math.abs(drift) > (policy.toleranceBandPct ?? 5) ? 'DRIFT_BREACH' : 'WITHIN_BAND';
-
-      driftMetrics.push({
-        category,
-        currentValue,
-        currentPercent,
-        targetPercent,
-        targetValue,
-        drift,
-        driftPercent,
-        driftStatus,
-        holdings: currentByCategory[category]?.holdings || [],
-      });
-    }
-
-    console.log('[Rebalancing] Drift Engine results:', driftMetrics.filter(dm => dm.driftStatus === 'DRIFT_BREACH').map(dm => `${dm.category}: drift=${dm.drift.toFixed(2)}% (${dm.driftStatus})`).join(', '));
-
-    // ── Step 2.5: Quant Orchestrator (feature-flag gated) ──
-    try {
-      const quantInput = {
-        assetsData: driftMetrics.filter(dm => dm.targetPercent > 0).map(dm => ({
-          category: dm.category,
-          returns: [] as number[],
-          currentWeight: dm.currentPercent / 100,
-        })),
-        driftMetrics: driftMetrics.map(dm => ({
-          category: dm.category,
-          currentPercent: dm.currentPercent,
-          targetPercent: dm.targetPercent,
-          drift: dm.drift,
-        })),
-        riskProfile: riskProfile.riskTolerance,
-        toleranceBandPct: policy.toleranceBandPct ?? 5,
-        portfolioId: `prospect-${(globalThis as any).__prospectId__ || 'unknown'}`,
-      };
-
-      const quantResult = await quantOrchestrator.run(quantInput);
-
-      if (quantResult.usedMvo && Object.keys(quantResult.optimizedWeights).length > 0) {
-        const quantAllocations = quantOrchestrator.convertWeightsToAllocations(
-          quantResult.optimizedWeights, categories
-        );
-        for (const dm of driftMetrics) {
-          if (quantAllocations[dm.category] !== undefined) {
-            const newTarget = quantAllocations[dm.category];
-            if (newTarget !== dm.targetPercent) {
-              console.log(`[Rebalancing][Quant] ${dm.category}: target ${dm.targetPercent}% → ${newTarget}% (quant-optimized)`);
-              dm.targetPercent = newTarget;
-              dm.targetValue = (newTarget / 100) * totalPortfolioValue;
-              dm.drift = dm.currentPercent - newTarget;
-              dm.driftPercent = newTarget > 0 ? dm.drift / newTarget : 0;
-              dm.driftStatus = Math.abs(dm.drift) > (policy.toleranceBandPct ?? 5) ? 'DRIFT_BREACH' : 'WITHIN_BAND';
-            }
-          }
-        }
-        console.log('[Rebalancing] Quant-optimized targets applied. Models:', quantResult.modelVersions.join(', '));
-      }
-
-      if (quantResult.preemptiveRebalanceRecommended) {
-        console.log('[Rebalancing] Quant preemptive rebalance triggered for:', quantResult.highRiskCategories.join(', '));
-        for (const dm of driftMetrics) {
-          if (quantResult.highRiskCategories.includes(dm.category) && dm.driftStatus === 'WITHIN_BAND') {
-            dm.driftStatus = 'DRIFT_BREACH';
-            console.log(`[Rebalancing][Quant] ${dm.category}: preemptive drift breach triggered`);
-          }
-        }
-      }
-    } catch (quantError: any) {
-      console.warn('[Rebalancing] Quant orchestrator error (non-fatal, using deterministic pipeline):', quantError.message);
-    }
-
-    // ── Step 3: Risk Engine ──
-    const categoryRiskMap: Record<string, number> = {
-      equity: 20, listed_stocks: 22, unlisted_stocks: 25, etf: 15,
-      hybrid: 12, gold: 10, silver: 14, index: 13,
-      debt: 6, bonds: 7, mld: 8, international: 18,
-      reit: 14, invit: 13, pms: 20, aif: 22
-    };
-
-    const currentPortfolioVolatility = totalValue > 0
-      ? driftMetrics.reduce((sum, dm) => sum + (dm.currentPercent / 100) * (categoryRiskMap[dm.category] || 15), 0)
-      : 0;
-    console.log('[Rebalancing] Risk Engine: current portfolio volatility estimate =', currentPortfolioVolatility.toFixed(2), '%');
-
-    for (const dm of driftMetrics) {
-      const catVol = categoryRiskMap[dm.category] || 15;
-      if (dm.drift < 0 && dm.driftStatus === 'DRIFT_BREACH') {
-        const additionalWeight = Math.abs(dm.drift) / 100;
-        const projectedVol = currentPortfolioVolatility + additionalWeight * catVol;
-        dm.riskFlag = projectedVol > ((policy.targetVolatilityPct ?? 15) + (policy.riskToleranceBandPct ?? 3)) ? 'VOL_BREACH' : 'OK';
-      } else {
-        dm.riskFlag = 'OK';
-      }
-    }
-
-    console.log('[Rebalancing] Risk flags:', driftMetrics.filter(dm => dm.riskFlag === 'VOL_BREACH').map(dm => `${dm.category}: VOL_BREACH`).join(', ') || 'none');
-
-    // ── Step 4: Transaction Cost Filter ──
-    for (const dm of driftMetrics) {
-      const changeAmount = Math.abs(dm.currentValue - dm.targetValue);
-      const estimatedCost = changeAmount * ((policy.brokerageRatePct ?? 0.03) / 100);
-      dm.costEstimate = estimatedCost;
-      dm.costFlag = (changeAmount < (policy.minTradeValueInr ?? 5000) || estimatedCost > changeAmount * 0.02) ? 'TOO_EXPENSIVE' : 'ACCEPTABLE';
-    }
-
-    console.log('[Rebalancing] Cost filter:', driftMetrics.filter(dm => dm.costFlag === 'TOO_EXPENSIVE').map(dm => `${dm.category}: TOO_EXPENSIVE (change=${Math.abs(dm.currentValue - dm.targetValue).toFixed(0)})`).join(', ') || 'all acceptable');
-
-    // ── Step 5: Action Determination ──
-    function determineAction(drift: number, driftStatus: string, riskFlag: string, costFlag: string): string {
-      if (costFlag === 'TOO_EXPENSIVE') return 'HOLD_COST_FILTER';
-      if (riskFlag === 'VOL_BREACH') return drift > 0 ? 'REDUCE' : 'HOLD_RISK_LIMIT';
-      if (driftStatus === 'DRIFT_BREACH') return drift > 0 ? 'REDUCE' : 'INCREASE';
-      return 'HOLD';
-    }
-
-    for (const dm of driftMetrics) {
-      dm.rawAction = determineAction(dm.drift, dm.driftStatus, dm.riskFlag || 'OK', dm.costFlag || 'ACCEPTABLE');
-      dm.finalAction = dm.rawAction;
-      dm.changeAmount = dm.currentValue - dm.targetValue;
-
-      if (dm.rawAction === 'HOLD' || dm.rawAction === 'HOLD_COST_FILTER' || dm.rawAction === 'HOLD_RISK_LIMIT') {
-        dm.rationaleCode = dm.rawAction === 'HOLD_COST_FILTER' ? 'COST_FILTER' : dm.rawAction === 'HOLD_RISK_LIMIT' ? 'RISK_LIMIT' : 'WITHIN_BAND';
-      } else if (dm.rawAction === 'REDUCE') {
-        dm.rationaleCode = 'OVERWEIGHT_BREACH';
-      } else if (dm.rawAction === 'INCREASE') {
-        dm.rationaleCode = 'UNDERWEIGHT_BREACH';
-      } else {
-        dm.rationaleCode = 'NO_ACTION';
-      }
-      dm.rationaleDetail = `${dm.category}: drift=${dm.drift.toFixed(2)}%, action=${dm.rawAction}, risk=${dm.riskFlag}, cost=${dm.costFlag}`;
-    }
-
-    console.log('[Rebalancing] Action determination:', driftMetrics.map(dm => `${dm.category}=${dm.rawAction}`).join(', '));
+    console.log('[Rebalancing] Drift Engine (Optimized) analysis complete');
 
     // ── Step 6: Protect existing holdings — skip REDUCE for positions user already owns ──
     // User's existing portfolio positions should be retained (HOLD), not recommended for sell/reduce

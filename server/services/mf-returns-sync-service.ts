@@ -526,12 +526,18 @@ class MFReturnsSyncService {
   }
 
   /**
-   * Get returns for a specific fund (with live fetch fallback)
+   * Get returns for multiple funds (bulk fetch)
    */
-  async getReturnsForFund(schemeCode: string): Promise<CalculatedReturns | null> {
-    // First check database
+  async getReturnsForFunds(schemeCodes: string[]): Promise<Record<string, CalculatedReturns>> {
+    if (!schemeCodes.length) return {};
+
+    const results: Record<string, CalculatedReturns> = {};
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    // Fetch all available from database
     const readDb = hasProductionDb() ? getProductionDb() : db;
-    const fund = await readDb.select({
+    const funds = await readDb.select({
+      schemeCode: mutualFunds.schemeCode,
       returns1y: mutualFunds.returns1y,
       returns3y: mutualFunds.returns3y,
       returns5y: mutualFunds.returns5y,
@@ -539,27 +545,39 @@ class MFReturnsSyncService {
       lastUpdated: mutualFunds.lastUpdated
     })
     .from(mutualFunds)
-    .where(eq(mutualFunds.schemeCode, schemeCode))
-    .limit(1);
+    .where(sql`${mutualFunds.schemeCode} IN (${sql.join(schemeCodes.map(c => sql`${c}`), sql`,`)})`);
 
-    if (fund.length > 0 && fund[0].returns1y) {
-      // Check if data is fresh (less than 24 hours old)
-      const lastUpdated = fund[0].lastUpdated ? new Date(fund[0].lastUpdated) : new Date(0);
-      const hoursSinceUpdate = (Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60);
-      
-      if (hoursSinceUpdate < 24) {
-        return {
-          returns1y: parseFloat(fund[0].returns1y as string) || null,
-          returns3y: parseFloat(fund[0].returns3y as string) || null,
-          returns5y: parseFloat(fund[0].returns5y as string) || null,
-          currentNav: parseFloat(fund[0].nav as string) || 0,
+    const missingOrStale: string[] = [...schemeCodes];
+
+    for (const fund of funds) {
+      const lastUpdated = fund.lastUpdated ? new Date(fund.lastUpdated) : new Date(0);
+      const isFresh = lastUpdated > oneDayAgo;
+
+      if (fund.returns1y && isFresh) {
+        results[fund.schemeCode] = {
+          returns1y: parseFloat(fund.returns1y as string) || null,
+          returns3y: parseFloat(fund.returns3y as string) || null,
+          returns5y: parseFloat(fund.returns5y as string) || null,
+          currentNav: parseFloat(fund.nav as string) || 0,
           dataQuality: 'full'
         };
+        // Remove from missing list
+        const idx = missingOrStale.indexOf(fund.schemeCode);
+        if (idx > -1) missingOrStale.splice(idx, 1);
       }
     }
 
-    // Fallback: fetch live data
-    return this.syncSingleFund(schemeCode);
+    // Fetch missing/stale funds sequentially to respect rate limits
+    // but we could parallelize in small batches if needed.
+    // For now, keeping it simple to avoid rate limiting issues.
+    for (const code of missingOrStale) {
+      const live = await this.getReturnsForFund(code);
+      if (live) {
+        results[code] = live;
+      }
+    }
+
+    return results;
   }
 
   /**

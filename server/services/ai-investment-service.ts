@@ -780,7 +780,11 @@ class AIInvestmentService {
   }
 
   async analyzePortfolio(clientId: string, portfolioId?: string): Promise<AiPortfolioAnalysis> {
-    const clientData = await this.getClientPortfolio(clientId);
+    const [clientData, userProfileList] = await Promise.all([
+      this.getClientPortfolio(clientId),
+      db.select().from(userProfiles).where(eq(userProfiles.userId, clientId)).limit(1)
+    ]);
+
     if (!clientData) {
       throw new Error("Client portfolio not found");
     }
@@ -788,11 +792,7 @@ class AIInvestmentService {
     const { portfolio, holdings } = clientData;
     const metrics = await this.calculatePortfolioMetrics(holdings);
     
-    const [userProfile] = await db
-      .select()
-      .from(userProfiles)
-      .where(eq(userProfiles.userId, clientId))
-      .limit(1);
+    const userProfile = userProfileList[0];
 
     const clientRiskProfile = userProfile?.riskTolerance || 'moderate';
     const portfolioRiskAlignment = this.assessRiskAlignment(metrics.riskScore, clientRiskProfile);
@@ -844,17 +844,21 @@ class AIInvestmentService {
     let equityValue = 0;
     let debtValue = 0;
 
+    const symbols = [...new Set(holdings.map(h => h.symbol))].filter(Boolean);
+    
+    // Batch fetch market data to avoid N+1 queries
+    const marketDataList = symbols.length > 0 
+      ? await db.select().from(marketData).where(inArray(marketData.symbol, symbols))
+      : [];
+    
+    const marketDataMap = new Map(marketDataList.map(m => [m.symbol, m]));
+
     for (const holding of holdings) {
       const quantity = parseFloat(holding.quantity) || 0;
       const avgPrice = parseFloat(holding.avgPrice) || 0;
       const invested = quantity * avgPrice;
       
-      const [marketDataEntry] = await db
-        .select()
-        .from(marketData)
-        .where(eq(marketData.symbol, holding.symbol))
-        .limit(1);
-      
+      const marketDataEntry = marketDataMap.get(holding.symbol);
       const currentPrice = marketDataEntry?.price ? parseFloat(marketDataEntry.price) : avgPrice;
       const currentValue = quantity * currentPrice;
 
@@ -1066,10 +1070,10 @@ Provide a JSON response with:
       existingHoldings: clientData?.holdings.map(h => h.symbol) || []
     });
 
-    const insertedPicks: AiProfitPick[] = [];
-    
-    for (const pick of stockPicks) {
-      const [inserted] = await db.insert(aiProfitPicks).values({
+    if (stockPicks.length === 0) return [];
+
+    const insertedPicks = await db.insert(aiProfitPicks).values(
+      stockPicks.map(pick => ({
         clientId,
         stockName: pick.stockName,
         symbol: pick.symbol,
@@ -1092,10 +1096,8 @@ Provide a JSON response with:
         riskFactors: pick.riskFactors,
         status: "active",
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      }).returning();
-      
-      insertedPicks.push(inserted);
-    }
+      }))
+    ).returning();
 
     return insertedPicks;
   }
@@ -1109,16 +1111,6 @@ Provide a JSON response with:
       existingHoldings: string[];
     }
   ): Promise<StockAnalysis[]> {
-    // Fetch listed stocks from database (synced from NSE/BSE)
-    // This replaces the hardcoded stock list with actual published stocks
-    const stockUniverse = await this.getStoreEligibleListedStocks({
-      riskLevel: clientRiskProfile,
-      limit: 30
-    });
-
-    console.log(`[AI Service] Fetched ${stockUniverse.length} listed stocks from database for risk profile: ${clientRiskProfile}`);
-
-    // REGULATORY COMPLIANCE: Only recommend products that are published/enabled in store
     const mappedHorizon = options.timeHorizon ? this.mapTimeHorizon(options.timeHorizon) : null;
     
     // Determine category filter based on time horizon for mutual funds
@@ -1133,6 +1125,7 @@ Provide a JSON response with:
 
     // Fetch all store-eligible products in parallel for efficiency
     const [
+      stockUniverse,
       storeEligibleFunds,
       storeEligibleAIFs,
       storeEligiblePMS,
@@ -1141,6 +1134,7 @@ Provide a JSON response with:
       storeEligibleBonds,
       storeEligibleNCDs
     ] = await Promise.all([
+      this.getStoreEligibleListedStocks({ riskLevel: clientRiskProfile, limit: 30 }),
       this.getStoreEligibleMutualFunds({ category: mfCategory, riskLevel: options.riskLevel, limit: 10 }),
       this.getStoreEligibleAIF({ limit: 5 }),
       this.getStoreEligiblePMS({ limit: 5 }),
@@ -1149,6 +1143,8 @@ Provide a JSON response with:
       this.getStoreEligibleBonds({ limit: 5 }),
       this.getStoreEligibleNCDs({ limit: 5 })
     ]);
+
+    console.log(`[AI Service] Fetched ${stockUniverse.length} listed stocks and ${storeEligibleFunds.length + storeEligibleAIFs.length + storeEligiblePMS.length + storeEligibleMLDs.length + storeEligibleUnlisted.length + storeEligibleBonds.length + storeEligibleNCDs.length} other products from database`);
 
     // Combine all product types with stock recommendations
     // Each product type filters by store availability (published/active)
@@ -1299,11 +1295,9 @@ Provide a JSON response with:
     const exitAlerts = await this.generateExitAlerts(clientId, holdings, portfolio.id);
     alerts.push(...exitAlerts);
 
-    const insertedAlerts: PortfolioAlert[] = [];
-    for (const alert of alerts) {
-      const [inserted] = await db.insert(portfolioAlerts).values(alert).returning();
-      insertedAlerts.push(inserted);
-    }
+    if (alerts.length === 0) return [];
+    
+    const insertedAlerts = await db.insert(portfolioAlerts).values(alerts).returning();
 
     return insertedAlerts;
   }
@@ -1322,6 +1316,15 @@ Provide a JSON response with:
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth() + 1;
 
+    const symbols = [...new Set(holdings.map(h => h.symbol))].filter(Boolean);
+    
+    // Batch fetch stock data to avoid N+1 queries
+    const stockDataList = symbols.length > 0 
+      ? await db.select().from(listedStocks).where(inArray(listedStocks.symbol, symbols))
+      : [];
+    
+    const stockDataMap = new Map(stockDataList.map(s => [s.symbol, s]));
+
     for (const holding of holdings) {
       if (!holding.symbol || holding.assetType?.toLowerCase() === 'cash') continue;
 
@@ -1330,11 +1333,7 @@ Provide a JSON response with:
         const quantity = parseFloat(holding.quantity || '0');
         if (avgPrice <= 0 || quantity <= 0) continue;
 
-        const [stockData] = await db
-          .select()
-          .from(listedStocks)
-          .where(eq(listedStocks.symbol, holding.symbol))
-          .limit(1);
+        const stockData = stockDataMap.get(holding.symbol);
 
         if (!stockData) continue;
 
@@ -2125,13 +2124,9 @@ Provide a JSON response with:
       status: 'active'
     });
 
-    const insertedPoints: AiTalkingPoint[] = [];
-    for (const point of talkingPoints) {
-      const [inserted] = await db.insert(aiTalkingPoints).values(point).returning();
-      insertedPoints.push(inserted);
-    }
-
-    return insertedPoints;
+    if (talkingPoints.length === 0) return [];
+    
+    return db.insert(aiTalkingPoints).values(talkingPoints).returning();
   }
 
   private getTimeOfDay(): string {
@@ -2268,13 +2263,13 @@ Provide a JSON response with:
       validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     }).returning();
 
-    for (const pick of picks) {
+    const proposalItemsData = picks.map(pick => {
       const quantity = pick.modifiedQuantity || pick.proposedQuantity || 10;
       const price = parseFloat(pick.currentPrice);
       const itemAmount = quantity * price;
       const allocationPct = totalAmount > 0 ? (itemAmount / totalAmount) * 100 : 0;
       
-      await db.insert(investmentProposalItems).values({
+      return {
         proposalId: proposal.id,
         productType: 'equity',
         productName: pick.stockName,
@@ -2284,18 +2279,30 @@ Provide a JSON response with:
         selectionReason: pick.aiReason,
         riskRating: pick.riskLevel,
         expectedOutcome: `Expected upside of ${pick.upsidePercent}% with ${pick.timeHorizon} horizon`,
-      });
+      };
+    });
 
-      await db
-        .update(aiProfitPicks)
-        .set({
-          addedToProposal: true,
-          proposalId: proposal.id,
-          proposedQuantity: quantity,
-          proposedAmount: String(quantity * price),
-          updatedAt: new Date()
-        })
-        .where(eq(aiProfitPicks.id, pick.id));
+    if (proposalItemsData.length > 0) {
+      await db.insert(investmentProposalItems).values(proposalItemsData);
+      
+      // Bulk update picks
+      const updatePromises = picks.map(pick => {
+        const quantity = pick.modifiedQuantity || pick.proposedQuantity || 10;
+        const price = parseFloat(pick.currentPrice);
+        
+        return db
+          .update(aiProfitPicks)
+          .set({
+            addedToProposal: true,
+            proposalId: proposal.id,
+            proposedQuantity: quantity,
+            proposedAmount: String(quantity * price),
+            updatedAt: new Date()
+          })
+          .where(eq(aiProfitPicks.id, pick.id));
+      });
+      
+      await Promise.all(updatePromises);
     }
 
     return { proposalId: proposal.id, itemCount: picks.length };

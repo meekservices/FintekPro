@@ -187,20 +187,23 @@ function parseZerodhaFormat(text: string): ImportedHolding[] {
   const holdings: ImportedHolding[] = [];
   const lines = text.split('\n');
   
-  const holdingPattern = /([A-Z][A-Z0-9&\-\s]{2,30})\s+(\d+(?:,\d+)*(?:\.\d+)?)\s+₹?\s*(\d+(?:,\d+)*(?:\.\d+)?)\s+₹?\s*(\d+(?:,\d+)*(?:\.\d+)?)/;
+  // Pattern: "RELIANCE 100 ₹ 2,500.00 ₹ 2,750.00 10.0% ₹ 25,000"
+  // Handles names with spaces, multiple currency symbols, and extra columns like P&L %
+  const holdingPattern = /([A-Z][A-Z0-9&\-\s]{2,30})\s+([0-9,]+(?:\.\d+)?)\s+₹?\s*([0-9,]+(?:\.\d+)?)\s+₹?\s*([0-9,]+(?:\.\d+)?)/i;
   
   for (const line of lines) {
     const match = line.match(holdingPattern);
     if (match) {
-      const [, name, qty, avgCost, currentVal] = match;
+      const [, rawName, qty, avgCost, currentVal] = match;
       const quantity = parseFloat(qty.replace(/,/g, ''));
       const averageCost = parseFloat(avgCost.replace(/,/g, ''));
       const currentValue = parseFloat(currentVal.replace(/,/g, ''));
       
       if (quantity > 0 && currentValue > 0) {
+        const name = holdingNormalizationService.normalizeHoldingName(rawName);
         holdings.push({
           id: `holding-${Date.now()}-${holdings.length}`,
-          name: name.trim(),
+          name,
           assetType: 'equity',
           quantity,
           averageCost,
@@ -208,7 +211,7 @@ function parseZerodhaFormat(text: string): ImportedHolding[] {
           investedValue: quantity * averageCost,
           unrealizedGain: currentValue - (quantity * averageCost),
           broker: 'Zerodha',
-          confidenceScore: 80
+          confidenceScore: 85
         });
       }
     }
@@ -221,36 +224,40 @@ function parseGrowwFormat(text: string): ImportedHolding[] {
   const holdings: ImportedHolding[] = [];
   const lines = text.split('\n');
   
-  const mfPattern = /([A-Za-z\s\-]+(?:Fund|Scheme)[A-Za-z\s\-]*)\s+(\d+(?:\.\d+)?)\s+units?\s+₹?\s*(\d+(?:,\d+)*(?:\.\d+)?)/i;
-  const stockPattern = /([A-Z][A-Z0-9&\s]{2,25})\s+(\d+)\s+shares?\s+₹?\s*(\d+(?:,\d+)*(?:\.\d+)?)/i;
+  // Pattern: "Axis Bluechip Fund Direct Growth 100.5 units ₹ 5,000.00"
+  const mfPattern = /([A-Za-z0-9\s\-&]+(?:Fund|Scheme|Plan|Growth|IDCW)[A-Za-z0-9\s\-&]*)\s+([0-9,]+(?:\.\d+)?)\s+units?\s+(?:₹|INR)?\s*([0-9,]+(?:\.\d+)?)/i;
+  // Pattern: "TATA MOTORS 50 shares ₹ 45,000.00"
+  const stockPattern = /([A-Z0-9&\-\s]{2,40})\s+([0-9,]+)\s+(?:shares?|qty)\s+(?:₹|INR)?\s*([0-9,]+(?:\.\d+)?)/i;
   
   for (const line of lines) {
     let match = line.match(mfPattern);
     if (match) {
-      const [, name, units, value] = match;
+      const [, rawName, units, value] = match;
+      const name = holdingNormalizationService.normalizeHoldingName(rawName);
       holdings.push({
         id: `holding-${Date.now()}-${holdings.length}`,
-        name: name.trim(),
+        name,
         assetType: 'mutual_fund',
-        quantity: parseFloat(units),
+        quantity: parseFloat(units.replace(/,/g, '')),
         currentValue: parseFloat(value.replace(/,/g, '')),
         broker: 'Groww',
-        confidenceScore: 75
+        confidenceScore: 80
       });
       continue;
     }
     
     match = line.match(stockPattern);
     if (match) {
-      const [, name, qty, value] = match;
+      const [, rawName, qty, value] = match;
+      const name = holdingNormalizationService.normalizeHoldingName(rawName);
       holdings.push({
         id: `holding-${Date.now()}-${holdings.length}`,
-        name: name.trim(),
+        name,
         assetType: 'equity',
-        quantity: parseInt(qty),
+        quantity: parseInt(qty.replace(/,/g, '')),
         currentValue: parseFloat(value.replace(/,/g, '')),
         broker: 'Groww',
-        confidenceScore: 75
+        confidenceScore: 80
       });
     }
   }
@@ -291,7 +298,6 @@ function parseCASFormat(text: string): ImportedHolding[] {
   
   console.log('[CAS Parser] Starting parse, total lines:', lines.length);
   
-  let currentAMC = '';
   let currentFolio = '';
   let currentSchemeName = '';
   let currentISIN = '';
@@ -299,14 +305,12 @@ function parseCASFormat(text: string): ImportedHolding[] {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     
-    // Detect AMC headers (e.g., "Aditya Birla Sun Life Mutual Fund", "ICICI Prudential Mutual Fund")
+    // Detect AMC headers (e.g., "Aditya Birla Sun Life Mutual Fund")
     if (/Mutual\s*Fund\s*$/i.test(line) && !line.includes('ISIN') && !line.includes('Folio')) {
-      currentAMC = line.trim();
-      console.log('[CAS Parser] Found AMC:', currentAMC);
       continue;
     }
     
-    // Detect folio number (e.g., "Folio No: 1036594120" or "Folio No : 16888427")
+    // Detect folio number
     const folioMatch = line.match(/Folio\s*(?:No\.?|Number)?\s*[:\s]+\s*(\d+(?:\/\d+)?)/i);
     if (folioMatch) {
       currentFolio = folioMatch[1];
@@ -314,244 +318,66 @@ function parseCASFormat(text: string): ImportedHolding[] {
       continue;
     }
     
-    // MFCentral Format - Scheme name with ISIN on same or adjacent lines
-    // Pattern: "Aditya Birla Sun Life Small Cap Fund Growth-Regular Plan (Advisor: ARN-28612)"
-    // followed by: "ISIN: INF209K01EN2"
-    // Key patterns to detect scheme names:
-    // - Contains "Fund" or "Plan" or "FOF" or "ETF" or "Growth" or "IDCW"
-    // - May have "(Advisor: ARN-XXXXX)" suffix
-    // - NOT just "Mutual Fund" header lines
-    
-    const schemeNamePattern = /^(.+?(?:Fund|Plan|FOF|ETF|Growth|IDCW|Dividend)[A-Za-z0-9\s\-&()]*?)(?:\s*\(Advisor[:\s]+ARN[^\)]*\))?$/i;
-    const schemeMatch = line.match(schemeNamePattern);
-    
-    if (schemeMatch && !line.includes('Mutual Fund$') && line.length > 20) {
-      const potentialScheme = schemeMatch[1].trim();
-      // Verify this looks like a scheme name and not just noise
-      // Exclude: date-prefixed lines, "Scheme Name Change", transaction dates, notes
-      const isValidSchemeName = potentialScheme.length > 15 && 
-          !potentialScheme.match(/^(scheme|fund|name|units|nav|value|balance|date|registrar|isin)/i) &&
-          !potentialScheme.match(/^Mutual\s*Fund$/i) &&
-          !potentialScheme.match(/^\d{1,2}[-\/][A-Z]{3}[-\/]\d{2,4}/i) &&  // Date prefix like "30-JUN-2025"
-          !potentialScheme.match(/Scheme\s*Name\s*Change/i) &&  // Footnotes about scheme changes
-          !potentialScheme.match(/^(Transaction|Folio|Registrar|ISIN|Advisor|PAN|Email|Mobile|Address|Nominee)/i) &&
-          !potentialScheme.match(/^(formerly|previously|erstwhile)\s/i);  // Avoid partial matches on footnotes
-      
-      if (isValidSchemeName) {
-        currentSchemeName = potentialScheme;
-        console.log('[CAS Parser] Found potential scheme name:', currentSchemeName);
-      }
-    }
-    
-    // Extract ISIN - often on its own line with scheme name at the start
-    // Format: "Scheme Name (Advisor: ARN-...) ISIN: INF209K01PF4"
+    // Extract ISIN
     const isinMatch = line.match(/ISIN[:\s]+([A-Z]{2}[A-Z0-9]{10})/i);
     if (isinMatch) {
       currentISIN = isinMatch[1];
-      console.log('[CAS Parser] Found ISIN:', currentISIN);
       
-      // Extract scheme name from before ISIN on the same line
-      // This is the most reliable way to get scheme names in MFCentral format
-      const schemeFromISINLine = line.replace(/\s*ISIN[:\s]+[A-Z0-9]+.*$/i, '')
-                                      .replace(/\s*\(Advisor[:\s]+ARN[^\)]*\)/i, '')
-                                      .replace(/\s*\(Erstwhile[^\)]*\)/i, '')
-                                      .trim();
+      // Look back up to 3 lines for the scheme name if not found
+      if (!currentSchemeName || currentSchemeName.length < 10) {
+        for (let j = 1; j <= 3; j++) {
+          const prevLine = lines[i - j];
+          if (prevLine && !prevLine.includes('CAS') && !prevLine.includes('Statement') && 
+              prevLine.length > 10 && !prevLine.match(/^\d+$/)) {
+            currentSchemeName = prevLine + (currentSchemeName ? ' ' + currentSchemeName : '');
+            if (prevLine.includes('Closing Unit') || prevLine.includes('Valuation')) break;
+          }
+        }
+      }
       
-      if (schemeFromISINLine.length > 15 && 
-          (schemeFromISINLine.match(/Fund|Plan|FOF|ETF/i) || schemeFromISINLine.includes('-'))) {
-        currentSchemeName = schemeFromISINLine;
-        console.log('[CAS Parser] Extracted scheme from ISIN line:', currentSchemeName);
+      // Also check if scheme name is before ISIN on the same line
+      const schemeOnIsinLine = line.split(/ISIN/i)[0].trim();
+      if (schemeOnIsinLine.length > 15) {
+        currentSchemeName = schemeOnIsinLine;
       }
     }
     
-    // MFCentral MAIN PATTERN - "Closing Unit Balance: X.XXX    Nav as on DD-MMM-YYYY: INR Y.YY    Valuation on DD-Mmm-YYYY : INR Z,ZZZ.ZZ"
-    // This is the key line that contains the actual holding data
-    const mfCentralPattern = /Closing\s*Unit\s*Balance[:\s]+([0-9,]+(?:\.\d+)?)\s+(?:Nav\s*(?:as\s*on)?[:\s]+)?(?:\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{2,4})?[:\s]*(?:INR\s*)?([0-9,]+(?:\.\d+)?)\s+(?:Valuation\s*(?:on)?[:\s]+)?(?:\d{1,2}[-\/][A-Za-z]{3}[-\/]\d{2,4})?[:\s]*(?:INR\s*)?([0-9,]+(?:\.\d+)?)/i;
+    // MFCentral MAIN PATTERN
+    const mfCentralPattern = /Closing\s*Unit\s*Balance\s*[:\s]+\s*([0-9,]+(?:\.\d+)?)\s+.*Nav.*[:\s]+\s*(?:INR\s*)?([0-9,]+(?:\.\d+)?)\s+.*Valuation.*[:\s]+\s*(?:INR\s*)?([0-9,]+(?:\.\d+)?)/i;
     
-    let match = line.match(mfCentralPattern);
+    const match = line.match(mfCentralPattern);
     if (match) {
       const units = parseFloat(match[1].replace(/,/g, ''));
       const nav = parseFloat(match[2].replace(/,/g, ''));
       const valuation = parseFloat(match[3].replace(/,/g, ''));
       
-      console.log('[CAS Parser] MFCentral pattern matched! Units:', units, 'NAV:', nav, 'Valuation:', valuation);
-      
       if (units > 0 && valuation > 0) {
-        // Try to find scheme name from previous lines if not already captured
-        let schemeName = currentSchemeName;
-        if (!schemeName || schemeName.length < 10) {
-          // Look back up to 10 lines to find scheme name
-          for (let j = i - 1; j >= Math.max(0, i - 10); j--) {
-            const prevLine = lines[j];
-            // Must contain fund keywords and pass same validation as scheme name detection
-            if (prevLine.match(/Fund|Plan|FOF|ETF|Growth|IDCW/i) && 
-                !prevLine.includes('Mutual Fund$') &&
-                !prevLine.includes('Closing Unit') &&
-                !prevLine.includes('Opening Unit') &&
-                !prevLine.match(/^\d{1,2}[-\/][A-Z]{3}[-\/]\d{2,4}/i) &&  // No date prefix
-                !prevLine.match(/Scheme\s*Name\s*Change/i) &&  // No footnotes
-                !prevLine.match(/^(Transaction|Folio|Registrar|ISIN|Advisor)/i) &&
-                prevLine.length > 20) {
-              schemeName = prevLine.replace(/\s*\(Advisor[:\s]+ARN[^\)]*\)/i, '').trim();
-              break;
-            }
-          }
-        }
-        
-        if (!schemeName) schemeName = `Unknown Scheme (ISIN: ${currentISIN || 'N/A'})`;
+        const normalizedName = holdingNormalizationService.normalizeHoldingName(currentSchemeName);
         
         holdings.push({
           id: `cas-${Date.now()}-${holdings.length}`,
-          name: schemeName,
-          isin: currentISIN || undefined,
+          name: normalizedName || 'Unknown Fund',
+          isin: currentISIN,
           assetType: 'mutual_fund',
           quantity: units,
           currentNav: nav,
           currentValue: valuation,
           folioNumber: currentFolio,
-          broker: 'MFCentral/CAMS',
-          confidenceScore: 95
-        });
-        
-        console.log('[CAS Parser] Added holding:', schemeName, '- Value:', valuation);
-        
-        // Reset for next fund
-        currentSchemeName = '';
-        currentISIN = '';
-      }
-      continue;
-    }
-    
-    // Alternative MFCentral pattern - sometimes on separate lines or with different formatting
-    // "Closing Unit Balance: 2,214.675" on one line
-    const closingBalanceMatch = line.match(/Closing\s*Unit\s*Balance[:\s]+([0-9,]+(?:\.\d+)?)/i);
-    if (closingBalanceMatch) {
-      const units = parseFloat(closingBalanceMatch[1].replace(/,/g, ''));
-      
-      // Look for NAV and Valuation in the same line or next lines
-      let navValue = 0;
-      let valuation = 0;
-      
-      // Check rest of current line for Nav and Valuation
-      const navMatch = line.match(/Nav[:\s]+(?:INR\s*)?([0-9,]+(?:\.\d+)?)/i) || 
-                       line.match(/Nav\s*as\s*on[^:]*:[:\s]*(?:INR\s*)?([0-9,]+(?:\.\d+)?)/i);
-      const valuationMatch = line.match(/Valuation[^:]*:[:\s]*(?:INR\s*)?([0-9,]+(?:\.\d+)?)/i);
-      
-      if (navMatch) navValue = parseFloat(navMatch[1].replace(/,/g, ''));
-      if (valuationMatch) valuation = parseFloat(valuationMatch[1].replace(/,/g, ''));
-      
-      // If not found in current line, check next few lines
-      if (navValue === 0 || valuation === 0) {
-        for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
-          const nextLine = lines[j];
-          if (navValue === 0) {
-            const navNextMatch = nextLine.match(/Nav[:\s]+(?:INR\s*)?([0-9,]+(?:\.\d+)?)/i);
-            if (navNextMatch) navValue = parseFloat(navNextMatch[1].replace(/,/g, ''));
-          }
-          if (valuation === 0) {
-            const valNextMatch = nextLine.match(/Valuation[^:]*:[:\s]*(?:INR\s*)?([0-9,]+(?:\.\d+)?)/i);
-            if (valNextMatch) valuation = parseFloat(valNextMatch[1].replace(/,/g, ''));
-          }
-        }
-      }
-      
-      if (units > 0 && valuation > 0) {
-        let schemeName = currentSchemeName;
-        if (!schemeName || schemeName.length < 10) {
-          for (let j = i - 1; j >= Math.max(0, i - 10); j--) {
-            const prevLine = lines[j];
-            // Must contain fund keywords and pass same validation as scheme name detection
-            if (prevLine.match(/Fund|Plan|FOF|ETF|Growth|IDCW/i) && 
-                !prevLine.includes('Mutual Fund$') &&
-                !prevLine.includes('Closing Unit') &&
-                !prevLine.includes('Opening Unit') &&
-                !prevLine.match(/^\d{1,2}[-\/][A-Z]{3}[-\/]\d{2,4}/i) &&  // No date prefix
-                !prevLine.match(/Scheme\s*Name\s*Change/i) &&  // No footnotes
-                !prevLine.match(/^(Transaction|Folio|Registrar|ISIN|Advisor)/i) &&
-                prevLine.length > 20) {
-              schemeName = prevLine.replace(/\s*\(Advisor[:\s]+ARN[^\)]*\)/i, '').trim();
-              break;
-            }
-          }
-        }
-        
-        if (!schemeName) schemeName = `Unknown Scheme (ISIN: ${currentISIN || 'N/A'})`;
-        
-        holdings.push({
-          id: `cas-${Date.now()}-${holdings.length}`,
-          name: schemeName,
-          isin: currentISIN || undefined,
-          assetType: 'mutual_fund',
-          quantity: units,
-          currentNav: navValue,
-          currentValue: valuation,
-          folioNumber: currentFolio,
-          broker: 'MFCentral/CAMS',
+          broker: 'CAMS/KFintech/MFCentral',
           confidenceScore: 90
         });
         
-        console.log('[CAS Parser] Added holding (alt pattern):', schemeName, '- Value:', valuation);
-        
+        // Reset for next holding
         currentSchemeName = '';
         currentISIN = '';
       }
       continue;
     }
     
-    // Legacy patterns for other CAS formats
-    // Pattern 1: "Scheme Name | Units: X.XXX | NAV: ₹Y.YY | Value: ₹Z,ZZZ.ZZ"
-    const casPattern1 = /([A-Za-z0-9\s\-&()]+(?:Fund|Scheme|Plan|Growth|IDCW|Direct|Regular)[A-Za-z0-9\s\-&()]*)\s*[\|:]\s*Units?[:\s]+(\d+(?:\.\d+)?)\s*[\|:]\s*NAV[:\s]+₹?(\d+(?:,?\d+)*(?:\.\d+)?)\s*[\|:]\s*(?:Value|Market\s*Value)[:\s]+₹?(\d+(?:,?\d+)*(?:\.\d+)?)/i;
-    
-    match = line.match(casPattern1);
-    if (match) {
-      const [, name, units, nav, value] = match;
-      holdings.push({
-        id: `cas-${Date.now()}-${holdings.length}`,
-        name: name.trim(),
-        assetType: 'mutual_fund',
-        quantity: parseFloat(units),
-        currentNav: parseFloat(nav.replace(/,/g, '')),
-        currentValue: parseFloat(value.replace(/,/g, '')),
-        folioNumber: currentFolio,
-        broker: 'CAMS/KFintech',
-        confidenceScore: 90
-      });
-      continue;
-    }
-    
-    // Pattern 3: Table format with columns (common in CAS PDFs)
-    // IMPORTANT: Skip transaction lines that start with dates (e.g., "20-JUN-2025 Purchase SIP...")
-    // These are individual transactions, not holdings summaries
-    const isTransactionLine = line.match(/^\d{1,2}[-\/][A-Z]{3}[-\/]\d{2,4}/i) ||  // Date prefix
-                              line.includes('Purchase') || 
-                              line.includes('Redemption') ||
-                              line.includes('SIP') ||
-                              line.includes('Switch In') ||
-                              line.includes('Switch Out') ||
-                              line.includes('Dividend');
-    
-    if (!isTransactionLine) {
-      const casPattern3 = /^(.+?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:,\d+)*(?:\.\d+)?)\s*$/;
-      match = line.match(casPattern3);
-      if (match) {
-        const [, name, units, nav, value] = match;
-        const schemeName = name.trim();
-        if (/^(scheme|fund|name|units|nav|value|balance|date|transaction|folio)/i.test(schemeName)) continue;
-        if (parseFloat(units) > 0 && parseFloat(value.replace(/,/g, '')) > 0) {
-          holdings.push({
-            id: `cas-${Date.now()}-${holdings.length}`,
-            name: schemeName,
-            assetType: 'mutual_fund',
-            quantity: parseFloat(units),
-            currentNav: parseFloat(nav),
-            currentValue: parseFloat(value.replace(/,/g, '')),
-            folioNumber: currentFolio,
-            broker: 'CAMS/KFintech',
-            confidenceScore: 85
-          });
-        }
-        continue;
-      }
+    // Fallback for line-wrapped format
+    if (!currentSchemeName && line.length > 20 && !line.includes(':') && 
+        (line.includes('Fund') || line.includes('Scheme') || line.includes('Growth'))) {
+      currentSchemeName = line;
     }
   }
   
@@ -572,13 +398,6 @@ interface ColumnMapping {
   headerDetected: boolean;
 }
 
-/**
- * Detect column headers from CAS statement and return mapping
- * Supports various header formats:
- * - "Cost Value | Unit Balance | NAV | Market Value"
- * - "Invested | Units | NAV Date | NAV | Current Value"
- * - "Amount | Balance | Rate | Value"
- */
 function detectColumnHeaders(text: string): ColumnMapping {
   const defaultMapping: ColumnMapping = {
     costIndex: 0,
@@ -588,18 +407,6 @@ function detectColumnHeaders(text: string): ColumnMapping {
     headerDetected: false
   };
   
-  // Common header patterns (case-insensitive)
-  const headerPatterns = [
-    // Standard CAMS/KFintech format
-    /(?:folio|isin|scheme).*?(cost\s*(?:value)?|invested|amount).*?(unit\s*(?:balance)?|balance|units).*?(nav).*?(market\s*(?:value)?|current\s*(?:value)?|valuation)/i,
-    // Alternative ordering
-    /(?:folio|isin|scheme).*?(unit\s*(?:balance)?|balance|units).*?(cost\s*(?:value)?|invested|amount).*?(nav).*?(market\s*(?:value)?|current\s*(?:value)?|valuation)/i,
-    // Header row patterns
-    /(cost\s*value|invested\s*value|investment)[\s\|]+(unit\s*balance|units|balance)[\s\|]+(nav|net\s*asset\s*value)[\s\|]+(market\s*value|current\s*value|valuation)/i,
-    /(unit\s*balance|units|balance)[\s\|]+(cost\s*value|invested|investment)[\s\|]+(nav|net\s*asset\s*value)[\s\|]+(market\s*value|current\s*value|valuation)/i,
-  ];
-  
-  // Column header keywords for position detection
   const columnKeywords = {
     cost: ['cost', 'invested', 'investment', 'purchase', 'amount invested', 'acquisition'],
     units: ['unit', 'balance', 'quantity', 'holding', 'units held'],
@@ -607,26 +414,25 @@ function detectColumnHeaders(text: string): ColumnMapping {
     market: ['market', 'current', 'valuation', 'present value', 'value as on', 'closing value']
   };
   
-  // Split text into lines and look for header row
   const lines = text.split('\n');
   
   for (const line of lines) {
     const lowerLine = line.toLowerCase();
-    
-    // Check if this line looks like a header (contains multiple column keywords)
     let keywordMatches = 0;
     if (columnKeywords.cost.some(k => lowerLine.includes(k))) keywordMatches++;
     if (columnKeywords.units.some(k => lowerLine.includes(k))) keywordMatches++;
     if (columnKeywords.nav.some(k => lowerLine.includes(k))) keywordMatches++;
     if (columnKeywords.market.some(k => lowerLine.includes(k))) keywordMatches++;
     
-    // If we found at least 3 column keywords, this is likely a header row
+    // If we match 3 out of 4 column types, we've likely found the header
     if (keywordMatches >= 3) {
-      console.log('[Header Detection] Found potential header row:', line.substring(0, 100));
+      interface Position {
+        type: 'cost' | 'units' | 'nav' | 'market';
+        index: number;
+      }
+      const positions: Position[] = [];
       
-      // Find position of each column type
-      const positions: { type: string; index: number }[] = [];
-      
+      // Find the earliest position for each keyword type
       for (const keyword of columnKeywords.cost) {
         const idx = lowerLine.indexOf(keyword);
         if (idx >= 0) { positions.push({ type: 'cost', index: idx }); break; }
@@ -644,7 +450,7 @@ function detectColumnHeaders(text: string): ColumnMapping {
         if (idx >= 0) { positions.push({ type: 'market', index: idx }); break; }
       }
       
-      // Sort by position to get column order
+      // Sort positions to determine the relative order of columns
       positions.sort((a, b) => a.index - b.index);
       
       if (positions.length >= 3) {
@@ -656,65 +462,28 @@ function detectColumnHeaders(text: string): ColumnMapping {
           headerDetected: true
         };
         
-        // Handle missing columns
+        // Handle missing columns with defaults
         if (mapping.costIndex < 0) mapping.costIndex = 0;
         if (mapping.unitsIndex < 0) mapping.unitsIndex = 1;
         if (mapping.navIndex < 0) mapping.navIndex = 2;
         if (mapping.marketIndex < 0) mapping.marketIndex = 3;
-        
-        console.log('[Header Detection] Detected column order:', 
-          `Cost=${mapping.costIndex}, Units=${mapping.unitsIndex}, NAV=${mapping.navIndex}, Market=${mapping.marketIndex}`);
         
         return mapping;
       }
     }
   }
   
-  // Try regex patterns on full text
-  for (const pattern of headerPatterns) {
-    const match = text.match(pattern);
-    if (match) {
-      console.log('[Header Detection] Matched pattern:', match[0].substring(0, 80));
-      
-      // Determine order based on capture groups
-      const groups = match.slice(1).map(g => g.toLowerCase());
-      const mapping: ColumnMapping = {
-        costIndex: groups.findIndex(g => columnKeywords.cost.some(k => g.includes(k))),
-        unitsIndex: groups.findIndex(g => columnKeywords.units.some(k => g.includes(k))),
-        navIndex: groups.findIndex(g => columnKeywords.nav.some(k => g.includes(k))),
-        marketIndex: groups.findIndex(g => columnKeywords.market.some(k => g.includes(k))),
-        headerDetected: true
-      };
-      
-      // Fallback for undetected columns
-      if (mapping.costIndex < 0) mapping.costIndex = 0;
-      if (mapping.unitsIndex < 0) mapping.unitsIndex = 1;
-      if (mapping.navIndex < 0) mapping.navIndex = 2;
-      if (mapping.marketIndex < 0) mapping.marketIndex = 3;
-      
-      console.log('[Header Detection] Column order from pattern:', 
-        `Cost=${mapping.costIndex}, Units=${mapping.unitsIndex}, NAV=${mapping.navIndex}, Market=${mapping.marketIndex}`);
-      
-      return mapping;
-    }
-  }
-  
-  console.log('[Header Detection] No header detected, using default order');
   return defaultMapping;
 }
 
 /**
  * Extract transaction lots from CAS holding block text
- * Uses line-by-line parsing similar to cas-statement-service for robustness
- * Transaction line format: "DD-MMM-YYYY Transaction Type Amount Units NAV Running Balance"
- * Example: "18-Mar-2024 Purchase 499,975.00 31,610.576 15.8167 31,610.576"
+ * Uses robust multi-column pattern matching and balance reconciliation
  */
 function extractTransactionLots(holdingBlockText: string): TransactionLot[] {
   const lots: TransactionLot[] = [];
   const lines = holdingBlockText.split('\n');
-  console.log(`[TxnLots] Processing ${lines.length} lines from holding block`);
   
-  // Transaction keywords (aligned with cas-statement-service)
   const transactionKeywords = [
     'Purchase', 'Redemption', 'Switch In', 'Switch Out', 'Switch-In', 'Switch-Out',
     'Systematic Investment', 'SIP', 'Initial Purchase', 'NFO Purchase',
@@ -723,166 +492,109 @@ function extractTransactionLots(holdingBlockText: string): TransactionLot[] {
   ];
   const keywordPattern = new RegExp(`(${transactionKeywords.join('|')})`, 'i');
   
+  // Track rolling balance to improve parsing accuracy
+  let rollingBalance = 0;
+  
   for (const line of lines) {
     const trimmedLine = line.trim();
     
-    // Skip non-transaction lines
-    if (trimmedLine.includes('***') || trimmedLine.includes('Stamp Duty') || 
-        trimmedLine.includes('NAV on') || trimmedLine.includes('Market Value on') ||
-        trimmedLine.includes('Closing Unit') || trimmedLine.includes('Opening Unit')) {
-      continue;
-    }
-    
-    // Match date at start of line: DD-MMM-YYYY
+    // Look for date at the start (DD-Mon-YYYY)
     const dateMatch = trimmedLine.match(/^(\d{1,2}-[A-Za-z]{3}-\d{4})/);
     if (!dateMatch) continue;
     
-    const dateStr = dateMatch[1];
     const restOfLine = trimmedLine.substring(dateMatch[0].length).trim();
     
-    // Check if line contains a transaction keyword
+    // Check if it's a transaction line
     if (!keywordPattern.test(restOfLine)) continue;
     
-    // Extract all numbers from the rest of the line
+    // Extract all numbers
     const numberMatches = restOfLine.match(/[\d,]+\.?\d*/g) || [];
     const numbers = numberMatches
       .map(n => parseFloat(n.replace(/,/g, '')))
-      .filter(n => !isNaN(n) && n > 0);
+      .filter(n => !isNaN(n)); // Allow 0, but filter out NaN
     
-    if (numbers.length < 2) continue; // Need at least amount and one more number
+    if (numbers.length < 2) continue;
     
-    // CAS transaction format can be:
-    // 4 numbers: Amount, Units, NAV, RunningBalance (explicit units)
-    // 3 numbers: Amount, NAV, RunningBalance (units = amount/nav)
-    // We need to detect which format based on mathematical consistency
-    let amount = 0, units = 0, nav = 0, balance = 0;
-    
-    // CAS transaction formats:
-    // 4-num: Amount | Units | NAV | Balance  (Amount ≈ Units × NAV, NAV typically 5-500)
-    // 3-num: Amount | NAV | Balance          (Balance ≈ Amount/NAV, NAV typically 5-500)
-    
-    if (numbers.length >= 3) {
-      const n0 = numbers[0]; // Always Amount
-      const n1 = numbers[1]; // Could be Units (4-num) or NAV (3-num)
-      const n2 = numbers[2]; // Could be NAV (4-num) or Balance (3-num)
-      const n3 = numbers.length >= 4 ? numbers[3] : n2;
-      const has4Numbers = numbers.length >= 4;
-      
-      // Test 3-number format: Amount | NAV | Balance
-      // Key insight: Balance ≈ Amount/NAV (i.e., Balance = Units calculated)
-      const nav3 = n1;
-      const balance3 = n2;
-      const units3 = nav3 > 0 ? n0 / nav3 : 0;
-      const balanceMatchUnits3 = Math.abs(units3 - balance3) / Math.max(balance3, 1) < 0.01;
-      const navInRange3 = nav3 > 1 && nav3 < 500;
-      const valid3Num = navInRange3 && balanceMatchUnits3;
-      
-      // Test 4-number format: Amount | Units | NAV | Balance
-      // Key check: Amount ≈ Units × NAV
-      const units4 = n1;
-      const nav4 = n2;
-      const balance4 = n3;
-      const calculated4 = units4 * nav4;
-      const amountMatch4 = Math.abs(calculated4 - n0) / Math.max(n0, 1) < 0.02;
-      const navInRange4 = nav4 > 1 && nav4 < 500;
-      const valid4Num = amountMatch4 && navInRange4;
-      
-      // DISAMBIGUATION: When both formats pass, use tiebreakers
-      if (valid3Num && valid4Num && has4Numbers) {
-        // Tiebreaker 1: In 4-num format, 4th number (balance) is often ≈ 2nd number (units) for first transaction
-        // or the 4th number differs significantly from the 3rd number
-        const balanceEqualsUnits4 = Math.abs(n3 - n1) / Math.max(n1, 1) < 0.01;
-        const fourthDiffersThird = Math.abs(n3 - n2) / Math.max(n2, 1) > 0.1;
-        
-        // Tiebreaker 2: Compare which NAV looks more reasonable (lower NAV more common for MFs)
-        // nav3 = n1 (often smaller), nav4 = n2 (often larger like 119.xx)
-        // If nav4 > nav3, it's likely 4-number format (NAV is the larger middle number)
-        const nav4LargerThanNav3 = nav4 > nav3;
-        
-        console.log(`[TxnLots] AMBIGUOUS: numbers=[${n0.toFixed(2)},${n1.toFixed(3)},${n2.toFixed(4)},${n3.toFixed(3)}] bal=units4=${balanceEqualsUnits4} 4th≠3rd=${fourthDiffersThird} nav4>nav3=${nav4LargerThanNav3}`);
-        
-        if (balanceEqualsUnits4 || fourthDiffersThird || nav4LargerThanNav3) {
-          // Use 4-number format
-          amount = n0;
-          units = units4;
-          nav = nav4;
-          balance = balance4;
-        } else {
-          // Use 3-number format
-          amount = n0;
-          nav = nav3;
-          units = units3;
-          balance = balance3;
-        }
-      }
-      // Only 4-number format passes
-      else if (valid4Num) {
-        amount = n0;
-        units = units4;
-        nav = nav4;
-        balance = balance4;
-      }
-      // Only 3-number format passes
-      else if (valid3Num) {
-        amount = n0;
-        nav = nav3;
-        units = units3;
-        balance = balance3;
-      }
-      // Extended 4-number check: Allow higher NAV range (up to 5000 for some funds)
-      else if (amountMatch4 && nav4 > 1 && nav4 < 5000) {
-        amount = n0;
-        units = units4;
-        nav = nav4;
-        balance = balance4;
-      }
-      // Fallback: Assume 3-number if NAV looks reasonable
-      else if (nav3 > 1 && nav3 < 1000 && n0 > nav3) {
-        amount = n0;
-        nav = nav3;
-        units = units3;
-        balance = balance3;
-      }
-      // Final fallback: Use 4-number interpretation
-      else {
-        amount = n0;
-        units = units4;
-        nav = nav4;
-        balance = balance4;
-      }
-    } else if (numbers.length === 2) {
-      // 2-number format: Amount, NAV (units = amount/nav)
-      amount = numbers[0];
-      nav = numbers[1];
-      units = nav > 0 ? amount / nav : 0;
-      balance = units;
-    }
-    
-    // Classify transaction type
     const lowerLine = restOfLine.toLowerCase();
-    let transactionType: TransactionLot['transactionType'] = 'purchase';
-    let isCredit = true;
+    const isRedemption = lowerLine.includes('redemption') || 
+                         (lowerLine.includes('switch') && (lowerLine.includes('out') || lowerLine.includes('-out'))) ||
+                         lowerLine.includes('transfer out');
     
+    let amount = 0;
+    let units = 0;
+    let nav = 0;
+    let balance = 0;
+    
+    // Robust column detection based on number of extracted values
+    if (numbers.length >= 4) {
+      // Standard: [Amount, Units, NAV, Running Balance]
+      // Or: [Units, NAV, Amount, Running Balance]
+      // We validate using Units * NAV = Amount
+      
+      const n0 = numbers[0];
+      const n1 = numbers[1];
+      const n2 = numbers[2];
+      const n3 = numbers[3];
+      
+      // Try Pattern A: [Amount, Units, NAV, Balance]
+      const errA = Math.abs(n0 - (n1 * n2)) / Math.max(n0, 1);
+      // Try Pattern B: [Units, NAV, Amount, Balance]
+      const errB = Math.abs(n2 - (n0 * n1)) / Math.max(n2, 1);
+      
+      if (errA < 0.02) {
+        amount = n0; units = n1; nav = n2; balance = n3;
+      } else if (errB < 0.02) {
+        units = n0; nav = n1; amount = n2; balance = n3;
+      } else {
+        // Fallback to position-based if math fails (some statements have tax/fees subtracted)
+        amount = n0; units = n1; nav = n2; balance = n3;
+      }
+    } else if (numbers.length === 3) {
+      // Pattern: [Amount, Units, Balance] (NAV missing or wrapped)
+      amount = numbers[0];
+      units = numbers[1];
+      balance = numbers[2];
+      nav = units > 0 ? amount / units : 0;
+    } else if (numbers.length === 2) {
+      // Pattern: [Units, Balance] or [Amount, Units]
+      units = numbers[0];
+      balance = numbers[1];
+      // If balance is much larger than units, it might be [Amount, Units]
+      if (balance < units * 0.1) { // Balance shouldn't typically be 10x smaller than transaction units unless mostly redeemed
+         // Likely [Amount, Units]
+         amount = numbers[0];
+         units = numbers[1];
+         balance = rollingBalance + (isRedemption ? -units : units);
+      }
+    }
+
+    // Determine transaction type
+    let transactionType: TransactionLot['transactionType'] = 'purchase';
     if (lowerLine.includes('sip') || lowerLine.includes('systematic')) {
       transactionType = 'sip';
     } else if (lowerLine.includes('switch') && (lowerLine.includes('in') || lowerLine.includes('-in'))) {
       transactionType = 'switch_in';
-    } else if (lowerLine.includes('switch') && (lowerLine.includes('out') || lowerLine.includes('-out'))) {
-      transactionType = 'switch_out';
-      isCredit = false;
-    } else if (lowerLine.includes('redemption')) {
-      transactionType = 'redemption';
-      isCredit = false;
+    } else if (isRedemption) {
+      transactionType = lowerLine.includes('switch') ? 'switch_out' : 'redemption';
     } else if (lowerLine.includes('bonus')) {
       transactionType = 'bonus';
     } else if (lowerLine.includes('dividend') || lowerLine.includes('reinvestment')) {
       transactionType = 'dividend_reinvest';
     }
-    
-    // Only add purchase-type transactions for lot tracking
-    if (isCredit && units > 0) {
+
+    // Normalize signs: Units should be negative for redemptions
+    if (isRedemption) {
+      units = -Math.abs(units);
+      amount = -Math.abs(amount); // Amount is cash outflow
+    } else {
+      units = Math.abs(units);
+      amount = Math.abs(amount);
+    }
+
+    // Add to lots if we have units
+    if (units !== 0) {
       lots.push({
-        purchaseDate: dateStr,
+        purchaseDate: dateMatch[1],
         transactionType,
         amount,
         units,
@@ -890,22 +602,12 @@ function extractTransactionLots(holdingBlockText: string): TransactionLot[] {
         runningBalance: balance,
         description: trimmedLine.substring(0, 100)
       });
+      rollingBalance = balance;
     }
   }
-  
-  if (lots.length > 0) {
-    const totalAmount = lots.reduce((sum, l) => sum + l.amount, 0);
-    const totalUnits = lots.reduce((sum, l) => sum + l.units, 0);
-    console.log(`[TxnLots] Found ${lots.length} transaction lots, total invested: ₹${totalAmount.toLocaleString('en-IN')}, total units: ${totalUnits.toFixed(3)}`);
-    for (const lot of lots) {
-      console.log(`[TxnLots] ${lot.purchaseDate} ${lot.transactionType}: ₹${lot.amount.toFixed(2)} = ${lot.units.toFixed(3)} units @ NAV ${lot.navAtPurchase.toFixed(4)}`);
-    }
-  } else {
-    console.log(`[TxnLots] No transaction lots found`);
-  }
-  
   return lots;
 }
+
 
 /**
  * Parse CAMS/KFintech Holding Statement format (tabular with columns)
@@ -1255,21 +957,42 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
       // Extract transaction lots from the holding block
       const lots = extractTransactionLots(afterIsin);
       
-      // If we found transaction lots, calculate cost from sum of transactions
+      // If we found transaction lots, calculate cost from purchase transactions
       let finalCostValue = costValue;
       if (lots.length > 0) {
-        const lotsTotal = lots.reduce((sum, lot) => sum + lot.amount, 0);
-        console.log(`[CAMS Holding Parser] Found ${lots.length} transaction lots with total cost: ₹${lotsTotal.toLocaleString()}`);
-        // Use lots total if it's more accurate (within reasonable range of units)
-        if (lotsTotal > 0 && Math.abs(lotsTotal - costValue) > 100) {
-          console.log(`[CAMS Holding Parser] Using transaction-based cost: ₹${lotsTotal.toLocaleString()} instead of extracted cost: ₹${costValue.toLocaleString()}`);
-          finalCostValue = lotsTotal;
+        // IMPORTANT: For "Invested Value", we only sum CREDIT transactions (purchases)
+        // Redemptions are handled via FIFO lot consumption in the ledger service.
+        // However, for a quick "net cost" estimate, we can sum all.
+        // CAS "Cost Value" usually refers to the acquisition cost of remaining units.
+        const purchaseTotal = lots
+          .filter(l => l.units > 0)
+          .reduce((sum, lot) => sum + lot.amount, 0);
+        
+        const redemptionTotal = lots
+          .filter(l => l.units < 0)
+          .reduce((sum, lot) => sum + Math.abs(lot.amount), 0);
+          
+        console.log(`[CAMS Holding Parser] Found ${lots.length} transaction lots. Purchases: ₹${purchaseTotal.toLocaleString()}, Redemptions: ₹${redemptionTotal.toLocaleString()}`);
+        
+        // If we have purchase data, it's a better source for "Invested Value" than 
+        // the potentially stale or summary costValue from the header.
+        if (purchaseTotal > 0) {
+          // If there were no redemptions, purchaseTotal is the cost.
+          // If there were redemptions, the true cost depends on FIFO.
+          // For now, we'll use purchaseTotal as a baseline if costValue is 0.
+          if (finalCostValue === 0) {
+            finalCostValue = purchaseTotal;
+          }
         }
       }
+
+      
+      // Normalize scheme name and enrich data
+      const normalized = holdingNormalizationService.normalizeAndExtract(schemeName || isin);
       
       const holding: ImportedHolding = {
         id: `cas-holding-${Date.now()}-${holdings.length}`,
-        name: schemeName || `Mutual Fund (ISIN: ${isin})`,
+        name: normalized.normalizedName || schemeName || `Mutual Fund (ISIN: ${isin})`,
         isin: isin,
         assetType: 'mutual_fund',
         quantity: unitBalance,
@@ -1281,16 +1004,17 @@ function parseCAMSHoldingStatementFormat(text: string): ImportedHolding[] {
         unrealizedGainPercent: finalCostValue > 0 ? ((marketValue - finalCostValue) / finalCostValue) * 100 : 0,
         folioNumber: folioNumber,
         broker: registrar === 'KFINTECH' ? 'KFintech' : 'CAMS',
+        instrumentType: normalized.category,
         confidenceScore: 90,
         lots: lots.length > 0 ? lots : undefined
       };
       
       console.log('[CAMS Holding Parser] Added holding:', {
         isin,
-        name: schemeName,
+        name: holding.name,
         folio: folioNumber,
         units: unitBalance,
-        cost: costValue,
+        cost: finalCostValue,
         nav,
         marketValue,
         registrar
@@ -2623,7 +2347,7 @@ ${truncatedText}`;
 
   try {
     const response = await geminiAi.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-1.5-flash',
       config: {
         responseMimeType: 'application/json',
         responseSchema: {

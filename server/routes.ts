@@ -63,6 +63,7 @@ import { registerAgentAdvisoryPart1Routes } from "./routes/agent-advisory-1";
 import { registerAgentAdvisoryPart2Routes } from "./routes/agent-advisory-2";
 import { registerAgentAdvisoryPart3Routes } from "./routes/agent-advisory-3";
 import { registerAgentProspectAcquisitionPart1Routes } from "./routes/agent-prospect-acquisition-1";
+import testerDiagnosticsRoutes from "./routes/tester-diagnostics-routes";
 import { Router } from "express";
 
 
@@ -254,6 +255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerReportsInlineRoutes(app);
   app.use("/api/admin/mutual-funds", adminMutualFundsRouter);
   app.use("/api/live-mf", liveMFDataRouter);
+  app.use("/api/tester/diagnostics", testerDiagnosticsRoutes);
 
   // Profile Sharing Toggle
   app.patch("/api/user/profile/sharing", async (req, res) => {

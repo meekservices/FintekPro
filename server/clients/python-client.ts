@@ -19,6 +19,7 @@
  */
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import { errorTrackingService } from '../services/error-tracking-service';
 
 // ── Circuit breaker state ──────────────────────────────────────────────────
 const CIRCUIT_OPEN_THRESHOLD  = 3;            // consecutive failures before opening
@@ -42,6 +43,18 @@ function logPythonBodyErrorOnce(path: string, message: string): void {
   // Keep map bounded
   if (seenPythonErrors.size > 100) seenPythonErrors.clear();
   console.warn(`[PythonClient] POST ${path} → Python error: ${message}`);
+  
+  // Log to error tracker
+  errorTrackingService.ingestError({
+    source: 'PythonClient',
+    severity: 'medium',
+    errorCode: 'PYTHON_SERVICE_BODY_ERROR',
+    message: `Python service error at ${path}: ${message}`,
+    context: {
+      module: 'PythonClient',
+      metadata: { path, message }
+    }
+  }).catch(() => {});
 }
 
 // ── Health tracking state ──────────────────────────────────────────────────
@@ -86,6 +99,19 @@ function circuitIsOpen(): boolean {
 function recordFailure(status?: number): void {
   circuitFailures++;
   consecutiveFailures++;
+  
+  // Log each failure to error tracker
+  errorTrackingService.ingestError({
+    source: 'PythonClient',
+    severity: 'medium',
+    errorCode: 'PYTHON_SERVICE_CALL_FAILED',
+    message: `Python service call failed` + (status ? ` with status ${status}` : ''),
+    context: {
+      module: 'PythonClient',
+      metadata: { status, circuitFailures, consecutiveFailures }
+    }
+  }).catch(() => {});
+
   if (circuitFailures >= CIRCUIT_OPEN_THRESHOLD) {
     const wasOpen = circuitOpenUntil > 0;
     circuitOpenUntil = Date.now() + CIRCUIT_OPEN_DURATION_MS;

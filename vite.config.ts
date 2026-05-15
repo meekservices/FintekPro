@@ -31,7 +31,7 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
     reportCompressedSize: false,
-    chunkSizeWarningLimit: 2000,
+    chunkSizeWarningLimit: 2500,
     minify: "esbuild",
     cssMinify: "esbuild",
     target: "es2022",

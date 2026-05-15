@@ -2,6 +2,7 @@ import { db } from "../db";
 import { dailyPicks, aiPriceHistory } from "@shared/schema";
 import { eq, and, gte, desc, sql, inArray } from "drizzle-orm";
 import { aiAnalyticsEngine } from "./ai-analytics-engine";
+import { aiResponseCacheService } from "./ai-response-cache-service";
 
 export interface AssetCandidate {
   pickId: number;
@@ -16,6 +17,7 @@ export interface AssetCandidate {
   currentPrice: number;
   confidenceScore: number;
   regime?: string;
+  returnSeries?: number[]; // Added for optimization
 }
 
 export interface OptimizedWeight {
@@ -71,6 +73,14 @@ export interface OptimizationConfig {
 export class AIPortfolioOptimizer {
 
   async optimizeBasket(config?: OptimizationConfig): Promise<OptimizedBasket> {
+    return aiResponseCacheService.getOrCompute(
+      'portfolio_optimization',
+      { config },
+      async () => this.optimizeBasketInternal(config)
+    );
+  }
+
+  private async optimizeBasketInternal(config?: OptimizationConfig): Promise<OptimizedBasket> {
     const cfg: Required<OptimizationConfig> = {
       maxWeightPerAsset: config?.maxWeightPerAsset ?? 0.25,
       minWeightPerAsset: config?.minWeightPerAsset ?? 0.02,
@@ -145,10 +155,15 @@ export class AIPortfolioOptimizer {
       .sort((a, b) => b.sharpeRatio - a.sharpeRatio)
       .slice(0, cfg.targetPositions);
 
+    // Optimization: Reuse returnSeries fetched during metrics computation
     const returnSeriesArr: number[][] = [];
     for (const c of selected) {
-      const series = await this.fetchReturnSeries(c.assetId, c.assetClass);
-      returnSeriesArr.push(series);
+      if (c.returnSeries) {
+        returnSeriesArr.push(c.returnSeries);
+      } else {
+        const series = await this.fetchReturnSeries(c.assetId, c.assetClass);
+        returnSeriesArr.push(series);
+      }
     }
 
     const covMatrix = aiAnalyticsEngine.computeCovarianceMatrix(returnSeriesArr);
@@ -194,6 +209,10 @@ export class AIPortfolioOptimizer {
 
   async computeAssetMetrics(picks: any[]): Promise<AssetCandidate[]> {
     const candidates: AssetCandidate[] = [];
+    const assetIds = picks.map(p => p.instrumentId || p.symbol || `pick-${p.id}`);
+    
+    // Batch fetch return series for all picks to reduce DB roundtrips
+    const returnSeriesMap = await this.fetchReturnSeriesBatch(assetIds);
 
     for (const pick of picks) {
       try {
@@ -208,7 +227,7 @@ export class AIPortfolioOptimizer {
         const assetId = pick.instrumentId || pick.symbol || `pick-${pick.id}`;
         const assetClass = pick.category || 'listed_stocks';
 
-        const returnSeries = await this.fetchReturnSeries(assetId, assetClass);
+        const returnSeries = returnSeriesMap.get(assetId) || this.generateSyntheticReturns(90);
 
         let volatility = 0.20;
         if (returnSeries.length >= 5) {
@@ -238,6 +257,7 @@ export class AIPortfolioOptimizer {
           sharpeRatio,
           currentPrice,
           confidenceScore,
+          returnSeries // Save for reuse
         });
       } catch (err) {
         console.warn(`[PortfolioOptimizer] Failed to compute metrics for pick ${pick.id}:`, err);
@@ -245,6 +265,50 @@ export class AIPortfolioOptimizer {
     }
 
     return candidates;
+  }
+
+  private async fetchReturnSeriesBatch(assetIds: string[], days: number = 90): Promise<Map<string, number[]>> {
+    const results = new Map<string, number[]>();
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - days);
+      const cutoff = cutoffDate.toISOString().split('T')[0];
+
+      const allPriceData = await db
+        .select({ 
+          assetId: aiPriceHistory.assetId,
+          close: aiPriceHistory.close, 
+          priceDate: aiPriceHistory.priceDate 
+        })
+        .from(aiPriceHistory)
+        .where(
+          and(
+            inArray(aiPriceHistory.assetId, assetIds),
+            gte(aiPriceHistory.priceDate, cutoff)
+          )
+        )
+        .orderBy(aiPriceHistory.priceDate);
+
+      // Group by assetId
+      const groupedData = new Map<string, any[]>();
+      for (const data of allPriceData) {
+        if (!groupedData.has(data.assetId)) {
+          groupedData.set(data.assetId, []);
+        }
+        groupedData.get(data.assetId)!.push(data);
+      }
+
+      for (const assetId of assetIds) {
+        const priceData = groupedData.get(assetId) || [];
+        if (priceData.length >= 5) {
+          const prices = priceData.map(p => parseFloat(p.close));
+          results.set(assetId, aiAnalyticsEngine.pricesToReturns(prices));
+        }
+      }
+    } catch (err) {
+      console.warn(`[PortfolioOptimizer] Error fetching return series batch:`, err);
+    }
+    return results;
   }
 
   optimizeWeights(
