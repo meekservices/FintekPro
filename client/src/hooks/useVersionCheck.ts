@@ -123,7 +123,24 @@ export function useVersionCheck(): VersionCheckResult {
     return () => clearInterval(interval);
   }, [checkVersion]);
 
-  const isOutdated = !isDismissed && serverVersion !== null && serverVersion !== APP_VERSION;
+  // Only trigger if server version is newer than client version
+  const s = (serverVersion || "").split('.').map(Number);
+  const c = APP_VERSION.split('.').map(Number);
+  
+  let isNewer = false;
+  for (let i = 0; i < Math.max(s.length, c.length); i++) {
+    const sVal = s[i] || 0;
+    const cVal = c[i] || 0;
+    if (sVal > cVal) {
+      isNewer = true;
+      break;
+    }
+    if (sVal < cVal) {
+      break;
+    }
+  }
+  
+  const isOutdated = !isDismissed && serverVersion !== null && isNewer;
 
   return {
     isOutdated,
