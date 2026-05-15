@@ -1,7 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 
 async function testGemini() {
-  const apiKey = process.env.GEMINI_API_KEY || "AIzaSyByjUDDhPauYO15N0LlkFl-0k2zY53YZNQ";
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is required");
+  }
   console.log("Testing API Key:", apiKey.substring(0, 10) + "...");
   try {
     const ai = new GoogleGenAI({ apiKey });
