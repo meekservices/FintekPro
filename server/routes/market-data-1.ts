@@ -148,16 +148,49 @@ export function registerMarketDataPart1Routes(app: Express): void {
     try {
       const { symbol } = req.params;
 
+      // 1. Try Finnhub
       try {
-        const finnhubQuote = await finnhubService.getQuote(symbol.toUpperCase());
-        const data = finnhubService.transformQuoteToMarketData(symbol.toUpperCase(), finnhubQuote);
-        res.json(data);
-        return;
-      } catch {
-        console.log('Finnhub failed for', symbol, '- no fallback available');
+        if (process.env.FINNHUB_API_KEY) {
+          const finnhubQuote = await finnhubService.getQuote(symbol.toUpperCase());
+          const data = finnhubService.transformQuoteToMarketData(symbol.toUpperCase(), finnhubQuote);
+          res.json(data);
+          return;
+        }
+      } catch (err) {
+        console.log('Finnhub failed for', symbol, '- trying Yahoo fallback');
       }
 
-      res.status(503).json({ error: 'Market quote temporarily unavailable. Finnhub API key required.' });
+      // 2. Try Yahoo Finance Fallback
+      try {
+        const yahooResponse = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol.toUpperCase()}`);
+        const yahooData = (await yahooResponse.json()) as any;
+        const meta = yahooData.chart?.result?.[0]?.meta;
+        
+        if (meta) {
+          const price = meta.regularMarketPrice ?? 0;
+          const prevClose = meta.previousClose ?? 0;
+          res.json({
+            symbol: symbol.toUpperCase(),
+            price,
+            change: price - prevClose,
+            changePercent: prevClose ? ((price - prevClose) / prevClose) * 100 : 0,
+            high: meta.regularMarketDayHigh ?? 0,
+            low: meta.regularMarketDayLow ?? 0,
+            open: meta.regularMarketOpen ?? 0,
+            previousClose: prevClose,
+            source: 'yahoo-fallback',
+            lastUpdated: new Date().toISOString()
+          });
+          return;
+        }
+      } catch (err) {
+        console.log('Yahoo fallback failed for', symbol);
+      }
+
+      res.status(503).json({ 
+        error: 'Market quote temporarily unavailable.',
+        details: 'Finnhub API key missing and fallback services failed.'
+      });
     } catch (err: unknown) {
       console.error('Error fetching quote:', err);
       res.status(500).json({ error: 'Failed to fetch market quote' });
@@ -169,29 +202,58 @@ export function registerMarketDataPart1Routes(app: Express): void {
       const { symbol } = req.params;
       const { resolution = 'D', from, to } = req.query;
 
+      const fromTs = from
+        ? queryInt(from, 0)
+        : Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
+      const toTs = to
+        ? queryInt(to, 0)
+        : Math.floor(Date.now() / 1000);
+
+      // 1. Try Finnhub
       try {
-        const fromTs = from
-          ? queryInt(from, 0)
-          : Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
-        const toTs = to
-          ? queryInt(to, 0)
-          : Math.floor(Date.now() / 1000);
-
-        const finnhubCandles = await finnhubService.getCandles(
-          symbol.toUpperCase(),
-          queryStr(resolution, 'D'),
-          fromTs,
-          toTs
-        );
-
-        const data = finnhubService.transformCandlesToMarketCandles(finnhubCandles);
-        res.json(data);
-        return;
-      } catch {
-        console.log('Finnhub candles failed for', symbol, 'using fallback');
+        if (process.env.FINNHUB_API_KEY) {
+          const finnhubCandles = await finnhubService.getCandles(
+            symbol.toUpperCase(),
+            queryStr(resolution, 'D'),
+            fromTs,
+            toTs
+          );
+          const data = finnhubService.transformCandlesToMarketCandles(finnhubCandles);
+          res.json(data);
+          return;
+        }
+      } catch (err) {
+        console.log('Finnhub candles failed for', symbol, '- trying Yahoo fallback');
       }
 
-      res.status(503).json({ error: 'Market data temporarily unavailable. Finnhub API key required for candle data.' });
+      // 2. Try Yahoo Finance Fallback (simulated candles from chart endpoint)
+      try {
+        const interval = resolution === 'D' ? '1d' : '1h';
+        const yahooResponse = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol.toUpperCase()}?period1=${fromTs}&period2=${toTs}&interval=${interval}`);
+        const yahooData = (await yahooResponse.json()) as any;
+        const result = yahooData.chart?.result?.[0];
+        
+        if (result) {
+          res.json({
+            c: result.indicators.quote[0].close || [],
+            h: result.indicators.quote[0].high || [],
+            l: result.indicators.quote[0].low || [],
+            o: result.indicators.quote[0].open || [],
+            t: (result.timestamp || []).map((ts: number) => ts * 1000),
+            v: result.indicators.quote[0].volume || [],
+            s: 'ok',
+            source: 'yahoo-fallback'
+          });
+          return;
+        }
+      } catch (err) {
+        console.log('Yahoo candle fallback failed for', symbol);
+      }
+
+      res.status(503).json({ 
+        error: 'Market data temporarily unavailable.',
+        details: 'Finnhub API key missing and candle fallback failed.'
+      });
     } catch (err: unknown) {
       console.error('Error fetching candles:', err);
       res.status(500).json({ error: 'Failed to fetch market candles' });

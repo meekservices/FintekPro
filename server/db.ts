@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pkg from 'pg';
 const { Pool } = pkg;
-import * as schema from '@shared/schema';
+import * as schema from '../shared/schema.ts';
 import fs from 'fs';
 import path from 'path';
 
@@ -17,7 +17,7 @@ const instanceConnectionName = process.env.INSTANCE_CONNECTION_NAME || "fintekpr
 
 // Configuration defaults
 let user = 'postgres';
-let password = process.env.DB_PASSWORD || 'Kamini@321';
+let password = process.env.DB_PASSWORD || 'postgres';
 let database = 'fintekpro';
 let host = '127.0.0.1';
 let port = 5432;

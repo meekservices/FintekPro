@@ -1,16 +1,16 @@
 
-import { pickCategoryEnum, pickStatusEnum, leadProcessingModeEnum, leadStatusEnum, pddStatusEnum, payoutClaimStatusEnum, masterDsaClaimStatusEnum, commissionPlanStatusEnum, payoutModeEnum, passthroughRuleEnum } from './schema/enums';
+import { pickCategoryEnum, pickStatusEnum, leadProcessingModeEnum, leadStatusEnum, pddStatusEnum, payoutClaimStatusEnum, masterDsaClaimStatusEnum, commissionPlanStatusEnum, payoutModeEnum, passthroughRuleEnum } from './schema/enums.ts';
 
-export * from "./schema/enums";
-export * from "./schema/commissions";
-export * from "./schema/banking";
-export * from "./schema/crm";
+export * from "./schema/enums.ts";
+export * from "./schema/commissions.ts";
+export * from "./schema/banking.ts";
+export * from "./schema/crm.ts";
 import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, decimal, timestamp, jsonb, boolean, index, uniqueIndex, integer, date, bigint, numeric, pgEnum, serial, uuid, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { users, userBankAccounts, userProfiles, userDematAccounts, alpacaAccounts, alpacaOrders, alpacaPositions, alpacaTradeLogs, insertAlpacaAccountSchema, insertAlpacaOrderSchema, insertAlpacaPositionSchema, insertAlpacaTradeLogSchema } from './schema/users';
-import { bbpsTransactions, lrsTransactions } from './schema/banking';
+import { users, userBankAccounts, userProfiles, userDematAccounts, alpacaAccounts, alpacaOrders, alpacaPositions, alpacaTradeLogs, insertAlpacaAccountSchema, insertAlpacaOrderSchema, insertAlpacaPositionSchema, insertAlpacaTradeLogSchema } from './schema/users.ts';
+import { bbpsTransactions, lrsTransactions } from './schema/banking.ts';
 import {
   digilockerApps, insertDigilockerAppSchema, DigilockerApp, InsertDigilockerApp,
   digilockerSharedDocuments, insertDigilockerSharedDocumentSchema, DigilockerSharedDocument, InsertDigilockerSharedDocument,
@@ -64,7 +64,7 @@ import {
   userUccStatus, bondSuitabilityChecks, panConsents, fixedIncomeOrderPayments,
   fixedIncomeNotificationPrefs, lrsComplianceTracking, usConsents, rbiRetailDirectAccounts,
   bondCouponPayments, aaRawPayloads, sgbPrimaryIssues, entityComplianceScores,
-} from './schema/kyc';
+} from './schema/kyc.ts';
 import { 
   insertAgentAppointmentSchema, 
   agentPartnerMappings, 
@@ -88,7 +88,7 @@ import {
   certificationQuizzes,
   insertQuizAttemptSchema,
   insertCertificationQuizSchema
-} from './schema/agents';
+} from './schema/agents.ts';
 import { 
   insertAiFeatureSnapshotSchema, 
   aiUserProfiles, 
@@ -106,7 +106,7 @@ import {
   aiTransactionTracking, 
   aiFeatureSnapshots,
   aiTalkingPoints
-} from './schema/ai';
+} from './schema/ai.ts';
 import { 
   insertMfEnrichmentAuditLogSchema, 
   mutualFundAmcs, 
@@ -160,10 +160,10 @@ import {
   insertMutualFundSchema,
   MutualFund,
   InsertMutualFund
-} from './schema/mutual-funds';
-import { usBrokerAccounts } from './schema/orders';
-import { mcaCharges, mcaIngestionLogs, insertMcaDirectorsSchema, mcaDataSources, insertMcaWalletPaymentSchema, insertMcaDataSourcesSchema, mcaDirectors, mcaDirectPayments, insertMcaChargesSchema, insertMcaRiskScoresSchema, mcaWalletPayments, insertMcaDirectPaymentSchema, mcaRiskScores, insertMcaIngestionLogsSchema } from './schema/mca';
-import { partnerCommissions, partnerHierarchyAgreements, partners, partnerCommissionRules, partnerApplicationDocuments, partnerWallets, partnerReferrals, partnerApplications, partnerAuditLogs, partnerSettlements } from './schema/partners';
+} from './schema/mutual-funds.ts';
+import { usBrokerAccounts } from './schema/orders.ts';
+import { mcaCharges, mcaIngestionLogs, insertMcaDirectorsSchema, mcaDataSources, insertMcaWalletPaymentSchema, insertMcaDataSourcesSchema, mcaDirectors, mcaDirectPayments, insertMcaChargesSchema, insertMcaRiskScoresSchema, mcaWalletPayments, insertMcaDirectPaymentSchema, mcaRiskScores, insertMcaIngestionLogsSchema } from './schema/mca.ts';
+import { partnerCommissions, partnerHierarchyAgreements, partners, partnerCommissionRules, partnerApplicationDocuments, partnerWallets, partnerReferrals, partnerApplications, partnerAuditLogs, partnerSettlements } from './schema/partners.ts';
 import { 
   portfolioGeneratedReports, 
   predictionAccuracy, 
@@ -187,15 +187,14 @@ import {
   familyGroups, 
   insertPortfolioAlertSchema, 
   insertPortfolioPredictionSchema, 
-  insertPortfolioSnapshotSchema, 
-  insertPortfolioDiagnosticsSchema, 
+    insertPortfolioDiagnosticsSchema, 
   assetAllocation, 
   externalHoldings, 
   watchlists, 
   comprehensiveHoldings,
   PortfolioComparison,
   InsertPortfolioComparison
-} from './schema/portfolio';
+} from './schema/portfolio.ts';
 import { 
   reits, 
   insertReitSchema, 
@@ -211,7 +210,7 @@ import {
   InsertReitInvitHolding,
   ReitSectorEnum,
   InvitSectorEnum
-} from './schema/reit-invit';
+} from './schema/reit-invit.ts';
 import { 
   proposalVerdicts, 
   proposalEsignParticipants, 
@@ -259,7 +258,7 @@ import {
   ProspectProposalStatusEnum,
   ProspectStateEnum,
   ProspectReadinessStatusEnum
-} from './schema/proposals';
+} from './schema/proposals.ts';
 import { 
   investmentProposals, 
   investmentProposalItems, 
@@ -268,8 +267,8 @@ import {
   instrumentMaster,
   InstrumentAssetClassEnum,
   insertInstrumentMasterSchema
-} from './schema/proposals-base';
-import { familyGoals, familyMembers, familyPortfolioPermissions, familyDiscussions, familyBudgets, familyActivityLogs, familyGoalContributions } from './schema/family';
+} from './schema/proposals-base.ts';
+import { familyGoals, familyMembers, familyPortfolioPermissions, familyDiscussions, familyBudgets, familyActivityLogs, familyGoalContributions } from './schema/family.ts';
 import { 
     investorClassificationRules, 
     bondCalendarEvents, 
@@ -281,8 +280,8 @@ import {
     corporateBonds,
     fixedIncomeStatusLog,
     insertGovernmentSecuritySchema
-} from './schema/bonds';
-import { insuranceHoldings } from './schema/insurance';
+} from './schema/bonds.ts';
+import { insuranceHoldings } from './schema/insurance.ts';
 import { 
   clientAgentRelationships, 
   returnForecasts, 
@@ -305,8 +304,8 @@ import {
   InsertReportAccessLog,
   ClientStatement,
   InsertClientStatement
-} from './schema/clients';
-import { insertUnlistedRiskDisclosureAcknowledgmentSchema, companyFinancials, unlistedRiskDisclosureAcknowledgments, financialAuditLog, companyRatios, insertUnlistedCompanySchema, buyRequests, unlistedEscrowApprovals, unlistedCompanies, probe42SyncLog, sellListings, companyExternalMapping, unlistedDeals, insertUnlistedEscrowApprovalSchema } from './schema/unlisted';
+} from './schema/clients.ts';
+import { insertUnlistedRiskDisclosureAcknowledgmentSchema, companyFinancials, unlistedRiskDisclosureAcknowledgments, financialAuditLog, companyRatios, insertUnlistedCompanySchema, buyRequests, unlistedEscrowApprovals, unlistedCompanies, probe42SyncLog, sellListings, companyExternalMapping, unlistedDeals, insertUnlistedEscrowApprovalSchema } from './schema/unlisted.ts';
 import {
   loanProducts, 
   loanOffers, 
@@ -378,7 +377,7 @@ import {
   InsertLenderStaffHistory,
   InsertProviderProductCommissions,
   LoanComparison
-} from './schema/loans';
+} from './schema/loans.ts';
 import { 
   itrPrefilledForms, 
   taxSessions,
@@ -393,8 +392,8 @@ import {
   TaxDataSource,
   ValidationIssue,
   FilingRecord
-} from './schema/itr';
-import { leadActivityLog, insertLeadActivityLogSchema, LeadActivityLog, InsertLeadActivityLog } from './schema/crm';
+} from './schema/itr.ts';
+import { leadActivityLog, insertLeadActivityLogSchema, LeadActivityLog, InsertLeadActivityLog } from './schema/crm.ts';
 
 export { 
   products,
@@ -419,7 +418,7 @@ export {
   insertFundManagerSchema,
   insertMarketingCampaignSchema,
   insertCampaignRecipientSchema
-} from './schema/products';
+} from './schema/products.ts';
 
 import { 
   storeCategories, 
@@ -436,7 +435,7 @@ import {
   insertStoreProductTagSchema,
   insertStoreProductTagMappingSchema,
   insertUserWishlistSchema
-} from './schema/products';
+} from './schema/products.ts';
 
 export type {
   Product,
@@ -461,28 +460,28 @@ export type {
   InsertFundManager,
   InsertMarketingCampaign,
   InsertCampaignRecipient
-} from './schema/products';
-import { insertDocumentAuditEventSchema, insertDocumentCommentSchema, documentVersions, insertDocumentAiReviewSchema, insertDocumentOverrideSchema, insertDocumentSchema, documentRenewals, documentWorkflowTransitions, insertDocumentChecklistRunSchema, documents, insertDocumentRenewalSchema, insertDocumentChecklistItemSchema, documentSignatures, documentChecklistRuns, insertDocumentWorkflowTransitionSchema, documentChecklistItems, documentOverrides, insertDocumentSignatureSchema, documentTrackedChanges, documentAiReviews, insertDocumentTrackedChangeSchema, documentAuditEvents, documentClauses, documentComments, insertDocumentVersionSchema, insertDocumentClauseSchema } from './schema/documents';
-import { zohoCommerceWebhooks, zohoCustomers, zohoOrders, zohoCategories, zohoCommerceSyncLogs, zohoEntityMappings, zohoSyncLogs, zohoProducts, zohoConnections, zohoWebhookEvents } from './schema/zoho';
-import { userCart } from './schema/cart';
-import { goalInvestmentLinks, insertSuitabilityCheckSchema, sebiGoalRiskProfiles, goalMilestones, suitabilityChecks, financialGoals, goalProgressSnapshots } from './schema/advisory';
-import { marketData } from './schema/market-data';
+} from './schema/products.ts';
+import { insertDocumentAuditEventSchema, insertDocumentCommentSchema, documentVersions, insertDocumentAiReviewSchema, insertDocumentOverrideSchema, insertDocumentSchema, documentRenewals, documentWorkflowTransitions, insertDocumentChecklistRunSchema, documents, insertDocumentRenewalSchema, insertDocumentChecklistItemSchema, documentSignatures, documentChecklistRuns, insertDocumentWorkflowTransitionSchema, documentChecklistItems, documentOverrides, insertDocumentSignatureSchema, documentTrackedChanges, documentAiReviews, insertDocumentTrackedChangeSchema, documentAuditEvents, documentClauses, documentComments, insertDocumentVersionSchema, insertDocumentClauseSchema } from './schema/documents.ts';
+import { zohoCommerceWebhooks, zohoCustomers, zohoOrders, zohoCategories, zohoCommerceSyncLogs, zohoEntityMappings, zohoSyncLogs, zohoProducts, zohoConnections, zohoWebhookEvents } from './schema/zoho.ts';
+import { userCart } from './schema/cart.ts';
+import { goalInvestmentLinks, insertSuitabilityCheckSchema, sebiGoalRiskProfiles, goalMilestones, suitabilityChecks, financialGoals, goalProgressSnapshots } from './schema/advisory.ts';
+import { marketData } from './schema/market-data.ts';
 
 
 // Re-export role hierarchy system
-export * from "./roles";
-export * from "./schema/users";
-export * from "./schema/portfolio";
-export * from "./schema/kyc";
-export * from "./schema/mutual-funds";
-export * from "./schema/advisory";
-export * from "./schema/ib";
-export * from "./schema/orders";
-export * from "./schema/market-data";
-export * from "./schema/cart";
-export * from "./schema/reit-invit";
-export * from "./schema/mpal";
-export * from "./schema/alpaca-config";
+export * from "./roles.ts";
+export * from "./schema/users.ts";
+export * from "./schema/portfolio.ts";
+export * from "./schema/kyc.ts";
+export * from "./schema/mutual-funds.ts";
+export * from "./schema/advisory.ts";
+export * from "./schema/ib.ts";
+export * from "./schema/orders.ts";
+export * from "./schema/market-data.ts";
+export * from "./schema/cart.ts";
+export * from "./schema/reit-invit.ts";
+export * from "./schema/mpal.ts";
+export * from "./schema/alpaca-config.ts";
 
 // Session storage table
 export const sessions = pgTable(
@@ -820,7 +819,7 @@ export type InsertClientTask = z.infer<typeof insertClientTaskSchema>;
 export type ClientTask = typeof clientTasks.$inferSelect;
 
 // Product applications for tracking user applications
-export * from "./schema/proposals-base";
+export * from "./schema/proposals-base.ts";
 
 // Payment integration tracking for investment proposals
 // Financial Goals table for goal-based investment planning
@@ -9335,7 +9334,7 @@ export {
   insertAgentLoanStatusHistorySchema,
   bankInteractionEvents,
   insertBankInteractionEventSchema,
-} from './dsa-loan-schema';
+} from './dsa-loan-schema.ts';
 
 export type {
   DsaLoanApplication,
@@ -9382,7 +9381,7 @@ export type {
   InsertAgentLoanStatusHistory,
   BankInteractionEvent,
   InsertBankInteractionEvent,
-} from './dsa-loan-schema';
+} from './dsa-loan-schema.ts';
 
 // Picks Watchlist for agents to track favorite picks
 export const pickWatchlist = pgTable("pick_watchlist", {
@@ -11027,40 +11026,40 @@ export type RegulatoryAuditPack = typeof regulatoryAuditPacks.$inferSelect;
 export type InsertRegulatoryAuditPack = z.infer<typeof insertRegulatoryAuditPackSchema>;
 
 // Auto-added domain exports
-export * from "./schema/agents";
-export * from "./schema/clients";
-export * from "./schema/partners";
-export * from "./schema/zoho";
-export * from "./schema/proposals";
-export * from "./schema/ai";
-export * from "./schema/loans";
-export * from "./schema/insurance";
-export * from "./schema/itr";
-export * from "./schema/bonds";
-export * from "./schema/unlisted";
-export * from "./schema/screener";
-export * from "./schema/documents";
-export * from "./schema/mca";
-export * from "./schema/family";
-export * from "./schema/portfolio";
-export * from "./schema/users";
-export * from "./schema/products";
-export * from "./schema/commissions";
-export * from "./schema/orders";
-export * from "./schema/kyc";
-export * from "./schema/advisory";
-export * from "./schema/banking";
-export * from "./schema/treasury";
-export * from "./schema/market-data";
-export * from "./schema/mutual-funds";
-export * from "./schema/reit-invit";
-export * from "./schema/cart";
-export * from "./schema/crm";
-export * from "./schema/enums";
-export * from "./schema/ib";
-export * from "./schema/mpal";
-export * from "./schema/b2b";
-export * from "./schema/alpaca-config";
+export * from "./schema/agents.ts";
+export * from "./schema/clients.ts";
+export * from "./schema/partners.ts";
+export * from "./schema/zoho.ts";
+export * from "./schema/proposals.ts";
+export * from "./schema/ai.ts";
+export * from "./schema/loans.ts";
+export * from "./schema/insurance.ts";
+export * from "./schema/itr.ts";
+export * from "./schema/bonds.ts";
+export * from "./schema/unlisted.ts";
+export * from "./schema/screener.ts";
+export * from "./schema/documents.ts";
+export * from "./schema/mca.ts";
+export * from "./schema/family.ts";
+export * from "./schema/portfolio.ts";
+export * from "./schema/users.ts";
+export * from "./schema/products.ts";
+export * from "./schema/commissions.ts";
+export * from "./schema/orders.ts";
+export * from "./schema/kyc.ts";
+export * from "./schema/advisory.ts";
+export * from "./schema/banking.ts";
+export * from "./schema/treasury.ts";
+export * from "./schema/market-data.ts";
+export * from "./schema/mutual-funds.ts";
+export * from "./schema/reit-invit.ts";
+export * from "./schema/cart.ts";
+export * from "./schema/crm.ts";
+export * from "./schema/enums.ts";
+export * from "./schema/ib.ts";
+export * from "./schema/mpal.ts";
+export * from "./schema/b2b.ts";
+export * from "./schema/alpaca-config.ts";
 
 // Zod schemas for Admin items
 export const insertAdminSettingsSchema = createInsertSchema(adminSettings).omit({ id: true, updatedAt: true });

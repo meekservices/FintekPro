@@ -1,5 +1,6 @@
 
-const urlStr = 'postgresql://postgres:Kamini@321@/fintekpro';
+const rawPassword = process.env.POSTGRES_PASSWORD || 'postgres';
+const urlStr = `postgresql://postgres:${rawPassword}@localhost/fintekpro`;
 try {
   const url = new URL(urlStr);
   console.log('Username:', url.username);
@@ -9,7 +10,7 @@ try {
   console.error('Failed to parse URL:', e.message);
 }
 
-const urlStrEncoded = 'postgresql://postgres:Kamini%40321@/fintekpro';
+const urlStrEncoded = `postgresql://postgres:${encodeURIComponent(rawPassword)}@localhost/fintekpro`;
 try {
   const url = new URL(urlStrEncoded);
   console.log('Encoded - Username:', url.username);
