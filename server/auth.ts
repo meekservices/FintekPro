@@ -234,6 +234,14 @@ export function registerAuthRoutes(app: Express) {
             verified: false,
           });
 
+          // Bind OTP verification to the password-authenticated user. Mobile
+          // numbers are not guaranteed unique in historical/test data, so
+          // verify-otp must not resolve the session by mobile alone.
+          if (req.session) {
+            (req.session as any).pendingLoginUserId = user.id;
+            (req.session as any).pendingLoginOtpIdentifier = otpDestination;
+          }
+
           // Send OTP via appropriate channels following priority order:
           // user preference → admin global setting → default (email → whatsapp → sms)
           let otpDelivered = false;
@@ -448,12 +456,20 @@ export function registerAuthRoutes(app: Express) {
         return apiResponse.badRequest(res, "Invalid or expired OTP");
       }
 
-      // OTP is valid - find user and complete login
+      // OTP is valid - find user and complete login. Prefer the user that was
+      // authenticated during the password step; fall back to identifier lookup
+      // for passwordless/legacy OTP flows.
       console.log(`[VERIFY_OTP] OTP valid. Resolving user...`);
-      let user;
-      if (resolvedOtpType === "email") {
+      let user: UserType | undefined;
+      const pendingLoginUserId = (req.session as any)?.pendingLoginUserId;
+      if (pendingLoginUserId) {
+        user = await storage.getUser(pendingLoginUserId);
+        console.log(`[VERIFY_OTP] Resolved pending login user: ${pendingLoginUserId}`);
+      }
+
+      if (!user && resolvedOtpType === "email") {
         user = await storage.getUserByEmail(resolvedIdentifier);
-      } else {
+      } else if (!user) {
         user = await storage.getUserByMobile(resolvedIdentifier);
       }
 
@@ -496,7 +512,11 @@ export function registerAuthRoutes(app: Express) {
       }
 
       // Check if both are verified before completing login
-      const isTester = updatedUser.userId?.toLowerCase().startsWith('tester_') || updatedUser.email?.startsWith('test_');
+      const isTester =
+        updatedUser.userId?.toLowerCase().startsWith('tester_') ||
+        updatedUser.email?.startsWith('test_') ||
+        updatedUser.email === 'test@fintekpro.com' ||
+        (Array.isArray(updatedUser.roles) && updatedUser.roles.includes("tester"));
       const bothVerified = updatedUser.isEmailVerified && updatedUser.isMobileVerified;
       
       if (!bothVerified && !isTester) {
@@ -519,6 +539,8 @@ export function registerAuthRoutes(app: Express) {
         console.log(`[VERIFY_OTP] Session created. Stamping portal type...`);
         const targetPortal = (req.session as any).targetPortal || req.subdomain;
         stampSessionPortal(req, targetPortal);
+        delete (req.session as any).pendingLoginUserId;
+        delete (req.session as any).pendingLoginOtpIdentifier;
         
         // Explicitly save session to ensure it persists
         req.session.save((saveErr) => {
@@ -803,6 +825,7 @@ export function registerAuthRoutes(app: Express) {
       firstName: req.user.firstName,
       middleName: req.user.middleName,
       lastName: req.user.lastName,
+      roles: req.user.roles,
       isEmailVerified: req.user.isEmailVerified,
       isMobileVerified: req.user.isMobileVerified,
       isPinSet: req.user.isPinSet,
