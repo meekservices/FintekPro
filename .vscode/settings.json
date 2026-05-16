@@ -2,6 +2,7 @@
   // ─── TypeScript ───────────────────────────────────────────────────────────
   "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.tsserver.maxTsServerMemory": 8192,
 
   // ─── Matt Pocock 'ts-error-translator' (mattpocock.ts-error-translator) ─────
   // This extension shows TypeScript tips with diagnostic codes like
@@ -27,6 +28,32 @@
   "python.analysis.extraPaths": [
     "${workspaceFolder}/services/python"
   ],
+
+  // ─── Tailwind CSS IntelliSense ────────────────────────────────────────────
+  "tailwindCSS.experimental.configFile": "./tailwind.config.ts",
+  "tailwindCSS.includeLanguages": {
+    "typescript": "javascript",
+    "typescriptreact": "javascript",
+    "javascript": "javascript",
+    "javascriptreact": "javascript"
+  },
+  "tailwindCSS.classAttributes": [
+    "class",
+    "className",
+    "ngClass",
+    "class:list",
+    ".*ClassName",
+    ".*Classes"
+  ],
+  "tailwindCSS.experimental.classRegex": [
+    ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+    ["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
+  ],
+
+  // ─── Docker ───────────────────────────────────────────────────────────────
+  // Keep Compose validation quiet in this workspace; the project uses plain
+  // docker compose files plus Cloud Run deployment scripts.
+  "docker.extension.enableComposeLanguageServer": false,
 
   // ─── File exclusions ──────────────────────────────────────────────────────
   "files.watcherExclude": {

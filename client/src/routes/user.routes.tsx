@@ -1,28 +1,10 @@
-import { Switch, Route, useLocation, Redirect } from "wouter";
-import { Suspense, useEffect } from "react";
-import { lazyWithRetry } from "./lib/lazy-with-retry";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { GDPRConsent } from "@/components/gdpr-consent";
-import { ThemeProvider } from "@/contexts/theme-context";
-import { PortalThemeProvider } from "@/components/portal/PortalThemeProvider";
-import { LowDataProvider } from "@/contexts/LowDataContext";
-import { UnifiedCartProvider } from "@/contexts/UnifiedCartContext";
-import { UserPreferencesProvider } from "@/hooks/use-user-preferences";
-import { NetworkProvider } from "@/hooks/use-network-state";
-import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
-import { UpdateNotificationBanner } from "@/components/UpdateNotificationBanner";
-import { VersionCheckModal } from "@/components/VersionCheckModal";
-import { DSCBackgroundSync } from "@/components/DSCBackgroundSync";
-import { GlobalActionQueueMonitor } from "@/components/GlobalActionQueueMonitor";
+import { Suspense } from "react";
+import { Route, Switch } from "wouter";
 import { LoadingState } from "@/components/LoadingState";
-import { AdminRoutes } from "@/routes/admin.routes";
-import { AgentRoutes } from "@/routes/agent.routes";
-import { PartnerRoutes } from "@/routes/partner.routes";
-import { UserProtectedRoutes } from "@/routes/user.routes";
+import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
+import { lazyWithRetry } from "@/lib/lazy-with-retry";
+import NotFound from "@/pages/not-found";
+
 const Home = lazyWithRetry(() => import("@/pages/home"));
 const Portfolio = lazyWithRetry(() => import("@/pages/portfolio"));
 const Markets = lazyWithRetry(() => import("@/pages/markets"));
@@ -39,8 +21,6 @@ const CamsServices = lazyWithRetry(() => import("@/pages/cams-services"));
 const KfintechServices = lazyWithRetry(() => import("@/pages/kfintech-services"));
 const AgriculturalInsights = lazyWithRetry(() => import("@/pages/agricultural-insights"));
 const FinancialCalculators = lazyWithRetry(() => import("@/pages/financial-calculators"));
-import NotFound from "@/pages/not-found";
-import AuthPage from "@/pages/auth-page";
 const AdminPanel = lazyWithRetry(() => import("@/pages/admin"));
 const TesterDiagnostics = lazyWithRetry(() => import("@/pages/tester-diagnostics"));
 const PartnerPortal = lazyWithRetry(() => import("@/pages/partner-portal"));
@@ -81,16 +61,6 @@ const Cibil = lazyWithRetry(() => import("@/pages/cibil"));
 const Contact = lazyWithRetry(() => import("@/pages/contact"));
 const SupplierManagement = lazyWithRetry(() => import("@/pages/supplier-management").then(m => ({ default: m.SupplierManagement })));
 const Profile = lazyWithRetry(() => import("@/pages/profile"));
-import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
-import { AppLayout } from "@/components/layout/app-layout";
-import { AdminLayout } from "@/components/layout/admin-layout";
-import { AgentLayout } from "@/components/layout/agent-layout";
-import { PartnerLayout } from "@/components/layout/partner-layout";
-import { LayoutResolver } from "@/components/layout/LayoutResolver";
-import { useSubdomain } from "@/hooks/useSubdomain";
-import { useAuth } from "@/hooks/useAuth";
-import { IdleTimeoutManager } from "@/components/IdleTimeoutManager";
-import { UniversalKYCWall } from "@/components/UniversalKYCWall";
 const AdminDashboard = lazyWithRetry(() => import("@/pages/admin/dashboard"));
 const GoldenPricingDashboard = lazyWithRetry(() => import("@/pages/admin/golden-pricing-dashboard"));
 const SystemHealthMonitor = lazyWithRetry(() => import("@/pages/admin/system-health"));
@@ -114,7 +84,6 @@ const KycV2ManagementPage = lazyWithRetry(() => import("@/pages/admin/kyc-v2-man
 const FinancialOperationsPage = lazyWithRetry(() => import("@/pages/admin/financial-operations"));
 const APIConfiguration = lazyWithRetry(() => import("@/pages/admin/api-configuration"));
 const ProductionReadiness = lazyWithRetry(() => import("@/pages/admin/production-readiness"));
-
 const ActivityCentre = lazyWithRetry(() => import("@/pages/admin/activity-centre"));
 const CkycDeferredDashboard = lazyWithRetry(() => import("@/pages/admin/ckyc-deferred-dashboard"));
 const ZohoDashboardPage = lazyWithRetry(() => import("@/pages/admin/zoho-dashboard"));
@@ -405,134 +374,240 @@ const AgentMarketAlerts = lazyWithRetry(() => import("@/pages/agent-market-alert
 const PublicProfilePage = lazyWithRetry(() => import("@/pages/PublicProfilePage"));
 const AgentTracker = lazyWithRetry(() => import("@/pages/agent-tracker"));
 const AlpacaMarketExplorer = lazyWithRetry(() => import("@/pages/alpaca-market-explorer"));
-
-
 const TreasuryDashboard = lazyWithRetry(() => import("@/pages/treasury-dashboard"));
 
-function IdleTimeoutWrapper() {
-  const { user } = useAuth();
-  return <IdleTimeoutManager isAuthenticated={!!user} timeoutMinutes={60} />;
-}
-
-function Router() {
-  const { isAdminPortal, isPartnerPortal, isAgentPortal } = useSubdomain();
-
-  // Render admin portal on admin subdomain
-  if (isAdminPortal) {
-    return (<Suspense fallback={<LoadingState />}><IdleTimeoutWrapper /><AdminRoutes /></Suspense>);
-  }
-
-  // Render partner portal on partner subdomain
-  if (isPartnerPortal) {
-    return (<Suspense fallback={<LoadingState />}><IdleTimeoutWrapper /><PartnerRoutes /></Suspense>);
-  }
-
-  // Render agent portal on agent subdomain
-  if (isAgentPortal) {
-    return (<Suspense fallback={<LoadingState />}><IdleTimeoutWrapper /><AgentRoutes /></Suspense>);
-  }
-
-  // Render client portal on main domain
+export function UserProtectedRoutes() {
   return (
-    <Suspense fallback={<LoadingState />}>
-    <LayoutResolver>
-      <IdleTimeoutWrapper />
+    <ProfileCompletionGuard>
       <Switch>
-        {/* Public routes - no authentication or profile completion required */}
-        <Route path="/auth" component={AuthPage} />
-        <Route path="/excel-addin" component={ExcelAddin} />
-        <Route path="/profile" component={Profile} />
-        <Route path="/profile/p/:code" component={PublicProfilePage} />
-        <Route path="/proposal/:shareToken" component={PublicProposalPage} />
-        <Route path="/onboarding" component={OnboardingPage} />
-        <Route path="/ca-registration" component={CARegistration} />
-        <Route path="/manual-kyc" component={ManualKYCPage} />
-        <Route path="/kyc-dashboard">
-          <Redirect to="/profile?tab=kyc-dashboard" />
-        </Route>
-        <Route path="/kyc/complete">
-          <Redirect to="/profile?tab=kyc-dashboard" />
-        </Route>
-        <Route path="/product-eligibility" component={KYCProductEligibility} />
-        <Route path="/video-kyc" component={VideoKYC} />
-        <Route path="/kyc-rejections" component={KycRejectionRekyc} />
-        <Route path="/net-worth" component={NetWorthPage} />
-        <Route path="/pricing" component={PricingPage} />
-        <Route path="/privacy" component={Privacy} />
-        <Route path="/terms" component={Terms} />
-        <Route path="/refund-policy" component={RefundPolicy} />
-        <Route path="/disclaimer" component={InvestmentDisclaimer} />
-        
-        {/* Agent/Admin routes - bypass profile completion but require authentication */}
-        <Route path="/tester-diagnostics" component={TesterDiagnostics} />
-        <Route path="/admin/proposals" component={AdminProposalsPage} />
-        <Route path="/admin/unlisted/companies">
+        <Route path="/" component={Home} />
+        <Route path="/dashboard" component={Home} />
+        <Route path="/treasury-dashboard" component={TreasuryDashboard} />
+        <Route path="/portfolio" component={Portfolio} />
+
+        <Route path="/portfolio/holdings" component={PortfolioHoldings} />
+        <Route path="/portfolio/goals" component={PortfolioGoals} />
+        <Route path="/portfolio/retirement" component={PortfolioRetirement} />
+        <Route path="/portfolio/ai-insights" component={PortfolioAIInsights} />
+        <Route path="/portfolio/rebalancing" component={PortfolioRebalancing} />
+        <Route path="/portfolio/import" component={PortfolioImport} />
+        <Route path="/portfolio-stress-test" component={PortfolioStressTest} />
+        <Route path="/dividend-calendar" component={DividendCalendar} />
+        <Route path="/tax-loss-harvesting" component={TaxLossHarvesting} />
+        <Route path="/tax-regime-comparison" component={TaxRegimeComparison} />
+        <Route path="/agent-field-view" component={AgentFieldView} />
+        <Route path="/agent-performance" component={AgentPerformance} />
+        <Route path="/agent/external-portfolios" component={AgentExternalPortfolios} />
+        <Route path="/notification-preferences" component={NotificationPreferences} />
+        <Route path="/ai-portfolio-report" component={AIPortfolioReport} />
+        <Route path="/risk-profiling" component={RiskProfilingPage} />
+        <Route path="/analytics" component={PredictiveAnalytics} />
+        <Route path="/comprehensive-portfolio">
           {() => (
-            <AdminLayout>
-              <UnlistedCompaniesAdmin />
-            </AdminLayout>
+            <Suspense fallback={<LoadingState variant="portfolio" />}>
+              <ComprehensivePortfolio />
+            </Suspense>
           )}
         </Route>
-        <Route path="/admin/unlisted/negotiations">
+        <Route path="/broking" component={BrokingPage} />
+        <Route path="/markets" component={Markets} />
+        <Route path="/ipo" component={IPO} />
+        <Route path="/pre-ipo" component={PreIPO} />
+        <Route path="/mutual-funds" component={MutualFunds} />
+        <Route path="/fund-comparison" component={FundComparison} />
+        <Route path="/portfolio-comparison" component={PortfolioComparison} />
+        <Route path="/unlisted" component={Unlisted} />
+        <Route path="/unlisted/browse" component={BrowseUnlisted} />
+        <Route path="/unlisted/company/:id" component={CompanyDetails} />
+        <Route path="/unlisted/sell" component={CreateSellListing} />
+        <Route path="/unlisted/buy" component={CreateBuyRequest} />
+        <Route path="/unlisted/my-orders" component={MyOrders} />
+        <Route path="/unlisted/cart" component={UnlistedCartPage} />
+        <Route path="/bonds" component={Bonds} />
+        <Route path="/bonds/category/:category" component={BondCategoryPage} />
+        <Route path="/bonds/detail/:isin" component={BondDetailPage} />
+        <Route path="/fixed-income" component={FixedIncomeMarketplace} />
+        <Route path="/mlds" component={MLDs} />
+        <Route path="/insurance" component={Insurance} />
+        <Route path="/banking-products" component={BankingProducts} />
+        <Route path="/loans" component={Loans} />
+        <Route path="/nsdl-services" component={NSDLServices} />
+        <Route path="/cdsl-services" component={CDSLServices} />
+        <Route path="/cams-services" component={CamsServices} />
+        <Route path="/kfintech-services" component={KfintechServices} />
+        <Route path="/agricultural-insights" component={AgriculturalInsights} />
+        <Route path="/calculators" component={FinancialCalculators} />
+        <Route path="/partner-portal">
           {() => (
-            <AdminLayout>
-              <UnlistedNegotiations />
-            </AdminLayout>
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <DistributionPartnerPortal />
+            </Suspense>
           )}
         </Route>
-        <Route path="/admin" component={AdminPanel} />
-        <Route path="/agent" component={AgentDashboard} />
-        
-        <Route path="/p/:code" component={PublicProfilePage} />
-        {/* User routes - require both authentication and profile completion */}
-        <Route component={UserProtectedRoutes} />
+        <Route path="/partner">
+          {() => (
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <PartnerPortal />
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/partner/ca-dashboard" component={CADashboard} />
+        <Route path="/partner/agents" component={PartnerAgentDashboard} />
+        <Route path="/partner/agent-performance" component={PartnerAgentDashboard} />
+        <Route path="/partner/my-team" component={PartnerTeamManagement} />
+        <Route path="/partner/payouts">
+          {() => (
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <AgentPayoutClaims />
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/partner/ca-management" component={PartnerCAManagement} />
+        <Route path="/partner/ca-support" component={CASupportDashboard} />
+        <Route path="/partner/ca-support/:id" component={CASupportDetail} />
+        <Route path="/support" component={Support} />
+        <Route path="/wealth" component={InvestSmart} />
+        <Route path="/investsmart" component={InvestSmart} />
+        <Route path="/wealth-management" component={InvestSmart} />
+        <Route path="/proposals" component={ProposalsPage} />
+        <Route path="/my-proposals" component={MyProposalsPage} />
+        <Route path="/documents" component={DocumentsPage} />
+        <Route path="/smart-proposals" component={ClientSmartProposals} />
+        <Route path="/discover" component={FreshInvestmentDiscovery} />
+        <Route path="/achievements" component={Achievements} />
+        <Route path="/capital-gains" component={CapitalGainsReports} />
+        <Route path="/reports" component={ReportsHub} />
+        <Route path="/reports/tracker-portfolio" component={TrackerPortfolioReport} />
+        <Route path="/my-tasks" component={ClientTasks} />
+        <Route path="/ai-recommendations" component={ClientAIRecommendations} />
+        <Route path="/my-reports" component={ClientReports} />
+        <Route path="/transaction-reports" component={TransactionReports} />
+        {/* Unified Tax & Compliance Module */}
+        <Route path="/tax/itr" component={TaxITRPage} />
+        <Route path="/tax/itr/self" component={TaxITRSelfPage} />
+        <Route path="/tax/itr/expert" component={TaxITRExpertPage} />
+        <Route path="/tax/itr/preview/:draftId" component={TaxITRPreviewPage} />
+        <Route path="/tax/itr/payment/:draftId" component={TaxITRPaymentPage} />
+        <Route path="/tax/itr/verify/:draftId" component={TaxITRVerifyPage} />
+        <Route path="/tax/itr/:mode" component={TaxITRPage} />
+        <Route path="/tax/15ca-cb" component={TaxComplianceForm15Page} />
+        <Route path="/tax/notices" component={TaxNoticesPage} />
+        <Route path="/tax/documents" component={TaxDocumentVaultPage} />
+        <Route path="/tax/ca-desk" component={TaxCADeskPage} />
+        {/* Unified Tax Services - Primary Route */}
+        <Route path="/tax-hub" component={IntelligentTaxHub} />
+        <Route path="/tax" component={TaxSmartFiling} />
+        <Route path="/one-click-tax-filing" component={OneClickTaxFiling} />
+        <Route path="/tax-reminder-subscription" component={TaxReminderSubscription} />
+        {/* Legacy Tax Routes - Maintained for existing users */}
+        <Route path="/tax-data-center" component={TaxDataCenter} />
+        <Route path="/tax-documents" component={TaxDocuments} />
+        <Route path="/itr-prefilled">
+          {() => {
+            // Smart redirect to unified tax filing with pre-filled flag
+            window.location.href = "/tax?mode=prefilled";
+            return null;
+          }}
+        </Route>
+        {/* Unified Property Services Hub */}
+        <Route path="/property" component={PropertyServices} />
+        <Route path="/loan-comparison" component={LoanComparison} />
+        <Route path="/loan-recommendations" component={LoanRecommendations} />
+        <Route path="/partner-application/:lender">
+          {() => (
+            <Suspense fallback={<LoadingState variant="partner-dashboard" />}>
+              <PartnerApplication />
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/investment-dashboard" component={InvestmentDashboard} />
+        <Route path="/ib-trading" component={IBTradingPage} />
+        <Route path="/store" component={StorePage} />
+        <Route path="/store/pms" component={PMS} />
+        <Route path="/store/aif" component={AIF} />
+        <Route path="/store/mld" component={MldStore} />
+        <Route path="/chat" component={AIChat} />
+        <Route path="/alerts" component={AlertsPage} />
+        <Route path="/gift-city" component={GiftCity} />
+        <Route path="/nri-services" component={NRIServices} />
+        <Route path="/itr-tax-services" component={ITRTaxServices} />
+        <Route path="/tds-compliance" component={TDSCompliance} />
+        <Route path="/tax-compliance/form15" component={TaxComplianceForm15Page} />
+        <Route path="/domestic-trading" component={DomesticTrading} />
+        <Route path="/global-trading" component={GlobalTrading} />
+        <Route path="/global-advisory" component={GlobalAdvisoryPage} />
+        <Route path="/us-trading" component={AlpacaClientHub} />
+        <Route path="/us-trading/hub" component={AlpacaClientHub} />
+        <Route path="/us-trading/classic" component={USTrading} />
+        <Route path="/us-trading/open-account" component={OpenAccountPage} />
+        <Route path="/cart" component={Cart} />
+        <Route path="/unified-cart" component={UnifiedCart} />
+        <Route path="/investment-cart" component={UnifiedCart} />
+        <Route path="/orders" component={Orders} />
+        <Route path="/api-monitor" component={ApiMonitorDemo} />
+        <Route path="/icici-loans" component={ICICILoans} />
+        <Route path="/hdfc-loans" component={HDFCLoans} />
+        <Route path="/client-auto-populate" component={ClientAutoPopulate} />
+        <Route path="/aif" component={AIF} />
+        <Route path="/aif/:id" component={AIFDetail} />
+        <Route path="/pms" component={PMS} />
+        <Route path="/pms/:id" component={PMSDetail} />
+        <Route path="/alternative-investments" component={AlternativeInvestments} />
+        <Route path="/reit-invit" component={ReitInvitPage} />
+        <Route path="/mld" component={MldStore} />
+        <Route path="/mld/:id" component={MldDetail} />
+        <Route path="/bajaj-finance" component={BajajFinance} />
+        <Route path="/tata-capital" component={TataCapital} />
+        <Route path="/policybazaar" component={PolicyBazaar} />
+        <Route path="/cibil" component={Cibil} />
+        <Route path="/contact" component={Contact} />
+        <Route path="/suppliers" component={SupplierManagement} />
+        <Route path="/bbps" component={BBPSPage} />
+        <Route path="/digilocker" component={DigiLockerPage} />
+        <Route path="/loan-application" component={LoanApplication} />
+        <Route path="/loan-dashboard" component={LoanDashboard} />
+        <Route path="/loan-apply" component={LoanApplyPage} />
+        <Route path="/families" component={FamilyList} />
+        <Route path="/families/:id" component={FamilyDashboard} />
+        <Route path="/corporate-kyc" component={CorporateKYCPage} />
+        {/* New Pages */}
+        <Route path="/settings" component={SettingsPage} />
+        <Route path="/biometric-settings" component={BiometricSettingsPage} />
+        <Route path="/credit-report" component={CreditReportPage} />
+        <Route path="/derivatives" component={DerivativesPage} />
+        <Route path="/expenses-budgets" component={ExpensesBudgets} />
+        <Route path="/commodities" component={CommoditiesPage} />
+        <Route path="/credit-cards" component={CreditCardsPage} />
+        <Route path="/professional-services" component={ProfessionalServicesPage} />
+        <Route path="/auto-populate" component={AutoPopulationDashboard} />
+        <Route path="/government-schemes" component={GovernmentSchemes} />
+        <Route path="/ai-proposals" component={AIProposalsPage} />
+        <Route path="/ai-proposal-review" component={AIProposalReviewPage} />
+        <Route path="/ai-stock-picks" component={AIStockPicks} />
+        <Route path="/goals" component={GoalsPage} />
+        <Route path="/referral-program" component={ReferralProgram} />
+        <Route path="/scheduled-reports" component={ScheduledReports} />
+        <Route path="/compound-alerts" component={CompoundAlerts} />
+        <Route path="/dashboard-customize" component={DashboardCustomize} />
+        <Route path="/theme-settings" component={ThemeSettings} />
+        <Route path="/agent-prospect-wizard" component={AgentProspectWizard} />
+        <Route path="/investable-surplus" component={InvestableSurplusPage} />
+        <Route path="/ai-proposal-review/:id" component={AIProposalReviewPage} />
+        {/* Admin seed pages accessible from main site for development */}
+        <Route path="/admin/aif-seed">
+          {() => <Suspense fallback={<LoadingState variant="dashboard" />}><AifSeedAdmin /></Suspense>}
+        </Route>
+        <Route path="/admin/pms-seed">
+          {() => <Suspense fallback={<LoadingState variant="dashboard" />}><PmsSeedAdmin /></Suspense>}
+        </Route>
+        <Route path="/admin/mld-seed">
+          {() => <Suspense fallback={<LoadingState variant="dashboard" />}><MldSeedAdmin /></Suspense>}
+        </Route>
+        <Route path="/alpaca-market-explorer" component={AlpacaMarketExplorer} />
+        <Route component={NotFound} />
+
       </Switch>
-    </LayoutResolver>
-    </Suspense>
+    </ProfileCompletionGuard>
   );
 }
 
-function App() {
-  useEffect(() => {
-    const loader = document.getElementById('initial-loader');
-    if (loader) loader.remove();
-    // Clear all stale-chunk reload guards so every portal recovers cleanly after a deploy.
-    // These are set by lazyWithRetry and the vite:preloadError handler.
-    sessionStorage.removeItem('preload-err-reload');
-    for (const key of Object.keys(sessionStorage)) {
-      if (key.startsWith('chunk-reload-')) sessionStorage.removeItem(key);
-    }
-  }, []);
-  return (
-    <ErrorBoundary>
-      <NetworkProvider>
-      <LowDataProvider>
-        <ThemeProvider>
-        <QueryClientProvider client={queryClient}>
-          <PortalThemeProvider>
-          <UserPreferencesProvider>
-          <UnifiedCartProvider>
-            <TooltipProvider>
-              <VersionCheckModal />
-              <UpdateNotificationBanner />
-              <NetworkStatusBanner />
-              <GlobalActionQueueMonitor />
-              <DSCBackgroundSync />
-              <Toaster />
-              <GDPRConsent />
-              <UniversalKYCWall>
-                <Router />
-              </UniversalKYCWall>
-            </TooltipProvider>
-          </UnifiedCartProvider>
-          </UserPreferencesProvider>
-          </PortalThemeProvider>
-        </QueryClientProvider>
-      </ThemeProvider>
-        </LowDataProvider>
-    </NetworkProvider>
-    </ErrorBoundary>
-  );
-}
-
-export default App;

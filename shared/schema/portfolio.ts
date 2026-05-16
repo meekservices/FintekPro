@@ -405,6 +405,15 @@ export const portfolioComparisons = pgTable("portfolio_comparisons", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const insertPortfolioComparisonSchema = createInsertSchema(portfolioComparisons).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export type PortfolioComparison = typeof portfolioComparisons.$inferSelect;
+export type InsertPortfolioComparison = z.infer<typeof insertPortfolioComparisonSchema>;
+
 export const portfolioPredictions = pgTable("portfolio_predictions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id),

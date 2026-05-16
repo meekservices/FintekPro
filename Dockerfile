@@ -51,9 +51,6 @@ RUN npm ci --omit=dev
 # Copy compiled assets from builder
 COPY --from=builder /app/dist ./dist
 
-# Copy environment configuration file
-COPY cloudrun-env.yaml ./
-
 # Expose the Cloud Run expected port
 EXPOSE 8080
 

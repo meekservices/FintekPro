@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, index, integer, jsonb, decimal, date } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, index, uniqueIndex, integer, jsonb, decimal, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -141,6 +141,24 @@ export const users = pgTable("users", {
   index("idx_users_pan_number").on(table.panNumber),
 ]);
 
+export const userTrustedDevices = pgTable("user_trusted_devices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  deviceTokenHash: text("device_token_hash").notNull(),
+  deviceName: varchar("device_name"),
+  userAgent: text("user_agent"),
+  ipAddress: varchar("ip_address"),
+  trustedAt: timestamp("trusted_at").defaultNow(),
+  lastSeenAt: timestamp("last_seen_at").defaultNow(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_user_trusted_devices_token").on(table.deviceTokenHash),
+  index("idx_user_trusted_devices_user").on(table.userId),
+  index("idx_user_trusted_devices_revoked").on(table.revokedAt),
+]);
+
 export const userProfiles = pgTable("user_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull().unique(),
@@ -259,6 +277,11 @@ export const userProfiles = pgTable("user_profiles", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = typeof users.$inferInsert;
+export type UserTrustedDevice = typeof userTrustedDevices.$inferSelect;
+export type InsertUserTrustedDevice = typeof userTrustedDevices.$inferInsert;
 
 export const userBankAccounts = pgTable("user_bank_accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

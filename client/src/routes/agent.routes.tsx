@@ -1,28 +1,13 @@
-import { Switch, Route, useLocation, Redirect } from "wouter";
-import { Suspense, useEffect } from "react";
-import { lazyWithRetry } from "./lib/lazy-with-retry";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { GDPRConsent } from "@/components/gdpr-consent";
-import { ThemeProvider } from "@/contexts/theme-context";
-import { PortalThemeProvider } from "@/components/portal/PortalThemeProvider";
-import { LowDataProvider } from "@/contexts/LowDataContext";
-import { UnifiedCartProvider } from "@/contexts/UnifiedCartContext";
-import { UserPreferencesProvider } from "@/hooks/use-user-preferences";
-import { NetworkProvider } from "@/hooks/use-network-state";
-import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
-import { UpdateNotificationBanner } from "@/components/UpdateNotificationBanner";
-import { VersionCheckModal } from "@/components/VersionCheckModal";
-import { DSCBackgroundSync } from "@/components/DSCBackgroundSync";
-import { GlobalActionQueueMonitor } from "@/components/GlobalActionQueueMonitor";
+import { Suspense } from "react";
+import { Redirect, Route, Switch } from "wouter";
 import { LoadingState } from "@/components/LoadingState";
-import { AdminRoutes } from "@/routes/admin.routes";
-import { AgentRoutes } from "@/routes/agent.routes";
-import { PartnerRoutes } from "@/routes/partner.routes";
-import { UserProtectedRoutes } from "@/routes/user.routes";
+import { AdminLayout } from "@/components/layout/admin-layout";
+import { AgentLayout } from "@/components/layout/agent-layout";
+import { lazyWithRetry } from "@/lib/lazy-with-retry";
+import { useAuth } from "@/hooks/useAuth";
+import AuthPage from "@/pages/auth-page";
+import NotFound from "@/pages/not-found";
+
 const Home = lazyWithRetry(() => import("@/pages/home"));
 const Portfolio = lazyWithRetry(() => import("@/pages/portfolio"));
 const Markets = lazyWithRetry(() => import("@/pages/markets"));
@@ -39,8 +24,6 @@ const CamsServices = lazyWithRetry(() => import("@/pages/cams-services"));
 const KfintechServices = lazyWithRetry(() => import("@/pages/kfintech-services"));
 const AgriculturalInsights = lazyWithRetry(() => import("@/pages/agricultural-insights"));
 const FinancialCalculators = lazyWithRetry(() => import("@/pages/financial-calculators"));
-import NotFound from "@/pages/not-found";
-import AuthPage from "@/pages/auth-page";
 const AdminPanel = lazyWithRetry(() => import("@/pages/admin"));
 const TesterDiagnostics = lazyWithRetry(() => import("@/pages/tester-diagnostics"));
 const PartnerPortal = lazyWithRetry(() => import("@/pages/partner-portal"));
@@ -81,16 +64,6 @@ const Cibil = lazyWithRetry(() => import("@/pages/cibil"));
 const Contact = lazyWithRetry(() => import("@/pages/contact"));
 const SupplierManagement = lazyWithRetry(() => import("@/pages/supplier-management").then(m => ({ default: m.SupplierManagement })));
 const Profile = lazyWithRetry(() => import("@/pages/profile"));
-import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
-import { AppLayout } from "@/components/layout/app-layout";
-import { AdminLayout } from "@/components/layout/admin-layout";
-import { AgentLayout } from "@/components/layout/agent-layout";
-import { PartnerLayout } from "@/components/layout/partner-layout";
-import { LayoutResolver } from "@/components/layout/LayoutResolver";
-import { useSubdomain } from "@/hooks/useSubdomain";
-import { useAuth } from "@/hooks/useAuth";
-import { IdleTimeoutManager } from "@/components/IdleTimeoutManager";
-import { UniversalKYCWall } from "@/components/UniversalKYCWall";
 const AdminDashboard = lazyWithRetry(() => import("@/pages/admin/dashboard"));
 const GoldenPricingDashboard = lazyWithRetry(() => import("@/pages/admin/golden-pricing-dashboard"));
 const SystemHealthMonitor = lazyWithRetry(() => import("@/pages/admin/system-health"));
@@ -114,7 +87,6 @@ const KycV2ManagementPage = lazyWithRetry(() => import("@/pages/admin/kyc-v2-man
 const FinancialOperationsPage = lazyWithRetry(() => import("@/pages/admin/financial-operations"));
 const APIConfiguration = lazyWithRetry(() => import("@/pages/admin/api-configuration"));
 const ProductionReadiness = lazyWithRetry(() => import("@/pages/admin/production-readiness"));
-
 const ActivityCentre = lazyWithRetry(() => import("@/pages/admin/activity-centre"));
 const CkycDeferredDashboard = lazyWithRetry(() => import("@/pages/admin/ckyc-deferred-dashboard"));
 const ZohoDashboardPage = lazyWithRetry(() => import("@/pages/admin/zoho-dashboard"));
@@ -405,134 +377,705 @@ const AgentMarketAlerts = lazyWithRetry(() => import("@/pages/agent-market-alert
 const PublicProfilePage = lazyWithRetry(() => import("@/pages/PublicProfilePage"));
 const AgentTracker = lazyWithRetry(() => import("@/pages/agent-tracker"));
 const AlpacaMarketExplorer = lazyWithRetry(() => import("@/pages/alpaca-market-explorer"));
-
-
 const TreasuryDashboard = lazyWithRetry(() => import("@/pages/treasury-dashboard"));
 
-function IdleTimeoutWrapper() {
-  const { user } = useAuth();
-  return <IdleTimeoutManager isAuthenticated={!!user} timeoutMinutes={60} />;
-}
-
-function Router() {
-  const { isAdminPortal, isPartnerPortal, isAgentPortal } = useSubdomain();
-
-  // Render admin portal on admin subdomain
-  if (isAdminPortal) {
-    return (<Suspense fallback={<LoadingState />}><IdleTimeoutWrapper /><AdminRoutes /></Suspense>);
+// AgentRoot: shows AuthPage if not logged in, FieldAgentPortal if logged in.
+// This makes /?agent=true work as the agent sign-in page directly.
+function AgentRoot() {
+  const { user, isLoading, error } = useAuth();
+  
+  if (isLoading) return <LoadingState variant="agent-dashboard" />;
+  
+  // If we get a persistent error and no user, show the auth page as fallback.
+  // This prevents the "white page" (stuck loading) issue if the initial auth check fails.
+  if (error && !user) {
+    console.warn("⚠️ Agent Portal authentication check failed:", error);
+    return <AuthPage />;
   }
-
-  // Render partner portal on partner subdomain
-  if (isPartnerPortal) {
-    return (<Suspense fallback={<LoadingState />}><IdleTimeoutWrapper /><PartnerRoutes /></Suspense>);
-  }
-
-  // Render agent portal on agent subdomain
-  if (isAgentPortal) {
-    return (<Suspense fallback={<LoadingState />}><IdleTimeoutWrapper /><AgentRoutes /></Suspense>);
-  }
-
-  // Render client portal on main domain
+  
+  if (!user) return <AuthPage />;
+  
   return (
-    <Suspense fallback={<LoadingState />}>
-    <LayoutResolver>
-      <IdleTimeoutWrapper />
-      <Switch>
-        {/* Public routes - no authentication or profile completion required */}
-        <Route path="/auth" component={AuthPage} />
-        <Route path="/excel-addin" component={ExcelAddin} />
-        <Route path="/profile" component={Profile} />
-        <Route path="/profile/p/:code" component={PublicProfilePage} />
-        <Route path="/proposal/:shareToken" component={PublicProposalPage} />
-        <Route path="/onboarding" component={OnboardingPage} />
-        <Route path="/ca-registration" component={CARegistration} />
-        <Route path="/manual-kyc" component={ManualKYCPage} />
-        <Route path="/kyc-dashboard">
-          <Redirect to="/profile?tab=kyc-dashboard" />
-        </Route>
-        <Route path="/kyc/complete">
-          <Redirect to="/profile?tab=kyc-dashboard" />
-        </Route>
-        <Route path="/product-eligibility" component={KYCProductEligibility} />
-        <Route path="/video-kyc" component={VideoKYC} />
-        <Route path="/kyc-rejections" component={KycRejectionRekyc} />
-        <Route path="/net-worth" component={NetWorthPage} />
-        <Route path="/pricing" component={PricingPage} />
-        <Route path="/privacy" component={Privacy} />
-        <Route path="/terms" component={Terms} />
-        <Route path="/refund-policy" component={RefundPolicy} />
-        <Route path="/disclaimer" component={InvestmentDisclaimer} />
-        
-        {/* Agent/Admin routes - bypass profile completion but require authentication */}
-        <Route path="/tester-diagnostics" component={TesterDiagnostics} />
-        <Route path="/admin/proposals" component={AdminProposalsPage} />
-        <Route path="/admin/unlisted/companies">
-          {() => (
-            <AdminLayout>
-              <UnlistedCompaniesAdmin />
-            </AdminLayout>
-          )}
-        </Route>
-        <Route path="/admin/unlisted/negotiations">
-          {() => (
-            <AdminLayout>
-              <UnlistedNegotiations />
-            </AdminLayout>
-          )}
-        </Route>
-        <Route path="/admin" component={AdminPanel} />
-        <Route path="/agent" component={AgentDashboard} />
-        
-        <Route path="/p/:code" component={PublicProfilePage} />
-        {/* User routes - require both authentication and profile completion */}
-        <Route component={UserProtectedRoutes} />
-      </Switch>
-    </LayoutResolver>
-    </Suspense>
+    <AgentLayout>
+      <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+        <FieldAgentPortal />
+      </Suspense>
+    </AgentLayout>
   );
 }
 
-function App() {
-  useEffect(() => {
-    const loader = document.getElementById('initial-loader');
-    if (loader) loader.remove();
-    // Clear all stale-chunk reload guards so every portal recovers cleanly after a deploy.
-    // These are set by lazyWithRetry and the vite:preloadError handler.
-    sessionStorage.removeItem('preload-err-reload');
-    for (const key of Object.keys(sessionStorage)) {
-      if (key.startsWith('chunk-reload-')) sessionStorage.removeItem(key);
-    }
-  }, []);
+
+export function AgentRoutes() {
   return (
-    <ErrorBoundary>
-      <NetworkProvider>
-      <LowDataProvider>
-        <ThemeProvider>
-        <QueryClientProvider client={queryClient}>
-          <PortalThemeProvider>
-          <UserPreferencesProvider>
-          <UnifiedCartProvider>
-            <TooltipProvider>
-              <VersionCheckModal />
-              <UpdateNotificationBanner />
-              <NetworkStatusBanner />
-              <GlobalActionQueueMonitor />
-              <DSCBackgroundSync />
-              <Toaster />
-              <GDPRConsent />
-              <UniversalKYCWall>
-                <Router />
-              </UniversalKYCWall>
-            </TooltipProvider>
-          </UnifiedCartProvider>
-          </UserPreferencesProvider>
-          </PortalThemeProvider>
-        </QueryClientProvider>
-      </ThemeProvider>
-        </LowDataProvider>
-    </NetworkProvider>
-    </ErrorBoundary>
+    <Switch>
+      <Route path="/auth" component={AuthPage} />
+      <Route path="/agent/auth" component={AuthPage} />
+      <Route path="/agent/login" component={AuthPage} />
+      {/* Public proposal preview - accessible on all subdomains */}
+      <Route path="/proposal/:shareToken" component={PublicProposalPage} />
+      <Route path="/agent/advisor-profile">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AdvisorBrandProfile />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/" component={AgentRoot} />
+      <Route path="/agent">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <FieldAgentPortal />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent-portal">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <FieldAgentPortal />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/picks">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentPicks />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/proposal-builder">
+        {() => (
+          <AgentLayout>
+            <AgentProspectWizard />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/zoho-crm">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentZohoCRM />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/clients">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentClientsPage />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/crm/clients/:clientId">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentCrmClient360 />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/crm/pipeline">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentCrmPipeline />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/crm/tasks">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentCrmTasks />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/crm/analytics">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentCrmAnalytics />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/tracker">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentTracker />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/baskets">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentInvestmentBaskets />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/sip-health">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentSipHealth />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/portfolio-drift">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentPortfolioDrift />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/market-alerts">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentMarketAlerts />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/advisor/:code">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <PublicAdvisorProfile />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/training">
+        {() => (
+          <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+            <AgentTrainingPage />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/recommendation-control">
+        {() => (
+          <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+            <AgentRecommendationControl />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/investment-advisory">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentInvestmentAdvisory />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/bond-recommendations">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentBondRecommendations />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/derivatives">
+        {() => (
+          <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+            <AgentDerivatives />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/stock-ai">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentStockAI />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/demo-progress">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentDemoProgress />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/dashboard">
+        {() => (
+          <AgentLayout>
+            <AgentDashboard />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/proposals">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentProposalsPage />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/client-acquisition">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentClientAcquisitionPage />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent-prospect-wizard">
+        {() => (
+          <AgentLayout>
+            <AgentProspectWizard />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/treasury">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentTreasuryPage />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/tax-cases">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentTaxCasesPage />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/knowledge-hub">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentKnowledgeHub />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/knowledge-hub/market-brief">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentKnowledgeMarketBrief />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/knowledge-hub/products">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentKnowledgeProducts />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/knowledge-hub/explanations">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentKnowledgeExplanations />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/knowledge-hub/certifications">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentKnowledgeCertifications />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/festival-greetings">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <FestivalGreetingPreview />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/revenue">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentRevenueCockpit />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/us-client-accounts">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentUsClientAccounts />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/alpaca-hub">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AlpacaHubAgent />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/leads">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentLeadPipeline />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/clients/:id">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentClientProfile />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/tasks">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentTasks />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/reports">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentReportsHub />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/report-builder">
+        {() => <Redirect to="/agent/report-builder" />}
+      </Route>
+      <Route path="/agent/report-builder">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentPortfolioReportBuilder />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/sample-report">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentSampleReport />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/leaderboard">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentLeaderboard />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/commission-calculator">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentCommissionCalculator />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/payouts">
+        {() => (
+          <AgentLayout>
+            <AgentPayoutDashboard />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/bulk-communication">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentBulkCommunication />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/calendar">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentCalendar />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/meetings">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentMeetings />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/esign">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentESign />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/loan-apply">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentLoanApply />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/loan-applications">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentLoanApplications />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/loan-marketplace">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentLoanMarketplace />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/dsa-performance">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentDSAPerformance />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/payout-claims">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentPayoutClaims />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/revenue-sheet">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentRevenueSheet />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/admin/agent-payouts">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AdminAgentPayouts />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/agent/onboard-client">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentClientOnboarding />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/kyc">
+        {() => (
+          <AgentLayout>
+            <AgentKycEmpanelment />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/onboarding">
+        {() => (
+          <AgentLayout>
+            <OnboardingPage />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/orders">
+        {() => (
+          <AgentLayout>
+            <MutualFunds />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/settings">
+        {() => (
+          <AgentLayout>
+            <SettingsPage />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/research-lists">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <AgentResearchLists />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/research-lists/:id">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <AgentResearchListDetail />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/screener">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <AgentScreener />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/research-analytics">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <AgentResearchAnalytics />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/quant-analytics">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <AgentLayout>
+              <AgentQuantAnalytics />
+            </AgentLayout>
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/research/generate">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <ResearchNoteGenerator />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/hni-leaderboard">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <AgentHniLeaderboard />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/deal-matcher">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <AgentDealMatcher />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/theme-settings">
+        {() => (
+          <Suspense fallback={<LoadingState />}>
+            <AgentThemeSettings />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/agent/settings">
+        {() => (
+          <AgentLayout>
+            <SettingsPage />
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/profile">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <Profile />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/kyc-rejections">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <KycRejectionRekyc />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route path="/agent/iris">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentIrisHub />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
+      <Route>
+        {() => (
+          <AgentLayout>
+            <NotFound />
+          </AgentLayout>
+        )}
+      </Route>
+    </Switch>
   );
 }
 
-export default App;

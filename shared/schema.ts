@@ -52,7 +52,7 @@ import {
   emergencyFunds, insertEmergencyFundSchema, EmergencyFund, InsertEmergencyFund,
   investableSurplus, insertInvestableSurplusSchema, InvestableSurplus, InsertInvestableSurplus,
   identityProfiles, insertIdentityProfileSchema, IdentityProfile, InsertIdentityProfile,
-  conversionFunnels, insertConversionFunnelSchema, ConversionFunnel, InsertConversionFunnel,
+  conversionFunnels, insertConversionFunnelSchema, ConversionFunnel,
   verificationCache, insertVerificationCacheSchema, VerificationCache, InsertVerificationCache,
   onboardingInvitations, insertOnboardingInvitationSchema, OnboardingInvitation, InsertOnboardingInvitation,
   onboardingInvitationEvents, insertOnboardingInvitationEventSchema, OnboardingInvitationEvent, InsertOnboardingInvitationEvent,
@@ -97,6 +97,7 @@ import {
   insertAiPredictionLogSchema, 
   insertAiUserInteractionSchema, 
   aiOptimizationSuggestions, 
+  insertAiOptimizationSuggestionSchema,
   dailyPicks,
   insertDailyPickSchema,
   DailyPick,
@@ -175,7 +176,6 @@ import {
   riskAnalysis, 
   portfolioUploads, 
   pdfParsingAuditTrail, 
-  portfolioAlerts, 
   portfolioPredictions, 
   proposalShares, 
   insertPortfolioReportTemplateSchema, 
@@ -185,7 +185,6 @@ import {
   portfolioReportTemplates, 
   portfolios, 
   familyGroups, 
-  insertPortfolioAlertSchema, 
   insertPortfolioPredictionSchema, 
     insertPortfolioDiagnosticsSchema, 
   assetAllocation, 
@@ -195,6 +194,10 @@ import {
   PortfolioComparison,
   InsertPortfolioComparison
 } from './schema/portfolio.ts';
+import {
+  portfolioAlerts,
+  insertPortfolioAlertSchema
+} from './schema/ai.ts';
 import { 
   reits, 
   insertReitSchema, 
@@ -393,7 +396,8 @@ import {
   ValidationIssue,
   FilingRecord
 } from './schema/itr.ts';
-import { leadActivityLog, insertLeadActivityLogSchema, LeadActivityLog, InsertLeadActivityLog } from './schema/crm.ts';
+import { leadActivityLog, insertLeadActivityLogSchema } from './schema/crm.ts';
+import { mldMaster } from './schema/products.ts';
 
 export { 
   products,
@@ -11067,4 +11071,3 @@ export const insertAdminSettingsSchema = createInsertSchema(adminSettings).omit(
 export const insertAdminApprovalRequestSchema = createInsertSchema(adminApprovalRequests).omit({ id: true, createdAt: true, updatedAt: true });
 export type AdminApprovalRequest = typeof adminApprovalRequests.$inferSelect;
 export type InsertAdminApprovalRequest = z.infer<typeof insertAdminApprovalRequestSchema>;
-

@@ -48,20 +48,38 @@ export async function setupAuth(app: Express) {
 
   // In production, set the domain attribute for SSO across subdomains
   if (process.env.NODE_ENV === "production") {
-    // TEMPORARILY DISABLED: setting the domain to 'fintekpro.com' caused
-    // "TypeError: option domain is invalid" from the cookie library.
-    // Need to investigate if express-session is receiving an invalid string
-    // from another context, or if the cookie library version behaves differently.
-    console.log(`⚠️ [AUTH_SETUP] CUSTOM_DOMAIN scoping disabled to ensure session persistence.`);
+    const rawDomain = process.env.SESSION_COOKIE_DOMAIN || process.env.CUSTOM_DOMAIN;
+    const hostname = rawDomain
+      ?.replace(/^https?:\/\//, "")
+      .split("/")[0]
+      .split(":")[0]
+      .replace(/^www\./, "")
+      .toLowerCase();
+
+    if (hostname && hostname.includes(".") && !hostname.endsWith(".run.app")) {
+      cookieOptions.domain = hostname.startsWith(".") ? hostname : `.${hostname}`;
+      console.log(`[AUTH_SETUP] Session cookie scoped to ${cookieOptions.domain}`);
+    } else {
+      console.warn("[AUTH_SETUP] SESSION_COOKIE_DOMAIN/CUSTOM_DOMAIN not set; using host-only session cookie.");
+    }
+  }
+
+  const sessionSecret = process.env.SESSION_SECRET || (!process.env.NODE_ENV || process.env.NODE_ENV !== "production"
+    ? process.env.REPL_ID || "fintek-secure-session-secret-2024"
+    : undefined);
+
+  if (!sessionSecret) {
+    throw new Error("SESSION_SECRET must be configured in production.");
   }
 
   // 3. Register Session Middleware
   app.use(
     session({
       name: "fintekpro.sid",
-      secret: process.env.SESSION_SECRET || process.env.REPL_ID || "fintek-secure-session-secret-2024",
+      secret: sessionSecret,
       resave: false,
       saveUninitialized: false,
+      rolling: true,
       store: sessionStore,
       cookie: cookieOptions,
       proxy: true,

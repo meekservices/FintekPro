@@ -686,8 +686,8 @@ export const clientIntelligence = pgTable("client_intelligence", {
   index("idx_client_intel_risk").on(table.riskLevel),
 ]);
 
-// Insert schemas and types for marketing tables
-export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns).extend({
+// Insert schema retained locally; products.ts owns the public marketing campaign export.
+const clientMarketingCampaignSchema = createInsertSchema(marketingCampaigns).extend({
   id: z.any(),
   createdAt: z.any(),
   updatedAt: z.any(),

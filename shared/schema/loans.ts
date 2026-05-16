@@ -888,6 +888,7 @@ export const insertICICILoanApplicationSchema = createInsertSchema(iciciBankLoan
 export const insertICICICreditScoreSchema = createInsertSchema(iciciBankCreditScores).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPreApprovedLoanOfferSchema = createInsertSchema(preApprovedLoanOffers).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCreditRatingSchema = createInsertSchema(creditRatings).omit({ id: true, createdAt: true });
+export const insertLenderStaffHistorySchema = createInsertSchema(lenderStaffHistory as any);
 
 // Export types
 export type LoanProduct = typeof loanProducts.$inferSelect;
@@ -917,4 +918,5 @@ export type InsertPreApprovedLoanOffer = z.infer<typeof insertPreApprovedLoanOff
 export type CreditRating = typeof creditRatings.$inferSelect;
 export type InsertCreditRating = typeof creditRatings.$inferInsert;
 export type LoanComparison = typeof loanComparisons.$inferSelect;
-
+export type LenderStaffHistory = typeof lenderStaffHistory.$inferSelect;
+export type InsertLenderStaffHistory = z.infer<typeof insertLenderStaffHistorySchema>;

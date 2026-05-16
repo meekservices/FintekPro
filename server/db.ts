@@ -3,7 +3,6 @@ import pkg from 'pg';
 const { Pool } = pkg;
 import * as schema from '../shared/schema.ts';
 import fs from 'fs';
-import path from 'path';
 
 /**
  * DATABASE CONNECTION LOGIC
@@ -24,51 +23,6 @@ let port = 5432;
 
 // 1. Initial Load of DATABASE_URL
 let dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
-
-// 2. Production Fallback for missing environment variables
-if (isProduction) {
-  // Load secrets from cloudrun-env.yaml if it exists
-
-  
-  // Potential locations for cloudrun-env.yaml
-  const possiblePaths = [
-    path.resolve(process.cwd(), 'cloudrun-env.yaml'),
-    '/app/cloudrun-env.yaml',
-    path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', 'cloudrun-env.yaml')
-  ];
-
-  let loaded = false;
-  for (const envPath of possiblePaths) {
-    if (fs.existsSync(envPath)) {
-      try {
-        const content = fs.readFileSync(envPath, 'utf8');
-        let count = 0;
-        content.split('\n').forEach(line => {
-          // Robust YAML-style parsing: KEY: "VALUE" or KEY: VALUE
-          const match = line.match(/^([^:]+):\s*["']?([^"'\r\n]+)["']?/);
-          if (match) {
-            const [, key, value] = match;
-            const trimmedKey = key.trim();
-            if (!process.env[trimmedKey]) {
-              process.env[trimmedKey] = value.trim();
-              count++;
-            }
-          }
-        });
-
-        loaded = true;
-        break; // Stop after first successful load
-      } catch (e) {
-        console.error(`[DB] ❌ Error reading ${envPath}:`, e);
-      }
-    }
-  }
-
-  // Re-sync local variables after loading file
-  dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
-  password = process.env.DB_PASSWORD || password;
-
-}
 
 // 3. Build Pool Configuration
 const POOL_CONFIG: any = {

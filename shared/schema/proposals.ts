@@ -155,6 +155,19 @@ export const insertProspectProposalSchema = createInsertSchema(prospectProposals
 export type ProspectProposal = typeof prospectProposals.$inferSelect;
 export type InsertProspectProposal = z.infer<typeof insertProspectProposalSchema>;
 
+export const insertProspectProposalEventSchema = createInsertSchema(prospectProposalEvents).extend({
+  id: z.any(),
+  timestamp: z.any(),
+}).omit({ id: true, timestamp: true });
+
+export type ProspectProposalEvent = typeof prospectProposalEvents.$inferSelect;
+export type InsertProspectProposalEvent = z.infer<typeof insertProspectProposalEventSchema>;
+
+export const ProspectProposalTypeEnum = z.enum(["goal_based", "portfolio_review", "product_recommendation", "sample"]);
+export const ProspectProposalStatusEnum = z.enum(["draft", "shared", "viewed", "accepted", "rejected", "expired"]);
+export const ProspectStateEnum = z.enum(["prospect", "invited", "onboarding", "converted", "inactive"]);
+export const ProspectReadinessStatusEnum = z.enum(["INITIAL", "KYC_PENDING", "PORTFOLIO_PENDING", "READY", "CONVERTED"]);
+
 export const prospectClients = pgTable("prospect_clients", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").references(() => users.id).notNull(),

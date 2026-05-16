@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "bradlc.vscode-tailwindcss",
+    "ms-python.python",
+    "ms-azuretools.vscode-docker",
+    "redhat.vscode-yaml",
+    "mikestead.dotenv",
+    "biomejs.biome"
+  ],
+  "unwantedRecommendations": [
+    "docker.docker",
+    "redhat.java"
+  ]
+}

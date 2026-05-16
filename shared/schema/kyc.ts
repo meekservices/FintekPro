@@ -403,6 +403,11 @@ export const ckycStatusHistory = pgTable("ckyc_status_history", {
   changedAt: timestamp("changed_at").defaultNow(),
 });
 
+export const insertCkycStatusHistorySchema = createInsertSchema(ckycStatusHistory).extend({
+  id: z.any(),
+  changedAt: z.any(),
+}).omit({ id: true, changedAt: true });
+
 // KYC Upgrade Reminders
 export const kycUpgradeReminders = pgTable("kyc_upgrade_reminders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -3809,6 +3814,7 @@ export const insertAadhaarConsentArtifactSchema = createInsertSchema(aadhaarCons
   id: z.any(),
   createdAt: z.any(),
 }).omit({ id: true, createdAt: true });
+export type InsertAadhaarConsentArtifact = z.infer<typeof insertAadhaarConsentArtifactSchema>;
 
 // --- Tables extracted from shared/schema.ts ---
 
@@ -4181,5 +4187,3 @@ export const insertOnboardingInvitationEventSchema = createInsertSchema(onboardi
 });
 export type OnboardingInvitationEvent = typeof onboardingInvitationEvents.$inferSelect;
 export type InsertOnboardingInvitationEvent = z.infer<typeof insertOnboardingInvitationEventSchema>;
-
-

@@ -1,28 +1,13 @@
-import { Switch, Route, useLocation, Redirect } from "wouter";
 import { Suspense, useEffect } from "react";
-import { lazyWithRetry } from "./lib/lazy-with-retry";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { GDPRConsent } from "@/components/gdpr-consent";
-import { ThemeProvider } from "@/contexts/theme-context";
-import { PortalThemeProvider } from "@/components/portal/PortalThemeProvider";
-import { LowDataProvider } from "@/contexts/LowDataContext";
-import { UnifiedCartProvider } from "@/contexts/UnifiedCartContext";
-import { UserPreferencesProvider } from "@/hooks/use-user-preferences";
-import { NetworkProvider } from "@/hooks/use-network-state";
-import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
-import { UpdateNotificationBanner } from "@/components/UpdateNotificationBanner";
-import { VersionCheckModal } from "@/components/VersionCheckModal";
-import { DSCBackgroundSync } from "@/components/DSCBackgroundSync";
-import { GlobalActionQueueMonitor } from "@/components/GlobalActionQueueMonitor";
+import { Redirect, Route, Switch, useLocation } from "wouter";
 import { LoadingState } from "@/components/LoadingState";
-import { AdminRoutes } from "@/routes/admin.routes";
-import { AgentRoutes } from "@/routes/agent.routes";
-import { PartnerRoutes } from "@/routes/partner.routes";
-import { UserProtectedRoutes } from "@/routes/user.routes";
+import { AdminLayout } from "@/components/layout/admin-layout";
+import { lazyWithRetry } from "@/lib/lazy-with-retry";
+import { useAuth } from "@/hooks/useAuth";
+import { useSubdomain } from "@/hooks/useSubdomain";
+import AuthPage from "@/pages/auth-page";
+import NotFound from "@/pages/not-found";
+
 const Home = lazyWithRetry(() => import("@/pages/home"));
 const Portfolio = lazyWithRetry(() => import("@/pages/portfolio"));
 const Markets = lazyWithRetry(() => import("@/pages/markets"));
@@ -39,8 +24,6 @@ const CamsServices = lazyWithRetry(() => import("@/pages/cams-services"));
 const KfintechServices = lazyWithRetry(() => import("@/pages/kfintech-services"));
 const AgriculturalInsights = lazyWithRetry(() => import("@/pages/agricultural-insights"));
 const FinancialCalculators = lazyWithRetry(() => import("@/pages/financial-calculators"));
-import NotFound from "@/pages/not-found";
-import AuthPage from "@/pages/auth-page";
 const AdminPanel = lazyWithRetry(() => import("@/pages/admin"));
 const TesterDiagnostics = lazyWithRetry(() => import("@/pages/tester-diagnostics"));
 const PartnerPortal = lazyWithRetry(() => import("@/pages/partner-portal"));
@@ -81,16 +64,6 @@ const Cibil = lazyWithRetry(() => import("@/pages/cibil"));
 const Contact = lazyWithRetry(() => import("@/pages/contact"));
 const SupplierManagement = lazyWithRetry(() => import("@/pages/supplier-management").then(m => ({ default: m.SupplierManagement })));
 const Profile = lazyWithRetry(() => import("@/pages/profile"));
-import ProfileCompletionGuard from "@/components/ProfileCompletionGuard";
-import { AppLayout } from "@/components/layout/app-layout";
-import { AdminLayout } from "@/components/layout/admin-layout";
-import { AgentLayout } from "@/components/layout/agent-layout";
-import { PartnerLayout } from "@/components/layout/partner-layout";
-import { LayoutResolver } from "@/components/layout/LayoutResolver";
-import { useSubdomain } from "@/hooks/useSubdomain";
-import { useAuth } from "@/hooks/useAuth";
-import { IdleTimeoutManager } from "@/components/IdleTimeoutManager";
-import { UniversalKYCWall } from "@/components/UniversalKYCWall";
 const AdminDashboard = lazyWithRetry(() => import("@/pages/admin/dashboard"));
 const GoldenPricingDashboard = lazyWithRetry(() => import("@/pages/admin/golden-pricing-dashboard"));
 const SystemHealthMonitor = lazyWithRetry(() => import("@/pages/admin/system-health"));
@@ -114,7 +87,6 @@ const KycV2ManagementPage = lazyWithRetry(() => import("@/pages/admin/kyc-v2-man
 const FinancialOperationsPage = lazyWithRetry(() => import("@/pages/admin/financial-operations"));
 const APIConfiguration = lazyWithRetry(() => import("@/pages/admin/api-configuration"));
 const ProductionReadiness = lazyWithRetry(() => import("@/pages/admin/production-readiness"));
-
 const ActivityCentre = lazyWithRetry(() => import("@/pages/admin/activity-centre"));
 const CkycDeferredDashboard = lazyWithRetry(() => import("@/pages/admin/ckyc-deferred-dashboard"));
 const ZohoDashboardPage = lazyWithRetry(() => import("@/pages/admin/zoho-dashboard"));
@@ -405,134 +377,1027 @@ const AgentMarketAlerts = lazyWithRetry(() => import("@/pages/agent-market-alert
 const PublicProfilePage = lazyWithRetry(() => import("@/pages/PublicProfilePage"));
 const AgentTracker = lazyWithRetry(() => import("@/pages/agent-tracker"));
 const AlpacaMarketExplorer = lazyWithRetry(() => import("@/pages/alpaca-market-explorer"));
-
-
 const TreasuryDashboard = lazyWithRetry(() => import("@/pages/treasury-dashboard"));
 
-function IdleTimeoutWrapper() {
-  const { user } = useAuth();
-  return <IdleTimeoutManager isAuthenticated={!!user} timeoutMinutes={60} />;
-}
-
-function Router() {
-  const { isAdminPortal, isPartnerPortal, isAgentPortal } = useSubdomain();
-
-  // Render admin portal on admin subdomain
-  if (isAdminPortal) {
-    return (<Suspense fallback={<LoadingState />}><IdleTimeoutWrapper /><AdminRoutes /></Suspense>);
-  }
-
-  // Render partner portal on partner subdomain
-  if (isPartnerPortal) {
-    return (<Suspense fallback={<LoadingState />}><IdleTimeoutWrapper /><PartnerRoutes /></Suspense>);
-  }
-
-  // Render agent portal on agent subdomain
-  if (isAgentPortal) {
-    return (<Suspense fallback={<LoadingState />}><IdleTimeoutWrapper /><AgentRoutes /></Suspense>);
-  }
-
-  // Render client portal on main domain
-  return (
-    <Suspense fallback={<LoadingState />}>
-    <LayoutResolver>
-      <IdleTimeoutWrapper />
-      <Switch>
-        {/* Public routes - no authentication or profile completion required */}
-        <Route path="/auth" component={AuthPage} />
-        <Route path="/excel-addin" component={ExcelAddin} />
-        <Route path="/profile" component={Profile} />
-        <Route path="/profile/p/:code" component={PublicProfilePage} />
-        <Route path="/proposal/:shareToken" component={PublicProposalPage} />
-        <Route path="/onboarding" component={OnboardingPage} />
-        <Route path="/ca-registration" component={CARegistration} />
-        <Route path="/manual-kyc" component={ManualKYCPage} />
-        <Route path="/kyc-dashboard">
-          <Redirect to="/profile?tab=kyc-dashboard" />
-        </Route>
-        <Route path="/kyc/complete">
-          <Redirect to="/profile?tab=kyc-dashboard" />
-        </Route>
-        <Route path="/product-eligibility" component={KYCProductEligibility} />
-        <Route path="/video-kyc" component={VideoKYC} />
-        <Route path="/kyc-rejections" component={KycRejectionRekyc} />
-        <Route path="/net-worth" component={NetWorthPage} />
-        <Route path="/pricing" component={PricingPage} />
-        <Route path="/privacy" component={Privacy} />
-        <Route path="/terms" component={Terms} />
-        <Route path="/refund-policy" component={RefundPolicy} />
-        <Route path="/disclaimer" component={InvestmentDisclaimer} />
-        
-        {/* Agent/Admin routes - bypass profile completion but require authentication */}
-        <Route path="/tester-diagnostics" component={TesterDiagnostics} />
-        <Route path="/admin/proposals" component={AdminProposalsPage} />
-        <Route path="/admin/unlisted/companies">
-          {() => (
-            <AdminLayout>
-              <UnlistedCompaniesAdmin />
-            </AdminLayout>
-          )}
-        </Route>
-        <Route path="/admin/unlisted/negotiations">
-          {() => (
-            <AdminLayout>
-              <UnlistedNegotiations />
-            </AdminLayout>
-          )}
-        </Route>
-        <Route path="/admin" component={AdminPanel} />
-        <Route path="/agent" component={AgentDashboard} />
-        
-        <Route path="/p/:code" component={PublicProfilePage} />
-        {/* User routes - require both authentication and profile completion */}
-        <Route component={UserProtectedRoutes} />
-      </Switch>
-    </LayoutResolver>
-    </Suspense>
-  );
-}
-
-function App() {
+// Component to handle admin root redirect
+function AdminRoot() {
+  const { user, isLoading } = useAuth();
+  const [, navigate] = useLocation();
+  const { withPortalParams } = useSubdomain();
+  
   useEffect(() => {
-    const loader = document.getElementById('initial-loader');
-    if (loader) loader.remove();
-    // Clear all stale-chunk reload guards so every portal recovers cleanly after a deploy.
-    // These are set by lazyWithRetry and the vite:preloadError handler.
-    sessionStorage.removeItem('preload-err-reload');
-    for (const key of Object.keys(sessionStorage)) {
-      if (key.startsWith('chunk-reload-')) sessionStorage.removeItem(key);
+    if (!isLoading && !user) {
+      navigate(withPortalParams('/auth'));
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isLoading]);
+  
+  if (isLoading) {
+    return <LoadingState variant="dashboard" />;
+  }
+  
+  if (!user) {
+    return <LoadingState variant="dashboard" />;
+  }
+  
   return (
-    <ErrorBoundary>
-      <NetworkProvider>
-      <LowDataProvider>
-        <ThemeProvider>
-        <QueryClientProvider client={queryClient}>
-          <PortalThemeProvider>
-          <UserPreferencesProvider>
-          <UnifiedCartProvider>
-            <TooltipProvider>
-              <VersionCheckModal />
-              <UpdateNotificationBanner />
-              <NetworkStatusBanner />
-              <GlobalActionQueueMonitor />
-              <DSCBackgroundSync />
-              <Toaster />
-              <GDPRConsent />
-              <UniversalKYCWall>
-                <Router />
-              </UniversalKYCWall>
-            </TooltipProvider>
-          </UnifiedCartProvider>
-          </UserPreferencesProvider>
-          </PortalThemeProvider>
-        </QueryClientProvider>
-      </ThemeProvider>
-        </LowDataProvider>
-    </NetworkProvider>
-    </ErrorBoundary>
+    <AdminLayout>
+      <AdminDashboard />
+    </AdminLayout>
   );
 }
 
-export default App;
+export function AdminRoutes() {
+  return (
+    <Switch>
+      {/* Public auth routes - no AdminLayout wrapper */}
+      <Route path="/auth" component={AuthPage} />
+      <Route path="/admin/auth" component={AuthPage} />
+      {/* Public proposal preview - accessible on all subdomains */}
+      <Route path="/proposal/:shareToken" component={PublicProposalPage} />
+      
+      {/* Protected admin routes - wrapped in AdminLayout */}
+      <Route path="/admin/dashboard">
+        {() => (
+          <AdminLayout>
+            <AdminDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/stakeholders">
+        {() => (
+          <AdminLayout>
+            <StakeholdersPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/kyc-compliance">
+        {() => (
+          <AdminLayout>
+            <KycCompliancePage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/kyc-v2-management">
+        {() => (
+          <AdminLayout>
+            <KycV2ManagementPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/approval-queue">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AdminApprovalQueue />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/ckyc-deferred">
+        {() => (
+          <AdminLayout>
+            <CkycDeferredDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/financial-operations">
+        {() => (
+          <AdminLayout>
+            <FinancialOperationsPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/api-config">
+        {() => (
+          <AdminLayout>
+            <APIConfiguration />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/api-configuration">
+        {() => (
+          <AdminLayout>
+            <APIConfiguration />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/institutional-data">
+        {() => (
+          <AdminLayout>
+            <InstitutionalData />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/production-readiness">
+        {() => (
+          <AdminLayout>
+            <ProductionReadiness />
+          </AdminLayout>
+        )}
+      </Route>
+
+      <Route path="/admin/zoho-dashboard">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ZohoDashboardPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/zoho-connections">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ZohoConnectionsPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/zoho-logs">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ZohoLogsPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/zoho-books">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ZohoBooksPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/zoho-import">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ZohoImportPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/marketing-dashboard">
+        {() => (
+          <AdminLayout>
+            <MarketingDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/festival-marketing">
+        {() => (
+          <AdminLayout>
+            <FestivalMarketing />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/email-campaigns">
+        {() => (
+          <AdminLayout>
+            <EmailCampaigns />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/whatsapp-campaigns">
+        {() => (
+          <AdminLayout>
+            <WhatsAppCampaigns />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/whatsapp-setup">
+        {() => (
+          <AdminLayout>
+            <WhatsAppSetup />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/sms-campaigns">
+        {() => (
+          <AdminLayout>
+            <SMSCampaigns />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/sms-inbox">
+        {() => (
+          <AdminLayout>
+            <SmsInbox />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/lead-prospecting">
+        {() => (
+          <AdminLayout>
+            <LeadProspecting />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/mca-intelligence">
+        {() => (
+          <AdminLayout>
+            <McaIntelligence />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/mca-company/:cin?">
+        {() => (
+          <AdminLayout>
+            <McaCompanyProfile />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/prospect-analytics">
+        {() => (
+          <AdminLayout>
+            <ProspectAnalytics />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/prospect-dashboard">
+        {() => (
+          <Suspense fallback={<LoadingState variant="dashboard" />}>
+            <AdminLayout>
+              <AdminProspectDashboard />
+            </AdminLayout>
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/admin/client-intelligence">
+        {() => (
+          <AdminLayout>
+            <ClientIntelligence />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/marketing-analytics">
+        {() => (
+          <AdminLayout>
+            <MarketingAnalytics />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/agent-performance">
+        {() => (
+          <AdminLayout>
+            <AgentPerformanceDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/demo-proposals">
+        {() => (
+          <AdminLayout>
+            <DemoProposalsTracking />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/global-advisory">
+        {() => (
+          <AdminLayout>
+            <GlobalAdvisoryManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/global-fee-model">
+        {() => (
+          <Suspense fallback={<LoadingState variant="dashboard" />}>
+            <AdminLayout>
+              <GlobalFeeModelAdmin />
+            </AdminLayout>
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/admin/appointments">
+        {() => <AdminAppointmentsDashboard />}
+      </Route>
+      <Route path="/admin/agent-oversight">
+        {() => <AdminAgentOversightPage />}
+      </Route>
+      <Route path="/admin/ai-insights">
+        {() => (
+          <AdminLayout>
+            <AdminAIInsights />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/task-oversight">
+        {() => (
+          <AdminLayout>
+            <AdminTaskOversight />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/duplicates">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <DuplicateManagementPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/system-health">
+        {() => (
+          <AdminLayout>
+            <SystemHealthMonitor />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/pricing-engine">
+        {() => (
+          <AdminLayout>
+            <GoldenPricingDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/engine-health-check">
+        {() => (
+          <AdminLayout>
+            <EngineHealthCheck />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/mf-analytics-ops">
+        {() => (
+          <AdminLayout>
+            <MFAnalyticsOps />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/revenue-analytics">
+        {() => (
+          <AdminLayout>
+            <RevenueAnalytics />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/user-activity">
+        {() => (
+          <AdminLayout>
+            <UserActivityTimeline />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/bulk-operations">
+        {() => (
+          <AdminLayout>
+            <BulkOperations />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/regulatory-audit-norms">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <RegulatoryAuditNormsPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/compliance-dashboard">
+        {() => (
+          <AdminLayout>
+            <ComplianceDashboardPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/sebi-mf-compliance">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <SEBIMFCompliance />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/notification-management">
+        {() => (
+          <AdminLayout>
+            <NotificationManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/feature-flags">
+        {() => (
+          <AdminLayout>
+            <FeatureFlags />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/parser-config">
+        {() => (
+          <AdminLayout>
+            <ParserConfigPage />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/esign-management">
+        {() => (
+          <AdminLayout>
+            <AdminESignManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/report-builder">
+        {() => (
+          <AdminLayout>
+            <ReportBuilder />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/order-audit">
+        {() => (
+          <AdminLayout>
+            <OrderAuditDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/users">
+        {() => (
+          <AdminLayout>
+            <UserManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/ca-management">
+        {() => (
+          <AdminLayout>
+            <CAManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/payouts">
+        {() => (
+          <AdminLayout>
+            <AdminPayoutManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/mapping-requests">
+        {() => (
+          <AdminLayout>
+            <AdminMappingRequests />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store-management">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <StoreManagement />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store-manager">
+        {() => (
+          <AdminLayout>
+            <AdminStoreManager />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store-inquiries">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <StoreInquiriesAdmin />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store/seed-unlisted">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <SeedUnlistedPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store/seed/pre-ipo-unlisted">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <SeedUnlistedPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/preview/:id">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <UnlistedPreviewPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/pricing-preview/:companyId">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <UnlistedPricingPreviewPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/companies">
+        {() => (
+          <AdminLayout>
+            <UnlistedCompaniesAdmin />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/negotiations">
+        {() => (
+          <AdminLayout>
+            <UnlistedNegotiations />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/dashboard">
+        {() => (
+          <AdminLayout>
+            <UnlistedDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/orders">
+        {() => (
+          <AdminLayout>
+            <UnlistedOrders />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/audit-log">
+        {() => (
+          <AdminLayout>
+            <UnlistedAuditLog />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/compliance-alerts">
+        {() => (
+          <AdminLayout>
+            <UnlistedComplianceAlerts />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/regulatory-compliance">
+        {() => (
+          <AdminLayout>
+            <UnlistedRegulatoryCompliance />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/unlisted/seed">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <SeedUnlistedPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/bonds/dashboard">
+        {() => (
+          <AdminLayout>
+            <BondMarketplaceDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/bonds/sell-listings">
+        {() => (
+          <AdminLayout>
+            <FixedIncomeAdmin defaultTab="marketplace" />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/bonds/buy-requests">
+        {() => (
+          <AdminLayout>
+            <FixedIncomeAdmin defaultTab="marketplace" />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/bonds/deals">
+        {() => (
+          <AdminLayout>
+            <FixedIncomeAdmin defaultTab="marketplace" />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/bonds/audit-log">
+        {() => (
+          <AdminLayout>
+            <FixedIncomeAdmin defaultTab="audit" />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/fixed-income">
+        {() => (
+          <AdminLayout>
+            <FixedIncomeAdmin />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/broker-dashboard">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AdminBrokerDashboard />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/alpaca-hub">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AlpacaHubAdmin />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/iris">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AdminIrisOverview />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/mca-payments">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <McaDirectPayments />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/mca-backfill">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <McaFinancialBackfill />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/bond-commission-settings">
+        {() => (
+          <AdminLayout>
+            <BondCommissionSettings />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/partner-hierarchy">
+        {() => (
+          <AdminLayout>
+            <AdminPartnerHierarchy />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/firm-inventory">
+        {() => (
+          <AdminLayout>
+            <AdminFirmInventory />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/commission-master">
+        {() => (
+          <AdminLayout>
+            <CommissionMaster />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/loan-marketplace">
+        {() => (
+          <AdminLayout>
+            <AdminLoanManagement />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/commission-ledger">
+        {() => (
+          <AdminLayout>
+            <CommissionLedger />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/eligibility-matrix">
+        {() => (
+          <AdminLayout>
+            <EligibilityMatrix />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/dsa-loans">
+        {() => (
+          <AdminLayout>
+            <AdminDsaLoanDashboard />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/dlm">
+        {() => (
+          <AdminLayout>
+            <AdminDLM />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/dlm/negotiate/:documentId">
+        {() => (
+          <AdminLayout>
+            <AdminDLMNegotiate />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/documents">
+        {() => (
+          <AdminLayout>
+            <AdminDLM />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/bond-seed">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <BondSeedAdmin />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/mld-seed">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <MldSeedAdmin />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/aif-seed">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AifSeedAdmin />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/pms-seed">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <PmsSeedAdmin />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/mutual-funds">
+        {() => {
+          window.location.href = "/admin/mutual-funds-seeding";
+          return null;
+        }}
+      </Route>
+      <Route path="/admin/mutual-funds-seeding">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <MutualFundsSeeding />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/global-seed">
+          <Suspense fallback={<LoadingState variant="dashboard" />}>
+            <GlobalSeedAdmin />
+          </Suspense>
+        </Route>
+        <Route path="/admin/listed-stocks-seed">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ListedStocksSeed />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/reits-invits-seed">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ReitsInvitsSeed />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store/seed/reits-invits">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ReitsInvitsSeed />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store/seed/listed-securities">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <ListedStocksSeed />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store/seed/aif">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AifSeedAdmin />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store/seed/gift-city-ifsc">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <GiftCityIfscSeed />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store/seed/pms">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <PmsSeedAdmin />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store/seed/services">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <TaxServicesSeed />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store/seed/gold">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <GoldSeedAdmin />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/store/seed/loans">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <LoansSeedAdmin />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/recommendation-products">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <RecommendationProductsAdmin />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/picks">
+        {() => (
+          <Suspense fallback={<LoadingState variant="dashboard" />}>
+            <PicksManagement />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/admin/reports">
+        {() => (
+          <AdminLayout>
+            <AdminReportsHub />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/compliance">
+        {() => (
+          <AdminLayout>
+            <RiskComplianceExport />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/theme-settings">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AdminThemeSettings />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/kyc-flow">
+        {() => (
+          <AdminLayout>
+            <AdminKycFlow />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/api-usage">
+        {() => <AdminApiUsage />}
+      </Route>
+      <Route path="/admin/mf-benchmarks">
+        <AdminMfBenchmarks />
+      </Route>
+      <Route path="/admin/mf-enrichment">
+        {() => <AdminMFEnrichment />}
+      </Route>
+      <Route path="/admin/data-enrichment">
+        {() => <AdminDataEnrichment />}
+      </Route>
+      <Route path="/admin/master-dsa-claims">
+        {() => <AdminMasterDsaClaims />}
+      </Route>
+      <Route path="/admin/ai-recommendation-tracking">
+        {() => (
+          <AdminLayout>
+            <AdminAiRecommendationTracking />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/risk-compliance-export">
+        {() => (
+          <AdminLayout>
+            <RiskComplianceExport />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/database">
+        {() => (
+          <AdminLayout>
+            <AdminDatabase />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/data-providers">
+        {() => (
+          <AdminLayout>
+            <AdminDataProviders />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/activity-centre">
+        {() => (
+          <AdminLayout>
+            <ActivityCentre />
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/exchange-filings">
+        {() => (
+          <AdminLayout>
+            <ExchangeFilingsAdmin />
+          </AdminLayout>
+        )}
+      </Route>
+      {/* Generic admin root - must be after all specific /admin/* routes */}
+      <Route path="/admin" component={AdminRoot} />
+      <Route path="/" component={AdminRoot} />
+      {/* KYC & onboarding flow - admin users go through the same flow as clients */}
+      <Route path="/profile" component={Profile} />
+      <Route path="/onboarding" component={OnboardingPage} />
+      <Route path="/manual-kyc" component={ManualKYCPage} />
+      <Route path="/video-kyc" component={VideoKYC} />
+      <Route path="/kyc-rejections" component={KycRejectionRekyc} />
+      <Route path="/product-eligibility" component={KYCProductEligibility} />
+      <Route path="/ca-registration" component={CARegistration} />
+      <Route path="/net-worth" component={NetWorthPage} />
+      <Route path="/kyc-dashboard">
+        <Redirect to="/profile?tab=kyc-dashboard" />
+      </Route>
+      <Route path="/kyc/complete">
+        <Redirect to="/profile?tab=kyc-dashboard" />
+      </Route>
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+

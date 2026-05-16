@@ -1,32 +1,32 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
+import { Express, Response } from "express";
 import session from "express-session";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { createHash, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as UserType } from "@shared/schema";
 import { db } from "./db";
-import { users } from "@shared/schema/users";
+import { userTrustedDevices, users } from "@shared/schema/users";
 
 declare global {
   namespace Express {
     interface User extends UserType {
       id: string;
       userId: string;
-      role?: string;
-      roles?: string[];
     }
   }
 }
 
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { apiResponse } from "./utils/responses";
 import { emailService } from "./email-service";
 import { whatsappService } from "./whatsapp";
 import { smsService } from "./services/sms-service";
 
 const scryptAsync = promisify(scrypt);
+const PIN_DEVICE_COOKIE = "fintekpro_pin_device";
+const PIN_DEVICE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 
 export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
@@ -87,6 +87,140 @@ function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+function isTesterAccount(user: Pick<UserType, "userId" | "email" | "roles">): boolean {
+  return Boolean(
+    user.userId?.toLowerCase().startsWith("tester_") ||
+    user.email?.startsWith("test_") ||
+    user.email === "test@fintekpro.com" ||
+    (Array.isArray(user.roles) && user.roles.includes("tester")),
+  );
+}
+
+function canUseFixedTesterOtp(user: Pick<UserType, "userId" | "email" | "roles">): boolean {
+  return !isProductionRuntime() && process.env.ALLOW_TESTER_BYPASS === "true" && isTesterAccount(user);
+}
+
+function getTargetPortal(req: any): string {
+  return (req.query.portal || req.headers["x-portal-context"] || req.session?.targetPortal || req.subdomain || "main") as string;
+}
+
+function canAccessPortal(user: Pick<UserType, "roles">, targetPortal: string): boolean {
+  const userRoles = user.roles || [];
+  const isAdmin = userRoles.includes("admin") || userRoles.includes("super_admin");
+  const isAgent = userRoles.includes("agent") || userRoles.includes("master_agent") || userRoles.includes("sub_agent");
+  const isPartner = userRoles.includes("partner");
+
+  if (targetPortal === "admin") return isAdmin;
+  if (targetPortal === "agent") return isAgent || isAdmin;
+  if (targetPortal === "partner") return isPartner || isAgent || isAdmin;
+  return true;
+}
+
+function portalDeniedMessage(targetPortal: string): string {
+  return `You do not have permission to access the ${targetPortal} portal`;
+}
+
+function hashPinDeviceToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function getCookieValue(req: any, name: string): string | undefined {
+  const cookieHeader = req.headers?.cookie;
+  if (!cookieHeader || typeof cookieHeader !== "string") return undefined;
+
+  for (const cookie of cookieHeader.split(";")) {
+    const [rawName, ...rawValueParts] = cookie.trim().split("=");
+    if (rawName === name) {
+      try {
+        return decodeURIComponent(rawValueParts.join("="));
+      } catch {
+        return rawValueParts.join("=");
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function getClientIp(req: any): string | undefined {
+  const forwardedFor = req.headers?.["x-forwarded-for"];
+  if (typeof forwardedFor === "string" && forwardedFor.trim()) {
+    return forwardedFor.split(",")[0]?.trim();
+  }
+  return req.ip || req.socket?.remoteAddress;
+}
+
+function getDeviceName(req: any): string {
+  const userAgent = req.headers?.["user-agent"];
+  if (!userAgent || typeof userAgent !== "string") return "Unknown device";
+  if (/iphone|ipad|android|mobile/i.test(userAgent)) return "Mobile browser";
+  if (/macintosh|windows|linux/i.test(userAgent)) return "Desktop browser";
+  return "Browser";
+}
+
+function getUserAgent(req: any): string | null {
+  const userAgent = req.headers?.["user-agent"];
+  return typeof userAgent === "string" ? userAgent : null;
+}
+
+async function trustCurrentPinDevice(req: any, res: Response, userId: string): Promise<void> {
+  const token = randomBytes(32).toString("hex");
+  const now = new Date();
+
+  await db.insert(userTrustedDevices).values({
+    userId,
+    deviceTokenHash: hashPinDeviceToken(token),
+    deviceName: getDeviceName(req),
+    userAgent: getUserAgent(req),
+    ipAddress: getClientIp(req) || null,
+    trustedAt: now,
+    lastSeenAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  res.cookie(PIN_DEVICE_COOKIE, token, {
+    httpOnly: true,
+    secure: isProductionRuntime(),
+    sameSite: "lax",
+    maxAge: PIN_DEVICE_MAX_AGE_MS,
+    path: "/",
+  });
+}
+
+async function isTrustedPinDevice(req: any, userId: string): Promise<boolean> {
+  const token = getCookieValue(req, PIN_DEVICE_COOKIE);
+  if (!token) return false;
+
+  const [device] = await db
+    .select()
+    .from(userTrustedDevices)
+    .where(and(
+      eq(userTrustedDevices.userId, userId),
+      eq(userTrustedDevices.deviceTokenHash, hashPinDeviceToken(token)),
+      isNull(userTrustedDevices.revokedAt),
+    ))
+    .limit(1);
+
+  if (!device) return false;
+
+  await db
+    .update(userTrustedDevices)
+    .set({
+      lastSeenAt: new Date(),
+      ipAddress: getClientIp(req) || device.ipAddress,
+      userAgent: getUserAgent(req) || device.userAgent,
+      updatedAt: new Date(),
+    })
+    .where(eq(userTrustedDevices.id, device.id));
+
+  return true;
+}
+
 /**
  * Gets the preferred OTP delivery channel for a user.
  * Order: user setting → global setting → default fallback
@@ -119,6 +253,7 @@ async function getOtpChannelOrder(userId: string): Promise<string[]> {
 function stampSessionPortal(req: any, portal: string) {
   if (req.session) {
     (req.session as any).portal = portal;
+    (req.session as any).portalType = portal || req.subdomain || "main";
   }
 }
 
@@ -145,7 +280,7 @@ export function registerAuthRoutes(app: Express) {
   app.post("/api/login", async (req, res, next) => {
     try {
       // Allow passing portal type via query or header for Cloud Run compatibility
-      const targetPortal = (req.query.portal || req.headers['x-portal-context'] || req.subdomain || 'main') as string;
+      const targetPortal = getTargetPortal(req);
       console.log(`[LOGIN_REQUEST] Portal Context: ${targetPortal}`);
 
       // Modify the request to pass portal context to passport callback
@@ -153,7 +288,7 @@ export function registerAuthRoutes(app: Express) {
       modifiedReq.targetPortal = targetPortal;
       (req.session as any).targetPortal = targetPortal; // Persist in session for verify-otp step
 
-      passport.authenticate("local", async (err: any, user: User | false, info: any) => {
+      passport.authenticate("local", async (err: any, user: UserType | false, info: any) => {
         try {
           if (err) {
             console.error("[Login] Passport authentication error:", err);
@@ -166,36 +301,19 @@ export function registerAuthRoutes(app: Express) {
           }
 
           // 1. Role-based Portal Authorization
-          const userRoles = user.roles || [];
-          const isAdmin = userRoles.includes('admin') || userRoles.includes('super_admin');
-          const isAgent = userRoles.includes('agent') || userRoles.includes('master_agent') || userRoles.includes('sub_agent');
-          const isPartner = userRoles.includes('partner');
-
-          console.log(`[Login] User roles: ${userRoles.join(', ')} | Target: ${targetPortal}`);
+          console.log(`[Login] User roles: ${(user.roles || []).join(', ')} | Target: ${targetPortal}`);
 
           // Restrict portal access based on roles
-          if (targetPortal === 'admin' && !isAdmin) {
-            return apiResponse.forbidden(res, "You do not have permission to access the admin portal");
-          }
-          if (targetPortal === 'agent' && !isAgent && !isAdmin) {
-            return apiResponse.forbidden(res, "You do not have permission to access the agent portal");
-          }
-          if (targetPortal === 'partner' && !isPartner && !isAgent && !isAdmin) {
-            return apiResponse.forbidden(res, "You do not have permission to access the partner portal");
+          if (!canAccessPortal(user as UserType, targetPortal)) {
+            return apiResponse.forbidden(res, portalDeniedMessage(targetPortal));
           }
 
           // 2. Test Account Bypass Logic
-          const isTesterAccount = 
-            (process.env.ALLOW_TESTER_BYPASS !== 'false') && (
-              user.userId?.toLowerCase().startsWith('tester_') || 
-              user.email?.startsWith('test_') ||
-              user.email === 'test@fintekpro.com' ||
-              user.email === 'sangram.m@outlook.com' ||
-              (user.roles && Array.isArray(user.roles) && user.roles.includes("tester"))
-            );
+          const testerAccount = isTesterAccount(user as UserType);
+          const fixedTesterOtpEnabled = canUseFixedTesterOtp(user as UserType);
 
-          if (isTesterAccount) {
-             console.log(`🧪 Detected tester account: ${user.userId || user.email}`);
+          if (testerAccount) {
+             console.log(`🧪 Detected tester account: ${user.userId || user.email}. Fixed OTP enabled: ${fixedTesterOtpEnabled ? "yes" : "no"}`);
           }
 
           /* 
@@ -209,8 +327,8 @@ export function registerAuthRoutes(app: Express) {
           // For security, all production logins require an OTP verification
           let otp = generateOtp();
           
-          // Force fixed OTP for testers to ensure stable automated/manual tests
-          if (isTesterAccount) {
+          // Fixed OTP is allowed only in explicit non-production test runs.
+          if (fixedTesterOtpEnabled) {
             otp = "123456";
           }
           
@@ -247,7 +365,7 @@ export function registerAuthRoutes(app: Express) {
           let otpDelivered = false;
           let deliveryChannel = "";
 
-          if (isTesterAccount) {
+          if (fixedTesterOtpEnabled) {
             otpDelivered = true;
             deliveryChannel = "TEST_BYPASS";
             console.log(`🧪 Skipping OTP delivery for test account - use OTP: ${otp}`);
@@ -306,11 +424,11 @@ export function registerAuthRoutes(app: Express) {
             userId: user.userId,
             deliveryChannel
           };
-          if (isTesterAccount) {
+          if (fixedTesterOtpEnabled) {
             responseData.devOtp = otp;
             responseData.devHint = "Test account: use fixed OTP 123456";
           }
-          return apiResponse.success(res, responseData, isTesterAccount 
+          return apiResponse.success(res, responseData, fixedTesterOtpEnabled
             ? `Test account - use OTP: ${otp}` 
             : `OTP sent to your ${otpType} via ${deliveryChannel}`);
         } catch (innerError) {
@@ -365,8 +483,13 @@ export function registerAuthRoutes(app: Express) {
         return apiResponse.notFound(res, "User not found with this identifier");
       }
 
-      const isTesterAccount = user.email === "test@fintekpro.com" || user.email === "sangram.m@outlook.com" || (user.roles && Array.isArray(user.roles) && user.roles.includes("tester"));
-      const otp = isTesterAccount ? "123456" : generateOtp();
+      const targetPortal = getTargetPortal(req);
+      if (!canAccessPortal(user, targetPortal)) {
+        return apiResponse.forbidden(res, portalDeniedMessage(targetPortal));
+      }
+
+      const fixedTesterOtpEnabled = canUseFixedTesterOtp(user);
+      const otp = fixedTesterOtpEnabled ? "123456" : generateOtp();
       const otpType = identifier.includes("@") ? "email" : "mobile";
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
@@ -378,9 +501,15 @@ export function registerAuthRoutes(app: Express) {
         verified: false,
       });
 
+      if (req.session) {
+        (req.session as any).targetPortal = targetPortal;
+        (req.session as any).pendingLoginUserId = user.id;
+        (req.session as any).pendingLoginOtpIdentifier = identifier;
+      }
+
       // Send OTP
       let sent = false;
-      if (isTesterAccount) {
+      if (fixedTesterOtpEnabled) {
         sent = true;
         console.log(`🧪 Test account detected - skipping OTP delivery, use fixed OTP: ${otp}`);
       } else {
@@ -404,12 +533,12 @@ export function registerAuthRoutes(app: Express) {
         identifier,
       };
 
-      if (isTesterAccount) {
+      if (fixedTesterOtpEnabled) {
         responseData.devOtp = otp;
         responseData.devHint = "Test account: use fixed OTP 123456";
       }
 
-      return apiResponse.success(res, responseData, isTesterAccount ? `Test account - use OTP: ${otp}` : "OTP sent successfully");
+      return apiResponse.success(res, responseData, fixedTesterOtpEnabled ? `Test account - use OTP: ${otp}` : "OTP sent successfully");
     } catch (error) {
       console.error("OTP login request error:", error);
       return apiResponse.serverError(res, "Failed to send OTP");
@@ -478,11 +607,16 @@ export function registerAuthRoutes(app: Express) {
         return apiResponse.notFound(res, "User not found");
       }
 
+      const targetPortal = getTargetPortal(req);
+      if (!canAccessPortal(user, targetPortal)) {
+        return apiResponse.forbidden(res, portalDeniedMessage(targetPortal));
+      }
+
       console.log(`[VERIFY_OTP] Found user ${user.id}. Updating login stats...`);
 
       // Update verification status and login timestamps
-      const updates: Partial<User> = {};
-      if (otpType === "email") {
+      const updates: Partial<UserType> = {};
+      if (resolvedOtpType === "email") {
         updates.isEmailVerified = true;
       } else {
         updates.isMobileVerified = true;
@@ -512,14 +646,10 @@ export function registerAuthRoutes(app: Express) {
       }
 
       // Check if both are verified before completing login
-      const isTester =
-        updatedUser.userId?.toLowerCase().startsWith('tester_') ||
-        updatedUser.email?.startsWith('test_') ||
-        updatedUser.email === 'test@fintekpro.com' ||
-        (Array.isArray(updatedUser.roles) && updatedUser.roles.includes("tester"));
+      const fixedTesterOtpEnabled = canUseFixedTesterOtp(updatedUser);
       const bothVerified = updatedUser.isEmailVerified && updatedUser.isMobileVerified;
       
-      if (!bothVerified && !isTester) {
+      if (!bothVerified && !fixedTesterOtpEnabled) {
         console.log(`[VERIFY_OTP] Partial verification completed for user ${updatedUser.id}. Mobile: ${updatedUser.isMobileVerified}, Email: ${updatedUser.isEmailVerified}`);
         return apiResponse.success(res, {
           requiresVerification: true,
@@ -537,16 +667,22 @@ export function registerAuthRoutes(app: Express) {
         }
         
         console.log(`[VERIFY_OTP] Session created. Stamping portal type...`);
-        const targetPortal = (req.session as any).targetPortal || req.subdomain;
         stampSessionPortal(req, targetPortal);
         delete (req.session as any).pendingLoginUserId;
         delete (req.session as any).pendingLoginOtpIdentifier;
         
         // Explicitly save session to ensure it persists
-        req.session.save((saveErr) => {
+        req.session.save(async (saveErr) => {
           if (saveErr) {
             console.error("❌ [VERIFY_OTP] Session save error:", saveErr);
             return apiResponse.serverError(res, "Session save failed");
+          }
+
+          try {
+            await trustCurrentPinDevice(req, res, updatedUser.id);
+          } catch (deviceError) {
+            console.error("❌ [VERIFY_OTP] Trusted device save error:", deviceError);
+            return apiResponse.serverError(res, "Failed to register trusted device");
           }
           
           console.log(`✅ [VERIFY_OTP] Success! User ${updatedUser.id} logged in.`);
@@ -585,16 +721,25 @@ export function registerAuthRoutes(app: Express) {
         return apiResponse.unauthorized(res);
       }
 
+      const currentUser = await storage.getUser(req.user.id);
+      if (!currentUser) {
+        return apiResponse.unauthorized(res);
+      }
+      if (!currentUser.mobile || !currentUser.isMobileVerified) {
+        return apiResponse.forbidden(res, "Verify your mobile number before setting a login PIN");
+      }
+
       const { pin } = req.body;
       if (!pin || pin.length !== 4 || !/^\d+$/.test(pin)) {
         return apiResponse.badRequest(res, "Invalid PIN. Must be 4 digits.");
       }
 
       const hashedPin = await hashPin(pin);
-      await storage.updateUser(req.user.id, {
+      await storage.updateUser(currentUser.id, {
         loginPin: hashedPin,
         isPinSet: true
       });
+      await trustCurrentPinDevice(req, res, currentUser.id);
 
       return apiResponse.success(res, {}, "PIN set successfully. You can now use this for future logins.");
     } catch (error) {
@@ -624,6 +769,19 @@ export function registerAuthRoutes(app: Express) {
         return apiResponse.unauthorized(res, "Invalid credentials or PIN not set");
       }
 
+      if (!user.mobile || !user.isMobileVerified) {
+        return apiResponse.forbidden(res, "Mobile verification is required before PIN login");
+      }
+
+      if (!(await isTrustedPinDevice(req, user.id))) {
+        return apiResponse.forbidden(res, "New device detected. Please verify with OTP before using PIN login.");
+      }
+
+      const targetPortal = getTargetPortal(req);
+      if (!canAccessPortal(user, targetPortal)) {
+        return apiResponse.forbidden(res, portalDeniedMessage(targetPortal));
+      }
+
       const isValid = await comparePins(pin, user.loginPin);
       if (!isValid) {
         return apiResponse.unauthorized(res, "Invalid PIN");
@@ -635,7 +793,6 @@ export function registerAuthRoutes(app: Express) {
           return apiResponse.serverError(res, "Login failed");
         }
         
-        const targetPortal = (req.session as any).targetPortal || req.subdomain;
         stampSessionPortal(req, targetPortal);
         
         return apiResponse.success(res, {
@@ -767,10 +924,10 @@ export function registerAuthRoutes(app: Express) {
       console.log(`[Force Logout] Terminating all sessions for user ID: ${user.id}`);
 
       // Delete all sessions for this user
-      const result = await db
-        .delete(sql.raw('sessions'))
-        .where(sql`sess->'passport'->>'user' = ${user.id}`)
-        .execute();
+      const result = await db.execute(sql`
+        DELETE FROM sessions
+        WHERE sess->'passport'->>'user' = ${user.id}
+      `);
 
       return apiResponse.success(res, {
         destroyedSessions: (result as any).rowCount || 0
@@ -791,13 +948,20 @@ export function registerAuthRoutes(app: Express) {
 
     try {
       const hashedPin = await hashPassword(pin);
-      const user = req.user as User;
+      const user = req.user as UserType;
+      const currentUser = await storage.getUser(user.id);
+      if (!currentUser) return res.sendStatus(401);
+      if (!currentUser.mobile || !currentUser.isMobileVerified) {
+        return res.status(403).send("Verify your mobile number before setting a login PIN");
+      }
+
       const updatedUser = await storage.updateUser(user.id, {
         loginPin: hashedPin,
         isPinSet: true
       });
 
       if (!updatedUser) return res.status(500).send("Failed to update PIN");
+      await trustCurrentPinDevice(req, res, user.id);
       
       res.json(updatedUser);
     } catch (err) {
