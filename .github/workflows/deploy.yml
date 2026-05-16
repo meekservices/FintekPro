@@ -118,7 +118,9 @@ jobs:
             --memory=4Gi \
             --cpu=2 \
             --timeout=300 \
-            --cpu-boost
+            --cpu-boost \
+            --session-affinity
+
 
       # 2. Build & Deploy Python Analytics
       - name: Build Python Image

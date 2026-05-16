@@ -94,6 +94,17 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // ============================================================================
+// PHASE 2.5: BIND PORT IMMEDIATELY
+// ============================================================================
+// Bind the port BEFORE any async operations so Cloud Run's startup probe
+// succeeds immediately. DB connection and route registration happen after.
+const PORT = Number(process.env.PORT) || 5000;
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 [v${APP_VERSION}] Server listening on port ${PORT} (Booting...)`);
+  bootState.serverListening = true;
+});
+
+// ============================================================================
 // PHASE 3: ASYNC BOOT SEQUENCE
 // ============================================================================
 
@@ -101,7 +112,7 @@ if (process.env.NODE_ENV === 'production') {
   try {
     logBootProgress("Step 1: Starting database connection...");
 
-    // Test database connection immediately
+    // Test database connection
     const { db } = await import('./db');
     const { sql } = await import('drizzle-orm');
 
@@ -109,20 +120,11 @@ if (process.env.NODE_ENV === 'production') {
       await db.execute(sql`SELECT 1`);
       console.log('✅ Database connection established');
     } catch (dbErr) {
+      // Log DB failure but do NOT crash — server is already listening
       console.error('❌ Database connection failed:', dbErr);
-      throw new Error(`DB Connection Error: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`);
+      bootState.error = `DB Connection Error: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`;
+      // Continue booting so Cloud Run keeps the instance alive
     }
-
-    // ============================================================================
-    // IMMEDIATE LISTENER START
-    // ============================================================================
-    // Start listening as soon as Step 1 is done. This prevents 502 Gateway errors
-    // on Cloud Run/GCP by ensuring the container is reachable within seconds.
-    const PORT = Number(process.env.PORT) || 5000;
-    const server = app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 [v${APP_VERSION}] Server listening on port ${PORT} (Booting...)`);
-      bootState.serverListening = true;
-    });
 
     if (process.env.RUN_STARTUP_MIGRATIONS === "true") {
       logBootProgress("Step 2: Checking schema migrations...");
@@ -270,7 +272,8 @@ if (process.env.NODE_ENV === 'production') {
       bondMarketplaceCalendarRoutes, regulatoryAuditNormsRoutes, regulatoryComplianceRoutes
     ] = await Promise.all([
       import('./routes/unlisted'),
-      import('./routes/compliance'),
+
+import('./routes/compliance'),
       import('./routes/bond-marketplace'),
       import('./routes/bond-seed-admin'),
       import('./routes/gold-admin'),
@@ -363,6 +366,7 @@ if (process.env.NODE_ENV === 'production') {
     // In production, try to serve SPA even if boot failed partially
     if (process.env.NODE_ENV === 'production') {
       try { registerSPACatchAll(app); } catch (_) {}
+
     }
   }
 })();

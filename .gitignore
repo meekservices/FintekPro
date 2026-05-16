@@ -95,21 +95,35 @@ pnpm-lock.yaml
 
 # Local development and cache
 npm_cache/
+.npm-cache/
+.npm_cache/
+local_npm_cache/
+node_modules 2/
+node_modules 3/
 find_user.ts
 fintek_data.dump
 cloudrun-env.yaml
 .gcloud/
 .gcloud_config/
+gcloud_config/
 .gcloud_tmp_config/
+.gcloud_temp/
+test-*
+*.tgz
+*.db
+build_errors.txt
+routes_base64.txt
+deploy_test/
 .tmp/
 deploy_temp/
 
 # Scratch artifacts
-scratch/*.js
-scratch/*.cjs
-scratch/*.ts
-scratch/*.txt
-scratch/*.sql
+scratch/
+server/**/*.js
+shared/**/*.js
+server/**/*.map
+shared/**/*.map
+
 .env.local
 
 # TSC diagnostic dumps
@@ -121,3 +135,4 @@ artifacts/
 
 # Firebase — keep local cache dir out; config files must be committed for CI/CD
 .firebase/
+tmp/

@@ -31,19 +31,36 @@ const POOL_CONFIG: any = {
   connectionTimeoutMillis: 30000,
 };
 
+// The `pg` library does NOT support `?host=` as a URL query parameter.
+// The Cloud SQL URL format `postgresql://user:pass@/db?host=/cloudsql/...` is also
+// non-standard and causes `new URL()` to throw. Use regex parsing instead.
 if (dbUrl) {
+  // Match: postgresql://user:pass@/dbname?host=/cloudsql/...
+  // OR standard: postgresql://user:pass@host:port/dbname
+  const cloudSqlMatch = dbUrl.match(
+    /^(?:postgres(?:ql)?):\/\/([^:@]+)?(?::([^@]*))?@\/([^?]+)(?:\?host=(.+))?$/
+  );
+  if (cloudSqlMatch && cloudSqlMatch[4]?.startsWith('/')) {
+    // Cloud SQL Unix socket format
+    POOL_CONFIG.user = cloudSqlMatch[1] || 'postgres';
+    POOL_CONFIG.password = cloudSqlMatch[2] || undefined;
+    POOL_CONFIG.database = cloudSqlMatch[3] || 'fintekpro';
+    POOL_CONFIG.host = cloudSqlMatch[4]; // e.g. /cloudsql/fintekpro:asia-south1:fintekpro-db
+    delete POOL_CONFIG.port;
+    console.log(`[DB] 🔧 Cloud SQL socket mode: user=${POOL_CONFIG.user} db=${POOL_CONFIG.database} socket=${POOL_CONFIG.host}`);
+  } else {
+    // Standard TCP connection string
     POOL_CONFIG.connectionString = dbUrl;
-
+  }
 } else {
   POOL_CONFIG.user = user;
   POOL_CONFIG.password = password;
   POOL_CONFIG.database = database;
   POOL_CONFIG.host = host;
   POOL_CONFIG.port = port;
-
 }
 
-// 4. Unix Socket Overrides (Only if connectionString doesn't already specify it)
+// 4. Unix Socket Override — if /cloudsql socket exists and no socket set yet
 if (isProduction) {
   try {
     const rootDir = '/cloudsql';
@@ -56,8 +73,8 @@ if (isProduction) {
       console.warn(`[DB] ⚠️ ${rootDir} directory does NOT exist. This usually means the Cloud SQL instance is not attached to the Cloud Run service.`);
     }
 
-    if (dbUrl && (dbUrl.includes('/cloudsql/') || dbUrl.includes('host='))) {
-      console.log(`[DB] 🚀 Socket path detected in connection string.`);
+    if (POOL_CONFIG.host && POOL_CONFIG.host.startsWith('/')) {
+      console.log(`[DB] 🚀 Unix socket already configured: ${POOL_CONFIG.host}`);
     } else if (fs.existsSync(socketPath)) {
       console.log(`[DB] 🔧 Injecting Unix Socket host override: ${socketPath}`);
       POOL_CONFIG.host = socketPath;

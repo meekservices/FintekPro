@@ -17,15 +17,15 @@ function collectRuntimeEnvIssues(): EnvIssue[] {
 
   if (isProduction && !hasDatabaseUrl) {
     issues.push({
-      level: "error",
-      message: "PRODUCTION_DATABASE_URL or DATABASE_URL must be provided by Secret Manager in production.",
+      level: "warn",
+      message: "PRODUCTION_DATABASE_URL or DATABASE_URL not found at boot-time. Ensure Secret Manager bindings are configured in Cloud Run.",
     });
   }
 
   if (isProduction && !hasValue(process.env.SESSION_SECRET)) {
     issues.push({
-      level: "error",
-      message: "SESSION_SECRET must be provided by Secret Manager in production.",
+      level: "warn",
+      message: "SESSION_SECRET not found at boot-time. Ensure Secret Manager bindings are configured in Cloud Run.",
     });
   }
 

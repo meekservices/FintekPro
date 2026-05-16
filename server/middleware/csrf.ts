@@ -1,46 +1,50 @@
 import { Request, Response, NextFunction } from "express";
-import csrf from "csurf";
+import crypto from "crypto";
 
-/**
- * CSRF Protection Middleware
- * 
- * In production (Cloud Run behind Firebase Hosting), we use cookie-based 
- * CSRF tokens. This ensures that even if the frontend is served via CDN,
- * the API calls are protected against cross-site requests.
- */
-
-const csrfProtection = csrf({
-  cookie: {
-    key: "_csrf",
-    path: "/",
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-  },
-});
-
-export const setupCsrf = (app: any) => {
-  // Apply CSRF protection to all routes except explicitly excluded ones
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    // Skip CSRF for health checks and specific webhooks if needed
-    if (req.path === "/api/health" || req.path.startsWith("/api/webhooks")) {
-      return next();
-    }
-    csrfProtection(req, res, next);
-  });
-
-  // Provide the token to the frontend via a custom header or cookie
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.csrfToken) {
-      const token = req.csrfToken();
-      res.cookie("XSRF-TOKEN", token, {
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-      });
-    }
-    next();
-  });
+export const generateCsrfToken = () => {
+  return crypto.randomBytes(32).toString('hex');
 };
 
-export { csrfProtection };
+/**
+ * Enhanced CSRF protection with diagnostic logging for production triage.
+ */
+export const createCsrfProtection = () => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    // 1. Skip GET/HEAD/OPTIONS
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+      return next();
+    }
+
+    const sessionToken = (req.session as any)?.csrfToken;
+    const headerToken = req.headers['x-csrf-token'];
+
+    // 2. Validate token match
+    if (sessionToken && headerToken === sessionToken) {
+      return next();
+    }
+
+    // 3. Diagnostic logging for validation failures
+    const logData = {
+      timestamp: new Date().toISOString(),
+      method: req.method,
+      path: req.path,
+      host: req.get('host'),
+      origin: req.get('origin'),
+      userAgent: req.get('user-agent'),
+      hasSession: !!req.session,
+      sessionToken: sessionToken ? `${sessionToken.substring(0, 4)}...` : 'MISSING',
+      headerToken: headerToken ? `${String(headerToken).substring(0, 4)}...` : 'MISSING',
+      ip: req.ip || req.headers['x-forwarded-for'],
+    };
+
+    console.warn(`[CSRF_FAILURE] 🛡️ Blocked ${req.method} ${req.path}`, logData);
+
+    // In production, return 403. In development, we might be more lenient but 
+    // for this deployment we enforce strict check.
+    res.status(403).json({
+      error: "Invalid CSRF token",
+      message: "Security validation failed. Please refresh the page.",
+      code: "CSRF_ERROR"
+    });
+  };
+};

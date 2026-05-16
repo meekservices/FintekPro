@@ -246,6 +246,9 @@ export class AIService {
           return result;
         } catch (error: any) {
           lastError = error;
+          const status = error.status || error.statusCode || (error.response ? error.response.status : 'N/A');
+          
+          console.error(`[AIService] ❌ ${provider} (${model}) failed [Status: ${status}]: ${error.message}`);
           
           // Log each failure to error tracker
           errorTrackingService.ingestError({
@@ -259,6 +262,7 @@ export class AIService {
               metadata: {
                 provider,
                 model,
+                status,
                 attempt,
                 capability,
                 feature,
@@ -266,6 +270,7 @@ export class AIService {
               }
             }
           }).catch(() => {});
+
 
           const is429 = error.status === 429 || 
                         error.message?.includes('429') || 

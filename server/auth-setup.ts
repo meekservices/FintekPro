@@ -35,33 +35,13 @@ export async function setupAuth(app: Express) {
   // We use the centralized storage.sessionStore instance to ensure pool consistency
   const sessionStore = storage.sessionStore;
 
-  // 2. Cookie Configuration for Multi-Portal Persistence
-  // We use a per-request dynamic cookie to scope to .fintekpro.com only when
-  // the request actually comes from that domain — preventing "option domain is invalid"
-  // errors when Cloud Run serves requests from *.run.app during health checks / login.
-  const rawDomain = process.env.SESSION_COOKIE_DOMAIN || process.env.CUSTOM_DOMAIN;
-  const configuredHostname = rawDomain
-    ?.replace(/^https?:\/\//, "")
-    .split("/")[0]
-    .split(":")[0]
-    .replace(/^www\./, "")
-    .toLowerCase();
-
-  const isValidCookieDomain = (
-    configuredHostname &&
-    configuredHostname.includes(".") &&
-    !configuredHostname.endsWith(".run.app")
-  );
-
-  const cookieBaseDomain = isValidCookieDomain
-    ? (configuredHostname!.startsWith(".") ? configuredHostname! : `.${configuredHostname}`)
-    : undefined;
-
-  if (cookieBaseDomain) {
-    console.log(`[AUTH_SETUP] Session cookie will be scoped to ${cookieBaseDomain} for matching requests`);
-  } else {
-    console.warn("[AUTH_SETUP] SESSION_COOKIE_DOMAIN/CUSTOM_DOMAIN not set or invalid; using host-only session cookie.");
-  }
+  // 2. Cookie Configuration
+  // DO NOT set a domain on the session cookie. A host-only cookie (no Domain attribute)
+  // is scoped to exactly the current subdomain (e.g. agent.fintekpro.com) and is the
+  // most reliable approach for single-subdomain portals. Setting Domain=fintekpro.com
+  // causes browsers to treat it as a cross-subdomain cookie with different send rules
+  // that were silently breaking session persistence.
+  console.log("[AUTH_SETUP] Session cookie: host-only (no Domain attribute) for maximum reliability");
 
   const cookieOptions: session.CookieOptions = {
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
@@ -69,7 +49,8 @@ export async function setupAuth(app: Express) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    // domain is set dynamically per-request below — do NOT set it here globally
+    // No domain attribute: cookie is host-only, scoped to exact subdomain.
+    // This is more reliable than setting Domain=fintekpro.com for single-portal use.
   };
 
   const sessionSecret = process.env.SESSION_SECRET || (!process.env.NODE_ENV || process.env.NODE_ENV !== "production"
@@ -94,21 +75,7 @@ export async function setupAuth(app: Express) {
     })
   );
 
-  // 3b. Dynamically apply cookie domain per-request.
-  // This prevents "option domain is invalid" when Cloud Run serves requests from
-  // *.run.app while CUSTOM_DOMAIN is set to fintekpro.com.
-  if (cookieBaseDomain) {
-    app.use((req: Request, _res: Response, next: NextFunction) => {
-      if (req.session) {
-        const host = (req.headers["x-forwarded-host"] as string || req.hostname || "").split(":")[0].toLowerCase();
-        // Only apply the custom domain when the request comes from that domain
-        const hostMatchesDomain = host === cookieBaseDomain.replace(/^\./, "") ||
-          host.endsWith(cookieBaseDomain);
-        req.session.cookie.domain = hostMatchesDomain ? cookieBaseDomain : undefined;
-      }
-      next();
-    });
-  }
+  // 3b. No per-request domain override needed — host-only cookies don't require it.
 
   // 4. Trust Proxy Configuration
   app.set("trust proxy", true);
