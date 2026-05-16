@@ -1,101 +1,41 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pkg from 'pg';
 const { Pool } = pkg;
-import * as schema from '../shared/schema.ts';
-import fs from 'fs';
+import * as schema from "@shared/schema";
+import { log } from "./vite";
 
 /**
- * DATABASE CONNECTION LOGIC
- * 
- * Production: Uses Google Cloud SQL Unix Sockets via /cloudsql mount.
- * Development: Uses TCP (127.0.0.1:5432).
+ * Database connection management.
+ * In production, we prioritize CLOUD_SQL_CONNECTION_NAME via unix domain sockets
+ * or falls back to DATABASE_URL (for Railway/Local).
  */
 
-const isProduction = process.env.NODE_ENV === "production";
-const instanceConnectionName = process.env.INSTANCE_CONNECTION_NAME || "fintekpro:asia-south1:fintekpro-db";
+if (!process.env.DATABASE_URL && !process.env.PRODUCTION_DATABASE_URL) {
+  throw new Error(
+    "DATABASE_URL or PRODUCTION_DATABASE_URL must be set. Did you forget to provision a database?",
+  );
+}
 
-// Configuration defaults
-let user = 'postgres';
-let password = process.env.DB_PASSWORD || 'postgres';
-let database = 'fintekpro';
-let host = '127.0.0.1';
-let port = 5432;
+const connectionString = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
 
-// 1. Initial Load of DATABASE_URL
-let dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
-
-// 3. Build Pool Configuration
-const POOL_CONFIG: any = {
-  max: isProduction ? 3 : 8,
+// Pool configuration with optimized production defaults
+export const pool = new Pool({
+  connectionString,
+  // Cloud Run optimization: Limit pool size to manage connections effectively
+  max: process.env.NODE_ENV === 'production' ? 10 : 5,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 30000,
-};
-
-if (dbUrl) {
-    POOL_CONFIG.connectionString = dbUrl;
-
-} else {
-  POOL_CONFIG.user = user;
-  POOL_CONFIG.password = password;
-  POOL_CONFIG.database = database;
-  POOL_CONFIG.host = host;
-  POOL_CONFIG.port = port;
-
-}
-
-// 4. Unix Socket Overrides (Only if connectionString doesn't already specify it)
-if (isProduction) {
-  try {
-    const rootDir = '/cloudsql';
-    const socketPath = `/cloudsql/${instanceConnectionName}`;
-
-
-
-    if (fs.existsSync(rootDir)) {
-      const contents = fs.readdirSync(rootDir);
-      console.log(`[DB] ✅ ${rootDir} exists. Found: ${contents.join(', ')}`);
-    } else {
-      console.warn(`[DB] ⚠️ ${rootDir} directory does NOT exist. This usually means the Cloud SQL instance is not attached to the Cloud Run service.`);
-    }
-
-    if (dbUrl && (dbUrl.includes('/cloudsql/') || dbUrl.includes('host='))) {
-      console.log(`[DB] 🚀 Socket path detected in connection string.`);
-    } else if (fs.existsSync(socketPath)) {
-      console.log(`[DB] 🔧 Injecting Unix Socket host override: ${socketPath}`);
-      POOL_CONFIG.host = socketPath;
-      delete POOL_CONFIG.port;
-      delete POOL_CONFIG.connectionString; // Prefer explicit host if socket is found
-    } else {
-      console.warn(`[DB] ⚠️ No socket found at ${socketPath}. Attempting to proceed with current configuration...`);
-      
-      // Fallback: If no socket, and we have a connection string, check if it's usable
-      if (!dbUrl) {
-        console.error(`[DB] ❌ CRITICAL: No DATABASE_URL and no Unix Socket found. Connection will likely fail.`);
-      }
-    }
-  } catch (err) {
-    console.error(`[DB] ❌ Error in socket diagnostic: ${err instanceof Error ? err.message : String(err)}`);
-  }
-}
-
-// Initialize the Pool
-export const pool = new Pool(POOL_CONFIG);
-
-// Error handling for the pool
-pool.on('error', (err) => {
-  console.error('[DB] ❌ Unexpected error on idle client', err);
+  connectionTimeoutMillis: 5000,
+  // SSL is required for most external connections (Railway/Neon) 
+  // but handled via Unix socket for Cloud SQL.
+  // We enable it by default if connection is not local/unix.
+  ssl: connectionString?.includes('localhost') || connectionString?.includes('/cloudsql/') 
+    ? false 
+    : { rejectUnauthorized: false }
 });
 
-// Initialize Drizzle
-export const db = drizzle(pool, { schema });
+// Periodic pool health check
+pool.on('error', (err) => {
+  log(`CRITICAL: Unexpected error on idle database client: ${err.message}`);
+});
 
-// Export connection tester
-export const testConnection = async () => {
-  const client = await pool.connect();
-  try {
-    const res = await client.query('SELECT NOW()');
-    return { success: true, timestamp: res.rows[0].now };
-  } finally {
-    client.release();
-  }
-};
+export const db = drizzle(pool, { schema });

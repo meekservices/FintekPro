@@ -1,370 +1,161 @@
-import "dotenv/config";
-import { type Express, type Request, type Response } from "express";
+import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { registerAuthRoutes } from "./auth";
-import { storage } from "./storage";
-import { logger } from "./logger";
-import { bootState, logBootProgress } from "./utils/boot-state";
-import { createCsrfProtection, generateCsrfToken } from "./middleware/csrf";
-import { creditRatingsService } from "./services/credit-ratings-service";
-import { symbolMappingService } from "./services/symbol-mapping-service";
-import express from "express";
+import { setupVite, serveStatic, log } from "./vite";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
+import { bootState } from "./utils/boot-state";
 import path from "path";
-import { fileURLToPath } from "url";
-import { APP_VERSION } from "../shared/version";
-import { subdomainDetection } from "./subdomain-middleware";
-import { registerAuthEventConsumers } from "./services/auth-event-consumers";
-import { startBackgroundSchedulers } from "./startup/background-schedulers";
-import { validateRuntimeEnv } from "./config/runtime-env";
-import { registerPrebootMiddleware } from "./startup/preboot-middleware";
-
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const app = express();
-
-validateRuntimeEnv();
-
-// ============================================================================
-// PHASE 0: INFRASTRUCTURE & GLOBAL ERROR CATCHING
-// ============================================================================
-
-process.on('uncaughtException', (err) => {
-  console.error('❌ [FATAL] Uncaught Exception:', err);
-  // Recovery actions are handled by auto-recovery-service if initialized
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ [FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-// ============================================================================
-// PHASE 1: PRE-BOOT MIDDLEWARE & CORS
-// ============================================================================
-
-registerPrebootMiddleware(app);
-
-// ============================================================================
-// PHASE 2: EARLY SPA SAFETY ROUTE
-// ============================================================================
+import fs from "fs";
 
 /**
- * Register the SPA catch-all route immediately.
- * This ensures that if the async boot sequence (Phase 3) takes a long time
- * or fails partway through, the browser still receives index.html instead
- * of "Cannot GET /" or a raw Express error.
- *
-
-* The frontend UI is designed to show a "Connecting to server..." splash 
- * screen until it receives a successful response from /api/boot-status.
+ * Phase 0: Environment & Core Configuration
+ * Setup base application state and global handlers.
  */
-function registerSPACatchAll(expressApp: Express) {
-  const distPath = path.resolve(__dirname, '..', 'dist', 'public');
-  const indexPath = path.resolve(distPath, 'index.html');
+const app = express();
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
-  // Serve static files first
-  expressApp.use(express.static(distPath));
+// Global Request Logger
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let resSent = false;
 
-  // Catch-all route for SPA navigation
-  expressApp.get('*', (req, res, next) => {
-    // Skip API routes
-    if (req.path.startsWith('/api')) return next();
-
-    // In production, serve index.html for all SPA routes
-    // This acts as a safety net if boot sequence hangs
-    if (process.env.NODE_ENV === 'production') {
-      res.sendFile(indexPath, (err) => {
-        if (err) {
-          console.error('❌ Failed to serve SPA index.html:', err);
-          res.status(500).send('System initializing... please refresh in 30 seconds.');
-        }
-      });
-    } else {
-      next();
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (res.get("X-Response-Time")) {
+        logLine += ` (saw ${res.get("X-Response-Time")}ms)`;
+      }
+      log(logLine);
     }
   });
-}
 
+  next();
+});
 
-// Register the catch-all immediately for production stability
-if (process.env.NODE_ENV === 'production') {
-  console.log('🛡️  Registering SPA catch-all (Phase 2 safety)...');
-  registerSPACatchAll(app);
-}
-
-// ============================================================================
-// PHASE 3: ASYNC BOOT SEQUENCE
-// ============================================================================
-
-(async () => {
+/**
+ * Phase 1: Database Connectivity
+ * Attempt to verify DB connection but proceed even on failure to ensure
+ * SPA availability for status reporting/debugging.
+ */
+async function initializeDatabase() {
+  bootState.setPhase(1, "connecting");
   try {
-    logBootProgress("Step 1: Starting database connection...");
+    log("Phase 1: Attempting database connectivity check...");
+    await db.execute(sql`SELECT 1`);
+    log("Phase 1: Database connection verified successfully.");
+    bootState.setPhase(1, "ready");
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    log(`Phase 1 WARNING: Database connectivity failed: ${msg}`);
+    log("Proceeding to Phase 2 in degraded mode (SPA will remain active).");
+    bootState.setPhase(1, "error", msg);
+  }
+}
 
-    // Test database connection immediately
-    const { db } = await import('./db');
-    const { sql } = await import('drizzle-orm');
+/**
+ * Phase 2: Route Registration
+ * Attaches API endpoints and system handlers.
+ */
+async function initializeRoutes() {
+  bootState.setPhase(2, "registering");
+  try {
+    log("Phase 2: Initializing API routes...");
+    const server = registerRoutes(app);
+    log("Phase 2: API routes registered.");
+    bootState.setPhase(2, "ready");
+    return server;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    log(`Phase 2 CRITICAL: Route registration failed: ${msg}`);
+    bootState.setPhase(2, "error", msg);
+    throw error;
+  }
+}
 
-    try {
-      await db.execute(sql`SELECT 1`);
-      console.log('✅ Database connection established');
-    } catch (dbErr) {
-      console.error('❌ Database connection failed:', dbErr);
-      throw new Error(`DB Connection Error: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`);
+/**
+ * Phase 3: Error Handling Middleware
+ * Global catch-all for API and system errors.
+ */
+function setupErrorHandling() {
+  bootState.setPhase(3, "setting_up");
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+    
+    // Log errors but keep them concise in production
+    if (process.env.NODE_ENV !== 'production') {
+      console.error("[Runtime Error]", err);
+    } else if (status >= 500) {
+      log(`Runtime Error ${status}: ${message}`);
     }
 
-    // ============================================================================
-    // IMMEDIATE LISTENER START
-    // ============================================================================
-    // Start listening as soon as Step 1 is done. This prevents 502 Gateway errors
-    // on Cloud Run/GCP by ensuring the container is reachable within seconds.
-    const PORT = Number(process.env.PORT) || 5000;
-    const server = app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 [v${APP_VERSION}] Server listening on port ${PORT} (Booting...)`);
-      bootState.serverListening = true;
-    });
+    res.status(status).json({ message });
+  });
+  log("Phase 3: Global error handlers attached.");
+  bootState.setPhase(3, "ready");
+}
 
-    if (process.env.RUN_STARTUP_MIGRATIONS === "true") {
-      logBootProgress("Step 2: Checking schema migrations...");
-      const { runStartupSchemaRepairs } = await import("./startup/schema-repairs");
-      await runStartupSchemaRepairs();
+/**
+ * Phase 4: Frontend Integration (Vite/Static)
+ * Handles SPA serving logic based on environment.
+ */
+async function initializeFrontend() {
+  bootState.setPhase(4, "serving");
+  try {
+    if (app.get("env") === "development") {
+      log("Phase 4: Setting up Vite development middleware...");
+      await setupVite(app);
+      log("Phase 4: Vite middleware active.");
     } else {
-      logBootProgress("Step 2: Skipping startup schema repairs (run npm run db:repair or Cloud Run job)...");
+      log("Phase 4: Setting up static asset serving (production)...");
+      serveStatic(app);
+      log("Phase 4: Static serving configured.");
     }
+    bootState.setPhase(4, "ready");
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    log(`Phase 4 WARNING: Frontend setup issue: ${msg}`);
+    bootState.setPhase(4, "error", msg);
+  }
+}
 
-    logBootProgress("Step 3: Initializing Middleware & Auth...");
+/**
+ * Main Boot Sequence
+ */
+(async () => {
+  log("Starting Hybrid Architecture Boot Sequence...");
+  
+  try {
+    // 1. DB (Non-blocking)
+    initializeDatabase();
 
-    // ── GLOBAL MIDDLEWARE ────────────────────────────────────────────────────
-    // Subdomain detection must be first to set portal context flags
-    app.use(subdomainDetection);
+    // 2. API Routes
+    const server = await initializeRoutes();
 
+    // 3. Error Handlers
+    setupErrorHandling();
 
-    // ── AUTH & MIDDLEWARE ────────────────────────────────────────────────────
-    try {
-      const { setupAuth: setupSessionAuth } = await import('./auth-setup');
-      // registerAuthEventConsumers is now statically imported at top level
+    // 4. Frontend (SPA)
+    await initializeFrontend();
 
-      // Step 3a: Initialize Session Store (Redis or Postgres)
-      await setupSessionAuth(app);
-
-      // Step 3b: Initialize Passport Strategies (Local, OTP, etc)
-      registerAuthRoutes(app);
-
-      logBootProgress("Step 3c: Registering Auth Consumers...");
-      // Register auth event consumers (structured logging + high-risk DB persistence)
-      registerAuthEventConsumers();
-
-      logBootProgress("Step 3d: Setting up CSRF...");
-
-// CSRF token endpoint (must be after session middleware)
-      app.get('/api/csrf-token', (req: Request, res: Response) => {
-        if (!req.session) {
-          return res.status(401).json({ error: 'No session' });
-        }
-
-        if (!(req.session as any).csrfToken) {
-          (req.session as any).csrfToken = generateCsrfToken();
-        }
-
-        res.json({ csrfToken: (req.session as any).csrfToken });
-      });
-
-      // Apply CSRF protection after session/auth middleware
-      app.use('/api', createCsrfProtection());
-    } catch (error: any) {
-      console.error('❌ [FATAL] Error in Step 3 block:', error);
-      bootState.error = `Step 3 Error: ${error?.message || String(error)}`;
-      throw error;
-    }
-
-    // ── CORE ROUTES ──────────────────────────────────────────────────────────
-    logBootProgress("Step 4: Registering Core Routes...");
-    console.log('📦 Registering routes...');
-
-    // Register Version API route
-    const versionRoutes = await import('./routes/version');
-    app.use(versionRoutes.default);
-
-    // Register Zoho integration routes
-    const zohoRoutes = await import('./zoho/routes');
-    app.use('/api/zoho', zohoRoutes.default);
-
-    // Register Firm Inventory
-    const { registerFirmInventoryRoutes } = await import('./routes/firm-inventory');
-    registerFirmInventoryRoutes(app);
-
-    // Register Portal System Routes (Metadata, Config)
-    const { registerPortalSystemRoutes } = await import('./routes/portal-system');
-    registerPortalSystemRoutes(app);
-
-    // Agent routes
-    const [
-      agentRoutes, agentRevenueRoutes, agentBasketsRoutes, agentSipHealthRoutes,
-      agentPortfolioDriftRoutes, agentClientOrdersRoutes, agentMarketAlertsRoutes, agentTrackerRoutes,
-    ] = await Promise.all([
-      import('./agent-routes'),
-      import('./routes/agent-revenue-routes'),
-      import('./routes/agent-baskets'),
-      import('./routes/agent-sip-health'),
-      import('./routes/agent-portfolio-drift'),
-      import('./routes/agent-client-orders'),
-      import('./routes/agent-market-alerts'),
-      import('./routes/agent-tracker'),
-    ]);
-    app.use(agentRoutes.default);
-    app.use(agentRevenueRoutes.default);
-    app.use(agentBasketsRoutes.default);
-    app.use(agentSipHealthRoutes.default);
-    app.use(agentPortfolioDriftRoutes.default);
-    app.use(agentClientOrdersRoutes.default);
-    app.use(agentMarketAlertsRoutes.default);
-    app.use(agentTrackerRoutes.default);
-
-    // Diagnostics for subdomain detection
-    app.get("/api/internal/diagnostics", (req: any, res: any) => {
-      res.json({
-        hostname: req.hostname,
-        subdomain: req.subdomain,
-        portal: req.subdomain || 'main',
-        headers: {
-          host: req.get('host'),
-          'x-forwarded-host': req.get('x-forwarded-host'),
-          'x-forwarded-proto': req.get('x-forwarded-proto')
-        },
-        trustProxy: app.get('trust proxy')
-      });
+    // Phase 5: Execution Readiness
+    bootState.setPhase(5, "starting");
+    const PORT = Number(process.env.PORT) || 5000;
+    
+    server.listen(PORT, "0.0.0.0", () => {
+      log(`Phase 5: Server listening on port ${PORT}`);
+      log("Boot Sequence Complete. System is LIVE.");
+      bootState.setPhase(5, "ready");
+      bootState.setPhase(6, "ready"); // Overall system ready
     });
 
-    // Register Python Analytics Service proxy
-    const pythonProxyRoutes = await import('./routes/python-proxy');
-    app.use(pythonProxyRoutes.default);
-
-    logBootProgress("Step 5: Registering KYC & User Management Routes...");
-
-    const [
-      kycVaultMod, marketingMod, adminProspectsMod, twilioWebhookMod,
-      credhiveAnalyticsMod, userMgmtMod, stakeholderMod, autoPopMod,
-    ] = await Promise.all([
-      import('./kyc-vault-routes'),
-      import('./marketing-routes'),
-      import('./routes/admin-prospects'),
-      import('./services/twilio-webhook-service'),
-      import('./routes/credhive-analytics-routes'),
-      import('./user-management-routes'),
-      import('./stakeholder-routes'),
-      import('./auto-population-routes'),
-    ]);
-    kycVaultMod.registerKYCVaultRoutes(app);
-    marketingMod.registerMarketingRoutes(app);
-    adminProspectsMod.registerAdminProspectRoutes(app);
-    app.use('/api/twilio', twilioWebhookMod.createTwilioWebhookRouter());
-    app.use('/api/admin/analytics', credhiveAnalyticsMod.default);
-    userMgmtMod.registerUserManagementRoutes(app);
-    stakeholderMod.registerStakeholderRoutes(app);
-    app.use('/api/auto-population', autoPopMod.autoPopulationRouter);
-
-    logBootProgress("Step 6: Registering Marketplace & Regulatory Routes...");
-    const [
-      unlistedRoutes, complianceRoutes, bondMarketplaceRoutes, 
-      bondSeedAdminRoutes, goldAdminRoutes, bondMarketplaceImprovements, 
-      bondMarketplaceCalendarRoutes, regulatoryAuditNormsRoutes, regulatoryComplianceRoutes
-    ] = await Promise.all([
-      import('./routes/unlisted'),
-
-import('./routes/compliance'),
-      import('./routes/bond-marketplace'),
-      import('./routes/bond-seed-admin'),
-      import('./routes/gold-admin'),
-      import('./routes/bond-marketplace-improvements'),
-      import('./routes/bond-calendar-routes'),
-      import('./routes/regulatory-audit-norms-routes'),
-      import('./routes/regulatory-compliance-routes'),
-    ]);
-    app.use('/api/unlisted', unlistedRoutes.default);
-    app.use('/api/compliance', complianceRoutes.default);
-    app.use('/api', regulatoryComplianceRoutes.default);
-    app.use('/api/admin/regulatory-audit', regulatoryAuditNormsRoutes.default);
-    app.use('/api/bonds', bondMarketplaceRoutes.default);
-    app.use('/api/admin/bond-seed', bondSeedAdminRoutes.default);
-    app.use('/api/migration', bondSeedAdminRoutes.migrationRouter);
-    app.use('/api/admin/gold', goldAdminRoutes.default);
-    app.use('/api/bonds', bondMarketplaceImprovements.default);
-    app.use('/api/bond-calendar', bondMarketplaceCalendarRoutes.default);
-
-    // Commission, framework, ISIN, alpha
-    const [
-      commissionConfigRoutes, regulatoryFrameworkRoutes, isinIntelligenceRoutes,
-      aiAlphaEngineRoutes,
-    ] = await Promise.all([
-      import('./commission-config-routes'),
-      import('./routes/regulatory-framework-routes'),
-      import('./routes/isin-intelligence'),
-      import('./routes/ai-alpha-engine'),
-    ]);
-    app.use('/api/admin', commissionConfigRoutes.default);
-    app.use('/api/regulatory', regulatoryFrameworkRoutes.default);
-    app.use('/api/isin', isinIntelligenceRoutes.default);
-    app.use('/api/ai', aiAlphaEngineRoutes.default);
-
-    // Pick of the Day Routes
-    logBootProgress("Step 7: Registering Pick of the Day Routes...");
-    const picksRoutes = await import('./routes/pick-of-the-day');
-    app.use('/api/picks', picksRoutes.default);
-
-    // MPAL Routes
-    logBootProgress("Step 8: Registering MPAL Routes...");
-    const mpalRoutes = await import('./routes/mpal-routes');
-    app.use('/api/mpal', mpalRoutes.mpalRouter);
-
-    // Alpaca Ribbit Integration Routes
-    const alpacaRoutes = await import('./routes/alpaca/index');
-    app.use('/api/alpaca', alpacaRoutes.default);
-
-    // IRIS KFintech Integration Routes
-    logBootProgress("Step 9: Registering IRIS KFintech Routes...");
-    const { registerIrisKfintechRoutes } = await import('./routes/iris-kfintech-routes');
-    registerIrisKfintechRoutes(app);
-
-    // ── FINALIZATION ─────────────────────────────────────────────────────────
-
-    // Boot audit event
-    (async () => {
-      try {
-        const { auditLog } = await import('./middleware/audit-trail');
-        await auditLog({
-          action: 'system_deploy',
-          category: 'admin',
-          outcome: 'success',
-          riskLevel: 'low',
-          details: {
-            event: 'server_boot_complete',
-            bootTimeMs: bootState.getBootTime(),
-            nodeVersion: process.version,
-            appVersion: APP_VERSION,
-            timestamp: new Date().toISOString(),
-          },
-        });
-      } catch {}
-    })();
-
-    // ── REGISTER BUSINESS ROUTES ─────────────────────────────────────────────
-    // Call the centralized route registration to ensure all API endpoints are up
-    logBootProgress("Step 11: Registering Business Logic Routes...");
-    await registerRoutes(app);
-    bootState.routesReady = true;
-
-    logBootProgress("Step 12: Boot sequence complete. Server is operational.");
-
-    startBackgroundSchedulers();
-
-  } catch (error: any) {
-    console.error('❌ [FATAL] Server initialization failed:', error);
-    bootState.error = `Boot Error: ${error?.message || String(error)}`;
-
-    // In production, try to serve SPA even if boot failed partially
-    if (process.env.NODE_ENV === 'production') {
-      try { registerSPACatchAll(app); } catch (_) {}
-
-    }
+  } catch (criticalError) {
+    log("FATAL: Boot sequence aborted due to critical error.");
+    console.error(criticalError);
+    bootState.setPhase(6, "error", criticalError instanceof Error ? criticalError.message : String(criticalError));
+    process.exit(1);
   }
 })();

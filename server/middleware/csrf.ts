@@ -1,37 +1,46 @@
 import { Request, Response, NextFunction } from "express";
-import crypto from "crypto";
+import csrf from "csurf";
 
-export function generateCsrfToken(): string {
-  return crypto.randomBytes(32).toString("hex");
-}
+/**
+ * CSRF Protection Middleware
+ * 
+ * In production (Cloud Run behind Firebase Hosting), we use cookie-based 
+ * CSRF tokens. This ensures that even if the frontend is served via CDN,
+ * the API calls are protected against cross-site requests.
+ */
 
-export function createCsrfProtection() {
-  return (req: Request, res: Response, next: NextFunction) => {
-    // Skip CSRF for safe methods
-    if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+const csrfProtection = csrf({
+  cookie: {
+    key: "_csrf",
+    path: "/",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+  },
+});
+
+export const setupCsrf = (app: any) => {
+  // Apply CSRF protection to all routes except explicitly excluded ones
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    // Skip CSRF for health checks and specific webhooks if needed
+    if (req.path === "/api/health" || req.path.startsWith("/api/webhooks")) {
       return next();
     }
+    csrfProtection(req, res, next);
+  });
 
-    const token = req.headers["x-csrf-token"];
-    const sessionToken = req.session.csrfToken;
-
-    if (!token || !sessionToken || token !== sessionToken) {
-      console.error(`[CSRF] Validation failed for ${req.method} ${req.path}`);
-      console.error(`  - Header Token: ${token ? 'present' : 'missing'}`);
-      console.error(`  - Session Token: ${sessionToken ? 'present' : 'missing'}`);
-      if (token && sessionToken && token !== sessionToken) {
-        console.error('  - Error: Token mismatch');
-      }
-
-      const errorCode = !token ? "CSRF_TOKEN_REQUIRED" : "CSRF_TOKEN_INVALID";
-
-      return res.status(403).json({ 
-        error: !token ? "CSRF token required" : "Invalid CSRF token", 
-        code: errorCode,
-        message: "Your session may have expired or been initialized in another tab. Please refresh."
+  // Provide the token to the frontend via a custom header or cookie
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.csrfToken) {
+      const token = req.csrfToken();
+      res.cookie("XSRF-TOKEN", token, {
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
       });
     }
-
     next();
-  };
-}
+  });
+};
+
+export { csrfProtection };
