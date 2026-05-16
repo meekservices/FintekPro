@@ -95,6 +95,11 @@ pnpm-lock.yaml
 
 # Local development and cache
 npm_cache/
+.npm-cache/
+.npm_cache/
+local_npm_cache/
+node_modules 2/
+node_modules 3/
 find_user.ts
 fintek_data.dump
 cloudrun-env.yaml
