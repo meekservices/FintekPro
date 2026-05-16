@@ -755,69 +755,6 @@ export default function AuthPage() {
 
   // ── Agent Portal: dedicated full-page layout ──────────────────────────────
   if (portalType === 'agent') {
-    const agentForgotPasswordDialog = (
-      <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
-        <DialogTrigger asChild>
-          <button type="button" className="text-sm text-blue-600 hover:underline">
-            Forgot password?
-          </button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{resetPasswordStep === "request" ? "Reset Password" : "Enter OTP & New Password"}</DialogTitle>
-            <DialogDescription>
-              {resetPasswordStep === "request"
-                ? "Enter your email or mobile number to receive a password reset OTP"
-                : "Enter the OTP sent to your email/mobile and your new password"}
-            </DialogDescription>
-          </DialogHeader>
-          {resetPasswordStep === "request" ? (
-            <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
-              <div>
-                <Label htmlFor="agent-forgot-id">Email or Mobile Number</Label>
-                <Input id="agent-forgot-id" {...forgotPasswordForm.register("identifier")} placeholder="user@example.com or 9876543210" />
-                {forgotPasswordForm.formState.errors.identifier && (
-                  <p className="text-sm text-red-600 mt-1">{forgotPasswordForm.formState.errors.identifier.message}</p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setForgotPasswordOpen(false)}>Cancel</Button>
-                <Button type="submit" className="flex-1" disabled={forgotPasswordMutation.isPending}>
-                  {forgotPasswordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Send OTP
-                </Button>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={resetPasswordForm.handleSubmit(onResetPasswordSubmit)} className="space-y-4">
-              <div>
-                <Label>OTP Code</Label>
-                <Input {...resetPasswordForm.register("otp")} placeholder="6-digit OTP" maxLength={6} />
-                {resetPasswordForm.formState.errors.otp && <p className="text-sm text-red-600 mt-1">{resetPasswordForm.formState.errors.otp.message}</p>}
-              </div>
-              <div>
-                <Label>New Password</Label>
-                <Input {...resetPasswordForm.register("newPassword")} type="password" placeholder="New password" />
-                {resetPasswordForm.formState.errors.newPassword && <p className="text-sm text-red-600 mt-1">{resetPasswordForm.formState.errors.newPassword.message}</p>}
-              </div>
-              <div>
-                <Label>Confirm Password</Label>
-                <Input {...resetPasswordForm.register("confirmPassword")} type="password" placeholder="Confirm password" />
-                {resetPasswordForm.formState.errors.confirmPassword && <p className="text-sm text-red-600 mt-1">{resetPasswordForm.formState.errors.confirmPassword.message}</p>}
-              </div>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setResetPasswordStep("request")}>Back</Button>
-                <Button type="submit" className="flex-1" disabled={resetPasswordMutation.isPending}>
-                  {resetPasswordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Reset Password
-                </Button>
-              </div>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-    );
-
     return (
       <div className="min-h-screen flex flex-col lg:flex-row">
         {/* ── Left Panel – dark navy with network pattern ── */}
@@ -933,7 +870,9 @@ export default function AuthPage() {
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <Label htmlFor="agent-pw-pass" className="text-gray-700 text-sm font-medium">Password</Label>
-                        {agentForgotPasswordDialog}
+                        <button type="button" className="text-sm text-blue-600 hover:underline" onClick={() => setForgotPasswordOpen(true)}>
+                          Forgot password?
+                        </button>
                       </div>
                       <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -1106,6 +1045,64 @@ export default function AuthPage() {
         </div>
 
         {/* Shared dialogs */}
+        {/* Forgot Password Dialog */}
+        <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{resetPasswordStep === "request" ? "Reset Password" : "Enter OTP & New Password"}</DialogTitle>
+              <DialogDescription>
+                {resetPasswordStep === "request"
+                  ? "Enter your email or mobile number to receive a password reset OTP"
+                  : "Enter the OTP sent to your email/mobile and your new password"}
+              </DialogDescription>
+            </DialogHeader>
+            {resetPasswordStep === "request" ? (
+              <form onSubmit={forgotPasswordForm.handleSubmit(onForgotPasswordSubmit)} className="space-y-4">
+                <div>
+                  <Label htmlFor="agent-forgot-id">Email or Mobile Number</Label>
+                  <Input id="agent-forgot-id" {...forgotPasswordForm.register("identifier")} placeholder="user@example.com or 9876543210" />
+                  {forgotPasswordForm.formState.errors.identifier && (
+                    <p className="text-sm text-red-600 mt-1">{forgotPasswordForm.formState.errors.identifier.message}</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => setForgotPasswordOpen(false)}>Cancel</Button>
+                  <Button type="submit" className="flex-1" disabled={forgotPasswordMutation.isPending}>
+                    {forgotPasswordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Send OTP
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={resetPasswordForm.handleSubmit(onResetPasswordSubmit)} className="space-y-4">
+                <div>
+                  <Label>OTP Code</Label>
+                  <Input {...resetPasswordForm.register("otp")} placeholder="6-digit OTP" maxLength={6} />
+                  {resetPasswordForm.formState.errors.otp && <p className="text-sm text-red-600 mt-1">{resetPasswordForm.formState.errors.otp.message}</p>}
+                </div>
+                <div>
+                  <Label>New Password</Label>
+                  <Input {...resetPasswordForm.register("newPassword")} type="password" placeholder="New password" />
+                  {resetPasswordForm.formState.errors.newPassword && <p className="text-sm text-red-600 mt-1">{resetPasswordForm.formState.errors.newPassword.message}</p>}
+                </div>
+                <div>
+                  <Label>Confirm Password</Label>
+                  <Input {...resetPasswordForm.register("confirmPassword")} type="password" placeholder="Confirm password" />
+                  {resetPasswordForm.formState.errors.confirmPassword && <p className="text-sm text-red-600 mt-1">{resetPasswordForm.formState.errors.confirmPassword.message}</p>}
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => setResetPasswordStep("request")}>Back</Button>
+                  <Button type="submit" className="flex-1" disabled={resetPasswordMutation.isPending}>
+                    {resetPasswordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Reset Password
+                  </Button>
+                </div>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* OTP Verification Dialog */}
         <Dialog open={otpDialogOpen} onOpenChange={setOtpDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
