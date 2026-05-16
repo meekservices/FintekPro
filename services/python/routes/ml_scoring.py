@@ -69,7 +69,7 @@ async def train_model_internal(
                 FROM daily_picks
                 WHERE status IN ('target_hit', 'stoploss_hit', 'expired')
                   AND return_pct IS NOT NULL
-                  AND ($1 = 'all' OR category = $1)
+                  AND ($1 = 'all' OR category::text = $1)
                 ORDER BY reco_date DESC
                 LIMIT $2
                 """,
@@ -77,7 +77,7 @@ async def train_model_internal(
             )
 
         if not rows or len(rows) < 20:
-            return {"error": f"Insufficient training data: {len(rows) if rows else 0} samples (need ≥ 20)"}
+            return {"error": f"Insufficient training data: {len(rows) if rows else 0} samples (need >= 20)"}
 
         records = []
         for row in rows:
@@ -99,7 +99,7 @@ async def train_model_internal(
                 continue
 
         if len(records) < 20:
-            return {"error": f"Only {len(records)} usable samples after feature extraction (need ≥ 20)"}
+            return {"error": f"Only {len(records)} usable samples after feature extraction (need >= 20)"}
 
         df = pd.DataFrame(records)
         available_features = [f for f in FEATURE_KEYS if f in df.columns and df[f].notna().sum() > 5]
@@ -121,6 +121,7 @@ async def train_model_internal(
         )
 
         kf = KFold(n_splits=min(n_folds, len(records) // 5), shuffle=True, random_state=42)
+
         cv_r2   = cross_val_score(model, X_scaled, y, cv=kf, scoring="r2")
         cv_rmse = np.sqrt(-cross_val_score(model, X_scaled, y, cv=kf, scoring="neg_mean_squared_error"))
 
@@ -222,19 +223,6 @@ async def train_model(
     payload: dict = Body(...),
     token: TokenPayload = Depends(verify_token),
 ):
-    """
-    Train / retrain GradientBoostingRegressor for an asset class.
-    Reads completed daily_picks from DB as training data.
-
-    Input:
-      assetClass:     str   (default 'all')
-      maxSamples:     int   (default 5000)
-      nEstimators:    int   (default 200)
-      maxDepth:       int   (default 4)
-      learningRate:   float (default 0.05)
-      nFolds:         int   (default 5)
-      targetDays:     int   (return horizon days, informational)
-    """
     if token.role not in ("admin", "agent"):
         return {"error": "Admin or agent role required"}
 
@@ -256,16 +244,6 @@ async def score_assets(
     payload: dict = Body(...),
     token: TokenPayload = Depends(verify_token),
 ):
-    """
-    Score assets using cached GBR model.
-
-    Input:
-      assetClass: str
-      assets: [{id, pe, returns1y, returns3y, volatility, sharpeRatio, yield, confidenceScore}]
-      regime: str   (optional — 'bull'|'bear'|'sideways'|'high_vol' — applies confidence modifier)
-
-    Returns: scored assets with predictedReturn, confidence, featureContributions.
-    """
     try:
         asset_class = payload.get("assetClass", "all")
         assets = payload.get("assets", [])
@@ -336,7 +314,6 @@ async def model_info(
     assetClass: str = Query("all"),
     token: TokenPayload = Depends(verify_token),
 ):
-    """Return metadata for the cached model for an asset class."""
     key = _cache_key(assetClass)
     if key not in MODEL_CACHE:
         return {"error": "No model cached. Call POST /api/ml/train first.", "assetClass": assetClass}
@@ -356,10 +333,6 @@ async def cross_validate(
     payload: dict = Body(...),
     token: TokenPayload = Depends(verify_token),
 ):
-    """
-    Run k-fold cross-validation and return detailed per-fold metrics.
-    Same data loading as /train but returns fold-level breakdown.
-    """
     if token.role not in ("admin", "agent"):
         return {"error": "Admin or agent role required"}
 
@@ -374,7 +347,7 @@ async def cross_validate(
                 FROM daily_picks
                 WHERE status IN ('target_hit', 'stoploss_hit', 'expired')
                   AND return_pct IS NOT NULL
-                  AND ($1 = 'all' OR category = $1)
+                  AND ($1 = 'all' OR category::text = $1)
                 ORDER BY reco_date DESC
                 LIMIT 5000
                 """,
