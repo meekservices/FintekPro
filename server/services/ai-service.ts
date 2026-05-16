@@ -280,11 +280,12 @@ export class AIService {
           if (is429) {
             if (attempt < MAX_RETRIES) {
               const delay = (attempt + 1) * 3000;
-              console.warn(`[AIService] Rate limit (429) hit for ${provider}. Retrying in ${delay}ms...`);
+              console.warn(`[AIService] ⏳ Rate limit (429) hit for ${provider}. Retrying in ${delay}ms...`);
               await new Promise(resolve => setTimeout(resolve, delay));
               attempt++;
               continue;
             } else {
+              console.error(`[AIService] ⚠️ Max retries reached for ${provider} after 429. Marking unhealthy.`);
               this.markProviderUnhealthy(provider);
               break; // Move to next provider
             }

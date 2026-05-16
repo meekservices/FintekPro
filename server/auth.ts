@@ -83,6 +83,23 @@ export async function generateUniqueUserId(email?: string): Promise<string> {
   throw new Error("Failed to generate unique userId after maximum attempts");
 }
 
+function normalizeIdentifier(identifier: string): string {
+  if (!identifier) return identifier;
+  // If it's an email, just lowercase it
+  if (identifier.includes("@")) {
+    return identifier.toLowerCase().trim();
+  }
+  // If it's a mobile number, strip non-digits and remove leading +91 or 0
+  const digits = identifier.replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return digits.substring(2);
+  }
+  if (digits.length === 11 && digits.startsWith("0")) {
+    return digits.substring(1);
+  }
+  return digits;
+}
+
 function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
@@ -316,13 +333,6 @@ export function registerAuthRoutes(app: Express) {
              console.log(`🧪 Detected tester account: ${user.userId || user.email}. Fixed OTP enabled: ${fixedTesterOtpEnabled ? "yes" : "no"}`);
           }
 
-          /* 
-227:           // 3. Mandatory First-Time Verification Check (Email & Mobile)
-228:           const needsVerification = !user.isEmailVerified || !user.isMobileVerified;
-...
-284:           }
-285:           */
-
           // 5. Multi-Factor Authentication (OTP Layer) - Legacy/Fallback or for Testers
           // For security, all production logins require an OTP verification
           let otp = generateOtp();
@@ -343,9 +353,10 @@ export function registerAuthRoutes(app: Express) {
             return apiResponse.badRequest(res, "No valid OTP destination found for this account");
           }
 
-          // Store OTP for verification
+          // Store OTP for verification (using normalized identifier as the key)
+          const normalizedOtpDestination = normalizeIdentifier(otpDestination);
           await storage.createOtpVerification({
-            identifier: otpDestination,
+            identifier: normalizedOtpDestination,
             otp,
             type: otpType,
             expiresAt,
@@ -493,8 +504,9 @@ export function registerAuthRoutes(app: Express) {
       const otpType = identifier.includes("@") ? "email" : "mobile";
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
+      const normalizedIdentifier = normalizeIdentifier(identifier);
       await storage.createOtpVerification({
-        identifier,
+        identifier: normalizedIdentifier,
         otp,
         type: otpType,
         expiresAt,
@@ -549,7 +561,8 @@ export function registerAuthRoutes(app: Express) {
   app.post("/api/login/verify-otp", async (req, res) => {
     try {
       const { identifier, otp } = req.body;
-      console.log(`[VERIFY_OTP] Request: identifier=${identifier}, otp=${otp}`);
+      const normalizedIdentifier = normalizeIdentifier(identifier);
+      console.log(`[VERIFY_OTP] Request: identifier=${identifier} (normalized=${normalizedIdentifier}), otp=${otp}`);
 
       if (!identifier || !otp) {
         console.log("❌ Missing identifier or OTP");
@@ -559,9 +572,9 @@ export function registerAuthRoutes(app: Express) {
       // Determine OTP type based on identifier
       const otpType = identifier.includes("@") ? "email" : "mobile";
 
-      // Try verifying OTP directly with the provided identifier
-      console.log(`[VERIFY_OTP] Checking OTP for ${identifier} (${otpType})...`);
-      let isValid = await storage.verifyOtp(identifier, otpType, otp);
+      // Try verifying OTP directly with the normalized identifier
+      console.log(`[VERIFY_OTP] Checking OTP for ${normalizedIdentifier}...`);
+      let isValid = await storage.verifyOtp(normalizedIdentifier, otpType, otp);
 
       // If email identifier failed, the OTP may have been stored under the user's mobile number
       // (login always prefers mobile for OTP delivery). Look up user and try mobile identifier.
@@ -681,8 +694,9 @@ export function registerAuthRoutes(app: Express) {
           try {
             await trustCurrentPinDevice(req, res, updatedUser.id);
           } catch (deviceError) {
-            console.error("❌ [VERIFY_OTP] Trusted device save error:", deviceError);
-            return apiResponse.serverError(res, "Failed to register trusted device");
+            // Trusted device registration is non-critical — log and continue.
+            // Do NOT block login if this DB insert fails.
+            console.warn("⚠️ [VERIFY_OTP] Trusted device save failed (non-critical):", (deviceError as Error)?.message);
           }
           
           console.log(`✅ [VERIFY_OTP] Success! User ${updatedUser.id} logged in.`);
