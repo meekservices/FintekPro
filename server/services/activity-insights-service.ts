@@ -324,6 +324,20 @@ class ActivityInsightsService {
       return this.cachedInsights;
     }
 
+    // Circuit-breaker: skip AI call if all providers are currently rate-limited/unhealthy.
+    // This prevents burning retry cycles on guaranteed 429 failures during quota exhaustion.
+    const providerStatus = (aiService as any).providerStatus as Record<string, { healthy: boolean; lastErrorTime: number }>;
+    const COOL_DOWN_MS = (aiService as any).COOL_DOWN_MS as number ?? 5 * 60 * 1000;
+    const allUnhealthy = providerStatus &&
+      Object.values(providerStatus).every(
+        s => !s.healthy && (Date.now() - s.lastErrorTime) < COOL_DOWN_MS
+      );
+
+    if (allUnhealthy) {
+      console.warn('[ActivityInsights] All AI providers are in cool-down — skipping scan to preserve quota. Serving cached/default insights.');
+      return this.cachedInsights.length > 0 ? this.cachedInsights : this.getDefaultInsights(metrics);
+    }
+
     this.analysisInProgress = true;
 
     try {
@@ -717,15 +731,23 @@ IMPORTANT:
 
   /**
    * Start background monitoring for unaccepted activities and regulatory breaches.
+   *
+   * Scan interval: 60 minutes (down from 15) to reduce daily AI token consumption by 75%.
+   * Startup delay: 60 seconds so the first scan doesn't race with boot-time quota pressure
+   * from PickOfTheDay, ForensicAudit, and other schedulers that fire within the first 30s.
+   *
+   * A circuit-breaker in generateAIInsights() automatically skips scans when all providers
+   * are in cool-down, preventing retry-loop token burns during quota exhaustion.
    */
   startAutomatedMonitoring() {
     console.log('[ActivityInsights] Starting automated regulatory monitoring...');
     
-    // Run every 15 minutes with jitter to prevent concurrent spikes across instances
+    // Run every 60 minutes with jitter to prevent concurrent spikes across instances
+    const SCAN_INTERVAL_MS = 60 * 60 * 1000; // 60 minutes
     const runScan = async () => {
       try {
-        // Add random jitter up to 30 seconds
-        const jitter = Math.random() * 30000;
+        // Add random jitter up to 60 seconds to stagger restarts across revisions
+        const jitter = Math.random() * 60000;
         await new Promise(resolve => setTimeout(resolve, jitter));
 
         console.log('[ActivityInsights] Running periodic compliance scan...');
@@ -756,9 +778,9 @@ IMPORTANT:
       }
     };
 
-    setInterval(runScan, 15 * 60 * 1000);
-    // Also run once on startup (after a small delay)
-    setTimeout(runScan, 10000);
+    setInterval(runScan, SCAN_INTERVAL_MS);
+    // Delay the first startup scan by 60s to avoid racing with boot-time scheduler pressure
+    setTimeout(runScan, 60 * 1000);
   }
 }
 
