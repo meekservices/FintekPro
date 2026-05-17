@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Layer cache the package.json and install dependencies
 COPY package*.json ./
-RUN npm ci
+RUN npm install --no-audit --no-fund --legacy-peer-deps
 
 # Copy all source files
 COPY . .
@@ -46,7 +46,7 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
 
 # Layer cache production dependencies
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev --no-audit --no-fund --legacy-peer-deps
 
 # Copy compiled assets from builder
 COPY --from=builder /app/dist ./dist
