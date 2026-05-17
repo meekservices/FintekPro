@@ -2,7 +2,7 @@
  * Unified OCR Service — Central document text extraction
  *
  * Providers:
- *   1. Gemini Vision (gemini-2.0-flash) — general-purpose OCR for scanned PDFs,
+ *   1. Gemini Vision (gemini-2.5-flash) — general-purpose OCR for scanned PDFs,
  *      images (JPG/PNG/WEBP/HEIC), and any document where pdf-parse returns empty.
  *   2. Sandbox.co.in — ITR-specific structured extraction (Form 16, Form 26AS).
  *
@@ -59,7 +59,7 @@ export interface OCRStatus {
 // CONSTANTS
 // ============================================
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const MAX_PDF_SIZE_BYTES = 20 * 1024 * 1024;   // 20 MB — Gemini inline limit
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;  // 5 MB
 

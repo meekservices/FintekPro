@@ -384,7 +384,7 @@ IMPORTANT:
 
       const aiResponse = await aiService.chat([
         { role: 'user', content: prompt }
-      ], { model: 'gemini-2.0-flash', maxTokens: 2500 });
+      ], { model: 'gemini-2.5-flash', maxTokens: 2500 });
       
       if (!aiResponse?.content) {
         console.error('[ActivityInsights] No AI response received');
