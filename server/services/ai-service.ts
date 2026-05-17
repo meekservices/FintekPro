@@ -34,7 +34,7 @@ export type AIModel =
   | 'gpt-4o'               // Superior Reasoning
   | 'gpt-4o-mini'          // Balanced Efficiency
   | 'gemini-2.0-flash'     // High-Speed (replaces deprecated gemini-1.5-flash)
-  | 'gemini-2.0-pro-exp'   // Advanced Context (replaces deprecated gemini-1.5-pro)
+  | 'gemini-2.0-pro-exp-02-05'   // Advanced Context (replaces deprecated gemini-1.5-pro)
   | 'llama-3.3-70b-versatile' // Optimized Fallback
   | 'llama-3.1-8b-instant';   // Ultra-Fast
 
@@ -44,7 +44,7 @@ export enum AICapability {
   OPTIMIZED = 'optimized'  // Speed, bulk processing
 }
 
-const isComplexModel = (model: string) => model === 'gpt-4o' || model === 'gemini-2.0-pro-exp' || model === 'llama-3.3-70b-versatile';
+const isComplexModel = (model: string) => model === 'gpt-4o' || model === 'gemini-2.0-pro-exp-02-05' || model === 'llama-3.3-70b-versatile';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -195,7 +195,7 @@ export class AIService {
     const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
       { provider: 'groq', model: 'llama-3.3-70b-versatile' },
       { provider: 'gemini', model: 'gemini-2.0-flash' },
-      { provider: 'gemini', model: 'gemini-2.0-pro-exp' },
+      { provider: 'gemini', model: 'gemini-2.0-pro-exp-02-05' },
       { provider: 'openai', model: 'gpt-4o' }
     ];
 
@@ -355,7 +355,7 @@ export class AIService {
     const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
       { provider: 'groq', model: 'llama-3.3-70b-versatile' },
       { provider: 'gemini', model: 'gemini-2.0-flash' },
-      { provider: 'gemini', model: 'gemini-2.0-pro-exp' },
+      { provider: 'gemini', model: 'gemini-2.0-pro-exp-02-05' },
       { provider: 'openai', model: 'gpt-4o' }
     ];
 
