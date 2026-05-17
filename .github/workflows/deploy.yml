@@ -115,8 +115,7 @@ jobs:
               EMAIL_HOST=EMAIL_HOST:latest,\
               EMAIL_USER=EMAIL_USER:latest,\
               EMAIL_PASS=EMAIL_PASS:latest,\
-              EMAIL_PORT=EMAIL_PORT:latest,\
-              EMAIL_FROM=EMAIL_FROM:latest" \
+              EMAIL_PORT=EMAIL_PORT:latest" \
             --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
             --allow-unauthenticated \
             --memory=4Gi \
