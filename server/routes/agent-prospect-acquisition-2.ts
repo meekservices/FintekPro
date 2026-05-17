@@ -102,7 +102,7 @@ Provide analysis in JSON format with these sections:
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.0-flash",
         config: {
           responseMimeType: "application/json",
           responseSchema: {

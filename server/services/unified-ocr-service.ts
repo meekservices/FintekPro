@@ -59,7 +59,7 @@ export interface OCRStatus {
 // CONSTANTS
 // ============================================
 
-const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_MODEL = 'gemini-2.0-flash';
 const MAX_PDF_SIZE_BYTES = 20 * 1024 * 1024;   // 20 MB — Gemini inline limit
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;  // 5 MB
 

@@ -5,7 +5,9 @@
     "ms-azuretools.vscode-docker",
     "redhat.vscode-yaml",
     "mikestead.dotenv",
-    "biomejs.biome"
+    "biomejs.biome",
+    "tokenlint.tokenlint",
+    "gpt-token-counter-live"
   ],
   "unwantedRecommendations": [
     "docker.docker",
