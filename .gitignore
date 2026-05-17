@@ -112,6 +112,8 @@ test-*
 *.tgz
 *.db
 build_errors.txt
+build_log.txt
+github_push_payload.json
 routes_base64.txt
 deploy_test/
 .tmp/
