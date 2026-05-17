@@ -839,7 +839,7 @@ Category: ${rating.category}
 Focus on: investment suitability, key risks, and potential. Be factual and balanced.`;
 
       const result = await this.genAI.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.1-flash-lite',
         contents: prompt
       });
 

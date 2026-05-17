@@ -613,7 +613,7 @@ export async function trackProposalRecommendations(
         confidenceScore: confidence.toString(),
         timeframeInDays: 365,
         expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-        aiModel: 'gemini-2.5-flash',
+        aiModel: 'gemini-3.1-flash-lite',
         reasoning: `[Proposal: ${proposalId}] ${rec.rationale || rec.selectionReason || `AI recommendation for ${prospectName}`}`,
         source: 'prospect_proposal',
         agentId: agentId,
