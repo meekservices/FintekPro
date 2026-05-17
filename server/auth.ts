@@ -263,8 +263,8 @@ async function getOtpChannelOrder(userId: string): Promise<string[]> {
     console.warn(`[OTP_CONFIG] Error fetching channel order for user ${userId}, using defaults:`, error);
   }
 
-  // 3. Default fallback order
-  return ['whatsapp', 'email', 'sms'];
+  // 3. Default fallback order — SMS first (WhatsApp not ready, email has EBADNAME DNS issue)
+  return ['sms', 'whatsapp', 'email'];
 }
 
 function stampSessionPortal(req: any, portal: string) {

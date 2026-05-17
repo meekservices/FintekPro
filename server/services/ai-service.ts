@@ -556,6 +556,7 @@ export class AIService {
         temperature, 
         maxOutputTokens: maxTokens,
         responseMimeType: options.json ? 'application/json' : 'text/plain',
+        thinkingConfig: { thinkingBudget: 0 }, // Disable thinking mode — prevents thoughtSignature tokens in JSON responses
       },
       contents: [{ role: 'user', parts: [{ text: fullPrompt }] }]
     });
@@ -600,7 +601,11 @@ export class AIService {
     // Updated for @google/genai SDK structure
     const stream = await gemini.models.generateContentStream({
       model: geminiModel,
-      config: { temperature, maxOutputTokens: maxTokens },
+      config: { 
+        temperature, 
+        maxOutputTokens: maxTokens,
+        thinkingConfig: { thinkingBudget: 0 }, // Disable thinking mode for streaming
+      },
       contents: [{ role: 'user', parts: [{ text: fullPrompt }] }]
     });
 
