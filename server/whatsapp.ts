@@ -11,6 +11,7 @@ import { randomUUID } from 'crypto';
 function resolveChromiumPath(): string | undefined {
   // 1. Explicit env override
   if (process.env.CHROMIUM_PATH) return process.env.CHROMIUM_PATH;
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
 
   // 2. Puppeteer bundled Chromium (preferred — no Nix chromium package needed)
   try {
