@@ -44,6 +44,7 @@ import complianceRoutes from "./compliance-routes";
 import amlRoutes from "./aml-routes";
 import orderStatusRoutes from "./routes/fixed-income-status-routes";
 import aiInvestmentRoutes from "./routes/ai-investment-routes";
+import { registerAIStockRecommendationRoutes } from "./routes/ai-stock-recommendation-routes";
 import engineHealthRoutes from "./routes/engine-health-check";
 import { registerMarketDataRoutes } from "./routes/market-data";
 import { registerPlatformStatsRoutes } from "./routes/platform-stats-routes";
@@ -287,6 +288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/admin", policyStatusRouter); // /status is router path, so prefix is /api/admin
   app.use(aiGovernanceRouter); // router already has full /api/admin/ai/... paths
   registerAdminPanelRoutes(app);
+  registerAIStockRecommendationRoutes(app);
 
   app.use("/api/live-mf", liveMFDataRouter);
   app.use("/api/tester/diagnostics", testerDiagnosticsRoutes);
