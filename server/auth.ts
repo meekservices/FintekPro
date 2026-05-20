@@ -333,9 +333,29 @@ export function registerAuthRoutes(app: Express) {
              console.log(`🧪 Detected tester account: ${user.userId || user.email}. Fixed OTP enabled: ${fixedTesterOtpEnabled ? "yes" : "no"}`);
           }
 
-          // 5. Multi-Factor Authentication (OTP Layer) - Legacy/Fallback or for Testers
-          // For security, all production logins require an OTP verification
+          // 3. Trusted Device + PIN Shortcut — skip OTP entirely on known devices
+          // Only applies to real users with PIN set. Tester accounts always use OTP flow.
+          if (!fixedTesterOtpEnabled && (user as UserType).isPinSet && (user as UserType).loginPin) {
+            const trusted = await isTrustedPinDevice(req, user.id);
+            if (trusted) {
+              console.log(`🔐 [Login] Trusted device detected for user ${user.id} — skipping OTP, requesting PIN`);
+              // Bind user to session so verify-pin can finalize login
+              if (req.session) {
+                (req.session as any).pendingLoginUserId = user.id;
+                (req.session as any).targetPortal = targetPortal;
+              }
+              return apiResponse.success(res, {
+                requiresPin: true,
+                userId: user.userId,
+                identifier: user.mobile || user.email,
+              }, "Please enter your PIN to continue");
+            }
+          }
+
+          // 4. Multi-Factor Authentication (OTP Layer) — for new/untrusted devices
+          // For security, all production logins on new devices require OTP verification
           let otp = generateOtp();
+
           
           // Fixed OTP is allowed only in explicit non-production test runs.
           if (fixedTesterOtpEnabled) {
@@ -766,17 +786,27 @@ export function registerAuthRoutes(app: Express) {
   app.post("/api/login/verify-pin", async (req, res) => {
     try {
       const { identifier, pin } = req.body;
-      if (!identifier || !pin) {
-        return apiResponse.badRequest(res, "Identifier and PIN are required");
+      if (!pin) {
+        return apiResponse.badRequest(res, "PIN is required");
       }
 
       let user;
-      if (identifier.includes("@")) {
-        user = await storage.getUserByEmail(identifier);
-      } else if (identifier.startsWith("FTP")) {
-        user = await storage.getUserByUserId(identifier);
-      } else {
-        user = await storage.getUserByMobile(identifier);
+      // Prefer the user bound to the session during the /api/login trusted-device shortcut
+      const pendingLoginUserId = (req.session as any)?.pendingLoginUserId;
+      if (pendingLoginUserId) {
+        user = await storage.getUser(pendingLoginUserId);
+        console.log(`[PIN_VERIFY] Resolved pending login user from session: ${pendingLoginUserId}`);
+      }
+
+      // Fallback: resolve by identifier sent from frontend
+      if (!user && identifier) {
+        if (identifier.includes("@")) {
+          user = await storage.getUserByEmail(identifier);
+        } else if (identifier.startsWith("FTP")) {
+          user = await storage.getUserByUserId(identifier);
+        } else {
+          user = await storage.getUserByMobile(identifier);
+        }
       }
 
       if (!user || !user.isPinSet || !user.loginPin) {
@@ -801,25 +831,47 @@ export function registerAuthRoutes(app: Express) {
         return apiResponse.unauthorized(res, "Invalid PIN");
       }
 
-      // Complete login
+      // Complete login — create session with full user data
       req.login(user, (err) => {
         if (err) {
           return apiResponse.serverError(res, "Login failed");
         }
-        
+
         stampSessionPortal(req, targetPortal);
-        
-        return apiResponse.success(res, {
-          id: user.id,
-          userId: user.userId,
-          roles: user.roles
-        }, "Login successful");
+        // Clean up pending session vars
+        delete (req.session as any).pendingLoginUserId;
+        delete (req.session as any).pendingLoginOtpIdentifier;
+
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("❌ [PIN_VERIFY] Session save error:", saveErr);
+            return apiResponse.serverError(res, "Session save failed");
+          }
+          console.log(`✅ [PIN_VERIFY] User ${user.id} logged in via PIN on trusted device`);
+          return apiResponse.success(res, {
+            id: user.id,
+            userId: user.userId,
+            email: user.email,
+            mobile: user.mobile,
+            firstName: user.firstName,
+            middleName: user.middleName,
+            lastName: user.lastName,
+            roles: user.roles,
+            isEmailVerified: user.isEmailVerified,
+            isMobileVerified: user.isMobileVerified,
+            lastLoginAt: user.lastLoginAt,
+            previousLoginAt: user.previousLoginAt,
+            loginCount: user.loginCount,
+            isPinSet: user.isPinSet,
+          }, "Login successful");
+        });
       });
     } catch (error) {
       console.error("[PIN_VERIFY] Error:", error);
       return apiResponse.serverError(res, "PIN verification failed");
     }
   });
+
 
   // Send OTP for mobile verification
   app.post("/api/otp/send", async (req, res) => {

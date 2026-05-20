@@ -169,8 +169,17 @@ export default function AuthPage() {
   const [pendingRegistrationData, setPendingRegistrationData] = useState<any>(null);
 
   // Progress indicator
-  const [loginStep, setLoginStep] = useState<"credentials" | "otp" | "complete">("credentials");
+  const [loginStep, setLoginStep] = useState<"credentials" | "otp" | "pin-entry" | "pin-setup" | "complete">("credentials");
   const [registrationStep, setRegistrationStep] = useState<"details" | "otp" | "complete">("details");
+
+  // PIN Dialog States
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
+  const [pinSetupDialogOpen, setPinSetupDialogOpen] = useState(false);
+  const [pinIdentifier, setPinIdentifier] = useState("");
+  const [pinValue, setPinValue] = useState("");
+  const [pinSetupValue, setPinSetupValue] = useState("");
+  const [pinSetupConfirm, setPinSetupConfirm] = useState("");
+  const [pinError, setPinError] = useState("");
 
   // Session Conflict States
   const [sessionConflictOpen, setSessionConflictOpen] = useState(false);
@@ -348,10 +357,24 @@ export default function AuthPage() {
     onSuccess: (response) => {
       // Backend wraps response in { success: true, data: {...} }
       const data = response.data || response;
-      
-      // /api/login ALWAYS requires OTP verification (no bypass allowed)
+
+      // Trusted device shortcut: backend skips OTP, asks for PIN directly
+      if (data.requiresPin) {
+        setLoginStep("pin-entry");
+        setPinIdentifier(data.identifier || loginForm.getValues("identifier"));
+        setPinValue("");
+        setPinError("");
+        setPinDialogOpen(true);
+        toast({
+          title: "Enter your PIN",
+          description: "Trusted device recognised — enter your 4-digit PIN to continue",
+        });
+        return;
+      }
+
+      // Standard flow: OTP required
       if (!data.requiresOtp) {
-        console.error("Security Error: Login response missing requiresOtp flag");
+        console.error("Security Error: Login response missing requiresOtp/requiresPin flag");
         toast({
           title: "Login Error",
           description: "Invalid login response. Please try again.",
@@ -433,6 +456,27 @@ export default function AuthPage() {
     },
     onSuccess: (response) => {
       const data = response.data || response;
+
+      // If PIN not yet set, show PIN setup screen before navigating
+      if (data.requiresPinSetup) {
+        setLoginStep("pin-setup");
+        setPinSetupValue("");
+        setPinSetupConfirm("");
+        setPinError("");
+        // Store user data in cache so /api/user resolves
+        markUserAuthenticated();
+        queryClient.setQueryData(["/api/user"], data);
+        setOtpDialogOpen(false);
+        otpForm.reset();
+        clearSessionExpired();
+        setPinSetupDialogOpen(true);
+        toast({
+          title: "Set your PIN",
+          description: "Create a 4-digit PIN for faster logins on this device",
+        });
+        return;
+      }
+
       setLoginStep("complete");
       // Mark user as authenticated BEFORE setting query data to prevent session expired popup race condition
       markUserAuthenticated();
@@ -456,7 +500,58 @@ export default function AuthPage() {
     },
   });
 
+  // PIN entry mutation — trusted device login (skips OTP entirely)
+  const pinEntryMutation = useMutation({
+    mutationFn: async ({ identifier, pin }: { identifier: string; pin: string }) => {
+      const response = await apiRequest("/api/login/verify-pin", {
+        method: "POST",
+        body: JSON.stringify({ identifier, pin }),
+      });
+      return response;
+    },
+    onSuccess: (response) => {
+      const data = response.data || response;
+      setLoginStep("complete");
+      markUserAuthenticated();
+      queryClient.setQueryData(["/api/user"], data);
+      setPinDialogOpen(false);
+      setPinValue("");
+      clearSessionExpired();
+      toast({ title: "Login successful", description: "Welcome back!" });
+      navigate(portalHomeRoute);
+    },
+    onError: (error: Error) => {
+      setPinError(error.message || "Invalid PIN. Please try again.");
+      setPinValue("");
+      toast({ title: "Incorrect PIN", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // PIN setup mutation — called after first OTP verify when user has no PIN yet
+  const pinSetupMutation = useMutation({
+    mutationFn: async (pin: string) => {
+      const response = await apiRequest("/api/login/set-pin", {
+        method: "POST",
+        body: JSON.stringify({ pin }),
+      });
+      return response;
+    },
+    onSuccess: () => {
+      setLoginStep("complete");
+      setPinSetupDialogOpen(false);
+      setPinSetupValue("");
+      setPinSetupConfirm("");
+      toast({ title: "PIN created!", description: "Next time you log in on this device, just use your PIN." });
+      navigate(portalHomeRoute);
+    },
+    onError: (error: Error) => {
+      setPinError(error.message || "Failed to set PIN");
+      toast({ title: "PIN setup failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const registerMutation = useMutation({
+
     mutationFn: async (data: RegisterFormData) => {
       const response = await apiRequest("/api/register", {
         method: "POST",
@@ -2216,6 +2311,216 @@ export default function AuthPage() {
         onForceLogout={handleForceLogout}
         sessionCount={sessionCount}
       />
+
+      {/* ── PIN Entry Dialog (trusted device login) ── */}
+      <Dialog open={pinDialogOpen} onOpenChange={(open) => { if (!open) { setPinDialogOpen(false); setLoginStep("credentials"); setPinValue(""); setPinError(""); } }}>
+        <DialogContent className="sm:max-w-[380px] text-center">
+          <DialogHeader>
+            <div className="flex justify-center mb-2">
+              <div className="w-14 h-14 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                <Lock className="h-7 w-7 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+            <DialogTitle className="text-xl font-semibold">Enter your PIN</DialogTitle>
+            <DialogDescription>
+              Trusted device recognised. Enter your 4-digit PIN to log in instantly.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            {/* 4-digit PIN input boxes */}
+            <div className="flex justify-center gap-3">
+              {[0, 1, 2, 3].map((i) => (
+                <input
+                  key={i}
+                  id={`pin-digit-${i}`}
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={1}
+                  className="w-14 h-14 text-center text-2xl font-bold border-2 rounded-xl focus:border-blue-500 focus:outline-none dark:bg-gray-800 dark:border-gray-600 dark:text-white transition-all"
+                  value={pinValue[i] || ""}
+                  onChange={(e) => {
+                    const digit = e.target.value.replace(/\D/g, "").slice(-1);
+                    const next = (pinValue + "").split("");
+                    next[i] = digit;
+                    const updated = next.join("").slice(0, 4);
+                    setPinValue(updated);
+                    setPinError("");
+                    // Auto-advance
+                    if (digit && i < 3) {
+                      document.getElementById(`pin-digit-${i + 1}`)?.focus();
+                    }
+                    // Auto-submit when all 4 entered
+                    if (updated.length === 4) {
+                      pinEntryMutation.mutate({ identifier: pinIdentifier, pin: updated });
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Backspace" && !pinValue[i] && i > 0) {
+                      document.getElementById(`pin-digit-${i - 1}`)?.focus();
+                    }
+                  }}
+                  data-testid={`pin-digit-${i}`}
+                />
+              ))}
+            </div>
+
+            {pinError && (
+              <p className="text-sm text-red-500 flex items-center justify-center gap-1">
+                <AlertCircle className="h-4 w-4" /> {pinError}
+              </p>
+            )}
+
+            <Button
+              className="w-full"
+              disabled={pinValue.length !== 4 || pinEntryMutation.isPending}
+              onClick={() => pinEntryMutation.mutate({ identifier: pinIdentifier, pin: pinValue })}
+              data-testid="button-submit-pin"
+            >
+              {pinEntryMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
+              Verify PIN
+            </Button>
+
+            <button
+              type="button"
+              className="text-sm text-muted-foreground hover:text-foreground underline transition-colors"
+              onClick={() => {
+                setPinDialogOpen(false);
+                setPinValue("");
+                setPinError("");
+                setLoginStep("credentials");
+                // Trigger OTP flow by re-submitting credentials
+                const creds = loginForm.getValues();
+                if (creds.identifier && creds.password) {
+                  // Force OTP path by submitting again — backend will send OTP for unrecognised flow
+                  loginMutation.mutate(creds);
+                }
+              }}
+              data-testid="link-use-otp-instead"
+            >
+              Forgot PIN? Use OTP instead
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── PIN Setup Dialog (after first OTP verification) ── */}
+      <Dialog open={pinSetupDialogOpen} onOpenChange={(open) => { if (!open) { setPinSetupDialogOpen(false); navigate(portalHomeRoute); } }}>
+        <DialogContent className="sm:max-w-[400px] text-center">
+          <DialogHeader>
+            <div className="flex justify-center mb-2">
+              <div className="w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+                <LucideShield className="h-7 w-7 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+            <DialogTitle className="text-xl font-semibold">Create your Login PIN</DialogTitle>
+            <DialogDescription>
+              Set a 4-digit PIN for faster, OTP-free logins on this device.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            <div className="space-y-4">
+              {/* PIN input */}
+              <div>
+                <p className="text-sm font-medium text-left mb-2">Choose a 4-digit PIN</p>
+                <div className="flex justify-center gap-3">
+                  {[0, 1, 2, 3].map((i) => (
+                    <input
+                      key={i}
+                      id={`pin-setup-digit-${i}`}
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={1}
+                      className="w-14 h-14 text-center text-2xl font-bold border-2 rounded-xl focus:border-green-500 focus:outline-none dark:bg-gray-800 dark:border-gray-600 dark:text-white transition-all"
+                      value={pinSetupValue[i] || ""}
+                      onChange={(e) => {
+                        const digit = e.target.value.replace(/\D/g, "").slice(-1);
+                        const next = pinSetupValue.split("");
+                        next[i] = digit;
+                        setPinSetupValue(next.join("").slice(0, 4));
+                        setPinError("");
+                        if (digit && i < 3) document.getElementById(`pin-setup-digit-${i + 1}`)?.focus();
+                        if (i === 3 && digit) document.getElementById("pin-confirm-digit-0")?.focus();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Backspace" && !pinSetupValue[i] && i > 0) {
+                          document.getElementById(`pin-setup-digit-${i - 1}`)?.focus();
+                        }
+                      }}
+                      data-testid={`pin-setup-digit-${i}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Confirm PIN */}
+              <div>
+                <p className="text-sm font-medium text-left mb-2">Confirm your PIN</p>
+                <div className="flex justify-center gap-3">
+                  {[0, 1, 2, 3].map((i) => (
+                    <input
+                      key={i}
+                      id={`pin-confirm-digit-${i}`}
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={1}
+                      className="w-14 h-14 text-center text-2xl font-bold border-2 rounded-xl focus:border-green-500 focus:outline-none dark:bg-gray-800 dark:border-gray-600 dark:text-white transition-all"
+                      value={pinSetupConfirm[i] || ""}
+                      onChange={(e) => {
+                        const digit = e.target.value.replace(/\D/g, "").slice(-1);
+                        const next = pinSetupConfirm.split("");
+                        next[i] = digit;
+                        setPinSetupConfirm(next.join("").slice(0, 4));
+                        setPinError("");
+                        if (digit && i < 3) document.getElementById(`pin-confirm-digit-${i + 1}`)?.focus();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Backspace" && !pinSetupConfirm[i] && i > 0) {
+                          document.getElementById(`pin-confirm-digit-${i - 1}`)?.focus();
+                        }
+                      }}
+                      data-testid={`pin-confirm-digit-${i}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {pinError && (
+              <p className="text-sm text-red-500 flex items-center justify-center gap-1">
+                <AlertCircle className="h-4 w-4" /> {pinError}
+              </p>
+            )}
+
+            <Button
+              className="w-full bg-green-600 hover:bg-green-700"
+              disabled={pinSetupValue.length !== 4 || pinSetupConfirm.length !== 4 || pinSetupMutation.isPending}
+              onClick={() => {
+                if (pinSetupValue !== pinSetupConfirm) {
+                  setPinError("PINs do not match. Please try again.");
+                  setPinSetupConfirm("");
+                  return;
+                }
+                pinSetupMutation.mutate(pinSetupValue);
+              }}
+              data-testid="button-set-pin"
+            >
+              {pinSetupMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <LucideShield className="h-4 w-4 mr-2" />}
+              Set PIN & Continue
+            </Button>
+
+            <button
+              type="button"
+              className="text-sm text-muted-foreground hover:text-foreground underline transition-colors"
+              onClick={() => { setPinSetupDialogOpen(false); navigate(portalHomeRoute); }}
+              data-testid="link-skip-pin"
+            >
+              Skip for now
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
