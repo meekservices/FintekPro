@@ -2,12 +2,7 @@ import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
 import passport from "passport";
 import { storage } from "./storage";
-import { User as SelectUser } from "@shared/schema";
-import PostgresSessionStore from "connect-pg-simple";
-import { pool } from "./db";
 import { validateSessionPortal } from "./subdomain-middleware";
-
-const PostgresStore = PostgresSessionStore(session);
 
 // Extend express-session to include passport property
 declare module "express-session" {

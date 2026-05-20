@@ -24,17 +24,20 @@ export class DatabaseStorage implements IStorage {
 
   public get sessionStore(): session.Store {
     if (!this._sessionStore) {
-      // Use memorystore for all environments — connect-pg-simple silently fails
-      // when the Cloud SQL pool isn't ready at session-save time. Cloud Run is
-      // configured with min-instances=1 to prevent session loss on scale-to-zero.
-      // TODO: Replace with Redis (Memorystore) for multi-instance session sharing.
-      const MemoryStoreSession = MemoryStore(session);
-      this._sessionStore = new MemoryStoreSession({
-        checkPeriod: 24 * 60 * 60 * 1000, // Purge expired entries every 24h
-        max: 1000, // Max 1000 concurrent sessions
-        ttl: 30 * 24 * 60 * 60 * 1000, // 30 days
+      // Use connect-pg-simple backed by the shared Postgres pool.
+      // Sessions are stored in the DB, so they are shared across ALL Cloud Run
+      // instances. This eliminates the 401 errors caused by in-process MemoryStore
+      // losing sessions when load balancing routes requests to a different instance.
+      // createTableIfMissing=true auto-creates the 'sessions' table on first boot.
+      const PgSession = connectPg(session);
+      this._sessionStore = new PgSession({
+        pool,
+        tableName: 'sessions',
+        createTableIfMissing: true,
+        ttl: 30 * 24 * 60 * 60, // 30 days in seconds (connect-pg-simple uses seconds)
+        pruneSessionInterval: 60 * 60, // Prune expired sessions every 1 hour
       });
-      console.log('[SessionStore] Using in-process MemoryStore (min-instances=1 ensures persistence)');
+      console.log('[SessionStore] Using PostgreSQL session store (connect-pg-simple) — sessions shared across all instances');
     }
     return this._sessionStore;
   }
