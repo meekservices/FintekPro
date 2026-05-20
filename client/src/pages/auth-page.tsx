@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient, markUserAuthenticated } from "@/lib/queryClient";
+import { apiRequest, queryClient, markUserAuthenticated, storeSessionId } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { SessionConflictDialog } from "@/components/SessionConflictDialog";
@@ -456,6 +456,13 @@ export default function AuthPage() {
     },
     onSuccess: (response) => {
       const data = response.data || response;
+
+      // Store session ID for cookie-bypass fallback
+      if (response.sessionId) {
+        storeSessionId(response.sessionId);
+      } else if (data.sessionId) {
+        storeSessionId(data.sessionId);
+      }
 
       // If PIN not yet set, show PIN setup screen before navigating
       if (data.requiresPinSetup) {

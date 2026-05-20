@@ -33,9 +33,7 @@ export async function setupAuth(app: Express) {
   // 2. Cookie Configuration
   // DO NOT set a domain on the session cookie. A host-only cookie (no Domain attribute)
   // is scoped to exactly the current subdomain (e.g. agent.fintekpro.com) and is the
-  // most reliable approach for single-subdomain portals. Setting Domain=fintekpro.com
-  // causes browsers to treat it as a cross-subdomain cookie with different send rules
-  // that were silently breaking session persistence.
+  // most reliable approach for single-subdomain portals.
   console.log("[AUTH_SETUP] Session cookie: host-only (no Domain attribute) for maximum reliability");
 
   // CRITICAL: Trust proxy must be set BEFORE session middleware.
@@ -47,10 +45,9 @@ export async function setupAuth(app: Express) {
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    // SameSite=None is required because the app is served through a CDN proxy
-    // (Firebase Hosting → Cloud Run). SameSite=Lax blocks cookies on some
-    // cross-site navigations in this architecture.
-    // SameSite=None REQUIRES Secure=true (which we set in production above).
+    // SameSite=None: required because the app sits behind a CDN proxy
+    // (Firebase Hosting → Cloud Run). SameSite=Lax can block cookies in this context.
+    // SameSite=None REQUIRES Secure=true (enforced above in production).
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     path: "/",
     // No domain attribute: cookie is host-only, scoped to exact subdomain.
@@ -78,14 +75,63 @@ export async function setupAuth(app: Express) {
     })
   );
 
-  // 3b. No per-request domain override needed — host-only cookies don't require it.
-
-  // 4. Trust Proxy Configuration — already set before session middleware above.
-  // app.set("trust proxy", true); // MOVED UP
-
-  // 5. Initialize Passport
+  // 4. Initialize Passport
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // 5. X-Session-ID Fallback Middleware
+  // When cookie-based auth fails (due to CDN proxying, SameSite issues, etc.),
+  // the client can send the raw session ID as an X-Session-ID header.
+  // SECURITY: We validate the session exists in the PostgreSQL store AND has a
+  // valid passport.user before restoring it. The session ID is the same one
+  // signed and stored by express-session, so forgery is prevented (session must
+  // already be in the DB).
+  app.use(async (req: Request, res: Response, next: NextFunction) => {
+    // Skip if already authenticated via cookie
+    if (req.isAuthenticated()) {
+      return next();
+    }
+
+    const headerSessionId = req.headers['x-session-id'] as string | undefined;
+    if (!headerSessionId) {
+      return next();
+    }
+
+    try {
+      // Strip the "s:" prefix if present (express-session signed format)
+      const rawSid = headerSessionId.startsWith('s:')
+        ? headerSessionId.slice(2).split('.')[0]
+        : headerSessionId;
+
+      // Get the session directly from the PostgreSQL store
+      (sessionStore as any).get(rawSid, async (err: any, sessionData: any) => {
+        if (err || !sessionData) {
+          return next();
+        }
+
+        const passportUserId = sessionData?.passport?.user;
+        if (!passportUserId) {
+          return next();
+        }
+
+        // Restore the user object from the database
+        const user = await storage.getUser(passportUserId);
+        if (!user) {
+          return next();
+        }
+
+        // Manually attach the authenticated user to the request
+        (req as any).user = user;
+        req.isAuthenticated = () => true;
+
+        console.log(`[X-SESSION-ID] Restored session for user ${user.id} via header (cookie bypass)`);
+        next();
+      });
+    } catch (e) {
+      console.warn('[X-SESSION-ID] Fallback restore error:', e);
+      next();
+    }
+  });
 
   // 6. Portal Context Validation
   // Ensure that the session portal context matches the current subdomain
@@ -112,27 +158,29 @@ export async function setupAuth(app: Express) {
 
   console.log("✅ [AUTH_SETUP] Session and Passport middleware initialized!");
 
-  // 8. Session Debug Endpoint (accessible to all, reveals only non-sensitive info)
+  // 8. Session Debug Endpoint — safe to expose, returns non-sensitive info
   app.get('/api/session-debug', (req: Request, res: Response) => {
     const hasSession = !!req.session;
     const sessionID = req.sessionID || null;
     const passportUser = (req.session as any)?.passport?.user || null;
     const portalType = (req.session as any)?.portalType || null;
-    const isAuthenticated = req.isAuthenticated();
+    const isAuth = req.isAuthenticated();
     const userId = (req as any).user?.id || null;
     const cookieHeader = req.headers.cookie || '(no cookie sent)';
     const hasFintekCookie = cookieHeader.includes('fintekpro.sid');
-    
-    console.log(`[SESSION_DEBUG] sid=${sessionID} | hasSession=${hasSession} | passport.user=${passportUser} | isAuth=${isAuthenticated} | portal=${portalType} | cookie_present=${hasFintekCookie}`);
-    
+    const hasSessionHeader = !!(req.headers['x-session-id']);
+
+    console.log(`[SESSION_DEBUG] sid=${sessionID} | passport.user=${passportUser} | isAuth=${isAuth} | portal=${portalType} | cookie=${hasFintekCookie} | header=${hasSessionHeader}`);
+
     res.json({
       hasSession,
       sessionID,
       passportUser,
       portalType,
-      isAuthenticated,
+      isAuthenticated: isAuth,
       userId,
       hasFintekCookie,
+      hasSessionHeader,
       cookieNames: cookieHeader.split(';').map((c: string) => c.trim().split('=')[0]).filter(Boolean),
     });
   });

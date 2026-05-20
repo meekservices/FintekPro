@@ -4,6 +4,31 @@ import { notifySessionExpired } from "@/contexts/session-context";
 // CSRF Token Management
 let csrfToken: string | null = null;
 
+// Session ID fallback token (for when cookie-based sessions fail)
+let sessionIdToken: string | null = null;
+
+export function storeSessionId(sid: string) {
+  sessionIdToken = sid;
+  try {
+    sessionStorage.setItem('fintekpro_sid', sid);
+  } catch (e) {}
+}
+
+export function getStoredSessionId(): string | null {
+  if (sessionIdToken) return sessionIdToken;
+  try {
+    sessionIdToken = sessionStorage.getItem('fintekpro_sid');
+  } catch (e) {}
+  return sessionIdToken;
+}
+
+export function clearStoredSessionId() {
+  sessionIdToken = null;
+  try {
+    sessionStorage.removeItem('fintekpro_sid');
+  } catch (e) {}
+}
+
 export async function fetchCsrfToken(): Promise<string | null> {
   try {
     const res = await fetch('/api/csrf-token', { credentials: 'include' });
@@ -24,6 +49,7 @@ export function getCsrfToken(): string | null {
 
 export function clearCsrfToken(): void {
   csrfToken = null;
+  clearStoredSessionId();
 }
 
 const EXCLUDED_401_ENDPOINTS = [
@@ -245,6 +271,8 @@ export async function apiRequest(
   const requestHeaders: Record<string, string> = {
     ...headers,
     ...(serializedBody && !headers["Content-Type"] ? { "Content-Type": "application/json" } : {}),
+    // Session ID fallback header — sent when cookie-based sessions may be broken
+    ...(getStoredSessionId() ? { 'X-Session-ID': getStoredSessionId()! } : {}),
   };
 
   if (isMutatingRequest && csrfToken) {
@@ -300,6 +328,9 @@ export const getQueryFn: <T>(options: {
     const url = queryKey.join("/") as string;
     const res = await fetch(url, {
       credentials: "include",
+      headers: {
+        ...(getStoredSessionId() ? { 'X-Session-ID': getStoredSessionId()! } : {}),
+      },
     });
 
     if (res.status === 401 || res.status === 403) {

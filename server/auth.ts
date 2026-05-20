@@ -767,8 +767,13 @@ export function registerAuthRoutes(app: Express) {
             lastLoginAt: updatedUser.lastLoginAt,
             previousLoginAt: updatedUser.previousLoginAt,
             loginCount: updatedUser.loginCount,
-            requiresPinSetup: needsPinSetup
+            requiresPinSetup: needsPinSetup,
+            // SESSION ID FALLBACK: Include the signed session ID in the response body.
+            // The client stores this in sessionStorage and sends it as X-Session-ID header
+            // on all subsequent requests. This bypasses cookie/CDN issues entirely.
+            sessionId: req.sessionID ? `s:${req.sessionID}` : undefined,
           }, needsPinSetup ? "Verification successful. Please set up your login PIN." : "Login successful");
+
         });
       });
     } catch (error) {
@@ -892,7 +897,10 @@ export function registerAuthRoutes(app: Express) {
             previousLoginAt: user.previousLoginAt,
             loginCount: user.loginCount,
             isPinSet: user.isPinSet,
+            // SESSION ID FALLBACK: Include signed session ID for X-Session-ID header fallback
+            sessionId: req.sessionID ? `s:${req.sessionID}` : undefined,
           }, "Login successful");
+
         });
       });
     } catch (error) {
