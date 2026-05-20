@@ -153,18 +153,20 @@ export async function enrichPicksWithDataSource(picks: any[]) {
       pick.dataFreshness = 'stale';
     }
 
-    // RSI calculation for stocks
+    // RSI/ROIC enrichment for listed stocks — only fetch if not already cached
     if (pick.category === 'listed_stocks' && pick.symbol && pick.keyMetrics) {
       const km = typeof pick.keyMetrics === 'string' ? JSON.parse(pick.keyMetrics) : pick.keyMetrics;
       const needsRsi = km.rsi == null;
       const needsRoic = km.roic == null;
       if (needsRsi || needsRoic) {
+        let metricsUpdated = false;
         try {
           if (needsRoic) {
             const stockRow = await db.execute(sql`SELECT roce FROM listed_stocks WHERE symbol = ${pick.symbol} AND roce IS NOT NULL LIMIT 1`);
             const row = (stockRow as any).rows?.[0];
             if (row?.roce != null) {
               km.roic = parseFloat(row.roce);
+              metricsUpdated = true;
             }
           }
           if (needsRsi) {
@@ -195,13 +197,24 @@ export async function enrichPicksWithDataSource(picks: any[]) {
                     const avgGain = gains / 14;
                     const avgLoss = losses / 14;
                     km.rsi = avgLoss === 0 ? 100 : Math.round((100 - (100 / (1 + avgGain / avgLoss))) * 100) / 100;
+                    metricsUpdated = true;
                   }
                 }
               } catch {}
             }
           }
           pick.keyMetrics = km;
-        } catch {}
+
+          // ✅ Persist updated metrics back to DB so next request skips Yahoo Finance
+          if (metricsUpdated && pick.id) {
+            db.update(dailyPicks)
+              .set({ keyMetrics: km, updatedAt: new Date() })
+              .where(eq(dailyPicks.id, pick.id))
+              .catch((err) => console.warn(`[PickEnrich] Failed to cache metrics for pick ${pick.id}:`, err));
+          }
+        } catch (err) {
+          console.warn(`[PickEnrich] RSI/ROIC enrichment failed for ${pick.symbol}:`, err);
+        }
       }
     }
   }
@@ -218,6 +231,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
   }
 
   if (picksToUpdateInDb.length > 0) {
+    // Fire-and-forget price sync — log failures instead of silently swallowing
     Promise.all(
       picksToUpdateInDb.map(u =>
         db.update(dailyPicks)
@@ -229,9 +243,9 @@ export async function enrichPicksWithDataSource(picks: any[]) {
             updatedAt: new Date(),
           })
           .where(eq(dailyPicks.id, u.id))
-          .catch(() => {})
+          .catch((err) => console.warn(`[PickEnrich] DB price update failed for pick ${u.id}:`, err))
       )
-    ).catch(() => {});
+    ).catch((err) => console.error('[PickEnrich] Batch price update error:', err));
   }
 
   return { picks, categoryLastUpdated };

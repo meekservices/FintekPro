@@ -477,13 +477,50 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 
   async startDailyScheduler(): Promise<void> {
     await this.catchUpIfNeeded();
-    
-    // Simple 24h interval for now, can be refined to specific IST hours
-    setInterval(() => this.scheduledGenerate(), 24 * 60 * 60 * 1000);
-    setInterval(() => this.refreshLivePicks(), 12 * 60 * 60 * 1000);
-    
-    console.log(`📅 [PickOfTheDay] Scheduler started (Generation 24h, Prices 12h)`);
+
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+    /**
+     * Returns milliseconds from now until the next occurrence of [hour]:[minute] IST.
+     * If that time has already passed today, it targets tomorrow.
+     */
+    function msUntilIst(hour: number, minute = 0): number {
+      // Get current IST time as a wall-clock string, then parse
+      const nowIst = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      const target = new Date(nowIst);
+      target.setHours(hour, minute, 0, 0);
+      if (target <= nowIst) {
+        target.setDate(target.getDate() + 1); // already passed today → fire tomorrow
+      }
+      return target.getTime() - nowIst.getTime();
+    }
+
+    // ── 9:00 AM IST ── Generate fresh daily picks (market open)
+    const delayToGenerate = msUntilIst(9, 0);
+    console.log(`📅 [PickOfTheDay] Next generation scheduled in ${Math.round(delayToGenerate / 60000)} min (9:00 AM IST)`);
+    setTimeout(() => {
+      this.scheduledGenerate();
+      setInterval(() => this.scheduledGenerate(), MS_PER_DAY);
+    }, delayToGenerate);
+
+    // ── 4:00 PM IST ── Refresh live prices after market close
+    const delayToRefresh = msUntilIst(16, 0);
+    console.log(`📅 [PickOfTheDay] Next price refresh scheduled in ${Math.round(delayToRefresh / 60000)} min (4:00 PM IST)`);
+    setTimeout(() => {
+      this.refreshLivePicks();
+      setInterval(() => this.refreshLivePicks(), MS_PER_DAY);
+    }, delayToRefresh);
+
+    // ── 12:30 PM IST ── Mid-day price refresh (optional, during market hours)
+    const delayToMidDay = msUntilIst(12, 30);
+    setTimeout(() => {
+      this.refreshLivePicks();
+      setInterval(() => this.refreshLivePicks(), MS_PER_DAY);
+    }, delayToMidDay);
+
+    console.log(`📅 [PickOfTheDay] IST-aware scheduler started: Generation@9AM, Refresh@12:30PM+4PM IST`);
   }
+
 
   private async catchUpIfNeeded(): Promise<void> {
     const today = new Date().toISOString().split('T')[0];

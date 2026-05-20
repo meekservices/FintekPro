@@ -71,7 +71,7 @@ router.get("/today", async (req, res) => {
     });
   } catch (error) {
     console.error("[API] Error fetching today's picks:", error);
-    res.status(500).json({ success: false, error: error.message, stack: error.stack });
+    res.status(500).json({ success: false, error: "Failed to fetch today's picks" });
   }
 });
 
@@ -170,9 +170,7 @@ router.post("/update-statuses", requireAdmin, async (req, res) => {
 router.get("/admin/list", requireAdmin, async (req, res) => {
   try {
     const { category, status, limit = "50" } = req.query;
-    
-    let query = db.select().from(dailyPicks).orderBy(desc(dailyPicks.recoDate), desc(dailyPicks.id));
-    
+
     const conditions = [];
     if (category && category !== "all") {
       conditions.push(eq(dailyPicks.category, category as any));
@@ -180,7 +178,7 @@ router.get("/admin/list", requireAdmin, async (req, res) => {
     if (status && status !== "all") {
       conditions.push(eq(dailyPicks.status, status as any));
     }
-    
+
     const picks = await db.select()
       .from(dailyPicks)
       .where(conditions.length > 0 ? and(...conditions) : undefined)

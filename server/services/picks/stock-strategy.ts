@@ -1,6 +1,7 @@
 import { db } from "../../db";
-import { listedStocks, goldenPrices } from "@shared/schema";
-import { and, eq, sql, gte, asc } from "drizzle-orm";
+import { listedStocks, goldenPrices, stockFinancialMetrics } from "@shared/schema";
+import { and, eq, sql, gte, asc, desc } from "drizzle-orm";
+
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
@@ -157,13 +158,62 @@ export class StockStrategy extends BaseStrategy {
     return Math.max(0, score);
   }
 
-  private async calculateAdvancedMetrics(stock: any): Promise<any> {
+  private async calculateAdvancedMetrics(stock: any): Promise<{ piotroskiFScore?: number; roic?: number }> {
     try {
-      return {}; 
-    } catch {
+      if (!stock.id && !stock.symbol) return {};
+
+      // Fetch the most recent metrics row for this stock
+      const rows = await db
+        .select({
+          piotroskiFScore: stockFinancialMetrics.piotroskiFScore,
+          roic:            stockFinancialMetrics.roic,
+          roa:             stockFinancialMetrics.roa,
+          operatingCashFlow: stockFinancialMetrics.operatingCashFlow,
+          debtToEquity:    stockFinancialMetrics.debtToEquity,
+          currentRatio:    stockFinancialMetrics.currentRatio,
+          grossMargin:     stockFinancialMetrics.grossMargin,
+          assetTurnover:   stockFinancialMetrics.assetTurnover,
+          netIncome:       stockFinancialMetrics.netIncome,
+        })
+        .from(stockFinancialMetrics)
+        .where(
+          stock.id
+            ? eq(stockFinancialMetrics.stockId, stock.id)
+            : eq(stockFinancialMetrics.symbol, stock.symbol)
+        )
+        .orderBy(desc(stockFinancialMetrics.fiscalYear))
+        .limit(1);
+
+      if (rows.length === 0) return {};
+      const m = rows[0];
+
+      const roic = m.roic ? parseFloat(m.roic) : undefined;
+
+      // Use pre-computed Piotroski F-Score if available
+      if (m.piotroskiFScore != null) {
+        return { piotroskiFScore: m.piotroskiFScore, roic };
+      }
+
+      // Derive a simplified Piotroski-style score from available ratios (4 signals)
+      // Full 9-signal score requires 2-year comparison; we score what we can
+      let score = 0;
+      if (m.roa && parseFloat(m.roa) > 0) score++;                          // ROA positive
+      if (m.operatingCashFlow && parseFloat(m.operatingCashFlow) > 0) score++; // OCF positive
+      if (m.debtToEquity && parseFloat(m.debtToEquity) < 0.5) score++;       // Low leverage
+      if (m.currentRatio && parseFloat(m.currentRatio) > 1.5) score++;        // Good liquidity
+      if (m.grossMargin && parseFloat(m.grossMargin) > 0.3) score++;          // Healthy margins
+      if (m.assetTurnover && parseFloat(m.assetTurnover) > 0.5) score++;      // Efficient assets
+      if (m.netIncome && parseFloat(m.netIncome) > 0) score++;               // Profitable
+
+      // Scale to 0–9 range proportionally (7 signals → 9)
+      const scaledScore = Math.round((score / 7) * 9);
+      return { piotroskiFScore: scaledScore, roic };
+    } catch (err) {
+      console.warn('[StockStrategy] calculateAdvancedMetrics failed:', err);
       return {};
     }
   }
+
 
   private async fetchRsiFromGoldenPrices(stock: any): Promise<number | null> {
     try {
