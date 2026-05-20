@@ -246,6 +246,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
     const [
       kycVaultMod, marketingMod, adminProspectsMod, twilioWebhookMod,
       credhiveAnalyticsMod, userMgmtMod, stakeholderMod, autoPopMod,
+      adminMiscMod,
     ] = await Promise.all([
       import('./kyc-vault-routes'),
       import('./marketing-routes'),
@@ -255,10 +256,12 @@ const server = app.listen(PORT, "0.0.0.0", () => {
       import('./user-management-routes'),
       import('./stakeholder-routes'),
       import('./auto-population-routes'),
+      import('./routes/admin-misc-routes'),
     ]);
     kycVaultMod.registerKYCVaultRoutes(app);
     marketingMod.registerMarketingRoutes(app);
     adminProspectsMod.registerAdminProspectRoutes(app);
+    adminMiscMod.registerAdminMiscRoutes(app);
     app.use('/api/twilio', twilioWebhookMod.createTwilioWebhookRouter());
     app.use('/api/admin/analytics', credhiveAnalyticsMod.default);
     userMgmtMod.registerUserManagementRoutes(app);

@@ -877,7 +877,7 @@ server.listen({ port: PORT, host: '0.0.0.0' }, () => {
   const zohoRoutes = await import('./zoho/routes');
   app.use('/api/zoho', zohoRoutes.default);
 
-  // Register Firm Inventory (DP Holdings) routes — MS FintekPro Advisors LLP
+  // Register Firm Inventory (DP Holdings) routes — Fintekpro Financial Services LLP
   const { registerFirmInventoryRoutes } = await import('./routes/firm-inventory');
   registerFirmInventoryRoutes(app);
   

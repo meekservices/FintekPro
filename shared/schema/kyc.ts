@@ -3681,7 +3681,7 @@ export type WebauthnAuditLog = typeof webauthnAuditLog.$inferSelect;
 export type InsertWebauthnAuditLog = typeof webauthnAuditLog.$inferInsert;
 
 // ══════════════════════════════════════════════════════════════════════════════
-// FIRM INVENTORY SYSTEM — MS FintekPro Advisors LLP DP Holdings & Transactions
+// FIRM INVENTORY SYSTEM — Fintekpro Financial Services LLP DP Holdings & Transactions
 // ══════════════════════════════════════════════════════════════════════════════
 
 export const firmDpHoldings = pgTable("firm_dp_holdings", {

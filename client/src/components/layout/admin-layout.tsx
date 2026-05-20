@@ -227,7 +227,7 @@ const navCategories: NavCategory[] = [
       { title: "Commission Master", href: "/admin/commission-master", icon: TrendingUp, description: "Commission configuration" },
       { title: "Revenue Analytics", href: "/admin/revenue-analytics", icon: BarChart3, description: "Revenue & performance" },
       { title: "Partner Payouts", href: "/admin/payouts", icon: Wallet, description: "Agent & partner payouts" },
-      { title: "Firm DP Inventory", href: "/admin/firm-inventory", icon: Package, description: "MS FintekPro Advisors LLP holdings & Zoho sync" },
+      { title: "Firm DP Inventory", href: "/admin/firm-inventory", icon: Package, description: "Fintekpro Financial Services LLP holdings & Zoho sync" },
       { title: "Zoho Books", href: "/admin/zoho-books", icon: BookOpen, description: "Accounting sync" },
       { title: "Global Fee Model", href: "/admin/global-fee-model", icon: DollarSign, description: "Advisory fee settings" },
     ]

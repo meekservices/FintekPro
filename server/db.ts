@@ -114,3 +114,21 @@ export const testConnection = async () => {
     client.release();
   }
 };
+
+let _poolClosing = false;
+
+export function isPoolClosed(): boolean {
+  return _poolClosing;
+}
+
+export async function closePool(): Promise<void> {
+  _poolClosing = true;
+  try {
+    await pool.end();
+    console.log('[DB Pool] Pool closed gracefully');
+  } catch (err) {
+    if (!((err as Error)?.message || '').includes('end on the pool')) {
+      console.error('[DB Pool] Error closing pool', err);
+    }
+  }
+}

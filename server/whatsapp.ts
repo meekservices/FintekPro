@@ -7,6 +7,7 @@ import { accessSync, constants } from 'fs';
 import { execSync } from 'child_process';
 import { storage } from './storage';
 import { randomUUID } from 'crypto';
+import { twilioWhatsAppService } from './services/twilio-whatsapp-service';
 
 function resolveChromiumPath(): string | undefined {
   // 1. Explicit env override
@@ -73,8 +74,16 @@ export class WhatsAppService {
   private qrCode: string | null = null;        // raw QR string
   private qrCodeDataUrl: string | null = null; // PNG data URL for browser display
   private authSessions: Map<string, AuthSession> = new Map();
+  private isTwilioEnabled: boolean = false;
 
   constructor() {
+    this.isTwilioEnabled = !!((process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) || process.env.REPLIT_CONNECTORS_HOSTNAME);
+    
+    if (this.isTwilioEnabled) {
+      console.log('📱 WhatsApp Web integration is redirected to Twilio API.');
+      this.isReady = true;
+    }
+
     const chromiumPath = resolveChromiumPath();
     const puppeteerConfig: any = {
       headless: true,
@@ -93,9 +102,13 @@ export class WhatsAppService {
     };
     if (chromiumPath) {
       puppeteerConfig.executablePath = chromiumPath;
-      console.log(`[WhatsApp] Using Chromium at: ${chromiumPath}`);
+      if (!this.isTwilioEnabled) {
+        console.log(`[WhatsApp] Using Chromium at: ${chromiumPath}`);
+      }
     } else {
-      console.log('[WhatsApp] No Chromium path found — Puppeteer will use its bundled browser');
+      if (!this.isTwilioEnabled) {
+        console.log('[WhatsApp] No Chromium path found — Puppeteer will use its bundled browser');
+      }
     }
 
     this.client = new Client({
@@ -159,6 +172,11 @@ export class WhatsAppService {
   }
 
   async initialize() {
+    if (this.isTwilioEnabled) {
+      console.log('[WhatsApp] Twilio is configured. Local client initialization skipped.');
+      this.isReady = true;
+      return;
+    }
     try {
       await this.client.initialize();
       whatsappClient = this.client;
@@ -218,6 +236,17 @@ export class WhatsAppService {
   }
 
   async sendMessage(phoneNumber: string, message: string): Promise<boolean> {
+    if (this.isTwilioEnabled) {
+      try {
+        const cleanPhone = phoneNumber.includes('@c.us') ? phoneNumber.split('@')[0] : phoneNumber;
+        const result = await twilioWhatsAppService.sendMessage(cleanPhone, message);
+        return result.success;
+      } catch (error) {
+        console.error('Failed to send Twilio WhatsApp message:', error);
+        return false;
+      }
+    }
+
     if (!this.isReady) {
       console.log('WhatsApp client not ready');
       return false;
@@ -259,7 +288,7 @@ export class WhatsAppService {
   }
 
   isClientReady(): boolean {
-    return this.isReady;
+    return this.isTwilioEnabled || this.isReady;
   }
 
   async getChats() {
@@ -409,10 +438,18 @@ export class WhatsAppService {
     }
   }
 
-  getStatus(): { isReady: boolean; hasQrCode: boolean } {
+  getStatus(): { isReady: boolean; hasQrCode: boolean; isTwilio: boolean } {
+    if (this.isTwilioEnabled) {
+      return {
+        isReady: true,
+        hasQrCode: false,
+        isTwilio: true
+      };
+    }
     return {
       isReady: this.isReady,
-      hasQrCode: this.qrCode !== null
+      hasQrCode: this.qrCode !== null,
+      isTwilio: false
     };
   }
 
@@ -422,6 +459,15 @@ export class WhatsAppService {
 
   // Send OTP for login verification
   async sendLoginOTP(mobile: string, otp: string): Promise<boolean> {
+    if (this.isTwilioEnabled) {
+      try {
+        return await twilioWhatsAppService.sendLoginOTP(mobile, otp);
+      } catch (error) {
+        console.error('Failed to send Twilio WhatsApp OTP:', error);
+        return false;
+      }
+    }
+
     if (!this.isReady) {
       console.log(`📱 WhatsApp OTP for ${mobile}: ${otp} (WhatsApp not ready)`);
       return false;
@@ -448,6 +494,20 @@ export class WhatsAppService {
 
   // Send OTP for password reset
   async sendPasswordResetOTP(mobile: string, otp: string): Promise<boolean> {
+    if (this.isTwilioEnabled) {
+      try {
+        const body = `🔐 *FintekPro Password Reset*\n\n` +
+          `Your password reset OTP is: *${otp}*\n\n` +
+          `This code is valid for 5 minutes.\n\n` +
+          `⚠️ If you didn't request this, please contact support immediately.`;
+        const result = await twilioWhatsAppService.sendMessage(mobile, body);
+        return result.success;
+      } catch (error) {
+        console.error('Failed to send Twilio WhatsApp Password Reset OTP:', error);
+        return false;
+      }
+    }
+
     if (!this.isReady) {
       console.log(`📱 WhatsApp Password Reset OTP for ${mobile}: ${otp} (WhatsApp not ready)`);
       return false;

@@ -141,7 +141,7 @@ class AdminParallelNotifier {
       const complianceMobile = process.env.COMPLIANCE_HEAD_MOBILE;
       if (complianceMobile) {
         try {
-          await whatsappService.sendTextMessage(
+          await whatsappService.sendMessage(
             complianceMobile,
             `*FintekPro Admin Alert*\n*${title}*\n\n${body}\n\n_Priority: ${priority}_`
           );

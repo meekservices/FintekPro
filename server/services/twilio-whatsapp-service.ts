@@ -108,12 +108,8 @@ class TwilioWhatsAppService {
         if (templateSid) {
           return this.sendTemplateMessage(toNumber, templateSid, { body });
         } else {
-          console.log(`⚠️ No template configured for ${templateType || 'notification'}, user has not initiated contact`);
-          return { 
-            success: false, 
-            error: 'User has not initiated WhatsApp contact. Please configure a message template or have the user message first.',
-            usedTemplate: false 
-          };
+          console.log(`⚠️ No template configured for ${templateType || 'notification'}, falling back to freeform message...`);
+          return this.sendFreeformMessage(toNumber, body, mediaUrl);
         }
       }
     } catch (error: any) {

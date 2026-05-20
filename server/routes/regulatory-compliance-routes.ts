@@ -66,7 +66,7 @@ router.post('/grievance/submit', async (req: Request, res: Response): Promise<vo
 router.get('/compliance/info', (_req: Request, res: Response): void => {
   res.json({
     intermediary: {
-      name: 'MS FintekPro Advisors LLP',
+      name: 'Fintekpro Financial Services LLP',
       type: 'AMFI Registered Mutual Fund Distributor',
       registrations: {
         amfi: process.env.AMFI_ARN || 'Pending',

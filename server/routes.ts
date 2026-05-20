@@ -49,6 +49,18 @@ import { registerUserProfileKYCRoutes } from "./routes/user-profile-kyc";
 import yieldCurveRoutes from "./routes/yield-curve";
 import { registerReportsInlineRoutes } from "./routes/reports-inline";
 import adminMutualFundsRouter from "./routes/admin-mutual-funds-routes";
+import adminESignRouter from "./routes/admin-esign-routes";
+import adminAadhaarRouter from "./routes/admin-aadhaar-routes";
+import adminDsaLoanRouter from "./routes/admin-dsa-loan-routes";
+import adminApiUsageRouter from "./routes/admin-api-usage-routes";
+import { registerAdminComplianceTestRoutes } from "./routes/admin-compliance-test-routes";
+import adminAgentPayoutRouter from "./routes/admin-agent-payout-routes";
+import adminDatabaseRouter from "./routes/admin-database";
+import adminGlobalInstrumentsRouter from "./routes/admin-global-instruments";
+import policyStatusRouter from "./routes/admin/policy-status-routes";
+import aiGovernanceRouter from "./routes/admin/ai-governance";
+import { registerAdminPanelRoutes } from "./routes/admin/index";
+
 import liveMFDataRouter from "./routes/live-mf-data-routes";
 import treasuryCopilotRoutes from "./routes/treasury-copilot-routes";
 import treasuryRoutes from "./routes/treasury-routes";
@@ -254,6 +266,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerAppointmentManagementRoutes(app);
   registerReportsInlineRoutes(app);
   app.use("/api/admin/mutual-funds", adminMutualFundsRouter);
+  app.use(adminESignRouter);
+  app.use(adminAadhaarRouter);
+  app.use("/api/admin/dsa-loans", adminDsaLoanRouter);
+  app.use(adminApiUsageRouter);
+  registerAdminComplianceTestRoutes(app);
+  
+  // Mounted missing admin/governance/database routes
+  app.use("/api/admin/agent-payouts", adminAgentPayoutRouter);
+  app.use("/api/admin/database", adminDatabaseRouter);
+  app.use("/api/admin/global-instruments", adminGlobalInstrumentsRouter);
+  app.use("/api/admin", policyStatusRouter); // /status is router path, so prefix is /api/admin
+  app.use(aiGovernanceRouter); // router already has full /api/admin/ai/... paths
+  registerAdminPanelRoutes(app);
+
   app.use("/api/live-mf", liveMFDataRouter);
   app.use("/api/tester/diagnostics", testerDiagnosticsRoutes);
 

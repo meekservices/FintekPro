@@ -189,7 +189,7 @@ export default function AdminFirmInventory() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Firm Inventory — DP Holdings</h1>
-          <p className="text-sm text-muted-foreground">MS FintekPro Advisors LLP · Zoho Books two-way sync</p>
+          <p className="text-sm text-muted-foreground">Fintekpro Financial Services LLP · Zoho Books two-way sync</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => { refetchHoldings(); refetchTx(); refetchBalance(); }}>

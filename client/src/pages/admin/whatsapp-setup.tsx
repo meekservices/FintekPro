@@ -52,7 +52,10 @@ export default function WhatsAppSetupPage() {
   const { data: status, isLoading, refetch } = useQuery<WhatsAppStatus>({
     queryKey: ['/api/admin/whatsapp/status'],
     // Poll every 5s whenever not yet connected — catches the post-scan ready event automatically
-    refetchInterval: !status?.isReady ? 5000 : false,
+    refetchInterval: (query) => {
+      const data = query.state.data as WhatsAppStatus | undefined;
+      return !data?.isReady ? 5000 : false;
+    },
   });
 
   const { data: otpPriority, isLoading: priorityLoading } = useQuery<OtpPriorityData>({
@@ -229,12 +232,18 @@ export default function WhatsAppSetupPage() {
             <div className="flex items-center gap-3">
               <Wifi className="h-6 w-6 text-green-500" />
               <div>
-                <p className="font-medium text-green-600 dark:text-green-400">Connected</p>
-                <p className="text-sm text-muted-foreground">WhatsApp is active and ready to send messages.</p>
+                <p className="font-medium text-green-600 dark:text-green-400">
+                  {status?.isTwilio ? 'Connected via Twilio API' : 'Connected'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {status?.isTwilio
+                    ? 'Using Twilio WhatsApp API service (+919686854321) for reliable, serverless message delivery.'
+                    : 'WhatsApp is active and ready to send messages.'}
+                </p>
               </div>
               <Badge className="ml-auto bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
                 <CheckCircle2 className="h-3 w-3 mr-1" />
-                Live
+                {status?.isTwilio ? 'API' : 'Live'}
               </Badge>
             </div>
           ) : (
