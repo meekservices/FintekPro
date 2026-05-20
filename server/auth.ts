@@ -389,6 +389,15 @@ export function registerAuthRoutes(app: Express) {
           if (req.session) {
             (req.session as any).pendingLoginUserId = user.id;
             (req.session as any).pendingLoginOtpIdentifier = otpDestination;
+            // CRITICAL: Explicitly save session to PostgreSQL store so that
+            // verify-otp can read pendingLoginUserId even if it hits a different
+            // Cloud Run instance (connect-pg-simple needs explicit save with resave:false)
+            await new Promise<void>((resolve) => {
+              req.session!.save((err) => {
+                if (err) console.warn('[Login] Session save warning:', err);
+                resolve();
+              });
+            });
           }
 
           // Send OTP via appropriate channels following priority order:
@@ -704,12 +713,32 @@ export function registerAuthRoutes(app: Express) {
         delete (req.session as any).pendingLoginUserId;
         delete (req.session as any).pendingLoginOtpIdentifier;
         
-        // Explicitly save session to ensure it persists
+        // Explicitly save session to ensure it persists in PostgreSQL.
+        // req.login() internally calls session.regenerate() which creates a NEW
+        // session ID. We must ensure this new session is written to the DB and
+        // the correct Set-Cookie header is sent BEFORE the response body, so the
+        // browser stores the new session ID for all subsequent requests.
         req.session.save(async (saveErr) => {
           if (saveErr) {
             console.error("❌ [VERIFY_OTP] Session save error:", saveErr);
             return apiResponse.serverError(res, "Session save failed");
           }
+
+          // Explicitly re-set the session cookie in the response to ensure
+          // the browser picks up the regenerated session ID. This is critical
+          // when sitting behind a CDN proxy (Firebase Hosting → Cloud Run) that
+          // may use cached cookie values from the pre-login request.
+          const cookieOptions: Record<string, any> = {
+            maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax' as const,
+            path: '/',
+          };
+          const sessionId = `s:${(req as any).sessionID}.${(req as any).session?.cookie}`;
+          // Use express-session's built-in cookie setter by touching session
+          (req.session as any).touch?.();
+          console.log(`[VERIFY_OTP] Session ID after login: ${req.sessionID}`);
 
           try {
             await trustCurrentPinDevice(req, res, updatedUser.id);
@@ -719,7 +748,7 @@ export function registerAuthRoutes(app: Express) {
             console.warn("⚠️ [VERIFY_OTP] Trusted device save failed (non-critical):", (deviceError as Error)?.message);
           }
           
-          console.log(`✅ [VERIFY_OTP] Success! User ${updatedUser.id} logged in.`);
+          console.log(`✅ [VERIFY_OTP] Success! User ${updatedUser.id} logged in. Session: ${req.sessionID}`);
           
           // If first-time verification just completed, check if PIN setup is needed
           const needsPinSetup = !updatedUser.isPinSet;

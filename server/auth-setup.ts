@@ -42,10 +42,13 @@ export async function setupAuth(app: Express) {
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    // SameSite=None is required because the app is served through a CDN proxy
+    // (Firebase Hosting → Cloud Run). SameSite=Lax blocks cookies on some
+    // cross-site navigations in this architecture.
+    // SameSite=None REQUIRES Secure=true (which we set in production above).
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     path: "/",
     // No domain attribute: cookie is host-only, scoped to exact subdomain.
-    // This is more reliable than setting Domain=fintekpro.com for single-portal use.
   };
 
   const sessionSecret = process.env.SESSION_SECRET || (!process.env.NODE_ENV || process.env.NODE_ENV !== "production"
