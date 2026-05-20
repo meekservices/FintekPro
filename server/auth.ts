@@ -1073,6 +1073,11 @@ export function registerAuthRoutes(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated() || !req.user) {
+      const sid = req.sessionID || 'none';
+      const passportUser = (req.session as any)?.passport?.user || 'none';
+      const hasCookie = !!(req.headers.cookie?.includes('fintekpro.sid'));
+      const portalType = (req.session as any)?.portalType || 'none';
+      console.warn(`[AUTH_401] /api/user | sid=${sid} | passport.user=${passportUser} | cookie=${hasCookie} | portal=${portalType} | isAuth=${req.isAuthenticated()}`);
       return apiResponse.unauthorized(res);
     }
 

@@ -38,6 +38,11 @@ export async function setupAuth(app: Express) {
   // that were silently breaking session persistence.
   console.log("[AUTH_SETUP] Session cookie: host-only (no Domain attribute) for maximum reliability");
 
+  // CRITICAL: Trust proxy must be set BEFORE session middleware.
+  // express-session uses req.secure (which respects trust proxy) to decide whether
+  // to set the Secure flag on the cookie at response time.
+  app.set("trust proxy", true);
+
   const cookieOptions: session.CookieOptions = {
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     httpOnly: true,
@@ -75,8 +80,8 @@ export async function setupAuth(app: Express) {
 
   // 3b. No per-request domain override needed — host-only cookies don't require it.
 
-  // 4. Trust Proxy Configuration
-  app.set("trust proxy", true);
+  // 4. Trust Proxy Configuration — already set before session middleware above.
+  // app.set("trust proxy", true); // MOVED UP
 
   // 5. Initialize Passport
   app.use(passport.initialize());
@@ -95,13 +100,40 @@ export async function setupAuth(app: Express) {
     try {
       const user = await storage.getUser(id);
       if (!user) {
+        console.warn(`[PASSPORT] deserializeUser: user ${id} NOT FOUND in DB → session invalid`);
         return done(null, false);
       }
       done(null, user);
     } catch (err) {
+      console.error(`[PASSPORT] deserializeUser ERROR for id ${id}:`, err);
       done(err);
     }
   });
 
   console.log("✅ [AUTH_SETUP] Session and Passport middleware initialized!");
+
+  // 8. Session Debug Endpoint (accessible to all, reveals only non-sensitive info)
+  app.get('/api/session-debug', (req: Request, res: Response) => {
+    const hasSession = !!req.session;
+    const sessionID = req.sessionID || null;
+    const passportUser = (req.session as any)?.passport?.user || null;
+    const portalType = (req.session as any)?.portalType || null;
+    const isAuthenticated = req.isAuthenticated();
+    const userId = (req as any).user?.id || null;
+    const cookieHeader = req.headers.cookie || '(no cookie sent)';
+    const hasFintekCookie = cookieHeader.includes('fintekpro.sid');
+    
+    console.log(`[SESSION_DEBUG] sid=${sessionID} | hasSession=${hasSession} | passport.user=${passportUser} | isAuth=${isAuthenticated} | portal=${portalType} | cookie_present=${hasFintekCookie}`);
+    
+    res.json({
+      hasSession,
+      sessionID,
+      passportUser,
+      portalType,
+      isAuthenticated,
+      userId,
+      hasFintekCookie,
+      cookieNames: cookieHeader.split(';').map((c: string) => c.trim().split('=')[0]).filter(Boolean),
+    });
+  });
 }
