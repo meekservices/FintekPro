@@ -31,6 +31,10 @@ import agentPortfolioDriftRoutes from "./routes/agent-portfolio-drift";
 import agentClientOrdersRoutes from "./routes/agent-client-orders";
 import agentMarketAlertsRoutes from "./routes/agent-market-alerts";
 import meetingRoutes from "./routes/meeting-bookings-1";
+import meetingRoutes2 from "./routes/meeting-bookings-2";
+import unifiedCartRouter from "./routes/unified-cart";
+import { registerKYCWizardRoutes } from "./routes/kyc/index";
+import { registerKycV2ExtensionRoutes } from "./routes/kyc/v2-extensions";
 import { registerOrderRoutes } from "./order-routes";
 import { taxRoutes } from "./tax-routes";
 import { registerKYCVaultRoutes } from "./kyc-vault-routes";
@@ -230,6 +234,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerAgentProspectAcquisitionPart1Routes(app);
   
   app.use("/api/meetings", meetingRoutes);
+  app.use("/api/meetings", meetingRoutes2);
+  app.use("/api/unified-cart", unifiedCartRouter);
   
   // Named export registrations
   registerOrderRoutes(app);
@@ -259,6 +265,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerBondsMarketRoutes(app);
   registerUserProfileKYCRoutes(app);
   registerBankingRoutes(app);
+  registerKYCWizardRoutes(app);
+  registerKycV2ExtensionRoutes(app);
   app.use(versionRouter);
   app.use("/api/bonds/yield-curve", yieldCurveRoutes);
 

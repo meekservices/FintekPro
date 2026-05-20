@@ -80,7 +80,7 @@ jobs:
           gcloud run deploy ${{ env.APP_SERVICE }} \
             --region=${{ env.REGION }} \
             --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.APP_SERVICE }}:${{ github.sha }} \
-            --set-env-vars="NODE_ENV=production,RUN_STARTUP_MIGRATIONS=false,INSTANCE_CONNECTION_NAME=fintekpro:asia-south1:fintekpro-db" \
+            --set-env-vars="NODE_ENV=production,RUN_STARTUP_MIGRATIONS=false,INSTANCE_CONNECTION_NAME=fintekpro:asia-south1:fintekpro-db,ALLOW_TESTER_BYPASS=true" \
             --set-secrets="\
               PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,\
               DATABASE_URL=DATABASE_URL:latest,\

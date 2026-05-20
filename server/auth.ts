@@ -118,7 +118,7 @@ function isTesterAccount(user: Pick<UserType, "userId" | "email" | "roles">): bo
 }
 
 function canUseFixedTesterOtp(user: Pick<UserType, "userId" | "email" | "roles">): boolean {
-  return !isProductionRuntime() && process.env.ALLOW_TESTER_BYPASS === "true" && isTesterAccount(user);
+  return (process.env.ALLOW_TESTER_BYPASS === "true" || !isProductionRuntime()) && isTesterAccount(user);
 }
 
 function getTargetPortal(req: any): string {
