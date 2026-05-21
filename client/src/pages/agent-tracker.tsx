@@ -93,8 +93,11 @@ export default function AgentTracker() {
     }
     setIsSubmitting(true);
     try {
-      const r = await apiRequest("POST", "/api/agent/iris/initiate", { pan, mobile });
-      const data = await r.json();
+      // apiRequest already returns parsed JSON — do NOT call .json() on it
+      const data = await apiRequest("/api/agent/iris/initiate", {
+        method: "POST",
+        body: JSON.stringify({ pan, mobile }),
+      });
       if (data.requestId || data.success) {
         setRequestId(data.requestId || "iris-otp");
         setOtpStep(true);
@@ -102,8 +105,8 @@ export default function AgentTracker() {
       } else {
         toast({ title: "Failed", description: data.error || "Could not initiate", variant: "destructive" });
       }
-    } catch {
-      toast({ title: "Error", description: "Failed to contact IRIS KFintech service", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to contact IRIS KFintech service", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -113,8 +116,11 @@ export default function AgentTracker() {
     if (!otp) return;
     setIsSubmitting(true);
     try {
-      const r = await apiRequest("POST", "/api/agent/iris/verify", { pan, otp });
-      const data = await r.json();
+      // apiRequest already returns parsed JSON — do NOT call .json() on it
+      const data = await apiRequest("/api/agent/iris/verify", {
+        method: "POST",
+        body: JSON.stringify({ pan, otp }),
+      });
       if (data.success) {
         toast({ title: "Portfolio Imported!", description: data.message });
         setConnectOpen(false);
@@ -124,8 +130,8 @@ export default function AgentTracker() {
       } else {
         toast({ title: "Verification Failed", description: data.error, variant: "destructive" });
       }
-    } catch {
-      toast({ title: "Error", description: "IRIS verification failed", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "IRIS verification failed", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -139,19 +145,21 @@ export default function AgentTracker() {
     setIsSubmitting(true);
     try {
       // Step 1: Fetch live CAS data from registry
-      const fetchResp = await apiRequest("GET", `/api/iris/portfolio/cas-fetch/${pan}`);
-      const fetchData = await fetchResp.json();
+      // apiRequest already returns parsed JSON — do NOT call .json() on it
+      const fetchData = await apiRequest(`/api/iris/portfolio/cas-fetch/${pan}`);
       
       if (!fetchData.success) {
         throw new Error(fetchData.message || "Registry fetch failed");
       }
 
       // Step 2: Import into Iris tracking (this triggers local sync on backend)
-      const importResp = await apiRequest("POST", "/api/iris/portfolio/import", {
-        pan,
-        holdings: fetchData.data?.holdings || []
+      const importData = await apiRequest("/api/iris/portfolio/import", {
+        method: "POST",
+        body: JSON.stringify({
+          pan,
+          holdings: fetchData.data?.holdings || []
+        }),
       });
-      const importData = await importResp.json();
 
       if (importData.success) {
         toast({ 
