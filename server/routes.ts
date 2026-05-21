@@ -81,6 +81,7 @@ import { registerAgentAdvisoryPart2Routes } from "./routes/agent-advisory-2";
 import { registerAgentAdvisoryPart3Routes } from "./routes/agent-advisory-3";
 import { registerAgentProspectAcquisitionPart1Routes } from "./routes/agent-prospect-acquisition-1";
 import testerDiagnosticsRoutes from "./routes/tester-diagnostics-routes";
+import researchNoteRouter from "./routes/research-note-routes";
 import { Router } from "express";
 
 
@@ -289,6 +290,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(aiGovernanceRouter); // router already has full /api/admin/ai/... paths
   registerAdminPanelRoutes(app);
   registerAIStockRecommendationRoutes(app);
+
+  // Research Note routes (/api/research-note/search, /preview, etc.)
+  app.use("/api/research-note", researchNoteRouter);
 
   app.use("/api/live-mf", liveMFDataRouter);
   app.use("/api/tester/diagnostics", testerDiagnosticsRoutes);

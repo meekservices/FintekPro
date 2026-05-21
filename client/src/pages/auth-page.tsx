@@ -518,6 +518,14 @@ export default function AuthPage() {
     },
     onSuccess: (response) => {
       const data = response.data || response;
+
+      // Store session ID for cookie-bypass fallback
+      if (response.sessionId) {
+        storeSessionId(response.sessionId);
+      } else if (data.sessionId) {
+        storeSessionId(data.sessionId);
+      }
+
       setLoginStep("complete");
       markUserAuthenticated();
       queryClient.setQueryData(["/api/user"], data);

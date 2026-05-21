@@ -10,14 +10,14 @@ let sessionIdToken: string | null = null;
 export function storeSessionId(sid: string) {
   sessionIdToken = sid;
   try {
-    sessionStorage.setItem('fintekpro_sid', sid);
+    localStorage.setItem('fintekpro_sid', sid);
   } catch (e) {}
 }
 
 export function getStoredSessionId(): string | null {
   if (sessionIdToken) return sessionIdToken;
   try {
-    sessionIdToken = sessionStorage.getItem('fintekpro_sid');
+    sessionIdToken = localStorage.getItem('fintekpro_sid');
   } catch (e) {}
   return sessionIdToken;
 }
@@ -25,7 +25,7 @@ export function getStoredSessionId(): string | null {
 export function clearStoredSessionId() {
   sessionIdToken = null;
   try {
-    sessionStorage.removeItem('fintekpro_sid');
+    localStorage.removeItem('fintekpro_sid');
   } catch (e) {}
 }
 

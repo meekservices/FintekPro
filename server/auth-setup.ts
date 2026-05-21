@@ -124,6 +124,12 @@ export async function setupAuth(app: Express) {
         (req as any).user = user;
         req.isAuthenticated = () => true;
 
+        // Also copy the CSRF token from the real session into the current req.session
+        // so that CSRF middleware can validate POST requests made via this fallback.
+        if (sessionData.csrfToken && req.session) {
+          (req.session as any).csrfToken = sessionData.csrfToken;
+        }
+
         console.log(`[X-SESSION-ID] Restored session for user ${user.id} via header (cookie bypass)`);
         next();
       });
