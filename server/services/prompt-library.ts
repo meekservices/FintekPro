@@ -33,7 +33,7 @@ export interface PromptTemplate {
   userPromptTemplate: string;
   maxTokens: number;
   temperature: number;
-  model: 'gpt-4o' | 'gpt-4o-mini' | 'gemini-3.1-flash-lite';
+  model: 'gpt-4o' | 'gpt-4o-mini' | 'gemini-2.0-flash-lite';
   requiredVars: string[];
   regulatoryDisclaimer?: string;
 }
@@ -103,7 +103,7 @@ Output: Risk Category, Reasoning (2-3 sentences), Recommended Asset Allocation (
   market_commentary: {
     id: 'market_commentary',
     version: '1.0',
-    model: 'gemini-3.1-flash-lite',
+    model: 'gemini-2.0-flash-lite',
     maxTokens: 600,
     temperature: 0.4,
     requiredVars: ['marketData', 'sectorPerformance', 'date'],

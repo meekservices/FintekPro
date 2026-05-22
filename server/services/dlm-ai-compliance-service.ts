@@ -58,7 +58,7 @@ export class DLMAIComplianceService {
       const prompt = this.buildAnalysisPrompt(data);
       
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.0-flash-lite",
         contents: prompt,
         config: {
           temperature: 0.3,
@@ -237,7 +237,7 @@ Provide actionable, specific feedback.`;
           documentId,
           versionId,
           reviewType: "compliance",
-          modelUsed: "gemini-3.1-flash-lite",
+          modelUsed: "gemini-2.0-flash-lite",
           overallScore: result.overallScore,
           riskScore: result.riskScore,
           complianceScore: result.complianceScore,
@@ -391,7 +391,7 @@ Respond in JSON format:
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.0-flash-lite",
         contents: prompt,
         config: {
           temperature: 0.3,
@@ -443,7 +443,7 @@ Respond in JSON format:
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.0-flash-lite",
         contents: prompt,
         config: {
           temperature: 0.4,
