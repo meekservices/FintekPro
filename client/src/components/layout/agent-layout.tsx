@@ -587,7 +587,10 @@ export function AgentLayout({ children }: AgentLayoutProps) {
             </p>
           )}
           <div className="space-y-3">
-            <Button className="w-full" onClick={() => { window.location.href = '/api/logout'; }}>
+            <Button className="w-full" onClick={async () => { 
+              try { await fetch('/api/logout', { method: 'POST', credentials: 'include' }); } catch {} 
+              window.location.href = '/auth'; 
+            }}>
               Sign Out and Switch Account
             </Button>
             <Button variant="outline" asChild className="w-full">

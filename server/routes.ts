@@ -82,6 +82,7 @@ import { registerAgentAdvisoryPart3Routes } from "./routes/agent-advisory-3";
 import { registerAgentProspectAcquisitionPart1Routes } from "./routes/agent-prospect-acquisition-1";
 import testerDiagnosticsRoutes from "./routes/tester-diagnostics-routes";
 import researchNoteRouter from "./routes/research-note-routes";
+import screenerRouter from "./routes/screener-routes";
 import { Router } from "express";
 
 
@@ -293,6 +294,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Research Note routes (/api/research-note/search, /preview, etc.)
   app.use("/api/research-note", researchNoteRouter);
+
+  // Stock Screener routes (/api/screener/stocks, /stats, /distribution, etc.)
+  app.use("/", screenerRouter);
 
   app.use("/api/live-mf", liveMFDataRouter);
   app.use("/api/tester/diagnostics", testerDiagnosticsRoutes);
