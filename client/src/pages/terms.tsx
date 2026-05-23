@@ -60,7 +60,7 @@ export default function TermsOfService() {
                 </p>
                 <p className="text-muted-foreground">
                   If you do not agree to these terms, please do not use our services. These terms constitute a legally 
-                  binding agreement between you and FintekPro Financial Services Private Limited.
+                  binding agreement between you and FintekPro Financial Services LLP.
                 </p>
               </CardContent>
             </Card>
@@ -455,7 +455,7 @@ export default function TermsOfService() {
                   <p><strong>Legal & Compliance:</strong> legal@fintekpro.com</p>
                   <p><strong>Customer Support:</strong> support@fintekpro.com</p>
                   <p><strong>Phone:</strong> +91-22-4000-XXXX</p>
-                  <p><strong>Registered Office:</strong> FintekPro Financial Services Pvt. Ltd., Mumbai, Maharashtra, India</p>
+                  <p><strong>Registered Office:</strong> FintekPro Financial Services LLP, Mumbai, Maharashtra, India</p>
                   <p><strong>Business Hours:</strong> Monday-Saturday, 9:00 AM - 6:00 PM IST</p>
                 </div>
                 <div className="mt-4 pt-4 border-t text-muted-foreground">
