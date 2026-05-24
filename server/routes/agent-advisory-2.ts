@@ -77,38 +77,43 @@ export function registerAgentAdvisoryPart2Routes(app: Express) {
         source: 'proposal_builder'
       }));
       
-      // Also fetch from prospect_proposals table (wizard proposals) using raw SQL
-      const wizardProposalsResult = await db.execute(sql`
-        SELECT id, agent_id, prospect_name, prospect_email, prospect_mobile,
-               proposal_title, executive_summary, status, investment_amount,
-               total_investment_amount, created_at, updated_at, valid_until,
-               expires_at, share_token, shared_at, viewed_at, view_count
-        FROM prospect_proposals
-        WHERE agent_id = ${agentId}
-        ORDER BY created_at DESC
-        LIMIT 100
-      `);
-      
-      const formattedWizardProposals = (wizardProposalsResult.rows || []).map((p: any) => ({
-        id: p.id,
-        clientId: null,
-        title: p.proposal_title || `Investment Proposal for ${p.prospect_name}`,
-        description: p.executive_summary,
-        isDemo: false,
-        status: p.status === 'shared' ? 'shared' : p.status === 'viewed' ? 'client_viewed' : p.status === 'converted' ? 'executed' : 'draft',
-        investmentAmount: p.total_investment_amount || p.investment_amount || 0,
-        createdAt: p.created_at,
-        updatedAt: p.updated_at,
-        expiresAt: p.valid_until || p.expires_at,
-        clientName: p.prospect_name,
-        prospectEmail: p.prospect_email,
-        prospectMobile: p.prospect_mobile,
-        shareToken: p.share_token,
-        sharedAt: p.shared_at,
-        viewedAt: p.viewed_at,
-        viewCount: p.view_count || 0,
-        source: 'wizard'
-      }));
+      let formattedWizardProposals: any[] = [];
+      try {
+        // Also fetch from prospect_proposals table (wizard proposals) using raw SQL
+        const wizardProposalsResult = await db.execute(sql`
+          SELECT id, agent_id, prospect_name, prospect_email, prospect_mobile,
+                 proposal_title, executive_summary, status, investment_amount,
+                 total_investment_amount, created_at, updated_at, valid_until,
+                 expires_at, share_token, shared_at, viewed_at, view_count
+          FROM prospect_proposals
+          WHERE agent_id = ${agentId}
+          ORDER BY created_at DESC
+          LIMIT 100
+        `);
+        
+        formattedWizardProposals = (wizardProposalsResult.rows || []).map((p: any) => ({
+          id: p.id,
+          clientId: null,
+          title: p.proposal_title || `Investment Proposal for ${p.prospect_name}`,
+          description: p.executive_summary,
+          isDemo: false,
+          status: p.status === 'shared' ? 'shared' : p.status === 'viewed' ? 'client_viewed' : p.status === 'converted' ? 'executed' : 'draft',
+          investmentAmount: p.total_investment_amount || p.investment_amount || 0,
+          createdAt: p.created_at,
+          updatedAt: p.updated_at,
+          expiresAt: p.valid_until || p.expires_at,
+          clientName: p.prospect_name,
+          prospectEmail: p.prospect_email,
+          prospectMobile: p.prospect_mobile,
+          shareToken: p.share_token,
+          sharedAt: p.shared_at,
+          viewedAt: p.viewed_at,
+          viewCount: p.view_count || 0,
+          source: 'wizard'
+        }));
+      } catch (err) {
+        console.error("Gracefully caught error fetching prospect_proposals:", err);
+      }
 
       const proposalsWithDetails = await Promise.all(
         proposals.map(async (proposal: any) => {
@@ -374,25 +379,29 @@ export function registerAgentAdvisoryPart2Routes(app: Express) {
         return res.json({ success: true, message: "Proposal deleted successfully" });
       }
 
-      // Try prospect_proposals table
-      const prospectProposalResult = await db.execute(sql`
-        SELECT id, agent_id FROM prospect_proposals 
-        WHERE id = ${proposalId} AND agent_id = ${agentId}
-        LIMIT 1
-      `);
-
-      if (prospectProposalResult.rows && prospectProposalResult.rows.length > 0) {
-        // Delete prospect proposal events first
-        await db.execute(sql`
-          DELETE FROM prospect_proposal_events WHERE proposal_id = ${proposalId}
-        `);
-        
-        // Delete the prospect proposal
-        await db.execute(sql`
-          DELETE FROM prospect_proposals WHERE id = ${proposalId} AND agent_id = ${agentId}
+      try {
+        // Try prospect_proposals table
+        const prospectProposalResult = await db.execute(sql`
+          SELECT id, agent_id FROM prospect_proposals 
+          WHERE id = ${proposalId} AND agent_id = ${agentId}
+          LIMIT 1
         `);
 
-        return res.json({ success: true, message: "Proposal deleted successfully" });
+        if (prospectProposalResult.rows && prospectProposalResult.rows.length > 0) {
+          // Delete prospect proposal events first
+          await db.execute(sql`
+            DELETE FROM prospect_proposal_events WHERE proposal_id = ${proposalId}
+          `);
+          
+          // Delete the prospect proposal
+          await db.execute(sql`
+            DELETE FROM prospect_proposals WHERE id = ${proposalId} AND agent_id = ${agentId}
+          `);
+
+          return res.json({ success: true, message: "Proposal deleted successfully" });
+        }
+      } catch (err) {
+        console.error("Gracefully caught error deleting from prospect_proposals:", err);
       }
 
       return res.status(404).json({ error: "Proposal not found" });
