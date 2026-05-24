@@ -2,6 +2,7 @@ import { Express, Request, Response } from "express";
 import { db } from "../db";
 import * as schema from "@shared/schema";
 import { eq, and, desc, like, gte, lte, sql } from "drizzle-orm";
+import { z } from "zod";
 import { DLMWorkflowService } from "../services/dlm-workflow-service";
 import { DLMAIComplianceService } from "../services/dlm-ai-compliance-service";
 import { requireRole } from "../middleware/roleMiddleware";
