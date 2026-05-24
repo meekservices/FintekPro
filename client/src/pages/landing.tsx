@@ -20,7 +20,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
-      // Use the raw object or data wrapper if present
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/consistent-type-assertions
       const actualUser = (user as any).data || user;
       if (actualUser.roles?.includes('agent')) {
         setLocation("/agent");

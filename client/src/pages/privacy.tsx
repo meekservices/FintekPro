@@ -15,8 +15,9 @@ export default function PrivacyPolicy() {
   useEffect(() => {
     document.title = "Privacy Policy - FintekPro";
 
-    const handleNavChange = (e: CustomEvent) => {
-      setIsNavCollapsed(e.detail.collapsed);
+    const handleNavChange = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setIsNavCollapsed(customEvent.detail.collapsed);
     };
 
     window.addEventListener('navigation-change', handleNavChange as EventListener);
