@@ -72,6 +72,8 @@ import {
   CircleCheck,
   FileEdit,
   Info,
+  AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -563,14 +565,14 @@ export function AgentLayout({ children }: AgentLayoutProps) {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500 mx-auto mb-4"></div>
           <p className="text-muted-foreground">Redirecting to login...</p>
-        </div>
-      </div>
     );
   }
 
-  const isAgent = user.roles?.includes('agent') || user.roles?.includes('admin') || user.roles?.includes('superadmin') || user.roles?.includes('partner');
+  const actualUser = (user as any)?.data || user;
+  const isAgent = actualUser?.roles?.includes('agent') || actualUser?.roles?.includes('admin') || actualUser?.roles?.includes('superadmin') || actualUser?.roles?.includes('partner');
 
-  if (!isAgent) {
+  // Handle checking for specific required role
+  if (requiredRole && actualUser && !actualUser.roles?.includes(requiredRole)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950 dark:to-orange-950 flex items-center justify-center p-4">
         <div className="bg-background rounded-lg shadow-xl p-8 max-w-md w-full text-center">
@@ -579,13 +581,50 @@ export function AgentLayout({ children }: AgentLayoutProps) {
             Access Denied
           </h1>
           <p className="text-muted-foreground mb-2">
-            This agent portal is restricted to registered agents only.
+            You do not have the required permissions to access this page.
           </p>
-          {user.email && (
-            <p className="text-sm text-muted-foreground mb-6">
-              You are signed in as <strong>{user.email}</strong>, which does not have agent access.
+          <div className="space-y-3">
+            <Button className="w-full" onClick={() => window.location.href = '/agent'}>
+              Return to Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAgent) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950 dark:to-orange-950 flex flex-col p-4 md:p-8">
+        <header className="mb-8 flex justify-center md:justify-start">
+          <Link href="/">
+            <a className="flex items-center gap-2 group">
+              <div className="relative">
+                <Shield className="w-8 h-8 text-emerald-600 dark:text-emerald-500 group-hover:scale-110 transition-transform duration-300" />
+                <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:blur-2xl transition-all duration-300 opacity-0 group-hover:opacity-100" />
+              </div>
+              <span className="font-bold text-2xl tracking-tight bg-gradient-to-r from-emerald-700 to-teal-600 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent">
+                FintekPro
+              </span>
+            </a>
+          </Link>
+        </header>
+
+        <div className="flex-1 flex items-center justify-center">
+          <div className="bg-background/80 backdrop-blur-xl border border-red-100 dark:border-red-900/30 rounded-2xl shadow-2xl p-8 max-w-md w-full text-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-orange-500" />
+            <AlertTriangle className="w-20 h-20 text-red-500 mx-auto mb-6 drop-shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse" />
+            <h1 className="text-3xl font-bold text-foreground mb-3 tracking-tight">
+              Access Denied
+            </h1>
+            <p className="text-muted-foreground mb-2">
+              This agent portal is restricted to registered agents only.
             </p>
-          )}
+            {actualUser?.email && (
+              <p className="text-sm text-muted-foreground mb-6">
+                You are signed in as <strong className="text-foreground">{actualUser.email}</strong>, which does not have agent access.
+              </p>
+            )}
           <div className="space-y-3">
             <Button className="w-full" onClick={async () => { 
               try { await fetch('/api/logout', { method: 'POST', credentials: 'include' }); } catch {} 
