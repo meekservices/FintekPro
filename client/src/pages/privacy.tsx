@@ -15,14 +15,14 @@ export default function PrivacyPolicy() {
   useEffect(() => {
     document.title = "Privacy Policy - FintekPro";
 
-    const handleNavChange = (e: Event) => {
+    const handleNavChange: EventListener = (e) => {
       const customEvent = e as CustomEvent;
       setIsNavCollapsed(customEvent.detail.collapsed);
     };
 
-    window.addEventListener('navigation-change', handleNavChange as EventListener);
+    window.addEventListener('navigation-change', handleNavChange);
     return () => {
-      window.removeEventListener('navigation-change', handleNavChange as EventListener);
+      window.removeEventListener('navigation-change', handleNavChange);
     };
   }, []);
 

@@ -20,11 +20,23 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/consistent-type-assertions
-      const actualUser = (user as any).data || user;
-      if (actualUser.roles?.includes('agent')) {
+      // Safely access data if it exists without type assertions
+      const isDataUser = (u: unknown): u is { data: { roles?: string[] } } => 
+        typeof u === 'object' && u !== null && 'data' in u;
+        
+      const isDirectUser = (u: unknown): u is { roles?: string[] } =>
+        typeof u === 'object' && u !== null && 'roles' in u;
+
+      let actualRoles: string[] = [];
+      if (isDataUser(user) && user.data.roles) {
+        actualRoles = user.data.roles;
+      } else if (isDirectUser(user) && user.roles) {
+        actualRoles = user.roles;
+      }
+
+      if (actualRoles.includes('agent')) {
         setLocation("/agent");
-      } else if (actualUser.roles?.includes('admin') || actualUser.roles?.includes('superadmin')) {
+      } else if (actualRoles.includes('admin') || actualRoles.includes('superadmin')) {
         setLocation("/admin");
       } else {
         setLocation("/dashboard"); // User dashboard
