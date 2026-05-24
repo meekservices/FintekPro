@@ -225,6 +225,7 @@ const OnboardingPage = lazyWithRetry(() => import("@/pages/onboarding"));
 const AgentKycEmpanelment = lazyWithRetry(() => import("@/pages/agent-kyc-empanelment"));
 const AgentIrisHub = lazyWithRetry(() => import("@/pages/agent-iris-hub"));
 const PublicProposalPage = lazyWithRetry(() => import("@/pages/public-proposal"));
+const LandingPage = lazyWithRetry(() => import("@/pages/landing"));
 const ManualKYCPage = lazyWithRetry(() => import("@/pages/manual-kyc"));
 const KycRejectionRekyc = lazyWithRetry(() => import("@/pages/kyc-rejection-rekyc"));
 const KYCProductEligibility = lazyWithRetry(() => import("@/pages/kyc-product-eligibility"));
@@ -439,6 +440,7 @@ function Router() {
       <IdleTimeoutWrapper />
       <Switch>
         {/* Public routes - no authentication or profile completion required */}
+        <Route path="/" component={LandingPage} />
         <Route path="/auth" component={AuthPage} />
         <Route path="/excel-addin" component={ExcelAddin} />
         <Route path="/profile" component={Profile} />

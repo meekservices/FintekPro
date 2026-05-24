@@ -403,7 +403,7 @@ export default function TermsOfService() {
                   <div className="space-y-3 text-muted-foreground">
                     <div className="bg-muted p-3 rounded">
                       <p className="font-medium text-sm">Step 1: Internal Grievance</p>
-                      <p className="text-sm">Email grievance@fintekpro.com - Response within 48 hours, resolution within 30 days</p>
+                      <p className="text-sm">Email support@fintekpro.com - Response within 48 hours, resolution within 30 days</p>
                     </div>
                     <div className="bg-muted p-3 rounded">
                       <p className="font-medium text-sm">Step 2: Regulatory Escalation</p>
@@ -452,14 +452,14 @@ export default function TermsOfService() {
                   For questions about these terms or our services:
                 </p>
                 <div className="space-y-2 text-muted-foreground">
-                  <p><strong>Legal & Compliance:</strong> legal@fintekpro.com</p>
+                  <p><strong>Legal & Compliance:</strong> support@fintekpro.com</p>
                   <p><strong>Customer Support:</strong> support@fintekpro.com</p>
                   <p><strong>Phone:</strong> +91-22-4000-XXXX</p>
                   <p><strong>Registered Office:</strong> FintekPro Financial Services LLP, Mumbai, Maharashtra, India</p>
                   <p><strong>Business Hours:</strong> Monday-Saturday, 9:00 AM - 6:00 PM IST</p>
                 </div>
                 <div className="mt-4 pt-4 border-t text-muted-foreground">
-                  <p><strong>Grievance Officer:</strong> grievance@fintekpro.com</p>
+                  <p><strong>Grievance Officer:</strong> support@fintekpro.com</p>
                   <p className="text-sm">Response within 48 hours as per SEBI guidelines</p>
                 </div>
               </CardContent>

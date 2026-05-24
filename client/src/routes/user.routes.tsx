@@ -380,7 +380,6 @@ export function UserProtectedRoutes() {
   return (
     <ProfileCompletionGuard>
       <Switch>
-        <Route path="/" component={Home} />
         <Route path="/dashboard" component={Home} />
         <Route path="/treasury-dashboard" component={TreasuryDashboard} />
         <Route path="/portfolio" component={Portfolio} />

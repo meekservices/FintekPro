@@ -370,7 +370,7 @@ export default function PrivacyPolicy() {
                   <div>
                     <h4 className="font-semibold mb-2">Data Protection Officer</h4>
                     <p className="text-muted-foreground">
-                      <strong>Email:</strong> dpo@fintekpro.com<br />
+                      <strong>Email:</strong> support@fintekpro.com<br />
                       <strong>Response Time:</strong> Within 30 days
                     </p>
                   </div>
@@ -378,7 +378,7 @@ export default function PrivacyPolicy() {
                     <h4 className="font-semibold mb-2">Grievance Officer (As per IT Act)</h4>
                     <p className="text-muted-foreground">
                       <strong>Name:</strong> Grievance Officer, FintekPro<br />
-                      <strong>Email:</strong> grievance@fintekpro.com<br />
+                      <strong>Email:</strong> support@fintekpro.com<br />
                       <strong>Address:</strong> FintekPro Financial Services LLP, Mumbai, Maharashtra, India<br />
                       <strong>Response Time:</strong> Acknowledgment within 48 hours, resolution within 30 days
                     </p>
