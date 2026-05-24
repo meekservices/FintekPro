@@ -792,14 +792,16 @@ export default function AuthPage() {
     },
   });
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated and not in a PIN flow
+  const isPinFlow = loginStep === "pin-setup" || loginStep === "pin-entry" || pinDialogOpen || pinSetupDialogOpen;
+
   useEffect(() => {
-    if (!isAuthLoading && user) {
+    if (!isAuthLoading && user && !isPinFlow) {
       navigate(portalHomeRoute);
     }
-  }, [isAuthLoading, user, navigate, withPortalParams]);
+  }, [isAuthLoading, user, navigate, portalHomeRoute, isPinFlow]);
 
-  if (isAuthLoading || user) {
+  if (isAuthLoading || (user && !isPinFlow)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" data-testid="loader-auth" />
