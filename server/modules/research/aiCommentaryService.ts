@@ -130,7 +130,7 @@ async function tryGeminiGenerate(prompt: string, retries = 1): Promise<string> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const result = await Promise.race([
-        ai.models.generateContent({ model: "gemini-2.0-flash-lite", contents: prompt }),
+        ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt }),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12_000)),
       ]) as any;
       return result.text ?? result.response?.text?.() ?? "";

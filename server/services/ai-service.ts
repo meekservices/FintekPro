@@ -44,9 +44,9 @@ export type AIModel =
   | 'gpt-4o-mini'                       // 30x cheaper than gpt-4o, ~95% quality
   | 'o4-mini'                           // Reasoning model — best for complex analysis
   // ── Gemini (Google) ─────────────────────────────────────────────────────
-  | 'gemini-2.5-flash-preview'          // Best Gemini model right now, free 15 rpm
-  | 'gemini-2.0-flash'                  // Full Flash — better than lite, still fast
-  | 'gemini-2.0-flash-lite'            // Ultra-cheap fast fallback
+  | 'gemini-2.5-flash'                  // Stable GA — fast + multimodal, free 15 rpm
+  | 'gemini-2.5-flash-lite'             // Ultra-cheap fast fallback (2.5 family)
+  | 'gemini-2.0-flash'                  // Full Flash — still available
   // ── Groq (free tier, OpenAI-compatible) ─────────────────────────────────
   | 'llama-3.3-70b-versatile'           // Best Groq model — 14,400 req/day free
   | 'deepseek-r1-distill-llama-70b'     // DeepSeek R1 reasoning on Groq — free
@@ -68,7 +68,7 @@ export enum AICapability {
 
 const isComplexModel = (model: string) =>
   ['gpt-4o', 'o4-mini', 'llama-3.3-70b-versatile', 'deepseek-r1-distill-llama-70b',
-   'gemini-2.5-flash-preview', 'claude-3-5-sonnet-20241022'].includes(model);
+   'gemini-2.5-flash', 'claude-3-5-sonnet-20241022'].includes(model);
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -134,7 +134,7 @@ export class AIService {
   setDefaultProvider(provider: AIProvider) {
     this._defaultProvider = provider;
     const defaultModels: Partial<Record<AIProvider, AIModel>> = {
-      gemini: 'gemini-2.5-flash-preview',
+      gemini: 'gemini-2.5-flash',
       groq: 'llama-3.3-70b-versatile',
       together: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
       anthropic: 'claude-3-5-haiku-20241022',
@@ -219,16 +219,16 @@ export class AIService {
     if (capability === AICapability.SUPERIOR) {
       // Best reasoning — prefer DeepSeek R1 on Groq (free), fall to GPT-4o
       if (groq) { initialProvider = 'groq'; initialModel = 'deepseek-r1-distill-llama-70b'; }
-      else if (gemini) { initialProvider = 'gemini'; initialModel = 'gemini-2.5-flash-preview'; }
+      else if (gemini) { initialProvider = 'gemini'; initialModel = 'gemini-2.5-flash'; }
       else { initialProvider = 'openai'; initialModel = 'gpt-4o'; }
     } else if (capability === AICapability.OPTIMIZED) {
       // Speed + bulk — llama instant on Groq
       initialProvider = 'groq';
       initialModel = 'llama-3.1-8b-instant';
     } else if (capability === AICapability.STANDARD) {
-      // General use — Gemini 2.5 flash preview is best free option
+      // General use — Gemini 2.5 flash is best free option
       initialProvider = gemini ? 'gemini' : 'groq';
-      initialModel = gemini ? 'gemini-2.5-flash-preview' : 'llama-3.3-70b-versatile';
+      initialModel = gemini ? 'gemini-2.5-flash' : 'llama-3.3-70b-versatile';
     }
 
     // 8-step fallback chain — ordered by cost-efficiency and reliability
@@ -238,8 +238,8 @@ export class AIService {
       { provider: 'groq',     model: 'deepseek-r1-distill-llama-70b' },
       { provider: 'groq',     model: 'llama-3.1-8b-instant' },
       // Gemini — cheap + reliable
-      { provider: 'gemini',   model: 'gemini-2.5-flash-preview' },
-      { provider: 'gemini',   model: 'gemini-2.0-flash-lite' },
+      { provider: 'gemini',   model: 'gemini-2.5-flash' },
+      { provider: 'gemini',   model: 'gemini-2.0-flash' },
       // Together AI — good open models, $1 free credit
       { provider: 'together', model: 'mistralai/Mixtral-8x7B-Instruct-v0.1' },
       // OpenAI — last resort (quota/cost)
@@ -395,22 +395,22 @@ export class AIService {
 
     if (capability === AICapability.SUPERIOR) {
       if (groq) { initialProvider = 'groq'; initialModel = 'deepseek-r1-distill-llama-70b'; }
-      else if (gemini) { initialProvider = 'gemini'; initialModel = 'gemini-2.5-flash-preview'; }
+      else if (gemini) { initialProvider = 'gemini'; initialModel = 'gemini-2.5-flash'; }
       else { initialProvider = 'openai'; initialModel = 'gpt-4o'; }
     } else if (capability === AICapability.OPTIMIZED) {
       initialProvider = 'groq';
       initialModel = 'llama-3.1-8b-instant';
     } else if (capability === AICapability.STANDARD) {
       initialProvider = gemini ? 'gemini' : 'groq';
-      initialModel = gemini ? 'gemini-2.5-flash-preview' : 'llama-3.3-70b-versatile';
+      initialModel = gemini ? 'gemini-2.5-flash' : 'llama-3.3-70b-versatile';
     }
 
     const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
       { provider: 'groq',     model: 'llama-3.3-70b-versatile' },
       { provider: 'groq',     model: 'deepseek-r1-distill-llama-70b' },
       { provider: 'groq',     model: 'llama-3.1-8b-instant' },
-      { provider: 'gemini',   model: 'gemini-2.5-flash-preview' },
-      { provider: 'gemini',   model: 'gemini-2.0-flash-lite' },
+      { provider: 'gemini',   model: 'gemini-2.5-flash' },
+      { provider: 'gemini',   model: 'gemini-2.0-flash' },
       { provider: 'together', model: 'mistralai/Mixtral-8x7B-Instruct-v0.1' },
       { provider: 'openai',   model: 'gpt-4o-mini' },
       { provider: 'openai',   model: 'gpt-4o' },
@@ -695,7 +695,7 @@ export class AIService {
     const prompt = userMessages.map(m => m.content).join('\n\n');
     const fullPrompt = systemMessage ? `${systemMessage}\n\n${prompt}` : prompt;
 
-    const geminiModel = model.includes('gemini') ? model : 'gemini-2.0-flash-lite';
+    const geminiModel = model.includes('gemini') ? model : 'gemini-2.5-flash';
     
     // Updated for @google/genai SDK structure
     const response = await gemini.models.generateContent({
@@ -744,7 +744,7 @@ export class AIService {
     const prompt = userMessages.map(m => m.content).join('\n\n');
     const fullPrompt = systemMessage ? `${systemMessage}\n\n${prompt}` : prompt;
 
-    const geminiModel = model.includes('gemini') ? model : 'gemini-2.0-flash-lite';
+    const geminiModel = model.includes('gemini') ? model : 'gemini-2.5-flash';
     
     // Updated for @google/genai SDK structure
     const stream = await gemini.models.generateContentStream({
@@ -826,7 +826,7 @@ export class AIService {
     if (this.isGpt52Available() && this.isProviderHealthy('openai-direct')) {
       return { provider: 'openai-direct', model: 'gpt-4o' };
     }
-    return { provider: 'gemini', model: 'gemini-2.0-flash-lite' };
+    return { provider: 'gemini', model: 'gemini-2.5-flash' };
   }
 }
 

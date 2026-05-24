@@ -405,12 +405,12 @@ router.get("/run", async (req: Request, res: Response) => {
               content: "Verify: CAGR of ₹1L to ₹2.5L in 5 years is 20.11%. Reply with {\"allCorrect\": true}",
             },
           ],
-          { provider: "gemini", model: "gemini-2.0-flash-lite", temperature: 0.1, maxTokens: 256 }
+          { provider: "gemini", model: "gemini-2.5-flash", temperature: 0.1, maxTokens: 256 }
         );
 
         return {
           aiProvider: "Gemini",
-          model: "gemini-2.0-flash-lite",
+          model: "gemini-2.5-flash",
           tokensUsed: response.usage?.totalTokens || 0,
           response: response.content.substring(0, 100),
         };

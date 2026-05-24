@@ -83,6 +83,7 @@ import { registerAgentProspectAcquisitionPart1Routes } from "./routes/agent-pros
 import testerDiagnosticsRoutes from "./routes/tester-diagnostics-routes";
 import researchNoteRouter from "./routes/research-note-routes";
 import screenerRouter from "./routes/screener-routes";
+import errorTrackingRouter from "./routes/error-tracking-routes";
 import { Router } from "express";
 
 
@@ -300,6 +301,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.use("/api/live-mf", liveMFDataRouter);
   app.use("/api/tester/diagnostics", testerDiagnosticsRoutes);
+
+  // Error tracking routes — must be mounted WITHOUT CSRF for /ingest
+  // (called from ErrorBoundary/componentDidCatch where no CSRF token is available)
+  app.use("/api/errors", errorTrackingRouter);
 
   // Profile Sharing Toggle
   app.patch("/api/user/profile/sharing", async (req, res) => {

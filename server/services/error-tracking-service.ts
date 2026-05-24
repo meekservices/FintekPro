@@ -422,7 +422,7 @@ Respond ONLY in valid JSON format:
       // Use Gemini for analysis
       const response = await aiService.chat(
         [{ role: 'user', content: prompt }],
-        { provider: 'gemini', model: 'gemini-2.0-flash-lite', temperature: 0.2, maxTokens: 2048 }
+        { provider: 'gemini', model: 'gemini-2.5-flash', temperature: 0.2, maxTokens: 2048 }
       );
 
       const jsonMatch = response.content.match(/\{[\s\S]*\}/);
@@ -486,7 +486,7 @@ Respond in JSON:
 
       const response = await aiService.chat(
         [{ role: 'user', content: prompt }],
-        { provider: 'gemini', model: 'gemini-2.0-flash-lite', temperature: 0.2, maxTokens: 2048 }
+        { provider: 'gemini', model: 'gemini-2.5-flash', temperature: 0.2, maxTokens: 2048 }
       );
 
       const jsonMatch = response.content.match(/\{[\s\S]*\}/);

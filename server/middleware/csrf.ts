@@ -15,6 +15,13 @@ export const createCsrfProtection = () => {
       return next();
     }
 
+    // 2. Bypass CSRF for machine-originated POST endpoints that cannot carry
+    //    a browser CSRF token (e.g. ErrorBoundary componentDidCatch, feedback).
+    const CSRF_EXEMPT_PATHS = ['/errors/ingest', '/errors/feedback'];
+    if (CSRF_EXEMPT_PATHS.some(p => req.path === p || req.path.endsWith(p))) {
+      return next();
+    }
+
     const sessionToken = (req.session as any)?.csrfToken;
     const headerToken = req.headers['x-csrf-token'];
 

@@ -27,7 +27,6 @@ import {
   X,
   FileText,
   Settings,
-  AlertCircle,
   Brain,
   UserPlus,
   Wallet,
@@ -72,7 +71,6 @@ import {
   CircleCheck,
   FileEdit,
   Info,
-  AlertCircle,
   AlertTriangle,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
@@ -572,28 +570,6 @@ export function AgentLayout({ children }: AgentLayoutProps) {
 
   const actualUser = (user as any)?.data || user;
   const isAgent = actualUser?.roles?.includes('agent') || actualUser?.roles?.includes('admin') || actualUser?.roles?.includes('superadmin') || actualUser?.roles?.includes('partner');
-
-  // Handle checking for specific required role
-  if (requiredRole && actualUser && !actualUser.roles?.includes(requiredRole)) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950 dark:to-orange-950 flex items-center justify-center p-4">
-        <div className="bg-background rounded-lg shadow-xl p-8 max-w-md w-full text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-foreground mb-2">
-            Access Denied
-          </h1>
-          <p className="text-muted-foreground mb-2">
-            You do not have the required permissions to access this page.
-          </p>
-          <div className="space-y-3">
-            <Button className="w-full" onClick={() => window.location.href = '/agent'}>
-              Return to Dashboard
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (!isAgent) {
     return (

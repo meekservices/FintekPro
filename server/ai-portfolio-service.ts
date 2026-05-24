@@ -143,7 +143,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown code blocks or extra text.`;
         { role: "user", content: prompt }
       ], {
         provider: 'gemini',
-        model: 'gemini-2.0-flash-lite',
+        model: 'gemini-2.5-flash',
         temperature: 0.6,
         maxTokens: 2000
       });
@@ -254,7 +254,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown code blocks or extra text.`;
         { role: "user", content: prompt }
       ], {
         provider: 'gemini',
-        model: 'gemini-2.0-flash-lite',
+        model: 'gemini-2.5-flash',
         temperature: 0.7,
         maxTokens: 3000
       });
@@ -375,7 +375,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown code blocks or extra text.`;
         clientId,
         portfolioId,
         proposalSource: 'ai' as const,
-        aiModelVersion: 'gemini-2.0-flash-lite',
+        aiModelVersion: 'gemini-2.5-flash',
         aiConfidenceScore: '85.5', // AI confidence score
         title: aiProposal.title,
         description: aiProposal.summary,
