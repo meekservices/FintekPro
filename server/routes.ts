@@ -86,6 +86,34 @@ import screenerRouter from "./routes/screener-routes";
 import errorTrackingRouter from "./routes/error-tracking-routes";
 import { Router } from "express";
 
+// ── Previously-missing route modules (fix: all portals returning 404) ─────────
+import { registerRoleRoutes } from "./role-routes";
+import { registerAlertSystemRoutes } from "./routes/alert-system";
+import { registerKYCAdminSupportRoutes } from "./routes/kyc-admin-support";
+import { registerPartnerPortalRoutes } from "./routes/partner/index";
+import { registerUserManagementRoutes } from "./user-management-routes";
+import { registerStakeholderRoutes } from "./stakeholder-routes";
+import { registerSystemAdminRoutes } from "./routes/system-admin";
+import { registerIrisKfintechRoutes } from "./routes/iris-kfintech-routes";
+import { registerCrmRoutes } from "./routes/crm";
+import { registerLoanRoutes } from "./routes/loans/index";
+import { registerPaymentRoutes } from "./routes/payments/index";
+import { registerCapitalGainsRoutes } from "./routes/capital-gains";
+import { registerPortfolioCoreRoutes } from "./routes/portfolio-core";
+import { registerFinancialGoalsRoutes } from "./routes/financial-goals";
+import { registerFamilyCollaborationRoutes } from "./routes/family-collaboration";
+import { registerTaxFilingRoutes } from "./routes/tax-filing";
+import { registerDLMRoutes } from "./routes/dlm-routes";
+import { registerRevenueSheetRoutes } from "./routes/revenue-sheet-routes";
+import { registerLoanCommissionRoutes } from "./routes/loan-commission-routes";
+import { registerPartnerHierarchyRoutes } from "./routes/partner/hierarchy-routes";
+import { registerEligibilityMatrixRoutes } from "./routes/eligibility-matrix-routes";
+import { registerInvestmentIdeasRoutes } from "./routes/investment-ideas";
+import { registerPreIPORoutes } from "./routes/pre-ipo";
+import { registerFinancialDataRoutes } from "./routes/financial-data-routes";
+import { registerFemaComplianceRoutes } from "./routes/fema-compliance";
+import { registerLeadLeakageRoutes } from "./routes/lead-leakage-routes";
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -305,6 +333,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Error tracking routes — must be mounted WITHOUT CSRF for /ingest
   // (called from ErrorBoundary/componentDidCatch where no CSRF token is available)
   app.use("/api/errors", errorTrackingRouter);
+
+  // ── FIX: Register previously-missing route modules ────────────────────────
+  // These routes were defined in server route files but never wired to Express,
+  // causing 404s on admin, partner, and main portals.
+  registerRoleRoutes(app);                  // /api/agent/dashboard/overview, recent-activity
+  registerAlertSystemRoutes(app);           // /api/alerts
+  registerKYCAdminSupportRoutes(app);       // /api/admin/kyc/dashboard and KYC support APIs
+  registerPartnerPortalRoutes(app);         // /api/partner/ca-status and all partner APIs
+  registerUserManagementRoutes(app);        // /api/admin/users and user management
+  registerStakeholderRoutes(app);           // /api/admin/stakeholders
+  registerSystemAdminRoutes(app);           // /api/admin/system/* routes
+  registerIrisKfintechRoutes(app);          // /api/iris/* KFintech integration
+  registerCrmRoutes(app);                   // /api/crm/* client relationship management
+  registerLoanRoutes(app);                  // /api/loans/* loan marketplace
+  registerPaymentRoutes(app);               // /api/payments/*
+  registerCapitalGainsRoutes(app);          // /api/capital-gains/*
+  registerPortfolioCoreRoutes(app);         // /api/portfolio/* core endpoints
+  registerFinancialGoalsRoutes(app);        // /api/goals/*
+  registerFamilyCollaborationRoutes(app);   // /api/family/*
+  registerTaxFilingRoutes(app);             // /api/tax-filing/*
+  registerDLMRoutes(app);                   // /api/dlm/* deal lifecycle
+  registerRevenueSheetRoutes(app);          // /api/revenue-sheet/*
+  registerLoanCommissionRoutes(app);        // /api/loan-commission/*
+  registerPartnerHierarchyRoutes(app);      // /api/partner/hierarchy/*
+  registerEligibilityMatrixRoutes(app);     // /api/eligibility-matrix/*
+  registerInvestmentIdeasRoutes(app);       // /api/investment-alerts/*
+  registerPreIPORoutes(app);                // /api/pre-ipo/*
+  registerFinancialDataRoutes(app);         // /api/financial-data/*
+  registerFemaComplianceRoutes(app);        // /api/fema/*
+  registerLeadLeakageRoutes(app);           // /api/lead-leakage/*
 
   // Profile Sharing Toggle
   app.patch("/api/user/profile/sharing", async (req, res) => {
