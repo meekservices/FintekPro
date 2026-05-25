@@ -1086,80 +1086,164 @@ export default function AgentPicksPage() {
                     )}
 
                     {aiRecommendations.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-2 mb-4">
-                          <Brain className="h-5 w-5 text-primary" />
-                          <h3 className="font-semibold">AI Stock Recommendations</h3>
-                          <Badge variant="outline" className="text-xs flex items-center gap-1">
-                            <Sparkles className="h-3 w-3" />
-                            Gemini AI
-                          </Badge>
+                      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b pb-4">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="p-1.5 bg-primary/10 rounded-md">
+                                <Brain className="h-5 w-5 text-primary" />
+                              </div>
+                              <h3 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">AI Portfolio Strategy</h3>
+                              <Badge variant="outline" className="text-xs flex items-center gap-1 border-primary/20 bg-primary/5 text-primary">
+                                <Sparkles className="h-3 w-3" />
+                                Gemini Powered
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground flex items-center gap-2 mt-2 flex-wrap">
+                              <span><strong className="text-foreground capitalize">{stockRiskLevel.replace('_', ' ')}</strong> Risk</span>
+                              <span>•</span>
+                              <span><strong className="text-foreground capitalize">{stockTimeHorizon.replace('_', ' ')}</strong> Horizon</span>
+                              <span>•</span>
+                              <span className="flex items-center gap-1 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full text-xs font-semibold border border-green-200 dark:border-green-800">
+                                <Landmark className="h-3 w-3" />
+                                {formatCurrencyINR(stockInvestmentAmount[0])} Allocation
+                              </span>
+                            </p>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {aiRecommendations.map((stock: AIStockRecommendation) => (
-                            <Card
-                              key={stock.id}
-                              className={`cursor-pointer transition-all hover:shadow-lg ${selectedAIStock?.id === stock.id ? 'ring-2 ring-primary' : ''}`}
-                              onClick={() => setSelectedAIStock(selectedAIStock?.id === stock.id ? null : stock)}
-                            >
-                              <CardHeader className="pb-2">
-                                <div className="flex items-start justify-between">
-                                  <div>
-                                    <CardTitle className="text-lg flex items-center gap-2">
-                                      {stock.symbol}
-                                      <Badge className={getSignalColor(stock.signal)}>
-                                        {getSignalText(stock.signal)}
-                                      </Badge>
-                                    </CardTitle>
-                                    <CardDescription className="line-clamp-2 min-h-[32px]">
-                                      {stock.companyName}
-                                    </CardDescription>
-                                  </div>
-                                  {renderStars(stock.fintekproRating)}
-                                </div>
-                              </CardHeader>
-                              <CardContent>
-                                <div className="grid grid-cols-3 gap-3 mb-3">
-                                  <div className="text-center">
-                                    <p className="text-xs text-muted-foreground">Current</p>
-                                    <p className="font-semibold">{formatCurrencyINR(stock.currentPrice)}</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-xs text-muted-foreground">Target</p>
-                                    <p className="font-semibold text-green-600">{formatCurrencyINR(stock.targetPrice)}</p>
-                                  </div>
-                                  <div className="text-center">
-                                    <p className="text-xs text-muted-foreground">Stop Loss</p>
-                                    <p className="font-semibold text-red-600">{formatCurrencyINR(stock.stopLoss)}</p>
-                                  </div>
-                                </div>
 
-                                <div className="flex items-center justify-between text-sm mb-2">
-                                  <span className="text-muted-foreground">Expected Return</span>
-                                  <span className={`font-medium ${stock.expectedReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {stock.expectedReturn >= 0 ? '+' : ''}{stock.expectedReturn}%
-                                  </span>
+                        {/* Visual Portfolio Allocation */}
+                        <div className="bg-card border rounded-xl p-4 shadow-sm">
+                          <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                            <PieChart className="h-4 w-4 text-muted-foreground" /> 
+                            Suggested Portfolio Allocation
+                          </h4>
+                          <div className="w-full h-3 rounded-full overflow-hidden flex gap-0.5 bg-muted">
+                            {aiRecommendations.map((stock: AIStockRecommendation, idx: number) => {
+                              const totalConfidence = aiRecommendations.reduce((acc: number, s: any) => acc + (s.confidence || 100), 0);
+                              const weight = ((stock.confidence || 100) / totalConfidence) * 100;
+                              const colors = ['bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500', 'bg-rose-500', 'bg-orange-500', 'bg-amber-500', 'bg-emerald-500'];
+                              const colorClass = colors[idx % colors.length];
+                              return (
+                                <TooltipProvider key={`alloc-${stock.id}`}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className={`h-full ${colorClass} transition-all hover:opacity-80`} style={{ width: `${weight}%` }} />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <div className="font-medium">{stock.symbol}</div>
+                                      <div className="text-xs text-muted-foreground">{weight.toFixed(1)}% ({formatCurrencyINR(stockInvestmentAmount[0] * (weight/100))})</div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              );
+                            })}
+                          </div>
+                          <div className="flex flex-wrap gap-3 mt-3">
+                            {aiRecommendations.map((stock: AIStockRecommendation, idx: number) => {
+                              const totalConfidence = aiRecommendations.reduce((acc: number, s: any) => acc + (s.confidence || 100), 0);
+                              const weight = ((stock.confidence || 100) / totalConfidence) * 100;
+                              const colors = ['bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500', 'bg-rose-500', 'bg-orange-500', 'bg-amber-500', 'bg-emerald-500'];
+                              const colorClass = colors[idx % colors.length];
+                              return (
+                                <div key={`legend-${stock.id}`} className="flex items-center gap-1.5 text-xs">
+                                  <span className={`w-2 h-2 rounded-full ${colorClass}`} />
+                                  <span className="font-medium">{stock.symbol}</span>
+                                  <span className="text-muted-foreground">{weight.toFixed(0)}%</span>
                                 </div>
+                              );
+                            })}
+                          </div>
+                        </div>
 
-                                <div className="flex items-center justify-between text-sm mb-3">
-                                  <span className="text-muted-foreground">Confidence</span>
-                                  <div className="flex items-center gap-2 w-32">
-                                    <Progress value={Number(stock.confidence ?? 0)} className="h-2" />
-                                    <span className="text-xs font-medium">{Number(stock.confidence ?? 0)}%</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                          {aiRecommendations.map((stock: AIStockRecommendation) => {
+                            const totalConfidence = aiRecommendations.reduce((acc: number, s: any) => acc + (s.confidence || 100), 0);
+                            const weight = ((stock.confidence || 100) / totalConfidence);
+                            const allocatedAmount = stockInvestmentAmount[0] * weight;
+                            
+                            return (
+                              <Card
+                                key={stock.id}
+                                className={`cursor-pointer overflow-hidden group transition-all duration-300 hover:shadow-md border-t-[3px] ${
+                                  selectedAIStock?.id === stock.id 
+                                    ? 'border-t-primary shadow-md ring-1 ring-primary/20' 
+                                    : stock.expectedReturn >= 15 ? 'border-t-green-500' : 'border-t-blue-500'
+                                }`}
+                                onClick={() => setSelectedAIStock(selectedAIStock?.id === stock.id ? null : stock)}
+                              >
+                                <CardHeader className="pb-2 bg-gradient-to-b from-muted/30 to-transparent">
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                      <CardTitle className="text-xl flex items-center gap-2 group-hover:text-primary transition-colors">
+                                        {stock.symbol}
+                                        <Badge className={`${getSignalColor(stock.signal)} shadow-sm`}>
+                                          {getSignalText(stock.signal)}
+                                        </Badge>
+                                      </CardTitle>
+                                      <CardDescription className="line-clamp-1 mt-1 text-sm font-medium">
+                                        {stock.companyName}
+                                      </CardDescription>
+                                    </div>
+                                    <div className="bg-background/80 backdrop-blur border px-2 py-1 rounded-md shadow-sm">
+                                      {renderStars(stock.fintekproRating)}
+                                    </div>
                                   </div>
-                                </div>
+                                </CardHeader>
+                                <CardContent className="pt-4">
+                                  <div className="flex items-end justify-between mb-5">
+                                    <div>
+                                      <p className="text-xs text-muted-foreground mb-1 font-medium">Expected Return</p>
+                                      <p className={`text-2xl font-bold flex items-center gap-1 ${stock.expectedReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {stock.expectedReturn >= 0 ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+                                        {stock.expectedReturn >= 0 ? '+' : ''}{stock.expectedReturn}%
+                                      </p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-xs text-muted-foreground mb-1 font-medium">Suggested Allocation</p>
+                                      <p className="text-lg font-bold text-foreground">
+                                        {formatCurrencyINR(allocatedAmount)}
+                                      </p>
+                                    </div>
+                                  </div>
 
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <Badge variant="outline" className="text-xs">{stock.sector}</Badge>
-                                  <Badge variant="outline" className="text-xs">{stock.marketCap}</Badge>
-                                  <Badge variant="outline" className="text-xs flex items-center gap-1">
-                                    <Clock className="h-3 w-3" />
-                                    {stock.timeHorizon.replace(/_/g, ' ')}
-                                  </Badge>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
+                                  <div className="grid grid-cols-3 gap-2 p-3 bg-muted/40 rounded-lg border border-border/50 mb-4">
+                                    <div className="text-center">
+                                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Current</p>
+                                      <p className="font-semibold text-sm">{formatCurrencyINR(stock.currentPrice)}</p>
+                                    </div>
+                                    <div className="text-center border-x border-border/50">
+                                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Target</p>
+                                      <p className="font-semibold text-sm text-green-600">{formatCurrencyINR(stock.targetPrice)}</p>
+                                    </div>
+                                    <div className="text-center">
+                                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Stop Loss</p>
+                                      <p className="font-semibold text-sm text-red-600">{formatCurrencyINR(stock.stopLoss)}</p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-between text-sm mb-4 bg-primary/5 px-3 py-2 rounded-md border border-primary/10">
+                                    <span className="text-primary font-medium flex items-center gap-1.5 text-xs">
+                                      <BrainCircuit className="h-3.5 w-3.5" /> AI Confidence
+                                    </span>
+                                    <div className="flex items-center gap-2 w-32">
+                                      <Progress value={Number(stock.confidence ?? 0)} className="h-2 bg-primary/20" />
+                                      <span className="text-xs font-bold text-primary">{Number(stock.confidence ?? 0)}%</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <Badge variant="secondary" className="text-xs bg-muted hover:bg-muted/80 text-muted-foreground">{stock.sector}</Badge>
+                                    <Badge variant="secondary" className="text-xs bg-muted hover:bg-muted/80 text-muted-foreground">{stock.marketCap}</Badge>
+                                    <Badge variant="outline" className="text-xs flex items-center gap-1 border-muted-foreground/30 text-muted-foreground">
+                                      <Clock className="h-3 w-3" />
+                                      {stock.timeHorizon.replace(/_/g, ' ')}
+                                    </Badge>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

@@ -289,8 +289,8 @@ export async function apiRequest(
 
   if (res.status === 403 && isMutatingRequest) {
     const data = await res.clone().json().catch(() => ({}));
-    if (data.code === "CSRF_TOKEN_REQUIRED" || data.code === "CSRF_TOKEN_INVALID") {
-      if (data.code === "CSRF_TOKEN_INVALID") {
+    if (data.code === "CSRF_TOKEN_REQUIRED" || data.code === "CSRF_TOKEN_INVALID" || data.code === "CSRF_ERROR") {
+      if (data.code === "CSRF_TOKEN_INVALID" || data.code === "CSRF_ERROR") {
         clearCsrfToken();
       }
       
