@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Clock, LogOut } from "lucide-react";
+import { clearStoredSessionId, clearAuthenticationFlag } from "@/lib/queryClient";
 
 interface IdleTimeoutManagerProps {
   isAuthenticated: boolean;
@@ -55,6 +56,9 @@ export function IdleTimeoutManager({ isAuthenticated, timeoutMinutes = 15 }: Idl
       console.warn('[IdleTimeout] Logout request failed, continuing with redirect');
     }
 
+    // Clear all client-side auth artifacts before redirecting
+    clearStoredSessionId();
+    clearAuthenticationFlag();
     window.location.href = '/auth';
   }, []);
 

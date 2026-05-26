@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 
 const AgentPortal = lazyWithRetry(() => import("@/pages/agent-portal"));
 const AgentPayoutClaims = lazyWithRetry(() => import("@/pages/agent/payout-claims"));
+const BiometricSettingsPage = lazyWithRetry(() => import("@/pages/biometric-settings"));
 const Bonds = lazyWithRetry(() => import("@/pages/bonds"));
 const CASupportDashboard = lazyWithRetry(() => import("@/pages/ca-support-dashboard"));
 const CASupportDetail = lazyWithRetry(() => import("@/pages/ca-support-detail"));
@@ -23,6 +24,7 @@ const PartnerRevenueSheet = lazyWithRetry(() => import("@/pages/partner/revenue-
 const PartnerTeamManagement = lazyWithRetry(() => import("@/pages/partner-team-management"));
 const Profile = lazyWithRetry(() => import("@/pages/profile"));
 const PublicProposalPage = lazyWithRetry(() => import("@/pages/public-proposal"));
+const SettingsPage = lazyWithRetry(() => import("@/pages/settings"));
 const ThemeSettings = lazyWithRetry(() => import("@/pages/theme-settings"));
 const Unlisted = lazyWithRetry(() => import("@/pages/unlisted"));
 const VideoKYC = lazyWithRetry(() => import("@/pages/video-kyc"));
@@ -207,6 +209,24 @@ export function PartnerRoutes() {
         {() => (
           <PartnerShell>
             <ThemeSettings />
+          </PartnerShell>
+        )}
+      </Route>
+      <Route path="/settings">
+        {() => (
+          <PartnerShell>
+            <Suspense fallback={<PartnerLoading />}>
+              <SettingsPage />
+            </Suspense>
+          </PartnerShell>
+        )}
+      </Route>
+      <Route path="/biometric-settings">
+        {() => (
+          <PartnerShell>
+            <Suspense fallback={<PartnerLoading />}>
+              <BiometricSettingsPage />
+            </Suspense>
           </PartnerShell>
         )}
       </Route>

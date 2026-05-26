@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { type User, type InsertUser } from "@shared/schema";
-import { getQueryFn, markUserAuthenticated, fetchCsrfToken, clearCsrfToken, apiRequest } from "@/lib/queryClient";
+import { getQueryFn, markUserAuthenticated, fetchCsrfToken, clearCsrfToken, clearStoredSessionId, clearAuthenticationFlag, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 export function useAuth() {
@@ -55,9 +55,16 @@ export function useAuth() {
       await apiRequest("/api/logout", "POST");
     },
     onSuccess: () => {
+      // Clear all client-side auth artifacts so the X-Session-ID header
+      // is not sent on subsequent requests and the user is fully signed out.
+      clearStoredSessionId();      // removes fintekpro_sid from localStorage
+      clearAuthenticationFlag();   // removes fintekpro_was_authenticated from sessionStorage
+      clearCsrfToken();            // clears CSRF token + in-memory session ID reference
       queryClient.setQueryData(["/api/user"], null);
       queryClient.clear();
-      clearCsrfToken();
+      // Hard redirect so all React in-memory state (including any cached queries)
+      // is wiped — prevents the user from pressing Back and seeing authenticated pages.
+      window.location.href = '/auth';
     },
     onError: (error: Error) => {
       toast({

@@ -782,6 +782,41 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
+  // Change account password (authenticated, requires current password)
+  app.post("/api/user/change-password", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return apiResponse.unauthorized(res);
+      }
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return apiResponse.badRequest(res, "Current and new password are required.");
+      }
+      if (newPassword.length < 8) {
+        return apiResponse.badRequest(res, "New password must be at least 8 characters.");
+      }
+      const currentUser = await storage.getUser(req.user.id);
+      if (!currentUser) return apiResponse.unauthorized(res);
+      if (!currentUser.password) {
+        return apiResponse.badRequest(res, "No password set on this account. Use OTP login.");
+      }
+      const matches = await comparePasswords(currentPassword, currentUser.password);
+      if (!matches) {
+        return apiResponse.unauthorized(res, "Current password is incorrect.");
+      }
+      if (currentPassword === newPassword) {
+        return apiResponse.badRequest(res, "New password must be different from your current password.");
+      }
+      const hashed = await hashPassword(newPassword);
+      await storage.updateUser(currentUser.id, { password: hashed });
+      console.log(`[CHANGE_PW] User ${currentUser.id} changed their password.`);
+      return apiResponse.success(res, {}, "Password changed successfully.");
+    } catch (error) {
+      console.error("[CHANGE_PW] Error:", error);
+      return apiResponse.serverError(res, "Failed to change password.");
+    }
+  });
+
   // Set 4-digit login PIN
   app.post("/api/login/set-pin", async (req, res) => {
     try {
@@ -1073,9 +1108,24 @@ export function registerAuthRoutes(app: Express) {
   });
 
   app.post("/api/logout", (req, res, next) => {
+    const sessionId = req.sessionID;
     req.logout((err) => {
-      if (err) return next(err);
-      res.sendStatus(200);
+      if (err) {
+        console.error("[LOGOUT] req.logout error:", err);
+        return next(err);
+      }
+      // Destroy the session record in the DB so the X-Session-ID header
+      // can no longer re-authenticate the user on subsequent requests.
+      req.session.destroy((destroyErr) => {
+        if (destroyErr) {
+          console.error(`[LOGOUT] Session destroy error for session ${sessionId}:`, destroyErr);
+          // Non-fatal: still respond success so the client clears local state.
+        }
+        // Clear the session cookie from the browser.
+        res.clearCookie('fintekpro.sid', { path: '/', httpOnly: true, secure: true, sameSite: 'lax' });
+        console.log(`[LOGOUT] Session ${sessionId} destroyed and cookie cleared.`);
+        res.json({ success: true });
+      });
     });
   });
 

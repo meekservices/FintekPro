@@ -25,14 +25,19 @@ function detectSubdomain(): string {
     return 'agent';
   }
   
-  // PRIORITY 2: Path-based portal detection (works in all environments)
-  // /agent/*, /admin/*, /partner/* paths always route to their respective portals
-  if (pathname.startsWith('/agent/') || pathname === '/agent') {
-    return 'agent';
-  } else if (pathname.startsWith('/admin/') || pathname === '/admin') {
-    return 'admin';
-  } else if (pathname.startsWith('/partner/') || pathname === '/partner') {
-    return 'partner';
+  // PRIORITY 2: Path-based portal detection — DEV / REPLIT ONLY
+  // In production, the correct subdomains (agent.fintekpro.com, admin.fintekpro.com, etc.)
+  // are used for portal routing. Enabling this in production would incorrectly treat
+  // client-portal routes like /agent (AgentDashboard) or /admin (AdminPanel) as
+  // portal-switch signals, redirecting users to the wrong portal layout.
+  if (isDev) {
+    if (pathname.startsWith('/agent/') || pathname === '/agent') {
+      return 'agent';
+    } else if (pathname.startsWith('/admin/') || pathname === '/admin') {
+      return 'admin';
+    } else if (pathname.startsWith('/partner/') || pathname === '/partner') {
+      return 'partner';
+    }
   }
   
   // PRIORITY 3: Localhost subdomain detection
@@ -88,9 +93,11 @@ export function withPortalParams(path: string): string {
 export function useSubdomain() {
   // Use state to ensure re-render when subdomain is detected
   const [subdomain, setSubdomain] = useState<string>(() => detectSubdomain());
-  const [currentPath, setCurrentPath] = useState(() => window.location.pathname + window.location.search);
+  const [currentSearch, setCurrentSearch] = useState(() => window.location.search);
   
-  // Re-detect on mount and URL changes
+  const isDev = import.meta.env.DEV || window.location.hostname.includes('replit.dev') || window.location.hostname.includes('replit.app');
+  const isLocalhost = window.location.hostname.includes('localhost');
+
   useEffect(() => {
     const detected = detectSubdomain();
     if (detected !== subdomain) {
@@ -101,30 +108,52 @@ export function useSubdomain() {
     const handlePopState = () => {
       const newSubdomain = detectSubdomain();
       setSubdomain(newSubdomain);
-      setCurrentPath(window.location.pathname + window.location.search);
+      setCurrentSearch(window.location.search);
     };
     
-    // Poll for pathname OR search param changes (handles pushState navigation)
-    const checkPathChange = () => {
-      const newPath = window.location.pathname + window.location.search;
-      if (newPath !== currentPath) {
-        setCurrentPath(newPath);
-        const newSubdomain = detectSubdomain();
-        if (newSubdomain !== subdomain) {
-          setSubdomain(newSubdomain);
+    // Polling strategy:
+    // - In DEV/localhost: watch the full path+search because path-based portal detection is active.
+    // - In PRODUCTION: the subdomain is determined from the hostname (e.g. agent.fintekpro.com)
+    //   and never changes during navigation. We only need to watch ?admin/partner/agent query params,
+    //   which can legitimately change when a user switches portals via the portal switcher.
+    //   Polling the full pathname would cause /agent route on main domain to incorrectly re-trigger
+    //   portal detection even with the isDev guard, if the subdomain was '' and path starts with /agent.
+    const checkChange = () => {
+      const newSearch = window.location.search;
+      // In production on a non-subdomain host, ONLY re-detect if query params changed
+      // (e.g. user clicked a portal switcher link that adds ?agent=true)
+      if (isDev || isLocalhost) {
+        // In dev, check path + search
+        const newPath = window.location.pathname + window.location.search;
+        const oldPath = window.location.pathname + currentSearch;
+        if (newPath !== oldPath) {
+          setCurrentSearch(newSearch);
+          const newSubdomain = detectSubdomain();
+          if (newSubdomain !== subdomain) {
+            setSubdomain(newSubdomain);
+          }
+        }
+      } else {
+        // In production, only check search params (hostname-based subdomain never changes mid-session)
+        if (newSearch !== currentSearch) {
+          setCurrentSearch(newSearch);
+          const newSubdomain = detectSubdomain();
+          if (newSubdomain !== subdomain) {
+            setSubdomain(newSubdomain);
+          }
         }
       }
     };
     
     // Use 500ms polling interval - balances responsiveness with performance
-    const interval = setInterval(checkPathChange, 500);
+    const interval = setInterval(checkChange, 500);
     
     window.addEventListener('popstate', handlePopState);
     return () => {
       window.removeEventListener('popstate', handlePopState);
       clearInterval(interval);
     };
-  }, [subdomain, currentPath]);
+  }, [subdomain, currentSearch, isDev, isLocalhost]);
   
   const isAdminPortal = subdomain === 'admin';
   const isPartnerPortal = subdomain === 'partner';
@@ -139,3 +168,4 @@ export function useSubdomain() {
     withPortalParams
   };
 }
+

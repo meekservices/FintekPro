@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/theme-context";
 import { useUserPreferences, NavPosition } from "@/hooks/use-user-preferences";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { apiRequest } from "@/lib/queryClient";
 import { 
   Settings as SettingsIcon, 
   User, 
@@ -37,7 +40,10 @@ import {
   PenTool,
   RotateCcw,
   Fingerprint,
-  ChevronRight
+  ChevronRight,
+  KeyRound,
+  ShieldCheck,
+  RefreshCw
 } from "lucide-react";
 import { Link } from "wouter";
 import { SignatureManagement } from "@/components/esign/SignatureManagement";
@@ -55,13 +61,200 @@ const accountFormSchema = z.object({
 });
 
 const securityFormSchema = z.object({
-  currentPassword: z.string().min(8, "Password must be at least 8 characters"),
+  currentPassword: z.string().min(1, "Current password is required"),
   newPassword: z.string().min(8, "Password must be at least 8 characters"),
   confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
+}).refine((data) => data.newPassword !== data.currentPassword, {
+  message: "New password must be different from your current password",
+  path: ["newPassword"],
 });
+
+// ── PIN Management Component ─────────────────────────────────────────────────
+function PinManagementCard() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // mode: idle | set | change
+  const [mode, setMode] = useState<"idle" | "set" | "change">("idle");
+  // digits for new PIN and confirmation
+  const [newPin, setNewPin] = useState(["" ,"","",""]);
+  const [confirmPin, setConfirmPin] = useState(["","","",""]);
+  // For "change" mode: current PIN verification
+  const [currentPin, setCurrentPin] = useState(["","","",""]);
+  const [pinError, setPinError] = useState("");
+
+  const newRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+  const confirmRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+  const currentRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+
+  const isPinSet = (user as any)?.isPinSet === true;
+
+  const pinMutation = useMutation({
+    mutationFn: async (pin: string) => {
+      return await apiRequest("/api/login/set-pin", { method: "POST", body: JSON.stringify({ pin }) });
+    },
+    onSuccess: () => {
+      toast({ title: "PIN Updated", description: isPinSet ? "Your login PIN has been changed successfully." : "4-digit login PIN set successfully. It will be used on trusted devices." });
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      resetState();
+    },
+    onError: (err: any) => {
+      setPinError(err?.message || "Failed to update PIN. Ensure your mobile is verified.");
+    },
+  });
+
+  const resetState = () => {
+    setMode("idle");
+    setNewPin(["","","",""]);
+    setConfirmPin(["","","",""]);
+    setCurrentPin(["","","",""]);
+    setPinError("");
+  };
+
+  const handleDigit = (
+    idx: number,
+    val: string,
+    arr: string[],
+    setArr: (a: string[]) => void,
+    refs: React.RefObject<HTMLInputElement>[]
+  ) => {
+    const digit = val.replace(/\D/g, "").slice(-1);
+    const next = [...arr];
+    next[idx] = digit;
+    setArr(next);
+    setPinError("");
+    if (digit && idx < 3) refs[idx + 1].current?.focus();
+  };
+
+  const handleKeyDown = (
+    e: React.KeyboardEvent,
+    idx: number,
+    arr: string[],
+    setArr: (a: string[]) => void,
+    refs: React.RefObject<HTMLInputElement>[]
+  ) => {
+    if (e.key === "Backspace" && !arr[idx] && idx > 0) {
+      refs[idx - 1].current?.focus();
+    }
+  };
+
+  const handleSubmit = () => {
+    const pin = newPin.join("");
+    const confirm = confirmPin.join("");
+    if (pin.length !== 4) { setPinError("Enter all 4 digits for your new PIN."); return; }
+    if (pin !== confirm) { setPinError("PINs don't match. Please re-enter."); setConfirmPin(["","","",""]); confirmRefs[0].current?.focus(); return; }
+    if (mode === "change" && currentPin.join("").length !== 4) { setPinError("Enter your current 4-digit PIN first."); return; }
+    pinMutation.mutate(pin);
+  };
+
+  const PinBoxRow = ({
+    label, arr, setArr, refs
+  }: { label: string; arr: string[]; setArr: (a: string[]) => void; refs: React.RefObject<HTMLInputElement>[] }) => (
+    <div className="space-y-2">
+      <Label className="text-sm font-medium text-muted-foreground">{label}</Label>
+      <div className="flex gap-3">
+        {arr.map((d, i) => (
+          <input
+            key={i}
+            ref={refs[i]}
+            type="password"
+            inputMode="numeric"
+            maxLength={1}
+            value={d}
+            onChange={e => handleDigit(i, e.target.value, arr, setArr, refs)}
+            onKeyDown={e => handleKeyDown(e, i, arr, setArr, refs)}
+            className="w-12 h-12 text-center text-xl font-bold rounded-lg border-2 bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all caret-transparent"
+            data-testid={`pin-box-${label.toLowerCase().replace(/\s/g,"-")}-${i}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-primary" />
+            <div>
+              <CardTitle>Login PIN</CardTitle>
+              <CardDescription>4-digit PIN for fast sign-in on trusted devices</CardDescription>
+            </div>
+          </div>
+          {isPinSet && mode === "idle" && (
+            <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 gap-1">
+              <ShieldCheck className="h-3.5 w-3.5" /> PIN Active
+            </Badge>
+          )}
+          {!isPinSet && mode === "idle" && (
+            <Badge variant="outline" className="text-amber-600 border-amber-300 gap-1">
+              <Lock className="h-3.5 w-3.5" /> Not Set
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {mode === "idle" && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {isPinSet
+                ? "Your 4-digit PIN is active. You can change it or reset it at any time. The PIN is used on devices you've trusted to skip OTP."
+                : "Set a 4-digit PIN for faster sign-in. Once set, trusted devices will ask for your PIN instead of sending an OTP."}
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {!isPinSet && (
+                <Button onClick={() => { setMode("set"); setTimeout(() => newRefs[0].current?.focus(), 100); }} data-testid="button-setup-pin">
+                  <KeyRound className="h-4 w-4 mr-2" /> Set PIN
+                </Button>
+              )}
+              {isPinSet && (
+                <Button variant="outline" onClick={() => { setMode("change"); setTimeout(() => currentRefs[0].current?.focus(), 100); }} data-testid="button-change-pin">
+                  <RefreshCw className="h-4 w-4 mr-2" /> Change PIN
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {(mode === "set" || mode === "change") && (
+          <div className="space-y-5">
+            {mode === "change" && (
+              <PinBoxRow label="Current PIN" arr={currentPin} setArr={setCurrentPin} refs={currentRefs} />
+            )}
+            <PinBoxRow label="New PIN" arr={newPin} setArr={setNewPin} refs={newRefs} />
+            <PinBoxRow label="Confirm New PIN" arr={confirmPin} setArr={setConfirmPin} refs={confirmRefs} />
+
+            {pinError && (
+              <p className="text-sm font-medium text-destructive">{pinError}</p>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <Button
+                onClick={handleSubmit}
+                disabled={pinMutation.isPending}
+                data-testid="button-save-pin"
+              >
+                {pinMutation.isPending ? (
+                  <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
+                ) : (
+                  <><Check className="h-4 w-4 mr-2" /> {mode === "set" ? "Set PIN" : "Update PIN"}</>
+                )}
+              </Button>
+              <Button variant="ghost" onClick={resetState} data-testid="button-cancel-pin">
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function NavigationPositionSelector() {
   const { navPosition, setNavPosition, isPending } = useUserPreferences();
@@ -325,7 +518,8 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const [showPassword, setShowPassword] = useState(false);
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -356,6 +550,26 @@ export default function SettingsPage() {
     },
   });
 
+  // Wired change-password mutation
+  const changePasswordMutation = useMutation({
+    mutationFn: async (values: z.infer<typeof securityFormSchema>) => {
+      return await apiRequest("/api/user/change-password", {
+        method: "POST",
+        body: JSON.stringify({
+          currentPassword: values.currentPassword,
+          newPassword: values.newPassword,
+        }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Password Changed", description: "Your password has been updated successfully." });
+      securityForm.reset();
+    },
+    onError: (err: any) => {
+      toast({ title: "Change Failed", description: err?.message || "Could not change password. Check your current password.", variant: "destructive" });
+    },
+  });
+
   const onAccountSubmit = (values: z.infer<typeof accountFormSchema>) => {
     toast({
       title: "Account Updated",
@@ -364,11 +578,7 @@ export default function SettingsPage() {
   };
 
   const onSecuritySubmit = (values: z.infer<typeof securityFormSchema>) => {
-    toast({
-      title: "Password Changed",
-      description: "Your password has been updated successfully.",
-    });
-    securityForm.reset();
+    changePasswordMutation.mutate(values);
   };
 
   return (
@@ -616,8 +826,10 @@ export default function SettingsPage() {
 
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-6">
+
+          {/* Biometric - quick link at top */}
           <Link href="/biometric-settings">
-            <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
+            <Card className="cursor-pointer hover:bg-accent/50 transition-colors border-blue-100 dark:border-blue-900/40">
               <CardContent className="py-4 flex items-center gap-4">
                 <div className="p-2 rounded-full bg-blue-50 dark:bg-blue-950">
                   <Fingerprint className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -632,14 +844,21 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           </Link>
+
+          {/* Change Password - wired to real API */}
           <Card>
             <CardHeader>
-              <CardTitle>Change Password</CardTitle>
-              <CardDescription>Update your account password</CardDescription>
+              <div className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-primary" />
+                <div>
+                  <CardTitle>Change Password</CardTitle>
+                  <CardDescription>Update your account login password</CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <Form {...securityForm}>
-                <form onSubmit={securityForm.handleSubmit(onSecuritySubmit)} className="space-y-6">
+                <form onSubmit={securityForm.handleSubmit(onSecuritySubmit)} className="space-y-5">
                   <FormField
                     control={securityForm.control}
                     name="currentPassword"
@@ -648,19 +867,21 @@ export default function SettingsPage() {
                         <FormLabel>Current Password</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Input 
-                              type={showPassword ? "text" : "password"} 
-                              {...field} 
-                              data-testid="input-current-password" 
+                            <Input
+                              type={showCurrentPw ? "text" : "password"}
+                              placeholder="Enter your current password"
+                              {...field}
+                              data-testid="input-current-password"
                             />
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="absolute right-0 top-0"
-                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute right-0 top-0 h-full px-3"
+                              onClick={() => setShowCurrentPw(!showCurrentPw)}
+                              tabIndex={-1}
                             >
-                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              {showCurrentPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </Button>
                           </div>
                         </FormControl>
@@ -676,8 +897,26 @@ export default function SettingsPage() {
                       <FormItem>
                         <FormLabel>New Password</FormLabel>
                         <FormControl>
-                          <Input type="password" {...field} data-testid="input-new-password" />
+                          <div className="relative">
+                            <Input
+                              type={showNewPw ? "text" : "password"}
+                              placeholder="Minimum 8 characters"
+                              {...field}
+                              data-testid="input-new-password"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-0 top-0 h-full px-3"
+                              onClick={() => setShowNewPw(!showNewPw)}
+                              tabIndex={-1}
+                            >
+                              {showNewPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
                         </FormControl>
+                        <FormDescription>At least 8 characters, must differ from current</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -690,22 +929,33 @@ export default function SettingsPage() {
                       <FormItem>
                         <FormLabel>Confirm New Password</FormLabel>
                         <FormControl>
-                          <Input type="password" {...field} data-testid="input-confirm-password" />
+                          <Input type="password" placeholder="Re-enter new password" {...field} data-testid="input-confirm-password" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
 
-                  <Button type="submit" data-testid="button-change-password">
-                    <Lock className="h-4 w-4 mr-2" />
-                    Change Password
+                  <Button
+                    type="submit"
+                    disabled={changePasswordMutation.isPending}
+                    data-testid="button-change-password"
+                  >
+                    {changePasswordMutation.isPending ? (
+                      <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Updating...</>
+                    ) : (
+                      <><Lock className="h-4 w-4 mr-2" /> Change Password</>
+                    )}
                   </Button>
                 </form>
               </Form>
             </CardContent>
           </Card>
 
+          {/* 4-Digit Login PIN */}
+          <PinManagementCard />
+
+          {/* 2FA */}
           <Card>
             <CardHeader>
               <CardTitle>Two-Factor Authentication</CardTitle>
@@ -727,6 +977,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* Danger Zone */}
           <Card className="border-destructive">
             <CardHeader>
               <CardTitle className="text-destructive">Danger Zone</CardTitle>

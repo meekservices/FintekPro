@@ -310,7 +310,10 @@ export function AgentLayout({ children }: AgentLayoutProps) {
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest("/api/logout", { method: "POST" }),
     onSuccess: () => {
-      // Redirect to auth page, staying on the agent subdomain
+      // Clear all client-side auth artifacts so X-Session-ID cannot re-authenticate
+      try { localStorage.removeItem('fintekpro_sid'); } catch {}
+      try { sessionStorage.removeItem('fintekpro_was_authenticated'); } catch {}
+      // Hard redirect to auth page on the correct subdomain
       window.location.href = "/auth" + getPortalQueryParams();
     },
   });

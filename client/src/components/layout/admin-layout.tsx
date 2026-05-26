@@ -253,6 +253,7 @@ const navCategories: NavCategory[] = [
     icon: Cog,
     items: [
       { title: "Theme & Accessibility", href: "/admin/theme-settings", icon: Palette, description: "Visual customization" },
+      { title: "Account Settings", href: "/admin/settings", icon: UserCheck, description: "Password, PIN & security" },
       { title: "Users & Access", href: "/admin/users", icon: Users, description: "User management" },
       { title: "Role Permissions", href: "/admin/appointments", icon: UserCheck, description: "Role approvals" },
       { title: "Integration Config", href: "/admin/api-config", icon: Key, description: "Zoho, Cashfree & APIs" },
@@ -416,7 +417,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest("/api/logout", { method: "POST" }),
     onSuccess: () => {
-      // Redirect to auth page, staying on the admin subdomain
+      // Clear all client-side auth artifacts so X-Session-ID cannot re-authenticate
+      try { localStorage.removeItem('fintekpro_sid'); } catch {}
+      try { sessionStorage.removeItem('fintekpro_was_authenticated'); } catch {}
+      // Hard redirect to auth page on the correct subdomain
       window.location.href = "/auth" + getPortalQueryParams();
     },
   });

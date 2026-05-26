@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useMemo, useRef, type ReactNode } from "react";
-import { clearAuthenticationFlag } from "@/lib/queryClient";
+import { clearAuthenticationFlag, clearStoredSessionId } from "@/lib/queryClient";
 
 interface RetryContext {
   queryKey?: readonly unknown[];
@@ -65,6 +65,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     
     clearSessionExpired();
     clearAuthenticationFlag();
+    clearStoredSessionId();
     isLoggingOut.current = false;
     window.location.href = '/auth';
   }, [clearSessionExpired]);

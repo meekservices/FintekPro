@@ -199,6 +199,12 @@ const partnerNavSections: NavSection[] = [
         description: "Your support requests"
       },
       {
+        title: "Account Settings",
+        href: "/settings",
+        icon: Settings,
+        description: "Password, PIN & security"
+      },
+      {
         title: "Settings & Theme",
         href: "/theme-settings",
         icon: Settings,
@@ -237,7 +243,10 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
   const logoutMutation = useMutation({
     mutationFn: () => apiRequest("/api/logout", { method: "POST" }),
     onSuccess: () => {
-      // Redirect to auth page, staying on the partner subdomain
+      // Clear all client-side auth artifacts so X-Session-ID cannot re-authenticate
+      try { localStorage.removeItem('fintekpro_sid'); } catch {}
+      try { sessionStorage.removeItem('fintekpro_was_authenticated'); } catch {}
+      // Hard redirect to auth page on the correct subdomain
       window.location.href = "/auth" + getPortalQueryParams();
     },
   });

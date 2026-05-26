@@ -1377,6 +1377,34 @@ export function AdminRoutes() {
           </AdminLayout>
         )}
       </Route>
+      {/* Settings & Biometric - accessible to all portal users */}
+      <Route path="/admin/settings">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <SettingsPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/settings">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <SettingsPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/biometric-settings">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <BiometricSettingsPage />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
       {/* Generic admin root - must be after all specific /admin/* routes */}
       <Route path="/admin" component={AdminRoot} />
       <Route path="/" component={AdminRoot} />
