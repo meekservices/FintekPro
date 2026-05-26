@@ -354,7 +354,7 @@ export function registerRoleRoutes(app: Express) {
         .from(agentCommissions)
         .where(and(
           eq(agentCommissions.agentId, ccAgentId || 'none'),
-          eq(agentCommissions.status, 'pending')
+          eq(agentCommissions.agentSettlementStatus, 'pending')
         ));
       const pendingEarned = parseFloat(pendingCommissions[0]?.total || '0') || 0;
       

@@ -269,14 +269,14 @@ export function registerAgentCapitalGainPart2Part1Routes(app: Express): void {
         ));
       const lastMonthBusiness = parseFloat(lastMonthCommissions[0]?.total || '0') || 0;
       
-      // Get total commissions (credited)
+      // Get total commissions (settled)
       const totalCommissionsResult = await db.select({ 
         total: sum(schema.agentCommissions.agentCommissionAmount) 
       })
         .from(schema.agentCommissions)
         .where(and(
           eq(schema.agentCommissions.agentId, agentId),
-          eq(schema.agentCommissions.status, 'credited')
+          eq(schema.agentCommissions.agentSettlementStatus, 'settled')
         ));
       const totalCommissions = parseFloat(totalCommissionsResult[0]?.total || '0') || 0;
       
@@ -287,7 +287,7 @@ export function registerAgentCapitalGainPart2Part1Routes(app: Express): void {
         .from(schema.agentCommissions)
         .where(and(
           eq(schema.agentCommissions.agentId, agentId),
-          eq(schema.agentCommissions.status, 'pending')
+          eq(schema.agentCommissions.agentSettlementStatus, 'pending')
         ));
       const pendingCommissions = parseFloat(pendingCommissionsResult[0]?.total || '0') || 0;
       
