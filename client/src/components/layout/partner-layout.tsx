@@ -264,7 +264,12 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
     );
   }
 
-  const isPartner = user.roles?.includes('partner') || user.roles?.includes('admin') || user.roles?.includes('superadmin');
+  const isPartner = user.roles?.includes('partner') || 
+                    user.roles?.includes('agent') || 
+                    user.roles?.includes('master_agent') || 
+                    user.roles?.includes('sub_agent') || 
+                    user.roles?.includes('admin') || 
+                    user.roles?.includes('superadmin');
 
   if (!isPartner) {
     return (
@@ -342,9 +347,22 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
               <Button
                 variant="ghost"
                 size="icon"
+                asChild
+                className="text-indigo-300 hover:text-foreground"
+                data-testid="button-partner-client-portal"
+                title="Client Portal"
+              >
+                <a href="https://fintekpro.com">
+                  <Home className="h-5 w-5" />
+                </a>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => logoutMutation.mutate()}
                 className="text-indigo-300 hover:text-red-400"
                 data-testid="button-partner-logout"
+                title="Sign Out"
               >
                 <LogOut className="h-5 w-5" />
               </Button>

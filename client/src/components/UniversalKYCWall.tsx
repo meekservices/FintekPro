@@ -47,7 +47,7 @@ function getRoleLabel(roles: string[]): string {
   if (roles.some(r => ['finance_head', 'finance_team'].includes(r))) return 'Finance';
   if (roles.some(r => ['ops_head', 'ops_team'].includes(r))) return 'Operations';
   if (roles.some(r => ['tech_head', 'tech_backend', 'tech_frontend', 'tech_devops'].includes(r))) return 'Technology';
-  if (roles.some(r => ['client', 'business_client'].includes(r))) return 'Client';
+  if (roles.some(r => ['client', 'business_client', 'treasury_client', 'family_office', 'hni'].includes(r))) return 'Client / Investor';
   return 'User';
 }
 

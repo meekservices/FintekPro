@@ -38,8 +38,12 @@ export default function LandingPage() {
         setLocation("/agent");
       } else if (actualRoles.includes('admin') || actualRoles.includes('superadmin')) {
         setLocation("/admin");
+      } else if (actualRoles.includes('treasury_client')) {
+        setLocation("/treasury-dashboard");
+      } else if (actualRoles.includes('family_office')) {
+        setLocation("/families");
       } else {
-        setLocation("/dashboard"); // User dashboard
+        setLocation("/dashboard"); // Standard Retail User dashboard
       }
     }
   }, [isAuthenticated, isLoading, user, setLocation]);

@@ -673,6 +673,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     <span className="text-sm">Admin Settings</span>
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href="https://fintekpro.com" className="flex items-center gap-2.5 px-3 py-2 cursor-pointer">
+                    <Home className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">Client Portal</span>
+                  </a>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="flex items-center gap-2.5 px-3 py-2 text-red-500 hover:text-red-500 hover:bg-red-500/10 cursor-pointer"
