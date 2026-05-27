@@ -618,6 +618,42 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
         console.warn('[Migration] unlisted_regulatory_audit_log forensic columns skipped:', e?.message);
       }
 
+      // 28. KYC and LRS userProfiles & lrsComplianceTracking repairs
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE user_profiles
+            ADD COLUMN IF NOT EXISTS pan_verified_via_sandbox BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS pan_sandbox_status VARCHAR,
+            ADD COLUMN IF NOT EXISTS pan_verified_via_smart_kyc BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS aadhaar_verified_via_smart_kyc BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS kra_verified_via_protean BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS video_kyc_completed BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS video_kyc_completed_date TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS video_kyc_completed_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS face_to_face_verification_completed BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS face_to_face_verification_date TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS ckyc_fetched_via_auth_bridge BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS ckyc_auth_bridge_status VARCHAR,
+            ADD COLUMN IF NOT EXISTS ckyc_auth_bridge_response JSONB,
+            ADD COLUMN IF NOT EXISTS kyc_level VARCHAR DEFAULT '0',
+            ADD COLUMN IF NOT EXISTS kyc_level_upgraded_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS kyc_tier_upgraded_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS is_high_risk_customer BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS net_worth_amount NUMERIC(15, 2),
+            ADD COLUMN IF NOT EXISTS investor_type VARCHAR;
+
+          ALTER TABLE lrs_compliance_tracking
+            ADD COLUMN IF NOT EXISTS form15ca_filed BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS form15cb_obtained BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS tax_residency_certificate BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS w8ben_filed BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS w8ben_expiry_date DATE;
+        `);
+        console.log('✅ KYC & LRS columns on user_profiles & lrs_compliance_tracking verified');
+      } catch (e: any) {
+        console.error('[Migration] user_profiles & lrs_compliance_tracking KYC columns error:', e?.message);
+      }
+
         console.log('✅ Critical schema repairs complete');
       } catch (migErr) {
 

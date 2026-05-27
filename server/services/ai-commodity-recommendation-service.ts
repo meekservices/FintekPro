@@ -464,12 +464,12 @@ class AICommodityRecommendationService {
       
       return {
         investmentAmount: 100000,
-        investmentHorizon: this.mapHorizon(p.investmentHorizon),
-        riskTolerance: this.mapRiskTolerance(p.riskAppetite),
+        investmentHorizon: this.mapHorizon(p.investmentTimeHorizon),
+        riskTolerance: this.mapRiskTolerance(p.riskTolerance),
         preferredCommodityTypes: ['precious_metal', 'energy'],
         investmentVehicle: 'any',
         inflationProtection: true,
-        safeHavenAllocation: p.riskAppetite === 'conservative',
+        safeHavenAllocation: p.riskTolerance === 'conservative',
         portfolioDiversification: true,
         clientId
       };
