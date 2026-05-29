@@ -45,7 +45,7 @@ gcloud run deploy $SERVICE_NAME \
     --timeout 300 \
     --cpu-boost \
     --min-instances 0 \
-    --max-instances 3 \
+    --max-instances 10 \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
     --set-env-vars="NODE_ENV=production,NODE_OPTIONS=--max-old-space-size=3072,DEBUG_SUBDOMAIN=true,CUSTOM_DOMAIN=fintekpro.com,RUN_STARTUP_MIGRATIONS=true" \
     --set-secrets="\
