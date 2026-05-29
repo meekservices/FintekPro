@@ -67,7 +67,7 @@ async function runTests() {
     
     const check2 = otpThrottleService.canRequestOTP(testUserId, testAadhaarHash);
     console.log('  ✓ After 3 attempts, blocked:', !check2.allowed);
-    console.log('  ✓ Reason:', check2.reason);
+    console.log('  ✓ Reason:', (check2 as any).reason);
     
     // Reset and verify
     otpThrottleService.resetAttempts(testUserId, testAadhaarHash);

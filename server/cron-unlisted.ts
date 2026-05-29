@@ -104,7 +104,7 @@ export function initializeUnlistedCrons(): void {
               await emailService.sendEmail({
                 to: user[0].email,
                 subject: `⏰ Your sell listing expires in 24 hours - ${companyName}`,
-                html: `<h2>Listing Expiry Reminder</h2><p>Your sell listing for <strong>${companyName}</strong> expires soon. Quantity: ${listing.quantity || 0} shares @ ₹${listing.pricePerShare?.toLocaleString('en-IN') || 'N/A'}/share.</p><p>Log in to FintekPro to extend or modify your listing.</p>`,
+                html: `<h2>Listing Expiry Reminder</h2><p>Your sell listing for <strong>${companyName}</strong> expires soon. Quantity: ${listing.quantity || 0} shares @ ₹${listing.pricePerShare ? parseFloat(String(listing.pricePerShare)).toLocaleString('en-IN') : 'N/A'}/share.</p><p>Log in to FintekPro to extend or modify your listing.</p>`,
                 text: `Your sell listing for ${companyName} expires in 24 hours.`,
               });
             }
@@ -123,7 +123,7 @@ export function initializeUnlistedCrons(): void {
               await es.sendEmail({
                 to: user[0].email,
                 subject: `⏰ Your buy request expires in 24 hours - ${reqCompanyName}`,
-                html: `<h2>Buy Request Expiry Reminder</h2><p>Your buy request for <strong>${reqCompanyName}</strong> expires soon. Quantity: ${request.quantity || 0} @ max ₹${request.maxPricePerShare?.toLocaleString('en-IN') || 'N/A'}/share.</p><p>Log in to FintekPro to extend or modify your request.</p>`,
+                html: `<h2>Buy Request Expiry Reminder</h2><p>Your buy request for <strong>${reqCompanyName}</strong> expires soon. Quantity: ${request.quantity || 0} @ max ₹${request.maxPricePerShare ? parseFloat(String(request.maxPricePerShare)).toLocaleString('en-IN') : 'N/A'}/share.</p><p>Log in to FintekPro to extend or modify your request.</p>`,
                 text: `Your buy request for ${reqCompanyName} expires in 24 hours.`,
               });
             }

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
-import { UseFormReturn } from "react-hook-form";
+import { UseFormReturn, FieldValues } from "react-hook-form";
 
-interface UseFormAutosaveOptions<T> {
+interface UseFormAutosaveOptions<T extends FieldValues> {
   form: UseFormReturn<T>;
   storageKey: string;
   debounceMs?: number;
@@ -14,7 +14,7 @@ interface AutosaveState {
   isRestored: boolean;
 }
 
-export function useFormAutosave<T extends Record<string, any>>({
+export function useFormAutosave<T extends FieldValues>({
   form,
   storageKey,
   debounceMs = 1000,

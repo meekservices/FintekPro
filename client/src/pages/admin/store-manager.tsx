@@ -911,7 +911,7 @@ export default function AdminStoreManager() {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setEditingManager(null)}>Cancel</Button>
-                  <Button onClick={() => updateManagerMutation.mutate({ id: editingManager.id, ...editingManager })} disabled={updateManagerMutation.isPending}>
+                  <Button onClick={() => updateManagerMutation.mutate({ ...editingManager })} disabled={updateManagerMutation.isPending}>
                     {updateManagerMutation.isPending ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Pencil className="w-4 h-4 mr-2" />}
                     Update Manager
                   </Button>
@@ -1124,7 +1124,7 @@ export default function AdminStoreManager() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Category</Label>
-                <select className="w-full p-2 border rounded" value={newFee.category} onChange={(e) => setNewFee({ ...newFee, category: e.target.value })} data-testid="select-fee-category">
+                <select className="w-full p-2 border rounded" value={newFee.category} onChange={(e) => setNewFee({ ...newFee, category: e.target.value })} data-testid="select-fee-category" title="Fee Category" aria-label="Fee Category">
                   <option value="regulatory">Regulatory</option>
                   <option value="platform">Platform</option>
                   <option value="advisory">Advisory</option>
@@ -1135,7 +1135,7 @@ export default function AdminStoreManager() {
               </div>
               <div className="space-y-2">
                 <Label>Applicable To</Label>
-                <select className="w-full p-2 border rounded" value={newFee.applicableTo} onChange={(e) => setNewFee({ ...newFee, applicableTo: e.target.value })} data-testid="select-fee-applicable">
+                <select className="w-full p-2 border rounded" value={newFee.applicableTo} onChange={(e) => setNewFee({ ...newFee, applicableTo: e.target.value })} data-testid="select-fee-applicable" title="Applicable To" aria-label="Applicable To">
                   <option value="all">All Products</option>
                   <option value="equity">Equity</option>
                   <option value="mutual_fund">Mutual Funds</option>
@@ -1151,7 +1151,7 @@ export default function AdminStoreManager() {
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Charge Type</Label>
-                <select className="w-full p-2 border rounded" value={newFee.chargeType} onChange={(e) => setNewFee({ ...newFee, chargeType: e.target.value })} data-testid="select-charge-type">
+                <select className="w-full p-2 border rounded" value={newFee.chargeType} onChange={(e) => setNewFee({ ...newFee, chargeType: e.target.value })} data-testid="select-charge-type" title="Charge Type" aria-label="Charge Type">
                   <option value="percentage">Percentage</option>
                   <option value="flat">Flat Amount</option>
                   <option value="tiered">Tiered</option>
@@ -1165,7 +1165,7 @@ export default function AdminStoreManager() {
               </div>
               <div className="space-y-2">
                 <Label>Rate Unit</Label>
-                <select className="w-full p-2 border rounded" value={newFee.rateUnit} onChange={(e) => setNewFee({ ...newFee, rateUnit: e.target.value })} data-testid="select-rate-unit">
+                <select className="w-full p-2 border rounded" value={newFee.rateUnit} onChange={(e) => setNewFee({ ...newFee, rateUnit: e.target.value })} data-testid="select-rate-unit" title="Rate Unit" aria-label="Rate Unit">
                   <option value="percent">Percent (%)</option>
                   <option value="bps">Basis Points</option>
                   <option value="inr">INR (₹)</option>
@@ -1245,7 +1245,7 @@ export default function AdminStoreManager() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Category</Label>
-                  <select className="w-full p-2 border rounded" value={editingFee.category} onChange={(e) => setEditingFee({ ...editingFee, category: e.target.value })}>
+                  <select className="w-full p-2 border rounded" value={editingFee.category} onChange={(e) => setEditingFee({ ...editingFee, category: e.target.value })} title="Fee Category" aria-label="Fee Category">
                     <option value="regulatory">Regulatory</option>
                     <option value="platform">Platform</option>
                     <option value="advisory">Advisory</option>
@@ -1256,7 +1256,7 @@ export default function AdminStoreManager() {
                 </div>
                 <div className="space-y-2">
                   <Label>Applicable To</Label>
-                  <select className="w-full p-2 border rounded" value={editingFee.applicableTo} onChange={(e) => setEditingFee({ ...editingFee, applicableTo: e.target.value })}>
+                  <select className="w-full p-2 border rounded" value={editingFee.applicableTo} onChange={(e) => setEditingFee({ ...editingFee, applicableTo: e.target.value })} title="Applicable To" aria-label="Applicable To">
                     <option value="all">All Products</option>
                     <option value="equity">Equity</option>
                     <option value="mutual_fund">Mutual Funds</option>
@@ -1272,7 +1272,7 @@ export default function AdminStoreManager() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Charge Type</Label>
-                  <select className="w-full p-2 border rounded" value={editingFee.chargeType} onChange={(e) => setEditingFee({ ...editingFee, chargeType: e.target.value })}>
+                  <select className="w-full p-2 border rounded" value={editingFee.chargeType} onChange={(e) => setEditingFee({ ...editingFee, chargeType: e.target.value })} title="Charge Type" aria-label="Charge Type">
                     <option value="percentage">Percentage</option>
                     <option value="flat">Flat Amount</option>
                     <option value="tiered">Tiered</option>
@@ -1286,7 +1286,7 @@ export default function AdminStoreManager() {
                 </div>
                 <div className="space-y-2">
                   <Label>Rate Unit</Label>
-                  <select className="w-full p-2 border rounded" value={editingFee.rateUnit || "percent"} onChange={(e) => setEditingFee({ ...editingFee, rateUnit: e.target.value })}>
+                  <select className="w-full p-2 border rounded" value={editingFee.rateUnit || "percent"} onChange={(e) => setEditingFee({ ...editingFee, rateUnit: e.target.value })} title="Rate Unit" aria-label="Rate Unit">
                     <option value="percent">Percent (%)</option>
                     <option value="bps">Basis Points</option>
                     <option value="inr">INR (₹)</option>
@@ -1317,7 +1317,7 @@ export default function AdminStoreManager() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingFee(null)}>Cancel</Button>
-            <Button onClick={() => editingFee && updateFeeMutation.mutate({ id: editingFee.id, ...editingFee })} disabled={updateFeeMutation.isPending} data-testid="button-update-fee">
+            <Button onClick={() => editingFee && updateFeeMutation.mutate({ ...editingFee })} disabled={updateFeeMutation.isPending} data-testid="button-update-fee">
               {updateFeeMutation.isPending ? "Updating..." : "Update Fee"}
             </Button>
           </DialogFooter>
@@ -1334,7 +1334,7 @@ export default function AdminStoreManager() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>ITR Form Type</Label>
-                <select className="w-full p-2 border rounded" value={newItrPricing.itrFormType} onChange={(e) => setNewItrPricing({ ...newItrPricing, itrFormType: e.target.value })}>
+                <select className="w-full p-2 border rounded" value={newItrPricing.itrFormType} onChange={(e) => setNewItrPricing({ ...newItrPricing, itrFormType: e.target.value })} title="ITR Form Type" aria-label="ITR Form Type">
                   <option value="">Select Form</option>
                   <option value="ITR-1">ITR-1 (Sahaj)</option>
                   <option value="ITR-2">ITR-2</option>
@@ -1371,7 +1371,7 @@ export default function AdminStoreManager() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Complexity Level</Label>
-                <select className="w-full p-2 border rounded" value={newItrPricing.complexityLevel} onChange={(e) => setNewItrPricing({ ...newItrPricing, complexityLevel: e.target.value })}>
+                <select className="w-full p-2 border rounded" value={newItrPricing.complexityLevel} onChange={(e) => setNewItrPricing({ ...newItrPricing, complexityLevel: e.target.value })} title="Complexity Level" aria-label="Complexity Level">
                   <option value="simple">Simple</option>
                   <option value="standard">Standard</option>
                   <option value="complex">Complex</option>
@@ -1420,17 +1420,17 @@ export default function AdminStoreManager() {
                 </div>
                 <div className="space-y-2">
                   <Label>CA-Assisted Fee (₹)</Label>
-                  <Input type="number" value={editingItrPricing.caAssistedFee} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, caAssistedFee: e.target.value })} />
+                  <Input type="number" value={editingItrPricing.caAssistedFee ?? ''} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, caAssistedFee: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label>CA Share (%)</Label>
-                  <Input type="number" value={editingItrPricing.caRevenueSharePercent} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, caRevenueSharePercent: parseInt(e.target.value) || 50 })} min="0" max="100" />
+                  <Input type="number" value={String(editingItrPricing.caRevenueSharePercent ?? '')} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, caRevenueSharePercent: e.target.value })} min="0" max="100" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Complexity Level</Label>
-                  <select className="w-full p-2 border rounded" value={editingItrPricing.complexityLevel} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, complexityLevel: e.target.value })}>
+                  <select className="w-full p-2 border rounded" value={editingItrPricing.complexityLevel ?? 'standard'} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, complexityLevel: e.target.value })} title="Complexity Level" aria-label="Complexity Level">
                     <option value="simple">Simple</option>
                     <option value="standard">Standard</option>
                     <option value="complex">Complex</option>
@@ -1438,7 +1438,7 @@ export default function AdminStoreManager() {
                 </div>
                 <div className="space-y-2">
                   <Label>Processing Days</Label>
-                  <Input type="number" value={editingItrPricing.estimatedProcessingDays} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, estimatedProcessingDays: parseInt(e.target.value) || 3 })} min="1" max="30" />
+                  <Input type="number" value={editingItrPricing.estimatedProcessingDays ?? ''} onChange={(e) => setEditingItrPricing({ ...editingItrPricing, estimatedProcessingDays: parseInt(e.target.value) || 3 })} min="1" max="30" />
                 </div>
               </div>
               <div className="flex gap-6">

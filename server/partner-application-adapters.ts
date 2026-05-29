@@ -124,7 +124,7 @@ export class BajajFinanceAdapter implements IProviderAdapter {
     return {
       providerApplicationId: providerResponse.application_id || providerResponse.reference_id,
       status: this.mapProviderStatus(providerResponse.status),
-      providerResponse: providerResponse,
+      providerResponse: providerResponse as any,
       statusUpdates: providerResponse.status_history || []
     };
   }
@@ -260,7 +260,7 @@ export class TataCapitalAdapter implements IProviderAdapter {
     return {
       providerApplicationId: providerResponse.applicationId || providerResponse.referenceNumber,
       status: this.mapProviderStatus(providerResponse.applicationStatus),
-      providerResponse: providerResponse,
+      providerResponse: providerResponse as any,
       statusUpdates: providerResponse.statusHistory || []
     };
   }
@@ -396,7 +396,7 @@ export class HdfcBankAdapter implements IProviderAdapter {
     return {
       providerApplicationId: providerResponse.applicationNumber || providerResponse.trackingId,
       status: this.mapProviderStatus(providerResponse.currentStatus),
-      providerResponse: providerResponse,
+      providerResponse: providerResponse as any,
       statusUpdates: providerResponse.auditTrail || []
     };
   }
@@ -540,7 +540,7 @@ export class IcicieBankAdapter implements IProviderAdapter {
     return {
       providerApplicationId: providerResponse.applicationId || providerResponse.referenceId,
       status: this.mapProviderStatus(providerResponse.status),
-      providerResponse: providerResponse,
+      providerResponse: providerResponse as any,
       statusUpdates: providerResponse.timeline || []
     };
   }

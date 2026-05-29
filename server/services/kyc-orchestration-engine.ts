@@ -813,7 +813,7 @@ export class KycOrchestrationEngine {
             p95LatencyMs: p95,
             errorCodes: existingErrors,
             fallbacksTriggered: newFallbacks,
-          })
+          } as any)
           .where(eq(providerMetrics.id, metric.id));
       } else {
         const errorCodes: Record<string, number> = {};
@@ -858,7 +858,7 @@ export class KycOrchestrationEngine {
             avgLatencyMs: newAvg,
             errorRate: parseFloat(newErrorRate.toFixed(4)),
             updatedAt: new Date(),
-          })
+          } as any)
           .where(eq(kycProviders.id, providerId));
       }
     } catch (error: any) {
@@ -980,7 +980,7 @@ export class KycOrchestrationEngine {
           priority: newPriority,
           updatedBy: updatedBy || null,
           updatedAt: new Date(),
-        })
+        } as any)
         .where(eq(kycProviderPriority.id, existing.id));
 
       console.log(`[KYC-ENGINE] Updated priority for step=${kycStep}, providerId=${providerId}: ${previousPriority} -> ${newPriority}`);

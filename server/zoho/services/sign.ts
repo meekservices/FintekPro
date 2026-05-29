@@ -143,7 +143,7 @@ export class ZohoSignService {
 
   async deleteDocument(requestId: string): Promise<boolean> {
     const response = await this.client.delete(`/api/v1/requests/${requestId}`);
-    return response.status === 200 || response.status === 204;
+    return Number(response.status) === 200 || Number(response.status) === 204;
   }
 
   async downloadSignedDocument(requestId: string): Promise<Buffer> {

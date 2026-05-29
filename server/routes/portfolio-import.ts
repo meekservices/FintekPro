@@ -253,7 +253,7 @@ router.post(
               quantity: h.quantity,
               value: h.currentValue,
               type: h.assetType
-            })),
+            } as any)),
             totalValue: snapshot.totalCurrentValue,
             parsingStatus: snapshot.parsingStatus,
             brokerDetected: snapshot.brokerDetected,

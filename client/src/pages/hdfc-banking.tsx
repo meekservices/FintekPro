@@ -82,7 +82,7 @@ export default function HDFCBanking() {
     mutationFn: async (data: typeof validationForm) => {
       return await apiRequest('/api/hdfc/accounts/validate', {
         method: 'POST',
-        body: data
+        body: JSON.stringify(data)
       });
     },
     onSuccess: (data) => {
@@ -116,7 +116,7 @@ export default function HDFCBanking() {
     mutationFn: async (data: typeof paymentForm & { debitAccountNumber: string }) => {
       return await apiRequest('/api/hdfc/payments/transfer', {
         method: 'POST',
-        body: data
+        body: JSON.stringify(data)
       });
     },
     onSuccess: (data) => {
@@ -165,7 +165,7 @@ export default function HDFCBanking() {
     mutationFn: async (data: typeof statementForm & { accountNumber: string }) => {
       return await apiRequest('/api/hdfc/accounts/statement', {
         method: 'POST',
-        body: data
+        body: JSON.stringify(data)
       });
     },
     onSuccess: (data) => {

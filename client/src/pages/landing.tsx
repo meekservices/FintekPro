@@ -53,6 +53,11 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30">
+      <style>{`
+        .asset-allocation-donut {
+          background: conic-gradient(hsl(var(--primary)) 0% 42%, #10b981 42% 73%, #a855f7 73% 90%, #f59e0b 90% 100%);
+        }
+      `}</style>
       {/* Navigation */}
       <nav className={cn(
         "fixed top-0 w-full z-50 transition-all duration-300 border-b border-transparent",

@@ -157,7 +157,7 @@ export default function Cart() {
     const amount = Number(item.amount || 0) * (item.quantity || 1);
     
     // Find existing item with same product type
-    const existing = acc.find(i => i.productType === productType);
+    const existing = acc.find((i: FeeCartItem) => i.productType === productType);
     if (existing) {
       existing.amount += amount;
     } else {
@@ -807,7 +807,7 @@ export default function Cart() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {cart.items.map((item) => {
+                      {cart.items.map((item: any) => {
                         const isInvestment = item.itemType === "investment";
                         const itemName = isInvestment ? item.metadata?.name : item.product?.name;
                         const itemDescription = isInvestment ? item.metadata?.description : item.product?.shortDescription;

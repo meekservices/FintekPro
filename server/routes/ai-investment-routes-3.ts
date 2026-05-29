@@ -156,7 +156,7 @@ router.post("/proposal", async (req, res) => {
       return res.status(400).json({ error: "Client ID and picks are required" });
     }
 
-    const result = await aiInvestmentService.createProposalFromPicks(clientId, picks);
+    const result = await aiInvestmentService.createProposalFromPicks(clientId, picks, {});
     
     res.json({
       proposalId: result?.proposalId || 'PROP-' + Date.now(),

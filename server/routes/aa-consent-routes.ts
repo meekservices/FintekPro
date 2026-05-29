@@ -92,7 +92,7 @@ router.post('/consent/create', async (req: Request, res: Response): Promise<void
       return;
     }
 
-    const consentResponse = await aaService.createConsent({
+    const consentResponse = await (aaService as any).createConsent({
       userId,
       panNumber,
       assetTypes: assetTypes || ['MF', 'DEMAT'],
@@ -145,7 +145,7 @@ router.post('/data/fetch', async (req: Request, res: Response): Promise<void> =>
     }
 
     // Step 1: Fetch fresh data from AA
-    const fetchResult = await aaService.fetchAllData(consentSessionId);
+    const fetchResult = await (aaService as any).fetchAllData(consentSessionId);
 
     if (!fetchResult.success) {
       res.status(500).json({ 
@@ -402,7 +402,7 @@ router.post('/consent/revoke', async (req: Request, res: Response): Promise<void
       consentText: `User revoked AA consent. Reason: ${reason || 'User requested'}`,
       ipAddress: req.ip || '',
       userAgent: req.get('user-agent') || '',
-    });
+    } as any);
 
     res.json({ success: true, message: 'Consent revoked successfully' });
   } catch (error: unknown) {

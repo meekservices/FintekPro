@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import {
   Globe,
   Coins,
   Activity,
+  Calculator,
 } from "lucide-react";
 
 interface DailyPick {
@@ -95,6 +97,8 @@ export default function PickOfTheDayWidget() {
   const { data, isLoading } = useQuery<{ success: boolean; picks: DailyPick[] }>({
     queryKey: ["/api/picks/today"],
   });
+  const [calculatorOpenId, setCalculatorOpenId] = useState<number | null>(null);
+  const [budget, setBudget] = useState<string>("100000");
 
   if (isLoading) {
     return (
@@ -149,54 +153,103 @@ export default function PickOfTheDayWidget() {
               ? ((pick.currentPrice - pick.recoPrice) / pick.recoPrice * 100).toFixed(1)
               : null;
 
+            const suggestedAllocation = pick.keyMetrics?.suggestedAllocation || 5;
+
             return (
               <div
                 key={pick.id}
-                className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                className="flex flex-col p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
               >
-                <div className="p-2 rounded-full bg-primary/10">
-                  <Icon className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="font-medium text-sm truncate">
-                      {pick.instrumentName}
-                    </span>
-                    <Badge variant="secondary" className="text-[10px] shrink-0">
-                      {categoryLabels[pick.category] || pick.category}
-                    </Badge>
-                    {pick.confidenceScore !== undefined && (
-                      <span className={`text-[10px] font-medium flex items-center gap-0.5 ${getConfidenceColor(pick.confidenceScore)}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${getConfidenceDot(pick.confidenceScore)}`} />
-                        {pick.confidenceScore}%
+                <div className="flex items-start gap-3 w-full">
+                  <div className="p-2 rounded-full bg-primary/10 shrink-0">
+                    <Icon className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap w-full">
+                      <span className="font-medium text-sm truncate max-w-[150px] sm:max-w-none">
+                        {pick.instrumentName}
                       </span>
+                      <Badge variant="secondary" className="text-[10px] shrink-0">
+                        {categoryLabels[pick.category] || pick.category}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] border-primary/20 text-primary font-bold shrink-0">
+                        {suggestedAllocation}% Weight
+                      </Badge>
+                      {pick.confidenceScore !== undefined && (
+                        <span className={`text-[10px] font-medium flex items-center gap-0.5 shrink-0 ${getConfidenceColor(pick.confidenceScore)}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${getConfidenceDot(pick.confidenceScore)}`} />
+                          {pick.confidenceScore}%
+                        </span>
+                      )}
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 ml-auto text-muted-foreground hover:text-foreground shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCalculatorOpenId(calculatorOpenId === pick.id ? null : pick.id);
+                        }}
+                        title="Sizing Calculator"
+                      >
+                        <Calculator className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Target className="h-3 w-3" />
+                        +{upside}%
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <LucideShield className="h-3 w-3" />
+                        {formatPrice(pick.stoplossPrice, pick.category)}
+                      </span>
+                      {currentReturn && (
+                        <span className={`flex items-center gap-1 ${parseFloat(currentReturn) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {parseFloat(currentReturn) >= 0 ? (
+                            <TrendingUp className="h-3 w-3" />
+                          ) : (
+                            <TrendingDown className="h-3 w-3" />
+                          )}
+                          {currentReturn}%
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                      {pick.rationale}
+                    </p>
+                  </div>
+                  <div className={`w-2 h-2 rounded-full shrink-0 mt-1 ${statusColors[effectiveStatus]}`} />
+                </div>
+
+                {calculatorOpenId === pick.id && (
+                  <div className="mt-2.5 pt-2.5 border-t border-dashed space-y-2 w-full">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[9px] text-muted-foreground uppercase font-bold">Investable Budget (₹)</span>
+                      <input
+                        type="number"
+                        value={budget}
+                        onChange={(e) => setBudget(e.target.value)}
+                        className="h-6 w-24 px-1.5 py-0.5 text-right text-xs rounded border bg-background text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary"
+                        placeholder="1,00,000"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-xs bg-muted/30 p-2 rounded">
+                      <span className="text-[10px] text-muted-foreground">
+                        Recommended Sizing ({suggestedAllocation}%)
+                      </span>
+                      <span className="font-bold text-primary">
+                        {formatPrice(Math.round(Number(budget || 0) * (suggestedAllocation / 100)), pick.category)}
+                      </span>
+                    </div>
+                    {pick.recoPrice > 0 && (
+                      <div className="text-[9px] text-muted-foreground text-right italic">
+                        Approx. {Math.floor((Number(budget || 0) * (suggestedAllocation / 100)) / pick.recoPrice)} shares/units @ {formatPrice(pick.recoPrice, pick.category)}
+                      </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Target className="h-3 w-3" />
-                      +{upside}%
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <LucideShield className="h-3 w-3" />
-                      {formatPrice(pick.stoplossPrice, pick.category)}
-                    </span>
-                    {currentReturn && (
-                      <span className={`flex items-center gap-1 ${parseFloat(currentReturn) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {parseFloat(currentReturn) >= 0 ? (
-                          <TrendingUp className="h-3 w-3" />
-                        ) : (
-                          <TrendingDown className="h-3 w-3" />
-                        )}
-                        {currentReturn}%
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                    {pick.rationale}
-                  </p>
-                </div>
-                <div className={`w-2 h-2 rounded-full shrink-0 mt-1 ${statusColors[effectiveStatus]}`} />
+                )}
               </div>
             );
           })

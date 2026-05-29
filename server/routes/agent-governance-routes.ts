@@ -34,8 +34,8 @@ router.get("/api/agent/client-context/:clientId", requireAuth, async (req, res) 
         firstName: users.firstName,
         lastName: users.lastName,
         riskProfile: users.riskTolerance,
-        investmentHorizon: users.investmentHorizon,
-        liquidityNeeds: users.liquidityNeeds,
+        investmentHorizon: (users as any).investmentHorizon,
+        liquidityNeeds: (users as any).liquidityNeeds,
         kycStatus: users.kycStatus,
       })
       .from(users)

@@ -67,11 +67,11 @@ export default function ICICIBanking() {
   });
 
   // Account validation mutation
-  const validateAccountMutation = useMutation<any>({
+  const validateAccountMutation = useMutation<any, any, typeof validationForm>({
     mutationFn: async (data: typeof validationForm) => {
       return await apiRequest('/api/icici/accounts/validate', {
         method: 'POST',
-        body: data
+        body: JSON.stringify(data)
       });
     },
     onSuccess: (data) => {
@@ -101,11 +101,11 @@ export default function ICICIBanking() {
   });
 
   // IMPS payment mutation
-  const paymentMutation = useMutation<any>({
+  const paymentMutation = useMutation<any, any, typeof paymentForm & { accountNumber: string }>({
     mutationFn: async (data: typeof paymentForm & { accountNumber: string }) => {
       return await apiRequest('/api/icici/payments/imps', {
         method: 'POST',
-        body: data
+        body: JSON.stringify(data)
       });
     },
     onSuccess: (data) => {
@@ -148,11 +148,11 @@ export default function ICICIBanking() {
   });
 
   // Account statement mutation
-  const statementMutation = useMutation<any>({
+  const statementMutation = useMutation<any, any, typeof statementForm & { accountNumber: string }>({
     mutationFn: async (data: typeof statementForm & { accountNumber: string }) => {
       return await apiRequest('/api/icici/accounts/statement', {
         method: 'POST',
-        body: data
+        body: JSON.stringify(data)
       });
     },
     onSuccess: (data) => {
@@ -530,7 +530,7 @@ export default function ICICIBanking() {
                                   <TableCell>{format(new Date(transaction.transactionDate), 'MMM dd, yyyy')}</TableCell>
                                   <TableCell>{transaction.description}</TableCell>
                                   <TableCell>
-                                    <Badge variant={transaction.transactionType === 'CREDIT' ? 'success' : 'destructive'}>
+                                    <Badge variant={transaction.transactionType === 'CREDIT' ? 'default' : 'destructive'}>
                                       {transaction.transactionType}
                                     </Badge>
                                   </TableCell>

@@ -272,8 +272,8 @@ export default function TaxDocuments() {
   };
 
   // Calculate summary statistics
-  const totalIncome = taxData.reduce((sum, item) => sum + (item.taxableAmount || 0), 0);
-  const totalTDSDeducted = taxData.reduce((sum, item) => sum + (item.taxDeducted || 0), 0);
+  const totalIncome = (taxData as StructuredTaxData[]).reduce((sum: number, item: StructuredTaxData) => sum + (item.taxableAmount || 0), 0);
+  const totalTDSDeducted = (taxData as StructuredTaxData[]).reduce((sum: number, item: StructuredTaxData) => sum + (item.taxDeducted || 0), 0);
   const latestCalculation = calculations[0];
 
   return (

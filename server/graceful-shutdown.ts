@@ -1,4 +1,5 @@
-import { Server, Socket } from "http";
+import { Server } from "http";
+import type { Socket } from "net";
 import { closePool, isPoolClosed } from "./db";
 
 let isShuttingDown = false;

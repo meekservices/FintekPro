@@ -30,7 +30,7 @@ export default function PortfolioHoldings() {
   const { data: portfolios, isLoading: portfoliosLoading } = usePortfoliosByPan();
   const portfolioId = portfolios?.[0]?.id || '';
   
-  const { data: holdings, isLoading: holdingsLoading } = useEnhancedPortfolioHoldings(portfolioId, !!portfolioId);
+  const { data: holdings, isLoading: holdingsLoading } = useEnhancedPortfolioHoldings(portfolioId);
   const { data: epfHoldings } = useEpfHoldings();
   const { data: ppfHoldings } = usePpfHoldings();
   const { data: epsHoldings } = useEpsHoldings();
@@ -124,7 +124,7 @@ export default function PortfolioHoldings() {
                 <CardDescription>Your complete investment overview</CardDescription>
               </CardHeader>
               <CardContent>
-                <PortfolioSummary />
+                <PortfolioSummary userId={user?.id || ''} />
               </CardContent>
             </Card>
             <Card>
@@ -132,7 +132,7 @@ export default function PortfolioHoldings() {
                 <CardTitle>Asset Allocation</CardTitle>
               </CardHeader>
               <CardContent>
-                <AssetAllocationChart />
+                <AssetAllocationChart assets={[]} totalValue={totalDomesticValue} />
               </CardContent>
             </Card>
           </div>
@@ -207,37 +207,37 @@ export default function PortfolioHoldings() {
         <TabsContent value="insurance" className="mt-6">
           <ConsentAwareSchemeTab 
             schemeType="insurance"
-            title="Insurance Holdings"
-            description="Life, health, and general insurance policies"
-            holdings={insuranceHoldings}
-          />
+            onRequestConsent={() => {}}
+          >
+            <div className="text-sm text-muted-foreground">{insuranceHoldings ? `${insuranceHoldings.length} policies` : 'Loading...'}</div>
+          </ConsentAwareSchemeTab>
         </TabsContent>
 
         <TabsContent value="epf" className="mt-6">
           <ConsentAwareSchemeTab 
             schemeType="epf"
-            title="Employee Provident Fund"
-            description="EPF balance and contribution history"
-            holdings={epfHoldings}
-          />
+            onRequestConsent={() => {}}
+          >
+            <div className="text-sm text-muted-foreground">{epfHoldings ? `${epfHoldings.length} records` : 'Loading...'}</div>
+          </ConsentAwareSchemeTab>
         </TabsContent>
 
         <TabsContent value="ppf" className="mt-6">
           <ConsentAwareSchemeTab 
             schemeType="ppf"
-            title="Public Provident Fund"
-            description="PPF account balance and maturity"
-            holdings={ppfHoldings}
-          />
+            onRequestConsent={() => {}}
+          >
+            <div className="text-sm text-muted-foreground">{ppfHoldings ? `${ppfHoldings.length} records` : 'Loading...'}</div>
+          </ConsentAwareSchemeTab>
         </TabsContent>
 
         <TabsContent value="nps" className="mt-6">
           <ConsentAwareSchemeTab 
             schemeType="nps"
-            title="National Pension System"
-            description="NPS tier 1 and tier 2 accounts"
-            holdings={npsAccounts}
-          />
+            onRequestConsent={() => {}}
+          >
+            <div className="text-sm text-muted-foreground">{npsAccounts ? `${npsAccounts.length} accounts` : 'Loading...'}</div>
+          </ConsentAwareSchemeTab>
         </TabsContent>
 
         <TabsContent value="commodities" className="mt-6">
@@ -245,7 +245,7 @@ export default function PortfolioHoldings() {
         </TabsContent>
 
         <TabsContent value="pi-chat" className="mt-6">
-          <PiChatSummaries />
+          <PiChatSummaries portfolioId={portfolioId} />
         </TabsContent>
       </Tabs>
     </div>

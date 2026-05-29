@@ -154,8 +154,8 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
             const aiService = new AIPortfolioService(storage);
             
             const [recommendations, proposal] = await Promise.all([
-              aiService.generatePortfolioRebalancingRecommendations(portfolioData, userProfile),
-              aiService.generateInvestmentProposal(portfolioData, userProfile, 100000, clientId)
+              aiService.generatePortfolioRebalancingRecommendations(portfolioData as any, userProfile),
+              aiService.generateInvestmentProposal(portfolioData as any, userProfile, 100000, clientId)
             ]);
 
             aiAnalysis = {
@@ -301,8 +301,8 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
       const aiService = new AIPortfolioService(storage);
 
       const [recommendations, proposal] = await Promise.all([
-        aiService.generatePortfolioRebalancingRecommendations(portfolioData, userProfile),
-        aiService.generateInvestmentProposal(portfolioData, userProfile, 100000, clientId)
+        aiService.generatePortfolioRebalancingRecommendations(portfolioData as any, userProfile),
+        aiService.generateInvestmentProposal(portfolioData as any, userProfile, 100000, clientId)
       ]);
 
       res.json({

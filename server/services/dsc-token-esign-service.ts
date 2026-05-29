@@ -567,7 +567,7 @@ class DSCTokenESignService {
         .set({
           status: 'cancelled',
           errorMessage: reason || 'Cancelled by user',
-        })
+        } as any)
         .where(eq(esignRequests.transactionId, transactionId));
 
       await this.logAuditEvent(transactionId, userId, 'dsc_cancel', 'success', { reason });

@@ -1240,7 +1240,7 @@ class DataEnrichmentService {
 
     // 3. BSE - Separate BSE API (0.90 confidence)
     // Good for SME/StartUp segment and companies not on NSE
-    if (company.symbol || options.externalSymbols?.bse) {
+    if ((company as any).symbol || options.externalSymbols?.bse) {
       try {
         auditTrail.push({
           id: crypto.randomUUID(),
@@ -1250,7 +1250,7 @@ class DataEnrichmentService {
           reason: 'Fetching data from BSE India API (including SME segment)',
         });
 
-        const bseSymbol = options.externalSymbols?.bse || company.symbol;
+        const bseSymbol = options.externalSymbols?.bse || (company as any).symbol;
         const bseResult = await this.fetchFromBSE(companyId, undefined, bseSymbol);
         
         if (Object.keys(bseResult.metrics).length > 0) {
@@ -1357,9 +1357,9 @@ class DataEnrichmentService {
     }
 
     // 5. GOOGLE FINANCE - (0.70 confidence) — price + PE + PB + market cap + 52w range
-    if (company.symbol) {
+    if ((company as any).symbol) {
       try {
-        const gf = await fetchGFMetrics(company.symbol, 'NSE');
+        const gf = await fetchGFMetrics((company as any).symbol, 'NSE');
         if (gf) {
           const gfConf = this.getSourceConfidence('google_finance');
           const gfMetricMap: Record<string, number | null> = {
@@ -1400,7 +1400,7 @@ class DataEnrichmentService {
 
     // 6. YAHOO FINANCE - Last Resort (0.65 confidence)
     // Uses .NS (NSE) or .BO (BSE) suffix for Indian stocks
-    if (company.symbol || options.externalSymbols?.yahoo) {
+    if ((company as any).symbol || options.externalSymbols?.yahoo) {
       try {
         auditTrail.push({
           id: crypto.randomUUID(),
@@ -1410,7 +1410,7 @@ class DataEnrichmentService {
           reason: 'Fetching fallback data from Yahoo Finance (Indian market .NS/.BO)',
         });
 
-        const yahooSymbol = options.externalSymbols?.yahoo || company.symbol;
+        const yahooSymbol = options.externalSymbols?.yahoo || (company as any).symbol;
         const yahooResult = await this.fetchFromYahoo(companyId, yahooSymbol, company.isin);
         
         if (Object.keys(yahooResult.metrics).length > 0) {

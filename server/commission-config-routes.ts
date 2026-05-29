@@ -37,8 +37,8 @@ async function sendCommissionNotification(notification: CommissionNotification):
       id: users.id,
       email: users.email,
       firstName: users.firstName,
-      role: users.role,
-    }).from(users).where(inArray(users.role, adminRoles));
+      roles: users.roles,
+    }).from(users).where(inArray(users.roles as any, adminRoles));
 
     const eventLabels: Record<string, string> = {
       plan_activated: 'Commission Plan Activated',
@@ -557,7 +557,7 @@ router.post("/approval-requests/:id/process", requireCommissionPermission('canAc
     });
 
     if (status === 'approved' && updatedRequest.entityType === 'commission_plan' && updatedRequest.action === 'activate') {
-      const planId = updatedRequest.requestData.planId;
+      const planId = (updatedRequest as any).requestData?.planId;
       
       const [plan] = await db.select().from(commissionPlans).where(eq(commissionPlans.id, planId));
       

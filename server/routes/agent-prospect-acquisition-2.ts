@@ -1,8 +1,8 @@
 import { Express } from 'express';
 import { db } from '../db';
 import { requireAgent } from '../middleware/roleMiddleware';
-import { prospectClients, portfolios, prospectProposals } from '@shared/schema';
-import { eq, and, or, desc, sql, count, inArray } from 'drizzle-orm';
+import { prospectClients, portfolios, prospectProposals, proposalInteractions, proposalApprovals } from '@shared/schema';
+import { eq, and, or, desc, asc, sql, count, inArray } from 'drizzle-orm';
 
 export function registerAgentProspectAcquisitionPart2Routes(app: Express): void {
 app.post("/api/agent/prospect-clients/:id/upload-portfolio", requireAgent, async (req: any, res) => {
@@ -165,7 +165,7 @@ Provide analysis in JSON format with these sections:
       const [updated] = await db
         .update(prospectClients)
         .set({
-          portfolioAnalysis: analysis,
+          portfolioAnalysis: analysis as any,
           updatedAt: new Date()
         })
         .where(eq(prospectClients.id, id))
@@ -193,7 +193,7 @@ Provide analysis in JSON format with these sections:
       const [updated] = await db
         .update(prospectClients)
         .set({
-          portfolioAnalysis: fallbackAnalysis,
+          portfolioAnalysis: fallbackAnalysis as any,
           updatedAt: new Date()
         })
         .where(eq(prospectClients.id, id))

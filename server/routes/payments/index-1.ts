@@ -78,7 +78,7 @@ export function registerPaymentPart1Routes(app: Express): void {
           idempotencyLockHeld = false;
         }
         complianceMonitor.logEvent({
-          eventType: 'payment',
+          eventType: 'transaction' as any,
           action: 'create_unified_order',
           outcome: 'failure',
           riskLevel: 'high',
@@ -103,7 +103,7 @@ export function registerPaymentPart1Routes(app: Express): void {
       }
 
       complianceMonitor.logEvent({
-        eventType: 'payment',
+        eventType: 'transaction' as any,
         action: 'create_unified_order',
         resource: orderResponse.orderId,
         outcome: 'success',
@@ -200,7 +200,7 @@ export function registerPaymentPart1Routes(app: Express): void {
       });
 
       complianceMonitor.logEvent({
-        eventType: 'payment',
+        eventType: 'transaction' as any,
         action: 'create_cashfree_order',
         resource: orderResponse.orderId,
         outcome: 'success',
@@ -219,7 +219,7 @@ export function registerPaymentPart1Routes(app: Express): void {
     } catch (error) {
       console.error('Error creating Cashfree order:', error);
       complianceMonitor.logEvent({
-        eventType: 'payment',
+        eventType: 'transaction' as any,
         action: 'create_cashfree_order',
         outcome: 'failure',
         riskLevel: 'high',
@@ -258,7 +258,7 @@ export function registerPaymentPart1Routes(app: Express): void {
       }
 
       complianceMonitor.logEvent({
-        eventType: 'payment',
+        eventType: 'transaction' as any,
         action: 'check_cashfree_status',
         resource: orderId,
         outcome: 'success',
@@ -347,7 +347,7 @@ export function registerPaymentPart1Routes(app: Express): void {
       }
 
       complianceMonitor.logEvent({
-        eventType: 'payment',
+        eventType: 'transaction' as any,
         action: 'cashfree_webhook',
         resource: order_id,
         outcome: 'success',
@@ -411,7 +411,7 @@ export function registerPaymentPart1Routes(app: Express): void {
       }
 
       complianceMonitor.logEvent({
-        eventType: 'payment',
+        eventType: 'transaction' as any,
         action: 'phonepe_callback',
         resource: merchantTransactionId,
         outcome: 'success',
@@ -500,7 +500,7 @@ export function registerPaymentPart1Routes(app: Express): void {
       });
 
       complianceMonitor.logEvent({
-        eventType: 'payment',
+        eventType: 'transaction' as any,
         action: 'create_phonepe_order',
         resource: orderResponse.orderId!,
         outcome: 'success',
@@ -520,7 +520,7 @@ export function registerPaymentPart1Routes(app: Express): void {
     } catch (error) {
       console.error('Error creating PhonePe order:', error);
       complianceMonitor.logEvent({
-        eventType: 'payment',
+        eventType: 'transaction' as any,
         action: 'create_phonepe_order',
         outcome: 'failure',
         riskLevel: 'high',
@@ -561,7 +561,7 @@ export function registerPaymentPart1Routes(app: Express): void {
       }
 
       complianceMonitor.logEvent({
-        eventType: 'payment',
+        eventType: 'transaction' as any,
         action: 'check_phonepe_status',
         resource: orderId,
         outcome: 'success',

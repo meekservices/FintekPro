@@ -15,7 +15,7 @@ export function registerAgentCapitalGainPart2Part1Routes(app: Express): void {
       res.set("Cache-Control", "no-cache, no-store");
 
       // Get clients assigned to this agent with full user data in single query
-      const clientRelationships = await storage.getClientsForAgent(req.user.id);
+      const clientRelationships = await storage.getClientsForAgent(req.user!.id);
       
       console.log("[Agent Clients] Client relationships found:", clientRelationships.length);
       // Get client IDs for batch fetching
@@ -47,7 +47,7 @@ export function registerAgentCapitalGainPart2Part1Routes(app: Express): void {
         const portfolioValues = await db
           .select({
             userId: schema.portfolios.userId,
-            totalValue: sql<number>`COALESCE(SUM(CAST(${schema.portfolios.currentValue} AS NUMERIC)), 0)`,
+            totalValue: sql<number>`COALESCE(SUM(CAST(${(schema.portfolios as any).currentValue} AS NUMERIC)), 0)`,
           })
           .from(schema.portfolios)
           .where(inArray(schema.portfolios.userId, clientIds))
@@ -90,8 +90,8 @@ export function registerAgentCapitalGainPart2Part1Routes(app: Express): void {
       // Get prospects/leads entered by this agent from prospect_clients table
       const prospects = await db.select()
         .from(prospectClients)
-        .where(eq(prospectClients.agentId, req.user.id));
-      console.log("[Agent Clients] Prospects found:", prospects.length, "for agent:", req.user.id);
+        .where(eq(prospectClients.agentId, req.user!.id));
+      console.log("[Agent Clients] Prospects found:", prospects.length, "for agent:", req.user!.id);
       
       // Map prospects to match the client interface format
       const prospectsMapped = prospects.map(prospect => {
@@ -172,14 +172,14 @@ export function registerAgentCapitalGainPart2Part1Routes(app: Express): void {
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date()
-      }).returning();
+      } as any).returning();
       
       // Create agent-client relationship
       await db.insert(clientAgentRelationships).values({
-        agentId: req.user.id,
+        agentId: req.user!.id,
         clientId: newClient.id,
-        relationshipType: "assigned",
-        status: "active",
+        relationshipType: "assigned" as any,
+        status: "active" as any,
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date()
@@ -206,7 +206,7 @@ export function registerAgentCapitalGainPart2Part1Routes(app: Express): void {
   // Get agent statistics
   app.get("/api/agent/stats", requireAgent, async (req, res) => {
     try {
-      const agentId = req.user.id;
+      const agentId = req.user!.id;
       
       // Get basic stats from existing data
       const clientRelationships = await storage.getClientsForAgent(agentId);

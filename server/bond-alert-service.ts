@@ -102,7 +102,7 @@ export async function getUpcomingCoupons(userId: string, daysAhead: number = 30)
 
       upcomingCoupons.push({
         holdingId: holding.id,
-        userId: holding.userId,
+        userId: holding.userId ?? '',
         isin: holding.isin,
         bondName: holding.bondName,
         couponRate,
@@ -146,7 +146,7 @@ export async function getMaturityAlerts(userId: string, daysAhead: number = 90):
 
       alerts.push({
         holdingId: holding.id,
-        userId: holding.userId,
+        userId: holding.userId ?? '',
         isin: holding.isin,
         bondName: holding.bondName,
         maturityDate,
@@ -220,10 +220,10 @@ export async function createAlertPreferences(userId: string, preferences: {
         reminderDaysBefore: preferences.alertDaysBefore,
         preferredChannel: preferences.alertChannel,
         updatedAt: new Date(),
-      })
+      } as any)
       .where(eq(fixedIncomeNotificationPrefs.userId, userId));
   } else {
-    await db.insert(fixedIncomeNotificationPrefs).values({
+    await (db.insert(fixedIncomeNotificationPrefs) as any).values({
       id: `ALP-${Date.now()}`,
       userId,
       couponPaymentReminder: preferences.couponAlert ?? true,
@@ -244,7 +244,7 @@ async function sendPendingAlerts(): Promise<void> {
   console.log('[Alert Service] Checking for pending alerts...');
 
   // Get all users with alert preferences
-  const alertPrefs = await db.select().from(fixedIncomeNotificationPrefs);
+  const alertPrefs = await db.select().from(fixedIncomeNotificationPrefs) as any[];
 
   for (const pref of alertPrefs) {
     if (!pref.userId) continue;

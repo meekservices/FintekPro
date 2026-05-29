@@ -244,8 +244,8 @@ export function registerMarketingRoutes(app: any) {
       const messageBody = campaign.whatsappMessage || campaign.name;
 
       for (const recipient of recipients) {
-        if (recipient.mobile) {
-          const result = await twilioWhatsAppService.sendMessage(recipient.mobile, messageBody);
+        if ((recipient as any).mobile) {
+          const result = await twilioWhatsAppService.sendMessage((recipient as any).mobile, messageBody);
           if (result.success) {
             successCount++;
           } else {
@@ -1742,7 +1742,7 @@ export function registerMarketingRoutes(app: any) {
         for (const recipient of smsRecipients) {
           try {
             const personalizedMessage = smsMessage.replace(/\{name\}/g, recipient.name || 'Valued Customer');
-            await smsMarketingService.sendSMS(recipient.mobile, personalizedMessage);
+            await (smsMarketingService as any).sendSMS(recipient.mobile, personalizedMessage);
             smsSent++;
           } catch (e) {
             smsFailed++;
@@ -1989,7 +1989,7 @@ export function registerMarketingRoutes(app: any) {
           } else {
             // Update existing record
             await db.update(clientIntelligence)
-              .set({ synced: true, updatedAt: new Date() })
+              .set({ synced: true, updatedAt: new Date() } as any)
               .where(eq(clientIntelligence.userId, user.id));
             syncedCount++;
           }
@@ -2044,7 +2044,7 @@ export function registerMarketingRoutes(app: any) {
       } else {
         // Update existing record
         await db.update(clientIntelligence)
-          .set({ synced: true, updatedAt: new Date() })
+          .set({ synced: true, updatedAt: new Date() } as any)
           .where(eq(clientIntelligence.userId, userId));
       }
 

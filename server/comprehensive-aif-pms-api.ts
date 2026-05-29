@@ -323,7 +323,7 @@ export class ComprehensiveAIFPMSAPI {
       if (category) {
         conditions.push(eq(pmsMaster.strategy, category));
       }
-      conditions.push(isNotNull(pmsMaster.currentNav));
+      conditions.push(isNotNull((pmsMaster as any).currentNav));
 
       const results = await query.where(and(...conditions)).limit(50);
 
@@ -423,7 +423,7 @@ export class ComprehensiveAIFPMSAPI {
         quantitativeFactors: [],
         portfolioConstruction: '',
         rebalancingFrequency: '',
-      },
+      } as any,
       pastPerformance: {
         '1M': 0,
         '3M': 0,
@@ -440,7 +440,8 @@ export class ComprehensiveAIFPMSAPI {
       performanceFee: parseFloat(pms.performanceFee) || 0,
       exitLoad: parseFloat(pms.exitLoad) || 0,
       topHoldings: pms.topHoldings || [],
-      sectorAllocation: pms.sectorAllocation || [],
+      // sectorAllocation removed
+      ...(pms.sectorAllocation ? { sectorAllocation: pms.sectorAllocation } as any : {}),
       riskMetrics: {
         volatility: parseFloat(pms.volatility) || 0,
         sharpeRatio: parseFloat(pms.sharpeRatio) || 0,
@@ -450,7 +451,7 @@ export class ComprehensiveAIFPMSAPI {
         standardDeviation: 0,
         informationRatio: 0,
         sortinoRatio: 0,
-      },
+      } as any,
       sebiCompliance: {
         registrationDate: pms.launchDate?.toISOString() || '',
         lastAuditDate: '',
@@ -570,7 +571,7 @@ export class ComprehensiveAIFPMSAPI {
         return [];
       }
       
-      return await response.json();
+      return await response.json() as any[];
     } catch (error) {
       console.error('Error fetching PMS World data:', error);
       return [];
@@ -964,6 +965,7 @@ export class ComprehensiveAIFPMSAPI {
   private convertSEBIToPMS(sebiData: any): ComprehensivePMSData {
     return {
       pmsId: `PMS_${sebiData.sebiRegistrationNumber}`,
+      fundTenure: sebiData.fundTenure || '',
       isin: sebiData.isin || `INF${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
       schemaName: sebiData.schemaName,
       sebiRegistrationNumber: sebiData.sebiRegistrationNumber,

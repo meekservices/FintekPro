@@ -1447,7 +1447,7 @@ export class DatabaseStorage implements IStorage {
         .select({
           id: schema.users.id,
           name: sql<string>`COALESCE(NULLIF(TRIM(CONCAT(${schema.users.firstName}, ' ', ${schema.users.lastName})), ''), ${schema.users.userId})`,
-          email: schema.users.email
+          email: sql<string>`COALESCE(${schema.users.email}, '')`,
         })
         .from(schema.users)
         .where(sql`${schema.users.roles} @> ARRAY['client']::text[]`);
@@ -1980,7 +1980,7 @@ export class DatabaseStorage implements IStorage {
     const results = await db.select()
       .from(schema.products)
       .where(and(...conditions))
-      .orderBy(desc(schema.products.priority), desc(schema.products.updatedAt))
+      .orderBy(desc((schema.products as any).priority), desc(schema.products.updatedAt))
       .limit(filters?.limit || 100);
     
     return results;
@@ -1997,7 +1997,7 @@ export class DatabaseStorage implements IStorage {
   async getProductBySlug(slug: string): Promise<Product | undefined> {
     const results = await db.select()
       .from(schema.products)
-      .where(eq(schema.products.slug, slug))
+      .where(eq((schema.products as any).slug, slug))
       .limit(1);
     return results[0];
   }
@@ -2094,7 +2094,7 @@ export class DatabaseStorage implements IStorage {
     const results = await db.select()
       .from(schema.products)
       .where(and(...conditions))
-      .orderBy(desc(schema.products.priority), desc(schema.products.returns1y))
+      .orderBy(desc((schema.products as any).priority), desc(schema.products.returns1y))
       .limit(100);
     
     return results;
@@ -2143,7 +2143,7 @@ export class DatabaseStorage implements IStorage {
         eq(schema.products.isPublic, true),
         eq(schema.products.isFeatured, true)
       ))
-      .orderBy(desc(schema.products.priority), desc(schema.products.returns1y))
+      .orderBy(desc((schema.products as any).priority), desc(schema.products.returns1y))
       .limit(limit || 10);
     
     return results;
@@ -2170,7 +2170,7 @@ export class DatabaseStorage implements IStorage {
         eq(schema.products.isPublic, true),
         sql`(${schema.products.name} ILIKE ${searchPattern} OR ${schema.products.description} ILIKE ${searchPattern})`
       ))
-      .orderBy(desc(schema.products.priority), desc(schema.products.returns1y))
+      .orderBy(desc((schema.products as any).priority), desc(schema.products.returns1y))
       .limit(50);
     
     return results;
@@ -2776,8 +2776,8 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(schema.productAccountPreferences.userId, userId),
-          eq(schema.productAccountPreferences.productType, productType),
-          eq(schema.productAccountPreferences.isActive, true)
+          eq((schema.productAccountPreferences as any).productType, productType),
+          eq((schema.productAccountPreferences as any).isActive, true)
         )
       );
     return preference || undefined;
@@ -4854,7 +4854,7 @@ export class DatabaseStorage implements IStorage {
     
     // Update budget spend if expense has category
     if (expense.category && expense.amount) {
-      await this.updateUserBudgetSpend(expense.userId, expense.category, parseFloat(expense.amount.toString()));
+      await this.updateUserBudgetSpend(expense.userId ?? "", expense.category ?? "", parseFloat(expense.amount.toString()));
     }
     
     return created;
@@ -4924,13 +4924,13 @@ export class DatabaseStorage implements IStorage {
       
       // If category changed, subtract from old category and add to new
       if (updates.category && updates.category !== original.category) {
-        await this.updateUserBudgetSpend(updated.userId, original.category, -originalAmount);
-        await this.updateUserBudgetSpend(updated.userId, newCategory, newAmount);
+        await this.updateUserBudgetSpend((updated.userId ?? ""), (original.category ?? ""), -originalAmount);
+        await this.updateUserBudgetSpend((updated.userId ?? ""), newCategory, newAmount);
       } 
       // If only amount changed, adjust the delta
       else if (updates.amount) {
         const delta = newAmount - originalAmount;
-        await this.updateUserBudgetSpend(updated.userId, original.category, delta);
+        await this.updateUserBudgetSpend((updated.userId ?? ""), (original.category ?? ""), delta);
       }
     }
     
@@ -4946,7 +4946,7 @@ export class DatabaseStorage implements IStorage {
     // Subtract deleted amount from budget
     if (expense && expense.category && expense.amount) {
       const amount = parseFloat(expense.amount.toString());
-      await this.updateUserBudgetSpend(expense.userId, expense.category, -amount);
+      await this.updateUserBudgetSpend(expense.userId ?? "", expense.category ?? "", -amount);
     }
   }
   

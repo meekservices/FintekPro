@@ -20,14 +20,14 @@ export class InvestorSync {
         throw new Error('User not found');
       }
 
-      if (!user.pan) {
+      if (!(user as any).pan && !(user as any).panNumber) {
         throw new Error('User PAN is required for IRIS sync');
       }
 
       // 2. Map data to IRIS payload
       const payload = {
-        pan: user.pan,
-        name: user.name || `${user.firstName} ${user.lastName}`,
+        pan: (user as any).pan || (user as any).panNumber,
+        name: (user as any).name || `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim(),
         email: user.email,
         mobile: user.mobile,
         // ... other required fields mapping

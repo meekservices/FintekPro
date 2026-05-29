@@ -234,7 +234,7 @@ class TruthScreenESignService {
           status: isSuccess ? 'otp_sent' : 'failed',
           apiResponse: data,
           errorMessage: isSuccess ? null : (data?.msg || data?.message || 'eSign initiation failed'),
-        })
+        } as any)
         .where(eq(esignRequests.transactionId, transactionId));
 
       return {
@@ -256,7 +256,7 @@ class TruthScreenESignService {
       }
 
       await db.update(esignRequests)
-        .set({ status: 'failed', errorMessage: error.message })
+        .set({ status: 'failed', errorMessage: error.message } as any)
         .where(eq(esignRequests.transactionId, transactionId));
 
       if (error instanceof AppError) throw error;
@@ -319,7 +319,7 @@ class TruthScreenESignService {
             status: 'completed',
             completedAt: new Date(),
             apiResponse: data,
-          })
+          } as any)
           .where(eq(esignRequests.transactionId, transactionId));
 
         if (data.certificateSerial || data.certificate_serial) {
@@ -472,7 +472,7 @@ class TruthScreenESignService {
       });
 
       await db.update(esignRequests)
-        .set({ status: 'completed', completedAt: signedAt, certificateId })
+        .set({ status: 'completed', completedAt: signedAt, certificateId } as any)
         .where(eq(esignRequests.transactionId, request.transactionId));
 
       return {

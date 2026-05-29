@@ -1115,7 +1115,7 @@ async function fetchPythonReturns(nseSymbol: string): Promise<{ returns1M: numbe
 
     const raw = result.raw ?? {};
     const pf = (v: any) => (v !== null && v !== undefined && !isNaN(Number(v)) ? Number(v) : null);
-    const returns = { returns1M: pf(raw.return_1m), returns6M: pf(raw.return_6m), returns1Y: pf(raw.return_1y) };
+    const returns = { returns1M: pf((raw as any).return_1m), returns6M: pf((raw as any).return_6m), returns1Y: pf((raw as any).return_1y) };
     console.log(
       `[ResearchNote] Python returns ${nseSymbol}: 1M=${returns.returns1M !== null ? (returns.returns1M * 100).toFixed(1) + "%" : "N/A"}, ` +
       `6M=${returns.returns6M !== null ? (returns.returns6M * 100).toFixed(1) + "%" : "N/A"}, ` +
@@ -1160,7 +1160,7 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
       debtToEquity: null, revenueGrowth: null, earningsGrowth: null, beta: null,
       operatingCashFlow: null, freeCashFlow: null, revenue: null, netIncome: null,
       operatingMargin: null, returns1M: null, returns6M: null, returns1Y: null,
-      lastUpdated: null,
+      lastUpdated: null, existsInListedStocks: false,
     };
 
   // Step 3: DB-first decision — only scrape Screener.in if DB data is stale/missing
@@ -1168,6 +1168,9 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
     roe: null, roce: null, dividendYield: null, bookValue: null,
     revenueGrowth: null, earningsGrowth: null, debtToEquity: null, pe: null, pb: null,
     revenue: null, netIncome: null, operatingCashFlow: null, freeCashFlow: null, operatingMargin: null,
+    plHistory: null, bsHistory: null, cfHistory: null, ratiosHistory: null, quarterlyHistory: null,
+    companyDescription: null, salesCagr3Y: null, salesCagr5Y: null, profitCagr3Y: null, profitCagr5Y: null,
+    pros: [], cons: [],
   };
 
   let fundamentalsSource: FundamentalsSource;
@@ -1283,7 +1286,7 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
     console.log(
       `[ResearchNote] Fetched ${symbol} — ₹${data.price} | ROE:${data.roe !== null ? (data.roe * 100).toFixed(1) + "%" : "N/A"} | Rev:${data.revenue !== null ? "₹" + data.revenue.toFixed(0) + "Cr" : "N/A"} | OPM:${data.operatingMargin !== null ? (data.operatingMargin * 100).toFixed(1) + "%" : "N/A"} | src:${fundamentalsSource.source}`
     );
-    return { ...data, _fundamentalsSource: fundamentalsSource, _screenerData: screener };
+    return { ...data, _fundamentalsSource: fundamentalsSource, _screenerData: screener } as any;
   }
 
   console.warn(`[ResearchNote] NSE failed for ${nseSymbol}:`, (nseResult as any).reason?.message);
@@ -1323,9 +1326,9 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
       cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
       return {
         ...data,
-        _fundamentalsSource: { source: "SCREENER_DIRECT", scrapedAt: new Date().toISOString(), ageHours: 0 },
+        _fundamentalsSource: { source: "SCREENER_LIVE" as const, scrapedAt: new Date().toISOString(), ageHours: 0 },
         _screenerData: directScreener,
-      };
+      } as any;
     }
   } catch (e: any) {
     console.warn(`[ResearchNote] Screener direct fallback threw for ${nseSymbol}:`, e?.message);
@@ -1345,7 +1348,7 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
         ageHours: dbData.lastUpdated ? Math.round((Date.now() - dbData.lastUpdated.getTime()) / 36000) / 100 : null,
       },
       _screenerData: screener,
-    };
+    } as any;
   }
 
   throw new Error(`Could not fetch financial data for ${symbol}. Please try again.`);

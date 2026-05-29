@@ -99,8 +99,8 @@ router.post('/admin/refresh-company-data/:companyId', requireAdmin, async (req: 
           // Update company with MCA data
           const companyUpdate = mcaService.toFintekProCompanyData(mcaData);
           await storage.updateUnlistedCompany(companyId, {
-            industry: companyUpdate.industry || companyData.industry,
-            sector: companyUpdate.sector || companyData.sector,
+            industry: companyUpdate.industry || (companyData as any).industry,
+            sector: companyUpdate.sector || (companyData as any).sector,
             faceValue: companyUpdate.faceValue || companyData.faceValue,
             totalShares: companyUpdate.totalShares ? parseInt(companyUpdate.totalShares) : companyData.totalShares,
             description: companyUpdate.registeredAddress || companyData.description,
@@ -363,8 +363,8 @@ router.post('/admin/auto-enrich/:companyId', requireAdmin, async (req: Request, 
     let enrichmentSource = 'none';
     
     // Check if enrichment is needed
-    const needsSectorEnrich = !companyData.sector || companyData.sector.toLowerCase().includes('unknown');
-    const needsIndustryEnrich = !companyData.industry || companyData.industry.toLowerCase().includes('unknown');
+    const needsSectorEnrich = !(companyData as any).sector || (companyData as any).sector.toLowerCase().includes('unknown');
+    const needsIndustryEnrich = !(companyData as any).industry || (companyData as any).industry.toLowerCase().includes('unknown');
     
     if (!needsSectorEnrich && !needsIndustryEnrich) {
       return apiResponse.success(res, {
@@ -391,7 +391,7 @@ router.post('/admin/auto-enrich/:companyId', requireAdmin, async (req: Request, 
           let bestScore = 0;
           
           for (const result of credhiveResults) {
-            const resultNameLower = result.name.toLowerCase().replace(/\s+/g, ' ').trim();
+            const resultNameLower = (result as any).name.toLowerCase().replace(/\s+/g, ' ').trim();
             // Simple word match scoring
             const searchWords = searchNameLower.split(' ');
             const resultWords = resultNameLower.split(' ');
@@ -499,7 +499,7 @@ router.post('/admin/auto-enrich/:companyId', requireAdmin, async (req: Request, 
             updateData.sector = mcaCompanyData.sector;
             enrichedFields.push({
               field: 'sector',
-              oldValue: companyData.sector || 'Unknown',
+              oldValue: (companyData as any).sector || 'Unknown',
               newValue: mcaCompanyData.sector,
               source: 'MCA'
             });
@@ -510,7 +510,7 @@ router.post('/admin/auto-enrich/:companyId', requireAdmin, async (req: Request, 
             updateData.industry = mcaCompanyData.industry;
             enrichedFields.push({
               field: 'industry',
-              oldValue: companyData.industry || 'Unknown',
+              oldValue: (companyData as any).industry || 'Unknown',
               newValue: mcaCompanyData.industry,
               source: 'MCA'
             });
@@ -579,7 +579,7 @@ router.post('/admin/auto-enrich/:companyId', requireAdmin, async (req: Request, 
             updateData.sector = credhiveDetails.sector;
             enrichedFields.push({
               field: 'sector',
-              oldValue: companyData.sector || 'Unknown',
+              oldValue: (companyData as any).sector || 'Unknown',
               newValue: credhiveDetails.sector,
               source: 'CredHive'
             });
@@ -589,7 +589,7 @@ router.post('/admin/auto-enrich/:companyId', requireAdmin, async (req: Request, 
             updateData.industry = credhiveDetails.industry;
             enrichedFields.push({
               field: 'industry',
-              oldValue: companyData.industry || 'Unknown',
+              oldValue: (companyData as any).industry || 'Unknown',
               newValue: credhiveDetails.industry,
               source: 'CredHive'
             });
@@ -628,7 +628,7 @@ router.post('/admin/auto-enrich/:companyId', requireAdmin, async (req: Request, 
             updateData.sector = nicClassification.sector;
             enrichedFields.push({
               field: 'sector',
-              oldValue: companyData.sector || 'Unknown',
+              oldValue: (companyData as any).sector || 'Unknown',
               newValue: nicClassification.sector,
               source: 'NIC Classification (Derived from CIN)'
             });
@@ -638,7 +638,7 @@ router.post('/admin/auto-enrich/:companyId', requireAdmin, async (req: Request, 
             updateData.industry = nicClassification.industry;
             enrichedFields.push({
               field: 'industry',
-              oldValue: companyData.industry || 'Unknown',
+              oldValue: (companyData as any).industry || 'Unknown',
               newValue: nicClassification.industry,
               source: 'NIC Classification (Derived from CIN)'
             });

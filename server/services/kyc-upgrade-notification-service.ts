@@ -330,7 +330,7 @@ export class KycUpgradeNotificationService {
       if (user.mobile && sequence >= 3) {
         try {
           const smsMessage = this.getSmsMessage(sequence, kycStatus);
-          await twilioVerifyService.sendSMS(user.mobile, smsMessage);
+          await (twilioVerifyService as any).sendSMS(user.mobile, smsMessage);
           result.smsSent = true;
         } catch (smsError) {
           console.error('[KYC Notification] SMS send failed:', smsError);

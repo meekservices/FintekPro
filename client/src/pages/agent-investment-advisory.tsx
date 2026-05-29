@@ -199,6 +199,7 @@ interface Client {
   uuid: string;
   firstName: string;
   lastName: string;
+  name?: string | null;
   email?: string | null;
   mobile?: string | null;
   phone?: string | null;

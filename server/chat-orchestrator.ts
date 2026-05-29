@@ -109,7 +109,7 @@ Compliance Rules:
       isActive: true,
       lastMessageAt: new Date(),
       messageCount: 0,
-    });
+    } as any);
 
     // Create welcome message
     const welcomeMessage = await this.createAssistantMessage(

@@ -82,7 +82,7 @@ router.post('/api/mf-orders/:id/suitability-ack', isAuthenticated, async (req: R
       signatureType: signatureType || 'checkbox',
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
-    }).returning();
+    } as any).returning();
 
     await db.update(mfOrders)
       .set({
@@ -282,7 +282,7 @@ router.get('/api/mf-orders/:id/contract-note', isAuthenticated, async (req: Requ
     
     const contractNote = {
       contractNoteNumber,
-      tradeDate: order.order.navAppliedDate || (order.order as any).executedAt || order.order.createdAt,
+      tradeDate: order.order.navApplied || (order.order as any).executedAt || order.order.createdAt,
       settlementDate: order.order.settledAt || null,
       client: {
         name: `${order.user?.firstName || ''} ${order.user?.lastName || ''}`.trim() || 'N/A',
@@ -294,19 +294,19 @@ router.get('/api/mf-orders/:id/contract-note', isAuthenticated, async (req: Requ
         isin: order.order.isin || 'N/A',
         amcCode: (order.order as any).amcCode || 'N/A',
         schemeCode: order.order.schemeCode,
-        option: order.order.option || 'growth',
+        option: (order.order as any).option || 'growth',
         planType: order.order.planType || 'direct',
       },
       transaction: {
         type: order.order.orderType,
-        folioNumber: order.order.folioNumber || 'New Folio',
+        folioNumber: (order.order as any).folioNumber || 'New Folio',
         amount: order.order.amount,
         units: order.order.units || '0',
         nav: order.order.navApplied || '0',
         stampDuty: order.order.stampDuty || '0',
-        stt: order.order.stt || '0',
-        exitLoad: order.order.exitLoad || '0',
-        netAmount: order.order.netAmount || order.order.amount,
+        stt: (order.order as any).stt || '0',
+        exitLoad: (order.order as any).exitLoad || '0',
+        netAmount: (order.order as any).netAmount || order.order.amount,
       },
       broker: {
         name: 'FintekPro Financial Services',
@@ -425,9 +425,9 @@ router.get('/api/admin/mf-orders/reconciliation', isAuthenticated, async (req: R
         amount: o.amount,
         units: o.units,
         navApplied: o.navApplied,
-        bseOrderNumber: o.bseOrderNumber,
+        bseOrderNumber: (o as any).bseOrderNumber,
         createdAt: o.createdAt,
-        executedAt: o.executedAt,
+        executedAt: (o as any).executedAt,
         settledAt: o.settledAt,
       })),
     });
@@ -607,8 +607,8 @@ router.get('/api/mf-orders/:id/settlement-status', isAuthenticated, async (req: 
     }
 
     let expectedSettlementDate: Date | null = null;
-    if (order.navAppliedDate) {
-      expectedSettlementDate = new Date(order.navAppliedDate);
+    if (order.navApplied) {
+      expectedSettlementDate = new Date(order.navApplied);
       if (['buy', 'lumpsum', 'sip'].includes(order.orderType || '')) {
         expectedSettlementDate.setDate(expectedSettlementDate.getDate() + 2);
       } else if (['sell', 'redemption', 'swp', 'switch'].includes(order.orderType || '')) {

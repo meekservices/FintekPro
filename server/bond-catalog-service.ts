@@ -224,12 +224,12 @@ export class BondCatalogService {
       if (existing.length > 0) {
         await db
           .update(corporateBonds)
-          .set(bondData)
+          .set(bondData as any)
           .where(eq(corporateBonds.isin, bond.isin));
       } else {
         await db
           .insert(corporateBonds)
-          .values(bondData);
+          .values(bondData as any);
       }
     }
     
@@ -553,12 +553,12 @@ export class BondCatalogService {
         if (existing.length > 0) {
           await db
             .update(corporateBonds)
-            .set(bondData)
+            .set(bondData as any)
             .where(eq(corporateBonds.isin, isin));
         } else {
           await db
             .insert(corporateBonds)
-            .values(bondData);
+            .values(bondData as any);
         }
         
         console.log(`✅ Refreshed corporate bond ${isin}`);

@@ -247,7 +247,7 @@ class UnifiedESignService {
 
       if (existing) {
         await db.update(systemConfigs)
-          .set({ value: configValue, updatedAt: new Date() })
+          .set({ value: configValue, updatedAt: new Date() } as any)
           .where(eq(systemConfigs.key, UnifiedESignService.CONFIG_KEY));
       } else {
         await db.insert(systemConfigs).values({
@@ -310,7 +310,7 @@ class UnifiedESignService {
 
       if (existing) {
         await db.update(systemConfigs)
-          .set({ value: pricingValue, updatedAt: new Date() })
+          .set({ value: pricingValue, updatedAt: new Date() } as any)
           .where(eq(systemConfigs.key, pricingKey));
       } else {
         await db.insert(systemConfigs).values({

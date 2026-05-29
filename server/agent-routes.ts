@@ -441,10 +441,7 @@ router.post("/register", async (req, res) => {
         distributorName: arnValidation?.distributorDetails?.distributorName,
         distributorStatus: arnValidation?.distributorDetails?.distributorStatus,
         arnExpiryDate: arnValidation?.distributorDetails?.arnExpiryDate,
-        registrationDate: arnValidation?.distributorDetails?.registrationDate,
-        ipAddress: req.ip,
-        userAgent: req.get("User-Agent"),
-      });
+      } as any);
     }
 
     if (euinNumber) {
@@ -456,9 +453,7 @@ router.post("/register", async (req, res) => {
         apiResponse: euinValidation,
         verificationStatus: euinValidation?.status || "failed",
         errorMessage: euinValidation?.errorMessage,
-        ipAddress: req.ip,
-        userAgent: req.get("User-Agent"),
-      });
+      } as any);
     }
 
     // Sync agent to Zoho CRM as Lead (pending approval)

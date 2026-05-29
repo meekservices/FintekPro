@@ -124,7 +124,7 @@ async function sendSMSReminder(
   try {
     console.log(`[Re-KYC SMS] Sending to ${mobile}`);
     
-    const result = await smsService.sendSMS({
+    const result = await (smsService as any).sendSMS({
       to: mobile,
       message: content.smsBody,
     });

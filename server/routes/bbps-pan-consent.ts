@@ -116,7 +116,7 @@ app.get("/api/bbps/bills", async (req, res) => {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    const bills = await BBPSService.getUserBills(req.user.id);
+    const bills = await BBPSService.getUserBills(req.user!.id);
     res.json(bills);
   } catch (error) {
     console.error("Error fetching user bills:", error);
@@ -131,7 +131,7 @@ app.get("/api/bbps/transactions", async (req, res) => {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    const transactions = await BBPSService.getUserTransactions(req.user.id);
+    const transactions = await BBPSService.getUserTransactions(req.user!.id);
     res.json(transactions);
   } catch (error) {
     console.error("Error fetching transactions:", error);
@@ -154,7 +154,7 @@ app.get("/api/bbps/transactions/:transactionId/status", async (req, res) => {
     }
 
     // Check if transaction belongs to the authenticated user
-    if (transaction.userId !== req.user.id) {
+    if (transaction.userId !== req.user!.id) {
       return res.status(403).json({ error: "Access denied" });
     }
 

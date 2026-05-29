@@ -169,9 +169,9 @@ async function transferProspectPortfolioToUser(userId: string): Promise<void> {
   }
   
   // Fallback: Try matching by mobile
-  if (!matchingProspect && user.mobileNumber) {
+  if (!matchingProspect && (user as any).mobileNumber) {
     matchingProspect = await db.query.prospectClients.findFirst({
-      where: eq(prospectClients.mobile, user.mobileNumber),
+      where: eq(prospectClients.mobile, (user as any).mobileNumber),
     });
     if (matchingProspect) {
       console.log('[KYC Completion] Found prospect by mobile match');
@@ -244,7 +244,8 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
         await db
           .update(schema.portfolios)
           .set({
-            lastFetchStatus: 'skipped',
+            lastFetchedAt: new Date(),
+          // lastFetchStatus_REMOVED: 'skipped',
             lastFetchError: 'No PAN available for CAS fetch',
             updatedAt: new Date()
           })
@@ -264,7 +265,8 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
         await db
           .update(schema.portfolios)
           .set({
-            lastFetchStatus: 'skipped',
+            lastFetchedAt: new Date(),
+          // lastFetchStatus_REMOVED: 'skipped',
             lastFetchError: 'User record not found',
             updatedAt: new Date()
           })
@@ -280,7 +282,8 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
         await db
           .update(schema.portfolios)
           .set({
-            lastFetchStatus: 'skipped',
+            lastFetchedAt: new Date(),
+          // lastFetchStatus_REMOVED: 'skipped',
             lastFetchError: 'Missing required user data (name or DOB)',
             updatedAt: new Date()
           })
@@ -298,7 +301,7 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
         panNumber: panNumber,
         name: userName,
         dob: user.dateOfBirth,
-        mobile: user.mobileNumber || undefined,
+        mobile: (user as any).mobileNumber || undefined,
         email: user.email || undefined
       };
       
@@ -323,7 +326,8 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
         await db
           .update(schema.portfolios)
           .set({
-            lastFetchStatus: 'failed',
+            lastFetchedAt: new Date(),
+          // lastFetchStatus_REMOVED: 'failed',
             lastFetchError: casResult?.message || dematResult?.message || 'All data sources failed',
             updatedAt: new Date()
           })
@@ -339,7 +343,8 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
         await db
           .update(schema.portfolios)
           .set({
-            lastFetchStatus: 'success',
+            lastFetchedAt: new Date(),
+          // lastFetchStatus_REMOVED: 'success',
             lastFetchError: null,
             lastFetchedAt: new Date(),
             updatedAt: new Date()
@@ -372,7 +377,8 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
               totalValue: casResult.totalValue.toString(),
               source: 'cas_fetch',
               lastFetchedAt: new Date(),
-              lastFetchStatus: 'success',
+              lastFetchedAt: new Date(),
+          // lastFetchStatus_REMOVED: 'success',
               lastFetchError: null,
               isVerified: true,
               createdAt: new Date(),
@@ -402,7 +408,8 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
               totalValue: casResult.totalValue.toString(),
               source: 'cas_fetch',
               lastFetchedAt: new Date(),
-              lastFetchStatus: 'success',
+              lastFetchedAt: new Date(),
+          // lastFetchStatus_REMOVED: 'success',
               lastFetchError: null,
               isVerified: true,
               updatedAt: new Date()
@@ -708,7 +715,8 @@ function triggerPortfolioRefresh(userId: string, panNumber?: string | null): voi
         await db
           .update(schema.portfolios)
           .set({
-            lastFetchStatus: 'failed',
+            lastFetchedAt: new Date(),
+          // lastFetchStatus_REMOVED: 'failed',
             lastFetchError: error instanceof Error ? error.message : 'Unknown error',
             updatedAt: new Date()
           })

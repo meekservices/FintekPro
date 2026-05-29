@@ -1562,11 +1562,8 @@ export default function AgentESignPage() {
                 <div className="w-1/2">
                   <DocumentAnnotationsPanel
                     documentId={currentDocumentId}
-                    currentUserId="agent-1"
-                    currentUserName="Current Agent"
-                    onAnnotationClick={(annotation) => {
-                      console.log('Annotation clicked:', annotation);
-                    }}
+                    userName="Current Agent"
+                    userType="agent"
                   />
                 </div>
               )}
@@ -1575,9 +1572,7 @@ export default function AgentESignPage() {
               <div className="flex-1">
                 <SigningMethodSelector
                   selectedMethod={selectedSigningMethod}
-                  onMethodChange={setSelectedSigningMethod}
-                  documentType={documentType || 'investment_agreement'}
-                  className="w-full"
+                  onSelect={setSelectedSigningMethod}
                 />
               </div>
               <div className="flex gap-2">

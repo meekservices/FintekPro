@@ -274,7 +274,7 @@ export async function setGlobalAdvisoryHeaders(req: Request, res: Response, next
       
       if (market) {
         res.setHeader("X-Advisory-Level", market.advisoryLevel);
-        res.setHeader("X-Execution-Allowed", market.executionAllowed.toString());
+        res.setHeader("X-Execution-Allowed", (market.executionAllowed ?? false).toString());
         res.setHeader("X-Market-Code", marketCode);
         res.setHeader("X-Market-Name", market.marketName);
       }

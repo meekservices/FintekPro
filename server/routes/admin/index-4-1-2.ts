@@ -126,13 +126,13 @@ export function registerAdminPanelPart4Sub1Sub2Routes(app: Express): void {
         triggerredBy: 'care_agent'
       };
       
-      const notification = await storage.createNotificationTrigger(notificationData);
+      const notification = await storage.createCkycNotificationTrigger(notificationData);
       
       // For agent-created notifications, mark them as sent immediately
       // In a real implementation, you'd queue them for actual delivery
       setTimeout(async () => {
         try {
-          await storage.updateNotificationTrigger(notification.id, {
+          await (storage as any).updateNotificationTrigger(notification.id, {
             status: 'sent',
             sentAt: new Date()
           });

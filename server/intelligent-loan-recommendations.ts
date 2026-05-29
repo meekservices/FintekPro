@@ -710,8 +710,8 @@ export async function trackLoanRecommendationAction(req: Request, res: Response)
     try {
       await storage.updateUser(req.user.id, {
         lastActivity: new Date().toISOString(),
-        engagementScore: (await storage.getUserProfile(req.user.id))?.engagementScore + 1 || 1
-      });
+        engagementScore: (await storage.getUserProfile(req.user.id) as any)?.engagementScore + 1 || 1
+      } as any);
     } catch (error) {
       console.error('Error updating user engagement:', error);
     }

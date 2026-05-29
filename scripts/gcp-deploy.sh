@@ -30,7 +30,7 @@ echo "📝 Checking GCP configuration..."
 echo "🏗️  Building and pushing image to Artifact Registry..."
 IMAGE_URL="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$SERVICE_NAME:latest"
 
-gcloud builds submit --tag $IMAGE_URL .
+gcloud builds submit --tag $IMAGE_URL --timeout=30m .
 
 # 3. Deploy to Cloud Run
 echo "🚀 Deploying to Cloud Run..."

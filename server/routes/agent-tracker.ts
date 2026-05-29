@@ -14,7 +14,7 @@ import { irisKfintechService } from "../services/iris-kfintech-service";
 
 const router = Router();
 
-interface AuthRequest extends Request {
+interface AuthRequest extends Request<any, any, any, any> {
   user?: {
     id: string;
     firstName?: string;

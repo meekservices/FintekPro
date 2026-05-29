@@ -16,16 +16,16 @@ import { logSuspiciousTransaction, checkSuspiciousValues } from "../utils/compli
 export function registerInvestmentIdeasRoutes(app: Express): void {
 app.get('/api/investment-ideas', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const ideas = await storage.getActiveInvestmentIdeas(req.session.user.id);
+    const ideas = await storage.getActiveInvestmentIdeas((req.session as any).user.id);
     complianceMonitor.logEvent({ 
       eventType: 'data_access',
       action: 'read_investment_ideas', 
-      resource: req.session.user.id,
-      userId: req.session.user.id,
+      resource: (req.session as any).user.id,
+      userId: (req.session as any).user.id,
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
       outcome: 'success', 
@@ -38,7 +38,7 @@ app.get('/api/investment-ideas', async (req, res) => {
     complianceMonitor.logEvent({ 
       eventType: 'data_access',
       action: 'read_investment_ideas', 
-      userId: req.session?.user?.id,
+      userId: (req.session as any)?.user?.id,
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
       outcome: 'failure',
@@ -52,7 +52,7 @@ app.get('/api/investment-ideas', async (req, res) => {
 // Generate new investment recommendations
 app.post('/api/investment-ideas/generate', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -61,13 +61,13 @@ app.post('/api/investment-ideas/generate', async (req, res) => {
       return res.status(400).json({ message: 'Symbols array is required' });
     }
 
-    const recommendations = await smartInvestmentService.getMarketRecommendations(symbols, req.session.user.id);
+    const recommendations = await smartInvestmentService.getMarketRecommendations(symbols, (req.session as any).user.id);
     
     complianceMonitor.logEvent({ 
       eventType: 'data_access',
       action: 'generate_investment_ideas', 
       resource: symbols.join(','),
-      userId: req.session.user.id,
+      userId: (req.session as any).user.id,
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
       outcome: 'success', 
@@ -80,7 +80,7 @@ app.post('/api/investment-ideas/generate', async (req, res) => {
     complianceMonitor.logEvent({ 
       eventType: 'data_access',
       action: 'generate_investment_ideas', 
-      userId: req.session?.user?.id,
+      userId: (req.session as any)?.user?.id,
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
       outcome: 'failure',
@@ -94,24 +94,24 @@ app.post('/api/investment-ideas/generate', async (req, res) => {
 // Save investment idea
 app.post('/api/investment-ideas', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
     const ideaData = insertInvestmentIdeaSchema.parse({
       ...req.body,
-      userId: req.session.user.id
+      userId: (req.session as any).user.id
     });
 
     // Regulatory Hardening: Data Integrity Guard
     const amount = parseFloat(ideaData.recommendedInvestment || "0");
     const suspiciousCheck = checkSuspiciousValues(amount);
     if (suspiciousCheck.isSuspicious) {
-      logSuspiciousTransaction(req.session.user.id, amount, suspiciousCheck.reason!);
+      logSuspiciousTransaction((req.session as any).user.id, amount, suspiciousCheck.reason!);
       complianceMonitor.logEvent({ 
         eventType: 'compliance_warning', 
         action: 'suspicious_value_detected', 
-        userId: req.session.user.id,
+        userId: (req.session as any).user.id,
         details: suspiciousCheck.reason
       });
       // For now we just flag it in logs, but could block it if required by user
@@ -140,7 +140,7 @@ app.post('/api/investment-ideas', async (req, res) => {
 // Get specific investment idea
 app.get('/api/investment-ideas/:id', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -149,7 +149,7 @@ app.get('/api/investment-ideas/:id', async (req, res) => {
       return res.status(404).json({ message: 'Investment idea not found' });
     }
 
-    if (idea.userId !== req.session.user.id) {
+    if (idea.userId !== (req.session as any).user.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -174,7 +174,7 @@ app.get('/api/investment-ideas/:id', async (req, res) => {
 // Update investment idea
 app.put('/api/investment-ideas/:id', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -183,7 +183,7 @@ app.put('/api/investment-ideas/:id', async (req, res) => {
       return res.status(404).json({ message: 'Investment idea not found' });
     }
 
-    if (idea.userId !== req.session.user.id) {
+    if (idea.userId !== (req.session as any).user.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -210,12 +210,12 @@ app.put('/api/investment-ideas/:id', async (req, res) => {
 // Get investment idea tracking data
 app.get('/api/investment-ideas/:id/tracking', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
     const idea = await storage.getInvestmentIdea(req.params.id);
-    if (!idea || idea.userId !== req.session.user.id) {
+    if (!idea || idea.userId !== (req.session as any).user.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -242,15 +242,15 @@ app.get('/api/investment-ideas/:id/tracking', async (req, res) => {
 // Get user alerts
 app.get('/api/investment-alerts', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const alerts = await storage.getInvestmentIdeaAlerts(req.session.user.id);
+    const alerts = await storage.getInvestmentIdeaAlerts((req.session as any).user.id);
     
     complianceMonitor.logEvent({ 
       eventType: 'data_access', action: 'read_investment_alerts', 
-      resource: req.session.user.id,
+      resource: (req.session as any).user.id,
       outcome: 'success', riskLevel: 'low'
     });
     
@@ -269,15 +269,15 @@ app.get('/api/investment-alerts', async (req, res) => {
 // Get unread alerts
 app.get('/api/investment-alerts/unread', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const alerts = await storage.getUnreadAlerts(req.session.user.id);
+    const alerts = await storage.getUnreadAlerts((req.session as any).user.id);
     
     complianceMonitor.logEvent({ 
       eventType: 'data_access', action: 'read_unread_alerts', 
-      resource: req.session.user.id,
+      resource: (req.session as any).user.id,
       outcome: 'success', riskLevel: 'low'
     });
     
@@ -296,7 +296,7 @@ app.get('/api/investment-alerts/unread', async (req, res) => {
 // Mark alert as read
 app.put('/api/investment-alerts/:id/read', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -323,15 +323,15 @@ app.put('/api/investment-alerts/:id/read', async (req, res) => {
 // Get yield trackers
 app.get('/api/yield-tracker', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const trackers = await storage.getYieldTrackers(req.session.user.id);
+    const trackers = await storage.getYieldTrackers((req.session as any).user.id);
     
     complianceMonitor.logEvent({ 
       eventType: 'data_access', action: 'read_yield_trackers', 
-      resource: req.session.user.id,
+      resource: (req.session as any).user.id,
       outcome: 'success', riskLevel: 'low'
     });
     
@@ -350,24 +350,24 @@ app.get('/api/yield-tracker', async (req, res) => {
 // Create yield tracker
 app.post('/api/yield-tracker', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
     const trackerData = insertYieldTrackerSchema.parse({
       ...req.body,
-      userId: req.session.user.id
+      userId: (req.session as any).user.id
     });
 
     // Regulatory Hardening: Data Integrity Guard
     const amount = parseFloat(trackerData.initialInvestment || "0");
     const suspiciousCheck = checkSuspiciousValues(amount);
     if (suspiciousCheck.isSuspicious) {
-      logSuspiciousTransaction(req.session.user.id, amount, suspiciousCheck.reason!);
+      logSuspiciousTransaction((req.session as any).user.id, amount, suspiciousCheck.reason!);
       complianceMonitor.logEvent({ 
         eventType: 'compliance_warning', 
         action: 'suspicious_value_detected', 
-        userId: req.session.user.id,
+        userId: (req.session as any).user.id,
         details: suspiciousCheck.reason
       });
     }
@@ -395,12 +395,12 @@ app.post('/api/yield-tracker', async (req, res) => {
 // Update yield tracker
 app.put('/api/yield-tracker/:id', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
     const tracker = await storage.getYieldTracker(req.params.id);
-    if (!tracker || tracker.userId !== req.session.user.id) {
+    if (!tracker || tracker.userId !== (req.session as any).user.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -453,11 +453,11 @@ app.get('/api/investment-ideas/recommendations/popular', async (req, res) => {
 // Create new yield tracker
 app.post('/api/yield-tracker/create', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const tracker = await yieldTrackerService.createTracker(req.session.user.id, req.body);
+    const tracker = await yieldTrackerService.createTracker((req.session as any).user.id, req.body);
     
     complianceMonitor.logEvent({ 
       eventType: 'data_access', action: 'create_yield_tracker', 
@@ -480,7 +480,7 @@ app.post('/api/yield-tracker/create', async (req, res) => {
 // Update tracker price with market data
 app.put('/api/yield-tracker/:id/price', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -515,7 +515,7 @@ app.put('/api/yield-tracker/:id/price', async (req, res) => {
 // Get yield metrics for tracker
 app.get('/api/yield-tracker/:id/metrics', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -524,7 +524,7 @@ app.get('/api/yield-tracker/:id/metrics', async (req, res) => {
       return res.status(404).json({ message: 'Tracker not found' });
     }
 
-    if (tracker.userId !== req.session.user.id) {
+    if (tracker.userId !== (req.session as any).user.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -552,16 +552,16 @@ app.get('/api/yield-tracker/:id/metrics', async (req, res) => {
 // Get performance analysis
 app.get('/api/yield-tracker/performance-analysis', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
     const { period = '1Y' } = req.query;
-    const analysis = await yieldTrackerService.generatePerformanceAnalysis(req.session.user.id, period as string);
+    const analysis = await yieldTrackerService.generatePerformanceAnalysis((req.session as any).user.id, period as string);
     
     complianceMonitor.logEvent({ 
       eventType: 'data_access', action: 'read_performance_analysis', 
-      resource: req.session.user.id,
+      resource: (req.session as any).user.id,
       outcome: 'success', riskLevel: 'low'
     });
     
@@ -580,19 +580,19 @@ app.get('/api/yield-tracker/performance-analysis', async (req, res) => {
 // Get portfolio yield summary
 app.get('/api/yield-tracker/portfolio-yield', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
     const { portfolioId } = req.query;
     const portfolioYield = await yieldTrackerService.calculatePortfolioYield(
-      req.session.user.id, 
+      (req.session as any).user.id, 
       portfolioId as string
     );
     
     complianceMonitor.logEvent({ 
       eventType: 'data_access', action: 'read_portfolio_yield', 
-      resource: req.session.user.id,
+      resource: (req.session as any).user.id,
       outcome: 'success', riskLevel: 'low'
     });
     
@@ -611,15 +611,15 @@ app.get('/api/yield-tracker/portfolio-yield', async (req, res) => {
 // Get optimization suggestions
 app.get('/api/yield-tracker/optimization-suggestions', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const suggestions = await yieldTrackerService.generateOptimizationSuggestions(req.session.user.id);
+    const suggestions = await yieldTrackerService.generateOptimizationSuggestions((req.session as any).user.id);
     
     complianceMonitor.logEvent({ 
       eventType: 'data_access', action: 'read_optimization_suggestions', 
-      resource: req.session.user.id,
+      resource: (req.session as any).user.id,
       outcome: 'success', riskLevel: 'low'
     });
     
@@ -638,7 +638,7 @@ app.get('/api/yield-tracker/optimization-suggestions', async (req, res) => {
 // Bulk tracker price update (for scheduled updates)
 app.post('/api/yield-tracker/bulk-update', async (req, res) => {
   try {
-    if (!req.session?.user?.id) {
+    if (!(req.session as any)?.user?.id) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 

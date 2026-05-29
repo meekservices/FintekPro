@@ -378,9 +378,9 @@ router.get("/prospects/:id/holdings", async (req: Request, res: Response) => {
               currentValue: portfolioHoldings.currentValue,
               investedValue: portfolioHoldings.investedValue,
               folioNumber: portfolioHoldings.folioNumber,
-              broker: portfolioHoldings.broker,
+              broker: (portfolioHoldings as any).broker,
               purchaseDate: portfolioHoldings.purchaseDate,
-              confidenceScore: portfolioHoldings.confidenceScore,
+              confidenceScore: (portfolioHoldings as any).confidenceScore,
             })
             .from(portfolioHoldings)
             .where(inArray(portfolioHoldings.portfolioId, portfolioIds));

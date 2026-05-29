@@ -78,7 +78,7 @@ class UnifiedPortfolioImportService {
           return {
             id: crypto.randomUUID(),
             isin: h.isin || '',
-            schemeName: h.schemeName,
+            schemeName: h["schemeName"],
             folioNumber: h.folioNumber,
             units: h.units,
             investedValue: h.investedValue || 0,
@@ -444,7 +444,7 @@ class UnifiedPortfolioImportService {
     return holdings.map(h => {
       const unified: UnifiedHolding = {
         id: h.id,
-        name: h.schemeName,
+        name: h["schemeName"],
         isin: h.isin,
         schemeCode: h.schemeCode,
         folioNumber: h.folioNumber,
@@ -983,7 +983,7 @@ class UnifiedPortfolioImportService {
           const enrichment = await holdingNormalizationService.enrichWithISIN(searchTerm);
           if (enrichment.isin) {
             enriched.isin = enrichment.isin;
-            enriched.name = enrichment.schemeName || enriched.name;
+            enriched.name = enrichment["schemeName"] || enriched.name;
             if (enrichment.assetType) {
               enriched.assetType = enrichment.assetType as AssetType;
             }

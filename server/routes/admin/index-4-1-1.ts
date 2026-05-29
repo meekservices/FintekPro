@@ -93,7 +93,7 @@ export function registerAdminPanelPart4Sub1Sub1Routes(app: Express): void {
           severity: "critical",
           message: "Database connection failed - Check DATABASE_URL environment variable and database server status",
           action: "Restart database service or verify connection string"
-        });
+        } as any);
       }
 
       // Yahoo Finance API Status Check
@@ -125,7 +125,7 @@ export function registerAdminPanelPart4Sub1Sub1Routes(app: Express): void {
           severity: "medium",
           message: "Yahoo Finance API is experiencing issues - Market data may be delayed",
           action: "Monitor API status and consider alternative data sources if issues persist"
-        });
+        } as any);
       }
 
       // IIFL Markets API Status Check
@@ -151,7 +151,7 @@ export function registerAdminPanelPart4Sub1Sub1Routes(app: Express): void {
             severity: "high",
             message: "IIFL Markets API credentials are invalid or expired",
             action: "Update IIFL_APP_KEY and IIFL_APP_SECRET environment variables with valid credentials"
-          });
+          } as any);
         }
       } else {
         status.apis.iiflMarkets = {
@@ -165,7 +165,7 @@ export function registerAdminPanelPart4Sub1Sub1Routes(app: Express): void {
           severity: "low",
           message: "IIFL Markets API not configured - Trading features are disabled",
           action: "Add IIFL_APP_KEY and IIFL_APP_SECRET environment variables to enable trading capabilities"
-        });
+        } as any);
       }
 
 
@@ -191,7 +191,7 @@ export function registerAdminPanelPart4Sub1Sub1Routes(app: Express): void {
           severity: "medium",
           message: "Interactive Brokers gateway connection failed",
           action: "Ensure IB Gateway or TWS is running and properly configured"
-        });
+        } as any);
       }
 
       // System Performance Checks
@@ -203,7 +203,7 @@ export function registerAdminPanelPart4Sub1Sub1Routes(app: Express): void {
           severity: "high",
           message: `High memory usage detected (${memoryUsagePercent.toFixed(1)}%)`,
           action: "Consider restarting the application or optimizing memory usage"
-        });
+        } as any);
       }
 
       if (process.uptime() > 7 * 24 * 60 * 60) { // 7 days
@@ -211,7 +211,7 @@ export function registerAdminPanelPart4Sub1Sub1Routes(app: Express): void {
           severity: "low",
           message: `Application has been running for ${Math.floor(process.uptime() / (24 * 60 * 60))} days`,
           action: "Consider scheduled restart for optimal performance"
-        });
+        } as any);
       }
 
       // Determine Overall Status
@@ -230,7 +230,7 @@ export function registerAdminPanelPart4Sub1Sub1Routes(app: Express): void {
         status.overall = "healthy";
       }
 
-      status.systemHealth.totalResponseTime = `${Date.now() - startTime}ms`;
+      (status.systemHealth as any).totalResponseTime = `${Date.now() - startTime}ms`;
       
       res.json(status);
     } catch (error) {
@@ -293,7 +293,8 @@ export function registerAdminPanelPart4Sub1Sub1Routes(app: Express): void {
 
   // AI Analysis functions
   async function performAIAnalysis(analysisType: string, timeRange: string) {
-    const { analyzeSentiment } = await import('../../gemini-service');
+    const geminiModule = await import('../../gemini-service');
+    const analyzeSentiment = (geminiModule as any).analyzeSentiment;
     
     const systemErrors = await getSystemErrors(timeRange);
     const apiStatus = await getApiStatus();
@@ -387,7 +388,8 @@ System Security Data:`;
 
   async function analyzeWithGemini(prompt: string) {
     try {
-      const { analyzeSentiment } = await import('../../gemini-service');
+      const geminiModule = await import('../../gemini-service');
+    const analyzeSentiment = (geminiModule as any).analyzeSentiment;
       
       // For now, return a structured response
       // This would be replaced with actual Gemini API call
@@ -669,15 +671,16 @@ System Security Data:`;
       const validatedData = insertCkycRecordSchema.parse(dataToSubmit);
       
       // Check if record already exists
-      const existingRecord = await storage.getCkycRecord(validatedData.userId);
+      const existingRecord = await storage.getCkycRecord(validatedData.userId ?? '');
       
       let ckycRecord;
       if (existingRecord) {
-        ckycRecord = await storage.updateCkycRecord(validatedData.userId, validatedData);
+        ckycRecord = await storage.updateCkycRecord(validatedData.userId ?? '', validatedData);
       } else {
         ckycRecord = await storage.createCkycRecord(validatedData);
       }
       
+      if (!ckycRecord) throw new Error('Failed to create/update CKYC record');
       // Log status change
       await storage.addCkycStatusHistory({
         ckycRecordId: ckycRecord.id,

@@ -1,9 +1,122 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# .gcloudignore — Controls what gets uploaded to Cloud Build
+# Keeping this lean prevents "context deadline exceeded" gRPC timeouts
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Git / IDE
 .gcloudignore
-.git
+.git/
 .gitignore
-node_modules/
-dist/
+.vscode/
+.firebase/
+.gcloud/
+.gcloud_config/
+.gcloud_tmp_config/
+.temp_home/
+.temp_scripts/
+.tmp/
+
+# Secrets — never upload
 .env
 .env.*
+.env.local
+
+# Node / Build artifacts
+node_modules/
+dist/
+npm_cache/
+
+# Large binary blobs
+cloud-sql-proxy
+*.dump
+*.pgdump
+backup-*.sql.gz
+
+# Log & diagnostic dumps (these are massive and not needed for build)
+*.log
+build_errors.txt
+diagnostics_*.log
+diagnostics_*.txt
+diagnostics_output.txt
+tsc_errors*.txt
+tsc_errors*.log
+tsc_output*.log
+tsc_output*.txt
+tsc_verification.log
+ts_errors.txt
+boot_test*.log
+build_output.log
+routes_base64.txt
+
+# Split source fragments (s_auth_*, s_idx_*)
+s_auth_*
+s_idx_*
+
+# Test / scratch files
+test-gemini*.cjs
+test-gemini*.js
+test-gemini*.mjs
+test-gemini*.ts
+test-gemini*
+test-groq*.mjs
+test-meta-whatsapp.js
+test-object-storage.js
+test_*.ts
+test_*.js
+test_*.cjs
+scratch/
+scratch_insights.js
+check_errors.mjs
+check_schema_points.py
+generate_env_yaml.py
+analyze_error_image.mjs
+prepare_push.mjs
+get_user.js
+fix_layout.js
+remove-tables.js
+update_twilio.js
+find_user.ts
+
+# Brain / artifact directories (Antigravity IDE)
+brain/
+artifacts/
+tmp/
+tmp-gcloud/
+deploy_temp/
+deploy_test/
+gcloud_config/
+
+# Full source snapshots (not needed for build)
+full_auth.ts
+full_auth_fixed.ts
+full_index.ts
+full_index_fixed.ts
+
+# Misc
+GCP_Migration_Diagnostic_Prompt.md
+replit.md
+replit.nix
+Procfile
+uv.lock
+attached_assets/
+docs/
+
+# ── Required for build (explicit includes) ──────────────────────────────────
 !package-lock.json
 !cloudrun-env.yaml
+!Dockerfile
+!scripts/
+!server/
+!client/
+!shared/
+!workers/
+!modules/
+!drizzle.config.ts
+!drizzle.production.config.ts
+!vite.config.ts
+!tailwind.config.ts
+!postcss.config.js
+!tsconfig.json
+!package.json
+!components.json
+!biome.json

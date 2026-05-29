@@ -122,8 +122,8 @@ export default function Loans() {
   const loanProducts = { data: mpalProducts || [] };
   const applications = { data: mpalApplications || [] };
 
-  const { data: loanProviders } = useQuery({
-    queryKey: ["/api/marketplace/loan-providers"],
+  const { data: loanProviders } = useQuery<{ data: any[] }>({
+    queryKey: ['/api/mpal/providers'],
   });
 
   const { data: creditProfile } = useQuery({
@@ -219,6 +219,7 @@ export default function Loans() {
       if (!offer) return;
 
       await submitCreditAppMutation.mutateAsync({
+        userId: 0,
         productId: offerId,
         providerId: offer.providerId,
         requestedAmount: offer.amount.toString(),
@@ -1027,7 +1028,7 @@ export default function Loans() {
                                 return (
                                   <td key={offerId} className="py-4 px-4 text-center" data-testid={`tenure-${offerId}`}>
                                     <div className="text-sm text-muted-foreground">
-                                      {Math.round(offer.minTenure / 12)} - {Math.round(offer.maxTenure / 12)} years
+                                      {offer.tenure} years
                                     </div>
                                   </td>
                                 );

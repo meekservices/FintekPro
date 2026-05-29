@@ -62,7 +62,7 @@ export default function PortfolioRebalancing() {
   const { data: portfolios, isLoading: portfoliosLoading } = usePortfoliosByPan();
   const portfolioId = portfolios?.[0]?.id || '';
 
-  const { data: internalHoldingsRaw, isLoading: holdingsLoading } = useEnhancedPortfolioHoldings(portfolioId, !!portfolioId);
+  const { data: internalHoldingsRaw, isLoading: holdingsLoading } = useEnhancedPortfolioHoldings(portfolioId);
 
   const { data: externalHoldingsRaw } = useQuery({
     queryKey: ['/api/portfolio/external-holdings'],

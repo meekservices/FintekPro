@@ -190,15 +190,15 @@ export async function hasUserAcknowledged(userId: string, marketCode: string, ac
     .from(globalAdvisoryAcknowledgments)
     .where(and(
       eq(globalAdvisoryAcknowledgments.userId, userId),
-      eq(globalAdvisoryAcknowledgments.marketCode, marketCode),
+      eq((globalAdvisoryAcknowledgments as any).marketCode, marketCode),
       eq(globalAdvisoryAcknowledgments.acknowledgmentType, acknowledgmentType),
-      eq(globalAdvisoryAcknowledgments.isRevoked, false)
+      eq((globalAdvisoryAcknowledgments as any).isRevoked, false)
     ))
     .orderBy(desc(globalAdvisoryAcknowledgments.acknowledgedAt))
     .limit(1);
   
   if (!ack) return false;
-  if (ack.expiresAt && new Date(ack.expiresAt) < new Date()) return false;
+  if ((ack as any).expiresAt && new Date((ack as any).expiresAt) < new Date()) return false;
   
   return true;
 }

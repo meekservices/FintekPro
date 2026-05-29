@@ -1,3 +1,4 @@
+import React from "react";
 import { useParams, useLocation, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -99,7 +100,7 @@ interface DataQualityInfo {
   lastUpdated?: string;
 }
 
-const DataQualityWarning = ({ quality }: { quality: DataQualityInfo | null | undefined }) => {
+const DataQualityWarning = ({ quality }: { quality: DataQualityInfo | null | undefined }): JSX.Element | null => {
   if (!quality) return null;
   
   const hasWarnings = quality.fallbackUsed || quality.warnings.length > 0 || (quality.missingData && quality.missingData.length > 0);
@@ -184,7 +185,7 @@ const emptyPeer: ListedPeer = {
   revenueGrowth: undefined,
 };
 
-export default function UnlistedPreviewPage() {
+export default function UnlistedPreviewPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -759,7 +760,7 @@ export default function UnlistedPreviewPage() {
         </div>
       </div>
 
-      <DataQualityWarning quality={dataQuality} />
+      {((<DataQualityWarning quality={dataQuality} />) as JSX.Element)}
 
       {/* Auto-Enrichment Status */}
       {isAutoEnriching && (
@@ -775,15 +776,15 @@ export default function UnlistedPreviewPage() {
       )}
 
       {/* Enrichment Result Notification */}
-      {!!(enrichmentResult && enrichmentResult.enrichedFields.length > 0) && (
+      {enrichmentResult && enrichmentResult.enrichedFields.length > 0 && (
         <Alert className="mb-4 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20" data-testid="alert-enriched">
           <CheckCircle className="h-4 w-4 text-emerald-500" />
           <AlertTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-            Company Data Enriched from {enrichmentResult!.enrichmentSource}
+            Company Data Enriched from {enrichmentResult.enrichmentSource}
           </AlertTitle>
           <AlertDescription className="text-xs text-emerald-600 dark:text-emerald-400">
             <div className="mt-2 space-y-1">
-              {enrichmentResult!.enrichedFields.map((field: { field: string; oldValue: string | null; newValue: string; source: string }, i: number) => (
+              {enrichmentResult.enrichedFields.map((field: { field: string; oldValue: string | null; newValue: string; source: string }, i: number) => (
                 <div key={i} className="flex items-center gap-2">
                   <span className="font-medium capitalize">{String(field.field)}:</span>
                   <span className="text-muted-foreground line-through">{String(field.oldValue || 'Empty')}</span>
@@ -871,16 +872,16 @@ export default function UnlistedPreviewPage() {
                     <p className="text-foreground font-mono">{company?.isin}</p>
                   </div>
                 )}
-                {company.faceValue && (
+                {company?.faceValue && (
                   <div>
                     <span className="text-muted-foreground">Face Value</span>
-                    <p className="text-foreground">₹{company.faceValue}</p>
+                    <p className="text-foreground">₹{company?.faceValue}</p>
                   </div>
                 )}
-                {company.totalShares && (
+                {company?.totalShares && (
                   <div>
                     <span className="text-muted-foreground">Total Shares</span>
-                    <p className="text-foreground">{Number(company.totalShares).toLocaleString('en-IN')}</p>
+                    <p className="text-foreground">{Number(company?.totalShares).toLocaleString('en-IN')}</p>
                   </div>
                 )}
               </div>

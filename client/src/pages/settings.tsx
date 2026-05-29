@@ -169,6 +169,9 @@ function PinManagementCard() {
             onKeyDown={e => handleKeyDown(e, i, arr, setArr, refs)}
             className="w-12 h-12 text-center text-xl font-bold rounded-lg border-2 bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all caret-transparent"
             data-testid={`pin-box-${label.toLowerCase().replace(/\s/g,"-")}-${i}`}
+            aria-label={`${label} digit ${i + 1}`}
+            title={`${label} digit ${i + 1}`}
+            placeholder="-"
           />
         ))}
       </div>

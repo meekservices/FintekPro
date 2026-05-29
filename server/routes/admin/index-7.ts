@@ -472,7 +472,7 @@ export function registerAdminPanelPart7Routes(app: Express): void {
       res.json({
         success: true,
         usage: {
-          fmp: { dailyCalls: fmpStats.used, maxDaily: fmpStats.limit, remaining: fmpStats.remaining },
+          fmp: { dailyCalls: (fmpStats as any).used, maxDaily: fmpStats.limit, remaining: fmpStats.remaining },
           alphaVantage: avStats,
         },
       });

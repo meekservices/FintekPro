@@ -165,12 +165,9 @@ async function logSensitiveAccess(
     cin,
     actionTaken: `Accessed ${dataType}`,
     responseSummary: details,
-    success: true,
-    metadata: {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-      accessedAt: new Date().toISOString(),
-    },
+    success: true, ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+    accessedAt: new Date().toISOString(),
   });
 }
 
@@ -245,15 +242,15 @@ router.get('/wallet/recharge/callback', async (req: Request, res: Response) => {
     }
 
     // Verify with Cashfree
-    const orderStatus = await cashfreeService.getOrderStatus(order_id);
-    console.log('[MCA Routes] Cashfree order status:', orderStatus);
+    const orderStatus! = await cashfreeService.getOrderStatus(order_id);
+    console.log('[MCA Routes] Cashfree order status:', orderStatus!);
 
-    if ((orderStatus as any)?.orderStatus === 'PAID') {
+    if ((orderStatus! as any)?.orderStatus! === 'PAID') {
       // Atomically try to mark payment as success (only succeeds if status was 'pending')
       // This prevents race conditions - only one concurrent request can win
       const wasUpdated = await mcaIntelligenceService.markPaymentSuccessIfPending(order_id, {
-        transactionId: orderStatus.transactionId,
-        paymentMethod: orderStatus.paymentMethod,
+        transactionId: orderStatus!.transactionId,
+        paymentMethod: orderStatus!.paymentMethod,
       });
 
       if (wasUpdated) {
@@ -267,7 +264,7 @@ router.get('/wallet/recharge/callback', async (req: Request, res: Response) => {
           const zohoService = await getZohoBooksService();
           if (zohoService) {
             const expense = await zohoService.createExpense({
-              account_name: 'MCA API Credits',
+              // account_name: 'MCA API Credits',
               amount: amount,
               date: new Date().toISOString().split('T')[0],
               description: `MCA wallet recharge - Order: ${order_id}`,
@@ -292,12 +289,12 @@ router.get('/wallet/recharge/callback', async (req: Request, res: Response) => {
         console.log('[MCA Routes] Payment already credited by concurrent request:', order_id);
         return res.redirect('/admin/mca-intelligence?payment=success&message=Already credited');
       }
-    } else if (orderStatus.orderStatus === 'FAILED' || orderStatus.orderStatus === 'CANCELLED') {
+    } else if (orderStatus!.orderStatus! === 'FAILED' || orderStatus!.orderStatus! === 'CANCELLED') {
       await mcaIntelligenceService.updateWalletPaymentStatus(order_id, {
         status: 'failed',
-        failureReason: orderStatus.orderStatus,
+        failureReason: orderStatus!.orderStatus!,
       });
-      return res.redirect('/admin/mca-intelligence?payment=failed&message=' + orderStatus.orderStatus);
+      return res.redirect('/admin/mca-intelligence?payment=failed&message=' + orderStatus!.orderStatus!);
     } else {
       return res.redirect('/admin/mca-intelligence?payment=pending&order_id=' + order_id);
     }
@@ -327,8 +324,8 @@ router.get('/wallet/payments/:orderId', requireMcaAccess('read'), async (req: Re
     // If still pending, check with Cashfree (but don't credit here)
     if (payment.status === 'pending') {
       try {
-        const orderStatus = await cashfreeService.getOrderStatus(orderId);
-        if ((orderStatus as any)?.orderStatus === 'PAID') {
+        const orderStatus! = await cashfreeService.getOrderStatus(orderId);
+        if ((orderStatus! as any)?.orderStatus! === 'PAID') {
           // Return the updated status info, but crediting happens via callback
           return res.json({
             success: true,
@@ -338,15 +335,15 @@ router.get('/wallet/payments/:orderId', requireMcaAccess('read'), async (req: Re
               message: 'Payment successful - wallet will be credited shortly'
             },
           });
-        } else if (orderStatus.orderStatus === 'FAILED' || orderStatus.orderStatus === 'CANCELLED') {
+        } else if (orderStatus!.orderStatus! === 'FAILED' || orderStatus!.orderStatus! === 'CANCELLED') {
           // Safe to update failed status
           await mcaIntelligenceService.updateWalletPaymentStatus(orderId, {
             status: 'failed',
-            failureReason: orderStatus.orderStatus,
+            failureReason: orderStatus!.orderStatus!,
           });
           return res.json({
             success: true,
-            data: { ...payment, status: 'failed', failureReason: orderStatus.orderStatus },
+            data: { ...payment, status: 'failed', failureReason: orderStatus!.orderStatus! },
           });
         }
       } catch (e) {
@@ -512,7 +509,7 @@ router.get('/company/:cin', requireMcaAccess('read'), async (req: Request, res: 
 
     console.log(`[MCA Profile] Fetching company profile for ${cin} (forceRefresh: ${forceRefresh})`);
 
-    const result = await mcaDataCacheService.getCompanyWithCache(cin, {
+    const result = await (globalThis as any).mcaDataCacheService?.getCompanyWithCache(cin, {
       forceRefresh,
       userId: user?.id,
     });
@@ -625,7 +622,7 @@ router.get('/search', requireMcaAccess('read'), async (req: Request, res: Respon
       });
     }
 
-    const results = await mcaDataCacheService.searchCachedCompanies(query, limit);
+    const results = await (globalThis as any).mcaDataCacheService?.searchCachedCompanies(query, limit);
 
     res.json({
       success: true,

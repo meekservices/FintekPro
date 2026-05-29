@@ -1174,7 +1174,7 @@ export default function ProfilePage() {
                               {/* Occupation */}
                               <ProfileDetailRow
                                 label="Occupation"
-                                value={occupation ? occupation.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : '—'}
+                                value={occupation ? occupation.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : '—'}
                                 icon={<Briefcase className="h-4 w-4" />}
                                 action={{ label: 'Update', onClick: () => setLocation(wizardStep('profile_completion')) }}
                               />
@@ -1198,7 +1198,7 @@ export default function ProfilePage() {
                               {/* FATCA Status */}
                               <ProfileDetailRow
                                 label="FATCA Declaration"
-                                value={fatcaStatus === 'Y' ? 'US Person / Reportable' : fatcaStatus === 'N' ? 'Non-US (Not Reportable)' : '— Not declared'}
+                                value={String(fatcaStatus) === 'Y' ? 'US Person / Reportable' : String(fatcaStatus) === 'N' ? 'Non-US (Not Reportable)' : '— Not declared'}
                                 icon={<Globe className="h-4 w-4" />}
                                 action={{ label: 'Update', onClick: () => setLocation(wizardStep('fatca_signature')) }}
                               />
@@ -1206,7 +1206,7 @@ export default function ProfilePage() {
                               {/* PEP Status */}
                               <ProfileDetailRow
                                 label="PEP Status"
-                                value={pepStatus === 'Y' ? 'Politically Exposed Person' : pepStatus === 'N' ? 'Not a PEP' : '— Not declared'}
+                                value={String(pepStatus) === 'Y' ? 'Politically Exposed Person' : String(pepStatus) === 'N' ? 'Not a PEP' : '— Not declared'}
                                 icon={<Star className="h-4 w-4" />}
                                 action={{ label: 'Update', onClick: () => setLocation(wizardStep('profile_completion')) }}
                               />

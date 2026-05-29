@@ -315,7 +315,7 @@ class MeetingNotificationService {
 
   private async sendSmsNotification(mobile: string, message: string): Promise<boolean> {
     try {
-      const result = await smsService.sendSMS({ to: mobile, message });
+      const result = await (smsService as any).sendSMS({ to: mobile, message });
       return result.success;
     } catch (error) {
       console.error(`[Meeting Notification] SMS error:`, error);

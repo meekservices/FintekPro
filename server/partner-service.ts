@@ -68,7 +68,7 @@ class PartnerService {
       commissionRate: "2.50",
       createdAt: new Date(),
       updatedAt: new Date()
-    };
+    } as any;
 
     this.partners.set(demoPartner.id, demoPartner);
     this.partnersByEmail.set(demoPartner.contactEmail, demoPartner);
@@ -299,7 +299,7 @@ class PartnerService {
       ticketNumber,
       createdAt: new Date(),
       updatedAt: new Date()
-    };
+    } as any;
     
     this.supportTickets.set(id, ticket);
     this.ticketMessages.set(id, []);
@@ -327,7 +327,7 @@ class PartnerService {
       ...messageData,
       id,
       createdAt: new Date()
-    };
+    } as any;
     
     const messages = this.ticketMessages.get(messageData.ticketId) || [];
     messages.push(message);
@@ -381,7 +381,7 @@ class PartnerService {
       product.isPublic && product.status === 'active' && (
         product.name.toLowerCase().includes(searchTerm) ||
         product.description?.toLowerCase().includes(searchTerm) ||
-        product.tags?.some(tag => tag.toLowerCase().includes(searchTerm))
+        (product as any).tags?.some((tag: string) => tag.toLowerCase().includes(searchTerm))
       )
     );
   }

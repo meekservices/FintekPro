@@ -1,7 +1,7 @@
 import { Express } from 'express';
 import { db } from '../db';
 import { requireAgent } from '../middleware/roleMiddleware';
-import { prospectClients, portfolios, prospectProposals } from '@shared/schema';
+import { prospectClients, portfolios, prospectProposals, portfolioHoldings } from '@shared/schema';
 import { eq, and, or, desc, sql, count, inArray } from 'drizzle-orm';
 
 export function registerAgentProspectAcquisitionPart1Routes(app: Express): void {

@@ -3,7 +3,6 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { logger } from "./logger";
 import { insertUserSchema, users } from "@shared/schema";
-import { setupAuth } from "./auth";
 import { eq, or, and, sql, desc, ilike } from "drizzle-orm";
 import { db } from "./db";
 import { emailService } from "./email-service";
@@ -113,6 +112,10 @@ import { registerPreIPORoutes } from "./routes/pre-ipo";
 import { registerFinancialDataRoutes } from "./routes/financial-data-routes";
 import { registerFemaComplianceRoutes } from "./routes/fema-compliance";
 import { registerLeadLeakageRoutes } from "./routes/lead-leakage-routes";
+import signatureRouter from "./routes/signature-routes";
+import userSignatureESignRouter from "./routes/user-signature-esign-routes";
+import unifiedProposalsRouter from "./routes/unified-proposals-routes";
+import improvementFeaturesRouter from "./routes/improvement-features";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -363,6 +366,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerFinancialDataRoutes(app);         // /api/financial-data/*
   registerFemaComplianceRoutes(app);        // /api/fema/*
   registerLeadLeakageRoutes(app);           // /api/lead-leakage/*
+  app.use(signatureRouter);
+  app.use(userSignatureESignRouter);
+  app.use("/api/unified-proposals", unifiedProposalsRouter);
+  app.use("/api/features", improvementFeaturesRouter);
 
   // Profile Sharing Toggle
   app.patch("/api/user/profile/sharing", async (req, res) => {

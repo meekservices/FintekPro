@@ -21,7 +21,7 @@ const router = Router();
 
 // Authentication middleware - ensure user is logged in
 const requireAuth = (req: Request, res: Response, next: Function) => {
-  if (!req.session?.user?.id) {
+  if (!(req.session as any)?.user?.id) {
     return res.status(401).json({
       success: false,
       error: 'Unauthorized. Please log in to access this resource.'
@@ -34,7 +34,7 @@ const requireAuth = (req: Request, res: Response, next: Function) => {
 const requireOwnership = (userIdParam: string) => {
   return (req: Request, res: Response, next: Function) => {
     const userId = req.params[userIdParam] || req.body[userIdParam];
-    if (userId && userId !== req.session.user.id) {
+    if (userId && userId !== (req.session as any).user.id) {
       return res.status(403).json({
         success: false,
         error: 'Forbidden. You can only access your own resources.'
@@ -289,7 +289,7 @@ router.get("/consent/user/:userId", requireOwnership('userId'), async (req: Requ
 router.post("/consent/revoke", async (req: Request, res: Response) => {
   try {
     const { consentId, reason } = req.body;
-    const sessionUserId = req.session.user.id;
+    const sessionUserId = (req.session as any).user.id;
     
     if (!consentId || !reason) {
       return res.status(400).json({
@@ -415,7 +415,7 @@ router.post("/initiate", requireOwnership('userId'), async (req: Request, res: R
 router.get("/status/:workflowId", async (req: Request, res: Response) => {
   try {
     const { workflowId } = req.params;
-    const sessionUserId = req.session.user.id;
+    const sessionUserId = (req.session as any).user.id;
     
     const status = await autoPopulationOrchestrator.getWorkflowStatus(workflowId);
 
@@ -500,7 +500,7 @@ router.post("/refresh", requireOwnership('userId'), async (req: Request, res: Re
 router.post("/retry-source", async (req: Request, res: Response) => {
   try {
     // Get userId from session for security - don't rely on client-provided userId
-    const sessionUserId = req.session?.user?.id;
+    const sessionUserId = (req.session as any)?.user?.id;
     const { dataSource } = req.body;
     
     if (!sessionUserId) {
@@ -529,7 +529,7 @@ router.post("/retry-source", async (req: Request, res: Response) => {
     }
 
     // Check if user has consent for this data source
-    const hasConsent = await consentManagementService.hasValidConsent(userId, dataSource);
+    const hasConsent = await (consentManagementService as any).hasValidConsent(userId, dataSource);
     if (!hasConsent) {
       return res.status(400).json({
         success: false,
@@ -572,7 +572,7 @@ async function verifyPanOwnership(
         kycStatus: users.kycStatus,
       })
       .from(users)
-      .where(eq(users.id, parseInt(sessionUserId)))
+      .where(eq(users.id, sessionUserId))
       .limit(1);
 
     if (!userRecord) {
@@ -611,7 +611,7 @@ async function verifyPanOwnership(
 // Security: This endpoint verifies PAN ownership before allowing CIBIL data fetch
 router.post("/fetch/loans", requireAuth, async (req: Request, res: Response) => {
   try {
-    const sessionUserId = req.session.user.id;
+    const sessionUserId = (req.session as any).user.id;
     const { panNumber, name, dob } = req.body;
     
     if (!panNumber) {

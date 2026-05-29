@@ -316,11 +316,11 @@ router.post("/zoho/import/leads", async (req: Request, res: Response) => {
       const { eq, and } = await import('drizzle-orm');
       
       // Check if assignToAgentId is a sub-agent of this master
-      const validSubAgent = await db.select({ id: partners.userId })
+      const validSubAgent = await db.select({ id: (partners as any).userId })
         .from(partners)
         .where(and(
-          eq(partners.userId, assignToAgentId),
-          eq(partners.masterAgentId, agentId)
+          eq((partners as any).userId, assignToAgentId),
+          eq((partners as any).masterAgentId, agentId)
         ))
         .limit(1);
       
@@ -453,11 +453,11 @@ router.post("/zoho/import/contacts", async (req: Request, res: Response) => {
       const { eq, and } = await import('drizzle-orm');
       
       // Check if assignToAgentId is a sub-agent of this master
-      const validSubAgent = await db.select({ id: partners.userId })
+      const validSubAgent = await db.select({ id: (partners as any).userId })
         .from(partners)
         .where(and(
-          eq(partners.userId, assignToAgentId),
-          eq(partners.masterAgentId, agentId)
+          eq((partners as any).userId, assignToAgentId),
+          eq((partners as any).masterAgentId, agentId)
         ))
         .limit(1);
       
@@ -614,7 +614,7 @@ router.post("/prospects/:id/sync-to-zoho", async (req: Request, res: Response) =
       await db
         .update(zohoEntityMappings)
         .set({
-          zohoRecordData: { ...existingMapping.zohoRecordData, ...updateData },
+          zohoRecordData: { ...(existingMapping.zohoRecordData as any || {}), ...updateData },
           lastSyncedAt: new Date(),
           syncStatus: 'synced',
           updatedAt: new Date()

@@ -47,7 +47,7 @@ export default function AgentSampleReport() {
     aiInsights: true,
   });
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<{ report: any }>({
     queryKey: ['/api/portfolio-reports/sample'],
   });
 

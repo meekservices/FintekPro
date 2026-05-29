@@ -116,6 +116,35 @@ export interface DailyPickData {
   riskScore?: number;
 }
 
+export function calculateSuggestedAllocation(
+  category: string,
+  riskLevel: string,
+  confidenceScore?: number,
+  keyMetrics?: any
+): number {
+  if (keyMetrics?.suggestedAllocation != null) {
+    return parseFloat(keyMetrics.suggestedAllocation);
+  }
+
+  const mcap = (keyMetrics?.marketCap || '').toLowerCase();
+  const risk = (riskLevel || 'medium').toLowerCase();
+  const confidence = confidenceScore ?? 70;
+  const isStockOrFund = ['listed_stocks', 'global_stocks', 'unlisted', 'mutual_funds', 'etfs'].includes(category);
+
+  if (isStockOrFund) {
+    if ((mcap.includes('large') || risk === 'low') && confidence >= 80) return 10;
+    if (mcap.includes('large') || risk === 'low') return 8;
+    if ((mcap.includes('mid') || risk === 'medium') && confidence >= 80) return 8;
+    if (mcap.includes('mid') || risk === 'medium') return 6;
+    if ((mcap.includes('small') || risk === 'high') && confidence >= 80) return 5;
+    return 3;
+  }
+
+  if (risk === 'low') return 10;
+  if (risk === 'medium') return 5;
+  return 2;
+}
+
 export class PickOfTheDayService {
   private strategies: Map<PickCategory, IPickStrategy>;
   private readonly DEFAULT_VALIDITY_DAYS = 30;
@@ -439,6 +468,21 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
   }
 
   private transformPick(pick: typeof dailyPicks.$inferSelect): DailyPickData {
+    const rawMetrics = pick.keyMetrics as any || {};
+    const suggestedAllocation = rawMetrics.suggestedAllocation != null
+      ? parseFloat(rawMetrics.suggestedAllocation)
+      : calculateSuggestedAllocation(
+          pick.category,
+          pick.riskLevel || 'medium',
+          pick.confidenceScore || 70,
+          rawMetrics
+        );
+
+    const keyMetrics = {
+      ...rawMetrics,
+      suggestedAllocation,
+    };
+
     return {
       id: pick.id,
       category: pick.category,
@@ -460,7 +504,7 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
       rationale: pick.rationale,
       riskLevel: pick.riskLevel || 'medium',
       suitableFor: pick.suitableFor || [],
-      keyMetrics: pick.keyMetrics ?? undefined,
+      keyMetrics,
       timeHorizon: pick.timeHorizon || 'medium_term',
       confidenceScore: pick.confidenceScore || 70,
       updatedAt: pick.updatedAt ?? undefined,

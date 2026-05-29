@@ -200,6 +200,13 @@ export function registerIrisKfintechRoutes(app: Express): void {
     ));
   });
 
+  app.get('/api/iris/transactions/direct-pay-status', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.getDirectPayStatus(
+      req.query.pan as string,
+      req.query.accountNo as string,
+    ));
+  });
+
   app.post('/api/iris/transactions/validate', requireAuth, requireAgent, async (req, res) => {
     await wrap(res, () => irisKfintechService.validateInvestment(req.body as Record<string, unknown>));
   });
@@ -328,6 +335,13 @@ export function registerIrisKfintechRoutes(app: Express): void {
 
   app.get('/api/iris/transactions/mandates/:mandateId', requireAuth, requireAgent, async (req, res) => {
     await wrap(res, () => irisKfintechService.getMandateStatus(req.params.mandateId));
+  });
+
+  app.get('/api/iris/transactions/mandates/active', requireAuth, requireAgent, async (req, res) => {
+    await wrap(res, () => irisKfintechService.listActiveMandatesByBank(
+      req.query.pan as string,
+      req.query.accountNo as string,
+    ));
   });
 
   // Fixed Deposit Orders

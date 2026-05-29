@@ -1,6 +1,7 @@
 class BootState {
   private static instance: BootState;
   public routesReady: boolean = false;
+  public serverListening: boolean = false;
   public error: string | null = null;
   private bootTime: Date;
 

@@ -206,9 +206,8 @@ class AIFExecutionService {
         await orderManagementService.addDocument({
           orderId: request.orderId,
           documentType: 'subscription_agreement',
+          documentName: `AIF Subscription Agreement - ${request.fundName}`,
           documentUrl: agreementUrl,
-          title: `AIF Subscription Agreement - ${request.fundName}`,
-          uploadedBy: 'system',
           metadata: {
             agreementId: agreement.agreementId,
             category: request.aifCategory,

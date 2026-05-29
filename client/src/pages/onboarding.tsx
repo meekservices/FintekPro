@@ -4640,7 +4640,7 @@ export default function SmartKYCOnboarding() {
                     documentIds: editDocuments.map(d => d.id)
                   };
                   
-                  editKycMutation.mutate(submitData);
+                  editKycMutation.mutate(submitData as any);
                 }}
                 disabled={editKycMutation.isPending}
               >

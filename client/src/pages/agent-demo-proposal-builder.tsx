@@ -1134,9 +1134,7 @@ export default function AgentDemoProposalBuilder() {
                           if (preset) {
                             setConfig(prev => ({
                               ...prev,
-                              investmentGoals: preset.config.investmentGoals,
-                              assetAllocation: preset.config.assetAllocation,
-                              riskProfile: preset.config.riskProfile,
+                              ...(preset.config as Partial<ProposalConfig>),
                             }));
                             toast({
                               title: "Template Applied",
@@ -1550,11 +1548,11 @@ export default function AgentDemoProposalBuilder() {
                           <StrategyAllocationPanel
                             proposalId={selectedClient.id?.toString() || ''}
                             currentHoldings={prospectPortfolio?.holdings?.map(h => ({
-                              assetClass: h.type?.toLowerCase() || 'equity',
+                              assetClass: h.assetType?.toLowerCase() || 'equity',
                               weight: prospectPortfolio?.totalValue 
                                 ? (h.currentValue / prospectPortfolio.totalValue) * 100 
                                 : 25,
-                              startDate: h.purchaseDate
+                              startDate: ''
                             })) || []}
                           />
                         ) : (

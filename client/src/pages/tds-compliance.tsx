@@ -252,7 +252,7 @@ export default function TDSCompliancePage() {
   });
 
   // Fetch Clients (CA Practice Management)
-  const { data: clientsData, isLoading: isLoadingClients } = useQuery({
+  const { data: clientsData, isLoading: isLoadingClients } = useQuery<{ data: any[] }>({
     queryKey: ["/api/tax/practice/clients"],
     enabled: activeTab === "clients",
   });

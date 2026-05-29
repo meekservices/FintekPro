@@ -349,7 +349,7 @@ router.post("/api/ai/unified-recommendations", async (req, res) => {
           conservative: '8-10%',
           moderate: '10-14%',
           aggressive: '14-18%'
-        }[riskCategory]
+        }[riskCategory as 'conservative' | 'moderate' | 'aggressive']
       }
     };
 
@@ -676,7 +676,8 @@ router.post("/api/ai-mf/withdrawal-summary", async (req, res) => {
 // Get current overseas investment regulatory status
 router.get("/api/ai-mf/regulatory-status", async (req, res) => {
   try {
-    const { AIMFRecommendationService } = await import("../services/ai-mf-recommendation-service");
+    const aiMfModule = await import("../services/ai-mf-recommendation-service") as any;
+    const AIMFRecommendationService = aiMfModule.AIMFRecommendationService;
     const status = AIMFRecommendationService.getOverseasInvestmentStatus();
     
     res.json({
@@ -717,7 +718,8 @@ router.post("/api/admin/ai-mf/regulatory-status", requireAdmin, async (req: any,
       });
     }
     
-    const { AIMFRecommendationService } = await import("../services/ai-mf-recommendation-service");
+    const aiMfModule = await import("../services/ai-mf-recommendation-service") as any;
+    const AIMFRecommendationService = aiMfModule.AIMFRecommendationService;
     
     if (typeof overseasInvestmentFrozen === 'boolean') {
       AIMFRecommendationService.updateOverseasInvestmentStatus(overseasInvestmentFrozen);

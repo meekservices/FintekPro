@@ -363,7 +363,7 @@ export default function AgentPayoutDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {earnings.slice(0, 5).map((earning) => (
+                    {earnings.slice(0, 5).map((earning: any) => (
                       <TableRow key={earning.id}>
                         <TableCell>{format(new Date(earning.date), 'dd MMM')}</TableCell>
                         <TableCell className="font-medium">{earning.clientName}</TableCell>
@@ -410,7 +410,7 @@ export default function AgentPayoutDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {earnings.map((earning) => (
+                  {earnings.map((earning: any) => (
                     <TableRow key={earning.id} data-testid={`earning-row-${earning.id}`}>
                       <TableCell>{format(new Date(earning.date), 'dd MMM yyyy')}</TableCell>
                       <TableCell className="font-medium">{earning.clientName}</TableCell>
@@ -469,7 +469,7 @@ export default function AgentPayoutDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {payoutRequests.map((payout) => (
+                {payoutRequests.map((payout: any) => (
                   <div 
                     key={payout.id}
                     className="flex items-center justify-between p-4 border rounded-lg"

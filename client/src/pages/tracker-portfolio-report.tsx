@@ -24,7 +24,7 @@ export default function TrackerPortfolioReport() {
   const { data: portfolios, isLoading: portfoliosLoading } = usePortfoliosByPan();
   const portfolioId = portfolios?.[0]?.id || '';
   
-  const { data: holdings, isLoading: holdingsLoading, refetch } = useEnhancedPortfolioHoldings(portfolioId, !!portfolioId);
+  const { data: holdings, isLoading: holdingsLoading, refetch } = useEnhancedPortfolioHoldings(portfolioId);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {

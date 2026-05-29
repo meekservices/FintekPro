@@ -77,7 +77,7 @@ const safeNum = (v: any): number | null => {
   return isFinite(n) ? n : null;
 };
 
-function pct(v: number | null): string {
+function pct(v: number | null | undefined): string {
   const n = safeNum(v);
   if (n === null) return "N/A";
   return `${(n * 100).toFixed(1)}%`;
@@ -104,7 +104,7 @@ function signColour(v: number | null): string {
   return n >= 0 ? ACCENT_GREEN : ACCENT_RED;
 }
 
-function numFmt(v: number | null, dec = 2): string {
+function numFmt(v: number | null | undefined, dec = 2): string {
   const n = safeNum(v);
   if (n === null) return "N/A";
   return n.toFixed(dec);

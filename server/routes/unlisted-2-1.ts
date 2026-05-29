@@ -154,7 +154,7 @@ router.post('/moneycontrol/add-company', requireAdmin, async (req: Request, res:
       if (credhiveResults && credhiveResults.length > 0) {
         // Find best match - exact name match or first result
         const exactMatch = credhiveResults.find(r => 
-          r.name.toLowerCase() === name.toLowerCase()
+          (r as any).name.toLowerCase() === name.toLowerCase()
         );
         const bestMatch = exactMatch || credhiveResults[0];
         
@@ -173,7 +173,7 @@ router.post('/moneycontrol/add-company', requireAdmin, async (req: Request, res:
       name,
       isin,
       status: 'active',
-      createdBy: req.user.id,
+      createdBy: req.user!.id,
     };
     
     // Enrich with CredHive data if available
@@ -221,14 +221,14 @@ router.post('/moneycontrol/add-company', requireAdmin, async (req: Request, res:
       try {
         const financials = await credhiveService.getCompanyFinancials(credhiveCompanyId, 5);
         for (const fin of financials) {
-          const dbFormat = credhiveService.convertFinancialsToDbFormat(company.id, fin);
+          const dbFormat = (credhiveService as any).convertFinancialsToDbFormat(company.id, fin);
           await storage.createCompanyFinancials(dbFormat);
           result.credhiveData.financialsSynced++;
         }
         
-        const ratios = await credhiveService.getCompanyRatios(credhiveCompanyId, 5);
+        const ratios = await (credhiveService as any).getCompanyRatios(credhiveCompanyId, 5);
         for (const ratio of ratios) {
-          const dbFormat = credhiveService.convertRatiosToDbFormat(company.id, ratio);
+          const dbFormat = (credhiveService as any).convertRatiosToDbFormat(company.id, ratio);
           await storage.createCompanyRatios(dbFormat);
           result.credhiveData.ratiosSynced++;
         }
@@ -370,11 +370,11 @@ router.get('/listings/published', async (req: Request, res: Response) => {
           company: company ? {
             id: company.id,
             name: company.name,
-            symbol: company.symbol,
+            symbol: (company as any).symbol,
             sector: company.sector,
             industry: company.industry,
-            logoUrl: company.logoUrl,
-            currentPrice: company.currentPrice,
+            logoUrl: (company as any).logoUrl,
+            currentPrice: (company as any).currentPrice,
           } : null,
         };
       })
@@ -459,13 +459,13 @@ router.post('/listings', requireLevel2, async (req: Request, res: Response) => {
     
     const disclosureValidation = unlistedRiskDisclosureService.validateAcknowledgment({
       acknowledgedDisclosureIds,
-      userId: req.user.id,
+      userId: req.user!.id,
       companyId: validatedData.companyId,
       tradeType: 'sell',
     });
     
     if (!disclosureValidation.valid) {
-      console.log(`[COMPLIANCE] sell_listing_blocked: Missing risk disclosures | userId: ${req.user.id} | missing: ${disclosureValidation.missingDisclosures.join(', ')}`);
+      console.log(`[COMPLIANCE] sell_listing_blocked: Missing risk disclosures | userId: ${req.user!.id} | missing: ${disclosureValidation.missingDisclosures.join(', ')}`);
       return apiResponse.badRequest(res, 'All mandatory risk disclosures must be acknowledged before creating a listing.', {
         missingDisclosures: disclosureValidation.missingDisclosures,
       });
@@ -473,7 +473,7 @@ router.post('/listings', requireLevel2, async (req: Request, res: Response) => {
     
     // Persist risk disclosure acknowledgment for audit trail
     await saveRiskAcknowledgment({
-      userId: req.user.id,
+      userId: req.user!.id,
       companyId: validatedData.companyId,
       tradeType: 'sell',
       acknowledgedDisclosureIds,
@@ -495,12 +495,12 @@ router.post('/listings', requireLevel2, async (req: Request, res: Response) => {
     // For high-value transactions, verify accredited investor status
     if (transactionValue >= ACCREDITED_INVESTOR_THRESHOLD) {
       const profile = await db.query.userProfiles.findFirst({
-        where: eq(userProfiles.userId, req.user.id),
+        where: eq(userProfiles.userId, req.user!.id),
       });
       
       // Check if user has any accredited investor type
       if (!profile?.accreditedInvestorType) {
-        console.log(`[COMPLIANCE] unlisted_sell_blocked: High-value transaction (₹${transactionValue}) requires accredited investor status | userId: ${req.user.id}`);
+        console.log(`[COMPLIANCE] unlisted_sell_blocked: High-value transaction (₹${transactionValue}) requires accredited investor status | userId: ${req.user!.id}`);
         return apiResponse.forbidden(res, 
           `Transactions above ₹50 lakhs require Accredited Investor status. Please complete your accredited investor verification in the KYC section.`
         );
@@ -508,12 +508,12 @@ router.post('/listings', requireLevel2, async (req: Request, res: Response) => {
     }
     
     // Log compliance event
-    console.log(`[COMPLIANCE] unlisted_sell_listing: { userId: '${req.user.id}', companyId: '${validatedData.companyId}', quantity: ${validatedData.quantity}, value: ${transactionValue}, disclosureVersion: '${unlistedRiskDisclosureService.getDisclosureVersion()}', outcome: 'success' }`);
+    console.log(`[COMPLIANCE] unlisted_sell_listing: { userId: '${req.user!.id}', companyId: '${validatedData.companyId}', quantity: ${validatedData.quantity}, value: ${transactionValue}, disclosureVersion: '${unlistedRiskDisclosureService.getDisclosureVersion()}', outcome: 'success' }`);
     
     // Create listing
     const listing = await storage.createSellListing({
       ...validatedData,
-      sellerUserId: req.user.id,
+      sellerUserId: req.user!.id,
       quantityRemaining: validatedData.quantity,
     });
     

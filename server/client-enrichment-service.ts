@@ -439,21 +439,21 @@ export const clientEnrichmentService = {
         dataCategory: (clientEnrichmentData as any).dataCategory,
         enrichmentScore: (clientEnrichmentData as any).enrichmentScore,
         confidenceLevel: (clientEnrichmentData as any).confidenceLevel,
-        isVerified: clientEnrichmentData.isVerified,
-        lastUpdated: clientEnrichmentData.lastUpdated,
+        isVerified: (clientEnrichmentData as any).isVerified,
+        lastUpdated: (clientEnrichmentData as any).lastUpdated,
         costIncurred: apiIntegrationLogs.costIncurred,
         sourceName: externalDataSources.sourceName
       })
       .from(clientEnrichmentData)
-      .leftJoin(externalDataSources, eq(clientEnrichmentData.sourceId, externalDataSources.id))
-      .leftJoin(apiIntegrationLogs, eq(clientEnrichmentData.sourceId, apiIntegrationLogs.sourceId))
+      .leftJoin(externalDataSources, eq((clientEnrichmentData as any).sourceId, externalDataSources.id))
+      .leftJoin(apiIntegrationLogs, eq((clientEnrichmentData as any).sourceId, (apiIntegrationLogs as any).sourceId))
       .where(eq(clientEnrichmentData.userId, userId))
-      .orderBy(desc(clientEnrichmentData.lastUpdated))
+      .orderBy(desc((clientEnrichmentData as any).lastUpdated))
       .limit(Number(limit))
       .offset((Number(page) - 1) * Number(limit));
 
       if (enrichmentType) {
-        query = query.where(
+        query = (query as any).where(
           and(
             eq(clientEnrichmentData.userId, userId),
             eq((clientEnrichmentData as any).enrichmentType, String(enrichmentType))

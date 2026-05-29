@@ -51,14 +51,14 @@ export class ProductAccountService {
     );
 
     if (preference) {
-      bankAccountId = preference.bankAccountId;
-      dematAccountId = preference.dematAccountId;
+      bankAccountId = (preference as any).bankAccountId;
+      dematAccountId = (preference as any).dematAccountId;
     }
 
     // If no preference or preference incomplete, get default accounts
     if (requirements.requiresBank && !bankAccountId) {
       const bankAccounts = await this.storage.getUserBankAccounts(userId);
-      const verifiedAccount = bankAccounts.find((acc) => acc.isVerified && acc.isActive);
+      const verifiedAccount = bankAccounts.find((acc) => (acc as any).isVerified && acc.isActive);
       const activeAccount = bankAccounts.find((acc) => acc.isActive);
       bankAccountId = verifiedAccount?.id || activeAccount?.id || null;
     }
@@ -74,7 +74,7 @@ export class ProductAccountService {
         );
       }
 
-      const verifiedAccount = filteredAccounts.find((acc) => acc.isVerified && acc.isActive);
+      const verifiedAccount = filteredAccounts.find((acc) => (acc as any).isVerified && acc.isActive);
       const activeAccount = filteredAccounts.find((acc) => acc.isActive);
       dematAccountId = verifiedAccount?.id || activeAccount?.id || null;
     }
@@ -140,7 +140,7 @@ export class ProductAccountService {
           errors.push("Demat account not found");
         } else if (!dematAccount.isActive) {
           errors.push("Demat account is not active");
-        } else if (!dematAccount.isVerified) {
+        } else if (!(dematAccount as any).isVerified) {
           errors.push("Demat account is not verified. Please complete verification first.");
         } else if (dematAccount.userId !== userId) {
           errors.push("Demat account does not belong to you");

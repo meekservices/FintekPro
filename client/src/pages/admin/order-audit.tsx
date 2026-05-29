@@ -55,6 +55,7 @@ const statusLabels: Record<CartItemStatus | 'all', string> = {
   all: 'All Statuses',
   active: 'Active',
   pending_approval: 'Pending Approval',
+  ordered: 'Ordered',
   removed: 'Removed'
 };
 
@@ -182,7 +183,7 @@ export default function OrderAuditDashboard() {
     const matchesSearch = !searchQuery || 
       order.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.userId.toLowerCase().includes(searchQuery.toLowerCase());
+      order.userId?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = activeCategory === 'all' || order.productCategory === activeCategory;
     return matchesSearch && matchesCategory;
   });
@@ -441,7 +442,7 @@ export default function OrderAuditDashboard() {
                               </Badge>
                             </TableCell>
                             <TableCell className="font-mono text-xs text-muted-foreground" data-testid={`text-user-id-${order.id}`}>
-                              {order.userId.substring(0, 8)}...
+                              {(order.userId ?? '').substring(0, 8)}...
                             </TableCell>
                             <TableCell>
                               <Badge 

@@ -377,7 +377,7 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
           };
         });
 
-        allClients = [...formattedClients, ...formattedProspects, ...formattedLeads];
+        allClients = [...formattedClients, ...formattedProspects, ...formattedLeads] as any[];
         
         // Sort by createdAt descending to show most recent first
         allClients.sort((a, b) => {

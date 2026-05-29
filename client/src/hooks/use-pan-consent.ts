@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 export function usePanConsent() {
   const queryClient = useQueryClient();
 
-  const { data: consentData, isLoading } = useQuery({
+  const { data: consentData, isLoading } = useQuery<{ hasConsent: boolean }>({
     queryKey: ["/api/pan-consent/check"],
     retry: false,
   });

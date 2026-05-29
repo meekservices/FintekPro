@@ -179,7 +179,7 @@ function tagTrackerHoldings(
 }
 
 function HoldingsTableSection({ portfolioId }: { portfolioId: string }) {
-  const { data: enhancedHoldings } = useSuspenseQuery<import("@/hooks/use-portfolio").EnhancedHolding[]>({
+  const { data: enhancedHoldings } = useSuspenseQuery<any[]>({
     queryKey: ['/api/portfolios', portfolioId, 'holdings', 'enhanced'],
     refetchInterval: 30000,
     select: (data: any) => Array.isArray(data) ? data : [],
@@ -251,7 +251,7 @@ function HoldingsTableSection({ portfolioId }: { portfolioId: string }) {
 }
 
 function PortfolioChartSection({ portfolioId }: { portfolioId: string }) {
-  const { data: performance } = useSuspenseQuery<import("@/hooks/use-portfolio").PortfolioPerformance>({
+  const { data: performance } = useSuspenseQuery<any>({
     queryKey: ['/api/portfolios', portfolioId, 'performance'],
     refetchInterval: 30000,
   });
@@ -278,9 +278,8 @@ function PortfolioChartSection({ portfolioId }: { portfolioId: string }) {
 }
 
 function FintekproOrdersSection({ isAuthenticated }: { isAuthenticated: boolean }) {
-  const { data: fintekproOrders } = useSuspenseQuery<import("@shared/schema").UnifiedOrder[]>({
+  const { data: fintekproOrders } = useQuery<any[]>({
     queryKey: ["/api/unified-orders"],
-    enabled: isAuthenticated,
   });
   if (!Array.isArray(fintekproOrders) || fintekproOrders.length === 0) {
     return (
@@ -910,7 +909,7 @@ export default function Portfolio() {
                   <p className="text-xs leading-relaxed">
                     Investments in securities market are subject to market risks. Read all scheme related documents carefully before investing. 
                     Past performance is not indicative of future returns. FintekPro is a SEBI registered investment platform. 
-                    {networkState !== 'online' && (
+                    {(networkState as any)?.isOnline === false && (
                       <span className="block mt-2 font-medium text-red-600 dark:text-red-400">
                         Note: Trading and order execution are disabled while offline or on slow networks to ensure transaction integrity.
                       </span>
@@ -1098,9 +1097,9 @@ export default function Portfolio() {
                   <p className="font-semibold mb-1">SEBI Compliance Notice</p>
                   <p className="text-xs leading-relaxed">
                     This consolidated view is sourced from NSDL/CDSL via your PAN card. Data accuracy depends on depository updates.
-                    {networkState !== 'online' && (
+                    {(networkState as any)?.isOffline && (
                       <span className="block mt-2 font-medium text-red-600 dark:text-red-400">
-                        You are currently {networkState}. Portfolio data shown is from cache. Refresh when online for latest values.
+                        You are currently offline. Portfolio data shown is from cache. Refresh when online for latest values.
                       </span>
                     )}
                   </p>

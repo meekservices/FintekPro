@@ -1,7 +1,7 @@
 import { Express, Response } from 'express';
 import { db } from '../../db';
 import { sql, desc, eq } from 'drizzle-orm';
-import { mutualFunds, signalResolutionLog, governancePolicy } from '@shared/schema';
+import { mutualFunds, signalResolutionLog, governancePolicy, kycFormProgress } from '@shared/schema';
 import { signalOrchestrator } from '../../services/signal-orchestrator';
 import { storage } from '../../storage';
 import { adminService } from '../../admin-service';
@@ -153,7 +153,7 @@ export function registerAdminPanelPart5Sub1Routes(app: Express): void {
     try {
       const mapping = await storage.createAgentPartnerMapping({
         ...req.body,
-        assignedBy: req.user.id
+        assignedBy: req.user?.id || 'system'
       });
       res.status(201).json(mapping);
     } catch (error) {

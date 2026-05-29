@@ -29,6 +29,7 @@ interface WhatsAppStatus {
   isReady: boolean;
   hasQrCode: boolean;
   qrDataUrl: string | null;
+  isTwilio?: boolean;
 }
 
 interface OtpPriorityData {

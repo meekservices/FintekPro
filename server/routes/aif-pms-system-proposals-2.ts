@@ -286,9 +286,9 @@ app.get("/api/proposals", authenticateUser, async (req, res) => {
     let filteredOptions: any = {};
     if (!hasRole(req.user, ['admin'])) {
       if (hasRole(req.user, ['agent'])) {
-        filteredOptions.agentId = req.user.id;
+        filteredOptions.agentId = req.user!.id;
       } else {
-        filteredOptions.clientId = req.user.id;
+        filteredOptions.clientId = req.user!.id;
       }
     } else {
       // Admin can filter by any client or agent

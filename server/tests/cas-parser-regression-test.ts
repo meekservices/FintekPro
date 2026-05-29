@@ -404,7 +404,6 @@ Overall: ${allPassed && lotPassed ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAI
       passed: formatPassed,
       results: formatResults,
     },
-    lotRegression: lotResults,
     summary,
   };
 }

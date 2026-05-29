@@ -216,12 +216,12 @@ router.post("/portfolio/:clientId/import-previewed", async (req, res) => {
       await db.insert(portfolioHoldings).values({
         portfolioId: portfolio.id,
         symbol: symbol.toUpperCase(),
-        name: holding.name || holding.schemeName || symbol,
+        name: holding.name || (holding as any).schemeName || symbol,
         isin: holding.isin || null,
-        quantity: String(holding.quantity || holding.units || 0),
+        quantity: String(holding.quantity || (holding as any).units || 0),
         avgPrice: String(holding.averagePrice || holding.avgPrice || 0),
         currentValue: String(holding.value || holding.currentValue || 0),
-        investedValue: String(holding.investedValue || 0),
+        investedValue: String((holding.investedValue ?? 0) || 0),
         assetType: holding.assetType === 'mutual_fund' ? 'mutual_fund' : (holding.assetType || 'equity'),
         productType: holding.productType || (holding.assetType === 'mutual_fund' ? 'MF' : null),
         folioNumber: holding.folioNumber || null,
@@ -339,15 +339,15 @@ router.post("/portfolio/:clientId/upload-cas", upload.single('file'), async (req
 
     let imported = 0;
     for (const holding of result.holdings) {
-      const symbol = holding.isin || holding.symbol || (holding.schemeName || holding.name || '').replace(/[^A-Za-z0-9]/g, '').substring(0, 20);
+      const symbol = holding.isin || holding.symbol || ((holding as any).schemeName || holding.name || '').replace(/[^A-Za-z0-9]/g, '').substring(0, 20);
       
       await db.insert(portfolioHoldings).values({
         portfolioId: portfolio.id,
         symbol: symbol.toUpperCase(),
-        name: holding.schemeName || holding.name || symbol,
+        name: (holding as any).schemeName || holding.name || symbol,
         isin: holding.isin || null,
-        quantity: String(holding.units || holding.quantity || 0),
-        avgPrice: String(holding.avgCostPerUnit || (holding.investedValue / (holding.units || 1)) || 0),
+        quantity: String((holding as any).units || holding.quantity || 0),
+        avgPrice: String(holding.avgCostPerUnit || ((holding.investedValue ?? 0) / ((holding as any).units || 1)) || 0),
         currentValue: String(holding.currentValue || 0),
         assetType: holding.assetType || 'mutual_fund',
         folioNumber: holding.folioNumber || null,
@@ -514,16 +514,16 @@ router.get("/analyze/:clientId", async (req, res) => {
       totalValue: analysis?.totalValue || 0,
       totalGainLoss: analysis?.totalGainLoss || 0,
       totalGainLossPercent: analysis?.totalGainLossPercent || 0,
-      fundamentalRatios: analysis?.fundamentalRatios || {
+      fundamentalRatios: (analysis as any)?.fundamentalRatios || {
         avgPE: 0,
         avgPB: 0,
         avgROE: 0,
         avgDebtEquity: 0
       },
       sectorConcentration: analysis?.sectorConcentration || {},
-      topHoldings: analysis?.topHoldings || [],
+      topHoldings: (analysis as any)?.topHoldings || [],
       riskScore: analysis?.riskScore || 50,
-      diversificationScore: analysis?.diversificationScore || 50
+      diversificationScore: (analysis as any)?.diversificationScore || 50
     });
   } catch (error: any) {
     console.error("Error analyzing portfolio:", error);

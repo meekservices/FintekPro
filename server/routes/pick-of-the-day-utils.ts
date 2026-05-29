@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { listedStocks, mutualFunds, bondCatalog, unlistedCompanies, globalInstruments, instrumentMaster, dailyPicks } from "@shared/schema";
 import { eq, sql, inArray, and } from "drizzle-orm";
+import { calculateSuggestedAllocation } from "../services/pick-of-the-day-service";
 
 export const REGULATORY_DISCLAIMER = "Investment recommendations are AI-generated and for informational purposes only. Past performance does not guarantee future results. Investors should conduct independent due diligence and consult a SEBI-registered investment advisor before making investment decisions. FintekPro does not guarantee accuracy of third-party data. Data sourced from NSE, BSE, AMFI, Alpha Vantage, and Yahoo Finance.";
 
@@ -158,6 +159,17 @@ export async function enrichPicksWithDataSource(picks: any[]) {
       const km = typeof pick.keyMetrics === 'string' ? JSON.parse(pick.keyMetrics) : pick.keyMetrics;
       const needsRsi = km.rsi == null;
       const needsRoic = km.roic == null;
+      const needsAllocation = km.suggestedAllocation == null;
+      
+      if (needsAllocation) {
+        km.suggestedAllocation = calculateSuggestedAllocation(
+          pick.category,
+          pick.riskLevel || 'medium',
+          pick.confidenceScore || 70,
+          km
+        );
+      }
+      
       if (needsRsi || needsRoic) {
         let metricsUpdated = false;
         try {

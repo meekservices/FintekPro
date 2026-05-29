@@ -501,7 +501,7 @@ app.post('/api/store/inquiries', async (req: any, res) => {
       message,
       inquiryType: inquiryType || 'callback',
       status: 'pending',
-    }).returning();
+    } as any).returning();
 
     // Log transaction for compliance
     const { storeTransactionService } = await import('../services/store-transaction-service');

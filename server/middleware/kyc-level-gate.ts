@@ -159,7 +159,9 @@ export async function getUserKYCLevel(userId: string): Promise<{
         ipvCompleted: false,
         bankPennyDropVerified: false,
         missingRequirements: ['Create investor profile'],
-        complianceDate: null
+        complianceDate: null,
+        videoKycExpired: false,
+        videoKycExpiryDate: null
       }
     };
   }

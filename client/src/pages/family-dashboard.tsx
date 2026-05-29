@@ -1239,13 +1239,13 @@ export default function FamilyDashboard() {
                                   : 'Recently'}
                               </span>
                             </div>
-                            {activity.metadata && typeof activity.metadata === 'object' && (
+                            {activity.metadata && typeof activity.metadata === 'object' ? (
                               <div className="mt-2 p-3 bg-muted rounded-lg text-sm">
                                 <pre className="text-xs text-muted-foreground">
                                   {JSON.stringify(activity.metadata, null, 2)}
                                 </pre>
                               </div>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       ))}

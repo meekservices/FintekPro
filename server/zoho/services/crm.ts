@@ -496,15 +496,15 @@ export class ZohoCRMService {
       .limit(1);
 
     const dealData: ZohoCRMDeal = {
-      Deal_Name: `Commission - ${commission.productType} - ${commission.transactionDate.toISOString().split('T')[0]}`,
+      Deal_Name: `Commission - ${commission.productType} - ${(commission.transactionDate ?? new Date()).toISOString().split('T')[0]}`,
       Account_Name: partnerMapping?.zohoRecordId,
       Amount: parseFloat(commission.commissionAmount.toString()),
       Stage: this.mapCommissionStatusToStage(commission.status),
-      Closing_Date: commission.settlementDate?.toISOString().split('T')[0],
+      Closing_Date: commission.settlementId?.toISOString().split('T')[0],
       Type: 'Partner Commission',
       Lead_Source: 'FintekPro Platform',
-      Description: `Order ID: ${commission.orderId}\nProduct: ${commission.productType}\nBase Amount: ₹${commission.baseAmount}\nCommission Rate: ${commission.commissionRate}%`,
-      Tag: ['FintekPro Commission', commission.productType, commission.commissionTier]
+      Description: `Order ID: ${commission.orderId}\nProduct: ${commission.productType}\nBase Amount: ₹${(commission as any).baseAmount}\nCommission Rate: ${commission.commissionRate}%`,
+      Tag: ['FintekPro Commission', commission.productType, commission.commissionRate]
     };
 
     const response = await this.apiClient.post('/Deals', {

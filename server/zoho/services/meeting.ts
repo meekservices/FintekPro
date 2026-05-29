@@ -154,7 +154,7 @@ export class ZohoMeetingService {
 
   async deleteMeeting(meetingKey: string): Promise<boolean> {
     const response = await this.client.delete(`${this.getBasePath()}/sessions/${meetingKey}.json`);
-    return response.status === 200 || response.status === 204;
+    return Number(response.status) === 200 || Number(response.status) === 204;
   }
 
   async inviteParticipants(meetingKey: string, participants: Array<{

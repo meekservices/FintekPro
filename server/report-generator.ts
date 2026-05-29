@@ -151,7 +151,7 @@ export async function generateAccountStatement(
       transactionCount: transactions.length,
       statementData: sql`${JSON.stringify(transactions)}::jsonb`,
       generatedAt: new Date(),
-    });
+    } as any);
 
     // Create corresponding report record
     const reportId = randomUUID();

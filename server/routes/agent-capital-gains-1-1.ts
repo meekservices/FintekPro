@@ -81,7 +81,7 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
       }
       
       // Verify agent has access to this report
-      if (report.agentId !== req.user!.id) {
+      if ((report as any).agentId !== req.user!.id) {
         return res.status(403).json({ error: "Access denied to this report" });
       }
       
@@ -137,7 +137,7 @@ export function registerAgentCapitalGainPart1Part1Routes(app: Express): void {
       }
       
       // Verify agent has access to this report
-      if (report.agentId !== req.user!.id) {
+      if ((report as any).agentId !== req.user!.id) {
         return res.status(403).json({ error: "Access denied to this report" });
       }
       

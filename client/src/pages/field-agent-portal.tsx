@@ -85,7 +85,8 @@ export default function FieldAgentPortal() {
   const [meetingTime, setMeetingTime] = useState("");
   const [meetingDuration, setMeetingDuration] = useState(30);
 
-  const { data: agentProfile, isLoading: profileLoading } = useQuery({
+  const { data: agentProfile, isLoading: profileLoading } = useQuery<{ role?: string; [key: string]: any }>({
+
     queryKey: ['/api/agent/profile'],
   });
 

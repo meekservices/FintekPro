@@ -58,6 +58,7 @@ const statusLabels: Record<CartItemStatus | 'all', string> = {
   all: 'All Statuses',
   active: 'Active',
   pending_approval: 'Pending Approval',
+  ordered: 'Ordered',
   removed: 'Removed'
 };
 

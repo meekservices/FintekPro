@@ -205,7 +205,7 @@ router.post("/models/:id/activate", requireAdmin, async (req, res) => {
       .where(
         and(
           eq(aiModelRegistry.modelName, model.modelName),
-          eq(aiModelRegistry.assetClass, model.assetClass)
+          eq(aiModelRegistry.assetClass as any, model.assetClass)
         )
       );
 
@@ -263,7 +263,7 @@ router.get("/status", async (_req, res) => {
           id: m.id,
           name: m.modelName,
           type: m.modelType,
-          version: m.version,
+          version: (m as any).version,
           assetClass: m.assetClass,
         })),
         priceHistoryRecords: Number(priceHistoryCount?.count || 0),
@@ -297,7 +297,7 @@ router.post("/scoring/train", requireAdmin, async (req, res) => {
       res.json({ success: true, model: { name: model.name, version: model.version, assetClass: model.assetClass, metrics: model.trainingMetrics, cv: model.cvMetrics } });
     } else {
       const models = await aiMLScoringEngine.trainAllModels(config);
-      res.json({ success: true, models: models.map(m => ({ name: m.name, version: m.version, assetClass: m.assetClass, metrics: m.trainingMetrics })) });
+      res.json({ success: true, models: models.map(m => ({ name: m.name, version: (m as any).version, assetClass: m.assetClass, metrics: m.trainingMetrics })) });
     }
   } catch (error: any) {
     console.error("[AI Scoring] Training error:", error);

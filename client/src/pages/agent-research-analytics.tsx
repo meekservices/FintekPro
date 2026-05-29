@@ -95,7 +95,7 @@ export default function AgentResearchAnalytics() {
   const formatPercent = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
 
   return (
-    <AgentLayout title="Research Analytics" description="Performance analysis of your research lists">
+    <AgentLayout>
       <div className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>

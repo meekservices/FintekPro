@@ -259,7 +259,9 @@ router.post("/zoho/webhook", async (req: Request, res: Response) => {
     }
 
     const { db } = await import('../db');
-    const { zohoEntityMappings, agentProspects } = await import('@shared/schema');
+    const schemaModule = await import('@shared/schema') as any;
+    const { zohoEntityMappings } = schemaModule;
+    const agentProspects = schemaModule.agentProspects || schemaModule.prospectClients;
     const { eq, and } = await import('drizzle-orm');
 
     // Process each record

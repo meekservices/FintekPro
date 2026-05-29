@@ -139,7 +139,7 @@ router.get("/market-alerts", requireAuth, async (req, res) => {
 
     // Fetch quotes for unique symbols (cap at 30 to avoid rate limits)
     const symbols = Array.from(symbolClientMap.keys()).slice(0, 30);
-    const alerts = [];
+    const alerts: any[] = [];
 
     await Promise.allSettled(
       symbols.map(async (sym) => {
@@ -165,7 +165,7 @@ router.get("/market-alerts", requireAuth, async (req, res) => {
     alertCache.set(cacheKey, { data: result, expiresAt: Date.now() + 15 * 60 * 1000 });
 
     const filtered = filterClientId
-      ? { ...result, alerts: alerts.filter((a) => a.clients.some((c) => c.clientId === filterClientId)) }
+      ? { ...result, alerts: alerts.filter((a: any) => a.clients.some((c: any) => c.clientId === filterClientId)) }
       : result;
 
     res.json(filtered);

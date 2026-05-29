@@ -137,7 +137,7 @@ class ProteanESignService {
         console.log(`[Protean eSign] Mock mode - simulating OTP sent for transaction: ${transactionId}`);
         
         await db.update(esignRequests)
-          .set({ status: 'otp_sent' })
+          .set({ status: 'otp_sent' } as any)
           .where(eq(esignRequests.transactionId, transactionId));
 
         return {
@@ -172,7 +172,7 @@ class ProteanESignService {
         .set({ 
           status: responseData.status === 'otp_sent' ? 'otp_sent' : 'failed',
           apiResponse: responseData,
-        })
+        } as any)
         .where(eq(esignRequests.transactionId, transactionId));
 
       return {
@@ -189,7 +189,7 @@ class ProteanESignService {
       console.error('[Protean eSign] Initiate error:', error);
       
       await db.update(esignRequests)
-        .set({ status: 'failed', errorMessage: (error as Error).message })
+        .set({ status: 'failed', errorMessage: (error as Error).message } as any)
         .where(eq(esignRequests.transactionId, transactionId));
 
       if (error instanceof AxiosError) {
@@ -220,7 +220,7 @@ class ProteanESignService {
 
       if (esignRequest.expiresAt && new Date() > new Date(esignRequest.expiresAt)) {
         await db.update(esignRequests)
-          .set({ status: 'expired' })
+          .set({ status: 'expired' } as any)
           .where(eq(esignRequests.transactionId, request.transactionId));
         throw new AppError('eSign request expired', 400, 'ESIGN_EXPIRED');
       }
@@ -257,7 +257,7 @@ class ProteanESignService {
             status: 'completed',
             completedAt: signedAt,
             certificateId,
-          })
+          } as any)
           .where(eq(esignRequests.transactionId, request.transactionId));
 
         return {
@@ -307,7 +307,7 @@ class ProteanESignService {
             otpSentAt: new Date(),
             expiresAt: new Date(Date.now() + 10 * 60 * 1000),
             status: 'otp_sent',
-          })
+          } as any)
           .where(eq(esignRequests.transactionId, transactionId));
 
         return {

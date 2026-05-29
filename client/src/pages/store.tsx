@@ -400,7 +400,7 @@ export default function StorePage() {
   const getCurrentCategoryProviders = () => {
     const categoryProducts = selectedCategory === "all" 
       ? products 
-      : products.filter(p => p.categoryName === selectedCategory);
+      : products.filter(p => p.category === selectedCategory);
     const providers = [...new Set(categoryProducts.map(p => p.provider).filter(Boolean))];
     return providers.sort();
   };
@@ -427,7 +427,7 @@ export default function StorePage() {
 
     // Filter by subcategory (for Loans and other categories with subcategories)
     if (selectedSubcategory !== "all") {
-      filtered = filtered.filter(p => p.subcategoryName === selectedSubcategory);
+      filtered = filtered.filter(p => p.subcategory === selectedSubcategory);
     }
 
     // Filter by provider/financier
@@ -864,7 +864,7 @@ export default function StorePage() {
                       {getFilteredProducts(
                         selectedCategory === "all" 
                           ? products 
-                          : products.filter(p => p.categoryName === selectedCategory)
+                          : products.filter(p => p.category === selectedCategory)
                       ).length} Products
                     </Badge>
                   </div>
@@ -872,13 +872,13 @@ export default function StorePage() {
                     {getFilteredProducts(
                       selectedCategory === "all" 
                         ? products 
-                        : products.filter(p => p.categoryName === selectedCategory)
+                        : products.filter(p => p.category === selectedCategory)
                     ).map(renderProductCard)}
                   </div>
                   {getFilteredProducts(
                     selectedCategory === "all" 
                       ? products 
-                      : products.filter(p => p.categoryName === selectedCategory)
+                      : products.filter(p => p.category === selectedCategory)
                   ).length === 0 && !isCategoryDisabled(selectedCategory) && (
                     <div className="text-center py-12">
                       <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />

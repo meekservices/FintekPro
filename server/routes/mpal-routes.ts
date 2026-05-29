@@ -16,12 +16,12 @@ mpalRouter.get("/financial-profile", async (req, res) => {
     }
     
     // Call the engine to build a live profile (Alpaca + IRIS + Credit)
-    const profile = await financialProfileEngine.buildProfile(req.user.id);
+    const profile = await financialProfileEngine.buildProfile(req.user!.id);
     
     // Add additional metadata for UI
     const enrichedProfile = {
       ...profile,
-      id: `prof_${req.user.id}`,
+      id: `prof_${req.user!.id}`,
       riskScore: "750", // Still mocked for now, but scoring engine could be called here
       lastUpdated: new Date().toISOString()
     };
@@ -114,7 +114,7 @@ mpalRouter.get("/credit/eligibility", async (req, res) => {
     if (!req.user) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    const scoring = await creditScoringEngine.scoreUser(req.user.id);
+    const scoring = await creditScoringEngine.scoreUser(req.user!.id);
     res.json(scoring);
   } catch (error) {
     logger.error("Error evaluating credit eligibility", error);
@@ -129,7 +129,7 @@ mpalRouter.post("/credit/applications", async (req, res) => {
     }
     const application = {
       ...req.body,
-      userId: req.user.id
+      userId: req.user!.id
     };
     const result = await creditRouter.routeApplication(application);
     res.json(result);

@@ -527,7 +527,6 @@ export default function FestivalGreetingPreview() {
       allowTaint:      true,
       backgroundColor: null,
       logging:         false,
-      letterRendering: true,
       onclone: (_doc, clonedEl) => {
         clonedEl.style.width     = `${naturalW}px`;
         clonedEl.style.height    = `${naturalH}px`;
@@ -669,8 +668,8 @@ export default function FestivalGreetingPreview() {
         if (!blob) return;
         
         // Check if Web Share API is available
-        if (navigator.share && navigator.canShare) {
-          const file = new File([blob], `${selectedFestival.id}-greeting.png`, { type: 'image/png' });
+        const file = new File([blob], `${selectedFestival.id}-greeting.png`, { type: 'image/png' });
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
           try {
             await navigator.share({
               files: [file],

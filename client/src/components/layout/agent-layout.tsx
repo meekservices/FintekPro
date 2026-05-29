@@ -581,7 +581,7 @@ export function AgentLayout({ children }: AgentLayoutProps) {
           <Link href="/">
             <a className="flex items-center gap-2 group">
               <div className="relative">
-                <Shield className="w-8 h-8 text-emerald-600 dark:text-emerald-500 group-hover:scale-110 transition-transform duration-300" />
+                <LucideShield className="w-8 h-8 text-emerald-600 dark:text-emerald-500 group-hover:scale-110 transition-transform duration-300" />
                 <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:blur-2xl transition-all duration-300 opacity-0 group-hover:opacity-100" />
               </div>
               <span className="font-bold text-2xl tracking-tight bg-gradient-to-r from-emerald-700 to-teal-600 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent">

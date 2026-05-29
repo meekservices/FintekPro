@@ -208,7 +208,7 @@ export default function ICICILoans() {
       'rejected': 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200',
       'disbursed': 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200'
     };
-    return statusColors[status] || 'bg-muted text-foreground';
+    return statusColors[status as keyof typeof statusColors] || 'bg-muted text-foreground';
   };
 
   return (

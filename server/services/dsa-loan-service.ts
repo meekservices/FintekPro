@@ -722,7 +722,7 @@ class DsaLoanService {
     const eligibleBanks: string[] = [];
 
     for (const rule of rules) {
-      const minIncome = parseInt(rule.minIncome || "0");
+      const minIncome = parseInt((rule as any) .minIncome || "0");
       const minScore = rule.minCreditScore || 600;
 
       if (income >= minIncome && score >= minScore) {
@@ -859,7 +859,7 @@ class DsaLoanService {
       newState: { reason, triggeredAt: new Date().toISOString() },
     });
 
-    const eligibilityResults = await this.runEligibilityCheck(applicationId);
+    const eligibilityResults = await (this as any).runEligibilityCheck(applicationId);
     
     const borderlineResults = eligibilityResults.filter(
       r => r.matchScore >= 40 && r.matchScore < 70

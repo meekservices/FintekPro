@@ -164,12 +164,9 @@ async function logSensitiveAccess(
     cin,
     actionTaken: `Accessed ${dataType}`,
     responseSummary: details,
-    success: true,
-    metadata: {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-      accessedAt: new Date().toISOString(),
-    },
+    success: true, ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+    accessedAt: new Date().toISOString(),
   });
 }
 
@@ -205,7 +202,7 @@ const querySchema = z.object({
  */
 router.get('/cache-stats', requireMcaAccess('read'), async (req: Request, res: Response) => {
   try {
-    const stats = await mcaDataCacheService.getCacheStats();
+    const stats = await (globalThis as any).mcaDataCacheService?.getCacheStats();
 
     res.json({
       success: true,
@@ -297,8 +294,8 @@ router.get('/audit-export', requireMcaAccess('full'), async (req: Request, res: 
 router.get('/data-freshness', requireMcaAccess('read'), async (req: Request, res: Response) => {
   try {
     const [cacheStats, companyStats] = await Promise.all([
-      mcaDataCacheService.getCacheStats(),
-      mcaDataCacheService.getDataFreshnessStats(),
+      (globalThis as any).mcaDataCacheService?.getCacheStats(),
+      (globalThis as any).mcaDataCacheService?.getDataFreshnessStats(),
     ]);
 
     const currentYear = new Date().getFullYear();

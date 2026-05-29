@@ -58,7 +58,7 @@ export class BusinessIntelligenceService {
       const products = await storage.getProducts({});
       
       // Calculate revenue metrics (mock data for now - replace with actual transaction data)
-      const totalRevenue = products.reduce((sum, p) => sum + (p.revenueGenerated || 0), 0);
+      const totalRevenue = products.reduce((sum, p) => sum + ((p as any).revenueGenerated || 0), 0);
       const monthlyRevenue = totalRevenue / 12; // Simplified
       
       // Calculate other metrics
@@ -83,12 +83,12 @@ export class BusinessIntelligenceService {
             productSales[p.category] = { count: 0, revenue: 0 };
           }
           productSales[p.category].count += 1;
-          productSales[p.category].revenue += p.revenueGenerated || 0;
+          productSales[p.category].revenue += (p as any).revenueGenerated || 0;
           
           topProducts.push({
             name: p.name,
-            revenue: p.revenueGenerated || 0,
-            sales: p.unitsSold || 0
+            revenue: (p as any).revenueGenerated || 0,
+            sales: (p as any).unitsSold || 0
           });
         }
       });

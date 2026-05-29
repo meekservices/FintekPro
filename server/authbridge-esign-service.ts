@@ -184,7 +184,7 @@ class AuthBridgeESignService {
         status: 'initiated',
         otpSentAt: new Date(),
         expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
-      });
+      } as any);
 
       if (this.isInMockMode()) {
         console.log(`[TruthScreen eSign] Mock mode - simulating OTP sent for transaction: ${transactionId}`);
@@ -227,10 +227,10 @@ class AuthBridgeESignService {
 
       // Update request status
       await db.update(esignRequests)
-        .set({ 
+        .set({
           status: data.status === 'otp_sent' ? 'otp_sent' : 'failed',
           apiResponse: data,
-        })
+        } as any)
         .where(eq(esignRequests.transactionId, transactionId));
 
       return {
@@ -248,7 +248,7 @@ class AuthBridgeESignService {
       
       // Update request as failed
       await db.update(esignRequests)
-        .set({ status: 'failed', errorMessage: (error as Error).message })
+        .set({ status: 'failed', errorMessage: (error as Error).message } as any)
         .where(eq(esignRequests.transactionId, transactionId));
 
       if (error instanceof AxiosError) {
@@ -271,7 +271,7 @@ class AuthBridgeESignService {
       const [esignRequest] = await db.select()
         .from(esignRequests)
         .where(eq(esignRequests.transactionId, request.transactionId))
-        .limit(1);
+        .limit(1) as any[];
 
       if (!esignRequest) {
         throw new AppError('eSign request not found', 404, 'ESIGN_NOT_FOUND');
@@ -288,7 +288,7 @@ class AuthBridgeESignService {
       // Check expiry
       if (esignRequest.expiresAt && new Date() > new Date(esignRequest.expiresAt)) {
         await db.update(esignRequests)
-          .set({ status: 'expired' })
+          .set({ status: 'expired' } as any)
           .where(eq(esignRequests.transactionId, request.transactionId));
         throw new AppError('eSign request expired', 400, 'ESIGN_EXPIRED');
       }
@@ -323,11 +323,11 @@ class AuthBridgeESignService {
 
         // Update request as completed
         await db.update(esignRequests)
-          .set({ 
+          .set({
             status: 'completed',
             completedAt: signedAt,
             certificateId,
-          })
+          } as any)
           .where(eq(esignRequests.transactionId, request.transactionId));
 
         return {
@@ -392,11 +392,11 @@ class AuthBridgeESignService {
 
         // Update request as completed
         await db.update(esignRequests)
-          .set({ 
+          .set({
             status: 'completed',
             completedAt: signedAt,
             certificateId,
-          })
+          } as any)
           .where(eq(esignRequests.transactionId, request.transactionId));
 
         return {
@@ -417,10 +417,10 @@ class AuthBridgeESignService {
       } else {
         // OTP verification failed
         await db.update(esignRequests)
-          .set({ 
+          .set({
             status: 'otp_failed',
             errorMessage: data.message || 'OTP verification failed',
-          })
+          } as any)
           .where(eq(esignRequests.transactionId, request.transactionId));
 
         return {
@@ -453,7 +453,7 @@ class AuthBridgeESignService {
       const [esignRequest] = await db.select()
         .from(esignRequests)
         .where(eq(esignRequests.transactionId, transactionId))
-        .limit(1);
+        .limit(1) as any[];
 
       if (!esignRequest) {
         throw new AppError('eSign request not found', 404, 'ESIGN_NOT_FOUND');
@@ -466,11 +466,11 @@ class AuthBridgeESignService {
       if (this.isInMockMode()) {
         // Update OTP sent timestamp
         await db.update(esignRequests)
-          .set({ 
+          .set({
             otpSentAt: new Date(),
             expiresAt: new Date(Date.now() + 10 * 60 * 1000),
             status: 'otp_sent',
-          })
+          } as any)
           .where(eq(esignRequests.transactionId, transactionId));
 
         return {
@@ -494,11 +494,11 @@ class AuthBridgeESignService {
       );
 
       await db.update(esignRequests)
-        .set({ 
+        .set({
           otpSentAt: new Date(),
           expiresAt: new Date(Date.now() + 10 * 60 * 1000),
           status: 'otp_sent',
-        })
+        } as any)
         .where(eq(esignRequests.transactionId, transactionId));
 
       return {
@@ -527,7 +527,7 @@ class AuthBridgeESignService {
     const [esignRequest] = await db.select()
       .from(esignRequests)
       .where(eq(esignRequests.transactionId, transactionId))
-      .limit(1);
+      .limit(1) as any[];
 
     if (!esignRequest) {
       throw new AppError('eSign request not found', 404, 'ESIGN_NOT_FOUND');
@@ -552,7 +552,7 @@ class AuthBridgeESignService {
       .where(eq(esignCertificates.userId, userId))
       .orderBy(desc(esignCertificates.signedAt));
 
-    return certificates.map(cert => ({
+    return (certificates.map(cert => ({
       id: cert.id,
       userId: cert.userId,
       transactionId: cert.transactionId,
@@ -568,7 +568,7 @@ class AuthBridgeESignService {
       validTo: cert.validTo,
       signatureAlgorithm: cert.signatureAlgorithm || 'SHA256withRSA',
       status: cert.status as 'valid' | 'expired' | 'revoked',
-    }));
+    }))) as any;
   }
 
   /**

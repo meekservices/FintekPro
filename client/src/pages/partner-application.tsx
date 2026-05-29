@@ -102,13 +102,13 @@ export default function PartnerApplicationPage() {
   const recommendationId = urlParams.get('recommendation');
 
   // Get lender information
-  const { data: lendersData, isLoading: loadingLenders } = useQuery({
+  const { data: lendersData, isLoading: loadingLenders } = useQuery<{ data: LenderInfo[] }>({
     queryKey: ['/api/partner-applications/lenders'],
     enabled: !!lender
   });
 
   // Get prefill data
-  const { data: prefillData, isLoading: loadingPrefill } = useQuery({
+  const { data: prefillData, isLoading: loadingPrefill } = useQuery<{ data: Record<string, any> }>({
     queryKey: ['/api/partner-applications/prefill', lender],
     enabled: !!lender
   });
@@ -192,13 +192,13 @@ export default function PartnerApplicationPage() {
     mutationFn: async (data: ApplicationData) => {
       return apiRequest('/api/partner-applications', {
         method: 'POST',
-        body: {
+        body: JSON.stringify({
           lender: data.lender,
           loanType: 'personal',
           recommendationId: data.recommendationId,
           applicationData: data,
           status: 'draft'
-        }
+        })
       });
     },
     onSuccess: (result) => {

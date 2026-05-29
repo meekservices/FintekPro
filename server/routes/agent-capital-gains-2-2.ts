@@ -25,10 +25,10 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
       try {
         const { smsService } = await import("../services/sms-service");
         
-        if (smsService.isAvailable()) {
+        if (await (smsService as any).isAvailable?.() ?? true) {
           for (const recipient of recipients) {
             try {
-              const sent = await smsService.sendMessage(recipient.phone, message);
+              const sent = await (smsService as any).sendMessage(recipient.phone, message);
               if (sent) {
                 successCount++;
               } else {
@@ -135,7 +135,7 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
       try {
         const { twilioWhatsAppService } = await import("../services/twilio-whatsapp-service");
         
-        if (twilioWhatsAppService.isAvailable()) {
+        if (await twilioWhatsAppService.isAvailable()) {
           for (const r of recipients) {
             const result = await twilioWhatsAppService.sendMessage(
               r.phone,
@@ -205,7 +205,7 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
         port,
         clientId,
         status: "disconnected"
-      });
+      } as any);
 
       res.json({ account });
     } catch (error) {
@@ -300,7 +300,7 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
         price,
         timeInForce: timeInForce || "DAY",
         status: "pending"
-      });
+      } as any);
 
       // TODO: Submit order to IB API
 

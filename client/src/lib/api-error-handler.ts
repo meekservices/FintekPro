@@ -146,16 +146,15 @@ export async function handleApiError(
     if (apiError.type === 'network') {
       trackPromise = trackNetworkError(
         errorCode,
+        0,
         apiError.message,
-        module,
         { transactionId, clientId }
       );
     } else if (module === 'payment' || operation.toLowerCase().includes('payment')) {
       trackPromise = trackPaymentError(
+        transactionId || errorCode,
         errorCode,
         apiError.message,
-        transactionId,
-        apiError.status,
         { clientId }
       );
     } else if (module === 'kyc' || operation.toLowerCase().includes('kyc')) {

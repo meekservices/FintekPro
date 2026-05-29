@@ -3,7 +3,7 @@ import { globalInstruments } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
-import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
+import { DailyPickData, PickCategory, calculateSuggestedAllocation } from "../pick-of-the-day-service";
 
 export class GlobalStockStrategy extends BaseStrategy {
   category: PickCategory = 'global_stocks';
@@ -17,6 +17,13 @@ export class GlobalStockStrategy extends BaseStrategy {
       const topStock = freshStocks[0];
       const currentPrice = parseFloat(String(topStock.lastPrice || "0"));
       const { targetPct, stoplossPct } = this.getDynamicTargetStoploss('global_stocks');
+
+      const suggestedAllocation = calculateSuggestedAllocation(
+        'global_stocks',
+        'high',
+        70,
+        { marketCap: 'Mid Cap' }
+      );
 
       return {
         category: 'global_stocks',
@@ -41,6 +48,7 @@ export class GlobalStockStrategy extends BaseStrategy {
           currency: topStock.currency,
           market: topStock.market,
           lastPrice: currentPrice,
+          suggestedAllocation,
         },
       };
     } catch (error) {

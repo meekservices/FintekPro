@@ -406,10 +406,10 @@ export async function getBondKYCProgress(userId: string): Promise<{
   const result = await checkBondKYCEligibility(userId);
   
   const enhancedSteps = result.steps.map(step => ({
-    name: step.name,
+    name: step.step,
     completed: step.completed,
-    description: getStepDescription(step.name),
-    redirectPath: getStepRedirectPath(step.name)
+    description: getStepDescription(step.step),
+    redirectPath: getStepRedirectPath(step.step)
   }));
 
   return {

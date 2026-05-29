@@ -4,7 +4,7 @@ import { and, eq, sql, gte, asc, desc } from "drizzle-orm";
 
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
-import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
+import { DailyPickData, PickCategory, calculateSuggestedAllocation } from "../pick-of-the-day-service";
 import { getEnrichedStockSnapshots, EnrichedStockSnapshot } from '../screener/enriched-stock-data';
 import { FinancialMetricsCalculator } from "../financial-metrics-calculator";
 
@@ -88,6 +88,14 @@ export class StockStrategy extends BaseStrategy {
       });
 
       const exchange = topStock.nseCode ? 'NSE' : (topStock.bseCode ? 'BSE' : 'NSE');
+      const riskLevel = this.getRiskLevel(topStock.volatility ? parseFloat(topStock.volatility) : 20);
+      const confidenceScore = this.getConfidenceScore('listed_stocks', scoredStocks[0].score, 70);
+      const suggestedAllocation = calculateSuggestedAllocation(
+        'listed_stocks',
+        riskLevel,
+        confidenceScore,
+        { marketCap: topStock.marketCap }
+      );
       
       return {
         category: 'listed_stocks',
@@ -104,10 +112,10 @@ export class StockStrategy extends BaseStrategy {
         status: 'live',
         expiryDate: this.getExpiryDate(this.DEFAULT_VALIDITY_DAYS),
         rationale, 
-        riskLevel: this.getRiskLevel(topStock.volatility ? parseFloat(topStock.volatility) : 20),
-        suitableFor: this.deriveSuitableFor(this.getRiskLevel(topStock.volatility ? parseFloat(topStock.volatility) : 20), 'listed_stocks'),
+        riskLevel,
+        suitableFor: this.deriveSuitableFor(riskLevel, 'listed_stocks'),
         timeHorizon: this.getTimeHorizon('listed_stocks'),
-        confidenceScore: this.getConfidenceScore('listed_stocks', scoredStocks[0].score, 70),
+        confidenceScore,
         sectorCategory: topStock.sector || undefined,
         keyMetrics: {
           cmp: currentPrice,
@@ -120,6 +128,7 @@ export class StockStrategy extends BaseStrategy {
           analystRating: topStock.analystRating || undefined,
           roic: topEnriched?.fundamentals?.roic ?? directRoic ?? null,
           rsi: topEnriched?.technicals?.rsi ?? directRsi ?? null,
+          suggestedAllocation,
         },
       };
     } catch (error) {

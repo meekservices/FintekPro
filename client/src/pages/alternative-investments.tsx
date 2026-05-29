@@ -160,13 +160,13 @@ export default function AlternativeInvestmentsPage() {
   });
 
   // Fetch AIF Holdings
-  const { data: aifData, isLoading: aifLoading } = useQuery({
+  const { data: aifData, isLoading: aifLoading } = useQuery<{ holdings: AifHolding[]; summary: PortfolioSummary }>({
     queryKey: ["/api/store/portfolio/aif"],
     enabled: !!user,
   });
 
   // Fetch PMS Holdings
-  const { data: pmsData, isLoading: pmsLoading } = useQuery({
+  const { data: pmsData, isLoading: pmsLoading } = useQuery<{ holdings: PmsHolding[]; summary: PortfolioSummary }>({
     queryKey: ["/api/store/portfolio/pms"],
     enabled: !!user,
   });

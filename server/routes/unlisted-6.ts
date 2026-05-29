@@ -500,12 +500,12 @@ router.post('/admin/companies/:id/financials', requireAdmin, async (req: Request
       action: existingFinancials ? 'update_financials' : 'create_financials',
       previousData: existingFinancials ? JSON.stringify(existingFinancials) : null,
       newData: JSON.stringify(financials),
-      changedBy: req.user.id,
+      changedBy: req.user!.id,
       ipAddress: req.ip || 'unknown',
       userAgent: req.headers['user-agent'] || 'unknown',
     });
     
-    console.log(`[ManualEntry] Admin ${req.user.id} added financials for ${company.name} (${financialYear})`);
+    console.log(`[ManualEntry] Admin ${req.user!.id} added financials for ${company.name} (${financialYear})`);
     
     return apiResponse.success(res, { 
       message: existingFinancials ? 'Financial data updated' : 'Financial data added',

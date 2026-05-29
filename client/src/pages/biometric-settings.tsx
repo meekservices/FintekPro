@@ -153,7 +153,7 @@ export default function BiometricSettings() {
 
   const renameMutation = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) =>
-      apiRequest(`/api/webauthn/credentials/${id}`, { method: "PATCH", body: { deviceName: name } }),
+      apiRequest(`/api/webauthn/credentials/${id}`, { method: "PATCH", body: JSON.stringify({ deviceName: name }) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/webauthn/credentials"] });
       toast({ title: "Renamed", description: "Device name updated." });
@@ -207,7 +207,7 @@ export default function BiometricSettings() {
 
       await apiRequest("/api/webauthn/register/verify", {
         method: "POST",
-        body: prepareRegistrationCredential(credential),
+        body: JSON.stringify(prepareRegistrationCredential(credential)),
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/webauthn/credentials"] });
@@ -246,7 +246,7 @@ export default function BiometricSettings() {
 
       const result = await apiRequest("/api/webauthn/authenticate/verify", {
         method: "POST",
-        body: prepareAuthenticationCredential(credential),
+        body: JSON.stringify(prepareAuthenticationCredential(credential)),
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/webauthn/status"] });

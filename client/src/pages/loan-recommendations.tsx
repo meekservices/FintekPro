@@ -337,7 +337,7 @@ export default function LoanRecommendationsPage() {
     }) => {
       return await apiRequest('/api/loans/track-recommendation', {
         method: 'POST',
-        body: data
+        body: JSON.stringify(data)
       });
     }
   });

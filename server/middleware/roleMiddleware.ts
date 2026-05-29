@@ -25,7 +25,7 @@ function getUserRoles(user: UserWithRole | Record<string, any> | undefined): Rol
   
   // Support both old single role field and new roles array
   const roles = user.roles || (user.role ? [user.role] : ['user']);
-  return (roles || ['user']).filter(r => r in ROLE_DEFINITIONS) as RoleId[];
+  return (roles || ['user']).filter((r: string) => r in ROLE_DEFINITIONS) as RoleId[];
 }
 
 /**

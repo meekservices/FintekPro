@@ -12,14 +12,14 @@ router.get("/", requireAdmin, async (req, res) => {
     const configs = await db
       .select()
       .from(platformConfig)
-      .where(eq(platformConfig.isActive, true))
+      .where(eq((platformConfig as any).isActive, true))
       .orderBy(desc(platformConfig.createdAt));
     
     // Group by key to get latest for each
     const latestConfigs: Record<string, any> = {};
     configs.forEach(cfg => {
-      if (!latestConfigs[cfg.configKey]) {
-        latestConfigs[cfg.configKey] = cfg;
+      if (!latestConfigs[(cfg as any).configKey]) {
+        latestConfigs[(cfg as any).configKey] = cfg;
       }
     });
 
@@ -37,14 +37,14 @@ router.post("/", requireAdmin, async (req, res) => {
     // 1. Deactivate old config for this key
     await db
       .update(platformConfig)
-      .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(platformConfig.configKey, configKey));
+      .set({ isActive: false, updatedAt: new Date() } as any)
+      .where(eq((platformConfig as any).configKey, configKey));
 
     // 2. Insert new version
     const [newConfig] = await db
       .insert(platformConfig)
       .values({
-        configKey,
+        configKey: configKey as any,
         configValue,
         description,
         configType: typeof configValue === 'number' ? 'number' : 'string',

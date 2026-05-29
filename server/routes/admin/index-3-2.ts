@@ -120,7 +120,7 @@ export function registerAdminPanelPart3Sub2Routes(app: Express): void {
         annualIncome: null,
         investmentExperience: null,
         riskTolerance: null
-      });
+      } as any);
       
       await adminService.logActivity({
         userId: req.user?.id || 'unknown',

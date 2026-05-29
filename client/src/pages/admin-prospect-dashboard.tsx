@@ -1032,7 +1032,7 @@ export default function AdminProspectDashboardPage() {
         open={isZohoImportOpen}
         onOpenChange={setIsZohoImportOpen}
         agents={agents}
-        onSubmit={(module, agentId, maxRecords) => zohoImportMutation.mutate({ module, assignToAgent: agentId, maxRecords })}
+        onSubmit={(module, agentId, maxRecords) => zohoImportMutation.mutate({ module, assignToAgent: agentId, maxRecords: maxRecords ?? 0 })}
         isPending={zohoImportMutation.isPending}
       />
 
@@ -1549,7 +1549,7 @@ function ScoreBar({ label, score, icon, color }: { label: string; score: number;
         <span className="font-semibold">{score.toFixed(1)}</span>
       </div>
       <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${Math.min(score, 100)}%` }} />
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${Math.min(score, 100)}%` } as React.CSSProperties} />
       </div>
     </div>
   );
@@ -1742,6 +1742,8 @@ function ProspectScorePanel({ leadId, onScored }: { leadId: string; onScored?: (
           value={relStrength}
           onChange={(e) => setRelStrength(Number(e.target.value))}
           className="w-full accent-violet-600"
+          title="Relationship Strength"
+          aria-label="Relationship Strength"
         />
         <Button
           size="sm"

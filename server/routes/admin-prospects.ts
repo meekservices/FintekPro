@@ -351,7 +351,7 @@ router.post('/b2b-leads', requireAdmin, async (req: any, res: Response) => {
         description: `Lead assigned to agent by admin`,
         performedBy: req.user.id,
         metadata: { assignedTo, assignedBy: req.user.id }
-      });
+      } as any);
     }
 
     res.status(201).json(newLead);
@@ -453,7 +453,7 @@ router.patch('/b2b-leads/:id/assign', requireAdmin, async (req: any, res: Respon
         reason,
         assignedBy: req.user.id
       }
-    });
+    } as any);
 
     res.json(updated);
   } catch (error) {
@@ -549,7 +549,7 @@ router.post('/b2b-leads/bulk-assign', requireAdmin, async (req: any, res: Respon
             reason,
             bulkOperation: true
           }
-        });
+        } as any);
 
         return leadId;
       })
@@ -584,7 +584,7 @@ router.get('/b2b-leads/:id/history', requireAdmin, async (req: any, res: Respons
         description: leadActivities.description,
         performedBy: leadActivities.performedBy,
         performerName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
-        metadata: leadActivities.metadata,
+        metadata: (leadActivities as any).metadata,
         createdAt: leadActivities.createdAt
       })
       .from(leadActivities)

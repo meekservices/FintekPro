@@ -1,4 +1,4 @@
-import type { PortfolioHolding, InsertPortfolioPrediction, InsertAssetForecast, InsertRiskAnalysis } from "@shared/schema";
+import type { PortfolioHolding, InsertAssetForecast } from "@shared/schema";
 
 // Statistical helper functions
 class PredictiveAnalytics {
@@ -206,12 +206,12 @@ class PredictiveAnalytics {
     if (holdings.length === 0) return 0;
     if (holdings.length === 1) return 20;
 
-    const totalValue = holdings.reduce((sum, h) => sum + parseFloat(h.currentValue), 0);
+    const totalValue = holdings.reduce((sum, h) => sum + parseFloat(h.currentValue ?? '0'), 0);
     
     // Calculate Herfindahl-Hirschman Index (HHI)
     let hhi = 0;
     for (const holding of holdings) {
-      const marketShare = parseFloat(holding.currentValue) / totalValue;
+      const marketShare = parseFloat(holding.currentValue ?? '0') / totalValue;
       hhi += marketShare * marketShare;
     }
 
@@ -247,8 +247,8 @@ class PredictiveAnalytics {
   calculateConcentrationRisk(holdings: PortfolioHolding[]): number {
     if (holdings.length === 0) return 100;
     
-    const totalValue = holdings.reduce((sum, h) => sum + parseFloat(h.currentValue), 0);
-    const maxHolding = Math.max(...holdings.map(h => parseFloat(h.currentValue)));
+    const totalValue = holdings.reduce((sum, h) => sum + parseFloat(h.currentValue ?? '0'), 0);
+    const maxHolding = Math.max(...holdings.map(h => parseFloat(h.currentValue ?? '0')));
     const concentration = (maxHolding / totalValue) * 100;
     
     return Math.min(100, concentration);

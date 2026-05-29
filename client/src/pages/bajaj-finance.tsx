@@ -77,8 +77,19 @@ export default function BajajFinance() {
   const [fdResult, setFdResult] = useState<FDResult | null>(null);
   const [eligibilityResult, setEligibilityResult] = useState<EligibilityResult | null>(null);
 
+interface InterestRatesData {
+  success: boolean;
+  data: {
+    personalLoan: { min: number; max: number };
+    businessLoan: { min: number; max: number };
+    homeLoan: { min: number; max: number };
+    fixedDeposit: { regular: number; seniorCitizen: number };
+    autoLoan: { min: number; max: number };
+  };
+}
+
   // Get Interest Rates
-  const { data: interestRates, isLoading: ratesLoading } = useQuery({
+  const { data: interestRates, isLoading: ratesLoading } = useQuery<InterestRatesData>({
     queryKey: ['/api/bajaj-finance/interest-rates'],
   });
 

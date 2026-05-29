@@ -290,7 +290,7 @@ export class FintekProRatingService {
     if (funds.length === 0) return null;
     const fund = funds[0];
 
-    const returns1y = parseFloat(fund.returns1y?.toString() || '0');
+    const returns1y = parseFloat(fund.returns1Y?.toString() || '0');
     const returns3y = parseFloat(fund.returns3y?.toString() || '0');
     const returns5y = parseFloat(fund.returns5y?.toString() || '0');
     const expenseRatio = parseFloat(fund.expenseRatio?.toString() || '1.5');
@@ -412,7 +412,7 @@ export class FintekProRatingService {
     const pbRatio = enriched?.fundamentals?.pbRatio ?? parseFloat(stock.pbRatio?.toString() || '3');
     const roe = enriched?.fundamentals?.roe ?? parseFloat(stock.roe?.toString() || '15');
     const marketCap = enriched?.fundamentals?.marketCap ?? parseFloat(stock.marketCap?.toString() || '10000');
-    const returns1y = parseFloat(stock.returns1y?.toString() || '0');
+    const returns1y = parseFloat(stock.returns1Y?.toString() || '0');
     const returns3y = parseFloat(stock.returns3y?.toString() || '0');
     const beta = parseFloat(stock.beta?.toString() || '1');
     const debtToEquity = enriched?.fundamentals?.debtToEquity ?? parseFloat(stock.debtToEquity?.toString() || '1');
@@ -789,7 +789,7 @@ export class FintekProRatingService {
       .from(listedStocks)
       .where(and(
         eq(listedStocks.isPublished, true),
-        isNotNull(listedStocks.returns1y)
+        isNotNull(listedStocks.returns1Y)
       ))
       .orderBy(desc(listedStocks.marketCap))
       .limit(limit * 2);

@@ -109,7 +109,7 @@ export default function AgentHniLeaderboard() {
   });
 
   const scoreMutation = useMutation({
-    mutationFn: () => apiRequest("/api/agent-wizard/prospects/bulk-score", { method: "POST", body: {} }),
+    mutationFn: () => apiRequest("/api/agent-wizard/prospects/bulk-score", { method: "POST", body: JSON.stringify({}) }),
     onSuccess: (res: any) => {
       toast({ title: "Scoring triggered", description: `${res.scored ?? 0} prospects rescored` });
       qc.invalidateQueries({ queryKey: ["/api/agent-wizard/prospects/top-ranked"] });

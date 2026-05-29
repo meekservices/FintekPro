@@ -209,7 +209,7 @@ export async function verifyBankAccountPennyDrop(
         accountStatus: (account_status as 'active' | 'inactive' | 'dormant') || 'active',
         verifiedName: name_at_bank,
         nameMatchScore,
-        amount: amount_deposited || 1.00,
+        amount: Number(amount_deposited) || 1.00,
         providerResponse: apiResponse
       };
     }

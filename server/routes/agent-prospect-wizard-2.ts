@@ -356,7 +356,7 @@ router.put("/prospects/:id/risk-profile", async (req: Request, res: Response) =>
     }
 
     const riskProfile = riskProfileSchema.parse(req.body);
-    await agentProspectWizardService.updateProspectRiskProfile(req.params.id, riskProfile);
+    await agentProspectWizardService.updateProspectRiskProfile(req.params.id, riskProfile as any);
     res.json({ success: true });
   } catch (error: any) {
     console.error("[Agent Wizard] Error updating risk profile:", error);
@@ -376,7 +376,7 @@ router.post("/analyze-portfolio", async (req: Request, res: Response) => {
     const normalizedHoldings = normalizeHoldings(flexibleHoldings);
     const parsedRiskProfile = riskProfileSchema.parse(riskProfile);
     
-    const analysis = agentProspectWizardService.analyzePortfolio(normalizedHoldings, parsedRiskProfile);
+    const analysis = agentProspectWizardService.analyzePortfolio(normalizedHoldings, parsedRiskProfile as any);
     res.json({ success: true, analysis });
   } catch (error: any) {
     console.error("[Agent Wizard] Error analyzing portfolio:", error);
@@ -399,7 +399,7 @@ router.post("/rebalancing-suggestions", async (req: Request, res: Response) => {
     
     const result = await agentProspectWizardService.generateRebalancingRecommendations(
       normalizedHoldings, 
-      parsedRiskProfile, 
+      parsedRiskProfile as any, 
       analysis,
       parsedAllocations,
       0,
@@ -440,7 +440,7 @@ router.post("/fresh-investment-suggestions", async (req: Request, res: Response)
     const parsedAllocations = customAllocations ? customAllocationsSchema.parse(customAllocations) : undefined;
     
     const suggestions = await agentProspectWizardService.generateFreshInvestmentSuggestions(
-      parsedRiskProfile,
+      parsedRiskProfile as any,
       investmentAmount || 0,
       parsedHoldings,
       parsedAllocations,
@@ -484,7 +484,7 @@ router.post("/generate-proposal", async (req: Request, res: Response) => {
       data.prospectId,
       data.prospectData,
       normalizedHoldings,
-      data.riskProfile,
+      data.riskProfile as any,
       data.freshInvestmentAmount,
       data.customAllocations,
       data.selectedCategories,

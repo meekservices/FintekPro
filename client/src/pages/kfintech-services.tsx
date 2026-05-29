@@ -136,6 +136,8 @@ import {
   useIrisNfoApplications,
   useIrisCancelNfo,
   useIrisCompareSchemes,
+  useIrisDirectPayStatus,
+  useIrisActiveMandates,
 } from '@/hooks/use-kfintech';
 import { useToast } from '@/hooks/use-toast';
 
@@ -202,6 +204,9 @@ export default function KfintechServices() {
   const [whatsappForm, setWhatsappForm] = useState<Record<string, string>>({ mobile: '', template: '', message: '' });
   const [trackOrderId, setTrackOrderId] = useState<string>('');
   const [riskAnswers, setRiskAnswers] = useState<Record<string, string>>({});
+  // Direct Pay / Active Mandates lookup
+  const [directPayAccountNo, setDirectPayAccountNo] = useState<string>('');
+  const [directPayAccountNoInput, setDirectPayAccountNoInput] = useState<string>('');
   const { toast } = useToast();
 
   // IRIS API hooks
@@ -274,6 +279,10 @@ export default function KfintechServices() {
   const nfoApplications = useIrisNfoApplications(selectedPan);
   const cancelNfoMutation = useIrisCancelNfo();
   const compareSchemesMutation = useIrisCompareSchemes();
+
+  // Direct Pay Status & Active Mandates
+  const directPayStatus = useIrisDirectPayStatus(selectedPan, directPayAccountNo, !!directPayAccountNo);
+  const activeMandates = useIrisActiveMandates(selectedPan, directPayAccountNo, !!directPayAccountNo);
 
   // Form setups
   const panForm = useForm<z.infer<typeof panSchema>>({
@@ -567,6 +576,7 @@ export default function KfintechServices() {
             <TabsTrigger value="compliance" data-testid="tab-compliance">Compliance</TabsTrigger>
             <TabsTrigger value="hierarchy" data-testid="tab-hierarchy">Hierarchy</TabsTrigger>
             <TabsTrigger value="bulk-reports" data-testid="tab-bulk-reports">Bulk Reports</TabsTrigger>
+            <TabsTrigger value="direct-pay" data-testid="tab-direct-pay">Direct Pay</TabsTrigger>
           </ScrollableTabsList>
 
           {/* Portfolio Tab */}
@@ -3224,6 +3234,240 @@ export default function KfintechServices() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* ── Direct Pay & Active Mandates Tab ─────────────────────────────── */}
+          <TabsContent value="direct-pay" className="space-y-6">
+            <Alert>
+              <CreditCard className="h-4 w-4" />
+              <AlertTitle>Direct Pay & Mandate Status</AlertTitle>
+              <AlertDescription>
+                Check real-time direct pay eligibility and all active debit mandates registered against a bank account.
+              </AlertDescription>
+            </Alert>
+
+            {/* Bank Account Lookup */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5" />
+                  Bank Account Lookup
+                </CardTitle>
+                <CardDescription>Enter a bank account number to check Direct Pay status and active mandates</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-end gap-3">
+                  <div className="flex-1 space-y-1">
+                    <Label className="text-sm">Bank Account Number</Label>
+                    <Input
+                      placeholder="Enter account number (e.g. 1234567890)"
+                      value={directPayAccountNoInput}
+                      onChange={e => setDirectPayAccountNoInput(e.target.value)}
+                      data-testid="input-direct-pay-account"
+                    />
+                  </div>
+                  <Button
+                    onClick={() => setDirectPayAccountNo(directPayAccountNoInput.trim())}
+                    disabled={!directPayAccountNoInput.trim()}
+                    data-testid="button-lookup-direct-pay"
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    Lookup
+                  </Button>
+                  {directPayAccountNo && (
+                    <Button variant="outline" onClick={() => { setDirectPayAccountNo(''); setDirectPayAccountNoInput(''); }}>
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                {directPayAccountNo && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Showing results for account: <span className="font-mono font-semibold">{'*'.repeat(Math.max(0, directPayAccountNo.length - 4))}{directPayAccountNo.slice(-4)}</span>
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {directPayAccountNo && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Direct Pay Status Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-blue-500" />
+                      Direct Pay Status
+                    </CardTitle>
+                    <CardDescription>
+                      Eligibility and real-time status for instant direct-pay transactions
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {directPayStatus.isLoading ? (
+                      <div className="flex justify-center py-8">
+                        <RefreshCw className="h-5 w-5 animate-spin mr-2" />
+                        <span className="text-sm text-muted-foreground">Checking direct pay eligibility…</span>
+                      </div>
+                    ) : directPayStatus.error ? (
+                      <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        <AlertTitle className="text-red-800 dark:text-red-200">Unable to fetch status</AlertTitle>
+                        <AlertDescription className="text-red-700 dark:text-red-300">
+                          {(directPayStatus.error as Error).message}
+                        </AlertDescription>
+                      </Alert>
+                    ) : directPayStatus.data ? (
+                      <>
+                        <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/20">
+                          <div className="flex items-center gap-3">
+                            {directPayStatus.data.eligible ? (
+                              <CheckCircle className="h-8 w-8 text-green-500" />
+                            ) : (
+                              <AlertCircle className="h-8 w-8 text-red-500" />
+                            )}
+                            <div>
+                              <p className="font-semibold text-sm">
+                                {directPayStatus.data.eligible ? 'Eligible for Direct Pay' : 'Not Eligible'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {directPayStatus.data.reason ?? 'Account verified with IRIS'}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge className={directPayStatus.data.eligible
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
+                            : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+                          }>
+                            {directPayStatus.data.status ?? (directPayStatus.data.eligible ? 'ACTIVE' : 'INACTIVE')}
+                          </Badge>
+                        </div>
+
+                        <div className="space-y-2 text-sm">
+                          {[
+                            ['Bank Name', directPayStatus.data.bankName],
+                            ['Account Type', directPayStatus.data.accountType],
+                            ['IFSC Code', directPayStatus.data.ifsc],
+                            ['Max Limit (₹)', directPayStatus.data.maxLimit != null ? `₹${Number(directPayStatus.data.maxLimit).toLocaleString('en-IN')}` : undefined],
+                            ['Last Verified', directPayStatus.data.lastVerified],
+                          ]
+                            .filter(([, v]) => v != null)
+                            .map(([label, value]) => (
+                              <div key={label} className="flex justify-between p-2 bg-muted/20 rounded">
+                                <span className="text-muted-foreground">{label}</span>
+                                <span className="font-medium">{value}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Zap className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                        <p className="text-sm">No direct pay data returned from IRIS</p>
+                      </div>
+                    )}
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => directPayStatus.refetch()}
+                      disabled={directPayStatus.isFetching}
+                      data-testid="button-refresh-direct-pay"
+                    >
+                      {directPayStatus.isFetching ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                      Refresh Status
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Active Mandates Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Repeat className="h-5 w-5 text-purple-500" />
+                      Active Mandates
+                    </CardTitle>
+                    <CardDescription>
+                      All active recurring debit mandates (eNACH / UPI / OTM) for this account
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {activeMandates.isLoading ? (
+                      <div className="flex justify-center py-8">
+                        <RefreshCw className="h-5 w-5 animate-spin mr-2" />
+                        <span className="text-sm text-muted-foreground">Loading mandates…</span>
+                      </div>
+                    ) : activeMandates.error ? (
+                      <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        <AlertTitle className="text-red-800 dark:text-red-200">Unable to load mandates</AlertTitle>
+                        <AlertDescription className="text-red-700 dark:text-red-300">
+                          {(activeMandates.error as Error).message}
+                        </AlertDescription>
+                      </Alert>
+                    ) : activeMandates.data?.length > 0 ? (
+                      <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                        {activeMandates.data.map((mandate: any, idx: number) => (
+                          <div
+                            key={mandate.mandateId ?? idx}
+                            className="p-3 border rounded-lg space-y-2"
+                            data-testid={`card-active-mandate-${idx}`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium text-sm">
+                                  {mandate.bankName ?? mandate.type ?? 'Mandate'}
+                                </span>
+                              </div>
+                              <Badge className={getStatusColor(mandate.status ?? 'ACTIVE')}>
+                                {mandate.status ?? 'ACTIVE'}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                              {mandate.mandateId && (
+                                <><span>Mandate ID</span><span className="font-mono text-foreground">{mandate.mandateId}</span></>
+                              )}
+                              {mandate.type && (
+                                <><span>Type</span><span className="font-medium text-foreground">{mandate.type}</span></>
+                              )}
+                              {mandate.amount != null && (
+                                <><span>Max Amount</span><span className="font-medium text-foreground">₹{Number(mandate.amount).toLocaleString('en-IN')}</span></>
+                              )}
+                              {mandate.frequency && (
+                                <><span>Frequency</span><span className="font-medium text-foreground">{mandate.frequency}</span></>
+                              )}
+                              {mandate.startDate && (
+                                <><span>Start Date</span><span className="font-medium text-foreground">{mandate.startDate}</span></>
+                              )}
+                              {mandate.endDate && (
+                                <><span>End Date</span><span className="font-medium text-foreground">{mandate.endDate}</span></>
+                              )}
+                              {mandate.registeredBy && (
+                                <><span>Registered By</span><span className="font-medium text-foreground">{mandate.registeredBy}</span></>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Repeat className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                        <p className="text-sm">No active mandates found for this account</p>
+                        <p className="text-xs mt-1">eNACH, UPI Autopay, or OTM mandates will appear here once registered</p>
+                      </div>
+                    )}
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => activeMandates.refetch()}
+                      disabled={activeMandates.isFetching}
+                      data-testid="button-refresh-mandates"
+                    >
+                      {activeMandates.isFetching ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                      Refresh Mandates
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </TabsContent>
 
         </Tabs>

@@ -313,7 +313,7 @@ export function CommissionReconciliation() {
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              onClick={() => syncAllMutation.mutate()}
+              onClick={() => syncAllMutation.mutate(undefined)}
               disabled={syncAllMutation.isPending || !zohoStatus?.connected}
               data-testid="button-sync-all"
             >

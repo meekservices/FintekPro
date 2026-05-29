@@ -103,7 +103,7 @@ router.get("/applications", async (req: Request, res: Response) => {
     let query = db.select().from(dsaLoanApplications);
     const conditions = [];
 
-    if (status) conditions.push(eq(dsaLoanApplications.status, status as string));
+    if (status) conditions.push(eq(dsaLoanApplications.status as any, status as string));
     if (loanType) conditions.push(eq(dsaLoanApplications.loanType, loanType as string));
     if (fromDate) conditions.push(gte(dsaLoanApplications.createdAt, new Date(fromDate as string)));
     if (toDate) conditions.push(lte(dsaLoanApplications.createdAt, new Date(toDate as string)));

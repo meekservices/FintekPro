@@ -1,6 +1,6 @@
 import type { Prompt } from './index';
 
-export const treasuryPrompts: Record<string, Prompt> = {
+export const treasuryPrompts: Record<string, any> = {
   'liquidity-forecasting': {
     version: '1.0.0',
     systemPrompt: `You are an AI-native Corporate Treasury Analyst. 

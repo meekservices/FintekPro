@@ -433,17 +433,17 @@ class IntrinsicValueCalculatorService {
     const costOfEquity = riskFreeRate + (beta * equityRiskPremium);
     
     let costOfDebt = 8.0;
-    if (totalDebt > 0 && interestExpense > 0) {
-      costOfDebt = (interestExpense / totalDebt) * 100;
+    if ((totalDebt ?? 0) > 0 && (interestExpense ?? 0) > 0) {
+      costOfDebt = ((interestExpense ?? 0) / (totalDebt ?? 1)) * 100;
     }
     
-    const totalValue = marketCap + totalDebt;
+    const totalValue = (marketCap ?? 0) + (totalDebt ?? 0);
     if (totalValue <= 0) {
       return costOfEquity;
     }
     
-    const equityWeight = marketCap / totalValue;
-    const debtWeight = totalDebt / totalValue;
+    const equityWeight = (marketCap ?? 0) / totalValue;
+    const debtWeight = (totalDebt ?? 0) / totalValue;
     const afterTaxCostOfDebt = costOfDebt * (1 - taxRate / 100);
     
     const wacc = (equityWeight * costOfEquity) + (debtWeight * afterTaxCostOfDebt);
@@ -771,7 +771,7 @@ class IntrinsicValueCalculatorService {
       return null;
     }
 
-    const confidence = this.assessBookValueConfidence(totalAssets, totalLiabilities, intangibleAssets);
+    const confidence = this.assessBookValueConfidence(totalAssets, totalLiabilities ?? undefined, intangibleAssets ?? undefined);
 
     const formula = `NAV = (Assets - Liabilities) / Shares; TBV = (Assets - Intangibles - Liabilities) / Shares; Intrinsic = TBV × (1 - MoS)`;
 
@@ -867,8 +867,8 @@ class IntrinsicValueCalculatorService {
       }
 
       const latestFinancial = financials[0];
-      const sharesOutstanding = company.sharesOutstanding ? Number(company.sharesOutstanding) : null;
-      const currentPrice = company.lastPrice ? Number(company.lastPrice) : null;
+      const sharesOutstanding = (company as any).sharesOutstanding ? Number((company as any).sharesOutstanding) : null;
+      const currentPrice = (company as any).lastPrice ? Number((company as any).lastPrice) : null;
 
       const pat = Number(latestFinancial.pat || latestFinancial.netProfit || 0);
       const networth = Number(latestFinancial.networth || 0);
@@ -935,14 +935,14 @@ class IntrinsicValueCalculatorService {
         return [];
       } else {
         const financials = await db.select({
-          fiscalYear: schema.companyFinancials.fiscalYear,
+          fiscalYear: (schema.companyFinancials as any).fiscalYear,
           freeCashFlow: schema.companyFinancials.freeCashFlow,
           operatingCashFlow: schema.companyFinancials.operatingCashFlow,
           netProfit: schema.companyFinancials.netProfit,
         })
         .from(schema.companyFinancials)
         .where(eq(schema.companyFinancials.companyId, stockId))
-        .orderBy(desc(schema.companyFinancials.fiscalYear))
+        .orderBy(desc((schema.companyFinancials as any).fiscalYear))
         .limit(5);
 
         if (financials.length === 0) {

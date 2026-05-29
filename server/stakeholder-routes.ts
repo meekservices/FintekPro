@@ -204,7 +204,7 @@ router.post('/api/admin/partners', requireAdmin, async (req, res) => {
     const [newPartner] = await db.insert(partners).values({
       ...validatedData,
       password: hashedPassword,
-    }).returning();
+    } as any).returning();
 
     return apiResponse.created(res, newPartner, 'Partner created successfully');
   } catch (error: any) {
@@ -331,9 +331,9 @@ router.get('/api/admin/agents', requireAdmin, async (req, res) => {
     }
 
     if (status === 'active') {
-      conditions.push(eq(customerCareAgents.verificationStatus, 'approved'));
+      conditions.push(eq(customerCareAgents.arnVerificationStatus, 'approved'));
     } else if (status === 'inactive') {
-      conditions.push(eq(customerCareAgents.verificationStatus, 'pending'));
+      conditions.push(eq(customerCareAgents.arnVerificationStatus, 'pending'));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -351,8 +351,8 @@ router.get('/api/admin/agents', requireAdmin, async (req, res) => {
       phone: customerCareAgents.phone,
       employeeId: customerCareAgents.employeeId,
       agentType: customerCareAgents.agentLevel,
-      status: customerCareAgents.verificationStatus,
-      isActive: sql<boolean>`${customerCareAgents.verificationStatus} = 'approved'`,
+      status: customerCareAgents.arnVerificationStatus,
+      isActive: sql<boolean>`${customerCareAgents.arnVerificationStatus} = 'approved'`,
       activeClients: sql<number>`0`,
       totalRevenue: sql<string>`'0.00'`,
       commissionSplitModel: customerCareAgents.commissionSplitModel,
@@ -407,10 +407,10 @@ router.post('/api/admin/agents', requireAdmin, async (req, res) => {
       fullName,
       email,
       phone: phone || null,
-      verificationStatus: 'pending',
+      arnVerificationStatus: 'pending',
       createdAt: new Date(),
       updatedAt: new Date(),
-    }).returning();
+    } as any).returning();
 
     return apiResponse.created(res, newAgent, 'Agent created successfully');
   } catch (error: any) {
@@ -501,7 +501,7 @@ router.patch('/api/admin/agents/:id/status', requireAdmin, async (req, res) => {
 
     const [updated] = await db.update(customerCareAgents)
       .set({ 
-        verificationStatus: verificationStatus,
+        arnVerificationStatus: verificationStatus,
         updatedAt: new Date() 
       })
       .where(eq(customerCareAgents.id, id))

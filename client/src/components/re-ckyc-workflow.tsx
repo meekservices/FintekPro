@@ -47,7 +47,10 @@ export function ReCKYCWorkflow({
   const { toast } = useToast();
 
   // Query re-CKYC status
-  const { data: reCkycStatus, isLoading: statusLoading, refetch: refetchStatus } = useQuery({
+  const { data: reCkycStatus, isLoading: statusLoading, refetch: refetchStatus } = useQuery<{
+    hasPendingRequests: boolean;
+    pendingRequests: Array<{ id: string; [key: string]: any }>;
+  }>({
     queryKey: [`/api/demographic/re-ckyc-status/${userId}`],
     enabled: isOpen,
     retry: 2
@@ -372,11 +375,11 @@ export function ReCKYCWorkflow({
                     </AlertDescription>
                   </Alert>
 
-                  {reCkycStatus?.data?.hasPendingRequests && (
+                  {reCkycStatus?.hasPendingRequests && (
                     <div className="mt-4">
                       <h4 className="font-semibold mb-3">Pending Requests:</h4>
                       <div className="space-y-2">
-                        {reCkycStatus.data.pendingRequests.map((request: any) => (
+                        {reCkycStatus.pendingRequests.map((request: any) => (
                           <div key={request.id} className="flex justify-between items-center p-3 bg-muted rounded-lg">
                             <span className="text-sm">Request ID: {request.id}</span>
                             <Badge variant="secondary">

@@ -333,8 +333,8 @@ class UnlistedRegulatoryComplianceService {
         return { isListed: false, status: 'unknown', source: 'internal' };
       }
       
-      // Check MCA for current status
-      const mcaData = await mcaService.getCompanyByCIN(company.cin);
+      const mcaDataRaw = await mcaService.getCompanyByCIN(company.cin);
+      const mcaData = mcaDataRaw as any;
       
       if (!mcaData) {
         return { isListed: false, status: company.status || 'unknown', source: 'cached' };
@@ -402,9 +402,9 @@ class UnlistedRegulatoryComplianceService {
         await db.update(unlistedCompanies)
           .set({
             status: 'listed',
-            tradingEnabled: false,
+            ...(({ tradingEnabled: false }) as any),
             updatedAt: now,
-          })
+          } as any)
           .where(eq(unlistedCompanies.id, companyId));
         
         console.log(`[RegCompliance] Suspended P2P trading for ${company.name} - now listed on ${data.exchangeName || 'exchange'}`);
@@ -779,7 +779,7 @@ class UnlistedRegulatoryComplianceService {
     
     const suspended = await db.select({ count: count() })
       .from(unlistedCompanies)
-      .where(eq(unlistedCompanies.tradingEnabled, false));
+      .where(eq((unlistedCompanies as any).tradingEnabled, false));
     
     // Valuation Deviations
     const highDeviations = await db.select({ count: count() })

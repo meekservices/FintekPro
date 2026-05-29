@@ -76,7 +76,7 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
     if (req.isAuthenticated?.() && req.user) {
       const userRoles = req.user.roles || [];
       if (userRoles.includes('partner') || userRoles.includes('admin') || userRoles.includes('superadmin')) {
-        req.partner = {
+        (req as any).partner = {
           id: req.user.id,
           companyName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || 'Partner',
           contactEmail: req.user.email,
@@ -89,7 +89,7 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
 
     // Dev mode fallback
     if (process.env.NODE_ENV === 'development' && !req.headers.authorization) {
-      req.partner = {
+      (req as any).partner = {
         id: 'central-test-user',
         companyName: 'Test SuperUser',
         contactEmail: 'test@fintekpro.com',
@@ -113,7 +113,7 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
         return res.status(401).json({ message: "Invalid partner credentials" });
       }
 
-      req.partner = partner;
+      (req as any).partner = partner;
       next();
     } catch (error) {
       return res.status(401).json({ message: "Invalid authentication format" });
@@ -169,14 +169,14 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
   // Partner Dashboard
   app.get("/api/partner/dashboard", requirePartner, async (req, res) => {
     try {
-      const partnerId = req.partner.id;
+      const partnerId = (req as any).partner.id;
       const stats = await partnerService.getPartnerStats(partnerId);
       
       res.json({
         partner: {
-          id: req.partner.id,
-          companyName: req.partner.companyName,
-          partnerType: req.partner.partnerType
+          id: (req as any).partner.id,
+          companyName: (req as any).partner.companyName,
+          partnerType: (req as any).partner.partnerType
         },
         stats
       });
@@ -191,7 +191,7 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
   // Get all products for partner
   app.get("/api/partner/products", requirePartner, async (req, res) => {
     try {
-      const partnerId = req.partner.id;
+      const partnerId = (req as any).partner.id;
       const products = await partnerService.getProductsByPartner(partnerId);
       res.json(products);
     } catch (error) {
@@ -205,7 +205,7 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
     try {
       const product = await partnerService.getProduct(req.params.id);
       
-      if (!product || product.partnerId !== req.partner.id) {
+      if (!product || product.partnerId !== (req as any).partner.id) {
         return res.status(404).json({ error: "Product not found" });
       }
 
@@ -224,7 +224,7 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
     try {
       const productData = {
         ...req.body,
-        partnerId: req.partner.id
+        partnerId: (req as any).partner.id
       };
 
       // Generate slug from name if not provided
@@ -247,7 +247,7 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
     try {
       const product = await partnerService.getProduct(req.params.id);
       
-      if (!product || product.partnerId !== req.partner.id) {
+      if (!product || product.partnerId !== (req as any).partner.id) {
         return res.status(404).json({ error: "Product not found" });
       }
 
@@ -268,7 +268,7 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
     try {
       const product = await partnerService.getProduct(req.params.id);
       
-      if (!product || product.partnerId !== req.partner.id) {
+      if (!product || product.partnerId !== (req as any).partner.id) {
         return res.status(404).json({ error: "Product not found" });
       }
 
@@ -290,7 +290,7 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
   // Get support tickets assigned to partner
   app.get("/api/partner/support/tickets", requirePartner, async (req, res) => {
     try {
-      const partnerId = req.partner.id;
+      const partnerId = (req as any).partner.id;
       const tickets = await partnerService.getTicketsByPartner(partnerId);
       res.json(tickets);
     } catch (error) {
@@ -304,7 +304,7 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
     try {
       const ticket = await partnerService.getTicket(req.params.id);
       
-      if (!ticket || ticket.assignedTo !== req.partner.id) {
+      if (!ticket || ticket.assignedTo !== (req as any).partner.id) {
         return res.status(404).json({ error: "Ticket not found" });
       }
 
@@ -322,7 +322,7 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
     try {
       const ticket = await partnerService.getTicket(req.params.id);
       
-      if (!ticket || ticket.assignedTo !== req.partner.id) {
+      if (!ticket || ticket.assignedTo !== (req as any).partner.id) {
         return res.status(404).json({ error: "Ticket not found" });
       }
 
@@ -347,15 +347,15 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
     try {
       const ticket = await partnerService.getTicket(req.params.id);
       
-      if (!ticket || ticket.assignedTo !== req.partner.id) {
+      if (!ticket || ticket.assignedTo !== (req as any).partner.id) {
         return res.status(404).json({ error: "Ticket not found" });
       }
 
       const messageData = {
         ticketId: req.params.id,
-        senderId: req.partner.id,
+        senderId: (req as any).partner.id,
         senderType: 'partner' as const,
-        senderName: req.partner.companyName,
+        senderName: (req as any).partner.companyName,
         message: req.body.message,
         messageType: req.body.messageType || 'text',
         isInternal: req.body.isInternal || false,

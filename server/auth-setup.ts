@@ -120,14 +120,16 @@ export async function setupAuth(app: Express) {
           return next();
         }
 
+        // Override sessionID to ensure updates are persisted back to rawSid
+        req.sessionID = rawSid;
+
         // Manually attach the authenticated user to the request
         (req as any).user = user;
-        req.isAuthenticated = () => true;
+        (req as any).isAuthenticated = () => true;
 
-        // Also copy the CSRF token from the real session into the current req.session
-        // so that CSRF middleware can validate POST requests made via this fallback.
-        if (sessionData.csrfToken && req.session) {
-          (req.session as any).csrfToken = sessionData.csrfToken;
+        // Populate req.session with stored session data if it exists
+        if (req.session) {
+          Object.assign(req.session, sessionData);
         }
 
         console.log(`[X-SESSION-ID] Restored session for user ${user.id} via header (cookie bypass)`);

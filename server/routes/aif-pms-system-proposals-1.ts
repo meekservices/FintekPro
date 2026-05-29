@@ -458,7 +458,7 @@ app.get('/api/aif/analytics', requireLevel2, async (req, res) => {
       industryOverview: {
         totalAUM: aifData.reduce((sum, fund) => sum + (fund.currentAUM || 0), 0),
         totalFunds: aifData.length,
-        averagePerformance: aifData.reduce((sum, fund) => sum + (fund.pastPerformance?.[timeframe as string] || 0), 0) / aifData.length,
+        averagePerformance: aifData.reduce((sum, fund) => sum + ((fund.pastPerformance as any)?.[timeframe as string] || 0), 0) / aifData.length,
         categoryDistribution: {
           'Category I': aifData.filter(f => f.category === 'Category I').length / aifData.length * 100,
           'Category II': aifData.filter(f => f.category === 'Category II').length / aifData.length * 100,
@@ -473,7 +473,7 @@ app.get('/api/aif/analytics', requireLevel2, async (req, res) => {
             name: fund.schemaName,
             aifId: fund.aifId,
             category: fund.category,
-            returns: fund.pastPerformance?.[timeframe as string] || 0,
+            returns: (fund.pastPerformance as any)?.[timeframe as string] || 0,
             aum: fund.currentAUM,
             riskRating: fund.riskMetrics?.volatility || 0
           })),

@@ -1,7 +1,9 @@
 import { logger } from '../../logger';
 import { db } from '../../db';
-import { kycCentralHubService } from '../kyc-central-hub-service';
-import { ckycProviderAdapter } from '../ckyc-provider-adapter';
+import { KycCentralHubService } from '../kyc-central-hub-service';
+import { getAdapter as ckycProviderAdapter } from '../ckyc-provider-adapter';
+
+const kycCentralHubService = new KycCentralHubService();
 
 export class KycEngine {
   

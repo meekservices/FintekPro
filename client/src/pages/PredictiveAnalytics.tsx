@@ -17,24 +17,24 @@ export default function PredictiveAnalytics() {
   const { toast } = useToast();
 
   // Fetch user portfolios
-  const { data: portfolios, isLoading: portfoliosLoading } = useQuery({
+  const { data: portfolios, isLoading: portfoliosLoading } = useQuery<any[]>({
     queryKey: ["/api/portfolios"],
   });
 
   // Fetch predictions
-  const { data: predictions, isLoading: predictionsLoading } = useQuery({
+  const { data: predictions, isLoading: predictionsLoading } = useQuery<any[]>({
     queryKey: ["/api/analytics/predictions", selectedPortfolio],
     enabled: !!selectedPortfolio,
   });
 
   // Fetch risk analysis
-  const { data: riskAnalysis, isLoading: riskLoading } = useQuery({
+  const { data: riskAnalysis, isLoading: riskLoading } = useQuery<any[]>({
     queryKey: ["/api/analytics/risk", selectedPortfolio],
     enabled: !!selectedPortfolio,
   });
 
   // Fetch asset forecasts
-  const { data: forecasts, isLoading: forecastsLoading } = useQuery({
+  const { data: forecasts, isLoading: forecastsLoading } = useQuery<any[]>({
     queryKey: ["/api/analytics/forecasts"],
     enabled: !!selectedPortfolio,
   });

@@ -40,6 +40,20 @@ function isAllowedCorsOrigin(origin: string | undefined, allowedOrigins: string[
 }
 
 export function registerPrebootMiddleware(app: Express) {
+  // Redirect www. subdomain to non-www canonical domain (e.g. www.fintekpro.com -> fintekpro.com)
+  app.use((req, res, next) => {
+    const host = req.get("host") || "";
+    if (host.toLowerCase().startsWith("www.")) {
+      const newHost = host.substring(4); // Strip 'www.'
+      // Check if SSL is terminated at proxy (Cloud Run / Firebase)
+      const protocol = req.get("x-forwarded-proto") || req.protocol || "https";
+      
+      console.log(`[WWW_REDIRECT] Redirecting ${host}${req.originalUrl} to ${newHost}${req.originalUrl}`);
+      return res.redirect(301, `${protocol}://${newHost}${req.originalUrl}`);
+    }
+    next();
+  });
+
   app.get("/api/health", (_req, res) => {
     res.status(200).json({
       status: "ok",

@@ -138,7 +138,7 @@ export async function getKYCStatus(userId: string): Promise<KYCStatus> {
   const lastUpdated = (profile as any).kycLastUpdatedDate || profile.profileCompletedAt || profile.createdAt;
 
   if (!dueDate && lastUpdated) {
-    dueDate = calculateKYCDueDate(lastUpdated, profile.riskCategory || "low");
+    dueDate = calculateKYCDueDate(lastUpdated, (profile as any).riskCategory || "low");
   }
 
   // Calculate days until expiry
@@ -159,8 +159,8 @@ export async function getKYCStatus(userId: string): Promise<KYCStatus> {
   // International requires enhanced KYC + NRI/OCI/Foreign National status
   const isInternationalEligible = 
     profile.residentStatus !== "resident_indian" || 
-    !!profile.isUSPerson || 
-    !!profile.isEUResident;
+    !!(profile as any).isUSPerson || 
+    !!(profile as any).isEUResident;
   const canTradeInternational = 
     currentLevel === "enhanced" && 
     isInternationalEligible && 
@@ -195,7 +195,7 @@ export async function getKYCStatus(userId: string): Promise<KYCStatus> {
     canTradeMutualFunds,
     canTradeBroking,
     canTradeInternational,
-    riskCategory: profile.riskCategory || "low",
+    riskCategory: (profile as any).riskCategory || "low",
     reviewFrequency: (profile as any).riskReviewFrequency || "10_years",
     lastUpdated: lastUpdated || null,
     pendingActions,
@@ -241,7 +241,7 @@ export async function updateKYCDueDate(userId: string) {
   }
 
   const lastUpdated = (profile as any).kycLastUpdatedDate || profile.createdAt || new Date();
-  const dueDate = calculateKYCDueDate(lastUpdated, profile.riskCategory || "low");
+  const dueDate = calculateKYCDueDate(lastUpdated, (profile as any).riskCategory || "low");
 
   await db
     .update(userProfiles)
@@ -293,7 +293,7 @@ export async function resetReKYCProcess(userId: string) {
     throw new Error("Profile not found");
   }
 
-  const newDueDate = calculateKYCDueDate(now, profile.riskCategory || "low");
+  const newDueDate = calculateKYCDueDate(now, (profile as any).riskCategory || "low");
 
   await db
     .update(userProfiles)

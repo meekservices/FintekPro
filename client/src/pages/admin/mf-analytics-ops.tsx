@@ -146,7 +146,10 @@ function JobCard({ job, onRun }: { job: typeof JOBS[0]; onRun: (id: string, body
     setError(null);
     setLastResult(null);
     try {
-      const result = await apiRequest<JobResult>("POST", `/api/admin/mf-analytics/run/${job.id}`, job.defaultBody);
+      const result = await apiRequest(`/api/admin/mf-analytics/run/${job.id}`, {
+        method: 'POST',
+        body: JSON.stringify(job.defaultBody),
+      }) as JobResult;
       setLastResult(result);
     } catch (e: any) {
       setError(e.message || "Job failed");

@@ -546,7 +546,7 @@ export class ICICIBankAPI {
       const formData = new FormData();
       formData.append('applicationId', applicationId);
       formData.append('documentType', documentType);
-      formData.append('file', new Blob([fileContent]), fileName);
+      formData.append('file', new Blob([fileContent as any]), fileName);
 
       const response = await this.client.post('/api/v1/loans/documents/upload', formData, {
         headers: {

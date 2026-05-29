@@ -927,3 +927,22 @@ export function useIrisCancelNfo() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/iris/nfo'] }),
   });
 }
+
+// ─── Direct Pay & Mandates ───────────────────────────────────────────────────
+export function useIrisDirectPayStatus(pan: string, accountNo: string, enabled = true) {
+  return useQuery({
+    queryKey: ['/api/iris/transactions/direct-pay-status', pan, accountNo],
+    queryFn: () => irisRequest(`/api/iris/transactions/direct-pay-status?pan=${encodeURIComponent(pan)}&accountNo=${encodeURIComponent(accountNo)}`),
+    enabled: enabled && !!pan && !!accountNo,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useIrisActiveMandates(pan: string, accountNo: string, enabled = true) {
+  return useQuery({
+    queryKey: ['/api/iris/transactions/mandates/active', pan, accountNo],
+    queryFn: () => irisRequest(`/api/iris/transactions/mandates/active?pan=${encodeURIComponent(pan)}&accountNo=${encodeURIComponent(accountNo)}`),
+    enabled: enabled && !!pan && !!accountNo,
+    staleTime: 5 * 60 * 1000,
+  });
+}

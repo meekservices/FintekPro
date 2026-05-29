@@ -101,7 +101,7 @@ const riskProfileSchema = z.object({
 const fullFormSchema = basicInfoSchema
   .merge(panVerificationSchema)
   .merge(addressSchema)
-  .merge(bankDetailsSchema)
+  .merge(bankDetailsSchema as any)
   .merge(riskProfileSchema);
 
 type FormData = z.infer<typeof fullFormSchema>;
@@ -128,7 +128,7 @@ export default function AgentClientOnboarding() {
   const [createdClientId, setCreatedClientId] = useState<string | null>(null);
 
   const form = useForm<FormData>({
-    resolver: zodResolver(fullFormSchema),
+    resolver: zodResolver(fullFormSchema as any),
     defaultValues: {
       firstName: "",
       lastName: "",
@@ -168,7 +168,7 @@ export default function AgentClientOnboarding() {
       try {
         const draft = JSON.parse(savedDraft);
         Object.keys(draft).forEach((key) => {
-          form.setValue(key as keyof FormData, draft[key]);
+          (form as any).setValue(key, draft[key]);
         });
         toast({
           title: "Draft Restored",
@@ -192,7 +192,7 @@ export default function AgentClientOnboarding() {
     return () => subscription.unsubscribe();
   }, [form, saveDraft]);
 
-  const panVerificationMutation = useMutation<any>({
+  const panVerificationMutation = useMutation<any, any, string>({
     mutationFn: async (panNumber: string) => {
       return await apiRequest("/api/kyc/verify-pan", {
         method: "POST",
@@ -229,11 +229,11 @@ export default function AgentClientOnboarding() {
     },
   });
 
-  const documentUploadMutation = useMutation<any>({
+  const documentUploadMutation = useMutation<any, any, FormData>({
     mutationFn: async (formData: FormData) => {
       return await apiRequest("/api/kyc/upload-document", {
         method: "POST",
-        body: formData,
+        body: JSON.stringify(formData),
       });
     },
     onSuccess: (data: any) => {
@@ -254,7 +254,7 @@ export default function AgentClientOnboarding() {
     },
   });
 
-  const onboardClientMutation = useMutation<any>({
+  const onboardClientMutation = useMutation<any, any, FormData>({
     mutationFn: async (data: FormData) => {
       return await apiRequest("/api/agent/clients/onboard", {
         method: "POST",
@@ -321,7 +321,7 @@ export default function AgentClientOnboarding() {
         const basicResult = basicInfoSchema.safeParse(values);
         if (!basicResult.success) {
           basicResult.error.issues.forEach((issue) => {
-            form.setError(issue.path[0] as keyof FormData, { message: issue.message });
+            form.setError(String(issue.path[0]) as any, { message: issue.message });
           });
           return false;
         }
@@ -338,7 +338,7 @@ export default function AgentClientOnboarding() {
         const addressResult = addressSchema.safeParse(values);
         if (!addressResult.success) {
           addressResult.error.issues.forEach((issue) => {
-            form.setError(issue.path[0] as keyof FormData, { message: issue.message });
+            form.setError(String(issue.path[0]) as any, { message: issue.message });
           });
           return false;
         }
@@ -348,7 +348,7 @@ export default function AgentClientOnboarding() {
         const bankResult = bankDetailsSchema.safeParse(values);
         if (!bankResult.success) {
           bankResult.error.issues.forEach((issue) => {
-            form.setError(issue.path[0] as keyof FormData, { message: issue.message });
+            form.setError(String(issue.path[0]) as any, { message: issue.message });
           });
           return false;
         }
@@ -358,7 +358,7 @@ export default function AgentClientOnboarding() {
         const riskResult = riskProfileSchema.safeParse(values);
         if (!riskResult.success) {
           riskResult.error.issues.forEach((issue) => {
-            form.setError(issue.path[0] as keyof FormData, { message: issue.message });
+            form.setError(String(issue.path[0]) as any, { message: issue.message });
           });
           return false;
         }
@@ -1141,7 +1141,7 @@ export default function AgentClientOnboarding() {
                         <FormControl>
                           <RadioGroup
                             onValueChange={field.onChange}
-                            value={field.value}
+                            value={field.value as string}
                             className="grid grid-cols-2 md:grid-cols-3 gap-3"
                           >
                             {[
@@ -1183,7 +1183,7 @@ export default function AgentClientOnboarding() {
                         <FormControl>
                           <RadioGroup
                             onValueChange={field.onChange}
-                            value={field.value}
+                            value={field.value as string}
                             className="grid grid-cols-3 gap-3"
                           >
                             <div>
@@ -1236,7 +1236,7 @@ export default function AgentClientOnboarding() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-muted-foreground">Investment Horizon *</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value as string}>
                             <FormControl>
                               <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-horizon">
                                 <SelectValue placeholder="Select horizon" />
@@ -1259,7 +1259,7 @@ export default function AgentClientOnboarding() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-muted-foreground">Annual Income *</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value as string}>
                             <FormControl>
                               <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-income">
                                 <SelectValue placeholder="Select range" />
@@ -1284,7 +1284,7 @@ export default function AgentClientOnboarding() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-muted-foreground">Experience *</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value as string}>
                             <FormControl>
                               <SelectTrigger className="bg-card border-border text-foreground" data-testid="select-experience">
                                 <SelectValue placeholder="Select experience" />
@@ -1392,23 +1392,23 @@ export default function AgentClientOnboarding() {
                       <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                         <div>
                           <p className="text-muted-foreground">Goal</p>
-                          <p className="text-foreground capitalize">{form.getValues("investmentGoal")?.replace(/_/g, " ")}</p>
+                          <p className="text-foreground capitalize">{(form.getValues("investmentGoal") as string | undefined)?.replace(/_/g, " ")}</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Risk</p>
-                          <p className="text-foreground capitalize">{form.getValues("riskTolerance")}</p>
+                          <p className="text-foreground capitalize">{String((form.getValues("riskTolerance") as string | undefined) ?? '')}</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Horizon</p>
-                          <p className="text-foreground capitalize">{form.getValues("investmentHorizon")} Term</p>
+                          <p className="text-foreground capitalize">{String((form.getValues("investmentHorizon") as string | undefined) ?? '')} Term</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Income</p>
-                          <p className="text-foreground">{form.getValues("annualIncome")?.replace(/_/g, " ").replace(/l/g, "L")}</p>
+                          <p className="text-foreground">{(form.getValues("annualIncome") as string | undefined)?.replace(/_/g, " ").replace(/l/g, "L")}</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Experience</p>
-                          <p className="text-foreground capitalize">{form.getValues("investmentExperience")}</p>
+                          <p className="text-foreground capitalize">{String((form.getValues("investmentExperience") as string | undefined) ?? '')}</p>
                         </div>
                       </CardContent>
                     </Card>

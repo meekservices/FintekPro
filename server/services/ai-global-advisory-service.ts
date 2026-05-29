@@ -227,9 +227,9 @@ class AIGlobalAdvisoryService {
 
       if (!quote) return null;
 
-      const currency = quote.currency || 'USD';
+      const currency = (quote as any).currency || 'USD';
       const currentPrice = quote.price || 0;
-      const exchangeRate = await currencyExchangeService.getExchangeRate(currency, 'INR');
+      const exchangeRate = await currencyExchangeService.fetchExchangeRates(currency, 'INR');
       const currentPriceInr = currentPrice * exchangeRate;
 
       let assetClass: 'stock' | 'etf' | 'bond' | 'mutual_fund' = 'stock';
@@ -500,7 +500,7 @@ class AIGlobalAdvisoryService {
     const marketsIncluded = Object.keys(globalAdvisorySelections);
     const instrumentTypesIncluded = [...new Set(Object.values(globalAdvisorySelections).flat())];
 
-    const usdToInrRate = await currencyExchangeService.getExchangeRate('USD', 'INR');
+    const usdToInrRate = await currencyExchangeService.fetchExchangeRates('USD', 'INR');
     const buyRecommendations = recommendations.filter((r: any) => r.recommendation === 'strong_buy' || r.recommendation === 'buy');
     
     const DEFAULT_SUITABILITY = 70;
@@ -588,7 +588,7 @@ class AIGlobalAdvisoryService {
     const stopLoss = data.currentPrice * (recommendation.includes('buy') ? 0.92 : 0.88);
     const expectedReturn = ((targetPrice - data.currentPrice) / data.currentPrice) * 100;
 
-    const exchangeRate = await currencyExchangeService.getExchangeRate(data.currency, 'INR');
+    const exchangeRate = await currencyExchangeService.fetchExchangeRates(data.currency, 'INR');
 
     return {
       symbol: data.symbol,
@@ -866,8 +866,8 @@ class AIGlobalAdvisoryService {
       if (!data) continue;
 
       const positionValueNative = position.quantity * data.currentPrice;
-      const positionValueInr = positionValueNative * (await currencyExchangeService.getExchangeRate(data.currency, 'INR'));
-      const positionValueUsd = positionValueNative * (await currencyExchangeService.getExchangeRate(data.currency, 'USD'));
+      const positionValueInr = positionValueNative * (await currencyExchangeService.fetchExchangeRates(data.currency, 'INR'));
+      const positionValueUsd = positionValueNative * (await currencyExchangeService.fetchExchangeRates(data.currency, 'USD'));
 
       totalValueInr += positionValueInr;
       totalValueUsd += positionValueUsd;
@@ -904,7 +904,7 @@ class AIGlobalAdvisoryService {
       if (!data) continue;
 
       const positionValueNative = position.quantity * data.currentPrice;
-      const positionValueInr = positionValueNative * (await currencyExchangeService.getExchangeRate(data.currency, 'INR'));
+      const positionValueInr = positionValueNative * (await currencyExchangeService.fetchExchangeRates(data.currency, 'INR'));
       const currentAllocation = totalValueInr > 0 ? (positionValueInr / totalValueInr) * 100 : 0;
       const targetAllocation = position.targetAllocation;
       const drift = currentAllocation - targetAllocation;
@@ -924,7 +924,7 @@ class AIGlobalAdvisoryService {
         : 0;
 
       const tradeValueInr = Math.abs(quantityChange * data.currentPriceInr);
-      const tradeValueUsd = tradeValueInr / (await currencyExchangeService.getExchangeRate('USD', 'INR'));
+      const tradeValueUsd = tradeValueInr / (await currencyExchangeService.fetchExchangeRates('USD', 'INR'));
       const lrsRemaining = LRS_ANNUAL_LIMIT_USD - lrsUtilizedYtdUsd;
 
       actions.push({
@@ -966,7 +966,7 @@ class AIGlobalAdvisoryService {
     const sellActions = actions.filter((a: any) => a.action === 'sell');
     const totalBuyValueInr = buyActions.reduce((sum: any, a: any) => sum + a.tradeValueInr, 0);
     const totalSellValueInr = sellActions.reduce((sum: any, a: any) => sum + a.tradeValueInr, 0);
-    const totalBuyValueUsd = totalBuyValueInr / (await currencyExchangeService.getExchangeRate('USD', 'INR'));
+    const totalBuyValueUsd = totalBuyValueInr / (await currencyExchangeService.fetchExchangeRates('USD', 'INR'));
     const lrsRemaining = LRS_ANNUAL_LIMIT_USD - lrsUtilizedYtdUsd;
 
     return {

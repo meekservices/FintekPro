@@ -3,6 +3,7 @@ import { db } from "../db";
 import { investmentProposals, investmentProposalItems, unifiedCartItems, users } from "@shared/schema";
 import { eq, and, or, desc, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { complianceMonitor } from "../compliance-monitor";
 
 const router = Router();
 
@@ -103,8 +104,8 @@ router.get("/", async (req: Request, res: Response) => {
           actionType: investmentProposalItems.actionType,
           amount: investmentProposalItems.amount,
           units: investmentProposalItems.units,
-          rationale: investmentProposalItems.rationale,
-          status: investmentProposalItems.status,
+          rationale: (investmentProposalItems as any).rationale,
+          status: (investmentProposalItems as any).status,
         })
         .from(investmentProposalItems)
         .where(eq(investmentProposalItems.proposalId, proposal.id));
@@ -131,11 +132,11 @@ router.get("/", async (req: Request, res: Response) => {
           id: item.id,
           proposalId: item.proposalId,
           productType: item.productType || 'mutual_fund',
-          productId: item.productId || undefined,
+          productId: (item as any).productId || undefined,
           productName: item.productName || 'Unknown Product',
-          isin: item.isin || undefined,
+          isin: (item as any).isin || undefined,
           actionType: item.actionType as 'BUY' | 'SELL' | 'SWITCH' | 'HOLD' | undefined,
-          amount: Number(item.amount) || 0,
+          amount: Number((item as any).amount) || 0,
           units: item.units ? Number(item.units) : undefined,
           rationale: item.rationale || undefined,
           status: item.status || 'pending',
@@ -224,7 +225,7 @@ router.put("/:id/accept", async (req: Request, res: Response) => {
 
     await db
       .update(investmentProposalItems)
-      .set({ status: 'approved' })
+      .set({ status: 'approved' } as any)
       .where(eq(investmentProposalItems.proposalId, id));
 
     res.json({ success: true, message: "Proposal approved" });
@@ -260,21 +261,21 @@ router.put("/:id/reject", async (req: Request, res: Response) => {
       .set({
         status: 'rejected',
         updatedAt: new Date(),
-      })
+      } as any)
       .where(eq(investmentProposals.id, id));
 
     await db
       .update(investmentProposalItems)
-      .set({ status: 'rejected' })
+      .set({ status: 'rejected' } as any)
       .where(eq(investmentProposalItems.proposalId, id));
 
     // Regulatory audit logging
     await complianceMonitor.logSuspiciousActivity({
       userId: (req as any).user?.id || 'unknown',
       activityType: 'PROPOSAL_REJECTED',
-      details: `Proposal ${proposalId} rejected by client`,
+      details: `Proposal ${id} rejected by client`,
       severity: 'low',
-      metadata: { proposalId }
+      metadata: { proposalId: id }
     });
 
     res.json({ success: true, message: "Proposal rejected" });
@@ -315,7 +316,7 @@ router.post("/:id/add-to-cart", async (req: Request, res: Response) => {
       .from(investmentProposalItems)
       .where(and(
         eq(investmentProposalItems.proposalId, id),
-        eq(investmentProposalItems.status, 'approved')
+        eq((investmentProposalItems as any).status, 'approved')
       ));
 
     if (items.length === 0) {
@@ -330,14 +331,14 @@ router.post("/:id/add-to-cart", async (req: Request, res: Response) => {
         productCategory: item.productType || 'mutual_fund',
         source: proposal.proposalSource === 'ai' ? 'ai' : proposal.proposalSource === 'agent' ? 'agent' : 'client',
         sourceProposalId: id,
-        amount: String(item.amount || 0),
+        amount: String((item as any).amount || 0),
         quantity: 1,
         displayName: item.productName || 'Investment Item',
         metadata: {
           proposalItemId: item.id,
           orderType: orderType,
-          productId: item.productId,
-          isin: item.isin,
+          productId: (item as any).productId,
+          isin: (item as any).isin,
         },
       } as any);
     }
@@ -406,11 +407,11 @@ router.get("/by-category/:category", async (req: Request, res: Response) => {
             id: item.id,
             productType: item.productType,
             productName: item.productName,
-            amount: Number(item.amount) || 0,
+            amount: Number((item as any).amount) || 0,
             actionType: item.actionType,
             status: item.status,
           })),
-          categoryTotal: items.reduce((sum: any, item: any) => sum + (Number(item.amount) || 0), 0),
+          categoryTotal: items.reduce((sum: any, item: any) => sum + (Number((item as any).amount) || 0), 0),
         });
       }
     }

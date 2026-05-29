@@ -476,7 +476,7 @@ export default function AgentInvestmentBaskets() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditBasket(null)}>Cancel</Button>
             <Button
-              onClick={() => editBasket && updateMutation.mutate(editBasket)}
+              onClick={() => editBasket && updateMutation.mutate({ id: editBasket.id, name: editBasket.name, theme: editBasket.theme, description: editBasket.description ?? '', isPublic: editBasket.isPublic })}
               disabled={updateMutation.isPending}
             >
               {updateMutation.isPending ? "Saving..." : "Save Changes"}

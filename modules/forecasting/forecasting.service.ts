@@ -15,7 +15,7 @@ export class ForecastingService {
     const historicalFlows = await db.select().from(cashFlows)
       .where(and(
         eq(cashFlows.entityId, entityId),
-        gte(cashFlows.transactionDate, new Date(Date.now() - 90 * 24 * 60 * 60 * 1000))
+        gte(cashFlows.transactionDate, new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) as any)
       ));
 
     // 2. Simple Seasonal Analysis (Mock)

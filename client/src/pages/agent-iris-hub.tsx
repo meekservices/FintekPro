@@ -30,7 +30,7 @@ import {
   LineChart, PlusCircle, Star, User, BookOpen, Layers,
   ArrowLeftRight, Repeat, MinusCircle, UserPlus, Brain,
   Building2, Bell, MessageSquare, ChevronDown, ChevronUp,
-  TrendingDown, PieChart, ShieldCheck, Loader2
+  TrendingDown, ShieldCheck, Loader2
 } from "lucide-react";
 
 // ─── IRIS API types ───────────────────────────────────────────────────────────

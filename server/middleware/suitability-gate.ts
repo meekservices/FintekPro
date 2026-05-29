@@ -45,8 +45,8 @@ export async function checkSuitability(
   try {
     // Fetch risk profile from userProfiles (riskCategory is set during onboarding risk assessment)
     const [profile] = await db.select({
-      riskCategory: schema.userProfiles.riskCategory,
-      riskLastAssessed: schema.userProfiles.riskLastAssessed,
+      riskCategory: (schema.userProfiles as any).riskCategory,
+      riskLastAssessed: (schema.userProfiles as any).riskLastAssessed,
     })
       .from(schema.userProfiles)
       .where(eq(schema.userProfiles.userId, userId))

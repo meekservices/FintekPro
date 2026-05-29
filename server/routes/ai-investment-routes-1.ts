@@ -191,7 +191,7 @@ router.get("/portfolio/:clientId", async (req, res) => {
         const [market] = await db
           .select()
           .from(marketData)
-          .where(eq(marketData.symbol, holding.symbol))
+          .where(eq(marketData.symbol as any, holding.symbol))
           .limit(1);
         
         const currentPrice = market?.price ? parseFloat(market.price) : parseFloat(holding.avgPrice || '0');
@@ -275,7 +275,7 @@ router.post("/portfolio/manual-entry", async (req, res) => {
         source: 'manual' as const,
       }));
 
-      const updatedHoldings = await prospectPortfolioSyncService.addHoldings(clientId, normalizedHoldings);
+      const updatedHoldings = await prospectPortfolioSyncService.addHoldings(clientId, normalizedHoldings as any);
 
       return res.json({
         success: true,
@@ -383,7 +383,7 @@ router.post("/portfolio/upload-csv", upload.single('file'), async (req, res) => 
         source: 'uploaded' as const,
       }));
 
-      await prospectPortfolioSyncService.addHoldings(clientId, normalizedHoldings);
+      await prospectPortfolioSyncService.addHoldings(clientId, normalizedHoldings as any);
 
       return res.json({
         success: true,

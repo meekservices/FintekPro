@@ -53,7 +53,7 @@ async function requireAgentRole(req: Request, res: Response, next: NextFunction)
 
 async function validateAgentClientMapping(agentId: string, clientId: string): Promise<boolean> {
   const [client] = await db
-    .select({ assignedAgentId: users.assignedAgentId })
+    .select({ assignedAgentId: (users as any).assignedAgentId })
     .from(users)
     .where(eq(users.id, clientId))
     .limit(1);

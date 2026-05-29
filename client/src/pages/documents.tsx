@@ -313,7 +313,7 @@ export default function DocumentsPage() {
           documentHash={selectedDoc.id}
           documentUrl={selectedDoc.documentUrl || undefined}
           aadhaarNumber={(user as any).aadhaarNumber || ''}
-          fullName={user.name || ''}
+          fullName={(user as any).firstName || (user as any).name || ''}
           onSuccess={handleSignSuccess}
           onError={(error) => console.error('eSign error:', error)}
         />

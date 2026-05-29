@@ -25,9 +25,9 @@ export class PortfolioIntelligenceService {
         totalValue: portfolio.totalValue || 0,
         holdings: holdings.map(h => ({
           symbol: h.symbol,
-          quantity: parseFloat(h.quantity),
-          currentPrice: parseFloat(h.avgPrice), // Using avgPrice as currentPrice placeholder
-          totalValue: parseFloat(h.quantity) * parseFloat(h.avgPrice),
+          quantity: parseFloat(h.quantity ?? "0"),
+          currentPrice: parseFloat(h.avgPrice ?? "0"), // Using avgPrice as currentPrice placeholder
+          totalValue: parseFloat(h.quantity ?? "0") * parseFloat(h.avgPrice ?? "0"),
           sector: 'Unknown' // Will be enhanced later
         }))
       };
@@ -117,7 +117,7 @@ ${optimization.optimizationSuggestions.map(s => `• ${s}`).join('\n')}
     const holdings = await storage.getPortfolioHoldings(portfolios[0]?.id || '');
     
     // Calculate current allocation
-    const totalValue = holdings.reduce((sum, h) => sum + (parseFloat(h.quantity) * parseFloat(h.avgPrice)), 0);
+    const totalValue = holdings.reduce((sum, h) => sum + (parseFloat(h.quantity ?? "0") * parseFloat(h.avgPrice ?? "0")), 0);
     const currentAllocation = this.calculateAllocation(holdings, totalValue);
     
     // AI-suggested target allocation based on user profile
@@ -204,7 +204,7 @@ ${optimization.optimizationSuggestions.map(s => `• ${s}`).join('\n')}
     return holdings.map(h => ({
       symbol: h.symbol,
       sector: 'Unknown',
-      percentage: ((parseFloat(h.quantity) * parseFloat(h.avgPrice)) / totalValue * 100).toFixed(1)
+      percentage: ((parseFloat(h.quantity ?? "0") * parseFloat(h.avgPrice ?? "0")) / totalValue * 100).toFixed(1)
     }));
   }
 
@@ -284,8 +284,8 @@ ${optimization.optimizationSuggestions.map(s => `• ${s}`).join('\n')}
       const holdingsData = holdings.map(h => ({
         schemeCode: undefined,
         schemeName: h.symbol || 'Unknown',
-        currentValue: parseFloat(h.quantity) * parseFloat(h.avgPrice),
-        units: parseFloat(h.quantity),
+        currentValue: parseFloat(h.quantity ?? "0") * parseFloat(h.avgPrice ?? "0"),
+        units: parseFloat(h.quantity ?? "0"),
         category: undefined,
         fundHouse: undefined
       }));

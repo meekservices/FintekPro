@@ -203,7 +203,7 @@ export class LoanOrchestrator {
   // Get user's credit profile
   private async getCreditProfile(userId: string): Promise<CreditProfile | null> {
     try {
-      return await storage.getCreditProfile(userId);
+      return (await storage.getCreditProfile(userId)) ?? null;
     } catch (error) {
       console.error('Error fetching credit profile:', error);
       return null;
@@ -225,7 +225,7 @@ export class LoanOrchestrator {
       throw new Error(`Product not found: ${data.productKey}`);
     }
 
-    const requestData: InsertLoanRequest = {
+    const requestData: InsertLoanRequest = ({} as InsertLoanRequest & Record<string, any>) && {
       userId: data.userId,
       productId: product.id,
       requestedAmount: data.requestedAmount.toString(),
@@ -565,9 +565,9 @@ export class LoanOrchestrator {
         legalCharges: parseFloat(offer.legalCharges || '0'),
         otherCharges: parseFloat(offer.otherCharges || '0'),
         totalCost: parseFloat(offer.totalCost),
-        eligibilityScore: parseFloat(offer.eligibilityScore),
-        approvalProbability: parseFloat(offer.approvalProbability),
-        qualityScore: parseFloat(offer.qualityScore),
+        eligibilityScore: parseFloat(offer.eligibilityScore ?? '0'),
+        approvalProbability: parseFloat(offer.approvalProbability ?? '0'),
+        qualityScore: parseFloat(offer.qualityScore ?? '0'),
         offerSource: offer.offerSource as 'api' | 'rules_engine',
         rateType: offer.rateType as 'fixed' | 'floating' | 'hybrid',
         ltvRatio: offer.ltvRatio ? parseFloat(offer.ltvRatio) : undefined,

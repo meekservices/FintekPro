@@ -361,9 +361,11 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
                 data-testid="button-partner-client-portal"
                 title="Client Portal"
               >
-                <a href="https://fintekpro.com">
+                <a href="https://fintekpro.com" title="Client Portal" aria-label="Client Portal">
                   <Home className="h-5 w-5" />
+                  <span className="sr-only">Client Portal</span>
                 </a>
+
               </Button>
               <Button
                 variant="ghost"

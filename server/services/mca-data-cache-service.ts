@@ -674,7 +674,7 @@ class McaDataCacheService {
           completedAt: new Date(),
           apiCallsMade: 1,
           errorMessages: errorMessage ? [errorMessage] : [],
-        })
+        } as any)
         .where(eq(mcaIngestionLogs.runId, runId));
     } catch (error: any) {
       console.error(`[MCA Cache] Error logging ingestion complete:`, error.message);

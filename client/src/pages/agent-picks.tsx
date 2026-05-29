@@ -68,6 +68,7 @@ import {
   Copy,
   Zap,
   Search,
+  Calculator,
 } from "lucide-react";
 import {
   LineChart,
@@ -353,6 +354,18 @@ export default function AgentPicksPage() {
   const [explanationOpen, setExplanationOpen] = useState(false);
   const [explainingPickId, setExplanationPickId] = useState<number | null>(null);
   const [, navigate] = useLocation();
+  const [selectedPickIds, setSelectedPickIds] = useState<Set<number>>(new Set());
+  const [builderBudget, setBuilderBudget] = useState("500000");
+
+  const handleSelectToggle = (id: number) => {
+    const next = new Set(selectedPickIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedPickIds(next);
+  };
 
   const { data: explanationData, isLoading: loadingExplanation } = useQuery({
     queryKey: ["/api/ai/xai/explain", explainingPickId],
@@ -835,6 +848,209 @@ export default function AgentPicksPage() {
         </div>
       ) : null}
 
+      {/* Portfolio Sizing & Allocation Builder (rendered when selections exist) */}
+      {selectedPickIds.size > 0 && (
+        <Card className="border-2 border-primary/45 bg-gradient-to-br from-primary/5 via-background to-background animate-in fade-in slide-in-from-top-4 duration-500">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between flex-wrap gap-4">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <PieChart className="h-5 w-5 text-primary animate-pulse" />
+                Custom Portfolio Allocation Builder
+              </CardTitle>
+              <CardDescription>
+                Construct a customized asset allocation plan for your client based on recommendation weights.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => setSelectedPickIds(new Set())}
+              >
+                Clear Selections
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border bg-muted/20">
+              <div className="space-y-1">
+                <Label htmlFor="builder-budget" className="text-xs uppercase font-bold text-muted-foreground">Total Portfolio Sizing Budget</Label>
+                <div className="text-xs text-muted-foreground">The investable amount to split between selected securities.</div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-lg font-bold text-foreground">₹</span>
+                <input
+                  id="builder-budget"
+                  type="number"
+                  value={builderBudget}
+                  onChange={(e) => setBuilderBudget(e.target.value)}
+                  className="h-9 w-40 px-3 py-1 text-sm rounded border bg-background font-bold text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary"
+                  placeholder="5,00,000"
+                />
+              </div>
+            </div>
+
+            {/* Calculations Table */}
+            <div className="overflow-x-auto border rounded-lg">
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs uppercase bg-muted/50 text-muted-foreground">
+                  <tr>
+                    <th className="p-3">Security Name</th>
+                    <th className="p-3">Category</th>
+                    <th className="p-3 text-right">Rec. Price</th>
+                    <th className="p-3 text-center">Weight</th>
+                    <th className="p-3 text-right">Allocation Sizing</th>
+                    <th className="p-3 text-right">Target Quantity</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {(() => {
+                    const selectedPicks = [...todayPicks, ...livePicks].filter(p => selectedPickIds.has(p.id));
+                    const totalWeight = selectedPicks.reduce((acc, p) => acc + (p.keyMetrics?.suggestedAllocation || 5), 0);
+                    const budgetNum = Number(builderBudget || 0);
+
+                    return (
+                      <>
+                        {selectedPicks.map((pick) => {
+                          const weight = pick.keyMetrics?.suggestedAllocation || 5;
+                          const targetAllocation = totalWeight > 0 ? (weight / totalWeight) * budgetNum : 0;
+                          const qty = pick.recoPrice > 0 ? Math.floor(targetAllocation / pick.recoPrice) : 0;
+
+                          return (
+                            <tr key={pick.id} className="hover:bg-muted/10">
+                              <td className="p-3 font-semibold text-foreground">
+                                {pick.instrumentName} {pick.symbol ? `(${pick.symbol})` : ''}
+                              </td>
+                              <td className="p-3 text-xs capitalize text-muted-foreground">
+                                {categoryLabels[pick.category] || pick.category}
+                              </td>
+                              <td className="p-3 text-right font-mono">
+                                {formatPrice(pick.recoPrice, pick.category)}
+                              </td>
+                              <td className="p-3 text-center font-bold text-primary">
+                                {weight}%
+                              </td>
+                              <td className="p-3 text-right font-bold text-green-600 dark:text-green-400 font-mono">
+                                {formatPrice(Math.round(targetAllocation), pick.category)}
+                              </td>
+                              <td className="p-3 text-right font-bold font-mono">
+                                {qty.toLocaleString()} shares
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="bg-muted/40 font-bold border-t-2">
+                          <td className="p-3" colSpan={3}>Total Portfolio Summary</td>
+                          <td className="p-3 text-center text-primary">{totalWeight}%</td>
+                          <td className="p-3 text-right text-green-600 dark:text-green-400 font-mono">
+                            {formatPrice(budgetNum, 'listed_stocks')}
+                          </td>
+                          <td className="p-3 text-right text-muted-foreground">—</td>
+                        </tr>
+                      </>
+                    );
+                  })()}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Allocation Stack Bar */}
+            <div className="space-y-1.5 pt-2">
+              <Label className="text-xs text-muted-foreground uppercase font-bold">Allocation Visualizer (Asset-wise splits)</Label>
+              <svg className="w-full h-4 rounded-full overflow-hidden bg-muted" viewBox="0 0 100 16" preserveAspectRatio="none">
+                {(() => {
+                  const selectedPicks = [...todayPicks, ...livePicks].filter(p => selectedPickIds.has(p.id));
+                  const totalWeight = selectedPicks.reduce((acc, p) => acc + (p.keyMetrics?.suggestedAllocation || 5), 0);
+                  let currentX = 0;
+
+                  return selectedPicks.map((pick, idx) => {
+                    const weight = pick.keyMetrics?.suggestedAllocation || 5;
+                    const pct = totalWeight > 0 ? (weight / totalWeight) * 100 : 0;
+                    const colors = ['fill-blue-500', 'fill-indigo-500', 'fill-purple-500', 'fill-pink-500', 'fill-rose-500', 'fill-orange-500', 'fill-amber-500', 'fill-emerald-500'];
+                    const colorClass = colors[idx % colors.length];
+                    const x = currentX;
+                    currentX += pct;
+
+                    return (
+                      <TooltipProvider key={`builder-rect-${pick.id}`}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <rect
+                              x={x}
+                              y={0}
+                              width={Math.max(0.1, pct - 0.5)}
+                              height={16}
+                              className={`${colorClass} transition-all hover:opacity-85 cursor-pointer`}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="font-semibold text-xs">{pick.instrumentName} ({weight}%)</div>
+                            <div className="text-[10px] text-muted-foreground">Target sizing: {formatPrice(Math.round(Number(builderBudget || 0) * (weight / totalWeight)), pick.category)}</div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    );
+                  });
+                })()}
+              </svg>
+            </div>
+
+            {/* Share and Action Row */}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const selectedPicks = [...todayPicks, ...livePicks].filter(p => selectedPickIds.has(p.id));
+                  const totalWeight = selectedPicks.reduce((acc, p) => acc + (p.keyMetrics?.suggestedAllocation || 5), 0);
+                  const budgetNum = Number(builderBudget || 0);
+
+                  const lines = [
+                    `📊 *FINTEKPRO PORTFOLIO ALLOCATION PLAN*`,
+                    `Prepared especially for your investment goals.`,
+                    ``,
+                    `*Total Sizing Budget:* ${formatPrice(budgetNum, 'listed_stocks')}`,
+                    `*Securities Breakdown:*`
+                  ];
+
+                  selectedPicks.forEach((pick, i) => {
+                    const weight = pick.keyMetrics?.suggestedAllocation || 5;
+                    const targetAllocation = totalWeight > 0 ? (weight / totalWeight) * budgetNum : 0;
+                    const qty = pick.recoPrice > 0 ? Math.floor(targetAllocation / pick.recoPrice) : 0;
+                    const label = categoryLabels[pick.category] || pick.category;
+
+                    lines.push(
+                      `${i + 1}. *${pick.instrumentName}* (${pick.symbol || 'N/A'})\n` +
+                      `   - *Asset Class:* ${label}\n` +
+                      `   - *Recommended Sizing:* ${formatPrice(Math.round(targetAllocation), pick.category)} (${((weight / totalWeight) * 100).toFixed(0)}% allocation)\n` +
+                      `   - *Entry Price:* ${formatPrice(pick.recoPrice, pick.category)}\n` +
+                      `   - *Target Price:* ${formatPrice(pick.targetPrice, pick.category)} (+${((pick.targetPrice - pick.recoPrice)/pick.recoPrice * 100).toFixed(0)}%)\n` +
+                      `   - *Approx. Purchase Qty:* ${qty} shares/units`
+                    );
+                  });
+
+                  lines.push(
+                    ``,
+                    `_Disclaimer: Recommended weights represent optimal sizing based on AI model confidence and volatility inputs. Final trade allocation requires investor/advisor approval._`
+                  );
+
+                  navigator.clipboard.writeText(lines.join('\n'));
+                  toast({
+                    title: "Allocation Plan Copied!",
+                    description: "Formatted allocation details copied to clipboard. Ready to paste on WhatsApp or Email."
+                  });
+                }}
+                className="gap-2"
+              >
+                <Copy className="h-4 w-4" />
+                Copy Sizing Plan
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="today" className="space-y-4">
         <ScrollableTabsList>
           <TabsTrigger value="today" className="flex items-center gap-2">
@@ -1118,27 +1334,38 @@ export default function AgentPicksPage() {
                             <PieChart className="h-4 w-4 text-muted-foreground" /> 
                             Suggested Portfolio Allocation
                           </h4>
-                          <div className="w-full h-3 rounded-full overflow-hidden flex gap-0.5 bg-muted">
-                            {aiRecommendations.map((stock: AIStockRecommendation, idx: number) => {
+                          <svg className="w-full h-3 rounded-full overflow-hidden bg-muted" viewBox="0 0 100 12" preserveAspectRatio="none">
+                            {(() => {
+                              let currentX = 0;
                               const totalConfidence = aiRecommendations.reduce((acc: number, s: any) => acc + (s.confidence || 100), 0);
-                              const weight = ((stock.confidence || 100) / totalConfidence) * 100;
-                              const colors = ['bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500', 'bg-rose-500', 'bg-orange-500', 'bg-amber-500', 'bg-emerald-500'];
-                              const colorClass = colors[idx % colors.length];
-                              return (
-                                <TooltipProvider key={`alloc-${stock.id}`}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className={`h-full ${colorClass} transition-all hover:opacity-80`} style={{ width: `${weight}%` }} />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <div className="font-medium">{stock.symbol}</div>
-                                      <div className="text-xs text-muted-foreground">{weight.toFixed(1)}% ({formatCurrencyINR(stockInvestmentAmount[0] * (weight/100))})</div>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              );
-                            })}
-                          </div>
+                              return aiRecommendations.map((stock: AIStockRecommendation, idx: number) => {
+                                const weight = ((stock.confidence || 100) / totalConfidence) * 100;
+                                const colors = ['fill-blue-500', 'fill-indigo-500', 'fill-purple-500', 'fill-pink-500', 'fill-rose-500', 'fill-orange-500', 'fill-amber-500', 'fill-emerald-500'];
+                                const colorClass = colors[idx % colors.length];
+                                const x = currentX;
+                                currentX += weight;
+                                return (
+                                  <TooltipProvider key={`alloc-${stock.id}`}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <rect
+                                          x={x}
+                                          y={0}
+                                          width={Math.max(0.1, weight - 0.5)}
+                                          height={12}
+                                          className={`${colorClass} transition-all hover:opacity-80 cursor-pointer`}
+                                        />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <div className="font-medium">{stock.symbol}</div>
+                                        <div className="text-xs text-muted-foreground">{weight.toFixed(1)}% ({formatCurrencyINR(stockInvestmentAmount[0] * (weight/100))})</div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                );
+                              });
+                            })()}
+                          </svg>
                           <div className="flex flex-wrap gap-3 mt-3">
                             {aiRecommendations.map((stock: AIStockRecommendation, idx: number) => {
                               const totalConfidence = aiRecommendations.reduce((acc: number, s: any) => acc + (s.confidence || 100), 0);
@@ -1495,6 +1722,8 @@ export default function AgentPicksPage() {
                               key={`today-${pick.id}-${index}`}
                               pick={pick}
                               isWatchlisted={watchlistPickIds.has(pick.id)}
+                              isSelected={selectedPickIds.has(pick.id)}
+                              onSelectToggle={handleSelectToggle}
                               onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
                               onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
                               onShareEmail={(id) => handleShare(id, 'email')}
@@ -1539,6 +1768,8 @@ export default function AgentPicksPage() {
                       key={`today-${pick.id}-${index}`} 
                       pick={pick}
                       isWatchlisted={watchlistPickIds.has(pick.id)}
+                      isSelected={selectedPickIds.has(pick.id)}
+                      onSelectToggle={handleSelectToggle}
                       onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
                       onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
                       onShareEmail={(id) => handleShare(id, 'email')}
@@ -1663,6 +1894,8 @@ export default function AgentPicksPage() {
                       pick={pick} 
                       showDetails
                       isWatchlisted={watchlistPickIds.has(pick.id)}
+                      isSelected={selectedPickIds.has(pick.id)}
+                      onSelectToggle={handleSelectToggle}
                       onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
                       onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
                       onShareEmail={(id) => handleShare(id, 'email')}
@@ -2523,6 +2756,8 @@ interface PickCardProps {
   onShareClients?: (pick: DailyPick) => void;
   onClick?: (pick: DailyPick) => void;
   onExplain?: (pickId: number) => void;
+  isSelected?: boolean;
+  onSelectToggle?: (pickId: number) => void;
 }
 
 function PickCard({ 
@@ -2537,7 +2772,11 @@ function PickCard({
   onShareClients,
   onClick,
   onExplain,
+  isSelected = false,
+  onSelectToggle,
 }: PickCardProps) {
+  const [localBudget, setLocalBudget] = useState("100000");
+  const suggestedAllocation = pick.keyMetrics?.suggestedAllocation || 5;
   const Icon = categoryIcons[pick.category] || TrendingUp;
   const isExpiredByDate = pick.status === 'live' && pick.expiryDate && new Date(pick.expiryDate) < new Date();
   const effectiveStatus = isExpiredByDate ? 'expired' : pick.status;
@@ -2601,13 +2840,21 @@ function PickCard({
 
   return (
     <Card 
-      className={`overflow-hidden transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:ring-1 hover:ring-primary/20' : ''}`}
+      className={`overflow-hidden transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:ring-1 hover:ring-primary/20' : ''} ${isSelected ? 'ring-2 ring-primary border-transparent shadow-md' : ''}`}
       onClick={onClick ? () => onClick(pick) : undefined}
     >
       <div className={`h-1 ${status.color}`} />
       <CardContent className="pt-4">
         <div className="flex items-start gap-3">
-          <div className="p-2 rounded-full bg-primary/10">
+          {onSelectToggle && (
+            <div className="pt-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={() => onSelectToggle(pick.id)}
+              />
+            </div>
+          )}
+          <div className="p-2 rounded-full bg-primary/10 shrink-0">
             <Icon className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1">
@@ -2677,7 +2924,20 @@ function PickCard({
                     </Tooltip>
                   </TooltipProvider>
                 )}
-                <Badge variant="outline" className={`${status.color} bg-opacity-10 text-foreground text-[10px] px-2 py-0 h-5 font-semibold`}>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/5 border border-primary/10 shrink-0">
+                        <Percent className="h-3 w-3 text-primary" />
+                        <span className="text-[10px] sm:text-xs font-bold text-primary">
+                          {suggestedAllocation}% Weight
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Recommended Allocation Weight</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <Badge variant="outline" className={`${status.color} bg-opacity-10 text-foreground text-[10px] px-2 py-0 h-5 font-semibold shrink-0`}>
                   <StatusIcon className="h-3 w-3 mr-1" />
                   {status.label}
                 </Badge>
@@ -2758,19 +3018,11 @@ function PickCard({
                     <span className="font-medium text-xs">{formatPrice(cur, pick.category)}</span>
                     <span className="text-green-600">TGT {formatPrice(tgt, pick.category)}</span>
                   </div>
-                  <div 
-                    className="relative h-2 rounded-full bg-gradient-to-r from-red-200 via-muted to-green-200 dark:from-red-900/50 dark:to-green-900/50"
-                    style={{ 
-                      '--entry-pos': `${entryPct}%`,
-                      '--current-pos': `calc(${pct}% - 6px)`
-                    } as React.CSSProperties}
-                  >
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3 bg-muted-foreground/50 rounded left-[var(--entry-pos)]"
-                    />
-                    <div
-                      className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm left-[var(--current-pos)] ${isProfit ? 'bg-green-500' : 'bg-red-500'}`}
-                    />
+                  <div className="relative h-2 rounded-full bg-gradient-to-r from-red-200 via-muted to-green-200 dark:from-red-900/50 dark:to-green-900/50">
+                    <svg className="absolute inset-0 w-full h-full overflow-visible" viewBox="0 0 100 8" preserveAspectRatio="none">
+                      <rect x={entryPct - 0.5} y="-2" width="1" height="12" rx="0.5" className="fill-muted-foreground/50" />
+                      <circle cx={pct} cy="4" r="6" className={`stroke-background stroke-[1.5] ${isProfit ? 'fill-green-500' : 'fill-red-500'}`} />
+                    </svg>
                   </div>
                   <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
                     <span>-{downside}%</span>
@@ -2835,6 +3087,40 @@ function PickCard({
                 </div>
               </div>
             )}
+
+            {/* Inline Sizing Calculator */}
+            <div className="mt-3.5 p-3 rounded-lg border border-dashed bg-muted/20" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
+                <div className="flex items-center gap-2">
+                  <Calculator className="h-3.5 w-3.5 text-primary animate-pulse" />
+                  <span className="text-xs font-bold text-foreground">Sizing Calculator</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] text-muted-foreground uppercase font-bold">Budget:</span>
+                  <input
+                    type="number"
+                    value={localBudget}
+                    onChange={(e) => setLocalBudget(e.target.value)}
+                    className="h-6 w-24 px-1.5 py-0.5 text-right text-xs rounded border bg-background text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary"
+                    placeholder="1,00,000"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-2.5 pt-2 border-t border-muted">
+                <div>
+                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Target Size ({suggestedAllocation}%)</div>
+                  <div className="font-bold text-xs sm:text-sm text-primary">
+                    {formatPrice(Math.round(Number(localBudget || 0) * (suggestedAllocation / 100)), pick.category)}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Approx. Shares/Units</div>
+                  <div className="font-bold text-xs sm:text-sm text-foreground">
+                    {pick.recoPrice > 0 ? Math.floor((Number(localBudget || 0) * (suggestedAllocation / 100)) / pick.recoPrice).toLocaleString() : '—'}
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* #7 Structured Rationale */}
             {pick.rationale && (() => {

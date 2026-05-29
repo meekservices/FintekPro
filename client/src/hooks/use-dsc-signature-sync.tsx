@@ -28,13 +28,13 @@ export function useDSCSignatureSync() {
     }
   }, []);
 
-  const removeFromQueue = useCallback((id) => {
+  const removeFromQueue = useCallback((id: string) => {
     const queue = getQueuedSignatures();
-    const updated = queue.filter(sig => sig.id !== id);
+    const updated = queue.filter((sig: QueuedSignature) => sig.id !== id);
     localStorage.setItem(QUEUE_KEY, JSON.stringify(updated));
   }, [getQueuedSignatures]);
 
-  const submitSignature = useCallback(async (sig) => {
+  const submitSignature = useCallback(async (sig: QueuedSignature) => {
     try {
       const submitResponse = await apiRequest('/api/esign/dsc/submit-signature', {
         method: 'POST',

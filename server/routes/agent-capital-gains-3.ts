@@ -23,7 +23,7 @@ export function registerAgentCapitalGainPart3Routes(app: Express): void {
         contactEmail,
         contactPhone,
         address,
-        description,
+        description: description as any,
         rating: rating || 5.0,
         isActive: isActive !== false
       });
@@ -72,7 +72,7 @@ export function registerAgentCapitalGainPart3Routes(app: Express): void {
   app.get("/api/supplier-products", requireAdmin, async (req, res) => {
     try {
       const { supplierId } = req.query;
-      const products = await storage.getSupplierProducts(supplierId as string);
+      const products = await (storage as any).getSupplierProducts(supplierId as string);
       res.json({ products });
     } catch (error) {
       console.error("Error fetching supplier products:", error);
@@ -88,7 +88,7 @@ export function registerAgentCapitalGainPart3Routes(app: Express): void {
         return res.status(400).json({ error: "Supplier ID, product name, price, and profit margin are required" });
       }
 
-      const product = await storage.createSupplierProduct({
+      const product = await (storage as any).createSupplierProduct({
         supplierId,
         productName,
         description,
@@ -110,7 +110,7 @@ export function registerAgentCapitalGainPart3Routes(app: Express): void {
       const { id } = req.params;
       const updates = req.body;
 
-      const product = await storage.updateSupplierProduct(id, updates);
+      const product = await (storage as any).updateSupplierProduct(id, updates);
       if (!product) {
         return res.status(404).json({ error: "Supplier product not found" });
       }
@@ -125,7 +125,7 @@ export function registerAgentCapitalGainPart3Routes(app: Express): void {
   app.delete("/api/supplier-products/:id", requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
-      const deleted = await storage.deleteSupplierProduct(id);
+      const deleted = await (storage as any).deleteSupplierProduct(id);
       
       if (!deleted) {
         return res.status(404).json({ error: "Supplier product not found" });
@@ -181,7 +181,7 @@ export function registerAgentCapitalGainPart3Routes(app: Express): void {
   app.get("/api/product-performance", requireAdmin, async (req, res) => {
     try {
       const { productId } = req.query;
-      const metrics = await storage.getProductPerformanceMetrics(productId as string);
+      const metrics = await (storage as any).getProductPerformanceMetrics(productId as string);
       res.json({ metrics });
     } catch (error) {
       console.error("Error fetching product performance metrics:", error);
@@ -197,7 +197,7 @@ export function registerAgentCapitalGainPart3Routes(app: Express): void {
         return res.status(400).json({ error: "Product ID, sales volume, and revenue are required" });
       }
 
-      const metric = await storage.createProductPerformanceMetric({
+      const metric = await (storage as any).createProductPerformanceMetric({
         productId,
         salesVolume,
         revenue,

@@ -192,9 +192,11 @@ router.post('/api/ai/generate-rebalance-proposal', requireAuth, async (req: Requ
       console.warn('[AI Rebalancing] Failed to load risk profile:', e?.message);
     }
 
+    const totalValue = holdings.reduce((sum, h) => sum + (h.currentValue || 0), 0) || 1;
+
     const recommendations = await autonomousRebalancePlanner.evaluatePortfolio(
       totalValue,
-      holdings.map(h => ({ asset_class: h.assetType, weight: h.currentValue / totalValue })),
+      holdings.map(h => ({ asset_class: h.assetType, weight: h.currentValue / totalValue })) as any,
       { 
         portfolio_id: portfolioId || `web-user-${userId}`, 
         target_allocation: [] // In production, this would fetch from URCAE
@@ -228,7 +230,7 @@ router.post('/api/ai/generate-rebalance-proposal', requireAuth, async (req: Requ
     // Map new engine "Plan" items back to legacy ProposalItems for UI rendering
     const proposalItems = [];
     if (recommendations.plan) {
-       for (const action of (recommendations.plan as any[])) {
+       for (const action of ((recommendations.plan as unknown) as any[])) {
           const [item] = await db.insert(aiProposalItems).values({
             id: nanoid(),
             proposalId,

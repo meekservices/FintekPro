@@ -1606,7 +1606,7 @@ export async function populateUnlistedBroadSectors(): Promise<{ updated: number;
         .set({ 
           broadSector,
           enrichmentStatus: 'partial'
-        })
+        } as any)
         .where(eq(preIpoCompanies.id, company.id));
       
       updated++;
@@ -2387,7 +2387,7 @@ class AgentProspectWizardService {
       status: 'pending',
       createdAt: new Date(),
       updatedAt: new Date()
-    }).returning({ id: agentClientMappingRequests.id });
+    } as any).returning({ id: agentClientMappingRequests.id });
 
     return {
       requestId: request.id,
@@ -2417,7 +2417,7 @@ class AgentProspectWizardService {
     if (action === 'approve' && request.clientId) {
       // Update client's assigned agent in users table
       await db.update(users)
-        .set({ agentId: request.agentId })
+        .set({ agentId: request.agentId } as any)
         .where(eq(users.id, request.clientId));
     }
 
@@ -2428,7 +2428,7 @@ class AgentProspectWizardService {
         reviewedAt: new Date(),
         rejectionReason: action === 'reject' ? rejectionReason : null,
         updatedAt: new Date()
-      })
+      } as any)
       .where(eq(agentClientMappingRequests.id, requestId));
 
     return { success: true, message: `Request ${action}d successfully` };
@@ -2484,7 +2484,7 @@ class AgentProspectWizardService {
       .set({ 
         currentPortfolio: normalizedHoldings as any,
         updatedAt: new Date()
-      })
+      } as any)
       .where(eq(prospectClients.id, prospectId));
 
     // Advance readiness status
@@ -2498,7 +2498,7 @@ class AgentProspectWizardService {
         investmentHorizon: riskProfile.investmentHorizon,
         investmentGoals: riskProfile.primaryGoal,
         updatedAt: new Date()
-      })
+      } as any)
       .where(eq(prospectClients.id, prospectId));
 
     // Advance readiness status
@@ -5735,7 +5735,7 @@ class AgentProspectWizardService {
           status: proposal.status === 'shared' ? 'viewed' : proposal.status,
           firstViewedAt: proposal.firstViewedAt || new Date(),
           lastViewedAt: new Date()
-        })
+        } as any)
         .where(eq(prospectProposals.id, proposal.id));
 
       await db.insert(prospectProposalEvents).values({

@@ -1257,7 +1257,6 @@ export default function AuthPage() {
           sessionCount={sessionCount}
           onContinue={handleContinueSession}
           onForceLogout={handleForceLogout}
-          isLoading={forceLogoutMutation.isPending}
         />
 
         {/* Registration OTP Verification Dialog */}

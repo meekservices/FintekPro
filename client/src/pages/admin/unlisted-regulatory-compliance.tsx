@@ -34,6 +34,21 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 
+interface STRFlag {
+  id: string;
+  companyId: string;
+  companyName?: string;
+  flagType: string;
+  description?: string;
+  severity?: string;
+  transactionAmount?: string;
+  flagReason?: string;
+  strDueDate?: string;
+  status: 'pending' | 'overdue' | 'filed';
+  dueDate?: string;
+  createdAt?: string;
+}
+
 interface ComplianceOverview {
   investorLimits: {
     companiesNearLimit: number;
@@ -443,9 +458,9 @@ export default function UnlistedRegulatoryCompliance() {
                     {strData.flags.map((flag) => (
                       <TableRow key={flag.id}>
                         <TableCell>{getFlagTypeBadge(flag.flagType)}</TableCell>
-                        <TableCell>{getSeverityBadge(flag.severity)}</TableCell>
+                        <TableCell>{getSeverityBadge(flag.severity ?? "")}</TableCell>
                         <TableCell className="font-mono">
-                          ₹{parseFloat(flag.transactionAmount || '0').toLocaleString('en-IN')}
+                          ₹{parseFloat(String(flag.transactionAmount ?? '0')).toLocaleString('en-IN')}
                         </TableCell>
                         <TableCell className="max-w-xs truncate text-sm text-muted-foreground">
                           {flag.flagReason}

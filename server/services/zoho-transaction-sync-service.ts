@@ -652,7 +652,7 @@ class ZohoTransactionSyncService {
         .from(schema.bondOrders)
         .where(and(
           isNull(schema.bondOrders.zohoSyncedAt),
-          eq(schema.bondOrders.status, 'completed'),
+          eq((schema.bondOrders as any).status, 'completed'),
           gte(schema.bondOrders.createdAt, fromDate)
         ))
         .orderBy(desc(schema.bondOrders.createdAt))
@@ -668,11 +668,11 @@ class ZohoTransactionSyncService {
       const ipoApplications = await db.select({ id: schema.ipoApplications.id })
         .from(schema.ipoApplications)
         .where(and(
-          isNull(schema.ipoApplications.zohoSyncedAt),
-          sql`LOWER(${schema.ipoApplications.status}) = 'allotted'`,
-          gte(schema.ipoApplications.appliedAt, fromDate)
+          isNull((schema.ipoApplications as any).zohoSyncedAt),
+          sql`LOWER(${(schema.ipoApplications as any).status}) = 'allotted'`,
+          gte((schema.ipoApplications as any).appliedAt, fromDate)
         ))
-        .orderBy(desc(schema.ipoApplications.appliedAt))
+        .orderBy(desc((schema.ipoApplications as any).appliedAt))
         .limit(limit);
 
       for (const app of ipoApplications) {
@@ -1145,13 +1145,13 @@ class ZohoTransactionSyncService {
           id: schema.partnerCommissions.id,
           partnerId: schema.partnerCommissions.partnerId,
           productType: schema.partnerCommissions.productType,
-          transactionId: schema.partnerCommissions.transactionId,
+          transactionId: (schema.partnerCommissions as any).transactionId,
           createdAt: schema.partnerCommissions.createdAt,
           commissionAmount: schema.partnerCommissions.commissionAmount,
           tdsAmount: schema.partnerCommissions.tdsAmount,
           netCommission: schema.partnerCommissions.netCommission,
           status: schema.partnerCommissions.status,
-          zohoBillId: schema.partnerCommissions.zohoBillId,
+          zohoBillId: (schema.partnerCommissions as any).zohoBillId,
         })
         .from(schema.partnerCommissions)
         .orderBy(desc(schema.partnerCommissions.createdAt))

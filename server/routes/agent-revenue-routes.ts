@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db";
-import { users, investmentProposals, proposalItems, ckycRecords, agentLeads, agentCommissions, portfolios, portfolioHoldings, clientAgentRelationships, customerCareAgents } from "@shared/schema";
+import { users, investmentProposals, aiProposalItems as proposalItems, ckycRecords, agentLeads, agentCommissions, portfolios, portfolioHoldings, clientAgentRelationships, customerCareAgents } from "@shared/schema";
 import { eq, and, sql, gte, desc, inArray, or, between } from "drizzle-orm";
 
 const router = Router();
@@ -154,7 +154,7 @@ router.get("/revenue/metrics/:period?", async (req, res) => {
     const proposalsConverted = proposals.filter(p => p.status === 'approved').length;
     const conversionRate = proposalsSent > 0 ? (proposalsConverted / proposalsSent) * 100 : 0;
 
-    const totalProposalAmount = proposals.reduce((sum, p) => sum + (p.totalAmount || 0), 0);
+    const totalProposalAmount = proposals.reduce((sum, p) => sum + ((p as any).totalAmount || 0), 0);
     const avgDealSize = proposalsConverted > 0 ? totalProposalAmount / proposalsConverted : 0;
 
     const metrics = {

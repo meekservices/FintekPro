@@ -55,17 +55,17 @@ export function initializeOrderOpsCrons(): void {
             executionStatus: 'cancelled',
             failureReason: 'Order expired - no payment received within 24 hours',
             updatedAt: new Date(),
-          }).where(eq(unifiedOrders.id, order.id));
+          } as any).where(eq(unifiedOrders.id, order.id));
 
           console.log(`[CRON] Order ${order.orderNumber} expired (created: ${order.createdAt})`);
           cancelled++;
 
           try {
             const { emailService } = await import('./email-service');
-            const user = await db.select().from(users).where(eq(users.id, order.userId)).limit(1);
+            const user = await db.select().from(users).where(eq(users.id, order.userId ?? '')).limit(1);
             if (user[0]?.email) {
               const productName = order.productName || 'Product';
-              const orderAmount = order.amount?.toLocaleString('en-IN') || 'N/A';
+              const orderAmount = order.amount ? parseFloat(order.amount).toLocaleString('en-IN') : 'N/A';
               await emailService.sendEmail({
                 to: user[0].email,
                 subject: `❌ Order Expired - ${order.orderNumber}`,
@@ -119,7 +119,7 @@ export function initializeOrderOpsCrons(): void {
             executionStatus: 'failed',
             failureReason: 'Order processing timed out - requires manual review',
             updatedAt: new Date(),
-          }).where(eq(unifiedOrders.id, order.id));
+          } as any).where(eq(unifiedOrders.id, order.id));
           console.warn(`[CRON] Order ${order.orderNumber} marked execution_failed (stuck since: ${order.updatedAt})`);
           flagged++;
         } catch (orderError: any) {
