@@ -105,6 +105,7 @@ docs/
 !package-lock.json
 !cloudrun-env.yaml
 !Dockerfile
+!attached_assets/
 !scripts/
 !server/
 !client/
