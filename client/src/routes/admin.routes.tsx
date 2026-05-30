@@ -379,6 +379,19 @@ const AgentTracker = lazyWithRetry(() => import("@/pages/agent-tracker"));
 const AlpacaMarketExplorer = lazyWithRetry(() => import("@/pages/alpaca-market-explorer"));
 const TreasuryDashboard = lazyWithRetry(() => import("@/pages/treasury-dashboard"));
 
+// ── Admin Copilot (AI) ──────────────────────────────────────────────────────
+const AdminCopilotHub          = lazyWithRetry(() => import("@/pages/admin/copilot/index"));
+const CopilotEmailIntelligence = lazyWithRetry(() => import("@/pages/admin/copilot/email-intelligence"));
+const CopilotProposalDrafts    = lazyWithRetry(() => import("@/pages/admin/copilot/proposal-drafts"));
+const CopilotTaskManager       = lazyWithRetry(() => import("@/pages/admin/copilot/task-manager"));
+const CopilotAuditLogs         = lazyWithRetry(() => import("@/pages/admin/copilot/audit-logs"));
+const CopilotBiDashboard       = lazyWithRetry(() => import("@/pages/admin/copilot/bi-dashboard"));
+const CopilotComplianceAlerts  = lazyWithRetry(() => import("@/pages/admin/copilot/compliance-alerts"));
+const CopilotCrmIntelligence   = lazyWithRetry(() => import("@/pages/admin/copilot/crm-intelligence"));
+const CopilotDeskIntelligence  = lazyWithRetry(() => import("@/pages/admin/copilot/desk-intelligence"));
+const CopilotBooksFinance      = lazyWithRetry(() => import("@/pages/admin/copilot/books-finance"));
+const CopilotMeetings          = lazyWithRetry(() => import("@/pages/admin/copilot/meetings"));
+
 // Component to handle admin root redirect
 function AdminRoot() {
   const { user, isLoading } = useAuth();
@@ -1422,6 +1435,106 @@ export function AdminRoutes() {
       </Route>
       <Route path="/kyc/complete">
         <Redirect to="/profile?tab=kyc-dashboard" />
+      </Route>
+      {/* ── Admin Copilot Routes ── */}
+      <Route path="/admin/copilot">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <AdminCopilotHub />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/copilot/email">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <CopilotEmailIntelligence />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/copilot/proposals">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <CopilotProposalDrafts />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/copilot/tasks">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <CopilotTaskManager />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/copilot/audit-logs">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <CopilotAuditLogs />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/copilot/bi">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <CopilotBiDashboard />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/copilot/compliance">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <CopilotComplianceAlerts />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/copilot/crm">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <CopilotCrmIntelligence />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/copilot/desk">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <CopilotDeskIntelligence />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/copilot/finance">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <CopilotBooksFinance />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/copilot/meetings">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <CopilotMeetings />
+            </Suspense>
+          </AdminLayout>
+        )}
       </Route>
       <Route component={NotFound} />
     </Switch>

@@ -326,6 +326,11 @@ import('./routes/compliance'),
     const uniPortfolioRoutes = await import('./routes/uni-portfolio-routes');
     app.use('/api/portfolio', uniPortfolioRoutes.uniPortfolioRouter);
 
+    // Admin Copilot — AI-powered admin assistant (Zoho Mail/CRM/Desk/Books/Meeting)
+    logBootProgress("Step 8c: Registering Admin Copilot Routes...");
+    const { adminCopilotRouter } = await import('./routes/admin-copilot-routes');
+    app.use('/api/admin/copilot', adminCopilotRouter);
+
     // Alpaca Ribbit Integration Routes
     const alpacaRoutes = await import('./routes/alpaca/index');
     app.use('/api/alpaca', alpacaRoutes.default);
