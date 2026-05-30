@@ -938,7 +938,11 @@ export default function AuthPage() {
           <div className="w-full max-w-sm">
             {authMode === "login" ? (
               <>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 text-center">{portalLabel} Portal</h2>
+                {/* Logo above title */}
+                <div className="flex justify-center mb-4">
+                  <img src={agentLogoImg} alt="FintekPro" className="h-16 w-16 object-contain" />
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 text-center">{portalLabel} | Agent Portal</h2>
                 <p className="text-sm text-gray-500 mb-7 text-center">Sign in to manage your practice</p>
 
                 {/* Method toggle */}
