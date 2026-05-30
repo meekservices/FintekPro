@@ -7,9 +7,11 @@
   // ─── Matt Pocock 'ts-error-translator' (mattpocock.ts-error-translator) ─────
   // This extension shows TypeScript tips with diagnostic codes like
   // 'interface-declaration', 'basic-types', 'union-type', etc.
-  // Tips are suppressed via the two settings below (confirmed valid keys):
+  // Tips are suppressed via the settings below (confirmed valid keys):
   "totalTypeScript.hideAllTips": true,
   "totalTypeScript.hideBasicTips": true,
+  // Completely disable diagnostic reporting to the Problems panel:
+  "totalTypeScript.enabled": false,
 
   // ─── Editor ───────────────────────────────────────────────────────────────
   "editor.formatOnSave": false,
