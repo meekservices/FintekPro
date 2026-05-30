@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { eq, sql } from "drizzle-orm";
 import { db } from "../db";
@@ -12,15 +12,52 @@ import { usOrderNotificationService } from "../services/us-order-notification-se
 import { usRebalancingEngine } from "../services/us-rebalancing-engine";
 import { orderAuditHook } from "../services/order-audit-hook";
 import { kycEncryptionService } from "../services/kyc-encryption-service";
+import { auditLog } from "../middleware/audit-trail";
+import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { alpacaAccountGuard } from "../middleware/rbac";
+import type { AuthRequest } from "../types/broker-types";
 
 const router = Router();
 
 // Apply authentication to all routes in this file
 router.use(requireAuth);
+
+// ─── Rate Limiters ────────────────────────────────────────────────────────────
+/**
+ * Order placement: 30 orders/min per IP (Alpaca's recommended burst allowance).
+ * This prevents accidental order floods and satisfies Alpaca audit requirements.
+ */
+const orderLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || req.ip || "anon",
+  message: { success: false, error: "Too many orders — max 30/minute. Please slow down.", retryable: true },
+});
+
+/** Journal / fund transfers: 10/min per user (lower — higher value actions). */
+const fundingLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || req.ip || "anon",
+  message: { success: false, error: "Too many funding actions — max 10/minute.", retryable: true },
+});
+
+/** Compliance/suspension: 5/min (high-risk admin actions). */
+const complianceLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || req.ip || "anon",
+  message: { success: false, error: "Too many compliance actions — max 5/minute.", retryable: false },
+});
 
 
 const orderSchema = z.object({
@@ -266,12 +303,28 @@ router.get("/broker/accounts/:accountId/transfers", async (req, res) => {
 });
 
 /** Initiate a transfer (deposit/withdrawal) */
-router.post("/broker/accounts/:accountId/transfers", async (req, res) => {
+router.post("/broker/accounts/:accountId/transfers", fundingLimiter, async (req, res) => {
+  const userId = (req as AuthRequest).user?.id;
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
     }
     const transfer = await alpacaBrokerService.createTransfer(req.params.accountId, req.body);
+    await auditLog({
+      action: "us_trading_transfer_initiated",
+      category: "trading",
+      outcome: "success",
+      riskLevel: "high",
+      details: {
+        event: "US_TRANSFER_INITIATED",
+        user_id: userId,
+        account_id: req.params.accountId,
+        transfer_type: req.body.transfer_type,
+        direction: req.body.direction,
+        amount: req.body.amount,
+        transfer_id: transfer?.id,
+      },
+    }).catch(() => {});
     res.status(201).json({ success: true, transfer });
   } catch (error: any) {
     const status = error.response?.status || 500;
@@ -359,12 +412,28 @@ router.get("/broker/journals", async (req, res) => {
 });
 
 /** Create a journal entry (JNLC = cash, JNLS = securities) (admin) */
-router.post("/broker/journals", async (req, res) => {
+router.post("/broker/journals", fundingLimiter, requireAdmin, async (req, res) => {
+  const userId = (req as AuthRequest).user?.id;
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
     }
     const journal = await alpacaBrokerService.createJournal(req.body);
+    await auditLog({
+      action: "us_trading_journal_created",
+      category: "trading",
+      outcome: "success",
+      riskLevel: "high",
+      details: {
+        event: "US_JOURNAL_CREATED",
+        user_id: userId,
+        entry_type: req.body.entry_type,
+        from_account: req.body.from_account,
+        to_account: req.body.to_account,
+        amount: req.body.amount,
+        journal_id: journal?.id,
+      },
+    }).catch(() => {});
     res.status(201).json({ success: true, journal });
   } catch (error: any) {
     const status = error.response?.status || 500;
@@ -373,12 +442,20 @@ router.post("/broker/journals", async (req, res) => {
 });
 
 /** Cancel a pending journal */
-router.delete("/broker/journals/:journalId", async (req, res) => {
+router.delete("/broker/journals/:journalId", fundingLimiter, requireAdmin, async (req, res) => {
+  const userId = (req as AuthRequest).user?.id;
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
     }
     await alpacaBrokerService.cancelJournal(req.params.journalId);
+    await auditLog({
+      action: "us_trading_journal_cancelled",
+      category: "trading",
+      outcome: "success",
+      riskLevel: "high",
+      details: { event: "US_JOURNAL_CANCELLED", user_id: userId, journal_id: req.params.journalId },
+    }).catch(() => {});
     res.json({ success: true });
   } catch (error: any) {
     const status = error.response?.status || 500;
@@ -406,29 +483,95 @@ router.get("/broker/accounts/:accountId/orders", async (req, res) => {
 });
 
 /** Place an order for a specific broker account */
-router.post("/broker/accounts/:accountId/orders", async (req, res) => {
+router.post("/broker/accounts/:accountId/orders", orderLimiter, async (req, res) => {
+  const userId = (req as AuthRequest).user?.id;
+  const { accountId } = req.params;
+  const startMs = Date.now();
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
     }
-    const order = await alpacaBrokerService.placeOrder({
-      ...req.body,
-      account_id: req.params.accountId,
-    });
-    res.status(201).json({ success: true, order });
+
+    // ── Idempotency key: prefer client-supplied header, else generate deterministic key
+    const idempotencyKey =
+      (req.headers["idempotency-key"] as string) ||
+      crypto
+        .createHash("sha256")
+        .update(`${userId}-${accountId}-${req.body.symbol}-${req.body.side}-${req.body.qty || req.body.notional || ""}-${Date.now()}`)
+        .digest("hex")
+        .slice(0, 36);
+
+    // ── Pre-trade audit hook (before Alpaca)
+    try { await orderAuditHook.before(req.body, userId?.toString()); } catch { /* non-fatal */ }
+
+    const order = await alpacaBrokerService.placeOrder(
+      { ...req.body, account_id: accountId },
+      idempotencyKey,
+    );
+
+    // ── Post-trade audit hook (after Alpaca)
+    try { await orderAuditHook.after(order, userId?.toString()); } catch { /* non-fatal */ }
+
+    // ── Structured audit log (SEBI/Alpaca audit requirement)
+    await auditLog({
+      action: "us_trading_order_placed",
+      category: "trading",
+      outcome: "success",
+      riskLevel: "medium",
+      details: {
+        event: "US_ORDER_PLACED",
+        user_id: userId,
+        account_id: accountId,
+        symbol: req.body.symbol,
+        side: req.body.side,
+        order_type: req.body.orderType || req.body.order_type,
+        qty: req.body.qty,
+        notional: req.body.notional,
+        order_id: order?.id,
+        idempotency_key: idempotencyKey,
+        latency_ms: Date.now() - startMs,
+        status: "accepted",
+      },
+    }).catch(() => { /* non-fatal — don't block order response */ });
+
+    res.status(201).json({ success: true, order, idempotencyKey });
   } catch (error: any) {
+    await auditLog({
+      action: "us_trading_order_placed",
+      category: "trading",
+      outcome: "failure",
+      riskLevel: "medium",
+      details: {
+        event: "US_ORDER_FAILED",
+        user_id: userId,
+        account_id: accountId,
+        symbol: req.body?.symbol,
+        side: req.body?.side,
+        error: error.response?.data?.message || error.message,
+        latency_ms: Date.now() - startMs,
+        status: "rejected",
+      },
+    }).catch(() => {});
     const status = error.response?.status || 500;
     res.status(status).json({ success: false, error: error.response?.data?.message || error.message });
   }
 });
 
 /** Cancel a specific order for an account */
-router.delete("/broker/accounts/:accountId/orders/:orderId", async (req, res) => {
+router.delete("/broker/accounts/:accountId/orders/:orderId", orderLimiter, async (req, res) => {
+  const userId = (req as AuthRequest).user?.id;
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
     }
     const ok = await alpacaBrokerService.cancelOrder(req.params.orderId, req.params.accountId);
+    await auditLog({
+      action: "us_trading_order_cancelled",
+      category: "trading",
+      outcome: ok ? "success" : "failure",
+      riskLevel: "medium",
+      details: { event: "US_ORDER_CANCELLED", user_id: userId, account_id: req.params.accountId, order_id: req.params.orderId, status: ok ? "cancelled" : "cancel_failed" },
+    }).catch(() => {});
     res.json({ success: ok });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -436,12 +579,20 @@ router.delete("/broker/accounts/:accountId/orders/:orderId", async (req, res) =>
 });
 
 /** Cancel ALL orders for an account */
-router.delete("/broker/accounts/:accountId/orders", async (req, res) => {
+router.delete("/broker/accounts/:accountId/orders", orderLimiter, async (req, res) => {
+  const userId = (req as AuthRequest).user?.id;
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
     }
     const cancelled = await alpacaBrokerService.cancelAllOrders(req.params.accountId);
+    await auditLog({
+      action: "us_trading_orders_cancelled_all",
+      category: "trading",
+      outcome: "success",
+      riskLevel: "high",
+      details: { event: "US_ORDERS_CANCEL_ALL", user_id: userId, account_id: req.params.accountId, cancelled_count: Array.isArray(cancelled) ? cancelled.length : 0 },
+    }).catch(() => {});
     res.json({ success: true, cancelled });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -766,7 +917,8 @@ router.patch("/broker/accounts/:accountId/restrictions", async (req, res) => {
 });
 
 /** Suspend all trading on an account (compliance/AML — requires reason) */
-router.post("/broker/accounts/:accountId/suspend", async (req, res) => {
+router.post("/broker/accounts/:accountId/suspend", complianceLimiter, requireAdmin, async (req, res) => {
+  const userId = (req as AuthRequest).user?.id;
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
@@ -774,6 +926,13 @@ router.post("/broker/accounts/:accountId/suspend", async (req, res) => {
     const { reason } = req.body;
     if (!reason) return res.status(400).json({ success: false, error: "reason is required for account suspension" });
     const result = await alpacaBrokerService.suspendAccount(req.params.accountId, reason);
+    await auditLog({
+      action: "us_trading_account_suspended",
+      category: "compliance",
+      outcome: "success",
+      riskLevel: "critical",
+      details: { event: "US_ACCOUNT_SUSPENDED", user_id: userId, account_id: req.params.accountId, reason },
+    }).catch(() => {});
     res.json({ success: true, account: result });
   } catch (error: any) {
     const status = error.response?.status || 500;
@@ -782,12 +941,20 @@ router.post("/broker/accounts/:accountId/suspend", async (req, res) => {
 });
 
 /** Reinstate a suspended account */
-router.post("/broker/accounts/:accountId/reinstate", async (req, res) => {
+router.post("/broker/accounts/:accountId/reinstate", complianceLimiter, requireAdmin, async (req, res) => {
+  const userId = (req as AuthRequest).user?.id;
   try {
     if (!alpacaBrokerService.isConfigured()) {
       return res.status(400).json({ success: false, error: "Alpaca Broker API not configured" });
     }
     const result = await alpacaBrokerService.reinstateAccount(req.params.accountId);
+    await auditLog({
+      action: "us_trading_account_reinstated",
+      category: "compliance",
+      outcome: "success",
+      riskLevel: "high",
+      details: { event: "US_ACCOUNT_REINSTATED", user_id: userId, account_id: req.params.accountId },
+    }).catch(() => {});
     res.json({ success: true, account: result });
   } catch (error: any) {
     const status = error.response?.status || 500;

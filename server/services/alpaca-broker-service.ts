@@ -1012,11 +1012,12 @@ class AlpacaBrokerService {
 
   // ─── Trading: Orders ──────────────────────────────────────────────────────
 
-  async placeOrder(request: OrderRequest): Promise<AlpacaOrder> {
+  async placeOrder(request: OrderRequest, idempotencyKey?: string): Promise<AlpacaOrder> {
     if (!this.isConfigured()) {
       throw new Error("Alpaca API not configured.");
     }
-    const clientOrderId = request.client_order_id || uuidv4();
+    // Use idempotencyKey as client_order_id if provided (Alpaca's dedup mechanism)
+    const clientOrderId = idempotencyKey || request.client_order_id || uuidv4();
     const orderPayload: any = {
       symbol: request.symbol,
       side: request.side,
@@ -1049,7 +1050,9 @@ class AlpacaBrokerService {
       ? `/v1/trading/accounts/${request.account_id}/orders`
       : "/v2/orders";
     try {
-      const response = await this.client.post(path, orderPayload);
+      const response = await this.client.post(path, orderPayload, {
+        headers: { "Idempotency-Key": clientOrderId },
+      });
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || "Failed to place order");
