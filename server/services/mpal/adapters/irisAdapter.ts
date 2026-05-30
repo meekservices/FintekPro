@@ -16,7 +16,7 @@ import {
   BrokerError,
 } from '../interfaces/IBroker';
 import { BaseBroker } from '../core/BaseBroker';
-import { irisKfintechService } from '../../irisKfintechService';
+import { irisKfintechService } from '../../iris-kfintech-service';
 import { logger } from '../../../logger';
 
 export class IrisAdapter extends BaseBroker {
