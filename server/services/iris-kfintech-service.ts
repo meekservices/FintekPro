@@ -575,9 +575,107 @@ class IrisKfintechService {
   }
 
   // ─── Phase 3: WhatsApp Notifications ─────────────────────────────────────────
+
+  /**
+   * Send a raw WhatsApp notification via IRIS KFintech.
+   * @param body - IRIS-compatible notification payload
+   */
   async sendWhatsappNotification(body: any) { return this.call('/notifications/whatsapp/send', 'POST', body); }
+
+  /**
+   * Retrieve all pre-registered WhatsApp message templates from KFintech.
+   * Templates may need to be registered in the IRIS portal for DLT compliance.
+   */
   async getNotificationTemplates() { return this.call('/notifications/templates'); }
+
+  /**
+   * Retrieve WhatsApp notification history for a specific investor PAN.
+   * @param pan - Investor PAN linked to a KFintech investor profile
+   */
   async getNotificationHistory(pan: string) { return this.call(`/notifications/history?pan=${encodeURIComponent(pan)}`); }
+
+  /**
+   * Send a festival greeting WhatsApp notification via IRIS KFintech.
+   *
+   * Purpose: Delivers a personalised festival greeting to an investor's
+   *          registered WhatsApp number via IRIS's /notifications/whatsapp/send.
+   *
+   * Inputs:
+   *   - pan          : Investor PAN (used by KFintech to resolve the registered mobile)
+   *   - mobile       : Recipient phone number (E.164, e.g. +919876543210)
+   *   - festivalName : Display name of the festival (e.g. "Diwali")
+   *   - message      : Body text of the greeting
+   *   - agentName    : Sender's display name appended to the message
+   *   - templateId   : Optional KFintech WhatsApp template ID (for DLT-registered templates)
+   *
+   * Outputs:
+   *   { success, messageId?, errorCode?, retryable }
+   *
+   * Edge cases:
+   *   - If IRIS is not configured (no credentials), resolves to { success: false, retryable: false }
+   *     so callers can fall back to Twilio without throwing.
+   *   - Network / 5xx errors from IRIS are caught and returned as retryable:true so the route
+   *     can apply its own Twilio fallback without crashing the request.
+   *   - IRIS does NOT require mobile if pan is supplied (it looks up the registered number);
+   *     however we send both so the platform can use whichever is available.
+   */
+  async sendFestivalGreeting(opts: {
+    pan?: string;
+    mobile: string;
+    festivalName: string;
+    message: string;
+    agentName: string;
+    templateId?: string;
+  }): Promise<{ success: boolean; messageId?: string; errorCode?: string; retryable: boolean }> {
+    if (!this.isConfigured) {
+      logger.warn('[IRIS] sendFestivalGreeting: IRIS not configured, skipping');
+      return { success: false, errorCode: 'IRIS_NOT_CONFIGURED', retryable: false };
+    }
+
+    const fullMessage = `${opts.message}\n\n— ${opts.agentName} via FintekPro`;
+
+    const payload: Record<string, any> = {
+      mobile: opts.mobile,
+      message: fullMessage,
+      partnerCode: 'FINTEKPRO',
+      category: 'FESTIVAL_GREETING',
+      festivalName: opts.festivalName,
+    };
+
+    if (opts.pan)        payload.pan        = opts.pan;
+    if (opts.templateId) payload.templateId = opts.templateId;
+
+    try {
+      const resp: any = await this.sendWhatsappNotification(payload);
+      const messageId = resp?.messageId ?? resp?.data?.messageId ?? resp?.id ?? undefined;
+      logger.info('[IRIS] Festival greeting sent', {
+        event: 'IRIS_FESTIVAL_GREETING_SENT',
+        mobile: opts.mobile.slice(0, 6) + '****',
+        festivalName: opts.festivalName,
+        messageId,
+        latency_ms: undefined,
+        status: 'success',
+      });
+      return { success: true, messageId, retryable: false };
+    } catch (err: any) {
+      const status  = err?.response?.status;
+      const errBody = err?.response?.data;
+      const retryable = !status || status >= 500;
+      logger.error('[IRIS] Festival greeting failed', {
+        event: 'IRIS_FESTIVAL_GREETING_FAILED',
+        mobile: opts.mobile.slice(0, 6) + '****',
+        festivalName: opts.festivalName,
+        status,
+        error: errBody ?? err?.message,
+        retryable,
+      });
+      return {
+        success: false,
+        errorCode: errBody?.errorCode ?? (status ? `HTTP_${status}` : 'NETWORK_ERROR'),
+        retryable,
+      };
+    }
+  }
 
   // ─── Phase 3: NFO ─────────────────────────────────────────────────────────────
   async getNfoSchemes() { return this.call('/sif/nfo/active'); }

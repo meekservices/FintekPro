@@ -1,4 +1,5 @@
 import { PortfolioV3Dashboard } from "@/components/portfolio/PortfolioV3Dashboard";
+import { UniPortfolioDashboard } from "@/components/portfolio/UniPortfolioDashboard";
 import { useFeatureFlag } from "@/hooks/use-feature-flags";
 import { PortfolioSummary } from "@/components/dashboard/portfolio-summary";
 import { AssetAllocation } from "@/components/dashboard/asset-allocation";
@@ -593,8 +594,13 @@ export default function Portfolio() {
         
 
         {/* Enhanced Portfolio with Tabs */}
-        <Tabs defaultValue="overview" className="space-y-6">
+        <Tabs defaultValue="multibroker" className="space-y-6">
           <ScrollableTabsList>
+            {/* ── UniPortfolio tab — multi-broker unified view ── */}
+            <TabsTrigger value="multibroker" className="flex items-center space-x-1" data-testid="tab-multibroker-portfolio">
+              <Bot className="h-4 w-4" />
+              <span>🌐 Unified Portfolio</span>
+            </TabsTrigger>
             <TabsTrigger value="overview" className="flex items-center space-x-1">
               <TrendingUp className="h-4 w-4" />
               <span>Portfolio Overview</span>
@@ -645,6 +651,15 @@ export default function Portfolio() {
             </TabsTrigger>
             <TabsTrigger value="rebalance">AI Rebalancing</TabsTrigger>
           </ScrollableTabsList>
+
+          {/* ── UniPortfolio Tab Content ── */}
+          <TabsContent value="multibroker" className="space-y-6">
+            <UniPortfolioDashboard
+              riskScore={50}
+              horizon={5}
+              segment="retail"
+            />
+          </TabsContent>
 
           <TabsContent value="overview" className="space-y-6">
             {/* Hero Section with Net Worth */}

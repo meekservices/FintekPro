@@ -1,30 +1,55 @@
 import { logger } from '../../logger';
-import { portfolioAggregator } from '../portfolio/portfolioAggregator';
+import { uniPortfolioService } from '../portfolio/uniPortfolioService';
 import { db } from '../../db';
-import { creditApplications, creditProducts } from '../../../shared/schema/mpal';
+import { creditApplications } from '../../../shared/schema/mpal';
 import { eq, and, sql, sum } from 'drizzle-orm';
 
 export class FinancialProfileEngine {
 
   /**
-   * Combines Investments (Portfolio) and Credit (Loans/Cards) into a Unified Financial Profile.
+   * Combines Investments (UniPortfolio — all brokers) and Credit (Loans/Cards)
+   * into a Unified Financial Profile for AI advisory and net-worth calculation.
+   *
+   * The UniPortfolio is fetched via uniPortfolioService, which:
+   *   - Pulls from ALL configured brokers (IRIS, Alpaca, IIFL, ...)
+   *   - Uses stable portfolioId = "unified_{userId}" for quant engine
+   *   - Includes drift + rebalancing analysis (cached 5 min)
+   *
+   * Inputs  : userId — FintekPro user ID
+   * Outputs : Unified financial profile with investments + credit + net worth
+   * Edge cases: broker failures → partial portfolio, profile still returns
    */
   async buildProfile(userId: string) {
-    logger.info(`[FinancialProfileEngine] Building unified profile for user ${userId}`);
+    logger.info(`[FinancialProfileEngine] Building unified profile for user ${userId}`, {
+      event: 'FINANCIAL_PROFILE_BUILD',
+      user_id: userId,
+      status: 'building',
+    });
 
-    // 1. Fetch unified investments
+    // 1. Fetch UniPortfolio (all brokers, drift, rebalancing — cached 5 min)
     let totalValue = 0;
     let positions: any[] = [];
-    
+    let portfolioId = `unified_${userId}`;
+    let assetClassWeights: Record<string, number> = {};
+    let countryWeights = { IN: 0, US: 0, OTHER: 0 };
+    let driftDetected = false;
+    let staleBrokers: string[] = [];
+
     try {
-      const unifiedData = await portfolioAggregator.getUnifiedPortfolio(userId, ""); 
-      
-      if (unifiedData && unifiedData.summary) {
-        totalValue = unifiedData.summary.totalValueInr;
-        positions = unifiedData.holdings;
-      }
+      const snapshot = await uniPortfolioService.getSnapshot(userId);
+      totalValue = snapshot.summary.totalValueInr;
+      positions = snapshot.holdings;
+      portfolioId = snapshot.portfolioId;
+      assetClassWeights = snapshot.summary.assetClassWeights;
+      countryWeights = snapshot.summary.countryWeights;
+      driftDetected = snapshot.analysis.drift.has_drifted;
+      staleBrokers = snapshot.analysis.staleBrokers;
     } catch (e) {
-      logger.warn(`[FinancialProfileEngine] Could not fetch investment data: ${e}`);
+      logger.warn(`[FinancialProfileEngine] Could not fetch UniPortfolio: ${e}`, {
+        event: 'FINANCIAL_PROFILE_PORTFOLIO_WARN',
+        user_id: userId,
+        status: 'partial',
+      });
     }
 
     // 2. Fetch actual credit liabilities from DB
@@ -33,29 +58,32 @@ export class FinancialProfileEngine {
 
     const netWorth = totalValue - liabilities.totalOutstanding;
 
-    // 3. Update the user's financial profile record (optional/background)
-    // We could persist this back to the `financial_profiles` table here if needed.
-
     return {
       userId,
+      portfolioId,        // stable "unified_{userId}" — quant engine reference key
       netWorth,
       totalAssets: totalValue,
       totalLiabilities: liabilities.totalOutstanding,
       creditUtilization,
       investmentAllocation: {
         totalValue,
-        positions
-      }
+        positions,
+        assetClassWeights,
+        countryWeights,
+      },
+      // Portfolio health signals for AI advisory (FASP-AI v1.0)
+      portfolioHealth: {
+        driftDetected,
+        staleBrokers,
+        dataComplete: staleBrokers.length === 0,
+      },
     };
   }
 
   private async fetchActualLiabilities(userId: string) {
     try {
-      // Sum requested amounts for applications that are 'APPROVED' or 'DISBURSED'
       const activeLoans = await db
-        .select({
-          totalAmount: sum(creditApplications.amountRequested)
-        })
+        .select({ totalAmount: sum(creditApplications.amountRequested) })
         .from(creditApplications)
         .where(
           and(
@@ -63,17 +91,18 @@ export class FinancialProfileEngine {
             sql`${creditApplications.status} IN ('APPROVED', 'DISBURSED')`
           )
         );
-
       const totalOutstanding = Number(activeLoans[0]?.totalAmount || 0);
-
-      // In a real system, we'd also fetch credit limits. For now, we'll use a dynamic logic.
-      // If no limit exists, we assume a baseline for utilization calculation.
       return {
         totalOutstanding,
-        totalLimit: totalOutstanding > 0 ? totalOutstanding * 2 : 500000 // Placeholder logic for limit
+        totalLimit: totalOutstanding > 0 ? totalOutstanding * 2 : 500000
       };
     } catch (error) {
-      logger.error(`[FinancialProfileEngine] Error fetching live liabilities`, error);
+      logger.error(`[FinancialProfileEngine] Error fetching live liabilities`, {
+        event: 'FINANCIAL_PROFILE_LIABILITIES_ERROR',
+        user_id: userId,
+        error: (error as any)?.message,
+        status: 'error',
+      });
       return { totalOutstanding: 0, totalLimit: 0 };
     }
   }

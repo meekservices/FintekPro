@@ -321,6 +321,11 @@ import('./routes/compliance'),
     const mpalRoutes = await import('./routes/mpal-routes');
     app.use('/api/mpal', mpalRoutes.mpalRouter);
 
+    // UniPortfolio — Multi-Broker Unified Portfolio + Quant Engine context
+    logBootProgress("Step 8b: Registering UniPortfolio Routes...");
+    const uniPortfolioRoutes = await import('./routes/uni-portfolio-routes');
+    app.use('/api/portfolio', uniPortfolioRoutes.uniPortfolioRouter);
+
     // Alpaca Ribbit Integration Routes
     const alpacaRoutes = await import('./routes/alpaca/index');
     app.use('/api/alpaca', alpacaRoutes.default);

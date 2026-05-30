@@ -2062,6 +2062,44 @@ class AlpacaBrokerService {
   async removeIpFromAllowlist(ip: string): Promise<void> {
     await this.client.delete("/v1/team/ip_allowlist", { data: { ips: [ip] } });
   }
+
+  // ─── Market Assets (Store / Product Discovery) ─────────────────────────────
+
+  /**
+   * Retrieve a list of assets available on Alpaca.
+   *
+   * Purpose: Used by the Store to surface US equity and ETF products.
+   *
+   * Inputs:
+   *   - status       : 'active' | 'inactive' (default: 'active')
+   *   - assetClass   : 'us_equity' | 'crypto' (default: 'us_equity')
+   *   - exchange     : optional NYSE | NASDAQ | ARCA etc.
+   *
+   * Outputs: Array of AlpacaAsset objects (empty on failure/unconfigured).
+   *
+   * Edge cases: Returns [] when Alpaca is not configured or API is unreachable,
+   *             so the store gracefully degrades to DB-only products.
+   */
+  async getAssets(params?: {
+    status?: 'active' | 'inactive';
+    assetClass?: 'us_equity' | 'crypto';
+    exchange?: string;
+  }): Promise<AlpacaAsset[]> {
+    if (!this.isConfigured()) return [];
+    try {
+      const apiPath = this._isBrokerApi() ? '/v1/assets' : '/v2/assets';
+      const queryParams: Record<string, string> = {
+        status: params?.status ?? 'active',
+      };
+      if (params?.assetClass) queryParams['asset_class'] = params.assetClass;
+      if (params?.exchange)   queryParams['exchange']    = params.exchange;
+      const response = await this.client.get(apiPath, { params: queryParams });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error: any) {
+      console.warn('[AlpacaBrokerService] getAssets failed (non-fatal):', error?.response?.data ?? error?.message);
+      return [];
+    }
+  }
 }
 
 export const alpacaBrokerService = new AlpacaBrokerService();

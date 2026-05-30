@@ -47,6 +47,10 @@ interface Product {
   isPremium?: boolean;
   isNew?: boolean;
   badge?: string;
+  /** Which live provider sourced this product (undefined = DB-seeded) */
+  providerSource?: 'IRIS' | 'ALPACA';
+  /** The provider's own identifier (schemeCode, ticker symbol, product ID) */
+  providerProductId?: string;
 }
 
 // Category quick links for navigation (SEBI/IFSCA/RBI compliant)
@@ -81,6 +85,7 @@ export default function StorePage() {
   const [requiredTier, setRequiredTier] = useState<string>("");
   const [inquiryModalOpen, setInquiryModalOpen] = useState(false);
   const [inquiryProduct, setInquiryProduct] = useState<Product | null>(null);
+  const [selectedProviderFilter, setSelectedProviderFilter] = useState("all");
   
   const { addToCart, isAddingToCart } = useCart();
   const { addItem: addToUnifiedCart } = useUnifiedCart();
@@ -146,7 +151,7 @@ export default function StorePage() {
       category: storeProduct.categoryName || storeProduct.categoryId,
       subcategory: storeProduct.subcategoryName || storeProduct.subcategoryId,
       productType: storeProduct.productType || storeProduct.planType || 'product',
-      kycProductCode: storeProduct.productKey,
+      kycProductCode: storeProduct.productKey || storeProduct.kycProductCode,
       price: storeProduct.basePrice,
       minimumInvestment: storeProduct.minimumInvestment || 0,
       riskLevel: storeProduct.riskLevel || 'medium',
@@ -156,7 +161,9 @@ export default function StorePage() {
       isFeatured: storeProduct.isFeatured || false,
       isPremium: storeProduct.isPremium || false,
       isNew: storeProduct.isNew || false,
-      badge: storeProduct.badge
+      badge: storeProduct.badge,
+      providerSource: storeProduct.providerSource,
+      providerProductId: storeProduct.providerProductId,
     };
   };
 
@@ -425,6 +432,15 @@ export default function StorePage() {
       );
     }
 
+    // Filter by provider source
+    if (selectedProviderFilter !== 'all') {
+      if (selectedProviderFilter === 'DB') {
+        filtered = filtered.filter(p => !p.providerSource);
+      } else {
+        filtered = filtered.filter(p => p.providerSource === selectedProviderFilter);
+      }
+    }
+
     // Filter by subcategory (for Loans and other categories with subcategories)
     if (selectedSubcategory !== "all") {
       filtered = filtered.filter(p => p.subcategory === selectedSubcategory);
@@ -501,6 +517,26 @@ export default function StorePage() {
 
   const renderProductCard = (product: Product) => {
     const isLocked = isProductLocked(product);
+
+    /** Provider source badge rendered inside the card header */
+    const ProviderBadge = () => {
+      if (product.providerSource === 'IRIS') {
+        return (
+          <Badge className="bg-indigo-600 text-white text-[10px] px-2 py-0.5 font-semibold tracking-wide">
+            IRIS KFintech
+          </Badge>
+        );
+      }
+      if (product.providerSource === 'ALPACA') {
+        return (
+          <Badge className="bg-blue-500 text-white text-[10px] px-2 py-0.5 font-semibold tracking-wide flex items-center gap-1">
+            <Globe className="h-2.5 w-2.5" />
+            Alpaca
+          </Badge>
+        );
+      }
+      return null;
+    };
     
     return (
       <Card 
@@ -543,6 +579,7 @@ export default function StorePage() {
                   Premium
                 </Badge>
               )}
+              <ProviderBadge />
             </div>
             <Button
               variant="ghost"
@@ -660,6 +697,17 @@ export default function StorePage() {
                 />
               </div>
               <div className="flex gap-3">
+                <Select value={selectedProviderFilter} onValueChange={setSelectedProviderFilter}>
+                  <SelectTrigger className="w-44 h-12" data-testid="filter-provider">
+                    <SelectValue placeholder="Provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Providers</SelectItem>
+                    <SelectItem value="IRIS">IRIS KFintech</SelectItem>
+                    <SelectItem value="ALPACA">Alpaca (US)</SelectItem>
+                    <SelectItem value="DB">FintekPro Curated</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Select value={selectedRisk} onValueChange={setSelectedRisk}>
                   <SelectTrigger className="w-40 h-12" data-testid="filter-risk">
                     <SelectValue placeholder="Risk Level" />

@@ -1,9 +1,10 @@
 /**
  * Marketing Automation Routes
- * 
+ *
  * Endpoints for:
  * - Email campaigns (Zoho Campaigns)
- * - WhatsApp broadcasts (Twilio)
+ * - WhatsApp broadcasts (IRIS KFintech primary → Twilio fallback)
+ * - Festival greetings (IRIS /notifications/whatsapp/send)
  * - Lead prospecting (CredHive)
  * - Client intelligence
  * - Campaign analytics
@@ -27,6 +28,7 @@ import { twilioWhatsAppService } from './services/twilio-whatsapp-service';
 import { smsMarketingService } from './services/sms-marketing-service';
 import { whatsAppMarketingService } from './services/whatsapp-marketing-service';
 import { credhiveService, normalizeCompanyResult } from './services/credhive-service';
+import { irisKfintechService } from './services/iris-kfintech-service';
 import { apiResponse } from './utils/responses';
 import { getAppBaseUrl } from './utils/app-url';
 import { requireAdmin, requireAuth } from './middleware/roleMiddleware';
@@ -2382,6 +2384,10 @@ export function registerMarketingRoutes(app: any) {
 
       let sentCount = 0;
       let zohoCampaignKey: string | null = null;
+      // WhatsApp delivery breakdown (populated by the whatsapp branch below)
+      let irisSent    = 0;
+      let twilioSent  = 0;
+      let failedCount = 0;
 
       // For email channel, try to use Zoho Campaigns
       if (channel === 'email' && emailClients.length > 0) {
@@ -2429,24 +2435,49 @@ export function registerMarketingRoutes(app: any) {
           sentCount = emailClients.length;
         }
       } else if (channel === 'whatsapp') {
-        // WhatsApp — send real Twilio messages to non-masked phones
+        // WhatsApp — IRIS KFintech primary, Twilio fallback
         const festivalData = getFestivalData(festivalId);
         const [agent] = await db.select().from(users).where(eq(users.id, req.user.id)).limit(1);
         const agentName = agent?.name || 'Your Financial Advisor';
-        const greeting = customMessage || `${festivalData.emoji} Happy ${festivalData.name}! Warm wishes from ${agentName} via FintekPro.`;
+        const greetingText = customMessage || `${festivalData.emoji} Happy ${festivalData.name}! Warm wishes from ${agentName}.`;
 
-        let twilioSent = 0;
         for (const client of clients) {
           const phone = client.phone?.trim();
           if (!phone || phone.startsWith('+XXXX')) continue;
+
+          // ── IRIS primary (requires mobile; PAN is optional but enriches lookup) ──
+          const irisResult = await irisKfintechService.sendFestivalGreeting({
+            pan:         (client as any).pan ?? undefined,
+            mobile:      phone,
+            festivalName: festivalData.name,
+            message:     greetingText,
+            agentName,
+          });
+
+          if (irisResult.success) {
+            irisSent++;
+            continue; // delivered — no need for Twilio
+          }
+
+          // ── Twilio fallback ────────────────────────────────────────────────────
+          // Used when: IRIS not configured, IRIS returns 4xx, or any other failure.
           try {
-            await twilioWhatsAppService.sendMessage(phone, greeting, imageUrl || undefined);
+            await twilioWhatsAppService.sendMessage(phone, `${festivalData.emoji} ${greetingText}`, imageUrl || undefined);
             twilioSent++;
           } catch (e) {
-            console.warn(`⚠️ WhatsApp send failed for ${phone.substring(0,6)}****: ${(e as any)?.message}`);
+            failedCount++;
+            console.warn(
+              `⚠️ WhatsApp send failed (both IRIS and Twilio) for ${
+                phone.substring(0, 6)
+              }****: IRIS=${irisResult.errorCode} Twilio=${(e as any)?.message}`
+            );
           }
         }
-        sentCount = twilioSent > 0 ? twilioSent : clients.filter(c => c.phone && !c.phone.startsWith('+XXXX')).length;
+
+        sentCount = irisSent + twilioSent;
+        console.log(
+          `📱 Festival greetings [${festivalId}]: iris=${irisSent} twilio=${twilioSent} failed=${failedCount}`
+        );
       } else {
         // Other channels — simulation
         sentCount = clients.length;
@@ -2472,6 +2503,12 @@ export function registerMarketingRoutes(app: any) {
         sentCount,
         zohoCampaignKey,
         channel,
+        // WhatsApp delivery breakdown (for audit log and frontend toast)
+        ...(channel === 'whatsapp' ? { irisSent, twilioSent, failedCount } : {}),
+        meta: {
+          timestamp: new Date().toISOString(),
+          version: '2.0.0',
+        },
       });
     } catch (error) {
       console.error('Error sending agent greetings:', error);

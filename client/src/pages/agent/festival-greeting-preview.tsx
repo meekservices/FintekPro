@@ -789,9 +789,12 @@ export default function FestivalGreetingPreview() {
       });
     },
     onSuccess: (data: any) => {
+      const irisLine = data.irisSent > 0
+        ? ` (${data.irisSent} via IRIS KFintech${data.twilioSent > 0 ? `, ${data.twilioSent} via Twilio` : ''})`
+        : '';
       toast({
         title: 'Greetings Sent!',
-        description: `Festival greetings sent to ${data.sentCount || selectedClients.length} clients.`,
+        description: `Festival greetings sent to ${data.sentCount || selectedClients.length} clients${irisLine}.`,
       });
       setSelectedClients([]);
       queryClient.invalidateQueries({ queryKey: ['/api/agent/marketing/greeting-history'] });
@@ -1195,6 +1198,15 @@ export default function FestivalGreetingPreview() {
                 >
                   <MessageSquare className="h-4 w-4 mr-2" />
                   WhatsApp
+                  <span
+                    className="ml-auto text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded"
+                    style={{
+                      background: marketingChannel === 'whatsapp' ? 'rgba(255,255,255,0.2)' : 'rgba(99,102,241,0.12)',
+                      color:      marketingChannel === 'whatsapp' ? '#ffffff' : '#6366f1',
+                    }}
+                  >
+                    IRIS
+                  </span>
                 </Button>
               </CardContent>
             </Card>

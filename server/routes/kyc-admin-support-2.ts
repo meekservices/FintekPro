@@ -258,6 +258,52 @@ app.get('/api/store/categories', async (req, res) => {
         subcategories: []
       });
     }
+
+    // ── Virtual: IRIS Mutual Funds (live KFintech schemes) ──────────────────
+    if (!categoryNames.has('mutual funds') && !categoryNames.has('iris mutual funds')) {
+      const { irisKfintechService } = await import('../services/iris-kfintech-service');
+      if (irisKfintechService.isConfigured) {
+        virtualCategories.push({
+          id: 'virtual-iris-mf',
+          name: 'Mutual Funds',
+          slug: 'mutual-funds',
+          description: 'Live mutual fund schemes via IRIS KFintech — top performers & NFOs',
+          icon: 'TrendingUp',
+          displayOrder: 1,
+          isActive: true,
+          isEnabled: true,
+          comingSoonMessage: null,
+          providerSource: 'IRIS',
+          subcategories: [
+            { id: 'iris-mf-top', name: 'Top Performers', description: 'Highest 1Y returns' },
+            { id: 'iris-mf-nfo', name: 'New Fund Offers', description: 'Currently open for subscription' },
+          ],
+        });
+      }
+    }
+
+    // ── Virtual: Alpaca US Equities & ETFs ───────────────────────────────────
+    if (!categoryNames.has('us equities') && !categoryNames.has('us equities & etfs')) {
+      const { alpacaBrokerService } = await import('../services/alpaca-broker-service');
+      if (alpacaBrokerService.isConfigured()) {
+        virtualCategories.push({
+          id: 'virtual-alpaca-us',
+          name: 'US Equities & ETFs',
+          slug: 'us-equities',
+          description: 'US stocks, index ETFs & fractional shares via Alpaca',
+          icon: 'Globe',
+          displayOrder: 50,
+          isActive: true,
+          isEnabled: true,
+          comingSoonMessage: null,
+          providerSource: 'ALPACA',
+          subcategories: [
+            { id: 'alpaca-etf',   name: 'Index ETFs',    description: 'Broad market index funds' },
+            { id: 'alpaca-stock', name: 'US Stocks',     description: 'Individual US equities' },
+          ],
+        });
+      }
+    }
     
     // Combine real and virtual categories
     const combinedCategories = [...allCategories, ...virtualCategories];
@@ -429,6 +475,185 @@ app.get('/api/store/products', async (req: any, res: any) => {
       } catch (e) {
         console.warn('[Store Products] Error fetching PMS products:', e);
       }
+    }
+
+    // ── IRIS Mutual Funds: Top Performers ────────────────────────────────────
+    try {
+      const { irisKfintechService } = await import('../services/iris-kfintech-service');
+      if (irisKfintechService.isConfigured && (!category || ['mutual-funds', 'mutual_funds', 'Mutual Funds', 'virtual-iris-mf'].includes(category as string))) {
+        const topSchemes: any = await irisKfintechService.getTopPerformingSchemes({ limit: 20 }).catch(() => ({ schemes: [] }));
+        const schemes: any[] = Array.isArray(topSchemes) ? topSchemes : (topSchemes?.schemes ?? []);
+        const irisMfProducts = schemes.map((s: any) => ({
+          id: `iris-mf-${s.schemeCode ?? s.code ?? s.isin ?? Math.random()}`,
+          name: s.schemeName ?? s.name ?? 'Mutual Fund Scheme',
+          shortDescription: `${s.category ?? ''} • ${s.subCategory ?? ''} • ${s.amcName ?? ''}`.replace(/^[• ]+|[• ]+$/g, ''),
+          description: s.investmentObjective ?? s.schemeName,
+          categoryId: 'virtual-iris-mf',
+          categoryName: 'Mutual Funds',
+          subcategoryId: 'iris-mf-top',
+          subcategoryName: 'Top Performers',
+          productType: 'mutual_fund',
+          planType: (s.planType ?? '').toLowerCase().includes('direct') ? 'direct' : 'regular',
+          provider: s.amcName ?? s.fundHouse ?? 'KFintech',
+          minimumInvestment: parseFloat(s.minSipAmount ?? s.minPurchaseAmount ?? '500') || 500,
+          expectedReturns: parseFloat(s.return1Y ?? s.returns1Y ?? '0') || 0,
+          riskLevel: s.riskometer ?? (s.riskScore >= 5 ? 'high' : s.riskScore >= 3 ? 'medium' : 'low'),
+          features: [s.category, s.subCategory].filter(Boolean),
+          isActive: true,
+          isFeatured: true,
+          isPremium: false,
+          isNew: false,
+          badge: undefined,
+          kycProductCode: 'BASIC_MF',
+          sourceTable: 'iris_live',
+          sourceId: s.schemeCode ?? s.code,
+          providerSource: 'IRIS' as const,
+          providerProductId: s.schemeCode ?? s.isin,
+        }));
+        mergedProducts = [...mergedProducts, ...irisMfProducts];
+      }
+    } catch (e) {
+      console.warn('[Store Products] IRIS top-performing MF fetch failed (non-fatal):', e);
+    }
+
+    // ── IRIS NFO (New Fund Offers) ────────────────────────────────────────────
+    try {
+      const { irisKfintechService } = await import('../services/iris-kfintech-service');
+      if (irisKfintechService.isConfigured && (!category || ['mutual-funds', 'virtual-iris-mf'].includes(category as string))) {
+        const nfoData: any = await irisKfintechService.getNfoSchemes().catch(() => []);
+        const nfoSchemes: any[] = Array.isArray(nfoData) ? nfoData : (nfoData?.schemes ?? nfoData?.nfos ?? []);
+        const irisNfoProducts = nfoSchemes.map((nfo: any) => ({
+          id: `iris-nfo-${nfo.schemeCode ?? nfo.code ?? Math.random()}`,
+          name: nfo.schemeName ?? nfo.name ?? 'New Fund Offer',
+          shortDescription: `NFO • ${nfo.amcName ?? ''} • Open: ${nfo.openDate ?? ''} – ${nfo.closeDate ?? ''}`.replace(/[•\s]+$/g, ''),
+          categoryId: 'virtual-iris-mf',
+          categoryName: 'Mutual Funds',
+          subcategoryId: 'iris-mf-nfo',
+          subcategoryName: 'New Fund Offers',
+          productType: 'nfo',
+          planType: 'regular',
+          provider: nfo.amcName ?? 'KFintech',
+          minimumInvestment: parseFloat(nfo.minPurchaseAmount ?? '5000') || 5000,
+          expectedReturns: 0,
+          riskLevel: 'medium',
+          features: ['New Fund Offer', nfo.category].filter(Boolean),
+          isActive: true,
+          isFeatured: false,
+          isPremium: false,
+          isNew: true,
+          badge: 'NEW',
+          kycProductCode: 'BASIC_MF',
+          sourceTable: 'iris_live',
+          sourceId: nfo.schemeCode ?? nfo.code,
+          providerSource: 'IRIS' as const,
+          providerProductId: nfo.schemeCode ?? nfo.isin,
+        }));
+        mergedProducts = [...mergedProducts, ...irisNfoProducts];
+      }
+    } catch (e) {
+      console.warn('[Store Products] IRIS NFO fetch failed (non-fatal):', e);
+    }
+
+    // ── IRIS Fixed Deposits ───────────────────────────────────────────────────
+    try {
+      const { irisKfintechService } = await import('../services/iris-kfintech-service');
+      if (irisKfintechService.isConfigured && (!category || ['fixed-deposits', 'fixed_deposits', 'Fixed Deposits'].includes(category as string))) {
+        const fdData: any = await irisKfintechService.getFixedDepositProducts().catch(() => []);
+        const fds: any[] = Array.isArray(fdData) ? fdData : (fdData?.products ?? fdData?.data ?? []);
+        const irisFdProducts = fds.map((fd: any) => ({
+          id: `iris-fd-${fd.productId ?? fd.id ?? Math.random()}`,
+          name: fd.productName ?? fd.name ?? 'Fixed Deposit',
+          shortDescription: `${fd.issuerName ?? ''} FD • ${fd.tenure ?? ''} • ${fd.interestRate ?? ''}% p.a.`.replace(/^[•\s]+|[•\s]+$/g, ''),
+          categoryId: 'fixed-deposits',
+          categoryName: 'Fixed Deposits',
+          subcategoryId: undefined,
+          subcategoryName: undefined,
+          productType: 'fixed_deposit',
+          planType: 'regular',
+          provider: fd.issuerName ?? fd.companyName ?? 'KFintech',
+          minimumInvestment: parseFloat(fd.minimumDeposit ?? fd.minAmount ?? '10000') || 10000,
+          expectedReturns: parseFloat(fd.interestRate ?? fd.rate ?? '0') || 0,
+          riskLevel: 'low',
+          features: [fd.tenure, `${fd.interestRate}% p.a.`, fd.fdType].filter(Boolean),
+          isActive: true,
+          isFeatured: false,
+          isPremium: false,
+          isNew: false,
+          kycProductCode: 'BASIC_MF',
+          sourceTable: 'iris_live',
+          sourceId: fd.productId ?? fd.id,
+          providerSource: 'IRIS' as const,
+          providerProductId: fd.productId ?? fd.isin,
+        }));
+        mergedProducts = [...mergedProducts, ...irisFdProducts];
+      }
+    } catch (e) {
+      console.warn('[Store Products] IRIS Fixed Deposit fetch failed (non-fatal):', e);
+    }
+
+    // ── Alpaca Curated US Equities & ETFs ─────────────────────────────────────
+    // Curated list: flagship index ETFs + large-cap US stocks accessible to
+    // Indian investors via the LRS (Liberalised Remittance Scheme) route.
+    const ALPACA_CURATED_SYMBOLS = [
+      // Index ETFs
+      { symbol: 'SPY',  name: 'SPDR S&P 500 ETF Trust',         subcategoryId: 'alpaca-etf',   returns: 14.2, minUSD: 1 },
+      { symbol: 'QQQ',  name: 'Invesco QQQ (NASDAQ-100)',        subcategoryId: 'alpaca-etf',   returns: 18.5, minUSD: 1 },
+      { symbol: 'VTI',  name: 'Vanguard Total Stock Market ETF', subcategoryId: 'alpaca-etf',   returns: 13.8, minUSD: 1 },
+      { symbol: 'IVV',  name: 'iShares Core S&P 500 ETF',       subcategoryId: 'alpaca-etf',   returns: 14.1, minUSD: 1 },
+      { symbol: 'VOO',  name: 'Vanguard S&P 500 ETF',           subcategoryId: 'alpaca-etf',   returns: 14.0, minUSD: 1 },
+      { symbol: 'VEA',  name: 'Vanguard FTSE Developed ETF',    subcategoryId: 'alpaca-etf',   returns: 9.3,  minUSD: 1 },
+      { symbol: 'GLD',  name: 'SPDR Gold Shares ETF',           subcategoryId: 'alpaca-etf',   returns: 8.5,  minUSD: 1 },
+      { symbol: 'ARKK', name: 'ARK Innovation ETF',             subcategoryId: 'alpaca-etf',   returns: 12.0, minUSD: 1 },
+      // Large-cap US Stocks
+      { symbol: 'AAPL', name: 'Apple Inc.',                     subcategoryId: 'alpaca-stock', returns: 22.3, minUSD: 1 },
+      { symbol: 'MSFT', name: 'Microsoft Corporation',          subcategoryId: 'alpaca-stock', returns: 25.1, minUSD: 1 },
+      { symbol: 'GOOGL',name: 'Alphabet Inc. (Google)',         subcategoryId: 'alpaca-stock', returns: 19.8, minUSD: 1 },
+      { symbol: 'AMZN', name: 'Amazon.com Inc.',                subcategoryId: 'alpaca-stock', returns: 21.0, minUSD: 1 },
+      { symbol: 'NVDA', name: 'NVIDIA Corporation',             subcategoryId: 'alpaca-stock', returns: 65.0, minUSD: 1 },
+      { symbol: 'META', name: 'Meta Platforms Inc.',            subcategoryId: 'alpaca-stock', returns: 38.0, minUSD: 1 },
+      { symbol: 'TSLA', name: 'Tesla Inc.',                     subcategoryId: 'alpaca-stock', returns: 18.0, minUSD: 1 },
+      { symbol: 'BRKA', name: 'Berkshire Hathaway Inc.',        subcategoryId: 'alpaca-stock', returns: 12.0, minUSD: 1 },
+    ];
+    try {
+      const { alpacaBrokerService } = await import('../services/alpaca-broker-service');
+      if (alpacaBrokerService.isConfigured() && (!category || ['us-equities', 'US Equities & ETFs', 'virtual-alpaca-us'].includes(category as string))) {
+        // Fetch live USD/INR rate — fallback to 84 if unavailable
+        let usdInr = 84;
+        try {
+          const fx = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=INR').then(r => r.json());
+          usdInr = fx?.rates?.INR ?? 84;
+        } catch { /* use fallback */ }
+
+        const alpacaProducts = ALPACA_CURATED_SYMBOLS.map(asset => ({
+          id: `alpaca-${asset.symbol.toLowerCase()}`,
+          name: asset.name,
+          shortDescription: `${asset.symbol} • Listed on US markets • Fractional shares available`,
+          categoryId: 'virtual-alpaca-us',
+          categoryName: 'US Equities & ETFs',
+          subcategoryId: asset.subcategoryId,
+          subcategoryName: asset.subcategoryId === 'alpaca-etf' ? 'Index ETFs' : 'US Stocks',
+          productType: asset.subcategoryId === 'alpaca-etf' ? 'etf' : 'us_equity',
+          planType: 'regular',
+          provider: 'Alpaca',
+          minimumInvestment: Math.ceil(asset.minUSD * usdInr),   // ₹84 minimum (fractional)
+          expectedReturns: asset.returns,
+          riskLevel: 'high',
+          features: ['Fractional shares', 'US market access', 'LRS route', 'Real-time pricing'],
+          isActive: true,
+          isFeatured: ['SPY', 'QQQ', 'AAPL', 'MSFT', 'NVDA'].includes(asset.symbol),
+          isPremium: false,
+          isNew: false,
+          badge: ['NVDA', 'META'].includes(asset.symbol) ? 'HOT' : undefined,
+          kycProductCode: 'ENHANCED_PMS',  // US equities require enhanced KYC
+          sourceTable: 'alpaca_live',
+          sourceId: asset.symbol,
+          providerSource: 'ALPACA' as const,
+          providerProductId: asset.symbol,
+        }));
+        mergedProducts = [...mergedProducts, ...alpacaProducts];
+      }
+    } catch (e) {
+      console.warn('[Store Products] Alpaca product merge failed (non-fatal):', e);
     }
 
     res.json({ 
