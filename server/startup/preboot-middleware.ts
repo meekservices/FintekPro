@@ -119,8 +119,15 @@ export function registerPrebootMiddleware(app: Express) {
   });
 
   // ── Body parsers ─────────────────────────────────────────────────────────
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ extended: false, limit: "10mb" }));
+  // The `verify` callback captures the raw Buffer before JSON parsing so that
+  // webhook routes (Alpaca, Cashfree, IRIS, Zoho) can verify HMAC signatures.
+  app.use(express.json({
+    limit: '10mb',
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf;
+    },
+  }));
+  app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
   // ── CORS ─────────────────────────────────────────────────────────────────
   app.use(

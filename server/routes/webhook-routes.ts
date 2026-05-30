@@ -1,14 +1,16 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { logger } from '../logger';
 import { irisWebhookHandler } from '../services/iris/irisWebhookHandler';
-import { alpacaWebhookHandler } from '../services/alpaca/core/alpacaWebhookHandler';
+import { alpacaWebhookHandler, verifyAlpacaWebhookSignature } from '../services/alpaca/core/alpacaWebhookHandler';
 
 const router = Router();
 
-router.post('/iris', async (req, res) => {
+// ─── IRIS Webhook ────────────────────────────────────────────────────────────
+
+router.post('/iris', async (req: Request, res: Response) => {
   try {
     const payload = req.body;
-    const signature = req.headers['x-iris-signature'] as string; // Adjust header based on actual IRIS docs
+    const signature = req.headers['x-iris-signature'] as string;
 
     logger.info('[Webhook] Received IRIS webhook', { eventType: payload?.eventType });
 
@@ -17,32 +19,71 @@ router.post('/iris', async (req, res) => {
     res.status(200).json({ success: true, message: 'Webhook processed successfully' });
   } catch (error: any) {
     logger.error('[Webhook] Failed to process IRIS webhook', { error: error.message });
-    // Still return 200 to prevent retries if it's a validation error, 
-    // or return 500 if we want IRIS to retry.
     if (error.message.includes('signature')) {
-       res.status(401).json({ success: false, message: 'Invalid signature' });
+      res.status(401).json({ success: false, message: 'Invalid signature' });
     } else {
-       res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 });
 
-router.post('/alpaca', async (req, res) => {
+// ─── Alpaca Webhook ─────────────────────────────────────────────────────────
+/**
+ * POST /api/webhooks/alpaca
+ *
+ * Receives broker events from Alpaca (trade_updates, account_updates, journal_status).
+ *
+ * Security:
+ *  - HMAC-SHA256 signature verified using ALPACA_WEBHOOK_SECRET env var
+ *  - Raw body must be captured before JSON parsing (set in express config)
+ *
+ * Alpaca delivers a JSON payload with { event: string, data: object }.
+ * See: https://docs.alpaca.markets/reference/events
+ */
+router.post('/alpaca', async (req: Request, res: Response) => {
   try {
     const payload = req.body;
-    
-    // Alpaca uses HMAC signature in headers (e.g. 'Apca-Signature')
-    // Ensure you validate the signature in a production environment
-    const signature = req.headers['apca-signature'] as string;
+    const signature = (req.headers['apca-signature'] as string) ?? '';
+    // rawBody is attached by the express raw-body capture middleware (see server/index.ts)
+    const rawBody: Buffer | undefined = (req as any).rawBody;
 
-    logger.info('[Webhook] Received Alpaca webhook', { event: payload?.event });
+    // ── HMAC verification ───────────────────────────────────────────────────
+    if (rawBody) {
+      const isValid = verifyAlpacaWebhookSignature(rawBody, signature);
+      if (!isValid) {
+        logger.warn('[Webhook] Alpaca HMAC verification failed', {
+          event: 'ALPACA_WEBHOOK_SIGNATURE_INVALID',
+          status: 'rejected',
+        });
+        return res.status(401).json({ success: false, message: 'Invalid signature' });
+      }
+    } else {
+      // rawBody not captured — log a warning in production
+      if (process.env.NODE_ENV === 'production') {
+        logger.warn('[Webhook] rawBody not available for Alpaca HMAC check — configure express raw-body middleware');
+      }
+    }
 
-    await alpacaWebhookHandler.handleEvent(payload);
+    logger.info('[Webhook] Received Alpaca webhook', {
+      event: 'ALPACA_WEBHOOK_RECEIVED',
+      alpacaEvent: payload?.event,
+      status: 'processing',
+    });
 
-    res.status(200).json({ success: true, message: 'Alpaca webhook processed successfully' });
+    await alpacaWebhookHandler.handleEvent(payload, rawBody, signature);
+
+    return res.status(200).json({ success: true, message: 'Alpaca webhook processed successfully' });
   } catch (error: any) {
-    logger.error('[Webhook] Failed to process Alpaca webhook', { error: error.message });
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    logger.error('[Webhook] Failed to process Alpaca webhook', {
+      event: 'ALPACA_WEBHOOK_ERROR',
+      error: error.message,
+      retryable: !error.message.includes('signature'),
+      status: 'error',
+    });
+    if (error.message.includes('signature')) {
+      return res.status(401).json({ success: false, message: 'Invalid webhook signature' });
+    }
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 
