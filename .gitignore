@@ -4,6 +4,15 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+# Database backups — NEVER commit; may contain PAN/Aadhaar/PII
+*.sql.gz
+*.sql.bz2
+backup-*.sql
+*-backup.sql
+backup-*.dump
+*.pg_dump
+pgdump-*.sql
+db_backup*/
 
 # Environment files - NEVER commit secrets
 .env

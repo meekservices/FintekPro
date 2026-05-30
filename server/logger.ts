@@ -1,12 +1,82 @@
 /**
  * Production-Grade Structured Logger
- * 
+ *
  * Provides consistent, structured logging across the application
  * with support for different log levels, context, and metadata.
- * 
+ *
  * In production, logs are JSON-formatted for easy parsing by log aggregators.
  * In development, logs are human-readable for better developer experience.
+ *
+ * PII GUARDRAIL (production only): console.* is overridden to mask
+ * PAN, Aadhaar, Indian phone numbers, and email addresses before any
+ * string reaches Cloud Logging.
  */
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PII Scrubber — production console override
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Regex patterns for sensitive Indian financial data.
+ * Applied in order — more specific patterns first.
+ */
+const PII_PATTERNS: [RegExp, string][] = [
+  // PAN: 5 letters + 4 digits + 1 letter (e.g. ABCDE1234F)
+  [/\b[A-Z]{5}[0-9]{4}[A-Z]\b/g,                                '[PAN-REDACTED]'],
+  // Aadhaar: exactly 12 consecutive digits (not part of a longer number)
+  [/(?<!\d)\d{12}(?!\d)/g,                                      '[AADHAAR-REDACTED]'],
+  // Indian mobile: optional +91/91/0 prefix, then 10-digit starting 6-9
+  [/(?:\+91|91|0)?[6-9]\d{9}\b/g,                              '[PHONE-REDACTED]'],
+  // Email address
+  [/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g,      '[EMAIL-REDACTED]'],
+  // IFSC code (4 letters + 0 + 6 alphanumeric)
+  [/\b[A-Z]{4}0[A-Z0-9]{6}\b/g,                               '[IFSC-REDACTED]'],
+  // Bank account-like numbers: 9-18 consecutive digits
+  [/(?<![.\d])\d{9,18}(?![.\d])/g,                            '[ACCOUNT-REDACTED]'],
+];
+
+function scrubPii(raw: string): string {
+  let out = raw;
+  for (const [pattern, replacement] of PII_PATTERNS) {
+    out = out.replace(pattern, replacement);
+  }
+  return out;
+}
+
+function serializeArg(arg: unknown): string {
+  if (typeof arg === 'string') return arg;
+  if (arg instanceof Error)   return `${arg.name}: ${arg.message}`;
+  try { return JSON.stringify(arg); } catch { return String(arg); }
+}
+
+/**
+ * Overrides console.log/warn/error/info/debug in production to scrub PII
+ * before any string reaches Cloud Logging / stdout.
+ *
+ * Call order: caller → scrubPii → original console method.
+ * No-op in development.
+ *
+ * @purpose  Prevent PAN, Aadhaar, phone, email from leaking into Cloud Logging
+ * @inputs   NODE_ENV
+ * @outputs  Mutates global console (production only)
+ * @edge     Large objects are JSON.stringify'd — circular refs are caught
+ */
+function installPiiScrubber(): void {
+  if (process.env.NODE_ENV !== 'production') return;
+
+  const methods = ['log', 'warn', 'error', 'info', 'debug'] as const;
+
+  for (const method of methods) {
+    const original = console[method].bind(console);
+    console[method] = (...args: unknown[]) => {
+      const scrubbed = args.map((a) => scrubPii(serializeArg(a)));
+      original(...scrubbed);
+    };
+  }
+}
+
+// Install immediately at module load (before any other logger usage)
+installPiiScrubber();
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
@@ -152,6 +222,9 @@ class Logger {
 
 // Export singleton instance
 export const logger = new Logger();
+
+// Export the scrubber for testing
+export { scrubPii };
 
 // Export convenience functions for backward compatibility
 export const log = {
