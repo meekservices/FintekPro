@@ -22,12 +22,26 @@ import {
   aiMeetingFollowups,
 } from '@shared/schema/admin-copilot';
 import { desc, eq, and, or, sql } from 'drizzle-orm';
-import { syncAndClassifyEmails, redraftReply } from '../services/admin-copilot/mailAgent';
-import { createTaskFromSource, updateTaskStatus } from '../services/admin-copilot/taskAgent';
-import { generateProposalDraft }                  from '../services/admin-copilot/proposalAgent';
-import { generateBiSummary, answerBiQuestion }    from '../services/admin-copilot/biAgent';
-import { processApproval }                        from '../services/admin-copilot/approvalService';
-import { auditLog }                               from '../services/admin-copilot/auditLogger';
+import { syncAndClassifyEmails, redraftReply }              from '../services/admin-copilot/mailAgent';
+import { createTaskFromSource, updateTaskStatus }           from '../services/admin-copilot/taskAgent';
+import { generateProposalDraft }                            from '../services/admin-copilot/proposalAgent';
+import { generateBiSummary, answerBiQuestion }              from '../services/admin-copilot/biAgent';
+import { processApproval }                                  from '../services/admin-copilot/approvalService';
+import { auditLog }                                         from '../services/admin-copilot/auditLogger';
+// Phase 2 agents
+import { syncCrmLeads, generateLeadIntelligence, updateLeadStage } from '../services/admin-copilot/crmAgent';
+import { syncDeskTickets, generateDraftResponse as deskDraftResponse, flagSlaBreachRisk, escalateTicket } from '../services/admin-copilot/deskAgent';
+import {
+  syncBooksData, draftInvoiceFromCrmDeal, calculatePayoutSuggestion,
+  runRevenueReconciliation, getGstSummary, issueInvoiceToZohoBooks,
+}                                                           from '../services/admin-copilot/booksAgent';
+import {
+  scheduleMeeting, sendMeetingInvite,
+  generatePostMeetingSummary, extractFollowupTasks, trackNoShows,
+}                                                           from '../services/admin-copilot/meetingAgent';
+import {
+  aiCrmLeadActions, aiDeskTicketActions,
+}                                                           from '@shared/schema/admin-copilot';
 
 export const adminCopilotRouter = Router();
 
@@ -73,7 +87,14 @@ function getPagination(query: Record<string, any>) {
 adminCopilotRouter.get('/health', async (_req, res) => {
   try {
     await db.execute(sql`SELECT 1`);
-    res.json(successResponse({ status: 'ok', agents: ['mail','task','proposal','bi','approval','audit'] }));
+    res.json(successResponse({
+      status: 'ok',
+      phase: 2,
+      agents: [
+        'mail','task','proposal','bi','approval','audit', // Phase 1
+        'crm','desk','books','meeting',                   // Phase 2 — LIVE
+      ],
+    }));
   } catch {
     res.status(503).json(errorResponse('Database unavailable', 'DB_UNAVAILABLE', true));
   }
@@ -188,23 +209,146 @@ adminCopilotRouter.patch('/tasks/:id', async (req: Request, res: Response) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CRM AGENT (Phase 2 stub)
+// CRM AGENT — Phase 2 LIVE
 // ─────────────────────────────────────────────────────────────────────────────
-adminCopilotRouter.post('/crm/sync', (_req, res) => {
-  res.status(501).json(successResponse({ phase: 2, message: 'CRM Agent available in Phase 2' }));
+adminCopilotRouter.post('/crm/sync', async (req: Request, res: Response) => {
+  try {
+    const { connectionId } = req.body as { connectionId: string };
+    if (!connectionId) return res.status(400).json(errorResponse('connectionId is required', 'VALIDATION_ERROR'));
+    const adminId = (req as any).user.id;
+    const result  = await syncCrmLeads(connectionId, adminId);
+    res.json(successResponse(result));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'CRM_SYNC_ERROR', true));
+  }
 });
-adminCopilotRouter.get('/crm/leads', (_req, res) => {
-  res.status(501).json(successResponse({ phase: 2, message: 'CRM Agent available in Phase 2' }));
+
+adminCopilotRouter.get('/crm/leads', async (req: Request, res: Response) => {
+  try {
+    const { page, limit, offset } = getPagination(req.query as any);
+    const { approvalStatus, connectionId } = req.query as { approvalStatus?: string; connectionId?: string };
+    const conditions = [];
+    if (approvalStatus) conditions.push(eq(aiCrmLeadActions.approvalStatus, approvalStatus));
+    if (connectionId)   conditions.push(eq(aiCrmLeadActions.connectionId, connectionId));
+    const [items, [{ count }]] = await Promise.all([
+      db.select().from(aiCrmLeadActions)
+        .where(conditions.length ? and(...conditions) : undefined)
+        .orderBy(desc(aiCrmLeadActions.syncedAt))
+        .limit(limit).offset(offset),
+      db.select({ count: sql<number>`count(*)` }).from(aiCrmLeadActions)
+        .where(conditions.length ? and(...conditions) : undefined),
+    ]);
+    res.json(successResponse(items, { page, limit, total: Number(count) }));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message));
+  }
+});
+
+adminCopilotRouter.get('/crm/leads/:id', async (req: Request, res: Response) => {
+  try {
+    const [lead] = await db.select().from(aiCrmLeadActions)
+      .where(eq(aiCrmLeadActions.id, req.params.id)).limit(1);
+    if (!lead) return res.status(404).json(errorResponse('Lead not found', 'NOT_FOUND'));
+    res.json(successResponse(lead));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message));
+  }
+});
+
+adminCopilotRouter.post('/crm/leads/:id/stage', async (req: Request, res: Response) => {
+  try {
+    const { newStage, connectionId } = req.body as { newStage: string; connectionId: string };
+    if (!newStage || !connectionId) return res.status(400).json(errorResponse('newStage and connectionId are required', 'VALIDATION_ERROR'));
+    const adminId = (req as any).user.id;
+    await updateLeadStage(req.params.id, newStage, connectionId, adminId);
+    res.json(successResponse({ id: req.params.id, newStage, approvalStatus: 'approved' }));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'CRM_STAGE_ERROR'));
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DESK AGENT (Phase 2 stub)
+// DESK AGENT — Phase 2 LIVE
 // ─────────────────────────────────────────────────────────────────────────────
-adminCopilotRouter.post('/desk/sync', (_req, res) => {
-  res.status(501).json(successResponse({ phase: 2, message: 'Desk Agent available in Phase 2' }));
+adminCopilotRouter.post('/desk/sync', async (req: Request, res: Response) => {
+  try {
+    const { connectionId } = req.body as { connectionId: string };
+    if (!connectionId) return res.status(400).json(errorResponse('connectionId is required', 'VALIDATION_ERROR'));
+    const adminId = (req as any).user.id;
+    const result  = await syncDeskTickets(connectionId, adminId);
+    res.json(successResponse(result));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'DESK_SYNC_ERROR', true));
+  }
 });
-adminCopilotRouter.get('/desk/tickets', (_req, res) => {
-  res.status(501).json(successResponse({ phase: 2, message: 'Desk Agent available in Phase 2' }));
+
+adminCopilotRouter.get('/desk/tickets', async (req: Request, res: Response) => {
+  try {
+    const { page, limit, offset } = getPagination(req.query as any);
+    const { category, isHighRisk, slaBreach } = req.query as {
+      category?: string; isHighRisk?: string; slaBreach?: string;
+    };
+    const conditions = [];
+    if (category)   conditions.push(eq(aiDeskTicketActions.category, category));
+    if (isHighRisk === 'true') conditions.push(eq(aiDeskTicketActions.isHighRisk, true));
+    if (slaBreach  === 'true') conditions.push(eq(aiDeskTicketActions.slaBreach,  true));
+    const [items, [{ count }]] = await Promise.all([
+      db.select().from(aiDeskTicketActions)
+        .where(conditions.length ? and(...conditions) : undefined)
+        .orderBy(desc(aiDeskTicketActions.syncedAt))
+        .limit(limit).offset(offset),
+      db.select({ count: sql<number>`count(*)` }).from(aiDeskTicketActions)
+        .where(conditions.length ? and(...conditions) : undefined),
+    ]);
+    res.json(successResponse(items, { page, limit, total: Number(count) }));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message));
+  }
+});
+
+adminCopilotRouter.get('/desk/tickets/:id', async (req: Request, res: Response) => {
+  try {
+    const [ticket] = await db.select().from(aiDeskTicketActions)
+      .where(eq(aiDeskTicketActions.id, req.params.id)).limit(1);
+    if (!ticket) return res.status(404).json(errorResponse('Ticket not found', 'NOT_FOUND'));
+    res.json(successResponse(ticket));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message));
+  }
+});
+
+adminCopilotRouter.post('/desk/tickets/:id/draft-response', async (req: Request, res: Response) => {
+  try {
+    const adminId = (req as any).user.id;
+    const result  = await deskDraftResponse(req.params.id, adminId, req.body?.extraContext);
+    res.json(successResponse(result));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'DESK_DRAFT_ERROR'));
+  }
+});
+
+adminCopilotRouter.post('/desk/tickets/:id/escalate', async (req: Request, res: Response) => {
+  try {
+    const { reason, connectionId } = req.body as { reason: string; connectionId: string };
+    if (!connectionId) return res.status(400).json(errorResponse('connectionId is required', 'VALIDATION_ERROR'));
+    const adminId = (req as any).user.id;
+    await escalateTicket(req.params.id, reason || 'Admin escalation', connectionId, adminId);
+    res.json(successResponse({ id: req.params.id, escalated: true }));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'DESK_ESCALATE_ERROR'));
+  }
+});
+
+adminCopilotRouter.post('/desk/sla-check', async (req: Request, res: Response) => {
+  try {
+    const { connectionId } = req.body as { connectionId: string };
+    if (!connectionId) return res.status(400).json(errorResponse('connectionId is required', 'VALIDATION_ERROR'));
+    const adminId = (req as any).user.id;
+    const flagged = await flagSlaBreachRisk(connectionId, adminId);
+    res.json(successResponse({ flagged }));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'DESK_SLA_ERROR', true));
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -293,10 +437,18 @@ adminCopilotRouter.post('/bi/ask', async (req: Request, res: Response) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BOOKS FINANCE AGENT (Phase 2 stubs)
+// BOOKS FINANCE AGENT — Phase 2 LIVE
 // ─────────────────────────────────────────────────────────────────────────────
-adminCopilotRouter.post('/books/sync', (_req, res) => {
-  res.status(501).json(successResponse({ phase: 2, message: 'Books Agent available in Phase 2. Set ZOHO_BOOKS_ORG_ID env var.' }));
+adminCopilotRouter.post('/books/sync', async (req: Request, res: Response) => {
+  try {
+    const { connectionId } = req.body as { connectionId: string };
+    if (!connectionId) return res.status(400).json(errorResponse('connectionId is required', 'VALIDATION_ERROR'));
+    const adminId = (req as any).user.id;
+    const result  = await syncBooksData(connectionId, adminId);
+    res.json(successResponse(result));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'BOOKS_SYNC_ERROR', true));
+  }
 });
 adminCopilotRouter.get('/books/invoices', async (req: Request, res: Response) => {
   try {
@@ -324,8 +476,36 @@ adminCopilotRouter.get('/books/invoices/overdue', async (req: Request, res: Resp
     res.status(500).json(errorResponse(err.message));
   }
 });
-adminCopilotRouter.post('/books/invoices/draft', (_req, res) => {
-  res.status(501).json(successResponse({ phase: 2, message: 'Invoice drafting from Zoho CRM available in Phase 2' }));
+adminCopilotRouter.post('/books/invoices/draft', async (req: Request, res: Response) => {
+  try {
+    const { connectionId, dealName, customerName, customerEmail, amount, description, zohoCrmDealId } = req.body as {
+      connectionId: string; dealName: string; customerName: string;
+      customerEmail?: string; amount: number; description: string; zohoCrmDealId?: string;
+    };
+    if (!connectionId || !customerName || !amount || !description) {
+      return res.status(400).json(errorResponse('connectionId, customerName, amount, description required', 'VALIDATION_ERROR'));
+    }
+    const adminId = (req as any).user.id;
+    const result  = await draftInvoiceFromCrmDeal(
+      { dealName: dealName || description, customerName, customerEmail, amount, description, zohoCrmDealId },
+      connectionId, adminId,
+    );
+    res.status(201).json(successResponse(result));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'BOOKS_DRAFT_INVOICE_ERROR'));
+  }
+});
+
+adminCopilotRouter.post('/books/invoices/:id/issue', async (req: Request, res: Response) => {
+  try {
+    const { connectionId } = req.body as { connectionId: string };
+    if (!connectionId) return res.status(400).json(errorResponse('connectionId is required', 'VALIDATION_ERROR'));
+    const adminId = (req as any).user.id;
+    const result  = await issueInvoiceToZohoBooks(req.params.id, connectionId, adminId);
+    res.json(successResponse(result));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'BOOKS_ISSUE_INVOICE_ERROR'));
+  }
 });
 adminCopilotRouter.get('/books/payouts', async (req: Request, res: Response) => {
   try {
@@ -349,15 +529,90 @@ adminCopilotRouter.get('/books/reconciliation', async (req: Request, res: Respon
     res.status(500).json(errorResponse(err.message));
   }
 });
-adminCopilotRouter.get('/books/gst-summary', (_req, res) => {
-  res.status(501).json(successResponse({ phase: 2, message: 'GST summary requires Zoho Books sync (Phase 2)' }));
+adminCopilotRouter.get('/books/gst-summary', async (req: Request, res: Response) => {
+  try {
+    const { connectionId, startDate, endDate } = req.query as {
+      connectionId?: string; startDate?: string; endDate?: string;
+    };
+    if (!connectionId) return res.status(400).json(errorResponse('connectionId is required', 'VALIDATION_ERROR'));
+    const adminId = (req as any).user.id;
+    const period  = {
+      start: startDate ? new Date(startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+      end:   endDate   ? new Date(endDate)   : new Date(),
+    };
+    const result = await getGstSummary(connectionId, adminId, period);
+    res.json(successResponse(result));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'BOOKS_GST_ERROR'));
+  }
+});
+
+adminCopilotRouter.post('/books/payouts/calculate', async (req: Request, res: Response) => {
+  try {
+    const { connectionId, ...params } = req.body as {
+      connectionId: string;
+      recipientId: string; recipientName: string; recipientType: 'agent' | 'partner' | 'ca';
+      periodStart: string; periodEnd: string;
+      brokerageAmount: number; trailAmount: number; incentiveAmount: number;
+    };
+    if (!connectionId || !params.recipientId) {
+      return res.status(400).json(errorResponse('connectionId and recipientId required', 'VALIDATION_ERROR'));
+    }
+    const adminId = (req as any).user.id;
+    const result  = await calculatePayoutSuggestion(
+      { ...params, periodStart: new Date(params.periodStart), periodEnd: new Date(params.periodEnd) },
+      connectionId, adminId,
+    );
+    res.status(201).json(successResponse(result));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'BOOKS_PAYOUT_ERROR'));
+  }
+});
+
+adminCopilotRouter.post('/books/reconciliation/run', async (req: Request, res: Response) => {
+  try {
+    const { connectionId, startDate, endDate } = req.body as {
+      connectionId: string; startDate: string; endDate: string;
+    };
+    if (!connectionId || !startDate || !endDate) {
+      return res.status(400).json(errorResponse('connectionId, startDate, endDate required', 'VALIDATION_ERROR'));
+    }
+    const adminId = (req as any).user.id;
+    const result  = await runRevenueReconciliation(
+      connectionId, adminId,
+      { start: new Date(startDate), end: new Date(endDate) },
+    );
+    res.json(successResponse(result));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'BOOKS_RECONCILIATION_ERROR', true));
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MEETING AGENT (Phase 2 stubs + DB reads live)
+// MEETING AGENT — Phase 2 LIVE
 // ─────────────────────────────────────────────────────────────────────────────
-adminCopilotRouter.post('/meetings/schedule', (_req, res) => {
-  res.status(501).json(successResponse({ phase: 2, message: 'Meeting scheduling via Zoho Meeting available in Phase 2' }));
+adminCopilotRouter.post('/meetings/schedule', async (req: Request, res: Response) => {
+  try {
+    const { connectionId, ...params } = req.body as {
+      connectionId: string;
+      meetingType: string; title: string; description?: string;
+      scheduledAt: string; durationMin?: number; timezone?: string;
+      hostEmail?: string;
+      attendees?: { name: string; email: string; role?: string }[];
+      linkedCrmLeadId?: string; linkedTicketId?: string; linkedProposalId?: string;
+    };
+    if (!connectionId || !params.meetingType || !params.title || !params.scheduledAt) {
+      return res.status(400).json(errorResponse('connectionId, meetingType, title, scheduledAt required', 'VALIDATION_ERROR'));
+    }
+    const adminId = (req as any).user.id;
+    const result  = await scheduleMeeting(
+      { ...params, scheduledAt: new Date(params.scheduledAt) },
+      connectionId, adminId,
+    );
+    res.status(201).json(successResponse(result));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'MEETING_SCHEDULE_ERROR'));
+  }
 });
 adminCopilotRouter.get('/meetings', async (req: Request, res: Response) => {
   try {
@@ -382,12 +637,72 @@ adminCopilotRouter.get('/meetings/:id', async (req: Request, res: Response) => {
     res.status(500).json(errorResponse(err.message));
   }
 });
-adminCopilotRouter.get('/meetings/:id/agenda', (_req, res) => {
-  res.status(501).json(successResponse({ phase: 2, message: 'AI agenda generation available in Phase 2' }));
+adminCopilotRouter.get('/meetings/:id/agenda', async (req: Request, res: Response) => {
+  try {
+    const [meeting] = await db.select().from(aiMeetingActions)
+      .where(eq(aiMeetingActions.id, req.params.id)).limit(1);
+    if (!meeting) return res.status(404).json(errorResponse('Meeting not found', 'NOT_FOUND'));
+    res.json(successResponse({ agenda: meeting.description, meetingId: meeting.id }));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message));
+  }
 });
-adminCopilotRouter.post('/meetings/:id/summary', (_req, res) => {
-  res.status(501).json(successResponse({ phase: 2, message: 'Post-meeting AI summary available in Phase 2' }));
+
+adminCopilotRouter.post('/meetings/:id/invite', async (req: Request, res: Response) => {
+  try {
+    const { connectionId } = req.body as { connectionId: string };
+    if (!connectionId) return res.status(400).json(errorResponse('connectionId is required', 'VALIDATION_ERROR'));
+    const adminId = (req as any).user.id;
+    const result  = await sendMeetingInvite(req.params.id, connectionId, adminId);
+    res.json(successResponse(result));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'MEETING_INVITE_ERROR'));
+  }
 });
+
+adminCopilotRouter.post('/meetings/:id/summary', async (req: Request, res: Response) => {
+  try {
+    const { transcript, attendeesPresent, attendeesAbsent, actualDurationMin } = req.body as {
+      transcript: string;
+      attendeesPresent?: { name: string; email?: string }[];
+      attendeesAbsent?:  { name: string; email?: string }[];
+      actualDurationMin?: number;
+    };
+    if (!transcript) return res.status(400).json(errorResponse('transcript is required', 'VALIDATION_ERROR'));
+    const adminId = (req as any).user.id;
+    const result  = await generatePostMeetingSummary(
+      req.params.id,
+      transcript,
+      { present: attendeesPresent, absent: attendeesAbsent, actualDurationMin },
+      adminId,
+    );
+    res.json(successResponse(result));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'MEETING_SUMMARY_ERROR'));
+  }
+});
+adminCopilotRouter.post('/meetings/:id/followups/extract', async (req: Request, res: Response) => {
+  try {
+    const adminId = (req as any).user.id;
+    const result  = await extractFollowupTasks(req.params.id, adminId);
+    res.json(successResponse(result));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'MEETING_FOLLOWUP_ERROR'));
+  }
+});
+
+adminCopilotRouter.post('/meetings/track-no-shows', async (req: Request, res: Response) => {
+  try {
+    const { connectionId } = req.body as { connectionId: string };
+    if (!connectionId) return res.status(400).json(errorResponse('connectionId is required', 'VALIDATION_ERROR'));
+    const adminId = (req as any).user.id;
+    const count   = await trackNoShows(connectionId, adminId);
+    res.json(successResponse({ noShowsFollowedUp: count }));
+  } catch (err: any) {
+    res.status(500).json(errorResponse(err.message, 'MEETING_NO_SHOW_ERROR', true));
+  }
+});
+
 adminCopilotRouter.get('/meetings/:id/followups', async (req: Request, res: Response) => {
   try {
     const items = await db.select().from(aiMeetingFollowups)
