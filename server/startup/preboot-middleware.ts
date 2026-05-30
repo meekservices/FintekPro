@@ -3,6 +3,7 @@ import helmet from "helmet";
 import express, { type Express } from "express";
 import { APP_VERSION } from "../../shared/version";
 import { bootState } from "../utils/boot-state";
+import { globalLimiter } from "../middleware/rate-limiter";
 
 // ── Allowed CORS origins ────────────────────────────────────────────────────
 const PROD_ORIGINS = [
@@ -44,6 +45,9 @@ function isAllowedCorsOrigin(origin: string | undefined, allowedOrigins: string[
 }
 
 export function registerPrebootMiddleware(app: Express) {
+  // ── Cloud Run: trust the Google Frontend proxy for real IPs ─────────────
+  app.set('trust proxy', 1);
+
   // ── www → apex redirect ──────────────────────────────────────────────────
   app.use((req, res, next) => {
     const host = req.get("host") || "";
@@ -142,6 +146,9 @@ export function registerPrebootMiddleware(app: Express) {
       maxAge: 86400, // cache preflight for 24h
     }),
   );
+
+  // ── Global rate limiter (DDoS backstop — 300 req/min per IP) ────────────
+  app.use(globalLimiter);
 
   // ── Boot-status (public, after CORS) ─────────────────────────────────────
   app.get("/api/boot-status", (_req, res) => {

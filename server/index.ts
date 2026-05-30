@@ -17,6 +17,7 @@ import { registerAuthEventConsumers } from "./services/auth-event-consumers";
 import { startBackgroundSchedulers } from "./startup/background-schedulers";
 import { validateRuntimeEnv } from "./config/runtime-env";
 import { registerPrebootMiddleware } from "./startup/preboot-middleware";
+import { authLimiter, otpLimiter, aiLimiter, adminCopilotLimiter, uploadLimiter } from "./middleware/rate-limiter";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -173,6 +174,14 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 
       // Apply CSRF protection after session/auth middleware
       app.use('/api', createCsrfProtection());
+
+      // ── Auth + OTP rate limiters (must be after session, before routes serve) ──
+      // tightest limits: 20 req/15min on all auth, 5 req/15min on OTP send only
+      app.use('/api/login',        authLimiter);
+      app.use('/api/register',     authLimiter);
+      app.use('/api/otp/send',     otpLimiter);
+      app.use('/api/login/request-otp', otpLimiter);
+      app.use('/api/auth',         authLimiter);
     } catch (error: any) {
       console.error('❌ [FATAL] Error in Step 3 block:', error);
       bootState.error = `Step 3 Error: ${error?.message || String(error)}`;
@@ -309,6 +318,7 @@ import('./routes/compliance'),
     app.use('/api/admin', commissionConfigRoutes.default);
     app.use('/api/regulatory', regulatoryFrameworkRoutes.default);
     app.use('/api/isin', isinIntelligenceRoutes.default);
+    app.use('/api/ai', aiLimiter);
     app.use('/api/ai', aiAlphaEngineRoutes.default);
 
     // Pick of the Day Routes
@@ -329,6 +339,7 @@ import('./routes/compliance'),
     // Admin Copilot — AI-powered admin assistant (Zoho Mail/CRM/Desk/Books/Meeting)
     logBootProgress("Step 8c: Registering Admin Copilot Routes...");
     const { adminCopilotRouter } = await import('./routes/admin-copilot-routes');
+    app.use('/api/admin/copilot', adminCopilotLimiter);
     app.use('/api/admin/copilot', adminCopilotRouter);
 
     // Alpaca Ribbit Integration Routes

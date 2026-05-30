@@ -6,7 +6,8 @@
  * Purpose : Generate SEBI/CFP-compliant investment proposal drafts for Admin review.
  * Inputs  : ProposalInputs (investor info + product universe)
  * Outputs : AiProposalDraft stored in DB + audit logged
- * Edge    : Confidence < 0.6 → DRAFT with low_confidence flag; Admin must review carefully.
+ * Edge    : Confidence < 0.6 → stored as 'low_confidence_draft'; Admin MUST route to
+ *           human RIA before sharing with client (FASP-AI v1.0 §4.3).
  */
 
 import { db } from '../../db';
@@ -111,6 +112,13 @@ export async function generateProposalDraft(
     maxOutputTokens: 6000,
   });
 
+  // ── FASP-AI v1.0 §4.3 — Confidence Threshold Guard ──────────────────────────
+  // If the AI's confidence is below 0.60, the proposal MUST be flagged for
+  // mandatory human RIA review BEFORE any admin can approve it for client delivery.
+  const CONFIDENCE_THRESHOLD = 0.60;
+  const isLowConfidence = (meta.confidence_score ?? 1) < CONFIDENCE_THRESHOLD;
+  const initialApprovalStatus = isLowConfidence ? 'low_confidence_draft' : 'draft';
+
   // Always append mandatory SEBI disclaimer
   const finalDisclaimer = MANDATORY_DISCLAIMER + '\n\n' + (data.disclaimer ?? '');
 
@@ -142,7 +150,7 @@ export async function generateProposalDraft(
     confidenceScore: meta.confidence_score,
     modelVersion:    meta.model_version,
     auditId,
-    approvalStatus:  'draft',
+    approvalStatus:  initialApprovalStatus,
     sentToClient:    false,
 
     linkedCrmLeadId: inputs.linkedCrmLeadId,
@@ -163,17 +171,22 @@ export async function generateProposalDraft(
       product:  inputs.productType,
       risk:     inputs.riskProfile,
     },
-    outputSummary: `${inputs.productType} proposal for ₹${inputs.amount.toLocaleString('en-IN')} — ${inputs.riskProfile} risk`,
+    outputSummary: isLowConfidence
+      ? `[LOW CONFIDENCE ⚠️] ${inputs.productType} proposal for ₹${inputs.amount.toLocaleString('en-IN')} — ${inputs.riskProfile} risk. Human RIA review required before approval.`
+      : `${inputs.productType} proposal for ₹${inputs.amount.toLocaleString('en-IN')} — ${inputs.riskProfile} risk`,
     confidenceScore: meta.confidence_score,
-    approvalStatus: 'draft',
+    approvalStatus: initialApprovalStatus,
     latencyMs: Date.now() - startMs,
     status: 'success',
+    ...(isLowConfidence ? { human_review_required: true, review_reason: `Confidence ${(meta.confidence_score * 100).toFixed(1)}% < ${CONFIDENCE_THRESHOLD * 100}% threshold` } : {}),
   });
 
   logCopilotEvent('PROPOSAL_AGENT_GENERATE', requestedBy, Date.now() - startMs, 'success', {
-    proposalId: proposal.id,
-    product:    inputs.productType,
-    confidence: meta.confidence_score,
+    proposalId:      proposal.id,
+    product:         inputs.productType,
+    confidence:      meta.confidence_score,
+    lowConfidence:   isLowConfidence,
+    approvalStatus:  initialApprovalStatus,
   });
 
   return {
