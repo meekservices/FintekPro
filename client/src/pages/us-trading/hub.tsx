@@ -26,7 +26,8 @@ import {
   Building2,
   Copy,
   Terminal,
-  Key
+  Key,
+  Zap
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ import { cn } from "@/lib/utils";
 import type { AccountQueryResponse, NavItemProps } from "./hub-types";
 import { USFundingCard } from "@/components/social/USFundingCard";
 import { USTradingCard } from "@/components/social/USTradingCard";
+import { AlgoSignalsView } from "./algo-signals";
 
 
 // Mock data for initial design - will be replaced with real Alpaca API calls via usTradingService
@@ -234,7 +236,8 @@ export default function AlpacaClientHub() {
           <NavItem id="activities" icon={History} label="Activities" />
           <NavItem id="balances" icon={Wallet} label="Balances" />
           
-          <div className="px-2 mt-6 mb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-50">Advanced</div>
+          <div className="px-2 mt-6 mb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-50">AI Tools</div>
+          <NavItem id="algo-signals" icon={Zap} label="Algo Signals" />
           <NavItem id="configure" icon={Settings} label="Configure" />
           <NavItem id="api" icon={ShieldCheck} label="API Keys" />
           
@@ -455,6 +458,11 @@ export default function AlpacaClientHub() {
                       <USTradingCard />
                     </div>
                   </div>
+                )}
+
+                {/* View: Algo Signals */}
+                {activeView === "algo-signals" && (
+                  <AlgoSignalsView />
                 )}
 
                 {/* View: Positions */}

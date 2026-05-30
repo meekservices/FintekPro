@@ -11029,6 +11029,51 @@ export const insertRegulatoryAuditPackSchema = createInsertSchema(regulatoryAudi
 export type RegulatoryAuditPack = typeof regulatoryAuditPacks.$inferSelect;
 export type InsertRegulatoryAuditPack = z.infer<typeof insertRegulatoryAuditPackSchema>;
 
+// ─── Algo Trading Signal Engine ─────────────────────────────────────────────
+// FASP-AI v1.0 compliant — Decision Support System only.
+// Signals are suggestions; execution always requires explicit user approval.
+export const algoSignals = pgTable("algo_signals", {
+  id:                serial("id").primaryKey(),
+  userId:            integer("user_id").references(() => users.id),
+  symbol:            varchar("symbol", { length: 20 }).notNull(),
+  companyName:       varchar("company_name", { length: 200 }),
+  // "composite" | "sma_crossover" | "rsi" | "momentum"
+  strategy:          varchar("strategy", { length: 50 }).notNull().default("composite"),
+  // "buy" | "sell" | "watch" | "hold"
+  signal:            varchar("signal", { length: 10 }).notNull(),
+  confidenceScore:   integer("confidence_score").notNull(),          // 0–100
+  suggestedQty:      decimal("suggested_qty",      { precision: 18, scale: 6 }),
+  suggestedNotional: decimal("suggested_notional", { precision: 18, scale: 2 }), // USD
+  entryPrice:        decimal("entry_price",         { precision: 18, scale: 4 }),
+  targetPrice:       decimal("target_price",        { precision: 18, scale: 4 }),
+  stopLossPrice:     decimal("stop_loss_price",     { precision: 18, scale: 4 }),
+  // JSON: { sma20, sma50, rsi14, volumeRatio, momentum20d, currentPrice, ... }
+  factors:           jsonb("factors"),
+  modelVersion:      varchar("model_version", { length: 30 }).notNull().default("algo-v1.0"),
+  riskProfile:       varchar("risk_profile", { length: 30 }),        // conservative | moderate | aggressive
+  investmentHorizon: varchar("investment_horizon", { length: 20 }),  // short | medium | long
+  // "pending" | "approved" | "rejected" | "expired"
+  status:            varchar("status", { length: 20 }).notNull().default("pending"),
+  approvedAt:        timestamp("approved_at"),
+  rejectedAt:        timestamp("rejected_at"),
+  orderId:           varchar("order_id", { length: 100 }),           // Alpaca order ID after execution
+  disclaimer:        text("disclaimer"),
+  expiresAt:         timestamp("expires_at"),                        // signals expire at NYSE close
+  createdAt:         timestamp("created_at").defaultNow().notNull(),
+  updatedAt:         timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_algo_signals_user").on(table.userId),
+  index("idx_algo_signals_symbol").on(table.symbol),
+  index("idx_algo_signals_status").on(table.status),
+  index("idx_algo_signals_created").on(table.createdAt),
+]);
+
+export const insertAlgoSignalSchema = createInsertSchema(algoSignals).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type AlgoSignal = typeof algoSignals.$inferSelect;
+export type InsertAlgoSignal = typeof algoSignals.$inferInsert;
+
 // Auto-added domain exports
 export * from "./schema/agents.ts";
 export * from "./schema/clients.ts";

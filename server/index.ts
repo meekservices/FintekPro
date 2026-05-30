@@ -355,6 +355,11 @@ import('./routes/compliance'),
     const { registerIrisLasRoutes } = await import('./routes/iris-las-routes');
     registerIrisLasRoutes(app);
 
+    // Algo Trading Signal Engine — FASP-AI v1.0 DSS
+    logBootProgress("Step 9b: Registering Algo Trading Signal Routes...");
+    const algoTradingRoutes = await import('./routes/algo-trading-routes');
+    app.use('/api/us-trading/algo', algoTradingRoutes.default);
+
 
     // ── FINALIZATION ─────────────────────────────────────────────────────────
 
