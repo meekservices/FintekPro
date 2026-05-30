@@ -1192,8 +1192,10 @@ function AppRegistrationTab() {
   const { toast } = useToast();
   const [apiKey, setApiKey] = useState("");
   const [secretKey, setSecretKey] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState("");
   const [baseUrl, setBaseUrl] = useState("https://broker-api.sandbox.alpaca.markets");
   const [showSecret, setShowSecret] = useState(false);
+  const [showWebhook, setShowWebhook] = useState(false);
 
   const { data: configData, refetch: refetchConfig } = useQuery<{
     configured: boolean; authOk: boolean; authError?: string; isBrokerApi: boolean; baseUrl: string;
@@ -1234,16 +1236,34 @@ function AppRegistrationTab() {
     mutationFn: () => apiRequest("POST", `${BASE}/alpaca/credentials`, { 
       apiKey: apiKey.trim(), 
       secretKey: secretKey.trim(), 
-      baseUrl 
+      baseUrl,
+      ...(webhookSecret.trim() ? { webhookSecret: webhookSecret.trim() } : {}),
     }),
     onSuccess: () => {
-      toast({ title: "Credentials saved", description: "Alpaca auth verified. Click Activate US Trading on the dashboard." });
+      toast({ title: "✅ Credentials saved & verified", description: "Alpaca auth OK. Credentials encrypted and persisted to DB. Click Activate US Trading." });
       setSecretKey("");
+      setWebhookSecret("");
       refetchConfig();
       queryClient.invalidateQueries({ queryKey: ["/api/us-trading/alpaca/config"] });
     },
     onError: (err: Error) => {
       toast({ title: "Invalid credentials", description: err?.message || "Auth test failed — check Key ID and Secret.", variant: "destructive" });
+    },
+  });
+
+  const loadFromDbMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `${BASE}/alpaca/credentials/load`, {}),
+    onSuccess: (data: any) => {
+      if (data?.success) {
+        toast({ title: "✅ Credentials loaded from DB", description: data.message });
+      } else {
+        toast({ title: "⚠️ Load failed", description: data?.error || "Could not load from DB", variant: "destructive" });
+      }
+      refetchConfig();
+      queryClient.invalidateQueries({ queryKey: ["/api/us-trading/alpaca/config"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Load from DB failed", description: err?.message, variant: "destructive" });
     },
   });
 
@@ -1303,32 +1323,59 @@ function AppRegistrationTab() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">API Key ID</Label>
+              <Label className="text-xs">API Key ID (Client ID)</Label>
               <Input
+                id="alpaca-api-key"
                 placeholder="CK7XXXXXXXXXXXXXXXXXXXXXX"
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
                 className="font-mono text-sm"
+                autoComplete="off"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Secret Key</Label>
+              <Label className="text-xs">Secret Key (Client Secret)</Label>
               <div className="relative">
                 <Input
+                  id="alpaca-secret-key"
                   type={showSecret ? "text" : "password"}
                   placeholder="Your secret key (shown once at creation)"
                   value={secretKey}
                   onChange={e => setSecretKey(e.target.value)}
                   className="font-mono text-sm pr-9"
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowSecret(s => !s)}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showSecret ? "Hide secret key" : "Show secret key"}
                 >
                   {showSecret ? <XCircle className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
                 </button>
               </div>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Webhook Secret (optional — for HMAC signature verification)</Label>
+            <div className="relative">
+              <Input
+                id="alpaca-webhook-secret"
+                type={showWebhook ? "text" : "password"}
+                placeholder="From Alpaca Dashboard → Settings → Webhooks"
+                value={webhookSecret}
+                onChange={e => setWebhookSecret(e.target.value)}
+                className="font-mono text-sm pr-9"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowWebhook(s => !s)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showWebhook ? "Hide webhook secret" : "Show webhook secret"}
+              >
+                {showWebhook ? <XCircle className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+              </button>
             </div>
           </div>
           <div className="space-y-1.5">
@@ -1356,19 +1403,33 @@ function AppRegistrationTab() {
           <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 py-2">
             <Info className="h-3.5 w-3.5 text-amber-600" />
             <AlertDescription className="text-xs text-amber-700 dark:text-amber-300">
-              This saves credentials for the current session. For persistence across restarts, also add
-              <code className="mx-1">ALPACA_API_KEY</code> and <code className="mr-1">ALPACA_SECRET_KEY</code>
-              to Replit Secrets.
+              Credentials are <strong>AES-256-GCM encrypted</strong> and persisted to the database.
+              For zero-downtime restarts without re-entering credentials, also add
+              <code className="mx-1">ALPACA_API_KEY</code>, <code className="mr-1">ALPACA_SECRET_KEY</code>,
+              and <code className="mr-1">ALPACA_BASE_URL</code> to
+              <strong className="ml-1">GCP Cloud Run → Edit → Variables & Secrets</strong>.
             </AlertDescription>
           </Alert>
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
             <Button
+              id="alpaca-test-save-btn"
               onClick={() => credentialsMutation.mutate()}
               disabled={credentialsMutation.isPending || !apiKey || !secretKey}
               className="gap-2"
             >
               {credentialsMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               {credentialsMutation.isPending ? "Testing…" : "Test & Save"}
+            </Button>
+            <Button
+              id="alpaca-load-db-btn"
+              variant="outline"
+              onClick={() => loadFromDbMutation.mutate()}
+              disabled={loadFromDbMutation.isPending}
+              className="gap-2"
+              title="Reload credentials from DB into memory (useful after server restart)"
+            >
+              {loadFromDbMutation.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+              {loadFromDbMutation.isPending ? "Loading…" : "Load from DB"}
             </Button>
             {authOk && (
               <span className="flex items-center gap-1 text-xs text-green-600 font-medium">

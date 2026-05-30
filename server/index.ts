@@ -386,6 +386,43 @@ import('./routes/compliance'),
 
     logBootProgress("Step 12: Boot sequence complete. Server is operational.");
 
+    // ── Auto-load Alpaca credentials from DB if not in env ───────────────────
+    // When ALPACA_API_KEY is not set via Cloud Run env vars, attempt to restore
+    // from the encrypted credentials stored via the admin credential form.
+    if (!process.env.ALPACA_API_KEY) {
+      (async () => {
+        try {
+          const { alpacaBrokerService } = await import('./services/alpaca-broker-service');
+          if (!alpacaBrokerService.isConfigured()) {
+            const { db } = await import('./db');
+            const { brokerConfigurations } = await import('../shared/schema');
+            const { eq } = await import('drizzle-orm');
+            const { decrypt } = await import('./utils/encryption');
+
+            const rows = await db
+              .select()
+              .from(brokerConfigurations)
+              .where(eq(brokerConfigurations.brokerCode, 'ALPACA'))
+              .limit(1);
+
+            if (rows.length > 0 && rows[0].configuration) {
+              const cfg = rows[0].configuration as Record<string, string>;
+              if (cfg.apiKey && cfg.secretKeyEncrypted && cfg.baseUrl) {
+                const secret = decrypt(cfg.secretKeyEncrypted);
+                alpacaBrokerService.configure(cfg.apiKey, secret, cfg.baseUrl);
+                if (cfg.webhookSecret) {
+                  try { process.env.ALPACA_WEBHOOK_SECRET = decrypt(cfg.webhookSecret); } catch { /* ignore */ }
+                }
+                logBootProgress('Step 12a: Alpaca credentials loaded from DB ✅');
+              }
+            }
+          }
+        } catch (e: any) {
+          logger.warn('[Boot] Could not auto-load Alpaca credentials from DB:', e?.message);
+        }
+      })();
+    }
+
     startBackgroundSchedulers();
 
   } catch (error: any) {

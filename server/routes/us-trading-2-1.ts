@@ -43,30 +43,164 @@ router.get("/broker/test-connection", requireAdmin, async (_req: Request, res: R
 
 // ─── Alpaca Account Dashboard Routes ──────────────────────────────────────────
 
-/** Configure Alpaca credentials (Admin only) */
+/** Configure Alpaca credentials (Admin only) — persists encrypted to DB */
 router.post("/alpaca/credentials", requireAdmin, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { apiKey, secretKey, baseUrl } = req.body as { apiKey?: string; secretKey?: string; baseUrl?: string };
+    const { apiKey, secretKey, baseUrl, webhookSecret } = req.body as {
+      apiKey?: string;
+      secretKey?: string;
+      baseUrl?: string;
+      webhookSecret?: string;
+    };
+
     if (!apiKey || !secretKey) {
       res.status(400).json({ success: false, error: "apiKey and secretKey are required" });
       return;
     }
-    alpacaBrokerService.configure(apiKey.trim(), secretKey.trim(), baseUrl?.trim() || undefined);
+
+    const resolvedBaseUrl = baseUrl?.trim() || "https://broker-api.sandbox.alpaca.markets";
+
+    // ── 1. Configure in-memory first (fast path) ──────────────────────────
+    alpacaBrokerService.configure(apiKey.trim(), secretKey.trim(), resolvedBaseUrl);
+
+    // ── 2. Verify credentials against Alpaca ─────────────────────────────
     const test = await alpacaBrokerService.testConnection();
     if (!test.success) {
       res.status(400).json({ success: false, error: test.message });
       return;
     }
+
+    // ── 3. Persist to DB (encrypted) ─────────────────────────────────────
+    try {
+      const { encrypt } = await import("../utils/encryption");
+      const { db } = await import("../db");
+      const { brokerConfigurations } = await import("../../shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      // Encrypt the secret key at rest (API key is not a secret but we mask it)
+      const encryptedSecret = encrypt(secretKey.trim());
+      // Mask API key — store only last 6 chars for display
+      const maskedApiKey = apiKey.trim().slice(-6).padStart(apiKey.trim().length, "*");
+
+      const configPayload = {
+        apiKey: apiKey.trim(),               // needed for reconnect
+        secretKeyEncrypted: encryptedSecret, // AES-256-GCM
+        maskedApiKey,
+        baseUrl: resolvedBaseUrl,
+        env: resolvedBaseUrl.includes("sandbox") ? "sandbox" : "production",
+        ...(webhookSecret ? { webhookSecret: encrypt(webhookSecret.trim()) } : {}),
+        savedAt: new Date().toISOString(),
+        savedBy: "admin",
+      };
+
+      const existing = await db
+        .select()
+        .from(brokerConfigurations)
+        .where(eq(brokerConfigurations.brokerCode, "ALPACA"))
+        .limit(1);
+
+      if (existing.length > 0) {
+        await db
+          .update(brokerConfigurations)
+          .set({
+            configuration: configPayload,
+            apiEndpoint: resolvedBaseUrl,
+            healthStatus: "healthy",
+            lastHealthCheck: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(brokerConfigurations.brokerCode, "ALPACA"));
+      } else {
+        await db.insert(brokerConfigurations).values({
+          brokerCode: "ALPACA",
+          brokerName: "Alpaca Markets",
+          brokerType: "us_equity_broker",
+          isEnabled: true,
+          apiEndpoint: resolvedBaseUrl,
+          apiVersion: "v1",
+          configuration: configPayload,
+          healthStatus: "healthy",
+          lastHealthCheck: new Date(),
+          requiredEnvVars: ["ALPACA_API_KEY", "ALPACA_SECRET_KEY", "ALPACA_BASE_URL"],
+          supportedProducts: ["us_equity", "etf", "crypto", "options"],
+          features: { fractionalTrading: true, brokerApi: true, lrs: true },
+        });
+      }
+
+      // Also persist webhook secret to env if provided (for HMAC verification)
+      if (webhookSecret?.trim()) {
+        process.env.ALPACA_WEBHOOK_SECRET = webhookSecret.trim();
+      }
+    } catch (dbErr: unknown) {
+      // DB persistence failure is non-fatal — in-memory config is active
+      const msg = dbErr instanceof Error ? dbErr.message : String(dbErr);
+      console.warn("[AlpacaCredentials] DB persistence failed (in-memory config still active):", msg);
+    }
+
     res.json({
       success: true,
       message: `Connected to Alpaca (${alpacaBrokerService.isPaperTrading() ? "Sandbox" : "Live"})`,
       isPaper: alpacaBrokerService.isPaperTrading(),
       baseUrl: alpacaBrokerService.getBaseUrl(),
+      persisted: true,
     });
   } catch (error: unknown) {
     res.status(500).json({ success: false, error: errorMessage(error) });
   }
 });
+
+/** Load Alpaca credentials from DB into memory (Admin only — call after restart) */
+router.post("/alpaca/credentials/load", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const { decrypt } = await import("../utils/encryption");
+    const { db } = await import("../db");
+    const { brokerConfigurations } = await import("../../shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const rows = await db
+      .select()
+      .from(brokerConfigurations)
+      .where(eq(brokerConfigurations.brokerCode, "ALPACA"))
+      .limit(1);
+
+    if (rows.length === 0 || !rows[0].configuration) {
+      res.status(404).json({ success: false, error: "No Alpaca credentials stored in DB. Use POST /alpaca/credentials to save them." });
+      return;
+    }
+
+    const config = rows[0].configuration as Record<string, string>;
+    const apiKey = config.apiKey;
+    const encryptedSecret = config.secretKeyEncrypted;
+    const baseUrl = config.baseUrl;
+
+    if (!apiKey || !encryptedSecret || !baseUrl) {
+      res.status(422).json({ success: false, error: "Stored config is incomplete. Re-enter credentials." });
+      return;
+    }
+
+    const secretKey = decrypt(encryptedSecret);
+    alpacaBrokerService.configure(apiKey, secretKey, baseUrl);
+
+    // Reload webhook secret if stored
+    if (config.webhookSecret) {
+      try { process.env.ALPACA_WEBHOOK_SECRET = decrypt(config.webhookSecret); } catch { /* ignore */ }
+    }
+
+    const test = await alpacaBrokerService.testConnection();
+    res.json({
+      success: test.success,
+      message: test.success
+        ? `Loaded from DB — ${alpacaBrokerService.isPaperTrading() ? "Sandbox" : "Live"} mode`
+        : `Loaded from DB but auth failed: ${test.message}`,
+      isPaper: alpacaBrokerService.isPaperTrading(),
+      baseUrl: alpacaBrokerService.getBaseUrl(),
+      savedAt: config.savedAt,
+    });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, error: errorMessage(error) });
+  }
+});
+
 
 /** Get Alpaca config (Admin only) */
 router.get("/alpaca/config", requireAdmin, async (_req: Request, res: Response): Promise<void> => {
