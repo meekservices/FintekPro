@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { listedStocks, goldenPrices, stockFinancialMetrics } from "@shared/schema";
-import { and, eq, sql, gte, asc, desc } from "drizzle-orm";
+import { and, eq, sql, gte, asc, desc, count } from "drizzle-orm";
 
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
@@ -10,11 +10,38 @@ import { FinancialMetricsCalculator } from "../financial-metrics-calculator";
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
 
+/**
+ * Simple concurrency limiter — runs `tasks` with at most `concurrency` running
+ * simultaneously. Replaces p-limit without adding a dependency.
+ * @param tasks  Array of async thunks (() => Promise<T>)
+ * @param concurrency  Max parallel executions
+ */
+async function runConcurrent<T>(tasks: Array<() => Promise<T>>, concurrency: number): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let index = 0;
+
+  async function worker(): Promise<void> {
+    while (index < tasks.length) {
+      const i = index++;
+      results[i] = await tasks[i]();
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(concurrency, tasks.length) }, worker);
+  await Promise.all(workers);
+  return results;
+}
+
+/** Cached flag: undefined = unchecked, true = has rows, false = empty table */
+let _metricsTableHasData: boolean | undefined;
+
 export class StockStrategy extends BaseStrategy {
   category: PickCategory = 'listed_stocks';
 
   async generate(context: StrategyContext): Promise<DailyPickData | null> {
     try {
+      // Fetch 30 candidates — only the top scorer is used, so 100 was wasteful
+      // and caused connection pool exhaustion on the 9 AM batch run.
       const stocks = await db
         .select()
         .from(listedStocks)
@@ -25,7 +52,7 @@ export class StockStrategy extends BaseStrategy {
             sql`CAST(${listedStocks.currentPrice} AS DECIMAL) > 50`
           )
         )
-        .limit(100);
+        .limit(30);
 
       if (stocks.length === 0) return null;
 
@@ -39,16 +66,17 @@ export class StockStrategy extends BaseStrategy {
         console.warn("[StockStrategy] Failed to fetch enriched snapshots:", err);
       }
 
-      const scoredStocksRaw = await Promise.all(
-        freshStocks.map(async stock => {
-          const enriched = stock.symbol ? enrichedSnapshots.get(stock.symbol.toUpperCase()) || null : null;
-          return {
-            stock,
-            enriched,
-            score: await this.score(stock, enriched),
-          };
-        })
-      );
+      // Concurrency-limited scoring: max 5 parallel DB calls to avoid
+      // exhausting the Cloud SQL connection pool on the 9 AM batch run.
+      const scoringTasks = freshStocks.map(stock => async () => {
+        const enriched = stock.symbol ? enrichedSnapshots.get(stock.symbol.toUpperCase()) || null : null;
+        return {
+          stock,
+          enriched,
+          score: await this.score(stock, enriched),
+        };
+      });
+      const scoredStocksRaw = await runConcurrent(scoringTasks, 5);
       const scoredStocks = scoredStocksRaw.sort((a, b) => b.score - a.score);
 
       if (scoredStocks.length === 0) return null;
@@ -170,6 +198,20 @@ export class StockStrategy extends BaseStrategy {
   private async calculateAdvancedMetrics(stock: any): Promise<{ piotroskiFScore?: number; roic?: number }> {
     try {
       if (!stock.id && !stock.symbol) return {};
+
+      // One-time table check: if stockFinancialMetrics is empty, skip all 30
+      // per-stock queries and return {} immediately. Cached for the batch run.
+      if (_metricsTableHasData === false) return {};
+      if (_metricsTableHasData === undefined) {
+        const [{ value }] = await db
+          .select({ value: count() })
+          .from(stockFinancialMetrics);
+        _metricsTableHasData = (value ?? 0) > 0;
+        if (!_metricsTableHasData) {
+          console.info('[StockStrategy] stockFinancialMetrics table is empty — skipping advanced metrics for this batch');
+          return {};
+        }
+      }
 
       // Fetch the most recent metrics row for this stock
       const rows = await db

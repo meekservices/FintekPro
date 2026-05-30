@@ -150,11 +150,27 @@ function scrubPii(raw: string): string {
   return out;
 }
 
-function serializeArg(arg: unknown): string {
-  if (typeof arg === 'string') return arg;
-  if (arg instanceof Error)   return `${arg.name}: ${arg.message}`;
-  try { return JSON.stringify(arg); } catch { return String(arg); }
+function safeJson(arg: unknown): string {
+  const seen = new WeakSet();
+  return JSON.stringify(arg, (_key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) return '[Circular]';
+      seen.add(value);
+    }
+    return value;
+  }) ?? String(arg);
 }
+
+function serializeArg(arg: unknown): string {
+  if (arg === null)           return 'null';
+  if (arg === undefined)      return 'undefined';
+  if (typeof arg === 'string') return arg;
+  if (arg instanceof Error)   return `${arg.name}: ${arg.message}${arg.stack ? '\n' + arg.stack : ''}`;
+  if (Array.isArray(arg))     return safeJson(arg);
+  if (typeof arg === 'object') return safeJson(arg);
+  return String(arg);
+}
+
 
 /**
  * Overrides console.log/warn/error/info/debug in production to scrub PII
