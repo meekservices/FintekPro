@@ -2444,6 +2444,7 @@ export default function SmartKYCOnboarding() {
               type="file"
               ref={signatureFileRef}
               accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+              aria-label="Upload signature image (PNG, JPEG, or SVG)"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -3997,6 +3998,7 @@ export default function SmartKYCOnboarding() {
                       <select
                         value={rekycReason}
                         onChange={(e) => setRekycReason(e.target.value)}
+                        aria-label="Reason for Correction"
                         className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <option value="">Select reason...</option>

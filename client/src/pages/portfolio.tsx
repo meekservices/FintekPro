@@ -3189,7 +3189,7 @@ export default function Portfolio() {
                               <h5 className="font-medium text-foreground">Balanced (Risk Score: 7.0)</h5>
                               <p className="text-sm text-muted-foreground">Equity: 65% | Debt: 25% | Gold: 5% | Alt: 5%</p>
                             </div>
-                            <input type="radio" name="scenario" className="text-muted-foreground" />
+                            <input type="radio" name="scenario" value="balanced" aria-label="Select Balanced scenario (Risk Score: 7.0)" className="text-muted-foreground" />
                           </div>
                         </div>
                         <div className="p-3 border border-border rounded-lg cursor-pointer hover:bg-muted">
@@ -3198,7 +3198,7 @@ export default function Portfolio() {
                               <h5 className="font-medium text-foreground">Aggressive (Risk Score: 8.5)</h5>
                               <p className="text-sm text-muted-foreground">Equity: 80% | Debt: 15% | Gold: 3% | Alt: 2%</p>
                             </div>
-                            <input type="radio" name="scenario" className="text-muted-foreground" />
+                            <input type="radio" name="scenario" value="aggressive" aria-label="Select Aggressive scenario (Risk Score: 8.5)" className="text-muted-foreground" />
                           </div>
                         </div>
                       </div>

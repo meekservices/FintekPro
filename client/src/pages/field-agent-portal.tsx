@@ -771,7 +771,7 @@ export default function FieldAgentPortal() {
                   ) : (tasks as any)?.length > 0 ? (
                     (tasks as any).map((task: any, index: number) => (
                       <div key={task.id || index} className="flex items-center gap-4 p-4 border rounded-lg">
-                        <input type="checkbox" className="h-5 w-5 rounded" data-testid={`checkbox-task-${index}`} />
+                        <input type="checkbox" className="h-5 w-5 rounded" aria-label={`Mark task complete: ${task.title}`} data-testid={`checkbox-task-${index}`} />
                         <div className="flex-1">
                           <p className="font-medium">{task.title}</p>
                           <p className="text-sm text-muted-foreground">{task.description}</p>
@@ -932,6 +932,13 @@ export default function FieldAgentPortal() {
                                   value={meetingTime}
                                   onChange={(e) => setMeetingTime(e.target.value)}
                                   data-testid="input-meeting-time"
+                                />
+                                <input
+                                  type="file"
+                                  ref={signatureFileRef}
+                                  accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                                  aria-label="Upload signature image (PNG, JPEG, or SVG)"
+                                  className="hidden"
                                 />
                               </div>
                             </div>

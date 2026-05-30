@@ -750,7 +750,7 @@ export default function ProfilePage() {
           <div className="flex items-center gap-3">
             <div className="hidden md:flex items-center gap-2 text-sm text-gray-500">
               <span>Profile</span>
-              <Progress value={profileCompleteness} className="w-20 h-2" />
+              <Progress value={profileCompleteness} className="w-20 h-2" aria-label={`Profile completion: ${profileCompleteness}%`} />
               <span className="font-semibold text-gray-700 dark:text-gray-300">{profileCompleteness}%</span>
             </div>
           </div>

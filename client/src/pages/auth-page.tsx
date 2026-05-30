@@ -2353,9 +2353,10 @@ export default function AuthPage() {
               {[0, 1, 2, 3].map((i) => (
                 <input
                   key={i}
-                  id={`pin-digit-${i}`}
+                  id={`pin-entry-digit-${i}`}
                   type="password"
                   inputMode="numeric"
+                  aria-label={`PIN digit ${i + 1} of 4`}
                   maxLength={1}
                   className="w-14 h-14 text-center text-2xl font-bold border-2 rounded-xl focus:border-blue-500 focus:outline-none dark:bg-gray-800 dark:border-gray-600 dark:text-white transition-all"
                   value={pinValue[i] || ""}
@@ -2368,7 +2369,7 @@ export default function AuthPage() {
                     setPinError("");
                     // Auto-advance
                     if (digit && i < 3) {
-                      document.getElementById(`pin-digit-${i + 1}`)?.focus();
+                      document.getElementById(`pin-entry-digit-${i + 1}`)?.focus();
                     }
                     // Auto-submit when all 4 entered
                     if (updated.length === 4) {
@@ -2377,7 +2378,7 @@ export default function AuthPage() {
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Backspace" && !pinValue[i] && i > 0) {
-                      document.getElementById(`pin-digit-${i - 1}`)?.focus();
+                      document.getElementById(`pin-entry-digit-${i - 1}`)?.focus();
                     }
                   }}
                   data-testid={`pin-digit-${i}`}
@@ -2451,6 +2452,7 @@ export default function AuthPage() {
                       id={`pin-setup-digit-${i}`}
                       type="password"
                       inputMode="numeric"
+                      aria-label={`New PIN digit ${i + 1} of 4`}
                       maxLength={1}
                       className="w-14 h-14 text-center text-2xl font-bold border-2 rounded-xl focus:border-green-500 focus:outline-none dark:bg-gray-800 dark:border-gray-600 dark:text-white transition-all"
                       value={pinSetupValue[i] || ""}
@@ -2484,6 +2486,7 @@ export default function AuthPage() {
                       id={`pin-confirm-digit-${i}`}
                       type="password"
                       inputMode="numeric"
+                      aria-label={`Confirm PIN digit ${i + 1} of 4`}
                       maxLength={1}
                       className="w-14 h-14 text-center text-2xl font-bold border-2 rounded-xl focus:border-green-500 focus:outline-none dark:bg-gray-800 dark:border-gray-600 dark:text-white transition-all"
                       value={pinSetupConfirm[i] || ""}

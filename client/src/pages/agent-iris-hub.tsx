@@ -1659,7 +1659,7 @@ function GoalsPanel({ pan }: { pan: string }) {
                         Target: {fmt(g.targetAmount)} by {g.targetDate ?? "—"} · Saved: {fmt(g.currentSavings)}
                       </p>
                       <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${progress}%` }} />
+                        <div className="h-full bg-primary rounded-full iris-bar-fill" style={{ ['--bar-w' as string]: `${progress}%` }} />
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-0.5">{progress}% complete</p>
                     </div>
@@ -1835,7 +1835,7 @@ function DematDocsPanel({ pan }: { pan: string }) {
                   <span className="text-xs text-muted-foreground">{d.fileName ?? d.url ?? "—"}</span>
                 </div>
                 {d.url && (
-                  <a href={d.url} target="_blank" rel="noopener noreferrer">
+                  <a href={d.url} target="_blank" rel="noopener noreferrer" aria-label={`Open document: ${d.fileName ?? d.url ?? 'document'}`}>
                     <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
                   </a>
                 )}
@@ -4603,7 +4603,7 @@ function NpsTab() {
                               <span>{a.percentage != null ? a.percentage.toFixed(1) + "%" : "—"}</span>
                             </div>
                             <div className="w-full bg-muted rounded-full h-1.5">
-                              <div className="bg-primary rounded-full h-1.5" style={{ width: `${a.percentage ?? 0}%` }} />
+                              <div className="bg-primary rounded-full h-1.5 iris-bar-fill" style={{ ['--bar-w' as string]: `${a.percentage ?? 0}%` }} />
                             </div>
                             {a.currentValue != null && (
                               <p className="text-xs text-muted-foreground text-right">{fmt(a.currentValue)}</p>
@@ -4982,8 +4982,8 @@ function AnalyticsTab() {
                           <span className="w-40 truncate text-muted-foreground">{s.schemeName ?? '—'}</span>
                           <div className="flex-1 bg-muted rounded h-5 relative overflow-hidden">
                             <div
-                              className={`absolute left-0 top-0 h-full rounded ${isPos ? 'bg-green-500' : 'bg-red-400'}`}
-                              style={{ width: `${pct}%` }}
+                              className={`absolute left-0 top-0 h-full rounded iris-bar-fill ${isPos ? 'bg-green-500' : 'bg-red-400'}`}
+                              style={{ ['--bar-w' as string]: `${pct}%` }}
                             />
                             <span className={`absolute right-2 top-0 h-full flex items-center font-medium ${isPos ? 'text-green-700' : 'text-red-600'}`}>
                               {s.xirr != null ? `${s.xirr.toFixed(1)}%` : '—'}
@@ -5601,7 +5601,9 @@ function ResearchTab() {
                 {compareList.map((s, i) => (
                   <Badge key={i} variant="secondary" className="flex items-center gap-1 text-xs">
                     <span>{s.schemeName ?? s.name}</span>
-                    <button onClick={() => setCompareList(l => l.filter((_, j) => j !== i))}>
+                    <button
+                      aria-label={`Remove ${s.schemeName ?? s.name} from comparison`}
+                      onClick={() => setCompareList(l => l.filter((_, j) => j !== i))}>
                       <Trash2 className="h-3 w-3 ml-1 text-muted-foreground hover:text-destructive" />
                     </button>
                   </Badge>
@@ -6509,6 +6511,7 @@ function MandatesTab() {
                   id="phys-file-input"
                   type="file"
                   accept=".pdf,.png,.jpg,.jpeg,.tiff"
+                  aria-label="Upload physical document (PDF, PNG, JPG, JPEG, or TIFF)"
                   className="hidden"
                   onChange={e => {
                     const f = e.target.files?.[0];

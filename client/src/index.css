@@ -403,3 +403,8 @@ table {
   backdrop-filter: blur(4px);
   z-index: 40;
 }
+
+/* Dynamic progress bar fill — width set via --bar-w CSS custom property */
+.iris-bar-fill {
+  width: var(--bar-w, 0%);
+}

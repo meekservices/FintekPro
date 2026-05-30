@@ -1071,6 +1071,7 @@ export default function FestivalGreetingPreview() {
                                     className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-primary bg-background"
                                   />
                                   <button
+                                    aria-label="Save email address"
                                     className="p-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                                     disabled={updateEmailMutation.isPending || !editingEmailValue}
                                     onClick={() => updateEmailMutation.mutate({
@@ -1082,6 +1083,7 @@ export default function FestivalGreetingPreview() {
                                     <Check className="h-4 w-4" />
                                   </button>
                                   <button
+                                    aria-label="Cancel email edit"
                                     className="p-1 rounded hover:bg-muted"
                                     onClick={() => { setEditingEmailId(null); setEditingEmailValue(''); }}
                                   >
