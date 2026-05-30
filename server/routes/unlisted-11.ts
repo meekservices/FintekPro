@@ -204,7 +204,7 @@ router.post('/companies/:id/valuation', requireAdmin, async (req: Request, res: 
 
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) {
-      return apiResponse.badRequest(res, parsed.error.errors[0].message);
+      return apiResponse.badRequest(res, parsed.error.issues[0].message);
     }
 
     const result = await unlistedValuationGovernanceService.addValuation(id, {
@@ -262,7 +262,7 @@ router.post('/client-disclosure', requireAuth, async (req: Request, res: Respons
 
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) {
-      return apiResponse.badRequest(res, parsed.error.errors[0].message);
+      return apiResponse.badRequest(res, parsed.error.issues[0].message);
     }
 
     const clientId = (req.user as any)?.id;

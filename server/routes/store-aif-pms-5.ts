@@ -172,7 +172,7 @@ router.post("/remittance/request", requireAuth, async (req, res) => {
     });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      return res.status(400).json({ error: "Invalid request data", details: error.issues });
     }
     console.error("Error creating remittance request:", error);
     res.status(500).json({ error: "Failed to create remittance request" });
@@ -203,7 +203,7 @@ router.post("/remittance/:id/upload", requireAuth, async (req, res) => {
     res.json({ success: true, message: result.message });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      return res.status(400).json({ error: "Invalid upload data", details: error.errors });
+      return res.status(400).json({ error: "Invalid upload data", details: error.issues });
     }
     console.error("Error uploading remittance proof:", error);
     res.status(500).json({ error: "Failed to upload remittance proof" });
@@ -310,7 +310,7 @@ router.post("/admin/remittance/:id/verify", requireAdmin, async (req, res) => {
     res.json({ success: true, message: result.message });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      return res.status(400).json({ error: "Invalid verification data", details: error.errors });
+      return res.status(400).json({ error: "Invalid verification data", details: error.issues });
     }
     console.error("Error verifying remittance:", error);
     res.status(500).json({ error: "Failed to verify remittance" });

@@ -55,7 +55,7 @@ router.post('/grievance/submit', async (req: Request, res: Response): Promise<vo
     });
   } catch (err: unknown) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: err.errors });
+      res.status(400).json({ success: false, error: err.issues });
       return;
     }
     logger.error('[RegRoutes] Grievance submit failed', { err });
@@ -373,7 +373,7 @@ router.post('/kyc/aadhaar-consent', async (req: Request, res: Response): Promise
     res.json({ success: true, artifactId: artifact.id });
   } catch (err: unknown) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: err.errors });
+      res.status(400).json({ success: false, error: err.issues });
       return;
     }
     res.status(500).json({ success: false, message: 'Failed to record consent artifact' });

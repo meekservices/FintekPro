@@ -107,7 +107,7 @@ router.post('/api/esign/initiate', isAuthenticated, async (req: Request, res: Re
   } catch (error) {
     console.error('[eSign Routes] Initiate error:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ error: 'Validation failed', details: error.issues });
     }
     res.status(500).json({ error: (error as Error).message || 'Failed to initiate eSign' });
   }
@@ -144,7 +144,7 @@ router.post('/api/esign/verify', isAuthenticated, async (req: Request, res: Resp
   } catch (error) {
     console.error('[eSign Routes] Verify error:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ error: 'Validation failed', details: error.issues });
     }
     res.status(500).json({ error: (error as Error).message || 'Failed to verify OTP' });
   }

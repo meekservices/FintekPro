@@ -329,7 +329,7 @@ router.post("/portfolio/manual-entry", async (req, res) => {
     console.error("Error adding manual entries:", error);
     res.status(500).json({
       success: false,
-      error: error instanceof z.ZodError ? error.errors : "Failed to add holdings"
+      error: error instanceof z.ZodError ? error.issues : "Failed to add holdings"
     });
   }
 });

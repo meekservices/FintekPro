@@ -27,7 +27,7 @@ import { createTaskFromSource, updateTaskStatus }           from '../services/ad
 import { generateProposalDraft }                            from '../services/admin-copilot/proposalAgent';
 import { generateBiSummary, answerBiQuestion }              from '../services/admin-copilot/biAgent';
 import { processApproval }                                  from '../services/admin-copilot/approvalService';
-import { auditLog }                                         from '../services/admin-copilot/auditLogger';
+import { auditLog }                                         from '../logger';
 // Phase 2 agents
 import { syncCrmLeads, generateLeadIntelligence, updateLeadStage } from '../services/admin-copilot/crmAgent';
 import { syncDeskTickets, generateDraftResponse as deskDraftResponse, flagSlaBreachRisk, escalateTicket } from '../services/admin-copilot/deskAgent';

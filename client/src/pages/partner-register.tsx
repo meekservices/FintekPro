@@ -56,8 +56,8 @@ const step2Schema = z.object({
 });
 
 const step3Schema = z.object({
-  acceptTerms: z.literal(true, { errorMap: () => ({ message: "You must accept the terms" }) }),
-  acceptSebi: z.literal(true, { errorMap: () => ({ message: "You must confirm SEBI compliance" }) }),
+  acceptTerms: z.literal(true, { error: "You must accept the terms" }),
+  acceptSebi: z.literal(true, { error: "You must confirm SEBI compliance" }),
 });
 
 type Step1 = z.infer<typeof step1Schema>;

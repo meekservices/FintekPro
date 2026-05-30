@@ -162,7 +162,7 @@ export function registerCapitalGainPart3Routes(app: Express): void {
       if (!validationResult.success) {
         return res.status(400).json({
           error: 'Validation failed',
-          details: validationResult.error.errors
+          details: validationResult.error.issues
         });
       }
 
@@ -293,7 +293,7 @@ export function registerCapitalGainPart3Routes(app: Express): void {
       if (!validationResult.success) {
         return res.status(400).json({
           error: 'Validation failed',
-          details: validationResult.error.errors
+          details: validationResult.error.issues
         });
       }
 

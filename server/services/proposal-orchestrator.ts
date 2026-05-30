@@ -1211,7 +1211,7 @@ export class ProposalOrchestrator {
   ): Promise<{ success: boolean; snapshot: StrategySnapshot; versionId: number }> {
     const validation = this.validateAllocation(allocation);
     if (!validation.valid) {
-      throw new Error(`Allocation validation failed: ${validation.errors.join(', ')}`);
+      throw new Error(`Allocation validation failed: ${validation.issues.join(', ')}`);
     }
 
     const [proposal] = await db
@@ -1656,7 +1656,7 @@ export class ProposalOrchestrator {
 
     const validation = this.validateAllocation(newAllocation);
     if (!validation.valid) {
-      throw new Error(`Allocation validation failed: ${validation.errors.join(', ')}`);
+      throw new Error(`Allocation validation failed: ${validation.issues.join(', ')}`);
     }
 
     const [proposal] = await db

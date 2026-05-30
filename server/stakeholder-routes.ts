@@ -209,7 +209,7 @@ router.post('/api/admin/partners', requireAdmin, async (req, res) => {
     return apiResponse.created(res, newPartner, 'Partner created successfully');
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return apiResponse.badRequest(res, 'Validation error', error.errors);
+      return apiResponse.badRequest(res, 'Validation error', error.issues);
     }
     console.error('Error creating partner:', error);
     return apiResponse.error(res, 'Failed to create partner', 500, error.message);
@@ -251,7 +251,7 @@ router.patch('/api/admin/partners/:id', requireAdmin, async (req, res) => {
     return apiResponse.success(res, updated, 'Partner updated successfully');
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return apiResponse.badRequest(res, 'Validation error', error.errors);
+      return apiResponse.badRequest(res, 'Validation error', error.issues);
     }
     console.error('Error updating partner:', error);
     return apiResponse.error(res, 'Failed to update partner', 500, error.message);
@@ -608,7 +608,7 @@ router.post('/api/admin/suppliers', requireAdmin, async (req, res) => {
     return apiResponse.created(res, newSupplier, 'Supplier created successfully');
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return apiResponse.badRequest(res, 'Validation error', error.errors);
+      return apiResponse.badRequest(res, 'Validation error', error.issues);
     }
     console.error('Error creating supplier:', error);
     return apiResponse.error(res, 'Failed to create supplier', 500, error.message);
@@ -634,7 +634,7 @@ router.patch('/api/admin/suppliers/:id', requireAdmin, async (req, res) => {
     return apiResponse.success(res, updated, 'Supplier updated successfully');
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return apiResponse.badRequest(res, 'Validation error', error.errors);
+      return apiResponse.badRequest(res, 'Validation error', error.issues);
     }
     console.error('Error updating supplier:', error);
     return apiResponse.error(res, 'Failed to update supplier', 500, error.message);

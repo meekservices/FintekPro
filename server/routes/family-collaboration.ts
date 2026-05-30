@@ -49,7 +49,7 @@ export function registerFamilyCollaborationRoutes(app: Express): void {
       res.status(201).json(familyGroup);
     } catch (error) {
       console.error('Error creating family group:', error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.issues });
       res.status(500).json({ message: 'Failed to create family group' });
     }
   });
@@ -87,7 +87,7 @@ export function registerFamilyCollaborationRoutes(app: Express): void {
       res.json(updatedFamily);
     } catch (error) {
       console.error('Error updating family group:', error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.issues });
       res.status(500).json({ message: 'Failed to update family group' });
     }
   });
@@ -104,7 +104,7 @@ export function registerFamilyCollaborationRoutes(app: Express): void {
       res.status(201).json(member);
     } catch (error) {
       console.error('Error inviting family member:', error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.issues });
       res.status(500).json({ message: 'Failed to invite member' });
     }
   });
@@ -175,7 +175,7 @@ export function registerFamilyCollaborationRoutes(app: Express): void {
       res.status(201).json(goal);
     } catch (error) {
       console.error('Error creating family goal:', error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.issues });
       res.status(500).json({ message: 'Failed to create goal' });
     }
   });
@@ -201,7 +201,7 @@ export function registerFamilyCollaborationRoutes(app: Express): void {
       res.status(201).json(contribution);
     } catch (error) {
       console.error('Error adding goal contribution:', error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.issues });
       res.status(500).json({ message: 'Failed to add contribution' });
     }
   });
@@ -254,7 +254,7 @@ export function registerFamilyCollaborationRoutes(app: Express): void {
       res.status(201).json(discussion);
     } catch (error) {
       console.error('Error creating discussion:', error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.issues });
       res.status(500).json({ message: 'Failed to create discussion' });
     }
   });
@@ -282,7 +282,7 @@ export function registerFamilyCollaborationRoutes(app: Express): void {
       res.status(201).json(budget);
     } catch (error) {
       console.error('Error creating budget:', error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.issues });
       res.status(500).json({ message: 'Failed to create budget' });
     }
   });

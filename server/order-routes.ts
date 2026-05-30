@@ -268,7 +268,7 @@ export function registerOrderRoutes(app: Express) {
         return res.status(400).json({
           success: false,
           error: 'Invalid request data',
-          details: error.errors,
+          details: error.issues,
         });
       }
 
@@ -343,7 +343,7 @@ export function registerOrderRoutes(app: Express) {
         return res.status(400).json({
           success: false,
           error: 'Invalid request data',
-          details: error.errors,
+          details: error.issues,
         });
       }
 

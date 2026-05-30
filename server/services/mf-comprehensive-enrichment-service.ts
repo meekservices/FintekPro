@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { db } from '../db';
-import { getProductionDb, hasProductionDb, requireProductionDb, getEnrichmentReadDb, getEnrichmentWriteDb } from '../db-production';
+import { getProductionDb, hasProductionDb, requireProductionDb, getEnrichmentReadDb, getEnrichmentWriteDb } from '../db';
 import { mutualFunds, mutualFundMetrics, mfEnrichmentAuditLogs, mfAumHistory } from '@shared/schema';
 import { eq, desc, sql, isNull, or, and } from 'drizzle-orm';
 

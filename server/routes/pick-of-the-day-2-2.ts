@@ -200,7 +200,7 @@ router.post("/add-to-proposal", requireAuth, async (req, res) => {
   try {
     const parseResult = proposalAddSchema.safeParse(req.body);
     if (!parseResult.success) {
-      return res.status(400).json({ success: false, error: "Invalid request", details: parseResult.error.errors });
+      return res.status(400).json({ success: false, error: "Invalid request", details: parseResult.error.issues });
     }
     
     const userId = (req as any).user.id;
@@ -304,7 +304,7 @@ router.post("/share", requireAuth, async (req, res) => {
   try {
     const parseResult = shareSchema.safeParse(req.body);
     if (!parseResult.success) {
-      return res.status(400).json({ success: false, error: "Invalid request", details: parseResult.error.errors });
+      return res.status(400).json({ success: false, error: "Invalid request", details: parseResult.error.issues });
     }
     
     const { pickId, channel, recipientEmail, recipientPhone, customMessage } = parseResult.data;

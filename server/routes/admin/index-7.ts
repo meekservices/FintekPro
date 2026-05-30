@@ -174,7 +174,7 @@ export function registerAdminPanelPart7Routes(app: Express): void {
   // Combined enrichment stats
   app.get("/api/admin/enrichment/stats", requireAdmin, async (req, res) => {
     try {
-      const { hasProductionDb: hasProd } = await import("../../db-production");
+      const { hasProductionDb: hasProd } = await import("../../db");
       const { mfExtendedEnrichmentService } = await import("../../services/mf-extended-enrichment-service");
       const { stockFinancialEnrichmentService } = await import("../../services/stock-financial-enrichment-service");
       
@@ -226,7 +226,7 @@ export function registerAdminPanelPart7Routes(app: Express): void {
   // Run all enrichment jobs
   app.post("/api/admin/enrichment/run-all", requireAdmin, async (req, res) => {
     try {
-      const { hasProductionDb: hasProd } = await import("../../db-production");
+      const { hasProductionDb: hasProd } = await import("../../db");
       if (!hasProd()) {
         return res.status(400).json({ 
           success: false, 
@@ -282,7 +282,7 @@ export function registerAdminPanelPart7Routes(app: Express): void {
 
   app.get("/api/admin/enrichment/full-status", requireAdmin, async (req, res) => {
     try {
-      const { hasProductionDb, getProductionDb } = await import("../../db-production");
+      const { hasProductionDb, getProductionDb } = await import("../../db");
       const statuses: Record<string, any> = {};
 
       statuses.productionDb = {

@@ -22,7 +22,7 @@ router.post("/admin/store/aif", requireAdmin, async (req, res) => {
       const updateSchema = insertAifMasterSchema.partial();
       const validation = updateSchema.safeParse(rawData);
       if (!validation.success) {
-        return res.status(400).json({ error: "Invalid data", details: validation.error.errors });
+        return res.status(400).json({ error: "Invalid data", details: validation.error.issues });
       }
       await db
         .update(aifMaster)
@@ -32,7 +32,7 @@ router.post("/admin/store/aif", requireAdmin, async (req, res) => {
     } else {
       const validation = insertAifMasterSchema.safeParse(rawData);
       if (!validation.success) {
-        return res.status(400).json({ error: "Invalid data", details: validation.error.errors });
+        return res.status(400).json({ error: "Invalid data", details: validation.error.issues });
       }
       const result = await db.insert(aifMaster).values(validation.data).returning();
       res.json({ success: true, scheme: result[0] });
@@ -52,7 +52,7 @@ router.post("/admin/store/pms", requireAdmin, async (req, res) => {
       const updateSchema = insertPmsMasterSchema.partial();
       const validation = updateSchema.safeParse(rawData);
       if (!validation.success) {
-        return res.status(400).json({ error: "Invalid data", details: validation.error.errors });
+        return res.status(400).json({ error: "Invalid data", details: validation.error.issues });
       }
       await db
         .update(pmsMaster)
@@ -62,7 +62,7 @@ router.post("/admin/store/pms", requireAdmin, async (req, res) => {
     } else {
       const validation = insertPmsMasterSchema.safeParse(rawData);
       if (!validation.success) {
-        return res.status(400).json({ error: "Invalid data", details: validation.error.errors });
+        return res.status(400).json({ error: "Invalid data", details: validation.error.issues });
       }
       const result = await db.insert(pmsMaster).values(validation.data).returning();
       res.json({ success: true, scheme: result[0] });

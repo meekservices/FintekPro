@@ -207,7 +207,7 @@ router.get('/profitable-companies', requireMcaAccess('read'), async (req: Reques
       return res.status(400).json({
         success: false,
         error: 'Invalid filter parameters',
-        details: parsed.error.errors,
+        details: parsed.error.issues,
       });
     }
 

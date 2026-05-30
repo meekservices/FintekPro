@@ -65,7 +65,7 @@ const caRegistrationSchema = z.object({
   confirmPassword: z.string(),
   
   icaiMembershipNumber: z.string().min(5, 'ICAI membership number is required'),
-  membershipType: z.enum(['ACA', 'FCA'], { required_error: 'Select membership type' }),
+  membershipType: z.enum(['ACA', 'FCA'], { error: 'Select membership type' }),
   copNumber: z.string().optional(),
   qualificationYear: z.coerce.number().min(1970).max(new Date().getFullYear()),
   experienceYears: z.coerce.number().min(0).max(50),
@@ -93,7 +93,7 @@ const caRegistrationSchema = z.object({
   
   bio: z.string().max(500, 'Bio must be under 500 characters').optional(),
   
-  termsAccepted: z.literal(true, { errorMap: () => ({ message: 'You must accept the terms' }) }),
+  termsAccepted: z.literal(true, { error: "You must accept the terms" }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],

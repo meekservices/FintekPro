@@ -662,7 +662,7 @@ import { marketingService } from "../marketing-automation";
 import { objectStorageClient as objectStorage } from "../objectStorage";
 import { whatsappService } from "../whatsapp";
 import { portfolioIntelligence } from "../portfolio-intelligence";
-import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "../gemini";
+import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "../gemini-service";
 
 /**
  * GET /api/unlisted/admin/regulatory/reports

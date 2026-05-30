@@ -63,7 +63,7 @@ router.post("/aif/:id/express-interest", async (req, res) => {
     });
   } catch (error: any) {
     if (error.name === "ZodError") {
-      return res.status(400).json({ error: "Invalid data", details: error.errors });
+      return res.status(400).json({ error: "Invalid data", details: error.issues });
     }
     console.error("Error creating AIF inquiry:", error);
     res.status(500).json({ error: "Failed to submit inquiry" });
@@ -120,7 +120,7 @@ router.post("/pms/:id/express-interest", async (req, res) => {
     });
   } catch (error: any) {
     if (error.name === "ZodError") {
-      return res.status(400).json({ error: "Invalid data", details: error.errors });
+      return res.status(400).json({ error: "Invalid data", details: error.issues });
     }
     console.error("Error creating PMS inquiry:", error);
     res.status(500).json({ error: "Failed to submit inquiry" });

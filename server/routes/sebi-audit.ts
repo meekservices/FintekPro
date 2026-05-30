@@ -86,8 +86,8 @@ router.post("/log", async (req: Request, res: Response) => {
     const schema = z.object({
       actionType: z.string(),
       actionSummary: z.string(),
-      inputData: z.record(z.any()).optional(),
-      outputData: z.record(z.any()).optional(),
+      inputData: z.record(z.string(), z.any()).optional(),
+      outputData: z.record(z.string(), z.any()).optional(),
       rationale: z.string().optional(),
       templateId: z.string().optional(),
       riskDisclosure: z.string().optional(),

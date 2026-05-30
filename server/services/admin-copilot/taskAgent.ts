@@ -16,8 +16,8 @@ import {
   aiCrmLeadActions,
 } from '@shared/schema/admin-copilot';
 import { eq } from 'drizzle-orm';
-import { callGemini } from './geminiService';
-import { auditLog, logCopilotEvent } from './auditLogger';
+import { callGemini } from '../../gemini-service';
+import { auditLog, logCopilotEvent } from '../../logger';
 import { randomUUID } from 'crypto';
 
 type TaskSource = 'email' | 'crm' | 'desk' | 'meeting' | 'books' | 'admin_prompt' | 'manual';

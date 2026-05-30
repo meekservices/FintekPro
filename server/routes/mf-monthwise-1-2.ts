@@ -9,7 +9,7 @@ import { auditLogArchivalService } from "../services/audit-log-archival";
 import { marketingService } from "../marketing-automation";
 import { whatsappService } from "../whatsapp";
 import { portfolioIntelligence } from "../portfolio-intelligence";
-import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "../gemini";
+import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "../gemini-service";
 
 export function registerMFMonthwiPart1Part2Routes(app: Express): void {
   app.get("/api/iris/analytics/:userId", async (req, res) => {

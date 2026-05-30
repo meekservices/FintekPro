@@ -12,7 +12,7 @@ router.post("/", async (req: Request, res: Response) => {
     res.status(201).json(recommendation);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: "Validation error", details: error.errors });
+      res.status(400).json({ error: "Validation error", details: error.issues });
     } else {
       console.error("Error recording recommendation:", error);
       res.status(500).json({ error: "Failed to record recommendation" });

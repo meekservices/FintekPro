@@ -37,7 +37,7 @@ app.post("/api/partner-applications", async (req, res) => {
     if (!validation.isValid) {
       return res.status(400).json({ 
         error: "Application validation failed",
-        validationErrors: validation.errors 
+        validationErrors: validation.issues 
       });
     }
 
@@ -52,7 +52,7 @@ app.post("/api/partner-applications", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ 
         error: "Invalid application data", 
-        validationErrors: error.errors 
+        validationErrors: error.issues 
       });
     }
     res.status(500).json({ error: "Failed to create application" });
@@ -129,7 +129,7 @@ app.put("/api/partner-applications/:id", async (req, res) => {
       if (!validation.isValid) {
         return res.status(400).json({
           error: "Application validation failed",
-          validationErrors: validation.errors
+          validationErrors: validation.issues
         });
       }
     }

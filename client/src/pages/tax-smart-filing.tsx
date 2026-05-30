@@ -49,7 +49,7 @@ const sessionSchema = z.object({
 
 const optimizationResponseSchema = z.object({
   suggestionIds: z.array(z.string()),
-  responses: z.record(z.enum(["accepted", "rejected"]))
+  responses: z.record(z.string(), z.enum(["accepted", "rejected"]))
 });
 
 type SessionForm = z.infer<typeof sessionSchema>;

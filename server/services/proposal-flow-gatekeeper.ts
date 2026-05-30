@@ -183,7 +183,7 @@ export class ProposalFlowGatekeeper {
   ): Promise<{ success: boolean; nextPhase?: ProposalPhase; error?: string }> {
     const validation = await this.validatePhaseTransition(proposalId, phase);
     if (!validation.valid) {
-      return { success: false, error: validation.errors.join(', ') };
+      return { success: false, error: validation.issues.join(', ') };
     }
 
     const updates: Partial<InsertProposalFlowState> = {};
@@ -425,7 +425,7 @@ export function createPhaseValidationMiddleware(targetPhase: ProposalPhase) {
         error: 'PHASE_LOCKED',
         message: 'This phase is locked due to incomplete prerequisites',
         phase: targetPhase,
-        errors: validation.errors
+        errors: validation.issues
       });
     }
 

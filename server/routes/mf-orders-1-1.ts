@@ -82,7 +82,7 @@ router.post('/api/mf/folios', isAuthenticated, async (req: Request, res: Respons
   } catch (error) {
     console.error('[MF Orders] Error creating folio:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ error: 'Validation failed', details: error.issues });
     }
     res.status(500).json({ error: 'Failed to create folio' });
   }
@@ -156,7 +156,7 @@ router.post('/api/mf/bank-mandates', isAuthenticated, async (req: Request, res: 
   } catch (error) {
     console.error('[MF Orders] Error creating bank mandate:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ error: 'Validation failed', details: error.issues });
     }
     res.status(500).json({ error: 'Failed to create bank mandate' });
   }

@@ -122,7 +122,7 @@ router.post('/update', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Validation failed',
-        details: parsed.error.errors,
+        details: parsed.error.issues,
       });
     }
     
@@ -163,7 +163,7 @@ router.post('/import-bulk', async (req: Request, res: Response) => {
       if (parsed.success) {
         validatedData.push(parsed.data);
       } else {
-        validationErrors.push({ row: i + 1, error: parsed.error.errors[0]?.message || 'Validation error' });
+        validationErrors.push({ row: i + 1, error: parsed.error.issues[0]?.message || 'Validation error' });
       }
     }
     

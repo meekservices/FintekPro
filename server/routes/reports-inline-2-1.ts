@@ -198,7 +198,7 @@ export function registerReportsInline21Routes(app: Express): void {
     } catch (error) {
       console.error("Error creating watchlist:", error);
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: "Invalid watchlist data", details: error.errors });
+        res.status(400).json({ error: "Invalid watchlist data", details: error.issues });
       } else {
         res.status(500).json({ error: "Failed to create watchlist" });
       }

@@ -805,7 +805,7 @@ router.post("/mld/:id/express-interest", async (req, res): Promise<void> => {
     });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: "Invalid data", details: error.errors });
+      res.status(400).json({ error: "Invalid data", details: error.issues });
       return;
     }
     console.error("Error creating MLD inquiry:", error);

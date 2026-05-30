@@ -1233,6 +1233,7 @@ class ZohoTransactionSyncService {
       if (this.zohoService) {
         const invoiceData = {
           customer_name: customerName,
+          date: new Date().toISOString().split('T')[0],
           line_items: [{
             name: `ITR Self-Filing Fee - ${filing.itrFormType || "ITR-1"}`,
             description: `Assessment Year: ${filing.assessmentYear || "2024-25"}`,
@@ -1313,6 +1314,7 @@ class ZohoTransactionSyncService {
         // Create customer invoice for full CA-assisted fee
         const invoiceData = {
           customer_name: customerName,
+          date: new Date().toISOString().split('T')[0],
           line_items: [{
             name: `ITR CA-Assisted Filing - ${itrCase.itrFormType || "ITR-1"}`,
             description: `Assessment Year: ${itrCase.assessmentYear || "2024-25"}, Case ID: ${caseId}`,
@@ -1333,6 +1335,7 @@ class ZohoTransactionSyncService {
         // Create bill for CA revenue share
         const billData = {
           vendor_name: vendorName,
+          date: new Date().toISOString().split('T')[0],
           line_items: [{
             name: `CA Revenue Share - ITR ${itrCase.itrFormType || "ITR-1"}`,
             description: `Case: ${caseId}, Client: ${customerName}, Share: ${caRevenueSharePercent}%`,

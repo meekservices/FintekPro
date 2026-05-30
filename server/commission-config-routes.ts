@@ -260,7 +260,7 @@ router.post("/commission-plan", requireCommissionPermission('canCreate'), async 
     
     const validation = createCommissionPlanSchema.safeParse(req.body);
     if (!validation.success) {
-      return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      return res.status(400).json({ error: "Validation failed", details: validation.error.issues });
     }
     
     const data = validation.data;
@@ -391,7 +391,7 @@ router.put("/commission-plan/:id", requireCommissionPermission('canEdit'), async
     
     const validation = createCommissionPlanSchema.safeParse(req.body);
     if (!validation.success) {
-      return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      return res.status(400).json({ error: "Validation failed", details: validation.error.issues });
     }
     
     const data = validation.data;

@@ -210,7 +210,7 @@ router.post('/query', requireMcaAccess('query'), async (req: Request, res: Respo
       return res.status(400).json({
         success: false,
         error: 'Invalid query parameters',
-        details: parsed.error.errors,
+        details: parsed.error.issues,
       });
     }
 
@@ -260,7 +260,7 @@ router.post('/ingest', requireMcaAccess('ingest'), async (req: Request, res: Res
       return res.status(400).json({
         success: false,
         error: 'Invalid ingestion parameters',
-        details: parsed.error.errors,
+        details: parsed.error.issues,
       });
     }
 
@@ -345,7 +345,7 @@ router.post('/ingest-company', requireMcaAccess('ingest'), async (req: Request, 
       return res.status(400).json({
         success: false,
         error: 'Invalid company data',
-        details: parsed.error.errors,
+        details: parsed.error.issues,
       });
     }
 
@@ -419,7 +419,7 @@ router.post('/ingest-financials', requireMcaAccess('ingest'), async (req: Reques
       return res.status(400).json({
         success: false,
         error: 'Invalid financial data',
-        details: parsed.error.errors,
+        details: parsed.error.issues,
       });
     }
 
@@ -505,7 +505,7 @@ router.post('/ingest-bulk', requireMcaAccess('ingest'), async (req: Request, res
       return res.status(400).json({
         success: false,
         error: 'Invalid bulk data',
-        details: parsed.error.errors,
+        details: parsed.error.issues,
       });
     }
 

@@ -197,7 +197,7 @@ export function registerAgentCapitalGainPart2Part1Routes(app: Express): void {
     } catch (error: any) {
       console.error("Error creating client:", error);
       if (error.name === 'ZodError') {
-        return res.status(400).json({ error: error.errors[0]?.message || "Validation failed" });
+        return res.status(400).json({ error: error.issues[0]?.message || "Validation failed" });
       }
       res.status(500).json({ error: "Failed to create client" });
     }

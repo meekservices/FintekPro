@@ -37,7 +37,7 @@ process.on('uncaughtException', (err) => {
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('❌ [FATAL] Unhandled Rejection', new Error(String(reason)), { promise: String(promise) });
+  logger.error('❌ [FATAL] Unhandled Rejection', { promise: String(promise) }, new Error(String(reason)));
 });
 
 // ============================================================================
@@ -122,7 +122,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
       logger.info('✅ Database connection established');
     } catch (dbErr) {
       // Log DB failure but do NOT crash — server is already listening
-      logger.error('❌ Database connection failed:', dbErr);
+      logger.error('❌ Database connection failed:', dbErr instanceof Error ? dbErr : new Error(String(dbErr)));
       bootState.error = `DB Connection Error: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`;
       // Continue booting so Cloud Run keeps the instance alive
     }
@@ -350,6 +350,11 @@ import('./routes/compliance'),
     logBootProgress("Step 9: Registering IRIS KFintech Routes...");
     const { registerIrisKfintechRoutes } = await import('./routes/iris-kfintech-routes');
     registerIrisKfintechRoutes(app);
+
+    // IRIS LAS/LAMF — Loan Against Securities & Mutual Funds
+    const { registerIrisLasRoutes } = await import('./routes/iris-las-routes');
+    registerIrisLasRoutes(app);
+
 
     // ── FINALIZATION ─────────────────────────────────────────────────────────
 

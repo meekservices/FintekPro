@@ -6442,7 +6442,7 @@ export const errorIngestionSchema = z.object({
     requestId: z.string().optional(),
     url: z.string().optional(),
     userAgent: z.string().optional(),
-    metadata: z.record(z.any()).optional(),
+    metadata: z.record(z.string(), z.any()).optional(),
   }),
   sentryEventId: z.string().optional(),
   buildVersion: z.string().optional(),
@@ -11071,3 +11071,73 @@ export const insertAdminSettingsSchema = createInsertSchema(adminSettings).omit(
 export const insertAdminApprovalRequestSchema = createInsertSchema(adminApprovalRequests).omit({ id: true, createdAt: true, updatedAt: true });
 export type AdminApprovalRequest = typeof adminApprovalRequests.$inferSelect;
 export type InsertAdminApprovalRequest = z.infer<typeof insertAdminApprovalRequestSchema>;
+
+// ─── IRIS Loan Against Securities / Mutual Funds (LAS/LAMF) ─────────────────
+
+/**
+ * Tracks MF folio and demat securities pledges initiated via IRIS KFintech API.
+ * Created on pledge initiation, updated through its lifecycle.
+ */
+export const irisLasPledges = pgTable("iris_las_pledges", {
+  id: varchar("id", { length: 36 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: varchar("user_id", { length: 36 }).notNull(),
+  pan: varchar("pan", { length: 10 }).notNull(),
+  pledgeType: varchar("pledge_type", { length: 20 }).notNull(), // 'mutual_fund' | 'securities'
+  irisPledgeId: varchar("iris_pledge_id", { length: 100 }), // IRIS-assigned pledge reference
+  pledgeStatus: varchar("pledge_status", { length: 30 }).notNull().default("pending"),
+  // 'pending' | 'initiated' | 'active' | 'released' | 'failed'
+  folioDetails: jsonb("folio_details"), // Array of { folioNo, schemeCode, units, currentNav, pledgedValue }
+  securitiesDetails: jsonb("securities_details"), // Array of { isin, symbol, quantity, currentPrice, pledgedValue }
+  totalPledgedValue: decimal("total_pledged_value", { precision: 18, scale: 2 }),
+  maxLoanEligible: decimal("max_loan_eligible", { precision: 18, scale: 2 }),
+  loanToValueRatio: decimal("loan_to_value_ratio", { precision: 5, scale: 2 }), // e.g. 0.60 = 60%
+  irisResponse: jsonb("iris_response"), // Raw IRIS API response (for audit)
+  agentId: varchar("agent_id", { length: 36 }),
+  source: varchar("source", { length: 20 }).notNull().default("api"), // 'api' | 'agent' | 'system'
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertIrisLasPledgeSchema = createInsertSchema(irisLasPledges).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type IrisLasPledge = typeof irisLasPledges.$inferSelect;
+export type InsertIrisLasPledge = typeof irisLasPledges.$inferInsert;
+
+/**
+ * Tracks LAS/LAMF loan applications and disbursements via IRIS KFintech API.
+ * Each loan is linked to a pledge in irisLasPledges.
+ */
+export const irisLasLoans = pgTable("iris_las_loans", {
+  id: varchar("id", { length: 36 }).primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: varchar("user_id", { length: 36 }).notNull(),
+  pan: varchar("pan", { length: 10 }).notNull(),
+  pledgeId: varchar("pledge_id", { length: 36 }), // FK → irisLasPledges.id (local)
+  irisPledgeId: varchar("iris_pledge_id", { length: 100 }), // IRIS pledge reference
+  irisLoanId: varchar("iris_loan_id", { length: 100 }), // IRIS-assigned loan ID
+  loanType: varchar("loan_type", { length: 30 }).notNull(), // 'against_mutual_funds' | 'against_securities'
+  loanStatus: varchar("loan_status", { length: 30 }).notNull().default("applied"),
+  // 'applied' | 'under_review' | 'sanctioned' | 'disbursed' | 'active' | 'closed' | 'rejected'
+  requestedAmount: decimal("requested_amount", { precision: 18, scale: 2 }).notNull(),
+  sanctionedAmount: decimal("sanctioned_amount", { precision: 18, scale: 2 }),
+  disbursedAmount: decimal("disbursed_amount", { precision: 18, scale: 2 }),
+  outstandingAmount: decimal("outstanding_amount", { precision: 18, scale: 2 }),
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }), // Annual % e.g. 10.50
+  tenure: integer("tenure"), // In months
+  processingFee: decimal("processing_fee", { precision: 10, scale: 2 }),
+  disbursementDate: timestamp("disbursement_date"),
+  maturityDate: timestamp("maturity_date"),
+  irisResponse: jsonb("iris_response"), // Raw IRIS API responses (audit trail)
+  agentId: varchar("agent_id", { length: 36 }),
+  engineVersion: varchar("engine_version", { length: 20 }).notNull().default("iris-las-v1"),
+  calculationTimestamp: timestamp("calculation_timestamp").defaultNow(),
+  source: varchar("source", { length: 20 }).notNull().default("api"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertIrisLasLoanSchema = createInsertSchema(irisLasLoans).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type IrisLasLoan = typeof irisLasLoans.$inferSelect;
+export type InsertIrisLasLoan = typeof irisLasLoans.$inferInsert;

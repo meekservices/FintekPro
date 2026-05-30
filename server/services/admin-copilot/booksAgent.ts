@@ -25,8 +25,8 @@ import {
 }                               from '@shared/schema/admin-copilot';
 import { eq }                   from 'drizzle-orm';
 import { ZohoBooksService }     from '../../zoho/services/books';
-import { callGemini }           from './geminiService';
-import { auditLog }             from './auditLogger';
+import { callGemini }           from '../../gemini-service';
+import { auditLog }             from '../../logger';
 
 // ── Resolve org ID from any of the 3 known env var names ──────────────────────
 function getBooksOrgId(): string {

@@ -12,8 +12,8 @@
 
 import { db } from '../../db';
 import { aiProposalDrafts } from '@shared/schema/admin-copilot';
-import { callGemini } from './geminiService';
-import { auditLog, logCopilotEvent } from './auditLogger';
+import { callGemini } from '../../gemini-service';
+import { auditLog, logCopilotEvent } from '../../logger';
 import { randomUUID } from 'crypto';
 
 export type ProductType =

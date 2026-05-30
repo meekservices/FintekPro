@@ -107,8 +107,8 @@ const PdfConfigSchema = z.object({
 
 const OverrideLogSchema = z.object({
   eventType: z.string(),
-  payloadBefore: z.record(z.any()).optional(),
-  payloadAfter: z.record(z.any()).optional(),
+  payloadBefore: z.record(z.string(), z.any()).optional(),
+  payloadAfter: z.record(z.string(), z.any()).optional(),
   actorId: z.string(),
   actorRole: z.enum(['agent', 'admin', 'compliance']),
   reason: z.string().min(1, 'Override reason is required'),
@@ -116,8 +116,8 @@ const OverrideLogSchema = z.object({
 });
 
 const BenchmarkOverrideSchema = z.object({
-  before: z.record(z.any()),
-  after: z.record(z.any()),
+  before: z.record(z.string(), z.any()),
+  after: z.record(z.string(), z.any()),
   actorId: z.string(),
   reason: z.string().min(1, 'Override reason is required'),
 });

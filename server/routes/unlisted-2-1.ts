@@ -264,7 +264,7 @@ router.post('/moneycontrol/add-company', requireAdmin, async (req: Request, res:
     console.error('Error adding company from MoneyControl:', error);
     
     if (error instanceof z.ZodError) {
-      return apiResponse.badRequest(res, 'Invalid input data', error.errors);
+      return apiResponse.badRequest(res, 'Invalid input data', error.issues);
     }
     
     return apiResponse.serverError(res, `Failed to add company: ${error.message}`);
@@ -522,7 +522,7 @@ router.post('/listings', requireLevel2, async (req: Request, res: Response) => {
     console.error('Error creating sell listing:', error);
     
     if (error instanceof z.ZodError) {
-      return apiResponse.badRequest(res, 'Invalid input data', error.errors);
+      return apiResponse.badRequest(res, 'Invalid input data', error.issues);
     }
     
     return apiResponse.serverError(res, 'Failed to create sell listing');

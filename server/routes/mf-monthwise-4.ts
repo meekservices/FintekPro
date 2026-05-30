@@ -4,7 +4,7 @@ import { storage } from '../storage';
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, desc, sql, and, or } from 'drizzle-orm';
-import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "../gemini";
+import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "../gemini-service";
 import { marketStoryService, type MarketData as StoryMarketData } from "../market-story-service";
 import { auditLogArchivalService } from "../services/audit-log-archival";
 import { objectStorageClient as objectStorage } from "../objectStorage";

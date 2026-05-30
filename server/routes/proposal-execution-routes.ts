@@ -31,7 +31,7 @@ router.post('/proposal/create', async (req: Request, res: Response) => {
     res.json({ success: true, data: proposal });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: 'Validation error', details: error.errors });
+      res.status(400).json({ success: false, error: 'Validation error', details: error.issues });
     } else {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -117,7 +117,7 @@ router.post('/cart/add', async (req: Request, res: Response) => {
     res.json({ success: true, data: cart });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: 'Validation error', details: error.errors });
+      res.status(400).json({ success: false, error: 'Validation error', details: error.issues });
     } else {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -186,7 +186,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
     res.json({ success: true, data: order });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: 'Validation error', details: error.errors });
+      res.status(400).json({ success: false, error: 'Validation error', details: error.issues });
     } else {
       res.status(400).json({ success: false, error: error.message });
     }
@@ -203,7 +203,7 @@ router.post('/order/approve', async (req: Request, res: Response) => {
     res.json({ success: true, data: order });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: 'Validation error', details: error.errors });
+      res.status(400).json({ success: false, error: 'Validation error', details: error.issues });
     } else {
       res.status(400).json({ success: false, error: error.message });
     }

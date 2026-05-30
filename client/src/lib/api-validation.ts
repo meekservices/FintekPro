@@ -132,7 +132,7 @@ export function validateApiResponse<T>(
   data: unknown,
   schema: z.ZodSchema<T>,
   fallback: T
-): { data: T; isValid: boolean; errors?: z.ZodError['errors'] } {
+): { data: T; isValid: boolean; errors?: z.ZodError['issues'] } {
   const result = schema.safeParse(data);
   
   if (result.success) {
@@ -140,13 +140,13 @@ export function validateApiResponse<T>(
   }
   
   if (import.meta.env.DEV) {
-    console.warn('[API Validation] Schema validation failed:', result.error.errors);
+    console.warn('[API Validation] Schema validation failed:', result.error.issues);
   }
   
   return { 
     data: fallback, 
     isValid: false, 
-    errors: result.error.errors 
+    errors: result.error.issues 
   };
 }
 
@@ -157,7 +157,7 @@ export function createSafeArrayValidator<T>(schema: z.ZodSchema<T>) {
     return data.filter(item => {
       const result = schema.safeParse(item);
       if (!result.success && import.meta.env.DEV) {
-        console.warn('[API Validation] Skipping invalid item:', result.error.errors);
+        console.warn('[API Validation] Skipping invalid item:', result.error.issues);
       }
       return result.success;
     }).map(item => schema.parse(item));

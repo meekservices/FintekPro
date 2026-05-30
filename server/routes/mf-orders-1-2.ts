@@ -438,7 +438,7 @@ router.post('/api/mf-orders', isAuthenticated, async (req: Request, res: Respons
   } catch (error) {
     console.error('[MF Orders] Error creating order:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ error: 'Validation failed', details: error.issues });
     }
     res.status(500).json({ error: 'Failed to create order' });
   }
@@ -680,7 +680,7 @@ router.patch('/api/mf-orders/:id/status', isAuthenticated, async (req: Request, 
   } catch (error) {
     console.error('[MF Orders] Error updating order status:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ error: 'Validation failed', details: error.issues });
     }
     res.status(500).json({ error: 'Failed to update order status' });
   }

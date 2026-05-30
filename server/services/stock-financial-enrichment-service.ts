@@ -7,7 +7,7 @@
 
 import axios from 'axios';
 import { db } from '../db';
-import { getProductionDb, hasProductionDb } from '../db-production';
+import { getProductionDb, hasProductionDb } from '../db';
 import { listedStocks } from '@shared/schema';
 import { eq, sql, isNull, or, and, desc, asc } from 'drizzle-orm';
 

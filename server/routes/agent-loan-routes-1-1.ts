@@ -221,6 +221,33 @@ router.post("/applications", async (req: Request, res: Response) => {
       });
     }
 
+    // ─── IRIS LAS/LAMF Intercept ──────────────────────────────────────────────
+    // Loan Against Securities (las) and Loan Against Mutual Funds are powered by
+    // IRIS KFintech. When the loan type is 'las', we:
+    //   1. Check IRIS MF eligibility if a PAN is provided (non-blocking)
+    //   2. Return IRIS eligibility data + a redirect prompt to /api/iris/las/*
+    //   3. Also create a DSA record for CRM / tracking purposes
+    //
+    // Agents use /api/iris/las/mf/pledge and /api/iris/las/loan/apply for
+    // the actual pledge + loan flow.
+    const isIrisLoanType = parsed.loanType === "las";
+
+    let irisEligibility: any = null;
+    if (isIrisLoanType && parsed.applicantPan) {
+      try {
+        const { irisLasService } = await import("../services/iris-las-service");
+        // Run eligibility check in parallel (non-blocking — failure doesn't block DSA record)
+        irisEligibility = await Promise.race([
+          irisLasService.checkMfEligibility(parsed.applicantPan),
+          new Promise((resolve) => setTimeout(() => resolve({ success: false, warning: "Eligibility check timed out" }), 8000)),
+        ]);
+      } catch (_) {
+        // IRIS eligibility failure is non-blocking
+        irisEligibility = { success: false, warning: "IRIS eligibility check unavailable" };
+      }
+    }
+    // ─── End IRIS Intercept ───────────────────────────────────────────────────
+
     const applicationNumber = generateApplicationNumber();
 
     let leadRegistryId: string | undefined;
@@ -229,7 +256,7 @@ router.post("/applications", async (req: Request, res: Response) => {
         const loanTypeMap: Record<string, string> = {
           personal: "Personal Loan", home: "Home Loan", car: "Car Loan",
           business: "Business Loan", education: "Education Loan",
-          gold: "Gold Loan", lap: "Loan Against Property", las: "Loan Against Securities",
+          gold: "Gold Loan", lap: "Loan Against Property", las: "Loan Against Securities (IRIS)",
         };
         const leadResult = await leadRegistryService.registerLead({
           pan: parsed.applicantPan,
@@ -328,8 +355,8 @@ router.post("/applications", async (req: Request, res: Response) => {
       applicationId: application.id,
       agentId,
       actionType: "create",
-      actionDescription: `Created loan application for ${parsed.applicantName} (${parsed.processingMode})`,
-      newValue: { loanType: parsed.loanType, amount: parsed.requestedAmount, clientMode: parsed.clientMode, processingMode: parsed.processingMode },
+      actionDescription: `Created loan application for ${parsed.applicantName} (${parsed.processingMode})${isIrisLoanType ? ' [IRIS LAS]' : ''}`,
+      newValue: { loanType: parsed.loanType, amount: parsed.requestedAmount, clientMode: parsed.clientMode, processingMode: parsed.processingMode, irisRouted: isIrisLoanType },
       req,
     });
 
@@ -401,10 +428,21 @@ router.post("/applications", async (req: Request, res: Response) => {
       leadRegistryId,
       zohoLeadId,
       message: `Loan lead ${parsed.processingMode === "EXTERNAL_FINANCIER" ? "(bank-processed)" : "(agent-processed)"} created successfully`,
+      // IRIS LAS/LAMF: include eligibility data and next-step guidance
+      ...(isIrisLoanType && {
+        irisEligibility,
+        irisNextSteps: {
+          checkMfEligibility: `GET /api/iris/las/mf/eligibility/${parsed.applicantPan ?? ':pan'}`,
+          checkSecuritiesEligibility: `GET /api/iris/las/securities/eligibility/${parsed.applicantPan ?? ':pan'}`,
+          initiatePledge: "POST /api/iris/las/mf/pledge",
+          applyForLoan: "POST /api/iris/las/loan/apply",
+          disclaimer: "Loan Against Securities requires pledge of MF folios or demat securities via IRIS KFintech. Use the IRIS LAS endpoints to complete the pledge and loan application.",
+        },
+      }),
     });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: "Validation failed", details: error.errors });
+      res.status(400).json({ success: false, error: "Validation failed", details: error.issues });
     } else {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -571,7 +609,7 @@ router.post("/applications/:id/status", async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: "Validation failed", details: error.errors });
+      res.status(400).json({ success: false, error: "Validation failed", details: error.issues });
     } else {
       res.status(500).json({ success: false, error: error.message });
     }

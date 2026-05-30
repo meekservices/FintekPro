@@ -37,7 +37,7 @@ router.post("/optimize", async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: "Validation failed",
-        details: error.errors
+        details: error.issues
       });
     }
     console.error("Optimization error:", error);
@@ -106,7 +106,7 @@ router.post("/efficient-frontier", async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: "Validation failed",
-        details: error.errors
+        details: error.issues
       });
     }
     console.error("Efficient frontier error:", error);
@@ -147,7 +147,7 @@ router.post("/rebalance", async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: "Validation failed",
-        details: error.errors
+        details: error.issues
       });
     }
     console.error("Rebalancing error:", error);
@@ -299,7 +299,7 @@ router.post("/rebalance/analyze", async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: "Validation failed",
-        details: error.errors
+        details: error.issues
       });
     }
     console.error("Rebalancing analysis error:", error);
@@ -334,7 +334,7 @@ router.post("/rebalance/simulate", async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: "Validation failed",
-        details: error.errors
+        details: error.issues
       });
     }
     console.error("Rebalancing simulation error:", error);

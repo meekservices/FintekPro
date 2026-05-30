@@ -13,8 +13,8 @@ import axios from 'axios';
 import { db } from '../../db';
 import { aiEmailClassifications } from '@shared/schema/admin-copilot';
 import { ZohoOAuthService } from '../../zoho/oauth';
-import { callGemini } from './geminiService';
-import { auditLog, logCopilotEvent } from './auditLogger';
+import { callGemini } from '../../gemini-service';
+import { auditLog, logCopilotEvent } from '../../logger';
 import { randomUUID } from 'crypto';
 
 const zohoOAuth = new ZohoOAuthService();

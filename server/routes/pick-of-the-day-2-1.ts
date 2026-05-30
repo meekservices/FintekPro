@@ -258,7 +258,7 @@ router.post("/watchlist/add", requireAuth, async (req, res) => {
   try {
     const parseResult = watchlistAddSchema.safeParse(req.body);
     if (!parseResult.success) {
-      return res.status(400).json({ success: false, error: "Invalid request", details: parseResult.error.errors });
+      return res.status(400).json({ success: false, error: "Invalid request", details: parseResult.error.issues });
     }
     
     const userId = (req as any).user.id;
@@ -327,7 +327,7 @@ router.patch("/watchlist/:pickId/alert", requireAuth, async (req, res) => {
     
     const parseResult = alertUpdateSchema.safeParse(req.body);
     if (!parseResult.success) {
-      return res.status(400).json({ success: false, error: "Invalid request", details: parseResult.error.errors });
+      return res.status(400).json({ success: false, error: "Invalid request", details: parseResult.error.issues });
     }
     
     const { priceAlertEnabled, alertThreshold, alertType } = parseResult.data;

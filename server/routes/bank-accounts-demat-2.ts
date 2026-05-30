@@ -139,7 +139,7 @@ app.post("/api/product-account-preferences", async (req, res) => {
   } catch (error: any) {
     console.error("Error creating product account preference:", error);
     if (error.name === "ZodError") {
-      return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      return res.status(400).json({ error: "Invalid request data", details: error.issues });
     }
     res.status(500).json({ error: "Failed to create product account preference" });
   }
@@ -178,7 +178,7 @@ app.put("/api/product-account-preferences/:id", async (req, res) => {
   } catch (error: any) {
     console.error("Error updating product account preference:", error);
     if (error.name === "ZodError") {
-      return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      return res.status(400).json({ error: "Invalid request data", details: error.issues });
     }
     res.status(500).json({ error: "Failed to update product account preference" });
   }
@@ -263,7 +263,7 @@ app.post("/api/product-accounts/:productType/validate", async (req, res) => {
   } catch (error: any) {
     console.error("Error validating product accounts:", error);
     if (error.name === "ZodError") {
-      return res.status(400).json({ error: "Invalid request data", details: error.errors });
+      return res.status(400).json({ error: "Invalid request data", details: error.issues });
     }
     res.status(500).json({ error: "Failed to validate product accounts" });
   }

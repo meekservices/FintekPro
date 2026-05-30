@@ -214,7 +214,7 @@ class PartnerService {
   }
 
   async createPartner(partnerData: InsertPartner): Promise<Partner> {
-    const id = randomUUID();
+    const id = randomUUID() as string;
     const partner: Partner = {
       ...partnerData,
       id,
@@ -254,7 +254,7 @@ class PartnerService {
   }
 
   async createProduct(productData: InsertProduct): Promise<Product> {
-    const id = randomUUID();
+    const id = randomUUID() as string;
     const product: Product = {
       ...productData,
       id,

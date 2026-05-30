@@ -105,7 +105,7 @@ router.post('/workflows', async (req: Request, res: Response) => {
 
     const parsed = createWorkflowSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+      return res.status(400).json({ error: 'Invalid request', details: parsed.error.issues });
     }
 
     const workflow = await proposalEsignWorkflowService.createWorkflow({
@@ -227,7 +227,7 @@ router.post('/workflows/:workflowId/participants', async (req: Request, res: Res
     const parsed = addParticipantSchema.safeParse(req.body);
     
     if (!parsed.success) {
-      return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+      return res.status(400).json({ error: 'Invalid request', details: parsed.error.issues });
     }
 
     const participant = await proposalEsignWorkflowService.addParticipant({
@@ -274,7 +274,7 @@ router.post('/workflows/:workflowId/versions', async (req: Request, res: Respons
     const parsed = createVersionSchema.safeParse(req.body);
     
     if (!parsed.success) {
-      return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+      return res.status(400).json({ error: 'Invalid request', details: parsed.error.issues });
     }
 
     const version = await proposalEsignWorkflowService.createVersion({
@@ -318,7 +318,7 @@ router.post('/workflows/:workflowId/edits', async (req: Request, res: Response) 
     const parsed = fieldEditSchema.safeParse(req.body);
     
     if (!parsed.success) {
-      return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+      return res.status(400).json({ error: 'Invalid request', details: parsed.error.issues });
     }
 
     await proposalEsignWorkflowService.recordFieldEdit(workflowId, {
@@ -432,7 +432,7 @@ router.post('/workflows/:workflowId/comments', async (req: Request, res: Respons
     const parsed = addCommentSchema.safeParse(req.body);
     
     if (!parsed.success) {
-      return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+      return res.status(400).json({ error: 'Invalid request', details: parsed.error.issues });
     }
 
     await proposalEsignWorkflowService.addComment(workflowId, {

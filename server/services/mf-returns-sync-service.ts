@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { getProductionDb, hasProductionDb } from '../db-production';
+import { getProductionDb, hasProductionDb } from '../db';
 import { mutualFunds, historicalNavData } from "@shared/schema";
 import { eq, and, sql, desc, isNull, or, lt } from "drizzle-orm";
 import axios from "axios";

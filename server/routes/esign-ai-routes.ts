@@ -54,7 +54,7 @@ router.post('/analyze', requireAuth, async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[eSign AI Routes] Analyze error:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ success: false, error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ success: false, error: 'Validation failed', details: error.issues });
     }
     res.status(500).json({ success: false, error: (error as Error).message });
   }
@@ -114,7 +114,7 @@ router.post('/annotations/:annotationId/replies', requireAuth, async (req: Reque
   } catch (error) {
     console.error('[eSign AI Routes] Add reply error:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ success: false, error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ success: false, error: 'Validation failed', details: error.issues });
     }
     res.status(500).json({ success: false, error: (error as Error).message });
   }
@@ -140,7 +140,7 @@ router.patch('/annotations/:annotationId/status', requireAuth, async (req: Reque
   } catch (error) {
     console.error('[eSign AI Routes] Update status error:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ success: false, error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ success: false, error: 'Validation failed', details: error.issues });
     }
     res.status(500).json({ success: false, error: (error as Error).message });
   }
@@ -188,7 +188,7 @@ router.post('/annotations/manual', requireAuth, async (req: Request, res: Respon
   } catch (error) {
     console.error('[eSign AI Routes] Add manual annotation error:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ success: false, error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ success: false, error: 'Validation failed', details: error.issues });
     }
     res.status(500).json({ success: false, error: (error as Error).message });
   }

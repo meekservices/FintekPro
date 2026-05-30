@@ -4,7 +4,7 @@ import { ComplianceValidator } from "./validators/compliance-validator";
 import { FinancialValidator } from "./validators/financial-validator";
 import { RiskValidator } from "./validators/risk-validator";
 import { ExplainabilityValidator } from "./validators/explainability-validator";
-import { aiGovernanceAuditLogger } from "./audit-logger";
+import { aiGovernanceAuditLogger } from "../../logger";
 
 export class AIGovernanceDecisionEngine {
   private validators = [

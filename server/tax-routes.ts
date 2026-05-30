@@ -643,7 +643,7 @@ router.post("/itr/calculate", async (req: Request, res: Response) => {
         success: false,
         error: "VALIDATION_FAILED",
         message: "Invalid input data",
-        details: validation.error.errors
+        details: validation.error.issues
       });
     }
 
@@ -858,7 +858,7 @@ router.post("/itr/draft", async (req: Request, res: Response) => {
     if (!validation.success) {
       return res.status(400).json({ 
         error: "Validation failed", 
-        details: validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+        details: validation.error.issues.map(e => `${e.path.join('.')}: ${e.message}`)
       });
     }
     
@@ -1135,7 +1135,7 @@ router.post("/expert-cases", async (req: Request, res: Response) => {
     if (!validationResult.success) {
       return res.status(400).json({ 
         error: "Validation failed", 
-        details: validationResult.error.errors 
+        details: validationResult.error.issues 
       });
     }
     
@@ -1236,7 +1236,7 @@ router.patch("/expert-cases/:id", async (req: Request, res: Response) => {
     if (!validationResult.success) {
       return res.status(400).json({ 
         error: "Validation failed", 
-        details: validationResult.error.errors 
+        details: validationResult.error.issues 
       });
     }
     
@@ -1771,7 +1771,7 @@ router.post("/itr/regime-compare", async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: "VALIDATION_FAILED",
-        details: validation.error.errors
+        details: validation.error.issues
       });
     }
 
@@ -2445,7 +2445,7 @@ router.post("/capital-gains/manual", requireTaxAuth, async (req: Request, res: R
     const validation = manualCgEntrySchema.safeParse(req.body);
 
     if (!validation.success) {
-      return res.status(400).json({ error: "Validation failed", details: validation.error.errors });
+      return res.status(400).json({ error: "Validation failed", details: validation.error.issues });
     }
 
     const { assessmentYear, assetType, entries } = validation.data;

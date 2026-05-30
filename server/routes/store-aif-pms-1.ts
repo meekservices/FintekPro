@@ -148,7 +148,7 @@ router.patch("/aif/:id/publish", requireAdmin, async (req, res) => {
     const validation = schema.safeParse(req.body);
     
     if (!validation.success) {
-      return res.status(400).json({ error: "Invalid request", details: validation.error.errors });
+      return res.status(400).json({ error: "Invalid request", details: validation.error.issues });
     }
     
     await db
@@ -324,7 +324,7 @@ router.patch("/pms/:id/publish", requireAdmin, async (req, res) => {
     const validation = schema.safeParse(req.body);
     
     if (!validation.success) {
-      return res.status(400).json({ error: "Invalid request", details: validation.error.errors });
+      return res.status(400).json({ error: "Invalid request", details: validation.error.issues });
     }
     
     await db
@@ -433,7 +433,7 @@ router.post("/admin/store/publish", requireAdmin, async (req, res) => {
     
     const validation = schema.safeParse(req.body);
     if (!validation.success) {
-      return res.status(400).json({ error: "Invalid request", details: validation.error.errors });
+      return res.status(400).json({ error: "Invalid request", details: validation.error.issues });
     }
     
     const { fundType, fundId, publish } = validation.data;

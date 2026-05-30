@@ -317,7 +317,7 @@ router.patch("/documents/:documentId/visibility", async (req: Request, res: Resp
     res.json({ success: true, data: updated });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: "Validation failed", details: error.errors });
+      res.status(400).json({ success: false, error: "Validation failed", details: error.issues });
     } else {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -389,7 +389,7 @@ router.post("/documents", async (req: Request, res: Response) => {
     res.status(201).json({ success: true, data: document });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: "Validation failed", details: error.errors });
+      res.status(400).json({ success: false, error: "Validation failed", details: error.issues });
     } else {
       res.status(500).json({ success: false, error: error.message });
     }

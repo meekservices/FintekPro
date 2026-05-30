@@ -6,7 +6,7 @@
  */
 
 import { db } from '../db';
-import { getProductionDb, hasProductionDb } from '../db-production';
+import { getProductionDb, hasProductionDb } from '../db';
 import { sql } from 'drizzle-orm';
 
 interface SchedulerStatus {

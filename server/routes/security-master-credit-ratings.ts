@@ -8,7 +8,7 @@ import { alpacaSseService } from '../services/alpaca-sse-service';
 import { symbolMappingService } from '../services/symbol-mapping-service';
 import { storage } from '../storage';
 
-const insertSymbolMappingSchema = z.record(z.any());
+const insertSymbolMappingSchema = z.record(z.string(), z.any());
 
 export function registerSecurityMasterCreditRatingRoutes(app: Express): void {
 // GET /api/marketdata/security/search?q= — MUST come before /:isin to prevent route shadowing
@@ -92,7 +92,7 @@ app.post("/api/marketdata/symbol-map", async (req, res) => {
     res.status(201).json(newMapping);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ message: "Validation failed", errors: error.errors });
+      return res.status(400).json({ message: "Validation failed", errors: error.issues });
     }
     console.error("[SymbolMapping] Add error:", error.message);
     res.status(500).json({ message: "Internal server error adding symbol mapping" });
@@ -243,7 +243,7 @@ app.post("/api/marketdata/credit-rating", async (req, res) => {
     res.status(201).json(newRating);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ message: "Validation failed", errors: error.errors });
+      return res.status(400).json({ message: "Validation failed", errors: error.issues });
     }
     console.error("Error upserting credit rating:", error);
     res.status(500).json({ message: "Internal server error" });

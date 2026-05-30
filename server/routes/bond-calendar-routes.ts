@@ -138,7 +138,7 @@ router.post("/events", async (req, res) => {
       return res.status(400).json({
         success: false,
         error: "Validation failed",
-        details: error.errors,
+        details: error.issues,
       });
     }
     console.error("Error creating event:", error);

@@ -12,6 +12,113 @@
  * string reaches Cloud Logging.
  */
 
+import { db } from "./db";
+import { aiGovernanceAuditLogs } from "../shared/schema/ai";
+import { aiAuditLogs } from "../shared/schema/admin-copilot";
+import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
+import { GovernanceInput, GovernanceOutput } from "./services/ai-governance/types";
+
+export interface AuditEntry {
+  userId?:           string;
+  userRole?:         string;
+  agentType:         string;
+  agentAction:       string;
+  entityId?:         string;
+  entityType?:       string;
+  inputContext?:     Record<string, unknown>;
+  outputSummary?:    string;
+  confidenceScore?:  number;
+  modelVersion?:     string;
+  approvalStatus?:   string;
+  approvingAdmin?:   string;
+  externalApiCalled?: boolean;
+  externalService?:  string;
+  externalCallStatus?: string;
+  externalCallMs?:   number;
+  latencyMs?:        number;
+  status?:           string;
+  errorCode?:        string;
+  errorMessage?:     string;
+  retryable?:        boolean;
+  source?:           string;
+}
+
+export class AIGovernanceAuditLogger {
+  async logGovernanceDecision(
+    input: GovernanceInput, 
+    output: GovernanceOutput,
+    traceId?: string
+  ): Promise<string> {
+    const auditId = uuidv4();
+    
+    // We do not await this insertion, it fires in the background (fire-and-forget) to minimize latency overhead < 300ms
+    db.insert(aiGovernanceAuditLogs)
+      .values({
+        auditId,
+        userId: input.user_id,
+        inputQuery: input.query,
+        aiRawOutput: input.ai_output || {},
+        finalOutput: output.final_output,
+        decision: output.decision,
+        violations: output.violations,
+        riskFlags: output.risk_flags || [],
+        modelVersion: input.ai_output?.model_version || "unknown-version",
+        traceId: traceId || input.trace_id || auditId
+      })
+      .execute()
+      .catch((err) => {
+        console.error(`[AAGE Critical Failure] Failed to append AI Governance Log: ${err.message}`);
+      });
+      
+    return auditId;
+  }
+}
+
+export const aiGovernanceAuditLogger = new AIGovernanceAuditLogger();
+
+export async function auditLog(entry: AuditEntry): Promise<string> {
+  const auditId = randomUUID();
+
+  try {
+    await db.insert(aiAuditLogs).values({
+      ...entry,
+      id:           auditId,
+      modelVersion: entry.modelVersion ?? 'gemini-2.0-flash',
+      source:       entry.source ?? 'api',
+      status:       entry.status ?? 'success',
+    });
+  } catch (dbErr: any) {
+    // Fallback: emit to Cloud Logging — never fail the caller
+    console.error('[AuditLogger] DB insert failed — fallback to console log', {
+      auditId,
+      agentType:   entry.agentType,
+      agentAction: entry.agentAction,
+      error:       dbErr?.message,
+    });
+    console.log('[AUDIT_FALLBACK]', JSON.stringify({ auditId, ...entry }));
+  }
+
+  return auditId;
+}
+
+export function logCopilotEvent(
+  event:     string,
+  userId:    string | undefined,
+  latencyMs: number,
+  status:    'success' | 'failure' | 'partial',
+  extra?:    Record<string, unknown>,
+): void {
+  console.log(JSON.stringify({
+    event,
+    user_id:    userId,
+    latency_ms: latencyMs,
+    status,
+    ...extra,
+    timestamp: new Date().toISOString(),
+  }));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PII Scrubber — production console override
 // ─────────────────────────────────────────────────────────────────────────────

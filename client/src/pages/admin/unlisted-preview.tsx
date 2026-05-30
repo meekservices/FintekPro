@@ -100,7 +100,7 @@ interface DataQualityInfo {
   lastUpdated?: string;
 }
 
-const DataQualityWarning = ({ quality }: { quality: DataQualityInfo | null | undefined }): JSX.Element | null => {
+const DataQualityWarning = ({ quality }: { quality: DataQualityInfo | null | undefined }): React.ReactElement |  null => {
   if (!quality) return null;
   
   const hasWarnings = quality.fallbackUsed || quality.warnings.length > 0 || (quality.missingData && quality.missingData.length > 0);
@@ -185,7 +185,7 @@ const emptyPeer: ListedPeer = {
   revenueGrowth: undefined,
 };
 
-export default function UnlistedPreviewPage(): JSX.Element {
+export default function UnlistedPreviewPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -760,7 +760,7 @@ export default function UnlistedPreviewPage(): JSX.Element {
         </div>
       </div>
 
-      {((<DataQualityWarning quality={dataQuality} />) as JSX.Element)}
+      {((<DataQualityWarning quality={dataQuality} />) as React.ReactElement)}
 
       {/* Auto-Enrichment Status */}
       {isAutoEnriching && (
@@ -776,7 +776,7 @@ export default function UnlistedPreviewPage(): JSX.Element {
       )}
 
       {/* Enrichment Result Notification */}
-      {enrichmentResult && enrichmentResult.enrichedFields.length > 0 && (
+      {((enrichmentResult && enrichmentResult.enrichedFields.length > 0) ? (
         <Alert className="mb-4 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20" data-testid="alert-enriched">
           <CheckCircle className="h-4 w-4 text-emerald-500" />
           <AlertTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
@@ -796,7 +796,7 @@ export default function UnlistedPreviewPage(): JSX.Element {
             </div>
           </AlertDescription>
         </Alert>
-      )}
+      ) : null) as React.ReactNode}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">

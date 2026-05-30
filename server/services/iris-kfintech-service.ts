@@ -728,6 +728,185 @@ class IrisKfintechService {
   // Triggers a live refresh of all external portfolio data for a PAN.
   async refreshExternalPortfolio(pan: string) { return this.call(`/portfolio/external/${encodeURIComponent(pan)}/refresh`, 'POST'); }
 
+  // ─── Loan Against Securities / Mutual Funds (LAS / LAMF) ─────────────────────
+  //
+  // Powers the full pledge-and-lend lifecycle via IRIS KFintech API.
+  // Endpoint prefix: /las  (Loan Against Securities module)
+  //
+  // Flow:
+  //   1. checkMfFolioEligibility / checkSecuritiesEligibility → get eligible collateral
+  //   2. initiateMfPledge / initiateSecuritiesPledge          → create pledge
+  //   3. getPledgeStatus                                       → confirm activation
+  //   4. applyForLoan                                          → submit loan application
+  //   5. getLoanStatus / getLoanStatement                      → monitor
+  //   6. repayLoan                                             → repay outstanding
+  //   7. releasePledge                                         → release on closure
+
+  /**
+   * Fetch MF folios eligible for pledge (LTV, locked folios excluded).
+   * Returns eligible folios with current NAV, units, pledgeable value, and
+   * the maximum loan amount available based on IRIS's LTV policy.
+   *
+   * @param pan - Investor PAN
+   * @param folioNos - Optional: restrict check to specific folio numbers
+   */
+  async checkMfFolioEligibility(pan: string, folioNos?: string[]): Promise<any> {
+    const body = folioNos?.length ? { pan, folioNos } : { pan };
+    return this.call('/las/mf/eligibility', 'POST', body);
+  }
+
+  /**
+   * Fetch demat securities eligible for pledge (SEBI-approved list, haircuts applied).
+   * Returns eligible holdings with current market price, pledgeable quantity,
+   * LTV ratio, and maximum loan value.
+   *
+   * @param pan - Investor PAN
+   * @param dpId - Optional: specific DP ID if investor has multiple demat accounts
+   */
+  async checkSecuritiesEligibility(pan: string, dpId?: string): Promise<any> {
+    const qs = dpId ? `?dpId=${encodeURIComponent(dpId)}` : '';
+    return this.call(`/las/securities/eligibility/${encodeURIComponent(pan)}${qs}`);
+  }
+
+  /**
+   * Initiate pledge of mutual fund folios for LAS.
+   * Sends a pledge request to the depository via IRIS.
+   * Investor must confirm the pledge via TPIN / OTP separately.
+   *
+   * @param body.pan - Investor PAN
+   * @param body.folioDetails - Array of { folioNo, schemeCode, units } to pledge
+   * @param body.loanAmount - Requested loan amount
+   * @param body.lenderCode - IRIS lender code (e.g. "HDFC_LAS", "BAJAJ_LAS")
+   */
+  async initiateMfPledge(body: {
+    pan: string;
+    folioDetails: Array<{ folioNo: string; schemeCode: string; units: number }>;
+    loanAmount: number;
+    lenderCode?: string;
+  }): Promise<any> {
+    return this.call('/las/mf/pledge/initiate', 'POST', { ...body, partnerCode: 'FINTEKPRO' });
+  }
+
+  /**
+   * Initiate pledge of listed demat securities (equities, ETFs) for LAS.
+   *
+   * @param body.pan - Investor PAN
+   * @param body.dpId - Demat account DP ID
+   * @param body.securities - Array of { isin, quantity } to pledge
+   * @param body.loanAmount - Requested loan amount
+   * @param body.lenderCode - IRIS lender code
+   */
+  async initiateSecuritiesPledge(body: {
+    pan: string;
+    dpId: string;
+    securities: Array<{ isin: string; quantity: number }>;
+    loanAmount: number;
+    lenderCode?: string;
+  }): Promise<any> {
+    return this.call('/las/securities/pledge/initiate', 'POST', { ...body, partnerCode: 'FINTEKPRO' });
+  }
+
+  /**
+   * Get real-time status of a pledge (pending / active / failed / released).
+   *
+   * @param pledgeId - IRIS-assigned pledge reference ID
+   */
+  async getPledgeStatus(pledgeId: string): Promise<any> {
+    return this.call(`/las/pledge/${encodeURIComponent(pledgeId)}/status`);
+  }
+
+  /**
+   * Apply for a loan against an active pledge.
+   * Loan disbursement is subject to lender approval.
+   *
+   * @param body.pan - Investor PAN
+   * @param body.pledgeId - IRIS pledge reference ID (must be in 'active' state)
+   * @param body.requestedAmount - Loan amount in INR
+   * @param body.tenure - Loan tenure in months
+   * @param body.disbursementBankAccount - Bank account for disbursement
+   */
+  async applyForLoan(body: {
+    pan: string;
+    pledgeId: string;
+    requestedAmount: number;
+    tenure: number;
+    disbursementBankAccount?: string;
+    purposeOfLoan?: string;
+  }): Promise<any> {
+    return this.call('/las/loan/apply', 'POST', { ...body, partnerCode: 'FINTEKPRO' });
+  }
+
+  /**
+   * Get current status of a LAS loan application or active loan.
+   *
+   * @param loanId - IRIS-assigned loan ID (from applyForLoan response)
+   */
+  async getLoanStatus(loanId: string): Promise<any> {
+    return this.call(`/las/loan/${encodeURIComponent(loanId)}/status`);
+  }
+
+  /**
+   * Get full loan statement including outstanding principal, accrued interest,
+   * repayment schedule, and transaction history.
+   *
+   * @param pan - Investor PAN
+   * @param loanId - Optional: specific loan ID; omit to get all active loans for PAN
+   */
+  async getLoanStatement(pan: string, loanId?: string): Promise<any> {
+    const qs = loanId ? `?loanId=${encodeURIComponent(loanId)}` : '';
+    return this.call(`/las/loan/statement/${encodeURIComponent(pan)}${qs}`);
+  }
+
+  /**
+   * Initiate a repayment against an active LAS loan.
+   * Can be a partial or full repayment.
+   *
+   * @param body.loanId - IRIS loan ID
+   * @param body.amount - Repayment amount in INR
+   * @param body.paymentMode - 'NEFT' | 'IMPS' | 'UPI' | 'NACH'
+   * @param body.utrNumber - Optional UTR for tracking
+   */
+  async repayLoan(body: {
+    loanId: string;
+    amount: number;
+    paymentMode: 'NEFT' | 'IMPS' | 'UPI' | 'NACH';
+    utrNumber?: string;
+  }): Promise<any> {
+    return this.call('/las/loan/repay', 'POST', body);
+  }
+
+  /**
+   * Release a pledge after loan closure or cancellation.
+   * Unpledges the MF folios / securities back to the investor.
+   *
+   * @param pledgeId - IRIS pledge reference ID
+   * @param reason - Release reason: 'LOAN_CLOSED' | 'LOAN_CANCELLED' | 'VOLUNTARY'
+   */
+  async releasePledge(pledgeId: string, reason: 'LOAN_CLOSED' | 'LOAN_CANCELLED' | 'VOLUNTARY'): Promise<any> {
+    return this.call(`/las/pledge/${encodeURIComponent(pledgeId)}/release`, 'POST', { reason });
+  }
+
+  /**
+   * List all active and historical LAS loans for an investor PAN.
+   *
+   * @param pan - Investor PAN
+   * @param params - Optional filters: status, fromDate, toDate, page, limit
+   */
+  async listLoans(pan: string, params?: Record<string, string>): Promise<any> {
+    const qs = params ? '&' + new URLSearchParams(params).toString() : '';
+    return this.call(`/las/loan/list?pan=${encodeURIComponent(pan)}${qs}`);
+  }
+
+  /**
+   * List all pledges (MF + securities) for an investor PAN.
+   *
+   * @param pan - Investor PAN
+   */
+  async listPledges(pan: string): Promise<any> {
+    return this.call(`/las/pledge/list?pan=${encodeURIComponent(pan)}`);
+  }
+
 }
 
 export const irisKfintechService = new IrisKfintechService();
+

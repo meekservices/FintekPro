@@ -78,7 +78,7 @@ export const investmentProductSchema = z.object({
   rating: z.string().optional(),
   sector: z.string().optional(),
   score: z.number().optional(),
-  rationale_inputs: z.record(z.any()).optional(),
+  rationale_inputs: z.record(z.string(), z.any()).optional(),
   raw_data: z.any().optional(),
   last_updated: z.date(),
 });

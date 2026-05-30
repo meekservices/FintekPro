@@ -271,7 +271,7 @@ router.post('/api/portfolio/external-holdings/sync', requireAuth, async (req: Re
   } catch (error: any) {
     console.error('[ExternalHoldings] Sync error:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+      return res.status(400).json({ error: 'Invalid request', details: error.issues });
     }
     res.status(500).json({ error: error.message });
   }
@@ -427,7 +427,7 @@ router.post('/api/agent/initiate-cob', requireAuth, requireRole('admin', 'agent'
   } catch (error: any) {
     console.error('[COB] Error:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+      return res.status(400).json({ error: 'Invalid request', details: error.issues });
     }
     res.status(500).json({ error: error.message });
   }
@@ -493,7 +493,7 @@ router.post('/api/portfolio/import-wealthy', requireAuth, async (req: Request, r
   } catch (error: any) {
     console.error('[Wealthy Import] Error:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+      return res.status(400).json({ error: 'Invalid request', details: error.issues });
     }
     res.status(500).json({ error: error.message || 'Failed to import portfolio' });
   }

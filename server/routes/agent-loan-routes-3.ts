@@ -297,7 +297,7 @@ router.post("/banker-contacts", async (req: Request, res: Response) => {
     res.status(201).json({ success: true, data: contact });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: "Validation failed", details: error.errors });
+      res.status(400).json({ success: false, error: "Validation failed", details: error.issues });
     } else {
       res.status(500).json({ success: false, error: error.message });
     }

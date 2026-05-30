@@ -66,6 +66,8 @@ interface UniPortfolioData {
     brokers_polled: string[];
     disclaimer: string;
   };
+  /** Raw holding records returned by the unified endpoint (optional field) */
+  holdings?: unknown[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

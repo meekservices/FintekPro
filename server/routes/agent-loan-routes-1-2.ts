@@ -397,7 +397,7 @@ router.post("/applications/:id/record-disbursement", async (req: Request, res: R
     });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: "Validation failed", details: error.errors });
+      res.status(400).json({ success: false, error: "Validation failed", details: error.issues });
     } else {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -492,7 +492,7 @@ router.post("/applications/:id/claim-payout", async (req: Request, res: Response
     });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: "Validation failed", details: error.errors });
+      res.status(400).json({ success: false, error: "Validation failed", details: error.issues });
     } else {
       res.status(500).json({ success: false, error: error.message });
     }

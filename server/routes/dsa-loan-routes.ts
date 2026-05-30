@@ -63,7 +63,7 @@ router.post("/applications", async (req: Request, res: Response) => {
       res.status(400).json({
         success: false,
         error: 'Validation failed',
-        details: error.errors,
+        details: error.issues,
       });
     } else {
       res.status(500).json({
@@ -348,7 +348,7 @@ router.post("/applications/:id/documents", async (req: Request, res: Response) =
       res.status(400).json({
         success: false,
         error: 'Validation failed',
-        details: error.errors,
+        details: error.issues,
       });
     } else {
       res.status(500).json({
@@ -459,7 +459,7 @@ router.post("/routing/:routingId/response", async (req: Request, res: Response) 
       res.status(400).json({
         success: false,
         error: 'Validation failed',
-        details: error.errors,
+        details: error.issues,
       });
     } else {
       res.status(400).json({
@@ -559,7 +559,7 @@ router.post("/background-routing", async (req: Request, res: Response) => {
       res.status(400).json({
         success: false,
         error: 'Validation failed',
-        details: error.errors,
+        details: error.issues,
       });
     } else {
       res.status(500).json({
@@ -632,7 +632,7 @@ router.post("/kfs/generate", async (req: Request, res: Response) => {
       res.status(400).json({
         success: false,
         error: 'Validation failed',
-        details: error.errors,
+        details: error.issues,
       });
     } else {
       res.status(500).json({

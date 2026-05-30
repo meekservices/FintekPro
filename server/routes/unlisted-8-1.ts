@@ -436,7 +436,7 @@ router.post('/admin/add-to-fintekpro', requireAdmin, async (req: Request, res: R
   try {
     const validation = addToFintekProSchema.safeParse(req.body);
     if (!validation.success) {
-      return apiResponse.badRequest(res, 'Invalid request data', validation.error.errors);
+      return apiResponse.badRequest(res, 'Invalid request data', validation.error.issues);
     }
 
     const data = validation.data;
@@ -518,7 +518,7 @@ router.post('/admin/publish-to-store', requireAdmin, async (req: Request, res: R
   try {
     const validation = publishCompanySchema.safeParse(req.body);
     if (!validation.success) {
-      return apiResponse.badRequest(res, 'Invalid request data', validation.error.errors);
+      return apiResponse.badRequest(res, 'Invalid request data', validation.error.issues);
     }
 
     const data = validation.data;

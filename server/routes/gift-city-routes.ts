@@ -450,7 +450,7 @@ router.post("/admin", async (req: Request, res: Response) => {
   try {
     const validation = insertGiftCityProductSchema.safeParse(req.body);
     if (!validation.success) {
-      return res.status(400).json({ error: validation.error.errors });
+      return res.status(400).json({ error: validation.error.issues });
     }
 
     const [product] = await db

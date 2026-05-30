@@ -82,7 +82,7 @@ router.post('/api/admin/esign/set-provider', requireAuth, requireRole('admin'), 
   } catch (error) {
     console.error('[Admin eSign] Error setting provider:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ error: 'Validation failed', details: error.issues });
     }
     res.status(500).json({ error: 'Failed to set eSign provider' });
   }
@@ -114,7 +114,7 @@ router.post('/api/admin/esign/update-pricing', requireAuth, requireRole('admin')
   } catch (error) {
     console.error('[Admin eSign] Error updating pricing:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ error: 'Validation failed', details: error.issues });
     }
     res.status(500).json({ error: 'Failed to update provider pricing' });
   }

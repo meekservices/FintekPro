@@ -1,4 +1,4 @@
-import { generateMarketInsight, analyzePortfolio, explainFinancialConcept } from "./gemini";
+import { generateMarketInsight, analyzePortfolio, explainFinancialConcept } from "./gemini-service";
 import { whatsappService } from "./whatsapp";
 import { storage } from "./storage";
 

@@ -192,7 +192,7 @@ router.post("/portfolio-insights", async (req, res) => {
     if (!validation.success) {
       return res.status(400).json({ 
         error: "Invalid request data",
-        details: validation.error.errors 
+        details: validation.error.issues 
       });
     }
     

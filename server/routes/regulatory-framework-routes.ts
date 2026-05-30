@@ -74,7 +74,7 @@ router.post("/classify-investor", async (req: Request, res: Response) => {
 
     const validationResult = classifyInvestorSchema.safeParse(req.body);
     if (!validationResult.success) {
-      return res.status(400).json({ error: validationResult.error.errors });
+      return res.status(400).json({ error: validationResult.error.issues });
     }
 
     const { investmentAmount, netWorth, kycTier, entityType } = validationResult.data;
@@ -236,7 +236,7 @@ router.post("/check-eligibility", async (req: Request, res: Response) => {
 
     const validationResult = checkEligibilitySchema.safeParse(req.body);
     if (!validationResult.success) {
-      return res.status(400).json({ error: validationResult.error.errors });
+      return res.status(400).json({ error: validationResult.error.issues });
     }
 
     const { productCategory, investmentAmount, isin } = validationResult.data;
@@ -279,7 +279,7 @@ router.post("/override-proposals", async (req: Request, res: Response) => {
 
     const validationResult = createOverrideProposalSchema.safeParse(req.body);
     if (!validationResult.success) {
-      return res.status(400).json({ error: validationResult.error.errors });
+      return res.status(400).json({ error: validationResult.error.issues });
     }
 
     const proposal = await regulatoryFrameworkService.createOverrideProposal({
@@ -336,7 +336,7 @@ router.post("/override-proposals/:id/review", async (req: Request, res: Response
 
     const validationResult = reviewProposalSchema.safeParse(req.body);
     if (!validationResult.success) {
-      return res.status(400).json({ error: validationResult.error.errors });
+      return res.status(400).json({ error: validationResult.error.issues });
     }
 
     const { reviewLevel, decision, notes } = validationResult.data;

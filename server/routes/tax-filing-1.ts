@@ -16,7 +16,7 @@ const calculateCapitalGainsSchema = z.object({
 
 const calculateIncomeTaxSchema = z.object({
   income: z.number().min(0, 'Income must be positive'),
-  regime: z.enum(['old', 'new'], { errorMap: () => ({ message: "Regime must be 'old' or 'new'" }) }),
+  regime: z.enum(['old', 'new'], { error: () => ({ message: "Regime must be 'old' or 'new'" }) }),
   deductions: z.object({
     section80C: z.number().min(0).optional(),
     section80D: z.number().min(0).optional(),
@@ -28,8 +28,7 @@ const calculateIncomeTaxSchema = z.object({
 
 const taxReminderSubscriptionSchema = z.object({
   userId: z.string().uuid('Invalid user ID format'),
-  itrFormType: z.enum(['ITR-1', 'ITR-2', 'ITR-3', 'ITR-4', 'ITR-5', 'ITR-6', 'ITR-7'], {
-    errorMap: () => ({ message: 'Invalid ITR form type' })
+  itrFormType: z.enum(['ITR-1', 'ITR-2', 'ITR-3', 'ITR-4', 'ITR-5', 'ITR-6', 'ITR-7'], { error: () => ({ message: 'Invalid ITR form type' })
   })
 });
 

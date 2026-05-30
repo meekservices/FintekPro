@@ -699,7 +699,7 @@ router.post('/api/mf/batch/validate-credentials', requireRole(['agent', 'admin',
     });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      return res.status(400).json({ error: 'Invalid batch data', details: error.errors });
+      return res.status(400).json({ error: 'Invalid batch data', details: error.issues });
     }
     console.error('[MF Orders] Batch credential validation error:', error);
     res.status(500).json({ error: 'Failed to validate batch credentials' });

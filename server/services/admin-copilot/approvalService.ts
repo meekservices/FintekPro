@@ -20,7 +20,7 @@ import {
   aiMeetingNotes,
 } from '@shared/schema/admin-copilot';
 import { eq } from 'drizzle-orm';
-import { auditLog } from './auditLogger';
+import { auditLog } from '../../logger';
 import { createTaskFromSource } from './taskAgent';
 import { randomUUID } from 'crypto';
 

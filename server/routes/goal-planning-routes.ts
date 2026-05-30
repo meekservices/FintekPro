@@ -110,7 +110,7 @@ router.post("/", async (req: Request, res: Response) => {
     res.status(201).json(goal);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: "Validation error", details: error.errors });
+      return res.status(400).json({ error: "Validation error", details: error.issues });
     }
     res.status(500).json({ error: error.message });
   }
@@ -159,7 +159,7 @@ router.post("/:goalId/investments", async (req: Request, res: Response) => {
     res.status(201).json(link);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: "Validation error", details: error.errors });
+      return res.status(400).json({ error: "Validation error", details: error.issues });
     }
     res.status(500).json({ error: error.message });
   }

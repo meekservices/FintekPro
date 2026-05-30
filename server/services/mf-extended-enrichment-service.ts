@@ -10,7 +10,7 @@
 
 import axios from 'axios';
 import { db } from '../db';
-import { getProductionDb, hasProductionDb } from '../db-production';
+import { getProductionDb, hasProductionDb } from '../db';
 import { mutualFunds } from '@shared/schema';
 import { eq, sql, isNull, and, or } from 'drizzle-orm';
 

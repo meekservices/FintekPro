@@ -41,7 +41,7 @@ router.post("/ingest", async (req: Request, res: Response) => {
       res.status(400).json({ 
         success: false,
         error: "Validation error", 
-        details: err.errors 
+        details: err.issues 
       });
     } else {
       console.error("Error ingesting error log:", err);
@@ -317,7 +317,7 @@ router.post("/feedback", async (req: Request, res: Response) => {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ 
         error: "Validation error", 
-        details: err.errors 
+        details: err.issues 
       });
     }
     console.error("Error submitting feedback:", err);

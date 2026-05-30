@@ -281,7 +281,7 @@ router.post("/ws/subscribe", async (req, res) => {
   try {
     const parsed = wsSubscribeSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
+      return res.status(400).json({ success: false, error: parsed.error.issues[0].message });
     }
 
     const { symbols, channels } = parsed.data;
@@ -314,7 +314,7 @@ router.post("/ws/unsubscribe", async (req, res) => {
   try {
     const parsed = wsSubscribeSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
+      return res.status(400).json({ success: false, error: parsed.error.issues[0].message });
     }
 
     const { symbols, channels } = parsed.data;

@@ -86,7 +86,7 @@ router.post('/api/user/signatures', isAuthenticated, async (req, res) => {
     res.json({ success: true, signature: newSignature });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid signature data', details: error.errors });
+      return res.status(400).json({ error: 'Invalid signature data', details: error.issues });
     }
     console.error('[Signatures] Error creating signature:', error);
     res.status(500).json({ error: 'Failed to create signature' });
@@ -141,7 +141,7 @@ router.patch('/api/user/signatures/:id', isAuthenticated, async (req, res) => {
     res.json({ success: true, signature: updated });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid update data', details: error.errors });
+      return res.status(400).json({ error: 'Invalid update data', details: error.issues });
     }
     console.error('[Signatures] Error updating signature:', error);
     res.status(500).json({ error: 'Failed to update signature' });

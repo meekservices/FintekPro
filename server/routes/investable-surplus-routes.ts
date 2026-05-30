@@ -72,7 +72,7 @@ router.post("/income-streams", async (req, res) => {
     res.json(stream);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: "Validation error", details: error.errors });
+      res.status(400).json({ error: "Validation error", details: error.issues });
     } else {
       res.status(500).json({ error: error.message });
     }
@@ -141,7 +141,7 @@ router.post("/obligations", async (req, res) => {
     res.json(obligation);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: "Validation error", details: error.errors });
+      res.status(400).json({ error: "Validation error", details: error.issues });
     } else {
       res.status(500).json({ error: error.message });
     }
@@ -245,7 +245,7 @@ router.post("/emergency-fund", async (req, res) => {
     res.json(result);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: "Validation error", details: error.errors });
+      res.status(400).json({ error: "Validation error", details: error.issues });
     } else {
       res.status(500).json({ error: error.message });
     }

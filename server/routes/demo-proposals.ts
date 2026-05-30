@@ -77,7 +77,7 @@ const proposalConfigSchema = z.object({
     customNotes: z.string().optional(),
     overrideTitle: z.string().optional(),
     showInToc: z.boolean().optional(),
-    customData: z.record(z.any()).optional(),
+    customData: z.record(z.string(), z.any()).optional(),
   })).optional().default({}),
   coverPage: z.object({
     enabled: z.boolean().optional().default(true),
@@ -514,11 +514,11 @@ agentDemoRouter.post("/generate-pdf", async (req: Request, res: Response) => {
     // Validate request body
     const validationResult = generatePdfRequestSchema.safeParse(req.body);
     if (!validationResult.success) {
-      console.error("[Generate PDF] Validation failed:", JSON.stringify(validationResult.error.errors, null, 2));
+      console.error("[Generate PDF] Validation failed:", JSON.stringify(validationResult.error.issues, null, 2));
       return res.status(400).json({ 
         error: "Invalid request data", 
-        message: validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; '),
-        details: validationResult.error.errors 
+        message: validationResult.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join('; '),
+        details: validationResult.error.issues 
       });
     }
 

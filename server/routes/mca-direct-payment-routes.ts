@@ -67,7 +67,7 @@ router.post('/initiate', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Validation failed',
-        details: parsed.error.errors,
+        details: parsed.error.issues,
       });
     }
 
@@ -108,7 +108,7 @@ router.post('/:paymentId/confirm', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Validation failed',
-        details: parsed.error.errors,
+        details: parsed.error.issues,
       });
     }
 

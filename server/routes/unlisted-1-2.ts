@@ -659,7 +659,7 @@ router.post('/companies/:id/price-history', requireAdmin, async (req: Request, r
     console.error('Error adding price history:', error);
     
     if (error instanceof z.ZodError) {
-      return apiResponse.badRequest(res, 'Invalid price data', error.errors);
+      return apiResponse.badRequest(res, 'Invalid price data', error.issues);
     }
     
     return apiResponse.serverError(res, 'Failed to add price history');

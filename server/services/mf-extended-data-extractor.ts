@@ -8,7 +8,7 @@
  */
 
 import { db } from '../db';
-import { getProductionDb, hasProductionDb, requireProductionDb, getEnrichmentReadDb, getEnrichmentWriteDb } from '../db-production';
+import { getProductionDb, hasProductionDb, requireProductionDb, getEnrichmentReadDb, getEnrichmentWriteDb } from '../db';
 import { mutualFunds } from '@shared/schema';
 import { sql, isNull, or, and } from 'drizzle-orm';
 

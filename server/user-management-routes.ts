@@ -295,7 +295,7 @@ router.post('/api/admin/users', requireAdmin, async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         message: 'Validation failed',
-        errors: error.errors.map((err) => ({
+        errors: error.issues.map((err) => ({
           field: err.path.join('.'),
           message: err.message,
         })),
@@ -368,7 +368,7 @@ router.patch('/api/admin/users/:id', requireAdmin, async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         message: 'Validation failed',
-        errors: error.errors.map((err) => ({
+        errors: error.issues.map((err) => ({
           field: err.path.join('.'),
           message: err.message,
         })),

@@ -168,7 +168,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({
         success: false,
         error: 'Validation failed',
-        details: error.errors,
+        details: error.issues,
       });
       return;
     }

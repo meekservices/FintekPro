@@ -263,7 +263,7 @@ router.post('/api/ai/generate-rebalance-proposal', requireAuth, async (req: Requ
   } catch (error: any) {
     console.error('[RebalanceProposal] Error:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+      return res.status(400).json({ error: 'Invalid request', details: error.issues });
     }
     res.status(500).json({ error: error.message });
   }
@@ -408,7 +408,7 @@ router.post('/api/ai/generate-goal-proposal', requireAuth, async (req: Request, 
   } catch (error: any) {
     console.error('[GoalProposal] Error:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+      return res.status(400).json({ error: 'Invalid request', details: error.issues });
     }
     res.status(500).json({ error: error.message });
   }
@@ -547,7 +547,7 @@ router.post('/api/ai/generate-retirement-proposal', requireAuth, async (req: Req
   } catch (error: any) {
     console.error('[RetirementProposal] Error:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid request', details: error.errors });
+      return res.status(400).json({ error: 'Invalid request', details: error.issues });
     }
     res.status(500).json({ error: error.message });
   }

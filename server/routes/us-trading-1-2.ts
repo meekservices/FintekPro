@@ -459,7 +459,7 @@ router.post("/orders", async (req: Request, res: Response): Promise<void> => {
     }
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      res.status(400).json({ success: false, error: "Invalid order data", details: error.errors });
+      res.status(400).json({ success: false, error: "Invalid order data", details: error.issues });
       return;
     }
     const msg = error instanceof Error ? error.message : String(error);

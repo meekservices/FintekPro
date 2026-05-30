@@ -102,9 +102,9 @@ export const suitabilityScoreSchema = z.object({
 
 export const upsideScoreSchema = z.object({
   total: z.number().min(0).max(100),
-  breakdown: z.record(z.number()),
+  breakdown: z.record(z.string(), z.number()),
   methodology: z.string(),
-  inputs: z.record(z.any()),
+  inputs: z.record(z.string(), z.any()),
 });
 
 export const finalScoreSchema = z.object({

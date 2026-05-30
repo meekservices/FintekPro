@@ -36,9 +36,7 @@ const taxCalculatorSchema = z.object({
     .refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
       message: "Annual income must be a positive number"
     }),
-  regime: z.enum(['new', 'old'], {
-    required_error: "Please select a tax regime"
-  }),
+  regime: z.enum(['new', 'old'], { error: "Please select a tax regime" }),
   section80C: z.string()
     .optional()
     .refine((val) => !val || (!isNaN(Number(val)) && Number(val) >= 0), {
@@ -59,9 +57,7 @@ const taxCalculatorSchema = z.object({
     .refine((val) => !val || (!isNaN(Number(val)) && Number(val) >= 0), {
       message: "Home loan interest must be a valid number"
     }),
-  age: z.enum(['below60', '60to80', 'above80'], {
-    required_error: "Please select your age group"
-  })
+  age: z.enum(['below60', '60to80', 'above80'], { error: "Please select your age group" })
 });
 
 const sipCalculatorSchema = z.object({

@@ -132,3 +132,84 @@ export async function closePool(): Promise<void> {
     }
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRODUCTION DB ENRICHMENT UTILITIES (Merged from db-production.ts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+let prodPool: InstanceType<typeof Pool> | null = null;
+let prodDb: ReturnType<typeof drizzle> | null = null;
+
+export function getProductionDb() {
+  if (prodDb) return prodDb;
+
+  const prodUrl = process.env.PRODUCTION_DATABASE_URL;
+  if (!prodUrl) {
+    throw new Error(
+      '[ProductionDB] PRODUCTION_DATABASE_URL not set. Enrichment runs on production only.'
+    );
+  }
+
+  const isRailwayInternal = prodUrl.includes('.railway.internal');
+  const needsSsl = !isRailwayInternal && (
+    prodUrl.includes('neon.tech') ||
+    prodUrl.includes('.neon.') ||
+    prodUrl.includes('neon.database') ||
+    prodUrl.includes('rlwy.net') ||
+    prodUrl.includes('railway.app')
+  );
+
+  prodPool = new Pool({
+    connectionString: prodUrl,
+    max: 5,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 20000,
+    ssl: needsSsl ? true : false,
+  });
+
+  prodPool.on('error', (err) => {
+    console.warn(`[ProductionDB] Pool error (auto-recovering): ${err?.message || err}`);
+  });
+
+  prodDb = drizzle(prodPool, { schema });
+  console.log('[ProductionDB] Production database connection initialized for enrichment');
+  return prodDb;
+}
+
+export function hasProductionDb(): boolean {
+  return !!process.env.PRODUCTION_DATABASE_URL;
+}
+
+export function getEnrichmentWriteDb() {
+  if (!hasProductionDb()) {
+    throw new Error('[ProductionDB] PRODUCTION_DATABASE_URL not set. Enrichment writes require production DB.');
+  }
+  return getProductionDb();
+}
+
+export function getEnrichmentReadDb(devDb: any) {
+  return hasProductionDb() ? getProductionDb() : devDb;
+}
+
+export function requireProductionDb(serviceName: string): boolean {
+  if (!hasProductionDb()) {
+    console.error(`[${serviceName}] ❌ PRODUCTION_DATABASE_URL not set. Enrichment runs on production only. Aborting.`);
+    return false;
+  }
+  console.log(`[${serviceName}] ✅ Connected to PRODUCTION database`);
+  return true;
+}
+
+export async function closeProductionPool(): Promise<void> {
+  if (prodPool) {
+    try {
+      await prodPool.end();
+      prodPool = null;
+      prodDb = null;
+      console.log('[ProductionDB] Pool closed');
+    } catch (err: any) {
+      console.error('[ProductionDB] Error closing pool:', err?.message || err);
+    }
+  }
+}
+

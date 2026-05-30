@@ -20,8 +20,8 @@ import {
 }                                  from '@shared/schema/admin-copilot';
 import { eq }                      from 'drizzle-orm';
 import { createZohoMeetingService } from '../../zoho/services/meeting';
-import { callGemini }              from './geminiService';
-import { auditLog }                from './auditLogger';
+import { callGemini }              from '../../gemini-service';
+import { auditLog }                from '../../logger';
 import { createTaskFromSource }    from './taskAgent';
 
 // ── Factory ───────────────────────────────────────────────────────────────────

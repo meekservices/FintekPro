@@ -60,7 +60,7 @@ export function registerAlertSystemRoutes(app: Express): void {
       res.status(201).json(alert);
     } catch (error) {
       console.error('Error creating alert:', error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.issues });
       res.status(500).json({ message: 'Failed to create alert' });
     }
   });
@@ -110,7 +110,7 @@ export function registerAlertSystemRoutes(app: Express): void {
       res.json(updatedAlert);
     } catch (error) {
       console.error('Error updating alert:', error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Validation failed', errors: error.issues });
       res.status(500).json({ message: 'Failed to update alert' });
     }
   });

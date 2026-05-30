@@ -140,7 +140,7 @@ export function registerLoanAdminPart2Routes(app: Express) {
     } catch (error: any) {
       console.error('Error creating commission config:', error);
       if (error.name === 'ZodError') {
-        return res.status(400).json({ success: false, error: 'Validation failed', details: error.errors });
+        return res.status(400).json({ success: false, error: 'Validation failed', details: error.issues });
       }
       res.status(500).json({ success: false, error: 'Failed to create commission config' });
     }
@@ -216,7 +216,7 @@ export function registerLoanAdminPart2Routes(app: Express) {
     } catch (error: any) {
       console.error('Error creating payout config:', error);
       if (error.name === 'ZodError') {
-        return res.status(400).json({ success: false, error: 'Validation failed', details: error.errors });
+        return res.status(400).json({ success: false, error: 'Validation failed', details: error.issues });
       }
       res.status(500).json({ success: false, error: 'Failed to create payout config' });
     }

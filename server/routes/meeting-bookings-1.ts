@@ -180,7 +180,7 @@ router.post("/schedule", async (req, res) => {
   } catch (error: any) {
     console.error("Schedule meeting error:", error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors[0].message });
+      return res.status(400).json({ error: error.issues[0].message });
     }
     res.status(500).json({ error: error.message || "Failed to schedule meeting" });
   }
@@ -403,7 +403,7 @@ router.post("/book", async (req, res) => {
   } catch (error: any) {
     console.error("Meeting booking error:", error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors[0].message });
+      return res.status(400).json({ error: error.issues[0].message });
     }
     res.status(500).json({ error: error.message || "Failed to book meeting" });
   }

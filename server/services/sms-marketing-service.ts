@@ -329,6 +329,83 @@ class SMSMarketingService {
       ] : []
     };
   }
+
+  /**
+   * Returns a catalogue of available SMS template types for agent use.
+   * Purpose: Provides UI with selectable template options without hitting the API.
+   * Outputs: Array of template descriptors { type, label, description, variables }
+   */
+  getAvailableTemplates(): Array<{
+    type: string;
+    label: string;
+    description: string;
+    variables: string[];
+  }> {
+    return [
+      {
+        type: 'portfolio_update',
+        label: 'Portfolio Update',
+        description: 'Notify client of portfolio value change',
+        variables: ['clientName', 'portfolioValue', 'changePercent'],
+      },
+      {
+        type: 'investment_opportunity',
+        label: 'Investment Opportunity',
+        description: 'Alert client about a new investment product',
+        variables: ['clientName', 'productName', 'returnPercent'],
+      },
+      {
+        type: 'sip_reminder',
+        label: 'SIP Reminder',
+        description: 'Remind client about upcoming SIP deduction',
+        variables: ['clientName', 'sipAmount', 'sipDate'],
+      },
+      {
+        type: 'kyc_reminder',
+        label: 'KYC Reminder',
+        description: 'Remind client to complete KYC verification',
+        variables: ['clientName', 'deadlineDate'],
+      },
+      {
+        type: 'meeting_reminder',
+        label: 'Meeting Reminder',
+        description: 'Remind client about scheduled advisory meeting',
+        variables: ['clientName', 'meetingDate', 'meetingTime'],
+      },
+      {
+        type: 'custom',
+        label: 'Custom Message',
+        description: 'Send a custom message to the client',
+        variables: [],
+      },
+    ];
+  }
+
+  /**
+   * Higher-level method that resolves a template type and sends an SMS.
+   * Purpose: Bridge for routes that need template-based or custom messaging.
+   * Inputs:
+   *   - mobile: recipient mobile number
+   *   - templateType: key from getAvailableTemplates()
+   *   - variables: template variable substitution map
+   *   - customMessage: override message (used when templateType is 'custom')
+   * Outputs: SMSMarketingResult
+   * Edge cases: Falls back to sendMarketingSMS for unknown template types.
+   */
+  async sendMarketingMessage(
+    mobile: string,
+    templateType: string,
+    variables: Record<string, any> = {},
+    customMessage?: string
+  ): Promise<{ success: boolean; sid?: string; error?: string }> {
+    if (templateType === 'custom' || (!templateType && customMessage)) {
+      return this.sendMarketingSMS(mobile, customMessage || '', undefined, false);
+    }
+
+    // For template-based sends, delegate to sendPromotionalSMS
+    return this.sendPromotionalSMS(mobile, templateType, variables);
+  }
 }
+
 
 export const smsMarketingService = new SMSMarketingService();

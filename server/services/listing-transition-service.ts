@@ -185,7 +185,7 @@ export class ListingTransitionService {
     const validation = this.validateTransitionRequest(request, previousStage);
     if (!validation.valid) {
       auditEntry.status = 'failed';
-      auditEntry.errors = validation.errors;
+      auditEntry.errors = validation.issues;
       return {
         success: false,
         companyId: request.companyId,
@@ -194,7 +194,7 @@ export class ListingTransitionService {
         affectedHoldings: 0,
         notificationsSent: 0,
         auditId,
-        errors: validation.errors,
+        errors: validation.issues,
         warnings: [],
       };
     }

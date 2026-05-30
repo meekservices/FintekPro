@@ -105,7 +105,7 @@ router.patch('/providers/:code/toggle', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Invalid request body',
-        details: validation.error.errors,
+        details: validation.error.issues,
       });
     }
     
@@ -148,7 +148,7 @@ router.patch('/providers/:code/priority', async (req: Request, res: Response) =>
       return res.status(400).json({
         success: false,
         error: 'Invalid request body',
-        details: validation.error.errors,
+        details: validation.error.issues,
       });
     }
     
@@ -189,7 +189,7 @@ router.patch('/providers/priorities', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Invalid request body',
-        details: validation.error.errors,
+        details: validation.error.issues,
       });
     }
     

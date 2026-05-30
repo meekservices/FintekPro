@@ -130,7 +130,7 @@ router.post('/api/esign/user-signature/sign', requireAuth, async (req: Request, 
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ error: 'Validation failed', details: error.issues });
     }
     console.error('[UserSignatureESign] Error signing document:', error);
     res.status(500).json({ error: 'Failed to sign document' });

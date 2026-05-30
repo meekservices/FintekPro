@@ -50,7 +50,7 @@ router.patch('/api/admin/api-usage/pricing', requireAuth, requireRole('admin'), 
   } catch (error) {
     console.error('[Admin API Usage] Error updating pricing:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ error: 'Validation failed', details: error.issues });
     }
     res.status(500).json({ error: 'Failed to update provider pricing' });
   }
@@ -74,7 +74,7 @@ router.post('/api/admin/api-usage/providers', requireAuth, requireRole('admin'),
   } catch (error) {
     console.error('[Admin API Usage] Error adding provider:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      return res.status(400).json({ error: 'Validation failed', details: error.issues });
     }
     res.status(500).json({ error: 'Failed to add provider' });
   }

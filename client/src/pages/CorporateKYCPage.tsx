@@ -30,9 +30,7 @@ import {
 
 // Entity Type Schema
 const entityTypeSchema = z.object({
-  entityType: z.enum(["company", "partnership", "trust", "llp", "huf", "society", "cooperative"], {
-    required_error: "Please select entity type",
-  }),
+  entityType: z.enum(["company", "partnership", "trust", "llp", "huf", "society", "cooperative"], { error: "Please select entity type" }),
 });
 
 // Company Verification Schema

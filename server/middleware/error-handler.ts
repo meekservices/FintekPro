@@ -80,7 +80,7 @@ export function errorHandler(
   if (err instanceof ZodError) {
     const message = formatZodError(err);
     const appError = new AppError(message, 400, 'Please check your input and try again.', false, {
-      validationErrors: err.errors,
+      validationErrors: err.issues,
     });
     
     logError(appError, req, traceId);

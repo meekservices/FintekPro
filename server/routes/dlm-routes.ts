@@ -27,7 +27,7 @@ const createDocumentSchema = z.object({
   legacyDeclaration: z.string().optional(),
   originalSignDate: z.string().optional(),
   tags: z.array(z.string()).optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 const createVersionSchema = z.object({
@@ -136,7 +136,7 @@ export function registerDLMRoutes(app: Express) {
     } catch (error: any) {
       console.error("Error creating document:", error);
       if (error.name === "ZodError") {
-        return res.status(400).json({ success: false, error: "Validation failed", details: error.errors });
+        return res.status(400).json({ success: false, error: "Validation failed", details: error.issues });
       }
       res.status(500).json({ success: false, error: "Failed to create document" });
     }
@@ -209,7 +209,7 @@ export function registerDLMRoutes(app: Express) {
     } catch (error: any) {
       console.error("Error creating version:", error);
       if (error.name === "ZodError") {
-        return res.status(400).json({ success: false, error: "Validation failed", details: error.errors });
+        return res.status(400).json({ success: false, error: "Validation failed", details: error.issues });
       }
       res.status(500).json({ success: false, error: "Failed to create version" });
     }
@@ -336,7 +336,7 @@ export function registerDLMRoutes(app: Express) {
     } catch (error: any) {
       console.error("Error creating tracked change:", error);
       if (error.name === "ZodError") {
-        return res.status(400).json({ success: false, error: "Validation failed", details: error.errors });
+        return res.status(400).json({ success: false, error: "Validation failed", details: error.issues });
       }
       res.status(500).json({ success: false, error: "Failed to create tracked change" });
     }
@@ -408,7 +408,7 @@ export function registerDLMRoutes(app: Express) {
     } catch (error: any) {
       console.error("Error adding comment:", error);
       if (error.name === "ZodError") {
-        return res.status(400).json({ success: false, error: "Validation failed", details: error.errors });
+        return res.status(400).json({ success: false, error: "Validation failed", details: error.issues });
       }
       res.status(500).json({ success: false, error: "Failed to add comment" });
     }

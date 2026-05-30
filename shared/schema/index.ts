@@ -21,6 +21,7 @@ export * from "./mutual-funds";
 export * from "./orders";
 export * from "./partners";
 export * from "./portfolio";
+export { aiAuditLogs } from "./portfolio";
 export * from "./products";
 export * from "./proposals";
 export * from "./reit-invit";

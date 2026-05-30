@@ -170,7 +170,7 @@ router.post('/companies', requireAdmin, async (req: Request, res: Response) => {
     console.error('Error creating company:', error);
     
     if (error instanceof z.ZodError) {
-      return apiResponse.badRequest(res, 'Invalid input data', error.errors);
+      return apiResponse.badRequest(res, 'Invalid input data', error.issues);
     }
     
     return apiResponse.serverError(res, 'Failed to create company');
@@ -196,7 +196,7 @@ router.patch('/companies/:id', requireAdmin, async (req: Request, res: Response)
     console.error('Error updating company:', error);
     
     if (error instanceof z.ZodError) {
-      return apiResponse.badRequest(res, 'Invalid input data', error.errors);
+      return apiResponse.badRequest(res, 'Invalid input data', error.issues);
     }
     
     return apiResponse.serverError(res, 'Failed to update company');

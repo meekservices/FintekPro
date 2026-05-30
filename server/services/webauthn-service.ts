@@ -156,8 +156,8 @@ export const webauthnService = {
     const { credential, credentialDeviceType, credentialBackedUp, aaguid } =
       verification.registrationInfo;
 
-    const credentialId = iBuffToB64(credential.id);
-    const publicKey = iBuffToB64(credential.publicKey);
+    const credentialId = iBuffToB64(credential.id as Uint8Array<ArrayBuffer>);
+    const publicKey = iBuffToB64(credential.publicKey as Uint8Array<ArrayBuffer>);
 
     const [saved] = await db
       .insert(userWebauthnCredentials)
@@ -261,7 +261,7 @@ export const webauthnService = {
         expectedRPID: RP_ID,
         credential: {
           id: credential.credentialId,
-          publicKey: b64ToIBuff(credential.publicKey),
+          publicKey: b64ToIBuff(credential.publicKey) as Uint8Array<ArrayBuffer>,
           counter: credential.signCount,
           transports: (credential.transports as AuthenticatorTransport[]) ?? ["internal"],
         },

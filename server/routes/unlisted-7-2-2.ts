@@ -123,7 +123,7 @@ router.post('/admin/reconciliation/sync', requireAdmin, async (req: Request, res
     
     const validationResult = moneyControlCompanySchema.safeParse(company);
     if (!validationResult.success) {
-      return apiResponse.badRequest(res, 'Invalid company data', validationResult.error.errors);
+      return apiResponse.badRequest(res, 'Invalid company data', validationResult.error.issues);
     }
     
     const validatedCompany = validationResult.data;
@@ -170,7 +170,7 @@ router.post('/admin/reconciliation/sync-batch', requireAdmin, async (req: Reques
           scrapedAt: result.data.scrapedAt ? new Date(result.data.scrapedAt) : new Date(),
         });
       } else {
-        validationErrors.push({ index: i, name: companies[i]?.name, errors: result.error.errors });
+        validationErrors.push({ index: i, name: companies[i]?.name, errors: result.error.issues });
       }
     }
     

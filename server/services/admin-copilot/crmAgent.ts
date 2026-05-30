@@ -18,8 +18,8 @@ import {
 }                           from '@shared/schema/admin-copilot';
 import { eq, desc }         from 'drizzle-orm';
 import { ZohoCRMService }   from '../../zoho/services/crm';
-import { callGemini }       from './geminiService';
-import { auditLog }         from './auditLogger';
+import { callGemini }       from '../../gemini-service';
+import { auditLog }         from '../../logger';
 import { createTaskFromSource } from './taskAgent';
 
 // ── Factory: build CRM service from connection ─────────────────────────────

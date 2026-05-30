@@ -100,7 +100,7 @@ router.post("/select", async (req: Request, res: Response) => {
     if (!validation.success) {
       return res.status(400).json({ 
         error: "Invalid request", 
-        details: validation.error.errors 
+        details: validation.error.issues 
       });
     }
 
@@ -188,7 +188,7 @@ router.put("/admin/settings", requireAdmin, async (req: Request, res: Response) 
     if (!validation.success) {
       return res.status(400).json({ 
         error: "Invalid request", 
-        details: validation.error.errors 
+        details: validation.error.issues 
       });
     }
 
@@ -215,7 +215,7 @@ router.post("/admin/override", requireAdmin, async (req: Request, res: Response)
     if (!validation.success) {
       return res.status(400).json({ 
         error: "Invalid request", 
-        details: validation.error.errors 
+        details: validation.error.issues 
       });
     }
 

@@ -56,7 +56,7 @@ router.post('/api/portfolio-reports/validate', requireAuth, requireRole('agent',
   } catch (error) {
     console.error('[Portfolio Reports] Validation error:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid configuration', details: error.errors });
+      return res.status(400).json({ error: 'Invalid configuration', details: error.issues });
     }
     res.status(500).json({ error: 'Validation failed' });
   }
@@ -73,7 +73,7 @@ router.post('/api/portfolio-reports/generate', requireAuth, requireRole('agent',
     const parsedConfig = reportConfigSchema.parse(config);
 
     const validation = await reportOrchestratorService.runPreFlightValidation(parsedConfig);
-    if (!validation.success && validation.errors.length > 0) {
+    if (!validation.success && validation.issues.length > 0) {
       return res.status(400).json({ 
         error: 'Pre-flight validation failed', 
         validation 
@@ -132,7 +132,7 @@ router.post('/api/portfolio-reports/generate', requireAuth, requireRole('agent',
   } catch (error) {
     console.error('[Portfolio Reports] Error generating report:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid configuration', details: error.errors });
+      return res.status(400).json({ error: 'Invalid configuration', details: error.issues });
     }
     res.status(500).json({ error: 'Report generation failed' });
   }
@@ -200,7 +200,7 @@ router.post('/api/portfolio-reports/templates', requireAuth, requireRole('agent'
   } catch (error) {
     console.error('[Portfolio Reports] Error saving template:', error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid configuration', details: error.errors });
+      return res.status(400).json({ error: 'Invalid configuration', details: error.issues });
     }
     res.status(500).json({ error: 'Failed to save template' });
   }

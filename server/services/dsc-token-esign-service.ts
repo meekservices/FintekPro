@@ -251,7 +251,7 @@ class DSCTokenESignService {
       
       if (!validation.valid) {
         await this.logAuditEvent(transactionId, request.userId, 'dsc_initiate', 'failed', {
-          errors: validation.errors,
+          errors: validation.issues,
           certificate: {
             serial: request.certificateInfo.serialNumber,
             issuer: request.certificateInfo.issuer.commonName,
@@ -262,7 +262,7 @@ class DSCTokenESignService {
           success: false,
           transactionId,
           requestId,
-          message: `Certificate validation failed: ${validation.errors.join(', ')}`,
+          message: `Certificate validation failed: ${validation.issues.join(', ')}`,
           provider: 'dsc_token',
           certificateValidated: false,
           dataToSign: '',

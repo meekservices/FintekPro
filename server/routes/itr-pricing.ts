@@ -90,7 +90,7 @@ router.post("/", async (req: Request, res: Response) => {
     res.status(201).json({ success: true, data: created });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ success: false, error: "Validation failed", details: error.errors });
+      return res.status(400).json({ success: false, error: "Validation failed", details: error.issues });
     }
     console.error("Error creating ITR pricing:", error);
     res.status(500).json({ success: false, error: error.message });
@@ -120,7 +120,7 @@ router.put("/:id", async (req: Request, res: Response) => {
     res.json({ success: true, data: updated });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ success: false, error: "Validation failed", details: error.errors });
+      return res.status(400).json({ success: false, error: "Validation failed", details: error.issues });
     }
     console.error("Error updating ITR pricing:", error);
     res.status(500).json({ success: false, error: error.message });

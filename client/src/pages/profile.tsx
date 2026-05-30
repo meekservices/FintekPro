@@ -89,9 +89,7 @@ function ExchangeRatesTable({ baseCurrency }: { baseCurrency: string }) {
 // Enhanced profile form schema for comprehensive KYC compliance
 const profileFormSchema = z.object({
   // Client Type Selection - First Decision Point
-  clientType: z.enum(["individual", "non_individual"], {
-    required_error: "Please select client type",
-  }),
+  clientType: z.enum(["individual", "non_individual"], { error: "Please select client type" }),
   
   // Individual Information (conditional)
   firstName: z.string().optional(),
@@ -134,9 +132,7 @@ const profileFormSchema = z.object({
     "oci",
     "pio",
     "foreign_national"
-  ], {
-    required_error: "Please select residency status",
-  }),
+  ], { error: "Please select residency status" }),
   
   // Country Classifications
   countryOfResidence: z.string().min(1, "Country of residence is required"),
@@ -179,25 +175,15 @@ const profileFormSchema = z.object({
     "25_to_50_lakh",
     "50_lakh_to_1_crore",
     "above_1_crore"
-  ], {
-    required_error: "Please select annual income range",
-  }),
+  ], { error: "Please select annual income range" }),
   sourceOfWealth: z.string().min(1, "Source of wealth is required"),
   netWorth: z.string().optional(),
   
   // Investment Profile
-  riskTolerance: z.enum(["conservative", "moderate", "aggressive"], {
-    required_error: "Please select risk tolerance",
-  }),
-  investmentExperience: z.enum(["beginner", "intermediate", "experienced"], {
-    required_error: "Please select investment experience",
-  }),
-  investmentObjective: z.enum(["capital_appreciation", "income", "balanced", "speculation"], {
-    required_error: "Please select investment objective",
-  }),
-  investmentHorizon: z.enum(["short", "medium", "long"], {
-    required_error: "Please select investment horizon",
-  }),
+  riskTolerance: z.enum(["conservative", "moderate", "aggressive"], { error: "Please select risk tolerance" }),
+  investmentExperience: z.enum(["beginner", "intermediate", "experienced"], { error: "Please select investment experience" }),
+  investmentObjective: z.enum(["capital_appreciation", "income", "balanced", "speculation"], { error: "Please select investment objective" }),
+  investmentHorizon: z.enum(["short", "medium", "long"], { error: "Please select investment horizon" }),
   
   // Banking and Account Details
   bankAccountNumber: z.string().optional(),
@@ -215,9 +201,7 @@ const profileFormSchema = z.object({
   cvlKycNumber: z.string().optional(), // CVL KYC Number
   
   // Regulatory Compliance - FATCA & CRS
-  fatcaStatus: z.enum(["us_person", "non_us_person", "specified_us_person"], {
-    required_error: "FATCA status is required",
-  }),
+  fatcaStatus: z.enum(["us_person", "non_us_person", "specified_us_person"], { error: "FATCA status is required" }),
   fatcaTinNumber: z.string().optional(),
   fatcaCountryOfTaxResidence: z.string().optional(),
   
@@ -227,9 +211,7 @@ const profileFormSchema = z.object({
   crsTinNumbers: z.array(z.string()).optional(),
   
   // PEP (Politically Exposed Person) Declaration
-  pepStatus: z.enum(["yes", "no"], {
-    required_error: "PEP status declaration is required",
-  }),
+  pepStatus: z.enum(["yes", "no"], { error: "PEP status declaration is required" }),
   pepDetails: z.string().optional(),
   pepRelatedPersonStatus: z.enum(["yes", "no"]).optional(),
   pepRelationshipDetails: z.string().optional(),

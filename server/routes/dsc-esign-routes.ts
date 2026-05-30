@@ -112,7 +112,7 @@ router.post('/dsc/validate-certificate', requireAuth, async (req: Request, res: 
       return res.status(400).json({
         success: false,
         error: 'Invalid certificate data',
-        details: result.error.errors,
+        details: result.error.issues,
       });
     }
 
@@ -121,7 +121,7 @@ router.post('/dsc/validate-certificate', requireAuth, async (req: Request, res: 
     res.json({
       success: validation.valid,
       valid: validation.valid,
-      errors: validation.errors,
+      errors: validation.issues,
       warnings: validation.warnings,
       details: validation.details,
     });
@@ -137,7 +137,7 @@ router.post('/dsc/initiate', requireAuth, async (req: Request, res: Response, ne
       return res.status(400).json({
         success: false,
         error: 'Invalid request data',
-        details: result.error.errors,
+        details: result.error.issues,
       });
     }
 
@@ -219,7 +219,7 @@ router.post('/dsc/submit-signature', requireAuth, async (req: Request, res: Resp
       return res.status(400).json({
         success: false,
         error: 'Invalid signature data',
-        details: result.error.errors,
+        details: result.error.issues,
       });
     }
 

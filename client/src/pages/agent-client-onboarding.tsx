@@ -47,7 +47,7 @@ const basicInfoSchema = z.object({
   email: z.string().email("Invalid email address"),
   mobile: z.string().min(10, "Mobile number must be at least 10 digits").max(15),
   dateOfBirth: z.string().min(1, "Date of birth is required"),
-  gender: z.enum(["M", "F", "O"], { required_error: "Please select a gender" }),
+  gender: z.enum(["M", "F", "O"]),
 });
 
 const panVerificationSchema = z.object({
@@ -79,29 +79,25 @@ const bankDetailsSchema = z.object({
     .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC format"),
   bankName: z.string().min(2, "Bank name is required"),
   branchName: z.string().optional(),
-  accountType: z.enum(["savings", "current"], { required_error: "Please select account type" }),
+  accountType: z.enum(["savings", "current"]),
 }).refine((data) => data.accountNumber === data.confirmAccountNumber, {
   message: "Account numbers don't match",
   path: ["confirmAccountNumber"],
 });
 
 const riskProfileSchema = z.object({
-  investmentGoal: z.enum(["wealth_creation", "retirement", "tax_saving", "child_education", "emergency_fund", "regular_income"], 
-    { required_error: "Please select your investment goal" }),
-  riskTolerance: z.enum(["conservative", "moderate", "aggressive"], 
-    { required_error: "Please select your risk tolerance" }),
-  investmentHorizon: z.enum(["short", "medium", "long"], 
-    { required_error: "Please select your investment horizon" }),
-  annualIncome: z.enum(["below_5l", "5l_10l", "10l_25l", "25l_50l", "above_50l"], 
-    { required_error: "Please select your annual income range" }),
-  investmentExperience: z.enum(["beginner", "intermediate", "experienced"], 
-    { required_error: "Please select your investment experience" }),
+  investmentGoal: z.enum(["wealth_creation", "retirement", "tax_saving", "child_education", "emergency_fund", "regular_income"]),
+  riskTolerance: z.enum(["conservative", "moderate", "aggressive"]),
+  investmentHorizon: z.enum(["short", "medium", "long"]),
+  annualIncome: z.enum(["below_5l", "5l_10l", "10l_25l", "25l_50l", "above_50l"]),
+  investmentExperience: z.enum(["beginner", "intermediate", "experienced"]),
 });
 
 const fullFormSchema = basicInfoSchema
   .merge(panVerificationSchema)
   .merge(addressSchema)
-  .merge(bankDetailsSchema as any)
+  // In Zod v4, .refine() returns ZodEffects — use z.object(_def.shape) to recover the ZodObject for .merge()
+  .merge(z.object(bankDetailsSchema._def.shape))
   .merge(riskProfileSchema);
 
 type FormData = z.infer<typeof fullFormSchema>;
@@ -1327,10 +1323,10 @@ export default function AgentClientOnboarding() {
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-1 text-sm">
-                        <p className="text-foreground">{form.getValues("firstName")} {form.getValues("lastName")}</p>
-                        <p className="text-muted-foreground">{form.getValues("email")}</p>
-                        <p className="text-muted-foreground">{form.getValues("mobile")}</p>
-                        <p className="text-muted-foreground">DOB: {form.getValues("dateOfBirth")}</p>
+                        <p className="text-foreground">{String(form.getValues("firstName") ?? "")} {String(form.getValues("lastName") ?? "")}</p>
+                        <p className="text-muted-foreground">{String(form.getValues("email") ?? "")}</p>
+                        <p className="text-muted-foreground">{String(form.getValues("mobile") ?? "")}</p>
+                        <p className="text-muted-foreground">DOB: {String(form.getValues("dateOfBirth") ?? "")}</p>
                       </CardContent>
                     </Card>
 
@@ -1341,14 +1337,14 @@ export default function AgentClientOnboarding() {
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-1 text-sm">
-                        <p className="text-foreground">{form.getValues("panNumber")}</p>
+                        <p className="text-foreground">{String(form.getValues("panNumber") ?? "")}</p>
                         {panVerificationStatus === "verified" && (
                           <Badge className="bg-emerald-500/20 text-emerald-400 border-0">
                             <CheckCircle2 className="w-3 h-3 mr-1" /> Verified
                           </Badge>
                         )}
                         {form.getValues("panHolderName") && (
-                          <p className="text-muted-foreground">{form.getValues("panHolderName")}</p>
+                          <p className="text-muted-foreground">{String(form.getValues("panHolderName") ?? "")}</p>
                         )}
                       </CardContent>
                     </Card>
@@ -1361,10 +1357,10 @@ export default function AgentClientOnboarding() {
                       </CardHeader>
                       <CardContent className="space-y-1 text-sm">
                         {form.getValues("aadhaarNumber") && (
-                          <p className="text-foreground">Aadhaar: ****{form.getValues("aadhaarNumber").slice(-4)}</p>
+                          <p className="text-foreground">Aadhaar: ****{String(form.getValues("aadhaarNumber")).slice(-4)}</p>
                         )}
-                        <p className="text-foreground">{form.getValues("addressLine1")}</p>
-                        {form.getValues("addressLine2") && <p className="text-muted-foreground">{form.getValues("addressLine2")}</p>}
+                        <p className="text-foreground">{String(form.getValues("addressLine1") ?? "")}</p>
+                        {form.getValues("addressLine2") && <p className="text-muted-foreground">{String(form.getValues("addressLine2") ?? "")}</p>}
                         <p className="text-muted-foreground">{form.getValues("city")}, {form.getValues("state")} - {form.getValues("pincode")}</p>
                       </CardContent>
                     </Card>
@@ -1376,7 +1372,7 @@ export default function AgentClientOnboarding() {
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-1 text-sm">
-                        <p className="text-foreground">{form.getValues("bankName")}</p>
+                        <p className="text-foreground">{String(form.getValues("bankName") ?? "")}</p>
                         <p className="text-muted-foreground">A/C: ****{form.getValues("accountNumber").slice(-4)}</p>
                         <p className="text-muted-foreground">IFSC: {form.getValues("ifscCode")}</p>
                         <p className="text-muted-foreground capitalize">{form.getValues("accountType")} Account</p>

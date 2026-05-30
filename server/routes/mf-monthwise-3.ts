@@ -9,7 +9,7 @@ import { marketStoryService, type MarketData as StoryMarketData } from "../marke
 import { marketingService } from "../marketing-automation";
 import { whatsappService } from "../whatsapp";
 import { portfolioIntelligence } from "../portfolio-intelligence";
-import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "../gemini";
+import { generateMarketInsight, analyzePortfolio, generateInvestmentStory, explainFinancialConcept } from "../gemini-service";
 import { objectStorageClient as objectStorage } from "../objectStorage";
 
 export function registerMFMonthwiPart3Routes(app: Express): void {

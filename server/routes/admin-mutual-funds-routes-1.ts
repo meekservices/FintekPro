@@ -233,7 +233,7 @@ router.post("/mutual-funds/seed", async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("[Admin MF] Error seeding mutual fund:", error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ success: false, error: error.errors });
+      return res.status(400).json({ success: false, error: error.issues });
     }
     res.status(500).json({ success: false, error: error.message });
   }
@@ -371,7 +371,7 @@ router.post("/mutual-funds/seed-both", async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("[Admin MF] Error seeding both plans:", error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ success: false, error: error.errors });
+      return res.status(400).json({ success: false, error: error.issues });
     }
     res.status(500).json({ success: false, error: error.message });
   }

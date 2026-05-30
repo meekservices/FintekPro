@@ -205,7 +205,7 @@ export function registerLoanAdminPart1Routes(app: Express) {
     } catch (error: any) {
       console.error('Error creating lender staff:', error);
       if (error.name === 'ZodError') {
-        return res.status(400).json({ success: false, error: 'Validation failed', details: error.errors });
+        return res.status(400).json({ success: false, error: 'Validation failed', details: error.issues });
       }
       res.status(500).json({ success: false, error: 'Failed to create lender staff' });
     }
@@ -423,7 +423,7 @@ export function registerLoanAdminPart1Routes(app: Express) {
     } catch (error: any) {
       console.error('Error changing staff status:', error);
       if (error.name === 'ZodError') {
-        return res.status(400).json({ success: false, error: 'Validation failed', details: error.errors });
+        return res.status(400).json({ success: false, error: 'Validation failed', details: error.issues });
       }
       res.status(500).json({ success: false, error: 'Failed to change staff status' });
     }

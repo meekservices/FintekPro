@@ -209,7 +209,7 @@ export const addToCartInputSchema = z.object({
     sipAmount: z.number().optional(),
     sipFrequency: z.string().optional(),
     sipDuration: z.number().optional(),
-    metadata: z.record(z.any()).optional()
+    metadata: z.record(z.string(), z.any()).optional()
   })).min(1)
 });
 

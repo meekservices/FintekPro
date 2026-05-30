@@ -105,7 +105,7 @@ router.post('/validate', isAuthenticated, async (req: Request, res: Response) =>
       success: true,
       isin: cleanedISIN,
       valid: validation.valid,
-      errors: validation.errors,
+      errors: validation.issues,
       checksumValid: validation.checksumValid
     });
   } catch (error: any) {

@@ -99,7 +99,7 @@ router.post('/cases/:caseId/action', async (req, res) => {
       return res.status(400).json({ 
         success: false, 
         error: 'Invalid action data',
-        details: parseResult.error.errors,
+        details: parseResult.error.issues,
       });
     }
     

@@ -74,7 +74,7 @@ router.post('/calculate-cagr', async (req, res) => {
     console.error('CAGR calculation error:', error);
     res.status(400).json({ 
       success: false, 
-      error: error instanceof z.ZodError ? error.errors : 'Invalid input' 
+      error: error instanceof z.ZodError ? error.issues : 'Invalid input' 
     });
   }
 });
@@ -96,7 +96,7 @@ router.post('/calculate-irr', async (req, res) => {
     console.error('IRR calculation error:', error);
     res.status(400).json({ 
       success: false, 
-      error: error instanceof z.ZodError ? error.errors : 'Invalid input' 
+      error: error instanceof z.ZodError ? error.issues : 'Invalid input' 
     });
   }
 });
@@ -126,7 +126,7 @@ router.post('/asset-metrics', async (req, res) => {
     console.error('Asset metrics error:', error);
     res.status(400).json({ 
       success: false, 
-      error: error instanceof z.ZodError ? error.errors : 'Invalid input' 
+      error: error instanceof z.ZodError ? error.issues : 'Invalid input' 
     });
   }
 });
@@ -155,7 +155,7 @@ router.post('/stress-test', async (req, res) => {
     console.error('Stress test error:', error);
     res.status(400).json({ 
       success: false, 
-      error: error instanceof z.ZodError ? error.errors : 'Invalid input' 
+      error: error instanceof z.ZodError ? error.issues : 'Invalid input' 
     });
   }
 });
@@ -177,7 +177,7 @@ router.post('/drawdown', async (req, res) => {
     console.error('Drawdown calculation error:', error);
     res.status(400).json({ 
       success: false, 
-      error: error instanceof z.ZodError ? error.errors : 'Invalid input' 
+      error: error instanceof z.ZodError ? error.issues : 'Invalid input' 
     });
   }
 });
@@ -210,7 +210,7 @@ router.post('/projections', async (req, res) => {
     console.error('Projections error:', error);
     res.status(400).json({ 
       success: false, 
-      error: error instanceof z.ZodError ? error.errors : 'Invalid input' 
+      error: error instanceof z.ZodError ? error.issues : 'Invalid input' 
     });
   }
 });
@@ -236,7 +236,7 @@ router.post('/comprehensive', async (req, res) => {
     console.error('Comprehensive analysis error:', error);
     res.status(400).json({ 
       success: false, 
-      error: error instanceof z.ZodError ? error.errors : 'Invalid input' 
+      error: error instanceof z.ZodError ? error.issues : 'Invalid input' 
     });
   }
 });
@@ -269,7 +269,7 @@ router.post('/portfolio', async (req, res) => {
     console.error('Portfolio analysis error:', error);
     res.status(400).json({ 
       success: false, 
-      error: error instanceof z.ZodError ? error.errors : 'Invalid input' 
+      error: error instanceof z.ZodError ? error.issues : 'Invalid input' 
     });
   }
 });

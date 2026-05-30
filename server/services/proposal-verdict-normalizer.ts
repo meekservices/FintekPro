@@ -241,7 +241,7 @@ export class ProposalVerdictNormalizer {
         blocked: true,
         reason: validation.instrumentsMissing.length > 0
           ? `Assign verdicts to: ${validation.instrumentsMissing.join(', ')}`
-          : validation.errors.join(', ')
+          : validation.issues.join(', ')
       };
     }
 

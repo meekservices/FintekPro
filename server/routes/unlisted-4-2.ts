@@ -115,7 +115,7 @@ router.patch('/admin/companies/:id', requireAdmin, async (req: Request, res: Res
     console.error('Error updating company (admin):', error);
     
     if (error instanceof z.ZodError) {
-      return apiResponse.badRequest(res, 'Invalid input data', error.errors);
+      return apiResponse.badRequest(res, 'Invalid input data', error.issues);
     }
     
     return apiResponse.serverError(res, 'Failed to update company');

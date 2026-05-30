@@ -21,9 +21,7 @@ const dematAccountSchema = z.object({
   dematAccountNumber: z.string().min(8, "Demat account number must be at least 8 digits").max(20, "Account number is too long"),
   dematDpId: z.string().min(1, "DP ID is required"),
   dematDpName: z.string().min(1, "DP name is required"),
-  depositoryType: z.enum(["NSDL", "CDSL"], {
-    required_error: "Please select depository type"
-  }),
+  depositoryType: z.enum(["NSDL", "CDSL"], { error: "Please select depository type" }),
   nsdlClientId: z.string().optional(),
   cdslBoId: z.string().optional(),
   accountHolderName: z.string().min(1, "Account holder name is required"),

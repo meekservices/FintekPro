@@ -148,7 +148,7 @@ router.post('/workflows/:workflowId/sign/initiate', async (req: Request, res: Re
     const parsed = initiateSignatureSchema.safeParse(req.body);
     
     if (!parsed.success) {
-      return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+      return res.status(400).json({ error: 'Invalid request', details: parsed.error.issues });
     }
     
     const [participant] = await db.select().from(proposalEsignParticipants)
@@ -206,7 +206,7 @@ router.post('/workflows/:workflowId/sign/complete', async (req: Request, res: Re
     const parsed = recordSignatureSchema.safeParse(req.body);
     
     if (!parsed.success) {
-      return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
+      return res.status(400).json({ error: 'Invalid request', details: parsed.error.issues });
     }
     
     const [participant] = await db.select().from(proposalEsignParticipants)

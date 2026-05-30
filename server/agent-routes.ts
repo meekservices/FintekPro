@@ -280,7 +280,7 @@ router.post("/register", async (req, res) => {
     if (!validation.success) {
       return res.status(400).json({ 
         error: "Validation failed", 
-        details: validation.error.errors 
+        details: validation.error.issues 
       });
     }
 
@@ -493,7 +493,7 @@ router.post("/validate-arn", async (req, res) => {
     if (!validation.success) {
       return res.status(400).json({ 
         error: "Validation failed", 
-        details: validation.error.errors 
+        details: validation.error.issues 
       });
     }
 
@@ -519,7 +519,7 @@ router.post("/validate-euin", async (req, res) => {
     if (!validation.success) {
       return res.status(400).json({ 
         error: "Validation failed", 
-        details: validation.error.errors 
+        details: validation.error.issues 
       });
     }
 
@@ -671,7 +671,7 @@ router.post("/:agentId/documents", requireAuth, async (req, res) => {
     if (!validation.success) {
       return res.status(400).json({ 
         error: "Validation failed", 
-        details: validation.error.errors 
+        details: validation.error.issues 
       });
     }
 
@@ -737,7 +737,7 @@ router.post("/api/admin/agents/documents/:documentId/verify", requireAdmin, asyn
     if (!validation.success) {
       return res.status(400).json({ 
         error: "Validation failed", 
-        details: validation.error.errors 
+        details: validation.error.issues 
       });
     }
 
@@ -786,7 +786,7 @@ router.post("/api/admin/agents/:agentId/approve", requireAdmin, async (req, res)
     if (!validation.success) {
       return res.status(400).json({ 
         error: "Validation failed", 
-        details: validation.error.errors 
+        details: validation.error.issues 
       });
     }
 
@@ -890,7 +890,7 @@ router.post("/api/admin/agents/commission-splits", requireAdmin, async (req, res
     if (!validation.success) {
       return res.status(400).json({ 
         error: "Validation failed", 
-        details: validation.error.errors 
+        details: validation.error.issues 
       });
     }
 
@@ -1177,7 +1177,7 @@ router.post("/appointments", requireAuth, async (req, res) => {
     if (!validation.success) {
       return res.status(400).json({ 
         error: "Validation failed", 
-        details: validation.error.errors 
+        details: validation.error.issues 
       });
     }
     

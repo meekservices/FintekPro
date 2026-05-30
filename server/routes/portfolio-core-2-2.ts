@@ -101,7 +101,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
     } catch (error: unknown) {
       console.error("Error creating portfolio:", error);
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: "Invalid portfolio data", details: error.errors });
+        res.status(400).json({ error: "Invalid portfolio data", details: error.issues });
       } else {
         res.status(500).json({ error: errorMessage(error) });
       }
@@ -131,7 +131,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
     } catch (error: unknown) {
       console.error("Error creating holding:", error);
       if (error instanceof z.ZodError) {
-        res.status(400).json({ error: "Invalid holding data", details: error.errors });
+        res.status(400).json({ error: "Invalid holding data", details: error.issues });
       } else {
         res.status(500).json({ error: errorMessage(error) });
       }

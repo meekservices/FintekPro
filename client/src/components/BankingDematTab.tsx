@@ -22,9 +22,7 @@ const bankAccountSchema = z.object({
   accountNumber: z.string().min(9, "Account number must be 9-18 digits").max(18, "Account number must be 9-18 digits").regex(/^[0-9]+$/, "Account number must contain only digits"),
   ifscCode: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format"),
   branchName: z.string().min(1, "Branch name is required"),
-  accountType: z.enum(["savings", "current", "nro", "nre", "fcnr"], {
-    required_error: "Please select account type"
-  }),
+  accountType: z.enum(["savings", "current", "nro", "nre", "fcnr"], { error: "Please select account type" }),
   accountHolderName: z.string().min(1, "Account holder name is required"),
 });
 

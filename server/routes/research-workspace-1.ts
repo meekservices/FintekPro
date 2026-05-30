@@ -261,7 +261,7 @@ router.post("/", async (req, res) => {
   } catch (error) {
     console.error("[ResearchLists] Error creating list:", error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: "Validation error", details: error.errors });
+      return res.status(400).json({ error: "Validation error", details: error.issues });
     }
     res.status(500).json({ error: "Failed to create research list" });
   }
@@ -490,7 +490,7 @@ router.post("/:id/items", async (req, res) => {
   } catch (error) {
     console.error("[ResearchListItems] Error adding item:", error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: "Validation error", details: error.errors });
+      return res.status(400).json({ error: "Validation error", details: error.issues });
     }
     res.status(500).json({ error: "Failed to add item to research list" });
   }

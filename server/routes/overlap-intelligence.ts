@@ -241,7 +241,7 @@ router.post("/sebi-narrative", async (req: Request, res: Response) => {
   try {
     const schema = z.object({
       type: z.enum(["OVERLAP_RISK", "SIP_ROUTING", "REPLACE_FUND", "DIVERSIFICATION_SCORE", "GOAL_ALIGNMENT"]),
-      data: z.record(z.any()),
+      data: z.record(z.string(), z.any()),
     });
     const context = schema.parse(req.body);
     const result = overlapIntelligenceEngine.generateSEBICompliantNarratives(context);
