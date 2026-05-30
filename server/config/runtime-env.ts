@@ -44,6 +44,51 @@ function collectRuntimeEnvIssues(): EnvIssue[] {
     });
   }
 
+  // ── Encryption & AI keys ─────────────────────────────────────────────────
+  if (isProduction && !hasValue(process.env.ENCRYPTION_MASTER_KEY)) {
+    issues.push({
+      level: "warn",
+      message:
+        "ENCRYPTION_MASTER_KEY not found. Alpaca broker credentials stored at-rest will fail to decrypt. " +
+        "Set via GCP Secret Manager: gcloud secrets versions access latest --secret=ENCRYPTION_MASTER_KEY",
+    });
+  }
+
+  if (!hasValue(process.env.GEMINI_API_KEY)) {
+    issues.push({
+      level: "warn",
+      message:
+        "GEMINI_API_KEY not found. All AI advisory features (FASP-AI) and Gemini-powered analysis will be disabled. " +
+        "Set via GCP Secret Manager or .env for local dev.",
+    });
+  }
+
+  if (isProduction && !hasValue(process.env.ALPACA_API_KEY)) {
+    issues.push({
+      level: "warn",
+      message:
+        "ALPACA_API_KEY not found. US equity trading, market data, and algo signals will be unavailable. " +
+        "Regenerate at https://broker-app.alpaca.markets → API/Devs → Generate.",
+    });
+  }
+
+  if (isProduction && !hasValue(process.env.ALPACA_SECRET_KEY)) {
+    issues.push({
+      level: "warn",
+      message:
+        "ALPACA_SECRET_KEY not found. Required alongside ALPACA_API_KEY for all Alpaca Broker API calls.",
+    });
+  }
+
+  // ── Summary (always, not just production) ────────────────────────────────
+  const missing = issues.filter(i => i.level === "warn" || i.level === "error");
+  if (missing.length > 0) {
+    console.warn(
+      `⚠️ [ENV] ${missing.length} environment variable issue(s) detected at startup. ` +
+      `Check GCP Secret Manager bindings. App will continue but affected features may be degraded.`,
+    );
+  }
+
   return issues;
 }
 

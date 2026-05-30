@@ -19,7 +19,7 @@ import { algoSignals, users } from "@shared/schema";
 import { eq, and, inArray, lt } from "drizzle-orm";
 import { alpacaMarketDataService } from "./alpaca-market-data-service";
 import { auditLog } from "../middleware/audit-trail";
-import { logger } from "../utils/logger";
+import { logger } from "../logger";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -449,4 +449,318 @@ class AlgoSignalEngine {
   }
 }
 
+// ─── Backtest Types ───────────────────────────────────────────────────────────
+
+export interface AlgoBacktestConfig {
+  symbol:         string;
+  startDate:      string;  // YYYY-MM-DD (max 2 years back — free Alpaca tier)
+  endDate:        string;  // YYYY-MM-DD
+  riskProfile:    RiskProfile;
+  initialCapital: number;  // USD, default $10,000
+  strategy:       "composite" | "sma_crossover" | "rsi" | "momentum";
+}
+
+export interface BacktestTrade {
+  entryDate:   string;
+  exitDate:    string;
+  signal:      "buy" | "sell";
+  entryPrice:  number;
+  exitPrice:   number;
+  returnPct:   number;
+  daysHeld:    number;
+  pnlUsd:      number;
+}
+
+export interface EquityCurvePoint {
+  date:            string;
+  portfolioValue:  number;
+  benchmarkValue:  number;  // buy-and-hold
+  drawdown:        number;  // % from peak
+}
+
+export interface AlgoBacktestResult {
+  symbol:         string;
+  strategy:       string;
+  startDate:      string;
+  endDate:        string;
+  initialCapital: number;
+  summary: {
+    totalTrades:    number;
+    winningTrades:  number;
+    losingTrades:   number;
+    winRate:        number;    // 0–100
+    totalReturn:    number;    // %
+    benchmarkReturn:number;    // buy-and-hold %
+    alpha:          number;    // vs benchmark
+    cagr:           number;    // %
+    sharpeRatio:    number;
+    maxDrawdown:    number;    // %
+    avgHoldDays:    number;
+    profitFactor:   number;
+    totalBars:      number;
+  };
+  equityCurve:    EquityCurvePoint[];
+  trades:         BacktestTrade[];
+  modelVersion:   string;
+  disclaimer:     string;
+  generatedAt:    string;
+}
+
+// ─── Backtesting Engine (appended to AlgoSignalEngine class) ─────────────────
+// NOTE: Exported as a separate engine instance that has access to all private methods
+//       via composition with the signal engine's maths utilities.
+
+class AlgoBacktestEngine {
+  // Proxy maths helpers (same as AlgoSignalEngine — kept DRY by composition)
+  private _sma(arr: number[], period: number): number {
+    const slice = arr.slice(-period);
+    return slice.length === 0 ? 0 : slice.reduce((a, b) => a + b, 0) / slice.length;
+  }
+
+  private _smaAt(arr: number[], i: number, period: number): number {
+    if (i < period - 1) return 0;
+    const slice = arr.slice(i - period + 1, i + 1);
+    return slice.reduce((a, b) => a + b, 0) / slice.length;
+  }
+
+  private _rsiAt(closes: number[], i: number, period: number): number {
+    if (i < period) return 50;
+    let gains = 0, losses = 0;
+    for (let j = i - period + 1; j <= i; j++) {
+      const diff = closes[j] - closes[j - 1];
+      if (diff >= 0) gains += diff; else losses -= diff;
+    }
+    const avgGain = gains / period;
+    const avgLoss = losses / period;
+    if (avgLoss === 0) return 100;
+    return +(100 - 100 / (1 + avgGain / avgLoss)).toFixed(2);
+  }
+
+  private _compositeScore(
+    closes: number[], highs: number[], lows: number[], volumes: number[],
+    i: number,
+    strategy: AlgoBacktestConfig["strategy"],
+  ): number {
+    if (i < 52) return 0; // need at least 52 bars for SMA-50 + warm-up
+
+    const sma20 = this._smaAt(closes, i, 20);
+    const sma50 = this._smaAt(closes, i, 50);
+    const rsi14 = this._rsiAt(closes, i, 14);
+    const vol5  = this._smaAt(volumes, i, 5);
+    const vol20 = this._smaAt(volumes, i, 20);
+    const volRatio = vol20 > 0 ? vol5 / vol20 : 1;
+    const price20d = closes[Math.max(0, i - 20)];
+    const mom20d   = price20d > 0 ? (closes[i] - price20d) / price20d : 0;
+
+    // Strategy scores
+    const smaDiff  = sma50 > 0 ? (sma20 - sma50) / sma50 : 0;
+    const smaScore = Math.max(-1, Math.min(1, smaDiff * 20));
+    let rsiScore = 0;
+    if (rsi14 < 30)      rsiScore = (1 - rsi14 / 30);
+    else if (rsi14 > 70) rsiScore = -((rsi14 - 70) / 30);
+    const momRaw   = Math.max(-1, Math.min(1, mom20d / 0.15));
+    const volBoost = volRatio > 1.3 ? 1.2 : volRatio < 0.7 ? 0.8 : 1.0;
+    const momScore = momRaw * volBoost;
+
+    switch (strategy) {
+      case "sma_crossover": return smaScore;
+      case "rsi":           return rsiScore;
+      case "momentum":      return momScore;
+      case "composite":
+      default:              return smaScore * 0.4 + rsiScore * 0.3 + momScore * 0.3;
+    }
+  }
+
+  /**
+   * Run a walk-forward backtest of the algo signal strategy using Alpaca historical bars.
+   * Max lookback: 2 years (free Alpaca tier).
+   * FASP-AI v1.0: result includes mandatory disclaimer. Not financial advice.
+   */
+  async runBacktest(config: AlgoBacktestConfig): Promise<AlgoBacktestResult> {
+    const startMs = Date.now();
+    const symbol  = config.symbol.toUpperCase();
+
+    // Enforce 2-year max (free tier)
+    const maxStart = new Date();
+    maxStart.setFullYear(maxStart.getFullYear() - 2);
+    const effectiveStart = config.startDate < maxStart.toISOString().split("T")[0]
+      ? maxStart.toISOString().split("T")[0]
+      : config.startDate;
+
+    logger.info("[AlgoBacktest] Starting", { symbol, effectiveStart, endDate: config.endDate });
+
+    // Fetch bars — add 60-day warm-up buffer before start
+    const warmupStart = new Date(effectiveStart);
+    warmupStart.setDate(warmupStart.getDate() - 65);
+
+    const barsMap = await alpacaMarketDataService.getBars(
+      symbol, "1Day",
+      warmupStart.toISOString().split("T")[0],
+      config.endDate,
+      750, // ~2.5 years of trading days
+    );
+
+    const allBars = barsMap.get(symbol) || [];
+    if (allBars.length < 60) {
+      throw new Error(`Insufficient historical data for ${symbol}: only ${allBars.length} bars available`);
+    }
+
+    // ── Parse bars into typed arrays ─────────────────────────────────────────
+    type RawBar = { c?: number; close?: number; h?: number; high?: number; l?: number; low?: number; v?: number; volume?: number; timestamp?: string; t?: string };
+    const closes  = allBars.map((b: RawBar) => b.c ?? b.close ?? 0);
+    const highs   = allBars.map((b: RawBar) => b.h ?? b.high ?? 0);
+    const lows    = allBars.map((b: RawBar) => b.l ?? b.low ?? 0);
+    const volumes = allBars.map((b: RawBar) => b.v ?? b.volume ?? 0);
+    const dates   = allBars.map((b: RawBar) => {
+      const ts = b.timestamp ?? b.t ?? "";
+      return ts.split("T")[0];
+    });
+
+    // Find backtest window (after warm-up)
+    const btStartIdx = dates.findIndex(d => d >= effectiveStart);
+    const btEndIdx   = dates.findLastIndex ? dates.findLastIndex(d => d <= config.endDate) : dates.reduce((last, d, i) => d <= config.endDate ? i : last, -1);
+    if (btStartIdx < 0 || btEndIdx < 0 || btEndIdx <= btStartIdx) {
+      throw new Error(`No trading data found for ${symbol} in date range ${effectiveStart}–${config.endDate}`);
+    }
+
+    // ── Walk-forward simulation ───────────────────────────────────────────────
+    const CONF_THRESHOLD = 0.6; // 60% confidence → actionable signal
+    let   capital      = config.initialCapital;
+    let   peakCapital  = capital;
+    let   inTrade      = false;
+    let   tradeEntry   = 0;
+    let   tradeDate    = "";
+    let   tradeSignal: "buy" | "sell" = "buy";
+    let   maxDrawdown  = 0;
+
+    const trades: BacktestTrade[]         = [];
+    const equityCurve: EquityCurvePoint[] = [];
+    const benchmarkStart                  = closes[btStartIdx];
+
+    // Risk-adjusted position size (fraction of capital)
+    const positionSize = config.riskProfile === "conservative" ? 0.5
+      : config.riskProfile === "moderate" ? 0.75
+      : config.riskProfile === "aggressive" ? 0.9
+      : 1.0; // very_aggressive = all-in
+
+    for (let i = btStartIdx; i <= btEndIdx; i++) {
+      const score = this._compositeScore(closes, highs, lows, volumes, i, config.strategy);
+      const absScore = Math.abs(score);
+      const direction = score >= 0 ? "buy" : "sell";
+      const isActionable = absScore >= CONF_THRESHOLD;
+
+      // Exit logic: opposite signal while in trade
+      if (inTrade) {
+        const shouldExit = (tradeSignal === "buy" && direction === "sell" && isActionable)
+                        || (tradeSignal === "sell" && direction === "buy" && isActionable)
+                        || (i === btEndIdx); // force exit at end
+
+        if (shouldExit) {
+          const exitPrice = closes[i];
+          const grossReturn = tradeSignal === "buy"
+            ? (exitPrice - tradeEntry) / tradeEntry
+            : (tradeEntry - exitPrice) / tradeEntry;
+
+          const investedCapital = capital * positionSize;
+          const pnlUsd = investedCapital * grossReturn;
+          capital += pnlUsd;
+
+          trades.push({
+            entryDate:  tradeDate,
+            exitDate:   dates[i],
+            signal:     tradeSignal,
+            entryPrice: +tradeEntry.toFixed(4),
+            exitPrice:  +exitPrice.toFixed(4),
+            returnPct:  +(grossReturn * 100).toFixed(3),
+            daysHeld:   Math.max(1, dates[i] < tradeDate ? 1 :
+              Math.round((new Date(dates[i]).getTime() - new Date(tradeDate).getTime()) / 86400000)),
+            pnlUsd: +pnlUsd.toFixed(2),
+          });
+
+          inTrade = false;
+        }
+      }
+
+      // Entry logic: new actionable signal while not in trade
+      if (!inTrade && isActionable && i < btEndIdx) {
+        inTrade     = true;
+        tradeEntry  = closes[i];
+        tradeDate   = dates[i];
+        tradeSignal = direction;
+      }
+
+      // Equity curve point
+      peakCapital = Math.max(peakCapital, capital);
+      const drawdown = peakCapital > 0 ? ((capital - peakCapital) / peakCapital) * 100 : 0;
+      maxDrawdown = Math.min(maxDrawdown, drawdown);
+
+      equityCurve.push({
+        date:           dates[i],
+        portfolioValue: +capital.toFixed(2),
+        benchmarkValue: +(config.initialCapital * (closes[i] / benchmarkStart)).toFixed(2),
+        drawdown:       +drawdown.toFixed(3),
+      });
+    }
+
+    // ── Summary stats ─────────────────────────────────────────────────────────
+    const totalTrades    = trades.length;
+    const winning        = trades.filter(t => t.returnPct > 0);
+    const losing         = trades.filter(t => t.returnPct <= 0);
+    const winRate        = totalTrades > 0 ? +(winning.length / totalTrades * 100).toFixed(1) : 0;
+    const totalReturn    = +((capital - config.initialCapital) / config.initialCapital * 100).toFixed(2);
+    const benchmarkReturn = +(((closes[btEndIdx] / benchmarkStart) - 1) * 100).toFixed(2);
+    const alpha          = +(totalReturn - benchmarkReturn).toFixed(2);
+
+    // CAGR
+    const years = Math.max(0.1,
+      (new Date(config.endDate).getTime() - new Date(effectiveStart).getTime()) / (365.25 * 86400000));
+    const cagr  = +(((Math.pow(capital / config.initialCapital, 1 / years)) - 1) * 100).toFixed(2);
+
+    // Sharpe Ratio (annualized, risk-free rate = 4.5%)
+    const dailyReturns = equityCurve.slice(1).map((p, i) => {
+      const prev = equityCurve[i].portfolioValue;
+      return prev > 0 ? (p.portfolioValue - prev) / prev : 0;
+    });
+    const riskFreeDaily = 0.045 / 252;
+    const excessReturns = dailyReturns.map(r => r - riskFreeDaily);
+    const meanExcess    = excessReturns.reduce((a, b) => a + b, 0) / (excessReturns.length || 1);
+    const stdExcess     = Math.sqrt(
+      excessReturns.reduce((a, r) => a + Math.pow(r - meanExcess, 2), 0) / (excessReturns.length || 1)
+    );
+    const sharpeRatio   = stdExcess > 0 ? +(meanExcess / stdExcess * Math.sqrt(252)).toFixed(3) : 0;
+
+    // Profit factor
+    const grossProfit = winning.reduce((a, t) => a + t.pnlUsd, 0);
+    const grossLoss   = Math.abs(losing.reduce((a, t) => a + t.pnlUsd, 0));
+    const profitFactor = grossLoss > 0 ? +(grossProfit / grossLoss).toFixed(3) : grossProfit > 0 ? 99.9 : 0;
+
+    const avgHoldDays = totalTrades > 0
+      ? +(trades.reduce((a, t) => a + t.daysHeld, 0) / totalTrades).toFixed(1) : 0;
+
+    logger.info("[AlgoBacktest] Complete", {
+      symbol, totalTrades, winRate, sharpeRatio, latency: Date.now() - startMs,
+    });
+
+    return {
+      symbol,
+      strategy:       config.strategy,
+      startDate:      effectiveStart,
+      endDate:        config.endDate,
+      initialCapital: config.initialCapital,
+      summary: {
+        totalTrades, winningTrades: winning.length, losingTrades: losing.length,
+        winRate, totalReturn, benchmarkReturn, alpha,
+        cagr, sharpeRatio, maxDrawdown: +Math.abs(maxDrawdown).toFixed(2),
+        avgHoldDays, profitFactor, totalBars: btEndIdx - btStartIdx + 1,
+      },
+      equityCurve,
+      trades,
+      modelVersion:  MODEL_VERSION,
+      disclaimer:    DISCLAIMER + " Backtested results are hypothetical and do NOT represent actual trading returns.",
+      generatedAt:   new Date().toISOString(),
+    };
+  }
+}
+
 export const algoSignalEngine = new AlgoSignalEngine();
+export const algoBacktestEngine = new AlgoBacktestEngine();

@@ -654,6 +654,47 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
         console.error('[Migration] user_profiles & lrs_compliance_tracking KYC columns error:', e?.message);
       }
 
+      // ── Algo Signal Engine (FASP-AI v1.0) ────────────────────────────────────
+      // algo_signals table: Decision Support System signals for US equities.
+      // Added 2026-05-30. Safe CREATE TABLE IF NOT EXISTS — idempotent.
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS algo_signals (
+            id                 SERIAL PRIMARY KEY,
+            user_id            INTEGER REFERENCES users(id),
+            symbol             VARCHAR(20) NOT NULL,
+            company_name       VARCHAR(200),
+            strategy           VARCHAR(50) NOT NULL DEFAULT 'composite',
+            signal             VARCHAR(10) NOT NULL,
+            confidence_score   INTEGER NOT NULL,
+            suggested_qty      NUMERIC(18, 6),
+            suggested_notional NUMERIC(18, 2),
+            entry_price        NUMERIC(18, 4),
+            target_price       NUMERIC(18, 4),
+            stop_loss_price    NUMERIC(18, 4),
+            factors            JSONB,
+            model_version      VARCHAR(30) NOT NULL DEFAULT 'algo-v1.0',
+            risk_profile       VARCHAR(30),
+            investment_horizon VARCHAR(20),
+            status             VARCHAR(20) NOT NULL DEFAULT 'pending',
+            approved_at        TIMESTAMPTZ,
+            rejected_at        TIMESTAMPTZ,
+            order_id           VARCHAR(100),
+            disclaimer         TEXT,
+            expires_at         TIMESTAMPTZ,
+            created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_algo_signals_user    ON algo_signals(user_id);
+          CREATE INDEX IF NOT EXISTS idx_algo_signals_symbol  ON algo_signals(symbol);
+          CREATE INDEX IF NOT EXISTS idx_algo_signals_status  ON algo_signals(status);
+          CREATE INDEX IF NOT EXISTS idx_algo_signals_created ON algo_signals(created_at);
+        `);
+        console.log('✅ algo_signals table verified (FASP-AI v1.0 DSS)');
+      } catch (e: any) {
+        console.error('[Migration] algo_signals table error:', e?.message);
+      }
+
         console.log('✅ Critical schema repairs complete');
       } catch (migErr) {
 

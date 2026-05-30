@@ -408,3 +408,8 @@ table {
 .iris-bar-fill {
   width: var(--bar-w, 0%);
 }
+
+/* Dynamic bar chart column — height set via --bar-h CSS custom property */
+.iris-bar-ht {
+  height: var(--bar-h, 0px);
+}

@@ -117,6 +117,17 @@ import userSignatureESignRouter from "./routes/user-signature-esign-routes";
 import unifiedProposalsRouter from "./routes/unified-proposals-routes";
 import improvementFeaturesRouter from "./routes/improvement-features";
 
+// ── Proposal Builder + Agent Portal Engines (previously orphaned) ─────────────
+import prospectProposalsRouter from "./routes/prospect-proposals";
+import proposalBuilderRouter from "./routes/proposal-builder-routes";
+import sipSimulatorRouter from "./routes/sip-simulator";
+import sebiAuditRouter from "./routes/sebi-audit";
+import { agentDemoRouter } from "./routes/demo-proposals";
+import { registerPortfolioCompareAISIPRoutes } from "./routes/portfolio-compare-ai-sip";
+import stockIntersectionRouter from "./routes/stock-intersection";
+import { registerAgentAdvisoryPart4Routes } from "./routes/agent-advisory-4";
+import overlapIntelligenceRouter from "./routes/overlap-intelligence"; // /api/portfolio/intelligence, /simulate-impact, /optimize-sip, /goal-based-score
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -291,7 +302,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/ai-investment", aiInvestmentRoutes);
   app.use("/api/ai/copilot", treasuryCopilotRoutes);
   app.use("/api/treasury", treasuryRoutes);
-  app.use("/api/engine", engineHealthRoutes);
+  app.use("/api/engine-health", engineHealthRoutes); // matches UI calls: /api/engine-health/run, /registry, /gemini-deep-audit
+  app.use("/api/engine", engineHealthRoutes);        // backward-compat alias
 
   // Missing Production Routes
   registerMarketDataRoutes(app);
@@ -370,6 +382,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(userSignatureESignRouter);
   app.use("/api/unified-proposals", unifiedProposalsRouter);
   app.use("/api/features", improvementFeaturesRouter);
+
+  // ── Proposal Builder Engine Routes (fix: all proposal builder engines returning 404) ──
+  // Prospect Proposals: GET/POST /api/agent/prospect-proposals and sub-routes
+  app.use("/", prospectProposalsRouter);
+
+  // Proposal Builder phase-lock, verdicts, SIPs, benchmarks, what-if, PDF, audit
+  app.use("/api/proposal-builder", proposalBuilderRouter);
+
+  // SIP Simulator: POST /api/sip/simulate, POST /api/sip/training-prompts
+  app.use("/api/sip", sipSimulatorRouter);
+
+  // SEBI Audit: GET /api/sebi-audit/summary/:proposalId, /api/sebi-audit/log
+  app.use("/api/sebi-audit", sebiAuditRouter);
+
+  // Agent Demo Proposals: GET/POST /api/agent/demo-proposals, POST .../generate-pdf
+  app.use("/api/agent/demo-proposals", agentDemoRouter);
+
+  // Portfolio Compare + AI SIP routes (uses app directly with full /api/* paths)
+  registerPortfolioCompareAISIPRoutes(app);
+
+  // Stock Intersection / Overlap Analysis: POST /api/stock-intersection/analyze
+  app.use("/api/stock-intersection", stockIntersectionRouter);
+
+  // Agent Advisory Part 4: fair-backtest, portfolio-difference, validate-override, etc.
+  registerAgentAdvisoryPart4Routes(app);
+
+  // Portfolio Intelligence: /api/portfolio/intelligence, /simulate-impact, /optimize-sip, /goal-based-score
+  app.use("/api/portfolio", overlapIntelligenceRouter);
 
   // Profile Sharing Toggle
   app.patch("/api/user/profile/sharing", async (req, res) => {

@@ -13,14 +13,15 @@
 
 import { Router, Response } from "express";
 import { z } from "zod";
-import rateLimit from "express-rate-limit";
-import { algoSignalEngine, RiskProfile } from "../services/algo-signal-engine";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import { algoSignalEngine, algoBacktestEngine, RiskProfile } from "../services/algo-signal-engine";
 import { requireAuth } from "../middleware/auth";
 import { db } from "../db";
 import { algoSignals } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import type { AuthRequest } from "../types/broker-types";
-import { logger } from "../utils/logger";
+import { logger } from "../logger";
+import { auditLog } from "../middleware/audit-trail";
 
 const router = Router();
 router.use(requireAuth);
@@ -29,14 +30,14 @@ router.use(requireAuth);
 const generateLimiter = rateLimit({
   windowMs: 60_000,
   max: 5,
-  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || req.ip || "anon",
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req),
   message: { success: false, error: "Max 5 signal generations/minute.", retryable: true },
 });
 
 const actionLimiter = rateLimit({
   windowMs: 60_000,
   max: 60,
-  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || req.ip || "anon",
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req),
   message: { success: false, error: "Too many actions. Slow down.", retryable: true },
 });
 
@@ -211,6 +212,101 @@ router.get("/performance", actionLimiter, async (req: AuthRequest, res: Response
     res.json({ success: true, data: performance, meta: { timestamp: new Date().toISOString(), version: "1.0" } });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─── Backtesting ──────────────────────────────────────────────────────────────
+
+const backtestLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 3, // Alpaca historical data calls are expensive — cap at 3/min
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req),
+  message: { success: false, error: "Max 3 backtests/minute. Alpaca data rate-limited.", retryable: true },
+});
+
+const backtestSchema = z.object({
+  symbol:         z.string().min(1).max(10).transform(s => s.toUpperCase()),
+  startDate:      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "startDate must be YYYY-MM-DD"),
+  endDate:        z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "endDate must be YYYY-MM-DD"),
+  riskProfile:    z.enum(["conservative", "moderate", "aggressive", "very_aggressive"]).default("moderate"),
+  initialCapital: z.number().min(1000).max(1_000_000).default(10000),
+  strategy:       z.enum(["composite", "sma_crossover", "rsi", "momentum"]).default("composite"),
+}).refine(data => {
+  // Enforce max 2-year lookback (free Alpaca tier)
+  const twoYearsAgo = new Date();
+  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+  return data.startDate >= twoYearsAgo.toISOString().split("T")[0];
+}, { message: "startDate cannot be more than 2 years ago (free Alpaca data tier limit)" })
+.refine(data => data.endDate > data.startDate, { message: "endDate must be after startDate" })
+.refine(data => data.endDate <= new Date().toISOString().split("T")[0], { message: "endDate cannot be in the future" });
+
+/**
+ * POST /backtest
+ * Run a walk-forward strategy backtest using Alpaca historical daily bars.
+ *
+ * FASP-AI v1.0: Result is hypothetical — mandatory disclaimer included.
+ * Decision Support System only. Does not constitute financial advice.
+ *
+ * Body: { symbol, startDate, endDate, riskProfile, initialCapital, strategy }
+ */
+router.post("/backtest", backtestLimiter, async (req: AuthRequest, res: Response): Promise<void> => {
+  const startMs = Date.now();
+  try {
+    const userId = getUserId(req);
+    const parsed = backtestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, error: parsed.error.flatten().fieldErrors });
+      return;
+    }
+    const config = parsed.data;
+
+    const result = await algoBacktestEngine.runBacktest({
+      symbol:         config.symbol,
+      startDate:      config.startDate,
+      endDate:        config.endDate,
+      riskProfile:    config.riskProfile as RiskProfile,
+      initialCapital: config.initialCapital,
+      strategy:       config.strategy,
+    });
+
+    // Audit log — backtest runs are logged for governance
+    await auditLog({
+      action:    "algo_backtest_run",
+      category:  "trading",
+      outcome:   "success",
+      riskLevel: "low",
+      details: {
+        event:         "ALGO_BACKTEST_RUN",
+        user_id:       userId,
+        symbol:        config.symbol,
+        strategy:      config.strategy,
+        date_range:    `${config.startDate}→${config.endDate}`,
+        total_trades:  result.summary.totalTrades,
+        win_rate:      result.summary.winRate,
+        sharpe:        result.summary.sharpeRatio,
+        model_version: result.modelVersion,
+        latency_ms:    Date.now() - startMs,
+        timestamp:     new Date().toISOString(),
+      },
+    }).catch(() => {});
+
+    res.json({
+      success: true,
+      data: result,
+      meta: {
+        timestamp:   new Date().toISOString(),
+        version:     "algo-v1.0",
+        disclaimer:  "Backtested results are hypothetical. Past performance does not predict future returns. Not financial advice.",
+        latency_ms:  Date.now() - startMs,
+      },
+    });
+  } catch (err: any) {
+    logger.error("[AlgoRoutes] backtest error", { error: err.message });
+    res.status(err.message.includes("Insufficient") ? 422 : 500).json({
+      success: false,
+      error:   err.message,
+      retryable: false,
+    });
   }
 });
 
