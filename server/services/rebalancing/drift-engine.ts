@@ -1,4 +1,4 @@
-import { logger } from "../../utils/logger";
+import { logger } from '../../logger';
 import { quantOrchestrator } from "../quant/quant-orchestrator";
 
 export interface DriftMetric {

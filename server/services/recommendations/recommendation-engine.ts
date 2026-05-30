@@ -1,4 +1,4 @@
-import { logger } from "../../utils/logger";
+import { logger } from "../../logger";
 import { getRecommendationsByCategory, RecommendationProductData } from "../recommendation-products-service";
 
 // Hardcoded recommendations used as fallback or baseline

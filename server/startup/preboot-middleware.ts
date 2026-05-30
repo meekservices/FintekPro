@@ -4,6 +4,7 @@ import express, { type Express } from "express";
 import { APP_VERSION } from "../../shared/version";
 import { bootState } from "../utils/boot-state";
 import { globalLimiter } from "../middleware/rate-limiter";
+import { logger } from "../logger";
 
 // ── Allowed CORS origins ────────────────────────────────────────────────────
 const PROD_ORIGINS = [
@@ -128,7 +129,7 @@ export function registerPrebootMiddleware(app: Express) {
         if (isAllowedCorsOrigin(origin, getAllowedOrigins())) {
           callback(null, true);
         } else {
-          console.warn(`[CORS] Blocked request from unauthorized origin: ${origin}`);
+          logger.warn(`[CORS] Blocked request from unauthorized origin: ${origin}`);
           callback(new Error("Not allowed by CORS"));
         }
       },

@@ -32,12 +32,12 @@ validateRuntimeEnv();
 // ============================================================================
 
 process.on('uncaughtException', (err) => {
-  console.error('❌ [FATAL] Uncaught Exception:', err);
+  logger.error('❌ [FATAL] Uncaught Exception:', err);
   // Recovery actions are handled by auto-recovery-service if initialized
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ [FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+  logger.error('❌ [FATAL] Unhandled Rejection', new Error(String(reason)), { promise: String(promise) });
 });
 
 // ============================================================================
@@ -77,7 +77,7 @@ function registerSPACatchAll(expressApp: Express) {
     if (process.env.NODE_ENV === 'production') {
       res.sendFile(indexPath, (err) => {
         if (err) {
-          console.error('❌ Failed to serve SPA index.html:', err);
+          logger.error('❌ Failed to serve SPA index.html:', err);
           res.status(500).send('System initializing... please refresh in 30 seconds.');
         }
       });
@@ -90,7 +90,7 @@ function registerSPACatchAll(expressApp: Express) {
 
 // Register the catch-all immediately for production stability
 if (process.env.NODE_ENV === 'production') {
-  console.log('🛡️  Registering SPA catch-all (Phase 2 safety)...');
+  logger.info('🛡️  Registering SPA catch-all (Phase 2 safety)...');
   registerSPACatchAll(app);
 }
 
@@ -101,7 +101,7 @@ if (process.env.NODE_ENV === 'production') {
 // succeeds immediately. DB connection and route registration happen after.
 const PORT = Number(process.env.PORT) || 5000;
 const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 [v${APP_VERSION}] Server listening on port ${PORT} (Booting...)`);
+  logger.info(`🚀 [v${APP_VERSION}] Server listening on port ${PORT} (Booting...)`);
   bootState.serverListening = true;
 });
 
@@ -119,10 +119,10 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 
     try {
       await db.execute(sql`SELECT 1`);
-      console.log('✅ Database connection established');
+      logger.info('✅ Database connection established');
     } catch (dbErr) {
       // Log DB failure but do NOT crash — server is already listening
-      console.error('❌ Database connection failed:', dbErr);
+      logger.error('❌ Database connection failed:', dbErr);
       bootState.error = `DB Connection Error: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`;
       // Continue booting so Cloud Run keeps the instance alive
     }
@@ -183,14 +183,14 @@ const server = app.listen(PORT, "0.0.0.0", () => {
       app.use('/api/login/request-otp', otpLimiter);
       app.use('/api/auth',         authLimiter);
     } catch (error: any) {
-      console.error('❌ [FATAL] Error in Step 3 block:', error);
+      logger.error('❌ [FATAL] Error in Step 3 block:', error);
       bootState.error = `Step 3 Error: ${error?.message || String(error)}`;
       throw error;
     }
 
     // ── CORE ROUTES ──────────────────────────────────────────────────────────
     logBootProgress("Step 4: Registering Core Routes...");
-    console.log('📦 Registering routes...');
+    logger.info('📦 Registering routes...');
 
     // Register Version API route
     const versionRoutes = await import('./routes/version');
@@ -384,7 +384,7 @@ import('./routes/compliance'),
     startBackgroundSchedulers();
 
   } catch (error: any) {
-    console.error('❌ [FATAL] Server initialization failed:', error);
+    logger.error('❌ [FATAL] Server initialization failed:', error);
     bootState.error = `Boot Error: ${error?.message || String(error)}`;
 
     // In production, try to serve SPA even if boot failed partially

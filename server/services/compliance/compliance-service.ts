@@ -1,7 +1,7 @@
 import { db } from "../../db";
 import { mutualFunds as mutualFundsTable } from "@shared/schema";
 import { sql, and, eq, inArray, desc } from "drizzle-orm";
-import { logger } from "../../utils/logger";
+import { logger } from "../../logger";
 
 /**
  * Compliance Statuses that require mandatory exit per SEBI 2026.
