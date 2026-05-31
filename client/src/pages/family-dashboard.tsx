@@ -147,12 +147,12 @@ export default function FamilyDashboard() {
 
   // Forms
   const inviteMemberForm = useForm<InviteMemberFormData>({
-    resolver: zodResolver(inviteMemberSchema),
+    resolver: zodResolver<InviteMemberFormData>(inviteMemberSchema),
     defaultValues: { email: '', role: 'member' },
   });
 
   const createGoalForm = useForm<CreateGoalFormData>({
-    resolver: zodResolver(createGoalSchema),
+    resolver: zodResolver<CreateGoalFormData>(createGoalSchema),
     defaultValues: {
       goalName: '',
       goalType: 'education',
@@ -162,12 +162,12 @@ export default function FamilyDashboard() {
   });
 
   const contributeGoalForm = useForm<ContributeGoalFormData>({
-    resolver: zodResolver(contributeGoalSchema),
+    resolver: zodResolver<ContributeGoalFormData>(contributeGoalSchema),
     defaultValues: { amount: 0, note: '' },
   });
 
   const createBudgetForm = useForm<CreateBudgetFormData>({
-    resolver: zodResolver(createBudgetSchema),
+    resolver: zodResolver<CreateBudgetFormData>(createBudgetSchema),
     defaultValues: {
       budgetName: '',
       category: 'housing',
@@ -179,7 +179,7 @@ export default function FamilyDashboard() {
   });
 
   const createDiscussionForm = useForm<CreateDiscussionFormData>({
-    resolver: zodResolver(createDiscussionSchema),
+    resolver: zodResolver<CreateDiscussionFormData>(createDiscussionSchema),
     defaultValues: {
       subject: '',
       content: '',
