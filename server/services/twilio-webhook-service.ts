@@ -5,6 +5,7 @@ import { db } from '../db';
 import { users, userNotifications, whatsappContacts, inboundMessages, callLogs } from '@shared/schema';
 import { eq, sql, desc, and, gte, lte, like, or } from 'drizzle-orm';
 import { twilioWhatsAppService } from './twilio-whatsapp-service';
+import { whatsappDispatcher } from './whatsapp-dispatcher';
 import { smsService } from './sms-service';
 import { requireAdmin } from '../middleware/roleMiddleware';
 
@@ -1009,7 +1010,11 @@ export function createTwilioWebhookRouter(): Router {
       let result: { success: boolean; messageSid?: string; error?: string };
       
       if (channel === 'whatsapp') {
-        result = await twilioWhatsAppService.sendMessage(recipientNumber.replace('whatsapp:', ''), message.trim());
+        result = await whatsappDispatcher.send({
+          mobile:   recipientNumber.replace('whatsapp:', ''),
+          message:  message.trim(),
+          category: 'AGENT_REPLY',
+        });
       } else {
         const formattedNumber = recipientNumber.startsWith('+') ? recipientNumber : `+${recipientNumber}`;
         
@@ -1069,7 +1074,11 @@ export function createTwilioWebhookRouter(): Router {
       
       if (channel === 'whatsapp') {
         const cleanNumber = to.replace('whatsapp:', '');
-        result = await twilioWhatsAppService.sendMessage(cleanNumber, message.trim());
+        result = await whatsappDispatcher.send({
+          mobile:   cleanNumber,
+          message:  message.trim(),
+          category: 'AGENT_REPLY',
+        });
       } else {
         const { getTwilioClient, getTwilioFromPhoneNumber, isTwilioConfigured } = await import('./twilio-client');
         const isConfigured = await isTwilioConfigured();

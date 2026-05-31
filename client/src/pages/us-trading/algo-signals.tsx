@@ -6,7 +6,7 @@
  * "Approve" flows into the order placement confirmation, NOT direct execution.
  */
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -228,19 +228,15 @@ function SignalCard({
                   {/* Bi-directional score bar: positive fills right half, negative fills left half */}
                   <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden flex">
                     {score < 0 && (
-                      /* Negative score fills left half of bar — width is a runtime float, Tailwind cannot express this */
-                      /* eslint-disable-next-line react/forbid-dom-props */
                       <div
-                        className="h-full bg-rose-500 rounded-full transition-all ml-auto"
-                        style={{ width: `${Math.abs(score) * 50}%` }}
+                        className="h-full bg-rose-500 rounded-full transition-all ml-auto [width:var(--bar-w)]"
+                        style={{ '--bar-w': `${Math.abs(score) * 50}%` } as React.CSSProperties}
                       />
                     )}
                     {score > 0 && (
-                      /* Positive score fills right half of bar — width is a runtime float, Tailwind cannot express this */
-                      /* eslint-disable-next-line react/forbid-dom-props */
                       <div
-                        className="h-full bg-emerald-500 rounded-full transition-all ml-[50%]"
-                        style={{ width: `${score * 50}%` }}
+                        className="h-full bg-emerald-500 rounded-full transition-all ml-[50%] [width:var(--bar-w)]"
+                        style={{ '--bar-w': `${score * 50}%` } as React.CSSProperties}
                       />
                     )}
                   </div>
@@ -483,10 +479,9 @@ function PerformancePanel() {
                   {signal.toUpperCase()}
                 </Badge>
                 <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                  {/* eslint-disable-next-line react/forbid-dom-props */}
                   <div
-                    className={cn("h-full rounded-full transition-all", signal === "buy" ? "bg-emerald-500" : signal === "sell" ? "bg-rose-500" : "bg-amber-400")}
-                    style={{ width: `${Math.round((count / perf.total) * 100)}%` }}
+                    className={cn("h-full rounded-full transition-all [width:var(--bar-w)]", signal === "buy" ? "bg-emerald-500" : signal === "sell" ? "bg-rose-500" : "bg-amber-400")}
+                    style={{ '--bar-w': `${Math.round((count / perf.total) * 100)}%` } as React.CSSProperties}
                   />
                 </div>
                 <span className="text-xs font-black w-6 text-right">{count}</span>
@@ -799,11 +794,11 @@ function BacktestPanel() {
                 <div className="h-2 rounded-full bg-muted overflow-hidden flex">
                   {result.summary.totalTrades > 0 && (
                     <>
-                      {/* Width is purely dynamic data — inline style necessary for numeric interpolation */}
-                      {/* eslint-disable-next-line react/forbid-dom-props -- dynamic runtime width, cannot use Tailwind */}
-                      <div className="h-full bg-emerald-500 rounded-l-full transition-all"
-                        /* Win rate as percentage — computed at runtime, not statically expressible in Tailwind */
-                        style={{ width: `${(result.summary.winningTrades / result.summary.totalTrades) * 100}%` }} />
+                      {/* Win rate bar — dynamic width via CSS custom property */}
+                      <div
+                        className="h-full bg-emerald-500 rounded-l-full transition-all [width:var(--bar-w)]"
+                        style={{ '--bar-w': `${(result.summary.winningTrades / result.summary.totalTrades) * 100}%` } as React.CSSProperties}
+                      />
                       <div className="h-full bg-rose-500 rounded-r-full flex-1" />
                     </>
                   )}

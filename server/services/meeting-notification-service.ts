@@ -1,5 +1,5 @@
 import { smsService } from './sms-service';
-import { twilioWhatsAppService } from './twilio-whatsapp-service';
+import { whatsappDispatcher } from './whatsapp-dispatcher';
 import { db } from '../db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -351,12 +351,14 @@ class MeetingNotificationService {
 
   private async sendWhatsAppNotification(mobile: string, message: string): Promise<boolean> {
     try {
-      const isAvailable = await twilioWhatsAppService.isAvailable();
-      if (!isAvailable) {
+      const result = await whatsappDispatcher.send({
+        mobile,
+        message,
+        category: 'MEETING_REMINDER',
+      });
+      if (!result.success && result.provider === 'none') {
         console.log(`📱 [SIMULATED] WhatsApp meeting notification to: ${mobile.substring(0, 6)}****`);
-        return false;
       }
-      const result = await twilioWhatsAppService.sendMessage(mobile, message);
       return result.success;
     } catch (error) {
       console.error(`[Meeting Notification] WhatsApp error:`, error);

@@ -4030,11 +4030,15 @@ router.post("/api/tax/share/whatsapp", async (req: Request, res: Response) => {
     let sent = false;
     let deliveryMethod = "whatsapp_link";
     try {
-      const { twilioWhatsAppService } = await import("./services/twilio-whatsapp-service");
-      if (twilioWhatsAppService.isAvailable()) {
-        const result = await twilioWhatsAppService.sendMessage(phoneNumber, msgToSend);
-        sent = result?.success ?? false;
-        deliveryMethod = sent ? "twilio_whatsapp" : "twilio_failed";
+      const { whatsappDispatcher } = await import("./services/whatsapp-dispatcher");
+      const result = await whatsappDispatcher.send({
+        mobile:   phoneNumber,
+        message:  msgToSend,
+        category: 'TAX_DOCUMENT',
+      });
+      sent = result.success;
+      if (sent) {
+        deliveryMethod = result.provider === 'iris' ? 'iris_whatsapp' : 'twilio_whatsapp';
       }
     } catch {
       try {

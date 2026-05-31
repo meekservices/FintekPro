@@ -2,7 +2,7 @@ import { db } from "../db";
 import { userAlerts, alertHistory, users, userExpenses, portfolioHoldings, portfolios, notificationPreferences } from "@shared/schema";
 import { eq, and, lte, gte, isNull, or, sql, sum } from "drizzle-orm";
 import { emailService } from "../email-service";
-import { twilioWhatsAppService } from "./twilio-whatsapp-service";
+import { whatsappDispatcher } from './whatsapp-dispatcher';
 import { smsService } from "./sms-service";
 import yahooFinance from 'yahoo-finance2';
 
@@ -327,13 +327,17 @@ export class AlertMonitoringService {
       }
     }
 
-    // Send WhatsApp notification (default: enabled)
+    // Send WhatsApp notification via IRIS → Twilio dispatcher
     if (channels.includes('whatsapp') && whatsappEnabled && user.mobile) {
       try {
         const message = `🔔 *FintekPro Alert*\n\n*${alert.alertName}*\n\n📊 Priority: ${alert.priority?.toUpperCase()}\n⚡ Trigger: ${triggerReason}\n\nView details at fintekpro.com/alerts`;
-        const sent = await twilioWhatsAppService.sendMessage(user.mobile, message);
-        if (sent) {
-          console.log(`✅ Alert WhatsApp sent to ${user.mobile}`);
+        const result = await whatsappDispatcher.send({
+          mobile:   user.mobile,
+          message,
+          category: 'PORTFOLIO_ALERT',
+        });
+        if (result.success) {
+          console.log(`✅ Alert WhatsApp sent to ${user.mobile.slice(0, 6)}**** via ${result.provider}`);
         }
       } catch (error) {
         console.error("Error sending WhatsApp notification:", error);

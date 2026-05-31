@@ -1,6 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
-import fintekproLogo from "@assets/fintekpro_agent_1772539048012.png";
 import { PortalLogo } from "@/components/portal/PortalLogo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -646,13 +645,6 @@ export function AgentLayout({ children }: AgentLayoutProps) {
             >
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <PortalLogo size="md" showTagline />
-              <div className="hidden">
-                <h1 className="text-sm sm:text-lg font-semibold text-foreground tracking-tight">FintekPro</h1>
-                <p className="text-[9px] sm:text-[10px] text-emerald-400 font-medium uppercase tracking-wider hidden sm:block">Agent Portal</p>
-              </div>
-            </div>
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2">

@@ -133,28 +133,24 @@ export function registerAgentCapitalGainPart2Part2Routes(app: Express): void {
       const broadcastId = `whatsapp-${Date.now()}`;
 
       try {
-        const { twilioWhatsAppService } = await import("../services/twilio-whatsapp-service");
-        
-        if (await twilioWhatsAppService.isAvailable()) {
-          for (const r of recipients) {
-            const result = await twilioWhatsAppService.sendMessage(
-              r.phone,
-              `${name}: ${templateName}`
-            );
-            if (result.success) {
-              successCount++;
-            } else {
-              failedCount++;
-            }
-          }
-        } else {
-          successCount = recipients.length;
-          console.log(`[Mock WhatsApp Campaign] Twilio WhatsApp not configured, simulating send to ${recipients.length} recipients`);
-        }
+        const { whatsappDispatcher } = await import('../services/whatsapp-dispatcher');
+
+        const dispatchList = (recipients as Array<{ phone?: string }>)
+          .filter(r => !!r.phone)
+          .map(r => ({
+            mobile:   r.phone!,
+            message:  `${name}: ${templateName}`,
+            category: 'AGENT_CAMPAIGN',
+          }));
+
+        const bulk = await whatsappDispatcher.sendBulk(dispatchList);
+        successCount = bulk.irisSent + bulk.twilioSent;
+        failedCount  = bulk.failed;
       } catch (importError) {
         successCount = recipients.length;
-        console.log(`[Mock WhatsApp Campaign] Twilio service not available, simulating send to ${recipients.length} recipients`);
+        console.log(`[Mock WhatsApp Campaign] Dispatcher not available, simulating send to ${recipients.length} recipients`);
       }
+
       res.json({
         success: true,
         campaignId: broadcastId || `whatsapp-${Date.now()}`,

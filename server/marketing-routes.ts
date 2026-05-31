@@ -18,6 +18,7 @@ import { smsMarketingService } from './services/sms-marketing-service';
 import { whatsAppMarketingService } from './services/whatsapp-marketing-service';
 import { credhiveService, normalizeCompanyResult } from './services/credhive-service';
 import { irisKfintechService } from './services/iris-kfintech-service';
+import { whatsappDispatcher } from './services/whatsapp-dispatcher';
 import { apiResponse } from './utils/responses';
 import { getAppBaseUrl } from './utils/app-url';
 import { requireAdmin, requireAuth } from './middleware/roleMiddleware';
@@ -198,7 +199,7 @@ export function registerMarketingRoutes(app: Express) {
   });
 
   /**
-   * Send WhatsApp broadcast via Twilio
+   * Send WhatsApp broadcast via IRIS (primary) → Twilio (fallback)
    */
   app.post('/api/admin/marketing/campaigns/:id/send-whatsapp', requireAdmin, async (req: Request, res: Response) => {
     try {
@@ -215,10 +216,6 @@ export function registerMarketingRoutes(app: Express) {
         return apiResponse.badRequest(res, 'Campaign is not a WhatsApp campaign');
       }
 
-      if (!twilioWhatsAppService.isAvailable()) {
-        return apiResponse.serverError(res, 'WhatsApp service not configured');
-      }
-      
       // Get recipients
       const recipients = await db
         .select()
@@ -229,22 +226,16 @@ export function registerMarketingRoutes(app: Express) {
         return apiResponse.badRequest(res, 'No recipients found for campaign');
       }
 
-      // Send messages to each recipient via Twilio
-      let successCount = 0;
-      let failCount = 0;
       const messageBody = campaign.whatsappMessage || campaign.name;
 
-      for (const recipient of recipients) {
-        const recipientRecord = recipient as { mobile?: string };
-        if (recipientRecord.mobile) {
-          const result = await twilioWhatsAppService.sendMessage(recipientRecord.mobile, messageBody);
-          if (result.success) {
-            successCount++;
-          } else {
-            failCount++;
-          }
-        }
-      }
+      // Bulk send via IRIS → Twilio dispatcher
+      const dispatchList = (recipients as Array<{ mobile?: string }>)
+        .filter(r => !!r.mobile)
+        .map(r => ({ mobile: r.mobile!, message: messageBody, category: 'MARKETING' }));
+
+      const { irisSent, twilioSent, failed } = await whatsappDispatcher.sendBulk(dispatchList);
+      const successCount = irisSent + twilioSent;
+      const failCount    = failed;
 
       // Update campaign
       await db
@@ -260,7 +251,10 @@ export function registerMarketingRoutes(app: Express) {
         message: 'WhatsApp broadcast completed',
         successCount,
         failCount,
-        totalRecipients: recipients.length
+        totalRecipients: recipients.length,
+        irisSent,
+        twilioSent,
+        meta: { timestamp: new Date().toISOString(), version: '2.0.0' },
       });
     } catch (error) {
       console.error('Error sending WhatsApp broadcast:', error);
@@ -2425,46 +2419,29 @@ export function registerMarketingRoutes(app: Express) {
           sentCount = emailClients.length;
         }
       } else if (channel === 'whatsapp') {
-        // WhatsApp — IRIS KFintech primary, Twilio fallback
+        // WhatsApp — IRIS primary → Twilio fallback via dispatcher
         const festivalData = getFestivalData(festivalId);
         const [agent] = await db.select().from(users).where(eq(users.id, req.user.id)).limit(1);
         const agentName = agent?.name || 'Your Financial Advisor';
         const greetingText = customMessage || `${festivalData.emoji} Happy ${festivalData.name}! Warm wishes from ${agentName}.`;
 
-        for (const client of clients) {
-          const phone = client.phone?.trim();
-          if (!phone || phone.startsWith('+XXXX')) continue;
-
-          // ── IRIS primary (requires mobile; PAN is optional but enriches lookup) ──
-          const irisResult = await irisKfintechService.sendFestivalGreeting({
-            pan:         (client as any).pan ?? undefined,
-            mobile:      phone,
-            festivalName: festivalData.name,
-            message:     greetingText,
+        const dispatchList = clients
+          .filter(c => !!c.phone?.trim() && !c.phone.startsWith('+XXXX'))
+          .map(c => ({
+            mobile:      c.phone!.trim(),
+            message:     `${festivalData.emoji} ${greetingText}`,
+            category:    'FESTIVAL_GREETING' as const,
+            pan:         (c as any).pan ?? undefined,
             agentName,
-          });
+            mediaUrl:    imageUrl || undefined,
+          }));
 
-          if (irisResult.success) {
-            irisSent++;
-            continue; // delivered — no need for Twilio
-          }
+        const bulk = await whatsappDispatcher.sendBulk(dispatchList);
+        irisSent    = bulk.irisSent;
+        twilioSent  = bulk.twilioSent;
+        failedCount = bulk.failed;
+        sentCount   = irisSent + twilioSent;
 
-          // ── Twilio fallback ────────────────────────────────────────────────────
-          // Used when: IRIS not configured, IRIS returns 4xx, or any other failure.
-          try {
-            await twilioWhatsAppService.sendMessage(phone, `${festivalData.emoji} ${greetingText}`, imageUrl || undefined);
-            twilioSent++;
-          } catch (e) {
-            failedCount++;
-            console.warn(
-              `⚠️ WhatsApp send failed (both IRIS and Twilio) for ${
-                phone.substring(0, 6)
-              }****: IRIS=${irisResult.errorCode} Twilio=${(e as Error)?.message}`
-            );
-          }
-        }
-
-        sentCount = irisSent + twilioSent;
         console.log(
           `📱 Festival greetings [${festivalId}]: iris=${irisSent} twilio=${twilioSent} failed=${failedCount}`
         );

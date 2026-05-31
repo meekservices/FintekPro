@@ -8,6 +8,7 @@ import { execSync } from 'child_process';
 import { storage } from './storage';
 import { randomUUID } from 'crypto';
 import { twilioWhatsAppService } from './services/twilio-whatsapp-service';
+import { whatsappDispatcher } from './services/whatsapp-dispatcher';
 
 function resolveChromiumPath(): string | undefined {
   // 1. Explicit env override
@@ -239,10 +240,10 @@ export class WhatsAppService {
     if (this.isTwilioEnabled) {
       try {
         const cleanPhone = phoneNumber.includes('@c.us') ? phoneNumber.split('@')[0] : phoneNumber;
-        const result = await twilioWhatsAppService.sendMessage(cleanPhone, message);
+        const result = await whatsappDispatcher.send({ mobile: cleanPhone, message, category: 'GENERAL' });
         return result.success;
       } catch (error) {
-        console.error('Failed to send Twilio WhatsApp message:', error);
+        console.error('Failed to send WhatsApp message:', error);
         return false;
       }
     }

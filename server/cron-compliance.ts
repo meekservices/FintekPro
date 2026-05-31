@@ -16,7 +16,7 @@ import { isProductionEnvironment } from './utils/enrichment-guard';
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 import { logger } from './logger';
-import { twilioWhatsAppService } from './services/twilio-whatsapp-service';
+import { whatsappDispatcher } from './services/whatsapp-dispatcher';
 
 export function initializeComplianceCrons(): void {
   if (!isProductionEnvironment()) {
@@ -362,12 +362,17 @@ export function initializeComplianceCrons(): void {
           `Regards,\nFintekPro Compliance Team`;
 
         try {
-          const result = await twilioWhatsAppService.sendMessage(u.mobile, body, undefined, 'kyc_update');
+          const result = await whatsappDispatcher.send({
+            mobile:       u.mobile,
+            message:      body,
+            category:     'KYC_UPDATE',
+            templateType: 'kyc_update',
+          });
           if (result.success) {
             sent++;
           } else {
             failed++;
-            console.warn(`[CRON][V-CIP Expiry] Failed to send reminder to user ${u.userId}: ${result.error}`);
+            console.warn(`[CRON][V-CIP Expiry] Failed to send reminder to user ${u.userId} via ${result.provider}: ${result.error}`);
           }
         } catch (msgErr: any) {
           failed++;

@@ -595,29 +595,98 @@ class IrisKfintechService {
   async getNotificationHistory(pan: string) { return this.call(`/notifications/history?pan=${encodeURIComponent(pan)}`); }
 
   /**
-   * Send a festival greeting WhatsApp notification via IRIS KFintech.
+   * Send a general-purpose WhatsApp message via IRIS KFintech.
    *
-   * Purpose: Delivers a personalised festival greeting to an investor's
-   *          registered WhatsApp number via IRIS's /notifications/whatsapp/send.
+   * Purpose  : Universal entry point used by WhatsAppDispatcher. Maps any message
+   *            type/category to the IRIS /notifications/whatsapp/send endpoint.
+   *            sendFestivalGreeting() is now a thin typed wrapper over this method.
    *
    * Inputs:
-   *   - pan          : Investor PAN (used by KFintech to resolve the registered mobile)
-   *   - mobile       : Recipient phone number (E.164, e.g. +919876543210)
-   *   - festivalName : Display name of the festival (e.g. "Diwali")
-   *   - message      : Body text of the greeting
-   *   - agentName    : Sender's display name appended to the message
-   *   - templateId   : Optional KFintech WhatsApp template ID (for DLT-registered templates)
+   *   - mobile      : Recipient phone (E.164 or 10-digit, required)
+   *   - message     : Full message body (required)
+   *   - category    : IRIS notification category (default: 'GENERAL')
+   *   - pan         : Optional — IRIS uses this to enrich investor lookup
+   *   - agentName   : Optional — appended as "— {agentName} via FintekPro" footer
+   *   - templateId  : Optional — DLT-registered KFintech template ID
+   *   - extra       : Optional — any extra fields passed through to IRIS payload
    *
    * Outputs:
    *   { success, messageId?, errorCode?, retryable }
    *
    * Edge cases:
-   *   - If IRIS is not configured (no credentials), resolves to { success: false, retryable: false }
-   *     so callers can fall back to Twilio without throwing.
-   *   - Network / 5xx errors from IRIS are caught and returned as retryable:true so the route
-   *     can apply its own Twilio fallback without crashing the request.
-   *   - IRIS does NOT require mobile if pan is supplied (it looks up the registered number);
-   *     however we send both so the platform can use whichever is available.
+   *   - Not configured → { success: false, errorCode: 'IRIS_NOT_CONFIGURED', retryable: false }
+   *   - 4xx response  → { success: false, retryable: false }
+   *   - 5xx / timeout → { success: false, retryable: true }  ← dispatcher will try Twilio
+   */
+  async sendWhatsAppMessage(opts: {
+    mobile: string;
+    message: string;
+    category?: string;
+    pan?: string;
+    agentName?: string;
+    templateId?: string;
+    extra?: Record<string, unknown>;
+  }): Promise<{ success: boolean; messageId?: string; errorCode?: string; retryable: boolean }> {
+    if (!this.isConfigured) {
+      return { success: false, errorCode: 'IRIS_NOT_CONFIGURED', retryable: false };
+    }
+
+    const body = opts.agentName
+      ? `${opts.message}\n\n— ${opts.agentName} via FintekPro`
+      : opts.message;
+
+    const payload: Record<string, unknown> = {
+      mobile: opts.mobile,
+      message: body,
+      partnerCode: 'FINTEKPRO',
+      category: opts.category ?? 'GENERAL',
+      ...(opts.pan        ? { pan: opts.pan }               : {}),
+      ...(opts.templateId ? { templateId: opts.templateId } : {}),
+      ...(opts.extra      ?? {}),
+    };
+
+    const t0 = Date.now();
+    try {
+      const resp: any = await this.sendWhatsappNotification(payload);
+      const messageId = resp?.messageId ?? resp?.data?.messageId ?? resp?.id ?? undefined;
+      logger.info('[IRIS] WhatsApp sent', {
+        event: 'IRIS_WHATSAPP_SENT',
+        mobile: opts.mobile.slice(0, 6) + '****',
+        category: payload.category,
+        messageId,
+        latency_ms: Date.now() - t0,
+        status: 'success',
+      });
+      return { success: true, messageId, retryable: false };
+    } catch (err: any) {
+      const status    = err?.response?.status as number | undefined;
+      const errBody   = err?.response?.data;
+      const retryable = !status || status >= 500;
+      logger.error('[IRIS] WhatsApp failed', {
+        event: 'IRIS_WHATSAPP_FAILED',
+        mobile: opts.mobile.slice(0, 6) + '****',
+        category: payload.category,
+        status,
+        error: errBody ?? err?.message,
+        latency_ms: Date.now() - t0,
+        retryable,
+      });
+      return {
+        success: false,
+        errorCode: errBody?.errorCode ?? (status ? `HTTP_${status}` : 'NETWORK_ERROR'),
+        retryable,
+      };
+    }
+  }
+
+  /**
+   * Send a festival greeting WhatsApp notification via IRIS KFintech.
+   * Thin wrapper over sendWhatsAppMessage() with FESTIVAL_GREETING category.
+   *
+   * Inputs:
+   *   - pan, mobile, festivalName, message, agentName, templateId
+   * Outputs:
+   *   { success, messageId?, errorCode?, retryable }
    */
   async sendFestivalGreeting(opts: {
     pan?: string;
@@ -627,54 +696,15 @@ class IrisKfintechService {
     agentName: string;
     templateId?: string;
   }): Promise<{ success: boolean; messageId?: string; errorCode?: string; retryable: boolean }> {
-    if (!this.isConfigured) {
-      logger.warn('[IRIS] sendFestivalGreeting: IRIS not configured, skipping');
-      return { success: false, errorCode: 'IRIS_NOT_CONFIGURED', retryable: false };
-    }
-
-    const fullMessage = `${opts.message}\n\n— ${opts.agentName} via FintekPro`;
-
-    const payload: Record<string, any> = {
-      mobile: opts.mobile,
-      message: fullMessage,
-      partnerCode: 'FINTEKPRO',
-      category: 'FESTIVAL_GREETING',
-      festivalName: opts.festivalName,
-    };
-
-    if (opts.pan)        payload.pan        = opts.pan;
-    if (opts.templateId) payload.templateId = opts.templateId;
-
-    try {
-      const resp: any = await this.sendWhatsappNotification(payload);
-      const messageId = resp?.messageId ?? resp?.data?.messageId ?? resp?.id ?? undefined;
-      logger.info('[IRIS] Festival greeting sent', {
-        event: 'IRIS_FESTIVAL_GREETING_SENT',
-        mobile: opts.mobile.slice(0, 6) + '****',
-        festivalName: opts.festivalName,
-        messageId,
-        latency_ms: undefined,
-        status: 'success',
-      });
-      return { success: true, messageId, retryable: false };
-    } catch (err: any) {
-      const status  = err?.response?.status;
-      const errBody = err?.response?.data;
-      const retryable = !status || status >= 500;
-      logger.error('[IRIS] Festival greeting failed', {
-        event: 'IRIS_FESTIVAL_GREETING_FAILED',
-        mobile: opts.mobile.slice(0, 6) + '****',
-        festivalName: opts.festivalName,
-        status,
-        error: errBody ?? err?.message,
-        retryable,
-      });
-      return {
-        success: false,
-        errorCode: errBody?.errorCode ?? (status ? `HTTP_${status}` : 'NETWORK_ERROR'),
-        retryable,
-      };
-    }
+    return this.sendWhatsAppMessage({
+      mobile:     opts.mobile,
+      message:    opts.message,
+      category:   'FESTIVAL_GREETING',
+      pan:        opts.pan,
+      agentName:  opts.agentName,
+      templateId: opts.templateId,
+      extra:      { festivalName: opts.festivalName },
+    });
   }
 
   // ─── Phase 3: NFO ─────────────────────────────────────────────────────────────
