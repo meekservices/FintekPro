@@ -1027,6 +1027,12 @@ export function registerMarketingRoutes(app: Express) {
   /**
    * Get all client intelligence with risk alerts
    */
+  app.get('/api/admin/marketing/client-intelligence', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { riskLevel } = req.query;
+
+      let query = db.select().from(clientIntelligence).$dynamic();
+
       const results = riskLevel
         ? await query.where(eq(clientIntelligence.riskLevel, String(riskLevel)))
         : await query;
