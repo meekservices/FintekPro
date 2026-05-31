@@ -95,11 +95,11 @@ const createDiscussionSchema = z.object({
   topicId: z.string().optional(),
 });
 
-type InviteMemberFormData = z.infer<typeof inviteMemberSchema>;
-type CreateGoalFormData = z.infer<typeof createGoalSchema>;
-type ContributeGoalFormData = z.infer<typeof contributeGoalSchema>;
-type CreateBudgetFormData = z.infer<typeof createBudgetSchema>;
-type CreateDiscussionFormData = z.infer<typeof createDiscussionSchema>;
+type InviteMemberFormData = z.output<typeof inviteMemberSchema>;
+type CreateGoalFormData = z.output<typeof createGoalSchema>;
+type ContributeGoalFormData = z.output<typeof contributeGoalSchema>;
+type CreateBudgetFormData = z.output<typeof createBudgetSchema>;
+type CreateDiscussionFormData = z.output<typeof createDiscussionSchema>;
 
 interface DashboardStats {
   totalNetWorth: number;
