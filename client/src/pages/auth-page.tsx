@@ -208,6 +208,9 @@ export default function AuthPage() {
   // Refs for PIN setup (new PIN) and confirm inputs — two separate ref arrays per dialog
   const pinSetupRefs = useRef<Array<HTMLInputElement | null>>([null, null, null, null]);
   const pinConfirmRefs = useRef<Array<HTMLInputElement | null>>([null, null, null, null]);
+  // Refs for main-portal PIN setup dialog (separate from agent-portal refs above)
+  const mainPinSetupRefs = useRef<Array<HTMLInputElement | null>>([null, null, null, null]);
+  const mainPinConfirmRefs = useRef<Array<HTMLInputElement | null>>([null, null, null, null]);
 
   // Session Conflict States
   const [sessionConflictOpen, setSessionConflictOpen] = useState(false);
@@ -1400,7 +1403,7 @@ export default function AuthPage() {
                     {[0, 1, 2, 3].map((i) => (
                       <input
                         key={i}
-                        id={`agent-pin-setup-digit-${i}`}
+                        ref={(el) => { pinSetupRefs.current[i] = el; }}
                         type="password"
                         inputMode="numeric"
                         aria-label={`New PIN digit ${i + 1} of 4`}
@@ -1413,12 +1416,12 @@ export default function AuthPage() {
                           next[i] = digit;
                           setPinSetupValue(next.join("").slice(0, 4));
                           setPinError("");
-                          if (digit && i < 3) document.getElementById(`agent-pin-setup-digit-${i + 1}`)?.focus();
-                          if (i === 3 && digit) document.getElementById("agent-pin-confirm-digit-0")?.focus();
+                          if (digit && i < 3) pinSetupRefs.current[i + 1]?.focus();
+                          if (i === 3 && digit) pinConfirmRefs.current[0]?.focus();
                         }}
                         onKeyDown={(e) => {
                           if (e.key === "Backspace" && !pinSetupValue[i] && i > 0) {
-                            document.getElementById(`agent-pin-setup-digit-${i - 1}`)?.focus();
+                            pinSetupRefs.current[i - 1]?.focus();
                           }
                         }}
                         data-testid={`pin-setup-digit-${i}`}
@@ -1434,7 +1437,7 @@ export default function AuthPage() {
                     {[0, 1, 2, 3].map((i) => (
                       <input
                         key={i}
-                        id={`agent-pin-confirm-digit-${i}`}
+                        ref={(el) => { pinConfirmRefs.current[i] = el; }}
                         type="password"
                         inputMode="numeric"
                         aria-label={`Confirm PIN digit ${i + 1} of 4`}
@@ -1447,11 +1450,11 @@ export default function AuthPage() {
                           next[i] = digit;
                           setPinSetupConfirm(next.join("").slice(0, 4));
                           setPinError("");
-                          if (digit && i < 3) document.getElementById(`agent-pin-confirm-digit-${i + 1}`)?.focus();
+                          if (digit && i < 3) pinConfirmRefs.current[i + 1]?.focus();
                         }}
                         onKeyDown={(e) => {
                           if (e.key === "Backspace" && !pinSetupConfirm[i] && i > 0) {
-                            document.getElementById(`agent-pin-confirm-digit-${i - 1}`)?.focus();
+                            pinConfirmRefs.current[i - 1]?.focus();
                           }
                         }}
                         data-testid={`pin-confirm-digit-${i}`}
@@ -2595,7 +2598,7 @@ export default function AuthPage() {
               {[0, 1, 2, 3].map((i) => (
                 <input
                   key={i}
-                  id={`portal-pin-entry-digit-${i}`}
+                  ref={(el) => { pinDigitRefs.current[i] = el; }}
                   type="password"
                   inputMode="numeric"
                   aria-label={`PIN digit ${i + 1} of 4`}
@@ -2611,7 +2614,7 @@ export default function AuthPage() {
                     setPinError("");
                     // Auto-advance
                     if (digit && i < 3) {
-                      document.getElementById(`portal-pin-entry-digit-${i + 1}`)?.focus();
+                      pinDigitRefs.current[i + 1]?.focus();
                     }
                     // Auto-submit when all 4 entered
                     if (updated.length === 4) {
@@ -2620,7 +2623,7 @@ export default function AuthPage() {
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Backspace" && !pinValue[i] && i > 0) {
-                      document.getElementById(`portal-pin-entry-digit-${i - 1}`)?.focus();
+                      pinDigitRefs.current[i - 1]?.focus();
                     }
                   }}
                   data-testid={`pin-digit-${i}`}
@@ -2691,7 +2694,7 @@ export default function AuthPage() {
                   {[0, 1, 2, 3].map((i) => (
                     <input
                       key={i}
-                      id={`main-pin-setup-digit-${i}`}
+                      ref={(el) => { mainPinSetupRefs.current[i] = el; }}
                       type="password"
                       inputMode="numeric"
                       aria-label={`New PIN digit ${i + 1} of 4`}
@@ -2704,12 +2707,12 @@ export default function AuthPage() {
                         next[i] = digit;
                         setPinSetupValue(next.join("").slice(0, 4));
                         setPinError("");
-                        if (digit && i < 3) document.getElementById(`main-pin-setup-digit-${i + 1}`)?.focus();
-                        if (i === 3 && digit) document.getElementById("main-pin-confirm-digit-0")?.focus();
+                        if (digit && i < 3) mainPinSetupRefs.current[i + 1]?.focus();
+                        if (i === 3 && digit) mainPinConfirmRefs.current[0]?.focus();
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Backspace" && !pinSetupValue[i] && i > 0) {
-                          document.getElementById(`main-pin-setup-digit-${i - 1}`)?.focus();
+                          mainPinSetupRefs.current[i - 1]?.focus();
                         }
                       }}
                       data-testid={`pin-setup-digit-${i}`}
@@ -2725,7 +2728,7 @@ export default function AuthPage() {
                   {[0, 1, 2, 3].map((i) => (
                     <input
                       key={i}
-                      id={`main-pin-confirm-digit-${i}`}
+                      ref={(el) => { mainPinConfirmRefs.current[i] = el; }}
                       type="password"
                       inputMode="numeric"
                       aria-label={`Confirm PIN digit ${i + 1} of 4`}
@@ -2738,11 +2741,11 @@ export default function AuthPage() {
                         next[i] = digit;
                         setPinSetupConfirm(next.join("").slice(0, 4));
                         setPinError("");
-                        if (digit && i < 3) document.getElementById(`main-pin-confirm-digit-${i + 1}`)?.focus();
+                        if (digit && i < 3) mainPinConfirmRefs.current[i + 1]?.focus();
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Backspace" && !pinSetupConfirm[i] && i > 0) {
-                          document.getElementById(`main-pin-confirm-digit-${i - 1}`)?.focus();
+                          mainPinConfirmRefs.current[i - 1]?.focus();
                         }
                       }}
                       data-testid={`pin-confirm-digit-${i}`}

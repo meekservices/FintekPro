@@ -230,12 +230,14 @@ function SignalCard({
                     {score < 0 && (
                       <div
                         className="h-full bg-rose-500 rounded-full transition-all ml-auto [width:var(--bar-w)]"
+                        // eslint-disable-next-line react/forbid-dom-props -- CSS custom property, not inline style
                         style={{ '--bar-w': `${Math.abs(score) * 50}%` } as React.CSSProperties}
                       />
                     )}
                     {score > 0 && (
                       <div
                         className="h-full bg-emerald-500 rounded-full transition-all ml-[50%] [width:var(--bar-w)]"
+                        // eslint-disable-next-line react/forbid-dom-props -- CSS custom property, not inline style
                         style={{ '--bar-w': `${score * 50}%` } as React.CSSProperties}
                       />
                     )}
@@ -481,6 +483,7 @@ function PerformancePanel() {
                 <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className={cn("h-full rounded-full transition-all [width:var(--bar-w)]", signal === "buy" ? "bg-emerald-500" : signal === "sell" ? "bg-rose-500" : "bg-amber-400")}
+                    // eslint-disable-next-line react/forbid-dom-props -- CSS custom property, not inline style
                     style={{ '--bar-w': `${Math.round((count / perf.total) * 100)}%` } as React.CSSProperties}
                   />
                 </div>
@@ -797,6 +800,7 @@ function BacktestPanel() {
                       {/* Win rate bar — dynamic width via CSS custom property */}
                       <div
                         className="h-full bg-emerald-500 rounded-l-full transition-all [width:var(--bar-w)]"
+                        // eslint-disable-next-line react/forbid-dom-props -- CSS custom property, not inline style
                         style={{ '--bar-w': `${(result.summary.winningTrades / result.summary.totalTrades) * 100}%` } as React.CSSProperties}
                       />
                       <div className="h-full bg-rose-500 rounded-r-full flex-1" />
