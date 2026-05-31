@@ -1279,8 +1279,9 @@ export default function AuthPage() {
             </DialogHeader>
 
             <div className="space-y-5 py-2">
-              {/* 4-digit PIN input boxes */}
-              <div className="flex justify-center gap-3">
+              {/* 4-digit PIN input boxes — IDs are index-scoped (agent-pin-entry-digit-0…3) and unique at runtime */}
+              {/* eslint-disable-next-line jsx-a11y/no-duplicate-element-id -- ID is dynamically suffixed with map index, guaranteed unique */}
+              <div className="flex justify-center gap-3" role="group" aria-label="PIN entry">
                 {[0, 1, 2, 3].map((i) => (
                   <input
                     key={i}
@@ -1691,8 +1692,14 @@ export default function AuthPage() {
   // ── End Agent Portal layout ───────────────────────────────────────────────
 
   return (
-    /* eslint-disable-next-line react/forbid-dom-props -- portalColor is a runtime hex value, Tailwind cannot express arbitrary gradients with dynamic variables */
-    <div className="min-h-screen" style={{ '--portal-color': portalColor, background: `linear-gradient(135deg, ${portalColor}08 0%, ${portalColor}15 100%)` } as React.CSSProperties}>
+    // portalColor is a runtime hex value — Tailwind cannot express arbitrary
+    // gradient colours with dynamic CSS custom properties. Inline style is required.
+    // eslint-disable-next-line react/forbid-dom-props
+    <div
+      className="min-h-screen"
+      // eslint-disable-next-line react/forbid-dom-props
+      style={{ '--portal-color': portalColor, background: `linear-gradient(135deg, ${portalColor}08 0%, ${portalColor}15 100%)` } as React.CSSProperties}
+    >
       <div className="container mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-2 gap-8 items-center">
           {/* Hero Section */}

@@ -184,7 +184,7 @@ function getUserAgent(req: any): string | null {
   return typeof userAgent === "string" ? userAgent : null;
 }
 
-async function trustCurrentPinDevice(req: any, res: Response, userId: string): Promise<void> {
+async function trustCurrentPinDevice(req: any, res: Response, userId: string): Promise<string> {
   const token = randomBytes(32).toString("hex");
   const now = new Date();
 
@@ -201,11 +201,9 @@ async function trustCurrentPinDevice(req: any, res: Response, userId: string): P
   });
 
   const inProd = isProductionRuntime();
-  // CRITICAL: SameSite must match the session cookie.
-  // In production the app sits behind Firebase Hosting → Cloud Run (cross-site),
-  // so SameSite=None + Secure=true is required — Lax would silently block the
-  // cookie, causing isTrustedPinDevice() to always return false and the PIN
-  // popover to never appear.
+  // Cookie path: SameSite=None+Secure for cross-site (Firebase Hosting → Cloud Run).
+  // Chrome 3PCD may block this cookie — the token is ALSO returned in the response
+  // body so the client can store it in localStorage and send it as X-Pin-Device-Token.
   res.cookie(PIN_DEVICE_COOKIE, token, {
     httpOnly: true,
     secure: inProd,
@@ -213,10 +211,20 @@ async function trustCurrentPinDevice(req: any, res: Response, userId: string): P
     maxAge: PIN_DEVICE_MAX_AGE_MS,
     path: "/",
   });
+
+  // Return the raw token so the caller can embed it in the JSON response body.
+  // The client stores this in localStorage as a fallback for when Chrome's
+  // third-party cookie policy (3PCD) blocks the cookie delivery.
+  return token;
 }
 
 async function isTrustedPinDevice(req: any, userId: string): Promise<boolean> {
-  const token = getCookieValue(req, PIN_DEVICE_COOKIE);
+  // Primary: read from cookie (works unless Chrome 3PCD blocks it).
+  // Fallback: read from X-Pin-Device-Token header (client stores token in
+  // localStorage after OTP verification and sends it on every request).
+  const token =
+    getCookieValue(req, PIN_DEVICE_COOKIE) ||
+    (req.headers?.["x-pin-device-token"] as string | undefined);
   if (!token) return false;
 
   const [device] = await db
@@ -746,8 +754,13 @@ export function registerAuthRoutes(app: Express) {
           (req.session as any).touch?.();
           console.log(`[VERIFY_OTP] Session ID after login: ${req.sessionID}`);
 
+          // Capture the PIN device token returned by trustCurrentPinDevice.
+          // It will be embedded in the response body so the client can store it
+          // in localStorage and send it as X-Pin-Device-Token header — this is
+          // the 3PCD-resistant fallback for when Chrome blocks the cookie.
+          let pinDeviceToken: string | undefined;
           try {
-            await trustCurrentPinDevice(req, res, updatedUser.id);
+            pinDeviceToken = await trustCurrentPinDevice(req, res, updatedUser.id);
           } catch (deviceError) {
             // Trusted device registration is non-critical — log and continue.
             // Do NOT block login if this DB insert fails.
@@ -778,6 +791,10 @@ export function registerAuthRoutes(app: Express) {
             // The client stores this in sessionStorage and sends it as X-Session-ID header
             // on all subsequent requests. This bypasses cookie/CDN issues entirely.
             sessionId: req.sessionID ? `s:${req.sessionID}` : undefined,
+            // PIN DEVICE TOKEN FALLBACK: Sent in body because Chrome 3PCD may block
+            // the fintekpro_pin_device cookie. Client stores in localStorage and sends
+            // as X-Pin-Device-Token header so isTrustedPinDevice() can still verify.
+            pinDeviceToken,
           }, needsPinSetup ? "Verification successful. Please set up your login PIN." : "Login successful");
 
         });

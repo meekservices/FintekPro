@@ -228,6 +228,7 @@ function SignalCard({
                   {/* Bi-directional score bar: positive fills right half, negative fills left half */}
                   <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden flex">
                     {score < 0 && (
+                      /* Negative score fills left half of bar — width is a runtime float, Tailwind cannot express this */
                       /* eslint-disable-next-line react/forbid-dom-props */
                       <div
                         className="h-full bg-rose-500 rounded-full transition-all ml-auto"
@@ -235,6 +236,7 @@ function SignalCard({
                       />
                     )}
                     {score > 0 && (
+                      /* Positive score fills right half of bar — width is a runtime float, Tailwind cannot express this */
                       /* eslint-disable-next-line react/forbid-dom-props */
                       <div
                         className="h-full bg-emerald-500 rounded-full transition-all ml-[50%]"
@@ -481,8 +483,7 @@ function PerformancePanel() {
                   {signal.toUpperCase()}
                 </Badge>
                 <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                  {/* Width driven by inline style — only dynamic numeric value, not layout style */}
-                  {/* eslint-disable-next-line react/forbid-dom-props -- dynamic runtime width, cannot use Tailwind */}
+                  {/* eslint-disable-next-line react/forbid-dom-props */}
                   <div
                     className={cn("h-full rounded-full transition-all", signal === "buy" ? "bg-emerald-500" : signal === "sell" ? "bg-rose-500" : "bg-amber-400")}
                     style={{ width: `${Math.round((count / perf.total) * 100)}%` }}
@@ -801,6 +802,7 @@ function BacktestPanel() {
                       {/* Width is purely dynamic data — inline style necessary for numeric interpolation */}
                       {/* eslint-disable-next-line react/forbid-dom-props -- dynamic runtime width, cannot use Tailwind */}
                       <div className="h-full bg-emerald-500 rounded-l-full transition-all"
+                        /* Win rate as percentage — computed at runtime, not statically expressible in Tailwind */
                         style={{ width: `${(result.summary.winningTrades / result.summary.totalTrades) * 100}%` }} />
                       <div className="h-full bg-rose-500 rounded-r-full flex-1" />
                     </>
