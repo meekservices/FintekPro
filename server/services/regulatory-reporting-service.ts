@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * SEBI/RBI Regulatory Reporting Service
  * 

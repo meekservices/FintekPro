@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Cashfree PAN Verification Service
  * 

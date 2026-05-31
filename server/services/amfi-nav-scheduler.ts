@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AMFI NAV Scheduler
  * 

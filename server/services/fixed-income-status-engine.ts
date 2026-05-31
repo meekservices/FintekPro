@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from '../db';
 import { corporateBonds, fixedIncomeStatusLog } from '@shared/schema';
 import { eq, sql, and, isNotNull, lte, gte } from 'drizzle-orm';

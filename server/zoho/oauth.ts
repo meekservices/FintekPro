@@ -196,7 +196,7 @@ export class ZohoOAuthService {
     }
 
     // Decrypt tokens - handle both encrypted and legacy unencrypted tokens
-    let decryptedRefreshToken: string = null;
+    let decryptedRefreshToken: string | null = null;
     try {
       // Check if token looks like unencrypted Zoho token (starts with "1000.")
       if (connection.refreshToken?.startsWith('1000.')) {
@@ -244,7 +244,7 @@ export class ZohoOAuthService {
 
     if (now.getTime() + expiryBuffer >= expiresAt.getTime()) {
       // Token expired or expiring soon, refresh it
-      const tokenResponse = await this.refreshAccessToken(decryptedRefreshToken);
+      const tokenResponse = await this.refreshAccessToken(decryptedRefreshToken!);
       
       // Default to 1 hour expiry if expires_in is missing or invalid
       const expiresInMs = (tokenResponse.expires_in && typeof tokenResponse.expires_in === 'number') 
@@ -284,7 +284,7 @@ export class ZohoOAuthService {
     }
 
     // Decrypt and return access token - handle both encrypted and legacy unencrypted tokens
-    let decryptedAccessToken: string = null;
+    let decryptedAccessToken: string | null = null;
     try {
       if (connection.accessToken?.startsWith('1000.')) {
         console.log('[Zoho OAuth] Using unencrypted access token (legacy format)');
@@ -303,6 +303,9 @@ export class ZohoOAuthService {
       }
     }
 
+    if (!decryptedAccessToken) {
+      throw new Error('Failed to obtain a valid Zoho access token.');
+    }
     return decryptedAccessToken;
   }
 
@@ -328,7 +331,7 @@ export class ZohoOAuthService {
     }
 
     // Decrypt refresh token - handle both encrypted and legacy unencrypted tokens
-    let decryptedRefreshToken: string = null;
+    let decryptedRefreshToken: string | null = null;
     try {
       if (connection.refreshToken?.startsWith('1000.')) {
         console.log('[Zoho OAuth] Using unencrypted refresh token (legacy format)');
@@ -351,7 +354,7 @@ export class ZohoOAuthService {
     }
 
     // Force refresh the token
-    const tokenResponse = await this.refreshAccessToken(decryptedRefreshToken);
+    const tokenResponse = await this.refreshAccessToken(decryptedRefreshToken!);
     
     // Default to 1 hour expiry if expires_in is missing or invalid
     const expiresInMs = (tokenResponse.expires_in && typeof tokenResponse.expires_in === 'number') 

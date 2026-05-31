@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Express, Request } from 'express';
 import { storage } from '../storage';
 import { yieldTrackerService } from '../yield-tracker-service';

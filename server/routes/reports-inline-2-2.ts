@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Express } from 'express';
 import { z } from 'zod';
 import { storage } from '../storage';

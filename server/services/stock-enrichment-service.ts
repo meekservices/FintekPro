@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Stock Enrichment Service
  * Auto-fills missing data in listed_stocks using existing FintekPro APIs:

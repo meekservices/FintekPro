@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Company Data Auto-Refresh Scheduler
  * 

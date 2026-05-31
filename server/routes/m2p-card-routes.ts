@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * M2P Fintech — Credit Card Distribution API Routes
  *

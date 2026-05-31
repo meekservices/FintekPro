@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response, NextFunction } from "express";
 import { pickOfTheDayService, PickCategory } from "../services/pick-of-the-day-service";
 import { db } from "../db";

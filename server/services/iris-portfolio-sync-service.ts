@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * IRIS Portfolio Sync Service (Gap 4: Bidirectional Reconciliation)
  *

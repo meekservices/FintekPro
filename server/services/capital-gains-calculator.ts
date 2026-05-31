@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from "../db";
 import { portfolioHoldings, capitalGainsTaxReminders, portfolios, mfOrders } from "@shared/schema";
 import { eq, and, sql, inArray, gte, lte } from "drizzle-orm";

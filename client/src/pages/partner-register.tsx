@@ -78,9 +78,9 @@ export default function PartnerRegister() {
   const [step2Data, setStep2Data] = useState<Step2 | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
-  const form1 = useForm<Step1>({ resolver: zodResolver(step1Schema), defaultValues: { firstName: "", lastName: "", email: "", mobile: "" } });
-  const form2 = useForm<Step2>({ resolver: zodResolver(step2Schema), defaultValues: { companyName: "", partnerType: "", arnCode: "", city: "", state: "", isCA: false, caMembershipNumber: "" } });
-  const form3 = useForm<Step3>({ resolver: zodResolver(step3Schema) });
+  const form1 = useForm<Step1, any, Step1>({ resolver: zodResolver(step1Schema), defaultValues: { firstName: "", lastName: "", email: "", mobile: "" } });
+  const form2 = useForm<Step2, any, Step2>({ resolver: zodResolver(step2Schema) as any, defaultValues: { companyName: "", partnerType: "", arnCode: "", city: "", state: "", isCA: false, caMembershipNumber: "" } });
+  const form3 = useForm<Step3, any, Step3>({ resolver: zodResolver(step3Schema) });
 
   const watchIsCA = form2.watch("isCA");
   const watchPartnerType = form2.watch("partnerType");

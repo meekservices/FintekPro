@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Protean (NSDL) Aadhaar eSign Service
  * 

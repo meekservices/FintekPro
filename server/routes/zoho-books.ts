@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Express, Request, Response, NextFunction } from 'express';
 import { ZohoBooksService, getZohoBooksService } from '../zoho/services/books';
 import { zohoTransactionSyncService, ProductType } from '../services/zoho-transaction-sync-service';

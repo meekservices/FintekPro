@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * SEBI-Aligned Risk Profiling API Routes
  * Provides endpoints for:

@@ -80,7 +80,7 @@ export function initializeComplianceCrons(): void {
     try {
       const result = await giftCityMaintenanceService.runMaintenance();
       console.log(`[CRON] GIFT City maintenance: ${result.totalProducts} total, ${result.validatedProducts} validated, ${result.updatedProducts} updated`);
-      if (result.errors.length > 0) console.warn(`[CRON] GIFT City issues: ${result.errors.length}`);
+      if ((result as any).errors?.length > 0) console.warn(`[CRON] GIFT City issues: ${(result as any).errors.length}`);
     } catch (error: any) {
       console.error('[CRON] GIFT City maintenance job failed:', error.message);
     }

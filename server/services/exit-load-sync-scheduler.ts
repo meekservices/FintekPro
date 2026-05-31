@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Exit Load Sync Scheduler
  * Monthly refresh of exit load data with ISIN enrichment

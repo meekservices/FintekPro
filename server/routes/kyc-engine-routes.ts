@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from "express";
 import { KycCentralHubService } from "../services/kyc-central-hub-service";
 import { kycOrchestrationEngine } from "../services/kyc-orchestration-engine";

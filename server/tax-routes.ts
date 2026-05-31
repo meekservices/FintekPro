@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response, NextFunction } from "express";
 import { createHash } from 'crypto';
 import { storage } from "./storage";

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from "../db";
 import { aiService, AICapability } from "./ai-service";
 

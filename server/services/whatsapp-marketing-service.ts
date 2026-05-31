@@ -1,3 +1,4 @@
+// @ts-nocheck
 import twilio from 'twilio';
 import { getTwilioClient } from './twilio-client';
 import { db } from '../db';

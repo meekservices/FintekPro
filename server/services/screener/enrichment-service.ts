@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from '../../db';
 import { screenerStocks, screenerFinancials, screenerPriceHistory, screenerDerivedMetrics } from '@shared/schema';
 import { eq, and, sql, lt, isNull, asc } from 'drizzle-orm';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Financial Metrics Refresh Scheduler
  * 

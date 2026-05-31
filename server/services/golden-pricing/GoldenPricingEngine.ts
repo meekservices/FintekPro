@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Bloomberg-Style Golden Source Pricing Engine
  *

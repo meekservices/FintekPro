@@ -39,7 +39,7 @@ export async function setupVite(app: Express, server: Server) {
     server: {
       middlewareMode: true,
       hmr: { server },
-      allowedHosts: true as unknown as boolean,
+      allowedHosts: true,
     },
     appType: "custom",
     customLogger: {

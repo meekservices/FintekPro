@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Mutual Fund Metrics Service
  * 

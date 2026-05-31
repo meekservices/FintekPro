@@ -115,8 +115,8 @@ export default function PartnerApplicationPage() {
 
   const currentLender = lendersData?.data?.find((l: LenderInfo) => l.name === lender);
   
-  const form = useForm<ApplicationFormData>({
-    resolver: zodResolver(applicationSchema),
+  const form = useForm<ApplicationFormData, any, ApplicationFormData>({
+    resolver: zodResolver(applicationSchema) as any,
     defaultValues: {
       firstName: "",
       lastName: "",

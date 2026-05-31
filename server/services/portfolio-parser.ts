@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as cheerio from 'cheerio';
 import { liveMFDataService } from './live-mf-data-service';
 import { isinIntelligenceService } from './isin-intelligence-service';

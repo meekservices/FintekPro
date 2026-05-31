@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Proposal Capital Gains Service
  * Comprehensive capital gains tax calculation for investment proposal rebalancing

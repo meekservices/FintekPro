@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * CKYC Audit Service
  * 

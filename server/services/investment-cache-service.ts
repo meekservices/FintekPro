@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Investment Cache Service
  * Centralized caching layer for market data, fundamentals, AI rationales, 

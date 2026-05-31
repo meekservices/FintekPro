@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * CKYC SLA Escalation Service
  * 

@@ -35,8 +35,8 @@ export default function FamilyList() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const createFamilyForm = useForm<CreateFamilyFormData>({
-    resolver: zodResolver(createFamilySchema),
+  const createFamilyForm = useForm<CreateFamilyFormData, any, CreateFamilyFormData>({
+    resolver: zodResolver(createFamilySchema) as any,
     defaultValues: {
       name: '',
       description: '',

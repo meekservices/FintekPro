@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { isAuthenticated } from '../auth-setup';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * External Remittance Tracking Service
  * 

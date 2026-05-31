@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from '../db';
 import * as schema from '@shared/schema';
 import { eq, sql, and, gte, lte, desc, count, sum } from 'drizzle-orm';

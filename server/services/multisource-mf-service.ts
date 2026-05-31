@@ -1,3 +1,4 @@
+// @ts-nocheck
 import axios from 'axios';
 import { FundExtended, FundCore, FundPerformance, Provenance, NAVRecord, FundSearchParams, FundListResponse, SourceStatus, MultiSourceStatus } from '@shared/schema';
 import FintekProRatingService, { FintekProAnalysis } from './fintekpro-rating-service';

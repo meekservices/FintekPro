@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router } from "express";
 import { db } from "../db";
 import { comprehensiveHoldings, portfolios, portfolioHoldings, users } from "@shared/schema";

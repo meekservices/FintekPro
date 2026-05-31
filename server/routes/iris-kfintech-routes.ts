@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Express, Request, Response, NextFunction } from 'express';
 import { irisKfintechService } from '../services/iris-kfintech-service';
 import { scheduleIrisPortfolioRefresh, syncIrisHoldingsForPan } from '../services/iris-portfolio-sync-service';

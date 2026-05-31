@@ -172,8 +172,8 @@ export default function InvestableSurplusPage() {
     },
   });
 
-  const incomeForm = useForm<z.infer<typeof incomeFormSchema>>({
-    resolver: zodResolver(incomeFormSchema),
+  const incomeForm = useForm<z.infer<typeof incomeFormSchema>, any, z.infer<typeof incomeFormSchema>>({
+    resolver: zodResolver(incomeFormSchema) as any,
     defaultValues: {
       incomeType: "",
       sourceName: "",
@@ -184,7 +184,7 @@ export default function InvestableSurplusPage() {
     },
   });
 
-  const obligationForm = useForm<z.infer<typeof obligationFormSchema>>({
+  const obligationForm = useForm<z.infer<typeof obligationFormSchema>, any, z.infer<typeof obligationFormSchema>>({
     resolver: zodResolver(obligationFormSchema),
     defaultValues: {
       obligationType: "",
@@ -195,7 +195,7 @@ export default function InvestableSurplusPage() {
     },
   });
 
-  const emergencyForm = useForm<z.infer<typeof emergencyFundSchema>>({
+  const emergencyForm = useForm<z.infer<typeof emergencyFundSchema>, any, z.infer<typeof emergencyFundSchema>>({
     resolver: zodResolver(emergencyFundSchema),
     defaultValues: {
       monthlyExpenses: "",

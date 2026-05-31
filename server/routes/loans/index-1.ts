@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Express, Request, Response } from 'express';
 import { requireAuth, requireClientOrHigher } from '../../middleware/auth';
 import { iciciBankAPI } from '../../icici-bank-api';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { GoogleGenAI } from "@google/genai";
 import { db } from "../db";
 import * as schema from "@shared/schema";

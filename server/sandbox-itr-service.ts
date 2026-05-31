@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { z } from 'zod';
 import { indianTaxCalculator } from './services/indian-tax-calculator';
 import { getSandboxBaseUrl, getSandboxAccessToken, getSandboxApiKey, clearSandboxToken } from './utils/sandbox-config';

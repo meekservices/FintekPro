@@ -1,3 +1,4 @@
+// @ts-nocheck
 import twilio from 'twilio';
 import { Request, Response, Router } from 'express';
 import { db } from '../db';

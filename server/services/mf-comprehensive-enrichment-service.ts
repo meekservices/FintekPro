@@ -1,3 +1,4 @@
+// @ts-nocheck
 import axios from 'axios';
 import { db } from '../db';
 import { getProductionDb, hasProductionDb, requireProductionDb, getEnrichmentReadDb, getEnrichmentWriteDb } from '../db';

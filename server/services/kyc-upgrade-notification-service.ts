@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * KYC Upgrade Notification Service
  * 

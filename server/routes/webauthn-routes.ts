@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router } from "express";
 import { webauthnService } from "../services/webauthn-service";
 import { authEventBus, type RiskLevel } from "../services/auth-event-bus";

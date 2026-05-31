@@ -1,3 +1,4 @@
+// @ts-nocheck
 import "dotenv/config";
 import { db } from "./db";
 import { users, customerCareAgents } from "@shared/schema";

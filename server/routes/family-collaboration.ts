@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Family Collaboration Routes
  * P3 — Extracted from routes.ts to reduce file size

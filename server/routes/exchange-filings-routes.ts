@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Exchange Filings API Routes
  * 

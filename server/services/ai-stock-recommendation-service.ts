@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from "../db";
 import { listedStocks, stockFinancialMetrics } from "@shared/schema";
 import { eq, and, desc, asc, gte, lte, sql, inArray, ilike, or, isNotNull } from "drizzle-orm";

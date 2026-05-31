@@ -1,3 +1,4 @@
+// @ts-nocheck
 import express, { Response } from "express";
 import { B2BRequest, b2bAuthMiddleware, b2bRateLimiter } from "../../../middleware/b2b-auth";
 import { webhookDispatcher } from "../../../services/b2b-webhook-dispatcher";

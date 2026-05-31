@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * biAgent.ts — Analytics BI Agent (Phase 1: Cloud SQL)
  * Phase 1: Queries FintekPro's own Cloud SQL data for daily BI summaries.

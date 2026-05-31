@@ -96,8 +96,8 @@ export default function InvestmentDashboard() {
   const { toast } = useToast();
 
   // Forms
-  const newIdeaForm = useForm<NewIdeaFormData>({
-    resolver: zodResolver(newIdeaSchema),
+  const newIdeaForm = useForm<NewIdeaFormData, any, NewIdeaFormData>({
+    resolver: zodResolver(newIdeaSchema) as any,
     defaultValues: {
       symbols: '',
       riskLevel: 'medium',

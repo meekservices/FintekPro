@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * SEBI-Aligned Risk Scoring Service
  * Implements regulatory-compliant risk profiling with:

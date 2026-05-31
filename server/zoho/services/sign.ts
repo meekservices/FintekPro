@@ -116,7 +116,7 @@ export class ZohoSignService {
     for (const doc of options.documents) {
       const blob = typeof doc.content === 'string' 
         ? new Blob([Buffer.from(doc.content, 'base64')])
-        : new Blob([doc.content]);
+        : new Blob([new Uint8Array(doc.content)]);
       formData.append('file', blob, doc.fileName);
     }
 
@@ -132,12 +132,12 @@ export class ZohoSignService {
   }
 
   async submitForSignature(requestId: string): Promise<boolean> {
-    const response = await this.client.post(`/api/v1/requests/${requestId}/submit`);
+    const response = await this.client.post(`/api/v1/requests/${requestId}/submit`, {});
     return response.data?.requests?.request_status === 'inprogress';
   }
 
   async recallDocument(requestId: string): Promise<boolean> {
-    const response = await this.client.post(`/api/v1/requests/${requestId}/recall`);
+    const response = await this.client.post(`/api/v1/requests/${requestId}/recall`, {});
     return response.data?.status === 'success';
   }
 
@@ -154,7 +154,7 @@ export class ZohoSignService {
   }
 
   async remindRecipient(requestId: string, actionId: string): Promise<boolean> {
-    const response = await this.client.post(`/api/v1/requests/${requestId}/actions/${actionId}/remind`);
+    const response = await this.client.post(`/api/v1/requests/${requestId}/actions/${actionId}/remind`, {});
     return response.data?.status === 'success';
   }
 

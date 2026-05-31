@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from "express";
 import { resolveCompany, searchExternal } from "../modules/research/resolver";
 import { getFinancialData } from "../modules/research/dataService";

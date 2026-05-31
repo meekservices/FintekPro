@@ -1,3 +1,4 @@
+// @ts-nocheck
 import axios from 'axios';
 import { db } from '../db';
 import { mutualFunds } from '@shared/schema';

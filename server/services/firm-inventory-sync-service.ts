@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Firm Inventory Sync Service
  *

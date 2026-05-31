@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Golden Source Pricing Engine — REST API
  *

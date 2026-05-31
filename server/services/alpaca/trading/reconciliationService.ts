@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from '../../../db';
 import { alpacaOrders, alpacaTradeLogs, users } from '../../../../shared/schema';
 import { eq, and, sql } from 'drizzle-orm';

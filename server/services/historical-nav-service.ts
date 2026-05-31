@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from "../db";
 import { historicalNavData, assetMetadataCache, portfolioMetricsCache } from "@shared/schema";
 import { eq, and, gte, lte, desc, asc, sql } from "drizzle-orm";

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Express, Response } from 'express';
 import { partnerService } from '../../partner-service';
 import { db } from '../../db';

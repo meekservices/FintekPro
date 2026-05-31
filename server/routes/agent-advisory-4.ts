@@ -364,7 +364,7 @@ export function registerAgentAdvisoryPart4Routes(app: Express) {
       }
       const validation = ProposalOrchestrator.validateAllocation(allocation);
       if (!validation.valid) {
-        return res.status(400).json({ error: 'Allocation validation failed', errors: validation.issues });
+        return res.status(400).json({ error: 'Allocation validation failed', errors: validation.errors });
       }
       const result = await ProposalOrchestrator.lockStrategySnapshot(proposalId, allocationMode, allocation, agentId || 'system');
       res.json(result);

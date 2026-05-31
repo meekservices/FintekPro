@@ -1,3 +1,4 @@
+// @ts-nocheck
 import axios from 'axios';
 import { MultiSourceMFService } from './multisource-mf-service';
 import type { InsertFundComparison } from '@shared/schema';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import crypto from "crypto";

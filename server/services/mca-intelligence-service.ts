@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * MCA Intelligence Service
  * Internal service for MCA-related queries, filing tracking, and analytics

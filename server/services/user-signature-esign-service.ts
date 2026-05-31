@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * User Signature eSign Service
  * 

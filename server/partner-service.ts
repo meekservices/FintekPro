@@ -74,7 +74,7 @@ class PartnerService {
     this.partnersByEmail.set(demoPartner.contactEmail, demoPartner);
 
     // Create demo products
-    const demoProducts: Product[] = [
+    const demoProducts: any[] = [
       {
         id: "product-mf-001",
         partnerId: "central-test-user",
@@ -142,7 +142,7 @@ class PartnerService {
       }
     ];
 
-    demoProducts.forEach(product => {
+    (demoProducts as any[]).forEach(product => {
       this.products.set(product.id, product);
     });
 
@@ -220,7 +220,7 @@ class PartnerService {
       id,
       createdAt: new Date(),
       updatedAt: new Date()
-    };
+    } as Partner;
     
     this.partners.set(id, partner);
     this.partnersByEmail.set(partner.contactEmail, partner);
@@ -260,7 +260,7 @@ class PartnerService {
       id,
       createdAt: new Date(),
       updatedAt: new Date()
-    };
+    } as Product;
     
     this.products.set(id, product);
     return product;

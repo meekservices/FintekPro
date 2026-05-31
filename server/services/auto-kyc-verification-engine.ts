@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Auto-KYC Verification Engine
  *

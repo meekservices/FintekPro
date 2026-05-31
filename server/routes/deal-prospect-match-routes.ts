@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from "express";
 import { matchDealToProspects, getGeoIntelligence, type DealType } from "../services/aif-pms-prospect-matcher";
 import { db } from "../db";

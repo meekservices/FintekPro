@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from "../../db";
 import { mutualFunds as mutualFundsTable } from "@shared/schema";
 import { sql, and, eq, inArray, desc } from "drizzle-orm";

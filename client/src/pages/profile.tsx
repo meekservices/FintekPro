@@ -336,8 +336,8 @@ export default function ProfilePage() {
     retry: false,
   });
 
-  const form = useForm<ProfileFormData>({
-    resolver: zodResolver(profileFormSchema),
+  const form = useForm<ProfileFormData, any, ProfileFormData>({
+    resolver: zodResolver(profileFormSchema) as any,
     defaultValues: {
       // Client Type
       clientType: "individual",

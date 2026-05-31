@@ -293,8 +293,8 @@ export default function AgentLoanApplyPage() {
     storagePath: "",
   });
 
-  const form = useForm<LoanApplicationForm>({
-    resolver: zodResolver(loanApplicationSchema),
+  const form = useForm<LoanApplicationForm, any, LoanApplicationForm>({
+    resolver: zodResolver(loanApplicationSchema) as any,
     defaultValues: {
       clientSource: "new",
       loanType: "personal",

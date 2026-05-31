@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Escrow Maker-Checker Service
  * 

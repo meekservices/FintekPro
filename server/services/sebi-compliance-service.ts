@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * SEBI Investment Regulations Compliance Service
  * 

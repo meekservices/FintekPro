@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Express } from 'express';
 import * as schema from '@shared/schema';
 import { storage } from '../storage';

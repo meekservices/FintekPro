@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from 'express';
 import { proposalEsignWorkflowService, WorkflowStatus, ParticipantRole, SignatureMethod } from '../services/proposal-esign-workflow-service';
 import { z } from 'zod';

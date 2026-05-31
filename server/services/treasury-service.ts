@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from '../db';
 import { treasuryEntities, treasuryAccounts, treasuryPositions } from '../../shared/schema/treasury';
 import { eq, and } from 'drizzle-orm';

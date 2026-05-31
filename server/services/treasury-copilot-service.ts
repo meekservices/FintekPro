@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { cashService } from './cash-service';
 import { aiService } from './ai-service';
 

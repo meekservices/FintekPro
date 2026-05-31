@@ -870,7 +870,7 @@ export default function AuthPage() {
     return (
       <div className="min-h-screen flex flex-col lg:flex-row">
         {/* ── Left Panel – dark navy with network pattern ── */}
-        <div className="lg:w-5/12 flex flex-col justify-between p-6 sm:p-10 lg:p-16 relative overflow-hidden min-h-[200px] sm:min-h-[260px] lg:min-h-screen" style={{ background: '#0d1b2e' }}>
+        <div className="lg:w-5/12 flex flex-col justify-between p-6 sm:p-10 lg:p-16 relative overflow-hidden min-h-[200px] sm:min-h-[260px] lg:min-h-screen bg-[#0d1b2e]">
           {/* Network / constellation SVG background */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
             <g stroke="#3b82f6" strokeOpacity="0.12" strokeWidth="1">
@@ -1263,6 +1263,215 @@ export default function AuthPage() {
           onForceLogout={handleForceLogout}
         />
 
+        {/* ── PIN Entry Dialog (trusted device login — agent portal) ── */}
+        <Dialog open={pinDialogOpen} onOpenChange={(open) => { if (!open) { setPinDialogOpen(false); setLoginStep("credentials"); setPinValue(""); setPinError(""); } }}>
+          <DialogContent className="sm:max-w-[380px] text-center">
+            <DialogHeader>
+              <div className="flex justify-center mb-2">
+                <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Lock className="h-7 w-7 text-blue-600" />
+                </div>
+              </div>
+              <DialogTitle className="text-xl font-semibold">Enter your PIN</DialogTitle>
+              <DialogDescription>
+                Trusted device recognised. Enter your 4-digit PIN to log in instantly.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-5 py-2">
+              {/* 4-digit PIN input boxes */}
+              <div className="flex justify-center gap-3">
+                {[0, 1, 2, 3].map((i) => (
+                  <input
+                    key={i}
+                    id={`agent-pin-entry-digit-${i}`}
+                    type="password"
+                    inputMode="numeric"
+                    aria-label={`PIN digit ${i + 1} of 4`}
+                    maxLength={1}
+                    className="w-14 h-14 text-center text-2xl font-bold border-2 rounded-xl focus:border-blue-500 focus:outline-none transition-all"
+                    value={pinValue[i] || ""}
+                    onChange={(e) => {
+                      const digit = e.target.value.replace(/\D/g, "").slice(-1);
+                      const next = (pinValue + "").split("");
+                      next[i] = digit;
+                      const updated = next.join("").slice(0, 4);
+                      setPinValue(updated);
+                      setPinError("");
+                      if (digit && i < 3) {
+                        document.getElementById(`agent-pin-entry-digit-${i + 1}`)?.focus();
+                      }
+                      if (updated.length === 4) {
+                        pinEntryMutation.mutate({ identifier: pinIdentifier, pin: updated });
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Backspace" && !pinValue[i] && i > 0) {
+                        document.getElementById(`agent-pin-entry-digit-${i - 1}`)?.focus();
+                      }
+                    }}
+                    data-testid={`pin-digit-${i}`}
+                  />
+                ))}
+              </div>
+
+              {pinError && (
+                <p className="text-sm text-red-500 flex items-center justify-center gap-1">
+                  <AlertCircle className="h-4 w-4" /> {pinError}
+                </p>
+              )}
+
+              <Button
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={pinValue.length !== 4 || pinEntryMutation.isPending}
+                onClick={() => pinEntryMutation.mutate({ identifier: pinIdentifier, pin: pinValue })}
+                data-testid="button-submit-pin"
+              >
+                {pinEntryMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
+                Verify PIN
+              </Button>
+
+              <button
+                type="button"
+                className="text-sm text-gray-500 hover:text-gray-700 underline transition-colors"
+                onClick={() => {
+                  setPinDialogOpen(false);
+                  setPinValue("");
+                  setPinError("");
+                  setLoginStep("credentials");
+                  const creds = loginForm.getValues();
+                  if (creds.identifier && creds.password) {
+                    loginMutation.mutate(creds);
+                  }
+                }}
+                data-testid="link-use-otp-instead"
+              >
+                Forgot PIN? Use OTP instead
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── PIN Setup Dialog (after first OTP verification — agent portal) ── */}
+        <Dialog open={pinSetupDialogOpen} onOpenChange={(open) => { if (!open) { setPinSetupDialogOpen(false); navigate(portalHomeRoute); } }}>
+          <DialogContent className="sm:max-w-[400px] text-center">
+            <DialogHeader>
+              <div className="flex justify-center mb-2">
+                <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
+                  <LucideShield className="h-7 w-7 text-green-600" />
+                </div>
+              </div>
+              <DialogTitle className="text-xl font-semibold">Create your Login PIN</DialogTitle>
+              <DialogDescription>
+                Set a 4-digit PIN for faster, OTP-free logins on this device.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-5 py-2">
+              <div className="space-y-4">
+                {/* PIN input */}
+                <div>
+                  <p className="text-sm font-medium text-left mb-2">Choose a 4-digit PIN</p>
+                  <div className="flex justify-center gap-3">
+                    {[0, 1, 2, 3].map((i) => (
+                      <input
+                        key={i}
+                        id={`agent-pin-setup-digit-${i}`}
+                        type="password"
+                        inputMode="numeric"
+                        aria-label={`New PIN digit ${i + 1} of 4`}
+                        maxLength={1}
+                        className="w-14 h-14 text-center text-2xl font-bold border-2 rounded-xl focus:border-green-500 focus:outline-none transition-all"
+                        value={pinSetupValue[i] || ""}
+                        onChange={(e) => {
+                          const digit = e.target.value.replace(/\D/g, "").slice(-1);
+                          const next = pinSetupValue.split("");
+                          next[i] = digit;
+                          setPinSetupValue(next.join("").slice(0, 4));
+                          setPinError("");
+                          if (digit && i < 3) document.getElementById(`agent-pin-setup-digit-${i + 1}`)?.focus();
+                          if (i === 3 && digit) document.getElementById("agent-pin-confirm-digit-0")?.focus();
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Backspace" && !pinSetupValue[i] && i > 0) {
+                            document.getElementById(`agent-pin-setup-digit-${i - 1}`)?.focus();
+                          }
+                        }}
+                        data-testid={`pin-setup-digit-${i}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Confirm PIN */}
+                <div>
+                  <p className="text-sm font-medium text-left mb-2">Confirm your PIN</p>
+                  <div className="flex justify-center gap-3">
+                    {[0, 1, 2, 3].map((i) => (
+                      <input
+                        key={i}
+                        id={`agent-pin-confirm-digit-${i}`}
+                        type="password"
+                        inputMode="numeric"
+                        aria-label={`Confirm PIN digit ${i + 1} of 4`}
+                        maxLength={1}
+                        className="w-14 h-14 text-center text-2xl font-bold border-2 rounded-xl focus:border-green-500 focus:outline-none transition-all"
+                        value={pinSetupConfirm[i] || ""}
+                        onChange={(e) => {
+                          const digit = e.target.value.replace(/\D/g, "").slice(-1);
+                          const next = pinSetupConfirm.split("");
+                          next[i] = digit;
+                          setPinSetupConfirm(next.join("").slice(0, 4));
+                          setPinError("");
+                          if (digit && i < 3) document.getElementById(`agent-pin-confirm-digit-${i + 1}`)?.focus();
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Backspace" && !pinSetupConfirm[i] && i > 0) {
+                            document.getElementById(`agent-pin-confirm-digit-${i - 1}`)?.focus();
+                          }
+                        }}
+                        data-testid={`pin-confirm-digit-${i}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {pinError && (
+                <p className="text-sm text-red-500 flex items-center justify-center gap-1">
+                  <AlertCircle className="h-4 w-4" /> {pinError}
+                </p>
+              )}
+
+              <Button
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                disabled={pinSetupValue.length !== 4 || pinSetupConfirm.length !== 4 || pinSetupMutation.isPending}
+                onClick={() => {
+                  if (pinSetupValue !== pinSetupConfirm) {
+                    setPinError("PINs do not match. Please try again.");
+                    setPinSetupConfirm("");
+                    return;
+                  }
+                  pinSetupMutation.mutate(pinSetupValue);
+                }}
+                data-testid="button-set-pin"
+              >
+                {pinSetupMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <LucideShield className="h-4 w-4 mr-2" />}
+                Set PIN & Continue
+              </Button>
+
+              <button
+                type="button"
+                className="text-sm text-gray-500 hover:text-gray-700 underline transition-colors"
+                onClick={() => { setPinSetupDialogOpen(false); navigate(portalHomeRoute); }}
+                data-testid="link-skip-pin"
+              >
+                Skip for now
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Registration OTP Verification Dialog */}
         <Dialog open={registrationOtpDialogOpen} onOpenChange={setRegistrationOtpDialogOpen}>
           <DialogContent
@@ -1482,16 +1691,17 @@ export default function AuthPage() {
   // ── End Agent Portal layout ───────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen" style={{ background: `linear-gradient(135deg, ${portalColor}08 0%, ${portalColor}15 100%)` }}>
+    /* eslint-disable-next-line react/forbid-dom-props -- portalColor is a runtime hex value, Tailwind cannot express arbitrary gradients with dynamic variables */
+    <div className="min-h-screen" style={{ '--portal-color': portalColor, background: `linear-gradient(135deg, ${portalColor}08 0%, ${portalColor}15 100%)` } as React.CSSProperties}>
       <div className="container mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-2 gap-8 items-center">
           {/* Hero Section */}
           <div className="lg:pr-8">
             <div className="text-center lg:text-left">
               <h1 className="text-4xl font-bold text-foreground mb-2">
-                Welcome to <span style={{ color: portalColor }}>{portalLabel}</span>
+                Welcome to <span className="[color:var(--portal-color)]">{portalLabel}</span>
               </h1>
-              <p className="text-sm font-medium mb-4" style={{ color: portalColor }}>{portalTagline}</p>
+              <p className="text-sm font-medium mb-4 [color:var(--portal-color)]">{portalTagline}</p>
               <p className="text-xl text-muted-foreground mb-8">
                 {portalDesc.hero}
               </p>
@@ -1500,7 +1710,7 @@ export default function AuthPage() {
                   const IconComponent = featureIcons[feature.icon as keyof typeof featureIcons] || LucideShield;
                   return (
                     <div key={index} className="flex items-start space-x-3">
-                      <IconComponent className="h-6 w-6 mt-1 flex-shrink-0" style={{ color: portalColor }} />
+                      <IconComponent className="h-6 w-6 mt-1 flex-shrink-0 [color:var(--portal-color)]" />
                       <div>
                         <h3 className="font-semibold text-foreground">{feature.title}</h3>
                         <p className="text-sm text-muted-foreground">{feature.desc}</p>
@@ -1542,13 +1752,13 @@ export default function AuthPage() {
                       <TabsContent value="login" className="space-y-4">
                         {/* Progress Indicator */}
                         {loginStep !== "credentials" && (
-                          <div className="space-y-2 p-3 rounded-lg border" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}30` }}>
+                          <div className="space-y-2 p-3 rounded-lg border [border-color:color-mix(in_srgb,var(--portal-color)_30%,transparent)] [background-color:color-mix(in_srgb,var(--portal-color)_5%,transparent)]">
                             <div className="flex items-center justify-between text-sm">
                               <span className="flex items-center gap-1 text-green-600">
                                 <CheckCircle2 className="h-4 w-4" />
                                 Credentials
                               </span>
-                              <span className="flex items-center gap-1 font-medium" style={{ color: loginStep === "complete" ? '#16a34a' : portalColor }}>
+                              <span className={`flex items-center gap-1 font-medium ${loginStep === "complete" ? "text-green-600" : "[color:var(--portal-color)]"}`}>
                                 {loginStep === "complete" ? <CheckCircle2 className="h-4 w-4" /> : <LucideShield className="h-4 w-4" />}
                                 OTP Verification
                               </span>
@@ -1619,9 +1829,9 @@ export default function AuthPage() {
                             )}
                           </div>
 
-                          <Alert className="border" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}30` }}>
-                            <LucideShield className="h-4 w-4" style={{ color: portalColor }} />
-                            <AlertDescription className="text-sm" style={{ color: portalColor }}>
+                          <Alert className="border [border-color:color-mix(in_srgb,var(--portal-color)_30%,transparent)] [background-color:color-mix(in_srgb,var(--portal-color)_5%,transparent)]">
+                            <LucideShield className="h-4 w-4 [color:var(--portal-color)]" />
+                            <AlertDescription className="text-sm [color:var(--portal-color)]">
                               After entering credentials, you'll receive a 6-digit OTP via email/SMS for verification.
                             </AlertDescription>
                           </Alert>
@@ -1629,7 +1839,7 @@ export default function AuthPage() {
                           {portalType === 'main' && (
                             <p className="text-xs text-center text-muted-foreground">
                               Financial Agent?{" "}
-                              <a href="https://agent.fintekpro.com" className="font-medium underline" style={{ color: portalColor }}>
+                              <a href="https://agent.fintekpro.com" className="font-medium underline [color:var(--portal-color)]">
                                 Agent Portal
                               </a>
                             </p>
@@ -1637,7 +1847,7 @@ export default function AuthPage() {
                           {(portalType === 'agent' || portalType === 'partner') && (
                             <p className="text-xs text-center text-muted-foreground">
                               Investor / Client?{" "}
-                              <a href="https://fintekpro.com" className="font-medium underline" style={{ color: portalColor }}>
+                              <a href="https://fintekpro.com" className="font-medium underline [color:var(--portal-color)]">
                                 Login on FintekPro
                               </a>
                             </p>
@@ -1659,8 +1869,7 @@ export default function AuthPage() {
                               <DialogTrigger asChild>
                                 <Button 
                                   variant="link" 
-                                  className="text-sm"
-                                  style={{ color: portalColor }}
+                                  className="text-sm [color:var(--portal-color)]"
                                   data-testid="button-forgot-password"
                                 >
                                   Forgot Password?
@@ -1826,7 +2035,7 @@ export default function AuthPage() {
                         {portalType === 'main' && (
                           <p className="text-xs text-center text-muted-foreground">
                             Financial Agent?{" "}
-                            <a href="https://agent.fintekpro.com?mode=register" className="font-medium underline" style={{ color: portalColor }}>
+                            <a href="https://agent.fintekpro.com?mode=register" className="font-medium underline [color:var(--portal-color)]">
                               Register on the Agent Portal
                             </a>
                           </p>
@@ -1834,7 +2043,7 @@ export default function AuthPage() {
                         {(portalType === 'agent' || portalType === 'partner') && (
                           <p className="text-xs text-center text-muted-foreground">
                             Client/Investor?{" "}
-                            <a href="https://fintekpro.com" className="font-medium underline" style={{ color: portalColor }}>
+                            <a href="https://fintekpro.com" className="font-medium underline [color:var(--portal-color)]">
                               Register on FintekPro
                             </a>
                           </p>
@@ -1950,7 +2159,7 @@ export default function AuthPage() {
         <DialogContent className="sm:max-w-md" data-testid="dialog-otp-verification">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <LucideShield className="h-5 w-5" style={{ color: portalColor }} />
+              <LucideShield className="h-5 w-5 [color:var(--portal-color)]" />
               Enter Verification Code
             </DialogTitle>
             <DialogDescription>
@@ -1960,11 +2169,11 @@ export default function AuthPage() {
 
           <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-4">
             {/* Timer Display */}
-            <div className="p-3 rounded-lg border" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}30` }}>
+            <div className="p-3 rounded-lg border [border-color:color-mix(in_srgb,var(--portal-color)_30%,transparent)] [background-color:color-mix(in_srgb,var(--portal-color)_5%,transparent)]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" style={{ color: portalColor }} />
-                  <span className="text-sm font-medium" style={{ color: portalColor }}>
+                  <Clock className="h-4 w-4 [color:var(--portal-color)]" />
+                  <span className="text-sm font-medium [color:var(--portal-color)]">
                     {otpTimer > 0 ? `Code expires in ${formatTime(otpTimer)}` : "Code expired"}
                   </span>
                 </div>
@@ -1975,7 +2184,7 @@ export default function AuthPage() {
                     size="sm"
                     onClick={handleResendOtp}
                     disabled={otpSending}
-                    style={{ color: portalColor }}
+                    className="[color:var(--portal-color)]"
                     data-testid="button-resend-otp"
                   >
                     {otpSending ? (
@@ -2054,7 +2263,7 @@ export default function AuthPage() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <LucideShield className="h-5 w-5" style={{ color: portalColor }} />
+              <LucideShield className="h-5 w-5 [color:var(--portal-color)]" />
               Verify Your Email & Mobile
             </DialogTitle>
             <DialogDescription>
@@ -2071,11 +2280,11 @@ export default function AuthPage() {
             }
           }} className="space-y-4">
             {/* Timer Display */}
-            <div className="p-3 rounded-lg border" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}30` }}>
+            <div className="p-3 rounded-lg border [border-color:color-mix(in_srgb,var(--portal-color)_30%,transparent)] [background-color:color-mix(in_srgb,var(--portal-color)_5%,transparent)]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" style={{ color: portalColor }} />
-                  <span className="text-sm font-medium" style={{ color: portalColor }}>
+                  <Clock className="h-4 w-4 [color:var(--portal-color)]" />
+                  <span className="text-sm font-medium [color:var(--portal-color)]">
                     {registrationOtpTimer > 0 ? `Code expires in ${formatTime(registrationOtpTimer)}` : "Code expired"}
                   </span>
                 </div>
@@ -2086,7 +2295,7 @@ export default function AuthPage() {
                     size="sm"
                     onClick={() => resendRegistrationOtpMutation.mutate()}
                     disabled={registrationOtpSending}
-                    style={{ color: portalColor }}
+                    className="[color:var(--portal-color)]"
                     data-testid="button-resend-registration-otp"
                   >
                     {registrationOtpSending ? (
@@ -2166,10 +2375,11 @@ export default function AuthPage() {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="p-4 rounded-lg border-2" style={{ backgroundColor: `${portalColor}08`, borderColor: `${portalColor}40` }}>
+            <div className="p-4 rounded-lg border-2 [border-color:color-mix(in_srgb,var(--portal-color)_40%,transparent)] [background-color:color-mix(in_srgb,var(--portal-color)_5%,transparent)]">
               <p className="text-sm text-muted-foreground mb-2 text-center">Your unique User ID:</p>
               <div className="flex items-center justify-center gap-2">
-                <Badge className="text-lg px-4 py-2 text-white" style={{ backgroundColor: portalColor }}>
+                {/* Badge bg must use inline CSS var — Tailwind arbitrary bg requires static class */}
+                <Badge className="text-lg px-4 py-2 text-white" style={{ backgroundColor: 'var(--portal-color)' }}>
                   {registeredUserId}
                 </Badge>
               </div>

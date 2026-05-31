@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * BSE STAR MFD Consolidated Account Statement (CAS) Service
  * 

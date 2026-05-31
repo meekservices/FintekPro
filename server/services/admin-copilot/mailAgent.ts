@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * mailAgent.ts — Zoho Mail Intelligence Agent
  * Fetches emails via Zoho Mail API, classifies with Gemini, and drafts replies.

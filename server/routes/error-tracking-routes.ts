@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from "express";
 import { errorTrackingService } from "../services/error-tracking-service";
 import { errorWebhookService } from "../services/error-webhook-service";

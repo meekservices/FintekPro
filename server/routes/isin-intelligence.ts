@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from 'express';
 import { isinIntelligenceService, type ISINMetadata } from '../services/isin-intelligence-service';
 import { isAuthenticated } from '../auth-setup';

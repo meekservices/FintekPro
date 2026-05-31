@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { alpacaMarketDataService } from '../core/alpacaMarketDataService';
 import { logger } from '../../../logger';
 

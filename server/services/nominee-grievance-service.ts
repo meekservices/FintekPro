@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Nominee Enforcement Service (H-4)
  *

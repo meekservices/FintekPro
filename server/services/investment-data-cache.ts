@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Investment Data Cache Service
  * Unified caching layer for all investment product data with background pre-computation

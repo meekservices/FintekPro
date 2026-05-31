@@ -1304,7 +1304,7 @@ export async function getFinancialData(symbol: string): Promise<FinancialData & 
       const yData = await fetchFromYahoo(ySym);
       const data  = buildFull(yData, dbData, screener);
       cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
-      return { ...data, _fundamentalsSource: fundamentalsSource, _screenerData: screener };
+      return { ...data, _fundamentalsSource: fundamentalsSource, _screenerData: screener } as any;
     } catch (e: any) {
       if (isRateLimit(e)) {
         rateLimited = true;

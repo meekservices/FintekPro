@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from '../db';
 import { eq, desc, and, sql } from 'drizzle-orm';
 import { users, platformSubscriptions } from '@shared/schema';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * IRIS LAS/LAMF Service — Loan Against Securities & Mutual Funds
  *

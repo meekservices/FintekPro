@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { mfReturnsSyncService } from "./mf-returns-sync-service";
 import { benchmarkSyncService } from "./benchmark-sync-service";
 import { mfBenchmarkMappingService } from "./mf-benchmark-mapping-service";

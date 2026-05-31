@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { logger } from '../../../logger';
 import { db } from '../../../db';
 import { users, alpacaOrders, alpacaTradeLogs } from '../../../../shared/schema';

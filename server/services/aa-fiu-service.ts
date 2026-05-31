@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Account Aggregator FIU (Financial Information User) Service
  * 

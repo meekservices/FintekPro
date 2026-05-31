@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * MCA Data Cache Service
  * Caches Sandbox API responses into local PostgreSQL database

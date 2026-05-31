@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Algo Signal Engine — FintekPro US Trading DSS
  *

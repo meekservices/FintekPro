@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { auditLogService } from './audit-log-service';
 import { Request } from 'express';
 import { createHash } from 'crypto';

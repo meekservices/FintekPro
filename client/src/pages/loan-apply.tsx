@@ -87,8 +87,8 @@ export default function LoanApplyPage() {
   const [selectedApplication, setSelectedApplication] = useState<string | null>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
 
-  const form = useForm<LoanApplicationForm>({
-    resolver: zodResolver(loanApplicationSchema),
+  const form = useForm<LoanApplicationForm, any, LoanApplicationForm>({
+    resolver: zodResolver(loanApplicationSchema) as any,
     defaultValues: {
       loanType: "personal",
       requestedAmount: "",

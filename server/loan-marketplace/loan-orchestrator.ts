@@ -225,7 +225,7 @@ export class LoanOrchestrator {
       throw new Error(`Product not found: ${data.productKey}`);
     }
 
-    const requestData: InsertLoanRequest = ({} as InsertLoanRequest & Record<string, any>) && {
+    const requestData = {
       userId: data.userId,
       productId: product.id,
       requestedAmount: data.requestedAmount.toString(),
@@ -233,7 +233,7 @@ export class LoanOrchestrator {
       purpose: data.purpose,
       collateralDetails: data.collateralDetails,
       estimatedCollateralValue: data.collateralDetails?.estimatedValue?.toString()
-    };
+    } as InsertLoanRequest;
 
     return await storage.createLoanRequest(requestData);
   }

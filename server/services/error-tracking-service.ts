@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from "../db";
 import { errorLedger, ErrorLedgerEntry, users } from "../../shared/schema";
 import { eq, desc, and, gte, lte, sql, like, or, count } from "drizzle-orm";

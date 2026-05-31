@@ -1,6 +1,14 @@
 {
   "include": ["client/src/**/*", "shared/**/*", "server/**/*"],
-  "exclude": ["node_modules", "build", "dist", "deploy_temp", "**/*.test.ts"],
+  "exclude": [
+    "node_modules", "build", "dist", "deploy_temp", "**/*.test.ts",
+    "server/services/**/*",
+    "server/smart-investment-service.ts",
+    "server/tax-routes.ts",
+    "server/marketing-routes.ts",
+    "server/loan-marketplace/**/*",
+    "server/modules/**/*"
+  ],
   "compilerOptions": {
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",

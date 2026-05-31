@@ -225,19 +225,20 @@ function SignalCard({
                 </div>
                 <p className="text-[10px] text-muted-foreground font-mono">{detail}</p>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all",
-                        score > 0 ? "bg-emerald-500" : "bg-rose-500",
-                        "ml-auto"
-                      )}
-                      style={{
-                        width: `${Math.abs(score) * 100}%`,
-                        marginLeft: score > 0 ? "50%" : undefined,
-                        marginRight: score < 0 ? "50%" : undefined,
-                      }}
-                    />
+                  {/* Bi-directional score bar: positive fills right half, negative fills left half */}
+                  <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden flex">
+                    {score < 0 && (
+                      <div
+                        className="h-full bg-rose-500 rounded-full transition-all ml-auto"
+                        style={{ width: `${Math.abs(score) * 50}%` }}
+                      />
+                    )}
+                    {score > 0 && (
+                      <div
+                        className="h-full bg-emerald-500 rounded-full transition-all ml-[50%]"
+                        style={{ width: `${score * 50}%` }}
+                      />
+                    )}
                   </div>
                   <span className="text-[10px] font-black tabular-nums w-10 text-right">
                     {score > 0 ? "+" : ""}{(score * 100).toFixed(0)}
@@ -362,8 +363,10 @@ function GeneratePanel({ onGenerated }: { onGenerated: () => void }) {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1.5 block">Risk Profile</label>
+            <label htmlFor="gen-risk-profile" className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1.5 block">Risk Profile</label>
             <select
+              id="gen-risk-profile"
+              aria-label="Risk profile for signal generation"
               value={riskProfile}
               onChange={e => setRiskProfile(e.target.value)}
               className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-sm text-white font-bold focus:outline-none focus:ring-2 focus:ring-yellow-400/40 appearance-none cursor-pointer"
@@ -375,8 +378,10 @@ function GeneratePanel({ onGenerated }: { onGenerated: () => void }) {
             </select>
           </div>
           <div>
-            <label className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1.5 block">Horizon</label>
+            <label htmlFor="gen-horizon" className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1.5 block">Horizon</label>
             <select
+              id="gen-horizon"
+              aria-label="Investment horizon for signal generation"
               value={horizon}
               onChange={e => setHorizon(e.target.value)}
               className="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-sm text-white font-bold focus:outline-none focus:ring-2 focus:ring-yellow-400/40 appearance-none cursor-pointer"
@@ -474,8 +479,9 @@ function PerformancePanel() {
                   {signal.toUpperCase()}
                 </Badge>
                 <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                  {/* Width driven by inline style — only dynamic numeric value, not layout style */}
                   <div
-                    className={cn("h-full rounded-full", signal === "buy" ? "bg-emerald-500" : signal === "sell" ? "bg-rose-500" : "bg-amber-400")}
+                    className={cn("h-full rounded-full transition-all", signal === "buy" ? "bg-emerald-500" : signal === "sell" ? "bg-rose-500" : "bg-amber-400")}
                     style={{ width: `${Math.round((count / perf.total) * 100)}%` }}
                   />
                 </div>
@@ -539,7 +545,7 @@ function EquityCurveChart({ equityCurve, initialCapital }: { equityCurve: Equity
 
   return (
     <div className="w-full overflow-hidden rounded-2xl bg-muted/30 p-3">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 180 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[180px]">  {/* h-[180px] replaces inline height */}
         <defs>
           <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={isOutperforming ? "#10b981" : "#f43f5e"} stopOpacity="0.25" />
@@ -579,11 +585,11 @@ function EquityCurveChart({ equityCurve, initialCapital }: { equityCurve: Equity
 
       <div className="flex items-center gap-4 mt-2 px-1">
         <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground">
-          <div className="w-6 h-0.5 rounded-full" style={{ backgroundColor: isOutperforming ? "#10b981" : "#f43f5e" }} />
+          <div className={cn("w-6 h-0.5 rounded-full", isOutperforming ? "bg-emerald-500" : "bg-rose-500")} />
           Strategy
         </div>
         <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground">
-          <div className="w-6 h-0.5 rounded-full bg-slate-400 opacity-60" style={{ backgroundImage: "repeating-linear-gradient(to right, currentColor, currentColor 4px, transparent 4px, transparent 7px)" }} />
+          <div className="w-6 h-0.5 rounded-full bg-slate-400 opacity-60" />
           Buy &amp; Hold
         </div>
       </div>
@@ -673,7 +679,7 @@ function BacktestPanel() {
               />
             </div>
             <div>
-              <label htmlFor="bt-start-date" className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1.5 flex items-center gap-1.5 block">
+              <label htmlFor="bt-start-date" className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                 <Calendar className="h-3 w-3" /> Start Date
               </label>
               <input id="bt-start-date" type="date" value={start} min={minDate} max={end}
@@ -683,7 +689,7 @@ function BacktestPanel() {
               />
             </div>
             <div>
-              <label htmlFor="bt-end-date" className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1.5 flex items-center gap-1.5 block">
+              <label htmlFor="bt-end-date" className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                 <Calendar className="h-3 w-3" /> End Date
               </label>
               <input id="bt-end-date" type="date" value={end} min={start} max={today}
@@ -713,7 +719,7 @@ function BacktestPanel() {
               </select>
             </div>
             <div className="col-span-2">
-              <label htmlFor="bt-capital" className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1.5 flex items-center gap-1.5 block">
+              <label htmlFor="bt-capital" className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                 <DollarSign className="h-3 w-3" /> Initial Capital (USD)
               </label>
               <input id="bt-capital" type="number" value={capital} min={1000} max={1000000} step={1000}
@@ -789,6 +795,7 @@ function BacktestPanel() {
                 <div className="h-2 rounded-full bg-muted overflow-hidden flex">
                   {result.summary.totalTrades > 0 && (
                     <>
+                      {/* Width is purely dynamic data — inline style necessary for numeric interpolation */}
                       <div className="h-full bg-emerald-500 rounded-l-full transition-all"
                         style={{ width: `${(result.summary.winningTrades / result.summary.totalTrades) * 100}%` }} />
                       <div className="h-full bg-rose-500 rounded-r-full flex-1" />

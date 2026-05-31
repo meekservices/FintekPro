@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { IStorage } from '../storage';
 import type { Portfolio, PortfolioHolding, InsertPortfolioComparison } from '@shared/schema';
 

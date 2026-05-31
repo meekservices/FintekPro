@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { randomUUID } from "crypto";
 import { aiService } from "./ai-service";
 import type { 

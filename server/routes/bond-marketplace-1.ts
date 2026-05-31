@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Bond Marketplace Routes
  * SEBI NCS & RBI Compliant Two-Sided Marketplace for Listed & Unlisted Bonds

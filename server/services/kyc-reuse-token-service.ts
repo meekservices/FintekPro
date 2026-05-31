@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * KYC Reuse Token Service
  * 

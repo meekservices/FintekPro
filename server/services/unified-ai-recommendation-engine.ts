@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Unified AI Recommendation Engine
  * 

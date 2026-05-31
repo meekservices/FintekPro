@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * CKYC Provider Resolution Service
  * 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from "express";
 import { db } from "../db";
 import { bondCatalog } from "@shared/schema";

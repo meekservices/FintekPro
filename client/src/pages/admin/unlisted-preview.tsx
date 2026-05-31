@@ -100,7 +100,7 @@ interface DataQualityInfo {
   lastUpdated?: string;
 }
 
-const DataQualityWarning = ({ quality }: { quality: DataQualityInfo | null | undefined }): React.ReactElement |  null => {
+const DataQualityWarning: React.FC<{ quality: DataQualityInfo | null | undefined }> = ({ quality }) => {
   if (!quality) return null;
   
   const hasWarnings = quality.fallbackUsed || quality.warnings.length > 0 || (quality.missingData && quality.missingData.length > 0);
@@ -694,6 +694,28 @@ export default function UnlistedPreviewPage(): React.JSX.Element {
     profit: parseFloat(f.netProfit?.toString() || '0') / 10000000,
   })) || [];
 
+  const enrichmentBanner = enrichmentResult != null && enrichmentResult.enrichedFields.length > 0 ? (
+    <Alert className="mb-4 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20" data-testid="alert-enriched">
+      <CheckCircle className="h-4 w-4 text-emerald-500" />
+      <AlertTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+        Company Data Enriched from {enrichmentResult.enrichmentSource}
+      </AlertTitle>
+      <AlertDescription className="text-xs text-emerald-600 dark:text-emerald-400">
+        <div className="mt-2 space-y-1">
+          {enrichmentResult.enrichedFields.map((field: { field: string; oldValue: string | null; newValue: string; source: string }, i: number) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="font-medium capitalize">{String(field.field)}:</span>
+              <span className="text-muted-foreground line-through">{String(field.oldValue || 'Empty')}</span>
+              <ArrowUpRight className="w-3 h-3" />
+              <span className="text-emerald-700 dark:text-emerald-300 font-medium">{String(field.newValue)}</span>
+              <Badge variant="outline" className="text-xs">{String(field.source)}</Badge>
+            </div>
+          ))}
+        </div>
+      </AlertDescription>
+    </Alert>
+  ) : null;
+
   return (
     <div className="space-y-6">
       <div className="sticky top-0 z-10 bg-background border-b border-border -mx-6 px-6 py-4">
@@ -760,10 +782,11 @@ export default function UnlistedPreviewPage(): React.JSX.Element {
         </div>
       </div>
 
-      {((<DataQualityWarning quality={dataQuality} />) as React.ReactElement)}
+      <React.Fragment>
+      <DataQualityWarning quality={dataQuality} />
 
       {/* Auto-Enrichment Status */}
-      {isAutoEnriching && (
+      {isAutoEnriching ? (
         <Alert className="mb-4 border-blue-500 bg-blue-50 dark:bg-blue-950/20" data-testid="alert-auto-enriching">
           <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
           <AlertTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
@@ -773,30 +796,10 @@ export default function UnlistedPreviewPage(): React.JSX.Element {
             Fetching missing sector and industry information from MCA/Credhive...
           </AlertDescription>
         </Alert>
-      )}
+      ) : null}
 
       {/* Enrichment Result Notification */}
-      {((enrichmentResult && enrichmentResult.enrichedFields.length > 0) ? (
-        <Alert className="mb-4 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20" data-testid="alert-enriched">
-          <CheckCircle className="h-4 w-4 text-emerald-500" />
-          <AlertTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-            Company Data Enriched from {enrichmentResult.enrichmentSource}
-          </AlertTitle>
-          <AlertDescription className="text-xs text-emerald-600 dark:text-emerald-400">
-            <div className="mt-2 space-y-1">
-              {enrichmentResult.enrichedFields.map((field: { field: string; oldValue: string | null; newValue: string; source: string }, i: number) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="font-medium capitalize">{String(field.field)}:</span>
-                  <span className="text-muted-foreground line-through">{String(field.oldValue || 'Empty')}</span>
-                  <ArrowUpRight className="w-3 h-3" />
-                  <span className="text-emerald-700 dark:text-emerald-300 font-medium">{String(field.newValue)}</span>
-                  <Badge variant="outline" className="text-xs">{String(field.source)}</Badge>
-                </div>
-              ))}
-            </div>
-          </AlertDescription>
-        </Alert>
-      ) : null) as React.ReactNode}
+      {enrichmentBanner as any}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -2035,6 +2038,7 @@ export default function UnlistedPreviewPage(): React.JSX.Element {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </React.Fragment>
     </div>
   );
 }

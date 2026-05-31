@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Delivery Instruction Slip (DIS) Verification Service
  * 

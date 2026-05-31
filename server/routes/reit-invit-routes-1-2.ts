@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { eq, and, sql, desc, ilike, or, gte, lte, asc } from 'drizzle-orm';

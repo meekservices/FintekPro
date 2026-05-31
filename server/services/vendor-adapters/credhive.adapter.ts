@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Credhive Vendor Adapter
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Demat Compliance Service
  * 

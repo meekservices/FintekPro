@@ -200,10 +200,16 @@ async function trustCurrentPinDevice(req: any, res: Response, userId: string): P
     updatedAt: now,
   });
 
+  const inProd = isProductionRuntime();
+  // CRITICAL: SameSite must match the session cookie.
+  // In production the app sits behind Firebase Hosting → Cloud Run (cross-site),
+  // so SameSite=None + Secure=true is required — Lax would silently block the
+  // cookie, causing isTrustedPinDevice() to always return false and the PIN
+  // popover to never appear.
   res.cookie(PIN_DEVICE_COOKIE, token, {
     httpOnly: true,
-    secure: isProductionRuntime(),
-    sameSite: "lax",
+    secure: inProd,
+    sameSite: inProd ? "none" : "lax",
     maxAge: PIN_DEVICE_MAX_AGE_MS,
     path: "/",
   });
@@ -1122,7 +1128,10 @@ export function registerAuthRoutes(app: Express) {
           // Non-fatal: still respond success so the client clears local state.
         }
         // Clear the session cookie from the browser.
-        res.clearCookie('fintekpro.sid', { path: '/', httpOnly: true, secure: true, sameSite: 'lax' });
+        const inProd = isProductionRuntime();
+        res.clearCookie('fintekpro.sid', { path: '/', httpOnly: true, secure: inProd, sameSite: inProd ? 'none' : 'lax' });
+        // Also clear the PIN trusted-device cookie so next login goes through full OTP.
+        res.clearCookie(PIN_DEVICE_COOKIE, { path: '/', httpOnly: true, secure: inProd, sameSite: inProd ? 'none' : 'lax' });
         console.log(`[LOGOUT] Session ${sessionId} destroyed and cookie cleared.`);
         res.json({ success: true });
       });

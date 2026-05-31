@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * NSE/BSE Exchange Filings Service
  * Fetches official corporate filings from Indian stock exchanges

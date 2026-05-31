@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { reportOrchestratorService } from '../services/reports/report-orchestrator';

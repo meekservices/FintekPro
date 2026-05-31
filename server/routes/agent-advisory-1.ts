@@ -413,8 +413,8 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
           clientId: portfolioUploads.clientId,
           clientName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
           uploadType: portfolioUploads.uploadType,
-          sourceFormat: portfolioUploads.sourceFormat,
-          uploadStatus: portfolioUploads.uploadStatus,
+          sourceFormat: portfolioUploads.uploadType, // alias: uploadType serves as format
+          uploadStatus: portfolioUploads.parsingStatus,
           clientConfirmed: (portfolioUploads as any).clientConfirmed,
           otpSentAt: (portfolioUploads as any).otpSentAt,
           createdAt: portfolioUploads.createdAt
@@ -424,8 +424,8 @@ export function registerAgentAdvisoryPart1Routes(app: Express) {
         .where(and(
           eq(portfolioUploads.agentId, agentId),
           or(
-            eq(portfolioUploads.uploadStatus, 'pending_confirmation'),
-            eq(portfolioUploads.uploadStatus, 'pending_otp')
+            eq(portfolioUploads.parsingStatus, 'pending_confirmation'),
+            eq(portfolioUploads.parsingStatus, 'pending_otp')
           )
         ))
         .orderBy(desc(portfolioUploads.createdAt))

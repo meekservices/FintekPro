@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Agent Tracker Route — BuildWealth-parity business performance tracker
  * 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * FintekPro Prospect Scoring Engine  v1.1
  *

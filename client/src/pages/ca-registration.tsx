@@ -116,8 +116,8 @@ export default function CARegistrationPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const form = useForm<CARegistrationForm>({
-    resolver: zodResolver(caRegistrationSchema),
+  const form = useForm<CARegistrationForm, any, CARegistrationForm>({
+    resolver: zodResolver(caRegistrationSchema) as any,
     defaultValues: {
       fullName: '',
       email: '',

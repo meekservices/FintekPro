@@ -102,8 +102,8 @@ function ClientProfileCompletion() {
     ifscCode: z.string().min(1, "IFSC code is required"),
   });
 
-  const profileForm = useForm<z.infer<typeof profileFormSchema>>({
-    resolver: zodResolver(profileFormSchema),
+  const profileForm = useForm<z.infer<typeof profileFormSchema>, any, z.infer<typeof profileFormSchema>>({
+    resolver: zodResolver(profileFormSchema) as any,
     defaultValues: {
       firstName: "",
       lastName: "",
@@ -398,8 +398,8 @@ export default function AgentPortal() {
   const [searchTerm, setSearchTerm] = useState("");
   
   // Form management using react-hook-form + Zod
-  const partnerForm = useForm<PartnerFormData>({
-    resolver: zodResolver(partnerFormSchema),
+  const partnerForm = useForm<PartnerFormData, any, PartnerFormData>({
+    resolver: zodResolver(partnerFormSchema) as any,
     defaultValues: {
       companyName: "",
       contactEmail: "",
@@ -415,8 +415,8 @@ export default function AgentPortal() {
     }
   });
   
-  const clientForm = useForm<ClientFormData>({
-    resolver: zodResolver(clientFormSchema),
+  const clientForm = useForm<ClientFormData, any, ClientFormData>({
+    resolver: zodResolver(clientFormSchema) as any,
     defaultValues: {
       firstName: "",
       lastName: "",

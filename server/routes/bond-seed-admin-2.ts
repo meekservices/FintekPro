@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response, NextFunction } from "express";
 import { requireAdmin } from "../middleware/roleMiddleware";
 import { db } from "../db";

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { navigate } from "wouter/use-browser-location";
 import { useToast } from "@/hooks/use-toast";
@@ -84,6 +84,7 @@ export default function FieldAgentPortal() {
   const [meetingDate, setMeetingDate] = useState("");
   const [meetingTime, setMeetingTime] = useState("");
   const [meetingDuration, setMeetingDuration] = useState(30);
+  const signatureFileRef = useRef<HTMLInputElement>(null);
 
   const { data: agentProfile, isLoading: profileLoading } = useQuery<{ role?: string; [key: string]: any }>({
 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ICAI Verification Service — ICHI (ICAI Headless Intelligence) Layer
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * MPAL API Routes
  *

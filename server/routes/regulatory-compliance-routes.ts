@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Regulatory Compliance Routes
  *

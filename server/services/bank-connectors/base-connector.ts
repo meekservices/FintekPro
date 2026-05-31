@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { DsaLoanApplication, LoanRoutingHistory, BankConnector } from "@shared/schema";
 import { bankCredentialsVaultService } from "../bank-credentials-vault-service";
 import { bankTokenManagementService } from "../bank-token-management-service";

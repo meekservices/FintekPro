@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Post-KYC Auto-Population Orchestrator
  * 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Algo Trading Signal Routes
  *

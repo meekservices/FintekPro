@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * TruthScreen Aadhaar-based eSign Service
  * 

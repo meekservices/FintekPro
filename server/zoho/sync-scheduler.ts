@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import * as cron from 'node-cron';
 
 let incrementalTask: cron.ScheduledTask | null = null;
 let webhookTask: cron.ScheduledTask | null = null;

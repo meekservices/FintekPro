@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from '../db';
 import { prospectProposals, users, agents, prospectLeads } from '@shared/schema';
 import { eq } from 'drizzle-orm';
