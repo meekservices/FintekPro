@@ -145,14 +145,14 @@ export default function FamilyDashboard() {
   const [selectedGoal, setSelectedGoal] = useState<FamilyGoal | null>(null);
   const [isContributeOpen, setIsContributeOpen] = useState(false);
 
-  // Forms — useForm<TFieldValues, TContext, TTransformedValues> with TTransformedValues=TFieldValues
-  // pins Control's 3rd generic to the concrete type, resolving FormField control prop type errors.
-  const inviteMemberForm = useForm<InviteMemberFormData, any, InviteMemberFormData>({
+  // Forms — useForm<TInput, TContext, TOutput> where TInput=z.input<schema>, TOutput=z.output<schema>.
+  // zodResolver<TInput,TContext,TOutput> resolves to Resolver<TInput,any,TOutput> which matches exactly.
+  const inviteMemberForm = useForm<z.input<typeof inviteMemberSchema>, any, InviteMemberFormData>({
     resolver: zodResolver(inviteMemberSchema),
     defaultValues: { email: '', role: 'member' },
   });
 
-  const createGoalForm = useForm<CreateGoalFormData, any, CreateGoalFormData>({
+  const createGoalForm = useForm<z.input<typeof createGoalSchema>, any, CreateGoalFormData>({
     resolver: zodResolver(createGoalSchema),
     defaultValues: {
       goalName: '',
@@ -162,12 +162,12 @@ export default function FamilyDashboard() {
     },
   });
 
-  const contributeGoalForm = useForm<ContributeGoalFormData, any, ContributeGoalFormData>({
+  const contributeGoalForm = useForm<z.input<typeof contributeGoalSchema>, any, ContributeGoalFormData>({
     resolver: zodResolver(contributeGoalSchema),
     defaultValues: { amount: 0, note: '' },
   });
 
-  const createBudgetForm = useForm<CreateBudgetFormData, any, CreateBudgetFormData>({
+  const createBudgetForm = useForm<z.input<typeof createBudgetSchema>, any, CreateBudgetFormData>({
     resolver: zodResolver(createBudgetSchema),
     defaultValues: {
       budgetName: '',
@@ -179,7 +179,7 @@ export default function FamilyDashboard() {
     },
   });
 
-  const createDiscussionForm = useForm<CreateDiscussionFormData, any, CreateDiscussionFormData>({
+  const createDiscussionForm = useForm<z.input<typeof createDiscussionSchema>, any, CreateDiscussionFormData>({
     resolver: zodResolver(createDiscussionSchema),
     defaultValues: {
       subject: '',
