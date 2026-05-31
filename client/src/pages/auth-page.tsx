@@ -76,6 +76,29 @@ type OtpVerificationFormData = z.infer<typeof otpVerificationSchema>;
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
+/**
+ * Shape of the API response data returned by the registration endpoint
+ * (and stored in pendingRegistrationData while duplicate-warning dialogs are open).
+ */
+interface PendingRegistrationData {
+  requiresOtp?: boolean;
+  identifier?: string;
+  otpSentTo?: string;
+  registrationToken?: string;
+  userId?: string;
+  user?: { id?: string; email?: string };
+  warnings?: {
+    hasDuplicates?: boolean;
+    duplicates?: Array<{
+      name?: string;
+      userId: string;
+      emailMatch?: boolean;
+      mobileMatch?: boolean;
+      message?: string;
+    }>;
+  };
+}
+
 const PORTAL_DESCRIPTIONS: Record<string, { hero: string; features: { icon: string; title: string; desc: string }[] }> = {
   main: {
     hero: "Your intelligent financial services platform with AI-powered tax filing, portfolio management, and comprehensive investment tools.",
@@ -166,7 +189,7 @@ export default function AuthPage() {
   // Duplicate Warning States
   const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
   const [duplicateWarnings, setDuplicateWarnings] = useState<Array<{ name?: string; userId: string; emailMatch?: boolean; mobileMatch?: boolean; message?: string }>>([]);
-  const [pendingRegistrationData, setPendingRegistrationData] = useState<Record<string, unknown> | null>(null);
+  const [pendingRegistrationData, setPendingRegistrationData] = useState<PendingRegistrationData | null>(null);
 
   // Progress indicator
   const [loginStep, setLoginStep] = useState<"credentials" | "otp" | "pin-entry" | "pin-setup" | "complete">("credentials");
@@ -582,11 +605,11 @@ export default function AuthPage() {
     },
     onSuccess: (response: { data?: Record<string, unknown> } & Record<string, unknown>, variables) => {
       // Unwrap the API response envelope: { success, data, message }
-      const data = (response?.data ?? response) as Record<string, unknown>;
+      const data = (response?.data ?? response) as PendingRegistrationData;
 
       // Check for duplicate warnings first
-      if (data.warnings?.hasDuplicates && data.warnings.duplicates?.length > 0) {
-        setDuplicateWarnings(data.warnings.duplicates);
+      if (data.warnings?.hasDuplicates && (data.warnings.duplicates?.length ?? 0) > 0) {
+        setDuplicateWarnings(data.warnings.duplicates || []);
         setPendingRegistrationData(data);
         setDuplicateWarningOpen(true);
         return;
@@ -595,7 +618,7 @@ export default function AuthPage() {
       if (data.requiresOtp) {
         // Registration requires OTP verification
         setRegistrationStep("otp");
-        setRegistrationIdentifier(data.identifier || variables.email);
+        setRegistrationIdentifier(data.identifier || variables.email || "");
         setRegistrationOtpChannel(data.otpSentTo || "your email and mobile");
         setRegistrationToken(data.registrationToken || "");
         setRegistrationOtpTimer(300);
@@ -608,7 +631,7 @@ export default function AuthPage() {
       } else {
         // Old flow (shouldn't happen with new backend)
         const userId = data.userId || data.user?.id || 'N/A';
-        setRegisteredUserId(userId);
+        setRegisteredUserId(userId as string);
         setShowUserIdDialog(true);
         registerForm.reset();
       }
@@ -670,11 +693,11 @@ export default function AuthPage() {
     },
     onSuccess: async (response: { data?: Record<string, unknown> } & Record<string, unknown>) => {
       // Unwrap the API response envelope: { success, data, message }
-      const data = (response?.data ?? response) as Record<string, unknown>;
+      const data = (response?.data ?? response) as PendingRegistrationData;
 
       setRegistrationStep("complete");
       setRegistrationOtpDialogOpen(false);
-      const userId = data.userId || 'N/A';
+      const userId = (data.userId ?? 'N/A') as string;
       setRegisteredUserId(userId);
       setShowUserIdDialog(true);
       registerForm.reset();
@@ -1671,7 +1694,7 @@ export default function AuthPage() {
                     setDuplicateWarningOpen(false);
                     if (pendingRegistrationData?.requiresOtp) {
                       setRegistrationStep("otp");
-                      setRegistrationIdentifier(pendingRegistrationData.identifier || pendingRegistrationData.user?.email);
+                      setRegistrationIdentifier(pendingRegistrationData.identifier || pendingRegistrationData.user?.email || "");
                       setRegistrationOtpChannel(pendingRegistrationData.otpSentTo || "your email and mobile");
                       setRegistrationToken(pendingRegistrationData.registrationToken || "");
                       setRegistrationOtpTimer(300);
@@ -2503,7 +2526,7 @@ export default function AuthPage() {
                   // Proceed with OTP flow
                   if (pendingRegistrationData?.requiresOtp) {
                     setRegistrationStep("otp");
-                    setRegistrationIdentifier(pendingRegistrationData.identifier || pendingRegistrationData.user?.email);
+                    setRegistrationIdentifier(pendingRegistrationData.identifier || pendingRegistrationData.user?.email || "");
                     setRegistrationOtpChannel(pendingRegistrationData.otpSentTo || "your email and mobile");
                     setRegistrationToken(pendingRegistrationData.registrationToken || "");
                     setRegistrationOtpTimer(300);
@@ -2525,7 +2548,7 @@ export default function AuthPage() {
                   // Proceed with OTP flow
                   if (pendingRegistrationData?.requiresOtp) {
                     setRegistrationStep("otp");
-                    setRegistrationIdentifier(pendingRegistrationData.identifier || pendingRegistrationData.user?.email);
+                    setRegistrationIdentifier(pendingRegistrationData.identifier || pendingRegistrationData.user?.email || "");
                     setRegistrationOtpChannel(pendingRegistrationData.otpSentTo || "your email and mobile");
                     setRegistrationToken(pendingRegistrationData.registrationToken || "");
                     setRegistrationOtpTimer(300);
