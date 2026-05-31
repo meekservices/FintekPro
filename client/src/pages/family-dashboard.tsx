@@ -146,12 +146,12 @@ export default function FamilyDashboard() {
   const [isContributeOpen, setIsContributeOpen] = useState(false);
 
   // Forms
-  const inviteMemberForm = useForm<InviteMemberFormData>({
+  const inviteMemberForm = useForm<InviteMemberFormData, unknown, InviteMemberFormData>({
     resolver: zodResolver<InviteMemberFormData>(inviteMemberSchema),
     defaultValues: { email: '', role: 'member' },
   });
 
-  const createGoalForm = useForm<CreateGoalFormData>({
+  const createGoalForm = useForm<CreateGoalFormData, unknown, CreateGoalFormData>({
     resolver: zodResolver<CreateGoalFormData>(createGoalSchema),
     defaultValues: {
       goalName: '',
@@ -161,12 +161,12 @@ export default function FamilyDashboard() {
     },
   });
 
-  const contributeGoalForm = useForm<ContributeGoalFormData>({
+  const contributeGoalForm = useForm<ContributeGoalFormData, unknown, ContributeGoalFormData>({
     resolver: zodResolver<ContributeGoalFormData>(contributeGoalSchema),
     defaultValues: { amount: 0, note: '' },
   });
 
-  const createBudgetForm = useForm<CreateBudgetFormData>({
+  const createBudgetForm = useForm<CreateBudgetFormData, unknown, CreateBudgetFormData>({
     resolver: zodResolver<CreateBudgetFormData>(createBudgetSchema),
     defaultValues: {
       budgetName: '',
@@ -178,7 +178,7 @@ export default function FamilyDashboard() {
     },
   });
 
-  const createDiscussionForm = useForm<CreateDiscussionFormData>({
+  const createDiscussionForm = useForm<CreateDiscussionFormData, unknown, CreateDiscussionFormData>({
     resolver: zodResolver<CreateDiscussionFormData>(createDiscussionSchema),
     defaultValues: {
       subject: '',
