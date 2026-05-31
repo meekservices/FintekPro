@@ -804,7 +804,7 @@ export default function FamilyDashboard() {
                           <FormItem>
                             <FormLabel>Target Amount (₹)</FormLabel>
                             <FormControl>
-                              <Input type="number" min="1" placeholder="100000" data-testid="input-goal-target" {...field} />
+                              <Input type="number" min="1" placeholder="100000" data-testid="input-goal-target" {...field} value={field.value as number} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -960,7 +960,7 @@ export default function FamilyDashboard() {
                         <FormItem>
                           <FormLabel>Amount (₹)</FormLabel>
                           <FormControl>
-                            <Input type="number" min="1" placeholder="1000" data-testid="input-contribute-amount" {...field} />
+                            <Input type="number" min="1" placeholder="1000" data-testid="input-contribute-amount" {...field} value={field.value as number} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1066,7 +1066,7 @@ export default function FamilyDashboard() {
                             <FormItem>
                               <FormLabel>Budget Limit (₹)</FormLabel>
                               <FormControl>
-                                <Input type="number" min="1" placeholder="10000" data-testid="input-budget-limit" {...field} />
+                                <Input type="number" min="1" placeholder="10000" data-testid="input-budget-limit" {...field} value={field.value as number} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -1115,7 +1115,7 @@ export default function FamilyDashboard() {
                             <FormItem>
                               <FormLabel>Alert Threshold (%)</FormLabel>
                               <FormControl>
-                                <Input type="number" min="1" max="100" placeholder="80" data-testid="input-budget-threshold" {...field} />
+                                <Input type="number" min="1" max="100" placeholder="80" data-testid="input-budget-threshold" {...field} value={field.value as number} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
