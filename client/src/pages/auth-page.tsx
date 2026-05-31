@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -203,6 +203,8 @@ export default function AuthPage() {
   const [pinSetupValue, setPinSetupValue] = useState("");
   const [pinSetupConfirm, setPinSetupConfirm] = useState("");
   const [pinError, setPinError] = useState("");
+  // Refs for PIN digit inputs — single ref holding 4 slots, avoids dynamic IDs
+  const pinDigitRefs = useRef<Array<HTMLInputElement | null>>([null, null, null, null]);
 
   // Session Conflict States
   const [sessionConflictOpen, setSessionConflictOpen] = useState(false);
@@ -921,11 +923,7 @@ export default function AuthPage() {
             </g>
           </svg>
 
-          {/* Logo */}
-          <div className="relative z-10 flex items-center gap-3">
-            <img src={agentLogoImg} alt="FintekPro Agent Portal" className="h-12 sm:h-16 lg:h-20 object-contain" />
-            <span className="lg:hidden text-white font-bold text-base sm:text-lg tracking-tight">FintekPro<br /><span className="text-blue-300 font-normal text-sm">Agent Portal</span></span>
-          </div>
+
 
           {/* Hero content – hidden on very small mobile to keep panel compact */}
           <div className="relative z-10 mt-auto pt-4 sm:pt-8 lg:pt-12">
@@ -965,7 +963,7 @@ export default function AuthPage() {
                 <div className="flex justify-center mb-4">
                   <img src={agentLogoImg} alt="FintekPro" className="h-16 w-16 object-contain" />
                 </div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 text-center">{portalLabel} | Agent Portal</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 text-center">FintekPro | Agent Portal</h2>
                 <p className="text-sm text-gray-500 mb-7 text-center">Sign in to manage your practice</p>
 
                 {/* Method toggle */}
@@ -1302,13 +1300,12 @@ export default function AuthPage() {
             </DialogHeader>
 
             <div className="space-y-5 py-2">
-              {/* 4-digit PIN input boxes — IDs are index-scoped (agent-pin-entry-digit-0…3) and unique at runtime */}
-              {/* eslint-disable-next-line jsx-a11y/no-duplicate-element-id -- ID is dynamically suffixed with map index, guaranteed unique */}
+              {/* 4-digit PIN input boxes — focus managed via refs, no dynamic IDs needed */}
               <div className="flex justify-center gap-3" role="group" aria-label="PIN entry">
                 {[0, 1, 2, 3].map((i) => (
                   <input
                     key={i}
-                    id={`agent-pin-entry-digit-${i}`}
+                    ref={(el) => { pinDigitRefs.current[i] = el; }}
                     type="password"
                     inputMode="numeric"
                     aria-label={`PIN digit ${i + 1} of 4`}
@@ -1323,7 +1320,7 @@ export default function AuthPage() {
                       setPinValue(updated);
                       setPinError("");
                       if (digit && i < 3) {
-                        document.getElementById(`agent-pin-entry-digit-${i + 1}`)?.focus();
+                        pinDigitRefs.current[i + 1]?.focus();
                       }
                       if (updated.length === 4) {
                         pinEntryMutation.mutate({ identifier: pinIdentifier, pin: updated });
@@ -1331,7 +1328,7 @@ export default function AuthPage() {
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Backspace" && !pinValue[i] && i > 0) {
-                        document.getElementById(`agent-pin-entry-digit-${i - 1}`)?.focus();
+                        pinDigitRefs.current[i - 1]?.focus();
                       }
                     }}
                     data-testid={`pin-digit-${i}`}
@@ -1715,14 +1712,15 @@ export default function AuthPage() {
   // ── End Agent Portal layout ───────────────────────────────────────────────
 
   return (
-    // portalColor is a runtime hex value — Tailwind cannot express arbitrary
-    // gradient colours with dynamic CSS custom properties. Inline style is required.
-    // eslint-disable-next-line react/forbid-dom-props
-    <div
-      className="min-h-screen"
-      // eslint-disable-next-line react/forbid-dom-props
-      style={{ '--portal-color': portalColor, background: `linear-gradient(135deg, ${portalColor}08 0%, ${portalColor}15 100%)` } as React.CSSProperties}
-    >
+    <>
+      {/* Scoped style for dynamic portal gradient — avoids inline style prop warning */}
+      <style>{`
+        .portal-gradient-bg {
+          background: linear-gradient(135deg, ${portalColor}08 0%, ${portalColor}15 100%);
+          --portal-color: ${portalColor};
+        }
+      `}</style>
+      <div className="min-h-screen portal-gradient-bg">
       <div className="container mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-2 gap-8 items-center">
           {/* Hero Section */}
@@ -2786,5 +2784,6 @@ export default function AuthPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 }
