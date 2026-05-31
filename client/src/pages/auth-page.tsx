@@ -165,8 +165,8 @@ export default function AuthPage() {
 
   // Duplicate Warning States
   const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
-  const [duplicateWarnings, setDuplicateWarnings] = useState<any[]>([]);
-  const [pendingRegistrationData, setPendingRegistrationData] = useState<any>(null);
+  const [duplicateWarnings, setDuplicateWarnings] = useState<Array<{ name?: string; userId: string; emailMatch?: boolean; mobileMatch?: boolean; message?: string }>>([]);
+  const [pendingRegistrationData, setPendingRegistrationData] = useState<Record<string, unknown> | null>(null);
 
   // Progress indicator
   const [loginStep, setLoginStep] = useState<"credentials" | "otp" | "pin-entry" | "pin-setup" | "complete">("credentials");
@@ -580,9 +580,9 @@ export default function AuthPage() {
       });
       return response;
     },
-    onSuccess: (response, variables) => {
+    onSuccess: (response: { data?: Record<string, unknown> } & Record<string, unknown>, variables) => {
       // Unwrap the API response envelope: { success, data, message }
-      const data = (response as any)?.data || response;
+      const data = (response?.data ?? response) as Record<string, unknown>;
 
       // Check for duplicate warnings first
       if (data.warnings?.hasDuplicates && data.warnings.duplicates?.length > 0) {
@@ -637,8 +637,8 @@ export default function AuthPage() {
       });
       return response;
     },
-    onSuccess: (response) => {
-      const data = (response as any)?.data || response;
+    onSuccess: (response: { data?: Record<string, unknown> } & Record<string, unknown>) => {
+      const data = (response?.data ?? response) as Record<string, unknown>;
       setRegistrationOtpSending(false);
       setRegistrationOtpTimer(300);
       setCanResendRegistrationOtp(false);
@@ -668,9 +668,9 @@ export default function AuthPage() {
       });
       return response;
     },
-    onSuccess: async (response) => {
+    onSuccess: async (response: { data?: Record<string, unknown> } & Record<string, unknown>) => {
       // Unwrap the API response envelope: { success, data, message }
-      const data = (response as any)?.data || response;
+      const data = (response?.data ?? response) as Record<string, unknown>;
 
       setRegistrationStep("complete");
       setRegistrationOtpDialogOpen(false);
@@ -1491,7 +1491,7 @@ export default function AuthPage() {
             <form onSubmit={(e) => {
               e.preventDefault();
               const formData = new FormData(e.currentTarget);
-              const otp = formData.get('agent-registration-otp') as string;
+              const otp = (formData.get('agent-registration-otp') ?? '') as string;
               if (otp && otp.length === 6) {
                 registrationOtpVerificationMutation.mutate(otp);
               }
@@ -1707,7 +1707,8 @@ export default function AuthPage() {
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                 {portalDesc.features.map((feature, index) => {
-                  const IconComponent = featureIcons[feature.icon as keyof typeof featureIcons] || LucideShield;
+                  const iconKey = feature.icon in featureIcons ? feature.icon as keyof typeof featureIcons : null;
+                  const IconComponent = iconKey ? featureIcons[iconKey] : LucideShield;
                   return (
                     <div key={index} className="flex items-start space-x-3">
                       <IconComponent className="h-6 w-6 mt-1 flex-shrink-0 [color:var(--portal-color)]" />
@@ -1742,7 +1743,7 @@ export default function AuthPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Tabs value={authMode} onValueChange={(v) => setAuthMode(v as "login" | "register")} className="space-y-4">
+                <Tabs value={authMode} onValueChange={(v) => { if (v === 'login' || v === 'register') setAuthMode(v); }} className="space-y-4">
                       <ScrollableTabsList className={`grid w-full ${isAdminPortal ? 'grid-cols-1' : 'grid-cols-2'}`}>
                         <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
                         {!isAdminPortal && <TabsTrigger value="register" data-testid="tab-register">Register</TabsTrigger>}
@@ -2274,7 +2275,7 @@ export default function AuthPage() {
           <form onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
-            const otp = formData.get('registration-otp') as string;
+            const otp = (formData.get('registration-otp') ?? '') as string;
             if (otp && otp.length === 6) {
               registrationOtpVerificationMutation.mutate(otp);
             }
@@ -2563,7 +2564,7 @@ export default function AuthPage() {
               {[0, 1, 2, 3].map((i) => (
                 <input
                   key={i}
-                  id={`pin-entry-digit-${i}`}
+                  id={`portal-pin-entry-digit-${i}`}
                   type="password"
                   inputMode="numeric"
                   aria-label={`PIN digit ${i + 1} of 4`}
@@ -2579,7 +2580,7 @@ export default function AuthPage() {
                     setPinError("");
                     // Auto-advance
                     if (digit && i < 3) {
-                      document.getElementById(`pin-entry-digit-${i + 1}`)?.focus();
+                      document.getElementById(`portal-pin-entry-digit-${i + 1}`)?.focus();
                     }
                     // Auto-submit when all 4 entered
                     if (updated.length === 4) {
@@ -2588,7 +2589,7 @@ export default function AuthPage() {
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Backspace" && !pinValue[i] && i > 0) {
-                      document.getElementById(`pin-entry-digit-${i - 1}`)?.focus();
+                      document.getElementById(`portal-pin-entry-digit-${i - 1}`)?.focus();
                     }
                   }}
                   data-testid={`pin-digit-${i}`}

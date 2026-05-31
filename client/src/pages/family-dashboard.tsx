@@ -146,13 +146,13 @@ export default function FamilyDashboard() {
   const [isContributeOpen, setIsContributeOpen] = useState(false);
 
   // Forms
-  const inviteMemberForm = useForm<InviteMemberFormData, any, InviteMemberFormData>({
-    resolver: zodResolver(inviteMemberSchema) as any,
+  const inviteMemberForm = useForm<InviteMemberFormData>({
+    resolver: zodResolver(inviteMemberSchema),
     defaultValues: { email: '', role: 'member' },
   });
 
-  const createGoalForm = useForm<CreateGoalFormData, any, CreateGoalFormData>({
-    resolver: zodResolver(createGoalSchema) as any,
+  const createGoalForm = useForm<CreateGoalFormData>({
+    resolver: zodResolver(createGoalSchema),
     defaultValues: {
       goalName: '',
       goalType: 'education',
@@ -161,13 +161,13 @@ export default function FamilyDashboard() {
     },
   });
 
-  const contributeGoalForm = useForm<ContributeGoalFormData, any, ContributeGoalFormData>({
-    resolver: zodResolver(contributeGoalSchema) as any,
+  const contributeGoalForm = useForm<ContributeGoalFormData>({
+    resolver: zodResolver(contributeGoalSchema),
     defaultValues: { amount: 0, note: '' },
   });
 
-  const createBudgetForm = useForm<CreateBudgetFormData, any, CreateBudgetFormData>({
-    resolver: zodResolver(createBudgetSchema) as any,
+  const createBudgetForm = useForm<CreateBudgetFormData>({
+    resolver: zodResolver(createBudgetSchema),
     defaultValues: {
       budgetName: '',
       category: 'housing',
@@ -178,8 +178,8 @@ export default function FamilyDashboard() {
     },
   });
 
-  const createDiscussionForm = useForm<CreateDiscussionFormData, any, CreateDiscussionFormData>({
-    resolver: zodResolver(createDiscussionSchema) as any,
+  const createDiscussionForm = useForm<CreateDiscussionFormData>({
+    resolver: zodResolver(createDiscussionSchema),
     defaultValues: {
       subject: '',
       content: '',
@@ -241,7 +241,7 @@ export default function FamilyDashboard() {
       setIsInviteMemberOpen(false);
       inviteMemberForm.reset();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: 'Error', description: error.message || 'Failed to invite member', variant: 'destructive' });
     },
   });
@@ -257,7 +257,7 @@ export default function FamilyDashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/families', familyId, 'members'] });
       toast({ title: 'Role Updated', description: 'Member role has been updated successfully.' });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: 'Error', description: error.message || 'Failed to update role', variant: 'destructive' });
     },
   });
@@ -272,7 +272,7 @@ export default function FamilyDashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/families', familyId, 'members'] });
       toast({ title: 'Member Removed', description: 'Member has been removed from the family.' });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: 'Error', description: error.message || 'Failed to remove member', variant: 'destructive' });
     },
   });
@@ -291,7 +291,7 @@ export default function FamilyDashboard() {
       setIsCreateGoalOpen(false);
       createGoalForm.reset();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: 'Error', description: error.message || 'Failed to create goal', variant: 'destructive' });
     },
   });
@@ -311,7 +311,7 @@ export default function FamilyDashboard() {
       setSelectedGoal(null);
       contributeGoalForm.reset();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: 'Error', description: error.message || 'Failed to add contribution', variant: 'destructive' });
     },
   });
@@ -330,7 +330,7 @@ export default function FamilyDashboard() {
       setIsCreateBudgetOpen(false);
       createBudgetForm.reset();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: 'Error', description: error.message || 'Failed to create budget', variant: 'destructive' });
     },
   });
@@ -348,7 +348,7 @@ export default function FamilyDashboard() {
       setIsCreateDiscussionOpen(false);
       createDiscussionForm.reset();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: 'Error', description: error.message || 'Failed to create discussion', variant: 'destructive' });
     },
   });

@@ -1,17 +1,5 @@
-// @ts-nocheck
-/**
- * Marketing Automation Routes
- *
- * Endpoints for:
- * - Email campaigns (Zoho Campaigns)
- * - WhatsApp broadcasts (IRIS KFintech primary → Twilio fallback)
- * - Festival greetings (IRIS /notifications/whatsapp/send)
- * - Lead prospecting (CredHive)
- * - Client intelligence
- * - Campaign analytics
- */
-
-import { Request, Response } from 'express';
+import { Request, Response, Express } from 'express';
+import { SQL } from 'drizzle-orm';
 import { db } from './db';
 import { 
   marketingCampaigns, 
@@ -34,7 +22,7 @@ import { apiResponse } from './utils/responses';
 import { getAppBaseUrl } from './utils/app-url';
 import { requireAdmin, requireAuth } from './middleware/roleMiddleware';
 
-export function registerMarketingRoutes(app: any) {
+export function registerMarketingRoutes(app: Express) {
   
   // ============================================================================
   // MARKETING CAMPAIGNS - Email & WhatsApp
@@ -43,15 +31,15 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get all marketing campaigns
    */
-  app.get('/api/admin/marketing/campaigns', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/campaigns', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { type, status } = req.query;
       
       let query = db.select().from(marketingCampaigns);
       
-      const conditions: any[] = [];
-      if (type) conditions.push(eq(marketingCampaigns.campaignType, type as string));
-      if (status) conditions.push(eq(marketingCampaigns.status, status as string));
+      const conditions: SQL[] = [];
+      if (type) conditions.push(eq(marketingCampaigns.campaignType, String(type)));
+      if (status) conditions.push(eq(marketingCampaigns.status, String(status)));
       
       const campaigns = conditions.length > 0
         ? await query.where(and(...conditions)).orderBy(desc(marketingCampaigns.createdAt))
@@ -67,7 +55,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get campaign by ID
    */
-  app.get('/api/admin/marketing/campaigns/:id', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/campaigns/:id', requireAdmin, async (req: Request, res: Response) => {
     try {
       const [campaign] = await db
         .select()
@@ -88,7 +76,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Create new marketing campaign
    */
-  app.post('/api/admin/marketing/campaigns', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/campaigns', requireAdmin, async (req: Request, res: Response) => {
     try {
       const campaignData = {
         ...req.body,
@@ -111,7 +99,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Update campaign
    */
-  app.patch('/api/admin/marketing/campaigns/:id', requireAdmin, async (req: any, res: Response) => {
+  app.patch('/api/admin/marketing/campaigns/:id', requireAdmin, async (req: Request, res: Response) => {
     try {
       const [updated] = await db
         .update(marketingCampaigns)
@@ -133,7 +121,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Delete campaign
    */
-  app.delete('/api/admin/marketing/campaigns/:id', requireAdmin, async (req: any, res: Response) => {
+  app.delete('/api/admin/marketing/campaigns/:id', requireAdmin, async (req: Request, res: Response) => {
     try {
       await db
         .delete(marketingCampaigns)
@@ -149,7 +137,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Send/schedule email campaign via Zoho
    */
-  app.post('/api/admin/marketing/campaigns/:id/send-email', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/campaigns/:id/send-email', requireAdmin, async (req: Request, res: Response) => {
     try {
       const [campaign] = await db
         .select()
@@ -169,12 +157,12 @@ export function registerMarketingRoutes(app: any) {
       // Create campaign in Zoho
       const zohoCampaignKey = await zoho.createCampaign({
         name: campaign.name,
-        subject: campaign.emailSubject!,
-        fromEmail: campaign.emailFromName!,
-        fromName: campaign.emailFromName || undefined,
-        replyTo: campaign.emailReplyTo || undefined,
-        htmlContent: campaign.emailHtmlContent!,
-        textContent: campaign.emailTextContent || undefined
+        subject: campaign.emailSubject ?? '',
+        fromEmail: campaign.emailFromName ?? '',
+        fromName: campaign.emailFromName ?? undefined,
+        replyTo: campaign.emailReplyTo ?? undefined,
+        htmlContent: campaign.emailHtmlContent ?? '',
+        textContent: campaign.emailTextContent ?? undefined
       });
 
       if (!zohoCampaignKey) {
@@ -212,7 +200,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Send WhatsApp broadcast via Twilio
    */
-  app.post('/api/admin/marketing/campaigns/:id/send-whatsapp', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/campaigns/:id/send-whatsapp', requireAdmin, async (req: Request, res: Response) => {
     try {
       const [campaign] = await db
         .select()
@@ -247,8 +235,9 @@ export function registerMarketingRoutes(app: any) {
       const messageBody = campaign.whatsappMessage || campaign.name;
 
       for (const recipient of recipients) {
-        if ((recipient as any).mobile) {
-          const result = await twilioWhatsAppService.sendMessage((recipient as any).mobile, messageBody);
+        const recipientRecord = recipient as { mobile?: string };
+        if (recipientRecord.mobile) {
+          const result = await twilioWhatsAppService.sendMessage(recipientRecord.mobile, messageBody);
           if (result.success) {
             successCount++;
           } else {
@@ -282,7 +271,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Sync campaign analytics from Zoho
    */
-  app.post('/api/admin/marketing/campaigns/:id/sync-analytics', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/campaigns/:id/sync-analytics', requireAdmin, async (req: Request, res: Response) => {
     try {
       const [campaign] = await db
         .select()
@@ -293,7 +282,7 @@ export function registerMarketingRoutes(app: any) {
         return apiResponse.notFound(res, 'Campaign not found');
       }
 
-      let stats: any = null;
+      let stats: Record<string, number | string | null> | null = null;
 
       if (campaign.campaignType === 'email' && campaign.zohoCampaignId) {
         const zoho = getZohoCampaignsService();
@@ -336,7 +325,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get campaign recipients
    */
-  app.get('/api/admin/marketing/campaigns/:id/recipients', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/campaigns/:id/recipients', requireAdmin, async (req: Request, res: Response) => {
     try {
       const recipients = await db
         .select()
@@ -353,11 +342,11 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Add recipients to campaign
    */
-  app.post('/api/admin/marketing/campaigns/:id/recipients', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/campaigns/:id/recipients', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { userIds, segment } = req.body;
       
-      let targetUsers: any[] = [];
+      let targetUsers: Array<{ id: string; email: string | null; mobile: string | null; fullName: string | null }> = [];
 
       if (userIds && userIds.length > 0) {
         // Specific users
@@ -422,7 +411,7 @@ export function registerMarketingRoutes(app: any) {
    * Search companies via Credhive with enrichment and financial filtering
    * Uses searchAndEnrich for full capabilities including financial gating
    */
-  app.post('/api/admin/marketing/leads/search', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/leads/search', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { minRevenue, minProfit, credhiveScore, minEbitda, riskLevel } = req.body;
       
@@ -444,7 +433,7 @@ export function registerMarketingRoutes(app: any) {
 
       if (!result.available) {
         const { nameStartsWith, city, state } = req.body;
-        const conditions: any[] = [];
+        const conditions: SQL[] = [];
         
         if (nameStartsWith) {
           conditions.push(ilike(prospectLeads.companyName, `${nameStartsWith}%`));
@@ -488,7 +477,7 @@ export function registerMarketingRoutes(app: any) {
         });
       }
 
-      const normalizedCompanies = result.companies.map((c: any) => normalizeCompanyResult(c));
+      const normalizedCompanies = result.companies.map((c: Record<string, unknown>) => normalizeCompanyResult(c));
 
       res.json({ 
         companies: normalizedCompanies, 
@@ -513,7 +502,7 @@ export function registerMarketingRoutes(app: any) {
    * Search directors by name via Credhive Director Network API
    * Returns directors with their associated companies including financial data
    */
-  app.post('/api/admin/marketing/leads/director-search', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/leads/director-search', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { directorName, page, limit } = req.body;
 
@@ -538,7 +527,7 @@ export function registerMarketingRoutes(app: any) {
         if (c.cin) uniqueCINs.add(c.cin);
       }));
 
-      const enrichedCompanyMap = new Map<string, any>();
+      const enrichedCompanyMap = new Map<string, Record<string, unknown>>();
       const allCINs = Array.from(uniqueCINs);
       
       // Process all companies in batches of 5 with concurrency control
@@ -562,7 +551,7 @@ export function registerMarketingRoutes(app: any) {
       // Merge enriched data back into director results
       const enrichedDirectors = result.directors.map(director => ({
         ...director,
-        companies: director.companies.map((company: any) => {
+        companies: director.companies.map((company: Record<string, unknown>) => {
           const enriched = enrichedCompanyMap.get(company.cin);
           if (enriched) {
             return {
@@ -625,7 +614,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get company details from CredHive
    */
-  app.get('/api/admin/marketing/leads/company/:cin', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/leads/company/:cin', requireAdmin, async (req: Request, res: Response) => {
     try {
       const companyRes = await credhiveService.getCompanyDetails(req.params.cin);
       const company = companyRes.success ? companyRes.data : null;
@@ -645,7 +634,7 @@ export function registerMarketingRoutes(app: any) {
    * Enrich company data for preview (before import)
    * Fetches full enrichment data from CredHive without saving
    */
-  app.post('/api/admin/marketing/leads/enrich-preview', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/leads/enrich-preview', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { cin, companyName: requestCompanyName } = req.body;
       
@@ -657,7 +646,7 @@ export function registerMarketingRoutes(app: any) {
       
       const enrichment = await credhiveService.getFullEnrichment(cin);
       const company = enrichment.baseDetails;
-      const enrichedData = credhiveService.extractEnrichmentData(enrichment) as any;
+      const enrichedData = credhiveService.extractEnrichmentData(enrichment) as Record<string, unknown>;
 
       // Build response with all available fields
       const response = {
@@ -699,7 +688,7 @@ export function registerMarketingRoutes(app: any) {
         activeLegalCases: enrichedData.activeLegalCases || null,
         directors: enrichedData.directors || company?.directors || null,
         enrichmentScore: enrichedData.enrichmentScore || 0,
-        enrichmentSources: (enrichment as any).enrichmentSources || [],
+        enrichmentSources: (enrichment as Record<string, unknown>).enrichmentSources as unknown[] ?? [],
         apiAccessIssues: enrichedData.apiAccessIssues || [],
         isEnriched: true
       };
@@ -715,7 +704,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Import prospect lead from CredHive with full enrichment
    */
-  app.post('/api/admin/marketing/leads/import', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/leads/import', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { cin, companyName: requestCompanyName } = req.body;
       
@@ -734,7 +723,7 @@ export function registerMarketingRoutes(app: any) {
       const company = enrichment.baseDetails;
       
       // Extract structured enrichment data
-      const enrichedData = credhiveService.extractEnrichmentData(enrichment) as any;
+      const enrichedData = credhiveService.extractEnrichmentData(enrichment) as Record<string, unknown>;
 
       // Use company name from search results as fallback if enrichment fails
       const finalCompanyName = company?.companyName || requestCompanyName;
@@ -777,8 +766,8 @@ export function registerMarketingRoutes(app: any) {
           currentRatio: company?.financials?.[0]?.currentRatio?.toString() || null,
           roe: company?.financials?.[0]?.roe?.toString() || null,
           probe42Score: null,
-          directors: enrichedData.directors?.length ? enrichedData.directors as any : (company?.directors as any),
-          authorizedSignatories: company?.authorizedSignatories as any,
+          directors: enrichedData.directors?.length ? enrichedData.directors as unknown[] : (company?.directors as unknown[] | undefined),
+          authorizedSignatories: company?.authorizedSignatories as unknown[] | undefined,
           leadScore,
           leadQuality,
           investableSurplus: investableSurplus.toString(),
@@ -793,17 +782,17 @@ export function registerMarketingRoutes(app: any) {
           creditRatingOutlook: enrichedData.creditRatingOutlook || null,
           openChargesCount: enrichedData.openChargesCount || null,
           totalChargesAmount: enrichedData.totalChargesAmount?.toString() || null,
-          chargeHolders: enrichedData.chargeHolders as any || null,
-          suitFiledCasesCount: enrichedData.suitFiledCases || null,
-          activeLegalCases: enrichedData.activeLegalCases || null,
-          riskIndicators: enrichedData.riskIndicators as any || null,
+          chargeHolders: enrichedData.chargeHolders as unknown[] | undefined ?? null,
+          suitFiledCasesCount: enrichedData.suitFiledCases as number | null ?? null,
+          activeLegalCases: enrichedData.activeLegalCases as number | null ?? null,
+          riskIndicators: enrichedData.riskIndicators as unknown[] | undefined ?? null,
           enrichmentScore: enrichedData.enrichmentScore || null,
-          enrichmentSources: (enrichment as any).enrichmentSources as any || null,
+          enrichmentSources: (enrichment as Record<string, unknown>).enrichmentSources as unknown[] | undefined ?? null,
           enrichmentData: {
             ...enrichment,
             apiAccessIssues: enrichedData.apiAccessIssues,
             dataNotAvailable: enrichedData.dataNotAvailable
-          } as any,
+          } as Record<string, unknown>,
           enrichedAt: new Date(),
           incorporationDate: company?.incorporationDate || null,
           companyType: company?.companyType || enrichedData.entityType || null,
@@ -821,7 +810,7 @@ export function registerMarketingRoutes(app: any) {
         })
         .returning();
 
-      console.log(`✅ Lead imported with ${(enrichment as any).enrichmentSources.length}/10 data sources: ${cin}`);
+      console.log(`✅ Lead imported with ${((enrichment as Record<string, unknown[]>).enrichmentSources as unknown[]).length}/10 data sources: ${cin}`);
       res.status(201).json(lead);
     } catch (error) {
       console.error('Error importing lead:', error);
@@ -832,16 +821,16 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get all prospect leads
    */
-  app.get('/api/admin/marketing/leads', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/leads', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { status, quality, assignedTo } = req.query;
       
       let query = db.select().from(prospectLeads);
       
-      const conditions: any[] = [];
-      if (status) conditions.push(eq(prospectLeads.status, status as string));
-      if (quality) conditions.push(eq(prospectLeads.leadQuality, quality as string));
-      if (assignedTo) conditions.push(eq(prospectLeads.assignedTo, assignedTo as string));
+      const conditions: SQL[] = [];
+      if (status) conditions.push(eq(prospectLeads.status, String(status)));
+      if (quality) conditions.push(eq(prospectLeads.leadQuality, String(quality)));
+      if (assignedTo) conditions.push(eq(prospectLeads.assignedTo, String(assignedTo)));
       
       const leads = conditions.length > 0
         ? await query.where(and(...conditions)).orderBy(desc(prospectLeads.leadScore))
@@ -857,7 +846,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Update lead status
    */
-  app.patch('/api/admin/marketing/leads/:id', requireAdmin, async (req: any, res: Response) => {
+  app.patch('/api/admin/marketing/leads/:id', requireAdmin, async (req: Request, res: Response) => {
     try {
       const [updated] = await db
         .update(prospectLeads)
@@ -879,7 +868,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Add activity to lead
    */
-  app.post('/api/admin/marketing/leads/:id/activities', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/leads/:id/activities', requireAdmin, async (req: Request, res: Response) => {
     try {
       const [activity] = await db
         .insert(leadActivities)
@@ -910,7 +899,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get lead activities
    */
-  app.get('/api/admin/marketing/leads/:id/activities', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/leads/:id/activities', requireAdmin, async (req: Request, res: Response) => {
     try {
       const activities = await db
         .select()
@@ -932,7 +921,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Verify client via CredHive
    */
-  app.post('/api/admin/marketing/client-intelligence/verify/:userId', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/client-intelligence/verify/:userId', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { cin } = req.body;
       
@@ -979,8 +968,8 @@ export function registerMarketingRoutes(app: any) {
           netProfit: company.financials?.[0]?.netProfit?.toString() || null,
           totalAssets: company.financials?.[0]?.totalAssets?.toString() || null,
           riskLevel,
-          riskFactors: verification.riskFlags as any,
-          legalCases: company.legalCases as any,
+          riskFactors: verification.riskFlags as unknown[],
+          legalCases: company.legalCases as unknown[] | null ?? null,
           lastRefreshedAt: new Date(),
           nextRefreshDue: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
         })
@@ -995,8 +984,8 @@ export function registerMarketingRoutes(app: any) {
             netProfit: company.financials?.[0]?.netProfit?.toString() || null,
             totalAssets: company.financials?.[0]?.totalAssets?.toString() || null,
             riskLevel,
-            riskFactors: verification.riskFlags as any,
-            legalCases: company.legalCases as any,
+            riskFactors: verification.riskFlags as unknown[],
+            legalCases: company.legalCases as unknown[] | null ?? null,
             lastRefreshedAt: new Date(),
             updatedAt: new Date()
           }
@@ -1017,7 +1006,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get client intelligence
    */
-  app.get('/api/admin/marketing/client-intelligence/:userId', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/client-intelligence/:userId', requireAdmin, async (req: Request, res: Response) => {
     try {
       const [intelligence] = await db
         .select()
@@ -1038,14 +1027,8 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get all client intelligence with risk alerts
    */
-  app.get('/api/admin/marketing/client-intelligence', requireAdmin, async (req: any, res: Response) => {
-    try {
-      const { riskLevel } = req.query;
-      
-      let query = db.select().from(clientIntelligence);
-      
       const results = riskLevel
-        ? await query.where(eq(clientIntelligence.riskLevel, riskLevel as string))
+        ? await query.where(eq(clientIntelligence.riskLevel, String(riskLevel)))
         : await query;
 
       res.json(results);
@@ -1062,7 +1045,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get marketing dashboard statistics
    */
-  app.get('/api/admin/marketing/dashboard/stats', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/dashboard/stats', requireAdmin, async (req: Request, res: Response) => {
     try {
       // Campaign stats
       const totalCampaigns = await db
@@ -1140,7 +1123,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get recent campaign activity
    */
-  app.get('/api/admin/marketing/dashboard/recent-activity', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/dashboard/recent-activity', requireAdmin, async (req: Request, res: Response) => {
     try {
       const recentCampaigns = await db
         .select()
@@ -1171,7 +1154,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get SMS & WhatsApp marketing service status
    */
-  app.get('/api/admin/marketing/sms/status', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/sms/status', requireAdmin, async (req: Request, res: Response) => {
     try {
       const smsStatus = smsMarketingService.getStatus();
       const whatsappStatus = whatsAppMarketingService.getStatus();
@@ -1205,7 +1188,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Send single marketing SMS
    */
-  app.post('/api/admin/marketing/sms/send', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/sms/send', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { mobile, message, productType, details } = req.body;
 
@@ -1232,7 +1215,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Send bulk marketing SMS
    */
-  app.post('/api/admin/marketing/sms/bulk', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/sms/bulk', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { recipients, messageTemplate, campaignId } = req.body;
 
@@ -1256,7 +1239,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Run SMS campaign to all consented users
    */
-  app.post('/api/admin/marketing/sms/campaign', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/sms/campaign', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { campaignId, message, targetSegment, customFilters } = req.body;
 
@@ -1308,7 +1291,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get WhatsApp marketing templates
    */
-  app.get('/api/admin/marketing/whatsapp/templates', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/whatsapp/templates', requireAdmin, async (req: Request, res: Response) => {
     try {
       const templates = whatsAppMarketingService.getAvailableTemplates();
       res.json({ success: true, templates });
@@ -1321,7 +1304,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Send WhatsApp marketing message using template
    */
-  app.post('/api/admin/marketing/whatsapp/send', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/whatsapp/send', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { mobile, templateType, variables, fallbackMessage } = req.body;
 
@@ -1350,7 +1333,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Send WhatsApp IPO alert
    */
-  app.post('/api/admin/marketing/whatsapp/ipo-alert', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/whatsapp/ipo-alert', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { mobile, companyName, openDate, priceMin, priceMax } = req.body;
 
@@ -1375,7 +1358,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Send WhatsApp promotion
    */
-  app.post('/api/admin/marketing/whatsapp/promotion', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/whatsapp/promotion', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { mobile, offerTitle, offerDetails, ctaLink } = req.body;
 
@@ -1399,7 +1382,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Send bulk WhatsApp template messages
    */
-  app.post('/api/admin/marketing/whatsapp/bulk', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/whatsapp/bulk', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { recipients, templateType, campaignId } = req.body;
 
@@ -1434,7 +1417,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Process opt-out request
    */
-  app.post('/api/admin/marketing/consent/opt-out', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/consent/opt-out', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { mobile } = req.body;
 
@@ -1457,7 +1440,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Process opt-in request
    */
-  app.post('/api/admin/marketing/consent/opt-in', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/consent/opt-in', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { mobile, userId } = req.body;
 
@@ -1492,7 +1475,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get eligible marketing audience
    */
-  app.get('/api/admin/marketing/audience/eligible', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/audience/eligible', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { segment, limit = 100 } = req.query;
 
@@ -1522,7 +1505,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get audience stats for marketing dashboard
    */
-  app.get('/api/admin/marketing/audience/stats', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/audience/stats', requireAdmin, async (req: Request, res: Response) => {
     try {
       // marketingConsent and investorType are in userProfiles table, not users
       const allUsers = await db.select({
@@ -1554,7 +1537,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get audience list with filters
    */
-  app.get('/api/admin/marketing/audience', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/audience', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { filter = 'all', consentOnly = 'false', limit = 500 } = req.query;
 
@@ -1585,7 +1568,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get all contacts (clients, prospects, leads) for multi-channel campaigns
    */
-  app.get('/api/admin/marketing/audience/all', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/audience/all', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { filter = 'all', consentOnly = 'false', limit = 1000 } = req.query;
       const requireConsent = consentOnly === 'true';
@@ -1654,7 +1637,7 @@ export function registerMarketingRoutes(app: any) {
           const leads = await db.select({
             id: whatsappContacts.id,
             mobile: whatsappContacts.phoneNumber,
-            name: (whatsappContacts as any).name
+            name: (whatsappContacts as unknown as { name: string }).name
           }).from(whatsappContacts).limit(Number(limit));
 
           leads.forEach(l => {
@@ -1683,7 +1666,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Multi-channel bulk send (WhatsApp, SMS, Email)
    */
-  app.post('/api/admin/marketing/multi-channel/bulk', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/multi-channel/bulk', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { recipients, templateType, variables, channels } = req.body;
 
@@ -1695,11 +1678,11 @@ export function registerMarketingRoutes(app: any) {
         return apiResponse.badRequest(res, 'Template type is required');
       }
 
-      const results: any = {};
+      const results: Record<string, { total: number; sent: number; failed: number }> = {};
 
       // Send WhatsApp messages
       if (channels.whatsapp) {
-        const whatsappRecipients = recipients.filter((r: any) => r.mobile);
+        const whatsappRecipients = recipients.filter((r: { mobile?: string }) => r.mobile);
         let whatsappSent = 0;
         let whatsappFailed = 0;
 
@@ -1725,7 +1708,7 @@ export function registerMarketingRoutes(app: any) {
 
       // Send SMS messages
       if (channels.sms) {
-        const smsRecipients = recipients.filter((r: any) => r.mobile);
+        const smsRecipients = recipients.filter((r: { mobile?: string }) => r.mobile);
         let smsSent = 0;
         let smsFailed = 0;
 
@@ -1745,7 +1728,7 @@ export function registerMarketingRoutes(app: any) {
         for (const recipient of smsRecipients) {
           try {
             const personalizedMessage = smsMessage.replace(/\{name\}/g, recipient.name || 'Valued Customer');
-            await (smsMarketingService as any).sendSMS(recipient.mobile, personalizedMessage);
+            await (smsMarketingService as unknown as { sendSMS: (to: string, msg: string) => Promise<void> }).sendSMS(recipient.mobile, personalizedMessage);
             smsSent++;
           } catch (e) {
             smsFailed++;
@@ -1757,7 +1740,7 @@ export function registerMarketingRoutes(app: any) {
 
       // Send Email messages
       if (channels.email) {
-        const emailRecipients = recipients.filter((r: any) => r.email);
+        const emailRecipients = recipients.filter((r: { email?: string }) => r.email);
         let emailSent = 0;
         let emailFailed = 0;
 
@@ -1853,7 +1836,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get WhatsApp service status
    */
-  app.get('/api/admin/marketing/whatsapp/status', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/whatsapp/status', requireAdmin, async (req: Request, res: Response) => {
     try {
       const status = whatsAppMarketingService.getStatus();
       res.json(status);
@@ -1866,7 +1849,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get marketing dashboard stats - matches DashboardStats interface
    */
-  app.get('/api/admin/marketing/dashboard/stats', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/dashboard/stats', requireAdmin, async (req: Request, res: Response) => {
     try {
       const allCampaigns = await db.select().from(marketingCampaigns);
       const allLeads = await db.select().from(prospectLeads);
@@ -1915,7 +1898,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get recent marketing activity
    */
-  app.get('/api/admin/marketing/dashboard/recent-activity', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/dashboard/recent-activity', requireAdmin, async (req: Request, res: Response) => {
     try {
       const recentCampaigns = await db.select()
         .from(marketingCampaigns)
@@ -1941,7 +1924,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get client intelligence data - returns array directly for frontend
    */
-  app.get('/api/admin/marketing/intelligence', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/intelligence', requireAdmin, async (req: Request, res: Response) => {
     try {
       const intelligence = await db.select()
         .from(clientIntelligence)
@@ -1958,7 +1941,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Sync all client intelligence data
    */
-  app.post('/api/admin/marketing/intelligence/sync-all', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/intelligence/sync-all', requireAdmin, async (req: Request, res: Response) => {
     try {
       // Get all users who need intelligence sync
       const allUsers = await db.select({
@@ -1981,18 +1964,18 @@ export function registerMarketingRoutes(app: any) {
             // Create new intelligence record
             await db.insert(clientIntelligence).values({
               userId: user.id,
-              email: user.email || '',
-              fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
+              email: user.email ?? '',
+              fullName: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || 'Unknown',
               investmentPotential: 'medium',
               synced: true,
               probe42Score: null,
               updatedAt: new Date()
-            } as any);
+            } as Parameters<typeof db.insert>[0] extends { values: infer V } ? V : never);
             syncedCount++;
           } else {
             // Update existing record
             await db.update(clientIntelligence)
-              .set({ synced: true, updatedAt: new Date() } as any)
+              .set({ synced: true, updatedAt: new Date() } as Parameters<typeof db.update>[0] extends { set: infer S } ? S : never)
               .where(eq(clientIntelligence.userId, user.id));
             syncedCount++;
           }
@@ -2011,7 +1994,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Sync individual client intelligence
    */
-  app.post('/api/admin/marketing/intelligence/:userId/sync', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/marketing/intelligence/:userId/sync', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { userId } = req.params;
 
@@ -2037,17 +2020,17 @@ export function registerMarketingRoutes(app: any) {
         // Create new intelligence record
         await db.insert(clientIntelligence).values({
           userId: userId,
-          email: userData.email || '',
-          fullName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Unknown',
+          email: userData.email ?? '',
+          fullName: `${userData.firstName ?? ''} ${userData.lastName ?? ''}`.trim() || 'Unknown',
           investmentPotential: 'medium',
           synced: true,
           probe42Score: null,
           updatedAt: new Date()
-        } as any);
+        } as Parameters<typeof db.insert>[0] extends { values: infer V } ? V : never);
       } else {
         // Update existing record
         await db.update(clientIntelligence)
-          .set({ synced: true, updatedAt: new Date() } as any)
+          .set({ synced: true, updatedAt: new Date() } as Parameters<typeof db.update>[0] extends { set: infer S } ? S : never)
           .where(eq(clientIntelligence.userId, userId));
       }
 
@@ -2091,10 +2074,10 @@ export function registerMarketingRoutes(app: any) {
    * Get marketing analytics - returns CampaignAnalytics[] matching frontend interface
    * Supports both query param (?period=30d) and path param (/30d) formats
    */
-  app.get('/api/admin/marketing/analytics', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/analytics', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { period = '7d' } = req.query;
-      const analyticsArray = await getMarketingAnalytics(period as string);
+      const analyticsArray = await getMarketingAnalytics(String(period));
       res.json(analyticsArray);
     } catch (error: any) {
       console.error('Error getting marketing analytics:', error);
@@ -2106,7 +2089,7 @@ export function registerMarketingRoutes(app: any) {
    * Get marketing analytics with period as path parameter
    * Supports /api/admin/marketing/analytics/30d format
    */
-  app.get('/api/admin/marketing/analytics/:period', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/marketing/analytics/:period', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { period } = req.params;
       const analyticsArray = await getMarketingAnalytics(period || '7d');
@@ -2125,7 +2108,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get festival marketing campaigns
    */
-  app.get('/api/admin/festival-marketing/campaigns', requireAdmin, async (req: any, res: Response) => {
+  app.get('/api/admin/festival-marketing/campaigns', requireAdmin, async (req: Request, res: Response) => {
     try {
       const campaigns = await db
         .select()
@@ -2155,7 +2138,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Send bulk festival greetings to all clients
    */
-  app.post('/api/admin/festival-marketing/send-bulk', requireAdmin, async (req: any, res: Response) => {
+  app.post('/api/admin/festival-marketing/send-bulk', requireAdmin, async (req: Request, res: Response) => {
     try {
       const { festivalId, channel, agentIds } = req.body;
 
@@ -2235,7 +2218,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get agent's clients for marketing
    */
-  app.get('/api/agent/marketing/clients', async (req: any, res: Response) => {
+  app.get('/api/agent/marketing/clients', async (req: Request, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: 'Authentication required' });
@@ -2309,7 +2292,7 @@ export function registerMarketingRoutes(app: any) {
    * POST /api/agent/marketing/upload-greeting-image
    * Accepts { imageBase64, festivalId }, stores in public object storage, returns { url }
    */
-  app.post('/api/agent/marketing/upload-greeting-image', async (req: any, res: Response) => {
+  app.post('/api/agent/marketing/upload-greeting-image', async (req: Request, res: Response) => {
     try {
       if (!req.user) return res.status(401).json({ error: 'Authentication required' });
 
@@ -2350,7 +2333,7 @@ export function registerMarketingRoutes(app: any) {
     }
   });
 
-  app.post('/api/agent/marketing/send-greetings', async (req: any, res: Response) => {
+  app.post('/api/agent/marketing/send-greetings', async (req: Request, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: 'Authentication required' });
@@ -2470,7 +2453,7 @@ export function registerMarketingRoutes(app: any) {
             console.warn(
               `⚠️ WhatsApp send failed (both IRIS and Twilio) for ${
                 phone.substring(0, 6)
-              }****: IRIS=${irisResult.errorCode} Twilio=${(e as any)?.message}`
+              }****: IRIS=${irisResult.errorCode} Twilio=${(e as Error)?.message}`
             );
           }
         }
@@ -2494,7 +2477,7 @@ export function registerMarketingRoutes(app: any) {
             subject: `${festivalId} Greetings Sent`,
             description: `Sent ${festivalId} festival greetings to ${sentCount} clients via ${channel}`,
             performedBy: req.user.id,
-          } as any);
+          } as Parameters<typeof db.insert>[0] extends { values: infer V } ? V : never);
         } catch (_logErr) { /* non-fatal */ }
       }
 
@@ -2521,7 +2504,7 @@ export function registerMarketingRoutes(app: any) {
    * PATCH /api/agent/marketing/contacts/:id/email
    * Update email for a prospect or assigned lead
    */
-  app.patch('/api/agent/marketing/contacts/:id/email', async (req: any, res: Response) => {
+  app.patch('/api/agent/marketing/contacts/:id/email', async (req: Request, res: Response) => {
     try {
       if (!req.user) return res.status(401).json({ error: 'Authentication required' });
 
@@ -2559,7 +2542,7 @@ export function registerMarketingRoutes(app: any) {
    * GET /api/agent/marketing/greeting-history
    * Returns the agent's festival greeting send history from leadActivities
    */
-  app.get('/api/agent/marketing/greeting-history', async (req: any, res: Response) => {
+  app.get('/api/agent/marketing/greeting-history', async (req: Request, res: Response) => {
     try {
       if (!req.user) return res.status(401).json({ error: 'Authentication required' });
 
@@ -2599,7 +2582,7 @@ export function registerMarketingRoutes(app: any) {
    * POST /api/agent/marketing/share-pick
    * Bulk-share a daily pick with selected clients/prospects via email or WhatsApp
    */
-  app.post('/api/agent/marketing/share-pick', async (req: any, res: Response) => {
+  app.post('/api/agent/marketing/share-pick', async (req: Request, res: Response) => {
     try {
       if (!req.user) return res.status(401).json({ error: 'Authentication required' });
 
@@ -2670,7 +2653,7 @@ export function registerMarketingRoutes(app: any) {
             subject: `Pick shared: ${pick.symbol || pick.instrumentName}`,
             description: `Shared ${direction} pick for ${pick.symbol || pick.instrumentName} with ${sentCount} contacts via ${channel}`,
             performedBy: req.user.id,
-          } as any);
+          } as Parameters<typeof db.insert>[0] extends { values: infer V } ? V : never);
         } catch (_logErr) { /* non-fatal */ }
       }
 
@@ -2681,9 +2664,18 @@ export function registerMarketingRoutes(app: any) {
     }
   });
 
+/** Festival display data shape */
+interface FestivalData {
+  name: string;
+  emoji: string;
+  message: string;
+  gradient: string;
+  primaryColor: string;
+}
+
   // Helper function to get festival data
-  function getFestivalData(festivalId: string) {
-    const festivals: Record<string, any> = {
+  function getFestivalData(festivalId: string): FestivalData {
+    const festivals: Record<string, FestivalData> = {
       'diwali': { name: 'Diwali', emoji: '🪔', message: 'May this festival of lights bring joy, prosperity, and success to you and your family', gradient: 'linear-gradient(135deg, #1a0a2e 0%, #4a2c6a 100%)', primaryColor: '#ffd700' },
       'holi': { name: 'Holi', emoji: '🎨', message: 'May your life be filled with vibrant colors of happiness, love, and prosperity', gradient: 'linear-gradient(135deg, #ff6b6b 0%, #5f27cd 100%)', primaryColor: '#ffffff' },
       'eid': { name: 'Eid', emoji: '🌙', message: 'Wishing you and your family a blessed Eid filled with peace, happiness, and prosperity', gradient: 'linear-gradient(135deg, #004d40 0%, #00897b 100%)', primaryColor: '#ffd700' },
@@ -2750,7 +2742,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get agent campaigns
    */
-  app.get('/api/agent/campaigns', requireAuth, async (req: any, res: Response) => {
+  app.get('/api/agent/campaigns', requireAuth, async (req: Request, res: Response) => {
     try {
       
       // Return sample campaigns for the agent
@@ -2810,7 +2802,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Create agent campaign
    */
-  app.post('/api/agent/campaigns/:channel', requireAuth, async (req: any, res: Response) => {
+  app.post('/api/agent/campaigns/:channel', requireAuth, async (req: Request, res: Response) => {
     try {
       
       const { channel } = req.params;
@@ -2842,7 +2834,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Sync campaign analytics
    */
-  app.post('/api/agent/campaigns/:campaignId/sync-analytics', requireAuth, async (req: any, res: Response) => {
+  app.post('/api/agent/campaigns/:campaignId/sync-analytics', requireAuth, async (req: Request, res: Response) => {
     try {
       
       const { campaignId } = req.params;
@@ -2863,7 +2855,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get WhatsApp templates for agents
    */
-  app.get('/api/marketing/whatsapp/templates', requireAuth, async (req: any, res: Response) => {
+  app.get('/api/marketing/whatsapp/templates', requireAuth, async (req: Request, res: Response) => {
     try {
       const templates = whatsAppMarketingService.getAvailableTemplates();
       res.json({ success: true, templates });
@@ -2876,7 +2868,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Send WhatsApp marketing message (agent)
    */
-  app.post('/api/marketing/whatsapp/send', requireAuth, async (req: any, res: Response) => {
+  app.post('/api/marketing/whatsapp/send', requireAuth, async (req: Request, res: Response) => {
     try {
       const { mobile, templateType, variables, fallbackMessage } = req.body;
 
@@ -2905,7 +2897,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Get SMS templates for agents
    */
-  app.get('/api/marketing/sms/templates', requireAuth, async (req: any, res: Response) => {
+  app.get('/api/marketing/sms/templates', requireAuth, async (req: Request, res: Response) => {
     try {
       const templates = smsMarketingService.getAvailableTemplates();
       res.json({ success: true, templates });
@@ -2918,7 +2910,7 @@ export function registerMarketingRoutes(app: any) {
   /**
    * Send SMS marketing message (agent)
    */
-  app.post('/api/marketing/sms/send', requireAuth, async (req: any, res: Response) => {
+  app.post('/api/marketing/sms/send', requireAuth, async (req: Request, res: Response) => {
     try {
       const { mobile, templateType, variables, customMessage } = req.body;
 
