@@ -498,15 +498,39 @@ export function registerAuthRoutes(app: Express) {
 
   app.post("/api/register", async (req, res) => {
     try {
-      const existingUser = await storage.getUserByUsername(req.body.username);
-      if (existingUser) {
-        return res.status(400).send("Username already exists");
+      const { fullName, email, mobile, password, portalType, username } = req.body;
+
+      // Check for duplicate by username (legacy) or email
+      const lookupKey = username || email;
+      if (lookupKey) {
+        const existingUser = await storage.getUserByUsername(lookupKey);
+        if (existingUser) {
+          return res.status(400).send("Username already exists");
+        }
       }
 
-      const hashedPassword = await hashPassword(req.body.password);
+      // Generate a unique userId (required by createUser guard)
+      const userId = await generateUniqueUserId(email);
+
+      // Split fullName into firstName / lastName
+      let firstName: string | undefined;
+      let lastName: string | undefined;
+      if (fullName) {
+        const parts = fullName.trim().split(/\s+/);
+        firstName = parts[0];
+        lastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined;
+      }
+
+      const hashedPassword = password ? await hashPassword(password) : undefined;
+
       const user = await storage.createUser({
         ...req.body,
-        password: hashedPassword,
+        userId,
+        ...(firstName !== undefined && { firstName }),
+        ...(lastName !== undefined && { lastName }),
+        ...(hashedPassword !== undefined && { password: hashedPassword }),
+        roles: req.body.roles || ["client"],
+        source: "api",
       });
 
       req.login(user, (err) => {
@@ -514,7 +538,12 @@ export function registerAuthRoutes(app: Express) {
         res.status(201).json(user);
       });
     } catch (err) {
-      res.status(500).send(err);
+      console.error("[/api/register] Error:", err);
+      res.status(500).json({
+        error_code: "REGISTER_FAILED",
+        message: err instanceof Error ? err.message : "Registration failed",
+        retryable: false,
+      });
     }
   });
 
