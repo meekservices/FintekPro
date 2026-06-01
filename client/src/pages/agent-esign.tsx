@@ -19,7 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, getCsrfToken, fetchCsrfToken } from "@/lib/queryClient";
 import { useDropzone } from "react-dropzone";
 import { format, addDays, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -327,14 +327,43 @@ export default function AgentESignPage() {
       const formData = new FormData();
       formData.append('document', file);
 
-      const response = await fetch('/api/documents/upload/for-signing', {
+      /**
+       * Ensure we have a CSRF token before uploading.
+       * Raw fetch is required here (not apiRequest) because FormData uploads
+       * must NOT have a Content-Type header set manually — the browser sets it
+       * with the correct multipart boundary automatically.
+       * We manually mirror the CSRF retry logic from apiRequest.
+       */
+      let token = getCsrfToken();
+      if (!token) {
+        token = await fetchCsrfToken();
+      }
+
+      const buildHeaders = (t: string | null): HeadersInit => (t ? { 'X-CSRF-Token': t } : {});
+
+      let response = await fetch('/api/documents/upload/for-signing', {
         method: 'POST',
         body: formData,
         credentials: 'include',
+        headers: buildHeaders(token),
       });
 
+      // Auto-retry once on CSRF failure (token may have expired)
+      if (response.status === 403) {
+        const errData = await response.clone().json().catch(() => ({}));
+        if (errData.code === 'CSRF_ERROR' || errData.code === 'CSRF_TOKEN_INVALID' || errData.code === 'CSRF_TOKEN_REQUIRED') {
+          token = await fetchCsrfToken();
+          response = await fetch('/api/documents/upload/for-signing', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include',
+            headers: buildHeaders(token),
+          });
+        }
+      }
+
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
         throw new Error(errorData.error || 'Upload failed');
       }
 
@@ -1333,7 +1362,15 @@ export default function AgentESignPage() {
               </Button>
               <Button 
                 onClick={handleSendRequest}
-                disabled={initiateESign.isPending || !documentName || !documentType || signers.length === 0}
+                disabled={
+                  initiateESign.isPending ||
+                  !documentName ||
+                  !documentType ||
+                  signers.length === 0 ||
+                  // Block if upload source selected, file chosen but upload failed
+                  (documentSource === 'upload' && !!uploadedFile && !uploadedDocumentData) ||
+                  isUploading
+                }
                 className="bg-emerald-600 hover:bg-emerald-700"
                 data-testid="button-send-esign"
               >
@@ -1341,6 +1378,11 @@ export default function AgentESignPage() {
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                     Sending...
+                  </>
+                ) : isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
                   </>
                 ) : (
                   <>

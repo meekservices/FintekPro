@@ -225,23 +225,30 @@ function SignalCard({
                 </div>
                 <p className="text-[10px] text-muted-foreground font-mono">{detail}</p>
                 <div className="flex items-center gap-2">
-                  {/* Bi-directional score bar: positive fills right half, negative fills left half */}
-                  <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden flex">
+                  {/* Bi-directional score bar rendered as SVG — no inline CSS needed */}
+                  <svg width="100%" height="6" className="flex-1 rounded-full overflow-hidden">
+                    <rect x="0" y="0" width="100%" height="6" className="fill-muted" rx="3" />
                     {score < 0 && (
-                      <div
-                        className="h-full bg-rose-500 rounded-full transition-all ml-auto [width:var(--bar-w)]"
-                        // eslint-disable-next-line react/forbid-dom-props -- CSS custom property, not inline style
-                        style={{ '--bar-w': `${Math.abs(score) * 50}%` } as React.CSSProperties}
+                      <rect
+                        x={`${(0.5 - Math.abs(score) * 0.5) * 100}%`}
+                        y="0"
+                        width={`${Math.abs(score) * 50}%`}
+                        height="6"
+                        className="fill-rose-500"
+                        rx="3"
                       />
                     )}
                     {score > 0 && (
-                      <div
-                        className="h-full bg-emerald-500 rounded-full transition-all ml-[50%] [width:var(--bar-w)]"
-                        // eslint-disable-next-line react/forbid-dom-props -- CSS custom property, not inline style
-                        style={{ '--bar-w': `${score * 50}%` } as React.CSSProperties}
+                      <rect
+                        x="50%"
+                        y="0"
+                        width={`${score * 50}%`}
+                        height="6"
+                        className="fill-emerald-500"
+                        rx="3"
                       />
                     )}
-                  </div>
+                  </svg>
                   <span className="text-[10px] font-black tabular-nums w-10 text-right">
                     {score > 0 ? "+" : ""}{(score * 100).toFixed(0)}
                   </span>
@@ -480,13 +487,16 @@ function PerformancePanel() {
                 <Badge className={cn("text-[9px] font-black w-14 justify-center", meta?.bg, meta?.color)}>
                   {signal.toUpperCase()}
                 </Badge>
-                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className={cn("h-full rounded-full transition-all [width:var(--bar-w)]", signal === "buy" ? "bg-emerald-500" : signal === "sell" ? "bg-rose-500" : "bg-amber-400")}
-                    // eslint-disable-next-line react/forbid-dom-props -- CSS custom property, not inline style
-                    style={{ '--bar-w': `${Math.round((count / perf.total) * 100)}%` } as React.CSSProperties}
+                {/* Signal distribution bar rendered as SVG — no inline CSS needed */}
+                <svg width="100%" height="8" className="flex-1 rounded-full overflow-hidden">
+                  <rect x="0" y="0" width="100%" height="8" className="fill-muted" />
+                  <rect
+                    x="0" y="0"
+                    width={`${Math.round((count / perf.total) * 100)}%`}
+                    height="8"
+                    className={cn(signal === "buy" ? "fill-emerald-500" : signal === "sell" ? "fill-rose-500" : "fill-amber-400")}
                   />
-                </div>
+                </svg>
                 <span className="text-xs font-black w-6 text-right">{count}</span>
               </div>
             );
@@ -794,19 +804,26 @@ function BacktestPanel() {
                   <span>{result.summary.winningTrades} wins</span>
                   <span>{result.summary.losingTrades} losses</span>
                 </div>
-                <div className="h-2 rounded-full bg-muted overflow-hidden flex">
+                {/* Win/loss bar rendered as SVG — no inline CSS needed */}
+                <svg width="100%" height="8" className="rounded-full overflow-hidden">
                   {result.summary.totalTrades > 0 && (
                     <>
-                      {/* Win rate bar — dynamic width via CSS custom property */}
-                      <div
-                        className="h-full bg-emerald-500 rounded-l-full transition-all [width:var(--bar-w)]"
-                        // eslint-disable-next-line react/forbid-dom-props -- CSS custom property, not inline style
-                        style={{ '--bar-w': `${(result.summary.winningTrades / result.summary.totalTrades) * 100}%` } as React.CSSProperties}
+                      <rect
+                        x="0" y="0"
+                        width={`${(result.summary.winningTrades / result.summary.totalTrades) * 100}%`}
+                        height="8"
+                        className="fill-emerald-500"
                       />
-                      <div className="h-full bg-rose-500 rounded-r-full flex-1" />
+                      <rect
+                        x={`${(result.summary.winningTrades / result.summary.totalTrades) * 100}%`}
+                        y="0"
+                        width={`${(result.summary.losingTrades / result.summary.totalTrades) * 100}%`}
+                        height="8"
+                        className="fill-rose-500"
+                      />
                     </>
                   )}
-                </div>
+                </svg>
               </div>
 
               {/* Trades toggle */}
