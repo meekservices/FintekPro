@@ -783,9 +783,12 @@ class ExchangeStockService {
         .where(eq(listedStocks.symbol, data.symbol));
       return 'updated';
     } else {
+      // Auto-publish stocks that arrive with valid price data.
+      // Only stocks with no price are held as unpublished for admin review.
+      const hasValidPrice = data.currentPrice != null && data.currentPrice > 50;
       await db.insert(listedStocks).values({
         ...stockRecord,
-        isPublished: false, // New stocks start unpublished
+        isPublished: hasValidPrice,
       });
       return 'added';
     }
