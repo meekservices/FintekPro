@@ -27,7 +27,12 @@ import {
   Copy,
   Terminal,
   Key,
-  Zap
+  Zap,
+  Sparkles,
+  Star,
+  Activity,
+  RefreshCw,
+  AlertCircle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,6 +91,20 @@ export default function AlpacaClientHub() {
 
   const { data: accountData, isLoading: isLoadingAccount } = useQuery<AccountQueryResponse>({
     queryKey: ["/api/us-trading/account"],
+    retry: 1,
+  });
+
+  // ── Live Market Data Queries ──────────────────────────────────────────────
+  const { data: instrumentsData, isLoading: isLoadingInstruments, refetch: refetchInstruments } = useQuery<any>({
+    queryKey: ["/api/alpaca/market/instruments"],
+    staleTime: 30_000,   // 30s — matches server cache TTL
+    retry: 1,
+  });
+
+  const { data: bestBuysData, isLoading: isLoadingBestBuys } = useQuery<any>({
+    queryKey: ["/api/alpaca/market/best-buys", { riskProfile: "moderate", limit: 9 }],
+    queryFn: () => fetch("/api/alpaca/market/best-buys?riskProfile=moderate&limit=9").then(r => r.json()),
+    staleTime: 60_000,   // 1 min — screener is heavier
     retry: 1,
   });
 
@@ -457,8 +476,276 @@ export default function AlpacaClientHub() {
                       <USFundingCard />
                       <USTradingCard />
                     </div>
+
+                    {/* ── Discover US Markets ──────────────────────────────── */}
+                    <div className="space-y-6 mt-12">
+                      {/* Section Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+                            <Sparkles className="h-4 w-4 text-white" />
+                          </div>
+                          <div>
+                            <h2 className="text-xl font-black tracking-tight">Discover US Markets</h2>
+                            <p className="text-xs text-muted-foreground font-medium">
+                              {instrumentsData?.data?.fxRate
+                                ? `Live via Alpaca · USD/INR ₹${instrumentsData.data.fxRate.toFixed(2)}`
+                                : "Powered by Alpaca Broker API"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {instrumentsData?.data?.marketStatus?.isOpen ? (
+                            <span className="flex items-center gap-1.5 text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
+                              <Activity className="h-3 w-3" /> NYSE OPEN
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
+                              <Clock className="h-3 w-3" /> MARKET CLOSED
+                            </span>
+                          )}
+                          <button
+                            onClick={() => refetchInstruments()}
+                            className="w-8 h-8 rounded-full bg-muted/50 hover:bg-muted flex items-center justify-center transition-colors"
+                            title="Refresh prices"
+                          >
+                            <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", isLoadingInstruments && "animate-spin")} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* ── Best Buys AI Screener ─────────────────────────── */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                          <h3 className="text-base font-black">AI Best Buys Today</h3>
+                          {bestBuysData?.data?.modelVersion && (
+                            <span className="text-[10px] font-bold text-muted-foreground/60 bg-muted/50 px-2 py-0.5 rounded-full">
+                              {bestBuysData.data.modelVersion}
+                            </span>
+                          )}
+                        </div>
+
+                        {isLoadingBestBuys ? (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {[1,2,3,4,5,6].map(i => (
+                              <div key={i} className="h-36 rounded-2xl bg-muted/40 animate-pulse" />
+                            ))}
+                          </div>
+                        ) : bestBuysData?.data?.recommendations?.length ? (
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              {bestBuysData.data.recommendations.map((rec: any) => (
+                                <div
+                                  key={rec.symbol}
+                                  className={cn(
+                                    "rounded-2xl p-5 border transition-all hover:-translate-y-1 hover:shadow-lg cursor-pointer group",
+                                    rec.signal === 'buy'
+                                      ? "bg-emerald-50/80 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800"
+                                      : rec.signal === 'hold'
+                                      ? "bg-amber-50/80 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800"
+                                      : "bg-rose-50/50 border-rose-200 dark:bg-rose-950/20 dark:border-rose-900"
+                                  )}
+                                >
+                                  <div className="flex items-start justify-between mb-3">
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-lg font-black tracking-tighter">{rec.symbol}</span>
+                                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-black/10">{rec.type}</span>
+                                      </div>
+                                      <p className="text-[10px] text-muted-foreground font-medium truncate max-w-[140px]">{rec.name}</p>
+                                    </div>
+                                    <div className={cn(
+                                      "px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
+                                      rec.signal === 'buy' ? "bg-emerald-500 text-white"
+                                        : rec.signal === 'hold' ? "bg-amber-500 text-white"
+                                        : "bg-rose-500 text-white"
+                                    )}>
+                                      {rec.signal}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-end justify-between mb-3">
+                                    <div>
+                                      <p className="text-xl font-black">${rec.price?.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                      <p className="text-[10px] text-muted-foreground font-bold">₹{rec.priceInr?.toLocaleString('en-IN')}</p>
+                                    </div>
+                                    <div className={cn(
+                                      "flex items-center gap-1 text-sm font-black",
+                                      rec.changePercent >= 0 ? "text-emerald-600" : "text-rose-600"
+                                    )}>
+                                      {rec.changePercent >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                                      {rec.changePercent >= 0 ? "+" : ""}{rec.changePercent?.toFixed(2)}%
+                                    </div>
+                                  </div>
+
+                                  {/* Confidence bar */}
+                                  <div className="space-y-1">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Confidence</span>
+                                      <span className="text-[10px] font-black">{rec.confidenceScore}/100</span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-black/10 rounded-full overflow-hidden">
+                                      <div
+                                        className={cn(
+                                          "h-full rounded-full transition-all duration-700",
+                                          rec.signal === 'buy' ? "bg-emerald-500"
+                                            : rec.signal === 'hold' ? "bg-amber-500"
+                                            : "bg-rose-500"
+                                        )}
+                                        style={{ width: `${rec.confidenceScore}%` }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Top factor */}
+                                  {rec.factorsConsidered?.[0] && (
+                                    <p className="mt-2 text-[9px] text-muted-foreground leading-relaxed line-clamp-2">
+                                      {rec.factorsConsidered[0]}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Disclaimer */}
+                            {bestBuysData.data.disclaimer && (
+                              <div className="flex items-start gap-2 mt-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl dark:bg-amber-950/20 dark:border-amber-800">
+                                <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                                <p className="text-[10px] text-amber-800 dark:text-amber-300 font-medium leading-relaxed">
+                                  {bestBuysData.data.disclaimer}
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center gap-3 py-10 text-muted-foreground/40">
+                            <Sparkles className="h-8 w-8" />
+                            <p className="text-xs font-bold">Screener results unavailable — market may be closed</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ── Stocks & ETFs Tables ──────────────────────────── */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Stocks */}
+                        <Card className="border-none shadow-xl rounded-3xl overflow-hidden bg-card">
+                          <CardHeader className="px-6 pt-6 pb-3 border-b">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <CardTitle className="text-sm font-black">Popular US Stocks</CardTitle>
+                                <CardDescription className="text-[10px]">Live quotes · Fractional buying available</CardDescription>
+                              </div>
+                              <Globe className="h-4 w-4 text-muted-foreground/40" />
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-0">
+                            {isLoadingInstruments ? (
+                              <div className="space-y-3 p-6">
+                                {[1,2,3,4,5].map(i => <div key={i} className="h-10 rounded-xl bg-muted/40 animate-pulse" />)}
+                              </div>
+                            ) : (
+                              <div className="divide-y">
+                                {(instrumentsData?.data?.stocks ?? []).map((stock: any) => (
+                                  <div key={stock.symbol} className="flex items-center justify-between px-6 py-3.5 hover:bg-muted/30 transition-colors group">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center text-[10px] font-black shadow-sm">
+                                        {stock.symbol.slice(0, 2)}
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-black">{stock.symbol}</p>
+                                        <p className="text-[10px] text-muted-foreground">{stock.name || stock.symbol}</p>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-sm font-black">
+                                        {stock.price ? `$${stock.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '—'}
+                                      </p>
+                                      <p className={cn(
+                                        "text-[10px] font-black",
+                                        (stock.changePercent ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600"
+                                      )}>
+                                        {stock.changePercent != null
+                                          ? `${stock.changePercent >= 0 ? '+' : ''}${stock.changePercent.toFixed(2)}%`
+                                          : '—'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+
+                        {/* ETFs */}
+                        <Card className="border-none shadow-xl rounded-3xl overflow-hidden bg-card">
+                          <CardHeader className="px-6 pt-6 pb-3 border-b">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <CardTitle className="text-sm font-black">US ETFs</CardTitle>
+                                <CardDescription className="text-[10px]">Diversified exposure · Expense ratio shown</CardDescription>
+                              </div>
+                              <BarChart3 className="h-4 w-4 text-muted-foreground/40" />
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-0">
+                            {isLoadingInstruments ? (
+                              <div className="space-y-3 p-6">
+                                {[1,2,3,4,5].map(i => <div key={i} className="h-10 rounded-xl bg-muted/40 animate-pulse" />)}
+                              </div>
+                            ) : (
+                              <div className="divide-y">
+                                {(instrumentsData?.data?.etfs ?? []).map((etf: any) => (
+                                  <div key={etf.symbol} className="flex items-center justify-between px-6 py-3.5 hover:bg-muted/30 transition-colors group">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/50 dark:to-purple-900/50 flex items-center justify-center text-[10px] font-black text-indigo-700 dark:text-indigo-300 shadow-sm">
+                                        ETF
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-black">{etf.symbol}</p>
+                                        <div className="flex items-center gap-1.5">
+                                          <p className="text-[10px] text-muted-foreground truncate max-w-[100px]">{etf.name || etf.symbol}</p>
+                                          {etf.expenseRatio != null && (
+                                            <span className="text-[9px] font-bold text-muted-foreground/60 bg-muted/50 px-1 rounded">
+                                              {(etf.expenseRatio * 100).toFixed(2)}% ER
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-sm font-black">
+                                        {etf.price ? `$${etf.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '—'}
+                                      </p>
+                                      <p className={cn(
+                                        "text-[10px] font-black",
+                                        (etf.changePercent ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600"
+                                      )}>
+                                        {etf.changePercent != null
+                                          ? `${etf.changePercent >= 0 ? '+' : ''}${etf.changePercent.toFixed(2)}%`
+                                          : '—'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* INR value note */}
+                      {instrumentsData?.data?.fxRate && (
+                        <p className="text-center text-[10px] text-muted-foreground/50 font-medium">
+                          USD/INR rate: ₹{instrumentsData.data.fxRate.toFixed(2)} · Prices delayed up to 15 minutes · Not investment advice
+                        </p>
+                      )}
+                    </div>
+                    {/* ── End Discover US Markets ───────────────────────── */}
+
                   </div>
                 )}
+
 
                 {/* View: Algo Signals */}
                 {activeView === "algo-signals" && (
