@@ -323,23 +323,54 @@ export class PickOfTheDayService {
   async getPerformanceStats(): Promise<any> {
     const allPicks = await db.select().from(dailyPicks);
     const totalPicks = allPicks.length;
-    if (totalPicks === 0) return { totalPicks: 0, livePicks: 0, targetHits: 0, stoplossHits: 0, hitRate: 0, avgReturn: 0 };
+    if (totalPicks === 0) return { totalPicks: 0, livePicks: 0, targetHits: 0, stoplossHits: 0, expired: 0, hitRate: 0, avgReturn: 0, byCategory: {} };
 
-    const resolved = allPicks.filter(p => p.status !== 'live');
-    const targetHits = resolved.filter(p => p.status === 'target_hit').length;
-    const hitRate = resolved.length > 0 ? (targetHits / resolved.length) * 100 : 0;
-    
-    const returns = allPicks.map(p => parseFloat(p.returnPct || '0')).filter(r => !isNaN(r));
-    const avgReturn = returns.length > 0 ? returns.reduce((a, b) => a + b, 0) / returns.length : 0;
+    const livePicks   = allPicks.filter(p => p.status === 'live');
+    const resolved    = allPicks.filter(p => p.status !== 'live');
+    const targetHits  = resolved.filter(p => p.status === 'target_hit').length;
+    const stoplossHits = resolved.filter(p => p.status === 'stoploss_hit').length;
+    const expiredCount = resolved.filter(p => p.status === 'expired').length;
+    const hitRate     = resolved.length > 0 ? (targetHits / resolved.length) * 100 : 0;
+
+    // BUG FIX: avgReturn must ONLY cover closed picks (returnPct is final).
+    // Including live picks introduces unrealised intra-day noise and dilutes the metric.
+    // Also exclude rows where returnPct was never set (null / empty) to avoid
+    // the '|| 0' fallback dragging the average down artificially.
+    const closedReturns = resolved
+      .filter(p => p.returnPct != null && p.returnPct !== '')
+      .map(p => parseFloat(p.returnPct!));
+    const avgReturn = closedReturns.length > 0
+      ? closedReturns.reduce((a, b) => a + b, 0) / closedReturns.length
+      : 0;
+
+    // Per-category breakdown (used by frontend category badges)
+    const byCategory: Record<string, { total: number; hits: number; hitRate: number; avgReturn: number }> = {};
+    for (const pick of resolved) {
+      const cat = pick.category;
+      if (!byCategory[cat]) byCategory[cat] = { total: 0, hits: 0, hitRate: 0, avgReturn: 0 };
+      byCategory[cat].total++;
+      if (pick.status === 'target_hit') byCategory[cat].hits++;
+    }
+    for (const cat of Object.keys(byCategory)) {
+      const stats = byCategory[cat];
+      stats.hitRate = stats.total > 0 ? parseFloat(((stats.hits / stats.total) * 100).toFixed(2)) : 0;
+      const catReturns = resolved
+        .filter(p => p.category === cat && p.returnPct != null && p.returnPct !== '')
+        .map(p => parseFloat(p.returnPct!));
+      stats.avgReturn = catReturns.length > 0
+        ? parseFloat((catReturns.reduce((a, b) => a + b, 0) / catReturns.length).toFixed(2))
+        : 0;
+    }
 
     return {
       totalPicks,
-      livePicks: allPicks.filter(p => p.status === 'live').length,
+      livePicks: livePicks.length,
       targetHits,
-      stoplossHits: allPicks.filter(p => p.status === 'stoploss_hit').length,
-      expired: allPicks.filter(p => p.status === 'expired').length,
+      stoplossHits,
+      expired: expiredCount,
       hitRate: parseFloat(hitRate.toFixed(2)),
-      avgReturn: parseFloat(avgReturn.toFixed(2))
+      avgReturn: parseFloat(avgReturn.toFixed(2)),
+      byCategory,
     };
   }
 
