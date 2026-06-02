@@ -11186,3 +11186,33 @@ export const insertIrisLasLoanSchema = createInsertSchema(irisLasLoans).omit({
 });
 export type IrisLasLoan = typeof irisLasLoans.$inferSelect;
 export type InsertIrisLasLoan = typeof irisLasLoans.$inferInsert;
+
+// ── Goal Benchmark Mapping ─────────────────────────────────────────────────
+// Used by GoalBenchmarkMapper service (proposal-builder) to select the right
+// benchmark index for each goal type + risk profile + investment horizon combo.
+// Table is also seeded via schema-repairs.ts ON CONFLICT DO NOTHING.
+export const goalBenchmarkMapping = pgTable('goal_benchmark_mapping', {
+  id:                 uuid('id').primaryKey().defaultRandom(),
+  goalType:           varchar('goal_type',           { length: 50 }).notNull(),
+  riskProfile:        varchar('risk_profile',         { length: 30 }).notNull(),
+  benchmarkIndex:     varchar('benchmark_index',      { length: 100 }),
+  benchmarkCode:      varchar('benchmark_code',       { length: 50 }).notNull(),
+  benchmarkName:      varchar('benchmark_name',       { length: 200 }).notNull(),
+  benchmarkRationale: text('benchmark_rationale'),
+  horizonYearsMin:    integer('horizon_years_min'),
+  horizonYearsMax:    integer('horizon_years_max'),
+  isDefault:          boolean('is_default').default(true),
+  isActive:           boolean('is_active').default(true),
+  overriddenBy:       varchar('overridden_by'),
+  overriddenAt:       timestamp('overridden_at'),
+  description:        text('description'),
+  createdAt:          timestamp('created_at').defaultNow(),
+  updatedAt:          timestamp('updated_at').defaultNow(),
+});
+
+export const insertGoalBenchmarkMappingSchema = createInsertSchema(goalBenchmarkMapping).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type GoalBenchmarkMappingRow = typeof goalBenchmarkMapping.$inferSelect;
+export type InsertGoalBenchmarkMapping = typeof goalBenchmarkMapping.$inferInsert;
+
