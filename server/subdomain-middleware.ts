@@ -41,9 +41,20 @@ export function subdomainDetection(req: Request, res: Response, next: NextFuncti
   let subdomain = '';
   
   // Skip portal parsing for Cloud Run internal URLs or common GCP domains
+  // IMPORTANT: When a request arrives via the internal .a.run.app URL, check the
+  // X-Forwarded-Host or Origin header to recover the true subdomain.
   if (hostname.includes('.a.run.app') || hostname.includes('cloudfunctions.net')) {
-    subdomain = '';
-    console.log(`[SUBDOMAIN_DEBUG] ☁️ GCP Internal URL detected: ${hostname}. Defaulting to main portal context to prevent session mismatch.`);
+    // Try to recover true subdomain from X-Forwarded-Host or Origin
+    const originHost = (req.get('origin') || '').replace(/^https?:\/\//, '').split(':')[0].toLowerCase();
+    const forwardedParts = (xForwardedHost || originHost || '').split('.');
+    if (forwardedParts.length > 2 && forwardedParts[0] !== 'www' &&
+        ['admin', 'partner', 'agent'].includes(forwardedParts[0])) {
+      subdomain = forwardedParts[0];
+      console.log(`[SUBDOMAIN_DEBUG] ☁️ GCP Internal URL: recovered subdomain '${subdomain}' from X-Forwarded-Host/Origin.`);
+    } else {
+      subdomain = '';
+      console.log(`[SUBDOMAIN_DEBUG] ☁️ GCP Internal URL detected: ${hostname}. Defaulting to main portal context.`);
+    }
     if (debugEnabled) {
       console.log(`[SUBDOMAIN_DEBUG] Full headers for internal request:`, JSON.stringify(req.headers));
     }
@@ -259,6 +270,36 @@ export function validateSessionPortal(req: Request, res: Response, next: NextFun
   }
 
   const isPrivilegedPortal = (p: string) => ['admin', 'partner', 'agent'].includes(p);
+
+  // ── CLOUD RUN INTERNAL ROUTING SAFEGUARD ────────────────────────────────────
+  // When requests arrive via the Cloud Run internal URL (*.a.run.app), subdomain
+  // detection may fall back to '' / 'main' even though the user is on the agent
+  // portal. In this case currentPortal = '' which creates a false mismatch with
+  // sessionPortal = 'agent'. We handle this by checking if the user actually
+  // has the required role for their stored session portal — if yes, we trust the
+  // session and update currentPortal to match rather than force-logging out.
+  if ((currentPortal === '' || currentPortal === 'main') && isPrivilegedPortal(sessionPortal)) {
+    const userRoles = req.user.roles || [];
+    let hasSessionPortalRole = false;
+    if (sessionPortal === 'admin') {
+      hasSessionPortalRole = userRoles.includes('admin') || userRoles.includes('super_admin');
+    } else if (sessionPortal === 'partner') {
+      hasSessionPortalRole = userRoles.includes('partner') || userRoles.includes('agent') ||
+                             userRoles.includes('master_agent') || userRoles.includes('sub_agent');
+    } else if (sessionPortal === 'agent') {
+      hasSessionPortalRole = userRoles.includes('agent') || userRoles.includes('master_agent') ||
+                             userRoles.includes('sub_agent') || userRoles.includes('admin') ||
+                             userRoles.includes('superadmin');
+    }
+    if (hasSessionPortalRole) {
+      // Trust the session's portal binding — the user legitimately belongs there
+      req.subdomain = sessionPortal;
+      req.isAdminPortal  = sessionPortal === 'admin';
+      req.isPartnerPortal = sessionPortal === 'partner';
+      req.isAgentPortal  = sessionPortal === 'agent';
+      return next();
+    }
+  }
 
   const isMismatch =
     (isPrivilegedPortal(currentPortal) && sessionPortal !== currentPortal) ||
