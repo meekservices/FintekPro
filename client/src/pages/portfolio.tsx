@@ -35,6 +35,7 @@ import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { useNetworkState } from "@/hooks/use-network-state";
+import { DataErrorBoundary } from "@/components/DataErrorBoundary";
 
 interface UnifiedOrder {
   id: string;
@@ -576,6 +577,7 @@ export default function Portfolio() {
     );
   }
   return (
+    <DataErrorBoundary>
     <div className="space-y-8" data-testid="portfolio-page">
       {/* Network Status Banner for Offline Resilience */}
       <NetworkStatusBanner />
@@ -3315,5 +3317,6 @@ export default function Portfolio() {
         />
       )}
     </div>
+    </DataErrorBoundary>
   );
 }

@@ -17,7 +17,10 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { PortfolioImportPanel } from "@/components/portfolio/PortfolioImportPanel";
+import { DataErrorBoundary } from "@/components/DataErrorBoundary";
+import { formatCurrency } from "@/lib/format";
 import type { ImportResult } from "@/hooks/use-portfolio";
+
 
 interface ExternalHolding {
   id: string;
@@ -68,21 +71,10 @@ export default function PortfolioImport() {
     refetchHoldings();
   };
 
-  const formatCurrency = (amount: number) => {
-    if (amount >= 10000000) {
-      return `₹${(amount / 10000000).toFixed(2)} Cr`;
-    } else if (amount >= 100000) {
-      return `₹${(amount / 100000).toFixed(2)} L`;
-    }
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+
 
   return (
+    <DataErrorBoundary>
     <div className="container mx-auto px-4 py-6 max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -269,5 +261,6 @@ export default function PortfolioImport() {
         </AlertDescription>
       </Alert>
     </div>
+    </DataErrorBoundary>
   );
 }

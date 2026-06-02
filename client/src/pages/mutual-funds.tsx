@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Sparkles, ThumbsUp, ThumbsDown, Edit2, Bot, UserCheck, Trash2, CreditCard, AlertOctagon, Database, Activity } from "lucide-react";
 import { ClientTransactionHistory } from "@/components/store/ClientTransactionHistory";
+import { DataErrorBoundary } from "@/components/DataErrorBoundary";
 
 // Proposals Tab Component
 function ProposalsTab({ onApprove }: { onApprove: () => void }) {
@@ -1345,6 +1346,7 @@ export default function MutualFunds() {
   const hasDataErrors = nseError || allError;
 
   return (
+    <DataErrorBoundary>
     <div className="space-y-8" data-testid="mutual-funds-page">
       <div className="space-y-6">
         {/* MoneyControl-Inspired Header */}
@@ -3049,5 +3051,6 @@ export default function MutualFunds() {
         onClose={() => setIsInvestmentModalOpen(false)}
       />
     </div>
+    </DataErrorBoundary>
   );
 }
