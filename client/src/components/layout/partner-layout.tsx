@@ -26,8 +26,16 @@ import {
   Calculator,
   Briefcase,
   ClipboardList,
-  Building2
+  Building2,
+  TrendingUp,
+  LineChart,
+  DollarSign,
+  UserCog,
+  Palette,
+  ShieldCheck,
+  Headphones,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -40,18 +48,20 @@ interface PartnerLayoutProps {
 interface NavItem {
   title: string;
   href?: string;
-  icon: any;
+  icon: LucideIcon;
   description: string;
   children?: { title: string; href: string; description?: string }[];
 }
 
 interface NavSection {
+  id: string;
   section: string;
   items: NavItem[];
 }
 
 const partnerNavSections: NavSection[] = [
   {
+    id: "overview",
     section: "Overview",
     items: [
       {
@@ -63,7 +73,8 @@ const partnerNavSections: NavSection[] = [
     ]
   },
   {
-    section: "My Agent Team",
+    id: "agent-network",
+    section: "Agent Network",
     items: [
       {
         title: "My Team",
@@ -72,31 +83,27 @@ const partnerNavSections: NavSection[] = [
         description: "Sub-agents, SM/RM, invites & commissions"
       },
       {
+        title: "Agent Cost Centre",
+        href: "/partner/agents",
+        icon: Users,
+        description: "Recruit & manage agents in your hierarchy"
+      },
+      {
+        title: "Agent Performance",
+        href: "/partner/agent-performance",
+        icon: LineChart,
+        description: "Track agent metrics & P&L"
+      },
+      {
         title: "Agent Payouts",
         href: "/partner/payouts",
-        icon: Wallet,
+        icon: DollarSign,
         description: "Commission payouts & settlements"
       }
     ]
   },
   {
-    section: "Agent Management",
-    items: [
-      {
-        title: "My Cost Centre",
-        href: "/partner/agents",
-        icon: Users,
-        description: "Recruit & manage agents"
-      },
-      {
-        title: "Agent Performance",
-        href: "/partner/agent-performance",
-        icon: BarChart3,
-        description: "Track agent metrics & P&L"
-      }
-    ]
-  },
-  {
+    id: "ca-services",
     section: "CA Services",
     items: [
       {
@@ -106,55 +113,27 @@ const partnerNavSections: NavSection[] = [
         description: "Onboard CAs & assign cases"
       },
       {
-        title: "CA Support Tickets",
-        href: "/partner/ca-support",
-        icon: HelpCircle,
-        description: "CA assistance requests"
-      }
-    ]
-  },
-  {
-    section: "CA Work Tools",
-    items: [
-      {
         title: "CA Dashboard",
         href: "/partner/ca-dashboard",
         icon: Briefcase,
-        description: "Your cases, client overview & earnings"
+        description: "Cases, client overview & CA earnings"
       },
       {
-        title: "My Clients",
-        href: "/partner/ca-dashboard?tab=clients",
-        icon: Users,
-        description: "Manage clients & send invite links"
+        title: "CA Clients",
+        href: "/partner/ca-clients",
+        icon: UserCog,
+        description: "Manage CA-assigned clients"
       },
       {
-        title: "ITR Filing",
-        href: "/itr-tax-services",
-        icon: FileText,
-        description: "File ITR for clients — ITR-1 to ITR-6"
-      },
-      {
-        title: "TDS Compliance",
-        href: "/tds-compliance",
-        icon: Calculator,
-        description: "TDS returns, 26QB & TRACES reconciliation"
-      },
-      {
-        title: "Tax CA Desk",
-        href: "/tax/ca-desk",
-        icon: ClipboardList,
-        description: "Assigned tax advisory cases & filings"
-      },
-      {
-        title: "GST & Advisory",
-        href: "/professional-services?tab=specialized",
-        icon: Building2,
-        description: "GST registration, returns & tax advisory"
+        title: "CA Support",
+        href: "/partner/ca-support",
+        icon: Headphones,
+        description: "CA assistance & support tickets"
       }
     ]
   },
   {
+    id: "earnings",
     section: "Earnings & Compliance",
     items: [
       {
@@ -170,21 +149,22 @@ const partnerNavSections: NavSection[] = [
         description: "Auditable payout records"
       },
       {
-        title: "How Earnings Work",
+        title: "Earnings Model",
         href: "/partner-portal?tab=earnings",
-        icon: BarChart3,
-        description: "Earnings calculation explained"
+        icon: TrendingUp,
+        description: "How your earnings are calculated"
       },
       {
         title: "Compliance",
         href: "/partner-portal?tab=compliance",
-        icon: AlertCircle,
-        description: "Regulatory disclosures"
+        icon: ShieldCheck,
+        description: "Regulatory disclosures & obligations"
       }
     ]
   },
   {
-    section: "Support & Settings",
+    id: "account",
+    section: "Account",
     items: [
       {
         title: "My Profile",
@@ -193,21 +173,21 @@ const partnerNavSections: NavSection[] = [
         description: "Credentials, KYC & bank details"
       },
       {
-        title: "Support Tickets",
+        title: "Support",
         href: "/partner-portal?tab=support",
         icon: HelpCircle,
         description: "Your support requests"
       },
       {
-        title: "Account Settings",
+        title: "Settings",
         href: "/settings",
         icon: Settings,
         description: "Password, PIN & security"
       },
       {
-        title: "Settings & Theme",
+        title: "Theme & Display",
         href: "/theme-settings",
-        icon: Settings,
+        icon: Palette,
         description: "Preferences & visual customization"
       }
     ]
@@ -227,7 +207,7 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
   });
   const isCaQualified = caStatus?.isCaQualified ?? false;
 
-  const caOnlySections = ["CA Services", "CA Work Tools"];
+  const caOnlySections = ["CA Services"];
   const visibleNavSections = partnerNavSections.filter(s =>
     !caOnlySections.includes(s.section) || isCaQualified
   );
@@ -345,13 +325,21 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
             </Link>
             <Button variant="ghost" size="icon" className="text-indigo-300 hover:text-foreground relative">
               <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-violet-500 rounded-full" />
             </Button>
 
             <div className="flex items-center gap-3 border-l border-indigo-800 pl-4">
               <div className="text-right">
-                <p className="text-sm font-medium text-foreground">{user?.email}</p>
-                <p className="text-xs text-indigo-300 capitalize">Partner</p>
+                <p className="text-sm font-medium text-white">
+                  {user?.firstName && user?.lastName
+                    ? `${user.firstName} ${user.lastName}`
+                    : user?.email?.split('@')[0] || 'Partner'}
+                </p>
+                <p className="text-xs text-indigo-400 capitalize">
+                  {user?.roles?.includes('master_agent') ? 'Master Agent'
+                    : user?.roles?.includes('partner') ? 'Partner'
+                    : user?.roles?.includes('agent') ? 'Agent'
+                    : 'Partner'}
+                </p>
               </div>
               <Button
                 variant="ghost"
@@ -404,7 +392,7 @@ export function PartnerLayout({ children }: PartnerLayoutProps) {
           {sidebarOpen && (
             <nav className="p-4 space-y-4">
               {visibleNavSections.map((section) => (
-                <div key={section.section}>
+                <div key={section.id}>
                   <h3 className="px-3 mb-2 text-xs font-semibold text-indigo-400 uppercase tracking-wider">
                     {section.section}
                   </h3>

@@ -95,15 +95,6 @@ export function PartnerRoutes() {
           </PartnerShell>
         )}
       </Route>
-      <Route path="/agents">
-        {() => (
-          <PartnerShell>
-            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
-              <AgentPortal />
-            </Suspense>
-          </PartnerShell>
-        )}
-      </Route>
       <Route path="/partner/agents">
         {() => (
           <PartnerShell>
@@ -148,14 +139,18 @@ export function PartnerRoutes() {
       <Route path="/partner/ca-support">
         {() => (
           <PartnerShell>
-            <CASupportDashboard />
+            <Suspense fallback={<PartnerLoading />}>
+              <CASupportDashboard />
+            </Suspense>
           </PartnerShell>
         )}
       </Route>
       <Route path="/partner/ca-support/:id">
         {() => (
           <PartnerShell>
-            <CASupportDetail />
+            <Suspense fallback={<PartnerLoading />}>
+              <CASupportDetail />
+            </Suspense>
           </PartnerShell>
         )}
       </Route>
@@ -180,7 +175,27 @@ export function PartnerRoutes() {
       <Route path="/partner/ca-management">
         {() => (
           <PartnerShell>
-            <PartnerCAManagement />
+            <Suspense fallback={<PartnerLoading />}>
+              <PartnerCAManagement />
+            </Suspense>
+          </PartnerShell>
+        )}
+      </Route>
+      <Route path="/partner/ca-dashboard">
+        {() => (
+          <PartnerShell>
+            <Suspense fallback={<PartnerLoading />}>
+              <PartnerCAManagement />
+            </Suspense>
+          </PartnerShell>
+        )}
+      </Route>
+      <Route path="/partner/ca-clients">
+        {() => (
+          <PartnerShell>
+            <Suspense fallback={<PartnerLoading />}>
+              <PartnerCAManagement />
+            </Suspense>
           </PartnerShell>
         )}
       </Route>
