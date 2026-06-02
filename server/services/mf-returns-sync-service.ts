@@ -393,24 +393,16 @@ class MFReturnsSyncService {
     ratios?: FinancialRatios
   ): Promise<boolean> {
     try {
-      const updateData: Record<string, any> = {
-        returns1y: returns.returns1y?.toFixed(4) || null,
-        returns3y: returns.returns3y?.toFixed(4) || null,
-        returns5y: returns.returns5y?.toFixed(4) || null,
+      // NOTE: Only write columns that exist on the mutual_funds table.
+      // sharpeRatio, standardDeviation, etc. belong on fundFinancialRatios —
+      // not on mutual_funds. Writing unknown columns causes Drizzle to throw
+      // "Failed query" with no further detail.
+      const updateData = {
+        returns1y: returns.returns1y?.toFixed(4) ?? null,
+        returns3y: returns.returns3y?.toFixed(4) ?? null,
+        returns5y: returns.returns5y?.toFixed(4) ?? null,
         lastUpdated: new Date()
       };
-
-      // Add financial ratios if provided
-      if (ratios) {
-        updateData.standardDeviation = ratios.standardDeviation?.toString() || null;
-        updateData.sharpeRatio = ratios.sharpeRatio?.toString() || null;
-        updateData.sortinoRatio = ratios.sortinoRatio?.toString() || null;
-        updateData.maxDrawdown = ratios.maxDrawdown?.toString() || null;
-        updateData.alpha = ratios.alpha?.toString() || null;
-        updateData.beta = ratios.beta?.toString() || null;
-        updateData.treynorRatio = ratios.treynorRatio?.toString() || null;
-        updateData.informationRatio = ratios.informationRatio?.toString() || null;
-      }
 
       const writeDb = hasProductionDb() ? getProductionDb() : db;
       await writeDb.update(mutualFunds)
@@ -419,7 +411,14 @@ class MFReturnsSyncService {
       
       return true;
     } catch (error: any) {
-      console.error(`[MFReturnsSync] Error updating returns for ${schemeCode}:`, error.message);
+      console.error(JSON.stringify({
+        event: 'MF_RETURNS_UPDATE_FAILED',
+        scheme_code: schemeCode,
+        error_message: error.message,
+        retryable: true,
+        latency_ms: 0,
+        status: 'error'
+      }));
       return false;
     }
   }
