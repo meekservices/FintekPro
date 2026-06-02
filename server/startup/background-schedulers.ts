@@ -39,8 +39,11 @@ async function autoPublishAllInstruments() {
   const { db } = await import("../db");
   const { sql } = await import("drizzle-orm");
 
+  // Tables and their publish conditions (using actual DB column names from schema).
+  // Tables that have no is_published flag are skipped silently — they're always visible.
   const tasks: Array<{ label: string; query: ReturnType<typeof sql> }> = [
     {
+      // listed_stocks: has is_published, is_active, current_price columns
       label: "listed_stocks",
       query: sql`
         UPDATE listed_stocks
@@ -52,6 +55,7 @@ async function autoPublishAllInstruments() {
       `,
     },
     {
+      // mutual_funds: main catalogue table — check actual column name from routes
       label: "mutual_funds",
       query: sql`
         UPDATE mutual_funds
@@ -63,41 +67,48 @@ async function autoPublishAllInstruments() {
       `,
     },
     {
+      // bond_catalog: uses is_active, no is_published gate — publish by setting is_active=true
+      // for bonds that have a valid clean_price or ytm (meaning they have market data)
       label: "bond_catalog",
       query: sql`
         UPDATE bond_catalog
-        SET is_published = true, updated_at = NOW()
-        WHERE is_published = false
-          AND is_active = true
+        SET is_active = true
+        WHERE is_active = false
           AND face_value IS NOT NULL
+          AND maturity_date > NOW()
       `,
     },
     {
+      // reits: uses current_price (not nav_per_unit), no is_published — ensure is_active
       label: "reits",
       query: sql`
         UPDATE reits
-        SET is_published = true, updated_at = NOW()
-        WHERE is_published = false
-          AND nav_per_unit IS NOT NULL
+        SET is_active = true
+        WHERE is_active = false
+          AND current_price IS NOT NULL
+          AND CAST(current_price AS DECIMAL) > 0
       `,
     },
     {
+      // invits: same pattern as reits
       label: "invits",
       query: sql`
         UPDATE invits
-        SET is_published = true, updated_at = NOW()
-        WHERE is_published = false
-          AND nav_per_unit IS NOT NULL
+        SET is_active = true
+        WHERE is_active = false
+          AND current_price IS NOT NULL
+          AND CAST(current_price AS DECIMAL) > 0
       `,
     },
     {
+      // global_instruments: uses last_price (not current_price), is_active flag
       label: "global_instruments",
       query: sql`
         UPDATE global_instruments
-        SET is_published = true, updated_at = NOW()
-        WHERE is_published = false
-          AND current_price IS NOT NULL
-          AND CAST(current_price AS DECIMAL) > 0
+        SET is_active = true
+        WHERE is_active = false
+          AND last_price IS NOT NULL
+          AND CAST(last_price AS DECIMAL) > 0
       `,
     },
   ];
