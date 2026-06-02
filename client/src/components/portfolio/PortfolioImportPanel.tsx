@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
-  Upload, FileText, Link2, Edit2, Trash2, Plus, Save, 
-  CheckCircle2, AlertCircle, Loader2, RefreshCw, ArrowLeft, Sparkles, PenLine
+  Upload, FileText, Edit2, Trash2, Plus, Save, 
+  CheckCircle2, AlertCircle, Loader2, RefreshCw, ArrowLeft, Sparkles, PenLine, Zap
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -51,6 +52,7 @@ interface PortfolioImportPanelProps {
   showPDFImport?: boolean;
   showURLImport?: boolean;
   showManualEntry?: boolean;
+  showIrisImport?: boolean;
   compact?: boolean;
 }
 
@@ -64,12 +66,13 @@ export function PortfolioImportPanel({
   showPDFImport = true,
   showURLImport = true,
   showManualEntry = true,
+  showIrisImport = true,
   compact = false,
 }: PortfolioImportPanelProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [mode, setMode] = useState<'choose' | 'smart' | 'manual'>('choose');
+  const [mode, setMode] = useState<'choose' | 'smart' | 'manual' | 'iris'>('choose');
   const [previewMode, setPreviewMode] = useState(false);
   const [previewHoldings, setPreviewHoldings] = useState<ImportedHolding[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -79,6 +82,9 @@ export function PortfolioImportPanel({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [urlInput, setUrlInput] = useState('');
   const [dragActive, setDragActive] = useState(false);
+
+  // IRIS auto-fetch state
+  const [irisError, setIrisError] = useState<string | null>(null);
   
   const smartImport = useSmartImport();
   const saveHoldings = useSaveImportedHoldings();
@@ -86,7 +92,62 @@ export function PortfolioImportPanel({
   const recordHistory = useRecordImportHistory();
   const [showHistory, setShowHistory] = useState(false);
 
-  const isLoading = smartImport.isPending || saveHoldings.isPending;
+  // IRIS auto-fetch mutation — calls POST /api/portfolio/iris-fetch
+  const irisFetch = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/portfolio/iris-fetch', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'IRIS fetch failed');
+      }
+      return data as ImportResult & { investor: { name: string; pan: string }; source: string };
+    },
+    onSuccess: (data) => {
+      if (!data.holdings || data.holdings.length === 0) {
+        toast({
+          title: 'No Holdings Found',
+          description: 'IRIS returned zero holdings for your PAN. Try manual upload instead.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      handleParseSuccess(data as unknown as ImportResult, 'broker_pdf');
+      setImportSource('iris_kfintech' as ImportSource);
+      toast({
+        title: `✅ ${data.holdings.length} Holdings Fetched`,
+        description: `Auto-fetched from KFintech/IRIS via CAS registry for ${data.investor?.name || 'your account'}.`,
+      });
+    },
+    onError: (err: Error) => {
+      setIrisError(err.message);
+      toast({
+        title: 'IRIS Fetch Failed',
+        description: err.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleIrisFetch = useCallback(() => {
+    setIrisError(null);
+    irisFetch.mutate();
+  }, [irisFetch]);
+
+  const resetPreview = useCallback(() => {
+    setPreviewMode(false);
+    setPreviewHoldings([]);
+    setEditingIndex(null);
+    setSelectedFile(null);
+    setUrlInput('');
+    setMode('choose');
+    irisFetch.reset(); // clear any pending/error IRIS state on back navigation
+  }, [irisFetch]);
+
+  const isLoading = smartImport.isPending || saveHoldings.isPending || irisFetch.isPending;
 
   const handleParseSuccess = useCallback((result: ImportResult, source: ImportSource) => {
     if (result.success && result.holdings?.length > 0) {
@@ -241,14 +302,8 @@ export function PortfolioImportPanel({
     setEditingIndex(previewHoldings.length);
   }, [previewHoldings.length]);
 
-  const resetPreview = useCallback(() => {
-    setPreviewMode(false);
-    setPreviewHoldings([]);
-    setEditingIndex(null);
-    setSelectedFile(null);
-    setUrlInput('');
-    setMode('choose');
-  }, []);
+
+
 
   const formatCurrency = (amount: number) => {
     if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)} Cr`;
@@ -381,7 +436,7 @@ export function PortfolioImportPanel({
                             Matched
                           </Badge>
                         ) : holding.symbol ? (
-                          <Badge variant="secondary" className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:bg-amber-800/30">
+                          <Badge variant="secondary" className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/30">
                             <AlertCircle className="w-3 h-3 mr-1" />
                             Partial
                           </Badge>
@@ -531,6 +586,33 @@ export function PortfolioImportPanel({
       <CardContent>
         {mode === 'choose' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* ── IRIS Auto-Fetch (NEW) ── */}
+            {showIrisImport && (
+              <button
+                onClick={() => setMode('iris')}
+                className="group relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-dashed border-violet-300 dark:border-violet-700 hover:border-violet-500 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all cursor-pointer text-center"
+                data-testid="btn-iris-import"
+              >
+                <div className="absolute top-2 right-2">
+                  <Badge className="text-[10px] px-1.5 py-0 bg-violet-600 text-white">KFintech</Badge>
+                </div>
+                <div className="w-12 h-12 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center group-hover:bg-violet-200 dark:group-hover:bg-violet-800/40 transition-colors">
+                  <Zap className="w-6 h-6 text-violet-600 dark:text-violet-400" />
+                </div>
+                <div>
+                  <p className="font-semibold text-base">Auto-Fetch via IRIS</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Live fetch from KFintech/IRIS using your PAN — no upload needed
+                  </p>
+                </div>
+                <div className="flex flex-wrap justify-center gap-1 mt-1">
+                  {['Mutual Funds', 'CAS', 'Live'].map(fmt => (
+                    <Badge key={fmt} variant="secondary" className="text-[10px] px-1.5 py-0">{fmt}</Badge>
+                  ))}
+                </div>
+              </button>
+            )}
+
             <button
               onClick={() => setMode('smart')}
               className="group relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer text-center"
@@ -579,6 +661,76 @@ export function PortfolioImportPanel({
                 </div>
               </button>
             )}
+          </div>
+        )}
+
+        {/* ── IRIS Auto-Fetch Mode ── */}
+        {mode === 'iris' && (
+          <div className="space-y-5">
+            <div className="flex items-center gap-2 mb-2">
+              <Button variant="ghost" size="sm" onClick={() => { setMode('choose'); setIrisError(null); }}>
+                <ArrowLeft className="w-4 h-4 mr-1" /> Back
+              </Button>
+              <span className="text-sm font-medium text-muted-foreground">Auto-Fetch via IRIS / KFintech</span>
+            </div>
+
+            <div className="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/20 p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-violet-600" />
+                </div>
+                <div>
+                  <p className="font-semibold">Live Fetch from KFintech CAS Registry</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Your Mutual Fund portfolio will be fetched directly using your KYC-verified PAN. No file upload required.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  All AMCs covered
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  Real-time NAV
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  ISIN-matched
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  Review before saving
+                </div>
+              </div>
+
+              {irisError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{irisError}</AlertDescription>
+                </Alert>
+              )}
+
+              <Button
+                className="w-full bg-violet-600 hover:bg-violet-700 text-white"
+                size="lg"
+                onClick={handleIrisFetch}
+                disabled={irisFetch.isPending}
+                data-testid="btn-iris-fetch-now"
+              >
+                {irisFetch.isPending ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Fetching from KFintech...</>
+                ) : (
+                  <><Zap className="w-4 h-4 mr-2" /> Fetch My Portfolio Now</>
+                )}
+              </Button>
+
+              <p className="text-[11px] text-muted-foreground text-center">
+                Powered by IRIS KFintech API. Data fetched is read-only and requires your explicit save to store.
+              </p>
+            </div>
           </div>
         )}
 

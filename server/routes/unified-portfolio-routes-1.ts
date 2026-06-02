@@ -560,4 +560,142 @@ router.post('/api/portfolio/import/smart', requireAuth, smartUpload.single('port
 });
 
 
+// ─── IRIS Auto-Fetch Portfolio (Client-facing) ───────────────────────────────
+// Fetches the authenticated client's own MF portfolio from KFintech/IRIS using
+// their PAN stored in their profile. No agent role required — this is self-serve.
+router.post('/api/portfolio/iris-fetch', requireAuth, async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    // 1. Resolve the user's PAN from their profile
+    const [profile] = await db
+      .select({ panNumber: userProfiles.panNumber, fullName: users.fullName })
+      .from(userProfiles)
+      .innerJoin(users, eq(users.id, userProfiles.userId))
+      .where(eq(userProfiles.userId, userId))
+      .limit(1);
+
+    const pan = profile?.panNumber?.trim().toUpperCase();
+    if (!pan) {
+      return res.status(400).json({
+        success: false,
+        error: 'PAN_NOT_FOUND',
+        message: 'Please complete your KYC and add your PAN card before using auto-fetch.',
+      });
+    }
+
+    // 2. Import IRIS service lazily to avoid circular dependency
+    const { irisKfintechService } = await import('../services/iris-kfintech-service');
+
+    if (!irisKfintechService.isConfigured) {
+      return res.status(503).json({
+        success: false,
+        error: 'IRIS_NOT_CONFIGURED',
+        message: 'IRIS KFintech integration is not configured on this server.',
+      });
+    }
+
+    // 3. Try CAS fetch first (structured JSON — preferred), fall back to investment details
+    let rawHoldings: any[] = [];
+    let investorName: string = profile?.fullName || '';
+    let source: 'cas_registry' | 'investment_details' = 'cas_registry';
+
+    try {
+      const casData: any = await irisKfintechService.fetchCasFromRegistry(pan);
+      const folios: any[] = casData?.folios ?? casData?.data?.folios ?? [];
+      for (const folio of folios) {
+        for (const scheme of folio?.schemes ?? []) {
+          rawHoldings.push({
+            name: scheme.schemeName || scheme.scheme_name || scheme.name || '',
+            symbol: scheme.schemeCode || scheme.scheme_code || '',
+            isin: scheme.isin || '',
+            assetType: 'mutual_fund',
+            quantity: parseFloat(scheme.units || scheme.closingBalance || scheme.balance || '0'),
+            avgPrice: parseFloat(scheme.avgCostPerUnit || scheme.averageCost || scheme.nav || '0'),
+            currentValue: parseFloat(scheme.currentValue || scheme.currentNav || '0'),
+            folioNumber: folio.folio || folio.folioNo,
+          });
+        }
+      }
+      if (folios.length === 0) {
+        // CAS returned no data — try investment details endpoint
+        throw new Error('empty_cas');
+      }
+    } catch (_casErr) {
+      // Fallback: use /user/investors/:pan/investments
+      source = 'investment_details';
+      try {
+        const invData: any = await irisKfintechService.getInvestmentDetails(pan);
+        const schemes: any[] = invData?.schemes ?? invData?.data?.schemes ?? invData?.investments ?? [];
+        rawHoldings = schemes.map((s: any) => ({
+          name: s.schemeName || s.scheme_name || s.name || '',
+          symbol: s.schemeCode || s.scheme_code || '',
+          isin: s.isin || '',
+          assetType: 'mutual_fund',
+          quantity: parseFloat(s.units || s.balance || '0'),
+          avgPrice: parseFloat(s.avgCostPerUnit || s.averageCost || s.nav || '0'),
+          currentValue: parseFloat(s.currentValue || s.currentNav || '0'),
+          folioNumber: s.folio || s.folioNo,
+        }));
+      } catch (invErr: any) {
+        console.error('[IRIS AutoFetch] Both CAS and investment endpoints failed:', invErr?.message);
+        return res.status(502).json({
+          success: false,
+          error: 'IRIS_FETCH_FAILED',
+          message: 'Could not retrieve portfolio from KFintech. Please try manual upload.',
+          retryable: true,
+        });
+      }
+    }
+
+    // 4. Filter out zero-unit holdings and normalize to ImportedHolding shape
+    const holdings = rawHoldings
+      .filter(h => h.quantity > 0 && h.name)
+      .map((h, i) => ({
+        id: `iris-${i}`,
+        name: h.name,
+        symbol: h.symbol || undefined,
+        isin: h.isin || undefined,
+        assetType: h.assetType || 'mutual_fund',
+        quantity: String(h.quantity),
+        avgPrice: String(h.avgPrice || 0),
+        currentValue: String(h.currentValue || 0),
+        folioNumber: h.folioNumber || undefined,
+        source: 'iris_kfintech',
+      }));
+
+    const totalCurrentValue = holdings.reduce((s, h) => s + parseFloat(h.currentValue), 0);
+    const totalInvested = holdings.reduce((s, h) => s + parseFloat(h.avgPrice) * parseFloat(h.quantity), 0);
+
+    console.log(`[IRIS AutoFetch] user=${userId} pan=****${pan.slice(-4)} fetched=${holdings.length} source=${source} latency=${Date.now() - t0}ms`);
+
+    return res.json({
+      success: true,
+      source,
+      pan: `${pan.slice(0, 2)}***${pan.slice(-2)}`, // masked for response
+      investor: { name: investorName, pan: `${pan.slice(0, 2)}***${pan.slice(-2)}` },
+      holdings,
+      summary: {
+        totalHoldings: holdings.length,
+        totalCurrentValue,
+        totalInvestedValue: totalInvested,
+        equityPercent: 0,
+        debtPercent: 100,
+      },
+    });
+  } catch (error: any) {
+    console.error('[IRIS AutoFetch] Unhandled error:', error?.message);
+    return res.status(500).json({
+      success: false,
+      error: 'INTERNAL_ERROR',
+      message: error?.message || 'Unexpected error during IRIS auto-fetch.',
+    });
+  }
+});
+
 export default router;
+
