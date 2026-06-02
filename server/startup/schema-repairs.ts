@@ -1030,6 +1030,24 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
         console.warn('[Migration] goal_benchmark_mapping table skipped:', e?.message);
       }
 
+      // ── Mobile: push_tokens table ────────────────────────────────────────
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS push_tokens (
+            id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id     VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            token       TEXT NOT NULL UNIQUE,
+            platform    VARCHAR(10) NOT NULL CHECK (platform IN ('ios', 'android')),
+            created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_push_tokens_user_id ON push_tokens(user_id);
+        `);
+        console.log('✅ push_tokens table verified (mobile push notifications)');
+      } catch (e: any) {
+        console.warn('[Migration] push_tokens table skipped:', e?.message);
+      }
+
       } catch (migErr) {
         console.error('❌ Migration sequence failed (non-fatal):', migErr);
       }

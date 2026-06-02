@@ -192,6 +192,13 @@ const server = app.listen(PORT, "0.0.0.0", () => {
     logBootProgress("Step 4: Registering Core Routes...");
     logger.info('📦 Registering routes...');
 
+    // ── Mobile App Routes (JWT auth + push notifications) ──────────────────
+    const { mobileAuthRouter } = await import('./routes/mobile-auth');
+    const { pushTokensRouter }  = await import('./routes/push-tokens');
+    app.use('/api/auth/mobile', mobileAuthRouter);
+    app.use('/api/push-tokens', pushTokensRouter);
+    logger.info('📱 Mobile auth and push token routes registered');
+
     // Register Version API route
     const versionRoutes = await import('./routes/version');
     app.use(versionRoutes.default);
