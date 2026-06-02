@@ -52,8 +52,8 @@ export class AlpacaAdapter extends BaseBroker {
     }
   }
 
-  async createAccount(user: { id: string; [key: string]: unknown }): Promise<any> {
-    return alpacaAccountCreator.createAccountForUser(user.id);
+  async createAccount(user: { id: string; referredByCode?: string; [key: string]: unknown }): Promise<any> {
+    return alpacaAccountCreator.createAccountForUser(user.id, '127.0.0.1', user.referredByCode);
   }
 
   async getPositions(accountId: string): Promise<NormalizedPosition[]> {

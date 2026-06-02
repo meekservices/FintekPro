@@ -1,7 +1,7 @@
 import { db } from "../../db";
 import { listedStocks, goldenPrices, stockFinancialMetrics } from "@shared/schema";
 import { screenerStocks } from "@shared/schema/screener";
-import { and, eq, sql, gte, asc, desc, count } from "drizzle-orm";
+import { and, eq, sql, gte, asc, desc, count, or, ilike } from "drizzle-orm";
 
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
@@ -10,6 +10,62 @@ import { getEnrichedStockSnapshots, EnrichedStockSnapshot } from '../screener/en
 import { FinancialMetricsCalculator } from "../financial-metrics-calculator";
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
+
+// ── Broad-sector taxonomy ─────────────────────────────────────────────────────
+// Maps 5 investor-friendly broad sectors to the keyword patterns found in the
+// `sector` and `broad_sector` columns of listed_stocks (185 granular values).
+export const BROAD_SECTORS = [
+  {
+    id: 'banking_finance',
+    label: 'Banking & Finance',
+    icon: '🏦',
+    color: '#3B82F6',
+    keywords: ['bank', 'finance', 'financial', 'nbfc', 'insurance', 'capital', 'invest', 'brokerage', 'microfinance', 'housing finance'],
+  },
+  {
+    id: 'information_technology',
+    label: 'Information Technology',
+    icon: '💻',
+    color: '#8B5CF6',
+    keywords: ['it ', 'software', 'technology', 'tech', 'digital', 'saas', 'computer', 'data', 'internet', 'semiconductor', 'telecom'],
+  },
+  {
+    id: 'healthcare_pharma',
+    label: 'Healthcare & Pharma',
+    icon: '💊',
+    color: '#10B981',
+    keywords: ['pharma', 'health', 'medical', 'hospital', 'biotech', 'diagnostics', 'drug', 'healthcare', 'life science'],
+  },
+  {
+    id: 'auto_infra',
+    label: 'Auto & Capital Goods',
+    icon: '🏭',
+    color: '#F59E0B',
+    keywords: ['auto', 'automobile', 'vehicle', 'infrastructure', 'capital good', 'engineering', 'construction', 'cement', 'steel', 'metal', 'energy', 'power', 'oil', 'gas', 'mining', 'realty', 'real estate'],
+  },
+  {
+    id: 'fmcg_consumer',
+    label: 'FMCG & Consumer',
+    icon: '🛒',
+    color: '#EF4444',
+    keywords: ['fmcg', 'consumer', 'retail', 'food', 'beverage', 'textile', 'apparel', 'media', 'entertainment', 'hotel', 'hospitality', 'agri', 'agriculture', 'chemical'],
+  },
+] as const;
+
+export type BroadSectorId = typeof BROAD_SECTORS[number]['id'];
+
+/**
+ * Maps a granular NSE/BSE sector string to one of the 5 broad sector IDs.
+ * Falls back to the last sector (FMCG/Consumer) if no keyword matches.
+ */
+export function mapToBroadSector(sector: string | null | undefined): BroadSectorId {
+  if (!sector) return 'fmcg_consumer';
+  const lower = sector.toLowerCase();
+  for (const bs of BROAD_SECTORS) {
+    if (bs.keywords.some(kw => lower.includes(kw))) return bs.id;
+  }
+  return 'fmcg_consumer'; // catch-all
+}
 
 /**
  * Simple concurrency limiter — runs `tasks` with at most `concurrency` running
@@ -39,218 +95,228 @@ let _metricsTableHasData: boolean | undefined;
 export class StockStrategy extends BaseStrategy {
   category: PickCategory = 'listed_stocks';
 
-  async generate(context: StrategyContext): Promise<DailyPickData | null> {
+  /**
+   * Generates one pick per broad sector (up to 5).
+   * Returns an array so the caller (pick-of-the-day-service) can governance-gate each independently.
+   *
+   * @param context - Scheduler context including today's date, market regime, and recently-picked IDs.
+   * @returns Array of DailyPickData (may be empty on failure), or null on hard error.
+   */
+  async generate(context: StrategyContext): Promise<DailyPickData[] | null> {
     try {
-      // Fetch 30 candidates — only the top scorer is used, so 100 was wasteful
-      // and caused connection pool exhaustion on the 9 AM batch run.
-      let stocks = await db
-        .select()
-        .from(listedStocks)
-        .where(
-          and(
-            eq(listedStocks.isPublished, true),
-            sql`${listedStocks.currentPrice} IS NOT NULL`,
-            sql`CAST(${listedStocks.currentPrice} AS DECIMAL) > 50`
-          )
-        )
-        .limit(30);
+      const results: DailyPickData[] = [];
+      const usedIds = new Set<string>(context.recentIds ?? []);
 
-      // ── Fallback: screenerStocks ──────────────────────────────────────────
-      // listedStocks requires admin to set is_published=true. When the table
-      // is empty or unpublished (common after a fresh deploy), fall back to
-      // screenerStocks which uses is_active=true and is auto-populated by the
-      // FMP screener sync job — no manual intervention needed.
-      if (stocks.length === 0) {
-        console.info('[StockStrategy] listedStocks empty — falling back to screenerStocks');
-        const screenerRows = await db
-          .select()
-          .from(screenerStocks)
-          .where(
-            and(
-              eq(screenerStocks.isActive, true),
-              sql`${screenerStocks.currentPrice} IS NOT NULL`,
-              sql`CAST(${screenerStocks.currentPrice} AS DECIMAL) > 50`
-            )
-          )
-          .limit(30);
-
-        // Map screenerStocks shape → listedStocks shape (duck-type the fields the
-        // rest of StockStrategy reads: id, symbol, companyName, currentPrice,
-        // sector, marketCap, peRatio, volatility, analystRating, returns1Y,
-        // returns3Y, isin, nseCode, bseCode, roce)
-        stocks = screenerRows.map(r => ({
-          id: r.id,
-          symbol: r.symbol,
-          companyName: r.companyName,
-          currentPrice: r.currentPrice,
-          sector: r.sector ?? null,
-          marketCap: r.marketCapCategory ?? null,
-          peRatio: null,
-          pbRatio: null,
-          dividendYield: null,
-          eps: null,
-          bookValue: null,
-          roe: null,
-          roce: null,
-          returns1M: null,
-          returns3M: null,
-          returns6M: null,
-          returns1Y: null,
-          returns3Y: null,
-          returns5Y: null,
-          beta: null,
-          volatility: null,
-          riskLevel: null,
-          analystRating: null,
-          targetPrice: null,
-          numberOfAnalysts: null,
-          averageVolume: null,
-          faceValue: '10',
-          lotSize: 1,
-          minimumInvestment: '0',
-          isPublished: false,
-          publishedAt: null,
-          publishedBy: null,
-          selectionNotes: null,
-          investmentThesis: null,
-          historicalStartDate: null,
-          historicalEndDate: null,
-          historicalComplete: false,
-          lastDailyUpdate: null,
-          isActive: r.isActive ?? true,
-          dataSource: r.dataSource ?? 'screener',
-          enrichmentStatus: 'partial',
-          lastEnrichedAt: null,
-          enrichmentSource: null,
-          lastUpdated: r.updatedAt ?? new Date(),
-          createdAt: r.createdAt ?? new Date(),
-          previousClose: null,
-          dayChange: null,
-          dayChangePercent: null,
-          weekHigh52: null,
-          weekLow52: null,
-          marketCapValue: r.marketCapValue ?? null,
-          isin: r.isin ?? null,
-          bseCode: null,
-          nseCode: null,
-          cin: null,
-          companyPan: null,
-          broadSector: null,
-          industry: r.industry ?? null,
-          indexMembership: [],
-          exchangeInfo: {},
-        } as typeof listedStocks.$inferSelect));
-      }
-
-      if (stocks.length === 0) return null;
-
-      const freshStocks = this.filterRecentPicks(stocks, context.recentIds, s => s.id);
-      const stockSymbols = freshStocks.map(s => s.symbol).filter(Boolean) as string[];
-      
-      let enrichedSnapshots: Map<string, EnrichedStockSnapshot> = new Map();
-      try {
-        enrichedSnapshots = await getEnrichedStockSnapshots(stockSymbols);
-      } catch (err) {
-        console.warn("[StockStrategy] Failed to fetch enriched snapshots:", err);
-      }
-
-      // Concurrency-limited scoring: max 5 parallel DB calls to avoid
-      // exhausting the Cloud SQL connection pool on the 9 AM batch run.
-      const scoringTasks = freshStocks.map(stock => async () => {
-        const enriched = stock.symbol ? enrichedSnapshots.get(stock.symbol.toUpperCase()) || null : null;
-        return {
-          stock,
-          enriched,
-          score: await this.score(stock, enriched),
-        };
-      });
-      const scoredStocksRaw = await runConcurrent(scoringTasks, 5);
-      const scoredStocks = scoredStocksRaw.sort((a, b) => b.score - a.score);
-
-      if (scoredStocks.length === 0) return null;
-
-      const topStock = scoredStocks[0].stock;
-      const topEnriched = scoredStocks[0].enriched;
-      const currentPrice = parseFloat(topStock.currentPrice || "0");
-      const volatility = topStock.volatility ? parseFloat(topStock.volatility) : undefined;
-      const { targetPct, stoplossPct } = this.getDynamicTargetStoploss('listed_stocks', volatility);
-      const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
-      const stoplossPrice = Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
-
-      let directRsi: number | null = null;
-      let directRoic: number | null = null;
-      
-      if (!topEnriched?.fundamentals?.roic && topStock.roce) {
-        directRoic = parseFloat(topStock.roce);
-      }
-
-      if (!topEnriched?.technicals?.rsi && (topStock.isin || topStock.symbol)) {
-        directRsi = await this.fetchRsiFromGoldenPrices(topStock);
-      }
-
-      const rationale = await context.service.generateRationale({
-        category: 'listed_stocks',
-        name: topStock.companyName || topStock.symbol,
-        symbol: topStock.symbol,
-        currentPrice,
-        targetPrice,
-        stoplossPrice,
-        metrics: {
-          pe: topStock.peRatio || undefined,
-          roic: topEnriched?.fundamentals?.roic ?? directRoic ?? undefined,
-          rsi: topEnriched?.technicals?.rsi ?? directRsi ?? undefined,
-          returns1y: topStock.returns1Y || undefined
+      for (const broadSector of BROAD_SECTORS) {
+        try {
+          const pick = await this.pickBestForSector(broadSector, context, usedIds);
+          if (pick) {
+            results.push(pick);
+            // Prevent the same stock appearing in multiple sectors
+            if (pick.instrumentId) usedIds.add(pick.instrumentId);
+          }
+        } catch (sectorErr) {
+          console.warn(`[StockStrategy] Failed to pick for sector ${broadSector.label}:`, sectorErr);
         }
-      });
+      }
 
-      const exchange = topStock.nseCode ? 'NSE' : (topStock.bseCode ? 'BSE' : 'NSE');
-      const riskLevel = this.getRiskLevel(topStock.volatility ? parseFloat(topStock.volatility) : 20);
-      const confidenceScore = this.getConfidenceScore('listed_stocks', scoredStocks[0].score, 70);
-      const suggestedAllocation = calculateSuggestedAllocation(
-        'listed_stocks',
-        riskLevel,
-        confidenceScore,
-        { marketCap: topStock.marketCap }
-      );
-      
-      return {
-        category: 'listed_stocks',
-        instrumentId: topStock.id,
-        instrumentName: topStock.companyName || topStock.symbol,
-        isin: topStock.isin || undefined,
-        symbol: topStock.symbol,
-        exchange,
-        recoDate: context.today,
-        recoPrice: currentPrice,
-        targetPrice,
-        stoplossPrice,
-        currentPrice,
-        status: 'live',
-        expiryDate: this.getExpiryDate(this.DEFAULT_VALIDITY_DAYS),
-        rationale, 
-        riskLevel,
-        suitableFor: this.deriveSuitableFor(riskLevel, 'listed_stocks'),
-        timeHorizon: this.getTimeHorizon('listed_stocks'),
-        confidenceScore,
-        sectorCategory: topStock.sector || undefined,
-        keyMetrics: {
-          cmp: currentPrice,
-          pe: topStock.peRatio ? parseFloat(topStock.peRatio) : undefined,
-          returns1y: topStock.returns1Y ? parseFloat(topStock.returns1Y) : undefined,
-          returns3y: topStock.returns3Y ? parseFloat(topStock.returns3Y) : undefined,
-          volatility: topStock.volatility ? parseFloat(topStock.volatility) : undefined,
-          sector: topStock.sector || undefined,
-          marketCap: topStock.marketCap || undefined,
-          analystRating: topStock.analystRating || undefined,
-          roic: topEnriched?.fundamentals?.roic ?? directRoic ?? null,
-          rsi: topEnriched?.technicals?.rsi ?? directRsi ?? null,
-          suggestedAllocation,
-        },
-      };
+      if (results.length === 0) {
+        console.warn('[StockStrategy] No sector picks generated — all sectors failed or were empty');
+        return null;
+      }
+
+      console.info(`[StockStrategy] Generated ${results.length} sector picks: ${results.map(p => `${p.sectorCategory} → ${p.symbol}`).join(', ')}`);
+      return results;
     } catch (error) {
-      console.error("[StockStrategy] Error:", error);
+      console.error("[StockStrategy] Fatal error:", error);
       return null;
     }
+  }
+
+  /**
+   * Picks the single best stock for a given broad sector.
+   * Fetches up to 8 candidates, scores them, returns the top scorer.
+   *
+   * @param broadSector - One of the 5 BROAD_SECTORS definitions.
+   * @param context     - Strategy context (today, recentIds, service).
+   * @param usedIds     - Already-selected stock IDs to exclude (cross-sector dedup).
+   * @returns A DailyPickData for the best stock in this sector, or null if none qualify.
+   */
+  private async pickBestForSector(
+    broadSector: typeof BROAD_SECTORS[number],
+    context: StrategyContext,
+    usedIds: Set<string>
+  ): Promise<DailyPickData | null> {
+    // Build keyword filter — match any of the sector's keywords in the sector column
+    const sectorConditions = broadSector.keywords.map(kw =>
+      ilike(listedStocks.sector, `%${kw}%`)
+    );
+    const broadSectorConditions = broadSector.keywords.map(kw =>
+      ilike(listedStocks.broadSector, `%${kw}%`)
+    );
+
+    let stocks = await db
+      .select()
+      .from(listedStocks)
+      .where(
+        and(
+          eq(listedStocks.isPublished, true),
+          sql`${listedStocks.currentPrice} IS NOT NULL`,
+          sql`CAST(${listedStocks.currentPrice} AS DECIMAL) > 50`,
+          or(
+            or(...sectorConditions),
+            or(...broadSectorConditions)
+          )
+        )
+      )
+      .limit(8);
+
+    // Fallback to screenerStocks if listedStocks has no sector data
+    if (stocks.length === 0) {
+      const screenerConditions = broadSector.keywords.map(kw =>
+        ilike(screenerStocks.sector, `%${kw}%`)
+      );
+      const screenerRows = await db
+        .select()
+        .from(screenerStocks)
+        .where(
+          and(
+            eq(screenerStocks.isActive, true),
+            sql`${screenerStocks.currentPrice} IS NOT NULL`,
+            sql`CAST(${screenerStocks.currentPrice} AS DECIMAL) > 50`,
+            or(...screenerConditions)
+          )
+        )
+        .limit(8);
+
+      stocks = screenerRows.map(r => ({
+        id: r.id,
+        symbol: r.symbol,
+        companyName: r.companyName,
+        currentPrice: r.currentPrice,
+        sector: r.sector ?? null,
+        marketCap: r.marketCapCategory ?? null,
+        peRatio: null, pbRatio: null, dividendYield: null, eps: null,
+        bookValue: null, roe: null, roce: null,
+        returns1M: null, returns3M: null, returns6M: null,
+        returns1Y: null, returns3Y: null, returns5Y: null,
+        beta: null, volatility: null, riskLevel: null,
+        analystRating: null, targetPrice: null,
+        numberOfAnalysts: null, averageVolume: null,
+        faceValue: '10', lotSize: 1, minimumInvestment: '0',
+        isPublished: false, publishedAt: null, publishedBy: null,
+        selectionNotes: null, investmentThesis: null,
+        historicalStartDate: null, historicalEndDate: null,
+        historicalComplete: false, lastDailyUpdate: null,
+        isActive: r.isActive ?? true, dataSource: r.dataSource ?? 'screener',
+        enrichmentStatus: 'partial', lastEnrichedAt: null, enrichmentSource: null,
+        lastUpdated: r.updatedAt ?? new Date(), createdAt: r.createdAt ?? new Date(),
+        previousClose: null, dayChange: null, dayChangePercent: null,
+        weekHigh52: null, weekLow52: null,
+        marketCapValue: r.marketCapValue ?? null, isin: r.isin ?? null,
+        bseCode: null, nseCode: null, cin: null, companyPan: null,
+        broadSector: null, industry: r.industry ?? null,
+        indexMembership: [], exchangeInfo: {},
+      } as typeof listedStocks.$inferSelect));
+    }
+
+    // Exclude stocks already picked for another sector today
+    const freshStocks = stocks.filter(s => !usedIds.has(s.id));
+    if (freshStocks.length === 0) return null;
+
+    // Fetch enriched snapshots for scoring
+    const symbols = freshStocks.map(s => s.symbol).filter(Boolean) as string[];
+    let enrichedSnapshots: Map<string, EnrichedStockSnapshot> = new Map();
+    try {
+      enrichedSnapshots = await getEnrichedStockSnapshots(symbols);
+    } catch { /* non-fatal — scoring degrades gracefully */ }
+
+    // Score all candidates, pick the top scorer
+    const scoringTasks = freshStocks.map(stock => async () => ({
+      stock,
+      enriched: stock.symbol ? (enrichedSnapshots.get(stock.symbol.toUpperCase()) || null) : null,
+      score: await this.score(stock, stock.symbol ? enrichedSnapshots.get(stock.symbol.toUpperCase()) || null : null),
+    }));
+    const scored = (await runConcurrent(scoringTasks, 4)).sort((a, b) => b.score - a.score);
+    if (scored.length === 0) return null;
+
+    const { stock: topStock, enriched: topEnriched, score: topScore } = scored[0];
+    const currentPrice = parseFloat(topStock.currentPrice || '0');
+    if (currentPrice <= 0) return null;
+
+    const volatility = topStock.volatility ? parseFloat(topStock.volatility) : undefined;
+    const { targetPct, stoplossPct } = this.getDynamicTargetStoploss('listed_stocks', volatility);
+    const targetPrice  = Math.round(currentPrice * (1 + targetPct)  * 100) / 100;
+    const stoplossPrice = Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
+
+    let directRsi: number | null = null;
+    let directRoic: number | null = null;
+    if (!topEnriched?.fundamentals?.roic && topStock.roce)  directRoic = parseFloat(topStock.roce);
+    if (!topEnriched?.technicals?.rsi && (topStock.isin || topStock.symbol))
+      directRsi = await this.fetchRsiFromGoldenPrices(topStock);
+
+    const sectorLabel = broadSector.label;
+    const rationale = await context.service.generateRationale({
+      category: 'listed_stocks',
+      name: topStock.companyName || topStock.symbol,
+      symbol: topStock.symbol,
+      currentPrice,
+      targetPrice,
+      stoplossPrice,
+      metrics: {
+        pe: topStock.peRatio || undefined,
+        roic: topEnriched?.fundamentals?.roic ?? directRoic ?? undefined,
+        rsi:  topEnriched?.technicals?.rsi  ?? directRsi  ?? undefined,
+        returns1y: topStock.returns1Y || undefined,
+      },
+    });
+
+    const exchange = topStock.nseCode ? 'NSE' : (topStock.bseCode ? 'BSE' : 'NSE');
+    const riskLevel = this.getRiskLevel(volatility ?? 20);
+    const confidenceScore = this.getConfidenceScore('listed_stocks', topScore, 70);
+    const suggestedAllocation = calculateSuggestedAllocation(
+      'listed_stocks', riskLevel, confidenceScore, { marketCap: topStock.marketCap }
+    );
+
+    return {
+      category: 'listed_stocks',
+      instrumentId: topStock.id,
+      instrumentName: topStock.companyName || topStock.symbol,
+      isin: topStock.isin || undefined,
+      symbol: topStock.symbol,
+      exchange,
+      recoDate: context.today,
+      recoPrice: currentPrice,
+      targetPrice,
+      stoplossPrice,
+      currentPrice,
+      status: 'live',
+      expiryDate: this.getExpiryDate(this.DEFAULT_VALIDITY_DAYS),
+      rationale,
+      riskLevel,
+      suitableFor: this.deriveSuitableFor(riskLevel, 'listed_stocks'),
+      timeHorizon: this.getTimeHorizon('listed_stocks'),
+      confidenceScore,
+      // Store both the granular sector and the broad sector label for UI grouping
+      sectorCategory: topStock.sector || sectorLabel,
+      keyMetrics: {
+        cmp: currentPrice,
+        pe: topStock.peRatio ? parseFloat(topStock.peRatio) : undefined,
+        returns1y: topStock.returns1Y ? parseFloat(topStock.returns1Y) : undefined,
+        returns3y: topStock.returns3Y ? parseFloat(topStock.returns3Y) : undefined,
+        volatility: volatility,
+        sector: topStock.sector || sectorLabel,
+        broadSector: broadSector.id,      // ← used by the UI for grouping
+        broadSectorLabel: sectorLabel,    // ← human-readable label
+        broadSectorIcon: broadSector.icon,
+        broadSectorColor: broadSector.color,
+        marketCap: topStock.marketCap || undefined,
+        analystRating: topStock.analystRating || undefined,
+        roic: topEnriched?.fundamentals?.roic ?? directRoic ?? null,
+        rsi:  topEnriched?.technicals?.rsi  ?? directRsi  ?? null,
+        suggestedAllocation,
+      },
+    };
   }
 
   async score(stock: any, enriched?: EnrichedStockSnapshot | null): Promise<number> {

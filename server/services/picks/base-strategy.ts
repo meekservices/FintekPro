@@ -5,7 +5,7 @@ export abstract class BaseStrategy implements IPickStrategy {
   abstract category: PickCategory;
   protected readonly DEFAULT_VALIDITY_DAYS = 30;
 
-  abstract generate(context: StrategyContext): Promise<DailyPickData | null>;
+  abstract generate(context: StrategyContext): Promise<DailyPickData | DailyPickData[] | null>;
   abstract score(instrument: any, enriched?: any): number | Promise<number>;
   abstract getLivePrice(instrumentId: string): Promise<number | null>;
 

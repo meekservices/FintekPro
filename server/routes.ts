@@ -94,6 +94,7 @@ import { registerUserManagementRoutes } from "./user-management-routes";
 import { registerStakeholderRoutes } from "./stakeholder-routes";
 import { registerSystemAdminRoutes } from "./routes/system-admin";
 import { registerIrisKfintechRoutes } from "./routes/iris-kfintech-routes";
+import { registerComplianceGateRoutes } from "./routes/compliance-gate-routes";
 import { registerCrmRoutes } from "./routes/crm";
 import { registerLoanRoutes } from "./routes/loans/index";
 import { registerPaymentRoutes } from "./routes/payments/index";
@@ -362,6 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerStakeholderRoutes(app);           // /api/admin/stakeholders
   registerSystemAdminRoutes(app);           // /api/admin/system/* routes
   registerIrisKfintechRoutes(app);          // /api/iris/* KFintech integration
+  registerComplianceGateRoutes(app);        // GET /api/compliance/transaction-readiness
   registerCrmRoutes(app);                   // /api/crm/* client relationship management
   registerLoanRoutes(app);                  // /api/loans/* loan marketplace
   registerPaymentRoutes(app);               // /api/payments/*

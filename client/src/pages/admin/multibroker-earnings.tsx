@@ -1,4 +1,5 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import { DynamicBar } from "@/components/ui/dynamic-bar";
 import { useQuery } from "@tanstack/react-query";
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription,
@@ -157,12 +158,12 @@ function BrokerCard({ b }: { b: BrokerEarning }) {
             <p className={`text-lg font-bold ${b.successRate >= 80 ? "text-green-600" : b.successRate >= 50 ? "text-amber-600" : "text-red-600"}`}>
               {b.successRate}%
             </p>
-            <div className="h-1 bg-muted rounded-full mt-1">
-              <div
-                className={`h-1 rounded-full ${b.successRate >= 80 ? "bg-green-500" : b.successRate >= 50 ? "bg-amber-500" : "bg-red-500"}`}
-                style={{ width: `${b.successRate}%` }}
+            <DynamicBar
+                percent={b.successRate}
+                colorClass={b.successRate >= 80 ? "bg-green-500" : b.successRate >= 50 ? "bg-amber-500" : "bg-red-500"}
+                heightClass="h-1"
+                trackClass="mt-1"
               />
-            </div>
           </div>
           <div className="space-y-0.5">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Est. Commission</p>
@@ -575,9 +576,11 @@ export default function MultibrokerEarningsDashboard() {
                             </div>
                             <span className="text-sm font-bold">{p.count}</span>
                           </div>
-                          <div className="h-1.5 bg-muted rounded-full">
-                            <div className={`h-1.5 rounded-full ${bc.bg.replace("bg-", "bg-").replace("/30", "")}`} style={{ width: `${pct}%` }} />
-                          </div>
+                          <DynamicBar
+                            percent={pct}
+                            colorClass={bc.bg.replace("/30", "")}
+                            heightClass="h-1.5"
+                          />
                         </div>
                       );
                     })

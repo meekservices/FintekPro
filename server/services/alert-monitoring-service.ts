@@ -1,9 +1,9 @@
 import { db } from "../db";
-import { userAlerts, alertHistory, users, userExpenses, portfolioHoldings, portfolios, notificationPreferences } from "@shared/schema";
+import { userAlerts, alertHistory, users, userExpenses, portfolioHoldings, portfolios, notificationPreferences } from "../../shared/schema";
 import { eq, and, lte, gte, isNull, or, sql, sum } from "drizzle-orm";
 import { emailService } from "../email-service";
 import { whatsappDispatcher } from './whatsapp-dispatcher';
-import { smsService } from "./sms-service";
+// smsService removed: SMSService exposes OTP methods only; generic alerts use whatsappDispatcher as fallback
 import yahooFinance from 'yahoo-finance2';
 
 interface MarketQuote {
@@ -59,7 +59,7 @@ export class AlertMonitoringService {
   }
 
   // Check all active alerts
-  private async checkAllAlerts(retries = 2) {
+  private async checkAllAlerts(retries = 2): Promise<void> {
     console.log(`[${new Date().toISOString()}] Checking alerts...`);
 
     try {
@@ -165,7 +165,7 @@ export class AlertMonitoringService {
       
       // Calculate spending for the specified period
       const spentAmount = await this.calculateSpending(
-        alert.userId,
+        alert.userId ?? '',
         alert.spendingCategory || 'all',
         alert.spendingPeriod || 'monthly'
       );
@@ -205,7 +205,7 @@ export class AlertMonitoringService {
       const triggerCondition = alert.triggerCondition as any;
       
       // Calculate portfolio value (integrate with your portfolio service)
-      const portfolioValue = await this.calculatePortfolioValue(alert.userId);
+      const portfolioValue = await this.calculatePortfolioValue(alert.userId ?? '');
 
       let shouldTrigger = false;
       let triggerReason = "";
@@ -275,9 +275,9 @@ export class AlertMonitoringService {
     const channels = (alert.notificationChannels as string[]) || [];
 
     // Get user info for notifications
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, alert.userId),
-    });
+    const user = alert.userId
+      ? await db.query.users.findFirst({ where: eq(users.id, alert.userId) })
+      : null;
 
     if (!user) return;
 
@@ -286,9 +286,11 @@ export class AlertMonitoringService {
     let whatsappEnabled = true;
     let smsEnabled = false;
     try {
-      const prefs = await db.query.notificationPreferences.findFirst({
-        where: eq(notificationPreferences.userId, alert.userId),
-      });
+      const prefs = alert.userId
+        ? await db.query.notificationPreferences.findFirst({
+            where: eq(notificationPreferences.userId, alert.userId),
+          })
+        : null;
       if (prefs) {
         emailEnabled = prefs.emailEnabled ?? true;
         whatsappEnabled = prefs.whatsappEnabled ?? true;
@@ -348,9 +350,15 @@ export class AlertMonitoringService {
     if (channels.includes('sms') && smsEnabled && user.mobile) {
       try {
         const message = `FintekPro Alert: ${alert.alertName} - ${triggerReason}. View details at fintekpro.com/alerts`;
-        const sent = await smsService.sendCustomMessage(user.mobile, message);
-        if (sent) {
-          console.log(`✅ Alert SMS sent to ${user.mobile}`);
+        // SMSService exposes OTP methods only — generic SMS delivery uses WhatsApp dispatcher as primary channel
+        console.warn(`[AlertMonitor] SMS channel requested for alert ${alert.id} but generic send is not available; delivering via WhatsApp fallback.`);
+        const result = await whatsappDispatcher.send({
+          mobile: user.mobile,
+          message,
+          category: 'PORTFOLIO_ALERT',
+        });
+        if (result.success) {
+          console.log(`✅ Alert SMS-fallback (WhatsApp) sent to ${user.mobile}`);
         }
       } catch (error) {
         console.error("Error sending SMS notification:", error);
@@ -493,7 +501,7 @@ export class AlertMonitoringService {
         // For equities and mutual funds, try to get current price
         if (['equity', 'mf'].includes(holding.assetType)) {
           try {
-            const quote = await this.fetchMarketData(holding.symbol);
+            const quote = await this.fetchMarketData(holding.symbol ?? '');
             if (quote) {
               totalValue += quantity * quote.currentPrice;
               continue;

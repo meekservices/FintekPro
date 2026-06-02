@@ -195,15 +195,21 @@ export class PickOfTheDayService {
         const strategy = this.getStrategy(category);
         const recentIds = await this.getRecentlyPickedIds(category);
 
-        const pick = await strategy.generate({
+        const result = await strategy.generate({
           today,
           regime: isBlackSwan ? 'BLACK_SWAN' : 'NORMAL',
           recentIds,
           service: this
         });
 
-        if (pick) {
-          // 2. Governance Gate: Every pick must pass suitability and compliance floors.
+        // StockStrategy now returns DailyPickData[] (one per sector).
+        // All other strategies still return DailyPickData | null.
+        const picks: DailyPickData[] = Array.isArray(result)
+          ? result
+          : (result ? [result] : []);
+
+        for (const pick of picks) {
+          // Governance Gate: Every pick must pass suitability and compliance floors.
           // IMPORTANT: ai_output must include `factors_considered` (non-empty) and
           // `confidence_score` >= 0.6 to pass ExplainabilityValidator (EXP_002/EXP_004).
           const governanceOutput = {
@@ -216,6 +222,8 @@ export class PickOfTheDayService {
               `targetPrice: ${pick.targetPrice}`,
               ...(pick.sectorCategory ? [`sector: ${pick.sectorCategory}`] : []),
               ...(pick.timeHorizon   ? [`horizon: ${pick.timeHorizon}`]  : []),
+              ...((pick.keyMetrics as any)?.broadSectorLabel
+                ? [`broadSector: ${(pick.keyMetrics as any).broadSectorLabel}`] : []),
             ],
             model_version: SCORER_VERSION,
             timestamp: new Date().toISOString(),
@@ -226,7 +234,7 @@ export class PickOfTheDayService {
              query: `Generate ${category} pick for ${today}`,
              ai_output: governanceOutput,
              user_profile: { risk_profile: (isBlackSwan ? 'conservative' : 'aggressive') as any, investment_horizon: 'medium', kyc_status: 'verified', user_segment: 'retail' },
-             trace_id: `POTD-${category}-${today}`
+             trace_id: `POTD-${category}-${(pick.keyMetrics as any)?.broadSector ?? 'all'}-${today}`
           });
 
           if (aageCheck.decision === "BLOCK") {
@@ -236,12 +244,15 @@ export class PickOfTheDayService {
 
           await this.savePick(pick);
           generated.push(pick);
-          console.log(`✅ [PickOfTheDay] Generated ${category} pick: ${pick.instrumentName}`);
+          const sectorTag = (pick.keyMetrics as any)?.broadSectorLabel
+            ? ` [${(pick.keyMetrics as any).broadSectorLabel}]` : '';
+          console.log(`✅ [PickOfTheDay] Generated ${category}${sectorTag} pick: ${pick.instrumentName}`);
         }
       } catch (error) {
         console.error(`❌ [PickOfTheDay] Failed to generate ${category} pick:`, error);
       }
     }
+
 
     return generated;
   }
@@ -640,7 +651,9 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
     const existingCount = Number(existing[0]?.count || 0);
 
     // Regenerate if: no picks at all, or fewer than 3 (indicates partial failure)
-    const MIN_PICKS_THRESHOLD = 3;
+    // Raised from 3 → 8: StockStrategy now generates up to 5 sector picks.
+    // A full healthy day has ~9 picks (5 stocks + MF + Bond + Global + Unlisted).
+    const MIN_PICKS_THRESHOLD = 8;
     if (existingCount < MIN_PICKS_THRESHOLD) {
       console.log(`🔄 [PickOfTheDay] Startup catch-up: only ${existingCount} picks found for ${today} (threshold: ${MIN_PICKS_THRESHOLD}). Generating missing picks...`);
       await this.generateDailyPicks();

@@ -4,13 +4,19 @@ import { users } from '../../../../shared/schema';
 import { eq } from 'drizzle-orm';
 import { alpacaClient } from '../core/alpacaClient';
 import { alpacaKycMapper } from './alpacaKycMapper';
+import { referralService } from '../../social/referralService';
 
 export class AlpacaAccountCreator {
   
   /**
-   * Orchestrates the creation of an Alpaca account from a local FintekPro user
+   * Orchestrates the creation of an Alpaca account from a local FintekPro user.
+   *
+   * Purpose  : Provision a Broker API account and optionally record referral attribution.
+   * Inputs   : userId (FintekPro), ipAddress, referredByCode (optional referral code of referrer)
+   * Outputs  : Alpaca account ID (string)
+   * Edge cases: Already has account → returns existing ID; omnibus → links platform account
    */
-  async createAccountForUser(userId: string, ipAddress: string = '127.0.0.1') {
+  async createAccountForUser(userId: string, ipAddress: string = '127.0.0.1', referredByCode?: string) {
     logger.info(`[AlpacaAccountCreator] Initiating Alpaca onboarding for user: ${userId} from IP: ${ipAddress}`);
 
     // Fetch user and profile from DB
@@ -61,6 +67,48 @@ export class AlpacaAccountCreator {
       await db.update(users)
         .set({ alpacaAccountId: alpacaAccount.id })
         .where(eq(users.id, userId));
+
+      // ── HOOK 3: Referral Attribution ──────────────────────────────────────
+      // If this user was referred, record their attribution by generating their
+      // own referral code and noting the referrer in logs (extend schema to store
+      // referredByUserId if needed in future DB migration).
+      if (referredByCode) {
+        try {
+          const referrer = await db.query.users.findFirst({
+            where: eq(users.referralCode, referredByCode),
+          });
+          if (referrer) {
+            // Generate new user's own code immediately so they can refer others
+            await referralService.generateReferralCode(userId);
+            logger.info('[AlpacaAccountCreator] Referral attribution recorded', {
+              event: 'ALPACA_REFERRAL_ATTRIBUTION',
+              new_user_id: userId,
+              referred_by_user_id: referrer.id,
+              referral_code: referredByCode,
+              alpaca_account_id: alpacaAccount.id,
+              status: 'success',
+              latency_ms: 0,
+            });
+          } else {
+            logger.warn('[AlpacaAccountCreator] Referral code not found — attribution skipped', {
+              event: 'ALPACA_REFERRAL_CODE_NOT_FOUND',
+              referral_code: referredByCode,
+              new_user_id: userId,
+              status: 'warning',
+            });
+          }
+        } catch (refErr: any) {
+          // Non-fatal — account creation already succeeded
+          logger.error('[AlpacaAccountCreator] Referral attribution failed (non-fatal)', {
+            event: 'ALPACA_REFERRAL_ATTRIBUTION_ERROR',
+            error: refErr.message,
+            new_user_id: userId,
+            referral_code: referredByCode,
+            retryable: false,
+            status: 'error',
+          });
+        }
+      }
 
       return alpacaAccount.id;
 

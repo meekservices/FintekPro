@@ -11,6 +11,10 @@
     "check": "NODE_OPTIONS=--max-old-space-size=8192 tsc",
     "lint": "NODE_ENV=production eslint server/",
     "lint:changed": "node scripts/lint-changed.js",
+    "pre-commit": "bash scripts/pre-commit-check.sh",
+    "quality-gate": "bash scripts/pre-commit-check.sh",
+    "install-hooks": "bash scripts/install-hooks.sh",
+    "postinstall": "bash scripts/install-hooks.sh 2>/dev/null || true",
     "db:repair": "tsx server/startup/schema-repairs-runner.ts",
     "db:push": "drizzle-kit push",
     "test:e2e": "playwright test",
@@ -163,6 +167,7 @@
     "zod-validation-error": "^5.0.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.8.3",
     "@playwright/test": "^1.52.0",
     "@simplewebauthn/types": "^12.0.0",
     "@tailwindcss/typography": "^0.5.19",
@@ -221,6 +226,36 @@
     },
     "@aws-sdk/xml-builder": {
       "fast-xml-parser": "^5.8.0"
+    },
+
+    "apollo-server-core": {
+      "uuid": "^11.1.1"
+    },
+    "gaxios": {
+      "uuid": "^11.1.1"
+    },
+    "teeny-request": {
+      "uuid": "^11.1.1"
+    },
+    "exceljs": {
+      "uuid": "^11.1.1"
+    },
+
+    "drizzle-kit": {
+      "esbuild": "^0.25.0"
+    },
+    "@esbuild-kit/core-utils": {
+      "esbuild": "^0.25.0"
+    },
+    "@esbuild-kit/esm-loader": {
+      "esbuild": "^0.25.0"
+    },
+    "@google-cloud/storage": {
+      "uuid": "^11.1.1"
+    },
+    "@modelcontextprotocol/sdk": {
+      "qs": "^6.13.0",
+      "body-parser": "^1.20.3"
     }
   }
 }

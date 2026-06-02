@@ -67,12 +67,13 @@ export function Footer() {
     { name: "AI Portfolio Insights", href: "/portfolio/ai-insights" },
     { name: "AI Rebalancing", href: "/portfolio/rebalancing" },
     { name: "AI Goal Planning", href: "/portfolio/goals" },
-    { name: "AI Recommendations", href: "/agent/ai-recommendations" },
+    { name: "AI Recommendations", href: "/analytics" },
   ];
 
   const investingLinks = [
     { name: "Portfolio", href: "/portfolio" },
     { name: "NSE/BSE Trading", href: "/broking" },
+    { name: "US Trading", href: "/us-trading" },
     { name: "Derivatives (F&O)", href: "/derivatives" },
     { name: "Commodities", href: "/commodities" },
     { name: "Global Trading", href: "/global-trading" },
@@ -126,10 +127,42 @@ export function Footer() {
               Complete financial services platform for investments, trading, loans, tax filing, and wealth management.
             </p>
             <div className="flex space-x-4">
-              <Facebook className="text-muted-foreground hover:text-foreground cursor-pointer h-5 w-5" data-testid="social-facebook" />
-              <Twitter className="text-muted-foreground hover:text-foreground cursor-pointer h-5 w-5" data-testid="social-twitter" />
-              <Linkedin className="text-muted-foreground hover:text-foreground cursor-pointer h-5 w-5" data-testid="social-linkedin" />
-              <Instagram className="text-muted-foreground hover:text-foreground cursor-pointer h-5 w-5" data-testid="social-instagram" />
+              <a
+                href="https://www.facebook.com/fintekpro"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="FintekPro on Facebook"
+                data-testid="social-facebook"
+              >
+                <Facebook className="text-muted-foreground hover:text-blue-600 transition-colors h-5 w-5" />
+              </a>
+              <a
+                href="https://twitter.com/fintekpro"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="FintekPro on Twitter"
+                data-testid="social-twitter"
+              >
+                <Twitter className="text-muted-foreground hover:text-sky-500 transition-colors h-5 w-5" />
+              </a>
+              <a
+                href="https://www.linkedin.com/company/fintekpro"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="FintekPro on LinkedIn"
+                data-testid="social-linkedin"
+              >
+                <Linkedin className="text-muted-foreground hover:text-blue-700 transition-colors h-5 w-5" />
+              </a>
+              <a
+                href="https://www.instagram.com/fintekpro"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="FintekPro on Instagram"
+                data-testid="social-instagram"
+              >
+                <Instagram className="text-muted-foreground hover:text-pink-500 transition-colors h-5 w-5" />
+              </a>
             </div>
           </div>
           

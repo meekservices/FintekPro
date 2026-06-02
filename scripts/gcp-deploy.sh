@@ -23,6 +23,18 @@ REPO_NAME="fintekpro-repo"
 
 echo "🚀 Starting FintekPro GCP Deployment Process"
 
+# ── Quality Gate (must pass before Cloud Build) ────────────────────────────
+echo ""
+echo "🔒 Running pre-deploy quality gate..."
+if ! bash "$SCRIPT_DIR/pre-commit-check.sh"; then
+  echo ""
+  echo "❌ Deploy BLOCKED — quality gate failed."
+  echo "   Fix all errors above, then re-run the deploy script."
+  echo "   Emergency bypass: SKIP_PRECOMMIT=1 bash scripts/gcp-deploy.sh"
+  exit 1
+fi
+echo ""
+
 # 1. Ensure gcloud is configured
 echo "📝 Checking GCP configuration..."
 

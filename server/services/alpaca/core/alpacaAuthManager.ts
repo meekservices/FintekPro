@@ -10,8 +10,8 @@ export class AlpacaAuthManager {
   private tokenExpiry: number = 0;
 
   constructor() {
-    this.keyId = process.env.ALPACA_BROKER_KEY_ID || process.env.ALPACA_KEY_ID || '';
-    this.secretKey = process.env.ALPACA_BROKER_SECRET_KEY || process.env.ALPACA_SECRET_KEY || '';
+    this.keyId = process.env.ALPACA_BROKER_KEY_ID || process.env.ALPACA_KEY_ID || process.env.ALPACA_API_KEY || '';
+    this.secretKey = process.env.ALPACA_BROKER_SECRET_KEY || process.env.ALPACA_KEY_SECRET || process.env.ALPACA_SECRET_KEY || '';
     this.isPaper = process.env.ALPACA_ENV !== 'production';
   }
 

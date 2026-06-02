@@ -273,31 +273,6 @@ export const leadActivityLog = pgTable("lead_activity_log", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const leadActivities = pgTable("lead_activities", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
-  leadId: varchar("lead_id").references(() => prospectLeads.id).notNull(),
-  
-  // Activity details
-  activityType: varchar("activity_type").notNull(), // call/email/whatsapp/meeting/note/status_change
-  subject: varchar("subject"),
-  description: text("description"),
-  
-  // Outcome
-  outcome: varchar("outcome"), // successful/no_response/callback_requested/not_interested
-  nextAction: varchar("next_action"),
-  nextActionDate: timestamp("next_action_date"),
-  
-  // Performed by
-  performedBy: varchar("performed_by").references(() => users.id),
-  
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-  index("idx_lead_activity_lead").on(table.leadId),
-  index("idx_lead_activity_type").on(table.activityType),
-  index("idx_lead_activity_created").on(table.createdAt),
-]);
-
 // 4. Prospecting
 
 export const prospectLeads = pgTable("prospect_leads", {
@@ -417,6 +392,32 @@ export const prospectLeads = pgTable("prospect_leads", {
   index("idx_prospect_assigned").on(table.assignedTo),
   index("idx_prospect_created").on(table.createdAt),
 ]);
+
+export const leadActivities = pgTable("lead_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  leadId: varchar("lead_id").references(() => prospectLeads.id).notNull(),
+  
+  // Activity details
+  activityType: varchar("activity_type").notNull(), // call/email/whatsapp/meeting/note/status_change
+  subject: varchar("subject"),
+  description: text("description"),
+  
+  // Outcome
+  outcome: varchar("outcome"), // successful/no_response/callback_requested/not_interested
+  nextAction: varchar("next_action"),
+  nextActionDate: timestamp("next_action_date"),
+  
+  // Performed by
+  performedBy: varchar("performed_by").references(() => users.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_lead_activity_lead").on(table.leadId),
+  index("idx_lead_activity_type").on(table.activityType),
+  index("idx_lead_activity_created").on(table.createdAt),
+]);
+
 
 export const prospectScoreHistory = pgTable("prospect_score_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

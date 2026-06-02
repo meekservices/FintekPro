@@ -46,7 +46,7 @@ import { useClientCapabilities } from "@/hooks/useClientCapabilities";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 // Component types live in a dedicated module — no interface declarations in component file
-import type { AccountQueryResponse, NavItemProps } from "./hub-types";
+import type { AccountQueryResponse, NavItemProps, MarketInstrumentsResponse, BestBuysResponse, StockRecommendation, MarketInstrument } from "./hub-types";
 import { USFundingCard } from "@/components/social/USFundingCard";
 import { USTradingCard } from "@/components/social/USTradingCard";
 import { AlgoSignalsView } from "./algo-signals";
@@ -83,6 +83,27 @@ const MOCK_ACTIVITIES = [
   { id: "4", type: "FILL", symbol: "TSLA", qty: "10", price: "205.00", side: "buy", date: "2024-04-05" },
 ];
 
+// ─── NavItem ─────────────────────────────────────────────────────────────────
+// Defined at module level so it is a stable reference (not recreated per render)
+// and satisfies strict typing rules — all props including state setters are explicit.
+function NavItem({ id, icon: Icon, label, disabled = false, activeView, setActiveView }: NavItemProps) {
+  return (
+    <button
+      onClick={() => !disabled && setActiveView(id)}
+      className={cn(
+        "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium",
+        activeView === id
+          ? "bg-primary/10 text-primary shadow-sm"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+        disabled && "opacity-50 cursor-not-allowed"
+      )}
+    >
+      <Icon className={cn("h-4 w-4", activeView === id ? "text-primary" : "text-muted-foreground")} />
+      {label}
+    </button>
+  );
+}
+
 export default function AlpacaClientHub() {
   const { user } = useAuth();
   const [activeView, setActiveView] = useState("home");
@@ -95,13 +116,13 @@ export default function AlpacaClientHub() {
   });
 
   // ── Live Market Data Queries ──────────────────────────────────────────────
-  const { data: instrumentsData, isLoading: isLoadingInstruments, refetch: refetchInstruments } = useQuery<any>({
+  const { data: instrumentsData, isLoading: isLoadingInstruments, refetch: refetchInstruments } = useQuery<MarketInstrumentsResponse>({
     queryKey: ["/api/alpaca/market/instruments"],
     staleTime: 30_000,   // 30s — matches server cache TTL
     retry: 1,
   });
 
-  const { data: bestBuysData, isLoading: isLoadingBestBuys } = useQuery<any>({
+  const { data: bestBuysData, isLoading: isLoadingBestBuys } = useQuery<BestBuysResponse>({
     queryKey: ["/api/alpaca/market/best-buys", { riskProfile: "moderate", limit: 9 }],
     queryFn: () => fetch("/api/alpaca/market/best-buys?riskProfile=moderate&limit=9").then(r => r.json()),
     staleTime: 60_000,   // 1 min — screener is heavier
@@ -112,21 +133,6 @@ export default function AlpacaClientHub() {
   const isPaper = accountData?.is_paper ?? false;
   const onboardingStatus = accountData?.onboarding_status ?? "not_started";
 
-  const NavItem = ({ id, icon: Icon, label, disabled = false }: NavItemProps) => (
-    <button
-      onClick={() => !disabled && setActiveView(id)}
-      className={cn(
-        "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium",
-        activeView === id 
-          ? "bg-primary/10 text-primary shadow-sm" 
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-        disabled && "opacity-50 cursor-not-allowed"
-      )}
-    >
-      <Icon className={cn("h-4 w-4", activeView === id ? "text-primary" : "text-muted-foreground")} />
-      {label}
-    </button>
-  );
 
   // View: Onboarding (Empty State mirroring Alpaca Dashboard)
   const OnboardingView = () => (
@@ -275,21 +281,21 @@ export default function AlpacaClientHub() {
 
         <nav className="flex-1 flex flex-col gap-1">
           <div className="px-2 mb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-50">General</div>
-          <NavItem id="home" icon={Home} label="Home" />
-          <NavItem id="account" icon={User} label="Account" />
-          <NavItem id="positions" icon={Briefcase} label="Positions" />
-          <NavItem id="orders" icon={BarChart3} label="Orders" />
-          <NavItem id="activities" icon={History} label="Activities" />
-          <NavItem id="balances" icon={Wallet} label="Balances" />
+          <NavItem id="home" icon={Home} label="Home" activeView={activeView} setActiveView={setActiveView} />
+          <NavItem id="account" icon={User} label="Account" activeView={activeView} setActiveView={setActiveView} />
+          <NavItem id="positions" icon={Briefcase} label="Positions" activeView={activeView} setActiveView={setActiveView} />
+          <NavItem id="orders" icon={BarChart3} label="Orders" activeView={activeView} setActiveView={setActiveView} />
+          <NavItem id="activities" icon={History} label="Activities" activeView={activeView} setActiveView={setActiveView} />
+          <NavItem id="balances" icon={Wallet} label="Balances" activeView={activeView} setActiveView={setActiveView} />
           
           <div className="px-2 mt-6 mb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-50">AI Tools</div>
-          <NavItem id="algo-signals" icon={Zap} label="Algo Signals" />
-          <NavItem id="configure" icon={Settings} label="Configure" />
-          <NavItem id="api" icon={ShieldCheck} label="API Keys" />
+          <NavItem id="algo-signals" icon={Zap} label="Algo Signals" activeView={activeView} setActiveView={setActiveView} />
+          <NavItem id="configure" icon={Settings} label="Configure" activeView={activeView} setActiveView={setActiveView} />
+          <NavItem id="api" icon={ShieldCheck} label="API Keys" activeView={activeView} setActiveView={setActiveView} />
           
           <div className="px-2 mt-6 mb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-50">Support</div>
-          <NavItem id="help" icon={HelpCircle} label="Support" />
-          <NavItem id="legal" icon={FileText} label="Legal" />
+          <NavItem id="help" icon={HelpCircle} label="Support" activeView={activeView} setActiveView={setActiveView} />
+          <NavItem id="legal" icon={FileText} label="Legal" activeView={activeView} setActiveView={setActiveView} />
         </nav>
 
         <Card className="p-4 bg-muted/40 border-none rounded-2xl">
@@ -562,7 +568,7 @@ export default function AlpacaClientHub() {
                         ) : bestBuysData?.data?.recommendations?.length ? (
                           <>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              {bestBuysData.data.recommendations.map((rec: any) => (
+                              {bestBuysData.data.recommendations.map((rec) => (
                                 <div
                                   key={rec.symbol}
                                   className={cn(
@@ -677,7 +683,7 @@ export default function AlpacaClientHub() {
                               </div>
                             ) : (
                               <div className="divide-y">
-                                {(instrumentsData?.data?.stocks ?? []).map((stock: any) => (
+                                {(instrumentsData?.data?.stocks ?? []).map((stock) => (
                                   <div key={stock.symbol} className="flex items-center justify-between px-6 py-3.5 hover:bg-muted/30 transition-colors group">
                                     <div className="flex items-center gap-3">
                                       <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center text-[10px] font-black shadow-sm">
@@ -726,7 +732,7 @@ export default function AlpacaClientHub() {
                               </div>
                             ) : (
                               <div className="divide-y">
-                                {(instrumentsData?.data?.etfs ?? []).map((etf: any) => (
+                                {(instrumentsData?.data?.etfs ?? []).map((etf) => (
                                   <div key={etf.symbol} className="flex items-center justify-between px-6 py-3.5 hover:bg-muted/30 transition-colors group">
                                     <div className="flex items-center gap-3">
                                       <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/50 dark:to-purple-900/50 flex items-center justify-center text-[10px] font-black text-indigo-700 dark:text-indigo-300 shadow-sm">

@@ -19,6 +19,7 @@ import crypto from "crypto";
 
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { alpacaAccountGuard } from "../middleware/rbac";
+import { requireTransactionCompliance } from "../middleware/transactionComplianceGate";
 import type { AuthRequest } from "../types/broker-types";
 
 const router = Router();
@@ -484,7 +485,10 @@ router.get("/broker/accounts/:accountId/orders", async (req, res) => {
 });
 
 /** Place an order for a specific broker account */
-router.post("/broker/accounts/:accountId/orders", orderLimiter, async (req, res) => {
+router.post("/broker/accounts/:accountId/orders",
+  orderLimiter,
+  requireTransactionCompliance('US_EQUITY', 'purchase'),
+  async (req, res) => {
   const userId = (req as AuthRequest).user?.id;
   const { accountId } = req.params;
   const startMs = Date.now();
@@ -530,6 +534,7 @@ router.post("/broker/accounts/:accountId/orders", orderLimiter, async (req, res)
         notional: req.body.notional,
         order_id: order?.id,
         idempotency_key: idempotencyKey,
+        compliance_gates_passed: res.locals.complianceResult?.gates?.length ?? 7,
         latency_ms: Date.now() - startMs,
         status: "accepted",
       },

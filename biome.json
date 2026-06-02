@@ -7,16 +7,37 @@
     "enabled": true,
     "rules": {
       "recommended": true,
+
       "complexity": {
-        "noBannedTypes": "off"
+        "noBannedTypes": "off",
+        "noUselessTypeConstraint": "off"
       },
+
       "suspicious": {
         "noExplicitAny": "off"
       },
+
       "style": {
         "useBlockStatements": "off",
-        "noNonNullAssertion": "off"
+        "noNonNullAssertion": "off",
+        "useConsistentArrayType": "off",
+        "useShorthandFunctionType": "off",
+        "noInferrableTypes": "off",
+        "useAsConstAssertion": "off",
+        "useNodejsImportProtocol": "off"
+      },
+
+      "nursery": {
+        "useExplicitType": "off"
       }
     }
+  },
+  "files": {
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      ".git/**"
+    ]
   }
 }

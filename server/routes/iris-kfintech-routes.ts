@@ -5,6 +5,7 @@ import { scheduleIrisPortfolioRefresh, syncIrisHoldingsForPan } from '../service
 import { ComplianceAuditPackService } from '../services/compliance-audit-pack-service';
 import { isAuthenticated } from '../auth-setup';
 import { requireAdmin, requireAgent } from '../middleware/auth';
+import { requireTransactionCompliance } from '../middleware/transactionComplianceGate';
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   return isAuthenticated(req, res, next);
@@ -212,7 +213,10 @@ export function registerIrisKfintechRoutes(app: Express): void {
     await wrap(res, () => irisKfintechService.validateInvestment(req.body as Record<string, unknown>));
   });
 
-  app.post('/api/iris/transactions/place-order', requireAuth, requireAgent, async (req, res) => {
+  app.post('/api/iris/transactions/place-order',
+    requireAuth, requireAgent,
+    requireTransactionCompliance('MF', 'purchase'),
+    async (req, res) => {
     const pan = (req.body as any)?.pan;
     const userId = (req as any).user?.id;
     
@@ -225,7 +229,7 @@ export function registerIrisKfintechRoutes(app: Express): void {
           userId,
           "order_placement",
           result?.orderId || "MF-ORDER",
-          { provider: "Iris", ...req.body }
+          { provider: "Iris", complianceGates: res.locals.complianceResult?.gates?.length ?? 7, ...req.body }
         );
       }
       return result;
@@ -234,7 +238,10 @@ export function registerIrisKfintechRoutes(app: Express): void {
     if (pan && userId) scheduleIrisPortfolioRefresh(pan, userId);
   });
 
-  app.post('/api/iris/transactions/place-redemption', requireAuth, requireAgent, async (req, res) => {
+  app.post('/api/iris/transactions/place-redemption',
+    requireAuth, requireAgent,
+    requireTransactionCompliance('MF', 'redemption'),
+    async (req, res) => {
     const pan = (req.body as any)?.pan;
     await wrap(res, () => irisKfintechService.placeRedemption(req.body as Record<string, unknown>));
     if (pan) scheduleIrisPortfolioRefresh(pan, (req as any).user?.id);
@@ -299,7 +306,10 @@ export function registerIrisKfintechRoutes(app: Express): void {
   });
 
   // STP Registration
-  app.post('/api/iris/transactions/stp/register', requireAuth, requireAgent, async (req, res) => {
+  app.post('/api/iris/transactions/stp/register',
+    requireAuth, requireAgent,
+    requireTransactionCompliance('MF', 'stp'),
+    async (req, res) => {
     await wrap(res, () => irisKfintechService.registerStp(req.body as Record<string, unknown>));
   });
 
@@ -325,7 +335,10 @@ export function registerIrisKfintechRoutes(app: Express): void {
   });
 
   // Additional Purchase
-  app.post('/api/iris/transactions/additional-purchase', requireAuth, requireAgent, async (req, res) => {
+  app.post('/api/iris/transactions/additional-purchase',
+    requireAuth, requireAgent,
+    requireTransactionCompliance('MF', 'purchase'),
+    async (req, res) => {
     await wrap(res, () => irisKfintechService.placeAdditionalPurchase(req.body as Record<string, unknown>));
   });
 
@@ -529,7 +542,10 @@ export function registerIrisKfintechRoutes(app: Express): void {
   });
 
   // ─── SIP Lifecycle ────────────────────────────────────────────────────────────
-  app.post('/api/iris/transactions/sip/register', requireAuth, requireAgent, async (req, res) => {
+  app.post('/api/iris/transactions/sip/register',
+    requireAuth, requireAgent,
+    requireTransactionCompliance('MF', 'sip'),
+    async (req, res) => {
     const pan = (req.body as any)?.pan;
     await wrap(res, () => irisKfintechService.registerSip(req.body as Record<string, unknown>));
     if (pan) scheduleIrisPortfolioRefresh(pan, (req as any).user?.id);

@@ -292,6 +292,40 @@ const allCategories = [
   { key: "derivatives", label: "F&O", icon: Activity },
 ];
 
+// ── Broad sector UI metadata (mirrors BROAD_SECTORS in stock-strategy.ts) ──────
+// Kept on the client side to avoid importing server code into the browser bundle.
+const BROAD_SECTOR_UI = [
+  { id: 'banking_finance',       label: 'Banking & Finance',       icon: '🏦', color: '#3B82F6' },
+  { id: 'information_technology',label: 'Information Technology',  icon: '💻', color: '#8B5CF6' },
+  { id: 'healthcare_pharma',     label: 'Healthcare & Pharma',     icon: '💊', color: '#10B981' },
+  { id: 'auto_infra',            label: 'Auto & Capital Goods',    icon: '🏭', color: '#F59E0B' },
+  { id: 'fmcg_consumer',         label: 'FMCG & Consumer',         icon: '🛒', color: '#EF4444' },
+] as const;
+
+/** Groups an array of DailyPick by their broadSector keyMetric. */
+function groupByBroadSector(picks: DailyPick[]): Array<{ sector: typeof BROAD_SECTOR_UI[number] | null; picks: DailyPick[] }> {
+  const grouped = new Map<string, DailyPick[]>();
+  const ungrouped: DailyPick[] = [];
+
+  for (const p of picks) {
+    const bsId = (p.keyMetrics as any)?.broadSector as string | undefined;
+    if (bsId) {
+      if (!grouped.has(bsId)) grouped.set(bsId, []);
+      grouped.get(bsId)!.push(p);
+    } else {
+      ungrouped.push(p);
+    }
+  }
+
+  const result: Array<{ sector: typeof BROAD_SECTOR_UI[number] | null; picks: DailyPick[] }> = [];
+  for (const bs of BROAD_SECTOR_UI) {
+    const items = grouped.get(bs.id);
+    if (items && items.length > 0) result.push({ sector: bs, picks: items });
+  }
+  if (ungrouped.length > 0) result.push({ sector: null, picks: ungrouped });
+  return result;
+}
+
 const marketFilters = [
   { key: "all", label: "All Markets" },
   { key: "us", label: "US Stocks" },
@@ -1718,35 +1752,108 @@ export default function AgentPicksPage() {
                       </Card>
                     )}
 
-                    {filteredTodayPicks.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-2 mb-4">
-                          <TrendingUp className="h-5 w-5 text-primary" />
-                          <h3 className="font-semibold">Today's Stock Picks</h3>
-                        </div>
-                        <div className="grid gap-4 md:grid-cols-2">
-                          {filteredTodayPicks.map((pick, index) => (
-                            <PickCard
-                              key={`today-${pick.id}-${index}`}
-                              pick={pick}
-                              isWatchlisted={watchlistPickIds.has(pick.id)}
-                              isSelected={selectedPickIds.has(pick.id)}
-                              onSelectToggle={handleSelectToggle}
-                              onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
-                              onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
-                              onShareEmail={(id) => handleShare(id, 'email')}
-                              onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
-                              onShareClients={handleShareWithClients}
-                              onClick={setSelectedPick}
-                              onExplain={(id) => {
-                                setExplanationPickId(id);
-                                setExplanationOpen(true);
-                              }}
-                            />
+                    {filteredTodayPicks.length > 0 && (() => {
+                      const sectorGroups = groupByBroadSector(filteredTodayPicks);
+                      const hasSectorData = sectorGroups.some(g => g.sector !== null);
+
+                      return (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 mb-2">
+                            <TrendingUp className="h-5 w-5 text-primary" />
+                            <h3 className="font-semibold">Today's Stock Picks</h3>
+                            {hasSectorData && (
+                              <span className="ml-auto flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                {sectorGroups.filter(g => g.sector).length} Sectors
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Sector Allocation Bar */}
+                          {hasSectorData && sectorGroups.length >= 2 && (
+                            <div className="bg-card border rounded-xl p-4 shadow-sm mb-4">
+                              <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                                <PieChart className="h-3 w-3" /> Sector Allocation
+                              </h4>
+                              <div className="flex h-2.5 rounded-full overflow-hidden gap-0.5 mb-3">
+                                {sectorGroups.filter(g => g.sector).map(g => (
+                                  <TooltipProvider key={g.sector!.id}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div
+                                          className="h-full rounded-sm transition-all hover:opacity-80 cursor-default"
+                                          style={{
+                                            backgroundColor: g.sector!.color,
+                                            flex: g.picks.length,
+                                          }}
+                                        />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <div className="font-medium">{g.sector!.icon} {g.sector!.label}</div>
+                                        <div className="text-xs text-muted-foreground">{g.picks.map(p => p.symbol).join(', ')}</div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                ))}
+                              </div>
+                              <div className="flex flex-wrap gap-3">
+                                {sectorGroups.filter(g => g.sector).map(g => (
+                                  <div key={g.sector!.id} className="flex items-center gap-1.5 text-xs">
+                                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: g.sector!.color }} />
+                                    <span>{g.sector!.icon} {g.sector!.label}</span>
+                                    <span className="text-muted-foreground">· {g.picks.map(p => p.symbol).join(', ')}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Per-sector grouped cards */}
+                          {sectorGroups.map((group, gi) => (
+                            <div key={group.sector?.id ?? 'other'} className="space-y-3">
+                              {group.sector ? (
+                                <div
+                                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white text-sm font-semibold"
+                                  style={{ backgroundColor: group.sector.color }}
+                                >
+                                  <span>{group.sector.icon}</span>
+                                  <span>{group.sector.label}</span>
+                                  <span className="ml-auto opacity-80 text-xs font-normal">
+                                    {group.picks.length} pick{group.picks.length > 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted text-sm font-semibold text-muted-foreground">
+                                  <TrendingUp className="h-4 w-4" />
+                                  <span>Other Sectors</span>
+                                </div>
+                              )}
+                              <div className="grid gap-4 md:grid-cols-2">
+                                {group.picks.map((pick, index) => (
+                                  <PickCard
+                                    key={`today-sector-${pick.id}-${gi}-${index}`}
+                                    pick={pick}
+                                    isWatchlisted={watchlistPickIds.has(pick.id)}
+                                    isSelected={selectedPickIds.has(pick.id)}
+                                    onSelectToggle={handleSelectToggle}
+                                    onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
+                                    onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
+                                    onShareEmail={(id) => handleShare(id, 'email')}
+                                    onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
+                                    onShareClients={handleShareWithClients}
+                                    onClick={setSelectedPick}
+                                    onExplain={(id) => {
+                                      setExplanationPickId(id);
+                                      setExplanationOpen(true);
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
                           ))}
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {!generateAIMutation.isPending && !quickAILoading && aiRecommendations.length === 0 && filteredTodayPicks.length === 0 && (
                       <Card>
@@ -1795,23 +1902,141 @@ export default function AgentPicksPage() {
                   <p className="text-xs text-muted-foreground/60 mt-2">Next auto-generation: 9:00 AM IST</p>
                 </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {filteredTodayPicks.map((pick, index) => (
-                    <PickCard 
-                      key={`today-${pick.id}-${index}`} 
-                      pick={pick}
-                      isWatchlisted={watchlistPickIds.has(pick.id)}
-                      isSelected={selectedPickIds.has(pick.id)}
-                      onSelectToggle={handleSelectToggle}
-                      onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
-                      onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
-                      onShareEmail={(id) => handleShare(id, 'email')}
-                      onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
-                      onShareClients={handleShareWithClients}
-                      onClick={setSelectedPick}
-                    />
-                  ))}
-                </div>
+                (() => {
+                  // For listed_stocks: sector-grouped view. For all others: flat grid.
+                  if (todayCategoryFilter === 'listed_stocks' || todayCategoryFilter === 'all') {
+                    const stockPicks = filteredTodayPicks.filter(p => p.category === 'listed_stocks');
+                    const nonStockPicks = filteredTodayPicks.filter(p => p.category !== 'listed_stocks');
+                    const sectorGroups = groupByBroadSector(stockPicks);
+                    const hasSectorData = sectorGroups.some(g => g.sector !== null);
+
+                    return (
+                      <div className="space-y-6">
+                        {hasSectorData && (
+                          <div className="space-y-4">
+                            {/* Sector allocation bar */}
+                            {sectorGroups.length >= 2 && (
+                              <div className="bg-card border rounded-xl p-4 shadow-sm">
+                                <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                                  <PieChart className="h-3 w-3" /> Sector Diversity
+                                  <span className="ml-auto flex items-center gap-1 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full text-xs">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                    {sectorGroups.filter(g => g.sector).length} Sectors Covered
+                                  </span>
+                                </h4>
+                                <div className="flex h-2.5 rounded-full overflow-hidden gap-0.5 mb-3">
+                                  {sectorGroups.filter(g => g.sector).map(g => (
+                                    <TooltipProvider key={g.sector!.id}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div
+                                            className="h-full rounded-sm transition-all hover:opacity-80 cursor-default"
+                                            style={{ backgroundColor: g.sector!.color, flex: g.picks.length }}
+                                          />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <div className="font-medium">{g.sector!.icon} {g.sector!.label}</div>
+                                          <div className="text-xs text-muted-foreground">{g.picks.map(p => p.symbol).join(', ')}</div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  ))}
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                  {sectorGroups.filter(g => g.sector).map(g => (
+                                    <div key={g.sector!.id} className="flex items-center gap-1.5 text-xs">
+                                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: g.sector!.color }} />
+                                      <span>{g.sector!.icon} {g.sector!.label}</span>
+                                      <span className="text-muted-foreground">· {g.picks.map(p => p.symbol).join(', ')}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Per-sector groups */}
+                            {sectorGroups.map((group, gi) => (
+                              <div key={group.sector?.id ?? 'other'} className="space-y-3">
+                                <div
+                                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold"
+                                  style={group.sector
+                                    ? { backgroundColor: group.sector.color, color: '#fff' }
+                                    : { backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' }
+                                  }
+                                >
+                                  <span>{group.sector?.icon ?? '📊'}</span>
+                                  <span>{group.sector?.label ?? 'Other Sectors'}</span>
+                                  <span className="ml-auto opacity-80 text-xs font-normal">
+                                    {group.picks.length} pick{group.picks.length > 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                  {group.picks.map((pick, index) => (
+                                    <PickCard
+                                      key={`today-gs-${pick.id}-${gi}-${index}`}
+                                      pick={pick}
+                                      isWatchlisted={watchlistPickIds.has(pick.id)}
+                                      isSelected={selectedPickIds.has(pick.id)}
+                                      onSelectToggle={handleSelectToggle}
+                                      onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
+                                      onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
+                                      onShareEmail={(id) => handleShare(id, 'email')}
+                                      onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
+                                      onShareClients={handleShareWithClients}
+                                      onClick={setSelectedPick}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Non-stock picks (when "All" tab) */}
+                        {nonStockPicks.length > 0 && (
+                          <div className="grid gap-4 md:grid-cols-2">
+                            {nonStockPicks.map((pick, index) => (
+                              <PickCard
+                                key={`today-ns-${pick.id}-${index}`}
+                                pick={pick}
+                                isWatchlisted={watchlistPickIds.has(pick.id)}
+                                isSelected={selectedPickIds.has(pick.id)}
+                                onSelectToggle={handleSelectToggle}
+                                onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
+                                onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
+                                onShareEmail={(id) => handleShare(id, 'email')}
+                                onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
+                                onShareClients={handleShareWithClients}
+                                onClick={setSelectedPick}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  // Flat grid for all other categories
+                  return (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {filteredTodayPicks.map((pick, index) => (
+                        <PickCard
+                          key={`today-flat-${pick.id}-${index}`}
+                          pick={pick}
+                          isWatchlisted={watchlistPickIds.has(pick.id)}
+                          isSelected={selectedPickIds.has(pick.id)}
+                          onSelectToggle={handleSelectToggle}
+                          onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
+                          onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
+                          onShareEmail={(id) => handleShare(id, 'email')}
+                          onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
+                          onShareClients={handleShareWithClients}
+                          onClick={setSelectedPick}
+                        />
+                      ))}
+                    </div>
+                  );
+                })()
               )}
             </CardContent>
           </Card>
