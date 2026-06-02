@@ -791,14 +791,27 @@ class AlpacaMarketDataService {
   }
 
   async getPopularStocks(): Promise<(StockDetails & { price?: number; change?: number; changePercent?: number; volume?: number; vwap?: number })[]> {
-    const symbols   = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "JPM", "V", "JNJ"];
+    const STOCK_META: Record<string, string> = {
+      AAPL:  'Apple Inc.',
+      MSFT:  'Microsoft Corp.',
+      GOOGL: 'Alphabet Inc.',
+      AMZN:  'Amazon.com Inc.',
+      NVDA:  'NVIDIA Corp.',
+      META:  'Meta Platforms',
+      TSLA:  'Tesla Inc.',
+      JPM:   'JPMorgan Chase',
+      V:     'Visa Inc.',
+      JNJ:   'Johnson & Johnson',
+    };
+    const symbols   = Object.keys(STOCK_META);
     const snapshots = await this.getSnapshots(symbols);
     return symbols.map(sym => {
       const snap  = snapshots.get(sym);
       const quote = snap ? this.toQuote(snap) : null;
-      return { symbol: sym, name: sym, market: "stocks", locale: "us", primaryExchange: "", type: "CS", currency: "USD", price: quote?.price, change: quote?.change, changePercent: quote?.changePercent, volume: quote?.volume, vwap: quote?.vwap };
+      return { symbol: sym, name: STOCK_META[sym] ?? sym, market: "stocks", locale: "us", primaryExchange: "", type: "CS", currency: "USD", price: quote?.price, change: quote?.change, changePercent: quote?.changePercent, volume: quote?.volume, vwap: quote?.vwap };
     });
   }
+
 
   async getPopularETFs(): Promise<(StockDetails & { price?: number; change?: number; changePercent?: number; expenseRatio?: number; category?: string })[]> {
     const meta: Record<string, { name: string; category: string; expenseRatio: number }> = {

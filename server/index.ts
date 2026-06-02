@@ -415,10 +415,15 @@ import('./routes/compliance'),
               if (cfg.apiKey && cfg.secretKeyEncrypted && cfg.baseUrl) {
                 const secret = decrypt(cfg.secretKeyEncrypted);
                 alpacaBrokerService.configure(cfg.apiKey, secret, cfg.baseUrl);
+                // Also propagate to process.env so that alpacaMarketDataService.isConfigured()
+                // returns true — it reads env vars directly (not via alpacaBrokerService).
+                process.env.ALPACA_API_KEY    = cfg.apiKey;
+                process.env.ALPACA_SECRET_KEY = secret;
+                process.env.ALPACA_BASE_URL   = cfg.baseUrl;
                 if (cfg.webhookSecret) {
                   try { process.env.ALPACA_WEBHOOK_SECRET = decrypt(cfg.webhookSecret); } catch { /* ignore */ }
                 }
-                logBootProgress('Step 12a: Alpaca credentials loaded from DB ✅');
+                logBootProgress('Step 12a: Alpaca credentials loaded from DB ✅ (market data service synced)');
               }
             }
           }
