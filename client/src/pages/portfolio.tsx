@@ -1464,7 +1464,7 @@ export default function Portfolio() {
                         <p className="text-sm text-muted-foreground">of recommended coverage</p>
                       </div>
                       <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-green-600 h-2 rounded-full iris-bar-fill" style={{ ['--bar-w' as string]: '85%' }}></div>
+                        <div className="bg-green-600 h-2 rounded-full w-[85%]"></div>
                       </div>
                     </div>
 
@@ -1737,7 +1737,8 @@ export default function Portfolio() {
                       </div>
                       {epfPortfolioWeight && (
                         <div className="w-full bg-muted rounded-full h-2">
-                          <div className="bg-purple-600 h-2 rounded-full iris-bar-fill" style={{ ['--bar-w' as string]: `${Math.min(parseFloat(epfPortfolioWeight), 100)}%` }}></div>
+                          {/* eslint-disable-next-line react/forbid-dom-props */}
+                          <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${Math.min(parseFloat(epfPortfolioWeight), 100)}%` }}></div>
                         </div>
                       )}
                     </div>
@@ -1945,7 +1946,7 @@ export default function Portfolio() {
                         </div>
                       </div>
                       <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-green-500 h-2 rounded-full iris-bar-fill" style={{ ['--bar-w' as string]: '80%' }}></div>
+                        <div className="bg-green-500 h-2 rounded-full w-[80%]"></div>
                       </div>
                       <p className="text-sm text-muted-foreground">
                         80% of annual limit utilized (₹1.5L max per year)
@@ -2035,7 +2036,8 @@ export default function Portfolio() {
                       </div>
                       {ppfPortfolioWeight && (
                         <div className="w-full bg-muted rounded-full h-2">
-                          <div className="bg-purple-600 h-2 rounded-full iris-bar-fill" style={{ ['--bar-w' as string]: `${Math.min(parseFloat(ppfPortfolioWeight), 100)}%` }}></div>
+                          {/* eslint-disable-next-line react/forbid-dom-props */}
+                          <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${Math.min(parseFloat(ppfPortfolioWeight), 100)}%` }}></div>
                         </div>
                       )}
                     </div>
@@ -2111,8 +2113,9 @@ export default function Portfolio() {
                             <div className="text-xs text-muted-foreground">FY {2016 + i}</div>
                             <div className="text-sm font-bold text-purple-600">₹{1.5 - (Math.random() * 0.3)}L</div>
                           </div>
-                          <div className="bg-purple-600 mx-auto rounded iris-bar-fill iris-bar-ht"
-                               style={{ ['--bar-w' as string]: '100%', ['--bar-h' as string]: `${20 + i * 8}px` }}>
+                          {/* eslint-disable-next-line react/forbid-dom-props */}
+                          <div className="bg-purple-600 mx-auto rounded"
+                               style={{ width: '100%', height: `${20 + i * 8}px` }}>
                           </div>
                         </div>
                       ))}
@@ -2470,7 +2473,7 @@ export default function Portfolio() {
                           <p className="text-lg font-bold text-foreground">6.3 Years</p>
                         </div>
                         <div className="w-full bg-muted rounded-full h-3">
-                          <div className="bg-green-500 h-3 rounded-full iris-bar-fill" style={{ ['--bar-w' as string]: '25.2%' }}></div>
+                          <div className="bg-green-500 h-3 rounded-full w-[25.2%]"></div>
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Age 35</span>
@@ -2659,7 +2662,7 @@ export default function Portfolio() {
                           <span className="text-sm font-medium">9.8 years</span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-2">
-                          <div className="bg-blue-600 h-2 rounded-full iris-bar-fill" style={{ ['--bar-w' as string]: '30.6%' }}></div>
+                          <div className="bg-blue-600 h-2 rounded-full w-[30.6%]"></div>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm">Projected Total</span>
@@ -2707,8 +2710,9 @@ export default function Portfolio() {
                             <div className="text-xs text-muted-foreground">{2015 + i}</div>
                             <div className="text-sm font-bold text-blue-600">₹{Math.floor(12000 + i * 1500)}</div>
                           </div>
-                          <div className="bg-blue-600 mx-auto rounded iris-bar-fill iris-bar-ht"
-                               style={{ ['--bar-w' as string]: '100%', ['--bar-h' as string]: `${15 + i * 3}px` }}>
+                          {/* eslint-disable-next-line react/forbid-dom-props */}
+                          <div className="bg-blue-600 mx-auto rounded"
+                               style={{ width: '100%', height: `${15 + i * 3}px` }}>
                           </div>
                         </div>
                       ))}
@@ -2835,7 +2839,7 @@ export default function Portfolio() {
                           <span className="font-bold text-green-700 dark:text-green-300">50%</span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-2 mt-2">
-                          <div className="bg-green-600 h-2 rounded-full iris-bar-fill" style={{ ['--bar-w' as string]: '50%' }}></div>
+                          <div className="bg-green-600 h-2 rounded-full w-1/2"></div>
                         </div>
                       </div>
                       <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
@@ -2844,7 +2848,7 @@ export default function Portfolio() {
                           <span className="font-bold text-blue-700 dark:text-blue-300">30%</span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-2 mt-2">
-                          <div className="bg-blue-600 h-2 rounded-full iris-bar-fill" style={{ ['--bar-w' as string]: '30%' }}></div>
+                          <div className="bg-blue-600 h-2 rounded-full w-[30%]"></div>
                         </div>
                       </div>
                       <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
@@ -2853,7 +2857,7 @@ export default function Portfolio() {
                           <span className="font-bold text-purple-700 dark:text-purple-300">20%</span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-2 mt-2">
-                          <div className="bg-purple-600 h-2 rounded-full" style={{ width: '20%' }}></div>
+                          <div className="bg-purple-600 h-2 rounded-full w-1/5"></div>
                         </div>
                       </div>
                       <div className="flex gap-4 mt-4">
@@ -2983,7 +2987,7 @@ export default function Portfolio() {
                     <div className="text-3xl font-bold text-blue-600 mb-2">7.3/10</div>
                     <p className="text-sm text-muted-foreground mb-3">Moderate-High Risk</p>
                     <div className="w-full bg-muted rounded-full h-2">
-                      <div className="bg-blue-600 h-2 rounded-full iris-bar-fill" style={{ ['--bar-w' as string]: '73%' }}></div>
+                      <div className="bg-blue-600 h-2 rounded-full w-[73%]"></div>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">Based on asset allocation & volatility</p>
                   </CardContent>
@@ -3000,7 +3004,7 @@ export default function Portfolio() {
                     <div className="text-3xl font-bold text-green-600 mb-2">85%</div>
                     <p className="text-sm text-muted-foreground mb-3">Well Diversified</p>
                     <div className="w-full bg-muted rounded-full h-2">
-                      <div className="bg-green-600 h-2 rounded-full iris-bar-fill" style={{ ['--bar-w' as string]: '85%' }}></div>
+                      <div className="bg-green-600 h-2 rounded-full w-[85%]"></div>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">Across 4 asset classes & sectors</p>
                   </CardContent>
@@ -3017,7 +3021,7 @@ export default function Portfolio() {
                     <div className="text-3xl font-bold text-orange-600 mb-2">Medium</div>
                     <p className="text-sm text-muted-foreground mb-3">Action Recommended</p>
                     <div className="w-full bg-muted rounded-full h-2">
-                      <div className="bg-orange-600 h-2 rounded-full iris-bar-fill" style={{ ['--bar-w' as string]: '60%' }}></div>
+                      <div className="bg-orange-600 h-2 rounded-full w-[60%]"></div>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">2 allocations need adjustment</p>
                   </CardContent>
@@ -3067,7 +3071,7 @@ export default function Portfolio() {
                           <span>72% → 65%</span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-2">
-                          <div className="bg-blue-600 h-2 rounded-full relative iris-bar-fill" style={{ ['--bar-w' as string]: '72%' }}>
+                          <div className="bg-blue-600 h-2 rounded-full relative w-[72%]">
                             <div className="absolute right-0 top-0 w-1 h-2 bg-green-600"></div>
                           </div>
                         </div>
@@ -3112,8 +3116,8 @@ export default function Portfolio() {
                           <span>18% → 25%</span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-2">
-                          <div className="bg-green-600 h-2 rounded-full relative iris-bar-fill" style={{ ['--bar-w' as string]: '25%' }}>
-                            <div className="absolute left-0 top-0 h-2 bg-green-400 iris-bar-fill" style={{ ['--bar-w' as string]: '72%' }}></div>
+                          <div className="bg-green-600 h-2 rounded-full relative w-1/4">
+                            <div className="absolute left-0 top-0 h-2 bg-green-400 w-[72%]"></div>
                           </div>
                         </div>
                       </div>
