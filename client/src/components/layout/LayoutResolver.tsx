@@ -25,12 +25,20 @@ export function LayoutResolver({ children, forceLayout }: LayoutResolverProps) {
     return <>{children}</>;
   }
 
+  // Standalone pages that own their own full-screen layout — never wrap in a portal shell.
+  // The landing page has its own fixed nav; wrapping it in AppLayout causes a double-nav overlap.
+  const standaloneRoutes = ["/", "/auth", "/excel-addin"];
+  if (standaloneRoutes.includes(location)) {
+    return <>{children}</>;
+  }
+
   if (isAdmin && !forceLayout) {
     return <AppLayout>{children}</AppLayout>;
   }
 
   const effectivePosition = forceLayout || navPosition;
 
+  // Unauthenticated users on non-standalone routes (e.g. /pricing, /terms) still get a layout shell.
   if (!isAuthenticated) {
     return <AppLayout>{children}</AppLayout>;
   }
