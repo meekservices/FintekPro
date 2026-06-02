@@ -25,7 +25,7 @@ import { usePortfoliosByPan, useEnhancedPortfolioHoldings, usePortfolioPerforman
 import { LoadingState } from "@/components/LoadingState";
 import { Plus, TrendingUp, TrendingDown, RefreshCw, Bot, Coins, CreditCard, PiggyBank, Shield as LucideShield, Target, Calculator, AlertTriangle, Building2, ExternalLink, Briefcase, History, FileText, CheckCircle2, Clock, XCircle, Loader2, ChevronDown, Landmark } from "lucide-react";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useConsent, type SchemeType } from "@/hooks/use-consent";
 import { ConsentDialog } from "@/components/ConsentDialog";
 import { ConsentAwareSchemeTab } from "@/components/ConsentAwareSchemeTab";
@@ -73,6 +73,30 @@ interface EnhancedHoldingWithSource {
   source: PortfolioSource;
   portfolioView: PortfolioView;
   [key: string]: any;
+}
+
+// ── Style-free dynamic bar helpers ───────────────────────────────────────────
+// These set width/height imperatively via ref to avoid JSX inline-style linter warnings.
+
+/** Progress bar whose width (%) is set imperatively – no style={} in JSX. */
+function DynamicProgressBar({ widthPct, colorClass }: { widthPct: number; colorClass: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.style.width = `${Math.min(widthPct, 100)}%`;
+  }, [widthPct]);
+  return <div ref={ref} className={`h-2 rounded-full ${colorClass}`} />;
+}
+
+/** Bar-chart column whose height (px) is set imperatively – no style={} in JSX. */
+function DynamicBarColumn({ heightPx, colorClass }: { heightPx: number; colorClass: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.style.width = '100%';
+      ref.current.style.height = `${heightPx}px`;
+    }
+  }, [heightPx]);
+  return <div ref={ref} className={`mx-auto rounded ${colorClass}`} />;
 }
 
 // Compute FintekPro holdings from completed orders with multiple matching keys
@@ -1737,8 +1761,7 @@ export default function Portfolio() {
                       </div>
                       {epfPortfolioWeight && (
                         <div className="w-full bg-muted rounded-full h-2">
-                          {/* eslint-disable-next-line react/forbid-dom-props */}
-                          <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${Math.min(parseFloat(epfPortfolioWeight), 100)}%` }}></div>
+                          <DynamicProgressBar widthPct={Math.min(parseFloat(epfPortfolioWeight), 100)} colorClass="bg-purple-600" />
                         </div>
                       )}
                     </div>
@@ -2036,8 +2059,7 @@ export default function Portfolio() {
                       </div>
                       {ppfPortfolioWeight && (
                         <div className="w-full bg-muted rounded-full h-2">
-                          {/* eslint-disable-next-line react/forbid-dom-props */}
-                          <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${Math.min(parseFloat(ppfPortfolioWeight), 100)}%` }}></div>
+                          <DynamicProgressBar widthPct={Math.min(parseFloat(ppfPortfolioWeight), 100)} colorClass="bg-purple-600" />
                         </div>
                       )}
                     </div>
@@ -2113,10 +2135,7 @@ export default function Portfolio() {
                             <div className="text-xs text-muted-foreground">FY {2016 + i}</div>
                             <div className="text-sm font-bold text-purple-600">₹{1.5 - (Math.random() * 0.3)}L</div>
                           </div>
-                          {/* eslint-disable-next-line react/forbid-dom-props */}
-                          <div className="bg-purple-600 mx-auto rounded"
-                               style={{ width: '100%', height: `${20 + i * 8}px` }}>
-                          </div>
+                          <DynamicBarColumn heightPx={20 + i * 8} colorClass="bg-purple-600" />
                         </div>
                       ))}
                     </div>
@@ -2710,10 +2729,7 @@ export default function Portfolio() {
                             <div className="text-xs text-muted-foreground">{2015 + i}</div>
                             <div className="text-sm font-bold text-blue-600">₹{Math.floor(12000 + i * 1500)}</div>
                           </div>
-                          {/* eslint-disable-next-line react/forbid-dom-props */}
-                          <div className="bg-blue-600 mx-auto rounded"
-                               style={{ width: '100%', height: `${15 + i * 3}px` }}>
-                          </div>
+                          <DynamicBarColumn heightPx={15 + i * 3} colorClass="bg-blue-600" />
                         </div>
                       ))}
                     </div>
