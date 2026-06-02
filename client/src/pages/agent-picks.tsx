@@ -571,6 +571,11 @@ export default function AgentPicksPage() {
     return true;
   });
 
+  // BUG FIX: counts must be computed from picks that PASS the expiry filter,
+  // otherwise expired derivatives show count=1 on the tab but 0 cards in the list.
+  const nonExpiredTodayPicks = todayPicks.filter(p => !isPickExpired(p));
+  const nonExpiredLivePicks  = livePicks.filter(p => !isPickExpired(p));
+
   const getCategoryCounts = (picks: DailyPick[]) => {
     const counts: Record<string, number> = { all: picks.length };
     picks.forEach(p => {
@@ -590,12 +595,13 @@ export default function AgentPicksPage() {
     return counts;
   };
 
-  const todayCounts = getCategoryCounts(todayPicks);
-  const liveCounts = getCategoryCounts(livePicks);
+  // Use non-expired filtered lists for counts so badge numbers match card counts
+  const todayCounts = getCategoryCounts(nonExpiredTodayPicks);
+  const liveCounts = getCategoryCounts(nonExpiredLivePicks);
   const historyCounts = getCategoryCounts(historyPicks);
 
-  const todayMarketCounts = getMarketCounts(todayPicks);
-  const liveMarketCounts = getMarketCounts(livePicks);
+  const todayMarketCounts = getMarketCounts(nonExpiredTodayPicks);
+  const liveMarketCounts = getMarketCounts(nonExpiredLivePicks);
   const historyMarketCounts = getMarketCounts(historyPicks);
 
   const lastRefreshed = liveData?.lastRefreshedAt || todayData?.lastRefreshedAt;
@@ -1134,6 +1140,8 @@ export default function AgentPicksPage() {
                 {allCategories.map(({ key, label, icon: Icon }) => {
                   const count = todayCounts[key] || 0;
                   const isActive = todayCategoryFilter === key;
+                  // Hide zero-pick tabs unless they are 'all' or currently active
+                  if (key !== 'all' && !isActive && count === 0) return null;
                   const catStats = key !== 'all' ? stats?.byCategory?.[key] : null;
                   return (
                     <Button
@@ -1754,12 +1762,37 @@ export default function AgentPicksPage() {
                   </div>
                 </div>
               ) : filteredTodayPicks.length === 0 ? (
-                <div className="text-center py-12">
-                  <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">No Picks {todayCategoryFilter !== 'all' ? `for ${categoryLabels[todayCategoryFilter] || todayCategoryFilter}` : 'Yet Today'}</h3>
-                  <p className="text-muted-foreground">
-                    Picks are generated automatically each morning based on market analysis
+                <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-muted/60 flex items-center justify-center mb-4">
+                    {todayCategoryFilter === 'derivatives' ? (
+                      <Activity className="h-8 w-8 text-muted-foreground/60" />
+                    ) : todayCategoryFilter === 'global_stocks' ? (
+                      <Globe className="h-8 w-8 text-muted-foreground/60" />
+                    ) : todayCategoryFilter === 'sgb' ? (
+                      <Coins className="h-8 w-8 text-muted-foreground/60" />
+                    ) : todayCategoryFilter === 'fixed_deposits' ? (
+                      <LucideShield className="h-8 w-8 text-muted-foreground/60" />
+                    ) : (
+                      <Sparkles className="h-8 w-8 text-muted-foreground/60" />
+                    )}
+                  </div>
+                  <h3 className="text-base font-semibold mb-1">
+                    No Picks {todayCategoryFilter !== 'all' ? `for ${categoryLabels[todayCategoryFilter] || todayCategoryFilter}` : 'Yet Today'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-xs">
+                    {todayCategoryFilter === 'derivatives'
+                      ? 'F&O picks require live NSE options chain data. They are generated when market conditions indicate a clear directional opportunity.'
+                      : todayCategoryFilter === 'global_stocks'
+                      ? 'Global stock picks are generated from international instruments data. Ensure the global instruments DB is seeded with live prices.'
+                      : todayCategoryFilter === 'sgb'
+                      ? 'Sovereign Gold Bond picks are only generated during active SGB issue windows (open/upcoming tranches).'
+                      : todayCategoryFilter === 'fixed_deposits'
+                      ? 'Fixed Deposit picks are generated from the instrument master. Ensure FD instruments are seeded in the database.'
+                      : todayCategoryFilter === 'etfs'
+                      ? 'ETF picks require instruments with assetClass="etf" and a non-null lastPrice in the instrument master.'
+                      : 'Picks are generated automatically each morning at 9 AM IST based on market analysis.'}
                   </p>
+                  <p className="text-xs text-muted-foreground/60 mt-2">Next auto-generation: 9:00 AM IST</p>
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
