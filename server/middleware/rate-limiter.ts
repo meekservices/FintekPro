@@ -55,9 +55,9 @@ export const authLimiter = rateLimit({
   windowMs:  15 * 60 * 1000,
   max:       20,
   message:   'Too many authentication attempts. Please wait 15 minutes before retrying.',
-  // ipKeyGenerator handles IPv4-mapped IPv6 (::ffff:x.x.x.x) correctly,
-  // preventing ERR_ERL_KEY_GEN_IPV6 and ensuring IPv6 users can't bypass limits.
-  keyGenerator: (req) => ipKeyGenerator(req),
+  // ipKeyGenerator(ip) normalises IPv4-mapped IPv6 (::ffff:x.x.x.x) correctly.
+  // req.ip is already the real client IP because trust proxy is set globally.
+  keyGenerator: (req) => ipKeyGenerator(req.ip ?? ''),
 });
 
 // ── OTP limiter: 5 OTP requests per 15 minutes ───────────────────────────────
@@ -66,7 +66,7 @@ export const otpLimiter = rateLimit({
   windowMs:  15 * 60 * 1000,
   max:       5,
   message:   'Too many OTP requests. Please wait 15 minutes. If this is urgent, contact support.',
-  keyGenerator: (req) => ipKeyGenerator(req),
+  keyGenerator: (req) => ipKeyGenerator(req.ip ?? ''),
 });
 
 // ── AI / Gemini limiter: 30 requests per minute ──────────────────────────────
@@ -80,7 +80,7 @@ export const aiLimiter = rateLimit({
     // This prevents one heavy user from affecting others on shared IP (e.g. office NAT).
     const userId = (req as any).user?.id || (req as any).session?.userId;
     if (userId) return `user:${userId}`;
-    return ipKeyGenerator(req);
+    return ipKeyGenerator(req.ip ?? '');
   },
 });
 
@@ -92,7 +92,7 @@ export const adminCopilotLimiter = rateLimit({
   message:   'Admin Copilot rate limit exceeded. Maximum 60 requests per minute to protect Zoho API quotas.',
   keyGenerator: (req) => {
     const userId = (req as any).user?.id || (req as any).session?.userId;
-    return userId ? `admin:${userId}` : ipKeyGenerator(req);
+    return userId ? `admin:${userId}` : ipKeyGenerator(req.ip ?? '');
   },
 });
 
@@ -104,7 +104,7 @@ export const uploadLimiter = rateLimit({
   message:   'Too many document uploads. Maximum 10 uploads per 5 minutes.',
   keyGenerator: (req) => {
     const userId = (req as any).user?.id || (req as any).session?.userId;
-    return userId ? `upload:${userId}` : ipKeyGenerator(req);
+    return userId ? `upload:${userId}` : ipKeyGenerator(req.ip ?? '');
   },
 });
 
@@ -115,5 +115,5 @@ export const globalLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 300,
   message: 'Too many requests from this IP. Please slow down.',
-  keyGenerator: (req) => ipKeyGenerator(req),
+  keyGenerator: (req) => ipKeyGenerator(req.ip ?? ''),
 });

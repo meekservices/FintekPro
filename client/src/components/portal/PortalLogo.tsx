@@ -87,10 +87,10 @@ export function PortalLogo({ className, size = "md", showTagline = false, iconOn
   }
 
   const imgSizeMap = {
-    sm: "h-8",
-    md: "h-10",
-    lg: "h-14",
-    xl: "h-24",
+    sm: "h-7 w-auto max-w-[120px]",
+    md: "h-9 w-auto max-w-[160px]",
+    lg: "h-12 w-auto max-w-[220px]",
+    xl: "h-20 w-auto max-w-[320px]",
   };
 
   return (

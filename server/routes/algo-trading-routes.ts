@@ -31,14 +31,14 @@ router.use(requireAuth);
 const generateLimiter = rateLimit({
   windowMs: 60_000,
   max: 5,
-  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req),
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req.ip ?? ''),
   message: { success: false, error: "Max 5 signal generations/minute.", retryable: true },
 });
 
 const actionLimiter = rateLimit({
   windowMs: 60_000,
   max: 60,
-  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req),
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req.ip ?? ''),
   message: { success: false, error: "Too many actions. Slow down.", retryable: true },
 });
 
@@ -221,7 +221,7 @@ router.get("/performance", actionLimiter, async (req: AuthRequest, res: Response
 const backtestLimiter = rateLimit({
   windowMs: 60_000,
   max: 3, // Alpaca historical data calls are expensive — cap at 3/min
-  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req),
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req.ip ?? ''),
   message: { success: false, error: "Max 3 backtests/minute. Alpaca data rate-limited.", retryable: true },
 });
 

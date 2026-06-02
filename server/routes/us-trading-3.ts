@@ -36,7 +36,7 @@ const orderLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req),
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req.ip ?? ''),
   message: { success: false, error: "Too many orders — max 30/minute. Please slow down.", retryable: true },
 });
 
@@ -46,7 +46,7 @@ const fundingLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req),
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req.ip ?? ''),
   message: { success: false, error: "Too many funding actions — max 10/minute.", retryable: true },
 });
 
@@ -56,7 +56,7 @@ const complianceLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req),
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req.ip ?? ''),
   message: { success: false, error: "Too many compliance actions — max 5/minute.", retryable: false },
 });
 
