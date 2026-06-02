@@ -195,9 +195,11 @@ const server = app.listen(PORT, "0.0.0.0", () => {
     // ── Mobile App Routes (JWT auth + push notifications) ──────────────────
     const { mobileAuthRouter } = await import('./routes/mobile-auth');
     const { pushTokensRouter }  = await import('./routes/push-tokens');
+    const { notificationsRouter } = await import('./routes/notifications');
     app.use('/api/auth/mobile', mobileAuthRouter);
     app.use('/api/push-tokens', pushTokensRouter);
-    logger.info('📱 Mobile auth and push token routes registered');
+    app.use('/api/notifications', notificationsRouter);
+    logger.info('📱 Mobile auth, push token and FCM notification routes registered');
 
     // Register Version API route
     const versionRoutes = await import('./routes/version');
