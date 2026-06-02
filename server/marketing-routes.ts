@@ -81,7 +81,7 @@ export function registerMarketingRoutes(app: Express) {
     try {
       const campaignData = {
         ...req.body,
-        createdBy: req.user.id,
+        createdBy: req.user?.id,
         status: 'draft'
       };
 
@@ -276,7 +276,8 @@ export function registerMarketingRoutes(app: Express) {
         return apiResponse.notFound(res, 'Campaign not found');
       }
 
-      let stats: Record<string, number | string | null> | null = null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let stats: any | null = null;
 
       if (campaign.campaignType === 'email' && campaign.zohoCampaignId) {
         const zoho = getZohoCampaignsService();
@@ -286,12 +287,12 @@ export function registerMarketingRoutes(app: Express) {
           await db
             .update(marketingCampaigns)
             .set({
-              sentCount: stats.sentCount,
-              deliveredCount: stats.deliveredCount,
-              openedCount: stats.openedCount,
-              clickedCount: stats.clickedCount,
-              bouncedCount: stats.bouncedCount,
-              unsubscribedCount: stats.unsubscribedCount,
+              sentCount: stats.sentCount != null ? Number(stats.sentCount) : null,
+              deliveredCount: stats.deliveredCount != null ? Number(stats.deliveredCount) : null,
+              openedCount: stats.openedCount != null ? Number(stats.openedCount) : null,
+              clickedCount: stats.clickedCount != null ? Number(stats.clickedCount) : null,
+              bouncedCount: stats.bouncedCount != null ? Number(stats.bouncedCount) : null,
+              unsubscribedCount: stats.unsubscribedCount != null ? Number(stats.unsubscribedCount) : null,
               updatedAt: new Date()
             })
             .where(eq(marketingCampaigns.id, req.params.id));
@@ -340,25 +341,26 @@ export function registerMarketingRoutes(app: Express) {
     try {
       const { userIds, segment } = req.body;
       
-      let targetUsers: Array<{ id: string; email: string | null; mobile: string | null; fullName: string | null }> = [];
+      let targetUsers: Array<{ id: string; email: string | null; mobile: string | null; firstName: string | null; lastName: string | null }> = [];
 
       if (userIds && userIds.length > 0) {
         // Specific users
         targetUsers = await db
-          .select()
+          .select({ id: users.id, email: users.email, mobile: users.mobile, firstName: users.firstName, lastName: users.lastName })
           .from(users)
           .where(sql`${users.id} = ANY(${userIds})`);
       } else if (segment) {
         // User segment
+        const userFields = { id: users.id, email: users.email, mobile: users.mobile, firstName: users.firstName, lastName: users.lastName };
         switch (segment) {
           case 'all':
-            targetUsers = await db.select().from(users);
+            targetUsers = await db.select(userFields).from(users);
             break;
           case 'kyc_pending':
-            targetUsers = await db.select().from(users).where(eq(users.kycStatus, 'pending'));
+            targetUsers = await db.select(userFields).from(users).where(eq(users.kycStatus, 'pending'));
             break;
           case 'kyc_verified':
-            targetUsers = await db.select().from(users).where(eq(users.kycStatus, 'verified'));
+            targetUsers = await db.select(userFields).from(users).where(eq(users.kycStatus, 'verified'));
             break;
           // Add more segments as needed
         }
@@ -369,7 +371,7 @@ export function registerMarketingRoutes(app: Express) {
         userId: user.id,
         email: user.email,
         mobile: user.mobile,
-        fullName: user.fullName,
+        fullName: [user.firstName, user.lastName].filter(Boolean).join(' ') || null,
         status: 'pending'
       }));
 
@@ -471,7 +473,7 @@ export function registerMarketingRoutes(app: Express) {
         });
       }
 
-      const normalizedCompanies = result.companies.map((c: Record<string, unknown>) => normalizeCompanyResult(c));
+      const normalizedCompanies = result.companies.map((c: any) => normalizeCompanyResult(c));
 
       res.json({ 
         companies: normalizedCompanies, 
@@ -546,7 +548,7 @@ export function registerMarketingRoutes(app: Express) {
       const enrichedDirectors = result.directors.map(director => ({
         ...director,
         companies: director.companies.map((company: Record<string, unknown>) => {
-          const enriched = enrichedCompanyMap.get(company.cin);
+          const enriched = enrichedCompanyMap.get(company.cin as string);
           if (enriched) {
             return {
               ...company,
@@ -728,7 +730,7 @@ export function registerMarketingRoutes(app: Express) {
 
       // Calculate lead score with enrichment bonus
       let leadScore = company ? credhiveService.calculateLeadScore(company) : 10;
-      leadScore = Math.min(100, leadScore + Math.floor(enrichedData.enrichmentScore / 5));
+      leadScore = Math.min(100, leadScore + Math.floor(Number(enrichedData.enrichmentScore ?? 0) / 5));
       const leadQuality = credhiveService.getLeadQuality(leadScore);
 
       // Calculate investable surplus
@@ -740,7 +742,7 @@ export function registerMarketingRoutes(app: Express) {
       const [lead] = await db
         .insert(prospectLeads)
         .values({
-          cin: company?.cin || cin,
+          cin: (company?.cin || cin) as string,
           companyName: finalCompanyName,
           registrationNumber: company?.registrationNumber || cin,
           primaryEmail: company?.email || null,
@@ -760,7 +762,7 @@ export function registerMarketingRoutes(app: Express) {
           currentRatio: company?.financials?.[0]?.currentRatio?.toString() || null,
           roe: company?.financials?.[0]?.roe?.toString() || null,
           probe42Score: null,
-          directors: enrichedData.directors?.length ? enrichedData.directors as unknown[] : (company?.directors as unknown[] | undefined),
+          directors: (enrichedData.directors as any)?.length ? enrichedData.directors as unknown[] : (company?.directors as unknown[] | undefined),
           authorizedSignatories: company?.authorizedSignatories as unknown[] | undefined,
           leadScore,
           leadQuality,
@@ -786,7 +788,7 @@ export function registerMarketingRoutes(app: Express) {
             ...enrichment,
             apiAccessIssues: enrichedData.apiAccessIssues,
             dataNotAvailable: enrichedData.dataNotAvailable
-          } as Record<string, unknown>,
+          } as unknown as Record<string, unknown>,
           enrichedAt: new Date(),
           incorporationDate: company?.incorporationDate || null,
           companyType: company?.companyType || enrichedData.entityType || null,
@@ -804,7 +806,8 @@ export function registerMarketingRoutes(app: Express) {
         })
         .returning();
 
-      console.log(`✅ Lead imported with ${((enrichment as Record<string, unknown[]>).enrichmentSources as unknown[]).length}/10 data sources: ${cin}`);
+      const sourcesArr = (enrichment as any).enrichmentSources;
+      console.log(`✅ Lead imported with ${Array.isArray(sourcesArr) ? sourcesArr.length : 0}/10 data sources: ${cin}`);
       res.status(201).json(lead);
     } catch (error) {
       console.error('Error importing lead:', error);
@@ -869,7 +872,7 @@ export function registerMarketingRoutes(app: Express) {
         .values({
           leadId: req.params.id,
           ...req.body,
-          performedBy: req.user.id
+          performedBy: req.user?.id
         })
         .returning();
 
@@ -1637,7 +1640,7 @@ export function registerMarketingRoutes(app: Express) {
           const leads = await db.select({
             id: whatsappContacts.id,
             mobile: whatsappContacts.phoneNumber,
-            name: (whatsappContacts as unknown as { name: string }).name
+            name: sql<string>`coalesce((${whatsappContacts}).name, '')`
           }).from(whatsappContacts).limit(Number(limit));
 
           leads.forEach(l => {
@@ -2189,7 +2192,7 @@ export function registerMarketingRoutes(app: Express) {
           emailSubject: `Happy ${festival.name}!`,
           emailHtmlContent: festival.message,
           whatsappMessage: channel === 'whatsapp' || channel === 'both' ? festival.message : null,
-          createdBy: req.user.id,
+          createdBy: req.user?.id,
         })
         .returning();
 
@@ -2385,7 +2388,7 @@ export function registerMarketingRoutes(app: Express) {
             .where(eq(users.id, req.user.id))
             .limit(1);
 
-          const agentName = [agent?.firstName, agent?.lastName].filter(Boolean).join(' ') || req.user.username || 'Your Financial Advisor';
+          const agentName = [agent?.firstName, agent?.lastName].filter(Boolean).join(' ') || (req.user as any)?.username || 'Your Financial Advisor';
           const agentEmail = agent?.email || 'noreply@fintekpro.com';
 
           // Create festival greeting HTML
@@ -2422,7 +2425,7 @@ export function registerMarketingRoutes(app: Express) {
         // WhatsApp — IRIS primary → Twilio fallback via dispatcher
         const festivalData = getFestivalData(festivalId);
         const [agent] = await db.select().from(users).where(eq(users.id, req.user.id)).limit(1);
-        const agentName = agent?.name || 'Your Financial Advisor';
+        const agentName = [agent?.firstName, agent?.lastName].filter(Boolean).join(' ') || 'Your Financial Advisor';
         const greetingText = customMessage || `${festivalData.emoji} Happy ${festivalData.name}! Warm wishes from ${agentName}.`;
 
         const dispatchList = clients
@@ -2804,7 +2807,7 @@ interface FestivalData {
         clickedCount: 0,
         failedCount: 0,
         createdAt: new Date().toISOString(),
-        agentId: req.user.id
+        agentId: req.user?.id
       };
       
       res.json({ success: true, campaign });

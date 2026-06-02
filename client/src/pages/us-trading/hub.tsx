@@ -130,46 +130,79 @@ export default function AlpacaClientHub() {
 
   // View: Onboarding (Empty State mirroring Alpaca Dashboard)
   const OnboardingView = () => (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-4xl font-extrabold tracking-tight">Welcome to Alpaca!</h1>
-        <p className="text-muted-foreground text-lg">Your gateway to the US equity markets via FintekPro.</p>
+    <div className="max-w-5xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white p-10 shadow-2xl">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-600/20 via-transparent to-transparent" />
+        <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-indigo-600/10 blur-3xl" />
+        <div className="absolute -left-8 -bottom-8 w-48 h-48 rounded-full bg-purple-600/10 blur-2xl" />
+
+        <div className="relative z-10 space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-xl">
+              <Globe className="h-5 w-5 text-slate-900" />
+            </div>
+            <span className="text-xs font-black uppercase tracking-[0.25em] text-indigo-300">Powered by Alpaca Broker API</span>
+          </div>
+
+          <h1 className="text-4xl md:text-5xl font-black tracking-tighter leading-tight">
+            Modern Brokerage<br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">
+              Infrastructure for India
+            </span>
+          </h1>
+
+          <p className="text-slate-300 text-base leading-relaxed max-w-2xl font-medium">
+            Alpaca Broker API provides a modern, <span className="text-white font-bold">API-first brokerage infrastructure</span> that enables you to launch and scale trading products globally. With seamless integration, offer US equities, ETFs, and other investment products through a single API — supported by clearing, custody, and settlement services.
+          </p>
+
+          <div className="flex flex-wrap gap-3 pt-2">
+            {[
+              { label: 'US Equities', color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+              { label: 'ETFs', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+              { label: 'Real-Time Trading', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+              { label: 'Account Management', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+              { label: 'Compliance-Ready', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+            ].map(tag => (
+              <span key={tag.label} className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border ${tag.color}`}>
+                {tag.label}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <Separator />
+      {/* Infrastructure Pillars */}
+      <div>
+        <h2 className="text-lg font-black tracking-tight mb-4">What&apos;s included in your account</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            { icon: TrendingUp,  title: 'US Equities & ETFs',       desc: 'Trade NYSE, NASDAQ listed stocks and diversified ETFs. Fractional shares available from $1.',       color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/50 dark:text-indigo-400' },
+            { icon: ShieldCheck, title: 'Clearing & Settlement',     desc: 'Alpaca handles clearing, custody, and T+1 settlement — no operational overhead on your end.',          color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-400' },
+            { icon: Globe,       title: '196 Countries Supported',   desc: 'Indian residents can invest under LRS (Liberalised Remittance Scheme) up to $250,000/year.',         color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/50 dark:text-blue-400' },
+            { icon: Lock,        title: 'SIPC Protection $500k',     desc: 'Assets protected up to $500,000 in securities and cash through SIPC + Excess SIPC coverage.',         color: 'text-violet-600 bg-violet-50 dark:bg-violet-950/50 dark:text-violet-400' },
+            { icon: Zap,         title: 'Real-Time Account Mgmt',   desc: 'Live portfolio tracking, instant order fills, account statements, and corporate action processing.',    color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/50 dark:text-amber-400' },
+            { icon: FileText,    title: 'Compliance-Ready',          desc: 'W-8BEN filing, TCS compliance, FBAR-ready account reports, and LRS utilization tracking built-in.',   color: 'text-rose-600 bg-rose-50 dark:bg-rose-950/50 dark:text-rose-400' },
+          ].map(({ icon: Icon, title, desc, color }) => (
+            <div key={title} className="p-5 rounded-2xl border bg-card hover:-translate-y-1 transition-transform duration-300 shadow-sm hover:shadow-lg group">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${color}`}>
+                <Icon className="h-5 w-5" />
+              </div>
+              <h3 className="text-sm font-black mb-1">{title}</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-        <div className="space-y-6">
-          <h2 className="text-xl font-bold">Select an account type</h2>
-          <div className="flex flex-col gap-4">
+      {/* Account Type + Trust Badges */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Account selection */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-black tracking-tight">Select an account type</h2>
+          <div className="flex flex-col gap-3">
             <Card className="hover:ring-2 hover:ring-primary/20 cursor-pointer transition-all border-2 group">
-              <CardContent className="p-6 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
-                  <User className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="font-bold">Individual Account</h3>
-                  <p className="text-xs text-muted-foreground">For personal retail investors.</p>
-                </div>
-                <ChevronRight className="h-5 w-5 ml-auto text-muted-foreground" />
-              </CardContent>
-            </Card>
-
-            <Card className="hover:ring-2 hover:ring-orange-200 cursor-pointer transition-all border-2 opacity-70">
-              <CardContent className="p-6 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
-                  <Building2 className="h-6 w-6 text-orange-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold">Business Account</h3>
-                  <p className="text-xs text-muted-foreground">For LLCs, Corporates and Partnerships.</p>
-                </div>
-                <Badge variant="secondary" className="ml-auto text-[10px]">COMING SOON</Badge>
-              </CardContent>
-            </Card>
-          </div>
-          
-          <div className="p-4 bg-muted/30 rounded-xl space-y-3">
              <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-primary" />
                 <span className="text-sm font-bold">Rigorous Security</span>
