@@ -14,7 +14,7 @@ import { usRebalancingEngine } from "../services/us-rebalancing-engine";
 import { orderAuditHook } from "../services/order-audit-hook";
 import { kycEncryptionService } from "../services/kyc-encryption-service";
 import { auditLog } from "../middleware/audit-trail";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import crypto from "crypto";
 
 import { requireAuth, requireAdmin } from "../middleware/auth";
@@ -36,7 +36,7 @@ const orderLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || req.ip || "anon",
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req),
   message: { success: false, error: "Too many orders — max 30/minute. Please slow down.", retryable: true },
 });
 
@@ -46,7 +46,7 @@ const fundingLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || req.ip || "anon",
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req),
   message: { success: false, error: "Too many funding actions — max 10/minute.", retryable: true },
 });
 
@@ -56,7 +56,7 @@ const complianceLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || req.ip || "anon",
+  keyGenerator: (req) => (req as AuthRequest).user?.id?.toString() || ipKeyGenerator(req),
   message: { success: false, error: "Too many compliance actions — max 5/minute.", retryable: false },
 });
 
