@@ -571,7 +571,7 @@ class MFReturnsSyncService {
     // but we could parallelize in small batches if needed.
     // For now, keeping it simple to avoid rate limiting issues.
     for (const code of missingOrStale) {
-      const live = await this.getReturnsForFund(code);
+      const live = await this.syncSingleFund(code);
       if (live) {
         results[code] = live;
       }
