@@ -15,9 +15,35 @@ const router = Router();
 
 router.use(requireAgent);
 
-GoalBenchmarkMapper.initializeDefaults().catch(e =>
-  console.warn('[ProposalBuilder] Benchmark defaults init warning:', e?.message)
-);
+/**
+ * Deferred benchmark init — retries until goal_benchmark_mapping table exists.
+ * schema-repairs creates + seeds the table within ~2-3 s of boot; we wait up to 10 s
+ * so this never races. Completely silent on success, warn-logs only if it stays down.
+ */
+function scheduleBenchmarkInit() {
+  const MAX_ATTEMPTS = 5;
+  const DELAY_MS = 2000; // 2 s between retries
+  let attempt = 0;
+  const tryInit = async () => {
+    attempt++;
+    try {
+      await GoalBenchmarkMapper.initializeDefaults();
+    } catch (e: any) {
+      if (attempt < MAX_ATTEMPTS) {
+        setTimeout(tryInit, DELAY_MS);
+      } else {
+        console.warn(
+          `[ProposalBuilder] Benchmark defaults init gave up after ${MAX_ATTEMPTS} attempts:`,
+          e?.message
+        );
+      }
+    }
+  };
+  // Start first attempt after a 3 s head-start so schema-repairs can finish
+  setTimeout(tryInit, 3000);
+}
+
+scheduleBenchmarkInit();
 
 const PdfConfigSchema = z.object({
   proposalId: z.string().optional(),

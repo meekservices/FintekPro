@@ -15,9 +15,18 @@ const router = Router();
 
 router.use(requireAgent);
 
-GoalBenchmarkMapper.initializeDefaults().catch(e =>
-  console.warn('[ProposalBuilder] Benchmark defaults init warning:', e?.message)
-);
+// Deferred init — waits 3 s for schema-repairs to create goal_benchmark_mapping,
+// then retries up to 5 × with 2 s backoff. See routes-1 for full implementation.
+// This file and routes-1 share the same GoalBenchmarkMapper singleton so only
+// one actually runs; the second call is a no-op (rows already seeded, 0 inserts).
+(function scheduleBenchmarkInit2() {
+  const MAX = 5; const DELAY = 2000; let n = 0;
+  const tryIt = async () => { n++;
+    try { await GoalBenchmarkMapper.initializeDefaults(); }
+    catch (e: any) { if (n < MAX) setTimeout(tryIt, DELAY); }
+  };
+  setTimeout(tryIt, 3000);
+})();
 
 const PdfConfigSchema = z.object({
   proposalId: z.string().optional(),

@@ -229,5 +229,3 @@ export class GoalBenchmarkMapper {
     return `For your ${goalNames[goalType]} goal with a ${riskProfile} risk profile and ${horizonYears}-year horizon, we've selected ${benchmark.benchmarkName} as your benchmark. ${benchmark.rationale}`;
   }
 }
-
-console.log('✅ Goal Benchmark Mapper initialized');
