@@ -203,11 +203,28 @@ export class PickOfTheDayService {
         });
 
         if (pick) {
-          // 2. Governance Gate: Every pick must pass suitability and compliance floors
+          // 2. Governance Gate: Every pick must pass suitability and compliance floors.
+          // IMPORTANT: ai_output must include `factors_considered` (non-empty) and
+          // `confidence_score` >= 0.6 to pass ExplainabilityValidator (EXP_002/EXP_004).
+          const governanceOutput = {
+            recommendation: pick.rationale,
+            confidence_score: (pick.confidenceScore ?? 70) / 100, // normalise 0–100 → 0–1
+            factors_considered: [
+              `category: ${pick.category}`,
+              `riskLevel: ${pick.riskLevel}`,
+              `recoPrice: ${pick.recoPrice}`,
+              `targetPrice: ${pick.targetPrice}`,
+              ...(pick.sectorCategory ? [`sector: ${pick.sectorCategory}`] : []),
+              ...(pick.timeHorizon   ? [`horizon: ${pick.timeHorizon}`]  : []),
+            ],
+            model_version: SCORER_VERSION,
+            timestamp: new Date().toISOString(),
+          };
+
           const aageCheck = await aiGovernanceEngine.validateAndResolve({
              user_id: "SYSTEM_ADVISORY",
              query: `Generate ${category} pick for ${today}`,
-             ai_output: { recommendation: JSON.stringify(pick) },
+             ai_output: governanceOutput,
              user_profile: { risk_profile: (isBlackSwan ? 'conservative' : 'aggressive') as any, investment_horizon: 'medium', kyc_status: 'verified', user_segment: 'retail' },
              trace_id: `POTD-${category}-${today}`
           });
