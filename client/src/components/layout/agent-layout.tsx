@@ -71,6 +71,7 @@ import {
   FileEdit,
   Info,
   AlertTriangle,
+  Coins,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -103,104 +104,116 @@ const agentNavCategories: NavCategory[] = [
     title: "Dashboard",
     icon: Home,
     items: [
-      { title: "Overview", href: "/agent", icon: Home, description: "Overview and metrics" },
-      { title: "Tracker", href: "/agent/tracker", icon: TrendingUp, description: "MFCentral AUM, SIP & trail tracker", badge: "NEW" },
-      { title: "My Profile", href: "/agent/kyc", icon: UserCheck, description: "Your personal & professional profile" },
-      { title: "Pick of the Day", href: "/agent/picks", icon: Star, description: "Daily investment picks" },
-      { title: "Leaderboard", href: "/agent/leaderboard", icon: Trophy, description: "Agent rankings" },
+      { title: "Overview",       href: "/agent",            icon: Home,         description: "Overview and metrics" },
+      { title: "AUM Tracker",    href: "/agent/tracker",    icon: Activity,     description: "MFCentral AUM, SIP & trail tracker", badge: "NEW" },
+      { title: "My Profile",     href: "/agent/kyc",        icon: UserCheck,    description: "Your personal & professional profile" },
+      { title: "Pick of the Day",href: "/agent/picks",      icon: Star,         description: "Daily investment picks" },
+      { title: "Leaderboard",    href: "/agent/leaderboard",icon: Trophy,       description: "Agent performance rankings" },
     ]
   },
   {
     title: "Leads & CRM",
     icon: Target,
     items: [
-      { title: "Lead Pipeline", href: "/agent/leads", icon: TrendingUp, description: "Manage your lead pipeline" },
-      { title: "HNI Leaderboard", href: "/agent/hni-leaderboard", icon: Trophy, description: "Prospects ranked by wealth score", badge: "AI" },
-      { title: "Deal Matcher", href: "/agent/deal-matcher", icon: Target, description: "Match AIF/PMS deals to best-fit prospects", badge: "AI" },
-      { title: "Zoho CRM", href: "/agent/zoho-crm", icon: Target, description: "All leads from Zoho" },
-      { title: "Tasks", href: "/agent/tasks", icon: CheckSquare, description: "Tasks and reminders" },
-      { title: "Calendar", href: "/agent/calendar", icon: Calendar, description: "Appointments" },
-      { title: "Meetings", href: "/agent/meetings", icon: Video, description: "Video meetings with clients" },
+      { title: "Lead Pipeline",  href: "/agent/leads",          icon: TrendingUp,   description: "Manage your lead pipeline" },
+      { title: "HNI Prospects",  href: "/agent/hni-leaderboard",icon: UserCog,      description: "Prospects ranked by wealth score", badge: "AI" },
+      { title: "Deal Matcher",   href: "/agent/deal-matcher",   icon: Crosshair,    description: "Match AIF/PMS deals to best-fit prospects", badge: "AI" },
+      { title: "Zoho CRM",       href: "/agent/zoho-crm",       icon: BarChart3,    description: "All leads from Zoho" },
+      { title: "Tasks",          href: "/agent/tasks",          icon: CheckSquare,  description: "Tasks and reminders" },
+      { title: "Calendar",       href: "/agent/calendar",       icon: Calendar,     description: "Appointments" },
+      { title: "Meetings",       href: "/agent/meetings",       icon: Video,        description: "Video meetings with clients" },
     ]
   },
   {
     title: "Clients",
     icon: Users,
     items: [
-      { title: "My Clients", href: "/agent/clients", icon: Users, description: "Client portfolio" },
-      { title: "Onboard Client", href: "/agent/onboard-client", icon: UserPlus, description: "New client KYC" },
-      { title: "KYC Rejection", href: "/kyc-rejections", icon: ShieldAlert, description: "Reject client KYC sessions" },
+      { title: "My Clients",     href: "/agent/clients",        icon: Users,        description: "Client portfolio" },
+      { title: "Onboard Client", href: "/agent/onboard-client", icon: UserPlus,     description: "New client KYC" },
+      { title: "KYC Rejections", href: "/agent/kyc-rejections", icon: ShieldAlert,  description: "Retry failed KYC sessions" },
     ]
   },
   {
     title: "Proposals",
     icon: FileText,
     items: [
-      { title: "Create Proposal", href: "/agent/proposal-builder", icon: Plus, description: "Multi-product proposals" },
-      { title: "My Proposals", href: "/agent/proposals", icon: FileCheck, description: "View proposals" },
-      { title: "E-Sign", href: "/agent/esign", icon: FileSignature, description: "Electronic signatures" },
+      { title: "Create Proposal",href: "/agent/proposal-builder",icon: Plus,         description: "Multi-product proposals" },
+      { title: "My Proposals",   href: "/agent/proposals",       icon: FileCheck,    description: "View all proposals" },
+      { title: "E-Sign",         href: "/agent/esign",           icon: FileSignature,description: "Electronic signatures" },
     ]
   },
   {
     title: "Loans",
     icon: Banknote,
     items: [
-      { title: "Submit Loan Lead", href: "/agent/loan-apply", icon: Plus, description: "Submit client loan application" },
-      { title: "Track Applications", href: "/agent/loan-applications", icon: ClipboardList, description: "Monitor your leads" },
-      { title: "DSA Performance", href: "/agent/dsa-performance", icon: BarChart3, description: "Your loan metrics" },
+      { title: "Loan Marketplace",    href: "/agent/loan-marketplace",  icon: Landmark,     description: "Browse available loan products" },
+      { title: "Submit Loan Lead",    href: "/agent/loan-apply",        icon: Send,         description: "Submit client loan application" },
+      { title: "Track Applications",  href: "/agent/loan-applications", icon: ClipboardList,description: "Monitor your loan leads" },
+      { title: "DSA Performance",     href: "/agent/dsa-performance",   icon: Target,       description: "Your loan metrics" },
     ]
   },
   {
-    title: "KFintech / IRIS",
-    icon: Landmark,
-    items: [
-      { title: "IRIS Hub", href: "/agent/iris", icon: Landmark, description: "MF, AIF, PMS, FD, NPS & SIF via IRIS", badge: "NEW" },
-    ]
-  },
-  {
-    title: "US Equity (Alpaca)",
+    title: "Investments & Products",
     icon: TrendingUp,
     items: [
-      { title: "US Client Accounts", href: "/agent/us-client-accounts", icon: Wallet, description: "Alpaca broker-managed US trading accounts" },
-      { title: "Open US Account", href: "/us-trading/open-account", icon: UserPlus, description: "Onboard client for US equity trading" },
+      { title: "IRIS Hub",           href: "/agent/iris",              icon: Landmark,     description: "MF, AIF, PMS, FD, NPS & SIF via KFintech", badge: "NEW" },
+      { title: "Alpaca Hub",         href: "/agent/alpaca-hub",        icon: Briefcase,    description: "Full Alpaca US equity management" },
+      { title: "US Client Accounts", href: "/agent/us-client-accounts",icon: Wallet,       description: "Broker-managed US trading accounts" },
+      { title: "Open US Account",    href: "/agent/us-client-accounts",icon: UserPlus,     description: "Onboard client for US equity" },
+      { title: "Treasury",           href: "/agent/treasury",          icon: Coins,        description: "Treasury & fixed income instruments" },
     ]
   },
   {
     title: "Operations",
     icon: Wallet,
     items: [
-      { title: "Revenue", href: "/agent/revenue", icon: Wallet, description: "AUM and commissions" },
-      { title: "My Payouts", href: "/agent/payouts", icon: DollarSign, description: "Earnings & payouts" },
-      { title: "Reports", href: "/agent/reports", icon: BarChart3, description: "Client reports" },
-      { title: "AI Advisory", href: "/agent/investment-advisory", icon: Brain, description: "AI recommendations" },
-      { title: "ITR Services", href: "/agent/tax-cases", icon: FileText, description: "ITR filing & tax services" },
-      { title: "Festival Greetings", href: "/agent/festival-greetings", icon: Sparkles, description: "Send festival wishes" },
-      { title: "Bulk Communication", href: "/agent/bulk-communication", icon: Mail, description: "Email/SMS campaigns" },
-      { title: "Agent Marketing Profile", href: "/agent/advisor-profile", icon: Briefcase, description: "Photo, credentials & public microsite" },
-      { title: "SIP Health Monitor", href: "/agent/sip-health", icon: HeartPulse, description: "Client SIP status dashboard" },
-      { title: "Market Alert Center", href: "/agent/market-alerts", icon: BellRing, description: "Significant moves in client holdings" },
-      { title: "Portfolio Drift", href: "/agent/portfolio-drift", icon: Crosshair, description: "Detect allocation drift across clients" },
+      { title: "Revenue",              href: "/agent/revenue",              icon: DollarSign,  description: "AUM and commissions overview" },
+      { title: "My Payouts",           href: "/agent/payouts",              icon: Wallet,      description: "Earnings & payouts" },
+      { title: "Payout Claims",        href: "/agent/payout-claims",        icon: FileCheck,   description: "Submit & track payout claims" },
+      { title: "Commission Calculator",href: "/agent/commission-calculator", icon: Calculator,  description: "Estimate commissions" },
+      { title: "Reports",              href: "/agent/reports",              icon: FileText,    description: "Client and portfolio reports" },
+      { title: "SIP Health Monitor",   href: "/agent/sip-health",           icon: HeartPulse,  description: "Client SIP status dashboard" },
+      { title: "Market Alert Center",  href: "/agent/market-alerts",        icon: BellRing,    description: "Significant moves in client holdings" },
+      { title: "Portfolio Drift",      href: "/agent/portfolio-drift",      icon: Activity,    description: "Detect allocation drift across clients" },
+    ]
+  },
+  {
+    title: "Client Engagement",
+    icon: Send,
+    items: [
+      { title: "AI Advisory",         href: "/agent/investment-advisory",icon: Brain,       description: "AI-powered investment recommendations", badge: "AI" },
+      { title: "ITR Services",        href: "/agent/tax-cases",          icon: ClipboardList,description: "ITR filing & tax services" },
+      { title: "Festival Greetings",  href: "/agent/festival-greetings", icon: Sparkles,    description: "Send festival wishes to clients" },
+      { title: "Bulk Communication",  href: "/agent/bulk-communication", icon: Mail,        description: "Email/SMS campaigns" },
+      { title: "Marketing Profile",   href: "/agent/advisor-profile",    icon: Briefcase,   description: "Public microsite & credentials" },
     ]
   },
   {
     title: "Research",
     icon: Microscope,
     items: [
-      { title: "Research Lists", href: "/agent/research-lists", icon: ListChecks, description: "Curated instrument lists" },
-      { title: "Research Note", href: "/agent/research/generate", icon: FileText, description: "Institutional PPT & PDF reports", badge: "AI" },
-      { title: "Screener", href: "/agent/screener", icon: Filter, description: "Filter instruments" },
-      { title: "Quant Analytics", href: "/agent/quant-analytics", icon: Calculator, description: "Advanced quant tools", badge: "NEW" },
-      { title: "Analytics", href: "/agent/research-analytics", icon: BarChart3, description: "Performance analysis" },
+      { title: "Research Lists",  href: "/agent/research-lists",    icon: ListChecks,  description: "Curated instrument lists" },
+      { title: "Research Note",   href: "/agent/research/generate", icon: FileEdit,    description: "Institutional PPT & PDF reports", badge: "AI" },
+      { title: "Stock AI",        href: "/agent/stock-ai",          icon: Brain,       description: "AI-powered stock analysis", badge: "AI" },
+      { title: "Screener",        href: "/agent/screener",          icon: Filter,      description: "Filter instruments by criteria" },
+      { title: "Quant Analytics", href: "/agent/quant-analytics",   icon: Calculator,  description: "Advanced quant tools", badge: "NEW" },
+      { title: "Analytics",       href: "/agent/research-analytics",icon: BarChart3,   description: "Research performance analysis" },
     ]
   },
   {
     title: "Knowledge",
     icon: BookOpen,
     items: [
-      { title: "Knowledge Hub", href: "/agent/knowledge-hub", icon: BookOpen, description: "Market briefs & insights" },
-      { title: "Training", href: "/agent/training", icon: GraduationCap, description: "Training & certification" },
-      { title: "Settings", href: "/agent/settings", icon: Settings, description: "Your preferences" },
-      { title: "Theme & Accessibility", href: "/agent/theme-settings", icon: Palette, description: "Visual customization" },
+      { title: "Knowledge Hub",href: "/agent/knowledge-hub",icon: BookOpen,      description: "Market briefs & product insights" },
+      { title: "Training",      href: "/agent/training",     icon: GraduationCap, description: "Training & certification" },
+    ]
+  },
+  {
+    title: "Account",
+    icon: Settings,
+    items: [
+      { title: "Settings",             href: "/agent/settings",      icon: Settings, description: "Your preferences & account settings" },
+      { title: "Theme & Accessibility",href: "/agent/theme-settings",icon: Palette,  description: "Visual customization" },
     ]
   }
 ];

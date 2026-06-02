@@ -714,6 +714,16 @@ export function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
+      {/* Alias with correct /agent prefix for nav consistency */}
+      <Route path="/agent/kyc-rejections">
+        {() => (
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <KycRejectionRekyc />
+            </Suspense>
+          </AgentLayout>
+        )}
+      </Route>
       <Route path="/agent/iris">
         {() => (
           <AgentLayout>
