@@ -128,11 +128,11 @@ export function AppLayout({ children }: AppLayoutProps) {
   const showPortalSwitcher = hasAdminRole || hasAgentRole || hasPartnerRole;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className={`min-h-screen ${isMobile ? 'flex flex-col' : 'grid grid-cols-[auto_1fr]'}`}>
+    <div className={isMobile ? 'min-h-screen bg-background flex flex-col' : 'h-screen bg-background overflow-hidden'}>
+      <div className={isMobile ? 'flex flex-col flex-1' : 'h-full grid grid-cols-[auto_1fr]'}>
         {!isMobile && <EnhancedNavigation />}
 
-        <main className="flex flex-col min-h-screen overflow-y-auto overflow-x-hidden min-w-0 bg-secondary/30">
+        <main className="flex flex-col h-full overflow-y-auto overflow-x-hidden min-w-0 bg-secondary/30">
           {/* Sticky top header */}
           <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b px-3 md:px-6 py-3">
             <div className="flex items-center justify-between gap-2">

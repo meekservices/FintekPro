@@ -766,7 +766,7 @@ export function EnhancedNavigation() {
   return (
     <>
       {/* Left Sidebar with Sticky Positioning */}
-      <aside className={`sticky top-0 h-screen bg-card shadow-lg border-r border-border overflow-y-auto transition-all duration-300 ease-in-out ${
+      <aside className={`relative h-full bg-card shadow-lg border-r border-border overflow-y-auto transition-all duration-300 ease-in-out ${
         isCollapsed ? 'w-16' : 'w-64'
       }`}>
         <div className="flex flex-col h-full">
