@@ -822,21 +822,97 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
         console.warn('[Migration] invits column repair skipped:', e?.message);
       }
 
-      // ── 30. mutual_funds & bond_catalog — AutoPublish column repairs ──────────
-      // AutoPublish SQL uses is_published + nav for mutual_funds and is_active +
-      // maturity_date for bond_catalog. These columns may be missing in production.
+      // ── 30. mutual_funds — comprehensive schema drift repair ──────────────────
+      // The mutual_funds table in production was created from an early schema
+      // version and is missing many columns that MFSync, AutoPublish, and the
+      // MFReturns sync now query.  All ALTER TABLE statements are idempotent.
       try {
         await migDb.execute(migSql`
           ALTER TABLE mutual_funds
-            ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT false,
-            ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
-            ADD COLUMN IF NOT EXISTS nav NUMERIC(18, 4);
+            -- Publishing controls
+            ADD COLUMN IF NOT EXISTS is_published      BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS is_active         BOOLEAN DEFAULT true,
+            ADD COLUMN IF NOT EXISTS published_at      TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS published_by      VARCHAR,
+            ADD COLUMN IF NOT EXISTS plan_type         VARCHAR DEFAULT 'regular',
+
+            -- NAV fields
+            ADD COLUMN IF NOT EXISTS nav               DECIMAL(10, 4),
+            ADD COLUMN IF NOT EXISTS change            DECIMAL(10, 4),
+            ADD COLUMN IF NOT EXISTS change_percent    DECIMAL(8, 4),
+
+            -- Returns (MFReturnsSync writes these)
+            ADD COLUMN IF NOT EXISTS returns_1y        DECIMAL(8, 4),
+            ADD COLUMN IF NOT EXISTS returns_3y        DECIMAL(8, 4),
+            ADD COLUMN IF NOT EXISTS returns_5y        DECIMAL(8, 4),
+
+            -- AMFI / source tracking (MFSync reads these)
+            ADD COLUMN IF NOT EXISTS amfi_code         VARCHAR,
+            ADD COLUMN IF NOT EXISTS isin              VARCHAR,
+            ADD COLUMN IF NOT EXISTS option_type       VARCHAR,
+            ADD COLUMN IF NOT EXISTS scheme_status     VARCHAR DEFAULT 'active',
+            ADD COLUMN IF NOT EXISTS data_source       VARCHAR,
+            ADD COLUMN IF NOT EXISTS last_verified_at  TIMESTAMPTZ,
+
+            -- Extended AMFI fields
+            ADD COLUMN IF NOT EXISTS isin_dividend_payout    VARCHAR,
+            ADD COLUMN IF NOT EXISTS isin_dividend_reinvest  VARCHAR,
+            ADD COLUMN IF NOT EXISTS isin_growth             VARCHAR,
+            ADD COLUMN IF NOT EXISTS repurchase_price        DECIMAL(15, 4),
+            ADD COLUMN IF NOT EXISTS sale_price              DECIMAL(15, 4),
+            ADD COLUMN IF NOT EXISTS launch_date             DATE,
+            ADD COLUMN IF NOT EXISTS min_sip_amount          DECIMAL(15, 2),
+            ADD COLUMN IF NOT EXISTS min_lumpsum_amount      DECIMAL(15, 2),
+            ADD COLUMN IF NOT EXISTS amc_code                VARCHAR,
+            ADD COLUMN IF NOT EXISTS exit_load_percent       DECIMAL(8, 4),
+            ADD COLUMN IF NOT EXISTS exit_load_days          INTEGER,
+            ADD COLUMN IF NOT EXISTS scheme_sub_category     VARCHAR,
+
+            -- Benchmark mapping
+            ADD COLUMN IF NOT EXISTS benchmark_index         VARCHAR,
+            ADD COLUMN IF NOT EXISTS benchmark_index_code    VARCHAR,
+            ADD COLUMN IF NOT EXISTS benchmark_confidence_score DECIMAL(3, 2),
+
+            -- FintekPro Smart Rating (stored in crisil_* columns)
+            ADD COLUMN IF NOT EXISTS crisil_rating            INTEGER,
+            ADD COLUMN IF NOT EXISTS crisil_category          VARCHAR,
+            ADD COLUMN IF NOT EXISTS crisil_percentile        DECIMAL(5, 2),
+            ADD COLUMN IF NOT EXISTS crisil_evaluation_date   TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS crisil_risk_adjusted_score DECIMAL(8, 4),
+            ADD COLUMN IF NOT EXISTS crisil_asset_quality_score DECIMAL(8, 4),
+            ADD COLUMN IF NOT EXISTS crisil_liquidity_score   DECIMAL(8, 4),
+            ADD COLUMN IF NOT EXISTS crisil_concentration_score DECIMAL(8, 4),
+            ADD COLUMN IF NOT EXISTS crisil_overall_score     DECIMAL(8, 4),
+            ADD COLUMN IF NOT EXISTS crisil_data_source       VARCHAR DEFAULT 'calculated',
+            ADD COLUMN IF NOT EXISTS crisil_last_updated      TIMESTAMPTZ,
+
+            -- Extended data blob
+            ADD COLUMN IF NOT EXISTS extended_data            JSONB,
+
+            -- SEBI 2026 compliance
+            ADD COLUMN IF NOT EXISTS taxonomy_version         VARCHAR DEFAULT 'SEBI_2017',
+            ADD COLUMN IF NOT EXISTS compliance_status        VARCHAR DEFAULT 'PENDING',
+            ADD COLUMN IF NOT EXISTS naming_validation_status VARCHAR DEFAULT 'PENDING',
+            ADD COLUMN IF NOT EXISTS lifecycle_metadata       JSONB,
+            ADD COLUMN IF NOT EXISTS compliance_blocked_reason TEXT,
+
+            -- IRIS / KFintech
+            ADD COLUMN IF NOT EXISTS kfintech_id              VARCHAR,
+            ADD COLUMN IF NOT EXISTS folio_nature             VARCHAR,
+
+            -- Timestamps
+            ADD COLUMN IF NOT EXISTS last_updated             TIMESTAMPTZ DEFAULT NOW();
+
           CREATE INDEX IF NOT EXISTS idx_mutual_funds_is_published ON mutual_funds(is_published);
           CREATE INDEX IF NOT EXISTS idx_mutual_funds_is_active    ON mutual_funds(is_active);
+          CREATE INDEX IF NOT EXISTS idx_mutual_funds_amfi_code    ON mutual_funds(amfi_code);
+          CREATE INDEX IF NOT EXISTS idx_mutual_funds_isin         ON mutual_funds(isin);
+          CREATE INDEX IF NOT EXISTS idx_mutual_funds_last_verified ON mutual_funds(last_verified_at);
+          CREATE INDEX IF NOT EXISTS idx_mutual_funds_scheme_status ON mutual_funds(scheme_status);
         `);
-        console.log('✅ mutual_funds publish/active columns verified');
+        console.log('✅ mutual_funds comprehensive column repair complete');
       } catch (e: any) {
-        console.warn('[Migration] mutual_funds publish columns skipped:', e?.message);
+        console.warn('[Migration] mutual_funds column repair skipped:', e?.message);
       }
 
       try {
