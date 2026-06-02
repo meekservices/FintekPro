@@ -22,6 +22,13 @@ export const createCsrfProtection = () => {
       return next();
     }
 
+    // 3. Bypass CSRF for mobile app requests — identified by X-Platform: mobile header.
+    //    Mobile apps use Bearer JWT auth (not session cookies) so CSRF doesn't apply.
+    //    The JWT signature itself provides equivalent request integrity protection.
+    if (req.headers['x-platform'] === 'mobile') {
+      return next();
+    }
+
     const sessionToken = (req.session as any)?.csrfToken;
     const headerToken = req.headers['x-csrf-token'];
 
