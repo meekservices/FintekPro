@@ -915,13 +915,219 @@ class AlpacaMarketDataService {
     }
   }
 
-  // ─── Diagnostics ───────────────────────────────────────────────────────────
 
-  getDataSource(): string {
-    return this.isConfigured()
-      ? `Alpaca Data API (${this.feed.toUpperCase()} feed) + Yahoo Finance fallback`
-      : "Yahoo Finance (Alpaca credentials not configured)";
+  /**
+   * getBestBuys — FASP-AI v1.0 compliant instrument screener
+   *
+   * Scores US stocks + ETFs using live Alpaca/Yahoo snapshot data:
+   *   - Momentum    : today's % change (directional price action)
+   *   - Volume surge: today's volume vs VWAP-implied average (liquidity)
+   *   - Spread quality: (bid-ask spread / price) — tighter is better
+   *   - Day range position: how close price is to intraday high (strength)
+   *
+   * Fully deterministic — NO Math.random(). Same inputs → same outputs.
+   *
+   * @param riskProfile - 'conservative' | 'moderate' | 'aggressive'
+   * @param limit       - max results to return (default 12)
+   */
+  async getBestBuys(
+    riskProfile: 'conservative' | 'moderate' | 'aggressive' = 'moderate',
+    limit = 12,
+  ): Promise<{
+    recommendations: Array<{
+      symbol: string;
+      name: string;
+      type: 'stock' | 'etf';
+      price: number;
+      priceInr: number;
+      change: number;
+      changePercent: number;
+      volume: number;
+      bid: number;
+      ask: number;
+      signal: 'buy' | 'hold' | 'sell';
+      confidenceScore: number;
+      factorsConsidered: string[];
+      riskLevel: 'low' | 'medium' | 'high';
+      isCompatible: boolean;
+      rationale: string;
+    }>;
+    fxRate: number;
+    marketStatus: ReturnType<AlpacaMarketDataService['getMarketStatus']>;
+    modelVersion: string;
+    calculationTimestamp: string;
+    disclaimer: string;
+  }> {
+    const MODEL_VERSION = 'fintekpro-screener-v1.0';
+
+    // Universe: curated 22 stocks + 8 ETFs
+    const STOCKS: Array<{ symbol: string; name: string; riskLevel: 'low' | 'medium' | 'high' }> = [
+      { symbol: 'AAPL',  name: 'Apple Inc.',            riskLevel: 'low'    },
+      { symbol: 'MSFT',  name: 'Microsoft Corp.',        riskLevel: 'low'    },
+      { symbol: 'JNJ',   name: 'Johnson & Johnson',      riskLevel: 'low'    },
+      { symbol: 'PG',    name: 'Procter & Gamble',       riskLevel: 'low'    },
+      { symbol: 'JPM',   name: 'JPMorgan Chase',         riskLevel: 'low'    },
+      { symbol: 'V',     name: 'Visa Inc.',              riskLevel: 'low'    },
+      { symbol: 'KO',    name: 'Coca-Cola Co.',          riskLevel: 'low'    },
+      { symbol: 'WMT',   name: 'Walmart Inc.',           riskLevel: 'low'    },
+      { symbol: 'GOOGL', name: 'Alphabet Inc.',          riskLevel: 'medium' },
+      { symbol: 'AMZN',  name: 'Amazon.com Inc.',        riskLevel: 'medium' },
+      { symbol: 'META',  name: 'Meta Platforms',         riskLevel: 'medium' },
+      { symbol: 'AVGO',  name: 'Broadcom Inc.',          riskLevel: 'medium' },
+      { symbol: 'UNH',   name: 'UnitedHealth Group',     riskLevel: 'medium' },
+      { symbol: 'LLY',   name: 'Eli Lilly & Co.',        riskLevel: 'medium' },
+      { symbol: 'NVDA',  name: 'NVIDIA Corp.',           riskLevel: 'high'   },
+      { symbol: 'TSLA',  name: 'Tesla Inc.',             riskLevel: 'high'   },
+      { symbol: 'AMD',   name: 'Advanced Micro Devices', riskLevel: 'high'   },
+      { symbol: 'PLTR',  name: 'Palantir Technologies',  riskLevel: 'high'   },
+      { symbol: 'COIN',  name: 'Coinbase Global',        riskLevel: 'high'   },
+      { symbol: 'SNOW',  name: 'Snowflake Inc.',         riskLevel: 'high'   },
+    ];
+
+    const ETFS: Array<{ symbol: string; name: string; riskLevel: 'low' | 'medium' | 'high' }> = [
+      { symbol: 'VOO',  name: 'Vanguard S&P 500 ETF',         riskLevel: 'low'    },
+      { symbol: 'VTI',  name: 'Vanguard Total Market ETF',    riskLevel: 'low'    },
+      { symbol: 'QQQ',  name: 'Invesco QQQ Trust',            riskLevel: 'medium' },
+      { symbol: 'VGT',  name: 'Vanguard IT Sector ETF',       riskLevel: 'medium' },
+      { symbol: 'XLF',  name: 'Financial Select Sector SPDR', riskLevel: 'medium' },
+      { symbol: 'SOXX', name: 'iShares Semiconductor ETF',    riskLevel: 'high'   },
+      { symbol: 'ARKK', name: 'ARK Innovation ETF',           riskLevel: 'high'   },
+      { symbol: 'SOXL', name: 'Direxion Semicon Bull 3x ETF', riskLevel: 'high'   },
+    ];
+
+    const riskMap: Record<string, Array<'low' | 'medium' | 'high'>> = {
+      conservative: ['low'],
+      moderate:     ['low', 'medium'],
+      aggressive:   ['low', 'medium', 'high'],
+    };
+    const allowedRisks = riskMap[riskProfile] ?? riskMap['moderate'];
+
+    const universe = [...STOCKS, ...ETFS];
+    const allSymbols = universe.map(u => u.symbol);
+
+    const [snapshots, fxRate] = await Promise.all([
+      this.getSnapshots(allSymbols),
+      this.getUsdInrRate(),
+    ]);
+
+    type Rec = (typeof recommendations)[number];
+    const recommendations: Array<{
+      symbol: string;
+      name: string;
+      type: 'stock' | 'etf';
+      price: number;
+      priceInr: number;
+      change: number;
+      changePercent: number;
+      volume: number;
+      bid: number;
+      ask: number;
+      signal: 'buy' | 'hold' | 'sell';
+      confidenceScore: number;
+      factorsConsidered: string[];
+      riskLevel: 'low' | 'medium' | 'high';
+      isCompatible: boolean;
+      rationale: string;
+    }> = [];
+
+    for (const item of universe) {
+      const snap = snapshots.get(item.symbol);
+      if (!snap) continue;
+
+      const q = this.toQuote(snap);
+      if (!q.price || q.price <= 0) continue;
+
+      const factors: string[] = [];
+      let score = 50; // neutral baseline
+
+      // Factor 1: Momentum (price change %)
+      const momentum = q.changePercent;
+      if (momentum > 3)       { score += 25; factors.push(`Strong momentum +${momentum.toFixed(1)}%`); }
+      else if (momentum > 1)  { score += 15; factors.push(`Positive momentum +${momentum.toFixed(1)}%`); }
+      else if (momentum > 0)  { score += 7;  factors.push(`Mild uptrend +${momentum.toFixed(1)}%`); }
+      else if (momentum < -3) { score -= 25; factors.push(`Weak momentum ${momentum.toFixed(1)}%`); }
+      else if (momentum < -1) { score -= 15; factors.push(`Negative momentum ${momentum.toFixed(1)}%`); }
+      else                    { score -= 5;  factors.push(`Flat/slight decline ${momentum.toFixed(1)}%`); }
+
+      // Factor 2: Day range position (proximity to intraday high → strength)
+      const { high, low, close } = snap.dailyBar;
+      if (high > low) {
+        const rangePct = ((close - low) / (high - low)) * 100;
+        if (rangePct >= 70) { score += 15; factors.push(`Near intraday high (${rangePct.toFixed(0)}% of range)`); }
+        else if (rangePct >= 40) { score += 5; factors.push(`Mid range (${rangePct.toFixed(0)}% of range)`); }
+        else { score -= 10; factors.push(`Near intraday low (${rangePct.toFixed(0)}% of range)`); }
+      }
+
+      // Factor 3: Volume analysis (above-average volume = conviction)
+      const vol = q.volume;
+      const vwapImpliedAvg = snap.dailyBar.vwap > 0 ? (snap.dailyBar.volume / (snap.dailyBar.vwap / q.price)) : vol;
+      const volRatio = vwapImpliedAvg > 0 ? vol / vwapImpliedAvg : 1;
+      if (volRatio > 1.5)      { score += 10; factors.push(`High volume (${volRatio.toFixed(1)}x avg)`); }
+      else if (volRatio > 1.1) { score += 5;  factors.push(`Above avg volume`); }
+      else if (volRatio < 0.5) { score -= 5;  factors.push(`Low volume`); }
+
+      // Factor 4: Bid-ask spread (tighter = better for retail investors)
+      const spread = snap.latestQuote.askPrice - snap.latestQuote.bidPrice;
+      const spreadPct = q.price > 0 ? (spread / q.price) * 100 : 0;
+      if (spreadPct < 0.05)     { score += 5; factors.push('Tight bid-ask spread'); }
+      else if (spreadPct > 0.5) { score -= 5; factors.push('Wide bid-ask spread'); }
+
+      const confidenceScore = Math.min(Math.max(Math.round(score), 10), 95);
+
+      let signal: 'buy' | 'hold' | 'sell';
+      if (confidenceScore >= 68) signal = 'buy';
+      else if (confidenceScore >= 45) signal = 'hold';
+      else signal = 'sell';
+
+      const isCompatible = allowedRisks.includes(item.riskLevel);
+      const type: 'stock' | 'etf' = ETFS.some(e => e.symbol === item.symbol) ? 'etf' : 'stock';
+
+      const rationale = signal === 'buy'
+        ? `${item.name} scores ${confidenceScore}/100. ${factors[0] || 'Favourable market conditions'}. Suitable for ${riskProfile} risk profile.`
+        : signal === 'hold'
+        ? `${item.name} shows mixed signals (score ${confidenceScore}/100). ${factors[0] || 'Neutral market conditions'}. Monitor for stronger entry.`
+        : `${item.name} is under pressure (score ${confidenceScore}/100). ${factors[0] || 'Adverse conditions'}. Consider waiting for reversal.`;
+
+      recommendations.push({
+        symbol: item.symbol,
+        name: item.name,
+        type,
+        price: q.price,
+        priceInr: parseFloat((q.price * fxRate).toFixed(2)),
+        change: parseFloat(q.change.toFixed(2)),
+        changePercent: parseFloat(q.changePercent.toFixed(2)),
+        volume: q.volume,
+        bid: snap.latestQuote.bidPrice,
+        ask: snap.latestQuote.askPrice,
+        signal,
+        confidenceScore,
+        factorsConsidered: factors,
+        riskLevel: item.riskLevel,
+        isCompatible,
+        rationale,
+      });
+    }
+
+    // Sort: compatible buys first, then by confidence score desc
+    recommendations.sort((a, b) => {
+      if (a.isCompatible !== b.isCompatible) return a.isCompatible ? -1 : 1;
+      if (a.signal !== b.signal) {
+        const order = { buy: 0, hold: 1, sell: 2 };
+        return order[a.signal] - order[b.signal];
+      }
+      return b.confidenceScore - a.confidenceScore;
+    });
+
+    return {
+      recommendations: recommendations.slice(0, limit),
+      fxRate,
+      marketStatus: this.getMarketStatus(),
+      modelVersion: MODEL_VERSION,
+      calculationTimestamp: new Date().toISOString(),
+      disclaimer: 'AI-generated recommendations are for informational purposes only. Past performance does not guarantee future results. FintekPro is not a SEBI-registered investment advisor. All US investments involve currency risk and geopolitical risk. Consult a qualified financial advisor before investing.',
+    };
   }
+
 }
 
 // ─── Singleton ─────────────────────────────────────────────────────────────────

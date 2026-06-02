@@ -98,6 +98,62 @@ router.get('/market/status', async (req, res) => {
   }
 });
 
+/**
+ * Best Buy Screener — AI-ranked US stocks + ETFs (FASP-AI v1.0 compliant).
+ * GET /api/alpaca/market/best-buys?riskProfile=moderate&limit=12
+ */
+router.get('/market/best-buys', async (req, res) => {
+  const riskProfile = (req.query.riskProfile as string) || 'moderate';
+  const limit = parseInt(req.query.limit as string) || 12;
+  const validProfiles = ['conservative', 'moderate', 'aggressive'];
+  if (!validProfiles.includes(riskProfile)) {
+    return res.status(400).json({ success: false, message: `riskProfile must be one of: ${validProfiles.join(', ')}` });
+  }
+  try {
+    const result = await alpacaMarketDataService.getBestBuys(
+      riskProfile as 'conservative' | 'moderate' | 'aggressive',
+      limit,
+    );
+    res.json({
+      success: true,
+      data: result,
+      meta: { timestamp: new Date().toISOString(), version: '1.0', engine_version: result.modelVersion },
+    });
+  } catch (error: any) {
+    logger.error(`[best-buys] error: ${error.message}`);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * Instruments showcase — popular US stocks + ETFs with live prices + INR conversion.
+ * GET /api/alpaca/market/instruments?type=all|stocks|etfs
+ */
+router.get('/market/instruments', async (req, res) => {
+  const type = (req.query.type as string) || 'all';
+  try {
+    const [stocks, etfs, fxRate] = await Promise.all([
+      type !== 'etfs'   ? alpacaMarketDataService.getPopularStocks() : Promise.resolve([]),
+      type !== 'stocks' ? alpacaMarketDataService.getPopularETFs()   : Promise.resolve([]),
+      alpacaMarketDataService.getUsdInrRate(),
+    ]);
+    const marketStatus = alpacaMarketDataService.getMarketStatus();
+    const enrichWithInr = (items: any[]) => items.map(i => ({
+      ...i,
+      priceInr: i.price ? parseFloat((i.price * fxRate).toFixed(2)) : null,
+    }));
+    res.json({
+      success: true,
+      data: { stocks: enrichWithInr(stocks), etfs: enrichWithInr(etfs), fxRate, marketStatus,
+        disclaimer: 'Prices delayed up to 15 minutes. For informational purposes only.' },
+      meta: { timestamp: new Date().toISOString(), version: '1.0' },
+    });
+  } catch (error: any) {
+    logger.error(`[instruments] error: ${error.message}`);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // --- Funding ---
 
 /**
