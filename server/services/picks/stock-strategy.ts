@@ -1,5 +1,6 @@
 import { db } from "../../db";
 import { listedStocks, goldenPrices, stockFinancialMetrics } from "@shared/schema";
+import { screenerStocks } from "@shared/schema/screener";
 import { and, eq, sql, gte, asc, desc, count } from "drizzle-orm";
 
 import { BaseStrategy } from "./base-strategy";
@@ -42,7 +43,7 @@ export class StockStrategy extends BaseStrategy {
     try {
       // Fetch 30 candidates — only the top scorer is used, so 100 was wasteful
       // and caused connection pool exhaustion on the 9 AM batch run.
-      const stocks = await db
+      let stocks = await db
         .select()
         .from(listedStocks)
         .where(
@@ -53,6 +54,93 @@ export class StockStrategy extends BaseStrategy {
           )
         )
         .limit(30);
+
+      // ── Fallback: screenerStocks ──────────────────────────────────────────
+      // listedStocks requires admin to set is_published=true. When the table
+      // is empty or unpublished (common after a fresh deploy), fall back to
+      // screenerStocks which uses is_active=true and is auto-populated by the
+      // FMP screener sync job — no manual intervention needed.
+      if (stocks.length === 0) {
+        console.info('[StockStrategy] listedStocks empty — falling back to screenerStocks');
+        const screenerRows = await db
+          .select()
+          .from(screenerStocks)
+          .where(
+            and(
+              eq(screenerStocks.isActive, true),
+              sql`${screenerStocks.currentPrice} IS NOT NULL`,
+              sql`CAST(${screenerStocks.currentPrice} AS DECIMAL) > 50`
+            )
+          )
+          .limit(30);
+
+        // Map screenerStocks shape → listedStocks shape (duck-type the fields the
+        // rest of StockStrategy reads: id, symbol, companyName, currentPrice,
+        // sector, marketCap, peRatio, volatility, analystRating, returns1Y,
+        // returns3Y, isin, nseCode, bseCode, roce)
+        stocks = screenerRows.map(r => ({
+          id: r.id,
+          symbol: r.symbol,
+          companyName: r.companyName,
+          currentPrice: r.currentPrice,
+          sector: r.sector ?? null,
+          marketCap: r.marketCapCategory ?? null,
+          peRatio: null,
+          pbRatio: null,
+          dividendYield: null,
+          eps: null,
+          bookValue: null,
+          roe: null,
+          roce: null,
+          returns1M: null,
+          returns3M: null,
+          returns6M: null,
+          returns1Y: null,
+          returns3Y: null,
+          returns5Y: null,
+          beta: null,
+          volatility: null,
+          riskLevel: null,
+          analystRating: null,
+          targetPrice: null,
+          numberOfAnalysts: null,
+          averageVolume: null,
+          faceValue: '10',
+          lotSize: 1,
+          minimumInvestment: '0',
+          isPublished: false,
+          publishedAt: null,
+          publishedBy: null,
+          selectionNotes: null,
+          investmentThesis: null,
+          historicalStartDate: null,
+          historicalEndDate: null,
+          historicalComplete: false,
+          lastDailyUpdate: null,
+          isActive: r.isActive ?? true,
+          dataSource: r.dataSource ?? 'screener',
+          enrichmentStatus: 'partial',
+          lastEnrichedAt: null,
+          enrichmentSource: null,
+          lastUpdated: r.updatedAt ?? new Date(),
+          createdAt: r.createdAt ?? new Date(),
+          previousClose: null,
+          dayChange: null,
+          dayChangePercent: null,
+          weekHigh52: null,
+          weekLow52: null,
+          marketCapValue: r.marketCapValue ?? null,
+          isin: r.isin ?? null,
+          bseCode: null,
+          nseCode: null,
+          cin: null,
+          companyPan: null,
+          broadSector: null,
+          industry: r.industry ?? null,
+          indexMembership: [],
+          exchangeInfo: {},
+        } as typeof listedStocks.$inferSelect));
+      }
 
       if (stocks.length === 0) return null;
 

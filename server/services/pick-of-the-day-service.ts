@@ -594,15 +594,41 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
     }, delayToMidDay);
 
     console.log(`📅 [PickOfTheDay] IST-aware scheduler started: Generation@9AM, Refresh@12:30PM+4PM IST`);
+
+    // ── Auto-heal: every 6 hours ── Catch any generation failures silently
+    // If picks are still below threshold mid-day (e.g. strategy failed at 9 AM),
+    // this loop will regenerate them without any admin action.
+    const AUTO_HEAL_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+    setInterval(async () => {
+      try {
+        console.log('[PickOfTheDay] Auto-heal check running...');
+        await this.catchUpIfNeeded();
+      } catch (err) {
+        console.error('[PickOfTheDay] Auto-heal error:', err);
+      }
+    }, AUTO_HEAL_INTERVAL_MS);
   }
 
 
+  /**
+   * Generates picks on startup if today has none OR fewer than 3 picks (partial failure recovery).
+   * Also handles the edge case where the 9 AM scheduler fired but some strategies failed.
+   */
   private async catchUpIfNeeded(): Promise<void> {
     const today = new Date().toISOString().split('T')[0];
-    const existing = await db.select({ count: sql<number>`COUNT(*)` }).from(dailyPicks).where(eq(dailyPicks.recoDate, today));
-    if (Number(existing[0]?.count || 0) === 0) {
-      console.log(`🔄 [PickOfTheDay] Startup catch-up: generating picks for ${today}...`);
+    const existing = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(dailyPicks)
+      .where(eq(dailyPicks.recoDate, today));
+    const existingCount = Number(existing[0]?.count || 0);
+
+    // Regenerate if: no picks at all, or fewer than 3 (indicates partial failure)
+    const MIN_PICKS_THRESHOLD = 3;
+    if (existingCount < MIN_PICKS_THRESHOLD) {
+      console.log(`🔄 [PickOfTheDay] Startup catch-up: only ${existingCount} picks found for ${today} (threshold: ${MIN_PICKS_THRESHOLD}). Generating missing picks...`);
       await this.generateDailyPicks();
+    } else {
+      console.log(`✅ [PickOfTheDay] ${existingCount} picks already exist for ${today}. Skipping catch-up.`);
     }
   }
 
