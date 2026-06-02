@@ -696,8 +696,205 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
       }
 
         console.log('✅ Critical schema repairs complete');
-      } catch (migErr) {
 
+      // ── 29. REITs & InvITs — schema drift repair ──────────────────────────────
+      // The reits/invits tables in production are missing columns added in the
+      // reit-invit.ts schema after the initial table creation, causing a
+      // "Failed query: select ... from reits where symbol = $1" error on every
+      // price refresh cycle.
+      try {
+        await migDb.execute(migSql`
+          -- REITs: add any columns that may be missing from the production table
+          ALTER TABLE reits
+            ADD COLUMN IF NOT EXISTS sponsor TEXT,
+            ADD COLUMN IF NOT EXISTS manager TEXT,
+            ADD COLUMN IF NOT EXISTS trustee TEXT,
+            ADD COLUMN IF NOT EXISTS listing_date TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS exchange VARCHAR DEFAULT 'NSE',
+            ADD COLUMN IF NOT EXISTS isin_code VARCHAR,
+            ADD COLUMN IF NOT EXISTS property_type VARCHAR,
+            ADD COLUMN IF NOT EXISTS geography TEXT,
+            ADD COLUMN IF NOT EXISTS total_properties INTEGER,
+            ADD COLUMN IF NOT EXISTS total_leasable_area DECIMAL(15,2),
+            ADD COLUMN IF NOT EXISTS occupancy_rate DECIMAL(5,2),
+            ADD COLUMN IF NOT EXISTS nav DECIMAL(15,4),
+            ADD COLUMN IF NOT EXISTS premium_to_nav DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS week_high_52 DECIMAL(15,4),
+            ADD COLUMN IF NOT EXISTS week_low_52 DECIMAL(15,4),
+            ADD COLUMN IF NOT EXISTS market_cap DECIMAL(20,2),
+            ADD COLUMN IF NOT EXISTS distribution_yield DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS dividend_frequency VARCHAR DEFAULT 'quarterly',
+            ADD COLUMN IF NOT EXISTS last_dividend DECIMAL(10,4),
+            ADD COLUMN IF NOT EXISTS last_dividend_date TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS returns_1m DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS returns_3m DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS returns_6m DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS returns_1y DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS returns_3y DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS returns_since_inception DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS debt_to_equity DECIMAL(10,4),
+            ADD COLUMN IF NOT EXISTS interest_coverage_ratio DECIMAL(10,4),
+            ADD COLUMN IF NOT EXISTS funds_from_operations DECIMAL(15,2),
+            ADD COLUMN IF NOT EXISTS net_operating_income DECIMAL(15,2),
+            ADD COLUMN IF NOT EXISTS minimum_investment DECIMAL(15,2),
+            ADD COLUMN IF NOT EXISTS lot_size INTEGER DEFAULT 1,
+            ADD COLUMN IF NOT EXISTS face_value DECIMAL(10,2),
+            ADD COLUMN IF NOT EXISTS risk_level VARCHAR DEFAULT 'moderate',
+            ADD COLUMN IF NOT EXISTS credit_rating VARCHAR,
+            ADD COLUMN IF NOT EXISTS rating_agency VARCHAR,
+            ADD COLUMN IF NOT EXISTS ai_signal VARCHAR DEFAULT 'hold',
+            ADD COLUMN IF NOT EXISTS ai_confidence DECIMAL(5,2),
+            ADD COLUMN IF NOT EXISTS ai_rationale TEXT,
+            ADD COLUMN IF NOT EXISTS ai_target_price DECIMAL(15,4),
+            ADD COLUMN IF NOT EXISTS last_updated TIMESTAMPTZ DEFAULT NOW();
+
+          CREATE INDEX IF NOT EXISTS idx_reits_symbol    ON reits(symbol);
+          CREATE INDEX IF NOT EXISTS idx_reits_sector    ON reits(sector);
+          CREATE INDEX IF NOT EXISTS idx_reits_ai_signal ON reits(ai_signal);
+        `);
+        console.log('✅ reits schema columns verified');
+      } catch (e: any) {
+        console.warn('[Migration] reits column repair skipped:', e?.message);
+      }
+
+      try {
+        await migDb.execute(migSql`
+          -- InvITs: add any columns that may be missing
+          ALTER TABLE invits
+            ADD COLUMN IF NOT EXISTS sponsor TEXT,
+            ADD COLUMN IF NOT EXISTS manager TEXT,
+            ADD COLUMN IF NOT EXISTS trustee TEXT,
+            ADD COLUMN IF NOT EXISTS listing_date TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS exchange VARCHAR DEFAULT 'NSE',
+            ADD COLUMN IF NOT EXISTS isin_code VARCHAR,
+            ADD COLUMN IF NOT EXISTS infrastructure_type VARCHAR,
+            ADD COLUMN IF NOT EXISTS geography TEXT,
+            ADD COLUMN IF NOT EXISTS total_assets INTEGER,
+            ADD COLUMN IF NOT EXISTS asset_details TEXT,
+            ADD COLUMN IF NOT EXISTS concession_life DECIMAL(5,1),
+            ADD COLUMN IF NOT EXISTS nav DECIMAL(15,4),
+            ADD COLUMN IF NOT EXISTS premium_to_nav DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS week_high_52 DECIMAL(15,4),
+            ADD COLUMN IF NOT EXISTS week_low_52 DECIMAL(15,4),
+            ADD COLUMN IF NOT EXISTS market_cap DECIMAL(20,2),
+            ADD COLUMN IF NOT EXISTS distribution_yield DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS dividend_frequency VARCHAR DEFAULT 'quarterly',
+            ADD COLUMN IF NOT EXISTS last_dividend DECIMAL(10,4),
+            ADD COLUMN IF NOT EXISTS last_dividend_date TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS returns_1m DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS returns_3m DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS returns_6m DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS returns_1y DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS returns_3y DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS returns_since_inception DECIMAL(8,4),
+            ADD COLUMN IF NOT EXISTS debt_to_equity DECIMAL(10,4),
+            ADD COLUMN IF NOT EXISTS interest_coverage_ratio DECIMAL(10,4),
+            ADD COLUMN IF NOT EXISTS ebitda DECIMAL(15,2),
+            ADD COLUMN IF NOT EXISTS cash_flow_from_operations DECIMAL(15,2),
+            ADD COLUMN IF NOT EXISTS minimum_investment DECIMAL(15,2),
+            ADD COLUMN IF NOT EXISTS lot_size INTEGER DEFAULT 1,
+            ADD COLUMN IF NOT EXISTS face_value DECIMAL(10,2),
+            ADD COLUMN IF NOT EXISTS risk_level VARCHAR DEFAULT 'moderate',
+            ADD COLUMN IF NOT EXISTS credit_rating VARCHAR,
+            ADD COLUMN IF NOT EXISTS rating_agency VARCHAR,
+            ADD COLUMN IF NOT EXISTS ai_signal VARCHAR DEFAULT 'hold',
+            ADD COLUMN IF NOT EXISTS ai_confidence DECIMAL(5,2),
+            ADD COLUMN IF NOT EXISTS ai_rationale TEXT,
+            ADD COLUMN IF NOT EXISTS ai_target_price DECIMAL(15,4),
+            ADD COLUMN IF NOT EXISTS last_updated TIMESTAMPTZ DEFAULT NOW();
+
+          CREATE INDEX IF NOT EXISTS idx_invits_symbol    ON invits(symbol);
+          CREATE INDEX IF NOT EXISTS idx_invits_sector    ON invits(sector);
+          CREATE INDEX IF NOT EXISTS idx_invits_ai_signal ON invits(ai_signal);
+        `);
+        console.log('✅ invits schema columns verified');
+      } catch (e: any) {
+        console.warn('[Migration] invits column repair skipped:', e?.message);
+      }
+
+      // ── 30. mutual_funds & bond_catalog — AutoPublish column repairs ──────────
+      // AutoPublish SQL uses is_published + nav for mutual_funds and is_active +
+      // maturity_date for bond_catalog. These columns may be missing in production.
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE mutual_funds
+            ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
+            ADD COLUMN IF NOT EXISTS nav NUMERIC(18, 4);
+          CREATE INDEX IF NOT EXISTS idx_mutual_funds_is_published ON mutual_funds(is_published);
+          CREATE INDEX IF NOT EXISTS idx_mutual_funds_is_active    ON mutual_funds(is_active);
+        `);
+        console.log('✅ mutual_funds publish/active columns verified');
+      } catch (e: any) {
+        console.warn('[Migration] mutual_funds publish columns skipped:', e?.message);
+      }
+
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE bond_catalog
+            ADD COLUMN IF NOT EXISTS is_active    BOOLEAN DEFAULT true,
+            ADD COLUMN IF NOT EXISTS face_value   NUMERIC(18,4),
+            ADD COLUMN IF NOT EXISTS maturity_date DATE;
+          CREATE INDEX IF NOT EXISTS idx_bond_catalog_is_active    ON bond_catalog(is_active);
+          CREATE INDEX IF NOT EXISTS idx_bond_catalog_maturity     ON bond_catalog(maturity_date);
+        `);
+        console.log('✅ bond_catalog is_active/maturity_date columns verified');
+      } catch (e: any) {
+        console.warn('[Migration] bond_catalog columns skipped:', e?.message);
+      }
+
+      // ── 31. error_alert_threshold — missing monitoring table ─────────────────
+      // ErrorWebhookService / ErrorSpikeDetectionService query this table to
+      // determine per-module spike thresholds.  Missing table causes a cascade of
+      // Failed query errors on every error ingested.
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS error_alert_threshold (
+            id                      SERIAL PRIMARY KEY,
+            module                  VARCHAR(100),
+            error_code              VARCHAR(50),
+            window_minutes          INTEGER NOT NULL DEFAULT 5,
+            occurrence_threshold    INTEGER NOT NULL DEFAULT 10,
+            is_enabled              BOOLEAN NOT NULL DEFAULT true,
+            auto_escalate_to_critical BOOLEAN DEFAULT false,
+            created_by              VARCHAR,
+            created_at              TIMESTAMPTZ DEFAULT NOW(),
+            updated_at              TIMESTAMPTZ DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_error_alert_threshold_module
+            ON error_alert_threshold(module);
+          CREATE INDEX IF NOT EXISTS idx_error_alert_threshold_enabled
+            ON error_alert_threshold(is_enabled);
+
+          -- Seed a sensible global default (module IS NULL means "any module")
+          INSERT INTO error_alert_threshold
+            (module, error_code, window_minutes, occurrence_threshold, is_enabled, auto_escalate_to_critical, created_by)
+          SELECT NULL, NULL, 5, 20, true, false, 'system'
+          WHERE NOT EXISTS (
+            SELECT 1 FROM error_alert_threshold WHERE module IS NULL AND error_code IS NULL
+          );
+        `);
+        console.log('✅ error_alert_threshold table verified');
+      } catch (e: any) {
+        console.warn('[Migration] error_alert_threshold table skipped:', e?.message);
+      }
+
+      // ── 32. instrument_master — last_price column ─────────────────────────────
+      // PickOfTheDay price sync reads last_price from instrument_master.
+      // The column may be missing if the table was created before this field.
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE instrument_master
+            ADD COLUMN IF NOT EXISTS last_price NUMERIC(18, 4);
+          CREATE INDEX IF NOT EXISTS idx_instrument_master_last_price
+            ON instrument_master(last_price) WHERE last_price IS NOT NULL;
+        `);
+        console.log('✅ instrument_master last_price column verified');
+      } catch (e: any) {
+        console.warn('[Migration] instrument_master last_price skipped:', e?.message);
+      }
+
+      } catch (migErr) {
         console.error('❌ Migration sequence failed (non-fatal):', migErr);
       }
 }
