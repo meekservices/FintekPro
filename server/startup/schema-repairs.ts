@@ -661,7 +661,7 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
         await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS algo_signals (
             id                 SERIAL PRIMARY KEY,
-            user_id            INTEGER REFERENCES users(id),
+            user_id            VARCHAR REFERENCES users(id),
             symbol             VARCHAR(20) NOT NULL,
             company_name       VARCHAR(200),
             strategy           VARCHAR(50) NOT NULL DEFAULT 'composite',
@@ -685,6 +685,16 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
             created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
           );
+          -- Fix: user_id was created as INTEGER in old DB — silently alter to VARCHAR if needed
+          DO $$
+          BEGIN
+            IF EXISTS (
+              SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'algo_signals' AND column_name = 'user_id' AND data_type = 'integer'
+            ) THEN
+              ALTER TABLE algo_signals ALTER COLUMN user_id TYPE VARCHAR USING user_id::VARCHAR;
+            END IF;
+          END $$;
           CREATE INDEX IF NOT EXISTS idx_algo_signals_user    ON algo_signals(user_id);
           CREATE INDEX IF NOT EXISTS idx_algo_signals_symbol  ON algo_signals(symbol);
           CREATE INDEX IF NOT EXISTS idx_algo_signals_status  ON algo_signals(status);
@@ -892,6 +902,56 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
         console.log('✅ instrument_master last_price column verified');
       } catch (e: any) {
         console.warn('[Migration] instrument_master last_price skipped:', e?.message);
+      }
+
+      // ── 33. goal_benchmark_mapping — ProposalBuilder missing table ────────────
+      // ProposalBuilder benchmark defaults init queries goal_benchmark_mapping
+      // on startup but the table doesn't exist in production yet.
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS goal_benchmark_mapping (
+            id                  VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            goal_type           VARCHAR(50) NOT NULL,
+            risk_profile        VARCHAR(30) NOT NULL,
+            benchmark_index     VARCHAR(100),
+            benchmark_code      VARCHAR(50),
+            benchmark_name      VARCHAR(200),
+            benchmark_rationale TEXT,
+            horizon_years_min   INTEGER,
+            horizon_years_max   INTEGER,
+            is_default          BOOLEAN DEFAULT true,
+            is_active           BOOLEAN DEFAULT true,
+            overridden_by       VARCHAR REFERENCES users(id),
+            overridden_at       TIMESTAMPTZ,
+            description         TEXT,
+            created_at          TIMESTAMPTZ DEFAULT NOW(),
+            updated_at          TIMESTAMPTZ DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_goal_benchmark_goal_type
+            ON goal_benchmark_mapping(goal_type);
+          CREATE INDEX IF NOT EXISTS idx_goal_benchmark_risk_profile
+            ON goal_benchmark_mapping(risk_profile);
+          CREATE INDEX IF NOT EXISTS idx_goal_benchmark_active
+            ON goal_benchmark_mapping(is_active);
+
+          -- Seed sensible defaults for common goal + risk profile combos
+          INSERT INTO goal_benchmark_mapping
+            (goal_type, risk_profile, benchmark_index, benchmark_code, benchmark_name, benchmark_rationale, horizon_years_min, horizon_years_max, is_default)
+          VALUES
+            ('retirement',    'conservative', 'CRISIL Composite Bond Fund',  'CRISIL_BOND',  'CRISIL Composite Bond Fund Index',  'Low-risk debt benchmark for conservative retirement planning', 10, 30, true),
+            ('retirement',    'moderate',     'Nifty 50',                    'NIFTY50',      'Nifty 50 Index',                    'Balanced equity benchmark for moderate risk retirement', 10, 30, true),
+            ('retirement',    'aggressive',   'Nifty 500',                   'NIFTY500',     'Nifty 500 Index',                   'Broad equity benchmark for aggressive retirement growth',  10, 30, true),
+            ('education',     'conservative', 'CRISIL Short Term Bond',      'CRISIL_ST',    'CRISIL Short Term Bond Index',      'Short duration bond index for education corpus planning',  5, 15, true),
+            ('education',     'moderate',     'Nifty 50',                    'NIFTY50',      'Nifty 50 Index',                    'Equity benchmark for moderate education savings',          5, 15, true),
+            ('wealth',        'moderate',     'Nifty 50',                    'NIFTY50',      'Nifty 50 Index',                    'Standard equity benchmark for wealth creation',            3, 20, true),
+            ('wealth',        'aggressive',   'Nifty Midcap 150',            'NIFTY_MC150',  'Nifty Midcap 150 Index',            'Midcap benchmark for aggressive wealth creation',          5, 20, true),
+            ('emergency',     'conservative', 'CRISIL Liquid Fund',          'CRISIL_LQ',    'CRISIL Liquid Fund Index',          'Liquid fund benchmark for emergency corpus',               0, 1,  true),
+            ('home_purchase', 'moderate',     'Nifty 50',                    'NIFTY50',      'Nifty 50 Index',                    'Equity benchmark for home purchase savings',               3, 10, true)
+          ON CONFLICT DO NOTHING;
+        `);
+        console.log('✅ goal_benchmark_mapping table verified with defaults');
+      } catch (e: any) {
+        console.warn('[Migration] goal_benchmark_mapping table skipped:', e?.message);
       }
 
       } catch (migErr) {
