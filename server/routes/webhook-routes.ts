@@ -58,10 +58,25 @@ router.post('/alpaca', async (req: Request, res: Response) => {
         return res.status(401).json({ success: false, message: 'Invalid signature' });
       }
     } else {
-      // rawBody not captured — log a warning in production
+      // rawBody not captured — this means express raw-body middleware is not mounted.
+      // In production this is a hard reject: we cannot verify authenticity without the raw body.
+      // In development/test, emit a warning and continue (allows local dev without extra middleware).
       if (process.env.NODE_ENV === 'production') {
-        logger.warn('[Webhook] rawBody not available for Alpaca HMAC check — configure express raw-body middleware');
+        logger.error('[Webhook] Alpaca HMAC check SKIPPED — rawBody not available. ' +
+          'Ensure express raw-body capture middleware is registered before webhook routes. ' +
+          'Rejecting request to prevent unauthenticated event injection.', {
+          event: 'ALPACA_WEBHOOK_RAWBODY_MISSING',
+          status: 'rejected',
+        });
+        return res.status(403).json({
+          success: false,
+          message: 'Webhook rejected: signature could not be verified (server misconfiguration)',
+        });
       }
+      logger.warn('[Webhook] rawBody not available for Alpaca HMAC check — ' +
+        'configure express raw-body middleware. Skipping in non-production only.', {
+        event: 'ALPACA_WEBHOOK_RAWBODY_MISSING_DEV',
+      });
     }
 
     logger.info('[Webhook] Received Alpaca webhook', {

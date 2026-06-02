@@ -4,6 +4,7 @@ import { db } from '../db';
 import { requireAdmin } from '../middleware/roleMiddleware';
 import { requireLevel1, requireLevel2, injectKYCLevel } from '../middleware/kyc-level-gate';
 import { validateKYC } from '../kyc-middleware';
+import { isAuthenticated } from '../auth-setup';
 import { nseNcbApi } from '../nseNcbApi';
 import { bseBondApi } from '../bseBondApi';
 import { bseDirectApi } from '../bseDirectApi';
@@ -32,9 +33,9 @@ export function registerBondTradingOrderPart2Routes(app: Express): void {
   });
 
   // BSE Direct API - Direct Market Trading
-  
-  // Get market quote for any symbol
-  app.get("/api/bonds/trading/direct/quote/:symbol", async (req, res) => {
+
+  // Get market quote for any symbol (auth required — market data is user-scoped)
+  app.get("/api/bonds/trading/direct/quote/:symbol", isAuthenticated, requireLevel1, async (req, res) => {
     try {
       const { symbol } = req.params;
       const segment = (req.query.segment as string) || 'equity';
@@ -61,8 +62,8 @@ export function registerBondTradingOrderPart2Routes(app: Express): void {
     }
   });
 
-  // Place direct market order (requires Full Stock KYC - amount-based Enhanced for >₹200K)
-  app.post("/api/bonds/trading/direct/orders", async (req: any, res, next) => {
+  // Place direct market order — auth + KYC Level-2 required (SEBI regulated trade)
+  app.post("/api/bonds/trading/direct/orders", isAuthenticated, requireLevel2, async (req: any, res, next) => {
     // Calculate total order amount for KYC validation (stocks use amount-based tiers)
     const quantity = req.body.quantity || 1;
     const price = req.body.price || 0;
@@ -114,8 +115,8 @@ export function registerBondTradingOrderPart2Routes(app: Express): void {
     });
   });
 
-  // Get user positions from BSE Direct
-  app.get("/api/bonds/trading/direct/positions", async (req: any, res) => {
+  // Get user positions from BSE Direct (auth + KYC Level-1 required)
+  app.get("/api/bonds/trading/direct/positions", isAuthenticated, requireLevel1, async (req: any, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -139,8 +140,8 @@ export function registerBondTradingOrderPart2Routes(app: Express): void {
     }
   });
 
-  // Get user order book from BSE Direct
-  app.get("/api/bonds/trading/direct/orderbook", async (req: any, res) => {
+  // Get user order book from BSE Direct (auth + KYC Level-1 required)
+  app.get("/api/bonds/trading/direct/orderbook", isAuthenticated, requireLevel1, async (req: any, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -164,9 +165,9 @@ export function registerBondTradingOrderPart2Routes(app: Express): void {
   });
 
   // Bond Order Management
-  
-  // Get user's bond orders
-  app.get("/api/bonds/orders", async (req: any, res) => {
+
+  // Get user's bond orders (auth + KYC Level-1 required)
+  app.get("/api/bonds/orders", isAuthenticated, requireLevel1, async (req: any, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -203,18 +204,31 @@ export function registerBondTradingOrderPart2Routes(app: Express): void {
     }
   });
 
-  // Get bond order status
-  app.get("/api/bonds/orders/:orderId/status", async (req, res) => {
+  // Get bond order status — auth required to prevent order enumeration
+  app.get("/api/bonds/orders/:orderId/status", isAuthenticated, requireLevel1, async (req, res) => {
     try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", error: "Authentication required" });
+      }
+
       const { orderId } = req.params;
-      
+
       // Get order from database
       const [order] = await db.select().from(bondOrders).where(eq(bondOrders.id, orderId));
-      
+
       if (!order) {
         return res.status(404).json({
           status: "error",
           error: "Order not found"
+        });
+      }
+
+      // IDOR guard — users can only read their own orders
+      if (order.userId !== userId) {
+        return res.status(403).json({
+          status: "error",
+          error: "Not authorized to view this order"
         });
       }
 
@@ -242,8 +256,8 @@ export function registerBondTradingOrderPart2Routes(app: Express): void {
     }
   });
 
-  // Cancel bond order (only for pending orders)
-  app.post("/api/bonds/orders/:orderId/cancel", async (req: any, res) => {
+  // Cancel bond order — auth + KYC Level-2 required (financial write operation)
+  app.post("/api/bonds/orders/:orderId/cancel", isAuthenticated, requireLevel2, async (req: any, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
@@ -311,8 +325,8 @@ export function registerBondTradingOrderPart2Routes(app: Express): void {
     }
   });
 
-  // Get user's bond holdings
-  app.get("/api/bonds/holdings", async (req: any, res) => {
+  // Get user's bond holdings (auth + KYC Level-1 required)
+  app.get("/api/bonds/holdings", isAuthenticated, requireLevel1, async (req: any, res) => {
     try {
       const userId = req.user?.id;
       if (!userId) {
