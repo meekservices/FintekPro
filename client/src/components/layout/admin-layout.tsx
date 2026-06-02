@@ -250,6 +250,7 @@ const navCategories: NavCategory[] = [
     title: "Finance",
     icon: DollarSign,
     items: [
+      { title: "Multibroker Earnings", href: "/admin/multibroker-earnings", icon: Landmark,    description: "Cross-broker commission & order-flow earnings (IRIS · IIFL · Alpaca)" },
       { title: "Partner Hierarchy",  href: "/admin/partner-hierarchy", icon: GitBranch,   description: "Partner approvals & commission tree" },
       { title: "Commission Master",  href: "/admin/commission-master", icon: Receipt,     description: "Commission configuration" },
       { title: "Commission Ledger",  href: "/admin/commission-ledger", icon: FileBarChart,description: "Ledger of all commission entries" },

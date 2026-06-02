@@ -391,6 +391,7 @@ export const AdminAgentOversightPage = lazyWithRetry(() => import("@/pages/admin
 export const AdminAppointmentsDashboard = lazyWithRetry(() => import("@/pages/admin/appointments-dashboard"));
 export const AdminBrokerDashboard = lazyWithRetry(() => import("@/pages/admin/broker-dashboard"));
 export const AdminIrisOverview = lazyWithRetry(() => import("@/pages/admin/iris-overview"));
+export const MultibrokerEarnings = lazyWithRetry(() => import("@/pages/admin/multibroker-earnings"));
 
 // ─── Marketing & CRM ─────────────────────────────────────────────────────────
 export const MarketingDashboard = lazyWithRetry(() => import("@/pages/admin/marketing-dashboard"));

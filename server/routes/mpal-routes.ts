@@ -34,6 +34,7 @@ import { providerRegistry } from "../services/mpal/core/providerRegistry";
 import { financialProfileEngine } from "../services/profile/financialProfileEngine";
 import { BrokerUnavailableError, BrokerNotConfiguredError, BrokerError } from "../services/mpal/interfaces/IBroker";
 import { logger } from "../logger";
+import { requireAdmin } from "../middleware/roleMiddleware";
 
 export const mpalRouter = Router();
 
@@ -344,4 +345,193 @@ mpalRouter.post("/credit/applications", async (req, res) => {
 
 mpalRouter.get("/credit/applications", async (_req, res) => {
   res.json({ success: true, data: [], meta: { timestamp: new Date().toISOString(), version: '1.0', total: 0 } });
+});
+
+// ==========================================
+// MPAL Admin: Multibroker Earnings Dashboard
+// ==========================================
+
+/**
+ * GET /api/mpal/admin/earnings
+ *
+ * Purpose   : Aggregates commission earnings, payout summaries, and order volume
+ *             across all registered brokers (IRIS, IIFL, ALPACA) for admin monitoring.
+ *
+ * Auth      : requireAdmin — super-admin and finance-head only
+ *
+ * Query Params:
+ *   ?days=30     — lookback window in days (default: 30, max: 365)
+ *   ?brokerId=   — filter to one broker (optional)
+ *
+ * Response shape:
+ *   { brokers[], summary{}, topProducts[], recentOrders[] }
+ *
+ * Commission Rates (from RevenueEngine):
+ *   IRIS    → 0.50% trail on MF/NPS/AIF AUM
+ *   IIFL    → 0.10% brokerage share on equity orders
+ *   ALPACA  → 0.20% order-flow rebates on US equities
+ */
+mpalRouter.get("/admin/earnings", requireAdmin, async (req, res) => {
+  try {
+    const days = Math.min(parseInt(req.query.days as string) || 30, 365);
+    const brokerFilter = req.query.brokerId as string | undefined;
+
+    const { db } = await import("../db");
+    const { brokerOrders } = await import("../../shared/schema/mpal");
+    const { sql, gte, and, eq } = await import("drizzle-orm");
+
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    // Commission rates per broker (aligned with RevenueEngine)
+    const COMMISSION_RATES: Record<string, { rate: number; label: string; currency: string; domain: string }> = {
+      IRIS:   { rate: 0.005, label: "IRIS KFintech",  currency: "INR", domain: "Mutual Funds / NPS / AIF" },
+      IIFL:   { rate: 0.001, label: "IIFL Securities", currency: "INR", domain: "Indian Equities / F&O"    },
+      ALPACA: { rate: 0.002, label: "Alpaca Markets",  currency: "USD", domain: "US Equities / ETFs"       },
+    };
+
+    // Build DB conditions
+    const conditions: any[] = [gte(brokerOrders.createdAt, since)];
+    if (brokerFilter) conditions.push(eq(brokerOrders.brokerId, brokerFilter.toUpperCase()));
+
+    // Fetch all qualifying orders
+    const orders = await db
+      .select()
+      .from(brokerOrders)
+      .where(and(...conditions));
+
+    // Aggregate per broker
+    const brokerMap: Record<string, {
+      brokerId: string; label: string; domain: string; currency: string;
+      orderCount: number; filledCount: number; totalOrderValue: number;
+      estimatedCommission: number; filledCommission: number;
+      capabilityList: string[];
+    }> = {};
+
+    for (const order of orders) {
+      const bid = order.brokerId || "UNKNOWN";
+      if (!brokerMap[bid]) {
+        const reg = COMMISSION_RATES[bid] ?? { rate: 0, label: bid, currency: "INR", domain: "—" };
+        const regBroker = providerRegistry.getAllBrokers().find(b => b.brokerId === bid);
+        brokerMap[bid] = {
+          brokerId: bid,
+          label: reg.label,
+          domain: reg.domain,
+          currency: reg.currency,
+          orderCount: 0,
+          filledCount: 0,
+          totalOrderValue: 0,
+          estimatedCommission: 0,
+          filledCommission: 0,
+          capabilityList: regBroker?.capabilities ?? [],
+        };
+      }
+      const entry = brokerMap[bid];
+      const rate = COMMISSION_RATES[bid]?.rate ?? 0;
+      const val = parseFloat(order.requestedNotional as string ?? order.requestedQty as string ?? "0") || 0;
+      entry.orderCount++;
+      entry.totalOrderValue += val;
+      entry.estimatedCommission += val * rate;
+      if (order.status === "filled" || order.status === "completed") {
+        const filledVal = parseFloat(order.filledPrice as string ?? "0") * parseFloat(order.filledQty as string ?? "0");
+        entry.filledCount++;
+        entry.filledCommission += filledVal * rate;
+      }
+    }
+
+    const brokers = Object.values(brokerMap).map(b => ({
+      ...b,
+      successRate: b.orderCount > 0 ? Math.round((b.filledCount / b.orderCount) * 100) : 0,
+      configured: providerRegistry.getAllBrokers().find(x => x.brokerId === b.brokerId)?.isConfigured() ?? false,
+    }));
+
+    // Summary totals (INR equivalent — USD amounts shown separately)
+    const totalOrders = orders.length;
+    const totalFilled = orders.filter(o => o.status === "filled" || o.status === "completed").length;
+    const totalCommissionINR = brokers
+      .filter(b => b.currency === "INR")
+      .reduce((s, b) => s + b.filledCommission, 0);
+    const totalCommissionUSD = brokers
+      .filter(b => b.currency === "USD")
+      .reduce((s, b) => s + b.filledCommission, 0);
+
+    // Top products by order count
+    const productCounts: Record<string, { assetClass: string; count: number; brokerId: string }> = {};
+    for (const o of orders) {
+      const key = `${o.assetClass || o.brokerId}`;
+      if (!productCounts[key]) productCounts[key] = { assetClass: o.assetClass || "UNKNOWN", count: 0, brokerId: o.brokerId };
+      productCounts[key].count++;
+    }
+    const topProducts = Object.values(productCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    // Recent 20 orders (newest first)
+    const recentOrders = [...orders]
+      .sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime())
+      .slice(0, 20)
+      .map(o => ({
+        id: o.id,
+        brokerId: o.brokerId,
+        assetClass: o.assetClass,
+        side: o.side,
+        status: o.status,
+        symbol: o.symbol,
+        requestedQty: o.requestedQty,
+        requestedNotional: o.requestedNotional,
+        filledQty: o.filledQty,
+        filledPrice: o.filledPrice,
+        createdAt: o.createdAt,
+        idempotencyKey: o.idempotencyKey,
+      }));
+
+    // Registered broker health (all brokers — even unconfigured, to show admin what's missing)
+    const allBrokerHealth = providerRegistry.getAllBrokers().map(b => ({
+      brokerId: b.brokerId,
+      configured: b.isConfigured(),
+      capabilities: b.capabilities,
+      commissionRate: COMMISSION_RATES[b.brokerId]?.rate ?? 0,
+      domain: COMMISSION_RATES[b.brokerId]?.domain ?? "—",
+      currency: COMMISSION_RATES[b.brokerId]?.currency ?? "INR",
+    }));
+
+    logger.info("[MPAL Admin] Earnings aggregation complete", {
+      event: "MPAL_ADMIN_EARNINGS_FETCHED",
+      user_id: req.user?.id,
+      days,
+      totalOrders,
+      brokersCount: brokers.length,
+      latency_ms: 0,
+      status: "success",
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        period: { days, since: since.toISOString(), until: new Date().toISOString() },
+        summary: {
+          totalOrders,
+          totalFilled,
+          overallSuccessRate: totalOrders > 0 ? Math.round((totalFilled / totalOrders) * 100) : 0,
+          totalCommissionINR: Math.round(totalCommissionINR),
+          totalCommissionUSD: parseFloat(totalCommissionUSD.toFixed(2)),
+          activeBrokers: allBrokerHealth.filter(b => b.configured).length,
+          totalBrokers: allBrokerHealth.length,
+        },
+        brokers,
+        allBrokerHealth,
+        topProducts,
+        recentOrders,
+      },
+      meta: { timestamp: new Date().toISOString(), version: "1.0" },
+    });
+  } catch (err: any) {
+    logger.error("[MPAL Admin] Earnings aggregation failed", { error: err?.message });
+    return res.status(500).json({
+      success: false,
+      error_code: "EARNINGS_FETCH_FAILED",
+      message: err?.message ?? "Internal error",
+      retryable: true,
+    });
+  }
 });

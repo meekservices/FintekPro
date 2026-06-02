@@ -44,7 +44,7 @@ import {
   AdminApiUsage, AdminMFEnrichment, AdminMfBenchmarks, AdminDataEnrichment,
   AdminMasterDsaClaims, AdminAiRecommendationTracking, AdminReportsHub,
   AdminAIInsights, AdminAgentOversightPage, AdminAppointmentsDashboard,
-  AdminBrokerDashboard, AlpacaHubAdmin, AdminIrisOverview, OpenAccountPage,
+  AdminBrokerDashboard, AlpacaHubAdmin, AdminIrisOverview, MultibrokerEarnings, OpenAccountPage,
   AIPortfolioReport, Portfolio, MutualFunds, AIF, PMS, MldStore, Unlisted,
   Bonds, ManualKYCPage, KYCProductEligibility, NetWorthPage, ReitInvitPage,
   PortfolioStressTest, DividendCalendar, TaxLossHarvesting, TaxRegimeComparison,
@@ -722,6 +722,15 @@ export function AdminRoutes() {
           <AdminLayout>
             <Suspense fallback={<LoadingState variant="dashboard" />}>
               <AdminIrisOverview />
+            </Suspense>
+          </AdminLayout>
+        )}
+      </Route>
+      <Route path="/admin/multibroker-earnings">
+        {() => (
+          <AdminLayout>
+            <Suspense fallback={<LoadingState variant="dashboard" />}>
+              <MultibrokerEarnings />
             </Suspense>
           </AdminLayout>
         )}
