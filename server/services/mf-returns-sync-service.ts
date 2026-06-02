@@ -1,8 +1,8 @@
-// @ts-nocheck
+/* eslint-disable no-console */
 import { db } from "../db";
 import { getProductionDb, hasProductionDb } from '../db';
-import { mutualFunds, historicalNavData } from "@shared/schema";
-import { eq, and, sql, desc, isNull, or, lt } from "drizzle-orm";
+import { mutualFunds } from "@shared/schema";
+import { eq, sql, desc, isNull, or, lt } from "drizzle-orm";
 import axios from "axios";
 
 interface NavDataPoint {
@@ -47,7 +47,7 @@ interface EnrichedFundData extends CalculatedReturns {
 
 const MFAPI_BASE_URL = 'https://api.mfapi.in/mf';
 const REQUEST_TIMEOUT = 30000;
-const BATCH_SIZE = 50;
+const _BATCH_SIZE = 50; // reserved for future batch API endpoint
 const BASE_DELAY = 800; // Base delay between requests (ms)
 const MAX_RETRY_ATTEMPTS = 3;
 const BACKOFF_MULTIPLIER = 2; // Exponential backoff multiplier
@@ -390,7 +390,7 @@ class MFReturnsSyncService {
   async updateFundReturns(
     schemeCode: string, 
     returns: CalculatedReturns,
-    ratios?: FinancialRatios
+    _ratios?: FinancialRatios
   ): Promise<boolean> {
     try {
       // NOTE: Only write columns that exist on the mutual_funds table.
