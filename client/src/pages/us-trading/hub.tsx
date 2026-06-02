@@ -203,67 +203,61 @@ export default function AlpacaClientHub() {
           <h2 className="text-lg font-black tracking-tight">Select an account type</h2>
           <div className="flex flex-col gap-3">
             <Card className="hover:ring-2 hover:ring-primary/20 cursor-pointer transition-all border-2 group">
-             <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-primary" />
-                <span className="text-sm font-bold">Rigorous Security</span>
-             </div>
-             <p className="text-xs text-muted-foreground leading-relaxed">
-               We uphold the highest security standards, undergoing SOC 2 Type 2 audits to ensure the safety of your personal information at all times.
-             </p>
+              <CardContent className="p-5 flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-primary/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors shrink-0">
+                  <User className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-black text-sm">Individual Account</h3>
+                  <p className="text-xs text-muted-foreground">For personal retail investors · LRS eligible</p>
+                </div>
+                <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground shrink-0" />
+              </CardContent>
+            </Card>
+
+            <Card className="hover:ring-2 hover:ring-orange-200 cursor-pointer transition-all border-2 opacity-60">
+              <CardContent className="p-5 flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+                  <Building2 className="h-5 w-5 text-orange-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-black text-sm">Business Account</h3>
+                  <p className="text-xs text-muted-foreground">For LLCs, Corporates and Partnerships</p>
+                </div>
+                <Badge variant="secondary" className="ml-auto text-[9px] shrink-0">COMING SOON</Badge>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="flex justify-end pt-4">
+            <Button size="lg" className="rounded-full px-10 gap-2 shadow-xl shadow-primary/20 font-black">
+              Open Account Now <ArrowRight className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
-        <div className="space-y-8">
-           <div className="space-y-4">
-              <h2 className="text-xl font-bold">Accounts at Alpaca</h2>
-              <ul className="space-y-4">
-                <li className="flex gap-3">
-                  <div className="h-5 w-5 rounded-full bg-yellow-400/20 flex items-center justify-center shrink-0 mt-0.5">
-                    <div className="h-2 w-2 rounded-full bg-yellow-500" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold">Individual accounts are designed for individual investors.</h4>
-                  </div>
-                </li>
-                <li className="flex gap-3">
-                  <div className="h-5 w-5 rounded-full bg-yellow-400/20 flex items-center justify-center shrink-0 mt-0.5">
-                    <div className="h-2 w-2 rounded-full bg-yellow-500" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold">Business accounts are designed to support LLCs, Corporations and Partnerships.</h4>
-                  </div>
-                </li>
-              </ul>
-           </div>
-
-           <div className="space-y-4">
-              <h2 className="text-xl font-bold">Supported Regions</h2>
-              <div className="flex gap-3">
-                <div className="h-5 w-5 rounded-full bg-yellow-400/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <div className="h-2 w-2 rounded-full bg-yellow-500" />
+        {/* Trust badges */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-black tracking-tight">Why trust Alpaca?</h2>
+          <div className="space-y-3">
+            {[
+              { icon: ShieldCheck, label: 'SOC 2 Type 2 Certified',       sub: 'Annual third-party security audits',       color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40' },
+              { icon: Globe,       label: '196 Countries & Regions',       sub: 'Including India via LRS',                  color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/40' },
+              { icon: Lock,        label: 'SIPC Protected up to $500,000', sub: 'Securities + Excess SIPC coverage',        color: 'text-violet-600 bg-violet-50 dark:bg-violet-950/40' },
+              { icon: Zap,         label: 'Real-Time Order Execution',     sub: 'Institutional-grade matching engine',      color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40' },
+            ].map(({ icon: Icon, label, sub, color }) => (
+              <div key={label} className="flex items-center gap-4 p-4 rounded-2xl border bg-card">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
+                  <Icon className="h-4 w-4" />
                 </div>
-                <p className="text-sm">We serve 196 countries and regions, including <span className="font-bold">India</span>.</p>
-              </div>
-           </div>
-
-           <div className="space-y-4">
-              <h2 className="text-xl font-bold">Enhanced SIPC Coverage</h2>
-              <div className="flex gap-3">
-                <div className="h-5 w-5 rounded-full bg-yellow-400/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <div className="h-2 w-2 rounded-full bg-yellow-500" />
+                <div>
+                  <p className="text-sm font-black">{label}</p>
+                  <p className="text-xs text-muted-foreground">{sub}</p>
                 </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Your assets are protected up to <span className="font-bold uppercase text-foreground">$500,000</span> through SIPC, in addition to Excess SIPC Coverage.
-                </p>
               </div>
-           </div>
+            ))}
+          </div>
         </div>
-      </div>
-
-      <div className="flex justify-end pt-8">
-        <Button size="lg" className="rounded-full px-12 gap-2 shadow-xl hover:shadow-primary/20 scale-110">
-          Open Account Now <ArrowRight className="h-4 w-4" />
-        </Button>
       </div>
     </div>
   );
