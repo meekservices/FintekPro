@@ -1828,7 +1828,7 @@ export default function AgentPicksPage() {
                                   <span>Other Sectors</span>
                                 </div>
                               )}
-                              <div className="grid gap-4 md:grid-cols-2">
+                              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                 {group.picks.map((pick, index) => (
                                   <PickCard
                                     key={`today-sector-${pick.id}-${gi}-${index}`}
@@ -1970,7 +1970,7 @@ export default function AgentPicksPage() {
                                     {group.picks.length} pick{group.picks.length > 1 ? 's' : ''}
                                   </span>
                                 </div>
-                                <div className="grid gap-4 md:grid-cols-2">
+                                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                   {group.picks.map((pick, index) => (
                                     <PickCard
                                       key={`today-gs-${pick.id}-${gi}-${index}`}
@@ -1994,7 +1994,7 @@ export default function AgentPicksPage() {
 
                         {/* Non-stock picks (when "All" tab) */}
                         {nonStockPicks.length > 0 && (
-                          <div className="grid gap-4 md:grid-cols-2">
+                          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                             {nonStockPicks.map((pick, index) => (
                               <PickCard
                                 key={`today-ns-${pick.id}-${index}`}
@@ -2018,7 +2018,7 @@ export default function AgentPicksPage() {
 
                   // Flat grid for all other categories
                   return (
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                       {filteredTodayPicks.map((pick, index) => (
                         <PickCard
                           key={`today-flat-${pick.id}-${index}`}
@@ -2145,7 +2145,7 @@ export default function AgentPicksPage() {
                   No live recommendations {liveCategoryFilter !== 'all' ? `for ${categoryLabels[liveCategoryFilter] || liveCategoryFilter}` : 'at the moment'}
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {filteredLivePicks.map((pick, index) => (
                     <PickCard 
                       key={`live-${pick.id}-${index}`} 
@@ -3237,7 +3237,7 @@ function PickCard({
               </div>
             )}
 
-            <div className="grid grid-cols-1 xs:grid-cols-3 gap-2 sm:gap-3 mt-4">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-4">
               <div className="bg-muted/30 p-2 sm:p-3 rounded-lg border border-transparent hover:border-border transition-colors">
                 <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">Entry Price</div>
                 <div className="font-bold text-sm sm:text-base">{formatPrice(pick.recoPrice, pick.category)}</div>
