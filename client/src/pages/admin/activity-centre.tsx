@@ -937,9 +937,11 @@ function ErrorSupportReport({ error, onClose }: { error: ErrorEntry; onClose: ()
 function GlobalPlatformHealth() {
   const { data: health } = useQuery<{
     status: string;
-    services: Record<string, { status: string; latency: number; uptime: number }>;
-    resources: { cpu: number; memory: number; storage: number };
-    version: string;
+    booting?: boolean;
+    services?: Record<string, { status: string; latency: number; uptime: number }>;
+    resources?: { cpu: number; memory: number; storage: number };
+    version?: string;
+    uptime?: number;
   }>({
     queryKey: ['/api/health'],
     refetchInterval: 30000,
@@ -958,7 +960,9 @@ function GlobalPlatformHealth() {
             <p className="text-xs text-muted-foreground font-medium uppercase">Backend Status</p>
             <div className="flex items-center gap-2">
               <h4 className="text-lg font-bold">{health.status.toUpperCase()}</h4>
-              <Badge variant="outline" className="text-[10px] h-4 px-1">v{health.version}</Badge>
+              {health.version && (
+                <Badge variant="outline" className="text-[10px] h-4 px-1">v{health.version}</Badge>
+              )}
             </div>
           </div>
         </CardContent>
@@ -971,7 +975,7 @@ function GlobalPlatformHealth() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground font-medium uppercase">DB Response</p>
-            <h4 className="text-lg font-bold">{health.services.database?.latency || 0}ms</h4>
+            <h4 className="text-lg font-bold">{health.services?.database?.latency ?? 0}ms</h4>
           </div>
         </CardContent>
       </Card>
