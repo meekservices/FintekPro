@@ -57,8 +57,10 @@ jobs:
           ls -lh dist/public/
 
       - name: Check Secret Visibility (Diagnostic)
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" ]; then
+          if [ -z "$FIREBASE_SA" ]; then
             echo "❌ FIREBASE_SERVICE_ACCOUNT is EMPTY or NOT FOUND"
             echo "Please ensure it is a REPOSITORY SECRET (not an environment secret or variable)."
             exit 1
