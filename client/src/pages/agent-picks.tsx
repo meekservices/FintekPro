@@ -69,6 +69,11 @@ import {
   Zap,
   Search,
   Calculator,
+  LayoutGrid,
+  Table2,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import {
   LineChart,
@@ -390,6 +395,14 @@ export default function AgentPicksPage() {
   const [, navigate] = useLocation();
   const [selectedPickIds, setSelectedPickIds] = useState<Set<number>>(new Set());
   const [builderBudget, setBuilderBudget] = useState("500000");
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>(() => {
+    try { return (localStorage.getItem('picks-view-mode') as 'grid' | 'table') || 'grid'; }
+    catch { return 'grid'; }
+  });
+  const toggleViewMode = (mode: 'grid' | 'table') => {
+    setViewMode(mode);
+    try { localStorage.setItem('picks-view-mode', mode); } catch {}
+  };
 
   const handleSelectToggle = (id: number) => {
     const next = new Set(selectedPickIds);
@@ -1762,11 +1775,27 @@ export default function AgentPicksPage() {
                             <TrendingUp className="h-5 w-5 text-primary" />
                             <h3 className="font-semibold">Today's Stock Picks</h3>
                             {hasSectorData && (
-                              <span className="ml-auto flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                              <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                 {sectorGroups.filter(g => g.sector).length} Sectors
                               </span>
                             )}
+                            <div className="ml-auto flex items-center gap-1 border rounded-lg p-0.5">
+                              <button
+                                onClick={() => toggleViewMode('grid')}
+                                className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                                title="Card view"
+                              >
+                                <LayoutGrid className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => toggleViewMode('table')}
+                                className={`p-1.5 rounded-md transition-colors ${viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                                title="Table view"
+                              >
+                                <Table2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
 
                           {/* Sector Allocation Bar */}
@@ -1808,49 +1837,53 @@ export default function AgentPicksPage() {
                             </div>
                           )}
 
-                          {/* Per-sector grouped cards */}
-                          {sectorGroups.map((group, gi) => (
-                            <div key={group.sector?.id ?? 'other'} className="space-y-3">
-                              {group.sector ? (
-                                <div
-                                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white text-sm font-semibold"
-                                  style={{ backgroundColor: group.sector.color }}
-                                >
-                                  <span>{group.sector.icon}</span>
-                                  <span>{group.sector.label}</span>
-                                  <span className="ml-auto opacity-80 text-xs font-normal">
-                                    {group.picks.length} pick{group.picks.length > 1 ? 's' : ''}
-                                  </span>
+                          {/* Per-sector grouped cards OR table */}
+                          {viewMode === 'table' ? (
+                            <PicksTable picks={filteredTodayPicks} onRowClick={setSelectedPick} />
+                          ) : (
+                            sectorGroups.map((group, gi) => (
+                              <div key={group.sector?.id ?? 'other'} className="space-y-3">
+                                {group.sector ? (
+                                  <div
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white text-sm font-semibold"
+                                    style={{ backgroundColor: group.sector.color }}
+                                  >
+                                    <span>{group.sector.icon}</span>
+                                    <span>{group.sector.label}</span>
+                                    <span className="ml-auto opacity-80 text-xs font-normal">
+                                      {group.picks.length} pick{group.picks.length > 1 ? 's' : ''}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted text-sm font-semibold text-muted-foreground">
+                                    <TrendingUp className="h-4 w-4" />
+                                    <span>Other Sectors</span>
+                                  </div>
+                                )}
+                                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                  {group.picks.map((pick, index) => (
+                                    <PickCard
+                                      key={`today-sector-${pick.id}-${gi}-${index}`}
+                                      pick={pick}
+                                      isWatchlisted={watchlistPickIds.has(pick.id)}
+                                      isSelected={selectedPickIds.has(pick.id)}
+                                      onSelectToggle={handleSelectToggle}
+                                      onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
+                                      onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
+                                      onShareEmail={(id) => handleShare(id, 'email')}
+                                      onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
+                                      onShareClients={handleShareWithClients}
+                                      onClick={setSelectedPick}
+                                      onExplain={(id) => {
+                                        setExplanationPickId(id);
+                                        setExplanationOpen(true);
+                                      }}
+                                    />
+                                  ))}
                                 </div>
-                              ) : (
-                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted text-sm font-semibold text-muted-foreground">
-                                  <TrendingUp className="h-4 w-4" />
-                                  <span>Other Sectors</span>
-                                </div>
-                              )}
-                              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                                {group.picks.map((pick, index) => (
-                                  <PickCard
-                                    key={`today-sector-${pick.id}-${gi}-${index}`}
-                                    pick={pick}
-                                    isWatchlisted={watchlistPickIds.has(pick.id)}
-                                    isSelected={selectedPickIds.has(pick.id)}
-                                    onSelectToggle={handleSelectToggle}
-                                    onAddToWatchlist={(id) => addToWatchlistMutation.mutate(id)}
-                                    onRemoveFromWatchlist={(id) => removeFromWatchlistMutation.mutate(id)}
-                                    onShareEmail={(id) => handleShare(id, 'email')}
-                                    onShareWhatsApp={(id) => handleShare(id, 'whatsapp')}
-                                    onShareClients={handleShareWithClients}
-                                    onClick={setSelectedPick}
-                                    onExplain={(id) => {
-                                      setExplanationPickId(id);
-                                      setExplanationOpen(true);
-                                    }}
-                                  />
-                                ))}
                               </div>
-                            </div>
-                          ))}
+                            ))
+                          )}
                         </div>
                       );
                     })()}
@@ -2017,7 +2050,9 @@ export default function AgentPicksPage() {
                   }
 
                   // Flat grid for all other categories
-                  return (
+                  return viewMode === 'table' ? (
+                    <PicksTable picks={filteredTodayPicks} onRowClick={setSelectedPick} />
+                  ) : (
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                       {filteredTodayPicks.map((pick, index) => (
                         <PickCard
@@ -2052,8 +2087,26 @@ export default function AgentPicksPage() {
                     Active picks being tracked for target/stoploss
                   </CardDescription>
                 </div>
-                {/* #5 Search box */}
-                <div className="relative w-full sm:w-56">
+                <div className="flex items-center gap-2">
+                  {/* View toggle */}
+                  <div className="flex items-center gap-1 border rounded-lg p-0.5">
+                    <button
+                      onClick={() => toggleViewMode('grid')}
+                      className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                      title="Card view"
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => toggleViewMode('table')}
+                      className={`p-1.5 rounded-md transition-colors ${viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                      title="Table view"
+                    >
+                      <Table2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  {/* #5 Search box */}
+                  <div className="relative w-full sm:w-56">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <input
                     type="text"
@@ -2072,6 +2125,7 @@ export default function AgentPicksPage() {
                       <X className="h-4 w-4" />
                     </button>
                   )}
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -2144,6 +2198,8 @@ export default function AgentPicksPage() {
                 <div className="text-center py-8 text-muted-foreground">
                   No live recommendations {liveCategoryFilter !== 'all' ? `for ${categoryLabels[liveCategoryFilter] || liveCategoryFilter}` : 'at the moment'}
                 </div>
+              ) : viewMode === 'table' ? (
+                <PicksTable picks={filteredLivePicks} onRowClick={setSelectedPick} showReturn />
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {filteredLivePicks.map((pick, index) => (
@@ -2306,6 +2362,8 @@ export default function AgentPicksPage() {
                 <div className="text-center py-12 text-muted-foreground">
                   No picks found for the selected filters
                 </div>
+              ) : viewMode === 'table' ? (
+                <PicksTable picks={filteredHistory} onRowClick={setSelectedPick} showReturn />
               ) : (
                 <div className="space-y-3">
                   {filteredHistory.map((pick, index) => (
@@ -3016,6 +3074,160 @@ interface PickCardProps {
   onExplain?: (pickId: number) => void;
   isSelected?: boolean;
   onSelectToggle?: (pickId: number) => void;
+}
+
+// ─── PicksTable ────────────────────────────────────────────────────────────────
+interface PicksTableProps {
+  picks: DailyPick[];
+  onRowClick?: (pick: DailyPick) => void;
+  showReturn?: boolean;
+}
+
+function PicksTable({ picks, onRowClick, showReturn = false }: PicksTableProps) {
+  const [sortCol, setSortCol] = useState<string>('recoDate');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (col: string) => {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+    }
+  };
+
+  const sorted = [...picks].sort((a, b) => {
+    let av: any, bv: any;
+    switch (sortCol) {
+      case 'name':       av = a.instrumentName; bv = b.instrumentName; break;
+      case 'category':   av = a.category;        bv = b.category;       break;
+      case 'status':     av = a.status;          bv = b.status;         break;
+      case 'entry':      av = a.recoPrice;       bv = b.recoPrice;      break;
+      case 'target':     av = a.targetPrice;     bv = b.targetPrice;    break;
+      case 'stoploss':   av = a.stoplossPrice;   bv = b.stoplossPrice;  break;
+      case 'upside':     av = a.targetPrice && a.recoPrice ? (a.targetPrice - a.recoPrice) / a.recoPrice : 0;
+                         bv = b.targetPrice && b.recoPrice ? (b.targetPrice - b.recoPrice) / b.recoPrice : 0; break;
+      case 'return':     av = a.returnPct ?? 0;  bv = b.returnPct ?? 0; break;
+      case 'confidence': av = a.confidenceScore ?? 0; bv = b.confidenceScore ?? 0; break;
+      case 'recoDate':   av = new Date(a.recoDate).getTime(); bv = new Date(b.recoDate).getTime(); break;
+      default:           av = 0; bv = 0;
+    }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ?  1 : -1;
+    return 0;
+  });
+
+  const SortIcon = ({ col }: { col: string }) => {
+    if (sortCol !== col) return <ArrowUpDown className="h-3 w-3 opacity-40 ml-1 inline" />;
+    return sortDir === 'asc'
+      ? <ChevronUp className="h-3 w-3 ml-1 inline text-primary" />
+      : <ChevronDown className="h-3 w-3 ml-1 inline text-primary" />;
+  };
+
+  const Th = ({ col, label, right }: { col: string; label: string; right?: boolean }) => (
+    <th
+      onClick={() => handleSort(col)}
+      className={`px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground cursor-pointer select-none whitespace-nowrap hover:text-foreground transition-colors ${right ? 'text-right' : 'text-left'}`}
+    >
+      {label}<SortIcon col={col} />
+    </th>
+  );
+
+  return (
+    <div className="overflow-x-auto rounded-lg border">
+      <table className="w-full text-sm border-collapse">
+        <thead className="bg-muted/60 sticky top-0 z-10">
+          <tr>
+            <th className="px-3 py-2.5 text-xs font-semibold text-muted-foreground text-left w-8">#</th>
+            <Th col="name" label="Instrument" />
+            <Th col="category" label="Type" />
+            <Th col="status" label="Status" />
+            <Th col="entry" label="Entry" right />
+            <Th col="target" label="Target" right />
+            <Th col="stoploss" label="SL" right />
+            <Th col="upside" label="Upside" right />
+            {showReturn && <Th col="return" label="Return" right />}
+            <Th col="confidence" label="AI%" right />
+            <Th col="recoDate" label="Date" />
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((pick, idx) => {
+            const isExpired = pick.status === 'live' && pick.expiryDate && new Date(pick.expiryDate) < new Date();
+            const effectiveStatus = isExpired ? 'expired' : pick.status;
+            const status = statusConfig[effectiveStatus] || statusConfig.live;
+            const upsidePct = pick.targetPrice && pick.recoPrice
+              ? ((pick.targetPrice - pick.recoPrice) / pick.recoPrice * 100)
+              : null;
+            const returnPct = pick.returnPct ?? (
+              pick.currentPrice && pick.recoPrice
+                ? (pick.currentPrice - pick.recoPrice) / pick.recoPrice * 100
+                : null
+            );
+            const catLabel = categoryLabels[pick.category] || pick.category;
+            const horizon = pick.timeHorizon ? horizonConfig[pick.timeHorizon] : null;
+
+            return (
+              <tr
+                key={pick.id}
+                onClick={() => onRowClick?.(pick)}
+                className={`border-t transition-colors ${onRowClick ? 'cursor-pointer hover:bg-accent/40' : ''} ${idx % 2 === 0 ? '' : 'bg-muted/20'}`}
+              >
+                <td className="px-3 py-2.5 text-muted-foreground text-xs">{idx + 1}</td>
+                <td className="px-3 py-2.5 max-w-[200px]">
+                  <div className="font-semibold text-foreground truncate leading-tight">{pick.instrumentName}</div>
+                  {pick.symbol && <div className="text-[10px] text-muted-foreground">{pick.symbol}{pick.exchange ? ` · ${pick.exchange}` : ''}</div>}
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{catLabel}</Badge>
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap">
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${status.color}`}>
+                    {status.label}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap">
+                  {formatPrice(pick.recoPrice, pick.category)}
+                </td>
+                <td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap text-emerald-600 dark:text-emerald-400">
+                  {formatPrice(pick.targetPrice, pick.category)}
+                </td>
+                <td className="px-3 py-2.5 text-right font-mono text-xs whitespace-nowrap text-red-500 dark:text-red-400">
+                  {formatPrice(pick.stoplossPrice, pick.category)}
+                </td>
+                <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                  {upsidePct !== null ? (
+                    <span className={`text-xs font-semibold ${upsidePct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                      {upsidePct >= 0 ? '+' : ''}{upsidePct.toFixed(1)}%
+                    </span>
+                  ) : '—'}
+                </td>
+                {showReturn && (
+                  <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                    {returnPct !== null ? (
+                      <span className={`text-xs font-semibold ${returnPct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                        {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(1)}%
+                      </span>
+                    ) : '—'}
+                  </td>
+                )}
+                <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                  {pick.confidenceScore !== undefined ? (
+                    <span className={`text-xs font-semibold ${getConfidenceColor(pick.confidenceScore)}`}>
+                      {pick.confidenceScore}%
+                    </span>
+                  ) : '—'}
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-xs text-muted-foreground">
+                  {new Date(pick.recoDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function PickCard({ 
