@@ -44,8 +44,6 @@ jobs:
         run: npx vite build
         env:
           NODE_ENV: production
-          # Vite strips server-only code; these vars are not needed at build time
-          # but listed here for clarity if you add VITE_* env vars in the future
 
       - name: Verify build output exists
         run: |
@@ -62,16 +60,34 @@ jobs:
         run: |
           if [ -z "$FIREBASE_SA" ]; then
             echo "❌ FIREBASE_SERVICE_ACCOUNT is EMPTY or NOT FOUND"
-            echo "Please ensure it is a REPOSITORY SECRET (not an environment secret or variable)."
             exit 1
-          else
-            echo "✅ FIREBASE_SERVICE_ACCOUNT is present"
           fi
+          echo "✅ FIREBASE_SERVICE_ACCOUNT is present (length: ${#FIREBASE_SA})"
+          # Validate it's parseable JSON
+          echo "$FIREBASE_SA" | python3 -c "import json,sys; d=json.load(sys.stdin); print('✅ Valid JSON, project:', d.get('project_id','?'))"
 
       - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          channelId: live
-          projectId: ${{ env.PROJECT_ID }}
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          # Write service account JSON to a temp file
+          SA_FILE=$(mktemp /tmp/firebase-sa-XXXXXX.json)
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$SA_FILE"
+
+          # Verify valid JSON
+          python3 -c "import json,sys; json.load(open('$SA_FILE'))" || {
+            echo "❌ FIREBASE_SERVICE_ACCOUNT is not valid JSON"
+            rm -f "$SA_FILE"
+            exit 1
+          }
+          echo "✅ Service account JSON verified"
+
+          # Deploy using GOOGLE_APPLICATION_CREDENTIALS (ADC)
+          GOOGLE_APPLICATION_CREDENTIALS="$SA_FILE" \
+            npx -y firebase-tools@latest deploy \
+              --only hosting \
+              --project "$PROJECT_ID" \
+              --non-interactive
+
+          rm -f "$SA_FILE"
+          echo "✅ Firebase Hosting deploy complete"
