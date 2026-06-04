@@ -220,16 +220,20 @@ export function AgentRoutes() {
       </Route>
       <Route path="/agent/training">
         {() => (
-          <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
-            <AgentTrainingPage />
-          </Suspense>
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentTrainingPage />
+            </Suspense>
+          </AgentLayout>
         )}
       </Route>
       <Route path="/agent/recommendation-control">
         {() => (
-          <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
-            <AgentRecommendationControl />
-          </Suspense>
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentRecommendationControl />
+            </Suspense>
+          </AgentLayout>
         )}
       </Route>
       <Route path="/agent/investment-advisory">
@@ -252,9 +256,11 @@ export function AgentRoutes() {
       </Route>
       <Route path="/agent/derivatives">
         {() => (
-          <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
-            <AgentDerivatives />
-          </Suspense>
+          <AgentLayout>
+            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+              <AgentDerivatives />
+            </Suspense>
+          </AgentLayout>
         )}
       </Route>
       <Route path="/agent/stock-ai">
@@ -626,67 +632,83 @@ export function AgentRoutes() {
       </Route>
       <Route path="/agent/research-lists">
         {() => (
-          <Suspense fallback={<LoadingState />}>
-            <AgentResearchLists />
-          </Suspense>
+          <AgentLayout>
+            <Suspense fallback={<LoadingState />}>
+              <AgentResearchLists />
+            </Suspense>
+          </AgentLayout>
         )}
       </Route>
       <Route path="/agent/research-lists/:id">
         {() => (
-          <Suspense fallback={<LoadingState />}>
-            <AgentResearchListDetail />
-          </Suspense>
+          <AgentLayout>
+            <Suspense fallback={<LoadingState />}>
+              <AgentResearchListDetail />
+            </Suspense>
+          </AgentLayout>
         )}
       </Route>
       <Route path="/agent/screener">
         {() => (
-          <Suspense fallback={<LoadingState />}>
-            <AgentScreener />
-          </Suspense>
+          <AgentLayout>
+            <Suspense fallback={<LoadingState />}>
+              <AgentScreener />
+            </Suspense>
+          </AgentLayout>
         )}
       </Route>
       <Route path="/agent/research-analytics">
         {() => (
-          <Suspense fallback={<LoadingState />}>
-            <AgentResearchAnalytics />
-          </Suspense>
+          <AgentLayout>
+            <Suspense fallback={<LoadingState />}>
+              <AgentResearchAnalytics />
+            </Suspense>
+          </AgentLayout>
         )}
       </Route>
       <Route path="/agent/quant-analytics">
         {() => (
-          <Suspense fallback={<LoadingState />}>
-            <AgentLayout>
+          <AgentLayout>
+            <Suspense fallback={<LoadingState />}>
               <AgentQuantAnalytics />
-            </AgentLayout>
-          </Suspense>
+            </Suspense>
+          </AgentLayout>
         )}
       </Route>
       <Route path="/agent/research/generate">
         {() => (
-          <Suspense fallback={<LoadingState />}>
-            <ResearchNoteGenerator />
-          </Suspense>
+          <AgentLayout>
+            <Suspense fallback={<LoadingState />}>
+              <ResearchNoteGenerator />
+            </Suspense>
+          </AgentLayout>
         )}
       </Route>
       <Route path="/agent/hni-leaderboard">
         {() => (
-          <Suspense fallback={<LoadingState />}>
-            <AgentHniLeaderboard />
-          </Suspense>
+          <AgentLayout>
+            <Suspense fallback={<LoadingState />}>
+              <AgentHniLeaderboard />
+            </Suspense>
+          </AgentLayout>
         )}
       </Route>
       <Route path="/agent/deal-matcher">
         {() => (
-          <Suspense fallback={<LoadingState />}>
-            <AgentDealMatcher />
-          </Suspense>
+          <AgentLayout>
+            <Suspense fallback={<LoadingState />}>
+              <AgentDealMatcher />
+            </Suspense>
+          </AgentLayout>
         )}
       </Route>
       <Route path="/agent/theme-settings">
         {() => (
-          <Suspense fallback={<LoadingState />}>
-            <AgentThemeSettings />
-          </Suspense>
+          <AgentLayout>
+            <Suspense fallback={<LoadingState />}>
+              <AgentThemeSettings />
+            </Suspense>
+          </AgentLayout>
         )}
       </Route>
       <Route path="/agent/settings">
