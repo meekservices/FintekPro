@@ -72,6 +72,26 @@ export function requireMobileAuth(req: Request, res: Response, next: Function) {
   }
 }
 
+/**
+ * Compare a plaintext password against a stored scrypt hash (hex.salt format).
+ * Matches the hashPassword / comparePasswords logic in server/auth.ts.
+ * IMPORTANT: Do NOT use bcryptjs — FintekPro uses Node.js built-in scrypt.
+ */
+async function compareScryptPassword(supplied: string, stored: string): Promise<boolean> {
+  try {
+    const { scrypt, timingSafeEqual } = await import('crypto');
+    const { promisify } = await import('util');
+    const scryptAsync = promisify(scrypt);
+    const [hashed, salt] = stored.split('.');
+    if (!hashed || !salt) return false;
+    const hashedBuf = Buffer.from(hashed, 'hex');
+    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    return timingSafeEqual(hashedBuf, suppliedBuf);
+  } catch {
+    return false;
+  }
+}
+
 // ── POST /api/auth/mobile/token ────────────────────────────────────────────
 mobileAuthRouter.post('/token', async (req: Request, res: Response) => {
   const { email, password, portalType } = req.body as {
@@ -88,10 +108,13 @@ mobileAuthRouter.post('/token', async (req: Request, res: Response) => {
   }
 
   try {
-    // Re-use passport local strategy by making an internal login
-    // We authenticate against the existing users table + bcrypt
+    // Lookup by email or mobile (normalise mobile: strip +91 prefix and leading zero)
+    const normalised = email.includes('@') ? email.toLowerCase() : email.replace(/\D/g, '').replace(/^91(\d{10})$/, '$1').replace(/^0(\d{10})$/, '$1');
     const users = await db.execute(
-      sql`SELECT id, email, password, name, roles, phone FROM users WHERE email = ${email.toLowerCase()} LIMIT 1`
+      sql`SELECT id, email, mobile, password, "firstName", "lastName", name, roles, phone
+          FROM users
+          WHERE email = ${normalised} OR mobile = ${normalised}
+          LIMIT 1`
     );
     const user = (users.rows as any[])[0];
 
@@ -102,8 +125,8 @@ mobileAuthRouter.post('/token', async (req: Request, res: Response) => {
       });
     }
 
-    const bcrypt = await import('bcryptjs');
-    const valid = await bcrypt.compare(password, user.password);
+    // Use scrypt comparison — same as auth.ts (NOT bcryptjs)
+    const valid = await compareScryptPassword(password, user.password);
     if (!valid) {
       return res.status(401).json({
         success: false,
@@ -115,7 +138,6 @@ mobileAuthRouter.post('/token', async (req: Request, res: Response) => {
 
     // Validate portal type access
     const isAgent = roles.some(r => ['agent', 'master_agent', 'sub_agent', 'admin', 'super_admin'].includes(r));
-    const isInvestor = roles.some(r => ['client', 'investor', ...roles].includes(r)); // All users can be investors
 
     if (portalType === 'agent' && !isAgent) {
       return res.status(403).json({
@@ -124,6 +146,7 @@ mobileAuthRouter.post('/token', async (req: Request, res: Response) => {
       });
     }
 
+    const displayName = user.name || [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
     const token = signMobileToken({ userId: user.id, email: user.email, roles, portalType });
 
     console.log(JSON.stringify({
@@ -131,6 +154,7 @@ mobileAuthRouter.post('/token', async (req: Request, res: Response) => {
       user_id: user.id,
       portalType,
       platform: req.headers['x-platform'] ?? 'mobile',
+      latency_ms: 0,
       status: 'success',
     }));
 
@@ -138,7 +162,7 @@ mobileAuthRouter.post('/token', async (req: Request, res: Response) => {
       success: true,
       data: {
         token,
-        user: { id: user.id, name: user.name, email: user.email, roles, phone: user.phone },
+        user: { id: user.id, name: displayName, email: user.email, roles, phone: user.phone || user.mobile },
       },
       meta: { timestamp: new Date().toISOString(), version: '1.0' }
     });
@@ -156,15 +180,16 @@ mobileAuthRouter.get('/me', requireMobileAuth, async (req: Request, res: Respons
   const mobileUser = (req as any).mobileUser as MobileJwtPayload;
   try {
     const users = await db.execute(
-      sql`SELECT id, email, name, roles, phone FROM users WHERE id = ${mobileUser.userId} LIMIT 1`
+      sql`SELECT id, email, mobile, "firstName", "lastName", name, roles, phone FROM users WHERE id = ${mobileUser.userId} LIMIT 1`
     );
     const user = (users.rows as any[])[0];
     if (!user) {
       return res.status(404).json({ success: false, error: { error_code: 'USER_NOT_FOUND', message: 'User not found', retryable: false } });
     }
+    const displayName = user.name || [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
     return res.json({
       success: true,
-      data: { id: user.id, name: user.name, email: user.email, roles: user.roles, phone: user.phone },
+      data: { id: user.id, name: displayName, email: user.email, roles: user.roles, phone: user.phone || user.mobile },
       meta: { timestamp: new Date().toISOString(), version: '1.0' }
     });
   } catch (err) {
