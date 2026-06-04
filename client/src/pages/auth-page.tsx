@@ -218,8 +218,13 @@ export default function AuthPage() {
   const [pendingLoginData, setPendingLoginData] = useState<LoginFormData | null>(null);
 
   // Agent portal OTP Login (passwordless) states
-  const [loginMethod, setLoginMethod] = useState<'password' | 'otp'>('password');
+  const [loginMethod, setLoginMethod] = useState<'password' | 'otp' | 'pin'>('password');
   const [otpLoginEmail, setOtpLoginEmail] = useState('');
+  // Direct PIN login state (agent portal PIN tab)
+  const [pinDirectId, setPinDirectId] = useState('');
+  const [pinDirectValue, setPinDirectValue] = useState('');
+  const [pinDirectError, setPinDirectError] = useState('');
+  const pinDirectRefs = useRef<Array<HTMLInputElement | null>>([null, null, null, null]);
 
   // OTP Timer Countdown (Login)
   useEffect(() => {
@@ -569,6 +574,10 @@ export default function AuthPage() {
     onError: (error: Error) => {
       setPinError(error.message || "Invalid PIN. Please try again.");
       setPinValue("");
+      // Also handle PIN tab (direct login) error
+      setPinDirectValue("");
+      setPinDirectError(error.message || "Incorrect PIN. Please try again.");
+
       toast({ title: "Incorrect PIN", description: error.message, variant: "destructive" });
     },
   });
@@ -988,6 +997,13 @@ export default function AuthPage() {
                   >
                     OTP Login
                   </button>
+                  <button
+                    type="button"
+                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${loginMethod === 'pin' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                    onClick={() => { setLoginMethod('pin'); setPinDirectValue(''); setPinDirectError(''); }}
+                  >
+                    4-Digit PIN
+                  </button>
                 </div>
 
                 {/* Password login form */}
@@ -1077,6 +1093,80 @@ export default function AuthPage() {
                       Send OTP
                     </Button>
                   </form>
+                )}
+
+                {/* PIN direct login form (trusted devices) */}
+                {loginMethod === 'pin' && (
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="agent-pin-id" className="text-gray-700 text-sm font-medium">Email or Mobile</Label>
+                      <div className="relative mt-1">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="agent-pin-id"
+                          value={pinDirectId}
+                          onChange={(e) => setPinDirectId(e.target.value)}
+                          placeholder="agent@fintekpro.in or mobile"
+                          className="pl-9"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-gray-700 text-sm font-medium">4-Digit PIN</Label>
+                      <div className="flex gap-3 justify-center mt-2">
+                        {[0, 1, 2, 3].map((i) => (
+                          <input
+                            key={i}
+                            ref={(el) => { pinDirectRefs.current[i] = el; }}
+                            type="password"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={pinDirectValue[i] || ''}
+                            className="w-12 h-12 text-center text-xl font-bold border-2 rounded-lg focus:border-blue-500 focus:outline-none transition-colors"
+                            onChange={(e) => {
+                              const digit = e.target.value.replace(/\D/g, '').slice(-1);
+                              const next = pinDirectValue.split('');
+                              next[i] = digit;
+                              setPinDirectValue(next.join('').slice(0, 4));
+                              setPinDirectError('');
+                              if (digit && i < 3) pinDirectRefs.current[i + 1]?.focus();
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Backspace' && !pinDirectValue[i] && i > 0) {
+                                pinDirectRefs.current[i - 1]?.focus();
+                              }
+                            }}
+                          />
+                        ))}
+                      </div>
+                      {pinDirectError && (
+                        <p className="text-sm text-red-600 mt-2 text-center">{pinDirectError}</p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-2 text-center">Available on trusted devices only</p>
+                    </div>
+
+                    <Button
+                      type="button"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                      disabled={pinDirectValue.length !== 4 || !pinDirectId.trim() || pinEntryMutation.isPending}
+                      onClick={() => {
+                        if (pinDirectValue.length === 4 && pinDirectId.trim()) {
+                          setPinIdentifier(pinDirectId.trim());
+                          pinEntryMutation.mutate({ identifier: pinDirectId.trim(), pin: pinDirectValue });
+                        }
+                      }}
+                    >
+                      {pinEntryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Sign In with PIN
+                    </Button>
+
+                    <p className="text-xs text-center text-gray-400">
+                      Not a trusted device?{' '}
+                      <button type="button" className="text-blue-600 hover:underline" onClick={() => setLoginMethod('password')}>Use password instead</button>
+                    </p>
+                  </div>
                 )}
 
                 <p className="text-center text-sm text-gray-400 mt-7">
