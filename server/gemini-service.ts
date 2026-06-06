@@ -419,7 +419,7 @@ Respond to the user's query helpfully and professionally.`;
 // FASP-AI v1.0 — Structured Copilot Inference (absorbed from geminiService.ts)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const COPILOT_MODEL_VERSION = 'gemini-2.0-flash';
+const COPILOT_MODEL_VERSION = 'gemini-2.5-flash';
 const MAX_RETRIES = 3;
 
 /** FASP-AI v1.0 — mandatory metadata on every AI output */

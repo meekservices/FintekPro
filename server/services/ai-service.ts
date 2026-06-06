@@ -262,7 +262,7 @@ export class AIService {
       { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
       // Gemini — reliable (requires valid non-depleted API key)
       { provider: 'gemini',     model: 'gemini-2.5-flash' },
-      { provider: 'gemini',     model: 'gemini-2.0-flash' },
+      { provider: 'gemini',     model: 'gemini-2.5-flash-lite' },
       // OpenAI — last resort (quota/cost)
       { provider: 'openai',     model: 'gpt-4o-mini' },
       { provider: 'openai',     model: 'gpt-4o' },
@@ -436,7 +436,7 @@ export class AIService {
       { provider: 'cerebras',   model: 'zai-glm-4.7' },
       { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
       { provider: 'gemini',     model: 'gemini-2.5-flash' },
-      { provider: 'gemini',     model: 'gemini-2.0-flash' },
+      { provider: 'gemini',     model: 'gemini-2.5-flash-lite' },
       { provider: 'openai',     model: 'gpt-4o-mini' },
       { provider: 'openai',     model: 'gpt-4o' },
     ];
