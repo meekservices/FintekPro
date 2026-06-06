@@ -865,9 +865,7 @@ export function registerAuthRoutes(app: Express) {
         )
         .orderBy(sql`${userTrustedDevices.lastSeenAt} DESC`);
 
-      return apiResponse.success(res, { devices }, undefined, {
-        total: devices.length,
-      });
+      return apiResponse.success(res, { devices, total: devices.length });
     } catch (error) {
       console.error("[TRUSTED_DEVICES_LIST] Error:", error);
       return apiResponse.serverError(res, "Failed to fetch trusted devices");
