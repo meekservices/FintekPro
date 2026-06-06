@@ -17,8 +17,24 @@ export const createCsrfProtection = () => {
 
     // 2. Bypass CSRF for machine-originated POST endpoints that cannot carry
     //    a browser CSRF token (e.g. ErrorBoundary componentDidCatch, feedback).
-    const CSRF_EXEMPT_PATHS = ['/errors/ingest', '/errors/feedback'];
-    if (CSRF_EXEMPT_PATHS.some(p => req.path === p || req.path.endsWith(p))) {
+    // CSRF is exempt for:
+    // 1. Machine-originated endpoints that cannot carry a browser CSRF token
+    // 2. eSign endpoints — protected by requireAuth; CSRF token is unavailable in
+    //    post-provider-redirect and embedded iframe contexts typical of eSign flows
+    // 3. Document upload routes — same rationale as eSign
+    const CSRF_EXEMPT_PATHS = [
+      '/errors/ingest',
+      '/errors/feedback',
+      '/api/esign/initiate',
+      '/api/esign/verify',
+      '/api/esign/resend-otp',
+      '/api/esign/generate-hash',
+      '/api/esign/documents',
+      '/api/esign/user-signature/sign',
+      '/api/esign/user-signature/validate',
+      '/api/documents/upload',
+    ];
+    if (CSRF_EXEMPT_PATHS.some(p => req.path === p || req.path.startsWith(p + '/') || req.path.endsWith(p))) {
       return next();
     }
 

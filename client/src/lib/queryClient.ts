@@ -29,6 +29,31 @@ export function clearStoredSessionId() {
   } catch (e) {}
 }
 
+// PIN Device Token — localStorage fallback for Chrome 3PCD cookie blocking
+let pinDeviceTokenCache: string | null = null;
+
+export function storePinDeviceToken(token: string) {
+  pinDeviceTokenCache = token;
+  try {
+    localStorage.setItem('fintekpro_pin_device_token', token);
+  } catch (e) {}
+}
+
+export function getStoredPinDeviceToken(): string | null {
+  if (pinDeviceTokenCache) return pinDeviceTokenCache;
+  try {
+    pinDeviceTokenCache = localStorage.getItem('fintekpro_pin_device_token');
+  } catch (e) {}
+  return pinDeviceTokenCache;
+}
+
+export function clearPinDeviceToken() {
+  pinDeviceTokenCache = null;
+  try {
+    localStorage.removeItem('fintekpro_pin_device_token');
+  } catch (e) {}
+}
+
 export async function fetchCsrfToken(): Promise<string | null> {
   try {
     const res = await fetch('/api/csrf-token', { credentials: 'include' });
@@ -273,6 +298,8 @@ export async function apiRequest(
     ...(serializedBody && !headers["Content-Type"] ? { "Content-Type": "application/json" } : {}),
     // Session ID fallback header — sent when cookie-based sessions may be broken
     ...(getStoredSessionId() ? { 'X-Session-ID': getStoredSessionId()! } : {}),
+    // PIN Device Token fallback header — sent so isTrustedPinDevice() works even when Chrome 3PCD blocks the cookie
+    ...(getStoredPinDeviceToken() ? { 'X-Pin-Device-Token': getStoredPinDeviceToken()! } : {}),
   };
 
   if (isMutatingRequest && csrfToken) {

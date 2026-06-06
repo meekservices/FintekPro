@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient, markUserAuthenticated, storeSessionId } from "@/lib/queryClient";
+import { apiRequest, queryClient, markUserAuthenticated, storeSessionId, storePinDeviceToken } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubdomain } from "@/hooks/useSubdomain";
 import { SessionConflictDialog } from "@/components/SessionConflictDialog";
@@ -500,6 +500,13 @@ export default function AuthPage() {
         storeSessionId(data.sessionId);
       }
 
+      // Store PIN device token so the next login uses the PIN shortcut (3PCD-resistant fallback)
+      if (response.pinDeviceToken) {
+        storePinDeviceToken(response.pinDeviceToken);
+      } else if (data.pinDeviceToken) {
+        storePinDeviceToken(data.pinDeviceToken);
+      }
+
       // If PIN not yet set, show PIN setup screen before navigating
       if (data.requiresPinSetup) {
         setLoginStep("pin-setup");
@@ -560,6 +567,13 @@ export default function AuthPage() {
         storeSessionId(response.sessionId);
       } else if (data.sessionId) {
         storeSessionId(data.sessionId);
+      }
+
+      // Store PIN device token so next login uses PIN shortcut (3PCD-resistant fallback)
+      if (response.pinDeviceToken) {
+        storePinDeviceToken(response.pinDeviceToken);
+      } else if (data.pinDeviceToken) {
+        storePinDeviceToken(data.pinDeviceToken);
       }
 
       setLoginStep("complete");
