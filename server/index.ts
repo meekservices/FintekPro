@@ -165,11 +165,23 @@ const server = app.listen(PORT, "0.0.0.0", () => {
           return res.status(401).json({ error: 'No session' });
         }
 
-        if (!(req.session as any).csrfToken) {
+        const isNew = !(req.session as any).csrfToken;
+        if (isNew) {
           (req.session as any).csrfToken = generateCsrfToken();
         }
 
-        res.json({ csrfToken: (req.session as any).csrfToken });
+        const token = (req.session as any).csrfToken;
+
+        // Force-save the session so the token is persisted in the store.
+        // This is critical for users going through the X-Session-ID fallback
+        // path, where resave:false prevents automatic persistence.
+        if (isNew) {
+          req.session.save((err) => {
+            if (err) logger.warn('[CSRF] Failed to save session after token generation:', err);
+          });
+        }
+
+        res.json({ csrfToken: token });
       });
 
       // Apply CSRF protection after session/auth middleware

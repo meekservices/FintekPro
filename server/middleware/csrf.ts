@@ -37,7 +37,20 @@ export const createCsrfProtection = () => {
       return next();
     }
 
-    // 3. Diagnostic logging for validation failures
+    // 3. Auto-heal: if session exists but has NO csrfToken yet (e.g. first mutation
+    //    after an X-Session-ID restore, before the client had a chance to call
+    //    GET /api/csrf-token), generate one now and let the request through.
+    //    The client will pick up the fresh token from the response header.
+    if (req.session && !sessionToken) {
+      const newToken = generateCsrfToken();
+      (req.session as any).csrfToken = newToken;
+      req.session.save(() => {}); // fire-and-forget persistence
+      res.setHeader('X-CSRF-Token-Refresh', newToken);
+      console.info(`[CSRF_AUTOHEAL] 🔧 Generated fresh CSRF token for session with missing token (${req.method} ${req.path})`);
+      return next();
+    }
+
+    // 4. Diagnostic logging for genuine validation failures (both tokens present but mismatch)
     const logData = {
       timestamp: new Date().toISOString(),
       method: req.method,

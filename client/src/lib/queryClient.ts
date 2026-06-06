@@ -310,7 +310,13 @@ export async function apiRequest(
   }
 
   await throwIfResNotOk(res, url);
-  
+
+  // If the server auto-healed a missing CSRF token, capture it for future requests
+  const refreshedToken = res.headers.get('x-csrf-token-refresh');
+  if (refreshedToken) {
+    csrfToken = refreshedToken;
+  }
+
   const contentType = res.headers.get("content-type");
   if (contentType?.includes("application/json")) {
     return await res.json();
