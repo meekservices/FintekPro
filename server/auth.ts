@@ -834,8 +834,96 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
+  // ── Trusted Devices Management ──────────────────────────────────────────────
+
+  /**
+   * GET /api/user/trusted-devices
+   * Returns all active (non-revoked) trusted devices for the authenticated user.
+   * Safe to expose to any role — data is scoped to req.user.id.
+   */
+  app.get("/api/user/trusted-devices", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return apiResponse.unauthorized(res);
+      }
+
+      const devices = await db
+        .select({
+          id: userTrustedDevices.id,
+          deviceName: userTrustedDevices.deviceName,
+          userAgent: userTrustedDevices.userAgent,
+          ipAddress: userTrustedDevices.ipAddress,
+          trustedAt: userTrustedDevices.trustedAt,
+          lastSeenAt: userTrustedDevices.lastSeenAt,
+        })
+        .from(userTrustedDevices)
+        .where(
+          and(
+            eq(userTrustedDevices.userId, req.user.id),
+            isNull(userTrustedDevices.revokedAt),
+          ),
+        )
+        .orderBy(sql`${userTrustedDevices.lastSeenAt} DESC`);
+
+      return apiResponse.success(res, { devices }, undefined, {
+        total: devices.length,
+      });
+    } catch (error) {
+      console.error("[TRUSTED_DEVICES_LIST] Error:", error);
+      return apiResponse.serverError(res, "Failed to fetch trusted devices");
+    }
+  });
+
+  /**
+   * DELETE /api/user/trusted-devices/:id
+   * Revokes a specific trusted device by ID.
+   * Users can only revoke their own devices.
+   */
+  app.delete("/api/user/trusted-devices/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return apiResponse.unauthorized(res);
+      }
+
+      const { id } = req.params;
+      if (!id) {
+        return apiResponse.badRequest(res, "Device ID is required");
+      }
+
+      // Verify the device belongs to this user before revoking
+      const [device] = await db
+        .select()
+        .from(userTrustedDevices)
+        .where(
+          and(
+            eq(userTrustedDevices.id, id),
+            eq(userTrustedDevices.userId, req.user.id),
+            isNull(userTrustedDevices.revokedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!device) {
+        return apiResponse.notFound(res, "Device not found or already revoked");
+      }
+
+      await db
+        .update(userTrustedDevices)
+        .set({ revokedAt: new Date(), updatedAt: new Date() })
+        .where(eq(userTrustedDevices.id, id));
+
+      console.log(`[TRUSTED_DEVICES_REVOKE] Device ${id} revoked by user ${req.user.id}`);
+
+      return apiResponse.success(res, {}, "Device revoked successfully");
+    } catch (error) {
+      console.error("[TRUSTED_DEVICES_REVOKE] Error:", error);
+      return apiResponse.serverError(res, "Failed to revoke device");
+    }
+  });
+
   // Change account password (authenticated, requires current password)
   app.post("/api/user/change-password", async (req, res) => {
+
     try {
       if (!req.isAuthenticated() || !req.user) {
         return apiResponse.unauthorized(res);

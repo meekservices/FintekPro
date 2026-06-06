@@ -2,7 +2,8 @@ import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +44,11 @@ import {
   ChevronRight,
   KeyRound,
   ShieldCheck,
-  RefreshCw
+  RefreshCw,
+  Laptop,
+  Globe,
+  LogOut,
+  AlertCircle,
 } from "lucide-react";
 import { Link } from "wouter";
 import { SignatureManagement } from "@/components/esign/SignatureManagement";
@@ -71,6 +76,151 @@ const securityFormSchema = z.object({
   message: "New password must be different from your current password",
   path: ["newPassword"],
 });
+
+// ── Trusted Devices Component ─────────────────────────────────────────────────
+function TrustedDevicesCard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+
+  const { data, isLoading, isError } = useQuery<{ devices: any[] }>({
+    queryKey: ["/api/user/trusted-devices"],
+    queryFn: async () => {
+      const res = await apiRequest("/api/user/trusted-devices");
+      return (res as any)?.data ?? res;
+    },
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: async (deviceId: string) => {
+      return await apiRequest(`/api/user/trusted-devices/${deviceId}`, { method: "DELETE" });
+    },
+    onMutate: (deviceId) => setRevokingId(deviceId),
+    onSettled: () => setRevokingId(null),
+    onSuccess: () => {
+      toast({ title: "Device Removed", description: "The device can no longer skip OTP." });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/trusted-devices"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Revoke Failed", description: err?.message || "Could not remove device.", variant: "destructive" });
+    },
+  });
+
+  /** Parse user-agent into a friendly device name */
+  function parseDevice(ua: string | null): { icon: JSX.Element; label: string } {
+    if (!ua) return { icon: <Laptop className="h-5 w-5" />, label: "Unknown Device" };
+    const lower = ua.toLowerCase();
+    if (lower.includes("mobile") || lower.includes("android") || lower.includes("iphone")) {
+      return { icon: <Smartphone className="h-5 w-5" />, label: "Mobile Device" };
+    }
+    if (lower.includes("tablet") || lower.includes("ipad")) {
+      return { icon: <Laptop className="h-5 w-5" />, label: "Tablet" };
+    }
+    return { icon: <Laptop className="h-5 w-5" />, label: "Desktop / Laptop" };
+  }
+
+  const devices: any[] = data?.devices ?? [];
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-primary" />
+          <div>
+            <CardTitle>Trusted Devices</CardTitle>
+            <CardDescription>Devices where you can log in with your PIN instead of OTP</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+            <RefreshCw className="h-4 w-4 animate-spin" /> Loading devices...
+          </div>
+        )}
+
+        {isError && (
+          <div className="flex items-center gap-2 text-sm text-destructive py-4">
+            <AlertCircle className="h-4 w-4" /> Failed to load devices.
+          </div>
+        )}
+
+        {!isLoading && !isError && devices.length === 0 && (
+          <div className="text-sm text-muted-foreground py-4 flex items-center gap-2">
+            <Globe className="h-4 w-4" />
+            No trusted devices yet. Log in and set a PIN to register your first device.
+          </div>
+        )}
+
+        {!isLoading && devices.length > 0 && (
+          <div className="divide-y">
+            {devices.map((device) => {
+              const { icon, label } = parseDevice(device.userAgent);
+              const isThisDevice = localStorage.getItem("pinDeviceToken") !== null &&
+                // We don't store deviceId, so just mark the most-recently-seen as current
+                device === devices[0];
+              return (
+                <div
+                  key={device.id}
+                  className="flex items-start sm:items-center justify-between py-4 gap-4 flex-col sm:flex-row"
+                  data-testid={`trusted-device-row-${device.id}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-muted text-muted-foreground">
+                      {icon}
+                    </div>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm">
+                          {device.deviceName || label}
+                        </p>
+                        {isThisDevice && (
+                          <Badge variant="secondary" className="text-xs h-5 bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300">
+                            This device
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                        {device.ipAddress && (
+                          <span className="flex items-center gap-1">
+                            <Globe className="h-3 w-3" /> {device.ipAddress}
+                          </span>
+                        )}
+                        <span>Trusted {formatDistanceToNow(new Date(device.trustedAt), { addSuffix: true })}</span>
+                        <span>Last seen {formatDistanceToNow(new Date(device.lastSeenAt), { addSuffix: true })}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                    disabled={revokingId === device.id}
+                    onClick={() => revokeMutation.mutate(device.id)}
+                    data-testid={`button-revoke-device-${device.id}`}
+                  >
+                    {revokingId === device.id ? (
+                      <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Removing...</>
+                    ) : (
+                      <><LogOut className="h-3.5 w-3.5 mr-1.5" /> Remove</>  
+                    )}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!isLoading && devices.length > 0 && (
+          <p className="text-xs text-muted-foreground pt-2 border-t">
+            Removing a device means the next login from it will require an OTP.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 // ── PIN Management Component ─────────────────────────────────────────────────
 function PinManagementCard() {
@@ -957,6 +1107,9 @@ export default function SettingsPage() {
 
           {/* 4-Digit Login PIN */}
           <PinManagementCard />
+
+          {/* Trusted Devices */}
+          <TrustedDevicesCard />
 
           {/* 2FA */}
           <Card>
