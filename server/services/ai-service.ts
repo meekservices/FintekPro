@@ -28,17 +28,28 @@ const GROQ_DEFAULT_MODEL = 'llama-3.3-70b-versatile';
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const gemini = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
 
-// Together AI — OpenAI-compatible, $1 free credit. Get key: https://api.together.ai
-const together = process.env.TOGETHER_API_KEY ? new OpenAI({
-  baseURL: 'https://api.together.xyz/v1',
-  apiKey: process.env.TOGETHER_API_KEY,
+// Cerebras — free tier, world's fastest inference (2000+ tok/sec). Get key: https://cloud.cerebras.ai
+const cerebras = process.env.CEREBRAS_API_KEY ? new OpenAI({
+  baseURL: 'https://api.cerebras.ai/v1',
+  apiKey: process.env.CEREBRAS_API_KEY,
 }) : null;
+const CEREBRAS_DEFAULT_MODEL = 'llama-3.3-70b';
+
+// Cloudflare Workers AI — free forever on the free plan. Get key: https://dash.cloudflare.com
+// Uses OpenAI-compatible endpoint via the AI Gateway
+const cloudflareAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+const cloudflareApiKey = process.env.CLOUDFLARE_API_KEY;
+const cloudflare = (cloudflareAccountId && cloudflareApiKey) ? new OpenAI({
+  baseURL: `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/ai/v1`,
+  apiKey: cloudflareApiKey,
+}) : null;
+const CLOUDFLARE_DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
 // Anthropic Claude — best instruction-following. Get key: https://console.anthropic.com
 // Uses OpenAI-compatible endpoint via a thin wrapper if ANTHROPIC_API_KEY is set
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 
-export type AIProvider = 'openai' | 'openai-direct' | 'gemini' | 'groq' | 'together' | 'anthropic';
+export type AIProvider = 'openai' | 'openai-direct' | 'gemini' | 'groq' | 'cerebras' | 'cloudflare' | 'anthropic';
 export type AIModel =
   // ── OpenAI ──────────────────────────────────────────────────────────────
   | 'gpt-4o'                            // Best reasoning (quota-heavy)
@@ -54,9 +65,13 @@ export type AIModel =
   | 'llama-3.1-8b-instant'             // Ultra-fast bulk processing — free
   | 'gemma2-9b-it'                      // Google Gemma 2 on Groq — free
   | 'compound-beta'                     // Groq auto-router — picks best model
-  // ── Together AI (OpenAI-compatible) ─────────────────────────────────────
-  | 'mistralai/Mixtral-8x7B-Instruct-v0.1'  // Strong open model, $0.60/1M tok
-  | 'meta-llama/Llama-3-70b-chat-hf'        // Llama 3 70B on Together
+  // ── Cerebras (free tier, fastest inference) ────────────────────────────
+  | 'llama-3.3-70b'                          // Llama 3.3 70B on Cerebras — free
+  | 'llama-3.1-8b'                           // Llama 3.1 8B on Cerebras — free, ultra-fast
+  | 'deepseek-r1-distill-llama-70b-cerebras' // DeepSeek R1 on Cerebras — free
+  // ── Cloudflare Workers AI (free forever) ────────────────────────────────
+  | '@cf/meta/llama-3.3-70b-instruct-fp8-fast'  // Llama 3.3 70B on Cloudflare — free
+  | '@cf/meta/llama-3.1-8b-instruct'            // Llama 3.1 8B on Cloudflare — free
   // ── Anthropic ───────────────────────────────────────────────────────────
   | 'claude-3-5-haiku-20241022'         // Best instruction-following, $0.80/1M tok
   | 'claude-3-5-sonnet-20241022';       // Best overall Anthropic model
@@ -109,7 +124,8 @@ export class AIService {
     'openai-direct': { healthy: true, lastErrorTime: 0 },
     gemini: { healthy: true, lastErrorTime: 0 },
     groq: { healthy: true, lastErrorTime: 0 },
-    together: { healthy: true, lastErrorTime: 0 },
+    cerebras: { healthy: true, lastErrorTime: 0 },
+    cloudflare: { healthy: true, lastErrorTime: 0 },
     anthropic: { healthy: true, lastErrorTime: 0 },
   };
   private COOL_DOWN_MS = 5 * 60 * 1000; // 5 minutes cool-down for 429s
@@ -137,7 +153,8 @@ export class AIService {
     const defaultModels: Partial<Record<AIProvider, AIModel>> = {
       gemini: 'gemini-2.5-flash',
       groq: 'llama-3.3-70b-versatile',
-      together: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+      cerebras: 'llama-3.3-70b',
+      cloudflare: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
       anthropic: 'claude-3-5-haiku-20241022',
       openai: 'gpt-4o-mini',
       'openai-direct': 'gpt-4o',
@@ -232,20 +249,23 @@ export class AIService {
       initialModel = gemini ? 'gemini-2.5-flash' : 'llama-3.3-70b-versatile';
     }
 
-    // 8-step fallback chain — ordered by cost-efficiency and reliability
+    // 9-step fallback chain — ordered by cost-efficiency and reliability
     const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
       // Groq — free tier, fast (try multiple models before leaving provider)
-      { provider: 'groq',     model: 'llama-3.3-70b-versatile' },
-      { provider: 'groq',     model: 'deepseek-r1-distill-llama-70b' },
-      { provider: 'groq',     model: 'llama-3.1-8b-instant' },
-      // Gemini — cheap + reliable
-      { provider: 'gemini',   model: 'gemini-2.5-flash' },
-      { provider: 'gemini',   model: 'gemini-2.0-flash' },
-      // Together AI — good open models, $1 free credit
-      { provider: 'together', model: 'mistralai/Mixtral-8x7B-Instruct-v0.1' },
+      { provider: 'groq',       model: 'llama-3.3-70b-versatile' },
+      { provider: 'groq',       model: 'deepseek-r1-distill-llama-70b' },
+      { provider: 'groq',       model: 'llama-3.1-8b-instant' },
+      // Cerebras — free tier, world's fastest inference (2000+ tok/sec)
+      { provider: 'cerebras',   model: 'llama-3.3-70b' },
+      { provider: 'cerebras',   model: 'llama-3.1-8b' },
+      // Cloudflare Workers AI — free forever
+      { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
+      // Gemini — reliable, generous free quota
+      { provider: 'gemini',     model: 'gemini-2.5-flash' },
+      { provider: 'gemini',     model: 'gemini-2.0-flash' },
       // OpenAI — last resort (quota/cost)
-      { provider: 'openai',   model: 'gpt-4o-mini' },
-      { provider: 'openai',   model: 'gpt-4o' },
+      { provider: 'openai',     model: 'gpt-4o-mini' },
+      { provider: 'openai',     model: 'gpt-4o' },
     ];
 
     // Put the selected initial provider first, dedupe the rest
@@ -274,10 +294,12 @@ export class AIService {
             result = await this.chatWithOpenAI(messages, model, temperature, maxTokens, stream);
           } else if (provider === 'groq' && groq) {
             result = await this.chatWithGroq(messages, model, temperature, maxTokens);
+          } else if (provider === 'cerebras' && cerebras) {
+            result = await this.chatWithCerebras(messages, model, temperature, maxTokens);
+          } else if (provider === 'cloudflare' && cloudflare) {
+            result = await this.chatWithCloudflare(messages, model, temperature, maxTokens);
           } else if (provider === 'gemini' && gemini) {
             result = await this.chatWithGemini(messages, model, temperature, maxTokens, options);
-          } else if (provider === 'together' && together) {
-            result = await this.chatWithTogether(messages, model, temperature, maxTokens);
           } else if (provider === 'anthropic' && anthropicApiKey) {
             result = await this.chatWithAnthropic(messages, model, temperature, maxTokens);
           } else {
@@ -407,14 +429,16 @@ export class AIService {
     }
 
     const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
-      { provider: 'groq',     model: 'llama-3.3-70b-versatile' },
-      { provider: 'groq',     model: 'deepseek-r1-distill-llama-70b' },
-      { provider: 'groq',     model: 'llama-3.1-8b-instant' },
-      { provider: 'gemini',   model: 'gemini-2.5-flash' },
-      { provider: 'gemini',   model: 'gemini-2.0-flash' },
-      { provider: 'together', model: 'mistralai/Mixtral-8x7B-Instruct-v0.1' },
-      { provider: 'openai',   model: 'gpt-4o-mini' },
-      { provider: 'openai',   model: 'gpt-4o' },
+      { provider: 'groq',       model: 'llama-3.3-70b-versatile' },
+      { provider: 'groq',       model: 'deepseek-r1-distill-llama-70b' },
+      { provider: 'groq',       model: 'llama-3.1-8b-instant' },
+      { provider: 'cerebras',   model: 'llama-3.3-70b' },
+      { provider: 'cerebras',   model: 'llama-3.1-8b' },
+      { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
+      { provider: 'gemini',     model: 'gemini-2.5-flash' },
+      { provider: 'gemini',     model: 'gemini-2.0-flash' },
+      { provider: 'openai',     model: 'gpt-4o-mini' },
+      { provider: 'openai',     model: 'gpt-4o' },
     ];
 
     const finalChain = [
@@ -436,7 +460,9 @@ export class AIService {
           return await this.streamGemini(messages, model, temperature, maxTokens, onChunk);
         } else if (provider === 'groq' && groq) {
           return await this.streamOpenAI(messages, model, temperature, maxTokens, onChunk);
-        } else if (provider === 'together' && together) {
+        } else if (provider === 'cerebras' && cerebras) {
+          return await this.streamOpenAI(messages, model, temperature, maxTokens, onChunk);
+        } else if (provider === 'cloudflare' && cloudflare) {
           return await this.streamOpenAI(messages, model, temperature, maxTokens, onChunk);
         } else {
           throw new Error(`Provider ${provider} not available for streaming`);
@@ -536,20 +562,24 @@ export class AIService {
   }
 
   /**
-   * Together AI chat — OpenAI-compatible, strong open-weight models
-   * Requires TOGETHER_API_KEY. Get $1 free at: https://api.together.ai
+   * Cerebras chat — free tier, world's fastest inference (2000+ tok/sec)
+   * OpenAI-compatible. Get free key at: https://cloud.cerebras.ai
+   * Free tier: rate limited but no credit card required
    */
-  private async chatWithTogether(
+  private async chatWithCerebras(
     messages: ChatMessage[],
     model: string,
     temperature: number,
     maxTokens: number,
   ): Promise<{ content: string; usage: AIUsageMetrics }> {
-    if (!together) {
-      throw new Error('Together AI not configured — set TOGETHER_API_KEY environment variable');
+    if (!cerebras) {
+      throw new Error('Cerebras not configured — set CEREBRAS_API_KEY environment variable');
     }
-    const response = await together.chat.completions.create({
-      model,
+    const cerebrasModel = model.startsWith('llama') || model.startsWith('deepseek')
+      ? model
+      : CEREBRAS_DEFAULT_MODEL;
+    const response = await cerebras.chat.completions.create({
+      model: cerebrasModel,
       messages,
       temperature,
       max_tokens: maxTokens,
@@ -557,12 +587,49 @@ export class AIService {
     });
     const content = response.choices[0]?.message?.content || '';
     const usage: AIUsageMetrics = {
-      provider: 'together',
-      model,
+      provider: 'cerebras',
+      model: cerebrasModel,
       promptTokens: response.usage?.prompt_tokens || 0,
       completionTokens: response.usage?.completion_tokens || 0,
       totalTokens: response.usage?.total_tokens || 0,
       requestId: response.id,
+      timestamp: new Date(),
+    };
+    this.usageMetrics.push(usage);
+    return { content, usage };
+  }
+
+  /**
+   * Cloudflare Workers AI chat — free forever on Workers free plan
+   * OpenAI-compatible endpoint via AI Gateway.
+   * Get key at: https://dash.cloudflare.com → AI → Workers AI
+   * Requires: CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_KEY
+   */
+  private async chatWithCloudflare(
+    messages: ChatMessage[],
+    model: string,
+    temperature: number,
+    maxTokens: number,
+  ): Promise<{ content: string; usage: AIUsageMetrics }> {
+    if (!cloudflare) {
+      throw new Error('Cloudflare AI not configured — set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_KEY');
+    }
+    const cfModel = model.startsWith('@cf/') ? model : CLOUDFLARE_DEFAULT_MODEL;
+    const response = await cloudflare.chat.completions.create({
+      model: cfModel,
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+      stream: false,
+    });
+    const content = response.choices[0]?.message?.content || '';
+    const usage: AIUsageMetrics = {
+      provider: 'cloudflare',
+      model: cfModel,
+      promptTokens: response.usage?.prompt_tokens || 0,
+      completionTokens: response.usage?.completion_tokens || 0,
+      totalTokens: response.usage?.total_tokens || 0,
+      requestId: response.id || `cf-${Date.now()}`,
       timestamp: new Date(),
     };
     this.usageMetrics.push(usage);
