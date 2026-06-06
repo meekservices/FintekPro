@@ -605,7 +605,12 @@ export default function AuthPage() {
       });
       return response;
     },
-    onSuccess: () => {
+    onSuccess: (response: any) => {
+      // Persist the device token so next login uses PIN shortcut (3PCD-resistant)
+      const token = response?.data?.pinDeviceToken ?? response?.pinDeviceToken;
+      if (token) {
+        storePinDeviceToken(token);
+      }
       setLoginStep("complete");
       setPinSetupDialogOpen(false);
       setPinSetupValue("");
@@ -618,6 +623,7 @@ export default function AuthPage() {
       toast({ title: "PIN setup failed", description: error.message, variant: "destructive" });
     },
   });
+
 
   const registerMutation = useMutation({
 

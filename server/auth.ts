@@ -894,9 +894,18 @@ export function registerAuthRoutes(app: Express) {
         loginPin: hashedPin,
         isPinSet: true
       });
-      await trustCurrentPinDevice(req, res, currentUser.id);
 
-      return apiResponse.success(res, {}, "PIN set successfully. You can now use this for future logins.");
+      // Trust device immediately after PIN setup.
+      // Return the token so client can store it in localStorage as the
+      // 3PCD-resistant fallback header (X-Pin-Device-Token).
+      let pinDeviceToken: string | undefined;
+      try {
+        pinDeviceToken = await trustCurrentPinDevice(req, res, currentUser.id);
+      } catch (deviceError) {
+        console.warn("⚠️ [PIN_SETUP] Trusted device save failed (non-critical):", (deviceError as Error)?.message);
+      }
+
+      return apiResponse.success(res, { pinDeviceToken }, "PIN set successfully. You can now use this for future logins.");
     } catch (error) {
       console.error("[PIN_SETUP] Error:", error);
       return apiResponse.serverError(res, "Failed to set PIN");
