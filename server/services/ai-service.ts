@@ -33,7 +33,7 @@ const cerebras = process.env.CEREBRAS_API_KEY ? new OpenAI({
   baseURL: 'https://api.cerebras.ai/v1',
   apiKey: process.env.CEREBRAS_API_KEY,
 }) : null;
-const CEREBRAS_DEFAULT_MODEL = 'llama-3.3-70b';
+const CEREBRAS_DEFAULT_MODEL = 'gpt-oss-120b';
 
 // Cloudflare Workers AI — free forever on the free plan. Get key: https://dash.cloudflare.com
 // Uses OpenAI-compatible endpoint via the AI Gateway
@@ -60,15 +60,15 @@ export type AIModel =
   | 'gemini-2.5-flash-lite'             // Ultra-cheap fast fallback (2.5 family)
   | 'gemini-2.0-flash'                  // Full Flash — still available
   // ── Groq (free tier, OpenAI-compatible) ─────────────────────────────────
-  | 'llama-3.3-70b-versatile'           // Best Groq model — 14,400 req/day free
-  | 'deepseek-r1-distill-llama-70b'     // DeepSeek R1 reasoning on Groq — free
+  | 'llama-3.3-70b-versatile'           // Best Groq model — free
   | 'llama-3.1-8b-instant'             // Ultra-fast bulk processing — free
+  | 'qwen/qwen3-32b'                   // Qwen3 32B on Groq — replaces DeepSeek R1 (free)
+  | 'meta-llama/llama-4-scout-17b-16e-instruct' // Llama 4 Scout on Groq — free
   | 'gemma2-9b-it'                      // Google Gemma 2 on Groq — free
   | 'compound-beta'                     // Groq auto-router — picks best model
   // ── Cerebras (free tier, fastest inference) ────────────────────────────
-  | 'llama-3.3-70b'                          // Llama 3.3 70B on Cerebras — free
-  | 'llama-3.1-8b'                           // Llama 3.1 8B on Cerebras — free, ultra-fast
-  | 'deepseek-r1-distill-llama-70b-cerebras' // DeepSeek R1 on Cerebras — free
+  | 'gpt-oss-120b'                      // OpenAI OSS 120B on Cerebras — free (fastest)
+  | 'zai-glm-4.7'                       // ZAI GLM 4.7 on Cerebras — free
   // ── Cloudflare Workers AI (free forever) ────────────────────────────────
   | '@cf/meta/llama-3.3-70b-instruct-fp8-fast'  // Llama 3.3 70B on Cloudflare — free
   | '@cf/meta/llama-3.1-8b-instruct'            // Llama 3.1 8B on Cloudflare — free
@@ -153,7 +153,7 @@ export class AIService {
     const defaultModels: Partial<Record<AIProvider, AIModel>> = {
       gemini: 'gemini-2.5-flash',
       groq: 'llama-3.3-70b-versatile',
-      cerebras: 'llama-3.3-70b',
+      cerebras: 'gpt-oss-120b',
       cloudflare: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
       anthropic: 'claude-3-5-haiku-20241022',
       openai: 'gpt-4o-mini',
@@ -249,18 +249,18 @@ export class AIService {
       initialModel = gemini ? 'gemini-2.5-flash' : 'llama-3.3-70b-versatile';
     }
 
-    // 9-step fallback chain — ordered by cost-efficiency and reliability
+    // 10-step fallback chain — ordered by cost-efficiency and reliability
     const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
-      // Groq — free tier, fast (try multiple models before leaving provider)
+      // Groq — free tier, fast
       { provider: 'groq',       model: 'llama-3.3-70b-versatile' },
-      { provider: 'groq',       model: 'deepseek-r1-distill-llama-70b' },
+      { provider: 'groq',       model: 'qwen/qwen3-32b' },           // replaces decommissioned deepseek-r1
       { provider: 'groq',       model: 'llama-3.1-8b-instant' },
-      // Cerebras — free tier, world's fastest inference (2000+ tok/sec)
-      { provider: 'cerebras',   model: 'llama-3.3-70b' },
-      { provider: 'cerebras',   model: 'llama-3.1-8b' },
+      // Cerebras — free tier, world's fastest inference
+      { provider: 'cerebras',   model: 'gpt-oss-120b' },
+      { provider: 'cerebras',   model: 'zai-glm-4.7' },
       // Cloudflare Workers AI — free forever
       { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
-      // Gemini — reliable, generous free quota
+      // Gemini — reliable (requires valid non-depleted API key)
       { provider: 'gemini',     model: 'gemini-2.5-flash' },
       { provider: 'gemini',     model: 'gemini-2.0-flash' },
       // OpenAI — last resort (quota/cost)
@@ -430,10 +430,10 @@ export class AIService {
 
     const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
       { provider: 'groq',       model: 'llama-3.3-70b-versatile' },
-      { provider: 'groq',       model: 'deepseek-r1-distill-llama-70b' },
+      { provider: 'groq',       model: 'qwen/qwen3-32b' },
       { provider: 'groq',       model: 'llama-3.1-8b-instant' },
-      { provider: 'cerebras',   model: 'llama-3.3-70b' },
-      { provider: 'cerebras',   model: 'llama-3.1-8b' },
+      { provider: 'cerebras',   model: 'gpt-oss-120b' },
+      { provider: 'cerebras',   model: 'zai-glm-4.7' },
       { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
       { provider: 'gemini',     model: 'gemini-2.5-flash' },
       { provider: 'gemini',     model: 'gemini-2.0-flash' },
@@ -575,7 +575,7 @@ export class AIService {
     if (!cerebras) {
       throw new Error('Cerebras not configured — set CEREBRAS_API_KEY environment variable');
     }
-    const cerebrasModel = model.startsWith('llama') || model.startsWith('deepseek')
+    const cerebrasModel = model === 'gpt-oss-120b' || model === 'zai-glm-4.7'
       ? model
       : CEREBRAS_DEFAULT_MODEL;
     const response = await cerebras.chat.completions.create({
