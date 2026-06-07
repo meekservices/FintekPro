@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { unlistedCompanies, companyRatios, companyFinancials } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, ne, or, isNull } from "drizzle-orm";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import { DailyPickData, PickCategory, ScoreBreakdown } from "../pick-of-the-day-service";
@@ -10,10 +10,21 @@ export class UnlistedStrategy extends BaseStrategy {
 
   async generate(context: StrategyContext): Promise<DailyPickData | null> {
     try {
+      // Bug fix: exclude companies that have since listed on NSE/BSE.
+      // `status='inactive'` or `listingStage='listed'` are set by the
+      // UnlistedListingTracker when a company completes its IPO.
       const companies = await db
         .select()
         .from(unlistedCompanies)
-        .where(eq(unlistedCompanies.status, 'active'))
+        .where(
+          and(
+            eq(unlistedCompanies.status, 'active'),
+            or(
+              isNull(unlistedCompanies.listingStage),
+              ne(unlistedCompanies.listingStage, 'listed')
+            )
+          )
+        )
         .limit(50);
 
       if (companies.length === 0) return null;

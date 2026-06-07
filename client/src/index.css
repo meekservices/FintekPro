@@ -413,3 +413,22 @@ table {
 .iris-bar-ht {
   height: var(--bar-h, 0px);
 }
+
+/* Sector colour helpers — color/flex driven by CSS custom properties set in JS.
+   This avoids inline style props on backgroundColor/flex (linter compliance).
+   --sector-color: dynamic hex from sector data
+   --sector-flex:  flex-grow value (numeric string)
+   --sector-text:  text color override */
+.sector-bar-segment {
+  background-color: var(--sector-color, hsl(var(--primary)));
+  flex: var(--sector-flex, 1);
+}
+
+.sector-dot {
+  background-color: var(--sector-color, hsl(var(--primary)));
+}
+
+.sector-header {
+  background-color: var(--sector-color, hsl(var(--muted)));
+  color: var(--sector-text, hsl(var(--muted-foreground)));
+}

@@ -474,31 +474,28 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
   }
 
   private async savePick(pick: DailyPickData): Promise<void> {
-    await db.insert(dailyPicks).values({
-      category: pick.category,
-      instrumentId: pick.instrumentId,
-      instrumentName: pick.instrumentName,
-      isin: pick.isin,
-      symbol: pick.symbol,
-      market: pick.market,
-      exchange: pick.exchange,
-      recoDate: pick.recoDate,
-      recoPrice: pick.recoPrice.toString(),
-      targetPrice: pick.targetPrice.toString(),
-      stoplossPrice: pick.stoplossPrice.toString(),
-      currentPrice: pick.currentPrice?.toString() || pick.recoPrice.toString(),
-      status: pick.status,
-      expiryDate: pick.expiryDate,
-      rationale: pick.rationale,
-      riskLevel: pick.riskLevel,
-      suitableFor: pick.suitableFor,
-      keyMetrics: pick.keyMetrics,
-      timeHorizon: pick.timeHorizon,
-      confidenceScore: pick.confidenceScore || 70,
-      sectorCategory: pick.sectorCategory,
-      generatedBy: 'ai',
-      updatedAt: new Date(),
-    } as typeof dailyPicks.$inferInsert);
+    // Use INSERT … ON CONFLICT DO NOTHING to make pick generation idempotent.
+    // Prevents duplicate rows when catchUpIfNeeded / auto-heal fires multiple times
+    // on the same day for the same instrument.
+    // The unique index idx_daily_picks_unique_reco covers (category, reco_date, instrument_id, symbol).
+    await db.execute(sql`
+      INSERT INTO daily_picks
+        (category, instrument_id, instrument_name, isin, symbol, market, exchange,
+         reco_date, reco_price, target_price, stoploss_price, current_price,
+         status, expiry_date, rationale, risk_level, suitable_for, key_metrics,
+         time_horizon, confidence_score, sector_category, generated_by, updated_at)
+      VALUES
+        (${pick.category}, ${pick.instrumentId ?? null}, ${pick.instrumentName},
+         ${pick.isin ?? null}, ${pick.symbol ?? null}, ${pick.market ?? null}, ${pick.exchange ?? null},
+         ${pick.recoDate}, ${pick.recoPrice.toString()}, ${pick.targetPrice.toString()},
+         ${pick.stoplossPrice.toString()}, ${(pick.currentPrice ?? pick.recoPrice).toString()},
+         ${pick.status}, ${pick.expiryDate}, ${pick.rationale}, ${pick.riskLevel},
+         ${JSON.stringify(pick.suitableFor)}::jsonb, ${JSON.stringify(pick.keyMetrics ?? {})}::jsonb,
+         ${pick.timeHorizon ?? 'medium_term'}, ${pick.confidenceScore ?? 70},
+         ${pick.sectorCategory ?? null}, 'ai', NOW())
+      ON CONFLICT (category, reco_date, instrument_id, symbol) DO NOTHING
+    `);
+
   }
 
   private async notifyWatchlistSubscribers(

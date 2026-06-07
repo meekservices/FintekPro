@@ -17,12 +17,29 @@ import { unlistedFinancialEnrichmentService } from './services/unlisted-financia
 import { getCredhiveAnalyticsService } from './services/credhive-analytics-service';
 import { companyDataRefreshScheduler } from './services/company-data-refresh-scheduler';
 import { proactiveCacheWarmingService } from './services/proactive-cache-warming-service';
+import { unlistedListingTracker } from './services/unlisted-listing-tracker';
 import { db } from './db';
 import { users, unlistedCompanies } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { isProductionEnvironment } from './utils/enrichment-guard';
 
 export function initializeUnlistedCrons(): void {
+  // ── Listing transition sweep — run immediately on startup, then daily at 7 AM IST ──
+  // This detects unlisted companies that have since completed their IPO (e.g. Swiggy)
+  // and marks them correctly so they stop appearing in unlisted picks.
+  (async () => {
+    try {
+      const results = await unlistedListingTracker.runTransitionSweep();
+      if (results.length > 0) {
+        console.log(`[ListingTracker] Startup sweep: ${results.length} company(ies) transitioned to listed:`, results.map(r => r.companyName).join(', '));
+      } else {
+        console.log('[ListingTracker] Startup sweep: no new listing transitions found');
+      }
+    } catch (err) {
+      console.error('[ListingTracker] Startup sweep failed:', err);
+    }
+  })();
+
   if (!isProductionEnvironment()) {
     console.log('⏭️ [Credhive Sync] Skipped (development mode - production only)');
     console.log('⏭️ [OrderCleanup] Skipped (development mode - production only)');
@@ -36,6 +53,20 @@ export function initializeUnlistedCrons(): void {
     return;
   }
 
+  // ── Daily listing transition sweep — 7 AM IST (1:30 AM UTC) ─────────────────
+  cron.schedule('30 1 * * *', async () => {
+    console.log('[CRON][ListingTracker] Running daily listing transition sweep...');
+    try {
+      const results = await unlistedListingTracker.runTransitionSweep();
+      console.log(`[CRON][ListingTracker] Sweep complete: ${results.length} transitioned`);
+      results.forEach(r =>
+        console.log(`  ✅ ${r.companyName} → ${r.exchange}:${r.nseSymbol} (${r.listedOn}), ${r.picksExpired} pick(s) expired`)
+      );
+    } catch (err) {
+      console.error('[CRON][ListingTracker] Daily sweep failed:', err);
+    }
+  }, { timezone: 'Asia/Kolkata' });
+  console.log('📋 [ListingTracker] Daily listing transition sweep scheduled at 7:00 AM IST');
 
   // ── Expired unlisted listings / buy-requests — every 12 hours ─────────────
   cron.schedule('0 */12 * * *', async () => {

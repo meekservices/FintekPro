@@ -782,4 +782,73 @@ function mapAssetClass(assetClass?: string | null): string {
 
 
 
+// ─── Admin: Mark unlisted company as listed ───────────────────────────────────
+// POST /api/instruments/admin/unlisted/:id/mark-listed
+// Body: { nseSymbol, exchange, listedOn, notes? }
+router.post('/admin/unlisted/:id/mark-listed', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { nseSymbol, exchange, listedOn, notes } = req.body;
+
+    if (!nseSymbol || !exchange || !listedOn) {
+      return res.status(400).json({ success: false, error: 'nseSymbol, exchange, and listedOn are required' });
+    }
+    if (!['NSE', 'BSE'].includes(exchange)) {
+      return res.status(400).json({ success: false, error: 'exchange must be NSE or BSE' });
+    }
+
+    const adminUserId = (req as any).user?.id ?? 'system';
+    const { unlistedListingTracker } = await import('../services/unlisted-listing-tracker');
+    await unlistedListingTracker.markAsListed({ companyId: id, nseSymbol, exchange, listedOn, adminUserId, notes });
+
+    res.json({
+      success: true,
+      message: `Company ${id} marked as listed on ${exchange} as ${nseSymbol}`,
+      meta: { timestamp: new Date().toISOString(), version: '1.0' }
+    });
+  } catch (err: any) {
+    console.error('[Admin] mark-listed error:', err);
+    res.status(500).json({ success: false, error: 'Failed to mark company as listed' });
+  }
+});
+
+// GET /api/instruments/admin/unlisted/listing-transitions
+// Returns the last 50 listing transition events for audit
+router.get('/admin/unlisted/listing-transitions', async (_req: Request, res: Response) => {
+  try {
+    const { unlistedCompanyStatusLog } = await import('@shared/schema');
+    const { desc: descOrder } = await import('drizzle-orm');
+    const log = await db.select().from(unlistedCompanyStatusLog)
+      .where(eq(unlistedCompanyStatusLog.newStatus, 'listed'))
+      .orderBy(descOrder(unlistedCompanyStatusLog.createdAt))
+      .limit(50);
+
+    res.json({
+      success: true,
+      transitions: log,
+      meta: { timestamp: new Date().toISOString(), version: '1.0' }
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Failed to fetch transitions' });
+  }
+});
+
+// GET /api/instruments/admin/unlisted/run-listing-sweep
+// Manually trigger the listing transition sweep
+router.post('/admin/unlisted/run-listing-sweep', async (_req: Request, res: Response) => {
+  try {
+    const { unlistedListingTracker } = await import('../services/unlisted-listing-tracker');
+    const results = await unlistedListingTracker.runTransitionSweep();
+    res.json({
+      success: true,
+      transitioned: results.length,
+      companies: results,
+      meta: { timestamp: new Date().toISOString(), version: '1.0' }
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Sweep failed' });
+  }
+});
+
 export default router;
+

@@ -1134,14 +1134,20 @@ export default function AuthPage() {
                     </div>
 
                     <div>
-                      <Label className="text-gray-700 text-sm font-medium">4-Digit PIN</Label>
-                      <div className="flex gap-3 justify-center mt-2">
+                      <Label htmlFor="agent-pin-direct-group" className="text-gray-700 text-sm font-medium">4-Digit PIN</Label>
+                      <div
+                        id="agent-pin-direct-group"
+                        className="flex gap-3 justify-center mt-2"
+                        role="group"
+                        aria-label="4-Digit PIN entry"
+                      >
                         {[0, 1, 2, 3].map((i) => (
                           <input
                             key={i}
                             ref={(el) => { pinDirectRefs.current[i] = el; }}
                             type="password"
                             inputMode="numeric"
+                            aria-label={`PIN digit ${i + 1} of 4`}
                             maxLength={1}
                             value={pinDirectValue[i] || ''}
                             className="w-12 h-12 text-center text-xl font-bold border-2 rounded-lg focus:border-blue-500 focus:outline-none transition-colors"

@@ -4,14 +4,55 @@
   "typescript.preferences.importModuleSpecifier": "relative",
   "typescript.tsserver.maxTsServerMemory": 8192,
 
-  // ─── Matt Pocock 'ts-error-translator' (mattpocock.ts-error-translator) ─────
-  // This extension shows TypeScript tips with diagnostic codes like
-  // 'interface-declaration', 'basic-types', 'union-type', etc.
-  // Tips are suppressed via the settings below (confirmed valid keys):
+  // ─── Matt Pocock 'Total TypeScript' (mattpocock.ts-error-translator) ────────
+  // The extension emits `info`-level diagnostics teaching TypeScript patterns.
+  // `hiddenTips` is the ONLY setting that suppresses Problems-panel entries.
+  // `hideAllTips` / `hideBasicTips` only affect the inline hover popup UI.
+  // Listed here: every tip ID that appears in FintekPro source files.
   "totalTypeScript.hideAllTips": true,
   "totalTypeScript.hideBasicTips": true,
-  // Completely disable diagnostic reporting to the Problems panel:
-  "totalTypeScript.enabled": false,
+  "totalTypeScript.hiddenTips": [
+    "type-alias-declaration",
+    "interface-declaration",
+    "ts-object-type",
+    "basic-types",
+    "optional-object-property",
+    "array-type",
+    "passing-generics-to-types",
+    "any-type",
+    "literal-type",
+    "union-type",
+    "null-keyword",
+    "undefined-keyword",
+    "variable-type-annotation",
+    "typing-function-parameters",
+    "function-return-type",
+    "as-const",
+    "as-assertion",
+    "non-null-expression",
+    "typeof",
+    "keyof",
+    "mapped-type",
+    "conditional-type",
+    "template-literal-type",
+    "infer-keyword",
+    "generic-slots",
+    "type-predicate",
+    "discriminated-union",
+    "tuple-type",
+    "readonly-array",
+    "partial-type-helper",
+    "required-type-helper",
+    "record-type-helper",
+    "extract-type-helper",
+    "exclude-type-helper",
+    "omit-type-helper",
+    "pick-type-helper",
+    "return-type-type-helper",
+    "parameters-type-helper",
+    "awaited-type-helper",
+    "never-keyword"
+  ]
 
   // ─── Editor ───────────────────────────────────────────────────────────────
   "editor.formatOnSave": false,

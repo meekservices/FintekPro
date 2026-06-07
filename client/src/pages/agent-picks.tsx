@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SectorBarSegment, SectorDot, SectorHeader } from "@/components/sector-color-elements";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,7 +87,11 @@ import {
   ReferenceLine,
 } from "recharts";
 
-interface DailyPick {
+import type { ComponentType } from 'react';
+
+// ── Domain types ─────────────────────────────────────────────────────────────
+
+type DailyPick = {
   id: number;
   category: string;
   instrumentName: string;
@@ -106,6 +111,15 @@ interface DailyPick {
   rationale: string;
   riskLevel: string;
   suitableFor: string[];
+  /**
+   * Heterogeneous API response bag: holds primitive numbers (for arithmetic
+   * e.g. entryPrice), strings (strategy, expiry), and nested objects
+   * (e.g. greeks: { delta, theta, vega, gamma }). Typed as `any` intentionally
+   * — narrowing to a union breaks arithmetic and nested property access at
+   * all 20+ call sites across this file. (FintekPro GCR: `any` allowed when
+   * justified and documented.)
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   keyMetrics?: Record<string, any>;
   timeHorizon?: 'short_term' | 'medium_term' | 'long_term';
   confidenceScore?: number;
@@ -115,26 +129,32 @@ interface DailyPick {
   priceRefreshInterval?: string;
   lastPriceUpdate?: string;
   dataFreshness?: 'live' | 'recent' | 'delayed' | 'stale' | 'unknown';
-}
+};
 
-interface PicksApiResponse {
+type DataSourceInfo = {
+  name: string;
+  type: string;
+  refreshInterval: string;
+};
+
+type PicksApiResponse = {
   success: boolean;
   picks: DailyPick[];
-  dataSources?: Record<string, { name: string; type: string; refreshInterval: string }>;
+  dataSources?: Record<string, DataSourceInfo>;
   lastRefreshedAt?: string;
   categoryLastUpdated?: Record<string, string>;
   disclaimer?: string;
-}
+};
 
-interface StatsApiResponse {
+type StatsApiResponse = {
   success: boolean;
   stats: PickStats;
   asOfDate?: string;
   lastDataRefresh?: string;
   disclaimer?: string;
-}
+};
 
-interface WatchlistItem {
+type WatchlistItem = {
   id: number;
   pickId: number;
   priceAlertEnabled: boolean;
@@ -142,16 +162,20 @@ interface WatchlistItem {
   alertType?: string;
   addedAt: string;
   pick?: DailyPick;
-}
+};
 
-interface DiversificationData {
-  sectorAllocation: Record<string, { count: number; percentage: number }>;
+type SectorAllocation = { count: number; percentage: number };
+
+type DiversificationData = {
+  sectorAllocation: Record<string, SectorAllocation>;
   concentrationRisk: string;
   diversificationScore: number;
   recommendations: string[];
-}
+};
 
-interface PickStats {
+type CategoryStats = { total: number; hits: number; hitRate: number };
+
+type PickStats = {
   totalPicks: number;
   livePicks: number;
   targetHits: number;
@@ -159,10 +183,46 @@ interface PickStats {
   expired: number;
   hitRate: number;
   avgReturn: number;
-  byCategory: Record<string, { total: number; hits: number; hitRate: number }>;
-}
+  byCategory: Record<string, CategoryStats>;
+};
 
-interface AIStockRecommendation {
+type SignalType = 'strong_buy' | 'buy' | 'hold' | 'sell' | 'strong_sell';
+
+type AIStockFundamentals = {
+  peRatio?: number;
+  pbRatio?: number;
+  roe?: number;
+  roce?: number;
+  eps?: number;
+  dividendYield?: number;
+};
+
+type AIStockTechnicals = {
+  rsi: number;
+  macd: string;
+  movingAvg50: number;
+  movingAvg200: number;
+  weekHigh52: number;
+  weekLow52: number;
+  volumeTrend: string;
+};
+
+type AIStockReturns = {
+  returns1M?: number;
+  returns3M?: number;
+  returns6M?: number;
+  returns1Y?: number;
+};
+
+type AIStockTaxImplications = {
+  holdingPeriod: string;
+  stcgRate: number;
+  ltcgRate: number;
+  ltcgExemption: number;
+  taxTip: string;
+};
+
+type AIStockRecommendation = {
   id: string;
   symbol: string;
   companyName: string;
@@ -173,50 +233,26 @@ interface AIStockRecommendation {
   entryPrice: number;
   targetPrice: number;
   stopLoss: number;
-  signal: 'strong_buy' | 'buy' | 'hold' | 'sell' | 'strong_sell';
+  signal: SignalType;
   fintekproRating: number;
   confidence: number;
   riskScore: number;
   expectedReturn: number;
   timeHorizon: string;
   timeHorizonDays: number;
-  fundamentals: {
-    peRatio?: number;
-    pbRatio?: number;
-    roe?: number;
-    roce?: number;
-    eps?: number;
-    dividendYield?: number;
-  };
-  technicals: {
-    rsi: number;
-    macd: string;
-    movingAvg50: number;
-    movingAvg200: number;
-    weekHigh52: number;
-    weekLow52: number;
-    volumeTrend: string;
-  };
-  returns: {
-    returns1M?: number;
-    returns3M?: number;
-    returns6M?: number;
-    returns1Y?: number;
-  };
+  fundamentals: AIStockFundamentals;
+  technicals: AIStockTechnicals;
+  returns: AIStockReturns;
   rationale: string;
   keyFactors: string[];
   riskFactors: string[];
-  taxImplications: {
-    holdingPeriod: string;
-    stcgRate: number;
-    ltcgRate: number;
-    ltcgExemption: number;
-    taxTip: string;
-  };
+  taxImplications: AIStockTaxImplications;
   generatedAt: string;
-}
+};
 
-const categoryIcons: Record<string, any> = {
+// ── UI config maps ────────────────────────────────────────────────────────────
+
+const categoryIcons: Record<string, ComponentType<{ className?: string }>> = {
   listed_stocks: TrendingUp,
   mutual_funds: BarChart3,
   bonds: Landmark,
@@ -252,68 +288,75 @@ const formatPrice = (price: number, category: string): string => {
   return `${symbol}${price.toLocaleString()}`;
 };
 
-const statusConfig: Record<string, { color: string; icon: any; label: string }> = {
-  live: { color: "bg-green-500", icon: Clock, label: "Live" },
-  target_hit: { color: "bg-blue-500", icon: CheckCircle, label: "Target Hit" },
-  stoploss_hit: { color: "bg-red-500", icon: XCircle, label: "Stoploss Hit" },
-  expired: { color: "bg-muted", icon: AlertCircle, label: "Expired" },
+type StatusEntry = { color: string; icon: ComponentType<{ className?: string }>; label: string };
+
+const statusConfig: Record<string, StatusEntry> = {
+  live:         { color: "bg-green-500", icon: Clock,        label: "Live" },
+  target_hit:   { color: "bg-blue-500",  icon: CheckCircle,  label: "Target Hit" },
+  stoploss_hit: { color: "bg-red-500",   icon: XCircle,      label: "Stoploss Hit" },
+  expired:      { color: "bg-muted",     icon: AlertCircle,  label: "Expired" },
 };
 
 const riskColors: Record<string, string> = {
-  low: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+  low:    "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
   medium: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-  high: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+  high:   "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
 };
 
-const horizonConfig: Record<string, { label: string; color: string; icon: string }> = {
-  short_term: { label: "Short Term", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300", icon: "⚡" },
+type HorizonEntry = { label: string; color: string; icon: string };
+
+const horizonConfig: Record<string, HorizonEntry> = {
+  short_term:  { label: "Short Term",  color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",       icon: "⚡" },
   medium_term: { label: "Medium Term", color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300", icon: "📊" },
-  long_term: { label: "Long Term", color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300", icon: "🎯" },
+  long_term:   { label: "Long Term",   color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",    icon: "🎯" },
 };
 
-const getConfidenceColor = (score: number) => {
+const getConfidenceColor = (score: number): string => {
   if (score >= 80) return "text-green-600";
   if (score >= 60) return "text-yellow-600";
   return "text-red-600";
 };
 
-const getConfidenceDot = (score: number) => {
+const getConfidenceDot = (score: number): string => {
   if (score >= 80) return "bg-green-500";
   if (score >= 60) return "bg-yellow-500";
   return "bg-red-500";
 };
 
 const allCategories = [
-  { key: "all", label: "All", icon: Sparkles },
-  { key: "listed_stocks", label: "Stocks", icon: TrendingUp },
-  { key: "mutual_funds", label: "Mutual Funds", icon: BarChart3 },
-  { key: "bonds", label: "Bonds", icon: Landmark },
-  { key: "unlisted", label: "Unlisted", icon: Building2 },
-  { key: "global_stocks", label: "Global", icon: Globe },
-  { key: "etfs", label: "ETFs", icon: Coins },
-  { key: "reits_invits", label: "REITs", icon: Building2 },
-  { key: "fixed_deposits", label: "FDs", icon: LucideShield },
-  { key: "sgb", label: "SGBs", icon: Coins },
-  { key: "derivatives", label: "F&O", icon: Activity },
-];
+  { key: "all",            label: "All",            icon: Sparkles },
+  { key: "listed_stocks",  label: "Stocks",         icon: TrendingUp },
+  { key: "mutual_funds",   label: "Mutual Funds",   icon: BarChart3 },
+  { key: "bonds",          label: "Bonds",          icon: Landmark },
+  { key: "unlisted",       label: "Unlisted",       icon: Building2 },
+  { key: "global_stocks", label: "Global",          icon: Globe },
+  { key: "etfs",           label: "ETFs",           icon: Coins },
+  { key: "reits_invits",   label: "REITs",          icon: Building2 },
+  { key: "fixed_deposits", label: "FDs",            icon: LucideShield },
+  { key: "sgb",            label: "SGBs",           icon: Coins },
+  { key: "derivatives",    label: "F&O",            icon: Activity },
+] as const;
 
 // ── Broad sector UI metadata (mirrors BROAD_SECTORS in stock-strategy.ts) ──────
 // Kept on the client side to avoid importing server code into the browser bundle.
 const BROAD_SECTOR_UI = [
-  { id: 'banking_finance',       label: 'Banking & Finance',       icon: '🏦', color: '#3B82F6' },
-  { id: 'information_technology',label: 'Information Technology',  icon: '💻', color: '#8B5CF6' },
-  { id: 'healthcare_pharma',     label: 'Healthcare & Pharma',     icon: '💊', color: '#10B981' },
-  { id: 'auto_infra',            label: 'Auto & Capital Goods',    icon: '🏭', color: '#F59E0B' },
-  { id: 'fmcg_consumer',         label: 'FMCG & Consumer',         icon: '🛒', color: '#EF4444' },
+  { id: 'banking_finance',        label: 'Banking & Finance',      icon: '🏦', color: '#3B82F6' },
+  { id: 'information_technology', label: 'Information Technology', icon: '💻', color: '#8B5CF6' },
+  { id: 'healthcare_pharma',      label: 'Healthcare & Pharma',    icon: '💊', color: '#10B981' },
+  { id: 'auto_infra',             label: 'Auto & Capital Goods',   icon: '🏭', color: '#F59E0B' },
+  { id: 'fmcg_consumer',          label: 'FMCG & Consumer',        icon: '🛒', color: '#EF4444' },
 ] as const;
 
+type BroadSector = typeof BROAD_SECTOR_UI[number];
+type SectorGroup = { sector: BroadSector | null; picks: DailyPick[] };
+
 /** Groups an array of DailyPick by their broadSector keyMetric. */
-function groupByBroadSector(picks: DailyPick[]): Array<{ sector: typeof BROAD_SECTOR_UI[number] | null; picks: DailyPick[] }> {
+function groupByBroadSector(picks: DailyPick[]): SectorGroup[] {
   const grouped = new Map<string, DailyPick[]>();
   const ungrouped: DailyPick[] = [];
 
   for (const p of picks) {
-    const bsId = (p.keyMetrics as any)?.broadSector as string | undefined;
+    const bsId = p.keyMetrics?.broadSector as string | undefined;
     if (bsId) {
       if (!grouped.has(bsId)) grouped.set(bsId, []);
       grouped.get(bsId)!.push(p);
@@ -322,7 +365,7 @@ function groupByBroadSector(picks: DailyPick[]): Array<{ sector: typeof BROAD_SE
     }
   }
 
-  const result: Array<{ sector: typeof BROAD_SECTOR_UI[number] | null; picks: DailyPick[] }> = [];
+  const result: SectorGroup[] = [];
   for (const bs of BROAD_SECTOR_UI) {
     const items = grouped.get(bs.id);
     if (items && items.length > 0) result.push({ sector: bs, picks: items });
@@ -1809,12 +1852,10 @@ export default function AgentPicksPage() {
                                   <TooltipProvider key={g.sector!.id}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <div
+                                        <SectorBarSegment
+                                          color={g.sector!.color}
+                                          flex={g.picks.length}
                                           className="h-full rounded-sm transition-all hover:opacity-80 cursor-default"
-                                          style={{
-                                            backgroundColor: g.sector!.color,
-                                            flex: g.picks.length,
-                                          }}
                                         />
                                       </TooltipTrigger>
                                       <TooltipContent>
@@ -1828,7 +1869,10 @@ export default function AgentPicksPage() {
                               <div className="flex flex-wrap gap-3">
                                 {sectorGroups.filter(g => g.sector).map(g => (
                                   <div key={g.sector!.id} className="flex items-center gap-1.5 text-xs">
-                                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: g.sector!.color }} />
+                                    <SectorDot
+                                      color={g.sector!.color}
+                                      className="w-2 h-2 rounded-full"
+                                    />
                                     <span>{g.sector!.icon} {g.sector!.label}</span>
                                     <span className="text-muted-foreground">· {g.picks.map(p => p.symbol).join(', ')}</span>
                                   </div>
@@ -1844,16 +1888,16 @@ export default function AgentPicksPage() {
                             sectorGroups.map((group, gi) => (
                               <div key={group.sector?.id ?? 'other'} className="space-y-3">
                                 {group.sector ? (
-                                  <div
+                                  <SectorHeader
+                                    color={group.sector.color}
                                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white text-sm font-semibold"
-                                    style={{ backgroundColor: group.sector.color }}
                                   >
                                     <span>{group.sector.icon}</span>
                                     <span>{group.sector.label}</span>
                                     <span className="ml-auto opacity-80 text-xs font-normal">
                                       {group.picks.length} pick{group.picks.length > 1 ? 's' : ''}
                                     </span>
-                                  </div>
+                                  </SectorHeader>
                                 ) : (
                                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted text-sm font-semibold text-muted-foreground">
                                     <TrendingUp className="h-4 w-4" />
@@ -1962,9 +2006,10 @@ export default function AgentPicksPage() {
                                     <TooltipProvider key={g.sector!.id}>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <div
+                                          <SectorBarSegment
+                                            color={g.sector!.color}
+                                            flex={g.picks.length}
                                             className="h-full rounded-sm transition-all hover:opacity-80 cursor-default"
-                                            style={{ backgroundColor: g.sector!.color, flex: g.picks.length }}
                                           />
                                         </TooltipTrigger>
                                         <TooltipContent>
@@ -1978,7 +2023,10 @@ export default function AgentPicksPage() {
                                 <div className="flex flex-wrap gap-3">
                                   {sectorGroups.filter(g => g.sector).map(g => (
                                     <div key={g.sector!.id} className="flex items-center gap-1.5 text-xs">
-                                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: g.sector!.color }} />
+                                      <SectorDot
+                                        color={g.sector!.color}
+                                        className="w-2 h-2 rounded-full"
+                                      />
                                       <span>{g.sector!.icon} {g.sector!.label}</span>
                                       <span className="text-muted-foreground">· {g.picks.map(p => p.symbol).join(', ')}</span>
                                     </div>
@@ -1990,19 +2038,17 @@ export default function AgentPicksPage() {
                             {/* Per-sector groups */}
                             {sectorGroups.map((group, gi) => (
                               <div key={group.sector?.id ?? 'other'} className="space-y-3">
-                                <div
+                                <SectorHeader
+                                  color={group.sector ? group.sector.color : 'hsl(var(--muted))'}
+                                  textColor={group.sector ? '#fff' : 'hsl(var(--muted-foreground))'}
                                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold"
-                                  style={group.sector
-                                    ? { backgroundColor: group.sector.color, color: '#fff' }
-                                    : { backgroundColor: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' }
-                                  }
                                 >
                                   <span>{group.sector?.icon ?? '📊'}</span>
                                   <span>{group.sector?.label ?? 'Other Sectors'}</span>
                                   <span className="ml-auto opacity-80 text-xs font-normal">
                                     {group.picks.length} pick{group.picks.length > 1 ? 's' : ''}
                                   </span>
-                                </div>
+                                </SectorHeader>
                                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                   {group.picks.map((pick, index) => (
                                     <PickCard
@@ -3361,7 +3407,7 @@ function PickCard({
                   )}
                   {pick.category === 'derivatives' && pick.keyMetrics?.expiry && (
                     <span className="text-xs bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 px-1.5 py-0.5 rounded">
-                      Exp: {new Date(pick.keyMetrics.expiry).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      Exp: {new Date(pick.keyMetrics.expiry as string).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                     </span>
                   )}
                 </div>
