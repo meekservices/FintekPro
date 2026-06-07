@@ -215,6 +215,14 @@ export function parseObjectPath(path: string): {
   bucketName: string;
   objectName: string;
 } {
+  // Strip gs:// scheme prefix if present (e.g. "gs://my-bucket/path/to/file")
+  // IMPORTANT: This MUST happen before the leading-slash normalisation below,
+  // otherwise "gs://bucket/obj" becomes "/gs://bucket/obj" and pathParts[1]
+  // ends up as "gs:" — an invalid bucket name.
+  if (path.startsWith("gs://")) {
+    path = path.slice("gs://".length); // → "my-bucket/path/to/file"
+  }
+
   if (!path.startsWith("/")) {
     path = `/${path}`;
   }
