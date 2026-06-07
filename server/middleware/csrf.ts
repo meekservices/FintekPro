@@ -22,17 +22,21 @@ export const createCsrfProtection = () => {
     // 2. eSign endpoints — protected by requireAuth; CSRF token is unavailable in
     //    post-provider-redirect and embedded iframe contexts typical of eSign flows
     // 3. Document upload routes — same rationale as eSign
+    //
+    // IMPORTANT: This middleware is mounted at app.use('/api', ...) so Express
+    // strips the '/api' prefix from req.path. Use paths WITHOUT the /api prefix here.
+    // e.g. POST /api/esign/initiate → req.path === '/esign/initiate'
     const CSRF_EXEMPT_PATHS = [
       '/errors/ingest',
       '/errors/feedback',
-      '/api/esign/initiate',
-      '/api/esign/verify',
-      '/api/esign/resend-otp',
-      '/api/esign/generate-hash',
-      '/api/esign/documents',
-      '/api/esign/user-signature/sign',
-      '/api/esign/user-signature/validate',
-      '/api/documents/upload',
+      '/esign/initiate',
+      '/esign/verify',
+      '/esign/resend-otp',
+      '/esign/generate-hash',
+      '/esign/documents',
+      '/esign/user-signature/sign',
+      '/esign/user-signature/validate',
+      '/documents/upload',
     ];
     if (CSRF_EXEMPT_PATHS.some(p => req.path === p || req.path.startsWith(p + '/') || req.path.endsWith(p))) {
       return next();
