@@ -57,6 +57,7 @@ import {
   Sparkles,
   PanelRightClose,
   PanelRightOpen,
+  Pencil,
 } from "lucide-react";
 
 interface Client {
@@ -184,9 +185,16 @@ export default function AgentESignPage() {
   const [uploadedDocumentData, setUploadedDocumentData] = useState<UploadedDocumentData | null>(null);
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
+  const [showSuggestPanel, setShowSuggestPanel] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentDocumentId, setCurrentDocumentId] = useState<string>("");
   const [selectedSigningMethod, setSelectedSigningMethod] = useState<SigningMethod>('aadhaar_esign');
+  // Edit & Suggest state
+  const [allowEditing, setAllowEditing] = useState(false);
+  const [selectedTextForSuggestion, setSelectedTextForSuggestion] = useState('');
+  const [suggestionReplacement, setSuggestionReplacement] = useState('');
+  const [suggestionNote, setSuggestionNote] = useState('');
+  const [showSuggestionPopover, setShowSuggestionPopover] = useState(false);
 
   const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
     queryKey: ['/api/agent/clients'],
@@ -196,6 +204,64 @@ export default function AgentESignPage() {
     queryKey: ['/api/agent/esign/requests'],
     placeholderData: [],
   });
+
+  // Submit a text-change suggestion via the existing annotations/manual endpoint
+  const submitSuggestion = useMutation({
+    mutationFn: async () => {
+      if (!currentDocumentId || !selectedTextForSuggestion || !suggestionReplacement) return;
+      return apiRequest('/api/esign/ai/annotations/manual', {
+        method: 'POST',
+        body: JSON.stringify({
+          documentId: currentDocumentId,
+          category: 'correction',
+          title: `Change: "${selectedTextForSuggestion.substring(0, 50)}${selectedTextForSuggestion.length > 50 ? '…' : ''}"`,
+          content: suggestionNote || 'Text change suggestion',
+          severity: 'warning',
+          textExcerpt: selectedTextForSuggestion,
+          suggestedReplacement: suggestionReplacement,
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/esign/ai/annotations', currentDocumentId] });
+      setSelectedTextForSuggestion('');
+      setSuggestionReplacement('');
+      setSuggestionNote('');
+      setShowSuggestionPopover(false);
+      setShowSuggestPanel(true);
+      toast({ title: 'Change suggested ✓', description: 'Suggestion submitted. Agent must approve before signing.' });
+    },
+    onError: () => {
+      toast({ title: 'Error', description: 'Failed to submit suggestion.', variant: 'destructive' });
+    },
+  });
+
+  // Query open correction suggestions to gate Send for Signature
+  const { data: openCorrections } = useQuery<any[]>({
+    queryKey: ['/api/esign/ai/annotations', currentDocumentId, 'open-corrections'],
+    queryFn: async () => {
+      if (!currentDocumentId) return [];
+      const res = await apiRequest(`/api/esign/ai/annotations/${currentDocumentId}?status=open&category=correction`);
+      return (res as any)?.annotations?.filter((a: any) => a.category === 'correction' && a.status === 'open') || [];
+    },
+    enabled: !!currentDocumentId && allowEditing,
+    refetchInterval: allowEditing ? 10000 : false,
+  });
+
+  const openCorrectionCount = openCorrections?.length || 0;
+
+  // Handle text selection in Edit mode
+  const handleDocumentMouseUp = useCallback(() => {
+    if (!showSuggestPanel) return;
+    const selection = window.getSelection();
+    const text = selection?.toString().trim();
+    if (text && text.length >= 3) {
+      setSelectedTextForSuggestion(text);
+      setSuggestionReplacement('');
+      setSuggestionNote('');
+      setShowSuggestionPopover(true);
+    }
+  }, [showSuggestPanel]);
 
   const initiateESign = useMutation({
     mutationFn: async (data: {
@@ -214,6 +280,7 @@ export default function AgentESignPage() {
           documentHash: data.documentHash || 'mock-hash-' + Date.now(),
           aadhaarNumber: '999999999999',
           fullName: data.signers[0]?.name || 'Client',
+          allowEditing: (data as any).allowEditing,
         }),
       });
     },
@@ -1366,6 +1433,20 @@ export default function AgentESignPage() {
                         data-testid="switch-autofill-date"
                       />
                     </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Pencil className="h-4 w-4 text-violet-600" />
+                        <div>
+                          <Label className="font-medium">Allow Document Editing</Label>
+                          <p className="text-xs text-muted-foreground">Signers can suggest text changes before signing. You approve or reject each suggestion.</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={allowEditing}
+                        onCheckedChange={setAllowEditing}
+                        data-testid="switch-allow-editing"
+                      />
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -1410,13 +1491,16 @@ export default function AgentESignPage() {
                   signers.length === 0 ||
                   // Block if upload source selected, file chosen but upload failed
                   (documentSource === 'upload' && !!uploadedFile && !uploadedDocumentData) ||
-                  isUploading
+                  isUploading ||
+                  // Block if editing enabled and there are open (unresolved) corrections
+                  (allowEditing && openCorrectionCount > 0)
                 }
                 title={
                   !documentName ? 'Enter a document name' :
                   !documentType ? 'Select a document type' :
                   signers.length === 0 ? 'Add at least one signer' :
                   (documentSource === 'upload' && !!uploadedFile && !uploadedDocumentData) ? 'Document upload in progress or failed' :
+                  (allowEditing && openCorrectionCount > 0) ? `Resolve ${openCorrectionCount} open suggestion(s) before sending` :
                   undefined
                 }
                 className="bg-emerald-600 hover:bg-emerald-700"
@@ -1593,6 +1677,22 @@ export default function AgentESignPage() {
                   Document Preview
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* Edit & Suggest button — visible when document is editable */}
+                  {(allowEditing || showSuggestPanel) && (
+                    <Button
+                      variant={showSuggestPanel ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setShowSuggestPanel(!showSuggestPanel);
+                        if (showAIPanel) setShowAIPanel(false);
+                        if (showSuggestionPopover) setShowSuggestionPopover(false);
+                      }}
+                      className={showSuggestPanel ? "bg-violet-600 hover:bg-violet-700" : "border-violet-400 text-violet-600 hover:bg-violet-50"}
+                    >
+                      <Pencil className="h-4 w-4 mr-2" />
+                      {showSuggestPanel ? "Hide Suggestions" : `Edit & Suggest${openCorrectionCount > 0 ? ` (${openCorrectionCount} open)` : ''}`}
+                    </Button>
+                  )}
                   <Button
                     variant={showAIPanel ? "default" : "outline"}
                     size="sm"
@@ -1601,6 +1701,7 @@ export default function AgentESignPage() {
                         handleAnalyzeDocument();
                       } else {
                         setShowAIPanel(!showAIPanel);
+                        if (showSuggestPanel) setShowSuggestPanel(false);
                       }
                     }}
                     disabled={isAnalyzing}
@@ -1623,12 +1724,25 @@ export default function AgentESignPage() {
                 )}
               </DialogDescription>
             </DialogHeader>
-            <div className={cn("flex gap-4", showAIPanel && "flex-row")}>
-              <div className={cn("flex-1", showAIPanel && "w-1/2")}>
-                <div className="h-[55vh] overflow-auto border rounded-lg bg-background">
+            <div className={cn("flex gap-4", (showAIPanel || showSuggestPanel) && "flex-row")}>
+              <div className={cn("flex-1", (showAIPanel || showSuggestPanel) && "w-1/2")}>
+                {/* Edit mode hint banner */}
+                {showSuggestPanel && (
+                  <div className="mb-2 flex items-center gap-2 px-3 py-2 bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 rounded-lg text-xs text-violet-700 dark:text-violet-400">
+                    <Pencil className="h-3 w-3 flex-shrink-0" />
+                    <span><strong>Edit mode:</strong> Select any text in the document, then type your proposed replacement. Suggestions must be approved by the agent before the document can be sent for signing.</span>
+                  </div>
+                )}
+                <div
+                  className="h-[55vh] overflow-auto border rounded-lg bg-background"
+                  onMouseUp={showSuggestPanel ? handleDocumentMouseUp : undefined}
+                >
                   {uploadedDocumentData?.convertedFormat === 'html' && uploadedDocumentData?.htmlContent ? (
-                    <div 
-                      className="p-6 prose dark:prose-invert max-w-none"
+                    <div
+                      className={cn(
+                        "p-6 prose dark:prose-invert max-w-none",
+                        showSuggestPanel && "select-text cursor-text"
+                      )}
                     >
                       {parse(DOMPurify.sanitize(uploadedDocumentData.htmlContent))}
                     </div>
@@ -1647,8 +1761,69 @@ export default function AgentESignPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Floating suggestion popover — appears when text is selected in edit mode */}
+                {showSuggestPanel && showSuggestionPopover && selectedTextForSuggestion && (
+                  <div className="mt-3 border border-violet-300 dark:border-violet-700 rounded-xl bg-white dark:bg-zinc-900 shadow-xl p-4 space-y-3 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="flex items-center gap-2">
+                      <Pencil className="h-4 w-4 text-violet-600" />
+                      <span className="font-semibold text-sm">Suggest a Change</span>
+                      <button
+                        onClick={() => { setShowSuggestionPopover(false); setSelectedTextForSuggestion(''); }}
+                        className="ml-auto text-muted-foreground hover:text-foreground"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Original text selected:</Label>
+                      <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-3 py-1.5 rounded text-sm font-mono line-through text-red-700 dark:text-red-400">
+                        {selectedTextForSuggestion}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Replace with *</Label>
+                      <Textarea
+                        placeholder="Type the proposed replacement text…"
+                        value={suggestionReplacement}
+                        onChange={(e) => setSuggestionReplacement(e.target.value)}
+                        className="min-h-[60px] text-sm"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Reason / note (optional)</Label>
+                      <Input
+                        placeholder="e.g. Payment terms should be 15 days, not 30"
+                        value={suggestionNote}
+                        onChange={(e) => setSuggestionNote(e.target.value)}
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        onClick={() => submitSuggestion.mutate()}
+                        disabled={!suggestionReplacement.trim() || submitSuggestion.isPending}
+                        className="bg-violet-600 hover:bg-violet-700"
+                      >
+                        {submitSuggestion.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Pencil className="h-3 w-3 mr-1" />}
+                        Submit Suggestion
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => { setShowSuggestionPopover(false); setSelectedTextForSuggestion(''); }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
-              {showAIPanel && currentDocumentId && (
+
+              {/* AI Analysis OR Suggestion Review panel (right side) */}
+              {(showAIPanel || showSuggestPanel) && currentDocumentId && (
                 <div className="w-1/2">
                   <DocumentAnnotationsPanel
                     documentId={currentDocumentId}
