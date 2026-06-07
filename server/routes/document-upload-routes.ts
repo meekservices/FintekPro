@@ -2,8 +2,30 @@ import { Router, Request, Response } from "express";
 import multer from "multer";
 import { documentUploadService } from "../services/document-upload-service";
 import { db } from "../db";
-import { proposalEsignWorkflows } from "@shared/schema";
+import { proposalEsignWorkflows, esignAuditLog } from "@shared/schema";
 import { eq } from "drizzle-orm";
+
+/** Fire-and-forget audit log helper — never blocks the response */
+function auditDocumentEvent(
+  action: string,
+  userId: string,
+  details: Record<string, unknown>,
+  req: Request
+) {
+  db.insert(esignAuditLog)
+    .values({
+      transactionId: (details.documentHash as string) || `doc-event-${Date.now()}`,
+      userId,
+      action,
+      status: "success",
+      details,
+      ipAddress: req.ip || null,
+      userAgent: req.get("user-agent") || null,
+    })
+    .catch((err) =>
+      console.error("[DocAudit] Failed to write audit log:", err?.message)
+    );
+}
 
 const router = Router();
 
@@ -118,6 +140,24 @@ router.post("/upload/for-signing", upload.single("document"), async (req: Reques
       proposalId: proposalId || undefined,
     });
 
+    // ── Audit Gap Fix #1: log every upload-for-signing to esign_audit_log ──────
+    const retentionExpiry = new Date();
+    retentionExpiry.setFullYear(retentionExpiry.getFullYear() + 7);
+    auditDocumentEvent(
+      "document_uploaded_for_signing",
+      user.id,
+      {
+        fileName: req.file.originalname,
+        documentHash: result.documentHash,
+        originalFormat: result.originalFormat,
+        fileSize: req.file.size,
+        proposalId: proposalId || null,
+        uploadedByRole: user.role,
+        retentionExpiresAt: retentionExpiry.toISOString(), // SEBI 7-yr retention marker
+      },
+      req
+    );
+
     res.json({
       success: true,
       document: {
@@ -160,6 +200,19 @@ router.get("/preview/:workflowId", async (req: Request, res: Response) => {
     }
 
     const dataUrl = await documentUploadService.getDocumentUrl(documentUrl);
+
+    // ── Audit Gap Fix #2: log every document preview access ─────────────────
+    auditDocumentEvent(
+      "document_previewed",
+      user.id,
+      {
+        workflowId,
+        documentName: workflow.documentName,
+        documentSource: workflow.documentSource,
+        status: workflow.status,
+      },
+      req
+    );
 
     res.json({
       success: true,
@@ -215,6 +268,20 @@ router.get("/download/:workflowId", async (req: Request, res: Response) => {
     }
 
     const buffer = await documentUploadService.downloadDocument(documentPath);
+
+    // ── Audit Gap Fix #3: log every document download ────────────────────────
+    auditDocumentEvent(
+      "document_downloaded",
+      user.id,
+      {
+        workflowId,
+        fileName,
+        format: format || "pdf",
+        documentSource: workflow.documentSource,
+        status: workflow.status,
+      },
+      req
+    );
 
     res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);

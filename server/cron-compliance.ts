@@ -484,4 +484,39 @@ export function initializeComplianceCrons(): void {
     }
   });
   console.log('📈 [RevenueDrift] Daily configuration drift detector scheduled (4:30 AM IST)');
+
+  // ── eSign: hourly sweep for stuck transactions ───────────────────────────────
+  // Finds transactions in 'otp_sent' or 'initiated' state older than 30 minutes
+  // and polls the provider to get the real status (handles browser-close after signing).
+  cron.schedule('0 * * * *', async () => {
+    try {
+      const stuckTxns = await db.execute(sql`
+        SELECT id, transaction_id, provider, created_at
+        FROM esign_requests
+        WHERE status IN ('otp_sent', 'initiated', 'pending')
+          AND created_at < NOW() - INTERVAL '30 minutes'
+          AND created_at > NOW() - INTERVAL '48 hours'
+        LIMIT 50
+      `);
+
+      const rows = stuckTxns.rows || [];
+      if (rows.length === 0) return;
+
+      logger.info(`[CRON][eSignSweep] Checking ${rows.length} stuck eSign transactions...`);
+
+      const { truthScreenESignService } = await import('./services/truthscreen-esign-service');
+
+      for (const row of rows) {
+        try {
+          const status = await truthScreenESignService.checkStatus(row.transaction_id as string);
+          logger.info(`[CRON][eSignSweep] ${row.transaction_id}: ${status.status}`);
+        } catch (e: any) {
+          logger.warn(`[CRON][eSignSweep] Could not check ${row.transaction_id}: ${e?.message}`);
+        }
+      }
+    } catch (err: any) {
+      logger.error('[CRON][eSignSweep] Job failed:', { error: err?.message });
+    }
+  });
+  console.log('🔍 [eSignSweep] Hourly stuck-transaction sweep scheduled');
 }
