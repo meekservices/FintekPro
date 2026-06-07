@@ -92,7 +92,16 @@ export default function AgentResearchAnalytics() {
   const rollingReturns = rollingData?.data || [];
   const sectorAllocation = sectorData?.data || [];
 
-  const formatPercent = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
+  const formatPercent = (value: number | string | null | undefined): string => {
+    if (value === null || value === undefined) return 'N/A';
+    if (typeof value === 'string') {
+      const parsed = Number.parseFloat(value);
+      if (!Number.isFinite(parsed)) return value;
+      return `${parsed >= 0 ? '+' : ''}${parsed.toFixed(1)}%`;
+    }
+    if (!Number.isFinite(value)) return 'N/A';
+    return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
+  };
 
   return (
     <AgentLayout>
@@ -216,11 +225,11 @@ export default function AgentResearchAnalytics() {
                           </div>
                           <div className="text-right">
                             <div className="text-sm text-muted-foreground">Sharpe</div>
-                            <div className="font-medium">{list.sharpeRatio.toFixed(2)}</div>
+                            <div className="font-medium">{(Number(list.sharpeRatio) || 0).toFixed(2)}</div>
                           </div>
                           <div className="text-right">
                             <div className="text-sm text-muted-foreground">Vol</div>
-                            <div className="font-medium">{list.volatility.toFixed(1)}%</div>
+                            <div className="font-medium">{(Number(list.volatility) || 0).toFixed(1)}%</div>
                           </div>
                         </div>
                       </div>
