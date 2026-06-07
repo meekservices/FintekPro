@@ -280,23 +280,28 @@ export default function AgentESignPage() {
   });
 
   const handleAnalyzeDocument = () => {
-    if (!uploadedDocumentData || !documentName || !documentType) {
+    if (!uploadedDocumentData) {
       toast({ title: "Missing Data", description: "Please upload a document first", variant: "destructive" });
       return;
     }
-    
+    if (!documentName) {
+      toast({ title: "Missing Data", description: "Please enter a document name", variant: "destructive" });
+      return;
+    }
+    // documentType is optional for AI analysis — we can analyse any uploaded document
+    const effectiveType = documentType || "general";
     const docId = uploadedDocumentData.documentHash || `doc-${Date.now()}`;
     setCurrentDocumentId(docId);
     setIsAnalyzing(true);
     
     const content = uploadedDocumentData.htmlContent || 
-      `Document: ${documentName}\nType: ${documentType}\nHash: ${uploadedDocumentData.documentHash}`;
+      `Document: ${documentName}\nType: ${effectiveType}\nHash: ${uploadedDocumentData.documentHash}`;
     
     analyzeDocument.mutate({
       documentId: docId,
       documentContent: content,
       documentName,
-      documentType,
+      documentType: effectiveType,
     });
   };
 
@@ -1396,6 +1401,13 @@ export default function AgentESignPage() {
                   // Block if upload source selected, file chosen but upload failed
                   (documentSource === 'upload' && !!uploadedFile && !uploadedDocumentData) ||
                   isUploading
+                }
+                title={
+                  !documentName ? 'Enter a document name' :
+                  !documentType ? 'Select a document type' :
+                  signers.length === 0 ? 'Add at least one signer' :
+                  (documentSource === 'upload' && !!uploadedFile && !uploadedDocumentData) ? 'Document upload in progress or failed' :
+                  undefined
                 }
                 className="bg-emerald-600 hover:bg-emerald-700"
                 data-testid="button-send-esign"
