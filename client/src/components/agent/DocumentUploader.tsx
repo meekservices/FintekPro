@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { getCsrfToken, fetchCsrfToken } from '@/lib/queryClient';
 import { 
   Upload, FileText, File, X, CheckCircle, AlertTriangle, 
   FileType, Download, Eye 
@@ -58,11 +59,57 @@ export default function DocumentUploader({
 
       setUploadProgress(10);
 
-      const response = await fetch('/api/documents/upload/for-signing', {
+      // Always fetch a fresh CSRF token before file uploads
+      let token = getCsrfToken() || await fetchCsrfToken();
+      const sessionId = sessionStorage.getItem('sessionId') || localStorage.getItem('sessionId');
+
+      const buildHeaders = (t: string | null): HeadersInit => ({
+        ...(t ? { 'X-CSRF-Token': t } : {}),
+        ...(sessionId ? { 'X-Session-ID': sessionId } : {}),
+      });
+
+      const absorbRefresh = (resp: Response) => {
+        const refreshed = resp.headers.get('X-CSRF-Token-Refresh');
+        if (refreshed) {
+          token = refreshed;
+          try { sessionStorage.setItem('csrf_token', refreshed); } catch {}
+        }
+      };
+
+      let response = await fetch('/api/documents/upload/for-signing', {
         method: 'POST',
         body: formData,
         credentials: 'include',
+        headers: buildHeaders(token),
       });
+      absorbRefresh(response);
+
+      // Retry on CSRF failure
+      if (response.status === 403) {
+        const errData = await response.clone().json().catch(() => ({}));
+        if (errData.code === 'CSRF_ERROR' || errData.error === 'Invalid CSRF token') {
+          token = await fetchCsrfToken();
+          response = await fetch('/api/documents/upload/for-signing', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include',
+            headers: buildHeaders(token),
+          });
+          absorbRefresh(response);
+        }
+      }
+
+      // Retry once on 500 (storage warming up or cold start)
+      if (response.status === 500) {
+        token = await fetchCsrfToken();
+        response = await fetch('/api/documents/upload/for-signing', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+          headers: buildHeaders(token),
+        });
+        absorbRefresh(response);
+      }
 
       setUploadProgress(80);
 
