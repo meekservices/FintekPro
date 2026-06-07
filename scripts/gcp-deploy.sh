@@ -59,7 +59,7 @@ gcloud run deploy $SERVICE_NAME \
     --min-instances 0 \
     --max-instances 10 \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
-    --set-env-vars="NODE_ENV=production,NODE_OPTIONS=--max-old-space-size=3072,DEBUG_SUBDOMAIN=true,CUSTOM_DOMAIN=fintekpro.com,RUN_STARTUP_MIGRATIONS=true" \
+    --set-env-vars="NODE_ENV=production,NODE_OPTIONS=--max-old-space-size=3072,DEBUG_SUBDOMAIN=true,CUSTOM_DOMAIN=fintekpro.com,RUN_STARTUP_MIGRATIONS=true,PRIVATE_OBJECT_DIR=gs://fintekpro-documents/private" \
     --set-secrets="\
 PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,\
 DATABASE_URL=DATABASE_URL:latest,\
