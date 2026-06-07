@@ -250,6 +250,7 @@ export class AIService {
     }
 
     // 10-step fallback chain — ordered by cost-efficiency and reliability
+    // Providers without env vars are skipped silently (not as ERRORs)
     const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
       // Groq — free tier, fast
       { provider: 'groq',       model: 'llama-3.3-70b-versatile' },
@@ -258,11 +259,11 @@ export class AIService {
       // Cerebras — free tier, world's fastest inference
       { provider: 'cerebras',   model: 'gpt-oss-120b' },
       { provider: 'cerebras',   model: 'zai-glm-4.7' },
-      // Cloudflare Workers AI — free forever
-      { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
       // Gemini — reliable (requires valid non-depleted API key)
       { provider: 'gemini',     model: 'gemini-2.5-flash' },
       { provider: 'gemini',     model: 'gemini-2.5-flash-lite' },
+      // Cloudflare Workers AI — free forever (only if configured)
+      { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
       // OpenAI — last resort (quota/cost)
       { provider: 'openai',     model: 'gpt-4o-mini' },
       { provider: 'openai',     model: 'gpt-4o' },
@@ -303,7 +304,9 @@ export class AIService {
           } else if (provider === 'anthropic' && anthropicApiKey) {
             result = await this.chatWithAnthropic(messages, model, temperature, maxTokens);
           } else {
-            throw new Error(`Provider ${provider} not configured — check env vars`);
+            // Provider not configured — skip silently, try next in chain
+            console.log(`[AIService] Provider '${provider}' not configured, skipping`);
+            break;
           }
 
           if (promptName) {

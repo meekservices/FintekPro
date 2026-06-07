@@ -40,13 +40,25 @@ class NseReitInvitProvider {
     }
 
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
       const response = await fetch('https://www.nseindia.com', {
+        signal: controller.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-IN,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Cache-Control': 'max-age=0',
         },
       });
+      clearTimeout(timeout);
 
       const setCookieHeaders = response.headers.get('set-cookie');
       if (setCookieHeaders) {
@@ -54,7 +66,7 @@ class NseReitInvitProvider {
         this.cookiesExpiry = Date.now() + 5 * 60 * 1000;
       }
     } catch (error) {
-      console.warn('⚠️ [NseReitInvitProvider] Failed to refresh cookies:', error);
+      console.warn('⚠️ [NseReitInvitProvider] Failed to refresh cookies:', (error as Error).message);
     }
   }
 
@@ -62,22 +74,39 @@ class NseReitInvitProvider {
     try {
       await this.refreshCookies();
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
       const response = await fetch(`${this.baseUrl}/quote-equity?symbol=${encodeURIComponent(symbol)}`, {
+        signal: controller.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json',
-          'Accept-Language': 'en-US,en;q=0.5',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'en-IN,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
           'Cookie': this.cookies,
           'Referer': 'https://www.nseindia.com/get-quotes/equity?symbol=' + encodeURIComponent(symbol),
+          'Sec-Fetch-Dest': 'empty',
+          'Sec-Fetch-Mode': 'cors',
+          'Sec-Fetch-Site': 'same-origin',
+          'X-Requested-With': 'XMLHttpRequest',
         },
       });
+      clearTimeout(timeout);
 
       if (!response.ok) {
         if (response.status === 429) {
-          console.warn(`⚠️ [NseReitInvitProvider] Rate limited for ${symbol}`);
+          console.warn(`⚠️ [NseReitInvitProvider] Rate limited for ${symbol}, will retry next cycle`);
           return null;
         }
-        throw new Error(`NSE API error: ${response.status}`);
+        if (response.status === 403) {
+          // Session expired — force cookie refresh next time
+          this.cookiesExpiry = 0;
+          this.cookies = '';
+          console.warn(`⚠️ [NseReitInvitProvider] 403 for ${symbol} — session reset, Yahoo fallback will be used`);
+          return null;
+        }
+        console.warn(`⚠️ [NseReitInvitProvider] HTTP ${response.status} for ${symbol}`);
+        return null;
       }
 
       const data = await response.json();
@@ -100,7 +129,7 @@ class NseReitInvitProvider {
         lastUpdated: new Date(),
       };
     } catch (error) {
-      console.warn(`⚠️ [NseReitInvitProvider] Error fetching ${symbol}:`, error);
+      console.warn(`⚠️ [NseReitInvitProvider] Error fetching ${symbol}:`, (error as Error).message);
       return null;
     }
   }
@@ -117,23 +146,36 @@ class YahooFinanceProvider {
     }
 
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
       const response = await fetch('https://finance.yahoo.com/quote/AAPL', {
+        signal: controller.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
         },
       });
+      clearTimeout(timeout);
 
       const setCookieHeaders = response.headers.get('set-cookie');
       if (setCookieHeaders) {
         this.cookies = setCookieHeaders.split(',').map(c => c.split(';')[0]).join('; ');
       }
 
+      const crumbController = new AbortController();
+      const crumbTimeout = setTimeout(() => crumbController.abort(), 8000);
       const crumbResponse = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+        signal: crumbController.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
           'Cookie': this.cookies,
+          'Accept': 'text/plain, */*',
+          'Referer': 'https://finance.yahoo.com/',
         },
       });
+      clearTimeout(crumbTimeout);
 
       if (crumbResponse.ok) {
         this.crumb = await crumbResponse.text();
@@ -142,7 +184,7 @@ class YahooFinanceProvider {
       }
       return false;
     } catch (error) {
-      console.warn('⚠️ [YahooFinanceProvider] Failed to refresh crumb:', error);
+      console.warn('⚠️ [YahooFinanceProvider] Failed to refresh crumb:', (error as Error).message);
       return false;
     }
   }
@@ -393,8 +435,28 @@ class ReitInvitDataService {
     const intervalMs = intervalHours * 60 * 60 * 1000;
     
     console.log(`📅 [ReitInvitDataService] Scheduled refresh every ${intervalHours} hours`);
+
+    const isMarketHoursIST = (): boolean => {
+      const now = new Date();
+      // IST = UTC+5:30
+      const istOffset = 5.5 * 60; // minutes
+      const utcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+      const istMinutes = (utcMinutes + istOffset) % (24 * 60);
+      const istHour = Math.floor(istMinutes / 60);
+      const istMin = istMinutes % 60;
+      const istTimeMinutes = istHour * 60 + istMin;
+      const dayOfWeek = new Date(now.getTime() + istOffset * 60000).getUTCDay(); // 0=Sun, 6=Sat
+      // Market hours: Mon-Fri, 9:15 AM to 4:00 PM IST (extended slightly for post-market data)
+      const marketOpen = 9 * 60 + 15;   // 9:15 IST
+      const marketClose = 16 * 60;       // 16:00 IST
+      return dayOfWeek >= 1 && dayOfWeek <= 5 && istTimeMinutes >= marketOpen && istTimeMinutes <= marketClose;
+    };
     
     this.refreshInterval = setInterval(async () => {
+      if (!isMarketHoursIST()) {
+        console.log('⏭️ [ReitInvitDataService] Skipping refresh — outside NSE market hours');
+        return;
+      }
       try {
         await this.refreshAll();
       } catch (error) {
@@ -402,7 +464,12 @@ class ReitInvitDataService {
       }
     }, intervalMs);
 
+    // Only do initial refresh if within market hours
     setTimeout(async () => {
+      if (!isMarketHoursIST()) {
+        console.log('⏭️ [ReitInvitDataService] Skipping initial refresh — outside NSE market hours');
+        return;
+      }
       try {
         await this.refreshAll();
       } catch (error) {
