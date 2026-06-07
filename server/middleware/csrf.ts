@@ -36,6 +36,8 @@ export const createCsrfProtection = () => {
       '/esign/documents',
       '/esign/user-signature/sign',
       '/esign/user-signature/validate',
+      '/esign/ai',          // AI analysis — protected by requireAuth; CSRF token
+                            // unavailable in document preview / post-redirect contexts
       '/documents/upload',
     ];
     if (CSRF_EXEMPT_PATHS.some(p => req.path === p || req.path.startsWith(p + '/') || req.path.endsWith(p))) {
