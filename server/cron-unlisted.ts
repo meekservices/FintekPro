@@ -24,6 +24,69 @@ import { eq } from 'drizzle-orm';
 import { isProductionEnvironment } from './utils/enrichment-guard';
 
 export function initializeUnlistedCrons(): void {
+
+  // ── STEP 0: Force-expire daily_picks for CONFIRMED-LISTED companies ──────────
+  // These companies were previously tracked as unlisted but have since completed
+  // their IPO and listed on NSE/BSE. The tracker may miss them if:
+  //  a) lastSyncedAt is within 20 h (throttle gate), or
+  //  b) the unlistedCompanies record has no ISIN/CIN (name-only), or
+  //  c) their record was never in the unlistedCompanies table.
+  // This runs every startup as a safety net — no admin action required.
+  //
+  // How to add entries: { nameFragment: 'first word of company name', symbol: 'NSE_SYMBOL', listedOn: 'YYYY-MM-DD' }
+  const CONFIRMED_LISTED_COMPANIES: Array<{ nameFragment: string; symbol: string; exchange: string; listedOn: string }> = [
+    { nameFragment: 'Swiggy',   symbol: 'SWIGGY',  exchange: 'NSE', listedOn: '2024-11-13' },
+    { nameFragment: 'Hyundai',  symbol: 'HYUNDAI', exchange: 'NSE', listedOn: '2024-10-22' },
+  ];
+
+  (async () => {
+    try {
+      const { sql: sqlRaw } = await import('drizzle-orm');
+      let totalExpired = 0;
+      for (const co of CONFIRMED_LISTED_COMPANIES) {
+        // 1. Mark unlistedCompanies record as listed (if it exists)
+        await db.execute(sqlRaw`
+          UPDATE unlisted_companies
+          SET status = 'inactive', listing_stage = 'listed', updated_at = NOW()
+          WHERE LOWER(name) LIKE LOWER(${'%' + co.nameFragment + '%'})
+            AND (listing_stage IS NULL OR listing_stage != 'listed')
+        `);
+
+        // 2. Expire live unlisted picks for this company
+        const result = await db.execute(sqlRaw`
+          UPDATE daily_picks
+          SET status = 'expired', updated_at = NOW()
+          WHERE category = 'unlisted'
+            AND status = 'live'
+            AND LOWER(instrument_name) LIKE LOWER(${'%' + co.nameFragment + '%'})
+        `);
+        const count = (result as any).rowCount ?? 0;
+        if (count > 0) {
+          totalExpired += count;
+          console.log(JSON.stringify({
+            event: 'KNOWN_LISTED_COMPANY_PICK_EXPIRED',
+            user_id: 'system',
+            latency_ms: 0,
+            status: 'success',
+            company: co.nameFragment,
+            symbol: co.symbol,
+            exchange: co.exchange,
+            listedOn: co.listedOn,
+            picksExpired: count,
+            timestamp: new Date().toISOString(),
+          }));
+        }
+      }
+      if (totalExpired > 0) {
+        console.log(`[ListingTracker] Known-listed cleanup: expired ${totalExpired} stale unlisted pick(s) on startup`);
+      } else {
+        console.log('[ListingTracker] Known-listed cleanup: no stale picks found');
+      }
+    } catch (err: any) {
+      console.error('[ListingTracker] Known-listed startup cleanup failed:', err?.message);
+    }
+  })();
+
   // ── Listing transition sweep — run immediately on startup, then daily at 7 AM IST ──
   // This detects unlisted companies that have since completed their IPO (e.g. Swiggy)
   // and marks them correctly so they stop appearing in unlisted picks.
