@@ -19,6 +19,22 @@ export class SGBStrategy extends BaseStrategy {
 
       const top = all[0];
       const currentPrice = parseFloat(String(top.issuePrice || "0"));
+      const sgbInterestRate = 2.5; // RBI fixed coupon on SGB (semi-annual)
+
+      const rationale = await context.service.generateRationale({
+        category: 'sgb',
+        name: top.name,
+        currentPrice,
+        targetPrice: currentPrice, // SGB appreciation = gold price movement
+        stoplossPrice: currentPrice * 0.9,
+        metrics: {
+          issueStatus: top.issueStatus,
+          issuePrice: currentPrice,
+          sgbInterestRate,
+          tenureYears: 8,
+          sovereignGuarantee: true,
+        },
+      });
 
       return {
         category: 'sgb',
@@ -31,7 +47,7 @@ export class SGBStrategy extends BaseStrategy {
         currentPrice,
         status: 'live',
         expiryDate: this.getExpiryDate(2920), // 8 years
-        rationale: "",
+        rationale,
         riskLevel: 'low',
         suitableFor: ['Conservative'],
         timeHorizon: this.getTimeHorizon('sgb'),
@@ -40,9 +56,12 @@ export class SGBStrategy extends BaseStrategy {
         keyMetrics: {
           issueStatus: top.issueStatus,
           issuePrice: currentPrice,
+          sgbInterestRate,
+          tenureYears: 8,
         },
       };
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error("[SGBStrategy] Error:", error);
       return null;
     }
@@ -52,7 +71,7 @@ export class SGBStrategy extends BaseStrategy {
     return sgb.issueStatus === 'open' ? 90 : 70;
   }
 
-  async getLivePrice(instrumentId: string): Promise<number | null> {
+  async getLivePrice(_instrumentId: string): Promise<number | null> {
     try {
       const result = await db.execute(sql`
         SELECT current_price FROM commodity_prices WHERE symbol = 'GOLD' ORDER BY last_updated DESC LIMIT 1

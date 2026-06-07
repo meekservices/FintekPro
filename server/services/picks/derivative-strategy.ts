@@ -3,40 +3,135 @@ import { StrategyContext } from "./types";
 import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
 import { derivativesService } from "../derivatives-service";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+type MarketOutlook = 'bullish' | 'bearish' | 'neutral';
+type VolatilityRegime = 'low' | 'normal' | 'high';
+
+interface DerivativeStrategyDef {
+  name: string;
+  outlook: MarketOutlook | 'any';
+  /** Preferred when buying premium (low IV) vs. selling premium (high IV) */
+  volPreference: 'buy' | 'sell' | 'any';
+  risk: 'medium' | 'high';
+  targetMult: number;
+  slMult: number;
+}
+
+// Full strategy catalogue — selected based on market regime, not Math.random()
+const STRATEGY_CATALOGUE: DerivativeStrategyDef[] = [
+  // Low IV regime → buy premium (cheap options)
+  { name: 'Bull Call Spread',  outlook: 'bullish', volPreference: 'buy',  risk: 'medium', targetMult: 1.5, slMult: 0.5 },
+  { name: 'Bear Put Spread',   outlook: 'bearish', volPreference: 'buy',  risk: 'medium', targetMult: 1.5, slMult: 0.5 },
+  { name: 'Long Call',         outlook: 'bullish', volPreference: 'buy',  risk: 'high',   targetMult: 2.0, slMult: 0.4 },
+  { name: 'Long Put',          outlook: 'bearish', volPreference: 'buy',  risk: 'high',   targetMult: 2.0, slMult: 0.4 },
+  { name: 'Long Straddle',     outlook: 'neutral', volPreference: 'buy',  risk: 'high',   targetMult: 1.8, slMult: 0.4 },
+  // High IV regime → sell premium (collect theta/vega)
+  { name: 'Short Strangle',    outlook: 'neutral', volPreference: 'sell', risk: 'high',   targetMult: 0.5, slMult: 2.0 },
+  { name: 'Iron Condor',       outlook: 'neutral', volPreference: 'sell', risk: 'medium', targetMult: 0.4, slMult: 1.8 },
+  { name: 'Bear Call Spread',  outlook: 'bearish', volPreference: 'sell', risk: 'medium', targetMult: 0.5, slMult: 2.0 },
+];
+
+/**
+ * Phase 1 fix: Selects the optimal derivatives strategy based on:
+ *  1. IV level → volatility regime (buy vs sell premium)
+ *  2. NIFTY 20-day SMA vs spot → directional bias (bullish/bearish/neutral)
+ *  3. Filters STRATEGY_CATALOGUE to matching strategies, picks first
+ */
+function selectStrategy(
+  spotPrice: number,
+  iv: number,
+  recentCloses: number[]
+): DerivativeStrategyDef {
+  // ── Step 1: Classify IV regime ─────────────────────────────────────────────
+  // India VIX: < 14 = low, 14-22 = normal, > 22 = high
+  const volRegime: VolatilityRegime =
+    iv > 22 ? 'high' : iv < 14 ? 'low' : 'normal';
+  const volPreference: 'buy' | 'sell' = volRegime === 'high' ? 'sell' : 'buy';
+
+  // ── Step 2: Determine directional bias from 20-day SMA ─────────────────────
+  let outlook: MarketOutlook = 'neutral';
+  if (recentCloses.length >= 10) {
+    const smaLength = Math.min(20, recentCloses.length);
+    const sma = recentCloses.slice(-smaLength).reduce((a, b) => a + b, 0) / smaLength;
+    const smaDeviation = (spotPrice - sma) / sma;
+    if (smaDeviation > 0.015) outlook = 'bullish';        // spot > SMA + 1.5% → bull
+    else if (smaDeviation < -0.015) outlook = 'bearish';  // spot < SMA - 1.5% → bear
+    // else neutral — use spread strategies
+  }
+
+  // ── Step 3: Filter catalogue and pick best match ───────────────────────────
+  // Prefer: exact vol + exact outlook > exact vol + neutral > fallback Bull Call Spread
+  const exact = STRATEGY_CATALOGUE.find(
+    s => (s.volPreference === volPreference || s.volPreference === 'any') &&
+         s.outlook === outlook
+  );
+  if (exact) return exact;
+
+  // Fallback to neutral outlook with vol preference
+  const neutralMatch = STRATEGY_CATALOGUE.find(
+    s => (s.volPreference === volPreference || s.volPreference === 'any') &&
+         s.outlook === 'neutral'
+  );
+  if (neutralMatch) return neutralMatch;
+
+  // Last resort: Bull Call Spread (moderate, well-known)
+  return STRATEGY_CATALOGUE[0];
+}
+
 export class DerivativeStrategy extends BaseStrategy {
   category: PickCategory = 'derivatives';
 
   async generate(context: StrategyContext): Promise<DailyPickData | null> {
     try {
-      const { symbols, lotSizes } = await derivativesService.getAvailableSymbols();
+      const { lotSizes } = await derivativesService.getAvailableSymbols();
       const indexSymbols = ['NIFTY', 'BANKNIFTY', 'FINNIFTY'];
-      const stockSymbols = symbols.filter(s => !indexSymbols.includes(s));
-      
-      const useIndex = Math.random() > 0.4;
-      const candidatePool = useIndex ? indexSymbols : stockSymbols;
-      const selectedSymbol = candidatePool[Math.floor(Math.random() * candidatePool.length)];
+
+      // Always use index derivatives in Phase 1 (more liquid, tighter spreads)
+      // Stock option logic is deferred to Phase 2
+      const selectedSymbol = indexSymbols[Math.floor(Math.random() * indexSymbols.length)];
 
       const chain = await derivativesService.getOptionsChain(selectedSymbol);
       const spotPrice = chain.underlyingValue;
       const lotSize = lotSizes[selectedSymbol] || 50;
 
-      const strategies = [
-        { name: 'Bull Call Spread', outlook: 'bullish', risk: 'medium' },
-        { name: 'Bear Put Spread', outlook: 'bearish', risk: 'medium' },
-        { name: 'Long Call', outlook: 'bullish', risk: 'high' },
-        { name: 'Long Put', outlook: 'bearish', risk: 'high' },
-      ];
-
-      const strategy = strategies[Math.floor(Math.random() * strategies.length)];
+      // ATM strike
       const strikeInterval = this.getStrikeInterval(selectedSymbol, spotPrice);
       const atmStrike = Math.round(spotPrice / strikeInterval) * strikeInterval;
-
       const atmCall = chain.options.calls.find(c => c.strikePrice === atmStrike);
-      const iv = atmCall?.impliedVolatility || 20;
+      const iv = atmCall?.impliedVolatility || 18;
 
-      const entryPrice = (atmCall?.lastPrice || 0) * lotSize;
-      const targetPrice = entryPrice * 1.5;
-      const stoplossPrice = entryPrice * 0.5;
+      // ── Phase 1 fix: Build recent closes array for SMA-based trend detection ──
+      // Use the options chain's underlying price series if available, else single point
+      const recentCloses: number[] = this.buildRecentCloses(chain, spotPrice);
+
+      // ── Phase 1 fix: strategy selected by market regime, not Math.random() ──
+      const strategy = selectStrategy(spotPrice, iv, recentCloses);
+
+      const atmCallPrice = atmCall?.lastPrice || 0;
+      const atmPutPrice = chain.options.puts?.find(p => p.strikePrice === atmStrike)?.lastPrice || 0;
+
+      // Entry price depends on strategy type
+      let premiumPerUnit: number;
+      if (strategy.name === 'Long Straddle') {
+        premiumPerUnit = atmCallPrice + atmPutPrice;
+      } else if (strategy.name === 'Iron Condor' || strategy.name === 'Short Strangle') {
+        // Receiving premium: use half ATM straddle as approximate credit
+        premiumPerUnit = (atmCallPrice + atmPutPrice) * 0.4;
+      } else {
+        premiumPerUnit = atmCallPrice;
+      }
+
+      // Guard: if we couldn't get a valid premium, fallback
+      if (premiumPerUnit <= 0) {
+        return this.generateFallbackPick(context);
+      }
+
+      const entryPrice = Math.round(premiumPerUnit * lotSize * 100) / 100;
+      const targetPrice = Math.round(entryPrice * strategy.targetMult * 100) / 100;
+      const stoplossPrice = Math.round(entryPrice * strategy.slMult * 100) / 100;
+
+      // Classify IV regime for display
+      const ivRegimeLabel = iv > 22 ? 'High IV (sell premium)' : iv < 14 ? 'Low IV (buy premium)' : 'Normal IV';
 
       const rationale = await context.service.generateRationale({
         category: 'derivatives',
@@ -47,7 +142,13 @@ export class DerivativeStrategy extends BaseStrategy {
         currentPrice: spotPrice,
         targetPrice,
         stoplossPrice,
-        metrics: { iv, lotSize }
+        metrics: {
+          iv,
+          ivRegime: ivRegimeLabel,
+          lotSize,
+          strikePrice: atmStrike,
+          volPreference: strategy.volPreference,
+        },
       });
 
       return {
@@ -56,19 +157,17 @@ export class DerivativeStrategy extends BaseStrategy {
         symbol: selectedSymbol,
         exchange: 'NSE',
         recoDate: context.today,
-        recoPrice: Math.round(entryPrice * 100) / 100,
-        targetPrice: Math.round(targetPrice * 100) / 100,
-        stoplossPrice: Math.round(stoplossPrice * 100) / 100,
+        recoPrice: entryPrice,
+        targetPrice,
+        stoplossPrice,
         status: 'live',
-        // BUG FIX: use a forward-looking 7-day expiry, NOT the NSE weekly expiry string
-        // (which is often a past date, immediately marking the pick as expired in the UI)
         expiryDate: this.getExpiryDate(7),
         rationale,
         riskLevel: strategy.risk,
         suitableFor: this.deriveSuitableFor(strategy.risk, 'derivatives'),
         timeHorizon: 'short_term',
-        confidenceScore: 75,
-        sectorCategory: ['NIFTY', 'BANKNIFTY', 'FINNIFTY'].includes(selectedSymbol) ? 'Index Derivatives' : 'Stock Derivatives',
+        confidenceScore: this.getConfidenceScore('derivatives', 60, 100),
+        sectorCategory: indexSymbols.includes(selectedSymbol) ? 'Index Derivatives' : 'Stock Derivatives',
         keyMetrics: {
           strategy: strategy.name,
           outlook: strategy.outlook,
@@ -76,60 +175,73 @@ export class DerivativeStrategy extends BaseStrategy {
           strikePrice: atmStrike,
           spotPrice,
           iv,
+          ivRegime: ivRegimeLabel,
+          volPreference: strategy.volPreference,
         },
       };
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error("[DerivativeStrategy] NSE API error, using curated fallback:", error);
       return this.generateFallbackPick(context);
     }
   }
 
   /**
+   * Extracts recent close prices from the options chain underlying series if available,
+   * otherwise returns a single-element array with just the spot price.
+   * Used to compute 20-day SMA for trend detection.
+   */
+  private buildRecentCloses(chain: any, spotPrice: number): number[] {
+    // Some NSE chain responses include underlyingPriceSeries
+    if (chain?.underlyingPriceSeries?.length > 0) {
+      return (chain.underlyingPriceSeries as number[]).slice(-20);
+    }
+    // Fallback: just spotPrice — SMA deviation = 0, outlook = neutral
+    return [spotPrice];
+  }
+
+  /**
    * Fallback pick when NSE options chain API is unavailable (rate-limited / blocked).
-   * Uses approximate index levels for a well-known structured strategy.
+   * Phase 1 fix: Uses current approximate index levels and applies the same
+   * regime-selection logic with a neutral/low-IV default regime.
    */
   private async generateFallbackPick(context: StrategyContext): Promise<DailyPickData | null> {
     try {
-      // Curated approximate index levels for fallback — updated periodically
+      // Phase 1 fix: Updated approximate index levels for June 2025
       const FALLBACK_INDEX = [
-        { symbol: 'NIFTY',     spotPrice: 24500, lotSize: 25, sector: 'Index Derivatives' },
-        { symbol: 'BANKNIFTY', spotPrice: 52000, lotSize: 15, sector: 'Index Derivatives' },
-        { symbol: 'FINNIFTY',  spotPrice: 23000, lotSize: 40, sector: 'Index Derivatives' },
+        { symbol: 'NIFTY',     spotPrice: 24800, lotSize: 25, sector: 'Index Derivatives' },
+        { symbol: 'BANKNIFTY', spotPrice: 53000, lotSize: 15, sector: 'Index Derivatives' },
+        { symbol: 'FINNIFTY',  spotPrice: 23500, lotSize: 40, sector: 'Index Derivatives' },
       ];
 
       const idx = Math.floor(Math.random() * FALLBACK_INDEX.length);
       const { symbol, spotPrice, lotSize, sector } = FALLBACK_INDEX[idx];
 
-      const strategyOptions = [
-        { name: 'Bull Call Spread', outlook: 'bullish', risk: 'medium', targetMult: 1.4, slMult: 0.6 },
-        { name: 'Bear Put Spread',  outlook: 'bearish', risk: 'medium', targetMult: 1.4, slMult: 0.6 },
-        { name: 'Long Straddle',    outlook: 'neutral',  risk: 'high',   targetMult: 1.8, slMult: 0.4 },
-      ];
-      const strat = strategyOptions[Math.floor(Math.random() * strategyOptions.length)];
+      // Phase 1 fix: Apply regime-selection even in fallback (assume IV=18, neutral outlook)
+      const strategy = selectStrategy(spotPrice, 18, [spotPrice]);
 
       const strikeInterval = this.getStrikeInterval(symbol, spotPrice);
       const atmStrike = Math.round(spotPrice / strikeInterval) * strikeInterval;
-      // Approximate ATM option premium using rough IV estimate (18%)
-      const approxPremium = spotPrice * 0.0045;
+      const approxPremium = spotPrice * 0.0045;  // ~0.45% of spot = approximate ATM premium
       const entryPrice = Math.round(approxPremium * lotSize * 100) / 100;
-      const targetPrice = Math.round(entryPrice * strat.targetMult * 100) / 100;
-      const stoplossPrice = Math.round(entryPrice * strat.slMult * 100) / 100;
+      const targetPrice = Math.round(entryPrice * strategy.targetMult * 100) / 100;
+      const stoplossPrice = Math.round(entryPrice * strategy.slMult * 100) / 100;
 
       const rationale = await context.service.generateRationale({
         category: 'derivatives',
-        name: `${symbol} ${strat.name}`,
+        name: `${symbol} ${strategy.name}`,
         symbol,
-        strategy: strat.name,
-        outlook: strat.outlook,
+        strategy: strategy.name,
+        outlook: strategy.outlook,
         currentPrice: spotPrice,
         targetPrice,
         stoplossPrice,
-        metrics: { lotSize, strikePrice: atmStrike, approxIV: 18 },
+        metrics: { lotSize, strikePrice: atmStrike, approxIV: 18, dataSource: 'fallback_curated' },
       });
 
       return {
         category: 'derivatives',
-        instrumentName: `${symbol} ${strat.name}`,
+        instrumentName: `${symbol} ${strategy.name}`,
         symbol,
         exchange: 'NSE',
         recoDate: context.today,
@@ -139,14 +251,14 @@ export class DerivativeStrategy extends BaseStrategy {
         status: 'live',
         expiryDate: this.getExpiryDate(7),
         rationale,
-        riskLevel: strat.risk,
-        suitableFor: this.deriveSuitableFor(strat.risk, 'derivatives'),
+        riskLevel: strategy.risk,
+        suitableFor: this.deriveSuitableFor(strategy.risk, 'derivatives'),
         timeHorizon: 'short_term',
-        confidenceScore: 65,
+        confidenceScore: 60,
         sectorCategory: sector,
         keyMetrics: {
-          strategy: strat.name,
-          outlook: strat.outlook,
+          strategy: strategy.name,
+          outlook: strategy.outlook,
           lotSize,
           strikePrice: atmStrike,
           spotPrice,
@@ -155,12 +267,14 @@ export class DerivativeStrategy extends BaseStrategy {
         },
       };
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error("[DerivativeStrategy] Fallback also failed:", err);
       return null;
     }
   }
 
-  score(instrument: any): number {
+  /** Derivatives are scored by IV regime alignment in selectStrategy(); not by instrument. */
+  score(_instrument: any): number {
     return 70;
   }
 
