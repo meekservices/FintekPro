@@ -491,7 +491,7 @@ export default function AgentStockAI() {
                                 <p className="text-muted-foreground text-sm">{stock.name}</p>
                               </div>
                               <div className="text-right">
-                                <p className="text-2xl font-bold text-foreground">₹{stock.currentPrice.toFixed(2)}</p>
+                                <p className="text-2xl font-bold text-foreground">₹{(Number(stock.currentPrice) || 0).toFixed(2)}</p>
                                 <p className={`text-sm flex items-center justify-end gap-1 ${getConfidenceColor(stock.confidence)}`}>
                                   <Star className="h-3 w-3" />
                                   {stock.confidence}% Confidence
@@ -502,20 +502,20 @@ export default function AgentStockAI() {
                             <div className="grid grid-cols-4 gap-4 mb-4">
                               <div className="bg-card/50 rounded-lg p-3">
                                 <p className="text-xs text-muted-foreground">Entry</p>
-                                <p className="text-lg font-semibold text-foreground">₹{stock.entryPrice.toFixed(2)}</p>
+                                <p className="text-lg font-semibold text-foreground">₹{(Number(stock.entryPrice) || 0).toFixed(2)}</p>
                               </div>
                               <div className="bg-card/50 rounded-lg p-3">
                                 <p className="text-xs text-muted-foreground">Target</p>
-                                <p className="text-lg font-semibold text-green-400">₹{stock.targetPrice.toFixed(2)}</p>
+                                <p className="text-lg font-semibold text-green-400">₹{(Number(stock.targetPrice) || 0).toFixed(2)}</p>
                               </div>
                               <div className="bg-card/50 rounded-lg p-3">
                                 <p className="text-xs text-muted-foreground">Stop Loss</p>
-                                <p className="text-lg font-semibold text-red-400">₹{stock.stopLoss.toFixed(2)}</p>
+                                <p className="text-lg font-semibold text-red-400">₹{(Number(stock.stopLoss) || 0).toFixed(2)}</p>
                               </div>
                               <div className="bg-card/50 rounded-lg p-3">
                                 <p className="text-xs text-muted-foreground">Expected Return</p>
-                                <p className={`text-lg font-semibold ${stock.expectedReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                  {stock.expectedReturn >= 0 ? '+' : ''}{stock.expectedReturn.toFixed(1)}%
+                                <p className={`text-lg font-semibold ${(Number(stock.expectedReturn) || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                  {(Number(stock.expectedReturn) || 0) >= 0 ? '+' : ''}{(Number(stock.expectedReturn) || 0).toFixed(1)}%
                                 </p>
                               </div>
                             </div>
@@ -788,7 +788,7 @@ export default function AgentStockAI() {
                                 </p>
                               </div>
                               <div className="text-right">
-                                <p className="text-2xl font-bold text-foreground">₹{derivative.currentPremium.toFixed(2)}</p>
+                                <p className="text-2xl font-bold text-foreground">₹{(Number(derivative.currentPremium) || 0).toFixed(2)}</p>
                                 <p className={`text-sm flex items-center justify-end gap-1 ${getConfidenceColor(derivative.confidence)}`}>
                                   <Star className="h-3 w-3" />
                                   {derivative.confidence}% Confidence
@@ -799,20 +799,20 @@ export default function AgentStockAI() {
                             <div className="grid grid-cols-5 gap-4 mb-4">
                               <div className="bg-card/50 rounded-lg p-3">
                                 <p className="text-xs text-muted-foreground">Entry</p>
-                                <p className="text-lg font-semibold text-foreground">₹{derivative.entryPrice.toFixed(2)}</p>
+                                <p className="text-lg font-semibold text-foreground">₹{(Number(derivative.entryPrice) || 0).toFixed(2)}</p>
                               </div>
                               <div className="bg-card/50 rounded-lg p-3">
                                 <p className="text-xs text-muted-foreground">Target</p>
-                                <p className="text-lg font-semibold text-green-400">₹{derivative.targetPrice.toFixed(2)}</p>
+                                <p className="text-lg font-semibold text-green-400">₹{(Number(derivative.targetPrice) || 0).toFixed(2)}</p>
                               </div>
                               <div className="bg-card/50 rounded-lg p-3">
                                 <p className="text-xs text-muted-foreground">Stop Loss</p>
-                                <p className="text-lg font-semibold text-red-400">₹{derivative.stopLoss.toFixed(2)}</p>
+                                <p className="text-lg font-semibold text-red-400">₹{(Number(derivative.stopLoss) || 0).toFixed(2)}</p>
                               </div>
                               {derivative.breakeven && (
                                 <div className="bg-card/50 rounded-lg p-3">
                                   <p className="text-xs text-muted-foreground">Breakeven</p>
-                                  <p className="text-lg font-semibold text-yellow-400">₹{derivative.breakeven.toFixed(2)}</p>
+                                  <p className="text-lg font-semibold text-yellow-400">₹{(Number(derivative.breakeven) || 0).toFixed(2)}</p>
                                 </div>
                               )}
                               <div className="bg-card/50 rounded-lg p-3">

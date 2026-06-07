@@ -971,8 +971,14 @@ export default function AgentPicksPage() {
 		}).format(value);
 	};
 
-	const formatPercentValue = (value: number | undefined | null) => {
+	const formatPercentValue = (value: number | string | undefined | null): string => {
 		if (value === undefined || value === null) return "N/A";
+		if (typeof value === 'string') {
+			const parsed = Number.parseFloat(value);
+			if (!Number.isFinite(parsed)) return value; // "8-12% p.a." → pass through
+			return `${parsed >= 0 ? "+" : ""}${parsed.toFixed(2)}%`;
+		}
+		if (!Number.isFinite(value)) return "N/A";
 		return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 	};
 
