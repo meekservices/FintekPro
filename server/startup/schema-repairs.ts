@@ -1048,6 +1048,22 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
         console.warn('[Migration] push_tokens table skipped:', e?.message);
       }
 
+      // ── eSign Requests: allow nullable signing-time fields (initiation records) ─
+      // esign_requests was designed for post-signing records but TruthScreen inserts
+      // at initiation time (before signing), so signing-specific columns must be nullable.
+      try {
+        await migDb.execute(migSql`
+          ALTER TABLE esign_requests ALTER COLUMN certificate_serial DROP NOT NULL;
+          ALTER TABLE esign_requests ALTER COLUMN signer_aadhaar_masked DROP NOT NULL;
+          ALTER TABLE esign_requests ALTER COLUMN signed_at DROP NOT NULL;
+          ALTER TABLE esign_requests ALTER COLUMN valid_from DROP NOT NULL;
+          ALTER TABLE esign_requests ALTER COLUMN valid_to DROP NOT NULL;
+        `);
+        console.log('✅ esign_requests signing-time columns made nullable (initiation support)');
+      } catch (e: any) {
+        console.warn('[Migration] esign_requests nullable columns skipped:', e?.message);
+      }
+
       } catch (migErr) {
         console.error('❌ Migration sequence failed (non-fatal):', migErr);
       }
