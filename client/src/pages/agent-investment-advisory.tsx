@@ -105,7 +105,15 @@ const formatCurrencyShared = (value: number | string) => {
   }).format(num || 0);
 };
 
-const formatPercentShared = (value: number) => {
+const formatPercentShared = (value: number | string | null | undefined): string => {
+  // If it's already a non-numeric string (e.g. "8-12% p.a." from AI service), return as-is
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed)) return value; // e.g. "8-12% p.a." — pass through
+    return `${parsed >= 0 ? '+' : ''}${parsed.toFixed(2)}%`;
+  }
+  // Guard against null / undefined / NaN
+  if (value == null || !Number.isFinite(value)) return 'N/A';
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
 };
 
@@ -1536,7 +1544,7 @@ TCS     Tata Consultancy        25      3850.00"
                                     <div className="text-xs text-muted-foreground">Folio: {holding.folioNumber}</div>
                                   )}
                                 </TableCell>
-                                <TableCell className="text-right">{holding.quantity.toFixed(3)}</TableCell>
+                                <TableCell className="text-right">{(Number(holding.quantity) || 0).toFixed(3)}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(holding.averagePrice)}</TableCell>
                                 <TableCell className="text-right font-medium">{formatCurrency(holding.currentValue)}</TableCell>
                                 <TableCell>
@@ -1969,25 +1977,25 @@ TCS     Tata Consultancy        25      3850.00"
                       <div className="p-4 bg-muted rounded-lg">
                         <p className="text-sm text-muted-foreground">Avg P/E Ratio</p>
                         <p className="text-xl font-bold" data-testid="text-avg-pe">
-                          {analysis.fundamentalRatios.avgPE.toFixed(2)}
+                          {(Number(analysis.fundamentalRatios.avgPE) || 0).toFixed(2)}
                         </p>
                       </div>
                       <div className="p-4 bg-muted rounded-lg">
                         <p className="text-sm text-muted-foreground">Avg P/B Ratio</p>
                         <p className="text-xl font-bold" data-testid="text-avg-pb">
-                          {analysis.fundamentalRatios.avgPB.toFixed(2)}
+                          {(Number(analysis.fundamentalRatios.avgPB) || 0).toFixed(2)}
                         </p>
                       </div>
                       <div className="p-4 bg-muted rounded-lg">
                         <p className="text-sm text-muted-foreground">Avg ROE</p>
                         <p className="text-xl font-bold" data-testid="text-avg-roe">
-                          {analysis.fundamentalRatios.avgROE.toFixed(2)}%
+                          {(Number(analysis.fundamentalRatios.avgROE) || 0).toFixed(2)}%
                         </p>
                       </div>
                       <div className="p-4 bg-muted rounded-lg">
                         <p className="text-sm text-muted-foreground">Avg Debt/Equity</p>
                         <p className="text-xl font-bold" data-testid="text-avg-de">
-                          {analysis.fundamentalRatios.avgDebtEquity.toFixed(2)}
+                          {(Number(analysis.fundamentalRatios.avgDebtEquity) || 0).toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -2009,7 +2017,7 @@ TCS     Tata Consultancy        25      3850.00"
                             <span className="text-sm w-24 truncate">{sector}</span>
                             <Progress value={weight * 100} className="flex-1 h-2" />
                             <span className="text-sm font-medium w-12 text-right">
-                              {(weight * 100).toFixed(1)}%
+                              {(Number(weight) * 100 || 0).toFixed(1)}%
                             </span>
                           </div>
                         ))}
