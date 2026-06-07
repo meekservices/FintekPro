@@ -98,5 +98,12 @@ EMAIL_PORT=EMAIL_PORT:latest,\
 EMAIL_FROM=EMAIL_FROM:latest\
 "
 
+echo ""
+echo "🔀 Migrating traffic to latest revision..."
+gcloud run services update-traffic $SERVICE_NAME \
+    --to-latest \
+    --project=$PROJECT_ID \
+    --region=$REGION
+
 echo "✅ Deployment complete!"
 gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format='value(status.url)'
