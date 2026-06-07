@@ -1169,23 +1169,18 @@ export default function AgentESignPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="documentType">Document Type *</Label>
-                  {/* Inline chips — avoids Radix Select portal z-index/overflow issues inside Dialog */}
-                  <div className="flex flex-wrap gap-2" data-testid="select-document-type">
-                    {DOCUMENT_TYPES.map(type => (
-                      <button
-                        key={type.value}
-                        type="button"
-                        onClick={() => setDocumentType(type.value)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all cursor-pointer ${
-                          documentType === type.value
-                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-                            : 'border-border bg-background text-muted-foreground hover:border-emerald-400 hover:text-foreground'
-                        }`}
-                      >
-                        {type.label}
-                      </button>
-                    ))}
-                  </div>
+                  <Select value={documentType} onValueChange={setDocumentType}>
+                    <SelectTrigger id="documentType" data-testid="select-document-type" className="w-full">
+                      <SelectValue placeholder="Select document type…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DOCUMENT_TYPES.map(type => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {!documentType && (
                     <p className="text-xs text-muted-foreground">Select a document type to enable sending</p>
                   )}
