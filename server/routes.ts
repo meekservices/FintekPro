@@ -116,6 +116,7 @@ import { registerLeadLeakageRoutes } from "./routes/lead-leakage-routes";
 import signatureRouter from "./routes/signature-routes";
 import userSignatureESignRouter from "./routes/user-signature-esign-routes";
 import esignRouter from "./routes/esign-routes";               // /api/esign/*, /api/agent/esign/requests
+import esignAiRouter from "./routes/esign-ai-routes";          // /api/esign/ai/*
 import documentUploadRouter from "./routes/document-upload-routes"; // /api/documents/upload/for-signing
 import unifiedProposalsRouter from "./routes/unified-proposals-routes";
 import improvementFeaturesRouter from "./routes/improvement-features";
@@ -385,6 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(signatureRouter);
   app.use(userSignatureESignRouter);
   app.use(esignRouter);                                    // /api/esign/*, /api/agent/esign/requests
+  app.use("/api/esign/ai", esignAiRouter);                  // /api/esign/ai/analyze, /api/esign/ai/annotations/*
   app.use("/api/documents", documentUploadRouter);          // /api/documents/upload/for-signing, /preview, /download
   app.use("/api/unified-proposals", unifiedProposalsRouter);
   app.use("/api/features", improvementFeaturesRouter);
