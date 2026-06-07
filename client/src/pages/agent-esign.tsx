@@ -332,14 +332,25 @@ export default function AgentESignPage() {
        * Raw fetch is required here (not apiRequest) because FormData uploads
        * must NOT have a Content-Type header set manually — the browser sets it
        * with the correct multipart boundary automatically.
-       * We manually mirror the CSRF retry logic from apiRequest.
+       *
+       * Key improvements over the naive approach:
+       * 1. Always start with a fresh token (avoid stale cached token after X-Session-ID restore)
+       * 2. Absorb X-CSRF-Token-Refresh header the server sends during CSRF auto-heal
+       * 3. Retry on any 403 CSRF error (not just specific codes)
+       * 4. Retry once on 500 — handles the GCS storage cold-start race condition
        */
-      let token = getCsrfToken();
-      if (!token) {
-        token = await fetchCsrfToken();
-      }
+      let token = getCsrfToken() || await fetchCsrfToken();
 
       const buildHeaders = (t: string | null): HeadersInit => (t ? { 'X-CSRF-Token': t } : {});
+
+      // Absorb X-CSRF-Token-Refresh header the server sends during CSRF auto-heal
+      const absorbRefreshHeader = (resp: Response) => {
+        const refreshed = resp.headers.get('X-CSRF-Token-Refresh');
+        if (refreshed) {
+          token = refreshed;
+          try { sessionStorage.setItem('csrf_token', refreshed); } catch {}
+        }
+      };
 
       let response = await fetch('/api/documents/upload/for-signing', {
         method: 'POST',
@@ -347,11 +358,13 @@ export default function AgentESignPage() {
         credentials: 'include',
         headers: buildHeaders(token),
       });
+      absorbRefreshHeader(response);
 
-      // Auto-retry once on CSRF failure (token may have expired)
+      // Retry once on CSRF failure — token may be stale or was just auto-healed
       if (response.status === 403) {
         const errData = await response.clone().json().catch(() => ({}));
-        if (errData.code === 'CSRF_ERROR' || errData.code === 'CSRF_TOKEN_INVALID' || errData.code === 'CSRF_TOKEN_REQUIRED') {
+        if (errData.code === 'CSRF_ERROR' || errData.code === 'CSRF_TOKEN_INVALID' ||
+            errData.code === 'CSRF_TOKEN_REQUIRED' || errData.error === 'Invalid CSRF token') {
           token = await fetchCsrfToken();
           response = await fetch('/api/documents/upload/for-signing', {
             method: 'POST',
@@ -359,7 +372,20 @@ export default function AgentESignPage() {
             credentials: 'include',
             headers: buildHeaders(token),
           });
+          absorbRefreshHeader(response);
         }
+      }
+
+      // Retry once on 500 — handles GCS storage cold-start (PRIVATE_OBJECT_DIR warming up)
+      if (response.status === 500) {
+        token = await fetchCsrfToken();
+        response = await fetch('/api/documents/upload/for-signing', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+          headers: buildHeaders(token),
+        });
+        absorbRefreshHeader(response);
       }
 
       if (!response.ok) {
