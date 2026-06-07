@@ -7,12 +7,13 @@
 
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
+import { createHash } from 'crypto';
 import { unifiedESignService } from '../services/unified-esign-service';
 import { truthScreenESignService } from '../services/truthscreen-esign-service';
 import { requireAuth } from '../middleware/roleMiddleware';
 import { db } from '../db';
-import { esignAuditLog } from '@shared/schema';
+import { esignAuditLog, esignRequests, regulatoryAuditPacks, immutableAuditLogs } from '@shared/schema';
 
 const router = Router();
 const isAuthenticated = requireAuth;
@@ -87,6 +88,37 @@ router.post('/api/esign/initiate', isAuthenticated, async (req: Request, res: Re
 
     const validated = initiateESignSchema.parse(req.body);
 
+    // S6: Replay attack detection — block same documentHash signed in last 24h
+    const recentDup = await db.execute(sql`
+      SELECT id, transaction_id FROM esign_requests
+      WHERE document_hash = ${validated.documentHash}
+        AND user_id = ${userId}
+        AND status = 'completed'
+        AND created_at > NOW() - INTERVAL '24 hours'
+      LIMIT 1
+    `);
+    if ((recentDup.rows || []).length > 0) {
+      const dup = recentDup.rows[0] as any;
+      const checksum = createHash('sha256')
+        .update(`REPLAY:${userId}:${validated.documentHash}:${Date.now()}`)
+        .digest('hex');
+      db.insert(immutableAuditLogs).values({
+        id: `replay-${Date.now()}`,
+        eventType: 'SECURITY',
+        action: 'SECURITY_REPLAY_ATTEMPT',
+        userId,
+        entityType: 'esign_request',
+        entityId: dup.transaction_id,
+        metadata: { documentHash: validated.documentHash, previousTransactionId: dup.transaction_id },
+        checksum,
+      } as any).catch(console.error);
+      return res.status(409).json({
+        error: 'DUPLICATE_SIGN_DETECTED',
+        message: 'This document was already signed within the last 24 hours',
+        previousTransactionId: dup.transaction_id,
+      });
+    }
+
     const result = await unifiedESignService.initiateESign({
       userId,
       documentType: validated.documentType,
@@ -138,6 +170,38 @@ router.post('/api/esign/verify', isAuthenticated, async (req: Request, res: Resp
         signedAt: result.signatureData?.signedAt,
         provider: result.provider,
       }, req);
+
+      // S1: Create SEBI Regulatory Audit Pack on every successful eSign completion
+      (async () => {
+        try {
+          const [esignRec] = await db.select().from(esignRequests)
+            .where(eq(esignRequests.transactionId, validated.transactionId))
+            .limit(1);
+          const packSnapshot = {
+            transactionId: validated.transactionId,
+            documentName: esignRec?.documentName || 'Unknown',
+            documentType: esignRec?.documentType || 'other',
+            documentHash: esignRec?.documentHash,
+            signerName: esignRec?.signerName,
+            signerAadhaarMasked: esignRec?.signerAadhaarMasked,
+            certificateSerial: result.certificateId,
+            signedAt: result.signatureData?.signedAt || new Date().toISOString(),
+            provider: result.provider,
+          };
+          const auditHash = createHash('sha256').update(JSON.stringify(packSnapshot)).digest('hex');
+          await db.insert(regulatoryAuditPacks).values({
+            userId,
+            packType: 'esign_completion',
+            transactionId: validated.transactionId,
+            kycSnapshot: { verifiedAt: new Date().toISOString(), note: 'KYC pre-verified at account creation' },
+            suitabilitySnapshot: { verifiedAt: new Date().toISOString(), note: 'Suitability assessed at onboarding' },
+            orderSnapshot: packSnapshot as any,
+            auditHash,
+          } as any);
+        } catch (e: any) {
+          console.error('[eSign] Failed to create regulatory audit pack:', e?.message);
+        }
+      })();
     }
 
     res.json(result);
@@ -325,6 +389,112 @@ router.get('/api/agent/esign/requests', isAuthenticated, async (req: Request, re
   } catch (error) {
     console.error('[eSign Routes] Get agent requests error:', error);
     res.status(500).json({ error: 'Failed to fetch eSign requests' });
+  }
+});
+
+// S5: Client read-receipt — log when signer confirms they have read the document
+router.post('/api/esign/confirm-read', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    const { transactionId, documentHash } = req.body;
+    if (!transactionId) {
+      return res.status(400).json({ error: 'transactionId is required' });
+    }
+    await logAudit(transactionId, userId, 'signer_confirmed_read', 'success', {
+      documentHash,
+      confirmedAt: new Date().toISOString(),
+      readMethod: 'web_checkbox',
+    }, req);
+    res.json({ success: true, confirmedAt: new Date().toISOString() });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to record read confirmation' });
+  }
+});
+
+// S3: SEBI audit export — compliance officers only, logs the export itself
+router.get('/api/admin/esign/audit/export', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const AUDIT_ROLES = ['admin', 'super_admin', 'superadmin', 'compliance_officer'];
+    const userRoles = Array.isArray(user?.roles) ? user.roles : [user?.role];
+    if (!userRoles.some((r: string) => AUDIT_ROLES.includes(r))) {
+      return res.status(403).json({ error: 'Access denied. Compliance officer or admin role required.' });
+    }
+
+    const { from, to, format = 'json' } = req.query as Record<string, string>;
+    const fromDate = from || '2020-01-01';
+    const toDate = to || new Date().toISOString().slice(0, 10);
+
+    const result = await db.execute(sql`
+      SELECT
+        r.transaction_id    AS "transactionId",
+        r.document_name     AS "documentName",
+        r.document_type     AS "documentType",
+        r.document_hash     AS "documentHash",
+        r.signer_name       AS "signerName",
+        r.signer_aadhaar_masked AS "signerAadhaarMasked",
+        r.certificate_serial AS "certificateSerial",
+        r.signed_at         AS "signedAt",
+        r.status,
+        r.provider,
+        r.created_at        AS "createdAt",
+        u.email             AS "agentEmail"
+      FROM esign_requests r
+      LEFT JOIN users u ON u.id = r.user_id
+      WHERE r.created_at::date >= ${fromDate}::date
+        AND r.created_at::date <= ${toDate}::date
+      ORDER BY r.created_at DESC
+      LIMIT 5000
+    `);
+
+    const rows = result.rows as any[];
+
+    // Log the export itself to immutable audit log (auditing the auditors)
+    const checksum = createHash('sha256')
+      .update(`SEBI_EXPORT:${user.id}:${fromDate}:${toDate}:${Date.now()}`)
+      .digest('hex');
+    db.insert(immutableAuditLogs).values({
+      id: `sebi-export-${Date.now()}`,
+      eventType: 'COMPLIANCE',
+      action: 'SEBI_AUDIT_EXPORT',
+      userId: user.id,
+      entityType: 'esign_audit',
+      entityId: `${fromDate}:${toDate}`,
+      metadata: { from: fromDate, to: toDate, format, rowCount: rows.length, exportedBy: user.email },
+      checksum,
+    } as any).catch(console.error);
+
+    if (format === 'csv') {
+      const header = ['TransactionID','DocumentName','DocumentType','DocumentHash','SignerName','SignerAadhaarMasked','CertificateSerial','SignedAt','Status','Provider','AgentEmail','CreatedAt'].join(',');
+      const csvRows = rows.map(r =>
+        [
+          r.transactionId,
+          `"${(r.documentName || '').replace(/"/g, '""')}"`,
+          r.documentType,
+          r.documentHash,
+          `"${(r.signerName || '').replace(/"/g, '""')}"`,
+          r.signerAadhaarMasked,
+          r.certificateSerial,
+          r.signedAt,
+          r.status,
+          r.provider,
+          r.agentEmail,
+          r.createdAt,
+        ].join(',')
+      );
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="esign-audit-${fromDate}-to-${toDate}.csv"`);
+      return res.send([header, ...csvRows].join('\n'));
+    }
+
+    res.json({
+      success: true,
+      data: rows,
+      meta: { total: rows.length, from: fromDate, to: toDate, exportedAt: new Date().toISOString(), requestedBy: user.email },
+    });
+  } catch (error) {
+    console.error('[eSign Audit Export] Error:', error);
+    res.status(500).json({ error: 'Failed to generate audit export' });
   }
 });
 

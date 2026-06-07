@@ -83,12 +83,25 @@ class DocumentUploadService {
     return createHash("sha256").update(buffer).digest("hex");
   }
 
-  private async uploadToStorage(path: string, buffer: Buffer, contentType?: string): Promise<void> {
+  private async uploadToStorage(
+    path: string,
+    buffer: Buffer,
+    contentType?: string,
+    customMeta?: Record<string, string>
+  ): Promise<void> {
     const { bucketName, objectName } = parseObjectPath(path);
     const bucket = objectStorageClient.bucket(bucketName);
     const file = bucket.file(objectName);
     await file.save(buffer, {
-      metadata: contentType ? { contentType } : undefined,
+      metadata: {
+        contentType: contentType || 'application/octet-stream',
+        // S7: Retention metadata — SEBI 7-year document retention policy
+        metadata: {
+          retentionPolicy: 'sebi_7yr',
+          uploadedAt: new Date().toISOString(),
+          ...customMeta,
+        },
+      },
     });
   }
 
@@ -132,7 +145,12 @@ class DocumentUploadService {
       contentType = "application/msword";
     }
     
-    await this.uploadToStorage(originalPath, buffer, contentType);
+    await this.uploadToStorage(originalPath, buffer, contentType, {
+      documentHash,
+      uploadedByUserId: options.userId,
+      proposalId: options.proposalId || 'general',
+      retentionExpiresAt: new Date(Date.now() + 7 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+    });
     
     let displayUrl = originalPath;
     let convertedFormat = ext.replace(".", "");
@@ -145,7 +163,7 @@ class DocumentUploadService {
         
         const htmlPath = `${privateDir}/documents/${options.proposalId || "general"}/${timestamp}_${sanitizedName}.html`;
         const htmlBuffer = this.generateStyledHtml(htmlContent, options.fileName);
-        await this.uploadToStorage(htmlPath, htmlBuffer, "text/html");
+        await this.uploadToStorage(htmlPath, htmlBuffer, 'text/html', { documentHash, parentDocument: originalPath });
         displayUrl = htmlPath;
         convertedFormat = "html";
       } catch (conversionError) {

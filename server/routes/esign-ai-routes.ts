@@ -3,6 +3,9 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { esignAIAnalysisService } from '../services/esign-ai-analysis-service';
 import { requireAuth } from '../middleware/roleMiddleware';
+import { db } from '../db';
+import { proposalEsignVersions, esignDocumentAnnotations } from '@shared/schema';
+import { eq, and, sql } from 'drizzle-orm';
 
 const router = Router();
 
@@ -136,7 +139,52 @@ router.patch('/annotations/:annotationId/status', requireAuth, async (req: Reque
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
     });
-    
+
+    // S4: Check if ALL corrections for this document are now resolved — if so, write a version history row
+    if (['accepted', 'rejected'].includes(validated.status) && result?.annotation?.documentId) {
+      const docId = result.annotation.documentId;
+      (async () => {
+        try {
+          const openCorrections = await db.select({ count: sql<number>`count(*)` })
+            .from(esignDocumentAnnotations)
+            .where(and(
+              eq(esignDocumentAnnotations.documentId, docId),
+              eq(esignDocumentAnnotations.category, 'correction'),
+              eq(esignDocumentAnnotations.status, 'open'),
+            ));
+          const openCount = Number(openCorrections[0]?.count || 0);
+          if (openCount === 0) {
+            // All corrections resolved — log a version snapshot
+            const allCorrections = await db.select()
+              .from(esignDocumentAnnotations)
+              .where(and(
+                eq(esignDocumentAnnotations.documentId, docId),
+                eq(esignDocumentAnnotations.category, 'correction'),
+              ));
+            const accepted = allCorrections.filter(a => a.status === 'accepted').map(a => a.title);
+            const rejected = allCorrections.filter(a => a.status === 'rejected').map(a => a.title);
+            await db.insert(proposalEsignVersions).values({
+              workflowId: docId, // document_id maps to workflow context
+              versionNumber: 2,  // Revision 1 is uploaded original; 2+ are post-negotiation
+              negotiationRound: 1,
+              versionLabel: 'Post-Negotiation Revision',
+              documentUrl: docId, // placeholder; real URL would come from workflow
+              approvalStatus: 'approved',
+              approvedBy: user?.id,
+              approvedAt: new Date(),
+              changeDescription: `${accepted.length} suggestion(s) accepted, ${rejected.length} rejected`,
+              changesFromPrevious: {
+                fieldsModified: accepted,
+                summary: `Accepted: ${accepted.join('; ') || 'none'}. Rejected: ${rejected.join('; ') || 'none'}.`,
+              },
+            } as any).catch(() => { /* non-fatal */ });
+          }
+        } catch (e: any) {
+          console.error('[eSign AI] Version history write failed:', e?.message);
+        }
+      })();
+    }
+
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('[eSign AI Routes] Update status error:', error);

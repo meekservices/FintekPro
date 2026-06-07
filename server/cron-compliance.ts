@@ -519,4 +519,81 @@ export function initializeComplianceCrons(): void {
     }
   });
   console.log('🔍 [eSignSweep] Hourly stuck-transaction sweep scheduled');
+
+  // ── S2: eSign Expiry Reminder — daily 9:00 AM IST (3:30 AM UTC) ─────────────
+  // Finds proposal_esign_workflows with status = 'pending_signature' and a
+  // deadline within 7, 3, or 1 days. Sends WhatsApp to the prospect/signer.
+  cron.schedule('30 3 * * *', async () => {
+    logger.info('[CRON][eSignExpiry] Starting eSign deadline reminder job...');
+    try {
+      const dueWorkflows = await db.execute(sql`
+        SELECT
+          w.id              AS "workflowId",
+          w.document_name   AS "documentName",
+          w.deadline        AS "deadline",
+          w.prospect_name   AS "prospectName",
+          w.prospect_mobile AS "prospectMobile",
+          w.prospect_email  AS "prospectEmail",
+          w.agent_id        AS "agentId",
+          EXTRACT(DAY FROM (w.deadline::timestamptz - NOW())) AS "daysLeft"
+        FROM proposal_esign_workflows w
+        WHERE w.status = 'pending_signature'
+          AND w.deadline IS NOT NULL
+          AND w.deadline::timestamptz > NOW()
+          AND EXTRACT(DAY FROM (w.deadline::timestamptz - NOW())) IN (7, 3, 1)
+        LIMIT 200
+      `);
+
+      const workflows = dueWorkflows.rows as Array<{
+        workflowId: string;
+        documentName: string;
+        deadline: string;
+        prospectName: string;
+        prospectMobile: string;
+        prospectEmail: string;
+        agentId: string;
+        daysLeft: number;
+      }>;
+
+      logger.info(`[CRON][eSignExpiry] Found ${workflows.length} workflows needing reminders`);
+      let sent = 0;
+      let skipped = 0;
+
+      for (const w of workflows) {
+        if (!w.prospectMobile) { skipped++; continue; }
+        const daysLeft = Math.round(Number(w.daysLeft));
+        const deadlineFormatted = new Date(w.deadline).toLocaleDateString('en-IN', {
+          day: '2-digit', month: 'short', year: 'numeric',
+        });
+        const urgency = daysLeft === 1 ? '🚨 *URGENT — Last Day!*' : daysLeft === 3 ? '⚠️ *3 Days Remaining*' : '📅 *Reminder: 7 Days Left*';
+        const message =
+          `${urgency}\n\n` +
+          `Dear ${w.prospectName || 'Client'},\n\n` +
+          `Your document *"${w.documentName}"* requires your digital signature.\n\n` +
+          `📋 *Deadline:* ${deadlineFormatted} (${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining)\n\n` +
+          `Please sign at your earliest convenience to avoid delays.\n\n` +
+          `If you have already signed, please ignore this message.\n\n` +
+          `_FintekPro Compliance | SEBI Registered Investment Advisor_`;
+
+        try {
+          const result = await whatsappDispatcher.send({
+            mobile: w.prospectMobile,
+            message,
+            category: 'ESIGN_REMINDER',
+            templateType: 'esign_reminder' as any,
+          });
+          if (result.success) sent++;
+          else { skipped++; logger.warn(`[CRON][eSignExpiry] WhatsApp failed for workflow ${w.workflowId}: ${result.error}`); }
+        } catch (e: any) {
+          skipped++;
+          logger.error(`[CRON][eSignExpiry] Send error for workflow ${w.workflowId}: ${e?.message}`);
+        }
+      }
+
+      logger.info(`[CRON][eSignExpiry] Reminders complete — sent: ${sent}, skipped/failed: ${skipped}`);
+    } catch (err: any) {
+      logger.error('[CRON][eSignExpiry] Job failed:', { error: err?.message });
+    }
+  });
+  console.log('📆 [eSignExpiry] Daily eSign deadline reminder scheduled (9:00 AM IST)');
 }

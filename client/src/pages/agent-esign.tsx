@@ -191,6 +191,7 @@ export default function AgentESignPage() {
   const [selectedSigningMethod, setSelectedSigningMethod] = useState<SigningMethod>('aadhaar_esign');
   // Edit & Suggest state
   const [allowEditing, setAllowEditing] = useState(false);
+  const [hasConfirmedRead, setHasConfirmedRead] = useState(false);
   const [selectedTextForSuggestion, setSelectedTextForSuggestion] = useState('');
   const [suggestionReplacement, setSuggestionReplacement] = useState('');
   const [suggestionNote, setSuggestionNote] = useState('');
@@ -1477,13 +1478,40 @@ export default function AgentESignPage() {
               <Button variant="outline" onClick={handleCloseDialog} data-testid="button-cancel-esign">
                 Cancel
               </Button>
-              <Button 
+              {/* S5: Document read-receipt checkbox — mandatory before sending */}
+              <div className="flex items-start gap-3 p-3 bg-amber-950/30 border border-amber-800/50 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="confirm-document-read"
+                  checked={hasConfirmedRead}
+                  onChange={async (e) => {
+                    setHasConfirmedRead(e.target.checked);
+                    if (e.target.checked && uploadedDocumentData?.documentHash) {
+                      // Log read-confirmation to audit trail
+                      apiRequest('/api/esign/confirm-read', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          transactionId: `pre-sign-${uploadedDocumentData.documentHash}`,
+                          documentHash: uploadedDocumentData.documentHash,
+                        }),
+                      }).catch(() => { /* non-fatal */ });
+                    }
+                  }}
+                  className="mt-0.5 h-4 w-4 accent-amber-400 cursor-pointer flex-shrink-0"
+                />
+                <label htmlFor="confirm-document-read" className="text-xs text-amber-200 cursor-pointer leading-relaxed">
+                  I confirm that I have reviewed the document and all required information is accurate. I understand that by sending this document for signature, both parties will be bound by its terms. <span className="text-amber-400 font-medium">(Required for SEBI audit trail)</span>
+                </label>
+              </div>
+
+              <Button
                 onClick={handleSendRequest}
                 disabled={
                   initiateESign.isPending ||
                   !documentName ||
                   !documentType ||
                   signers.length === 0 ||
+                  !hasConfirmedRead ||
                   // Block if upload source selected, file chosen but upload failed
                   (documentSource === 'upload' && !!uploadedFile && !uploadedDocumentData) ||
                   isUploading ||
@@ -1491,6 +1519,7 @@ export default function AgentESignPage() {
                   (allowEditing && openCorrectionCount > 0)
                 }
                 title={
+                  !hasConfirmedRead ? 'Please confirm you have read the document before sending' :
                   !documentName ? 'Enter a document name' :
                   !documentType ? 'Select a document type' :
                   signers.length === 0 ? 'Add at least one signer' :
