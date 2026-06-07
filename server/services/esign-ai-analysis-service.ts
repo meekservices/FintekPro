@@ -90,10 +90,10 @@ class ESignAIAnalysisService {
 
       let annotations: AIAnnotationSuggestion[];
       
-      if (this.model) {
+      if (this.genAI) {
         annotations = await this.performAIAnalysis(request);
       } else {
-        throw new Error('AI analysis service not configured. OpenAI API key required for document analysis.');
+        throw new Error('AI analysis service not configured. GEMINI_API_KEY required for document analysis.');
       }
 
       const savedAnnotations = await this.saveAnnotations(documentId, request.workflowId, annotations);
