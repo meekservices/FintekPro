@@ -2938,7 +2938,7 @@ function GoalPlanningTab({ clientId, clientName }: { clientId: string; clientNam
                       <span className="text-muted-foreground">{formatCurrency(goal.targetAmount)}</span>
                     </div>
                     <Progress value={goal.progress} className="h-2" />
-                    <p className="text-xs text-muted-foreground mt-1">{goal.progress.toFixed(0)}% achieved</p>
+                    <p className="text-xs text-muted-foreground mt-1">{(Number(goal.progress) || 0).toFixed(0)}% achieved</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="p-2 bg-muted rounded">
@@ -3548,7 +3548,7 @@ function WhatIfSimulatorTab({ clientId, portfolio, analysis }: { clientId: strin
                   <div className="flex items-center gap-2">
                     {impact.valueChange >= 0 ? <TrendingUp className="h-5 w-5 text-green-600" /> : <TrendingDown className="h-5 w-5 text-red-600" />}
                     <span className={`text-lg font-bold ${impact.valueChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {impact.valueChange >= 0 ? '+' : ''}{formatCurrency(impact.valueChange)} ({impact.percentChange >= 0 ? '+' : ''}{impact.percentChange.toFixed(2)}%)
+                      {impact.valueChange >= 0 ? '+' : ''}{formatCurrency(impact.valueChange)} ({impact.percentChange >= 0 ? '+' : ''}{(Number.isFinite(impact.percentChange) ? impact.percentChange : 0).toFixed(2)}%)
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">Projected portfolio change</p>
@@ -3676,7 +3676,7 @@ function BenchmarkComparisonTab({ clientId, portfolio }: { clientId: string; por
                     <div className="flex items-center gap-2">
                       {alpha >= 0 ? <TrendingUp className="h-4 w-4 text-green-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />}
                       <span className={`font-medium ${alpha >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {alpha >= 0 ? '+' : ''}{alpha.toFixed(2)}%
+                        {alpha >= 0 ? '+' : ''}{(Number.isFinite(alpha) ? alpha : 0).toFixed(2)}%
                       </span>
                     </div>
                   </div>
