@@ -10,11 +10,19 @@
 
       "complexity": {
         "noBannedTypes": "off",
-        "noUselessTypeConstraint": "off"
+        "noUselessTypeConstraint": "off",
+        "noForEach": "off"
       },
 
       "suspicious": {
-        "noExplicitAny": "off"
+        "noExplicitAny": "off",
+        "noArrayIndexKey": "off"
+      },
+
+      "a11y": {
+        "noSvgWithoutTitle": "off",
+        "useKeyWithClickEvents": "off",
+        "useButtonType": "off"
       },
 
       "style": {
@@ -24,11 +32,15 @@
         "useShorthandFunctionType": "off",
         "noInferrableTypes": "off",
         "useAsConstAssertion": "off",
-        "useNodejsImportProtocol": "off"
+        "useNodejsImportProtocol": "off",
+        "noUnusedTemplateLiteral": "off",
+        "useTemplate": "off",
+        "useSingleVarDeclarator": "off",
+        "useImportType": "off"
       },
 
       "nursery": {
-        "useExplicitType": "off"
+        "recommended": false
       }
     }
   },
