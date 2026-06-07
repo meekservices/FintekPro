@@ -155,13 +155,14 @@ type StatsApiResponse = {
 };
 
 type WatchlistItem = {
-  id: number;
+  watchlistId: number;  // server returns `watchlistId`, not `id`
   pickId: number;
+  addedAt: string;
+  notes?: string;
   priceAlertEnabled: boolean;
   alertThreshold?: string;
   alertType?: string;
-  addedAt: string;
-  pick?: DailyPick;
+  pick: DailyPick;      // always present — API uses innerJoin
 };
 
 type SectorAllocation = { count: number; percentage: number };
@@ -2451,32 +2452,97 @@ export default function AgentPicksPage() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {watchlist.map((item) => (
-                        <div key={item.id} className="flex items-center gap-4 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium truncate">Pick #{item.pickId}</span>
-                              {item.priceAlertEnabled && (
-                                <Badge variant="outline" className="text-[10px]">
-                                  <Bell className="h-3 w-3 mr-1" />
-                                  Alert Active
-                                </Badge>
-                              )}
+                      {watchlist.map((item) => {
+                        const pick = item.pick;
+                        const catLabel = categoryLabels[pick?.category ?? ''] ?? pick?.category ?? '—';
+                        const CatIcon = categoryIcons[pick?.category ?? ''];
+                        const recoPrice = pick?.recoPrice ?? 0;
+                        const currentPrice = pick?.currentPrice ?? recoPrice;
+                        const returnPct = pick?.returnPct != null
+                          ? pick.returnPct
+                          : recoPrice > 0 ? ((currentPrice - recoPrice) / recoPrice) * 100 : null;
+                        const statusEntry = statusConfig[pick?.status ?? 'live'];
+                        const StatusIcon = statusEntry?.icon;
+
+                        return (
+                          <div key={item.watchlistId ?? item.pickId} className="rounded-lg border bg-card hover:bg-accent/30 transition-colors">
+                            {/* Header row */}
+                            <div className="flex items-start gap-3 p-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold truncate text-sm">
+                                    {pick?.instrumentName ?? `Pick #${item.pickId}`}
+                                  </span>
+                                  {pick?.symbol && (
+                                    <span className="text-xs text-muted-foreground font-mono">{pick.symbol}</span>
+                                  )}
+                                  {statusEntry && StatusIcon && (
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-[10px] px-1.5 py-0 ${statusEntry.color} text-white border-0`}
+                                    >
+                                      <StatusIcon className="h-2.5 w-2.5 mr-0.5" />
+                                      {statusEntry.label}
+                                    </Badge>
+                                  )}
+                                  {item.priceAlertEnabled && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                      <Bell className="h-3 w-3 mr-1" />
+                                      Alert Active
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                  {CatIcon && <CatIcon className="h-3 w-3 text-muted-foreground" />}
+                                  <span className="text-xs text-muted-foreground">{catLabel}</span>
+                                  <span className="text-xs text-muted-foreground">•</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    Added {new Date(item.addedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                  </span>
+                                  {item.alertType && (
+                                    <>
+                                      <span className="text-xs text-muted-foreground">•</span>
+                                      <span className="text-xs text-muted-foreground capitalize">Alert: {item.alertType.replace('_', ' ')}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="shrink-0 h-7 w-7 p-0"
+                                onClick={() => removeFromWatchlistMutation.mutate(item.pickId)}
+                              >
+                                <XCircle className="h-4 w-4 text-red-500" />
+                              </Button>
                             </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Added {new Date(item.addedAt).toLocaleDateString('en-IN')}
-                              {item.alertType && ` • Alert: ${item.alertType}`}
-                            </div>
+
+                            {/* Price row */}
+                            {pick && (
+                              <div className="px-3 pb-3 grid grid-cols-4 gap-2 text-xs border-t pt-2">
+                                <div>
+                                  <div className="text-muted-foreground">Entry</div>
+                                  <div className="font-medium">{formatPrice(recoPrice, pick.category)}</div>
+                                </div>
+                                <div>
+                                  <div className="text-muted-foreground">Current</div>
+                                  <div className="font-medium">{formatPrice(currentPrice, pick.category)}</div>
+                                </div>
+                                <div>
+                                  <div className="text-muted-foreground">Target</div>
+                                  <div className="font-medium text-green-600">{formatPrice(pick.targetPrice, pick.category)}</div>
+                                </div>
+                                <div>
+                                  <div className="text-muted-foreground">Return</div>
+                                  <div className={`font-semibold ${returnPct != null && returnPct >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                    {returnPct != null ? `${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(1)}%` : '—'}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeFromWatchlistMutation.mutate(item.pickId)}
-                          >
-                            <XCircle className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
