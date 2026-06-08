@@ -1014,7 +1014,8 @@ export default function ResearchNoteGenerator() {
                             const sv = row.values[startIdx];
                             const ev = row.values[endIdx];
                             if (sv === null || ev === null || sv <= 0) return null;
-                            const result = Math.pow(ev / sv, 1 / cagrYrs) - 1;
+                            const cagrExp = 1 / cagrYrs; // extracted to avoid esbuild regex false-positive
+                            const result = Math.pow(ev / sv, cagrExp) - 1;
                             return isFinite(result) ? result : null;
                           })();
                           return (
