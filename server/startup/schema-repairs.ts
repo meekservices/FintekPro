@@ -1064,6 +1064,47 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
         console.warn('[Migration] esign_requests nullable columns skipped:', e?.message);
       }
 
+      // ── 34. pick_watchlist & pick_price_alerts ────────────────────────────────
+      // The watchlist feature tables are defined in shared schema but never ran
+      // as a startup migration, causing watchlist API 500s on fresh environments.
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS pick_watchlist (
+            id                  SERIAL PRIMARY KEY,
+            user_id             VARCHAR REFERENCES users(id),
+            prospect_id         VARCHAR,
+            created_by_agent_id VARCHAR REFERENCES users(id),
+            pick_id             INTEGER NOT NULL REFERENCES daily_picks(id),
+            added_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            notes               TEXT,
+            price_alert_enabled BOOLEAN DEFAULT false,
+            alert_threshold     DECIMAL(8, 2),
+            alert_type          VARCHAR(20),
+            last_alert_sent_at  TIMESTAMPTZ
+          );
+          CREATE INDEX IF NOT EXISTS idx_pick_watchlist_user ON pick_watchlist(user_id);
+          CREATE INDEX IF NOT EXISTS idx_pick_watchlist_pick ON pick_watchlist(pick_id);
+
+          CREATE TABLE IF NOT EXISTS pick_price_alerts (
+            id                    SERIAL PRIMARY KEY,
+            pick_id               INTEGER NOT NULL REFERENCES daily_picks(id),
+            user_id               VARCHAR REFERENCES users(id),
+            alert_type            VARCHAR(20) NOT NULL,
+            trigger_price         DECIMAL(18, 4) NOT NULL,
+            previous_price        DECIMAL(18, 4),
+            message               TEXT,
+            notification_sent     BOOLEAN DEFAULT false,
+            notification_channel  VARCHAR(50),
+            created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_pick_price_alerts_pick ON pick_price_alerts(pick_id);
+          CREATE INDEX IF NOT EXISTS idx_pick_price_alerts_user ON pick_price_alerts(user_id);
+        `);
+        console.log('✅ pick_watchlist & pick_price_alerts tables verified');
+      } catch (e: any) {
+        console.warn('[Migration] pick_watchlist/pick_price_alerts table skipped:', e?.message);
+      }
+
       } catch (migErr) {
         console.error('❌ Migration sequence failed (non-fatal):', migErr);
       }

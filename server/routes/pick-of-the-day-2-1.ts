@@ -154,14 +154,14 @@ router.get("/search/products", requireAuth, async (req, res) => {
       case 'unlisted':
         const unlistedResults = await db.select({
           id: unlistedCompanies.id,
-          name: unlistedCompanies.companyName,
+          name: unlistedCompanies.name,
           isin: unlistedCompanies.isin,
           price: unlistedCompanies.publishedBuyPrice,
-          sector: unlistedCompanies.sectorCategory,
+          sector: unlistedCompanies.sector,
         })
         .from(unlistedCompanies)
         .where(or(
-          sql`${unlistedCompanies.companyName} ILIKE ${searchTerm}`,
+          sql`${unlistedCompanies.name} ILIKE ${searchTerm}`,
           sql`${unlistedCompanies.isin} ILIKE ${searchTerm}`
         ))
         .limit(20);
