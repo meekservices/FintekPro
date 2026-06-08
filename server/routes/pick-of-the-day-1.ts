@@ -153,6 +153,46 @@ router.post("/generate", requireAdmin, async (req, res) => {
   }
 });
 
+// Authenticated agents can call this to fill in missing categories for today.
+// Unlike /generate (admin-only), this only generates for categories with 0 picks today.
+router.post("/catchup", requireAuth, async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const categoryCounts = await db
+      .select({ category: dailyPicks.category, cnt: sql`COUNT(*)` })
+      .from(dailyPicks)
+      .where(eq(dailyPicks.recoDate, today))
+      .groupBy(dailyPicks.category);
+
+    const existingCategories = new Set(categoryCounts.map((r: any) => r.category));
+    const allCategories = ['listed_stocks', 'mutual_funds', 'bonds', 'unlisted',
+      'global_stocks', 'etfs', 'reits_invits', 'sgb', 'fixed_deposits'];
+    const missing = allCategories.filter(c => !existingCategories.has(c));
+
+    if (missing.length === 0) {
+      return res.json({
+        success: true,
+        message: `All categories covered for ${today}. No catch-up needed.`,
+        existingCategories: Array.from(existingCategories),
+        generated: 0,
+      });
+    }
+
+    console.log(`[CatchUp] Agent triggered: Missing categories for ${today}: [${missing.join(', ')}]`);
+    const picks = await pickOfTheDayService.generateDailyPicks();
+    res.json({
+      success: true,
+      message: `Catch-up generated ${picks.length} picks for missing categories: [${missing.join(', ')}]`,
+      existingCategories: Array.from(existingCategories),
+      missingCategories: missing,
+      generated: picks.length,
+    });
+  } catch (error) {
+    console.error("[API] Error in catch-up generation:", error);
+    res.status(500).json({ success: false, error: "Failed to generate catch-up picks" });
+  }
+});
+
 router.post("/update-statuses", requireAdmin, async (req, res) => {
   try {
     const result = await pickOfTheDayService.updatePickStatuses();

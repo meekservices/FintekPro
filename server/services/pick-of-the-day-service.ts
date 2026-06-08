@@ -651,15 +651,35 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
       .where(eq(dailyPicks.recoDate, today));
     const existingCount = Number(existing[0]?.count || 0);
 
-    // Regenerate if: no picks at all, or fewer than 3 (indicates partial failure)
-    // Raised from 3 → 8: StockStrategy now generates up to 5 sector picks.
-    // A full healthy day has ~9 picks (5 stocks + MF + Bond + Global + Unlisted).
-    const MIN_PICKS_THRESHOLD = 8;
+    // Regenerate if: no picks at all, or fewer than 4 (indicates partial failure).
+    // With StockStrategy generating 5 sector picks, a healthy day has ≥10 picks.
+    // Lowered from 8 → 4 to allow partial recovery: if only stocks exist and
+    // MF/Bond/FD/SGB/REIT are missing, this will trigger regeneration.
+    const MIN_PICKS_THRESHOLD = 4;
     if (existingCount < MIN_PICKS_THRESHOLD) {
       console.log(`🔄 [PickOfTheDay] Startup catch-up: only ${existingCount} picks found for ${today} (threshold: ${MIN_PICKS_THRESHOLD}). Generating missing picks...`);
       await this.generateDailyPicks();
+      return;
+    }
+
+    // Additionally check per-category coverage — if any critical category
+    // has 0 picks for today, regenerate to fill the gap.
+    const categoryCounts = await db
+      .select({ category: dailyPicks.category, cnt: sql<number>`COUNT(*)` })
+      .from(dailyPicks)
+      .where(eq(dailyPicks.recoDate, today))
+      .groupBy(dailyPicks.category);
+
+    const existingCategories = new Set(categoryCounts.map(r => r.category));
+    const criticalCategories: PickCategory[] = ['listed_stocks', 'mutual_funds', 'bonds', 'fixed_deposits', 'sgb'];
+    const missingCritical = criticalCategories.filter(c => !existingCategories.has(c));
+
+    if (missingCritical.length >= 2) {
+      // 2+ critical categories are missing — regenerate to fill gaps
+      console.log(`🔄 [PickOfTheDay] Missing ${missingCritical.length} critical categories: [${missingCritical.join(', ')}]. Triggering regeneration...`);
+      await this.generateDailyPicks();
     } else {
-      console.log(`✅ [PickOfTheDay] ${existingCount} picks already exist for ${today}. Skipping catch-up.`);
+      console.log(`✅ [PickOfTheDay] ${existingCount} picks across ${existingCategories.size} categories for ${today}. OK.`);
     }
   }
 

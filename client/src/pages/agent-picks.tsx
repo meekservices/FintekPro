@@ -812,6 +812,27 @@ export default function AgentPicksPage() {
 		}
 	};
 
+	const catchupMutation = useMutation({
+		mutationFn: async () => {
+			return apiRequest("/api/picks/catchup", { method: "POST" });
+		},
+		onSuccess: (data: any) => {
+			queryClient.invalidateQueries({ queryKey: ["/api/picks/today"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/picks/live"] });
+			toast({
+				title: data?.generated > 0 ? "Picks Refreshed!" : "Up to date",
+				description: data?.message || "Today's picks are up to date.",
+			});
+		},
+		onError: () => {
+			toast({
+				title: "Error",
+				description: "Failed to generate missing picks.",
+				variant: "destructive",
+			});
+		},
+	});
+
 	const todayPicks = Array.isArray(todayData?.picks) ? todayData.picks : [];
 	const livePicks = Array.isArray(liveData?.picks) ? liveData.picks : [];
 	const historyPicks = Array.isArray(historyData?.picks)
@@ -1689,17 +1710,31 @@ export default function AgentPicksPage() {
 										})}
 									</CardDescription>
 								</div>
-								{/* #10 Export button */}
-								{todayPicks.length > 0 && (
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={exportTodaysPicksCSV}
-										className="shrink-0"
-									>
-										<Download className="h-4 w-4 mr-2" /> Export CSV
-									</Button>
-								)}
+								<div className="flex items-center gap-2">
+									{todayPicks.length < 8 && (
+										<Button
+											id="refresh-missing-picks-btn"
+											variant="outline"
+											size="sm"
+											onClick={() => catchupMutation.mutate()}
+											disabled={catchupMutation.isPending}
+											className="shrink-0 gap-2 text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40"
+										>
+											<RefreshCw className={`h-3.5 w-3.5 ${catchupMutation.isPending ? "animate-spin" : ""}`} />
+											{catchupMutation.isPending ? "Generating..." : "Fill Missing Picks"}
+										</Button>
+									)}
+									{todayPicks.length > 0 && (
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={exportTodaysPicksCSV}
+											className="shrink-0"
+										>
+											<Download className="h-4 w-4 mr-2" /> Export CSV
+										</Button>
+									)}
+								</div>
 							</div>
 						</CardHeader>
 						<CardContent>

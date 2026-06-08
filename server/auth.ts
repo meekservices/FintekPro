@@ -730,18 +730,22 @@ export function registerAuthRoutes(app: Express) {
         return apiResponse.serverError(res, "Session not available. Please try again.");
       }
 
-      // Check if both are verified before completing login
+      // Check if the just-completed OTP verification grants login access.
+      // We only require the channel used for OTP to be verified — not both.
+      // This prevents permanently locking out agents who were seeded with only one
+      // channel populated (e.g. mobile-only or email-only accounts).
       const fixedTesterOtpEnabled = canUseFixedTesterOtp(updatedUser);
-      const bothVerified = updatedUser.isEmailVerified && updatedUser.isMobileVerified;
-      
-      if (!bothVerified && !fixedTesterOtpEnabled) {
-        console.log(`[VERIFY_OTP] Partial verification completed for user ${updatedUser.id}. Mobile: ${updatedUser.isMobileVerified}, Email: ${updatedUser.isEmailVerified}`);
+      const eitherVerified = updatedUser.isEmailVerified || updatedUser.isMobileVerified;
+
+      if (!eitherVerified && !fixedTesterOtpEnabled) {
+        // Truly unverified account — should not happen after a successful OTP but guard anyway
+        console.warn(`[VERIFY_OTP] Neither email nor mobile verified for user ${updatedUser.id} after OTP — blocking login`);
         return apiResponse.success(res, {
           requiresVerification: true,
           isEmailVerified: updatedUser.isEmailVerified,
           isMobileVerified: updatedUser.isMobileVerified,
-          nextVerificationType: !updatedUser.isMobileVerified ? "mobile" : "email"
-        }, `Verification successful. Now please verify your ${!updatedUser.isMobileVerified ? "mobile" : "email"}.`);
+          nextVerificationType: "mobile",
+        }, "Please verify your mobile or email to complete login.");
       }
 
       console.log(`[VERIFY_OTP] Finalizing login for user ${updatedUser.id}...`);

@@ -15,6 +15,7 @@ export const DATA_SOURCES: Record<string, { name: string; type: string; refreshI
   sgb: { name: "RBI / Gold Spot Price", type: "Gold-linked valuation", refreshInterval: "Daily" },
   unlisted: { name: "FintekPro OTC Desk", type: "Dealer quote", refreshInterval: "On update" },
   derivatives: { name: "NSE F&O Data / Options Chain", type: "Real-time (15-min delay)", refreshInterval: "Every 4 hours" },
+  fixed_deposits: { name: "RBI / Issuer Rate Cards", type: "Current interest rates", refreshInterval: "Weekly" },
 };
 
 export async function getLiveInstrumentPrice(pick: any): Promise<number | null> {
@@ -65,6 +66,10 @@ export async function getLiveInstrumentPrice(pick: any): Promise<number | null> 
         `);
         const goldRow = (result as any).rows?.[0] || (result as any)[0];
         return goldRow?.current_price ? parseFloat(goldRow.current_price) : null;
+      }
+      case 'fixed_deposits': {
+        // FDs don't have a market price — return the unit investment (100,000) or the stored recoPrice
+        return pick.recoPrice ? parseFloat(pick.recoPrice) : 100_000;
       }
       default:
         return null;
