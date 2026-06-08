@@ -300,7 +300,9 @@ function AgentKeyMetricsSection() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-3xl font-bold text-green-900 dark:text-green-100" data-testid="text-total-aum">
-                ₹{(overview.totalAUM / 10000000).toFixed(1)}Cr
+                {overview.totalAUM > 0
+                  ? `₹${(Number(overview.totalAUM) / 10000000).toFixed(1)} Cr`
+                  : "₹0 Cr"}
               </div>
               <p className="text-xs text-green-600 dark:text-green-400">Assets under mgmt</p>
             </div>
@@ -316,7 +318,9 @@ function AgentKeyMetricsSection() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-3xl font-bold text-purple-900 dark:text-purple-100" data-testid="text-revenue">
-                ₹{(overview.revenueThisMonth / 1000).toFixed(0)}K
+                {Number(overview.revenueThisMonth) > 0
+                  ? `₹${(Number(overview.revenueThisMonth) / 1000).toFixed(0)} K`
+                  : "₹0 K"}
               </div>
               <p className="text-xs text-purple-600 dark:text-purple-400">This month</p>
             </div>

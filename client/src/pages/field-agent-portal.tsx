@@ -278,17 +278,24 @@ export default function FieldAgentPortal() {
     monthlyTarget: 500000
   };
 
-  const growthRate = stats.lastMonthBusiness > 0 
-    ? ((stats.thisMonthBusiness - stats.lastMonthBusiness) / stats.lastMonthBusiness * 100).toFixed(1)
-    : 0;
+	const _totalAUM = Number(stats.totalAUM || 0);
+	const _thisMonth = Number(stats.thisMonthBusiness || 0);
+	const _lastMonth = Number(stats.lastMonthBusiness || 0);
+	const _totalComm = Number(stats.totalCommissions || 0);
+	const _pendComm = Number(stats.pendingCommissions || 0);
+	const _monthlyTarget = Number(stats.monthlyTarget || 500000);
 
-  const conversionRate = stats.totalLeads > 0 
-    ? ((stats.convertedLeads / stats.totalLeads) * 100).toFixed(1)
-    : 0;
+	const growthRate = _lastMonth > 0 
+		? ((_thisMonth - _lastMonth) / _lastMonth * 100).toFixed(1)
+		: 0;
 
-  const targetProgress = stats.monthlyTarget > 0
-    ? (stats.thisMonthBusiness / stats.monthlyTarget) * 100
-    : 0;
+	const conversionRate = stats.totalLeads > 0 
+		? ((stats.convertedLeads / stats.totalLeads) * 100).toFixed(1)
+		: 0;
+
+	const targetProgress = _monthlyTarget > 0
+		? (_thisMonth / _monthlyTarget) * 100
+		: 0;
 
   const agentLevel = (agentProfile as any)?.agentLevel || 'agent';
   const AGENT_LEVEL_LABELS: Record<string, string> = {
@@ -359,7 +366,7 @@ export default function FieldAgentPortal() {
               <Wallet className="h-4 w-4 text-emerald-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₹{(stats.totalAUM / 100000).toFixed(2)} L</div>
+              <div className="text-2xl font-bold">₹{(_totalAUM / 100000).toFixed(2)} L</div>
               <p className="text-xs text-muted-foreground">
                 Assets under management
               </p>
@@ -372,7 +379,7 @@ export default function FieldAgentPortal() {
               <TrendingUp className="h-4 w-4 text-amber-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₹{(stats.thisMonthBusiness / 100000).toFixed(2)} L</div>
+              <div className="text-2xl font-bold">₹{(_thisMonth / 100000).toFixed(2)} L</div>
               <p className={`text-xs flex items-center ${Number(growthRate) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {Number(growthRate) >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                 {growthRate}% from last month
@@ -389,13 +396,13 @@ export default function FieldAgentPortal() {
             <CardContent>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>₹{(stats.thisMonthBusiness / 100000).toFixed(2)} L achieved</span>
-                  <span>Target: ₹{(stats.monthlyTarget / 100000).toFixed(2)} L</span>
+                  <span>₹{(_thisMonth / 100000).toFixed(2)} L achieved</span>
+                  <span>Target: ₹{(_monthlyTarget / 100000).toFixed(2)} L</span>
                 </div>
                 <Progress value={Math.min(targetProgress, 100)} className="h-3" />
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>{targetProgress.toFixed(0)}% complete</span>
-                  <span>₹{((stats.monthlyTarget - stats.thisMonthBusiness) / 100000).toFixed(2)} L remaining</span>
+                  <span>₹{((_monthlyTarget - _thisMonth) / 100000).toFixed(2)} L remaining</span>
                 </div>
               </div>
             </CardContent>
@@ -407,9 +414,9 @@ export default function FieldAgentPortal() {
               <DollarSign className="h-5 w-5 text-foreground/80" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">₹{(stats.totalCommissions / 1000).toFixed(2)} K</div>
+              <div className="text-3xl font-bold">₹{(_totalComm / 1000).toFixed(2)} K</div>
               <p className="text-sm text-foreground/70 mt-1">
-                ₹{(stats.pendingCommissions / 1000).toFixed(2)} K pending
+                ₹{(_pendComm / 1000).toFixed(2)} K pending
               </p>
             </CardContent>
           </Card>

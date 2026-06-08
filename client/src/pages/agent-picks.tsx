@@ -511,6 +511,17 @@ function parseRationale(raw: string | null | undefined): string {
 	return text;
 }
 
+/**
+ * Safely coerces any DB value (string | number | null | undefined) to a finite
+ * number. Drizzle ORM returns decimal/numeric columns as strings; callers must
+ * pass through safeNum() before calling .toFixed() or arithmetic operators.
+ * Returns 0 for NaN/Infinity/null/undefined.
+ */
+function safeNum(v: unknown): number {
+	const n = Number(v);
+	return Number.isFinite(n) ? n : 0;
+}
+
 export default function AgentPicksPage() {
 	const { toast } = useToast();
 	const [todayCategoryFilter, setTodayCategoryFilter] = useState<string>("all");
@@ -981,6 +992,7 @@ export default function AgentPicksPage() {
 		if (!Number.isFinite(value)) return "N/A";
 		return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 	};
+
 
 	const freshnessColors: Record<string, string> = {
 		live: "bg-green-500",
@@ -3545,11 +3557,11 @@ export default function AgentPicksPage() {
 													pick?.category ??
 													"—";
 												const CatIcon = categoryIcons[pick?.category ?? ""];
-												const recoPrice = pick?.recoPrice ?? 0;
-												const currentPrice = pick?.currentPrice ?? recoPrice;
-												const returnPct =
+												const recoPrice = safeNum(pick?.recoPrice);
+												const currentPrice = safeNum(pick?.currentPrice ?? pick?.recoPrice);
+												const returnPct: number | null =
 													pick?.returnPct != null
-														? pick.returnPct
+														? safeNum(pick.returnPct)
 														: recoPrice > 0
 															? ((currentPrice - recoPrice) / recoPrice) * 100
 															: null;
@@ -3851,12 +3863,12 @@ export default function AgentPicksPage() {
 											selectedPick.category,
 										)}
 									</p>
-									{selectedPick.recoPrice > 0 && (
+									{safeNum(selectedPick.recoPrice) > 0 && (
 										<p className="text-xs text-green-600 font-medium">
 											+
 											{(
-												((selectedPick.targetPrice - selectedPick.recoPrice) /
-													selectedPick.recoPrice) *
+												((safeNum(selectedPick.targetPrice) - safeNum(selectedPick.recoPrice)) /
+													safeNum(selectedPick.recoPrice)) *
 												100
 											).toFixed(1)}
 											%
@@ -3873,12 +3885,12 @@ export default function AgentPicksPage() {
 											selectedPick.category,
 										)}
 									</p>
-									{selectedPick.recoPrice > 0 && (
+									{safeNum(selectedPick.recoPrice) > 0 && (
 										<p className="text-xs text-red-600 font-medium">
 											-
 											{(
-												((selectedPick.recoPrice - selectedPick.stoplossPrice) /
-													selectedPick.recoPrice) *
+												((safeNum(selectedPick.recoPrice) - safeNum(selectedPick.stoplossPrice)) /
+													safeNum(selectedPick.recoPrice)) *
 												100
 											).toFixed(1)}
 											%
@@ -3904,12 +3916,12 @@ export default function AgentPicksPage() {
 									<div className="text-right">
 										<p className="text-xs text-muted-foreground">Live P&L</p>
 										{(() => {
+											const _spRec = safeNum(selectedPick.recoPrice);
 											const ret =
-												selectedPick.recoPrice > 0
+												_spRec > 0
 													? (
-															((selectedPick.currentPrice! -
-																selectedPick.recoPrice) /
-																selectedPick.recoPrice) *
+															((safeNum(selectedPick.currentPrice) - _spRec) /
+																_spRec) *
 															100
 														).toFixed(2)
 													: null;
@@ -4771,15 +4783,19 @@ function PicksTable({
 							new Date(pick.expiryDate) < new Date();
 						const effectiveStatus = isExpired ? "expired" : pick.status;
 						const status = statusConfig[effectiveStatus] || statusConfig.live;
-						const upsidePct =
-							pick.targetPrice && pick.recoPrice
-								? ((pick.targetPrice - pick.recoPrice) / pick.recoPrice) * 100
+						const _tgt = safeNum(pick.targetPrice);
+						const _rec = safeNum(pick.recoPrice);
+						const _cur = safeNum(pick.currentPrice ?? pick.recoPrice);
+						const upsidePct: number | null =
+							_tgt && _rec
+								? ((_tgt - _rec) / _rec) * 100
 								: null;
-						const returnPct =
-							pick.returnPct ??
-							(pick.currentPrice && pick.recoPrice
-								? ((pick.currentPrice - pick.recoPrice) / pick.recoPrice) * 100
-								: null);
+						const returnPct: number | null =
+							pick.returnPct != null
+								? safeNum(pick.returnPct)
+								: pick.currentPrice && _rec
+									? ((_cur - _rec) / _rec) * 100
+									: null;
 						const catLabel = categoryLabels[pick.category] || pick.category;
 						const horizon = pick.timeHorizon
 							? horizonConfig[pick.timeHorizon]
@@ -4906,24 +4922,21 @@ function PickCard({
 	const StatusIcon = status.icon;
 	const horizon = pick.timeHorizon ? horizonConfig[pick.timeHorizon] : null;
 
+	const _rec2 = safeNum(pick.recoPrice);
+	const _tgt2 = safeNum(pick.targetPrice);
+	const _sl2 = safeNum(pick.stoplossPrice);
+	const _cur2 = safeNum(pick.currentPrice);
 	const upside =
-		pick.targetPrice && pick.recoPrice
-			? (((pick.targetPrice - pick.recoPrice) / pick.recoPrice) * 100).toFixed(
-					1,
-				)
+		_tgt2 && _rec2
+			? (((_tgt2 - _rec2) / _rec2) * 100).toFixed(1)
 			: "0.0";
 	const downside =
-		pick.stoplossPrice && pick.recoPrice
-			? (
-					((pick.recoPrice - pick.stoplossPrice) / pick.recoPrice) *
-					100
-				).toFixed(1)
+		_sl2 && _rec2
+			? (((_rec2 - _sl2) / _rec2) * 100).toFixed(1)
 			: "0.0";
 	const currentReturn =
-		pick.currentPrice && pick.recoPrice
-			? (((pick.currentPrice - pick.recoPrice) / pick.recoPrice) * 100).toFixed(
-					1,
-				)
+		_cur2 && _rec2
+			? (((_cur2 - _rec2) / _rec2) * 100).toFixed(1)
 			: null;
 
 	if (compact) {
