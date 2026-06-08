@@ -563,7 +563,11 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
       keyMetrics,
       timeHorizon: pick.timeHorizon || 'medium_term',
       confidenceScore: pick.confidenceScore || 70,
+      sectorCategory: pick.sectorCategory ?? undefined,
+      scoringBreakdown: pick.scoringBreakdown as ScoreBreakdown | undefined,
+      riskScore: pick.riskScore ?? undefined,
       updatedAt: pick.updatedAt ?? undefined,
+      statusUpdatedAt: pick.statusUpdatedAt ?? undefined,
     };
   }
 
