@@ -32,6 +32,15 @@ cloud-sql-proxy
 *.pgdump
 backup-*.sql.gz
 
+# Python virtual environments (contain massive scipy/numpy dylibs via symlinks)
+**/venv/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.so
+**/*.dylib
+
 # Log & diagnostic dumps (these are massive and not needed for build)
 *.log
 build_errors.txt

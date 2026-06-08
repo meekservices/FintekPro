@@ -8,6 +8,16 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -e
 
+# Force Python 3.12 for gcloud — Python 3.13 (brew default on macOS) has a
+# known gzip.close() crash when compressing large archives (OSError: unexpected
+# end of data). gcloud SDK 566+ requires Python ≥3.10; 3.12 is the sweet spot.
+# Install once with: brew install python@3.12
+if [ -x "/opt/homebrew/bin/python3.12" ]; then
+  export CLOUDSDK_PYTHON="/opt/homebrew/bin/python3.12"
+elif [ -x "/usr/local/bin/python3.12" ]; then
+  export CLOUDSDK_PYTHON="/usr/local/bin/python3.12"
+fi
+
 # Resolve the project root (parent of the scripts/ directory)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -42,7 +52,18 @@ echo "📝 Checking GCP configuration..."
 echo "🏗️  Building and pushing image to Artifact Registry..."
 IMAGE_URL="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$SERVICE_NAME:latest"
 
-gcloud builds submit --tag $IMAGE_URL --timeout=30m .
+# Explicitly set CLOUDSDK_PYTHON at call time.
+# Python 3.13 (brew default) has a gzip crash on large archives (OSError: unexpected end of data).
+# Python 3.12 is stable. Install with: brew install python@3.12
+_GCLOUD_PY=""
+for py in /opt/homebrew/bin/python3.12 /usr/local/bin/python3.12; do
+  if [ -x "$py" ]; then _GCLOUD_PY="$py"; break; fi
+done
+if [ -n "$_GCLOUD_PY" ]; then
+  CLOUDSDK_PYTHON="$_GCLOUD_PY" gcloud builds submit --tag $IMAGE_URL --timeout=30m .
+else
+  gcloud builds submit --tag $IMAGE_URL --timeout=30m .
+fi
 
 # 3. Deploy to Cloud Run
 echo "🚀 Deploying to Cloud Run..."
