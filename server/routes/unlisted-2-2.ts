@@ -143,7 +143,27 @@ router.post('/buy-requests', requireLevel2, async (req: Request, res: Response) 
     if (!company) {
       return apiResponse.notFound(res, 'Company not found');
     }
-    
+
+    // ── LISTING GUARD: Block offline transactions for listed companies ─────────
+    // Once a company has completed its IPO and listed on NSE/BSE, unlisted
+    // (offline) share transactions are not permitted.
+    if ((company as any).listingStage === 'listed' || (company as any).status === 'inactive') {
+      console.log(JSON.stringify({
+        event: 'LISTED_COMPANY_TRANSACTION_BLOCKED',
+        user_id: req.user.id,
+        company: company.name,
+        companyId: company.id,
+        tradeType: 'buy',
+        reason: 'company_now_listed_on_exchange',
+        latency_ms: 0,
+        status: 'blocked',
+        timestamp: new Date().toISOString(),
+      }));
+      return apiResponse.forbidden(res,
+        `${company.name} is now listed on NSE/BSE. Offline unlisted share buy requests are not permitted. Please trade through your exchange broker or demat account.`
+      );
+    }
+
     // Calculate transaction value for accredited investor threshold check
     const maxPriceNum = parseFloat(validatedData.maxPrice) || 0;
     const transactionValue = validatedData.quantity * maxPriceNum;
@@ -360,6 +380,24 @@ router.post('/cart', requireAuth, requireLevel2, async (req: Request, res: Respo
     const company = await storage.getUnlistedCompanyById(validatedData.companyId);
     if (!company) {
       return apiResponse.notFound(res, 'Company not found');
+    }
+
+    // ── LISTING GUARD: Block cart additions for listed companies ────────────
+    if ((company as any).listingStage === 'listed' || (company as any).status === 'inactive') {
+      console.log(JSON.stringify({
+        event: 'LISTED_COMPANY_TRANSACTION_BLOCKED',
+        user_id: req.user!.id,
+        company: company.name,
+        companyId: company.id,
+        tradeType: 'cart_add',
+        reason: 'company_now_listed_on_exchange',
+        latency_ms: 0,
+        status: 'blocked',
+        timestamp: new Date().toISOString(),
+      }));
+      return apiResponse.forbidden(res,
+        `${company.name} is now listed on NSE/BSE and cannot be added to the unlisted cart. Please trade through your exchange broker.`
+      );
     }
 
     // Check if already in cart - update instead of adding duplicate

@@ -34,10 +34,32 @@ export function initializeUnlistedCrons(): void {
   // This runs every startup as a safety net — no admin action required.
   //
   // How to add entries: { nameFragment: 'first word of company name', symbol: 'NSE_SYMBOL', listedOn: 'YYYY-MM-DD' }
+  // ─────────────────────────────────────────────────────────────────────────────
+  // IMPORTANT: Any company that completes IPO MUST be added here immediately.
+  // Transaction restrictions on listed companies are enforced at the API layer
+  // (unlisted buy/sell routes check listing_stage !== 'listed').
+  // ─────────────────────────────────────────────────────────────────────────────
   const CONFIRMED_LISTED_COMPANIES: Array<{ nameFragment: string; symbol: string; exchange: string; listedOn: string }> = [
-    { nameFragment: 'Swiggy',   symbol: 'SWIGGY',  exchange: 'NSE', listedOn: '2024-11-13' },
-    { nameFragment: 'Hyundai',  symbol: 'HYUNDAI', exchange: 'NSE', listedOn: '2024-10-22' },
+    // ── FY 2024-25 IPOs ──────────────────────────────────────────────────────
+    { nameFragment: 'Swiggy',          symbol: 'SWIGGY',       exchange: 'NSE', listedOn: '2024-11-13' },
+    { nameFragment: 'Hyundai',         symbol: 'HYUNDAIINDIA', exchange: 'NSE', listedOn: '2024-10-22' },
+    { nameFragment: 'Ola Electric',    symbol: 'OLAELECTRIC',  exchange: 'NSE', listedOn: '2024-08-09' },
+    { nameFragment: 'Bajaj Housing',   symbol: 'BAJAJHFL',     exchange: 'NSE', listedOn: '2024-09-16' },
+    // ── FY 2023-24 IPOs ──────────────────────────────────────────────────────
+    { nameFragment: 'Tata Technologies', symbol: 'TATATECH',   exchange: 'NSE', listedOn: '2023-11-30' },
+    // ── Earlier major IPOs that may still be in DB ───────────────────────────
+    { nameFragment: 'LIC',             symbol: 'LICI',         exchange: 'NSE', listedOn: '2022-05-17' },
+    { nameFragment: 'Delhivery',       symbol: 'DELHIVERY',    exchange: 'NSE', listedOn: '2022-05-24' },
+    { nameFragment: 'Zomato',          symbol: 'ZOMATO',       exchange: 'NSE', listedOn: '2021-07-23' },
+    { nameFragment: 'Nykaa',           symbol: 'NYKAA',        exchange: 'NSE', listedOn: '2021-11-10' },
+    { nameFragment: 'Paytm',           symbol: 'PAYTM',        exchange: 'NSE', listedOn: '2021-11-18' },
+    { nameFragment: 'PolicyBazaar',    symbol: 'POLICYBZR',    exchange: 'NSE', listedOn: '2021-11-15' },
+    { nameFragment: 'CarTrade',        symbol: 'CARTRADE',     exchange: 'NSE', listedOn: '2021-08-20' },
+    { nameFragment: 'MobiKwik',        symbol: 'MOBIKWIK',     exchange: 'NSE', listedOn: '2024-12-18' },
+    { nameFragment: 'Sagility',        symbol: 'SAGILITY',     exchange: 'NSE', listedOn: '2024-11-12' },
+    { nameFragment: 'NTPC Green',      symbol: 'NTPCGREEN',    exchange: 'NSE', listedOn: '2024-11-27' },
   ];
+
 
   (async () => {
     try {

@@ -487,7 +487,28 @@ router.post('/listings', requireLevel2, async (req: Request, res: Response) => {
     if (!company) {
       return apiResponse.notFound(res, 'Company not found');
     }
-    
+
+    // ── LISTING GUARD: Block offline transactions for listed companies ─────────
+    // Once a company has completed its IPO and listed on NSE/BSE, unlisted
+    // (offline) share transactions are no longer permitted. Users must trade
+    // on the exchange through their demat account.
+    if ((company as any).listingStage === 'listed' || (company as any).status === 'inactive') {
+      console.log(JSON.stringify({
+        event: 'LISTED_COMPANY_TRANSACTION_BLOCKED',
+        user_id: req.user!.id,
+        company: company.name,
+        companyId: company.id,
+        tradeType: 'sell',
+        reason: 'company_now_listed_on_exchange',
+        latency_ms: 0,
+        status: 'blocked',
+        timestamp: new Date().toISOString(),
+      }));
+      return apiResponse.forbidden(res,
+        `${company.name} is now listed on NSE/BSE. Offline unlisted share transactions are not permitted for listed companies. Please trade on the exchange through your broker or demat account.`
+      );
+    }
+
     // Calculate transaction value for accredited investor threshold check
     const askPriceNum = parseFloat(validatedData.askPrice) || 0;
     const transactionValue = validatedData.quantity * askPriceNum;

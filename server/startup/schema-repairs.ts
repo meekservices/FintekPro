@@ -1105,7 +1105,37 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
         console.warn('[Migration] pick_watchlist/pick_price_alerts table skipped:', e?.message);
       }
 
+      // ── 35. Grant app user permissions on unlisted marketplace tables ─────────
+      // The `postgres` user owns the unlisted_* tables but the application
+      // connects as `finpro_user`.  Missing UPDATE/INSERT privilege means the
+      // startup cron that marks listed companies (e.g. Swiggy) as inactive
+      // silently fails with a permission error — never persisting to the DB.
+      try {
+        await migDb.execute(migSql`
+          GRANT SELECT, INSERT, UPDATE, DELETE
+            ON unlisted_companies,
+               unlisted_audit_log,
+               unlisted_company_status_log,
+               unlisted_equity_valuation_history,
+               unlisted_escrow_approvals,
+               unlisted_investor_tracking,
+               unlisted_price_history,
+               unlisted_regulatory_audit_log,
+               unlisted_risk_disclosure_acknowledgments,
+               unlisted_share_lockin,
+               unlisted_str_flags,
+               unlisted_deals,
+               unlisted_cart,
+               client_unlisted_disclosure_log
+            TO finpro_user;
+        `);
+        console.log('✅ finpro_user permissions on unlisted_* tables granted');
+      } catch (e: any) {
+        console.warn('[Migration] finpro_user grant on unlisted tables skipped:', e?.message);
+      }
+
       } catch (migErr) {
         console.error('❌ Migration sequence failed (non-fatal):', migErr);
       }
 }
+
