@@ -966,28 +966,34 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
       }
 
       // ── 32. instrument_master — missing columns for PickOfTheDay strategies ──
+      // Drizzle execute() does NOT support multi-statement SQL — split each statement.
       // last_price: used by price sync
       // interest_rate: used by FixedDepositStrategy ORDER BY
       // tenure_months: used by FD/Bond strategies for display
       // min_investment: used by product display
       try {
-        await migDb.execute(migSql`
-          ALTER TABLE instrument_master
-            ADD COLUMN IF NOT EXISTS last_price NUMERIC(18, 4),
-            ADD COLUMN IF NOT EXISTS interest_rate NUMERIC(8, 4),
-            ADD COLUMN IF NOT EXISTS tenure_months INTEGER,
-            ADD COLUMN IF NOT EXISTS min_investment NUMERIC(15, 2);
-          CREATE INDEX IF NOT EXISTS idx_instrument_master_last_price
-            ON instrument_master(last_price) WHERE last_price IS NOT NULL;
-        `);
-        console.log('✅ instrument_master last_price column verified');
-      } catch (e: any) {
-        console.warn('[Migration] instrument_master last_price skipped:', e?.message);
-      }
+        await migDb.execute(migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS last_price NUMERIC(18, 4)`);
+      } catch (e: any) { console.warn('[Migration] instrument_master last_price:', e?.message?.slice(0, 120)); }
+      try {
+        await migDb.execute(migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS interest_rate NUMERIC(8, 4)`);
+      } catch (e: any) { console.warn('[Migration] instrument_master interest_rate:', e?.message?.slice(0, 120)); }
+      try {
+        await migDb.execute(migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS tenure_months INTEGER`);
+      } catch (e: any) { console.warn('[Migration] instrument_master tenure_months:', e?.message?.slice(0, 120)); }
+      try {
+        await migDb.execute(migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS min_investment NUMERIC(15, 2)`);
+      } catch (e: any) { console.warn('[Migration] instrument_master min_investment:', e?.message?.slice(0, 120)); }
+      try {
+        await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_instrument_master_last_price ON instrument_master(last_price) WHERE last_price IS NOT NULL`);
+      } catch (e: any) { console.warn('[Migration] instrument_master index:', e?.message?.slice(0, 120)); }
+      try {
+        await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_instrument_master_interest_rate ON instrument_master(interest_rate) WHERE interest_rate IS NOT NULL`);
+      } catch (e: any) { console.warn('[Migration] instrument_master interest_rate index:', e?.message?.slice(0, 120)); }
+      console.log('✅ instrument_master last_price column verified');
 
       // ── 33. goal_benchmark_mapping — ProposalBuilder missing table ────────────
-      // ProposalBuilder benchmark defaults init queries goal_benchmark_mapping
-      // on startup but the table doesn't exist in production yet.
+      // Split into individual execute() calls — Drizzle does NOT support multi-statement SQL.
+      // Removed FK REFERENCES users(id) on overridden_by to avoid FK type mismatch.
       try {
         await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS goal_benchmark_mapping (
@@ -1002,20 +1008,25 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
             horizon_years_max   INTEGER,
             is_default          BOOLEAN DEFAULT true,
             is_active           BOOLEAN DEFAULT true,
-            overridden_by       VARCHAR REFERENCES users(id),
+            overridden_by       VARCHAR,
             overridden_at       TIMESTAMPTZ,
             description         TEXT,
             created_at          TIMESTAMPTZ DEFAULT NOW(),
             updated_at          TIMESTAMPTZ DEFAULT NOW()
-          );
-          CREATE INDEX IF NOT EXISTS idx_goal_benchmark_goal_type
-            ON goal_benchmark_mapping(goal_type);
-          CREATE INDEX IF NOT EXISTS idx_goal_benchmark_risk_profile
-            ON goal_benchmark_mapping(risk_profile);
-          CREATE INDEX IF NOT EXISTS idx_goal_benchmark_active
-            ON goal_benchmark_mapping(is_active);
-
-          -- Seed sensible defaults for common goal + risk profile combos
+          )
+        `);
+      } catch (e: any) { console.warn('[Migration] goal_benchmark_mapping CREATE:', e?.message?.slice(0, 120)); }
+      try {
+        await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_goal_benchmark_goal_type ON goal_benchmark_mapping(goal_type)`);
+      } catch (e: any) { console.warn('[Migration] goal_benchmark_mapping idx goal_type:', e?.message?.slice(0, 120)); }
+      try {
+        await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_goal_benchmark_risk_profile ON goal_benchmark_mapping(risk_profile)`);
+      } catch (e: any) { console.warn('[Migration] goal_benchmark_mapping idx risk_profile:', e?.message?.slice(0, 120)); }
+      try {
+        await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_goal_benchmark_active ON goal_benchmark_mapping(is_active)`);
+      } catch (e: any) { console.warn('[Migration] goal_benchmark_mapping idx active:', e?.message?.slice(0, 120)); }
+      try {
+        await migDb.execute(migSql`
           INSERT INTO goal_benchmark_mapping
             (goal_type, risk_profile, benchmark_index, benchmark_code, benchmark_name, benchmark_rationale, horizon_years_min, horizon_years_max, is_default)
           VALUES
@@ -1028,12 +1039,10 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
             ('wealth',        'aggressive',   'Nifty Midcap 150',            'NIFTY_MC150',  'Nifty Midcap 150 Index',            'Midcap benchmark for aggressive wealth creation',          5, 20, true),
             ('emergency',     'conservative', 'CRISIL Liquid Fund',          'CRISIL_LQ',    'CRISIL Liquid Fund Index',          'Liquid fund benchmark for emergency corpus',               0, 1,  true),
             ('home_purchase', 'moderate',     'Nifty 50',                    'NIFTY50',      'Nifty 50 Index',                    'Equity benchmark for home purchase savings',               3, 10, true)
-          ON CONFLICT DO NOTHING;
+          ON CONFLICT DO NOTHING
         `);
-        console.log('✅ goal_benchmark_mapping table verified with defaults');
-      } catch (e: any) {
-        console.warn('[Migration] goal_benchmark_mapping table skipped:', e?.message);
-      }
+      } catch (e: any) { console.warn('[Migration] goal_benchmark_mapping seed:', e?.message?.slice(0, 120)); }
+      console.log('✅ goal_benchmark_mapping table verified with defaults');
 
       // ── Mobile: push_tokens table ────────────────────────────────────────
       try {
