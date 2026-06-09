@@ -1,5 +1,7 @@
 # Stage 1: Build environment
-FROM node:20-alpine AS builder
+# Node 22 ships with esbuild ≥0.21 which fixes false-positive "unterminated
+# regular expression" errors for division operators in JSX (Node 20 bug).
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
