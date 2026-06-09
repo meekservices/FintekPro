@@ -371,6 +371,12 @@ import('./routes/compliance'),
     app.use('/api/admin/copilot', adminCopilotLimiter);
     app.use('/api/admin/copilot', adminCopilotRouter);
 
+    // Admin Portfolio Reconciliation — SEBI IA compliance dashboard
+    logBootProgress("Step 8d: Registering Portfolio Reconciliation Admin Routes...");
+    const adminReconRoutes = await import('./routes/admin-portfolio-reconciliation');
+    app.use('/api/admin/portfolio/reconciliation', adminReconRoutes.default);
+
+
     // Alpaca Ribbit Integration Routes
     const alpacaRoutes = await import('./routes/alpaca/index');
     app.use('/api/alpaca', alpacaRoutes.default);

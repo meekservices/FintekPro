@@ -26,7 +26,7 @@
 
 import { Router, Request, Response } from 'express';
 import { requireAuth, requireAgent } from '../middleware/roleMiddleware';
-import { unifiedHoldingsReader } from '../services/unified-holdings-reader-service';
+import { unifiedHoldingsReaderService } from '../services/unified-holdings-reader-service';
 import { portfolioAggregator } from '../services/portfolio/portfolioAggregator';
 import { db } from '../db';
 import { portfolioTransactions, comprehensiveHoldings, portfolios } from '@shared/schema';
@@ -153,7 +153,7 @@ router.get('/:clientId/portfolio/holdings', requireAuth, async (req: Request, re
     const sourceFilter = req.query.source ? (req.query.source as string).split(',') : null;
 
     // Primary source: UnifiedHoldingsReader (merges comprehensiveHoldings + Alpaca)
-    const allHoldings = await unifiedHoldingsReader.getHoldings(clientId!);
+    const allHoldings = await unifiedHoldingsReaderService.getHoldings(clientId!);
 
     // Apply filters
     let filtered = allHoldings;
@@ -332,7 +332,7 @@ router.get('/:clientId/portfolio/performance', requireAuth, async (req: Request,
   if (forbidden) return res.status(403).json(err('Access denied', 'FORBIDDEN'));
 
   try {
-    const holdings = await unifiedHoldingsReader.getHoldings(clientId!);
+    const holdings = await unifiedHoldingsReaderService.getHoldings(clientId!);
 
     const totalValue = holdings.reduce((s, h) => s + (h.currentValue ?? 0), 0);
     const totalInvested = holdings.reduce((s, h) => s + (h.investedValue ?? h.currentValue ?? 0), 0);
@@ -400,7 +400,7 @@ router.get('/:clientId/portfolio/tax', requireAuth, async (req: Request, res: Re
   if (forbidden) return res.status(403).json(err('Access denied', 'FORBIDDEN'));
 
   try {
-    const holdings = await unifiedHoldingsReader.getHoldings(clientId!);
+    const holdings = await unifiedHoldingsReaderService.getHoldings(clientId!);
     const now = new Date();
     const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
 

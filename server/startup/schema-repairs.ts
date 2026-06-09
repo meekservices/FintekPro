@@ -1156,7 +1156,72 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
         console.warn('[Migration] portfolio_transactions table skipped:', e?.message);
       }
 
+      // ── 37. portfolio_reconciliation_log + portfolio_holding_discrepancies ────
+      // Created for the Portfolio Reconciliation Engine (Phase 5).
+      // Stores per-client daily reconciliation run results and flagged discrepancies.
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS portfolio_reconciliation_log (
+            id                    SERIAL PRIMARY KEY,
+            client_id             VARCHAR NOT NULL REFERENCES users(id),
+            run_at                TIMESTAMPTZ NOT NULL,
+            status                VARCHAR(20) NOT NULL DEFAULT 'pending', -- success | partial | error
+            total_discrepancies   INTEGER NOT NULL DEFAULT 0,
+            critical_count        INTEGER NOT NULL DEFAULT 0,
+            high_count            INTEGER NOT NULL DEFAULT 0,
+            medium_count          INTEGER NOT NULL DEFAULT 0,
+            low_count             INTEGER NOT NULL DEFAULT 0,
+            stale_brokers         JSONB,
+            checksum              VARCHAR(16),
+            engine_version        VARCHAR(30) NOT NULL DEFAULT 'recon-v1.0',
+            duration_ms           INTEGER,
+            discrepancy_summary   JSONB,
+            created_at            TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE (client_id, run_at)
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_recon_log_client ON portfolio_reconciliation_log(client_id);
+          CREATE INDEX IF NOT EXISTS idx_recon_log_run_at ON portfolio_reconciliation_log(run_at);
+          CREATE INDEX IF NOT EXISTS idx_recon_log_status ON portfolio_reconciliation_log(status);
+          CREATE INDEX IF NOT EXISTS idx_recon_log_critical ON portfolio_reconciliation_log(critical_count)
+            WHERE critical_count > 0;
+
+          CREATE TABLE IF NOT EXISTS portfolio_holding_discrepancies (
+            id                    SERIAL PRIMARY KEY,
+            client_id             VARCHAR NOT NULL REFERENCES users(id),
+            run_at                TIMESTAMPTZ NOT NULL,
+            discrepancy_type      VARCHAR(30) NOT NULL,
+            severity              VARCHAR(10) NOT NULL,
+            symbol                VARCHAR(100),
+            isin                  VARCHAR(12),
+            asset_type            VARCHAR(50),
+            source                VARCHAR(50),
+            ledger_value          NUMERIC(15, 4),
+            broker_value          NUMERIC(15, 4),
+            diff_absolute         NUMERIC(15, 4),
+            diff_percent          NUMERIC(8, 4),
+            description           TEXT,
+            requires_review       BOOLEAN DEFAULT true,
+            auto_resolvable       BOOLEAN DEFAULT false,
+            resolved              BOOLEAN DEFAULT false,
+            resolved_at           TIMESTAMPTZ,
+            resolved_by           VARCHAR,
+            resolution_note       TEXT,
+            created_at            TIMESTAMPTZ DEFAULT NOW()
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_holding_disc_client ON portfolio_holding_discrepancies(client_id);
+          CREATE INDEX IF NOT EXISTS idx_holding_disc_severity ON portfolio_holding_discrepancies(severity);
+          CREATE INDEX IF NOT EXISTS idx_holding_disc_resolved ON portfolio_holding_discrepancies(resolved);
+          CREATE INDEX IF NOT EXISTS idx_holding_disc_type ON portfolio_holding_discrepancies(discrepancy_type);
+        `);
+        console.log('✅ portfolio_reconciliation_log + portfolio_holding_discrepancies tables verified');
+      } catch (e: any) {
+        console.warn('[Migration] portfolio reconciliation tables skipped:', e?.message);
+      }
+
       // ── 35. Grant app user permissions on unlisted marketplace tables ─────────
+
       // The `postgres` user owns the unlisted_* tables but the application
       // connects as `finpro_user`.  Missing UPDATE/INSERT privilege means the
       // startup cron that marks listed companies (e.g. Swiggy) as inactive

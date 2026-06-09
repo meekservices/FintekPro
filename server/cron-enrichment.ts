@@ -423,8 +423,48 @@ export function initializeEnrichmentCrons(staggeredStart: StaggerFn, delay: numb
   }, delay);
   delay += STAGGER;
 
+  // ── Portfolio Reconciliation Engine ──────────────────────────────────────────
+  // SEBI (IA) Regulations 2013 requires daily reconciliation of client assets.
+  // Runs at 9:30 AM IST (4:00 AM UTC) — after price refresh and broker syncs.
+  staggeredStart('Portfolio Reconciliation', () => {
+    cron.schedule('0 4 * * *', async () => {
+      console.log('[CRON] [PortfolioRecon] Starting daily portfolio reconciliation (9:30 AM IST)...');
+      const start = Date.now();
+      try {
+        const { portfolioReconciliationEngine } = await import('./services/portfolio-reconciliation-engine');
+        const stats = await portfolioReconciliationEngine.reconcileAllClients();
+        console.log(
+          `[PortfolioRecon] Done: ${stats.totalClients} clients, ${stats.totalDiscrepancies} discrepancies ` +
+          `(${stats.criticalDiscrepancies} critical) in ${stats.durationMs}ms`, {
+            event: 'PORTFOLIO_RECON_CRON_DONE',
+            ...stats,
+            latency_ms: stats.durationMs,
+            status: stats.failed === 0 ? 'success' : 'partial',
+          }
+        );
+        if (stats.criticalDiscrepancies > 0) {
+          console.error(
+            `[PortfolioRecon] ⚠️ ${stats.criticalDiscrepancies} CRITICAL discrepancies found — ` +
+            `admin review required. Check portfolio_holding_discrepancies table.`
+          );
+        }
+      } catch (error: any) {
+        console.error('[PortfolioRecon] Cron job failed:', error.message, {
+          event: 'PORTFOLIO_RECON_CRON_ERROR',
+          message: error.message,
+          retryable: true,
+          latency_ms: Date.now() - start,
+          status: 'error',
+        });
+      }
+    }, { timezone: 'Asia/Kolkata' });
+    console.log('📊 [PortfolioRecon] Daily reconciliation scheduled (9:30 AM IST — SEBI IA compliance)');
+  }, delay);
+  delay += STAGGER;
+
   return delay;
 }
+
 
 
 // ── Fixed Income Status — runs at module load (production only) ─────────────
