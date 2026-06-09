@@ -443,7 +443,9 @@ app.get('/api/admin/error-logs', requireAdmin, async (req, res) => {
 app.post("/api/stock-ai/generate", requireAuth, async (req, res) => {
   try {
     const { category, timeHorizon, investmentAmount, riskTolerance, sectors, marketCap, tradingStyle, derivativeType } = req.body;
-    const yahooFinance = require('yahoo-finance2').default;
+    // Use dynamic import() — ESM bundles do not support synchronous require() for CJS packages
+    const yahooFinance = await import('yahoo-finance2').then(m => m.default).catch(() => null);
+
 
     // Generate AI-powered stock recommendations based on parameters with real-time prices
     const generateStockRecommendations = async () => {
@@ -482,6 +484,7 @@ app.post("/api/stock-ai/generate", requireAuth, async (req, res) => {
       const stocksWithPrices = await Promise.all(
         selectedStocks.map(async (stock) => {
           try {
+            if (!yahooFinance) return { ...stock, price: stock.fallbackPrice };
             const quote = await yahooFinance.quote(`${stock.symbol}.NS`);
             return { ...stock, price: quote?.regularMarketPrice || stock.fallbackPrice };
           } catch (err) {
@@ -490,6 +493,7 @@ app.post("/api/stock-ai/generate", requireAuth, async (req, res) => {
           }
         })
       );
+
 
       const timeHorizonMultipliers: Record<string, { targetPct: number; slPct: number; returnPct: number }> = {
         'intraday': { targetPct: 0.02, slPct: 0.01, returnPct: 2 },
