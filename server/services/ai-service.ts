@@ -6,16 +6,11 @@ import { errorTrackingService } from "./error-tracking-service";
 
 // the newest OpenAI model is "gpt-4o" which was released August 7, 2025. do not change this unless explicitly requested by the user
 
-// Replit AI Integrations — OpenAI-compatible access without user's own key
-const openaiIntegrations = process.env.AI_INTEGRATIONS_OPENAI_API_KEY ? new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
-}) : null;
-
-// Direct OpenAI client (requires OPENAI_API_KEY)
-const openaiDirect = process.env.OPENAI_API_KEY ? new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-}) : null;
+// OpenAI — DISABLED. We use Gemini (free tier) as primary.
+// Groq / Cerebras / Cloudflare still import OpenAI as an OpenAI-compatible client
+// (different base URLs), so the import is kept above but the OpenAI clients are null.
+const openaiIntegrations = null;
+const openaiDirect = null;
 
 // Groq — free tier (14,400 req/day). Get key: https://console.groq.com/keys
 const groq = process.env.GROQ_API_KEY ? new OpenAI({
@@ -206,7 +201,7 @@ export class AIService {
    * Check for model availability
    */
   isGpt52Available(): boolean {
-    return !!openaiDirect;
+    return false; // OpenAI disabled — using Gemini free tier
   }
 
   /**
@@ -235,10 +230,9 @@ export class AIService {
 
     // Capability → best available model selection
     if (capability === AICapability.SUPERIOR) {
-      // Best reasoning — prefer DeepSeek R1 on Groq (free), fall to GPT-4o
-      if (groq) { initialProvider = 'groq'; initialModel = 'deepseek-r1-distill-llama-70b'; }
-      else if (gemini) { initialProvider = 'gemini'; initialModel = 'gemini-2.5-flash'; }
-      else { initialProvider = 'openai'; initialModel = 'gpt-4o'; }
+      // Best reasoning — prefer Groq (free), fall to Gemini (free)
+      if (groq) { initialProvider = 'groq'; initialModel = 'llama-3.3-70b-versatile'; }
+      else { initialProvider = 'gemini'; initialModel = 'gemini-2.5-flash'; }
     } else if (capability === AICapability.OPTIMIZED) {
       // Speed + bulk — llama instant on Groq
       initialProvider = 'groq';
@@ -249,24 +243,21 @@ export class AIService {
       initialModel = gemini ? 'gemini-2.5-flash' : 'llama-3.3-70b-versatile';
     }
 
-    // 10-step fallback chain — ordered by cost-efficiency and reliability
+    // 8-step fallback chain — free providers only (OpenAI removed)
     // Providers without env vars are skipped silently (not as ERRORs)
     const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
       // Groq — free tier, fast
       { provider: 'groq',       model: 'llama-3.3-70b-versatile' },
-      { provider: 'groq',       model: 'qwen/qwen3-32b' },           // replaces decommissioned deepseek-r1
+      { provider: 'groq',       model: 'qwen/qwen3-32b' },
       { provider: 'groq',       model: 'llama-3.1-8b-instant' },
       // Cerebras — free tier, world's fastest inference
       { provider: 'cerebras',   model: 'gpt-oss-120b' },
       { provider: 'cerebras',   model: 'zai-glm-4.7' },
-      // Gemini — reliable (requires valid non-depleted API key)
+      // Gemini — primary free provider (GEMINI_API_KEY required)
       { provider: 'gemini',     model: 'gemini-2.5-flash' },
       { provider: 'gemini',     model: 'gemini-2.5-flash-lite' },
       // Cloudflare Workers AI — free forever (only if configured)
       { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
-      // OpenAI — last resort (quota/cost)
-      { provider: 'openai',     model: 'gpt-4o-mini' },
-      { provider: 'openai',     model: 'gpt-4o' },
     ];
 
     // Put the selected initial provider first, dedupe the rest
@@ -420,9 +411,8 @@ export class AIService {
     let initialModel = defaultModel;
 
     if (capability === AICapability.SUPERIOR) {
-      if (groq) { initialProvider = 'groq'; initialModel = 'deepseek-r1-distill-llama-70b'; }
-      else if (gemini) { initialProvider = 'gemini'; initialModel = 'gemini-2.5-flash'; }
-      else { initialProvider = 'openai'; initialModel = 'gpt-4o'; }
+      if (groq) { initialProvider = 'groq'; initialModel = 'llama-3.3-70b-versatile'; }
+      else { initialProvider = 'gemini'; initialModel = 'gemini-2.5-flash'; }
     } else if (capability === AICapability.OPTIMIZED) {
       initialProvider = 'groq';
       initialModel = 'llama-3.1-8b-instant';
@@ -440,8 +430,6 @@ export class AIService {
       { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
       { provider: 'gemini',     model: 'gemini-2.5-flash' },
       { provider: 'gemini',     model: 'gemini-2.5-flash-lite' },
-      { provider: 'openai',     model: 'gpt-4o-mini' },
-      { provider: 'openai',     model: 'gpt-4o' },
     ];
 
     const finalChain = [

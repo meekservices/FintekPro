@@ -10,15 +10,7 @@ import {
   transactionEnrichmentAnalysis
 } from '@shared/schema';
 import { eq, desc, and } from 'drizzle-orm';
-import OpenAI from 'openai';
-
-// Initialize OpenAI - prefer Replit AI Integrations, fall back to direct API key
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-  ...(process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
-    ? { baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL }
-    : {})
-});
+import { aiService } from './services/ai-service';
 
 interface InvestSmartPageStructure {
   dashboardMetrics: {
@@ -288,21 +280,13 @@ class AIInvestSmartMonitor {
     try {
       // Prepare comprehensive context for AI analysis
       const context = this.prepareAIContext(pageStructure);
-      
-      // Using GPT-4o for analysis
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert financial advisor AI analyzing a comprehensive investment profile. 
-            Provide actionable insights based on real financial data including portfolio performance, 
-            credit obligations, transaction patterns, and investment capacity. Focus on practical, 
-            implementable recommendations that can accelerate wealth building. Respond in JSON format.`
-          },
-          {
-            role: "user",
-            content: `Analyze this complete financial profile and provide detailed insights:
+
+      const systemPrompt = `You are an expert financial advisor AI analyzing a comprehensive investment profile.
+Provide actionable insights based on real financial data including portfolio performance,
+credit obligations, transaction patterns, and investment capacity. Focus on practical,
+implementable recommendations that can accelerate wealth building. Respond ONLY in valid JSON.`;
+
+      const userPrompt = `Analyze this complete financial profile and provide detailed insights:
 
 DASHBOARD METRICS:
 - Monthly Income: ₹${pageStructure.dashboardMetrics.monthlyIncome.toLocaleString()}
@@ -337,26 +321,22 @@ Provide insights in this JSON format:
   "investmentRecommendations": ["rec1", "rec2"],
   "complianceAlerts": ["alert1", "alert2"],
   "nextSteps": ["step1", "step2"]
-}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        max_tokens: 2000,
-        temperature: 0.7
-      });
+}`;
 
-      const insights = JSON.parse(response.choices[0].message.content || '{}');
-      
+      const result = await aiService.chat(
+        [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+        { json: true, maxTokens: 2000, temperature: 0.7 }
+      );
+
+      // Strip markdown code fences if Gemini wraps JSON in ```
+      const raw = result.content.replace(/^```[\w]*\n?|```$/g, '').trim();
+      const insights = JSON.parse(raw || '{}');
+
       // Validate and enhance insights
       return this.validateAndEnhanceInsights(insights, pageStructure);
 
     } catch (error: any) {
-      // Handle OpenAI quota errors quietly to reduce log spam
-      if (error?.code === 'insufficient_quota' || error?.status === 429) {
-        console.warn('[AI InvestSmart] OpenAI quota exceeded - using fallback insights');
-      } else {
-        console.error('Error generating AI insights:', error);
-      }
+      console.error('[AI InvestSmart] generateAIInsights failed:', error?.message?.slice(0, 120));
       // Return fallback insights if AI fails
       return this.generateFallbackInsights(pageStructure);
     }

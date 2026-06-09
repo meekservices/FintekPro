@@ -1,5 +1,4 @@
 import type { FinancialData } from "./dataService";
-import OpenAI from "openai";
 
 export interface CommentaryData {
   industryTrends: string;
@@ -192,44 +191,7 @@ Rules:
     throw new Error("Insufficient response lines");
   } catch (e: any) {
     console.warn(`[ResearchNote] Gemini commentary failed for ${companyName}:`, e?.message?.slice(0, 120));
-
-    // Try OpenAI as fallback before using static sector text
-    try {
-      const openaiKey = process.env.OPENAI_API_KEY;
-      if (openaiKey) {
-        const openai = new OpenAI({ apiKey: openaiKey });
-        const prompt = `You are a senior equity research analyst at a top Indian brokerage.
-Write EXACTLY 3 sentences responding to the following three questions — one sentence each.
-
-Company: ${companyName}
-Sector/Industry: ${sector ?? "N/A"} / ${industry ?? "N/A"}
-Key Financial Profile: Revenue Growth: ${pct(f.revenueGrowth)}, Earnings Growth: ${pct(f.earningsGrowth)}, ROE: ${pct(f.roe)}, D/E Ratio: ${f.debtToEquity?.toFixed(2) ?? "N/A"}
-
-Question 1 (Sentence 1): What are the current structural growth drivers and key tailwinds for the ${sector ?? "sector"} industry in India?
-Question 2 (Sentence 2): What are likely expansion or strategic initiatives ${companyName} is pursuing, based on its financial profile and sector dynamics?
-Question 3 (Sentence 3): Why does this sector/company merit investor attention right now?
-
-Rules: Be specific, reference real sector dynamics or policies, mention INR amounts where relevant. Do NOT mention stock price or give BUY/SELL ratings.
-Return ONLY the 3 sentences, numbered 1., 2., 3. with no extra text.`;
-
-        const result = await Promise.race([
-          openai.chat.completions.create({ model: "gpt-4.1-mini", messages: [{ role: "user", content: prompt }], max_tokens: 300 }),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("OpenAI timeout")), 10_000)),
-        ]) as any;
-        const text: string = result.choices?.[0]?.message?.content ?? "";
-        const lines = text.split("\n").map((l: string) => l.replace(/^\d+\.\s*/, "").trim()).filter((l: string) => l.length > 20);
-        if (lines.length >= 3) {
-          const data: CommentaryData = { industryTrends: lines[0], expansionPlans: lines[1], outlook: lines[2] };
-          console.log(`[ResearchNote] OpenAI commentary fallback succeeded for ${companyName}`);
-          cache.set(cacheKey, { data, expiresAt: Date.now() + 60 * 60 * 1000 });
-          return data;
-        }
-      }
-    } catch (openaiErr: any) {
-      console.warn(`[ResearchNote] OpenAI commentary fallback failed for ${companyName}:`, openaiErr?.message?.slice(0, 80));
-    }
-
-    // Final fallback: resolve sector alias then use static sector text
+    // Fall through to static sector text (no OpenAI fallback — OpenAI disabled)
     const resolvedSector = SECTOR_ALIASES[sectorKey] ?? sectorKey;
     const fallback = SECTOR_FALLBACKS[resolvedSector] ?? SECTOR_FALLBACKS[sectorKey] ?? GENERIC_FALLBACK;
     cache.set(cacheKey, { data: fallback, expiresAt: Date.now() + 15 * 60 * 1000 });
