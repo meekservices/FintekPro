@@ -301,7 +301,7 @@ export function initializeEnrichmentCrons(staggeredStart: StaggerFn, delay: numb
         const { db: dbConn } = await import('./db');
         const { sql: sqlTag, eq } = await import('drizzle-orm');
         const { users } = await import('../shared/schema');
-        const { irisPortfolioSyncService } = await import('./services/iris-portfolio-sync-service');
+        const { syncIrisHoldingsForPan } = await import('./services/iris-portfolio-sync-service');
 
         // Fetch all users who have IRIS/PAN linked
         const linkedUsers = await dbConn
@@ -312,7 +312,7 @@ export function initializeEnrichmentCrons(staggeredStart: StaggerFn, delay: numb
         let synced = 0, failed = 0;
         for (const user of linkedUsers) {
           try {
-            await irisPortfolioSyncService.scheduleDeferredPortfolioRefresh(user.id, user.pan);
+            await syncIrisHoldingsForPan(user.pan, user.id);
             synced++;
           } catch (e: any) {
             console.warn(`[IRISSync] Failed for user ${user.id}:`, e?.message?.slice(0, 80));
@@ -348,8 +348,8 @@ export function initializeEnrichmentCrons(staggeredStart: StaggerFn, delay: numb
       console.log('[CRON] [AlpacaSync] Starting daily Alpaca positions sync (6:30 PM IST)...');
       const start = Date.now();
       try {
-        const { portfolioSync } = await import('./services/alpaca/portfolio/portfolioSync');
-        await portfolioSync.syncAllUserPositions();
+        const { alpacaPortfolioSync } = await import('./services/alpaca/portfolio/portfolioSync');
+        await alpacaPortfolioSync.syncAllUserPositions();
         console.log(`[AlpacaSync] Complete in ${Date.now() - start}ms`, {
           event: 'ALPACA_SYNC_CRON_DONE',
           latency_ms: Date.now() - start,
@@ -390,7 +390,8 @@ export function initializeEnrichmentCrons(staggeredStart: StaggerFn, delay: numb
         for (const row of rows) {
           if (!row.symbol) continue;
           try {
-            const price = await unifiedStockPriceService.getPrice(row.symbol);
+            const priceResult = await unifiedStockPriceService.getPrice(row.symbol);
+            const price = priceResult?.price ?? null;
             if (price !== null && price > 0) {
               await dbConn.execute(sqlTag`
                 UPDATE comprehensive_holdings
