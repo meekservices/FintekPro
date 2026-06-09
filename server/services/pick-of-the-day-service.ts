@@ -654,7 +654,9 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 
 	private async savePick(pick: DailyPickData): Promise<void> {
 		// Use Drizzle ORM insert with onConflictDoNothing() for idempotent generation.
-		// Drizzle handles TEXT[] (suitableFor) natively — no sql.raw() needed.
+		// No explicit target: PostgreSQL will suppress any unique constraint violation.
+		// (Specifying nullable columns like instrument_id/symbol as a conflict target
+		//  causes PG to error because NULL != NULL breaks the uniqueness check.)
 		await db
 			.insert(dailyPicks)
 			.values({
@@ -682,14 +684,7 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 				generatedBy: "ai",
 				updatedAt: new Date(),
 			})
-			.onConflictDoNothing({
-				target: [
-					dailyPicks.category,
-					dailyPicks.recoDate,
-					dailyPicks.instrumentId,
-					dailyPicks.symbol,
-				],
-			});
+			.onConflictDoNothing();
 	}
 
 
