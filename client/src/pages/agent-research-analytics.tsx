@@ -1,4 +1,3 @@
-import { AgentLayout } from "@/components/layout/agent-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -104,7 +103,6 @@ export default function AgentResearchAnalytics() {
   };
 
   return (
-    <AgentLayout>
       <div className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
@@ -494,6 +492,5 @@ export default function AgentResearchAnalytics() {
           </TabsContent>
         </Tabs>
       </div>
-    </AgentLayout>
   );
 }

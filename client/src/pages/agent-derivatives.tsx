@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { AgentLayout } from "@/components/layout/agent-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ScrollableTabsList";
@@ -240,7 +239,6 @@ export default function AgentDerivatives() {
   };
 
   return (
-    <AgentLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -762,7 +760,6 @@ export default function AgentDerivatives() {
           </TabsContent>
         </Tabs>
       </div>
-    </AgentLayout>
   );
 }
 

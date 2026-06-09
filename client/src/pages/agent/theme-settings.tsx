@@ -1,11 +1,9 @@
-import { AgentLayout } from "@/components/layout/agent-layout";
 import { ThemeSettingsContent } from "@/components/settings/theme-settings-content";
 import { Palette } from "lucide-react";
 
 export default function AgentThemeSettings() {
   return (
-    <AgentLayout>
-      <div className="p-4 md:p-6">
+    <div className="p-4 md:p-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold flex items-center gap-3 text-foreground">
             <Palette className="h-7 w-7 text-blue-400" />
@@ -20,6 +18,5 @@ export default function AgentThemeSettings() {
           <ThemeSettingsContent showHeader={false} />
         </div>
       </div>
-    </AgentLayout>
   );
 }

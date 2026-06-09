@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { AgentLayout } from "@/components/layout/agent-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -119,7 +118,6 @@ export default function AgentTrainingPage() {
   const allQuestionsAnswered = questions.length > 0 && Object.keys(quizAnswers).length === questions.length;
 
   return (
-    <AgentLayout>
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -346,6 +344,5 @@ export default function AgentTrainingPage() {
           </DialogContent>
         </Dialog>
       </div>
-    </AgentLayout>
   );
 }

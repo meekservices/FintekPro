@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { AgentLayout } from "@/components/layout/agent-layout";
 import { AgentRecommendationControlPanel } from "@/components/agent/AgentRecommendationControlPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -38,8 +37,7 @@ export default function AgentRecommendationControlPage() {
     
     if (isAuthError) {
       return (
-        <AgentLayout>
-          <div className="p-6 flex items-center justify-center min-h-[60vh]">
+        <div className="p-6 flex items-center justify-center min-h-[60vh]">
             <Card className="w-full max-w-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -64,15 +62,13 @@ export default function AgentRecommendationControlPage() {
               </CardContent>
             </Card>
           </div>
-        </AgentLayout>
       );
     }
 
     // Show generic error for other errors
     const errorMessage = (error as any)?.message || 'An unexpected error occurred';
     return (
-      <AgentLayout>
-        <div className="p-6 space-y-4">
+      <div className="p-6 space-y-4">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -87,7 +83,6 @@ export default function AgentRecommendationControlPage() {
             Retry
           </Button>
         </div>
-      </AgentLayout>
     );
   }
 
@@ -103,8 +98,7 @@ export default function AgentRecommendationControlPage() {
 
   if (selectedClientId) {
     return (
-      <AgentLayout>
-        <div className="p-6">
+      <div className="p-6">
           <div className="flex items-center gap-4 mb-6">
             <Button variant="ghost" onClick={() => setSelectedClientId(null)}>
               ← Back to Client Selection
@@ -115,13 +109,11 @@ export default function AgentRecommendationControlPage() {
             onProposalCreated={handleProposalCreated}
           />
         </div>
-      </AgentLayout>
     );
   }
 
   return (
-    <AgentLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <Target className="h-8 w-8 text-primary" />
@@ -208,6 +200,5 @@ export default function AgentRecommendationControlPage() {
           </CardContent>
         </Card>
       </div>
-    </AgentLayout>
   );
 }
