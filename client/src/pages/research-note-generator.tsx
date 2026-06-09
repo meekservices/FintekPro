@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { AgentLayout } from "@/components/layout/agent-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -404,7 +405,8 @@ export default function ResearchNoteGenerator() {
   })();
 
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
+    <AgentLayout>
+      <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
