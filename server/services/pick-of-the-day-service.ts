@@ -653,29 +653,45 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 	}
 
 	private async savePick(pick: DailyPickData): Promise<void> {
-		// Use INSERT … ON CONFLICT DO NOTHING to make pick generation idempotent.
-		// suitable_for is TEXT[] — must use ARRAY[...] syntax, NOT ::jsonb
-		const suitableForArray = (pick.suitableFor ?? ["Balanced"])
-			.map((s) => `'${String(s).replace(/'/g, "''")}'`)
-			.join(", ");
-		await db.execute(sql`
-      INSERT INTO daily_picks
-        (category, instrument_id, instrument_name, isin, symbol, market, exchange,
-         reco_date, reco_price, target_price, stoploss_price, current_price,
-         status, expiry_date, rationale, risk_level, suitable_for, key_metrics,
-         time_horizon, confidence_score, sector_category, generated_by, updated_at)
-      VALUES
-        (${pick.category}, ${pick.instrumentId ?? null}, ${pick.instrumentName},
-         ${pick.isin ?? null}, ${pick.symbol ?? null}, ${pick.market ?? null}, ${pick.exchange ?? null},
-         ${pick.recoDate}, ${pick.recoPrice.toString()}, ${pick.targetPrice.toString()},
-         ${pick.stoplossPrice.toString()}, ${(pick.currentPrice ?? pick.recoPrice).toString()},
-         ${pick.status}, ${pick.expiryDate}, ${pick.rationale}, ${pick.riskLevel},
-         ARRAY[${sql.raw(suitableForArray)}]::TEXT[], ${JSON.stringify(pick.keyMetrics ?? {})}::jsonb,
-         ${pick.timeHorizon ?? "medium_term"}, ${pick.confidenceScore ?? 70},
-         ${pick.sectorCategory ?? null}, 'ai', NOW())
-      ON CONFLICT (category, reco_date, instrument_id, symbol) DO NOTHING
-    `);
+		// Use Drizzle ORM insert with onConflictDoNothing() for idempotent generation.
+		// Drizzle handles TEXT[] (suitableFor) natively — no sql.raw() needed.
+		await db
+			.insert(dailyPicks)
+			.values({
+				category: pick.category,
+				instrumentId: pick.instrumentId ?? null,
+				instrumentName: pick.instrumentName,
+				isin: pick.isin ?? null,
+				symbol: pick.symbol ?? null,
+				market: pick.market ?? null,
+				exchange: pick.exchange ?? null,
+				recoDate: pick.recoDate,
+				recoPrice: pick.recoPrice.toString(),
+				targetPrice: pick.targetPrice.toString(),
+				stoplossPrice: pick.stoplossPrice.toString(),
+				currentPrice: (pick.currentPrice ?? pick.recoPrice).toString(),
+				status: pick.status,
+				expiryDate: pick.expiryDate,
+				rationale: pick.rationale,
+				riskLevel: pick.riskLevel,
+				suitableFor: pick.suitableFor ?? ["Balanced"],
+				keyMetrics: pick.keyMetrics ?? {},
+				timeHorizon: pick.timeHorizon ?? "medium_term",
+				confidenceScore: pick.confidenceScore ?? 70,
+				sectorCategory: pick.sectorCategory ?? null,
+				generatedBy: "ai",
+				updatedAt: new Date(),
+			})
+			.onConflictDoNothing({
+				target: [
+					dailyPicks.category,
+					dailyPicks.recoDate,
+					dailyPicks.instrumentId,
+					dailyPicks.symbol,
+				],
+			});
 	}
+
 
 	private async notifyWatchlistSubscribers(
 		pick: typeof dailyPicks.$inferSelect,
