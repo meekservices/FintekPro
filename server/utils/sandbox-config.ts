@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { AxiosResponse } from "axios";
 
 const SANDBOX_API_KEY = process.env.SANDBOX_API_KEY || "";
 const SANDBOX_API_SECRET = process.env.SANDBOX_API_SECRET || "";
@@ -57,8 +58,9 @@ export async function getSandboxAccessToken(): Promise<string> {
 		`[Sandbox Auth] Authenticating → ${baseUrl}/authenticate (key prefix: ${keyPrefix}...)`,
 	);
 
+	let response: AxiosResponse<any>;
 	try {
-		const response = await axios.post(
+		response = await axios.post(
 			`${baseUrl}/authenticate`,
 			{},
 			{

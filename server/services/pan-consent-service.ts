@@ -280,7 +280,7 @@ export class PANConsentService {
 	 */
 	static async hasPANConsent(userId: string): Promise<boolean> {
 		const consent = await PANConsentService.getActivePANConsent(userId);
-		return consent?.consentGiven;
+		return consent?.consentGiven ?? false;
 	}
 
 	/**
