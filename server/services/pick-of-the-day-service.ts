@@ -1,43 +1,63 @@
 import { db } from "../db";
-import { dailyPicks, listedStocks, mutualFunds, bondCatalog, unlistedCompanies, companyRatios, companyFinancials, globalInstruments, instrumentMaster, sgbPrimaryIssues, stockFinancialMetrics, reits, invits, pickWatchlist, userNotifications, goldenPrices } from "@shared/schema";
+import {
+	dailyPicks,
+	listedStocks,
+	mutualFunds,
+	bondCatalog,
+	unlistedCompanies,
+	companyRatios,
+	companyFinancials,
+	globalInstruments,
+	instrumentMaster,
+	sgbPrimaryIssues,
+	stockFinancialMetrics,
+	reits,
+	invits,
+	pickWatchlist,
+	userNotifications,
+	goldenPrices,
+} from "@shared/schema";
 import { eq, and, desc, gte, sql, ilike, or, asc, inArray } from "drizzle-orm";
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
-import { 
-  isFundInvestable, 
-  isETFInvestable, 
-  logFilteredInstrument 
+import {
+	isFundInvestable,
+	isETFInvestable,
+	logFilteredInstrument,
 } from "./regulatory-investability-service";
-import { getEnrichedStockSnapshot, getEnrichedStockSnapshots } from './screener/enriched-stock-data';
-import type { EnrichedStockSnapshot } from './screener/enriched-stock-data';
-import { marketRegimeDetector } from './risk';
-import { aiGovernanceEngine } from './ai-governance';
+import {
+	getEnrichedStockSnapshot,
+	getEnrichedStockSnapshots,
+} from "./screener/enriched-stock-data";
+import type { EnrichedStockSnapshot } from "./screener/enriched-stock-data";
+import { marketRegimeDetector } from "./risk";
+import { aiGovernanceEngine } from "./ai-governance";
 
 // --- Strategy Imports ---
-import { IPickStrategy } from './picks/types';
-import { StockStrategy } from './picks/stock-strategy';
-import { MutualFundStrategy } from './picks/mutual-fund-strategy';
-import { UnlistedStrategy } from './picks/unlisted-strategy';
-import { BondStrategy } from './picks/bond-strategy';
-import { DerivativeStrategy } from './picks/derivative-strategy';
-import { GlobalStockStrategy } from './picks/global-stock-strategy';
-import { ETFStrategy } from './picks/etf-strategy';
-import { SGBStrategy } from './picks/sgb-strategy';
-import { REITInvITStrategy } from './picks/reit-invit-strategy';
-import { FixedDepositStrategy } from './picks/fixed-deposit-strategy';
+import { IPickStrategy } from "./picks/types";
+import { StockStrategy } from "./picks/stock-strategy";
+import { MutualFundStrategy } from "./picks/mutual-fund-strategy";
+import { UnlistedStrategy } from "./picks/unlisted-strategy";
+import { BondStrategy } from "./picks/bond-strategy";
+import { DerivativeStrategy } from "./picks/derivative-strategy";
+import { GlobalStockStrategy } from "./picks/global-stock-strategy";
+import { ETFStrategy } from "./picks/etf-strategy";
+import { SGBStrategy } from "./picks/sgb-strategy";
+import { REITInvITStrategy } from "./picks/reit-invit-strategy";
+import { FixedDepositStrategy } from "./picks/fixed-deposit-strategy";
 
-export type PickCategory = 
-  | 'listed_stocks' 
-  | 'mutual_funds' 
-  | 'bonds' 
-  | 'unlisted' 
-  | 'global_stocks' 
-  | 'etfs' 
-  | 'reits_invits' 
-  | 'fixed_deposits' 
-  | 'sgb'
-  | 'derivatives';
+export type PickCategory =
+	| "listed_stocks"
+	| "mutual_funds"
+	| "bonds"
+	| "unlisted"
+	| "global_stocks"
+	| "etfs"
+	| "reits_invits"
+	| "fixed_deposits"
+	| "sgb"
+	| "derivatives";
 
-export type PickStatus = 'live' | 'target_hit' | 'stoploss_hit' | 'expired';
+export type PickStatus = "live" | "target_hit" | "stoploss_hit" | "expired";
 
 export const SCORER_VERSION = "3.0.0";
 export const SCORER_MIN_THRESHOLD = 15;
@@ -49,435 +69,552 @@ export const SCORER_MIN_THRESHOLD = 15;
  * This helper uses pure UTC arithmetic: IST = UTC + 5h30m.
  */
 function todayIST(): string {
-  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-  const nowIst = new Date(Date.now() + IST_OFFSET_MS);
-  return nowIst.toISOString().split('T')[0];
+	const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+	const nowIst = new Date(Date.now() + IST_OFFSET_MS);
+	return nowIst.toISOString().split("T")[0];
 }
 
-
 export interface ScoreBreakdown {
-  listingStageScore: number;
-  pricingScore: number;
-  sectorScore: number;
-  governanceScore: number;
-  riskAdjustment: number;
-  fundamentalsScore: number;
-  totalScore: number;
-  scoringVersion: string;
-  threshold: number;
-  rankPosition?: number;
-  totalCandidatesEvaluated?: number;
-  eligibleCandidates?: number;
-  riskBand?: 'Moderate' | 'Growth' | 'HighConviction';
+	listingStageScore: number;
+	pricingScore: number;
+	sectorScore: number;
+	governanceScore: number;
+	riskAdjustment: number;
+	fundamentalsScore: number;
+	totalScore: number;
+	scoringVersion: string;
+	threshold: number;
+	rankPosition?: number;
+	totalCandidatesEvaluated?: number;
+	eligibleCandidates?: number;
+	riskBand?: "Moderate" | "Growth" | "HighConviction";
 }
 
 export interface RationaleParams {
-  name: string;
-  category: PickCategory | string;
-  currentPrice: number;
-  targetPrice: number;
-  stoplossPrice?: number;
-  symbol?: string;
-  strategy?: string;
-  outlook?: string;
-  metrics?: Record<string, any>;
+	name: string;
+	category: PickCategory | string;
+	currentPrice: number;
+	targetPrice: number;
+	stoplossPrice?: number;
+	symbol?: string;
+	strategy?: string;
+	outlook?: string;
+	metrics?: Record<string, any>;
 }
 
 export interface PickUpdateResult {
-  updated: number;
-  errors: number;
-  details?: string[];
+	updated: number;
+	errors: number;
+	details?: string[];
 }
 
 export interface DailyPickData {
-  id?: number;
-  category: PickCategory;
-  instrumentId?: string;
-  instrumentName: string;
-  isin?: string;
-  symbol?: string;
-  market?: string;
-  exchange?: string;
-  recoDate: string;
-  recoPrice: number;
-  targetPrice: number;
-  stoplossPrice: number;
-  currentPrice?: number;
-  status: PickStatus;
-  expiryDate: string;
-  returnPct?: number;
-  daysHeld?: number;
-  rationale: string;
-  riskLevel: string;
-  suitableFor: string[];
-  keyMetrics?: {
-    pe?: number;
-    returns1y?: number;
-    returns3y?: number;
-    volatility?: number;
-    sharpeRatio?: number;
-    yield?: number;
-    rating?: string;
-    [key: string]: any;
-  };
-  timeHorizon?: string;
-  confidenceScore?: number;
-  sectorCategory?: string;
-  updatedAt?: Date | string;
-  statusUpdatedAt?: Date | string;
-  scoringBreakdown?: ScoreBreakdown;
-  riskScore?: number;
+	id?: number;
+	category: PickCategory;
+	instrumentId?: string;
+	instrumentName: string;
+	isin?: string;
+	symbol?: string;
+	market?: string;
+	exchange?: string;
+	recoDate: string;
+	recoPrice: number;
+	targetPrice: number;
+	stoplossPrice: number;
+	currentPrice?: number;
+	status: PickStatus;
+	expiryDate: string;
+	returnPct?: number;
+	daysHeld?: number;
+	rationale: string;
+	riskLevel: string;
+	suitableFor: string[];
+	keyMetrics?: {
+		pe?: number;
+		returns1y?: number;
+		returns3y?: number;
+		volatility?: number;
+		sharpeRatio?: number;
+		yield?: number;
+		rating?: string;
+		[key: string]: any;
+	};
+	timeHorizon?: string;
+	confidenceScore?: number;
+	sectorCategory?: string;
+	updatedAt?: Date | string;
+	statusUpdatedAt?: Date | string;
+	scoringBreakdown?: ScoreBreakdown;
+	riskScore?: number;
 }
 
 export function calculateSuggestedAllocation(
-  category: string,
-  riskLevel: string,
-  confidenceScore?: number,
-  keyMetrics?: any
+	category: string,
+	riskLevel: string,
+	confidenceScore?: number,
+	keyMetrics?: any,
 ): number {
-  if (keyMetrics?.suggestedAllocation != null) {
-    return parseFloat(keyMetrics.suggestedAllocation);
-  }
+	if (keyMetrics?.suggestedAllocation != null) {
+		return Number.parseFloat(keyMetrics.suggestedAllocation);
+	}
 
-  const mcap = (keyMetrics?.marketCap || '').toLowerCase();
-  const risk = (riskLevel || 'medium').toLowerCase();
-  const confidence = confidenceScore ?? 70;
-  const isStockOrFund = ['listed_stocks', 'global_stocks', 'unlisted', 'mutual_funds', 'etfs'].includes(category);
+	const mcap = (keyMetrics?.marketCap || "").toLowerCase();
+	const risk = (riskLevel || "medium").toLowerCase();
+	const confidence = confidenceScore ?? 70;
+	const isStockOrFund = [
+		"listed_stocks",
+		"global_stocks",
+		"unlisted",
+		"mutual_funds",
+		"etfs",
+	].includes(category);
 
-  if (isStockOrFund) {
-    if ((mcap.includes('large') || risk === 'low') && confidence >= 80) return 10;
-    if (mcap.includes('large') || risk === 'low') return 8;
-    if ((mcap.includes('mid') || risk === 'medium') && confidence >= 80) return 8;
-    if (mcap.includes('mid') || risk === 'medium') return 6;
-    if ((mcap.includes('small') || risk === 'high') && confidence >= 80) return 5;
-    return 3;
-  }
+	if (isStockOrFund) {
+		if ((mcap.includes("large") || risk === "low") && confidence >= 80)
+			return 10;
+		if (mcap.includes("large") || risk === "low") return 8;
+		if ((mcap.includes("mid") || risk === "medium") && confidence >= 80)
+			return 8;
+		if (mcap.includes("mid") || risk === "medium") return 6;
+		if ((mcap.includes("small") || risk === "high") && confidence >= 80)
+			return 5;
+		return 3;
+	}
 
-  if (risk === 'low') return 10;
-  if (risk === 'medium') return 5;
-  return 2;
+	if (risk === "low") return 10;
+	if (risk === "medium") return 5;
+	return 2;
 }
 
 export class PickOfTheDayService {
-  private strategies: Map<PickCategory, IPickStrategy>;
-  private _isGenerating = false;
-  private readonly DEFAULT_VALIDITY_DAYS = 30;
+	private strategies: Map<PickCategory, IPickStrategy>;
+	private _isGenerating = false;
+	private readonly DEFAULT_VALIDITY_DAYS = 30;
 
-  constructor() {
-    this.strategies = new Map();
-    this.strategies.set('listed_stocks', new StockStrategy());
-    this.strategies.set('mutual_funds', new MutualFundStrategy());
-    this.strategies.set('unlisted', new UnlistedStrategy());
-    this.strategies.set('bonds', new BondStrategy());
-    this.strategies.set('derivatives', new DerivativeStrategy());
-    this.strategies.set('global_stocks', new GlobalStockStrategy());
-    this.strategies.set('etfs', new ETFStrategy());
-    this.strategies.set('sgb', new SGBStrategy());
-    this.strategies.set('reits_invits', new REITInvITStrategy());
-    this.strategies.set('fixed_deposits', new FixedDepositStrategy());
-  }
+	constructor() {
+		this.strategies = new Map();
+		this.strategies.set("listed_stocks", new StockStrategy());
+		this.strategies.set("mutual_funds", new MutualFundStrategy());
+		this.strategies.set("unlisted", new UnlistedStrategy());
+		this.strategies.set("bonds", new BondStrategy());
+		this.strategies.set("derivatives", new DerivativeStrategy());
+		this.strategies.set("global_stocks", new GlobalStockStrategy());
+		this.strategies.set("etfs", new ETFStrategy());
+		this.strategies.set("sgb", new SGBStrategy());
+		this.strategies.set("reits_invits", new REITInvITStrategy());
+		this.strategies.set("fixed_deposits", new FixedDepositStrategy());
+	}
 
-  private getStrategy(category: PickCategory): IPickStrategy {
-    const strategy = this.strategies.get(category);
-    if (!strategy) throw new Error(`No strategy found for category: ${category}`);
-    return strategy;
-  }
+	private getStrategy(category: PickCategory): IPickStrategy {
+		const strategy = this.strategies.get(category);
+		if (!strategy)
+			throw new Error(`No strategy found for category: ${category}`);
+		return strategy;
+	}
 
-  async generateDailyPicks(): Promise<DailyPickData[]> {
-    // ── Generation lock: prevent concurrent runs (cold-start race on Cloud Run)
-    if (this._isGenerating) {
-      console.warn('[PickOfTheDay] generateDailyPicks() called while already running — skipping duplicate.');
-      return [];
-    }
-    this._isGenerating = true;
-    try {
-    return await this._doGenerateDailyPicks();
-    } finally {
-      this._isGenerating = false;
-    }
-  }
+	async generateDailyPicks(): Promise<DailyPickData[]> {
+		// ── Generation lock: prevent concurrent runs (cold-start race on Cloud Run)
+		if (this._isGenerating) {
+			console.warn(
+				"[PickOfTheDay] generateDailyPicks() called while already running — skipping duplicate.",
+			);
+			return [];
+		}
+		this._isGenerating = true;
+		try {
+			return await this._doGenerateDailyPicks();
+		} finally {
+			this._isGenerating = false;
+		}
+	}
 
-  /** Internal: the actual generation logic. Always call via generateDailyPicks(). */
-  private async _doGenerateDailyPicks(): Promise<DailyPickData[]> {
-    console.log(`[PickOfTheDay] Starting daily pick generation (v${SCORER_VERSION})...`);
-    const generated: DailyPickData[] = [];
-    const today = todayIST();
-    
-    // 1. Systemic Resilience Check: Detect Black Swan Regime
-    const isBlackSwan = marketRegimeDetector.detectBlackSwanEvent();
-    
-    // Ordered by priority
-    let categories: PickCategory[] = [
-      'listed_stocks', 'mutual_funds', 'bonds', 'unlisted', 
-      'global_stocks', 'etfs', 'reits_invits', 'sgb', 
-      'fixed_deposits', 'derivatives'
-    ];
+	/** Internal: the actual generation logic. Always call via generateDailyPicks(). */
+	private async _doGenerateDailyPicks(): Promise<DailyPickData[]> {
+		console.log(
+			`[PickOfTheDay] Starting daily pick generation (v${SCORER_VERSION})...`,
+		);
+		const generated: DailyPickData[] = [];
+		const today = todayIST();
 
-    if (isBlackSwan) {
-      console.warn(`🛑 [PickOfTheDay] 10σ Black Swan detected. Pivoting to Defensive Advasory mode.`);
-      // Restriction: Only safe-haven/defensive assets allowed during systemic instability
-      categories = ['sgb', 'bonds', 'fixed_deposits', 'mutual_funds'];
-    }
+		// 1. Systemic Resilience Check: Detect Black Swan Regime
+		const isBlackSwan = marketRegimeDetector.detectBlackSwanEvent();
 
-    for (const category of categories) {
-      try {
-        const strategy = this.getStrategy(category);
-        const recentIds = await this.getRecentlyPickedIds(category);
+		// Ordered by priority
+		let categories: PickCategory[] = [
+			"listed_stocks",
+			"mutual_funds",
+			"bonds",
+			"unlisted",
+			"global_stocks",
+			"etfs",
+			"reits_invits",
+			"sgb",
+			"fixed_deposits",
+			"derivatives",
+		];
 
-        const result = await strategy.generate({
-          today,
-          regime: isBlackSwan ? 'BLACK_SWAN' : 'NORMAL',
-          recentIds,
-          service: this
-        });
+		if (isBlackSwan) {
+			console.warn(
+				`🛑 [PickOfTheDay] 10σ Black Swan detected. Pivoting to Defensive Advasory mode.`,
+			);
+			// Restriction: Only safe-haven/defensive assets allowed during systemic instability
+			categories = ["sgb", "bonds", "fixed_deposits", "mutual_funds"];
+		}
 
-        // StockStrategy now returns DailyPickData[] (one per sector).
-        // All other strategies still return DailyPickData | null.
-        const picks: DailyPickData[] = Array.isArray(result)
-          ? result
-          : (result ? [result] : []);
+		for (const category of categories) {
+			try {
+				const strategy = this.getStrategy(category);
+				const recentIds = await this.getRecentlyPickedIds(category);
 
-        for (const pick of picks) {
-          // Governance Gate: Every pick must pass suitability and compliance floors.
-          // IMPORTANT: ai_output must include `factors_considered` (non-empty) and
-          // `confidence_score` >= 0.6 to pass ExplainabilityValidator (EXP_002/EXP_004).
-          const governanceOutput = {
-            recommendation: pick.rationale,
-            confidence_score: (pick.confidenceScore ?? 70) / 100, // normalise 0–100 → 0–1
-            factors_considered: [
-              `category: ${pick.category}`,
-              `riskLevel: ${pick.riskLevel}`,
-              `recoPrice: ${pick.recoPrice}`,
-              `targetPrice: ${pick.targetPrice}`,
-              ...(pick.sectorCategory ? [`sector: ${pick.sectorCategory}`] : []),
-              ...(pick.timeHorizon   ? [`horizon: ${pick.timeHorizon}`]  : []),
-              ...((pick.keyMetrics as any)?.broadSectorLabel
-                ? [`broadSector: ${(pick.keyMetrics as any).broadSectorLabel}`] : []),
-            ],
-            model_version: SCORER_VERSION,
-            timestamp: new Date().toISOString(),
-          };
+				const result = await strategy.generate({
+					today,
+					regime: isBlackSwan ? "BLACK_SWAN" : "NORMAL",
+					recentIds,
+					service: this,
+				});
 
-          const aageCheck = await aiGovernanceEngine.validateAndResolve({
-             user_id: "SYSTEM_ADVISORY",
-             query: `Generate ${category} pick for ${today}`,
-             ai_output: governanceOutput,
-             user_profile: { risk_profile: (isBlackSwan ? 'conservative' : 'aggressive') as any, investment_horizon: 'medium', kyc_status: 'verified', user_segment: 'retail' },
-             trace_id: `POTD-${category}-${(pick.keyMetrics as any)?.broadSector ?? 'all'}-${today}`
-          });
+				// StockStrategy now returns DailyPickData[] (one per sector).
+				// All other strategies still return DailyPickData | null.
+				const picks: DailyPickData[] = Array.isArray(result)
+					? result
+					: result
+						? [result]
+						: [];
 
-          if (aageCheck.decision === "BLOCK") {
-             console.warn(`⚠️ [PickOfTheDay] Governance Block for ${pick.instrumentName}: ${aageCheck.audit_id}`);
-             continue;
-          }
+				for (const pick of picks) {
+					// Governance Gate: Every pick must pass suitability and compliance floors.
+					// IMPORTANT: ai_output must include `factors_considered` (non-empty) and
+					// `confidence_score` >= 0.6 to pass ExplainabilityValidator (EXP_002/EXP_004).
+					const governanceOutput = {
+						recommendation: pick.rationale,
+						confidence_score: (pick.confidenceScore ?? 70) / 100, // normalise 0–100 → 0–1
+						factors_considered: [
+							`category: ${pick.category}`,
+							`riskLevel: ${pick.riskLevel}`,
+							`recoPrice: ${pick.recoPrice}`,
+							`targetPrice: ${pick.targetPrice}`,
+							...(pick.sectorCategory
+								? [`sector: ${pick.sectorCategory}`]
+								: []),
+							...(pick.timeHorizon ? [`horizon: ${pick.timeHorizon}`] : []),
+							...((pick.keyMetrics as any)?.broadSectorLabel
+								? [`broadSector: ${(pick.keyMetrics as any).broadSectorLabel}`]
+								: []),
+						],
+						model_version: SCORER_VERSION,
+						timestamp: new Date().toISOString(),
+					};
 
-          await this.savePick(pick);
-          generated.push(pick);
-          const sectorTag = (pick.keyMetrics as any)?.broadSectorLabel
-            ? ` [${(pick.keyMetrics as any).broadSectorLabel}]` : '';
-          console.log(`✅ [PickOfTheDay] Generated ${category}${sectorTag} pick: ${pick.instrumentName}`);
-        }
-      } catch (error) {
-        console.error(`❌ [PickOfTheDay] Failed to generate ${category} pick:`, error);
-      }
-    }
+					const aageCheck = await aiGovernanceEngine.validateAndResolve({
+						user_id: "SYSTEM_ADVISORY",
+						query: `Generate ${category} pick for ${today}`,
+						ai_output: governanceOutput,
+						user_profile: {
+							risk_profile: (isBlackSwan
+								? "conservative"
+								: "aggressive") as any,
+							investment_horizon: "medium",
+							kyc_status: "verified",
+							user_segment: "retail",
+						},
+						trace_id: `POTD-${category}-${(pick.keyMetrics as any)?.broadSector ?? "all"}-${today}`,
+					});
 
+					if (aageCheck.decision === "BLOCK") {
+						console.warn(
+							`⚠️ [PickOfTheDay] Governance Block for ${pick.instrumentName}: ${aageCheck.audit_id}`,
+						);
+						continue;
+					}
 
-    return generated;
-  }
+					await this.savePick(pick);
+					generated.push(pick);
+					const sectorTag = (pick.keyMetrics as any)?.broadSectorLabel
+						? ` [${(pick.keyMetrics as any).broadSectorLabel}]`
+						: "";
+					console.log(
+						`✅ [PickOfTheDay] Generated ${category}${sectorTag} pick: ${pick.instrumentName}`,
+					);
+				}
+			} catch (error) {
+				console.error(
+					`❌ [PickOfTheDay] Failed to generate ${category} pick:`,
+					error,
+				);
+			}
+		}
 
-  async syncPickPrices(): Promise<PickUpdateResult> {
-    return this.refreshLivePicks();
-  }
+		return generated;
+	}
 
-  async refreshLivePicks(): Promise<PickUpdateResult> {
-    let updated = 0;
-    let errors = 0;
-    const details: string[] = [];
-    
-    try {
-      const livePicks = await db.select().from(dailyPicks).where(eq(dailyPicks.status, 'live'));
-      console.log(`[PickOfTheDay] Syncing prices for ${livePicks.length} live picks...`);
+	async syncPickPrices(): Promise<PickUpdateResult> {
+		return this.refreshLivePicks();
+	}
 
-      for (const pick of livePicks) {
-        try {
-          const category = pick.category as PickCategory;
-          const strategy = this.getStrategy(category);
-          
-          const livePrice = await strategy.getLivePrice(pick.instrumentId || pick.symbol || '');
-          if (livePrice != null) {
-            const recoPrice = parseFloat(pick.recoPrice);
-            const returnPct = ((livePrice - recoPrice) / recoPrice) * 100;
-            
-            const recoDate = new Date(pick.recoDate);
-            const daysHeld = Math.floor((Date.now() - recoDate.getTime()) / (1000 * 60 * 60 * 24));
-            
-            const targetPrice = parseFloat(pick.targetPrice);
-            const stoplossPrice = parseFloat(pick.stoplossPrice);
-            let newStatus: PickStatus = 'live';
-            
-            if (livePrice >= targetPrice) newStatus = 'target_hit';
-            else if (livePrice <= stoplossPrice) newStatus = 'stoploss_hit';
+	async refreshLivePicks(): Promise<PickUpdateResult> {
+		let updated = 0;
+		let errors = 0;
+		const details: string[] = [];
 
-            const expiryDate = new Date(pick.expiryDate);
-            if (new Date() > expiryDate && newStatus === 'live') newStatus = 'expired';
+		try {
+			const livePicks = await db
+				.select()
+				.from(dailyPicks)
+				.where(eq(dailyPicks.status, "live"));
+			console.log(
+				`[PickOfTheDay] Syncing prices for ${livePicks.length} live picks...`,
+			);
 
-            await db.update(dailyPicks).set({
-              currentPrice: livePrice.toString(),
-              returnPct: returnPct.toFixed(2),
-              daysHeld,
-              status: newStatus,
-              updatedAt: new Date(),
-              ...(newStatus !== pick.status ? { statusUpdatedAt: new Date() } : {})
-            }).where(eq(dailyPicks.id, pick.id));
+			for (const pick of livePicks) {
+				try {
+					const category = pick.category as PickCategory;
+					const strategy = this.getStrategy(category);
 
-            updated++;
-            if (newStatus !== pick.status) {
-              details.push(`${pick.instrumentName}: ${pick.status} -> ${newStatus} @ ₹${livePrice}`);
-            }
-            
-            if (newStatus !== 'live' && newStatus !== pick.status) {
-               await this.notifyWatchlistSubscribers(pick, newStatus, livePrice, returnPct);
-            }
-          }
-        } catch (err) {
-          console.error(`[PickOfTheDay] Sync failure for ${pick.instrumentName}:`, err);
-          errors++;
-        }
-      }
-      return { updated, errors, details };
-    } catch (error) {
-      console.error("[PickOfTheDay] Error in refreshLivePicks:", error);
-      return { updated, errors, details };
-    }
-  }
+					const livePrice = await strategy.getLivePrice(
+						pick.instrumentId || pick.symbol || "",
+					);
+					if (livePrice != null) {
+						const recoPrice = Number.parseFloat(pick.recoPrice);
+						const returnPct = ((livePrice - recoPrice) / recoPrice) * 100;
 
-  async getTodaysPicks(): Promise<DailyPickData[]> {
-    const today = todayIST();
-    const picks = await db.select().from(dailyPicks).where(eq(dailyPicks.recoDate, today)).orderBy(dailyPicks.category);
-    return picks.map(p => this.transformPick(p));
-  }
+						const recoDate = new Date(pick.recoDate);
+						const daysHeld = Math.floor(
+							(Date.now() - recoDate.getTime()) / (1000 * 60 * 60 * 24),
+						);
 
-  async getLivePicks(): Promise<DailyPickData[]> {
-    const picks = await db.select().from(dailyPicks).where(eq(dailyPicks.status, 'live')).orderBy(desc(dailyPicks.recoDate));
-    return picks.map(p => this.transformPick(p));
-  }
+						const targetPrice = Number.parseFloat(pick.targetPrice);
+						const stoplossPrice = Number.parseFloat(pick.stoplossPrice);
+						let newStatus: PickStatus = "live";
 
-  async getPickHistory(category?: PickCategory, limit: number = 50): Promise<DailyPickData[]> {
-    const conditions = [];
-    if (category) {
-      conditions.push(eq(dailyPicks.category, category));
-    }
-    
-    const picks = await db.select()
-      .from(dailyPicks)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(dailyPicks.recoDate))
-      .limit(limit);
-    return picks.map(p => this.transformPick(p));
-  }
+						if (livePrice >= targetPrice) newStatus = "target_hit";
+						else if (livePrice <= stoplossPrice) newStatus = "stoploss_hit";
 
-  async getPerformanceStats(): Promise<any> {
-    const allPicks = await db.select().from(dailyPicks);
-    const totalPicks = allPicks.length;
-    if (totalPicks === 0) return { totalPicks: 0, livePicks: 0, targetHits: 0, stoplossHits: 0, expired: 0, hitRate: 0, avgReturn: 0, byCategory: {} };
+						const expiryDate = new Date(pick.expiryDate);
+						if (new Date() > expiryDate && newStatus === "live")
+							newStatus = "expired";
 
-    const livePicks   = allPicks.filter(p => p.status === 'live');
-    const resolved    = allPicks.filter(p => p.status !== 'live');
-    const targetHits  = resolved.filter(p => p.status === 'target_hit').length;
-    const stoplossHits = resolved.filter(p => p.status === 'stoploss_hit').length;
-    const expiredCount = resolved.filter(p => p.status === 'expired').length;
-    const hitRate     = resolved.length > 0 ? (targetHits / resolved.length) * 100 : 0;
+						await db
+							.update(dailyPicks)
+							.set({
+								currentPrice: livePrice.toString(),
+								returnPct: returnPct.toFixed(2),
+								daysHeld,
+								status: newStatus,
+								updatedAt: new Date(),
+								...(newStatus !== pick.status
+									? { statusUpdatedAt: new Date() }
+									: {}),
+							})
+							.where(eq(dailyPicks.id, pick.id));
 
-    // BUG FIX: avgReturn must ONLY cover closed picks (returnPct is final).
-    // Including live picks introduces unrealised intra-day noise and dilutes the metric.
-    // Also exclude rows where returnPct was never set (null / empty) to avoid
-    // the '|| 0' fallback dragging the average down artificially.
-    const closedReturns = resolved
-      .filter(p => p.returnPct != null && p.returnPct !== '')
-      .map(p => parseFloat(p.returnPct!));
-    const avgReturn = closedReturns.length > 0
-      ? closedReturns.reduce((a, b) => a + b, 0) / closedReturns.length
-      : 0;
+						updated++;
+						if (newStatus !== pick.status) {
+							details.push(
+								`${pick.instrumentName}: ${pick.status} -> ${newStatus} @ ₹${livePrice}`,
+							);
+						}
 
-    // Per-category breakdown (used by frontend category badges)
-    const byCategory: Record<string, { total: number; hits: number; hitRate: number; avgReturn: number }> = {};
-    for (const pick of resolved) {
-      const cat = pick.category;
-      if (!byCategory[cat]) byCategory[cat] = { total: 0, hits: 0, hitRate: 0, avgReturn: 0 };
-      byCategory[cat].total++;
-      if (pick.status === 'target_hit') byCategory[cat].hits++;
-    }
-    for (const cat of Object.keys(byCategory)) {
-      const stats = byCategory[cat];
-      stats.hitRate = stats.total > 0 ? parseFloat(((stats.hits / stats.total) * 100).toFixed(2)) : 0;
-      const catReturns = resolved
-        .filter(p => p.category === cat && p.returnPct != null && p.returnPct !== '')
-        .map(p => parseFloat(p.returnPct!));
-      stats.avgReturn = catReturns.length > 0
-        ? parseFloat((catReturns.reduce((a, b) => a + b, 0) / catReturns.length).toFixed(2))
-        : 0;
-    }
+						if (newStatus !== "live" && newStatus !== pick.status) {
+							await this.notifyWatchlistSubscribers(
+								pick,
+								newStatus,
+								livePrice,
+								returnPct,
+							);
+						}
+					}
+				} catch (err) {
+					console.error(
+						`[PickOfTheDay] Sync failure for ${pick.instrumentName}:`,
+						err,
+					);
+					errors++;
+				}
+			}
+			return { updated, errors, details };
+		} catch (error) {
+			console.error("[PickOfTheDay] Error in refreshLivePicks:", error);
+			return { updated, errors, details };
+		}
+	}
 
-    return {
-      totalPicks,
-      livePicks: livePicks.length,
-      targetHits,
-      stoplossHits,
-      expired: expiredCount,
-      hitRate: parseFloat(hitRate.toFixed(2)),
-      avgReturn: parseFloat(avgReturn.toFixed(2)),
-      byCategory,
-    };
-  }
+	async getTodaysPicks(): Promise<DailyPickData[]> {
+		const today = todayIST();
+		const picks = await db
+			.select()
+			.from(dailyPicks)
+			.where(eq(dailyPicks.recoDate, today))
+			.orderBy(dailyPicks.category);
+		return picks.map((p) => this.transformPick(p));
+	}
 
-  async updatePickStatuses(): Promise<PickUpdateResult> {
-    return this.refreshLivePicks();
-  }
+	async getLivePicks(): Promise<DailyPickData[]> {
+		const picks = await db
+			.select()
+			.from(dailyPicks)
+			.where(eq(dailyPicks.status, "live"))
+			.orderBy(desc(dailyPicks.recoDate));
+		return picks.map((p) => this.transformPick(p));
+	}
 
-  async getRecentlyPickedIds(category: PickCategory): Promise<Set<string>> {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 14); // 2 weeks lookback
-    
-    const recent = await db
-      .select({ instrumentId: dailyPicks.instrumentId, symbol: dailyPicks.symbol })
-      .from(dailyPicks)
-      .where(and(eq(dailyPicks.category, category), gte(dailyPicks.recoDate, cutoff.toISOString().split('T')[0])));
-      
-    const ids = new Set<string>();
-    recent.forEach(r => {
-      if (r.instrumentId) ids.add(r.instrumentId);
-      if (r.symbol) ids.add(r.symbol);
-    });
-    return ids;
-  }
+	async getPickHistory(
+		category?: PickCategory,
+		limit: number = 50,
+	): Promise<DailyPickData[]> {
+		const conditions = [];
+		if (category) {
+			conditions.push(eq(dailyPicks.category, category));
+		}
 
-  async generateRationale(params: RationaleParams): Promise<string> {
-    try {
-      const prompt = this.buildRationalePrompt(params);
-      const category = params.category || 'stocks';
-      const { result } = await unifiedAIRecommendationEngine.runPrompt<string>({
-        prompt,
-        category,
-        responseParser: (text: string) => text,
-        fallback: () => this.generateFallbackRationale(params),
-      });
-      const rawResult = result || this.generateFallbackRationale(params);
-      // Coerce to string — AI engine may return an object when model output is structured JSON
-      const resultStr = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
-      return this.extractRationaleText(resultStr);
-    } catch (error) {
-      console.error("[PickOfTheDay] AI rationale generation failed:", error);
-      return this.generateFallbackRationale(params);
-    }
-  }
+		const picks = await db
+			.select()
+			.from(dailyPicks)
+			.where(conditions.length > 0 ? and(...conditions) : undefined)
+			.orderBy(desc(dailyPicks.recoDate))
+			.limit(limit);
+		return picks.map((p) => this.transformPick(p));
+	}
 
-  private buildRationalePrompt(params: RationaleParams): string {
-    const currentPrice = params.currentPrice ?? 0;
-    const targetPrice = params.targetPrice ?? 0;
-    const upside = currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0;
+	async getPerformanceStats(): Promise<any> {
+		const allPicks = await db.select().from(dailyPicks);
+		const totalPicks = allPicks.length;
+		if (totalPicks === 0)
+			return {
+				totalPicks: 0,
+				livePicks: 0,
+				targetHits: 0,
+				stoplossHits: 0,
+				expired: 0,
+				hitRate: 0,
+				avgReturn: 0,
+				byCategory: {},
+			};
 
-    return `Generate a concise, professional investment rationale for today's pick.
+		const livePicks = allPicks.filter((p) => p.status === "live");
+		const resolved = allPicks.filter((p) => p.status !== "live");
+		const targetHits = resolved.filter((p) => p.status === "target_hit").length;
+		const stoplossHits = resolved.filter(
+			(p) => p.status === "stoploss_hit",
+		).length;
+		const expiredCount = resolved.filter((p) => p.status === "expired").length;
+		const hitRate =
+			resolved.length > 0 ? (targetHits / resolved.length) * 100 : 0;
+
+		// BUG FIX: avgReturn must ONLY cover closed picks (returnPct is final).
+		// Including live picks introduces unrealised intra-day noise and dilutes the metric.
+		// Also exclude rows where returnPct was never set (null / empty) to avoid
+		// the '|| 0' fallback dragging the average down artificially.
+		const closedReturns = resolved
+			.filter((p) => p.returnPct != null && p.returnPct !== "")
+			.map((p) => Number.parseFloat(p.returnPct!));
+		const avgReturn =
+			closedReturns.length > 0
+				? closedReturns.reduce((a, b) => a + b, 0) / closedReturns.length
+				: 0;
+
+		// Per-category breakdown (used by frontend category badges)
+		const byCategory: Record<
+			string,
+			{ total: number; hits: number; hitRate: number; avgReturn: number }
+		> = {};
+		for (const pick of resolved) {
+			const cat = pick.category;
+			if (!byCategory[cat])
+				byCategory[cat] = { total: 0, hits: 0, hitRate: 0, avgReturn: 0 };
+			byCategory[cat].total++;
+			if (pick.status === "target_hit") byCategory[cat].hits++;
+		}
+		for (const cat of Object.keys(byCategory)) {
+			const stats = byCategory[cat];
+			stats.hitRate =
+				stats.total > 0
+					? Number.parseFloat(((stats.hits / stats.total) * 100).toFixed(2))
+					: 0;
+			const catReturns = resolved
+				.filter(
+					(p) =>
+						p.category === cat && p.returnPct != null && p.returnPct !== "",
+				)
+				.map((p) => Number.parseFloat(p.returnPct!));
+			stats.avgReturn =
+				catReturns.length > 0
+					? Number.parseFloat(
+							(
+								catReturns.reduce((a, b) => a + b, 0) / catReturns.length
+							).toFixed(2),
+						)
+					: 0;
+		}
+
+		return {
+			totalPicks,
+			livePicks: livePicks.length,
+			targetHits,
+			stoplossHits,
+			expired: expiredCount,
+			hitRate: Number.parseFloat(hitRate.toFixed(2)),
+			avgReturn: Number.parseFloat(avgReturn.toFixed(2)),
+			byCategory,
+		};
+	}
+
+	async updatePickStatuses(): Promise<PickUpdateResult> {
+		return this.refreshLivePicks();
+	}
+
+	async getRecentlyPickedIds(category: PickCategory): Promise<Set<string>> {
+		const cutoff = new Date();
+		cutoff.setDate(cutoff.getDate() - 14); // 2 weeks lookback
+
+		const recent = await db
+			.select({
+				instrumentId: dailyPicks.instrumentId,
+				symbol: dailyPicks.symbol,
+			})
+			.from(dailyPicks)
+			.where(
+				and(
+					eq(dailyPicks.category, category),
+					gte(dailyPicks.recoDate, cutoff.toISOString().split("T")[0]),
+				),
+			);
+
+		const ids = new Set<string>();
+		recent.forEach((r) => {
+			if (r.instrumentId) ids.add(r.instrumentId);
+			if (r.symbol) ids.add(r.symbol);
+		});
+		return ids;
+	}
+
+	async generateRationale(params: RationaleParams): Promise<string> {
+		try {
+			const prompt = this.buildRationalePrompt(params);
+			const category = params.category || "stocks";
+			const { result } = await unifiedAIRecommendationEngine.runPrompt<string>({
+				prompt,
+				category,
+				responseParser: (text: string) => text,
+				fallback: () => this.generateFallbackRationale(params),
+			});
+			const rawResult = result || this.generateFallbackRationale(params);
+			// Coerce to string — AI engine may return an object when model output is structured JSON
+			const resultStr =
+				typeof rawResult === "string" ? rawResult : JSON.stringify(rawResult);
+			return this.extractRationaleText(resultStr);
+		} catch (error) {
+			console.error("[PickOfTheDay] AI rationale generation failed:", error);
+			return this.generateFallbackRationale(params);
+		}
+	}
+
+	private buildRationalePrompt(params: RationaleParams): string {
+		const currentPrice = params.currentPrice ?? 0;
+		const targetPrice = params.targetPrice ?? 0;
+		const upside =
+			currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0;
+
+		return `Generate a concise, professional investment rationale for today's pick.
 Product: ${params.name}
 Category: ${params.category}
 Current Price: ₹${currentPrice}
@@ -485,33 +622,41 @@ Target Price: ₹${targetPrice} (${upside}% upside)
 Metrics: ${JSON.stringify(params.metrics || {})}
 
 Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on key strengths and catalysts. Do not use markdown.`;
-  }
+	}
 
-  private generateFallbackRationale(params: RationaleParams): string {
-    const currentPrice = params.currentPrice ?? 0;
-    const targetPrice = params.targetPrice ?? 0;
-    const upside = currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0;
-    return `${params.name} is selected as today's top pick based on strong fundamentals and a compelling target upside of ${upside}%. The technical outlook remains positive with favorable risk-reward indicators.`;
-  }
+	private generateFallbackRationale(params: RationaleParams): string {
+		const currentPrice = params.currentPrice ?? 0;
+		const targetPrice = params.targetPrice ?? 0;
+		const upside =
+			currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0;
+		return `${params.name} is selected as today's top pick based on strong fundamentals and a compelling target upside of ${upside}%. The technical outlook remains positive with favorable risk-reward indicators.`;
+	}
 
-  private extractRationaleText(raw: unknown): string {
-    // Guard: coerce non-string inputs (e.g. AI engine returning object) to string
-    const rawStr = typeof raw === 'string' ? raw : JSON.stringify(raw) ?? '';
-    let text = rawStr.replace(/^```[\w]*\n?/gm, '').replace(/```$/gm, '').trim();
-    if (text.startsWith('{')) {
-      try {
-        const parsed = JSON.parse(text);
-        return (parsed.rationale || parsed.content || text).trim();
-      } catch { return text; }
-    }
-    return text;
-  }
+	private extractRationaleText(raw: unknown): string {
+		// Guard: coerce non-string inputs (e.g. AI engine returning object) to string
+		const rawStr = typeof raw === "string" ? raw : JSON.stringify(raw) ?? "";
+		const text = rawStr
+			.replace(/^```[\w]*\n?/gm, "")
+			.replace(/```$/gm, "")
+			.trim();
+		if (text.startsWith("{")) {
+			try {
+				const parsed = JSON.parse(text);
+				return (parsed.rationale || parsed.content || text).trim();
+			} catch {
+				return text;
+			}
+		}
+		return text;
+	}
 
-  private async savePick(pick: DailyPickData): Promise<void> {
-    // Use INSERT … ON CONFLICT DO NOTHING to make pick generation idempotent.
-    // suitable_for is TEXT[] — must use ARRAY[...] syntax, NOT ::jsonb
-    const suitableForArray = (pick.suitableFor ?? ['Balanced']).map(s => `'${String(s).replace(/'/g, "''")}'`).join(', ');
-    await db.execute(sql`
+	private async savePick(pick: DailyPickData): Promise<void> {
+		// Use INSERT … ON CONFLICT DO NOTHING to make pick generation idempotent.
+		// suitable_for is TEXT[] — must use ARRAY[...] syntax, NOT ::jsonb
+		const suitableForArray = (pick.suitableFor ?? ["Balanced"])
+			.map((s) => `'${String(s).replace(/'/g, "''")}'`)
+			.join(", ");
+		await db.execute(sql`
       INSERT INTO daily_picks
         (category, instrument_id, instrument_name, isin, symbol, market, exchange,
          reco_date, reco_price, target_price, stoploss_price, current_price,
@@ -524,232 +669,269 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
          ${pick.stoplossPrice.toString()}, ${(pick.currentPrice ?? pick.recoPrice).toString()},
          ${pick.status}, ${pick.expiryDate}, ${pick.rationale}, ${pick.riskLevel},
          ARRAY[${sql.raw(suitableForArray)}]::TEXT[], ${JSON.stringify(pick.keyMetrics ?? {})}::jsonb,
-         ${pick.timeHorizon ?? 'medium_term'}, ${pick.confidenceScore ?? 70},
+         ${pick.timeHorizon ?? "medium_term"}, ${pick.confidenceScore ?? 70},
          ${pick.sectorCategory ?? null}, 'ai', NOW())
       ON CONFLICT (category, reco_date, instrument_id, symbol) DO NOTHING
     `);
+	}
 
-  }
+	private async notifyWatchlistSubscribers(
+		pick: typeof dailyPicks.$inferSelect,
+		newStatus: PickStatus,
+		currentPrice: number,
+		returnPct: number,
+	): Promise<void> {
+		try {
+			const subscribers = await db
+				.select({ userId: pickWatchlist.userId })
+				.from(pickWatchlist)
+				.where(eq(pickWatchlist.pickId, pick.id));
+			if (subscribers.length === 0) return;
 
+			const title = `${newStatus.toUpperCase()}: ${pick.instrumentName}`;
+			const message = `${pick.instrumentName} has hit its ${newStatus.replace("_", " ")} at ₹${currentPrice.toLocaleString()} with a ${returnPct.toFixed(1)}% return.`;
 
-  private async notifyWatchlistSubscribers(
-    pick: typeof dailyPicks.$inferSelect, newStatus: PickStatus, currentPrice: number, returnPct: number
-  ): Promise<void> {
-    try {
-      const subscribers = await db.select({ userId: pickWatchlist.userId }).from(pickWatchlist).where(eq(pickWatchlist.pickId, pick.id));
-      if (subscribers.length === 0) return;
+			for (const sub of subscribers) {
+				await db.insert(userNotifications).values({
+					userId: sub.userId,
+					type: newStatus === "target_hit" ? "info" : "alert",
+					title,
+					message,
+					actionUrl: "/agent/picks",
+					priority: newStatus === "stoploss_hit" ? "high" : "medium",
+				});
+			}
+		} catch (error) {
+			console.error(`[PickOfTheDay] Notification failure:`, error);
+		}
+	}
 
-      const title = `${newStatus.toUpperCase()}: ${pick.instrumentName}`;
-      const message = `${pick.instrumentName} has hit its ${newStatus.replace('_', ' ')} at ₹${currentPrice.toLocaleString()} with a ${returnPct.toFixed(1)}% return.`;
+	private transformPick(pick: typeof dailyPicks.$inferSelect): DailyPickData {
+		const rawMetrics = (pick.keyMetrics as any) || {};
+		const suggestedAllocation =
+			rawMetrics.suggestedAllocation != null
+				? Number.parseFloat(rawMetrics.suggestedAllocation)
+				: calculateSuggestedAllocation(
+						pick.category,
+						pick.riskLevel || "medium",
+						pick.confidenceScore || 70,
+						rawMetrics,
+					);
 
-      for (const sub of subscribers) {
-        await db.insert(userNotifications).values({
-          userId: sub.userId,
-          type: newStatus === 'target_hit' ? 'info' : 'alert',
-          title,
-          message,
-          actionUrl: '/agent/picks',
-          priority: newStatus === 'stoploss_hit' ? 'high' : 'medium',
-        });
-      }
-    } catch (error) {
-      console.error(`[PickOfTheDay] Notification failure:`, error);
-    }
-  }
+		const keyMetrics = {
+			...rawMetrics,
+			suggestedAllocation,
+		};
 
-  private transformPick(pick: typeof dailyPicks.$inferSelect): DailyPickData {
-    const rawMetrics = pick.keyMetrics as any || {};
-    const suggestedAllocation = rawMetrics.suggestedAllocation != null
-      ? parseFloat(rawMetrics.suggestedAllocation)
-      : calculateSuggestedAllocation(
-          pick.category,
-          pick.riskLevel || 'medium',
-          pick.confidenceScore || 70,
-          rawMetrics
-        );
+		return {
+			id: pick.id,
+			category: pick.category,
+			instrumentId: pick.instrumentId ?? undefined,
+			instrumentName: pick.instrumentName,
+			isin: pick.isin ?? undefined,
+			symbol: pick.symbol ?? undefined,
+			market: pick.market ?? undefined,
+			exchange: pick.exchange ?? undefined,
+			recoDate: pick.recoDate,
+			recoPrice: Number.parseFloat(pick.recoPrice),
+			targetPrice: Number.parseFloat(pick.targetPrice),
+			stoplossPrice: Number.parseFloat(pick.stoplossPrice),
+			currentPrice: pick.currentPrice
+				? Number.parseFloat(pick.currentPrice)
+				: undefined,
+			status: pick.status,
+			expiryDate: pick.expiryDate,
+			returnPct: pick.returnPct ? Number.parseFloat(pick.returnPct) : undefined,
+			daysHeld: pick.daysHeld ?? undefined,
+			rationale: pick.rationale,
+			riskLevel: pick.riskLevel || "medium",
+			suitableFor: pick.suitableFor || [],
+			keyMetrics,
+			timeHorizon: pick.timeHorizon || "medium_term",
+			confidenceScore: pick.confidenceScore || 70,
+			sectorCategory: pick.sectorCategory ?? undefined,
+			scoringBreakdown: pick.scoringBreakdown as ScoreBreakdown | undefined,
+			riskScore: pick.riskScore ?? undefined,
+			updatedAt: pick.updatedAt ?? undefined,
+			statusUpdatedAt: pick.statusUpdatedAt ?? undefined,
+		};
+	}
 
-    const keyMetrics = {
-      ...rawMetrics,
-      suggestedAllocation,
-    };
+	async getMostRecentPicks(): Promise<DailyPickData[]> {
+		const latestDate = await db
+			.select({ maxDate: sql<string>`MAX(reco_date)` })
+			.from(dailyPicks);
+		const recoDate = latestDate[0]?.maxDate;
+		if (!recoDate) return [];
+		const picks = await db
+			.select()
+			.from(dailyPicks)
+			.where(eq(dailyPicks.recoDate, recoDate))
+			.orderBy(dailyPicks.category);
+		return picks.map((p) => this.transformPick(p));
+	}
 
-    return {
-      id: pick.id,
-      category: pick.category,
-      instrumentId: pick.instrumentId ?? undefined,
-      instrumentName: pick.instrumentName,
-      isin: pick.isin ?? undefined,
-      symbol: pick.symbol ?? undefined,
-      market: pick.market ?? undefined,
-      exchange: pick.exchange ?? undefined,
-      recoDate: pick.recoDate,
-      recoPrice: parseFloat(pick.recoPrice),
-      targetPrice: parseFloat(pick.targetPrice),
-      stoplossPrice: parseFloat(pick.stoplossPrice),
-      currentPrice: pick.currentPrice ? parseFloat(pick.currentPrice) : undefined,
-      status: pick.status,
-      expiryDate: pick.expiryDate,
-      returnPct: pick.returnPct ? parseFloat(pick.returnPct) : undefined,
-      daysHeld: pick.daysHeld ?? undefined,
-      rationale: pick.rationale,
-      riskLevel: pick.riskLevel || 'medium',
-      suitableFor: pick.suitableFor || [],
-      keyMetrics,
-      timeHorizon: pick.timeHorizon || 'medium_term',
-      confidenceScore: pick.confidenceScore || 70,
-      sectorCategory: pick.sectorCategory ?? undefined,
-      scoringBreakdown: pick.scoringBreakdown as ScoreBreakdown | undefined,
-      riskScore: pick.riskScore ?? undefined,
-      updatedAt: pick.updatedAt ?? undefined,
-      statusUpdatedAt: pick.statusUpdatedAt ?? undefined,
-    };
-  }
+	async startDailyScheduler(): Promise<void> {
+		await this.catchUpIfNeeded();
 
-  async getMostRecentPicks(): Promise<DailyPickData[]> {
-    const latestDate = await db.select({ maxDate: sql<string>`MAX(reco_date)` }).from(dailyPicks);
-    const recoDate = latestDate[0]?.maxDate;
-    if (!recoDate) return [];
-    const picks = await db.select().from(dailyPicks).where(eq(dailyPicks.recoDate, recoDate)).orderBy(dailyPicks.category);
-    return picks.map(p => this.transformPick(p));
-  }
+		const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-  async startDailyScheduler(): Promise<void> {
-    await this.catchUpIfNeeded();
+		/**
+		 * Returns milliseconds from now until the next occurrence of [hour]:[minute] IST.
+		 * If that time has already passed today, it targets tomorrow.
+		 */
+		function msUntilIst(hour: number, minute = 0): number {
+			// Compute IST offset: UTC+5:30 = 330 minutes
+			const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+			const nowUtcMs = Date.now();
+			const nowIstMs = nowUtcMs + IST_OFFSET_MS;
 
-    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+			// Build target time in IST as a UTC timestamp
+			const nowIstDate = new Date(nowIstMs);
+			const targetIstMs =
+				Date.UTC(
+					nowIstDate.getUTCFullYear(),
+					nowIstDate.getUTCMonth(),
+					nowIstDate.getUTCDate(),
+					hour - 5, // convert IST → UTC: IST 9:00 = UTC 3:30
+					minute - 30 < 0 ? minute + 30 : minute - 30,
+					0,
+					0,
+				) - (minute < 30 ? 60 * 60 * 1000 : 0); // adjust for borrow
 
-    /**
-     * Returns milliseconds from now until the next occurrence of [hour]:[minute] IST.
-     * If that time has already passed today, it targets tomorrow.
-     */
-    function msUntilIst(hour: number, minute = 0): number {
-      // Compute IST offset: UTC+5:30 = 330 minutes
-      const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-      const nowUtcMs = Date.now();
-      const nowIstMs = nowUtcMs + IST_OFFSET_MS;
+			// Recalculate properly: target in UTC = IST target - 5h30m
+			const targetHourUtc = hour - 5;
+			const targetMinUtc = minute - 30;
+			const borrowHour = targetMinUtc < 0 ? 1 : 0;
+			const finalMinUtc = targetMinUtc < 0 ? targetMinUtc + 60 : targetMinUtc;
+			const finalHourUtc = targetHourUtc - borrowHour;
 
-      // Build target time in IST as a UTC timestamp
-      const nowIstDate = new Date(nowIstMs);
-      const targetIstMs = Date.UTC(
-        nowIstDate.getUTCFullYear(),
-        nowIstDate.getUTCMonth(),
-        nowIstDate.getUTCDate(),
-        hour - 5,          // convert IST → UTC: IST 9:00 = UTC 3:30
-        minute - 30 < 0 ? minute + 30 : minute - 30,
-        0, 0
-      ) - (minute < 30 ? 60 * 60 * 1000 : 0); // adjust for borrow
+			const targetDate = new Date(
+				Date.UTC(
+					nowIstDate.getUTCFullYear(),
+					nowIstDate.getUTCMonth(),
+					nowIstDate.getUTCDate(),
+					finalHourUtc,
+					finalMinUtc,
+					0,
+					0,
+				),
+			);
 
-      // Recalculate properly: target in UTC = IST target - 5h30m
-      const targetHourUtc = hour - 5;
-      const targetMinUtc  = minute - 30;
-      const borrowHour    = targetMinUtc < 0 ? 1 : 0;
-      const finalMinUtc   = targetMinUtc < 0 ? targetMinUtc + 60 : targetMinUtc;
-      const finalHourUtc  = targetHourUtc - borrowHour;
+			// If the target has already passed today (UTC), push to tomorrow
+			if (targetDate.getTime() <= nowUtcMs) {
+				targetDate.setUTCDate(targetDate.getUTCDate() + 1);
+			}
 
-      const targetDate = new Date(Date.UTC(
-        nowIstDate.getUTCFullYear(),
-        nowIstDate.getUTCMonth(),
-        nowIstDate.getUTCDate(),
-        finalHourUtc,
-        finalMinUtc,
-        0, 0
-      ));
+			return targetDate.getTime() - nowUtcMs;
+		}
 
-      // If the target has already passed today (UTC), push to tomorrow
-      if (targetDate.getTime() <= nowUtcMs) {
-        targetDate.setUTCDate(targetDate.getUTCDate() + 1);
-      }
+		// ── 9:00 AM IST ── Generate fresh daily picks (market open)
+		const delayToGenerate = msUntilIst(9, 0);
+		console.log(
+			`📅 [PickOfTheDay] Next generation scheduled in ${Math.round(delayToGenerate / 60000)} min (9:00 AM IST)`,
+		);
+		setTimeout(() => {
+			this.generateDailyPicks();
+			setInterval(() => this.generateDailyPicks(), MS_PER_DAY);
+		}, delayToGenerate);
 
-      return targetDate.getTime() - nowUtcMs;
-    }
+		// ── 4:00 PM IST ── Refresh live prices after market close
+		const delayToRefresh = msUntilIst(16, 0);
+		console.log(
+			`📅 [PickOfTheDay] Next price refresh scheduled in ${Math.round(delayToRefresh / 60000)} min (4:00 PM IST)`,
+		);
+		setTimeout(() => {
+			this.refreshLivePicks();
+			setInterval(() => this.refreshLivePicks(), MS_PER_DAY);
+		}, delayToRefresh);
 
-    // ── 9:00 AM IST ── Generate fresh daily picks (market open)
-    const delayToGenerate = msUntilIst(9, 0);
-    console.log(`📅 [PickOfTheDay] Next generation scheduled in ${Math.round(delayToGenerate / 60000)} min (9:00 AM IST)`);
-    setTimeout(() => {
-      this.generateDailyPicks();
-      setInterval(() => this.generateDailyPicks(), MS_PER_DAY);
-    }, delayToGenerate);
+		// ── 12:30 PM IST ── Mid-day price refresh (optional, during market hours)
+		const delayToMidDay = msUntilIst(12, 30);
+		setTimeout(() => {
+			this.refreshLivePicks();
+			setInterval(() => this.refreshLivePicks(), MS_PER_DAY);
+		}, delayToMidDay);
 
-    // ── 4:00 PM IST ── Refresh live prices after market close
-    const delayToRefresh = msUntilIst(16, 0);
-    console.log(`📅 [PickOfTheDay] Next price refresh scheduled in ${Math.round(delayToRefresh / 60000)} min (4:00 PM IST)`);
-    setTimeout(() => {
-      this.refreshLivePicks();
-      setInterval(() => this.refreshLivePicks(), MS_PER_DAY);
-    }, delayToRefresh);
+		console.log(
+			`📅 [PickOfTheDay] IST-aware scheduler started: Generation@9AM, Refresh@12:30PM+4PM IST`,
+		);
 
-    // ── 12:30 PM IST ── Mid-day price refresh (optional, during market hours)
-    const delayToMidDay = msUntilIst(12, 30);
-    setTimeout(() => {
-      this.refreshLivePicks();
-      setInterval(() => this.refreshLivePicks(), MS_PER_DAY);
-    }, delayToMidDay);
+		// ── Auto-heal: every 6 hours ── Catch any generation failures silently
+		// If picks are still below threshold mid-day (e.g. strategy failed at 9 AM),
+		// this loop will regenerate them without any admin action.
+		const AUTO_HEAL_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+		setInterval(async () => {
+			try {
+				console.log("[PickOfTheDay] Auto-heal check running...");
+				await this.catchUpIfNeeded();
+			} catch (err) {
+				console.error("[PickOfTheDay] Auto-heal error:", err);
+			}
+		}, AUTO_HEAL_INTERVAL_MS);
+	}
 
-    console.log(`📅 [PickOfTheDay] IST-aware scheduler started: Generation@9AM, Refresh@12:30PM+4PM IST`);
+	/**
+	 * Generates picks on startup if today has none OR fewer than 3 picks (partial failure recovery).
+	 * Also handles the edge case where the 9 AM scheduler fired but some strategies failed.
+	 */
+	private async catchUpIfNeeded(): Promise<void> {
+		const today = todayIST(); // IST date — consistent with how picks are stored
+		const existing = await db
+			.select({ count: sql<number>`COUNT(*)` })
+			.from(dailyPicks)
+			.where(eq(dailyPicks.recoDate, today));
+		const existingCount = Number(existing[0]?.count || 0);
 
-    // ── Auto-heal: every 6 hours ── Catch any generation failures silently
-    // If picks are still below threshold mid-day (e.g. strategy failed at 9 AM),
-    // this loop will regenerate them without any admin action.
-    const AUTO_HEAL_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
-    setInterval(async () => {
-      try {
-        console.log('[PickOfTheDay] Auto-heal check running...');
-        await this.catchUpIfNeeded();
-      } catch (err) {
-        console.error('[PickOfTheDay] Auto-heal error:', err);
-      }
-    }, AUTO_HEAL_INTERVAL_MS);
-  }
+		// Regenerate if: no picks at all, or fewer than 4 (indicates partial failure).
+		// With StockStrategy generating 5 sector picks, a healthy day has ≥10 picks.
+		// Lowered from 8 → 4 to allow partial recovery: if only stocks exist and
+		// MF/Bond/FD/SGB/REIT are missing, this will trigger regeneration.
+		const MIN_PICKS_THRESHOLD = 4;
+		if (existingCount < MIN_PICKS_THRESHOLD) {
+			console.log(
+				`🔄 [PickOfTheDay] Startup catch-up: only ${existingCount} picks found for ${today} (threshold: ${MIN_PICKS_THRESHOLD}). Generating missing picks...`,
+			);
+			await this.generateDailyPicks();
+			return;
+		}
 
+		// Additionally check per-category coverage — if any critical category
+		// has 0 picks for today, regenerate to fill the gap.
+		const categoryCounts = await db
+			.select({ category: dailyPicks.category, cnt: sql<number>`COUNT(*)` })
+			.from(dailyPicks)
+			.where(eq(dailyPicks.recoDate, today))
+			.groupBy(dailyPicks.category);
 
-  /**
-   * Generates picks on startup if today has none OR fewer than 3 picks (partial failure recovery).
-   * Also handles the edge case where the 9 AM scheduler fired but some strategies failed.
-   */
-  private async catchUpIfNeeded(): Promise<void> {
-    const today = todayIST(); // IST date — consistent with how picks are stored
-    const existing = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(dailyPicks)
-      .where(eq(dailyPicks.recoDate, today));
-    const existingCount = Number(existing[0]?.count || 0);
+		const existingCategories = new Set(categoryCounts.map((r) => r.category));
+		const criticalCategories: PickCategory[] = [
+			"listed_stocks",
+			"mutual_funds",
+			"bonds",
+			"fixed_deposits",
+			"sgb",
+		];
+		const missingCritical = criticalCategories.filter(
+			(c) => !existingCategories.has(c),
+		);
 
-    // Regenerate if: no picks at all, or fewer than 4 (indicates partial failure).
-    // With StockStrategy generating 5 sector picks, a healthy day has ≥10 picks.
-    // Lowered from 8 → 4 to allow partial recovery: if only stocks exist and
-    // MF/Bond/FD/SGB/REIT are missing, this will trigger regeneration.
-    const MIN_PICKS_THRESHOLD = 4;
-    if (existingCount < MIN_PICKS_THRESHOLD) {
-      console.log(`🔄 [PickOfTheDay] Startup catch-up: only ${existingCount} picks found for ${today} (threshold: ${MIN_PICKS_THRESHOLD}). Generating missing picks...`);
-      await this.generateDailyPicks();
-      return;
-    }
+		if (missingCritical.length >= 2) {
+			// 2+ critical categories are missing — regenerate to fill gaps
+			console.log(
+				`🔄 [PickOfTheDay] Missing ${missingCritical.length} critical categories: [${missingCritical.join(", ")}]. Triggering regeneration...`,
+			);
+			await this.generateDailyPicks();
+		} else {
+			console.log(
+				`✅ [PickOfTheDay] ${existingCount} picks across ${existingCategories.size} categories for ${today}. OK.`,
+			);
+		}
+	}
 
-    // Additionally check per-category coverage — if any critical category
-    // has 0 picks for today, regenerate to fill the gap.
-    const categoryCounts = await db
-      .select({ category: dailyPicks.category, cnt: sql<number>`COUNT(*)` })
-      .from(dailyPicks)
-      .where(eq(dailyPicks.recoDate, today))
-      .groupBy(dailyPicks.category);
-
-    const existingCategories = new Set(categoryCounts.map(r => r.category));
-    const criticalCategories: PickCategory[] = ['listed_stocks', 'mutual_funds', 'bonds', 'fixed_deposits', 'sgb'];
-    const missingCritical = criticalCategories.filter(c => !existingCategories.has(c));
-
-    if (missingCritical.length >= 2) {
-      // 2+ critical categories are missing — regenerate to fill gaps
-      console.log(`🔄 [PickOfTheDay] Missing ${missingCritical.length} critical categories: [${missingCritical.join(', ')}]. Triggering regeneration...`);
-      await this.generateDailyPicks();
-    } else {
-      console.log(`✅ [PickOfTheDay] ${existingCount} picks across ${existingCategories.size} categories for ${today}. OK.`);
-    }
-  }
-
-  private async scheduledGenerate(): Promise<void> {
-    await this.generateDailyPicks();
-  }
+	private async scheduledGenerate(): Promise<void> {
+		await this.generateDailyPicks();
+	}
 }
 
 export const pickOfTheDayService = new PickOfTheDayService();

@@ -37,7 +37,7 @@
         "useTemplate": "off",
         "useSingleVarDeclarator": "off",
         "useImportType": "off",
-        "noInlineStyle": "off"
+        "noParameterAssign": "off"
       },
 
       "nursery": {
