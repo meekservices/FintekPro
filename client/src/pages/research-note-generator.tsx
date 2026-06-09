@@ -1072,12 +1072,14 @@ export default function ResearchNoteGenerator() {
                           const isPercent = row.label.toLowerCase().includes("opm") || row.label.toLowerCase().includes("%");
                           const isEps = row.label.toLowerCase().includes("eps");
                           const lastTwo = row.values.slice(-2);
+                          const qoqDenom = lastTwo[0] !== null ? Math.abs(lastTwo[0]) : 1; // esbuild: avoid / regex fp
                           const qoq = lastTwo.length === 2 && lastTwo[0] !== null && lastTwo[1] !== null && lastTwo[0] !== 0
-                            ? ((lastTwo[1] - lastTwo[0]) / Math.abs(lastTwo[0])) : null;
+                            ? ((lastTwo[1] - lastTwo[0]) / qoqDenom) : null;
                           const yoyStart = row.values[0];
                           const yoyEnd = row.values[row.values.length - 1];
+                          const yoyDenom = yoyStart !== null ? Math.abs(yoyStart) : 1; // esbuild: avoid / regex fp
                           const yoy = !isPercent && yoyStart !== null && yoyEnd !== null && yoyStart !== 0
-                            ? ((yoyEnd - yoyStart) / Math.abs(yoyStart)) : null;
+                            ? ((yoyEnd - yoyStart) / yoyDenom) : null;
                           return (
                             <tr key={row.label} className={`border-b last:border-0 ${ri % 2 === 0 ? "" : "bg-muted/30"}`}>
                               <td className="py-1.5 px-2 font-medium text-foreground">{row.label}</td>
