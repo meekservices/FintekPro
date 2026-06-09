@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, fetchCsrfToken } from "@/lib/queryClient";
 import { 
   Brain,
   TrendingUp,
@@ -171,6 +171,9 @@ export default function AgentStockAI() {
 
   const [stockRecommendations, setStockRecommendations] = useState<StockRecommendation[]>([]);
   const [derivativeRecommendations, setDerivativeRecommendations] = useState<DerivativeRecommendation[]>([]);
+
+  // Fetch CSRF token on mount so the first POST doesn't fail with 'Invalid CSRF token'
+  useEffect(() => { fetchCsrfToken(); }, []);
 
   const generateMutation = useMutation({
     mutationFn: async (requestParams: RecommendationParams) => {

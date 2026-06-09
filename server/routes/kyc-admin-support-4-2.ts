@@ -440,7 +440,7 @@ app.get('/api/admin/error-logs', requireAdmin, async (req, res) => {
 
 
 // Stock AI - AI-powered stock and derivatives recommendations
-app.post("/api/stock-ai/generate", async (req, res) => {
+app.post("/api/stock-ai/generate", requireAuth, async (req, res) => {
   try {
     const { category, timeHorizon, investmentAmount, riskTolerance, sectors, marketCap, tradingStyle, derivativeType } = req.body;
     const yahooFinance = require('yahoo-finance2').default;
