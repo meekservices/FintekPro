@@ -241,7 +241,7 @@ function ScoreBar({ label, score, weight }: { label: string; score: number; weig
         <span className="font-semibold">{score}/100</span>
       </div>
       <div className="h-2 bg-muted rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all [width:var(--bar-width)] ${color}`} style={{ '--bar-width': `${score}%` } as React.CSSProperties} />
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${score}%` }} />
       </div>
     </div>
   );
@@ -750,8 +750,8 @@ export default function ResearchNoteGenerator() {
                         </div>
                         <div className="h-3 bg-muted rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all [width:var(--fhs-width)] ${d.unlistedExtras.fhs >= 65 ? "bg-green-500" : d.unlistedExtras.fhs >= 40 ? "bg-amber-500" : "bg-red-500"}`}
-                            style={{ '--fhs-width': `${d.unlistedExtras.fhs}%` } as React.CSSProperties}
+                            className={`h-full rounded-full transition-all ${d.unlistedExtras.fhs >= 65 ? "bg-green-500" : d.unlistedExtras.fhs >= 40 ? "bg-amber-500" : "bg-red-500"}`}
+                            style={{ width: `${d.unlistedExtras.fhs}%` }}
                           />
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">Composite score: ROE (35%) · Revenue Growth (30%) · Leverage (35%)</p>

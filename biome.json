@@ -36,7 +36,8 @@
         "noUnusedTemplateLiteral": "off",
         "useTemplate": "off",
         "useSingleVarDeclarator": "off",
-        "useImportType": "off"
+        "useImportType": "off",
+        "noInlineStyle": "off"
       },
 
       "nursery": {
