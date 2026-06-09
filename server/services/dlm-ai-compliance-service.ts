@@ -8,108 +8,116 @@ import { DLMWorkflowService } from "./dlm-workflow-service";
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 interface ClauseAnalysis {
-  clauseNumber: string;
-  clauseTitle: string;
-  category: string;
-  text: string;
-  isCompliant: boolean;
-  complianceNotes: string;
-  riskLevel: "low" | "medium" | "high" | "critical";
-  confidenceScore: number;
-  suggestedText?: string;
-  sebiClauseMapping?: string;
+	clauseNumber: string;
+	clauseTitle: string;
+	category: string;
+	text: string;
+	isCompliant: boolean;
+	complianceNotes: string;
+	riskLevel: "low" | "medium" | "high" | "critical";
+	confidenceScore: number;
+	suggestedText?: string;
+	sebiClauseMapping?: string;
 }
 
 interface ComplianceFinding {
-  clauseRef: string;
-  issue: string;
-  severity: "low" | "medium" | "high" | "critical";
-  suggestion: string;
-  confidence: number;
+	clauseRef: string;
+	issue: string;
+	severity: "low" | "medium" | "high" | "critical";
+	suggestion: string;
+	confidence: number;
 }
 
 interface AIReviewResult {
-  overallScore: number;
-  riskScore: number;
-  complianceScore: number;
-  findings: ComplianceFinding[];
-  missingClauses: string[];
-  riskFactors: string[];
-  recommendations: string[];
-  clauseMapping: ClauseAnalysis[];
-  overallConfidence: number;
-  explainabilityNotes: string;
-  limitations: string;
-  processingTime: number;
+	overallScore: number;
+	riskScore: number;
+	complianceScore: number;
+	findings: ComplianceFinding[];
+	missingClauses: string[];
+	riskFactors: string[];
+	recommendations: string[];
+	clauseMapping: ClauseAnalysis[];
+	overallConfidence: number;
+	explainabilityNotes: string;
+	limitations: string;
+	processingTime: number;
 }
 
 export class DLMAIComplianceService {
-  
-  // Analyze document for SEBI compliance
-  static async analyzeDocument(data: {
-    documentId: string;
-    versionId: string;
-    content: string;
-    entityType: string;
-    agreementType: string;
-  }): Promise<AIReviewResult> {
-    const startTime = Date.now();
-    
-    try {
-      const prompt = this.buildAnalysisPrompt(data);
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-          temperature: 0.3,
-          topP: 0.8,
-          maxOutputTokens: 8000,
-          responseMimeType: "application/json",
-        },
-      });
+	// Analyze document for SEBI compliance
+	static async analyzeDocument(data: {
+		documentId: string;
+		versionId: string;
+		content: string;
+		entityType: string;
+		agreementType: string;
+	}): Promise<AIReviewResult> {
+		const startTime = Date.now();
 
-      const resultText = response.text || "{}";
-      const result = this.parseAIResponse(resultText);
-      result.processingTime = Date.now() - startTime;
+		try {
+			const prompt = DLMAIComplianceService.buildAnalysisPrompt(data);
 
-      // Store the review in database
-      await this.saveReviewToDatabase(data.documentId, data.versionId, result);
+			const response = await ai.models.generateContent({
+				model: "gemini-2.5-flash",
+				contents: prompt,
+				config: {
+					temperature: 0.3,
+					topP: 0.8,
+					maxOutputTokens: 8000,
+					responseMimeType: "application/json",
+				},
+			});
 
-      return result;
-    } catch (error: any) {
-      console.error("AI Compliance Analysis Error:", error);
-      
-      // Return a fallback result with error indication
-      return {
-        overallScore: 50,
-        riskScore: 50,
-        complianceScore: 50,
-        findings: [{
-          clauseRef: "N/A",
-          issue: "AI analysis could not be completed",
-          severity: "medium",
-          suggestion: "Manual review required",
-          confidence: 0,
-        }],
-        missingClauses: [],
-        riskFactors: ["AI analysis failed - manual review required"],
-        recommendations: ["Please have the document reviewed manually by a compliance officer"],
-        clauseMapping: [],
-        overallConfidence: 0,
-        explainabilityNotes: "AI analysis encountered an error. The results shown are placeholders.",
-        limitations: `Error: ${error.message}`,
-        processingTime: Date.now() - startTime,
-      };
-    }
-  }
+			const resultText = response.text || "{}";
+			const result = DLMAIComplianceService.parseAIResponse(resultText);
+			result.processingTime = Date.now() - startTime;
 
-  private static buildAnalysisPrompt(data: {
-    content: string;
-    entityType: string;
-    agreementType: string;
-  }): string {
-    return `You are a SEBI compliance expert analyzing a financial services agreement. Analyze the following ${data.agreementType.replace(/_/g, " ")} for a ${data.entityType} entity.
+			// Store the review in database
+			await DLMAIComplianceService.saveReviewToDatabase(
+				data.documentId,
+				data.versionId,
+				result,
+			);
+
+			return result;
+		} catch (error: any) {
+			console.error("AI Compliance Analysis Error:", error);
+
+			// Return a fallback result with error indication
+			return {
+				overallScore: 50,
+				riskScore: 50,
+				complianceScore: 50,
+				findings: [
+					{
+						clauseRef: "N/A",
+						issue: "AI analysis could not be completed",
+						severity: "medium",
+						suggestion: "Manual review required",
+						confidence: 0,
+					},
+				],
+				missingClauses: [],
+				riskFactors: ["AI analysis failed - manual review required"],
+				recommendations: [
+					"Please have the document reviewed manually by a compliance officer",
+				],
+				clauseMapping: [],
+				overallConfidence: 0,
+				explainabilityNotes:
+					"AI analysis encountered an error. The results shown are placeholders.",
+				limitations: `Error: ${error.message}`,
+				processingTime: Date.now() - startTime,
+			};
+		}
+	}
+
+	private static buildAnalysisPrompt(data: {
+		content: string;
+		entityType: string;
+		agreementType: string;
+	}): string {
+		return `You are a SEBI compliance expert analyzing a financial services agreement. Analyze the following ${data.agreementType.replace(/_/g, " ")} for a ${data.entityType} entity.
 
 DOCUMENT CONTENT:
 ---
@@ -171,193 +179,221 @@ Focus on:
 - Regulatory reporting obligations
 
 Provide actionable, specific feedback.`;
-  }
+	}
 
-  private static parseAIResponse(responseText: string): AIReviewResult {
-    try {
-      // Extract JSON from the response (handle markdown code blocks)
-      let jsonStr = responseText;
-      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
-      if (jsonMatch) {
-        jsonStr = jsonMatch[1];
-      } else {
-        const plainJsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (plainJsonMatch) {
-          jsonStr = plainJsonMatch[0];
-        }
-      }
+	private static parseAIResponse(responseText: string): AIReviewResult {
+		try {
+			// Extract JSON from the response (handle markdown code blocks)
+			let jsonStr = responseText;
+			const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
+			if (jsonMatch) {
+				jsonStr = jsonMatch[1];
+			} else {
+				const plainJsonMatch = responseText.match(/\{[\s\S]*\}/);
+				if (plainJsonMatch) {
+					jsonStr = plainJsonMatch[0];
+				}
+			}
 
-      const parsed = JSON.parse(jsonStr);
+			const parsed = JSON.parse(jsonStr);
 
-      return {
-        overallScore: Math.min(100, Math.max(0, parsed.overallScore || 50)),
-        riskScore: Math.min(100, Math.max(0, parsed.riskScore || 50)),
-        complianceScore: Math.min(100, Math.max(0, parsed.complianceScore || 50)),
-        findings: Array.isArray(parsed.findings) ? parsed.findings : [],
-        missingClauses: Array.isArray(parsed.missingClauses) ? parsed.missingClauses : [],
-        riskFactors: Array.isArray(parsed.riskFactors) ? parsed.riskFactors : [],
-        recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
-        clauseMapping: Array.isArray(parsed.clauseMapping) ? parsed.clauseMapping : [],
-        overallConfidence: Math.min(100, Math.max(0, parsed.overallConfidence || 70)),
-        explainabilityNotes: parsed.explainabilityNotes || "AI analysis based on SEBI compliance requirements",
-        limitations: parsed.limitations || "This AI analysis should be reviewed by a qualified compliance officer",
-        processingTime: 0,
-      };
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", parseError);
-      
-      return {
-        overallScore: 50,
-        riskScore: 50,
-        complianceScore: 50,
-        findings: [],
-        missingClauses: [],
-        riskFactors: ["Unable to parse AI analysis"],
-        recommendations: ["Manual review required"],
-        clauseMapping: [],
-        overallConfidence: 0,
-        explainabilityNotes: "AI response could not be parsed",
-        limitations: "Parse error - manual review required",
-        processingTime: 0,
-      };
-    }
-  }
+			return {
+				overallScore: Math.min(100, Math.max(0, parsed.overallScore || 50)),
+				riskScore: Math.min(100, Math.max(0, parsed.riskScore || 50)),
+				complianceScore: Math.min(
+					100,
+					Math.max(0, parsed.complianceScore || 50),
+				),
+				findings: Array.isArray(parsed.findings) ? parsed.findings : [],
+				missingClauses: Array.isArray(parsed.missingClauses)
+					? parsed.missingClauses
+					: [],
+				riskFactors: Array.isArray(parsed.riskFactors)
+					? parsed.riskFactors
+					: [],
+				recommendations: Array.isArray(parsed.recommendations)
+					? parsed.recommendations
+					: [],
+				clauseMapping: Array.isArray(parsed.clauseMapping)
+					? parsed.clauseMapping
+					: [],
+				overallConfidence: Math.min(
+					100,
+					Math.max(0, parsed.overallConfidence || 70),
+				),
+				explainabilityNotes:
+					parsed.explainabilityNotes ||
+					"AI analysis based on SEBI compliance requirements",
+				limitations:
+					parsed.limitations ||
+					"This AI analysis should be reviewed by a qualified compliance officer",
+				processingTime: 0,
+			};
+		} catch (parseError) {
+			console.error("Failed to parse AI response:", parseError);
 
-  private static async saveReviewToDatabase(
-    documentId: string,
-    versionId: string,
-    result: AIReviewResult
-  ) {
-    try {
-      // Generate report hash
-      const reportHash = DLMWorkflowService.generateHash(JSON.stringify(result));
+			return {
+				overallScore: 50,
+				riskScore: 50,
+				complianceScore: 50,
+				findings: [],
+				missingClauses: [],
+				riskFactors: ["Unable to parse AI analysis"],
+				recommendations: ["Manual review required"],
+				clauseMapping: [],
+				overallConfidence: 0,
+				explainabilityNotes: "AI response could not be parsed",
+				limitations: "Parse error - manual review required",
+				processingTime: 0,
+			};
+		}
+	}
 
-      // Insert AI review record
-      const [review] = await db.insert(schema.documentAiReviews)
-        .values({
-          documentId,
-          versionId,
-          reviewType: "compliance",
-          modelUsed: "gemini-2.5-flash",
-          overallScore: result.overallScore,
-          riskScore: result.riskScore,
-          complianceScore: result.complianceScore,
-          findings: result.findings,
-          missingClauses: result.missingClauses,
-          riskFactors: result.riskFactors,
-          recommendations: result.recommendations,
-          clauseMapping: result.clauseMapping,
-          reportHash,
-          overallConfidence: result.overallConfidence,
-          explainabilityNotes: result.explainabilityNotes,
-          limitations: result.limitations,
-          processingTime: result.processingTime,
-          isAcknowledged: false,
-        })
-        .returning();
+	private static async saveReviewToDatabase(
+		documentId: string,
+		versionId: string,
+		result: AIReviewResult,
+	) {
+		try {
+			// Generate report hash
+			const reportHash = DLMWorkflowService.generateHash(
+				JSON.stringify(result),
+			);
 
-      // Update document with AI review score
-      await db.update(schema.documents)
-        .set({
-          aiReviewScore: result.overallScore,
-          riskScore: result.riskScore,
-          complianceScore: result.complianceScore,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.documents.id, documentId));
+			// Insert AI review record
+			const [review] = await db
+				.insert(schema.documentAiReviews)
+				.values({
+					documentId,
+					versionId,
+					reviewType: "compliance",
+					modelUsed: "gemini-2.5-flash",
+					overallScore: result.overallScore,
+					riskScore: result.riskScore,
+					complianceScore: result.complianceScore,
+					findings: result.findings,
+					missingClauses: result.missingClauses,
+					riskFactors: result.riskFactors,
+					recommendations: result.recommendations,
+					clauseMapping: result.clauseMapping,
+					reportHash,
+					overallConfidence: result.overallConfidence,
+					explainabilityNotes: result.explainabilityNotes,
+					limitations: result.limitations,
+					processingTime: result.processingTime,
+					isAcknowledged: false,
+				})
+				.returning();
 
-      // Create audit event
-      await DLMWorkflowService.createAuditEvent({
-        documentId,
-        versionId,
-        eventType: "ai_review_completed",
-        eventCategory: "compliance",
-        eventData: {
-          reviewId: review.id,
-          overallScore: result.overallScore,
-          riskScore: result.riskScore,
-          complianceScore: result.complianceScore,
-          findingsCount: result.findings.length,
-          confidence: result.overallConfidence,
-        },
-      });
+			// Update document with AI review score
+			await db
+				.update(schema.documents)
+				.set({
+					aiReviewScore: result.overallScore,
+					riskScore: result.riskScore,
+					complianceScore: result.complianceScore,
+					updatedAt: new Date(),
+				})
+				.where(eq(schema.documents.id, documentId));
 
-      return review;
-    } catch (error) {
-      console.error("Error saving AI review:", error);
-      throw error;
-    }
-  }
+			// Create audit event
+			await DLMWorkflowService.createAuditEvent({
+				documentId,
+				versionId,
+				eventType: "ai_review_completed",
+				eventCategory: "compliance",
+				eventData: {
+					reviewId: review.id,
+					overallScore: result.overallScore,
+					riskScore: result.riskScore,
+					complianceScore: result.complianceScore,
+					findingsCount: result.findings.length,
+					confidence: result.overallConfidence,
+				},
+			});
 
-  // Get AI review for a document version
-  static async getReview(documentId: string, versionId?: string) {
-    let query = db.select()
-      .from(schema.documentAiReviews)
-      .where(eq(schema.documentAiReviews.documentId, documentId))
-      .orderBy(schema.documentAiReviews.createdAt);
+			return review;
+		} catch (error) {
+			console.error("Error saving AI review:", error);
+			throw error;
+		}
+	}
 
-    if (versionId) {
-      query = query.where(eq(schema.documentAiReviews.versionId, versionId)) as any;
-    }
+	// Get AI review for a document version
+	static async getReview(documentId: string, versionId?: string) {
+		let query = db
+			.select()
+			.from(schema.documentAiReviews)
+			.where(eq(schema.documentAiReviews.documentId, documentId))
+			.orderBy(schema.documentAiReviews.createdAt);
 
-    const reviews = await query.limit(1);
-    return reviews[0] || null;
-  }
+		if (versionId) {
+			query = query.where(
+				eq(schema.documentAiReviews.versionId, versionId),
+			) as any;
+		}
 
-  // Acknowledge AI review (admin confirmation)
-  static async acknowledgeReview(data: {
-    reviewId: string;
-    acknowledgedBy: string;
-    notes?: string;
-  }) {
-    const [review] = await db.update(schema.documentAiReviews)
-      .set({
-        isAcknowledged: true,
-        acknowledgedBy: data.acknowledgedBy,
-        acknowledgedAt: new Date(),
-        acknowledgmentNotes: data.notes,
-      })
-      .where(eq(schema.documentAiReviews.id, data.reviewId))
-      .returning();
+		const reviews = await query.limit(1);
+		return reviews[0] || null;
+	}
 
-    if (review) {
-      await DLMWorkflowService.createAuditEvent({
-        documentId: review.documentId,
-        versionId: review.versionId || undefined,
-        eventType: "ai_review_acknowledged",
-        eventCategory: "compliance",
-        actorId: data.acknowledgedBy,
-        eventData: {
-          reviewId: review.id,
-          notes: data.notes,
-        },
-      });
-    }
+	// Acknowledge AI review (admin confirmation)
+	static async acknowledgeReview(data: {
+		reviewId: string;
+		acknowledgedBy: string;
+		notes?: string;
+	}) {
+		const [review] = await db
+			.update(schema.documentAiReviews)
+			.set({
+				isAcknowledged: true,
+				acknowledgedBy: data.acknowledgedBy,
+				acknowledgedAt: new Date(),
+				acknowledgmentNotes: data.notes,
+			})
+			.where(eq(schema.documentAiReviews.id, data.reviewId))
+			.returning();
 
-    return review;
-  }
+		if (review) {
+			await DLMWorkflowService.createAuditEvent({
+				documentId: review.documentId,
+				versionId: review.versionId || undefined,
+				eventType: "ai_review_acknowledged",
+				eventCategory: "compliance",
+				actorId: data.acknowledgedBy,
+				eventData: {
+					reviewId: review.id,
+					notes: data.notes,
+				},
+			});
+		}
 
-  // Compare two document versions for changes
-  static async compareVersions(data: {
-    documentId: string;
-    versionId1: string;
-    versionId2: string;
-  }) {
-    const [version1] = await db.select()
-      .from(schema.documentVersions)
-      .where(eq(schema.documentVersions.id, data.versionId1))
-      .limit(1);
+		return review;
+	}
 
-    const [version2] = await db.select()
-      .from(schema.documentVersions)
-      .where(eq(schema.documentVersions.id, data.versionId2))
-      .limit(1);
+	// Compare two document versions for changes
+	static async compareVersions(data: {
+		documentId: string;
+		versionId1: string;
+		versionId2: string;
+	}) {
+		const [version1] = await db
+			.select()
+			.from(schema.documentVersions)
+			.where(eq(schema.documentVersions.id, data.versionId1))
+			.limit(1);
 
-    if (!version1 || !version2) {
-      throw new Error("One or both versions not found");
-    }
+		const [version2] = await db
+			.select()
+			.from(schema.documentVersions)
+			.where(eq(schema.documentVersions.id, data.versionId2))
+			.limit(1);
 
-    const prompt = `Compare these two document versions and identify changes:
+		if (!version1 || !version2) {
+			throw new Error("One or both versions not found");
+		}
+
+		const prompt = `Compare these two document versions and identify changes:
 
 VERSION 1 (v${version1.versionNumber}):
 ---
@@ -390,40 +426,40 @@ Respond in JSON format:
   "recommendation": "<recommendation for reviewers>"
 }`;
 
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-          temperature: 0.3,
-          maxOutputTokens: 4000,
-          responseMimeType: "application/json",
-        },
-      });
+		try {
+			const response = await ai.models.generateContent({
+				model: "gemini-2.5-flash",
+				contents: prompt,
+				config: {
+					temperature: 0.3,
+					maxOutputTokens: 4000,
+					responseMimeType: "application/json",
+				},
+			});
 
-      const resultText = response.text || "{}";
-      return JSON.parse(resultText);
-    } catch (error) {
-      console.error("Version comparison error:", error);
-      return {
-        summary: "Comparison could not be completed",
-        addedClauses: [],
-        removedClauses: [],
-        modifiedClauses: [],
-        riskDelta: { direction: "unchanged", explanation: "Analysis failed" },
-        recommendation: "Manual review required",
-      };
-    }
-  }
+			const resultText = response.text || "{}";
+			return JSON.parse(resultText);
+		} catch (error) {
+			console.error("Version comparison error:", error);
+			return {
+				summary: "Comparison could not be completed",
+				addedClauses: [],
+				removedClauses: [],
+				modifiedClauses: [],
+				riskDelta: { direction: "unchanged", explanation: "Analysis failed" },
+				recommendation: "Manual review required",
+			};
+		}
+	}
 
-  // Generate suggested clause text
-  static async suggestClauseText(data: {
-    clauseCategory: string;
-    entityType: string;
-    agreementType: string;
-    existingText?: string;
-  }) {
-    const prompt = `Generate SEBI-compliant clause text for a ${data.agreementType.replace(/_/g, " ")} with a ${data.entityType} entity.
+	// Generate suggested clause text
+	static async suggestClauseText(data: {
+		clauseCategory: string;
+		entityType: string;
+		agreementType: string;
+		existingText?: string;
+	}) {
+		const prompt = `Generate SEBI-compliant clause text for a ${data.agreementType.replace(/_/g, " ")} with a ${data.entityType} entity.
 
 Clause Category: ${data.clauseCategory.replace(/_/g, " ")}
 ${data.existingText ? `\nExisting Text to Improve:\n${data.existingText}` : ""}
@@ -442,29 +478,29 @@ Respond in JSON format:
   "keyPoints": ["<key compliance points covered>"]
 }`;
 
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-          temperature: 0.4,
-          maxOutputTokens: 2000,
-          responseMimeType: "application/json",
-        },
-      });
+		try {
+			const response = await ai.models.generateContent({
+				model: "gemini-2.5-flash",
+				contents: prompt,
+				config: {
+					temperature: 0.4,
+					maxOutputTokens: 2000,
+					responseMimeType: "application/json",
+				},
+			});
 
-      const resultText = response.text || "{}";
-      return JSON.parse(resultText);
-    } catch (error) {
-      console.error("Clause suggestion error:", error);
-      return {
-        suggestedText: "",
-        explanation: "Suggestion could not be generated",
-        regulatoryReference: "",
-        keyPoints: [],
-      };
-    }
-  }
+			const resultText = response.text || "{}";
+			return JSON.parse(resultText);
+		} catch (error) {
+			console.error("Clause suggestion error:", error);
+			return {
+				suggestedText: "",
+				explanation: "Suggestion could not be generated",
+				regulatoryReference: "",
+				keyPoints: [],
+			};
+		}
+	}
 }
 
 export default DLMAIComplianceService;

@@ -1,78 +1,110 @@
 // @ts-nocheck
-import { db } from '../../db';
-import { screenerStocks, screenerFinancials, screenerPriceHistory, screenerDerivedMetrics } from '@shared/schema';
-import { eq, and, sql, lt, isNull, asc } from 'drizzle-orm';
-import { getDataProvider } from './fmp-provider';
-import { getProviderRegistry } from './data-provider-registry';
-import { fmpUsageMonitor } from './fmp-usage-monitor';
-import { calculateDerivedMetrics } from './derived-metrics-engine';
+import { db } from "../../db";
+import {
+	screenerStocks,
+	screenerFinancials,
+	screenerPriceHistory,
+	screenerDerivedMetrics,
+} from "@shared/schema";
+import { eq, and, sql, lt, isNull, asc } from "drizzle-orm";
+import { getDataProvider } from "./fmp-provider";
+import { getProviderRegistry } from "./data-provider-registry";
+import { fmpUsageMonitor } from "./fmp-usage-monitor";
+import { calculateDerivedMetrics } from "./derived-metrics-engine";
 
 export interface EnrichmentResult {
-  task: string;
-  processed: number;
-  errors: number;
-  skipped: number;
-  apiCallsUsed: number;
-  remaining: number;
-  details?: any;
-  providerBreakdown?: Record<string, number>;
+	task: string;
+	processed: number;
+	errors: number;
+	skipped: number;
+	apiCallsUsed: number;
+	remaining: number;
+	details?: any;
+	providerBreakdown?: Record<string, number>;
 }
 
-export async function enrichStockProfiles(batchSize = 10): Promise<EnrichmentResult> {
-  const registry = getProviderRegistry();
-  let processed = 0, errors = 0, skipped = 0, apiCalls = 0;
-  const providerBreakdown: Record<string, number> = {};
+export async function enrichStockProfiles(
+	batchSize = 10,
+): Promise<EnrichmentResult> {
+	const registry = getProviderRegistry();
+	let processed = 0,
+		errors = 0,
+		skipped = 0,
+		apiCalls = 0;
+	const providerBreakdown: Record<string, number> = {};
 
-  const staleCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const stocks = await db
-    .select()
-    .from(screenerStocks)
-    .where(
-      sql`${screenerStocks.lastFmpSync} IS NULL OR ${screenerStocks.lastFmpSync} < ${staleCutoff}::timestamp`
-    )
-    .orderBy(asc(screenerStocks.lastFmpSync))
-    .limit(batchSize);
+	const staleCutoff = new Date(
+		Date.now() - 30 * 24 * 60 * 60 * 1000,
+	).toISOString();
+	const stocks = await db
+		.select()
+		.from(screenerStocks)
+		.where(
+			sql`${screenerStocks.lastFmpSync} IS NULL OR ${screenerStocks.lastFmpSync} < ${staleCutoff}::timestamp`,
+		)
+		.orderBy(asc(screenerStocks.lastFmpSync))
+		.limit(batchSize);
 
-  for (const stock of stocks) {
-    try {
-      const fmpSymbol = stock.fmpSymbol || `${stock.symbol}.NS`;
-      const { result: profile, provider: providerName } = await registry.getCompanyProfile(fmpSymbol);
-      apiCalls++;
+	for (const stock of stocks) {
+		try {
+			const fmpSymbol = stock.fmpSymbol || `${stock.symbol}.NS`;
+			const { result: profile, provider: providerName } =
+				await registry.getCompanyProfile(fmpSymbol);
+			apiCalls++;
 
-      if (profile) {
-        providerBreakdown[providerName] = (providerBreakdown[providerName] || 0) + 1;
-        await db.update(screenerStocks).set({
-          companyName: profile.companyName || stock.companyName,
-          sector: profile.sector || stock.sector,
-          industry: profile.industry || stock.industry,
-          currentPrice: profile.price?.toString(),
-          marketCapValue: profile.marketCap?.toString(),
-          marketCapCategory: categorizeMarketCap(profile.marketCap),
-          lastFmpSync: new Date(),
-          dataSource: providerName.toLowerCase(),
-          updatedAt: new Date(),
-        }).where(eq(screenerStocks.id, stock.id));
-        processed++;
-      } else {
-        skipped++;
-      }
-    } catch (err: any) {
-      console.error(`[Enrichment] Profile error for ${stock.symbol}: ${err.message}`);
-      errors++;
-    }
-  }
+			if (profile) {
+				providerBreakdown[providerName] =
+					(providerBreakdown[providerName] || 0) + 1;
+				await db
+					.update(screenerStocks)
+					.set({
+						companyName: profile.companyName || stock.companyName,
+						sector: profile.sector || stock.sector,
+						industry: profile.industry || stock.industry,
+						currentPrice: profile.price?.toString(),
+						marketCapValue: profile.marketCap?.toString(),
+						marketCapCategory: categorizeMarketCap(profile.marketCap),
+						lastFmpSync: new Date(),
+						dataSource: providerName.toLowerCase(),
+						updatedAt: new Date(),
+					})
+					.where(eq(screenerStocks.id, stock.id));
+				processed++;
+			} else {
+				skipped++;
+			}
+		} catch (err: any) {
+			console.error(
+				`[Enrichment] Profile error for ${stock.symbol}: ${err.message}`,
+			);
+			errors++;
+		}
+	}
 
-  const stats = await fmpUsageMonitor.getDailyStats();
-  return { task: 'stock_profiles', processed, errors, skipped, apiCallsUsed: apiCalls, remaining: stats.remaining, providerBreakdown };
+	const stats = await fmpUsageMonitor.getDailyStats();
+	return {
+		task: "stock_profiles",
+		processed,
+		errors,
+		skipped,
+		apiCallsUsed: apiCalls,
+		remaining: stats.remaining,
+		providerBreakdown,
+	};
 }
 
-export async function enrichFinancialRatios(batchSize = 5): Promise<EnrichmentResult> {
-  const registry = getProviderRegistry();
-  let processed = 0, errors = 0, skipped = 0, apiCalls = 0;
-  const errorDetails: string[] = [];
-  const providerBreakdown: Record<string, number> = {};
+export async function enrichFinancialRatios(
+	batchSize = 5,
+): Promise<EnrichmentResult> {
+	const registry = getProviderRegistry();
+	let processed = 0,
+		errors = 0,
+		skipped = 0,
+		apiCalls = 0;
+	const errorDetails: string[] = [];
+	const providerBreakdown: Record<string, number> = {};
 
-  const stocks = await db.execute(sql`
+	const stocks = await db.execute(sql`
     SELECT ss.id, ss.symbol, ss.fmp_symbol, ss.data_source
     FROM screener_stocks ss
     LEFT JOIN screener_financials sf ON sf.symbol = ss.symbol
@@ -91,86 +123,131 @@ export async function enrichFinancialRatios(batchSize = 5): Promise<EnrichmentRe
     LIMIT ${batchSize}
   `);
 
-  const stockRows = (stocks as any).rows || stocks;
+	const stockRows = (stocks as any).rows || stocks;
 
-  for (const stock of stockRows) {
-    try {
-      const fmpSymbol = stock.fmp_symbol || `${stock.symbol}.NS`;
-      const { result: ratios, provider: providerName } = await registry.getRatios(fmpSymbol);
-      apiCalls++;
+	for (const stock of stockRows) {
+		try {
+			const fmpSymbol = stock.fmp_symbol || `${stock.symbol}.NS`;
+			const { result: ratios, provider: providerName } =
+				await registry.getRatios(fmpSymbol);
+			apiCalls++;
 
-      if (ratios) {
-        providerBreakdown[providerName] = (providerBreakdown[providerName] || 0) + 1;
-        const values: Record<string, any> = {
-          symbol: stock.symbol,
-          period: ratios.period || 'annual',
-          fiscalYear: ratios.date ? parseInt(ratios.date.split('-')[0]) : new Date().getFullYear(),
-          fiscalDate: ratios.date,
-          lastUpdated: new Date(),
-        };
+			if (ratios) {
+				providerBreakdown[providerName] =
+					(providerBreakdown[providerName] || 0) + 1;
+				const values: Record<string, any> = {
+					symbol: stock.symbol,
+					period: ratios.period || "annual",
+					fiscalYear: ratios.date
+						? Number.parseInt(ratios.date.split("-")[0])
+						: new Date().getFullYear(),
+					fiscalDate: ratios.date,
+					lastUpdated: new Date(),
+				};
 
-        if (ratios.peRatio != null) values.peRatio = ratios.peRatio.toString();
-        if (ratios.pbRatio != null) values.pbRatio = ratios.pbRatio.toString();
-        if (ratios.evToEbitda != null) values.evToEbitda = ratios.evToEbitda.toString();
-        if (ratios.priceToSales != null) values.priceToSales = ratios.priceToSales.toString();
-        if (ratios.roe != null) values.roe = ratios.roe.toString();
-        if (ratios.roa != null) values.roa = ratios.roa.toString();
-        if (ratios.netProfitMargin != null) values.netProfitMargin = ratios.netProfitMargin.toString();
-        if (ratios.operatingMargin != null) values.operatingMargin = ratios.operatingMargin.toString();
-        if (ratios.grossMargin != null) values.grossMargin = ratios.grossMargin.toString();
-        if (ratios.debtToEquity != null) values.debtToEquity = ratios.debtToEquity.toString();
-        if (ratios.currentRatio != null) values.currentRatio = ratios.currentRatio.toString();
-        if (ratios.quickRatio != null) values.quickRatio = ratios.quickRatio.toString();
-        if (ratios.interestCoverage != null) values.interestCoverage = ratios.interestCoverage.toString();
-        if (ratios.eps != null) values.eps = ratios.eps.toString();
-        if (ratios.bookValue != null) values.bookValue = ratios.bookValue.toString();
-        if (ratios.dividendYield != null) values.dividendYield = ratios.dividendYield.toString();
-        if (ratios.dividendPayout != null) values.dividendPayout = ratios.dividendPayout.toString();
-        if (ratios.freeCashFlowPerShare != null) values.freeCashFlowPerShare = ratios.freeCashFlowPerShare.toString();
-        if (ratios.revenueGrowth != null) values.revenueGrowth = ratios.revenueGrowth.toString();
-        if (ratios.earningsGrowth != null) values.earningsGrowth = ratios.earningsGrowth.toString();
+				if (ratios.peRatio != null) values.peRatio = ratios.peRatio.toString();
+				if (ratios.pbRatio != null) values.pbRatio = ratios.pbRatio.toString();
+				if (ratios.evToEbitda != null)
+					values.evToEbitda = ratios.evToEbitda.toString();
+				if (ratios.priceToSales != null)
+					values.priceToSales = ratios.priceToSales.toString();
+				if (ratios.roe != null) values.roe = ratios.roe.toString();
+				if (ratios.roa != null) values.roa = ratios.roa.toString();
+				if (ratios.netProfitMargin != null)
+					values.netProfitMargin = ratios.netProfitMargin.toString();
+				if (ratios.operatingMargin != null)
+					values.operatingMargin = ratios.operatingMargin.toString();
+				if (ratios.grossMargin != null)
+					values.grossMargin = ratios.grossMargin.toString();
+				if (ratios.debtToEquity != null)
+					values.debtToEquity = ratios.debtToEquity.toString();
+				if (ratios.currentRatio != null)
+					values.currentRatio = ratios.currentRatio.toString();
+				if (ratios.quickRatio != null)
+					values.quickRatio = ratios.quickRatio.toString();
+				if (ratios.interestCoverage != null)
+					values.interestCoverage = ratios.interestCoverage.toString();
+				if (ratios.eps != null) values.eps = ratios.eps.toString();
+				if (ratios.bookValue != null)
+					values.bookValue = ratios.bookValue.toString();
+				if (ratios.dividendYield != null)
+					values.dividendYield = ratios.dividendYield.toString();
+				if (ratios.dividendPayout != null)
+					values.dividendPayout = ratios.dividendPayout.toString();
+				if (ratios.freeCashFlowPerShare != null)
+					values.freeCashFlowPerShare = ratios.freeCashFlowPerShare.toString();
+				if (ratios.revenueGrowth != null)
+					values.revenueGrowth = ratios.revenueGrowth.toString();
+				if (ratios.earningsGrowth != null)
+					values.earningsGrowth = ratios.earningsGrowth.toString();
 
-        const [existing] = await db
-          .select({ id: screenerFinancials.id })
-          .from(screenerFinancials)
-          .where(eq(screenerFinancials.symbol, stock.symbol))
-          .limit(1);
+				const [existing] = await db
+					.select({ id: screenerFinancials.id })
+					.from(screenerFinancials)
+					.where(eq(screenerFinancials.symbol, stock.symbol))
+					.limit(1);
 
-        if (existing) {
-          await db.update(screenerFinancials).set(values).where(eq(screenerFinancials.id, existing.id));
-        } else {
-          await db.insert(screenerFinancials).values(values);
-        }
+				if (existing) {
+					await db
+						.update(screenerFinancials)
+						.set(values)
+						.where(eq(screenerFinancials.id, existing.id));
+				} else {
+					await db.insert(screenerFinancials).values(values);
+				}
 
-        await db.update(screenerStocks).set({
-          lastFmpSync: new Date(),
-          updatedAt: new Date(),
-        }).where(eq(screenerStocks.symbol, stock.symbol));
+				await db
+					.update(screenerStocks)
+					.set({
+						lastFmpSync: new Date(),
+						updatedAt: new Date(),
+					})
+					.where(eq(screenerStocks.symbol, stock.symbol));
 
-        await calculateDerivedMetrics(stock.symbol);
-        processed++;
-        console.log(`[Enrichment] Ratios enriched: ${stock.symbol} (PB=${ratios.pbRatio}, ROE=${ratios.roe}, D/E=${ratios.debtToEquity})`);
-      } else {
-        skipped++;
-        errorDetails.push(`${stock.symbol}: No data returned from any provider`);
-      }
-    } catch (err: any) {
-      errors++;
-      errorDetails.push(`${stock.symbol}: ${err.message}`);
-      console.error(`[Enrichment] Ratio error for ${stock.symbol}: ${err.message}`);
-    }
-  }
+				await calculateDerivedMetrics(stock.symbol);
+				processed++;
+				console.log(
+					`[Enrichment] Ratios enriched: ${stock.symbol} (PB=${ratios.pbRatio}, ROE=${ratios.roe}, D/E=${ratios.debtToEquity})`,
+				);
+			} else {
+				skipped++;
+				errorDetails.push(
+					`${stock.symbol}: No data returned from any provider`,
+				);
+			}
+		} catch (err: any) {
+			errors++;
+			errorDetails.push(`${stock.symbol}: ${err.message}`);
+			console.error(
+				`[Enrichment] Ratio error for ${stock.symbol}: ${err.message}`,
+			);
+		}
+	}
 
-  const stats = await fmpUsageMonitor.getDailyStats();
-  return { task: 'financial_ratios', processed, errors, skipped, apiCallsUsed: apiCalls, remaining: stats.remaining, details: { errors: errorDetails }, providerBreakdown };
+	const stats = await fmpUsageMonitor.getDailyStats();
+	return {
+		task: "financial_ratios",
+		processed,
+		errors,
+		skipped,
+		apiCallsUsed: apiCalls,
+		remaining: stats.remaining,
+		details: { errors: errorDetails },
+		providerBreakdown,
+	};
 }
 
-export async function enrichPriceHistory(batchSize = 3): Promise<EnrichmentResult> {
-  const registry = getProviderRegistry();
-  let processed = 0, errors = 0, skipped = 0, apiCalls = 0;
-  const providerBreakdown: Record<string, number> = {};
+export async function enrichPriceHistory(
+	batchSize = 3,
+): Promise<EnrichmentResult> {
+	const registry = getProviderRegistry();
+	let processed = 0,
+		errors = 0,
+		skipped = 0,
+		apiCalls = 0;
+	const providerBreakdown: Record<string, number> = {};
 
-  const stocks = await db.execute(sql`
+	const stocks = await db.execute(sql`
     SELECT ss.id, ss.symbol, ss.fmp_symbol, ss.data_source
     FROM screener_stocks ss
     LEFT JOIN screener_financials sf ON sf.symbol = ss.symbol
@@ -180,191 +257,260 @@ export async function enrichPriceHistory(batchSize = 3): Promise<EnrichmentResul
     LIMIT ${batchSize}
   `);
 
-  const stockRows = (stocks as any).rows || stocks;
-  const today = new Date().toISOString().split('T')[0];
-  const fiveYearsAgo = new Date(Date.now() - 5 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+	const stockRows = (stocks as any).rows || stocks;
+	const today = new Date().toISOString().split("T")[0];
+	const fiveYearsAgo = new Date(Date.now() - 5 * 365.25 * 24 * 60 * 60 * 1000)
+		.toISOString()
+		.split("T")[0];
 
-  for (const stock of stockRows) {
-    try {
-      const fmpSymbol = stock.fmp_symbol || `${stock.symbol}.NS`;
-      const { result: prices, provider: providerName } = await registry.getHistoricalPrices(fmpSymbol, fiveYearsAgo, today);
-      apiCalls++;
-      if (prices.length > 0) providerBreakdown[providerName] = (providerBreakdown[providerName] || 0) + 1;
+	for (const stock of stockRows) {
+		try {
+			const fmpSymbol = stock.fmp_symbol || `${stock.symbol}.NS`;
+			const { result: prices, provider: providerName } =
+				await registry.getHistoricalPrices(fmpSymbol, fiveYearsAgo, today);
+			apiCalls++;
+			if (prices.length > 0)
+				providerBreakdown[providerName] =
+					(providerBreakdown[providerName] || 0) + 1;
 
-      if (prices.length > 0) {
-        await db.delete(screenerPriceHistory).where(eq(screenerPriceHistory.symbol, stock.symbol));
+			if (prices.length > 0) {
+				await db
+					.delete(screenerPriceHistory)
+					.where(eq(screenerPriceHistory.symbol, stock.symbol));
 
-        const batchInserts = prices.map(p => ({
-          symbol: stock.symbol,
-          date: p.date,
-          open: p.open?.toString(),
-          high: p.high?.toString(),
-          low: p.low?.toString(),
-          close: p.close?.toString(),
-          adjClose: p.adjClose?.toString(),
-          volume: p.volume?.toString(),
-          changePercent: p.changePercent?.toString(),
-        }));
+				const batchInserts = prices.map((p) => ({
+					symbol: stock.symbol,
+					date: p.date,
+					open: p.open?.toString(),
+					high: p.high?.toString(),
+					low: p.low?.toString(),
+					close: p.close?.toString(),
+					adjClose: p.adjClose?.toString(),
+					volume: p.volume?.toString(),
+					changePercent: p.changePercent?.toString(),
+				}));
 
-        for (let i = 0; i < batchInserts.length; i += 50) {
-          await db.insert(screenerPriceHistory).values(batchInserts.slice(i, i + 50));
-        }
+				for (let i = 0; i < batchInserts.length; i += 50) {
+					await db
+						.insert(screenerPriceHistory)
+						.values(batchInserts.slice(i, i + 50));
+				}
 
-        await calculateReturnsFromPriceHistory(stock.symbol, prices);
-        processed++;
-        console.log(`[Enrichment] Price history stored: ${stock.symbol} (${prices.length} records, ${fiveYearsAgo} to ${today})`);
-      } else {
-        skipped++;
-      }
-    } catch (err: any) {
-      errors++;
-      console.error(`[Enrichment] Price history error for ${stock.symbol}: ${err.message}`);
-    }
-  }
+				await calculateReturnsFromPriceHistory(stock.symbol, prices);
+				processed++;
+				console.log(
+					`[Enrichment] Price history stored: ${stock.symbol} (${prices.length} records, ${fiveYearsAgo} to ${today})`,
+				);
+			} else {
+				skipped++;
+			}
+		} catch (err: any) {
+			errors++;
+			console.error(
+				`[Enrichment] Price history error for ${stock.symbol}: ${err.message}`,
+			);
+		}
+	}
 
-  const stats = await fmpUsageMonitor.getDailyStats();
-  return { task: 'price_history', processed, errors, skipped, apiCallsUsed: apiCalls, remaining: stats.remaining, providerBreakdown };
+	const stats = await fmpUsageMonitor.getDailyStats();
+	return {
+		task: "price_history",
+		processed,
+		errors,
+		skipped,
+		apiCallsUsed: apiCalls,
+		remaining: stats.remaining,
+		providerBreakdown,
+	};
 }
 
 export async function calculateReturnsFromPriceHistory(
-  symbol: string,
-  prices?: { date: string; close: number; adjClose: number }[]
-): Promise<{ return1y?: number; return2y?: number; return3y?: number; return5y?: number } | null> {
-  let priceData = prices;
-  if (!priceData) {
-    const dbPrices = await db
-      .select({ date: screenerPriceHistory.date, close: screenerPriceHistory.close, adjClose: screenerPriceHistory.adjClose })
-      .from(screenerPriceHistory)
-      .where(eq(screenerPriceHistory.symbol, symbol))
-      .orderBy(sql`${screenerPriceHistory.date} DESC`);
+	symbol: string,
+	prices?: { date: string; close: number; adjClose: number }[],
+): Promise<{
+	return1y?: number;
+	return2y?: number;
+	return3y?: number;
+	return5y?: number;
+} | null> {
+	let priceData = prices;
+	if (!priceData) {
+		const dbPrices = await db
+			.select({
+				date: screenerPriceHistory.date,
+				close: screenerPriceHistory.close,
+				adjClose: screenerPriceHistory.adjClose,
+			})
+			.from(screenerPriceHistory)
+			.where(eq(screenerPriceHistory.symbol, symbol))
+			.orderBy(sql`${screenerPriceHistory.date} DESC`);
 
-    if (dbPrices.length === 0) return null;
-    priceData = dbPrices.map(p => ({
-      date: p.date,
-      close: parseFloat(p.close || '0'),
-      adjClose: parseFloat(p.adjClose || p.close || '0'),
-    }));
-  }
+		if (dbPrices.length === 0) return null;
+		priceData = dbPrices.map((p) => ({
+			date: p.date,
+			close: Number.parseFloat(p.close || "0"),
+			adjClose: Number.parseFloat(p.adjClose || p.close || "0"),
+		}));
+	}
 
-  const sortedPrices = [...priceData].sort((a, b) => b.date.localeCompare(a.date));
-  if (sortedPrices.length === 0) return null;
+	const sortedPrices = [...priceData].sort((a, b) =>
+		b.date.localeCompare(a.date),
+	);
+	if (sortedPrices.length === 0) return null;
 
-  const latestPrice = sortedPrices[0].adjClose || sortedPrices[0].close;
-  if (!latestPrice || latestPrice <= 0) return null;
+	const latestPrice = sortedPrices[0].adjClose || sortedPrices[0].close;
+	if (!latestPrice || latestPrice <= 0) return null;
 
-  function findPriceNearDate(targetDate: string): number | null {
-    const target = new Date(targetDate).getTime();
-    let closest: { price: number; diff: number } | null = null;
-    for (const p of sortedPrices) {
-      const diff = Math.abs(new Date(p.date).getTime() - target);
-      const price = p.adjClose || p.close;
-      if (price > 0 && (closest === null || diff < closest.diff)) {
-        closest = { price, diff };
-      }
-      if (diff > 30 * 24 * 60 * 60 * 1000 && closest) break;
-    }
-    if (closest && closest.diff <= 15 * 24 * 60 * 60 * 1000) return closest.price;
-    return null;
-  }
+	function findPriceNearDate(targetDate: string): number | null {
+		const target = new Date(targetDate).getTime();
+		let closest: { price: number; diff: number } | null = null;
+		for (const p of sortedPrices) {
+			const diff = Math.abs(new Date(p.date).getTime() - target);
+			const price = p.adjClose || p.close;
+			if (price > 0 && (closest === null || diff < closest.diff)) {
+				closest = { price, diff };
+			}
+			if (diff > 30 * 24 * 60 * 60 * 1000 && closest) break;
+		}
+		if (closest && closest.diff <= 15 * 24 * 60 * 60 * 1000)
+			return closest.price;
+		return null;
+	}
 
-  const now = new Date();
-  const returns: { return1y?: number; return2y?: number; return3y?: number; return5y?: number } = {};
+	const now = new Date();
+	const returns: {
+		return1y?: number;
+		return2y?: number;
+		return3y?: number;
+		return5y?: number;
+	} = {};
 
-  const price1yAgo = findPriceNearDate(new Date(now.getTime() - 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-  if (price1yAgo) returns.return1y = (latestPrice - price1yAgo) / price1yAgo;
+	const price1yAgo = findPriceNearDate(
+		new Date(now.getTime() - 365.25 * 24 * 60 * 60 * 1000)
+			.toISOString()
+			.split("T")[0],
+	);
+	if (price1yAgo) returns.return1y = (latestPrice - price1yAgo) / price1yAgo;
 
-  const price2yAgo = findPriceNearDate(new Date(now.getTime() - 2 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-  if (price2yAgo) returns.return2y = (latestPrice - price2yAgo) / price2yAgo;
+	const price2yAgo = findPriceNearDate(
+		new Date(now.getTime() - 2 * 365.25 * 24 * 60 * 60 * 1000)
+			.toISOString()
+			.split("T")[0],
+	);
+	if (price2yAgo) returns.return2y = (latestPrice - price2yAgo) / price2yAgo;
 
-  const price3yAgo = findPriceNearDate(new Date(now.getTime() - 3 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-  if (price3yAgo) returns.return3y = (latestPrice - price3yAgo) / price3yAgo;
+	const price3yAgo = findPriceNearDate(
+		new Date(now.getTime() - 3 * 365.25 * 24 * 60 * 60 * 1000)
+			.toISOString()
+			.split("T")[0],
+	);
+	if (price3yAgo) returns.return3y = (latestPrice - price3yAgo) / price3yAgo;
 
-  const price5yAgo = findPriceNearDate(new Date(now.getTime() - 5 * 365.25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-  if (price5yAgo) returns.return5y = (latestPrice - price5yAgo) / price5yAgo;
+	const price5yAgo = findPriceNearDate(
+		new Date(now.getTime() - 5 * 365.25 * 24 * 60 * 60 * 1000)
+			.toISOString()
+			.split("T")[0],
+	);
+	if (price5yAgo) returns.return5y = (latestPrice - price5yAgo) / price5yAgo;
 
-  const updateValues: Record<string, any> = { lastUpdated: new Date() };
-  if (returns.return1y != null) updateValues.return1y = returns.return1y.toFixed(4);
-  if (returns.return2y != null) updateValues.return2y = returns.return2y.toFixed(4);
-  if (returns.return3y != null) updateValues.return3y = returns.return3y.toFixed(4);
-  if (returns.return5y != null) updateValues.return5y = returns.return5y.toFixed(4);
+	const updateValues: Record<string, any> = { lastUpdated: new Date() };
+	if (returns.return1y != null)
+		updateValues.return1y = returns.return1y.toFixed(4);
+	if (returns.return2y != null)
+		updateValues.return2y = returns.return2y.toFixed(4);
+	if (returns.return3y != null)
+		updateValues.return3y = returns.return3y.toFixed(4);
+	if (returns.return5y != null)
+		updateValues.return5y = returns.return5y.toFixed(4);
 
-  if (Object.keys(updateValues).length > 1) {
-    const [existing] = await db
-      .select({ id: screenerFinancials.id })
-      .from(screenerFinancials)
-      .where(eq(screenerFinancials.symbol, symbol))
-      .limit(1);
+	if (Object.keys(updateValues).length > 1) {
+		const [existing] = await db
+			.select({ id: screenerFinancials.id })
+			.from(screenerFinancials)
+			.where(eq(screenerFinancials.symbol, symbol))
+			.limit(1);
 
-    if (existing) {
-      await db.update(screenerFinancials).set(updateValues).where(eq(screenerFinancials.id, existing.id));
-    } else {
-      await db.insert(screenerFinancials).values({
-        symbol,
-        period: 'annual',
-        fiscalYear: new Date().getFullYear(),
-        ...updateValues,
-      });
-    }
+		if (existing) {
+			await db
+				.update(screenerFinancials)
+				.set(updateValues)
+				.where(eq(screenerFinancials.id, existing.id));
+		} else {
+			await db.insert(screenerFinancials).values({
+				symbol,
+				period: "annual",
+				fiscalYear: new Date().getFullYear(),
+				...updateValues,
+			});
+		}
 
-    console.log(`[Returns] ${symbol}: 1Y=${returns.return1y != null ? (returns.return1y * 100).toFixed(1) + '%' : 'N/A'}, 2Y=${returns.return2y != null ? (returns.return2y * 100).toFixed(1) + '%' : 'N/A'}, 3Y=${returns.return3y != null ? (returns.return3y * 100).toFixed(1) + '%' : 'N/A'}, 5Y=${returns.return5y != null ? (returns.return5y * 100).toFixed(1) + '%' : 'N/A'}`);
-  }
+		console.log(
+			`[Returns] ${symbol}: 1Y=${returns.return1y != null ? (returns.return1y * 100).toFixed(1) + "%" : "N/A"}, 2Y=${returns.return2y != null ? (returns.return2y * 100).toFixed(1) + "%" : "N/A"}, 3Y=${returns.return3y != null ? (returns.return3y * 100).toFixed(1) + "%" : "N/A"}, 5Y=${returns.return5y != null ? (returns.return5y * 100).toFixed(1) + "%" : "N/A"}`,
+		);
+	}
 
-  return returns;
+	return returns;
 }
 
 export async function runDailyEnrichmentBatch(options?: {
-  ratiosBatchSize?: number;
-  pricesBatchSize?: number;
-  maxApiCalls?: number;
+	ratiosBatchSize?: number;
+	pricesBatchSize?: number;
+	maxApiCalls?: number;
 }): Promise<{
-  ratios: EnrichmentResult;
-  prices: EnrichmentResult;
-  totalApiCalls: number;
-  remaining: number;
+	ratios: EnrichmentResult;
+	prices: EnrichmentResult;
+	totalApiCalls: number;
+	remaining: number;
 }> {
-  const ratiosBatch = options?.ratiosBatchSize || 120;
-  const pricesBatch = options?.pricesBatchSize || 80;
-  const maxCalls = options?.maxApiCalls || 240;
+	const ratiosBatch = options?.ratiosBatchSize || 120;
+	const pricesBatch = options?.pricesBatchSize || 80;
+	const maxCalls = options?.maxApiCalls || 240;
 
-  console.log(`[DailyEnrichment] Starting daily batch: ratios=${ratiosBatch}, prices=${pricesBatch}, maxCalls=${maxCalls}`);
+	console.log(
+		`[DailyEnrichment] Starting daily batch: ratios=${ratiosBatch}, prices=${pricesBatch}, maxCalls=${maxCalls}`,
+	);
 
-  const initialStats = await fmpUsageMonitor.getDailyStats();
-  const availableCalls = Math.min(maxCalls, initialStats.remaining);
-  
-  const ratiosAllocation = Math.floor(availableCalls * 0.6);
-  const pricesAllocation = availableCalls - ratiosAllocation;
+	const initialStats = await fmpUsageMonitor.getDailyStats();
+	const availableCalls = Math.min(maxCalls, initialStats.remaining);
 
-  const actualRatiosBatch = Math.min(ratiosBatch, ratiosAllocation);
-  const actualPricesBatch = Math.min(pricesBatch, pricesAllocation);
+	const ratiosAllocation = Math.floor(availableCalls * 0.6);
+	const pricesAllocation = availableCalls - ratiosAllocation;
 
-  console.log(`[DailyEnrichment] Available: ${availableCalls} calls. Ratios: ${actualRatiosBatch}, Prices: ${actualPricesBatch}`);
+	const actualRatiosBatch = Math.min(ratiosBatch, ratiosAllocation);
+	const actualPricesBatch = Math.min(pricesBatch, pricesAllocation);
 
-  const ratiosResult = await enrichFinancialRatios(actualRatiosBatch);
-  const pricesResult = await enrichPriceHistory(actualPricesBatch);
+	console.log(
+		`[DailyEnrichment] Available: ${availableCalls} calls. Ratios: ${actualRatiosBatch}, Prices: ${actualPricesBatch}`,
+	);
 
-  const totalApiCalls = ratiosResult.apiCallsUsed + pricesResult.apiCallsUsed;
-  const finalStats = await fmpUsageMonitor.getDailyStats();
+	const ratiosResult = await enrichFinancialRatios(actualRatiosBatch);
+	const pricesResult = await enrichPriceHistory(actualPricesBatch);
 
-  console.log(`[DailyEnrichment] Complete: ${totalApiCalls} API calls used. Ratios: ${ratiosResult.processed} enriched, Prices: ${pricesResult.processed} enriched. Remaining: ${finalStats.remaining}`);
+	const totalApiCalls = ratiosResult.apiCallsUsed + pricesResult.apiCallsUsed;
+	const finalStats = await fmpUsageMonitor.getDailyStats();
 
-  return {
-    ratios: ratiosResult,
-    prices: pricesResult,
-    totalApiCalls,
-    remaining: finalStats.remaining,
-  };
+	console.log(
+		`[DailyEnrichment] Complete: ${totalApiCalls} API calls used. Ratios: ${ratiosResult.processed} enriched, Prices: ${pricesResult.processed} enriched. Remaining: ${finalStats.remaining}`,
+	);
+
+	return {
+		ratios: ratiosResult,
+		prices: pricesResult,
+		totalApiCalls,
+		remaining: finalStats.remaining,
+	};
 }
 
 export async function getEnrichmentProgress(): Promise<{
-  total: number;
-  withRatios: number;
-  withReturns: number;
-  missingRatios: number;
-  missingReturns: number;
-  enrichmentPercent: number;
-  estimatedDaysRemaining: number;
+	total: number;
+	withRatios: number;
+	withReturns: number;
+	missingRatios: number;
+	missingReturns: number;
+	enrichmentPercent: number;
+	estimatedDaysRemaining: number;
 }> {
-  const result = await db.execute(sql`
+	const result = await db.execute(sql`
     SELECT
       (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true) as total,
       (SELECT COUNT(*) FROM screener_financials WHERE roe IS NOT NULL OR pb_ratio IS NOT NULL OR debt_to_equity IS NOT NULL) as with_ratios,
@@ -377,82 +523,113 @@ export async function getEnrichmentProgress(): Promise<{
        WHERE ss.is_active = true AND sf.return_1y IS NULL) as missing_returns
   `);
 
-  const row = ((result as any).rows || result)[0];
-  const total = Number(row.total);
-  const withRatios = Number(row.with_ratios);
-  const withReturns = Number(row.with_returns);
-  const missingRatios = Number(row.missing_ratios);
-  const missingReturns = Number(row.missing_returns);
-  const totalMissing = missingRatios + missingReturns;
-  const enriched = withRatios + withReturns;
-  const enrichmentPercent = total > 0 ? Math.round((enriched / (total * 2)) * 100) : 0;
-  const callsPerDay = 240;
-  const estimatedDaysRemaining = totalMissing > 0 ? Math.ceil(totalMissing / callsPerDay) : 0;
+	const row = ((result as any).rows || result)[0];
+	const total = Number(row.total);
+	const withRatios = Number(row.with_ratios);
+	const withReturns = Number(row.with_returns);
+	const missingRatios = Number(row.missing_ratios);
+	const missingReturns = Number(row.missing_returns);
+	const totalMissing = missingRatios + missingReturns;
+	const enriched = withRatios + withReturns;
+	const enrichmentPercent =
+		total > 0 ? Math.round((enriched / (total * 2)) * 100) : 0;
+	const callsPerDay = 240;
+	const estimatedDaysRemaining =
+		totalMissing > 0 ? Math.ceil(totalMissing / callsPerDay) : 0;
 
-  return {
-    total,
-    withRatios,
-    withReturns,
-    missingRatios,
-    missingReturns,
-    enrichmentPercent,
-    estimatedDaysRemaining,
-  };
+	return {
+		total,
+		withRatios,
+		withReturns,
+		missingRatios,
+		missingReturns,
+		enrichmentPercent,
+		estimatedDaysRemaining,
+	};
 }
 
-export async function seedScreenerFromFmp(exchange = 'NSE', limit = 50): Promise<EnrichmentResult> {
-  const provider = getDataProvider();
-  let processed = 0, errors = 0, skipped = 0, apiCalls = 1;
+export async function seedScreenerFromFmp(
+	exchange = "NSE",
+	limit = 50,
+): Promise<EnrichmentResult> {
+	const provider = getDataProvider();
+	let processed = 0,
+		errors = 0,
+		skipped = 0,
+		apiCalls = 1;
 
-  if (!(await fmpUsageMonitor.canMakeCall())) {
-    return { task: 'seed_screener', processed: 0, errors: 0, skipped: 0, apiCallsUsed: 0, remaining: 0 };
-  }
+	if (!(await fmpUsageMonitor.canMakeCall())) {
+		return {
+			task: "seed_screener",
+			processed: 0,
+			errors: 0,
+			skipped: 0,
+			apiCallsUsed: 0,
+			remaining: 0,
+		};
+	}
 
-  const results = await provider.getStockScreener(0, exchange, limit);
+	const results = await provider.getStockScreener(0, exchange, limit);
 
-  for (const stock of results) {
-    try {
-      const [existing] = await db
-        .select({ id: screenerStocks.id })
-        .from(screenerStocks)
-        .where(eq(screenerStocks.symbol, stock.symbol.replace('.NS', '').replace('.BO', '')))
-        .limit(1);
+	for (const stock of results) {
+		try {
+			const [existing] = await db
+				.select({ id: screenerStocks.id })
+				.from(screenerStocks)
+				.where(
+					eq(
+						screenerStocks.symbol,
+						stock.symbol.replace(".NS", "").replace(".BO", ""),
+					),
+				)
+				.limit(1);
 
-      if (existing) {
-        skipped++;
-        continue;
-      }
+			if (existing) {
+				skipped++;
+				continue;
+			}
 
-      await db.insert(screenerStocks).values({
-        symbol: stock.symbol.replace('.NS', '').replace('.BO', ''),
-        companyName: stock.companyName,
-        exchange: stock.exchange || exchange,
-        sector: stock.sector,
-        industry: stock.industry,
-        marketCapValue: stock.marketCap?.toString(),
-        marketCapCategory: categorizeMarketCap(stock.marketCap),
-        currentPrice: stock.price?.toString(),
-        country: stock.country || 'IN',
-        currency: 'INR',
-        fmpSymbol: stock.symbol,
-        dataSource: 'fmp',
-        isActive: true,
-      });
-      processed++;
-    } catch (err: any) {
-      errors++;
-    }
-  }
+			await db.insert(screenerStocks).values({
+				symbol: stock.symbol.replace(".NS", "").replace(".BO", ""),
+				companyName: stock.companyName,
+				exchange: stock.exchange || exchange,
+				sector: stock.sector,
+				industry: stock.industry,
+				marketCapValue: stock.marketCap?.toString(),
+				marketCapCategory: categorizeMarketCap(stock.marketCap),
+				currentPrice: stock.price?.toString(),
+				country: stock.country || "IN",
+				currency: "INR",
+				fmpSymbol: stock.symbol,
+				dataSource: "fmp",
+				isActive: true,
+			});
+			processed++;
+		} catch (err: any) {
+			errors++;
+		}
+	}
 
-  const stats = await fmpUsageMonitor.getDailyStats();
-  return { task: 'seed_screener', processed, errors, skipped, apiCallsUsed: apiCalls, remaining: stats.remaining };
+	const stats = await fmpUsageMonitor.getDailyStats();
+	return {
+		task: "seed_screener",
+		processed,
+		errors,
+		skipped,
+		apiCallsUsed: apiCalls,
+		remaining: stats.remaining,
+	};
 }
 
-export async function seedFromListedStocks(limit = 50): Promise<EnrichmentResult> {
-  let processed = 0, errors = 0, skipped = 0;
+export async function seedFromListedStocks(
+	limit = 50,
+): Promise<EnrichmentResult> {
+	let processed = 0,
+		errors = 0,
+		skipped = 0;
 
-  try {
-    const result = await db.execute(sql`
+	try {
+		const result = await db.execute(sql`
       INSERT INTO screener_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, market_cap_value, data_source, created_at, updated_at)
       SELECT 
         ls.symbol,
@@ -477,9 +654,9 @@ export async function seedFromListedStocks(limit = 50): Promise<EnrichmentResult
         AND NOT EXISTS (SELECT 1 FROM screener_stocks ss WHERE ss.symbol = ls.symbol)
       LIMIT ${limit}
     `);
-    processed = (result as any)?.rowCount || 0;
+		processed = (result as any)?.rowCount || 0;
 
-    const finResult = await db.execute(sql`
+		const finResult = await db.execute(sql`
       INSERT INTO screener_financials (symbol, period, fiscal_year, pe_ratio, pb_ratio, dividend_yield, eps, book_value, roe, roce, last_updated, created_at)
       SELECT 
         ls.symbol,
@@ -500,22 +677,35 @@ export async function seedFromListedStocks(limit = 50): Promise<EnrichmentResult
         AND (ls.pe_ratio IS NOT NULL OR ls.pb_ratio IS NOT NULL)
         AND NOT EXISTS (SELECT 1 FROM screener_financials sf WHERE sf.symbol = ls.symbol)
     `);
-    const financialsAdded = (finResult as any)?.rowCount || 0;
+		const financialsAdded = (finResult as any)?.rowCount || 0;
 
-    console.log(`[Screener Seed] Seeded ${processed} stocks, ${financialsAdded} financials from listed_stocks`);
-  } catch (err: any) {
-    console.error('[Screener Seed] Error:', err.message);
-    errors++;
-  }
+		console.log(
+			`[Screener Seed] Seeded ${processed} stocks, ${financialsAdded} financials from listed_stocks`,
+		);
+	} catch (err: any) {
+		console.error("[Screener Seed] Error:", err.message);
+		errors++;
+	}
 
-  return { task: 'seed_from_listed_stocks', processed, errors, skipped, apiCallsUsed: 0, remaining: 0 };
+	return {
+		task: "seed_from_listed_stocks",
+		processed,
+		errors,
+		skipped,
+		apiCallsUsed: 0,
+		remaining: 0,
+	};
 }
 
-export async function seedUnlistedToScreener(limit = 50): Promise<EnrichmentResult> {
-  let processed = 0, errors = 0, skipped = 0;
+export async function seedUnlistedToScreener(
+	limit = 50,
+): Promise<EnrichmentResult> {
+	let processed = 0,
+		errors = 0,
+		skipped = 0;
 
-  try {
-    const result = await db.execute(sql`
+	try {
+		const result = await db.execute(sql`
       INSERT INTO screener_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, data_source, created_at, updated_at)
       SELECT 
         COALESCE(uc.cin, uc.id::text),
@@ -542,10 +732,10 @@ export async function seedUnlistedToScreener(limit = 50): Promise<EnrichmentResu
         )
       LIMIT ${limit}
     `);
-    processed = (result as any)?.rowCount || 0;
+		processed = (result as any)?.rowCount || 0;
 
-    if (processed > 0) {
-      const finResult = await db.execute(sql`
+		if (processed > 0) {
+			const finResult = await db.execute(sql`
         INSERT INTO screener_financials (symbol, period, fiscal_year, pe_ratio, last_updated, created_at)
         SELECT 
           ss.symbol,
@@ -560,30 +750,41 @@ export async function seedUnlistedToScreener(limit = 50): Promise<EnrichmentResu
         WHERE ss.data_source = 'unlisted'
           AND NOT EXISTS (SELECT 1 FROM screener_financials sf WHERE sf.symbol = ss.symbol)
       `);
-      const financialsAdded = (finResult as any)?.rowCount || 0;
-      console.log(`[Screener Seed] Seeded ${processed} unlisted stocks, ${financialsAdded} financials`);
-    }
-  } catch (err: any) {
-    console.error('[Screener Seed] Unlisted seed error:', err.message);
-    errors++;
-  }
+			const financialsAdded = (finResult as any)?.rowCount || 0;
+			console.log(
+				`[Screener Seed] Seeded ${processed} unlisted stocks, ${financialsAdded} financials`,
+			);
+		}
+	} catch (err: any) {
+		console.error("[Screener Seed] Unlisted seed error:", err.message);
+		errors++;
+	}
 
-  return { task: 'seed_unlisted', processed, errors, skipped, apiCallsUsed: 0, remaining: 0 };
+	return {
+		task: "seed_unlisted",
+		processed,
+		errors,
+		skipped,
+		apiCallsUsed: 0,
+		remaining: 0,
+	};
 }
 
 export function isProductionEnrichmentAllowed(): boolean {
-  const env = process.env.NODE_ENV || 'development';
-  if (env === 'production') return true;
-  console.log('[Enrichment] Bulk FMP enrichment skipped (development mode - production only)');
-  return false;
+	const env = process.env.NODE_ENV || "development";
+	if (env === "production") return true;
+	console.log(
+		"[Enrichment] Bulk FMP enrichment skipped (development mode - production only)",
+	);
+	return false;
 }
 
 function categorizeMarketCap(cap: number): string {
-  if (!cap || cap <= 0) return 'unknown';
-  const crores = cap / 10000000;
-  if (crores >= 100000) return 'mega';
-  if (crores >= 20000) return 'large';
-  if (crores >= 5000) return 'mid';
-  if (crores >= 500) return 'small';
-  return 'micro';
+	if (!cap || cap <= 0) return "unknown";
+	const crores = cap / 10000000;
+	if (crores >= 100000) return "mega";
+	if (crores >= 20000) return "large";
+	if (crores >= 5000) return "mid";
+	if (crores >= 500) return "small";
+	return "micro";
 }

@@ -7,16 +7,16 @@ import { sql } from "drizzle-orm";
  * - mutual_funds (MFs)
  * - corporate_bonds (Bonds)
  * - unlisted_companies (Unlisted equities)
- * 
+ *
  * This VIEW is read-only and provides a unified interface for ISIN lookup and search.
  */
 export async function initializeSecurityMaster() {
-  try {
-    console.log("🔄 [SecurityMaster] Initializing view...");
+	try {
+		console.log("🔄 [SecurityMaster] Initializing view...");
 
-    // Drop any conflicting TABLE or MATERIALIZED VIEW before CREATE OR REPLACE VIEW.
-    // In Railway production the object can exist as a TABLE from a prior migration.
-    await db.execute(sql`
+		// Drop any conflicting TABLE or MATERIALIZED VIEW before CREATE OR REPLACE VIEW.
+		// In Railway production the object can exist as a TABLE from a prior migration.
+		await db.execute(sql`
       DO $$
       DECLARE obj_type text;
       BEGIN
@@ -34,7 +34,7 @@ export async function initializeSecurityMaster() {
       END$$
     `);
 
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE OR REPLACE VIEW security_master AS
       SELECT
         isin,
@@ -99,11 +99,14 @@ export async function initializeSecurityMaster() {
       WHERE isin IS NOT NULL;
     `);
 
-    console.log("✅ [SecurityMaster] View created successfully");
-  } catch (error: any) {
-    console.error("❌ [SecurityMaster] Failed to initialize view:", error.message);
-    // We don't throw here to avoid blocking server boot if one table is missing,
-    // but the task requirements say it's blocked by T001 which should ensure tables exist.
-    throw error;
-  }
+		console.log("✅ [SecurityMaster] View created successfully");
+	} catch (error: any) {
+		console.error(
+			"❌ [SecurityMaster] Failed to initialize view:",
+			error.message,
+		);
+		// We don't throw here to avoid blocking server boot if one table is missing,
+		// but the task requirements say it's blocked by T001 which should ensure tables exist.
+		throw error;
+	}
 }

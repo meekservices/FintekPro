@@ -1,17 +1,17 @@
 export async function runStartupSchemaRepairs() {
-      // ── DATABASE REPAIR & MIGRATION ──────────────────────────────────────────
-      // Perform critical schema updates needed for boot.
-      // We use a dedicated try/catch so migration errors don't necessarily
-      // kill the whole server if the core tables are still functional.
-      try {
-        const { db: migDb } = await import('../db');
-        const { sql: migSql } = await import('drizzle-orm');
+	// ── DATABASE REPAIR & MIGRATION ──────────────────────────────────────────
+	// Perform critical schema updates needed for boot.
+	// We use a dedicated try/catch so migration errors don't necessarily
+	// kill the whole server if the core tables are still functional.
+	try {
+		const { db: migDb } = await import("../db");
+		const { sql: migSql } = await import("drizzle-orm");
 
-      console.log('🛠️ Running schema migrations/repairs...');
+		console.log("🛠️ Running schema migrations/repairs...");
 
-      // 1. ca_verification_status
-      try {
-        await migDb.execute(migSql`
+		// 1. ca_verification_status
+		try {
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS ca_verification_status (
             id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
             icai_membership_number VARCHAR,
@@ -75,13 +75,16 @@ ADD COLUMN IF NOT EXISTS cop_number VARCHAR,
             ADD COLUMN IF NOT EXISTS icai_raw_html          TEXT,
             ADD COLUMN IF NOT EXISTS icai_error             TEXT
         `);
-      } catch (e: any) {
-        console.warn('[Migration] ca_verification_status schema skipped:', e?.message);
-      }
+		} catch (e: any) {
+			console.warn(
+				"[Migration] ca_verification_status schema skipped:",
+				e?.message,
+			);
+		}
 
-      // 13. partners ICAI
-      try {
-        await migDb.execute(migSql`
+		// 13. partners ICAI
+		try {
+			await migDb.execute(migSql`
           ALTER TABLE partners
             ADD COLUMN IF NOT EXISTS icai_scraped_name       VARCHAR,
             ADD COLUMN IF NOT EXISTS icai_scraper_status     VARCHAR DEFAULT 'pending',
@@ -90,13 +93,16 @@ ADD COLUMN IF NOT EXISTS cop_number VARCHAR,
             ADD COLUMN IF NOT EXISTS icai_confidence_score   NUMERIC(4,2),
             ADD COLUMN IF NOT EXISTS icai_cop_status         VARCHAR
         `);
-      } catch (e: any) {
-        console.warn('[Migration] partners ICAI scraper columns skipped:', e?.message);
-      }
+		} catch (e: any) {
+			console.warn(
+				"[Migration] partners ICAI scraper columns skipped:",
+				e?.message,
+			);
+		}
 
-      // 14. Subscriptions
-      try {
-        await migDb.execute(migSql`
+		// 14. Subscriptions
+		try {
+			await migDb.execute(migSql`
           ALTER TABLE users
             ADD COLUMN IF NOT EXISTS plan_tier VARCHAR DEFAULT 'free',
             ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ,
@@ -122,13 +128,16 @@ ADD COLUMN IF NOT EXISTS cop_number VARCHAR,
           CREATE INDEX IF NOT EXISTS idx_platform_subs_status ON platform_subscriptions(status);
           CREATE INDEX IF NOT EXISTS idx_platform_subs_tier   ON platform_subscriptions(plan_tier);
         `);
-      } catch (e: any) {
-        console.warn('[Migration] Subscription monetization schema skipped:', e?.message);
-      }
+		} catch (e: any) {
+			console.warn(
+				"[Migration] Subscription monetization schema skipped:",
+				e?.message,
+			);
+		}
 
-      // 15. audit_trail
-      try {
-        await migDb.execute(migSql`
+		// 15. audit_trail
+		try {
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS audit_trail (
             id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id     VARCHAR,
@@ -145,13 +154,13 @@ action      VARCHAR NOT NULL,
           );
           ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS actor_type VARCHAR;
         `);
-      } catch (e: any) {
-        console.error('[Migration] audit_trail table error:', e?.message);
-      }
+		} catch (e: any) {
+			console.error("[Migration] audit_trail table error:", e?.message);
+		}
 
-      // 16. self_healing
-      try {
-        await migDb.execute(migSql`
+		// 16. self_healing
+		try {
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS self_healing_events (
             id            SERIAL PRIMARY KEY,
             event_type    VARCHAR(50) NOT NULL,
@@ -179,13 +188,13 @@ action      VARCHAR NOT NULL,
           CREATE INDEX IF NOT EXISTS idx_self_healing_feedback_module_occurred
             ON self_healing_feedback (module, occurred_at DESC);
         `);
-      } catch (e: any) {
-        console.error('[Migration] self_healing tables error:', e?.message);
-      }
+		} catch (e: any) {
+			console.error("[Migration] self_healing tables error:", e?.message);
+		}
 
-      // 17. iris_sessions
-      try {
-        await migDb.execute(migSql`
+		// 17. iris_sessions
+		try {
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS iris_sessions (
             id           VARCHAR PRIMARY KEY,
             pan          VARCHAR NOT NULL UNIQUE,
@@ -194,13 +203,13 @@ action      VARCHAR NOT NULL,
             created_at   TIMESTAMPTZ DEFAULT NOW()
           );
         `);
-      } catch (e: any) {
-        console.warn('[Migration] iris_sessions table skipped:', e?.message);
-      }
+		} catch (e: any) {
+			console.warn("[Migration] iris_sessions table skipped:", e?.message);
+		}
 
-      // 18. compliance_audit_trail repair
-      try {
-        await migDb.execute(migSql`
+		// 18. compliance_audit_trail repair
+		try {
+			await migDb.execute(migSql`
           ALTER TABLE compliance_audit_trail 
             ADD COLUMN IF NOT EXISTS field_changed varchar,
             ADD COLUMN IF NOT EXISTS entity_id varchar,
@@ -215,14 +224,17 @@ action      VARCHAR NOT NULL,
             ADD COLUMN IF NOT EXISTS metadata jsonb,
             ADD COLUMN IF NOT EXISTS timestamp timestamp DEFAULT NOW();
         `);
-        console.log('✅ compliance_audit_trail schema verified');
-      } catch (e: any) {
-        console.warn('[Migration] compliance_audit_trail repair skipped:', e?.message);
-      }
+			console.log("✅ compliance_audit_trail schema verified");
+		} catch (e: any) {
+			console.warn(
+				"[Migration] compliance_audit_trail repair skipped:",
+				e?.message,
+			);
+		}
 
-      // 19. unlisted_regulatory_audit_log repair
-      try {
-        await migDb.execute(migSql`
+		// 19. unlisted_regulatory_audit_log repair
+		try {
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS unlisted_regulatory_audit_log (
             id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id VARCHAR REFERENCES users(id),
@@ -285,15 +297,18 @@ before_state JSONB,
           CREATE INDEX IF NOT EXISTS idx_unlisted_reg_audit_timestamp ON unlisted_regulatory_audit_log(timestamp);
           CREATE INDEX IF NOT EXISTS idx_unlisted_reg_audit_retention ON unlisted_regulatory_audit_log(retention_expires_at);
         `);
-        console.log('✅ unlisted_regulatory_audit_log schema verified');
-      } catch (e: any) {
-        console.error('[Migration] unlisted_regulatory_audit_log table error:', e?.message);
-      }
+			console.log("✅ unlisted_regulatory_audit_log schema verified");
+		} catch (e: any) {
+			console.error(
+				"[Migration] unlisted_regulatory_audit_log table error:",
+				e?.message,
+			);
+		}
 
-      // 20. daily_picks table and enums
-      try {
-        // Create enums if they don't exist
-        await migDb.execute(migSql`
+		// 20. daily_picks table and enums
+		try {
+			// Create enums if they don't exist
+			await migDb.execute(migSql`
           DO $$ 
           BEGIN
               IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'pick_category') THEN
@@ -305,7 +320,7 @@ before_state JSONB,
           END $$;
         `);
 
-        await migDb.execute(migSql`
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS daily_picks (
             id SERIAL PRIMARY KEY,
             category pick_category NOT NULL DEFAULT 'listed_stocks',
@@ -344,8 +359,8 @@ before_state JSONB,
           );
         `);
 
-        // Add missing columns if table already existed with old schema
-        await migDb.execute(migSql`
+			// Add missing columns if table already existed with old schema
+			await migDb.execute(migSql`
           DO $$
 
 BEGIN
@@ -399,14 +414,14 @@ BEGIN
               END IF;
           END $$;
         `);
-        console.log('✅ daily_picks schema verified and updated');
-      } catch (e: any) {
-        console.error('[Migration] daily_picks table error:', e?.message);
-      }
+			console.log("✅ daily_picks schema verified and updated");
+		} catch (e: any) {
+			console.error("[Migration] daily_picks table error:", e?.message);
+		}
 
-      // 21. Alpaca Integration Tables
-      try {
-        await migDb.execute(migSql`
+		// 21. Alpaca Integration Tables
+		try {
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS alpaca_accounts (
             id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id VARCHAR NOT NULL REFERENCES users(id),
@@ -475,14 +490,14 @@ crypto_status VARCHAR,
           CREATE INDEX IF NOT EXISTS idx_alpaca_orders_user ON alpaca_orders(user_id);
           CREATE INDEX IF NOT EXISTS idx_alpaca_positions_user ON alpaca_positions(user_id);
         `);
-        console.log('✅ Alpaca integration tables verified');
-      } catch (e: any) {
-        console.error('[Migration] Alpaca tables error:', e?.message);
-      }
+			console.log("✅ Alpaca integration tables verified");
+		} catch (e: any) {
+			console.error("[Migration] Alpaca tables error:", e?.message);
+		}
 
-      // 22. User Social Referral Columns
-      try {
-        await migDb.execute(migSql`
+		// 22. User Social Referral Columns
+		try {
+			await migDb.execute(migSql`
           ALTER TABLE users 
             ADD COLUMN IF NOT EXISTS referral_code VARCHAR UNIQUE,
             ADD COLUMN IF NOT EXISTS shareable_profile_enabled BOOLEAN DEFAULT false,
@@ -505,14 +520,16 @@ crypto_status VARCHAR,
           CREATE INDEX IF NOT EXISTS idx_user_trusted_devices_user ON user_trusted_devices(user_id);
           CREATE INDEX IF NOT EXISTS idx_user_trusted_devices_revoked ON user_trusted_devices(revoked_at);
         `);
-        console.log('✅ User social referral and trusted device columns verified');
-      } catch (e: any) {
-        console.error('[Migration] User social columns error:', e?.message);
-      }
+			console.log(
+				"✅ User social referral and trusted device columns verified",
+			);
+		} catch (e: any) {
+			console.error("[Migration] User social columns error:", e?.message);
+		}
 
-      // 23. Global Asset & RTA Metadata Enrichment
-      try {
-        await migDb.execute(migSql`
+		// 23. Global Asset & RTA Metadata Enrichment
+		try {
+			await migDb.execute(migSql`
           -- Comprehensive Holdings Metadata
           ALTER TABLE comprehensive_holdings
             ADD COLUMN IF NOT EXISTS currency VARCHAR DEFAULT 'INR',
@@ -533,38 +550,40 @@ crypto_status VARCHAR,
             ADD COLUMN IF NOT EXISTS kfintech_id VARCHAR,
             ADD COLUMN IF NOT EXISTS folio_nature VARCHAR;
         `);
-        console.log('✅ Global asset and RTA metadata columns verified');
-      } catch (e: any) {
+			console.log("✅ Global asset and RTA metadata columns verified");
+		} catch (e: any) {
+			console.error("[Migration] Metadata enrichment error:", e?.message);
+		}
 
-console.error('[Migration] Metadata enrichment error:', e?.message);
-      }
-
-      // 24. IRIS KFintech investor ID column on users (missing from production DB)
-      try {
-        await migDb.execute(migSql`
+		// 24. IRIS KFintech investor ID column on users (missing from production DB)
+		try {
+			await migDb.execute(migSql`
           ALTER TABLE users
             ADD COLUMN IF NOT EXISTS iris_investor_id VARCHAR;
         `);
-        console.log('✅ iris_investor_id column on users verified');
-      } catch (e: any) {
-        console.error('[Migration] iris_investor_id column error:', e?.message);
-      }
+			console.log("✅ iris_investor_id column on users verified");
+		} catch (e: any) {
+			console.error("[Migration] iris_investor_id column error:", e?.message);
+		}
 
-      // 25. Alpaca account type
-      try {
-        await migDb.execute(migSql`
+		// 25. Alpaca account type
+		try {
+			await migDb.execute(migSql`
           ALTER TABLE users
             ADD COLUMN IF NOT EXISTS alpaca_account_type VARCHAR DEFAULT 'individual';
         `);
-        console.log('✅ alpaca_account_type column on users verified');
-      } catch (e: any) {
-        console.error('[Migration] alpaca_account_type column error:', e?.message);
-      }
+			console.log("✅ alpaca_account_type column on users verified");
+		} catch (e: any) {
+			console.error(
+				"[Migration] alpaca_account_type column error:",
+				e?.message,
+			);
+		}
 
-      // 26. SGB Schema & Repairs (sgb_primary_issues, sovereign_gold_bonds)
-      try {
-        console.log('🛠️ Verifying sovereign_gold_bonds table...');
-        await migDb.execute(migSql`
+		// 26. SGB Schema & Repairs (sgb_primary_issues, sovereign_gold_bonds)
+		try {
+			console.log("🛠️ Verifying sovereign_gold_bonds table...");
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS sovereign_gold_bonds (
             id SERIAL PRIMARY KEY,
             series_code VARCHAR(50),
@@ -593,34 +612,41 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
           );
         `);
 
-        const { runSgbRepair } = await import("../db-migrations/sgb-repair");
-        await runSgbRepair();
-      } catch (e: any) {
-        console.warn('[Migration] SGB repair sequence skipped:', e?.message);
-      }
+			const { runSgbRepair } = await import("../db-migrations/sgb-repair");
+			await runSgbRepair();
+		} catch (e: any) {
+			console.warn("[Migration] SGB repair sequence skipped:", e?.message);
+		}
 
-      // 27. NCD & Governance Schema Repair (Fixes SQL 42703 issue_name)
-      try {
-        const { runGovernanceNcdRepair } = await import("../db-migrations/governance-ncd-repair");
-        await runGovernanceNcdRepair();
-      } catch (e: any) {
-        console.warn('[Migration] Governance/NCD repair skipped:', e?.message);
-      }
+		// 27. NCD & Governance Schema Repair (Fixes SQL 42703 issue_name)
+		try {
+			const { runGovernanceNcdRepair } = await import(
+				"../db-migrations/governance-ncd-repair"
+			);
+			await runGovernanceNcdRepair();
+		} catch (e: any) {
+			console.warn("[Migration] Governance/NCD repair skipped:", e?.message);
+		}
 
-      try {
-        await migDb.execute(migSql`
+		try {
+			await migDb.execute(migSql`
           ALTER TABLE unlisted_regulatory_audit_log
             ADD COLUMN IF NOT EXISTS forensic_hash VARCHAR(64),
             ADD COLUMN IF NOT EXISTS prev_hash VARCHAR(64);
         `);
-        console.log('✅ forensic_hash/prev_hash columns on unlisted_regulatory_audit_log verified');
-      } catch (e: any) {
-        console.warn('[Migration] unlisted_regulatory_audit_log forensic columns skipped:', e?.message);
-      }
+			console.log(
+				"✅ forensic_hash/prev_hash columns on unlisted_regulatory_audit_log verified",
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] unlisted_regulatory_audit_log forensic columns skipped:",
+				e?.message,
+			);
+		}
 
-      // 28. KYC and LRS userProfiles & lrsComplianceTracking repairs
-      try {
-        await migDb.execute(migSql`
+		// 28. KYC and LRS userProfiles & lrsComplianceTracking repairs
+		try {
+			await migDb.execute(migSql`
           ALTER TABLE user_profiles
             ADD COLUMN IF NOT EXISTS pan_verified_via_sandbox BOOLEAN DEFAULT false,
             ADD COLUMN IF NOT EXISTS pan_sandbox_status VARCHAR,
@@ -649,16 +675,21 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
             ADD COLUMN IF NOT EXISTS w8ben_filed BOOLEAN DEFAULT false,
             ADD COLUMN IF NOT EXISTS w8ben_expiry_date DATE;
         `);
-        console.log('✅ KYC & LRS columns on user_profiles & lrs_compliance_tracking verified');
-      } catch (e: any) {
-        console.error('[Migration] user_profiles & lrs_compliance_tracking KYC columns error:', e?.message);
-      }
+			console.log(
+				"✅ KYC & LRS columns on user_profiles & lrs_compliance_tracking verified",
+			);
+		} catch (e: any) {
+			console.error(
+				"[Migration] user_profiles & lrs_compliance_tracking KYC columns error:",
+				e?.message,
+			);
+		}
 
-      // ── Algo Signal Engine (FASP-AI v1.0) ────────────────────────────────────
-      // algo_signals table: Decision Support System signals for US equities.
-      // Added 2026-05-30. Safe CREATE TABLE IF NOT EXISTS — idempotent.
-      try {
-        await migDb.execute(migSql`
+		// ── Algo Signal Engine (FASP-AI v1.0) ────────────────────────────────────
+		// algo_signals table: Decision Support System signals for US equities.
+		// Added 2026-05-30. Safe CREATE TABLE IF NOT EXISTS — idempotent.
+		try {
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS algo_signals (
             id                 SERIAL PRIMARY KEY,
             user_id            VARCHAR REFERENCES users(id),
@@ -700,20 +731,20 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
           CREATE INDEX IF NOT EXISTS idx_algo_signals_status  ON algo_signals(status);
           CREATE INDEX IF NOT EXISTS idx_algo_signals_created ON algo_signals(created_at);
         `);
-        console.log('✅ algo_signals table verified (FASP-AI v1.0 DSS)');
-      } catch (e: any) {
-        console.error('[Migration] algo_signals table error:', e?.message);
-      }
+			console.log("✅ algo_signals table verified (FASP-AI v1.0 DSS)");
+		} catch (e: any) {
+			console.error("[Migration] algo_signals table error:", e?.message);
+		}
 
-        console.log('✅ Critical schema repairs complete');
+		console.log("✅ Critical schema repairs complete");
 
-      // ── 29. REITs & InvITs — schema drift repair ──────────────────────────────
-      // The reits/invits tables in production are missing columns added in the
-      // reit-invit.ts schema after the initial table creation, causing a
-      // "Failed query: select ... from reits where symbol = $1" error on every
-      // price refresh cycle.
-      try {
-        await migDb.execute(migSql`
+		// ── 29. REITs & InvITs — schema drift repair ──────────────────────────────
+		// The reits/invits tables in production are missing columns added in the
+		// reit-invit.ts schema after the initial table creation, causing a
+		// "Failed query: select ... from reits where symbol = $1" error on every
+		// price refresh cycle.
+		try {
+			await migDb.execute(migSql`
           -- REITs: add any columns that may be missing from the production table
           ALTER TABLE reits
             ADD COLUMN IF NOT EXISTS sponsor TEXT,
@@ -762,13 +793,13 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
           CREATE INDEX IF NOT EXISTS idx_reits_sector    ON reits(sector);
           CREATE INDEX IF NOT EXISTS idx_reits_ai_signal ON reits(ai_signal);
         `);
-        console.log('✅ reits schema columns verified');
-      } catch (e: any) {
-        console.warn('[Migration] reits column repair skipped:', e?.message);
-      }
+			console.log("✅ reits schema columns verified");
+		} catch (e: any) {
+			console.warn("[Migration] reits column repair skipped:", e?.message);
+		}
 
-      try {
-        await migDb.execute(migSql`
+		try {
+			await migDb.execute(migSql`
           -- InvITs: add any columns that may be missing
           ALTER TABLE invits
             ADD COLUMN IF NOT EXISTS sponsor TEXT,
@@ -817,17 +848,17 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
           CREATE INDEX IF NOT EXISTS idx_invits_sector    ON invits(sector);
           CREATE INDEX IF NOT EXISTS idx_invits_ai_signal ON invits(ai_signal);
         `);
-        console.log('✅ invits schema columns verified');
-      } catch (e: any) {
-        console.warn('[Migration] invits column repair skipped:', e?.message);
-      }
+			console.log("✅ invits schema columns verified");
+		} catch (e: any) {
+			console.warn("[Migration] invits column repair skipped:", e?.message);
+		}
 
-      // ── 30. mutual_funds — comprehensive schema drift repair ──────────────────
-      // The mutual_funds table in production was created from an early schema
-      // version and is missing many columns that MFSync, AutoPublish, and the
-      // MFReturns sync now query.  All ALTER TABLE statements are idempotent.
-      try {
-        await migDb.execute(migSql`
+		// ── 30. mutual_funds — comprehensive schema drift repair ──────────────────
+		// The mutual_funds table in production was created from an early schema
+		// version and is missing many columns that MFSync, AutoPublish, and the
+		// MFReturns sync now query.  All ALTER TABLE statements are idempotent.
+		try {
+			await migDb.execute(migSql`
           ALTER TABLE mutual_funds
             -- Publishing controls
             ADD COLUMN IF NOT EXISTS is_published      BOOLEAN DEFAULT false,
@@ -910,13 +941,16 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
           CREATE INDEX IF NOT EXISTS idx_mutual_funds_last_verified ON mutual_funds(last_verified_at);
           CREATE INDEX IF NOT EXISTS idx_mutual_funds_scheme_status ON mutual_funds(scheme_status);
         `);
-        console.log('✅ mutual_funds comprehensive column repair complete');
-      } catch (e: any) {
-        console.warn('[Migration] mutual_funds column repair skipped:', e?.message);
-      }
+			console.log("✅ mutual_funds comprehensive column repair complete");
+		} catch (e: any) {
+			console.warn(
+				"[Migration] mutual_funds column repair skipped:",
+				e?.message,
+			);
+		}
 
-      try {
-        await migDb.execute(migSql`
+		try {
+			await migDb.execute(migSql`
           ALTER TABLE bond_catalog
             ADD COLUMN IF NOT EXISTS is_active    BOOLEAN DEFAULT true,
             ADD COLUMN IF NOT EXISTS face_value   NUMERIC(18,4),
@@ -924,17 +958,17 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
           CREATE INDEX IF NOT EXISTS idx_bond_catalog_is_active    ON bond_catalog(is_active);
           CREATE INDEX IF NOT EXISTS idx_bond_catalog_maturity     ON bond_catalog(maturity_date);
         `);
-        console.log('✅ bond_catalog is_active/maturity_date columns verified');
-      } catch (e: any) {
-        console.warn('[Migration] bond_catalog columns skipped:', e?.message);
-      }
+			console.log("✅ bond_catalog is_active/maturity_date columns verified");
+		} catch (e: any) {
+			console.warn("[Migration] bond_catalog columns skipped:", e?.message);
+		}
 
-      // ── 31. error_alert_threshold — missing monitoring table ─────────────────
-      // ErrorWebhookService / ErrorSpikeDetectionService query this table to
-      // determine per-module spike thresholds.  Missing table causes a cascade of
-      // Failed query errors on every error ingested.
-      try {
-        await migDb.execute(migSql`
+		// ── 31. error_alert_threshold — missing monitoring table ─────────────────
+		// ErrorWebhookService / ErrorSpikeDetectionService query this table to
+		// determine per-module spike thresholds.  Missing table causes a cascade of
+		// Failed query errors on every error ingested.
+		try {
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS error_alert_threshold (
             id                      SERIAL PRIMARY KEY,
             module                  VARCHAR(100),
@@ -960,42 +994,87 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
             SELECT 1 FROM error_alert_threshold WHERE module IS NULL AND error_code IS NULL
           );
         `);
-        console.log('✅ error_alert_threshold table verified');
-      } catch (e: any) {
-        console.warn('[Migration] error_alert_threshold table skipped:', e?.message);
-      }
+			console.log("✅ error_alert_threshold table verified");
+		} catch (e: any) {
+			console.warn(
+				"[Migration] error_alert_threshold table skipped:",
+				e?.message,
+			);
+		}
 
-      // ── 32. instrument_master — missing columns for PickOfTheDay strategies ──
-      // Drizzle execute() does NOT support multi-statement SQL — split each statement.
-      // last_price: used by price sync
-      // interest_rate: used by FixedDepositStrategy ORDER BY
-      // tenure_months: used by FD/Bond strategies for display
-      // min_investment: used by product display
-      try {
-        await migDb.execute(migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS last_price NUMERIC(18, 4)`);
-      } catch (e: any) { console.warn('[Migration] instrument_master last_price:', e?.message?.slice(0, 120)); }
-      try {
-        await migDb.execute(migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS interest_rate NUMERIC(8, 4)`);
-      } catch (e: any) { console.warn('[Migration] instrument_master interest_rate:', e?.message?.slice(0, 120)); }
-      try {
-        await migDb.execute(migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS tenure_months INTEGER`);
-      } catch (e: any) { console.warn('[Migration] instrument_master tenure_months:', e?.message?.slice(0, 120)); }
-      try {
-        await migDb.execute(migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS min_investment NUMERIC(15, 2)`);
-      } catch (e: any) { console.warn('[Migration] instrument_master min_investment:', e?.message?.slice(0, 120)); }
-      try {
-        await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_instrument_master_last_price ON instrument_master(last_price) WHERE last_price IS NOT NULL`);
-      } catch (e: any) { console.warn('[Migration] instrument_master index:', e?.message?.slice(0, 120)); }
-      try {
-        await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_instrument_master_interest_rate ON instrument_master(interest_rate) WHERE interest_rate IS NOT NULL`);
-      } catch (e: any) { console.warn('[Migration] instrument_master interest_rate index:', e?.message?.slice(0, 120)); }
-      console.log('✅ instrument_master last_price column verified');
+		// ── 32. instrument_master — missing columns for PickOfTheDay strategies ──
+		// Drizzle execute() does NOT support multi-statement SQL — split each statement.
+		// last_price: used by price sync
+		// interest_rate: used by FixedDepositStrategy ORDER BY
+		// tenure_months: used by FD/Bond strategies for display
+		// min_investment: used by product display
+		try {
+			await migDb.execute(
+				migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS last_price NUMERIC(18, 4)`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] instrument_master last_price:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		try {
+			await migDb.execute(
+				migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS interest_rate NUMERIC(8, 4)`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] instrument_master interest_rate:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		try {
+			await migDb.execute(
+				migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS tenure_months INTEGER`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] instrument_master tenure_months:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		try {
+			await migDb.execute(
+				migSql`ALTER TABLE instrument_master ADD COLUMN IF NOT EXISTS min_investment NUMERIC(15, 2)`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] instrument_master min_investment:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		try {
+			await migDb.execute(
+				migSql`CREATE INDEX IF NOT EXISTS idx_instrument_master_last_price ON instrument_master(last_price) WHERE last_price IS NOT NULL`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] instrument_master index:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		try {
+			await migDb.execute(
+				migSql`CREATE INDEX IF NOT EXISTS idx_instrument_master_interest_rate ON instrument_master(interest_rate) WHERE interest_rate IS NOT NULL`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] instrument_master interest_rate index:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		console.log("✅ instrument_master last_price column verified");
 
-      // ── 33. goal_benchmark_mapping — ProposalBuilder missing table ────────────
-      // Split into individual execute() calls — Drizzle does NOT support multi-statement SQL.
-      // Removed FK REFERENCES users(id) on overridden_by to avoid FK type mismatch.
-      try {
-        await migDb.execute(migSql`
+		// ── 33. goal_benchmark_mapping — ProposalBuilder missing table ────────────
+		// Split into individual execute() calls — Drizzle does NOT support multi-statement SQL.
+		// Removed FK REFERENCES users(id) on overridden_by to avoid FK type mismatch.
+		try {
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS goal_benchmark_mapping (
             id                  VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
             goal_type           VARCHAR(50) NOT NULL,
@@ -1015,18 +1094,44 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
             updated_at          TIMESTAMPTZ DEFAULT NOW()
           )
         `);
-      } catch (e: any) { console.warn('[Migration] goal_benchmark_mapping CREATE:', e?.message?.slice(0, 120)); }
-      try {
-        await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_goal_benchmark_goal_type ON goal_benchmark_mapping(goal_type)`);
-      } catch (e: any) { console.warn('[Migration] goal_benchmark_mapping idx goal_type:', e?.message?.slice(0, 120)); }
-      try {
-        await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_goal_benchmark_risk_profile ON goal_benchmark_mapping(risk_profile)`);
-      } catch (e: any) { console.warn('[Migration] goal_benchmark_mapping idx risk_profile:', e?.message?.slice(0, 120)); }
-      try {
-        await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_goal_benchmark_active ON goal_benchmark_mapping(is_active)`);
-      } catch (e: any) { console.warn('[Migration] goal_benchmark_mapping idx active:', e?.message?.slice(0, 120)); }
-      try {
-        await migDb.execute(migSql`
+		} catch (e: any) {
+			console.warn(
+				"[Migration] goal_benchmark_mapping CREATE:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		try {
+			await migDb.execute(
+				migSql`CREATE INDEX IF NOT EXISTS idx_goal_benchmark_goal_type ON goal_benchmark_mapping(goal_type)`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] goal_benchmark_mapping idx goal_type:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		try {
+			await migDb.execute(
+				migSql`CREATE INDEX IF NOT EXISTS idx_goal_benchmark_risk_profile ON goal_benchmark_mapping(risk_profile)`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] goal_benchmark_mapping idx risk_profile:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		try {
+			await migDb.execute(
+				migSql`CREATE INDEX IF NOT EXISTS idx_goal_benchmark_active ON goal_benchmark_mapping(is_active)`,
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] goal_benchmark_mapping idx active:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		try {
+			await migDb.execute(migSql`
           INSERT INTO goal_benchmark_mapping
             (goal_type, risk_profile, benchmark_index, benchmark_code, benchmark_name, benchmark_rationale, horizon_years_min, horizon_years_max, is_default)
           VALUES
@@ -1041,12 +1146,17 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
             ('home_purchase', 'moderate',     'Nifty 50',                    'NIFTY50',      'Nifty 50 Index',                    'Equity benchmark for home purchase savings',               3, 10, true)
           ON CONFLICT DO NOTHING
         `);
-      } catch (e: any) { console.warn('[Migration] goal_benchmark_mapping seed:', e?.message?.slice(0, 120)); }
-      console.log('✅ goal_benchmark_mapping table verified with defaults');
+		} catch (e: any) {
+			console.warn(
+				"[Migration] goal_benchmark_mapping seed:",
+				e?.message?.slice(0, 120),
+			);
+		}
+		console.log("✅ goal_benchmark_mapping table verified with defaults");
 
-      // ── Mobile: push_tokens table ────────────────────────────────────────
-      try {
-        await migDb.execute(migSql`
+		// ── Mobile: push_tokens table ────────────────────────────────────────
+		try {
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS push_tokens (
             id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id     VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1057,32 +1167,37 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
           );
           CREATE INDEX IF NOT EXISTS idx_push_tokens_user_id ON push_tokens(user_id);
         `);
-        console.log('✅ push_tokens table verified (mobile push notifications)');
-      } catch (e: any) {
-        console.warn('[Migration] push_tokens table skipped:', e?.message);
-      }
+			console.log("✅ push_tokens table verified (mobile push notifications)");
+		} catch (e: any) {
+			console.warn("[Migration] push_tokens table skipped:", e?.message);
+		}
 
-      // ── eSign Requests: allow nullable signing-time fields (initiation records) ─
-      // esign_requests was designed for post-signing records but TruthScreen inserts
-      // at initiation time (before signing), so signing-specific columns must be nullable.
-      try {
-        await migDb.execute(migSql`
+		// ── eSign Requests: allow nullable signing-time fields (initiation records) ─
+		// esign_requests was designed for post-signing records but TruthScreen inserts
+		// at initiation time (before signing), so signing-specific columns must be nullable.
+		try {
+			await migDb.execute(migSql`
           ALTER TABLE esign_requests ALTER COLUMN certificate_serial DROP NOT NULL;
           ALTER TABLE esign_requests ALTER COLUMN signer_aadhaar_masked DROP NOT NULL;
           ALTER TABLE esign_requests ALTER COLUMN signed_at DROP NOT NULL;
           ALTER TABLE esign_requests ALTER COLUMN valid_from DROP NOT NULL;
           ALTER TABLE esign_requests ALTER COLUMN valid_to DROP NOT NULL;
         `);
-        console.log('✅ esign_requests signing-time columns made nullable (initiation support)');
-      } catch (e: any) {
-        console.warn('[Migration] esign_requests nullable columns skipped:', e?.message);
-      }
+			console.log(
+				"✅ esign_requests signing-time columns made nullable (initiation support)",
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] esign_requests nullable columns skipped:",
+				e?.message,
+			);
+		}
 
-      // ── 34. pick_watchlist & pick_price_alerts ────────────────────────────────
-      // The watchlist feature tables are defined in shared schema but never ran
-      // as a startup migration, causing watchlist API 500s on fresh environments.
-      try {
-        await migDb.execute(migSql`
+		// ── 34. pick_watchlist & pick_price_alerts ────────────────────────────────
+		// The watchlist feature tables are defined in shared schema but never ran
+		// as a startup migration, causing watchlist API 500s on fresh environments.
+		try {
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS pick_watchlist (
             id                  SERIAL PRIMARY KEY,
             user_id             VARCHAR REFERENCES users(id),
@@ -1114,17 +1229,20 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
           CREATE INDEX IF NOT EXISTS idx_pick_price_alerts_pick ON pick_price_alerts(pick_id);
           CREATE INDEX IF NOT EXISTS idx_pick_price_alerts_user ON pick_price_alerts(user_id);
         `);
-        console.log('✅ pick_watchlist & pick_price_alerts tables verified');
-      } catch (e: any) {
-        console.warn('[Migration] pick_watchlist/pick_price_alerts table skipped:', e?.message);
-      }
+			console.log("✅ pick_watchlist & pick_price_alerts tables verified");
+		} catch (e: any) {
+			console.warn(
+				"[Migration] pick_watchlist/pick_price_alerts table skipped:",
+				e?.message,
+			);
+		}
 
-      // ── 36. portfolio_transactions — Unified Cross-Broker Transaction Ledger ────
-      // New table added as part of broker-agnostic portfolio aggregation architecture.
-      // Stores normalized transactions from IRIS, Alpaca, IIFL, CAS, and manual entry.
-      // Idempotency enforced via (client_id, source, external_transaction_id) unique index.
-      try {
-        await migDb.execute(migSql`
+		// ── 36. portfolio_transactions — Unified Cross-Broker Transaction Ledger ────
+		// New table added as part of broker-agnostic portfolio aggregation architecture.
+		// Stores normalized transactions from IRIS, Alpaca, IIFL, CAS, and manual entry.
+		// Idempotency enforced via (client_id, source, external_transaction_id) unique index.
+		try {
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS portfolio_transactions (
             id                      VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
             client_id               VARCHAR NOT NULL REFERENCES users(id),
@@ -1165,16 +1283,21 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
             ON portfolio_transactions(client_id, source, external_transaction_id)
             WHERE external_transaction_id IS NOT NULL;
         `);
-        console.log('✅ portfolio_transactions table verified (broker-agnostic ledger)');
-      } catch (e: any) {
-        console.warn('[Migration] portfolio_transactions table skipped:', e?.message);
-      }
+			console.log(
+				"✅ portfolio_transactions table verified (broker-agnostic ledger)",
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] portfolio_transactions table skipped:",
+				e?.message,
+			);
+		}
 
-      // ── 37. portfolio_reconciliation_log + portfolio_holding_discrepancies ────
-      // Created for the Portfolio Reconciliation Engine (Phase 5).
-      // Stores per-client daily reconciliation run results and flagged discrepancies.
-      try {
-        await migDb.execute(migSql`
+		// ── 37. portfolio_reconciliation_log + portfolio_holding_discrepancies ────
+		// Created for the Portfolio Reconciliation Engine (Phase 5).
+		// Stores per-client daily reconciliation run results and flagged discrepancies.
+		try {
+			await migDb.execute(migSql`
           CREATE TABLE IF NOT EXISTS portfolio_reconciliation_log (
             id                    SERIAL PRIMARY KEY,
             client_id             VARCHAR NOT NULL REFERENCES users(id),
@@ -1229,19 +1352,24 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
           CREATE INDEX IF NOT EXISTS idx_holding_disc_resolved ON portfolio_holding_discrepancies(resolved);
           CREATE INDEX IF NOT EXISTS idx_holding_disc_type ON portfolio_holding_discrepancies(discrepancy_type);
         `);
-        console.log('✅ portfolio_reconciliation_log + portfolio_holding_discrepancies tables verified');
-      } catch (e: any) {
-        console.warn('[Migration] portfolio reconciliation tables skipped:', e?.message);
-      }
+			console.log(
+				"✅ portfolio_reconciliation_log + portfolio_holding_discrepancies tables verified",
+			);
+		} catch (e: any) {
+			console.warn(
+				"[Migration] portfolio reconciliation tables skipped:",
+				e?.message,
+			);
+		}
 
-      // ── 35. Grant app user permissions on unlisted marketplace tables ─────────
+		// ── 35. Grant app user permissions on unlisted marketplace tables ─────────
 
-      // The `postgres` user owns the unlisted_* tables but the application
-      // connects as `finpro_user`.  Missing UPDATE/INSERT privilege means the
-      // startup cron that marks listed companies (e.g. Swiggy) as inactive
-      // silently fails with a permission error — never persisting to the DB.
-      try {
-        await migDb.execute(migSql`
+		// The `postgres` user owns the unlisted_* tables but the application
+		// connects as `finpro_user`.  Missing UPDATE/INSERT privilege means the
+		// startup cron that marks listed companies (e.g. Swiggy) as inactive
+		// silently fails with a permission error — never persisting to the DB.
+		try {
+			await migDb.execute(migSql`
           GRANT SELECT, INSERT, UPDATE, DELETE
             ON unlisted_companies,
                unlisted_audit_log,
@@ -1259,13 +1387,14 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
                client_unlisted_disclosure_log
             TO finpro_user;
         `);
-        console.log('✅ finpro_user permissions on unlisted_* tables granted');
-      } catch (e: any) {
-        console.warn('[Migration] finpro_user grant on unlisted tables skipped:', e?.message);
-      }
-
-      } catch (migErr) {
-        console.error('❌ Migration sequence failed (non-fatal):', migErr);
-      }
+			console.log("✅ finpro_user permissions on unlisted_* tables granted");
+		} catch (e: any) {
+			console.warn(
+				"[Migration] finpro_user grant on unlisted tables skipped:",
+				e?.message,
+			);
+		}
+	} catch (migErr) {
+		console.error("❌ Migration sequence failed (non-fatal):", migErr);
+	}
 }
-

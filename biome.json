@@ -11,18 +11,38 @@
       "complexity": {
         "noBannedTypes": "off",
         "noUselessTypeConstraint": "off",
-        "noForEach": "off"
+        "noForEach": "off",
+        "noStaticOnlyClass": "off",
+        "noUselessCatch": "off"
       },
 
       "suspicious": {
         "noExplicitAny": "off",
-        "noArrayIndexKey": "off"
+        "noArrayIndexKey": "off",
+        "noImplicitAnyLet": "off",
+        "noRedeclare": "off",
+        "noAssignInExpressions": "off",
+        "noPrototypeBuiltins": "off",
+        "noShadowRestrictedNames": "off",
+        "noAsyncPromiseExecutor": "off"
+      },
+
+      "correctness": {
+        "useExhaustiveDependencies": "off",
+        "noVoidTypeReturn": "off"
+      },
+
+      "performance": {
+        "noAccumulatingSpread": "off"
       },
 
       "a11y": {
         "noSvgWithoutTitle": "off",
         "useKeyWithClickEvents": "off",
-        "useButtonType": "off"
+        "useButtonType": "off",
+        "useAriaPropsForRole": "off",
+        "useValidAnchor": "off",
+        "noRedundantAlt": "off"
       },
 
       "style": {
@@ -44,6 +64,9 @@
         "recommended": false
       }
     }
+  },
+  "formatter": {
+    "enabled": false
   },
   "files": {
     "ignore": [

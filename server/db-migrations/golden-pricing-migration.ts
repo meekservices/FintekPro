@@ -7,8 +7,8 @@ import { db } from "../db";
 import { sql } from "drizzle-orm";
 
 export async function runGoldenPricingMigration(): Promise<void> {
-  try {
-    await db.execute(sql`
+	try {
+		await db.execute(sql`
       CREATE TABLE IF NOT EXISTS golden_prices (
         id SERIAL PRIMARY KEY,
         isin VARCHAR(20) NOT NULL,
@@ -37,20 +37,20 @@ export async function runGoldenPricingMigration(): Promise<void> {
       )
     `);
 
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_golden_prices_date ON golden_prices(price_date)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_golden_prices_symbol ON golden_prices(symbol)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_golden_prices_asset_class ON golden_prices(asset_class)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_golden_prices_flagged ON golden_prices(is_flagged)
     `);
 
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE TABLE IF NOT EXISTS price_audit_log (
         id SERIAL PRIMARY KEY,
         isin VARCHAR(20) NOT NULL,
@@ -67,17 +67,17 @@ export async function runGoldenPricingMigration(): Promise<void> {
       )
     `);
 
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_price_audit_isin ON price_audit_log(isin)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_price_audit_date ON price_audit_log(price_date)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_price_audit_created ON price_audit_log(created_at)
     `);
 
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE TABLE IF NOT EXISTS instrument_returns (
         id SERIAL PRIMARY KEY,
         isin VARCHAR(20) NOT NULL,
@@ -106,15 +106,17 @@ export async function runGoldenPricingMigration(): Promise<void> {
       )
     `);
 
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_instr_ret_isin ON instrument_returns(isin)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_instr_ret_date ON instrument_returns(as_of_date)
     `);
 
-    console.log("✅ [GoldenPricing] DB tables ready (golden_prices, price_audit_log, instrument_returns)");
-  } catch (e: any) {
-    console.error("[GoldenPricing] Migration error:", e?.message);
-  }
+		console.log(
+			"✅ [GoldenPricing] DB tables ready (golden_prices, price_audit_log, instrument_returns)",
+		);
+	} catch (e: any) {
+		console.error("[GoldenPricing] Migration error:", e?.message);
+	}
 }

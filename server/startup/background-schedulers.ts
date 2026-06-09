@@ -19,13 +19,13 @@ const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function runStartupTask(name: string, task: () => Promise<void>) {
-  try {
-    console.log(`⚙️  [Scheduler] Starting: ${name}`);
-    await task();
-    console.log(`✅ [Scheduler] Ready:    ${name}`);
-  } catch (error) {
-    console.error(`❌ [Scheduler] Failed:   ${name}`, error);
-  }
+	try {
+		console.log(`⚙️  [Scheduler] Starting: ${name}`);
+		await task();
+		console.log(`✅ [Scheduler] Ready:    ${name}`);
+	} catch (error) {
+		console.error(`❌ [Scheduler] Failed:   ${name}`, error);
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36,16 +36,16 @@ async function runStartupTask(name: string, task: () => Promise<void>) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function autoPublishAllInstruments() {
-  const { db } = await import("../db");
-  const { sql } = await import("drizzle-orm");
+	const { db } = await import("../db");
+	const { sql } = await import("drizzle-orm");
 
-  // Tables and their publish conditions (using actual DB column names from schema).
-  // Tables that have no is_published flag are skipped silently — they're always visible.
-  const tasks: Array<{ label: string; query: ReturnType<typeof sql> }> = [
-    {
-      // listed_stocks: has is_published, is_active, current_price columns
-      label: "listed_stocks",
-      query: sql`
+	// Tables and their publish conditions (using actual DB column names from schema).
+	// Tables that have no is_published flag are skipped silently — they're always visible.
+	const tasks: Array<{ label: string; query: ReturnType<typeof sql> }> = [
+		{
+			// listed_stocks: has is_published, is_active, current_price columns
+			label: "listed_stocks",
+			query: sql`
         UPDATE listed_stocks
         SET is_published = true, published_at = NOW(), published_by = 'system_auto_publish'
         WHERE is_published = false
@@ -53,11 +53,11 @@ async function autoPublishAllInstruments() {
           AND current_price IS NOT NULL
           AND CAST(current_price AS DECIMAL) > 50
       `,
-    },
-    {
-      // mutual_funds: main catalogue table — check actual column name from routes
-      label: "mutual_funds",
-      query: sql`
+		},
+		{
+			// mutual_funds: main catalogue table — check actual column name from routes
+			label: "mutual_funds",
+			query: sql`
         UPDATE mutual_funds
         SET is_published = true, updated_at = NOW()
         WHERE is_published = false
@@ -65,81 +65,83 @@ async function autoPublishAllInstruments() {
           AND nav IS NOT NULL
           AND CAST(nav AS DECIMAL) > 0
       `,
-    },
-    {
-      // bond_catalog: uses is_active, no is_published gate — publish by setting is_active=true
-      // for bonds that have a valid clean_price or ytm (meaning they have market data)
-      label: "bond_catalog",
-      query: sql`
+		},
+		{
+			// bond_catalog: uses is_active, no is_published gate — publish by setting is_active=true
+			// for bonds that have a valid clean_price or ytm (meaning they have market data)
+			label: "bond_catalog",
+			query: sql`
         UPDATE bond_catalog
         SET is_active = true
         WHERE is_active = false
           AND face_value IS NOT NULL
           AND maturity_date > NOW()
       `,
-    },
-    {
-      // reits: uses current_price (not nav_per_unit), no is_published — ensure is_active
-      label: "reits",
-      query: sql`
+		},
+		{
+			// reits: uses current_price (not nav_per_unit), no is_published — ensure is_active
+			label: "reits",
+			query: sql`
         UPDATE reits
         SET is_active = true
         WHERE is_active = false
           AND current_price IS NOT NULL
           AND CAST(current_price AS DECIMAL) > 0
       `,
-    },
-    {
-      // invits: same pattern as reits
-      label: "invits",
-      query: sql`
+		},
+		{
+			// invits: same pattern as reits
+			label: "invits",
+			query: sql`
         UPDATE invits
         SET is_active = true
         WHERE is_active = false
           AND current_price IS NOT NULL
           AND CAST(current_price AS DECIMAL) > 0
       `,
-    },
-    {
-      // global_instruments: uses last_price (not current_price), is_active flag
-      label: "global_instruments",
-      query: sql`
+		},
+		{
+			// global_instruments: uses last_price (not current_price), is_active flag
+			label: "global_instruments",
+			query: sql`
         UPDATE global_instruments
         SET is_active = true
         WHERE is_active = false
           AND last_price IS NOT NULL
           AND CAST(last_price AS DECIMAL) > 0
       `,
-    },
-  ];
+		},
+	];
 
-  console.log("🔓 [AutoPublish] Running auto-publish for all instrument types...");
-  for (const { label, query } of tasks) {
-    try {
-      const result = await db.execute(query);
-      const count = (result as any).rowCount ?? (result as any).count ?? 0;
-      if (count > 0) {
-        console.log(`  ✅ [AutoPublish] ${label}: published ${count} records`);
-      }
-    } catch (err: any) {
-      // Table may not exist for all instrument types — non-fatal
-      if (!err.message?.includes("does not exist")) {
-        console.error(`  ⚠️  [AutoPublish] ${label} failed:`, err.message);
-      }
-    }
-  }
+	console.log(
+		"🔓 [AutoPublish] Running auto-publish for all instrument types...",
+	);
+	for (const { label, query } of tasks) {
+		try {
+			const result = await db.execute(query);
+			const count = (result as any).rowCount ?? (result as any).count ?? 0;
+			if (count > 0) {
+				console.log(`  ✅ [AutoPublish] ${label}: published ${count} records`);
+			}
+		} catch (err: any) {
+			// Table may not exist for all instrument types — non-fatal
+			if (!err.message?.includes("does not exist")) {
+				console.error(`  ⚠️  [AutoPublish] ${label} failed:`, err.message);
+			}
+		}
+	}
 
-  // Re-run every 24h so newly synced instruments go live without admin action
-  setInterval(async () => {
-    for (const { label, query } of tasks) {
-      try {
-        await db.execute(query);
-      } catch {
-        // Silent — non-critical periodic task
-      }
-    }
-    console.log("[AutoPublish] Periodic instrument publish check complete");
-  }, TWENTY_FOUR_HOURS_MS);
+	// Re-run every 24h so newly synced instruments go live without admin action
+	setInterval(async () => {
+		for (const { label, query } of tasks) {
+			try {
+				await db.execute(query);
+			} catch {
+				// Silent — non-critical periodic task
+			}
+		}
+		console.log("[AutoPublish] Periodic instrument publish check complete");
+	}, TWENTY_FOUR_HOURS_MS);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -148,8 +150,10 @@ async function autoPublishAllInstruments() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function startStockSyncScheduler() {
-  const { stockSyncScheduler } = await import("../services/stock-sync-scheduler");
-  stockSyncScheduler.initialize();
+	const { stockSyncScheduler } = await import(
+		"../services/stock-sync-scheduler"
+	);
+	stockSyncScheduler.initialize();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -157,8 +161,10 @@ async function startStockSyncScheduler() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function startPickOfTheDayScheduler() {
-  const { pickOfTheDayService } = await import("../services/pick-of-the-day-service");
-  pickOfTheDayService.startDailyScheduler();
+	const { pickOfTheDayService } = await import(
+		"../services/pick-of-the-day-service"
+	);
+	pickOfTheDayService.startDailyScheduler();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -166,26 +172,28 @@ async function startPickOfTheDayScheduler() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function startMutualFundSync() {
-  try {
-    const { mfSyncScheduler } = await import("../services/mf-sync-scheduler");
-    mfSyncScheduler.start();
-  } catch {
-    console.warn("[Scheduler] mf-sync-scheduler not available, skipping");
-  }
+	try {
+		const { mfSyncScheduler } = await import("../services/mf-sync-scheduler");
+		mfSyncScheduler.start();
+	} catch {
+		console.warn("[Scheduler] mf-sync-scheduler not available, skipping");
+	}
 
-  try {
-    const { amfiNavScheduler } = await import("../services/amfi-nav-scheduler");
-    amfiNavScheduler.initialize();
-  } catch {
-    console.warn("[Scheduler] amfi-nav-scheduler not available, skipping");
-  }
+	try {
+		const { amfiNavScheduler } = await import("../services/amfi-nav-scheduler");
+		amfiNavScheduler.initialize();
+	} catch {
+		console.warn("[Scheduler] amfi-nav-scheduler not available, skipping");
+	}
 
-  try {
-    const { mfReturnsScheduler } = await import("../services/mf-returns-scheduler");
-    await mfReturnsScheduler.initialize();
-  } catch {
-    console.warn("[Scheduler] mf-returns-scheduler not available, skipping");
-  }
+	try {
+		const { mfReturnsScheduler } = await import(
+			"../services/mf-returns-scheduler"
+		);
+		await mfReturnsScheduler.initialize();
+	} catch {
+		console.warn("[Scheduler] mf-returns-scheduler not available, skipping");
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -193,12 +201,16 @@ async function startMutualFundSync() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function startDataEnrichment() {
-  try {
-    const { dataEnrichmentScheduler } = await import("../services/data-enrichment-scheduler");
-    dataEnrichmentScheduler.initialize();
-  } catch {
-    console.warn("[Scheduler] data-enrichment-scheduler not available, skipping");
-  }
+	try {
+		const { dataEnrichmentScheduler } = await import(
+			"../services/data-enrichment-scheduler"
+		);
+		dataEnrichmentScheduler.initialize();
+	} catch {
+		console.warn(
+			"[Scheduler] data-enrichment-scheduler not available, skipping",
+		);
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -206,12 +218,16 @@ async function startDataEnrichment() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function startFinancialDataScheduler() {
-  try {
-    const { financialDataScheduler } = await import("../services/financial-data-scheduler");
-    await financialDataScheduler.start();
-  } catch {
-    console.warn("[Scheduler] financial-data-scheduler not available, skipping");
-  }
+	try {
+		const { financialDataScheduler } = await import(
+			"../services/financial-data-scheduler"
+		);
+		await financialDataScheduler.start();
+	} catch {
+		console.warn(
+			"[Scheduler] financial-data-scheduler not available, skipping",
+		);
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -219,12 +235,14 @@ async function startFinancialDataScheduler() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function startReitInvitRefresh() {
-  try {
-    const { reitInvitDataService } = await import("../services/reit-invit-data-service");
-    reitInvitDataService.startScheduledRefresh(6); // every 6 hours
-  } catch {
-    console.warn("[Scheduler] reit-invit-data-service not available, skipping");
-  }
+	try {
+		const { reitInvitDataService } = await import(
+			"../services/reit-invit-data-service"
+		);
+		reitInvitDataService.startScheduledRefresh(6); // every 6 hours
+	} catch {
+		console.warn("[Scheduler] reit-invit-data-service not available, skipping");
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -232,14 +250,16 @@ async function startReitInvitRefresh() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function startKycExpiryMonitor() {
-  if (process.env.NODE_ENV !== "production") return;
-  const { kycExpiryMonitor } = await import("../services/kyc-expiry-monitor");
-  kycExpiryMonitor.start();
+	if (process.env.NODE_ENV !== "production") return;
+	const { kycExpiryMonitor } = await import("../services/kyc-expiry-monitor");
+	kycExpiryMonitor.start();
 }
 
 async function startKycLrsMonitor() {
-  const { kycLrsMonitorService } = await import("../services/kyc-lrs-monitor-service");
-  kycLrsMonitorService.start();
+	const { kycLrsMonitorService } = await import(
+		"../services/kyc-lrs-monitor-service"
+	);
+	kycLrsMonitorService.start();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -247,8 +267,10 @@ async function startKycLrsMonitor() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function startActivityInsightsMonitoring() {
-  const { activityInsightsService } = await import("../services/activity-insights-service");
-  activityInsightsService.startAutomatedMonitoring();
+	const { activityInsightsService } = await import(
+		"../services/activity-insights-service"
+	);
+	activityInsightsService.startAutomatedMonitoring();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -256,29 +278,40 @@ async function startActivityInsightsMonitoring() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function startUnlistedRegulatoryAuditCleanup() {
-  const { unlistedRegulatoryAuditService } = await import("../services/unlisted-regulatory-audit-service");
-  await unlistedRegulatoryAuditService.cleanupExpiredRecords(false);
-  setInterval(async () => {
-    try {
-      await unlistedRegulatoryAuditService.cleanupExpiredRecords(false);
-    } catch (error) {
-      console.error("❌ Failed to run periodic audit cleanup:", error);
-    }
-  }, AUDIT_CLEANUP_INTERVAL_MS);
+	const { unlistedRegulatoryAuditService } = await import(
+		"../services/unlisted-regulatory-audit-service"
+	);
+	await unlistedRegulatoryAuditService.cleanupExpiredRecords(false);
+	setInterval(async () => {
+		try {
+			await unlistedRegulatoryAuditService.cleanupExpiredRecords(false);
+		} catch (error) {
+			console.error("❌ Failed to run periodic audit cleanup:", error);
+		}
+	}, AUDIT_CLEANUP_INTERVAL_MS);
 }
 
 async function verifyForensicAuditIntegrity() {
-  const { auditLogService } = await import("../services/audit-log-service");
-  const integrityResult = await auditLogService.verifyChainIntegrity();
-  if (integrityResult.valid) {
-    console.log("✅ Forensic Audit Chain Integrity: VERIFIED (HMAC-SHA256 Chain Intact)");
-  } else {
-    console.error("❌ [CRITICAL] Forensic Audit Chain BREACHED! Tampering detected.");
-    console.error("Broken Links:", JSON.stringify(integrityResult.brokenLinks, null, 2));
-  }
-  if (!process.env.COMPLIANCE_SECRET) {
-    console.warn("⚠️  [WARNING] COMPLIANCE_SECRET is not set. Forensic integrity is compromised.");
-  }
+	const { auditLogService } = await import("../services/audit-log-service");
+	const integrityResult = await auditLogService.verifyChainIntegrity();
+	if (integrityResult.valid) {
+		console.log(
+			"✅ Forensic Audit Chain Integrity: VERIFIED (HMAC-SHA256 Chain Intact)",
+		);
+	} else {
+		console.error(
+			"❌ [CRITICAL] Forensic Audit Chain BREACHED! Tampering detected.",
+		);
+		console.error(
+			"Broken Links:",
+			JSON.stringify(integrityResult.brokenLinks, null, 2),
+		);
+	}
+	if (!process.env.COMPLIANCE_SECRET) {
+		console.warn(
+			"⚠️  [WARNING] COMPLIANCE_SECRET is not set. Forensic integrity is compromised.",
+		);
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -287,37 +320,54 @@ async function verifyForensicAuditIntegrity() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function startDataHealthMonitor() {
-  const logHealthSnapshot = async () => {
-    try {
-      const { db } = await import("../db");
-      const { sql } = await import("drizzle-orm");
+	const logHealthSnapshot = async () => {
+		try {
+			const { db } = await import("../db");
+			const { sql } = await import("drizzle-orm");
 
-      const [stocks, mfs, bonds, picks] = await Promise.all([
-        db.execute(sql`SELECT COUNT(*) as total, SUM(CASE WHEN is_published THEN 1 ELSE 0 END) as published FROM listed_stocks WHERE is_active = true`).catch(() => null),
-        db.execute(sql`SELECT COUNT(*) as total, SUM(CASE WHEN is_published THEN 1 ELSE 0 END) as published FROM mutual_funds WHERE is_active = true`).catch(() => null),
-        db.execute(sql`SELECT COUNT(*) as total, SUM(CASE WHEN is_published THEN 1 ELSE 0 END) as published FROM bond_catalog WHERE is_active = true`).catch(() => null),
-        db.execute(sql`SELECT COUNT(*) as count FROM daily_picks WHERE reco_date = CURRENT_DATE`).catch(() => null),
-      ]);
+			const [stocks, mfs, bonds, picks] = await Promise.all([
+				db
+					.execute(
+						sql`SELECT COUNT(*) as total, SUM(CASE WHEN is_published THEN 1 ELSE 0 END) as published FROM listed_stocks WHERE is_active = true`,
+					)
+					.catch(() => null),
+				db
+					.execute(
+						sql`SELECT COUNT(*) as total, SUM(CASE WHEN is_published THEN 1 ELSE 0 END) as published FROM mutual_funds WHERE is_active = true`,
+					)
+					.catch(() => null),
+				db
+					.execute(
+						sql`SELECT COUNT(*) as total, SUM(CASE WHEN is_published THEN 1 ELSE 0 END) as published FROM bond_catalog WHERE is_active = true`,
+					)
+					.catch(() => null),
+				db
+					.execute(
+						sql`SELECT COUNT(*) as count FROM daily_picks WHERE reco_date = CURRENT_DATE`,
+					)
+					.catch(() => null),
+			]);
 
-      const stockRow = (stocks as any)?.rows?.[0];
-      const mfRow    = (mfs    as any)?.rows?.[0];
-      const bondRow  = (bonds  as any)?.rows?.[0];
-      const pickCount = (picks as any)?.rows?.[0]?.count ?? 0;
+			const stockRow = (stocks as any)?.rows?.[0];
+			const mfRow = (mfs as any)?.rows?.[0];
+			const bondRow = (bonds as any)?.rows?.[0];
+			const pickCount = (picks as any)?.rows?.[0]?.count ?? 0;
 
-      console.log(`📊 [DataHealth] ${new Date().toISOString()} | `
-        + `Stocks: ${stockRow?.published ?? '?'}/${stockRow?.total ?? '?'} published | `
-        + `MFs: ${mfRow?.published ?? '?'}/${mfRow?.total ?? '?'} | `
-        + `Bonds: ${bondRow?.published ?? '?'}/${bondRow?.total ?? '?'} | `
-        + `Today's picks: ${pickCount}`
-      );
-    } catch {
-      // Non-critical monitor
-    }
-  };
+			console.log(
+				`📊 [DataHealth] ${new Date().toISOString()} | ` +
+					`Stocks: ${stockRow?.published ?? "?"}/${stockRow?.total ?? "?"} published | ` +
+					`MFs: ${mfRow?.published ?? "?"}/${mfRow?.total ?? "?"} | ` +
+					`Bonds: ${bondRow?.published ?? "?"}/${bondRow?.total ?? "?"} | ` +
+					`Today's picks: ${pickCount}`,
+			);
+		} catch {
+			// Non-critical monitor
+		}
+	};
 
-  // Run once at startup (after a short delay), then every hour
-  setTimeout(logHealthSnapshot, 30000);
-  setInterval(logHealthSnapshot, 60 * 60 * 1000);
+	// Run once at startup (after a short delay), then every hour
+	setTimeout(logHealthSnapshot, 30000);
+	setInterval(logHealthSnapshot, 60 * 60 * 1000);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -325,42 +375,58 @@ async function startDataHealthMonitor() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
-  if (process.env.RUN_BACKGROUND_SCHEDULERS === "false") {
-    console.log("[Schedulers] Background schedulers disabled by RUN_BACKGROUND_SCHEDULERS=false");
-    return undefined;
-  }
+	if (process.env.RUN_BACKGROUND_SCHEDULERS === "false") {
+		console.log(
+			"[Schedulers] Background schedulers disabled by RUN_BACKGROUND_SCHEDULERS=false",
+		);
+		return undefined;
+	}
 
-  return setTimeout(async () => {
-    console.log("🚀 [Schedulers] Initializing all background services...");
+	return setTimeout(async () => {
+		console.log("🚀 [Schedulers] Initializing all background services...");
 
-    // ── Phase 1: Publish existing data so it's queryable ──────────────────────
-    await runStartupTask("Auto-Publish All Instruments", autoPublishAllInstruments);
+		// ── Phase 1: Publish existing data so it's queryable ──────────────────────
+		await runStartupTask(
+			"Auto-Publish All Instruments",
+			autoPublishAllInstruments,
+		);
 
-    // ── Phase 2: KYC & Compliance (high priority, before data ops) ────────────
-    await runStartupTask("KYC Expiry Monitor",            startKycExpiryMonitor);
-    await runStartupTask("KYC LRS/TCS Monitor",           startKycLrsMonitor);
+		// ── Phase 2: KYC & Compliance (high priority, before data ops) ────────────
+		await runStartupTask("KYC Expiry Monitor", startKycExpiryMonitor);
+		await runStartupTask("KYC LRS/TCS Monitor", startKycLrsMonitor);
 
-    // ── Phase 3: Market Data Sync (runs async, feeds Phase 4) ────────────────
-    // These are fire-and-forget — they schedule their own crons internally
-    runStartupTask("Stock Sync Scheduler (NSE/BSE)",    startStockSyncScheduler);
-    runStartupTask("Mutual Fund Sync",                  startMutualFundSync);
-    runStartupTask("Data Enrichment Scheduler",         startDataEnrichment);
-    runStartupTask("Financial Data Scheduler",          startFinancialDataScheduler);
-    runStartupTask("REIT/InvIT Data Refresh",           startReitInvitRefresh);
+		// ── Phase 3: Market Data Sync (runs async, feeds Phase 4) ────────────────
+		// These are fire-and-forget — they schedule their own crons internally
+		runStartupTask("Stock Sync Scheduler (NSE/BSE)", startStockSyncScheduler);
+		runStartupTask("Mutual Fund Sync", startMutualFundSync);
+		runStartupTask("Data Enrichment Scheduler", startDataEnrichment);
+		runStartupTask("Financial Data Scheduler", startFinancialDataScheduler);
+		runStartupTask("REIT/InvIT Data Refresh", startReitInvitRefresh);
 
-    // ── Phase 4: Pick of the Day (needs Phase 3 data, runs at 9 AM IST) ──────
-    await runStartupTask("Pick of the Day Scheduler",   startPickOfTheDayScheduler);
+		// ── Phase 4: Pick of the Day (needs Phase 3 data, runs at 9 AM IST) ──────
+		await runStartupTask(
+			"Pick of the Day Scheduler",
+			startPickOfTheDayScheduler,
+		);
 
-    // ── Phase 5: AI & Analytics ───────────────────────────────────────────────
-    runStartupTask("AI Regulatory Monitoring",          startActivityInsightsMonitoring);
+		// ── Phase 5: AI & Analytics ───────────────────────────────────────────────
+		runStartupTask("AI Regulatory Monitoring", startActivityInsightsMonitoring);
 
-    // ── Phase 6: Audit & Compliance Cleanup ──────────────────────────────────
-    runStartupTask("Unlisted Regulatory Audit Cleanup", startUnlistedRegulatoryAuditCleanup);
-    runStartupTask("Forensic Audit Integrity Check",    verifyForensicAuditIntegrity);
+		// ── Phase 6: Audit & Compliance Cleanup ──────────────────────────────────
+		runStartupTask(
+			"Unlisted Regulatory Audit Cleanup",
+			startUnlistedRegulatoryAuditCleanup,
+		);
+		runStartupTask(
+			"Forensic Audit Integrity Check",
+			verifyForensicAuditIntegrity,
+		);
 
-    // ── Phase 7: Supervisor Dashboard ────────────────────────────────────────
-    runStartupTask("Data Health Monitor",               startDataHealthMonitor);
+		// ── Phase 7: Supervisor Dashboard ────────────────────────────────────────
+		runStartupTask("Data Health Monitor", startDataHealthMonitor);
 
-    console.log("✅ [Schedulers] All background services initialized. Portal is self-operating.");
-  }, delayMs);
+		console.log(
+			"✅ [Schedulers] All background services initialized. Portal is self-operating.",
+		);
+	}, delayMs);
 }

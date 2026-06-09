@@ -5,14 +5,14 @@ import { type Server } from "http";
 import { nanoid } from "nanoid";
 
 export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
+	const formattedTime = new Date().toLocaleTimeString("en-US", {
+		hour: "numeric",
+		minute: "2-digit",
+		second: "2-digit",
+		hour12: true,
+	});
 
-  console.log(`${formattedTime} [${source}] ${message}`);
+	console.log(`${formattedTime} [${source}] ${message}`);
 }
 
 /**
@@ -30,50 +30,50 @@ export function log(message: string, source = "express") {
  * is only ever called in development mode).
  */
 export async function setupVite(app: Express, server: Server) {
-  const { createServer: createViteServer, createLogger } = await import("vite");
-  const viteLogger = createLogger();
+	const { createServer: createViteServer, createLogger } = await import("vite");
+	const viteLogger = createLogger();
 
-  const vite = await createViteServer({
-    // Do NOT set configFile: false — let Vite find vite.config.ts automatically.
-    // This avoids bundling vite.config (and its vite imports) into dist/index.js.
-    server: {
-      middlewareMode: true,
-      hmr: { server },
-      allowedHosts: true,
-    },
-    appType: "custom",
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
-      },
-    },
-  });
+	const vite = await createViteServer({
+		// Do NOT set configFile: false — let Vite find vite.config.ts automatically.
+		// This avoids bundling vite.config (and its vite imports) into dist/index.js.
+		server: {
+			middlewareMode: true,
+			hmr: { server },
+			allowedHosts: true,
+		},
+		appType: "custom",
+		customLogger: {
+			...viteLogger,
+			error: (msg, options) => {
+				viteLogger.error(msg, options);
+				process.exit(1);
+			},
+		},
+	});
 
-  app.use(vite.middlewares);
-  app.use("*", async (req, res, next) => {
-    const url = req.originalUrl;
+	app.use(vite.middlewares);
+	app.use("*", async (req, res, next) => {
+		const url = req.originalUrl;
 
-    try {
-      const clientTemplate = path.resolve(
-        import.meta.dirname,
-        "..",
-        "client",
-        "index.html",
-      );
+		try {
+			const clientTemplate = path.resolve(
+				import.meta.dirname,
+				"..",
+				"client",
+				"index.html",
+			);
 
-      // Always reload the index.html file from disk in case it changes
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
-    } catch (e) {
-      vite.ssrFixStacktrace(e as Error);
-      next(e);
-    }
-  });
+			// Always reload the index.html file from disk in case it changes
+			let template = await fs.promises.readFile(clientTemplate, "utf-8");
+			template = template.replace(
+				`src="/src/main.tsx"`,
+				`src="/src/main.tsx?v=${nanoid()}"`,
+			);
+			const page = await vite.transformIndexHtml(url, template);
+			res.status(200).set({ "Content-Type": "text/html" }).end(page);
+		} catch (e) {
+			vite.ssrFixStacktrace(e as Error);
+			next(e);
+		}
+	});
 }

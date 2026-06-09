@@ -1,9 +1,9 @@
-import { Router } from 'express';
-import part1 from './mf-orders-1';
-import part2 from './mf-orders-2';
+import { Router } from "express";
+import part1 from "./mf-orders-1";
+import part2 from "./mf-orders-2";
 
 const router = Router();
-  router.use('/', part1);
-  router.use('/', part2);
+router.use("/", part1);
+router.use("/", part2);
 
 export default router;

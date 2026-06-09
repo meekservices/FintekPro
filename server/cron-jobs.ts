@@ -46,38 +46,46 @@
  *  Quarterly 1st 3AM│ Valuation governance staleness sweep
  */
 
-import { staggeredStart } from './cron/utils';
+import { staggeredStart } from "./cron/utils";
 // Named imports also execute module-level crons (Fixed Income, MCA enrichment, Valuation governance)
-import { initializeEnrichmentCrons } from './cron-enrichment';
-import { initializeUnlistedCrons } from './cron-unlisted';
-import { initializeOrderOpsCrons } from './cron-order-ops';
-import { initializeComplianceCrons } from './cron-compliance';
+import { initializeEnrichmentCrons } from "./cron-enrichment";
+import { initializeUnlistedCrons } from "./cron-unlisted";
+import { initializeOrderOpsCrons } from "./cron-order-ops";
+import { initializeComplianceCrons } from "./cron-compliance";
 
 export function initializeCronJobs(): void {
-  console.log('Initializing cron jobs (staggered startup enabled, 120s intervals)...');
+	console.log(
+		"Initializing cron jobs (staggered startup enabled, 120s intervals)...",
+	);
 
-  let delay = 60_000; // first domain starts 1 min after boot
+	let delay = 60_000; // first domain starts 1 min after boot
 
-  // ── Enrichment domain (heaviest — MF/NAV/benchmark/stock, all production) ─
-  // If ENRICHMENT_WORKER_URL is set, initializeEnrichmentCrons() returns early
-  // and all enrichment crons (including module-level Fixed Income + startup
-  // enrichment) are silently skipped — the dedicated enrichment-worker project
-  // handles them instead. See workers/enrichment-worker.ts for deploy steps.
-  delay = initializeEnrichmentCrons(staggeredStart, delay);
+	// ── Enrichment domain (heaviest — MF/NAV/benchmark/stock, all production) ─
+	// If ENRICHMENT_WORKER_URL is set, initializeEnrichmentCrons() returns early
+	// and all enrichment crons (including module-level Fixed Income + startup
+	// enrichment) are silently skipped — the dedicated enrichment-worker project
+	// handles them instead. See workers/enrichment-worker.ts for deploy steps.
+	delay = initializeEnrichmentCrons(staggeredStart, delay);
 
-  // ── Unlisted marketplace domain ────────────────────────────────────────────
-  initializeUnlistedCrons();
+	// ── Unlisted marketplace domain ────────────────────────────────────────────
+	initializeUnlistedCrons();
 
-  // ── Unified order operations domain ────────────────────────────────────────
-  initializeOrderOpsCrons();
+	// ── Unified order operations domain ────────────────────────────────────────
+	initializeOrderOpsCrons();
 
-  // ── Compliance domain ──────────────────────────────────────────────────────
-  initializeComplianceCrons();
+	// ── Compliance domain ──────────────────────────────────────────────────────
+	initializeComplianceCrons();
 
-  // Disabled pipelines — kept as tombstone comments for audit trail
-  console.log('⏭️ [InstrumentTimeSeries] Daily updater + Historical backfill DISABLED — superseded by Golden Source Pricing Engine (9 PM IST → golden_prices)');
-  console.log('⏭️ [Live MF NAV] Disabled — amfiNavScheduler covers AMFI→DB sync at 11:30 PM IST');
-  console.log('⏭️ [MF NAV History] Disabled — MFAPI per-scheme spam removed; on-demand fetch retained');
+	// Disabled pipelines — kept as tombstone comments for audit trail
+	console.log(
+		"⏭️ [InstrumentTimeSeries] Daily updater + Historical backfill DISABLED — superseded by Golden Source Pricing Engine (9 PM IST → golden_prices)",
+	);
+	console.log(
+		"⏭️ [Live MF NAV] Disabled — amfiNavScheduler covers AMFI→DB sync at 11:30 PM IST",
+	);
+	console.log(
+		"⏭️ [MF NAV History] Disabled — MFAPI per-scheme spam removed; on-demand fetch retained",
+	);
 
-  console.log('✓ Cron jobs initialized successfully');
+	console.log("✓ Cron jobs initialized successfully");
 }

@@ -9,10 +9,10 @@ import { emailService } from "./email-service";
 import { whatsappService } from "./whatsapp";
 import { smsService } from "./services/sms-service";
 import { encryptionService } from "./encryption-service";
-import { fileURLToPath } from 'url';
-import path from 'path';
-import multer from 'multer';
-import fs from 'fs';
+import { fileURLToPath } from "url";
+import path from "path";
+import multer from "multer";
+import fs from "fs";
 import { apiResponse } from "./utils/responses";
 import { auditLog } from "./middleware/audit-trail";
 import { creditRatingsService } from "./services/credit-ratings-service";
@@ -115,8 +115,8 @@ import { registerFemaComplianceRoutes } from "./routes/fema-compliance";
 import { registerLeadLeakageRoutes } from "./routes/lead-leakage-routes";
 import signatureRouter from "./routes/signature-routes";
 import userSignatureESignRouter from "./routes/user-signature-esign-routes";
-import esignRouter from "./routes/esign-routes";               // /api/esign/*, /api/agent/esign/requests
-import esignAiRouter from "./routes/esign-ai-routes";          // /api/esign/ai/*
+import esignRouter from "./routes/esign-routes"; // /api/esign/*, /api/agent/esign/requests
+import esignAiRouter from "./routes/esign-ai-routes"; // /api/esign/ai/*
 import documentUploadRouter from "./routes/document-upload-routes"; // /api/documents/upload/for-signing
 import unifiedProposalsRouter from "./routes/unified-proposals-routes";
 import improvementFeaturesRouter from "./routes/improvement-features";
@@ -132,309 +132,328 @@ import stockIntersectionRouter from "./routes/stock-intersection";
 import { registerAgentAdvisoryPart4Routes } from "./routes/agent-advisory-4";
 import overlapIntelligenceRouter from "./routes/overlap-intelligence"; // /api/portfolio/intelligence, /simulate-impact, /optimize-sip, /goal-based-score
 
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configure multer for file uploads
 const storage_config = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = 'uploads';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
+	destination: (req, file, cb) => {
+		const uploadDir = "uploads";
+		if (!fs.existsSync(uploadDir)) {
+			fs.mkdirSync(uploadDir, { recursive: true });
+		}
+		cb(null, uploadDir);
+	},
+	filename: (req, file, cb) => {
+		const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+		cb(
+			null,
+			file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname),
+		);
+	},
 });
 
-const upload = multer({ 
-  storage: storage_config,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowedTypes.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only JPG, PNG, PDF, and Word documents are allowed.'));
-    }
-  }
+const upload = multer({
+	storage: storage_config,
+	limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+	fileFilter: (req, file, cb) => {
+		const allowedTypes = [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"];
+		const ext = path.extname(file.originalname).toLowerCase();
+		if (allowedTypes.includes(ext)) {
+			cb(null, true);
+		} else {
+			cb(
+				new Error(
+					"Invalid file type. Only JPG, PNG, PDF, and Word documents are allowed.",
+				),
+			);
+		}
+	},
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // setupAuth is now handled in the main index.ts boot sequence Phase 3
-  // setupAuth(app);
+	// setupAuth is now handled in the main index.ts boot sequence Phase 3
+	// setupAuth(app);
 
-  // Note: Health check is now handled in Phase 1 of index.ts for immediate availability
-  /*
+	// Note: Health check is now handled in Phase 1 of index.ts for immediate availability
+	/*
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
   */
 
-  // Search users API (Admin & Agent)
-  app.get("/api/users/search", async (req, res) => {
-    if (!req.isAuthenticated()) return apiResponse.unauthorized(res);
-    
-    try {
-      const query = (req.query.q as string || "").trim();
-      const roles = (req.query.roles as string || "").split(",").filter(Boolean);
-      
-      if (!query && roles.length === 0) {
-        return apiResponse.badRequest(res, "Search query or role filter is required");
-      }
+	// Search users API (Admin & Agent)
+	app.get("/api/users/search", async (req, res) => {
+		if (!req.isAuthenticated()) return apiResponse.unauthorized(res);
 
-      let whereClause: any;
-      
-      if (query) {
-        whereClause = or(
-          ilike(users.userId, `%${query}%`),
-          ilike(users.email, `%${query}%`),
-          ilike(users.mobile, `%${query}%`),
-          ilike(users.firstName, `%${query}%`),
-          ilike(users.lastName, `%${query}%`),
-          ilike(users.userId, `%${query}%`)
-        );
-      }
+		try {
+			const query = ((req.query.q as string) || "").trim();
+			const roles = ((req.query.roles as string) || "")
+				.split(",")
+				.filter(Boolean);
 
-      if (roles.length > 0) {
-        const roleClause = sql`${users.roles} ?| array[${sql.raw(roles.map(r => `'${r}'`).join(","))}]`;
-        whereClause = whereClause ? and(whereClause, roleClause) : roleClause;
-      }
+			if (!query && roles.length === 0) {
+				return apiResponse.badRequest(
+					res,
+					"Search query or role filter is required",
+				);
+			}
 
-      const results = await db.select({
-        id: users.id,
-        userId: users.userId,
-        email: users.email,
-        mobile: users.mobile,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        roles: users.roles,
-        isActive: users.isActive
-      })
-      .from(users)
-      .where(whereClause)
-      .limit(20);
+			let whereClause: any;
 
-      const maskedResults = results.map(u => ({
-        ...u,
-        email: maskEmail(u.email),
-        mobile: maskMobile(u.mobile)
-      }));
+			if (query) {
+				whereClause = or(
+					ilike(users.userId, `%${query}%`),
+					ilike(users.email, `%${query}%`),
+					ilike(users.mobile, `%${query}%`),
+					ilike(users.firstName, `%${query}%`),
+					ilike(users.lastName, `%${query}%`),
+					ilike(users.userId, `%${query}%`),
+				);
+			}
 
-      return apiResponse.success(res, maskedResults);
-    } catch (error) {
-      console.error("User search error:", error);
-      return apiResponse.serverError(res);
-    }
-  });
+			if (roles.length > 0) {
+				const roleClause = sql`${users.roles} ?| array[${sql.raw(roles.map((r) => `'${r}'`).join(","))}]`;
+				whereClause = whereClause ? and(whereClause, roleClause) : roleClause;
+			}
 
-  // Basic admin stats
-  app.get("/api/admin/stats", async (req, res) => {
-    if (!req.isAuthenticated() || !req.user?.roles?.includes('admin')) {
-      return apiResponse.unauthorized(res);
-    }
+			const results = await db
+				.select({
+					id: users.id,
+					userId: users.userId,
+					email: users.email,
+					mobile: users.mobile,
+					firstName: users.firstName,
+					lastName: users.lastName,
+					roles: users.roles,
+					isActive: users.isActive,
+				})
+				.from(users)
+				.where(whereClause)
+				.limit(20);
 
-    try {
-      const [userCount] = await db.select({ count: sql<number>`count(*)` }).from(users);
-      const [activeUsers] = await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.isActive, true));
+			const maskedResults = results.map((u) => ({
+				...u,
+				email: maskEmail(u.email),
+				mobile: maskMobile(u.mobile),
+			}));
 
-      return apiResponse.success(res, {
-        totalUsers: Number(userCount.count),
-        activeUsers: Number(activeUsers.count),
-        systemStatus: "Healthy",
-        uptime: process.uptime()
-      });
-    } catch (error) {
-      console.error("Admin stats error:", error);
-      return apiResponse.serverError(res);
-    }
-  });
+			return apiResponse.success(res, maskedResults);
+		} catch (error) {
+			console.error("User search error:", error);
+			return apiResponse.serverError(res);
+		}
+	});
 
-  // Compliance Audit Export Routes
-  registerAuditExportRoutes(app);
+	// Basic admin stats
+	app.get("/api/admin/stats", async (req, res) => {
+		if (!req.isAuthenticated() || !req.user?.roles?.includes("admin")) {
+			return apiResponse.unauthorized(res);
+		}
 
-  // US Trading & Alpaca Broker Routes
-  app.use("/api/us-trading", usTradingRoutes);
+		try {
+			const [userCount] = await db
+				.select({ count: sql<number>`count(*)` })
+				.from(users);
+			const [activeUsers] = await db
+				.select({ count: sql<number>`count(*)` })
+				.from(users)
+				.where(eq(users.isActive, true));
 
-  // Business Logic Routes
-  app.use("/api/agent", agentRoutes);
-  app.use("/api/agent", agentTrackerRoutes);
-  registerAgentCapitalGainPart1Part1Routes(app); // Registered to fix /api/agent/activity 404
-  app.use("/api/agent", agentRevenueRoutes);
-  app.use("/api/agent", agentBasketsRoutes);
-  app.use("/api/agent", agentSipHealthRoutes);
-  app.use("/api/agent", agentPortfolioDriftRoutes);
-  app.use("/api/agent", agentClientOrdersRoutes);
-  app.use("/api/agent", agentMarketAlertsRoutes);
-  
-  // Agent Wizard & Prospect Management Routes
-  app.use("/api/agent-wizard", prospectWizardRoutes1);
-  app.use("/api/agent-wizard", prospectWizardRoutes2);
-  registerAgentCapitalGainPart1Part2Routes(app);
-  registerAgentCapitalGainPart1Routes(app);
-  registerAgentCapitalGainPart2Part2Routes(app);
-  registerAgentAdvisoryPart1Routes(app);
-  registerAgentAdvisoryPart2Routes(app);
-  registerAgentAdvisoryPart3Routes(app);
-  registerAgentProspectAcquisitionPart1Routes(app);
-  
-  app.use("/api/meetings", meetingRoutes);
-  app.use("/api/meetings", meetingRoutes2);
-  app.use("/api/unified-cart", unifiedCartRouter);
-  
-  // Named export registrations
-  registerOrderRoutes(app);
-  app.use("/api/tax", taxRoutes);
-  registerKYCVaultRoutes(app);
-  
-  // Chat routes setup
-  const chatRouter = Router();
-  setupChatRoutes(chatRouter, storage, (req, res, next) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
-    next();
-  });
-  app.use(chatRouter);
+			return apiResponse.success(res, {
+				totalUsers: Number(userCount.count),
+				activeUsers: Number(activeUsers.count),
+				systemStatus: "Healthy",
+				uptime: process.uptime(),
+			});
+		} catch (error) {
+			console.error("Admin stats error:", error);
+			return apiResponse.serverError(res);
+		}
+	});
 
-  app.use("/api/compliance", complianceRoutes);
-  app.use("/api/aml", amlRoutes);
-  app.use("/api/fixed-income", orderStatusRoutes);
-  app.use("/api/ai-investment", aiInvestmentRoutes);
-  app.use("/api/ai/copilot", treasuryCopilotRoutes);
-  app.use("/api/treasury", treasuryRoutes);
-  app.use("/api/engine-health", engineHealthRoutes); // matches UI calls: /api/engine-health/run, /registry, /gemini-deep-audit
-  app.use("/api/engine", engineHealthRoutes);        // backward-compat alias
+	// Compliance Audit Export Routes
+	registerAuditExportRoutes(app);
 
-  // Missing Production Routes
-  registerMarketDataRoutes(app);
-  registerPlatformStatsRoutes(app);
-  registerPortalSystemRoutes(app);
-  registerBondsMarketRoutes(app);
-  registerUserProfileKYCRoutes(app);
-  registerBankingRoutes(app);
-  registerKYCWizardRoutes(app);
-  registerKycV2ExtensionRoutes(app);
-  app.use(versionRouter);
-  app.use("/api/bonds/yield-curve", yieldCurveRoutes);
+	// US Trading & Alpaca Broker Routes
+	app.use("/api/us-trading", usTradingRoutes);
 
-  // Specialized registrations
-  registerAppointmentManagementRoutes(app);
-  registerReportsInlineRoutes(app);
-  app.use("/api/admin/mutual-funds", adminMutualFundsRouter);
-  app.use(adminESignRouter);
-  app.use(adminAadhaarRouter);
-  app.use("/api/admin/dsa-loans", adminDsaLoanRouter);
-  app.use(adminApiUsageRouter);
-  registerAdminComplianceTestRoutes(app);
-  
-  // Mounted missing admin/governance/database routes
-  app.use("/api/admin/agent-payouts", adminAgentPayoutRouter);
-  app.use("/api/admin/database", adminDatabaseRouter);
-  app.use("/api/admin/global-instruments", adminGlobalInstrumentsRouter);
-  app.use("/api/admin", policyStatusRouter); // /status is router path, so prefix is /api/admin
-  app.use(aiGovernanceRouter); // router already has full /api/admin/ai/... paths
-  registerAdminPanelRoutes(app);
-  registerAIStockRecommendationRoutes(app);
+	// Business Logic Routes
+	app.use("/api/agent", agentRoutes);
+	app.use("/api/agent", agentTrackerRoutes);
+	registerAgentCapitalGainPart1Part1Routes(app); // Registered to fix /api/agent/activity 404
+	app.use("/api/agent", agentRevenueRoutes);
+	app.use("/api/agent", agentBasketsRoutes);
+	app.use("/api/agent", agentSipHealthRoutes);
+	app.use("/api/agent", agentPortfolioDriftRoutes);
+	app.use("/api/agent", agentClientOrdersRoutes);
+	app.use("/api/agent", agentMarketAlertsRoutes);
 
-  // Research Note routes (/api/research-note/search, /preview, etc.)
-  app.use("/api/research-note", researchNoteRouter);
+	// Agent Wizard & Prospect Management Routes
+	app.use("/api/agent-wizard", prospectWizardRoutes1);
+	app.use("/api/agent-wizard", prospectWizardRoutes2);
+	registerAgentCapitalGainPart1Part2Routes(app);
+	registerAgentCapitalGainPart1Routes(app);
+	registerAgentCapitalGainPart2Part2Routes(app);
+	registerAgentAdvisoryPart1Routes(app);
+	registerAgentAdvisoryPart2Routes(app);
+	registerAgentAdvisoryPart3Routes(app);
+	registerAgentProspectAcquisitionPart1Routes(app);
 
-  // Stock Screener routes (/api/screener/stocks, /stats, /distribution, etc.)
-  app.use("/", screenerRouter);
+	app.use("/api/meetings", meetingRoutes);
+	app.use("/api/meetings", meetingRoutes2);
+	app.use("/api/unified-cart", unifiedCartRouter);
 
-  app.use("/api/live-mf", liveMFDataRouter);
-  app.use("/api/tester/diagnostics", testerDiagnosticsRoutes);
+	// Named export registrations
+	registerOrderRoutes(app);
+	app.use("/api/tax", taxRoutes);
+	registerKYCVaultRoutes(app);
 
-  // Error tracking routes — must be mounted WITHOUT CSRF for /ingest
-  // (called from ErrorBoundary/componentDidCatch where no CSRF token is available)
-  app.use("/api/errors", errorTrackingRouter);
+	// Chat routes setup
+	const chatRouter = Router();
+	setupChatRoutes(chatRouter, storage, (req, res, next) => {
+		if (!req.isAuthenticated())
+			return res.status(401).json({ error: "Unauthorized" });
+		next();
+	});
+	app.use(chatRouter);
 
-  // ── FIX: Register previously-missing route modules ────────────────────────
-  // These routes were defined in server route files but never wired to Express,
-  // causing 404s on admin, partner, and main portals.
-  registerRoleRoutes(app);                  // /api/agent/dashboard/overview, recent-activity
-  registerAlertSystemRoutes(app);           // /api/alerts
-  registerKYCAdminSupportRoutes(app);       // /api/admin/kyc/dashboard and KYC support APIs
-  registerPartnerPortalRoutes(app);         // /api/partner/ca-status and all partner APIs
-  registerUserManagementRoutes(app);        // /api/admin/users and user management
-  registerStakeholderRoutes(app);           // /api/admin/stakeholders
-  registerSystemAdminRoutes(app);           // /api/admin/system/* routes
-  registerIrisKfintechRoutes(app);          // /api/iris/* KFintech integration
-  registerComplianceGateRoutes(app);        // GET /api/compliance/transaction-readiness
-  registerCrmRoutes(app);                   // /api/crm/* client relationship management
-  registerLoanRoutes(app);                  // /api/loans/* loan marketplace
-  registerPaymentRoutes(app);               // /api/payments/*
-  registerCapitalGainsRoutes(app);          // /api/capital-gains/*
-  registerPortfolioCoreRoutes(app);         // /api/portfolio/* core endpoints
-  registerFinancialGoalsRoutes(app);        // /api/goals/*
-  registerFamilyCollaborationRoutes(app);   // /api/family/*
-  registerTaxFilingRoutes(app);             // /api/tax-filing/*
-  registerDLMRoutes(app);                   // /api/dlm/* deal lifecycle
-  registerRevenueSheetRoutes(app);          // /api/revenue-sheet/*
-  registerLoanCommissionRoutes(app);        // /api/loan-commission/*
-  registerPartnerHierarchyRoutes(app);      // /api/partner/hierarchy/*
-  registerEligibilityMatrixRoutes(app);     // /api/eligibility-matrix/*
-  registerInvestmentIdeasRoutes(app);       // /api/investment-alerts/*
-  registerPreIPORoutes(app);                // /api/pre-ipo/*
-  registerFinancialDataRoutes(app);         // /api/financial-data/*
-  registerFemaComplianceRoutes(app);        // /api/fema/*
-  registerLeadLeakageRoutes(app);           // /api/lead-leakage/*
-  app.use(signatureRouter);
-  app.use(userSignatureESignRouter);
-  app.use(esignRouter);                                    // /api/esign/*, /api/agent/esign/requests
-  app.use("/api/esign/ai", esignAiRouter);                  // /api/esign/ai/analyze, /api/esign/ai/annotations/*
-  app.use("/api/documents", documentUploadRouter);          // /api/documents/upload/for-signing, /preview, /download
-  app.use("/api/unified-proposals", unifiedProposalsRouter);
-  app.use("/api/features", improvementFeaturesRouter);
+	app.use("/api/compliance", complianceRoutes);
+	app.use("/api/aml", amlRoutes);
+	app.use("/api/fixed-income", orderStatusRoutes);
+	app.use("/api/ai-investment", aiInvestmentRoutes);
+	app.use("/api/ai/copilot", treasuryCopilotRoutes);
+	app.use("/api/treasury", treasuryRoutes);
+	app.use("/api/engine-health", engineHealthRoutes); // matches UI calls: /api/engine-health/run, /registry, /gemini-deep-audit
+	app.use("/api/engine", engineHealthRoutes); // backward-compat alias
 
-  // ── Proposal Builder Engine Routes (fix: all proposal builder engines returning 404) ──
-  // Prospect Proposals: GET/POST /api/agent/prospect-proposals and sub-routes
-  app.use("/", prospectProposalsRouter);
+	// Missing Production Routes
+	registerMarketDataRoutes(app);
+	registerPlatformStatsRoutes(app);
+	registerPortalSystemRoutes(app);
+	registerBondsMarketRoutes(app);
+	registerUserProfileKYCRoutes(app);
+	registerBankingRoutes(app);
+	registerKYCWizardRoutes(app);
+	registerKycV2ExtensionRoutes(app);
+	app.use(versionRouter);
+	app.use("/api/bonds/yield-curve", yieldCurveRoutes);
 
-  // Proposal Builder phase-lock, verdicts, SIPs, benchmarks, what-if, PDF, audit
-  app.use("/api/proposal-builder", proposalBuilderRouter);
+	// Specialized registrations
+	registerAppointmentManagementRoutes(app);
+	registerReportsInlineRoutes(app);
+	app.use("/api/admin/mutual-funds", adminMutualFundsRouter);
+	app.use(adminESignRouter);
+	app.use(adminAadhaarRouter);
+	app.use("/api/admin/dsa-loans", adminDsaLoanRouter);
+	app.use(adminApiUsageRouter);
+	registerAdminComplianceTestRoutes(app);
 
-  // SIP Simulator: POST /api/sip/simulate, POST /api/sip/training-prompts
-  app.use("/api/sip", sipSimulatorRouter);
+	// Mounted missing admin/governance/database routes
+	app.use("/api/admin/agent-payouts", adminAgentPayoutRouter);
+	app.use("/api/admin/database", adminDatabaseRouter);
+	app.use("/api/admin/global-instruments", adminGlobalInstrumentsRouter);
+	app.use("/api/admin", policyStatusRouter); // /status is router path, so prefix is /api/admin
+	app.use(aiGovernanceRouter); // router already has full /api/admin/ai/... paths
+	registerAdminPanelRoutes(app);
+	registerAIStockRecommendationRoutes(app);
 
-  // SEBI Audit: GET /api/sebi-audit/summary/:proposalId, /api/sebi-audit/log
-  app.use("/api/sebi-audit", sebiAuditRouter);
+	// Research Note routes (/api/research-note/search, /preview, etc.)
+	app.use("/api/research-note", researchNoteRouter);
 
-  // Agent Demo Proposals: GET/POST /api/agent/demo-proposals, POST .../generate-pdf
-  app.use("/api/agent/demo-proposals", agentDemoRouter);
+	// Stock Screener routes (/api/screener/stocks, /stats, /distribution, etc.)
+	app.use("/", screenerRouter);
 
-  // Portfolio Compare + AI SIP routes (uses app directly with full /api/* paths)
-  registerPortfolioCompareAISIPRoutes(app);
+	app.use("/api/live-mf", liveMFDataRouter);
+	app.use("/api/tester/diagnostics", testerDiagnosticsRoutes);
 
-  // Stock Intersection / Overlap Analysis: POST /api/stock-intersection/analyze
-  app.use("/api/stock-intersection", stockIntersectionRouter);
+	// Error tracking routes — must be mounted WITHOUT CSRF for /ingest
+	// (called from ErrorBoundary/componentDidCatch where no CSRF token is available)
+	app.use("/api/errors", errorTrackingRouter);
 
-  // Agent Advisory Part 4: fair-backtest, portfolio-difference, validate-override, etc.
-  registerAgentAdvisoryPart4Routes(app);
+	// ── FIX: Register previously-missing route modules ────────────────────────
+	// These routes were defined in server route files but never wired to Express,
+	// causing 404s on admin, partner, and main portals.
+	registerRoleRoutes(app); // /api/agent/dashboard/overview, recent-activity
+	registerAlertSystemRoutes(app); // /api/alerts
+	registerKYCAdminSupportRoutes(app); // /api/admin/kyc/dashboard and KYC support APIs
+	registerPartnerPortalRoutes(app); // /api/partner/ca-status and all partner APIs
+	registerUserManagementRoutes(app); // /api/admin/users and user management
+	registerStakeholderRoutes(app); // /api/admin/stakeholders
+	registerSystemAdminRoutes(app); // /api/admin/system/* routes
+	registerIrisKfintechRoutes(app); // /api/iris/* KFintech integration
+	registerComplianceGateRoutes(app); // GET /api/compliance/transaction-readiness
+	registerCrmRoutes(app); // /api/crm/* client relationship management
+	registerLoanRoutes(app); // /api/loans/* loan marketplace
+	registerPaymentRoutes(app); // /api/payments/*
+	registerCapitalGainsRoutes(app); // /api/capital-gains/*
+	registerPortfolioCoreRoutes(app); // /api/portfolio/* core endpoints
+	registerFinancialGoalsRoutes(app); // /api/goals/*
+	registerFamilyCollaborationRoutes(app); // /api/family/*
+	registerTaxFilingRoutes(app); // /api/tax-filing/*
+	registerDLMRoutes(app); // /api/dlm/* deal lifecycle
+	registerRevenueSheetRoutes(app); // /api/revenue-sheet/*
+	registerLoanCommissionRoutes(app); // /api/loan-commission/*
+	registerPartnerHierarchyRoutes(app); // /api/partner/hierarchy/*
+	registerEligibilityMatrixRoutes(app); // /api/eligibility-matrix/*
+	registerInvestmentIdeasRoutes(app); // /api/investment-alerts/*
+	registerPreIPORoutes(app); // /api/pre-ipo/*
+	registerFinancialDataRoutes(app); // /api/financial-data/*
+	registerFemaComplianceRoutes(app); // /api/fema/*
+	registerLeadLeakageRoutes(app); // /api/lead-leakage/*
+	app.use(signatureRouter);
+	app.use(userSignatureESignRouter);
+	app.use(esignRouter); // /api/esign/*, /api/agent/esign/requests
+	app.use("/api/esign/ai", esignAiRouter); // /api/esign/ai/analyze, /api/esign/ai/annotations/*
+	app.use("/api/documents", documentUploadRouter); // /api/documents/upload/for-signing, /preview, /download
+	app.use("/api/unified-proposals", unifiedProposalsRouter);
+	app.use("/api/features", improvementFeaturesRouter);
 
-  // Portfolio Intelligence: /api/portfolio/intelligence, /simulate-impact, /optimize-sip, /goal-based-score
-  app.use("/api/portfolio", overlapIntelligenceRouter);
+	// ── Proposal Builder Engine Routes (fix: all proposal builder engines returning 404) ──
+	// Prospect Proposals: GET/POST /api/agent/prospect-proposals and sub-routes
+	app.use("/", prospectProposalsRouter);
 
-  // Profile Sharing Toggle
-  app.patch("/api/user/profile/sharing", async (req, res) => {
-    if (!req.isAuthenticated()) return apiResponse.unauthorized(res);
-    try {
-      const { enabled } = req.body;
-      await db.update(users)
-        .set({ shareableProfileEnabled: enabled })
-        .where(eq(users.id, req.user!.id));
-      
-      return apiResponse.success(res, { success: true });
-    } catch (error) {
-      console.error("Profile sharing toggle error:", error);
-      return apiResponse.serverError(res);
-    }
-  });
+	// Proposal Builder phase-lock, verdicts, SIPs, benchmarks, what-if, PDF, audit
+	app.use("/api/proposal-builder", proposalBuilderRouter);
 
-  const httpServer = createServer(app);
-  return httpServer;
+	// SIP Simulator: POST /api/sip/simulate, POST /api/sip/training-prompts
+	app.use("/api/sip", sipSimulatorRouter);
+
+	// SEBI Audit: GET /api/sebi-audit/summary/:proposalId, /api/sebi-audit/log
+	app.use("/api/sebi-audit", sebiAuditRouter);
+
+	// Agent Demo Proposals: GET/POST /api/agent/demo-proposals, POST .../generate-pdf
+	app.use("/api/agent/demo-proposals", agentDemoRouter);
+
+	// Portfolio Compare + AI SIP routes (uses app directly with full /api/* paths)
+	registerPortfolioCompareAISIPRoutes(app);
+
+	// Stock Intersection / Overlap Analysis: POST /api/stock-intersection/analyze
+	app.use("/api/stock-intersection", stockIntersectionRouter);
+
+	// Agent Advisory Part 4: fair-backtest, portfolio-difference, validate-override, etc.
+	registerAgentAdvisoryPart4Routes(app);
+
+	// Portfolio Intelligence: /api/portfolio/intelligence, /simulate-impact, /optimize-sip, /goal-based-score
+	app.use("/api/portfolio", overlapIntelligenceRouter);
+
+	// Profile Sharing Toggle
+	app.patch("/api/user/profile/sharing", async (req, res) => {
+		if (!req.isAuthenticated()) return apiResponse.unauthorized(res);
+		try {
+			const { enabled } = req.body;
+			await db
+				.update(users)
+				.set({ shareableProfileEnabled: enabled })
+				.where(eq(users.id, req.user!.id));
+
+			return apiResponse.success(res, { success: true });
+		} catch (error) {
+			console.error("Profile sharing toggle error:", error);
+			return apiResponse.serverError(res);
+		}
+	});
+
+	const httpServer = createServer(app);
+	return httpServer;
 }

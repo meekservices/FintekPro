@@ -10,45 +10,56 @@
  *           human RIA before sharing with client (FASP-AI v1.0 §4.3).
  */
 
-import { db } from '../../db';
-import { aiProposalDrafts } from '@shared/schema/admin-copilot';
-import { callGemini } from '../../gemini-service';
-import { auditLog, logCopilotEvent } from '../../logger';
-import { randomUUID } from 'crypto';
+import { db } from "../../db";
+import { aiProposalDrafts } from "@shared/schema/admin-copilot";
+import { callGemini } from "../../gemini-service";
+import { auditLog, logCopilotEvent } from "../../logger";
+import { randomUUID } from "crypto";
 
 export type ProductType =
-  | 'mutual_fund' | 'bonds_ncd' | 'pms' | 'aif'
-  | 'reit_invit' | 'unlisted' | 'us_stocks' | 'loans' | 'corporate_treasury';
+	| "mutual_fund"
+	| "bonds_ncd"
+	| "pms"
+	| "aif"
+	| "reit_invit"
+	| "unlisted"
+	| "us_stocks"
+	| "loans"
+	| "corporate_treasury";
 
-export type RiskProfile  = 'conservative' | 'moderate' | 'aggressive';
-export type TaxStatus    = 'resident' | 'nri' | 'huf' | 'corporate';
-export type LiquidityNeed = 'high' | 'medium' | 'low';
+export type RiskProfile = "conservative" | "moderate" | "aggressive";
+export type TaxStatus = "resident" | "nri" | "huf" | "corporate";
+export type LiquidityNeed = "high" | "medium" | "low";
 
 export interface ProposalInputs {
-  investorName:      string;
-  investorEmail?:    string;
-  investorUserId?:   string;
-  amount:            number;
-  riskProfile:       RiskProfile;
-  investmentHorizon: string;     // e.g. "3y" | "5y" | "10y+"
-  taxStatus:         TaxStatus;
-  liquidityNeed:     LiquidityNeed;
-  existingHoldings?: Array<{ asset: string; value: number }>;
-  productUniverse?:  ProductType[];
-  productType:       ProductType;
-  linkedCrmLeadId?:  string;
+	investorName: string;
+	investorEmail?: string;
+	investorUserId?: string;
+	amount: number;
+	riskProfile: RiskProfile;
+	investmentHorizon: string; // e.g. "3y" | "5y" | "10y+"
+	taxStatus: TaxStatus;
+	liquidityNeed: LiquidityNeed;
+	existingHoldings?: Array<{ asset: string; value: number }>;
+	productUniverse?: ProductType[];
+	productType: ProductType;
+	linkedCrmLeadId?: string;
 }
 
 interface ProposalOutput {
-  executiveSummary:      string;
-  assetAllocation:       Record<string, number>;  // {"equity": 60, "debt": 30, "alt": 10}
-  productRecommendation: Array<{ name: string; allocation: number; rationale: string }>;
-  expectedReturnRange:   string;   // "8–11% p.a." — RANGE only, never a promise
-  riskAssessment:        string;
-  liquidityAnalysis:     string;
-  taxationNote:          string;
-  suitabilityNote:       string;
-  disclaimer:            string;
+	executiveSummary: string;
+	assetAllocation: Record<string, number>; // {"equity": 60, "debt": 30, "alt": 10}
+	productRecommendation: Array<{
+		name: string;
+		allocation: number;
+		rationale: string;
+	}>;
+	expectedReturnRange: string; // "8–11% p.a." — RANGE only, never a promise
+	riskAssessment: string;
+	liquidityAnalysis: string;
+	taxationNote: string;
+	suitabilityNote: string;
+	disclaimer: string;
 }
 
 const MANDATORY_DISCLAIMER = `
@@ -64,14 +75,14 @@ Mutual Fund investments are subject to market risks. Read all scheme-related doc
 `.trim();
 
 function buildProposalSystemPrompt(inputs: ProposalInputs): string {
-  return `
+	return `
 You are an expert financial advisor AI for FintekPro, a SEBI-regulated investment advisory platform.
 Generate a comprehensive, structured investment proposal DRAFT for advisor review.
 
 Client profile:
 - Risk: ${inputs.riskProfile}
 - Horizon: ${inputs.investmentHorizon}
-- Amount: ₹${inputs.amount.toLocaleString('en-IN')}
+- Amount: ₹${inputs.amount.toLocaleString("en-IN")}
 - Tax status: ${inputs.taxStatus}
 - Liquidity need: ${inputs.liquidityNeed}
 - Product focus: ${inputs.productType}
@@ -100,98 +111,122 @@ CRITICAL RULES:
 }
 
 export async function generateProposalDraft(
-  inputs:      ProposalInputs,
-  requestedBy: string,
+	inputs: ProposalInputs,
+	requestedBy: string,
 ): Promise<{ id: string; approvalStatus: string; confidenceScore: number }> {
-  const startMs = Date.now();
-  const systemPrompt = buildProposalSystemPrompt(inputs);
-  const userPrompt   = `Generate proposal for: ${inputs.investorName}, ₹${inputs.amount.toLocaleString('en-IN')}, ${inputs.productType}`;
+	const startMs = Date.now();
+	const systemPrompt = buildProposalSystemPrompt(inputs);
+	const userPrompt = `Generate proposal for: ${inputs.investorName}, ₹${inputs.amount.toLocaleString("en-IN")}, ${inputs.productType}`;
 
-  const { data, meta } = await callGemini<ProposalOutput>(systemPrompt, userPrompt, {
-    temperature:     0.2,
-    maxOutputTokens: 6000,
-  });
+	const { data, meta } = await callGemini<ProposalOutput>(
+		systemPrompt,
+		userPrompt,
+		{
+			temperature: 0.2,
+			maxOutputTokens: 6000,
+		},
+	);
 
-  // ── FASP-AI v1.0 §4.3 — Confidence Threshold Guard ──────────────────────────
-  // If the AI's confidence is below 0.60, the proposal MUST be flagged for
-  // mandatory human RIA review BEFORE any admin can approve it for client delivery.
-  const CONFIDENCE_THRESHOLD = 0.60;
-  const isLowConfidence = (meta.confidence_score ?? 1) < CONFIDENCE_THRESHOLD;
-  const initialApprovalStatus = isLowConfidence ? 'low_confidence_draft' : 'draft';
+	// ── FASP-AI v1.0 §4.3 — Confidence Threshold Guard ──────────────────────────
+	// If the AI's confidence is below 0.60, the proposal MUST be flagged for
+	// mandatory human RIA review BEFORE any admin can approve it for client delivery.
+	const CONFIDENCE_THRESHOLD = 0.6;
+	const isLowConfidence = (meta.confidence_score ?? 1) < CONFIDENCE_THRESHOLD;
+	const initialApprovalStatus = isLowConfidence
+		? "low_confidence_draft"
+		: "draft";
 
-  // Always append mandatory SEBI disclaimer
-  const finalDisclaimer = MANDATORY_DISCLAIMER + '\n\n' + (data.disclaimer ?? '');
+	// Always append mandatory SEBI disclaimer
+	const finalDisclaimer =
+		MANDATORY_DISCLAIMER + "\n\n" + (data.disclaimer ?? "");
 
-  const auditId = randomUUID();
+	const auditId = randomUUID();
 
-  const [proposal] = await db.insert(aiProposalDrafts).values({
-    investorName:      inputs.investorName,
-    investorEmail:     inputs.investorEmail,
-    investorUserId:    inputs.investorUserId,
-    amount:            String(inputs.amount),
-    riskProfile:       inputs.riskProfile,
-    investmentHorizon: inputs.investmentHorizon,
-    taxStatus:         inputs.taxStatus,
-    liquidityNeed:     inputs.liquidityNeed,
-    existingHoldings:  inputs.existingHoldings ?? [],
-    productUniverse:   inputs.productUniverse ?? [inputs.productType],
-    productType:       inputs.productType,
+	const [proposal] = await db
+		.insert(aiProposalDrafts)
+		.values({
+			investorName: inputs.investorName,
+			investorEmail: inputs.investorEmail,
+			investorUserId: inputs.investorUserId,
+			amount: String(inputs.amount),
+			riskProfile: inputs.riskProfile,
+			investmentHorizon: inputs.investmentHorizon,
+			taxStatus: inputs.taxStatus,
+			liquidityNeed: inputs.liquidityNeed,
+			existingHoldings: inputs.existingHoldings ?? [],
+			productUniverse: inputs.productUniverse ?? [inputs.productType],
+			productType: inputs.productType,
 
-    executiveSummary:      data.executiveSummary,
-    assetAllocation:       data.assetAllocation,
-    productRecommendation: data.productRecommendation,
-    expectedReturnRange:   data.expectedReturnRange,
-    riskAssessment:        data.riskAssessment,
-    liquidityAnalysis:     data.liquidityAnalysis,
-    taxationNote:          data.taxationNote,
-    suitabilityNote:       data.suitabilityNote,
-    disclaimer:            finalDisclaimer,
+			executiveSummary: data.executiveSummary,
+			assetAllocation: data.assetAllocation,
+			productRecommendation: data.productRecommendation,
+			expectedReturnRange: data.expectedReturnRange,
+			riskAssessment: data.riskAssessment,
+			liquidityAnalysis: data.liquidityAnalysis,
+			taxationNote: data.taxationNote,
+			suitabilityNote: data.suitabilityNote,
+			disclaimer: finalDisclaimer,
 
-    confidenceScore: meta.confidence_score,
-    modelVersion:    meta.model_version,
-    auditId,
-    approvalStatus:  initialApprovalStatus,
-    sentToClient:    false,
+			confidenceScore: meta.confidence_score,
+			modelVersion: meta.model_version,
+			auditId,
+			approvalStatus: initialApprovalStatus,
+			sentToClient: false,
 
-    linkedCrmLeadId: inputs.linkedCrmLeadId,
-    requestedBy,
-    source: 'ai',
-  }).returning({
-    id:              aiProposalDrafts.id,
-    approvalStatus:  aiProposalDrafts.approvalStatus,
-    confidenceScore: aiProposalDrafts.confidenceScore,
-  });
+			linkedCrmLeadId: inputs.linkedCrmLeadId,
+			requestedBy,
+			source: "ai",
+		})
+		.returning({
+			id: aiProposalDrafts.id,
+			approvalStatus: aiProposalDrafts.approvalStatus,
+			confidenceScore: aiProposalDrafts.confidenceScore,
+		});
 
-  await auditLog({
-    userId: requestedBy, agentType: 'proposal', agentAction: 'proposal_draft_generated',
-    entityId: proposal.id, entityType: 'ai_proposal_drafts',
-    inputContext: {
-      investor: inputs.investorName,
-      amount:   inputs.amount,
-      product:  inputs.productType,
-      risk:     inputs.riskProfile,
-    },
-    outputSummary: isLowConfidence
-      ? `[LOW CONFIDENCE ⚠️] ${inputs.productType} proposal for ₹${inputs.amount.toLocaleString('en-IN')} — ${inputs.riskProfile} risk. Human RIA review required before approval.`
-      : `${inputs.productType} proposal for ₹${inputs.amount.toLocaleString('en-IN')} — ${inputs.riskProfile} risk`,
-    confidenceScore: meta.confidence_score,
-    approvalStatus: initialApprovalStatus,
-    latencyMs: Date.now() - startMs,
-    status: 'success',
-    ...(isLowConfidence ? { human_review_required: true, review_reason: `Confidence ${(meta.confidence_score * 100).toFixed(1)}% < ${CONFIDENCE_THRESHOLD * 100}% threshold` } : {}),
-  });
+	await auditLog({
+		userId: requestedBy,
+		agentType: "proposal",
+		agentAction: "proposal_draft_generated",
+		entityId: proposal.id,
+		entityType: "ai_proposal_drafts",
+		inputContext: {
+			investor: inputs.investorName,
+			amount: inputs.amount,
+			product: inputs.productType,
+			risk: inputs.riskProfile,
+		},
+		outputSummary: isLowConfidence
+			? `[LOW CONFIDENCE ⚠️] ${inputs.productType} proposal for ₹${inputs.amount.toLocaleString("en-IN")} — ${inputs.riskProfile} risk. Human RIA review required before approval.`
+			: `${inputs.productType} proposal for ₹${inputs.amount.toLocaleString("en-IN")} — ${inputs.riskProfile} risk`,
+		confidenceScore: meta.confidence_score,
+		approvalStatus: initialApprovalStatus,
+		latencyMs: Date.now() - startMs,
+		status: "success",
+		...(isLowConfidence
+			? {
+					human_review_required: true,
+					review_reason: `Confidence ${(meta.confidence_score * 100).toFixed(1)}% < ${CONFIDENCE_THRESHOLD * 100}% threshold`,
+				}
+			: {}),
+	});
 
-  logCopilotEvent('PROPOSAL_AGENT_GENERATE', requestedBy, Date.now() - startMs, 'success', {
-    proposalId:      proposal.id,
-    product:         inputs.productType,
-    confidence:      meta.confidence_score,
-    lowConfidence:   isLowConfidence,
-    approvalStatus:  initialApprovalStatus,
-  });
+	logCopilotEvent(
+		"PROPOSAL_AGENT_GENERATE",
+		requestedBy,
+		Date.now() - startMs,
+		"success",
+		{
+			proposalId: proposal.id,
+			product: inputs.productType,
+			confidence: meta.confidence_score,
+			lowConfidence: isLowConfidence,
+			approvalStatus: initialApprovalStatus,
+		},
+	);
 
-  return {
-    id:              proposal.id,
-    approvalStatus:  proposal.approvalStatus ?? 'draft',
-    confidenceScore: proposal.confidenceScore ?? meta.confidence_score,
-  };
+	return {
+		id: proposal.id,
+		approvalStatus: proposal.approvalStatus ?? "draft",
+		confidenceScore: proposal.confidenceScore ?? meta.confidence_score,
+	};
 }

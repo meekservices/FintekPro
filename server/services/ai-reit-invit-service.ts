@@ -1,61 +1,63 @@
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 
 export interface ReitInvitAsset {
-  type: 'reit' | 'invit';
-  symbol: string;
-  name: string;
-  sector: string;
-  currentPrice: string;
-  distributionYield: string;
-  returns1Y: string | null;
-  riskLevel: string;
-  creditRating: string;
-  occupancyRate?: string;
-  concessionLife?: string;
-  premiumToNav: string;
-  sponsor: string;
+	type: "reit" | "invit";
+	symbol: string;
+	name: string;
+	sector: string;
+	currentPrice: string;
+	distributionYield: string;
+	returns1Y: string | null;
+	riskLevel: string;
+	creditRating: string;
+	occupancyRate?: string;
+	concessionLife?: string;
+	premiumToNav: string;
+	sponsor: string;
 }
 
 export interface UserProfile {
-  riskProfile: 'conservative' | 'moderate' | 'aggressive';
-  investmentHorizon?: 'short_term' | 'medium_term' | 'long_term';
-  investmentGoal?: 'income' | 'growth' | 'balanced' | 'capital_preservation';
-  investmentAmount?: number;
+	riskProfile: "conservative" | "moderate" | "aggressive";
+	investmentHorizon?: "short_term" | "medium_term" | "long_term";
+	investmentGoal?: "income" | "growth" | "balanced" | "capital_preservation";
+	investmentAmount?: number;
 }
 
 export interface AIRecommendation {
-  symbol: string;
-  name: string;
-  type: 'reit' | 'invit';
-  sector: string;
-  currentPrice: string;
-  distributionYield: string;
-  aiSignal: 'buy' | 'hold' | 'sell';
-  aiConfidence: string;
-  aiRationale: string;
-  aiTargetPrice: string;
-  riskLevel: string;
-  suitabilityScore: number;
+	symbol: string;
+	name: string;
+	type: "reit" | "invit";
+	sector: string;
+	currentPrice: string;
+	distributionYield: string;
+	aiSignal: "buy" | "hold" | "sell";
+	aiConfidence: string;
+	aiRationale: string;
+	aiTargetPrice: string;
+	riskLevel: string;
+	suitabilityScore: number;
 }
 
 class AIReitInvitService {
-  constructor() {
-    const status = unifiedAIRecommendationEngine.getStatus();
-    console.log(`✅ AI REIT/InvIT Recommendation Service initialized via Unified Engine (primary: ${status.primary})`);
-  }
+	constructor() {
+		const status = unifiedAIRecommendationEngine.getStatus();
+		console.log(
+			`✅ AI REIT/InvIT Recommendation Service initialized via Unified Engine (primary: ${status.primary})`,
+		);
+	}
 
-  async generatePersonalizedRecommendations(
-    assets: ReitInvitAsset[],
-    userProfile: UserProfile
-  ): Promise<AIRecommendation[]> {
-    try {
-      const prompt = `You are a SEBI-compliant investment advisor specializing in REITs and InvITs in India.
+	async generatePersonalizedRecommendations(
+		assets: ReitInvitAsset[],
+		userProfile: UserProfile,
+	): Promise<AIRecommendation[]> {
+		try {
+			const prompt = `You are a SEBI-compliant investment advisor specializing in REITs and InvITs in India.
 
 ## User Profile
 - Risk Profile: ${userProfile.riskProfile}
-- Investment Horizon: ${userProfile.investmentHorizon || 'medium_term'}
-- Investment Goal: ${userProfile.investmentGoal || 'balanced'}
-${userProfile.investmentAmount ? `- Investment Amount: ₹${userProfile.investmentAmount.toLocaleString()}` : ''}
+- Investment Horizon: ${userProfile.investmentHorizon || "medium_term"}
+- Investment Goal: ${userProfile.investmentGoal || "balanced"}
+${userProfile.investmentAmount ? `- Investment Amount: ₹${userProfile.investmentAmount.toLocaleString()}` : ""}
 
 ## Available Assets
 ${JSON.stringify(assets, null, 2)}
@@ -77,91 +79,115 @@ Consider:
 
 Return JSON array sorted by suitabilityScore (highest first).`;
 
-      const { result } = await unifiedAIRecommendationEngine.runPrompt<AIRecommendation[]>({
-        prompt,
-        category: 'reits',
-        cacheKey: `reit_recs:${userProfile.riskProfile}:${assets.length}`,
-        responseParser: (text: string) => {
-          const parsed = typeof text === 'object' ? text : JSON.parse(text);
-          if (Array.isArray(parsed)) return parsed;
-          const jsonMatch = text.match(/\[[\s\S]*\]/);
-          if (jsonMatch) return JSON.parse(jsonMatch[0]);
-          throw new Error('Could not parse REIT AI response');
-        },
-        fallback: () => this.getDefaultRecommendations(assets, userProfile),
-      });
+			const { result } = await unifiedAIRecommendationEngine.runPrompt<
+				AIRecommendation[]
+			>({
+				prompt,
+				category: "reits",
+				cacheKey: `reit_recs:${userProfile.riskProfile}:${assets.length}`,
+				responseParser: (text: string) => {
+					const parsed = typeof text === "object" ? text : JSON.parse(text);
+					if (Array.isArray(parsed)) return parsed;
+					const jsonMatch = text.match(/\[[\s\S]*\]/);
+					if (jsonMatch) return JSON.parse(jsonMatch[0]);
+					throw new Error("Could not parse REIT AI response");
+				},
+				fallback: () => this.getDefaultRecommendations(assets, userProfile),
+			});
 
-      if (!Array.isArray(result) || result.length === 0) {
-        return this.getDefaultRecommendations(assets, userProfile);
-      }
-      
-      return result.slice(0, 5);
-    } catch (error) {
-      console.error('AI REIT/InvIT recommendation error:', error);
-      return this.getDefaultRecommendations(assets, userProfile);
-    }
-  }
+			if (!Array.isArray(result) || result.length === 0) {
+				return this.getDefaultRecommendations(assets, userProfile);
+			}
 
-  private getDefaultRecommendations(
-    assets: ReitInvitAsset[],
-    userProfile: UserProfile
-  ): AIRecommendation[] {
-    let filtered = [...assets];
-    
-    if (userProfile.riskProfile === 'conservative') {
-      filtered = filtered.filter(a => a.riskLevel === 'low');
-    } else if (userProfile.riskProfile === 'moderate') {
-      filtered = filtered.filter(a => a.riskLevel !== 'high');
-    }
+			return result.slice(0, 5);
+		} catch (error) {
+			console.error("AI REIT/InvIT recommendation error:", error);
+			return this.getDefaultRecommendations(assets, userProfile);
+		}
+	}
 
-    if (userProfile.investmentGoal === 'income') {
-      filtered.sort((a, b) => parseFloat(b.distributionYield) - parseFloat(a.distributionYield));
-    } else if (userProfile.investmentGoal === 'growth') {
-      filtered.sort((a, b) => parseFloat(b.returns1Y || '0') - parseFloat(a.returns1Y || '0'));
-    }
+	private getDefaultRecommendations(
+		assets: ReitInvitAsset[],
+		userProfile: UserProfile,
+	): AIRecommendation[] {
+		let filtered = [...assets];
 
-    return filtered.slice(0, 5).map((asset, index) => ({
-      symbol: asset.symbol,
-      name: asset.name,
-      type: asset.type,
-      sector: asset.sector,
-      currentPrice: asset.currentPrice,
-      distributionYield: asset.distributionYield,
-      aiSignal: 'buy' as const,
-      aiConfidence: String(85 - index * 3),
-      aiRationale: this.generateDefaultRationale(asset, userProfile),
-      aiTargetPrice: String((parseFloat(asset.currentPrice) * 1.12).toFixed(2)),
-      riskLevel: asset.riskLevel,
-      suitabilityScore: 90 - index * 5,
-    }));
-  }
+		if (userProfile.riskProfile === "conservative") {
+			filtered = filtered.filter((a) => a.riskLevel === "low");
+		} else if (userProfile.riskProfile === "moderate") {
+			filtered = filtered.filter((a) => a.riskLevel !== "high");
+		}
 
-  private generateDefaultRationale(asset: ReitInvitAsset, userProfile: UserProfile): string {
-    const riskMatch = asset.riskLevel === 'low' && userProfile.riskProfile === 'conservative';
-    const yieldStr = parseFloat(asset.distributionYield) > 8 ? 'high' : 'attractive';
-    
-    if (asset.type === 'reit') {
-      return `${asset.name} offers ${yieldStr} distribution yield of ${asset.distributionYield}%. ${riskMatch ? 'Aligns well with your conservative risk profile.' : ''} ${asset.occupancyRate ? `Strong occupancy at ${asset.occupancyRate}%.` : ''} Backed by ${asset.sponsor}.`;
-    } else {
-      return `${asset.name} provides ${yieldStr} yield of ${asset.distributionYield}% with ${asset.concessionLife ? `${asset.concessionLife} years remaining concession life.` : 'long-term cash flow visibility.'} ${riskMatch ? 'Suitable for your risk profile.' : ''} Rated ${asset.creditRating}.`;
-    }
-  }
+		if (userProfile.investmentGoal === "income") {
+			filtered.sort(
+				(a, b) =>
+					Number.parseFloat(b.distributionYield) -
+					Number.parseFloat(a.distributionYield),
+			);
+		} else if (userProfile.investmentGoal === "growth") {
+			filtered.sort(
+				(a, b) =>
+					Number.parseFloat(b.returns1Y || "0") -
+					Number.parseFloat(a.returns1Y || "0"),
+			);
+		}
 
-  async generateAssetAnalysis(asset: ReitInvitAsset): Promise<{
-    analysis: string;
-    strengths: string[];
-    risks: string[];
-    outlook: string;
-  }> {
-    const defaultAnalysis = {
-      analysis: `${asset.name} is a ${asset.type.toUpperCase()} in the ${asset.sector} sector offering ${asset.distributionYield}% yield.`,
-      strengths: ['Strong distribution yield', 'Quality sponsor backing', 'Diversified portfolio'],
-      risks: ['Market volatility', 'Interest rate sensitivity', 'Sector-specific risks'],
-      outlook: 'Stable outlook with potential for yield improvement.'
-    };
+		return filtered.slice(0, 5).map((asset, index) => ({
+			symbol: asset.symbol,
+			name: asset.name,
+			type: asset.type,
+			sector: asset.sector,
+			currentPrice: asset.currentPrice,
+			distributionYield: asset.distributionYield,
+			aiSignal: "buy" as const,
+			aiConfidence: String(85 - index * 3),
+			aiRationale: this.generateDefaultRationale(asset, userProfile),
+			aiTargetPrice: String(
+				(Number.parseFloat(asset.currentPrice) * 1.12).toFixed(2),
+			),
+			riskLevel: asset.riskLevel,
+			suitabilityScore: 90 - index * 5,
+		}));
+	}
 
-    try {
-      const prompt = `Analyze this ${asset.type === 'reit' ? 'Real Estate Investment Trust' : 'Infrastructure Investment Trust'}:
+	private generateDefaultRationale(
+		asset: ReitInvitAsset,
+		userProfile: UserProfile,
+	): string {
+		const riskMatch =
+			asset.riskLevel === "low" && userProfile.riskProfile === "conservative";
+		const yieldStr =
+			Number.parseFloat(asset.distributionYield) > 8 ? "high" : "attractive";
+
+		if (asset.type === "reit") {
+			return `${asset.name} offers ${yieldStr} distribution yield of ${asset.distributionYield}%. ${riskMatch ? "Aligns well with your conservative risk profile." : ""} ${asset.occupancyRate ? `Strong occupancy at ${asset.occupancyRate}%.` : ""} Backed by ${asset.sponsor}.`;
+		}
+		return `${asset.name} provides ${yieldStr} yield of ${asset.distributionYield}% with ${asset.concessionLife ? `${asset.concessionLife} years remaining concession life.` : "long-term cash flow visibility."} ${riskMatch ? "Suitable for your risk profile." : ""} Rated ${asset.creditRating}.`;
+	}
+
+	async generateAssetAnalysis(asset: ReitInvitAsset): Promise<{
+		analysis: string;
+		strengths: string[];
+		risks: string[];
+		outlook: string;
+	}> {
+		const defaultAnalysis = {
+			analysis: `${asset.name} is a ${asset.type.toUpperCase()} in the ${asset.sector} sector offering ${asset.distributionYield}% yield.`,
+			strengths: [
+				"Strong distribution yield",
+				"Quality sponsor backing",
+				"Diversified portfolio",
+			],
+			risks: [
+				"Market volatility",
+				"Interest rate sensitivity",
+				"Sector-specific risks",
+			],
+			outlook: "Stable outlook with potential for yield improvement.",
+		};
+
+		try {
+			const prompt = `Analyze this ${asset.type === "reit" ? "Real Estate Investment Trust" : "Infrastructure Investment Trust"}:
 
 ${JSON.stringify(asset, null, 2)}
 
@@ -173,19 +199,19 @@ Provide:
 
 Return as JSON object.`;
 
-      const { result } = await unifiedAIRecommendationEngine.runPrompt({
-        prompt,
-        category: 'reits',
-        cacheKey: `reit_analysis:${asset.symbol}`,
-        fallback: () => defaultAnalysis,
-      });
+			const { result } = await unifiedAIRecommendationEngine.runPrompt({
+				prompt,
+				category: "reits",
+				cacheKey: `reit_analysis:${asset.symbol}`,
+				fallback: () => defaultAnalysis,
+			});
 
-      return result;
-    } catch (error) {
-      console.error('AI asset analysis error:', error);
-      return defaultAnalysis;
-    }
-  }
+			return result;
+		} catch (error) {
+			console.error("AI asset analysis error:", error);
+			return defaultAnalysis;
+		}
+	}
 }
 
 export const aiReitInvitService = new AIReitInvitService();

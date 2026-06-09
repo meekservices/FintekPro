@@ -11,29 +11,29 @@
 export const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
 
 export interface FetchWithTimeoutOptions extends RequestInit {
-  timeoutMs?: number;
+	timeoutMs?: number;
 }
 
 export async function fetchWithTimeout(
-  url: string,
-  options: FetchWithTimeoutOptions = {},
+	url: string,
+	options: FetchWithTimeoutOptions = {},
 ): Promise<Response> {
-  const { timeoutMs = DEFAULT_FETCH_TIMEOUT_MS, ...fetchOptions } = options;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+	const { timeoutMs = DEFAULT_FETCH_TIMEOUT_MS, ...fetchOptions } = options;
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  try {
-    const response = await fetch(url, {
-      ...fetchOptions,
-      signal: controller.signal,
-    });
-    return response;
-  } catch (err: any) {
-    if (err?.name === 'AbortError') {
-      throw new Error(`Request timed out after ${timeoutMs}ms: ${url}`);
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
+	try {
+		const response = await fetch(url, {
+			...fetchOptions,
+			signal: controller.signal,
+		});
+		return response;
+	} catch (err: any) {
+		if (err?.name === "AbortError") {
+			throw new Error(`Request timed out after ${timeoutMs}ms: ${url}`);
+		}
+		throw err;
+	} finally {
+		clearTimeout(timer);
+	}
 }

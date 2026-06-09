@@ -6,46 +6,56 @@ import ws from "ws";
 neonConfig.webSocketConstructor = ws;
 
 async function migrateBondsToProduction(): Promise<void> {
-  const devDbUrl = process.env.DATABASE_URL;
-  const prodDbUrl = process.env.PRODUCTION_DATABASE_URL;
+	const devDbUrl = process.env.DATABASE_URL;
+	const prodDbUrl = process.env.PRODUCTION_DATABASE_URL;
 
-  if (!devDbUrl) {
-    console.error("ERROR: DATABASE_URL not set");
-    process.exit(1);
-  }
-  if (!prodDbUrl) {
-    console.error("ERROR: PRODUCTION_DATABASE_URL not set");
-    process.exit(1);
-  }
+	if (!devDbUrl) {
+		console.error("ERROR: DATABASE_URL not set");
+		process.exit(1);
+	}
+	if (!prodDbUrl) {
+		console.error("ERROR: PRODUCTION_DATABASE_URL not set");
+		process.exit(1);
+	}
 
-  console.log("\n🔧 Connecting to databases...");
+	console.log("\n🔧 Connecting to databases...");
 
-  const devPool = new Pool({ connectionString: devDbUrl });
-  const devDb = drizzle(devPool);
+	const devPool = new Pool({ connectionString: devDbUrl });
+	const devDb = drizzle(devPool);
 
-  const prodPool = new Pool({ connectionString: prodDbUrl });
-  const prodDb = drizzle(prodPool);
+	const prodPool = new Pool({ connectionString: prodDbUrl });
+	const prodDb = drizzle(prodPool);
 
-  try {
-    const devCount = await devDb.execute(sql`SELECT COUNT(*) as cnt FROM bond_catalog`);
-    const devTotal = parseInt(String((devCount.rows[0] as any)?.cnt || '0'));
-    console.log(`📊 Development database: ${devTotal} bonds`);
+	try {
+		const devCount = await devDb.execute(
+			sql`SELECT COUNT(*) as cnt FROM bond_catalog`,
+		);
+		const devTotal = Number.parseInt(
+			String((devCount.rows[0] as any)?.cnt || "0"),
+		);
+		console.log(`📊 Development database: ${devTotal} bonds`);
 
-    const prodCount = await prodDb.execute(sql`SELECT COUNT(*) as cnt FROM bond_catalog`);
-    const prodTotal = parseInt(String((prodCount.rows[0] as any)?.cnt || '0'));
-    console.log(`📊 Production database: ${prodTotal} bonds`);
+		const prodCount = await prodDb.execute(
+			sql`SELECT COUNT(*) as cnt FROM bond_catalog`,
+		);
+		const prodTotal = Number.parseInt(
+			String((prodCount.rows[0] as any)?.cnt || "0"),
+		);
+		console.log(`📊 Production database: ${prodTotal} bonds`);
 
-    if (devTotal <= prodTotal) {
-      console.log("✅ Production already has equal or more bonds. No migration needed.");
-      return;
-    }
+		if (devTotal <= prodTotal) {
+			console.log(
+				"✅ Production already has equal or more bonds. No migration needed.",
+			);
+			return;
+		}
 
-    const prodIds = await prodDb.execute(sql`SELECT id FROM bond_catalog`);
-    const existingIds = new Set((prodIds.rows as any[]).map(r => r.id));
-    console.log(`🔍 Found ${existingIds.size} existing bond IDs in production`);
+		const prodIds = await prodDb.execute(sql`SELECT id FROM bond_catalog`);
+		const existingIds = new Set((prodIds.rows as any[]).map((r) => r.id));
+		console.log(`🔍 Found ${existingIds.size} existing bond IDs in production`);
 
-    const BATCH_SIZE = 100;
-    const allBonds = await devDb.execute(sql`
+		const BATCH_SIZE = 100;
+		const allBonds = await devDb.execute(sql`
       SELECT id, source, source_id, isin, bond_name, issuer_name, instrument_type,
              is_listed, exchange, face_value, coupon_rate, coupon_frequency,
              issue_date, maturity_date, clean_price, dirty_price, accrued_interest,
@@ -61,26 +71,28 @@ async function migrateBondsToProduction(): Promise<void> {
       ORDER BY id
     `);
 
-    const newBonds = (allBonds.rows as any[]).filter(b => !existingIds.has(b.id));
-    console.log(`📋 ${newBonds.length} new bonds to migrate`);
+		const newBonds = (allBonds.rows as any[]).filter(
+			(b) => !existingIds.has(b.id),
+		);
+		console.log(`📋 ${newBonds.length} new bonds to migrate`);
 
-    if (newBonds.length === 0) {
-      console.log("✅ No new bonds to migrate.");
-      return;
-    }
+		if (newBonds.length === 0) {
+			console.log("✅ No new bonds to migrate.");
+			return;
+		}
 
-    let inserted = 0;
-    let errors = 0;
+		let inserted = 0;
+		let errors = 0;
 
-    for (let i = 0; i < newBonds.length; i += BATCH_SIZE) {
-      const batch = newBonds.slice(i, i + BATCH_SIZE);
-      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-      const totalBatches = Math.ceil(newBonds.length / BATCH_SIZE);
+		for (let i = 0; i < newBonds.length; i += BATCH_SIZE) {
+			const batch = newBonds.slice(i, i + BATCH_SIZE);
+			const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+			const totalBatches = Math.ceil(newBonds.length / BATCH_SIZE);
 
-      try {
-        for (const bond of batch) {
-          try {
-            await prodDb.execute(sql`
+			try {
+				for (const bond of batch) {
+					try {
+						await prodDb.execute(sql`
               INSERT INTO bond_catalog (
                 id, source, source_id, isin, bond_name, issuer_name, instrument_type,
                 is_listed, exchange, face_value, coupon_rate, coupon_frequency,
@@ -112,37 +124,44 @@ async function migrateBondsToProduction(): Promise<void> {
               )
               ON CONFLICT (id) DO NOTHING
             `);
-            inserted++;
-          } catch (err: any) {
-            errors++;
-            if (errors <= 5) {
-              console.error(`  ⚠️ Error inserting bond ${bond.id}: ${err.message}`);
-            }
-          }
-        }
+						inserted++;
+					} catch (err: any) {
+						errors++;
+						if (errors <= 5) {
+							console.error(
+								`  ⚠️ Error inserting bond ${bond.id}: ${err.message}`,
+							);
+						}
+					}
+				}
 
-        console.log(`  ✅ Batch ${batchNum}/${totalBatches}: ${batch.length} processed (${inserted} inserted, ${errors} errors)`);
-      } catch (batchErr: any) {
-        console.error(`  ❌ Batch ${batchNum} failed: ${batchErr.message}`);
-        errors += batch.length;
-      }
-    }
+				console.log(
+					`  ✅ Batch ${batchNum}/${totalBatches}: ${batch.length} processed (${inserted} inserted, ${errors} errors)`,
+				);
+			} catch (batchErr: any) {
+				console.error(`  ❌ Batch ${batchNum} failed: ${batchErr.message}`);
+				errors += batch.length;
+			}
+		}
 
-    const finalCount = await prodDb.execute(sql`SELECT COUNT(*) as cnt FROM bond_catalog`);
-    const finalTotal = parseInt(String((finalCount.rows[0] as any)?.cnt || '0'));
+		const finalCount = await prodDb.execute(
+			sql`SELECT COUNT(*) as cnt FROM bond_catalog`,
+		);
+		const finalTotal = Number.parseInt(
+			String((finalCount.rows[0] as any)?.cnt || "0"),
+		);
 
-    console.log(`\n✅ Migration complete!`);
-    console.log(`   Inserted: ${inserted}`);
-    console.log(`   Errors: ${errors}`);
-    console.log(`   Production total: ${finalTotal} bonds`);
-
-  } catch (error: any) {
-    console.error("❌ Migration failed:", error.message);
-    process.exit(1);
-  } finally {
-    await devPool.end();
-    await prodPool.end();
-  }
+		console.log(`\n✅ Migration complete!`);
+		console.log(`   Inserted: ${inserted}`);
+		console.log(`   Errors: ${errors}`);
+		console.log(`   Production total: ${finalTotal} bonds`);
+	} catch (error: any) {
+		console.error("❌ Migration failed:", error.message);
+		process.exit(1);
+	} finally {
+		await devPool.end();
+		await prodPool.end();
+	}
 }
 
 migrateBondsToProduction();

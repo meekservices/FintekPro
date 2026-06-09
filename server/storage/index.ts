@@ -12,5 +12,5 @@
  * @purpose  Single canonical import path for the storage layer
  * @outputs  { storage, IStorage, DatabaseStorage }
  */
-export { storage, DatabaseStorage } from '../storage';
-export type { IStorage } from '../storage-types';
+export { storage, DatabaseStorage } from "../storage";
+export type { IStorage } from "../storage-types";

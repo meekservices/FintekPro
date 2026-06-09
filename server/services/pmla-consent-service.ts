@@ -1,53 +1,63 @@
 /**
  * PMLA Consent Text Service (Task 13)
- * 
+ *
  * Provides PMLA-compliant consent text and declarations
  * Prevention of Money Laundering Act, 2002 compliance
  */
 
 interface ConsentText {
-  id: string;
-  type: 'aadhaar_consent' | 'pan_consent' | 'ckyc_consent' | 'fatca_declaration' | 'risk_disclosure' | 'terms_conditions' | 'privacy_policy' | 'nominee_declaration' | 'ubo_declaration';
-  version: string;
-  effectiveFrom: Date;
-  title: string;
-  shortText: string;
-  fullText: string;
-  mandatoryCheckboxes: string[];
-  regulatoryReferences: string[];
-  lastUpdated: Date;
+	id: string;
+	type:
+		| "aadhaar_consent"
+		| "pan_consent"
+		| "ckyc_consent"
+		| "fatca_declaration"
+		| "risk_disclosure"
+		| "terms_conditions"
+		| "privacy_policy"
+		| "nominee_declaration"
+		| "ubo_declaration";
+	version: string;
+	effectiveFrom: Date;
+	title: string;
+	shortText: string;
+	fullText: string;
+	mandatoryCheckboxes: string[];
+	regulatoryReferences: string[];
+	lastUpdated: Date;
 }
 
 interface ConsentRecord {
-  userId: string;
-  consentId: string;
-  consentType: ConsentText['type'];
-  version: string;
-  acceptedAt: Date;
-  ipAddress: string;
-  deviceFingerprint?: string;
-  checkboxesAccepted: string[];
-  signature?: string;
+	userId: string;
+	consentId: string;
+	consentType: ConsentText["type"];
+	version: string;
+	acceptedAt: Date;
+	ipAddress: string;
+	deviceFingerprint?: string;
+	checkboxesAccepted: string[];
+	signature?: string;
 }
 
 class PMLAConsentService {
-  private consents: Map<string, ConsentText> = new Map();
-  private userConsents: Map<string, ConsentRecord[]> = new Map();
+	private consents: Map<string, ConsentText> = new Map();
+	private userConsents: Map<string, ConsentRecord[]> = new Map();
 
-  constructor() {
-    this.initializeConsentTexts();
-  }
+	constructor() {
+		this.initializeConsentTexts();
+	}
 
-  private initializeConsentTexts(): void {
-    // Aadhaar eKYC Consent (PMLA/UIDAI Compliant)
-    this.consents.set('aadhaar_consent_v1', {
-      id: 'aadhaar_consent_v1',
-      type: 'aadhaar_consent',
-      version: '1.0',
-      effectiveFrom: new Date('2024-01-01'),
-      title: 'Aadhaar Verification Consent',
-      shortText: 'I voluntarily consent to share my Aadhaar details for identity verification.',
-      fullText: `AADHAAR VERIFICATION CONSENT
+	private initializeConsentTexts(): void {
+		// Aadhaar eKYC Consent (PMLA/UIDAI Compliant)
+		this.consents.set("aadhaar_consent_v1", {
+			id: "aadhaar_consent_v1",
+			type: "aadhaar_consent",
+			version: "1.0",
+			effectiveFrom: new Date("2024-01-01"),
+			title: "Aadhaar Verification Consent",
+			shortText:
+				"I voluntarily consent to share my Aadhaar details for identity verification.",
+			fullText: `AADHAAR VERIFICATION CONSENT
 
 I hereby voluntarily provide my consent to FintekPro Private Limited ("Company") to:
 
@@ -85,29 +95,29 @@ I hereby voluntarily provide my consent to FintekPro Private Limited ("Company")
    c) Withdraw this consent (subject to legal/regulatory requirements)
 
 I have read and understood the above consent terms.`,
-      mandatoryCheckboxes: [
-        'I voluntarily consent to share my Aadhaar for identity verification',
-        'I understand my Aadhaar number will not be stored',
-        'I confirm my demographic details may be fetched from UIDAI'
-      ],
-      regulatoryReferences: [
-        'Prevention of Money Laundering Act, 2002',
-        'Aadhaar (Targeted Delivery of Financial and Other Subsidies) Act, 2016',
-        'UIDAI Authentication Guidelines',
-        'SEBI Master Circular on KYC'
-      ],
-      lastUpdated: new Date('2024-06-01')
-    });
+			mandatoryCheckboxes: [
+				"I voluntarily consent to share my Aadhaar for identity verification",
+				"I understand my Aadhaar number will not be stored",
+				"I confirm my demographic details may be fetched from UIDAI",
+			],
+			regulatoryReferences: [
+				"Prevention of Money Laundering Act, 2002",
+				"Aadhaar (Targeted Delivery of Financial and Other Subsidies) Act, 2016",
+				"UIDAI Authentication Guidelines",
+				"SEBI Master Circular on KYC",
+			],
+			lastUpdated: new Date("2024-06-01"),
+		});
 
-    // PAN Verification Consent
-    this.consents.set('pan_consent_v1', {
-      id: 'pan_consent_v1',
-      type: 'pan_consent',
-      version: '1.0',
-      effectiveFrom: new Date('2024-01-01'),
-      title: 'PAN Verification Consent',
-      shortText: 'I consent to verify my PAN details for KYC compliance.',
-      fullText: `PAN VERIFICATION CONSENT
+		// PAN Verification Consent
+		this.consents.set("pan_consent_v1", {
+			id: "pan_consent_v1",
+			type: "pan_consent",
+			version: "1.0",
+			effectiveFrom: new Date("2024-01-01"),
+			title: "PAN Verification Consent",
+			shortText: "I consent to verify my PAN details for KYC compliance.",
+			fullText: `PAN VERIFICATION CONSENT
 
 I hereby provide consent to FintekPro Private Limited to:
 
@@ -135,28 +145,29 @@ I hereby provide consent to FintekPro Private Limited to:
    - Providing incorrect PAN is a punishable offense
    - Inoperative PAN may restrict access to services
    - PAN-Aadhaar linking is mandatory as per Income Tax rules`,
-      mandatoryCheckboxes: [
-        'I consent to verify my PAN with authorized agencies',
-        'I declare that the PAN provided belongs to me',
-        'I understand providing incorrect PAN is a punishable offense'
-      ],
-      regulatoryReferences: [
-        'Income Tax Act, 1961 - Section 139A',
-        'CBDT Notification for PAN-Aadhaar Linking',
-        'SEBI KYC Requirements'
-      ],
-      lastUpdated: new Date('2024-06-01')
-    });
+			mandatoryCheckboxes: [
+				"I consent to verify my PAN with authorized agencies",
+				"I declare that the PAN provided belongs to me",
+				"I understand providing incorrect PAN is a punishable offense",
+			],
+			regulatoryReferences: [
+				"Income Tax Act, 1961 - Section 139A",
+				"CBDT Notification for PAN-Aadhaar Linking",
+				"SEBI KYC Requirements",
+			],
+			lastUpdated: new Date("2024-06-01"),
+		});
 
-    // CKYC Consent
-    this.consents.set('ckyc_consent_v1', {
-      id: 'ckyc_consent_v1',
-      type: 'ckyc_consent',
-      version: '1.0',
-      effectiveFrom: new Date('2024-01-01'),
-      title: 'Central KYC (CKYC) Consent',
-      shortText: 'I consent to fetch/upload my KYC records from/to the Central KYC Registry.',
-      fullText: `CENTRAL KYC REGISTRY CONSENT
+		// CKYC Consent
+		this.consents.set("ckyc_consent_v1", {
+			id: "ckyc_consent_v1",
+			type: "ckyc_consent",
+			version: "1.0",
+			effectiveFrom: new Date("2024-01-01"),
+			title: "Central KYC (CKYC) Consent",
+			shortText:
+				"I consent to fetch/upload my KYC records from/to the Central KYC Registry.",
+			fullText: `CENTRAL KYC REGISTRY CONSENT
 
 I hereby authorize FintekPro Private Limited to:
 
@@ -181,28 +192,29 @@ I hereby authorize FintekPro Private Limited to:
    - PMLA (Maintenance of Records) Rules, 2005
    - Reserve Bank of India (KYC) Directions
    - SEBI Master Circular on KYC`,
-      mandatoryCheckboxes: [
-        'I authorize download of my existing CKYC records',
-        'I authorize upload of my verified KYC to Central KYC Registry',
-        'I understand my KYC may be accessed by other financial institutions'
-      ],
-      regulatoryReferences: [
-        'PMLA (Maintenance of Records) Rules, 2005',
-        'RBI Master Direction on KYC',
-        'SEBI Master Circular on KYC'
-      ],
-      lastUpdated: new Date('2024-06-01')
-    });
+			mandatoryCheckboxes: [
+				"I authorize download of my existing CKYC records",
+				"I authorize upload of my verified KYC to Central KYC Registry",
+				"I understand my KYC may be accessed by other financial institutions",
+			],
+			regulatoryReferences: [
+				"PMLA (Maintenance of Records) Rules, 2005",
+				"RBI Master Direction on KYC",
+				"SEBI Master Circular on KYC",
+			],
+			lastUpdated: new Date("2024-06-01"),
+		});
 
-    // FATCA/CRS Declaration
-    this.consents.set('fatca_declaration_v1', {
-      id: 'fatca_declaration_v1',
-      type: 'fatca_declaration',
-      version: '1.0',
-      effectiveFrom: new Date('2024-01-01'),
-      title: 'FATCA/CRS Self-Certification',
-      shortText: 'I certify my tax residency status under FATCA/CRS regulations.',
-      fullText: `FATCA/CRS SELF-CERTIFICATION DECLARATION
+		// FATCA/CRS Declaration
+		this.consents.set("fatca_declaration_v1", {
+			id: "fatca_declaration_v1",
+			type: "fatca_declaration",
+			version: "1.0",
+			effectiveFrom: new Date("2024-01-01"),
+			title: "FATCA/CRS Self-Certification",
+			shortText:
+				"I certify my tax residency status under FATCA/CRS regulations.",
+			fullText: `FATCA/CRS SELF-CERTIFICATION DECLARATION
 
 FOREIGN ACCOUNT TAX COMPLIANCE ACT (FATCA) & 
 COMMON REPORTING STANDARD (CRS) DECLARATION
@@ -239,29 +251,30 @@ I hereby certify that:
 
 6. DECLARATION
    I declare that the information provided is true, correct, and complete. I understand that any false statement may result in penalties under applicable laws.`,
-      mandatoryCheckboxes: [
-        'I certify my tax residency information is true and correct',
-        'I consent to reporting of my account information to tax authorities',
-        'I undertake to inform of any change in tax residency status within 30 days'
-      ],
-      regulatoryReferences: [
-        'Income Tax Rules, 1962 - Rule 114F, 114G, 114H',
-        'Foreign Account Tax Compliance Act (FATCA)',
-        'Common Reporting Standard (CRS) - OECD',
-        'CBDT Notification No. 62/2015'
-      ],
-      lastUpdated: new Date('2024-06-01')
-    });
+			mandatoryCheckboxes: [
+				"I certify my tax residency information is true and correct",
+				"I consent to reporting of my account information to tax authorities",
+				"I undertake to inform of any change in tax residency status within 30 days",
+			],
+			regulatoryReferences: [
+				"Income Tax Rules, 1962 - Rule 114F, 114G, 114H",
+				"Foreign Account Tax Compliance Act (FATCA)",
+				"Common Reporting Standard (CRS) - OECD",
+				"CBDT Notification No. 62/2015",
+			],
+			lastUpdated: new Date("2024-06-01"),
+		});
 
-    // Risk Disclosure
-    this.consents.set('risk_disclosure_v1', {
-      id: 'risk_disclosure_v1',
-      type: 'risk_disclosure',
-      version: '1.0',
-      effectiveFrom: new Date('2024-01-01'),
-      title: 'Investment Risk Disclosure',
-      shortText: 'I acknowledge the risks associated with investments in securities.',
-      fullText: `INVESTMENT RISK DISCLOSURE DOCUMENT
+		// Risk Disclosure
+		this.consents.set("risk_disclosure_v1", {
+			id: "risk_disclosure_v1",
+			type: "risk_disclosure",
+			version: "1.0",
+			effectiveFrom: new Date("2024-01-01"),
+			title: "Investment Risk Disclosure",
+			shortText:
+				"I acknowledge the risks associated with investments in securities.",
+			fullText: `INVESTMENT RISK DISCLOSURE DOCUMENT
 
 I acknowledge and understand that:
 
@@ -295,165 +308,181 @@ I acknowledge and understand that:
 6. REGULATORY DISCLAIMER
    As per SEBI regulations:
    "Investment in securities market is subject to market risks. Read all related documents carefully before investing."`,
-      mandatoryCheckboxes: [
-        'I understand investments are subject to market risks',
-        'I acknowledge there is no guarantee of returns',
-        'I have assessed my risk appetite before investing',
-        'I will read all related documents before investing'
-      ],
-      regulatoryReferences: [
-        'SEBI (Investment Advisers) Regulations, 2013',
-        'SEBI Investor Charter',
-        'AMFI Code of Conduct'
-      ],
-      lastUpdated: new Date('2024-06-01')
-    });
+			mandatoryCheckboxes: [
+				"I understand investments are subject to market risks",
+				"I acknowledge there is no guarantee of returns",
+				"I have assessed my risk appetite before investing",
+				"I will read all related documents before investing",
+			],
+			regulatoryReferences: [
+				"SEBI (Investment Advisers) Regulations, 2013",
+				"SEBI Investor Charter",
+				"AMFI Code of Conduct",
+			],
+			lastUpdated: new Date("2024-06-01"),
+		});
 
-    console.log(`📋 [PMLA Consent] Initialized ${this.consents.size} consent templates`);
-  }
+		console.log(
+			`📋 [PMLA Consent] Initialized ${this.consents.size} consent templates`,
+		);
+	}
 
-  /**
-   * Get consent text by type
-   */
-  getConsentText(type: ConsentText['type']): ConsentText | null {
-    for (const consent of this.consents.values()) {
-      if (consent.type === type) {
-        return consent;
-      }
-    }
-    return null;
-  }
+	/**
+	 * Get consent text by type
+	 */
+	getConsentText(type: ConsentText["type"]): ConsentText | null {
+		for (const consent of this.consents.values()) {
+			if (consent.type === type) {
+				return consent;
+			}
+		}
+		return null;
+	}
 
-  /**
-   * Get all consent texts
-   */
-  getAllConsentTexts(): ConsentText[] {
-    return Array.from(this.consents.values());
-  }
+	/**
+	 * Get all consent texts
+	 */
+	getAllConsentTexts(): ConsentText[] {
+		return Array.from(this.consents.values());
+	}
 
-  /**
-   * Record user consent
-   */
-  recordConsent(
-    userId: string,
-    consentType: ConsentText['type'],
-    ipAddress: string,
-    checkboxesAccepted: string[],
-    deviceFingerprint?: string,
-    signature?: string
-  ): ConsentRecord | null {
-    const consentText = this.getConsentText(consentType);
-    if (!consentText) return null;
+	/**
+	 * Record user consent
+	 */
+	recordConsent(
+		userId: string,
+		consentType: ConsentText["type"],
+		ipAddress: string,
+		checkboxesAccepted: string[],
+		deviceFingerprint?: string,
+		signature?: string,
+	): ConsentRecord | null {
+		const consentText = this.getConsentText(consentType);
+		if (!consentText) return null;
 
-    // Validate all mandatory checkboxes are accepted
-    const missingCheckboxes = consentText.mandatoryCheckboxes.filter(
-      cb => !checkboxesAccepted.includes(cb)
-    );
+		// Validate all mandatory checkboxes are accepted
+		const missingCheckboxes = consentText.mandatoryCheckboxes.filter(
+			(cb) => !checkboxesAccepted.includes(cb),
+		);
 
-    if (missingCheckboxes.length > 0) {
-      console.log(`⚠️ [PMLA Consent] Missing mandatory checkboxes:`, missingCheckboxes);
-      return null;
-    }
+		if (missingCheckboxes.length > 0) {
+			console.log(
+				`⚠️ [PMLA Consent] Missing mandatory checkboxes:`,
+				missingCheckboxes,
+			);
+			return null;
+		}
 
-    const record: ConsentRecord = {
-      userId,
-      consentId: `${consentText.id}-${Date.now()}`,
-      consentType,
-      version: consentText.version,
-      acceptedAt: new Date(),
-      ipAddress,
-      deviceFingerprint,
-      checkboxesAccepted,
-      signature
-    };
+		const record: ConsentRecord = {
+			userId,
+			consentId: `${consentText.id}-${Date.now()}`,
+			consentType,
+			version: consentText.version,
+			acceptedAt: new Date(),
+			ipAddress,
+			deviceFingerprint,
+			checkboxesAccepted,
+			signature,
+		};
 
-    const userRecords = this.userConsents.get(userId) || [];
-    userRecords.push(record);
-    this.userConsents.set(userId, userRecords);
+		const userRecords = this.userConsents.get(userId) || [];
+		userRecords.push(record);
+		this.userConsents.set(userId, userRecords);
 
-    console.log(`✅ [PMLA Consent] Recorded ${consentType} consent for user ${userId.substring(0, 8)}...`);
+		console.log(
+			`✅ [PMLA Consent] Recorded ${consentType} consent for user ${userId.substring(0, 8)}...`,
+		);
 
-    return record;
-  }
+		return record;
+	}
 
-  /**
-   * Get user's consent history
-   */
-  getUserConsents(userId: string): ConsentRecord[] {
-    return this.userConsents.get(userId) || [];
-  }
+	/**
+	 * Get user's consent history
+	 */
+	getUserConsents(userId: string): ConsentRecord[] {
+		return this.userConsents.get(userId) || [];
+	}
 
-  /**
-   * Check if user has given consent for a type
-   */
-  hasConsent(userId: string, consentType: ConsentText['type']): boolean {
-    const records = this.userConsents.get(userId) || [];
-    return records.some(r => r.consentType === consentType);
-  }
+	/**
+	 * Check if user has given consent for a type
+	 */
+	hasConsent(userId: string, consentType: ConsentText["type"]): boolean {
+		const records = this.userConsents.get(userId) || [];
+		return records.some((r) => r.consentType === consentType);
+	}
 
-  /**
-   * Get consent for specific type
-   */
-  getConsentRecord(userId: string, consentType: ConsentText['type']): ConsentRecord | null {
-    const records = this.userConsents.get(userId) || [];
-    return records.find(r => r.consentType === consentType) || null;
-  }
+	/**
+	 * Get consent for specific type
+	 */
+	getConsentRecord(
+		userId: string,
+		consentType: ConsentText["type"],
+	): ConsentRecord | null {
+		const records = this.userConsents.get(userId) || [];
+		return records.find((r) => r.consentType === consentType) || null;
+	}
 
-  /**
-   * Export consent audit trail
-   */
-  exportConsentAudit(userId: string): {
-    userId: string;
-    totalConsents: number;
-    consents: Array<{
-      type: string;
-      version: string;
-      acceptedAt: Date;
-      ipAddress: string;
-    }>;
-  } {
-    const records = this.userConsents.get(userId) || [];
+	/**
+	 * Export consent audit trail
+	 */
+	exportConsentAudit(userId: string): {
+		userId: string;
+		totalConsents: number;
+		consents: Array<{
+			type: string;
+			version: string;
+			acceptedAt: Date;
+			ipAddress: string;
+		}>;
+	} {
+		const records = this.userConsents.get(userId) || [];
 
-    return {
-      userId,
-      totalConsents: records.length,
-      consents: records.map(r => ({
-        type: r.consentType,
-        version: r.version,
-        acceptedAt: r.acceptedAt,
-        ipAddress: r.ipAddress
-      }))
-    };
-  }
+		return {
+			userId,
+			totalConsents: records.length,
+			consents: records.map((r) => ({
+				type: r.consentType,
+				version: r.version,
+				acceptedAt: r.acceptedAt,
+				ipAddress: r.ipAddress,
+			})),
+		};
+	}
 
-  /**
-   * Get mandatory consents for KYC
-   */
-  getMandatoryKYCConsents(): ConsentText['type'][] {
-    return ['pan_consent', 'aadhaar_consent', 'ckyc_consent', 'fatca_declaration', 'risk_disclosure'];
-  }
+	/**
+	 * Get mandatory consents for KYC
+	 */
+	getMandatoryKYCConsents(): ConsentText["type"][] {
+		return [
+			"pan_consent",
+			"aadhaar_consent",
+			"ckyc_consent",
+			"fatca_declaration",
+			"risk_disclosure",
+		];
+	}
 
-  /**
-   * Check if user has all mandatory consents
-   */
-  hasAllMandatoryConsents(userId: string): {
-    complete: boolean;
-    missing: ConsentText['type'][];
-  } {
-    const mandatory = this.getMandatoryKYCConsents();
-    const missing: ConsentText['type'][] = [];
+	/**
+	 * Check if user has all mandatory consents
+	 */
+	hasAllMandatoryConsents(userId: string): {
+		complete: boolean;
+		missing: ConsentText["type"][];
+	} {
+		const mandatory = this.getMandatoryKYCConsents();
+		const missing: ConsentText["type"][] = [];
 
-    for (const type of mandatory) {
-      if (!this.hasConsent(userId, type)) {
-        missing.push(type);
-      }
-    }
+		for (const type of mandatory) {
+			if (!this.hasConsent(userId, type)) {
+				missing.push(type);
+			}
+		}
 
-    return {
-      complete: missing.length === 0,
-      missing
-    };
-  }
+		return {
+			complete: missing.length === 0,
+			missing,
+		};
+	}
 }
 
 export const pmlaConsentService = new PMLAConsentService();

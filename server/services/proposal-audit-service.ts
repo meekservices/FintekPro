@@ -1,6 +1,6 @@
 /**
  * Proposal Audit Service
- * 
+ *
  * Regulator-grade audit logging for investment proposals
  * Features:
  * - SHA256 checksum chaining (tamper-proof)
@@ -11,607 +11,682 @@
  * - 8-year retention policy
  */
 
-import { db } from '../db';
-import { 
-  proposalAuditEvents, 
-  proposalPdfMetadata,
-  PROPOSAL_AUDIT_EVENT_TYPES,
-  type InsertProposalAuditEvent,
-  type ProposalAuditEvent,
-  type InsertProposalPdfMetadata,
-  type ProposalPdfMetadata
-} from '@shared/schema';
-import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
-import { createHash } from 'crypto';
-import { nanoid } from 'nanoid';
+import { db } from "../db";
+import {
+	proposalAuditEvents,
+	proposalPdfMetadata,
+	PROPOSAL_AUDIT_EVENT_TYPES,
+	type InsertProposalAuditEvent,
+	type ProposalAuditEvent,
+	type InsertProposalPdfMetadata,
+	type ProposalPdfMetadata,
+} from "@shared/schema";
+import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
+import { createHash } from "crypto";
+import { nanoid } from "nanoid";
 
 export type ProposalEventType = keyof typeof PROPOSAL_AUDIT_EVENT_TYPES;
 
 interface AuditEventOptions {
-  proposalId: string;
-  proposalVersion?: string;
-  eventType: ProposalEventType;
-  eventAction?: string;
-  actorId?: string;
-  actorRole?: 'agent' | 'admin' | 'compliance' | 'system';
-  actorName?: string;
-  payloadBefore?: Record<string, any>;
-  payloadAfter?: Record<string, any>;
-  isOverride?: boolean;
-  overrideReason?: string;
-  overrideApprovedBy?: string;
-  pdfVersion?: string;
-  pdfHash?: string;
-  ipAddress?: string;
-  userAgent?: string;
-  sessionId?: string;
-  requestPath?: string;
+	proposalId: string;
+	proposalVersion?: string;
+	eventType: ProposalEventType;
+	eventAction?: string;
+	actorId?: string;
+	actorRole?: "agent" | "admin" | "compliance" | "system";
+	actorName?: string;
+	payloadBefore?: Record<string, any>;
+	payloadAfter?: Record<string, any>;
+	isOverride?: boolean;
+	overrideReason?: string;
+	overrideApprovedBy?: string;
+	pdfVersion?: string;
+	pdfHash?: string;
+	ipAddress?: string;
+	userAgent?: string;
+	sessionId?: string;
+	requestPath?: string;
 }
 
 interface PdfGenerationResult {
-  pdfBuffer: Buffer;
-  version: string;
-  hash: string;
-  sectionsIncluded: string[];
-  totalPages: number;
+	pdfBuffer: Buffer;
+	version: string;
+	hash: string;
+	sectionsIncluded: string[];
+	totalPages: number;
 }
 
 class ProposalAuditService {
-  private lastChecksum: string = '';
-  private initialized: boolean = false;
+	private lastChecksum: string = "";
+	private initialized: boolean = false;
 
-  async initialize(): Promise<void> {
-    if (this.initialized) return;
+	async initialize(): Promise<void> {
+		if (this.initialized) return;
 
-    try {
-      // Load last checksum from database
-      const result = await db.select({ checksum: proposalAuditEvents.checksum })
-        .from(proposalAuditEvents)
-        .orderBy(desc(proposalAuditEvents.createdAt))
-        .limit(1);
+		try {
+			// Load last checksum from database
+			const result = await db
+				.select({ checksum: proposalAuditEvents.checksum })
+				.from(proposalAuditEvents)
+				.orderBy(desc(proposalAuditEvents.createdAt))
+				.limit(1);
 
-      if (result.length > 0) {
-        this.lastChecksum = result[0].checksum;
-        console.log('[ProposalAudit] Initialized with last checksum from database');
-      }
+			if (result.length > 0) {
+				this.lastChecksum = result[0].checksum;
+				console.log(
+					"[ProposalAudit] Initialized with last checksum from database",
+				);
+			}
 
-      this.initialized = true;
-    } catch (error) {
-      console.warn('[ProposalAudit] Failed to load last checksum, starting fresh:', error);
-      this.initialized = true;
-    }
-  }
+			this.initialized = true;
+		} catch (error) {
+			console.warn(
+				"[ProposalAudit] Failed to load last checksum, starting fresh:",
+				error,
+			);
+			this.initialized = true;
+		}
+	}
 
-  /**
-   * Compute SHA256 hash for checksum chaining
-   */
-  private computeChecksum(data: Record<string, any>, previousChecksum: string): string {
-    const payload = JSON.stringify({
-      ...data,
-      previousChecksum,
-      timestamp: new Date().toISOString(),
-    });
-    return createHash('sha256').update(payload).digest('hex');
-  }
+	/**
+	 * Compute SHA256 hash for checksum chaining
+	 */
+	private computeChecksum(
+		data: Record<string, any>,
+		previousChecksum: string,
+	): string {
+		const payload = JSON.stringify({
+			...data,
+			previousChecksum,
+			timestamp: new Date().toISOString(),
+		});
+		return createHash("sha256").update(payload).digest("hex");
+	}
 
-  /**
-   * Compute JSON diff between before and after states
-   */
-  private computeDiff(before: Record<string, any> | undefined, after: Record<string, any> | undefined): Record<string, any> | null {
-    if (!before && !after) return null;
-    if (!before) return { added: after };
-    if (!after) return { removed: before };
+	/**
+	 * Compute JSON diff between before and after states
+	 */
+	private computeDiff(
+		before: Record<string, any> | undefined,
+		after: Record<string, any> | undefined,
+	): Record<string, any> | null {
+		if (!before && !after) return null;
+		if (!before) return { added: after };
+		if (!after) return { removed: before };
 
-    const diff: Record<string, any> = {};
-    const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+		const diff: Record<string, any> = {};
+		const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
 
-    for (const key of allKeys) {
-      const beforeVal = JSON.stringify(before[key]);
-      const afterVal = JSON.stringify(after[key]);
-      
-      if (beforeVal !== afterVal) {
-        diff[key] = {
-          from: before[key],
-          to: after[key],
-        };
-      }
-    }
+		for (const key of allKeys) {
+			const beforeVal = JSON.stringify(before[key]);
+			const afterVal = JSON.stringify(after[key]);
 
-    return Object.keys(diff).length > 0 ? diff : null;
-  }
+			if (beforeVal !== afterVal) {
+				diff[key] = {
+					from: before[key],
+					to: after[key],
+				};
+			}
+		}
 
-  /**
-   * Log a proposal audit event
-   */
-  async logEvent(options: AuditEventOptions): Promise<ProposalAuditEvent> {
-    if (!this.initialized) {
-      await this.initialize();
-    }
+		return Object.keys(diff).length > 0 ? diff : null;
+	}
 
-    const eventId = nanoid();
-    const payloadDiff = this.computeDiff(options.payloadBefore, options.payloadAfter);
-    
-    // Compute checksum for chain integrity
-    const checksumData = {
-      eventId,
-      proposalId: options.proposalId,
-      eventType: options.eventType,
-      eventAction: options.eventAction,
-      actorId: options.actorId,
-      payloadAfter: options.payloadAfter,
-    };
-    const checksum = this.computeChecksum(checksumData, this.lastChecksum);
+	/**
+	 * Log a proposal audit event
+	 */
+	async logEvent(options: AuditEventOptions): Promise<ProposalAuditEvent> {
+		if (!this.initialized) {
+			await this.initialize();
+		}
 
-    // Calculate retention expiry (8 years from now)
-    const retentionExpiresAt = new Date();
-    retentionExpiresAt.setFullYear(retentionExpiresAt.getFullYear() + 8);
+		const eventId = nanoid();
+		const payloadDiff = this.computeDiff(
+			options.payloadBefore,
+			options.payloadAfter,
+		);
 
-    const eventData: InsertProposalAuditEvent = {
-      proposalId: options.proposalId,
-      proposalVersion: options.proposalVersion,
-      eventType: PROPOSAL_AUDIT_EVENT_TYPES[options.eventType],
-      eventAction: options.eventAction,
-      actorId: options.actorId,
-      actorRole: options.actorRole,
-      actorName: options.actorName,
-      payloadBefore: options.payloadBefore,
-      payloadAfter: options.payloadAfter,
-      payloadDiff: payloadDiff,
-      isOverride: options.isOverride || false,
-      overrideReason: options.overrideReason,
-      overrideApprovedBy: options.overrideApprovedBy,
-      pdfVersion: options.pdfVersion,
-      pdfHash: options.pdfHash,
-      ipAddress: options.ipAddress,
-      userAgent: options.userAgent,
-      sessionId: options.sessionId,
-      requestPath: options.requestPath,
-      checksum,
-      previousChecksum: this.lastChecksum || undefined,
-      retentionYears: 8,
-      retentionExpiresAt,
-      isArchived: false,
-    };
+		// Compute checksum for chain integrity
+		const checksumData = {
+			eventId,
+			proposalId: options.proposalId,
+			eventType: options.eventType,
+			eventAction: options.eventAction,
+			actorId: options.actorId,
+			payloadAfter: options.payloadAfter,
+		};
+		const checksum = this.computeChecksum(checksumData, this.lastChecksum);
 
-    const [inserted] = await db.insert(proposalAuditEvents)
-      .values(eventData)
-      .returning();
+		// Calculate retention expiry (8 years from now)
+		const retentionExpiresAt = new Date();
+		retentionExpiresAt.setFullYear(retentionExpiresAt.getFullYear() + 8);
 
-    this.lastChecksum = checksum;
+		const eventData: InsertProposalAuditEvent = {
+			proposalId: options.proposalId,
+			proposalVersion: options.proposalVersion,
+			eventType: PROPOSAL_AUDIT_EVENT_TYPES[options.eventType],
+			eventAction: options.eventAction,
+			actorId: options.actorId,
+			actorRole: options.actorRole,
+			actorName: options.actorName,
+			payloadBefore: options.payloadBefore,
+			payloadAfter: options.payloadAfter,
+			payloadDiff: payloadDiff,
+			isOverride: options.isOverride || false,
+			overrideReason: options.overrideReason,
+			overrideApprovedBy: options.overrideApprovedBy,
+			pdfVersion: options.pdfVersion,
+			pdfHash: options.pdfHash,
+			ipAddress: options.ipAddress,
+			userAgent: options.userAgent,
+			sessionId: options.sessionId,
+			requestPath: options.requestPath,
+			checksum,
+			previousChecksum: this.lastChecksum || undefined,
+			retentionYears: 8,
+			retentionExpiresAt,
+			isArchived: false,
+		};
 
-    console.log(`[ProposalAudit] ${options.eventType}:${options.eventAction || 'LOG'}`, {
-      proposalId: options.proposalId,
-      actorId: options.actorId,
-      checksum: checksum.substring(0, 16) + '...',
-    });
+		const [inserted] = await db
+			.insert(proposalAuditEvents)
+			.values(eventData)
+			.returning();
 
-    return inserted;
-  }
+		this.lastChecksum = checksum;
 
-  // ==================== Convenience Methods ====================
+		console.log(
+			`[ProposalAudit] ${options.eventType}:${options.eventAction || "LOG"}`,
+			{
+				proposalId: options.proposalId,
+				actorId: options.actorId,
+				checksum: checksum.substring(0, 16) + "...",
+			},
+		);
 
-  async logProspectSelected(proposalId: string, prospectData: Record<string, any>, actorId: string, actorRole: 'agent' | 'admin' = 'agent'): Promise<ProposalAuditEvent> {
-    return this.logEvent({
-      proposalId,
-      eventType: 'PROSPECT_SELECTED',
-      eventAction: 'CREATED',
-      actorId,
-      actorRole,
-      payloadAfter: prospectData,
-    });
-  }
+		return inserted;
+	}
 
-  async logRiskProfileSet(proposalId: string, riskProfile: Record<string, any>, actorId: string): Promise<ProposalAuditEvent> {
-    return this.logEvent({
-      proposalId,
-      eventType: 'RISK_PROFILE_SET',
-      eventAction: 'UPDATED',
-      actorId,
-      actorRole: 'agent',
-      payloadAfter: riskProfile,
-    });
-  }
+	// ==================== Convenience Methods ====================
 
-  async logHoldingsImported(proposalId: string, holdingsData: Record<string, any>, actorId: string): Promise<ProposalAuditEvent> {
-    return this.logEvent({
-      proposalId,
-      eventType: 'HOLDINGS_IMPORTED',
-      eventAction: 'CREATED',
-      actorId,
-      actorRole: 'agent',
-      payloadAfter: holdingsData,
-    });
-  }
+	async logProspectSelected(
+		proposalId: string,
+		prospectData: Record<string, any>,
+		actorId: string,
+		actorRole: "agent" | "admin" = "agent",
+	): Promise<ProposalAuditEvent> {
+		return this.logEvent({
+			proposalId,
+			eventType: "PROSPECT_SELECTED",
+			eventAction: "CREATED",
+			actorId,
+			actorRole,
+			payloadAfter: prospectData,
+		});
+	}
 
-  async logAnalysisRun(proposalId: string, analysisResult: Record<string, any>, actorId: string): Promise<ProposalAuditEvent> {
-    return this.logEvent({
-      proposalId,
-      eventType: 'ANALYSIS_RUN',
-      eventAction: 'EXECUTED',
-      actorId,
-      actorRole: 'system',
-      payloadAfter: analysisResult,
-    });
-  }
+	async logRiskProfileSet(
+		proposalId: string,
+		riskProfile: Record<string, any>,
+		actorId: string,
+	): Promise<ProposalAuditEvent> {
+		return this.logEvent({
+			proposalId,
+			eventType: "RISK_PROFILE_SET",
+			eventAction: "UPDATED",
+			actorId,
+			actorRole: "agent",
+			payloadAfter: riskProfile,
+		});
+	}
 
-  async logVerdictFinalized(proposalId: string, verdicts: Record<string, any>, actorId: string): Promise<ProposalAuditEvent> {
-    return this.logEvent({
-      proposalId,
-      eventType: 'VERDICT_FINALIZED',
-      eventAction: 'FINALIZED',
-      actorId,
-      actorRole: 'agent',
-      payloadAfter: verdicts,
-    });
-  }
+	async logHoldingsImported(
+		proposalId: string,
+		holdingsData: Record<string, any>,
+		actorId: string,
+	): Promise<ProposalAuditEvent> {
+		return this.logEvent({
+			proposalId,
+			eventType: "HOLDINGS_IMPORTED",
+			eventAction: "CREATED",
+			actorId,
+			actorRole: "agent",
+			payloadAfter: holdingsData,
+		});
+	}
 
-  async logSipGenerated(proposalId: string, sipData: Record<string, any>, actorId: string): Promise<ProposalAuditEvent> {
-    return this.logEvent({
-      proposalId,
-      eventType: 'SIP_GENERATED',
-      eventAction: 'CREATED',
-      actorId,
-      actorRole: 'system',
-      payloadAfter: sipData,
-    });
-  }
+	async logAnalysisRun(
+		proposalId: string,
+		analysisResult: Record<string, any>,
+		actorId: string,
+	): Promise<ProposalAuditEvent> {
+		return this.logEvent({
+			proposalId,
+			eventType: "ANALYSIS_RUN",
+			eventAction: "EXECUTED",
+			actorId,
+			actorRole: "system",
+			payloadAfter: analysisResult,
+		});
+	}
 
-  async logReportSectionToggled(
-    proposalId: string, 
-    sectionCode: string, 
-    before: boolean, 
-    after: boolean, 
-    actorId: string, 
-    actorRole: 'agent' | 'admin',
-    reason?: string
-  ): Promise<ProposalAuditEvent> {
-    return this.logEvent({
-      proposalId,
-      eventType: 'REPORT_SECTION_TOGGLED',
-      eventAction: after ? 'ENABLED' : 'DISABLED',
-      actorId,
-      actorRole,
-      payloadBefore: { sectionCode, enabled: before },
-      payloadAfter: { sectionCode, enabled: after },
-      isOverride: actorRole === 'admin',
-      overrideReason: reason,
-    });
-  }
+	async logVerdictFinalized(
+		proposalId: string,
+		verdicts: Record<string, any>,
+		actorId: string,
+	): Promise<ProposalAuditEvent> {
+		return this.logEvent({
+			proposalId,
+			eventType: "VERDICT_FINALIZED",
+			eventAction: "FINALIZED",
+			actorId,
+			actorRole: "agent",
+			payloadAfter: verdicts,
+		});
+	}
 
-  async logBenchmarkOverridden(
-    proposalId: string,
-    before: Record<string, any>,
-    after: Record<string, any>,
-    actorId: string,
-    reason: string
-  ): Promise<ProposalAuditEvent> {
-    return this.logEvent({
-      proposalId,
-      eventType: 'BENCHMARK_OVERRIDDEN',
-      eventAction: 'OVERRIDDEN',
-      actorId,
-      actorRole: 'admin',
-      payloadBefore: before,
-      payloadAfter: after,
-      isOverride: true,
-      overrideReason: reason,
-    });
-  }
+	async logSipGenerated(
+		proposalId: string,
+		sipData: Record<string, any>,
+		actorId: string,
+	): Promise<ProposalAuditEvent> {
+		return this.logEvent({
+			proposalId,
+			eventType: "SIP_GENERATED",
+			eventAction: "CREATED",
+			actorId,
+			actorRole: "system",
+			payloadAfter: sipData,
+		});
+	}
 
-  async logPdfGenerated(
-    proposalId: string,
-    pdfVersion: string,
-    pdfHash: string,
-    sectionsIncluded: string[],
-    actorId: string
-  ): Promise<ProposalAuditEvent> {
-    return this.logEvent({
-      proposalId,
-      proposalVersion: pdfVersion,
-      eventType: 'PDF_GENERATED',
-      eventAction: 'GENERATED',
-      actorId,
-      actorRole: 'system',
-      pdfVersion,
-      pdfHash,
-      payloadAfter: { sectionsIncluded, generatedAt: new Date().toISOString() },
-    });
-  }
+	async logReportSectionToggled(
+		proposalId: string,
+		sectionCode: string,
+		before: boolean,
+		after: boolean,
+		actorId: string,
+		actorRole: "agent" | "admin",
+		reason?: string,
+	): Promise<ProposalAuditEvent> {
+		return this.logEvent({
+			proposalId,
+			eventType: "REPORT_SECTION_TOGGLED",
+			eventAction: after ? "ENABLED" : "DISABLED",
+			actorId,
+			actorRole,
+			payloadBefore: { sectionCode, enabled: before },
+			payloadAfter: { sectionCode, enabled: after },
+			isOverride: actorRole === "admin",
+			overrideReason: reason,
+		});
+	}
 
-  async logPdfDownloaded(
-    proposalId: string,
-    pdfVersion: string,
-    pdfHash: string,
-    actorId: string,
-    ipAddress?: string
-  ): Promise<ProposalAuditEvent> {
-    return this.logEvent({
-      proposalId,
-      proposalVersion: pdfVersion,
-      eventType: 'PDF_DOWNLOADED',
-      eventAction: 'DOWNLOADED',
-      actorId,
-      actorRole: 'agent',
-      pdfVersion,
-      pdfHash,
-      ipAddress,
-      payloadAfter: { downloadedAt: new Date().toISOString() },
-    });
-  }
+	async logBenchmarkOverridden(
+		proposalId: string,
+		before: Record<string, any>,
+		after: Record<string, any>,
+		actorId: string,
+		reason: string,
+	): Promise<ProposalAuditEvent> {
+		return this.logEvent({
+			proposalId,
+			eventType: "BENCHMARK_OVERRIDDEN",
+			eventAction: "OVERRIDDEN",
+			actorId,
+			actorRole: "admin",
+			payloadBefore: before,
+			payloadAfter: after,
+			isOverride: true,
+			overrideReason: reason,
+		});
+	}
 
-  // ==================== PDF Metadata ====================
+	async logPdfGenerated(
+		proposalId: string,
+		pdfVersion: string,
+		pdfHash: string,
+		sectionsIncluded: string[],
+		actorId: string,
+	): Promise<ProposalAuditEvent> {
+		return this.logEvent({
+			proposalId,
+			proposalVersion: pdfVersion,
+			eventType: "PDF_GENERATED",
+			eventAction: "GENERATED",
+			actorId,
+			actorRole: "system",
+			pdfVersion,
+			pdfHash,
+			payloadAfter: { sectionsIncluded, generatedAt: new Date().toISOString() },
+		});
+	}
 
-  /**
-   * Record PDF generation metadata
-   */
-  async recordPdfMetadata(
-    proposalId: string,
-    pdfResult: PdfGenerationResult,
-    generatedBy: string,
-    generatedByRole: 'agent' | 'admin' | 'system',
-    clientPan?: string,
-    riskProfileVersion?: string,
-    benchmarkVersion?: string,
-    storageKey?: string
-  ): Promise<ProposalPdfMetadata> {
-    // Get previous PDF metadata for chain linking
-    const previousPdf = await db.select()
-      .from(proposalPdfMetadata)
-      .where(eq(proposalPdfMetadata.proposalId, proposalId))
-      .orderBy(desc(proposalPdfMetadata.createdAt))
-      .limit(1);
+	async logPdfDownloaded(
+		proposalId: string,
+		pdfVersion: string,
+		pdfHash: string,
+		actorId: string,
+		ipAddress?: string,
+	): Promise<ProposalAuditEvent> {
+		return this.logEvent({
+			proposalId,
+			proposalVersion: pdfVersion,
+			eventType: "PDF_DOWNLOADED",
+			eventAction: "DOWNLOADED",
+			actorId,
+			actorRole: "agent",
+			pdfVersion,
+			pdfHash,
+			ipAddress,
+			payloadAfter: { downloadedAt: new Date().toISOString() },
+		});
+	}
 
-    const previousHash = previousPdf.length > 0 ? previousPdf[0].pdfHash : undefined;
+	// ==================== PDF Metadata ====================
 
-    // Parse version
-    const versionMatch = pdfResult.version.match(/v(\d+)\.(\d+)/);
-    const majorVersion = versionMatch ? parseInt(versionMatch[1]) : 1;
-    const minorVersion = versionMatch ? parseInt(versionMatch[2]) : 0;
+	/**
+	 * Record PDF generation metadata
+	 */
+	async recordPdfMetadata(
+		proposalId: string,
+		pdfResult: PdfGenerationResult,
+		generatedBy: string,
+		generatedByRole: "agent" | "admin" | "system",
+		clientPan?: string,
+		riskProfileVersion?: string,
+		benchmarkVersion?: string,
+		storageKey?: string,
+	): Promise<ProposalPdfMetadata> {
+		// Get previous PDF metadata for chain linking
+		const previousPdf = await db
+			.select()
+			.from(proposalPdfMetadata)
+			.where(eq(proposalPdfMetadata.proposalId, proposalId))
+			.orderBy(desc(proposalPdfMetadata.createdAt))
+			.limit(1);
 
-    // Hash PAN if provided
-    const hashedPan = clientPan 
-      ? createHash('sha256').update(clientPan).digest('hex').substring(0, 64)
-      : undefined;
+		const previousHash =
+			previousPdf.length > 0 ? previousPdf[0].pdfHash : undefined;
 
-    const metadata: InsertProposalPdfMetadata = {
-      proposalId,
-      version: pdfResult.version,
-      majorVersion,
-      minorVersion,
-      generatedAt: new Date(),
-      generatedBy,
-      generatedByRole,
-      engineVersion: 'PB_ENGINE_2.5',
-      pdfHash: pdfResult.hash,
-      previousHash,
-      clientPan: hashedPan,
-      riskProfileVersion,
-      benchmarkVersion,
-      sectionsIncluded: pdfResult.sectionsIncluded,
-      totalPages: pdfResult.totalPages,
-      fileSizeBytes: pdfResult.pdfBuffer.length,
-      storageKey,
-      downloadCount: 0,
-    };
+		// Parse version
+		const versionMatch = pdfResult.version.match(/v(\d+)\.(\d+)/);
+		const majorVersion = versionMatch ? Number.parseInt(versionMatch[1]) : 1;
+		const minorVersion = versionMatch ? Number.parseInt(versionMatch[2]) : 0;
 
-    const [inserted] = await db.insert(proposalPdfMetadata)
-      .values(metadata)
-      .returning();
+		// Hash PAN if provided
+		const hashedPan = clientPan
+			? createHash("sha256").update(clientPan).digest("hex").substring(0, 64)
+			: undefined;
 
-    return inserted;
-  }
+		const metadata: InsertProposalPdfMetadata = {
+			proposalId,
+			version: pdfResult.version,
+			majorVersion,
+			minorVersion,
+			generatedAt: new Date(),
+			generatedBy,
+			generatedByRole,
+			engineVersion: "PB_ENGINE_2.5",
+			pdfHash: pdfResult.hash,
+			previousHash,
+			clientPan: hashedPan,
+			riskProfileVersion,
+			benchmarkVersion,
+			sectionsIncluded: pdfResult.sectionsIncluded,
+			totalPages: pdfResult.totalPages,
+			fileSizeBytes: pdfResult.pdfBuffer.length,
+			storageKey,
+			downloadCount: 0,
+		};
 
-  /**
-   * Increment download count
-   */
-  async recordPdfDownload(proposalId: string, pdfHash: string): Promise<void> {
-    await db.update(proposalPdfMetadata)
-      .set({
-        downloadCount: sql`download_count + 1`,
-        lastDownloadedAt: new Date(),
-      })
-      .where(and(
-        eq(proposalPdfMetadata.proposalId, proposalId),
-        eq(proposalPdfMetadata.pdfHash, pdfHash)
-      ));
-  }
+		const [inserted] = await db
+			.insert(proposalPdfMetadata)
+			.values(metadata)
+			.returning();
 
-  /**
-   * Get PDF metadata history for a proposal
-   */
-  async getPdfMetadataHistory(proposalId: string): Promise<ProposalPdfMetadata[]> {
-    return db.select()
-      .from(proposalPdfMetadata)
-      .where(eq(proposalPdfMetadata.proposalId, proposalId))
-      .orderBy(desc(proposalPdfMetadata.createdAt));
-  }
+		return inserted;
+	}
 
-  /**
-   * Verify PDF hash
-   */
-  async verifyPdfHash(proposalId: string, hash: string): Promise<boolean> {
-    const result = await db.select()
-      .from(proposalPdfMetadata)
-      .where(and(
-        eq(proposalPdfMetadata.proposalId, proposalId),
-        eq(proposalPdfMetadata.pdfHash, hash)
-      ))
-      .limit(1);
+	/**
+	 * Increment download count
+	 */
+	async recordPdfDownload(proposalId: string, pdfHash: string): Promise<void> {
+		await db
+			.update(proposalPdfMetadata)
+			.set({
+				downloadCount: sql`download_count + 1`,
+				lastDownloadedAt: new Date(),
+			})
+			.where(
+				and(
+					eq(proposalPdfMetadata.proposalId, proposalId),
+					eq(proposalPdfMetadata.pdfHash, pdfHash),
+				),
+			);
+	}
 
-    return result.length > 0;
-  }
+	/**
+	 * Get PDF metadata history for a proposal
+	 */
+	async getPdfMetadataHistory(
+		proposalId: string,
+	): Promise<ProposalPdfMetadata[]> {
+		return db
+			.select()
+			.from(proposalPdfMetadata)
+			.where(eq(proposalPdfMetadata.proposalId, proposalId))
+			.orderBy(desc(proposalPdfMetadata.createdAt));
+	}
 
-  // ==================== Audit Trail Query ====================
+	/**
+	 * Verify PDF hash
+	 */
+	async verifyPdfHash(proposalId: string, hash: string): Promise<boolean> {
+		const result = await db
+			.select()
+			.from(proposalPdfMetadata)
+			.where(
+				and(
+					eq(proposalPdfMetadata.proposalId, proposalId),
+					eq(proposalPdfMetadata.pdfHash, hash),
+				),
+			)
+			.limit(1);
 
-  /**
-   * Get audit trail for a proposal
-   */
-  async getAuditTrail(proposalId: string): Promise<ProposalAuditEvent[]> {
-    return db.select()
-      .from(proposalAuditEvents)
-      .where(eq(proposalAuditEvents.proposalId, proposalId))
-      .orderBy(desc(proposalAuditEvents.createdAt));
-  }
+		return result.length > 0;
+	}
 
-  /**
-   * Get audit events by type
-   */
-  async getEventsByType(proposalId: string, eventType: ProposalEventType): Promise<ProposalAuditEvent[]> {
-    return db.select()
-      .from(proposalAuditEvents)
-      .where(and(
-        eq(proposalAuditEvents.proposalId, proposalId),
-        eq(proposalAuditEvents.eventType, PROPOSAL_AUDIT_EVENT_TYPES[eventType])
-      ))
-      .orderBy(desc(proposalAuditEvents.createdAt));
-  }
+	// ==================== Audit Trail Query ====================
 
-  /**
-   * Get override events only
-   */
-  async getOverrideEvents(proposalId: string): Promise<ProposalAuditEvent[]> {
-    return db.select()
-      .from(proposalAuditEvents)
-      .where(and(
-        eq(proposalAuditEvents.proposalId, proposalId),
-        eq(proposalAuditEvents.isOverride, true)
-      ))
-      .orderBy(desc(proposalAuditEvents.createdAt));
-  }
+	/**
+	 * Get audit trail for a proposal
+	 */
+	async getAuditTrail(proposalId: string): Promise<ProposalAuditEvent[]> {
+		return db
+			.select()
+			.from(proposalAuditEvents)
+			.where(eq(proposalAuditEvents.proposalId, proposalId))
+			.orderBy(desc(proposalAuditEvents.createdAt));
+	}
 
-  // ==================== Chain Integrity ====================
+	/**
+	 * Get audit events by type
+	 */
+	async getEventsByType(
+		proposalId: string,
+		eventType: ProposalEventType,
+	): Promise<ProposalAuditEvent[]> {
+		return db
+			.select()
+			.from(proposalAuditEvents)
+			.where(
+				and(
+					eq(proposalAuditEvents.proposalId, proposalId),
+					eq(
+						proposalAuditEvents.eventType,
+						PROPOSAL_AUDIT_EVENT_TYPES[eventType],
+					),
+				),
+			)
+			.orderBy(desc(proposalAuditEvents.createdAt));
+	}
 
-  /**
-   * Verify audit chain integrity
-   */
-  async verifyChainIntegrity(proposalId: string): Promise<{
-    valid: boolean;
-    totalEvents: number;
-    brokenLinks: string[];
-  }> {
-    const events = await db.select()
-      .from(proposalAuditEvents)
-      .where(eq(proposalAuditEvents.proposalId, proposalId))
-      .orderBy(proposalAuditEvents.createdAt);
+	/**
+	 * Get override events only
+	 */
+	async getOverrideEvents(proposalId: string): Promise<ProposalAuditEvent[]> {
+		return db
+			.select()
+			.from(proposalAuditEvents)
+			.where(
+				and(
+					eq(proposalAuditEvents.proposalId, proposalId),
+					eq(proposalAuditEvents.isOverride, true),
+				),
+			)
+			.orderBy(desc(proposalAuditEvents.createdAt));
+	}
 
-    if (events.length === 0) {
-      return { valid: true, totalEvents: 0, brokenLinks: [] };
-    }
+	// ==================== Chain Integrity ====================
 
-    const brokenLinks: string[] = [];
-    let previousChecksum = '';
+	/**
+	 * Verify audit chain integrity
+	 */
+	async verifyChainIntegrity(proposalId: string): Promise<{
+		valid: boolean;
+		totalEvents: number;
+		brokenLinks: string[];
+	}> {
+		const events = await db
+			.select()
+			.from(proposalAuditEvents)
+			.where(eq(proposalAuditEvents.proposalId, proposalId))
+			.orderBy(proposalAuditEvents.createdAt);
 
-    for (const event of events) {
-      // First event should have no previous checksum or empty
-      if (previousChecksum && event.previousChecksum !== previousChecksum) {
-        brokenLinks.push(event.id);
-      }
-      previousChecksum = event.checksum;
-    }
+		if (events.length === 0) {
+			return { valid: true, totalEvents: 0, brokenLinks: [] };
+		}
 
-    return {
-      valid: brokenLinks.length === 0,
-      totalEvents: events.length,
-      brokenLinks,
-    };
-  }
+		const brokenLinks: string[] = [];
+		let previousChecksum = "";
 
-  // ==================== Export ====================
+		for (const event of events) {
+			// First event should have no previous checksum or empty
+			if (previousChecksum && event.previousChecksum !== previousChecksum) {
+				brokenLinks.push(event.id);
+			}
+			previousChecksum = event.checksum;
+		}
 
-  /**
-   * Export audit bundle for regulators (JSON + CSV format)
-   */
-  async exportAuditBundle(proposalId: string): Promise<{
-    json: {
-      proposal: { id: string; exportedAt: string };
-      auditEvents: ProposalAuditEvent[];
-      pdfMetadata: ProposalPdfMetadata[];
-      chainIntegrity: { valid: boolean; totalEvents: number };
-    };
-    csv: string;
-  }> {
-    const [auditEvents, pdfMetadata, chainIntegrity] = await Promise.all([
-      this.getAuditTrail(proposalId),
-      this.getPdfMetadataHistory(proposalId),
-      this.verifyChainIntegrity(proposalId),
-    ]);
+		return {
+			valid: brokenLinks.length === 0,
+			totalEvents: events.length,
+			brokenLinks,
+		};
+	}
 
-    const json = {
-      proposal: {
-        id: proposalId,
-        exportedAt: new Date().toISOString(),
-      },
-      auditEvents,
-      pdfMetadata,
-      chainIntegrity: {
-        valid: chainIntegrity.valid,
-        totalEvents: chainIntegrity.totalEvents,
-      },
-    };
+	// ==================== Export ====================
 
-    // Generate CSV for audit events
-    const csvHeaders = [
-      'Event ID',
-      'Timestamp',
-      'Event Type',
-      'Event Action',
-      'Actor ID',
-      'Actor Role',
-      'Is Override',
-      'Override Reason',
-      'PDF Version',
-      'PDF Hash',
-      'Checksum',
-    ].join(',');
+	/**
+	 * Export audit bundle for regulators (JSON + CSV format)
+	 */
+	async exportAuditBundle(proposalId: string): Promise<{
+		json: {
+			proposal: { id: string; exportedAt: string };
+			auditEvents: ProposalAuditEvent[];
+			pdfMetadata: ProposalPdfMetadata[];
+			chainIntegrity: { valid: boolean; totalEvents: number };
+		};
+		csv: string;
+	}> {
+		const [auditEvents, pdfMetadata, chainIntegrity] = await Promise.all([
+			this.getAuditTrail(proposalId),
+			this.getPdfMetadataHistory(proposalId),
+			this.verifyChainIntegrity(proposalId),
+		]);
 
-    const csvRows = auditEvents.map(event => [
-      event.id,
-      event.createdAt?.toISOString(),
-      event.eventType,
-      event.eventAction || '',
-      event.actorId || '',
-      event.actorRole || '',
-      event.isOverride ? 'Yes' : 'No',
-      (event.overrideReason || '').replace(/,/g, ';'),
-      event.pdfVersion || '',
-      event.pdfHash || '',
-      event.checksum,
-    ].join(','));
+		const json = {
+			proposal: {
+				id: proposalId,
+				exportedAt: new Date().toISOString(),
+			},
+			auditEvents,
+			pdfMetadata,
+			chainIntegrity: {
+				valid: chainIntegrity.valid,
+				totalEvents: chainIntegrity.totalEvents,
+			},
+		};
 
-    const csv = [csvHeaders, ...csvRows].join('\n');
+		// Generate CSV for audit events
+		const csvHeaders = [
+			"Event ID",
+			"Timestamp",
+			"Event Type",
+			"Event Action",
+			"Actor ID",
+			"Actor Role",
+			"Is Override",
+			"Override Reason",
+			"PDF Version",
+			"PDF Hash",
+			"Checksum",
+		].join(",");
 
-    return { json, csv };
-  }
+		const csvRows = auditEvents.map((event) =>
+			[
+				event.id,
+				event.createdAt?.toISOString(),
+				event.eventType,
+				event.eventAction || "",
+				event.actorId || "",
+				event.actorRole || "",
+				event.isOverride ? "Yes" : "No",
+				(event.overrideReason || "").replace(/,/g, ";"),
+				event.pdfVersion || "",
+				event.pdfHash || "",
+				event.checksum,
+			].join(","),
+		);
 
-  // ==================== Retention ====================
+		const csv = [csvHeaders, ...csvRows].join("\n");
 
-  /**
-   * Archive old events (move to cold storage/mark archived)
-   */
-  async archiveExpiredEvents(): Promise<number> {
-    const now = new Date();
-    
-    const result = await db.update(proposalAuditEvents)
-      .set({ isArchived: true })
-      .where(and(
-        eq(proposalAuditEvents.isArchived, false),
-        lte(proposalAuditEvents.retentionExpiresAt, now)
-      ));
+		return { json, csv };
+	}
 
-    console.log(`[ProposalAudit] Archived expired audit events`);
-    return 0; // Drizzle doesn't return affected count easily
-  }
+	// ==================== Retention ====================
 
-  /**
-   * Get retention statistics
-   */
-  async getRetentionStats(): Promise<{
-    totalEvents: number;
-    archivedEvents: number;
-    oldestEvent: Date | null;
-    newestEvent: Date | null;
-  }> {
-    const stats = await db.execute(sql`
+	/**
+	 * Archive old events (move to cold storage/mark archived)
+	 */
+	async archiveExpiredEvents(): Promise<number> {
+		const now = new Date();
+
+		const result = await db
+			.update(proposalAuditEvents)
+			.set({ isArchived: true })
+			.where(
+				and(
+					eq(proposalAuditEvents.isArchived, false),
+					lte(proposalAuditEvents.retentionExpiresAt, now),
+				),
+			);
+
+		console.log(`[ProposalAudit] Archived expired audit events`);
+		return 0; // Drizzle doesn't return affected count easily
+	}
+
+	/**
+	 * Get retention statistics
+	 */
+	async getRetentionStats(): Promise<{
+		totalEvents: number;
+		archivedEvents: number;
+		oldestEvent: Date | null;
+		newestEvent: Date | null;
+	}> {
+		const stats = await db.execute(sql`
       SELECT 
         COUNT(*) as total_events,
         SUM(CASE WHEN is_archived THEN 1 ELSE 0 END) as archived_events,
@@ -620,14 +695,14 @@ class ProposalAuditService {
       FROM proposal_audit_events
     `);
 
-    const row = stats.rows[0] as any;
-    return {
-      totalEvents: parseInt(row?.total_events || '0'),
-      archivedEvents: parseInt(row?.archived_events || '0'),
-      oldestEvent: row?.oldest_event ? new Date(row.oldest_event) : null,
-      newestEvent: row?.newest_event ? new Date(row.newest_event) : null,
-    };
-  }
+		const row = stats.rows[0] as any;
+		return {
+			totalEvents: Number.parseInt(row?.total_events || "0"),
+			archivedEvents: Number.parseInt(row?.archived_events || "0"),
+			oldestEvent: row?.oldest_event ? new Date(row.oldest_event) : null,
+			newestEvent: row?.newest_event ? new Date(row.newest_event) : null,
+		};
+	}
 }
 
 export const proposalAuditService = new ProposalAuditService();

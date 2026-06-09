@@ -1003,9 +1003,11 @@ export default function AgentPicksPage() {
 		}).format(value);
 	};
 
-	const formatPercentValue = (value: number | string | undefined | null): string => {
+	const formatPercentValue = (
+		value: number | string | undefined | null,
+	): string => {
 		if (value === undefined || value === null) return "N/A";
-		if (typeof value === 'string') {
+		if (typeof value === "string") {
 			const parsed = Number.parseFloat(value);
 			if (!Number.isFinite(parsed)) return value; // "8-12% p.a." → pass through
 			return `${parsed >= 0 ? "+" : ""}${parsed.toFixed(2)}%`;
@@ -1013,7 +1015,6 @@ export default function AgentPicksPage() {
 		if (!Number.isFinite(value)) return "N/A";
 		return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 	};
-
 
 	const freshnessColors: Record<string, string> = {
 		live: "bg-green-500",
@@ -1720,8 +1721,12 @@ export default function AgentPicksPage() {
 											disabled={catchupMutation.isPending}
 											className="shrink-0 gap-2 text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40"
 										>
-											<RefreshCw className={`h-3.5 w-3.5 ${catchupMutation.isPending ? "animate-spin" : ""}`} />
-											{catchupMutation.isPending ? "Generating..." : "Fill Missing Picks"}
+											<RefreshCw
+												className={`h-3.5 w-3.5 ${catchupMutation.isPending ? "animate-spin" : ""}`}
+											/>
+											{catchupMutation.isPending
+												? "Generating..."
+												: "Fill Missing Picks"}
 										</Button>
 									)}
 									{todayPicks.length > 0 && (
@@ -3593,7 +3598,9 @@ export default function AgentPicksPage() {
 													"—";
 												const CatIcon = categoryIcons[pick?.category ?? ""];
 												const recoPrice = safeNum(pick?.recoPrice);
-												const currentPrice = safeNum(pick?.currentPrice ?? pick?.recoPrice);
+												const currentPrice = safeNum(
+													pick?.currentPrice ?? pick?.recoPrice,
+												);
 												const returnPct: number | null =
 													pick?.returnPct != null
 														? safeNum(pick.returnPct)
@@ -3902,7 +3909,8 @@ export default function AgentPicksPage() {
 										<p className="text-xs text-green-600 font-medium">
 											+
 											{(
-												((safeNum(selectedPick.targetPrice) - safeNum(selectedPick.recoPrice)) /
+												((safeNum(selectedPick.targetPrice) -
+													safeNum(selectedPick.recoPrice)) /
 													safeNum(selectedPick.recoPrice)) *
 												100
 											).toFixed(1)}
@@ -3924,7 +3932,8 @@ export default function AgentPicksPage() {
 										<p className="text-xs text-red-600 font-medium">
 											-
 											{(
-												((safeNum(selectedPick.recoPrice) - safeNum(selectedPick.stoplossPrice)) /
+												((safeNum(selectedPick.recoPrice) -
+													safeNum(selectedPick.stoplossPrice)) /
 													safeNum(selectedPick.recoPrice)) *
 												100
 											).toFixed(1)}
@@ -4822,9 +4831,7 @@ function PicksTable({
 						const _rec = safeNum(pick.recoPrice);
 						const _cur = safeNum(pick.currentPrice ?? pick.recoPrice);
 						const upsidePct: number | null =
-							_tgt && _rec
-								? ((_tgt - _rec) / _rec) * 100
-								: null;
+							_tgt && _rec ? ((_tgt - _rec) / _rec) * 100 : null;
 						const returnPct: number | null =
 							pick.returnPct != null
 								? safeNum(pick.returnPct)
@@ -4962,17 +4969,11 @@ function PickCard({
 	const _sl2 = safeNum(pick.stoplossPrice);
 	const _cur2 = safeNum(pick.currentPrice);
 	const upside =
-		_tgt2 && _rec2
-			? (((_tgt2 - _rec2) / _rec2) * 100).toFixed(1)
-			: "0.0";
+		_tgt2 && _rec2 ? (((_tgt2 - _rec2) / _rec2) * 100).toFixed(1) : "0.0";
 	const downside =
-		_sl2 && _rec2
-			? (((_rec2 - _sl2) / _rec2) * 100).toFixed(1)
-			: "0.0";
+		_sl2 && _rec2 ? (((_rec2 - _sl2) / _rec2) * 100).toFixed(1) : "0.0";
 	const currentReturn =
-		_cur2 && _rec2
-			? (((_cur2 - _rec2) / _rec2) * 100).toFixed(1)
-			: null;
+		_cur2 && _rec2 ? (((_cur2 - _rec2) / _rec2) * 100).toFixed(1) : null;
 
 	if (compact) {
 		return (

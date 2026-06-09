@@ -13,70 +13,79 @@
  */
 
 import {
-  getCashfreeSecureIDAppId,
-  getCashfreeSecureIDSecretKey,
-  getCashfreeSecureIDBaseUrl,
-  hasCashfreeSecureIDCredentials,
-} from '../utils/cashfree-config';
+	getCashfreeSecureIDAppId,
+	getCashfreeSecureIDSecretKey,
+	getCashfreeSecureIDBaseUrl,
+	hasCashfreeSecureIDCredentials,
+} from "../utils/cashfree-config";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export interface VRSHeaders {
-  'Content-Type': string;
-  'x-client-id': string;
-  'x-client-secret': string;
-  'x-api-version'?: string;
+	"Content-Type": string;
+	"x-client-id": string;
+	"x-client-secret": string;
+	"x-api-version"?: string;
 }
 
 export interface VRSResponse<T = Record<string, unknown>> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  statusCode?: number;
+	success: boolean;
+	data?: T;
+	error?: string;
+	statusCode?: number;
 }
 
 // ─── Base helper ────────────────────────────────────────────────────────────
 
 function getBaseUrl(): string {
-  return getCashfreeSecureIDBaseUrl();
+	return getCashfreeSecureIDBaseUrl();
 }
 
 function getHeaders(apiVersion?: string): VRSHeaders {
-  const headers: VRSHeaders = {
-    'Content-Type': 'application/json',
-    'x-client-id': getCashfreeSecureIDAppId(),
-    'x-client-secret': getCashfreeSecureIDSecretKey(),
-  };
-  if (apiVersion) headers['x-api-version'] = apiVersion;
-  return headers;
+	const headers: VRSHeaders = {
+		"Content-Type": "application/json",
+		"x-client-id": getCashfreeSecureIDAppId(),
+		"x-client-secret": getCashfreeSecureIDSecretKey(),
+	};
+	if (apiVersion) headers["x-api-version"] = apiVersion;
+	return headers;
 }
 
 async function vrsPost<T>(
-  path: string,
-  body: Record<string, unknown>,
-  apiVersion?: string
+	path: string,
+	body: Record<string, unknown>,
+	apiVersion?: string,
 ): Promise<VRSResponse<T>> {
-  if (!hasCashfreeSecureIDCredentials()) {
-    return { success: false, error: 'Cashfree Secure ID credentials not configured (CASHFREE_SECUREID_APP_ID / CASHFREE_SECUREID_SECRET_KEY)' };
-  }
-  try {
-    const res = await fetch(`${getBaseUrl()}${path}`, {
-      method: 'POST',
-      headers: getHeaders(apiVersion) as Record<string, string>,
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      return { success: false, error: data.message || data.error || `HTTP ${res.status}`, statusCode: res.status, data };
-    }
-    return { success: true, data, statusCode: res.status };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
+	if (!hasCashfreeSecureIDCredentials()) {
+		return {
+			success: false,
+			error:
+				"Cashfree Secure ID credentials not configured (CASHFREE_SECUREID_APP_ID / CASHFREE_SECUREID_SECRET_KEY)",
+		};
+	}
+	try {
+		const res = await fetch(`${getBaseUrl()}${path}`, {
+			method: "POST",
+			headers: getHeaders(apiVersion) as Record<string, string>,
+			body: JSON.stringify(body),
+		});
+		const data = await res.json();
+		if (!res.ok) {
+			return {
+				success: false,
+				error: data.message || data.error || `HTTP ${res.status}`,
+				statusCode: res.status,
+				data,
+			};
+		}
+		return { success: true, data, statusCode: res.status };
+	} catch (err: any) {
+		return { success: false, error: err.message };
+	}
 }
 
-function generateVerificationId(prefix = 'vrs'): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+function generateVerificationId(prefix = "vrs"): string {
+	return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -89,18 +98,18 @@ function generateVerificationId(prefix = 'vrs'): string {
  * Returns: pan_status, name_match, dob_match, aadhaar_seeding_status
  */
 export async function verifyPANLite(params: {
-  pan: string;
-  name?: string;
-  dob?: string;
-  verificationId?: string;
+	pan: string;
+	name?: string;
+	dob?: string;
+	verificationId?: string;
 }): Promise<VRSResponse> {
-  const body: Record<string, unknown> = {
-    verification_id: params.verificationId || generateVerificationId('pan'),
-    pan: params.pan.toUpperCase(),
-  };
-  if (params.name) body.name = params.name;
-  if (params.dob) body.dob = params.dob;
-  return vrsPost('/pan-lite', body);
+	const body: Record<string, unknown> = {
+		verification_id: params.verificationId || generateVerificationId("pan"),
+		pan: params.pan.toUpperCase(),
+	};
+	if (params.name) body.name = params.name;
+	if (params.dob) body.dob = params.dob;
+	return vrsPost("/pan-lite", body);
 }
 
 /**
@@ -108,15 +117,15 @@ export async function verifyPANLite(params: {
  * POST /verification/pan-360
  */
 export async function verifyPAN360(params: {
-  pan: string;
-  name?: string;
-  verificationId?: string;
+	pan: string;
+	name?: string;
+	verificationId?: string;
 }): Promise<VRSResponse> {
-  return vrsPost('/pan-360', {
-    verification_id: params.verificationId || generateVerificationId('pan360'),
-    pan: params.pan.toUpperCase(),
-    ...(params.name && { name: params.name }),
-  });
+	return vrsPost("/pan-360", {
+		verification_id: params.verificationId || generateVerificationId("pan360"),
+		pan: params.pan.toUpperCase(),
+		...(params.name && { name: params.name }),
+	});
 }
 
 /**
@@ -125,18 +134,18 @@ export async function verifyPAN360(params: {
  * Returns: holder name, type, issue date, expiry date, validity status
  */
 export async function verifyDrivingLicense(params: {
-  dlNumber: string;
-  dob: string;
-  name?: string;
-  verificationId?: string;
+	dlNumber: string;
+	dob: string;
+	name?: string;
+	verificationId?: string;
 }): Promise<VRSResponse> {
-  const body: Record<string, unknown> = {
-    verification_id: params.verificationId || generateVerificationId('dl'),
-    dl_number: params.dlNumber,
-    dob: params.dob,
-  };
-  if (params.name) body.name = params.name;
-  return vrsPost('/driving-license', body);
+	const body: Record<string, unknown> = {
+		verification_id: params.verificationId || generateVerificationId("dl"),
+		dl_number: params.dlNumber,
+		dob: params.dob,
+	};
+	if (params.name) body.name = params.name;
+	return vrsPost("/driving-license", body);
 }
 
 /**
@@ -145,16 +154,16 @@ export async function verifyDrivingLicense(params: {
  * Returns: name, DOB, gender, address, constituency
  */
 export async function verifyVoterId(params: {
-  epicNumber: string;
-  name?: string;
-  verificationId?: string;
+	epicNumber: string;
+	name?: string;
+	verificationId?: string;
 }): Promise<VRSResponse> {
-  const body: Record<string, unknown> = {
-    verification_id: params.verificationId || generateVerificationId('vid'),
-    epic_number: params.epicNumber,
-  };
-  if (params.name) body.name = params.name;
-  return vrsPost('/voter-id', body);
+	const body: Record<string, unknown> = {
+		verification_id: params.verificationId || generateVerificationId("vid"),
+		epic_number: params.epicNumber,
+	};
+	if (params.name) body.name = params.name;
+	return vrsPost("/voter-id", body);
 }
 
 /**
@@ -163,17 +172,17 @@ export async function verifyVoterId(params: {
  * Returns: holder name, nationality, type, validity dates
  */
 export async function verifyPassport(params: {
-  fileNumber: string;
-  name: string;
-  dob: string;
-  verificationId?: string;
+	fileNumber: string;
+	name: string;
+	dob: string;
+	verificationId?: string;
 }): Promise<VRSResponse> {
-  return vrsPost('/passport', {
-    verification_id: params.verificationId || generateVerificationId('pp'),
-    file_number: params.fileNumber,
-    name: params.name,
-    dob: params.dob,
-  });
+	return vrsPost("/passport", {
+		verification_id: params.verificationId || generateVerificationId("pp"),
+		file_number: params.fileNumber,
+		name: params.name,
+		dob: params.dob,
+	});
 }
 
 /**
@@ -181,13 +190,13 @@ export async function verifyPassport(params: {
  * POST /verification/udyam
  */
 export async function verifyUdyam(params: {
-  udyamNumber: string;
-  verificationId?: string;
+	udyamNumber: string;
+	verificationId?: string;
 }): Promise<VRSResponse> {
-  return vrsPost('/udyam', {
-    verification_id: params.verificationId || generateVerificationId('udyam'),
-    udyam: params.udyamNumber,
-  });
+	return vrsPost("/udyam", {
+		verification_id: params.verificationId || generateVerificationId("udyam"),
+		udyam: params.udyamNumber,
+	});
 }
 
 /**
@@ -195,13 +204,14 @@ export async function verifyUdyam(params: {
  * POST /verification/pan-to-udyam
  */
 export async function fetchUdyamByPAN(params: {
-  pan: string;
-  verificationId?: string;
+	pan: string;
+	verificationId?: string;
 }): Promise<VRSResponse> {
-  return vrsPost('/pan-to-udyam', {
-    verification_id: params.verificationId || generateVerificationId('pan2udyam'),
-    pan: params.pan.toUpperCase(),
-  });
+	return vrsPost("/pan-to-udyam", {
+		verification_id:
+			params.verificationId || generateVerificationId("pan2udyam"),
+		pan: params.pan.toUpperCase(),
+	});
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -214,12 +224,12 @@ export async function fetchUdyamByPAN(params: {
  * Returns: business name, registration date, status, filing history
  */
 export async function verifyGSTIN(params: {
-  gstin: string;
-  businessName?: string;
+	gstin: string;
+	businessName?: string;
 }): Promise<VRSResponse> {
-  const body: Record<string, unknown> = { GSTIN: params.gstin.toUpperCase() };
-  if (params.businessName) body.business_name = params.businessName;
-  return vrsPost('/gstin', body);
+	const body: Record<string, unknown> = { GSTIN: params.gstin.toUpperCase() };
+	if (params.businessName) body.business_name = params.businessName;
+	return vrsPost("/gstin", body);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -232,21 +242,21 @@ export async function verifyGSTIN(params: {
  * Returns: account holder name, account validity, name match score
  */
 export async function verifyBankAccountV2(params: {
-  bankAccount: string;
-  ifsc: string;
-  name?: string;
-  phoneNumber?: string;
-  verificationId?: string;
+	bankAccount: string;
+	ifsc: string;
+	name?: string;
+	phoneNumber?: string;
+	verificationId?: string;
 }): Promise<VRSResponse> {
-  const body: Record<string, unknown> = {
-    verification_id: params.verificationId || generateVerificationId('bank'),
-    bank_account: params.bankAccount,
-    ifsc: params.ifsc.toUpperCase(),
-  };
-  if (params.name) body.name = params.name;
-  if (params.phoneNumber) body.phone_number = params.phoneNumber;
-  // x-api-version 2023-08-01 is required by Cashfree Secure ID bank-account/sync endpoint
-  return vrsPost('/bank-account/sync', body, '2023-08-01');
+	const body: Record<string, unknown> = {
+		verification_id: params.verificationId || generateVerificationId("bank"),
+		bank_account: params.bankAccount,
+		ifsc: params.ifsc.toUpperCase(),
+	};
+	if (params.name) body.name = params.name;
+	if (params.phoneNumber) body.phone_number = params.phoneNumber;
+	// x-api-version 2023-08-01 is required by Cashfree Secure ID bank-account/sync endpoint
+	return vrsPost("/bank-account/sync", body, "2023-08-01");
 }
 
 /**
@@ -255,13 +265,13 @@ export async function verifyBankAccountV2(params: {
  * Returns: bank name, branch, NEFT/IMPS/RTGS status, address
  */
 export async function verifyIFSC(params: {
-  ifsc: string;
-  verificationId?: string;
+	ifsc: string;
+	verificationId?: string;
 }): Promise<VRSResponse> {
-  return vrsPost('/ifsc', {
-    verification_id: params.verificationId || generateVerificationId('ifsc'),
-    ifsc: params.ifsc.toUpperCase(),
-  });
+	return vrsPost("/ifsc", {
+		verification_id: params.verificationId || generateVerificationId("ifsc"),
+		ifsc: params.ifsc.toUpperCase(),
+	});
 }
 
 /**
@@ -270,13 +280,13 @@ export async function verifyIFSC(params: {
  * Returns: UPI link for customer to complete the ₹1 payment
  */
 export async function createReversePennyDrop(params: {
-  name: string;
-  verificationId?: string;
+	name: string;
+	verificationId?: string;
 }): Promise<VRSResponse> {
-  return vrsPost('/reverse-penny-drop', {
-    verification_id: params.verificationId || generateVerificationId('rpd'),
-    name: params.name,
-  });
+	return vrsPost("/reverse-penny-drop", {
+		verification_id: params.verificationId || generateVerificationId("rpd"),
+		name: params.name,
+	});
 }
 
 /**
@@ -285,22 +295,26 @@ export async function createReversePennyDrop(params: {
  * Requires API version 2024-12-01
  */
 export async function verifyUPIPennyDrop(params: {
-  vpa: string;
-  name?: string;
-  userConsentTimestamp?: string;
-  verificationId?: string;
+	vpa: string;
+	name?: string;
+	userConsentTimestamp?: string;
+	verificationId?: string;
 }): Promise<VRSResponse> {
-  return vrsPost('/upi/penny-drop', {
-    verification_id: params.verificationId || generateVerificationId('upd'),
-    vpa: params.vpa,
-    ...(params.name && { name: params.name }),
-    user_consent: {
-      obtained: true,
-      type: 'EXPLICIT',
-      timestamp: params.userConsentTimestamp || new Date().toISOString(),
-      purpose: 'Bank account verification via UPI penny drop',
-    },
-  }, '2024-12-01');
+	return vrsPost(
+		"/upi/penny-drop",
+		{
+			verification_id: params.verificationId || generateVerificationId("upd"),
+			vpa: params.vpa,
+			...(params.name && { name: params.name }),
+			user_consent: {
+				obtained: true,
+				type: "EXPLICIT",
+				timestamp: params.userConsentTimestamp || new Date().toISOString(),
+				purpose: "Bank account verification via UPI penny drop",
+			},
+		},
+		"2024-12-01",
+	);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -314,35 +328,49 @@ export async function verifyUPIPennyDrop(params: {
  * Returns: liveness boolean, liveness_score
  */
 export async function checkFaceLiveness(params: {
-  imageBase64: string;
-  verificationId?: string;
+	imageBase64: string;
+	verificationId?: string;
 }): Promise<VRSResponse> {
-  if (!hasCashfreeSecureIDCredentials()) {
-    return { success: false, error: 'Cashfree Secure ID credentials not configured' };
-  }
-  try {
-    const formData = new FormData();
-    formData.append('verification_id', params.verificationId || generateVerificationId('fl'));
-    const imageBuffer = Buffer.from(params.imageBase64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-    const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
-    formData.append('image', blob, 'face.jpg');
+	if (!hasCashfreeSecureIDCredentials()) {
+		return {
+			success: false,
+			error: "Cashfree Secure ID credentials not configured",
+		};
+	}
+	try {
+		const formData = new FormData();
+		formData.append(
+			"verification_id",
+			params.verificationId || generateVerificationId("fl"),
+		);
+		const imageBuffer = Buffer.from(
+			params.imageBase64.replace(/^data:image\/\w+;base64,/, ""),
+			"base64",
+		);
+		const blob = new Blob([imageBuffer], { type: "image/jpeg" });
+		formData.append("image", blob, "face.jpg");
 
-    const res = await fetch(`${getBaseUrl()}/face-liveness`, {
-      method: 'POST',
-      headers: {
-        'x-client-id': getCashfreeSecureIDAppId(),
-        'x-client-secret': getCashfreeSecureIDSecretKey(),
-        'x-api-version': '2024-12-01',
-      },
-      body: formData,
-    });
-    const data = await res.json();
-    return res.ok
-      ? { success: true, data, statusCode: res.status }
-      : { success: false, error: data.message || `HTTP ${res.status}`, statusCode: res.status, data };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
+		const res = await fetch(`${getBaseUrl()}/face-liveness`, {
+			method: "POST",
+			headers: {
+				"x-client-id": getCashfreeSecureIDAppId(),
+				"x-client-secret": getCashfreeSecureIDSecretKey(),
+				"x-api-version": "2024-12-01",
+			},
+			body: formData,
+		});
+		const data = await res.json();
+		return res.ok
+			? { success: true, data, statusCode: res.status }
+			: {
+					success: false,
+					error: data.message || `HTTP ${res.status}`,
+					statusCode: res.status,
+					data,
+				};
+	} catch (err: any) {
+		return { success: false, error: err.message };
+	}
 }
 
 /**
@@ -350,39 +378,53 @@ export async function checkFaceLiveness(params: {
  * POST /verification/face-match (multipart/form-data)
  */
 export async function matchFaces(params: {
-  image1Base64: string;
-  image2Base64: string;
-  verificationId?: string;
+	image1Base64: string;
+	image2Base64: string;
+	verificationId?: string;
 }): Promise<VRSResponse> {
-  if (!hasCashfreeSecureIDCredentials()) {
-    return { success: false, error: 'Cashfree Secure ID credentials not configured' };
-  }
-  try {
-    const formData = new FormData();
-    formData.append('verification_id', params.verificationId || generateVerificationId('fm'));
-    const toBlob = (b64: string) => {
-      const buf = Buffer.from(b64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-      return new Blob([buf], { type: 'image/jpeg' });
-    };
-    formData.append('image1', toBlob(params.image1Base64), 'image1.jpg');
-    formData.append('image2', toBlob(params.image2Base64), 'image2.jpg');
+	if (!hasCashfreeSecureIDCredentials()) {
+		return {
+			success: false,
+			error: "Cashfree Secure ID credentials not configured",
+		};
+	}
+	try {
+		const formData = new FormData();
+		formData.append(
+			"verification_id",
+			params.verificationId || generateVerificationId("fm"),
+		);
+		const toBlob = (b64: string) => {
+			const buf = Buffer.from(
+				b64.replace(/^data:image\/\w+;base64,/, ""),
+				"base64",
+			);
+			return new Blob([buf], { type: "image/jpeg" });
+		};
+		formData.append("image1", toBlob(params.image1Base64), "image1.jpg");
+		formData.append("image2", toBlob(params.image2Base64), "image2.jpg");
 
-    const res = await fetch(`${getBaseUrl()}/face-match`, {
-      method: 'POST',
-      headers: {
-        'x-client-id': getCashfreeSecureIDAppId(),
-        'x-client-secret': getCashfreeSecureIDSecretKey(),
-        'x-api-version': '2024-12-01',
-      },
-      body: formData,
-    });
-    const data = await res.json();
-    return res.ok
-      ? { success: true, data, statusCode: res.status }
-      : { success: false, error: data.message || `HTTP ${res.status}`, statusCode: res.status, data };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
+		const res = await fetch(`${getBaseUrl()}/face-match`, {
+			method: "POST",
+			headers: {
+				"x-client-id": getCashfreeSecureIDAppId(),
+				"x-client-secret": getCashfreeSecureIDSecretKey(),
+				"x-api-version": "2024-12-01",
+			},
+			body: formData,
+		});
+		const data = await res.json();
+		return res.ok
+			? { success: true, data, statusCode: res.status }
+			: {
+					success: false,
+					error: data.message || `HTTP ${res.status}`,
+					statusCode: res.status,
+					data,
+				};
+	} catch (err: any) {
+		return { success: false, error: err.message };
+	}
 }
 
 /**
@@ -391,15 +433,15 @@ export async function matchFaces(params: {
  * Returns: match boolean, match_score
  */
 export async function matchNames(params: {
-  name1: string;
-  name2: string;
-  verificationId?: string;
+	name1: string;
+	name2: string;
+	verificationId?: string;
 }): Promise<VRSResponse> {
-  return vrsPost('/name-match', {
-    verification_id: params.verificationId || generateVerificationId('nm'),
-    name_1: params.name1,
-    name_2: params.name2,
-  });
+	return vrsPost("/name-match", {
+		verification_id: params.verificationId || generateVerificationId("nm"),
+		name_1: params.name1,
+		name_2: params.name2,
+	});
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -407,21 +449,35 @@ export async function matchNames(params: {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface VRSServiceStatus {
-  configured: boolean;
-  environment: string;
-  baseUrl: string;
-  availableAPIs: string[];
+	configured: boolean;
+	environment: string;
+	baseUrl: string;
+	availableAPIs: string[];
 }
 
 export function getVRSServiceStatus(): VRSServiceStatus {
-  return {
-    configured: hasCashfreeSecureIDCredentials(),
-    environment: getCashfreeSecureIDBaseUrl().includes('sandbox') ? 'SANDBOX' : 'PRODUCTION',
-    baseUrl: getCashfreeSecureIDBaseUrl(),
-    availableAPIs: [
-      'PAN Lite', 'PAN 360', 'Driving License', 'Voter ID', 'Passport', 'Udyam', 'PAN-to-Udyam',
-      'GSTIN', 'Bank Account V2 (Sync)', 'IFSC', 'Reverse Penny Drop', 'UPI Penny Drop',
-      'Face Liveness', 'Face Match', 'Name Match',
-    ],
-  };
+	return {
+		configured: hasCashfreeSecureIDCredentials(),
+		environment: getCashfreeSecureIDBaseUrl().includes("sandbox")
+			? "SANDBOX"
+			: "PRODUCTION",
+		baseUrl: getCashfreeSecureIDBaseUrl(),
+		availableAPIs: [
+			"PAN Lite",
+			"PAN 360",
+			"Driving License",
+			"Voter ID",
+			"Passport",
+			"Udyam",
+			"PAN-to-Udyam",
+			"GSTIN",
+			"Bank Account V2 (Sync)",
+			"IFSC",
+			"Reverse Penny Drop",
+			"UPI Penny Drop",
+			"Face Liveness",
+			"Face Match",
+			"Name Match",
+		],
+	};
 }

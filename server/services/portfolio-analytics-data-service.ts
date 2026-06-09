@@ -1,691 +1,802 @@
 // @ts-nocheck
 /**
  * Portfolio Analytics Data Service
- * 
+ *
  * Provides real financial metrics for analytics calculations by querying
  * the enriched database. Falls back to category/sector defaults when
  * database data is unavailable.
- * 
+ *
  * Data Sources (in priority order):
  * 1. Database (enriched from Yahoo Finance, MFAPI, etc.)
  * 2. Category/Sector defaults (industry averages)
  * 3. Conservative fallback (last resort)
  */
 
-import { db } from '../db';
-import { mutualFunds, listedStocks } from '@shared/schema';
-import { eq, ilike, or, sql, inArray } from 'drizzle-orm';
-import yahooFinance from 'yahoo-finance2';
+import { db } from "../db";
+import { mutualFunds, listedStocks } from "@shared/schema";
+import { eq, ilike, or, sql, inArray } from "drizzle-orm";
+import yahooFinance from "yahoo-finance2";
 
 export interface FinancialMetric {
-  value: number;
-  source: 'database' | 'category_default' | 'sector_default' | 'fallback';
-  confidence: 'high' | 'medium' | 'low';
+	value: number;
+	source: "database" | "category_default" | "sector_default" | "fallback";
+	confidence: "high" | "medium" | "low";
 }
 
 export interface DividendYieldLookup extends FinancialMetric {
-  assetType: 'stock' | 'mutual_fund';
+	assetType: "stock" | "mutual_fund";
 }
 
 export interface ExpenseRatioLookup extends FinancialMetric {
-  category?: string;
+	category?: string;
 }
 
 // Sector-based dividend yields (NSE/BSE averages)
 const SECTOR_DIVIDEND_YIELDS: Record<string, number> = {
-  'Information Technology': 1.5,
-  'Financial Services': 1.2,
-  'Banking': 1.0,
-  'NBFC': 0.8,
-  'Pharmaceuticals': 0.6,
-  'Healthcare': 0.5,
-  'Consumer Goods': 1.2,
-  'FMCG': 1.4,
-  'Automobile': 0.8,
-  'Auto Ancillary': 1.0,
-  'Capital Goods': 0.9,
-  'Industrial': 1.0,
-  'Power': 2.5,
-  'Energy': 3.0,
-  'Oil & Gas': 3.5,
-  'Metals & Mining': 2.0,
-  'Steel': 1.5,
-  'Cement & Construction': 0.7,
-  'Realty': 0.5,
-  'Telecom': 0.3,
-  'Media & Entertainment': 0.6,
-  'Chemicals': 1.0,
-  'Textiles': 1.2,
-  'Hotels & Tourism': 0.4,
-  'Default': 1.0,
+	"Information Technology": 1.5,
+	"Financial Services": 1.2,
+	Banking: 1.0,
+	NBFC: 0.8,
+	Pharmaceuticals: 0.6,
+	Healthcare: 0.5,
+	"Consumer Goods": 1.2,
+	FMCG: 1.4,
+	Automobile: 0.8,
+	"Auto Ancillary": 1.0,
+	"Capital Goods": 0.9,
+	Industrial: 1.0,
+	Power: 2.5,
+	Energy: 3.0,
+	"Oil & Gas": 3.5,
+	"Metals & Mining": 2.0,
+	Steel: 1.5,
+	"Cement & Construction": 0.7,
+	Realty: 0.5,
+	Telecom: 0.3,
+	"Media & Entertainment": 0.6,
+	Chemicals: 1.0,
+	Textiles: 1.2,
+	"Hotels & Tourism": 0.4,
+	Default: 1.0,
 };
 
 // IDCW/Dividend MF category yields (based on historical payouts)
 const MF_DIVIDEND_YIELDS: Record<string, number> = {
-  'Dividend Yield': 4.5,
-  'Equity': 2.5,
-  'Large Cap': 2.0,
-  'Mid Cap': 1.5,
-  'Small Cap': 1.0,
-  'Hybrid': 3.0,
-  'Aggressive Hybrid': 2.5,
-  'Conservative Hybrid': 4.0,
-  'Balanced Advantage': 3.0,
-  'Arbitrage': 5.0,
-  'Debt': 6.0,
-  'Corporate Bond': 6.5,
-  'Credit Risk': 7.0,
-  'Gilt': 5.5,
-  'Money Market': 5.0,
-  'Liquid': 4.5,
-  'Default': 3.0,
+	"Dividend Yield": 4.5,
+	Equity: 2.5,
+	"Large Cap": 2.0,
+	"Mid Cap": 1.5,
+	"Small Cap": 1.0,
+	Hybrid: 3.0,
+	"Aggressive Hybrid": 2.5,
+	"Conservative Hybrid": 4.0,
+	"Balanced Advantage": 3.0,
+	Arbitrage: 5.0,
+	Debt: 6.0,
+	"Corporate Bond": 6.5,
+	"Credit Risk": 7.0,
+	Gilt: 5.5,
+	"Money Market": 5.0,
+	Liquid: 4.5,
+	Default: 3.0,
 };
 
 // Category TER defaults (SEBI averages)
-const CATEGORY_TER_DEFAULTS: Record<string, { direct: number; regular: number }> = {
-  'Liquid': { direct: 0.15, regular: 0.25 },
-  'Overnight': { direct: 0.10, regular: 0.20 },
-  'Ultra Short Duration': { direct: 0.25, regular: 0.50 },
-  'Money Market': { direct: 0.20, regular: 0.40 },
-  'Low Duration': { direct: 0.30, regular: 0.65 },
-  'Short Duration': { direct: 0.35, regular: 0.75 },
-  'Medium Duration': { direct: 0.45, regular: 0.90 },
-  'Long Duration': { direct: 0.50, regular: 1.00 },
-  'Dynamic Bond': { direct: 0.45, regular: 0.95 },
-  'Corporate Bond': { direct: 0.35, regular: 0.70 },
-  'Credit Risk': { direct: 0.55, regular: 1.10 },
-  'Banking & PSU': { direct: 0.25, regular: 0.55 },
-  'Gilt': { direct: 0.35, regular: 0.70 },
-  'Floater': { direct: 0.30, regular: 0.65 },
-  'Large Cap': { direct: 0.55, regular: 1.50 },
-  'Large & Mid Cap': { direct: 0.65, regular: 1.70 },
-  'Mid Cap': { direct: 0.70, regular: 1.85 },
-  'Small Cap': { direct: 0.75, regular: 2.00 },
-  'Multi Cap': { direct: 0.60, regular: 1.65 },
-  'Flexi Cap': { direct: 0.55, regular: 1.55 },
-  'Focused': { direct: 0.60, regular: 1.60 },
-  'Value': { direct: 0.70, regular: 1.80 },
-  'Contra': { direct: 0.70, regular: 1.80 },
-  'ELSS': { direct: 0.60, regular: 1.65 },
-  'Dividend Yield': { direct: 0.65, regular: 1.70 },
-  'Sectoral': { direct: 0.70, regular: 1.85 },
-  'Thematic': { direct: 0.70, regular: 1.85 },
-  'Index Funds': { direct: 0.20, regular: 0.40 },
-  'ETF': { direct: 0.10, regular: 0.25 },
-  'Aggressive Hybrid': { direct: 0.65, regular: 1.70 },
-  'Conservative Hybrid': { direct: 0.50, regular: 1.20 },
-  'Balanced Advantage': { direct: 0.60, regular: 1.55 },
-  'Equity Savings': { direct: 0.50, regular: 1.30 },
-  'Arbitrage': { direct: 0.35, regular: 0.75 },
-  'Multi Asset Allocation': { direct: 0.65, regular: 1.60 },
-  'Fund of Funds': { direct: 0.50, regular: 1.20 },
-  'International': { direct: 0.80, regular: 2.00 },
-  'Default': { direct: 0.60, regular: 1.50 },
+const CATEGORY_TER_DEFAULTS: Record<
+	string,
+	{ direct: number; regular: number }
+> = {
+	Liquid: { direct: 0.15, regular: 0.25 },
+	Overnight: { direct: 0.1, regular: 0.2 },
+	"Ultra Short Duration": { direct: 0.25, regular: 0.5 },
+	"Money Market": { direct: 0.2, regular: 0.4 },
+	"Low Duration": { direct: 0.3, regular: 0.65 },
+	"Short Duration": { direct: 0.35, regular: 0.75 },
+	"Medium Duration": { direct: 0.45, regular: 0.9 },
+	"Long Duration": { direct: 0.5, regular: 1.0 },
+	"Dynamic Bond": { direct: 0.45, regular: 0.95 },
+	"Corporate Bond": { direct: 0.35, regular: 0.7 },
+	"Credit Risk": { direct: 0.55, regular: 1.1 },
+	"Banking & PSU": { direct: 0.25, regular: 0.55 },
+	Gilt: { direct: 0.35, regular: 0.7 },
+	Floater: { direct: 0.3, regular: 0.65 },
+	"Large Cap": { direct: 0.55, regular: 1.5 },
+	"Large & Mid Cap": { direct: 0.65, regular: 1.7 },
+	"Mid Cap": { direct: 0.7, regular: 1.85 },
+	"Small Cap": { direct: 0.75, regular: 2.0 },
+	"Multi Cap": { direct: 0.6, regular: 1.65 },
+	"Flexi Cap": { direct: 0.55, regular: 1.55 },
+	Focused: { direct: 0.6, regular: 1.6 },
+	Value: { direct: 0.7, regular: 1.8 },
+	Contra: { direct: 0.7, regular: 1.8 },
+	ELSS: { direct: 0.6, regular: 1.65 },
+	"Dividend Yield": { direct: 0.65, regular: 1.7 },
+	Sectoral: { direct: 0.7, regular: 1.85 },
+	Thematic: { direct: 0.7, regular: 1.85 },
+	"Index Funds": { direct: 0.2, regular: 0.4 },
+	ETF: { direct: 0.1, regular: 0.25 },
+	"Aggressive Hybrid": { direct: 0.65, regular: 1.7 },
+	"Conservative Hybrid": { direct: 0.5, regular: 1.2 },
+	"Balanced Advantage": { direct: 0.6, regular: 1.55 },
+	"Equity Savings": { direct: 0.5, regular: 1.3 },
+	Arbitrage: { direct: 0.35, regular: 0.75 },
+	"Multi Asset Allocation": { direct: 0.65, regular: 1.6 },
+	"Fund of Funds": { direct: 0.5, regular: 1.2 },
+	International: { direct: 0.8, regular: 2.0 },
+	Default: { direct: 0.6, regular: 1.5 },
 };
 
 // Beta values by sector (calculated from historical data)
 const SECTOR_BETA: Record<string, number> = {
-  'Information Technology': 1.15,
-  'Financial Services': 1.20,
-  'Banking': 1.25,
-  'NBFC': 1.30,
-  'Pharmaceuticals': 0.85,
-  'Healthcare': 0.80,
-  'Consumer Goods': 0.75,
-  'FMCG': 0.70,
-  'Automobile': 1.10,
-  'Auto Ancillary': 1.15,
-  'Capital Goods': 1.20,
-  'Industrial': 1.10,
-  'Power': 0.95,
-  'Energy': 1.05,
-  'Oil & Gas': 1.00,
-  'Metals & Mining': 1.35,
-  'Steel': 1.40,
-  'Cement & Construction': 1.10,
-  'Realty': 1.45,
-  'Telecom': 0.90,
-  'Media & Entertainment': 1.05,
-  'Chemicals': 1.00,
-  'Textiles': 1.10,
-  'Hotels & Tourism': 1.20,
-  'Default': 1.00,
+	"Information Technology": 1.15,
+	"Financial Services": 1.2,
+	Banking: 1.25,
+	NBFC: 1.3,
+	Pharmaceuticals: 0.85,
+	Healthcare: 0.8,
+	"Consumer Goods": 0.75,
+	FMCG: 0.7,
+	Automobile: 1.1,
+	"Auto Ancillary": 1.15,
+	"Capital Goods": 1.2,
+	Industrial: 1.1,
+	Power: 0.95,
+	Energy: 1.05,
+	"Oil & Gas": 1.0,
+	"Metals & Mining": 1.35,
+	Steel: 1.4,
+	"Cement & Construction": 1.1,
+	Realty: 1.45,
+	Telecom: 0.9,
+	"Media & Entertainment": 1.05,
+	Chemicals: 1.0,
+	Textiles: 1.1,
+	"Hotels & Tourism": 1.2,
+	Default: 1.0,
 };
 
 class PortfolioAnalyticsDataService {
-  
-  /**
-   * Get dividend yield for a stock by symbol or ISIN
-   */
-  async getStockDividendYield(
-    symbol?: string, 
-    isin?: string, 
-    sector?: string
-  ): Promise<DividendYieldLookup> {
-    try {
-      if (symbol || isin) {
-        const conditions = [];
-        if (symbol) conditions.push(ilike(listedStocks.symbol, symbol));
-        if (isin) conditions.push(eq(listedStocks.isin, isin));
-        
-        const stock = await db.select({
-          dividendYield: listedStocks.dividendYield,
-          sector: listedStocks.sector,
-          broadSector: listedStocks.broadSector,
-        })
-        .from(listedStocks)
-        .where(or(...conditions))
-        .limit(1);
-        
-        if (stock[0]?.dividendYield) {
-          return {
-            value: parseFloat(stock[0].dividendYield),
-            source: 'database',
-            confidence: 'high',
-            assetType: 'stock',
-          };
-        }
-        
-        // Use sector from database record if available
-        const stockSector = stock[0]?.broadSector || stock[0]?.sector || sector;
-        if (stockSector && SECTOR_DIVIDEND_YIELDS[stockSector]) {
-          return {
-            value: SECTOR_DIVIDEND_YIELDS[stockSector],
-            source: 'sector_default',
-            confidence: 'medium',
-            assetType: 'stock',
-          };
-        }
-      }
-      
-      // Sector fallback
-      if (sector && SECTOR_DIVIDEND_YIELDS[sector]) {
-        return {
-          value: SECTOR_DIVIDEND_YIELDS[sector],
-          source: 'sector_default',
-          confidence: 'medium',
-          assetType: 'stock',
-        };
-      }
-      
-      // Conservative fallback
-      return {
-        value: SECTOR_DIVIDEND_YIELDS['Default'],
-        source: 'fallback',
-        confidence: 'low',
-        assetType: 'stock',
-      };
-    } catch (error) {
-      console.error('Error fetching stock dividend yield:', error);
-      return {
-        value: SECTOR_DIVIDEND_YIELDS['Default'],
-        source: 'fallback',
-        confidence: 'low',
-        assetType: 'stock',
-      };
-    }
-  }
-  
-  /**
-   * Get dividend yield for IDCW/Dividend mutual fund by scheme name or code
-   * This is a synchronous function as it uses category-based defaults (no DB lookup)
-   */
-  getMFDividendYield(
-    schemeName?: string, 
-    schemeCode?: string,
-    category?: string
-  ): DividendYieldLookup {
-    // For MFs, we use category-based yields since actual payout history
-    // varies significantly and is not stored in our database
-    const categoryKey = category || this.extractCategoryFromName(schemeName || '');
-    
-    for (const [key, yieldValue] of Object.entries(MF_DIVIDEND_YIELDS)) {
-      if (categoryKey?.toLowerCase().includes(key.toLowerCase())) {
-        return {
-          value: yieldValue,
-          source: 'category_default',
-          confidence: 'medium',
-          assetType: 'mutual_fund',
-        };
-      }
-    }
-    
-    return {
-      value: MF_DIVIDEND_YIELDS['Default'],
-      source: 'fallback',
-      confidence: 'low',
-      assetType: 'mutual_fund',
-    };
-  }
-  
-  /**
-   * Get expense ratio for a mutual fund
-   */
-  async getExpenseRatio(
-    schemeName?: string, 
-    schemeCode?: string, 
-    isin?: string
-  ): Promise<ExpenseRatioLookup> {
-    try {
-      const conditions = [];
-      if (schemeCode) conditions.push(eq(mutualFunds.schemeCode, schemeCode));
-      if (isin) conditions.push(eq(mutualFunds.isin, isin));
-      if (schemeName) conditions.push(ilike(mutualFunds.schemeName, `%${schemeName.slice(0, 30)}%`));
-      
-      if (conditions.length > 0) {
-        const fund = await db.select({
-          expenseRatio: mutualFunds.expenseRatio,
-          category: mutualFunds.category,
-          schemeName: mutualFunds.schemeName,
-        })
-        .from(mutualFunds)
-        .where(or(...conditions))
-        .limit(1);
-        
-        if (fund[0]?.expenseRatio) {
-          return {
-            value: parseFloat(fund[0].expenseRatio),
-            source: 'database',
-            confidence: 'high',
-            category: fund[0].category || undefined,
-          };
-        }
-        
-        // Category fallback
-        const category = fund[0]?.category || this.extractCategoryFromName(schemeName || '');
-        const isDirectPlan = schemeName?.toLowerCase().includes('direct');
-        
-        const ter = this.getCategoryTER(category, isDirectPlan);
-        return {
-          value: ter,
-          source: 'category_default',
-          confidence: 'medium',
-          category,
-        };
-      }
-      
-      // Fallback without DB lookup
-      const category = this.extractCategoryFromName(schemeName || '');
-      const isDirectPlan = schemeName?.toLowerCase().includes('direct');
-      
-      return {
-        value: this.getCategoryTER(category, isDirectPlan),
-        source: 'category_default',
-        confidence: 'medium',
-        category,
-      };
-    } catch (error) {
-      console.error('Error fetching expense ratio:', error);
-      return {
-        value: 1.50,
-        source: 'fallback',
-        confidence: 'low',
-      };
-    }
-  }
-  
-  /**
-   * Get beta for a stock
-   */
-  async getStockBeta(
-    symbol?: string, 
-    isin?: string, 
-    sector?: string
-  ): Promise<FinancialMetric> {
-    // Beta calculation requires historical price correlation with index
-    // For now, use sector-based beta values which are more reliable than random
-    const effectiveSector = sector || 'Default';
-    
-    if (SECTOR_BETA[effectiveSector]) {
-      return {
-        value: SECTOR_BETA[effectiveSector],
-        source: 'sector_default',
-        confidence: 'medium',
-      };
-    }
-    
-    return {
-      value: 1.00,
-      source: 'fallback',
-      confidence: 'low',
-    };
-  }
-  
-  /**
-   * Batch get expense ratios for multiple mutual funds - single DB query
-   * Returns a map keyed by a composite key (isin|schemeCode|name) for reliable lookup
-   */
-  async batchGetExpenseRatios(funds: Array<{
-    name: string;
-    schemeCode?: string;
-    isin?: string;
-  }>): Promise<Map<string, ExpenseRatioLookup>> {
-    const results = new Map<string, ExpenseRatioLookup>();
-    
-    // Helper to create stable lookup key
-    const getKey = (f: { name: string; schemeCode?: string; isin?: string }) => 
-      f.isin || f.schemeCode || f.name;
-    
-    try {
-      // Extract scheme codes and ISINs for batch lookup
-      const schemeCodes = funds.map((f: any) => f.schemeCode).filter(Boolean) as string[];
-      const isins = funds.map((f: any) => f.isin).filter(Boolean) as string[];
-      
-      // Single batch query
-      let dbFunds: Array<{ schemeCode: string | null; isin: string | null; expenseRatio: string | null; category: string | null; schemeName: string | null }> = [];
-      
-      if (schemeCodes.length > 0 || isins.length > 0) {
-        const conditions = [];
-        if (schemeCodes.length > 0) {
-          conditions.push(sql`${mutualFunds.schemeCode} IN (${sql.join(schemeCodes.map((c: any) => sql`${c}`), sql`, `)})`);
-        }
-        if (isins.length > 0) {
-          conditions.push(sql`${mutualFunds.isin} IN (${sql.join(isins.map((i: any) => sql`${i}`), sql`, `)})`);
-        }
-        
-        dbFunds = await db.select({
-          schemeCode: mutualFunds.schemeCode,
-          isin: mutualFunds.isin,
-          expenseRatio: mutualFunds.expenseRatio,
-          category: mutualFunds.category,
-          schemeName: mutualFunds.schemeName,
-        })
-        .from(mutualFunds)
-        .where(or(...conditions));
-      }
-      
-      // Create lookup maps for fast matching
-      const bySchemeCode = new Map(dbFunds.filter((f: any) => f.schemeCode).map((f: any) => [f.schemeCode!, f]));
-      const byIsin = new Map(dbFunds.filter((f: any) => f.isin).map((f: any) => [f.isin!, f]));
-      
-      // Match each fund to its expense ratio using stable key
-      for (const fund of funds) {
-        const key = getKey(fund);
-        const dbMatch = (fund.isin && byIsin.get(fund.isin)) ||
-                       (fund.schemeCode && bySchemeCode.get(fund.schemeCode));
-        
-        if (dbMatch?.expenseRatio) {
-          results.set(key, {
-            value: parseFloat(dbMatch.expenseRatio),
-            source: 'database',
-            confidence: 'high',
-            category: dbMatch.category || undefined,
-          });
-        } else {
-          // Category fallback
-          const category = this.extractCategoryFromName(fund.name);
-          const isDirectPlan = fund.name.toLowerCase().includes('direct');
-          results.set(key, {
-            value: this.getCategoryTER(category, isDirectPlan),
-            source: 'category_default',
-            confidence: 'medium',
-            category,
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error in batch expense ratio lookup:', error);
-      // Fallback for all funds
-      for (const fund of funds) {
-        const key = getKey(fund);
-        const category = this.extractCategoryFromName(fund.name);
-        const isDirectPlan = fund.name.toLowerCase().includes('direct');
-        results.set(key, {
-          value: this.getCategoryTER(category, isDirectPlan),
-          source: 'fallback',
-          confidence: 'low',
-          category,
-        });
-      }
-    }
-    
-    return results;
-  }
-  
-  /**
-   * Batch get dividend yields for multiple stocks - single DB query
-   * Returns a map keyed by ISIN (or name if no ISIN) for reliable lookup
-   */
-  async batchGetStockDividendYields(stocks: Array<{
-    name: string;
-    isin?: string;
-    sector?: string;
-  }>): Promise<Map<string, DividendYieldLookup>> {
-    const results = new Map<string, DividendYieldLookup>();
-    
-    const getKey = (s: { name: string; isin?: string }) => s.isin || s.name;
-    
-    try {
-      const isins = stocks.map((s: any) => s.isin).filter(Boolean) as string[];
-      
-      let dbStocks: Array<{ isin: string | null; symbol: string; dividendYield: string | null; sector: string | null; broadSector: string | null }> = [];
-      
-      if (isins.length > 0) {
-        dbStocks = await db.select({
-          isin: listedStocks.isin,
-          symbol: listedStocks.symbol,
-          dividendYield: listedStocks.dividendYield,
-          sector: listedStocks.sector,
-          broadSector: listedStocks.broadSector,
-        })
-        .from(listedStocks)
-        .where(sql`${listedStocks.isin} IN (${sql.join(isins.map((i: any) => sql`${i}`), sql`, `)})`);
-      }
-      
-      const byIsin = new Map(dbStocks.filter((s: any) => s.isin).map((s: any) => [s.isin!, s]));
-      
-      // Collect stocks missing dividend yield for Yahoo Finance batch lookup
-      const missingYieldStocks: Array<{ key: string; isin: string; symbol: string; sector: string }> = [];
-      
-      for (const stock of stocks) {
-        const key = getKey(stock);
-        const dbMatch = stock.isin && byIsin.get(stock.isin);
-        
-        if (dbMatch?.dividendYield != null) {
-          results.set(key, {
-            value: parseFloat(dbMatch.dividendYield),
-            source: 'database',
-            confidence: 'high',
-            assetType: 'stock',
-          });
-        } else if (dbMatch?.symbol && stock.isin) {
-          missingYieldStocks.push({
-            key,
-            isin: stock.isin,
-            symbol: dbMatch.symbol,
-            sector: dbMatch.broadSector || dbMatch.sector || stock.sector || 'Default',
-          });
-        } else {
-          const sector = stock.sector || 'Default';
-          results.set(key, {
-            value: SECTOR_DIVIDEND_YIELDS[sector] || SECTOR_DIVIDEND_YIELDS['Default'],
-            source: 'sector_default',
-            confidence: 'medium',
-            assetType: 'stock',
-          });
-        }
-      }
-      
-      // Batch fetch from Yahoo Finance for stocks missing dividend yield (max 10 at a time)
-      if (missingYieldStocks.length > 0) {
-        const batch = missingYieldStocks.slice(0, 10);
+	/**
+	 * Get dividend yield for a stock by symbol or ISIN
+	 */
+	async getStockDividendYield(
+		symbol?: string,
+		isin?: string,
+		sector?: string,
+	): Promise<DividendYieldLookup> {
+		try {
+			if (symbol || isin) {
+				const conditions = [];
+				if (symbol) conditions.push(ilike(listedStocks.symbol, symbol));
+				if (isin) conditions.push(eq(listedStocks.isin, isin));
 
-        // Helper: extract yield from a YF quote using multiple fields
-        const extractYieldFromQuote = (quote: any): number | null => {
-          if (!quote) return null;
-          // Field 1: trailingAnnualDividendYield (already as decimal, e.g. 0.008)
-          const trailing = (quote as any).trailingAnnualDividendYield;
-          if (trailing != null && trailing > 0) return trailing * 100;
-          // Field 2: dividendYield (forward yield, also decimal)
-          const fwd = (quote as any).dividendYield;
-          if (fwd != null && fwd > 0) return fwd * 100;
-          // Field 3: compute from trailingAnnualDividendRate / regularMarketPrice
-          const rate = (quote as any).trailingAnnualDividendRate;
-          const price = (quote as any).regularMarketPrice;
-          if (rate != null && price && price > 0) return (rate / price) * 100;
-          // Field 4: declared as 0 — confirmed non-paying
-          if (trailing === 0 || fwd === 0 || rate === 0) return 0;
-          return null;
-        };
+				const stock = await db
+					.select({
+						dividendYield: listedStocks.dividendYield,
+						sector: listedStocks.sector,
+						broadSector: listedStocks.broadSector,
+					})
+					.from(listedStocks)
+					.where(or(...conditions))
+					.limit(1);
 
-        // Fetch both .NS and .BO in one pass for resilience
-        try {
-          const nsQuotes = await Promise.allSettled(
-            batch.map((s: any) => yahooFinance.quote(`${s.symbol}.NS`, {}, { validateResult: false }).catch(() => null))
-          );
-          const boQuotes = await Promise.allSettled(
-            batch.map((s: any) => yahooFinance.quote(`${s.symbol}.BO`, {}, { validateResult: false }).catch(() => null))
-          );
+				if (stock[0]?.dividendYield) {
+					return {
+						value: Number.parseFloat(stock[0].dividendYield),
+						source: "database",
+						confidence: "high",
+						assetType: "stock",
+					};
+				}
 
-          const dbUpdates: Array<{ isin: string; dividendYield: string }> = [];
+				// Use sector from database record if available
+				const stockSector = stock[0]?.broadSector || stock[0]?.sector || sector;
+				if (stockSector && SECTOR_DIVIDEND_YIELDS[stockSector]) {
+					return {
+						value: SECTOR_DIVIDEND_YIELDS[stockSector],
+						source: "sector_default",
+						confidence: "medium",
+						assetType: "stock",
+					};
+				}
+			}
 
-          for (let i = 0; i < batch.length; i++) {
-            const stock = batch[i];
-            const nsQuote = nsQuotes[i].status === 'fulfilled' ? nsQuotes[i].value : null;
-            const boQuote = boQuotes[i].status === 'fulfilled' ? boQuotes[i].value : null;
+			// Sector fallback
+			if (sector && SECTOR_DIVIDEND_YIELDS[sector]) {
+				return {
+					value: SECTOR_DIVIDEND_YIELDS[sector],
+					source: "sector_default",
+					confidence: "medium",
+					assetType: "stock",
+				};
+			}
 
-            let yieldPct = extractYieldFromQuote(nsQuote);
-            if (yieldPct == null) yieldPct = extractYieldFromQuote(boQuote);
+			// Conservative fallback
+			return {
+				value: SECTOR_DIVIDEND_YIELDS.Default,
+				source: "fallback",
+				confidence: "low",
+				assetType: "stock",
+			};
+		} catch (error) {
+			console.error("Error fetching stock dividend yield:", error);
+			return {
+				value: SECTOR_DIVIDEND_YIELDS.Default,
+				source: "fallback",
+				confidence: "low",
+				assetType: "stock",
+			};
+		}
+	}
 
-            if (yieldPct != null) {
-              const rounded = Math.round(yieldPct * 100) / 100;
-              results.set(stock.key, {
-                value: rounded,
-                source: 'database',
-                confidence: 'high',
-                assetType: 'stock',
-              });
-              // Store result (including 0%) — sentinel so we skip YF next time
-              dbUpdates.push({ isin: stock.isin, dividendYield: rounded.toFixed(4) });
-              console.log(`[DividendYield] ${stock.symbol}: ${rounded.toFixed(2)}% (live)`);
-            } else {
-              // Truly no data — store 0 as sentinel so we don't re-fetch repeatedly
-              results.set(stock.key, {
-                value: SECTOR_DIVIDEND_YIELDS[stock.sector] || SECTOR_DIVIDEND_YIELDS['Default'],
-                source: 'sector_default',
-                confidence: 'medium',
-                assetType: 'stock',
-              });
-              dbUpdates.push({ isin: stock.isin, dividendYield: '0.0000' });
-              console.warn(`[DividendYield] ${stock.symbol}: no live data, using sector default`);
-            }
-          }
+	/**
+	 * Get dividend yield for IDCW/Dividend mutual fund by scheme name or code
+	 * This is a synchronous function as it uses category-based defaults (no DB lookup)
+	 */
+	getMFDividendYield(
+		schemeName?: string,
+		schemeCode?: string,
+		category?: string,
+	): DividendYieldLookup {
+		// For MFs, we use category-based yields since actual payout history
+		// varies significantly and is not stored in our database
+		const categoryKey =
+			category || this.extractCategoryFromName(schemeName || "");
 
-          // Handle remaining stocks (beyond 10) with sector defaults
-          for (let i = 10; i < missingYieldStocks.length; i++) {
-            const stock = missingYieldStocks[i];
-            results.set(stock.key, {
-              value: SECTOR_DIVIDEND_YIELDS[stock.sector] || SECTOR_DIVIDEND_YIELDS['Default'],
-              source: 'sector_default',
-              confidence: 'medium',
-              assetType: 'stock',
-            });
-          }
+		for (const [key, yieldValue] of Object.entries(MF_DIVIDEND_YIELDS)) {
+			if (categoryKey?.toLowerCase().includes(key.toLowerCase())) {
+				return {
+					value: yieldValue,
+					source: "category_default",
+					confidence: "medium",
+					assetType: "mutual_fund",
+				};
+			}
+		}
 
-          // Persist to DB asynchronously
-          if (dbUpdates.length > 0) {
-            Promise.all(
-              dbUpdates.map((u: any) =>
-                db.update(listedStocks)
-                  .set({ dividendYield: u.dividendYield } as any)
-                  .where(eq(listedStocks.isin, u.isin))
-                  .catch(e => console.error('[DividendYield] DB update error:', e))
-              )
-            ).catch(() => {});
-          }
-        } catch (yfErr) {
-          console.error('[DividendYield] Yahoo Finance batch error:', yfErr);
-          for (const stock of missingYieldStocks) {
-            results.set(stock.key, {
-              value: SECTOR_DIVIDEND_YIELDS[stock.sector] || SECTOR_DIVIDEND_YIELDS['Default'],
-              source: 'sector_default',
-              confidence: 'medium',
-              assetType: 'stock',
-            });
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error in batch stock dividend yield lookup:', error);
-      for (const stock of stocks) {
-        const key = getKey(stock);
-        results.set(key, {
-          value: SECTOR_DIVIDEND_YIELDS['Default'],
-          source: 'fallback',
-          confidence: 'low',
-          assetType: 'stock',
-        });
-      }
-    }
-    
-    return results;
-  }
-  
-  /**
-   * Get beta values for stocks based on sector (no DB query needed - uses sector defaults)
-   * Note: Beta is only meaningful for stocks/equities, not mutual funds
-   */
-  getBetaForSector(sector?: string): FinancialMetric {
-    const effectiveSector = sector || 'Default';
-    
-    if (SECTOR_BETA[effectiveSector]) {
-      return {
-        value: SECTOR_BETA[effectiveSector],
-        source: 'sector_default',
-        confidence: 'medium',
-      };
-    }
-    
-    return {
-      value: 1.00,
-      source: 'fallback',
-      confidence: 'low',
-    };
-  }
-  
-  // Helper: Extract category from fund name
-  private extractCategoryFromName(name: string): string {
-    const nameLower = name.toLowerCase();
-    
-    if (nameLower.includes('liquid')) return 'Liquid';
-    if (nameLower.includes('overnight')) return 'Overnight';
-    if (nameLower.includes('index') || nameLower.includes('etf')) return 'Index Funds';
-    if (nameLower.includes('large cap') || nameLower.includes('largecap')) return 'Large Cap';
-    if (nameLower.includes('mid cap') || nameLower.includes('midcap')) return 'Mid Cap';
-    if (nameLower.includes('small cap') || nameLower.includes('smallcap')) return 'Small Cap';
-    if (nameLower.includes('flexi cap') || nameLower.includes('flexicap')) return 'Flexi Cap';
-    if (nameLower.includes('multi cap') || nameLower.includes('multicap')) return 'Multi Cap';
-    if (nameLower.includes('large & mid') || nameLower.includes('large and mid')) return 'Large & Mid Cap';
-    if (nameLower.includes('elss') || nameLower.includes('tax saver')) return 'ELSS';
-    if (nameLower.includes('balanced') || nameLower.includes('hybrid')) return 'Balanced Advantage';
-    if (nameLower.includes('arbitrage')) return 'Arbitrage';
-    if (nameLower.includes('gilt')) return 'Gilt';
-    if (nameLower.includes('corporate bond')) return 'Corporate Bond';
-    if (nameLower.includes('credit risk')) return 'Credit Risk';
-    if (nameLower.includes('dividend yield')) return 'Dividend Yield';
-    if (nameLower.includes('focused')) return 'Focused';
-    if (nameLower.includes('value') || nameLower.includes('contra')) return 'Value';
-    if (nameLower.includes('sector') || nameLower.includes('thematic')) return 'Sectoral';
-    if (nameLower.includes('international') || nameLower.includes('global')) return 'International';
-    
-    return 'Default';
-  }
-  
-  // Helper: Get TER by category
-  private getCategoryTER(category: string | undefined, isDirect: boolean): number {
-    const cat = category || 'Default';
-    const defaults = CATEGORY_TER_DEFAULTS[cat] || CATEGORY_TER_DEFAULTS['Default'];
-    return isDirect ? defaults.direct : defaults.regular;
-  }
-  
-  // Helper: Check if fund is IDCW/Dividend plan
-  private isIDCWPlan(name: string): boolean {
-    const nameLower = name.toLowerCase();
-    return nameLower.includes('idcw') || 
-           nameLower.includes('dividend') || 
-           nameLower.includes('payout') || 
-           nameLower.includes('income distribution');
-  }
+		return {
+			value: MF_DIVIDEND_YIELDS.Default,
+			source: "fallback",
+			confidence: "low",
+			assetType: "mutual_fund",
+		};
+	}
+
+	/**
+	 * Get expense ratio for a mutual fund
+	 */
+	async getExpenseRatio(
+		schemeName?: string,
+		schemeCode?: string,
+		isin?: string,
+	): Promise<ExpenseRatioLookup> {
+		try {
+			const conditions = [];
+			if (schemeCode) conditions.push(eq(mutualFunds.schemeCode, schemeCode));
+			if (isin) conditions.push(eq(mutualFunds.isin, isin));
+			if (schemeName)
+				conditions.push(
+					ilike(mutualFunds.schemeName, `%${schemeName.slice(0, 30)}%`),
+				);
+
+			if (conditions.length > 0) {
+				const fund = await db
+					.select({
+						expenseRatio: mutualFunds.expenseRatio,
+						category: mutualFunds.category,
+						schemeName: mutualFunds.schemeName,
+					})
+					.from(mutualFunds)
+					.where(or(...conditions))
+					.limit(1);
+
+				if (fund[0]?.expenseRatio) {
+					return {
+						value: Number.parseFloat(fund[0].expenseRatio),
+						source: "database",
+						confidence: "high",
+						category: fund[0].category || undefined,
+					};
+				}
+
+				// Category fallback
+				const category =
+					fund[0]?.category || this.extractCategoryFromName(schemeName || "");
+				const isDirectPlan = schemeName?.toLowerCase().includes("direct");
+
+				const ter = this.getCategoryTER(category, isDirectPlan);
+				return {
+					value: ter,
+					source: "category_default",
+					confidence: "medium",
+					category,
+				};
+			}
+
+			// Fallback without DB lookup
+			const category = this.extractCategoryFromName(schemeName || "");
+			const isDirectPlan = schemeName?.toLowerCase().includes("direct");
+
+			return {
+				value: this.getCategoryTER(category, isDirectPlan),
+				source: "category_default",
+				confidence: "medium",
+				category,
+			};
+		} catch (error) {
+			console.error("Error fetching expense ratio:", error);
+			return {
+				value: 1.5,
+				source: "fallback",
+				confidence: "low",
+			};
+		}
+	}
+
+	/**
+	 * Get beta for a stock
+	 */
+	async getStockBeta(
+		symbol?: string,
+		isin?: string,
+		sector?: string,
+	): Promise<FinancialMetric> {
+		// Beta calculation requires historical price correlation with index
+		// For now, use sector-based beta values which are more reliable than random
+		const effectiveSector = sector || "Default";
+
+		if (SECTOR_BETA[effectiveSector]) {
+			return {
+				value: SECTOR_BETA[effectiveSector],
+				source: "sector_default",
+				confidence: "medium",
+			};
+		}
+
+		return {
+			value: 1.0,
+			source: "fallback",
+			confidence: "low",
+		};
+	}
+
+	/**
+	 * Batch get expense ratios for multiple mutual funds - single DB query
+	 * Returns a map keyed by a composite key (isin|schemeCode|name) for reliable lookup
+	 */
+	async batchGetExpenseRatios(
+		funds: Array<{
+			name: string;
+			schemeCode?: string;
+			isin?: string;
+		}>,
+	): Promise<Map<string, ExpenseRatioLookup>> {
+		const results = new Map<string, ExpenseRatioLookup>();
+
+		// Helper to create stable lookup key
+		const getKey = (f: { name: string; schemeCode?: string; isin?: string }) =>
+			f.isin || f.schemeCode || f.name;
+
+		try {
+			// Extract scheme codes and ISINs for batch lookup
+			const schemeCodes = funds
+				.map((f: any) => f.schemeCode)
+				.filter(Boolean) as string[];
+			const isins = funds.map((f: any) => f.isin).filter(Boolean) as string[];
+
+			// Single batch query
+			let dbFunds: Array<{
+				schemeCode: string | null;
+				isin: string | null;
+				expenseRatio: string | null;
+				category: string | null;
+				schemeName: string | null;
+			}> = [];
+
+			if (schemeCodes.length > 0 || isins.length > 0) {
+				const conditions = [];
+				if (schemeCodes.length > 0) {
+					conditions.push(
+						sql`${mutualFunds.schemeCode} IN (${sql.join(
+							schemeCodes.map((c: any) => sql`${c}`),
+							sql`, `,
+						)})`,
+					);
+				}
+				if (isins.length > 0) {
+					conditions.push(
+						sql`${mutualFunds.isin} IN (${sql.join(
+							isins.map((i: any) => sql`${i}`),
+							sql`, `,
+						)})`,
+					);
+				}
+
+				dbFunds = await db
+					.select({
+						schemeCode: mutualFunds.schemeCode,
+						isin: mutualFunds.isin,
+						expenseRatio: mutualFunds.expenseRatio,
+						category: mutualFunds.category,
+						schemeName: mutualFunds.schemeName,
+					})
+					.from(mutualFunds)
+					.where(or(...conditions));
+			}
+
+			// Create lookup maps for fast matching
+			const bySchemeCode = new Map(
+				dbFunds
+					.filter((f: any) => f.schemeCode)
+					.map((f: any) => [f.schemeCode!, f]),
+			);
+			const byIsin = new Map(
+				dbFunds.filter((f: any) => f.isin).map((f: any) => [f.isin!, f]),
+			);
+
+			// Match each fund to its expense ratio using stable key
+			for (const fund of funds) {
+				const key = getKey(fund);
+				const dbMatch =
+					(fund.isin && byIsin.get(fund.isin)) ||
+					(fund.schemeCode && bySchemeCode.get(fund.schemeCode));
+
+				if (dbMatch?.expenseRatio) {
+					results.set(key, {
+						value: Number.parseFloat(dbMatch.expenseRatio),
+						source: "database",
+						confidence: "high",
+						category: dbMatch.category || undefined,
+					});
+				} else {
+					// Category fallback
+					const category = this.extractCategoryFromName(fund.name);
+					const isDirectPlan = fund.name.toLowerCase().includes("direct");
+					results.set(key, {
+						value: this.getCategoryTER(category, isDirectPlan),
+						source: "category_default",
+						confidence: "medium",
+						category,
+					});
+				}
+			}
+		} catch (error) {
+			console.error("Error in batch expense ratio lookup:", error);
+			// Fallback for all funds
+			for (const fund of funds) {
+				const key = getKey(fund);
+				const category = this.extractCategoryFromName(fund.name);
+				const isDirectPlan = fund.name.toLowerCase().includes("direct");
+				results.set(key, {
+					value: this.getCategoryTER(category, isDirectPlan),
+					source: "fallback",
+					confidence: "low",
+					category,
+				});
+			}
+		}
+
+		return results;
+	}
+
+	/**
+	 * Batch get dividend yields for multiple stocks - single DB query
+	 * Returns a map keyed by ISIN (or name if no ISIN) for reliable lookup
+	 */
+	async batchGetStockDividendYields(
+		stocks: Array<{
+			name: string;
+			isin?: string;
+			sector?: string;
+		}>,
+	): Promise<Map<string, DividendYieldLookup>> {
+		const results = new Map<string, DividendYieldLookup>();
+
+		const getKey = (s: { name: string; isin?: string }) => s.isin || s.name;
+
+		try {
+			const isins = stocks.map((s: any) => s.isin).filter(Boolean) as string[];
+
+			let dbStocks: Array<{
+				isin: string | null;
+				symbol: string;
+				dividendYield: string | null;
+				sector: string | null;
+				broadSector: string | null;
+			}> = [];
+
+			if (isins.length > 0) {
+				dbStocks = await db
+					.select({
+						isin: listedStocks.isin,
+						symbol: listedStocks.symbol,
+						dividendYield: listedStocks.dividendYield,
+						sector: listedStocks.sector,
+						broadSector: listedStocks.broadSector,
+					})
+					.from(listedStocks)
+					.where(
+						sql`${listedStocks.isin} IN (${sql.join(
+							isins.map((i: any) => sql`${i}`),
+							sql`, `,
+						)})`,
+					);
+			}
+
+			const byIsin = new Map(
+				dbStocks.filter((s: any) => s.isin).map((s: any) => [s.isin!, s]),
+			);
+
+			// Collect stocks missing dividend yield for Yahoo Finance batch lookup
+			const missingYieldStocks: Array<{
+				key: string;
+				isin: string;
+				symbol: string;
+				sector: string;
+			}> = [];
+
+			for (const stock of stocks) {
+				const key = getKey(stock);
+				const dbMatch = stock.isin && byIsin.get(stock.isin);
+
+				if (dbMatch?.dividendYield != null) {
+					results.set(key, {
+						value: Number.parseFloat(dbMatch.dividendYield),
+						source: "database",
+						confidence: "high",
+						assetType: "stock",
+					});
+				} else if (dbMatch?.symbol && stock.isin) {
+					missingYieldStocks.push({
+						key,
+						isin: stock.isin,
+						symbol: dbMatch.symbol,
+						sector:
+							dbMatch.broadSector ||
+							dbMatch.sector ||
+							stock.sector ||
+							"Default",
+					});
+				} else {
+					const sector = stock.sector || "Default";
+					results.set(key, {
+						value:
+							SECTOR_DIVIDEND_YIELDS[sector] || SECTOR_DIVIDEND_YIELDS.Default,
+						source: "sector_default",
+						confidence: "medium",
+						assetType: "stock",
+					});
+				}
+			}
+
+			// Batch fetch from Yahoo Finance for stocks missing dividend yield (max 10 at a time)
+			if (missingYieldStocks.length > 0) {
+				const batch = missingYieldStocks.slice(0, 10);
+
+				// Helper: extract yield from a YF quote using multiple fields
+				const extractYieldFromQuote = (quote: any): number | null => {
+					if (!quote) return null;
+					// Field 1: trailingAnnualDividendYield (already as decimal, e.g. 0.008)
+					const trailing = (quote as any).trailingAnnualDividendYield;
+					if (trailing != null && trailing > 0) return trailing * 100;
+					// Field 2: dividendYield (forward yield, also decimal)
+					const fwd = (quote as any).dividendYield;
+					if (fwd != null && fwd > 0) return fwd * 100;
+					// Field 3: compute from trailingAnnualDividendRate / regularMarketPrice
+					const rate = (quote as any).trailingAnnualDividendRate;
+					const price = (quote as any).regularMarketPrice;
+					if (rate != null && price && price > 0) return (rate / price) * 100;
+					// Field 4: declared as 0 — confirmed non-paying
+					if (trailing === 0 || fwd === 0 || rate === 0) return 0;
+					return null;
+				};
+
+				// Fetch both .NS and .BO in one pass for resilience
+				try {
+					const nsQuotes = await Promise.allSettled(
+						batch.map((s: any) =>
+							yahooFinance
+								.quote(`${s.symbol}.NS`, {}, { validateResult: false })
+								.catch(() => null),
+						),
+					);
+					const boQuotes = await Promise.allSettled(
+						batch.map((s: any) =>
+							yahooFinance
+								.quote(`${s.symbol}.BO`, {}, { validateResult: false })
+								.catch(() => null),
+						),
+					);
+
+					const dbUpdates: Array<{ isin: string; dividendYield: string }> = [];
+
+					for (let i = 0; i < batch.length; i++) {
+						const stock = batch[i];
+						const nsQuote =
+							nsQuotes[i].status === "fulfilled" ? nsQuotes[i].value : null;
+						const boQuote =
+							boQuotes[i].status === "fulfilled" ? boQuotes[i].value : null;
+
+						let yieldPct = extractYieldFromQuote(nsQuote);
+						if (yieldPct == null) yieldPct = extractYieldFromQuote(boQuote);
+
+						if (yieldPct != null) {
+							const rounded = Math.round(yieldPct * 100) / 100;
+							results.set(stock.key, {
+								value: rounded,
+								source: "database",
+								confidence: "high",
+								assetType: "stock",
+							});
+							// Store result (including 0%) — sentinel so we skip YF next time
+							dbUpdates.push({
+								isin: stock.isin,
+								dividendYield: rounded.toFixed(4),
+							});
+							console.log(
+								`[DividendYield] ${stock.symbol}: ${rounded.toFixed(2)}% (live)`,
+							);
+						} else {
+							// Truly no data — store 0 as sentinel so we don't re-fetch repeatedly
+							results.set(stock.key, {
+								value:
+									SECTOR_DIVIDEND_YIELDS[stock.sector] ||
+									SECTOR_DIVIDEND_YIELDS.Default,
+								source: "sector_default",
+								confidence: "medium",
+								assetType: "stock",
+							});
+							dbUpdates.push({ isin: stock.isin, dividendYield: "0.0000" });
+							console.warn(
+								`[DividendYield] ${stock.symbol}: no live data, using sector default`,
+							);
+						}
+					}
+
+					// Handle remaining stocks (beyond 10) with sector defaults
+					for (let i = 10; i < missingYieldStocks.length; i++) {
+						const stock = missingYieldStocks[i];
+						results.set(stock.key, {
+							value:
+								SECTOR_DIVIDEND_YIELDS[stock.sector] ||
+								SECTOR_DIVIDEND_YIELDS.Default,
+							source: "sector_default",
+							confidence: "medium",
+							assetType: "stock",
+						});
+					}
+
+					// Persist to DB asynchronously
+					if (dbUpdates.length > 0) {
+						Promise.all(
+							dbUpdates.map((u: any) =>
+								db
+									.update(listedStocks)
+									.set({ dividendYield: u.dividendYield } as any)
+									.where(eq(listedStocks.isin, u.isin))
+									.catch((e) =>
+										console.error("[DividendYield] DB update error:", e),
+									),
+							),
+						).catch(() => {});
+					}
+				} catch (yfErr) {
+					console.error("[DividendYield] Yahoo Finance batch error:", yfErr);
+					for (const stock of missingYieldStocks) {
+						results.set(stock.key, {
+							value:
+								SECTOR_DIVIDEND_YIELDS[stock.sector] ||
+								SECTOR_DIVIDEND_YIELDS.Default,
+							source: "sector_default",
+							confidence: "medium",
+							assetType: "stock",
+						});
+					}
+				}
+			}
+		} catch (error) {
+			console.error("Error in batch stock dividend yield lookup:", error);
+			for (const stock of stocks) {
+				const key = getKey(stock);
+				results.set(key, {
+					value: SECTOR_DIVIDEND_YIELDS.Default,
+					source: "fallback",
+					confidence: "low",
+					assetType: "stock",
+				});
+			}
+		}
+
+		return results;
+	}
+
+	/**
+	 * Get beta values for stocks based on sector (no DB query needed - uses sector defaults)
+	 * Note: Beta is only meaningful for stocks/equities, not mutual funds
+	 */
+	getBetaForSector(sector?: string): FinancialMetric {
+		const effectiveSector = sector || "Default";
+
+		if (SECTOR_BETA[effectiveSector]) {
+			return {
+				value: SECTOR_BETA[effectiveSector],
+				source: "sector_default",
+				confidence: "medium",
+			};
+		}
+
+		return {
+			value: 1.0,
+			source: "fallback",
+			confidence: "low",
+		};
+	}
+
+	// Helper: Extract category from fund name
+	private extractCategoryFromName(name: string): string {
+		const nameLower = name.toLowerCase();
+
+		if (nameLower.includes("liquid")) return "Liquid";
+		if (nameLower.includes("overnight")) return "Overnight";
+		if (nameLower.includes("index") || nameLower.includes("etf"))
+			return "Index Funds";
+		if (nameLower.includes("large cap") || nameLower.includes("largecap"))
+			return "Large Cap";
+		if (nameLower.includes("mid cap") || nameLower.includes("midcap"))
+			return "Mid Cap";
+		if (nameLower.includes("small cap") || nameLower.includes("smallcap"))
+			return "Small Cap";
+		if (nameLower.includes("flexi cap") || nameLower.includes("flexicap"))
+			return "Flexi Cap";
+		if (nameLower.includes("multi cap") || nameLower.includes("multicap"))
+			return "Multi Cap";
+		if (
+			nameLower.includes("large & mid") ||
+			nameLower.includes("large and mid")
+		)
+			return "Large & Mid Cap";
+		if (nameLower.includes("elss") || nameLower.includes("tax saver"))
+			return "ELSS";
+		if (nameLower.includes("balanced") || nameLower.includes("hybrid"))
+			return "Balanced Advantage";
+		if (nameLower.includes("arbitrage")) return "Arbitrage";
+		if (nameLower.includes("gilt")) return "Gilt";
+		if (nameLower.includes("corporate bond")) return "Corporate Bond";
+		if (nameLower.includes("credit risk")) return "Credit Risk";
+		if (nameLower.includes("dividend yield")) return "Dividend Yield";
+		if (nameLower.includes("focused")) return "Focused";
+		if (nameLower.includes("value") || nameLower.includes("contra"))
+			return "Value";
+		if (nameLower.includes("sector") || nameLower.includes("thematic"))
+			return "Sectoral";
+		if (nameLower.includes("international") || nameLower.includes("global"))
+			return "International";
+
+		return "Default";
+	}
+
+	// Helper: Get TER by category
+	private getCategoryTER(
+		category: string | undefined,
+		isDirect: boolean,
+	): number {
+		const cat = category || "Default";
+		const defaults =
+			CATEGORY_TER_DEFAULTS[cat] || CATEGORY_TER_DEFAULTS.Default;
+		return isDirect ? defaults.direct : defaults.regular;
+	}
+
+	// Helper: Check if fund is IDCW/Dividend plan
+	private isIDCWPlan(name: string): boolean {
+		const nameLower = name.toLowerCase();
+		return (
+			nameLower.includes("idcw") ||
+			nameLower.includes("dividend") ||
+			nameLower.includes("payout") ||
+			nameLower.includes("income distribution")
+		);
+	}
 }
 
-export const portfolioAnalyticsDataService = new PortfolioAnalyticsDataService();
+export const portfolioAnalyticsDataService =
+	new PortfolioAnalyticsDataService();

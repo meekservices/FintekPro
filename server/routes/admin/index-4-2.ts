@@ -1,27 +1,30 @@
-import { Express, Response } from 'express';
-import { db } from '../../db';
-import { sql, desc, eq } from 'drizzle-orm';
-import { mutualFunds, signalResolutionLog, governancePolicy, kycFormProgress } from '@shared/schema';
-import { signalOrchestrator } from '../../services/signal-orchestrator';
-import { storage } from '../../storage';
-import { adminService } from '../../admin-service';
-import ckycDeferredRoutes from './ckyc-deferred-routes';
-import { registerSEBIComplianceRoutes } from './sebi-compliance-routes';
-import { auditIntegrityChecker } from '../../services/audit-integrity-checker';
-import { platformStatsCache } from '../../services/platform-stats-cache';
-import { riaValidationService } from '../../services/ria-validation-service';
-import { insuranceSuitabilityService } from '../../services/insurance-suitability-service';
-import { proxyToInsurance } from '../../clients/insurance-client';
-import { beneficialOwnershipService } from '../../services/beneficial-ownership-service';
-import { sebiScoresService } from '../../services/sebi-scores-service';
-import { mfReturnsSyncService } from '../../services/mf-returns-sync-service';
-import { requireAdmin } from '../../middleware/roleMiddleware';
-
-
+import { Express, Response } from "express";
+import { db } from "../../db";
+import { sql, desc, eq } from "drizzle-orm";
+import {
+	mutualFunds,
+	signalResolutionLog,
+	governancePolicy,
+	kycFormProgress,
+} from "@shared/schema";
+import { signalOrchestrator } from "../../services/signal-orchestrator";
+import { storage } from "../../storage";
+import { adminService } from "../../admin-service";
+import ckycDeferredRoutes from "./ckyc-deferred-routes";
+import { registerSEBIComplianceRoutes } from "./sebi-compliance-routes";
+import { auditIntegrityChecker } from "../../services/audit-integrity-checker";
+import { platformStatsCache } from "../../services/platform-stats-cache";
+import { riaValidationService } from "../../services/ria-validation-service";
+import { insuranceSuitabilityService } from "../../services/insurance-suitability-service";
+import { proxyToInsurance } from "../../clients/insurance-client";
+import { beneficialOwnershipService } from "../../services/beneficial-ownership-service";
+import { sebiScoresService } from "../../services/sebi-scores-service";
+import { mfReturnsSyncService } from "../../services/mf-returns-sync-service";
+import { requireAdmin } from "../../middleware/roleMiddleware";
 
 async function ensureAgentNotificationsTable() {
-  try {
-    await db.execute(sql`
+	try {
+		await db.execute(sql`
       CREATE TABLE IF NOT EXISTS agent_notifications (
         id          SERIAL PRIMARY KEY,
         agent_id    VARCHAR(255) NOT NULL,
@@ -33,93 +36,97 @@ async function ensureAgentNotificationsTable() {
         created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_agent_notifications_agent_id
         ON agent_notifications(agent_id)
     `);
-    console.log("✅ [AgentNotifications] Table ready");
-  } catch (err: any) {
-    console.error("[AgentNotifications] Table init error:", err.message);
-  }
+		console.log("✅ [AgentNotifications] Table ready");
+	} catch (err: any) {
+		console.error("[AgentNotifications] Table init error:", err.message);
+	}
 }
 ensureAgentNotificationsTable();
 
 export function registerAdminPanelPart4Sub2Routes(app: Express): void {
-  
-  // Admin Dashboard - Overview statistics
+	// Admin Dashboard - Overview statistics
 
+	// Revenue Analytics API
+	app.patch(
+		"/api/admin/ckyc/:userId/status",
+		requireAdmin,
+		async (req, res) => {
+			try {
+				const { userId } = req.params;
+				const { status, remarks } = req.body;
 
-  // Revenue Analytics API
-  app.patch("/api/admin/ckyc/:userId/status", requireAdmin, async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const { status, remarks } = req.body;
-      
-      const updated = await storage.updateCkycRecord(userId, { 
-        status: status,
-        lastVerifiedAt: status === 'verified' ? new Date() : null,
-      });
-      
-      if (!updated) {
-        return res.status(404).json({ error: "CKYC record not found" });
-      }
-      
-      // Log status change
-      await storage.addCkycStatusHistory({
-        ckycRecordId: updated.id,
-        newStatus: status,
-        changedBy: req.user?.id || 'admin',
-        reason: remarks || `Status changed to ${status}`
-      });
-      
-      res.json(updated);
-    } catch (error) {
-      console.error("Error updating CKYC status:", error);
-      res.status(500).json({ error: "Failed to update CKYC status" });
-    }
-  });
+				const updated = await storage.updateCkycRecord(userId, {
+					status: status,
+					lastVerifiedAt: status === "verified" ? new Date() : null,
+				});
 
-  // CKYC compliance check for trading/investment activities
-  app.get("/api/ckyc/:userId/compliance", async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const ckycRecord = await storage.getCkycRecord(userId);
-      
-      if (!ckycRecord) {
-        return res.json({
-          compliant: false,
-          reason: "CKYC record not found",
-          requiredActions: ["Complete CKYC registration"]
-        });
-      }
-      
-      const compliance = {
-        compliant: ckycRecord.status === 'verified',
-        status: ckycRecord.status,
-        ckycNumber: ckycRecord.ckycNumber,
-        expiryDate: ckycRecord.expiryDate,
-        reason: ckycRecord.status !== 'verified' 
-          ? `CKYC status is ${ckycRecord.status}` 
-          : null,
-        requiredActions: ckycRecord.status === 'pending' 
-          ? ["Upload required documents", "Wait for verification"] 
-          : ckycRecord.status === 'rejected'
-          ? ["Review rejection remarks", "Resubmit with correct documents"]
-          : []
-      };
-      
-      res.json(compliance);
-    } catch (error) {
-      console.error("Error checking CKYC compliance:", error);
-      res.status(500).json({ error: "Failed to check compliance" });
-    }
-  });
+				if (!updated) {
+					return res.status(404).json({ error: "CKYC record not found" });
+				}
 
-  // ============ CKYC PROGRESS MONITORING & NOTIFICATION API ROUTES ============
-  // NOTE: These routes are temporarily disabled because the required storage methods
-  // (createCkycNotificationTrigger, createCkycActionLog, etc.) are not yet implemented
-  
-  /* COMMENTED OUT - Missing storage methods
+				// Log status change
+				await storage.addCkycStatusHistory({
+					ckycRecordId: updated.id,
+					newStatus: status,
+					changedBy: req.user?.id || "admin",
+					reason: remarks || `Status changed to ${status}`,
+				});
+
+				res.json(updated);
+			} catch (error) {
+				console.error("Error updating CKYC status:", error);
+				res.status(500).json({ error: "Failed to update CKYC status" });
+			}
+		},
+	);
+
+	// CKYC compliance check for trading/investment activities
+	app.get("/api/ckyc/:userId/compliance", async (req, res) => {
+		try {
+			const { userId } = req.params;
+			const ckycRecord = await storage.getCkycRecord(userId);
+
+			if (!ckycRecord) {
+				return res.json({
+					compliant: false,
+					reason: "CKYC record not found",
+					requiredActions: ["Complete CKYC registration"],
+				});
+			}
+
+			const compliance = {
+				compliant: ckycRecord.status === "verified",
+				status: ckycRecord.status,
+				ckycNumber: ckycRecord.ckycNumber,
+				expiryDate: ckycRecord.expiryDate,
+				reason:
+					ckycRecord.status !== "verified"
+						? `CKYC status is ${ckycRecord.status}`
+						: null,
+				requiredActions:
+					ckycRecord.status === "pending"
+						? ["Upload required documents", "Wait for verification"]
+						: ckycRecord.status === "rejected"
+							? ["Review rejection remarks", "Resubmit with correct documents"]
+							: [],
+			};
+
+			res.json(compliance);
+		} catch (error) {
+			console.error("Error checking CKYC compliance:", error);
+			res.status(500).json({ error: "Failed to check compliance" });
+		}
+	});
+
+	// ============ CKYC PROGRESS MONITORING & NOTIFICATION API ROUTES ============
+	// NOTE: These routes are temporarily disabled because the required storage methods
+	// (createCkycNotificationTrigger, createCkycActionLog, etc.) are not yet implemented
+
+	/* COMMENTED OUT - Missing storage methods
   // Admin: Create notification trigger for CKYC record
   app.post("/api/admin/ckyc/notifications", requireAdmin, async (req, res) => {
     try {
@@ -163,7 +170,7 @@ export function registerAdminPanelPart4Sub2Routes(app: Express): void {
   });
   */
 
-  /* COMMENTED OUT - All remaining CKYC notification/progress routes use missing storage methods
+	/* COMMENTED OUT - All remaining CKYC notification/progress routes use missing storage methods
   // Admin: Get notification triggers with filtering  
   app.get("/api/admin/ckyc/notifications", requireAdmin, async (req, res) => {
     try {
@@ -361,28 +368,28 @@ export function registerAdminPanelPart4Sub2Routes(app: Express): void {
   });
   END OF COMMENTED OUT CKYC ROUTES */
 
-  // ============ KYC FORM PROGRESS API ROUTES ============
+	// ============ KYC FORM PROGRESS API ROUTES ============
 
-  // Get KYC form progress for current user
-  app.get("/api/kyc-progress", async (req, res) => {
-    try {
-      const userId = req.user?.id || "central-test-user"; // Get from session
-      const result = await db
-        .select()
-        .from(kycFormProgress)
-        .where(eq(kycFormProgress.userId, userId))
-        .limit(1);
+	// Get KYC form progress for current user
+	app.get("/api/kyc-progress", async (req, res) => {
+		try {
+			const userId = req.user?.id || "central-test-user"; // Get from session
+			const result = await db
+				.select()
+				.from(kycFormProgress)
+				.where(eq(kycFormProgress.userId, userId))
+				.limit(1);
 
-      if (result.length === 0) {
-        return res.status(404).json({ error: "No progress found" });
-      }
+			if (result.length === 0) {
+				return res.status(404).json({ error: "No progress found" });
+			}
 
-      res.json(result[0]);
-    } catch (error) {
-      console.error("Error fetching KYC progress:", error);
-      res.status(500).json({ error: "Failed to fetch KYC progress" });
-    }
-  });
+			res.json(result[0]);
+		} catch (error) {
+			console.error("Error fetching KYC progress:", error);
+			res.status(500).json({ error: "Failed to fetch KYC progress" });
+		}
+	});
 
-  // Save/Update KYC form progress
+	// Save/Update KYC form progress
 }

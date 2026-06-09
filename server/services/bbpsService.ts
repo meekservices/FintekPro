@@ -1,464 +1,476 @@
 import { eq, and } from "drizzle-orm";
-import { getAppBaseUrl } from '../utils/app-url';
-import { db } from '../db';
+import { getAppBaseUrl } from "../utils/app-url";
+import { db } from "../db";
 import {
-  bbpsCategories,
-  bbpsBillers,
-  bbpsCustomerBills,
-  bbpsTransactions,
-  type BbpsCategory,
-  type BbpsBiller,
-  type BbpsCustomerBill,
-  type BbpsTransaction,
-  type InsertBbpsCategory,
-  type InsertBbpsBiller,
-  type InsertBbpsCustomerBill,
-  type InsertBbpsTransaction,
+	bbpsCategories,
+	bbpsBillers,
+	bbpsCustomerBills,
+	bbpsTransactions,
+	type BbpsCategory,
+	type BbpsBiller,
+	type BbpsCustomerBill,
+	type BbpsTransaction,
+	type InsertBbpsCategory,
+	type InsertBbpsBiller,
+	type InsertBbpsCustomerBill,
+	type InsertBbpsTransaction,
 } from "../../shared/schema";
 import { v4 as uuidv4 } from "uuid";
 import { cashfreeService } from "../cashfree-service";
 
 // BBPS Service Configuration
 const BBPS_CONFIG = {
-  API_BASE_URL: process.env.BBPS_API_URL || "https://api.bharat-billpay.in/v1",
-  API_KEY: process.env.BBPS_API_KEY || "",
-  MERCHANT_ID: process.env.BBPS_MERCHANT_ID || "",
-  ENVIRONMENT: process.env.NODE_ENV || "development",
+	API_BASE_URL: process.env.BBPS_API_URL || "https://api.bharat-billpay.in/v1",
+	API_KEY: process.env.BBPS_API_KEY || "",
+	MERCHANT_ID: process.env.BBPS_MERCHANT_ID || "",
+	ENVIRONMENT: process.env.NODE_ENV || "development",
 };
 
 export class BBPSService {
-  private static instance: BBPSService;
+	private static instance: BBPSService;
 
-  private constructor() {}
+	private constructor() {}
 
-  public static getInstance(): BBPSService {
-    if (!BBPSService.instance) {
-      BBPSService.instance = new BBPSService();
-    }
-    return BBPSService.instance;
-  }
+	public static getInstance(): BBPSService {
+		if (!BBPSService.instance) {
+			BBPSService.instance = new BBPSService();
+		}
+		return BBPSService.instance;
+	}
 
-  // Initialize BBPS categories and billers
-  async initializeBBPSData() {
-    try {
-      // Check if categories already exist
-      const existingCategories = await db.select().from(bbpsCategories).limit(1);
-      
-      if (existingCategories.length === 0) {
-        // Insert default BBPS categories
-        const defaultCategories: InsertBbpsCategory[] = [
-          {
-            categoryName: "Electricity",
-            categoryCode: "ELECTRICITY",
-            description: "Electricity bill payments",
-          },
-          {
-            categoryName: "Gas",
-            categoryCode: "GAS",
-            description: "Gas bill payments",
-          },
-          {
-            categoryName: "Water",
-            categoryCode: "WATER",
-            description: "Water bill payments",
-          },
-          {
-            categoryName: "Telecom Postpaid",
-            categoryCode: "TELECOM_POSTPAID",
-            description: "Mobile postpaid bill payments",
-          },
-          {
-            categoryName: "Telecom Prepaid",
-            categoryCode: "TELECOM_PREPAID",
-            description: "Mobile prepaid recharge",
-          },
-          {
-            categoryName: "DTH",
-            categoryCode: "DTH",
-            description: "DTH recharge",
-          },
-          {
-            categoryName: "Broadband",
-            categoryCode: "BROADBAND",
-            description: "Broadband bill payments",
-          },
-          {
-            categoryName: "Insurance",
-            categoryCode: "INSURANCE",
-            description: "Insurance premium payments",
-          },
-          {
-            categoryName: "Loan Repayment",
-            categoryCode: "LOAN_REPAYMENT",
-            description: "Loan EMI payments",
-          },
-          {
-            categoryName: "Municipal Services",
-            categoryCode: "MUNICIPAL",
-            description: "Municipal tax and service payments",
-          },
-        ];
+	// Initialize BBPS categories and billers
+	async initializeBBPSData() {
+		try {
+			// Check if categories already exist
+			const existingCategories = await db
+				.select()
+				.from(bbpsCategories)
+				.limit(1);
 
-        await db.insert(bbpsCategories).values(defaultCategories);
-        console.log("✅ BBPS categories initialized successfully");
+			if (existingCategories.length === 0) {
+				// Insert default BBPS categories
+				const defaultCategories: InsertBbpsCategory[] = [
+					{
+						categoryName: "Electricity",
+						categoryCode: "ELECTRICITY",
+						description: "Electricity bill payments",
+					},
+					{
+						categoryName: "Gas",
+						categoryCode: "GAS",
+						description: "Gas bill payments",
+					},
+					{
+						categoryName: "Water",
+						categoryCode: "WATER",
+						description: "Water bill payments",
+					},
+					{
+						categoryName: "Telecom Postpaid",
+						categoryCode: "TELECOM_POSTPAID",
+						description: "Mobile postpaid bill payments",
+					},
+					{
+						categoryName: "Telecom Prepaid",
+						categoryCode: "TELECOM_PREPAID",
+						description: "Mobile prepaid recharge",
+					},
+					{
+						categoryName: "DTH",
+						categoryCode: "DTH",
+						description: "DTH recharge",
+					},
+					{
+						categoryName: "Broadband",
+						categoryCode: "BROADBAND",
+						description: "Broadband bill payments",
+					},
+					{
+						categoryName: "Insurance",
+						categoryCode: "INSURANCE",
+						description: "Insurance premium payments",
+					},
+					{
+						categoryName: "Loan Repayment",
+						categoryCode: "LOAN_REPAYMENT",
+						description: "Loan EMI payments",
+					},
+					{
+						categoryName: "Municipal Services",
+						categoryCode: "MUNICIPAL",
+						description: "Municipal tax and service payments",
+					},
+				];
 
-        // Insert sample billers for each category
-        const categories = await db.select().from(bbpsCategories);
-        const sampleBillers: InsertBbpsBiller[] = [];
+				await db.insert(bbpsCategories).values(defaultCategories);
+				console.log("✅ BBPS categories initialized successfully");
 
-        for (const category of categories) {
-          switch (category.categoryCode) {
-            case "ELECTRICITY":
-              sampleBillers.push(
-                {
-                  billerName: "BSES Rajdhani Power Limited",
-                  billerCode: "BSES001",
-                  categoryId: category.id,
-                  billerAliasName: "BSES Rajdhani",
-                  billerCoverage: "DELHI",
-                  customerParamName: "Consumer Number",
-                },
-                {
-                  billerName: "Tata Power Mumbai",
-                  billerCode: "TPML001",
-                  categoryId: category.id,
-                  billerAliasName: "Tata Power",
-                  billerCoverage: "MUMBAI",
-                  customerParamName: "Consumer Number",
-                }
-              );
-              break;
+				// Insert sample billers for each category
+				const categories = await db.select().from(bbpsCategories);
+				const sampleBillers: InsertBbpsBiller[] = [];
 
-            case "TELECOM_POSTPAID":
-              sampleBillers.push(
-                {
-                  billerName: "Airtel",
-                  billerCode: "AIRTEL001",
-                  categoryId: category.id,
-                  billerAliasName: "Bharti Airtel",
-                  billerCoverage: "ALL_INDIA",
-                  customerParamName: "Mobile Number",
-                },
-                {
-                  billerName: "Vodafone Idea",
-                  billerCode: "VI001",
-                  categoryId: category.id,
-                  billerAliasName: "Vi",
-                  billerCoverage: "ALL_INDIA",
-                  customerParamName: "Mobile Number",
-                }
-              );
-              break;
+				for (const category of categories) {
+					switch (category.categoryCode) {
+						case "ELECTRICITY":
+							sampleBillers.push(
+								{
+									billerName: "BSES Rajdhani Power Limited",
+									billerCode: "BSES001",
+									categoryId: category.id,
+									billerAliasName: "BSES Rajdhani",
+									billerCoverage: "DELHI",
+									customerParamName: "Consumer Number",
+								},
+								{
+									billerName: "Tata Power Mumbai",
+									billerCode: "TPML001",
+									categoryId: category.id,
+									billerAliasName: "Tata Power",
+									billerCoverage: "MUMBAI",
+									customerParamName: "Consumer Number",
+								},
+							);
+							break;
 
-            case "GAS":
-              sampleBillers.push(
-                {
-                  billerName: "Indraprastha Gas Limited",
-                  billerCode: "IGL001",
-                  categoryId: category.id,
-                  billerAliasName: "IGL",
-                  billerCoverage: "DELHI_NCR",
-                  customerParamName: "BP Number",
-                }
-              );
-              break;
+						case "TELECOM_POSTPAID":
+							sampleBillers.push(
+								{
+									billerName: "Airtel",
+									billerCode: "AIRTEL001",
+									categoryId: category.id,
+									billerAliasName: "Bharti Airtel",
+									billerCoverage: "ALL_INDIA",
+									customerParamName: "Mobile Number",
+								},
+								{
+									billerName: "Vodafone Idea",
+									billerCode: "VI001",
+									categoryId: category.id,
+									billerAliasName: "Vi",
+									billerCoverage: "ALL_INDIA",
+									customerParamName: "Mobile Number",
+								},
+							);
+							break;
 
-            case "DTH":
-              sampleBillers.push(
-                {
-                  billerName: "Tata Play",
-                  billerCode: "TATAPLAY001",
-                  categoryId: category.id,
-                  billerAliasName: "Tata Play",
-                  billerCoverage: "ALL_INDIA",
-                  customerParamName: "Subscriber ID",
-                }
-              );
-              break;
-          }
-        }
+						case "GAS":
+							sampleBillers.push({
+								billerName: "Indraprastha Gas Limited",
+								billerCode: "IGL001",
+								categoryId: category.id,
+								billerAliasName: "IGL",
+								billerCoverage: "DELHI_NCR",
+								customerParamName: "BP Number",
+							});
+							break;
 
-        if (sampleBillers.length > 0) {
-          await db.insert(bbpsBillers).values(sampleBillers);
-          console.log("✅ BBPS sample billers initialized successfully");
-        }
-      }
-    } catch (error) {
-      console.error("❌ Error initializing BBPS data:", error);
-      throw error;
-    }
-  }
+						case "DTH":
+							sampleBillers.push({
+								billerName: "Tata Play",
+								billerCode: "TATAPLAY001",
+								categoryId: category.id,
+								billerAliasName: "Tata Play",
+								billerCoverage: "ALL_INDIA",
+								customerParamName: "Subscriber ID",
+							});
+							break;
+					}
+				}
 
-  // Get all active categories
-  async getCategories(): Promise<BbpsCategory[]> {
-    return await db
-      .select()
-      .from(bbpsCategories)
-      .where(eq(bbpsCategories.isActive, true));
-  }
+				if (sampleBillers.length > 0) {
+					await db.insert(bbpsBillers).values(sampleBillers);
+					console.log("✅ BBPS sample billers initialized successfully");
+				}
+			}
+		} catch (error) {
+			console.error("❌ Error initializing BBPS data:", error);
+			throw error;
+		}
+	}
 
-  // Get billers by category
-  async getBillersByCategory(categoryId: string): Promise<BbpsBiller[]> {
-    return await db
-      .select()
-      .from(bbpsBillers)
-      .where(
-        and(
-          eq(bbpsBillers.categoryId, categoryId),
-          eq(bbpsBillers.isActive, true)
-        )
-      );
-  }
+	// Get all active categories
+	async getCategories(): Promise<BbpsCategory[]> {
+		return await db
+			.select()
+			.from(bbpsCategories)
+			.where(eq(bbpsCategories.isActive, true));
+	}
 
-  // Fetch bill details from BBPS API (mock implementation)
-  async fetchBill(params: {
-    billerId: string;
-    customerParam: string;
-    userId: string;
-  }): Promise<BbpsCustomerBill> {
-    try {
-      const { billerId, customerParam, userId } = params;
+	// Get billers by category
+	async getBillersByCategory(categoryId: string): Promise<BbpsBiller[]> {
+		return await db
+			.select()
+			.from(bbpsBillers)
+			.where(
+				and(
+					eq(bbpsBillers.categoryId, categoryId),
+					eq(bbpsBillers.isActive, true),
+				),
+			);
+	}
 
-      // Get biller details
-      const biller = await db
-        .select()
-        .from(bbpsBillers)
-        .where(eq(bbpsBillers.id, billerId))
-        .limit(1);
+	// Fetch bill details from BBPS API (mock implementation)
+	async fetchBill(params: {
+		billerId: string;
+		customerParam: string;
+		userId: string;
+	}): Promise<BbpsCustomerBill> {
+		try {
+			const { billerId, customerParam, userId } = params;
 
-      if (!biller[0]) {
-        throw new Error("Biller not found");
-      }
+			// Get biller details
+			const biller = await db
+				.select()
+				.from(bbpsBillers)
+				.where(eq(bbpsBillers.id, billerId))
+				.limit(1);
 
-      // Mock API call to BBPS - In production, this would be actual API call
-      const mockBillData = {
-        billAmount: (Math.random() * 5000 + 500).toFixed(0), // Random amount between 500-5500
-        dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 15 days from now
-        billDate: new Date().toISOString().split('T')[0],
-        billPeriod: "Nov 2024",
-        customerName: "John Doe",
-        additionalInfo: {
-          lastPaymentDate: "2024-10-15",
-          outstandingAmount: "0",
-          units: "245 kWh",
-        },
-      };
+			if (!biller[0]) {
+				throw new Error("Biller not found");
+			}
 
-      // Create bill record
-      const billData: InsertBbpsCustomerBill = {
-        userId,
-        billerId,
-        customerParam,
-        billAmount: mockBillData.billAmount,
-        dueDate: mockBillData.dueDate,
-        billDate: mockBillData.billDate,
-        billPeriod: mockBillData.billPeriod,
-        billFetchStatus: "SUCCESS",
-        billData: JSON.stringify(mockBillData),
-        fetchedAt: new Date(),
-      };
+			// Mock API call to BBPS - In production, this would be actual API call
+			const mockBillData = {
+				billAmount: (Math.random() * 5000 + 500).toFixed(0), // Random amount between 500-5500
+				dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)
+					.toISOString()
+					.split("T")[0], // 15 days from now
+				billDate: new Date().toISOString().split("T")[0],
+				billPeriod: "Nov 2024",
+				customerName: "John Doe",
+				additionalInfo: {
+					lastPaymentDate: "2024-10-15",
+					outstandingAmount: "0",
+					units: "245 kWh",
+				},
+			};
 
-      const [insertedBill] = await db
-        .insert(bbpsCustomerBills)
-        .values(billData)
-        .returning();
+			// Create bill record
+			const billData: InsertBbpsCustomerBill = {
+				userId,
+				billerId,
+				customerParam,
+				billAmount: mockBillData.billAmount,
+				dueDate: mockBillData.dueDate,
+				billDate: mockBillData.billDate,
+				billPeriod: mockBillData.billPeriod,
+				billFetchStatus: "SUCCESS",
+				billData: JSON.stringify(mockBillData),
+				fetchedAt: new Date(),
+			};
 
-      return insertedBill;
-    } catch (error) {
-      console.error("Error fetching bill:", error);
-      
-      // Create failed bill record
-      const failedBillData: InsertBbpsCustomerBill = {
-        userId: params.userId,
-        billerId: params.billerId,
-        customerParam: params.customerParam,
-        billFetchStatus: "FAILED",
-        fetchedAt: new Date(),
-      };
+			const [insertedBill] = await db
+				.insert(bbpsCustomerBills)
+				.values(billData)
+				.returning();
 
-      await db.insert(bbpsCustomerBills).values(failedBillData);
-      throw error;
-    }
-  }
+			return insertedBill;
+		} catch (error) {
+			console.error("Error fetching bill:", error);
 
-  // Initiate bill payment through Cashfree
-  async initiateBillPayment(params: {
-    billId: string;
-    paymentAmount: string;
-    userId: string;
-    userPhone?: string;
-    userEmail?: string;
-    userName?: string;
-  }): Promise<{ transaction: BbpsTransaction; paymentUrl: string }> {
-    try {
-      const { billId, paymentAmount, userId, userPhone, userEmail, userName } = params;
+			// Create failed bill record
+			const failedBillData: InsertBbpsCustomerBill = {
+				userId: params.userId,
+				billerId: params.billerId,
+				customerParam: params.customerParam,
+				billFetchStatus: "FAILED",
+				fetchedAt: new Date(),
+			};
 
-      // Get bill details
-      const bill = await db
-        .select()
-        .from(bbpsCustomerBills)
-        .where(eq(bbpsCustomerBills.id, billId))
-        .limit(1);
+			await db.insert(bbpsCustomerBills).values(failedBillData);
+			throw error;
+		}
+	}
 
-      if (!bill[0]) {
-        throw new Error("Bill not found");
-      }
+	// Initiate bill payment through Cashfree
+	async initiateBillPayment(params: {
+		billId: string;
+		paymentAmount: string;
+		userId: string;
+		userPhone?: string;
+		userEmail?: string;
+		userName?: string;
+	}): Promise<{ transaction: BbpsTransaction; paymentUrl: string }> {
+		try {
+			const { billId, paymentAmount, userId, userPhone, userEmail, userName } =
+				params;
 
-      // Get biller details
-      const biller = await db
-        .select()
-        .from(bbpsBillers)
-        .where(eq(bbpsBillers.id, bill[0].billerId))
-        .limit(1);
+			// Get bill details
+			const bill = await db
+				.select()
+				.from(bbpsCustomerBills)
+				.where(eq(bbpsCustomerBills.id, billId))
+				.limit(1);
 
-      if (!biller[0]) {
-        throw new Error("Biller not found");
-      }
+			if (!bill[0]) {
+				throw new Error("Bill not found");
+			}
 
-      // Generate transaction ID
-      const transactionId = `BBPS${Date.now()}${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
-      
-      // Create Cashfree payment order
-      const cashfreeOrder = await cashfreeService.createOrder({
-        amount: parseFloat(paymentAmount),
-        userId,
-        phone: userPhone,
-        email: userEmail,
-        name: userName,
-        returnUrl: `${getAppBaseUrl()}/api/bbps/payment-callback`,
-      });
+			// Get biller details
+			const biller = await db
+				.select()
+				.from(bbpsBillers)
+				.where(eq(bbpsBillers.id, bill[0].billerId))
+				.limit(1);
 
-      if (!cashfreeOrder.success || !cashfreeOrder.orderId) {
-        throw new Error(cashfreeOrder.message || "Failed to create payment order");
-      }
+			if (!biller[0]) {
+				throw new Error("Biller not found");
+			}
 
-      // Create BBPS transaction record with PENDING status
-      const transactionData: InsertBbpsTransaction = {
-        userId,
-        billId,
-        billerCode: biller[0].billerCode,
-        customerParam: bill[0].customerParam,
-        amount: paymentAmount,
-        paymentAmount,
-        transactionId,
-        paymentStatus: "PENDING",
-        paymentMode: "cashfree",
-        transactionReference: cashfreeOrder.orderId,
-        initiatedAt: new Date(),
-      };
+			// Generate transaction ID
+			const transactionId = `BBPS${Date.now()}${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
 
-      const [insertedTransaction] = await db
-        .insert(bbpsTransactions)
-        .values(transactionData)
-        .returning();
+			// Create Cashfree payment order
+			const cashfreeOrder = await cashfreeService.createOrder({
+				amount: Number.parseFloat(paymentAmount),
+				userId,
+				phone: userPhone,
+				email: userEmail,
+				name: userName,
+				returnUrl: `${getAppBaseUrl()}/api/bbps/payment-callback`,
+			});
 
-      console.log(`✅ BBPS payment initiated: ${transactionId} -> Cashfree order: ${cashfreeOrder.orderId}`);
+			if (!cashfreeOrder.success || !cashfreeOrder.orderId) {
+				throw new Error(
+					cashfreeOrder.message || "Failed to create payment order",
+				);
+			}
 
-      return {
-        transaction: insertedTransaction,
-        paymentUrl: cashfreeOrder.paymentUrl || "",
-      };
-    } catch (error) {
-      console.error("Error initiating BBPS payment:", error);
-      throw error;
-    }
-  }
+			// Create BBPS transaction record with PENDING status
+			const transactionData: InsertBbpsTransaction = {
+				userId,
+				billId,
+				billerCode: biller[0].billerCode,
+				customerParam: bill[0].customerParam,
+				amount: paymentAmount,
+				paymentAmount,
+				transactionId,
+				paymentStatus: "PENDING",
+				paymentMode: "cashfree",
+				transactionReference: cashfreeOrder.orderId,
+				initiatedAt: new Date(),
+			};
 
-  // Confirm payment after Cashfree callback
-  async confirmPayment(params: {
-    transactionId: string;
-    cashfreeOrderId: string;
-    status: "SUCCESS" | "FAILED";
-    bbpsTransactionId?: string;
-    failureReason?: string;
-  }): Promise<BbpsTransaction> {
-    try {
-      const { transactionId, status, bbpsTransactionId, failureReason } = params;
+			const [insertedTransaction] = await db
+				.insert(bbpsTransactions)
+				.values(transactionData)
+				.returning();
 
-      // Get transaction
-      const [transaction] = await db
-        .select()
-        .from(bbpsTransactions)
-        .where(eq(bbpsTransactions.transactionId, transactionId))
-        .limit(1);
+			console.log(
+				`✅ BBPS payment initiated: ${transactionId} -> Cashfree order: ${cashfreeOrder.orderId}`,
+			);
 
-      if (!transaction) {
-        throw new Error("Transaction not found");
-      }
+			return {
+				transaction: insertedTransaction,
+				paymentUrl: cashfreeOrder.paymentUrl || "",
+			};
+		} catch (error) {
+			console.error("Error initiating BBPS payment:", error);
+			throw error;
+		}
+	}
 
-      // Calculate commission (1% for successful payments)
-      const commissionAmount = status === "SUCCESS" 
-        ? (parseFloat(transaction.paymentAmount) * 0.01).toFixed(2)
-        : undefined;
+	// Confirm payment after Cashfree callback
+	async confirmPayment(params: {
+		transactionId: string;
+		cashfreeOrderId: string;
+		status: "SUCCESS" | "FAILED";
+		bbpsTransactionId?: string;
+		failureReason?: string;
+	}): Promise<BbpsTransaction> {
+		try {
+			const { transactionId, status, bbpsTransactionId, failureReason } =
+				params;
 
-      // Update transaction status
-      const [updatedTransaction] = await db
-        .update(bbpsTransactions)
-        .set({
-          paymentStatus: status,
-          bbpsTransactionId: bbpsTransactionId || `BBPS${transactionId}`,
-          completedAt: new Date(),
-          failureReason,
-          commissionAmount,
-        })
-        .where(eq(bbpsTransactions.transactionId, transactionId))
-        .returning();
+			// Get transaction
+			const [transaction] = await db
+				.select()
+				.from(bbpsTransactions)
+				.where(eq(bbpsTransactions.transactionId, transactionId))
+				.limit(1);
 
-      console.log(`✅ BBPS payment ${status.toLowerCase()}: ${transactionId}`);
+			if (!transaction) {
+				throw new Error("Transaction not found");
+			}
 
-      return updatedTransaction;
-    } catch (error) {
-      console.error("Error confirming BBPS payment:", error);
-      throw error;
-    }
-  }
+			// Calculate commission (1% for successful payments)
+			const commissionAmount =
+				status === "SUCCESS"
+					? (Number.parseFloat(transaction.paymentAmount) * 0.01).toFixed(2)
+					: undefined;
 
-  // Legacy method for backward compatibility (now redirects to new flow)
-  async payBill(params: {
-    billId: string;
-    paymentAmount: string;
-    paymentMode: string;
-    userId: string;
-  }): Promise<BbpsTransaction> {
-    console.warn("⚠️ payBill() is deprecated. Use initiateBillPayment() instead.");
-    
-    const result = await this.initiateBillPayment({
-      billId: params.billId,
-      paymentAmount: params.paymentAmount,
-      userId: params.userId,
-    });
+			// Update transaction status
+			const [updatedTransaction] = await db
+				.update(bbpsTransactions)
+				.set({
+					paymentStatus: status,
+					bbpsTransactionId: bbpsTransactionId || `BBPS${transactionId}`,
+					completedAt: new Date(),
+					failureReason,
+					commissionAmount,
+				})
+				.where(eq(bbpsTransactions.transactionId, transactionId))
+				.returning();
 
-    return result.transaction;
-  }
+			console.log(`✅ BBPS payment ${status.toLowerCase()}: ${transactionId}`);
 
-  // Get user's bill history
-  async getUserBills(userId: string): Promise<BbpsCustomerBill[]> {
-    return await db
-      .select()
-      .from(bbpsCustomerBills)
-      .where(eq(bbpsCustomerBills.userId, userId))
-      .orderBy(bbpsCustomerBills.createdAt);
-  }
+			return updatedTransaction;
+		} catch (error) {
+			console.error("Error confirming BBPS payment:", error);
+			throw error;
+		}
+	}
 
-  // Get user's transaction history
-  async getUserTransactions(userId: string): Promise<BbpsTransaction[]> {
-    return await db
-      .select()
-      .from(bbpsTransactions)
-      .where(eq(bbpsTransactions.userId, userId))
-      .orderBy(bbpsTransactions.createdAt);
-  }
+	// Legacy method for backward compatibility (now redirects to new flow)
+	async payBill(params: {
+		billId: string;
+		paymentAmount: string;
+		paymentMode: string;
+		userId: string;
+	}): Promise<BbpsTransaction> {
+		console.warn(
+			"⚠️ payBill() is deprecated. Use initiateBillPayment() instead.",
+		);
 
-  // Get transaction status
-  async getTransactionStatus(transactionId: string): Promise<BbpsTransaction | null> {
-    const [transaction] = await db
-      .select()
-      .from(bbpsTransactions)
-      .where(eq(bbpsTransactions.transactionId, transactionId))
-      .limit(1);
+		const result = await this.initiateBillPayment({
+			billId: params.billId,
+			paymentAmount: params.paymentAmount,
+			userId: params.userId,
+		});
 
-    return transaction || null;
-  }
+		return result.transaction;
+	}
+
+	// Get user's bill history
+	async getUserBills(userId: string): Promise<BbpsCustomerBill[]> {
+		return await db
+			.select()
+			.from(bbpsCustomerBills)
+			.where(eq(bbpsCustomerBills.userId, userId))
+			.orderBy(bbpsCustomerBills.createdAt);
+	}
+
+	// Get user's transaction history
+	async getUserTransactions(userId: string): Promise<BbpsTransaction[]> {
+		return await db
+			.select()
+			.from(bbpsTransactions)
+			.where(eq(bbpsTransactions.userId, userId))
+			.orderBy(bbpsTransactions.createdAt);
+	}
+
+	// Get transaction status
+	async getTransactionStatus(
+		transactionId: string,
+	): Promise<BbpsTransaction | null> {
+		const [transaction] = await db
+			.select()
+			.from(bbpsTransactions)
+			.where(eq(bbpsTransactions.transactionId, transactionId))
+			.limit(1);
+
+		return transaction || null;
+	}
 }
 
 export default BBPSService.getInstance();

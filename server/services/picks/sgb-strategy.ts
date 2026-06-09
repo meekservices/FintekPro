@@ -131,7 +131,9 @@ export class SGBStrategy extends BaseStrategy {
 	 * Uses gold spot price from commodity_prices, or a benchmark price if unavailable.
 	 * The synthetic pick represents the SGB series concept with current gold NAV pricing.
 	 */
-	private async buildSyntheticSgbPick(context: StrategyContext): Promise<DailyPickData | null> {
+	private async buildSyntheticSgbPick(
+		context: StrategyContext,
+	): Promise<DailyPickData | null> {
 		// Try fetching gold price from commodity_prices table
 		let goldPrice: number | null = null;
 		try {
@@ -145,14 +147,16 @@ export class SGBStrategy extends BaseStrategy {
 			if (row?.current_price != null) {
 				goldPrice = Number.parseFloat(String(row.current_price));
 			}
-		} catch { /* non-fatal */ }
+		} catch {
+			/* non-fatal */
+		}
 
 		// Fallback gold price benchmark (per gram, approximate MCX Gold rate in INR)
 		// Typical gold price range: ₹6,000–9,000/gram. SGB is priced per gram.
-		const currentPrice = (goldPrice && goldPrice > 1000) ? goldPrice : 7_400;
+		const currentPrice = goldPrice && goldPrice > 1000 ? goldPrice : 7_400;
 
 		// SGB target: gold historically appreciates ~8% p.a. over 8 years
-		const targetPrice = Math.round(currentPrice * 1.10 * 100) / 100;
+		const targetPrice = Math.round(currentPrice * 1.1 * 100) / 100;
 		const stoplossPrice = Math.round(currentPrice * 0.92 * 100) / 100;
 		const sgbInterestRate = 2.5;
 
@@ -179,7 +183,9 @@ export class SGBStrategy extends BaseStrategy {
 			rationale = `Sovereign Gold Bonds (SGBs) are government securities denominated in grams of gold. They offer a fixed interest of 2.5% p.a. plus capital appreciation tied to gold prices. Ideal for long-term wealth preservation with sovereign safety.`;
 		}
 
-		console.log(`[SGBStrategy] No active SGB tranches found. Using synthetic SGB pick at gold price ₹${currentPrice}/g`);
+		console.log(
+			`[SGBStrategy] No active SGB tranches found. Using synthetic SGB pick at gold price ₹${currentPrice}/g`,
+		);
 
 		return {
 			category: "sgb",

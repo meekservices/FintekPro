@@ -21,24 +21,25 @@
  * @param decimals - Decimal places for Cr/L suffix (default 2)
  */
 export function formatCurrency(
-  amount: number | string | undefined | null,
-  decimals = 2
+	amount: number | string | undefined | null,
+	decimals = 2,
 ): string {
-  const n = typeof amount === "string" ? parseFloat(amount) : (amount ?? 0);
-  if (!isFinite(n)) return "₹0";
+	const n =
+		typeof amount === "string" ? Number.parseFloat(amount) : amount ?? 0;
+	if (!Number.isFinite(n)) return "₹0";
 
-  if (n >= 1_00_00_000) {
-    return `₹${(n / 1_00_00_000).toFixed(decimals)} Cr`;
-  }
-  if (n >= 1_00_000) {
-    return `₹${(n / 1_00_000).toFixed(decimals)} L`;
-  }
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(n);
+	if (n >= 1_00_00_000) {
+		return `₹${(n / 1_00_00_000).toFixed(decimals)} Cr`;
+	}
+	if (n >= 1_00_000) {
+		return `₹${(n / 1_00_000).toFixed(decimals)} L`;
+	}
+	return new Intl.NumberFormat("en-IN", {
+		style: "currency",
+		currency: "INR",
+		minimumFractionDigits: 0,
+		maximumFractionDigits: 0,
+	}).format(n);
 }
 
 /**
@@ -51,17 +52,18 @@ export const formatINR = formatCurrency;
  * Useful for showing exact NAV / price values.
  */
 export function formatCurrencyExact(
-  amount: number | string | undefined | null,
-  fractionDigits = 2
+	amount: number | string | undefined | null,
+	fractionDigits = 2,
 ): string {
-  const n = typeof amount === "string" ? parseFloat(amount) : (amount ?? 0);
-  if (!isFinite(n)) return "₹0.00";
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  }).format(n);
+	const n =
+		typeof amount === "string" ? Number.parseFloat(amount) : amount ?? 0;
+	if (!Number.isFinite(n)) return "₹0.00";
+	return new Intl.NumberFormat("en-IN", {
+		style: "currency",
+		currency: "INR",
+		minimumFractionDigits: fractionDigits,
+		maximumFractionDigits: fractionDigits,
+	}).format(n);
 }
 
 // ─── Percentage ──────────────────────────────────────────────────────────────
@@ -73,14 +75,14 @@ export function formatCurrencyExact(
  * @param decimals  - Decimal places (default 2)
  */
 export function formatPercent(
-  value: number | string | undefined | null,
-  isDecimal = false,
-  decimals = 2
+	value: number | string | undefined | null,
+	isDecimal = false,
+	decimals = 2,
 ): string {
-  const n = typeof value === "string" ? parseFloat(value) : (value ?? 0);
-  if (!isFinite(n)) return "0.00%";
-  const pct = isDecimal ? n * 100 : n;
-  return `${pct.toFixed(decimals)}%`;
+	const n = typeof value === "string" ? Number.parseFloat(value) : value ?? 0;
+	if (!Number.isFinite(n)) return "0.00%";
+	const pct = isDecimal ? n * 100 : n;
+	return `${pct.toFixed(decimals)}%`;
 }
 
 // ─── Numbers ─────────────────────────────────────────────────────────────────
@@ -90,11 +92,11 @@ export function formatPercent(
  * e.g. 1234567 → "12,34,567"
  */
 export function formatIndianNumber(
-  value: number | string | undefined | null
+	value: number | string | undefined | null,
 ): string {
-  const n = typeof value === "string" ? parseFloat(value) : (value ?? 0);
-  if (!isFinite(n)) return "0";
-  return new Intl.NumberFormat("en-IN").format(n);
+	const n = typeof value === "string" ? Number.parseFloat(value) : value ?? 0;
+	if (!Number.isFinite(n)) return "0";
+	return new Intl.NumberFormat("en-IN").format(n);
 }
 
 /**
@@ -102,15 +104,15 @@ export function formatIndianNumber(
  * e.g. 1_50_00_000 → "1.50 Cr", 50_000 → "50.00 K"
  */
 export function formatCompactNumber(
-  value: number | string | undefined | null,
-  decimals = 2
+	value: number | string | undefined | null,
+	decimals = 2,
 ): string {
-  const n = typeof value === "string" ? parseFloat(value) : (value ?? 0);
-  if (!isFinite(n)) return "0";
-  if (n >= 1_00_00_000) return `${(n / 1_00_00_000).toFixed(decimals)} Cr`;
-  if (n >= 1_00_000) return `${(n / 1_00_000).toFixed(decimals)} L`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(decimals)} K`;
-  return String(n.toFixed(decimals));
+	const n = typeof value === "string" ? Number.parseFloat(value) : value ?? 0;
+	if (!Number.isFinite(n)) return "0";
+	if (n >= 1_00_00_000) return `${(n / 1_00_00_000).toFixed(decimals)} Cr`;
+	if (n >= 1_00_000) return `${(n / 1_00_000).toFixed(decimals)} L`;
+	if (n >= 1_000) return `${(n / 1_000).toFixed(decimals)} K`;
+	return String(n.toFixed(decimals));
 }
 
 // ─── Dates ───────────────────────────────────────────────────────────────────
@@ -120,35 +122,35 @@ export function formatCompactNumber(
  * e.g. "2024-03-15" → "15 Mar 2024"
  */
 export function formatDate(
-  date: string | Date | undefined | null,
-  locale = "en-IN"
+	date: string | Date | undefined | null,
+	locale = "en-IN",
 ): string {
-  if (!date) return "—";
-  const d = typeof date === "string" ? new Date(date) : date;
-  if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString(locale, {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+	if (!date) return "—";
+	const d = typeof date === "string" ? new Date(date) : date;
+	if (Number.isNaN(d.getTime())) return "—";
+	return d.toLocaleDateString(locale, {
+		day: "2-digit",
+		month: "short",
+		year: "numeric",
+	});
 }
 
 /**
  * Returns a relative time label: "2 days ago", "Just now", etc.
  */
 export function formatRelativeTime(
-  date: string | Date | undefined | null
+	date: string | Date | undefined | null,
 ): string {
-  if (!date) return "—";
-  const d = typeof date === "string" ? new Date(date) : date;
-  if (isNaN(d.getTime())) return "—";
-  const diffMs = Date.now() - d.getTime();
-  const diffMins = Math.floor(diffMs / 60_000);
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 30) return `${diffDays}d ago`;
-  return formatDate(d);
+	if (!date) return "—";
+	const d = typeof date === "string" ? new Date(date) : date;
+	if (Number.isNaN(d.getTime())) return "—";
+	const diffMs = Date.now() - d.getTime();
+	const diffMins = Math.floor(diffMs / 60_000);
+	if (diffMins < 1) return "Just now";
+	if (diffMins < 60) return `${diffMins}m ago`;
+	const diffHours = Math.floor(diffMins / 60);
+	if (diffHours < 24) return `${diffHours}h ago`;
+	const diffDays = Math.floor(diffHours / 24);
+	if (diffDays < 30) return `${diffDays}d ago`;
+	return formatDate(d);
 }

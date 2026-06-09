@@ -5,16 +5,16 @@ import { pool } from "../db";
  * Ensures issue_name column exists in sgb_primary_issues and sovereign_gold_bonds.
  */
 export async function runSgbRepair(): Promise<void> {
-  let client: import("pg").PoolClient | null = null;
-  try {
-    console.log("[SGBRepair] Checking for schema repairs...");
+	let client: import("pg").PoolClient | null = null;
+	try {
+		console.log("[SGBRepair] Checking for schema repairs...");
 
-    // Acquire a dedicated client and disable statement_timeout for this session
-    client = await pool.connect();
-    await client.query("SET statement_timeout = 0");
+		// Acquire a dedicated client and disable statement_timeout for this session
+		client = await pool.connect();
+		await client.query("SET statement_timeout = 0");
 
-    // 1. Repair sgb_primary_issues
-    await client.query(`
+		// 1. Repair sgb_primary_issues
+		await client.query(`
       DO $$
       BEGIN
           IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'sgb_primary_issues') THEN
@@ -31,8 +31,8 @@ export async function runSgbRepair(): Promise<void> {
       END $$;
     `);
 
-    // 2. Repair sovereign_gold_bonds
-    await client.query(`
+		// 2. Repair sovereign_gold_bonds
+		await client.query(`
       DO $$
       BEGIN
           IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'sovereign_gold_bonds') THEN
@@ -51,17 +51,19 @@ export async function runSgbRepair(): Promise<void> {
       END $$;
     `);
 
-    console.log("✅ [SGBRepair] DB repair complete (sgb_primary_issues, sovereign_gold_bonds)");
-  } catch (e: any) {
-    console.error("❌ [SGBRepair] Migration error:", e?.message);
-  } finally {
-    if (client) {
-      try {
-        await client.query("RESET statement_timeout");
-      } catch (_) {
-        // Ignore — client may already be dead
-      }
-      client.release();
-    }
-  }
+		console.log(
+			"✅ [SGBRepair] DB repair complete (sgb_primary_issues, sovereign_gold_bonds)",
+		);
+	} catch (e: any) {
+		console.error("❌ [SGBRepair] Migration error:", e?.message);
+	} finally {
+		if (client) {
+			try {
+				await client.query("RESET statement_timeout");
+			} catch (_) {
+				// Ignore — client may already be dead
+			}
+			client.release();
+		}
+	}
 }

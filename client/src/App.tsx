@@ -35,141 +35,174 @@ import { useAuth } from "@/hooks/useAuth";
 import { IdleTimeoutManager } from "@/components/IdleTimeoutManager";
 import { UniversalKYCWall } from "@/components/UniversalKYCWall";
 import {
-  LandingPage, ExcelAddin, Profile, PublicProfilePage, PublicProposalPage,
-  OnboardingPage, CARegistration, ManualKYCPage, KYCProductEligibility,
-  VideoKYC, KycRejectionRekyc, NetWorthPage, PricingPage, Privacy, Terms,
-  RefundPolicy, InvestmentDisclaimer, TesterDiagnostics, AdminProposalsPage,
-  UnlistedCompaniesAdmin, UnlistedNegotiations, AdminPanel, AgentDashboard,
+	LandingPage,
+	ExcelAddin,
+	Profile,
+	PublicProfilePage,
+	PublicProposalPage,
+	OnboardingPage,
+	CARegistration,
+	ManualKYCPage,
+	KYCProductEligibility,
+	VideoKYC,
+	KycRejectionRekyc,
+	NetWorthPage,
+	PricingPage,
+	Privacy,
+	Terms,
+	RefundPolicy,
+	InvestmentDisclaimer,
+	TesterDiagnostics,
+	AdminProposalsPage,
+	UnlistedCompaniesAdmin,
+	UnlistedNegotiations,
+	AdminPanel,
+	AgentDashboard,
 } from "@/routes/lazy-pages";
 
-
-
-
 function IdleTimeoutWrapper() {
-  const { user } = useAuth();
-  return <IdleTimeoutManager isAuthenticated={!!user} timeoutMinutes={60} />;
+	const { user } = useAuth();
+	return <IdleTimeoutManager isAuthenticated={!!user} timeoutMinutes={60} />;
 }
 
 function Router() {
-  const { isAdminPortal, isPartnerPortal, isAgentPortal } = useSubdomain();
+	const { isAdminPortal, isPartnerPortal, isAgentPortal } = useSubdomain();
 
-  // Render admin portal on admin subdomain
-  if (isAdminPortal) {
-    return (<Suspense fallback={<LoadingState />}><IdleTimeoutWrapper /><AdminRoutes /></Suspense>);
-  }
+	// Render admin portal on admin subdomain
+	if (isAdminPortal) {
+		return (
+			<Suspense fallback={<LoadingState />}>
+				<IdleTimeoutWrapper />
+				<AdminRoutes />
+			</Suspense>
+		);
+	}
 
-  // Render partner portal on partner subdomain
-  if (isPartnerPortal) {
-    return (<Suspense fallback={<LoadingState />}><IdleTimeoutWrapper /><PartnerRoutes /></Suspense>);
-  }
+	// Render partner portal on partner subdomain
+	if (isPartnerPortal) {
+		return (
+			<Suspense fallback={<LoadingState />}>
+				<IdleTimeoutWrapper />
+				<PartnerRoutes />
+			</Suspense>
+		);
+	}
 
-  // Render agent portal on agent subdomain
-  if (isAgentPortal) {
-    return (<Suspense fallback={<LoadingState />}><IdleTimeoutWrapper /><AgentRoutes /></Suspense>);
-  }
+	// Render agent portal on agent subdomain
+	if (isAgentPortal) {
+		return (
+			<Suspense fallback={<LoadingState />}>
+				<IdleTimeoutWrapper />
+				<AgentRoutes />
+			</Suspense>
+		);
+	}
 
-  // Render client portal on main domain
-  return (
-    <Suspense fallback={<LoadingState />}>
-    <LayoutResolver>
-      <IdleTimeoutWrapper />
-      <Switch>
-        {/* Public routes - no authentication or profile completion required */}
-        <Route path="/" component={LandingPage} />
-        <Route path="/auth" component={AuthPage} />
-        <Route path="/excel-addin" component={ExcelAddin} />
-        <Route path="/profile" component={Profile} />
-        <Route path="/profile/p/:code" component={PublicProfilePage} />
-        <Route path="/proposal/:shareToken" component={PublicProposalPage} />
-        <Route path="/onboarding" component={OnboardingPage} />
-        <Route path="/ca-registration" component={CARegistration} />
-        <Route path="/manual-kyc" component={ManualKYCPage} />
-        <Route path="/kyc-dashboard">
-          <Redirect to="/profile?tab=kyc-dashboard" />
-        </Route>
-        <Route path="/kyc/complete">
-          <Redirect to="/profile?tab=kyc-dashboard" />
-        </Route>
-        <Route path="/product-eligibility" component={KYCProductEligibility} />
-        <Route path="/video-kyc" component={VideoKYC} />
-        <Route path="/kyc-rejections" component={KycRejectionRekyc} />
-        <Route path="/net-worth" component={NetWorthPage} />
-        <Route path="/pricing" component={PricingPage} />
-        <Route path="/privacy" component={Privacy} />
-        <Route path="/terms" component={Terms} />
-        <Route path="/refund-policy" component={RefundPolicy} />
-        <Route path="/disclaimer" component={InvestmentDisclaimer} />
-        
-        {/* Agent/Admin routes - bypass profile completion but require authentication */}
-        <Route path="/tester-diagnostics" component={TesterDiagnostics} />
-        <Route path="/admin/proposals" component={AdminProposalsPage} />
-        <Route path="/admin/unlisted/companies">
-          {() => (
-            <AdminLayout>
-              <UnlistedCompaniesAdmin />
-            </AdminLayout>
-          )}
-        </Route>
-        <Route path="/admin/unlisted/negotiations">
-          {() => (
-            <AdminLayout>
-              <UnlistedNegotiations />
-            </AdminLayout>
-          )}
-        </Route>
-        <Route path="/admin" component={AdminPanel} />
-        <Route path="/agent" component={AgentDashboard} />
-        
-        <Route path="/p/:code" component={PublicProfilePage} />
-        {/* User routes - require both authentication and profile completion */}
-        <Route component={UserProtectedRoutes} />
-      </Switch>
-    </LayoutResolver>
-    </Suspense>
-  );
+	// Render client portal on main domain
+	return (
+		<Suspense fallback={<LoadingState />}>
+			<LayoutResolver>
+				<IdleTimeoutWrapper />
+				<Switch>
+					{/* Public routes - no authentication or profile completion required */}
+					<Route path="/" component={LandingPage} />
+					<Route path="/auth" component={AuthPage} />
+					<Route path="/excel-addin" component={ExcelAddin} />
+					<Route path="/profile" component={Profile} />
+					<Route path="/profile/p/:code" component={PublicProfilePage} />
+					<Route path="/proposal/:shareToken" component={PublicProposalPage} />
+					<Route path="/onboarding" component={OnboardingPage} />
+					<Route path="/ca-registration" component={CARegistration} />
+					<Route path="/manual-kyc" component={ManualKYCPage} />
+					<Route path="/kyc-dashboard">
+						<Redirect to="/profile?tab=kyc-dashboard" />
+					</Route>
+					<Route path="/kyc/complete">
+						<Redirect to="/profile?tab=kyc-dashboard" />
+					</Route>
+					<Route
+						path="/product-eligibility"
+						component={KYCProductEligibility}
+					/>
+					<Route path="/video-kyc" component={VideoKYC} />
+					<Route path="/kyc-rejections" component={KycRejectionRekyc} />
+					<Route path="/net-worth" component={NetWorthPage} />
+					<Route path="/pricing" component={PricingPage} />
+					<Route path="/privacy" component={Privacy} />
+					<Route path="/terms" component={Terms} />
+					<Route path="/refund-policy" component={RefundPolicy} />
+					<Route path="/disclaimer" component={InvestmentDisclaimer} />
+
+					{/* Agent/Admin routes - bypass profile completion but require authentication */}
+					<Route path="/tester-diagnostics" component={TesterDiagnostics} />
+					<Route path="/admin/proposals" component={AdminProposalsPage} />
+					<Route path="/admin/unlisted/companies">
+						{() => (
+							<AdminLayout>
+								<UnlistedCompaniesAdmin />
+							</AdminLayout>
+						)}
+					</Route>
+					<Route path="/admin/unlisted/negotiations">
+						{() => (
+							<AdminLayout>
+								<UnlistedNegotiations />
+							</AdminLayout>
+						)}
+					</Route>
+					<Route path="/admin" component={AdminPanel} />
+					<Route path="/agent" component={AgentDashboard} />
+
+					<Route path="/p/:code" component={PublicProfilePage} />
+					{/* User routes - require both authentication and profile completion */}
+					<Route component={UserProtectedRoutes} />
+				</Switch>
+			</LayoutResolver>
+		</Suspense>
+	);
 }
 
 function App() {
-  useEffect(() => {
-    const loader = document.getElementById('initial-loader');
-    if (loader) loader.remove();
-    // Clear all stale-chunk reload guards so every portal recovers cleanly after a deploy.
-    // These are set by lazyWithRetry and the vite:preloadError handler.
-    sessionStorage.removeItem('preload-err-reload');
-    for (const key of Object.keys(sessionStorage)) {
-      if (key.startsWith('chunk-reload-')) sessionStorage.removeItem(key);
-    }
-  }, []);
-  return (
-    <ErrorBoundary>
-      <NetworkProvider>
-      <LowDataProvider>
-        <ThemeProvider>
-        <QueryClientProvider client={queryClient}>
-          <PortalThemeProvider>
-          <UserPreferencesProvider>
-          <UnifiedCartProvider>
-            <TooltipProvider>
-              <VersionCheckModal />
-              <UpdateNotificationBanner />
-              <NetworkStatusBanner />
-              <GlobalActionQueueMonitor />
-              <DSCBackgroundSync />
-              <Toaster />
-              <GDPRConsent />
-              <UniversalKYCWall>
-                <Router />
-              </UniversalKYCWall>
-            </TooltipProvider>
-          </UnifiedCartProvider>
-          </UserPreferencesProvider>
-          </PortalThemeProvider>
-        </QueryClientProvider>
-      </ThemeProvider>
-        </LowDataProvider>
-    </NetworkProvider>
-    </ErrorBoundary>
-  );
+	useEffect(() => {
+		const loader = document.getElementById("initial-loader");
+		if (loader) loader.remove();
+		// Clear all stale-chunk reload guards so every portal recovers cleanly after a deploy.
+		// These are set by lazyWithRetry and the vite:preloadError handler.
+		sessionStorage.removeItem("preload-err-reload");
+		for (const key of Object.keys(sessionStorage)) {
+			if (key.startsWith("chunk-reload-")) sessionStorage.removeItem(key);
+		}
+	}, []);
+	return (
+		<ErrorBoundary>
+			<NetworkProvider>
+				<LowDataProvider>
+					<ThemeProvider>
+						<QueryClientProvider client={queryClient}>
+							<PortalThemeProvider>
+								<UserPreferencesProvider>
+									<UnifiedCartProvider>
+										<TooltipProvider>
+											<VersionCheckModal />
+											<UpdateNotificationBanner />
+											<NetworkStatusBanner />
+											<GlobalActionQueueMonitor />
+											<DSCBackgroundSync />
+											<Toaster />
+											<GDPRConsent />
+											<UniversalKYCWall>
+												<Router />
+											</UniversalKYCWall>
+										</TooltipProvider>
+									</UnifiedCartProvider>
+								</UserPreferencesProvider>
+							</PortalThemeProvider>
+						</QueryClientProvider>
+					</ThemeProvider>
+				</LowDataProvider>
+			</NetworkProvider>
+		</ErrorBoundary>
+	);
 }
 
 export default App;

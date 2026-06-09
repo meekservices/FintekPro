@@ -1,176 +1,202 @@
 // @ts-nocheck
-import { db } from '../db';
-import { prospectProposals, users, agents, prospectLeads } from '@shared/schema';
-import { eq } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
+import { db } from "../db";
+import {
+	prospectProposals,
+	users,
+	agents,
+	prospectLeads,
+} from "@shared/schema";
+import { eq } from "drizzle-orm";
+import { nanoid } from "nanoid";
 
 export interface AgreementGeneratorOptions {
-  proposalId: string;
-  versionNumber?: number;
-  includeDisclosures?: boolean;
-  includeRiskWarnings?: boolean;
-  watermark?: string;
+	proposalId: string;
+	versionNumber?: number;
+	includeDisclosures?: boolean;
+	includeRiskWarnings?: boolean;
+	watermark?: string;
 }
 
 export interface GeneratedAgreement {
-  documentHtml: string;
-  documentHash: string;
-  generatedAt: Date;
-  version: number;
-  editableFields: EditableField[];
+	documentHtml: string;
+	documentHash: string;
+	generatedAt: Date;
+	version: number;
+	editableFields: EditableField[];
 }
 
 export interface EditableField {
-  id: string;
-  name: string;
-  path: string;
-  type: 'text' | 'number' | 'date' | 'currency' | 'percentage';
-  currentValue: string;
-  isRequired: boolean;
-  isEditable: boolean;
+	id: string;
+	name: string;
+	path: string;
+	type: "text" | "number" | "date" | "currency" | "percentage";
+	currentValue: string;
+	isRequired: boolean;
+	isEditable: boolean;
 }
 
 class InvestmentAgreementGenerator {
-  private createDocumentHash(content: string): string {
-    const crypto = require('crypto');
-    return crypto.createHash('sha256').update(content).digest('hex');
-  }
+	private createDocumentHash(content: string): string {
+		const crypto = require("crypto");
+		return crypto.createHash("sha256").update(content).digest("hex");
+	}
 
-  private formatCurrency(amount: number, currency: string = 'INR'): string {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  }
+	private formatCurrency(amount: number, currency: string = "INR"): string {
+		return new Intl.NumberFormat("en-IN", {
+			style: "currency",
+			currency,
+			minimumFractionDigits: 0,
+			maximumFractionDigits: 2,
+		}).format(amount);
+	}
 
-  private formatDate(date: Date | string): string {
-    const d = typeof date === 'string' ? new Date(date) : date;
-    return d.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    });
-  }
+	private formatDate(date: Date | string): string {
+		const d = typeof date === "string" ? new Date(date) : date;
+		return d.toLocaleDateString("en-IN", {
+			day: "2-digit",
+			month: "long",
+			year: "numeric",
+		});
+	}
 
-  async generateAgreement(options: AgreementGeneratorOptions): Promise<GeneratedAgreement> {
-    const [proposal] = await db.select().from(prospectProposals)
-      .where(eq(prospectProposals.id, options.proposalId))
-      .limit(1);
+	async generateAgreement(
+		options: AgreementGeneratorOptions,
+	): Promise<GeneratedAgreement> {
+		const [proposal] = await db
+			.select()
+			.from(prospectProposals)
+			.where(eq(prospectProposals.id, options.proposalId))
+			.limit(1);
 
-    if (!proposal) {
-      throw new Error('Proposal not found');
-    }
+		if (!proposal) {
+			throw new Error("Proposal not found");
+		}
 
-    const [prospect] = await db.select().from(prospectLeads)
-      .where(eq(prospectLeads.id, proposal.prospectId))
-      .limit(1);
+		const [prospect] = await db
+			.select()
+			.from(prospectLeads)
+			.where(eq(prospectLeads.id, proposal.prospectId))
+			.limit(1);
 
-    const [agent] = await db.select().from(agents)
-      .where(eq(agents.id, proposal.agentId))
-      .limit(1);
+		const [agent] = await db
+			.select()
+			.from(agents)
+			.where(eq(agents.id, proposal.agentId))
+			.limit(1);
 
-    const recommendedProducts = (proposal.recommendedProducts || []) as any[];
-    const totalInvestment = recommendedProducts.reduce((sum: number, p: any) => sum + (p.proposedAmount || 0), 0);
-    const version = options.versionNumber || 1;
+		const recommendedProducts = (proposal.recommendedProducts || []) as any[];
+		const totalInvestment = recommendedProducts.reduce(
+			(sum: number, p: any) => sum + (p.proposedAmount || 0),
+			0,
+		);
+		const version = options.versionNumber || 1;
 
-    const editableFields: EditableField[] = [
-      {
-        id: 'client_name',
-        name: 'Client Name',
-        path: 'client.name',
-        type: 'text',
-        currentValue: prospect?.name || '',
-        isRequired: true,
-        isEditable: true,
-      },
-      {
-        id: 'client_pan',
-        name: 'Client PAN',
-        path: 'client.pan',
-        type: 'text',
-        currentValue: prospect?.pan || '',
-        isRequired: true,
-        isEditable: false,
-      },
-      {
-        id: 'client_email',
-        name: 'Client Email',
-        path: 'client.email',
-        type: 'text',
-        currentValue: prospect?.email || '',
-        isRequired: true,
-        isEditable: true,
-      },
-      {
-        id: 'client_mobile',
-        name: 'Client Mobile',
-        path: 'client.mobile',
-        type: 'text',
-        currentValue: prospect?.mobile || '',
-        isRequired: true,
-        isEditable: true,
-      },
-      {
-        id: 'investment_amount',
-        name: 'Total Investment Amount',
-        path: 'investment.totalAmount',
-        type: 'currency',
-        currentValue: totalInvestment.toString(),
-        isRequired: true,
-        isEditable: false,
-      },
-      {
-        id: 'agreement_date',
-        name: 'Agreement Date',
-        path: 'agreement.date',
-        type: 'date',
-        currentValue: new Date().toISOString().split('T')[0],
-        isRequired: true,
-        isEditable: true,
-      },
-    ];
+		const editableFields: EditableField[] = [
+			{
+				id: "client_name",
+				name: "Client Name",
+				path: "client.name",
+				type: "text",
+				currentValue: prospect?.name || "",
+				isRequired: true,
+				isEditable: true,
+			},
+			{
+				id: "client_pan",
+				name: "Client PAN",
+				path: "client.pan",
+				type: "text",
+				currentValue: prospect?.pan || "",
+				isRequired: true,
+				isEditable: false,
+			},
+			{
+				id: "client_email",
+				name: "Client Email",
+				path: "client.email",
+				type: "text",
+				currentValue: prospect?.email || "",
+				isRequired: true,
+				isEditable: true,
+			},
+			{
+				id: "client_mobile",
+				name: "Client Mobile",
+				path: "client.mobile",
+				type: "text",
+				currentValue: prospect?.mobile || "",
+				isRequired: true,
+				isEditable: true,
+			},
+			{
+				id: "investment_amount",
+				name: "Total Investment Amount",
+				path: "investment.totalAmount",
+				type: "currency",
+				currentValue: totalInvestment.toString(),
+				isRequired: true,
+				isEditable: false,
+			},
+			{
+				id: "agreement_date",
+				name: "Agreement Date",
+				path: "agreement.date",
+				type: "date",
+				currentValue: new Date().toISOString().split("T")[0],
+				isRequired: true,
+				isEditable: true,
+			},
+		];
 
-    const documentHtml = this.generateHtmlDocument({
-      proposal,
-      prospect,
-      agent,
-      recommendedProducts,
-      totalInvestment,
-      version,
-      watermark: options.watermark,
-      includeDisclosures: options.includeDisclosures ?? true,
-      includeRiskWarnings: options.includeRiskWarnings ?? true,
-    });
+		const documentHtml = this.generateHtmlDocument({
+			proposal,
+			prospect,
+			agent,
+			recommendedProducts,
+			totalInvestment,
+			version,
+			watermark: options.watermark,
+			includeDisclosures: options.includeDisclosures ?? true,
+			includeRiskWarnings: options.includeRiskWarnings ?? true,
+		});
 
-    const documentHash = this.createDocumentHash(documentHtml);
+		const documentHash = this.createDocumentHash(documentHtml);
 
-    return {
-      documentHtml,
-      documentHash,
-      generatedAt: new Date(),
-      version,
-      editableFields,
-    };
-  }
+		return {
+			documentHtml,
+			documentHash,
+			generatedAt: new Date(),
+			version,
+			editableFields,
+		};
+	}
 
-  private generateHtmlDocument(data: {
-    proposal: any;
-    prospect: any;
-    agent: any;
-    recommendedProducts: any[];
-    totalInvestment: number;
-    version: number;
-    watermark?: string;
-    includeDisclosures: boolean;
-    includeRiskWarnings: boolean;
-  }): string {
-    const { proposal, prospect, agent, recommendedProducts, totalInvestment, version, watermark, includeDisclosures, includeRiskWarnings } = data;
-    const agreementNumber = `INV-${new Date().getFullYear()}-${nanoid(8).toUpperCase()}`;
-    const agreementDate = this.formatDate(new Date());
+	private generateHtmlDocument(data: {
+		proposal: any;
+		prospect: any;
+		agent: any;
+		recommendedProducts: any[];
+		totalInvestment: number;
+		version: number;
+		watermark?: string;
+		includeDisclosures: boolean;
+		includeRiskWarnings: boolean;
+	}): string {
+		const {
+			proposal,
+			prospect,
+			agent,
+			recommendedProducts,
+			totalInvestment,
+			version,
+			watermark,
+			includeDisclosures,
+			includeRiskWarnings,
+		} = data;
+		const agreementNumber = `INV-${new Date().getFullYear()}-${nanoid(8).toUpperCase()}`;
+		const agreementDate = this.formatDate(new Date());
 
-    return `
+		return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -189,7 +215,7 @@ class InvestmentAgreementGenerator {
       color: #1a1a1a;
       margin: 0;
       padding: 40px;
-      ${watermark ? `background-image: url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="rgba(200,200,200,0.3)" font-size="48" transform="rotate(-45 200 200)">${watermark}</text></svg>`)}');` : ''}
+      ${watermark ? `background-image: url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="rgba(200,200,200,0.3)" font-size="48" transform="rotate(-45 200 200)">${watermark}</text></svg>`)}');` : ""}
     }
     .header {
       text-align: center;
@@ -373,7 +399,7 @@ class InvestmentAgreementGenerator {
       position: absolute;
       top: 20px;
       right: 20px;
-      background: ${version > 1 ? '#dc3545' : '#28a745'};
+      background: ${version > 1 ? "#dc3545" : "#28a745"};
       color: white;
       padding: 5px 10px;
       border-radius: 4px;
@@ -390,7 +416,7 @@ class InvestmentAgreementGenerator {
   </style>
 </head>
 <body>
-  <div class="version-stamp">Version ${version}${version > 1 ? ' (Revised)' : ' (Original)'}</div>
+  <div class="version-stamp">Version ${version}${version > 1 ? " (Revised)" : " (Original)"}</div>
   
   <div class="header">
     <h1>INVESTMENT AGREEMENT</h1>
@@ -408,7 +434,7 @@ class InvestmentAgreementGenerator {
     </div>
     <div>
       <label>Proposal Reference</label>
-      <span>${proposal.proposalTitle || 'Investment Proposal'}</span>
+      <span>${proposal.proposalTitle || "Investment Proposal"}</span>
     </div>
   </div>
 
@@ -419,23 +445,23 @@ class InvestmentAgreementGenerator {
       <h4>INVESTOR (First Party)</h4>
       <div class="party-detail">
         <label>Name:</label>
-        <span class="editable-field" data-field="client_name">${prospect?.name || 'Client Name'}</span>
+        <span class="editable-field" data-field="client_name">${prospect?.name || "Client Name"}</span>
       </div>
       <div class="party-detail">
         <label>PAN:</label>
-        <span>${prospect?.pan || 'XXXXX0000X'}</span>
+        <span>${prospect?.pan || "XXXXX0000X"}</span>
       </div>
       <div class="party-detail">
         <label>Email:</label>
-        <span class="editable-field" data-field="client_email">${prospect?.email || 'client@email.com'}</span>
+        <span class="editable-field" data-field="client_email">${prospect?.email || "client@email.com"}</span>
       </div>
       <div class="party-detail">
         <label>Mobile:</label>
-        <span class="editable-field" data-field="client_mobile">${prospect?.mobile || '+91-XXXXXXXXXX'}</span>
+        <span class="editable-field" data-field="client_mobile">${prospect?.mobile || "+91-XXXXXXXXXX"}</span>
       </div>
       <div class="party-detail">
         <label>Address:</label>
-        <span class="editable-field" data-field="client_address">${prospect?.address || 'Address'}</span>
+        <span class="editable-field" data-field="client_address">${prospect?.address || "Address"}</span>
       </div>
     </div>
 
@@ -443,15 +469,15 @@ class InvestmentAgreementGenerator {
       <h4>INVESTMENT ADVISOR (Second Party)</h4>
       <div class="party-detail">
         <label>Name:</label>
-        <span>${agent?.name || 'FintekPro Agent'}</span>
+        <span>${agent?.name || "FintekPro Agent"}</span>
       </div>
       <div class="party-detail">
         <label>SEBI Reg. No.:</label>
-        <span>${agent?.sebiRegistrationNumber || 'INA000XXXXX'}</span>
+        <span>${agent?.sebiRegistrationNumber || "INA000XXXXX"}</span>
       </div>
       <div class="party-detail">
         <label>Contact:</label>
-        <span>${agent?.email || 'agent@fintekpro.com'}</span>
+        <span>${agent?.email || "agent@fintekpro.com"}</span>
       </div>
     </div>
   </div>
@@ -469,15 +495,19 @@ class InvestmentAgreementGenerator {
         </tr>
       </thead>
       <tbody>
-        ${recommendedProducts.map((product: any, index: number) => `
+        ${recommendedProducts
+					.map(
+						(product: any, index: number) => `
         <tr>
           <td>${index + 1}</td>
-          <td>${product.name || product.productName || 'Investment Product'}</td>
-          <td>${product.type || product.productType || 'Equity'}</td>
-          <td>${product.riskLevel || 'Moderate'}</td>
+          <td>${product.name || product.productName || "Investment Product"}</td>
+          <td>${product.type || product.productType || "Equity"}</td>
+          <td>${product.riskLevel || "Moderate"}</td>
           <td class="amount">${this.formatCurrency(product.proposedAmount || 0)}</td>
         </tr>
-        `).join('')}
+        `,
+					)
+					.join("")}
         <tr class="total-row">
           <td colspan="4" style="text-align: right; font-weight: bold;">TOTAL INVESTMENT:</td>
           <td class="amount">${this.formatCurrency(totalInvestment)}</td>
@@ -486,7 +516,9 @@ class InvestmentAgreementGenerator {
     </table>
   </div>
 
-  ${includeRiskWarnings ? `
+  ${
+		includeRiskWarnings
+			? `
   <div class="risk-disclosure">
     <h4>⚠️ RISK DISCLOSURE STATEMENT</h4>
     <ul>
@@ -497,9 +529,13 @@ class InvestmentAgreementGenerator {
       <li>Tax benefits are subject to changes in tax laws. Consult your tax advisor for personalized advice.</li>
     </ul>
   </div>
-  ` : ''}
+  `
+			: ""
+	}
 
-  ${includeDisclosures ? `
+  ${
+		includeDisclosures
+			? `
   <div class="sebi-disclosure">
     <h4>📋 SEBI REGULATORY DISCLOSURE</h4>
     <p style="font-size: 10pt; margin: 0;">
@@ -509,7 +545,9 @@ class InvestmentAgreementGenerator {
       the jurisdiction of courts in Mumbai, India.
     </p>
   </div>
-  ` : ''}
+  `
+			: ""
+	}
 
   <div class="section terms">
     <h3 class="section-title">3. TERMS AND CONDITIONS</h3>
@@ -548,7 +586,7 @@ class InvestmentAgreementGenerator {
         <p class="signature-label">Signature / Digital Signature</p>
       </div>
       <p style="font-size: 10pt; margin-top: 5px;">
-        Name: <span class="editable-field" data-field="investor_name">${prospect?.name || '________________'}</span><br>
+        Name: <span class="editable-field" data-field="investor_name">${prospect?.name || "________________"}</span><br>
         Date: ________________<br>
         Place: ________________
       </p>
@@ -560,8 +598,8 @@ class InvestmentAgreementGenerator {
         <p class="signature-label">Authorized Signatory</p>
       </div>
       <p style="font-size: 10pt; margin-top: 5px;">
-        Name: ${agent?.name || 'Authorized Agent'}<br>
-        SEBI Reg. No.: ${agent?.sebiRegistrationNumber || 'INA000XXXXX'}<br>
+        Name: ${agent?.name || "Authorized Agent"}<br>
+        SEBI Reg. No.: ${agent?.sebiRegistrationNumber || "INA000XXXXX"}<br>
         Date: ________________
       </p>
     </div>
@@ -598,35 +636,39 @@ class InvestmentAgreementGenerator {
 </body>
 </html>
     `.trim();
-  }
+	}
 
-  async previewAgreement(proposalId: string): Promise<string> {
-    const agreement = await this.generateAgreement({
-      proposalId,
-      watermark: 'DRAFT',
-      includeDisclosures: true,
-      includeRiskWarnings: true,
-    });
-    return agreement.documentHtml;
-  }
+	async previewAgreement(proposalId: string): Promise<string> {
+		const agreement = await this.generateAgreement({
+			proposalId,
+			watermark: "DRAFT",
+			includeDisclosures: true,
+			includeRiskWarnings: true,
+		});
+		return agreement.documentHtml;
+	}
 
-  async createFinalAgreement(proposalId: string): Promise<GeneratedAgreement> {
-    return this.generateAgreement({
-      proposalId,
-      includeDisclosures: true,
-      includeRiskWarnings: true,
-    });
-  }
+	async createFinalAgreement(proposalId: string): Promise<GeneratedAgreement> {
+		return this.generateAgreement({
+			proposalId,
+			includeDisclosures: true,
+			includeRiskWarnings: true,
+		});
+	}
 
-  async createRevisedAgreement(proposalId: string, versionNumber: number, watermark?: string): Promise<GeneratedAgreement> {
-    return this.generateAgreement({
-      proposalId,
-      versionNumber,
-      watermark: watermark || `REVISION ${versionNumber}`,
-      includeDisclosures: true,
-      includeRiskWarnings: true,
-    });
-  }
+	async createRevisedAgreement(
+		proposalId: string,
+		versionNumber: number,
+		watermark?: string,
+	): Promise<GeneratedAgreement> {
+		return this.generateAgreement({
+			proposalId,
+			versionNumber,
+			watermark: watermark || `REVISION ${versionNumber}`,
+			includeDisclosures: true,
+			includeRiskWarnings: true,
+		});
+	}
 }
 
 export const investmentAgreementGenerator = new InvestmentAgreementGenerator();

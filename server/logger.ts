@@ -17,106 +17,113 @@ import { aiGovernanceAuditLogs } from "../shared/schema/ai";
 import { aiAuditLogs } from "../shared/schema/admin-copilot";
 import { v4 as uuidv4 } from "uuid";
 import { randomUUID } from "crypto";
-import { GovernanceInput, GovernanceOutput } from "./services/ai-governance/types";
+import {
+	GovernanceInput,
+	GovernanceOutput,
+} from "./services/ai-governance/types";
 
 export interface AuditEntry {
-  userId?:           string;
-  userRole?:         string;
-  agentType:         string;
-  agentAction:       string;
-  entityId?:         string;
-  entityType?:       string;
-  inputContext?:     Record<string, unknown>;
-  outputSummary?:    string;
-  confidenceScore?:  number;
-  modelVersion?:     string;
-  approvalStatus?:   string;
-  approvingAdmin?:   string;
-  externalApiCalled?: boolean;
-  externalService?:  string;
-  externalCallStatus?: string;
-  externalCallMs?:   number;
-  latencyMs?:        number;
-  status?:           string;
-  errorCode?:        string;
-  errorMessage?:     string;
-  retryable?:        boolean;
-  source?:           string;
+	userId?: string;
+	userRole?: string;
+	agentType: string;
+	agentAction: string;
+	entityId?: string;
+	entityType?: string;
+	inputContext?: Record<string, unknown>;
+	outputSummary?: string;
+	confidenceScore?: number;
+	modelVersion?: string;
+	approvalStatus?: string;
+	approvingAdmin?: string;
+	externalApiCalled?: boolean;
+	externalService?: string;
+	externalCallStatus?: string;
+	externalCallMs?: number;
+	latencyMs?: number;
+	status?: string;
+	errorCode?: string;
+	errorMessage?: string;
+	retryable?: boolean;
+	source?: string;
 }
 
 export class AIGovernanceAuditLogger {
-  async logGovernanceDecision(
-    input: GovernanceInput, 
-    output: GovernanceOutput,
-    traceId?: string
-  ): Promise<string> {
-    const auditId = uuidv4();
-    
-    // We do not await this insertion, it fires in the background (fire-and-forget) to minimize latency overhead < 300ms
-    db.insert(aiGovernanceAuditLogs)
-      .values({
-        auditId,
-        userId: input.user_id,
-        inputQuery: input.query,
-        aiRawOutput: input.ai_output || {},
-        finalOutput: output.final_output,
-        decision: output.decision,
-        violations: output.violations,
-        riskFlags: output.risk_flags || [],
-        modelVersion: input.ai_output?.model_version || "unknown-version",
-        traceId: traceId || input.trace_id || auditId
-      })
-      .execute()
-      .catch((err) => {
-        console.error(`[AAGE Critical Failure] Failed to append AI Governance Log: ${err.message}`);
-      });
-      
-    return auditId;
-  }
+	async logGovernanceDecision(
+		input: GovernanceInput,
+		output: GovernanceOutput,
+		traceId?: string,
+	): Promise<string> {
+		const auditId = uuidv4();
+
+		// We do not await this insertion, it fires in the background (fire-and-forget) to minimize latency overhead < 300ms
+		db.insert(aiGovernanceAuditLogs)
+			.values({
+				auditId,
+				userId: input.user_id,
+				inputQuery: input.query,
+				aiRawOutput: input.ai_output || {},
+				finalOutput: output.final_output,
+				decision: output.decision,
+				violations: output.violations,
+				riskFlags: output.risk_flags || [],
+				modelVersion: input.ai_output?.model_version || "unknown-version",
+				traceId: traceId || input.trace_id || auditId,
+			})
+			.execute()
+			.catch((err) => {
+				console.error(
+					`[AAGE Critical Failure] Failed to append AI Governance Log: ${err.message}`,
+				);
+			});
+
+		return auditId;
+	}
 }
 
 export const aiGovernanceAuditLogger = new AIGovernanceAuditLogger();
 
 export async function auditLog(entry: AuditEntry): Promise<string> {
-  const auditId = randomUUID();
+	const auditId = randomUUID();
 
-  try {
-    await db.insert(aiAuditLogs).values({
-      ...entry,
-      id:           auditId,
-      modelVersion: entry.modelVersion ?? 'gemini-2.0-flash',
-      source:       entry.source ?? 'api',
-      status:       entry.status ?? 'success',
-    });
-  } catch (dbErr: any) {
-    // Fallback: emit to Cloud Logging — never fail the caller
-    console.error('[AuditLogger] DB insert failed — fallback to console log', {
-      auditId,
-      agentType:   entry.agentType,
-      agentAction: entry.agentAction,
-      error:       dbErr?.message,
-    });
-    console.log('[AUDIT_FALLBACK]', JSON.stringify({ auditId, ...entry }));
-  }
+	try {
+		await db.insert(aiAuditLogs).values({
+			...entry,
+			id: auditId,
+			modelVersion: entry.modelVersion ?? "gemini-2.0-flash",
+			source: entry.source ?? "api",
+			status: entry.status ?? "success",
+		});
+	} catch (dbErr: any) {
+		// Fallback: emit to Cloud Logging — never fail the caller
+		console.error("[AuditLogger] DB insert failed — fallback to console log", {
+			auditId,
+			agentType: entry.agentType,
+			agentAction: entry.agentAction,
+			error: dbErr?.message,
+		});
+		console.log("[AUDIT_FALLBACK]", JSON.stringify({ auditId, ...entry }));
+	}
 
-  return auditId;
+	return auditId;
 }
 
 export function logCopilotEvent(
-  event:     string,
-  userId:    string | undefined,
-  latencyMs: number,
-  status:    'success' | 'failure' | 'partial',
-  extra?:    Record<string, unknown>,
+	event: string,
+	userId: string | undefined,
+	latencyMs: number,
+	status: "success" | "failure" | "partial",
+	extra?: Record<string, unknown>,
 ): void {
-  console.log(JSON.stringify({
-    event,
-    user_id:    userId,
-    latency_ms: latencyMs,
-    status,
-    ...extra,
-    timestamp: new Date().toISOString(),
-  }));
+	console.log(
+		JSON.stringify({
+			event,
+			user_id: userId,
+			latency_ms: latencyMs,
+			status,
+			...extra,
+			timestamp: new Date().toISOString(),
+		}),
+	);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,49 +135,51 @@ export function logCopilotEvent(
  * Applied in order — more specific patterns first.
  */
 const PII_PATTERNS: [RegExp, string][] = [
-  // PAN: 5 letters + 4 digits + 1 letter (e.g. ABCDE1234F)
-  [/\b[A-Z]{5}[0-9]{4}[A-Z]\b/g,                                '[PAN-REDACTED]'],
-  // Aadhaar: exactly 12 consecutive digits (not part of a longer number)
-  [/(?<!\d)\d{12}(?!\d)/g,                                      '[AADHAAR-REDACTED]'],
-  // Indian mobile: optional +91/91/0 prefix, then 10-digit starting 6-9
-  [/(?:\+91|91|0)?[6-9]\d{9}\b/g,                              '[PHONE-REDACTED]'],
-  // Email address
-  [/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g,      '[EMAIL-REDACTED]'],
-  // IFSC code (4 letters + 0 + 6 alphanumeric)
-  [/\b[A-Z]{4}0[A-Z0-9]{6}\b/g,                               '[IFSC-REDACTED]'],
-  // Bank account-like numbers: 9-18 consecutive digits
-  [/(?<![.\d])\d{9,18}(?![.\d])/g,                            '[ACCOUNT-REDACTED]'],
+	// PAN: 5 letters + 4 digits + 1 letter (e.g. ABCDE1234F)
+	[/\b[A-Z]{5}[0-9]{4}[A-Z]\b/g, "[PAN-REDACTED]"],
+	// Aadhaar: exactly 12 consecutive digits (not part of a longer number)
+	[/(?<!\d)\d{12}(?!\d)/g, "[AADHAAR-REDACTED]"],
+	// Indian mobile: optional +91/91/0 prefix, then 10-digit starting 6-9
+	[/(?:\+91|91|0)?[6-9]\d{9}\b/g, "[PHONE-REDACTED]"],
+	// Email address
+	[/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, "[EMAIL-REDACTED]"],
+	// IFSC code (4 letters + 0 + 6 alphanumeric)
+	[/\b[A-Z]{4}0[A-Z0-9]{6}\b/g, "[IFSC-REDACTED]"],
+	// Bank account-like numbers: 9-18 consecutive digits
+	[/(?<![.\d])\d{9,18}(?![.\d])/g, "[ACCOUNT-REDACTED]"],
 ];
 
 function scrubPii(raw: string): string {
-  let out = raw;
-  for (const [pattern, replacement] of PII_PATTERNS) {
-    out = out.replace(pattern, replacement);
-  }
-  return out;
+	let out = raw;
+	for (const [pattern, replacement] of PII_PATTERNS) {
+		out = out.replace(pattern, replacement);
+	}
+	return out;
 }
 
 function safeJson(arg: unknown): string {
-  const seen = new WeakSet();
-  return JSON.stringify(arg, (_key, value) => {
-    if (typeof value === 'object' && value !== null) {
-      if (seen.has(value)) return '[Circular]';
-      seen.add(value);
-    }
-    return value;
-  }) ?? String(arg);
+	const seen = new WeakSet();
+	return (
+		JSON.stringify(arg, (_key, value) => {
+			if (typeof value === "object" && value !== null) {
+				if (seen.has(value)) return "[Circular]";
+				seen.add(value);
+			}
+			return value;
+		}) ?? String(arg)
+	);
 }
 
 function serializeArg(arg: unknown): string {
-  if (arg === null)           return 'null';
-  if (arg === undefined)      return 'undefined';
-  if (typeof arg === 'string') return arg;
-  if (arg instanceof Error)   return `${arg.name}: ${arg.message}${arg.stack ? '\n' + arg.stack : ''}`;
-  if (Array.isArray(arg))     return safeJson(arg);
-  if (typeof arg === 'object') return safeJson(arg);
-  return String(arg);
+	if (arg === null) return "null";
+	if (arg === undefined) return "undefined";
+	if (typeof arg === "string") return arg;
+	if (arg instanceof Error)
+		return `${arg.name}: ${arg.message}${arg.stack ? "\n" + arg.stack : ""}`;
+	if (Array.isArray(arg)) return safeJson(arg);
+	if (typeof arg === "object") return safeJson(arg);
+	return String(arg);
 }
-
 
 /**
  * Overrides console.log/warn/error/info/debug in production to scrub PII
@@ -185,162 +194,187 @@ function serializeArg(arg: unknown): string {
  * @edge     Large objects are JSON.stringify'd — circular refs are caught
  */
 function installPiiScrubber(): void {
-  if (process.env.NODE_ENV !== 'production') return;
+	if (process.env.NODE_ENV !== "production") return;
 
-  const methods = ['log', 'warn', 'error', 'info', 'debug'] as const;
+	const methods = ["log", "warn", "error", "info", "debug"] as const;
 
-  for (const method of methods) {
-    const original = console[method].bind(console);
-    console[method] = (...args: unknown[]) => {
-      const scrubbed = args.map((a) => scrubPii(serializeArg(a)));
-      original(...scrubbed);
-    };
-  }
+	for (const method of methods) {
+		const original = console[method].bind(console);
+		console[method] = (...args: unknown[]) => {
+			const scrubbed = args.map((a) => scrubPii(serializeArg(a)));
+			original(...scrubbed);
+		};
+	}
 }
 
 // Install immediately at module load (before any other logger usage)
 installPiiScrubber();
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
+type LogLevel = "debug" | "info" | "warn" | "error" | "fatal";
 
 interface LogContext {
-  [key: string]: any;
+	[key: string]: any;
 }
 
 interface LogEntry {
-  timestamp: string;
-  level: LogLevel;
-  message: string;
-  context?: LogContext;
-  error?: {
-    message: string;
-    stack?: string;
-    name?: string;
-  };
+	timestamp: string;
+	level: LogLevel;
+	message: string;
+	context?: LogContext;
+	error?: {
+		message: string;
+		stack?: string;
+		name?: string;
+	};
 }
 
 const LOG_LEVELS: Record<LogLevel, number> = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
-  fatal: 4,
+	debug: 0,
+	info: 1,
+	warn: 2,
+	error: 3,
+	fatal: 4,
 };
 
 class Logger {
-  private minLevel: LogLevel;
-  private isProduction: boolean;
+	private minLevel: LogLevel;
+	private isProduction: boolean;
 
-  constructor() {
-    this.isProduction = process.env.NODE_ENV === 'production';
-    this.minLevel = (process.env.LOG_LEVEL as LogLevel) || (this.isProduction ? 'info' : 'debug');
-  }
+	constructor() {
+		this.isProduction = process.env.NODE_ENV === "production";
+		this.minLevel =
+			(process.env.LOG_LEVEL as LogLevel) ||
+			(this.isProduction ? "info" : "debug");
+	}
 
-  private shouldLog(level: LogLevel): boolean {
-    return LOG_LEVELS[level] >= LOG_LEVELS[this.minLevel];
-  }
+	private shouldLog(level: LogLevel): boolean {
+		return LOG_LEVELS[level] >= LOG_LEVELS[this.minLevel];
+	}
 
-  private formatLog(entry: LogEntry): string {
-    if (this.isProduction) {
-      // JSON format for production (easy to parse by log aggregators)
-      return JSON.stringify(entry);
-    } else {
-      // Human-readable format for development
-      const emoji = {
-        debug: '🐛',
-        info: 'ℹ️',
-        warn: '⚠️',
-        error: '❌',
-        fatal: '💀',
-      }[entry.level];
+	private formatLog(entry: LogEntry): string {
+		if (this.isProduction) {
+			// JSON format for production (easy to parse by log aggregators)
+			return JSON.stringify(entry);
+		}
+		// Human-readable format for development
+		const emoji = {
+			debug: "🐛",
+			info: "ℹ️",
+			warn: "⚠️",
+			error: "❌",
+			fatal: "💀",
+		}[entry.level];
 
-      let output = `${emoji} [${entry.level.toUpperCase()}] ${entry.message}`;
-      
-      if (entry.context && Object.keys(entry.context).length > 0) {
-        output += ` | ${JSON.stringify(entry.context)}`;
-      }
-      
-      if (entry.error) {
-        output += `\n  Error: ${entry.error.message}`;
-        if (entry.error.stack) {
-          output += `\n  Stack: ${entry.error.stack}`;
-        }
-      }
-      
-      return output;
-    }
-  }
+		let output = `${emoji} [${entry.level.toUpperCase()}] ${entry.message}`;
 
-  private log(level: LogLevel, message: string, context?: LogContext, error?: Error): void {
-    if (!this.shouldLog(level)) return;
+		if (entry.context && Object.keys(entry.context).length > 0) {
+			output += ` | ${JSON.stringify(entry.context)}`;
+		}
 
-    const entry: LogEntry = {
-      timestamp: new Date().toISOString(),
-      level,
-      message,
-      context,
-    };
+		if (entry.error) {
+			output += `\n  Error: ${entry.error.message}`;
+			if (entry.error.stack) {
+				output += `\n  Stack: ${entry.error.stack}`;
+			}
+		}
 
-    if (error) {
-      entry.error = {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      };
-    }
+		return output;
+	}
 
-    const formatted = this.formatLog(entry);
+	private log(
+		level: LogLevel,
+		message: string,
+		context?: LogContext,
+		error?: Error,
+	): void {
+		if (!this.shouldLog(level)) return;
 
-    // Output to appropriate stream
-    if (level === 'error' || level === 'fatal') {
-      console.error(formatted);
-    } else if (level === 'warn') {
-      console.warn(formatted);
-    } else {
-      console.log(formatted);
-    }
-  }
+		const entry: LogEntry = {
+			timestamp: new Date().toISOString(),
+			level,
+			message,
+			context,
+		};
 
-  debug(message: string, context?: LogContext): void {
-    this.log('debug', message, context);
-  }
+		if (error) {
+			entry.error = {
+				message: error.message,
+				stack: error.stack,
+				name: error.name,
+			};
+		}
 
-  info(message: string, context?: LogContext): void {
-    this.log('info', message, context);
-  }
+		const formatted = this.formatLog(entry);
 
-  warn(message: string, context?: LogContext): void {
-    this.log('warn', message, context);
-  }
+		// Output to appropriate stream
+		if (level === "error" || level === "fatal") {
+			console.error(formatted);
+		} else if (level === "warn") {
+			console.warn(formatted);
+		} else {
+			console.log(formatted);
+		}
+	}
 
-  error(message: string, contextOrError?: LogContext | Error, error?: Error): void {
-    if (contextOrError instanceof Error) {
-      this.log('error', message, undefined, contextOrError);
-    } else {
-      this.log('error', message, contextOrError, error);
-    }
-  }
+	debug(message: string, context?: LogContext): void {
+		this.log("debug", message, context);
+	}
 
-  fatal(message: string, contextOrError?: LogContext | Error, error?: Error): void {
-    if (contextOrError instanceof Error) {
-      this.log('fatal', message, undefined, contextOrError);
-    } else {
-      this.log('fatal', message, contextOrError, error);
-    }
-  }
+	info(message: string, context?: LogContext): void {
+		this.log("info", message, context);
+	}
 
-  // Convenience methods for common patterns
-  http(method: string, path: string, statusCode: number, duration: number, context?: LogContext): void {
-    this.info(`${method} ${path} ${statusCode} in ${duration}ms`, context);
-  }
+	warn(message: string, context?: LogContext): void {
+		this.log("warn", message, context);
+	}
 
-  service(serviceName: string, message: string, context?: LogContext): void {
-    this.info(`[${serviceName}] ${message}`, context);
-  }
+	error(
+		message: string,
+		contextOrError?: LogContext | Error,
+		error?: Error,
+	): void {
+		if (contextOrError instanceof Error) {
+			this.log("error", message, undefined, contextOrError);
+		} else {
+			this.log("error", message, contextOrError, error);
+		}
+	}
 
-  serviceError(serviceName: string, message: string, error?: Error, context?: LogContext): void {
-    this.error(`[${serviceName}] ${message}`, context, error);
-  }
+	fatal(
+		message: string,
+		contextOrError?: LogContext | Error,
+		error?: Error,
+	): void {
+		if (contextOrError instanceof Error) {
+			this.log("fatal", message, undefined, contextOrError);
+		} else {
+			this.log("fatal", message, contextOrError, error);
+		}
+	}
+
+	// Convenience methods for common patterns
+	http(
+		method: string,
+		path: string,
+		statusCode: number,
+		duration: number,
+		context?: LogContext,
+	): void {
+		this.info(`${method} ${path} ${statusCode} in ${duration}ms`, context);
+	}
+
+	service(serviceName: string, message: string, context?: LogContext): void {
+		this.info(`[${serviceName}] ${message}`, context);
+	}
+
+	serviceError(
+		serviceName: string,
+		message: string,
+		error?: Error,
+		context?: LogContext,
+	): void {
+		this.error(`[${serviceName}] ${message}`, context, error);
+	}
 }
 
 // Export singleton instance
@@ -351,14 +385,22 @@ export { scrubPii };
 
 // Export convenience functions for backward compatibility
 export const log = {
-  debug: (msg: string, ctx?: LogContext) => logger.debug(msg, ctx),
-  info: (msg: string, ctx?: LogContext) => logger.info(msg, ctx),
-  warn: (msg: string, ctx?: LogContext) => logger.warn(msg, ctx),
-  error: (msg: string, errOrCtx?: Error | LogContext, err?: Error) => logger.error(msg, errOrCtx, err),
-  fatal: (msg: string, errOrCtx?: Error | LogContext, err?: Error) => logger.fatal(msg, errOrCtx, err),
-  http: (method: string, path: string, status: number, duration: number, ctx?: LogContext) => 
-    logger.http(method, path, status, duration, ctx),
-  service: (name: string, msg: string, ctx?: LogContext) => logger.service(name, msg, ctx),
-  serviceError: (name: string, msg: string, err?: Error, ctx?: LogContext) => 
-    logger.serviceError(name, msg, err, ctx),
+	debug: (msg: string, ctx?: LogContext) => logger.debug(msg, ctx),
+	info: (msg: string, ctx?: LogContext) => logger.info(msg, ctx),
+	warn: (msg: string, ctx?: LogContext) => logger.warn(msg, ctx),
+	error: (msg: string, errOrCtx?: Error | LogContext, err?: Error) =>
+		logger.error(msg, errOrCtx, err),
+	fatal: (msg: string, errOrCtx?: Error | LogContext, err?: Error) =>
+		logger.fatal(msg, errOrCtx, err),
+	http: (
+		method: string,
+		path: string,
+		status: number,
+		duration: number,
+		ctx?: LogContext,
+	) => logger.http(method, path, status, duration, ctx),
+	service: (name: string, msg: string, ctx?: LogContext) =>
+		logger.service(name, msg, ctx),
+	serviceError: (name: string, msg: string, err?: Error, ctx?: LogContext) =>
+		logger.serviceError(name, msg, err, ctx),
 };

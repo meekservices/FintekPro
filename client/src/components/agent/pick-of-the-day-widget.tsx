@@ -6,255 +6,302 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import {
-  TrendingUp,
-  TrendingDown,
-  Target,
-  Shield as LucideShield,
-  ArrowRight,
-  Sparkles,
-  BarChart3,
-  Landmark,
-  Building2,
-  Globe,
-  Coins,
-  Activity,
-  Calculator,
+	TrendingUp,
+	TrendingDown,
+	Target,
+	Shield as LucideShield,
+	ArrowRight,
+	Sparkles,
+	BarChart3,
+	Landmark,
+	Building2,
+	Globe,
+	Coins,
+	Activity,
+	Calculator,
 } from "lucide-react";
 
 interface DailyPick {
-  id: number;
-  category: string;
-  instrumentName: string;
-  symbol?: string;
-  recoDate: string;
-  recoPrice: number;
-  targetPrice: number;
-  stoplossPrice: number;
-  currentPrice?: number;
-  status: string;
-  returnPct?: number;
-  rationale: string;
-  riskLevel: string;
-  keyMetrics?: Record<string, any>;
-  timeHorizon?: 'short_term' | 'medium_term' | 'long_term';
-  confidenceScore?: number;
-  sectorCategory?: string;
-  expiryDate?: string;
+	id: number;
+	category: string;
+	instrumentName: string;
+	symbol?: string;
+	recoDate: string;
+	recoPrice: number;
+	targetPrice: number;
+	stoplossPrice: number;
+	currentPrice?: number;
+	status: string;
+	returnPct?: number;
+	rationale: string;
+	riskLevel: string;
+	keyMetrics?: Record<string, any>;
+	timeHorizon?: "short_term" | "medium_term" | "long_term";
+	confidenceScore?: number;
+	sectorCategory?: string;
+	expiryDate?: string;
 }
 
 const getConfidenceColor = (score: number) => {
-  if (score >= 80) return "text-green-600";
-  if (score >= 60) return "text-yellow-600";
-  return "text-red-600";
+	if (score >= 80) return "text-green-600";
+	if (score >= 60) return "text-yellow-600";
+	return "text-red-600";
 };
 
 const getConfidenceDot = (score: number) => {
-  if (score >= 80) return "bg-green-500";
-  if (score >= 60) return "bg-yellow-500";
-  return "bg-red-500";
+	if (score >= 80) return "bg-green-500";
+	if (score >= 60) return "bg-yellow-500";
+	return "bg-red-500";
 };
 
 // Currency helper for global stocks (USD) vs domestic (INR)
 const formatPrice = (price: number, category: string): string => {
-  const symbol = category === 'global_stocks' ? '$' : '₹';
-  return `${symbol}${price.toLocaleString()}`;
+	const symbol = category === "global_stocks" ? "$" : "₹";
+	return `${symbol}${price.toLocaleString()}`;
 };
 
 const categoryIcons: Record<string, any> = {
-  listed_stocks: TrendingUp,
-  mutual_funds: BarChart3,
-  bonds: Landmark,
-  unlisted: Building2,
-  global_stocks: Globe,
-  etfs: Coins,
-  reits_invits: Building2,
-  fixed_deposits: LucideShield,
-  sgb: Coins,
-  derivatives: Activity,
+	listed_stocks: TrendingUp,
+	mutual_funds: BarChart3,
+	bonds: Landmark,
+	unlisted: Building2,
+	global_stocks: Globe,
+	etfs: Coins,
+	reits_invits: Building2,
+	fixed_deposits: LucideShield,
+	sgb: Coins,
+	derivatives: Activity,
 };
 
 const categoryLabels: Record<string, string> = {
-  listed_stocks: "Stock",
-  mutual_funds: "Mutual Fund",
-  bonds: "Bond",
-  unlisted: "Unlisted",
-  global_stocks: "Global Stock",
-  etfs: "ETF",
-  reits_invits: "REIT/InvIT",
-  fixed_deposits: "Fixed Deposit",
-  sgb: "Sovereign Gold Bond",
-  derivatives: "Derivatives",
+	listed_stocks: "Stock",
+	mutual_funds: "Mutual Fund",
+	bonds: "Bond",
+	unlisted: "Unlisted",
+	global_stocks: "Global Stock",
+	etfs: "ETF",
+	reits_invits: "REIT/InvIT",
+	fixed_deposits: "Fixed Deposit",
+	sgb: "Sovereign Gold Bond",
+	derivatives: "Derivatives",
 };
 
 const statusColors: Record<string, string> = {
-  live: "bg-green-500",
-  target_hit: "bg-blue-500",
-  stoploss_hit: "bg-red-500",
-  expired: "bg-muted",
+	live: "bg-green-500",
+	target_hit: "bg-blue-500",
+	stoploss_hit: "bg-red-500",
+	expired: "bg-muted",
 };
 
 export default function PickOfTheDayWidget() {
-  const { data, isLoading } = useQuery<{ success: boolean; picks: DailyPick[] }>({
-    queryKey: ["/api/picks/today"],
-  });
-  const [calculatorOpenId, setCalculatorOpenId] = useState<number | null>(null);
-  const [budget, setBudget] = useState<string>("100000");
+	const { data, isLoading } = useQuery<{
+		success: boolean;
+		picks: DailyPick[];
+	}>({
+		queryKey: ["/api/picks/today"],
+	});
+	const [calculatorOpenId, setCalculatorOpenId] = useState<number | null>(null);
+	const [budget, setBudget] = useState<string>("100000");
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-yellow-500" />
-            Pick of the Day
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full" />
-          ))}
-        </CardContent>
-      </Card>
-    );
-  }
+	if (isLoading) {
+		return (
+			<Card>
+				<CardHeader className="pb-3">
+					<CardTitle className="flex items-center gap-2">
+						<Sparkles className="h-5 w-5 text-yellow-500" />
+						Pick of the Day
+					</CardTitle>
+				</CardHeader>
+				<CardContent className="space-y-3">
+					{[1, 2, 3].map((i) => (
+						<Skeleton key={i} className="h-20 w-full" />
+					))}
+				</CardContent>
+			</Card>
+		);
+	}
 
-  const picks = data?.picks || [];
+	const picks = data?.picks || [];
 
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-yellow-500" />
-            Pick of the Day
-          </CardTitle>
-          <Link href="/agent/picks">
-            <Button variant="ghost" size="sm" className="text-xs">
-              View All <ArrowRight className="ml-1 h-3 w-3" />
-            </Button>
-          </Link>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {picks.length === 0 ? (
-          <div className="text-center py-6 text-muted-foreground">
-            <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No picks available yet</p>
-            <p className="text-xs mt-1">Check back later for today's recommendations</p>
-          </div>
-        ) : (
-          picks.slice(0, 4).map((pick) => {
-            const Icon = categoryIcons[pick.category] || TrendingUp;
-            const effectiveStatus = (pick.status === 'live' && pick.expiryDate && new Date(pick.expiryDate) < new Date()) ? 'expired' : pick.status;
-            const upside = pick.targetPrice && pick.recoPrice
-              ? ((pick.targetPrice - pick.recoPrice) / pick.recoPrice * 100).toFixed(1)
-              : '0.0';
-            const currentReturn = pick.currentPrice && pick.recoPrice
-              ? ((pick.currentPrice - pick.recoPrice) / pick.recoPrice * 100).toFixed(1)
-              : null;
+	return (
+		<Card>
+			<CardHeader className="pb-3">
+				<div className="flex items-center justify-between">
+					<CardTitle className="flex items-center gap-2">
+						<Sparkles className="h-5 w-5 text-yellow-500" />
+						Pick of the Day
+					</CardTitle>
+					<Link href="/agent/picks">
+						<Button variant="ghost" size="sm" className="text-xs">
+							View All <ArrowRight className="ml-1 h-3 w-3" />
+						</Button>
+					</Link>
+				</div>
+			</CardHeader>
+			<CardContent className="space-y-3">
+				{picks.length === 0 ? (
+					<div className="text-center py-6 text-muted-foreground">
+						<Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
+						<p className="text-sm">No picks available yet</p>
+						<p className="text-xs mt-1">
+							Check back later for today's recommendations
+						</p>
+					</div>
+				) : (
+					picks.slice(0, 4).map((pick) => {
+						const Icon = categoryIcons[pick.category] || TrendingUp;
+						const effectiveStatus =
+							pick.status === "live" &&
+							pick.expiryDate &&
+							new Date(pick.expiryDate) < new Date()
+								? "expired"
+								: pick.status;
+						const upside =
+							pick.targetPrice && pick.recoPrice
+								? (
+										((pick.targetPrice - pick.recoPrice) / pick.recoPrice) *
+										100
+									).toFixed(1)
+								: "0.0";
+						const currentReturn =
+							pick.currentPrice && pick.recoPrice
+								? (
+										((pick.currentPrice - pick.recoPrice) / pick.recoPrice) *
+										100
+									).toFixed(1)
+								: null;
 
-            const suggestedAllocation = pick.keyMetrics?.suggestedAllocation || 5;
+						const suggestedAllocation =
+							pick.keyMetrics?.suggestedAllocation || 5;
 
-            return (
-              <div
-                key={pick.id}
-                className="flex flex-col p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-              >
-                <div className="flex items-start gap-3 w-full">
-                  <div className="p-2 rounded-full bg-primary/10 shrink-0">
-                    <Icon className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap w-full">
-                      <span className="font-medium text-sm truncate max-w-[150px] sm:max-w-none">
-                        {pick.instrumentName}
-                      </span>
-                      <Badge variant="secondary" className="text-[10px] shrink-0">
-                        {categoryLabels[pick.category] || pick.category}
-                      </Badge>
-                      <Badge variant="outline" className="text-[10px] border-primary/20 text-primary font-bold shrink-0">
-                        {suggestedAllocation}% Weight
-                      </Badge>
-                      {pick.confidenceScore !== undefined && (
-                        <span className={`text-[10px] font-medium flex items-center gap-0.5 shrink-0 ${getConfidenceColor(pick.confidenceScore)}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${getConfidenceDot(pick.confidenceScore)}`} />
-                          {pick.confidenceScore}%
-                        </span>
-                      )}
-                      
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 ml-auto text-muted-foreground hover:text-foreground shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCalculatorOpenId(calculatorOpenId === pick.id ? null : pick.id);
-                        }}
-                        title="Sizing Calculator"
-                      >
-                        <Calculator className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Target className="h-3 w-3" />
-                        +{upside}%
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <LucideShield className="h-3 w-3" />
-                        {formatPrice(pick.stoplossPrice, pick.category)}
-                      </span>
-                      {currentReturn && (
-                        <span className={`flex items-center gap-1 ${parseFloat(currentReturn) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {parseFloat(currentReturn) >= 0 ? (
-                            <TrendingUp className="h-3 w-3" />
-                          ) : (
-                            <TrendingDown className="h-3 w-3" />
-                          )}
-                          {currentReturn}%
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                      {pick.rationale}
-                    </p>
-                  </div>
-                  <div className={`w-2 h-2 rounded-full shrink-0 mt-1 ${statusColors[effectiveStatus]}`} />
-                </div>
+						return (
+							<div
+								key={pick.id}
+								className="flex flex-col p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+							>
+								<div className="flex items-start gap-3 w-full">
+									<div className="p-2 rounded-full bg-primary/10 shrink-0">
+										<Icon className="h-4 w-4 text-primary" />
+									</div>
+									<div className="flex-1 min-w-0">
+										<div className="flex items-center gap-2 mb-1 flex-wrap w-full">
+											<span className="font-medium text-sm truncate max-w-[150px] sm:max-w-none">
+												{pick.instrumentName}
+											</span>
+											<Badge
+												variant="secondary"
+												className="text-[10px] shrink-0"
+											>
+												{categoryLabels[pick.category] || pick.category}
+											</Badge>
+											<Badge
+												variant="outline"
+												className="text-[10px] border-primary/20 text-primary font-bold shrink-0"
+											>
+												{suggestedAllocation}% Weight
+											</Badge>
+											{pick.confidenceScore !== undefined && (
+												<span
+													className={`text-[10px] font-medium flex items-center gap-0.5 shrink-0 ${getConfidenceColor(pick.confidenceScore)}`}
+												>
+													<span
+														className={`w-1.5 h-1.5 rounded-full ${getConfidenceDot(pick.confidenceScore)}`}
+													/>
+													{pick.confidenceScore}%
+												</span>
+											)}
 
-                {calculatorOpenId === pick.id && (
-                  <div className="mt-2.5 pt-2.5 border-t border-dashed space-y-2 w-full">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[9px] text-muted-foreground uppercase font-bold">Investable Budget (₹)</span>
-                      <input
-                        type="number"
-                        value={budget}
-                        onChange={(e) => setBudget(e.target.value)}
-                        className="h-6 w-24 px-1.5 py-0.5 text-right text-xs rounded border bg-background text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary"
-                        placeholder="1,00,000"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-xs bg-muted/30 p-2 rounded">
-                      <span className="text-[10px] text-muted-foreground">
-                        Recommended Sizing ({suggestedAllocation}%)
-                      </span>
-                      <span className="font-bold text-primary">
-                        {formatPrice(Math.round(Number(budget || 0) * (suggestedAllocation / 100)), pick.category)}
-                      </span>
-                    </div>
-                    {pick.recoPrice > 0 && (
-                      <div className="text-[9px] text-muted-foreground text-right italic">
-                        Approx. {Math.floor((Number(budget || 0) * (suggestedAllocation / 100)) / pick.recoPrice)} shares/units @ {formatPrice(pick.recoPrice, pick.category)}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })
-        )}
-      </CardContent>
-    </Card>
-  );
+											<Button
+												variant="ghost"
+												size="icon"
+												className="h-5 w-5 ml-auto text-muted-foreground hover:text-foreground shrink-0"
+												onClick={(e) => {
+													e.stopPropagation();
+													setCalculatorOpenId(
+														calculatorOpenId === pick.id ? null : pick.id,
+													);
+												}}
+												title="Sizing Calculator"
+											>
+												<Calculator className="h-3 w-3" />
+											</Button>
+										</div>
+										<div className="flex items-center gap-4 text-xs text-muted-foreground">
+											<span className="flex items-center gap-1">
+												<Target className="h-3 w-3" />+{upside}%
+											</span>
+											<span className="flex items-center gap-1">
+												<LucideShield className="h-3 w-3" />
+												{formatPrice(pick.stoplossPrice, pick.category)}
+											</span>
+											{currentReturn && (
+												<span
+													className={`flex items-center gap-1 ${Number.parseFloat(currentReturn) >= 0 ? "text-green-600" : "text-red-600"}`}
+												>
+													{Number.parseFloat(currentReturn) >= 0 ? (
+														<TrendingUp className="h-3 w-3" />
+													) : (
+														<TrendingDown className="h-3 w-3" />
+													)}
+													{currentReturn}%
+												</span>
+											)}
+										</div>
+										<p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+											{pick.rationale}
+										</p>
+									</div>
+									<div
+										className={`w-2 h-2 rounded-full shrink-0 mt-1 ${statusColors[effectiveStatus]}`}
+									/>
+								</div>
+
+								{calculatorOpenId === pick.id && (
+									<div className="mt-2.5 pt-2.5 border-t border-dashed space-y-2 w-full">
+										<div className="flex items-center justify-between gap-2">
+											<span className="text-[9px] text-muted-foreground uppercase font-bold">
+												Investable Budget (₹)
+											</span>
+											<input
+												type="number"
+												value={budget}
+												onChange={(e) => setBudget(e.target.value)}
+												className="h-6 w-24 px-1.5 py-0.5 text-right text-xs rounded border bg-background text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary"
+												placeholder="1,00,000"
+												onClick={(e) => e.stopPropagation()}
+											/>
+										</div>
+										<div className="flex items-center justify-between text-xs bg-muted/30 p-2 rounded">
+											<span className="text-[10px] text-muted-foreground">
+												Recommended Sizing ({suggestedAllocation}%)
+											</span>
+											<span className="font-bold text-primary">
+												{formatPrice(
+													Math.round(
+														Number(budget || 0) * (suggestedAllocation / 100),
+													),
+													pick.category,
+												)}
+											</span>
+										</div>
+										{pick.recoPrice > 0 && (
+											<div className="text-[9px] text-muted-foreground text-right italic">
+												Approx.{" "}
+												{Math.floor(
+													(Number(budget || 0) * (suggestedAllocation / 100)) /
+														pick.recoPrice,
+												)}{" "}
+												shares/units @{" "}
+												{formatPrice(pick.recoPrice, pick.category)}
+											</div>
+										)}
+									</div>
+								)}
+							</div>
+						);
+					})
+				)}
+			</CardContent>
+		</Card>
+	);
 }

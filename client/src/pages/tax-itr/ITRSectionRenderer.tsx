@@ -25,33 +25,61 @@ import { MATAMTSection } from "./sections/MATAMTSection";
 import { TDSSchedulesSection } from "./sections/TDSSchedulesSection";
 
 export function ITRSectionRenderer(): React.ReactElement {
-  const { currentStepId } = useTax();
-  const stepId = currentStepId;
+	const { currentStepId } = useTax();
+	const stepId = currentStepId;
 
-  switch (stepId) {
-    case "basic": return <BasicInfoSection />;
-    case "sources": return <IncomeSourcesSection />;
-    case "entity_profile": return <EntityProfileSection />;
-    case "salary": return <SalarySection />;
-    case "property": return <HousePropertySection />;
-    case "business": return <BusinessIncomeSection />;
-    case "financials": return <FinancialsSection />;
-    case "capital": return <CapitalGainsSection />;
-    case "foreign": return <ForeignIncomeSection />;
-    case "other": return <OtherIncomeSection />;
-    case "disclosures": return <DisclosuresSection />;
-    case "trust_income": return <TrustIncomeSection />;
-    case "deductions": return <DeductionsSection />;
-    case "schedule_al": return <ScheduleALSection />;
-    case "loss_adjustment": return <LossAdjustmentSection />;
-    case "schedule_si_ei": return <SIEISchedulesSection />;
-    case "schedule_spi": return <ScheduleSPISection />;
-    case "schedule_5a": return <Schedule5ASection />;
-    case "schedule_if": return <ScheduleIFSection />;
-    case "mat_amt": return <MATAMTSection />;
-    case "tds_schedules": return <TDSSchedulesSection />;
-    case "tax_payments": return <TaxPaymentsSection />;
-    case "review": return <ReviewSection />;
-    default: return <div className="p-8 text-center text-muted-foreground">Step not found: {currentStepId}</div>;
-  }
-};
+	switch (stepId) {
+		case "basic":
+			return <BasicInfoSection />;
+		case "sources":
+			return <IncomeSourcesSection />;
+		case "entity_profile":
+			return <EntityProfileSection />;
+		case "salary":
+			return <SalarySection />;
+		case "property":
+			return <HousePropertySection />;
+		case "business":
+			return <BusinessIncomeSection />;
+		case "financials":
+			return <FinancialsSection />;
+		case "capital":
+			return <CapitalGainsSection />;
+		case "foreign":
+			return <ForeignIncomeSection />;
+		case "other":
+			return <OtherIncomeSection />;
+		case "disclosures":
+			return <DisclosuresSection />;
+		case "trust_income":
+			return <TrustIncomeSection />;
+		case "deductions":
+			return <DeductionsSection />;
+		case "schedule_al":
+			return <ScheduleALSection />;
+		case "loss_adjustment":
+			return <LossAdjustmentSection />;
+		case "schedule_si_ei":
+			return <SIEISchedulesSection />;
+		case "schedule_spi":
+			return <ScheduleSPISection />;
+		case "schedule_5a":
+			return <Schedule5ASection />;
+		case "schedule_if":
+			return <ScheduleIFSection />;
+		case "mat_amt":
+			return <MATAMTSection />;
+		case "tds_schedules":
+			return <TDSSchedulesSection />;
+		case "tax_payments":
+			return <TaxPaymentsSection />;
+		case "review":
+			return <ReviewSection />;
+		default:
+			return (
+				<div className="p-8 text-center text-muted-foreground">
+					Step not found: {currentStepId}
+				</div>
+			);
+	}
+}

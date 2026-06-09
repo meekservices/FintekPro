@@ -1,171 +1,185 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
-const KNOWN_SUBDOMAINS = ['admin', 'partner', 'agent'] as const;
-type KnownSubdomain = typeof KNOWN_SUBDOMAINS[number];
+const KNOWN_SUBDOMAINS = ["admin", "partner", "agent"] as const;
+type KnownSubdomain = (typeof KNOWN_SUBDOMAINS)[number];
 
 function detectSubdomain(): string {
-  const hostname = window.location.hostname.toLowerCase();
-  const search = window.location.search;
-  const pathname = window.location.pathname;
-  const parts = hostname.split('.');
-  
-  const urlParams = new URLSearchParams(search);
-  const isReplitEnv = hostname.includes('replit.dev') || hostname.includes('replit.app');
-  const isDev = import.meta.env.DEV || isReplitEnv;
-  
-  // Debug logging only on initial detection (not during polling)
-  // Note: Removed frequent console.log to improve performance
-  
-  // PRIORITY 1: Query params — works in ALL environments
-  if (urlParams.get('admin') === 'true') {
-    return 'admin';
-  } else if (urlParams.get('partner') === 'true') {
-    return 'partner';
-  } else if (urlParams.get('agent') === 'true') {
-    return 'agent';
-  }
-  
-  // PRIORITY 2: Path-based portal detection — DEV / REPLIT ONLY
-  // In production, the correct subdomains (agent.fintekpro.com, admin.fintekpro.com, etc.)
-  // are used for portal routing. Enabling this in production would incorrectly treat
-  // client-portal routes like /agent (AgentDashboard) or /admin (AdminPanel) as
-  // portal-switch signals, redirecting users to the wrong portal layout.
-  if (isDev) {
-    if (pathname.startsWith('/agent/') || pathname === '/agent') {
-      return 'agent';
-    } else if (pathname.startsWith('/admin/') || pathname === '/admin') {
-      return 'admin';
-    } else if (pathname.startsWith('/partner/') || pathname === '/partner') {
-      return 'partner';
-    }
-  }
-  
-  // PRIORITY 3: Localhost subdomain detection
-  if (hostname.includes('localhost')) {
-    if (parts[0] === 'admin') {
-      return 'admin';
-    } else if (parts[0] === 'partner') {
-      return 'partner';
-    } else if (parts[0] === 'agent') {
-      return 'agent';
-    }
-    return '';
-  }
-  
-  // PRIORITY 4: Production subdomain detection (admin.fintekpro.com, etc.)
-  const firstPart = parts[0];
-  if (parts.length >= 2 && KNOWN_SUBDOMAINS.includes(firstPart as KnownSubdomain)) {
-    return firstPart;
-  }
-  
-  // PRIORITY 5: Fallback pattern matching
-  for (const sub of KNOWN_SUBDOMAINS) {
-    if (hostname.startsWith(`${sub}.`) || hostname.startsWith(`${sub}-`)) {
-      return sub;
-    }
-  }
-  
-  return '';
+	const hostname = window.location.hostname.toLowerCase();
+	const search = window.location.search;
+	const pathname = window.location.pathname;
+	const parts = hostname.split(".");
+
+	const urlParams = new URLSearchParams(search);
+	const isReplitEnv =
+		hostname.includes("replit.dev") || hostname.includes("replit.app");
+	const isDev = import.meta.env.DEV || isReplitEnv;
+
+	// Debug logging only on initial detection (not during polling)
+	// Note: Removed frequent console.log to improve performance
+
+	// PRIORITY 1: Query params — works in ALL environments
+	if (urlParams.get("admin") === "true") {
+		return "admin";
+	}
+	if (urlParams.get("partner") === "true") {
+		return "partner";
+	}
+	if (urlParams.get("agent") === "true") {
+		return "agent";
+	}
+
+	// PRIORITY 2: Path-based portal detection — DEV / REPLIT ONLY
+	// In production, the correct subdomains (agent.fintekpro.com, admin.fintekpro.com, etc.)
+	// are used for portal routing. Enabling this in production would incorrectly treat
+	// client-portal routes like /agent (AgentDashboard) or /admin (AdminPanel) as
+	// portal-switch signals, redirecting users to the wrong portal layout.
+	if (isDev) {
+		if (pathname.startsWith("/agent/") || pathname === "/agent") {
+			return "agent";
+		}
+		if (pathname.startsWith("/admin/") || pathname === "/admin") {
+			return "admin";
+		}
+		if (pathname.startsWith("/partner/") || pathname === "/partner") {
+			return "partner";
+		}
+	}
+
+	// PRIORITY 3: Localhost subdomain detection
+	if (hostname.includes("localhost")) {
+		if (parts[0] === "admin") {
+			return "admin";
+		}
+		if (parts[0] === "partner") {
+			return "partner";
+		}
+		if (parts[0] === "agent") {
+			return "agent";
+		}
+		return "";
+	}
+
+	// PRIORITY 4: Production subdomain detection (admin.fintekpro.com, etc.)
+	const firstPart = parts[0];
+	if (
+		parts.length >= 2 &&
+		KNOWN_SUBDOMAINS.includes(firstPart as KnownSubdomain)
+	) {
+		return firstPart;
+	}
+
+	// PRIORITY 5: Fallback pattern matching
+	for (const sub of KNOWN_SUBDOMAINS) {
+		if (hostname.startsWith(`${sub}.`) || hostname.startsWith(`${sub}-`)) {
+			return sub;
+		}
+	}
+
+	return "";
 }
 
 export function getPortalQueryParams(): string {
-  const urlParams = new URLSearchParams(window.location.search);
-  const adminParam = urlParams.get('admin');
-  const partnerParam = urlParams.get('partner');
-  const agentParam = urlParams.get('agent');
-  
-  if (adminParam === 'true') return '?admin=true';
-  if (partnerParam === 'true') return '?partner=true';
-  if (agentParam === 'true') return '?agent=true';
-  return '';
+	const urlParams = new URLSearchParams(window.location.search);
+	const adminParam = urlParams.get("admin");
+	const partnerParam = urlParams.get("partner");
+	const agentParam = urlParams.get("agent");
+
+	if (adminParam === "true") return "?admin=true";
+	if (partnerParam === "true") return "?partner=true";
+	if (agentParam === "true") return "?agent=true";
+	return "";
 }
 
 export function withPortalParams(path: string): string {
-  const portalParams = getPortalQueryParams();
-  if (!portalParams) return path;
-  
-  if (path.includes('?')) {
-    return path + '&' + portalParams.substring(1);
-  }
-  return path + portalParams;
+	const portalParams = getPortalQueryParams();
+	if (!portalParams) return path;
+
+	if (path.includes("?")) {
+		return path + "&" + portalParams.substring(1);
+	}
+	return path + portalParams;
 }
 
 export function useSubdomain() {
-  // Use state to ensure re-render when subdomain is detected
-  const [subdomain, setSubdomain] = useState<string>(() => detectSubdomain());
-  const [currentSearch, setCurrentSearch] = useState(() => window.location.search);
-  
-  const isDev = import.meta.env.DEV || window.location.hostname.includes('replit.dev') || window.location.hostname.includes('replit.app');
-  const isLocalhost = window.location.hostname.includes('localhost');
+	// Use state to ensure re-render when subdomain is detected
+	const [subdomain, setSubdomain] = useState<string>(() => detectSubdomain());
+	const [currentSearch, setCurrentSearch] = useState(
+		() => window.location.search,
+	);
 
-  useEffect(() => {
-    const detected = detectSubdomain();
-    if (detected !== subdomain) {
-      setSubdomain(detected);
-    }
-    
-    // Listen for popstate events (back/forward navigation)
-    const handlePopState = () => {
-      const newSubdomain = detectSubdomain();
-      setSubdomain(newSubdomain);
-      setCurrentSearch(window.location.search);
-    };
-    
-    // Polling strategy:
-    // - In DEV/localhost: watch the full path+search because path-based portal detection is active.
-    // - In PRODUCTION: the subdomain is determined from the hostname (e.g. agent.fintekpro.com)
-    //   and never changes during navigation. We only need to watch ?admin/partner/agent query params,
-    //   which can legitimately change when a user switches portals via the portal switcher.
-    //   Polling the full pathname would cause /agent route on main domain to incorrectly re-trigger
-    //   portal detection even with the isDev guard, if the subdomain was '' and path starts with /agent.
-    const checkChange = () => {
-      const newSearch = window.location.search;
-      // In production on a non-subdomain host, ONLY re-detect if query params changed
-      // (e.g. user clicked a portal switcher link that adds ?agent=true)
-      if (isDev || isLocalhost) {
-        // In dev, check path + search
-        const newPath = window.location.pathname + window.location.search;
-        const oldPath = window.location.pathname + currentSearch;
-        if (newPath !== oldPath) {
-          setCurrentSearch(newSearch);
-          const newSubdomain = detectSubdomain();
-          if (newSubdomain !== subdomain) {
-            setSubdomain(newSubdomain);
-          }
-        }
-      } else {
-        // In production, only check search params (hostname-based subdomain never changes mid-session)
-        if (newSearch !== currentSearch) {
-          setCurrentSearch(newSearch);
-          const newSubdomain = detectSubdomain();
-          if (newSubdomain !== subdomain) {
-            setSubdomain(newSubdomain);
-          }
-        }
-      }
-    };
-    
-    // Use 500ms polling interval - balances responsiveness with performance
-    const interval = setInterval(checkChange, 500);
-    
-    window.addEventListener('popstate', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-      clearInterval(interval);
-    };
-  }, [subdomain, currentSearch, isDev, isLocalhost]);
-  
-  const isAdminPortal = subdomain === 'admin';
-  const isPartnerPortal = subdomain === 'partner';
-  const isAgentPortal = subdomain === 'agent';
-  
-  return {
-    subdomain,
-    isAdminPortal,
-    isPartnerPortal,
-    isAgentPortal,
-    isClientPortal: !isAdminPortal && !isPartnerPortal && !isAgentPortal,
-    withPortalParams
-  };
+	const isDev =
+		import.meta.env.DEV ||
+		window.location.hostname.includes("replit.dev") ||
+		window.location.hostname.includes("replit.app");
+	const isLocalhost = window.location.hostname.includes("localhost");
+
+	useEffect(() => {
+		const detected = detectSubdomain();
+		if (detected !== subdomain) {
+			setSubdomain(detected);
+		}
+
+		// Listen for popstate events (back/forward navigation)
+		const handlePopState = () => {
+			const newSubdomain = detectSubdomain();
+			setSubdomain(newSubdomain);
+			setCurrentSearch(window.location.search);
+		};
+
+		// Polling strategy:
+		// - In DEV/localhost: watch the full path+search because path-based portal detection is active.
+		// - In PRODUCTION: the subdomain is determined from the hostname (e.g. agent.fintekpro.com)
+		//   and never changes during navigation. We only need to watch ?admin/partner/agent query params,
+		//   which can legitimately change when a user switches portals via the portal switcher.
+		//   Polling the full pathname would cause /agent route on main domain to incorrectly re-trigger
+		//   portal detection even with the isDev guard, if the subdomain was '' and path starts with /agent.
+		const checkChange = () => {
+			const newSearch = window.location.search;
+			// In production on a non-subdomain host, ONLY re-detect if query params changed
+			// (e.g. user clicked a portal switcher link that adds ?agent=true)
+			if (isDev || isLocalhost) {
+				// In dev, check path + search
+				const newPath = window.location.pathname + window.location.search;
+				const oldPath = window.location.pathname + currentSearch;
+				if (newPath !== oldPath) {
+					setCurrentSearch(newSearch);
+					const newSubdomain = detectSubdomain();
+					if (newSubdomain !== subdomain) {
+						setSubdomain(newSubdomain);
+					}
+				}
+			} else {
+				// In production, only check search params (hostname-based subdomain never changes mid-session)
+				if (newSearch !== currentSearch) {
+					setCurrentSearch(newSearch);
+					const newSubdomain = detectSubdomain();
+					if (newSubdomain !== subdomain) {
+						setSubdomain(newSubdomain);
+					}
+				}
+			}
+		};
+
+		// Use 500ms polling interval - balances responsiveness with performance
+		const interval = setInterval(checkChange, 500);
+
+		window.addEventListener("popstate", handlePopState);
+		return () => {
+			window.removeEventListener("popstate", handlePopState);
+			clearInterval(interval);
+		};
+	}, [subdomain, currentSearch, isDev, isLocalhost]);
+
+	const isAdminPortal = subdomain === "admin";
+	const isPartnerPortal = subdomain === "partner";
+	const isAgentPortal = subdomain === "agent";
+
+	return {
+		subdomain,
+		isAdminPortal,
+		isPartnerPortal,
+		isAgentPortal,
+		isClientPortal: !isAdminPortal && !isPartnerPortal && !isAgentPortal,
+		withPortalParams,
+	};
 }
-

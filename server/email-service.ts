@@ -1,76 +1,84 @@
-import nodemailer from 'nodemailer';
-import type { Transporter } from 'nodemailer';
+import nodemailer from "nodemailer";
+import type { Transporter } from "nodemailer";
 
 interface EmailOptions {
-  to: string;
-  subject: string;
-  html: string;
-  text?: string;
+	to: string;
+	subject: string;
+	html: string;
+	text?: string;
 }
 
 class EmailService {
-  private transporter: Transporter | null = null;
-  private fromEmail: string = 'support@fintekpro.com';
+	private transporter: Transporter | null = null;
+	private fromEmail: string = "support@fintekpro.com";
 
-  constructor() {
-    this.initializeTransporter();
-  }
+	constructor() {
+		this.initializeTransporter();
+	}
 
-  private initializeTransporter() {
-    const host = process.env.EMAIL_HOST;
-    const port = parseInt(process.env.EMAIL_PORT || '587');
-    const user = process.env.EMAIL_USER;
-    const pass = process.env.EMAIL_PASS;
+	private initializeTransporter() {
+		const host = process.env.EMAIL_HOST;
+		const port = Number.parseInt(process.env.EMAIL_PORT || "587");
+		const user = process.env.EMAIL_USER;
+		const pass = process.env.EMAIL_PASS;
 
-    if (!host || !user || !pass) {
-      console.warn('⚠️ Email service not configured. Missing EMAIL_HOST, EMAIL_USER, or EMAIL_PASS');
-      return;
-    }
+		if (!host || !user || !pass) {
+			console.warn(
+				"⚠️ Email service not configured. Missing EMAIL_HOST, EMAIL_USER, or EMAIL_PASS",
+			);
+			return;
+		}
 
-    try {
-      console.log(`[EmailService] 🔧 Initializing with host=${host}, port=${port}, user=${user?.substring(0, 3)}...`);
-      this.transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure: port === 465, // true for 465, false for other ports
-        auth: {
-          user,
-          pass,
-        },
-      });
+		try {
+			console.log(
+				`[EmailService] 🔧 Initializing with host=${host}, port=${port}, user=${user?.substring(0, 3)}...`,
+			);
+			this.transporter = nodemailer.createTransport({
+				host,
+				port,
+				secure: port === 465, // true for 465, false for other ports
+				auth: {
+					user,
+					pass,
+				},
+			});
 
-      console.log('✅ Email service initialized with SMTP configuration');
-    } catch (error) {
-      console.error('❌ Failed to initialize email service:', error);
-    }
+			console.log("✅ Email service initialized with SMTP configuration");
+		} catch (error) {
+			console.error("❌ Failed to initialize email service:", error);
+		}
+	}
 
-  }
+	async sendEmail(options: EmailOptions): Promise<boolean> {
+		if (!this.transporter) {
+			console.log(
+				"📧 [SIMULATED] Email to:",
+				options.to,
+				"| Subject:",
+				options.subject,
+			);
+			return false;
+		}
 
-  async sendEmail(options: EmailOptions): Promise<boolean> {
-    if (!this.transporter) {
-      console.log('📧 [SIMULATED] Email to:', options.to, '| Subject:', options.subject);
-      return false;
-    }
+		try {
+			const info = await this.transporter.sendMail({
+				from: `"FintekPro" <${this.fromEmail}>`,
+				to: options.to,
+				subject: options.subject,
+				text: options.text,
+				html: options.html,
+			});
 
-    try {
-      const info = await this.transporter.sendMail({
-        from: `"FintekPro" <${this.fromEmail}>`,
-        to: options.to,
-        subject: options.subject,
-        text: options.text,
-        html: options.html,
-      });
+			console.log("✅ Email sent successfully:", info.messageId);
+			return true;
+		} catch (error) {
+			console.error("❌ Failed to send email:", error);
+			return false;
+		}
+	}
 
-      console.log('✅ Email sent successfully:', info.messageId);
-      return true;
-    } catch (error) {
-      console.error('❌ Failed to send email:', error);
-      return false;
-    }
-  }
-
-  async sendPasswordResetOTP(email: string, otp: string): Promise<boolean> {
-    const html = `
+	async sendPasswordResetOTP(email: string, otp: string): Promise<boolean> {
+		const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -114,7 +122,7 @@ class EmailService {
       </html>
     `;
 
-    const text = `
+		const text = `
 FintekPro Password Reset
 
 We received a request to reset your password.
@@ -128,16 +136,16 @@ If you did not request a password reset, please ignore this email or contact our
 © ${new Date().getFullYear()} FintekPro. All rights reserved.
     `;
 
-    return this.sendEmail({
-      to: email,
-      subject: 'FintekPro - Password Reset OTP',
-      html,
-      text,
-    });
-  }
+		return this.sendEmail({
+			to: email,
+			subject: "FintekPro - Password Reset OTP",
+			html,
+			text,
+		});
+	}
 
-  async sendLoginOTP(email: string, otp: string): Promise<boolean> {
-    const html = `
+	async sendLoginOTP(email: string, otp: string): Promise<boolean> {
+		const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -181,7 +189,7 @@ If you did not request a password reset, please ignore this email or contact our
       </html>
     `;
 
-    const text = `
+		const text = `
 FintekPro Login Verification
 
 Someone is trying to log in to your FintekPro account.
@@ -195,16 +203,16 @@ Security Notice: Do not share this OTP with anyone. If you did not attempt to lo
 © ${new Date().getFullYear()} FintekPro. All rights reserved.
     `;
 
-    return this.sendEmail({
-      to: email,
-      subject: 'FintekPro - Login Verification OTP',
-      html,
-      text,
-    });
-  }
+		return this.sendEmail({
+			to: email,
+			subject: "FintekPro - Login Verification OTP",
+			html,
+			text,
+		});
+	}
 
-  async sendRegistrationOTP(email: string, otp: string): Promise<boolean> {
-    const html = `
+	async sendRegistrationOTP(email: string, otp: string): Promise<boolean> {
+		const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -249,7 +257,7 @@ Security Notice: Do not share this OTP with anyone. If you did not attempt to lo
       </html>
     `;
 
-    const text = `
+		const text = `
 Welcome to FintekPro!
 
 Thank you for choosing FintekPro for your investment journey.
@@ -265,16 +273,20 @@ Note: If you did not create an account with FintekPro, please ignore this email.
 © ${new Date().getFullYear()} FintekPro. All rights reserved.
     `;
 
-    return this.sendEmail({
-      to: email,
-      subject: 'FintekPro - Email Verification',
-      html,
-      text,
-    });
-  }
+		return this.sendEmail({
+			to: email,
+			subject: "FintekPro - Email Verification",
+			html,
+			text,
+		});
+	}
 
-  async sendNotificationEmail(to: string, subject: string, message: string): Promise<boolean> {
-    const html = `
+	async sendNotificationEmail(
+		to: string,
+		subject: string,
+		message: string,
+	): Promise<boolean> {
+		const html = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -304,13 +316,13 @@ Note: If you did not create an account with FintekPro, please ignore this email.
       </html>
     `;
 
-    return this.sendEmail({
-      to,
-      subject: `FintekPro - ${subject}`,
-      html,
-      text: message,
-    });
-  }
+		return this.sendEmail({
+			to,
+			subject: `FintekPro - ${subject}`,
+			html,
+			text: message,
+		});
+	}
 }
 
 export const emailService = new EmailService();

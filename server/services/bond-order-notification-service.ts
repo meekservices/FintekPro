@@ -1,185 +1,209 @@
-import { smsService } from './sms-service';
-import { db } from '../db';
-import { users } from '@shared/schema';
-import { eq } from 'drizzle-orm';
-import nodemailer from 'nodemailer';
+import { smsService } from "./sms-service";
+import { db } from "../db";
+import { users } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import nodemailer from "nodemailer";
 
 interface OrderNotificationData {
-  orderId: string;
-  orderNumber: string;
-  userId: string;
-  bondName: string;
-  bondType: string;
-  quantity: number;
-  amount: string;
-  status: string;
-  previousStatus?: string;
-  settlementDate?: string;
+	orderId: string;
+	orderNumber: string;
+	userId: string;
+	bondName: string;
+	bondType: string;
+	quantity: number;
+	amount: string;
+	status: string;
+	previousStatus?: string;
+	settlementDate?: string;
 }
 
 class BondOrderNotificationService {
-  private emailTransporter: nodemailer.Transporter | null = null;
-  private isEmailConfigured: boolean = false;
-  private fromEmail: string = 'noreply@fintekpro.com';
+	private emailTransporter: nodemailer.Transporter | null = null;
+	private isEmailConfigured: boolean = false;
+	private fromEmail: string = "noreply@fintekpro.com";
 
-  constructor() {
-    this.initializeEmailService();
-  }
+	constructor() {
+		this.initializeEmailService();
+	}
 
-  private initializeEmailService() {
-    const emailHost = process.env.EMAIL_HOST;
-    const emailPort = process.env.EMAIL_PORT || '587';
-    const emailUser = process.env.EMAIL_USER;
-    const emailPass = process.env.EMAIL_PASS;
+	private initializeEmailService() {
+		const emailHost = process.env.EMAIL_HOST;
+		const emailPort = process.env.EMAIL_PORT || "587";
+		const emailUser = process.env.EMAIL_USER;
+		const emailPass = process.env.EMAIL_PASS;
 
-    if (emailHost && emailUser && emailPass) {
-      this.emailTransporter = nodemailer.createTransport({
-        host: emailHost,
-        port: parseInt(emailPort),
-        secure: parseInt(emailPort) === 465,
-        auth: {
-          user: emailUser,
-          pass: emailPass,
-        },
-      });
-      this.isEmailConfigured = true;
-      console.log('✅ Bond Order Notification email service configured');
-    } else {
-      console.log('⚠️ Bond Order Notification email not configured - missing EMAIL_HOST, EMAIL_USER, or EMAIL_PASS');
-    }
-  }
+		if (emailHost && emailUser && emailPass) {
+			this.emailTransporter = nodemailer.createTransport({
+				host: emailHost,
+				port: Number.parseInt(emailPort),
+				secure: Number.parseInt(emailPort) === 465,
+				auth: {
+					user: emailUser,
+					pass: emailPass,
+				},
+			});
+			this.isEmailConfigured = true;
+			console.log("✅ Bond Order Notification email service configured");
+		} else {
+			console.log(
+				"⚠️ Bond Order Notification email not configured - missing EMAIL_HOST, EMAIL_USER, or EMAIL_PASS",
+			);
+		}
+	}
 
-  private getStatusMessage(status: string): { title: string; description: string; emoji: string } {
-    switch (status.toLowerCase()) {
-      case 'placed':
-      case 'pending':
-        return { 
-          title: 'Order Received',
-          description: 'Your bond order has been received and is awaiting payment.',
-          emoji: '📝'
-        };
-      case 'processing':
-      case 'confirmed':
-        return { 
-          title: 'Payment Confirmed',
-          description: 'Your payment has been confirmed. Order is now being processed.',
-          emoji: '✅'
-        };
-      case 'settlement':
-      case 'awaiting_settlement':
-        return { 
-          title: 'Settlement in Progress',
-          description: 'Your order is in the settlement queue and will be credited soon.',
-          emoji: '⏳'
-        };
-      case 'allotted':
-        return { 
-          title: 'Bonds Allotted',
-          description: 'Your bonds have been allotted. They will be credited to your demat account.',
-          emoji: '🎯'
-        };
-      case 'credited':
-      case 'executed':
-        return { 
-          title: 'Order Completed',
-          description: 'Your bonds have been credited to your demat account.',
-          emoji: '🎉'
-        };
-      case 'failed':
-      case 'rejected':
-        return { 
-          title: 'Order Failed',
-          description: 'Your order could not be processed. Please contact support.',
-          emoji: '❌'
-        };
-      case 'cancelled':
-        return { 
-          title: 'Order Cancelled',
-          description: 'Your order has been cancelled as requested.',
-          emoji: '🚫'
-        };
-      default:
-        return { 
-          title: 'Order Update',
-          description: `Your order status has been updated to: ${status}`,
-          emoji: 'ℹ️'
-        };
-    }
-  }
+	private getStatusMessage(status: string): {
+		title: string;
+		description: string;
+		emoji: string;
+	} {
+		switch (status.toLowerCase()) {
+			case "placed":
+			case "pending":
+				return {
+					title: "Order Received",
+					description:
+						"Your bond order has been received and is awaiting payment.",
+					emoji: "📝",
+				};
+			case "processing":
+			case "confirmed":
+				return {
+					title: "Payment Confirmed",
+					description:
+						"Your payment has been confirmed. Order is now being processed.",
+					emoji: "✅",
+				};
+			case "settlement":
+			case "awaiting_settlement":
+				return {
+					title: "Settlement in Progress",
+					description:
+						"Your order is in the settlement queue and will be credited soon.",
+					emoji: "⏳",
+				};
+			case "allotted":
+				return {
+					title: "Bonds Allotted",
+					description:
+						"Your bonds have been allotted. They will be credited to your demat account.",
+					emoji: "🎯",
+				};
+			case "credited":
+			case "executed":
+				return {
+					title: "Order Completed",
+					description: "Your bonds have been credited to your demat account.",
+					emoji: "🎉",
+				};
+			case "failed":
+			case "rejected":
+				return {
+					title: "Order Failed",
+					description:
+						"Your order could not be processed. Please contact support.",
+					emoji: "❌",
+				};
+			case "cancelled":
+				return {
+					title: "Order Cancelled",
+					description: "Your order has been cancelled as requested.",
+					emoji: "🚫",
+				};
+			default:
+				return {
+					title: "Order Update",
+					description: `Your order status has been updated to: ${status}`,
+					emoji: "ℹ️",
+				};
+		}
+	}
 
-  async sendOrderStatusNotification(data: OrderNotificationData): Promise<{ email: boolean; sms: boolean }> {
-    const results = { email: false, sms: false };
+	async sendOrderStatusNotification(
+		data: OrderNotificationData,
+	): Promise<{ email: boolean; sms: boolean }> {
+		const results = { email: false, sms: false };
 
-    try {
-      const [user] = await db.select().from(users).where(eq(users.id, data.userId));
-      
-      if (!user) {
-        console.log(`[Bond Notification] User not found: ${data.userId}`);
-        return results;
-      }
+		try {
+			const [user] = await db
+				.select()
+				.from(users)
+				.where(eq(users.id, data.userId));
 
-      const statusInfo = this.getStatusMessage(data.status);
-      const formattedAmount = parseFloat(data.amount).toLocaleString('en-IN');
+			if (!user) {
+				console.log(`[Bond Notification] User not found: ${data.userId}`);
+				return results;
+			}
 
-      if (user.email) {
-        results.email = await this.sendEmailNotification({
-          email: user.email,
-          userName: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
-          orderNumber: data.orderNumber,
-          bondName: data.bondName,
-          quantity: data.quantity,
-          amount: formattedAmount,
-          status: data.status,
-          statusTitle: statusInfo.title,
-          statusDescription: statusInfo.description,
-          settlementDate: data.settlementDate,
-        });
-      }
+			const statusInfo = this.getStatusMessage(data.status);
+			const formattedAmount = Number.parseFloat(data.amount).toLocaleString(
+				"en-IN",
+			);
 
-      if (user.mobile) {
-        results.sms = await this.sendSMSNotification({
-          mobile: user.mobile,
-          orderNumber: data.orderNumber,
-          bondName: data.bondName,
-          status: statusInfo.title,
-          amount: formattedAmount,
-          emoji: statusInfo.emoji,
-        });
-      }
+			if (user.email) {
+				results.email = await this.sendEmailNotification({
+					email: user.email,
+					userName:
+						`${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+						user.email,
+					orderNumber: data.orderNumber,
+					bondName: data.bondName,
+					quantity: data.quantity,
+					amount: formattedAmount,
+					status: data.status,
+					statusTitle: statusInfo.title,
+					statusDescription: statusInfo.description,
+					settlementDate: data.settlementDate,
+				});
+			}
 
-      console.log(`[Bond Notification] Order ${data.orderNumber} status ${data.status} - Email: ${results.email}, SMS: ${results.sms}`);
-    } catch (error) {
-      console.error('[Bond Notification] Error sending notifications:', error);
-    }
+			if (user.mobile) {
+				results.sms = await this.sendSMSNotification({
+					mobile: user.mobile,
+					orderNumber: data.orderNumber,
+					bondName: data.bondName,
+					status: statusInfo.title,
+					amount: formattedAmount,
+					emoji: statusInfo.emoji,
+				});
+			}
 
-    return results;
-  }
+			console.log(
+				`[Bond Notification] Order ${data.orderNumber} status ${data.status} - Email: ${results.email}, SMS: ${results.sms}`,
+			);
+		} catch (error) {
+			console.error("[Bond Notification] Error sending notifications:", error);
+		}
 
-  private async sendEmailNotification(data: {
-    email: string;
-    userName: string;
-    orderNumber: string;
-    bondName: string;
-    quantity: number;
-    amount: string;
-    status: string;
-    statusTitle: string;
-    statusDescription: string;
-    settlementDate?: string;
-  }): Promise<boolean> {
-    if (!this.isEmailConfigured || !this.emailTransporter) {
-      console.log(`[Bond Notification] Email (mock): ${data.statusTitle} for order ${data.orderNumber} to ${data.email}`);
-      return false;
-    }
+		return results;
+	}
 
-    try {
-      const settlementInfo = data.settlementDate 
-        ? `<p style="margin: 16px 0; padding: 12px; background: #f8f9fa; border-radius: 8px;">
-             <strong>Expected Settlement:</strong> ${new Date(data.settlementDate).toLocaleDateString('en-IN', { dateStyle: 'long' })}
+	private async sendEmailNotification(data: {
+		email: string;
+		userName: string;
+		orderNumber: string;
+		bondName: string;
+		quantity: number;
+		amount: string;
+		status: string;
+		statusTitle: string;
+		statusDescription: string;
+		settlementDate?: string;
+	}): Promise<boolean> {
+		if (!this.isEmailConfigured || !this.emailTransporter) {
+			console.log(
+				`[Bond Notification] Email (mock): ${data.statusTitle} for order ${data.orderNumber} to ${data.email}`,
+			);
+			return false;
+		}
+
+		try {
+			const settlementInfo = data.settlementDate
+				? `<p style="margin: 16px 0; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+             <strong>Expected Settlement:</strong> ${new Date(data.settlementDate).toLocaleDateString("en-IN", { dateStyle: "long" })}
            </p>`
-        : '';
+				: "";
 
-      const html = `
+			const html = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -222,71 +246,88 @@ class BondOrderNotificationService {
         </html>
       `;
 
-      await this.emailTransporter.sendMail({
-        from: this.fromEmail,
-        to: data.email,
-        subject: `${data.statusTitle} - Order #${data.orderNumber} | FintekPro`,
-        html,
-      });
+			await this.emailTransporter.sendMail({
+				from: this.fromEmail,
+				to: data.email,
+				subject: `${data.statusTitle} - Order #${data.orderNumber} | FintekPro`,
+				html,
+			});
 
-      return true;
-    } catch (error) {
-      console.error('[Bond Notification] Email send error:', error);
-      return false;
-    }
-  }
+			return true;
+		} catch (error) {
+			console.error("[Bond Notification] Email send error:", error);
+			return false;
+		}
+	}
 
-  private async sendSMSNotification(data: {
-    mobile: string;
-    orderNumber: string;
-    bondName: string;
-    status: string;
-    amount: string;
-    emoji: string;
-  }): Promise<boolean> {
-    if (!smsService.isAvailable()) {
-      console.log(`[Bond Notification] SMS (mock): ${data.status} for order ${data.orderNumber} to ${data.mobile}`);
-      return false;
-    }
+	private async sendSMSNotification(data: {
+		mobile: string;
+		orderNumber: string;
+		bondName: string;
+		status: string;
+		amount: string;
+		emoji: string;
+	}): Promise<boolean> {
+		if (!smsService.isAvailable()) {
+			console.log(
+				`[Bond Notification] SMS (mock): ${data.status} for order ${data.orderNumber} to ${data.mobile}`,
+			);
+			return false;
+		}
 
-    try {
-      const formattedMobile = data.mobile.startsWith('+') ? data.mobile : `+91${data.mobile}`;
-      const bondNameShort = data.bondName.length > 25 ? data.bondName.substring(0, 22) + '...' : data.bondName;
-      
-      const message = `${data.emoji} FintekPro: ${data.status}! Order #${data.orderNumber} for ${bondNameShort} (₹${data.amount}). Track at fintekpro.com/bonds`;
+		try {
+			const formattedMobile = data.mobile.startsWith("+")
+				? data.mobile
+				: `+91${data.mobile}`;
+			const bondNameShort =
+				data.bondName.length > 25
+					? data.bondName.substring(0, 22) + "..."
+					: data.bondName;
 
-      const result = await (smsService as any).client?.messages?.create({
-        body: message,
-        from: (smsService as any).fromNumber,
-        to: formattedMobile,
-      });
+			const message = `${data.emoji} FintekPro: ${data.status}! Order #${data.orderNumber} for ${bondNameShort} (₹${data.amount}). Track at fintekpro.com/bonds`;
 
-      return !!result?.sid;
-    } catch (error) {
-      console.error('[Bond Notification] SMS send error:', error);
-      return false;
-    }
-  }
+			const result = await (smsService as any).client?.messages?.create({
+				body: message,
+				from: (smsService as any).fromNumber,
+				to: formattedMobile,
+			});
 
-  async sendOrderConfirmation(data: OrderNotificationData): Promise<{ email: boolean; sms: boolean }> {
-    return this.sendOrderStatusNotification({ ...data, status: 'placed' });
-  }
+			return !!result?.sid;
+		} catch (error) {
+			console.error("[Bond Notification] SMS send error:", error);
+			return false;
+		}
+	}
 
-  async sendPaymentConfirmation(data: OrderNotificationData): Promise<{ email: boolean; sms: boolean }> {
-    return this.sendOrderStatusNotification({ ...data, status: 'confirmed' });
-  }
+	async sendOrderConfirmation(
+		data: OrderNotificationData,
+	): Promise<{ email: boolean; sms: boolean }> {
+		return this.sendOrderStatusNotification({ ...data, status: "placed" });
+	}
 
-  async sendSettlementUpdate(data: OrderNotificationData): Promise<{ email: boolean; sms: boolean }> {
-    return this.sendOrderStatusNotification({ ...data, status: 'settlement' });
-  }
+	async sendPaymentConfirmation(
+		data: OrderNotificationData,
+	): Promise<{ email: boolean; sms: boolean }> {
+		return this.sendOrderStatusNotification({ ...data, status: "confirmed" });
+	}
 
-  async sendOrderCompletion(data: OrderNotificationData): Promise<{ email: boolean; sms: boolean }> {
-    return this.sendOrderStatusNotification({ ...data, status: 'credited' });
-  }
+	async sendSettlementUpdate(
+		data: OrderNotificationData,
+	): Promise<{ email: boolean; sms: boolean }> {
+		return this.sendOrderStatusNotification({ ...data, status: "settlement" });
+	}
 
-  async sendOrderCancellation(data: OrderNotificationData): Promise<{ email: boolean; sms: boolean }> {
-    return this.sendOrderStatusNotification({ ...data, status: 'cancelled' });
-  }
+	async sendOrderCompletion(
+		data: OrderNotificationData,
+	): Promise<{ email: boolean; sms: boolean }> {
+		return this.sendOrderStatusNotification({ ...data, status: "credited" });
+	}
+
+	async sendOrderCancellation(
+		data: OrderNotificationData,
+	): Promise<{ email: boolean; sms: boolean }> {
+		return this.sendOrderStatusNotification({ ...data, status: "cancelled" });
+	}
 }
 
 export const bondOrderNotificationService = new BondOrderNotificationService();

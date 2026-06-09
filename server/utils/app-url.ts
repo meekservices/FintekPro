@@ -12,18 +12,18 @@
  * Use this everywhere a public-facing callback/webhook/share URL is built.
  */
 export function getAppBaseUrl(): string {
-  if (process.env.APP_URL) {
-    return process.env.APP_URL.replace(/\/$/, '');
-  }
-  if (process.env.RAILWAY_PUBLIC_DOMAIN) {
-    return `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
-  }
-  if (process.env.REPLIT_DEV_DOMAIN) {
-    return `https://${process.env.REPLIT_DEV_DOMAIN}`;
-  }
-  if (process.env.REPLIT_DOMAINS) {
-    const first = process.env.REPLIT_DOMAINS.split(',')[0].trim();
-    return `https://${first}`;
-  }
-  return 'https://fintekpro.com';
+	if (process.env.APP_URL) {
+		return process.env.APP_URL.replace(/\/$/, "");
+	}
+	if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+		return `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+	}
+	if (process.env.REPLIT_DEV_DOMAIN) {
+		return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+	}
+	if (process.env.REPLIT_DOMAINS) {
+		const first = process.env.REPLIT_DOMAINS.split(",")[0].trim();
+		return `https://${first}`;
+	}
+	return "https://fintekpro.com";
 }

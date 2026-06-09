@@ -115,8 +115,8 @@ function maskSensitiveData(
     }
     // Mask detailed financial values, show only summaries
     if (masked.profitAfterTax && typeof masked.profitAfterTax === 'string') {
-      const value = parseFloat(masked.profitAfterTax);
-      if (!isNaN(value)) {
+      const value = Number.parseFloat(masked.profitAfterTax);
+      if (!Number.isNaN(value)) {
         // Round to nearest crore for advisor role
         const inCrores = Math.round(value / 10000000);
         masked.profitAfterTax = `~${inCrores} Cr (approx)`;
@@ -124,8 +124,8 @@ function maskSensitiveData(
       }
     }
     if (masked.revenue && typeof masked.revenue === 'string') {
-      const value = parseFloat(masked.revenue);
-      if (!isNaN(value)) {
+      const value = Number.parseFloat(masked.revenue);
+      if (!Number.isNaN(value)) {
         const inCrores = Math.round(value / 10000000);
         masked.revenue = `~${inCrores} Cr (approx)`;
         masked.isApproximate = true;
@@ -256,7 +256,7 @@ router.get('/wallet/recharge/callback', async (req: Request, res: Response) => {
 
       if (wasUpdated) {
         // We successfully transitioned from pending to success, now credit wallet
-        const amount = parseFloat(payment.amount);
+        const amount = Number.parseFloat(payment.amount);
         await mcaIntelligenceService.updateWalletBalance(amount, 'recharge');
         console.log('[MCA Routes] Wallet credited:', { order_id, amount });
 
@@ -285,20 +285,18 @@ router.get('/wallet/recharge/callback', async (req: Request, res: Response) => {
         }
 
         return res.redirect('/admin/mca-intelligence?payment=success&amount=' + amount);
-      } else {
+      }
         // Another request already processed this payment
         console.log('[MCA Routes] Payment already credited by concurrent request:', order_id);
         return res.redirect('/admin/mca-intelligence?payment=success&message=Already credited');
-      }
-    } else if (orderStatus!.orderStatus! === 'FAILED' || orderStatus!.orderStatus! === 'CANCELLED') {
+    }if (orderStatus!.orderStatus! === 'FAILED' || orderStatus!.orderStatus! === 'CANCELLED') {
       await mcaIntelligenceService.updateWalletPaymentStatus(order_id, {
         status: 'failed',
         failureReason: orderStatus!.orderStatus!,
       });
       return res.redirect('/admin/mca-intelligence?payment=failed&message=' + orderStatus!.orderStatus!);
-    } else {
-      return res.redirect('/admin/mca-intelligence?payment=pending&order_id=' + order_id);
     }
+      return res.redirect('/admin/mca-intelligence?payment=pending&order_id=' + order_id);
   } catch (error: any) {
     console.error('[MCA Routes] Payment callback error:', error);
     return res.redirect('/admin/mca-intelligence?payment=error&message=' + encodeURIComponent(error.message));
@@ -336,7 +334,7 @@ router.get('/wallet/payments/:orderId', requireMcaAccess('read'), async (req: Re
               message: 'Payment successful - wallet will be credited shortly'
             },
           });
-        } else if (orderStatus!.orderStatus! === 'FAILED' || orderStatus!.orderStatus! === 'CANCELLED') {
+        }if (orderStatus!.orderStatus! === 'FAILED' || orderStatus!.orderStatus! === 'CANCELLED') {
           // Safe to update failed status
           await mcaIntelligenceService.updateWalletPaymentStatus(orderId, {
             status: 'failed',
@@ -443,7 +441,7 @@ router.get('/audit-log', requireMcaAccess('query'), async (req: Request, res: Re
       cin: cin as string,
       startDate: startDate ? new Date(startDate as string) : undefined,
       endDate: endDate ? new Date(endDate as string) : undefined,
-      limit: limit ? parseInt(limit as string) : 100,
+      limit: limit ? Number.parseInt(limit as string) : 100,
     });
 
     res.json({
@@ -614,7 +612,7 @@ router.get('/company/:cin', requireMcaAccess('read'), async (req: Request, res: 
 router.get('/search', requireMcaAccess('read'), async (req: Request, res: Response) => {
   try {
     const query = req.query.q as string;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = Number.parseInt(req.query.limit as string) || 20;
 
     if (!query || query.length < 2) {
       return res.status(400).json({

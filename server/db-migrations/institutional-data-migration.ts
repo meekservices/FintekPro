@@ -14,9 +14,9 @@ import { db } from "../db";
 import { sql } from "drizzle-orm";
 
 export async function runInstitutionalDataMigration(): Promise<void> {
-  try {
-    // ── 1. Corporate Actions ─────────────────────────────────────────────────
-    await db.execute(sql`
+	try {
+		// ── 1. Corporate Actions ─────────────────────────────────────────────────
+		await db.execute(sql`
       CREATE TABLE IF NOT EXISTS corporate_actions (
         id SERIAL PRIMARY KEY,
         isin VARCHAR(20) NOT NULL,
@@ -37,25 +37,25 @@ export async function runInstitutionalDataMigration(): Promise<void> {
         updated_at TIMESTAMP DEFAULT NOW() NOT NULL
       )
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_corp_actions_isin ON corporate_actions(isin)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_corp_actions_ex_date ON corporate_actions(ex_date)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_corp_actions_type ON corporate_actions(action_type)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_corp_actions_applied ON corporate_actions(is_applied_to_golden_prices)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_corp_actions_isin_ex_type
         ON corporate_actions(isin, ex_date, action_type)
     `);
 
-    // ── 2. Price Adjustments (audit trail) ──────────────────────────────────
-    await db.execute(sql`
+		// ── 2. Price Adjustments (audit trail) ──────────────────────────────────
+		await db.execute(sql`
       CREATE TABLE IF NOT EXISTS price_adjustments (
         id SERIAL PRIMARY KEY,
         corporate_action_id INTEGER NOT NULL,
@@ -67,18 +67,18 @@ export async function runInstitutionalDataMigration(): Promise<void> {
         applied_at TIMESTAMP DEFAULT NOW() NOT NULL
       )
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_price_adj_isin ON price_adjustments(isin)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_price_adj_corp_action ON price_adjustments(corporate_action_id)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_price_adj_date ON price_adjustments(price_date)
     `);
 
-    // ── 3. Symbol Mapping ────────────────────────────────────────────────────
-    await db.execute(sql`
+		// ── 3. Symbol Mapping ────────────────────────────────────────────────────
+		await db.execute(sql`
       CREATE TABLE IF NOT EXISTS symbol_mapping (
         id SERIAL PRIMARY KEY,
         isin VARCHAR(20) NOT NULL,
@@ -91,22 +91,22 @@ export async function runInstitutionalDataMigration(): Promise<void> {
         created_at TIMESTAMP DEFAULT NOW() NOT NULL
       )
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_symbol_mapping_isin ON symbol_mapping(isin)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_symbol_mapping_provider ON symbol_mapping(provider)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_symbol_mapping_symbol ON symbol_mapping(provider_symbol)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_symbol_mapping_isin_provider
         ON symbol_mapping(isin, provider)
     `);
 
-    // ── 4. Credit Ratings ────────────────────────────────────────────────────
-    await db.execute(sql`
+		// ── 4. Credit Ratings ────────────────────────────────────────────────────
+		await db.execute(sql`
       CREATE TABLE IF NOT EXISTS credit_ratings (
         id SERIAL PRIMARY KEY,
         isin VARCHAR(20) NOT NULL,
@@ -123,27 +123,27 @@ export async function runInstitutionalDataMigration(): Promise<void> {
         created_at TIMESTAMP DEFAULT NOW() NOT NULL
       )
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_credit_ratings_isin ON credit_ratings(isin)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_credit_ratings_agency ON credit_ratings(agency)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_credit_ratings_date ON credit_ratings(rating_date)
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_credit_ratings_current ON credit_ratings(is_current)
     `);
 
-    // ── 5. Security Master VIEW ──────────────────────────────────────────────
-    // Unified cross-asset ISIN lookup. READ-ONLY view — no direct writes.
-    // Consolidates: listed_stocks (equities) + mutual_funds + corporate_bonds + unlisted_companies
-    //
-    // Drop any conflicting non-view object (TABLE or MATERIALIZED VIEW) with the
-    // same name before attempting CREATE OR REPLACE VIEW, which only works when
-    // the existing object is already a regular view.
-    await db.execute(sql`
+		// ── 5. Security Master VIEW ──────────────────────────────────────────────
+		// Unified cross-asset ISIN lookup. READ-ONLY view — no direct writes.
+		// Consolidates: listed_stocks (equities) + mutual_funds + corporate_bonds + unlisted_companies
+		//
+		// Drop any conflicting non-view object (TABLE or MATERIALIZED VIEW) with the
+		// same name before attempting CREATE OR REPLACE VIEW, which only works when
+		// the existing object is already a regular view.
+		await db.execute(sql`
       DO $$
       DECLARE obj_type text;
       BEGIN
@@ -160,7 +160,7 @@ export async function runInstitutionalDataMigration(): Promise<void> {
         END IF;
       END$$
     `);
-    await db.execute(sql`
+		await db.execute(sql`
       CREATE OR REPLACE VIEW security_master AS
         SELECT
           isin,
@@ -219,9 +219,11 @@ export async function runInstitutionalDataMigration(): Promise<void> {
         WHERE isin IS NOT NULL
     `);
 
-    console.log("✅ [InstitutionalData] All 4 tables + security_master view created/verified");
-  } catch (error: any) {
-    console.error("❌ [InstitutionalData] Migration failed:", error.message);
-    throw error;
-  }
+		console.log(
+			"✅ [InstitutionalData] All 4 tables + security_master view created/verified",
+		);
+	} catch (error: any) {
+		console.error("❌ [InstitutionalData] Migration failed:", error.message);
+		throw error;
+	}
 }

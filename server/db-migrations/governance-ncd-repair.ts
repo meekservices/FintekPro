@@ -10,16 +10,16 @@
 import { pool } from "../db";
 
 export async function runGovernanceNcdRepair(): Promise<void> {
-  let client: import("pg").PoolClient | null = null;
-  try {
-    console.log("[GovernanceNCD] Checking for schema repairs...");
+	let client: import("pg").PoolClient | null = null;
+	try {
+		console.log("[GovernanceNCD] Checking for schema repairs...");
 
-    // Acquire a dedicated client and disable statement_timeout for this session
-    client = await pool.connect();
-    await client.query("SET statement_timeout = 0");
+		// Acquire a dedicated client and disable statement_timeout for this session
+		client = await pool.connect();
+		await client.query("SET statement_timeout = 0");
 
-    // 1. Repair ai_governance_audit_logs
-    await client.query(`
+		// 1. Repair ai_governance_audit_logs
+		await client.query(`
       CREATE TABLE IF NOT EXISTS ai_governance_audit_logs (
         audit_id varchar(255) PRIMARY KEY,
         user_id varchar(255) NOT NULL,
@@ -36,9 +36,9 @@ export async function runGovernanceNcdRepair(): Promise<void> {
       )
     `);
 
-    // 2. Add issue_name to ncd_public_issues if missing
-    // PostgreSQL ADD COLUMN IF NOT EXISTS is 9.6+, using DO block for compatibility
-    await client.query(`
+		// 2. Add issue_name to ncd_public_issues if missing
+		// PostgreSQL ADD COLUMN IF NOT EXISTS is 9.6+, using DO block for compatibility
+		await client.query(`
       DO $$
       BEGIN
           IF NOT EXISTS (
@@ -55,17 +55,19 @@ export async function runGovernanceNcdRepair(): Promise<void> {
       END $$;
     `);
 
-    console.log("✅ [GovernanceNCD] DB repair complete (ai_governance_audit_logs, ncd_public_issues.issue_name)");
-  } catch (e: any) {
-    console.error("❌ [GovernanceNCD] Migration error:", e?.message);
-  } finally {
-    if (client) {
-      try {
-        await client.query("RESET statement_timeout");
-      } catch (_) {
-        // Ignore — client may already be dead
-      }
-      client.release();
-    }
-  }
+		console.log(
+			"✅ [GovernanceNCD] DB repair complete (ai_governance_audit_logs, ncd_public_issues.issue_name)",
+		);
+	} catch (e: any) {
+		console.error("❌ [GovernanceNCD] Migration error:", e?.message);
+	} finally {
+		if (client) {
+			try {
+				await client.query("RESET statement_timeout");
+			} catch (_) {
+				// Ignore — client may already be dead
+			}
+			client.release();
+		}
+	}
 }
