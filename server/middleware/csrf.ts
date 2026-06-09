@@ -39,6 +39,11 @@ export const createCsrfProtection = () => {
       '/esign/ai',          // AI analysis — protected by requireAuth; CSRF token
                             // unavailable in document preview / post-redirect contexts
       '/documents/upload',
+      '/sessions/check',    // Pre-login POST — called before CSRF token exists in session
+      '/login',             // Login POST — session/CSRF token not yet established
+      '/login/otp',         // OTP login — same reason
+      '/login/pin',         // PIN login — same reason
+      '/register',          // Registration — no session yet
     ];
     if (CSRF_EXEMPT_PATHS.some(p => req.path === p || req.path.startsWith(p + '/') || req.path.endsWith(p))) {
       return next();
