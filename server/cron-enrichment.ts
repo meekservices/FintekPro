@@ -348,12 +348,33 @@ export function initializeEnrichmentCrons(staggeredStart: StaggerFn, delay: numb
       console.log('[CRON] [AlpacaSync] Starting daily Alpaca positions sync (6:30 PM IST)...');
       const start = Date.now();
       try {
+        const { db: dbConn } = await import('./db');
+        const { sql: sqlTag } = await import('drizzle-orm');
         const { alpacaPortfolioSync } = await import('./services/alpaca/portfolio/portfolioSync');
-        await alpacaPortfolioSync.syncAllUserPositions();
-        console.log(`[AlpacaSync] Complete in ${Date.now() - start}ms`, {
+
+        // Fetch all users with an Alpaca account linked
+        const rows = await dbConn.execute(sqlTag`
+          SELECT id FROM users WHERE alpaca_account_id IS NOT NULL AND alpaca_account_id != ''
+        `);
+        const userIds: string[] = ((rows as any).rows ?? rows).map((r: any) => r.id).filter(Boolean);
+
+        let synced = 0, failed = 0;
+        for (const userId of userIds) {
+          try {
+            await alpacaPortfolioSync.getNormalizedPositions(userId);
+            synced++;
+          } catch (e: any) {
+            console.warn(`[AlpacaSync] Failed for user ${userId}:`, e?.message?.slice(0, 80));
+            failed++;
+          }
+          await new Promise(r => setTimeout(r, 200)); // throttle
+        }
+
+        console.log(`[AlpacaSync] Complete in ${Date.now() - start}ms — ${synced} synced, ${failed} failed`, {
           event: 'ALPACA_SYNC_CRON_DONE',
           latency_ms: Date.now() - start,
-          status: 'success',
+          synced, failed,
+          status: failed === 0 ? 'success' : 'partial',
         });
       } catch (error: any) {
         console.error('[AlpacaSync] Cron job failed:', error.message, {
@@ -367,6 +388,7 @@ export function initializeEnrichmentCrons(staggeredStart: StaggerFn, delay: numb
     }, { timezone: 'Asia/Kolkata' });
     console.log('📊 [AlpacaSync] Daily Alpaca positions sync scheduled (6:30 PM IST weekdays)');
   }, delay);
+
   delay += STAGGER;
 
   staggeredStart('Portfolio Price Refresh', () => {
