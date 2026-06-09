@@ -433,7 +433,10 @@ export class PickOfTheDayService {
         responseParser: (text: string) => text,
         fallback: () => this.generateFallbackRationale(params),
       });
-      return this.extractRationaleText(result || this.generateFallbackRationale(params));
+      const rawResult = result || this.generateFallbackRationale(params);
+      // Coerce to string — AI engine may return an object when model output is structured JSON
+      const resultStr = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
+      return this.extractRationaleText(resultStr);
     } catch (error) {
       console.error("[PickOfTheDay] AI rationale generation failed:", error);
       return this.generateFallbackRationale(params);
@@ -462,8 +465,10 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
     return `${params.name} is selected as today's top pick based on strong fundamentals and a compelling target upside of ${upside}%. The technical outlook remains positive with favorable risk-reward indicators.`;
   }
 
-  private extractRationaleText(raw: string): string {
-    let text = raw.replace(/^```[\w]*\n?/gm, '').replace(/```$/gm, '').trim();
+  private extractRationaleText(raw: unknown): string {
+    // Guard: coerce non-string inputs (e.g. AI engine returning object) to string
+    const rawStr = typeof raw === 'string' ? raw : JSON.stringify(raw) ?? '';
+    let text = rawStr.replace(/^```[\w]*\n?/gm, '').replace(/```$/gm, '').trim();
     if (text.startsWith('{')) {
       try {
         const parsed = JSON.parse(text);
