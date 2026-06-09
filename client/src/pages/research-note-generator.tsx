@@ -241,7 +241,7 @@ function ScoreBar({ label, score, weight }: { label: string; score: number; weig
         <span className="font-semibold">{score}/100</span>
       </div>
       <div className="h-2 bg-muted rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${score}%` }} />
+        <div className={`h-full rounded-full transition-all [width:var(--bar-width)] ${color}`} style={{ '--bar-width': `${score}%` } as React.CSSProperties} />
       </div>
     </div>
   );
@@ -440,7 +440,13 @@ export default function ResearchNoteGenerator() {
                   onKeyDown={(e) => { if (e.key === "Enter") { setShowDropdown(false); handlePreview(); } if (e.key === "Escape") setShowDropdown(false); }}
                 />
                 {searchText && (
-                  <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={handleClear} type="button">
+                  <button
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={handleClear}
+                    type="button"
+                    aria-label="Clear search"
+                    title="Clear search"
+                  >
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}
@@ -620,7 +626,7 @@ export default function ResearchNoteGenerator() {
                     <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-400 p-3 text-center">
                       <p className="text-xs text-blue-600 font-medium">Base Target (FintekPro Est.)</p>
                       <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{priceRs(d.priceTarget.blended)}</p>
-                      <p className="text-xs font-medium mt-1" style={{ color: (d.priceTarget.upside ?? 0) >= 0 ? "#16a34a" : "#dc2626" }}>
+                      <p className={`text-xs font-medium mt-1 ${(d.priceTarget.upside ?? 0) >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                         {(d.priceTarget.upside ?? 0) >= 0 ? "▲" : "▼"} {Math.abs(d.priceTarget.upside ?? 0).toFixed(1)}% from CMP
                       </p>
                     </div>
@@ -744,8 +750,8 @@ export default function ResearchNoteGenerator() {
                         </div>
                         <div className="h-3 bg-muted rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all ${d.unlistedExtras.fhs >= 65 ? "bg-green-500" : d.unlistedExtras.fhs >= 40 ? "bg-amber-500" : "bg-red-500"}`}
-                            style={{ width: `${d.unlistedExtras.fhs}%` }}
+                            className={`h-full rounded-full transition-all [width:var(--fhs-width)] ${d.unlistedExtras.fhs >= 65 ? "bg-green-500" : d.unlistedExtras.fhs >= 40 ? "bg-amber-500" : "bg-red-500"}`}
+                            style={{ '--fhs-width': `${d.unlistedExtras.fhs}%` } as React.CSSProperties}
                           />
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">Composite score: ROE (35%) · Revenue Growth (30%) · Leverage (35%)</p>
