@@ -229,7 +229,7 @@ const navCategories: NavCategory[] = [
       { title: "Prospect Analytics",href: "/admin/prospect-analytics",        icon: PieChart,    description: "Lead scoring & conversion insights" },
       { title: "Client Intelligence",href: "/admin/client-intelligence",      icon: Lightbulb,   description: "Client behaviour analysis" },
       { title: "AI Tracking",       href: "/admin/ai-recommendation-tracking",icon: LineChart,   description: "AI recommendation performance" },
-      { title: "Picks Management",  href: "/admin/picks",                     icon: Award,       description: "Manage daily agent picks" },
+      { title: "Picks Monitor",     href: "/admin/picks",                     icon: Award,       description: "Monitor auto-generated daily picks" },
     ]
   },
   {

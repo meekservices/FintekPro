@@ -965,13 +965,18 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
         console.warn('[Migration] error_alert_threshold table skipped:', e?.message);
       }
 
-      // ── 32. instrument_master — last_price column ─────────────────────────────
-      // PickOfTheDay price sync reads last_price from instrument_master.
-      // The column may be missing if the table was created before this field.
+      // ── 32. instrument_master — missing columns for PickOfTheDay strategies ──
+      // last_price: used by price sync
+      // interest_rate: used by FixedDepositStrategy ORDER BY
+      // tenure_months: used by FD/Bond strategies for display
+      // min_investment: used by product display
       try {
         await migDb.execute(migSql`
           ALTER TABLE instrument_master
-            ADD COLUMN IF NOT EXISTS last_price NUMERIC(18, 4);
+            ADD COLUMN IF NOT EXISTS last_price NUMERIC(18, 4),
+            ADD COLUMN IF NOT EXISTS interest_rate NUMERIC(8, 4),
+            ADD COLUMN IF NOT EXISTS tenure_months INTEGER,
+            ADD COLUMN IF NOT EXISTS min_investment NUMERIC(15, 2);
           CREATE INDEX IF NOT EXISTS idx_instrument_master_last_price
             ON instrument_master(last_price) WHERE last_price IS NOT NULL;
         `);

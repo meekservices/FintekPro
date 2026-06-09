@@ -55,7 +55,7 @@ router.get("/today", async (req, res) => {
     
     res.json({
       success: true,
-      date: new Date().toISOString().split('T')[0],
+      date: new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split('T')[0],
       picks,
       categoryLastUpdated,
       lastRefreshedAt: new Date().toISOString(),
@@ -157,7 +157,9 @@ router.post("/generate", requireAdmin, async (req, res) => {
 // Unlike /generate (admin-only), this only generates for categories with 0 picks today.
 router.post("/catchup", requireAuth, async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    // Use IST date so Cloud Run (UTC) correctly identifies today in India time
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+    const today = new Date(Date.now() + IST_OFFSET_MS).toISOString().split('T')[0];
     const categoryCounts = await db
       .select({ category: dailyPicks.category, cnt: sql`COUNT(*)` })
       .from(dailyPicks)
@@ -166,7 +168,7 @@ router.post("/catchup", requireAuth, async (req, res) => {
 
     const existingCategories = new Set(categoryCounts.map((r: any) => r.category));
     const allCategories = ['listed_stocks', 'mutual_funds', 'bonds', 'unlisted',
-      'global_stocks', 'etfs', 'reits_invits', 'sgb', 'fixed_deposits'];
+      'global_stocks', 'etfs', 'reits_invits', 'sgb', 'fixed_deposits', 'derivatives'];
     const missing = allCategories.filter(c => !existingCategories.has(c));
 
     if (missing.length === 0) {

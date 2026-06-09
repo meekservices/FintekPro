@@ -42,6 +42,19 @@ export type PickStatus = 'live' | 'target_hit' | 'stoploss_hit' | 'expired';
 export const SCORER_VERSION = "3.0.0";
 export const SCORER_MIN_THRESHOLD = 15;
 
+/**
+ * Returns today's date string in IST (YYYY-MM-DD).
+ * Cloud Run containers run in UTC — using toISOString() would return the
+ * wrong date between midnight IST and 5:30 AM UTC.
+ * This helper uses pure UTC arithmetic: IST = UTC + 5h30m.
+ */
+function todayIST(): string {
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+  const nowIst = new Date(Date.now() + IST_OFFSET_MS);
+  return nowIst.toISOString().split('T')[0];
+}
+
+
 export interface ScoreBreakdown {
   listingStageScore: number;
   pricingScore: number;
@@ -147,6 +160,7 @@ export function calculateSuggestedAllocation(
 
 export class PickOfTheDayService {
   private strategies: Map<PickCategory, IPickStrategy>;
+  private _isGenerating = false;
   private readonly DEFAULT_VALIDITY_DAYS = 30;
 
   constructor() {
@@ -170,9 +184,24 @@ export class PickOfTheDayService {
   }
 
   async generateDailyPicks(): Promise<DailyPickData[]> {
+    // ── Generation lock: prevent concurrent runs (cold-start race on Cloud Run)
+    if (this._isGenerating) {
+      console.warn('[PickOfTheDay] generateDailyPicks() called while already running — skipping duplicate.');
+      return [];
+    }
+    this._isGenerating = true;
+    try {
+    return await this._doGenerateDailyPicks();
+    } finally {
+      this._isGenerating = false;
+    }
+  }
+
+  /** Internal: the actual generation logic. Always call via generateDailyPicks(). */
+  private async _doGenerateDailyPicks(): Promise<DailyPickData[]> {
     console.log(`[PickOfTheDay] Starting daily pick generation (v${SCORER_VERSION})...`);
     const generated: DailyPickData[] = [];
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayIST();
     
     // 1. Systemic Resilience Check: Detect Black Swan Regime
     const isBlackSwan = marketRegimeDetector.detectBlackSwanEvent();
@@ -324,7 +353,7 @@ export class PickOfTheDayService {
   }
 
   async getTodaysPicks(): Promise<DailyPickData[]> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayIST();
     const picks = await db.select().from(dailyPicks).where(eq(dailyPicks.recoDate, today)).orderBy(dailyPicks.category);
     return picks.map(p => this.transformPick(p));
   }
@@ -480,9 +509,8 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 
   private async savePick(pick: DailyPickData): Promise<void> {
     // Use INSERT … ON CONFLICT DO NOTHING to make pick generation idempotent.
-    // Prevents duplicate rows when catchUpIfNeeded / auto-heal fires multiple times
-    // on the same day for the same instrument.
-    // The unique index idx_daily_picks_unique_reco covers (category, reco_date, instrument_id, symbol).
+    // suitable_for is TEXT[] — must use ARRAY[...] syntax, NOT ::jsonb
+    const suitableForArray = (pick.suitableFor ?? ['Balanced']).map(s => `'${String(s).replace(/'/g, "''")}'`).join(', ');
     await db.execute(sql`
       INSERT INTO daily_picks
         (category, instrument_id, instrument_name, isin, symbol, market, exchange,
@@ -495,13 +523,14 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
          ${pick.recoDate}, ${pick.recoPrice.toString()}, ${pick.targetPrice.toString()},
          ${pick.stoplossPrice.toString()}, ${(pick.currentPrice ?? pick.recoPrice).toString()},
          ${pick.status}, ${pick.expiryDate}, ${pick.rationale}, ${pick.riskLevel},
-         ${JSON.stringify(pick.suitableFor)}::jsonb, ${JSON.stringify(pick.keyMetrics ?? {})}::jsonb,
+         ARRAY[${sql.raw(suitableForArray)}]::TEXT[], ${JSON.stringify(pick.keyMetrics ?? {})}::jsonb,
          ${pick.timeHorizon ?? 'medium_term'}, ${pick.confidenceScore ?? 70},
          ${pick.sectorCategory ?? null}, 'ai', NOW())
       ON CONFLICT (category, reco_date, instrument_id, symbol) DO NOTHING
     `);
 
   }
+
 
   private async notifyWatchlistSubscribers(
     pick: typeof dailyPicks.$inferSelect, newStatus: PickStatus, currentPrice: number, returnPct: number
@@ -594,22 +623,52 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
      * If that time has already passed today, it targets tomorrow.
      */
     function msUntilIst(hour: number, minute = 0): number {
-      // Get current IST time as a wall-clock string, then parse
-      const nowIst = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-      const target = new Date(nowIst);
-      target.setHours(hour, minute, 0, 0);
-      if (target <= nowIst) {
-        target.setDate(target.getDate() + 1); // already passed today → fire tomorrow
+      // Compute IST offset: UTC+5:30 = 330 minutes
+      const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+      const nowUtcMs = Date.now();
+      const nowIstMs = nowUtcMs + IST_OFFSET_MS;
+
+      // Build target time in IST as a UTC timestamp
+      const nowIstDate = new Date(nowIstMs);
+      const targetIstMs = Date.UTC(
+        nowIstDate.getUTCFullYear(),
+        nowIstDate.getUTCMonth(),
+        nowIstDate.getUTCDate(),
+        hour - 5,          // convert IST → UTC: IST 9:00 = UTC 3:30
+        minute - 30 < 0 ? minute + 30 : minute - 30,
+        0, 0
+      ) - (minute < 30 ? 60 * 60 * 1000 : 0); // adjust for borrow
+
+      // Recalculate properly: target in UTC = IST target - 5h30m
+      const targetHourUtc = hour - 5;
+      const targetMinUtc  = minute - 30;
+      const borrowHour    = targetMinUtc < 0 ? 1 : 0;
+      const finalMinUtc   = targetMinUtc < 0 ? targetMinUtc + 60 : targetMinUtc;
+      const finalHourUtc  = targetHourUtc - borrowHour;
+
+      const targetDate = new Date(Date.UTC(
+        nowIstDate.getUTCFullYear(),
+        nowIstDate.getUTCMonth(),
+        nowIstDate.getUTCDate(),
+        finalHourUtc,
+        finalMinUtc,
+        0, 0
+      ));
+
+      // If the target has already passed today (UTC), push to tomorrow
+      if (targetDate.getTime() <= nowUtcMs) {
+        targetDate.setUTCDate(targetDate.getUTCDate() + 1);
       }
-      return target.getTime() - nowIst.getTime();
+
+      return targetDate.getTime() - nowUtcMs;
     }
 
     // ── 9:00 AM IST ── Generate fresh daily picks (market open)
     const delayToGenerate = msUntilIst(9, 0);
     console.log(`📅 [PickOfTheDay] Next generation scheduled in ${Math.round(delayToGenerate / 60000)} min (9:00 AM IST)`);
     setTimeout(() => {
-      this.scheduledGenerate();
-      setInterval(() => this.scheduledGenerate(), MS_PER_DAY);
+      this.generateDailyPicks();
+      setInterval(() => this.generateDailyPicks(), MS_PER_DAY);
     }, delayToGenerate);
 
     // ── 4:00 PM IST ── Refresh live prices after market close
@@ -649,7 +708,7 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
    * Also handles the edge case where the 9 AM scheduler fired but some strategies failed.
    */
   private async catchUpIfNeeded(): Promise<void> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayIST(); // IST date — consistent with how picks are stored
     const existing = await db
       .select({ count: sql<number>`COUNT(*)` })
       .from(dailyPicks)

@@ -15,7 +15,7 @@ import {
   AgentInvestmentBaskets, AgentSipHealth, AgentPortfolioDrift, AgentMarketAlerts,
   PublicAdvisorProfile, AdvisorBrandProfile, AgentTrainingPage,
   AgentRecommendationControl, AgentInvestmentAdvisory, AgentBondRecommendations,
-  AgentDerivatives, AgentStockAI, AgentDemoProgress, AgentProposalsPage,
+  AgentDerivatives, AgentDemoProgress, AgentProposalsPage,
   AgentClientAcquisitionPage, AgentTreasuryPage, AgentTaxCasesPage,
   AgentKnowledgeHub, AgentKnowledgeMarketBrief, FestivalGreetingPreview,
   AgentKnowledgeProducts, AgentKnowledgeExplanations, AgentKnowledgeCertifications,
@@ -263,14 +263,9 @@ export function AgentRoutes() {
           </AgentLayout>
         )}
       </Route>
+      {/* Stock AI is now merged into Pick of the Day — redirect legacy URLs */}
       <Route path="/agent/stock-ai">
-        {() => (
-          <AgentLayout>
-            <Suspense fallback={<LoadingState variant="agent-dashboard" />}>
-              <AgentStockAI />
-            </Suspense>
-          </AgentLayout>
-        )}
+        {() => <Redirect to="/agent/picks" />}
       </Route>
       <Route path="/agent/demo-progress">
         {() => (

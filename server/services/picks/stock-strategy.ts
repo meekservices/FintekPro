@@ -8,8 +8,16 @@ import { StrategyContext } from "./types";
 import { DailyPickData, PickCategory, calculateSuggestedAllocation } from "../pick-of-the-day-service";
 import { getEnrichedStockSnapshots, EnrichedStockSnapshot } from '../screener/enriched-stock-data';
 import { FinancialMetricsCalculator } from "../financial-metrics-calculator";
+import { unifiedAIRecommendationEngine } from "../unified-ai-recommendation-engine";
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
+
+/**
+ * AI Alpha boost cache: keyed by symbol, stores the last AI conviction score (0-20)
+ * for up to CACHE_TTL_MS milliseconds to avoid repeated Gemini calls per run.
+ */
+const _aiAlphaCache = new Map<string, { score: number; ts: number }>();
+const AI_ALPHA_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 // ── Broad-sector taxonomy ─────────────────────────────────────────────────────
 // Maps 5 investor-friendly broad sectors to the keyword patterns found in the
@@ -345,8 +353,86 @@ export class StockStrategy extends BaseStrategy {
       if (enriched.fundamentals?.roe && enriched.fundamentals.roe > 15) score += 8;
       if (enriched.growth?.epsGrowth && enriched.growth.epsGrowth > 20) score += 8;
     }
+
+    // ── AI Alpha Boost (merged from Stock AI engine) ───────────────────────────
+    // Queries the unified AI recommendation engine for additional conviction.
+    // Adds up to +20 points based on AI-assessed signal strength.
+    // Non-fatal: if AI is unavailable, pick generation continues with quant score only.
+    if (stock.symbol) {
+      const aiBoost = await this.getAIAlphaBoost(stock, enriched);
+      score += aiBoost;
+    }
     
     return Math.max(0, score);
+  }
+
+  /**
+   * Queries the unified AI recommendation engine for an alpha conviction boost.
+   * Returns 0–20 additional score points based on AI signal strength.
+   * Results are cached per symbol for 4 hours to avoid repeated API calls per batch run.
+   *
+   * @param stock - The stock row from listedStocks or screenerStocks.
+   * @param enriched - Optional enriched snapshot with fundamentals/technicals.
+   * @returns A score boost in the range [0, 20]. Returns 0 on any error.
+   */
+  private async getAIAlphaBoost(stock: any, enriched?: EnrichedStockSnapshot | null): Promise<number> {
+    const symbol: string = stock.symbol || '';
+    if (!symbol) return 0;
+
+    // Check cache first to avoid repeated Gemini calls within the same batch
+    const cached = _aiAlphaCache.get(symbol);
+    if (cached && (Date.now() - cached.ts) < AI_ALPHA_CACHE_TTL_MS) {
+      return cached.score;
+    }
+
+    try {
+      const pe = stock.peRatio ? parseFloat(stock.peRatio) : undefined;
+      const roe = enriched?.fundamentals?.roe ?? (stock.roe ? parseFloat(stock.roe) : undefined);
+      const returns1Y = stock.returns1Y ? parseFloat(stock.returns1Y) : undefined;
+      const sector = stock.sector || stock.broadSector || 'Equity';
+      const currentPrice = stock.currentPrice ? parseFloat(stock.currentPrice) : undefined;
+
+      // Build a ProductData object for the unified engine's analyzeProduct method
+      const productData = {
+        id: stock.id || symbol,
+        name: stock.companyName || symbol,
+        category: 'stocks' as const,
+        ticker: symbol,
+        isin: stock.isin,
+        sector,
+        currentPrice,
+        peRatio: pe,
+        returns1Y,
+        dividendYield: stock.dividendYield ? parseFloat(stock.dividendYield) : undefined,
+        rawData: {
+          roe,
+          marketCap: stock.marketCap,
+          analystRating: stock.analystRating,
+          returns3Y: stock.returns3Y ? parseFloat(stock.returns3Y) : undefined,
+          volatility: stock.volatility ? parseFloat(stock.volatility) : undefined,
+        },
+      };
+
+      const analysis = await unifiedAIRecommendationEngine.analyzeProduct(productData);
+
+      // Map the overall score (0-100) to a boost (0-20 pts).
+      // Only apply a meaningful boost for buy-rated, high-confidence picks.
+      let boost = 0;
+      if (analysis.recommendation === 'buy' && analysis.confidenceScore >= 60) {
+        boost = Math.round((analysis.overallScore / 100) * 20);
+      } else if (analysis.recommendation === 'buy') {
+        boost = Math.round((analysis.overallScore / 100) * 10);
+      }
+
+      boost = Math.max(0, Math.min(20, boost));
+      _aiAlphaCache.set(symbol, { score: boost, ts: Date.now() });
+      return boost;
+    } catch (err) {
+      // AI unavailable — non-fatal, quant score is sufficient
+      console.warn(`[StockStrategy] AI alpha boost unavailable for ${symbol}:`, (err as Error).message);
+      _aiAlphaCache.set(symbol, { score: 0, ts: Date.now() });
+      return 0;
+    }
   }
 
   private async calculateAdvancedMetrics(stock: any): Promise<{ piotroskiFScore?: number; roic?: number }> {

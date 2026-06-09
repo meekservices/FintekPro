@@ -194,7 +194,6 @@ const agentNavCategories: NavCategory[] = [
     items: [
       { title: "Research Lists",  href: "/agent/research-lists",    icon: ListChecks,  description: "Curated instrument lists" },
       { title: "Research Note",   href: "/agent/research/generate", icon: FileEdit,    description: "Institutional PPT & PDF reports", badge: "AI" },
-      { title: "Stock AI",        href: "/agent/stock-ai",          icon: Brain,       description: "AI-powered stock analysis", badge: "AI" },
       { title: "Screener",        href: "/agent/screener",          icon: Filter,      description: "Filter instruments by criteria" },
       { title: "Quant Analytics", href: "/agent/quant-analytics",   icon: Calculator,  description: "Advanced quant tools", badge: "NEW" },
       { title: "Analytics",       href: "/agent/research-analytics",icon: BarChart3,   description: "Research performance analysis" },
