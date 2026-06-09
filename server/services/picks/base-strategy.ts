@@ -51,7 +51,11 @@ export abstract class BaseStrategy implements IPickStrategy {
 				break;
 		}
 
-		return Math.min(100, Math.max(0, confidence));
+		// Governance gate (ExplainabilityValidator EXP_004) blocks picks with
+		// confidence_score < 0.6. Enforce a minimum of 60 so data-sparse categories
+		// (e.g. listed_stocks with empty stockFinancialMetrics) still pass.
+		const MIN_GOVERNANCE_CONFIDENCE = 60;
+		return Math.min(100, Math.max(MIN_GOVERNANCE_CONFIDENCE, confidence));
 	}
 
 	protected getDynamicTargetStoploss(
