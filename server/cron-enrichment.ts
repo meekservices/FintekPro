@@ -287,8 +287,145 @@ export function initializeEnrichmentCrons(staggeredStart: StaggerFn, delay: numb
   }, delay);
   delay += STAGGER;
 
+  // ── Portfolio Aggregation Sync Jobs ──────────────────────────────────────────
+  // These three jobs implement Phase 4 of the broker-agnostic portfolio
+  // aggregation architecture. Each job is isolated — a failure in one
+  // does NOT affect the others (Promise.allSettled pattern inside each handler).
+
+  staggeredStart('IRIS Holdings Sync', () => {
+    // Daily 7:30 AM IST (2:00 AM UTC) — after IRIS/KFintech NAV settlement
+    cron.schedule('0 2 * * *', async () => {
+      console.log('[CRON] [IRISSync] Starting daily IRIS portfolio holdings sync (7:30 AM IST)...');
+      const start = Date.now();
+      try {
+        const { db: dbConn } = await import('./db');
+        const { sql: sqlTag, eq } = await import('drizzle-orm');
+        const { users } = await import('../shared/schema');
+        const { irisPortfolioSyncService } = await import('./services/iris-portfolio-sync-service');
+
+        // Fetch all users who have IRIS/PAN linked
+        const linkedUsers = await dbConn
+          .select({ id: users.id, pan: (users as any).pan })
+          .from(users)
+          .where(sqlTag`pan IS NOT NULL AND pan != ''`);
+
+        let synced = 0, failed = 0;
+        for (const user of linkedUsers) {
+          try {
+            await irisPortfolioSyncService.scheduleDeferredPortfolioRefresh(user.id, user.pan);
+            synced++;
+          } catch (e: any) {
+            console.warn(`[IRISSync] Failed for user ${user.id}:`, e?.message?.slice(0, 80));
+            failed++;
+          }
+        }
+
+        console.log(`[IRISSync] Complete: ${synced} synced, ${failed} failed in ${Date.now() - start}ms`, {
+          event: 'IRIS_SYNC_CRON_DONE',
+          synced,
+          failed,
+          latency_ms: Date.now() - start,
+          status: failed === 0 ? 'success' : 'partial',
+        });
+      } catch (error: any) {
+        console.error('[IRISSync] Cron job failed:', error.message, {
+          event: 'IRIS_SYNC_CRON_ERROR',
+          message: error.message,
+          retryable: true,
+          latency_ms: Date.now() - start,
+          status: 'error',
+        });
+      }
+    }, { timezone: 'Asia/Kolkata' });
+    console.log('📊 [IRISSync] Daily IRIS portfolio holdings sync scheduled (7:30 AM IST)');
+  }, delay);
+  delay += STAGGER;
+
+  staggeredStart('Alpaca Positions Sync', () => {
+    // Daily 6:30 PM IST (13:00 UTC) weekdays — after US pre-market opens
+    // (US market close is ~1:30 AM IST; 6:30 PM IST syncs end-of-previous-day positions)
+    cron.schedule('0 13 * * 1-5', async () => {
+      console.log('[CRON] [AlpacaSync] Starting daily Alpaca positions sync (6:30 PM IST)...');
+      const start = Date.now();
+      try {
+        const { portfolioSync } = await import('./services/alpaca/portfolio/portfolioSync');
+        await portfolioSync.syncAllUserPositions();
+        console.log(`[AlpacaSync] Complete in ${Date.now() - start}ms`, {
+          event: 'ALPACA_SYNC_CRON_DONE',
+          latency_ms: Date.now() - start,
+          status: 'success',
+        });
+      } catch (error: any) {
+        console.error('[AlpacaSync] Cron job failed:', error.message, {
+          event: 'ALPACA_SYNC_CRON_ERROR',
+          message: error.message,
+          retryable: true,
+          latency_ms: Date.now() - start,
+          status: 'error',
+        });
+      }
+    }, { timezone: 'Asia/Kolkata' });
+    console.log('📊 [AlpacaSync] Daily Alpaca positions sync scheduled (6:30 PM IST weekdays)');
+  }, delay);
+  delay += STAGGER;
+
+  staggeredStart('Portfolio Price Refresh', () => {
+    // Daily 8:00 AM IST (2:30 UTC) — after market data is fully settled
+    cron.schedule('30 2 * * *', async () => {
+      console.log('[CRON] [PortfolioPriceRefresh] Refreshing current_price in comprehensive_holdings...');
+      const start = Date.now();
+      try {
+        const { db: dbConn } = await import('./db');
+        const { sql: sqlTag } = await import('drizzle-orm');
+        const { comprehensiveHoldings } = await import('../shared/schema');
+        const { unifiedStockPriceService } = await import('./services/unified-stock-price-service');
+
+        // Fetch all distinct ISINs/symbols with holdings
+        const rows = await dbConn
+          .selectDistinct({ symbol: comprehensiveHoldings.symbol, isin: comprehensiveHoldings.isin })
+          .from(comprehensiveHoldings)
+          .where(sqlTag`asset_type IN ('equity', 'mutual_fund') AND symbol IS NOT NULL`);
+
+        let updated = 0, failed = 0;
+        for (const row of rows) {
+          if (!row.symbol) continue;
+          try {
+            const price = await unifiedStockPriceService.getPrice(row.symbol);
+            if (price !== null && price > 0) {
+              await dbConn.execute(sqlTag`
+                UPDATE comprehensive_holdings
+                SET current_price = ${price}, last_enriched_at = NOW()
+                WHERE symbol = ${row.symbol}
+              `);
+              updated++;
+            }
+          } catch (_) { failed++; }
+        }
+
+        console.log(`[PortfolioPriceRefresh] Complete: ${updated} updated, ${failed} failed in ${Date.now() - start}ms`, {
+          event: 'PORTFOLIO_PRICE_REFRESH_DONE',
+          updated,
+          failed,
+          latency_ms: Date.now() - start,
+          status: 'success',
+        });
+      } catch (error: any) {
+        console.error('[PortfolioPriceRefresh] Cron job failed:', error.message, {
+          event: 'PORTFOLIO_PRICE_REFRESH_ERROR',
+          message: error.message,
+          retryable: true,
+          latency_ms: Date.now() - start,
+          status: 'error',
+        });
+      }
+    }, { timezone: 'Asia/Kolkata' });
+    console.log('📊 [PortfolioPriceRefresh] Daily comprehensive_holdings price refresh scheduled (8:00 AM IST)');
+  }, delay);
+  delay += STAGGER;
+
   return delay;
 }
+
 
 // ── Fixed Income Status — runs at module load (production only) ─────────────
 // Daily at 6:05 AM IST (12:35 AM UTC)

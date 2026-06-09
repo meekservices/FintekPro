@@ -1105,6 +1105,57 @@ console.error('[Migration] Metadata enrichment error:', e?.message);
         console.warn('[Migration] pick_watchlist/pick_price_alerts table skipped:', e?.message);
       }
 
+      // ── 36. portfolio_transactions — Unified Cross-Broker Transaction Ledger ────
+      // New table added as part of broker-agnostic portfolio aggregation architecture.
+      // Stores normalized transactions from IRIS, Alpaca, IIFL, CAS, and manual entry.
+      // Idempotency enforced via (client_id, source, external_transaction_id) unique index.
+      try {
+        await migDb.execute(migSql`
+          CREATE TABLE IF NOT EXISTS portfolio_transactions (
+            id                      VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+            client_id               VARCHAR NOT NULL REFERENCES users(id),
+            source                  VARCHAR(30) NOT NULL,
+            broker_account_id       VARCHAR(100),
+            transaction_type        VARCHAR(20),
+            isin                    VARCHAR(12),
+            symbol                  VARCHAR(50),
+            scheme_name             TEXT,
+            asset_class             VARCHAR(30),
+            product_type            VARCHAR(30),
+            trade_date              DATE,
+            settlement_date         DATE,
+            quantity                DECIMAL(15, 4),
+            price                   DECIMAL(15, 4),
+            amount                  DECIMAL(15, 2),
+            charges                 DECIMAL(15, 2) DEFAULT 0,
+            tax                     DECIMAL(15, 2) DEFAULT 0,
+            net_amount              DECIMAL(15, 2),
+            currency                VARCHAR(3) DEFAULT 'INR',
+            fx_rate_to_inr          DECIMAL(10, 4) DEFAULT 1,
+            external_transaction_id VARCHAR(200),
+            folio_number            VARCHAR(50),
+            demat_account_number    VARCHAR(20),
+            source_tag              VARCHAR(20) DEFAULT 'api',
+            created_at              TIMESTAMPTZ DEFAULT NOW(),
+            updated_at              TIMESTAMPTZ DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_portfolio_txns_client
+            ON portfolio_transactions(client_id);
+          CREATE INDEX IF NOT EXISTS idx_portfolio_txns_isin
+            ON portfolio_transactions(isin) WHERE isin IS NOT NULL;
+          CREATE INDEX IF NOT EXISTS idx_portfolio_txns_trade_date
+            ON portfolio_transactions(trade_date);
+          CREATE INDEX IF NOT EXISTS idx_portfolio_txns_source
+            ON portfolio_transactions(source);
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_portfolio_txns_idempotency
+            ON portfolio_transactions(client_id, source, external_transaction_id)
+            WHERE external_transaction_id IS NOT NULL;
+        `);
+        console.log('✅ portfolio_transactions table verified (broker-agnostic ledger)');
+      } catch (e: any) {
+        console.warn('[Migration] portfolio_transactions table skipped:', e?.message);
+      }
+
       // ── 35. Grant app user permissions on unlisted marketplace tables ─────────
       // The `postgres` user owns the unlisted_* tables but the application
       // connects as `finpro_user`.  Missing UPDATE/INSERT privilege means the

@@ -357,6 +357,14 @@ import('./routes/compliance'),
     const uniPortfolioRoutes = await import('./routes/uni-portfolio-routes');
     app.use('/api/portfolio', uniPortfolioRoutes.uniPortfolioRouter);
 
+    // Client Portfolio API — Broker-Agnostic Unified Portfolio Gateway
+    // This is the ONLY endpoint the frontend should call for portfolio data.
+    // Never expose IRIS/Alpaca/IIFL-specific routes directly to the frontend.
+    logBootProgress("Step 8b-2: Registering Client Portfolio Gateway...");
+    const { clientPortfolioRouter } = await import('./routes/client-portfolio-api');
+    app.use('/api/clients', clientPortfolioRouter);
+
+
     // Admin Copilot — AI-powered admin assistant (Zoho Mail/CRM/Desk/Books/Meeting)
     logBootProgress("Step 8c: Registering Admin Copilot Routes...");
     const { adminCopilotRouter } = await import('./routes/admin-copilot-routes');

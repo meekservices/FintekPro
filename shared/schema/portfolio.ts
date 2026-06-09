@@ -1720,3 +1720,73 @@ export const insertApyAccountSchema = createInsertSchema(apyAccounts).extend({
   updatedAt: true,
   lastUpdated: true,
 });
+
+// ── Portfolio Transactions Ledger ─────────────────────────────────────────────
+// Normalized cross-broker transaction store.
+// All adapters (IRIS, Alpaca, IIFL, CAS upload) write here after normalization.
+// The Client Portfolio API reads from this table for the /transactions endpoint.
+export const portfolioTransactions = pgTable("portfolio_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Client identity
+  clientId: varchar("client_id").notNull().references(() => users.id),
+
+  // Source adapter
+  source: varchar("source", { length: 30 }).notNull(), // IRIS | ALPACA | IIFL | ZERODHA | CAS | MANUAL
+  brokerAccountId: varchar("broker_account_id", { length: 100 }),
+
+  // Transaction classification
+  transactionType: varchar("transaction_type", { length: 20 }), // BUY | SELL | DIVIDEND | SIP | REDEMPTION | SWITCH_IN | SWITCH_OUT
+
+  // Asset identification
+  isin: varchar("isin", { length: 12 }),
+  symbol: varchar("symbol", { length: 50 }),
+  schemeName: text("scheme_name"),
+  assetClass: varchar("asset_class", { length: 30 }),
+  productType: varchar("product_type", { length: 30 }),
+
+  // Trade economics
+  tradeDate: date("trade_date"),
+  settlementDate: date("settlement_date"),
+  quantity: decimal("quantity", { precision: 15, scale: 4 }),
+  price: decimal("price", { precision: 15, scale: 4 }),
+  amount: decimal("amount", { precision: 15, scale: 2 }),
+  charges: decimal("charges", { precision: 15, scale: 2 }).default("0"),
+  tax: decimal("tax", { precision: 15, scale: 2 }).default("0"),
+  netAmount: decimal("net_amount", { precision: 15, scale: 2 }),
+
+  // Currency
+  currency: varchar("currency", { length: 3 }).default("INR"),
+  fxRateToInr: decimal("fx_rate_to_inr", { precision: 10, scale: 4 }).default("1"),
+
+  // Idempotency
+  externalTransactionId: varchar("external_transaction_id", { length: 200 }),
+
+  // Account reference
+  folioNumber: varchar("folio_number", { length: 50 }),
+  dematAccountNumber: varchar("demat_account_number", { length: 20 }),
+
+  // Audit
+  sourceTag: varchar("source_tag", { length: 20 }).default("api"), // api | system | cron | cas_upload | manual
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_portfolio_txns_client").on(table.clientId),
+  index("idx_portfolio_txns_isin").on(table.isin),
+  index("idx_portfolio_txns_trade_date").on(table.tradeDate),
+  index("idx_portfolio_txns_source").on(table.source),
+  uniqueIndex("idx_portfolio_txns_idempotency").on(table.clientId, table.source, table.externalTransactionId),
+]);
+
+export type PortfolioTransaction = typeof portfolioTransactions.$inferSelect;
+export type InsertPortfolioTransaction = typeof portfolioTransactions.$inferInsert;
+
+export const insertPortfolioTransactionSchema = createInsertSchema(portfolioTransactions).extend({
+  id: z.any(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
