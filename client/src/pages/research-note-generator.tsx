@@ -413,13 +413,9 @@ export default function ResearchNoteGenerator() {
 			isUnlisted,
 		}: { symbol: string; cin?: string | null; isUnlisted?: boolean }) => {
 			if (isUnlisted && cin) {
-				return await apiRequest("/api/research-note/preview-unlisted", "POST", {
-					body: { cin },
-				});
+				return await apiRequest("/api/research-note/preview-unlisted", "POST", { cin });
 			}
-			return await apiRequest("/api/research-note/preview", "POST", {
-				body: { symbol },
-			});
+			return await apiRequest("/api/research-note/preview", "POST", { symbol });
 		},
 		onSuccess: (data: PreviewData) => {
 			setPreviewData(data);
