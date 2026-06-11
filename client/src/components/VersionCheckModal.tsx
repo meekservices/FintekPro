@@ -23,13 +23,7 @@ export function VersionCheckModal() {
 	const [isUpdating, setIsUpdating] = useState(false);
 	const [countdown, setCountdown] = useState(10);
 
-	const [isUpdating, setIsUpdating] = useState(false);
-
-	if (!isOutdated && !isUpdating) {
-		return null;
-	}
-
-	// Auto-update countdown: when a new version is detected, count down 10 s
+	// Auto-update countdown: when a new version is detected, count down 10s
 	// then trigger the update automatically. The user can still click early.
 	useEffect(() => {
 		if (!isOutdated || isUpdating) return;
@@ -41,11 +35,15 @@ export function VersionCheckModal() {
 		return () => clearTimeout(t);
 	}, [isOutdated, isUpdating, countdown]);
 
+	if (!isOutdated && !isUpdating) {
+		return null;
+	}
+
 	const handleUpdate = async () => {
 		if (isUpdating) return;
 		setIsUpdating(true);
 
-		// Set a safety timeout to reset isUpdating if reload doesn't happen
+		// Safety timeout to reset isUpdating if reload doesn't happen
 		const safetyTimeout = setTimeout(() => {
 			setIsUpdating(false);
 		}, 5000);
