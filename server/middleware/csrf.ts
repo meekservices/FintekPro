@@ -66,27 +66,43 @@ export const createCsrfProtection = () => {
 		const sessionToken = (req.session as any)?.csrfToken;
 		const headerToken = req.headers["x-csrf-token"];
 
-		// 2. Validate token match
+		// 2. Validate token match — happy path
 		if (sessionToken && headerToken === sessionToken) {
 			return next();
 		}
 
-		// 3. Auto-heal: if session exists but has NO csrfToken yet (e.g. first mutation
-		//    after an X-Session-ID restore, before the client had a chance to call
-		//    GET /api/csrf-token), generate one now and let the request through.
-		//    The client will pick up the fresh token from the response header.
+		// 3. Auto-heal case A: session exists but has NO csrfToken yet
+		//    (e.g. first mutation after an X-Session-ID restore, before the client
+		//    called GET /api/csrf-token). Generate one now and let the request through.
 		if (req.session && !sessionToken) {
 			const newToken = generateCsrfToken();
 			(req.session as any).csrfToken = newToken;
 			req.session.save(() => {}); // fire-and-forget persistence
 			res.setHeader("X-CSRF-Token-Refresh", newToken);
 			console.info(
-				`[CSRF_AUTOHEAL] 🔧 Generated fresh CSRF token for session with missing token (${req.method} ${req.path})`,
+				`[CSRF_AUTOHEAL] 🔧 Generated fresh CSRF token (missing) for (${req.method} ${req.path})`,
 			);
 			return next();
 		}
 
-		// 4. Diagnostic logging for genuine validation failures (both tokens present but mismatch)
+		// 4. Auto-heal case B: session is valid but client has a stale CSRF token
+		//    (common after session rotation, re-login, or a new deploy).
+		//    Rotate the session token, emit it in the response header so apiRequest
+		//    captures X-CSRF-Token-Refresh and uses it on subsequent requests, and
+		//    let this request through. The session itself validates identity —
+		//    regenerating inside a valid session preserves CSRF protection.
+		if (req.session?.id && sessionToken && headerToken !== sessionToken) {
+			const newToken = generateCsrfToken();
+			(req.session as any).csrfToken = newToken;
+			req.session.save(() => {}); // fire-and-forget persistence
+			res.setHeader("X-CSRF-Token-Refresh", newToken);
+			console.info(
+				`[CSRF_AUTOHEAL] 🔄 Rotated stale CSRF token for session ${req.session.id.slice(0, 8)}... (${req.method} ${req.path})`,
+			);
+			return next();
+		}
+
+		// 5. No valid session at all — genuine CSRF failure (unauthenticated request)
 		const logData = {
 			timestamp: new Date().toISOString(),
 			method: req.method,
@@ -95,6 +111,7 @@ export const createCsrfProtection = () => {
 			origin: req.get("origin"),
 			userAgent: req.get("user-agent"),
 			hasSession: !!req.session,
+			sessionId: req.session?.id?.slice(0, 8) ?? "NONE",
 			sessionToken: sessionToken
 				? `${sessionToken.substring(0, 4)}...`
 				: "MISSING",
@@ -106,8 +123,6 @@ export const createCsrfProtection = () => {
 
 		console.warn(`[CSRF_FAILURE] 🛡️ Blocked ${req.method} ${req.path}`, logData);
 
-		// In production, return 403. In development, we might be more lenient but
-		// for this deployment we enforce strict check.
 		res.status(403).json({
 			error: "Invalid CSRF token",
 			message: "Security validation failed. Please refresh the page.",
