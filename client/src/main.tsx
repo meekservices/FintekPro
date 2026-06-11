@@ -55,36 +55,12 @@ if ("serviceWorker" in navigator) {
 				// Store registration globally for refresh functionality
 				(window as any).__swRegistration = registration;
 
-				// Listen for updates
+				// SW calls skipWaiting() on install — no need to poll for 'installed' state.
+				// controllerchange fires automatically when the new SW activates.
+				// Log only so we can track deploy rollouts in console.
 				registration.addEventListener("updatefound", () => {
-					const newWorker = registration.installing;
-					if (newWorker) {
-						newWorker.addEventListener("statechange", () => {
-							if (
-								newWorker.state === "installed" &&
-								navigator.serviceWorker.controller
-							) {
-								console.log("[PWA] New content available, refresh to update");
-								// Dispatch custom event for UI notification
-								window.dispatchEvent(
-									new CustomEvent("appUpdateAvailable", {
-										detail: { registration, newWorker },
-									}),
-								);
-							}
-						});
-					}
+					console.log("[PWA] New service worker found, installing...");
 				});
-
-				// Check for waiting worker on page load (update was found previously)
-				if (registration.waiting) {
-					console.log("[PWA] Update waiting from previous session");
-					window.dispatchEvent(
-						new CustomEvent("appUpdateAvailable", {
-							detail: { registration, newWorker: registration.waiting },
-						}),
-					);
-				}
 			})
 			.catch((error) => {
 				console.error("[PWA] Service Worker registration failed:", error);
@@ -100,12 +76,12 @@ if ("serviceWorker" in navigator) {
 			}
 		});
 
-		// Listen for controller change (new SW activated) and reload.
-		// Guard: don't reload if the page just loaded (prevents double-reload on first visit).
-		const pageReadyAt = Date.now();
+		// Reload when new SW takes over (skipWaiting → controllerchange).
+		// hadController guard: skip first-install (no previous controller = no stale assets).
+		const hadController = !!navigator.serviceWorker.controller;
 		navigator.serviceWorker.addEventListener("controllerchange", () => {
-			if (Date.now() - pageReadyAt > 4000) {
-				console.log("[PWA] New service worker activated, reloading...");
+			if (hadController) {
+				console.log("[PWA] New service worker activated — reloading for fresh assets");
 				window.location.reload();
 			}
 		});

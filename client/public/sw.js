@@ -1,5 +1,5 @@
 const SW_URL = new URL(self.location.href);
-const VERSION = SW_URL.searchParams.get('v') || '13';
+const VERSION = SW_URL.searchParams.get('v') || '14';
 // BUILD changes on every deployment — guarantees fresh caches after each publish
 const BUILD = SW_URL.searchParams.get('b') || VERSION;
 const CACHE_PREFIX = 'fintekpro';
