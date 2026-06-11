@@ -456,7 +456,15 @@ export class PickOfTheDayService {
 			.from(dailyPicks)
 			.where(eq(dailyPicks.status, "live"))
 			.orderBy(desc(dailyPicks.recoDate));
-		return picks.map((p) => this.transformPick(p));
+
+		// Dedup guard: keep only the latest pick per (instrumentName, category).
+		// Protects the UI in case the DB accumulates duplicates between cleanup runs.
+		const seen = new Map<string, (typeof picks)[0]>();
+		for (const pick of picks) {
+			const key = `${pick.instrumentName}|||${pick.category}`;
+			if (!seen.has(key)) seen.set(key, pick); // already DESC by recoDate
+		}
+		return Array.from(seen.values()).map((p) => this.transformPick(p));
 	}
 
 	async getPickHistory(
