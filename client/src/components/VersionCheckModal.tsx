@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 import {
 	Dialog,
@@ -17,9 +17,11 @@ export function VersionCheckModal() {
 		currentVersion,
 		serverVersion,
 		forceUpdate,
-		dismissUpdate,
 		isChecking,
 	} = useVersionCheck();
+
+	const [isUpdating, setIsUpdating] = useState(false);
+	const [countdown, setCountdown] = useState(10);
 
 	const [isUpdating, setIsUpdating] = useState(false);
 
@@ -27,13 +29,25 @@ export function VersionCheckModal() {
 		return null;
 	}
 
+	// Auto-update countdown: when a new version is detected, count down 10 s
+	// then trigger the update automatically. The user can still click early.
+	useEffect(() => {
+		if (!isOutdated || isUpdating) return;
+		if (countdown <= 0) {
+			handleUpdate();
+			return;
+		}
+		const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
+		return () => clearTimeout(t);
+	}, [isOutdated, isUpdating, countdown]);
+
 	const handleUpdate = async () => {
+		if (isUpdating) return;
 		setIsUpdating(true);
 
 		// Set a safety timeout to reset isUpdating if reload doesn't happen
 		const safetyTimeout = setTimeout(() => {
 			setIsUpdating(false);
-			dismissUpdate(); // At least close the modal if it's stuck
 		}, 5000);
 
 		try {
@@ -48,9 +62,9 @@ export function VersionCheckModal() {
 	return (
 		<Dialog
 			open={isOutdated || isUpdating}
-			onOpenChange={(open) => !open && !isUpdating && dismissUpdate()}
+			onOpenChange={() => {/* non-dismissable */}}
 		>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
 				<DialogHeader>
 					<div className="flex items-center gap-3 mb-2">
 						<div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
@@ -60,8 +74,8 @@ export function VersionCheckModal() {
 					</div>
 					<DialogDescription className="text-left space-y-3">
 						<p>
-							A new version of FintekPro is available with the latest features
-							and improvements.
+							A new version of FintekPro is available. The page will refresh
+							automatically in <strong>{countdown}s</strong>.
 						</p>
 						<div className="bg-muted/50 rounded-lg p-3 text-sm space-y-1">
 							<div className="flex justify-between">
@@ -88,22 +102,14 @@ export function VersionCheckModal() {
 				</DialogHeader>
 				<DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
 					<Button
-						variant="outline"
-						onClick={dismissUpdate}
-						disabled={isUpdating}
-						className="w-full sm:w-auto"
-					>
-						Remind Me Later
-					</Button>
-					<Button
 						onClick={handleUpdate}
 						disabled={isChecking || isUpdating}
-						className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+						className="w-full bg-blue-600 hover:bg-blue-700"
 					>
 						<RefreshCw
 							className={`h-4 w-4 mr-2 ${isChecking || isUpdating ? "animate-spin" : ""}`}
 						/>
-						{isUpdating ? "Updating..." : "Update Now"}
+						{isUpdating ? "Updating..." : `Update Now (${countdown}s)`}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
