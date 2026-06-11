@@ -55,11 +55,11 @@ async function autoPublishAllInstruments() {
       `,
 		},
 		{
-			// mutual_funds: main catalogue table — check actual column name from routes
+			// mutual_funds: main catalogue table — timestamp column is `last_updated` (not updated_at)
 			label: "mutual_funds",
 			query: sql`
         UPDATE mutual_funds
-        SET is_published = true, updated_at = NOW()
+        SET is_published = true, last_updated = NOW()
         WHERE is_published = false
           AND is_active = true
           AND nav IS NOT NULL
