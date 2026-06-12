@@ -9,6 +9,20 @@ import {
 import { fetchGFQuoteUS } from "./google-finance-service";
 import { ETF_REGISTRY } from "./financial-data-scheduler";
 
+/**
+ * Guard against placeholder / dummy API key values stored in Secret Manager.
+ * Returns true only when the key looks real (not a placeholder string).
+ *
+ * Placeholders seen: "dummy_key", "NEEDS_REAL_KEY", "placeholder", etc.
+ */
+function isRealApiKey(key: string | undefined): boolean {
+	if (!key || key.length < 8) return false;
+	const lower = key.toLowerCase();
+	const PLACEHOLDERS = ["dummy", "needs_real", "placeholder", "todo", "changeme", "xxx", "your_key", "insert_key", "replace_me"];
+	return !PLACEHOLDERS.some((p) => lower.includes(p));
+}
+
+
 // ─── Exchange map for known US-listed symbols ─────────────────────────────────
 // Google Finance HTML requires SYMBOL:EXCHANGE. This map covers all default
 // global stocks and ETFs. Unknown symbols fall back to NASDAQ then NYSE.
@@ -372,7 +386,7 @@ class FinancialDataRepository {
 		instrumentType: "global_stock" | "etf" = "global_stock",
 	): Promise<Map<string, InstrumentData>> {
 		const results = new Map<string, InstrumentData>();
-		if (!process.env.ALPHA_VANTAGE_API_KEY || !symbols.length) return results;
+		if (!isRealApiKey(process.env.ALPHA_VANTAGE_API_KEY) || !symbols.length) return results;
 
 		// Fire all requests concurrently — AV will respond with "Note" if rate-limited;
 		// those are caught gracefully and simply stay absent so the next tier handles them.
@@ -722,7 +736,7 @@ class FinancialDataRepository {
 	async fetchGlobalStock(symbol: string): Promise<FetchResult> {
 		const isIndianSymbol = symbol.includes(".NS") || symbol.includes(".BO");
 
-		if (!isIndianSymbol && process.env.FMP_API_KEY) {
+		if (!isIndianSymbol && isRealApiKey(process.env.FMP_API_KEY)) {
 			const fmpResults = await this.fetchBatchFromFMP([symbol], "global_stock");
 			const fmpData = fmpResults.get(symbol);
 			if (fmpData) return { success: true, data: fmpData };
@@ -735,7 +749,7 @@ class FinancialDataRepository {
 			}
 		}
 
-		if (process.env.ALPHA_VANTAGE_API_KEY) {
+		if (isRealApiKey(process.env.ALPHA_VANTAGE_API_KEY)) {
 			const avResult = await this.fetchFromAlphaVantage(symbol);
 			if (avResult.success && avResult.data?.currentPrice) {
 				const currSymbol = isIndianSymbol
@@ -1237,7 +1251,7 @@ class FinancialDataRepository {
 		);
 
 		// ── Tier 1-A: Alpha Vantage for US equities (separate infra from Yahoo) ─
-		if (usSymbols.length && process.env.ALPHA_VANTAGE_API_KEY) {
+		if (usSymbols.length && isRealApiKey(process.env.ALPHA_VANTAGE_API_KEY)) {
 			const avResults = await this.fetchBatchFromAlphaVantage(
 				usSymbols,
 				"global_stock",
@@ -1263,7 +1277,7 @@ class FinancialDataRepository {
 		// ── Tier 2: FMP batch for any still-missing US symbols ─────────────────
 		// FMP /api/v3/quote supports free-tier batch lookups (up to 50 symbols).
 		const fmpUsNeeded = usSymbols.filter((s) => !saved.has(s));
-		if (fmpUsNeeded.length && process.env.FMP_API_KEY) {
+		if (fmpUsNeeded.length && isRealApiKey(process.env.FMP_API_KEY)) {
 			console.log(
 				`[GlobalStocks] ${fmpUsNeeded.length} US symbols after GF → FMP batch`,
 			);
@@ -1387,7 +1401,7 @@ class FinancialDataRepository {
 
 		// ── Tier 3: FMP batch — free-tier /api/v3/quote, ETF specialist ────────
 		const fmpNeeded = symbols.filter((s) => !saved.has(s));
-		if (fmpNeeded.length && process.env.FMP_API_KEY) {
+		if (fmpNeeded.length && isRealApiKey(process.env.FMP_API_KEY)) {
 			console.log(`[ETFs] ${fmpNeeded.length} ETFs after GF → FMP batch`);
 			const fmpResults = await this.fetchBatchFromFMP(fmpNeeded, "etf");
 			for (const [sym, data] of fmpResults) await persist(data, sym);
@@ -1408,7 +1422,7 @@ class FinancialDataRepository {
 
 		// ── Tier 4: Alpha Vantage for US ETFs still missing ────────────────────
 		const avNeeded = symbols.filter((s) => !saved.has(s) && !s.includes("."));
-		if (avNeeded.length && process.env.ALPHA_VANTAGE_API_KEY) {
+		if (avNeeded.length && isRealApiKey(process.env.ALPHA_VANTAGE_API_KEY)) {
 			console.log(
 				`[ETFs] ${avNeeded.length} US ETFs after Python → Alpha Vantage`,
 			);

@@ -118,8 +118,11 @@ EMAIL_HOST=EMAIL_HOST:latest,\
 EMAIL_USER=EMAIL_USER:latest,\
 EMAIL_PASS=EMAIL_PASS:latest,\
 EMAIL_PORT=EMAIL_PORT:latest,\
-EMAIL_FROM=EMAIL_FROM:latest\
+EMAIL_FROM=EMAIL_FROM:latest,\
+ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest,\
+FMP_API_KEY=FMP_API_KEY:latest\
 "
+
 
 echo ""
 echo "🔀 Migrating traffic to latest revision..."
