@@ -25,28 +25,106 @@ const DEFAULT_GLOBAL_STOCKS = [
 	"PFE",
 ];
 
-const DEFAULT_ETFS = [
-	"SPY",
-	"QQQ",
-	"IWM",
-	"VTI",
-	"VOO",
-	"IVV",
-	"VEA",
-	"VWO",
-	"EFA",
-	"AGG",
-	"BND",
-	"LQD",
-	"TLT",
-	"GLD",
-	"SLV",
-	"XLF",
-	"XLK",
-	"XLE",
-	"XLV",
-	"XLI",
+/**
+ * ETF Registry — country/region-mapped.
+ * Covers every ETF reachable via Yahoo Chart /v8/finance/chart/ (no API key).
+ * Fields: symbol, name, country (where underlying assets are), currency,
+ *         exchange (where the ETF itself is listed), category, assetFocus.
+ *
+ * Grouped by geographic focus:
+ *  US_BROAD      → broad US market (S&P 500, Nasdaq, Total Market)
+ *  US_SECTOR     → US sector ETFs (Finance, Tech, Energy, Health, Industrials)
+ *  US_BOND       → US fixed-income (Aggregate, Corporate, Treasury, Short-Term)
+ *  COMMODITY     → Gold, Silver (global commodities, USD-priced)
+ *  INDIA         → Indian equity & gold ETFs listed on NSE (INR)
+ *  EM            → Emerging Markets broad (VWO, EEM, IEMG)
+ *  INTL_DEVLPD   → International Developed Markets (EFA, VEA)
+ *  EUROPE        → Europe-focused (IEUR, VGK)
+ *  ASIA_PACIFIC  → Asia-Pacific ex-Japan + Japan (EWJ, AAXJ)
+ *  GLOBAL_DIV    → Global Dividend income ETFs (DVY, VIG, SCHD)
+ */
+export interface ETFMeta {
+	symbol: string;
+	name: string;
+	/** Country/region the ETF's underlying assets represent */
+	country: string;
+	currency: string;
+	/** Exchange where the ETF itself is listed */
+	exchange: string;
+	/** Broad category: Equity | Bond | Commodity | Mixed */
+	category: string;
+	/** Geographic/thematic focus label shown in UI */
+	assetFocus: string;
+}
+
+export const ETF_REGISTRY: ETFMeta[] = [
+	// ── US Broad Market ───────────────────────────────────────────────────────
+	{ symbol: "SPY",  name: "SPDR S&P 500 ETF Trust",             country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Large Cap" },
+	{ symbol: "QQQ",  name: "Invesco Nasdaq-100 ETF",              country: "US", currency: "USD", exchange: "NASDAQ",   category: "Equity",    assetFocus: "US Tech / Growth" },
+	{ symbol: "IWM",  name: "iShares Russell 2000 ETF",            country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Small Cap" },
+	{ symbol: "VTI",  name: "Vanguard Total Stock Market ETF",     country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Total Market" },
+	{ symbol: "VOO",  name: "Vanguard S&P 500 ETF",                country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Large Cap" },
+	{ symbol: "IVV",  name: "iShares Core S&P 500 ETF",           country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Large Cap" },
+	{ symbol: "VUG",  name: "Vanguard Growth ETF",                 country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Growth" },
+	{ symbol: "VTV",  name: "Vanguard Value ETF",                  country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Value" },
+	// ── US Sector ─────────────────────────────────────────────────────────────
+	{ symbol: "XLF",  name: "Financial Select Sector SPDR Fund",  country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Financials" },
+	{ symbol: "XLK",  name: "Technology Select Sector SPDR Fund", country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Technology" },
+	{ symbol: "XLE",  name: "Energy Select Sector SPDR Fund",     country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Energy" },
+	{ symbol: "XLV",  name: "Health Care Select Sector SPDR Fund",country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Healthcare" },
+	{ symbol: "XLI",  name: "Industrial Select Sector SPDR Fund", country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Industrials" },
+	{ symbol: "XLC",  name: "Communication Services Select Sector",country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Communication" },
+	{ symbol: "XLRE", name: "Real Estate Select Sector SPDR Fund", country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Real Estate" },
+	// ── US Fixed Income ────────────────────────────────────────────────────────
+	{ symbol: "AGG",  name: "iShares Core US Aggregate Bond ETF", country: "US", currency: "USD", exchange: "NYSEARCA", category: "Bond",      assetFocus: "US Aggregate Bond" },
+	{ symbol: "BND",  name: "Vanguard Total Bond Market ETF",      country: "US", currency: "USD", exchange: "NASDAQ",   category: "Bond",      assetFocus: "US Total Bond" },
+	{ symbol: "LQD",  name: "iShares iBoxx Investment Grade Corp", country: "US", currency: "USD", exchange: "NYSEARCA", category: "Bond",      assetFocus: "US Corporate Bond" },
+	{ symbol: "TLT",  name: "iShares 20+ Year Treasury Bond ETF", country: "US", currency: "USD", exchange: "NASDAQ",   category: "Bond",      assetFocus: "US Long Treasury" },
+	{ symbol: "SHY",  name: "iShares 1-3 Year Treasury Bond ETF", country: "US", currency: "USD", exchange: "NASDAQ",   category: "Bond",      assetFocus: "US Short Treasury" },
+	{ symbol: "HYG",  name: "iShares iBoxx High Yield Corp ETF",  country: "US", currency: "USD", exchange: "NYSEARCA", category: "Bond",      assetFocus: "US High Yield Bond" },
+	// ── Commodities ────────────────────────────────────────────────────────────
+	{ symbol: "GLD",  name: "SPDR Gold Shares",                    country: "GLOBAL", currency: "USD", exchange: "NYSEARCA", category: "Commodity", assetFocus: "Gold" },
+	{ symbol: "SLV",  name: "iShares Silver Trust",                country: "GLOBAL", currency: "USD", exchange: "NYSEARCA", category: "Commodity", assetFocus: "Silver" },
+	{ symbol: "IAU",  name: "iShares Gold Trust",                  country: "GLOBAL", currency: "USD", exchange: "NYSEARCA", category: "Commodity", assetFocus: "Gold" },
+	{ symbol: "PDBC", name: "Invesco Diversified Commodity ETF",   country: "GLOBAL", currency: "USD", exchange: "NASDAQ",   category: "Commodity", assetFocus: "Multi-Commodity" },
+	// ── India ETFs (NSE-listed, INR) ───────────────────────────────────────────
+	// These are Indian ETFs tracking domestic indices — fetched via NSE symbol
+	// Note: Yahoo chart uses .NS suffix for NSE-listed instruments
+	{ symbol: "NIFTYBEES.NS",  name: "Nippon India ETF Nifty BeES",      country: "IN", currency: "INR", exchange: "NSE", category: "Equity",    assetFocus: "India Nifty 50" },
+	{ symbol: "JUNIORBEES.NS", name: "Nippon India ETF Junior BeES",     country: "IN", currency: "INR", exchange: "NSE", category: "Equity",    assetFocus: "India Nifty Next 50" },
+	{ symbol: "GOLDBEES.NS",   name: "Nippon India ETF Gold BeES",       country: "IN", currency: "INR", exchange: "NSE", category: "Commodity", assetFocus: "India Gold" },
+	{ symbol: "BANKBEES.NS",   name: "Nippon India ETF Bank BeES",       country: "IN", currency: "INR", exchange: "NSE", category: "Equity",    assetFocus: "India Banking" },
+	{ symbol: "ITBEES.NS",     name: "Nippon India ETF IT BeES",         country: "IN", currency: "INR", exchange: "NSE", category: "Equity",    assetFocus: "India IT" },
+	{ symbol: "LIQUIDBEES.NS", name: "Nippon India ETF Liquid BeES",     country: "IN", currency: "INR", exchange: "NSE", category: "Bond",      assetFocus: "India Liquid" },
+	{ symbol: "SETFNIF50.NS",  name: "SBI ETF Nifty 50",                 country: "IN", currency: "INR", exchange: "NSE", category: "Equity",    assetFocus: "India Nifty 50" },
+	{ symbol: "ICICIB22.NS",   name: "ICICI Prudential Bharat 22 ETF",  country: "IN", currency: "INR", exchange: "NSE", category: "Equity",    assetFocus: "India PSU / Bharat 22" },
+	{ symbol: "MOM100.NS",     name: "Motilal Oswal Nifty Midcap 100 ETF",country:"IN",currency:"INR",exchange:"NSE",   category: "Equity",    assetFocus: "India Midcap" },
+	// ── Emerging Markets ───────────────────────────────────────────────────────
+	{ symbol: "VWO",  name: "Vanguard FTSE Emerging Markets ETF", country: "EM", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "Emerging Markets" },
+	{ symbol: "EEM",  name: "iShares MSCI Emerging Markets ETF",  country: "EM", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "Emerging Markets" },
+	{ symbol: "IEMG", name: "iShares Core MSCI Emerging Markets", country: "EM", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "Emerging Markets" },
+	// ── International Developed ────────────────────────────────────────────────
+	{ symbol: "EFA",  name: "iShares MSCI EAFE ETF",              country: "INTL", currency: "USD", exchange: "NYSEARCA", category: "Equity", assetFocus: "Developed ex-US" },
+	{ symbol: "VEA",  name: "Vanguard FTSE Developed Markets ETF",country: "INTL", currency: "USD", exchange: "NYSEARCA", category: "Equity", assetFocus: "Developed ex-US" },
+	{ symbol: "IXUS", name: "iShares Core MSCI Total Intl Stock", country: "INTL", currency: "USD", exchange: "NASDAQ",   category: "Equity", assetFocus: "Total International" },
+	// ── Europe ────────────────────────────────────────────────────────────────
+	{ symbol: "IEUR", name: "iShares Core MSCI Europe ETF",       country: "EU", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "Europe" },
+	{ symbol: "VGK",  name: "Vanguard FTSE Europe ETF",           country: "EU", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "Europe" },
+	{ symbol: "EWG",  name: "iShares MSCI Germany ETF",           country: "DE", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "Germany" },
+	{ symbol: "EWU",  name: "iShares MSCI United Kingdom ETF",    country: "UK", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "United Kingdom" },
+	// ── Asia-Pacific ──────────────────────────────────────────────────────────
+	{ symbol: "EWJ",  name: "iShares MSCI Japan ETF",             country: "JP", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "Japan" },
+	{ symbol: "AAXJ", name: "iShares MSCI All Country Asia ex-JP",country: "AP", currency: "USD", exchange: "NASDAQ",   category: "Equity",    assetFocus: "Asia ex-Japan" },
+	{ symbol: "FXI",  name: "iShares China Large-Cap ETF",        country: "CN", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "China" },
+	{ symbol: "EWY",  name: "iShares MSCI South Korea ETF",       country: "KR", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "South Korea" },
+	// ── Global Dividend ───────────────────────────────────────────────────────
+	{ symbol: "DVY",  name: "iShares Select Dividend ETF",        country: "US", currency: "USD", exchange: "NASDAQ",   category: "Equity",    assetFocus: "US High Dividend" },
+	{ symbol: "VIG",  name: "Vanguard Dividend Appreciation ETF", country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Dividend Growth" },
+	{ symbol: "SCHD", name: "Schwab US Dividend Equity ETF",      country: "US", currency: "USD", exchange: "NYSEARCA", category: "Equity",    assetFocus: "US Dividend" },
 ];
+
+/** Flat symbol list extracted from registry — passed to refreshETFs() */
+const DEFAULT_ETFS = ETF_REGISTRY.map((e) => e.symbol);
 
 const DEFAULT_MUTUAL_FUNDS = [
 	"119551",

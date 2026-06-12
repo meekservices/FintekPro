@@ -7,6 +7,7 @@ import {
 	isPythonServiceConfigured,
 } from "../clients/python-client";
 import { fetchGFQuoteUS } from "./google-finance-service";
+import { ETF_REGISTRY } from "./financial-data-scheduler";
 
 // ─── Exchange map for known US-listed symbols ─────────────────────────────────
 // Google Finance HTML requires SYMBOL:EXCHANGE. This map covers all default
@@ -425,6 +426,7 @@ class FinancialDataRepository {
 	private async fetchBatchFromYahooChart(
 		symbols: string[],
 		instrumentType: "global_stock" | "etf",
+	etfMetaMap?: Map<string, { name: string; country: string; currency: string; exchange: string; category: string; assetFocus: string }>,
 	): Promise<Map<string, InstrumentData>> {
 		const results = new Map<string, InstrumentData>();
 		if (!symbols.length) return results;
@@ -452,23 +454,26 @@ class FinancialDataRepository {
 					return Number.isFinite(n) && n > 0 ? n : undefined;
 				};
 
+				// Enrich with static ETF registry metadata when available
+				const reg = etfMetaMap?.get(sym);
+				const isIndian = sym.includes(".NS") || sym.includes(".BO");
+
 				return [
 					sym,
 					{
 						instrumentType,
 						symbol: sym,
-						name: sym,
-						exchange: meta.exchangeName || "US",
-						currency: meta.currency || "USD",
-						country: "US",
+						name: reg?.name || meta.longName || meta.shortName || sym,
+						exchange: reg?.exchange || meta.exchangeName || (isIndian ? "NSE" : "US"),
+						currency: reg?.currency || meta.currency || (isIndian ? "INR" : "USD"),
+						country: reg?.country || (isIndian ? "IN" : "US"),
+						category: reg?.category,
+						sector: reg?.assetFocus,
 						currentPrice: pf(meta.regularMarketPrice),
 						previousClose: pf(meta.chartPreviousClose) ?? pf(meta.previousClose),
 						dayHigh: pf(meta.regularMarketDayHigh),
 						dayLow: pf(meta.regularMarketDayLow),
 						volume: pf(meta.regularMarketVolume),
-						// 52W range from meta — not always present in chart endpoint
-						...(meta.fiftyTwoWeekHigh ? { fiftyTwoWeekHigh: pf(meta.fiftyTwoWeekHigh) } : {}),
-						...(meta.fiftyTwoWeekLow ? { fiftyTwoWeekLow: pf(meta.fiftyTwoWeekLow) } : {}),
 						dataSource: "yahoo-chart",
 						confidenceScore: 88,
 					},
@@ -1345,9 +1350,17 @@ class FinancialDataRepository {
 		// Cloud Run for US ETFs (SPY, QQQ, GLD, TLT all return live prices). This is
 		// different from the yahoo-finance2 package which uses a cookie-gated endpoint
 		// that rate-limits aggressively from datacenter IPs.
+		// Build ETF metadata map for country/name enrichment
+		const etfMetaMap = new Map(ETF_REGISTRY.map((e) => [e.symbol, e]));
+
+		// US ETFs: symbols without a dot suffix (NYSEARCA/NASDAQ listed)
 		const usEtfs = symbols.filter((s) => !s.includes("."));
-		if (usEtfs.length) {
-			const ycResults = await this.fetchBatchFromYahooChart(usEtfs, "etf");
+		// Indian ETFs: .NS suffix (NSE-listed)
+		const indiaEtfs = symbols.filter((s) => s.includes(".NS") || s.includes(".BO"));
+		const allFetchable = [...usEtfs, ...indiaEtfs];
+
+		if (allFetchable.length) {
+			const ycResults = await this.fetchBatchFromYahooChart(allFetchable, "etf", etfMetaMap);
 			for (const [sym, data] of ycResults) await persist(data, sym);
 			if (saved.size === symbols.length) {
 				console.log(
@@ -1360,7 +1373,7 @@ class FinancialDataRepository {
 		// ── Tier 2: Google Finance HTML — for ETFs missed by Yahoo chart ──────────
 		// Works locally; may be DNS-blocked from Cloud Run (www.google.com/finance
 		// sometimes returns DNS failure on GCP). Kept as fallback.
-		const gfNeeded = symbols.filter((s) => !saved.has(s) && !s.includes("."));
+		const gfNeeded = usEtfs.filter((s) => !saved.has(s));
 		if (gfNeeded.length) {
 			const gfResults = await this.fetchBatchFromGoogleFinance(gfNeeded, "etf");
 			for (const [sym, data] of gfResults) await persist(data, sym);
