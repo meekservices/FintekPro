@@ -601,14 +601,16 @@ class FinancialDataRepository {
 			return Number.isFinite(n) ? n : undefined;
 		};
 
-		// FMP v3 /quote/{symbols} supports a comma-separated list (up to 50).
-		// It works on the free tier and returns live price + change data.
-		// The old /stable/profile endpoint required a paid plan.
+		// FMP stable/quote endpoint — confirmed working with this account's key.
+		// /api/v3/quote is deprecated (legacy, Aug 2025). The stable endpoint
+		// supports a ?symbols= comma-separated query param (up to 50 symbols).
+		// Fields: symbol, name, price, changePercentage, change, volume,
+		//         dayLow, dayHigh, yearHigh, yearLow, marketCap, priceAvg50/200
 		try {
 			const capped = symbols.slice(0, 50);
 			const joined = capped.map((s) => encodeURIComponent(s)).join(",");
 			const resp = await fetch(
-				`https://financialmodelingprep.com/api/v3/quote/${joined}?apikey=${apiKey}`,
+				`https://financialmodelingprep.com/stable/quote?symbol=${joined}&apikey=${apiKey}`,
 				{
 					signal: AbortSignal.timeout(12000),
 					headers: {
@@ -627,18 +629,19 @@ class FinancialDataRepository {
 			if (!Array.isArray(data)) return results;
 
 			for (const q of data) {
+				// stable/quote fields differ from v3: changePercentage vs changesPercentage
 				if (!q?.symbol || q.price == null) continue;
 				results.set(q.symbol, {
 					instrumentType,
 					symbol: q.symbol,
 					name: q.name || q.symbol,
-					exchange: q.exchange || "US",
+					exchange: q.exchange || q.exchangeShortName || "US",
 					currency: q.currency || "USD",
 					country: "US",
 					currentPrice: safeFloat(q.price),
 					previousClose: safeFloat(q.previousClose),
 					dayChange: safeFloat(q.change),
-					dayChangePercent: safeFloat(q.changesPercentage),
+					dayChangePercent: safeFloat(q.changePercentage ?? q.changesPercentage),
 					dayHigh: safeFloat(q.dayHigh),
 					dayLow: safeFloat(q.dayLow),
 					openPrice: safeFloat(q.open),
@@ -650,13 +653,13 @@ class FinancialDataRepository {
 					category: undefined,
 					expenseRatio: undefined,
 					aum: instrumentType === "etf" ? safeFloat(q.marketCap) : undefined,
-					dataSource: "fmp",
-					confidenceScore: 88,
+					dataSource: "fmp-stable",
+					confidenceScore: 90,
 				});
 			}
 
 			console.log(
-				`✅ [FMP] Fetched ${results.size}/${capped.length} ${instrumentType} quotes`,
+				`✅ [FMP] Fetched ${results.size}/${capped.length} ${instrumentType} quotes via stable/quote`,
 			);
 		} catch (error: any) {
 			console.log(`⚠️ [FMP] Error: ${error.message}`);
