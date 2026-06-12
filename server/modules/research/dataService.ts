@@ -1267,7 +1267,7 @@ interface DBData {
 	dbFaceValue: number | null;
 	dbFiftyTwoWeekHigh: number | null;
 	dbFiftyTwoWeekLow: number | null;
-	dbVwap: number | null;
+	dbVwap: number | null; // listed_stocks.last_vwap — last VWAP from a live NSE session
 }
 
 async function fetchFromDB(nseSymbol: string): Promise<DBData> {
@@ -1308,8 +1308,8 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
              sf.last_updated,
              ls.returns_1m, ls.returns_6m, ls.returns_1y, ls.beta,
              ls.current_price, ls.market_cap_value, ls.pe_ratio,
-             ls.face_value, ls.fifty_two_week_high, ls.fifty_two_week_low,
-             ls.vwap
+             ls.face_value, ls.week_high_52, ls.week_low_52,
+             ls.last_vwap
       FROM screener_financials sf
       LEFT JOIN listed_stocks ls ON ls.symbol = sf.symbol
       WHERE sf.symbol = ${nseSymbol.toUpperCase()}
@@ -1321,7 +1321,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 			const lsRows = await db.execute(sql`
         SELECT returns_1m, returns_6m, returns_1y, current_price,
                market_cap_value, pe_ratio, face_value,
-               fifty_two_week_high, fifty_two_week_low, vwap
+               week_high_52, week_low_52, last_vwap
         FROM listed_stocks WHERE symbol = ${nseSymbol.toUpperCase()} LIMIT 1
       `);
 			const lr = ((lsRows as any).rows ?? lsRows)[0] as any;
@@ -1340,7 +1340,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 					dbFaceValue: pf(lr.face_value),
 					dbFiftyTwoWeekHigh: pf(lr.week_high_52),
 					dbFiftyTwoWeekLow: pf(lr.week_low_52),
-					dbVwap: null,
+					dbVwap: pf(lr.last_vwap),
 				};
 			}
 			return empty;
@@ -1373,7 +1373,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 			dbFaceValue: pf(r.face_value),
 			dbFiftyTwoWeekHigh: pf(r.fifty_two_week_high),
 			dbFiftyTwoWeekLow: pf(r.fifty_two_week_low),
-			dbVwap: pf(r.vwap),
+			dbVwap: pf(r.last_vwap),
 		};
 	} catch (e: any) {
 		console.warn("[ResearchNote] DB read failed:", e?.message);
@@ -1540,7 +1540,13 @@ function buildFull(
 		currency: base.currency ?? "INR",
 		bookValue,
 		faceValue: base.faceValue ?? dbData.dbFaceValue ?? null,
-		vwap: (base.vwap && base.vwap > 0 ? base.vwap : null) ?? dbData.dbVwap ?? null, // treat 0 as N/A
+		vwap:
+			// Use live NSE VWAP when market is open (vwap > 0).
+			// When market is closed (NSE returns 0) or NSE fails entirely,
+			// fall back to the last VWAP persisted from a real session.
+			(base.vwap && base.vwap > 0 ? base.vwap : null) ??
+			dbData.dbVwap ??
+			null,
 		operatingCashFlow:
 			screener.operatingCashFlow ?? dbData.operatingCashFlow ?? null,
 		freeCashFlow: screener.freeCashFlow ?? dbData.freeCashFlow ?? null,
@@ -1888,6 +1894,25 @@ export async function getFinancialData(
 	}
 
 	if (nseResult.status === "fulfilled" && nseResult.value.price !== null) {
+		// Write-through: persist VWAP and price fields to listed_stocks so they
+		// can serve as fallback data when market is closed or APIs are down.
+		const nseVal = nseResult.value;
+		if (nseVal.vwap && nseVal.vwap > 0) {
+			db.execute(sql`
+				UPDATE listed_stocks
+				SET last_vwap       = ${nseVal.vwap},
+				    current_price   = ${nseVal.price ?? null},
+				    market_cap_value = ${nseVal.marketCap ?? null},
+				    pe_ratio        = ${nseVal.pe ?? null},
+				    face_value      = ${nseVal.faceValue ?? null},
+				    week_high_52    = ${nseVal.fiftyTwoWeekHigh ?? null},
+				    week_low_52     = ${nseVal.fiftyTwoWeekLow ?? null},
+				    last_updated    = NOW()
+				WHERE symbol = ${nseSymbol.toUpperCase()}
+			`).catch((e: any) =>
+				console.warn("[ResearchNote] VWAP write-through failed:", e?.message?.slice(0, 80)),
+			);
+		}
 		let data = buildFull(nseResult.value, dbData, screener);
 		// Fetch price returns from NSE historical API when not in DB
 		if (
