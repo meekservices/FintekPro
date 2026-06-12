@@ -410,6 +410,91 @@ class FinancialDataRepository {
 		return results;
 	}
 
+	/**
+	 * Fetch a batch of US-listed ETFs/stocks via the Yahoo Finance chart REST API.
+	 *
+	 * Endpoint: https://query1.finance.yahoo.com/v8/finance/chart/{symbol}
+	 * - No API key required, no cookie/session needed (different path from yahoo-finance2)
+	 * - Returns regularMarketPrice, previousClose, 52W H/L, volume — confirmed HTTP 200
+	 *   from Cloud Run (tested: SPY, QQQ, GLD, TLT all return live prices)
+	 * - Rate limit: more generous than yahoo-finance2; use for batch ETF cron only.
+	 *
+	 * @param symbols       - List of US ETF tickers (e.g. ["SPY", "QQQ", "GLD"])
+	 * @param instrumentType - "etf" | "global_stock"
+	 */
+	private async fetchBatchFromYahooChart(
+		symbols: string[],
+		instrumentType: "global_stock" | "etf",
+	): Promise<Map<string, InstrumentData>> {
+		const results = new Map<string, InstrumentData>();
+		if (!symbols.length) return results;
+
+		// Run up to 5 concurrently — each is a separate GET, no shared session
+		const CONCURRENCY = 5;
+
+		const fetchOne = async (sym: string): Promise<[string, InstrumentData] | null> => {
+			try {
+				const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=1d`;
+				const res = await fetch(url, {
+					headers: {
+						"User-Agent": "Mozilla/5.0 (compatible; FintekPro/1.0; +https://fintekpro.com)",
+						Accept: "application/json",
+					},
+					signal: AbortSignal.timeout(8_000),
+				});
+				if (!res.ok) return null;
+				const body = (await res.json()) as any;
+				const meta = body?.chart?.result?.[0]?.meta;
+				if (!meta?.regularMarketPrice) return null;
+
+				const pf = (v: any): number | undefined => {
+					const n = Number(v);
+					return Number.isFinite(n) && n > 0 ? n : undefined;
+				};
+
+				return [
+					sym,
+					{
+						instrumentType,
+						symbol: sym,
+						name: sym,
+						exchange: meta.exchangeName || "US",
+						currency: meta.currency || "USD",
+						country: "US",
+						currentPrice: pf(meta.regularMarketPrice),
+						previousClose: pf(meta.chartPreviousClose) ?? pf(meta.previousClose),
+						dayHigh: pf(meta.regularMarketDayHigh),
+						dayLow: pf(meta.regularMarketDayLow),
+						volume: pf(meta.regularMarketVolume),
+						// 52W range from meta — not always present in chart endpoint
+						...(meta.fiftyTwoWeekHigh ? { fiftyTwoWeekHigh: pf(meta.fiftyTwoWeekHigh) } : {}),
+						...(meta.fiftyTwoWeekLow ? { fiftyTwoWeekLow: pf(meta.fiftyTwoWeekLow) } : {}),
+						dataSource: "yahoo-chart",
+						confidenceScore: 88,
+					},
+				];
+			} catch {
+				return null;
+			}
+		};
+
+		for (let i = 0; i < symbols.length; i += CONCURRENCY) {
+			const chunk = symbols.slice(i, i + CONCURRENCY);
+			const settled = await Promise.allSettled(chunk.map(fetchOne));
+			for (const r of settled) {
+				if (r.status === "fulfilled" && r.value)
+					results.set(r.value[0], r.value[1]);
+			}
+		}
+
+		if (results.size > 0) {
+			console.log(
+				`✅ [YahooChart] Batch: ${results.size}/${symbols.length} ${instrumentType}s via /v8/finance/chart`,
+			);
+		}
+		return results;
+	}
+
 	async fetchAlphaVantageHistorical(
 		symbol: string,
 		outputSize: string = "compact",
@@ -1256,22 +1341,38 @@ class FinancialDataRepository {
 			}
 		};
 
-		// ── Tier 1: Google Finance HTML — no API key, works from datacenter IPs ─
-		// US ETFs (no dot suffix) have full exchange mappings in GF_US_EXCHANGE_MAP.
-		// Promoted to primary because it has zero rate-limit risk and no API dependency.
+		// ── Tier 1: Yahoo Finance chart API — no cookie/session, confirmed HTTP 200 from
+		// Cloud Run for US ETFs (SPY, QQQ, GLD, TLT all return live prices). This is
+		// different from the yahoo-finance2 package which uses a cookie-gated endpoint
+		// that rate-limits aggressively from datacenter IPs.
 		const usEtfs = symbols.filter((s) => !s.includes("."));
 		if (usEtfs.length) {
-			const gfResults = await this.fetchBatchFromGoogleFinance(usEtfs, "etf");
-			for (const [sym, data] of gfResults) await persist(data, sym);
+			const ycResults = await this.fetchBatchFromYahooChart(usEtfs, "etf");
+			for (const [sym, data] of ycResults) await persist(data, sym);
 			if (saved.size === symbols.length) {
 				console.log(
-					`📊 [ETFs] Refreshed ${success} ETFs via Google Finance (no fallback needed)`,
+					`📊 [ETFs] Refreshed ${success} ETFs via Yahoo chart API (no fallback needed)`,
 				);
 				return { success, failed };
 			}
 		}
 
-		// ── Tier 2: FMP batch — free-tier /api/v3/quote, ETF specialist ────────
+		// ── Tier 2: Google Finance HTML — for ETFs missed by Yahoo chart ──────────
+		// Works locally; may be DNS-blocked from Cloud Run (www.google.com/finance
+		// sometimes returns DNS failure on GCP). Kept as fallback.
+		const gfNeeded = symbols.filter((s) => !saved.has(s) && !s.includes("."));
+		if (gfNeeded.length) {
+			const gfResults = await this.fetchBatchFromGoogleFinance(gfNeeded, "etf");
+			for (const [sym, data] of gfResults) await persist(data, sym);
+			if (saved.size === symbols.length) {
+				console.log(
+					`📊 [ETFs] Refreshed ${success} ETFs via Google Finance HTML (no fallback needed)`,
+				);
+				return { success, failed };
+			}
+		}
+
+		// ── Tier 3: FMP batch — free-tier /api/v3/quote, ETF specialist ────────
 		const fmpNeeded = symbols.filter((s) => !saved.has(s));
 		if (fmpNeeded.length && process.env.FMP_API_KEY) {
 			console.log(`[ETFs] ${fmpNeeded.length} ETFs after GF → FMP batch`);
