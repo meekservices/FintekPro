@@ -590,7 +590,7 @@ class FinancialDataRepository {
 	): Promise<Map<string, InstrumentData>> {
 		const apiKey = process.env.FMP_API_KEY;
 		const results = new Map<string, InstrumentData>();
-		if (!apiKey || symbols.length === 0) return results;
+		if (!isRealApiKey(apiKey) || symbols.length === 0) return results;
 
 		const safeFloat = (v: any): number | undefined => {
 			if (v == null) return undefined;
@@ -601,37 +601,32 @@ class FinancialDataRepository {
 			return Number.isFinite(n) ? n : undefined;
 		};
 
-		// FMP stable/quote endpoint — confirmed working with this account's key.
-		// /api/v3/quote is deprecated (legacy, Aug 2025). The stable endpoint
-		// supports a ?symbols= comma-separated query param (up to 50 symbols).
-		// Fields: symbol, name, price, changePercentage, change, volume,
-		//         dayLow, dayHigh, yearHigh, yearLow, marketCap, priceAvg50/200
-		try {
-			const capped = symbols.slice(0, 50);
-			const joined = capped.map((s) => encodeURIComponent(s)).join(",");
-			const resp = await fetch(
-				`https://financialmodelingprep.com/stable/quote?symbol=${joined}&apikey=${apiKey}`,
-				{
-					signal: AbortSignal.timeout(12000),
-					headers: {
-						Accept: "application/json",
-						"User-Agent": "FintekPro/2.5",
-					},
-				},
-			);
-			if (!resp.ok) {
-				console.log(
-					`⚠️ [FMP] HTTP ${resp.status} for batch ${instrumentType} quotes`,
-				);
-				return results;
-			}
-			const data: any[] = await resp.json();
-			if (!Array.isArray(data)) return results;
+		// NOTE: FMP free plan does NOT support multi-symbol comma-joined queries.
+		// Batch requests (symbol=TSLA,AAPL) return HTTP 402. We must fire one
+		// request per symbol. We run up to 6 concurrently to stay within
+		// rate limits while still completing quickly.
+		const CONCURRENCY = 6;
 
-			for (const q of data) {
-				// stable/quote fields differ from v3: changePercentage vs changesPercentage
-				if (!q?.symbol || q.price == null) continue;
-				results.set(q.symbol, {
+		const fetchOne = async (sym: string): Promise<void> => {
+			try {
+				const resp = await fetch(
+					`https://financialmodelingprep.com/stable/quote?symbol=${encodeURIComponent(sym)}&apikey=${apiKey}`,
+					{
+						signal: AbortSignal.timeout(10000),
+						headers: {
+							Accept: "application/json",
+							"User-Agent": "FintekPro/2.5",
+						},
+					},
+				);
+				if (!resp.ok) return; // 402/429/etc — skip silently
+				const data: any[] = await resp.json();
+				if (!Array.isArray(data) || data.length === 0) return;
+
+				const q = data[0];
+				if (!q?.symbol || q.price == null) return;
+
+				results.set(sym, {
 					instrumentType,
 					symbol: q.symbol,
 					name: q.name || q.symbol,
@@ -656,17 +651,30 @@ class FinancialDataRepository {
 					dataSource: "fmp-stable",
 					confidenceScore: 90,
 				});
+			} catch {
+				// Timeout or network error — skip
 			}
+		};
 
+		// Run in batches of CONCURRENCY
+		const capped = symbols.slice(0, 50);
+		for (let i = 0; i < capped.length; i += CONCURRENCY) {
+			const chunk = capped.slice(i, i + CONCURRENCY);
+			await Promise.allSettled(chunk.map(fetchOne));
+		}
+
+		if (results.size > 0) {
 			console.log(
-				`✅ [FMP] Fetched ${results.size}/${capped.length} ${instrumentType} quotes via stable/quote`,
+				`✅ [FMP] Fetched ${results.size}/${capped.length} ${instrumentType} quotes via stable/quote (per-symbol)`,
 			);
-		} catch (error: any) {
-			console.log(`⚠️ [FMP] Error: ${error.message}`);
+		} else {
+			console.log(`⚠️ [FMP] No ${instrumentType} quotes fetched (all failed)`);
 		}
 
 		return results;
 	}
+
+
 
 	/**
 	 * Fetch a batch of US-listed stocks or ETFs via Google Finance HTML.
