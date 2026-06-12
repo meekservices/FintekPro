@@ -400,62 +400,67 @@ async function fetchFromNSE(
 }
 
 
-// ─── Google Finance ───────────────────────────────────────────────────────────
+// ─── Moneycontrol Price API ───────────────────────────────────────────────────
 /**
- * Fetches live price data from the unofficial Google Finance API.
- * No API key required. Uses the same JSON endpoint as the Google Finance web app.
- * Exchange suffix: NSE stocks → ':NSE', BSE → ':BOM'
+ * Fetches live price data from the Moneycontrol Price API.
+ * No API key required. Accessible from GCP Cloud Run (query1.finance.google.com
+ * is DNS-blocked from Cloud Run; Moneycontrol returns HTTP 200).
  *
- * Returns: price, previousClose, marketCap, pe, eps, fiftyTwoWeekHigh/Low,
- *          currency, faceValue (not available — null), vwap (not available — null)
+ * Endpoint: https://priceapi.moneycontrol.com/pricefeed/nse/equitycash/{symbol}
+ * Returns: price, marketCap, 52W high/low, bookValue, PE, faceValue
+ *
+ * @param nseSymbol - NSE ticker without suffix (e.g. "RELIANCE")
+ * @param exchange  - "nse" | "bse" (default: "nse")
  */
-async function fetchFromGoogleFinance(
+async function fetchFromMoneycontrol(
 	nseSymbol: string,
-	exchange: "NSE" | "BOM" = "NSE",
+	exchange: "nse" | "bse" = "nse",
 ): Promise<Partial<FinancialData>> {
-	// Google Finance chart API — same endpoint as https://finance.google.com
-	const ticker = `${nseSymbol.toUpperCase()}:${exchange}`;
-	const url =
-		`https://query1.finance.google.com/v8/finance/chart/${encodeURIComponent(ticker)}` +
-		`?interval=1d&range=5d&includePrePost=false`;
+	const sym = nseSymbol.toUpperCase();
+	const segment = exchange === "bse" ? "bse/equitycash" : "nse/equitycash";
+	const url = `https://priceapi.moneycontrol.com/pricefeed/${segment}/${encodeURIComponent(sym)}`;
 
 	const res = await fetch(url, {
 		headers: {
 			"User-Agent":
-				"Mozilla/5.0 (compatible; FintekPro/1.0; +https://fintekpro.com)",
-			Accept: "application/json",
+				"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+			Accept: "application/json, text/plain, */*",
+			Referer: "https://www.moneycontrol.com/",
 		},
-		signal: AbortSignal.timeout(10_000),
+		signal: AbortSignal.timeout(8_000),
 	});
 
-	if (!res.ok) throw new Error(`Google Finance HTTP ${res.status} for ${ticker}`);
+	if (!res.ok) throw new Error(`Moneycontrol HTTP ${res.status} for ${sym}`);
 
 	const body = (await res.json()) as any;
-	const result = body?.chart?.result?.[0];
-	if (!result) throw new Error(`Google Finance: no result for ${ticker}`);
+	if (body?.code !== "200" && body?.message !== "Success")
+		throw new Error(`Moneycontrol: ${body?.message ?? "bad response"} for ${sym}`);
 
-	const meta = result.meta ?? {};
+	const d = body?.data ?? {};
 	const pf = (v: any): number | null => {
-		if (v === null || v === undefined) return null;
-		const n = typeof v === "number" ? v : Number.parseFloat(v);
+		if (v === null || v === undefined || v === "" || v === "N/A") return null;
+		const n = typeof v === "number" ? v : Number.parseFloat(String(v).replace(/,/g, ""));
 		return Number.isFinite(n) && n > 0 ? n : null;
 	};
 
-	const price =
-		pf(meta.regularMarketPrice) ??
-		pf(meta.chartPreviousClose) ??
-		null;
+	const price = pf(d.pricecurrent);
+
+	// MKTCAP from Moneycontrol is in Crores (₹ Cr) — convert to absolute ₹
+	// (for consistency with NSE which returns absolute market cap)
+	const mktCapCr = pf(d.MKTCAP);
+	const marketCap = mktCapCr !== null ? mktCapCr * 1e7 : null; // Cr → ₹
 
 	return {
 		price,
-		previousClose: pf(meta.chartPreviousClose) ?? pf(meta.previousClose) ?? null,
-		marketCap: pf(meta.marketCap) ?? null,
-		pe: null, // Not available in chart API
-		fiftyTwoWeekHigh: pf(meta.fiftyTwoWeekHigh) ?? null,
-		fiftyTwoWeekLow: pf(meta.fiftyTwoWeekLow) ?? null,
-		faceValue: null, // Not in Google Finance
-		vwap: null, // Not in Google Finance chart API
-		currency: meta.currency ?? "INR",
+		previousClose: null, // not in Moneycontrol pricefeed
+		marketCap,
+		pe: pf(d.P_C),
+		bookValue: pf(d.BV),
+		fiftyTwoWeekHigh: pf(d["52H"]),
+		fiftyTwoWeekLow: pf(d["52L"]),
+		faceValue: pf(d.FV),
+		vwap: null, // not in Moneycontrol pricefeed
+		currency: "INR",
 	};
 }
 
@@ -1939,18 +1944,18 @@ export async function getFinancialData(
 		(nseResult as any).reason?.message,
 	);
 
-	// Fallback 1: Google Finance — no API key, works well from GCP infrastructure
-	// Try NSE exchange first, then BSE (BOM) for BSE-only stocks
+	// Fallback 1: Moneycontrol Price API — no API key, accessible from GCP Cloud Run
+	// Try NSE exchange first, then BSE for BSE-only stocks
 	const isBseOnly = symbol.toUpperCase().endsWith(".BO");
-	const gfExchanges: Array<"NSE" | "BOM"> = isBseOnly
-		? ["BOM", "NSE"]
-		: ["NSE", "BOM"];
-	for (const gfExchange of gfExchanges) {
+	const gfExchanges: Array<"nse" | "bse"> = isBseOnly
+		? ["bse", "nse"]
+		: ["nse", "bse"];
+	for (const mcExchange of gfExchanges) {
 		try {
-			console.log(`[ResearchNote] Google Finance fallback: ${nseSymbol}:${gfExchange}`);
-			const gfData = await fetchFromGoogleFinance(nseSymbol, gfExchange);
-			if (gfData.price !== null) {
-				let data = buildFull(gfData, dbData, screener);
+			console.log(`[ResearchNote] Moneycontrol fallback: ${nseSymbol} (${mcExchange.toUpperCase()})`);
+			const mcData = await fetchFromMoneycontrol(nseSymbol, mcExchange);
+			if (mcData.price !== null) {
+				let data = buildFull(mcData, dbData, screener);
 				// Attempt to fetch returns from Python even on Google Finance path
 				if (data.returns1M === null && data.returns6M === null && data.returns1Y === null) {
 					const returns = await fetchPythonReturns(nseSymbol).catch(() => ({
@@ -1962,7 +1967,7 @@ export async function getFinancialData(
 				}
 				cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
 				console.log(
-					`[ResearchNote] Google Finance OK for ${nseSymbol}:${gfExchange} — ₹${data.price}`,
+					`[ResearchNote] Moneycontrol OK for ${nseSymbol} (${mcExchange.toUpperCase()}) — ₹${data.price}`,
 				);
 				return {
 					...data,
@@ -1972,7 +1977,7 @@ export async function getFinancialData(
 			}
 		} catch (e: any) {
 			console.warn(
-				`[ResearchNote] Google Finance failed for ${nseSymbol}:${gfExchange}:`,
+				`[ResearchNote] Moneycontrol failed for ${nseSymbol} (${mcExchange.toUpperCase()}):`,
 				e?.message?.slice(0, 80),
 			);
 		}

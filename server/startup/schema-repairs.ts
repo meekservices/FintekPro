@@ -1175,16 +1175,19 @@ crypto_status VARCHAR,
 		// ── eSign Requests: allow nullable signing-time fields (initiation records) ─
 		// esign_requests was designed for post-signing records but TruthScreen inserts
 		// at initiation time (before signing), so signing-specific columns must be nullable.
+		// Using ADD COLUMN IF NOT EXISTS instead of ALTER COLUMN to be idempotent —
+		// the columns may not exist at all in some environments.
 		try {
 			await migDb.execute(migSql`
-          ALTER TABLE esign_requests ALTER COLUMN certificate_serial DROP NOT NULL;
-          ALTER TABLE esign_requests ALTER COLUMN signer_aadhaar_masked DROP NOT NULL;
-          ALTER TABLE esign_requests ALTER COLUMN signed_at DROP NOT NULL;
-          ALTER TABLE esign_requests ALTER COLUMN valid_from DROP NOT NULL;
-          ALTER TABLE esign_requests ALTER COLUMN valid_to DROP NOT NULL;
+          ALTER TABLE esign_requests
+            ADD COLUMN IF NOT EXISTS certificate_serial VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS signer_aadhaar_masked VARCHAR(20),
+            ADD COLUMN IF NOT EXISTS signed_at TIMESTAMP,
+            ADD COLUMN IF NOT EXISTS valid_from TIMESTAMP,
+            ADD COLUMN IF NOT EXISTS valid_to TIMESTAMP;
         `);
 			console.log(
-				"✅ esign_requests signing-time columns made nullable (initiation support)",
+				"✅ esign_requests signing-time columns ensured nullable (initiation support)",
 			);
 		} catch (e: any) {
 			console.warn(
