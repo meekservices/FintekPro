@@ -412,6 +412,46 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 		// ── Phase 5: AI & Analytics ───────────────────────────────────────────────
 		runStartupTask("AI Regulatory Monitoring", startActivityInsightsMonitoring);
 
+		// ── Phase 5b: ML Model Auto-Training ─────────────────────────────────────
+		// Trains scoring models on all closed picks (target_hit/stoploss_hit/expired).
+		// Safe to run on every boot — skips asset classes with < 10 completed picks.
+		// Re-trains weekly to incorporate new closed picks and improve accuracy.
+		runStartupTask("ML Scoring Model Auto-Train", async () => {
+			const { aiMLScoringEngine } = await import(
+				"../services/ai-ml-scoring-engine"
+			);
+			// Small delay to let Phase 3/4 data settle
+			await new Promise((r) => setTimeout(r, 10_000));
+			const models = await aiMLScoringEngine.trainAllModels({
+				maxStumps: 30,
+				learningRate: 0.1,
+				minSamples: 10,
+				nFolds: 3,
+			});
+			console.log(
+				`🤖 [MLAutoTrain] Boot training complete: ${models.length} models trained.`,
+			);
+
+			// Weekly re-training (every 7 days)
+			const WEEKLY_MS = 7 * 24 * 60 * 60 * 1000;
+			setInterval(async () => {
+				try {
+					const refreshed = await aiMLScoringEngine.trainAllModels({
+						maxStumps: 50,
+						learningRate: 0.1,
+						minSamples: 10,
+						nFolds: 5,
+					});
+					console.log(
+						`🔄 [MLAutoTrain] Weekly re-train: ${refreshed.length} models updated.`,
+					);
+				} catch (err) {
+					console.error("[MLAutoTrain] Weekly re-train failed:", err);
+				}
+			}, WEEKLY_MS);
+		});
+
+
 		// ── Phase 6: Audit & Compliance Cleanup ──────────────────────────────────
 		runStartupTask(
 			"Unlisted Regulatory Audit Cleanup",

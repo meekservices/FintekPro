@@ -145,6 +145,23 @@ class AIMLScoringEngine {
 				hasFeatures = true;
 			}
 
+			// Fallback: even without keyMetrics, derive synthetic features from pick
+			// price levels so every completed pick contributes a training signal.
+			if (!hasFeatures) {
+				const recoPrice = Number.parseFloat(String(pick.recoPrice || "0"));
+				const targetPrice = Number.parseFloat(String(pick.targetPrice || "0"));
+				const slPrice = Number.parseFloat(String(pick.stoplossPrice || "0"));
+				if (recoPrice > 0 && targetPrice > 0) {
+					features.impliedUpside = (targetPrice - recoPrice) / recoPrice;
+					if (slPrice > 0 && slPrice < recoPrice) {
+						features.riskRewardRatio =
+							(targetPrice - recoPrice) / (recoPrice - slPrice);
+					}
+					features.daysHeld = pick.daysHeld ?? 0;
+					hasFeatures = true;
+				}
+			}
+
 			if (!hasFeatures) continue;
 
 			examples.push({
@@ -163,7 +180,7 @@ class AIMLScoringEngine {
 	async trainModel(config: TrainingConfig): Promise<ScoringModel> {
 		const maxStumps = config.maxStumps ?? 50;
 		const learningRate = config.learningRate ?? 0.1;
-		const minSamples = config.minSamples ?? 30;
+		const minSamples = config.minSamples ?? 10; // lowered from 30 — initial training needs fewer samples
 		const nFolds = config.nFolds ?? 5;
 		const baggingFraction = config.baggingFraction ?? 0.8;
 		const assetClass = config.assetClass || "all";
