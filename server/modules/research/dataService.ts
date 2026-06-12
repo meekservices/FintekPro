@@ -399,6 +399,66 @@ async function fetchFromNSE(
 	};
 }
 
+
+// ─── Google Finance ───────────────────────────────────────────────────────────
+/**
+ * Fetches live price data from the unofficial Google Finance API.
+ * No API key required. Uses the same JSON endpoint as the Google Finance web app.
+ * Exchange suffix: NSE stocks → ':NSE', BSE → ':BOM'
+ *
+ * Returns: price, previousClose, marketCap, pe, eps, fiftyTwoWeekHigh/Low,
+ *          currency, faceValue (not available — null), vwap (not available — null)
+ */
+async function fetchFromGoogleFinance(
+	nseSymbol: string,
+	exchange: "NSE" | "BOM" = "NSE",
+): Promise<Partial<FinancialData>> {
+	// Google Finance chart API — same endpoint as https://finance.google.com
+	const ticker = `${nseSymbol.toUpperCase()}:${exchange}`;
+	const url =
+		`https://query1.finance.google.com/v8/finance/chart/${encodeURIComponent(ticker)}` +
+		`?interval=1d&range=5d&includePrePost=false`;
+
+	const res = await fetch(url, {
+		headers: {
+			"User-Agent":
+				"Mozilla/5.0 (compatible; FintekPro/1.0; +https://fintekpro.com)",
+			Accept: "application/json",
+		},
+		signal: AbortSignal.timeout(10_000),
+	});
+
+	if (!res.ok) throw new Error(`Google Finance HTTP ${res.status} for ${ticker}`);
+
+	const body = (await res.json()) as any;
+	const result = body?.chart?.result?.[0];
+	if (!result) throw new Error(`Google Finance: no result for ${ticker}`);
+
+	const meta = result.meta ?? {};
+	const pf = (v: any): number | null => {
+		if (v === null || v === undefined) return null;
+		const n = typeof v === "number" ? v : Number.parseFloat(v);
+		return Number.isFinite(n) && n > 0 ? n : null;
+	};
+
+	const price =
+		pf(meta.regularMarketPrice) ??
+		pf(meta.chartPreviousClose) ??
+		null;
+
+	return {
+		price,
+		previousClose: pf(meta.chartPreviousClose) ?? pf(meta.previousClose) ?? null,
+		marketCap: pf(meta.marketCap) ?? null,
+		pe: null, // Not available in chart API
+		fiftyTwoWeekHigh: pf(meta.fiftyTwoWeekHigh) ?? null,
+		fiftyTwoWeekLow: pf(meta.fiftyTwoWeekLow) ?? null,
+		faceValue: null, // Not in Google Finance
+		vwap: null, // Not in Google Finance chart API
+		currency: meta.currency ?? "INR",
+	};
+}
+
 // ─── Screener.in enrichment ───────────────────────────────────────────────────
 
 function parseNum(text: string): number | null {
@@ -1200,6 +1260,14 @@ interface DBData {
 	returns1Y: number | null;
 	lastUpdated: Date | null; // when fundamentals were last written to DB
 	existsInListedStocks: boolean; // true if symbol row exists in listed_stocks (even with null metrics)
+	// Price fields from listed_stocks — used as fallback when NSE/Yahoo are unavailable
+	dbPrice: number | null;
+	dbMarketCap: number | null;
+	dbPeRatio: number | null;
+	dbFaceValue: number | null;
+	dbFiftyTwoWeekHigh: number | null;
+	dbFiftyTwoWeekLow: number | null;
+	dbVwap: number | null;
 }
 
 async function fetchFromDB(nseSymbol: string): Promise<DBData> {
@@ -1223,6 +1291,13 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 		returns1Y: null,
 		lastUpdated: null,
 		existsInListedStocks: false,
+		dbPrice: null,
+		dbMarketCap: null,
+		dbPeRatio: null,
+		dbFaceValue: null,
+		dbFiftyTwoWeekHigh: null,
+		dbFiftyTwoWeekLow: null,
+		dbVwap: null,
 	};
 	try {
 		const rows = await db.execute(sql`
@@ -1231,7 +1306,10 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
              sf.operating_cash_flow, sf.free_cash_flow,
              sf.revenue, sf.net_income, sf.operating_margin,
              sf.last_updated,
-             ls.returns_1m, ls.returns_6m, ls.returns_1y, ls.beta
+             ls.returns_1m, ls.returns_6m, ls.returns_1y, ls.beta,
+             ls.current_price, ls.market_cap_value, ls.pe_ratio,
+             ls.face_value, ls.fifty_two_week_high, ls.fifty_two_week_low,
+             ls.vwap
       FROM screener_financials sf
       LEFT JOIN listed_stocks ls ON ls.symbol = sf.symbol
       WHERE sf.symbol = ${nseSymbol.toUpperCase()}
@@ -1241,7 +1319,10 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 		const r = ((rows as any).rows ?? rows)[0] as any;
 		if (!r) {
 			const lsRows = await db.execute(sql`
-        SELECT returns_1m, returns_6m, returns_1y FROM listed_stocks WHERE symbol = ${nseSymbol.toUpperCase()} LIMIT 1
+        SELECT returns_1m, returns_6m, returns_1y, current_price,
+               market_cap_value, pe_ratio, face_value,
+               fifty_two_week_high, fifty_two_week_low, vwap
+        FROM listed_stocks WHERE symbol = ${nseSymbol.toUpperCase()} LIMIT 1
       `);
 			const lr = ((lsRows as any).rows ?? lsRows)[0] as any;
 			if (lr) {
@@ -1253,6 +1334,13 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 					returns1M: pf(lr.returns_1m),
 					returns6M: pf(lr.returns_6m),
 					returns1Y: pf(lr.returns_1y),
+					dbPrice: pf(lr.current_price),
+					dbMarketCap: pf(lr.market_cap_value),
+					dbPeRatio: pf(lr.pe_ratio),
+					dbFaceValue: pf(lr.face_value),
+					dbFiftyTwoWeekHigh: pf(lr.week_high_52),
+					dbFiftyTwoWeekLow: pf(lr.week_low_52),
+					dbVwap: null,
 				};
 			}
 			return empty;
@@ -1279,6 +1367,13 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 			returns1Y: pf(r.returns_1y),
 			lastUpdated: r.last_updated ? new Date(r.last_updated) : null,
 			existsInListedStocks: true,
+			dbPrice: pf(r.current_price),
+			dbMarketCap: pf(r.market_cap_value),
+			dbPeRatio: pf(r.pe_ratio),
+			dbFaceValue: pf(r.face_value),
+			dbFiftyTwoWeekHigh: pf(r.fifty_two_week_high),
+			dbFiftyTwoWeekLow: pf(r.fifty_two_week_low),
+			dbVwap: pf(r.vwap),
 		};
 	} catch (e: any) {
 		console.warn("[ResearchNote] DB read failed:", e?.message);
@@ -1391,7 +1486,10 @@ function buildFull(
 	dbData: DBData,
 	screener: ScreenerData,
 ): FinancialData {
-	const price = base.price ?? null;
+	// Use live price from NSE/Yahoo when available; fall back to DB cached price.
+	// dbData.dbPrice is populated from listed_stocks.current_price and is updated
+	// by the background price-sync cron, so it is usually only minutes/hours stale.
+	const price = base.price ?? dbData.dbPrice ?? null;
 
 	const roe =
 		screener.roe ??
@@ -1412,12 +1510,13 @@ function buildFull(
 	return {
 		price,
 		previousClose: base.previousClose ?? null,
-		marketCap: base.marketCap ?? null,
+		marketCap: base.marketCap ?? dbData.dbMarketCap ?? null,
 		pe: (() => {
 			const eps = dbData.eps ?? base.eps ?? null;
-			// NSE → screener → compute from price/EPS as last resort
+			// NSE → DB cached PE → screener → compute from price/EPS as last resort
 			return (
 				base.pe ??
+				dbData.dbPeRatio ??
 				screener.pe ??
 				(price && eps && eps > 0 ? Math.round((price / eps) * 10) / 10 : null)
 			);
@@ -1429,8 +1528,8 @@ function buildFull(
 		debtToEquity: screener.debtToEquity ?? dbData.debtToEquity ?? null,
 		revenueGrowth: screener.revenueGrowth ?? dbData.revenueGrowth ?? null,
 		earningsGrowth: screener.earningsGrowth ?? dbData.earningsGrowth ?? null,
-		fiftyTwoWeekHigh: base.fiftyTwoWeekHigh ?? null,
-		fiftyTwoWeekLow: base.fiftyTwoWeekLow ?? null,
+		fiftyTwoWeekHigh: base.fiftyTwoWeekHigh ?? dbData.dbFiftyTwoWeekHigh ?? null,
+		fiftyTwoWeekLow: base.fiftyTwoWeekLow ?? dbData.dbFiftyTwoWeekLow ?? null,
 		dividendYield:
 			screener.dividendYield ??
 			dbData.dividendYield ??
@@ -1440,8 +1539,8 @@ function buildFull(
 		targetMeanPrice: null,
 		currency: base.currency ?? "INR",
 		bookValue,
-		faceValue: base.faceValue ?? null,
-		vwap: base.vwap || null, // treat 0 as N/A
+		faceValue: base.faceValue ?? dbData.dbFaceValue ?? null,
+		vwap: (base.vwap && base.vwap > 0 ? base.vwap : null) ?? dbData.dbVwap ?? null, // treat 0 as N/A
 		operatingCashFlow:
 			screener.operatingCashFlow ?? dbData.operatingCashFlow ?? null,
 		freeCashFlow: screener.freeCashFlow ?? dbData.freeCashFlow ?? null,
@@ -1581,6 +1680,13 @@ export async function getFinancialData(
 					returns1Y: null,
 					lastUpdated: null,
 					existsInListedStocks: false,
+					dbPrice: null,
+					dbMarketCap: null,
+					dbPeRatio: null,
+					dbFaceValue: null,
+					dbFiftyTwoWeekHigh: null,
+					dbFiftyTwoWeekLow: null,
+					dbVwap: null,
 				};
 
 	// Step 3: DB-first decision — only scrape Screener.in if DB data is stale/missing
@@ -1808,9 +1914,47 @@ export async function getFinancialData(
 		(nseResult as any).reason?.message,
 	);
 
-	// Fallback to Yahoo Finance
-	// For BSE-only stocks (symbol has .BO suffix), try .BO first to avoid unnecessary rate-limiting on .NS
+	// Fallback 1: Google Finance — no API key, works well from GCP infrastructure
+	// Try NSE exchange first, then BSE (BOM) for BSE-only stocks
 	const isBseOnly = symbol.toUpperCase().endsWith(".BO");
+	const gfExchanges: Array<"NSE" | "BOM"> = isBseOnly
+		? ["BOM", "NSE"]
+		: ["NSE", "BOM"];
+	for (const gfExchange of gfExchanges) {
+		try {
+			console.log(`[ResearchNote] Google Finance fallback: ${nseSymbol}:${gfExchange}`);
+			const gfData = await fetchFromGoogleFinance(nseSymbol, gfExchange);
+			if (gfData.price !== null) {
+				let data = buildFull(gfData, dbData, screener);
+				// Attempt to fetch returns from Python even on Google Finance path
+				if (data.returns1M === null && data.returns6M === null && data.returns1Y === null) {
+					const returns = await fetchPythonReturns(nseSymbol).catch(() => ({
+						returns1M: null,
+						returns6M: null,
+						returns1Y: null,
+					}));
+					data = { ...data, ...returns };
+				}
+				cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+				console.log(
+					`[ResearchNote] Google Finance OK for ${nseSymbol}:${gfExchange} — ₹${data.price}`,
+				);
+				return {
+					...data,
+					_fundamentalsSource: fundamentalsSource,
+					_screenerData: screener,
+				} as any;
+			}
+		} catch (e: any) {
+			console.warn(
+				`[ResearchNote] Google Finance failed for ${nseSymbol}:${gfExchange}:`,
+				e?.message?.slice(0, 80),
+			);
+		}
+	}
+
+	// Fallback 2: Yahoo Finance
+	// For BSE-only stocks (symbol has .BO suffix), try .BO first to avoid unnecessary rate-limiting on .NS
 	const yahooSymbols = isBseOnly
 		? [`${nseSymbol}.BO`, `${nseSymbol}.NS`]
 		: [`${nseSymbol}.NS`, `${nseSymbol}.BO`];
