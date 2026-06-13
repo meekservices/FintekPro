@@ -1748,8 +1748,7 @@ export default function AgentPicksPage() {
 								{allCategories.map(({ key, label, icon: Icon }) => {
 									const count = todayCounts[key] || 0;
 									const isActive = todayCategoryFilter === key;
-									// Hide zero-pick tabs unless they are 'all' or currently active
-									if (key !== "all" && !isActive && count === 0) return null;
+									// Show all tabs (consistent with Live Recommendations) — zero-count tabs show empty state
 									const catStats =
 										key !== "all" ? stats?.byCategory?.[key] : null;
 									return (
