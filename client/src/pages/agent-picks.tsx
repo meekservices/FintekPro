@@ -4780,6 +4780,18 @@ function PicksTable({
 				av = a.confidenceScore ?? 0;
 				bv = b.confidenceScore ?? 0;
 				break;
+			case "risk": {
+				const riskOrder: Record<string, number> = { low: 0, medium: 1, high: 2 };
+				av = riskOrder[a.riskLevel ?? ""] ?? 1;
+				bv = riskOrder[b.riskLevel ?? ""] ?? 1;
+				break;
+			}
+			case "horizon": {
+				const hOrder: Record<string, number> = { short_term: 0, medium_term: 1, long_term: 2 };
+				av = hOrder[a.timeHorizon ?? ""] ?? 1;
+				bv = hOrder[b.timeHorizon ?? ""] ?? 1;
+				break;
+			}
 			case "recoDate":
 				av = new Date(a.recoDate).getTime();
 				bv = new Date(b.recoDate).getTime();
@@ -4832,8 +4844,10 @@ function PicksTable({
 						<Th col="target" label="Target" right />
 						<Th col="stoploss" label="SL" right />
 						<Th col="upside" label="Upside" right />
-						{showReturn && <Th col="return" label="Return" right />}
+						<Th col="return" label="Return" right />
 						<Th col="confidence" label="AI%" right />
+						<Th col="risk" label="Risk" />
+						<Th col="horizon" label="Horizon" />
 						<Th col="recoDate" label="Date" />
 					</tr>
 				</thead>
@@ -4914,20 +4928,18 @@ function PicksTable({
 										"—"
 									)}
 								</td>
-								{showReturn && (
-									<td className="px-3 py-2.5 text-right whitespace-nowrap">
-										{returnPct !== null ? (
-											<span
-												className={`text-xs font-semibold ${returnPct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}
-											>
-												{returnPct >= 0 ? "+" : ""}
-												{returnPct.toFixed(1)}%
-											</span>
-										) : (
-											"—"
-										)}
-									</td>
-								)}
+								<td className="px-3 py-2.5 text-right whitespace-nowrap">
+									{returnPct !== null ? (
+										<span
+											className={`text-xs font-semibold ${returnPct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}
+										>
+											{returnPct >= 0 ? "+" : ""}
+											{returnPct.toFixed(1)}%
+										</span>
+									) : (
+										"—"
+									)}
+								</td>
 								<td className="px-3 py-2.5 text-right whitespace-nowrap">
 									{pick.confidenceScore !== undefined ? (
 										<span
@@ -4938,6 +4950,22 @@ function PicksTable({
 									) : (
 										"—"
 									)}
+								</td>
+								{/* Risk Level */}
+								<td className="px-3 py-2.5 whitespace-nowrap">
+									{pick.riskLevel ? (
+										<span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${riskColors[pick.riskLevel] ?? "bg-muted text-muted-foreground"}`}>
+											{pick.riskLevel.charAt(0).toUpperCase() + pick.riskLevel.slice(1)}
+										</span>
+									) : "—"}
+								</td>
+								{/* Time Horizon */}
+								<td className="px-3 py-2.5 whitespace-nowrap">
+									{horizon ? (
+										<span className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${horizon.color}`}>
+											{horizon.icon} {horizon.label}
+										</span>
+									) : "—"}
 								</td>
 								<td className="px-3 py-2.5 whitespace-nowrap text-xs text-muted-foreground">
 									{new Date(pick.recoDate).toLocaleDateString("en-IN", {
