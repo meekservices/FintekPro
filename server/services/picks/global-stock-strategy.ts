@@ -313,10 +313,52 @@ export class GlobalStockStrategy extends BaseStrategy {
 	}
 
 	async getLivePrice(instrumentId: string): Promise<number | null> {
+		// Resolve instrumentId → symbol (may be DB numeric id or ticker directly)
+		let symbol = instrumentId;
+		if (/^\d+$/.test(instrumentId)) {
+			// Numeric ID — resolve to symbol via DB
+			try {
+				const res = await db.execute(sql`
+          SELECT symbol FROM global_instruments WHERE id = ${instrumentId} LIMIT 1
+        `);
+				const row = ((res.rows || []) as any[])[0];
+				if (row?.symbol) symbol = row.symbol;
+			} catch {
+				// keep instrumentId as-is
+			}
+		}
+
+		// Tier 1: FMP real-time per-symbol fetch (free plan supports single-symbol)
+		const fmpKey = process.env.FMP_API_KEY;
+		if (fmpKey && fmpKey.length > 8 && !["dummy","placeholder","xxx"].some(p => fmpKey.toLowerCase().includes(p))) {
+			try {
+				const resp = await fetch(
+					`https://financialmodelingprep.com/stable/quote?symbol=${encodeURIComponent(symbol)}&apikey=${fmpKey}`,
+					{ signal: AbortSignal.timeout(8000), headers: { Accept: "application/json" } },
+				);
+				if (resp.ok) {
+					const data: any[] = await resp.json();
+					const price = data?.[0]?.price;
+					if (price != null && Number.isFinite(Number(price)) && Number(price) > 0) {
+						// Update DB in background for next time
+						db.execute(sql`
+              UPDATE global_instruments
+              SET last_price = ${String(price)}, last_updated = NOW()
+              WHERE id = ${instrumentId} OR symbol = ${symbol}
+            `).catch(() => {});
+						return Number(price);
+					}
+				}
+			} catch {
+				// timeout or network — fall through to DB
+			}
+		}
+
+		// Tier 2: DB cache (last known price)
 		try {
 			const result = await db.execute(sql`
         SELECT last_price FROM global_instruments
-        WHERE id = ${instrumentId} OR symbol = ${instrumentId}
+        WHERE id = ${instrumentId} OR symbol = ${symbol}
         LIMIT 1
       `);
 			const row = ((result.rows || []) as any[])[0];
@@ -326,3 +368,4 @@ export class GlobalStockStrategy extends BaseStrategy {
 		}
 	}
 }
+
