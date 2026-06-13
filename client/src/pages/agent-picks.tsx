@@ -2289,7 +2289,7 @@ export default function AgentPicksPage() {
 																				className="text-xs flex items-center gap-1 border-muted-foreground/30 text-muted-foreground"
 																			>
 																				<Clock className="h-3 w-3" />
-																				{stock.timeHorizon.replace(/_/g, " ")}
+																				{stock.timeHorizon?.replace(/_/g, " ") ?? "Medium"}
 																			</Badge>
 																		</div>
 																	</CardContent>
@@ -3694,7 +3694,7 @@ export default function AgentPicksPage() {
 																			</span>
 																			<span className="text-xs text-muted-foreground capitalize">
 																				Alert:{" "}
-																				{item.alertType.replace("_", " ")}
+																				{item.alertType?.replace("_", " ") ?? ""}
 																			</span>
 																		</>
 																	)}
@@ -4161,8 +4161,8 @@ export default function AgentPicksPage() {
 										Suitable For
 									</h4>
 									<div className="flex flex-wrap gap-2">
-										{selectedPick.suitableFor.map((s) => (
-											<Badge key={s} variant="secondary" className="capitalize">
+										{selectedPick.suitableFor.map((s, i) => s ? (
+											<Badge key={s ?? i} variant="secondary" className="capitalize">
 												{s.replace(/_/g, " ")}
 											</Badge>
 										))}
@@ -4352,7 +4352,7 @@ export default function AgentPicksPage() {
 													<div key={fc.feature} className="space-y-1">
 														<div className="flex justify-between text-xs">
 															<span className="capitalize">
-																{fc.feature.replace(/_/g, " ")}
+																{fc.feature?.replace(/_/g, " ") ?? ""}
 															</span>
 															<span
 																className={`font-medium ${fc.impact > 0 ? "text-green-600" : "text-red-600"}`}
@@ -4372,7 +4372,7 @@ export default function AgentPicksPage() {
 														<div key={feature} className="space-y-1">
 															<div className="flex justify-between text-xs">
 																<span className="capitalize">
-																	{feature.replace(/_/g, " ")}
+																	{feature?.replace(/_/g, " ") ?? ""}
 																</span>
 																<span className="font-medium text-muted-foreground">
 																	{(importance * 100).toFixed(1)}%
