@@ -1712,6 +1712,23 @@ export default function AgentPicksPage() {
 									</CardDescription>
 								</div>
 								<div className="flex items-center gap-2">
+									{/* View mode toggle — grid / table */}
+									<div className="flex items-center gap-1 border rounded-lg p-0.5">
+										<button
+											onClick={() => toggleViewMode("grid")}
+											className={`p-1.5 rounded-md transition-colors ${viewMode === "grid" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
+											title="Card view"
+										>
+											<LayoutGrid className="h-3.5 w-3.5" />
+										</button>
+										<button
+											onClick={() => toggleViewMode("table")}
+											className={`p-1.5 rounded-md transition-colors ${viewMode === "table" ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}
+											title="Table view"
+										>
+											<Table2 className="h-3.5 w-3.5" />
+										</button>
+									</div>
 									{todayPicks.length < 8 && (
 										<Button
 											id="refresh-missing-picks-btn"
@@ -2819,7 +2836,7 @@ export default function AgentPicksPage() {
 															</div>
 														)}
 
-														{/* Per-sector grouped cards OR table */}
+														{/* Per-sector grouped cards OR table — respects global viewMode toggle */}
 														{viewMode === "table" ? (
 															<PicksTable
 																picks={filteredTodayPicks}
@@ -3097,8 +3114,10 @@ export default function AgentPicksPage() {
 													</div>
 												)}
 
-												{/* Non-stock picks (when "All" tab) */}
-												{nonStockPicks.length > 0 && (
+												{/* Non-stock picks (when "All" tab) — table or grid */}
+												{nonStockPicks.length > 0 && (viewMode === "table" ? (
+													<PicksTable picks={nonStockPicks} onRowClick={setSelectedPick} />
+												) : (
 													<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 														{nonStockPicks.map((pick, index) => (
 															<PickCard
@@ -3122,7 +3141,7 @@ export default function AgentPicksPage() {
 															/>
 														))}
 													</div>
-												)}
+												))}
 											</div>
 										);
 									}
