@@ -690,12 +690,7 @@ export class AIService {
 				"Groq not configured — set GROQ_API_KEY environment variable",
 			);
 		}
-		const groqModel =
-			model.startsWith("llama") ||
-			model.startsWith("gemma") ||
-			model.startsWith("mixtral")
-				? model
-				: GROQ_DEFAULT_MODEL; // fall back to best Groq model if a non-Groq model was requested
+		const groqModel = model || GROQ_DEFAULT_MODEL; // pass any Groq model as-is
 		const response = await groq.chat.completions.create({
 			model: groqModel,
 			messages,
