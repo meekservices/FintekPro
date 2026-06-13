@@ -334,7 +334,7 @@ export class GlobalStockStrategy extends BaseStrategy {
 			try {
 				const resp = await fetch(
 					`https://financialmodelingprep.com/stable/quote?symbol=${encodeURIComponent(symbol)}&apikey=${fmpKey}`,
-					{ signal: AbortSignal.timeout(8000), headers: { Accept: "application/json" } },
+					{ signal: AbortSignal.timeout(15000), headers: { Accept: "application/json" } },
 				);
 				if (resp.ok) {
 					const data: any[] = await resp.json();
@@ -348,13 +348,42 @@ export class GlobalStockStrategy extends BaseStrategy {
             `).catch(() => {});
 						return Number(price);
 					}
+				} else if (resp.status !== 402) {
+					// 402 = premium plan required (non-US stocks) — skip silently
+					console.warn(`[GlobalStockLivePrice] FMP HTTP ${resp.status} for ${symbol}`);
 				}
-			} catch {
-				// timeout or network — fall through to DB
+			} catch (err: any) {
+				console.warn(`[GlobalStockLivePrice] FMP timeout/error for ${symbol}: ${err?.message || err}`);
 			}
 		}
 
-		// Tier 2: DB cache (last known price)
+		// Tier 2: Alpha Vantage GLOBAL_QUOTE (supports US + international)
+		const avKey = process.env.ALPHA_VANTAGE_API_KEY;
+		if (avKey && avKey.length > 8 && !["dummy","placeholder","xxx"].some(p => avKey.toLowerCase().includes(p))) {
+			try {
+				const resp = await fetch(
+					`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(symbol)}&apikey=${avKey}`,
+					{ signal: AbortSignal.timeout(12000), headers: { Accept: "application/json" } },
+				);
+				if (resp.ok) {
+					const data: any = await resp.json();
+					const quote = data?.["Global Quote"];
+					const price = quote?.["05. price"];
+					if (price && Number.isFinite(Number(price)) && Number(price) > 0) {
+						db.execute(sql`
+              UPDATE global_instruments
+              SET last_price = ${String(price)}, last_updated = NOW()
+              WHERE id = ${instrumentId} OR symbol = ${symbol}
+            `).catch(() => {});
+						return Number(price);
+					}
+				}
+			} catch (err: any) {
+				console.warn(`[GlobalStockLivePrice] AV timeout/error for ${symbol}: ${err?.message || err}`);
+			}
+		}
+
+		// Tier 3: DB cache (last known price)
 		try {
 			const result = await db.execute(sql`
         SELECT last_price FROM global_instruments
@@ -368,4 +397,5 @@ export class GlobalStockStrategy extends BaseStrategy {
 		}
 	}
 }
+
 
