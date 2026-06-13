@@ -409,8 +409,25 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			startPickOfTheDayScheduler,
 		);
 
+		// ── Phase 4b: Boot-time live price refresh ────────────────────────────────
+		// Runs refreshLivePicks immediately after service starts so current prices
+		// and returns are populated right away (not waiting for scheduled 12:30/4PM IST).
+		// Critical for global stocks where getLivePrice now calls FMP directly.
+		runStartupTask("Boot-time Live Price Refresh", async () => {
+			const { pickOfTheDayService } = await import(
+				"../services/pick-of-the-day-service"
+			);
+			// 15s delay: let Phase 3 data (stock sync, financial data) settle first
+			await new Promise((r) => setTimeout(r, 15_000));
+			const result = await pickOfTheDayService.refreshLivePicks();
+			console.log(
+				`💹 [BootRefresh] Live prices updated: ${result.updated} picks refreshed, ${result.errors} errors`,
+			);
+		});
+
 		// ── Phase 5: AI & Analytics ───────────────────────────────────────────────
 		runStartupTask("AI Regulatory Monitoring", startActivityInsightsMonitoring);
+
 
 		// ── Phase 5b: ML Model Auto-Training ─────────────────────────────────────
 		// Trains scoring models on all closed picks (target_hit/stoploss_hit/expired).
