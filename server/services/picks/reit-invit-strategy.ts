@@ -78,8 +78,10 @@ export class REITInvITStrategy extends BaseStrategy {
 
 	async generate(context: StrategyContext): Promise<DailyPickData | null> {
 		try {
-			// Fetch all active REITs and InvITs so we can rotate between them
-			const reitsList = await db.execute(sql`
+			// ── Try fetching from reits/invits tables; fall back to synthetic pool ──
+			let all: any[] = [];
+			try {
+				const reitsList = await db.execute(sql`
         SELECT id, name, symbol, isin_code as isin, sector,
                current_price::numeric        as "currentPrice",
                face_value::numeric           as "faceValue",
@@ -100,9 +102,35 @@ export class REITInvITStrategy extends BaseStrategy {
         ORDER BY name
         LIMIT 20
       `);
+				all = (reitsList.rows || []) as any[];
+			} catch {
+				// reits/invits tables not yet in production — use reference prices
+				all = [];
+			}
 
-			const all = (reitsList.rows || []) as any[];
-			if (all.length === 0) return null;
+			// Synthetic fallback when DB tables empty or missing
+			if (all.length === 0) {
+				const synthPool = Object.entries(REIT_REFERENCE_PRICES).map(
+					([symbol, price]) => ({
+						id: `synth_${symbol}`,
+						name: symbol,
+						symbol,
+						isin: null,
+						sector: symbol.includes("GRID") || symbol.includes("IRB") || symbol.includes("POWER") || symbol.includes("NHIT") || symbol.includes("JIO") || symbol.includes("ORIENT") || symbol.includes("BH") ? "Infrastructure" : "Commercial",
+						currentPrice: price,
+						faceValue: price,
+						distributionYield: "7.5",
+						debtCoverageRatio: "1.6",
+						occupancyRate: symbol.includes("GRID") ? null : "92",
+						type: symbol.includes("GRID") || symbol.includes("IRB") || symbol.includes("POWER") || symbol.includes("NHIT") || symbol.includes("JIO") || symbol.includes("ORIENT") || symbol.includes("BH") ? "InvIT" : "REIT",
+					}),
+				);
+				const dayOfYear = Math.floor(
+					(Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86_400_000,
+				);
+				all = [synthPool[dayOfYear % synthPool.length]];
+				console.log(`[REITInvITStrategy] Using synthetic REIT: ${all[0].name} (tables not found)`);
+			}
 
 			// Phase 1 fix: rotate — skip those picked in the last 14 days
 			const recentIds = context.recentIds || new Set<string>();

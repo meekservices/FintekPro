@@ -186,7 +186,10 @@ export class GlobalStockStrategy extends BaseStrategy {
 	async generate(context: StrategyContext): Promise<DailyPickData | null> {
 		try {
 			// Phase 1 fix: ORDER BY meaningful signals (momentum + market cap), not RANDOM()
-			const dbStocks = await db.execute(sql`
+			// Wrap in nested try-catch: missing columns (pe_ratio etc.) fall through to GLOBAL_FALLBACK_POOL
+			let rows: any[] = [];
+			try {
+				const dbStocks = await db.execute(sql`
         SELECT id, name, symbol, exchange, market, sector, currency,
                last_price        as "lastPrice",
                pe_ratio          as "peRatio",
@@ -200,7 +203,24 @@ export class GlobalStockStrategy extends BaseStrategy {
           COALESCE(market_cap::numeric, 0) DESC
         LIMIT 20
       `);
-			const rows = (dbStocks.rows || []) as any[];
+				rows = (dbStocks.rows || []) as any[];
+			} catch {
+				// DB table missing or has different schema — fall through to curated pool
+				rows = [];
+				// Simpler fallback query using only core columns
+				try {
+					const simple = await db.execute(sql`
+          SELECT id, name, symbol, exchange, market, sector, currency,
+                 last_price as "lastPrice"
+          FROM global_instruments
+          WHERE last_price IS NOT NULL AND last_price::numeric > 0
+          LIMIT 20
+        `);
+					rows = (simple.rows || []) as any[];
+				} catch {
+					// Table doesn't exist at all — use GLOBAL_FALLBACK_POOL
+				}
+			}
 
 			// If DB has data, use it; otherwise fall back to curated pool
 			const candidates = rows.length > 0 ? rows : GLOBAL_FALLBACK_POOL;

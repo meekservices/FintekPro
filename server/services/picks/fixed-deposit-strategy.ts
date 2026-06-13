@@ -78,8 +78,8 @@ export class FixedDepositStrategy extends BaseStrategy {
 					),
 				)
 				.orderBy(
-					// prefer instruments with a known interest rate
-					sql`CASE WHEN interest_rate IS NOT NULL AND interest_rate != '' THEN 0 ELSE 1 END`,
+					// prefer instruments with a known interest rate (interest_rate is NUMERIC — compare only IS NOT NULL)
+					sql`CASE WHEN interest_rate IS NOT NULL THEN 0 ELSE 1 END`,
 					desc(instrumentMaster.updatedAt),
 				)
 				.limit(20);
