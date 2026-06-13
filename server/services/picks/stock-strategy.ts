@@ -224,6 +224,19 @@ export class StockStrategy extends BaseStrategy {
 				console.warn(
 					"[StockStrategy] No sector picks generated — all sectors failed or were empty",
 				);
+				// ── Cross-sector fallback: pick best available stock without sector filter ──
+				// This guarantees at least one stock pick per day even when AI is unavailable.
+				try {
+					const fallbackPick = await this.pickBestStockFallback(context);
+					if (fallbackPick) {
+						console.info(
+							`[StockStrategy] Fallback pick: ${fallbackPick.symbol} (${fallbackPick.sectorCategory})`,
+						);
+						return [fallbackPick];
+					}
+				} catch (fallbackErr) {
+					console.error("[StockStrategy] Fallback also failed:", fallbackErr);
+				}
 				return null;
 			}
 
@@ -752,5 +765,123 @@ export class StockStrategy extends BaseStrategy {
 			.where(eq(listedStocks.id, instrumentId))
 			.limit(1);
 		return row[0]?.currentPrice ? Number.parseFloat(row[0].currentPrice) : null;
+	}
+
+	/**
+	 * Cross-sector fallback: picks the single best available published stock
+	 * without any sector filter, using a template rationale (no AI call).
+	 * Called when all 5 broad-sector picks fail (typically AI quota exhaustion).
+	 */
+	private async pickBestStockFallback(
+		context: StrategyContext,
+	): Promise<DailyPickData | null> {
+		// Query best published stocks regardless of sector
+		const candidates = await db
+			.select()
+			.from(listedStocks)
+			.where(
+				and(
+					eq(listedStocks.isPublished, true),
+					sql`${listedStocks.currentPrice} IS NOT NULL`,
+					sql`CAST(${listedStocks.currentPrice} AS DECIMAL) > 50`,
+				),
+			)
+			.orderBy(
+				// Prioritise analyst-rated Buy stocks, then by 1Y returns
+				sql`CASE WHEN LOWER(analyst_rating) LIKE '%strong buy%' THEN 0 WHEN LOWER(analyst_rating) LIKE '%buy%' THEN 1 ELSE 2 END`,
+				desc(listedStocks.returns1Y),
+			)
+			.limit(20);
+
+		if (candidates.length === 0) return null;
+
+		// Exclude recently-picked stocks
+		const fresh = candidates.filter(
+			(s) => !context.recentIds.has(s.id),
+		);
+		const pool = fresh.length > 0 ? fresh : candidates;
+
+		// Score without AI (quant-only)
+		const scored = (
+			await runConcurrent(
+				pool.map((s) => async () => ({ s, score: await this.score(s, null) })),
+				4,
+			)
+		).sort((a, b) => b.score - a.score);
+
+		const { s: top } = scored[0];
+		const currentPrice = Number.parseFloat(top.currentPrice || "0");
+		if (currentPrice <= 0) return null;
+
+		const volatility = top.volatility
+			? Number.parseFloat(top.volatility)
+			: undefined;
+		const { targetPct, stoplossPct } = this.getDynamicTargetStoploss(
+			"listed_stocks",
+			volatility,
+		);
+		const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
+		const stoplossPrice =
+			Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
+
+		const riskLevel = this.getRiskLevel(volatility ?? 20);
+		const confidenceScore = this.getConfidenceScore("listed_stocks", scored[0].score, 70);
+		const suggestedAllocation = calculateSuggestedAllocation(
+			"listed_stocks",
+			riskLevel,
+			confidenceScore,
+			{ marketCap: top.marketCap },
+		);
+
+		// Template rationale — no AI needed
+		const pe = top.peRatio ? ` P/E ${Number.parseFloat(top.peRatio).toFixed(1)}x,` : "";
+		const ret1y = top.returns1Y ? ` +${Number.parseFloat(top.returns1Y).toFixed(1)}% 1Y return,` : "";
+		const rationale =
+			`${top.companyName || top.symbol} (${top.sector || "Equity"}) shows quant-positive signals:${pe}${ret1y}` +
+			` analyst rating: ${top.analystRating || "not rated"}. Entry at ₹${currentPrice.toFixed(2)},` +
+			` target ₹${targetPrice.toFixed(2)} (+${(targetPct * 100).toFixed(1)}%), stop-loss ₹${stoplossPrice.toFixed(2)}.` +
+			` Market risk applies. This is a quantitative signal — please validate with your advisor.`;
+
+		const exchange = top.nseCode ? "NSE" : top.bseCode ? "BSE" : "NSE";
+		const broadSector = mapToBroadSector(top.sector);
+		const bsMeta = BROAD_SECTORS.find((b) => b.id === broadSector) ?? BROAD_SECTORS[0];
+
+		return {
+			category: "listed_stocks",
+			instrumentId: top.id,
+			instrumentName: top.companyName || top.symbol,
+			isin: top.isin || undefined,
+			symbol: top.symbol,
+			exchange,
+			recoDate: context.today,
+			recoPrice: currentPrice,
+			targetPrice,
+			stoplossPrice,
+			currentPrice,
+			status: "live",
+			expiryDate: this.getExpiryDate(this.DEFAULT_VALIDITY_DAYS),
+			rationale,
+			riskLevel,
+			suitableFor: this.deriveSuitableFor(riskLevel, "listed_stocks"),
+			timeHorizon: this.getTimeHorizon("listed_stocks"),
+			confidenceScore,
+			sectorCategory: top.sector || bsMeta.label,
+			keyMetrics: {
+				cmp: currentPrice,
+				pe: top.peRatio ? Number.parseFloat(top.peRatio) : undefined,
+				returns1y: top.returns1Y ? Number.parseFloat(top.returns1Y) : undefined,
+				volatility,
+				sector: top.sector || bsMeta.label,
+				broadSector: bsMeta.id,
+				broadSectorLabel: bsMeta.label,
+				broadSectorIcon: bsMeta.icon,
+				broadSectorColor: bsMeta.color,
+				marketCap: top.marketCap || undefined,
+				analystRating: top.analystRating || undefined,
+				roic: null,
+				rsi: null,
+				suggestedAllocation,
+			},
+		};
 	}
 }
