@@ -8,7 +8,10 @@ import {
 import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { aiMLScoringEngine } from "./ai-ml-scoring-engine";
 import { aiAnalyticsEngine } from "./ai-analytics-engine";
+import { AIRegimeDetectionEngine } from "./ai-regime-detection-engine";
 import * as ss from "simple-statistics";
+
+const regimeDetectionEngine = new AIRegimeDetectionEngine();
 
 export interface FeatureContribution {
 	featureName: string;
@@ -166,15 +169,18 @@ class AIXAIEngine {
 			for (const [fname, contrib] of Object.entries(
 				scoringResult.featureContributions,
 			)) {
+				const safeContrib = Number.isFinite(contrib) ? contrib * 100 : 0;
+				const safeVal = Number.isFinite(features[fname]) ? features[fname] : 0;
+				const safeImportance = Number.isFinite(importanceMap[fname]) ? importanceMap[fname] : 5;
 				featureContributions.push({
 					featureName: fname,
-					featureValue: features[fname] ?? 0,
-					contribution: contrib * 100,
-					importance: importanceMap[fname] ?? 5,
+					featureValue: safeVal,
+					contribution: safeContrib,
+					importance: safeImportance,
 					description: this.featureDescription(
 						fname,
-						features[fname] ?? 0,
-						contrib * 100,
+						safeVal,
+						safeContrib,
 					),
 				});
 			}
@@ -221,7 +227,22 @@ class AIXAIEngine {
 			.sort((a, b) => a.contribution - b.contribution)
 			.slice(0, 2);
 
-		let regimeImpact = "No regime data available";
+		// ── Regime: use ML result → keyMetrics fallback → live regime detection ──
+		if (!regime) {
+			regime = keyMetrics.regime;
+		}
+		if (!regime) {
+			try {
+				const currentRegime = await regimeDetectionEngine.getCurrentRegime();
+				if (currentRegime?.regimeLabel) {
+					regime = currentRegime.regimeLabel;
+				}
+			} catch {
+				// non-fatal — regime stays undefined
+			}
+		}
+
+		let regimeImpact = "Neutral market conditions";
 		if (regime) {
 			const regimeDescriptions: Record<string, string> = {
 				bull: "Bull market regime boosts confidence in equity-oriented picks",

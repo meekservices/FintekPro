@@ -4350,25 +4350,30 @@ export default function AgentPicksPage() {
 									</h4>
 									<div className="space-y-2">
 										{explanationData.featureContributions
-											? explanationData.featureContributions.map((fc: any) => (
-													<div key={fc.feature} className="space-y-1">
-														<div className="flex justify-between text-xs">
-															<span className="capitalize">
-																{fc.feature?.replace(/_/g, " ") ?? ""}
-															</span>
-															<span
-																className={`font-medium ${fc.impact > 0 ? "text-green-600" : "text-red-600"}`}
-															>
-																{fc.impact > 0 ? "+" : ""}
-																{(fc.impact * 100).toFixed(1)}%
-															</span>
+											? explanationData.featureContributions
+												.filter((fc: any) => fc && (fc.featureName || fc.feature))
+												.map((fc: any, idx: number) => {
+													// API returns { featureName, contribution } (contribution already in %)
+													const name = fc.featureName || fc.feature || "";
+													// contribution is in % (e.g. 2.5 means 2.5%); impact is 0-1 decimal
+													const pct = Number.isFinite(fc.contribution)
+														? fc.contribution
+														: Number.isFinite(fc.impact) ? fc.impact * 100 : 0;
+													const absPct = Math.min(Math.abs(pct), 100);
+													return (
+														<div key={name || idx} className="space-y-1">
+															<div className="flex justify-between text-xs">
+																<span className="capitalize">
+																	{name.replace(/_/g, " ") || "—"}
+																</span>
+																<span className={`font-medium ${pct >= 0 ? "text-green-600" : "text-red-600"}`}>
+																	{pct >= 0 ? "+" : ""}{pct.toFixed(1)}%
+																</span>
+															</div>
+															<Progress value={absPct} className="h-1.5" />
 														</div>
-														<Progress
-															value={Math.abs(fc.impact) * 100}
-															className="h-1.5"
-														/>
-													</div>
-												))
+													);
+												})
 											: Object.entries(explanationData.feature_importance).map(
 													([feature, importance]: [string, any]) => (
 														<div key={feature} className="space-y-1">
