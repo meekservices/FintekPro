@@ -134,3 +134,12 @@ gcloud run services update-traffic $SERVICE_NAME \
 
 echo "✅ Deployment complete!"
 gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format='value(status.url)'
+
+# ── Firebase Hosting Deploy (serves the static frontend at agent.fintekpro.com) ──
+echo ""
+echo "🔥 Deploying frontend to Firebase Hosting..."
+echo "   (Firebase Hosting is the CDN that serves agent.fintekpro.com — must stay in sync with Cloud Run)"
+npx -y firebase-tools@latest deploy --only hosting --project fintekpro --non-interactive 2>&1 | tail -8
+
+echo ""
+echo "✅ Firebase Hosting deploy complete — frontend is now in sync with backend!"
