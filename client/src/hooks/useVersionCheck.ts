@@ -59,44 +59,44 @@ export function useVersionCheck(): VersionCheckResult {
 	const forceUpdate = useCallback(async () => {
 		console.log("[VersionCheck] Force update triggered");
 
-		// 1. Try to tell Service Worker to skip waiting
 		if ("serviceWorker" in navigator) {
 			try {
 				const registration = await navigator.serviceWorker.getRegistration();
-				if (registration && (registration.waiting || registration.installing)) {
-					console.log("[VersionCheck] Updating service worker...");
+				if (registration) {
+					// If a new SW is waiting, activate it
 					const worker = registration.waiting || registration.installing;
 					if (worker) {
 						worker.postMessage({ type: "SKIP_WAITING" });
+						// Small delay to let the SW activate before reload
+						await new Promise((r) => setTimeout(r, 300));
 					}
+					// Tell the active SW to clear all caches so stale bundles are purged
+					if (registration.active) {
+						registration.active.postMessage({ type: "CLEAR_CACHE" });
+					}
+					// Small delay to let cache clearing finish
+					await new Promise((r) => setTimeout(r, 200));
 				}
 			} catch (err) {
-				console.error(
-					"[VersionCheck] Service worker communication failed:",
-					err,
-				);
+				console.error("[VersionCheck] Service worker communication failed:", err);
 			}
 		}
 
-		// 2. Clear dismiss flag
-		sessionStorage.removeItem("versionDismissed");
-
-		// 3. Reload with cache busting
-		console.log("[VersionCheck] Reloading page...");
-		const url = new URL(window.location.href);
-		url.searchParams.set("v", Date.now().toString());
-
-		// Use multiple methods to ensure reload
-		try {
-			window.location.href = url.toString();
-		} catch (e) {
-			window.location.assign(url.toString());
+		// Unregister old SW so the next load starts fresh
+		if ("serviceWorker" in navigator) {
+			try {
+				const registrations = await navigator.serviceWorker.getRegistrations();
+				for (const reg of registrations) {
+					await reg.unregister();
+				}
+			} catch {
+				// non-fatal
+			}
 		}
 
-		// Fallback if the above doesn't trigger immediately
-		setTimeout(() => {
-			window.location.reload();
-		}, 1000);
+		// Hard reload — clears HTTP cache
+		sessionStorage.removeItem("versionDismissed");
+		window.location.reload();
 	}, []);
 
 	const dismissUpdate = useCallback(() => {

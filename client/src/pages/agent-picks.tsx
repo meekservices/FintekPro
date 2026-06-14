@@ -4161,11 +4161,13 @@ export default function AgentPicksPage() {
 										Suitable For
 									</h4>
 									<div className="flex flex-wrap gap-2">
-										{selectedPick.suitableFor.map((s, i) => s ? (
-											<Badge key={s ?? i} variant="secondary" className="capitalize">
-												{s.replace(/_/g, " ")}
-											</Badge>
-										))}
+										{selectedPick.suitableFor.map((s, i) =>
+											s ? (
+												<Badge key={s ?? i} variant="secondary" className="capitalize">
+													{s.replace(/_/g, " ")}
+												</Badge>
+											) : null
+										)}
 									</div>
 								</div>
 							)}
