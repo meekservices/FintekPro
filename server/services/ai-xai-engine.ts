@@ -89,6 +89,11 @@ const FEATURE_NAME_MAP: Record<string, string> = {
 	duration: "Bond duration",
 	ytm: "Yield to maturity",
 	couponRate: "Coupon rate",
+	// Synthesized features (from pick guaranteed fields)
+	expectedUpside: "Expected upside potential",
+	riskReward: "Risk / Reward ratio",
+	riskLevel: "Risk category",
+	timeHorizon: "Investment time horizon",
 };
 
 const CALIBRATION_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -177,17 +182,14 @@ class AIXAIEngine {
 					featureValue: safeVal,
 					contribution: safeContrib,
 					importance: safeImportance,
-					description: this.featureDescription(
-						fname,
-						safeVal,
-						safeContrib,
-					),
+					description: this.featureDescription(fname, safeVal, safeContrib),
 				});
 			}
 		} else {
 			const ruleImportance = this.getRuleBasedImportance(assetClass);
 			regime = keyMetrics.regime;
 
+			// ── Primary: use keyMetrics if populated ──────────────────────
 			for (const ri of ruleImportance) {
 				const val = features[ri.name];
 				if (val !== undefined) {
@@ -203,6 +205,78 @@ class AIXAIEngine {
 						description: this.featureDescription(ri.name, val, contribution),
 					});
 					predictedReturn += contribution / 100;
+				}
+			}
+
+			// ── Fallback: synthesize from pick's guaranteed fields ────────
+			// When keyMetrics is empty (unlisted/new stocks), derive contributions
+			// from recoPrice / targetPrice / stoplossPrice / confidenceScore / riskLevel.
+			if (featureContributions.length === 0) {
+				const reco = Number(pick.recoPrice) || 0;
+				const target = Number(pick.targetPrice) || 0;
+				const stoploss = Number(pick.stoplossPrice) || 0;
+				const confScore = Number(pick.confidenceScore) || 70;
+				const riskLvl = (pick.riskLevel || "medium").toLowerCase();
+				const horizon = (pick.timeHorizon || "medium_term").toLowerCase();
+
+				// Implied upside (%) from recommendation
+				const upside = reco > 0 && target > reco ? ((target - reco) / reco) * 100 : 0;
+				// Implied downside risk (%)
+				const downside = reco > 0 && stoploss > 0 && stoploss < reco ? ((reco - stoploss) / reco) * 100 : 0;
+				// Risk/reward ratio contribution (positive when R:R > 1.5)
+				const riskReward = downside > 0 ? upside / downside : 1;
+				const rrContrib = riskReward > 1.5 ? Math.min(riskReward * 1.5, 8) : -1;
+				// Confidence contribution
+				const confContrib = ((confScore - 50) / 50) * 5; // -5% to +5%
+				// Risk level penalty
+				const riskPenalty = riskLvl === "high" ? -3 : riskLvl === "very_high" ? -5 : riskLvl === "low" ? 2 : 0;
+				// Time horizon bonus (short term = more certain)
+				const horizonBonus = horizon.includes("short") ? 1.5 : horizon.includes("long") ? -0.5 : 0;
+
+				predictedReturn = (upside / 100) * 0.6; // 60% of implied upside as expected return
+
+				const syntheticFeatures = [
+					{
+						featureName: "expectedUpside",
+						featureValue: Math.round(upside * 100) / 100,
+						contribution: Math.min(upside * 0.4, 10),
+						importance: 30,
+						description: `Implied upside of ${upside.toFixed(1)}% from entry to target price`,
+					},
+					{
+						featureName: "confidenceScore",
+						featureValue: confScore,
+						contribution: confContrib,
+						importance: 25,
+						description: `AI model confidence at ${confScore}% — ${confScore >= 75 ? "strong" : confScore >= 55 ? "moderate" : "low"} conviction`,
+					},
+					{
+						featureName: "riskReward",
+						featureValue: Math.round(riskReward * 100) / 100,
+						contribution: rrContrib,
+						importance: 20,
+						description: `Risk/reward ratio of ${riskReward.toFixed(2)}x — ${riskReward >= 2 ? "favourable" : riskReward >= 1.5 ? "acceptable" : "tight"}`,
+					},
+					{
+						featureName: "riskLevel",
+						featureValue: riskPenalty,
+						contribution: riskPenalty,
+						importance: 15,
+						description: `Risk category: ${riskLvl} — ${riskPenalty < 0 ? "adds caution to" : "supports"} the recommendation`,
+					},
+					{
+						featureName: "timeHorizon",
+						featureValue: horizonBonus,
+						contribution: horizonBonus,
+						importance: 10,
+						description: `Time horizon: ${horizon.replace(/_/g, " ")} — affects return certainty`,
+					},
+				];
+
+				for (const sf of syntheticFeatures) {
+					if (Number.isFinite(sf.contribution)) {
+						featureContributions.push(sf);
+					}
 				}
 			}
 		}
@@ -227,10 +301,8 @@ class AIXAIEngine {
 			.sort((a, b) => a.contribution - b.contribution)
 			.slice(0, 2);
 
-		// ── Regime: use ML result → keyMetrics fallback → live regime detection ──
-		if (!regime) {
-			regime = keyMetrics.regime;
-		}
+		// ── Regime: ML result → keyMetrics → live DB → sideways default ──
+		if (!regime) regime = keyMetrics.regime;
 		if (!regime) {
 			try {
 				const currentRegime = await regimeDetectionEngine.getCurrentRegime();
@@ -238,9 +310,11 @@ class AIXAIEngine {
 					regime = currentRegime.regimeLabel;
 				}
 			} catch {
-				// non-fatal — regime stays undefined
+				// non-fatal — use default
 			}
 		}
+		// Final default: sideways (neutral assumption for Indian markets)
+		if (!regime) regime = "sideways";
 
 		let regimeImpact = "Neutral market conditions";
 		if (regime) {
