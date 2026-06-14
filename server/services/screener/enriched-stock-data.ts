@@ -262,18 +262,58 @@ export async function getEnrichedStockSnapshot(
 		let ema20: number | null = null;
 		let macd: number | null = null;
 		let adx: number | null = null;
+
+		// screener_technical_indicators is a COLUMN-based table (one row per date),
+		// NOT a name/value pair table. Read each column directly.
 		for (const t of techRows) {
-			const name = (t.name || "").toLowerCase();
-			const val = safeNum(t.value);
-			if (val != null) {
-				techIndicators[name] = val;
-				if (name === "rsi" || name === "rsi14") rsi = val;
-				if (name === "sma50" || name === "sma_50") sma50 = val;
-				if (name === "sma200" || name === "sma_200") sma200 = val;
-				if (name === "ema20" || name === "ema_20") ema20 = val;
-				if (name === "macd") macd = val;
-				if (name === "adx") adx = val;
-			}
+			// Raw SQL returns DB column names (rsi_14, sma_50, etc.)
+			const rsiVal = safeNum((t as any).rsi_14 ?? (t as any).rsi14 ?? (t as any).rsi);
+			if (rsiVal !== null && rsi === null) { rsi = rsiVal; techIndicators["rsi"] = rsiVal; }
+
+			const sma50Val = safeNum((t as any).sma_50 ?? (t as any).sma50);
+			if (sma50Val !== null && sma50 === null) { sma50 = sma50Val; techIndicators["sma50"] = sma50Val; }
+
+			const sma200Val = safeNum((t as any).sma_200 ?? (t as any).sma200);
+			if (sma200Val !== null && sma200 === null) { sma200 = sma200Val; techIndicators["sma200"] = sma200Val; }
+
+			const ema20Val = safeNum((t as any).ema_20 ?? (t as any).ema20);
+			if (ema20Val !== null && ema20 === null) { ema20 = ema20Val; techIndicators["ema20"] = ema20Val; }
+
+			const macdVal = safeNum((t as any).macd);
+			if (macdVal !== null && macd === null) { macd = macdVal; techIndicators["macd"] = macdVal; }
+
+			const adxVal = safeNum((t as any).adx);
+			if (adxVal !== null && adx === null) { adx = adxVal; techIndicators["adx"] = adxVal; }
+		}
+
+		// Fallback for RSI: compute from goldenPrices if screener table has no data
+		if (rsi === null) {
+			try {
+				const cutoff = new Date();
+				cutoff.setDate(cutoff.getDate() - 35);
+				const priceRows = await db.execute(sql`
+					SELECT price FROM golden_prices
+					WHERE symbol = ${upperSymbol}
+					  AND price_date >= ${cutoff.toISOString().split("T")[0]}
+					ORDER BY price_date ASC
+					LIMIT 40
+				`).catch(() => ({ rows: [] }));
+				const closes = ((priceRows as any).rows || [])
+					.map((r: any) => Number.parseFloat(r.price))
+					.filter((n: number) => Number.isFinite(n));
+				if (closes.length >= 15) {
+					let gains = 0, losses = 0;
+					for (let i = closes.length - 14; i < closes.length; i++) {
+						const diff = closes[i] - closes[i - 1];
+						if (diff > 0) gains += diff;
+						else losses += Math.abs(diff);
+					}
+					const avgGain = gains / 14;
+					const avgLoss = losses / 14;
+					rsi = avgLoss === 0 ? 100 : Math.round((100 - 100 / (1 + avgGain / avgLoss)) * 100) / 100;
+					if (rsi !== null) techIndicators["rsi"] = rsi;
+				}
+			} catch { /* non-fatal */ }
 		}
 
 		const snapshot: EnrichedStockSnapshot = {
