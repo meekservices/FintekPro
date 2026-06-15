@@ -554,6 +554,15 @@ export default function AgentPicksPage() {
 	const [stockMarketCap, setStockMarketCap] = useState("all");
 	const [stockInvestmentAmount, setStockInvestmentAmount] = useState([100000]);
 	const [stockIncludeAI, setStockIncludeAI] = useState(true);
+	// ── Mutual Fund AI filter state ──
+	const [mfRiskLevel, setMfRiskLevel] = useState("moderate");
+	const [mfCategory, setMfCategory] = useState("all");
+	const [mfTimeHorizon, setMfTimeHorizon] = useState("long_term");
+	const [mfInvestmentType, setMfInvestmentType] = useState("sip");
+	const [mfSipAmount, setMfSipAmount] = useState([5000]);
+	const [mfLumpSumAmount, setMfLumpSumAmount] = useState([100000]);
+	const [mfIncludeAI, setMfIncludeAI] = useState(true);
+	const [selectedMFRec, setSelectedMFRec] = useState<any>(null);
 	const [selectedAIStock, setSelectedAIStock] =
 		useState<AIStockRecommendation | null>(null);
 	const [selectedPick, setSelectedPick] = useState<DailyPick | null>(null);
@@ -718,6 +727,41 @@ export default function AgentPicksPage() {
 		generateAIMutation.data?.recommendations ||
 		quickAIRecs?.recommendations ||
 		[];
+
+	// ── Mutual Fund AI generate mutation ──
+	const generateAIMFMutation = useMutation({
+		mutationFn: async (filters: any) => {
+			const params = new URLSearchParams();
+			if (filters.category && filters.category !== "all")
+				params.set("category", filters.category);
+			params.set("riskLevel", filters.riskLevel || "moderate");
+			params.set("maxFundsPerAMC", "2");
+			params.set("minAMCs", "3");
+			return apiRequest(`/api/ai-mf/recommendations?${params.toString()}`);
+		},
+	});
+
+	// Quick-fetch MF recommendations (default on tab open)
+	const { data: quickMFRecs, isLoading: quickMFLoading } = useQuery<{
+		success: boolean;
+		recommendations: any[];
+		count: number;
+	}>({
+		queryKey: ["/api/ai-mf/recommendations", "quick"],
+		enabled: todayCategoryFilter === "mutual_funds",
+	});
+
+	const mfRecommendations: any[] =
+		generateAIMFMutation.data?.recommendations ||
+		quickMFRecs?.recommendations ||
+		[];
+
+	const handleGenerateAIMF = () => {
+		generateAIMFMutation.mutate({
+			category: mfCategory,
+			riskLevel: mfRiskLevel,
+		});
+	};
 
 	const watchlist = watchlistData?.watchlist || [];
 	const watchlistPickIds = new Set(watchlist.map((w) => w.pickId));
@@ -1835,6 +1879,344 @@ export default function AgentPicksPage() {
 									{[1, 2, 3, 4].map((i) => (
 										<Skeleton key={i} className="h-32" />
 									))}
+								</div>
+							) : todayCategoryFilter === "mutual_funds" ? (
+								<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+									{/* ── MF AI Filters Panel ── */}
+									<Card className="lg:col-span-1 h-fit sticky top-4">
+										<CardHeader className="pb-3">
+											<CardTitle className="text-base flex items-center gap-2">
+												<BarChart3 className="h-4 w-4" />
+												AI Filters
+											</CardTitle>
+										</CardHeader>
+										<CardContent className="space-y-4">
+											{/* Risk Level */}
+											<div className="space-y-2">
+												<Label className="text-sm">Risk Level</Label>
+												<Select value={mfRiskLevel} onValueChange={setMfRiskLevel}>
+													<SelectTrigger id="mf-risk-select"><SelectValue /></SelectTrigger>
+													<SelectContent>
+														<SelectItem value="conservative">Conservative</SelectItem>
+														<SelectItem value="moderate">Moderate</SelectItem>
+														<SelectItem value="aggressive">Aggressive</SelectItem>
+													</SelectContent>
+												</Select>
+											</div>
+
+											{/* Fund Category */}
+											<div className="space-y-2">
+												<Label className="text-sm">Fund Category</Label>
+												<Select value={mfCategory} onValueChange={setMfCategory}>
+													<SelectTrigger id="mf-category-select"><SelectValue placeholder="All Categories" /></SelectTrigger>
+													<SelectContent>
+														<SelectItem value="all">All Categories</SelectItem>
+														<SelectItem value="equity">Equity</SelectItem>
+														<SelectItem value="debt">Debt</SelectItem>
+														<SelectItem value="hybrid">Hybrid</SelectItem>
+														<SelectItem value="elss">ELSS (Tax Saver)</SelectItem>
+														<SelectItem value="index">Index</SelectItem>
+														<SelectItem value="gold">Gold / Commodity</SelectItem>
+													</SelectContent>
+												</Select>
+											</div>
+
+											{/* Time Horizon */}
+											<div className="space-y-2">
+												<Label className="text-sm">Time Horizon</Label>
+												<Select value={mfTimeHorizon} onValueChange={setMfTimeHorizon}>
+													<SelectTrigger id="mf-horizon-select"><SelectValue /></SelectTrigger>
+													<SelectContent>
+														<SelectItem value="short_term">Short Term (&lt;1 Year)</SelectItem>
+														<SelectItem value="medium_term">Medium Term (1–3 Yrs)</SelectItem>
+														<SelectItem value="long_term">Long Term (3+ Years)</SelectItem>
+													</SelectContent>
+												</Select>
+											</div>
+
+											{/* Investment Type */}
+											<div className="space-y-2">
+												<Label className="text-sm">Investment Type</Label>
+												<div className="flex rounded-lg border overflow-hidden">
+													{(["sip", "lump_sum"] as const).map((t) => (
+														<button
+															key={t}
+															id={`mf-type-${t}`}
+															className={`flex-1 py-1.5 text-xs font-medium transition-colors ${
+																mfInvestmentType === t
+																	? "bg-primary text-primary-foreground"
+																	: "hover:bg-muted text-muted-foreground"
+															}`}
+															onClick={() => setMfInvestmentType(t)}
+														>
+															{t === "sip" ? "SIP" : "Lump Sum"}
+														</button>
+													))}
+												</div>
+											</div>
+
+											{/* Amount Slider */}
+											<div className="space-y-2">
+												{mfInvestmentType === "sip" ? (
+													<>
+														<Label className="text-sm">
+															Monthly SIP: {formatCurrencyINR(mfSipAmount[0])}
+														</Label>
+														<Slider
+															value={mfSipAmount}
+															onValueChange={setMfSipAmount}
+															min={500}
+															max={100000}
+															step={500}
+														/>
+													</>
+												) : (
+													<>
+														<Label className="text-sm">
+															Lump Sum: {formatCurrencyINR(mfLumpSumAmount[0])}
+														</Label>
+														<Slider
+															value={mfLumpSumAmount}
+															onValueChange={setMfLumpSumAmount}
+															min={1000}
+															max={10000000}
+															step={5000}
+														/>
+													</>
+												)}
+											</div>
+
+											<div className="flex items-center justify-between">
+												<Label className="text-sm" htmlFor="mf-ai-toggle">AI Analysis</Label>
+												<Switch
+													id="mf-ai-toggle"
+													checked={mfIncludeAI}
+													onCheckedChange={setMfIncludeAI}
+												/>
+											</div>
+
+											<Button
+												id="mf-generate-btn"
+												className="w-full"
+												onClick={handleGenerateAIMF}
+												disabled={generateAIMFMutation.isPending}
+											>
+												{generateAIMFMutation.isPending ? (
+													<><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Generating...</>
+												) : (
+													<><Sparkles className="h-4 w-4 mr-2" />Generate Picks</>
+												)}
+											</Button>
+										</CardContent>
+									</Card>
+
+									{/* ── MF AI Results Panel ── */}
+									<div className="lg:col-span-3 space-y-6">
+										{(generateAIMFMutation.isPending || quickMFLoading) && (
+											<Card>
+												<CardContent className="py-12 text-center">
+													<RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary mb-4" />
+													<p className="text-muted-foreground">Analyzing mutual fund database with AI...</p>
+												</CardContent>
+											</Card>
+										)}
+
+										{mfRecommendations.length > 0 && (
+											<div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+												{/* Header */}
+												<div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b pb-4">
+													<div>
+														<div className="flex items-center gap-2 mb-1">
+															<div className="p-1.5 bg-primary/10 rounded-md">
+																<Brain className="h-5 w-5 text-primary" />
+															</div>
+															<h3 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+																AI Fund Portfolio
+															</h3>
+															<Badge variant="outline" className="text-xs flex items-center gap-1 border-primary/20 bg-primary/5 text-primary">
+																<Sparkles className="h-3 w-3" />
+																Gemini Powered
+															</Badge>
+														</div>
+														<p className="text-sm text-muted-foreground flex items-center gap-2 mt-2 flex-wrap">
+															<span><strong className="text-foreground capitalize">{mfRiskLevel}</strong> Risk</span>
+															<span>•</span>
+															<span><strong className="text-foreground capitalize">{mfTimeHorizon.replace(/_/g, " ")}</strong></span>
+															<span>•</span>
+															<span className="flex items-center gap-1 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full text-xs font-semibold border border-green-200 dark:border-green-800">
+																<Landmark className="h-3 w-3" />
+																{mfInvestmentType === "sip"
+																	? `SIP ${formatCurrencyINR(mfSipAmount[0])}/mo`
+																	: `Lump ${formatCurrencyINR(mfLumpSumAmount[0])}`}
+															</span>
+														</p>
+													</div>
+												</div>
+
+												{/* Portfolio Allocation Bar */}
+												<div className="bg-card border rounded-xl p-4 shadow-sm">
+													<h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+														<PieChart className="h-4 w-4 text-muted-foreground" />
+														Suggested Fund Allocation
+													</h4>
+													<svg className="w-full h-3 rounded-full overflow-hidden bg-muted" viewBox="0 0 100 12" preserveAspectRatio="none">
+														{(() => {
+															let cx = 0;
+															const mfColors = ["fill-blue-500","fill-indigo-500","fill-purple-500","fill-pink-500","fill-rose-500","fill-orange-500","fill-amber-500","fill-emerald-500"];
+															return mfRecommendations.map((f: any, idx: number) => {
+																const w = 100 / mfRecommendations.length;
+																const x = cx; cx += w;
+																return <rect key={f.schemeCode || idx} x={x} y={0} width={Math.max(0.1, w - 0.5)} height={12} className={`${mfColors[idx % mfColors.length]} transition-all hover:opacity-80`} />;
+															});
+														})()}
+													</svg>
+													<div className="flex flex-wrap gap-3 mt-3">
+														{mfRecommendations.map((f: any, idx: number) => {
+															const bgColors = ["bg-blue-500","bg-indigo-500","bg-purple-500","bg-pink-500","bg-rose-500","bg-orange-500","bg-amber-500","bg-emerald-500"];
+															const pct = (100 / mfRecommendations.length).toFixed(0);
+															return (
+																<div key={f.schemeCode || idx} className="flex items-center gap-1.5 text-xs">
+																	<span className={`w-2 h-2 rounded-full ${bgColors[idx % bgColors.length]}`} />
+																	<span className="font-medium max-w-[120px] truncate">{(f.schemeName || f.name || "Fund").split(" ").slice(0, 3).join(" ")}</span>
+																	<span className="text-muted-foreground">{pct}%</span>
+																</div>
+															);
+														})}
+													</div>
+												</div>
+
+												{/* MF Recommendation Cards */}
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+													{mfRecommendations.map((fund: any, idx: number) => {
+														const nav = safeNum(fund.nav || fund.currentNav);
+														const ret1y = safeNum(fund.returns1y ?? fund.oneYearReturn);
+														const ret3y = safeNum(fund.returns3y ?? fund.threeYearReturn);
+														const ret5y = safeNum(fund.returns5y ?? fund.fiveYearReturn);
+														const er = safeNum(fund.expenseRatio);
+														const rating = safeNum(fund.crisilRating ?? fund.rating ?? fund.smartRating);
+														const fundName = fund.schemeName || fund.name || "Fund";
+														const fundHouse = fund.fundHouse || fund.amc || "";
+														const category = fund.category || fund.fundCategory || "";
+														const totalAmt = mfInvestmentType === "sip" ? mfSipAmount[0] : mfLumpSumAmount[0];
+														const perFundAmt = Math.round(totalAmt / mfRecommendations.length);
+														const isSelected = selectedMFRec?.schemeCode === fund.schemeCode;
+														return (
+															<Card
+																key={fund.schemeCode || idx}
+																className={`cursor-pointer overflow-hidden group transition-all duration-300 hover:shadow-md border-t-[3px] ${
+																	isSelected
+																		? "border-t-primary shadow-md ring-1 ring-primary/20"
+																		: ret1y >= 20
+																			? "border-t-green-500"
+																			: "border-t-blue-500"
+																}`}
+																onClick={() => setSelectedMFRec(isSelected ? null : fund)}
+															>
+																<CardHeader className="pb-2 bg-gradient-to-b from-muted/30 to-transparent">
+																	<div className="flex items-start justify-between gap-2">
+																		<div className="flex-1 min-w-0">
+																			<CardTitle className="text-sm font-bold leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+																				{fundName}
+																			</CardTitle>
+																			{fundHouse && (
+																				<p className="text-xs text-muted-foreground mt-0.5 truncate">{fundHouse}</p>
+																			)}
+																		</div>
+																		<div className="flex flex-col items-end gap-1">
+																			<Badge variant="outline" className="text-[10px] px-1.5 whitespace-nowrap">
+																				{mfInvestmentType === "sip" ? "SIP" : "Lump Sum"}
+																			</Badge>
+																			{rating > 0 && renderStars(rating)}
+																		</div>
+																	</div>
+																	{category && (
+																		<Badge variant="secondary" className="text-[10px] mt-1">{category}</Badge>
+																	)}
+																</CardHeader>
+
+																<CardContent className="pt-3 space-y-3">
+																	{/* NAV + Allocation row */}
+																	<div className="grid grid-cols-2 gap-3">
+																		<div className="bg-muted/40 rounded-lg px-3 py-2">
+																			<p className="text-[10px] text-muted-foreground uppercase tracking-wide">Current NAV</p>
+																			<p className="font-bold text-sm">₹{nav > 0 ? nav.toFixed(2) : "—"}</p>
+																		</div>
+																		<div className="bg-muted/40 rounded-lg px-3 py-2">
+																			<p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+																				{mfInvestmentType === "sip" ? "Monthly SIP" : "Lump Sum"}
+																			</p>
+																			<p className="font-bold text-sm text-primary">{formatCurrencyINR(perFundAmt)}</p>
+																		</div>
+																	</div>
+
+																	{/* Returns row */}
+																	<div className="grid grid-cols-3 gap-2">
+																		{[{label: "1Y", val: ret1y}, {label: "3Y", val: ret3y}, {label: "5Y", val: ret5y}].map(({label, val}) => (
+																			<div key={label} className="text-center bg-muted/30 rounded-md py-1.5">
+																				<p className="text-[10px] text-muted-foreground">{label} Returns</p>
+																				<p className={`text-xs font-bold ${
+																					val > 0 ? "text-green-600 dark:text-green-400" : val < 0 ? "text-red-500" : "text-muted-foreground"
+																				}`}>
+																					{val !== 0 ? `${val > 0 ? "+" : ""}${val.toFixed(1)}%` : "—"}
+																				</p>
+																			</div>
+																		))}
+																	</div>
+
+																	{/* Expense Ratio */}
+																	<div className="flex items-center justify-between text-xs">
+																		<span className="text-muted-foreground">Expense Ratio</span>
+																		<Badge
+																			variant="outline"
+																			className={`text-[10px] ${
+																				er > 0 && er < 0.5 ? "border-green-500 text-green-600"
+																				: er >= 1.5 ? "border-red-400 text-red-500"
+																				: "border-yellow-500 text-yellow-600"
+																			}`}
+																		>
+																			{er > 0 ? `${er.toFixed(2)}%` : "—"}
+																		</Badge>
+																	</div>
+
+																	{/* AI Confidence bar */}
+																	{fund.aiScore != null && (
+																		<div className="flex items-center gap-2">
+																			<Sparkles className="h-3 w-3 text-primary" />
+																			<div className="flex-1 bg-muted rounded-full h-1.5">
+																				<div
+																					className="bg-primary h-1.5 rounded-full transition-all"
+																					style={{ width: `${Math.min(100, safeNum(fund.aiScore))}%` }}
+																				/>
+																			</div>
+																			<span className="text-xs text-primary font-medium">{safeNum(fund.aiScore).toFixed(0)}%</span>
+																		</div>
+																	)}
+																</CardContent>
+															</Card>
+														);
+													})}
+												</div>
+
+												{/* Regulatory Disclaimer */}
+												<p className="text-[10px] text-muted-foreground/60 border-t pt-3">
+													Mutual fund investments are subject to market risks. Read all scheme-related documents carefully before investing. Past performance is not indicative of future results. These are AI-generated suggestions, not financial advice.
+												</p>
+											</div>
+										)}
+
+										{/* No data empty state */}
+										{!generateAIMFMutation.isPending && !quickMFLoading && mfRecommendations.length === 0 && (
+											<Card>
+												<CardContent className="py-16 text-center">
+													<BarChart3 className="h-10 w-10 mx-auto text-muted-foreground/40 mb-4" />
+													<h3 className="text-base font-semibold mb-1">AI Fund Picks</h3>
+													<p className="text-sm text-muted-foreground max-w-xs mx-auto">
+														Set your preferences and click <strong>Generate Picks</strong> to get AI-curated mutual fund recommendations.
+													</p>
+												</CardContent>
+											</Card>
+										)}
+									</div>
 								</div>
 							) : todayCategoryFilter === "listed_stocks" ? (
 								<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
