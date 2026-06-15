@@ -3,11 +3,18 @@
   "short_name": "FintekPro",
   "description": "A comprehensive SEBI-compliant financial services platform for personal finance and investment management",
   "start_url": "/",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#1e40af",
-  "orientation": "portrait-primary",
   "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "background_color": "#0f172a",
+  "theme_color": "#1e40af",
+  "orientation": "any",
   "lang": "en-IN",
   "categories": ["finance", "business", "utilities"],
   "icons": [
@@ -15,26 +22,38 @@
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "screenshots": [
     {
       "src": "/icon-512.png",
-      "sizes": "390x844",
+      "sizes": "1280x800",
       "type": "image/png",
-      "form_factor": "narrow",
-      "label": "FintekPro - Your Financial Dashboard"
+      "form_factor": "wide",
+      "label": "FintekPro - Desktop Dashboard"
     },
     {
       "src": "/icon-512.png",
-      "sizes": "844x390",
+      "sizes": "1920x1080",
       "type": "image/png",
       "form_factor": "wide",
       "label": "FintekPro - Portfolio & Market Insights"
@@ -44,17 +63,31 @@
   "prefer_related_applications": false,
   "shortcuts": [
     {
-      "name": "Portfolio",
-      "short_name": "Portfolio",
-      "description": "View your investment portfolio",
-      "url": "/portfolio",
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Open financial dashboard",
+      "url": "/",
       "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]
     },
     {
-      "name": "Markets",
-      "short_name": "Markets",
-      "description": "View market data and trends",
-      "url": "/markets",
+      "name": "Pick of the Day",
+      "short_name": "Picks",
+      "description": "View AI stock and fund picks",
+      "url": "/agent/picks",
+      "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Leads & CRM",
+      "short_name": "CRM",
+      "description": "Manage client leads",
+      "url": "/leads",
+      "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Clients",
+      "short_name": "Clients",
+      "description": "View and manage clients",
+      "url": "/clients",
       "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]
     }
   ]

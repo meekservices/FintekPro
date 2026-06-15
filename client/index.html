@@ -3,10 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <title>FintekPro - Smart Financial Services Platform</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5" />
+    <!-- Desktop-first viewport: FintekPro agents use desktop/laptop. FintekPro Mobile app handles mobile. -->
+    <!-- width=1280 forces desktop layout in PWA windows; zoom-out allowed but no forced mobile scaling -->
+    <meta name="viewport" content="width=1280, initial-scale=1.0, minimum-scale=0.5" />
     <meta name="theme-color" content="#1e40af" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FintekPro" />
     <meta name="description" content="FintekPro is India's leading SEBI-compliant financial services platform for personal finance, portfolio management, mutual funds, stocks, bonds, and AI-powered investment insights." />
     <link rel="canonical" href="https://fintekpro.in/" />
