@@ -2089,15 +2089,59 @@ export default function AgentPicksPage() {
 													</div>
 												</div>
 
-												{/* MF Recommendation Cards */}
+												{/* MF Recommendation Cards — viewMode aware */}
+												{viewMode === "table" ? (
+													<div className="overflow-x-auto rounded-lg border">
+														<table className="w-full text-sm">
+															<thead className="bg-muted/50">
+																<tr>
+																	<th className="text-left px-3 py-2 font-medium">Fund</th>
+																	<th className="text-right px-3 py-2 font-medium">NAV</th>
+																	<th className="text-right px-3 py-2 font-medium">1Y</th>
+																	<th className="text-right px-3 py-2 font-medium">3Y</th>
+																	<th className="text-right px-3 py-2 font-medium">Exp Ratio</th>
+																	<th className="text-right px-3 py-2 font-medium">Rating</th>
+																	<th className="text-right px-3 py-2 font-medium">Signal</th>
+																	<th className="text-right px-3 py-2 font-medium">Alloc</th>
+																</tr>
+															</thead>
+															<tbody>
+																{mfRecommendations.map((fund: any, idx: number) => {
+																	const nav = safeNum(fund.nav || fund.currentNav);
+																	const ret1y = safeNum(fund.metrics?.cagr1Y ?? fund.returns1y);
+																	const ret3y = safeNum(fund.metrics?.cagr3Y ?? fund.returns3y);
+																	const er = safeNum(fund.metrics?.expenseRatio ?? fund.expenseRatio);
+																	const rating = safeNum(fund.metrics?.fintekproRating ?? fund.crisilRating ?? fund.rating);
+																	const totalAmt = mfInvestmentType === "sip" ? mfSipAmount[0] : mfLumpSumAmount[0];
+																	const perFundAmt = Math.round(totalAmt / mfRecommendations.length);
+																	return (
+																		<tr key={fund.schemeCode || idx} className="border-t hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => setSelectedMFRec(selectedMFRec?.schemeCode === fund.schemeCode ? null : fund)}>
+																			<td className="px-3 py-2">
+																				<p className="font-medium text-xs leading-tight line-clamp-2 max-w-[200px]">{fund.schemeName || fund.name}</p>
+																				<p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{fund.fundHouse || fund.amc}</p>
+																			</td>
+																			<td className="px-3 py-2 text-right font-mono text-xs">₹{nav > 0 ? nav.toFixed(2) : "—"}</td>
+																			<td className={`px-3 py-2 text-right text-xs font-bold ${ret1y > 0 ? "text-green-600" : ret1y < 0 ? "text-red-500" : "text-muted-foreground"}`}>{ret1y !== 0 ? `${ret1y > 0 ? "+" : ""}${ret1y.toFixed(1)}%` : "—"}</td>
+																			<td className={`px-3 py-2 text-right text-xs font-bold ${ret3y > 0 ? "text-green-600" : ret3y < 0 ? "text-red-500" : "text-muted-foreground"}`}>{ret3y !== 0 ? `${ret3y > 0 ? "+" : ""}${ret3y.toFixed(1)}%` : "—"}</td>
+																			<td className={`px-3 py-2 text-right text-xs ${er > 0 && er < 0.5 ? "text-green-600" : er >= 1.5 ? "text-red-500" : "text-yellow-600"}`}>{er > 0 ? `${er.toFixed(2)}%` : "—"}</td>
+																			<td className="px-3 py-2 text-right text-xs">{rating > 0 ? `${'★'.repeat(Math.round(rating))}` : "—"}</td>
+																			<td className="px-3 py-2 text-right"><Badge variant={fund.signal === "buy" ? "default" : "secondary"} className="text-[10px]">{fund.signal || "hold"}</Badge></td>
+																			<td className="px-3 py-2 text-right text-xs font-medium text-primary">{formatCurrencyINR(perFundAmt)}</td>
+																		</tr>
+																	);
+																})}
+															</tbody>
+														</table>
+													</div>
+												) : (
 												<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 													{mfRecommendations.map((fund: any, idx: number) => {
 														const nav = safeNum(fund.nav || fund.currentNav);
-														const ret1y = safeNum(fund.returns1y ?? fund.oneYearReturn);
-														const ret3y = safeNum(fund.returns3y ?? fund.threeYearReturn);
-														const ret5y = safeNum(fund.returns5y ?? fund.fiveYearReturn);
-														const er = safeNum(fund.expenseRatio);
-														const rating = safeNum(fund.crisilRating ?? fund.rating ?? fund.smartRating);
+														const ret1y = safeNum(fund.metrics?.cagr1Y ?? fund.returns1y);
+														const ret3y = safeNum(fund.metrics?.cagr3Y ?? fund.returns3y);
+														const ret5y = safeNum(fund.metrics?.cagr5Y ?? fund.returns5y);
+														const er = safeNum(fund.metrics?.expenseRatio ?? fund.expenseRatio);
+														const rating = safeNum(fund.metrics?.fintekproRating ?? fund.crisilRating ?? fund.rating ?? fund.smartRating);
 														const fundName = fund.schemeName || fund.name || "Fund";
 														const fundHouse = fund.fundHouse || fund.amc || "";
 														const category = fund.category || fund.fundCategory || "";
@@ -2200,6 +2244,7 @@ export default function AgentPicksPage() {
 														);
 													})}
 												</div>
+												)}
 
 												{/* Regulatory Disclaimer */}
 												<p className="text-[10px] text-muted-foreground/60 border-t pt-3">
