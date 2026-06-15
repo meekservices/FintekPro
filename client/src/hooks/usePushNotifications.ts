@@ -59,7 +59,22 @@ export function usePushNotifications() {
 	const { data: notifications = [], isLoading: notificationsLoading } =
 		useQuery<AgentNotification[]>({
 			queryKey: ["/api/agent/notifications"],
-			refetchInterval: 30000,
+			refetchInterval: (query) => {
+				// Stop polling if the route genuinely doesn't exist (404) or
+				// if there's an auth error (403). Keep polling on 503/BOOTING
+				// (server cold start) so we self-heal once boot completes.
+				const err = query.state.error as any;
+				if (err?.status === 404 || err?.status === 403) return false;
+				return 30000;
+			},
+			retry: (failureCount, error: any) => {
+				// Never retry 404 (route missing) or 403 (forbidden)
+				if (error?.status === 404 || error?.status === 403) return false;
+				// Retry 503 (server booting) up to 5 times with backoff
+				if (error?.status === 503) return failureCount < 5;
+				return failureCount < 2;
+			},
+			retryDelay: (attempt) => Math.min(3000 * 2 ** attempt, 30000),
 		});
 
 	const subscribeMutation = useMutation({

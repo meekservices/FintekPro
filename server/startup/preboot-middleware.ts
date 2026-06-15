@@ -125,6 +125,37 @@ export function registerPrebootMiddleware(app: Express) {
 		});
 	});
 
+	// ── Cache-Control: no-store on ALL /api/ responses ────────────────────────
+	// Prevents Firebase CDN (and any other proxy) from caching API responses.
+	// Without this, a transient 404 during cold-start (before routes are
+	// registered) gets cached by the CDN and served to every subsequent request.
+	app.use("/api", (_req, res, next) => {
+		res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+		res.setHeader("Pragma", "no-cache");
+		res.setHeader("Expires", "0");
+		next();
+	});
+
+	// ── Boot-gate: return 503 for API calls before routes are registered ──────
+	// During the ~8-15s window between port-open and registerRoutes() completing,
+	// Express would otherwise return its default 404 "Cannot GET /api/..."
+	// response — which browsers and CDNs can cache. This gate returns a proper
+	// 503 + Retry-After so React Query backs off and retries (not a 404 that
+	// triggers permanent error state).
+	// Excluded: /api/health and /api/boot-status are always available.
+	app.use("/api", (req, res, next) => {
+		if (bootState.routesReady) return next();
+		const safePaths = ["/api/health", "/api/boot-status"];
+		if (safePaths.some((p) => req.path === p || req.originalUrl === p)) return next();
+		res.setHeader("Retry-After", "5");
+		return res.status(503).json({
+			success: false,
+			message: "Server is initializing, please retry in a few seconds.",
+			code: "BOOTING",
+			retryable: true,
+		});
+	});
+
 	// ── Body parsers ─────────────────────────────────────────────────────────
 	// The `verify` callback captures the raw Buffer before JSON parsing so that
 	// webhook routes (Alpaca, Cashfree, IRIS, Zoho) can verify HMAC signatures.
