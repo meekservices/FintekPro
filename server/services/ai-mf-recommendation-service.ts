@@ -285,68 +285,71 @@ class AIMFRecommendationService {
 			const liveNavData = await liveMFDataService.getLiveNavBatch(schemeCodes);
 
 			const enhancedFunds: any[] = [];
-			let discontinuedCount = 0;
+			let liveCount = 0;
+			let staleFallbackCount = 0;
 			let regulatoryRestrictedCount = 0;
 			let purchaseBlockedCount = 0;
 
 			for (const fund of funds) {
 				const liveData = liveNavData.get(fund.schemeCode);
+				let enhancedFund: any;
 
 				if (liveData && this.isNavDateRecent(liveData.date)) {
-					// Fund has recent AMFI data - check investability
-					const enhancedFund = {
+					// Fund has recent AMFI data — use live NAV
+					enhancedFund = {
 						...fund,
 						nav: liveData.nav.toString(),
 						navDate: liveData.date,
 						isLiveData: true,
+						navStale: false,
 					};
-
-					// Check regulatory and operational investability (async → DB-driven per-fund check)
-					const investability = await this.isFundInvestable(enhancedFund);
-
-					if (investability.investable) {
-						enhancedFunds.push(enhancedFund);
-					} else {
-						// Audit log for filtered instrument
-						logFilteredInstrument(
-							"mutual_fund",
-							fund.schemeName,
-							investability.reason || "Unknown restriction",
-						);
-
-						// Count by restriction type
-						if (
-							investability.reason?.includes("SEBI") ||
-							investability.reason?.includes("regulatory")
-						) {
-							regulatoryRestrictedCount++;
-						} else {
-							purchaseBlockedCount++;
-						}
-					}
+					liveCount++;
 				} else {
-					// Fund has no recent AMFI data - likely discontinued
+					// No recent AMFI data — fall back to DB NAV instead of excluding.
+					// Keeps recommendations working when the AMFI cache is empty/stale.
+					enhancedFund = {
+						...fund,
+						isLiveData: false,
+						navStale: true,
+						navDate: null,
+					};
+					staleFallbackCount++;
+				}
+
+				// Check regulatory and operational investability (async → DB-driven per-fund check)
+				const investability = await this.isFundInvestable(enhancedFund);
+
+				if (investability.investable) {
+					enhancedFunds.push(enhancedFund);
+				} else {
 					logFilteredInstrument(
 						"mutual_fund",
 						fund.schemeName,
-						"Discontinued: No recent AMFI NAV data",
+						investability.reason || "Unknown restriction",
 					);
-					discontinuedCount++;
+					if (
+						investability.reason?.includes("SEBI") ||
+						investability.reason?.includes("regulatory")
+					) {
+						regulatoryRestrictedCount++;
+					} else {
+						purchaseBlockedCount++;
+					}
 				}
 			}
 
 			console.log(
-				`[AI-MF] Enhanced ${enhancedFunds.length}/${funds.length} funds with live AMFI data.`,
+				`[AI-MF] Enhanced ${enhancedFunds.length}/${funds.length} funds. Live: ${liveCount}, DB-fallback: ${staleFallbackCount}.`,
 			);
 			console.log(
-				`[AI-MF] Excluded: ${discontinuedCount} discontinued, ${regulatoryRestrictedCount} regulatory-restricted, ${purchaseBlockedCount} purchase-blocked funds.`,
+				`[AI-MF] Excluded: ${regulatoryRestrictedCount} regulatory-restricted, ${purchaseBlockedCount} purchase-blocked.`,
 			);
 
 			return enhancedFunds;
 		} catch (error) {
-			console.error("[AI-MF] Error enhancing with live data:", error);
-			// On error, return empty to avoid recommending potentially stale funds
-			return [];
+			console.error("[AI-MF] Error enhancing with live data, using DB NAV fallback:", error);
+			// On error return all funds with DB NAV — better than returning nothing
+			return funds.map((f) => ({ ...f, isLiveData: false, navStale: true }));
 		}
 	}
 
