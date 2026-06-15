@@ -99,6 +99,7 @@ import {
 	Info,
 	X,
 	Download,
+	FileText,
 	Lightbulb,
 	Copy,
 	Zap,
@@ -1087,6 +1088,126 @@ export default function AgentPicksPage() {
 				)[0]
 			: null;
 
+	/**
+	 * Export the currently visible instrument tab to a branded PDF.
+	 * - Mutual Funds tab → MF-specific columns (fund name, AMC, risk, returns, expense ratio, rating)
+	 * - All other tabs → Pick columns (name, symbol, entry/target/stoploss, upside%, horizon, confidence)
+	 */
+	const exportCurrentTabPDF = async () => {
+		const { default: jsPDF } = await import("jspdf");
+		const { default: autoTable } = await import("jspdf-autotable");
+
+		const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+		const pageW = doc.internal.pageSize.getWidth();
+		const today = new Date().toLocaleDateString("en-IN", {
+			day: "2-digit", month: "short", year: "numeric",
+		});
+		const categoryLabel = todayCategoryFilter === "all"
+			? "All Instruments"
+			: (categoryLabels[todayCategoryFilter] ?? todayCategoryFilter);
+
+		// ── Header ────────────────────────────────────────────────────────────
+		doc.setFillColor(30, 64, 175); // Indigo-700
+		doc.rect(0, 0, pageW, 18, "F");
+		doc.setFontSize(13);
+		doc.setTextColor(255, 255, 255);
+		doc.setFont("helvetica", "bold");
+		doc.text("FintekPro — Agent Picks", 10, 11);
+		doc.setFontSize(9);
+		doc.setFont("helvetica", "normal");
+		doc.text(`${categoryLabel} | Generated: ${today}`, pageW - 10, 11, { align: "right" });
+
+		// ── Table ─────────────────────────────────────────────────────────────
+		if (todayCategoryFilter === "mutual_funds" && mfRecommendations.length > 0) {
+			// MF-specific columns
+			const head = [["#", "Fund Name", "AMC", "Category", "Risk", "1Y Return", "3Y Return", "Exp. Ratio", "Rating"]];
+			const body = mfRecommendations.map((f: any, i: number) => {
+				const m = f.metrics || {};
+				const cagr1 = m.cagr1Y != null ? `${(+m.cagr1Y).toFixed(1)}%` : "—";
+				const cagr3 = m.cagr3Y != null ? `${(+m.cagr3Y).toFixed(1)}%` : "—";
+				const er = m.expenseRatio != null ? `${(+m.expenseRatio).toFixed(2)}%` : "—";
+				const rating = m.fintekproRating ?? f.crisilRating ?? f.rating ?? "—";
+				return [
+					i + 1,
+					f.fundName || f.schemeName || "—",
+					f.fundHouse || f.amc || "—",
+					f.fundCategory || f.category || "—",
+					(f.riskLevel || f.risk || "—"),
+					cagr1,
+					cagr3,
+					er,
+					rating,
+				];
+			});
+			autoTable(doc, {
+				startY: 22,
+				head,
+				body,
+				styles: { fontSize: 8, cellPadding: 2.5 },
+				headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold" },
+				alternateRowStyles: { fillColor: [239, 246, 255] },
+				columnStyles: { 0: { halign: "center", cellWidth: 8 }, 1: { cellWidth: 55 } },
+				margin: { left: 10, right: 10 },
+			});
+		} else {
+			// Stocks / ETFs / Bonds / All — pick columns
+			const picksToExport = todayCategoryFilter === "all" ? todayPicks : filteredTodayPicks;
+			const head = [["#", "Name", "Symbol", "Category", "Entry", "Target", "Stop Loss", "Upside%", "Downside%", "Horizon", "Conf.", "Date"]];
+			const body = picksToExport.map((p: any, i: number) => {
+				const cur = getCurrencySymbol(p.category);
+				const up = p.targetPrice && p.recoPrice
+					? `${(((p.targetPrice - p.recoPrice) / p.recoPrice) * 100).toFixed(1)}%` : "—";
+				const dn = p.stoplossPrice && p.recoPrice
+					? `${(((p.recoPrice - p.stoplossPrice) / p.recoPrice) * 100).toFixed(1)}%` : "—";
+				return [
+					i + 1,
+					p.instrumentName || "—",
+					p.symbol || "—",
+					categoryLabels[p.category] || p.category,
+					p.recoPrice ? `${cur}${p.recoPrice}` : "—",
+					p.targetPrice ? `${cur}${p.targetPrice}` : "—",
+					p.stoplossPrice ? `${cur}${p.stoplossPrice}` : "—",
+					up,
+					dn,
+					p.timeHorizon || "—",
+					p.confidenceScore != null ? `${p.confidenceScore}%` : "—",
+					new Date(p.recoDate).toLocaleDateString("en-IN"),
+				];
+			});
+			autoTable(doc, {
+				startY: 22,
+				head,
+				body,
+				styles: { fontSize: 7.5, cellPadding: 2 },
+				headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold" },
+				alternateRowStyles: { fillColor: [239, 246, 255] },
+				columnStyles: { 0: { halign: "center", cellWidth: 7 }, 1: { cellWidth: 45 } },
+				margin: { left: 10, right: 10 },
+			});
+		}
+
+		// ── Footer on every page ──────────────────────────────────────────────
+		const pageCount = (doc as any).internal.getNumberOfPages();
+		for (let pg = 1; pg <= pageCount; pg++) {
+			doc.setPage(pg);
+			const pageH = doc.internal.pageSize.getHeight();
+			doc.setFontSize(6.5);
+			doc.setTextColor(120, 120, 120);
+			doc.setFont("helvetica", "italic");
+			doc.text(
+				"Disclaimer: For informational purposes only. Not SEBI-registered investment advice. Please consult your advisor before investing.",
+				pageW / 2,
+				pageH - 5,
+				{ align: "center" },
+			);
+			doc.setFont("helvetica", "normal");
+			doc.text(`Page ${pg} of ${pageCount}`, pageW - 10, pageH - 5, { align: "right" });
+		}
+
+		const safeCategory = categoryLabel.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+		doc.save(`fintekpro-picks-${safeCategory}-${new Date().toISOString().slice(0, 10)}.pdf`);
+	};
+
 	const exportTodaysPicksCSV = () => {
 		const rows = [
 			[
@@ -1802,6 +1923,17 @@ export default function AgentPicksPage() {
 											className="shrink-0"
 										>
 											<Download className="h-4 w-4 mr-2" /> Export CSV
+										</Button>
+									)}
+									{(todayPicks.length > 0 || (todayCategoryFilter === "mutual_funds" && mfRecommendations.length > 0)) && (
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={exportCurrentTabPDF}
+											className="shrink-0 text-rose-600 border-rose-300 hover:bg-rose-50 dark:text-rose-400 dark:border-rose-700 dark:hover:bg-rose-950/40"
+											title={`Export ${categoryLabels[todayCategoryFilter] ?? "current tab"} as PDF`}
+										>
+											<FileText className="h-4 w-4 mr-2" /> Export PDF
 										</Button>
 									)}
 								</div>
