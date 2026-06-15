@@ -100,6 +100,7 @@ import {
 	X,
 	Download,
 	FileText,
+	Share2,
 	Lightbulb,
 	Copy,
 	Zap,
@@ -1205,7 +1206,38 @@ export default function AgentPicksPage() {
 		}
 
 		const safeCategory = categoryLabel.replace(/[^a-z0-9]/gi, "_").toLowerCase();
-		doc.save(`fintekpro-picks-${safeCategory}-${new Date().toISOString().slice(0, 10)}.pdf`);
+		const fileName = `fintekpro-picks-${safeCategory}-${new Date().toISOString().slice(0, 10)}.pdf`;
+
+		// ── Share or Download ─────────────────────────────────────────────────
+		// Web Share API Level 2 supports file sharing on:
+		//   Android Chrome 75+, desktop Chrome 89+, iOS Safari 15+, Edge 89+
+		// Falls back to regular download on unsupported browsers (Firefox desktop).
+		const blob = doc.output("blob");
+		const file = new File([blob], fileName, { type: "application/pdf" });
+
+		const shareData = {
+			files: [file],
+			title: `FintekPro — ${categoryLabel} Picks`,
+			text: `Today's ${categoryLabel} picks from FintekPro Agent Portal (${today})`,
+		};
+
+		if (
+			typeof navigator.share === "function" &&
+			typeof navigator.canShare === "function" &&
+			navigator.canShare(shareData)
+		) {
+			try {
+				await navigator.share(shareData);
+			} catch (err: any) {
+				// User cancelled or share failed — fall back to download
+				if (err?.name !== "AbortError") {
+					doc.save(fileName);
+				}
+			}
+		} else {
+			// Desktop browsers without file-share support — trigger download
+			doc.save(fileName);
+		}
 	};
 
 	const exportTodaysPicksCSV = () => {
@@ -1931,9 +1963,21 @@ export default function AgentPicksPage() {
 											size="sm"
 											onClick={exportCurrentTabPDF}
 											className="shrink-0 text-rose-600 border-rose-300 hover:bg-rose-50 dark:text-rose-400 dark:border-rose-700 dark:hover:bg-rose-950/40"
-											title={`Export ${categoryLabels[todayCategoryFilter] ?? "current tab"} as PDF`}
+											title={`${
+												typeof navigator.share === "function"
+													? "Share"
+													: "Export"
+											} ${categoryLabels[todayCategoryFilter] ?? "current tab"} as PDF`}
 										>
-											<FileText className="h-4 w-4 mr-2" /> Export PDF
+											{typeof navigator.share === "function" ? (
+												<>
+													<Share2 className="h-4 w-4 mr-2" /> Share PDF
+												</>
+											) : (
+												<>
+													<FileText className="h-4 w-4 mr-2" /> Export PDF
+												</>
+											)}
 										</Button>
 									)}
 								</div>
