@@ -100,7 +100,6 @@ import {
 	X,
 	Download,
 	FileText,
-	Share2,
 	Lightbulb,
 	Copy,
 	Zap,
