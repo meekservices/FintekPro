@@ -747,7 +747,11 @@ export default function AgentPicksPage() {
 		recommendations: any[];
 		count: number;
 	}>({
-		queryKey: ["/api/ai-mf/recommendations", "quick"],
+		queryKey: ["/api/ai-mf/recommendations"],
+		queryFn: () =>
+			apiRequest(
+				"/api/ai-mf/recommendations?riskLevel=moderate&maxFundsPerAMC=2&minAMCs=3",
+			),
 		enabled: todayCategoryFilter === "mutual_funds",
 	});
 

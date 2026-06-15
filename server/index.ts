@@ -395,6 +395,13 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 		const picksRoutes = await import("./routes/pick-of-the-day");
 		app.use("/api/picks", picksRoutes.default);
 
+		// AI Mutual Fund Recommendation Routes
+		// NOTE: Routes inside this file use full paths (e.g. /api/ai-mf/recommendations)
+		// so we mount without a prefix using app.use(router) — same pattern as agentRoutes
+		logBootProgress("Step 7b: Registering AI MF Recommendation Routes...");
+		const aiMFRoutes = await import("./routes/ai-mf-recommendation-routes");
+		app.use(aiMFRoutes.default);
+
 		// MPAL Routes
 		logBootProgress("Step 8: Registering MPAL Routes...");
 		const mpalRoutes = await import("./routes/mpal-routes");
