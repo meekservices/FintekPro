@@ -1,3 +1,4 @@
+import { logger } from "../logger";
 import { Router, Request, Response } from "express";
 import {
 	PortalType,
@@ -106,6 +107,11 @@ router.get(
 			orientation: "any",
 			lang: "en-IN",
 			categories: ["finance", "business", "utilities"],
+			// Minimum window size — prevents Chrome from launching the PWA at a
+			// width narrower than the desktop breakpoint (1024px), which would
+			// trigger mobile layout even on a Mac/desktop machine.
+			min_width: 1024,
+			min_height: 768,
 			icons: [
 				{
 					src: icon,
@@ -213,7 +219,7 @@ router.post(
 
 			res.json({ status: "logged" });
 		} catch (error) {
-			console.error("[PortalAccessLog] Error:", error);
+			logger.error("[PortalAccessLog] Error:", error instanceof Error ? error : new Error(String(error)));
 			res.status(500).json({ error: "Failed to log portal access" });
 		}
 	},
@@ -254,7 +260,7 @@ router.get(
 				offset,
 			});
 		} catch (error) {
-			console.error("[PortalAccessLog] Fetch error:", error);
+			logger.error("[PortalAccessLog] Fetch error:", error instanceof Error ? error : new Error(String(error)));
 			res.status(500).json({ error: "Failed to fetch portal access logs" });
 		}
 	},
@@ -262,7 +268,7 @@ router.get(
 
 export function registerPortalSystemRoutes(app: any) {
 	app.use(router);
-	console.log(
+	logger.info(
 		"✅ Portal System routes registered (portal-meta, portal-logo, portal-access-log)",
 	);
 }

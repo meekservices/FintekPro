@@ -1,3 +1,4 @@
+import { logger } from "../logger";
 import { db } from "../db";
 import {
 	dailyPicks,
@@ -31,6 +32,7 @@ import {
 import type { EnrichedStockSnapshot } from "./screener/enriched-stock-data";
 import { marketRegimeDetector } from "./risk";
 import { aiGovernanceEngine } from "./ai-governance";
+import { marketHolidayService } from "./market-holiday-service";
 
 // --- Strategy Imports ---
 import { IPickStrategy } from "./picks/types";
@@ -215,7 +217,7 @@ export class PickOfTheDayService {
 	async generateDailyPicks(): Promise<DailyPickData[]> {
 		// ── Generation lock: prevent concurrent runs (cold-start race on Cloud Run)
 		if (this._isGenerating) {
-			console.warn(
+			logger.warn(
 				"[PickOfTheDay] generateDailyPicks() called while already running — skipping duplicate.",
 			);
 			return [];
@@ -230,7 +232,7 @@ export class PickOfTheDayService {
 
 	/** Internal: the actual generation logic. Always call via generateDailyPicks(). */
 	private async _doGenerateDailyPicks(): Promise<DailyPickData[]> {
-		console.log(
+		logger.info(
 			`[PickOfTheDay] Starting daily pick generation (v${SCORER_VERSION})...`,
 		);
 		const generated: DailyPickData[] = [];
@@ -254,7 +256,7 @@ export class PickOfTheDayService {
 		];
 
 		if (isBlackSwan) {
-			console.warn(
+			logger.warn(
 				`🛑 [PickOfTheDay] 10σ Black Swan detected. Pivoting to Defensive Advasory mode.`,
 			);
 			// Restriction: Only safe-haven/defensive assets allowed during systemic instability
@@ -323,7 +325,7 @@ export class PickOfTheDayService {
 					});
 
 					if (aageCheck.decision === "BLOCK") {
-						console.warn(
+						logger.warn(
 							`⚠️ [PickOfTheDay] Governance Block for ${pick.instrumentName}: ${aageCheck.audit_id}`,
 						);
 						continue;
@@ -334,14 +336,14 @@ export class PickOfTheDayService {
 					const sectorTag = (pick.keyMetrics as any)?.broadSectorLabel
 						? ` [${(pick.keyMetrics as any).broadSectorLabel}]`
 						: "";
-					console.log(
+					logger.info(
 						`✅ [PickOfTheDay] Generated ${category}${sectorTag} pick: ${pick.instrumentName}`,
 					);
 				}
 			} catch (error) {
-				console.error(
+				logger.error(
 					`❌ [PickOfTheDay] Failed to generate ${category} pick:`,
-					error,
+					error instanceof Error ? error : new Error(String(error)),
 				);
 			}
 		}
@@ -363,7 +365,7 @@ export class PickOfTheDayService {
 				.select()
 				.from(dailyPicks)
 				.where(eq(dailyPicks.status, "live"));
-			console.log(
+			logger.info(
 				`[PickOfTheDay] Syncing prices for ${livePicks.length} live picks...`,
 			);
 
@@ -426,16 +428,16 @@ export class PickOfTheDayService {
 						}
 					}
 				} catch (err) {
-					console.error(
+					logger.error(
 						`[PickOfTheDay] Sync failure for ${pick.instrumentName}:`,
-						err,
+						err instanceof Error ? err : new Error(String(err)),
 					);
 					errors++;
 				}
 			}
 			return { updated, errors, details };
 		} catch (error) {
-			console.error("[PickOfTheDay] Error in refreshLivePicks:", error);
+			logger.error("[PickOfTheDay] Error in refreshLivePicks:", error instanceof Error ? error : new Error(String(error)));
 			return { updated, errors, details };
 		}
 	}
@@ -613,7 +615,7 @@ export class PickOfTheDayService {
 				typeof rawResult === "string" ? rawResult : JSON.stringify(rawResult);
 			return this.extractRationaleText(resultStr);
 		} catch (error) {
-			console.error("[PickOfTheDay] AI rationale generation failed:", error);
+			logger.error("[PickOfTheDay] AI rationale generation failed:", error instanceof Error ? error : new Error(String(error)));
 			return this.generateFallbackRationale(params);
 		}
 	}
@@ -723,7 +725,7 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 				});
 			}
 		} catch (error) {
-			console.error(`[PickOfTheDay] Notification failure:`, error);
+			logger.error(`[PickOfTheDay] Notification failure:`, error instanceof Error ? error : new Error(String(error)));
 		}
 	}
 
@@ -792,10 +794,21 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 		return picks.map((p) => this.transformPick(p));
 	}
 
+	/**
+	 * Returns true if the given IST date is a market trading day (weekday + no NSE holiday).
+	 * Date is expressed as YYYY-MM-DD string in IST.
+	 */
+	private isNSETradingDay(istDateStr: string): boolean {
+		try {
+			return marketHolidayService.isTradingDay(istDateStr, "NSE");
+		} catch {
+			// If holiday service fails for any reason, default to true (safe fallback)
+			return true;
+		}
+	}
+
 	async startDailyScheduler(): Promise<void> {
 		await this.catchUpIfNeeded();
-
-		const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 		/**
 		 * Returns milliseconds from now until the next occurrence of [hour]:[minute] IST.
@@ -809,16 +822,6 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 
 			// Build target time in IST as a UTC timestamp
 			const nowIstDate = new Date(nowIstMs);
-			const targetIstMs =
-				Date.UTC(
-					nowIstDate.getUTCFullYear(),
-					nowIstDate.getUTCMonth(),
-					nowIstDate.getUTCDate(),
-					hour - 5, // convert IST → UTC: IST 9:00 = UTC 3:30
-					minute - 30 < 0 ? minute + 30 : minute - 30,
-					0,
-					0,
-				) - (minute < 30 ? 60 * 60 * 1000 : 0); // adjust for borrow
 
 			// Recalculate properly: target in UTC = IST target - 5h30m
 			const targetHourUtc = hour - 5;
@@ -847,35 +850,58 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 			return targetDate.getTime() - nowUtcMs;
 		}
 
-		// ── 9:00 AM IST ── Generate fresh daily picks (market open)
-		const delayToGenerate = msUntilIst(9, 0);
-		console.log(
-			`📅 [PickOfTheDay] Next generation scheduled in ${Math.round(delayToGenerate / 60000)} min (9:00 AM IST)`,
-		);
-		setTimeout(() => {
-			this.generateDailyPicks();
-			setInterval(() => this.generateDailyPicks(), MS_PER_DAY);
-		}, delayToGenerate);
+		// ── 9:00 AM IST ── Generate fresh daily picks (market open days only)
+		const scheduleNextGeneration = () => {
+			const delayMs = msUntilIst(9, 0);
+			logger.info(
+				`📅 [PickOfTheDay] Next generation scheduled in ${Math.round(delayMs / 60000)} min (9:00 AM IST)`,
+			);
+			setTimeout(() => {
+				const todayStr = todayIST();
+				if (this.isNSETradingDay(todayStr)) {
+					logger.info(`📅 [PickOfTheDay] Market is open today (${todayStr}). Generating picks...`);
+					this.generateDailyPicks().catch((err) =>
+						logger.error("[PickOfTheDay] 9AM generation error:", err instanceof Error ? err : new Error(String(err))),
+					);
+				} else {
+					logger.info(`📅 [PickOfTheDay] Market is CLOSED today (${todayStr}) — skipping pick generation.`);
+				}
+				// Schedule the next day's generation
+				scheduleNextGeneration();
+			}, delayMs);
+		};
+		scheduleNextGeneration();
 
-		// ── 4:00 PM IST ── Refresh live prices after market close
-		const delayToRefresh = msUntilIst(16, 0);
-		console.log(
-			`📅 [PickOfTheDay] Next price refresh scheduled in ${Math.round(delayToRefresh / 60000)} min (4:00 PM IST)`,
-		);
-		setTimeout(() => {
-			this.refreshLivePicks();
-			setInterval(() => this.refreshLivePicks(), MS_PER_DAY);
-		}, delayToRefresh);
+		// ── 4:00 PM IST ── Refresh live prices after market close (market days only)
+		const scheduleEODRefresh = () => {
+			const delayMs = msUntilIst(16, 0);
+			setTimeout(() => {
+				if (this.isNSETradingDay(todayIST())) {
+					this.refreshLivePicks().catch((err) =>
+						logger.error("[PickOfTheDay] 4PM refresh error:", err instanceof Error ? err : new Error(String(err))),
+					);
+				}
+				scheduleEODRefresh();
+			}, delayMs);
+		};
+		scheduleEODRefresh();
 
-		// ── 12:30 PM IST ── Mid-day price refresh (optional, during market hours)
-		const delayToMidDay = msUntilIst(12, 30);
-		setTimeout(() => {
-			this.refreshLivePicks();
-			setInterval(() => this.refreshLivePicks(), MS_PER_DAY);
-		}, delayToMidDay);
+		// ── 12:30 PM IST ── Mid-day price refresh (market days only)
+		const scheduleMidDayRefresh = () => {
+			const delayMs = msUntilIst(12, 30);
+			setTimeout(() => {
+				if (this.isNSETradingDay(todayIST())) {
+					this.refreshLivePicks().catch((err) =>
+						logger.error("[PickOfTheDay] 12:30PM refresh error:", err instanceof Error ? err : new Error(String(err))),
+					);
+				}
+				scheduleMidDayRefresh();
+			}, delayMs);
+		};
+		scheduleMidDayRefresh();
 
-		console.log(
-			`📅 [PickOfTheDay] IST-aware scheduler started: Generation@9AM, Refresh@12:30PM+4PM IST`,
+		logger.info(
+			`📅 [PickOfTheDay] Market-aware scheduler started: Generation@9AM, Refresh@12:30PM+4PM IST (NSE trading days only)`,
 		);
 
 		// ── Auto-heal: every 6 hours ── Catch any generation failures silently
@@ -884,10 +910,10 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 		const AUTO_HEAL_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 		setInterval(async () => {
 			try {
-				console.log("[PickOfTheDay] Auto-heal check running...");
+				logger.info("[PickOfTheDay] Auto-heal check running...");
 				await this.catchUpIfNeeded();
 			} catch (err) {
-				console.error("[PickOfTheDay] Auto-heal error:", err);
+				logger.error("[PickOfTheDay] Auto-heal error:", err instanceof Error ? err : new Error(String(err)));
 			}
 		}, AUTO_HEAL_INTERVAL_MS);
 	}
@@ -895,9 +921,25 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 	/**
 	 * Generates picks on startup if today has none OR fewer than 3 picks (partial failure recovery).
 	 * Also handles the edge case where the 9 AM scheduler fired but some strategies failed.
+	 * Skips generation entirely on weekends and NSE market holidays.
 	 */
 	private async catchUpIfNeeded(): Promise<void> {
 		const today = todayIST(); // IST date — consistent with how picks are stored
+
+		// ── Market day guard ──────────────────────────────────────────────────────
+		// Do NOT generate picks on weekends or NSE holidays. If the market is closed,
+		// picks from the last trading day remain valid and no new picks should be added.
+		if (!this.isNSETradingDay(today)) {
+			const dayOfWeek = new Date().toLocaleDateString("en-US", {
+				weekday: "long",
+				timeZone: "Asia/Kolkata",
+			});
+			logger.info(
+				`📅 [PickOfTheDay] Skipping catch-up — ${today} is not a trading day (${dayOfWeek}).`,
+			);
+			return;
+		}
+
 		const existing = await db
 			.select({ count: sql<number>`COUNT(*)` })
 			.from(dailyPicks)
@@ -910,7 +952,7 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 		// MF/Bond/FD/SGB/REIT are missing, this will trigger regeneration.
 		const MIN_PICKS_THRESHOLD = 4;
 		if (existingCount < MIN_PICKS_THRESHOLD) {
-			console.log(
+			logger.info(
 				`🔄 [PickOfTheDay] Startup catch-up: only ${existingCount} picks found for ${today} (threshold: ${MIN_PICKS_THRESHOLD}). Generating missing picks...`,
 			);
 			await this.generateDailyPicks();
@@ -939,12 +981,12 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 
 		if (missingCritical.length >= 2) {
 			// 2+ critical categories are missing — regenerate to fill gaps
-			console.log(
+			logger.info(
 				`🔄 [PickOfTheDay] Missing ${missingCritical.length} critical categories: [${missingCritical.join(", ")}]. Triggering regeneration...`,
 			);
 			await this.generateDailyPicks();
 		} else {
-			console.log(
+			logger.info(
 				`✅ [PickOfTheDay] ${existingCount} picks across ${existingCategories.size} categories for ${today}. OK.`,
 			);
 		}

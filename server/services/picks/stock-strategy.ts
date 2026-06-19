@@ -1,3 +1,4 @@
+import { logger } from "../../logger";
 import { db } from "../../db";
 import {
 	listedStocks,
@@ -213,15 +214,14 @@ export class StockStrategy extends BaseStrategy {
 						if (pick.instrumentId) usedIds.add(pick.instrumentId);
 					}
 				} catch (sectorErr) {
-					console.warn(
-						`[StockStrategy] Failed to pick for sector ${broadSector.label}:`,
-						sectorErr,
+					logger.warn(
+						`[StockStrategy] Failed to pick for sector ${broadSector.label}: ${sectorErr instanceof Error ? sectorErr.message : String(sectorErr)}`,
 					);
 				}
 			}
 
 			if (results.length === 0) {
-				console.warn(
+				logger.warn(
 					"[StockStrategy] No sector picks generated — all sectors failed or were empty",
 				);
 				// ── Cross-sector fallback: pick best available stock without sector filter ──
@@ -229,23 +229,23 @@ export class StockStrategy extends BaseStrategy {
 				try {
 					const fallbackPick = await this.pickBestStockFallback(context);
 					if (fallbackPick) {
-						console.info(
+						logger.info(
 							`[StockStrategy] Fallback pick: ${fallbackPick.symbol} (${fallbackPick.sectorCategory})`,
 						);
 						return [fallbackPick];
 					}
 				} catch (fallbackErr) {
-					console.error("[StockStrategy] Fallback also failed:", fallbackErr);
+					logger.error("[StockStrategy] Fallback also failed:", fallbackErr instanceof Error ? fallbackErr : new Error(String(fallbackErr)));
 				}
 				return null;
 			}
 
-			console.info(
+			logger.info(
 				`[StockStrategy] Generated ${results.length} sector picks: ${results.map((p) => `${p.sectorCategory} → ${p.symbol}`).join(", ")}`,
 			);
 			return results;
 		} catch (error) {
-			console.error("[StockStrategy] Fatal error:", error);
+			logger.error("[StockStrategy] Fatal error:", error instanceof Error ? error : new Error(String(error)));
 			return null;
 		}
 	}
@@ -632,9 +632,8 @@ export class StockStrategy extends BaseStrategy {
 			return boost;
 		} catch (err) {
 			// AI unavailable — non-fatal, quant score is sufficient
-			console.warn(
-				`[StockStrategy] AI alpha boost unavailable for ${symbol}:`,
-				(err as Error).message,
+			logger.warn(
+				`[StockStrategy] AI alpha boost unavailable for ${symbol}: ${err instanceof Error ? err.message : String(err)}`,
 			);
 			_aiAlphaCache.set(symbol, { score: 0, ts: Date.now() });
 			return 0;
@@ -656,7 +655,7 @@ export class StockStrategy extends BaseStrategy {
 					.from(stockFinancialMetrics);
 				_metricsTableHasData = (value ?? 0) > 0;
 				if (!_metricsTableHasData) {
-					console.info(
+					logger.info(
 						"[StockStrategy] stockFinancialMetrics table is empty — skipping advanced metrics for this batch",
 					);
 					return {};
@@ -711,7 +710,7 @@ export class StockStrategy extends BaseStrategy {
 			const scaledScore = Math.round((score / 7) * 9);
 			return { piotroskiFScore: scaledScore, roic };
 		} catch (err) {
-			console.warn("[StockStrategy] calculateAdvancedMetrics failed:", err);
+			logger.warn("[StockStrategy] calculateAdvancedMetrics failed:", { error: err instanceof Error ? err.message : String(err) });
 			return {};
 		}
 	}
@@ -758,13 +757,94 @@ export class StockStrategy extends BaseStrategy {
 		}
 	}
 
+	/**
+	 * Returns the most recent known price for a listed NSE/BSE stock.
+	 *
+	 * Tier 1 (intraday only — 9:15 AM to 3:30 PM IST):
+	 *   FMP real-time quote using symbol.NS (e.g. "RELIANCE.NS").
+	 *   Same FMP integration used by GlobalStockStrategy for US stocks.
+	 *   Only called during NSE trading window to preserve rate limits.
+	 *
+	 * Tier 2: Most recent row in `golden_prices` (updated by Pricing Engine @ 9 PM IST
+	 *   and MoneyControl sync @ 9:05 PM) — freshest post-market close price.
+	 *
+	 * Tier 3: `listed_stocks.currentPrice` — updated by enrichment batch (last resort).
+	 *
+	 * @param instrumentId - UUID of the listed_stocks row.
+	 */
 	async getLivePrice(instrumentId: string): Promise<number | null> {
-		const row = await db
-			.select({ currentPrice: listedStocks.currentPrice })
-			.from(listedStocks)
-			.where(eq(listedStocks.id, instrumentId))
-			.limit(1);
-		return row[0]?.currentPrice ? Number.parseFloat(row[0].currentPrice) : null;
+		try {
+			// Fetch stock base data (ISIN, symbol, currentPrice fallback)
+			const stockRow = await db
+				.select({ currentPrice: listedStocks.currentPrice, isin: listedStocks.isin, symbol: listedStocks.symbol })
+				.from(listedStocks)
+				.where(eq(listedStocks.id, instrumentId))
+				.limit(1);
+
+			if (!stockRow[0]) return null;
+
+			const { isin, symbol, currentPrice: fallbackPrice } = stockRow[0];
+
+			// ── Tier 1: FMP intraday (NSE market hours only) ────────────────────────
+			// NSE hours: 9:15 AM – 3:30 PM IST (UTC+5:30 = 3:45 AM – 10:00 AM UTC)
+			const nowUtcH = new Date().getUTCHours();
+			const nowUtcM = new Date().getUTCMinutes();
+			const utcMinutes = nowUtcH * 60 + nowUtcM;
+			const NSE_OPEN_UTC = 3 * 60 + 45;   // 3:45 AM UTC = 9:15 AM IST
+			const NSE_CLOSE_UTC = 10 * 60;       // 10:00 AM UTC = 3:30 PM IST
+			const isNSEMarketHours = utcMinutes >= NSE_OPEN_UTC && utcMinutes <= NSE_CLOSE_UTC;
+
+			if (symbol && isNSEMarketHours) {
+				const fmpKey = process.env.FMP_API_KEY;
+				if (fmpKey && fmpKey.length > 8 && !["dummy", "placeholder", "xxx"].some(p => fmpKey.toLowerCase().includes(p))) {
+					try {
+						const nseSymbol = `${symbol.toUpperCase()}.NS`;
+						const resp = await fetch(
+							`https://financialmodelingprep.com/stable/quote?symbol=${encodeURIComponent(nseSymbol)}&apikey=${fmpKey}`,
+							{ signal: AbortSignal.timeout(8000), headers: { Accept: "application/json" } },
+						);
+						if (resp.ok) {
+							const data: any[] = await resp.json();
+							const price = data?.[0]?.price;
+							if (price != null && Number.isFinite(Number(price)) && Number(price) > 0) {
+								// Write back to listedStocks in background so next run is pre-warmed
+								db.update(listedStocks)
+									.set({ currentPrice: String(price) })
+									.where(eq(listedStocks.id, instrumentId))
+									.catch(() => {});
+								return Number(price);
+							}
+						}
+					} catch (err: any) {
+						logger.warn(`[StockStrategy.getLivePrice] FMP timeout for ${symbol}.NS: ${err?.message || err}`);
+					}
+				}
+			}
+
+			// ── Tier 2: golden_prices — most recent row by date ─────────────────────
+			if (isin || symbol) {
+				const gpRow = await db
+					.select({ price: goldenPrices.price, priceDate: goldenPrices.priceDate })
+					.from(goldenPrices)
+					.where(
+						isin
+							? eq(goldenPrices.isin, isin)
+							: eq(goldenPrices.symbol, symbol!),
+					)
+					.orderBy(desc(goldenPrices.priceDate))
+					.limit(1);
+
+				if (gpRow[0]?.price) {
+					const gpPrice = Number.parseFloat(gpRow[0].price);
+					if (gpPrice > 0) return gpPrice;
+				}
+			}
+
+			// ── Tier 3: listedStocks.currentPrice ───────────────────────────────────
+			return fallbackPrice ? Number.parseFloat(fallbackPrice) : null;
+		} catch {
+			return null;
+		}
 	}
 
 	/**

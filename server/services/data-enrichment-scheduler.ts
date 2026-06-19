@@ -1,3 +1,4 @@
+import { logger } from "../logger";
 /**
  * Data Enrichment Scheduler
  *
@@ -53,39 +54,48 @@ class DataEnrichmentScheduler {
 	 */
 	initialize(): void {
 		if (this.intervalId) {
-			console.log("[DataEnrichmentScheduler] Already initialized");
+			logger.info("[DataEnrichmentScheduler] Already initialized");
 			return;
 		}
 
 		// Calculate next run time
 		this.scheduleNextRun();
 
-		console.log(
+		logger.info(
 			`[DataEnrichmentScheduler] Initialized - next run at ${this.nextRunTime?.toISOString()}`,
 		);
 	}
 
 	private scheduleNextRun(): void {
-		const now = new Date();
-		const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
-		const nowIST = new Date(now.getTime() + istOffset);
+		const nowUtcMs = Date.now();
+		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+		const nowIstDate = new Date(nowUtcMs + IST_OFFSET_MS);
 
-		// Set target to 5 AM IST today or tomorrow
-		const targetIST = new Date(nowIST);
-		targetIST.setHours(this.ENRICHMENT_HOUR, 0, 0, 0);
+		// 5 AM IST → UTC: hour=5, min=0 → UTC hour = 5-5=0, min = 0-30=-30 → borrow 1h → UTC 23:30 prev day
+		const targetHourUtc = this.ENRICHMENT_HOUR - 5; // 0
+		const targetMinUtc = 0 - 30;                    // -30 → need borrow
+		const borrowHour = targetMinUtc < 0 ? 1 : 0;
+		const finalHourUtc = targetHourUtc - borrowHour; // -1 → Date.UTC handles overflow to prev day
+		const finalMinUtc = targetMinUtc < 0 ? targetMinUtc + 60 : targetMinUtc; // 30
 
-		if (nowIST > targetIST) {
-			// Already past 5 AM IST, schedule for tomorrow
-			targetIST.setDate(targetIST.getDate() + 1);
+		let targetMs = Date.UTC(
+			nowIstDate.getUTCFullYear(),
+			nowIstDate.getUTCMonth(),
+			nowIstDate.getUTCDate(),
+			finalHourUtc,
+			finalMinUtc,
+			0,
+			0,
+		);
+
+		// If 5 AM IST has already passed today, target tomorrow
+		if (targetMs <= nowUtcMs) {
+			targetMs += 24 * 60 * 60 * 1000;
 		}
 
-		// Convert back to UTC
-		this.nextRunTime = new Date(targetIST.getTime() - istOffset);
+		this.nextRunTime = new Date(targetMs);
+		const delay = targetMs - nowUtcMs;
 
-		// Calculate delay
-		const delay = this.nextRunTime.getTime() - now.getTime();
-
-		// Set timeout for next run
 		if (this.intervalId) {
 			clearTimeout(this.intervalId);
 		}
@@ -100,12 +110,12 @@ class DataEnrichmentScheduler {
 	 */
 	async runEnrichmentJobs(): Promise<void> {
 		if (this.isRunning) {
-			console.log("[DataEnrichmentScheduler] Already running, skipping");
+			logger.info("[DataEnrichmentScheduler] Already running, skipping");
 			return;
 		}
 
 		if (!hasProductionDb()) {
-			console.warn(
+			logger.warn(
 				"[DataEnrichmentScheduler] PRODUCTION_DATABASE_URL not set. Enrichment runs on production only. Skipping.",
 			);
 			return;
@@ -113,7 +123,7 @@ class DataEnrichmentScheduler {
 
 		this.isRunning = true;
 		const startTime = Date.now();
-		console.log(
+		logger.info(
 			"[DataEnrichmentScheduler] Starting scheduled enrichment run (targeting PRODUCTION DB)...",
 		);
 
@@ -135,11 +145,11 @@ class DataEnrichmentScheduler {
 					batchSize: 500,
 				});
 				stats.mfEnriched = mfResult.fundsEnriched;
-				console.log(
+				logger.info(
 					`[DataEnrichmentScheduler] MF enrichment: ${stats.mfEnriched} funds enriched`,
 				);
 			} catch (error: any) {
-				console.error(
+				logger.error(
 					"[DataEnrichmentScheduler] MF enrichment failed:",
 					error.message,
 				);
@@ -158,11 +168,11 @@ class DataEnrichmentScheduler {
 						batchSize: 50,
 					});
 				stats.stocksEnriched = stockResult.stocksEnriched;
-				console.log(
+				logger.info(
 					`[DataEnrichmentScheduler] Stock enrichment: ${stats.stocksEnriched} stocks enriched`,
 				);
 			} catch (error: any) {
-				console.error(
+				logger.error(
 					"[DataEnrichmentScheduler] Stock enrichment failed:",
 					error.message,
 				);
@@ -175,11 +185,11 @@ class DataEnrichmentScheduler {
 				);
 				const navResult = await mfReturnsSyncService.runBatchSync(100);
 				stats.navMetricsUpdated = navResult.successful;
-				console.log(
+				logger.info(
 					`[DataEnrichmentScheduler] NAV metrics: ${stats.navMetricsUpdated} funds updated`,
 				);
 			} catch (error: any) {
-				console.error(
+				logger.error(
 					"[DataEnrichmentScheduler] NAV metrics failed:",
 					error.message,
 				);
@@ -193,11 +203,11 @@ class DataEnrichmentScheduler {
 				const extractionResult = await mfExtendedDataExtractor.extractAllFunds({
 					forceRefresh: false,
 				});
-				console.log(
+				logger.info(
 					`[DataEnrichmentScheduler] Extraction: ${extractionResult.exitLoadUpdated} exit loads, ${extractionResult.minAmountsUpdated} min amounts`,
 				);
 			} catch (error: any) {
-				console.error(
+				logger.error(
 					"[DataEnrichmentScheduler] Extraction failed:",
 					error.message,
 				);
@@ -207,9 +217,9 @@ class DataEnrichmentScheduler {
 			this.lastRunStats = stats;
 			this.lastRunTime = new Date();
 
-			console.log(`[DataEnrichmentScheduler] Completed in ${stats.duration}ms`);
+			logger.info(`[DataEnrichmentScheduler] Completed in ${stats.duration}ms`);
 		} catch (error: any) {
-			console.error("[DataEnrichmentScheduler] Fatal error:", error.message);
+			logger.error("[DataEnrichmentScheduler] Fatal error:", error.message instanceof Error ? error.message : new Error(String(error.message)));
 		} finally {
 			this.isRunning = false;
 
@@ -225,7 +235,7 @@ class DataEnrichmentScheduler {
 		if (this.intervalId) {
 			clearTimeout(this.intervalId);
 			this.intervalId = null;
-			console.log("[DataEnrichmentScheduler] Stopped");
+			logger.info("[DataEnrichmentScheduler] Stopped");
 		}
 	}
 }

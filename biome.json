@@ -57,7 +57,14 @@
         "useTemplate": "off",
         "useSingleVarDeclarator": "off",
         "useImportType": "off",
-        "noParameterAssign": "off"
+        "noParameterAssign": "off",
+        "useSelfClosingElements": "off",
+        "useDefaultParameterLast": "off",
+        "noUselessElse": "off",
+        "useExponentiationOperator": "off",
+        "useNamingConvention": "off",
+        "useEnumInitializers": "off",
+        "useConst": "off"
       },
 
       "nursery": {

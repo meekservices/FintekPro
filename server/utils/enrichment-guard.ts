@@ -1,3 +1,4 @@
+import { logger } from "../logger";
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
 function getCurrentISTHour(): number {
@@ -13,8 +14,15 @@ export function isProductionEnvironment(): boolean {
 	);
 }
 
+/**
+ * Returns true if the current IST time is within the allowed enrichment window:
+ * 8:00 PM → 8:00 AM IST (20:00 – 07:59). This keeps heavy DB writes off-peak
+ * and away from market hours (9:15 AM – 3:30 PM IST).
+ */
 export function isEnrichmentWindow(): boolean {
-	return true;
+	const hour = getCurrentISTHour(); // 0–23
+	// Allow: 20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6, 7
+	return hour >= 20 || hour < 8;
 }
 
 export function shouldRunEnrichment(): boolean {
@@ -34,5 +42,5 @@ export function getEnrichmentGuardReason(): string {
 
 export function logEnrichmentSkip(serviceName: string): void {
 	const reason = getEnrichmentGuardReason();
-	console.log(`⏭️ [${serviceName}] Skipped - ${reason}`);
+	logger.info(`⏭️ [${serviceName}] Skipped - ${reason}`);
 }

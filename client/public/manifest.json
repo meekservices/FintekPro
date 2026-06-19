@@ -17,6 +17,8 @@
   "orientation": "any",
   "lang": "en-IN",
   "categories": ["finance", "business", "utilities"],
+  "min_width": 1024,
+  "min_height": 768,
   "icons": [
     {
       "src": "/icon-192.png",

@@ -50,9 +50,11 @@ STAGED=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null \
 if [[ -n "$STAGED" ]]; then
   echo -e "${INFO}Biome auto-fixing: $STAGED"
 
-  # Auto-fix: format + safe lint fixes (use scoped package to avoid old global stub)
-  BIOME_BIN="$(npm bin 2>/dev/null)/biome"
-  if [[ ! -f "$BIOME_BIN" ]]; then
+  # Auto-fix: format + safe lint fixes (resolve Biome binary)
+  # NOTE: `npm bin` is deprecated since npm v9 — use node_modules/.bin directly
+  if [[ -f "$PROJECT_ROOT/node_modules/.bin/biome" ]]; then
+    BIOME_BIN="$PROJECT_ROOT/node_modules/.bin/biome"
+  else
     BIOME_BIN="npx --yes @biomejs/biome"
   fi
 

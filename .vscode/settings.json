@@ -51,8 +51,12 @@
     "return-type-type-helper",
     "parameters-type-helper",
     "awaited-type-helper",
-    "never-keyword"
-  ]
+    "never-keyword",
+    "generic-slots-in-functions",
+    "generics",
+    "object-type",
+    "satisfies-keyword"
+  ],
 
   // ─── Editor ───────────────────────────────────────────────────────────────
   "editor.formatOnSave": false,

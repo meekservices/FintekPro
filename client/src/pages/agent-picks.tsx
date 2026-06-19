@@ -2060,7 +2060,7 @@ export default function AgentPicksPage() {
 									))}
 								</div>
 							) : todayCategoryFilter === "mutual_funds" ? (
-								<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+								<div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
 									{/* ── MF AI Filters Panel ── */}
 									<Card className="lg:col-span-1 h-fit sticky top-4">
 										<CardHeader className="pb-3">
@@ -2190,7 +2190,7 @@ export default function AgentPicksPage() {
 									</Card>
 
 									{/* ── MF AI Results Panel ── */}
-									<div className="lg:col-span-3 space-y-6">
+									<div className="space-y-6">
 										{(generateAIMFMutation.isPending || quickMFLoading) && (
 											<Card>
 												<CardContent className="py-12 text-center">
@@ -2443,7 +2443,7 @@ export default function AgentPicksPage() {
 									</div>
 								</div>
 							) : todayCategoryFilter === "listed_stocks" ? (
-								<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+								<div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
 									<Card className="lg:col-span-1">
 										<CardHeader className="pb-3">
 											<CardTitle className="text-base flex items-center gap-2">
@@ -2583,7 +2583,7 @@ export default function AgentPicksPage() {
 										</CardContent>
 									</Card>
 
-									<div className="lg:col-span-3 space-y-6">
+									<div className="space-y-6">
 										{(generateAIMutation.isPending || quickAILoading) && (
 											<Card>
 												<CardContent className="py-12 text-center">
@@ -2835,11 +2835,11 @@ export default function AgentPicksPage() {
 																		<div className="grid grid-cols-3 gap-2 p-3 bg-muted/40 rounded-lg border border-border/50 mb-4">
 																			<div className="text-center">
 																				<p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">
-																					Current
+																					Entry
 																				</p>
 																				<p className="font-semibold text-sm">
 																					{formatCurrencyINR(
-																						stock.currentPrice,
+																						stock.entryPrice ?? stock.currentPrice,
 																					)}
 																				</p>
 																			</div>
@@ -3472,7 +3472,7 @@ export default function AgentPicksPage() {
 																			<span>Other Sectors</span>
 																		</div>
 																	)}
-																	<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+																	<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
 																		{group.picks.map((pick, index) => (
 																			<PickCard
 																				key={`today-sector-${pick.id}-${gi}-${index}`}
@@ -3688,7 +3688,7 @@ export default function AgentPicksPage() {
 																		{group.picks.length > 1 ? "s" : ""}
 																	</span>
 																</SectorHeader>
-																<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+																<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
 																	{group.picks.map((pick, index) => (
 																		<PickCard
 																			key={`today-gs-${pick.id}-${gi}-${index}`}
@@ -3724,7 +3724,7 @@ export default function AgentPicksPage() {
 												{nonStockPicks.length > 0 && (viewMode === "table" ? (
 													<PicksTable picks={nonStockPicks} onRowClick={setSelectedPick} />
 												) : (
-													<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+													<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
 														{nonStockPicks.map((pick, index) => (
 															<PickCard
 																key={`today-ns-${pick.id}-${index}`}
@@ -3759,7 +3759,7 @@ export default function AgentPicksPage() {
 											onRowClick={setSelectedPick}
 										/>
 									) : (
-										<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+										<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
 											{filteredTodayPicks.map((pick, index) => (
 												<PickCard
 													key={`today-flat-${pick.id}-${index}`}
@@ -3929,7 +3929,7 @@ export default function AgentPicksPage() {
 									showReturn
 								/>
 							) : (
-								<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+								<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
 									{filteredLivePicks.map((pick, index) => (
 										<PickCard
 											key={`live-${pick.id}-${index}`}
