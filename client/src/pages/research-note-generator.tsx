@@ -293,6 +293,21 @@ function priceRs(val: number | null): string {
 	return `₹${Math.round(val).toLocaleString("en-IN")}`;
 }
 
+/**
+ * Decodes HTML entities (e.g. &#x27; → ', &amp; → &) that Screener.in
+ * returns in its key-points strings. Uses a DOM textarea which is safe
+ * (the decoded text is set as a React text node, never via innerHTML).
+ */
+function decodeHtml(raw: string): string {
+	try {
+		const txt = document.createElement("textarea");
+		txt.innerHTML = raw;
+		return txt.value;
+	} catch {
+		return raw;
+	}
+}
+
 function RatingBadge({ rating }: { rating: string }) {
 	const isBuy = rating.includes("BUY");
 	const isHold = rating === "HOLD";
@@ -515,44 +530,44 @@ export default function ResearchNoteGenerator() {
 	const f = d?.financials;
 	const cp = f?.currency === "INR" ? "₹" : "$";
 
-	// Score peers for same-sector buy picks using available PE and ROE data
-	const scoredPeerPicks = (() => {
+	// Score ALL peers using PE, ROE, PB fundamentals – produces BUY/HOLD/AVOID/STRONG BUY
+	const scoredPeers = (() => {
 		if (!d?.peers?.length) return [];
-		return d.peers
-			.map((peer) => {
-				let score = 0;
-				const roe = peer.roe !== null ? peer.roe * 100 : null;
-				const pe = peer.pe;
-				const pb = peer.pb;
-				if (roe !== null) {
-					if (roe >= 20) score += 5;
-					else if (roe >= 15) score += 4;
-					else if (roe >= 10) score += 3;
-					else if (roe >= 0) score += 1;
-					else score -= 1;
-				}
-				if (pe !== null && pe > 0) {
-					if (pe <= 15) score += 4;
-					else if (pe <= 25) score += 3;
-					else if (pe <= 40) score += 2;
-					else if (pe <= 60) score += 1;
-				}
-				if (pb !== null && pb > 0) {
-					if (pb <= 1.5) score += 2;
-					else if (pb <= 3) score += 1;
-				}
-				let recommendation: "STRONG BUY" | "BUY" | "HOLD" | "AVOID" = "HOLD";
-				if (score >= 9) recommendation = "STRONG BUY";
-				else if (score >= 5) recommendation = "BUY";
-				else if (score < 2) recommendation = "AVOID";
-				return { ...peer, score, recommendation };
-			})
-			.filter(
-				(p) => p.recommendation === "STRONG BUY" || p.recommendation === "BUY",
-			)
-			.sort((a, b) => b.score - a.score)
-			.slice(0, 5);
+		return d.peers.map((peer) => {
+			let score = 0;
+			const roe = peer.roe !== null ? peer.roe * 100 : null;
+			const pe = peer.pe;
+			const pb = peer.pb;
+			if (roe !== null) {
+				if (roe >= 20) score += 5;
+				else if (roe >= 15) score += 4;
+				else if (roe >= 10) score += 3;
+				else if (roe >= 0) score += 1;
+				else score -= 1;
+			}
+			if (pe !== null && pe > 0) {
+				if (pe <= 15) score += 4;
+				else if (pe <= 25) score += 3;
+				else if (pe <= 40) score += 2;
+				else if (pe <= 60) score += 1;
+			}
+			if (pb !== null && pb > 0) {
+				if (pb <= 1.5) score += 2;
+				else if (pb <= 3) score += 1;
+			}
+			let recommendation: "STRONG BUY" | "BUY" | "HOLD" | "AVOID" = "HOLD";
+			if (score >= 9) recommendation = "STRONG BUY";
+			else if (score >= 5) recommendation = "BUY";
+			else if (score < 2) recommendation = "AVOID";
+			return { ...peer, score, recommendation };
+		});
 	})();
+
+	// Subset of scoredPeers that are BUY or STRONG BUY, sorted by score descending
+	const scoredPeerPicks = scoredPeers
+		.filter((p) => p.recommendation === "STRONG BUY" || p.recommendation === "BUY")
+		.sort((a, b) => b.score - a.score)
+		.slice(0, 5);
 
 	return (
 		<div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
@@ -2421,7 +2436,7 @@ export default function ResearchNoteGenerator() {
 													className="flex items-start gap-2 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900"
 												>
 													<CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-													<p className="text-xs text-foreground">{pt}</p>
+													<p className="text-xs text-foreground">{decodeHtml(pt)}</p>
 												</div>
 											))}
 										</div>
@@ -2437,7 +2452,7 @@ export default function ResearchNoteGenerator() {
 													className="flex items-start gap-2 p-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900"
 												>
 													<XCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-													<p className="text-xs text-foreground">{pt}</p>
+													<p className="text-xs text-foreground">{decodeHtml(pt)}</p>
 												</div>
 											))}
 										</div>
@@ -2535,6 +2550,9 @@ export default function ResearchNoteGenerator() {
 												<th className="text-right py-2 text-muted-foreground font-medium">
 													Mkt Cap (₹ Cr)
 												</th>
+												<th className="text-right py-2 text-muted-foreground font-medium">
+													Rating
+												</th>
 											</tr>
 										</thead>
 										<tbody>
@@ -2566,8 +2584,11 @@ export default function ResearchNoteGenerator() {
 												<td className="text-right py-2">
 													{fmtCap(f.marketCap, f.currency)}
 												</td>
+												<td className="text-right py-2">
+													<RatingBadge rating={d.rating.rating} />
+												</td>
 											</tr>
-											{d.peers.map((peer) => (
+											{scoredPeers.map((peer) => (
 												<tr
 													key={peer.symbol}
 													className="border-b last:border-0 hover:bg-muted/40"
@@ -2601,6 +2622,21 @@ export default function ResearchNoteGenerator() {
 													</td>
 													<td className="text-right py-2">
 														{peer.marketCapFormatted}
+													</td>
+													<td className="text-right py-2">
+														<span
+															className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold text-white ${
+																peer.recommendation === "STRONG BUY"
+																	? "bg-green-600"
+																	: peer.recommendation === "BUY"
+																		? "bg-emerald-500"
+																		: peer.recommendation === "HOLD"
+																			? "bg-amber-500"
+																			: "bg-red-500"
+															}`}
+														>
+															{peer.recommendation}
+														</span>
 													</td>
 												</tr>
 											))}
@@ -2759,7 +2795,7 @@ export default function ResearchNoteGenerator() {
 															className="flex items-start gap-2 text-xs text-foreground"
 														>
 															<CheckCircle2 className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
-															<span>{p}</span>
+															<span>{decodeHtml(p)}</span>
 														</li>
 													))}
 												</ul>
@@ -2777,7 +2813,7 @@ export default function ResearchNoteGenerator() {
 															className="flex items-start gap-2 text-xs text-foreground"
 														>
 															<XCircle className="h-3.5 w-3.5 text-red-500 mt-0.5 shrink-0" />
-															<span>{c}</span>
+															<span>{decodeHtml(c)}</span>
 														</li>
 													))}
 												</ul>

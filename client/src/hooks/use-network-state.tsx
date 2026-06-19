@@ -35,6 +35,12 @@ interface NetworkProviderProps {
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1500;
+// Require 2 consecutive slow health-checks before flagging as slow.
+// This prevents a single cold-start or transient spike from triggering
+// the banner when the user is operating at 200 Mbps+.
+const SLOW_CONFIRM_COUNT = 2;
+const HEALTH_TIMEOUT_MS = 9000; // raised from 5000 – allows Cloud Run cold-start
+const SLOW_THRESHOLD_MS = 4500; // raised from 2000 – genuine slow only
 
 export function NetworkProvider({ children }: NetworkProviderProps) {
 	const [state, setState] = useState<NetworkState>(() => ({
@@ -49,6 +55,8 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
 		lastChecked: new Date(),
 		retryCount: 0,
 	}));
+	// Consecutive slow-check counter – prevents single spike from showing banner
+	const consecutiveSlowRef = useRef<number>(0);
 
 	const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -132,7 +140,7 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
 			try {
 				const startTime = performance.now();
 				const controller = new AbortController();
-				const timeoutId = setTimeout(() => controller.abort(), 5000);
+				const timeoutId = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
 
 				const response = await fetch("/api/health", {
 					method: "HEAD",
@@ -178,8 +186,18 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
 				}
 
 				let status: NetworkStatus = determineStatus(true, networkInfo);
-				if (responseTime > 2000) {
-					status = "slow";
+				if (responseTime > SLOW_THRESHOLD_MS) {
+					// Only mark slow after SLOW_CONFIRM_COUNT consecutive slow checks
+					consecutiveSlowRef.current += 1;
+					if (consecutiveSlowRef.current >= SLOW_CONFIRM_COUNT) {
+						status = "slow";
+					} else {
+						// First slow check – stay online, wait for next poll
+						status = "online";
+					}
+				} else {
+					// Fast response – reset consecutive counter
+					consecutiveSlowRef.current = 0;
 				}
 
 				setState((prev) => ({

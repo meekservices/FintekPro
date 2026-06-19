@@ -492,6 +492,33 @@ router.post("/preview", async (req: Request, res: Response) => {
 			keyPoints: (data as any).keyPoints ?? { pros: [], cons: [] },
 		});
 	} catch (err: any) {
+		// Detect when all AI providers are exhausted (rate-limited) — return 503
+		// with a retryAfter hint so the client can show a friendly "try again" message
+		// instead of a cryptic 500 error.
+		const isProviderExhaustion =
+			err?.message?.includes("All providers failed") ||
+			err?.message?.toLowerCase().includes("rate limit") ||
+			err?.message?.includes("429") ||
+			err?.message?.toLowerCase().includes("quota");
+
+		if (isProviderExhaustion) {
+			console.warn(
+				`[ResearchNote] AI provider exhaustion on /preview — returning 503 retryAfter`,
+			);
+			return res.status(503).json({
+				success: false,
+				error: "AI_PROVIDERS_BUSY",
+				message:
+					"All AI inference providers are currently rate-limited. Please retry in a few minutes.",
+				retryable: true,
+				retryAfter: 120, // seconds
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: "1.0",
+				},
+			});
+		}
+
 		res
 			.status(500)
 			.json({ error: err.message || "Failed to generate research data" });

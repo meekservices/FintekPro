@@ -148,6 +148,54 @@ export class AIService {
 	};
 	private COOL_DOWN_MS = 5 * 60 * 1000; // 5 minutes cool-down for 429s
 
+	/**
+	 * Per-provider concurrency limiter.
+	 * Caps simultaneous in-flight requests to prevent 429 flood storms.
+	 * When the cap is hit, callers await a slot instead of retrying.
+	 */
+	private readonly MAX_CONCURRENCY: Record<AIProvider, number> = {
+		gemini: 10, // Generous — large free quota
+		groq: 8, // Free tier TPM limit is generous but TPD is finite
+		cerebras: 5, // Free tier is narrow — cap tightly
+		cloudflare: 6,
+		anthropic: 4,
+		openai: 4,
+		"openai-direct": 4,
+	};
+	private readonly inflight: Map<AIProvider, number> = new Map();
+
+	private getInflight(p: AIProvider): number {
+		return this.inflight.get(p) ?? 0;
+	}
+
+	/**
+	 * Acquire a concurrency slot for `provider`. Waits (up to 12s in 200ms
+	 * increments) if the cap is already hit. Returns true when a slot was
+	 * acquired, false if we timed out.
+	 */
+	private async acquireSlot(
+		provider: AIProvider,
+	): Promise<boolean> {
+		const cap = this.MAX_CONCURRENCY[provider] ?? 8;
+		const deadline = Date.now() + 12_000;
+		while (this.getInflight(provider) >= cap) {
+			if (Date.now() > deadline) {
+				console.warn(
+					`[AIService] ⚠️ Concurrency cap (${cap}) hit for ${provider} — skipping after wait`,
+				);
+				return false;
+			}
+			await new Promise((r) => setTimeout(r, 200));
+		}
+		this.inflight.set(provider, this.getInflight(provider) + 1);
+		return true;
+	}
+
+	private releaseSlot(provider: AIProvider): void {
+		const n = this.getInflight(provider);
+		if (n > 0) this.inflight.set(provider, n - 1);
+	}
+
 	private isProviderHealthy(provider: AIProvider): boolean {
 		const status = this.providerStatus[provider];
 		if (status.healthy) return true;
@@ -263,37 +311,46 @@ export class AIService {
 
 		// Capability → best available model selection
 		if (capability === AICapability.SUPERIOR) {
-			// Best reasoning — prefer Groq (free), fall to Gemini (free)
-			if (groq) {
+			// Best reasoning — prefer Groq when healthy, Gemini as first fallback
+			if (groq && this.isProviderHealthy("groq")) {
 				initialProvider = "groq";
 				initialModel = "llama-3.3-70b-versatile";
-			} else {
+			} else if (gemini) {
 				initialProvider = "gemini";
 				initialModel = "gemini-2.5-flash";
+			} else {
+				initialProvider = "groq";
+				initialModel = "llama-3.3-70b-versatile";
 			}
 		} else if (capability === AICapability.OPTIMIZED) {
-			// Speed + bulk — llama instant on Groq
-			initialProvider = "groq";
-			initialModel = "llama-3.1-8b-instant";
+			// Speed + bulk — llama instant on Groq, Gemini lite as backup
+			if (groq && this.isProviderHealthy("groq")) {
+				initialProvider = "groq";
+				initialModel = "llama-3.1-8b-instant";
+			} else {
+				initialProvider = "gemini";
+				initialModel = "gemini-2.5-flash-lite";
+			}
 		} else if (capability === AICapability.STANDARD) {
-			// General use — Gemini 2.5 flash is best free option
+			// General use — Gemini 2.5 flash is best free option with no TPD cap
 			initialProvider = gemini ? "gemini" : "groq";
 			initialModel = gemini ? "gemini-2.5-flash" : "llama-3.3-70b-versatile";
 		}
 
-		// 8-step fallback chain — free providers only (OpenAI removed)
+		// Fallback chain — free providers ordered by daily quota headroom:
+		// Groq (100K TPD) → Gemini (no hard TPD cap) → Cerebras (narrow RPM)
 		// Providers without env vars are skipped silently (not as ERRORs)
 		const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
-			// Groq — free tier, fast
+			// Groq — free tier, fast, 100K TPD
 			{ provider: "groq", model: "llama-3.3-70b-versatile" },
 			{ provider: "groq", model: "qwen/qwen3-32b" },
 			{ provider: "groq", model: "llama-3.1-8b-instant" },
-			// Cerebras — free tier, world's fastest inference
-			{ provider: "cerebras", model: "gpt-oss-120b" },
-			{ provider: "cerebras", model: "zai-glm-4.7" },
-			// Gemini — primary free provider (GEMINI_API_KEY required)
+			// Gemini — large free quota, no daily token cap on Flash
 			{ provider: "gemini", model: "gemini-2.5-flash" },
 			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
+			// Cerebras — fast but narrow RPM; comes after Gemini to avoid floods
+			{ provider: "cerebras", model: "gpt-oss-120b" },
+			{ provider: "cerebras", model: "zai-glm-4.7" },
 			// Cloudflare Workers AI — free forever (only if configured)
 			{
 				provider: "cloudflare",
@@ -317,6 +374,10 @@ export class AIService {
 				console.log(`[AIService] Skipping unhealthy provider: ${provider}`);
 				continue;
 			}
+
+			// Acquire a concurrency slot (waits if provider is at cap)
+			const slotGranted = await this.acquireSlot(provider);
+			if (!slotGranted) continue; // skip this provider if timed out
 
 			let attempt = 0;
 			while (attempt <= MAX_RETRIES) {
@@ -397,8 +458,10 @@ export class AIService {
 						}
 					}
 
+					this.releaseSlot(provider);
 					return result;
 				} catch (error: any) {
+					if (attempt >= MAX_RETRIES) this.releaseSlot(provider);
 					lastError = error;
 					const status =
 						error.status ||
@@ -452,6 +515,7 @@ export class AIService {
 							`[AIService] ⚠️ Max retries reached for ${provider} after 429. Marking unhealthy.`,
 						);
 						this.markProviderUnhealthy(provider);
+						this.releaseSlot(provider);
 						break; // Move to next provider
 					}
 
@@ -459,6 +523,7 @@ export class AIService {
 						`[AIService] ${provider} failed (non-retryable or max retries):`,
 						error.message,
 					);
+					this.releaseSlot(provider);
 					break; // Move to next provider in chain
 				}
 			}
