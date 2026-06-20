@@ -421,6 +421,15 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 		const uniPortfolioRoutes = await import("./routes/uni-portfolio-routes");
 		app.use("/api/portfolio", uniPortfolioRoutes.uniPortfolioRouter);
 
+		// Portfolio Core (parts 1 + 2) — iris-fetch, external-holdings, smart-import,
+		// wealthy-import and all portfolio import/sync routes live here.
+		// NOTE: This must be mounted AFTER uni-portfolio-routes so the /unified/*
+		// specialised routes are matched first.
+		const unifiedPortfolioRoutes = await import(
+			"./routes/unified-portfolio-routes"
+		);
+		app.use("/api/portfolio", unifiedPortfolioRoutes.default);
+
 		// Client Portfolio API — Broker-Agnostic Unified Portfolio Gateway
 		// This is the ONLY endpoint the frontend should call for portfolio data.
 		// Never expose IRIS/Alpaca/IIFL-specific routes directly to the frontend.
