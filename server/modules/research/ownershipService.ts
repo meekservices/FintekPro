@@ -1036,26 +1036,49 @@ export async function fetchPeersAndAverage(
 
 	try {
 
-		const rows = await db.execute(sql`
-      SELECT
-        ls.symbol, ls.company_name, ls.current_price, ls.pe_ratio, ls.pb_ratio,
-        ls.market_cap_value,
-        COALESCE(sf.roe, NULLIF(ls.roe::numeric, 0) / 100) AS roe,
-        sf.roce, sf.debt_to_equity, sf.dividend_yield,
-        ls.analyst_rating, ls.number_of_analysts
-      FROM listed_stocks ls
-      LEFT JOIN screener_financials sf ON sf.symbol = ls.symbol
-      WHERE (
-        (${effectiveSector} IS NOT NULL AND ls.sector = ${effectiveSector})
-        OR (${effectiveSector} IS NULL AND ${effectiveIndustry} IS NOT NULL AND ls.industry = ${effectiveIndustry})
-      )
-        AND UPPER(ls.symbol) != ${cleanSym}
-        AND ls.is_active = true
-      ORDER BY ls.market_cap_value DESC NULLS LAST
-      LIMIT 8
-    `);
+		// Build the peer query — try sector first, fall back to industry if no rows
+		let rawRows: any[] = [];
 
-		const rawRows = (rows as any).rows ?? rows;
+		if (effectiveSector) {
+			const rows = await db.execute(sql`
+        SELECT
+          ls.symbol, ls.company_name, ls.current_price, ls.pe_ratio, ls.pb_ratio,
+          ls.market_cap_value,
+          COALESCE(sf.roe, NULLIF(ls.roe::numeric, 0) / 100) AS roe,
+          sf.roce, sf.debt_to_equity, sf.dividend_yield,
+          ls.analyst_rating, ls.number_of_analysts
+        FROM listed_stocks ls
+        LEFT JOIN screener_financials sf ON sf.symbol = ls.symbol
+        WHERE ls.sector = ${effectiveSector}
+          AND UPPER(ls.symbol) != ${cleanSym}
+          AND ls.is_active = true
+        ORDER BY ls.market_cap_value DESC NULLS LAST
+        LIMIT 8
+      `);
+			rawRows = (rows as any).rows ?? rows;
+		}
+
+		// Fallback: try industry if sector returned 0 results
+		if (rawRows.length === 0 && effectiveIndustry) {
+			const rows2 = await db.execute(sql`
+        SELECT
+          ls.symbol, ls.company_name, ls.current_price, ls.pe_ratio, ls.pb_ratio,
+          ls.market_cap_value,
+          COALESCE(sf.roe, NULLIF(ls.roe::numeric, 0) / 100) AS roe,
+          sf.roce, sf.debt_to_equity, sf.dividend_yield,
+          ls.analyst_rating, ls.number_of_analysts
+        FROM listed_stocks ls
+        LEFT JOIN screener_financials sf ON sf.symbol = ls.symbol
+        WHERE ls.industry = ${effectiveIndustry}
+          AND UPPER(ls.symbol) != ${cleanSym}
+          AND ls.is_active = true
+        ORDER BY ls.market_cap_value DESC NULLS LAST
+        LIMIT 8
+      `);
+			rawRows = (rows2 as any).rows ?? rows2;
+		}
+
+
 		const pf = (v: any) => {
 			const n = Number.parseFloat(v);
 			return Number.isNaN(n) ? null : n;
@@ -1128,7 +1151,7 @@ export async function fetchPeersAndAverage(
 			targetPE,
 			targetPB,
 		);
-		// Fetch ROCE and D/E averages from DB (not live-enriched, but acceptable for those fields)
+		// Fetch ROCE and D/E averages from DB using resolvedSector (sector or industry fallback)
 		try {
 			const res2 = await db.execute(sql`
         SELECT
@@ -1136,10 +1159,7 @@ export async function fetchPeersAndAverage(
           ROUND(AVG(CASE WHEN sf.debt_to_equity BETWEEN 0 AND 5 THEN sf.debt_to_equity END)::numeric, 2) AS avg_de
         FROM screener_financials sf
         INNER JOIN listed_stocks ls ON ls.symbol = sf.symbol
-        WHERE (
-          (${effectiveSector} IS NOT NULL AND ls.sector = ${effectiveSector})
-          OR (${effectiveSector} IS NULL AND ${effectiveIndustry} IS NOT NULL AND ls.industry = ${effectiveIndustry})
-        )
+        WHERE ls.sector = ${resolvedSector} OR ls.industry = ${resolvedSector}
       `);
 			const r1 = ((res2 as any).rows ?? res2)[0] as any;
 			if (r1) {
