@@ -765,10 +765,14 @@ export class StockStrategy extends BaseStrategy {
 	 *   Same FMP integration used by GlobalStockStrategy for US stocks.
 	 *   Only called during NSE trading window to preserve rate limits.
 	 *
-	 * Tier 2: Most recent row in `golden_prices` (updated by Pricing Engine @ 9 PM IST
+	 * Tier 2: Yahoo Finance v8/chart API — open, no key, works 24/7.
+	 *   Returns last traded price even after market close.
+	 *   FIXES: stocks showing 0.0% return after market hours (e.g. KAMAHOLD, NEPHROCARE).
+	 *
+	 * Tier 3: Most recent row in `golden_prices` (updated by Pricing Engine @ 9 PM IST
 	 *   and MoneyControl sync @ 9:05 PM) — freshest post-market close price.
 	 *
-	 * Tier 3: `listed_stocks.currentPrice` — updated by enrichment batch (last resort).
+	 * Tier 4: `listed_stocks.currentPrice` — updated by enrichment batch (last resort).
 	 *
 	 * @param instrumentId - UUID of the listed_stocks row.
 	 */
@@ -821,7 +825,42 @@ export class StockStrategy extends BaseStrategy {
 				}
 			}
 
-			// ── Tier 2: golden_prices — most recent row by date ─────────────────────
+			// ── Tier 2: Yahoo Finance v8/chart API (open endpoint, 24/7, no API key) ─
+			// ROOT FIX for 0.0% return bug: FMP is skipped outside market hours,
+			// so off-hours picks fell back to recoPrice (= 0% return).
+			// Yahoo v8/chart returns regularMarketPrice regardless of session time.
+			if (symbol) {
+				try {
+					const nseSymbol = `${symbol.toUpperCase()}.NS`;
+					const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(nseSymbol)}?interval=1d&range=1d`;
+					const resp = await fetch(yahooUrl, {
+						signal: AbortSignal.timeout(7000),
+						headers: {
+							"User-Agent": "Mozilla/5.0 (compatible; FintekPro/2.0)",
+							Accept: "application/json",
+						},
+					});
+					if (resp.ok) {
+						const data: any = await resp.json();
+						const meta = data?.chart?.result?.[0]?.meta;
+						// regularMarketPrice = last trade; previousClose = most recent session close
+						const price = meta?.regularMarketPrice ?? meta?.previousClose;
+						if (price != null && Number.isFinite(Number(price)) && Number(price) > 0) {
+							logger.info(`[StockStrategy.getLivePrice] Yahoo v8/chart OK for ${nseSymbol}: ₹${price}`);
+							// Write back so Tier 4 is pre-warmed for next run
+							db.update(listedStocks)
+								.set({ currentPrice: String(price) })
+								.where(eq(listedStocks.id, instrumentId))
+								.catch(() => {});
+							return Number(price);
+						}
+					}
+				} catch (err: any) {
+					logger.warn(`[StockStrategy.getLivePrice] Yahoo v8 failed for ${symbol}: ${err?.message || err}`);
+				}
+			}
+
+			// ── Tier 3: golden_prices — most recent row by date ─────────────────────
 			if (isin || symbol) {
 				const gpRow = await db
 					.select({ price: goldenPrices.price, priceDate: goldenPrices.priceDate })
@@ -840,7 +879,7 @@ export class StockStrategy extends BaseStrategy {
 				}
 			}
 
-			// ── Tier 3: listedStocks.currentPrice ───────────────────────────────────
+			// ── Tier 4: listedStocks.currentPrice ───────────────────────────────────
 			return fallbackPrice ? Number.parseFloat(fallbackPrice) : null;
 		} catch {
 			return null;
