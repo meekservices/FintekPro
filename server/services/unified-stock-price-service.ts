@@ -395,6 +395,44 @@ class UnifiedStockPriceService {
 	}
 
 	private async fetchFromYahoo(symbol: string): Promise<StockPrice | null> {
+		// Primary: Yahoo Finance v8/chart API (open endpoint — no crumb/cookie auth needed)
+		// Confirmed working from Cloud Run. The yahoo-finance2 npm quote() uses crumb-auth
+		// endpoints that are rate-limited (429) from GCP datacenter.
+		try {
+			const yahooSym = symbol.endsWith(".NS") || symbol.endsWith(".BO")
+				? symbol
+				: `${symbol}.NS`;
+			const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=1d&range=1d`;
+			const res = await fetch(url, {
+				headers: {
+					"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+				},
+				signal: AbortSignal.timeout(8_000),
+			});
+			if (res.ok) {
+				const body = (await res.json()) as any;
+				const meta = body?.chart?.result?.[0]?.meta;
+				if (meta?.regularMarketPrice && meta.regularMarketPrice > 0) {
+					const pf = (v: any): number | undefined => {
+						if (v == null) return undefined;
+						const n = typeof v === "number" ? v : Number.parseFloat(v);
+						return Number.isFinite(n) && n > 0 ? n : undefined;
+					};
+					console.log(`[StockPrice] Yahoo v8/chart OK for ${yahooSym} — ₹${meta.regularMarketPrice}`);
+					return {
+						symbol,
+						price: meta.regularMarketPrice,
+						previousClose: pf(meta.previousClose) ?? pf(meta.chartPreviousClose),
+						timestamp: Date.now(),
+						source: "YAHOO" as const,
+					};
+				}
+			}
+		} catch (error: any) {
+			console.warn(`[StockPrice] Yahoo v8/chart failed for ${symbol}: ${error.message?.slice(0, 80)}`);
+		}
+
+		// Secondary fallback: yahoo-finance2 npm library
 		try {
 			const yahooSymbol = `${symbol}.NS`;
 			const quote = await yahooFinance.quote(yahooSymbol);
@@ -415,7 +453,6 @@ class UnifiedStockPriceService {
 			}
 		} catch (error: any) {
 			if (this.isRateLimitError(error)) {
-				// Yahoo is confirmed rate-limited (429) from datacenter — 30-min cooldown
 				const health = this.providerHealth.get("yahoo") || {
 					consecutiveFailures: 0,
 					lastFailure: 0,
@@ -425,14 +462,10 @@ class UnifiedStockPriceService {
 				health.lastFailure = Date.now();
 				health.cooldownUntil = Date.now() + 30 * 60 * 1000;
 				this.providerHealth.set("yahoo", health);
-				console.warn(
-					`[StockPrice] Yahoo rate-limited (429) — 30-min cooldown applied`,
-				);
-				throw new Error("RATE_LIMITED:yahoo");
+				console.warn(`[StockPrice] Yahoo npm rate-limited (429) — 30-min cooldown`);
+			} else {
+				console.warn(`[StockPrice] Yahoo npm failed for ${symbol}: ${error.message?.slice(0, 80)}`);
 			}
-			console.warn(
-				`[StockPrice] Yahoo fetch failed for ${symbol}: ${error.message}`,
-			);
 		}
 		return null;
 	}
@@ -476,16 +509,11 @@ class UnifiedStockPriceService {
 	/**
 	 * Fetch from available sources with priority-based fallback.
 	 *
-	 * Confirmed working from datacenter:
+	 * Confirmed working from Cloud Run (asia-south1):
 	 *   1. NSE library   — exchange-direct, best data quality
-	 *   2. FMP           — optional, requires FMP_API_KEY
-	 *   3. Google Finance HTML — works for NSE and BSE stocks
-	 *
-	 * Last resort (rate-limited from datacenter):
-	 *   4. Yahoo Finance — 429 Too Many Requests; 30-min cooldown after first failure
-	 *
-	 * Removed:
-	 *   BSE API direct — 301-redirect blocked from datacenter
+	 *   2. Yahoo Finance v8/chart API — open endpoint, no auth required
+	 *   3. FMP           — optional, requires FMP_API_KEY
+	 *   4. Google Finance HTML — may be geo-blocked from datacenter
 	 */
 	private async fetchFromSource(
 		symbol: string,
@@ -504,7 +532,23 @@ class UnifiedStockPriceService {
 			this.recordFailure("nse");
 		}
 
-		// 2. FMP (optional, if API key configured)
+		// 2. Yahoo Finance v8/chart API (PRIMARY fallback — open endpoint, works from Cloud Run)
+		if (!this.isProviderCoolingDown("yahoo")) {
+			try {
+				const yahooPrice = await this.fetchFromYahoo(symbol);
+				if (yahooPrice) {
+					this.recordSuccess("yahoo");
+					return yahooPrice;
+				}
+				this.recordFailure("yahoo");
+			} catch (err: any) {
+				if (!String(err?.message).startsWith("RATE_LIMITED:")) {
+					this.recordFailure("yahoo");
+				}
+			}
+		}
+
+		// 3. FMP (optional, if API key configured)
 		if (!this.isProviderCoolingDown("fmp")) {
 			const fmpPrice = await this.fetchFromFMP(symbol);
 			if (fmpPrice) {
