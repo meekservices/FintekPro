@@ -282,13 +282,30 @@ async function buildReportData(
 		ageHours: null,
 	};
 
+	// Step 1b: Resolve sector from Screener data if DB returned null
+	// Screener returns sector/industry in _screenerData — use it to enable peer lookup
+	const screenerSector: string | null =
+		(financialsResult as any)._screenerData?.sector ??
+		(financialsResult as any)._screenerData?.industry ??
+		null;
+	const effectiveSector: string | null = sector ?? screenerSector;
+
+	// Persist sector back to DB if we just learned it from Screener (so future requests are fast)
+	if (!sector && screenerSector) {
+		db.execute(sql`
+			UPDATE listed_stocks
+			SET sector = ${screenerSector}, last_updated = NOW()
+			WHERE UPPER(symbol) = ${cleanSym} AND sector IS NULL
+		`).catch(() => {});
+	}
+
 	// Auto-persist: if this company wasn't in our DB, save it now so future queries are fast
 	if (resolvedExternally && financials.price !== null) {
 		persistNewListing({
 			symbol: cleanSym,
 			name: company.name,
 			exchange: company.exchange ?? "NSE",
-			sector: sector,
+			sector: effectiveSector,
 			price: financials.price,
 		}).catch(() => {});
 	}
@@ -297,7 +314,7 @@ async function buildReportData(
 	// Pass target stock's own ROE/PE/PB so sector average includes it
 	const [peersAndAvgResult, shareholdingResult] = await Promise.allSettled([
 		fetchPeersAndAverage(
-			sector,
+			effectiveSector,
 			nseSymbol,
 			financials.roe,
 			financials.pe,
@@ -411,7 +428,7 @@ async function buildReportData(
 		symbol: nseSymbol,
 		companyName: company.name,
 		exchange: company.exchange,
-		sector,
+		sector: effectiveSector,
 		industry,
 		broadSector,
 		financials,

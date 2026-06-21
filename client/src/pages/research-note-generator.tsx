@@ -2847,7 +2847,10 @@ export default function ResearchNoteGenerator() {
 										label: "Expansion & Strategic Initiatives",
 										text: d.commentary.expansionPlans,
 									},
-									{ label: "Investor Outlook", text: d.commentary.outlook },
+									{
+										label: "Investor Outlook",
+										text: d.commentary.outlook,
+									},
 								].map(({ label, text }) => (
 									<div key={label} className="flex items-start gap-3">
 										<ChevronRight className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
@@ -2863,91 +2866,69 @@ export default function ResearchNoteGenerator() {
 						</Card>
 					)}
 
-					{/* Same Sector Buy Picks from Peers */}
+					{/* Peer Companies with Buy/Sell/Hold Ratings */}
 					{d?.peers && d.peers.length > 0 && (
 						<Card>
 							<CardHeader className="pb-2">
 								<CardTitle className="text-sm flex items-center gap-2">
-									<TrendingUp className="h-4 w-4 text-green-600" />
-									BUY-Rated Peers in {d.sector || "Same Sector"}
+									<TrendingUp className="h-4 w-4 text-indigo-600" />
+									Peer Companies — BUY / HOLD / SELL Ratings ({d.sector || "Same Sector"})
 								</CardTitle>
 								<p className="text-[10px] text-muted-foreground">
-									Peer stocks scoring BUY or STRONG BUY based on ROE, P/E &amp;
-									P/B fundamentals
+									All sector peers scored by ROE, P/E, P/B. Sorted strongest to weakest.
 								</p>
 							</CardHeader>
 							<CardContent>
-								{scoredPeerPicks.length === 0 ? (
+								{scoredPeers.length === 0 ? (
 									<p className="text-sm text-muted-foreground py-2">
-										No peers currently meet the BUY criteria based on available
-										fundamental data.
+										No peer data available for this sector yet.
 									</p>
 								) : (
 									<div className="overflow-x-auto">
 										<table className="w-full text-sm">
 											<thead>
 												<tr className="border-b">
-													<th className="text-left py-2 pr-4 font-medium text-muted-foreground text-xs">
-														Company
-													</th>
-													<th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">
-														CMP
-													</th>
-													<th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">
-														P/E
-													</th>
-													<th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">
-														P/B
-													</th>
-													<th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">
-														ROE
-													</th>
-													<th className="text-right py-2 pl-2 font-medium text-muted-foreground text-xs">
-														Rating
-													</th>
+													<th className="text-left py-2 pr-4 font-medium text-muted-foreground text-xs">Company</th>
+													<th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">CMP</th>
+													<th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">P/E</th>
+													<th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">P/B</th>
+													<th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">ROE</th>
+													<th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Mkt Cap</th>
+													<th className="text-right py-2 pl-2 font-medium text-muted-foreground text-xs">Rating</th>
 												</tr>
 											</thead>
 											<tbody>
-												{scoredPeerPicks.map((pick) => (
+												{scoredPeers
+													.slice()
+													.sort((a, b) => b.score - a.score)
+													.map((peer) => (
 													<tr
-														key={pick.symbol}
+														key={peer.symbol}
 														className="border-b last:border-0 hover:bg-muted/30 transition-colors"
 													>
 														<td className="py-2 pr-4">
-															<div>
-																<p className="font-semibold text-xs">
-																	{pick.symbol}
-																</p>
-																<p className="text-[10px] text-muted-foreground leading-tight">
-																	{pick.name.length > 28
-																		? pick.name.slice(0, 28) + "…"
-																		: pick.name}
-																</p>
-															</div>
+															<p className="font-semibold text-xs">{peer.symbol}</p>
+															<p className="text-[10px] text-muted-foreground leading-tight">
+																{peer.name.length > 28 ? peer.name.slice(0, 28) + "\u2026" : peer.name}
+															</p>
 														</td>
 														<td className="text-right py-2 px-2 text-xs font-medium">
-															{pick.price
-																? `₹${Math.round(pick.price).toLocaleString("en-IN")}`
-																: "—"}
+															{peer.price ? `\u20b9${Math.round(peer.price).toLocaleString("en-IN")}` : "\u2014"}
 														</td>
-														<td className="text-right py-2 px-2 text-xs">
-															{pick.pe ? pick.pe.toFixed(1) : "—"}
+														<td className="text-right py-2 px-2 text-xs">{peer.pe ? peer.pe.toFixed(1) : "\u2014"}</td>
+														<td className="text-right py-2 px-2 text-xs">{peer.pb !== null ? peer.pb.toFixed(2) : "\u2014"}</td>
+														<td className={`text-right py-2 px-2 text-xs font-medium ${peer.roe !== null && peer.roe * 100 >= 15 ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
+															{peer.roe !== null ? `${(peer.roe * 100).toFixed(1)}%` : "\u2014"}
 														</td>
-														<td className="text-right py-2 px-2 text-xs">
-															{pick.pb !== null ? pick.pb.toFixed(2) : "—"}
-														</td>
-														<td
-															className={`text-right py-2 px-2 text-xs font-medium ${pick.roe !== null && pick.roe * 100 >= 15 ? "text-green-600 dark:text-green-400" : "text-foreground"}`}
-														>
-															{pick.roe !== null
-																? `${(pick.roe * 100).toFixed(1)}%`
-																: "—"}
-														</td>
+														<td className="text-right py-2 px-2 text-xs text-muted-foreground">{peer.marketCapFormatted}</td>
 														<td className="text-right py-2 pl-2">
-															<span
-																className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold text-white ${pick.recommendation === "STRONG BUY" ? "bg-green-600" : "bg-emerald-500"}`}
-															>
-																{pick.recommendation}
+															<span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold text-white ${
+																peer.recommendation === "STRONG BUY" ? "bg-green-600"
+																: peer.recommendation === "BUY" ? "bg-emerald-500"
+																: peer.recommendation === "HOLD" ? "bg-amber-500"
+																: "bg-red-500"
+															}`}>
+																{peer.recommendation}
 															</span>
 														</td>
 													</tr>
@@ -2956,6 +2937,9 @@ export default function ResearchNoteGenerator() {
 										</table>
 									</div>
 								)}
+								<p className="text-[10px] text-muted-foreground mt-3 border-t pt-2">
+									⚠️ AI-scored ratings based on ROE, P/E, P/B. Not SEBI-registered investment advice. Do your own research.
+								</p>
 							</CardContent>
 						</Card>
 					)}

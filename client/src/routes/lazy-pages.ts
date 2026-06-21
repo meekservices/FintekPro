@@ -1071,3 +1071,9 @@ export const LandingPage = lazyWithRetry(() => import("@/pages/landing"));
 export const PortfolioHoldings = lazyWithRetry(
 	() => import("@/pages/portfolio-holdings"),
 );
+
+// ─── KYC Vault Onboarding ─────────────────────────────────────────────────────
+export const KycOnboardingPage = lazyWithRetry(
+	() => import("@/pages/kyc-onboarding"),
+);
+

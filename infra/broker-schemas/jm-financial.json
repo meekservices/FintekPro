@@ -1,0 +1,58 @@
+{
+  "$schema": "https://fintekpro.in/schemas/broker-requirement-schema/v1",
+  "broker_id": "jm_financial",
+  "broker_name": "JM Financial Services",
+  "schema_version": "1.0",
+  "regulatory_regime": "SEBI",
+  "kra_reuse_eligible": true,
+  "last_reviewed": "2026-06-01",
+  "_comment": "IMPORTANT: JM Financial partner API docs are not publicly available. Field names in field_mapping are stubs. Update once JM Financial provides sandbox documentation or API spec. See implementation_plan.md Open Question 3.",
+  "segments": {
+    "equity": {
+      "required_fields": [
+        "full_legal_name",
+        "date_of_birth",
+        "pan_number",
+        "mobile_number",
+        "email",
+        "current_address",
+        "permanent_address",
+        "bank_account_number",
+        "ifsc_code",
+        "demat_account_linked",
+        "nominee_details",
+        "occupation",
+        "annual_income_band"
+      ],
+      "broker_unique_fields": [
+        "jm_account_type",
+        "jm_branch_code"
+      ],
+      "prefillable_from_kra": [
+        "full_legal_name",
+        "date_of_birth",
+        "pan_number",
+        "current_address",
+        "permanent_address",
+        "occupation"
+      ],
+      "freshness_windows_days": {
+        "address_proof": 90,
+        "bank_details": 180,
+        "pan_verification": 730
+      },
+      "field_mapping": {
+        "_comment": "Stub — update once JM Financial API documentation is received.",
+        "full_legal_name": "name",
+        "date_of_birth": "dob",
+        "pan_number": "pan",
+        "mobile_number": "mobile",
+        "email": "email",
+        "bank_account_number": "bankAccountNumber",
+        "ifsc_code": "ifsc",
+        "occupation": "occupation",
+        "annual_income_band": "incomeRange"
+      }
+    }
+  }
+}

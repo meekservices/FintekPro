@@ -13066,6 +13066,386 @@ interface ExternalFolio {
 	currentValue?: number;
 }
 
+// ─── LAS / LAMF Tab ───────────────────────────────────────────────────────────
+
+function LasTab() {
+	const { toast } = useToast();
+	const queryClient = useQueryClient();
+
+	// ── State ──────────────────────────────────────────────────────────────────
+	const [eligibilityPan, setEligibilityPan] = useState("");
+	const [eligibilityTrigger, setEligibilityTrigger] = useState<string | null>(null);
+	const [pledgeStep, setPledgeStep] = useState<"idle" | "eligibility" | "confirm" | "submitted">("idle");
+	const [selectedFolios, setSelectedFolios] = useState<string[]>([]);
+	const [loanAmount, setLoanAmount] = useState("");
+	const [activeSection, setActiveSection] = useState<"eligibility" | "pledges" | "loans">("eligibility");
+
+	// ── Queries ────────────────────────────────────────────────────────────────
+	const { data: eligibilityData, isLoading: eligLoading } = useQuery<any>({
+		queryKey: ["/api/iris/las/mf/eligibility", eligibilityTrigger],
+		queryFn: () => irisGet(`/api/iris/las/mf/eligibility/${eligibilityTrigger}`),
+		enabled: !!eligibilityTrigger,
+		retry: false,
+	});
+
+	const { data: pledgesData, isLoading: pledgesLoading } = useQuery<any>({
+		queryKey: ["/api/iris/las/pledges"],
+		queryFn: () => irisGet("/api/iris/las/pledges"),
+		retry: false,
+	});
+
+	const { data: loansData, isLoading: loansLoading } = useQuery<any>({
+		queryKey: ["/api/iris/las/loans"],
+		queryFn: () => irisGet("/api/iris/las/loans"),
+		retry: false,
+	});
+
+	// ── Mutations ──────────────────────────────────────────────────────────────
+	const initiatePledge = useMutation({
+		mutationFn: async (body: Record<string, unknown>) => {
+			const res = await fetch("/api/iris/las/mf/pledge", {
+				method: "POST",
+				credentials: "include",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+			const json = await res.json();
+			if (!json.success) throw new Error(json.error?.message ?? "Pledge failed");
+			return json.data;
+		},
+		onSuccess: (data) => {
+			toast({ title: "Pledge initiated", description: `Local Pledge ID: ${data?.localPledgeId ?? "—"}. Investor will be notified to approve via TPIN.` });
+			setPledgeStep("submitted");
+			queryClient.invalidateQueries({ queryKey: ["/api/iris/las/pledges"] });
+		},
+		onError: (err: Error) => {
+			toast({ title: "Pledge failed", description: err.message, variant: "destructive" });
+		},
+	});
+
+	const eligibility = eligibilityData?.data;
+	const eligibleFolios: any[] = eligibility?.eligibleFolios ?? [];
+	const pledges: any[] = Array.isArray(pledgesData?.data) ? pledgesData.data : pledgesData?.data?.pledges ?? [];
+	const loans: any[] = Array.isArray(loansData?.data) ? loansData.data : loansData?.data?.loans ?? [];
+
+	const maxLoan = eligibleFolios
+		.filter((f) => selectedFolios.includes(f.folioNo))
+		.reduce((sum, f) => sum + (f.maxLoanAmount ?? 0), 0);
+
+	return (
+		<div className="space-y-6">
+			{/* Disclaimer Banner */}
+			<div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 flex gap-3">
+				<AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+				<div className="text-sm text-amber-800 dark:text-amber-200">
+					<strong>SEBI Advisory Disclosure:</strong> Loan Against Securities / Mutual Funds
+					involves pledging investor assets as collateral. Interest rates, LTV ratios, and
+					eligibility are determined by IRIS-integrated lenders. This tool is a{" "}
+					<strong>Decision Support System only</strong> — loan applications require explicit
+					investor consent. Market volatility may affect collateral value and trigger margin calls.
+				</div>
+			</div>
+
+			{/* Section Nav */}
+			<div className="flex gap-2 border-b pb-2">
+				{(["eligibility", "pledges", "loans"] as const).map((s) => (
+					<Button
+						key={s}
+						size="sm"
+						variant={activeSection === s ? "default" : "ghost"}
+						onClick={() => setActiveSection(s)}
+						className="capitalize"
+					>
+						{s === "eligibility" && <Calculator className="h-4 w-4 mr-1" />}
+						{s === "pledges" && <Link2 className="h-4 w-4 mr-1" />}
+						{s === "loans" && <Banknote className="h-4 w-4 mr-1" />}
+						{s}
+					</Button>
+				))}
+			</div>
+
+			{/* ── Eligibility Section ─────────────────────────────────────────── */}
+			{activeSection === "eligibility" && (
+				<div className="space-y-4">
+					<Card>
+						<CardHeader>
+							<CardTitle className="text-base flex items-center gap-2">
+								<Calculator className="h-4 w-4 text-primary" />
+								MF Folio Eligibility Check
+							</CardTitle>
+							<CardDescription>
+								Check which mutual fund folios are eligible for Loan Against Mutual Funds (LAMF).
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<div className="flex gap-2">
+								<Input
+									placeholder="Investor PAN (e.g. ABCDE1234F)"
+									value={eligibilityPan}
+									onChange={(e) => setEligibilityPan(e.target.value.toUpperCase())}
+									className="uppercase font-mono"
+									maxLength={10}
+								/>
+								<Button
+									onClick={() => { setEligibilityTrigger(eligibilityPan); setPledgeStep("eligibility"); setSelectedFolios([]); }}
+									disabled={eligibilityPan.length !== 10 || eligLoading}
+								>
+									{eligLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check Eligibility"}
+								</Button>
+							</div>
+
+							{eligLoading && <Skeleton className="h-32 w-full" />}
+
+							{eligibility && !eligLoading && (
+								<>
+									{/* Summary Row */}
+									<div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+										<div className="rounded-lg bg-muted/50 p-3 border text-center">
+											<p className="text-xs text-muted-foreground">Eligible Folios</p>
+											<p className="text-xl font-bold">{eligibleFolios.length}</p>
+										</div>
+										<div className="rounded-lg bg-muted/50 p-3 border text-center">
+											<p className="text-xs text-muted-foreground">Total Pledgeable Value</p>
+											<p className="text-xl font-bold">{fmt(eligibility.totalPledgeableValue)}</p>
+										</div>
+										<div className="rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 p-3 text-center">
+											<p className="text-xs text-muted-foreground">Max Loan Available</p>
+											<p className="text-xl font-bold text-green-700 dark:text-green-400">{fmt(eligibility.totalMaxLoanAmount)}</p>
+										</div>
+									</div>
+
+									{eligibility.warning && (
+										<div className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/20 p-3 rounded border border-amber-200">
+											{eligibility.warning}
+										</div>
+									)}
+
+									{/* Folio Table with Selection */}
+									{eligibleFolios.length > 0 && (
+										<>
+											<p className="text-sm font-medium">Select folios to pledge:</p>
+											<ScrollArea className="h-48 border rounded-lg">
+												<table className="w-full text-sm">
+													<thead className="sticky top-0 bg-background border-b">
+														<tr>
+															<th className="p-2 text-left w-8">✓</th>
+															<th className="p-2 text-left">Scheme</th>
+															<th className="p-2 text-right">Units</th>
+															<th className="p-2 text-right">Mkt Value</th>
+															<th className="p-2 text-right">Max Loan</th>
+															<th className="p-2 text-center">LTV</th>
+														</tr>
+													</thead>
+													<tbody>
+														{eligibleFolios.map((f: any, i) => (
+															<tr key={i} className="border-b hover:bg-muted/40">
+																<td className="p-2">
+																	<Checkbox
+																		checked={selectedFolios.includes(f.folioNo)}
+																		onCheckedChange={(v) =>
+																			setSelectedFolios((prev) =>
+																				v ? [...prev, f.folioNo] : prev.filter((x) => x !== f.folioNo)
+																			)
+																		}
+																	/>
+																</td>
+																<td className="p-2">
+																	<p className="font-medium truncate max-w-[160px]">{f.schemeName ?? "—"}</p>
+																	<p className="text-xs text-muted-foreground font-mono">{f.folioNo}</p>
+																</td>
+																<td className="p-2 text-right font-mono text-xs">{f.units?.toFixed(3)}</td>
+																<td className="p-2 text-right">{fmt(f.marketValue)}</td>
+																<td className="p-2 text-right text-green-600 font-medium">{fmt(f.maxLoanAmount)}</td>
+																<td className="p-2 text-center">
+																	<Badge variant="outline">{((f.ltvRatio ?? 0) * 100).toFixed(0)}%</Badge>
+																</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											</ScrollArea>
+
+											{/* Pledge Initiation */}
+											{selectedFolios.length > 0 && (
+												<Card className="border-primary/30 bg-primary/5">
+													<CardContent className="pt-4 space-y-3">
+														<div className="flex items-center justify-between">
+															<span className="text-sm font-medium">Max loan for selected folios:</span>
+															<span className="text-lg font-bold text-green-600">{fmt(maxLoan)}</span>
+														</div>
+														<div className="flex gap-2 items-center">
+															<Input
+																type="number"
+																placeholder={`Enter amount (max ${fmt(maxLoan)})`}
+																value={loanAmount}
+																onChange={(e) => setLoanAmount(e.target.value)}
+																className="flex-1"
+															/>
+															<Button
+																disabled={!loanAmount || Number(loanAmount) > maxLoan || initiatePledge.isPending}
+																onClick={() => {
+																	if (pledgeStep === "confirm") {
+																		const folioDetails = eligibleFolios
+																			.filter((f) => selectedFolios.includes(f.folioNo))
+																			.map((f) => ({ folioNo: f.folioNo, schemeCode: f.schemeCode, units: f.units }));
+																		initiatePledge.mutate({
+																			pan: eligibilityPan,
+																			folioDetails,
+																			loanAmount: Number(loanAmount),
+																		});
+																	} else {
+																		setPledgeStep("confirm");
+																	}
+																}}
+																variant={pledgeStep === "confirm" ? "destructive" : "default"}
+															>
+																{initiatePledge.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : pledgeStep === "confirm" ? "Confirm & Initiate Pledge" : "Initiate Pledge"}
+															</Button>
+														</div>
+														{pledgeStep === "confirm" && (
+															<p className="text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 rounded border border-amber-200">
+																⚠️ Clicking "Confirm" will pledge the selected MF folios. The investor will receive an OTP/TPIN confirmation request from the lender to complete the pledge.
+															</p>
+														)}
+														{pledgeStep === "submitted" && (
+															<div className="flex items-center gap-2 text-green-600 text-sm">
+																<CheckCircle2 className="h-4 w-4" /> Pledge initiated! Investor must confirm via lender portal.
+															</div>
+														)}
+													</CardContent>
+												</Card>
+											)}
+										</>
+									)}
+
+									{eligibleFolios.length === 0 && (
+										<div className="text-sm text-muted-foreground p-4 text-center border rounded-lg">
+											No eligible MF folios found for this PAN. ELSS and lock-in schemes are excluded.
+										</div>
+									)}
+								</>
+							)}
+						</CardContent>
+					</Card>
+				</div>
+			)}
+
+			{/* ── Active Pledges ──────────────────────────────────────────────── */}
+			{activeSection === "pledges" && (
+				<Card>
+					<CardHeader>
+						<CardTitle className="text-base flex items-center gap-2">
+							<Link2 className="h-4 w-4 text-primary" /> Active Pledges
+						</CardTitle>
+						<CardDescription>Pledge records for all clients — click refresh to sync status from IRIS.</CardDescription>
+					</CardHeader>
+					<CardContent>
+						{pledgesLoading ? (
+							<div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
+						) : pledges.length > 0 ? (
+							<ScrollArea className="h-80">
+								<table className="w-full text-sm">
+									<thead className="sticky top-0 bg-background border-b">
+										<tr>
+											<th className="p-2 text-left">PAN</th>
+											<th className="p-2 text-left">Type</th>
+											<th className="p-2 text-left">Status</th>
+											<th className="p-2 text-right">Pledged Value</th>
+											<th className="p-2 text-right">Max Loan</th>
+											<th className="p-2 text-left">Created</th>
+										</tr>
+									</thead>
+									<tbody>
+										{pledges.map((p: any, i) => (
+											<tr key={i} className="border-b hover:bg-muted/40">
+												<td className="p-2 font-mono text-xs">{p.pan ? `${p.pan.slice(0, 5)}*****` : "—"}</td>
+												<td className="p-2 capitalize">{p.pledgeType?.replace(/_/g, " ") ?? "—"}</td>
+												<td className="p-2">
+													<Badge variant={statusVariant(p.pledgeStatus)}>{p.pledgeStatus ?? "—"}</Badge>
+												</td>
+												<td className="p-2 text-right">{fmt(Number(p.totalPledgedValue))}</td>
+												<td className="p-2 text-right text-green-600">{fmt(Number(p.maxLoanEligible))}</td>
+												<td className="p-2 text-xs text-muted-foreground">
+													{p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-IN") : "—"}
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</ScrollArea>
+						) : (
+							<div className="h-32 flex items-center justify-center text-sm text-muted-foreground">
+								No pledges found. Use the Eligibility tab to initiate a new pledge.
+							</div>
+						)}
+					</CardContent>
+				</Card>
+			)}
+
+			{/* ── Active Loans ────────────────────────────────────────────────── */}
+			{activeSection === "loans" && (
+				<Card>
+					<CardHeader>
+						<CardTitle className="text-base flex items-center gap-2">
+							<Banknote className="h-4 w-4 text-primary" /> Active Loans
+						</CardTitle>
+						<CardDescription>LAS / LAMF loans across all clients.</CardDescription>
+					</CardHeader>
+					<CardContent>
+						{loansLoading ? (
+							<div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
+						) : loans.length > 0 ? (
+							<ScrollArea className="h-80">
+								<table className="w-full text-sm">
+									<thead className="sticky top-0 bg-background border-b">
+										<tr>
+											<th className="p-2 text-left">PAN</th>
+											<th className="p-2 text-left">Loan Type</th>
+											<th className="p-2 text-left">Status</th>
+											<th className="p-2 text-right">Sanctioned</th>
+											<th className="p-2 text-right">Outstanding</th>
+											<th className="p-2 text-center">Rate</th>
+											<th className="p-2 text-left">Applied</th>
+										</tr>
+									</thead>
+									<tbody>
+										{loans.map((l: any, i) => (
+											<tr key={i} className="border-b hover:bg-muted/40">
+												<td className="p-2 font-mono text-xs">{l.pan ? `${l.pan.slice(0, 5)}*****` : "—"}</td>
+												<td className="p-2 capitalize text-xs">{l.loanType?.replace(/_/g, " ") ?? "—"}</td>
+												<td className="p-2">
+													<Badge variant={statusVariant(l.loanStatus)}>{l.loanStatus ?? "—"}</Badge>
+												</td>
+												<td className="p-2 text-right">{fmt(Number(l.sanctionedAmount))}</td>
+												<td className="p-2 text-right text-amber-600">{fmt(Number(l.outstandingAmount))}</td>
+												<td className="p-2 text-center text-xs">{l.interestRate ? `${l.interestRate}%` : "—"}</td>
+												<td className="p-2 text-xs text-muted-foreground">
+													{l.createdAt ? new Date(l.createdAt).toLocaleDateString("en-IN") : "—"}
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</ScrollArea>
+						) : (
+							<div className="h-32 flex items-center justify-center text-sm text-muted-foreground">
+								No active loans found.
+							</div>
+						)}
+					</CardContent>
+				</Card>
+			)}
+
+			{/* Footer compliance note */}
+			<p className="text-xs text-muted-foreground text-center pb-2">
+				All LAS/LAMF operations are powered by IRIS KFintech APIs and are subject to SEBI regulations.
+				Loan applications require explicit investor consent and CA/RIA approval where applicable.
+				This system does not autonomously execute loan disbursements.
+			</p>
+		</div>
+	);
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AgentIrisHub() {
 	const [otpDialogOpen, setOtpDialogOpen] = useState(false);
@@ -13110,6 +13490,10 @@ export default function AgentIrisHub() {
 					<TabsTrigger value="dashboard">
 						<BarChart3 className="h-4 w-4 mr-1 inline" />
 						Dashboard
+					</TabsTrigger>
+					<TabsTrigger value="las">
+						<Banknote className="h-4 w-4 mr-1 inline" />
+						LAS / LAMF
 					</TabsTrigger>
 					<TabsTrigger value="onboarding">
 						<UserPlus className="h-4 w-4 mr-1 inline" />
@@ -13177,6 +13561,9 @@ export default function AgentIrisHub() {
 
 				<TabsContent value="dashboard" className="mt-4">
 					<DashboardTab />
+				</TabsContent>
+				<TabsContent value="las" className="mt-4">
+					<LasTab />
 				</TabsContent>
 				<TabsContent value="onboarding" className="mt-4">
 					<OnboardingTab />

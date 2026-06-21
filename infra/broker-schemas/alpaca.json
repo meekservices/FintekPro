@@ -1,0 +1,95 @@
+{
+  "$schema": "https://fintekpro.in/schemas/broker-requirement-schema/v1",
+  "broker_id": "alpaca",
+  "broker_name": "Alpaca Broker API",
+  "schema_version": "1.0",
+  "regulatory_regime": "US_FINRA",
+  "kra_reuse_eligible": false,
+  "_compliance_note": "Alpaca operates outside SEBI's KRA regime. KRA-verified data (PAN, CKYC KIN, India address from Aadhaar) CANNOT be auto-asserted as meeting US KYC/AML standards. Only genuinely reusable identity/contact fields are prefillable. SSN/ITIN, tax forms, and suitability disclosures are ALWAYS required delta — never inferred from KRA data.",
+  "last_reviewed": "2026-06-01",
+  "api_reference": "https://docs.alpaca.markets/reference/broker-api",
+  "segments": {
+    "us_equities": {
+      "required_fields": [
+        "full_legal_name",
+        "date_of_birth",
+        "email",
+        "mobile_number",
+        "current_address",
+        "ssn_or_itin",
+        "tax_residency_countries",
+        "us_person_status",
+        "employment_status",
+        "annual_income_band",
+        "net_worth_band",
+        "investment_objective",
+        "risk_profile_category",
+        "broker_dealer_affiliation_disclosure",
+        "photo_document_ref",
+        "w8_ben_or_w9_document_ref",
+        "fatca_crs_classification"
+      ],
+      "prefillable_from_vault": [
+        "full_legal_name",
+        "date_of_birth",
+        "email",
+        "mobile_number",
+        "current_address"
+      ],
+      "always_required_delta": [
+        "ssn_or_itin",
+        "us_person_status",
+        "w8_ben_or_w9_document_ref",
+        "fatca_crs_classification",
+        "employment_status",
+        "broker_dealer_affiliation_disclosure",
+        "tax_residency_countries"
+      ],
+      "not_applicable_from_india_kra": [
+        "pan_number",
+        "aadhaar_last4",
+        "ckyc_kin",
+        "bank_account_number",
+        "ifsc_code",
+        "demat_account_linked",
+        "segment_activations",
+        "ipv_status"
+      ],
+      "freshness_windows_days": {
+        "photo_document": 365,
+        "w8_ben_w9": 365,
+        "address_proof": 90
+      },
+      "field_mapping": {
+        "full_legal_name": {
+          "given_name": "first_name_portion",
+          "family_name": "last_name_portion"
+        },
+        "date_of_birth": "identity.date_of_birth",
+        "email": "contact.email_address",
+        "mobile_number": "contact.phone_number",
+        "current_address": {
+          "street_address": "contact.street_address",
+          "city": "contact.city",
+          "state": "contact.state",
+          "postal_code": "contact.postal_code",
+          "country": "contact.country"
+        },
+        "ssn_or_itin": "identity.tax_id",
+        "us_person_status": "identity.country_of_tax_residence",
+        "annual_income_band": {
+          "annual_income_min": "identity.annual_income_min",
+          "annual_income_max": "identity.annual_income_max"
+        },
+        "net_worth_band": {
+          "liquid_net_worth_min": "identity.liquid_net_worth_min",
+          "liquid_net_worth_max": "identity.liquid_net_worth_max"
+        },
+        "investment_objective": "account.investment_objective",
+        "risk_profile_category": "account.risk_tolerance",
+        "broker_dealer_affiliation_disclosure": "disclosures.is_affiliated_exchange_or_finra",
+        "employment_status": "identity.employment_type"
+      }
+    }
+  }
+}

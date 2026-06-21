@@ -37,6 +37,7 @@ import { registerKycV2ExtensionRoutes } from "./routes/kyc/v2-extensions";
 import { registerOrderRoutes } from "./order-routes";
 import { taxRoutes } from "./tax-routes";
 import { registerKYCVaultRoutes } from "./kyc-vault-routes";
+import { orchestratorRouter } from "./routes/orchestrator-routes";
 import { registerAppointmentManagementRoutes } from "./routes/appointment-management-routes";
 import { setupChatRoutes } from "./routes/chat-routes";
 import complianceRoutes from "./compliance-routes";
@@ -56,6 +57,7 @@ import adminMutualFundsRouter from "./routes/admin-mutual-funds-routes";
 import adminESignRouter from "./routes/admin-esign-routes";
 import adminAadhaarRouter from "./routes/admin-aadhaar-routes";
 import adminDsaLoanRouter from "./routes/admin-dsa-loan-routes";
+import agentLoanRouter from "./routes/agent-loan-routes";
 import adminApiUsageRouter from "./routes/admin-api-usage-routes";
 import { registerAdminComplianceTestRoutes } from "./routes/admin-compliance-test-routes";
 import adminAgentPayoutRouter from "./routes/admin-agent-payout-routes";
@@ -94,6 +96,7 @@ import { registerUserManagementRoutes } from "./user-management-routes";
 import { registerStakeholderRoutes } from "./stakeholder-routes";
 import { registerSystemAdminRoutes } from "./routes/system-admin";
 import { registerIrisKfintechRoutes } from "./routes/iris-kfintech-routes";
+import { registerIrisLasRoutes } from "./routes/iris-las-routes";
 import { registerComplianceGateRoutes } from "./routes/compliance-gate-routes";
 import { registerCrmRoutes } from "./routes/crm";
 import { registerLoanRoutes } from "./routes/loans/index";
@@ -240,7 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 			return apiResponse.success(res, maskedResults);
 		} catch (error) {
-			console.error("User search error:", error);
+			logger.error("User search error:", error as Error);
 			return apiResponse.serverError(res);
 		}
 	});
@@ -267,7 +270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 				uptime: process.uptime(),
 			});
 		} catch (error) {
-			console.error("Admin stats error:", error);
+			logger.error("Admin stats error:", error as Error);
 			return apiResponse.serverError(res);
 		}
 	});
@@ -308,6 +311,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	registerOrderRoutes(app);
 	app.use("/api/tax", taxRoutes);
 	registerKYCVaultRoutes(app);
+	// KYC Broker Orchestrator — diff, submit, status
+	app.use("/api/orchestrator", orchestratorRouter);
 
 	// Chat routes setup
 	const chatRouter = Router();
@@ -346,6 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use(adminESignRouter);
 	app.use(adminAadhaarRouter);
 	app.use("/api/admin/dsa-loans", adminDsaLoanRouter);
+	app.use("/api/agent/loans", agentLoanRouter); // Agent DSA loan referral + IRIS LAS intercept
 	app.use(adminApiUsageRouter);
 	registerAdminComplianceTestRoutes(app);
 
@@ -382,6 +388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	registerStakeholderRoutes(app); // /api/admin/stakeholders
 	registerSystemAdminRoutes(app); // /api/admin/system/* routes
 	registerIrisKfintechRoutes(app); // /api/iris/* KFintech integration
+	registerIrisLasRoutes(app);       // /api/iris/las/* LAS/LAMF pledge-and-lend lifecycle
 	registerComplianceGateRoutes(app); // GET /api/compliance/transaction-readiness
 	registerCrmRoutes(app); // /api/crm/* client relationship management
 	registerLoanRoutes(app); // /api/loans/* loan marketplace
@@ -449,7 +456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 			return apiResponse.success(res, { success: true });
 		} catch (error) {
-			console.error("Profile sharing toggle error:", error);
+			logger.error("Profile sharing toggle error:", error as Error);
 			return apiResponse.serverError(res);
 		}
 	});

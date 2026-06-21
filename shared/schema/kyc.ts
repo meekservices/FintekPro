@@ -516,6 +516,63 @@ export const kycVault = pgTable("kyc_vault", {
   kycExpiryDate: timestamp("kyc_expiry_date"),
   kycNextRenewalDate: timestamp("kyc_next_renewal_date"),
   isExpired: boolean("is_expired").default(false),
+
+  // ─── Per-field provenance sidecar (JSONB keyed by field name) ────────────
+  // Each entry: { source, verified_at, verification_method, confidence_score,
+  //               expiry_date, last_synced_at }
+  // source values: "iris_kra" | "broker:{id}" | "user_entered"
+  provenanceMetadata: jsonb("provenance_metadata").default({}),
+
+  // ─── Identity / contact enrichment ───────────────────────────────────────
+  nationality: varchar("nationality"),
+  citizenshipStatus: varchar("citizenship_status"),
+  // Tax residency: array of ISO country codes (needed for India + US)
+  taxResidencyCountries: text("tax_residency_countries").array().default(sql`'{}'::text[]`),
+  permanentAddressEncrypted: text("permanent_address_encrypted"),
+  addressProofType: varchar("address_proof_type"),
+  addressProofDocumentRef: varchar("address_proof_document_ref"),
+  addressVerificationMethod: varchar("address_verification_method"),
+  photoDocumentRef: varchar("photo_document_ref"),
+  signatureDocumentRef: varchar("signature_document_ref"),
+  govtIdType: varchar("govt_id_type"),
+  govtIdDocumentRef: varchar("govt_id_document_ref"),
+  govtIdExpiry: timestamp("govt_id_expiry"),
+  mobileVerifiedAt: timestamp("mobile_verified_at"),
+  emailVerifiedAt: timestamp("email_verified_at"),
+  // IPV = In-Person Verification status (SEBI requirement)
+  ipvStatus: varchar("ipv_status").default("not_required"),
+
+  // ─── Financial profile ────────────────────────────────────────────────────
+  occupation: varchar("occupation"),
+  annualIncomeBand: varchar("annual_income_band"),
+  sourceOfFunds: varchar("source_of_funds"),
+  employerName: varchar("employer_name"),
+  netWorthBand: varchar("net_worth_band"),
+  tradingExperienceYears: integer("trading_experience_years"),
+  riskProfileCategory: varchar("risk_profile_category"),
+  investmentObjective: varchar("investment_objective"),
+
+  // ─── India/SEBI-specific additions ───────────────────────────────────────
+  // Encrypted at rest — never log in plaintext
+  encryptedBankAccountNumber: text("encrypted_bank_account_number"),
+  encryptedIfscCode: text("encrypted_ifsc_code"),
+  dematAccountLinked: boolean("demat_account_linked").default(false),
+  nomineeDetails: jsonb("nominee_details"),
+  // Per-broker segment activations: { iifl: ["equity","fo"], jm: ["equity"] }
+  segmentActivations: jsonb("segment_activations").default({}),
+  digitalSignatureConsentRef: varchar("digital_signature_consent_ref"),
+  pepStatus: boolean("pep_status").default(false),
+
+  // ─── US/Alpaca-specific (all PII encrypted, NEVER logged in plaintext) ───
+  // Full SSN/ITIN — AES-256-GCM encrypted, key from KMS. Never returned via API.
+  encryptedSsnOrItin: text("encrypted_ssn_or_itin"),
+  // Last 4 only, used as display hint — still encrypted
+  encryptedSsnLast4: text("encrypted_ssn_last_4"),
+  usPersonStatus: varchar("us_person_status"),  // "us_citizen"|"us_resident"|"non_us"
+  w8BenOrW9DocumentRef: varchar("w8_ben_or_w9_document_ref"),
+  fatcaCrsClassification: varchar("fatca_crs_classification"),
+  usEmploymentStatus: varchar("us_employment_status"),
+  brokerDealerAffiliationDisclosure: boolean("broker_dealer_affiliation_disclosure"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -585,6 +642,51 @@ export const kycReuseTokens = pgTable("kyc_reuse_tokens", {
   issuedAt: timestamp("issued_at").defaultNow(),
   expiresAt: timestamp("expires_at").notNull(),
 });
+
+// ─── Broker Submissions ──────────────────────────────────────────────────────
+// Append-only idempotency store for all broker adapter submissions.
+// idempotency_key = sha256(user_id + broker_id + payload_version)
+// Ensures safe retry: if key exists and status is submitted/approved,
+// return cached response — no duplicate KYC creation call fired.
+export const brokerSubmissions = pgTable("broker_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  brokerId: varchar("broker_id").notNull(),      // "iifl" | "jm_financial" | "alpaca"
+  segment: varchar("segment"),                    // "equity" | "fo" | "commodity" | null
+  // Idempotency key: sha256(userId + brokerId + payloadVersion)
+  idempotencyKey: varchar("idempotency_key").notNull().unique(),
+  payloadVersion: varchar("payload_version").notNull().default("1"),
+  status: varchar("status").notNull().default("pending"),
+  // "pending" | "submitted" | "approved" | "rejected" | "error" | "duplicate_skipped"
+  brokerClientId: varchar("broker_client_id"),    // ID assigned by broker on success
+  // Reference to raw response stored in object storage (never inline in DB)
+  rawResponseRef: varchar("raw_response_ref"),
+  // Fields written back from broker (mapToCanonical result), e.g. bank verification
+  canonicalWriteBack: jsonb("canonical_write_back"),
+  errorCode: varchar("error_code"),
+  errorMessage: text("error_message"),
+  retryCount: integer("retry_count").default(0),
+  lastRetryAt: timestamp("last_retry_at"),
+  submittedAt: timestamp("submitted_at"),
+  resolvedAt: timestamp("resolved_at"),
+  // Audit fields
+  source: varchar("source").notNull().default("api"),  // "api" | "system" | "cron"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_broker_submissions_user").on(table.userId),
+  index("idx_broker_submissions_broker").on(table.brokerId),
+  index("idx_broker_submissions_idempotency").on(table.idempotencyKey),
+  index("idx_broker_submissions_status").on(table.status),
+]);
+
+export const insertBrokerSubmissionSchema = createInsertSchema(brokerSubmissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type BrokerSubmission = typeof brokerSubmissions.$inferSelect;
+export type InsertBrokerSubmission = z.infer<typeof insertBrokerSubmissionSchema>;
 
 // CKYC Notification Triggers
 export const ckycNotificationTriggers = pgTable("ckyc_notification_triggers", {

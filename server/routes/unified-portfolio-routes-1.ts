@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { logger } from "../logger";
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { db } from "../db";
@@ -138,7 +139,7 @@ router.get(
 						totalExternalValue += currentValue;
 					}
 				} catch (e) {
-					console.log(
+					logger.info(
 						"[UnifiedPortfolio] External holdings table may not exist, skipping",
 					);
 				}
@@ -157,7 +158,7 @@ router.get(
 				},
 			});
 		} catch (error: any) {
-			console.error("[UnifiedPortfolio] Error:", error);
+			logger.error("[UnifiedPortfolio] Error:", error);
 			res.status(500).json({ error: error.message });
 		}
 	},
@@ -206,7 +207,7 @@ router.get(
 				count: formattedHoldings.length,
 			});
 		} catch (error: any) {
-			console.error("[ExternalHoldings] Error:", error);
+			logger.error("[ExternalHoldings] Error:", error);
 			res.status(500).json({ error: error.message });
 		}
 	},
@@ -298,7 +299,7 @@ router.post(
 
 					syncedHoldings.push(synced);
 				} catch (e) {
-					console.error(
+					logger.error(
 						"[ExternalHoldings] Error syncing holding:",
 						holding.symbol,
 						e,
@@ -312,7 +313,7 @@ router.post(
 				holdings: syncedHoldings,
 			});
 		} catch (error: any) {
-			console.error("[ExternalHoldings] Sync error:", error);
+			logger.error("[ExternalHoldings] Sync error:", error);
 			if (error instanceof z.ZodError) {
 				return res
 					.status(400)
@@ -408,7 +409,7 @@ router.get(
 						.limit(500);
 				}
 			} catch (e) {
-				console.error("[AgentExternalHoldings] Query error:", e);
+				logger.error("[AgentExternalHoldings] Query error:", e);
 				holdings = [];
 			}
 
@@ -445,7 +446,7 @@ router.get(
 				count: formattedHoldings.length,
 			});
 		} catch (error: any) {
-			console.error("[AgentExternalHoldings] Error:", error);
+			logger.error("[AgentExternalHoldings] Error:", error);
 			res.status(500).json({ error: error.message });
 		}
 	},
@@ -484,7 +485,7 @@ router.post(
 					})
 					.where(eq(externalHoldings.id, holdingId));
 			} catch (e) {
-				console.error("[COB] Error updating holding:", e);
+				logger.error("[COB] Error updating holding:", e);
 			}
 
 			res.json({
@@ -494,7 +495,7 @@ router.post(
 				status: "in_progress",
 			});
 		} catch (error: any) {
-			console.error("[COB] Error:", error);
+			logger.error("[COB] Error:", error);
 			if (error instanceof z.ZodError) {
 				return res
 					.status(400)
@@ -531,7 +532,7 @@ router.post(
 
 			const { url, replaceExisting } = wealthyImportSchema.parse(req.body);
 
-			console.log(`[Wealthy Import] Using unified service for user ${userId}`);
+			logger.info(`[Wealthy Import] Using unified service for user ${userId}`);
 			const importResult =
 				await unifiedPortfolioImportService.importFromWealthyURL(url);
 
@@ -552,7 +553,7 @@ router.post(
 							eq(externalHoldings.source, "WEALTHY_IN"),
 						),
 					);
-				console.log(
+				logger.info(
 					`[Wealthy Import] Deleted existing holdings for user ${userId}`,
 				);
 			}
@@ -567,7 +568,7 @@ router.post(
 				wealthyPortfolio,
 			);
 
-			console.log(
+			logger.info(
 				`[Wealthy Import] Imported ${storageResult.imported} holdings for user ${userId}`,
 			);
 
@@ -588,7 +589,7 @@ router.post(
 				holdings: storageResult.holdings,
 			});
 		} catch (error: any) {
-			console.error("[Wealthy Import] Error:", error);
+			logger.error("[Wealthy Import] Error:", error);
 			if (error instanceof z.ZodError) {
 				return res
 					.status(400)
@@ -677,7 +678,7 @@ router.post(
 				portfolioSummary: importResult.portfolioSummary,
 			});
 		} catch (error: any) {
-			console.error("[Smart Import] Error:", error);
+			logger.error("[Smart Import] Error:", error);
 			res
 				.status(500)
 				.json({ error: error.message || "Failed to import portfolio" });
@@ -700,11 +701,12 @@ router.post(
 			}
 
 			// 1. Resolve the user's PAN from their profile
+			// Use leftJoin so users without a KYC profile row don't cause a crash
 			const [profile] = await db
 				.select({ panNumber: userProfiles.panNumber, fullName: users.fullName })
-				.from(userProfiles)
-				.innerJoin(users, eq(users.id, userProfiles.userId))
-				.where(eq(userProfiles.userId, userId))
+				.from(users)
+				.leftJoin(userProfiles, eq(users.id, userProfiles.userId))
+				.where(eq(users.id, userId))
 				.limit(1);
 
 			const pan = profile?.panNumber?.trim().toUpperCase();
@@ -739,9 +741,14 @@ router.post(
 			try {
 				const casData: any =
 					await irisKfintechService.fetchCasFromRegistry(pan);
-				const folios: any[] = casData?.folios ?? casData?.data?.folios ?? [];
+				// Null-safe: IRIS API may return null/undefined on empty response
+				const folios: any[] = Array.isArray(casData?.folios)
+					? casData.folios
+					: Array.isArray(casData?.data?.folios)
+						? casData.data.folios
+						: [];
 				for (const folio of folios) {
-					for (const scheme of folio?.schemes ?? []) {
+					for (const scheme of Array.isArray(folio?.schemes) ? folio.schemes : []) {
 						rawHoldings.push({
 							name:
 								scheme.schemeName || scheme.scheme_name || scheme.name || "",
@@ -749,16 +756,18 @@ router.post(
 							isin: scheme.isin || "",
 							assetType: "mutual_fund",
 							quantity: Number.parseFloat(
-								scheme.units || scheme.closingBalance || scheme.balance || "0",
+								String(scheme.units || scheme.closingBalance || scheme.balance || "0"),
 							),
 							avgPrice: Number.parseFloat(
-								scheme.avgCostPerUnit ||
-									scheme.averageCost ||
-									scheme.nav ||
-									"0",
+								String(
+									scheme.avgCostPerUnit ||
+										scheme.averageCost ||
+										scheme.nav ||
+										"0",
+								),
 							),
 							currentValue: Number.parseFloat(
-								scheme.currentValue || scheme.currentNav || "0",
+								String(scheme.currentValue || scheme.currentNav || "0"),
 							),
 							folioNumber: folio.folio || folio.folioNo,
 						});
@@ -768,7 +777,10 @@ router.post(
 					// CAS returned no data — try investment details endpoint
 					throw new Error("empty_cas");
 				}
-			} catch (_casErr) {
+			} catch (_casErr: any) {
+				logger.warn(
+					`[IRIS AutoFetch] CAS fallback triggered: ${(_casErr as any)?.message}`,
+				);
 				// Fallback: use /user/investors/:pan/investments
 				source = "investment_details";
 				try {
@@ -794,7 +806,7 @@ router.post(
 						folioNumber: s.folio || s.folioNo,
 					}));
 				} catch (invErr: any) {
-					console.error(
+					logger.error(
 						"[IRIS AutoFetch] Both CAS and investment endpoints failed:",
 						invErr?.message,
 					);
@@ -834,7 +846,7 @@ router.post(
 				0,
 			);
 
-			console.log(
+			logger.info(
 				`[IRIS AutoFetch] user=${userId} pan=****${pan.slice(-4)} fetched=${holdings.length} source=${source} latency=${Date.now() - t0}ms`,
 			);
 
@@ -856,11 +868,16 @@ router.post(
 				},
 			});
 		} catch (error: any) {
-			console.error("[IRIS AutoFetch] Unhandled error:", error?.message);
+			logger.error(
+				"[IRIS AutoFetch] Unhandled error:",
+				error?.message,
+				error?.stack,
+			);
 			return res.status(500).json({
 				success: false,
 				error: "INTERNAL_ERROR",
 				message: error?.message || "Unexpected error during IRIS auto-fetch.",
+				retryable: true,
 			});
 		}
 	},

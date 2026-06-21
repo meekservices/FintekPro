@@ -376,7 +376,9 @@ import {
 	ProposalsRedirect as ProposalsPage,
 	PortfolioHoldings,
 	LandingPage,
+	KycOnboardingPage,
 } from "@/routes/lazy-pages";
+
 
 export function UserProtectedRoutes() {
 	return (
@@ -592,6 +594,8 @@ export function UserProtectedRoutes() {
 				<Route path="/families" component={FamilyList} />
 				<Route path="/families/:id" component={FamilyDashboard} />
 				<Route path="/corporate-kyc" component={CorporateKYCPage} />
+				<Route path="/kyc-onboarding" component={KycOnboardingPage} />
+
 				{/* New Pages */}
 				<Route path="/settings" component={SettingsPage} />
 				<Route path="/biometric-settings" component={BiometricSettingsPage} />

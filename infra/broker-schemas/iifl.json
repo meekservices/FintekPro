@@ -1,0 +1,94 @@
+{
+  "$schema": "https://fintekpro.in/schemas/broker-requirement-schema/v1",
+  "broker_id": "iifl",
+  "broker_name": "IIFL Securities",
+  "schema_version": "1.0",
+  "regulatory_regime": "SEBI",
+  "kra_reuse_eligible": true,
+  "last_reviewed": "2026-06-01",
+  "_comment": "IMPORTANT: IIFL has migrated between XTS and ONT APIs. Field names here are placeholders for the canonical->broker mapping. Update canonical_to_broker_field_name once the API version (XTS vs ONT) is confirmed via sandbox key type. See implementation_plan.md Section 3 blocker.",
+  "segments": {
+    "equity": {
+      "required_fields": [
+        "full_legal_name",
+        "date_of_birth",
+        "pan_number",
+        "mobile_number",
+        "email",
+        "current_address",
+        "permanent_address",
+        "bank_account_number",
+        "ifsc_code",
+        "demat_account_linked",
+        "nominee_details",
+        "occupation",
+        "annual_income_band",
+        "trading_experience_years"
+      ],
+      "broker_unique_fields": [
+        "demat_dp_id",
+        "demat_client_id",
+        "segment_activation_equity"
+      ],
+      "prefillable_from_kra": [
+        "full_legal_name",
+        "date_of_birth",
+        "pan_number",
+        "current_address",
+        "permanent_address",
+        "occupation"
+      ],
+      "freshness_windows_days": {
+        "address_proof": 90,
+        "bank_details": 180,
+        "income_proof": 365,
+        "pan_verification": 730
+      },
+      "field_mapping": {
+        "_comment": "Maps canonical field name → IIFL API payload field name. UPDATE after API version confirmation.",
+        "full_legal_name": "clientName",
+        "date_of_birth": "dateOfBirth",
+        "pan_number": "panNo",
+        "mobile_number": "mobileNo",
+        "email": "emailId",
+        "bank_account_number": "bankAccountNo",
+        "ifsc_code": "ifscCode",
+        "occupation": "occupation",
+        "annual_income_band": "annualIncome"
+      }
+    },
+    "fo": {
+      "required_fields": [
+        "full_legal_name",
+        "date_of_birth",
+        "pan_number",
+        "mobile_number",
+        "email",
+        "current_address",
+        "bank_account_number",
+        "ifsc_code",
+        "trading_experience_years",
+        "net_worth_band",
+        "risk_profile_category"
+      ],
+      "broker_unique_fields": [
+        "fo_activation_consent",
+        "net_worth_certificate_ref"
+      ],
+      "prefillable_from_kra": [
+        "full_legal_name",
+        "date_of_birth",
+        "pan_number",
+        "current_address"
+      ],
+      "freshness_windows_days": {
+        "net_worth_certificate": 180
+      },
+      "field_mapping": {
+        "_comment": "Stub — update after IIFL ONT/XTS confirmation.",
+        "net_worth_band": "netWorth",
+        "risk_profile_category": "riskCategory"
+      }
+    }
+  }
+}
