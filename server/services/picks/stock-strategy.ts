@@ -828,11 +828,19 @@ export class StockStrategy extends BaseStrategy {
 			// ── Tier 2: Yahoo Finance v8/chart API (open endpoint, 24/7, no API key) ─
 			// ROOT FIX for 0.0% return bug: FMP is skipped outside market hours,
 			// so off-hours picks fell back to recoPrice (= 0% return).
-			// Yahoo v8/chart returns regularMarketPrice regardless of session time.
+			//
+			// SANITY GUARD: Yahoo's regularMarketPrice can carry stale/corporate-action
+			// adjusted prices (e.g. NEPHROCARE showed ₹234.8 while 52w-high was ₹183).
+			// Strategy: use 5d OHLC closes array → most recent non-null close.
+			// OHLC closes are the actual exchange-cleared prices and are immune to
+			// Yahoo's meta.regularMarketPrice staleness on rights issues / stock splits.
+			// If OHLC is unavailable, fall back to regularMarketPrice with a 3× sanity cap
+			// against the DB baseline (fallbackPrice).
 			if (symbol) {
 				try {
 					const nseSymbol = `${symbol.toUpperCase()}.NS`;
-					const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(nseSymbol)}?interval=1d&range=1d`;
+					// Use range=5d to get recent OHLC array — last non-null close = actual price
+					const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(nseSymbol)}?interval=1d&range=5d`;
 					const resp = await fetch(yahooUrl, {
 						signal: AbortSignal.timeout(7000),
 						headers: {
@@ -842,17 +850,43 @@ export class StockStrategy extends BaseStrategy {
 					});
 					if (resp.ok) {
 						const data: any = await resp.json();
-						const meta = data?.chart?.result?.[0]?.meta;
-						// regularMarketPrice = last trade; previousClose = most recent session close
-						const price = meta?.regularMarketPrice ?? meta?.previousClose;
-						if (price != null && Number.isFinite(Number(price)) && Number(price) > 0) {
+						const result = data?.chart?.result?.[0];
+						const meta = result?.meta;
+						const closes: (number | null)[] = result?.indicators?.quote?.[0]?.close ?? [];
+
+						// Prefer last non-null OHLC close (actual exchange price, corporate-action immune)
+						let price: number | null = null;
+						for (let i = closes.length - 1; i >= 0; i--) {
+							if (closes[i] != null && Number.isFinite(closes[i]) && closes[i]! > 0) {
+								price = closes[i];
+								break;
+							}
+						}
+
+						// Fallback to meta.regularMarketPrice only if OHLC is empty
+						if (price === null) {
+							const metaPrice = meta?.regularMarketPrice ?? meta?.previousClose;
+							if (metaPrice != null && Number.isFinite(Number(metaPrice)) && Number(metaPrice) > 0) {
+								// Sanity check: reject if >3× the DB baseline (catches stale rights-adjusted data)
+								const baseline = fallbackPrice ? Number.parseFloat(fallbackPrice) : 0;
+								if (baseline <= 0 || Number(metaPrice) <= baseline * 3) {
+									price = Number(metaPrice);
+								} else {
+									logger.warn(
+										`[StockStrategy.getLivePrice] Yahoo meta price ₹${metaPrice} > 3× baseline ₹${baseline} for ${nseSymbol} — rejected, falling through`
+									);
+								}
+							}
+						}
+
+						if (price !== null && price > 0) {
 							logger.info(`[StockStrategy.getLivePrice] Yahoo v8/chart OK for ${nseSymbol}: ₹${price}`);
 							// Write back so Tier 4 is pre-warmed for next run
 							db.update(listedStocks)
 								.set({ currentPrice: String(price) })
 								.where(eq(listedStocks.id, instrumentId))
 								.catch(() => {});
-							return Number(price);
+							return price;
 						}
 					}
 				} catch (err: any) {
