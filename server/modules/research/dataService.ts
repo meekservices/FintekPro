@@ -1453,7 +1453,45 @@ async function writeScreenerToDB(
 
 // ─── Yahoo Finance fallback ───────────────────────────────────────────────────
 
+/**
+ * Fetch price + market data from Yahoo Finance v8/chart API directly.
+ * More reliable than the yahoo-finance2 npm package for Cloud Run environments:
+ *  - Returns regularMarketPrice, fiftyTwoWeekHigh/Low, marketCap, previousClose
+ *  - Does NOT require crumb/cookie dance (v8 chart endpoint is open)
+ * Falls back to yahoo-finance2 npm library if the direct API fails.
+ */
 async function fetchFromYahoo(symbol: string): Promise<Partial<FinancialData>> {
+	// Primary: direct v8 chart API
+	try {
+		const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
+		const res = await fetch(url, {
+			headers: { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" },
+			signal: AbortSignal.timeout(8_000),
+		});
+		if (res.ok) {
+			const body = (await res.json()) as any;
+			const meta = body?.chart?.result?.[0]?.meta;
+			if (meta?.regularMarketPrice) {
+				const pf = (v: any): number | null => {
+					if (v === null || v === undefined) return null;
+					const n = typeof v === "number" ? v : Number.parseFloat(v);
+					return Number.isFinite(n) && n > 0 ? n : null;
+				};
+				return {
+					price: pf(meta.regularMarketPrice),
+					previousClose: pf(meta.previousClose) ?? pf(meta.chartPreviousClose),
+					marketCap: pf(meta.marketCap),
+					fiftyTwoWeekHigh: pf(meta.fiftyTwoWeekHigh),
+					fiftyTwoWeekLow: pf(meta.fiftyTwoWeekLow),
+					currency: meta.currency ?? "INR",
+				};
+			}
+		}
+	} catch (e: any) {
+		console.warn(`[ResearchNote] Yahoo v8/chart failed for ${symbol}:`, e?.message?.slice(0, 60));
+	}
+
+	// Secondary fallback: yahoo-finance2 npm package
 	const q = (await yahooFinance.quote(
 		symbol,
 		{},
@@ -1474,6 +1512,8 @@ async function fetchFromYahoo(symbol: string): Promise<Partial<FinancialData>> {
 		currency: q.currency ?? "INR",
 	};
 }
+
+
 
 // ─── Merge & build final FinancialData ────────────────────────────────────────
 
