@@ -131,8 +131,8 @@ export interface AIUsageMetrics {
 
 export class AIService {
 	private usageMetrics: AIUsageMetrics[] = [];
-	private _defaultProvider: AIProvider = "groq";
-	private _defaultModel: AIModel = "llama-3.3-70b-versatile";
+	private _defaultProvider: AIProvider = "gemini"; // Groq free TPD (100K) exhausts daily; Gemini has no hard TPD cap
+	private _defaultModel: AIModel = "gemini-2.5-flash";
 
 	private providerStatus: Record<
 		AIProvider,
@@ -310,21 +310,26 @@ export class AIService {
 		let initialModel = defaultModel;
 
 		// Capability → best available model selection
+		// NOTE: Gemini is primary — Groq free TPD (100K/day) exhausts mid-day.
+		// Gemini 2.5 Flash has no hard TPD cap on the free tier.
 		if (capability === AICapability.SUPERIOR) {
-			// Best reasoning — prefer Groq when healthy, Gemini as first fallback
-			if (groq && this.isProviderHealthy("groq")) {
-				initialProvider = "groq";
-				initialModel = "llama-3.3-70b-versatile";
-			} else if (gemini) {
+			// Best reasoning — prefer Gemini Flash, Groq 70B as fallback
+			if (gemini) {
 				initialProvider = "gemini";
 				initialModel = "gemini-2.5-flash";
-			} else {
+			} else if (groq && this.isProviderHealthy("groq")) {
 				initialProvider = "groq";
 				initialModel = "llama-3.3-70b-versatile";
+			} else {
+				initialProvider = "gemini";
+				initialModel = "gemini-2.5-flash";
 			}
 		} else if (capability === AICapability.OPTIMIZED) {
-			// Speed + bulk — llama instant on Groq, Gemini lite as backup
-			if (groq && this.isProviderHealthy("groq")) {
+			// Speed + bulk — Gemini Flash Lite is cheapest, Groq instant as fallback
+			if (gemini) {
+				initialProvider = "gemini";
+				initialModel = "gemini-2.5-flash-lite";
+			} else if (groq && this.isProviderHealthy("groq")) {
 				initialProvider = "groq";
 				initialModel = "llama-3.1-8b-instant";
 			} else {
@@ -332,23 +337,23 @@ export class AIService {
 				initialModel = "gemini-2.5-flash-lite";
 			}
 		} else if (capability === AICapability.STANDARD) {
-			// General use — Gemini 2.5 flash is best free option with no TPD cap
+			// General use — Gemini is primary (no TPD cap), Groq fallback
 			initialProvider = gemini ? "gemini" : "groq";
 			initialModel = gemini ? "gemini-2.5-flash" : "llama-3.3-70b-versatile";
 		}
 
-		// Fallback chain — free providers ordered by daily quota headroom:
-		// Groq (100K TPD) → Gemini (no hard TPD cap) → Cerebras (narrow RPM)
+		// Fallback chain — ordered by daily quota headroom:
+		// Gemini (no hard TPD cap) → Groq (100K TPD, exhausts mid-day) → Cerebras → Cloudflare
 		// Providers without env vars are skipped silently (not as ERRORs)
 		const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
-			// Groq — free tier, fast, 100K TPD
+			// Gemini — large free quota, no daily token cap on Flash (PRIMARY)
+			{ provider: "gemini", model: "gemini-2.5-flash" },
+			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
+			// Groq — fast, 100K TPD free (exhausts mid-day on heavy usage)
 			{ provider: "groq", model: "llama-3.3-70b-versatile" },
 			{ provider: "groq", model: "qwen/qwen3-32b" },
 			{ provider: "groq", model: "llama-3.1-8b-instant" },
-			// Gemini — large free quota, no daily token cap on Flash
-			{ provider: "gemini", model: "gemini-2.5-flash" },
-			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
-			// Cerebras — fast but narrow RPM; comes after Gemini to avoid floods
+			// Cerebras — fast but narrow RPM; comes after Gemini/Groq
 			{ provider: "cerebras", model: "gpt-oss-120b" },
 			{ provider: "cerebras", model: "zai-glm-4.7" },
 			// Cloudflare Workers AI — free forever (only if configured)
@@ -597,6 +602,10 @@ export class AIService {
 		}
 
 		const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
+			// Gemini first — no daily TPD cap
+			{ provider: "gemini", model: "gemini-2.5-flash" },
+			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
+			// Groq — 100K TPD, fast (secondary)
 			{ provider: "groq", model: "llama-3.3-70b-versatile" },
 			{ provider: "groq", model: "qwen/qwen3-32b" },
 			{ provider: "groq", model: "llama-3.1-8b-instant" },
@@ -606,8 +615,6 @@ export class AIService {
 				provider: "cloudflare",
 				model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
 			},
-			{ provider: "gemini", model: "gemini-2.5-flash" },
-			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
 		];
 
 		const finalChain = [
@@ -754,6 +761,10 @@ export class AIService {
 			throw new Error(
 				"Groq not configured — set GROQ_API_KEY environment variable",
 			);
+		}
+		// Guard: reject Gemini model names routed here by mistake (Groq doesn't serve them)
+		if (model.startsWith("gemini")) {
+			throw new Error(`Model '${model}' is a Gemini model — cannot be served by Groq`);
 		}
 		const groqModel = model || GROQ_DEFAULT_MODEL; // pass any Groq model as-is
 		const response = await groq.chat.completions.create({
