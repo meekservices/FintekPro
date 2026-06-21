@@ -815,6 +815,8 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
 			pb: (f as any).pbRatio,
 			roe: f.roe,
 			marketCap: f.marketCap,
+			analystRating: null as string | null,
+			numberOfAnalysts: null as number | null,
 			isTarget: true,
 		},
 		...data.peers.map((p) => ({ ...p, isTarget: false })),
