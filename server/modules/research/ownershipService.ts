@@ -243,6 +243,10 @@ export interface PeerData {
 	marketCap: number | null;
 	marketCapFormatted: string;
 	dividendYield: number | null;
+	/** Analyst consensus rating: "Strong Buy" | "Buy" | "Hold" | "Sell" | "Strong Sell" | null */
+	analystRating: string | null;
+	/** Number of analysts covering this stock */
+	numberOfAnalysts: number | null;
 }
 
 export interface SectorAverages {
@@ -1004,7 +1008,8 @@ export async function fetchPeersAndAverage(
         ls.symbol, ls.company_name, ls.current_price, ls.pe_ratio, ls.pb_ratio,
         ls.market_cap_value,
         COALESCE(sf.roe, NULLIF(ls.roe::numeric, 0) / 100) AS roe,
-        sf.roce, sf.debt_to_equity, sf.dividend_yield
+        sf.roce, sf.debt_to_equity, sf.dividend_yield,
+        ls.analyst_rating, ls.number_of_analysts
       FROM listed_stocks ls
       LEFT JOIN screener_financials sf ON sf.symbol = ls.symbol
       WHERE ls.sector = ${sector}
@@ -1040,6 +1045,8 @@ export async function fetchPeersAndAverage(
 				marketCap: mcap ? mcap * 1e7 : null,
 				marketCapFormatted: mcapFmt(mcap),
 				dividendYield: r.dividend_yield ? pf(r.dividend_yield) : null,
+				analystRating: r.analyst_rating ?? null,
+				numberOfAnalysts: r.number_of_analysts ? Number(r.number_of_analysts) : null,
 				_needsEnrich: !r.roe || isPlaceholderPE,
 			};
 		});

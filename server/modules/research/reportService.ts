@@ -787,11 +787,12 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
 	});
 	[
 		["Company", 0.55, 3.2],
-		["Price", 3.85, 1.8],
-		["P/E", 5.75, 1.5],
-		["P/B", 7.35, 1.5],
-		["ROE", 8.95, 1.5],
-		["Market Cap", 10.55, 1.8],
+		["Price", 3.85, 1.5],
+		["P/E", 5.45, 1.3],
+		["P/B", 6.85, 1.3],
+		["ROE", 8.25, 1.3],
+		["Mkt Cap", 9.65, 1.5],
+		["Analyst", 11.25, 1.1],
 	].forEach(([h, x, w]) => {
 		s5.addText(String(h), {
 			x: Number(x),
@@ -821,7 +822,7 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
 
 	peerRows
 		.slice(0, 6)
-		.forEach(({ symbol, name, price, pe, pb, roe, marketCap, isTarget }, i) => {
+		.forEach(({ symbol, name, price, pe, pb, roe, marketCap, analystRating, numberOfAnalysts, isTarget }, i) => {
 			const y = 1.28 + i * 0.72;
 			const bg = isTarget ? "EFF6FF" : i % 2 === 0 ? WHITE : ALT_ROW;
 			const border = isTarget ? BRAND_COLOR : "E2E8F0";
@@ -857,7 +858,7 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
 				{
 					x: 3.85,
 					y: y + 0.15,
-					w: 1.7,
+					w: 1.45,
 					h: 0.35,
 					fontSize: 11,
 					bold: isTarget,
@@ -865,37 +866,89 @@ export async function generatePPT(data: ReportData): Promise<Buffer> {
 				},
 			);
 			s5.addText(numFmt(pe), {
-				x: 5.75,
+				x: 5.45,
 				y: y + 0.15,
-				w: 1.4,
+				w: 1.25,
 				h: 0.35,
 				fontSize: 11,
 				color: textCol,
 			});
 			s5.addText(numFmt(pb), {
-				x: 7.35,
+				x: 6.85,
 				y: y + 0.15,
-				w: 1.4,
+				w: 1.25,
 				h: 0.35,
 				fontSize: 11,
 				color: textCol,
 			});
 			s5.addText(pct(roe), {
-				x: 8.95,
+				x: 8.25,
 				y: y + 0.15,
-				w: 1.4,
+				w: 1.25,
 				h: 0.35,
 				fontSize: 11,
 				color: textCol,
 			});
 			s5.addText(formatMarketCap(marketCap, "INR"), {
-				x: 10.55,
+				x: 9.65,
 				y: y + 0.15,
-				w: 1.7,
+				w: 1.45,
 				h: 0.35,
 				fontSize: 10,
 				color: textCol,
 			});
+			// ── Analyst Rating badge ──────────────────────────────────────────
+			if (analystRating) {
+				const ratingNorm = analystRating.toLowerCase();
+				const ratingColor =
+					ratingNorm === "strong buy" ? ACCENT_GREEN :
+					ratingNorm === "buy"        ? "22c55e" :
+					ratingNorm === "hold"       ? ACCENT_AMBER :
+					ratingNorm === "sell"       ? ACCENT_RED :
+					ratingNorm === "strong sell"? "b91c1c" :
+					LIGHT_TEXT;
+				const shortRating =
+					ratingNorm === "strong buy"  ? "S.Buy" :
+					ratingNorm === "buy"         ? "Buy" :
+					ratingNorm === "hold"        ? "Hold" :
+					ratingNorm === "sell"        ? "Sell" :
+					ratingNorm === "strong sell" ? "S.Sell" :
+					analystRating;
+				// Pill background
+				s5.addShape(ppt.ShapeType.roundRect, {
+					x: 11.25,
+					y: y + 0.13,
+					w: 1.1,
+					h: 0.38,
+					fill: { color: ratingColor },
+					line: { color: ratingColor },
+					rectRadius: 0.08,
+				});
+				s5.addText(
+					numberOfAnalysts ? `${shortRating}\n${numberOfAnalysts}` : shortRating,
+					{
+						x: 11.25,
+						y: y + 0.13,
+						w: 1.1,
+						h: 0.38,
+						fontSize: numberOfAnalysts ? 8 : 9,
+						bold: true,
+						color: WHITE,
+						align: "center",
+						valign: "middle",
+					},
+				);
+			} else {
+				s5.addText("—", {
+					x: 11.25,
+					y: y + 0.15,
+					w: 1.1,
+					h: 0.35,
+					fontSize: 11,
+					color: LIGHT_TEXT,
+					align: "center",
+				});
+			}
 		});
 
 	if (data.peers.length === 0) {
@@ -2339,6 +2392,8 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
 				pe: f.pe,
 				roe: f.roe,
 				mcap: f.marketCap,
+				analystRating: null as string | null,
+				numberOfAnalysts: null as number | null,
 				isTarget: true,
 			},
 			...data.peers.map((p) => ({
@@ -2348,6 +2403,8 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
 				pe: p.pe,
 				roe: p.roe,
 				mcap: p.marketCap,
+				analystRating: p.analystRating ?? null,
+				numberOfAnalysts: p.numberOfAnalysts ?? null,
 				isTarget: false,
 			})),
 		];
@@ -2356,11 +2413,12 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
 		doc.fillColor("#FFFFFF").fontSize(8.5).font("Helvetica-Bold");
 		[
 			["Company", 50],
-			["Sym", 220],
-			["Price", 270],
-			["P/E", 330],
-			["ROE", 385],
-			["Mkt Cap", 435],
+			["Sym", 200],
+			["Price", 245],
+			["P/E", 305],
+			["ROE", 355],
+			["Mkt Cap", 400],
+			["Analyst", 455],
 		].forEach(([h, x]) => {
 			doc.text(String(h), Number(x), y2 + 4, { width: 60 });
 		});
@@ -2368,7 +2426,7 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
 
 		peerRowsPDF
 			.slice(0, 6)
-			.forEach(({ name, symbol, price, pe, roe, mcap, isTarget }, i) => {
+			.forEach(({ name, symbol, price, pe, roe, mcap, analystRating, numberOfAnalysts, isTarget }, i) => {
 				const bg = isTarget ? "#EFF6FF" : i % 2 === 0 ? "#FFFFFF" : "#F9FAFB";
 				doc.rect(45, y2, PW, 16).fill(bg);
 				if (isTarget) {
@@ -2380,19 +2438,19 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
 					.fontSize(isTarget ? 8.5 : 8)
 					.font(isTarget ? "Helvetica-Bold" : "Helvetica");
 				doc.text(
-					name.length > 22 ? name.slice(0, 22) + "…" : name,
+					name.length > 20 ? name.slice(0, 20) + "…" : name,
 					50,
 					y2 + 4,
-					{ width: 165 },
+					{ width: 145 },
 				);
-				doc.text(symbol, 220, y2 + 4, { width: 45 });
+				doc.text(symbol, 200, y2 + 4, { width: 40 });
 				doc
 					.fillColor(col)
 					.fontSize(8.5)
 					.font("Helvetica-Bold")
 					.text(
 						price ? `₹${Math.round(price).toLocaleString("en-IN")}` : "N/A",
-						270,
+						245,
 						y2 + 4,
 						{ width: 55 },
 					);
@@ -2400,9 +2458,39 @@ export async function generatePDF(data: ReportData): Promise<Buffer> {
 					.fillColor(col)
 					.fontSize(8)
 					.font("Helvetica")
-					.text(numFmt(pe), 330, y2 + 4, { width: 50 });
-				doc.text(pct(roe), 385, y2 + 4, { width: 45 });
-				doc.text(formatMarketCap(mcap, "INR"), 435, y2 + 4, { width: 70 });
+					.text(numFmt(pe), 305, y2 + 4, { width: 45 });
+				doc.text(pct(roe), 355, y2 + 4, { width: 40 });
+				doc.text(formatMarketCap(mcap, "INR"), 400, y2 + 4, { width: 50 });
+				// Analyst Rating
+				if (analystRating && !isTarget) {
+					const ratingNorm = analystRating.toLowerCase();
+					const ratingHex =
+						ratingNorm === "strong buy"  ? "#16a34a" :
+						ratingNorm === "buy"         ? "#22c55e" :
+						ratingNorm === "hold"        ? "#d97706" :
+						ratingNorm === "sell"        ? "#ef4444" :
+						ratingNorm === "strong sell" ? "#b91c1c" :
+						"#64748b";
+					const shortRating =
+						ratingNorm === "strong buy"  ? "S.Buy" :
+						ratingNorm === "buy"         ? "Buy" :
+						ratingNorm === "hold"        ? "Hold" :
+						ratingNorm === "sell"        ? "Sell" :
+						ratingNorm === "strong sell" ? "S.Sell" :
+						analystRating;
+					const label = numberOfAnalysts ? `${shortRating} (${numberOfAnalysts})` : shortRating;
+					doc
+						.fillColor(ratingHex)
+						.fontSize(8)
+						.font("Helvetica-Bold")
+						.text(label, 455, y2 + 4, { width: 75 });
+				} else if (!isTarget) {
+					doc
+						.fillColor("#94a3b8")
+						.fontSize(8)
+						.font("Helvetica")
+						.text("—", 455, y2 + 4, { width: 75 });
+				}
 				y2 += 16;
 			});
 
