@@ -1011,7 +1011,7 @@ export async function fetchPeersAndAverage(
         AND UPPER(ls.symbol) != ${cleanSym}
         AND ls.is_active = true
       ORDER BY ls.market_cap_value DESC NULLS LAST
-      LIMIT 4
+      LIMIT 8
     `);
 
 		const rawRows = (rows as any).rows ?? rows;

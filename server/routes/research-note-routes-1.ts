@@ -282,21 +282,36 @@ async function buildReportData(
 		ageHours: null,
 	};
 
-	// Step 1b: Resolve sector from Screener data if DB returned null
-	// Screener returns sector/industry in _screenerData — use it to enable peer lookup
-	const screenerSector: string | null =
-		(financialsResult as any)._screenerData?.sector ??
-		(financialsResult as any)._screenerData?.industry ??
-		null;
-	const effectiveSector: string | null = sector ?? screenerSector;
-
-	// Persist sector back to DB if we just learned it from Screener (so future requests are fast)
-	if (!sector && screenerSector) {
-		db.execute(sql`
-			UPDATE listed_stocks
-			SET sector = ${screenerSector}, last_updated = NOW()
-			WHERE UPPER(symbol) = ${cleanSym} AND sector IS NULL
-		`).catch(() => {});
+	// Step 1b: Resolve sector via Yahoo Finance quoteSummary when DB has no sector
+	// assetProfile module reliably returns sector+industry for NSE/BSE stocks
+	let effectiveSector: string | null = sector;
+	if (!effectiveSector) {
+		try {
+			const yahooSym = nseSymbol.includes(".") ? nseSymbol : `${nseSymbol}.NS`;
+			const profileUrl = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${yahooSym}?modules=assetProfile`;
+			const profileRes = await fetch(profileUrl, {
+				headers: { "User-Agent": "Mozilla/5.0" },
+				signal: AbortSignal.timeout(6000),
+			});
+			if (profileRes.ok) {
+				const profileJson = (await profileRes.json()) as any;
+				const profile =
+					profileJson?.quoteSummary?.result?.[0]?.assetProfile;
+				const yahoSector: string | null =
+					profile?.sector ?? profile?.industry ?? null;
+				if (yahoSector) {
+					effectiveSector = yahoSector;
+					// Persist sector back to DB for future fast lookups
+					db.execute(sql`
+						UPDATE listed_stocks
+						SET sector = ${yahoSector}, last_updated = NOW()
+						WHERE UPPER(symbol) = ${cleanSym} AND (sector IS NULL OR sector = '')
+					`).catch(() => {});
+				}
+			}
+		} catch {
+			// non-critical — proceed with null sector
+		}
 	}
 
 	// Auto-persist: if this company wasn't in our DB, save it now so future queries are fast
