@@ -996,14 +996,16 @@ export async function fetchPeersAndAverage(
 	// Normalise: treat empty string the same as null
 	const normalizedSector = sector?.trim() || null;
 
-	// ── Sector auto-lookup from DB ──────────────────────────────────────────────
-	// When sector is null/empty (common — DB enrichment doesn't always populate it),
-	// look up sector + industry by symbol so peers can still be found via industry.
+	// ── Sector/Industry resolution (3-tier) ─────────────────────────────────────
+	// Tier 1: caller-provided sector (from buildReportData)
+	// Tier 2: DB listed_stocks.sector / industry / broad_sector
+	// Tier 3: Screener.in HTML parse (sector always populated there)
 	const cleanSym = excludeSymbol.replace(/\.(NS|BO)$/i, "").toUpperCase();
 	let effectiveSector: string | null = normalizedSector;
 	let effectiveIndustry: string | null = null;
 
 	if (!effectiveSector) {
+		// Tier 2: DB lookup
 		try {
 			const sectorRows = await db.execute(sql`
 				SELECT sector, industry, broad_sector
@@ -1013,17 +1015,59 @@ export async function fetchPeersAndAverage(
 			`);
 			const sr = ((sectorRows as any).rows ?? sectorRows)[0] as any;
 			if (sr) {
-				effectiveSector = (sr.sector?.trim()) || (sr.broad_sector?.trim()) || null;
-				effectiveIndustry = (sr.industry?.trim()) || null;
+				effectiveSector = sr.sector?.trim() || sr.broad_sector?.trim() || null;
+				effectiveIndustry = sr.industry?.trim() || null;
 			}
-		} catch {
-			/* non-critical — continue with null sector */
-		}
+		} catch { /* non-critical */ }
 	}
 
-	// Even after DB lookup, if we have no sector OR industry, return empty
 	if (!effectiveSector && !effectiveIndustry) {
-		logger.warn(`[OwnershipService.fetchPeersAndAverage] No sector/industry found for ${cleanSym} — peer comparison unavailable`);
+		// Tier 3: Scrape Screener.in HTML — most reliable source for Indian stock sectors
+		try {
+			const urls = [
+				`https://www.screener.in/company/${cleanSym}/consolidated/`,
+				`https://www.screener.in/company/${cleanSym}/`,
+			];
+			for (const url of urls) {
+				const res = await fetch(url, {
+					headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", Referer: "https://www.screener.in/" },
+					signal: AbortSignal.timeout(10_000),
+				});
+				if (!res.ok) continue;
+				const html = await res.text();
+				// Parse: <a title="Sector">Oil, Gas &amp; Consumable Fuels</a>
+				//        <a title="Industry">Refineries &amp; Marketing</a>
+				const sectorMatch = html.match(/title="Sector">([^<]+)</);
+				const industryMatch = html.match(/title="Industry">([^<]+)</);
+				const broadSectorMatch = html.match(/title="Broad Sector">([^<]+)</);
+				effectiveSector = sectorMatch
+					? sectorMatch[1].replace(/&amp;/g, "&").trim()
+					: broadSectorMatch
+						? broadSectorMatch[1].replace(/&amp;/g, "&").trim()
+						: null;
+				effectiveIndustry = industryMatch
+					? industryMatch[1].replace(/&amp;/g, "&").trim()
+					: null;
+				if (effectiveSector || effectiveIndustry) {
+					// Persist back to DB so next call is fast
+					db.execute(sql`
+						UPDATE listed_stocks
+						SET sector = ${effectiveSector ?? ""},
+							industry = ${effectiveIndustry ?? ""},
+							last_updated = NOW()
+						WHERE UPPER(symbol) = ${cleanSym}
+							AND (sector IS NULL OR sector = '')
+					`).catch(() => {});
+					logger.info(`[OwnershipService] Scraped sector for ${cleanSym}: sector="${effectiveSector}" industry="${effectiveIndustry}"`);
+					break;
+				}
+			}
+		} catch { /* Screener scrape is best-effort */ }
+	}
+
+	// If still nothing after all 3 tiers, return empty
+	if (!effectiveSector && !effectiveIndustry) {
+		logger.warn(`[OwnershipService.fetchPeersAndAverage] No sector/industry found for ${cleanSym} after 3-tier lookup — peer comparison unavailable`);
 		return empty;
 	}
 
@@ -1035,49 +1079,69 @@ export async function fetchPeersAndAverage(
 	}
 
 	try {
-
-		// Build the peer query — try sector first, fall back to industry if no rows
+		// ── Peer query strategy ──────────────────────────────────────────────────────
+		// screener_stocks.sector stores BSE/NSE industry classification (e.g. "Refineries & Marketing")
+		// Screener.in HTML title="Industry" = "Refineries & Marketing" → matches screener_stocks.sector
+		// Screener.in HTML title="Sector"   = "Oil, Gas & Consumable Fuels" → broader, may not match
+		// Strategy: Q1 = industry match (specific), Q2 = sector match (broad), Q3 = listed_stocks fallback
 		let rawRows: any[] = [];
-
-		if (effectiveSector) {
-			const rows = await db.execute(sql`
-        SELECT
+		const SELECT_PEER_COLS = sql`
           ls.symbol, ls.company_name, ls.current_price, ls.pe_ratio, ls.pb_ratio,
           ls.market_cap_value,
           COALESCE(sf.roe, NULLIF(ls.roe::numeric, 0) / 100) AS roe,
           sf.roce, sf.debt_to_equity, sf.dividend_yield,
-          ls.analyst_rating, ls.number_of_analysts
+          ls.analyst_rating, ls.number_of_analysts`;
+
+		// Q1: industry via screener_stocks (most specific match)
+		if (rawRows.length === 0 && effectiveIndustry) {
+			const rows = await db.execute(sql`
+        SELECT ${SELECT_PEER_COLS}
         FROM listed_stocks ls
         LEFT JOIN screener_financials sf ON sf.symbol = ls.symbol
-        WHERE ls.sector = ${effectiveSector}
+        INNER JOIN screener_stocks ss ON UPPER(ss.symbol) = UPPER(ls.symbol)
+        WHERE ss.sector = ${effectiveIndustry}
           AND UPPER(ls.symbol) != ${cleanSym}
           AND ls.is_active = true
         ORDER BY ls.market_cap_value DESC NULLS LAST
         LIMIT 8
       `);
 			rawRows = (rows as any).rows ?? rows;
+			if (rawRows.length > 0) console.log(`[ResearchNote] Peers found via screener_stocks.sector="${effectiveIndustry}": ${rawRows.length}`);
 		}
 
-		// Fallback: try industry if sector returned 0 results
-		if (rawRows.length === 0 && effectiveIndustry) {
-			const rows2 = await db.execute(sql`
-        SELECT
-          ls.symbol, ls.company_name, ls.current_price, ls.pe_ratio, ls.pb_ratio,
-          ls.market_cap_value,
-          COALESCE(sf.roe, NULLIF(ls.roe::numeric, 0) / 100) AS roe,
-          sf.roce, sf.debt_to_equity, sf.dividend_yield,
-          ls.analyst_rating, ls.number_of_analysts
+		// Q2: sector via screener_stocks (broader match)
+		if (rawRows.length === 0 && effectiveSector) {
+			const rows = await db.execute(sql`
+        SELECT ${SELECT_PEER_COLS}
         FROM listed_stocks ls
         LEFT JOIN screener_financials sf ON sf.symbol = ls.symbol
-        WHERE ls.industry = ${effectiveIndustry}
+        INNER JOIN screener_stocks ss ON UPPER(ss.symbol) = UPPER(ls.symbol)
+        WHERE ss.sector = ${effectiveSector}
           AND UPPER(ls.symbol) != ${cleanSym}
           AND ls.is_active = true
         ORDER BY ls.market_cap_value DESC NULLS LAST
         LIMIT 8
       `);
-			rawRows = (rows2 as any).rows ?? rows2;
+			rawRows = (rows as any).rows ?? rows;
+			if (rawRows.length > 0) console.log(`[ResearchNote] Peers found via screener_stocks.sector="${effectiveSector}": ${rawRows.length}`);
 		}
 
+		// Q3: last resort — listed_stocks.sector or industry (populated for newer stocks)
+		if (rawRows.length === 0) {
+			const matchVal = effectiveIndustry ?? effectiveSector ?? "";
+			const rows = await db.execute(sql`
+        SELECT ${SELECT_PEER_COLS}
+        FROM listed_stocks ls
+        LEFT JOIN screener_financials sf ON sf.symbol = ls.symbol
+        WHERE (ls.sector = ${matchVal} OR ls.industry = ${matchVal})
+          AND UPPER(ls.symbol) != ${cleanSym}
+          AND ls.is_active = true
+        ORDER BY ls.market_cap_value DESC NULLS LAST
+        LIMIT 8
+      `);
+			rawRows = (rows as any).rows ?? rows;
+			if (rawRows.length > 0) console.log(`[ResearchNote] Peers found via listed_stocks fallback "${matchVal}": ${rawRows.length}`);
+		}
 
 		const pf = (v: any) => {
 			const n = Number.parseFloat(v);
