@@ -992,16 +992,49 @@ export async function fetchPeersAndAverage(
 			stockCount: 0,
 		},
 	};
-	if (!sector) return empty;
 
-	const cacheKey = `${sector}__${excludeSymbol}`;
+	// Normalise: treat empty string the same as null
+	const normalizedSector = sector?.trim() || null;
+
+	// ── Sector auto-lookup from DB ──────────────────────────────────────────────
+	// When sector is null/empty (common — DB enrichment doesn't always populate it),
+	// look up sector + industry by symbol so peers can still be found via industry.
+	const cleanSym = excludeSymbol.replace(/\.(NS|BO)$/i, "").toUpperCase();
+	let effectiveSector: string | null = normalizedSector;
+	let effectiveIndustry: string | null = null;
+
+	if (!effectiveSector) {
+		try {
+			const sectorRows = await db.execute(sql`
+				SELECT sector, industry, broad_sector
+				FROM listed_stocks
+				WHERE UPPER(symbol) = ${cleanSym}
+				LIMIT 1
+			`);
+			const sr = ((sectorRows as any).rows ?? sectorRows)[0] as any;
+			if (sr) {
+				effectiveSector = (sr.sector?.trim()) || (sr.broad_sector?.trim()) || null;
+				effectiveIndustry = (sr.industry?.trim()) || null;
+			}
+		} catch {
+			/* non-critical — continue with null sector */
+		}
+	}
+
+	// Even after DB lookup, if we have no sector OR industry, return empty
+	if (!effectiveSector && !effectiveIndustry) {
+		logger.warn(`[OwnershipService.fetchPeersAndAverage] No sector/industry found for ${cleanSym} — peer comparison unavailable`);
+		return empty;
+	}
+
+	const resolvedSector = effectiveSector ?? effectiveIndustry!;
+	const cacheKey = `${resolvedSector}__${excludeSymbol}`;
 	const cached = peersCache.get(cacheKey);
 	if (cached && cached.expiresAt > Date.now()) {
 		return { peers: cached.data, sectorAvg: cached.sectorAvg };
 	}
 
 	try {
-		const cleanSym = excludeSymbol.replace(/\.(NS|BO)$/i, "").toUpperCase();
 
 		const rows = await db.execute(sql`
       SELECT
@@ -1012,7 +1045,10 @@ export async function fetchPeersAndAverage(
         ls.analyst_rating, ls.number_of_analysts
       FROM listed_stocks ls
       LEFT JOIN screener_financials sf ON sf.symbol = ls.symbol
-      WHERE ls.sector = ${sector}
+      WHERE (
+        (${effectiveSector} IS NOT NULL AND ls.sector = ${effectiveSector})
+        OR (${effectiveSector} IS NULL AND ${effectiveIndustry} IS NOT NULL AND ls.industry = ${effectiveIndustry})
+      )
         AND UPPER(ls.symbol) != ${cleanSym}
         AND ls.is_active = true
       ORDER BY ls.market_cap_value DESC NULLS LAST
@@ -1092,7 +1128,6 @@ export async function fetchPeersAndAverage(
 			targetPE,
 			targetPB,
 		);
-
 		// Fetch ROCE and D/E averages from DB (not live-enriched, but acceptable for those fields)
 		try {
 			const res2 = await db.execute(sql`
@@ -1101,7 +1136,10 @@ export async function fetchPeersAndAverage(
           ROUND(AVG(CASE WHEN sf.debt_to_equity BETWEEN 0 AND 5 THEN sf.debt_to_equity END)::numeric, 2) AS avg_de
         FROM screener_financials sf
         INNER JOIN listed_stocks ls ON ls.symbol = sf.symbol
-        WHERE ls.sector = ${sector}
+        WHERE (
+          (${effectiveSector} IS NOT NULL AND ls.sector = ${effectiveSector})
+          OR (${effectiveSector} IS NULL AND ${effectiveIndustry} IS NOT NULL AND ls.industry = ${effectiveIndustry})
+        )
       `);
 			const r1 = ((res2 as any).rows ?? res2)[0] as any;
 			if (r1) {
@@ -1123,7 +1161,7 @@ export async function fetchPeersAndAverage(
 				? (liveSectorAvg.avgROE * 100).toFixed(1) + "%"
 				: "N/A";
 		console.log(
-			`[ResearchNote] Peers for ${sector}: ${finalPeers.map((p) => `${p.symbol}(ROE:${p.roe !== null ? (p.roe * 100).toFixed(1) + "%" : "N/A"},PE:${p.pe ?? "N/A"})`).join(", ")} | SectorAvg ROE:${avgRoeStr} PE:${liveSectorAvg.avgPE ?? "N/A"}`,
+			`[ResearchNote] Peers for ${resolvedSector}: ${finalPeers.map((p) => `${p.symbol}(ROE:${p.roe !== null ? (p.roe * 100).toFixed(1) + "%" : "N/A"},PE:${p.pe ?? "N/A"},Analyst:${p.analystRating ?? "—"})`).join(", ")} | SectorAvg ROE:${avgRoeStr} PE:${liveSectorAvg.avgPE ?? "N/A"}`,
 		);
 
 		return { peers: finalPeers, sectorAvg: liveSectorAvg };
