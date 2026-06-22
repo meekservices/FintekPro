@@ -169,6 +169,11 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 		// Subdomain detection must be first to set portal context flags
 		app.use(subdomainDetection);
 
+		// Acting-as context middleware — reads agent delegation session if present.
+		// Must be after session middleware, before any route handlers.
+		const { actingAsContextMiddleware } = await import("./middleware/acting-as-context");
+		app.use(actingAsContextMiddleware);
+
 		// ── AUTH & MIDDLEWARE ────────────────────────────────────────────────────
 		try {
 			const { setupAuth: setupSessionAuth } = await import("./auth-setup");
@@ -346,6 +351,33 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 		userMgmtMod.registerUserManagementRoutes(app);
 		stakeholderMod.registerStakeholderRoutes(app);
 		app.use("/api/auto-population", autoPopMod.autoPopulationRouter);
+
+		// ── KYC Orchestrator — Vault diff, broker submit, status polling ─────────
+		// Mounts: POST /api/orchestrator/diff
+		//         POST /api/orchestrator/submit  (auth + investor-authorization guard)
+		//         GET  /api/orchestrator/status/:brokerId/:brokerClientId
+		const { orchestratorRouter } = await import("./routes/orchestrator-routes");
+		app.use("/api/orchestrator", orchestratorRouter);
+		logger.info("✅ KYC Orchestrator routes registered at /api/orchestrator");
+
+		// ── Investor Authorization + Acting-As Session Routes ─────────────────
+		// Mounts: POST /api/kyc/acting-as/start
+		//         POST /api/kyc/acting-as/end
+		//         GET  /api/kyc/acting-as/status
+		//         POST /api/kyc/investor-authorize/request  (agent sends OTP to investor mobile)
+		//         POST /api/kyc/investor-authorize/confirm  (investor confirms OTP → event ID)
+		const { investorAuthRouter } = await import("./routes/investor-auth-routes");
+		app.use("/api/kyc", investorAuthRouter);
+		logger.info("✅ Investor Authorization routes registered at /api/kyc/...");
+
+		// ── Admin Compliance Dashboard ─────────────────────────────────────────
+		// Mounts: GET /api/admin/compliance/audit
+		//         GET /api/admin/compliance/assisted-access
+		//         GET /api/admin/compliance/kra-reuse
+		//         GET /api/admin/compliance/summary/:userId
+		const { adminComplianceRouter } = await import("./routes/admin-compliance-routes");
+		app.use("/api/admin/compliance", adminComplianceRouter);
+		logger.info("✅ Admin Compliance dashboard routes registered at /api/admin/compliance");
 
 		logBootProgress("Step 6: Registering Marketplace & Regulatory Routes...");
 		const [

@@ -89,6 +89,17 @@ export interface BrokerSubmitRequest {
   /** User-provided delta fields (form submission) */
   brokerDelta: Record<string, unknown>;
   ipAddress?: string;
+  /**
+   * The ID of the person performing the action.
+   * When an agent acts on behalf of an investor, this is the agent's ID.
+   * When the investor acts directly, this equals userId.
+   */
+  actorId?: string;
+  /**
+   * Single-use authorization event ID produced by POST /api/kyc/investor-authorize/confirm.
+   * Required when actorId !== userId (i.e., agent is submitting on behalf of investor).
+   */
+  investorAuthorizationEventId?: string;
 }
 
 // ─── Adapter registry ────────────────────────────────────────────────────────

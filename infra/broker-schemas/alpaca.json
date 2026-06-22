@@ -2,12 +2,26 @@
   "$schema": "https://fintekpro.in/schemas/broker-requirement-schema/v1",
   "broker_id": "alpaca",
   "broker_name": "Alpaca Broker API",
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "regulatory_regime": "US_FINRA",
   "kra_reuse_eligible": false,
-  "_compliance_note": "Alpaca operates outside SEBI's KRA regime. KRA-verified data (PAN, CKYC KIN, India address from Aadhaar) CANNOT be auto-asserted as meeting US KYC/AML standards. Only genuinely reusable identity/contact fields are prefillable. SSN/ITIN, tax forms, and suitability disclosures are ALWAYS required delta — never inferred from KRA data.",
-  "last_reviewed": "2026-06-01",
+  "_compliance_note": "Alpaca operates outside SEBI's KRA regime. KRA-verified data (PAN, CKYC KIN, India address from Aadhaar) CANNOT be auto-asserted as meeting US KYC/AML standards. Only genuinely reusable identity/contact fields are prefillable. SSN/ITIN, tax forms, and suitability disclosures are ALWAYS required delta \u2014 never inferred from KRA data.",
+  "last_reviewed": "2026-06-22",
   "api_reference": "https://docs.alpaca.markets/reference/broker-api",
+  "india_resident_lrs_requirements": {
+    "_note": "Indian resident investors remitting funds to US markets via Alpaca are subject to RBI's Liberalised Remittance Scheme (LRS). These checks are enforced at the adapter layer (lrs-pre-submit-check.ts) before ANY outbound Alpaca call.",
+    "lrs_annual_limit_usd": 250000,
+    "lrs_fy_start": "April 1",
+    "pre_submit_checks_required": [
+      "lrs_ytd_amount_below_annual_limit",
+      "fatca_crs_self_cert_on_file",
+      "form_a2_reference_generated"
+    ],
+    "form_a2_required": true,
+    "fatca_self_cert_freshness_days": 365,
+    "lrs_tcs_threshold_inr": 700000,
+    "_tcs_note": "TCS at 20% applies on LRS remittances above \u20b97 lakh per FY. FintekPro must calculate and surface TCS liability to the investor before remittance confirmation."
+  },
   "segments": {
     "us_equities": {
       "required_fields": [
@@ -58,7 +72,9 @@
       "freshness_windows_days": {
         "photo_document": 365,
         "w8_ben_w9": 365,
-        "address_proof": 90
+        "fatca_crs_classification": 365,
+        "address_proof": 90,
+        "lrs_fatca_self_cert": 365
       },
       "field_mapping": {
         "full_legal_name": {

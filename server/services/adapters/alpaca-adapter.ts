@@ -24,6 +24,7 @@ import type {
 import { alpacaBrokerService } from "../alpaca-broker-service";
 import { logger } from "../../logger";
 import crypto from "crypto";
+import { checkLrsEligibility } from "../lrs-pre-submit-check";
 
 // Fields that may ONLY come from broker delta — never auto-filled from vault for Alpaca
 const ALPACA_ALWAYS_DELTA_FIELDS = new Set([
@@ -66,12 +67,38 @@ export class AlpacaAdapter implements BrokerAdapter {
   ): Promise<BrokerSubmitResult> {
     const startTs = Date.now();
 
+    // ── LRS / FATCA pre-submit HARD BLOCK ────────────────────────────────────
+    // Must be the FIRST check — before any field boundary validation or
+    // outbound HTTP. The LRS check is a regulatory hard block per RBI LRS
+    // Master Directions and SEBI FATCA/CRS circular.
+    // Do NOT gate this check on a UI flag — it must fire at the adapter layer.
+    const lrsCheck = await checkLrsEligibility(profile.userId, 0);
+    if (!lrsCheck.eligible) {
+      logger.warn("BROKER_KYC_LRS_BLOCK", {
+        event: "LRS_CHECK_BLOCK",
+        broker_id: this.brokerId,
+        user_id: profile.userId,
+        error_code: lrsCheck.error_code,
+        reason: lrsCheck.reason,
+        ytd_amount_usd: lrsCheck.ytdAmountUsd,
+        remaining_allowance_usd: lrsCheck.remainingAllowanceUsd,
+        fatca_cert_present: lrsCheck.fatcaCertPresent,
+        latency_ms: Date.now() - startTs,
+        status: "blocked",
+      });
+      throw Object.assign(
+        new Error(lrsCheck.reason ?? "LRS compliance block: submission not permitted"),
+        { retryable: false, error_code: lrsCheck.error_code ?? "LRS_BLOCK" }
+      );
+    }
+
     logger.info("BROKER_KYC_SUBMIT", {
       broker_id: this.brokerId,
       user_id: profile.userId,
       idempotency_key: idempotencyKey,
+      lrs_ytd_usd: lrsCheck.ytdAmountUsd,
       // SSN/ITIN NEVER logged — not even as doc_id
-});
+    });
 
     // Enforce field boundary: reject any attempt to pass ALWAYS_DELTA fields
     // from the prefilled portion (defensive guard in addition to orchestrator check)
