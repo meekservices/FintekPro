@@ -1083,7 +1083,7 @@ export async function fetchPeersAndAverage(
 		// screener_stocks.sector stores BSE/NSE industry classification (e.g. "Refineries & Marketing")
 		// Screener.in HTML title="Industry" = "Refineries & Marketing" → matches screener_stocks.sector
 		// Screener.in HTML title="Sector"   = "Oil, Gas & Consumable Fuels" → broader, may not match
-		// Strategy: Q1 = industry match (specific), Q2 = sector match (broad), Q3 = listed_stocks fallback
+		// Strategy: Q1 = industry match (specific), Q2 = sector match (broad), Q3 = Screener re-scrape + retry, Q4 = listed_stocks fallback
 		let rawRows: any[] = [];
 		const SELECT_PEER_COLS = sql`
           ls.symbol, ls.company_name, ls.current_price, ls.pe_ratio, ls.pb_ratio,
@@ -1126,7 +1126,63 @@ export async function fetchPeersAndAverage(
 			if (rawRows.length > 0) console.log(`[ResearchNote] Peers found via screener_stocks.sector="${effectiveSector}": ${rawRows.length}`);
 		}
 
-		// Q3: last resort — listed_stocks.sector or industry (populated for newer stocks)
+		// Q3: if still 0 rows, the cached sector (e.g. "Energy & Utilities" from Yahoo)
+		// may not match screener_stocks.sector (BSE/NSE taxonomy). Re-scrape Screener.in HTML
+		// to get the actual BSE industry classification and retry Q1.
+		if (rawRows.length === 0) {
+			try {
+				const screenerUrls = [
+					`https://www.screener.in/company/${cleanSym}/consolidated/`,
+					`https://www.screener.in/company/${cleanSym}/`,
+				];
+				for (const url of screenerUrls) {
+					const res = await fetch(url, {
+						headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", Referer: "https://www.screener.in/" },
+						signal: AbortSignal.timeout(10_000),
+					});
+					if (!res.ok) continue;
+					const html = await res.text();
+					const sectorMatch = html.match(/title="Sector">([^<]+)</);
+					const industryMatch = html.match(/title="Industry">([^<]+)</);
+					const broadSectorMatch = html.match(/title="Broad Sector">([^<]+)</);
+					const scraped = {
+						sector: sectorMatch ? sectorMatch[1].replace(/&amp;/g, "&").trim() : broadSectorMatch ? broadSectorMatch[1].replace(/&amp;/g, "&").trim() : null,
+						industry: industryMatch ? industryMatch[1].replace(/&amp;/g, "&").trim() : null,
+					};
+					if (scraped.sector || scraped.industry) {
+						console.log(`[ResearchNote] Q3 Screener re-scrape for ${cleanSym}: sector="${scraped.sector}" industry="${scraped.industry}"`);
+						// Update effective values to the freshly scraped BSE-taxonomy ones
+						effectiveIndustry = scraped.industry ?? effectiveIndustry;
+						effectiveSector = scraped.sector ?? effectiveSector;
+						// Persist
+						db.execute(sql`
+							UPDATE listed_stocks
+							SET sector = ${scraped.sector ?? ""}, industry = ${scraped.industry ?? ""}, last_updated = NOW()
+							WHERE UPPER(symbol) = ${cleanSym}
+						`).catch(() => {});
+						// Retry Q1 with the fresh industry value (matches screener_stocks.sector)
+						if (scraped.industry) {
+							const retry = await db.execute(sql`
+                SELECT ${SELECT_PEER_COLS}
+                FROM listed_stocks ls
+                LEFT JOIN screener_financials sf ON sf.symbol = ls.symbol
+                INNER JOIN screener_stocks ss ON UPPER(ss.symbol) = UPPER(ls.symbol)
+                WHERE ss.sector = ${scraped.industry}
+                  AND UPPER(ls.symbol) != ${cleanSym}
+                  AND ls.is_active = true
+                ORDER BY ls.market_cap_value DESC NULLS LAST
+                LIMIT 8
+              `);
+							rawRows = (retry as any).rows ?? retry;
+							if (rawRows.length > 0) console.log(`[ResearchNote] Q3 retry peers via screener_stocks.sector="${scraped.industry}": ${rawRows.length}`);
+						}
+						break;
+					}
+				}
+			} catch { /* best-effort */ }
+		}
+
+		// Q4: last resort — listed_stocks.sector or industry (populated for newer stocks)
 		if (rawRows.length === 0) {
 			const matchVal = effectiveIndustry ?? effectiveSector ?? "";
 			const rows = await db.execute(sql`
@@ -1140,7 +1196,7 @@ export async function fetchPeersAndAverage(
         LIMIT 8
       `);
 			rawRows = (rows as any).rows ?? rows;
-			if (rawRows.length > 0) console.log(`[ResearchNote] Peers found via listed_stocks fallback "${matchVal}": ${rawRows.length}`);
+			if (rawRows.length > 0) console.log(`[ResearchNote] Q4 peers found via listed_stocks fallback "${matchVal}": ${rawRows.length}`);
 		}
 
 		const pf = (v: any) => {
