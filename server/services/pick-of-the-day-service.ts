@@ -850,11 +850,14 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 			return targetDate.getTime() - nowUtcMs;
 		}
 
-		// ── 9:00 AM IST ── Generate fresh daily picks (market open days only)
+		// ── 9:20 AM IST ── Generate fresh daily picks.
+		// Deliberately fires AFTER the NSE pre-open session (9:00–9:15 AM) closes
+		// and normal trading has settled for ~5 minutes, so recoPrice reflects
+		// actual traded prices rather than indicative pre-open quotes.
 		const scheduleNextGeneration = () => {
-			const delayMs = msUntilIst(9, 0);
+			const delayMs = msUntilIst(9, 20);
 			logger.info(
-				`📅 [PickOfTheDay] Next generation scheduled in ${Math.round(delayMs / 60000)} min (9:00 AM IST)`,
+				`📅 [PickOfTheDay] Next generation scheduled in ${Math.round(delayMs / 60000)} min (9:20 AM IST — post pre-open)`,
 			);
 			setTimeout(() => {
 				const todayStr = todayIST();

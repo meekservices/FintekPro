@@ -280,6 +280,22 @@ export class StockStrategy extends BaseStrategy {
 					eq(listedStocks.isPublished, true),
 					sql`${listedStocks.currentPrice} IS NOT NULL`,
 					sql`CAST(${listedStocks.currentPrice} AS DECIMAL) > 50`,
+					// ── Circuit breaker filter ──────────────────────────────────────
+					// Exclude stocks at or near lower circuit (day_change_percent ≤ -9.5%)
+					// Exclude stocks at upper circuit gap-ups (day_change_percent ≥ +9.5%)
+					// Both indicate illiquidity / circuit-locked price.
+					sql`(
+						${listedStocks.dayChangePercent} IS NULL
+						OR (
+							CAST(${listedStocks.dayChangePercent} AS DECIMAL) > -9.5
+							AND CAST(${listedStocks.dayChangePercent} AS DECIMAL) < 9.5
+						)
+					)`,
+					// Exclude zero-volume stocks (circuit-locked, no buyers/sellers)
+					sql`(
+						${listedStocks.averageVolume} IS NULL
+						OR CAST(${listedStocks.averageVolume} AS DECIMAL) > 0
+					)`,
 					or(or(...sectorConditions), or(...broadSectorConditions)),
 				),
 			)
@@ -408,7 +424,16 @@ export class StockStrategy extends BaseStrategy {
 			enriched: topEnriched,
 			score: topScore,
 		} = scored[0];
-		const currentPrice = Number.parseFloat(topStock.currentPrice || "0");
+		// ── Fetch live price at generation time ──────────────────────────────
+		// Fetching live price at pick-generation time (not stale DB value) so that
+		// recoPrice and target are computed against the actual market price.
+		// This prevents the YAAP-type bug where the DB price is e.g. ₹140 from
+		// last night, target is computed as ₹161, but the stock already opened
+		// at ₹158 today and the target is almost reached at the moment of publishing.
+		const liveAtGeneration = await this.getLivePrice(topStock.id).catch(() => null);
+		const currentPrice = (liveAtGeneration ?? 0) > 0
+			? liveAtGeneration!
+			: Number.parseFloat(topStock.currentPrice || "0");
 		if (currentPrice <= 0) return null;
 
 		const volatility = topStock.volatility
@@ -421,6 +446,20 @@ export class StockStrategy extends BaseStrategy {
 		const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
 		const stoplossPrice =
 			Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
+
+		// ── Minimum upside guard ────────────────────────────────────────────
+		// If the live price has already run up to within 5% of the target,
+		// there is no meaningful upside left. Discard this pick so the engine
+		// tries the next-best candidate in the sector.
+		// Catches the YAAP scenario: recommended at ₹152, market already at target.
+		const MIN_UPSIDE_PCT = 0.05; // require at least 5% headroom to target
+		const remainingUpside = (targetPrice - currentPrice) / currentPrice;
+		if (remainingUpside < MIN_UPSIDE_PCT) {
+			logger.warn(
+				`[StockStrategy] ${topStock.symbol}: upside to target is only ${(remainingUpside * 100).toFixed(1)}% — below 5% minimum. Discarding.`,
+			);
+			return null;
+		}
 
 		let directRsi: number | null = null;
 		let directRoic: number | null = null;
@@ -549,6 +588,17 @@ export class StockStrategy extends BaseStrategy {
 			const aiBoost = await this.getAIAlphaBoost(stock, enriched);
 			score += aiBoost;
 		}
+
+		// ── Day-change circuit penalty ──────────────────────────────────────
+		// Heavily penalise stocks whose day change is near lower circuit.
+		// This is a safety net on top of the SQL filter: if DB data is slightly
+		// stale and circuit hit is not yet reflected in day_change_percent,
+		// the penalty drops the score below any reasonable threshold.
+		const dayChangePct = stock.dayChangePercent
+			? Number.parseFloat(stock.dayChangePercent)
+			: null;
+		if (dayChangePct !== null && dayChangePct <= -7) score -= 40; // near/at lower circuit
+		if (dayChangePct !== null && dayChangePct >= 7) score -= 15;  // near upper circuit gap-up
 
 		return Math.max(0, score);
 	}
@@ -937,6 +987,18 @@ export class StockStrategy extends BaseStrategy {
 					eq(listedStocks.isPublished, true),
 					sql`${listedStocks.currentPrice} IS NOT NULL`,
 					sql`CAST(${listedStocks.currentPrice} AS DECIMAL) > 50`,
+					// Circuit breaker: same guard as primary sector picks
+					sql`(
+						${listedStocks.dayChangePercent} IS NULL
+						OR (
+							CAST(${listedStocks.dayChangePercent} AS DECIMAL) > -9.5
+							AND CAST(${listedStocks.dayChangePercent} AS DECIMAL) < 9.5
+						)
+					)`,
+					sql`(
+						${listedStocks.averageVolume} IS NULL
+						OR CAST(${listedStocks.averageVolume} AS DECIMAL) > 0
+					)`,
 				),
 			)
 			.orderBy(
@@ -963,7 +1025,11 @@ export class StockStrategy extends BaseStrategy {
 		).sort((a, b) => b.score - a.score);
 
 		const { s: top } = scored[0];
-		const currentPrice = Number.parseFloat(top.currentPrice || "0");
+		// Fetch live price for fallback pick too — same staleness fix as primary path
+		const liveAtGeneration = await this.getLivePrice(top.id).catch(() => null);
+		const currentPrice = (liveAtGeneration ?? 0) > 0
+			? liveAtGeneration!
+			: Number.parseFloat(top.currentPrice || "0");
 		if (currentPrice <= 0) return null;
 
 		const volatility = top.volatility
@@ -976,6 +1042,13 @@ export class StockStrategy extends BaseStrategy {
 		const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
 		const stoplossPrice =
 			Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
+
+		// Upside guard: same 5% minimum as primary sector path
+		const remainingUpside = (targetPrice - currentPrice) / currentPrice;
+		if (remainingUpside < 0.05) {
+			logger.warn(`[StockStrategy/fallback] ${top.symbol}: upside ${(remainingUpside * 100).toFixed(1)}% < 5% minimum. Returning null.`);
+			return null;
+		}
 
 		const riskLevel = this.getRiskLevel(volatility ?? 20);
 		const confidenceScore = this.getConfidenceScore("listed_stocks", scored[0].score, 70);
