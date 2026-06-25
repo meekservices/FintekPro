@@ -179,6 +179,9 @@ type PicksApiResponse = {
 	lastRefreshedAt?: string;
 	categoryLastUpdated?: Record<string, string>;
 	disclaimer?: string;
+	isFallback?: boolean;
+	fallbackDate?: string;
+	message?: string;
 };
 
 type StatsApiResponse = {
