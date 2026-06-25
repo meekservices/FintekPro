@@ -736,7 +736,13 @@ export class StockStrategy extends BaseStrategy {
 
 	private async calculateAdvancedMetrics(
 		stock: any,
-	): Promise<{ piotroskiFScore?: number; roic?: number }> {
+	): Promise<{
+		piotroskiFScore?: number;
+		roic?: number;
+		beneishMScore?: number;
+		interestCoverage?: number;
+		quickRatio?: number;
+	}> {
 		try {
 			if (!stock.id && !stock.symbol) return {};
 
