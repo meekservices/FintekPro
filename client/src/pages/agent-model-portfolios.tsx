@@ -1948,21 +1948,30 @@ export default function AgentModelPortfoliosPage() {
     if (!selectedPortfolio) return;
     try {
       const { default: jsPDF } = await import("jspdf");
-      const { default: autoTable } = await import("jspdf-autotable");
+      // autoTable is a named export in jspdf-autotable v5+ (not the default)
+      const { autoTable } = await import("jspdf-autotable");
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageW = doc.internal.pageSize.getWidth();
 
+      // ── Header bar ──
       doc.setFillColor(30, 64, 175);
       doc.rect(0, 0, pageW, 20, "F");
       doc.setFontSize(14);
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
-      doc.text(`FintekPro — ${selectedPortfolio.name}`, 10, 13);
+      doc.text(`FintekPro - ${selectedPortfolio.name}`, 10, 13);
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.text(`Model Portfolio | Generated: ${new Date().toLocaleDateString("en-IN")}`, pageW - 10, 13, { align: "right" });
 
-      // Key metrics
+      // ── Key metrics (use Rs. instead of Rs symbol — Helvetica doesn't support Unicode Rs) ──
+      const fmtINR = (val: number) => {
+        if (val >= 10000000) return `Rs.${(val / 10000000).toFixed(1)}Cr`;
+        if (val >= 100000) return `Rs.${(val / 100000).toFixed(1)}L`;
+        if (val >= 1000) return `Rs.${(val / 1000).toFixed(0)}K`;
+        return `Rs.${val}`;
+      };
+
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
@@ -1971,21 +1980,61 @@ export default function AgentModelPortfoliosPage() {
       doc.setFontSize(9);
       doc.text(`1Y CAGR: ${selectedPortfolio.cagr1Y}%   |   3Y CAGR: ${selectedPortfolio.cagr3Y}%   |   5Y CAGR: ${selectedPortfolio.cagr5Y}%`, 10, 37);
       doc.text(`Benchmark: ${selectedPortfolio.benchmarkName} (${selectedPortfolio.benchmarkCagr1Y}% 1Y)`, 10, 43);
-      doc.text(`Risk: ${RISK_CONFIG[selectedPortfolio.riskProfile].label}   |   Min Investment: ${formatINR(selectedPortfolio.minInvestment)}   |   Horizon: ${selectedPortfolio.timeHorizon}`, 10, 49);
+      doc.text(
+        `Risk: ${RISK_CONFIG[selectedPortfolio.riskProfile].label}   |   Min Investment: ${fmtINR(selectedPortfolio.minInvestment)}   |   Horizon: ${selectedPortfolio.timeHorizon}`,
+        10, 49,
+      );
 
-      // Holdings table
+      // ── Asset Allocation section ──
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.text("Top Holdings", 10, 58);
+      doc.text("Asset Allocation", 10, 58);
       autoTable(doc, {
         startY: 62,
+        head: [["Asset Class", "Weight %"]],
+        body: selectedPortfolio.allocation.map((a) => [a.label, `${a.weight}%`]),
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [239, 246, 255] },
+        margin: { left: 10, right: 115 },
+        tableWidth: 85,
+      });
+
+      // ── Risk Metrics section (right column) ──
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text("Risk Metrics", 115, 58);
+      autoTable(doc, {
+        startY: 62,
+        head: [["Metric", "Value"]],
+        body: [
+          ["Sharpe Ratio", selectedPortfolio.riskMetrics.sharpeRatio.toFixed(2)],
+          ["Max Drawdown", `${selectedPortfolio.riskMetrics.maxDrawdown}%`],
+          ["Volatility", `${selectedPortfolio.riskMetrics.volatility}%`],
+          ["Beta", selectedPortfolio.riskMetrics.beta.toFixed(2)],
+          ["Alpha (Ann.)", `+${selectedPortfolio.riskMetrics.alpha}%`],
+        ],
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [239, 246, 255] },
+        margin: { left: 115, right: 10 },
+        tableWidth: 85,
+      });
+
+      // ── Holdings table (full width, below allocation) ──
+      const afterY = (doc as any).lastAutoTable?.finalY ?? 100;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text("Top Holdings", 10, afterY + 8);
+      autoTable(doc, {
+        startY: afterY + 12,
         head: [["#", "Instrument", "Category", "Weight %", "Return %"]],
         body: selectedPortfolio.holdings.map((h) => [
           h.rank,
           h.name,
           h.category,
           `${h.weight}%`,
-          h.currentReturn ? `${h.currentReturn}%` : "—",
+          h.currentReturn != null ? `${h.currentReturn >= 0 ? "+" : ""}${h.currentReturn}%` : "-",
         ]),
         styles: { fontSize: 8, cellPadding: 2.5 },
         headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold" },
@@ -1993,17 +2042,22 @@ export default function AgentModelPortfoliosPage() {
         margin: { left: 10, right: 10 },
       });
 
-      // Disclaimer
+      // ── Disclaimer ──
       const pageH = doc.internal.pageSize.getHeight();
       doc.setFontSize(6.5);
       doc.setTextColor(120, 120, 120);
       doc.setFont("helvetica", "italic");
-      doc.text(DISCLAIMER_TEXT, 10, pageH - 8, { maxWidth: pageW - 20 });
+      doc.text(DISCLAIMER_TEXT, 10, pageH - 10, { maxWidth: pageW - 20 });
 
       doc.save(`fintekpro-model-portfolio-${selectedPortfolio.id}.pdf`);
       toast({ title: "PDF Downloaded", description: `${selectedPortfolio.name} portfolio exported.` });
-    } catch {
-      toast({ title: "Export failed", variant: "destructive" });
+    } catch (err: any) {
+      console.error("[PDF Export] Error:", err);
+      toast({
+        title: "Export failed",
+        description: err?.message || "Could not generate PDF. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
