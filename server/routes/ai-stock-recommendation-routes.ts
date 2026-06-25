@@ -7,7 +7,7 @@ import { z } from "zod";
 import { db } from "../db";
 import { storeCategories, dailyPicks } from "@shared/schema";
 import { eq, or } from "drizzle-orm";
-import { logger } from "../utils/logger";
+import { logger } from "../logger";
 
 // Helper to check if Stocks category is enabled for recommendations
 async function isStocksCategoryEnabled(): Promise<boolean> {
