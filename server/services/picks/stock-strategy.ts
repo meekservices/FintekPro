@@ -573,6 +573,50 @@ export class StockStrategy extends BaseStrategy {
 			score += 15;
 		if (advancedMetrics.roic && advancedMetrics.roic > 20) score += 10;
 
+		// ── P0 Alpha Factor A: 52-Week Positioning ──────────────────────────────────
+		// Near 52-week high = momentum leader (breakout candidate).
+		// Near 52-week low + good fundamentals = value entry point.
+		// Near 52w high WITH negative recent momentum = distribution risk → penalise.
+		const weekHigh52 = stock.weekHigh52 ? Number.parseFloat(stock.weekHigh52) : null;
+		const weekLow52  = stock.weekLow52  ? Number.parseFloat(stock.weekLow52)  : null;
+		const curPrice   = stock.currentPrice ? Number.parseFloat(stock.currentPrice) : null;
+		if (weekHigh52 && weekLow52 && curPrice && weekHigh52 > weekLow52) {
+			const range52 = weekHigh52 - weekLow52;
+			const pos52w = (curPrice - weekLow52) / range52; // 0 = at 52w low, 1 = at 52w high
+			if (pos52w >= 0.80) score += 12;      // Near 52w high — momentum leader / breakout
+			else if (pos52w <= 0.30) score += 8;  // Near 52w low — value entry (contrarian)
+			// Penalty: near all-time high with recent negative momentum = distribution
+			const returns1Y = stock.returns1Y ? Number.parseFloat(stock.returns1Y) : 0;
+			if (pos52w >= 0.90 && returns1Y < 0) score -= 10;
+		}
+
+		// ── P0 Alpha Factor B: Beneish M-Score (Earnings Manipulation Detector) ─────
+		// M-Score < -2.22: very unlikely manipulation → earnings quality PREMIUM.
+		// M-Score > -1.78: possible manipulation → STRONG PENALTY (avoid at all costs).
+		// Named after Prof. Messod Beneish — catches Enron-style accounting.
+		if (advancedMetrics.beneishMScore !== undefined) {
+			const m = advancedMetrics.beneishMScore;
+			if (m < -2.99) score += 15;           // Very clean earnings quality
+			else if (m < -2.22) score += 8;        // Clean earnings
+			else if (m > -1.78) score -= 20;       // Likely manipulation → hard avoid
+		}
+
+		// ── P0 Alpha Factor C: Interest Coverage + Quick Ratio (Distress Filter) ────
+		// Interest coverage < 1 = company can't service debt = distress trap.
+		// Quick ratio < 0.5 = severe near-term liquidity risk.
+		// These filters catch "cheap PE" stocks that are actually leveraged traps.
+		if (advancedMetrics.interestCoverage !== undefined) {
+			const ic = advancedMetrics.interestCoverage;
+			if (ic > 5) score += 10;              // Very safe debt serviceability
+			else if (ic > 2) score += 5;           // Adequate coverage
+			else if (ic < 1) score -= 25;          // Cannot cover interest → distress trap
+		}
+		if (advancedMetrics.quickRatio !== undefined) {
+			const qr = advancedMetrics.quickRatio;
+			if (qr > 1.5) score += 8;             // Strong short-term liquidity
+			else if (qr < 0.5) score -= 15;        // Severe liquidity risk
+		}
+
 		if (enriched) {
 			if (enriched.fundamentals?.roe && enriched.fundamentals.roe > 15)
 				score += 8;
@@ -724,6 +768,10 @@ export class StockStrategy extends BaseStrategy {
 					grossMargin: stockFinancialMetrics.grossMargin,
 					assetTurnover: stockFinancialMetrics.assetTurnover,
 					netIncome: stockFinancialMetrics.netIncome,
+					// ── P0 Alpha Factors ────────────────────────────────────────────
+					beneishMScore: stockFinancialMetrics.beneishMScore,       // earnings manipulation detector
+					interestCoverage: stockFinancialMetrics.interestCoverage, // debt serviceability
+					quickRatio: stockFinancialMetrics.quickRatio,             // liquidity quality
 				})
 				.from(stockFinancialMetrics)
 				.where(
@@ -738,10 +786,13 @@ export class StockStrategy extends BaseStrategy {
 			const m = rows[0];
 
 			const roic = m.roic ? Number.parseFloat(m.roic) : undefined;
+			const beneishMScore = m.beneishMScore ? Number.parseFloat(m.beneishMScore) : undefined;
+			const interestCoverage = m.interestCoverage ? Number.parseFloat(m.interestCoverage) : undefined;
+			const quickRatio = m.quickRatio ? Number.parseFloat(m.quickRatio) : undefined;
 
 			// Use pre-computed Piotroski F-Score if available
 			if (m.piotroskiFScore != null) {
-				return { piotroskiFScore: m.piotroskiFScore, roic };
+				return { piotroskiFScore: m.piotroskiFScore, roic, beneishMScore, interestCoverage, quickRatio };
 			}
 
 			// Derive a simplified Piotroski-style score from available ratios (4 signals)
@@ -758,7 +809,7 @@ export class StockStrategy extends BaseStrategy {
 
 			// Scale to 0–9 range proportionally (7 signals → 9)
 			const scaledScore = Math.round((score / 7) * 9);
-			return { piotroskiFScore: scaledScore, roic };
+			return { piotroskiFScore: scaledScore, roic, beneishMScore, interestCoverage, quickRatio };
 		} catch (err) {
 			logger.warn("[StockStrategy] calculateAdvancedMetrics failed:", { error: err instanceof Error ? err.message : String(err) });
 			return {};

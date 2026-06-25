@@ -1218,6 +1218,18 @@ Provide analysis as JSON with these fields:
 			score += Math.min(10, product.dividendYield * 3);
 		}
 
+		// ── P0 Alpha: Price-to-Book Ratio ──────────────────────────────────────────
+		// PB < 1 = trading below book value (deep value).
+		// PB > 6 = price premium that needs exceptional growth to justify.
+		// Context-aware: IT/pharma warrant higher PB than commodities/PSU.
+		if (product.pbRatio && product.pbRatio > 0) {
+			const pb = product.pbRatio;
+			if (pb < 1.0) score += 15;         // Deep value — below book
+			else if (pb < 2.5) score += 10;    // Reasonable value
+			else if (pb < 5.0) score += 5;     // Fair to moderately priced
+			else if (pb > 10) score -= 10;     // Significant premium — needs justification
+		}
+
 		return Math.min(100, Math.max(0, score));
 	}
 

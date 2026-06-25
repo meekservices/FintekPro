@@ -837,6 +837,33 @@ class AIStockRecommendationService {
 			else qualityScore -= 15;
 		}
 
+		// ── P0 Alpha: Beneish M-Score ───────────────────────────────────────────────
+		// Earnings manipulation detector. M-Score > -1.78 = likely manipulation.
+		// Catches Enron-style accounting that looks good on fundamentals.
+		const beneishM = advancedMetrics.beneishMScore ?? stock.beneishMScore;
+		if (beneishM !== undefined && beneishM !== null) {
+			const bm = Number(beneishM);
+			if (bm < -2.99) qualityScore += 15;   // Very clean earnings
+			else if (bm < -2.22) qualityScore += 8;// Clean earnings
+			else if (bm > -1.78) qualityScore -= 25; // Likely manipulation → hard penalise
+		}
+
+		// ── P0 Alpha: Interest Coverage + Quick Ratio (Distress Filter) ────────────
+		// Eliminates leveraged traps: low PE stocks that can't cover debt.
+		const intCov = advancedMetrics.interestCoverage ?? stock.interestCoverage;
+		if (intCov !== undefined && intCov !== null) {
+			const ic = Number(intCov);
+			if (ic > 5) qualityScore += 10;       // Very safe debt service
+			else if (ic > 2) qualityScore += 5;    // Adequate coverage
+			else if (ic < 1) qualityScore -= 25;   // Cannot cover interest → distress trap
+		}
+		const qkRatio = advancedMetrics.quickRatio ?? stock.quickRatio;
+		if (qkRatio !== undefined && qkRatio !== null) {
+			const qr = Number(qkRatio);
+			if (qr > 1.5) qualityScore += 8;       // Strong short-term liquidity
+			else if (qr < 0.5) qualityScore -= 15; // Severe liquidity risk
+		}
+
 		if (
 			advancedMetrics.earningsQualityRatio !== undefined &&
 			advancedMetrics.earningsQualityRatio >= 1.0
@@ -872,6 +899,22 @@ class AIStockRecommendationService {
 			const eg = enriched.growth.epsGrowth * 100;
 			if (eg > 20) momentumScore += 15;
 			else if (eg > 10) momentumScore += 10;
+		}
+
+		// ── P0 Alpha: 52-Week Price Positioning ───────────────────────────────────
+		// Near 52w high = momentum leader. Near 52w low = value entry (if fundamentals ok).
+		// Near 52w high with negative annual return = distribution risk → penalise.
+		const wk52High = live.weekHigh52 ?? stock.weekHigh52;
+		const wk52Low  = live.weekLow52  ?? stock.weekLow52;
+		const livePrice = live.currentPrice ?? stock.currentPrice;
+		if (wk52High && wk52Low && livePrice) {
+			const h = Number(wk52High), l = Number(wk52Low), p = Number(livePrice);
+			if (h > l) {
+				const pos = (p - l) / (h - l);
+				if (pos >= 0.80) momentumScore += 12;      // Near 52w high — momentum leader
+				else if (pos <= 0.30) momentumScore += 8;  // Near 52w low — value entry
+				if (pos >= 0.90 && returns1Y < 0) momentumScore -= 10; // Distribution risk
+			}
 		}
 
 		const isBluechip = this.FUNDAMENTALS_CACHE[stock.symbol] !== undefined;
