@@ -486,7 +486,7 @@ export default function AgentResearchAnalytics() {
 									<div className="flex justify-center py-8 h-[300px] items-center">
 										<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
 									</div>
-								) : (
+								) : rollingReturns.length > 0 ? (
 									<ResponsiveContainer width="100%" height={300}>
 										<LineChart
 											data={rollingReturns}
@@ -520,6 +520,10 @@ export default function AgentResearchAnalytics() {
 											/>
 										</LineChart>
 									</ResponsiveContainer>
+								) : (
+									<div className="flex justify-center items-center h-[300px] text-muted-foreground">
+										No data available
+									</div>
 								)}
 							</CardContent>
 						</Card>

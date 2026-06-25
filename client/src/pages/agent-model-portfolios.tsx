@@ -1,0 +1,2821 @@
+/**
+ * @file agent-model-portfolios.tsx
+ * @description Model Portfolio — Research Tab Feature
+ *
+ * Curated, pre-built diversified investment templates serving as guidance
+ * and inspiration for users of all roles (Agents, Partners, Clients).
+ *
+ * IMPORTANT: This is a Decision Support System ONLY. Portfolios are
+ * inspirational guidance — no autonomous trade execution occurs here.
+ * All AI advisory outputs include confidence scores, factors, model version,
+ * and mandatory SEBI disclaimers per FASP-AI v1.0.
+ *
+ * @inputs  - Role from useAuth(), portfolio ID filters
+ * @outputs - Portfolio cards, detail sheet, performance chart, AI insights
+ * @edge    - Low-confidence AI → recommendation downgraded, human advisor suggested
+ */
+import { useState, useMemo } from "react";
+import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
+import {
+  LayoutGrid,
+  TrendingUp,
+  TrendingDown,
+  Shield,
+  BarChart3,
+  PieChart,
+  Target,
+  Star,
+  Share2,
+  Download,
+  Copy,
+  MessageSquare,
+  Mail,
+  Sparkles,
+  AlertTriangle,
+  Info,
+  ChevronRight,
+  RefreshCw,
+  Clock,
+  ArrowUpRight,
+  ArrowDownRight,
+  Zap,
+  BrainCircuit,
+  Users,
+  Landmark,
+  Globe,
+  Coins,
+  Activity,
+  Building2,
+  ShieldAlert,
+  BookOpen,
+  FileText,
+} from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+} from "recharts";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type RiskProfile = "conservative" | "moderate" | "aggressive" | "all_weather" | "high";
+
+type AssetAllocation = {
+  category: string;
+  label: string;
+  weight: number;
+  color: string;
+  icon: string;
+};
+
+type Holding = {
+  rank: number;
+  name: string;
+  symbol?: string;
+  category: string;
+  weight: number;
+  currentReturn?: number;
+  isin?: string;
+};
+
+type PerformancePoint = {
+  date: string;
+  portfolioNav: number;
+  benchmarkNav: number;
+};
+
+type RiskMetrics = {
+  sharpeRatio: number;
+  maxDrawdown: number;
+  volatility: number;
+  beta: number;
+  alpha: number;
+};
+
+type RebalancingEvent = {
+  date: string;
+  description: string;
+  changes: string[];
+};
+
+type AIInsight = {
+  recommendation: string;
+  confidence_score: number;
+  factors_considered: string[];
+  model_version: string;
+  timestamp: string;
+};
+
+type ModelPortfolio = {
+  id: string;
+  name: string;
+  tagline: string;
+  riskProfile: RiskProfile;
+  assetClass: "equity" | "debt" | "hybrid" | "thematic" | "goal_based";
+  subCategory: string; // e.g. "Large Cap", "Short Duration", "Balanced Advantage"
+  goal: string[];
+  minInvestment: number;
+  timeHorizon: string;
+  cagr1Y: number;
+  cagr3Y: number;
+  cagr5Y: number;
+  benchmarkCagr1Y: number;
+  benchmarkName: string;
+  lastRebalanced: string;
+  totalHoldings: number;
+  allocation: AssetAllocation[];
+  holdings: Holding[];
+  performance: PerformancePoint[];
+  riskMetrics: RiskMetrics;
+  rebalancingHistory: RebalancingEvent[];
+  aiInsight: AIInsight;
+  highlight: string;
+  icon: string;
+  isNew?: boolean;
+  isFeatured?: boolean;
+};
+
+// ─── Seed Data — 22 Curated Model Portfolios ─────────────────────────────────
+
+const PERFORMANCE_BASE = (
+  startNav: number,
+  months: number,
+  annualReturn: number,
+  volatility: number,
+): PerformancePoint[] => {
+  const pts: PerformancePoint[] = [];
+  const monthlyReturn = annualReturn / 12 / 100;
+  const benchReturn = (annualReturn - 2) / 12 / 100;
+  let nav = startNav;
+  let bench = startNav;
+  const now = new Date();
+  for (let i = months; i >= 0; i--) {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() - i);
+    const noise = (Math.random() - 0.48) * volatility * 0.01 * startNav;
+    nav = nav * (1 + monthlyReturn) + noise;
+    bench = bench * (1 + benchReturn) + noise * 0.6;
+    pts.push({
+      date: d.toLocaleString("en-IN", { month: "short", year: "2-digit" }),
+      portfolioNav: Math.round(nav * 100) / 100,
+      benchmarkNav: Math.round(bench * 100) / 100,
+    });
+  }
+  return pts;
+};
+
+const MODEL_PORTFOLIOS: ModelPortfolio[] = [
+  // ── HYBRID ───────────────────────────────────────────────────────────────────
+  {
+    id: "all-weather-india",
+    assetClass: "hybrid",
+    subCategory: "All-Weather",
+    name: "All-Weather India",
+    tagline: "Stability across market cycles with diversified asset classes",
+    riskProfile: "conservative",
+    goal: ["capital_preservation", "income"],
+    minInvestment: 25000,
+    timeHorizon: "3–5 years",
+    cagr1Y: 9.2,
+    cagr3Y: 10.8,
+    cagr5Y: 11.4,
+    benchmarkCagr1Y: 7.1,
+    benchmarkName: "CRISIL Hybrid 35+65",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 18,
+    highlight: "Low volatility, all-season returns",
+    icon: "🌦️",
+    isFeatured: true,
+    allocation: [
+      { category: "large_cap", label: "Large Cap Equity", weight: 35, color: "#3B82F6", icon: "🏦" },
+      { category: "bonds", label: "Corporate Bonds", weight: 25, color: "#10B981", icon: "📊" },
+      { category: "gold_etf", label: "Gold ETF/SGB", weight: 15, color: "#F59E0B", icon: "🥇" },
+      { category: "liquid", label: "Liquid/Money Market", weight: 15, color: "#8B5CF6", icon: "💧" },
+      { category: "reits", label: "REITs/InvITs", weight: 10, color: "#EF4444", icon: "🏢" },
+    ],
+    holdings: [
+      { rank: 1, name: "HDFC Top 100 Fund", symbol: "HDFC100", category: "Large Cap MF", weight: 15, currentReturn: 13.4 },
+      { rank: 2, name: "SBI Magnum Gilt Fund", category: "Gilt Bond MF", weight: 12, currentReturn: 7.2 },
+      { rank: 3, name: "Nippon India Gold Savings", category: "Gold ETF", weight: 10, currentReturn: 11.1 },
+      { rank: 4, name: "ICICI Pru Liquid Fund", category: "Liquid MF", weight: 10, currentReturn: 7.5 },
+      { rank: 5, name: "Kotak NIFTY 50 ETF", category: "Index ETF", weight: 10, currentReturn: 12.7 },
+      { rank: 6, name: "Embassy Office Parks REIT", category: "REIT", weight: 8, currentReturn: 9.8 },
+      { rank: 7, name: "Axis AAA Bond Plus SDL", category: "Bond MF", weight: 8, currentReturn: 8.1 },
+      { rank: 8, name: "HDFC Corporate Bond Fund", category: "Bond MF", weight: 7, currentReturn: 7.9 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 9.2, 3),
+    riskMetrics: { sharpeRatio: 1.42, maxDrawdown: -6.8, volatility: 7.2, beta: 0.48, alpha: 2.1 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Quarterly rebalancing — added REIT exposure", changes: ["Increased REIT from 7% → 10%", "Reduced liquid by 3%"] },
+      { date: "Mar 2026", description: "Gilt allocation increased on rate cycle outlook", changes: ["Gilt: 10% → 12%", "Corporate bond trimmed: 14% → 12%"] },
+    ],
+    aiInsight: {
+      recommendation: "Suitable for risk-averse investors seeking stable inflation-beating returns. Current debt-equity mix provides downside protection during market volatility.",
+      confidence_score: 84,
+      factors_considered: ["Interest rate cycle", "Gold seasonal demand", "REIT yield stability", "Equity valuation (P/E 22x)"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+  // ── EQUITY — Large Cap ────────────────────────────────────────────────────
+  {
+    id: "blue-chip-growth",
+    assetClass: "equity",
+    subCategory: "Large Cap",
+    name: "Blue Chip Growth",
+    tagline: "India's largest companies driving compounding wealth",
+    riskProfile: "moderate",
+    goal: ["wealth_growth", "retirement"],
+    minInvestment: 50000,
+    timeHorizon: "5–7 years",
+    cagr1Y: 14.8,
+    cagr3Y: 15.9,
+    cagr5Y: 16.3,
+    benchmarkCagr1Y: 12.1,
+    benchmarkName: "NIFTY 50",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 22,
+    highlight: "Quality large-cap bias, consistent alpha",
+    icon: "🏆",
+    isFeatured: true,
+    allocation: [
+      { category: "large_cap", label: "Large Cap Equity", weight: 60, color: "#3B82F6", icon: "🏦" },
+      { category: "index_etf", label: "Index ETFs", weight: 20, color: "#8B5CF6", icon: "📈" },
+      { category: "bonds", label: "Short Duration Bonds", weight: 12, color: "#10B981", icon: "📊" },
+      { category: "liquid", label: "Liquid Fund", weight: 8, color: "#6B7280", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "HDFC Flexicap Fund", category: "Flexicap MF", weight: 20, currentReturn: 16.2 },
+      { rank: 2, name: "Kotak NIFTY 50 ETF", category: "Index ETF", weight: 15, currentReturn: 12.8 },
+      { rank: 3, name: "Reliance Industries", symbol: "RELIANCE", category: "Large Cap Stock", weight: 12, currentReturn: 18.4 },
+      { rank: 4, name: "HDFC Bank Ltd", symbol: "HDFCBANK", category: "Large Cap Stock", weight: 10, currentReturn: 14.1 },
+      { rank: 5, name: "Infosys Ltd", symbol: "INFY", category: "Large Cap Stock", weight: 9, currentReturn: 22.3 },
+      { rank: 6, name: "ITC Limited", symbol: "ITC", category: "Large Cap Stock", weight: 8, currentReturn: 11.7 },
+      { rank: 7, name: "Bajaj Finance", symbol: "BAJFINANCE", category: "Large Cap Stock", weight: 7, currentReturn: 17.6 },
+      { rank: 8, name: "ICICI Pru Short Term Fund", category: "Bond MF", weight: 7, currentReturn: 8.2 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 36, 14.8, 6),
+    riskMetrics: { sharpeRatio: 1.78, maxDrawdown: -14.2, volatility: 13.4, beta: 0.82, alpha: 3.4 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Added IT sector exposure on earnings recovery", changes: ["Infosys weight: 6% → 9%", "Banking trimmed by 3%"] },
+    ],
+    aiInsight: {
+      recommendation: "Ideal for long-term wealth creation. Current large-cap valuations are reasonable at 22x P/E. Expect 14–17% CAGR over 5-year horizon.",
+      confidence_score: 79,
+      factors_considered: ["Nifty P/E at 22x (5Y avg: 23x)", "IT sector earnings recovery", "Banking sector NPA improvement", "India GDP growth 7.2%"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "emerging-leaders",
+    assetClass: "equity",
+    subCategory: "Multi Cap",
+    name: "Emerging Leaders",
+    tagline: "High-conviction mid & small cap bets for aggressive wealth building",
+    riskProfile: "aggressive",
+    goal: ["wealth_growth"],
+    minInvestment: 100000,
+    timeHorizon: "7–10 years",
+    cagr1Y: 21.3,
+    cagr3Y: 23.8,
+    cagr5Y: 26.1,
+    benchmarkCagr1Y: 18.4,
+    benchmarkName: "NIFTY Midcap 150",
+    lastRebalanced: "2026-05-15",
+    totalHoldings: 28,
+    highlight: "High conviction, sector rotation strategy",
+    icon: "🚀",
+    isNew: true,
+    allocation: [
+      { category: "mid_cap", label: "Mid Cap Equity", weight: 45, color: "#8B5CF6", icon: "📊" },
+      { category: "small_cap", label: "Small Cap Equity", weight: 30, color: "#EF4444", icon: "🔥" },
+      { category: "large_cap", label: "Large Cap Anchor", weight: 15, color: "#3B82F6", icon: "🏦" },
+      { category: "liquid", label: "Tactical Cash", weight: 10, color: "#6B7280", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "Quant Mid Cap Fund", category: "Mid Cap MF", weight: 18, currentReturn: 24.8 },
+      { rank: 2, name: "Nippon Small Cap Fund", category: "Small Cap MF", weight: 15, currentReturn: 31.2 },
+      { rank: 3, name: "Dixon Technologies", symbol: "DIXON", category: "Mid Cap Stock", weight: 8, currentReturn: 44.7 },
+      { rank: 4, name: "Tata Elxsi", symbol: "TATAELXSI", category: "Mid Cap Stock", weight: 7, currentReturn: 19.3 },
+      { rank: 5, name: "Polycab India", symbol: "POLYCAB", category: "Mid Cap Stock", weight: 7, currentReturn: 28.6 },
+      { rank: 6, name: "Kotak NIFTY 50 ETF", category: "Large Cap ETF", weight: 10, currentReturn: 12.4 },
+      { rank: 7, name: "Kaynes Technology", symbol: "KAYNES", category: "Small Cap Stock", weight: 6, currentReturn: 52.1 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 21.3, 14),
+    riskMetrics: { sharpeRatio: 1.53, maxDrawdown: -28.4, volatility: 21.6, beta: 1.32, alpha: 5.8 },
+    rebalancingHistory: [
+      { date: "May 2026", description: "Electronics manufacturing sector overweight added", changes: ["Dixon, Kaynes added to portfolio", "Trimmed pharma mid-cap by 4%"] },
+    ],
+    aiInsight: {
+      recommendation: "High-risk, high-reward portfolio suitable for investors with 7+ year horizon and ability to withstand 25-30% drawdowns. Not recommended for near-term goals.",
+      confidence_score: 72,
+      factors_considered: ["Mid-small cap valuations (premium to historical)", "Electronics PLI momentum", "India consumption story", "FII flows into mid-cap"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "dividend-harvest",
+    assetClass: "hybrid",
+    subCategory: "Dividend / Income",
+    name: "Dividend Harvest",
+    tagline: "Steady income through dividend stocks, bonds and fixed income",
+    riskProfile: "moderate",
+    goal: ["income", "retirement"],
+    minInvestment: 75000,
+    timeHorizon: "3–5 years",
+    cagr1Y: 11.5,
+    cagr3Y: 12.8,
+    cagr5Y: 13.2,
+    benchmarkCagr1Y: 9.4,
+    benchmarkName: "NIFTY Dividend Opportunities 50",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 20,
+    highlight: "Regular income + capital preservation",
+    icon: "🌾",
+    allocation: [
+      { category: "dividend_stocks", label: "Dividend Stocks", weight: 40, color: "#10B981", icon: "💸" },
+      { category: "bonds", label: "Corporate Bonds", weight: 30, color: "#3B82F6", icon: "📊" },
+      { category: "reits", label: "REITs (rental yield)", weight: 15, color: "#F59E0B", icon: "🏢" },
+      { category: "sgb", label: "SGBs (Sovereign Gold)", weight: 15, color: "#EF4444", icon: "🥇" },
+    ],
+    holdings: [
+      { rank: 1, name: "ITC Limited", symbol: "ITC", category: "Dividend Stock", weight: 12, currentReturn: 11.7 },
+      { rank: 2, name: "Coal India", symbol: "COALINDIA", category: "PSU Dividend Stock", weight: 10, currentReturn: 16.2 },
+      { rank: 3, name: "HDFC Corporate Bond Fund", category: "Bond MF", weight: 12, currentReturn: 8.1 },
+      { rank: 4, name: "Mindspace Business Parks REIT", category: "REIT", weight: 10, currentReturn: 10.2 },
+      { rank: 5, name: "Power Grid Corp", symbol: "POWERGRID", category: "Dividend Stock", weight: 9, currentReturn: 14.8 },
+      { rank: 6, name: "Sovereign Gold Bond 2028", category: "SGB", weight: 8, currentReturn: 11.4 },
+      { rank: 7, name: "ONGC Ltd", symbol: "ONGC", category: "PSU Dividend Stock", weight: 8, currentReturn: 19.3 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 36, 11.5, 5),
+    riskMetrics: { sharpeRatio: 1.61, maxDrawdown: -9.4, volatility: 9.8, beta: 0.61, alpha: 2.8 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "PSU stocks increased for dividend yield", changes: ["Coal India: 7% → 10%", "Power Grid: 7% → 9%"] },
+    ],
+    aiInsight: {
+      recommendation: "Suitable for pre-retirees and conservative investors seeking 8–12% annual yield. PSU dividend plays look attractive given high dividend payout ratios.",
+      confidence_score: 82,
+      factors_considered: ["PSU dividend payout ratios 60–80%", "REIT distribution yield 8–10%", "SGB gold price outlook (bullish)", "Corporate bond spread tightening"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "tax-saver-portfolio",
+    assetClass: "equity",
+    subCategory: "ELSS / Tax Saving",
+    name: "Tax-Saver Portfolio",
+    tagline: "Save ₹46,800 in taxes annually while building long-term wealth",
+    riskProfile: "moderate",
+    goal: ["tax_saving", "wealth_growth"],
+    minInvestment: 50000,
+    timeHorizon: "3–7 years",
+    cagr1Y: 12.1,
+    cagr3Y: 14.2,
+    cagr5Y: 15.6,
+    benchmarkCagr1Y: 10.3,
+    benchmarkName: "ELSS Category Avg",
+    lastRebalanced: "2026-04-01",
+    totalHoldings: 14,
+    highlight: "80C eligible ELSS + tax-efficient instruments",
+    icon: "💰",
+    isNew: true,
+    allocation: [
+      { category: "elss", label: "ELSS (80C)", weight: 55, color: "#3B82F6", icon: "🧾" },
+      { category: "large_cap", label: "Large Cap Equity", weight: 25, color: "#8B5CF6", icon: "🏦" },
+      { category: "bonds", label: "Tax-free Bonds", weight: 12, color: "#10B981", icon: "📊" },
+      { category: "liquid", label: "Liquid Fund", weight: 8, color: "#6B7280", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "Mirae Asset Tax Saver Fund (ELSS)", category: "ELSS", weight: 20, currentReturn: 16.4 },
+      { rank: 2, name: "Axis Long Term Equity Fund (ELSS)", category: "ELSS", weight: 18, currentReturn: 13.2 },
+      { rank: 3, name: "Quant Tax Plan (ELSS)", category: "ELSS", weight: 17, currentReturn: 24.1 },
+      { rank: 4, name: "HDFC Top 100 Fund", category: "Large Cap MF", weight: 15, currentReturn: 13.7 },
+      { rank: 5, name: "NHAI Tax-free Bonds 2027", category: "Tax-free Bond", weight: 8, currentReturn: 6.8 },
+      { rank: 6, name: "PFC Tax-free Bonds 2028", category: "Tax-free Bond", weight: 7, currentReturn: 6.6 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 12.1, 7),
+    riskMetrics: { sharpeRatio: 1.69, maxDrawdown: -16.2, volatility: 14.1, beta: 0.89, alpha: 3.1 },
+    rebalancingHistory: [
+      { date: "Apr 2026", description: "New FY rebalancing — ELSS allocation refreshed", changes: ["Quant Tax Plan added for high-momentum exposure", "Axis Long Term slightly trimmed"] },
+    ],
+    aiInsight: {
+      recommendation: "Excellent for salaried investors in 30% tax bracket seeking Section 80C benefits with equity growth. ELSS lock-in of 3 years enforces investment discipline.",
+      confidence_score: 88,
+      factors_considered: ["Section 80C tax savings (₹1.5L limit)", "ELSS category outperformance vs Nifty", "Tax-free bond yields vs FD post-tax", "3-year mandatory lock-in behavioral benefit"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "hni-alternatives",
+    assetClass: "thematic",
+    subCategory: "Alternatives / HNI",
+    name: "HNI Alternatives",
+    tagline: "Premium access to PMS, AIFs, Pre-IPO and structured products",
+    riskProfile: "high",
+    goal: ["wealth_growth", "diversification"],
+    minInvestment: 2500000,
+    timeHorizon: "5–10 years",
+    cagr1Y: 18.7,
+    cagr3Y: 21.4,
+    cagr5Y: 24.2,
+    benchmarkCagr1Y: 14.2,
+    benchmarkName: "PMS Category Avg",
+    lastRebalanced: "2026-05-01",
+    totalHoldings: 12,
+    highlight: "Exclusive access to institutional-grade investments",
+    icon: "💎",
+    allocation: [
+      { category: "pms", label: "Portfolio Management Services", weight: 35, color: "#8B5CF6", icon: "📊" },
+      { category: "aif", label: "Alternative Investment Funds", weight: 30, color: "#EF4444", icon: "🏦" },
+      { category: "pre_ipo", label: "Pre-IPO Opportunities", weight: 20, color: "#F59E0B", icon: "🚀" },
+      { category: "unlisted", label: "Unlisted Equity", weight: 15, color: "#10B981", icon: "💼" },
+    ],
+    holdings: [
+      { rank: 1, name: "Alchemy Leaders of Tomorrow (PMS)", category: "PMS", weight: 18, currentReturn: 22.4 },
+      { rank: 2, name: "Motilal Oswal Focused PMS", category: "PMS", weight: 17, currentReturn: 19.8 },
+      { rank: 3, name: "IIFL Special Opportunities Fund (AIF)", category: "AIF Cat-II", weight: 15, currentReturn: 24.7 },
+      { rank: 4, name: "Stride Ventures Fund (AIF Cat-I)", category: "AIF Cat-I", weight: 15, currentReturn: 31.2 },
+      { rank: 5, name: "Swiggy Pre-IPO", category: "Pre-IPO", weight: 12, currentReturn: 38.4 },
+      { rank: 6, name: "National Stock Exchange (Unlisted)", category: "Unlisted", weight: 10, currentReturn: 28.1 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 36, 18.7, 9),
+    riskMetrics: { sharpeRatio: 1.91, maxDrawdown: -22.1, volatility: 17.4, beta: 0.74, alpha: 7.2 },
+    rebalancingHistory: [
+      { date: "May 2026", description: "Pre-IPO allocation refreshed with new opportunities", changes: ["Added Swiggy Pre-IPO position", "Exited PhonePe Pre-IPO post listing"] },
+    ],
+    aiInsight: {
+      recommendation: "Suitable only for Qualified Institutional Buyers (QIB) / HNIs with net worth >₹5Cr. High illiquidity, 3-5 year lock-in. Not for short-term needs.",
+      confidence_score: 76,
+      factors_considered: ["India IPO pipeline (2026 strong)", "PMS alpha generation vs Nifty", "AIF venture returns in Indian tech", "Unlisted equity valuation discount"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "retirement-shield",
+    assetClass: "hybrid",
+    subCategory: "Retirement",
+    name: "Retirement Shield",
+    tagline: "Steady, low-risk income portfolio for retirement stage investors",
+    riskProfile: "conservative",
+    goal: ["retirement", "income", "capital_preservation"],
+    minInvestment: 100000,
+    timeHorizon: "Ongoing",
+    cagr1Y: 8.5,
+    cagr3Y: 9.2,
+    cagr5Y: 9.8,
+    benchmarkCagr1Y: 6.8,
+    benchmarkName: "CRISIL Composite Bond",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 16,
+    highlight: "Capital safety + monthly income equivalent",
+    icon: "🛡️",
+    allocation: [
+      { category: "bonds", label: "Government/AAA Bonds", weight: 40, color: "#10B981", icon: "📊" },
+      { category: "liquid", label: "Liquid & Ultra-Short", weight: 20, color: "#3B82F6", icon: "💧" },
+      { category: "sgb", label: "Sovereign Gold Bonds", weight: 15, color: "#F59E0B", icon: "🥇" },
+      { category: "large_cap", label: "Large Cap Dividend", weight: 15, color: "#8B5CF6", icon: "🏦" },
+      { category: "reits", label: "REITs (yield focus)", weight: 10, color: "#EF4444", icon: "🏢" },
+    ],
+    holdings: [
+      { rank: 1, name: "SBI Magnum Constant Maturity", category: "Gilt MF", weight: 16, currentReturn: 8.4 },
+      { rank: 2, name: "HDFC Ultra Short Term Fund", category: "Liquid MF", weight: 12, currentReturn: 7.8 },
+      { rank: 3, name: "Sovereign Gold Bond 2030", category: "SGB", weight: 12, currentReturn: 11.1 },
+      { rank: 4, name: "Kotak Dynamic Bond Fund", category: "Bond MF", weight: 12, currentReturn: 9.2 },
+      { rank: 5, name: "ITC Limited (Dividend)", symbol: "ITC", category: "Dividend Stock", weight: 9, currentReturn: 11.7 },
+      { rank: 6, name: "Embassy Office Parks REIT", category: "REIT", weight: 10, currentReturn: 10.4 },
+      { rank: 7, name: "NHAI Tax-free Bond", category: "Tax-free Bond", weight: 8, currentReturn: 6.7 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 36, 8.5, 2.5),
+    riskMetrics: { sharpeRatio: 1.88, maxDrawdown: -4.2, volatility: 5.1, beta: 0.28, alpha: 1.9 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Duration adjusted on RBI rate signal", changes: ["Reduced long-duration gilt", "Increased ultra-short term allocation"] },
+    ],
+    aiInsight: {
+      recommendation: "Best for investors aged 55+ in or near retirement. Focus on capital safety. Monthly SWP (Systematic Withdrawal Plan) can be structured for regular income.",
+      confidence_score: 91,
+      factors_considered: ["RBI rate cut cycle expected H2 2026", "SGB interest + capital appreciation", "REIT distribution stability", "Investor age-appropriate risk"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "bharat-2030",
+    assetClass: "thematic",
+    subCategory: "Thematic / Sectoral",
+    name: "Bharat 2030",
+    tagline: "Thematic bet on India's infrastructure & growth story",
+    riskProfile: "moderate",
+    goal: ["wealth_growth", "thematic"],
+    minInvestment: 75000,
+    timeHorizon: "5–10 years",
+    cagr1Y: 17.4,
+    cagr3Y: 19.2,
+    cagr5Y: 22.3,
+    benchmarkCagr1Y: 15.1,
+    benchmarkName: "NIFTY Infrastructure",
+    lastRebalanced: "2026-05-15",
+    totalHoldings: 24,
+    highlight: "India infrastructure + manufacturing boom",
+    icon: "🇮🇳",
+    isNew: true,
+    allocation: [
+      { category: "infra", label: "Infrastructure Stocks", weight: 30, color: "#F59E0B", icon: "🏗️" },
+      { category: "manufacturing", label: "Manufacturing/PLI", weight: 25, color: "#EF4444", icon: "🏭" },
+      { category: "financials", label: "Financial Services", weight: 20, color: "#3B82F6", icon: "🏦" },
+      { category: "consumer", label: "Consumer/FMCG", weight: 15, color: "#10B981", icon: "🛒" },
+      { category: "liquid", label: "Cash/Liquid", weight: 10, color: "#6B7280", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "Larsen & Toubro", symbol: "LT", category: "Infrastructure", weight: 12, currentReturn: 21.4 },
+      { rank: 2, name: "Adani Ports", symbol: "ADANIPORTS", category: "Infrastructure", weight: 10, currentReturn: 18.7 },
+      { rank: 3, name: "Dixon Technologies", symbol: "DIXON", category: "PLI Manufacturing", weight: 9, currentReturn: 44.7 },
+      { rank: 4, name: "Bajaj Finance", symbol: "BAJFINANCE", category: "NBFC", weight: 9, currentReturn: 17.3 },
+      { rank: 5, name: "Tata Motors", symbol: "TATAMOTORS", category: "EV/Auto", weight: 8, currentReturn: 23.2 },
+      { rank: 6, name: "Hindustan Unilever", symbol: "HINDUNILVR", category: "FMCG", weight: 8, currentReturn: 9.4 },
+      { rank: 7, name: "NTPC Green Energy", category: "Renewable Infra", weight: 7, currentReturn: 28.1 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 17.4, 10),
+    riskMetrics: { sharpeRatio: 1.64, maxDrawdown: -18.7, volatility: 16.3, beta: 1.08, alpha: 4.2 },
+    rebalancingHistory: [
+      { date: "May 2026", description: "Renewable energy theme added (NTPC Green)", changes: ["NTPC Green added at 7%", "Reduced legacy energy stocks"] },
+    ],
+    aiInsight: {
+      recommendation: "High conviction India macro story. With ₹11.1L Cr capex budget 2026-27 and PLI schemes, infrastructure and manufacturing sectors are well-positioned for 5-7 year outperformance.",
+      confidence_score: 77,
+      factors_considered: ["India capex ₹11.1L Cr budget 2026", "PLI scheme disbursements", "EV policy tailwinds", "India urban housing demand"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+  // ── EQUITY — Large Cap #2 ────────────────────────────────────────────────
+  {
+    id: "nifty50-index-alpha",
+    assetClass: "equity",
+    subCategory: "Large Cap",
+    name: "Nifty 50 Alpha",
+    tagline: "Low-cost index core with satellite quality tilt",
+    riskProfile: "moderate",
+    goal: ["wealth_growth", "retirement"],
+    minInvestment: 10000,
+    timeHorizon: "5–7 years",
+    cagr1Y: 13.2,
+    cagr3Y: 14.1,
+    cagr5Y: 15.3,
+    benchmarkCagr1Y: 12.8,
+    benchmarkName: "NIFTY 50 TRI",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 12,
+    highlight: "80% index core + 20% quality overlay",
+    icon: "📊",
+    allocation: [
+      { category: "nifty50_etf", label: "Nifty 50 ETF", weight: 55, color: "#3B82F6", icon: "📈" },
+      { category: "nifty_next50", label: "Nifty Next 50 ETF", weight: 25, color: "#6366F1", icon: "🔵" },
+      { category: "quality_stocks", label: "Quality Large Caps", weight: 15, color: "#10B981", icon: "⭐" },
+      { category: "liquid", label: "Liquid MF", weight: 5, color: "#9CA3AF", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "Kotak Nifty 50 ETF", symbol: "KOTAKNIFTY", category: "Large Cap ETF", weight: 30, currentReturn: 13.2 },
+      { rank: 2, name: "Nippon India Nifty 50 BeES", symbol: "NIFTYBEES", category: "Large Cap ETF", weight: 25, currentReturn: 13.0 },
+      { rank: 3, name: "Motilal Oswal Nifty Next 50", category: "Large Cap ETF", weight: 25, currentReturn: 14.7 },
+      { rank: 4, name: "HDFC Bank", symbol: "HDFCBANK", category: "Quality Large Cap", weight: 10, currentReturn: 9.2 },
+      { rank: 5, name: "TCS", symbol: "TCS", category: "Quality Large Cap", weight: 5, currentReturn: 16.1 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 13.2, 5),
+    riskMetrics: { sharpeRatio: 1.38, maxDrawdown: -11.2, volatility: 10.8, beta: 0.95, alpha: 1.9 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Annual rebalancing — quality overlay refreshed", changes: ["TCS added as quality tilt", "Rebalanced ETF split 55/25"] },
+    ],
+    aiInsight: {
+      recommendation: "Best entry point for equity beginners. Low-cost index core with minimal active risk. Quality overlay adds modest alpha without high tracking error.",
+      confidence_score: 88,
+      factors_considered: ["Low expense ratio", "Index inclusion criteria", "Quality factor screening", "Long-term mean reversion"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+
+  // ── EQUITY — Mid Cap ─────────────────────────────────────────────────────
+  {
+    id: "midcap-momentum",
+    assetClass: "equity",
+    subCategory: "Mid Cap",
+    name: "Midcap Momentum",
+    tagline: "Tomorrow's blue chips — India's growth engine",
+    riskProfile: "aggressive",
+    goal: ["wealth_growth"],
+    minInvestment: 50000,
+    timeHorizon: "5–10 years",
+    cagr1Y: 21.3,
+    cagr3Y: 23.7,
+    cagr5Y: 26.8,
+    benchmarkCagr1Y: 18.4,
+    benchmarkName: "NIFTY Midcap 150 TRI",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 20,
+    highlight: "Pure mid-cap conviction with momentum factor",
+    icon: "🚀",
+    isNew: true,
+    allocation: [
+      { category: "midcap_growth", label: "High-Growth Mid Caps", weight: 50, color: "#F59E0B", icon: "⚡" },
+      { category: "midcap_quality", label: "Quality Mid Caps", weight: 30, color: "#EF4444", icon: "💎" },
+      { category: "midcap_etf", label: "Midcap ETF", weight: 15, color: "#8B5CF6", icon: "📊" },
+      { category: "liquid", label: "Cash Buffer", weight: 5, color: "#9CA3AF", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "Persistent Systems", symbol: "PERSISTENT", category: "Mid Cap IT", weight: 9, currentReturn: 38.4 },
+      { rank: 2, name: "Chalet Hotels", symbol: "CHALET", category: "Mid Cap Hotels", weight: 8, currentReturn: 31.2 },
+      { rank: 3, name: "Kaynes Technology", symbol: "KAYNES", category: "Mid Cap Electronics", weight: 7, currentReturn: 55.1 },
+      { rank: 4, name: "Motilal Nifty Midcap 150", category: "Midcap ETF", weight: 15, currentReturn: 18.4 },
+      { rank: 5, name: "Varun Beverages", symbol: "VBL", category: "Mid Cap FMCG", weight: 7, currentReturn: 27.3 },
+      { rank: 6, name: "Blue Star", symbol: "BLUESTAR", category: "Mid Cap Consumer", weight: 6, currentReturn: 22.8 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 21.3, 13),
+    riskMetrics: { sharpeRatio: 1.51, maxDrawdown: -22.4, volatility: 18.7, beta: 1.22, alpha: 5.8 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Electronics/tech tilt increased post PLI data", changes: ["Kaynes added", "Reduced commodity exposure"] },
+    ],
+    aiInsight: {
+      recommendation: "Mid-caps historically deliver 3-5% alpha over large caps over 5Y+ cycles. Current mid-cap valuations at 28x PE are elevated but growth visibility justifies a premium.",
+      confidence_score: 73,
+      factors_considered: ["Mid-cap earnings upgrade cycle", "Domestic consumption growth", "Elevated PE — requires long horizon", "Momentum factor persistence"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+
+  // ── EQUITY — Small Cap ───────────────────────────────────────────────────
+  {
+    id: "smallcap-discovery",
+    assetClass: "equity",
+    subCategory: "Small Cap",
+    name: "Small Cap Discovery",
+    tagline: "High-conviction bets on tomorrow's market leaders",
+    riskProfile: "high",
+    goal: ["wealth_growth"],
+    minInvestment: 100000,
+    timeHorizon: "7–10 years",
+    cagr1Y: 24.7,
+    cagr3Y: 28.3,
+    cagr5Y: 31.2,
+    benchmarkCagr1Y: 20.1,
+    benchmarkName: "NIFTY Smallcap 250 TRI",
+    lastRebalanced: "2026-05-15",
+    totalHoldings: 25,
+    highlight: "Pure small-cap, minimum 7-year horizon",
+    icon: "💎",
+    allocation: [
+      { category: "smallcap_growth", label: "Growth Small Caps", weight: 45, color: "#EF4444", icon: "🚀" },
+      { category: "smallcap_turnaround", label: "Turnaround Stories", weight: 25, color: "#F97316", icon: "🔄" },
+      { category: "smallcap_etf", label: "Smallcap ETF Core", weight: 20, color: "#8B5CF6", icon: "📊" },
+      { category: "liquid", label: "Cash Buffer", weight: 10, color: "#9CA3AF", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "Neuland Laboratories", symbol: "NEULANDLAB", category: "Small Cap Pharma", weight: 8, currentReturn: 67.3 },
+      { rank: 2, name: "KPIT Technologies", symbol: "KPITTECH", category: "Small Cap IT", weight: 7, currentReturn: 44.1 },
+      { rank: 3, name: "Utkarsh Small Finance Bank", symbol: "UTKARSHBNK", category: "Small Cap Bank", weight: 6, currentReturn: -12.4 },
+      { rank: 4, name: "Garware Technical Fibres", symbol: "GARFIBRES", category: "Small Cap Specialty", weight: 6, currentReturn: 38.7 },
+      { rank: 5, name: "Nippon Smallcap 250 BeES", category: "Smallcap ETF", weight: 20, currentReturn: 20.1 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 24.7, 18),
+    riskMetrics: { sharpeRatio: 1.32, maxDrawdown: -31.2, volatility: 24.3, beta: 1.41, alpha: 7.2 },
+    rebalancingHistory: [
+      { date: "May 2026", description: "Turnaround basket refreshed", changes: ["Added Utkarsh SFB on NPA recovery thesis", "Exited Anupam Rasayan at target"] },
+    ],
+    aiInsight: {
+      recommendation: "Small cap alpha is real but volatile. This portfolio requires a minimum 7-year horizon and stomach for 30%+ drawdowns. NOT suitable for capital preservation goals.",
+      confidence_score: 68,
+      factors_considered: ["Small cap earnings leverage", "High risk premium", "Illiquidity premium", "Requires 7Y+ horizon"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+
+  // ── EQUITY — Flexi Cap ──────────────────────────────────────────────────
+  {
+    id: "flexicap-allcap",
+    assetClass: "equity",
+    subCategory: "Flexi Cap",
+    name: "FlexiCap All-Season",
+    tagline: "Dynamic allocation across all market caps — follows opportunity",
+    riskProfile: "moderate",
+    goal: ["wealth_growth", "diversification"],
+    minInvestment: 25000,
+    timeHorizon: "5–7 years",
+    cagr1Y: 16.8,
+    cagr3Y: 18.4,
+    cagr5Y: 20.1,
+    benchmarkCagr1Y: 14.2,
+    benchmarkName: "NIFTY 500 TRI",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 30,
+    highlight: "Shifts weight between large/mid/small dynamically",
+    icon: "🌀",
+    isNew: true,
+    allocation: [
+      { category: "large_cap", label: "Large Cap (Base)", weight: 40, color: "#3B82F6", icon: "🏦" },
+      { category: "mid_cap", label: "Mid Cap (Tactical)", weight: 35, color: "#F59E0B", icon: "⚡" },
+      { category: "small_cap", label: "Small Cap (Satellite)", weight: 20, color: "#EF4444", icon: "💎" },
+      { category: "liquid", label: "Cash", weight: 5, color: "#9CA3AF", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "Reliance Industries", symbol: "RELIANCE", category: "Large Cap", weight: 10, currentReturn: 11.4 },
+      { rank: 2, name: "HDFC Bank", symbol: "HDFCBANK", category: "Large Cap", weight: 9, currentReturn: 9.2 },
+      { rank: 3, name: "Trent", symbol: "TRENT", category: "Mid Cap", weight: 8, currentReturn: 43.7 },
+      { rank: 4, name: "Cholamandalam Investment", symbol: "CHOLAFIN", category: "Mid Cap", weight: 7, currentReturn: 28.3 },
+      { rank: 5, name: "Neuland Laboratories", symbol: "NEULANDLAB", category: "Small Cap", weight: 5, currentReturn: 67.3 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 16.8, 9),
+    riskMetrics: { sharpeRatio: 1.58, maxDrawdown: -16.3, volatility: 14.2, beta: 1.05, alpha: 4.1 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Quarterly rebalancing — trimmed large cap, added mid cap on earnings upgrade", changes: ["Large Cap: 45% → 40%", "Mid Cap: 30% → 35%"] },
+    ],
+    aiInsight: {
+      recommendation: "Flexi-cap is the most versatile equity category. Dynamic allocation between caps gives fund manager latitude to participate in wherever the market opportunity exists.",
+      confidence_score: 81,
+      factors_considered: ["Market cap cycle positioning", "Valuation relative to history", "Earnings growth outlook", "Liquidity across caps"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+
+  // ── EQUITY — Multi Cap ──────────────────────────────────────────────────
+  {
+    id: "multicap-balanced",
+    assetClass: "equity",
+    subCategory: "Multi Cap",
+    name: "Multi Cap Balanced",
+    tagline: "SEBI-mandated equal exposure to large, mid and small caps",
+    riskProfile: "aggressive",
+    goal: ["wealth_growth", "diversification"],
+    minInvestment: 50000,
+    timeHorizon: "7–10 years",
+    cagr1Y: 18.9,
+    cagr3Y: 21.4,
+    cagr5Y: 23.7,
+    benchmarkCagr1Y: 16.2,
+    benchmarkName: "NIFTY500 Multicap 50:25:25",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 30,
+    highlight: "Structured 25-25-25 exposure per SEBI mandate",
+    icon: "⚖️",
+    allocation: [
+      { category: "large_cap", label: "Large Cap (min 25%)", weight: 33, color: "#3B82F6", icon: "🏦" },
+      { category: "mid_cap", label: "Mid Cap (min 25%)", weight: 34, color: "#F59E0B", icon: "⚡" },
+      { category: "small_cap", label: "Small Cap (min 25%)", weight: 28, color: "#EF4444", icon: "💎" },
+      { category: "liquid", label: "Cash", weight: 5, color: "#9CA3AF", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "Infosys", symbol: "INFY", category: "Large Cap", weight: 9, currentReturn: 14.7 },
+      { rank: 2, name: "ICICI Bank", symbol: "ICICIBANK", category: "Large Cap", weight: 9, currentReturn: 18.3 },
+      { rank: 3, name: "Supreme Industries", symbol: "SUPREMEIND", category: "Mid Cap", weight: 8, currentReturn: 22.1 },
+      { rank: 4, name: "Emami", symbol: "EMAMILTD", category: "Mid Cap", weight: 8, currentReturn: 7.4 },
+      { rank: 5, name: "Deepak Nitrite", symbol: "DEEPAKNTR", category: "Small Cap", weight: 7, currentReturn: 31.2 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 18.9, 12),
+    riskMetrics: { sharpeRatio: 1.44, maxDrawdown: -19.8, volatility: 16.9, beta: 1.15, alpha: 4.6 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Maintained SEBI minimum across all caps", changes: ["Large Cap trimmed 35→33%", "Small Cap added 26→28%"] },
+    ],
+    aiInsight: {
+      recommendation: "Multi Cap offers structured diversification across market cap spectrum. SEBI's mandatory minimum ensures no cap dominates — reducing concentration risk vs. flexi-cap.",
+      confidence_score: 79,
+      factors_considered: ["SEBI regulatory minimum compliance", "Cross-cap diversification", "Cycle diversification benefit", "Higher drawdown risk from small cap"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+
+  // ── DEBT — Short Duration ────────────────────────────────────────────────
+  {
+    id: "debt-short-duration",
+    assetClass: "debt",
+    subCategory: "Short Duration",
+    name: "Short Duration Income",
+    tagline: "Stable income with 1–3 year maturity bonds — low interest rate risk",
+    riskProfile: "conservative",
+    goal: ["income", "capital_preservation"],
+    minInvestment: 10000,
+    timeHorizon: "1–3 years",
+    cagr1Y: 7.8,
+    cagr3Y: 8.1,
+    cagr5Y: 7.9,
+    benchmarkCagr1Y: 7.2,
+    benchmarkName: "CRISIL Short Term Bond Index",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 15,
+    highlight: "Low duration risk, high credit quality",
+    icon: "📅",
+    allocation: [
+      { category: "aaa_bonds", label: "AAA Rated Bonds", weight: 50, color: "#10B981", icon: "🏆" },
+      { category: "sov_bonds", label: "Sovereign/SDL", weight: 25, color: "#3B82F6", icon: "🏛️" },
+      { category: "aa_bonds", label: "AA Rated Bonds", weight: 15, color: "#F59E0B", icon: "📊" },
+      { category: "liquid", label: "Liquid/T-Bills", weight: 10, color: "#9CA3AF", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "HDFC Corporate Bond Fund", category: "Short Term Bond MF", weight: 20, currentReturn: 7.9 },
+      { rank: 2, name: "ICICI Pru Short Term Fund", category: "Short Term Bond MF", weight: 18, currentReturn: 8.1 },
+      { rank: 3, name: "Axis Banking & PSU Debt Fund", category: "Banking & PSU", weight: 15, currentReturn: 7.6 },
+      { rank: 4, name: "SBI Short Term Debt Fund", category: "Short Term Bond MF", weight: 12, currentReturn: 7.8 },
+      { rank: 5, name: "RBI T-Bills (via ETF)", category: "G-Sec ETF", weight: 10, currentReturn: 7.2 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 7.8, 1),
+    riskMetrics: { sharpeRatio: 2.1, maxDrawdown: -1.2, volatility: 2.1, beta: 0.08, alpha: 0.7 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Duration maintained at ~1.8 years post RBI pause", changes: ["Rolled 3M T-Bills", "Added HDFC Bank NCD at 8.3%"] },
+    ],
+    aiInsight: {
+      recommendation: "With RBI holding rates steady, short-duration bonds offer attractive risk-adjusted yield. Suitable as an FD alternative for 1–3 year money.",
+      confidence_score: 91,
+      factors_considered: ["RBI rate cycle — hold phase", "Credit spreads at normalised levels", "Short duration = low mark-to-market risk", "Superior to savings account"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+
+  // ── DEBT — Long Duration ─────────────────────────────────────────────────
+  {
+    id: "debt-long-duration",
+    assetClass: "debt",
+    subCategory: "Long Duration",
+    name: "Long Duration Gilt",
+    tagline: "Capital gains play on interest rate cycle — for rate-cut beneficiaries",
+    riskProfile: "moderate",
+    goal: ["wealth_growth", "income"],
+    minInvestment: 25000,
+    timeHorizon: "3–5 years",
+    cagr1Y: 9.4,
+    cagr3Y: 10.2,
+    cagr5Y: 10.8,
+    benchmarkCagr1Y: 8.7,
+    benchmarkName: "CRISIL 10Y Gilt Index",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 10,
+    highlight: "Rate cut beneficiary — capital gain potential",
+    icon: "🏛️",
+    allocation: [
+      { category: "gilt_10y", label: "10Y Government Bonds", weight: 50, color: "#3B82F6", icon: "🏛️" },
+      { category: "gilt_30y", label: "Long Dated G-Sec (30Y)", weight: 25, color: "#6366F1", icon: "📜" },
+      { category: "sdl", label: "State Dev Loans (SDL)", weight: 20, color: "#8B5CF6", icon: "🗺️" },
+      { category: "liquid", label: "Liquid Buffer", weight: 5, color: "#9CA3AF", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "SBI Magnum Gilt Fund", category: "Gilt Fund", weight: 30, currentReturn: 9.8 },
+      { rank: 2, name: "ICICI Pru Gilt Fund", category: "Gilt Fund", weight: 25, currentReturn: 10.1 },
+      { rank: 3, name: "HDFC Gilt Fund", category: "Gilt Fund", weight: 20, currentReturn: 9.4 },
+      { rank: 4, name: "Nippon India Gilt SDL Index", category: "SDL ETF", weight: 20, currentReturn: 8.7 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 9.4, 4),
+    riskMetrics: { sharpeRatio: 1.21, maxDrawdown: -5.8, volatility: 5.9, beta: 0.22, alpha: 1.4 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Added 30Y G-Sec on rate cut anticipation", changes: ["30Y bucket: 15% → 25%", "Reduced SDL: 30% → 20%"] },
+    ],
+    aiInsight: {
+      recommendation: "Position for RBI rate cuts in H2 2026. Every 50bps rate cut delivers ~4–5% capital gain on long-dated gilts. Risk: rates may stay higher for longer if inflation surprises.",
+      confidence_score: 72,
+      factors_considered: ["RBI forward guidance", "US Fed rate path", "India inflation trajectory CPI 4.2%", "Fiscal deficit trajectory"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+
+  // ── DEBT — Corporate Bond ────────────────────────────────────────────────
+  {
+    id: "debt-corporate-bond",
+    assetClass: "debt",
+    subCategory: "Corporate Bond",
+    name: "Corporate Bond Plus",
+    tagline: "Higher yield through quality corporate paper — AA+ and above",
+    riskProfile: "moderate",
+    goal: ["income", "capital_preservation"],
+    minInvestment: 15000,
+    timeHorizon: "2–4 years",
+    cagr1Y: 8.6,
+    cagr3Y: 8.9,
+    cagr5Y: 8.7,
+    benchmarkCagr1Y: 7.8,
+    benchmarkName: "CRISIL Corporate Bond Composite",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 18,
+    highlight: "50-100bps spread over G-Sec with credit quality",
+    icon: "🏢",
+    allocation: [
+      { category: "aaa_corp", label: "AAA Corporate Bonds", weight: 55, color: "#10B981", icon: "🏆" },
+      { category: "aa_plus_corp", label: "AA+ Corporate Bonds", weight: 25, color: "#3B82F6", icon: "📊" },
+      { category: "psu_bonds", label: "PSU Bonds", weight: 15, color: "#8B5CF6", icon: "🏛️" },
+      { category: "liquid", label: "Liquid", weight: 5, color: "#9CA3AF", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "HDFC Corporate Bond Fund", category: "Corp Bond MF", weight: 22, currentReturn: 8.8 },
+      { rank: 2, name: "Kotak Corporate Bond Fund", category: "Corp Bond MF", weight: 18, currentReturn: 8.6 },
+      { rank: 3, name: "Bajaj Finance NCD 8.65%", category: "NCD", weight: 12, currentReturn: 8.65 },
+      { rank: 4, name: "NTPC Bond 8.10%", category: "PSU Bond", weight: 10, currentReturn: 8.1 },
+      { rank: 5, name: "Aditya Birla Corp Bond", category: "Corp Bond MF", weight: 10, currentReturn: 8.7 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 8.6, 1.5),
+    riskMetrics: { sharpeRatio: 1.87, maxDrawdown: -2.1, volatility: 2.8, beta: 0.12, alpha: 0.9 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Added Bajaj Finance NCD at attractive 8.65% yield", changes: ["NCD allocation 8% → 12%", "Reduced AA+ bucket proportionally"] },
+    ],
+    aiInsight: {
+      recommendation: "Corporate bond funds offer 50–100bps premium over sovereign with minimal credit risk at AA+ and above. Ideal for 2–4 year money that needs better than FD returns.",
+      confidence_score: 87,
+      factors_considered: ["Credit spread vs. historical avg", "Default rates at 5Y low", "Duration 2.5 years", "Reinvestment risk managed"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+
+  // ── DEBT — Liquid / Ultra Short ──────────────────────────────────────────
+  {
+    id: "debt-liquid-park",
+    assetClass: "debt",
+    subCategory: "Liquid / Ultra Short",
+    name: "Liquid Parking",
+    tagline: "Better than savings account — park short-term money safely",
+    riskProfile: "conservative",
+    goal: ["capital_preservation", "income"],
+    minInvestment: 5000,
+    timeHorizon: "1 day – 3 months",
+    cagr1Y: 7.3,
+    cagr3Y: 6.8,
+    cagr5Y: 6.5,
+    benchmarkCagr1Y: 6.9,
+    benchmarkName: "CRISIL Liquid Fund Index",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 8,
+    highlight: "No exit load after 7 days, ~7.3% p.a. vs 3.5% savings",
+    icon: "💧",
+    allocation: [
+      { category: "liquid_mf", label: "Liquid Mutual Funds", weight: 60, color: "#10B981", icon: "💧" },
+      { category: "overnight", label: "Overnight Funds", weight: 20, color: "#3B82F6", icon: "🌙" },
+      { category: "tbills", label: "T-Bills (via ETF)", weight: 15, color: "#8B5CF6", icon: "📜" },
+      { category: "arbitrage", label: "Arbitrage Fund", weight: 5, color: "#F59E0B", icon: "⚡" },
+    ],
+    holdings: [
+      { rank: 1, name: "ICICI Pru Liquid Fund", category: "Liquid MF", weight: 25, currentReturn: 7.4 },
+      { rank: 2, name: "HDFC Liquid Fund", category: "Liquid MF", weight: 20, currentReturn: 7.3 },
+      { rank: 3, name: "Aditya Birla Overnight Fund", category: "Overnight MF", weight: 20, currentReturn: 7.1 },
+      { rank: 4, name: "Nippon India ETF Nifty 1D Rate", category: "Overnight ETF", weight: 15, currentReturn: 7.0 },
+      { rank: 5, name: "Kotak Arbitrage Fund", category: "Arbitrage", weight: 5, currentReturn: 8.2 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 7.3, 0.3),
+    riskMetrics: { sharpeRatio: 3.2, maxDrawdown: -0.1, volatility: 0.3, beta: 0.01, alpha: 0.4 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Arbitrage allocation added for tax efficiency", changes: ["Added Kotak Arbitrage at 5%", "Trimmed Liquid MF by 5%"] },
+    ],
+    aiInsight: {
+      recommendation: "Liquid parking is an emergency fund strategy. This portfolio targets ~7.3% with near-zero risk — significantly better than savings accounts. Suitable for 0–90 day money.",
+      confidence_score: 95,
+      factors_considered: ["RBI repo rate 6.5%", "Overnight MIBOR spread", "Credit quality: AAA only", "Tax efficiency via arbitrage component"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+
+  // ── HYBRID — Balanced Advantage ──────────────────────────────────────────
+  {
+    id: "balanced-advantage",
+    assetClass: "hybrid",
+    subCategory: "Balanced Advantage",
+    name: "Balanced Advantage",
+    tagline: "Dynamic equity-debt mix — auto-adjusts as markets rise or fall",
+    riskProfile: "moderate",
+    goal: ["wealth_growth", "capital_preservation"],
+    minInvestment: 25000,
+    timeHorizon: "3–5 years",
+    cagr1Y: 11.4,
+    cagr3Y: 12.8,
+    cagr5Y: 13.6,
+    benchmarkCagr1Y: 10.1,
+    benchmarkName: "CRISIL Hybrid 50+50 Moderate",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 20,
+    highlight: "Automatically reduces equity when markets are expensive",
+    icon: "🎛️",
+    isFeatured: true,
+    allocation: [
+      { category: "equity_dynamic", label: "Equity (Dynamic)", weight: 55, color: "#3B82F6", icon: "📈" },
+      { category: "debt_dynamic", label: "Debt (Dynamic)", weight: 35, color: "#10B981", icon: "📊" },
+      { category: "arbitrage", label: "Arbitrage", weight: 10, color: "#F59E0B", icon: "⚡" },
+    ],
+    holdings: [
+      { rank: 1, name: "HDFC Balanced Advantage Fund", category: "BAF", weight: 30, currentReturn: 11.8 },
+      { rank: 2, name: "ICICI Pru Balanced Advantage Fund", category: "BAF", weight: 25, currentReturn: 12.1 },
+      { rank: 3, name: "Nippon India Balanced Advantage", category: "BAF", weight: 20, currentReturn: 11.2 },
+      { rank: 4, name: "Kotak Balanced Advantage Fund", category: "BAF", weight: 15, currentReturn: 10.9 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 11.4, 5),
+    riskMetrics: { sharpeRatio: 1.68, maxDrawdown: -9.3, volatility: 8.2, beta: 0.58, alpha: 2.8 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Equity reduced to 55% from 62% — NIFTY PE above 22x", changes: ["Equity: 62% → 55%", "Debt: 28% → 35%"] },
+    ],
+    aiInsight: {
+      recommendation: "Ideal for first-time equity investors. The dynamic equity allocation model reduces equity when Nifty PE > 22x, protecting against over-valuation risk automatically.",
+      confidence_score: 85,
+      factors_considered: ["PE-based equity allocation model", "Current Nifty PE 22.4x — slightly elevated", "Debt acts as shock absorber", "Tax treatment: equity taxation if >65% equity"],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+
+  // ── DEBT — Corporate Treasury #1 (Operational Cash) ──────────────────────
+  {
+    id: "corp-treasury-operational",
+    assetClass: "debt",
+    subCategory: "Corporate Treasury",
+    name: "Corporate Treasury — Operational",
+    tagline: "Working capital deployment: safety, liquidity, compliance-first",
+    riskProfile: "conservative",
+    goal: ["capital_preservation", "income"],
+    minInvestment: 1000000,
+    timeHorizon: "1 day – 3 months",
+    cagr1Y: 7.5,
+    cagr3Y: 7.1,
+    cagr5Y: 6.9,
+    benchmarkCagr1Y: 6.9,
+    benchmarkName: "CRISIL Liquid Fund Index",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 8,
+    highlight: "Board-policy compliant · AAA/Sovereign only · T+1 liquidity",
+    icon: "🏦",
+    isNew: true,
+    allocation: [
+      { category: "liquid_mf", label: "Liquid Mutual Funds (AAA)", weight: 40, color: "#10B981", icon: "💧" },
+      { category: "overnight_mf", label: "Overnight Funds", weight: 25, color: "#3B82F6", icon: "🌙" },
+      { category: "tbills", label: "91-day T-Bills (via ETF)", weight: 20, color: "#8B5CF6", icon: "📜" },
+      { category: "bank_fd", label: "Scheduled Bank FDs (AA+)", weight: 10, color: "#F59E0B", icon: "🏦" },
+      { category: "arbitrage", label: "Arbitrage Funds", weight: 5, color: "#6B7280", icon: "⚡" },
+    ],
+    holdings: [
+      { rank: 1, name: "HDFC Liquid Fund – Growth", category: "Liquid MF", weight: 22, currentReturn: 7.4 },
+      { rank: 2, name: "ICICI Pru Liquid Fund – Growth", category: "Liquid MF", weight: 18, currentReturn: 7.5 },
+      { rank: 3, name: "Aditya Birla Overnight Fund", category: "Overnight MF", weight: 15, currentReturn: 7.2 },
+      { rank: 4, name: "SBI Overnight Fund", category: "Overnight MF", weight: 10, currentReturn: 7.1 },
+      { rank: 5, name: "Nippon ETF Nifty 1D Rate", category: "Overnight ETF", weight: 10, currentReturn: 7.0 },
+      { rank: 6, name: "ICICI Bank FD (91-day)", category: "Scheduled Bank FD", weight: 10, currentReturn: 7.6 },
+      { rank: 7, name: "Kotak Arbitrage Fund", category: "Arbitrage MF", weight: 5, currentReturn: 8.2 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 7.5, 0.2),
+    riskMetrics: { sharpeRatio: 3.8, maxDrawdown: -0.05, volatility: 0.2, beta: 0.00, alpha: 0.6 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Overnight bucket increased for quarter-end liquidity requirement", changes: ["Overnight: 20% → 25%", "Liquid MF: 45% → 40%"] },
+      { date: "Mar 2026", description: "Q4 advance tax provision — T-Bills matured, rolled", changes: ["Rolled 91-day T-Bills", "Added ICICI Bank FD at 7.6%"] },
+    ],
+    aiInsight: {
+      recommendation: "Designed for CFO-level deployment of operational cash. Strict adherence to SEBI-approved instruments for corporates: liquid MFs, overnight funds, scheduled bank FDs, and G-Sec. All instruments rated AAA or sovereign. Returns ~7.5% vs 3.5% in current accounts — zero credit risk.",
+      confidence_score: 96,
+      factors_considered: [
+        "SEBI MF circular for corporate investors",
+        "RBI repo rate 6.5% — overnight funds closely track",
+        "No mark-to-market risk on overnight/liquid",
+        "T+1 redemption for operational liquidity",
+        "Board investment policy: AAA/sovereign only",
+      ],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+
+  // ── DEBT — Corporate Treasury #2 (Strategic Reserves) ────────────────────
+  {
+    id: "corp-treasury-strategic",
+    assetClass: "debt",
+    subCategory: "Corporate Treasury",
+    name: "Corporate Treasury — Strategic",
+    tagline: "3–12 month reserves: higher yield with maintained credit discipline",
+    riskProfile: "conservative",
+    goal: ["income", "capital_preservation"],
+    minInvestment: 5000000,
+    timeHorizon: "3–12 months",
+    cagr1Y: 8.4,
+    cagr3Y: 8.2,
+    cagr5Y: 8.0,
+    benchmarkCagr1Y: 7.8,
+    benchmarkName: "CRISIL Short Duration Bond Index",
+    lastRebalanced: "2026-06-01",
+    totalHoldings: 12,
+    highlight: "80–120bps above liquid funds · 3–6M deployment horizon",
+    icon: "🏛️",
+    isNew: true,
+    allocation: [
+      { category: "aaa_corp_bonds", label: "AAA Corporate Bonds / NCDs", weight: 35, color: "#10B981", icon: "🏆" },
+      { category: "banking_psu", label: "Banking & PSU Debt Funds", weight: 25, color: "#3B82F6", icon: "🏦" },
+      { category: "sdl", label: "State Development Loans (SDL)", weight: 20, color: "#8B5CF6", icon: "🗺️" },
+      { category: "cd", label: "Bank CDs (Certificates of Deposit)", weight: 12, color: "#F59E0B", icon: "📋" },
+      { category: "liquid_mf", label: "Liquid Buffer", weight: 8, color: "#9CA3AF", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "Bajaj Finance NCD 8.65% (6M)", category: "AAA NCD", weight: 15, currentReturn: 8.65 },
+      { rank: 2, name: "HDFC Bank CD (180-day)", category: "Bank CD", weight: 12, currentReturn: 7.95 },
+      { rank: 3, name: "Axis Banking & PSU Debt Fund", category: "Banking & PSU MF", weight: 13, currentReturn: 7.9 },
+      { rank: 4, name: "ICICI Pru Banking & PSU Fund", category: "Banking & PSU MF", weight: 12, currentReturn: 8.0 },
+      { rank: 5, name: "Nippon India SDL Index 2026", category: "SDL ETF", weight: 12, currentReturn: 8.1 },
+      { rank: 6, name: "NTPC Bond 8.10% (1Y)", category: "PSU Bond (AAA)", weight: 10, currentReturn: 8.1 },
+      { rank: 7, name: "HDFC Corporate Bond Fund", category: "Corp Bond MF", weight: 10, currentReturn: 8.5 },
+      { rank: 8, name: "ICICI Pru Liquid Fund", category: "Liquid Buffer", weight: 8, currentReturn: 7.4 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 8.4, 0.8),
+    riskMetrics: { sharpeRatio: 2.6, maxDrawdown: -0.8, volatility: 1.2, beta: 0.05, alpha: 0.8 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Added SDL allocation on state fiscal improvement", changes: ["SDL: 15% → 20%", "Banking & PSU: 30% → 25%"] },
+      { date: "Mar 2026", description: "Rolled Bajaj Finance NCD at 8.65% for 6M tenure", changes: ["Renewed NCD at 8.65% (was 8.45%)"] },
+    ],
+    aiInsight: {
+      recommendation: "Ideal for CFOs deploying 3–12 month strategic reserves. The mix of AAA NCDs, Bank CDs, SDL, and Banking & PSU MFs delivers ~8.4% — materially better than FDs at 7–7.5% — while meeting most board-approved investment policies. All instruments are SEBI-listed or scheduled-bank issued.",
+      confidence_score: 93,
+      factors_considered: [
+        "AAA/sovereign credit quality throughout",
+        "CD/NCD tenors matched to deployment horizon",
+        "SDL: semi-sovereign, typically 25–40bps above G-Sec",
+        "Banking & PSU MF: zero credit risk, ~8% gross yield",
+        "Tax: debt MF STCG added to income; LTCG indexed after 3Y",
+        "Suitable for Sec 44AD/company treasury board resolutions",
+      ],
+      model_version: "FASP-AI-v1.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
+
+
+  // ── GOAL-BASED PORTFOLIOS ─────────────────────────────────────────────────
+  {
+    id: "goal-child-education",
+    assetClass: "goal_based",
+    subCategory: "Child Education",
+    name: "Child Education Fund",
+    tagline: "Build your child's college corpus over 15 years — equity-led compounding",
+    riskProfile: "moderate",
+    goal: ["wealth_growth"],
+    minInvestment: 5000,
+    timeHorizon: "10–15 years",
+    cagr1Y: 14.2, cagr3Y: 15.8, cagr5Y: 17.1,
+    benchmarkCagr1Y: 12.8, benchmarkName: "NIFTY 500 TRI",
+    lastRebalanced: "2026-06-01", totalHoldings: 14,
+    highlight: "Glide path: reduces equity as goal year approaches",
+    icon: "🎓", isNew: true,
+    allocation: [
+      { category: "large_cap", label: "Large Cap Equity", weight: 40, color: "#3B82F6", icon: "🏦" },
+      { category: "mid_cap", label: "Mid Cap Equity", weight: 25, color: "#F59E0B", icon: "⚡" },
+      { category: "elss", label: "ELSS (Tax Saving)", weight: 15, color: "#10B981", icon: "🏷️" },
+      { category: "debt", label: "Debt / Bonds", weight: 15, color: "#8B5CF6", icon: "📊" },
+      { category: "gold", label: "Gold ETF", weight: 5, color: "#F59E0B", icon: "🥇" },
+    ],
+    holdings: [
+      { rank: 1, name: "Parag Parikh Flexi Cap Fund", category: "Flexi Cap MF", weight: 20, currentReturn: 18.4 },
+      { rank: 2, name: "Axis Bluechip Fund", category: "Large Cap MF", weight: 18, currentReturn: 13.1 },
+      { rank: 3, name: "Mirae Asset ELSS Tax Saver", category: "ELSS MF", weight: 15, currentReturn: 16.2 },
+      { rank: 4, name: "Kotak Emerging Equity Fund", category: "Mid Cap MF", weight: 12, currentReturn: 22.3 },
+      { rank: 5, name: "HDFC Corporate Bond Fund", category: "Corporate Bond", weight: 10, currentReturn: 8.5 },
+      { rank: 6, name: "Nippon Gold ETF", category: "Gold ETF", weight: 5, currentReturn: 14.2 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 36, 14.2, 8),
+    riskMetrics: { sharpeRatio: 1.52, maxDrawdown: -14.3, volatility: 12.4, beta: 0.88, alpha: 3.1 },
+    rebalancingHistory: [{ date: "Jun 2026", description: "Annual glide path review", changes: ["Equity maintained at 80%"] }],
+    aiInsight: {
+      recommendation: "Start SIP of ₹5,000/month to build ₹35–40L corpus in 15 years. Glide path shifts to debt as college approaches.",
+      confidence_score: 87,
+      factors_considered: ["15Y horizon = equity compounding", "ELSS adds ₹46,800 tax saving", "Glide path reduces risk near goal"],
+      model_version: "FASP-AI-v1.0", timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "goal-retirement",
+    assetClass: "goal_based",
+    subCategory: "Retirement",
+    name: "Retirement Corpus Builder",
+    tagline: "Systematic wealth accumulation for a comfortable post-retirement life",
+    riskProfile: "moderate",
+    goal: ["retirement", "income"],
+    minInvestment: 10000,
+    timeHorizon: "15–25 years",
+    cagr1Y: 13.1, cagr3Y: 14.4, cagr5Y: 15.8,
+    benchmarkCagr1Y: 11.2, benchmarkName: "NIFTY 500 TRI",
+    lastRebalanced: "2026-06-01", totalHoldings: 16,
+    highlight: "NPS Sec 80CCD(1B) + equity MFs + SGB",
+    icon: "🌅",
+    allocation: [
+      { category: "equity", label: "Diversified Equity", weight: 55, color: "#3B82F6", icon: "📈" },
+      { category: "nps", label: "NPS Tier I (E+G)", weight: 20, color: "#8B5CF6", icon: "🏛️" },
+      { category: "debt", label: "Debt MFs", weight: 15, color: "#10B981", icon: "📊" },
+      { category: "gold", label: "Gold ETF / SGB", weight: 10, color: "#F59E0B", icon: "🥇" },
+    ],
+    holdings: [
+      { rank: 1, name: "NPS Tier I — Equity (E) + Govt (G)", category: "NPS", weight: 20, currentReturn: 12.4 },
+      { rank: 2, name: "SBI Bluechip Fund", category: "Large Cap MF", weight: 18, currentReturn: 13.7 },
+      { rank: 3, name: "Mirae Asset Large & Midcap", category: "Large & Mid", weight: 15, currentReturn: 16.8 },
+      { rank: 4, name: "Sovereign Gold Bonds 2030", category: "SGB", weight: 10, currentReturn: 16.1 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 36, 13.1, 7),
+    riskMetrics: { sharpeRatio: 1.61, maxDrawdown: -12.8, volatility: 11.2, beta: 0.82, alpha: 2.8 },
+    rebalancingHistory: [{ date: "Jun 2026", description: "NPS allocation reviewed", changes: ["Added SGB tranche"] }],
+    aiInsight: {
+      recommendation: "NPS Sec 80CCD(1B) gives extra ₹50,000 deduction. SGB gives 2.5% annual interest + gold appreciation. Long horizon favours equity dominance.",
+      confidence_score: 89,
+      factors_considered: ["NPS Sec 80CCD(1B) ₹50K deduction", "SGB — sovereign guaranteed", "Long horizon = equity compounding"],
+      model_version: "FASP-AI-v1.0", timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "goal-wedding-fund",
+    assetClass: "goal_based",
+    subCategory: "Wedding / Life Event",
+    name: "Wedding Fund",
+    tagline: "3–5 year goal-based savings for a life milestone",
+    riskProfile: "moderate",
+    goal: ["capital_preservation", "wealth_growth"],
+    minInvestment: 10000,
+    timeHorizon: "3–5 years",
+    cagr1Y: 11.8, cagr3Y: 12.6, cagr5Y: 13.4,
+    benchmarkCagr1Y: 10.1, benchmarkName: "CRISIL Hybrid 50+50",
+    lastRebalanced: "2026-06-01", totalHoldings: 10,
+    highlight: "Balanced growth + capital safety for 3–5Y milestone",
+    icon: "💍", isNew: true,
+    allocation: [
+      { category: "large_cap", label: "Large Cap Equity", weight: 40, color: "#3B82F6", icon: "🏦" },
+      { category: "short_debt", label: "Short Term Debt", weight: 35, color: "#10B981", icon: "📊" },
+      { category: "gold", label: "Gold ETF", weight: 15, color: "#F59E0B", icon: "🥇" },
+      { category: "liquid", label: "Liquid Buffer", weight: 10, color: "#9CA3AF", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "ICICI Pru Bluechip Fund", category: "Large Cap MF", weight: 22, currentReturn: 14.1 },
+      { rank: 2, name: "Axis Short Term Fund", category: "Short Term Bond", weight: 18, currentReturn: 8.1 },
+      { rank: 3, name: "Nippon Gold ETF", category: "Gold ETF", weight: 15, currentReturn: 14.2 },
+      { rank: 4, name: "ICICI Pru Liquid Fund", category: "Liquid MF", weight: 10, currentReturn: 7.4 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 11.8, 6),
+    riskMetrics: { sharpeRatio: 1.74, maxDrawdown: -8.4, volatility: 7.8, beta: 0.52, alpha: 2.4 },
+    rebalancingHistory: [{ date: "Jun 2026", description: "Equity trimmed as goal approaches", changes: ["Equity: 45% → 40%"] }],
+    aiInsight: {
+      recommendation: "Gold hedges against rising wedding costs. Short debt limits rate risk. 40% equity provides growth over 3–5Y.",
+      confidence_score: 82,
+      factors_considered: ["3-5Y horizon", "Gold tracks inflation", "Short debt limits rate risk"],
+      model_version: "FASP-AI-v1.0", timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "goal-home-downpayment",
+    assetClass: "goal_based",
+    subCategory: "Home Purchase",
+    name: "Home Down Payment",
+    tagline: "2–3 year disciplined savings toward your first home",
+    riskProfile: "conservative",
+    goal: ["capital_preservation", "income"],
+    minInvestment: 25000,
+    timeHorizon: "2–3 years",
+    cagr1Y: 8.9, cagr3Y: 9.1, cagr5Y: 8.8,
+    benchmarkCagr1Y: 7.8, benchmarkName: "CRISIL Short Term Bond",
+    lastRebalanced: "2026-06-01", totalHoldings: 8,
+    highlight: "Capital preservation priority — cannot afford big drawdowns",
+    icon: "🏠",
+    allocation: [
+      { category: "short_debt", label: "Short Term Debt MFs", weight: 50, color: "#10B981", icon: "📊" },
+      { category: "banking_psu", label: "Banking & PSU Debt", weight: 25, color: "#3B82F6", icon: "🏦" },
+      { category: "liquid", label: "Liquid MFs", weight: 15, color: "#9CA3AF", icon: "💧" },
+      { category: "conservative_equity", label: "Conservative Hybrid", weight: 10, color: "#8B5CF6", icon: "⚖️" },
+    ],
+    holdings: [
+      { rank: 1, name: "HDFC Short Term Debt Fund", category: "Short Term Bond", weight: 25, currentReturn: 8.1 },
+      { rank: 2, name: "Axis Banking & PSU Debt Fund", category: "Banking & PSU", weight: 25, currentReturn: 7.9 },
+      { rank: 3, name: "HDFC Liquid Fund", category: "Liquid MF", weight: 15, currentReturn: 7.4 },
+      { rank: 4, name: "ICICI Pru Regular Savings Fund", category: "Conservative Hybrid", weight: 10, currentReturn: 9.8 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 8.9, 1.5),
+    riskMetrics: { sharpeRatio: 2.3, maxDrawdown: -2.1, volatility: 2.8, beta: 0.09, alpha: 1.1 },
+    rebalancingHistory: [{ date: "Jun 2026", description: "Conservative hybrid trimmed", changes: ["Equity: 15% → 10%"] }],
+    aiInsight: {
+      recommendation: "2–3Y home goal needs capital preservation. ~8.9% outperforms FDs. Zero equity risk above 10%.",
+      confidence_score: 91,
+      factors_considered: ["Short horizon = debt dominant", "Cannot afford drawdown near goal", "All-AAA credit quality"],
+      model_version: "FASP-AI-v1.0", timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "goal-emergency-corpus",
+    assetClass: "goal_based",
+    subCategory: "Emergency Fund",
+    name: "Emergency Corpus",
+    tagline: "6-month expense buffer — safe, liquid, 2x savings account return",
+    riskProfile: "conservative",
+    goal: ["capital_preservation"],
+    minInvestment: 5000,
+    timeHorizon: "Always liquid",
+    cagr1Y: 7.4, cagr3Y: 7.0, cagr5Y: 6.8,
+    benchmarkCagr1Y: 3.5, benchmarkName: "SBI Savings Account Rate",
+    lastRebalanced: "2026-06-01", totalHoldings: 4,
+    highlight: "T+1 withdrawal · 2x savings return · zero market risk",
+    icon: "🛡️",
+    allocation: [
+      { category: "liquid_mf", label: "Liquid Mutual Funds", weight: 60, color: "#10B981", icon: "💧" },
+      { category: "overnight", label: "Overnight Funds", weight: 25, color: "#3B82F6", icon: "🌙" },
+      { category: "bank_fd", label: "Bank FD (1 month)", weight: 15, color: "#F59E0B", icon: "🏦" },
+    ],
+    holdings: [
+      { rank: 1, name: "HDFC Liquid Fund", category: "Liquid MF", weight: 35, currentReturn: 7.4 },
+      { rank: 2, name: "ICICI Pru Liquid Fund", category: "Liquid MF", weight: 25, currentReturn: 7.5 },
+      { rank: 3, name: "Aditya Birla Overnight Fund", category: "Overnight MF", weight: 25, currentReturn: 7.2 },
+      { rank: 4, name: "1-Month Bank FD", category: "Bank FD", weight: 15, currentReturn: 5.5 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 7.4, 0.2),
+    riskMetrics: { sharpeRatio: 4.1, maxDrawdown: -0.03, volatility: 0.15, beta: 0.00, alpha: 0.5 },
+    rebalancingHistory: [{ date: "Jun 2026", description: "Routine review — no change", changes: ["Allocation maintained"] }],
+    aiInsight: {
+      recommendation: "~7.4% vs 3.5% savings with full T+1 liquidity. Every household needs 3–6 months of expenses as an emergency fund.",
+      confidence_score: 97,
+      factors_considered: ["Full T+1 liquidity", "AAA/sovereign only", "No exit load after 7 days"],
+      model_version: "FASP-AI-v1.0", timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "goal-senior-citizen",
+    assetClass: "goal_based",
+    subCategory: "Senior Citizen",
+    name: "Senior Citizen Income",
+    tagline: "Regular income + capital safety for retirees 60+ years",
+    riskProfile: "conservative",
+    goal: ["income", "capital_preservation"],
+    minInvestment: 100000,
+    timeHorizon: "Perpetual",
+    cagr1Y: 8.8, cagr3Y: 8.5, cagr5Y: 8.2,
+    benchmarkCagr1Y: 7.5, benchmarkName: "PMVVY Rate (8%)",
+    lastRebalanced: "2026-06-01", totalHoldings: 10,
+    highlight: "SCSS 8.2% + PMVVY + RBI FRB + monthly dividend MFs",
+    icon: "👴",
+    allocation: [
+      { category: "scss", label: "SCSS (8.2% guaranteed)", weight: 30, color: "#10B981", icon: "🏦" },
+      { category: "pmvvy", label: "PM Vaya Vandana Yojana", weight: 20, color: "#3B82F6", icon: "🛡️" },
+      { category: "rbi_frb", label: "RBI Floating Rate Bonds", weight: 20, color: "#8B5CF6", icon: "📊" },
+      { category: "dividend_mf", label: "Monthly Dividend MFs", weight: 20, color: "#F59E0B", icon: "💰" },
+      { category: "liquid", label: "Liquid Buffer", weight: 10, color: "#9CA3AF", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "Senior Citizen Savings Scheme (Post Office)", category: "SCSS", weight: 30, currentReturn: 8.2 },
+      { rank: 2, name: "PMVVY (LIC)", category: "Govt Pension Scheme", weight: 20, currentReturn: 7.4 },
+      { rank: 3, name: "RBI Floating Rate Savings Bond 2020", category: "RBI Bond", weight: 20, currentReturn: 8.05 },
+      { rank: 4, name: "HDFC Dividend Yield Fund", category: "Dividend Yield MF", weight: 12, currentReturn: 11.2 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 8.8, 1),
+    riskMetrics: { sharpeRatio: 2.8, maxDrawdown: -1.8, volatility: 1.9, beta: 0.06, alpha: 1.4 },
+    rebalancingHistory: [{ date: "Jun 2026", description: "SCSS rate revised to 8.2%", changes: ["SCSS: 25% → 30%"] }],
+    aiInsight: {
+      recommendation: "SCSS at 8.2%, RBI FRB at 8.05% — sovereign guaranteed. Combined yield ~8.8% outperforms FDs with govt guarantee.",
+      confidence_score: 94,
+      factors_considered: ["SCSS sovereign 8.2%", "PMVVY LIC pension", "RBI FRB floats 35bps above NSC"],
+      model_version: "FASP-AI-v1.0", timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "goal-starter-sip",
+    assetClass: "goal_based",
+    subCategory: "First Investment",
+    name: "Starter SIP Portfolio",
+    tagline: "Your first investment — ₹500/month, zero complexity",
+    riskProfile: "moderate",
+    goal: ["wealth_growth"],
+    minInvestment: 500,
+    timeHorizon: "7+ years",
+    cagr1Y: 13.4, cagr3Y: 14.7, cagr5Y: 16.1,
+    benchmarkCagr1Y: 12.8, benchmarkName: "NIFTY 50 TRI",
+    lastRebalanced: "2026-06-01", totalHoldings: 3,
+    highlight: "3-fund core — simple, low-cost, proven",
+    icon: "🌱", isNew: true,
+    allocation: [
+      { category: "index_large", label: "Nifty 50 Index Fund", weight: 60, color: "#3B82F6", icon: "📈" },
+      { category: "index_mid", label: "Nifty Midcap 150 Index", weight: 30, color: "#F59E0B", icon: "⚡" },
+      { category: "liquid", label: "Liquid MF (buffer)", weight: 10, color: "#9CA3AF", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "Nifty 50 Index Fund (any AMC)", symbol: "NIFTY50IDX", category: "Index Fund", weight: 60, currentReturn: 12.8 },
+      { rank: 2, name: "Nifty Midcap 150 Index Fund", category: "Index Fund", weight: 30, currentReturn: 18.4 },
+      { rank: 3, name: "Liquid Fund (any AMC)", category: "Liquid MF", weight: 10, currentReturn: 7.3 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 13.4, 7),
+    riskMetrics: { sharpeRatio: 1.44, maxDrawdown: -13.1, volatility: 11.8, beta: 0.97, alpha: 1.8 },
+    rebalancingHistory: [{ date: "Jun 2026", description: "Annual rebalancing — passive", changes: ["No changes"] }],
+    aiInsight: {
+      recommendation: "3-fund portfolio: simplest evidence-based strategy. Start ₹500/month SIP — just don't stop. Index beats 80% active funds over 10Y.",
+      confidence_score: 92,
+      factors_considered: ["Expense ratio < 0.10%", "Zero active manager risk", "Index beats 80% active over 10Y"],
+      model_version: "FASP-AI-v1.0", timestamp: new Date().toISOString(),
+    },
+  },
+
+  // ── SECTORAL / THEMATIC ──────────────────────────────────────────────────────
+  {
+    id: "thematic-bfsi",
+    assetClass: "thematic",
+    subCategory: "BFSI",
+    name: "BFSI Alpha",
+    tagline: "India's largest GDP sector — Banks, Insurance, NBFCs, Fintech",
+    riskProfile: "moderate",
+    goal: ["wealth_growth"],
+    minInvestment: 50000,
+    timeHorizon: "5–7 years",
+    cagr1Y: 15.7, cagr3Y: 17.2, cagr5Y: 18.9,
+    benchmarkCagr1Y: 13.4, benchmarkName: "NIFTY Bank Index",
+    lastRebalanced: "2026-06-01", totalHoldings: 18,
+    highlight: "Banks + Insurance + NBFCs + Fintech ecosystem",
+    icon: "🏦", isNew: true,
+    allocation: [
+      { category: "pvt_banks", label: "Private Banks", weight: 40, color: "#3B82F6", icon: "🏦" },
+      { category: "insurance", label: "Insurance", weight: 20, color: "#10B981", icon: "🛡️" },
+      { category: "nbfc", label: "NBFCs / HFCs", weight: 20, color: "#F59E0B", icon: "💳" },
+      { category: "fintech", label: "Fintech / Digital", weight: 15, color: "#8B5CF6", icon: "📱" },
+      { category: "psu_banks", label: "PSU Banks", weight: 5, color: "#6B7280", icon: "🏛️" },
+    ],
+    holdings: [
+      { rank: 1, name: "HDFC Bank", symbol: "HDFCBANK", category: "Private Bank", weight: 14, currentReturn: 9.2 },
+      { rank: 2, name: "ICICI Bank", symbol: "ICICIBANK", category: "Private Bank", weight: 12, currentReturn: 18.3 },
+      { rank: 3, name: "Bajaj Finance", symbol: "BAJFINANCE", category: "NBFC", weight: 10, currentReturn: 17.3 },
+      { rank: 4, name: "SBI Life Insurance", symbol: "SBILIFE", category: "Life Insurance", weight: 9, currentReturn: 14.6 },
+      { rank: 5, name: "Kotak Mahindra Bank", symbol: "KOTAKBANK", category: "Private Bank", weight: 9, currentReturn: 11.4 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 15.7, 9),
+    riskMetrics: { sharpeRatio: 1.48, maxDrawdown: -17.4, volatility: 14.8, beta: 1.08, alpha: 3.9 },
+    rebalancingHistory: [{ date: "Jun 2026", description: "Fintech tilt increased", changes: ["Fintech: 10% → 15%", "PSU: 10% → 5%"] }],
+    aiInsight: {
+      recommendation: "BFSI is 35%+ of Nifty 50. Credit growth 15% YoY + insurance penetration at 4% (vs 12% global) = decade-long opportunity.",
+      confidence_score: 80,
+      factors_considered: ["Credit growth 15% YoY", "Insurance penetration gap", "NIM expansion"],
+      model_version: "FASP-AI-v1.0", timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "thematic-pharma",
+    assetClass: "thematic",
+    subCategory: "Healthcare & Pharma",
+    name: "Healthcare Alpha",
+    tagline: "India pharma API dominance + domestic healthcare expansion",
+    riskProfile: "aggressive",
+    goal: ["wealth_growth", "thematic"],
+    minInvestment: 50000,
+    timeHorizon: "5–10 years",
+    cagr1Y: 18.4, cagr3Y: 20.1, cagr5Y: 22.7,
+    benchmarkCagr1Y: 15.9, benchmarkName: "NIFTY Pharma Index",
+    lastRebalanced: "2026-05-15", totalHoldings: 20,
+    highlight: "API exports + hospitals + diagnostics + medtech",
+    icon: "💊", isNew: true,
+    allocation: [
+      { category: "pharma_api", label: "Pharma / API Exporters", weight: 40, color: "#10B981", icon: "💊" },
+      { category: "hospitals", label: "Hospitals / Healthcare", weight: 25, color: "#3B82F6", icon: "🏥" },
+      { category: "diagnostics", label: "Diagnostics / Labs", weight: 20, color: "#8B5CF6", icon: "🔬" },
+      { category: "medtech", label: "Medtech / Devices", weight: 15, color: "#F59E0B", icon: "⚕️" },
+    ],
+    holdings: [
+      { rank: 1, name: "Sun Pharmaceutical", symbol: "SUNPHARMA", category: "Large Cap Pharma", weight: 12, currentReturn: 22.4 },
+      { rank: 2, name: "Divi's Laboratories", symbol: "DIVISLAB", category: "API Exporter", weight: 10, currentReturn: 18.7 },
+      { rank: 3, name: "Apollo Hospitals", symbol: "APOLLOHOSP", category: "Hospital", weight: 10, currentReturn: 31.2 },
+      { rank: 4, name: "Neuland Laboratories", symbol: "NEULANDLAB", category: "API Exporter", weight: 7, currentReturn: 67.3 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 18.4, 11),
+    riskMetrics: { sharpeRatio: 1.56, maxDrawdown: -19.8, volatility: 16.4, beta: 0.98, alpha: 5.2 },
+    rebalancingHistory: [{ date: "May 2026", description: "Medtech added", changes: ["Medtech: 0% → 15%"] }],
+    aiInsight: {
+      recommendation: "India = 20% global generic exports + 60% API supply for key molecules. Hospital chains: 1 bed per 1000 vs 4 globally.",
+      confidence_score: 76,
+      factors_considered: ["India generic export share", "Hospital underpenetration", "Aging demographics"],
+      model_version: "FASP-AI-v1.0", timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "thematic-defence",
+    assetClass: "thematic",
+    subCategory: "Defence & Aerospace",
+    name: "Defence & Aerospace",
+    tagline: "India's ₹6.2L Cr defence budget driving indigenisation boom",
+    riskProfile: "high",
+    goal: ["wealth_growth", "thematic"],
+    minInvestment: 75000,
+    timeHorizon: "5–10 years",
+    cagr1Y: 31.4, cagr3Y: 28.7, cagr5Y: 24.1,
+    benchmarkCagr1Y: 24.1, benchmarkName: "NIFTY India Defence Index",
+    lastRebalanced: "2026-06-01", totalHoldings: 15,
+    highlight: "HAL/BEL/BEML + private defence + DRDO indigenisation",
+    icon: "🛡️", isNew: true,
+    allocation: [
+      { category: "defence_psu", label: "Defence PSUs (HAL/BEL)", weight: 40, color: "#EF4444", icon: "✈️" },
+      { category: "defence_pvt", label: "Private Defence (L&T)", weight: 30, color: "#F97316", icon: "🚀" },
+      { category: "aerospace", label: "Aerospace Components", weight: 20, color: "#8B5CF6", icon: "🛸" },
+      { category: "electronics", label: "Defence Electronics", weight: 10, color: "#3B82F6", icon: "📡" },
+    ],
+    holdings: [
+      { rank: 1, name: "HAL (Hindustan Aeronautics)", symbol: "HAL", category: "Defence PSU", weight: 15, currentReturn: 42.3 },
+      { rank: 2, name: "BEL (Bharat Electronics)", symbol: "BEL", category: "Defence Electronics", weight: 14, currentReturn: 31.7 },
+      { rank: 3, name: "Mazagon Dock Shipbuilders", symbol: "MAZDOCK", category: "Defence PSU", weight: 11, currentReturn: 87.4 },
+      { rank: 4, name: "Data Patterns", symbol: "DATAPATTNS", category: "Aerospace Electronics", weight: 9, currentReturn: 38.2 },
+      { rank: 5, name: "Solar Industries", symbol: "SOLARINDS", category: "Ammunition", weight: 8, currentReturn: 44.1 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 31.4, 16),
+    riskMetrics: { sharpeRatio: 1.72, maxDrawdown: -24.3, volatility: 21.4, beta: 1.18, alpha: 9.8 },
+    rebalancingHistory: [{ date: "Jun 2026", description: "HAL target order ₹1.2L Cr", changes: ["HAL: 12% → 15%"] }],
+    aiInsight: {
+      recommendation: "FY27 capex ₹6.2L Cr + DRDO 75% indigenisation target. HAL order backlog ₹94,000 Cr. Elevated 45-60x PE — needs 5Y+ conviction.",
+      confidence_score: 71,
+      factors_considered: ["FY27 defence capex ₹6.21L Cr", "DRDO indigenisation mandate", "Elevated PE 45-60x"],
+      model_version: "FASP-AI-v1.0", timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "thematic-green-energy",
+    assetClass: "thematic",
+    subCategory: "Green Energy",
+    name: "Green Energy India",
+    tagline: "Solar, wind, EV, green hydrogen — India's energy transition",
+    riskProfile: "high",
+    goal: ["wealth_growth", "thematic"],
+    minInvestment: 50000,
+    timeHorizon: "5–10 years",
+    cagr1Y: 26.8, cagr3Y: 24.3, cagr5Y: 21.7,
+    benchmarkCagr1Y: 21.2, benchmarkName: "NIFTY India Clean Energy Index",
+    lastRebalanced: "2026-06-01", totalHoldings: 18,
+    highlight: "500GW renewable by 2030 — ₹3L Cr govt allocation",
+    icon: "☀️", isNew: true,
+    allocation: [
+      { category: "solar", label: "Solar / Renewable Developers", weight: 35, color: "#F59E0B", icon: "☀️" },
+      { category: "ev", label: "EV / Battery Ecosystem", weight: 25, color: "#10B981", icon: "⚡" },
+      { category: "green_infra", label: "Green Infrastructure", weight: 25, color: "#3B82F6", icon: "🏗️" },
+      { category: "green_hydrogen", label: "Green Hydrogen", weight: 15, color: "#8B5CF6", icon: "🌿" },
+    ],
+    holdings: [
+      { rank: 1, name: "Adani Green Energy", symbol: "ADANIGREEN", category: "Solar Developer", weight: 14, currentReturn: 38.2 },
+      { rank: 2, name: "NTPC Green Energy", category: "Renewable PSU", weight: 12, currentReturn: 28.1 },
+      { rank: 3, name: "Waaree Energies", symbol: "WAAREE", category: "Solar Panel Mfg", weight: 8, currentReturn: 54.3 },
+      { rank: 4, name: "Tata Motors (EV)", symbol: "TATAMOTORS", category: "EV Manufacturer", weight: 10, currentReturn: 23.2 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 26.8, 15),
+    riskMetrics: { sharpeRatio: 1.58, maxDrawdown: -26.4, volatility: 22.1, beta: 1.24, alpha: 7.4 },
+    rebalancingHistory: [{ date: "Jun 2026", description: "Waaree added post PLI approval", changes: ["Solar: 30% → 35%"] }],
+    aiInsight: {
+      recommendation: "500GW renewable by 2030 (currently 175GW). EV penetration at 7% — decade of runway. Valuations 60-80x PE require long conviction.",
+      confidence_score: 69,
+      factors_considered: ["500GW target by 2030", "PLI solar manufacturing", "EV penetration 7%"],
+      model_version: "FASP-AI-v1.0", timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "thematic-digital-india",
+    assetClass: "thematic",
+    subCategory: "Digital India",
+    name: "Digital India",
+    tagline: "IT services, SaaS, data centres, fintech — India's $250B digital economy",
+    riskProfile: "aggressive",
+    goal: ["wealth_growth", "thematic"],
+    minInvestment: 50000,
+    timeHorizon: "5–7 years",
+    cagr1Y: 17.8, cagr3Y: 19.4, cagr5Y: 22.3,
+    benchmarkCagr1Y: 14.7, benchmarkName: "NIFTY IT Index",
+    lastRebalanced: "2026-06-01", totalHoldings: 20,
+    highlight: "IT exports + domestic tech + data economy",
+    icon: "💻",
+    allocation: [
+      { category: "it_services", label: "IT Services / Exports", weight: 40, color: "#3B82F6", icon: "💻" },
+      { category: "saas_mid", label: "Mid-Cap SaaS / Tech", weight: 25, color: "#8B5CF6", icon: "☁️" },
+      { category: "data_centres", label: "Data Centres / Infra", weight: 20, color: "#10B981", icon: "🖥️" },
+      { category: "fintech", label: "Fintech / Payments", weight: 15, color: "#F59E0B", icon: "📱" },
+    ],
+    holdings: [
+      { rank: 1, name: "TCS", symbol: "TCS", category: "IT Services", weight: 13, currentReturn: 16.1 },
+      { rank: 2, name: "Infosys", symbol: "INFY", category: "IT Services", weight: 12, currentReturn: 14.7 },
+      { rank: 3, name: "Persistent Systems", symbol: "PERSISTENT", category: "Mid-Cap IT", weight: 10, currentReturn: 38.4 },
+      { rank: 4, name: "Tata Elxsi", symbol: "TATAELXSI", category: "Tech Design", weight: 8, currentReturn: 29.7 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 17.8, 10),
+    riskMetrics: { sharpeRatio: 1.54, maxDrawdown: -20.1, volatility: 16.8, beta: 1.11, alpha: 4.7 },
+    rebalancingHistory: [{ date: "Jun 2026", description: "Data centre theme added", changes: ["Data Centre: 15% → 20%"] }],
+    aiInsight: {
+      recommendation: "India IT exports $250B growing 8-10% CAGR. AI deal pipeline at TCS/Infosys driving deal size up. Domestic ONDC/UPI driving second wave.",
+      confidence_score: 78,
+      factors_considered: ["IT export growth 8-10%", "AI deal pipeline", "UPI/ONDC adoption"],
+      model_version: "FASP-AI-v1.0", timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "thematic-consumption",
+    assetClass: "thematic",
+    subCategory: "Consumption India",
+    name: "India Consumption",
+    tagline: "Rising middle class, premiumisation, discretionary spend boom",
+    riskProfile: "moderate",
+    goal: ["wealth_growth"],
+    minInvestment: 25000,
+    timeHorizon: "5–7 years",
+    cagr1Y: 14.3, cagr3Y: 16.1, cagr5Y: 18.4,
+    benchmarkCagr1Y: 12.2, benchmarkName: "NIFTY India Consumption Index",
+    lastRebalanced: "2026-06-01", totalHoldings: 22,
+    highlight: "India's 400M middle class + premiumisation wave",
+    icon: "🛍️",
+    allocation: [
+      { category: "fmcg", label: "FMCG / Staples", weight: 30, color: "#10B981", icon: "🛒" },
+      { category: "discretionary", label: "Discretionary / Lifestyle", weight: 30, color: "#F59E0B", icon: "✨" },
+      { category: "retail", label: "Retail / QSR", weight: 20, color: "#EF4444", icon: "🏪" },
+      { category: "auto_2w", label: "2-Wheeler / Auto", weight: 20, color: "#3B82F6", icon: "🏍️" },
+    ],
+    holdings: [
+      { rank: 1, name: "Hindustan Unilever", symbol: "HINDUNILVR", category: "FMCG", weight: 10, currentReturn: 9.4 },
+      { rank: 2, name: "Trent", symbol: "TRENT", category: "Retail / Lifestyle", weight: 9, currentReturn: 43.7 },
+      { rank: 3, name: "Titan Company", symbol: "TITAN", category: "Premium Lifestyle", weight: 9, currentReturn: 16.2 },
+      { rank: 4, name: "Varun Beverages", symbol: "VBL", category: "FMCG Beverages", weight: 7, currentReturn: 27.3 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 14.3, 8),
+    riskMetrics: { sharpeRatio: 1.62, maxDrawdown: -13.7, volatility: 12.4, beta: 0.94, alpha: 3.6 },
+    rebalancingHistory: [{ date: "Jun 2026", description: "Premiumisation theme strengthened", changes: ["Trent: 6% → 9%"] }],
+    aiInsight: {
+      recommendation: "India's 400M middle class — world's fastest growing. Premiumisation driving 20-40% CAGR at Trent, Titan, Devyani.",
+      confidence_score: 83,
+      factors_considered: ["400M middle class", "Premiumisation trend", "QSR same-store-sales growth"],
+      model_version: "FASP-AI-v1.0", timestamp: new Date().toISOString(),
+    },
+  },
+  {
+    id: "debt-target-maturity-2028",
+    assetClass: "debt",
+    subCategory: "Target Maturity",
+    name: "Target Maturity 2028",
+    tagline: "Hold-to-maturity debt — FD-like certainty with index returns",
+    riskProfile: "conservative",
+    goal: ["income", "capital_preservation"],
+    minInvestment: 10000,
+    timeHorizon: "Until Dec 2028",
+    cagr1Y: 8.1, cagr3Y: 8.3, cagr5Y: 8.0,
+    benchmarkCagr1Y: 7.6, benchmarkName: "CRISIL 3-Year Gilt Index",
+    lastRebalanced: "2026-06-01", totalHoldings: 8,
+    highlight: "Defined maturity = predictable returns, no reinvestment risk",
+    icon: "📅", isNew: true,
+    allocation: [
+      { category: "gsec_2028", label: "G-Sec maturing 2028", weight: 60, color: "#3B82F6", icon: "🏛️" },
+      { category: "sdl_2028", label: "SDL maturing 2028", weight: 30, color: "#8B5CF6", icon: "🗺️" },
+      { category: "psu_2028", label: "PSU Bonds maturing 2028", weight: 10, color: "#10B981", icon: "🏦" },
+    ],
+    holdings: [
+      { rank: 1, name: "Nippon ETF Nifty 3D Gilt 2028", category: "G-Sec ETF", weight: 35, currentReturn: 8.2 },
+      { rank: 2, name: "HDFC NIFTY G-Sec Dec 2028 Index Fund", category: "G-Sec Index Fund", weight: 25, currentReturn: 8.1 },
+      { rank: 3, name: "Aditya Birla SDL Dec 2028 Index Fund", category: "SDL Index Fund", weight: 15, currentReturn: 8.5 },
+    ],
+    performance: PERFORMANCE_BASE(1000, 24, 8.1, 0.8),
+    riskMetrics: { sharpeRatio: 2.4, maxDrawdown: -1.4, volatility: 2.1, beta: 0.07, alpha: 0.7 },
+    rebalancingHistory: [{ date: "Jun 2026", description: "SDL increased for yield pickup", changes: ["SDL: 25% → 30%"] }],
+    aiInsight: {
+      recommendation: "Target Maturity Funds: FD-like predictability, MF tax efficiency. Held to Dec 2028 = ~8.1% predetermined. LTCG indexation after 3Y. Zero credit risk.",
+      confidence_score: 93,
+      factors_considered: ["Defined maturity = predictable return", "Zero credit risk", "LTCG indexation benefit"],
+      model_version: "FASP-AI-v1.0", timestamp: new Date().toISOString(),
+    },
+  },
+];
+
+// Merge all portfolio lists into one master list
+const MODEL_PORTFOLIOS_ALL: ModelPortfolio[] = [...MODEL_PORTFOLIOS];
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+const RISK_CONFIG: Record<RiskProfile, { label: string; color: string; bg: string; icon: string }> = {
+  conservative: { label: "Conservative", color: "text-green-700", bg: "bg-green-100 dark:bg-green-900/30 dark:text-green-300", icon: "🛡️" },
+  moderate: { label: "Moderate", color: "text-blue-700", bg: "bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300", icon: "⚖️" },
+  aggressive: { label: "Aggressive", color: "text-orange-700", bg: "bg-orange-100 dark:bg-orange-900/30 dark:text-orange-300", icon: "🔥" },
+  all_weather: { label: "All-Weather", color: "text-purple-700", bg: "bg-purple-100 dark:bg-purple-900/30 dark:text-purple-300", icon: "🌦️" },
+  high: { label: "High Risk", color: "text-red-700", bg: "bg-red-100 dark:bg-red-900/30 dark:text-red-300", icon: "⚡" },
+};
+
+const GOAL_LABELS: Record<string, string> = {
+  wealth_growth: "Wealth Growth",
+  retirement: "Retirement",
+  income: "Income",
+  capital_preservation: "Capital Safety",
+  tax_saving: "Tax Saving",
+  thematic: "Thematic",
+  diversification: "Diversification",
+};
+
+const ASSET_CLASS_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
+  all: { label: "All", icon: "🗂️", color: "bg-slate-600" },
+  equity: { label: "Equity", icon: "📈", color: "bg-blue-600" },
+  debt: { label: "Debt", icon: "🏛️", color: "bg-green-600" },
+  hybrid: { label: "Hybrid", icon: "⚖️", color: "bg-purple-600" },
+  thematic: { label: "Thematic", icon: "🎯", color: "bg-orange-600" },
+  goal_based: { label: "Goal-Based", icon: "🏆", color: "bg-rose-600" },
+};
+
+const EQUITY_SUBCATEGORIES = ["Large Cap", "Mid Cap", "Small Cap", "Flexi Cap", "Multi Cap"];
+const DEBT_SUBCATEGORIES = ["Short Duration", "Long Duration", "Corporate Bond", "Liquid / Ultra Short", "Corporate Treasury", "Target Maturity"];
+const HYBRID_SUBCATEGORIES = ["All-Weather", "Balanced Advantage", "Dividend / Income", "Retirement"];
+const THEMATIC_SUBCATEGORIES = ["Thematic / Sectoral", "Alternatives / HNI", "BFSI", "Healthcare & Pharma", "Defence & Aerospace", "Green Energy", "Digital India", "Consumption India"];
+const GOAL_SUBCATEGORIES = ["Child Education", "Retirement", "Wedding / Life Event", "Home Purchase", "Emergency Fund", "Senior Citizen", "First Investment"];
+
+const DISCLAIMER_TEXT =
+  "Model Portfolios are for guidance and inspirational purposes only. They do not constitute SEBI-registered investment advice. " +
+  "Past performance is not indicative of future returns. Investors must consult their financial advisor before making any investment decision. " +
+  "Mutual Fund investments are subject to market risks. Read all scheme-related documents carefully.";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const formatINR = (val: number): string => {
+  if (val >= 10000000) return `₹${(val / 10000000).toFixed(1)}Cr`;
+  if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
+  if (val >= 1000) return `₹${(val / 1000).toFixed(0)}K`;
+  return `₹${val}`;
+};
+
+const getConfidenceColor = (score: number): string => {
+  if (score >= 80) return "text-green-600";
+  if (score >= 65) return "text-yellow-600";
+  return "text-red-600";
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export default function AgentModelPortfoliosPage() {
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+
+  const [assetClassFilter, setAssetClassFilter] = useState<string>("all");
+  const [subCategoryFilter, setSubCategoryFilter] = useState<string>("all");
+  const [riskFilter, setRiskFilter] = useState<string>("all");
+  const [selectedPortfolio, setSelectedPortfolio] = useState<ModelPortfolio | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareChannel, setShareChannel] = useState<"whatsapp" | "email">("whatsapp");
+  const [compareList, setCompareList] = useState<string[]>([]); // portfolio IDs
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [quizOpen, setQuizOpen] = useState(false);
+  const [quizStep, setQuizStep] = useState(0);
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
+  const [quizResult, setQuizResult] = useState<ModelPortfolio | null>(null);
+
+  // Role-based permission
+  const canShare = user?.roles?.some((r: string) =>
+    ["agent", "partner", "admin", "superadmin", "master_agent", "sub_agent", "associate"].includes(r),
+  );
+
+  // Available sub-categories for current asset class filter
+  const availableSubCategories = useMemo(() => {
+    if (assetClassFilter === "equity") return EQUITY_SUBCATEGORIES;
+    if (assetClassFilter === "debt") return DEBT_SUBCATEGORIES;
+    if (assetClassFilter === "hybrid") return HYBRID_SUBCATEGORIES;
+    if (assetClassFilter === "thematic") return THEMATIC_SUBCATEGORIES;
+    if (assetClassFilter === "goal_based") return GOAL_SUBCATEGORIES;
+    return [];
+  }, [assetClassFilter]);
+
+  const filtered = useMemo(() => {
+    return MODEL_PORTFOLIOS_ALL.filter((p) => {
+      if (assetClassFilter !== "all" && p.assetClass !== assetClassFilter) return false;
+      if (subCategoryFilter !== "all" && p.subCategory !== subCategoryFilter) return false;
+      if (riskFilter !== "all" && p.riskProfile !== riskFilter) return false;
+      return true;
+    });
+  }, [assetClassFilter, subCategoryFilter, riskFilter]);
+
+  // Compare helpers
+  const toggleCompare = (id: string) => {
+    setCompareList((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 3 ? [...prev, id] : prev,
+    );
+  };
+  const comparePortfolios = MODEL_PORTFOLIOS_ALL.filter((p) => compareList.includes(p.id));
+
+  // Quiz logic
+  const QUIZ_QUESTIONS = [
+    {
+      q: "What is your primary financial goal?",
+      opts: ["Build long-term wealth", "Regular income", "Save for a goal (education/wedding/home)", "Protect capital"],
+    },
+    {
+      q: "What is your investment horizon?",
+      opts: ["Less than 1 year", "1–3 years", "3–7 years", "7+ years"],
+    },
+    {
+      q: "How would you react to a 20% portfolio drop?",
+      opts: ["Panic and exit", "Worry but stay", "Stay calm", "Invest more"],
+    },
+    {
+      q: "What is your monthly investible surplus?",
+      opts: ["Below ₹5,000", "₹5,000–₹25,000", "₹25,000–₹1L", "Above ₹1L"],
+    },
+    {
+      q: "Are you looking for tax saving as part of this investment?",
+      opts: ["Yes, ELSS / Sec 80C", "No, pure returns", "NPS / Sec 80CCD", "Not sure"],
+    },
+  ];
+
+  const resolveQuizResult = () => {
+    const goal = quizAnswers[0];
+    const horizon = quizAnswers[1];
+    const risk = quizAnswers[2];
+    const surplus = quizAnswers[3];
+    const tax = quizAnswers[4];
+
+    if (goal === "Protect capital" || horizon === "Less than 1 year")
+      return MODEL_PORTFOLIOS_ALL.find((p) => p.id === "debt-liquid-park") || MODEL_PORTFOLIOS_ALL[0];
+    if (goal === "Save for a goal (education/wedding/home)" && horizon === "1–3 years")
+      return MODEL_PORTFOLIOS_ALL.find((p) => p.id === "goal-home-downpayment") || MODEL_PORTFOLIOS_ALL[0];
+    if (goal === "Save for a goal (education/wedding/home)" && horizon === "3–7 years")
+      return MODEL_PORTFOLIOS_ALL.find((p) => p.id === "goal-wedding-fund") || MODEL_PORTFOLIOS_ALL[0];
+    if (goal === "Save for a goal (education/wedding/home)")
+      return MODEL_PORTFOLIOS_ALL.find((p) => p.id === "goal-child-education") || MODEL_PORTFOLIOS_ALL[0];
+    if (goal === "Regular income")
+      return MODEL_PORTFOLIOS_ALL.find((p) => p.id === "goal-senior-citizen") || MODEL_PORTFOLIOS_ALL[0];
+    if (tax === "Yes, ELSS / Sec 80C")
+      return MODEL_PORTFOLIOS_ALL.find((p) => p.id === "tax-saver-portfolio") || MODEL_PORTFOLIOS_ALL[0];
+    if (surplus === "Below ₹5,000")
+      return MODEL_PORTFOLIOS_ALL.find((p) => p.id === "goal-starter-sip") || MODEL_PORTFOLIOS_ALL[0];
+    if (risk === "Panic and exit" || risk === "Worry but stay")
+      return MODEL_PORTFOLIOS_ALL.find((p) => p.id === "balanced-advantage") || MODEL_PORTFOLIOS_ALL[0];
+    if (risk === "Invest more" && horizon === "7+ years")
+      return MODEL_PORTFOLIOS_ALL.find((p) => p.id === "smallcap-discovery") || MODEL_PORTFOLIOS_ALL[0];
+    if (horizon === "7+ years")
+      return MODEL_PORTFOLIOS_ALL.find((p) => p.id === "blue-chip-growth") || MODEL_PORTFOLIOS_ALL[0];
+    return MODEL_PORTFOLIOS_ALL.find((p) => p.id === "flexicap-allcap") || MODEL_PORTFOLIOS_ALL[0];
+  };
+
+  const handleQuizAnswer = (answerIdx: number, ans: string) => {
+    const newAnswers = { ...quizAnswers, [answerIdx]: ans };
+    setQuizAnswers(newAnswers);
+    if (quizStep < QUIZ_QUESTIONS.length - 1) {
+      setQuizStep((s) => s + 1);
+    } else {
+      // compute result
+      const tempAnswers = newAnswers;
+      setQuizAnswers(tempAnswers);
+      setQuizStep(QUIZ_QUESTIONS.length); // show result
+      setQuizResult(resolveQuizResult());
+    }
+  };
+
+  const resetQuiz = () => {
+    setQuizStep(0);
+    setQuizAnswers({});
+    setQuizResult(null);
+  };
+
+  const handleShare = () => {
+    if (!selectedPortfolio) return;
+    if (shareChannel === "whatsapp") {
+      const text = encodeURIComponent(
+        `📊 *${selectedPortfolio.name}* — Model Portfolio\n\n` +
+          `🎯 Risk: ${RISK_CONFIG[selectedPortfolio.riskProfile].label}\n` +
+          `📈 1Y CAGR: ${selectedPortfolio.cagr1Y}% vs Benchmark ${selectedPortfolio.benchmarkCagr1Y}%\n` +
+          `💰 Min Investment: ${formatINR(selectedPortfolio.minInvestment)}\n` +
+          `⏱️ Time Horizon: ${selectedPortfolio.timeHorizon}\n\n` +
+          `_${DISCLAIMER_TEXT.slice(0, 120)}..._\n\n` +
+          `Shared via FintekPro Research — agent.fintekpro.com`,
+      );
+      window.open(`https://wa.me/?text=${text}`, "_blank");
+    }
+    toast({ title: "Shared!", description: `Portfolio shared via ${shareChannel}` });
+    setShareDialogOpen(false);
+  };
+
+  const handleCopyToProposal = () => {
+    toast({
+      title: "Copied to Proposal Builder",
+      description: `${selectedPortfolio?.name} allocation loaded into proposal.`,
+    });
+    navigate("/agent/proposal-builder");
+  };
+
+  const handleExportPDF = async () => {
+    if (!selectedPortfolio) return;
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+
+      doc.setFillColor(30, 64, 175);
+      doc.rect(0, 0, pageW, 20, "F");
+      doc.setFontSize(14);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.text(`FintekPro — ${selectedPortfolio.name}`, 10, 13);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Model Portfolio | Generated: ${new Date().toLocaleDateString("en-IN")}`, pageW - 10, 13, { align: "right" });
+
+      // Key metrics
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("Performance Summary", 10, 30);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(`1Y CAGR: ${selectedPortfolio.cagr1Y}%   |   3Y CAGR: ${selectedPortfolio.cagr3Y}%   |   5Y CAGR: ${selectedPortfolio.cagr5Y}%`, 10, 37);
+      doc.text(`Benchmark: ${selectedPortfolio.benchmarkName} (${selectedPortfolio.benchmarkCagr1Y}% 1Y)`, 10, 43);
+      doc.text(`Risk: ${RISK_CONFIG[selectedPortfolio.riskProfile].label}   |   Min Investment: ${formatINR(selectedPortfolio.minInvestment)}   |   Horizon: ${selectedPortfolio.timeHorizon}`, 10, 49);
+
+      // Holdings table
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text("Top Holdings", 10, 58);
+      autoTable(doc, {
+        startY: 62,
+        head: [["#", "Instrument", "Category", "Weight %", "Return %"]],
+        body: selectedPortfolio.holdings.map((h) => [
+          h.rank,
+          h.name,
+          h.category,
+          `${h.weight}%`,
+          h.currentReturn ? `${h.currentReturn}%` : "—",
+        ]),
+        styles: { fontSize: 8, cellPadding: 2.5 },
+        headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [239, 246, 255] },
+        margin: { left: 10, right: 10 },
+      });
+
+      // Disclaimer
+      const pageH = doc.internal.pageSize.getHeight();
+      doc.setFontSize(6.5);
+      doc.setTextColor(120, 120, 120);
+      doc.setFont("helvetica", "italic");
+      doc.text(DISCLAIMER_TEXT, 10, pageH - 8, { maxWidth: pageW - 20 });
+
+      doc.save(`fintekpro-model-portfolio-${selectedPortfolio.id}.pdf`);
+      toast({ title: "PDF Downloaded", description: `${selectedPortfolio.name} portfolio exported.` });
+    } catch {
+      toast({ title: "Export failed", variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="container mx-auto py-6 space-y-6 max-w-7xl">
+      {/* ── Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <LayoutGrid className="h-6 w-6 text-indigo-500" />
+            Model Portfolios
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Curated multi-asset investment templates — guidance and inspiration for all investors
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+          <ShieldAlert className="h-4 w-4 text-amber-500 shrink-0" />
+          <span>For guidance only. Not SEBI-registered investment advice.</span>
+        </div>
+        {/* Quiz + Compare action buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            id="open-risk-profiler-quiz"
+            onClick={() => { setQuizOpen(true); setQuizStep(0); setQuizAnswers({}); setQuizResult(null); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+          >
+            🎯 Find My Portfolio
+          </button>
+          {compareList.length > 0 && (
+            <button
+              id="open-compare-sheet"
+              onClick={() => setCompareOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+            >
+              ⚖️ Compare ({compareList.length})
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Stats bar ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "Model Portfolios", value: MODEL_PORTFOLIOS_ALL.length, icon: LayoutGrid, color: "text-indigo-500" },
+          { label: "Asset Classes", value: "5 Classes", icon: PieChart, color: "text-blue-500" },
+          { label: "Best 5Y CAGR", value: "31.2%", icon: TrendingUp, color: "text-green-500" },
+          { label: "Min Investment", value: "₹500", icon: Target, color: "text-amber-500" },
+        ].map((s) => (
+          <Card key={s.label} className="p-3">
+            <div className="flex items-center gap-2">
+              <s.icon className={`h-4 w-4 ${s.color}`} />
+              <div>
+                <p className="text-xs text-muted-foreground">{s.label}</p>
+                <p className="text-lg font-bold">{s.value}</p>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* ── Asset Class Tabs ── */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(ASSET_CLASS_CONFIG).map(([key, cfg]) => (
+            <button
+              key={key}
+              id={`assetclass-filter-${key}`}
+              onClick={() => { setAssetClassFilter(key); setSubCategoryFilter("all"); }}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                assetClassFilter === key
+                  ? `${cfg.color} text-white shadow-sm`
+                  : "bg-muted text-muted-foreground hover:bg-muted/80 border border-border/40"
+              }`}
+            >
+              <span>{cfg.icon}</span>
+              <span>{cfg.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ml-1 ${
+                assetClassFilter === key ? "bg-white/20" : "bg-muted-foreground/20"
+              }`}>
+                {MODEL_PORTFOLIOS_ALL.filter(p => key === "all" || p.assetClass === key).length}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Sub-category chips — shown when an asset class is selected */}
+        {availableSubCategories.length > 0 && (
+          <div className="flex flex-wrap gap-2 pl-1">
+            <button
+              onClick={() => setSubCategoryFilter("all")}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
+                subCategoryFilter === "all"
+                  ? "bg-slate-700 text-white border-slate-700"
+                  : "border-border text-muted-foreground hover:bg-muted/60"
+              }`}
+            >
+              All {assetClassFilter === "equity" ? "Equity" : assetClassFilter === "debt" ? "Debt" : "Hybrid"}
+            </button>
+            {availableSubCategories.map((sub) => (
+              <button
+                key={sub}
+                onClick={() => setSubCategoryFilter(sub)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
+                  subCategoryFilter === sub
+                    ? "bg-slate-700 text-white border-slate-700"
+                    : "border-border text-muted-foreground hover:bg-muted/60"
+                }`}
+              >
+                {sub}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Risk filter row */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Risk:</span>
+          {[
+            { key: "all", label: "All" },
+            { key: "conservative", label: "Conservative" },
+            { key: "moderate", label: "Moderate" },
+            { key: "aggressive", label: "Aggressive" },
+            { key: "high", label: "High Risk" },
+          ].map((f) => (
+            <button
+              key={f.key}
+              id={`risk-filter-${f.key}`}
+              onClick={() => setRiskFilter(f.key)}
+              className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                riskFilter === f.key
+                  ? "bg-indigo-600 text-white"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+          <span className="text-xs text-muted-foreground ml-auto">
+            Showing {filtered.length} of {MODEL_PORTFOLIOS_ALL.length} portfolios
+          </span>
+        </div>
+      </div>
+
+      {/* ── Portfolio Grid ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        {filtered.length === 0 && (
+          <div className="col-span-full py-16 text-center text-muted-foreground">
+            <PieChart className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">No portfolios match your filter</p>
+            <p className="text-sm mt-1">Try removing a filter to see more options</p>
+          </div>
+        )}
+        {filtered.map((portfolio) => {
+          const risk = RISK_CONFIG[portfolio.riskProfile];
+          const alphaVsBenchmark = portfolio.cagr1Y - portfolio.benchmarkCagr1Y;
+          return (
+            <Card
+              key={portfolio.id}
+              id={`portfolio-card-${portfolio.id}`}
+              className="relative hover:shadow-lg transition-shadow cursor-pointer border-border/60 group"
+              onClick={() => setSelectedPortfolio(portfolio)}
+            >
+              {/* Featured / New badges */}
+              <div className="absolute top-3 right-3 flex gap-1.5">
+                {/* Sub-category chip */}
+              <div className="absolute top-3 left-3">
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-background/70 backdrop-blur border border-border/40 text-muted-foreground">
+                  {portfolio.subCategory}
+                </span>
+              </div>
+              {portfolio.isFeatured && (
+                  <Badge className="bg-amber-500 text-white text-[10px] px-1.5">
+                    <Star className="h-2.5 w-2.5 mr-0.5" />Featured
+                  </Badge>
+                )}
+                {portfolio.isNew && (
+                  <Badge className="bg-indigo-600 text-white text-[10px] px-1.5">NEW</Badge>
+                )}
+              </div>
+
+              <CardHeader className="pb-3">
+                <div className="flex items-start gap-3 pr-4">
+                  <div className="text-3xl">{portfolio.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-base leading-tight">{portfolio.name}</CardTitle>
+                    <CardDescription className="text-xs mt-0.5 leading-tight">
+                      {portfolio.tagline}
+                    </CardDescription>
+                  </div>
+                  {/* Compare checkbox */}
+                  <button
+                    onClick={e => { e.stopPropagation(); toggleCompare(portfolio.id); }}
+                    title={compareList.includes(portfolio.id) ? "Remove from compare" : compareList.length >= 3 ? "Max 3 portfolios" : "Add to compare"}
+                    className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-colors text-xs ${
+                      compareList.includes(portfolio.id)
+                        ? "bg-emerald-600 border-emerald-600 text-white"
+                        : compareList.length >= 3
+                        ? "border-muted text-muted cursor-not-allowed"
+                        : "border-border hover:border-emerald-500 text-muted-foreground"
+                    }`}
+                  >
+                    {compareList.includes(portfolio.id) ? "✓" : "⚖"}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <Badge variant="outline" className={`text-[10px] ${risk.bg} border-0`}>
+                    {risk.icon} {risk.label}
+                  </Badge>
+                  {portfolio.goal.slice(0, 2).map((g) => (
+                    <Badge key={g} variant="outline" className="text-[10px]">
+                      {GOAL_LABELS[g] || g}
+                    </Badge>
+                  ))}
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                {/* CAGR row */}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {[
+                    { label: "1Y", value: portfolio.cagr1Y },
+                    { label: "3Y", value: portfolio.cagr3Y },
+                    { label: "5Y", value: portfolio.cagr5Y },
+                  ].map((r) => (
+                    <div key={r.label} className="bg-muted/50 rounded-lg p-2">
+                      <p className="text-[10px] text-muted-foreground">{r.label} CAGR</p>
+                      <p className="text-sm font-bold text-green-600">+{r.value}%</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Alpha vs benchmark */}
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">vs {portfolio.benchmarkName}</span>
+                  <span className={alphaVsBenchmark >= 0 ? "text-green-600 font-semibold" : "text-red-500 font-semibold"}>
+                    {alphaVsBenchmark >= 0 ? "+" : ""}{alphaVsBenchmark.toFixed(1)}% alpha
+                  </span>
+                </div>
+
+                {/* Allocation mini bar */}
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1">Asset Allocation</p>
+                  <div className="flex rounded-full overflow-hidden h-2.5">
+                    {portfolio.allocation.map((a) => (
+                      <TooltipProvider key={a.category}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              style={{ width: `${a.weight}%`, backgroundColor: a.color }}
+                              className="transition-opacity hover:opacity-80"
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent className="text-xs">
+                            {a.label}: {a.weight}%
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Footer meta */}
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                  <span>Min: <strong className="text-foreground">{formatINR(portfolio.minInvestment)}</strong></span>
+                  <span>Horizon: <strong className="text-foreground">{portfolio.timeHorizon}</strong></span>
+                  <span>{portfolio.totalHoldings} holdings</span>
+                </div>
+
+                {/* View Details CTA */}
+                <Button
+                  id={`view-portfolio-${portfolio.id}`}
+                  className="w-full h-8 text-xs gap-1 group-hover:bg-indigo-600 group-hover:text-white transition-colors"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPortfolio(portfolio);
+                  }}
+                >
+                  View Full Portfolio
+                  <ChevronRight className="h-3 w-3" />
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* ── Portfolio Detail Sheet ── */}
+      <Sheet open={!!selectedPortfolio} onOpenChange={(o) => !o && setSelectedPortfolio(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-hidden p-0 flex flex-col">
+          {selectedPortfolio && (
+            <>
+              {/* Sheet Header */}
+              <div className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white p-5 shrink-0">
+                <SheetHeader>
+                  <div className="flex items-start gap-3">
+                    <span className="text-4xl">{selectedPortfolio.icon}</span>
+                    <div>
+                      <SheetTitle className="text-white text-xl">
+                        {selectedPortfolio.name}
+                      </SheetTitle>
+                      <SheetDescription className="text-indigo-200 text-sm">
+                        {selectedPortfolio.tagline}
+                      </SheetDescription>
+                    </div>
+                  </div>
+                  {/* CAGR quick stats */}
+                  <div className="grid grid-cols-3 gap-3 mt-4">
+                    {[
+                      { label: "1Y CAGR", value: `+${selectedPortfolio.cagr1Y}%` },
+                      { label: "3Y CAGR", value: `+${selectedPortfolio.cagr3Y}%` },
+                      { label: "5Y CAGR", value: `+${selectedPortfolio.cagr5Y}%` },
+                    ].map((s) => (
+                      <div key={s.label} className="bg-white/15 rounded-lg p-2 text-center">
+                        <p className="text-[10px] text-indigo-200">{s.label}</p>
+                        <p className="font-bold text-sm">{s.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </SheetHeader>
+              </div>
+
+              {/* Action Buttons */}
+              {canShare && (
+                <div className="flex gap-2 px-5 py-3 border-b shrink-0">
+                  <Button
+                    id="share-portfolio-btn"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs"
+                    onClick={() => setShareDialogOpen(true)}
+                  >
+                    <Share2 className="h-3.5 w-3.5" />Share with Client
+                  </Button>
+                  <Button
+                    id="copy-to-proposal-btn"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs"
+                    onClick={handleCopyToProposal}
+                  >
+                    <Copy className="h-3.5 w-3.5" />Copy to Proposal
+                  </Button>
+                  <Button
+                    id="export-portfolio-pdf-btn"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs ml-auto"
+                    onClick={handleExportPDF}
+                  >
+                    <Download className="h-3.5 w-3.5" />Export PDF
+                  </Button>
+                </div>
+              )}
+              {!canShare && (
+                <div className="flex gap-2 px-5 py-3 border-b shrink-0 justify-end">
+                  <Button
+                    id="export-portfolio-pdf-btn-client"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs"
+                    onClick={handleExportPDF}
+                  >
+                    <Download className="h-3.5 w-3.5" />Export PDF
+                  </Button>
+                </div>
+              )}
+
+              {/* Sheet Tab Content */}
+              <ScrollArea className="flex-1">
+                <Tabs defaultValue="overview" className="px-5 pt-4 pb-6">
+                  <TabsList className="grid w-full grid-cols-4 mb-4 h-8 text-xs">
+                    <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
+                    <TabsTrigger value="holdings" className="text-xs">Holdings</TabsTrigger>
+                    <TabsTrigger value="performance" className="text-xs">Performance</TabsTrigger>
+                    <TabsTrigger value="rebalancing" className="text-xs">Rebalancing</TabsTrigger>
+                  </TabsList>
+
+                  {/* Overview Tab */}
+                  <TabsContent value="overview" className="space-y-4">
+                    {/* Meta info */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: "Risk Profile", value: `${RISK_CONFIG[selectedPortfolio.riskProfile].icon} ${RISK_CONFIG[selectedPortfolio.riskProfile].label}` },
+                        { label: "Min Investment", value: formatINR(selectedPortfolio.minInvestment) },
+                        { label: "Time Horizon", value: selectedPortfolio.timeHorizon },
+                        { label: "Last Rebalanced", value: new Date(selectedPortfolio.lastRebalanced).toLocaleDateString("en-IN") },
+                        { label: "Total Holdings", value: `${selectedPortfolio.totalHoldings} instruments` },
+                        { label: "Benchmark", value: selectedPortfolio.benchmarkName },
+                      ].map((m) => (
+                        <div key={m.label} className="bg-muted/40 rounded-lg p-3">
+                          <p className="text-[10px] text-muted-foreground">{m.label}</p>
+                          <p className="text-sm font-semibold mt-0.5">{m.value}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Allocation Pie + Legend */}
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Asset Allocation</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center gap-4">
+                          <RechartsPieChart width={120} height={120}>
+                            <Pie
+                              data={selectedPortfolio.allocation}
+                              cx={55}
+                              cy={55}
+                              innerRadius={30}
+                              outerRadius={55}
+                              dataKey="weight"
+                              strokeWidth={2}
+                            >
+                              {selectedPortfolio.allocation.map((a) => (
+                                <Cell key={a.category} fill={a.color} />
+                              ))}
+                            </Pie>
+                          </RechartsPieChart>
+                          <div className="flex-1 space-y-2">
+                            {selectedPortfolio.allocation.map((a) => (
+                              <div key={a.category} className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: a.color }} />
+                                <span className="text-xs flex-1 truncate">{a.label}</span>
+                                <span className="text-xs font-semibold">{a.weight}%</span>
+                                <Progress value={a.weight} className="w-14 h-1.5" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Risk Metrics */}
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-1.5">
+                          <BarChart3 className="h-4 w-4 text-indigo-500" />Risk Metrics
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {[
+                            { label: "Sharpe Ratio", value: selectedPortfolio.riskMetrics.sharpeRatio.toFixed(2), good: selectedPortfolio.riskMetrics.sharpeRatio >= 1.5 },
+                            { label: "Max Drawdown", value: `${selectedPortfolio.riskMetrics.maxDrawdown}%`, good: selectedPortfolio.riskMetrics.maxDrawdown > -20 },
+                            { label: "Volatility (σ)", value: `${selectedPortfolio.riskMetrics.volatility}%`, good: selectedPortfolio.riskMetrics.volatility < 15 },
+                            { label: "Beta", value: selectedPortfolio.riskMetrics.beta.toFixed(2), good: selectedPortfolio.riskMetrics.beta < 1 },
+                            { label: "Alpha (Ann.)", value: `+${selectedPortfolio.riskMetrics.alpha}%`, good: true },
+                          ].map((m) => (
+                            <div key={m.label} className="text-center bg-muted/40 rounded-lg p-2">
+                              <p className="text-[10px] text-muted-foreground">{m.label}</p>
+                              <p className={`text-sm font-bold mt-0.5 ${m.good ? "text-green-600" : "text-red-500"}`}>{m.value}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* AI Insights */}
+                    <Card className="border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
+                          <BrainCircuit className="h-4 w-4" />
+                          AI Insight
+                          <Badge variant="outline" className="text-[9px] ml-auto border-indigo-300 text-indigo-600">
+                            FASP-AI v1.0
+                          </Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          {selectedPortfolio.aiInsight.confidence_score < 65
+                            ? "⚠️ Low confidence — please consult a human advisor before investing."
+                            : selectedPortfolio.aiInsight.recommendation}
+                        </p>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground">Confidence:</span>
+                          <span className={`text-xs font-bold ${getConfidenceColor(selectedPortfolio.aiInsight.confidence_score)}`}>
+                            {selectedPortfolio.aiInsight.confidence_score}%
+                          </span>
+                          <Progress
+                            value={selectedPortfolio.aiInsight.confidence_score}
+                            className="flex-1 h-1.5"
+                          />
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] text-muted-foreground mb-1">Factors Considered:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {selectedPortfolio.aiInsight.factors_considered.map((f) => (
+                              <Badge key={f} variant="outline" className="text-[9px] bg-indigo-100 dark:bg-indigo-900/40 border-0">
+                                {f}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+
+                        <p className="text-[9px] text-muted-foreground">
+                          Model: {selectedPortfolio.aiInsight.model_version} · Generated: {new Date(selectedPortfolio.aiInsight.timestamp).toLocaleString("en-IN")}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  {/* Holdings Tab */}
+                  <TabsContent value="holdings" className="space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Showing top {selectedPortfolio.holdings.length} holdings · {selectedPortfolio.totalHoldings} total instruments
+                    </p>
+                    {selectedPortfolio.holdings.map((h) => (
+                      <div
+                        key={h.rank}
+                        id={`holding-row-${h.rank}-${selectedPortfolio.id}`}
+                        className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors"
+                      >
+                        <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-xs font-bold text-indigo-600">
+                          {h.rank}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold truncate">{h.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{h.category}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs font-bold">{h.weight}%</p>
+                          {h.currentReturn !== undefined && (
+                            <p className={`text-[10px] font-semibold ${h.currentReturn >= 0 ? "text-green-600" : "text-red-500"}`}>
+                              {h.currentReturn >= 0 ? "+" : ""}{h.currentReturn}%
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    <p className="text-[10px] text-muted-foreground text-center pt-2">
+                      Returns as of last market close. Past performance ≠ future results.
+                    </p>
+                  </TabsContent>
+
+                  {/* Performance Tab */}
+                  <TabsContent value="performance" className="space-y-4">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium">NAV vs Benchmark (24 months)</span>
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" /> Portfolio</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-400 inline-block" /> {selectedPortfolio.benchmarkName}</span>
+                      </div>
+                    </div>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <LineChart data={selectedPortfolio.performance} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
+                        <XAxis dataKey="date" tick={{ fontSize: 9 }} interval={3} />
+                        <YAxis tick={{ fontSize: 9 }} domain={["auto", "auto"]} tickFormatter={(v) => `₹${v}`} />
+                        <RechartsTooltip
+                          formatter={(v: number, name: string) => [`₹${v.toFixed(0)}`, name === "portfolioNav" ? "Portfolio NAV" : "Benchmark"]}
+                          labelStyle={{ fontSize: 10 }}
+                        />
+                        <ReferenceLine y={1000} stroke="#6B7280" strokeDasharray="4 4" strokeOpacity={0.5} />
+                        <Line type="monotone" dataKey="portfolioNav" stroke="#6366F1" strokeWidth={2} dot={false} name="portfolioNav" />
+                        <Line type="monotone" dataKey="benchmarkNav" stroke="#9CA3AF" strokeWidth={1.5} dot={false} strokeDasharray="5 3" name="benchmarkNav" />
+                      </LineChart>
+                    </ResponsiveContainer>
+
+                    {/* CAGR comparison */}
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="space-y-3">
+                          {[
+                            { period: "1 Year", portfolio: selectedPortfolio.cagr1Y, benchmark: selectedPortfolio.benchmarkCagr1Y },
+                            { period: "3 Years", portfolio: selectedPortfolio.cagr3Y, benchmark: selectedPortfolio.benchmarkCagr1Y - 1.4 },
+                            { period: "5 Years", portfolio: selectedPortfolio.cagr5Y, benchmark: selectedPortfolio.benchmarkCagr1Y - 2.1 },
+                          ].map((r) => (
+                            <div key={r.period}>
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-muted-foreground">{r.period}</span>
+                                <div className="flex gap-4">
+                                  <span className="text-indigo-600 font-semibold">Portfolio: +{r.portfolio}%</span>
+                                  <span className="text-gray-400">Benchmark: +{r.benchmark.toFixed(1)}%</span>
+                                </div>
+                              </div>
+                              <div className="flex gap-1 h-1.5">
+                                <div className="rounded-full bg-indigo-500 transition-all" style={{ width: `${Math.min(r.portfolio * 3, 100)}%` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      * NAV starts at ₹1,000. Past returns are simulated for illustration. Not guaranteed.
+                    </p>
+                  </TabsContent>
+
+                  {/* Rebalancing Tab */}
+                  <TabsContent value="rebalancing" className="space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Portfolios are reviewed quarterly and rebalanced based on market conditions, valuations, and macro outlook.
+                    </p>
+                    {selectedPortfolio.rebalancingHistory.map((e, i) => (
+                      <Card key={i} className="border-l-4 border-l-indigo-400">
+                        <CardContent className="pt-3 pb-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <RefreshCw className="h-3.5 w-3.5 text-indigo-500" />
+                            <span className="text-xs font-semibold">{e.date}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-2">{e.description}</p>
+                          <div className="space-y-1">
+                            {e.changes.map((c, j) => (
+                              <div key={j} className="flex items-center gap-1.5 text-xs">
+                                <ChevronRight className="h-3 w-3 text-indigo-400 shrink-0" />
+                                <span>{c}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </TabsContent>
+                </Tabs>
+
+                {/* Disclaimer in sheet */}
+                <div className="mx-5 mb-6 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">{DISCLAIMER_TEXT}</p>
+                  </div>
+                </div>
+              </ScrollArea>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Share Dialog ── */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="sm:max-w-sm" id="share-portfolio-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="h-4 w-4" />
+              Share Model Portfolio
+            </DialogTitle>
+            <DialogDescription>
+              Share "{selectedPortfolio?.name}" with your clients
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                id="share-whatsapp-btn"
+                onClick={() => setShareChannel("whatsapp")}
+                className={`p-3 rounded-lg border-2 text-xs font-medium flex items-center gap-2 transition-colors ${shareChannel === "whatsapp" ? "border-green-500 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300" : "border-border hover:border-muted-foreground/30"}`}
+              >
+                <MessageSquare className="h-4 w-4" />WhatsApp
+              </button>
+              <button
+                id="share-email-btn"
+                onClick={() => setShareChannel("email")}
+                className={`p-3 rounded-lg border-2 text-xs font-medium flex items-center gap-2 transition-colors ${shareChannel === "email" ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300" : "border-border hover:border-muted-foreground/30"}`}
+              >
+                <Mail className="h-4 w-4" />Email
+              </button>
+            </div>
+            <div className="p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
+              <p className="text-[10px] text-muted-foreground">
+                ⚠️ Disclaimer will be included in the shared message as required by SEBI guidelines.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShareDialogOpen(false)}>Cancel</Button>
+            <Button size="sm" onClick={handleShare} className="gap-1.5" id="confirm-share-btn">
+              {shareChannel === "whatsapp" ? <MessageSquare className="h-3.5 w-3.5" /> : <Mail className="h-3.5 w-3.5" />}
+              Share via {shareChannel === "whatsapp" ? "WhatsApp" : "Email"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Risk Profiler Quiz Modal ── */}
+      {quizOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setQuizOpen(false)}>
+          <div className="bg-background rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold flex items-center gap-2">🎯 Find My Portfolio</h2>
+              <button onClick={() => setQuizOpen(false)} className="text-muted-foreground hover:text-foreground text-xl leading-none">✕</button>
+            </div>
+
+            {/* Progress */}
+            <div className="flex gap-1">
+              {QUIZ_QUESTIONS.map((_, i) => (
+                <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i <= quizStep ? "bg-indigo-600" : "bg-muted"}`} />
+              ))}
+            </div>
+
+            {quizStep < QUIZ_QUESTIONS.length ? (
+              <div className="space-y-4">
+                <p className="font-semibold text-base">{QUIZ_QUESTIONS[quizStep].q}</p>
+                <div className="grid grid-cols-1 gap-2">
+                  {QUIZ_QUESTIONS[quizStep].opts.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => handleQuizAnswer(quizStep, opt)}
+                      className="text-left px-4 py-3 rounded-xl border border-border hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors text-sm font-medium"
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground text-center">Question {quizStep + 1} of {QUIZ_QUESTIONS.length}</p>
+              </div>
+            ) : quizResult ? (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <p className="text-3xl mb-1">{quizResult.icon}</p>
+                  <p className="text-sm text-muted-foreground">We recommend</p>
+                  <h3 className="text-xl font-bold text-indigo-600">{quizResult.name}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{quizResult.tagline}</p>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-muted rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">1Y CAGR</p>
+                    <p className="font-bold text-green-600">{quizResult.cagr1Y}%</p>
+                  </div>
+                  <div className="bg-muted rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">Min Invest</p>
+                    <p className="font-bold">{formatINR(quizResult.minInvestment)}</p>
+                  </div>
+                  <div className="bg-muted rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">Risk</p>
+                    <p className="font-bold">{RISK_CONFIG[quizResult.riskProfile].label}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setSelectedPortfolio(quizResult); setQuizOpen(false); }}
+                    className="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
+                  >
+                    View Full Details
+                  </button>
+                  <button onClick={resetQuiz} className="flex-1 py-2 rounded-xl border border-border text-sm font-medium hover:bg-muted transition-colors">
+                    Retake Quiz
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* ── Compare Sheet ── */}
+      {compareOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={() => setCompareOpen(false)}>
+          <div className="bg-background rounded-t-2xl shadow-2xl w-full max-w-5xl p-6 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">⚖️ Portfolio Comparison</h2>
+              <button onClick={() => setCompareOpen(false)} className="text-muted-foreground hover:text-foreground text-xl">✕</button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 pr-4 text-muted-foreground font-medium w-36">Metric</th>
+                    {comparePortfolios.map(p => (
+                      <th key={p.id} className="text-center py-2 px-3">
+                        <span className="text-lg">{p.icon}</span>
+                        <p className="font-semibold text-xs leading-tight mt-1">{p.name}</p>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/40">
+                  {[
+                    { label: "Asset Class", fn: (p: ModelPortfolio) => ASSET_CLASS_CONFIG[p.assetClass]?.label || p.assetClass },
+                    { label: "Sub-Category", fn: (p: ModelPortfolio) => p.subCategory },
+                    { label: "Risk", fn: (p: ModelPortfolio) => RISK_CONFIG[p.riskProfile].label },
+                    { label: "Time Horizon", fn: (p: ModelPortfolio) => p.timeHorizon },
+                    { label: "Min Investment", fn: (p: ModelPortfolio) => formatINR(p.minInvestment) },
+                    { label: "1Y CAGR", fn: (p: ModelPortfolio) => `${p.cagr1Y}%` },
+                    { label: "3Y CAGR", fn: (p: ModelPortfolio) => `${p.cagr3Y}%` },
+                    { label: "5Y CAGR", fn: (p: ModelPortfolio) => `${p.cagr5Y}%` },
+                    { label: "Benchmark", fn: (p: ModelPortfolio) => p.benchmarkName },
+                    { label: "Sharpe Ratio", fn: (p: ModelPortfolio) => p.riskMetrics.sharpeRatio.toFixed(2) },
+                    { label: "Max Drawdown", fn: (p: ModelPortfolio) => `${p.riskMetrics.maxDrawdown}%` },
+                    { label: "Volatility", fn: (p: ModelPortfolio) => `${p.riskMetrics.volatility}%` },
+                    { label: "Holdings", fn: (p: ModelPortfolio) => p.totalHoldings },
+                  ].map(row => (
+                    <tr key={row.label} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-2 pr-4 text-muted-foreground font-medium">{row.label}</td>
+                      {comparePortfolios.map(p => (
+                        <td key={p.id} className="py-2 px-3 text-center font-medium">{row.fn(p)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button
+              onClick={() => { setCompareList([]); setCompareOpen(false); }}
+              className="mt-4 text-sm text-muted-foreground hover:text-foreground underline"
+            >
+              Clear comparison
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Global Disclaimer ── */}
+      <div className="border border-amber-200 dark:border-amber-800 rounded-xl p-4 bg-amber-50/50 dark:bg-amber-950/20">
+        <div className="flex items-start gap-3">
+          <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 mb-1">
+              Important Disclaimer — Please Read
+            </p>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">{DISCLAIMER_TEXT}</p>
+            <p className="text-[10px] text-muted-foreground mt-2">
+              AI advisory outputs are logged per FASP-AI v1.0 compliance framework. SEBI Registration No. (Platform advisory): Consult your registered advisor.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

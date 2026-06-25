@@ -84,6 +84,7 @@ import {
 	Info,
 	AlertTriangle,
 	Coins,
+	LayoutGrid,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { cn } from "@/lib/utils";
@@ -413,6 +414,13 @@ const agentNavCategories: NavCategory[] = [
 		icon: Microscope,
 		items: [
 			{
+				title: "Model Portfolios",
+				href: "/agent/model-portfolios",
+				icon: LayoutGrid,
+				description: "Curated multi-asset investment templates",
+				badge: "NEW",
+			},
+			{
 				title: "Research Lists",
 				href: "/agent/research-lists",
 				icon: ListChecks,
@@ -436,7 +444,6 @@ const agentNavCategories: NavCategory[] = [
 				href: "/agent/quant-analytics",
 				icon: Calculator,
 				description: "Advanced quant tools",
-				badge: "NEW",
 			},
 			{
 				title: "Analytics",

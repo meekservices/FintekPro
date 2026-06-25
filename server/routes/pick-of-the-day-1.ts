@@ -414,4 +414,85 @@ router.delete("/admin/:id", requireAdmin, async (req, res) => {
 	}
 });
 
+/**
+ * POST /api/picks/admin/force-generate
+ * Admin-only: Force-generate today's picks immediately, bypassing market-holiday guards.
+ * Use this for:
+ *   - Recovery when holiday data is incorrect (e.g. wrong Muharram date)
+ *   - Scheduler failure recovery without a full redeploy
+ *   - QA / staging environment testing
+ *
+ * @body { overwrite?: boolean } — if true, clears today's picks before regenerating
+ * @outputs { success, message, picksGenerated, date }
+ */
+router.post("/admin/force-generate", requireAdmin, async (req, res) => {
+	const startTime = Date.now();
+	try {
+		const overwrite = req.body?.overwrite === true;
+		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+		const todayIST = new Date(Date.now() + IST_OFFSET_MS).toISOString().split("T")[0];
+
+		console.info(JSON.stringify({
+			event: "PICKS_FORCE_GENERATE_TRIGGERED",
+			user_id: (req as any).user?.id,
+			date: todayIST,
+			overwrite,
+			latency_ms: Date.now() - startTime,
+			status: "triggered",
+		}));
+
+		if (overwrite) {
+			// Delete today's picks first so fresh ones are created
+			const deleted = await db
+				.delete(dailyPicks)
+				.where(eq(dailyPicks.recoDate, todayIST))
+				.returning();
+			console.info(`[ForceGenerate] Cleared ${deleted.length} existing picks for ${todayIST}`);
+		}
+
+		// Run generation (bypasses holiday guard — admin's intent is explicit)
+		await pickOfTheDayService.generateDailyPicks();
+
+		// Count what was created
+		const [result] = await db
+			.select({ count: sql<number>`COUNT(*)` })
+			.from(dailyPicks)
+			.where(eq(dailyPicks.recoDate, todayIST));
+		const picksGenerated = Number(result?.count ?? 0);
+
+		console.info(JSON.stringify({
+			event: "PICKS_FORCE_GENERATE_COMPLETE",
+			user_id: (req as any).user?.id,
+			date: todayIST,
+			picks_generated: picksGenerated,
+			latency_ms: Date.now() - startTime,
+			status: "success",
+		}));
+
+		res.json({
+			success: true,
+			message: `Force-generated ${picksGenerated} picks for ${todayIST}`,
+			picksGenerated,
+			date: todayIST,
+			latency_ms: Date.now() - startTime,
+		});
+	} catch (error: any) {
+		console.error(JSON.stringify({
+			event: "PICKS_FORCE_GENERATE_ERROR",
+			user_id: (req as any).user?.id,
+			error_code: "FORCE_GENERATE_FAILED",
+			message: error.message,
+			retryable: true,
+			latency_ms: Date.now() - startTime,
+			status: "error",
+		}));
+		res.status(500).json({
+			success: false,
+			error_code: "FORCE_GENERATE_FAILED",
+			message: error.message,
+			retryable: true,
+		});
+	}
+});
+
 export default router;

@@ -401,7 +401,7 @@ class MarketHolidayService {
 				type: "full",
 			},
 			{
-				date: "2026-06-25",
+				date: "2026-06-17",
 				name: "Muharram",
 				exchanges: ["NSE", "BSE"],
 				type: "full",
@@ -469,6 +469,7 @@ class MarketHolidayService {
 			this.holidays.get(year)!.push(holiday);
 		}
 
+		// eslint-disable-next-line no-console
 		console.log(
 			"📅 Market Holiday Service initialized with",
 			allHolidays.length,

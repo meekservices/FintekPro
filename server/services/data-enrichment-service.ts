@@ -3,15 +3,19 @@
  * Data Enrichment Orchestrator Service
  * Handles multi-source financial data enrichment with:
  * - Priority-based source selection for Indian market:
- *   Credhive (0.98) → MCA (0.95) → NSE/BSE (0.90) → Finnhub (0.75) → Google Finance (0.70) → Yahoo (0.65)
+ *   Credhive (0.98) → MCA (0.95) → NSE/BSE (0.90) → IndianAPI (0.88) → Finnhub (0.75) → Google Finance (0.70) → Yahoo (0.65)
  * - Metric-level source merging
  * - SEBI-compliant audit logging
  * - AI guardrails for data usage
+ *
+ * IndianAPI.in added 2026-06-25: India-native SEBI-safe source for live
+ * quotes, P&L, balance sheets, ratios, FII/DII flows and IPOs.
  */
 
 import { computeIdentityConfidence } from "./credhive-service";
 import { fetchGFMetrics } from "./google-finance-service";
 import { finnhubService } from "./finnhub-service";
+import { indianApiService } from "./indian-api-service";
 import { exchangeFilingsService } from "./exchange-filings-service";
 import { xbrlParserService } from "./xbrl-parser-service";
 import { mcaService } from "./mca-service";
@@ -28,6 +32,7 @@ export type DataSource =
 	| "nse_bse"
 	| "credhive"
 	| "finnhub"
+	| "indian_api"
 	| "yahoo"
 	| "google_finance"
 	| "manual"
@@ -102,13 +107,14 @@ export interface EnrichmentConfig {
 }
 
 const DEFAULT_CONFIG: EnrichmentConfig = {
-	// Indian market priority: MCA Intelligence → NSE → BSE → Finnhub → Google Finance → Yahoo
-	// Note: Credhive used for unlisted company intelligence
+	// Indian market priority: MCA → NSE/BSE → IndianAPI (0.88) → Finnhub → Google Finance → Yahoo
+	// IndianAPI.in: India-native, SEBI-safe, slots between exchange data and global providers
 	sourcePriority: [
 		"mca",
 		"nse",
 		"bse",
 		"nse_bse",
+		"indian_api",
 		"finnhub",
 		"google_finance",
 		"yahoo",

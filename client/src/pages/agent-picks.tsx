@@ -883,6 +883,8 @@ export default function AgentPicksPage() {
 	});
 
 	const todayPicks = Array.isArray(todayData?.picks) ? todayData.picks : [];
+	const isFallback = todayData?.isFallback === true;
+	const fallbackDate = todayData?.fallbackDate;
 	const livePicks = Array.isArray(liveData?.picks) ? liveData.picks : [];
 	const historyPicks = Array.isArray(historyData?.picks)
 		? historyData.picks
@@ -1929,21 +1931,27 @@ export default function AgentPicksPage() {
 											<Table2 className="h-3.5 w-3.5" />
 										</button>
 									</div>
-									{todayPicks.length < 8 && (
+									{(isFallback || todayPicks.length < 8) && (
 										<Button
 											id="refresh-missing-picks-btn"
-											variant="outline"
+											variant={isFallback ? "default" : "outline"}
 											size="sm"
 											onClick={() => catchupMutation.mutate()}
 											disabled={catchupMutation.isPending}
-											className="shrink-0 gap-2 text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40"
+											className={`shrink-0 gap-2 ${
+												isFallback
+													? "bg-indigo-600 hover:bg-indigo-700 text-white"
+													: "text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/40"
+											}`}
 										>
 											<RefreshCw
 												className={`h-3.5 w-3.5 ${catchupMutation.isPending ? "animate-spin" : ""}`}
 											/>
 											{catchupMutation.isPending
 												? "Generating..."
-												: "Fill Missing Picks"}
+												: isFallback
+													? `Generate Today's Picks`
+													: "Fill Missing Picks"}
 										</Button>
 									)}
 									{todayPicks.length > 0 && (
@@ -3340,6 +3348,29 @@ export default function AgentPicksPage() {
 												</CardContent>
 											</Card>
 										)}
+
+								{/* ── Fallback picks banner ── */}
+								{isFallback && (
+									<div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-4 py-3 text-sm">
+										<span className="text-xl shrink-0">⚠️</span>
+										<div className="flex-1 min-w-0">
+											<p className="font-semibold text-amber-800 dark:text-amber-300">
+												Showing picks from {fallbackDate} — today's picks haven't been generated yet
+											</p>
+											<p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+												Click "Generate Now" to get fresh AI picks for today
+											</p>
+										</div>
+										<button
+											onClick={() => catchupMutation.mutate()}
+											disabled={catchupMutation.isPending}
+											className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-60 transition-colors"
+										>
+											<RefreshCw className={`h-3.5 w-3.5 ${catchupMutation.isPending ? "animate-spin" : ""}`} />
+											{catchupMutation.isPending ? "Generating..." : "Generate Now"}
+										</button>
+									</div>
+								)}
 
 										{filteredTodayPicks.length > 0 &&
 											(() => {

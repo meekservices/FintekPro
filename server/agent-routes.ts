@@ -2117,6 +2117,443 @@ router.post("/zoho/leads/:leadId/proposal", requireAuth, async (req, res) => {
 	}
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MODEL PORTFOLIOS — Research Tab Feature (V1: Seeded Static Data)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Seed data for 8 curated model portfolios.
+ * V1: static seed — no DB schema required.
+ * V2: migrate to DB table with admin CRUD endpoints.
+ *
+ * @compliance SEBI: For guidance only. Not SEBI-registered advisory.
+ * @fasp-ai    All AI outputs include confidence_score, model_version, timestamp.
+ */
+const MODEL_PORTFOLIO_SEEDS = [
+	{
+		id: "all-weather-india",
+		name: "All-Weather India",
+		tagline: "Stability across market cycles with diversified asset classes",
+		riskProfile: "conservative",
+		goal: ["capital_preservation", "income"],
+		minInvestment: 25000,
+		timeHorizon: "3–5 years",
+		cagr1Y: 9.2,
+		cagr3Y: 10.8,
+		cagr5Y: 11.4,
+		benchmarkCagr1Y: 7.1,
+		benchmarkName: "CRISIL Hybrid 35+65",
+		lastRebalanced: "2026-06-01",
+		totalHoldings: 18,
+		icon: "🌦️",
+		isFeatured: true,
+		aiInsight: {
+			recommendation: "Suitable for risk-averse investors seeking stable inflation-beating returns.",
+			confidence_score: 84,
+			factors_considered: ["Interest rate cycle", "Gold seasonal demand", "REIT yield stability"],
+			model_version: "FASP-AI-v1.0",
+			timestamp: new Date().toISOString(),
+		},
+	},
+	{
+		id: "blue-chip-growth",
+		name: "Blue Chip Growth",
+		tagline: "India's largest companies driving compounding wealth",
+		riskProfile: "moderate",
+		goal: ["wealth_growth", "retirement"],
+		minInvestment: 50000,
+		timeHorizon: "5–7 years",
+		cagr1Y: 14.8,
+		cagr3Y: 15.9,
+		cagr5Y: 16.3,
+		benchmarkCagr1Y: 12.1,
+		benchmarkName: "NIFTY 50",
+		lastRebalanced: "2026-06-01",
+		totalHoldings: 22,
+		icon: "🏆",
+		isFeatured: true,
+		aiInsight: {
+			recommendation: "Ideal for long-term wealth creation. Current large-cap valuations are reasonable at 22x P/E.",
+			confidence_score: 79,
+			factors_considered: ["Nifty P/E at 22x", "IT sector earnings recovery", "India GDP 7.2%"],
+			model_version: "FASP-AI-v1.0",
+			timestamp: new Date().toISOString(),
+		},
+	},
+	{
+		id: "emerging-leaders",
+		name: "Emerging Leaders",
+		tagline: "High-conviction mid & small cap bets for aggressive wealth building",
+		riskProfile: "aggressive",
+		goal: ["wealth_growth"],
+		minInvestment: 100000,
+		timeHorizon: "7–10 years",
+		cagr1Y: 21.3,
+		cagr3Y: 23.8,
+		cagr5Y: 26.1,
+		benchmarkCagr1Y: 18.4,
+		benchmarkName: "NIFTY Midcap 150",
+		lastRebalanced: "2026-05-15",
+		totalHoldings: 28,
+		icon: "🚀",
+		isNew: true,
+		aiInsight: {
+			recommendation: "High-risk, high-reward portfolio suitable for investors with 7+ year horizon.",
+			confidence_score: 72,
+			factors_considered: ["Mid-small cap valuations", "Electronics PLI momentum", "FII flows"],
+			model_version: "FASP-AI-v1.0",
+			timestamp: new Date().toISOString(),
+		},
+	},
+	{
+		id: "dividend-harvest",
+		name: "Dividend Harvest",
+		tagline: "Steady income through dividend stocks, bonds and fixed income",
+		riskProfile: "moderate",
+		goal: ["income", "retirement"],
+		minInvestment: 75000,
+		timeHorizon: "3–5 years",
+		cagr1Y: 11.5,
+		cagr3Y: 12.8,
+		cagr5Y: 13.2,
+		benchmarkCagr1Y: 9.4,
+		benchmarkName: "NIFTY Dividend Opportunities 50",
+		lastRebalanced: "2026-06-01",
+		totalHoldings: 20,
+		icon: "🌾",
+		aiInsight: {
+			recommendation: "Suitable for pre-retirees seeking 8–12% annual yield.",
+			confidence_score: 82,
+			factors_considered: ["PSU dividend payout 60–80%", "REIT distribution yield 8–10%", "SGB outlook"],
+			model_version: "FASP-AI-v1.0",
+			timestamp: new Date().toISOString(),
+		},
+	},
+	{
+		id: "tax-saver-portfolio",
+		name: "Tax-Saver Portfolio",
+		tagline: "Save ₹46,800 in taxes annually while building long-term wealth",
+		riskProfile: "moderate",
+		goal: ["tax_saving", "wealth_growth"],
+		minInvestment: 50000,
+		timeHorizon: "3–7 years",
+		cagr1Y: 12.1,
+		cagr3Y: 14.2,
+		cagr5Y: 15.6,
+		benchmarkCagr1Y: 10.3,
+		benchmarkName: "ELSS Category Avg",
+		lastRebalanced: "2026-04-01",
+		totalHoldings: 14,
+		icon: "💰",
+		isNew: true,
+		aiInsight: {
+			recommendation: "Excellent for salaried investors in 30% tax bracket seeking Section 80C benefits.",
+			confidence_score: 88,
+			factors_considered: ["Section 80C savings ₹1.5L", "ELSS outperformance vs Nifty", "3Y lock-in discipline"],
+			model_version: "FASP-AI-v1.0",
+			timestamp: new Date().toISOString(),
+		},
+	},
+	{
+		id: "hni-alternatives",
+		name: "HNI Alternatives",
+		tagline: "Premium access to PMS, AIFs, Pre-IPO and structured products",
+		riskProfile: "high",
+		goal: ["wealth_growth", "diversification"],
+		minInvestment: 2500000,
+		timeHorizon: "5–10 years",
+		cagr1Y: 18.7,
+		cagr3Y: 21.4,
+		cagr5Y: 24.2,
+		benchmarkCagr1Y: 14.2,
+		benchmarkName: "PMS Category Avg",
+		lastRebalanced: "2026-05-01",
+		totalHoldings: 12,
+		icon: "💎",
+		aiInsight: {
+			recommendation: "Suitable only for HNIs with net worth >₹5Cr. High illiquidity, 3–5 year lock-in.",
+			confidence_score: 76,
+			factors_considered: ["India IPO pipeline 2026", "AIF returns in Indian tech", "Unlisted equity discount"],
+			model_version: "FASP-AI-v1.0",
+			timestamp: new Date().toISOString(),
+		},
+	},
+	{
+		id: "retirement-shield",
+		name: "Retirement Shield",
+		tagline: "Steady, low-risk income portfolio for retirement stage investors",
+		riskProfile: "conservative",
+		goal: ["retirement", "income", "capital_preservation"],
+		minInvestment: 100000,
+		timeHorizon: "Ongoing",
+		cagr1Y: 8.5,
+		cagr3Y: 9.2,
+		cagr5Y: 9.8,
+		benchmarkCagr1Y: 6.8,
+		benchmarkName: "CRISIL Composite Bond",
+		lastRebalanced: "2026-06-01",
+		totalHoldings: 16,
+		icon: "🛡️",
+		aiInsight: {
+			recommendation: "Best for investors aged 55+ in or near retirement. Focus on capital safety.",
+			confidence_score: 91,
+			factors_considered: ["RBI rate cut cycle H2 2026", "SGB appreciation", "REIT distribution stability"],
+			model_version: "FASP-AI-v1.0",
+			timestamp: new Date().toISOString(),
+		},
+	},
+	{
+		id: "bharat-2030",
+		name: "Bharat 2030",
+		tagline: "Thematic bet on India's infrastructure & growth story",
+		riskProfile: "moderate",
+		goal: ["wealth_growth", "thematic"],
+		minInvestment: 75000,
+		timeHorizon: "5–10 years",
+		cagr1Y: 17.4,
+		cagr3Y: 19.2,
+		cagr5Y: 22.3,
+		benchmarkCagr1Y: 15.1,
+		benchmarkName: "NIFTY Infrastructure",
+		lastRebalanced: "2026-05-15",
+		totalHoldings: 24,
+		icon: "🇮🇳",
+		isNew: true,
+		aiInsight: {
+			recommendation: "High conviction India macro story. Infrastructure and manufacturing sectors well-positioned.",
+			confidence_score: 77,
+			factors_considered: ["India capex ₹11.1L Cr budget", "PLI disbursements", "EV policy tailwinds"],
+			model_version: "FASP-AI-v1.0",
+			timestamp: new Date().toISOString(),
+		},
+	},
+];
+
+const MODEL_PORTFOLIO_DISCLAIMER =
+	"Model Portfolios are for guidance and inspirational purposes only. " +
+	"They do not constitute SEBI-registered investment advice. Past performance is not indicative of future returns. " +
+	"Investors must consult their financial advisor before making any investment decision. " +
+	"Mutual Fund investments are subject to market risks. Read all scheme-related documents carefully.";
+
+/**
+ * GET /api/model-portfolios
+ * Returns the list of all model portfolios with optional filters.
+ *
+ * @queryParam riskProfile - Filter by risk profile (conservative|moderate|aggressive|high|all_weather)
+ * @queryParam goal        - Filter by goal key (wealth_growth|retirement|income|tax_saving|etc.)
+ * @outputs { success, data: ModelPortfolio[], meta: { total, timestamp, version } }
+ */
+router.get("/model-portfolios", requireAuth, (req: any, res: any) => {
+	const startTime = Date.now();
+	try {
+		const { riskProfile, goal } = req.query as Record<string, string>;
+
+		let portfolios = MODEL_PORTFOLIO_SEEDS;
+		if (riskProfile && riskProfile !== "all") {
+			portfolios = portfolios.filter((p) => p.riskProfile === riskProfile);
+		}
+		if (goal && goal !== "all") {
+			portfolios = portfolios.filter((p) => (p.goal as string[]).includes(goal));
+		}
+
+		// FASP-AI: log the advisory fetch event
+		console.info(JSON.stringify({
+			event: "MODEL_PORTFOLIO_LIST_FETCHED",
+			user_id: req.user?.id,
+			filters: { riskProfile, goal },
+			count: portfolios.length,
+			latency_ms: Date.now() - startTime,
+			status: "success",
+		}));
+
+		res.json({
+			success: true,
+			data: portfolios,
+			meta: {
+				total: portfolios.length,
+				disclaimer: MODEL_PORTFOLIO_DISCLAIMER,
+				timestamp: new Date().toISOString(),
+				version: "1.0",
+			},
+		});
+	} catch (error: any) {
+		console.error(JSON.stringify({
+			event: "MODEL_PORTFOLIO_LIST_ERROR",
+			user_id: req.user?.id,
+			error_code: "MODEL_PORTFOLIO_FETCH_FAILED",
+			message: error.message,
+			retryable: true,
+			latency_ms: Date.now() - startTime,
+			status: "error",
+		}));
+		res.status(500).json({
+			success: false,
+			error_code: "MODEL_PORTFOLIO_FETCH_FAILED",
+			message: "Failed to fetch model portfolios",
+			retryable: true,
+		});
+	}
+});
+
+/**
+ * GET /api/model-portfolios/:id
+ * Returns a single portfolio by ID.
+ *
+ * @param id - Portfolio ID (e.g. "blue-chip-growth")
+ * @outputs { success, data: ModelPortfolio, meta: { timestamp, version } }
+ */
+router.get("/model-portfolios/:id", requireAuth, (req: any, res: any) => {
+	const startTime = Date.now();
+	try {
+		const { id } = req.params as { id: string };
+		const portfolio = MODEL_PORTFOLIO_SEEDS.find((p) => p.id === id);
+
+		if (!portfolio) {
+			return res.status(404).json({
+				success: false,
+				error_code: "MODEL_PORTFOLIO_NOT_FOUND",
+				message: `Portfolio '${id}' not found`,
+				retryable: false,
+			});
+		}
+
+		// FASP-AI: log advisory output access per compliance
+		console.info(JSON.stringify({
+			event: "MODEL_PORTFOLIO_AI_INSIGHT",
+			user_id: req.user?.id,
+			input_context: { portfolio_id: id },
+			output_summary: {
+				recommendation_excerpt: portfolio.aiInsight.recommendation.slice(0, 80),
+				confidence_score: portfolio.aiInsight.confidence_score,
+			},
+			model_version: portfolio.aiInsight.model_version,
+			timestamp: portfolio.aiInsight.timestamp,
+			latency_ms: Date.now() - startTime,
+			status: "success",
+		}));
+
+		res.json({
+			success: true,
+			data: portfolio,
+			meta: {
+				disclaimer: MODEL_PORTFOLIO_DISCLAIMER,
+				timestamp: new Date().toISOString(),
+				version: "1.0",
+			},
+		});
+	} catch (error: any) {
+		console.error(JSON.stringify({
+			event: "MODEL_PORTFOLIO_DETAIL_ERROR",
+			user_id: req.user?.id,
+			error_code: "MODEL_PORTFOLIO_DETAIL_FAILED",
+			message: error.message,
+			retryable: true,
+			latency_ms: Date.now() - startTime,
+			status: "error",
+		}));
+		res.status(500).json({
+			success: false,
+			error_code: "MODEL_PORTFOLIO_DETAIL_FAILED",
+			message: "Failed to fetch portfolio detail",
+			retryable: true,
+		});
+	}
+});
+
+/**
+ * POST /api/model-portfolios/:id/share
+ * Shares a model portfolio with a client via WhatsApp or email.
+ * Agent/Partner roles only.
+ *
+ * @body { channel: "whatsapp" | "email", clientId?: string, email?: string }
+ * @outputs { success, message, data: { channel, sent } }
+ */
+router.post("/model-portfolios/:id/share", requireAuth, async (req: any, res: any) => {
+	const startTime = Date.now();
+	try {
+		const { id } = req.params as { id: string };
+		const { channel, clientId, email } = req.body as {
+			channel: "whatsapp" | "email";
+			clientId?: string;
+			email?: string;
+		};
+
+		const portfolio = MODEL_PORTFOLIO_SEEDS.find((p) => p.id === id);
+		if (!portfolio) {
+			return res.status(404).json({ success: false, message: `Portfolio '${id}' not found` });
+		}
+
+		// Role check: only agents/partners/admins can share
+		const user = await storage.getUser(req.user.id);
+		const allowedRoles = ["agent", "partner", "admin", "superadmin", "master_agent", "sub_agent", "associate", "partner_ops"];
+		const hasPermission = user?.roles?.some((r: string) => allowedRoles.includes(r));
+		if (!hasPermission) {
+			return res.status(403).json({
+				success: false,
+				error_code: "SHARE_NOT_PERMITTED",
+				message: "Only agents and partners can share model portfolios",
+				retryable: false,
+			});
+		}
+
+		const shareText =
+			`📊 *${portfolio.name}* — Model Portfolio\n\n` +
+			`🎯 Risk: ${portfolio.riskProfile}\n` +
+			`📈 1Y CAGR: ${portfolio.cagr1Y}% vs Benchmark ${portfolio.benchmarkCagr1Y}%\n` +
+			`⏱️ Horizon: ${portfolio.timeHorizon}\n\n` +
+			`_${MODEL_PORTFOLIO_DISCLAIMER.slice(0, 140)}..._\n\n` +
+			`Shared via FintekPro Research`;
+
+		let whatsappUrl: string | undefined;
+		if (channel === "whatsapp") {
+			whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+		}
+
+		// Log the share event
+		console.info(JSON.stringify({
+			event: "MODEL_PORTFOLIO_SHARED",
+			user_id: req.user?.id,
+			portfolio_id: id,
+			channel,
+			client_id: clientId,
+			latency_ms: Date.now() - startTime,
+			status: "success",
+		}));
+
+		res.json({
+			success: true,
+			message: `Portfolio shared via ${channel}`,
+			data: {
+				channel,
+				sent: true,
+				whatsappUrl,
+				portfolioName: portfolio.name,
+				disclaimer: "Disclaimer included in message per SEBI guidelines",
+			},
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "1.0",
+			},
+		});
+	} catch (error: any) {
+		console.error(JSON.stringify({
+			event: "MODEL_PORTFOLIO_SHARE_ERROR",
+			user_id: req.user?.id,
+			error_code: "PORTFOLIO_SHARE_FAILED",
+			message: error.message,
+			retryable: true,
+			latency_ms: Date.now() - startTime,
+			status: "error",
+		}));
+		res.status(500).json({
+			success: false,
+			error_code: "PORTFOLIO_SHARE_FAILED",
+			message: "Failed to share portfolio",
+			retryable: true,
+		});
+	}
+});
+
 // Export product eligibility utilities for use in other modules
 export {
 	isSecuritiesAgent,

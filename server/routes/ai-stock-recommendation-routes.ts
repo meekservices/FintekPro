@@ -5,8 +5,9 @@ import {
 } from "../services/ai-stock-recommendation-service";
 import { z } from "zod";
 import { db } from "../db";
-import { storeCategories } from "@shared/schema";
+import { storeCategories, dailyPicks } from "@shared/schema";
 import { eq, or } from "drizzle-orm";
+import { logger } from "../utils/logger";
 
 // Helper to check if Stocks category is enabled for recommendations
 async function isStocksCategoryEnabled(): Promise<boolean> {
@@ -28,6 +29,99 @@ async function isStocksCategoryEnabled(): Promise<boolean> {
 		console.warn("[AI Stock] Error checking category status:", e);
 		return true;
 	}
+}
+
+/**
+ * Persists buy/strong_buy AI stock recommendations into daily_picks
+ * so they appear in the Live Recommendations tracker.
+ * Idempotent — uses onConflictDoNothing().
+ */
+async function persistRecommendationsAsLivePicks(
+	recommendations: any[],
+	riskLevel: string,
+	timeHorizon: string,
+): Promise<number> {
+	const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+	const todayIST = new Date(Date.now() + IST_OFFSET_MS)
+		.toISOString()
+		.split("T")[0];
+
+	// Only save buy/strong_buy signals (not hold/sell)
+	const toBePersisted = recommendations.filter(
+		(r) => r.signal === "buy" || r.signal === "strong_buy",
+	);
+
+	let saved = 0;
+	for (const r of toBePersisted) {
+		try {
+			// Expiry: medium_term → 90 days, short_term → 30 days, long_term → 365 days
+			const horizonDays =
+				timeHorizon === "short_term"
+					? 30
+					: timeHorizon === "long_term"
+						? 365
+						: 90;
+			const expiryDate = new Date(Date.now() + IST_OFFSET_MS + horizonDays * 86400000)
+				.toISOString()
+				.split("T")[0];
+
+			const riskMap: Record<string, string> = {
+				conservative: "low",
+				moderate: "medium",
+				aggressive: "high",
+				very_aggressive: "very_high",
+			};
+
+			await db
+				.insert(dailyPicks)
+				.values({
+					category: "listed_stocks",
+					instrumentId: r.id || null,
+					instrumentName: r.companyName,
+					symbol: r.symbol || null,
+					exchange: r.exchange || "NSE",
+					recoDate: todayIST,
+					recoPrice: (r.entryPrice ?? r.currentPrice).toFixed(4),
+					targetPrice: r.targetPrice.toFixed(4),
+					stoplossPrice: r.stopLoss.toFixed(4),
+					currentPrice: r.currentPrice.toFixed(4),
+					status: "live",
+					expiryDate,
+					rationale: r.rationale || `${r.companyName} – AI ${r.signal} signal`,
+					riskLevel: riskMap[riskLevel] || "medium",
+					suitableFor: ["Balanced", "Growth"],
+					timeHorizon: timeHorizon || "medium_term",
+					confidenceScore: Math.round((r.confidence ?? 0.7) * 100),
+					sectorCategory: r.sector || null,
+					generatedBy: "ai",
+					keyMetrics: {
+						signal: r.signal,
+						fintekproRating: r.fintekproRating,
+						riskScore: r.riskScore,
+						expectedReturn: r.expectedReturn,
+						marketCap: r.marketCap,
+						peRatio: r.fundamentals?.peRatio,
+						roe: r.fundamentals?.roe,
+						rsi: r.technicals?.rsi,
+						keyFactors: r.keyFactors,
+					},
+					updatedAt: new Date(),
+				})
+				.onConflictDoNothing();
+			saved++;
+		} catch (err) {
+			logger.warn(
+				`[AI Stock Persist] Could not save pick for ${r.symbol}: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+	}
+
+	if (saved > 0) {
+		logger.info(
+			`[AI Stock Persist] Saved ${saved}/${toBePersisted.length} buy signals to daily_picks for ${todayIST}`,
+		);
+	}
+	return saved;
 }
 
 const filtersSchema = z.object({
@@ -67,6 +161,18 @@ export function registerAIStockRecommendationRoutes(app: Express): void {
 				const filters = filtersSchema.parse(req.body);
 				const recommendations =
 					await aiStockRecommendationService.getSmartRecommendations(filters);
+
+				// ── Persist buy/strong_buy picks to daily_picks (Live Recommendations) ──
+				// Fire-and-forget: don't block the response if persistence fails
+				persistRecommendationsAsLivePicks(
+					recommendations,
+					filters.riskLevel || "moderate",
+					filters.timeHorizon || "medium_term",
+				).catch((err) =>
+					logger.warn(
+						`[AI Stock Persist] Background persist failed: ${err instanceof Error ? err.message : String(err)}`,
+					),
+				);
 
 				res.json({
 					success: true,

@@ -100,6 +100,7 @@ import {
 	AgentExternalPortfolios,
 	AlpacaMarketExplorer,
 	AgentFieldView,
+	AgentModelPortfolios,
 } from "@/routes/lazy-pages";
 
 // AgentRoot: shows AuthPage if not logged in, FieldAgentPortal if logged in.
@@ -813,6 +814,15 @@ export function AgentRoutes() {
 					<AgentLayout>
 						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
 							<AgentIrisHub />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/model-portfolios">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentModelPortfolios />
 						</Suspense>
 					</AgentLayout>
 				)}

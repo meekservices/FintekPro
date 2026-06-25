@@ -69,6 +69,9 @@ export const AgentDashboard = lazyWithRetry(
 	() => import("@/pages/agent-dashboard"),
 );
 export const AgentPicks = lazyWithRetry(() => import("@/pages/agent-picks"));
+export const AgentModelPortfolios = lazyWithRetry(
+	() => import("@/pages/agent-model-portfolios"),
+);
 export const IBTradingPage = lazyWithRetry(() => import("@/pages/ib-trading"));
 export const StorePage = lazyWithRetry(() => import("@/pages/store"));
 export const GiftCity = lazyWithRetry(() => import("@/pages/gift-city"));

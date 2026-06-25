@@ -2,6 +2,7 @@ import { Express, Request, Response } from "express";
 import { pool } from "../db";
 import { financialDataRepository } from "../services/financial-data-repository";
 import { financialDataScheduler } from "../services/financial-data-scheduler";
+import { indianApiService } from "../services/indian-api-service";
 
 export function registerFinancialDataRoutes(app: Express): void {
 	app.get(
@@ -136,6 +137,120 @@ export function registerFinancialDataRoutes(app: Express): void {
 			}
 		},
 	);
+
+	// ── IndianAPI.in routes ────────────────────────────────────────────────────
+
+	/**
+	 * GET /api/financial-data/stock/:symbol/quote
+	 * Live NSE/BSE stock quote via IndianAPI.in
+	 */
+	app.get("/api/financial-data/stock/:symbol/quote", async (req: Request, res: Response) => {
+		const start = Date.now();
+		try {
+			const { symbol } = req.params;
+			const exchange = (req.query.exchange as "NSE" | "BSE") ?? "NSE";
+			const result = await indianApiService.getStockQuote(symbol, exchange);
+			res.json({
+				success: result.success,
+				data: result.data,
+				meta: { timestamp: new Date().toISOString(), version: "1.0", latency_ms: Date.now() - start, source: "indian_api" },
+				error: result.error,
+			});
+		} catch (error: any) {
+			res.status(500).json({ success: false, error_code: "QUOTE_FETCH_FAILED", message: error.message, retryable: true });
+		}
+	});
+
+	/**
+	 * GET /api/financial-data/stock/:symbol/fundamentals
+	 * Full fundamentals: ratios, P&L, balance sheet, cash flow
+	 */
+	app.get("/api/financial-data/stock/:symbol/fundamentals", async (req: Request, res: Response) => {
+		const start = Date.now();
+		try {
+			const { symbol } = req.params;
+			const years = Number(req.query.years ?? 5);
+			const [ratios, pl, bs, cf, profile] = await Promise.all([
+				indianApiService.getRatios(symbol),
+				indianApiService.getProfitLoss(symbol, years),
+				indianApiService.getBalanceSheet(symbol, years),
+				indianApiService.getCashFlow(symbol, years),
+				indianApiService.getCompanyProfile(symbol),
+			]);
+			res.json({
+				success: true,
+				data: {
+					symbol: symbol.toUpperCase(),
+					profile: profile.data,
+					ratios: ratios.data,
+					profit_loss: pl.data,
+					balance_sheet: bs.data,
+					cash_flow: cf.data,
+				},
+				meta: { timestamp: new Date().toISOString(), version: "1.0", latency_ms: Date.now() - start, source: "indian_api" },
+			});
+		} catch (error: any) {
+			res.status(500).json({ success: false, error_code: "FUNDAMENTALS_FETCH_FAILED", message: error.message, retryable: true });
+		}
+	});
+
+	/**
+	 * GET /api/financial-data/fii-dii/latest
+	 * Latest FII/DII cash segment activity (MrChartist free API)
+	 */
+	app.get("/api/financial-data/fii-dii/latest", async (_req: Request, res: Response) => {
+		const start = Date.now();
+		try {
+			const result = await indianApiService.getLatestFIIDII();
+			res.json({
+				success: result.success,
+				data: result.data,
+				meta: { timestamp: new Date().toISOString(), version: "1.0", latency_ms: Date.now() - start, source: "mrchartist" },
+				error: result.error,
+			});
+		} catch (error: any) {
+			res.status(500).json({ success: false, error_code: "FIIDII_FETCH_FAILED", message: error.message, retryable: true });
+		}
+	});
+
+	/**
+	 * GET /api/financial-data/fii-dii/history?days=30
+	 * FII/DII historical trend
+	 */
+	app.get("/api/financial-data/fii-dii/history", async (req: Request, res: Response) => {
+		const start = Date.now();
+		try {
+			const days = Math.min(Number(req.query.days ?? 30), 365);
+			const result = await indianApiService.getFIIDIIHistory(days);
+			res.json({
+				success: result.success,
+				data: result.data,
+				meta: { timestamp: new Date().toISOString(), version: "1.0", latency_ms: Date.now() - start, days, source: "mrchartist" },
+				error: result.error,
+			});
+		} catch (error: any) {
+			res.status(500).json({ success: false, error_code: "FIIDII_HISTORY_FAILED", message: error.message, retryable: true });
+		}
+	});
+
+	/**
+	 * GET /api/financial-data/ipo/upcoming
+	 * Upcoming and recent IPOs with subscription data
+	 */
+	app.get("/api/financial-data/ipo/upcoming", async (_req: Request, res: Response) => {
+		const start = Date.now();
+		try {
+			const result = await indianApiService.getIPOList();
+			res.json({
+				success: result.success,
+				data: result.data,
+				meta: { timestamp: new Date().toISOString(), version: "1.0", latency_ms: Date.now() - start, source: "indian_api" },
+				error: result.error,
+			});
+		} catch (error: any) {
+			res.status(500).json({ success: false, error_code: "IPO_FETCH_FAILED", message: error.message, retryable: true });
+		}
+	});
 
 	console.log("✅ [Financial Data Routes] Registered successfully");
 }
