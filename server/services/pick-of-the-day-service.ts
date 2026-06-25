@@ -346,6 +346,73 @@ export class PickOfTheDayService {
 						continue;
 					}
 
+					// ── Signal Quality Gate ─────────────────────────────────────────────
+					// Only publish BUY / STRONG_BUY picks to the daily_picks feed.
+					// HOLD signals are valid research signals but NOT actionable picks —
+					// they belong in the research watchlist, not the picks feed.
+					const pickSignal: string = (pick.keyMetrics as any)?.signal
+						?? (pick.keyMetrics as any)?.recommendation
+						?? "buy"; // default to buy if not tagged (legacy picks)
+
+					const isActionable =
+						pickSignal === "strong_buy" || pickSignal === "buy";
+
+					if (!isActionable) {
+						logger.info(
+							`[PickOfTheDay] Skipping non-actionable pick ${pick.instrumentName} (signal: ${pickSignal}) — redirected to watchlist`,
+							{ instrument: pick.instrumentName, signal: pickSignal, category },
+						);
+						continue; // skip saving to daily_picks
+					}
+
+					// ── Minimum Upside Filter ──────────────────────────────────────────
+					// A pick must have meaningful upside to justify BUY rating.
+					// Minimum: stocks ≥12%, mutual_funds ≥8%, bonds/others ≥5%
+					const minUpsidePct: Record<string, number> = {
+						stocks: 12,
+						equity: 12,
+						mutual_funds: 8,
+						bonds: 5,
+						debt: 5,
+					};
+					const minUpside = minUpsidePct[category] ?? 8;
+					const recoP = Number(pick.recoPrice ?? 0);
+					const targetP = Number(pick.targetPrice ?? 0);
+					const upsidePct =
+						recoP > 0 ? ((targetP - recoP) / recoP) * 100 : 99;
+
+					if (upsidePct < minUpside) {
+						logger.info(
+							`[PickOfTheDay] Skipping low-upside pick ${pick.instrumentName} (${upsidePct.toFixed(1)}% < min ${minUpside}%)`,
+							{ instrument: pick.instrumentName, upsidePct, minUpside, category },
+						);
+						continue;
+					}
+
+					// ── Add portfolio_signal metadata ─────────────────────────────────
+					// Gives portfolio construction engine precise signals beyond BUY/HOLD.
+					const portfolioSignal = {
+						action:
+							pickSignal === "strong_buy" ? "accumulate" : "initiate",
+						allocation_bias:
+							pickSignal === "strong_buy" ? "overweight" : "neutral",
+						conviction: pickSignal === "strong_buy" ? "high" : "medium",
+						portfolio_category:
+							pickSignal === "strong_buy" ? "core" : "tactical",
+						upside_pct: Math.round(upsidePct * 10) / 10,
+						min_upside_threshold: minUpside,
+						fintekpro_rating:
+							pickSignal === "strong_buy" ? 5 : 4,
+						suitable_for:
+							pickSignal === "strong_buy"
+								? ["equity_growth", "hni_aggressive", "retail_high_risk"]
+								: ["equity_growth", "retail_moderate"],
+					};
+					// Attach to keyMetrics so it's stored with the pick
+					if (pick.keyMetrics && typeof pick.keyMetrics === "object") {
+						(pick.keyMetrics as any).portfolio_signal = portfolioSignal;
+					}
+
 					await this.savePick(pick);
 
 					// ── FASP-AI v2.0: Persist to immutable advisory audit trail ──────────

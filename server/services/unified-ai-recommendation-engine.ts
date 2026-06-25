@@ -50,7 +50,18 @@ export type RiskProfile =
 	| "moderate"
 	| "aggressive"
 	| "very_aggressive";
-export type RecommendationAction = "buy" | "hold" | "sell" | "avoid";
+/**
+ * 5-level signal scale — aligned with ai-stock-recommendation-service.ts.
+ * IMPORTANT: unified engine previously used 4-level (buy/hold/sell/avoid).
+ * "strong_buy" is the highest conviction tier, used for core portfolio allocation.
+ * "avoid" removed in favour of "strong_sell" for consistency across engines.
+ */
+export type RecommendationAction =
+	| "strong_buy"
+	| "buy"
+	| "hold"
+	| "sell"
+	| "strong_sell";
 export type ConfidenceLevel = "low" | "medium" | "high" | "very_high";
 
 export interface ProductData {
@@ -724,6 +735,8 @@ class UnifiedAIRecommendationEngine {
 		const adjRec = this.determineRecommendation(
 			adjOverall,
 			base.suitabilityScore,
+			clientProfile,
+			regime.regime,
 		);
 		const regimeLabel: Record<string, string> = {
 			bull: "bullish",
@@ -789,10 +802,12 @@ class UnifiedAIRecommendationEngine {
 			? this.calculateSuitabilityScore(product, riskProfile, clientProfile)
 			: 70;
 
-		// Determine recommendation
+		// Determine recommendation — pass clientProfile so pick-engine vs client paths diverge
 		const recommendation = this.determineRecommendation(
 			overallScore,
 			suitabilityScore,
+			clientProfile,
+			undefined, // no regime in rules-based path (no Python sidecar)
 		);
 
 		// Calculate confidence
@@ -1237,21 +1252,65 @@ Provide analysis as JSON with these fields:
 		return "very_aggressive";
 	}
 
+	/**
+	 * Determines the recommendation signal on a 5-level scale.
+	 *
+	 * Two modes:
+	 *  - Pick context (no clientProfile): use overallScore directly.
+	 *    Thresholds aligned with ai-stock-recommendation-service.ts.
+	 *  - Client context (clientProfile provided): blend with suitabilityScore.
+	 *
+	 * Regime adjustment: bearish/high-vol markets raise the BUY bar by +5–10pts.
+	 *
+	 * @param overallScore       0–100 composite score (return+risk+quality+valuation)
+	 * @param suitabilityScore   0–100 client-specific fit score (default 70 if no client)
+	 * @param clientProfile      Present only when generating client-specific advice
+	 * @param regime             Market regime from Python sidecar ('bull'|'sideways'|'high_vol'|'bear')
+	 */
 	private determineRecommendation(
 		overallScore: number,
 		suitabilityScore: number,
+		clientProfile?: ClientProfile,
+		regime?: string,
 	): RecommendationAction {
-		const combined = overallScore * 0.6 + suitabilityScore * 0.4;
+		// Regime-based adjustment to BUY threshold (bullish = easier, bearish = harder)
+		const regimeAdj: Record<string, number> = {
+			bull: -5,
+			sideways: 0,
+			high_vol: 5,
+			bear: 10,
+		};
+		const adj = regimeAdj[regime ?? "sideways"] ?? 0;
 
-		if (combined >= 75) return "buy";
-		if (combined >= 55) return "hold";
-		if (combined >= 35) return "sell";
-		return "avoid";
+		if (!clientProfile) {
+			// ── Pick-engine path: no client → use overallScore directly ──────────
+			// Aligned with ai-stock-recommendation-service.ts thresholds:
+			//   strong_buy ≥ 75, buy ≥ 60, hold ≥ 45, sell ≥ 30, strong_sell < 30
+			const strongBuyThreshold = 75 + adj;
+			const buyThreshold       = 60 + adj;
+			const holdThreshold      = 45;
+			const sellThreshold      = 30;
+
+			if (overallScore >= strongBuyThreshold) return "strong_buy";
+			if (overallScore >= buyThreshold)       return "buy";
+			if (overallScore >= holdThreshold)      return "hold";
+			if (overallScore >= sellThreshold)      return "sell";
+			return "strong_sell";
+		}
+
+		// ── Client advisory path: blend overall + suitability ─────────────────
+		const combined = overallScore * 0.6 + suitabilityScore * 0.4;
+		if (combined >= 85 + adj)  return "strong_buy";
+		if (combined >= 70 + adj)  return "buy";        // was 75; lowered to 70
+		if (combined >= 50)        return "hold";        // was 55; lowered to 50
+		if (combined >= 35)        return "sell";
+		return "strong_sell";
 	}
 
 	private getConfidenceLevel(score: number): ConfidenceLevel {
-		if (score >= 85) return "very_high";
-		if (score >= 70) return "high";
+		// strong_buy picks carry implicit very_high confidence
+		if (score >= 80) return "very_high";
+		if (score >= 65) return "high";
 		if (score >= 50) return "medium";
 		return "low";
 	}
@@ -1266,12 +1325,15 @@ Provide analysis as JSON with these fields:
 			: "based on available metrics";
 
 		if (score >= 75) {
+			return `Exceptional ${categoryName} demonstrating top-decile performance ${performance}. High-conviction STRONG BUY — suitable as a core portfolio allocation with overweight bias.`;
+		}
+		if (score >= 60) {
 			return `Strong ${categoryName} showing excellent risk-adjusted performance ${performance}. Well-suited for growth-oriented portfolios.`;
 		}
-		if (score >= 55) {
-			return `Solid ${categoryName} ${performance}. Offers balanced risk-return profile suitable for diversified portfolios.`;
+		if (score >= 45) {
+			return `Solid ${categoryName} ${performance}. Balanced risk-return profile. Monitor for entry — watchlist candidate.`;
 		}
-		return `${categoryName} ${performance}. Consider alternatives with better risk-adjusted returns.`;
+		return `${categoryName} ${performance}. Adverse risk signals — consider alternatives with better risk-adjusted returns.`;
 	}
 
 	private generateInvestmentThesis(product: ProductData): string {
