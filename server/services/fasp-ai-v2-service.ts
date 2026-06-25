@@ -330,20 +330,17 @@ export class FaspAIv2Service {
         })
         .returning({ id: faspAdvisoryOutputs.id });
 
-      logger.info({
-        event: "AI_ADVICE_GENERATED",
-        user_id: payload.userId,
+      logger.info("AI_ADVICE_GENERATED", {user_id: payload.userId,
         advisory_type: payload.advisoryType,
         confidence_score: payload.meta.confidence_score,
         meets_threshold: payload.meta.meets_threshold,
         model_version: payload.meta.model_version,
         sebi_ref: payload.meta.sebi_circular_ref,
-        timestamp: payload.meta.calculation_timestamp,
-      });
+        timestamp: payload.meta.calculation_timestamp});
 
       return record.id;
     } catch (err) {
-      logger.error({ event: "FASP_LOG_FAILED", error: (err as Error).message });
+      logger.error("FASP_LOG_FAILED", {error: (err as Error).message });
       // Non-fatal — don't block the advisory response
       return "log-failed";
     }
@@ -375,15 +372,12 @@ export class FaspAIv2Service {
         })
         .where(eq(faspAdvisoryOutputs.id, outputId));
 
-      logger.info({
-        event: "AI_ADVICE_FEEDBACK",
-        output_id: outputId,
+      logger.info("AI_ADVICE_FEEDBACK", {output_id: outputId,
         action,
         has_modification: !!modification,
-        timestamp: new Date().toISOString(),
-      });
+        timestamp: new Date().toISOString()});
     } catch (err) {
-      logger.error({ event: "FASP_FEEDBACK_FAILED", output_id: outputId, error: (err as Error).message });
+      logger.error("FASP_FEEDBACK_FAILED", {output_id: outputId, error: (err as Error).message });
       throw err;
     }
   }
@@ -452,7 +446,7 @@ export class FaspAIv2Service {
           }))
         ).onConflictDoNothing();
       } catch (err) {
-        logger.error({ event: "DRIFT_ALERT_PERSIST_FAILED", portfolio_id: portfolioId, error: (err as Error).message });
+        logger.error("DRIFT_ALERT_PERSIST_FAILED", {portfolio_id: portfolioId, error: (err as Error).message });
       }
     }
 

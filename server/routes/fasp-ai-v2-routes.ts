@@ -76,14 +76,11 @@ router.post("/advisory/:outputId/feedback", async (req: Request, res: Response) 
 
     await FaspAIv2Service.recordFeedback(outputId, action, modification, notes);
 
-    logger.info({
-      event: "AI_ADVICE_FEEDBACK_RECORDED",
-      user_id: (req as any).user?.id,
+    logger.info("AI_ADVICE_FEEDBACK_RECORDED", {user_id: (req as any).user?.id,
       output_id: outputId,
       action,
       latency_ms: Date.now() - start,
-      status: "success",
-    });
+      status: "success"});
 
     return res.json({
       success: true,
@@ -99,7 +96,7 @@ router.post("/advisory/:outputId/feedback", async (req: Request, res: Response) 
       },
     });
   } catch (err) {
-    logger.error({ event: "FASP_FEEDBACK_ROUTE_ERROR", error: (err as Error).message, latency_ms: Date.now() - start, status: "error" });
+    logger.error("FASP_FEEDBACK_ROUTE_ERROR", {error: (err as Error).message, latency_ms: Date.now() - start, status: "error" });
     return res.status(500).json({
       success: false,
       error_code: "FEEDBACK_FAILED",
@@ -135,14 +132,11 @@ router.get("/drift/:portfolioId", async (req: Request, res: Response) => {
       .orderBy(desc(portfolioDriftAlerts.computedAt))
       .limit(50);
 
-    logger.info({
-      event: "DRIFT_ALERTS_FETCHED",
-      user_id: (req as any).user?.id,
+    logger.info("DRIFT_ALERTS_FETCHED", {user_id: (req as any).user?.id,
       portfolio_id: portfolioId,
       alert_count: alerts.length,
       latency_ms: Date.now() - start,
-      status: "success",
-    });
+      status: "success"});
 
     return res.json({
       success: true,
@@ -167,7 +161,7 @@ router.get("/drift/:portfolioId", async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    logger.error({ event: "FASP_DRIFT_ROUTE_ERROR", error: (err as Error).message, latency_ms: Date.now() - start, status: "error" });
+    logger.error("FASP_DRIFT_ROUTE_ERROR", {error: (err as Error).message, latency_ms: Date.now() - start, status: "error" });
     return res.status(500).json({
       success: false,
       error_code: "DRIFT_FETCH_FAILED",
@@ -203,7 +197,7 @@ router.post("/drift/:portfolioId/acknowledge", async (req: Request, res: Respons
         )
       );
 
-    logger.info({ event: "DRIFT_ALERT_ACKNOWLEDGED", portfolio_id: portfolioId, advisor_id: advisorId, latency_ms: Date.now() - start, status: "success" });
+    logger.info("DRIFT_ALERT_ACKNOWLEDGED", {portfolio_id: portfolioId, advisor_id: advisorId, latency_ms: Date.now() - start, status: "success" });
 
     return res.json({
       success: true,
@@ -211,7 +205,7 @@ router.post("/drift/:portfolioId/acknowledge", async (req: Request, res: Respons
       meta: { timestamp: new Date().toISOString(), version: "FASP-AI-v2.0" },
     });
   } catch (err) {
-    logger.error({ event: "FASP_DRIFT_ACK_ERROR", error: (err as Error).message, latency_ms: Date.now() - start, status: "error" });
+    logger.error("FASP_DRIFT_ACK_ERROR", {error: (err as Error).message, latency_ms: Date.now() - start, status: "error" });
     return res.status(500).json({ success: false, error_code: "ACK_FAILED", message: "Failed to acknowledge alerts", retryable: true });
   }
 });
@@ -247,14 +241,11 @@ router.get("/audit-trail/:userId", async (req: Request, res: Response) => {
         .where(eq(faspAdvisoryOutputs.userId, userId)),
     ]);
 
-    logger.info({
-      event: "AUDIT_TRAIL_FETCHED",
-      requesting_user: (req as any).user?.id,
+    logger.info("AUDIT_TRAIL_FETCHED", {requesting_user: (req as any).user?.id,
       target_user: userId,
       record_count: outputs.length,
       latency_ms: Date.now() - start,
-      status: "success",
-    });
+      status: "success"});
 
     return res.json({
       success: true,
@@ -283,7 +274,7 @@ router.get("/audit-trail/:userId", async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    logger.error({ event: "FASP_AUDIT_ROUTE_ERROR", error: (err as Error).message, latency_ms: Date.now() - start, status: "error" });
+    logger.error("FASP_AUDIT_ROUTE_ERROR", {error: (err as Error).message, latency_ms: Date.now() - start, status: "error" });
     return res.status(500).json({ success: false, error_code: "AUDIT_FETCH_FAILED", message: "Failed to fetch audit trail", retryable: true });
   }
 });
@@ -327,7 +318,7 @@ router.get("/confidence/breakdown/:outputId", async (req: Request, res: Response
       meta: { timestamp: new Date().toISOString(), version: "FASP-AI-v2.0" },
     });
   } catch (err) {
-    logger.error({ event: "FASP_BREAKDOWN_ROUTE_ERROR", error: (err as Error).message, latency_ms: Date.now() - start, status: "error" });
+    logger.error("FASP_BREAKDOWN_ROUTE_ERROR", {error: (err as Error).message, latency_ms: Date.now() - start, status: "error" });
     return res.status(500).json({ success: false, error_code: "BREAKDOWN_FAILED", message: "Failed to fetch breakdown", retryable: true });
   }
 });
