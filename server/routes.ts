@@ -129,6 +129,7 @@ import prospectProposalsRouter from "./routes/prospect-proposals";
 import proposalBuilderRouter from "./routes/proposal-builder-routes";
 import sipSimulatorRouter from "./routes/sip-simulator";
 import sebiAuditRouter from "./routes/sebi-audit";
+import faspAIv2Router from "./routes/fasp-ai-v2-routes";
 import { agentDemoRouter } from "./routes/demo-proposals";
 import { registerPortfolioCompareAISIPRoutes } from "./routes/portfolio-compare-ai-sip";
 import stockIntersectionRouter from "./routes/stock-intersection";
@@ -428,6 +429,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// SEBI Audit: GET /api/sebi-audit/summary/:proposalId, /api/sebi-audit/log
 	app.use("/api/sebi-audit", sebiAuditRouter);
+
+	// FASP-AI v2.0: advisory feedback, drift alerts, audit trail, confidence breakdown
+	app.use("/api/fasp", faspAIv2Router);
 
 	// Agent Demo Proposals: GET/POST /api/agent/demo-proposals, POST .../generate-pdf
 	app.use("/api/agent/demo-proposals", agentDemoRouter);

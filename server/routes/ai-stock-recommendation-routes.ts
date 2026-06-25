@@ -8,6 +8,7 @@ import { db } from "../db";
 import { storeCategories, dailyPicks } from "@shared/schema";
 import { eq, or } from "drizzle-orm";
 import { logger } from "../logger";
+import { FaspAIv2Service } from "../services/fasp-ai-v2-service";
 
 // Helper to check if Stocks category is enabled for recommendations
 async function isStocksCategoryEnabled(): Promise<boolean> {

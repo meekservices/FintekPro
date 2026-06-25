@@ -11216,3 +11216,94 @@ export const insertGoalBenchmarkMappingSchema = createInsertSchema(goalBenchmark
 export type GoalBenchmarkMappingRow = typeof goalBenchmarkMapping.$inferSelect;
 export type InsertGoalBenchmarkMapping = typeof goalBenchmarkMapping.$inferInsert;
 
+// ─── FASP-AI v2.0 — Advisory Outputs & Audit Trail ───────────────────────────
+// Immutable record of every AI advisory output. Replaces scattered FASP-AI-v1.0
+// string literals with a proper, queryable, feedback-loop-enabled audit table.
+
+export const faspAdvisoryOutputs = pgTable("fasp_advisory_outputs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Actor references
+  userId:           varchar("user_id").references(() => users.id),
+  advisorId:        varchar("advisor_id").references(() => users.id),
+
+  // Advisory context
+  advisoryType:     varchar("advisory_type").notNull(),   // model_portfolio | stock_pick | copilot | proposal | etc.
+  inputContext:     jsonb("input_context").notNull(),     // risk profile, segment, query, instrument
+  userSegment:      varchar("user_segment").notNull(),    // retail | hni | institutional
+  recommendation:   text("recommendation").notNull(),
+
+  // Full output snapshot
+  outputSnapshot:   jsonb("output_snapshot").notNull(),
+
+  // FASP-AI v2.0 Metadata
+  modelVersion:         varchar("model_version").notNull().default("FASP-AI-v2.0"),
+  baseModel:            varchar("base_model").notNull().default("gemini-2.5-flash"),
+  confidenceScore:      integer("confidence_score").notNull(),       // 0–100
+  confidenceBreakdown:  jsonb("confidence_breakdown"),               // FactorScore[]
+  confidenceThreshold:  integer("confidence_threshold").notNull(),   // segment-specific
+  meetsThreshold:       boolean("meets_threshold").notNull(),
+  factorsScored:        jsonb("factors_scored"),                     // structured factor scores
+  sebiCircularRef:      varchar("sebi_circular_ref"),               // e.g. SEBI/HO/IMD/2023/P/CIR/0188
+  humanReviewRequired:  boolean("human_review_required").default(false),
+
+  // Advisor Feedback Loop
+  advisorAction:        varchar("advisor_action").default("pending"), // pending | accepted | rejected | modified
+  advisorActionAt:      timestamp("advisor_action_at"),
+  advisorModification:  text("advisor_modification"),               // what advisor changed
+  advisorNotes:         text("advisor_notes"),
+
+  // Compliance
+  isRegulatorAuditable: boolean("is_regulator_auditable").default(true),
+
+  // Provenance
+  source:               varchar("source").default("api"),           // api | system | cron
+  createdAt:            timestamp("created_at").defaultNow(),
+  updatedAt:            timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_fasp_user").on(table.userId),
+  index("idx_fasp_advisor").on(table.advisorId),
+  index("idx_fasp_type").on(table.advisoryType),
+  index("idx_fasp_segment").on(table.userSegment),
+  index("idx_fasp_action").on(table.advisorAction),
+  index("idx_fasp_created").on(table.createdAt),
+  index("idx_fasp_meets_threshold").on(table.meetsThreshold),
+]);
+
+export const insertFaspAdvisoryOutputSchema = createInsertSchema(faspAdvisoryOutputs).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type FaspAdvisoryOutput = typeof faspAdvisoryOutputs.$inferSelect;
+export type InsertFaspAdvisoryOutput = typeof faspAdvisoryOutputs.$inferInsert;
+
+// ─── FASP-AI v2.0 — Portfolio Drift Alerts ────────────────────────────────────
+// Stores computed drift between target and actual holding weights.
+// Populated by FaspAIv2Service.computeDrift() using IndianAPI live prices.
+
+export const portfolioDriftAlerts = pgTable("portfolio_drift_alerts", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  portfolioId:     varchar("portfolio_id").notNull(),    // model portfolio ID (e.g. "all-weather-india")
+  holdingSymbol:   varchar("holding_symbol").notNull(),  // NSE/BSE ticker or fund code
+  targetWeight:    numeric("target_weight"),             // target % weight in portfolio
+  currentWeight:   numeric("current_weight"),            // computed from live price × units / total NAV
+  driftPercent:    numeric("drift_percent"),             // currentWeight - targetWeight
+  driftThreshold:  numeric("drift_threshold").default("5.0"),
+  livePrice:       numeric("live_price"),
+  alertStatus:     varchar("alert_status").default("open"),  // open | acknowledged | rebalanced
+  computedAt:      timestamp("computed_at").defaultNow(),
+  acknowledgedBy:  varchar("acknowledged_by").references(() => users.id),
+  acknowledgedAt:  timestamp("acknowledged_at"),
+  source:          varchar("source").default("api"),
+}, (table) => [
+  index("idx_drift_portfolio").on(table.portfolioId),
+  index("idx_drift_symbol").on(table.holdingSymbol),
+  index("idx_drift_status").on(table.alertStatus),
+  index("idx_drift_computed").on(table.computedAt),
+]);
+
+export const insertPortfolioDriftAlertSchema = createInsertSchema(portfolioDriftAlerts).omit({
+  id: true, computedAt: true,
+});
+export type PortfolioDriftAlert = typeof portfolioDriftAlerts.$inferSelect;
+export type InsertPortfolioDriftAlert = typeof portfolioDriftAlerts.$inferInsert;
+

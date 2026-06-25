@@ -446,18 +446,31 @@ Respond to the user's query helpfully and professionally.`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FASP-AI v1.0 — Structured Copilot Inference (absorbed from geminiService.ts)
+// FASP-AI v2.0 — Structured Copilot Inference
 // ─────────────────────────────────────────────────────────────────────────────
 
 const COPILOT_MODEL_VERSION = "gemini-2.5-flash";
 const MAX_RETRIES = 3;
 
-/** FASP-AI v1.0 — mandatory metadata on every AI output */
+/**
+ * FASP-AI v2.0 — mandatory metadata on every AI advisory output.
+ * Extends v1.0 with confidence breakdown, per-segment threshold,
+ * SEBI circular reference, and model lineage fields.
+ */
 export interface FaspAiMeta {
-	confidence_score: number; // 0-1
-	model_version: string;
+	// v1.0 fields (preserved for backward compat)
+	confidence_score: number;          // 0–100 (normalised from v1.0 0–1 scale)
+	model_version: string;             // "FASP-AI-v2.0"
 	calculation_timestamp: string;
-	engine_version: string;
+	engine_version: string;            // "fasp-engine-v2.0"
+	// v2.0 additions
+	base_model: string;                // underlying LLM (e.g. "gemini-2.5-flash")
+	data_cutoff: string;               // model training cutoff
+	confidence_threshold: number;      // per-segment threshold
+	meets_threshold: boolean;
+	human_review_required: boolean;
+	sebi_circular_ref: string;         // e.g. "SEBI/HO/IMD/2023/P/CIR/0188"
+	confidence_breakdown?: unknown[];  // FactorScore[] from FaspAIv2Service
 }
 
 export interface GeminiResponse<T = Record<string, unknown>> {
@@ -482,12 +495,29 @@ async function copilotSleep(attempt: number): Promise<void> {
 	return new Promise((r) => setTimeout(r, 200 * 2 ** attempt));
 }
 
-function estimateConfidence(text: string): number {
-	const len = text.length;
-	if (len > 2000) return 0.88;
-	if (len > 800) return 0.78;
-	if (len > 200) return 0.65;
-	return 0.5;
+/**
+ * FASP-AI v2.0 confidence computation.
+ * Uses FaspAIv2Service multi-factor scorer (response length, structure,
+ * factor count, market context, historical accuracy).
+ * Falls back to text-length heuristic if service is unavailable.
+ */
+function estimateConfidenceV2(text: string, factorCount = 0): { score: number; breakdown: unknown[]; threshold: number; meetsThreshold: boolean } {
+	try {
+		const { FaspAIv2Service } = require("./services/fasp-ai-v2-service");
+		const result = FaspAIv2Service.computeConfidence({
+			responseLength: text.length,
+			hasStructuredData: text.trim().startsWith("{") || text.trim().startsWith("["),
+			factorCount: factorCount,
+			userSegment: "retail", // default for copilot; override per-segment in routes
+			marketVolatility: "normal",
+		});
+		return { score: result.score, breakdown: result.breakdown, threshold: result.threshold, meetsThreshold: result.meetsThreshold };
+	} catch {
+		// Fallback to v1.0 heuristic
+		const len = text.length;
+		const score = len > 2000 ? 88 : len > 800 ? 78 : len > 200 ? 65 : 50;
+		return { score, breakdown: [], threshold: 60, meetsThreshold: score >= 60 };
+	}
 }
 
 /**
@@ -559,11 +589,21 @@ export async function callGemini<T = Record<string, unknown>>(
 				parsed = rawText as unknown as T;
 			}
 
+			const { score, breakdown, threshold, meetsThreshold } = estimateConfidenceV2(rawText);
 			const meta: FaspAiMeta = {
-				confidence_score: estimateConfidence(rawText),
-				model_version: COPILOT_MODEL_VERSION,
+				// v1.0 compat fields
+				confidence_score: score,
+				model_version: "FASP-AI-v2.0",
 				calculation_timestamp: new Date().toISOString(),
-				engine_version: "admin-copilot-v1.0",
+				engine_version: "fasp-engine-v2.0",
+				// v2.0 additions
+				base_model: COPILOT_MODEL_VERSION,
+				data_cutoff: "2025-01",
+				confidence_threshold: threshold,
+				meets_threshold: meetsThreshold,
+				human_review_required: !meetsThreshold,
+				sebi_circular_ref: "SEBI/HO/IMD/2023/P/CIR/0188",
+				confidence_breakdown: breakdown,
 			};
 
 			return { data: parsed, meta, success: true };
