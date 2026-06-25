@@ -193,6 +193,15 @@ type ModelPortfolio = {
 
 // ─── Seed Data — 22 Curated Model Portfolios ─────────────────────────────────
 
+/** Deterministic seeded pseudo-random (LCG) — same seed → same NAV chart on every refresh */
+const seededRandom = (seed: number) => {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 0xffffffff;
+  };
+};
+
 const PERFORMANCE_BASE = (
   startNav: number,
   months: number,
@@ -205,10 +214,12 @@ const PERFORMANCE_BASE = (
   let nav = startNav;
   let bench = startNav;
   const now = new Date();
+  // Seed derived from annualReturn + volatility → unique per portfolio, stable across refreshes
+  const rand = seededRandom(Math.round(annualReturn * 100 + volatility * 13));
   for (let i = months; i >= 0; i--) {
     const d = new Date(now);
     d.setMonth(d.getMonth() - i);
-    const noise = (Math.random() - 0.48) * volatility * 0.01 * startNav;
+    const noise = (rand() - 0.48) * volatility * 0.01 * startNav;
     nav = nav * (1 + monthlyReturn) + noise;
     bench = bench * (1 + benchReturn) + noise * 0.6;
     pts.push({
@@ -2590,10 +2601,45 @@ export default function AgentModelPortfoliosPage() {
 
                   {/* Rebalancing Tab */}
                   <TabsContent value="rebalancing" className="space-y-3">
-                    <p className="text-xs text-muted-foreground">
-                      Portfolios are reviewed quarterly and rebalanced based on market conditions, valuations, and macro outlook.
-                    </p>
-                    {selectedPortfolio.rebalancingHistory.map((e, i) => (
+                     {/* Monitoring Summary */}
+                     {(() => {
+                       const lastRebalDate = new Date(selectedPortfolio.lastRebalanced);
+                       const nextReview = new Date(lastRebalDate);
+                       nextReview.setDate(nextReview.getDate() + 90);
+                       const today = new Date();
+                       const daysUntil = Math.ceil((nextReview.getTime() - today.getTime()) / 86400000);
+                       const isOverdue = daysUntil < 0;
+                       return (
+                         <div className={`grid grid-cols-3 gap-2 p-3 rounded-xl border ${isOverdue ? "border-red-300 bg-red-50 dark:bg-red-950/20" : "border-indigo-200 bg-indigo-50/50 dark:bg-indigo-950/20"}`}>
+                           {[
+                             { label: "Last Rebalanced", value: lastRebalDate.toLocaleDateString("en-IN") },
+                             { label: "Next Review", value: nextReview.toLocaleDateString("en-IN"), highlight: isOverdue ? "text-red-600 font-bold" : daysUntil <= 14 ? "text-amber-600 font-semibold" : "text-green-600" },
+                             { label: "Review Frequency", value: "Quarterly" },
+                           ].map((m) => (
+                             <div key={m.label} className="text-center">
+                               <p className="text-[9px] text-muted-foreground mb-0.5">{m.label}</p>
+                               <p className={`text-[11px] font-semibold ${m.highlight || ""}`}>{m.value}</p>
+                             </div>
+                           ))}
+                           {isOverdue && (
+                             <div className="col-span-3 flex items-center gap-1.5 text-[10px] text-red-600 font-medium mt-1">
+                               <AlertTriangle className="h-3 w-3 shrink-0" />
+                               Review overdue by {Math.abs(daysUntil)} days — rebalancing recommended
+                             </div>
+                           )}
+                           {!isOverdue && daysUntil <= 14 && (
+                             <div className="col-span-3 flex items-center gap-1.5 text-[10px] text-amber-600 font-medium mt-1">
+                               <AlertTriangle className="h-3 w-3 shrink-0" />
+                               Review due in {daysUntil} day{daysUntil !== 1 ? "s" : ""} — prepare rebalancing notes
+                             </div>
+                           )}
+                         </div>
+                       );
+                     })()}
+                     <p className="text-xs text-muted-foreground">
+                       Portfolios are reviewed quarterly and rebalanced based on market conditions, valuations, and macro outlook.
+                     </p>
+                     {selectedPortfolio.rebalancingHistory.map((e, i) => (
                       <Card key={i} className="border-l-4 border-l-indigo-400">
                         <CardContent className="pt-3 pb-3">
                           <div className="flex items-center gap-2 mb-2">
