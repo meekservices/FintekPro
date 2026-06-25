@@ -1007,15 +1007,15 @@ export default function AgentPicksPage() {
 	const getSignalColor = (signal: string) => {
 		switch (signal) {
 			case "strong_buy":
-				return "bg-green-600 text-white";
+				return "bg-emerald-600 text-white border-0 shadow-emerald-200 dark:shadow-emerald-900";
 			case "buy":
-				return "bg-green-500 text-white";
+				return "bg-green-500 text-white border-0";
 			case "hold":
-				return "bg-yellow-500 text-black dark:text-black";
+				return "bg-amber-400 text-amber-950 border-0";
 			case "sell":
-				return "bg-red-500 text-white";
+				return "bg-red-500 text-white border-0";
 			case "strong_sell":
-				return "bg-red-700 text-white";
+				return "bg-red-700 text-white border-0";
 			default:
 				return "bg-muted text-foreground";
 		}
@@ -1024,15 +1024,15 @@ export default function AgentPicksPage() {
 	const getSignalText = (signal: string) => {
 		switch (signal) {
 			case "strong_buy":
-				return "Strong Buy";
+				return "↑↑ Strong Buy";
 			case "buy":
-				return "Buy";
+				return "↑ Buy";
 			case "hold":
-				return "Hold";
+				return "↔ Hold";
 			case "sell":
-				return "Sell";
+				return "↓ Sell";
 			case "strong_sell":
-				return "Strong Sell";
+				return "↓↓ Strong Sell";
 			default:
 				return signal;
 		}
@@ -1055,6 +1055,14 @@ export default function AgentPicksPage() {
 			currency: "INR",
 			maximumFractionDigits: 2,
 		}).format(value);
+	};
+
+	/** Compact INR: ₹1.07L, ₹2.3Cr — avoids card overflow on small screens */
+	const formatCurrencyCompact = (value: number): string => {
+		if (value >= 10_000_000) return `₹${(value / 10_000_000).toFixed(2)}Cr`;
+		if (value >= 100_000) return `₹${(value / 100_000).toFixed(2)}L`;
+		if (value >= 1_000) return `₹${(value / 1_000).toFixed(1)}K`;
+		return `₹${value.toFixed(0)}`;
 	};
 
 	const formatPercentValue = (
@@ -2008,7 +2016,12 @@ export default function AgentPicksPage() {
 											variant={isActive ? "default" : "outline"}
 											size="sm"
 											onClick={() => setTodayCategoryFilter(key)}
-											className="flex items-center gap-1.5 shrink-0"
+											className={`flex items-center gap-1.5 shrink-0 transition-opacity ${
+												count === 0 && key !== "all" && !isActive
+													? "opacity-40 cursor-not-allowed"
+													: ""
+											}`}
+											title={count === 0 && key !== "all" ? "No picks available today" : undefined}
 										>
 											<Icon className="h-3.5 w-3.5" />
 											{label}
@@ -2828,7 +2841,7 @@ export default function AgentPicksPage() {
 																					Entry
 																				</p>
 																				<p className="font-semibold text-sm">
-																					{formatCurrencyINR(
+																					{formatCurrencyCompact(
 																						stock.entryPrice ?? stock.currentPrice,
 																					)}
 																				</p>
@@ -2838,7 +2851,7 @@ export default function AgentPicksPage() {
 																					Target
 																				</p>
 																				<p className="font-semibold text-sm text-green-600">
-																					{formatCurrencyINR(stock.targetPrice)}
+																					{formatCurrencyCompact(stock.targetPrice)}
 																				</p>
 																			</div>
 																			<div className="text-center">
@@ -2846,22 +2859,46 @@ export default function AgentPicksPage() {
 																					Stop Loss
 																				</p>
 																				<p className="font-semibold text-sm text-red-600">
-																					{formatCurrencyINR(stock.stopLoss)}
+																					{formatCurrencyCompact(stock.stopLoss)}
 																				</p>
 																			</div>
 																		</div>
 
-																		<div className="flex items-center justify-between text-sm mb-4 bg-primary/5 px-3 py-2 rounded-md border border-primary/10">
-																			<span className="text-primary font-medium flex items-center gap-1.5 text-xs">
+																		<div className={`flex items-center justify-between text-sm mb-4 px-3 py-2 rounded-md border ${
+																			Number(stock.confidence ?? 0) >= 85
+																				? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800"
+																				: Number(stock.confidence ?? 0) >= 70
+																				? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800"
+																				: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800"
+																		}`}>
+																			<span className={`font-medium flex items-center gap-1.5 text-xs ${
+																				Number(stock.confidence ?? 0) >= 85
+																					? "text-emerald-700 dark:text-emerald-400"
+																					: Number(stock.confidence ?? 0) >= 70
+																					? "text-amber-700 dark:text-amber-400"
+																					: "text-red-700 dark:text-red-400"
+																			}`}>
 																				<BrainCircuit className="h-3.5 w-3.5" />{" "}
 																				AI Confidence
 																			</span>
 																			<div className="flex items-center gap-2 w-32">
 																				<Progress
 																					value={Number(stock.confidence ?? 0)}
-																					className="h-2 bg-primary/20"
+																					className={`h-2 ${
+																						Number(stock.confidence ?? 0) >= 85
+																							? "[&>div]:bg-emerald-500"
+																							: Number(stock.confidence ?? 0) >= 70
+																							? "[&>div]:bg-amber-400"
+																							: "[&>div]:bg-red-400"
+																					}`}
 																				/>
-																				<span className="text-xs font-bold text-primary">
+																				<span className={`text-xs font-bold ${
+																					Number(stock.confidence ?? 0) >= 85
+																						? "text-emerald-700 dark:text-emerald-400"
+																						: Number(stock.confidence ?? 0) >= 70
+																						? "text-amber-600 dark:text-amber-400"
+																						: "text-red-600 dark:text-red-400"
+																				}`}>
 																					{Number(stock.confidence ?? 0)}%
 																				</span>
 																			</div>
