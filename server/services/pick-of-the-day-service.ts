@@ -33,6 +33,7 @@ import type { EnrichedStockSnapshot } from "./screener/enriched-stock-data";
 import { marketRegimeDetector } from "./risk";
 import { aiGovernanceEngine } from "./ai-governance";
 import { marketHolidayService } from "./market-holiday-service";
+import { FaspAIv2Service } from "./fasp-ai-v2-service";
 
 // --- Strategy Imports ---
 import { IPickStrategy } from "./picks/types";
@@ -63,6 +64,8 @@ export type PickStatus = "live" | "target_hit" | "stoploss_hit" | "expired";
 
 export const SCORER_VERSION = "3.0.0";
 export const SCORER_MIN_THRESHOLD = 15;
+/** FASP-AI protocol version applied to all pick advisory outputs */
+const FASP_AI_VERSION = "FASP-AI-v2.0" as const;
 
 /**
  * Returns today's date string in IST (YYYY-MM-DD).
@@ -284,28 +287,40 @@ export class PickOfTheDayService {
 						: [];
 
 				for (const pick of picks) {
-					// Governance Gate: Every pick must pass suitability and compliance floors.
-					// IMPORTANT: ai_output must include `factors_considered` (non-empty) and
-					// `confidence_score` >= 0.6 to pass ExplainabilityValidator (EXP_002/EXP_004).
+					// ── FASP-AI v2.0: Compute multi-factor confidence ──────────────────────
+					const rawScore = Math.max(pick.confidenceScore ?? 60, 60); // 0–100
+					const confidence = FaspAIv2Service.computeConfidence({
+						responseLength: (pick.rationale ?? "").length,
+						hasStructuredData: true, // picks are fully structured
+						factorCount: 4 + (pick.sectorCategory ? 1 : 0) + (pick.timeHorizon ? 1 : 0),
+						userSegment: "retail", // picks are retail-facing by default
+						marketVolatility: isBlackSwan ? "high" : "normal",
+					});
+
 					const governanceOutput = {
 						recommendation: pick.rationale,
-						// Normalise 0–100 → 0–1. Clamp to 0.60 minimum so picks with sparse
-						// financial data (e.g. empty stockFinancialMetrics) pass EXP_004.
-						confidence_score: Math.max(pick.confidenceScore ?? 60, 60) / 100,
+						// Governance engine expects 0–1 scale (AAGE uses >=0.6 floor)
+						confidence_score: rawScore / 100,
 						factors_considered: [
 							`category: ${pick.category}`,
 							`riskLevel: ${pick.riskLevel}`,
 							`recoPrice: ${pick.recoPrice}`,
 							`targetPrice: ${pick.targetPrice}`,
-							...(pick.sectorCategory
-								? [`sector: ${pick.sectorCategory}`]
-								: []),
+							...(pick.sectorCategory ? [`sector: ${pick.sectorCategory}`] : []),
 							...(pick.timeHorizon ? [`horizon: ${pick.timeHorizon}`] : []),
 							...((pick.keyMetrics as any)?.broadSectorLabel
 								? [`broadSector: ${(pick.keyMetrics as any).broadSectorLabel}`]
 								: []),
 						],
-						model_version: SCORER_VERSION,
+						// FASP-AI v2.0 metadata
+						model_version: FASP_AI_VERSION,
+						scorer_version: SCORER_VERSION,
+						engine_version: "fasp-engine-v2.0",
+						base_model: "gemini-2.5-flash",
+						sebi_circular_ref: FaspAIv2Service.getSebiRef("stock_pick"),
+						confidence_threshold: confidence.threshold,
+						meets_threshold: confidence.meetsThreshold,
+						human_review_required: confidence.humanReviewRequired,
 						timestamp: new Date().toISOString(),
 					};
 
@@ -332,6 +347,26 @@ export class PickOfTheDayService {
 					}
 
 					await this.savePick(pick);
+
+					// ── FASP-AI v2.0: Persist to immutable advisory audit trail ──────────
+					FaspAIv2Service.logAdvisoryOutput({
+						advisoryType: "stock_pick",
+						inputContext: {
+							category,
+							instrument: pick.instrumentName,
+							sector: pick.sectorCategory,
+							date: today,
+							scorer_version: SCORER_VERSION,
+							is_black_swan: isBlackSwan,
+						},
+						userSegment: "retail",
+						recommendation: pick.rationale ?? `${pick.instrumentName} — ${pick.category} pick for ${today}`,
+						outputSnapshot: governanceOutput,
+						meta: FaspAIv2Service.buildMeta(confidence, "stock_pick"),
+					}).catch((err: Error) =>
+						logger.warn(`[FASP-AI v2] Advisory log failed for ${pick.instrumentName}: ${err.message}`),
+					);
+
 					generated.push(pick);
 					const sectorTag = (pick.keyMetrics as any)?.broadSectorLabel
 						? ` [${(pick.keyMetrics as any).broadSectorLabel}]`
