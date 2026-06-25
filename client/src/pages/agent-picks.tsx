@@ -2071,21 +2071,22 @@ export default function AgentPicksPage() {
 									))}
 								</div>
 							) : todayCategoryFilter === "mutual_funds" ? (
-								<div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
-									{/* ── MF AI Filters Panel ── */}
-									<Card className="lg:col-span-1 h-fit sticky top-4">
-										<CardHeader className="pb-3">
-											<CardTitle className="text-base flex items-center gap-2">
-												<BarChart3 className="h-4 w-4" />
-												AI Filters
-											</CardTitle>
-										</CardHeader>
-										<CardContent className="space-y-4">
+								<div className="space-y-4">
+									{/* ── MF AI Filters — Horizontal Bar ── */}
+									<Card className="p-4">
+										<div className="flex flex-wrap items-end gap-3">
+											{/* Header */}
+											<div className="flex items-center gap-2 mr-2 shrink-0">
+												<div className="p-1.5 bg-primary/10 rounded-md">
+													<BarChart3 className="h-4 w-4 text-primary" />
+												</div>
+												<span className="text-sm font-semibold whitespace-nowrap">AI Filters</span>
+											</div>
 											{/* Risk Level */}
-											<div className="space-y-2">
-												<Label className="text-sm">Risk Level</Label>
+											<div className="flex flex-col gap-1 min-w-[130px]">
+												<Label className="text-xs text-muted-foreground">Risk Level</Label>
 												<Select value={mfRiskLevel} onValueChange={setMfRiskLevel}>
-													<SelectTrigger id="mf-risk-select"><SelectValue /></SelectTrigger>
+													<SelectTrigger id="mf-risk-select" className="h-8 text-xs"><SelectValue /></SelectTrigger>
 													<SelectContent>
 														<SelectItem value="conservative">Conservative</SelectItem>
 														<SelectItem value="moderate">Moderate</SelectItem>
@@ -2095,10 +2096,10 @@ export default function AgentPicksPage() {
 											</div>
 
 											{/* Fund Category */}
-											<div className="space-y-2">
-												<Label className="text-sm">Fund Category</Label>
+											<div className="flex flex-col gap-1 min-w-[145px]">
+												<Label className="text-xs text-muted-foreground">Fund Category</Label>
 												<Select value={mfCategory} onValueChange={setMfCategory}>
-													<SelectTrigger id="mf-category-select"><SelectValue placeholder="All Categories" /></SelectTrigger>
+													<SelectTrigger id="mf-category-select" className="h-8 text-xs"><SelectValue placeholder="All Categories" /></SelectTrigger>
 													<SelectContent>
 														<SelectItem value="all">All Categories</SelectItem>
 														<SelectItem value="equity">Equity</SelectItem>
@@ -2112,10 +2113,10 @@ export default function AgentPicksPage() {
 											</div>
 
 											{/* Time Horizon */}
-											<div className="space-y-2">
-												<Label className="text-sm">Time Horizon</Label>
+											<div className="flex flex-col gap-1 min-w-[150px]">
+												<Label className="text-xs text-muted-foreground">Time Horizon</Label>
 												<Select value={mfTimeHorizon} onValueChange={setMfTimeHorizon}>
-													<SelectTrigger id="mf-horizon-select"><SelectValue /></SelectTrigger>
+													<SelectTrigger id="mf-horizon-select" className="h-8 text-xs"><SelectValue /></SelectTrigger>
 													<SelectContent>
 														<SelectItem value="short_term">Short Term (&lt;1 Year)</SelectItem>
 														<SelectItem value="medium_term">Medium Term (1–3 Yrs)</SelectItem>
@@ -2187,7 +2188,7 @@ export default function AgentPicksPage() {
 
 											<Button
 												id="mf-generate-btn"
-												className="w-full"
+												className="h-8 px-4 shrink-0 self-end"
 												onClick={handleGenerateAIMF}
 												disabled={generateAIMFMutation.isPending}
 											>
@@ -2197,7 +2198,7 @@ export default function AgentPicksPage() {
 													<><Sparkles className="h-4 w-4 mr-2" />Generate Picks</>
 												)}
 											</Button>
-										</CardContent>
+										</div>
 									</Card>
 
 									{/* ── MF AI Results Panel ── */}
@@ -2454,90 +2455,71 @@ export default function AgentPicksPage() {
 									</div>
 								</div>
 							) : todayCategoryFilter === "listed_stocks" ? (
-								<div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
-									<Card className="lg:col-span-1">
-										<CardHeader className="pb-3">
-											<CardTitle className="text-base flex items-center gap-2">
-												<BarChart3 className="h-4 w-4" />
-												AI Filters
-											</CardTitle>
-										</CardHeader>
-										<CardContent className="space-y-4">
-											<div className="space-y-2">
-												<Label className="text-sm">Risk Level</Label>
-												<Select
-													value={stockRiskLevel}
-													onValueChange={setStockRiskLevel}
-												>
-													<SelectTrigger>
+								<div className="space-y-4">
+									{/* ── Stocks AI Filters — Horizontal Bar ── */}
+									<Card className="p-4">
+										<div className="flex flex-wrap items-end gap-3">
+											{/* Header */}
+											<div className="flex items-center gap-2 mr-2 shrink-0">
+												<div className="p-1.5 bg-primary/10 rounded-md">
+													<BarChart3 className="h-4 w-4 text-primary" />
+												</div>
+												<span className="text-sm font-semibold whitespace-nowrap">AI Filters</span>
+											</div>
+
+											{/* Risk Level */}
+											<div className="flex flex-col gap-1 min-w-[140px]">
+												<Label className="text-xs text-muted-foreground">Risk Level</Label>
+												<Select value={stockRiskLevel} onValueChange={setStockRiskLevel}>
+													<SelectTrigger className="h-8 text-xs">
 														<SelectValue />
 													</SelectTrigger>
 													<SelectContent>
-														<SelectItem value="conservative">
-															Conservative
-														</SelectItem>
+														<SelectItem value="conservative">Conservative</SelectItem>
 														<SelectItem value="moderate">Moderate</SelectItem>
-														<SelectItem value="aggressive">
-															Aggressive
-														</SelectItem>
-														<SelectItem value="very_aggressive">
-															Very Aggressive
-														</SelectItem>
+														<SelectItem value="aggressive">Aggressive</SelectItem>
+														<SelectItem value="very_aggressive">Very Aggressive</SelectItem>
 													</SelectContent>
 												</Select>
 											</div>
 
-											<div className="space-y-2">
-												<Label className="text-sm">Time Horizon</Label>
-												<Select
-													value={stockTimeHorizon}
-													onValueChange={setStockTimeHorizon}
-												>
-													<SelectTrigger>
+											{/* Time Horizon */}
+											<div className="flex flex-col gap-1 min-w-[165px]">
+												<Label className="text-xs text-muted-foreground">Time Horizon</Label>
+												<Select value={stockTimeHorizon} onValueChange={setStockTimeHorizon}>
+													<SelectTrigger className="h-8 text-xs">
 														<SelectValue />
 													</SelectTrigger>
 													<SelectContent>
 														<SelectItem value="intraday">Intraday</SelectItem>
-														<SelectItem value="short_term">
-															Short Term (1-3 months)
-														</SelectItem>
-														<SelectItem value="medium_term">
-															Medium Term (3-12 months)
-														</SelectItem>
-														<SelectItem value="long_term">
-															Long Term (1+ year)
-														</SelectItem>
+														<SelectItem value="short_term">Short Term (1-3 months)</SelectItem>
+														<SelectItem value="medium_term">Medium Term (3-12 months)</SelectItem>
+														<SelectItem value="long_term">Long Term (1+ year)</SelectItem>
 													</SelectContent>
 												</Select>
 											</div>
 
-											<div className="space-y-2">
-												<Label className="text-sm">Sector</Label>
-												<Select
-													value={stockSector}
-													onValueChange={setStockSector}
-												>
-													<SelectTrigger>
+											{/* Sector */}
+											<div className="flex flex-col gap-1 min-w-[140px]">
+												<Label className="text-xs text-muted-foreground">Sector</Label>
+												<Select value={stockSector} onValueChange={setStockSector}>
+													<SelectTrigger className="h-8 text-xs">
 														<SelectValue placeholder="All Sectors" />
 													</SelectTrigger>
 													<SelectContent>
 														<SelectItem value="all">All Sectors</SelectItem>
 														{aiFiltersData?.sectors?.map((sector) => (
-															<SelectItem key={sector} value={sector}>
-																{sector}
-															</SelectItem>
+															<SelectItem key={sector} value={sector}>{sector}</SelectItem>
 														))}
 													</SelectContent>
 												</Select>
 											</div>
 
-											<div className="space-y-2">
-												<Label className="text-sm">Market Cap</Label>
-												<Select
-													value={stockMarketCap}
-													onValueChange={setStockMarketCap}
-												>
-													<SelectTrigger>
+											{/* Market Cap */}
+											<div className="flex flex-col gap-1 min-w-[130px]">
+												<Label className="text-xs text-muted-foreground">Market Cap</Label>
+												<Select value={stockMarketCap} onValueChange={setStockMarketCap}>
+													<SelectTrigger className="h-8 text-xs">
 														<SelectValue placeholder="All Market Caps" />
 													</SelectTrigger>
 													<SelectContent>
@@ -2549,24 +2531,25 @@ export default function AgentPicksPage() {
 												</Select>
 											</div>
 
-											<div className="space-y-2">
-												<Label className="text-sm">
-													Investment Amount:{" "}
-													{formatCurrencyINR(stockInvestmentAmount[0])}
+											{/* Investment Amount */}
+											<div className="flex flex-col gap-1 min-w-[180px] flex-1">
+												<Label className="text-xs text-muted-foreground">
+													Amount: {formatCurrencyINR(stockInvestmentAmount[0])}
 												</Label>
-												<Slider
-													value={stockInvestmentAmount}
-													onValueChange={setStockInvestmentAmount}
-													min={10000}
-													max={1000000}
-													step={10000}
-												/>
+												<div className="py-1">
+													<Slider
+														value={stockInvestmentAmount}
+														onValueChange={setStockInvestmentAmount}
+														min={10000}
+														max={1000000}
+														step={10000}
+													/>
+												</div>
 											</div>
 
-											<div className="flex items-center justify-between">
-												<Label className="text-sm" htmlFor="agent-ai-toggle">
-													AI Analysis
-												</Label>
+											{/* AI Analysis toggle */}
+											<div className="flex flex-col gap-1 items-center justify-center shrink-0">
+												<Label className="text-xs text-muted-foreground" htmlFor="agent-ai-toggle">AI Analysis</Label>
 												<Switch
 													id="agent-ai-toggle"
 													checked={stockIncludeAI}
@@ -2574,26 +2557,22 @@ export default function AgentPicksPage() {
 												/>
 											</div>
 
+											{/* Generate Button */}
 											<Button
-												className="w-full"
+												className="h-8 px-4 shrink-0 self-end"
 												onClick={handleGenerateAIStocks}
 												disabled={generateAIMutation.isPending}
 											>
 												{generateAIMutation.isPending ? (
-													<>
-														<RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-														Generating...
-													</>
+													<><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />Generating...</>
 												) : (
-													<>
-														<Sparkles className="h-4 w-4 mr-2" />
-														Generate Picks
-													</>
+													<><Sparkles className="h-3.5 w-3.5 mr-1.5" />Generate Picks</>
 												)}
 											</Button>
-										</CardContent>
+										</div>
 									</Card>
 
+									{/* Results area */}
 									<div className="space-y-6">
 										{(generateAIMutation.isPending || quickAILoading) && (
 											<Card>
