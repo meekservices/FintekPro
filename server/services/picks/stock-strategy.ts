@@ -21,6 +21,7 @@ import {
 } from "../screener/enriched-stock-data";
 import { FinancialMetricsCalculator } from "../financial-metrics-calculator";
 import { unifiedAIRecommendationEngine } from "../unified-ai-recommendation-engine";
+import { indianApiService } from "../indian-api-service";
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
 
@@ -896,14 +897,36 @@ export class StockStrategy extends BaseStrategy {
 
 			const { isin, symbol, currentPrice: fallbackPrice } = stockRow[0];
 
-			// ── Tier 1: FMP intraday (NSE market hours only) ────────────────────────
-			// NSE hours: 9:15 AM – 3:30 PM IST (UTC+5:30 = 3:45 AM – 10:00 AM UTC)
+			// ── Market hours check (used by Tier 0 + Tier 1) ────────────────────────
 			const nowUtcH = new Date().getUTCHours();
 			const nowUtcM = new Date().getUTCMinutes();
 			const utcMinutes = nowUtcH * 60 + nowUtcM;
-			const NSE_OPEN_UTC = 3 * 60 + 45;   // 3:45 AM UTC = 9:15 AM IST
-			const NSE_CLOSE_UTC = 10 * 60;       // 10:00 AM UTC = 3:30 PM IST
+			const NSE_OPEN_UTC = 3 * 60 + 45;   // 9:15 AM IST
+			const NSE_CLOSE_UTC = 10 * 60;       // 3:30 PM IST
 			const isNSEMarketHours = utcMinutes >= NSE_OPEN_UTC && utcMinutes <= NSE_CLOSE_UTC;
+
+			// ── Tier 0: IndianAPI (primary Indian market source, 5-min cache) ────────
+			// Growth plan — 300 req/min dedicated server. Called first during market hours.
+			// Falls through silently on error so Tier 1 (FMP) is tried next.
+			if (symbol && isNSEMarketHours) {
+				try {
+					const quoteResult = await indianApiService.getStockQuote(symbol, "NSE");
+					const price = quoteResult.data?.current_price;
+					if (price != null && Number.isFinite(price) && price > 0) {
+						logger.info(`[StockStrategy.getLivePrice] Tier 0 (IndianAPI) for ${symbol}: ₹${price}`);
+						// Write-back to pre-warm Tier 4
+						db.update(listedStocks)
+							.set({ currentPrice: String(price) })
+							.where(eq(listedStocks.id, instrumentId))
+							.catch(() => {});
+						return price;
+					}
+				} catch (err: any) {
+					logger.warn(`[StockStrategy.getLivePrice] IndianAPI Tier 0 failed for ${symbol}: ${err?.message || err}`);
+				}
+			}
+
+			// ── Tier 1: FMP intraday (NSE market hours only) ────────────────────────
 
 			if (symbol && isNSEMarketHours) {
 				const fmpKey = process.env.FMP_API_KEY;

@@ -130,3 +130,19 @@ docs/
 !package.json
 !components.json
 !biome.json
+
+# ── Volatile / OS files that crash gcloud tarfile when written mid-archive ───
+# These cause "unexpected end of data" OSError in Python tarfile.copyfileobj
+.DS_Store
+**/.DS_Store
+*.sock
+*.socket
+*.lock
+*.pid
+*.tmp
+*.swp
+*.swo
+*~
+coverage/
+.nyc_output/
+junit.xml

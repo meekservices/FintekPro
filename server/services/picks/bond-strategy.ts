@@ -240,12 +240,35 @@ export class BondStrategy extends BaseStrategy {
 	}
 
 	async getLivePrice(instrumentId: string): Promise<number | null> {
-		const { eq } = await import("drizzle-orm");
+		const { eq, desc } = await import("drizzle-orm");
+		const { goldenPrices } = await import("@shared/schema");
+
+		// Tier 1: cleanPrice from bondCatalog (updated by enrichment scheduler)
 		const row = await db
-			.select({ cleanPrice: bondCatalog.cleanPrice })
+			.select({ cleanPrice: bondCatalog.cleanPrice, isin: bondCatalog.isin })
 			.from(bondCatalog)
 			.where(eq(bondCatalog.id, instrumentId))
 			.limit(1);
-		return row[0]?.cleanPrice ? Number.parseFloat(row[0].cleanPrice) : null;
+
+		const cleanPrice = row[0]?.cleanPrice;
+		if (cleanPrice && Number.parseFloat(cleanPrice) > 0) {
+			return Number.parseFloat(cleanPrice);
+		}
+
+		// Tier 2: goldenPrices by ISIN — exchange-cleared closing prices
+		const isin = row[0]?.isin;
+		if (isin) {
+			const gpRow = await db
+				.select({ price: goldenPrices.price })
+				.from(goldenPrices)
+				.where(eq(goldenPrices.isin, isin))
+				.orderBy(desc(goldenPrices.priceDate))
+				.limit(1);
+			if (gpRow[0]?.price && Number.parseFloat(gpRow[0].price) > 0) {
+				return Number.parseFloat(gpRow[0].price);
+			}
+		}
+
+		return null;
 	}
 }

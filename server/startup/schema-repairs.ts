@@ -1400,4 +1400,212 @@ crypto_status VARCHAR,
 	} catch (migErr) {
 		console.error("❌ Migration sequence failed (non-fatal):", migErr);
 	}
+
+	// ── Dividend & Distribution Schema Additions ──────────────────────────────
+	// Adds dividend/distribution columns to all relevant instrument tables.
+	// Source: IndianAPI.in /corporate_actions endpoint.
+	try {
+		const { db: migDb } = await import("../db");
+		const { sql: migSql } = await import("drizzle-orm");
+
+		// listed_stocks: equity dividend data
+		await migDb.execute(migSql`
+      ALTER TABLE listed_stocks
+        ADD COLUMN IF NOT EXISTS dividend_per_share             NUMERIC(12,4),
+        ADD COLUMN IF NOT EXISTS dividend_yield                 NUMERIC(8,4),
+        ADD COLUMN IF NOT EXISTS dividend_frequency             VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS last_dividend_date             DATE,
+        ADD COLUMN IF NOT EXISTS last_dividend_ex_date          DATE,
+        ADD COLUMN IF NOT EXISTS last_dividend_record_date      DATE,
+        ADD COLUMN IF NOT EXISTS last_dividend_percent          VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS last_dividend_details          TEXT,
+        ADD COLUMN IF NOT EXISTS dividend_payout_ratio          NUMERIC(8,4),
+        ADD COLUMN IF NOT EXISTS dividend_updated_at            TIMESTAMPTZ;
+    `);
+		console.log("✅ listed_stocks dividend columns added");
+
+		// stock_financial_metrics: historical dividends per P&L row
+		await migDb.execute(migSql`
+      ALTER TABLE stock_financial_metrics
+        ADD COLUMN IF NOT EXISTS dividend_per_share             NUMERIC(12,4),
+        ADD COLUMN IF NOT EXISTS dividend_payout_ratio          NUMERIC(8,4),
+        ADD COLUMN IF NOT EXISTS dividend_yield_pct             NUMERIC(8,4);
+    `);
+		console.log("✅ stock_financial_metrics dividend columns added");
+
+		// reits: REIT distributions (not dividends — taxed differently)
+		await migDb.execute(migSql`
+      ALTER TABLE reits
+        ADD COLUMN IF NOT EXISTS distribution_per_unit          NUMERIC(12,4),
+        ADD COLUMN IF NOT EXISTS distribution_yield             NUMERIC(8,4),
+        ADD COLUMN IF NOT EXISTS distribution_frequency         VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS last_distribution_date         DATE,
+        ADD COLUMN IF NOT EXISTS last_distribution_ex_date      DATE,
+        ADD COLUMN IF NOT EXISTS last_distribution_record_date  DATE,
+        ADD COLUMN IF NOT EXISTS last_distribution_details      TEXT,
+        ADD COLUMN IF NOT EXISTS distribution_updated_at        TIMESTAMPTZ;
+    `);
+		console.log("✅ reits distribution columns added");
+
+		// invits: InvIT distributions
+		await migDb.execute(migSql`
+      ALTER TABLE invits
+        ADD COLUMN IF NOT EXISTS distribution_per_unit          NUMERIC(12,4),
+        ADD COLUMN IF NOT EXISTS distribution_yield             NUMERIC(8,4),
+        ADD COLUMN IF NOT EXISTS distribution_frequency         VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS last_distribution_date         DATE,
+        ADD COLUMN IF NOT EXISTS last_distribution_ex_date      DATE,
+        ADD COLUMN IF NOT EXISTS last_distribution_record_date  DATE,
+        ADD COLUMN IF NOT EXISTS last_distribution_details      TEXT,
+        ADD COLUMN IF NOT EXISTS distribution_updated_at        TIMESTAMPTZ;
+    `);
+		console.log("✅ invits distribution columns added");
+
+		// mutual_funds: dividends (IDCW — Income Distribution cum Capital Withdrawal)
+		await migDb.execute(migSql`
+      ALTER TABLE mutual_funds
+        ADD COLUMN IF NOT EXISTS idcw_per_unit                  NUMERIC(12,4),
+        ADD COLUMN IF NOT EXISTS idcw_frequency                 VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS last_idcw_date                 DATE,
+        ADD COLUMN IF NOT EXISTS last_idcw_ex_date              DATE,
+        ADD COLUMN IF NOT EXISTS last_idcw_record_date          DATE,
+        ADD COLUMN IF NOT EXISTS last_idcw_details              TEXT,
+        ADD COLUMN IF NOT EXISTS idcw_updated_at                TIMESTAMPTZ;
+    `);
+		console.log("✅ mutual_funds IDCW columns added");
+
+		// corporate_actions_cache: deduplicated dividend history for all instruments
+		await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS corporate_actions_cache (
+        id                    SERIAL PRIMARY KEY,
+        symbol                VARCHAR(30) NOT NULL,
+        exchange              VARCHAR(10) NOT NULL DEFAULT 'NSE',
+        action_type           VARCHAR(20) NOT NULL, -- 'dividend' | 'split' | 'bonus' | 'rights'
+        record_date           DATE,
+        ex_date               DATE,
+        amount_per_share      NUMERIC(12,4),
+        ratio                 VARCHAR(30),
+        percentage            VARCHAR(20),
+        details               TEXT,
+        raw_data              JSONB,
+        source                VARCHAR(20) DEFAULT 'indian_api',
+        fetched_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_corp_actions_symbol ON corporate_actions_cache(symbol, action_type);
+      CREATE INDEX IF NOT EXISTS idx_corp_actions_ex_date ON corporate_actions_cache(ex_date DESC);
+    `);
+		console.log("✅ corporate_actions_cache table created");
+
+	} catch (divErr: any) {
+		console.warn("[Migration] Dividend column additions skipped (non-fatal):", divErr?.message);
+	}
+
+	// ── Picks data integrity backfill ────────────────────────────────────────
+	// Fixes two data quality issues in the daily_picks table:
+	//  1. NULL time_horizon rows (picks created before column existed) → 'medium_term'
+	//  2. confidence_score stored as raw quant integer (e.g. 8600) instead of 0–100
+	//     The check `> 100` is safe because no valid confidence score exceeds 100.
+	try {
+		const { db: migDb2 } = await import("../db");
+		const { sql: migSql2 } = await import("drizzle-orm");
+		await migDb2.execute(migSql2`
+      -- Backfill NULL time_horizon rows
+      UPDATE daily_picks
+      SET    time_horizon = 'medium_term'
+      WHERE  time_horizon IS NULL;
+
+      -- Clamp out-of-range confidence_score: values > 100 are raw integer scores
+      -- (e.g. 8600 from quant scorer) that were never divided by 100.
+      -- Treat as "score in 0–10000 range" → divide by 100, then clamp to [60,100].
+      UPDATE daily_picks
+      SET    confidence_score = GREATEST(60, LEAST(100, ROUND(confidence_score::numeric / 100)::int))
+      WHERE  confidence_score > 100;
+    `);
+		console.log("✅ daily_picks data integrity backfill complete (horizon + confidence_score)");
+	} catch (picksErr: any) {
+		console.warn("[Migration] daily_picks backfill skipped (non-fatal):", picksErr?.message);
+	}
+
+	// ── Engine Audit Fix #6 — 2026-06-27: model_portfolios table + seed ──────
+	// Creates the model_portfolios table (replacing static frontend data) and
+	// seeds 5 representative portfolios. INSERT ON CONFLICT DO NOTHING ensures
+	// existing rows (with live computed metrics) are never overwritten.
+	try {
+		const { db: mpDb } = await import("../db");
+		const { sql: mpSql } = await import("drizzle-orm");
+		await mpDb.execute(mpSql`
+      CREATE TABLE IF NOT EXISTS model_portfolios (
+        id                    VARCHAR PRIMARY KEY,
+        name                  VARCHAR NOT NULL,
+        tagline               VARCHAR,
+        risk_profile          VARCHAR NOT NULL,
+        asset_class           VARCHAR NOT NULL,
+        sub_category          VARCHAR,
+        goals                 JSONB    DEFAULT '[]'::jsonb,
+        min_investment        NUMERIC  DEFAULT 5000,
+        time_horizon          VARCHAR,
+        benchmark_name        VARCHAR,
+        last_rebalanced       VARCHAR,
+        rebalancing_frequency VARCHAR  DEFAULT 'quarterly',
+        total_holdings        INTEGER  DEFAULT 0,
+        highlight             VARCHAR,
+        icon                  VARCHAR  DEFAULT '📊',
+        is_published          BOOLEAN  DEFAULT TRUE,
+        is_featured           BOOLEAN  DEFAULT FALSE,
+        is_new                BOOLEAN  DEFAULT FALSE,
+        allocation            JSONB    DEFAULT '[]'::jsonb,
+        holdings              JSONB    DEFAULT '[]'::jsonb,
+        rebalancing_history   JSONB    DEFAULT '[]'::jsonb,
+        cagr_1y               NUMERIC,
+        cagr_3y               NUMERIC,
+        cagr_5y               NUMERIC,
+        benchmark_cagr_1y     NUMERIC,
+        sharpe_ratio          NUMERIC,
+        max_drawdown          NUMERIC,
+        volatility            NUMERIC,
+        beta                  NUMERIC,
+        alpha                 NUMERIC,
+        ai_insight            JSONB,
+        ai_insight_updated_at TIMESTAMP,
+        engine_version        VARCHAR  DEFAULT '1.0.0',
+        created_at            TIMESTAMP DEFAULT NOW(),
+        updated_at            TIMESTAMP DEFAULT NOW(),
+        source                VARCHAR  DEFAULT 'api'
+      );
+
+      -- Seed 5 representative model portfolios (engine audit Fix #6)
+      INSERT INTO model_portfolios (id, name, tagline, risk_profile, asset_class, goals, min_investment, time_horizon, benchmark_name, last_rebalanced, rebalancing_frequency, total_holdings, highlight, icon, is_featured, allocation, holdings)
+      VALUES
+        ('all-weather-india', 'All Weather India', 'Stays resilient across economic cycles', 'all_weather', 'hybrid',
+          '["wealth_preservation","steady_growth"]', 10000, '5+ years', 'Nifty 500', TO_CHAR(NOW() - INTERVAL '10 days', 'YYYY-MM-DD'), 'quarterly', 8, 'Designed to perform in all market conditions', '🌦️', TRUE,
+          '[{"type":"equity","label":"Indian Equity","weight":40},{"type":"debt","label":"Govt Bonds","weight":30},{"type":"gold","label":"Gold","weight":15},{"type":"reit","label":"REIT/InvIT","weight":15}]',
+          '[{"name":"Nifty 50 Index Fund","isin":"INF204KA1B73","weight":25,"type":"equity"},{"name":"Nifty Next 50","isin":"INF0J9K01AL0","weight":15,"type":"equity"},{"name":"Gilt Fund","isin":"INF174KA1JI7","weight":20,"type":"debt"},{"name":"SDL Fund","isin":"INF194KA1BW2","weight":10,"type":"debt"},{"name":"Gold ETF","isin":"INF760K01EG5","weight":15,"type":"gold"},{"name":"Embassy REIT","isin":"INE251K01021","weight":10,"type":"reit"},{"name":"Liquid Fund","isin":"INF174KA1JP2","weight":5,"type":"liquid"}]'
+        ),
+        ('equity-momentum-india', 'Equity Momentum India', 'Capitalise on strong market trends', 'aggressive', 'equity',
+          '["capital_appreciation","wealth_creation"]', 25000, '7+ years', 'Nifty 200 Momentum 30', TO_CHAR(NOW() - INTERVAL '5 days', 'YYYY-MM-DD'), 'quarterly', 10, 'Factor-based momentum investing', '🚀', TRUE,
+          '[{"type":"large_cap","label":"Large Cap","weight":40},{"type":"mid_cap","label":"Mid Cap","weight":35},{"type":"small_cap","label":"Small Cap","weight":25}]',
+          '[{"name":"Axis Bluechip Fund","isin":"INF846K01EW2","weight":20,"type":"equity"},{"name":"SBI Magnum Midcap","isin":"INF200K01FI3","weight":20,"type":"equity"},{"name":"Nippon India Small Cap","isin":"INF204K01R30","weight":15,"type":"equity"},{"name":"ICICI Pru Momentum","isin":"INF109K01HU0","weight":15,"type":"equity"},{"name":"Kotak Emerging Equity","isin":"INF174K01904","weight":15,"type":"equity"},{"name":"DSP Midcap","isin":"INF740K01145","weight":15,"type":"equity"}]'
+        ),
+        ('conservative-income', 'Conservative Income', 'Regular income with capital safety', 'conservative', 'debt',
+          '["regular_income","capital_preservation"]', 5000, '1-3 years', 'CRISIL Short Term Bond Index', TO_CHAR(NOW() - INTERVAL '15 days', 'YYYY-MM-DD'), 'semi_annual', 6, 'Low-risk monthly income generator', '💰', FALSE,
+          '[{"type":"debt","label":"Short Duration","weight":40},{"type":"debt","label":"Corporate Bond","weight":30},{"type":"debt","label":"Liquid","weight":20},{"type":"gold","label":"Gold","weight":10}]',
+          '[{"name":"HDFC Short Term Debt","isin":"INF179K01XB6","weight":25,"type":"debt"},{"name":"Kotak Bond Short Term","isin":"INF174K01VB9","weight":25,"type":"debt"},{"name":"ICICI Pru Corporate Bond","isin":"INF109K01XS7","weight":20,"type":"debt"},{"name":"SBI Liquid Fund","isin":"INF200K01FT1","weight":20,"type":"debt"},{"name":"Gold ETF","isin":"INF760K01EG5","weight":10,"type":"gold"}]'
+        ),
+        ('india-growth', 'India Growth Portfolio', 'Long-term wealth with diversified equity', 'moderate', 'equity',
+          '["long_term_wealth","retirement"]', 15000, '5-7 years', 'Nifty 500', TO_CHAR(NOW() - INTERVAL '8 days', 'YYYY-MM-DD'), 'quarterly', 9, 'Balanced equity across cap sizes', '📈', FALSE,
+          '[{"type":"large_cap","label":"Large Cap","weight":50},{"type":"mid_cap","label":"Mid Cap","weight":30},{"type":"international","label":"International","weight":10},{"type":"debt","label":"Debt","weight":10}]',
+          '[{"name":"Parag Parikh Flexi Cap","isin":"INF879O01027","weight":25,"type":"equity"},{"name":"Mirae Asset Large Cap","isin":"INF769K01010","weight":25,"type":"equity"},{"name":"Axis Midcap","isin":"INF846K01ES1","weight":20,"type":"equity"},{"name":"ICICI Pru US Bluechip","isin":"INF109KA1YC2","weight":10,"type":"international"},{"name":"HDFC Corp Bond","isin":"INF179K01WD2","weight":10,"type":"debt"},{"name":"Liquid Fund","isin":"INF200K01FT1","weight":10,"type":"debt"}]'
+        ),
+        ('tax-saver-elss', 'Tax Saver ELSS Portfolio', 'Tax savings with long-term growth under 80C', 'moderate', 'equity',
+          '["tax_saving","wealth_creation"]', 500, '3+ years (lock-in)', 'Nifty 500', TO_CHAR(NOW() - INTERVAL '20 days', 'YYYY-MM-DD'), 'annual', 5, 'ELSS funds for ₹1.5L tax deduction', '🧾', FALSE,
+          '[{"type":"large_cap","label":"Large Cap ELSS","weight":40},{"type":"multi_cap","label":"Multi Cap ELSS","weight":35},{"type":"mid_cap","label":"Mid Cap ELSS","weight":25}]',
+          '[{"name":"Mirae Asset Tax Saver","isin":"INF769K01238","weight":30,"type":"equity"},{"name":"Axis Long Term Equity","isin":"INF846K01EG5","weight":25,"type":"equity"},{"name":"Parag Parikh Tax Saver","isin":"INF879O01779","weight":25,"type":"equity"},{"name":"DSP Tax Saver","isin":"INF740K01699","weight":20,"type":"equity"}]'
+        )
+      ON CONFLICT (id) DO NOTHING;
+    `);
+		console.log("✅ model_portfolios table created and seeded (engine audit Fix #6)");
+	} catch (mpErr: any) {
+		console.warn("[Migration] model_portfolios setup skipped (non-fatal):", mpErr?.message);
+	}
 }

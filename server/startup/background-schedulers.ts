@@ -428,7 +428,6 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 		// ── Phase 5: AI & Analytics ───────────────────────────────────────────────
 		runStartupTask("AI Regulatory Monitoring", startActivityInsightsMonitoring);
 
-
 		// ── Phase 5b: ML Model Auto-Training ─────────────────────────────────────
 		// Trains scoring models on all closed picks (target_hit/stoploss_hit/expired).
 		// Safe to run on every boot — skips asset classes with < 10 completed picks.
@@ -468,6 +467,19 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			}, WEEKLY_MS);
 		});
 
+		// ── Phase 5c: Model Portfolio Metrics Scheduler (engine audit Fix #7 + #8) ─
+		// Daily @ 6:00 AM IST — computes CAGR/Sharpe/MaxDrawdown via FintekAnalytics
+		// + generates AI insights (Gemini, cached 24h) per portfolio.
+		runStartupTask("Model Portfolio Metrics Scheduler", async () => {
+			try {
+				const { startModelPortfolioMetricsScheduler } = await import(
+					"../services/model-portfolio-metrics-service"
+				);
+				startModelPortfolioMetricsScheduler();
+			} catch {
+				console.warn("[Scheduler] model-portfolio-metrics-service not available, skipping");
+			}
+		});
 
 		// ── Phase 6: Audit & Compliance Cleanup ──────────────────────────────────
 		runStartupTask(

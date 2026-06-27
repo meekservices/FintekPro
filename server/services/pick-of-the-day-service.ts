@@ -1005,8 +1005,22 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 		};
 		scheduleMidDayRefresh();
 
+		// ── 2:30 PM IST ── Mid-afternoon price refresh (market days only)
+		const scheduleMidAfternoonRefresh = () => {
+			const delayMs = msUntilIst(14, 30);
+			setTimeout(() => {
+				if (this.isNSETradingDay(todayIST())) {
+					this.refreshLivePicks().catch((err) =>
+						logger.error("[PickOfTheDay] 2:30PM refresh error:", err instanceof Error ? err : new Error(String(err))),
+					);
+				}
+				scheduleMidAfternoonRefresh();
+			}, delayMs);
+		};
+		scheduleMidAfternoonRefresh();
+
 		logger.info(
-			`📅 [PickOfTheDay] Market-aware scheduler started: Generation@9AM, Refresh@12:30PM+4PM IST (NSE trading days only)`,
+			`📅 [PickOfTheDay] Market-aware scheduler started: Generation@9:20AM, Refresh@12:30PM+2:30PM+4:00PM IST (NSE trading days only)`,
 		);
 
 		// ── Auto-heal: every 6 hours ── Catch any generation failures silently

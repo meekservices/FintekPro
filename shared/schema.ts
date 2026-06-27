@@ -11308,3 +11308,60 @@ export const insertPortfolioDriftAlertSchema = createInsertSchema(portfolioDrift
 export type PortfolioDriftAlert = typeof portfolioDriftAlerts.$inferSelect;
 export type InsertPortfolioDriftAlert = typeof portfolioDriftAlerts.$inferInsert;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Model Portfolios — curated investment templates (Fix 6: engine audit)
+// Previously hardcoded in agent-model-portfolios.tsx; now DB-backed.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const modelPortfolios = pgTable("model_portfolios", {
+  id:                   varchar("id").primaryKey(),                          // slug e.g. "all-weather-india"
+  name:                 varchar("name").notNull(),
+  tagline:              varchar("tagline"),
+  riskProfile:          varchar("risk_profile").notNull(),                   // conservative|moderate|aggressive|all_weather|high
+  assetClass:           varchar("asset_class").notNull(),                    // equity|debt|hybrid|thematic|goal_based
+  subCategory:          varchar("sub_category"),
+  goals:                jsonb("goals").default([]),                          // string[]
+  minInvestment:        numeric("min_investment").default("5000"),
+  timeHorizon:          varchar("time_horizon"),
+  benchmarkName:        varchar("benchmark_name"),
+  lastRebalanced:       varchar("last_rebalanced"),                          // YYYY-MM-DD
+  rebalancingFrequency: varchar("rebalancing_frequency").default("quarterly"), // monthly|quarterly|semi_annual|annual
+  totalHoldings:        integer("total_holdings").default(0),
+  highlight:            varchar("highlight"),
+  icon:                 varchar("icon").default("📊"),
+  isPublished:          boolean("is_published").default(true),
+  isFeatured:           boolean("is_featured").default(false),
+  isNew:                boolean("is_new").default(false),
+  // JSONB columns — rich structured data
+  allocation:           jsonb("allocation").default([]),                     // AssetAllocation[]
+  holdings:             jsonb("holdings").default([]),                       // Holding[]
+  rebalancingHistory:   jsonb("rebalancing_history").default([]),            // RebalancingEvent[]
+  // Computed metrics (refreshed by scheduler)
+  cagr1Y:               numeric("cagr_1y"),
+  cagr3Y:               numeric("cagr_3y"),
+  cagr5Y:               numeric("cagr_5y"),
+  benchmarkCagr1Y:      numeric("benchmark_cagr_1y"),
+  sharpeRatio:          numeric("sharpe_ratio"),
+  maxDrawdown:          numeric("max_drawdown"),
+  volatility:           numeric("volatility"),
+  beta:                 numeric("beta"),
+  alpha:                numeric("alpha"),
+  // AI insight (cached 24h)
+  aiInsight:            jsonb("ai_insight"),
+  aiInsightUpdatedAt:   timestamp("ai_insight_updated_at"),
+  // GCR compliance
+  engineVersion:        varchar("engine_version").default("1.0.0"),
+  createdAt:            timestamp("created_at").defaultNow(),
+  updatedAt:            timestamp("updated_at").defaultNow(),
+  source:               varchar("source").default("api"),
+}, (table) => [
+  index("idx_model_portfolios_risk").on(table.riskProfile),
+  index("idx_model_portfolios_asset").on(table.assetClass),
+  index("idx_model_portfolios_published").on(table.isPublished),
+]);
+
+export const insertModelPortfolioSchema = createInsertSchema(modelPortfolios).omit({
+  createdAt: true, updatedAt: true,
+});
+export type ModelPortfolioRow = typeof modelPortfolios.$inferSelect;
+export type InsertModelPortfolio = typeof modelPortfolios.$inferInsert;

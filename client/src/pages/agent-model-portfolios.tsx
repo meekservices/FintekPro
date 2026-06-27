@@ -17,6 +17,7 @@
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -2068,6 +2069,68 @@ export default function AgentModelPortfoliosPage() {
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [quizResult, setQuizResult] = useState<ModelPortfolio | null>(null);
 
+  // ── Live API data (Fix #6: replaces hardcoded MODEL_PORTFOLIOS array) ─────────
+  const { data: apiData, isLoading: portfoliosLoading } = useQuery<{ success: boolean; data: any[] }>(
+    {
+      queryKey: ["/api/model-portfolios"],
+      staleTime: 5 * 60 * 1000,   // 5-min cache — metrics refresh via scheduler
+      retry: 1,
+    }
+  );
+
+  // Merge: API data (live) → static fallback during load or API error
+  const livePortfolios: ModelPortfolio[] = useMemo(() => {
+    if (!apiData?.data?.length) return MODEL_PORTFOLIOS_ALL;   // static fallback
+    return apiData.data.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      tagline: p.tagline ?? "",
+      riskProfile: p.risk_profile as RiskProfile,
+      assetClass: p.asset_class,
+      subCategory: p.sub_category ?? undefined,
+      goals: p.goals ?? [],
+      minInvestment: Number(p.min_investment ?? 5000),
+      timeHorizon: p.time_horizon ?? "N/A",
+      benchmarkName: p.benchmark_name ?? "Nifty 500",
+      lastRebalanced: p.last_rebalanced ?? new Date().toISOString().slice(0, 10),
+      rebalancingFrequency: p.rebalancing_frequency ?? "quarterly",
+      totalHoldings: p.total_holdings ?? 0,
+      highlight: p.highlight ?? "",
+      icon: p.icon ?? "📊",
+      isFeatured: p.is_featured ?? false,
+      isNew: p.is_new ?? false,
+      // Metrics: from DB (computed by scheduler) or zeroed while pending
+      cagr1Y: Number(p.cagr_1y ?? 0),
+      cagr3Y: Number(p.cagr_3y ?? 0),
+      cagr5Y: Number(p.cagr_5y ?? 0),
+      benchmarkCagr1Y: Number(p.benchmark_cagr_1y ?? 0),
+      riskMetrics: {
+        sharpeRatio: Number(p.sharpe_ratio ?? 0),
+        maxDrawdown: Number(p.max_drawdown ?? 0),
+        volatility: Number(p.volatility ?? 0),
+        beta: Number(p.beta ?? 1),
+        alpha: Number(p.alpha ?? 0),
+      },
+      allocation: (p.allocation ?? []).map((a: any) => ({
+        category: a.label ?? a.type ?? "Other",
+        percentage: a.weight ?? 0,
+        color: undefined,
+      })),
+      holdings: (p.holdings ?? []).map((h: any) => ({
+        name: h.name ?? "",
+        isin: h.isin ?? "",
+        percentage: h.weight ?? 0,
+        type: h.type ?? "equity",
+        currentReturn: 0,   // computed by scheduler — 0 until first run
+        expenseRatio: undefined,
+        rating: undefined,
+      })),
+      rebalancingHistory: p.rebalancing_history ?? [],
+      aiInsight: p.ai_insight ?? null,
+      performanceData: PERFORMANCE_BASE(),   // chart still seeded — Fix #7 will replace
+    }));
+  }, [apiData]);
+
   // Role-based permissions
   const PRIVILEGED_ROLES = ["agent", "partner", "admin", "superadmin", "master_agent", "sub_agent", "associate", "rm", "wealth_manager"];
   const canShare = user?.roles?.some((r: string) => PRIVILEGED_ROLES.includes(r));
@@ -2086,13 +2149,13 @@ export default function AgentModelPortfoliosPage() {
   }, [assetClassFilter]);
 
   const filtered = useMemo(() => {
-    return MODEL_PORTFOLIOS_ALL.filter((p) => {
+    return livePortfolios.filter((p) => {
       if (assetClassFilter !== "all" && p.assetClass !== assetClassFilter) return false;
       if (subCategoryFilter !== "all" && p.subCategory !== subCategoryFilter) return false;
       if (riskFilter !== "all" && p.riskProfile !== riskFilter) return false;
       return true;
     });
-  }, [assetClassFilter, subCategoryFilter, riskFilter]);
+  }, [livePortfolios, assetClassFilter, subCategoryFilter, riskFilter]);
 
   // Compare helpers
   const toggleCompare = (id: string) => {
@@ -2100,7 +2163,7 @@ export default function AgentModelPortfoliosPage() {
       prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 3 ? [...prev, id] : prev,
     );
   };
-  const comparePortfolios = MODEL_PORTFOLIOS_ALL.filter((p) => compareList.includes(p.id));
+  const comparePortfolios = livePortfolios.filter((p) => compareList.includes(p.id));
 
   // Quiz logic
   const QUIZ_QUESTIONS = [

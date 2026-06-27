@@ -69,6 +69,7 @@ import aiGovernanceRouter from "./routes/admin/ai-governance";
 import { registerAdminPanelRoutes } from "./routes/admin/index";
 
 import liveMFDataRouter from "./routes/live-mf-data-routes";
+import marketIntelligenceRouter from "./routes/market-intelligence-routes";
 import treasuryCopilotRoutes from "./routes/treasury-copilot-routes";
 import treasuryRoutes from "./routes/treasury-routes";
 import versionRouter from "./routes/version";
@@ -136,6 +137,7 @@ import { registerPortfolioCompareAISIPRoutes } from "./routes/portfolio-compare-
 import stockIntersectionRouter from "./routes/stock-intersection";
 import { registerAgentAdvisoryPart4Routes } from "./routes/agent-advisory-4";
 import overlapIntelligenceRouter from "./routes/overlap-intelligence"; // /api/portfolio/intelligence, /simulate-impact, /optimize-sip, /goal-based-score
+import { modelPortfoliosRouter } from "./routes/model-portfolios-route"; // /api/model-portfolios — engine audit Fix #6
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -376,6 +378,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/live-mf", liveMFDataRouter);
 	app.use("/api/tester/diagnostics", testerDiagnosticsRoutes);
 
+	// ── Market Intelligence (IndianAPI.in Growth Plan — 31 endpoints) ──────────
+	// Routes: /api/market/*, /api/stocks/:symbol/*, /api/mutual-funds/*, /api/ipo/*
+	app.use(marketIntelligenceRouter);
+
 	// Error tracking routes — must be mounted WITHOUT CSRF for /ingest
 	// (called from ErrorBoundary/componentDidCatch where no CSRF token is available)
 	app.use("/api/errors", errorTrackingRouter);
@@ -449,6 +455,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// Portfolio Intelligence: /api/portfolio/intelligence, /simulate-impact, /optimize-sip, /goal-based-score
 	app.use("/api/portfolio", overlapIntelligenceRouter);
+
+	// Model Portfolios: /api/model-portfolios, /api/model-portfolios/:id (engine audit Fix #6)
+	app.use("/api/model-portfolios", modelPortfoliosRouter);
 
 	// Profile Sharing Toggle
 	app.patch("/api/user/profile/sharing", async (req, res) => {

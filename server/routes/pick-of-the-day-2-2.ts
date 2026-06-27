@@ -24,6 +24,7 @@ import nodemailer from "nodemailer";
 import { z } from "zod";
 import { requireAuth, requireAdmin } from "../middleware/roleMiddleware";
 import { REGULATORY_DISCLAIMER } from "./pick-of-the-day-utils";
+import { logger } from "../logger";
 
 const watchlistAddSchema = z.object({
 	pickId: z.number(),
@@ -78,16 +79,39 @@ router.get("/", requireAuth, async (req, res) => {
 			await pickOfTheDayService.refreshLivePicks();
 		}
 
+		// ── Normalize picks before sending to client ────────────────────────────
+		// Guards against:
+		//   • confidenceScore stored as raw quant score (e.g. 8600) instead of 0–100
+		//     This happens when legacy/admin-created picks bypass getConfidenceScore()
+		//   • timeHorizon = NULL on picks created before the column was added
+		const VALID_HORIZONS = new Set(["short_term", "medium_term", "long_term"]);
+		const normalizedPicks = picks.map((p) => {
+			// Clamp confidenceScore to 0–100. If value > 100 treat as raw integer
+			// score that was never converted (e.g. 8600 → 86, 7000 → 70).
+			const rawScore = Number(p.confidenceScore ?? 70);
+			const confidenceScore = rawScore > 100
+				? Math.min(100, Math.round(rawScore / 100))
+				: Math.min(100, Math.max(0, rawScore));
+
+			// Normalise horizon: NULL or unrecognised values → "medium_term"
+			const timeHorizon = VALID_HORIZONS.has(p.timeHorizon ?? "")
+				? p.timeHorizon
+				: "medium_term";
+
+			return { ...p, confidenceScore, timeHorizon };
+		});
+
 		res.json({
 			success: true,
-			picks,
+			picks: normalizedPicks,
 			disclaimer: REGULATORY_DISCLAIMER,
 		});
 	} catch (error) {
-		console.error("[API] Error fetching picks:", error);
+		logger.error("[PicksAPI] Error fetching picks:", error instanceof Error ? error : new Error(String(error)));
 		res.status(500).json({ success: false, error: "Failed to fetch picks" });
 	}
 });
+
 
 router.post("/generate", requireAdmin, async (req, res) => {
 	try {

@@ -19,24 +19,32 @@
 
 import axios, { AxiosInstance } from "axios";
 import { requestDedupeService } from "./request-deduplication-service";
+import { logger } from "../logger";
 
 const INDIAN_API_KEY = process.env.INDIAN_API_KEY || "";
 const INDIAN_API_BASE_URL = "https://analyst.indianapi.in";
 const MRCHARTIST_BASE_URL = "https://api.mrchartist.in";
+const ENGINE_VERSION = "2.0.0";
 
-// Rate limiting
-const RATE_LIMIT_PER_MINUTE = 100;
+// Growth plan — dedicated server, generous limits
+const RATE_LIMIT_PER_MINUTE = 300;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1_000;
 
-// Cache TTLs (ms)
-const TTL_QUOTE = 5 * 60 * 1_000;              // 5 min
-const TTL_FUNDAMENTALS = 24 * 60 * 60 * 1_000; // 24 h
-const TTL_RATIOS = 60 * 60 * 1_000;            // 1 h
-const TTL_IPO = 30 * 60 * 1_000;               // 30 min
-const TTL_FII_DII = 15 * 60 * 1_000;           // 15 min
-const TTL_FII_DII_HISTORY = 6 * 60 * 60 * 1_000; // 6 h
+// ── Cache TTLs (ms) ───────────────────────────────────────────────────────────
+const TTL = {
+	QUOTE:            5  * 60 * 1_000,   // 5 min  — live price
+	MARKET:           3  * 60 * 1_000,   // 3 min  — most active, trending
+	FUNDAMENTALS:     24 * 60 * 60 * 1_000, // 24h — ratios, B/S, P&L
+	CORPORATE:        6  * 60 * 60 * 1_000, // 6h  — dividends, splits
+	NEWS:             15 * 60 * 1_000,   // 15 min — news feeds
+	IPO:              30 * 60 * 1_000,   // 30 min — IPO data
+	MF:               60 * 60 * 1_000,   // 1h  — mutual fund data
+	LOGO:             7  * 24 * 60 * 60 * 1_000, // 7d — company logos
+	FII_DII:          15 * 60 * 1_000,   // 15 min
+	FII_DII_HISTORY:  6  * 60 * 60 * 1_000, // 6h
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -147,6 +155,7 @@ export interface IndianAPIIPO {
 	};
 	status: "upcoming" | "open" | "allotment" | "listing" | "listed";
 	gmp?: number;
+	issue_type?: string;
 }
 
 export interface IndianAPIFIIDII {
@@ -166,6 +175,99 @@ export interface IndianAPIResult<T> {
 	calculation_timestamp: string;
 }
 
+/** Parsed dividend entry from corporate_actions.dividends.data */
+export interface DividendRecord {
+	record_date: string;
+	ex_date: string;
+	dividend_percent: string;
+	amount_per_share: number | null;
+	details: string;
+}
+
+export interface CorporateActions {
+	dividends: DividendRecord[];
+	splits: any[];
+	bonus: any[];
+	rights: any[];
+	board_meetings: any[];
+}
+
+export interface AnalystTargetPrice {
+	currency: string;
+	mean: number;
+	median: number;
+	high: number;
+	low: number;
+	num_estimates: number;
+	std_deviation: number;
+	snapshots: Array<{ age: string; mean: number; high: number; low: number; num_estimates: number }>;
+}
+
+export interface MostActiveStock {
+	ticker: string;
+	company: string;
+	price: number;
+	percent_change: number;
+	net_change: number;
+	volume: number;
+	high: number;
+	low: number;
+	week_high_52: number;
+	week_low_52: number;
+	overall_rating?: string;
+}
+
+export interface MutualFundSummary {
+	id: string;
+	name: string;
+	category?: string;
+	nav?: number;
+	aum?: number;
+	returns_1y?: number;
+	returns_3y?: number;
+	risk_rating?: string;
+}
+
+export interface MutualFundDetails {
+	id: string;
+	name: string;
+	category: string;
+	nav: number;
+	aum?: number;
+	expense_ratio?: number;
+	returns_1y?: number;
+	returns_3y?: number;
+	returns_5y?: number;
+	fund_manager?: string;
+	benchmark?: string;
+	min_sip?: number;
+	min_lumpsum?: number;
+	exit_load?: string;
+	risk_rating?: string;
+	isin?: string;
+}
+
+export interface NewsItem {
+	title: string;
+	url: string;
+	source?: string;
+	published_at?: string;
+	summary?: string;
+	category?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function extractDividendAmount(text: string): number | null {
+	const match = text.match(/Rs\.?\s*([\d,]+\.?\d*)\s*per\s*(equity\s*)?share/i);
+	if (match) return parseFloat(match[1].replace(/,/g, ""));
+	const match2 = text.match(/dividend\s+of\s+Rs\.?\s*([\d,]+\.?\d*)/i);
+	if (match2) return parseFloat(match2[1].replace(/,/g, ""));
+	return null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Service class
 // ─────────────────────────────────────────────────────────────────────────────
@@ -179,45 +281,35 @@ class IndianAPIService {
 
 	constructor() {
 		this.isConfigured = Boolean(INDIAN_API_KEY);
-
 		this.client = axios.create({
 			baseURL: INDIAN_API_BASE_URL,
-			headers: {
-				"X-API-Key": INDIAN_API_KEY,
-				"Content-Type": "application/json",
-				Accept: "application/json",
-			},
+			headers: { "X-API-Key": INDIAN_API_KEY, "Content-Type": "application/json" },
 			timeout: 15_000,
 		});
-
 		this.mrClient = axios.create({
 			baseURL: MRCHARTIST_BASE_URL,
 			timeout: 10_000,
 		});
 
 		if (!this.isConfigured) {
-			// eslint-disable-next-line no-console
-	console.warn("⚠️ INDIAN_API_KEY not configured. IndianAPI service disabled.");
+			logger.warn("⚠️ INDIAN_API_KEY not configured. IndianAPI service disabled.");
 		} else {
-			// eslint-disable-next-line no-console
-	console.info("✅ IndianAPI.in service initialized (enrichment priority: 0.88)");
+			logger.info("✅ IndianAPI.in Growth Plan service initialized (enrichment priority: 0.88, 31 endpoints active)");
 		}
 	}
 
-	isReady(): boolean {
-		return this.isConfigured;
-	}
+	isReady(): boolean { return this.isConfigured; }
 
 	getStatus() {
 		return {
 			configured: this.isConfigured,
 			baseUrl: INDIAN_API_BASE_URL,
+			plan: "Growth (Dedicated Server)",
+			endpoints_active: 31,
 			rateLimitRemaining: this.getRateLimitRemaining(),
 			source: "indian_api",
 		};
 	}
-
-	// ── Rate limiting ────────────────────────────────────────────────────────
 
 	private getRateLimitRemaining(): number {
 		const now = Date.now();
@@ -232,8 +324,7 @@ class IndianAPIService {
 		const remaining = this.getRateLimitRemaining();
 		if (remaining <= 0) {
 			const waitTime = RATE_LIMIT_WINDOW_MS - (Date.now() - this.windowStart);
-			// eslint-disable-next-line no-console
-	console.info(`[IndianAPI] Rate limit reached, waiting ${waitTime}ms`);
+			logger.info(`[IndianAPI] Rate limit reached, waiting ${waitTime}ms`);
 			await new Promise((r) => setTimeout(r, waitTime));
 			this.requestCount = 0;
 			this.windowStart = Date.now();
@@ -241,10 +332,7 @@ class IndianAPIService {
 		this.requestCount++;
 	}
 
-	private async retryWithBackoff<T>(
-		fn: () => Promise<T>,
-		retries = MAX_RETRIES,
-	): Promise<T> {
+	private async retryWithBackoff<T>(fn: () => Promise<T>, retries = MAX_RETRIES): Promise<T> {
 		let lastError: Error | null = null;
 		for (let attempt = 0; attempt <= retries; attempt++) {
 			try {
@@ -255,10 +343,7 @@ class IndianAPIService {
 				const status = error.response?.status;
 				if (status === 429 || (status && status >= 500)) {
 					const delay = BASE_DELAY_MS * 2 ** attempt;
-					// eslint-disable-next-line no-console
-	console.warn(
-						`[IndianAPI] HTTP ${status}, retrying in ${delay}ms (attempt ${attempt + 1}/${retries + 1})`,
-					);
+					logger.warn(`[IndianAPI] HTTP ${status}, retrying in ${delay}ms (attempt ${attempt + 1}/${retries + 1})`);
 					await new Promise((r) => setTimeout(r, delay));
 				} else {
 					throw error;
@@ -268,8 +353,6 @@ class IndianAPIService {
 		throw lastError ?? new Error("[IndianAPI] Max retries exceeded");
 	}
 
-	// ── Result builders ──────────────────────────────────────────────────────
-
 	private makeResult<T>(data: T): IndianAPIResult<T> {
 		return {
 			success: true,
@@ -277,7 +360,7 @@ class IndianAPIService {
 			source: "indian_api",
 			retrievedAt: new Date(),
 			rateLimitRemaining: this.getRateLimitRemaining(),
-			engine_version: "1.0.0",
+			engine_version: ENGINE_VERSION,
 			calculation_timestamp: new Date().toISOString(),
 		};
 	}
@@ -288,7 +371,7 @@ class IndianAPIService {
 			source: "indian_api",
 			retrievedAt: new Date(),
 			error: msg,
-			engine_version: "1.0.0",
+			engine_version: ENGINE_VERSION,
 			calculation_timestamp: new Date().toISOString(),
 		};
 	}
@@ -297,19 +380,194 @@ class IndianAPIService {
 		return this.makeError<T>("IndianAPI not configured — INDIAN_API_KEY missing");
 	}
 
-	// ── Public Methods ───────────────────────────────────────────────────────
+	// ═══════════════════════════════════════════════════════════════════════════
+	// MODULE A: Market Intelligence
+	// ═══════════════════════════════════════════════════════════════════════════
 
-	/**
-	 * Get live stock quote for NSE/BSE symbol.
-	 * @param symbol NSE/BSE ticker e.g. "RELIANCE", "TCS"
-	 * @param exchange "NSE" (default) or "BSE"
-	 */
-	async getStockQuote(
-		symbol: string,
-		exchange: "NSE" | "BSE" = "NSE",
-	): Promise<IndianAPIResult<IndianAPIStockQuote>> {
+	async getMostActive(exchange: "NSE" | "BSE" = "NSE"): Promise<IndianAPIResult<MostActiveStock[]>> {
 		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "most_active", exchange);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const endpoint = exchange === "NSE" ? "/NSE_most_active" : "/BSE_most_active";
+				const r = await this.retryWithBackoff(() => this.client.get(endpoint));
+				const rawList: any[] = Array.isArray(r.data) ? r.data : r.data?.data ?? [];
+				return this.makeResult<MostActiveStock[]>(rawList.map((s: any) => ({
+					ticker: s.ticker ?? s.symbol ?? "",
+					company: s.company ?? s.companyName ?? "",
+					price: Number(s.price ?? 0),
+					percent_change: Number(s.percent_change ?? s.pChange ?? 0),
+					net_change: Number(s.net_change ?? s.change ?? 0),
+					volume: Number(s.volume ?? 0),
+					high: Number(s.high ?? 0),
+					low: Number(s.low ?? 0),
+					week_high_52: Number(s["52_week_high"] ?? s.weekHigh52 ?? 0),
+					week_low_52: Number(s["52_week_low"] ?? s.weekLow52 ?? 0),
+					overall_rating: s.overall_rating,
+				})));
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getMostActive(${exchange}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.MARKET);
+	}
 
+	async getTrending(exchange: "NSE" | "BSE" = "NSE"): Promise<IndianAPIResult<MostActiveStock[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "trending", exchange);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/trending", { params: { exchange } }),
+				);
+				const rawList: any[] = r.data?.trending_stocks ?? (Array.isArray(r.data) ? r.data : []);
+				return this.makeResult<MostActiveStock[]>(rawList.map((s: any) => ({
+					ticker: s.ticker ?? s.symbol ?? "",
+					company: s.company ?? s.companyName ?? "",
+					price: Number(s.price ?? 0),
+					percent_change: Number(s.percent_change ?? s.pChange ?? 0),
+					net_change: Number(s.net_change ?? s.change ?? 0),
+					volume: Number(s.volume ?? 0),
+					high: Number(s.high ?? 0),
+					low: Number(s.low ?? 0),
+					week_high_52: Number(s["52_week_high"] ?? 0),
+					week_low_52: Number(s["52_week_low"] ?? 0),
+					overall_rating: s.overall_rating,
+				})));
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getTrending(${exchange}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.MARKET);
+	}
+
+	async getPriceShockers(): Promise<IndianAPIResult<{ nse: any[]; bse: any[] }>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "price_shockers", "all");
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() => this.client.get("/price_shockers"));
+				return this.makeResult({ nse: r.data?.NSE_PriceShocker ?? [], bse: r.data?.BSE_PriceShocker ?? [] });
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getPriceShockers() error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.MARKET);
+	}
+
+	async get52WeekHighLow(): Promise<IndianAPIResult<{ nse: any[]; bse: any[] }>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "52whl", "all");
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() => this.client.get("/fetch_52_week_high_low_data"));
+				return this.makeResult({ nse: r.data?.NSE_52WeekHighLow ?? [], bse: r.data?.BSE_52WeekHighLow ?? [] });
+			} catch (error: any) {
+				logger.error(`[IndianAPI] get52WeekHighLow() error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.MARKET);
+	}
+
+	async getBatchLivePriceNSE(symbols: string[]): Promise<IndianAPIResult<Record<string, number>>> {
+		if (!this.isConfigured) return this.notConfigured();
+		try {
+			const r = await this.retryWithBackoff(() =>
+				this.client.post("/nse_stock_batch_live_price", { stock_ids: symbols }),
+			);
+			const prices: Record<string, number> = {};
+			(r.data ?? []).forEach((item: any) => {
+				if (item.symbol ?? item.ticker) {
+					prices[item.symbol ?? item.ticker] = Number(item.price ?? item.lastPrice ?? 0);
+				}
+			});
+			return this.makeResult(prices);
+		} catch (error: any) {
+			logger.error(`[IndianAPI] getBatchLivePriceNSE() error: ${error.message}`);
+			return this.makeError(error.message);
+		}
+	}
+
+	async getBatchLivePriceBSE(symbols: string[]): Promise<IndianAPIResult<Record<string, number>>> {
+		if (!this.isConfigured) return this.notConfigured();
+		try {
+			const r = await this.retryWithBackoff(() =>
+				this.client.post("/bse_stock_batch_live_price", { stock_ids: symbols }),
+			);
+			const prices: Record<string, number> = {};
+			(r.data ?? []).forEach((item: any) => {
+				if (item.symbol ?? item.ticker) {
+					prices[item.symbol ?? item.ticker] = Number(item.price ?? item.lastPrice ?? 0);
+				}
+			});
+			return this.makeResult(prices);
+		} catch (error: any) {
+			logger.error(`[IndianAPI] getBatchLivePriceBSE() error: ${error.message}`);
+			return this.makeError(error.message);
+		}
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// MODULE B: Corporate Actions & Dividends
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	async getCorporateActions(symbol: string): Promise<IndianAPIResult<CorporateActions>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "corporate_actions", symbol);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/corporate_actions", { params: { stock_name: symbol.toUpperCase() } }),
+				);
+				const raw = r.data ?? {};
+				const divRaw = raw.dividends ?? {};
+				const divData: any[][] = divRaw.data ?? [];
+				const dividends: DividendRecord[] = divData.map((row: any[]) => ({
+					record_date: row[0] ?? "",
+					ex_date: row[1] ?? "",
+					dividend_percent: row[2] ?? "",
+					amount_per_share: extractDividendAmount(row[3] ?? ""),
+					details: row[3] ?? "",
+				}));
+				const splitRaw = raw.splits ?? {};
+				const splits: any[] = Array.isArray(splitRaw) ? splitRaw : (splitRaw.data ?? []);
+				const bonusRaw = raw.bonus ?? {};
+				const bonus: any[] = Array.isArray(bonusRaw) ? bonusRaw : (bonusRaw.data ?? []);
+				const rightsRaw = raw.rights ?? {};
+				const rights: any[] = Array.isArray(rightsRaw) ? rightsRaw : (rightsRaw.data ?? []);
+				const bmRaw = raw.board_meetings ?? {};
+				const board_meetings: any[] = Array.isArray(bmRaw) ? bmRaw : (bmRaw.data ?? []);
+
+				return this.makeResult<CorporateActions>({ dividends, splits, bonus, rights, board_meetings });
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getCorporateActions(${symbol}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.CORPORATE);
+	}
+
+	async getEnrichedStockData(symbol: string): Promise<IndianAPIResult<any>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "enriched_stock", symbol);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/get_stock_data", { params: { stock_name: symbol.toUpperCase() } }),
+				);
+				return this.makeResult(r.data);
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getEnrichedStockData(${symbol}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.QUOTE);
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// MODULE C: Fundamental Research
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	async getStockQuote(symbol: string, exchange: "NSE" | "BSE" = "NSE"): Promise<IndianAPIResult<IndianAPIStockQuote>> {
+		if (!this.isConfigured) return this.notConfigured();
 		const key = requestDedupeService.createKey("indian_api", "quote", `${exchange}:${symbol}`);
 		return requestDedupeService.dedupe(key, async () => {
 			try {
@@ -321,8 +579,8 @@ class IndianAPIService {
 					symbol: raw.symbol ?? symbol,
 					company_name: raw.companyName ?? raw.name ?? symbol,
 					exchange,
-					current_price: Number(raw.currentPrice ?? raw.lastPrice ?? 0),
-					previous_close: Number(raw.previousClose ?? 0),
+					current_price: Number(raw.currentPrice ?? raw.lastPrice ?? raw.price_data?.current_price ?? 0),
+					previous_close: Number(raw.previousClose ?? raw.price_data?.previous_close ?? 0),
 					change: Number(raw.change ?? 0),
 					change_percent: Number(raw.pChange ?? raw.changePercent ?? 0),
 					volume: Number(raw.totalTradedVolume ?? raw.volume ?? 0),
@@ -340,21 +598,14 @@ class IndianAPIService {
 					industry: raw.industry ?? undefined,
 				});
 			} catch (error: any) {
-				// eslint-disable-next-line no-console
-	console.error(`[IndianAPI] getStockQuote(${symbol}) error: ${error.message}`);
+				logger.error(`[IndianAPI] getStockQuote(${symbol}) error: ${error.message}`);
 				return this.makeError(error.message);
 			}
-		}, TTL_QUOTE);
+		}, TTL.QUOTE);
 	}
 
-	/**
-	 * Get company profile (name, sector, ISIN, market cap etc.)
-	 */
-	async getCompanyProfile(
-		symbol: string,
-	): Promise<IndianAPIResult<IndianAPICompanyProfile>> {
+	async getCompanyProfile(symbol: string): Promise<IndianAPIResult<IndianAPICompanyProfile>> {
 		if (!this.isConfigured) return this.notConfigured();
-
 		const key = requestDedupeService.createKey("indian_api", "profile", symbol);
 		return requestDedupeService.dedupe(key, async () => {
 			try {
@@ -373,33 +624,25 @@ class IndianAPIService {
 					face_value: Number(raw.faceValue ?? 10),
 					listing_date: raw.listingDate,
 					website: raw.website,
-					description: raw.about,
+					description: raw.about ?? raw.description,
 					management: raw.management ?? [],
 				});
 			} catch (error: any) {
-				// eslint-disable-next-line no-console
-	console.error(`[IndianAPI] getCompanyProfile(${symbol}) error: ${error.message}`);
+				logger.error(`[IndianAPI] getCompanyProfile(${symbol}) error: ${error.message}`);
 				return this.makeError(error.message);
 			}
-		}, TTL_FUNDAMENTALS);
+		}, TTL.FUNDAMENTALS);
 	}
 
-	/**
-	 * Get Profit & Loss statement (annual, last N years).
-	 */
-	async getProfitLoss(
-		symbol: string,
-		years = 5,
-	): Promise<IndianAPIResult<IndianAPIProfitLoss[]>> {
+	async getProfitLoss(symbol: string, years = 5): Promise<IndianAPIResult<IndianAPIProfitLoss[]>> {
 		if (!this.isConfigured) return this.notConfigured();
-
 		const key = requestDedupeService.createKey("indian_api", "pl", `${symbol}:${years}`);
 		return requestDedupeService.dedupe(key, async () => {
 			try {
 				const r = await this.retryWithBackoff(() =>
-					this.client.get("/stock_financials", { params: { name: symbol.toUpperCase() } }),
+					this.client.get("/statement", { params: { stock_name: symbol.toUpperCase(), stats: "profit-loss" } }),
 				);
-				const rawList: any[] = (r.data?.profit_loss ?? r.data?.incomeStatement ?? []).slice(0, years);
+				const rawList: any[] = (r.data?.profit_loss ?? r.data?.incomeStatement ?? r.data ?? []).slice(0, years);
 				return this.makeResult<IndianAPIProfitLoss[]>(rawList.map((row: any) => ({
 					year: row.year ?? row.period ?? "",
 					revenue: Number(row.revenue ?? row.netSales ?? row.totalIncome ?? 0),
@@ -413,33 +656,25 @@ class IndianAPIService {
 					net_margin: row.netMargin ? Number(row.netMargin) : undefined,
 				})));
 			} catch (error: any) {
-				// eslint-disable-next-line no-console
-	console.error(`[IndianAPI] getProfitLoss(${symbol}) error: ${error.message}`);
+				logger.error(`[IndianAPI] getProfitLoss(${symbol}) error: ${error.message}`);
 				return this.makeError(error.message);
 			}
-		}, TTL_FUNDAMENTALS);
+		}, TTL.FUNDAMENTALS);
 	}
 
-	/**
-	 * Get Balance Sheet (annual, last N years).
-	 */
-	async getBalanceSheet(
-		symbol: string,
-		years = 5,
-	): Promise<IndianAPIResult<IndianAPIBalanceSheet[]>> {
+	async getBalanceSheet(symbol: string, years = 5): Promise<IndianAPIResult<IndianAPIBalanceSheet[]>> {
 		if (!this.isConfigured) return this.notConfigured();
-
 		const key = requestDedupeService.createKey("indian_api", "bs", `${symbol}:${years}`);
 		return requestDedupeService.dedupe(key, async () => {
 			try {
 				const r = await this.retryWithBackoff(() =>
-					this.client.get("/stock_financials", { params: { name: symbol.toUpperCase() } }),
+					this.client.get("/statement", { params: { stock_name: symbol.toUpperCase(), stats: "balance-sheet" } }),
 				);
-				const rawList: any[] = (r.data?.balance_sheet ?? r.data?.balanceSheet ?? []).slice(0, years);
+				const rawList: any[] = (r.data?.balance_sheet ?? r.data?.balanceSheet ?? r.data ?? []).slice(0, years);
 				return this.makeResult<IndianAPIBalanceSheet[]>(rawList.map((row: any) => ({
 					year: row.year ?? row.period ?? "",
-					total_assets: Number(row.totalAssets ?? 0),
-					total_liabilities: Number(row.totalLiabilities ?? 0),
+					total_assets: Number(row.totalAssets ?? row.total_assets ?? 0),
+					total_liabilities: Number(row.totalLiabilities ?? row.total_liabilities ?? 0),
 					networth: Number(row.networth ?? row.shareholdersEquity ?? 0),
 					total_debt: Number(row.totalDebt ?? row.borrowings ?? 0),
 					current_assets: row.currentAssets ? Number(row.currentAssets) : undefined,
@@ -449,54 +684,38 @@ class IndianAPIService {
 					cash_and_bank: row.cashAndBank ? Number(row.cashAndBank) : undefined,
 				})));
 			} catch (error: any) {
-				// eslint-disable-next-line no-console
-	console.error(`[IndianAPI] getBalanceSheet(${symbol}) error: ${error.message}`);
+				logger.error(`[IndianAPI] getBalanceSheet(${symbol}) error: ${error.message}`);
 				return this.makeError(error.message);
 			}
-		}, TTL_FUNDAMENTALS);
+		}, TTL.FUNDAMENTALS);
 	}
 
-	/**
-	 * Get Cash Flow statement (annual, last N years).
-	 */
-	async getCashFlow(
-		symbol: string,
-		years = 5,
-	): Promise<IndianAPIResult<IndianAPICashFlow[]>> {
+	async getCashFlow(symbol: string, years = 5): Promise<IndianAPIResult<IndianAPICashFlow[]>> {
 		if (!this.isConfigured) return this.notConfigured();
-
 		const key = requestDedupeService.createKey("indian_api", "cf", `${symbol}:${years}`);
 		return requestDedupeService.dedupe(key, async () => {
 			try {
 				const r = await this.retryWithBackoff(() =>
-					this.client.get("/stock_financials", { params: { name: symbol.toUpperCase() } }),
+					this.client.get("/statement", { params: { stock_name: symbol.toUpperCase(), stats: "cash-flow" } }),
 				);
-				const rawList: any[] = (r.data?.cash_flow ?? r.data?.cashFlow ?? []).slice(0, years);
+				const rawList: any[] = (r.data?.cash_flow ?? r.data?.cashFlow ?? r.data ?? []).slice(0, years);
 				return this.makeResult<IndianAPICashFlow[]>(rawList.map((row: any) => ({
 					year: row.year ?? row.period ?? "",
-					operating_cash_flow: Number(row.operatingCashFlow ?? row.cfo ?? 0),
-					investing_cash_flow: Number(row.investingCashFlow ?? row.cfi ?? 0),
-					financing_cash_flow: Number(row.financingCashFlow ?? row.cff ?? 0),
+					operating_cash_flow: Number(row.operatingCashFlow ?? row.cfo ?? row.operating ?? 0),
+					investing_cash_flow: Number(row.investingCashFlow ?? row.cfi ?? row.investing ?? 0),
+					financing_cash_flow: Number(row.financingCashFlow ?? row.cff ?? row.financing ?? 0),
 					free_cash_flow: row.freeCashFlow ? Number(row.freeCashFlow) : undefined,
 					capex: row.capex ? Number(row.capex) : undefined,
 				})));
 			} catch (error: any) {
-				// eslint-disable-next-line no-console
-	console.error(`[IndianAPI] getCashFlow(${symbol}) error: ${error.message}`);
+				logger.error(`[IndianAPI] getCashFlow(${symbol}) error: ${error.message}`);
 				return this.makeError(error.message);
 			}
-		}, TTL_FUNDAMENTALS);
+		}, TTL.FUNDAMENTALS);
 	}
 
-	/**
-	 * Get valuation and financial ratios.
-	 * Primary use: screener scoring, Pick of the Day enrichment.
-	 */
-	async getRatios(
-		symbol: string,
-	): Promise<IndianAPIResult<IndianAPIRatios>> {
+	async getRatios(symbol: string): Promise<IndianAPIResult<IndianAPIRatios>> {
 		if (!this.isConfigured) return this.notConfigured();
-
 		const key = requestDedupeService.createKey("indian_api", "ratios", symbol);
 		return requestDedupeService.dedupe(key, async () => {
 			try {
@@ -519,24 +738,176 @@ class IndianAPIService {
 					peg_ratio: raw.peg ? Number(raw.peg) : undefined,
 				});
 			} catch (error: any) {
-				// eslint-disable-next-line no-console
-	console.error(`[IndianAPI] getRatios(${symbol}) error: ${error.message}`);
+				logger.error(`[IndianAPI] getRatios(${symbol}) error: ${error.message}`);
 				return this.makeError(error.message);
 			}
-		}, TTL_RATIOS);
+		}, TTL.FUNDAMENTALS);
 	}
 
-	/**
-	 * Search stocks by name or symbol across NSE + BSE.
-	 */
-	async searchStocks(
-		query: string,
-	): Promise<IndianAPIResult<Array<{ symbol: string; name: string; exchange: string }>>> {
+	async getAnalystTargetPrice(symbol: string): Promise<IndianAPIResult<AnalystTargetPrice>> {
 		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "target_price", symbol);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/stock_target_price", { params: { stock_id: symbol.toUpperCase() } }),
+				);
+				const pt = r.data?.priceTarget ?? r.data ?? {};
+				const snapshots = (r.data?.priceTargetSnapshots?.PriceTargetSnapshot ?? []).map((s: any) => ({
+					age: s.Age ?? "",
+					mean: Number(s.Mean ?? 0),
+					high: Number(s.High ?? 0),
+					low: Number(s.Low ?? 0),
+					num_estimates: Number(s.NumberOfEstimates ?? 0),
+				}));
+				return this.makeResult<AnalystTargetPrice>({
+					currency: pt.CurrencyCode ?? "INR",
+					mean: Number(pt.Mean ?? pt.UnverifiedMean ?? 0),
+					median: Number(pt.Median ?? 0),
+					high: Number(pt.High ?? 0),
+					low: Number(pt.Low ?? 0),
+					num_estimates: Number(pt.NumberOfEstimates ?? 0),
+					std_deviation: Number(pt.StandardDeviation ?? 0),
+					snapshots,
+				});
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getAnalystTargetPrice(${symbol}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.FUNDAMENTALS);
+	}
 
+	async getCreditRatings(symbol: string): Promise<IndianAPIResult<any[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "credit_ratings", symbol);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/credit_ratings", { params: { stock_name: symbol.toUpperCase() } }),
+				);
+				const data = Array.isArray(r.data) ? r.data : (r.data?.data ?? []);
+				return this.makeResult<any[]>(data);
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getCreditRatings(${symbol}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.FUNDAMENTALS);
+	}
+
+	async getAnnualReports(symbol: string): Promise<IndianAPIResult<any[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "annual_reports", symbol);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/annual_reports", { params: { stock_name: symbol.toUpperCase() } }),
+				);
+				const data = Array.isArray(r.data) ? r.data : (r.data?.data ?? []);
+				return this.makeResult<any[]>(data);
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getAnnualReports(${symbol}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.FUNDAMENTALS);
+	}
+
+	async getConcalls(symbol: string): Promise<IndianAPIResult<any[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "concalls", symbol);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/concalls", { params: { stock_name: symbol.toUpperCase() } }),
+				);
+				const data = Array.isArray(r.data) ? r.data : (r.data?.data ?? []);
+				return this.makeResult<any[]>(data.map((c: any) => ({
+					date: c.date ?? "",
+					transcript_url: c.transcript ?? null,
+					ai_summary_path: c["ai summary"] ?? null,
+					ppt_url: c.ppt ?? null,
+				})));
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getConcalls(${symbol}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.FUNDAMENTALS);
+	}
+
+	async getDocuments(symbol: string): Promise<IndianAPIResult<any[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "documents", symbol);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/documents", { params: { stock_name: symbol.toUpperCase() } }),
+				);
+				const data = Array.isArray(r.data) ? r.data : (r.data?.data ?? []);
+				return this.makeResult<any[]>(data);
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getDocuments(${symbol}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.NEWS);
+	}
+
+	async getRecentAnnouncements(symbol: string): Promise<IndianAPIResult<any[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "announcements", symbol);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/recent_announcements", { params: { stock_name: symbol.toUpperCase() } }),
+				);
+				const data = Array.isArray(r.data) ? r.data : (r.data?.data ?? []);
+				return this.makeResult<any[]>(data);
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getRecentAnnouncements(${symbol}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.NEWS);
+	}
+
+	async getHistoricalData(symbol: string, period = "1y"): Promise<IndianAPIResult<any[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "historical_data", `${symbol}:${period}`);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/historical_data", {
+						params: { stock_name: symbol.toUpperCase(), period, filter: "default" },
+					}),
+				);
+				const data = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.prices ?? []);
+				return this.makeResult<any[]>(data);
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getHistoricalData(${symbol}, ${period}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.MARKET);
+	}
+
+	async getCompanyLogo(symbol: string): Promise<IndianAPIResult<{ logo_url: string | null }>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "logo", symbol);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/logo", { params: { stock_name: symbol.toUpperCase() } }),
+				);
+				const url = r.data?.logo ?? r.data?.url ?? r.data?.logo_url ?? null;
+				return this.makeResult({ logo_url: url });
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getCompanyLogo(${symbol}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.LOGO);
+	}
+
+	async searchStocks(query: string): Promise<IndianAPIResult<Array<{ symbol: string; name: string; exchange: string }>>> {
+		if (!this.isConfigured) return this.notConfigured();
 		try {
 			const r = await this.retryWithBackoff(() =>
-				this.client.get("/search", { params: { q: query } }),
+				this.client.get("/industry_search", { params: { query } }),
 			);
 			const results = (r.data?.results ?? r.data ?? []).map((item: any) => ({
 				symbol: item.symbol ?? item.ticker ?? "",
@@ -545,23 +916,142 @@ class IndianAPIService {
 			}));
 			return this.makeResult(results);
 		} catch (error: any) {
-			// eslint-disable-next-line no-console
-	console.error(`[IndianAPI] searchStocks(${query}) error: ${error.message}`);
+			logger.error(`[IndianAPI] searchStocks(${query}) error: ${error.message}`);
 			return this.makeError(error.message);
 		}
 	}
 
-	/**
-	 * Get upcoming and recent IPOs.
-	 */
+	// ═══════════════════════════════════════════════════════════════════════════
+	// MODULE D: Mutual Funds
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	async getAllMutualFunds(): Promise<IndianAPIResult<MutualFundSummary[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "mf_all", "list");
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() => this.client.get("/mutual_funds"));
+				const rawList: any[] = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.funds ?? []);
+				return this.makeResult<MutualFundSummary[]>(rawList.map((f: any) => ({
+					id: f.id ?? f.schemeCode ?? f.scheme_code ?? "",
+					name: f.name ?? f.schemeName ?? f.scheme_name ?? "",
+					category: f.category ?? f.schemeCategory,
+					nav: f.nav ? Number(f.nav) : undefined,
+					aum: f.aum ? Number(f.aum) : undefined,
+					returns_1y: (f.returns_1y ?? f.return1Year) ? Number(f.returns_1y ?? f.return1Year) : undefined,
+					returns_3y: (f.returns_3y ?? f.return3Year) ? Number(f.returns_3y ?? f.return3Year) : undefined,
+					risk_rating: f.riskometer ?? f.risk,
+				})));
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getAllMutualFunds() error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.MF);
+	}
+
+	async getMutualFundDetails(schemeSlug: string): Promise<IndianAPIResult<MutualFundDetails>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "mf_details", schemeSlug);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/mutual_funds_details", { params: { stock_name: schemeSlug } }),
+				);
+				const raw = r.data ?? {};
+				return this.makeResult<MutualFundDetails>({
+					id: raw.id ?? raw.schemeCode ?? schemeSlug,
+					name: raw.name ?? raw.schemeName ?? "",
+					category: raw.category ?? raw.schemeCategory ?? "",
+					nav: Number(raw.nav ?? 0),
+					aum: raw.aum ? Number(raw.aum) : undefined,
+					expense_ratio: raw.expenseRatio ? Number(raw.expenseRatio) : undefined,
+					returns_1y: raw.returns_1y ? Number(raw.returns_1y) : undefined,
+					returns_3y: raw.returns_3y ? Number(raw.returns_3y) : undefined,
+					returns_5y: raw.returns_5y ? Number(raw.returns_5y) : undefined,
+					fund_manager: raw.fundManager ?? raw.fund_manager,
+					benchmark: raw.benchmark,
+					min_sip: raw.minSip ? Number(raw.minSip) : undefined,
+					min_lumpsum: raw.minLumpsum ? Number(raw.minLumpsum) : undefined,
+					exit_load: raw.exitLoad,
+					risk_rating: raw.riskometer ?? raw.risk,
+					isin: raw.isin,
+				});
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getMutualFundDetails(${schemeSlug}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.MF);
+	}
+
+	async searchMutualFunds(query: string): Promise<IndianAPIResult<MutualFundSummary[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "mf_search", query.toLowerCase());
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/mutual_fund_search", { params: { query } }),
+				);
+				const rawList: any[] = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.results ?? []);
+				return this.makeResult<MutualFundSummary[]>(rawList.map((f: any) => ({
+					id: f.id ?? f.schemeCode ?? f.scheme_code ?? "",
+					name: f.name ?? f.schemeName ?? f.scheme_name ?? "",
+					category: f.category ?? f.schemeCategory,
+					nav: f.nav ? Number(f.nav) : undefined,
+					aum: f.aum ? Number(f.aum) : undefined,
+					risk_rating: f.riskometer ?? f.risk,
+				})));
+			} catch (error: any) {
+				logger.error(`[IndianAPI] searchMutualFunds(${query}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.MF);
+	}
+
+	async getMFHoldings(schemeId: string): Promise<IndianAPIResult<any[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "mf_holdings", schemeId);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/mf_holdings", { params: { stock_id: schemeId } }),
+				);
+				const data = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.holdings ?? []);
+				return this.makeResult<any[]>(data);
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getMFHoldings(${schemeId}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.MF);
+	}
+
+	async getMFNavHistory(schemeId: string): Promise<IndianAPIResult<any[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "mf_nav_history", schemeId);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/get_mf_historical_data", { params: { stock_id: schemeId, stats: "nav" } }),
+				);
+				const data = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.navHistory ?? []);
+				return this.makeResult<any[]>(data);
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getMFNavHistory(${schemeId}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.MF);
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// MODULE E: IPO Intelligence
+	// ═══════════════════════════════════════════════════════════════════════════
+
 	async getIPOList(): Promise<IndianAPIResult<IndianAPIIPO[]>> {
 		if (!this.isConfigured) return this.notConfigured();
-
 		const key = requestDedupeService.createKey("indian_api", "ipo", "list");
 		return requestDedupeService.dedupe(key, async () => {
 			try {
 				const r = await this.retryWithBackoff(() => this.client.get("/ipo"));
-				const rawList: any[] = r.data?.data ?? r.data ?? [];
+				const rawList: any[] = r.data?.data ?? (Array.isArray(r.data) ? r.data : []);
 				return this.makeResult<IndianAPIIPO[]>(rawList.map((item: any) => ({
 					company_name: item.companyName ?? item.name ?? "",
 					symbol: item.symbol,
@@ -571,26 +1061,157 @@ class IndianAPIService {
 					issue_price: item.issuePrice ? Number(item.issuePrice) : undefined,
 					lot_size: item.lotSize ? Number(item.lotSize) : undefined,
 					issue_size: item.issueSize ? Number(item.issueSize) : undefined,
-					subscription: item.subscription ? {
-						qib: item.subscription.qib ? Number(item.subscription.qib) : undefined,
-						nii: item.subscription.nii ? Number(item.subscription.nii) : undefined,
-						retail: item.subscription.retail ? Number(item.subscription.retail) : undefined,
-						total: item.subscription.total ? Number(item.subscription.total) : undefined,
-					} : undefined,
+					subscription: item.subscription,
 					status: item.status ?? "upcoming",
 					gmp: item.gmp ? Number(item.gmp) : undefined,
 				})));
 			} catch (error: any) {
-				// eslint-disable-next-line no-console
-	console.error(`[IndianAPI] getIPOList() error: ${error.message}`);
+				logger.error(`[IndianAPI] getIPOList() error: ${error.message}`);
 				return this.makeError(error.message);
 			}
-		}, TTL_IPO);
+		}, TTL.IPO);
 	}
 
-	/**
-	 * Get latest FII/DII activity (Mr. Chartist free API — no key required).
-	 */
+	async getIPOv2(status?: string, issueType?: string): Promise<IndianAPIResult<IndianAPIIPO[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "ipo_v2", `${status ?? "all"}:${issueType ?? "all"}`);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const params: Record<string, string> = {};
+				if (status) params.status = status;
+				if (issueType) params.issue_type = issueType;
+				const r = await this.retryWithBackoff(() => this.client.get("/ipo/v2", { params }));
+				const rawList: any[] = r.data?.data ?? (Array.isArray(r.data) ? r.data : []);
+				return this.makeResult<IndianAPIIPO[]>(rawList.map((item: any) => ({
+					company_name: item.companyName ?? item.name ?? "",
+					symbol: item.symbol,
+					open_date: item.openDate ?? item.open ?? "",
+					close_date: item.closeDate ?? item.close ?? "",
+					listing_date: item.listingDate,
+					issue_price: item.issuePrice ? Number(item.issuePrice) : undefined,
+					lot_size: item.lotSize ? Number(item.lotSize) : undefined,
+					issue_size: item.issueSize ? Number(item.issueSize) : undefined,
+					subscription: item.subscription,
+					status: item.status ?? status ?? "upcoming",
+					gmp: item.gmp ? Number(item.gmp) : undefined,
+					issue_type: item.issueType ?? issueType,
+				})));
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getIPOv2() error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.IPO);
+	}
+
+	async getIPOById(id: string): Promise<IndianAPIResult<any>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "ipo_detail", id);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() => this.client.get(`/ipo/${id}`));
+				return this.makeResult(r.data);
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getIPOById(${id}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.IPO);
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// MODULE F: News & Sentiment + Commodities
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	async getMarketNews(page = 1, size = 20): Promise<IndianAPIResult<NewsItem[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "news", `${page}:${size}`);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/news", { params: { page_no: page, size } }),
+				);
+				const rawList: any[] = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.news ?? []);
+				return this.makeResult<NewsItem[]>(rawList.map((n: any) => ({
+					title: n.title ?? "",
+					url: n.url ?? n.link ?? "",
+					source: n.source ?? n.publisher,
+					published_at: n.publishedAt ?? n.published_at ?? n.date,
+					summary: n.summary ?? n.description,
+					category: n.category,
+				})));
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getMarketNews() error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.NEWS);
+	}
+
+	async getAINews(category = "market"): Promise<IndianAPIResult<NewsItem[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "ai_news", category);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/ai_news", { params: { category } }),
+				);
+				const rawList: any[] = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.news ?? []);
+				return this.makeResult<NewsItem[]>(rawList.map((n: any) => ({
+					title: n.title ?? "",
+					url: n.url ?? n.link ?? "",
+					source: n.source ?? n.publisher,
+					published_at: n.publishedAt ?? n.published_at ?? n.date,
+					summary: n.summary ?? n.description,
+					category: n.category ?? category,
+				})));
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getAINews(${category}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.NEWS);
+	}
+
+	async getCompanyNews(symbol: string): Promise<IndianAPIResult<NewsItem[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "company_news", symbol);
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() =>
+					this.client.get("/company_news", { params: { stock_name: symbol.toUpperCase() } }),
+				);
+				const rawList: any[] = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.news ?? []);
+				return this.makeResult<NewsItem[]>(rawList.map((n: any) => ({
+					title: n.title ?? "",
+					url: n.url ?? n.link ?? "",
+					source: n.source ?? n.publisher,
+					published_at: n.publishedAt ?? n.published_at ?? n.date,
+					summary: n.summary ?? n.description,
+					category: "company",
+				})));
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getCompanyNews(${symbol}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.NEWS);
+	}
+
+	async getCommodities(): Promise<IndianAPIResult<any[]>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "commodities", "all");
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const r = await this.retryWithBackoff(() => this.client.get("/commodities"));
+				const data = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.commodities ?? [r.data]);
+				return this.makeResult<any[]>(data);
+			} catch (error: any) {
+				logger.error(`[IndianAPI] getCommodities() error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.MARKET);
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// FII/DII (Mr. Chartist — unchanged)
+	// ═══════════════════════════════════════════════════════════════════════════
+
 	async getLatestFIIDII(): Promise<IndianAPIResult<IndianAPIFIIDII>> {
 		const key = requestDedupeService.createKey("indian_api", "fiidii", "latest");
 		return requestDedupeService.dedupe(key, async () => {
@@ -599,28 +1220,16 @@ class IndianAPIService {
 				const raw = r.data;
 				return this.makeResult<IndianAPIFIIDII>({
 					date: raw.date ?? new Date().toISOString().split("T")[0],
-					fii: {
-						buy: Number(raw.fii?.buy ?? raw.FII?.buy ?? 0),
-						sell: Number(raw.fii?.sell ?? raw.FII?.sell ?? 0),
-						net: Number(raw.fii?.net ?? raw.FII?.net ?? 0),
-					},
-					dii: {
-						buy: Number(raw.dii?.buy ?? raw.DII?.buy ?? 0),
-						sell: Number(raw.dii?.sell ?? raw.DII?.sell ?? 0),
-						net: Number(raw.dii?.net ?? raw.DII?.net ?? 0),
-					},
+					fii: { buy: Number(raw.fii?.buy ?? raw.FII?.buy ?? 0), sell: Number(raw.fii?.sell ?? raw.FII?.sell ?? 0), net: Number(raw.fii?.net ?? raw.FII?.net ?? 0) },
+					dii: { buy: Number(raw.dii?.buy ?? raw.DII?.buy ?? 0), sell: Number(raw.dii?.sell ?? raw.DII?.sell ?? 0), net: Number(raw.dii?.net ?? raw.DII?.net ?? 0) },
 				});
 			} catch (error: any) {
-				// eslint-disable-next-line no-console
-	console.error(`[IndianAPI] getLatestFIIDII() error: ${error.message}`);
+				logger.error(`[IndianAPI] getLatestFIIDII() error: ${error.message}`);
 				return this.makeError(error.message);
 			}
-		}, TTL_FII_DII);
+		}, TTL.FII_DII);
 	}
 
-	/**
-	 * Get FII/DII historical data (last N days).
-	 */
 	async getFIIDIIHistory(days = 30): Promise<IndianAPIResult<IndianAPIFIIDII[]>> {
 		const key = requestDedupeService.createKey("indian_api", "fiidii_history", `${days}`);
 		return requestDedupeService.dedupe(key, async () => {
@@ -629,59 +1238,36 @@ class IndianAPIService {
 				const rawList: any[] = r.data ?? [];
 				return this.makeResult<IndianAPIFIIDII[]>(rawList.map((raw: any) => ({
 					date: raw.date ?? "",
-					fii: {
-						buy: Number(raw.fii?.buy ?? raw.FII?.buy ?? 0),
-						sell: Number(raw.fii?.sell ?? raw.FII?.sell ?? 0),
-						net: Number(raw.fii?.net ?? raw.FII?.net ?? 0),
-					},
-					dii: {
-						buy: Number(raw.dii?.buy ?? raw.DII?.buy ?? 0),
-						sell: Number(raw.dii?.sell ?? raw.DII?.sell ?? 0),
-						net: Number(raw.dii?.net ?? raw.DII?.net ?? 0),
-					},
+					fii: { buy: Number(raw.fii?.buy ?? raw.FII?.buy ?? 0), sell: Number(raw.fii?.sell ?? raw.FII?.sell ?? 0), net: Number(raw.fii?.net ?? raw.FII?.net ?? 0) },
+					dii: { buy: Number(raw.dii?.buy ?? raw.DII?.buy ?? 0), sell: Number(raw.dii?.sell ?? raw.DII?.sell ?? 0), net: Number(raw.dii?.net ?? raw.DII?.net ?? 0) },
 				})));
 			} catch (error: any) {
-				// eslint-disable-next-line no-console
-	console.error(`[IndianAPI] getFIIDIIHistory(${days}) error: ${error.message}`);
+				logger.error(`[IndianAPI] getFIIDIIHistory(${days}) error: ${error.message}`);
 				return this.makeError(error.message);
 			}
-		}, TTL_FII_DII_HISTORY);
+		}, TTL.FII_DII_HISTORY);
 	}
 
-	/**
-	 * Health check — tests connectivity and returns response time.
-	 */
-	async healthCheck(): Promise<{
-		status: "healthy" | "unhealthy" | "unconfigured";
-		message: string;
-		responseTime?: number;
-		rateLimitRemaining?: number;
-	}> {
-		if (!this.isConfigured) {
-			return { status: "unconfigured", message: "INDIAN_API_KEY not configured" };
-		}
+	// ═══════════════════════════════════════════════════════════════════════════
+	// Health & enrichment helpers
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	async healthCheck(): Promise<{ status: "healthy" | "unhealthy" | "unconfigured"; message: string; responseTime?: number; rateLimitRemaining?: number }> {
+		if (!this.isConfigured) return { status: "unconfigured", message: "INDIAN_API_KEY not configured" };
 		const startTime = Date.now();
 		try {
-			await this.client.get("/stock", { params: { name: "RELIANCE" } });
+			await this.client.get("/ping");
 			return {
 				status: "healthy",
-				message: "IndianAPI.in is accessible",
+				message: "IndianAPI.in Growth Plan is accessible",
 				responseTime: Date.now() - startTime,
 				rateLimitRemaining: this.getRateLimitRemaining(),
 			};
 		} catch (error: any) {
-			return {
-				status: "unhealthy",
-				message: error.message,
-				responseTime: Date.now() - startTime,
-			};
+			return { status: "unhealthy", message: error.message, responseTime: Date.now() - startTime };
 		}
 	}
 
-	/**
-	 * Convert to FintekPro enrichment format.
-	 * Drop-in compatible with data-enrichment-service MetricValue shape.
-	 */
 	convertToEnrichedFormat(
 		ratios: IndianAPIRatios,
 		plLatest: IndianAPIProfitLoss | null,

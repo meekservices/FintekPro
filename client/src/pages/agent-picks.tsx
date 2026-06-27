@@ -5604,15 +5604,15 @@ function PicksTable({
 									)}
 								</td>
 								<td className="px-3 py-2.5 text-right whitespace-nowrap">
-									{pick.confidenceScore !== undefined ? (
-										<span
-											className={`text-xs font-semibold ${getConfidenceColor(pick.confidenceScore)}`}
-										>
-											{pick.confidenceScore}%
-										</span>
-									) : (
-										"—"
-									)}
+									{pick.confidenceScore !== undefined ? (() => {
+										const raw = Number(pick.confidenceScore);
+										const clamped = raw > 100 ? Math.min(100, Math.round(raw / 100)) : Math.min(100, Math.max(0, raw));
+										return (
+											<span className={`text-xs font-semibold ${getConfidenceColor(clamped)}`}>
+												{clamped}%
+											</span>
+										);
+									})() : "—"}
 								</td>
 								{/* Risk Level */}
 								<td className="px-3 py-2.5 whitespace-nowrap">

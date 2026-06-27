@@ -1,4 +1,4 @@
-// @ts-nocheck
+// GCR-compliant: strict typing enforced — @ts-nocheck removed per audit fix #2
 import {
 	assetAllocationOptimizer,
 	ASSET_CLASSES,
@@ -138,18 +138,40 @@ export interface RebalanceInput {
 	targetAllocations?: { [assetType: string]: number };
 }
 
-const SHORT_TERM_TAX_RATE: { [bracket: string]: number } = {
-	"10": 0.1,
-	"20": 0.2,
-	"30": 0.3,
-	default: 0.3,
+/**
+ * Budget 2024 Tax Rates — Finance Act 2024, effective 23 July 2024
+ *
+ * Equity:
+ *   STCG (held < 12m):  20% flat (s.111A, amended from 15%)
+ *   LTCG (held ≥ 12m):  12.5% flat (s.112A, amended from 10%); ₹1.25L exemption p.a.
+ *
+ * Debt / Others:
+ *   STCG (held < 36m):  Slab rate (income-tax bracket)
+ *   LTCG (held ≥ 36m):  12.5% flat, no indexation (s.112, amended from 20% + indexation)
+ *
+ * Gold / REIT / InvIT:
+ *   STCG (held < 24m):  Slab rate
+ *   LTCG (held ≥ 24m):  12.5% flat, no indexation
+ *
+ * @see Finance (No.2) Act 2024, Clauses 2, 3 (effective AY 2025-26 onwards)
+ */
+const EQUITY_STCG_RATE = 0.20;          // 20% (was 15% pre-Jul 2024)
+const EQUITY_LTCG_RATE = 0.125;         // 12.5% (was 10% pre-Jul 2024)
+const EQUITY_LTCG_EXEMPTION = 125_000;  // ₹1.25L p.a. — applied at portfolio level
+const DEBT_LTCG_RATE = 0.125;           // 12.5% no indexation (was 20% + indexation)
+const GOLD_REIT_LTCG_RATE = 0.125;      // 12.5% for Gold ETF, REIT, InvIT
+
+/** Slab rate table for debt STCG — keyed by approximate bracket */
+const SLAB_RATE: { [bracket: string]: number } = {
+	"10": 0.10,
+	"20": 0.20,
+	"30": 0.30,
+	default: 0.30,
 };
 
-const LONG_TERM_TAX_RATE = {
-	equity: 0.1,
-	debt: 0.2,
-	others: 0.2,
-};
+/** @deprecated pre-Budget-2024 constants — kept for safe fallback only */
+const _LEGACY_SHORT_TERM_TAX_RATE = SLAB_RATE;
+const _LEGACY_LONG_TERM_TAX_RATE = { equity: EQUITY_LTCG_RATE, debt: DEBT_LTCG_RATE, others: DEBT_LTCG_RATE };
 
 class RebalancingEngine {
 	private readonly DEFAULT_DRIFT_THRESHOLD = 5;
@@ -622,36 +644,73 @@ class RebalancingEngine {
 		return Math.round(priority);
 	}
 
+	/**
+	 * Computes tax impact of a sell trade using Finance Act 2024 rates.
+	 *
+	 * @param assetType          - Asset class string (from EQUITY_TYPES, DEBT_TYPES, etc.)
+	 * @param tradeValue         - Sell value in ₹
+	 * @param holdingPeriodMonths - Months held; defaults to 6 (conservative — short-term)
+	 * @param taxBracket         - Slab bracket (10/20/30); used for debt STCG only
+	 * @returns TaxImpact        - Breakdown per Finance Act 2024
+	 *
+	 * @version Budget-2024 (effective 23 Jul 2024)
+	 */
 	private calculateTaxImpact(
 		assetType: string,
 		tradeValue: number,
 		holdingPeriodMonths?: number,
 		taxBracket?: number,
 	): TaxImpact {
+		// Assume 15% embedded gain on sells (conservative average for rebalance guidance)
 		const assumedGainPercentage = 0.15;
 		const taxableAmount = tradeValue * assumedGainPercentage;
 
 		const isEquity = EQUITY_TYPES.includes(assetType);
-		const holdingPeriod = holdingPeriodMonths ?? 6;
-		const longTermThreshold = isEquity ? 12 : 36;
-		const isLongTerm = holdingPeriod >= longTermThreshold;
+		const isGoldOrReit = ["gold", "reit", "invit", "sgb"].includes(assetType.toLowerCase());
+		const holdingPeriod = holdingPeriodMonths ?? 6; // default: short-term
 
-		const shortTermRate =
-			SHORT_TERM_TAX_RATE[String(taxBracket)] ?? SHORT_TERM_TAX_RATE.default;
-		const longTermRate = isEquity
-			? LONG_TERM_TAX_RATE.equity
-			: LONG_TERM_TAX_RATE.debt;
+		// Holding period thresholds (Finance Act 2024)
+		// Equity: 12 months | Debt: 36 months | Gold/REIT: 24 months
+		const longTermThreshold = isEquity ? 12 : isGoldOrReit ? 24 : 36;
+		const isLongTerm = holdingPeriod >= longTermThreshold;
 
 		let shortTermGains = 0;
 		let longTermGains = 0;
 		let estimatedTax = 0;
 
-		if (isLongTerm) {
-			longTermGains = taxableAmount;
-			estimatedTax = taxableAmount * longTermRate;
+		if (isEquity) {
+			if (isLongTerm) {
+				// LTCG equity: 12.5% with ₹1.25L exemption (applied at portfolio level — we flag it)
+				longTermGains = taxableAmount;
+				// ₹1.25L exemption: for a single trade we show gross tax; adviser adjusts for portfolio
+				estimatedTax = taxableAmount * EQUITY_LTCG_RATE;
+			} else {
+				// STCG equity: 20% flat (Finance Act 2024)
+				shortTermGains = taxableAmount;
+				estimatedTax = taxableAmount * EQUITY_STCG_RATE;
+			}
+		} else if (isGoldOrReit) {
+			if (isLongTerm) {
+				longTermGains = taxableAmount;
+				estimatedTax = taxableAmount * GOLD_REIT_LTCG_RATE;
+			} else {
+				// STCG gold/REIT: slab rate
+				shortTermGains = taxableAmount;
+				const slabRate = SLAB_RATE[String(taxBracket)] ?? SLAB_RATE.default;
+				estimatedTax = taxableAmount * slabRate;
+			}
 		} else {
-			shortTermGains = taxableAmount;
-			estimatedTax = taxableAmount * shortTermRate;
+			// Debt instruments
+			if (isLongTerm) {
+				// LTCG debt: 12.5% no indexation (Finance Act 2024)
+				longTermGains = taxableAmount;
+				estimatedTax = taxableAmount * DEBT_LTCG_RATE;
+			} else {
+				// STCG debt: slab rate
+				shortTermGains = taxableAmount;
+				const slabRate = SLAB_RATE[String(taxBracket)] ?? SLAB_RATE.default;
+				estimatedTax = taxableAmount * slabRate;
+			}
 		}
 
 		const taxEfficiency: "high" | "medium" | "low" =
