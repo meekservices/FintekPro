@@ -1675,10 +1675,111 @@ crypto_status VARCHAR,
           '["capital_preservation","liquidity","treasury_management"]', 100000, '1 day - 6 months', 'CRISIL Liquid Fund Index', TO_CHAR(NOW() - INTERVAL '1 days', 'YYYY-MM-DD'), 'monthly', 6, 'Zero-risk cash management for corporate treasuries', '🏦', FALSE,
           '[{"type":"overnight","label":"Overnight","weight":20},{"type":"liquid","label":"Liquid","weight":35},{"type":"ultra_short","label":"Ultra Short Term","weight":30},{"type":"money_market","label":"Money Market","weight":15}]',
           '[{"name":"Nippon Overnight Fund","isin":"INF204KA1T97","weight":20,"type":"liquid"},{"name":"HDFC Liquid Fund","isin":"INF179K01WF7","weight":20,"type":"liquid"},{"name":"SBI Liquid Fund","isin":"INF200K01FT1","weight":15,"type":"liquid"},{"name":"Kotak Ultra Short Duration","isin":"INF174K01UJ8","weight":20,"type":"debt"},{"name":"ICICI Pru Ultra Short Term","isin":"INF109K01YS3","weight":10,"type":"debt"},{"name":"Aditya Birla Money Market","isin":"INF084M01FD2","weight":15,"type":"debt"}]'
+        ),
+
+        -- ── Batch 4: Gap-fill — 18 missing portfolios ─────────────────────
+
+        -- 🔴 HIGH PRIORITY ──────────────────────────────────────────────────
+
+        ('passive-index', 'Passive Index Portfolio', 'Low-cost market returns tracking Nifty 50 & Next 50', 'moderate', 'equity',
+          '["wealth_creation","long_term_wealth","low_cost"]', 500, '5+ years', 'Nifty 500', TO_CHAR(NOW() - INTERVAL '1 days', 'YYYY-MM-DD'), 'annual', 4, 'Zero fund manager risk — just buy the market', '🗂️', TRUE,
+          '[{"type":"large_cap","label":"Nifty 50","weight":60},{"type":"large_cap","label":"Nifty Next 50","weight":30},{"type":"liquid","label":"Liquid Buffer","weight":10}]',
+          '[{"name":"UTI Nifty 50 Index Fund","isin":"INF789FC1G50","weight":35,"type":"equity"},{"name":"HDFC Nifty 50 Index","isin":"INF179K01XG5","weight":25,"type":"equity"},{"name":"Motilal Oswal Nifty Next 50","isin":"INF247L01032","weight":30,"type":"equity"},{"name":"SBI Liquid Fund","isin":"INF200K01FT1","weight":10,"type":"liquid"}]'
+        ),
+        ('value-investing', 'Value Investing Portfolio', 'Buy great businesses at fair prices for long-term wealth', 'moderate', 'equity',
+          '["capital_appreciation","wealth_creation","contrarian"]', 15000, '5-7 years', 'Nifty 500 Value 50', TO_CHAR(NOW() - INTERVAL '3 days', 'YYYY-MM-DD'), 'semi_annual', 8, 'Low P/E, P/B with strong balance sheets', '💎', TRUE,
+          '[{"type":"value_large","label":"Large Cap Value","weight":50},{"type":"value_mid","label":"Mid Cap Value","weight":30},{"type":"liquid","label":"Cash & Liquid","weight":20}]',
+          '[{"name":"ICICI Pru Value Discovery","isin":"INF109K01BG0","weight":25,"type":"equity"},{"name":"Parag Parikh Flexi Cap","isin":"INF879O01027","weight":20,"type":"equity"},{"name":"Templeton India Value","isin":"INF090I01JD3","weight":15,"type":"equity"},{"name":"Quantum Long Term Equity Value","isin":"INF082J01019","weight":15,"type":"equity"},{"name":"HDFC Capital Builder Value","isin":"INF179K01WP3","weight":15,"type":"equity"},{"name":"Liquid Fund","isin":"INF200K01FT1","weight":10,"type":"liquid"}]'
+        ),
+        ('digital-india-tech', 'Digital India & Technology', 'Ride India''s digital economy boom — IT, AI & FinTech', 'aggressive', 'thematic',
+          '["capital_appreciation","thematic","digital_economy"]', 10000, '5+ years', 'Nifty IT Index', TO_CHAR(NOW() - INTERVAL '2 days', 'YYYY-MM-DD'), 'quarterly', 8, 'India''s $1T digital economy opportunity', '💻', TRUE,
+          '[{"type":"it_services","label":"IT Services","weight":45},{"type":"fintech","label":"FinTech & Payments","weight":25},{"type":"internet","label":"Internet & Platforms","weight":20},{"type":"liquid","label":"Liquid","weight":10}]',
+          '[{"name":"ICICI Pru Technology Fund","isin":"INF109K01FJ3","weight":20,"type":"equity"},{"name":"Tata Digital India","isin":"INF277K01AT3","weight":20,"type":"equity"},{"name":"Aditya Birla Digital India","isin":"INF084M01BC5","weight":15,"type":"equity"},{"name":"Franklin India Technology","isin":"INF090I01023","weight":15,"type":"equity"},{"name":"SBI Technology Opp Fund","isin":"INF200K01MH3","weight":20,"type":"equity"},{"name":"Liquid Fund","isin":"INF200K01FT1","weight":10,"type":"liquid"}]'
+        ),
+        ('senior-citizen-income', 'Senior Citizen Income Portfolio', 'Monthly income with capital safety for retirees 60+', 'conservative', 'debt',
+          '["regular_income","capital_preservation","retirement"]', 5000, '3-5 years', 'CRISIL Short Term Bond Index', TO_CHAR(NOW() - INTERVAL '5 days', 'YYYY-MM-DD'), 'monthly', 8, 'Monthly SWP to bank account — designed for retirees', '🧓', TRUE,
+          '[{"type":"scss_equiv","label":"Senior Savings Equiv","weight":30},{"type":"corporate_bond","label":"AAA Bonds","weight":35},{"type":"balanced","label":"Conservative Hybrid","weight":20},{"type":"gold","label":"Gold Hedge","weight":15}]',
+          '[{"name":"HDFC Short Term Debt","isin":"INF179K01XB6","weight":20,"type":"debt"},{"name":"ICICI Pru Corporate Bond","isin":"INF109K01XS7","weight":25,"type":"debt"},{"name":"Kotak Bond Short Term","isin":"INF174K01VB9","weight":15,"type":"debt"},{"name":"SBI Conservative Hybrid","isin":"INF200K01RD1","weight":15,"type":"hybrid"},{"name":"HDFC Balanced Advantage","isin":"INF179K01WE0","weight":10,"type":"hybrid"},{"name":"Nippon Gold ETF","isin":"INF204KA1I34","weight":15,"type":"gold"}]'
+        ),
+        ('esg-sustainable', 'ESG & Sustainable Portfolio', 'Invest in businesses with strong ESG practices', 'moderate', 'equity',
+          '["esg","socially_responsible","wealth_creation"]', 10000, '5+ years', 'Nifty 100 ESG Index', TO_CHAR(NOW() - INTERVAL '4 days', 'YYYY-MM-DD'), 'semi_annual', 8, 'SEBI ESG-screened funds for responsible investors', '🌱', FALSE,
+          '[{"type":"esg_large","label":"ESG Large Cap","weight":50},{"type":"esg_multi","label":"ESG Multi Cap","weight":30},{"type":"green_debt","label":"Green Bonds","weight":20}]',
+          '[{"name":"Mirae Asset ESG Sector Leaders","isin":"INF769K01EZ5","weight":25,"type":"equity"},{"name":"Aditya Birla ESG Fund","isin":"INF084M01GI7","weight":20,"type":"equity"},{"name":"SBI Magnum Equity ESG","isin":"INF200K01TY4","weight":20,"type":"equity"},{"name":"Kotak ESG Opportunities","isin":"INF174K01ZX3","weight":15,"type":"equity"},{"name":"HDFC Corp Bond","isin":"INF179K01WD2","weight":20,"type":"debt"}]'
+        ),
+
+        -- 🟡 MEDIUM PRIORITY ─────────────────────────────────────────────────
+
+        ('india-infrastructure', 'India Infrastructure Portfolio', 'Capitalise on India''s ₹111 lakh crore infra investment', 'aggressive', 'thematic',
+          '["capital_appreciation","thematic","infrastructure"]', 15000, '7+ years', 'Nifty Infrastructure Index', TO_CHAR(NOW() - INTERVAL '6 days', 'YYYY-MM-DD'), 'quarterly', 9, 'Roads, ports, power, railways — India building spree', '🏗️', FALSE,
+          '[{"type":"infra_equity","label":"Infrastructure Equity","weight":60},{"type":"roads_power","label":"Roads & Power","weight":25},{"type":"invit","label":"InvITs","weight":15}]',
+          '[{"name":"ICICI Pru Infrastructure","isin":"INF109K01DC0","weight":25,"type":"equity"},{"name":"Kotak Infrastructure & Economic Reform","isin":"INF174K01HE6","weight":20,"type":"equity"},{"name":"DSP India T.I.G.E.R Fund","isin":"INF740K01137","weight":15,"type":"equity"},{"name":"Tata Infrastructure Fund","isin":"INF277K01DP4","weight":15,"type":"equity"},{"name":"IRB InvIT","isin":"INE500L20022","weight":10,"type":"invit"},{"name":"IndiGrid InvIT","isin":"INE219O01021","weight":15,"type":"invit"}]'
+        ),
+        ('healthcare-pharma', 'Healthcare & Pharma Portfolio', 'Defensive sector with structural long-term growth', 'moderate', 'thematic',
+          '["capital_appreciation","thematic","defensive"]', 10000, '5+ years', 'Nifty Pharma Index', TO_CHAR(NOW() - INTERVAL '7 days', 'YYYY-MM-DD'), 'semi_annual', 8, 'India''s $130B pharma & healthcare opportunity', '🏥', FALSE,
+          '[{"type":"pharma","label":"Pharma & Biotech","weight":50},{"type":"hospitals","label":"Hospitals & Diagnostics","weight":30},{"type":"medtech","label":"MedTech","weight":20}]',
+          '[{"name":"ICICI Pru Pharma Healthcare","isin":"INF109K01XP3","weight":25,"type":"equity"},{"name":"Mirae Asset Healthcare","isin":"INF769K01EX0","weight":20,"type":"equity"},{"name":"UTI Healthcare Fund","isin":"INF789F01GV4","weight":20,"type":"equity"},{"name":"Nippon India Pharma","isin":"INF204K01BI5","weight":20,"type":"equity"},{"name":"DSP Healthcare Fund","isin":"INF740K01GJ4","weight":15,"type":"equity"}]'
+        ),
+        ('multi-asset-5factor', 'Multi-Asset 5-Factor Portfolio', 'True diversification across 5 uncorrelated asset classes', 'moderate', 'hybrid',
+          '["diversification","steady_growth","downside_protection"]', 20000, '5+ years', 'CRISIL Multi Asset Index', TO_CHAR(NOW() - INTERVAL '8 days', 'YYYY-MM-DD'), 'quarterly', 10, 'Equity + Debt + Gold + REIT + International — all in one', '🌐', TRUE,
+          '[{"type":"equity","label":"Indian Equity","weight":35},{"type":"international","label":"International","weight":15},{"type":"debt","label":"Debt","weight":25},{"type":"gold","label":"Gold","weight":15},{"type":"reit","label":"REIT/InvIT","weight":10}]',
+          '[{"name":"Nifty 500 Index Fund","isin":"INF204KA1B73","weight":20,"type":"equity"},{"name":"Parag Parikh Flexi Cap","isin":"INF879O01027","weight":15,"type":"equity"},{"name":"ICICI Pru US Bluechip","isin":"INF109KA1YC2","weight":15,"type":"international"},{"name":"HDFC Short Term Debt","isin":"INF179K01XB6","weight":15,"type":"debt"},{"name":"Gilt Fund","isin":"INF174KA1JI7","weight":10,"type":"debt"},{"name":"Nippon Gold ETF","isin":"INF204KA1I34","weight":15,"type":"gold"},{"name":"Embassy REIT","isin":"INE251K01021","weight":10,"type":"reit"}]'
+        ),
+        ('first-time-investor', 'First-Time Investor Starter', 'Simple 2-fund portfolio for India''s new investors', 'moderate', 'equity',
+          '["wealth_creation","long_term_wealth","beginner"]', 500, '5+ years', 'Nifty 500', TO_CHAR(NOW() - INTERVAL '1 days', 'YYYY-MM-DD'), 'annual', 3, 'Start with ₹500/month — simplest path to wealth', '🌟', TRUE,
+          '[{"type":"index_equity","label":"Equity Index","weight":70},{"type":"debt","label":"Debt Safety","weight":30}]',
+          '[{"name":"UTI Nifty 50 Index Fund","isin":"INF789FC1G50","weight":50,"type":"equity"},{"name":"Nifty Next 50 Index Fund","isin":"INF247L01032","weight":20,"type":"equity"},{"name":"HDFC Short Term Debt","isin":"INF179K01XB6","weight":30,"type":"debt"}]'
+        ),
+        ('home-purchase', 'Home Purchase Portfolio', 'Build your down payment in 3-5 years', 'conservative', 'goal_based',
+          '["home_purchase","goal_planning","capital_preservation"]', 5000, '3-5 years', 'CRISIL Hybrid 25+75 Conservative Index', TO_CHAR(NOW() - INTERVAL '2 days', 'YYYY-MM-DD'), 'quarterly', 6, 'Targeted corpus build for home down payment', '🏠', FALSE,
+          '[{"type":"equity","label":"Equity Growth","weight":30},{"type":"hybrid","label":"Hybrid Buffer","weight":20},{"type":"debt","label":"Debt Safety","weight":50}]',
+          '[{"name":"Parag Parikh Flexi Cap","isin":"INF879O01027","weight":15,"type":"equity"},{"name":"Nifty 50 Index","isin":"INF204KA1B73","weight":15,"type":"equity"},{"name":"HDFC Balanced Advantage","isin":"INF179K01WE0","weight":20,"type":"hybrid"},{"name":"HDFC Short Term Debt","isin":"INF179K01XB6","weight":25,"type":"debt"},{"name":"SBI Corp Bond","isin":"INF200K01RH2","weight":25,"type":"debt"}]'
+        ),
+
+        -- 🟢 LOWER PRIORITY ──────────────────────────────────────────────────
+
+        ('banking-bfsi', 'Banking & BFSI Portfolio', 'India''s financial sector — largest Nifty weight play', 'aggressive', 'thematic',
+          '["capital_appreciation","thematic","financial_sector"]', 15000, '5+ years', 'Nifty Bank Index', TO_CHAR(NOW() - INTERVAL '5 days', 'YYYY-MM-DD'), 'quarterly', 8, 'Banks, NBFCs, insurance — India credit growth story', '🏦', FALSE,
+          '[{"type":"banks","label":"Banks","weight":60},{"type":"nbfc","label":"NBFC & Insurance","weight":30},{"type":"liquid","label":"Liquid","weight":10}]',
+          '[{"name":"ICICI Pru Banking & Financial Services","isin":"INF109K01XF0","weight":25,"type":"equity"},{"name":"SBI Banking & Financial Services","isin":"INF200K01LM5","weight":20,"type":"equity"},{"name":"Nippon India Banking","isin":"INF204K01XI9","weight":20,"type":"equity"},{"name":"HDFC Banking ETF","isin":"INF179K01XJ9","weight":25,"type":"equity"},{"name":"Liquid Fund","isin":"INF200K01FT1","weight":10,"type":"liquid"}]'
+        ),
+        ('consumption-rural', 'Consumption & Rural India', 'India''s 900M rural consumers driving next growth wave', 'moderate', 'thematic',
+          '["capital_appreciation","thematic","consumption"]', 10000, '5+ years', 'Nifty India Consumption', TO_CHAR(NOW() - INTERVAL '3 days', 'YYYY-MM-DD'), 'quarterly', 9, 'FMCG, retail, agri-inputs — rural India rising', '🛒', FALSE,
+          '[{"type":"fmcg","label":"FMCG & Consumer","weight":50},{"type":"agri","label":"Agri & Rural","weight":25},{"type":"retail","label":"Retail & D2C","weight":25}]',
+          '[{"name":"Mirae Asset Great Consumer","isin":"INF769K01EW2","weight":25,"type":"equity"},{"name":"ICICI Pru FMCG Fund","isin":"INF109K01GE4","weight":20,"type":"equity"},{"name":"SBI Consumption Opportunities","isin":"INF200K01TZ1","weight":20,"type":"equity"},{"name":"Canara Robeco Consumer Trends","isin":"INF760K01DM7","weight":20,"type":"equity"},{"name":"Kotak India EQ Contra","isin":"INF174K01HQ0","weight":15,"type":"equity"}]'
+        ),
+        ('manufacturing-make-in-india', 'Manufacturing & Make in India', 'PLI schemes + China+1 driving India''s factory boom', 'aggressive', 'thematic',
+          '["capital_appreciation","thematic","manufacturing"]', 15000, '7+ years', 'Nifty India Manufacturing', TO_CHAR(NOW() - INTERVAL '4 days', 'YYYY-MM-DD'), 'quarterly', 9, 'Chemicals, auto, electronics, defence manufacturing', '🏭', FALSE,
+          '[{"type":"auto","label":"Auto & Auto Anc","weight":30},{"type":"chemicals","label":"Chemicals & Specialty","weight":25},{"type":"defence","label":"Defence & Aero","weight":25},{"type":"electronics","label":"Electronics Mfg","weight":20}]',
+          '[{"name":"DSP India T.I.G.E.R Fund","isin":"INF740K01137","weight":20,"type":"equity"},{"name":"ICICI Pru Manufacturing","isin":"INF109K01XN8","weight":20,"type":"equity"},{"name":"Aditya Birla Manufacturing Equity","isin":"INF084M01GJ5","weight":20,"type":"equity"},{"name":"HDFC Manufacturing Fund","isin":"INF179K01YD3","weight":20,"type":"equity"},{"name":"Kotak Manufacture in India","isin":"INF174KA1SB9","weight":20,"type":"equity"}]'
+        ),
+        ('hni-wealth-compounder', 'HNI Wealth Compounder', 'PMS-like quality investing for high-net-worth individuals', 'moderate', 'equity',
+          '["capital_appreciation","wealth_creation","quality_factor"]', 500000, '7+ years', 'Nifty 200 Quality 30', TO_CHAR(NOW() - INTERVAL '6 days', 'YYYY-MM-DD'), 'quarterly', 12, 'Concentrated high-conviction quality portfolio for HNIs', '👑', FALSE,
+          '[{"type":"quality_large","label":"Quality Large Cap","weight":50},{"type":"quality_mid","label":"Quality Mid Cap","weight":30},{"type":"alternatives","label":"Alternatives","weight":20}]',
+          '[{"name":"Axis Growth Opportunities","isin":"INF846K01EX0","weight":20,"type":"equity"},{"name":"Mirae Asset Focused","isin":"INF769K01EY8","weight":20,"type":"equity"},{"name":"PPFAS Flexi Cap","isin":"INF879O01027","weight":15,"type":"equity"},{"name":"Kotak Focused Equity","isin":"INF174KA1RX9","weight":15,"type":"equity"},{"name":"Embassy REIT","isin":"INE251K01021","weight":10,"type":"reit"},{"name":"IndiGrid InvIT","isin":"INE219O01021","weight":10,"type":"invit"},{"name":"Nippon Gold ETF","isin":"INF204KA1I34","weight":10,"type":"gold"}]'
+        ),
+        ('intl-emerging-markets', 'International Emerging Markets', 'China, SE Asia & Brazil beyond US equity exposure', 'aggressive', 'international',
+          '["global_diversification","emerging_market_growth","currency_hedge"]', 10000, '7+ years', 'MSCI Emerging Markets Index', TO_CHAR(NOW() - INTERVAL '7 days', 'YYYY-MM-DD'), 'semi_annual', 7, 'Emerging market alpha beyond India for global investors', '🗺️', FALSE,
+          '[{"type":"china","label":"China & HK","weight":35},{"type":"sea","label":"SE Asia","weight":25},{"type":"latam","label":"Brazil & LatAm","weight":20},{"type":"other_em","label":"Other EM","weight":20}]',
+          '[{"name":"Edelweiss Greater China Equity","isin":"INF754K01HK2","weight":25,"type":"international"},{"name":"Mirae Asset NYSE FANG+ ETF FoF","isin":"INF769K01FE9","weight":15,"type":"international"},{"name":"Franklin Asian Equity","isin":"INF090I01155","weight":20,"type":"international"},{"name":"DSP World Mining","isin":"INF740K01EB5","weight":20,"type":"international"},{"name":"Kotak International REIT FoF","isin":"INF174KA1RW1","weight":20,"type":"international"}]'
+        ),
+        ('arbitrage-liquid-hybrid', 'Arbitrage & Liquid Hybrid', 'Tax-efficient liquid parking — equity taxation on liquid returns', 'conservative', 'hybrid',
+          '["capital_preservation","tax_efficiency","liquidity"]', 25000, '3-12 months', 'Nifty 50 Arbitrage Index', TO_CHAR(NOW() - INTERVAL '2 days', 'YYYY-MM-DD'), 'quarterly', 6, 'Liquid fund alternative with lower tax for 3M+ horizon', '🔄', FALSE,
+          '[{"type":"arbitrage","label":"Arbitrage","weight":65},{"type":"liquid","label":"Liquid","weight":20},{"type":"ultra_short","label":"Ultra Short Debt","weight":15}]',
+          '[{"name":"ICICI Pru Arbitrage Fund","isin":"INF109K01XG8","weight":25,"type":"hybrid"},{"name":"Kotak Arbitrage Fund","isin":"INF174K01ZI5","weight":20,"type":"hybrid"},{"name":"SBI Arbitrage Opportunities","isin":"INF200K01LL7","weight":20,"type":"hybrid"},{"name":"HDFC Arbitrage Fund","isin":"INF179K01WL2","weight":20,"type":"hybrid"},{"name":"SBI Liquid Fund","isin":"INF200K01FT1","weight":15,"type":"liquid"}]'
+        ),
+        ('wedding-milestone', 'Wedding & Milestone Portfolio', 'Build your big-day corpus in 2-4 years', 'conservative', 'goal_based',
+          '["goal_planning","wedding","milestone"]', 2000, '2-4 years', 'CRISIL Hybrid 25+75 Conservative Index', TO_CHAR(NOW() - INTERVAL '1 days', 'YYYY-MM-DD'), 'quarterly', 5, 'Capital-safe milestone planning with moderate growth', '💍', FALSE,
+          '[{"type":"hybrid","label":"Conservative Hybrid","weight":40},{"type":"debt","label":"Short Debt","weight":40},{"type":"gold","label":"Gold Auspice","weight":20}]',
+          '[{"name":"HDFC Balanced Advantage","isin":"INF179K01WE0","weight":25,"type":"hybrid"},{"name":"SBI Conservative Hybrid","isin":"INF200K01RD1","weight":15,"type":"hybrid"},{"name":"HDFC Short Term Debt","isin":"INF179K01XB6","weight":25,"type":"debt"},{"name":"Kotak Bond Short Term","isin":"INF174K01VB9","weight":15,"type":"debt"},{"name":"Nippon Gold ETF","isin":"INF204KA1I34","weight":20,"type":"gold"}]'
+        ),
+        ('emergency-fund', 'Emergency Fund Portfolio', 'Instant-access 6-month expense cushion', 'conservative', 'debt',
+          '["capital_preservation","liquidity","emergency"]', 1000, '0-3 months', 'CRISIL Liquid Fund Index', TO_CHAR(NOW() - INTERVAL '1 days', 'YYYY-MM-DD'), 'monthly', 3, 'Same-day redemption — your financial safety net', '🛡️', FALSE,
+          '[{"type":"overnight","label":"Overnight","weight":30},{"type":"liquid","label":"Liquid","weight":50},{"type":"ultra_short","label":"Ultra Short","weight":20}]',
+          '[{"name":"Nippon Overnight Fund","isin":"INF204KA1T97","weight":30,"type":"liquid"},{"name":"HDFC Liquid Fund","isin":"INF179K01WF7","weight":30,"type":"liquid"},{"name":"SBI Liquid Fund","isin":"INF200K01FT1","weight":20,"type":"liquid"},{"name":"ICICI Pru Ultra Short Term","isin":"INF109K01YS3","weight":20,"type":"debt"}]'
         )
       ON CONFLICT (id) DO NOTHING;
     `);
-		console.log("✅ model_portfolios table created and seeded (engine audit Fix #6)");
+\t\tconsole.log("✅ model_portfolios table created and seeded (engine audit Fix #6)");
 	} catch (mpErr: any) {
 		console.warn("[Migration] model_portfolios setup skipped (non-fatal):", mpErr?.message);
 	}
