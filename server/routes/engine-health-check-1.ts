@@ -499,6 +499,28 @@ router.get("/run", async (req: Request, res: Response) => {
 			),
 
 			testEngine(
+				"STT Engine — Budget 2024",
+				"Transaction Processing",
+				async () => {
+					const { sttEngineSelfTest, STT_ENGINE_VERSION } = await import(
+						"../services/stt-engine"
+					);
+					const selfTest = sttEngineSelfTest();
+					return {
+						pass: selfTest.pass,
+						engine_version: STT_ENGINE_VERSION,
+						rates: {
+							equity_delivery: "0.1% both sides",
+							equity_intraday: "0.025% sell only",
+							fo_futures: "0.02% sell only (Budget 2024 +100%)",
+							fo_options: "0.1% on premium (Budget 2024 +60%)",
+							mf_equity_redemption: "0.001% sell only",
+						},
+					};
+				},
+			),
+
+			testEngine(
 				"Python Analytics Service",
 				"AI & Quant Services",
 				async () => {

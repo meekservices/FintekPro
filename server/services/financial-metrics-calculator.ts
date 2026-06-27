@@ -866,3 +866,36 @@ export class FinancialMetricsCalculator {
 // Export singleton instance
 export const financialMetricsCalculator = new FinancialMetricsCalculator();
 console.log("✅ Financial Metrics Calculator Service initialized");
+
+// ─── GCR Financial Logic Integrity ───────────────────────────────────────────
+/** Bump when any ratio formula or interpretation range changes */
+export const FINANCIAL_METRICS_ENGINE_VERSION = "1.0.0-FASP";
+
+export interface MetricResult<T extends number | null = number | null> {
+  metric: string;
+  value: T;
+  engine_version: string;
+  calculation_timestamp: string;
+}
+
+/**
+ * Wraps any raw metric value with GCR-required engine_version + calculation_timestamp.
+ * Use when surfacing metrics to API responses or AI advisory outputs.
+ *
+ * @example
+ *   const pe = financialMetricsCalculator.calculateTrailingPE(price, eps);
+ *   return withEngineVersion("trailingPE", pe);
+ *   // → { metric: "trailingPE", value: 22.5, engine_version: "1.0.0-FASP", calculation_timestamp: "..." }
+ */
+export function withEngineVersion<T extends number | null>(
+  metric: string,
+  value: T,
+): MetricResult<T> {
+  return {
+    metric,
+    value,
+    engine_version: FINANCIAL_METRICS_ENGINE_VERSION,
+    calculation_timestamp: new Date().toISOString(),
+  };
+}
+

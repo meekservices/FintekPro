@@ -58,6 +58,9 @@ export interface TaxImpact {
 	taxEfficiency: "high" | "medium" | "low";
 }
 
+/** GCR FASP-AI: bump when rebalancing algorithm, drift thresholds, or urgency rules change */
+export const REBALANCING_ENGINE_VERSION = "1.0.0-FASP";
+
 export interface RebalanceAnalysis {
 	needsRebalance: boolean;
 	urgency: "immediate" | "recommended" | "optional" | "none";
@@ -66,6 +69,9 @@ export interface RebalanceAnalysis {
 	summary: RebalanceSummary;
 	constraints: ConstraintAnalysis;
 	recommendations: string[];
+	/** GCR FASP-AI Financial Logic Integrity + Advisory traceability */
+	engine_version: string;
+	calculation_timestamp: string;
 }
 
 export interface DriftAnalysis {
@@ -256,6 +262,8 @@ class RebalancingEngine {
 			summary,
 			constraints: constraintAnalysis,
 			recommendations,
+			engine_version: REBALANCING_ENGINE_VERSION,
+			calculation_timestamp: new Date().toISOString(),
 		};
 	}
 

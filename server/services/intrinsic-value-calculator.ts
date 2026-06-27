@@ -104,6 +104,9 @@ export interface BookValueResult {
 	dataSource: string;
 }
 
+/** GCR: bump when DCF formula, Graham formula, or relative valuation method changes */
+export const INTRINSIC_VALUE_ENGINE_VERSION = "1.0.0-FASP";
+
 export interface IntrinsicValueResult {
 	symbol: string;
 	companyName: string;
@@ -132,6 +135,9 @@ export interface IntrinsicValueResult {
 		hasSectorData: boolean;
 		hasHistoricalData: boolean;
 	};
+	/** GCR Financial Logic Integrity */
+	engine_version: string;
+	calculation_timestamp: string;
 }
 
 export interface AuditEntry {
@@ -1397,6 +1403,8 @@ class IntrinsicValueCalculatorService {
 				hasSectorData: !!stockData.sector,
 				hasHistoricalData: (stockData.freeCashFlows?.length || 0) >= 3,
 			},
+			engine_version: INTRINSIC_VALUE_ENGINE_VERSION,
+			calculation_timestamp: new Date().toISOString(),
 		};
 	}
 
@@ -1438,6 +1446,8 @@ class IntrinsicValueCalculatorService {
 				hasSectorData: false,
 				hasHistoricalData: false,
 			},
+			engine_version: INTRINSIC_VALUE_ENGINE_VERSION,
+			calculation_timestamp: new Date().toISOString(),
 		};
 	}
 

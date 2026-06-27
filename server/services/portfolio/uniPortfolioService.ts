@@ -367,6 +367,8 @@ export class UniPortfolioService {
 				singleAssetLimit: { max: 100, violations: [] },
 			},
 			recommendations: ["Portfolio data unavailable. Please try again."],
+			engine_version: "1.0.0-FASP",
+			calculation_timestamp: new Date().toISOString(),
 		};
 	}
 }

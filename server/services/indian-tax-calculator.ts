@@ -1,3 +1,6 @@
+/** GCR: bump when any slab, deduction limit, or formula changes */
+export const INDIAN_TAX_CALCULATOR_ENGINE_VERSION = "1.0.0-AY2026-27";
+
 interface ITRCalculationResponse {
 	success: boolean;
 	data?: {
@@ -11,6 +14,9 @@ interface ITRCalculationResponse {
 		effectiveTaxRate: number;
 	};
 	message: string;
+	/** GCR Financial Logic Integrity */
+	engine_version: string;
+	calculation_timestamp: string;
 }
 
 type EntityType =
@@ -747,6 +753,8 @@ export class IndianTaxCalculator {
 				success: true,
 				data: data!,
 				message: `Tax calculated using native Indian Tax Calculator (${regime.toUpperCase()} regime, AY ${assessmentYear})`,
+				engine_version: INDIAN_TAX_CALCULATOR_ENGINE_VERSION,
+				calculation_timestamp: new Date().toISOString(),
 			};
 		} catch (error) {
 			console.error("[IndianTaxCalculator] calculateTax error:", error);
@@ -754,6 +762,8 @@ export class IndianTaxCalculator {
 				success: false,
 				message:
 					error instanceof Error ? error.message : "Tax calculation failed",
+				engine_version: INDIAN_TAX_CALCULATOR_ENGINE_VERSION,
+				calculation_timestamp: new Date().toISOString(),
 			};
 		}
 	}
@@ -841,6 +851,8 @@ export class IndianTaxCalculator {
 				success: true,
 				data: data!,
 				message: `Tax calculated using native Indian Tax Calculator (${regime.toUpperCase()} regime, AY ${wizardData.assessmentYear || "2025-26"})`,
+				engine_version: INDIAN_TAX_CALCULATOR_ENGINE_VERSION,
+				calculation_timestamp: new Date().toISOString(),
 			};
 		} catch (error) {
 			console.error(
@@ -853,6 +865,8 @@ export class IndianTaxCalculator {
 					error instanceof Error
 						? error.message
 						: "Wizard tax calculation failed",
+				engine_version: INDIAN_TAX_CALCULATOR_ENGINE_VERSION,
+				calculation_timestamp: new Date().toISOString(),
 			};
 		}
 	}

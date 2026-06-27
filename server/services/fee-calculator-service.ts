@@ -1,4 +1,6 @@
 // @ts-nocheck
+/** GCR: bump when any fee structure, GST rate, or waiver logic changes */
+export const FEE_CALCULATOR_ENGINE_VERSION = "1.0.0-FASP";
 import { db } from "../db";
 import { platformFeeConfig, type PlatformFeeConfig } from "@shared/schema";
 import { eq, and, isNull, lte, or, gte } from "drizzle-orm";
@@ -44,6 +46,9 @@ export interface FeeBreakdown {
 		convenience: number;
 		valueAdded: number;
 	};
+	/** GCR Financial Logic Integrity */
+	engine_version: string;
+	calculation_timestamp: string;
 }
 
 class FeeCalculatorService {
@@ -290,6 +295,8 @@ class FeeCalculatorService {
 			totalWaivers: Math.round(totalWaivers * 100) / 100,
 			grandTotal: Math.round((totalFees + totalGst) * 100) / 100,
 			breakdown,
+			engine_version: FEE_CALCULATOR_ENGINE_VERSION,
+			calculation_timestamp: new Date().toISOString(),
 		};
 	}
 
