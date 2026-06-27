@@ -165,9 +165,42 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 
 		logBootProgress("Step 3: Initializing Middleware & Auth...");
 
+		// ── SECURITY: Block common secret/config probe patterns ─────────────────
+		// Returns 403 immediately — before CSRF, auth, or any route logic runs.
+		// Protects against bots scanning for .env, .git, WordPress, phpinfo etc.
+		// Evidence: /api/.env probe detected in Cloud Run logs 2026-06-27.
+		const BLOCKED_PROBE_PREFIXES = [
+			"/.env",
+			"/api/.env",
+			"/.git",
+			"/.svn",
+			"/wp-admin",
+			"/wp-login",
+			"/phpinfo",
+			"/config.php",
+			"/adminer",
+			"/.DS_Store",
+		];
+		app.use((req, res, next) => {
+			const path = req.path.toLowerCase();
+			if (BLOCKED_PROBE_PREFIXES.some((p) => path.startsWith(p) || path === p)) {
+				logger.warn("[SECURITY_PROBE_BLOCKED]", {
+					event: "SECURITY_PROBE_BLOCKED",
+					path: req.path,
+					ip: req.ip,
+					user_agent: req.headers["user-agent"]?.substring(0, 120) ?? "unknown",
+					latency_ms: 0,
+					status: "blocked",
+				});
+				return res.status(403).json({ error: "Forbidden" });
+			}
+			next();
+		});
+
 		// ── GLOBAL MIDDLEWARE ────────────────────────────────────────────────────
 		// Subdomain detection must be first to set portal context flags
 		app.use(subdomainDetection);
+
 
 		// Acting-as context middleware — reads agent delegation session if present.
 		// Must be after session middleware, before any route handlers.

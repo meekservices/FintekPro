@@ -30,31 +30,57 @@ export function useVersionCheck(): VersionCheckResult {
 		setIsChecking(true);
 		setError(null);
 
-		try {
-			const response = await fetch("/api/version", {
-				cache: "no-store",
-				headers: {
-					"Cache-Control": "no-cache",
-					Pragma: "no-cache",
-				},
-			});
+		// Retry up to 3 times with exponential backoff (2s, 4s).
+		// Prevents spurious "Update Available" toasts during the ~20s Cloud Run
+		// cold-start / rolling-deploy window when the server transiently returns 503.
+		const MAX_RETRIES = 3;
+		let lastErr: Error | null = null;
 
-			if (!response.ok) {
-				throw new Error("Failed to fetch version");
+		for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+			try {
+				const response = await fetch("/api/version", {
+					cache: "no-store",
+					headers: {
+						"Cache-Control": "no-cache",
+						Pragma: "no-cache",
+					},
+				});
+
+				if (response.status === 503 && attempt < MAX_RETRIES) {
+					// Server cold-starting — wait and retry silently
+					await new Promise((r) => setTimeout(r, 2000 * attempt));
+					continue;
+				}
+
+				if (!response.ok) {
+					throw new Error(`HTTP ${response.status}`);
+				}
+
+				const data = await response.json();
+
+				if (data.success && data.data?.version) {
+					setServerVersion(data.data.version);
+					setLastChecked(new Date());
+				}
+
+				lastErr = null;
+				break; // success
+			} catch (err) {
+				lastErr = err instanceof Error ? err : new Error("Version check failed");
+				if (attempt < MAX_RETRIES) {
+					await new Promise((r) => setTimeout(r, 2000 * attempt));
+				}
 			}
-
-			const data = await response.json();
-
-			if (data.success && data.data?.version) {
-				setServerVersion(data.data.version);
-				setLastChecked(new Date());
-			}
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Version check failed");
-		} finally {
-			setIsChecking(false);
 		}
+
+		if (lastErr) {
+			// All retries exhausted — set error but do NOT mark as outdated
+			setError(lastErr.message);
+		}
+
+		setIsChecking(false);
 	}, []);
+
 
 	const forceUpdate = useCallback(async () => {
 		console.log("[VersionCheck] Force update triggered");
