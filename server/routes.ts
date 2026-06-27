@@ -47,6 +47,7 @@ import aiInvestmentRoutes from "./routes/ai-investment-routes";
 import { registerAIStockRecommendationRoutes } from "./routes/ai-stock-recommendation-routes";
 import engineHealthRoutes from "./routes/engine-health-check";
 import { registerMarketDataRoutes } from "./routes/market-data";
+import { registerMarketNewsRoutes } from "./routes/market-news-routes";
 import { registerPlatformStatsRoutes } from "./routes/platform-stats-routes";
 import { registerPortalSystemRoutes } from "./routes/portal-system";
 import { registerBondsMarketRoutes } from "./routes/bonds-market";
@@ -335,6 +336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// Missing Production Routes
 	registerMarketDataRoutes(app);
+	registerMarketNewsRoutes(app);   // ET Markets news aggregator
 	registerPlatformStatsRoutes(app);
 	registerPortalSystemRoutes(app);
 	registerBondsMarketRoutes(app);

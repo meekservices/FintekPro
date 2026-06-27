@@ -1830,7 +1830,165 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       model_version: "FASP-AI-v2.0", timestamp: new Date().toISOString(),
     },
   },
+
+  // ── CORPORATE TREASURY — Overnight Safety Park ───────────────────────────
+  {
+    id: "corp-treasury-overnight",
+    assetClass: "debt",
+    subCategory: "Corporate Treasury",
+    name: "Overnight Safety Park",
+    tagline: "T+0 liquidity for idle corporate cash — zero NAV risk",
+    riskProfile: "conservative",
+    goal: ["capital_preservation", "income"],
+    minInvestment: 5000000,   // ₹50L — soft guidance for CFO office
+    timeHorizon: "1–7 days (rolling)",
+    cagr1Y: 7.0, cagr3Y: 7.1, cagr5Y: 6.9,
+    benchmarkCagr1Y: 6.5, benchmarkName: "RBI Repo Rate (6.50%)",
+    lastRebalanced: "2026-06-15", totalHoldings: 4,
+    rebalancingFrequency: "monthly",
+    highlight: "Instant redemption up to ₹50,000 or 90% of folio. Zero duration risk. Ideal for surplus idle cash ≤7 days.",
+    icon: "🏦", isNew: true,
+    allocation: [
+      { category: "overnight_mf", label: "Overnight MF",     weight: 50, color: "#10B981", icon: "🌙" },
+      { category: "liquid_mf",    label: "Liquid MF",        weight: 30, color: "#3B82F6", icon: "💧" },
+      { category: "tbill_etf",    label: "T-Bills (via ETF)", weight: 20, color: "#6366F1", icon: "🏛️" },
+    ],
+    holdings: [
+      { rank: 1, name: "Nippon India Overnight Fund",     category: "Overnight MF", weight: 25, currentReturn: 6.95 },
+      { rank: 2, name: "ICICI Pru Overnight Fund",        category: "Overnight MF", weight: 25, currentReturn: 6.92 },
+      { rank: 3, name: "HDFC Liquid Fund",                category: "Liquid MF",    weight: 20, currentReturn: 7.20 },
+      { rank: 4, name: "SBI Liquid Fund",                 category: "Liquid MF",    weight: 10, currentReturn: 7.15 },
+      { rank: 5, name: "Nippon ETF Nifty 1D Rate Liquid BeES", category: "T-Bill ETF", weight: 20, currentReturn: 7.05 },
+    ],
+    performance: PERFORMANCE_BASE("corp-treasury-overnight", 1000, 24, 7.0, 0.2),
+    riskMetrics: { sharpeRatio: 3.8, maxDrawdown: -0.1, volatility: 0.3, beta: 0.01, alpha: 0.5 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Added Liquid BeES for exchange-traded T+0 exit", changes: ["T-Bill ETF: 15% → 20%", "Liquid MF trimmed: 35% → 30%"] },
+      { date: "Apr 2026", description: "Overnight fund split across 2 AMCs for counterparty diversification", changes: ["Added ICICI Pru Overnight 25%", "Nippon: 50% → 25%"] },
+    ],
+    aiInsight: {
+      recommendation: "Optimal parking for surplus corporate working capital with ≤7 day horizon. Overnight MF = same return as liquid MF with zero duration risk. T-Bill ETF adds exchange exit option. Section 194K TDS applies on distributions — factor into post-tax yield.",
+      confidence_score: 97,
+      factors_considered: [
+        "RBI repo rate at 6.50% — overnight MF yields track corridor closely",
+        "Zero credit risk: only G-Sec/repo-backed instruments",
+        "T+0 instant redemption regulatory mandate (SEBI circular Jan 2024)",
+        "No lock-in — suitable for daily treasury sweep",
+        "s.194K TDS @ 10% on distributions if cumulative > ₹5,000",
+      ],
+      model_version: "FASP-AI-v2.0", timestamp: new Date().toISOString(),
+      confidence_threshold: 85, meets_threshold: true,
+    },
+  },
+
+  // ── CORPORATE TREASURY — Short-Term Treasury ─────────────────────────────
+  {
+    id: "corp-treasury-short",
+    assetClass: "debt",
+    subCategory: "Corporate Treasury",
+    name: "Short-Term Treasury",
+    tagline: "90-day corporate treasury — money market rates with daily liquidity",
+    riskProfile: "conservative",
+    goal: ["capital_preservation", "income"],
+    minInvestment: 10000000,  // ₹1Cr
+    timeHorizon: "1–3 months",
+    cagr1Y: 7.45, cagr3Y: 7.6, cagr5Y: 7.4,
+    benchmarkCagr1Y: 7.0, benchmarkName: "CRISIL Liquid Fund Index",
+    lastRebalanced: "2026-06-01", totalHoldings: 6,
+    rebalancingFrequency: "monthly",
+    highlight: "AA+ CDs and CPs only. Duration ≤90 days. Beats savings/FD at 1-3M horizon with no lock-in.",
+    icon: "📋", isNew: true,
+    allocation: [
+      { category: "ultra_short", label: "Ultra Short Duration MF", weight: 40, color: "#3B82F6", icon: "⚡" },
+      { category: "money_market", label: "Money Market MF",        weight: 30, color: "#10B981", icon: "💹" },
+      { category: "cd_cp",       label: "CD/CP via MF",            weight: 20, color: "#F59E0B", icon: "📜" },
+      { category: "liquid",      label: "Liquid MF (buffer)",      weight: 10, color: "#6B7280", icon: "💧" },
+    ],
+    holdings: [
+      { rank: 1, name: "HDFC Ultra Short Term Fund",          category: "Ultra Short MF",  weight: 22, currentReturn: 7.55 },
+      { rank: 2, name: "ICICI Pru Ultra Short Term Fund",     category: "Ultra Short MF",  weight: 18, currentReturn: 7.48 },
+      { rank: 3, name: "Aditya Birla SL Money Market Fund",  category: "Money Market MF", weight: 18, currentReturn: 7.62 },
+      { rank: 4, name: "Nippon India Money Market Fund",      category: "Money Market MF", weight: 12, currentReturn: 7.58 },
+      { rank: 5, name: "Axis Treasury Advantage Fund",        category: "CD/CP via MF",   weight: 20, currentReturn: 7.70 },
+      { rank: 6, name: "SBI Liquid Fund",                     category: "Liquid MF",      weight: 10, currentReturn: 7.15 },
+    ],
+    performance: PERFORMANCE_BASE("corp-treasury-short", 1000, 24, 7.45, 0.35),
+    riskMetrics: { sharpeRatio: 3.1, maxDrawdown: -0.3, volatility: 0.6, beta: 0.03, alpha: 0.45 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Duration trimmed from 85d to 72d post RBI commentary", changes: ["Ultra Short trimmed 5%", "Liquid buffer increased 5%"] },
+      { date: "Mar 2026", description: "Added AA+ bank CDs via Treasury Advantage for yield pickup", changes: ["CD/CP: 15% → 20%", "Liquid reduced: 15% → 10%"] },
+    ],
+    aiInsight: {
+      recommendation: "Ideal for 30-90 day surplus parking. Money market MFs invest only in instruments maturing ≤1Y (RBI mandate), providing predictable returns. CD/CPs rated AA+ only — no credit risk downgrade exposure. Recommended for: quarterly advance tax planning, vendor payment float, short-term capex buffer.",
+      confidence_score: 95,
+      factors_considered: [
+        "SEBI money market MF guidelines: max 1Y maturity, AA+ minimum",
+        "Bank CDs at 7.6–7.9% vs savings account 3.5% — 400 bps pickup",
+        "Zero exit load after 7 days for ultra short funds",
+        "Quarterly GST / TDS payment float — predictable outflow planning",
+        "Companies Act 2013 s.186: corporate treasury must maintain liquidity",
+      ],
+      model_version: "FASP-AI-v2.0", timestamp: new Date().toISOString(),
+      confidence_threshold: 85, meets_threshold: true,
+    },
+  },
+
+  // ── CORPORATE TREASURY — Active Treasury Plus ─────────────────────────────
+  {
+    id: "corp-treasury-active",
+    assetClass: "debt",
+    subCategory: "Corporate Treasury",
+    name: "Active Treasury Plus",
+    tagline: "Duration-managed treasury — beat FDs at 6-12M horizon",
+    riskProfile: "moderate",
+    goal: ["income", "capital_preservation"],
+    minInvestment: 50000000,  // ₹5Cr
+    timeHorizon: "6–12 months",
+    cagr1Y: 7.85, cagr3Y: 8.05, cagr5Y: 7.9,
+    benchmarkCagr1Y: 7.5, benchmarkName: "CRISIL Short Term Bond Fund Index",
+    lastRebalanced: "2026-06-01", totalHoldings: 8,
+    rebalancingFrequency: "quarterly",
+    highlight: "Active duration management (0.5–1.5Y). AA+ and above only. Targets 50-75 bps over FD with daily liquidity.",
+    icon: "📈", isNew: true,
+    allocation: [
+      { category: "short_duration", label: "Short Duration Debt MF",  weight: 35, color: "#3B82F6", icon: "⏱️" },
+      { category: "banking_psu",    label: "Banking & PSU Debt MF",  weight: 25, color: "#10B981", icon: "🏛️" },
+      { category: "corp_bond",      label: "Corporate Bond MF",       weight: 25, color: "#F59E0B", icon: "📊" },
+      { category: "float_rate",     label: "Floating Rate MF",        weight: 15, color: "#8B5CF6", icon: "📡" },
+    ],
+    holdings: [
+      { rank: 1, name: "HDFC Short Duration Fund",              category: "Short Duration MF",  weight: 18, currentReturn: 8.1 },
+      { rank: 2, name: "Kotak Short Term Fund",                 category: "Short Duration MF",  weight: 17, currentReturn: 7.95 },
+      { rank: 3, name: "Kotak Banking & PSU Debt Fund",         category: "Banking & PSU MF",  weight: 15, currentReturn: 7.85 },
+      { rank: 4, name: "Nippon India Banking & PSU Debt Fund",  category: "Banking & PSU MF",  weight: 10, currentReturn: 7.90 },
+      { rank: 5, name: "Nippon India Corporate Bond Fund",      category: "Corporate Bond MF",  weight: 15, currentReturn: 8.20 },
+      { rank: 6, name: "Aditya Birla SL Corporate Bond Fund",  category: "Corporate Bond MF",  weight: 10, currentReturn: 8.15 },
+      { rank: 7, name: "Aditya Birla SL Floating Rate Fund",   category: "Floating Rate MF",   weight: 10, currentReturn: 7.72 },
+      { rank: 8, name: "HDFC Floating Rate Debt Fund",          category: "Floating Rate MF",   weight: 5,  currentReturn: 7.68 },
+    ],
+    performance: PERFORMANCE_BASE("corp-treasury-active", 1000, 24, 7.85, 0.65),
+    riskMetrics: { sharpeRatio: 2.7, maxDrawdown: -0.8, volatility: 1.1, beta: 0.08, alpha: 0.35 },
+    rebalancingHistory: [
+      { date: "Jun 2026", description: "Duration maintained at 1.1Y; added floating rate for rate sensitivity hedge", changes: ["Floating Rate: 10% → 15%", "Short Duration trimmed: 40% → 35%"] },
+      { date: "Mar 2026", description: "Banking & PSU increased after SEBI eases NCD disclosure norms", changes: ["Banking & PSU: 20% → 25%", "Corp Bond: 30% → 25%"] },
+      { date: "Dec 2025", description: "Post RBI rate pause: duration extended from 0.8Y to 1.1Y", changes: ["Added HDFC Short Duration 5%"] },
+    ],
+    aiInsight: {
+      recommendation: "Best suited for corporates with 6-12 month investment horizon seeking to outperform corporate FDs (typically 7.0-7.5%) while maintaining daily liquidity. Banking & PSU allocation provides near-sovereign safety. Floating rate component hedges against any RBI rate reversal. Suitable for: inter-corporate deposits replacement, capex reserve, annual bonus float.",
+      confidence_score: 88,
+      factors_considered: [
+        "RBI rate pause: duration extension from 0.8Y beneficial for capital gains",
+        "Banking & PSU MF: quasi-sovereign safety, 7.8-8.0% yield",
+        "Floating rate hedge: 15% allocation limits MTM impact if rates rise",
+        "Corporate FD rate 7.0-7.5% — this portfolio targets 7.8-8.1%",
+        "LTCG post 3Y: indexation benefit vs. FD fully taxable — significant for ₹5Cr+ corpus",
+      ],
+      model_version: "FASP-AI-v2.0", timestamp: new Date().toISOString(),
+      confidence_threshold: 75, meets_threshold: true, human_review_required: false,
+    },
+  },
 ];
+
 
 // Merge all portfolio lists into one master list
 const MODEL_PORTFOLIOS_ALL: ModelPortfolio[] = [...MODEL_PORTFOLIOS];
