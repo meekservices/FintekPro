@@ -10,6 +10,7 @@
  */
 
 import cron from "node-cron";
+import { logger } from "./logger";
 import { reitInvitDataService } from "./services/reit-invit-data-service";
 import { mfSyncScheduler } from "./services/mf-sync-scheduler";
 import { aifNavSyncScheduler } from "./services/aif-nav-sync-scheduler";
@@ -49,18 +50,18 @@ export function initializeEnrichmentCrons(
 	delay: number,
 ): number {
 	if (ENRICHMENT_OFFLOADED) {
-		console.log(
+		logger.info(
 			"⏭️ [Enrichment] All crons SKIPPED — offloaded to dedicated enrichment worker",
 		);
-		console.log(`   Worker URL: ${process.env.ENRICHMENT_WORKER_URL}`);
+		logger.info(`   Worker URL: ${process.env.ENRICHMENT_WORKER_URL}`);
 		return delay;
 	}
 
 	if (!isProductionEnvironment()) {
-		console.log(
+		logger.info(
 			"⏭️ [Enrichment] All MF/NAV/Benchmark enrichment schedulers SKIPPED (development mode)",
 		);
-		console.log(
+		logger.info(
 			"   ℹ️ These will only run on production server between 8 PM - 8 AM IST",
 		);
 		return delay;
@@ -71,7 +72,7 @@ export function initializeEnrichmentCrons(
 		"REIT/InvIT refresh",
 		() => {
 			reitInvitDataService.startScheduledRefresh(6);
-			console.log(
+			logger.info(
 				"🏢 [REIT/InvIT] Data refresh scheduler started (every 6 hours)",
 			);
 		},
@@ -83,7 +84,7 @@ export function initializeEnrichmentCrons(
 		"MF NAV sync",
 		() => {
 			mfSyncScheduler.start();
-			console.log("📊 [MF Sync] NAV sync scheduler started");
+			logger.info("📊 [MF Sync] NAV sync scheduler started");
 		},
 		delay,
 	);
@@ -93,7 +94,7 @@ export function initializeEnrichmentCrons(
 		"AIF NAV sync",
 		() => {
 			aifNavSyncScheduler.start();
-			console.log("📊 [AIF Sync] NAV sync scheduler started (daily 7 AM IST)");
+			logger.info("📊 [AIF Sync] NAV sync scheduler started (daily 7 AM IST)");
 		},
 		delay,
 	);
@@ -103,7 +104,7 @@ export function initializeEnrichmentCrons(
 		"PMS NAV sync",
 		() => {
 			pmsNavSyncScheduler.start();
-			console.log(
+			logger.info(
 				"📊 [PMS Sync] NAV sync scheduler started (daily 7:30 AM IST)",
 			);
 		},
@@ -115,7 +116,7 @@ export function initializeEnrichmentCrons(
 		"Commodity sync",
 		() => {
 			commodityPriceSyncScheduler.start();
-			console.log(
+			logger.info(
 				"📊 [Commodity Sync] Price sync scheduler started (daily 8 AM IST)",
 			);
 		},
@@ -127,7 +128,7 @@ export function initializeEnrichmentCrons(
 		"Exit Load sync",
 		() => {
 			exitLoadSyncScheduler.start();
-			console.log(
+			logger.info(
 				"📊 [ExitLoad Sync] Exit load sync started (monthly on 1st at 3 AM IST)",
 			);
 		},
@@ -148,7 +149,7 @@ export function initializeEnrichmentCrons(
 		"AMFI Official NAV sync",
 		() => {
 			amfiNavScheduler.initialize();
-			console.log(
+			logger.info(
 				"📊 [AMFI NAV] Official NAV sync started (daily 11:30 PM IST)",
 			);
 		},
@@ -160,7 +161,7 @@ export function initializeEnrichmentCrons(
 		"Data Enrichment Scheduler",
 		() => {
 			dataEnrichmentScheduler.initialize();
-			console.log(
+			logger.info(
 				"📊 [DataEnrichment] Master enrichment scheduler started (daily 5 AM IST)",
 			);
 		},
@@ -172,7 +173,7 @@ export function initializeEnrichmentCrons(
 		"Financial Metrics Refresh",
 		() => {
 			financialMetricsRefreshScheduler.start();
-			console.log(
+			logger.info(
 				"📊 [MetricsRefresh] MF returns + stock metrics scheduler started",
 			);
 		},
@@ -180,7 +181,7 @@ export function initializeEnrichmentCrons(
 	);
 	delay += STAGGER;
 
-	console.log(
+	logger.info(
 		"⏭️ [HistoricalNAV] Historical NAV refresh job disabled — MFAPI dependency removed",
 	);
 	delay += STAGGER;
@@ -193,27 +194,27 @@ export function initializeEnrichmentCrons(
 				.then(({ benchmarkSyncService }) => {
 					cron.schedule("0 1 * * 0", async () => {
 						if (!isEnrichmentWindow()) {
-							console.log(
+							logger.info(
 								"⏭️ [BenchmarkSync] Outside 8PM-8AM IST window, skipping",
 							);
 							return;
 						}
-						console.log("[CRON] Starting weekly benchmark index sync...");
+						logger.info("[CRON] Starting weekly benchmark index sync...");
 						try {
 							const result = await benchmarkSyncService.syncAllBenchmarks();
-							console.log(
+							logger.info(
 								`[CRON] Benchmark sync: ${result.synced} synced, ${result.failed.length} failed`,
 							);
 						} catch (error: any) {
-							console.error("[CRON] Benchmark sync failed:", error.message);
+							logger.error("[CRON] Benchmark sync failed:", error.message);
 						}
 					});
-					console.log(
+					logger.info(
 						"📊 [BenchmarkSync] Weekly benchmark sync scheduled (Sunday 1 AM UTC)",
 					);
 				})
 				.catch((err) =>
-					console.error("❌ Failed to load benchmark sync service:", err),
+					logger.error("❌ Failed to load benchmark sync service:", err),
 				);
 		},
 		delay,
@@ -227,31 +228,31 @@ export function initializeEnrichmentCrons(
 				.then(({ amfiBenchmarkIngestionService }) => {
 					cron.schedule("0 2 * * 1", async () => {
 						if (!isEnrichmentWindow()) {
-							console.log(
+							logger.info(
 								"⏭️ [AMFIBenchmark] Outside 8PM-8AM IST window, skipping",
 							);
 							return;
 						}
-						console.log("[CRON] Starting weekly AMFI benchmark ingestion...");
+						logger.info("[CRON] Starting weekly AMFI benchmark ingestion...");
 						try {
 							const result =
 								await amfiBenchmarkIngestionService.syncAmfiSchemeBenchmarks();
-							console.log(
+							logger.info(
 								`[CRON] AMFI benchmark ingestion: ${result.parsed} parsed, ${result.normalized} normalized, ${result.failed} failed`,
 							);
 						} catch (error: any) {
-							console.error(
+							logger.error(
 								"[CRON] AMFI benchmark ingestion failed:",
 								error.message,
 							);
 						}
 					});
-					console.log(
+					logger.info(
 						"📊 [AMFIBenchmark] Weekly AMFI benchmark ingestion scheduled (Monday 2 AM UTC)",
 					);
 				})
 				.catch((err) =>
-					console.error("❌ Failed to load AMFI benchmark service:", err),
+					logger.error("❌ Failed to load AMFI benchmark service:", err),
 				);
 		},
 		delay,
@@ -266,14 +267,14 @@ export function initializeEnrichmentCrons(
 					bseBenchmarkService
 						.seedBseIndices()
 						.then((result) => {
-							console.log(
+							logger.info(
 								`📊 [BSEBenchmark] BSE indices seeded: ${result.seeded} new, ${result.existing} existing`,
 							);
 						})
-						.catch((err) => console.error("❌ BSE index seeding failed:", err));
+						.catch((err) => logger.error("❌ BSE index seeding failed:", err));
 				})
 				.catch((err) =>
-					console.error("❌ Failed to load BSE benchmark service:", err),
+					logger.error("❌ Failed to load BSE benchmark service:", err),
 				);
 		},
 		delay,
@@ -288,16 +289,16 @@ export function initializeEnrichmentCrons(
 					mfBenchmarkMappingService
 						.autoMapUnmappedFunds(5000)
 						.then((result) => {
-							console.log(
+							logger.info(
 								`📊 [BenchmarkAutoMap] Auto-mapped ${result.mapped} funds, ${result.skipped} skipped`,
 							);
 						})
 						.catch((err) =>
-							console.error("❌ Benchmark auto-mapping failed:", err),
+							logger.error("❌ Benchmark auto-mapping failed:", err),
 						);
 				})
 				.catch((err) =>
-					console.error("❌ Failed to load benchmark mapping service:", err),
+					logger.error("❌ Failed to load benchmark mapping service:", err),
 				);
 		},
 		delay,
@@ -310,12 +311,12 @@ export function initializeEnrichmentCrons(
 		() => {
 			cron.schedule("30 12 * * 1-5", async () => {
 				if (!isEnrichmentWindow()) {
-					console.log(
+					logger.info(
 						"⏭️ [StockEnrichment] Outside 8PM-8AM IST window, skipping",
 					);
 					return;
 				}
-				console.log(
+				logger.info(
 					"[CRON] Starting daily stock financial enrichment (6 PM IST)...",
 				);
 				try {
@@ -328,15 +329,15 @@ export function initializeEnrichmentCrons(
 						includeReturns: true,
 						batchSize: 50,
 					});
-					console.log("[CRON] Stock financial enrichment completed");
+					logger.info("[CRON] Stock financial enrichment completed");
 				} catch (error: any) {
-					console.error(
+					logger.error(
 						"[CRON] Stock financial enrichment failed:",
 						error.message,
 					);
 				}
 			});
-			console.log(
+			logger.info(
 				"📊 [StockEnrichment] Daily stock PE/EPS enrichment scheduled (6 PM IST weekdays)",
 			);
 		},
@@ -349,10 +350,10 @@ export function initializeEnrichmentCrons(
 		() => {
 			cron.schedule("0 18 * * *", async () => {
 				if (!isEnrichmentWindow()) {
-					console.log("⏭️ [MFExtended] Outside 8PM-8AM IST window, skipping");
+					logger.info("⏭️ [MFExtended] Outside 8PM-8AM IST window, skipping");
 					return;
 				}
-				console.log(
+				logger.info(
 					"[CRON] Starting daily MF extended enrichment (TER/AUM)...",
 				);
 				try {
@@ -363,12 +364,12 @@ export function initializeEnrichmentCrons(
 						batchSize: 200,
 						onlyNulls: true,
 					});
-					console.log("[CRON] MF extended enrichment completed");
+					logger.info("[CRON] MF extended enrichment completed");
 				} catch (error: any) {
-					console.error("[CRON] MF extended enrichment failed:", error.message);
+					logger.error("[CRON] MF extended enrichment failed:", error.message);
 				}
 			});
-			console.log(
+			logger.info(
 				"📊 [MFExtended] Daily MF TER/AUM enrichment scheduled (11:30 PM IST)",
 			);
 		},
@@ -390,17 +391,17 @@ export function initializeEnrichmentCrons(
 		"Corporate Actions Sync",
 		() => {
 			cron.schedule("40 13 * * *", async () => {
-				console.log(
+				logger.info(
 					"[CRON] Starting daily corporate actions sync (7:10 PM IST)...",
 				);
 				try {
 					await callPython("/api/corporate-actions/sync", "POST");
-					console.log("[CRON] Corporate actions sync completed");
+					logger.info("[CRON] Corporate actions sync completed");
 				} catch (error: any) {
-					console.error("[CRON] Corporate actions sync failed:", error.message);
+					logger.error("[CRON] Corporate actions sync failed:", error.message);
 				}
 			});
-			console.log(
+			logger.info(
 				"📊 [CorpActions] Daily corporate actions sync scheduled (7:10 PM IST)",
 			);
 		},
@@ -412,20 +413,20 @@ export function initializeEnrichmentCrons(
 		"Corporate Actions Apply",
 		() => {
 			cron.schedule("50 13 * * *", async () => {
-				console.log(
+				logger.info(
 					"[CRON] Starting daily corporate actions apply (7:20 PM IST)...",
 				);
 				try {
 					await callPython("/api/corporate-actions/apply-adjustments", "POST");
-					console.log("[CRON] Corporate actions apply completed");
+					logger.info("[CRON] Corporate actions apply completed");
 				} catch (error: any) {
-					console.error(
+					logger.error(
 						"[CRON] Corporate actions apply failed:",
 						error.message,
 					);
 				}
 			});
-			console.log(
+			logger.info(
 				"📊 [CorpActions] Daily corporate actions apply scheduled (7:20 PM IST)",
 			);
 		},
@@ -435,7 +436,7 @@ export function initializeEnrichmentCrons(
 
 	// ── NSE/BSE stock sync ──────────────────────────────────────────────────────
 	stockSyncScheduler.initialize();
-	console.log("📊 [StockSync] NSE/BSE sync scheduler initialized");
+	logger.info("📊 [StockSync] NSE/BSE sync scheduler initialized");
 
 	// ── Golden Source Pricing Engine ────────────────────────────────────────────
 	// Runs at 9 PM IST (15:30 UTC) weekdays — after market close.
@@ -445,7 +446,7 @@ export function initializeEnrichmentCrons(
 			cron.schedule(
 				"30 15 * * 1-5",
 				async () => {
-					console.log(
+					logger.info(
 						"[GoldenPricing] Starting daily golden price computation (all asset classes)...",
 					);
 					try {
@@ -453,7 +454,7 @@ export function initializeEnrichmentCrons(
 							"./services/golden-pricing/GoldenPricingEngine"
 						);
 						const result = await runDailyGoldenPricing();
-						console.log(
+						logger.info(
 							`[GoldenPricing] Run complete: ${result.succeeded}/${result.processed} priced, ` +
 								`${result.flagged} flagged, ${result.failed} failed in ${result.durationMs}ms`,
 						);
@@ -467,17 +468,17 @@ export function initializeEnrichmentCrons(
 								{},
 							);
 							if (triggerResult)
-								console.log(
+								logger.info(
 									"[GoldenPricing] Python returns computation started in background",
 								);
 						} catch (retErr: any) {
-							console.warn(
+							logger.warn(
 								"[GoldenPricing] Python returns trigger failed (non-critical):",
 								retErr?.message,
 							);
 						}
 					} catch (error: any) {
-						console.error("[GoldenPricing] Daily run failed:", error.message);
+						logger.error("[GoldenPricing] Daily run failed:", error.message);
 					}
 				},
 				{ timezone: "Asia/Kolkata" },
@@ -494,7 +495,7 @@ export function initializeEnrichmentCrons(
 			cron.schedule(
 				"0 20 * * 0",
 				async () => {
-					console.log("[GoldenPricing] Marking stale prices...");
+					logger.info("[GoldenPricing] Marking stale prices...");
 					try {
 						const { db } = await import("./db");
 						const { sql } = await import("drizzle-orm");
@@ -502,11 +503,11 @@ export function initializeEnrichmentCrons(
           UPDATE golden_prices SET is_stale = true, updated_at = NOW()
           WHERE price_date < CURRENT_DATE - INTERVAL '5 days' AND is_stale = false
         `);
-						console.log(
+						logger.info(
 							`[GoldenPricing] Stale marker complete: ${res.rowCount} rows updated`,
 						);
 					} catch (error: any) {
-						console.error(
+						logger.error(
 							"[GoldenPricing] Stale marker failed:",
 							error.message,
 						);
@@ -514,7 +515,7 @@ export function initializeEnrichmentCrons(
 				},
 				{ timezone: "Asia/Kolkata" },
 			);
-			console.log(
+			logger.info(
 				"💰 [GoldenPricing] Daily run (9 PM IST Mon-Fri) + Weekly stale marker (8 PM IST Sun) scheduled",
 			);
 		},
@@ -534,13 +535,13 @@ export function initializeEnrichmentCrons(
 			cron.schedule(
 				"0 2 * * *",
 				async () => {
-					console.log(
+					logger.info(
 						"[CRON] [IRISSync] Starting daily IRIS portfolio holdings sync (7:30 AM IST)...",
 					);
 					const start = Date.now();
 					try {
 						const { db: dbConn } = await import("./db");
-						const { sql: sqlTag, eq } = await import("drizzle-orm");
+						const { sql: sqlTag, eq: _eq } = await import("drizzle-orm");
 						const { users } = await import("../shared/schema");
 						const { syncIrisHoldingsForPan } = await import(
 							"./services/iris-portfolio-sync-service"
@@ -559,7 +560,7 @@ export function initializeEnrichmentCrons(
 								await syncIrisHoldingsForPan(user.pan, user.id);
 								synced++;
 							} catch (e: any) {
-								console.warn(
+								logger.warn(
 									`[IRISSync] Failed for user ${user.id}:`,
 									e?.message?.slice(0, 80),
 								);
@@ -567,7 +568,7 @@ export function initializeEnrichmentCrons(
 							}
 						}
 
-						console.log(
+						logger.info(
 							`[IRISSync] Complete: ${synced} synced, ${failed} failed in ${Date.now() - start}ms`,
 							{
 								event: "IRIS_SYNC_CRON_DONE",
@@ -578,7 +579,7 @@ export function initializeEnrichmentCrons(
 							},
 						);
 					} catch (error: any) {
-						console.error("[IRISSync] Cron job failed:", error.message, {
+						logger.error("[IRISSync] Cron job failed:", {
 							event: "IRIS_SYNC_CRON_ERROR",
 							message: error.message,
 							retryable: true,
@@ -589,7 +590,7 @@ export function initializeEnrichmentCrons(
 				},
 				{ timezone: "Asia/Kolkata" },
 			);
-			console.log(
+			logger.info(
 				"📊 [IRISSync] Daily IRIS portfolio holdings sync scheduled (7:30 AM IST)",
 			);
 		},
@@ -605,7 +606,7 @@ export function initializeEnrichmentCrons(
 			cron.schedule(
 				"0 13 * * 1-5",
 				async () => {
-					console.log(
+					logger.info(
 						"[CRON] [AlpacaSync] Starting daily Alpaca positions sync (6:30 PM IST)...",
 					);
 					const start = Date.now();
@@ -631,7 +632,7 @@ export function initializeEnrichmentCrons(
 								await alpacaPortfolioSync.getNormalizedPositions(userId);
 								synced++;
 							} catch (e: any) {
-								console.warn(
+								logger.warn(
 									`[AlpacaSync] Failed for user ${userId}:`,
 									e?.message?.slice(0, 80),
 								);
@@ -640,7 +641,7 @@ export function initializeEnrichmentCrons(
 							await new Promise((r) => setTimeout(r, 200)); // throttle
 						}
 
-						console.log(
+						logger.info(
 							`[AlpacaSync] Complete in ${Date.now() - start}ms — ${synced} synced, ${failed} failed`,
 							{
 								event: "ALPACA_SYNC_CRON_DONE",
@@ -651,7 +652,7 @@ export function initializeEnrichmentCrons(
 							},
 						);
 					} catch (error: any) {
-						console.error("[AlpacaSync] Cron job failed:", error.message, {
+						logger.error("[AlpacaSync] Cron job failed:", {
 							event: "ALPACA_SYNC_CRON_ERROR",
 							message: error.message,
 							retryable: true,
@@ -662,7 +663,7 @@ export function initializeEnrichmentCrons(
 				},
 				{ timezone: "Asia/Kolkata" },
 			);
-			console.log(
+			logger.info(
 				"📊 [AlpacaSync] Daily Alpaca positions sync scheduled (6:30 PM IST weekdays)",
 			);
 		},
@@ -678,7 +679,7 @@ export function initializeEnrichmentCrons(
 			cron.schedule(
 				"30 2 * * *",
 				async () => {
-					console.log(
+					logger.info(
 						"[CRON] [PortfolioPriceRefresh] Refreshing current_price in comprehensive_holdings...",
 					);
 					const start = Date.now();
@@ -718,12 +719,12 @@ export function initializeEnrichmentCrons(
               `);
 									updated++;
 								}
-							} catch (_) {
+							} catch {
 								failed++;
 							}
 						}
 
-						console.log(
+						logger.info(
 							`[PortfolioPriceRefresh] Complete: ${updated} updated, ${failed} failed in ${Date.now() - start}ms`,
 							{
 								event: "PORTFOLIO_PRICE_REFRESH_DONE",
@@ -734,12 +735,11 @@ export function initializeEnrichmentCrons(
 							},
 						);
 					} catch (error: any) {
-						console.error(
+						logger.error(
 							"[PortfolioPriceRefresh] Cron job failed:",
-							error.message,
 							{
 								event: "PORTFOLIO_PRICE_REFRESH_ERROR",
-								message: error.message,
+								error: error.message,
 								retryable: true,
 								latency_ms: Date.now() - start,
 								status: "error",
@@ -749,7 +749,7 @@ export function initializeEnrichmentCrons(
 				},
 				{ timezone: "Asia/Kolkata" },
 			);
-			console.log(
+			logger.info(
 				"📊 [PortfolioPriceRefresh] Daily comprehensive_holdings price refresh scheduled (8:00 AM IST)",
 			);
 		},
@@ -766,7 +766,7 @@ export function initializeEnrichmentCrons(
 			cron.schedule(
 				"0 4 * * *",
 				async () => {
-					console.log(
+					logger.info(
 						"[CRON] [PortfolioRecon] Starting daily portfolio reconciliation (9:30 AM IST)...",
 					);
 					const start = Date.now();
@@ -776,7 +776,7 @@ export function initializeEnrichmentCrons(
 						);
 						const stats =
 							await portfolioReconciliationEngine.reconcileAllClients();
-						console.log(
+						logger.info(
 							`[PortfolioRecon] Done: ${stats.totalClients} clients, ${stats.totalDiscrepancies} discrepancies ` +
 								`(${stats.criticalDiscrepancies} critical) in ${stats.durationMs}ms`,
 							{
@@ -787,13 +787,13 @@ export function initializeEnrichmentCrons(
 							},
 						);
 						if (stats.criticalDiscrepancies > 0) {
-							console.error(
+							logger.error(
 								`[PortfolioRecon] ⚠️ ${stats.criticalDiscrepancies} CRITICAL discrepancies found — ` +
 									`admin review required. Check portfolio_holding_discrepancies table.`,
 							);
 						}
 					} catch (error: any) {
-						console.error("[PortfolioRecon] Cron job failed:", error.message, {
+						logger.error("[PortfolioRecon] Cron job failed:", {
 							event: "PORTFOLIO_RECON_CRON_ERROR",
 							message: error.message,
 							retryable: true,
@@ -804,7 +804,7 @@ export function initializeEnrichmentCrons(
 				},
 				{ timezone: "Asia/Kolkata" },
 			);
-			console.log(
+			logger.info(
 				"📊 [PortfolioRecon] Daily reconciliation scheduled (9:30 AM IST — SEBI IA compliance)",
 			);
 		},
@@ -820,28 +820,28 @@ export function initializeEnrichmentCrons(
 // Skipped when ENRICHMENT_WORKER_URL is set — the dedicated worker runs this.
 if (isProductionEnvironment() && !ENRICHMENT_OFFLOADED) {
 	cron.schedule("35 0 * * *", async () => {
-		console.log("[CRON] Starting Fixed Income status refresh...");
+		logger.info("[CRON] Starting Fixed Income status refresh...");
 		try {
 			const result = await runDailyFixedIncomeRefresh();
 			if (result.success) {
-				console.log(`[CRON] Fixed Income refresh: ${result.message}`);
+				logger.info(`[CRON] Fixed Income refresh: ${result.message}`);
 				if (result.stats) {
-					console.log(
+					logger.info(
 						`[CRON] Status distribution: ${result.stats.sellable} SELLABLE, ${result.stats.visible} VISIBLE, ${result.stats.hidden} HIDDEN`,
 					);
 				}
 			} else {
-				console.error(`[CRON] Fixed Income refresh failed: ${result.message}`);
+				logger.error(`[CRON] Fixed Income refresh failed: ${result.message}`);
 			}
 		} catch (error: any) {
-			console.error("[CRON] Fixed Income refresh job failed:", error.message);
+			logger.error("[CRON] Fixed Income refresh job failed:", error.message);
 		}
 	});
-	console.log(
+	logger.info(
 		"📈 [FixedIncomeStatus] Daily status refresh scheduled (6:00 AM IST)",
 	);
 } else {
-	console.log(
+	logger.info(
 		"⏭️ [FixedIncomeStatus] Skipped (development mode - production only)",
 	);
 }
@@ -876,10 +876,10 @@ async function runScreenerEnrichmentBatch(
 			(r: any) => r.symbol,
 		);
 		if (staleSymbols.length === 0) {
-			console.log(`[${label}] All stocks already enriched — no action needed`);
+			logger.info(`[${label}] All stocks already enriched — no action needed`);
 			return;
 		}
-		console.log(
+		logger.info(
 			`[${label}] Enriching ${staleSymbols.length} stocks via Screener.in (1.5s delay each)...`,
 		);
 		const { fetchFromScreener } = await import(
@@ -952,7 +952,7 @@ async function runScreenerEnrichmentBatch(
 					failed++;
 				}
 			} catch (e: any) {
-				console.warn(
+				logger.warn(
 					`[${label}] Enrichment failed for ${sym}:`,
 					e?.message?.slice(0, 60),
 				);
@@ -960,11 +960,11 @@ async function runScreenerEnrichmentBatch(
 			}
 			await new Promise((r) => setTimeout(r, 1500));
 		}
-		console.log(
+		logger.info(
 			`[${label}] Batch complete: ${done} enriched, ${failed} failed out of ${staleSymbols.length}`,
 		);
 	} catch (e: any) {
-		console.warn(
+		logger.warn(
 			`[${label}] Enrichment batch failed:`,
 			e?.message?.slice(0, 80),
 		);
@@ -981,11 +981,11 @@ if (isProductionEnvironment() && !ENRICHMENT_OFFLOADED) {
 		6 * 60 * 60 * 1000,
 	);
 
-	console.log(
+	logger.info(
 		"✅ [StartupEnrich] Screener.in enrichment scheduled: 150 stocks at boot+5min, 100 every 6h",
 	);
 } else {
-	console.log(
+	logger.info(
 		"⏭️ [StartupEnrich] Stock enrichment skipped (development mode - use /api/admin/screener-enrich instead)",
 	);
 }

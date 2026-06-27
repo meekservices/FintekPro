@@ -2,6 +2,8 @@ import { Router, Request, Response } from "express";
 import { db } from "../db";
 import { adminSettings } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
+import { requireAdmin } from "../middleware/auth";
+import { logger } from "../logger";
 
 export async function ensureAdminSettingsTable(): Promise<void> {
 	try {
@@ -16,9 +18,9 @@ export async function ensureAdminSettingsTable(): Promise<void> {
       )
     `);
 	} catch (err) {
-		console.error(
+		logger.error(
 			"[KYC Flow Routes] Failed to ensure admin_settings table:",
-			err,
+			{ error: (err as Error)?.message ?? String(err) },
 		);
 	}
 }
@@ -309,7 +311,7 @@ async function loadOverrides(): Promise<OverrideMap> {
 			return row.value as OverrideMap;
 		}
 	} catch (err) {
-		console.error("[KYC Flow Routes] Failed to load overrides:", err);
+		logger.error("[KYC Flow Routes] Failed to load overrides:", { error: (err as Error)?.message ?? String(err) });
 	}
 	return {};
 }
@@ -328,9 +330,9 @@ async function saveOverrides(overrides: OverrideMap): Promise<void> {
 				set: { value: overrides, updatedAt: new Date() },
 			});
 	} catch (err) {
-		console.error(
+		logger.error(
 			"[KYC Flow Routes] Failed to save overrides (in-memory state still updated):",
-			err,
+			{ error: (err as Error)?.message ?? String(err) },
 		);
 	}
 }
@@ -427,7 +429,7 @@ router.get("/flow", async (_req: Request, res: Response) => {
 			},
 		});
 	} catch (error) {
-		console.error("[KYC Flow Routes] Error:", error);
+		logger.error("[KYC Flow Routes] Error:", { error: (error as Error)?.message ?? String(error) });
 		res
 			.status(500)
 			.json({
@@ -439,6 +441,7 @@ router.get("/flow", async (_req: Request, res: Response) => {
 
 router.patch(
 	"/flow/:stepId/priorities",
+	requireAdmin, // 🔒 H3 fix: admin-only write — modifies KYC provider priority order
 	async (req: Request, res: Response) => {
 		try {
 			const { stepId } = req.params;
@@ -482,7 +485,7 @@ router.patch(
 
 			res.json({ success: true, step });
 		} catch (error) {
-			console.error("[KYC Flow Routes] Error updating priorities:", error);
+			logger.error("[KYC Flow Routes] Error updating priorities:", { error: (error as Error)?.message ?? String(error) });
 			res
 				.status(500)
 				.json({ success: false, error: "Failed to update priorities" });
@@ -492,6 +495,7 @@ router.patch(
 
 router.patch(
 	"/flow/:stepId/provider/:providerId/price",
+	requireAdmin, // 🔒 H3 fix: admin-only write — modifies KYC provider pricing
 	async (req: Request, res: Response) => {
 		try {
 			const { stepId, providerId } = req.params;
@@ -522,7 +526,7 @@ router.patch(
 			await saveOverrides(overrides);
 
 			res.json({ success: true, provider });
-		} catch (error) {
+		} catch {
 			res
 				.status(500)
 				.json({ success: false, error: "Failed to update pricing" });

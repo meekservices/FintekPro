@@ -5,6 +5,7 @@ import { overlapIntelligenceEngine } from "../services/overlap-intelligence-engi
 import { stockIntersectionAnalysisService } from "../services/stock-intersection-analysis-service";
 import { aiService } from "../services/ai-service";
 import { pickOfTheDayService } from "../services/pick-of-the-day-service";
+import { logger } from "../logger";
 
 const router = Router();
 
@@ -189,7 +190,7 @@ router.get("/run", async (req: Request, res: Response) => {
 				async () => {
 					const totalAmount = 1000000;
 					const annualReturn = 12;
-					const returnRate = annualReturn / 100;
+					const _returnRate = annualReturn / 100; // used as documentation of the rate
 					const volatility = 0.18;
 					const scenarios = [
 						{ name: "base", returnDelta: 0, volMult: 1.0 },
@@ -466,15 +467,33 @@ router.get("/run", async (req: Request, res: Response) => {
 				"Stamp Duty Calculation",
 				"Transaction Processing",
 				async () => {
+					// Use stampDutyService directly — validates real engine, not hardcoded math
+					const { stampDutyService } = await import("../stamp-duty-service");
 					const purchaseAmount = 100000;
-					const stampDutyRate = 0.00005;
-					const stampDuty = purchaseAmount * stampDutyRate;
-					if (Math.abs(stampDuty - 5) > 0.01)
-						throw new Error(`Expected ₹5, got ₹${stampDuty}`);
+
+					// unlisted_shares: 1.5 bps = 0.015% per Finance Act 2019
+					// ₹1,00,000 × 0.00015 = ₹15
+					const result = stampDutyService.calculateStampDuty(
+						"unlisted_shares",
+						purchaseAmount,
+					);
+
+					const expectedDuty = 15; // ₹15 = ₹1,00,000 × 1.5 bps
+					if (Math.abs(result.stampDutyAmount - expectedDuty) > 0.01)
+						throw new Error(
+							`Stamp duty mismatch: expected ₹${expectedDuty}, got ₹${result.stampDutyAmount}`,
+						);
+
+					if (!result.engine_version)
+						throw new Error("Missing engine_version on StampDutyCalculation (GCR)");
+
 					return {
 						purchaseAmount,
-						rate: "0.005%",
-						stampDuty,
+						rate: `${result.stampDutyRate} bps (${(result.stampDutyRate / 100).toFixed(4)}%)`,
+						stampDuty: result.stampDutyAmount,
+						payerSide: result.payerSide,
+						engine_version: result.engine_version,
+						regulatorReference: result.regulatorReference,
 					};
 				},
 			),
@@ -680,7 +699,7 @@ router.get("/run", async (req: Request, res: Response) => {
 			results,
 		});
 	} catch (error: any) {
-		console.error("[EngineHealthCheck] Error:", error);
+		logger.error("[EngineHealthCheck] Error:", { error: error?.message });
 		res.status(500).json({ success: false, error: error.message });
 	}
 });

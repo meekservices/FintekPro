@@ -223,12 +223,19 @@ export const PRE_BUDGET_2024_RATES: Record<string, TaxRateRule> = {
 };
 
 export const SURCHARGE_SLABS = [
-	{ min: 0, max: 5000000, rate: 0 },
-	{ min: 5000000, max: 10000000, rate: 0.1 },
-	{ min: 10000000, max: 20000000, rate: 0.15 },
-	{ min: 20000000, max: 50000000, rate: 0.25 },
-	{ min: 50000000, max: Number.POSITIVE_INFINITY, rate: 0.37 },
+	// Source: Finance Act 2023 — Budget 2023 abolished the 37% surcharge slab
+	// under both old and new tax regimes (effective FY 2023-24 / AY 2024-25).
+	// Max surcharge for individuals is now 25% for income > ₹2 crore.
+	// Special rule: Section 112A caps surcharge at 15% for LTCG from equity/MF.
+	{ min: 0, max: 5_000_000, rate: 0 },           // Up to ₹50L: no surcharge
+	{ min: 5_000_000, max: 10_000_000, rate: 0.1 }, // ₹50L – ₹1Cr: 10%
+	{ min: 10_000_000, max: 20_000_000, rate: 0.15 },// ₹1Cr – ₹2Cr: 15%
+	{ min: 20_000_000, max: Number.POSITIVE_INFINITY, rate: 0.25 }, // > ₹2Cr: 25% (was 37%, abolished Budget 2023)
 ];
+
+// Section 112A special cap: surcharge on LTCG from listed equity / equity MF
+// is capped at 15% regardless of income level.
+export const LTCG_EQUITY_SURCHARGE_CAP = 0.15;
 
 export const COST_INFLATION_INDEX: Record<string, number> = {
 	"2001-02": 100,
