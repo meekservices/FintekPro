@@ -2853,73 +2853,90 @@ export default function AgentModelPortfoliosPage() {
                           </Badge>
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-3">
-                        {/* Recommendation — gated at 65% (retail default) */}
-                        <p className="text-xs leading-relaxed text-muted-foreground">
-                          {selectedPortfolio.aiInsight.confidence_score < 65
-                            ? "⚠️ Low confidence — please consult a registered investment advisor before investing."
-                            : selectedPortfolio.aiInsight.recommendation}
-                        </p>
+                       <CardContent className="space-y-3">
+                         {!selectedPortfolio.aiInsight ? (
+                           /* Scheduler runs at 6 AM IST — pending until first run */
+                           <div className="flex flex-col items-center gap-2 py-6 text-center">
+                             <BrainCircuit className="h-8 w-8 text-indigo-300 animate-pulse" />
+                             <p className="text-sm font-medium text-muted-foreground">AI Analysis Pending</p>
+                             <p className="text-[11px] text-muted-foreground max-w-xs">
+                               The FASP-AI engine generates portfolio insights at 6:00 AM IST daily.
+                               Check back after the next scheduled run.
+                             </p>
+                             <Badge variant="outline" className="text-[9px] border-amber-400 text-amber-600 mt-1">
+                               ⏳ Scheduled: 6:00 AM IST
+                             </Badge>
+                           </div>
+                         ) : (
+                           <>
+                             {/* Recommendation — gated at 65% (retail default) */}
+                             <p className="text-xs leading-relaxed text-muted-foreground">
+                               {selectedPortfolio.aiInsight.confidence_score < 65
+                                 ? "⚠️ Low confidence — please consult a registered investment advisor before investing."
+                                 : selectedPortfolio.aiInsight.recommendation}
+                             </p>
 
-                        {/* Confidence Score + Progress Bar */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground shrink-0">Confidence:</span>
-                          <span className={`text-xs font-bold ${getConfidenceColor(selectedPortfolio.aiInsight.confidence_score)}`}>
-                            {selectedPortfolio.aiInsight.confidence_score}%
-                          </span>
-                          <Progress value={selectedPortfolio.aiInsight.confidence_score} className="flex-1 h-1.5" />
-                        </div>
+                             {/* Confidence Score + Progress Bar */}
+                             <div className="flex items-center gap-2">
+                               <span className="text-[10px] text-muted-foreground shrink-0">Confidence:</span>
+                               <span className={`text-xs font-bold ${getConfidenceColor(selectedPortfolio.aiInsight.confidence_score)}`}>
+                                 {selectedPortfolio.aiInsight.confidence_score}%
+                               </span>
+                               <Progress value={selectedPortfolio.aiInsight.confidence_score} className="flex-1 h-1.5" />
+                             </div>
 
-                        {/* v2.0: Confidence Breakdown — 5 factors */}
-                        <div className="rounded-lg bg-indigo-100/60 dark:bg-indigo-900/30 p-2 space-y-1.5">
-                          <p className="text-[9px] font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">
-                            Confidence Breakdown (FASP-AI v2.0)
-                          </p>
-                          {[
-                            { factor: "Response Completeness", weight: 20, score: selectedPortfolio.aiInsight.confidence_score > 80 ? 95 : 72, evidence: "Full recommendation with supporting rationale" },
-                            { factor: "Structured Output", weight: 25, score: 90, evidence: "JSON structure validated" },
-                            { factor: "Factor Coverage", weight: 25, score: selectedPortfolio.aiInsight.factors_considered.length >= 4 ? 92 : 78, evidence: `${selectedPortfolio.aiInsight.factors_considered.length} investment factors analyzed` },
-                            { factor: "Market Context", weight: 15, score: 80, evidence: "Market volatility: normal" },
-                            { factor: "Historical Accuracy", weight: 15, score: 70, evidence: "Default — feedback loop building" },
-                          ].map((f) => (
-                            <div key={f.factor} className="flex items-center gap-2">
-                              <span className="text-[9px] text-muted-foreground w-36 shrink-0 truncate" title={f.evidence}>{f.factor}</span>
-                              <Progress value={f.score} className="flex-1 h-1" />
-                              <span className="text-[9px] font-semibold w-8 text-right text-indigo-700">{f.score}%</span>
-                              <span className="text-[8px] text-muted-foreground w-10 text-right">{f.weight}% wt</span>
-                            </div>
-                          ))}
-                        </div>
+                             {/* v2.0: Confidence Breakdown */}
+                             <div className="rounded-lg bg-indigo-100/60 dark:bg-indigo-900/30 p-2 space-y-1.5">
+                               <p className="text-[9px] font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">
+                                 Confidence Breakdown (FASP-AI v2.0)
+                               </p>
+                               {[
+                                 { factor: "Response Completeness", weight: 20, score: selectedPortfolio.aiInsight.confidence_score > 80 ? 95 : 72, evidence: "Full recommendation with supporting rationale" },
+                                 { factor: "Structured Output", weight: 25, score: 90, evidence: "JSON structure validated" },
+                                 { factor: "Factor Coverage", weight: 25, score: (selectedPortfolio.aiInsight.factors_considered?.length ?? 0) >= 4 ? 92 : 78, evidence: `${selectedPortfolio.aiInsight.factors_considered?.length ?? 0} investment factors analyzed` },
+                                 { factor: "Market Context", weight: 15, score: 80, evidence: "Market volatility: normal" },
+                                 { factor: "Historical Accuracy", weight: 15, score: 70, evidence: "Default — feedback loop building" },
+                               ].map((f) => (
+                                 <div key={f.factor} className="flex items-center gap-2">
+                                   <span className="text-[9px] text-muted-foreground w-36 shrink-0 truncate" title={f.evidence}>{f.factor}</span>
+                                   <Progress value={f.score} className="flex-1 h-1" />
+                                   <span className="text-[9px] font-semibold w-8 text-right text-indigo-700">{f.score}%</span>
+                                   <span className="text-[8px] text-muted-foreground w-10 text-right">{f.weight}% wt</span>
+                                 </div>
+                               ))}
+                             </div>
 
-                        {/* Factors Considered */}
-                        <div>
-                          <p className="text-[10px] text-muted-foreground mb-1">Factors Considered:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {selectedPortfolio.aiInsight.factors_considered.map((f) => (
-                              <Badge key={f} variant="outline" className="text-[9px] bg-indigo-100 dark:bg-indigo-900/40 border-0">
-                                {f}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
+                             {/* Factors Considered */}
+                             <div>
+                               <p className="text-[10px] text-muted-foreground mb-1">Factors Considered:</p>
+                               <div className="flex flex-wrap gap-1">
+                                 {(selectedPortfolio.aiInsight.factors_considered ?? []).map((f) => (
+                                   <Badge key={f} variant="outline" className="text-[9px] bg-indigo-100 dark:bg-indigo-900/40 border-0">
+                                     {f}
+                                   </Badge>
+                                 ))}
+                               </div>
+                             </div>
 
-                        {/* v2.0: SEBI Circular Ref + Model Lineage */}
-                        <div className="space-y-0.5 pt-1 border-t border-indigo-200/50">
-                          <p className="text-[9px] text-muted-foreground">
-                            Model: <span className="font-mono">{selectedPortfolio.aiInsight.model_version}</span>
-                            {" "}· Engine: <span className="font-mono">fasp-engine-v2.0</span>
-                            {" "}· Base: <span className="font-mono">gemini-2.5-flash</span>
-                            {" "}· Data cutoff: <span className="font-mono">2025-01</span>
-                          </p>
-                          <p className="text-[9px] text-muted-foreground">
-                            Generated: {new Date(selectedPortfolio.aiInsight.timestamp).toLocaleString("en-IN")}
-                          </p>
-                          <p className="text-[9px] text-indigo-600 dark:text-indigo-400">
-                            SEBI Ref: SEBI/HO/IMD/2023/P/CIR/0188 · This is a Decision Support System — not autonomous advice.
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
+                             {/* SEBI Circular Ref + Model Lineage */}
+                             <div className="space-y-0.5 pt-1 border-t border-indigo-200/50">
+                               <p className="text-[9px] text-muted-foreground">
+                                 Model: <span className="font-mono">{selectedPortfolio.aiInsight.model_version}</span>
+                                 {" "}· Engine: <span className="font-mono">fasp-engine-v2.0</span>
+                                 {" "}· Base: <span className="font-mono">gemini-2.5-flash</span>
+                                 {" "}· Data cutoff: <span className="font-mono">2025-01</span>
+                               </p>
+                               <p className="text-[9px] text-muted-foreground">
+                                 Generated: {new Date(selectedPortfolio.aiInsight.timestamp).toLocaleString("en-IN")}
+                               </p>
+                               <p className="text-[9px] text-indigo-600 dark:text-indigo-400">
+                                 SEBI Ref: SEBI/HO/IMD/2023/P/CIR/0188 · This is a Decision Support System — not autonomous advice.
+                               </p>
+                             </div>
+                           </>
+                         )}
+                       </CardContent>
+                     </Card>
                   </TabsContent>
 
                   {/* Holdings Tab — role-gated: agents/partners/admins see full list, clients see top 5 */}
