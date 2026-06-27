@@ -764,6 +764,24 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 		return text;
 	}
 
+	/**
+	 * Normalise timeHorizon values to canonical set: short_term | medium_term | long_term | intraday
+	 * Handles legacy values (short, medium, long, null, undefined).
+	 */
+	private normaliseHorizon(raw?: string | null): string {
+		if (!raw) return "medium_term";
+		const map: Record<string, string> = {
+			intraday:    "intraday",
+			short_term:  "short_term",
+			short:       "short_term",
+			medium_term: "medium_term",
+			medium:      "medium_term",
+			long_term:   "long_term",
+			long:        "long_term",
+		};
+		return map[raw.toLowerCase().trim()] ?? "medium_term";
+	}
+
 	private async savePick(pick: DailyPickData): Promise<void> {
 		// Use Drizzle ORM insert with onConflictDoNothing() for idempotent generation.
 		// No explicit target: PostgreSQL will suppress any unique constraint violation.
@@ -790,7 +808,7 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 				riskLevel: pick.riskLevel,
 				suitableFor: pick.suitableFor ?? ["Balanced"],
 				keyMetrics: pick.keyMetrics ?? {},
-				timeHorizon: pick.timeHorizon ?? "medium_term",
+				timeHorizon: this.normaliseHorizon(pick.timeHorizon),
 				confidenceScore: pick.confidenceScore ?? 70,
 				sectorCategory: pick.sectorCategory ?? null,
 				generatedBy: "ai",

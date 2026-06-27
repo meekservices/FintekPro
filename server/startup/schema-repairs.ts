@@ -1502,10 +1502,11 @@ crypto_status VARCHAR,
 	}
 
 	// ── Picks data integrity backfill ────────────────────────────────────────
-	// Fixes two data quality issues in the daily_picks table:
-	//  1. NULL time_horizon rows (picks created before column existed) → 'medium_term'
-	//  2. confidence_score stored as raw quant integer (e.g. 8600) instead of 0–100
-	//     The check `> 100` is safe because no valid confidence score exceeds 100.
+	// Fixes data quality issues in the daily_picks table:
+	//  1. NULL time_horizon rows → 'medium_term'
+	//  2. confidence_score stored as raw quant integer (e.g. 8600) → 0-100
+	//  3. Non-canonical horizon values: 'short'→'short_term', 'medium'→'medium_term',
+	//     'long'→'long_term'. 'intraday' is kept as-is (now has frontend mapping).
 	try {
 		const { db: migDb2 } = await import("../db");
 		const { sql: migSql2 } = await import("drizzle-orm");
@@ -1515,14 +1516,23 @@ crypto_status VARCHAR,
       SET    time_horizon = 'medium_term'
       WHERE  time_horizon IS NULL;
 
+      -- Normalise non-canonical horizon values (legacy short/medium/long without _term)
+      UPDATE daily_picks
+      SET    time_horizon = CASE time_horizon
+               WHEN 'short'  THEN 'short_term'
+               WHEN 'medium' THEN 'medium_term'
+               WHEN 'long'   THEN 'long_term'
+               ELSE time_horizon
+             END
+      WHERE  time_horizon IN ('short', 'medium', 'long');
+
       -- Clamp out-of-range confidence_score: values > 100 are raw integer scores
       -- (e.g. 8600 from quant scorer) that were never divided by 100.
-      -- Treat as "score in 0–10000 range" → divide by 100, then clamp to [60,100].
       UPDATE daily_picks
       SET    confidence_score = GREATEST(60, LEAST(100, ROUND(confidence_score::numeric / 100)::int))
       WHERE  confidence_score > 100;
     `);
-		console.log("✅ daily_picks data integrity backfill complete (horizon + confidence_score)");
+		console.log("✅ daily_picks data integrity backfill complete (horizon normalised + confidence_score)");
 	} catch (picksErr: any) {
 		console.warn("[Migration] daily_picks backfill skipped (non-fatal):", picksErr?.message);
 	}

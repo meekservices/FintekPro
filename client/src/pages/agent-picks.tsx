@@ -351,10 +351,15 @@ const riskColors: Record<string, string> = {
 type HorizonEntry = { label: string; color: string; icon: string };
 
 const horizonConfig: Record<string, HorizonEntry> = {
+	intraday: {
+		label: "Intraday",
+		color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+		icon: "⚡",
+	},
 	short_term: {
 		label: "Short Term",
 		color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-		icon: "⚡",
+		icon: "📈",
 	},
 	medium_term: {
 		label: "Medium Term",
@@ -367,7 +372,24 @@ const horizonConfig: Record<string, HorizonEntry> = {
 		color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
 		icon: "🎯",
 	},
+	// Legacy aliases (without underscore)
+	short: {
+		label: "Short Term",
+		color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+		icon: "📈",
+	},
+	medium: {
+		label: "Medium Term",
+		color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
+		icon: "📊",
+	},
+	long: {
+		label: "Long Term",
+		color: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
+		icon: "🎯",
+	},
 };
+
 
 /** Returns a Tailwind text-colour class for a confidence score 0–100. */
 const getConfidenceColor = (score: number): string => {
