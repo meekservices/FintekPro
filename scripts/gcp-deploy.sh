@@ -52,18 +52,33 @@ echo "📝 Checking GCP configuration..."
 echo "🏗️  Building and pushing image to Artifact Registry..."
 IMAGE_URL="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$SERVICE_NAME:latest"
 
-# Explicitly set CLOUDSDK_PYTHON at call time.
-# Python 3.13 (brew default) has a gzip crash on large archives (OSError: unexpected end of data).
-# Python 3.12 is stable. Install with: brew install python@3.12
-_GCLOUD_PY=""
-for py in /opt/homebrew/bin/python3.12 /usr/local/bin/python3.12; do
-  if [ -x "$py" ]; then _GCLOUD_PY="$py"; break; fi
-done
-if [ -n "$_GCLOUD_PY" ]; then
-  CLOUDSDK_PYTHON="$_GCLOUD_PY" gcloud builds submit --tag $IMAGE_URL --timeout=30m .
+# ── Build strategy: platform-aware ──────────────────────────────────────────
+# macOS ARM (Apple Silicon): gcloud builds submit crashes with
+#   OSError: unexpected end of data (Python tarfile bug on live filesystems)
+# Fix: use cloudbuild-github.yaml — clones from GitHub on the remote build
+#   server so no local files are read. Requires the commit to be pushed first.
+# Linux/CI: standard builds submit works fine.
+_ARCH="$(uname -m)"
+_OS="$(uname -s)"
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_REPO_ROOT="$(cd "${_SCRIPT_DIR}/.." && pwd)"
+_CB_GITHUB="${_REPO_ROOT}/cloudbuild-github.yaml"
+
+if [[ "$_OS" == "Darwin" && "$_ARCH" == "arm64" ]]; then
+  echo "🍎 macOS ARM detected — using GitHub-clone Cloud Build (avoids tarfile OSError)"
+  if [[ ! -f "$_CB_GITHUB" ]]; then
+    echo "❌ cloudbuild-github.yaml not found at ${_CB_GITHUB}" && exit 1
+  fi
+  gcloud builds submit \
+    --config="${_CB_GITHUB}" \
+    --project="${PROJECT}" \
+    --no-source \
+    --timeout=30m
 else
-  gcloud builds submit --tag $IMAGE_URL --timeout=30m .
+  # Linux / CI: standard local-source build
+  gcloud builds submit --tag "${IMAGE_URL}" --timeout=30m .
 fi
+
 
 # 3. Deploy to Cloud Run
 # ─── Prerequisite: create REDIS_URL secret once ────────────────────────────

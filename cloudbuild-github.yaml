@@ -1,0 +1,20 @@
+# cloudbuild-github.yaml
+# Bypasses local gcloud tarfile crash on macOS ARM by cloning from GitHub directly.
+# Usage: gcloud builds submit --config=/tmp/cloudbuild-github.yaml --project=fintekpro --no-source
+steps:
+- name: 'gcr.io/cloud-builders/git'
+  args:
+  - clone
+  - '--depth=1'
+  - '--branch=main'
+  - 'https://github.com/meekservices/FintekPro.git'
+  - '/workspace/app'
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+  - build
+  - '-t'
+  - 'asia-south1-docker.pkg.dev/fintekpro/cloud-run-source-deploy/fintekpro-app:latest'
+  - '/workspace/app'
+images:
+- 'asia-south1-docker.pkg.dev/fintekpro/cloud-run-source-deploy/fintekpro-app:latest'
+timeout: '1800s'
