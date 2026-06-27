@@ -1,0 +1,65 @@
+{
+  "intermediary_type": "agent",
+  "version": "1.0.0",
+  "notes": "Agent (EUIN holder) credentialing requirement schema. Identity fields prefill from investor vault if the agent is also an investor on FintekPro. Credentialing fields are always fresh — they cannot be inferred from investor KYC.",
+  "fields": [
+    { "canonical_field": "fullLegalName",          "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": 3650 },
+    { "canonical_field": "dateOfBirth",             "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "panNumber",               "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "photoDocumentRef",        "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": 3650 },
+    { "canonical_field": "mobileNumber",            "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "email",                   "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "currentAddress",          "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": 365  },
+    { "canonical_field": "addressProofDocumentRef", "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": 365  }
+  ],
+  "credentialing_fresh_fields": [
+    {
+      "field_id": "euin_number",
+      "label": "EUIN Number",
+      "type": "text",
+      "required": true,
+      "encrypted_at_rest": true,
+      "broker_note": "AMFI-issued Employee Unique Identification Number. Verified against AMFI records by admin."
+    },
+    {
+      "field_id": "nism_certificate_number",
+      "label": "NISM Certificate Number",
+      "type": "text",
+      "required": true,
+      "broker_note": "NISM Series V-A or CPD refresher certificate number."
+    },
+    {
+      "field_id": "nism_certificate_upload",
+      "label": "NISM Certificate Document",
+      "type": "document_upload",
+      "required": true
+    },
+    {
+      "field_id": "nism_expiry_date",
+      "label": "NISM Certificate Expiry Date",
+      "type": "date",
+      "required": true
+    },
+    {
+      "field_id": "parent_arn_number",
+      "label": "Parent ARN Number (of Partner)",
+      "type": "text",
+      "required": true,
+      "broker_note": "The ARN of the partner entity this agent is mapped under."
+    },
+    {
+      "field_id": "commission_bank_account",
+      "label": "Bank Account for Commission Settlement",
+      "type": "bank_account",
+      "required": true,
+      "encrypted_at_rest": true
+    },
+    {
+      "field_id": "commission_ifsc",
+      "label": "IFSC Code (Commission Bank)",
+      "type": "text",
+      "required": true,
+      "encrypted_at_rest": true
+    }
+  ]
+}

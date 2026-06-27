@@ -1,0 +1,85 @@
+{
+  "intermediary_type": "partner",
+  "version": "1.0.0",
+  "notes": "Partner (ARN holder / MFD / RIA) credentialing. May be an individual or corporate entity. Individual partners reuse identity vault fields if also an investor.",
+  "fields": [
+    { "canonical_field": "fullLegalName",          "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": 3650, "applies_to": "individual" },
+    { "canonical_field": "dateOfBirth",             "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": null,  "applies_to": "individual" },
+    { "canonical_field": "panNumber",               "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "photoDocumentRef",        "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": 3650, "applies_to": "individual" },
+    { "canonical_field": "mobileNumber",            "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "email",                   "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "currentAddress",          "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": 365  },
+    { "canonical_field": "addressProofDocumentRef", "required": true,  "prefillable_from_identity_vault": true,  "freshness_window_days": 365  }
+  ],
+  "credentialing_fresh_fields": [
+    {
+      "field_id": "arn_number",
+      "label": "ARN Number (AMFI Registration Number)",
+      "type": "text",
+      "required": true,
+      "encrypted_at_rest": true,
+      "broker_note": "AMFI-issued ARN. Verified against AMFI public records by admin."
+    },
+    {
+      "field_id": "arn_expiry_date",
+      "label": "ARN Expiry Date",
+      "type": "date",
+      "required": true
+    },
+    {
+      "field_id": "arn_certificate_upload",
+      "label": "ARN Certificate Document",
+      "type": "document_upload",
+      "required": true
+    },
+    {
+      "field_id": "sebi_registration_number",
+      "label": "SEBI Registration Number (RIA, if applicable)",
+      "type": "text",
+      "required": false
+    },
+    {
+      "field_id": "gst_registration_number",
+      "label": "GST Registration Number",
+      "type": "text",
+      "required": false,
+      "encrypted_at_rest": true,
+      "broker_note": "Required for GST invoicing on commissions for corporate partners."
+    },
+    {
+      "field_id": "entity_type",
+      "label": "Entity Type",
+      "type": "select",
+      "options": ["individual", "partnership", "llp", "private_limited", "public_limited"],
+      "required": true
+    },
+    {
+      "field_id": "company_name",
+      "label": "Company / Firm Name",
+      "type": "text",
+      "required_if": "entity_type != 'individual'"
+    },
+    {
+      "field_id": "commission_bank_account",
+      "label": "Bank Account for Commission Settlement",
+      "type": "bank_account",
+      "required": true,
+      "encrypted_at_rest": true
+    },
+    {
+      "field_id": "commission_ifsc",
+      "label": "IFSC Code (Commission Bank)",
+      "type": "text",
+      "required": true,
+      "encrypted_at_rest": true
+    },
+    {
+      "field_id": "kyd_document",
+      "label": "KYD (Know Your Distributor) Document",
+      "type": "document_upload",
+      "required": true,
+      "broker_note": "AMFI KYD compliance document. Mandatory for MFD operations."
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "broker_id": "jm_financial",
+  "broker_name": "JM Financial Services",
+  "segment": "equity",
+  "region": "IN",
+  "version": "1.0.0",
+  "notes": "JM Financial equity delta after IRIS base (~10-15% new). SEBI KRA PAN lookup path applies — JM Financial can legally fetch KRA record directly by PAN; vault share is for fields KRA does not cover.",
+  "fields": [
+    { "canonical_field": "fullLegalName",          "required": true,  "prefillable_from_vault": true,  "freshness_window_days": 3650 },
+    { "canonical_field": "dateOfBirth",             "required": true,  "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "gender",                  "required": true,  "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "panNumber",               "required": true,  "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "photoDocumentRef",        "required": true,  "prefillable_from_vault": true,  "freshness_window_days": 3650 },
+    { "canonical_field": "signatureDocumentRef",    "required": true,  "prefillable_from_vault": true,  "freshness_window_days": 3650 },
+    { "canonical_field": "mobileNumber",            "required": true,  "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "email",                   "required": true,  "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "currentAddress",          "required": true,  "prefillable_from_vault": true,  "freshness_window_days": 365  },
+    { "canonical_field": "addressProofDocumentRef", "required": true,  "prefillable_from_vault": true,  "freshness_window_days": 365  },
+    { "canonical_field": "annualIncomeBand",        "required": true,  "prefillable_from_vault": true,  "freshness_window_days": 365  },
+    { "canonical_field": "occupation",              "required": true,  "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "bankAccountNumber",       "required": true,  "prefillable_from_vault": false, "freshness_window_days": null,
+      "broker_note": "JM bank linkage — re-confirm even if in vault. Bank mandate is bilateral." },
+    { "canonical_field": "ifscCode",               "required": true,  "prefillable_from_vault": false, "freshness_window_days": null }
+  ],
+  "broker_fresh_only_fields": [
+    {
+      "field_id": "jm_risk_profile_questionnaire",
+      "label": "JM Risk Profile Questionnaire",
+      "type": "questionnaire",
+      "required": true,
+      "broker_note": "JM-specific risk profile questions — not interoperable with IIFL answers."
+    },
+    {
+      "field_id": "jm_segment_selection",
+      "label": "Segment Activation",
+      "type": "multiselect",
+      "options": ["equity", "fo", "commodity", "currency"],
+      "required": true,
+      "broker_note": "Always fresh per broker — bilateral segment activation with JM."
+    },
+    {
+      "field_id": "jm_esign_risk_disclosure",
+      "label": "JM e-Sign & Risk Disclosure",
+      "type": "esign",
+      "required": true,
+      "broker_note": "Bilateral e-sign with JM Financial specifically. Always fresh."
+    },
+    {
+      "field_id": "jm_nominee_details",
+      "label": "Nominee Details",
+      "type": "object",
+      "required": false,
+      "broker_note": "Fresh per broker — not shared from vault."
+    }
+  ]
+}

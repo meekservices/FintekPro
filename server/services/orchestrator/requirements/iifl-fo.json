@@ -1,0 +1,36 @@
+{
+  "broker_id": "iifl",
+  "broker_name": "IIFL Securities",
+  "segment": "fo",
+  "region": "IN",
+  "version": "1.0.0",
+  "notes": "IIFL F&O delta — same as equity plus F&O specific risk profile and income proof. Requires equity segment to already be active.",
+  "fields": [
+    { "canonical_field": "fullLegalName",          "required": true, "prefillable_from_vault": true,  "freshness_window_days": 3650 },
+    { "canonical_field": "dateOfBirth",             "required": true, "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "panNumber",               "required": true, "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "mobileNumber",            "required": true, "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "email",                   "required": true, "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "annualIncomeBand",        "required": true, "prefillable_from_vault": false, "freshness_window_days": 365,
+      "broker_note": "SEBI mandates fresh income proof for F&O — must be < 12 months old" },
+    { "canonical_field": "netWorthBand",            "required": true, "prefillable_from_vault": false, "freshness_window_days": 365,
+      "broker_note": "Net worth declaration required fresh for F&O activation" },
+    { "canonical_field": "tradingExperienceYears",  "required": true, "prefillable_from_vault": true,  "freshness_window_days": null  }
+  ],
+  "broker_fresh_only_fields": [
+    {
+      "field_id": "iifl_fo_segment_activation",
+      "label": "F&O Segment Activation Consent",
+      "type": "esign",
+      "required": true,
+      "broker_note": "Bilateral F&O risk disclosure e-sign with IIFL. Always fresh."
+    },
+    {
+      "field_id": "iifl_fo_income_proof_upload",
+      "label": "Income Proof Document Upload",
+      "type": "document_upload",
+      "required": true,
+      "broker_note": "SEBI requires fresh income proof document for F&O segment activation"
+    }
+  ]
+}

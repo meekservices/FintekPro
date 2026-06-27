@@ -1,0 +1,52 @@
+{
+  "broker_id": "iifl",
+  "broker_name": "IIFL Securities",
+  "segment": "equity",
+  "region": "IN",
+  "version": "1.0.0",
+  "notes": "IIFL equity delta after IRIS base (~10% new fields). SEBI KRA PAN lookup applies — IIFL can fetch KRA record by PAN. Consent ledger entry MUST be written before vault data is shared with IIFL adapter.",
+  "fields": [
+    { "canonical_field": "fullLegalName",          "required": true,  "prefillable_from_vault": true,  "source_constraint": null, "freshness_window_days": 3650 },
+    { "canonical_field": "dateOfBirth",             "required": true,  "prefillable_from_vault": true,  "source_constraint": null, "freshness_window_days": null  },
+    { "canonical_field": "gender",                  "required": true,  "prefillable_from_vault": true,  "source_constraint": null, "freshness_window_days": null  },
+    { "canonical_field": "panNumber",               "required": true,  "prefillable_from_vault": true,  "source_constraint": null, "freshness_window_days": null  },
+    { "canonical_field": "aadhaarLast4",            "required": false, "prefillable_from_vault": true,  "source_constraint": null, "freshness_window_days": null  },
+    { "canonical_field": "photoDocumentRef",        "required": true,  "prefillable_from_vault": true,  "source_constraint": null, "freshness_window_days": 3650 },
+    { "canonical_field": "signatureDocumentRef",    "required": true,  "prefillable_from_vault": true,  "source_constraint": null, "freshness_window_days": 3650 },
+    { "canonical_field": "mobileNumber",            "required": true,  "prefillable_from_vault": true,  "source_constraint": null, "freshness_window_days": null  },
+    { "canonical_field": "email",                   "required": true,  "prefillable_from_vault": true,  "source_constraint": null, "freshness_window_days": null  },
+    { "canonical_field": "currentAddress",          "required": true,  "prefillable_from_vault": true,  "source_constraint": null, "freshness_window_days": 365  },
+    { "canonical_field": "addressProofDocumentRef", "required": true,  "prefillable_from_vault": true,  "source_constraint": null, "freshness_window_days": 365  },
+    { "canonical_field": "annualIncomeBand",        "required": true,  "prefillable_from_vault": true,  "source_constraint": null, "freshness_window_days": 365  },
+    { "canonical_field": "occupation",              "required": true,  "prefillable_from_vault": true,  "source_constraint": null, "freshness_window_days": null  },
+    { "canonical_field": "riskProfileCategory",     "required": true,  "prefillable_from_vault": true,  "source_constraint": null, "freshness_window_days": 365  },
+    { "canonical_field": "bankAccountNumber",       "required": true,  "prefillable_from_vault": false, "source_constraint": null, "freshness_window_days": null,
+      "broker_note": "Re-confirm linkage — IIFL needs its own penny-drop or NACH mandate even if bank exists in vault" },
+    { "canonical_field": "ifscCode",               "required": true,  "prefillable_from_vault": false, "source_constraint": null, "freshness_window_days": null,
+      "broker_note": "Collected fresh alongside bank re-confirmation" }
+  ],
+  "broker_fresh_only_fields": [
+    {
+      "field_id": "iifl_nominee_details",
+      "label": "Nominee Details",
+      "type": "object",
+      "required": false,
+      "broker_note": "Broker-specific. Not held in vault from IRIS. Fresh per broker."
+    },
+    {
+      "field_id": "iifl_segment_selection",
+      "label": "Segment Activation",
+      "type": "multiselect",
+      "options": ["equity", "fo", "commodity", "currency"],
+      "required": true,
+      "broker_note": "User chooses segments. Always fresh per broker — bilateral agreement."
+    },
+    {
+      "field_id": "iifl_risk_disclosure_esign",
+      "label": "IIFL Risk Disclosure e-Sign",
+      "type": "esign",
+      "required": true,
+      "broker_note": "Always fresh per broker — bilateral e-sign agreement with IIFL specifically."
+    }
+  ]
+}

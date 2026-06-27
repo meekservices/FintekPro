@@ -1,0 +1,54 @@
+{
+  "broker_id": "iris_nps",
+  "broker_name": "IRIS KFintech — NPS (National Pension System)",
+  "segment": "nps",
+  "region": "IN",
+  "version": "1.0.0",
+  "notes": "NPS via IRIS/KFintech PRAN generation. Most fields reusable from MF base KYC if investor already enrolled via iris_mf. Fresh fields: subscriber preference (Auto/Active choice), scheme preference, PRAN-specific nomination.",
+  "fields": [
+    { "canonical_field": "fullLegalName",          "required": true, "prefillable_from_vault": true,  "freshness_window_days": 3650 },
+    { "canonical_field": "dateOfBirth",             "required": true, "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "gender",                  "required": true, "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "panNumber",               "required": true, "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "mobileNumber",            "required": true, "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "email",                   "required": true, "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "currentAddress",          "required": true, "prefillable_from_vault": true,  "freshness_window_days": 365  },
+    { "canonical_field": "bankAccountNumber",       "required": true, "prefillable_from_vault": true,  "freshness_window_days": 365  },
+    { "canonical_field": "ifscCode",               "required": true, "prefillable_from_vault": true,  "freshness_window_days": 365  },
+    { "canonical_field": "occupation",              "required": true, "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "annualIncomeBand",        "required": true, "prefillable_from_vault": true,  "freshness_window_days": 365  },
+    { "canonical_field": "photoDocumentRef",        "required": true, "prefillable_from_vault": true,  "freshness_window_days": 3650 },
+    { "canonical_field": "signatureDocumentRef",    "required": true, "prefillable_from_vault": true,  "freshness_window_days": 3650 }
+  ],
+  "broker_fresh_only_fields": [
+    {
+      "field_id": "nps_subscriber_type",
+      "label": "Subscriber Type",
+      "type": "select",
+      "options": ["tier_1_only", "tier_1_and_2"],
+      "required": true,
+      "broker_note": "Always fresh — subscriber makes this choice at NPS enrolment."
+    },
+    {
+      "field_id": "nps_investment_choice",
+      "label": "Investment Choice",
+      "type": "select",
+      "options": ["auto_choice", "active_choice"],
+      "required": true
+    },
+    {
+      "field_id": "nps_scheme_preference",
+      "label": "Scheme Preference (Active Choice only)",
+      "type": "object",
+      "required_if": "nps_investment_choice = 'active_choice'",
+      "broker_note": "Fund manager and asset allocation. Always fresh."
+    },
+    {
+      "field_id": "nps_nominee",
+      "label": "NPS Nominee",
+      "type": "object",
+      "required": true,
+      "broker_note": "PRAN-specific nomination — separate from MF nomination."
+    }
+  ]
+}

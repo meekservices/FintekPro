@@ -1,0 +1,36 @@
+{
+  "broker_id": "iris_mf",
+  "broker_name": "IRIS KFintech — Mutual Funds",
+  "segment": "mutual_funds",
+  "region": "IN",
+  "version": "1.0.0",
+  "freshness_defaults": {
+    "address_proof_days": 365,
+    "income_proof_days": 365,
+    "photo_days": 3650,
+    "bank_proof_days": 365
+  },
+  "fields": [
+    { "canonical_field": "fullLegalName",          "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": 3650 },
+    { "canonical_field": "dateOfBirth",             "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": null  },
+    { "canonical_field": "gender",                  "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": null  },
+    { "canonical_field": "panNumber",               "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra",                   "freshness_window_days": null  },
+    { "canonical_field": "aadhaarLast4",            "required": false, "prefillable_from_vault": true,  "source_constraint": "iris_kra",                   "freshness_window_days": null  },
+    { "canonical_field": "photoDocumentRef",        "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": 3650 },
+    { "canonical_field": "signatureDocumentRef",    "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": 3650 },
+    { "canonical_field": "mobileNumber",            "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": null  },
+    { "canonical_field": "email",                   "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": null  },
+    { "canonical_field": "currentAddress",          "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": 365  },
+    { "canonical_field": "addressProofType",        "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": 365  },
+    { "canonical_field": "addressProofDocumentRef", "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": 365  },
+    { "canonical_field": "bankAccountNumber",       "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": 365  },
+    { "canonical_field": "ifscCode",               "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": 365  },
+    { "canonical_field": "annualIncomeBand",        "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": 365  },
+    { "canonical_field": "sourceOfFunds",           "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": 365  },
+    { "canonical_field": "riskProfileCategory",     "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": 365  },
+    { "canonical_field": "investmentObjective",     "required": true,  "prefillable_from_vault": true,  "source_constraint": "iris_kra|user_entered",       "freshness_window_days": 365  },
+    { "canonical_field": "nomineeDetails",          "required": false, "prefillable_from_vault": false, "source_constraint": "user_entered",               "freshness_window_days": null  }
+  ],
+  "broker_fresh_only_fields": [],
+  "notes": "IRIS MF base — full eKYC via KFintech. All fields written to vault with source:iris_kra. No broker-fresh-only fields in base flow."
+}

@@ -1,0 +1,107 @@
+{
+  "broker_id": "alpaca",
+  "broker_name": "Alpaca Broker API",
+  "segment": "us_equity",
+  "region": "US",
+  "version": "1.0.0",
+  "notes": "Alpaca delta (~60% new fields). Prefillable from vault: identity/contact fields only. MUST collect fresh: SSN/ITIN or W-8BEN, FATCA/CRS, suitability. LRS pre-submit hook mandatory — enforced at adapter layer, not UI. SSN/ITIN NEVER logged — only user_id and doc ref.",
+  "lrs_compliance_required": true,
+  "fields": [
+    { "canonical_field": "fullLegalName",          "required": true,  "prefillable_from_vault": true,  "freshness_window_days": 3650 },
+    { "canonical_field": "dateOfBirth",             "required": true,  "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "mobileNumber",            "required": true,  "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "email",                   "required": true,  "prefillable_from_vault": true,  "freshness_window_days": null  },
+    { "canonical_field": "currentAddress",          "required": true,  "prefillable_from_vault": true,  "freshness_window_days": 365  },
+    { "canonical_field": "govtIdDocumentRef",       "required": true,  "prefillable_from_vault": true,  "freshness_window_days": null,
+      "broker_note": "Photo ID reference from vault (passport/driving licence). Re-upload to Alpaca." },
+    { "canonical_field": "photoDocumentRef",        "required": true,  "prefillable_from_vault": true,  "freshness_window_days": 3650 },
+    { "canonical_field": "taxResidencyCountries",   "required": true,  "prefillable_from_vault": false, "freshness_window_days": 365,
+      "broker_note": "MUST be collected fresh for Alpaca — self-certification declaration. Cannot be inferred from KRA data." },
+    { "canonical_field": "annualIncomeBand",        "required": true,  "prefillable_from_vault": false, "freshness_window_days": 365,
+      "broker_note": "Re-collect fresh — Alpaca uses different income bands than SEBI buckets." }
+  ],
+  "broker_fresh_only_fields": [
+    {
+      "field_id": "alpaca_ssn_or_itin",
+      "label": "SSN or ITIN",
+      "type": "encrypted_text",
+      "required_if": "usPersonStatus IN ['us_citizen','us_resident']",
+      "broker_note": "MUST NOT be pre-populated from vault. Self-declaration. AES-256-GCM encrypted on collection. NEVER LOGGED.",
+      "never_prefill": true
+    },
+    {
+      "field_id": "alpaca_w8ben_upload",
+      "label": "W-8BEN Form Upload",
+      "type": "document_upload",
+      "required_if": "usPersonStatus = 'non_us'",
+      "broker_note": "For non-US persons. Self-certification — always fresh.",
+      "never_prefill": true
+    },
+    {
+      "field_id": "alpaca_fatca_crs_certification",
+      "label": "FATCA/CRS Self-Certification",
+      "type": "declaration_form",
+      "required": true,
+      "broker_note": "Self-certification of tax residency and FATCA/CRS status. Always fresh. MANDATORY per LRS hook.",
+      "never_prefill": true
+    },
+    {
+      "field_id": "alpaca_us_person_status",
+      "label": "US Person Status",
+      "type": "select",
+      "options": ["us_citizen", "us_resident", "non_us"],
+      "required": true,
+      "broker_note": "Self-declaration. Always fresh.",
+      "never_prefill": true
+    },
+    {
+      "field_id": "alpaca_employment_status",
+      "label": "Employment Status",
+      "type": "select",
+      "options": ["employed", "self_employed", "unemployed", "retired", "student"],
+      "required": true,
+      "broker_note": "Alpaca/FINRA suitability requirement. Always fresh.",
+      "never_prefill": true
+    },
+    {
+      "field_id": "alpaca_employer_name",
+      "label": "Employer Name",
+      "type": "text",
+      "required_if": "employment_status IN ['employed','self_employed']",
+      "never_prefill": true
+    },
+    {
+      "field_id": "alpaca_investment_experience",
+      "label": "Investment Experience",
+      "type": "select",
+      "options": ["none", "limited", "good", "extensive"],
+      "required": true,
+      "broker_note": "FINRA suitability. Always fresh.",
+      "never_prefill": true
+    },
+    {
+      "field_id": "alpaca_risk_tolerance",
+      "label": "Risk Tolerance",
+      "type": "select",
+      "options": ["conservative", "moderate", "aggressive"],
+      "required": true,
+      "never_prefill": true
+    },
+    {
+      "field_id": "alpaca_broker_dealer_affiliation",
+      "label": "Broker-Dealer Affiliation Disclosure",
+      "type": "boolean_declaration",
+      "required": true,
+      "broker_note": "FINRA requirement. Are you affiliated with a broker-dealer? Always fresh.",
+      "never_prefill": true
+    },
+    {
+      "field_id": "alpaca_lrs_consent",
+      "label": "LRS Form A2 Consent",
+      "type": "declaration",
+      "required": true,
+      "broker_note": "RBI LRS mandatory. Confirms remittance within $250k annual limit. Enforced in adapter pre-submit hook.",
+      "never_prefill": true
+    }
+  ]
+}
