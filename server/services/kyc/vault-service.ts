@@ -372,9 +372,10 @@ export async function getVaultDocuments(
       if (!storageRef) continue;
 
       // Presigned URL generation — delegates to GCS/S3 if configured
-      // In development (no OBJECT_STORAGE_BUCKET env var) returns null gracefully
+      // Canonical env var: DEFAULT_OBJECT_STORAGE_BUCKET_ID (runtime-env.ts)
+      // Legacy fallback: OBJECT_STORAGE_BUCKET (kept for backward compat)
       let presignedUrl: string | null = null;
-      const bucket = process.env.OBJECT_STORAGE_BUCKET;
+      const bucket = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID ?? process.env.OBJECT_STORAGE_BUCKET;
       if (bucket) {
         // Production: generate short-TTL presigned URL
         // This pattern works for GCS (via @google-cloud/storage) or S3-compatible
