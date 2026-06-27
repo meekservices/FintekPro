@@ -4289,3 +4289,101 @@ export const insertOnboardingInvitationEventSchema = createInsertSchema(onboardi
 });
 export type OnboardingInvitationEvent = typeof onboardingInvitationEvents.$inferSelect;
 export type InsertOnboardingInvitationEvent = z.infer<typeof insertOnboardingInvitationEventSchema>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Intermediary Profiles — Agent and Partner Credentialing (Spec Section 15.5)
+// ─────────────────────────────────────────────────────────────────────────────
+// Agents: hold EUIN numbers, operate under a parent partner ARN.
+// Partners: hold ARN (AMFI Registration Number), may be individual or corporate.
+// Both share identity fields with the investor vault (via canonicalProfileId).
+//
+// PII fields encrypted at rest: arn_number, euin_number, bank_account_number,
+// ifsc_code, gst_registration_number (via kyc-encryption-service.ts).
+// These fields MUST NOT appear in logs — log intermediary_id only.
+
+export const intermediaryProfiles = pgTable("intermediary_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // "agent" = EUIN holder operating under an ARN; "partner" = ARN holder / MFD / RIA
+  entityType: varchar("entity_type", { length: 20 }).notNull(),  // "agent" | "partner"
+  // For agents: the partner (ARN holder) they operate under
+  parentIntermediaryId: varchar("parent_intermediary_id"),
+
+  // ─── Shared identity reference ────────────────────────────────────────────
+  // Links to the investor KYC vault if this intermediary is also a FintekPro investor.
+  // Allows identity fields (PAN, address, photo) to be prefilled from investor vault.
+  canonicalProfileId: varchar("canonical_profile_id").references(() => kycVault.id),
+  // Direct user reference for lookup
+  userId: varchar("user_id").references(() => users.id),
+
+  // ─── ARN (Partners only) ─────────────────────────────────────────────────
+  // AES-256-GCM encrypted. Verified by admin against AMFI public records.
+  encryptedArnNumber: text("encrypted_arn_number"),
+  arnStatus: varchar("arn_status", { length: 20 }).default("pending"),  // pending|active|suspended|expired
+  arnExpiryDate: timestamp("arn_expiry_date"),
+
+  // ─── EUIN (Agents only) ───────────────────────────────────────────────────
+  // AES-256-GCM encrypted. Verified by admin against AMFI EUIN registry.
+  encryptedEuinNumber: text("encrypted_euin_number"),
+  euinStatus: varchar("euin_status", { length: 20 }).default("pending"),  // pending|active|suspended|expired
+  euinExpiryDate: timestamp("euin_expiry_date"),
+  // ARN the agent is mapped under (display reference, not encrypted)
+  parentArnNumber: varchar("parent_arn_number"),
+
+  // ─── Qualifications ───────────────────────────────────────────────────────
+  nismCertificateNumber: varchar("nism_certificate_number"),
+  nismCertificateExpiry: timestamp("nism_certificate_expiry"),
+  nismExamType: varchar("nism_exam_type", { length: 30 }),  // "series_v_a" | "cpd_refresher"
+  nismCertDocumentRef: varchar("nism_cert_document_ref"),   // GCS object path for document store
+
+  // ─── KYD (Know Your Distributor) ─────────────────────────────────────────
+  kydStatus: varchar("kyd_status", { length: 20 }).default("pending"),  // pending|compliant|non_compliant
+  kydVerifiedAt: timestamp("kyd_verified_at"),
+  kydDocumentRef: varchar("kyd_document_ref"),
+
+  // ─── Empanelment (Partners only) ─────────────────────────────────────────
+  // Array of AMC codes the partner is empanelled with
+  empanelledAmcs: text("empanelled_amcs").array().default(sql`'{}'::text[]`),
+  // Per-AMC empanelment dates: { "HDFC": "2024-01-15", "ICICI": "2024-03-01" }
+  empanelledAt: jsonb("empanelled_at").default({}),
+
+  // ─── Business / Settlement ────────────────────────────────────────────────
+  // AES-256-GCM encrypted. NEVER logged.
+  encryptedBankAccountNumber: text("encrypted_bank_account_number"),
+  encryptedIfscCode: text("encrypted_ifsc_code"),
+  commissionPayoutMethod: varchar("commission_payout_method").default("neft"),
+  // GST number for corporate partners (encrypted)
+  encryptedGstRegistrationNumber: text("encrypted_gst_registration_number"),
+  sebiRegistrationNumber: varchar("sebi_registration_number"),
+
+  // ─── Admin controls ───────────────────────────────────────────────────────
+  onboardedAt: timestamp("onboarded_at").defaultNow(),
+  approvedByAdminId: varchar("approved_by_admin_id").references(() => users.id),
+  approvalNotes: text("approval_notes"),
+  // Populated when intermediary is suspended
+  suspendedAt: timestamp("suspended_at"),
+  suspensionReason: text("suspension_reason"),
+  suspendedByAdminId: varchar("suspended_by_admin_id").references(() => users.id),
+  // Reinstated after suspension
+  reinstatedAt: timestamp("reinstated_at"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_intermediary_entity_type").on(table.entityType),
+  index("idx_intermediary_user").on(table.userId),
+  index("idx_intermediary_parent").on(table.parentIntermediaryId),
+  index("idx_intermediary_arn_status").on(table.arnStatus),
+  index("idx_intermediary_euin_status").on(table.euinStatus),
+  index("idx_intermediary_arn_expiry").on(table.arnExpiryDate),
+  index("idx_intermediary_euin_expiry").on(table.euinExpiryDate),
+  index("idx_intermediary_nism_expiry").on(table.nismCertificateExpiry),
+]);
+
+export const insertIntermediaryProfileSchema = createInsertSchema(intermediaryProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  onboardedAt: true,
+});
+export type IntermediaryProfile = typeof intermediaryProfiles.$inferSelect;
+export type InsertIntermediaryProfile = z.infer<typeof insertIntermediaryProfileSchema>;

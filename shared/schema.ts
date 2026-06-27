@@ -64,6 +64,7 @@ import {
   userUccStatus, bondSuitabilityChecks, panConsents, fixedIncomeOrderPayments,
   fixedIncomeNotificationPrefs, lrsComplianceTracking, usConsents, rbiRetailDirectAccounts,
   bondCouponPayments, aaRawPayloads, sgbPrimaryIssues, entityComplianceScores,
+  intermediaryProfiles, insertIntermediaryProfileSchema, IntermediaryProfile, InsertIntermediaryProfile,
 } from './schema/kyc.ts';
 import { 
   insertAgentAppointmentSchema, 

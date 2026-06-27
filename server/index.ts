@@ -370,6 +370,15 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 		app.use("/api/kyc", investorAuthRouter);
 		logger.info("✅ Investor Authorization routes registered at /api/kyc/...");
 
+		// ── KYC Vault Orchestrator v2 — Diff Engine + Provenance Vault ───────
+		// Mounts: GET    /api/kyc/v2/vault/:userId/profile
+		//         PATCH  /api/kyc/v2/vault/:userId/profile
+		//         POST   /api/kyc/v2/consent
+		//         POST   /api/kyc/v2/orchestrator/diff
+		const kycVaultV2Router = await import("./routes/kyc-vault-routes");
+		app.use("/api/kyc/v2", kycVaultV2Router.default);
+		logger.info("✅ KYC Vault v2 (diff engine + provenance) registered at /api/kyc/v2/...");
+
 		// ── Admin Compliance Dashboard ─────────────────────────────────────────
 		// Mounts: GET /api/admin/compliance/audit
 		//         GET /api/admin/compliance/assisted-access

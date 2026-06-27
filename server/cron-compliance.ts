@@ -16,41 +16,37 @@ import { isProductionEnvironment } from "./utils/enrichment-guard";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { logger } from "./logger";
+import { logCronJob } from "./logger";
 import { whatsappDispatcher } from "./services/whatsapp-dispatcher";
 
 export function initializeComplianceCrons(): void {
 	if (!isProductionEnvironment()) {
-		console.log("⏭️ [ErrorDigest] Skipped (development mode - production only)");
-		console.log("⏭️ [CKYC SLA] Skipped (development mode - production only)");
-		console.log(
-			"⏭️ [AuditIntegrity] Skipped (development mode - production only)",
-		);
-		console.log(
-			"⏭️ [CompanyRefresh/Reconciliation/GIFTCity] Skipped (development mode - production only)",
-		);
+		logger.info("[ComplianceCrons] Skipped — development mode", {
+			event: "CRON_SKIPPED",
+			jobs: ["ErrorDigest", "CKYC_SLA", "AuditIntegrity", "DailyReconciliation", "GIFTCity"],
+			reason: "non-production",
+		});
 		return;
 	}
 
 	// ── Error digest — daily at 8:10 AM IST (2:40 AM UTC) ─────────────────────
 	cron.schedule("40 2 * * *", async () => {
-		console.log("[CRON] Starting daily error digest...");
+		const t0 = Date.now();
 		try {
 			await errorDigestService.runDailyDigest();
-			console.log("[CRON] Daily error digest completed");
+			logCronJob("daily-error-digest", t0, "success");
 		} catch (error: any) {
-			console.error("[CRON] Error digest job failed:", error.message);
+			logCronJob("daily-error-digest", t0, "failure", {}, error as Error);
 		}
 	});
-	console.log("📊 [ErrorDigest] Daily error digest scheduled (8:00 AM IST)");
+	logger.info("[ComplianceCrons] Error digest scheduled", { schedule: "08:10 AM IST (40 2 * * *)" });
 
 	// ── CKYC SLA escalation ─────────────────────────────────────────────────────
 	try {
 		ckycSlaEscalationService.initialize();
+		logger.info("[ComplianceCrons] CKYC SLA Escalation Service initialized");
 	} catch (error: any) {
-		console.error(
-			"[CRON] Failed to initialize CKYC SLA Escalation Service:",
-			error.message,
-		);
+		logger.error("[ComplianceCrons] Failed to initialize CKYC SLA Escalation Service", {}, error as Error);
 	}
 
 	// ── Audit trail integrity checker ───────────────────────────────────────────
@@ -60,19 +56,16 @@ export function initializeComplianceCrons(): void {
 			10,
 		);
 		auditIntegrityChecker.initialize(auditCheckIntervalMinutes);
-		console.log(
-			`[CRON] Audit Integrity Checker initialized (every ${auditCheckIntervalMinutes} minutes)`,
-		);
+		logger.info("[ComplianceCrons] Audit Integrity Checker initialized", {
+			interval_minutes: auditCheckIntervalMinutes,
+		});
 	} catch (error: any) {
-		console.error(
-			"[CRON] Failed to initialize Audit Integrity Checker:",
-			error.message,
-		);
+		logger.error("[ComplianceCrons] Failed to initialize Audit Integrity Checker", {}, error as Error);
 	}
 
 	// ── Daily reconciliation — 1:00 AM IST (7:30 PM UTC previous day) ─────────
 	cron.schedule("30 19 * * *", async () => {
-		console.log("[CRON] Starting daily reconciliation...");
+		const t0 = Date.now();
 		try {
 			const yesterday = new Date();
 			yesterday.setDate(yesterday.getDate() - 1);
@@ -80,49 +73,55 @@ export function initializeComplianceCrons(): void {
 				yesterday,
 				"system_cron",
 			);
-			console.log(`[CRON] Daily reconciliation completed: ${report.id}`);
-			console.log(
-				`[CRON] Summary: ${report.summary.totalTransactions} transactions, ${report.summary.discrepancyCount} discrepancies`,
-			);
-			if (report.summary.discrepancyCount > 0) {
-				console.warn(
-					`[CRON] ATTENTION: ${report.summary.discrepancyCount} discrepancies detected`,
-				);
+			const hasDiscrepancies = report.summary.discrepancyCount > 0;
+			logCronJob("daily-reconciliation", t0, "success", {
+				recordsProcessed: report.summary.totalTransactions,
+				details: {
+					report_id: report.id,
+					discrepancy_count: report.summary.discrepancyCount,
+					alert: hasDiscrepancies,
+				},
+			});
+			if (hasDiscrepancies) {
+				logger.warn("[ComplianceCrons] Reconciliation discrepancies detected", {
+					event: "RECONCILIATION_DISCREPANCIES",
+					discrepancy_count: report.summary.discrepancyCount,
+					report_id: report.id,
+				});
 			}
 		} catch (error: any) {
-			console.error("[CRON] Daily reconciliation job failed:", error.message);
+			logCronJob("daily-reconciliation", t0, "failure", {}, error as Error);
 		}
 	});
-	console.log(
-		"📊 [DailyReconciliation] Daily reconciliation scheduled (1:00 AM IST)",
-	);
+	logger.info("[ComplianceCrons] Daily reconciliation scheduled", { schedule: "01:00 AM IST (30 19 * * *)" });
 
 	// ── GIFT City product maintenance — 2:20 AM IST (8:50 PM UTC) ─────────────
 	// Staggered 20 min after MCA Enrichment Sweep (2:00 AM IST, '30 20 * * *')
 	cron.schedule("50 20 * * *", async () => {
-		console.log("[CRON] Starting GIFT City product maintenance...");
+		const t0 = Date.now();
 		try {
 			const result = await giftCityMaintenanceService.runMaintenance();
-			console.log(
-				`[CRON] GIFT City maintenance: ${result.totalProducts} total, ${result.validatedProducts} validated, ${result.updatedProducts} updated`,
-			);
-			if ((result as any).errors?.length > 0)
-				console.warn(
-					`[CRON] GIFT City issues: ${(result as any).errors.length}`,
-				);
+			logCronJob("gift-city-maintenance", t0, "success", {
+				recordsProcessed: result.updatedProducts,
+				details: {
+					total: result.totalProducts,
+					validated: result.validatedProducts,
+					errors: (result as any).errors?.length ?? 0,
+				},
+			});
 		} catch (error: any) {
-			console.error("[CRON] GIFT City maintenance job failed:", error.message);
+			logCronJob("gift-city-maintenance", t0, "failure", {}, error as Error);
 		}
 	});
-	console.log(
-		"🏙️ [GiftCityMaintenance] Daily maintenance scheduled (2:20 AM IST)",
-	);
+	logger.info("[ComplianceCrons] GIFT City maintenance scheduled", { schedule: "02:20 AM IST (50 20 * * *)" });
+
+
 
 	// ── T02: Audit trail archival — nightly at 3:00 AM IST (9:30 PM UTC) ────────
 	// Moves rows older than 2 years from compliance_audit_trail and audit_trail
 	// into archive tables to keep the live tables lean for query performance.
 	cron.schedule("30 21 * * *", async () => {
-		console.log("[CRON] Starting audit trail archival...");
+		logger.info("[CRON] Starting audit trail archival...");
 		try {
 			// 1. Ensure compliance_audit_trail_archive exists (Neon: one statement per execute)
 			await db.execute(sql`
@@ -145,7 +144,7 @@ export function initializeComplianceCrons(): void {
         INSERT INTO compliance_audit_trail_archive
         SELECT *, NOW() AS archived_at FROM moved
       `);
-			console.log(
+			logger.info(
 				`[CRON] compliance_audit_trail: archived ${compResult.rowCount ?? 0} rows`,
 			);
 
@@ -177,21 +176,21 @@ export function initializeComplianceCrons(): void {
         SELECT user_id, action, category, details, ip_address, user_agent, outcome, risk_level, created_at, NOW()
         FROM moved
       `);
-			console.log(
+			logger.info(
 				`[CRON] audit_trail: archived ${rawResult.rowCount ?? 0} rows`,
 			);
-			console.log("[CRON] Audit trail archival complete");
+			logger.info("[CRON] Audit trail archival complete");
 		} catch (error: any) {
-			console.error("[CRON] Audit trail archival failed:", error.message);
+			logger.error("[CRON] Audit trail archival failed:", error.message);
 		}
 	});
-	console.log("🗄️ [AuditArchival] Nightly archival scheduled (3:00 AM IST)");
+	logger.info("🗄️ [AuditArchival] Nightly archival scheduled (3:00 AM IST)");
 
 	// ── T04: ARN/EUIN daily preflight — 7:30 AM IST (2:00 AM UTC) ───────────────
 	// Validates ARN and EUIN credentials before BSE batch window opens (9 AM IST).
 	// Logs a warning if credentials are expired or nearing expiry.
 	cron.schedule("0 2 * * *", async () => {
-		console.log("[CRON] Starting daily ARN/EUIN credential preflight...");
+		logger.info("[CRON] Starting daily ARN/EUIN credential preflight...");
 		try {
 			const { mfBatchCredentialValidator } = await import(
 				"./services/mf-batch-credential-validator"
@@ -201,46 +200,46 @@ export function initializeComplianceCrons(): void {
 			const euin = (status as any)?.euin;
 
 			if (arn?.expired || euin?.expired) {
-				console.error(
+				logger.error(
 					"[CRON][ARN/EUIN] CRITICAL — ARN or EUIN credential has expired. MF order placement will be blocked.",
 				);
 			} else if (arn?.expiresInDays <= 30 || euin?.expiresInDays <= 30) {
-				console.warn(
+				logger.warn(
 					`[CRON][ARN/EUIN] WARNING — credential expires in ≤30 days. ARN: ${arn?.expiresInDays}d, EUIN: ${euin?.expiresInDays}d`,
 				);
 			} else {
-				console.log("[CRON][ARN/EUIN] ARN and EUIN credentials are valid ✓");
+				logger.info("[CRON][ARN/EUIN] ARN and EUIN credentials are valid ✓");
 			}
 		} catch (error: any) {
-			console.error("[CRON] ARN/EUIN preflight failed:", error.message);
+			logger.error("[CRON] ARN/EUIN preflight failed:", error.message);
 		}
 	});
-	console.log("🔑 [ARN/EUIN] Daily preflight scheduled (7:30 AM IST)");
+	logger.info("🔑 [ARN/EUIN] Daily preflight scheduled (7:30 AM IST)");
 
 	// ── T05: AMFI Distributor Registry Sync — daily 3:00 AM IST (9:30 PM UTC) ──
 	// Downloads AMFI bulk ARN/EUIN data and upserts into amfiDistributors table.
 	// Powers live ARN validation (replaces hardcoded test-ARN list).
 	// Ref: AMFI Circular 135/BP/22/2018-19 — ARN renewal mandatory every 3 years.
 	cron.schedule("30 21 * * *", async () => {
-		console.log("[CRON] Starting AMFI distributor registry sync...");
+		logger.info("[CRON] Starting AMFI distributor registry sync...");
 		try {
 			const { amfiLiveValidationService } = await import(
 				"./services/amfi-live-validation-service"
 			);
 			const result = await amfiLiveValidationService.syncAmfiDistributors();
-			console.log(
+			logger.info(
 				`[CRON][AmfiSync] Sync complete: ${result.synced} synced, ${result.errors} errors`,
 			);
 			if (result.errors > 0) {
-				console.warn(
+				logger.warn(
 					"[CRON][AmfiSync] Some records failed to sync — check AMFI_DISTRIBUTOR_BULK_URL config",
 				);
 			}
 		} catch (error: any) {
-			console.error("[CRON] AMFI distributor sync failed:", error.message);
+			logger.error("[CRON] AMFI distributor sync failed:", error.message);
 		}
 	});
-	console.log(
+	logger.info(
 		"📋 [AmfiSync] Daily AMFI distributor registry sync scheduled (3:00 AM IST)",
 	);
 
@@ -250,7 +249,7 @@ export function initializeComplianceCrons(): void {
 	// cron syntax: minute hour day-of-month month day-of-week
 	// 6:00 AM IST = 0:30 AM UTC; month 1,4,7,10; day 1
 	cron.schedule("30 0 1 1,4,7,10 *", async () => {
-		console.log(
+		logger.info(
 			"[CRON] Starting SEBI quarterly regulatory report generation...",
 		);
 		try {
@@ -263,7 +262,7 @@ export function initializeComplianceCrons(): void {
 
 			const events =
 				(await (regulatoryReportingService as any).getPendingEvents?.()) ?? [];
-			console.log(
+			logger.info(
 				`[CRON] SEBI quarterly: ${events.length} pending reportable events found`,
 			);
 
@@ -280,17 +279,17 @@ export function initializeComplianceCrons(): void {
            ${metadataJson}::jsonb,
            NOW())
       `);
-			console.log(
+			logger.info(
 				"[CRON] SEBI quarterly report export initiated — review in Admin → Compliance → Regulatory Reports",
 			);
 		} catch (error: any) {
-			console.error(
+			logger.error(
 				"[CRON] SEBI quarterly report generation failed:",
 				error.message,
 			);
 		}
 	});
-	console.log(
+	logger.info(
 		"📋 [SEBIQuarterly] Quarterly report generation scheduled (1st Jan/Apr/Jul/Oct, 6:00 AM IST)",
 	);
 
@@ -382,7 +381,7 @@ export function initializeComplianceCrons(): void {
 			});
 		}
 	});
-	console.log(
+	logger.info(
 		"🗃️ [DbAudit] Monthly table audit scheduled (1st of each month, 2:00 AM IST)",
 	);
 
@@ -390,7 +389,7 @@ export function initializeComplianceCrons(): void {
 	// Queries users whose video_kyc_expiry_date is within the next 60 days and
 	// sends a WhatsApp reminder to complete V-CIP renewal (per RBI 2023 V-CIP guidelines).
 	cron.schedule("30 3 1 * *", async () => {
-		console.log("[CRON] Starting V-CIP expiry reminder job...");
+		logger.info("[CRON] Starting V-CIP expiry reminder job...");
 		try {
 			const rows = await db.execute(sql`
         SELECT
@@ -413,7 +412,7 @@ export function initializeComplianceCrons(): void {
 				firstName: string | null;
 			}>;
 
-			console.log(
+			logger.info(
 				`[CRON][V-CIP Expiry] Found ${users.length} users with expiring V-CIP`,
 			);
 			let sent = 0;
@@ -449,26 +448,26 @@ export function initializeComplianceCrons(): void {
 						sent++;
 					} else {
 						failed++;
-						console.warn(
+						logger.warn(
 							`[CRON][V-CIP Expiry] Failed to send reminder to user ${u.userId} via ${result.provider}: ${result.error}`,
 						);
 					}
 				} catch (msgErr: any) {
 					failed++;
-					console.error(
+					logger.error(
 						`[CRON][V-CIP Expiry] Exception sending reminder to user ${u.userId}: ${msgErr.message}`,
 					);
 				}
 			}
 
-			console.log(
+			logger.info(
 				`[CRON][V-CIP Expiry] Reminder job complete — sent: ${sent}, failed: ${failed}`,
 			);
 		} catch (error: any) {
-			console.error("[CRON][V-CIP Expiry] Job failed:", error.message);
+			logger.error("[CRON][V-CIP Expiry] Job failed:", error.message);
 		}
 	});
-	console.log(
+	logger.info(
 		"📅 [VCIPExpiryReminder] Monthly reminder scheduled (1st of each month, 9:00 AM IST)",
 	);
 
@@ -520,7 +519,7 @@ export function initializeComplianceCrons(): void {
 					await new Promise((resolve) => setTimeout(resolve, 2000));
 				} catch (err: any) {
 					failureCount++;
-					console.error(
+					logger.error(
 						`[CRON][CARegistry] Revalidation error for ${entry.icaiMembershipNumber}:`,
 						err.message,
 					);
@@ -557,7 +556,7 @@ export function initializeComplianceCrons(): void {
 			});
 		}
 	});
-	console.log(
+	logger.info(
 		"🛡️ [RegulatoryIntegrity] Nightly audit pack check scheduled (4:00 AM IST)",
 	);
 
@@ -606,7 +605,7 @@ export function initializeComplianceCrons(): void {
 			});
 		}
 	});
-	console.log(
+	logger.info(
 		"📈 [RevenueDrift] Daily configuration drift detector scheduled (4:30 AM IST)",
 	);
 
@@ -653,7 +652,7 @@ export function initializeComplianceCrons(): void {
 			logger.error("[CRON][eSignSweep] Job failed:", { error: err?.message });
 		}
 	});
-	console.log("🔍 [eSignSweep] Hourly stuck-transaction sweep scheduled");
+	logger.info("🔍 [eSignSweep] Hourly stuck-transaction sweep scheduled");
 
 	// ── S2: eSign Expiry Reminder — daily 9:00 AM IST (3:30 AM UTC) ─────────────
 	// Finds proposal_esign_workflows with status = 'pending_signature' and a
@@ -754,7 +753,7 @@ export function initializeComplianceCrons(): void {
 			logger.error("[CRON][eSignExpiry] Job failed:", { error: err?.message });
 		}
 	});
-	console.log(
+	logger.info(
 		"📆 [eSignExpiry] Daily eSign deadline reminder scheduled (9:00 AM IST)",
 	);
 }

@@ -186,6 +186,12 @@ type ModelPortfolio = {
   benchmarkCagr1Y: number;
   benchmarkName: string;
   lastRebalanced: string;
+  /**
+   * P2: Explicit rebalancing schedule.
+   * Used to compute nextReviewDate deterministically — no more hardcoded 90-day offset.
+   * monthly = 30d, quarterly = 91d, semi_annual = 182d, annual = 365d
+   */
+  rebalancingFrequency: "monthly" | "quarterly" | "semi_annual" | "annual";
   totalHoldings: number;
   allocation: AssetAllocation[];
   holdings: Holding[];
@@ -210,7 +216,54 @@ const seededRandom = (seed: number) => {
   };
 };
 
+/**
+ * P1: Derives a stable integer from a portfolio ID string.
+ * Ensures portfolios with identical annualReturn+volatility produce unique NAV curves.
+ * Uses djb2-style hash: fast, collision-resistant for short strings.
+ */
+const hashPortfolioId = (id: string): number => {
+  let h = 5381;
+  for (let i = 0; i < id.length; i++) {
+    h = ((h << 5) + h) ^ id.charCodeAt(i);
+    h = h & 0xffffffff; // keep 32-bit
+  }
+  return Math.abs(h);
+};
+
+/**
+ * P2: Computes the next review date from lastRebalanced + frequency.
+ * Deterministic: same inputs → same output. No Date.now() drift.
+ */
+const FREQUENCY_DAYS: Record<ModelPortfolio["rebalancingFrequency"], number> = {
+  monthly:     30,
+  quarterly:   91,
+  semi_annual: 182,
+  annual:      365,
+};
+
+const FREQUENCY_LABELS: Record<ModelPortfolio["rebalancingFrequency"], string> = {
+  monthly:     "Monthly",
+  quarterly:   "Quarterly",
+  semi_annual: "Semi-Annual",
+  annual:      "Annual",
+};
+
+export const computeNextReviewDate = (
+  lastRebalanced: string,
+  frequency: ModelPortfolio["rebalancingFrequency"],
+): Date => {
+  const last = new Date(lastRebalanced);
+  const next = new Date(last);
+  next.setDate(next.getDate() + FREQUENCY_DAYS[frequency]);
+  return next;
+};
+
+/**
+ * P1: PERFORMANCE_BASE now accepts portfolioId to mix into the LCG seed.
+ * portfolios with same return+volatility will get distinct, stable NAV curves.
+ */
 const PERFORMANCE_BASE = (
+  portfolioId: string,
   startNav: number,
   months: number,
   annualReturn: number,
@@ -222,8 +275,11 @@ const PERFORMANCE_BASE = (
   let nav = startNav;
   let bench = startNav;
   const now = new Date();
-  // Seed derived from annualReturn + volatility → unique per portfolio, stable across refreshes
-  const rand = seededRandom(Math.round(annualReturn * 100 + volatility * 13));
+  // P1: Mix portfolio ID hash into seed — guarantees curve uniqueness even when
+  // annualReturn and volatility are identical across portfolios.
+  const idHash = hashPortfolioId(portfolioId);
+  const seed = (Math.round(annualReturn * 100 + volatility * 13) + idHash) & 0xffffffff;
+  const rand = seededRandom(Math.abs(seed));
   for (let i = months; i >= 0; i--) {
     const d = new Date(now);
     d.setMonth(d.getMonth() - i);
@@ -257,6 +313,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 7.1,
     benchmarkName: "CRISIL Hybrid 35+65",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 18,
     highlight: "Low volatility, all-season returns",
     icon: "🌦️",
@@ -278,7 +335,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 7, name: "Axis AAA Bond Plus SDL", category: "Bond MF", weight: 8, currentReturn: 8.1 },
       { rank: 8, name: "HDFC Corporate Bond Fund", category: "Bond MF", weight: 7, currentReturn: 7.9 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 9.2, 3),
+    performance: PERFORMANCE_BASE("all-weather-india", 1000, 24, 9.2, 3),
     riskMetrics: { sharpeRatio: 1.42, maxDrawdown: -6.8, volatility: 7.2, beta: 0.48, alpha: 2.1 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "Quarterly rebalancing — added REIT exposure", changes: ["Increased REIT from 7% → 10%", "Reduced liquid by 3%"] },
@@ -309,6 +366,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 12.1,
     benchmarkName: "NIFTY 50",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 22,
     highlight: "Quality large-cap bias, consistent alpha",
     icon: "🏆",
@@ -329,7 +387,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 7, name: "Bajaj Finance", symbol: "BAJFINANCE", category: "Large Cap Stock", weight: 7, currentReturn: 17.6 },
       { rank: 8, name: "ICICI Pru Short Term Fund", category: "Bond MF", weight: 7, currentReturn: 8.2 },
     ],
-    performance: PERFORMANCE_BASE(1000, 36, 14.8, 6),
+    performance: PERFORMANCE_BASE("blue-chip-growth", 1000, 36, 14.8, 6),
     riskMetrics: { sharpeRatio: 1.78, maxDrawdown: -14.2, volatility: 13.4, beta: 0.82, alpha: 3.4 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "Added IT sector exposure on earnings recovery", changes: ["Infosys weight: 6% → 9%", "Banking trimmed by 3%"] },
@@ -358,6 +416,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 18.4,
     benchmarkName: "NIFTY Midcap 150",
     lastRebalanced: "2026-05-15",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 28,
     highlight: "High conviction, sector rotation strategy",
     icon: "🚀",
@@ -377,7 +436,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 6, name: "Kotak NIFTY 50 ETF", category: "Large Cap ETF", weight: 10, currentReturn: 12.4 },
       { rank: 7, name: "Kaynes Technology", symbol: "KAYNES", category: "Small Cap Stock", weight: 6, currentReturn: 52.1 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 21.3, 14),
+    performance: PERFORMANCE_BASE("emerging-leaders", 1000, 24, 21.3, 14),
     riskMetrics: { sharpeRatio: 1.53, maxDrawdown: -28.4, volatility: 21.6, beta: 1.32, alpha: 5.8 },
     rebalancingHistory: [
       { date: "May 2026", description: "Electronics manufacturing sector overweight added", changes: ["Dixon, Kaynes added to portfolio", "Trimmed pharma mid-cap by 4%"] },
@@ -406,6 +465,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 9.4,
     benchmarkName: "NIFTY Dividend Opportunities 50",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 20,
     highlight: "Regular income + capital preservation",
     icon: "🌾",
@@ -424,7 +484,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 6, name: "Sovereign Gold Bond 2028", category: "SGB", weight: 8, currentReturn: 11.4 },
       { rank: 7, name: "ONGC Ltd", symbol: "ONGC", category: "PSU Dividend Stock", weight: 8, currentReturn: 19.3 },
     ],
-    performance: PERFORMANCE_BASE(1000, 36, 11.5, 5),
+    performance: PERFORMANCE_BASE("dividend-harvest", 1000, 36, 11.5, 5),
     riskMetrics: { sharpeRatio: 1.61, maxDrawdown: -9.4, volatility: 9.8, beta: 0.61, alpha: 2.8 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "PSU stocks increased for dividend yield", changes: ["Coal India: 7% → 10%", "Power Grid: 7% → 9%"] },
@@ -453,6 +513,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 10.3,
     benchmarkName: "ELSS Category Avg",
     lastRebalanced: "2026-04-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 14,
     highlight: "80C eligible ELSS + tax-efficient instruments",
     icon: "💰",
@@ -471,7 +532,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 5, name: "NHAI Tax-free Bonds 2027", category: "Tax-free Bond", weight: 8, currentReturn: 6.8 },
       { rank: 6, name: "PFC Tax-free Bonds 2028", category: "Tax-free Bond", weight: 7, currentReturn: 6.6 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 12.1, 7),
+    performance: PERFORMANCE_BASE("tax-saver-portfolio", 1000, 24, 12.1, 7),
     riskMetrics: { sharpeRatio: 1.69, maxDrawdown: -16.2, volatility: 14.1, beta: 0.89, alpha: 3.1 },
     rebalancingHistory: [
       { date: "Apr 2026", description: "New FY rebalancing — ELSS allocation refreshed", changes: ["Quant Tax Plan added for high-momentum exposure", "Axis Long Term slightly trimmed"] },
@@ -500,6 +561,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 14.2,
     benchmarkName: "PMS Category Avg",
     lastRebalanced: "2026-05-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 12,
     highlight: "Exclusive access to institutional-grade investments",
     icon: "💎",
@@ -517,7 +579,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 5, name: "Swiggy Pre-IPO", category: "Pre-IPO", weight: 12, currentReturn: 38.4 },
       { rank: 6, name: "National Stock Exchange (Unlisted)", category: "Unlisted", weight: 10, currentReturn: 28.1 },
     ],
-    performance: PERFORMANCE_BASE(1000, 36, 18.7, 9),
+    performance: PERFORMANCE_BASE("hni-alternatives", 1000, 36, 18.7, 9),
     riskMetrics: { sharpeRatio: 1.91, maxDrawdown: -22.1, volatility: 17.4, beta: 0.74, alpha: 7.2 },
     rebalancingHistory: [
       { date: "May 2026", description: "Pre-IPO allocation refreshed with new opportunities", changes: ["Added Swiggy Pre-IPO position", "Exited PhonePe Pre-IPO post listing"] },
@@ -546,6 +608,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 6.8,
     benchmarkName: "CRISIL Composite Bond",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 16,
     highlight: "Capital safety + monthly income equivalent",
     icon: "🛡️",
@@ -565,7 +628,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 6, name: "Embassy Office Parks REIT", category: "REIT", weight: 10, currentReturn: 10.4 },
       { rank: 7, name: "NHAI Tax-free Bond", category: "Tax-free Bond", weight: 8, currentReturn: 6.7 },
     ],
-    performance: PERFORMANCE_BASE(1000, 36, 8.5, 2.5),
+    performance: PERFORMANCE_BASE("retirement-shield", 1000, 36, 8.5, 2.5),
     riskMetrics: { sharpeRatio: 1.88, maxDrawdown: -4.2, volatility: 5.1, beta: 0.28, alpha: 1.9 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "Duration adjusted on RBI rate signal", changes: ["Reduced long-duration gilt", "Increased ultra-short term allocation"] },
@@ -594,6 +657,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 15.1,
     benchmarkName: "NIFTY Infrastructure",
     lastRebalanced: "2026-05-15",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 24,
     highlight: "India infrastructure + manufacturing boom",
     icon: "🇮🇳",
@@ -614,7 +678,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 6, name: "Hindustan Unilever", symbol: "HINDUNILVR", category: "FMCG", weight: 8, currentReturn: 9.4 },
       { rank: 7, name: "NTPC Green Energy", category: "Renewable Infra", weight: 7, currentReturn: 28.1 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 17.4, 10),
+    performance: PERFORMANCE_BASE("bharat-2030", 1000, 24, 17.4, 10),
     riskMetrics: { sharpeRatio: 1.64, maxDrawdown: -18.7, volatility: 16.3, beta: 1.08, alpha: 4.2 },
     rebalancingHistory: [
       { date: "May 2026", description: "Renewable energy theme added (NTPC Green)", changes: ["NTPC Green added at 7%", "Reduced legacy energy stocks"] },
@@ -644,6 +708,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 12.8,
     benchmarkName: "NIFTY 50 TRI",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 12,
     highlight: "80% index core + 20% quality overlay",
     icon: "📊",
@@ -660,7 +725,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 4, name: "HDFC Bank", symbol: "HDFCBANK", category: "Quality Large Cap", weight: 10, currentReturn: 9.2 },
       { rank: 5, name: "TCS", symbol: "TCS", category: "Quality Large Cap", weight: 5, currentReturn: 16.1 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 13.2, 5),
+    performance: PERFORMANCE_BASE("nifty50-index-alpha", 1000, 24, 13.2, 5),
     riskMetrics: { sharpeRatio: 1.38, maxDrawdown: -11.2, volatility: 10.8, beta: 0.95, alpha: 1.9 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "Annual rebalancing — quality overlay refreshed", changes: ["TCS added as quality tilt", "Rebalanced ETF split 55/25"] },
@@ -691,6 +756,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 18.4,
     benchmarkName: "NIFTY Midcap 150 TRI",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 20,
     highlight: "Pure mid-cap conviction with momentum factor",
     icon: "🚀",
@@ -709,7 +775,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 5, name: "Varun Beverages", symbol: "VBL", category: "Mid Cap FMCG", weight: 7, currentReturn: 27.3 },
       { rank: 6, name: "Blue Star", symbol: "BLUESTAR", category: "Mid Cap Consumer", weight: 6, currentReturn: 22.8 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 21.3, 13),
+    performance: PERFORMANCE_BASE("midcap-momentum", 1000, 24, 21.3, 13),
     riskMetrics: { sharpeRatio: 1.51, maxDrawdown: -22.4, volatility: 18.7, beta: 1.22, alpha: 5.8 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "Electronics/tech tilt increased post PLI data", changes: ["Kaynes added", "Reduced commodity exposure"] },
@@ -740,6 +806,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 20.1,
     benchmarkName: "NIFTY Smallcap 250 TRI",
     lastRebalanced: "2026-05-15",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 25,
     highlight: "Pure small-cap, minimum 7-year horizon",
     icon: "💎",
@@ -756,7 +823,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 4, name: "Garware Technical Fibres", symbol: "GARFIBRES", category: "Small Cap Specialty", weight: 6, currentReturn: 38.7 },
       { rank: 5, name: "Nippon Smallcap 250 BeES", category: "Smallcap ETF", weight: 20, currentReturn: 20.1 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 24.7, 18),
+    performance: PERFORMANCE_BASE("smallcap-discovery", 1000, 24, 24.7, 18),
     riskMetrics: { sharpeRatio: 1.32, maxDrawdown: -31.2, volatility: 24.3, beta: 1.41, alpha: 7.2 },
     rebalancingHistory: [
       { date: "May 2026", description: "Turnaround basket refreshed", changes: ["Added Utkarsh SFB on NPA recovery thesis", "Exited Anupam Rasayan at target"] },
@@ -787,6 +854,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 14.2,
     benchmarkName: "NIFTY 500 TRI",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 30,
     highlight: "Shifts weight between large/mid/small dynamically",
     icon: "🌀",
@@ -804,7 +872,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 4, name: "Cholamandalam Investment", symbol: "CHOLAFIN", category: "Mid Cap", weight: 7, currentReturn: 28.3 },
       { rank: 5, name: "Neuland Laboratories", symbol: "NEULANDLAB", category: "Small Cap", weight: 5, currentReturn: 67.3 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 16.8, 9),
+    performance: PERFORMANCE_BASE("flexicap-allcap", 1000, 24, 16.8, 9),
     riskMetrics: { sharpeRatio: 1.58, maxDrawdown: -16.3, volatility: 14.2, beta: 1.05, alpha: 4.1 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "Quarterly rebalancing — trimmed large cap, added mid cap on earnings upgrade", changes: ["Large Cap: 45% → 40%", "Mid Cap: 30% → 35%"] },
@@ -835,6 +903,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 16.2,
     benchmarkName: "NIFTY500 Multicap 50:25:25",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 30,
     highlight: "Structured 25-25-25 exposure per SEBI mandate",
     icon: "⚖️",
@@ -851,7 +920,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 4, name: "Emami", symbol: "EMAMILTD", category: "Mid Cap", weight: 8, currentReturn: 7.4 },
       { rank: 5, name: "Deepak Nitrite", symbol: "DEEPAKNTR", category: "Small Cap", weight: 7, currentReturn: 31.2 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 18.9, 12),
+    performance: PERFORMANCE_BASE("multicap-balanced", 1000, 24, 18.9, 12),
     riskMetrics: { sharpeRatio: 1.44, maxDrawdown: -19.8, volatility: 16.9, beta: 1.15, alpha: 4.6 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "Maintained SEBI minimum across all caps", changes: ["Large Cap trimmed 35→33%", "Small Cap added 26→28%"] },
@@ -882,6 +951,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 7.2,
     benchmarkName: "CRISIL Short Term Bond Index",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 15,
     highlight: "Low duration risk, high credit quality",
     icon: "📅",
@@ -898,7 +968,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 4, name: "SBI Short Term Debt Fund", category: "Short Term Bond MF", weight: 12, currentReturn: 7.8 },
       { rank: 5, name: "RBI T-Bills (via ETF)", category: "G-Sec ETF", weight: 10, currentReturn: 7.2 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 7.8, 1),
+    performance: PERFORMANCE_BASE("debt-short-duration", 1000, 24, 7.8, 1),
     riskMetrics: { sharpeRatio: 2.1, maxDrawdown: -1.2, volatility: 2.1, beta: 0.08, alpha: 0.7 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "Duration maintained at ~1.8 years post RBI pause", changes: ["Rolled 3M T-Bills", "Added HDFC Bank NCD at 8.3%"] },
@@ -929,6 +999,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 8.7,
     benchmarkName: "CRISIL 10Y Gilt Index",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 10,
     highlight: "Rate cut beneficiary — capital gain potential",
     icon: "🏛️",
@@ -944,7 +1015,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 3, name: "HDFC Gilt Fund", category: "Gilt Fund", weight: 20, currentReturn: 9.4 },
       { rank: 4, name: "Nippon India Gilt SDL Index", category: "SDL ETF", weight: 20, currentReturn: 8.7 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 9.4, 4),
+    performance: PERFORMANCE_BASE("debt-long-duration", 1000, 24, 9.4, 4),
     riskMetrics: { sharpeRatio: 1.21, maxDrawdown: -5.8, volatility: 5.9, beta: 0.22, alpha: 1.4 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "Added 30Y G-Sec on rate cut anticipation", changes: ["30Y bucket: 15% → 25%", "Reduced SDL: 30% → 20%"] },
@@ -975,6 +1046,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 7.8,
     benchmarkName: "CRISIL Corporate Bond Composite",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 18,
     highlight: "50-100bps spread over G-Sec with credit quality",
     icon: "🏢",
@@ -991,7 +1063,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 4, name: "NTPC Bond 8.10%", category: "PSU Bond", weight: 10, currentReturn: 8.1 },
       { rank: 5, name: "Aditya Birla Corp Bond", category: "Corp Bond MF", weight: 10, currentReturn: 8.7 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 8.6, 1.5),
+    performance: PERFORMANCE_BASE("debt-corporate-bond", 1000, 24, 8.6, 1.5),
     riskMetrics: { sharpeRatio: 1.87, maxDrawdown: -2.1, volatility: 2.8, beta: 0.12, alpha: 0.9 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "Added Bajaj Finance NCD at attractive 8.65% yield", changes: ["NCD allocation 8% → 12%", "Reduced AA+ bucket proportionally"] },
@@ -1022,6 +1094,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 6.9,
     benchmarkName: "CRISIL Liquid Fund Index",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 8,
     highlight: "No exit load after 7 days, ~7.3% p.a. vs 3.5% savings",
     icon: "💧",
@@ -1038,7 +1111,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 4, name: "Nippon India ETF Nifty 1D Rate", category: "Overnight ETF", weight: 15, currentReturn: 7.0 },
       { rank: 5, name: "Kotak Arbitrage Fund", category: "Arbitrage", weight: 5, currentReturn: 8.2 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 7.3, 0.3),
+    performance: PERFORMANCE_BASE("debt-liquid-park", 1000, 24, 7.3, 0.3),
     riskMetrics: { sharpeRatio: 3.2, maxDrawdown: -0.1, volatility: 0.3, beta: 0.01, alpha: 0.4 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "Arbitrage allocation added for tax efficiency", changes: ["Added Kotak Arbitrage at 5%", "Trimmed Liquid MF by 5%"] },
@@ -1069,6 +1142,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 10.1,
     benchmarkName: "CRISIL Hybrid 50+50 Moderate",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 20,
     highlight: "Automatically reduces equity when markets are expensive",
     icon: "🎛️",
@@ -1084,7 +1158,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 3, name: "Nippon India Balanced Advantage", category: "BAF", weight: 20, currentReturn: 11.2 },
       { rank: 4, name: "Kotak Balanced Advantage Fund", category: "BAF", weight: 15, currentReturn: 10.9 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 11.4, 5),
+    performance: PERFORMANCE_BASE("balanced-advantage", 1000, 24, 11.4, 5),
     riskMetrics: { sharpeRatio: 1.68, maxDrawdown: -9.3, volatility: 8.2, beta: 0.58, alpha: 2.8 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "Equity reduced to 55% from 62% — NIFTY PE above 22x", changes: ["Equity: 62% → 55%", "Debt: 28% → 35%"] },
@@ -1115,6 +1189,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 6.9,
     benchmarkName: "CRISIL Liquid Fund Index",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 8,
     highlight: "Board-policy compliant · AAA/Sovereign only · T+1 liquidity",
     icon: "🏦",
@@ -1135,7 +1210,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 6, name: "ICICI Bank FD (91-day)", category: "Scheduled Bank FD", weight: 10, currentReturn: 7.6 },
       { rank: 7, name: "Kotak Arbitrage Fund", category: "Arbitrage MF", weight: 5, currentReturn: 8.2 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 7.5, 0.2),
+    performance: PERFORMANCE_BASE("corp-treasury-operational", 1000, 24, 7.5, 0.2),
     riskMetrics: { sharpeRatio: 3.8, maxDrawdown: -0.05, volatility: 0.2, beta: 0.00, alpha: 0.6 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "Overnight bucket increased for quarter-end liquidity requirement", changes: ["Overnight: 20% → 25%", "Liquid MF: 45% → 40%"] },
@@ -1173,6 +1248,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 7.8,
     benchmarkName: "CRISIL Short Duration Bond Index",
     lastRebalanced: "2026-06-01",
+    rebalancingFrequency: "quarterly",
     totalHoldings: 12,
     highlight: "80–120bps above liquid funds · 3–6M deployment horizon",
     icon: "🏛️",
@@ -1194,7 +1270,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 7, name: "HDFC Corporate Bond Fund", category: "Corp Bond MF", weight: 10, currentReturn: 8.5 },
       { rank: 8, name: "ICICI Pru Liquid Fund", category: "Liquid Buffer", weight: 8, currentReturn: 7.4 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 8.4, 0.8),
+    performance: PERFORMANCE_BASE("corp-treasury-strategic", 1000, 24, 8.4, 0.8),
     riskMetrics: { sharpeRatio: 2.6, maxDrawdown: -0.8, volatility: 1.2, beta: 0.05, alpha: 0.8 },
     rebalancingHistory: [
       { date: "Jun 2026", description: "Added SDL allocation on state fiscal improvement", changes: ["SDL: 15% → 20%", "Banking & PSU: 30% → 25%"] },
@@ -1231,6 +1307,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     cagr1Y: 14.2, cagr3Y: 15.8, cagr5Y: 17.1,
     benchmarkCagr1Y: 12.8, benchmarkName: "NIFTY 500 TRI",
     lastRebalanced: "2026-06-01", totalHoldings: 14,
+    rebalancingFrequency: "quarterly",
     highlight: "Glide path: reduces equity as goal year approaches",
     icon: "🎓", isNew: true,
     allocation: [
@@ -1248,7 +1325,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 5, name: "HDFC Corporate Bond Fund", category: "Corporate Bond", weight: 10, currentReturn: 8.5 },
       { rank: 6, name: "Nippon Gold ETF", category: "Gold ETF", weight: 5, currentReturn: 14.2 },
     ],
-    performance: PERFORMANCE_BASE(1000, 36, 14.2, 8),
+    performance: PERFORMANCE_BASE("goal-child-education", 1000, 36, 14.2, 8),
     riskMetrics: { sharpeRatio: 1.52, maxDrawdown: -14.3, volatility: 12.4, beta: 0.88, alpha: 3.1 },
     rebalancingHistory: [{ date: "Jun 2026", description: "Annual glide path review", changes: ["Equity maintained at 80%"] }],
     aiInsight: {
@@ -1271,6 +1348,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     cagr1Y: 13.1, cagr3Y: 14.4, cagr5Y: 15.8,
     benchmarkCagr1Y: 11.2, benchmarkName: "NIFTY 500 TRI",
     lastRebalanced: "2026-06-01", totalHoldings: 16,
+    rebalancingFrequency: "quarterly",
     highlight: "NPS Sec 80CCD(1B) + equity MFs + SGB",
     icon: "🌅",
     allocation: [
@@ -1285,7 +1363,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 3, name: "Mirae Asset Large & Midcap", category: "Large & Mid", weight: 15, currentReturn: 16.8 },
       { rank: 4, name: "Sovereign Gold Bonds 2030", category: "SGB", weight: 10, currentReturn: 16.1 },
     ],
-    performance: PERFORMANCE_BASE(1000, 36, 13.1, 7),
+    performance: PERFORMANCE_BASE("goal-retirement", 1000, 36, 13.1, 7),
     riskMetrics: { sharpeRatio: 1.61, maxDrawdown: -12.8, volatility: 11.2, beta: 0.82, alpha: 2.8 },
     rebalancingHistory: [{ date: "Jun 2026", description: "NPS allocation reviewed", changes: ["Added SGB tranche"] }],
     aiInsight: {
@@ -1308,6 +1386,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     cagr1Y: 11.8, cagr3Y: 12.6, cagr5Y: 13.4,
     benchmarkCagr1Y: 10.1, benchmarkName: "CRISIL Hybrid 50+50",
     lastRebalanced: "2026-06-01", totalHoldings: 10,
+    rebalancingFrequency: "quarterly",
     highlight: "Balanced growth + capital safety for 3–5Y milestone",
     icon: "💍", isNew: true,
     allocation: [
@@ -1322,7 +1401,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 3, name: "Nippon Gold ETF", category: "Gold ETF", weight: 15, currentReturn: 14.2 },
       { rank: 4, name: "ICICI Pru Liquid Fund", category: "Liquid MF", weight: 10, currentReturn: 7.4 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 11.8, 6),
+    performance: PERFORMANCE_BASE("goal-wedding-fund", 1000, 24, 11.8, 6),
     riskMetrics: { sharpeRatio: 1.74, maxDrawdown: -8.4, volatility: 7.8, beta: 0.52, alpha: 2.4 },
     rebalancingHistory: [{ date: "Jun 2026", description: "Equity trimmed as goal approaches", changes: ["Equity: 45% → 40%"] }],
     aiInsight: {
@@ -1345,6 +1424,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     cagr1Y: 8.9, cagr3Y: 9.1, cagr5Y: 8.8,
     benchmarkCagr1Y: 7.8, benchmarkName: "CRISIL Short Term Bond",
     lastRebalanced: "2026-06-01", totalHoldings: 8,
+    rebalancingFrequency: "quarterly",
     highlight: "Capital preservation priority — cannot afford big drawdowns",
     icon: "🏠",
     allocation: [
@@ -1359,7 +1439,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 3, name: "HDFC Liquid Fund", category: "Liquid MF", weight: 15, currentReturn: 7.4 },
       { rank: 4, name: "ICICI Pru Regular Savings Fund", category: "Conservative Hybrid", weight: 10, currentReturn: 9.8 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 8.9, 1.5),
+    performance: PERFORMANCE_BASE("goal-home-downpayment", 1000, 24, 8.9, 1.5),
     riskMetrics: { sharpeRatio: 2.3, maxDrawdown: -2.1, volatility: 2.8, beta: 0.09, alpha: 1.1 },
     rebalancingHistory: [{ date: "Jun 2026", description: "Conservative hybrid trimmed", changes: ["Equity: 15% → 10%"] }],
     aiInsight: {
@@ -1382,6 +1462,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     cagr1Y: 7.4, cagr3Y: 7.0, cagr5Y: 6.8,
     benchmarkCagr1Y: 3.5, benchmarkName: "SBI Savings Account Rate",
     lastRebalanced: "2026-06-01", totalHoldings: 4,
+    rebalancingFrequency: "quarterly",
     highlight: "T+1 withdrawal · 2x savings return · zero market risk",
     icon: "🛡️",
     allocation: [
@@ -1395,7 +1476,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 3, name: "Aditya Birla Overnight Fund", category: "Overnight MF", weight: 25, currentReturn: 7.2 },
       { rank: 4, name: "1-Month Bank FD", category: "Bank FD", weight: 15, currentReturn: 5.5 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 7.4, 0.2),
+    performance: PERFORMANCE_BASE("goal-emergency-corpus", 1000, 24, 7.4, 0.2),
     riskMetrics: { sharpeRatio: 4.1, maxDrawdown: -0.03, volatility: 0.15, beta: 0.00, alpha: 0.5 },
     rebalancingHistory: [{ date: "Jun 2026", description: "Routine review — no change", changes: ["Allocation maintained"] }],
     aiInsight: {
@@ -1418,6 +1499,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     cagr1Y: 8.8, cagr3Y: 8.5, cagr5Y: 8.2,
     benchmarkCagr1Y: 7.5, benchmarkName: "PMVVY Rate (8%)",
     lastRebalanced: "2026-06-01", totalHoldings: 10,
+    rebalancingFrequency: "quarterly",
     highlight: "SCSS 8.2% + PMVVY + RBI FRB + monthly dividend MFs",
     icon: "👴",
     allocation: [
@@ -1433,7 +1515,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 3, name: "RBI Floating Rate Savings Bond 2020", category: "RBI Bond", weight: 20, currentReturn: 8.05 },
       { rank: 4, name: "HDFC Dividend Yield Fund", category: "Dividend Yield MF", weight: 12, currentReturn: 11.2 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 8.8, 1),
+    performance: PERFORMANCE_BASE("goal-senior-citizen", 1000, 24, 8.8, 1),
     riskMetrics: { sharpeRatio: 2.8, maxDrawdown: -1.8, volatility: 1.9, beta: 0.06, alpha: 1.4 },
     rebalancingHistory: [{ date: "Jun 2026", description: "SCSS rate revised to 8.2%", changes: ["SCSS: 25% → 30%"] }],
     aiInsight: {
@@ -1456,6 +1538,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     cagr1Y: 13.4, cagr3Y: 14.7, cagr5Y: 16.1,
     benchmarkCagr1Y: 12.8, benchmarkName: "NIFTY 50 TRI",
     lastRebalanced: "2026-06-01", totalHoldings: 3,
+    rebalancingFrequency: "quarterly",
     highlight: "3-fund core — simple, low-cost, proven",
     icon: "🌱", isNew: true,
     allocation: [
@@ -1468,7 +1551,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 2, name: "Nifty Midcap 150 Index Fund", category: "Index Fund", weight: 30, currentReturn: 18.4 },
       { rank: 3, name: "Liquid Fund (any AMC)", category: "Liquid MF", weight: 10, currentReturn: 7.3 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 13.4, 7),
+    performance: PERFORMANCE_BASE("goal-starter-sip", 1000, 24, 13.4, 7),
     riskMetrics: { sharpeRatio: 1.44, maxDrawdown: -13.1, volatility: 11.8, beta: 0.97, alpha: 1.8 },
     rebalancingHistory: [{ date: "Jun 2026", description: "Annual rebalancing — passive", changes: ["No changes"] }],
     aiInsight: {
@@ -1493,6 +1576,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     cagr1Y: 15.7, cagr3Y: 17.2, cagr5Y: 18.9,
     benchmarkCagr1Y: 13.4, benchmarkName: "NIFTY Bank Index",
     lastRebalanced: "2026-06-01", totalHoldings: 18,
+    rebalancingFrequency: "quarterly",
     highlight: "Banks + Insurance + NBFCs + Fintech ecosystem",
     icon: "🏦", isNew: true,
     allocation: [
@@ -1509,7 +1593,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 4, name: "SBI Life Insurance", symbol: "SBILIFE", category: "Life Insurance", weight: 9, currentReturn: 14.6 },
       { rank: 5, name: "Kotak Mahindra Bank", symbol: "KOTAKBANK", category: "Private Bank", weight: 9, currentReturn: 11.4 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 15.7, 9),
+    performance: PERFORMANCE_BASE("thematic-bfsi", 1000, 24, 15.7, 9),
     riskMetrics: { sharpeRatio: 1.48, maxDrawdown: -17.4, volatility: 14.8, beta: 1.08, alpha: 3.9 },
     rebalancingHistory: [{ date: "Jun 2026", description: "Fintech tilt increased", changes: ["Fintech: 10% → 15%", "PSU: 10% → 5%"] }],
     aiInsight: {
@@ -1532,6 +1616,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     cagr1Y: 18.4, cagr3Y: 20.1, cagr5Y: 22.7,
     benchmarkCagr1Y: 15.9, benchmarkName: "NIFTY Pharma Index",
     lastRebalanced: "2026-05-15", totalHoldings: 20,
+    rebalancingFrequency: "quarterly",
     highlight: "API exports + hospitals + diagnostics + medtech",
     icon: "💊", isNew: true,
     allocation: [
@@ -1546,7 +1631,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 3, name: "Apollo Hospitals", symbol: "APOLLOHOSP", category: "Hospital", weight: 10, currentReturn: 31.2 },
       { rank: 4, name: "Neuland Laboratories", symbol: "NEULANDLAB", category: "API Exporter", weight: 7, currentReturn: 67.3 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 18.4, 11),
+    performance: PERFORMANCE_BASE("thematic-pharma", 1000, 24, 18.4, 11),
     riskMetrics: { sharpeRatio: 1.56, maxDrawdown: -19.8, volatility: 16.4, beta: 0.98, alpha: 5.2 },
     rebalancingHistory: [{ date: "May 2026", description: "Medtech added", changes: ["Medtech: 0% → 15%"] }],
     aiInsight: {
@@ -1569,6 +1654,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     cagr1Y: 31.4, cagr3Y: 28.7, cagr5Y: 24.1,
     benchmarkCagr1Y: 24.1, benchmarkName: "NIFTY India Defence Index",
     lastRebalanced: "2026-06-01", totalHoldings: 15,
+    rebalancingFrequency: "quarterly",
     highlight: "HAL/BEL/BEML + private defence + DRDO indigenisation",
     icon: "🛡️", isNew: true,
     allocation: [
@@ -1584,7 +1670,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 4, name: "Data Patterns", symbol: "DATAPATTNS", category: "Aerospace Electronics", weight: 9, currentReturn: 38.2 },
       { rank: 5, name: "Solar Industries", symbol: "SOLARINDS", category: "Ammunition", weight: 8, currentReturn: 44.1 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 31.4, 16),
+    performance: PERFORMANCE_BASE("thematic-defence", 1000, 24, 31.4, 16),
     riskMetrics: { sharpeRatio: 1.72, maxDrawdown: -24.3, volatility: 21.4, beta: 1.18, alpha: 9.8 },
     rebalancingHistory: [{ date: "Jun 2026", description: "HAL target order ₹1.2L Cr", changes: ["HAL: 12% → 15%"] }],
     aiInsight: {
@@ -1607,6 +1693,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     cagr1Y: 26.8, cagr3Y: 24.3, cagr5Y: 21.7,
     benchmarkCagr1Y: 21.2, benchmarkName: "NIFTY India Clean Energy Index",
     lastRebalanced: "2026-06-01", totalHoldings: 18,
+    rebalancingFrequency: "quarterly",
     highlight: "500GW renewable by 2030 — ₹3L Cr govt allocation",
     icon: "☀️", isNew: true,
     allocation: [
@@ -1621,7 +1708,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 3, name: "Waaree Energies", symbol: "WAAREE", category: "Solar Panel Mfg", weight: 8, currentReturn: 54.3 },
       { rank: 4, name: "Tata Motors (EV)", symbol: "TATAMOTORS", category: "EV Manufacturer", weight: 10, currentReturn: 23.2 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 26.8, 15),
+    performance: PERFORMANCE_BASE("thematic-green-energy", 1000, 24, 26.8, 15),
     riskMetrics: { sharpeRatio: 1.58, maxDrawdown: -26.4, volatility: 22.1, beta: 1.24, alpha: 7.4 },
     rebalancingHistory: [{ date: "Jun 2026", description: "Waaree added post PLI approval", changes: ["Solar: 30% → 35%"] }],
     aiInsight: {
@@ -1644,6 +1731,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     cagr1Y: 17.8, cagr3Y: 19.4, cagr5Y: 22.3,
     benchmarkCagr1Y: 14.7, benchmarkName: "NIFTY IT Index",
     lastRebalanced: "2026-06-01", totalHoldings: 20,
+    rebalancingFrequency: "quarterly",
     highlight: "IT exports + domestic tech + data economy",
     icon: "💻",
     allocation: [
@@ -1658,7 +1746,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 3, name: "Persistent Systems", symbol: "PERSISTENT", category: "Mid-Cap IT", weight: 10, currentReturn: 38.4 },
       { rank: 4, name: "Tata Elxsi", symbol: "TATAELXSI", category: "Tech Design", weight: 8, currentReturn: 29.7 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 17.8, 10),
+    performance: PERFORMANCE_BASE("thematic-digital-india", 1000, 24, 17.8, 10),
     riskMetrics: { sharpeRatio: 1.54, maxDrawdown: -20.1, volatility: 16.8, beta: 1.11, alpha: 4.7 },
     rebalancingHistory: [{ date: "Jun 2026", description: "Data centre theme added", changes: ["Data Centre: 15% → 20%"] }],
     aiInsight: {
@@ -1681,6 +1769,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     cagr1Y: 14.3, cagr3Y: 16.1, cagr5Y: 18.4,
     benchmarkCagr1Y: 12.2, benchmarkName: "NIFTY India Consumption Index",
     lastRebalanced: "2026-06-01", totalHoldings: 22,
+    rebalancingFrequency: "quarterly",
     highlight: "India's 400M middle class + premiumisation wave",
     icon: "🛍️",
     allocation: [
@@ -1695,7 +1784,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 3, name: "Titan Company", symbol: "TITAN", category: "Premium Lifestyle", weight: 9, currentReturn: 16.2 },
       { rank: 4, name: "Varun Beverages", symbol: "VBL", category: "FMCG Beverages", weight: 7, currentReturn: 27.3 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 14.3, 8),
+    performance: PERFORMANCE_BASE("thematic-consumption", 1000, 24, 14.3, 8),
     riskMetrics: { sharpeRatio: 1.62, maxDrawdown: -13.7, volatility: 12.4, beta: 0.94, alpha: 3.6 },
     rebalancingHistory: [{ date: "Jun 2026", description: "Premiumisation theme strengthened", changes: ["Trent: 6% → 9%"] }],
     aiInsight: {
@@ -1718,6 +1807,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     cagr1Y: 8.1, cagr3Y: 8.3, cagr5Y: 8.0,
     benchmarkCagr1Y: 7.6, benchmarkName: "CRISIL 3-Year Gilt Index",
     lastRebalanced: "2026-06-01", totalHoldings: 8,
+    rebalancingFrequency: "quarterly",
     highlight: "Defined maturity = predictable returns, no reinvestment risk",
     icon: "📅", isNew: true,
     allocation: [
@@ -1730,7 +1820,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 2, name: "HDFC NIFTY G-Sec Dec 2028 Index Fund", category: "G-Sec Index Fund", weight: 25, currentReturn: 8.1 },
       { rank: 3, name: "Aditya Birla SDL Dec 2028 Index Fund", category: "SDL Index Fund", weight: 15, currentReturn: 8.5 },
     ],
-    performance: PERFORMANCE_BASE(1000, 24, 8.1, 0.8),
+    performance: PERFORMANCE_BASE("debt-target-maturity-2028", 1000, 24, 8.1, 0.8),
     riskMetrics: { sharpeRatio: 2.4, maxDrawdown: -1.4, volatility: 2.1, beta: 0.07, alpha: 0.7 },
     rebalancingHistory: [{ date: "Jun 2026", description: "SDL increased for yield pickup", changes: ["SDL: 25% → 30%"] }],
     aiInsight: {
@@ -1820,10 +1910,12 @@ export default function AgentModelPortfoliosPage() {
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [quizResult, setQuizResult] = useState<ModelPortfolio | null>(null);
 
-  // Role-based permission
-  const canShare = user?.roles?.some((r: string) =>
-    ["agent", "partner", "admin", "superadmin", "master_agent", "sub_agent", "associate"].includes(r),
-  );
+  // Role-based permissions
+  const PRIVILEGED_ROLES = ["agent", "partner", "admin", "superadmin", "master_agent", "sub_agent", "associate", "rm", "wealth_manager"];
+  const canShare = user?.roles?.some((r: string) => PRIVILEGED_ROLES.includes(r));
+  /** Agents and above can view the full holdings list; clients see top-5 preview */
+  const canViewFullHoldings = user?.roles?.some((r: string) => PRIVILEGED_ROLES.includes(r)) ?? false;
+  const [showAllHoldings, setShowAllHoldings] = useState(false);
 
   // Available sub-categories for current asset class filter
   const availableSubCategories = useMemo(() => {
@@ -2609,34 +2701,88 @@ export default function AgentModelPortfoliosPage() {
                     </Card>
                   </TabsContent>
 
-                  {/* Holdings Tab */}
+                  {/* Holdings Tab — role-gated: agents/partners/admins see full list, clients see top 5 */}
                   <TabsContent value="holdings" className="space-y-3">
-                    <p className="text-xs text-muted-foreground">
-                      Showing top {selectedPortfolio.holdings.length} holdings · {selectedPortfolio.totalHoldings} total instruments
-                    </p>
-                    {selectedPortfolio.holdings.map((h) => (
-                      <div
-                        key={h.rank}
-                        id={`holding-row-${h.rank}-${selectedPortfolio.id}`}
-                        className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors"
-                      >
-                        <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-xs font-bold text-indigo-600">
-                          {h.rank}
+                    {/* Header row */}
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        {canViewFullHoldings
+                          ? `${showAllHoldings ? selectedPortfolio.holdings.length : Math.min(5, selectedPortfolio.holdings.length)} of ${selectedPortfolio.holdings.length} holdings shown (${selectedPortfolio.totalHoldings} total instruments)`
+                          : `Top 5 of ${selectedPortfolio.totalHoldings} holdings · full list for registered advisors`}
+                      </p>
+                      {canViewFullHoldings && selectedPortfolio.holdings.length > 5 && (
+                        <button
+                          id="toggle-holdings-expand"
+                          onClick={() => setShowAllHoldings((v) => !v)}
+                          className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 dark:hover:text-indigo-400 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                        >
+                          {showAllHoldings ? "▲ Top 5" : `▼ All ${selectedPortfolio.holdings.length}`}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Holdings rows — controlled by role + toggle */}
+                    <div className="space-y-2">
+                      {(canViewFullHoldings
+                        ? showAllHoldings ? selectedPortfolio.holdings : selectedPortfolio.holdings.slice(0, 5)
+                        : selectedPortfolio.holdings.slice(0, 5)
+                      ).map((h) => (
+                        <div
+                          key={h.rank}
+                          id={`holding-row-${h.rank}-${selectedPortfolio.id}`}
+                          className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-xs font-bold text-indigo-600">
+                            {h.rank}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold truncate">{h.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{h.category}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-xs font-bold">{h.weight}%</p>
+                            {h.currentReturn !== undefined && (
+                              <p className={`text-[10px] font-semibold ${h.currentReturn >= 0 ? "text-green-600" : "text-red-500"}`}>
+                                {h.currentReturn >= 0 ? "+" : ""}{h.currentReturn}%
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold truncate">{h.name}</p>
-                          <p className="text-[10px] text-muted-foreground">{h.category}</p>
+                      ))}
+                    </div>
+
+                    {/* Client gate: blurred ghost rows + upgrade overlay */}
+                    {!canViewFullHoldings && selectedPortfolio.holdings.length > 5 && (
+                      <div className="relative mt-1">
+                        {/* Blurred ghost rows */}
+                        <div className="space-y-2 blur-sm select-none pointer-events-none" aria-hidden="true">
+                          {selectedPortfolio.holdings.slice(5, Math.min(8, selectedPortfolio.holdings.length)).map((h) => (
+                            <div key={h.rank} className="flex items-center gap-3 p-3 rounded-lg bg-muted/40">
+                              <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-xs font-bold text-indigo-600">{h.rank}</div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold truncate">{h.name}</p>
+                                <p className="text-[10px] text-muted-foreground">{h.category}</p>
+                              </div>
+                              <div className="text-right shrink-0"><p className="text-xs font-bold">{h.weight}%</p></div>
+                            </div>
+                          ))}
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-xs font-bold">{h.weight}%</p>
-                          {h.currentReturn !== undefined && (
-                            <p className={`text-[10px] font-semibold ${h.currentReturn >= 0 ? "text-green-600" : "text-red-500"}`}>
-                              {h.currentReturn >= 0 ? "+" : ""}{h.currentReturn}%
+                        {/* Overlay */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/75 backdrop-blur-[2px] rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700">
+                          <div className="text-center px-5 py-3">
+                            <div className="text-2xl mb-1.5">🔒</div>
+                            <p className="text-xs font-semibold">Full Holdings for Registered Advisors</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              {selectedPortfolio.totalHoldings - 5} more holdings available for SEBI-registered advisors &amp; agents
                             </p>
-                          )}
+                            <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-2 font-medium">
+                              Contact your FintekPro advisor for complete portfolio details
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    ))}
+                    )}
+
                     <p className="text-[10px] text-muted-foreground text-center pt-2">
                       Returns as of last market close. Past performance ≠ future results.
                     </p>
@@ -2690,6 +2836,9 @@ export default function AgentModelPortfoliosPage() {
                           ))}
                         </div>
                       </CardContent>
+                      <p className="text-xs text-muted-foreground p-4 pt-0">
+                        {`Portfolios are reviewed ${FREQUENCY_LABELS[selectedPortfolio.rebalancingFrequency].toLowerCase()} and rebalanced based on market conditions, valuations, and macro outlook.`}
+                      </p>
                     </Card>
 
                     <p className="text-[10px] text-muted-foreground text-center">
@@ -2702,8 +2851,11 @@ export default function AgentModelPortfoliosPage() {
                      {/* Monitoring Summary */}
                      {(() => {
                        const lastRebalDate = new Date(selectedPortfolio.lastRebalanced);
-                       const nextReview = new Date(lastRebalDate);
-                       nextReview.setDate(nextReview.getDate() + 90);
+                       // P2: computeNextReviewDate uses portfolio.rebalancingFrequency — no hardcoded 90d
+                       const nextReview = computeNextReviewDate(
+                         selectedPortfolio.lastRebalanced,
+                         selectedPortfolio.rebalancingFrequency,
+                       );
                        const today = new Date();
                        const daysUntil = Math.ceil((nextReview.getTime() - today.getTime()) / 86400000);
                        const isOverdue = daysUntil < 0;
@@ -2712,7 +2864,8 @@ export default function AgentModelPortfoliosPage() {
                            {[
                              { label: "Last Rebalanced", value: lastRebalDate.toLocaleDateString("en-IN") },
                              { label: "Next Review", value: nextReview.toLocaleDateString("en-IN"), highlight: isOverdue ? "text-red-600 font-bold" : daysUntil <= 14 ? "text-amber-600 font-semibold" : "text-green-600" },
-                             { label: "Review Frequency", value: "Quarterly" },
+                             // P2: dynamic label driven by portfolio.rebalancingFrequency
+                             { label: "Review Frequency", value: FREQUENCY_LABELS[selectedPortfolio.rebalancingFrequency] },
                            ].map((m) => (
                              <div key={m.label} className="text-center">
                                <p className="text-[9px] text-muted-foreground mb-0.5">{m.label}</p>
@@ -2735,7 +2888,7 @@ export default function AgentModelPortfoliosPage() {
                        );
                      })()}
                      <p className="text-xs text-muted-foreground">
-                       Portfolios are reviewed quarterly and rebalanced based on market conditions, valuations, and macro outlook.
+                       {`Portfolios are reviewed ${FREQUENCY_LABELS[selectedPortfolio.rebalancingFrequency].toLowerCase()} and rebalanced based on market conditions, valuations, and macro outlook.`}
                      </p>
                      {selectedPortfolio.rebalancingHistory.map((e, i) => (
                       <Card key={i} className="border-l-4 border-l-indigo-400">

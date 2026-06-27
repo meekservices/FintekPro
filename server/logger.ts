@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Production-Grade Structured Logger
  *
@@ -10,6 +11,9 @@
  * PII GUARDRAIL (production only): console.* is overridden to mask
  * PAN, Aadhaar, Indian phone numbers, and email addresses before any
  * string reaches Cloud Logging.
+ *
+ * NOTE: console.* is intentionally used here — this IS the logger transport.
+ * The no-console ESLint rule is disabled at file scope for this reason.
  */
 
 import { db } from "./db";
@@ -404,3 +408,61 @@ export const log = {
 	serviceError: (name: string, msg: string, err?: Error, ctx?: LogContext) =>
 		logger.serviceError(name, msg, err, ctx),
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cron Job Structured Logger Helper
+// GCR Rule: "Every module must emit structured logs: { event, latency_ms, status }"
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CronJobResult {
+	/** Records inserted / updated / processed */
+	recordsProcessed?: number;
+	/** Optional details map for additional context */
+	details?: Record<string, unknown>;
+}
+
+/**
+ * Emits a GCR-compliant structured log entry for a cron job execution.
+ *
+ * @param jobName - Human-readable job identifier (e.g. "daily-error-digest")
+ * @param startMs - Date.now() captured at the start of the job
+ * @param status  - "success" | "failure" | "skipped"
+ * @param result  - Optional counts and details
+ * @param err     - Optional error (logged at error level if provided)
+ *
+ * @example
+ * const t0 = Date.now();
+ * try {
+ *   const n = await runJob();
+ *   logCronJob("my-job", t0, "success", { recordsProcessed: n });
+ * } catch (e) {
+ *   logCronJob("my-job", t0, "failure", {}, e as Error);
+ * }
+ */
+export function logCronJob(
+	jobName: string,
+	startMs: number,
+	status: "success" | "failure" | "skipped",
+	result: CronJobResult = {},
+	err?: Error,
+): void {
+	const latency_ms = Date.now() - startMs;
+	const entry = {
+		event: "CRON_JOB_COMPLETE",
+		job_name: jobName,
+		status,
+		latency_ms,
+		records_processed: result.recordsProcessed ?? 0,
+		...result.details,
+		timestamp: new Date().toISOString(),
+	};
+
+	if (status === "failure" && err) {
+		logger.error(`[CRON:${jobName}] Job failed`, { ...entry }, err);
+	} else if (status === "skipped") {
+		logger.info(`[CRON:${jobName}] Job skipped`, entry);
+	} else {
+		logger.info(`[CRON:${jobName}] Job complete`, entry);
+	}
+}
+

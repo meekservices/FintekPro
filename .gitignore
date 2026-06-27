@@ -149,3 +149,5 @@ artifacts/
 tmp/
 update_twilio.js
 test-meta-whatsapp.js
+*.pgdump
+*.tmp

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { treasuryCopilotService } from "../services/treasury-copilot-service";
 import { apiResponse } from "../utils/responses";
+import { logger } from "../logger";
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.post("/query", async (req, res) => {
     const result = await treasuryCopilotService.handleQuery(entityId, query);
     return res.json(result);
   } catch (error: any) {
-    console.error("[TreasuryCopilotRoutes] Error handling query:", error);
+    logger.error("[TreasuryCopilotRoutes] Error handling query", {}, error as Error);
     return apiResponse.error(res, error.message || "Failed to process query");
   }
 });

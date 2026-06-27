@@ -52,11 +52,15 @@ import { initializeEnrichmentCrons } from "./cron-enrichment";
 import { initializeUnlistedCrons } from "./cron-unlisted";
 import { initializeOrderOpsCrons } from "./cron-order-ops";
 import { initializeComplianceCrons } from "./cron-compliance";
+import { logger } from "./logger";
 
 export function initializeCronJobs(): void {
-	console.log(
-		"Initializing cron jobs (staggered startup enabled, 120s intervals)...",
-	);
+	logger.info("Initializing cron jobs", {
+		event: "CRON_INIT_START",
+		mode: "staggered_startup",
+		interval_ms: 120_000,
+		timestamp: new Date().toISOString(),
+	});
 
 	let delay = 60_000; // first domain starts 1 min after boot
 
@@ -77,15 +81,18 @@ export function initializeCronJobs(): void {
 	initializeComplianceCrons();
 
 	// Disabled pipelines — kept as tombstone comments for audit trail
-	console.log(
-		"⏭️ [InstrumentTimeSeries] Daily updater + Historical backfill DISABLED — superseded by Golden Source Pricing Engine (9 PM IST → golden_prices)",
-	);
-	console.log(
-		"⏭️ [Live MF NAV] Disabled — amfiNavScheduler covers AMFI→DB sync at 11:30 PM IST",
-	);
-	console.log(
-		"⏭️ [MF NAV History] Disabled — MFAPI per-scheme spam removed; on-demand fetch retained",
-	);
+	logger.info("Disabled pipelines skipped (tombstone)", {
+		event: "CRON_PIPELINES_SKIPPED",
+		skipped: [
+			"InstrumentTimeSeries — superseded by Golden Source Pricing Engine",
+			"Live MF NAV — amfiNavScheduler covers AMFI→DB sync at 11:30 PM IST",
+			"MF NAV History — on-demand fetch retained",
+		],
+		timestamp: new Date().toISOString(),
+	});
 
-	console.log("✓ Cron jobs initialized successfully");
+	logger.info("Cron jobs initialized successfully", {
+		event: "CRON_INIT_COMPLETE",
+		timestamp: new Date().toISOString(),
+	});
 }

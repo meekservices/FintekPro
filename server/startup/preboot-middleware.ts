@@ -1,6 +1,7 @@
 import cors from "cors";
 import helmet from "helmet";
 import express, { type Express } from "express";
+import { randomUUID } from "crypto";
 import { APP_VERSION } from "../../shared/version";
 import { bootState } from "../utils/boot-state";
 import { globalLimiter } from "../middleware/rate-limiter";
@@ -60,6 +61,18 @@ export function registerPrebootMiddleware(app: Express) {
 			const protocol = req.get("x-forwarded-proto") || req.protocol || "https";
 			return res.redirect(301, `${protocol}://${newHost}${req.originalUrl}`);
 		}
+		next();
+	});
+
+	// ── Request ID — end-to-end tracing (M4 fix) ─────────────────────────────
+	// Assigns a UUID to every request. Use res.locals.requestId in logger calls
+	// for full traceability across Cloud Logging → Cloud Run → DB.
+	// Respects upstream X-Request-Id headers (API gateway / Cloud Tasks).
+	app.use((req, res, next) => {
+		const requestId =
+			(req.headers["x-request-id"] as string | undefined) ?? randomUUID();
+		res.locals.requestId = requestId;
+		res.setHeader("X-Request-Id", requestId);
 		next();
 	});
 

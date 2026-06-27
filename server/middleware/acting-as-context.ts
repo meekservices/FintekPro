@@ -83,3 +83,6 @@ export function actingAsContextMiddleware(
   (req as any).actingAs = ctx;
   return next();
 }
+
+/** Alias for import convenience — semantically identical to actingAsContextMiddleware */
+export const readActingAsContext = actingAsContextMiddleware;
