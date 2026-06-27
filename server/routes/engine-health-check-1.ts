@@ -521,6 +521,30 @@ router.get("/run", async (req: Request, res: Response) => {
 			),
 
 			testEngine(
+				"TDS Withholding Engine — FA2024",
+				"Transaction Processing",
+				async () => {
+					const { tdsEngineSelfTest, TDS_ENGINE_VERSION } = await import(
+						"../services/tds-withholding-engine"
+					);
+					const selfTest = tdsEngineSelfTest();
+					return {
+						pass: selfTest.pass,
+						scenarios_tested: selfTest.scenarios_tested,
+						engine_version: TDS_ENGINE_VERSION,
+						sections_covered: [
+							"s.193 Bond/debenture interest (10%, threshold ₹10K listed / ₹5K unlisted)",
+							"s.194 Dividend (10%, threshold ₹5K, post-FA2020)",
+							"s.194A Bank interest (10%, threshold ₹40K / ₹50K senior citizen)",
+							"s.194K MF income (10%, threshold ₹5K)",
+							"s.195 NRI withholding (DTAA rates for 14 countries)",
+							"s.196D FPI — equity/bond income (5%/20% concessional)",
+						],
+					};
+				},
+			),
+
+			testEngine(
 				"Python Analytics Service",
 				"AI & Quant Services",
 				async () => {
