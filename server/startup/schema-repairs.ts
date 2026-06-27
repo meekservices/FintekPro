@@ -1779,7 +1779,7 @@ crypto_status VARCHAR,
         )
       ON CONFLICT (id) DO NOTHING;
     `);
-\t\tconsole.log("✅ model_portfolios table created and seeded (engine audit Fix #6)");
+		console.log("✅ model_portfolios table created and seeded (engine audit Fix #6)");
 	} catch (mpErr: any) {
 		console.warn("[Migration] model_portfolios setup skipped (non-fatal):", mpErr?.message);
 	}
