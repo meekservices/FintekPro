@@ -22,10 +22,15 @@
 
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
+import { fileURLToPath } from "url";
 import { db } from "../../db";
 import { kycVault } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "../../logger";
+
+// ESM-compatible __dirname shim (esbuild bundles as ESM — no CJS globals)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = join(__filename, "..");
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
