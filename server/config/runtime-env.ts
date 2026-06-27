@@ -191,7 +191,12 @@ function collectIssues(isProduction: boolean): EnvIssue[] {
 			"BSE_STAR_API_KEY not set. BSE STAR MF order placement will be unavailable.");
 	}
 
-	if (!hasAll("KFINTECH_API_KEY", "KFINTECH_USERNAME")) {
+	// IRIS KFintech: accepts either IRIS_USERNAME/IRIS_PASSWORD (primary)
+	// or legacy KFINTECH_USERNAME/KFINTECH_PASSWORD (fallback) — mirrors iris-kfintech-service.ts
+	const hasIrisKfintech =
+		(has("IRIS_USERNAME") && has("IRIS_PASSWORD")) ||
+		(has("KFINTECH_USERNAME") && has("KFINTECH_PASSWORD"));
+	if (!hasIrisKfintech) {
 		warn("Exchange", "KFintech",
 			"KFintech credentials not set. KFintech registry services and CAS integration will be unavailable.");
 	}
@@ -328,8 +333,12 @@ function buildServiceDashboard(isProduction: boolean): ServiceStatus[] {
 			status: hasAll("BSE_MEMBER_ID", "BSE_USER_ID") ? "✅ OK" : "⚠️ DEGRADED",
 		},
 		{
-			name: "KFintech",
-			status: hasAll("KFINTECH_API_KEY", "KFINTECH_USERNAME") ? "✅ OK" : "⚠️ DEGRADED",
+			name: "KFintech (IRIS)",
+			status:
+				(has("IRIS_USERNAME") && has("IRIS_PASSWORD")) ||
+				(has("KFINTECH_USERNAME") && has("KFINTECH_PASSWORD"))
+					? "✅ OK"
+					: "⚠️ DEGRADED",
 		},
 		{
 			name: "CAMS",
