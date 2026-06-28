@@ -1613,7 +1613,6 @@ crypto_status VARCHAR,
           '[{"name":"Mirae Asset Tax Saver","isin":"INF769K01238","weight":30,"type":"equity"},{"name":"Axis Long Term Equity","isin":"INF846K01EG5","weight":25,"type":"equity"},{"name":"Parag Parikh Tax Saver","isin":"INF879O01779","weight":25,"type":"equity"},{"name":"DSP Tax Saver","isin":"INF740K01699","weight":20,"type":"equity"}]'
         ),
 
-        -- ── Batch 2: 10 new portfolios ────────────────────────────────────
         ('global-diversifier', 'Global Diversifier', 'India + global exposure for true diversification', 'moderate', 'international',
           '["global_diversification","currency_hedge","wealth_creation"]', 10000, '5+ years', 'MSCI World Index', TO_CHAR(NOW() - INTERVAL '7 days', 'YYYY-MM-DD'), 'quarterly', 8, 'Invest across US, Europe & Asia alongside India', '🌍', TRUE,
           '[{"type":"indian_equity","label":"Indian Equity","weight":40},{"type":"us_equity","label":"US Equity","weight":30},{"type":"global_equity","label":"Global ex-US","weight":20},{"type":"debt","label":"Debt","weight":10}]',
@@ -1665,7 +1664,6 @@ crypto_status VARCHAR,
           '[{"name":"Nifty 50 Index Fund","isin":"INF204KA1B73","weight":25,"type":"equity"},{"name":"Mirae Asset Large Cap","isin":"INF769K01010","weight":20,"type":"equity"},{"name":"Kotak Emerging Equity","isin":"INF174K01904","weight":15,"type":"equity"},{"name":"Axis Midcap","isin":"INF846K01ES1","weight":10,"type":"equity"},{"name":"HDFC Short Term Debt","isin":"INF179K01XB6","weight":15,"type":"debt"},{"name":"SGB 2024-25 Series I","isin":"IN0020240021","weight":15,"type":"sgb"}]'
         ),
 
-        -- ── Batch 3: Debt & Corporate Treasury ────────────────────────────
         ('pure-debt-portfolio', 'Pure Debt Portfolio', 'Capital safety with superior debt returns vs FD', 'conservative', 'debt',
           '["capital_preservation","regular_income","fd_alternative"]', 10000, '1-5 years', 'CRISIL Composite Bond Index', TO_CHAR(NOW() - INTERVAL '2 days', 'YYYY-MM-DD'), 'semi_annual', 8, 'Better than FD returns with sovereign & AAA safety', '🔐', TRUE,
           '[{"type":"gilt","label":"Government Securities","weight":30},{"type":"corporate_bond","label":"AAA Corporate Bonds","weight":35},{"type":"sdl","label":"State Dev Loans","weight":20},{"type":"liquid","label":"Liquid Buffer","weight":15}]',
@@ -1677,9 +1675,7 @@ crypto_status VARCHAR,
           '[{"name":"Nippon Overnight Fund","isin":"INF204KA1T97","weight":20,"type":"liquid"},{"name":"HDFC Liquid Fund","isin":"INF179K01WF7","weight":20,"type":"liquid"},{"name":"SBI Liquid Fund","isin":"INF200K01FT1","weight":15,"type":"liquid"},{"name":"Kotak Ultra Short Duration","isin":"INF174K01UJ8","weight":20,"type":"debt"},{"name":"ICICI Pru Ultra Short Term","isin":"INF109K01YS3","weight":10,"type":"debt"},{"name":"Aditya Birla Money Market","isin":"INF084M01FD2","weight":15,"type":"debt"}]'
         ),
 
-        -- ── Batch 4: Gap-fill — 18 missing portfolios ─────────────────────
 
-        -- 🔴 HIGH PRIORITY ──────────────────────────────────────────────────
 
         ('passive-index', 'Passive Index Portfolio', 'Low-cost market returns tracking Nifty 50 & Next 50', 'moderate', 'equity',
           '["wealth_creation","long_term_wealth","low_cost"]', 500, '5+ years', 'Nifty 500', TO_CHAR(NOW() - INTERVAL '1 days', 'YYYY-MM-DD'), 'annual', 4, 'Zero fund manager risk — just buy the market', '🗂️', TRUE,
@@ -1707,7 +1703,6 @@ crypto_status VARCHAR,
           '[{"name":"Mirae Asset ESG Sector Leaders","isin":"INF769K01EZ5","weight":25,"type":"equity"},{"name":"Aditya Birla ESG Fund","isin":"INF084M01GI7","weight":20,"type":"equity"},{"name":"SBI Magnum Equity ESG","isin":"INF200K01TY4","weight":20,"type":"equity"},{"name":"Kotak ESG Opportunities","isin":"INF174K01ZX3","weight":15,"type":"equity"},{"name":"HDFC Corp Bond","isin":"INF179K01WD2","weight":20,"type":"debt"}]'
         ),
 
-        -- 🟡 MEDIUM PRIORITY ─────────────────────────────────────────────────
 
         ('india-infrastructure', 'India Infrastructure Portfolio', 'Capitalise on India''s ₹111 lakh crore infra investment', 'aggressive', 'thematic',
           '["capital_appreciation","thematic","infrastructure"]', 15000, '7+ years', 'Nifty Infrastructure Index', TO_CHAR(NOW() - INTERVAL '6 days', 'YYYY-MM-DD'), 'quarterly', 9, 'Roads, ports, power, railways — India building spree', '🏗️', FALSE,
@@ -1735,7 +1730,6 @@ crypto_status VARCHAR,
           '[{"name":"Parag Parikh Flexi Cap","isin":"INF879O01027","weight":15,"type":"equity"},{"name":"Nifty 50 Index","isin":"INF204KA1B73","weight":15,"type":"equity"},{"name":"HDFC Balanced Advantage","isin":"INF179K01WE0","weight":20,"type":"hybrid"},{"name":"HDFC Short Term Debt","isin":"INF179K01XB6","weight":25,"type":"debt"},{"name":"SBI Corp Bond","isin":"INF200K01RH2","weight":25,"type":"debt"}]'
         ),
 
-        -- 🟢 LOWER PRIORITY ──────────────────────────────────────────────────
 
         ('banking-bfsi', 'Banking & BFSI Portfolio', 'India''s financial sector — largest Nifty weight play', 'aggressive', 'thematic',
           '["capital_appreciation","thematic","financial_sector"]', 15000, '5+ years', 'Nifty Bank Index', TO_CHAR(NOW() - INTERVAL '5 days', 'YYYY-MM-DD'), 'quarterly', 8, 'Banks, NBFCs, insurance — India credit growth story', '🏦', FALSE,
