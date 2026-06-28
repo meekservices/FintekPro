@@ -2081,59 +2081,73 @@ export default function AgentModelPortfoliosPage() {
   // Merge: API data (live) → static fallback during load or API error
   const livePortfolios: ModelPortfolio[] = useMemo(() => {
     if (!apiData?.data?.length) return MODEL_PORTFOLIOS_ALL;   // static fallback
-    return apiData.data.map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      tagline: p.tagline ?? "",
-      riskProfile: p.riskProfile as RiskProfile,
-      assetClass: p.assetClass,
-      subCategory: p.subCategory ?? undefined,
-      goals: p.goals ?? [],
-      minInvestment: Number(p.minInvestment ?? 5000),
-      timeHorizon: p.timeHorizon ?? "N/A",
-      benchmarkName: p.benchmarkName ?? "Nifty 500",
-      lastRebalanced: p.lastRebalanced ?? new Date().toISOString().slice(0, 10),
-      rebalancingFrequency: p.rebalancingFrequency ?? "quarterly",
-      totalHoldings: p.totalHoldings ?? 0,
-      highlight: p.highlight ?? "",
-      icon: p.icon ?? "📊",
-      isFeatured: p.isFeatured ?? false,
-      isNew: p.isNew ?? false,
-      // Metrics: from DB (computed by scheduler) or zeroed while pending
-      cagr1Y: Number(p.cagr1Y ?? 0),
-      cagr3Y: Number(p.cagr3Y ?? 0),
-      cagr5Y: Number(p.cagr5Y ?? 0),
-      benchmarkCagr1Y: Number(p.benchmarkCagr1Y ?? 0),
-      riskMetrics: {
-        sharpeRatio: Number(p.sharpeRatio ?? 0),
-        maxDrawdown: Number(p.maxDrawdown ?? 0),
-        volatility: Number(p.volatility ?? 0),
-        beta: Number(p.beta ?? 1),
-        alpha: Number(p.alpha ?? 0),
-      },
-      allocation: (Array.isArray(p.allocation) ? p.allocation : []).map((a: any) => ({
-        category: a.label ?? a.type ?? "Other",
-        percentage: a.weight ?? 0,
-        color: undefined,
-      })),
-      holdings: (Array.isArray(p.holdings) ? p.holdings : []).map((h: any, idx: number) => ({
-        rank: h.rank ?? idx + 1,
-        name: h.name ?? "",
-        isin: h.isin ?? "",
-        weight: h.weight ?? 0,
-        percentage: h.weight ?? 0,
-        category: h.type ?? h.category ?? "Other",
-        type: h.type ?? "equity",
-        currentReturn: 0,   // computed by scheduler — 0 until first run
-        expenseRatio: undefined,
-        rating: undefined,
-      })),
-      rebalancingHistory: p.rebalancingHistory ?? [],
-      aiInsight: p.aiInsight ?? null,
-      goal: Array.isArray(p.goals) && p.goals.length > 0 ? p.goals : ["wealth_creation"],
-      performance: PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, Number(p.cagr1Y ?? 12), Number(p.volatility ?? 6)),
-      performanceData: PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, Number(p.cagr1Y ?? 12), Number(p.volatility ?? 6)),
-    }));
+    return apiData.data.map((p: any) => {
+      // Merge: DB data takes precedence; static values fill gaps until scheduler runs
+      const staticP = MODEL_PORTFOLIOS_ALL.find((s) => s.id === p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        tagline: p.tagline ?? "",
+        riskProfile: p.riskProfile as RiskProfile,
+        assetClass: p.assetClass,
+        subCategory: p.subCategory ?? undefined,
+        goals: p.goals ?? [],
+        minInvestment: Number(p.minInvestment ?? staticP?.minInvestment ?? 5000),
+        timeHorizon: p.timeHorizon ?? staticP?.timeHorizon ?? "N/A",
+        benchmarkName: p.benchmarkName ?? staticP?.benchmarkName ?? "Nifty 500",
+        lastRebalanced: p.lastRebalanced ?? new Date().toISOString().slice(0, 10),
+        rebalancingFrequency: p.rebalancingFrequency ?? staticP?.rebalancingFrequency ?? "quarterly",
+        totalHoldings: p.totalHoldings ?? staticP?.totalHoldings ?? 0,
+        highlight: p.highlight ?? staticP?.highlight ?? "",
+        icon: p.icon ?? staticP?.icon ?? "📊",
+        isFeatured: p.isFeatured ?? false,
+        isNew: p.isNew ?? false,
+        // Metrics: DB value if computed by scheduler, else fall back to curated static values
+        cagr1Y: Number(p.cagr1Y) || staticP?.cagr1Y || 0,
+        cagr3Y: Number(p.cagr3Y) || staticP?.cagr3Y || 0,
+        cagr5Y: Number(p.cagr5Y) || staticP?.cagr5Y || 0,
+        benchmarkCagr1Y: Number(p.benchmarkCagr1Y) || staticP?.benchmarkCagr1Y || 0,
+        riskMetrics: {
+          sharpeRatio: Number(p.sharpeRatio) || staticP?.riskMetrics?.sharpeRatio || 0,
+          maxDrawdown: Number(p.maxDrawdown) || staticP?.riskMetrics?.maxDrawdown || 0,
+          volatility: Number(p.volatility) || staticP?.riskMetrics?.volatility || 0,
+          beta: Number(p.beta) || staticP?.riskMetrics?.beta || 1,
+          alpha: Number(p.alpha) || staticP?.riskMetrics?.alpha || 0,
+        },
+        allocation: (Array.isArray(p.allocation) && p.allocation.length > 0 ? p.allocation : staticP?.allocation ?? []).map((a: any) => ({
+          category: a.label ?? a.category ?? a.type ?? "Other",
+          label: a.label ?? a.category ?? a.type ?? "Other",
+          weight: a.weight ?? a.percentage ?? 0,
+          percentage: a.weight ?? a.percentage ?? 0,
+          color: a.color ?? undefined,
+        })),
+        holdings: (Array.isArray(p.holdings) && p.holdings.length > 0 ? p.holdings : staticP?.holdings ?? []).map((h: any, idx: number) => ({
+          rank: h.rank ?? idx + 1,
+          name: h.name ?? "",
+          isin: h.isin ?? "",
+          weight: h.weight ?? h.percentage ?? 0,
+          percentage: h.weight ?? h.percentage ?? 0,
+          category: h.type ?? h.category ?? "Other",
+          type: h.type ?? "equity",
+          currentReturn: h.currentReturn ?? 0,
+          expenseRatio: h.expenseRatio ?? undefined,
+          rating: h.rating ?? undefined,
+        })),
+        rebalancingHistory: p.rebalancingHistory ?? staticP?.rebalancingHistory ?? [],
+        aiInsight: p.aiInsight ?? null,
+        goal: Array.isArray(p.goals) && p.goals.length > 0 ? p.goals : (staticP?.goal ?? ["wealth_creation"]),
+        performance: PERFORMANCE_BASE(
+          p.id ?? "portfolio", 1000, 24,
+          Number(p.cagr1Y) || staticP?.cagr1Y || 12,
+          Number(p.volatility) || staticP?.riskMetrics?.volatility || 6,
+        ),
+        performanceData: PERFORMANCE_BASE(
+          p.id ?? "portfolio", 1000, 24,
+          Number(p.cagr1Y) || staticP?.cagr1Y || 12,
+          Number(p.volatility) || staticP?.riskMetrics?.volatility || 6,
+        ),
+      };
+    });
   }, [apiData]);
 
   // Role-based permissions
@@ -2143,10 +2157,10 @@ export default function AgentModelPortfoliosPage() {
   const canViewFullHoldings = user?.roles?.some((r: string) => PRIVILEGED_ROLES.includes(r)) ?? false;
   // Agents and above default to showing all holdings; clients default to top-5
   const [showAllHoldings, setShowAllHoldings] = useState(canViewFullHoldings);
-  // Sync once user/roles resolves (guards against useState running before auth query returns)
+  // Reset to full-view whenever portfolio changes or role resolves
   useEffect(() => {
     if (canViewFullHoldings) setShowAllHoldings(true);
-  }, [canViewFullHoldings]);
+  }, [canViewFullHoldings, selectedPortfolio?.id]);
 
   // Available sub-categories for current asset class filter
   const availableSubCategories = useMemo(() => {
