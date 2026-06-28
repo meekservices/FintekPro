@@ -2130,7 +2130,7 @@ export default function AgentModelPortfoliosPage() {
       })),
       rebalancingHistory: p.rebalancingHistory ?? [],
       aiInsight: p.aiInsight ?? null,
-      goal: p.goals?.[0] ?? "wealth_creation",
+      goal: Array.isArray(p.goals) && p.goals.length > 0 ? p.goals : ["wealth_creation"],
       performance: PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, Number(p.cagr1Y ?? 12), Number(p.volatility ?? 6)),
       performanceData: PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, Number(p.cagr1Y ?? 12), Number(p.volatility ?? 6)),
     }));
