@@ -246,8 +246,8 @@ async function refreshPortfolioMetrics(
 				error?: string;
 			}>("/api/quant/backtest", "POST", { weights, monthlyReturns });
 
-			if (backtestResult.error) {
-				logger.warn(`[ModelPortfolioMetrics] Backtest error for ${portfolio.id}: ${backtestResult.error}`);
+			if (backtestResult?.error) {
+				logger.warn(`[ModelPortfolioMetrics] Backtest error for ${portfolio.id}: ${backtestResult?.error}`);
 				return;
 			}
 			// Non-null: error check above guarantees backtestResult is valid beyond this point

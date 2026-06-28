@@ -874,14 +874,14 @@ class RebalancingEngine {
 		return types.reduce((sum, type) => sum + (allocations[type] ?? 0), 0);
 	}
 
-	simulateRebalance(
+	async simulateRebalance(
 		input: RebalanceInput,
 		executeTrades: boolean = false,
-	): {
+	): Promise<{
 		beforeMetrics: PortfolioMetrics;
 		afterMetrics: PortfolioMetrics;
 		improvement: PortfolioMetrics;
-	} {
+	}> {
 		const analysis = await this.analyzeAndRebalance(input);
 
 		const beforeMetrics = this.calculatePortfolioMetrics(
