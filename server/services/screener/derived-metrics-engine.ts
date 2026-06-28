@@ -3,8 +3,14 @@ import {
 	screenerFinancials,
 	screenerDerivedMetrics,
 	screenerStocks,
+	screenerPriceHistory,
 } from "@shared/schema";
-import { eq, desc, isNotNull, sql } from "drizzle-orm";
+import { eq, desc, isNotNull, sql, and } from "drizzle-orm";
+import {
+	computeReturnSeries,
+	computeRiskMetrics,
+	computePiotroski,
+} from "./returns-calculator";
 
 function clamp(val: number, min: number, max: number): number {
 	return Math.max(min, Math.min(max, val));
@@ -259,24 +265,8 @@ export async function recalculateAllMetrics(): Promise<{
       SELECT
         sf.symbol,
         ROUND(LEAST(100, GREATEST(0,
-          CASE 
-            WHEN sf.return_1y IS NOT NULL OR sf.return_3y IS NOT NULL THEN
-              CASE 
-                WHEN sf.revenue_growth IS NOT NULL THEN
-                  (LEAST(100, GREATEST(0, ((COALESCE(sf.revenue_growth::numeric, 0) + 0.2) / 0.7) * 100)) * 0.5 +
-                   LEAST(100, GREATEST(0, ((COALESCE(sf.earnings_growth::numeric, 0) + 0.3) / 0.9) * 100)) * 0.5) * 0.5 +
-                  (LEAST(100, GREATEST(0, ((COALESCE(sf.return_1y::numeric, 0) + 0.3) / 0.8) * 100)) * 0.4 +
-                   LEAST(100, GREATEST(0, ((COALESCE(sf.return_3y::numeric, 0) + 0.2) / 1.7) * 100)) * 0.3 +
-                   LEAST(100, GREATEST(0, ((COALESCE(sf.return_5y::numeric, 0) + 0.1) / 3.1) * 100)) * 0.3) * 0.5
-                ELSE
-                  LEAST(100, GREATEST(0, ((COALESCE(sf.return_1y::numeric, 0) + 0.3) / 0.8) * 100)) * 0.4 +
-                  LEAST(100, GREATEST(0, ((COALESCE(sf.return_3y::numeric, 0) + 0.2) / 1.7) * 100)) * 0.3 +
-                  LEAST(100, GREATEST(0, ((COALESCE(sf.return_5y::numeric, 0) + 0.1) / 3.1) * 100)) * 0.3
-              END
-            ELSE
-              (CASE WHEN sf.revenue_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.revenue_growth::numeric + 0.2) / 0.7) * 100)) ELSE 50 END) * 0.5 +
-              (CASE WHEN sf.earnings_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.earnings_growth::numeric + 0.3) / 0.9) * 100)) ELSE 50 END) * 0.5
-          END
+          (CASE WHEN sf.revenue_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.revenue_growth::numeric + 0.2) / 0.7) * 100)) ELSE 50 END) * 0.5 +
+          (CASE WHEN sf.earnings_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.earnings_growth::numeric + 0.3) / 0.9) * 100)) ELSE 50 END) * 0.5
         )), 2) as growth_score,
         ROUND(LEAST(100, GREATEST(0,
           (CASE WHEN sf.roe IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.roe::numeric / 0.35) * 100)) ELSE 50 END) * 0.3 +
@@ -301,8 +291,11 @@ export async function recalculateAllMetrics(): Promise<{
       WHERE NOT EXISTS (SELECT 1 FROM screener_derived_metrics dm WHERE dm.symbol = sf.symbol)
       ON CONFLICT (symbol) DO NOTHING
     `);
+		// Note: The INSERT uses sf.return_1y only as a fallback; the dynamic return
+		// computation pass below will overwrite with OHLCV-computed returns.
 		const inserted = (result as any)?.rowCount || 0;
 
+		// Bulk UPDATE scores using screener_financials + any existing return data in derived_metrics
 		const updateResult = await db.execute(sql`
       UPDATE screener_derived_metrics dm SET
         growth_score = sub.growth_score,
@@ -322,24 +315,8 @@ export async function recalculateAllMetrics(): Promise<{
         SELECT
           sf.symbol,
           ROUND(LEAST(100, GREATEST(0,
-            CASE 
-              WHEN sf.return_1y IS NOT NULL OR sf.return_3y IS NOT NULL THEN
-                CASE 
-                  WHEN sf.revenue_growth IS NOT NULL THEN
-                    (LEAST(100, GREATEST(0, ((COALESCE(sf.revenue_growth::numeric, 0) + 0.2) / 0.7) * 100)) * 0.5 +
-                     LEAST(100, GREATEST(0, ((COALESCE(sf.earnings_growth::numeric, 0) + 0.3) / 0.9) * 100)) * 0.5) * 0.5 +
-                    (LEAST(100, GREATEST(0, ((COALESCE(sf.return_1y::numeric, 0) + 0.3) / 0.8) * 100)) * 0.4 +
-                     LEAST(100, GREATEST(0, ((COALESCE(sf.return_3y::numeric, 0) + 0.2) / 1.7) * 100)) * 0.3 +
-                     LEAST(100, GREATEST(0, ((COALESCE(sf.return_5y::numeric, 0) + 0.1) / 3.1) * 100)) * 0.3) * 0.5
-                  ELSE
-                    LEAST(100, GREATEST(0, ((COALESCE(sf.return_1y::numeric, 0) + 0.3) / 0.8) * 100)) * 0.4 +
-                    LEAST(100, GREATEST(0, ((COALESCE(sf.return_3y::numeric, 0) + 0.2) / 1.7) * 100)) * 0.3 +
-                    LEAST(100, GREATEST(0, ((COALESCE(sf.return_5y::numeric, 0) + 0.1) / 3.1) * 100)) * 0.3
-                END
-              ELSE
-                (CASE WHEN sf.revenue_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.revenue_growth::numeric + 0.2) / 0.7) * 100)) ELSE 50 END) * 0.5 +
-                (CASE WHEN sf.earnings_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.earnings_growth::numeric + 0.3) / 0.9) * 100)) ELSE 50 END) * 0.5
-            END
+            (CASE WHEN sf.revenue_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.revenue_growth::numeric + 0.2) / 0.7) * 100)) ELSE 50 END) * 0.5 +
+            (CASE WHEN sf.earnings_growth IS NOT NULL THEN LEAST(100, GREATEST(0, ((sf.earnings_growth::numeric + 0.3) / 0.9) * 100)) ELSE 50 END) * 0.5
           )), 2) as growth_score,
           ROUND(LEAST(100, GREATEST(0,
             (CASE WHEN sf.roe IS NOT NULL THEN LEAST(100, GREATEST(0, (sf.roe::numeric / 0.35) * 100)) ELSE 50 END) * 0.3 +
@@ -366,6 +343,100 @@ export async function recalculateAllMetrics(): Promise<{
 		console.log(
 			`[DerivedMetrics] Bulk recalculation: ${inserted} inserted, ${processed} updated`,
 		);
+
+		// ── Phase 2: OHLCV-based returns + risk + Piotroski ──────────────────
+		// Fetch symbols that have price history and compute all dynamic metrics.
+		// This runs after the scoring pass so return data is always fresh.
+		try {
+			const symbolsWithHistory = await db.execute(sql`
+        SELECT DISTINCT symbol FROM screener_price_history
+        ORDER BY symbol
+        LIMIT 500
+      `);
+			const symbols: string[] = ((symbolsWithHistory as any).rows || []).map(
+				(r: any) => r.symbol,
+			);
+
+			let returnPassProcessed = 0;
+			let returnPassErrors = 0;
+
+			for (const symbol of symbols) {
+				try {
+					// Fetch last 5 years of OHLCV
+					const histRows = await db.execute(sql`
+            SELECT date, close FROM screener_price_history
+            WHERE symbol = ${symbol}
+            ORDER BY date ASC
+            LIMIT 1300
+          `);
+					const rows = (histRows as any).rows || [];
+					if (rows.length < 22) continue; // Need at least 1 month of data
+
+					const closes = rows.map((r: any) => Number(r.close));
+					const dates = rows.map((r: any) => String(r.date).substring(0, 10));
+
+					const returns = computeReturnSeries(closes, dates);
+					const risk = computeRiskMetrics(closes, dates);
+
+					// Fetch financials for Piotroski (if available)
+					const [fin] = await db
+						.select()
+						.from(screenerFinancials)
+						.where(eq(screenerFinancials.symbol, symbol))
+						.orderBy(desc(screenerFinancials.fiscalYear))
+						.limit(1);
+
+					const piotroski = fin ? computePiotroski(
+						{
+							roa: fin.roa ? Number(fin.roa) : null,
+							operatingCashFlow: fin.operatingCashFlow ? Number(fin.operatingCashFlow) : null,
+							netIncome: fin.netIncome ? Number(fin.netIncome) : null,
+							totalDebt: fin.totalDebt ? Number(fin.totalDebt) : null,
+							totalAssets: fin.totalAssets ? Number(fin.totalAssets) : null,
+							currentRatio: fin.currentRatio ? Number(fin.currentRatio) : null,
+							grossMargin: fin.grossMargin ? Number(fin.grossMargin) : null,
+							revenue: fin.revenue ? Number(fin.revenue) : null,
+						},
+						// prev-year data not available in single-row fetch; YoY criteria default 0
+						{ roa: null, totalDebt: null, totalAssets: null, currentRatio: null, grossMargin: null, revenue: null },
+					) : null;
+
+					// Upsert into derived metrics
+					await db.execute(sql`
+            UPDATE screener_derived_metrics SET
+              return_1w    = ${returns.return1W},
+              return_1m    = ${returns.return1M},
+              return_3m    = ${returns.return3M},
+              return_6m    = ${returns.return6M},
+              return_1y    = ${returns.return1Y},
+              return_2y    = ${returns.return2Y},
+              return_3y    = ${returns.return3Y},
+              return_5y    = ${returns.return5Y},
+              return_ytd   = ${returns.returnYTD},
+              beta              = ${risk.beta},
+              sharpe_ratio_1y   = ${risk.sharpeRatio1Y},
+              sortino_ratio_1y  = ${risk.sortinoRatio1Y},
+              max_drawdown_1y   = ${risk.maxDrawdown1Y},
+              volatility_30d    = ${risk.volatility30D},
+              piotroski_score   = ${piotroski?.score ?? null},
+              last_calculated   = NOW()
+            WHERE symbol = ${symbol}
+          `);
+					returnPassProcessed++;
+				} catch (symErr: any) {
+					returnPassErrors++;
+					if (returnPassErrors <= 5) {
+						console.warn(`[DerivedMetrics] Return pass error for ${symbol}:`, symErr?.message);
+					}
+				}
+			}
+
+			console.log(
+				`[DerivedMetrics] OHLCV return pass: ${returnPassProcessed} symbols updated, ${returnPassErrors} errors`,
+			);
+		} catch (phase2Err: any) {
+			console.warn("[DerivedMetrics] OHLCV return pass failed (non-fatal):", phase2Err?.message);
+		}
 	} catch (err: any) {
 		console.error(`[DerivedMetrics] Bulk recalculation error: ${err.message}`);
 		errors++;

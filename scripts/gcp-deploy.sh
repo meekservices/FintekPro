@@ -71,7 +71,7 @@ if [[ "$_OS" == "Darwin" && "$_ARCH" == "arm64" ]]; then
   fi
   gcloud builds submit \
     --config="${_CB_GITHUB}" \
-    --project="${PROJECT}" \
+    --project="${PROJECT_ID}" \
     --no-source \
     --timeout=30m
 else

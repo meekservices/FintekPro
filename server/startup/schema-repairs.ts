@@ -1777,4 +1777,150 @@ crypto_status VARCHAR,
 	} catch (mpErr: any) {
 		console.warn("[Migration] model_portfolios setup skipped (non-fatal):", mpErr?.message);
 	}
+
+	// ── SCREENER MONEYCONTROL-PARITY UPGRADE ──────────────────────────────────
+	// Adds columns for: returns (1W/1M/3M/6M/1Y/2Y/3Y/5Y/YTD), risk metrics,
+	// Piotroski F-Score, Altman Z-Score, Technical Rating, ROCE, all 4 pivot
+	// methods, shareholding table, and 52-week H/L data.
+	// Safe: all ADD COLUMN IF NOT EXISTS — idempotent, zero data loss.
+	try {
+		const { db: migDb } = await import("../db");
+		const { sql: migSql } = await import("drizzle-orm");
+
+		// 1. Create screener_shareholding table (quarterly promoter/FII/DII data)
+		await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS screener_shareholding (
+        id SERIAL PRIMARY KEY,
+        symbol VARCHAR(20) NOT NULL,
+        quarter_date DATE NOT NULL,
+        quarter_label VARCHAR(20),
+        promoter_holding DECIMAL(8,4),
+        fii_holding DECIMAL(8,4),
+        dii_holding DECIMAL(8,4),
+        mutual_fund_holding DECIMAL(8,4),
+        public_holding DECIMAL(8,4),
+        other_holding DECIMAL(8,4),
+        promoter_holding_change DECIMAL(8,4),
+        fii_holding_change DECIMAL(8,4),
+        dii_holding_change DECIMAL(8,4),
+        mutual_fund_holding_change DECIMAL(8,4),
+        public_holding_change DECIMAL(8,4),
+        pledged_shares DECIMAL(8,4),
+        pledged_shares_change DECIMAL(8,4),
+        total_shares BIGINT,
+        promoter_shares BIGINT,
+        fii_shares BIGINT,
+        dii_shares BIGINT,
+        data_source VARCHAR(10) DEFAULT 'bse',
+        fetched_at TIMESTAMPTZ DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(symbol, quarter_date)
+      );
+    `);
+		console.log("✅ screener_shareholding table ready");
+
+		// 2. Extend screener_derived_metrics with return series + risk + quality
+		await migDb.execute(migSql`
+      ALTER TABLE screener_derived_metrics
+        ADD COLUMN IF NOT EXISTS return_1w DECIMAL(10,6),
+        ADD COLUMN IF NOT EXISTS return_1m DECIMAL(10,6),
+        ADD COLUMN IF NOT EXISTS return_3m DECIMAL(10,6),
+        ADD COLUMN IF NOT EXISTS return_6m DECIMAL(10,6),
+        ADD COLUMN IF NOT EXISTS return_1y DECIMAL(10,6),
+        ADD COLUMN IF NOT EXISTS return_2y DECIMAL(10,6),
+        ADD COLUMN IF NOT EXISTS return_3y DECIMAL(10,6),
+        ADD COLUMN IF NOT EXISTS return_5y DECIMAL(10,6),
+        ADD COLUMN IF NOT EXISTS return_ytd DECIMAL(10,6),
+        ADD COLUMN IF NOT EXISTS return_vs_nifty_1y DECIMAL(10,6),
+        ADD COLUMN IF NOT EXISTS return_vs_sector_1y DECIMAL(10,6),
+        ADD COLUMN IF NOT EXISTS beta DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS sharpe_ratio_1y DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS sortino_ratio_1y DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS max_drawdown_1y DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS volatility_30d DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS piotroski_score SMALLINT,
+        ADD COLUMN IF NOT EXISTS piotroski_details JSONB,
+        ADD COLUMN IF NOT EXISTS altman_z_score DECIMAL(10,4),
+        ADD COLUMN IF NOT EXISTS dividend_per_share DECIMAL(10,4),
+        ADD COLUMN IF NOT EXISTS face_value DECIMAL(10,4),
+        ADD COLUMN IF NOT EXISTS week_high_52 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS week_low_52 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS technical_rating VARCHAR(20);
+    `);
+		console.log("✅ screener_derived_metrics extended with returns + risk + quality");
+
+		// 3. Extend screener_technical_indicators with new indicators + pivots
+		await migDb.execute(migSql`
+      ALTER TABLE screener_technical_indicators
+        ADD COLUMN IF NOT EXISTS high DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS low DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS open DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS volume BIGINT,
+        ADD COLUMN IF NOT EXISTS cci_20 DECIMAL(10,4),
+        ADD COLUMN IF NOT EXISTS stoch_k DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS stoch_d DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS williams_r DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS mfi_14 DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS atr_14 DECIMAL(10,4),
+        ADD COLUMN IF NOT EXISTS bb_upper DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS bb_middle DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS bb_lower DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS bb_bandwidth DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS bb_pct_b DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS supertrend DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS supertrend_signal VARCHAR(10),
+        ADD COLUMN IF NOT EXISTS obv BIGINT,
+        ADD COLUMN IF NOT EXISTS vwap DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS week_high_52 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS week_low_52 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pct_from_52w_high DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS pct_from_52w_low DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS technical_rating VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS bullish_signals SMALLINT DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS bearish_signals SMALLINT DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS neutral_signals SMALLINT DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS pivot_classic_p DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_classic_r1 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_classic_r2 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_classic_r3 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_classic_s1 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_classic_s2 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_classic_s3 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_fib_r1 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_fib_r2 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_fib_r3 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_fib_s1 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_fib_s2 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_fib_s3 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_cam_r1 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_cam_r2 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_cam_r3 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_cam_r4 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_cam_s1 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_cam_s2 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_cam_s3 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_cam_s4 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_woodie_p DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_woodie_r1 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_woodie_r2 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_woodie_s1 DECIMAL(12,4),
+        ADD COLUMN IF NOT EXISTS pivot_woodie_s2 DECIMAL(12,4);
+    `);
+		console.log("✅ screener_technical_indicators extended with indicators + all pivot methods");
+
+		// 4. Add ROCE to screener_financials if missing
+		await migDb.execute(migSql`
+      ALTER TABLE screener_financials
+        ADD COLUMN IF NOT EXISTS roce DECIMAL(10,4),
+        ADD COLUMN IF NOT EXISTS current_ratio DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS quick_ratio DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS interest_coverage DECIMAL(8,4);
+    `);
+		console.log("✅ screener_financials extended with ROCE, ratios");
+
+		console.log("✅ [Screener MoneyControl-parity] All migrations complete");
+	} catch (screenerMigErr: any) {
+		console.warn("[Migration] Screener parity migration skipped (non-fatal):", screenerMigErr?.message);
+	}
 }

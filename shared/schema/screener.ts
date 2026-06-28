@@ -101,6 +101,8 @@ export const screenerPriceHistory = pgTable("screener_price_history", {
 export const screenerDerivedMetrics = pgTable("screener_derived_metrics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   symbol: varchar("symbol").notNull().unique(),
+
+  // ── Composite Scores ──────────────────────────────────────────────────────
   growthScore: decimal("growth_score", { precision: 5, scale: 2 }),
   qualityScore: decimal("quality_score", { precision: 5, scale: 2 }),
   valueScore: decimal("value_score", { precision: 5, scale: 2 }),
@@ -108,8 +110,49 @@ export const screenerDerivedMetrics = pgTable("screener_derived_metrics", {
   compositeScore: decimal("composite_score", { precision: 5, scale: 2 }),
   fintekRating: integer("fintek_rating"),
   momentumScore: decimal("momentum_score", { precision: 5, scale: 2 }),
+  technicalRating: varchar("technical_rating"),  // Strong Buy | Buy | Neutral | Sell | Strong Sell
+
+  // ── Growth (from financials) ──────────────────────────────────────────────
   revenueGrowth3Y: decimal("revenue_growth_3y", { precision: 10, scale: 4 }),
   earningsGrowth3Y: decimal("earnings_growth_3y", { precision: 10, scale: 4 }),
+
+  // ── Price Returns (computed from screener_price_history OHLCV) ────────────
+  // ALL returns are trailing price returns, recalculated nightly — never static
+  return1W: decimal("return_1w", { precision: 10, scale: 4 }),   // 5 trading days
+  return1M: decimal("return_1m", { precision: 10, scale: 4 }),   // ~21 trading days
+  return3M: decimal("return_3m", { precision: 10, scale: 4 }),   // ~63 trading days
+  return6M: decimal("return_6m", { precision: 10, scale: 4 }),   // ~126 trading days
+  return1Y: decimal("return_1y", { precision: 10, scale: 4 }),   // ~252 trading days
+  return2Y: decimal("return_2y", { precision: 10, scale: 4 }),
+  return3Y: decimal("return_3y", { precision: 10, scale: 4 }),
+  return5Y: decimal("return_5y", { precision: 10, scale: 4 }),
+  returnYTD: decimal("return_ytd", { precision: 10, scale: 4 }),  // Jan 1 to today
+
+  // ── Relative Returns (vs benchmark) ──────────────────────────────────────
+  returnVsNifty1Y: decimal("return_vs_nifty_1y", { precision: 10, scale: 4 }),   // Alpha vs NIFTY 50
+  returnVsSector1Y: decimal("return_vs_sector_1y", { precision: 10, scale: 4 }), // Alpha vs sector index
+
+  // ── Risk Metrics (computed from price history) ────────────────────────────
+  beta: decimal("beta", { precision: 8, scale: 4 }),          // vs NIFTY 50, 1Y daily returns
+  sharpeRatio1Y: decimal("sharpe_ratio_1y", { precision: 8, scale: 4 }),   // risk-free = 6.5% (RBI repo)
+  sortinoRatio1Y: decimal("sortino_ratio_1y", { precision: 8, scale: 4 }),
+  maxDrawdown1Y: decimal("max_drawdown_1y", { precision: 8, scale: 4 }),   // peak-to-trough %
+  volatility30D: decimal("volatility_30d", { precision: 8, scale: 4 }),    // 30-day annualised σ
+
+  // ── Quality Scores (computed from screener_financials) ────────────────────
+  // Piotroski F-Score: 0 (weak) to 9 (strong) — 9 binary signals
+  piotroskiScore: integer("piotroski_score"),
+  piotroskiDetails: jsonb("piotroski_details"),  // {roa, ocf, roa_change, ...} breakdown
+
+  // Altman Z-Score: < 1.81 distress, 1.81–2.99 grey, > 2.99 safe
+  altmanZScore: decimal("altman_z_score", { precision: 8, scale: 4 }),
+
+  // ── Dividends & Price Info ────────────────────────────────────────────────
+  dividendPerShare: decimal("dividend_per_share", { precision: 10, scale: 4 }),
+  faceValue: decimal("face_value", { precision: 10, scale: 2 }),
+  weekHigh52: decimal("week_high_52", { precision: 15, scale: 2 }),
+  weekLow52: decimal("week_low_52", { precision: 15, scale: 2 }),
+
   scoringMetadata: jsonb("scoring_metadata"),
   lastCalculated: timestamp("last_calculated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -117,6 +160,10 @@ export const screenerDerivedMetrics = pgTable("screener_derived_metrics", {
   index("idx_screener_derived_symbol").on(table.symbol),
   index("idx_screener_derived_composite").on(table.compositeScore),
   index("idx_screener_derived_rating").on(table.fintekRating),
+  index("idx_screener_derived_return1y").on(table.return1Y),
+  index("idx_screener_derived_piotroski").on(table.piotroskiScore),
+  index("idx_screener_derived_beta").on(table.beta),
+  index("idx_screener_derived_tech_rating").on(table.technicalRating),
 ]);
 
 export const fmpUsageLog = pgTable("fmp_usage_log", {
@@ -471,17 +518,21 @@ export const screenerSectorPerformance = pgTable("screener_sector_performance", 
   index("idx_screener_sp_date").on(table.date),
 ]);
 
-// Tier 3: Technical Indicators (from /technical_indicator endpoint)
+// Tier 3: Technical Indicators — extended with full MoneyControl Technical tab coverage
 export const screenerTechnicalIndicators = pgTable("screener_technical_indicators", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   symbol: varchar("symbol").notNull(),
   date: varchar("date"),
   timeframe: varchar("timeframe").default("daily"),
+
+  // ── OHLCV ─────────────────────────────────────────────────────────────────
   open: decimal("open", { precision: 15, scale: 4 }),
   high: decimal("high", { precision: 15, scale: 4 }),
   low: decimal("low", { precision: 15, scale: 4 }),
   close: decimal("close", { precision: 15, scale: 4 }),
   volume: decimal("volume", { precision: 20, scale: 0 }),
+
+  // ── Moving Averages ───────────────────────────────────────────────────────
   sma10: decimal("sma_10", { precision: 15, scale: 4 }),
   sma20: decimal("sma_20", { precision: 15, scale: 4 }),
   sma50: decimal("sma_50", { precision: 15, scale: 4 }),
@@ -490,18 +541,136 @@ export const screenerTechnicalIndicators = pgTable("screener_technical_indicator
   ema20: decimal("ema_20", { precision: 15, scale: 4 }),
   ema50: decimal("ema_50", { precision: 15, scale: 4 }),
   ema200: decimal("ema_200", { precision: 15, scale: 4 }),
-  rsi14: decimal("rsi_14", { precision: 10, scale: 4 }),
-  macd: decimal("macd", { precision: 15, scale: 4 }),
-  macdSignal: decimal("macd_signal", { precision: 15, scale: 4 }),
-  macdHist: decimal("macd_hist", { precision: 15, scale: 4 }),
-  adx: decimal("adx", { precision: 10, scale: 4 }),
-  williams: decimal("williams", { precision: 10, scale: 4 }),
+
+  // ── Momentum Oscillators ──────────────────────────────────────────────────
+  rsi14: decimal("rsi_14", { precision: 10, scale: 4 }),          // 0–100; >70 overbought, <30 oversold
+  macd: decimal("macd", { precision: 15, scale: 4 }),             // EMA12 - EMA26
+  macdSignal: decimal("macd_signal", { precision: 15, scale: 4 }), // EMA9 of MACD
+  macdHist: decimal("macd_hist", { precision: 15, scale: 4 }),    // MACD - Signal
+  cci20: decimal("cci_20", { precision: 10, scale: 4 }),          // Commodity Channel Index (20)
+  stochasticK: decimal("stochastic_k", { precision: 10, scale: 4 }), // %K (14,3,3)
+  stochasticD: decimal("stochastic_d", { precision: 10, scale: 4 }), // %D (3-period SMA of %K)
+  williamsR: decimal("williams_r", { precision: 10, scale: 4 }),  // Williams %R (14)
+  mfi14: decimal("mfi_14", { precision: 10, scale: 4 }),          // Money Flow Index (14)
+
+  // ── Trend / Volatility ────────────────────────────────────────────────────
+  adx: decimal("adx", { precision: 10, scale: 4 }),               // Average Directional Index (14)
+  atr14: decimal("atr_14", { precision: 15, scale: 4 }),           // Average True Range (14)
+  bollingerUpper: decimal("bollinger_upper", { precision: 15, scale: 4 }), // SMA20 + 2σ
+  bollingerMiddle: decimal("bollinger_middle", { precision: 15, scale: 4 }), // SMA20
+  bollingerLower: decimal("bollinger_lower", { precision: 15, scale: 4 }), // SMA20 - 2σ
+  bollingerBandwidth: decimal("bollinger_bandwidth", { precision: 10, scale: 4 }), // (Upper-Lower)/Middle
+  bollingerPercentB: decimal("bollinger_pct_b", { precision: 10, scale: 4 }), // (Close-Lower)/(Upper-Lower)
+  supertrend: decimal("supertrend", { precision: 15, scale: 4 }),  // Supertrend value
+  supertrendSignal: varchar("supertrend_signal"),                   // 'buy' | 'sell'
+
+  // ── Volume Indicators ─────────────────────────────────────────────────────
+  obv: decimal("obv", { precision: 20, scale: 0 }),               // On-Balance Volume
+  vwap: decimal("vwap", { precision: 15, scale: 4 }),             // Volume-Weighted Average Price
+
+  // ── 52-Week Range ─────────────────────────────────────────────────────────
+  weekHigh52: decimal("week_high_52", { precision: 15, scale: 4 }),
+  weekLow52: decimal("week_low_52", { precision: 15, scale: 4 }),
+  pctFrom52WHigh: decimal("pct_from_52w_high", { precision: 8, scale: 4 }), // % below 52W high
+  pctFrom52WLow: decimal("pct_from_52w_low", { precision: 8, scale: 4 }),   // % above 52W low
+
+  // ── Technical Rating (aggregated signal) ──────────────────────────────────
+  // Computed from RSI, MACD, SMA crossovers, Bollinger, Stochastic, ADX
+  technicalRating: varchar("technical_rating"), // Strong Buy | Buy | Neutral | Sell | Strong Sell
+  bullishSignals: integer("bullish_signals"),   // count of bullish indicators
+  bearishSignals: integer("bearish_signals"),   // count of bearish indicators
+  neutralSignals: integer("neutral_signals"),   // count of neutral indicators
+
+  // ── Pivot Levels (yesterday's OHLCV → today's pivots) ─────────────────────
+  // Classic method: P = (H+L+C)/3
+  pivotClassic: decimal("pivot_classic", { precision: 15, scale: 4 }),
+  pivotClassicR1: decimal("pivot_classic_r1", { precision: 15, scale: 4 }),
+  pivotClassicR2: decimal("pivot_classic_r2", { precision: 15, scale: 4 }),
+  pivotClassicR3: decimal("pivot_classic_r3", { precision: 15, scale: 4 }),
+  pivotClassicS1: decimal("pivot_classic_s1", { precision: 15, scale: 4 }),
+  pivotClassicS2: decimal("pivot_classic_s2", { precision: 15, scale: 4 }),
+  pivotClassicS3: decimal("pivot_classic_s3", { precision: 15, scale: 4 }),
+  // Fibonacci method
+  pivotFibR1: decimal("pivot_fib_r1", { precision: 15, scale: 4 }),
+  pivotFibR2: decimal("pivot_fib_r2", { precision: 15, scale: 4 }),
+  pivotFibR3: decimal("pivot_fib_r3", { precision: 15, scale: 4 }),
+  pivotFibS1: decimal("pivot_fib_s1", { precision: 15, scale: 4 }),
+  pivotFibS2: decimal("pivot_fib_s2", { precision: 15, scale: 4 }),
+  pivotFibS3: decimal("pivot_fib_s3", { precision: 15, scale: 4 }),
+  // Camarilla method
+  pivotCamR1: decimal("pivot_cam_r1", { precision: 15, scale: 4 }),
+  pivotCamR2: decimal("pivot_cam_r2", { precision: 15, scale: 4 }),
+  pivotCamR3: decimal("pivot_cam_r3", { precision: 15, scale: 4 }),
+  pivotCamR4: decimal("pivot_cam_r4", { precision: 15, scale: 4 }),
+  pivotCamS1: decimal("pivot_cam_s1", { precision: 15, scale: 4 }),
+  pivotCamS2: decimal("pivot_cam_s2", { precision: 15, scale: 4 }),
+  pivotCamS3: decimal("pivot_cam_s3", { precision: 15, scale: 4 }),
+  pivotCamS4: decimal("pivot_cam_s4", { precision: 15, scale: 4 }),
+  // Woodie method
+  pivotWoodieP: decimal("pivot_woodie_p", { precision: 15, scale: 4 }),
+  pivotWoodieR1: decimal("pivot_woodie_r1", { precision: 15, scale: 4 }),
+  pivotWoodieR2: decimal("pivot_woodie_r2", { precision: 15, scale: 4 }),
+  pivotWoodieS1: decimal("pivot_woodie_s1", { precision: 15, scale: 4 }),
+  pivotWoodieS2: decimal("pivot_woodie_s2", { precision: 15, scale: 4 }),
+
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_screener_ti_symbol").on(table.symbol),
   index("idx_screener_ti_date").on(table.symbol, table.date),
+  index("idx_screener_ti_rsi").on(table.rsi14),
+  index("idx_screener_ti_rating").on(table.technicalRating),
 ]);
+
+// ── Shareholding Pattern (quarterly, from BSE/NSE filings) ──────────────────
+// Source: BSE shareholding pattern CSV / NSE shareholding API (free, quarterly)
+// Updated after SEBI LODR deadlines: Q1→Aug 21, Q2→Nov 21, Q3→Feb 21, Q4→May 30
+export const screenerShareholding = pgTable("screener_shareholding", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol: varchar("symbol").notNull(),
+  quarterDate: varchar("quarter_date").notNull(),         // e.g. '2025-03-31' (quarter end date)
+  quarterLabel: varchar("quarter_label"),                  // e.g. 'Mar 2025'
+
+  // ── Category-wise Holding % ───────────────────────────────────────────────
+  promoterHolding: decimal("promoter_holding", { precision: 6, scale: 2 }),       // % held by promoters
+  promoterGroupHolding: decimal("promoter_group_holding", { precision: 6, scale: 2 }),
+  fiiHolding: decimal("fii_holding", { precision: 6, scale: 2 }),                 // Foreign Institutional Investors
+  diiHolding: decimal("dii_holding", { precision: 6, scale: 2 }),                 // Domestic Institutional Investors
+  mutualFundHolding: decimal("mutual_fund_holding", { precision: 6, scale: 2 }),   // MF subset of DII
+  publicHolding: decimal("public_holding", { precision: 6, scale: 2 }),           // Retail / public
+  otherHolding: decimal("other_holding", { precision: 6, scale: 2 }),
+
+  // ── Quarter-on-Quarter Changes ────────────────────────────────────────────
+  promoterHoldingChange: decimal("promoter_holding_change", { precision: 6, scale: 2 }), // vs prev quarter
+  fiiHoldingChange: decimal("fii_holding_change", { precision: 6, scale: 2 }),
+  diiHoldingChange: decimal("dii_holding_change", { precision: 6, scale: 2 }),
+
+  // ── Pledge Details ────────────────────────────────────────────────────────
+  pledgedShares: decimal("pledged_shares", { precision: 6, scale: 2 }),           // % of promoter shares pledged
+  pledgedSharesChange: decimal("pledged_shares_change", { precision: 6, scale: 2 }), // QoQ change
+
+  // ── Raw Numbers ──────────────────────────────────────────────────────────
+  totalShares: decimal("total_shares", { precision: 20, scale: 0 }),
+  promoterShares: decimal("promoter_shares", { precision: 20, scale: 0 }),
+  fiiShares: decimal("fii_shares", { precision: 20, scale: 0 }),
+  diiShares: decimal("dii_shares", { precision: 20, scale: 0 }),
+
+  dataSource: varchar("data_source").default("bse"),      // 'bse' | 'nse' | 'manual'
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_screener_sh_symbol").on(table.symbol),
+  index("idx_screener_sh_quarter").on(table.symbol, table.quarterDate),
+  index("idx_screener_sh_promoter").on(table.promoterHolding),
+  index("idx_screener_sh_fii").on(table.fiiHolding),
+  uniqueIndex("idx_screener_sh_unique").on(table.symbol, table.quarterDate),
+]);
+
+export const insertScreenerShareholdingSchema = createInsertSchema(screenerShareholding).omit({
+  id: true, createdAt: true,
+});
+export type ScreenerShareholding = typeof screenerShareholding.$inferSelect;
+export type InsertScreenerShareholding = z.infer<typeof insertScreenerShareholdingSchema>;
 
 // REIT types and schemas are now in reit-invit.ts
 export { insertReitSchema };

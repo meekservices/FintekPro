@@ -39,63 +39,65 @@ import {
 	getExtendedEnrichmentProgress,
 } from "../services/screener/priority-enrichment-scheduler";
 import { exchangeStockService } from "../services/exchange-stock-service";
+import { computePivotLevels } from "../services/screener/technical-calculator";
+import {
+	getShareholdingForSymbol,
+	runShareholdingBatchJob,
+} from "../services/screener/shareholding-service";
 
 const router = Router();
 
 router.get("/api/screener/stocks", async (req, res) => {
 	try {
-		const filters: ScreenerFilters = {
-			sector: req.query.sector as string,
-			industry: req.query.industry as string,
-			marketCapCategory: req.query.marketCapCategory as string,
-			exchange: req.query.exchange as string,
-			search: req.query.search as string,
-			sortBy: req.query.sortBy as string,
-			sortOrder: (req.query.sortOrder as "asc" | "desc") || "asc",
-			page: req.query.page ? Number.parseInt(req.query.page as string) : 1,
-			limit: req.query.limit ? Number.parseInt(req.query.limit as string) : 25,
-		};
+		const f = req.query;
+		const p = (k: string) => f[k] ? Number.parseFloat(f[k] as string) : undefined;
+		const pi = (k: string) => f[k] ? Number.parseInt(f[k] as string) : undefined;
 
-		if (req.query.minPE)
-			filters.minPE = Number.parseFloat(req.query.minPE as string);
-		if (req.query.maxPE)
-			filters.maxPE = Number.parseFloat(req.query.maxPE as string);
-		if (req.query.minPB)
-			filters.minPB = Number.parseFloat(req.query.minPB as string);
-		if (req.query.maxPB)
-			filters.maxPB = Number.parseFloat(req.query.maxPB as string);
-		if (req.query.minROE)
-			filters.minROE = Number.parseFloat(req.query.minROE as string);
-		if (req.query.maxROE)
-			filters.maxROE = Number.parseFloat(req.query.maxROE as string);
-		if (req.query.minDebtToEquity)
-			filters.minDebtToEquity = Number.parseFloat(
-				req.query.minDebtToEquity as string,
-			);
-		if (req.query.maxDebtToEquity)
-			filters.maxDebtToEquity = Number.parseFloat(
-				req.query.maxDebtToEquity as string,
-			);
-		if (req.query.minDividendYield)
-			filters.minDividendYield = Number.parseFloat(
-				req.query.minDividendYield as string,
-			);
-		if (req.query.maxDividendYield)
-			filters.maxDividendYield = Number.parseFloat(
-				req.query.maxDividendYield as string,
-			);
-		if (req.query.minCompositeScore)
-			filters.minCompositeScore = Number.parseFloat(
-				req.query.minCompositeScore as string,
-			);
-		if (req.query.maxCompositeScore)
-			filters.maxCompositeScore = Number.parseFloat(
-				req.query.maxCompositeScore as string,
-			);
-		if (req.query.minFintekRating)
-			filters.minFintekRating = Number.parseInt(
-				req.query.minFintekRating as string,
-			);
+		const filters: ScreenerFilters = {
+			// Universe
+			sector: f.sector as string,
+			industry: f.industry as string,
+			marketCapCategory: f.marketCapCategory as string,
+			exchange: f.exchange as string,
+			index: f.index as string,
+			search: f.search as string,
+			sortBy: f.sortBy as string,
+			sortOrder: (f.sortOrder as "asc" | "desc") || "asc",
+			page: pi("page") || 1,
+			limit: pi("limit") || 25,
+			// Fundamentals
+			minPE: p("minPE"), maxPE: p("maxPE"),
+			minPB: p("minPB"), maxPB: p("maxPB"),
+			minROE: p("minROE"), maxROE: p("maxROE"),
+			minROCE: p("minROCE"), maxROCE: p("maxROCE"),
+			minDebtToEquity: p("minDebtToEquity"), maxDebtToEquity: p("maxDebtToEquity"),
+			minDividendYield: p("minDividendYield"), maxDividendYield: p("maxDividendYield"),
+			minCurrentRatio: p("minCurrentRatio"), maxCurrentRatio: p("maxCurrentRatio"),
+			minEPS: p("minEPS"),
+			// Scoring
+			minCompositeScore: p("minCompositeScore"), maxCompositeScore: p("maxCompositeScore"),
+			minFintekRating: pi("minFintekRating"),
+			minPiotroski: pi("minPiotroski"), maxPiotroski: pi("maxPiotroski"),
+			technicalRating: f.technicalRating as string,
+			// Returns (all computed from OHLCV — never static)
+			minReturn1W: p("minReturn1W"), maxReturn1W: p("maxReturn1W"),
+			minReturn1M: p("minReturn1M"), maxReturn1M: p("maxReturn1M"),
+			minReturn3M: p("minReturn3M"), maxReturn3M: p("maxReturn3M"),
+			minReturn6M: p("minReturn6M"), maxReturn6M: p("maxReturn6M"),
+			minReturn1Y: p("minReturn1Y"), maxReturn1Y: p("maxReturn1Y"),
+			minReturnYTD: p("minReturnYTD"), maxReturnYTD: p("maxReturnYTD"),
+			// Risk
+			minBeta: p("minBeta"), maxBeta: p("maxBeta"),
+			minSharpe: p("minSharpe"),
+			maxDrawdown: p("maxDrawdown"),
+			// Technical
+			minRSI: p("minRSI"), maxRSI: p("maxRSI"),
+			// Shareholding
+			minPromoterHolding: p("minPromoterHolding"), maxPromoterHolding: p("maxPromoterHolding"),
+			minFIIHolding: p("minFIIHolding"), maxFIIHolding: p("maxFIIHolding"),
+			minDIIHolding: p("minDIIHolding"),
+			maxPledged: p("maxPledged"),
+		};
 
 		const result = await queryScreener(filters);
 
@@ -134,9 +136,76 @@ router.get("/api/screener/stocks/:symbol", async (req, res) => {
 		}
 		res.json(result);
 	} catch (err: any) {
-		res
-			.status(500)
-			.json({ error: "Failed to get stock detail", message: err.message });
+		res.status(500).json({ error: "Failed to get stock detail", message: err.message });
+	}
+});
+
+/**
+ * GET /api/screener/stocks/:symbol/pivots
+ * Computes all 4 pivot level methods (Classic, Fibonacci, Camarilla, Woodie)
+ * from the previous session's OHLCV. Always computed on-demand — values change daily.
+ */
+router.get("/api/screener/stocks/:symbol/pivots", async (req, res) => {
+	try {
+		const { symbol } = req.params;
+		// Fetch previous session OHLCV from screener_technical_indicators
+		const [ti] = await db
+			.select()
+			.from(screenerTechnicalIndicators)
+			.where(eq(screenerTechnicalIndicators.symbol, symbol))
+			.orderBy(desc(screenerTechnicalIndicators.date))
+			.limit(1);
+
+		if (!ti || !ti.high || !ti.low || !ti.close) {
+			return res.status(404).json({
+				error: "Price data not available",
+				message: `No OHLCV data found for ${symbol}. Enrichment may be pending.`,
+			});
+		}
+
+		const pivots = computePivotLevels(
+			Number(ti.high),
+			Number(ti.low),
+			Number(ti.close),
+			Number(ti.open) || undefined,
+		);
+
+		res.json({
+			success: true,
+			data: {
+				symbol,
+				basedOn: { date: ti.date, high: ti.high, low: ti.low, close: ti.close, open: ti.open },
+				pivots,
+			},
+			meta: { timestamp: new Date().toISOString(), version: "1.0" },
+		});
+	} catch (err: any) {
+		res.status(500).json({ error: "Failed to compute pivots", message: err.message });
+	}
+});
+
+/**
+ * GET /api/screener/stocks/:symbol/shareholding
+ * Returns latest quarterly shareholding pattern for a stock.
+ * Promoter%, FII%, DII%, Public%, Pledged% with QoQ changes.
+ */
+router.get("/api/screener/stocks/:symbol/shareholding", async (req, res) => {
+	try {
+		const { symbol } = req.params;
+		const data = await getShareholdingForSymbol(symbol);
+		if (!data) {
+			return res.status(404).json({
+				error: "Shareholding data not available",
+				message: `No shareholding data found for ${symbol}. Run shareholding enrichment batch first.`,
+			});
+		}
+		res.json({
+			success: true,
+			data,
+			meta: { timestamp: new Date().toISOString(), version: "1.0" },
+		});
+	} catch (err: any) {
+		res.status(500).json({ error: "Failed to get shareholding", message: err.message });
 	}
 });
 
@@ -315,6 +384,53 @@ router.post("/api/screener/admin/recalculate-metrics", async (req, res) => {
 		res
 			.status(500)
 			.json({ error: "Metrics recalculation failed", message: err.message });
+	}
+});
+
+/**
+ * POST /api/screener/admin/shareholding-refresh
+ * Triggers full quarterly shareholding batch (BSE → NSE fallback) for all stocks.
+ * Safe to run multiple times — uses UPSERT on (symbol, quarter_date).
+ */
+router.post("/api/screener/admin/shareholding-refresh", async (req, res) => {
+	try {
+		const limit = req.body?.limit ? Number(req.body.limit) : 100;
+		const result = await runShareholdingBatchJob(limit);
+		res.json({
+			success: true,
+			...result,
+			meta: { timestamp: new Date().toISOString(), version: "1.0" },
+		});
+	} catch (err: any) {
+		res.status(500).json({
+			success: false,
+			error: "Shareholding batch failed",
+			message: err.message,
+			meta: { timestamp: new Date().toISOString(), version: "1.0" },
+		});
+	}
+});
+
+/**
+ * POST /api/screener/admin/shareholding-refresh/:symbol
+ * Refresh shareholding for a single symbol (on-demand).
+ */
+router.post("/api/screener/admin/shareholding-refresh/:symbol", async (req, res) => {
+	try {
+		const { symbol } = req.params;
+		const data = await getShareholdingForSymbol(symbol.toUpperCase());
+		res.json({
+			success: true,
+			data,
+			meta: { timestamp: new Date().toISOString(), version: "1.0" },
+		});
+	} catch (err: any) {
+		res.status(500).json({
+			success: false,
+			error: "Single-symbol shareholding refresh failed",
+			message: err.message,
+			meta: { timestamp: new Date().toISOString(), version: "1.0" },
+		});
 	}
 });
 

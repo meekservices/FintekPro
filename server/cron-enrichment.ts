@@ -810,6 +810,37 @@ export function initializeEnrichmentCrons(
 		},
 		delay,
 	);
+	// ── Quarterly Shareholding Pattern Refresh ───────────────────────────────────
+	// Runs on 1st of Feb/May/Aug/Nov at 3 AM IST (21:30 UTC previous night)
+	// Matches the quarterly BSE/NSE shareholding disclosure schedule.
+	staggeredStart(
+		"Shareholding Quarterly Refresh",
+		() => {
+			cron.schedule("30 21 1 2,5,8,11 *", async () => {
+				if (!isEnrichmentWindow()) {
+					logger.info("⏭️ [ShareholdingCron] Outside enrichment window, skipping");
+					return;
+				}
+				logger.info("[CRON] Starting quarterly shareholding pattern refresh...");
+				try {
+					const { runShareholdingBatchJob } = await import(
+						"./services/screener/shareholding-service"
+					);
+					const result = await runShareholdingBatchJob(500);
+					logger.info(
+						`[CRON] Shareholding refresh complete: ${result.processed} processed, ${result.succeeded} succeeded, ${result.failed} failed`,
+						{ event: "SHAREHOLDING_BATCH_COMPLETE", ...result },
+					);
+				} catch (err: any) {
+					logger.error("[CRON] Shareholding refresh failed:", err.message);
+				}
+			});
+			logger.info(
+				"📊 [Shareholding] Quarterly refresh scheduled (1st Feb/May/Aug/Nov — 3 AM IST)",
+			);
+		},
+		delay,
+	);
 	delay += STAGGER;
 
 	return delay;
