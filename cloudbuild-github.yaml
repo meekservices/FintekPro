@@ -1,6 +1,6 @@
 # cloudbuild-github.yaml
 # Bypasses local gcloud tarfile crash on macOS ARM by cloning from GitHub directly.
-# Usage: gcloud builds submit --config=/tmp/cloudbuild-github.yaml --project=fintekpro --no-source
+# --no-cache on docker build ensures stale TypeScript compiled bundles are never reused.
 steps:
 - name: 'gcr.io/cloud-builders/git'
   args:
@@ -9,12 +9,18 @@ steps:
   - '--branch=main'
   - 'https://github.com/meekservices/FintekPro.git'
   - '/workspace/app'
+- name: 'gcr.io/cloud-builders/git'
+  entrypoint: 'sh'
+  args:
+  - '-c'
+  - 'git -C /workspace/app log --oneline -1 && echo "Build source confirmed"'
 - name: 'gcr.io/cloud-builders/docker'
   args:
   - build
+  - '--no-cache'
   - '-t'
-  - 'asia-south1-docker.pkg.dev/fintekpro/cloud-run-source-deploy/fintekpro-app:latest'
+  - 'asia-south1-docker.pkg.dev/fintekpro/fintekpro-repo/fintekpro-app:latest'
   - '/workspace/app'
 images:
-- 'asia-south1-docker.pkg.dev/fintekpro/cloud-run-source-deploy/fintekpro-app:latest'
+- 'asia-south1-docker.pkg.dev/fintekpro/fintekpro-repo/fintekpro-app:latest'
 timeout: '1800s'
