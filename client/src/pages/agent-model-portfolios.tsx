@@ -14,7 +14,7 @@
  * @outputs - Portfolio cards, detail sheet, performance chart, AI insights
  * @edge    - Low-confidence AI → recommendation downgraded, human advisor suggested
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -2127,7 +2127,9 @@ export default function AgentModelPortfoliosPage() {
       })),
       rebalancingHistory: p.rebalancing_history ?? [],
       aiInsight: p.ai_insight ?? null,
-      performanceData: PERFORMANCE_BASE(),   // chart still seeded — Fix #7 will replace
+      goal: p.goals?.[0] ?? "wealth_creation",
+      performance: PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, Number(p.cagr_1y ?? 12), Number(p.volatility ?? 6)),
+      performanceData: PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, Number(p.cagr_1y ?? 12), Number(p.volatility ?? 6)),
     }));
   }, [apiData]);
 
