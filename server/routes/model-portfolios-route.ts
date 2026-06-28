@@ -125,7 +125,6 @@ const FUND_SCHEME_MAP: Record<string, number> = {
   "HDFC Dividend Yield Fund":         145018,
   "ICICI Pru Momentum":               153684,
   "ICICI Pru US Bluechip":            120186,
-  "ICICI Pru Value Discovery":        120323,
 
   // ── International / Global ──────────────────────────────────────────────────
   "Motilal Oswal Nasdaq 100":         145552,
