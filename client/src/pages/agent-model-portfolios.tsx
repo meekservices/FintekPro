@@ -2162,6 +2162,29 @@ export default function AgentModelPortfoliosPage() {
     if (canViewFullHoldings) setShowAllHoldings(true);
   }, [canViewFullHoldings, selectedPortfolio?.id]);
 
+  // ── Detail panel tab + on-demand holdings enrichment ─────────────────────────
+  const [activeDetailTab, setActiveDetailTab] = useState("overview");
+
+  // Fetch enriched holdings (with live 1Y returns from mfapi.in) only when
+  // user clicks the Holdings tab. Results cached 6h server-side.
+  const { data: holdingsData, isLoading: holdingsLoading } = useQuery<{
+    success: boolean;
+    data: any[];
+  }>({
+    queryKey: ["/api/model-portfolios", selectedPortfolio?.id, "holdings"],
+    enabled: activeDetailTab === "holdings" && !!selectedPortfolio?.id,
+    staleTime: 6 * 60 * 60 * 1000, // 6h — matches server cache
+    retry: 1,
+    queryFn: async () => {
+      const r = await fetch(`/api/model-portfolios/${selectedPortfolio!.id}/holdings`);
+      if (!r.ok) throw new Error("Holdings fetch failed");
+      return r.json();
+    },
+  });
+
+  // Use enriched holdings when available, fall back to portfolio holdings from list
+  const enrichedHoldings = holdingsData?.data ?? null;
+
   // Available sub-categories for current asset class filter
   const availableSubCategories = useMemo(() => {
     if (assetClassFilter === "equity") return EQUITY_SUBCATEGORIES;
@@ -2775,7 +2798,13 @@ export default function AgentModelPortfoliosPage() {
 
               {/* Sheet Tab Content */}
               <ScrollArea className="flex-1">
-                <Tabs defaultValue="overview" className="px-5 pt-4 pb-6">
+                <Tabs
+                  value={activeDetailTab}
+                  onValueChange={(t) => {
+                    setActiveDetailTab(t);
+                  }}
+                  className="px-5 pt-4 pb-6"
+                >
                   <TabsList className="grid w-full grid-cols-4 mb-4 h-8 text-xs">
                     <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
                     <TabsTrigger value="holdings" className="text-xs">Holdings</TabsTrigger>
@@ -2984,33 +3013,52 @@ export default function AgentModelPortfoliosPage() {
                     </div>
 
                     {/* Holdings rows — controlled by role + toggle */}
+                    {/* enrichedHoldings has live 1Y returns from mfapi.in (fetched on tab open) */}
                     <div className="space-y-2">
+                      {holdingsLoading && !enrichedHoldings && (
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground py-2 px-3">
+                          <span className="animate-spin">⟳</span> Loading 1Y returns…
+                        </div>
+                      )}
                       {(canViewFullHoldings
                         ? (showAllHoldings ? selectedPortfolio.holdings : selectedPortfolio.holdings.slice(0, 5))
                         : selectedPortfolio.holdings.slice(0, 5)
-                      ).map((h) => (
-                        <div
-                          key={h.rank}
-                          id={`holding-row-${h.rank}-${selectedPortfolio.id}`}
-                          className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors"
-                        >
-                          <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-xs font-bold text-indigo-600">
-                            {h.rank}
+                      ).map((h, idx) => {
+                        // Merge enriched return (by index) onto the holding
+                        const enriched = enrichedHoldings?.[idx];
+                        const displayReturn = enriched?.currentReturn ?? h.currentReturn;
+                        return (
+                          <div
+                            key={h.rank}
+                            id={`holding-row-${h.rank}-${selectedPortfolio.id}`}
+                            className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors"
+                          >
+                            <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-xs font-bold text-indigo-600">
+                              {h.rank}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold truncate">{h.name}</p>
+                              <p className="text-[10px] text-muted-foreground">{h.category}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-xs font-bold">{h.weight}%</p>
+                              {displayReturn !== undefined && displayReturn !== null ? (
+                                <p className={`text-[10px] font-semibold ${displayReturn >= 0 ? "text-green-600" : "text-red-500"}`}>
+                                  {displayReturn >= 0 ? "+" : ""}{displayReturn}%
+                                </p>
+                              ) : holdingsLoading ? (
+                                <p className="text-[10px] text-muted-foreground">…</p>
+                              ) : null}
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold truncate">{h.name}</p>
-                            <p className="text-[10px] text-muted-foreground">{h.category}</p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-xs font-bold">{h.weight}%</p>
-                            {h.currentReturn !== undefined && (
-                              <p className={`text-[10px] font-semibold ${h.currentReturn >= 0 ? "text-green-600" : "text-red-500"}`}>
-                                {h.currentReturn >= 0 ? "+" : ""}{h.currentReturn}%
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
+                    </div>
+                    {enrichedHoldings && (
+                      <p className="text-[9px] text-muted-foreground text-right mt-1">
+                        Returns as of last NAV · Source: mfapi.in
+                      </p>
+                    )}
                     </div>
 
                     {/* Client gate: blurred ghost rows + upgrade overlay */}

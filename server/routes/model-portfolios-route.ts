@@ -153,12 +153,14 @@ modelPortfoliosRouter.get("/", async (req: Request, res: Response) => {
       .where(and(...conditions))
       .orderBy(modelPortfolios.isFeatured, modelPortfolios.name);
 
-    // Enrich all portfolios' holdings with live 1Y returns (parallel per portfolio)
-    const enriched = await Promise.all(portfolios.map(enrichPortfolio));
+    // NOTE: Holding return enrichment is skipped on the list endpoint.
+    // Holdings returns are fetched on-demand via GET /api/model-portfolios/:id/holdings
+    // when the user opens the Holdings tab in the detail panel.
+    // This avoids 35 portfolios × 5 holdings = 175+ mfapi calls on every page load.
 
     return res.json({
       success: true,
-      data: enriched,
+      data: portfolios,
       meta: {
         timestamp: new Date().toISOString(),
         version: ENGINE_VERSION,
@@ -222,6 +224,60 @@ modelPortfoliosRouter.get("/:id", async (req: Request, res: Response) => {
       success: false,
       error_code: "MODEL_PORTFOLIO_FETCH_ERROR",
       message: "Failed to fetch model portfolio",
+      retryable: true,
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
+    });
+  }
+});
+
+// ── GET /api/model-portfolios/:id/holdings ─────────────────────────────────────
+// Called on-demand when user opens the Holdings tab for a specific portfolio.
+// Returns holdings enriched with live 1Y returns from mfapi.in (free, no key).
+// Results are cached 6h per scheme code in the module-level _cache Map.
+modelPortfoliosRouter.get("/:id/holdings", async (req: Request, res: Response) => {
+  const start = Date.now();
+  try {
+    const { id } = req.params;
+    const result = await db
+      .select({ id: modelPortfolios.id, holdings: modelPortfolios.holdings })
+      .from(modelPortfolios)
+      .where(and(eq(modelPortfolios.id, id), eq(modelPortfolios.isPublished, true)))
+      .limit(1);
+
+    if (!result[0]) {
+      return res.status(404).json({
+        success: false,
+        error_code: "MODEL_PORTFOLIO_NOT_FOUND",
+        message: `Model portfolio '${id}' not found`,
+        retryable: false,
+      });
+    }
+
+    const rawHoldings: any[] = Array.isArray(result[0].holdings) ? result[0].holdings : [];
+
+    // Enrich each holding with trailing 12M return via mfapi.in
+    // Cached 6h per scheme code — subsequent opens are instant
+    const enriched = await Promise.all(rawHoldings.map(enrichHolding));
+
+    return res.json({
+      success: true,
+      data: enriched,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: ENGINE_VERSION,
+        engine_version: ENGINE_VERSION,
+        latency_ms: Date.now() - start,
+        count: enriched.length,
+        returnSource: "mfapi.in (trailing 12M NAV)",
+        disclaimer: "Returns as of last market close. Past performance is not indicative of future results.",
+      },
+    });
+  } catch (error) {
+    logger.error("[ModelPortfolios] GET /:id/holdings error:", error instanceof Error ? error : new Error(String(error)));
+    return res.status(500).json({
+      success: false,
+      error_code: "HOLDINGS_FETCH_ERROR",
+      message: "Failed to fetch holdings with returns",
       retryable: true,
       meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
     });
