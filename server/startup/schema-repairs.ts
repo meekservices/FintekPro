@@ -1851,6 +1851,13 @@ crypto_status VARCHAR,
     `);
 		console.log("✅ screener_derived_metrics extended with returns + risk + quality");
 
+		// Ensure unique constraint exists on symbol (required for ON CONFLICT ... DO NOTHING)
+		await migDb.execute(migSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_screener_derived_symbol_uq
+      ON screener_derived_metrics(symbol)
+    `);
+		console.log("✅ screener_derived_metrics unique index on symbol ensured");
+
 		// 3. Extend screener_technical_indicators with new indicators + pivots
 		await migDb.execute(migSql`
       ALTER TABLE screener_technical_indicators

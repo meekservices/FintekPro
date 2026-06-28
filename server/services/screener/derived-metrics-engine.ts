@@ -289,7 +289,6 @@ export async function recalculateAllMetrics(): Promise<{
       FROM screener_financials sf
       INNER JOIN screener_stocks ss ON ss.symbol = sf.symbol AND ss.is_active = true
       WHERE NOT EXISTS (SELECT 1 FROM screener_derived_metrics dm WHERE dm.symbol = sf.symbol)
-      ON CONFLICT (symbol) DO NOTHING
     `);
 		// Note: The INSERT uses sf.return_1y only as a fallback; the dynamic return
 		// computation pass below will overwrite with OHLCV-computed returns.
