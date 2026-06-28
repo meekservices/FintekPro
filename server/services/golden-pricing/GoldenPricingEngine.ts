@@ -6,8 +6,13 @@
  * using a multi-source hierarchy with validation, audit trail, and confidence scoring.
  *
  * Source Hierarchy (equity):
- *   NSE_BHAVCOPY(98) → BSE_CLOSE(95) → FMP(85) → ALPHAVANTAGE(80)
- *   → LAST_TRADE(70) → MODEL_PRICE(60) → BROKER_QUOTE(50)
+ *   NSE_BHAVCOPY(98) → INDIAN_API(93) → YAHOO_FINANCE(82) → FMP(85)
+ *   → ALPHAVANTAGE(80) → LAST_TRADE(70) → MODEL_PRICE(60) → BROKER_QUOTE(50)
+ *
+ * Indian Sources:
+ *   IndianAPI.in /stock         → live NSE+BSE dual quote (API key in Secret Manager)
+ *   IndianAPI.in /historical_data → EOD close backfill (daily prices, 1m-1y range)
+ *   IndianAPI.in /nse_stock_batch_live_price → bulk 5000-stock pricing runs
  *
  * Asset-class specialisations:
  *   Mutual Funds  → AMFI_NAV
@@ -81,10 +86,11 @@ interface PricingJob {
 
 const SOURCE_CONFIDENCE: Record<string, number> = {
 	NSE_BHAVCOPY: 98,
-	BSE_CLOSE: 95,
 	AMFI_NAV: 97,
+	INDIAN_API: 93,    // IndianAPI.in — India-native, NSE+BSE dual quotes, SEBI-safe, INDIAN_API_KEY in Secret Manager
+	BSE_CLOSE: 95,
 	FMP: 85,
-	YAHOO_FINANCE: 82, // Free, no API key, confirmed working from GCP datacenter — NSE/BSE real prices
+	YAHOO_FINANCE: 82, // Free, no API key, confirmed working from GCP datacenter
 	ALPHAVANTAGE: 80,
 	CREDHIVE: 75,
 	YIELD_CURVE: 80,
@@ -210,6 +216,153 @@ async function fetchFMPPrice(symbol: string): Promise<RawPrice | null> {
 			code: `FMP stable/profile → price for ${symbol}.NS`,
 		},
 	);
+}
+
+// ── Indian-Native Sources ─────────────────────────────────────────────────────
+
+/**
+ * IndianAPI.in /stock endpoint — India's primary market data API.
+ * Returns live NSE + BSE dual price, 52W H/L, PE, volume.
+ * Requires INDIAN_API_KEY (stored in Secret Manager as INDIAN_API_KEY:latest).
+ *
+ * Response: { currentPrice: { NSE: '1318.10', BSE: '1318.25' }, percentChange, yearHigh, yearLow }
+ * Confidence: 93 — India-native, SEBI-safe, dedicated growth plan (300 req/min)
+ */
+async function fetchIndianAPIPrice(
+	symbol: string,
+): Promise<RawPrice | null> {
+	const apiKey = process.env.INDIAN_API_KEY;
+	if (!apiKey) return null;
+
+	try {
+		const url = `https://analyst.indianapi.in/stock?name=${encodeURIComponent(symbol.toUpperCase())}`;
+		const resp = await fetch(url, {
+			headers: { "X-API-Key": apiKey },
+			signal: AbortSignal.timeout(8000),
+		});
+		if (!resp.ok) return null;
+		const data = (await resp.json()) as any;
+
+		// currentPrice is { NSE: '1318.10', BSE: '1318.25' }
+		const priceObj = data?.currentPrice;
+		if (!priceObj) return null;
+
+		const nsePrice = priceObj?.NSE ? Number.parseFloat(String(priceObj.NSE).replace(/,/g, "")) : null;
+		const bsePrice = priceObj?.BSE ? Number.parseFloat(String(priceObj.BSE).replace(/,/g, "")) : null;
+		const price = nsePrice ?? bsePrice;
+		if (!price || price <= 0) return null;
+
+		validateStockPrice(price, symbol);
+
+		return {
+			price,
+			high: data?.yearHigh ? Number.parseFloat(String(data.yearHigh)) : undefined,
+			low: data?.yearLow ? Number.parseFloat(String(data.yearLow)) : undefined,
+			changePercent: validateChangePercent(data?.percentChange, symbol),
+			source: "INDIAN_API",
+			confidence: SOURCE_CONFIDENCE.INDIAN_API,
+		};
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * IndianAPI.in /historical_data — EOD close prices for a symbol over a period.
+ * Returns array of { metric, label, values: [[date, price], ...] }.
+ * Used for backfilling historical_nav_data for equity instruments.
+ *
+ * @param symbol  NSE symbol e.g. "RELIANCE"
+ * @param period  "1m" | "3m" | "6m" | "1y"
+ * @returns Array of { date: string, close: number } sorted ascending
+ */
+export async function fetchIndianAPIHistorical(
+	symbol: string,
+	period: "1m" | "3m" | "6m" | "1y" = "1m",
+): Promise<{ date: string; close: number }[]> {
+	const apiKey = process.env.INDIAN_API_KEY;
+	if (!apiKey) return [];
+
+	try {
+		const url = [
+			`https://analyst.indianapi.in/historical_data`,
+			`?stock_name=${encodeURIComponent(symbol.toUpperCase())}`,
+			`&period=${period}&filter=default`,
+		].join("");
+		const resp = await fetch(url, {
+			headers: { "X-API-Key": apiKey },
+			signal: AbortSignal.timeout(15000),
+		});
+		if (!resp.ok) return [];
+		const raw = (await resp.json()) as any[];
+
+		// raw = [{ metric, label, values: [[date, priceStr], ...] }, ...]
+		const priceDataset = Array.isArray(raw)
+			? raw.find((d: any) => d?.metric === "Price" || d?.label?.toLowerCase().includes("price"))
+			: null;
+		if (!priceDataset?.values) return [];
+
+		return (priceDataset.values as [string, string][])
+			.map(([date, priceStr]) => ({
+				date,
+				close: Number.parseFloat(priceStr.replace(/,/g, "")),
+			}))
+			.filter((r) => r.close > 0)
+			.sort((a, b) => a.date.localeCompare(b.date));
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * IndianAPI.in /nse_stock_batch_live_price — bulk live prices for up to 500 NSE symbols.
+ * Used by the EOD Golden Pricing Engine batch run for all listed stocks.
+ *
+ * @param symbols  Array of NSE symbols
+ * @returns Map of symbol → price
+ */
+export async function fetchIndianAPIBatchPrices(
+	symbols: string[],
+): Promise<Map<string, number>> {
+	const result = new Map<string, number>();
+	const apiKey = process.env.INDIAN_API_KEY;
+	if (!apiKey || symbols.length === 0) return result;
+
+	// Process in chunks of 100 (API limit)
+	const CHUNK_SIZE = 100;
+	for (let i = 0; i < symbols.length; i += CHUNK_SIZE) {
+		const chunk = symbols.slice(i, i + CHUNK_SIZE);
+		try {
+			const resp = await fetch(
+				"https://analyst.indianapi.in/nse_stock_batch_live_price",
+				{
+					method: "POST",
+					headers: {
+						"X-API-Key": apiKey,
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({ stock_ids: chunk.map((s) => s.toUpperCase()) }),
+					signal: AbortSignal.timeout(15000),
+				},
+			);
+			if (!resp.ok) continue;
+			const data = (await resp.json()) as any;
+			// Response is { RELIANCE: { price: 1318.10, ... }, TCS: { ... }, ... }
+			if (typeof data === "object" && data !== null) {
+				for (const [sym, info] of Object.entries(data)) {
+					const p = (info as any)?.price ?? (info as any)?.currentPrice ?? (info as any)?.last_price;
+					if (p && Number(p) > 0) result.set(sym.toUpperCase(), Number(p));
+				}
+			}
+		} catch {
+			// continue with next chunk
+		}
+		// Respect 300 req/min rate limit — 100ms between chunks
+		if (i + CHUNK_SIZE < symbols.length) {
+			await new Promise((r) => setTimeout(r, 100));
+		}
+	}
+	return result;
 }
 
 /**
@@ -493,20 +646,24 @@ async function discoverBestPrice(
 	}
 
 	// Equity / ETF / Commodity waterfall:
-	// NSE_BHAVCOPY(98) → YAHOO_FINANCE(82) → FMP(85, key in Secret Manager) → LAST_KNOWN
+	// NSE_BHAVCOPY(98) → INDIAN_API(93) → YAHOO_FINANCE(82) → FMP(85) → LAST_KNOWN
 	if (symbol) {
-		// 1. NSE direct — 403 blocked from datacenter IPs, fails gracefully
+		// 1. NSE direct — primary (403 blocked from datacenter IPs, fails gracefully)
 		const nse = await fetchNSEClose(symbol);
 		if (nse?.price) return nse;
 
-		// 2. Yahoo Finance — free, no API key, confirmed working from Cloud Run
+		// 2. IndianAPI.in — India-native, NSE+BSE dual quotes, INDIAN_API_KEY in Secret Manager
+		const indianApi = await fetchIndianAPIPrice(symbol);
+		if (indianApi?.price) return indianApi;
+
+		// 3. Yahoo Finance — free, no API key, confirmed working from Cloud Run
 		const yahoo = await fetchYahooFinancePrice(
 			symbol,
 			(job.exchange === "BSE" ? "BSE" : "NSE"),
 		);
 		if (yahoo?.price) return yahoo;
 
-		// 3. FMP — requires FMP_API_KEY (stored in Secret Manager as FMP_API_KEY:latest)
+		// 4. FMP — requires FMP_API_KEY (stored in Secret Manager as FMP_API_KEY:latest)
 		const fmp = await fetchFMPPrice(symbol);
 		if (fmp?.price) return fmp;
 	}
