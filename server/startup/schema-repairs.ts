@@ -1846,7 +1846,8 @@ crypto_status VARCHAR,
         ADD COLUMN IF NOT EXISTS face_value DECIMAL(10,4),
         ADD COLUMN IF NOT EXISTS week_high_52 DECIMAL(12,4),
         ADD COLUMN IF NOT EXISTS week_low_52 DECIMAL(12,4),
-        ADD COLUMN IF NOT EXISTS technical_rating VARCHAR(20);
+        ADD COLUMN IF NOT EXISTS technical_rating VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS last_calculated TIMESTAMPTZ DEFAULT NOW();
     `);
 		console.log("✅ screener_derived_metrics extended with returns + risk + quality");
 
