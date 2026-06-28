@@ -1935,6 +1935,17 @@ crypto_status VARCHAR,
     `);
 		console.log("✅ screener_financials extended with ROCE, ratios");
 
+		// 5. Ensure screener_stocks has is_active column (may be missing in older DB setups)
+		await migDb.execute(migSql`
+      ALTER TABLE screener_stocks
+        ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE
+    `);
+		// Backfill: set all existing rows to active if newly added
+		await migDb.execute(migSql`
+      UPDATE screener_stocks SET is_active = TRUE WHERE is_active IS NULL
+    `);
+		console.log("✅ screener_stocks.is_active ensured");
+
 		console.log("✅ [Screener MoneyControl-parity] All migrations complete");
 	} catch (screenerMigErr: any) {
 		console.warn("[Migration] Screener parity migration skipped (non-fatal):", screenerMigErr?.message);

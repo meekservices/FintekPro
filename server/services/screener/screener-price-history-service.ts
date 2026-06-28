@@ -19,7 +19,7 @@
 
 import { db } from "../../db";
 import { screenerStocks } from "@shared/schema/screener";
-import { sql, eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 const YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart";
 const FETCH_TIMEOUT_MS = 20_000;
@@ -184,15 +184,16 @@ export async function ingestPriceHistory(
     details: [],
   };
 
-  const activeSymbols = await db
-    .select({ symbol: screenerStocks.symbol })
-    .from(screenerStocks)
-    .where(eq(screenerStocks.isActive, true))
-    .orderBy(screenerStocks.symbol)
-    .limit(limit)
-    .offset(offset);
+  // Use screener_derived_metrics as the authoritative symbol list (avoids
+  // potential column-missing errors on screener_stocks.is_active in live DB)
+  const symbolResult = await db.execute(sql.raw(`
+    SELECT symbol FROM screener_derived_metrics
+    ORDER BY symbol
+    LIMIT ${limit} OFFSET ${offset}
+  `));
+  const activeSymbols = ((symbolResult as any).rows ?? []) as { symbol: string }[];
 
-  let symbolsToProcess = activeSymbols.map((s) => s.symbol);
+  let symbolsToProcess = activeSymbols.map((s) => s.symbol as string);
 
   if (!force) {
     // Skip symbols that already have recent data
@@ -266,11 +267,10 @@ export async function ingestDailyPriceUpdate(): Promise<{
   updated: number;
   failed: number;
 }> {
-  const activeSymbols = await db
-    .select({ symbol: screenerStocks.symbol })
-    .from(screenerStocks)
-    .where(eq(screenerStocks.isActive, true))
-    .orderBy(screenerStocks.symbol);
+  const symbolResult = await db.execute(sql.raw(`
+    SELECT symbol FROM screener_derived_metrics ORDER BY symbol
+  `));
+  const activeSymbols = ((symbolResult as any).rows ?? []) as { symbol: string }[];
 
   let updated = 0;
   let failed = 0;
