@@ -84,6 +84,7 @@ const SOURCE_CONFIDENCE: Record<string, number> = {
 	BSE_CLOSE: 95,
 	AMFI_NAV: 97,
 	FMP: 85,
+	YAHOO_FINANCE: 82, // Free, no API key, confirmed working from GCP datacenter — NSE/BSE real prices
 	ALPHAVANTAGE: 80,
 	CREDHIVE: 75,
 	YIELD_CURVE: 80,
@@ -209,6 +210,58 @@ async function fetchFMPPrice(symbol: string): Promise<RawPrice | null> {
 			code: `FMP stable/profile → price for ${symbol}.NS`,
 		},
 	);
+}
+
+/**
+ * Yahoo Finance chart API — free, no API key, confirmed working from GCP datacenter.
+ * Tries NSE (.NS suffix) first, BSE (.BO) as fallback.
+ * Used as priority-3 in the equity waterfall when NSE direct is 403-blocked.
+ *
+ * Confidence: 82 (higher than AlphaVantage, below FMP)
+ */
+async function fetchYahooFinancePrice(
+	symbol: string,
+	exchange: "NSE" | "BSE" = "NSE",
+): Promise<RawPrice | null> {
+	const suffixes = exchange === "BSE" ? [".BO", ".NS"] : [".NS", ".BO"];
+
+	for (const suffix of suffixes) {
+		try {
+			const ticker = encodeURIComponent(`${symbol}${suffix}`);
+			const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
+			const resp = await fetch(url, {
+				headers: { "User-Agent": "Mozilla/5.0" },
+				signal: AbortSignal.timeout(8000),
+			});
+			if (!resp.ok) continue;
+			const data = (await resp.json()) as any;
+			const meta = data?.chart?.result?.[0]?.meta;
+			if (!meta) continue;
+
+			const price = meta.regularMarketPrice ?? meta.chartPreviousClose;
+			if (!price || price <= 0) continue;
+
+			validateStockPrice(price, symbol);
+
+			const quote = data?.chart?.result?.[0]?.indicators?.quote?.[0];
+			const timestamps: number[] = data?.chart?.result?.[0]?.timestamp ?? [];
+			const lastIdx = timestamps.length - 1;
+
+			return {
+				price,
+				open: lastIdx >= 0 ? (quote?.open?.[lastIdx] ?? undefined) : undefined,
+				high: lastIdx >= 0 ? (quote?.high?.[lastIdx] ?? undefined) : undefined,
+				low: lastIdx >= 0 ? (quote?.low?.[lastIdx] ?? undefined) : undefined,
+				volume: lastIdx >= 0 ? (quote?.volume?.[lastIdx] ?? undefined) : undefined,
+				changePercent: validateChangePercent(meta.regularMarketChangePercent, symbol),
+				source: "YAHOO_FINANCE",
+				confidence: SOURCE_CONFIDENCE.YAHOO_FINANCE,
+			};
+		} catch {
+			// try next suffix
+		}
+	}
+	return null;
 }
 
 async function fetchLastKnownPrice(
@@ -439,11 +492,21 @@ async function discoverBestPrice(
 		return await fetchLastKnownPrice(isin, priceDate);
 	}
 
-	// Equity / ETF / Commodity waterfall
+	// Equity / ETF / Commodity waterfall:
+	// NSE_BHAVCOPY(98) → YAHOO_FINANCE(82) → FMP(85, key in Secret Manager) → LAST_KNOWN
 	if (symbol) {
+		// 1. NSE direct — 403 blocked from datacenter IPs, fails gracefully
 		const nse = await fetchNSEClose(symbol);
 		if (nse?.price) return nse;
 
+		// 2. Yahoo Finance — free, no API key, confirmed working from Cloud Run
+		const yahoo = await fetchYahooFinancePrice(
+			symbol,
+			(job.exchange === "BSE" ? "BSE" : "NSE"),
+		);
+		if (yahoo?.price) return yahoo;
+
+		// 3. FMP — requires FMP_API_KEY (stored in Secret Manager as FMP_API_KEY:latest)
 		const fmp = await fetchFMPPrice(symbol);
 		if (fmp?.price) return fmp;
 	}
