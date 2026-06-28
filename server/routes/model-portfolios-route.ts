@@ -166,7 +166,7 @@ modelPortfoliosRouter.get("/", async (req: Request, res: Response) => {
         version: ENGINE_VERSION,
         engine_version: ENGINE_VERSION,
         latency_ms: Date.now() - start,
-        count: enriched.length,
+        count: portfolios.length,
         disclaimer:
           "Model portfolios are for research and guidance only. Past performance does not guarantee future returns. Please consult your SEBI-registered investment advisor before making investment decisions.",
       },
