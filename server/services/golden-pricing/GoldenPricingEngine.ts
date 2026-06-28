@@ -25,6 +25,7 @@ import { db } from "../../db";
 import { sql } from "drizzle-orm";
 import { goldenPrices, priceAuditLog } from "../../../shared/schema";
 import fetch from "node-fetch";
+import { indianBondService } from "../indian-bond-service";
 import {
 	guardedExecution,
 	validateStockPrice,
@@ -465,7 +466,12 @@ async function fetchBondPrice(job: PricingJob): Promise<RawPrice | null> {
 			0.5,
 			(maturity.getTime() - now.getTime()) / (365.25 * 24 * 3600 * 1000),
 		);
-		const yieldRate = 0.0713;
+
+		// Fetch live India G-Sec yield for this tenor from IndianBondService
+		// Sources: FMP treasury-rates (confirmed ✅) → AlphaVantage 10Y (✅) → RBI repo fallback
+		const ytmResult = await indianBondService.getIndiaYTM(years);
+		const yieldRate = ytmResult.ytm / 100; // convert % to decimal
+
 		const price = priceBond(
 			job.faceValue,
 			job.couponRate / 100,
@@ -476,6 +482,8 @@ async function fetchBondPrice(job: PricingJob): Promise<RawPrice | null> {
 			price,
 			source: "YIELD_CURVE",
 			confidence: SOURCE_CONFIDENCE.YIELD_CURVE,
+			// @ts-ignore — metadata passthrough for audit trail
+			metadata: { ytm: ytmResult.ytm, ytmSource: ytmResult.source, tenorYears: years, asOf: ytmResult.asOf },
 		};
 	} catch {
 		return null;
