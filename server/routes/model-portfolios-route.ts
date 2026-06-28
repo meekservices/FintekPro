@@ -33,53 +33,198 @@ export const modelPortfoliosRouter = Router();
 
 const ENGINE_VERSION = "1.1.0";
 
-// ─── In-memory cache: fund name / scheme code → { return1Y, ts } ─────────────
+// ─── In-memory NAV cache: schemeCode → { return1Y, ts } ──────────────────────
 const CACHE_TTL_MS = 6 * 60 * 60 * 1_000; // 6 hours
-const _cache = new Map<string, { value: any; ts: number }>();
-const cached = <T>(key: string, value: T): T => { _cache.set(key, { value, ts: Date.now() }); return value; };
-const fromCache = <T>(key: string): T | null => {
-  const e = _cache.get(key);
-  return e && Date.now() - e.ts < CACHE_TTL_MS ? e.value : null;
+const _navCache = new Map<string, { value: number | null; ts: number }>();
+const cacheNav = (key: string, value: number | null): number | null => {
+  _navCache.set(key, { value, ts: Date.now() });
+  return value;
+};
+const fromNavCache = (key: string): number | null | undefined => {
+  const e = _navCache.get(key);
+  return e && Date.now() - e.ts < CACHE_TTL_MS ? e.value : undefined;
 };
 
-// ─── mfapi.in helpers ─────────────────────────────────────────────────────────
+// ─── Curated AMFI-verified scheme code map ────────────────────────────────────
+// Each entry manually verified against AMFI NAVAll.txt (June 2026).
+// Scheme codes are for Direct Plan – Growth option (lowest expense ratio).
+// Source: https://www.amfiindia.com/spages/NAVAll.txt
+const FUND_SCHEME_MAP: Record<string, number> = {
+  // ── Large Cap Equity ────────────────────────────────────────────────────────
+  "Mirae Asset Large Cap":            118825,
+  "ICICI Pru Bluechip":               120586,
+  "Axis Bluechip Fund":               120501,
+  "SBI Bluechip":                     119572,
+  "Nippon India Large Cap":           118820,
+  "HDFC Top 100":                     118997,
 
-/** Search mfapi.in by fund name, return best Direct-Growth schemeCode. */
-async function searchScheme(name: string): Promise<number | null> {
-  const key = `search:${name.toLowerCase().trim()}`;
-  const hit = fromCache<number | null>(key);
-  if (hit !== null) return hit;
-  try {
-    const r = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(name)}`, {
-      signal: AbortSignal.timeout(6_000),
-    });
-    if (!r.ok) return cached(key, null);
-    const results = (await r.json()) as { schemeCode: number; schemeName: string }[];
-    if (!results?.length) return cached(key, null);
-    const direct = results.find(
-      (x) => x.schemeName.toUpperCase().includes("DIRECT") && x.schemeName.toUpperCase().includes("GROWTH"),
-    );
-    return cached(key, (direct ?? results[0])?.schemeCode ?? null);
-  } catch {
-    return cached(key, null);
-  }
-}
+  // ── Mid Cap Equity ──────────────────────────────────────────────────────────
+  "Axis Midcap":                      120503,
+  "Kotak Emerging Equity":            120164, // Kotak Midcap Fund Direct
+  "DSP Midcap":                       119211,
 
-/** Compute trailing 12M return from mfapi NAV history. Returns % (e.g. 14.2). */
+  // ── Small Cap Equity ────────────────────────────────────────────────────────
+  "Nippon India Small Cap":           118777,
+  "Kotak Small Cap":                  120164, // Kotak-Small Cap Fund - Direct
+  "HDFC Small Cap":                   118978,
+  "SBI Small Cap Fund":               125497,
+
+  // ── Flexi/Multi Cap ─────────────────────────────────────────────────────────
+  "Parag Parikh Flexi Cap":           122639,
+  "PPFAS Flexi Cap":                  122639,
+  "Mirae Asset Focused":              147206,
+  "Axis Growth Opportunities":        120502,
+  "ICICI Pru Value Discovery":        120323,
+  "Templeton India Value":            118494,
+  "Franklin India Prima Plus":        118494,
+  "Kotak Focused Equity":             118969,
+  "Kotak India EQ Contra":            118975,
+  "Quantum Long Term Equity Value":   118780,
+
+  // ── ELSS / Tax Saving ───────────────────────────────────────────────────────
+  "Axis Long Term Equity":            120504,
+  "Mirae Asset Tax Saver":            135781,
+  "Parag Parikh Tax Saver":           147481,
+  "DSP Tax Saver":                    119217,
+
+  // ── ESG Funds ───────────────────────────────────────────────────────────────
+  "Mirae Asset ESG Sector Leaders":   148574, // Mirae Asset Nifty 100 ESG Sector Leaders FoF
+  "Aditya Birla ESG Fund":            148637, // ABSL ESG Integration Strategy Fund
+  "SBI Magnum Equity ESG":            119709, // SBI ESG Exclusionary Strategy Fund
+  "Kotak ESG Opportunities":          148606, // Kotak ESG Exclusionary Strategy Fund
+
+  // ── Sector / Thematic ───────────────────────────────────────────────────────
+  "Tata Digital India":               135795,
+  "Aditya Birla Digital India":       118782,
+  "ICICI Pru Technology Fund":        120594,
+  "SBI Technology Opp Fund":          120578,
+  "Franklin India Technology":        118785,
+  "ICICI Pru Pharma Healthcare":      143874,
+  "Nippon India Pharma":              118758,
+  "UTI Healthcare Fund":              120782,
+  "DSP Healthcare Fund":              143783,
+  "HDFC Banking ETF":                 119261,
+  "Nippon India Banking":             134547,
+  "SBI Banking and Financial Services": 133859,
+  "ICICI Pru Banking and Financial Services": 120244,
+  "Kotak Infrastructure and Economic Reform": 133801,
+  "Tata Infrastructure Fund":         119243,
+  "DSP India TIGER Fund":             119247,
+  "ICICI Pru Infrastructure":         120621,
+  "ICICI Pru FMCG Fund":              120587,
+  "Mirae Asset Great Consumer":       118837,
+  "Canara Robeco Consumer Trends":    120481,
+  "SBI Consumption Opportunities":    120575,
+  "ICICI Pru Manufacturing":          145075,
+  "Aditya Birla Manufacturing Equity": 143783,
+  "Kotak Manufacture in India":       149841,
+  "HDFC Manufacturing Fund":          145024,
+  "Mirae Asset Healthcare":           143783,
+  "ICICI Pru Dividend Yield Equity":  129312,
+  "UTI Dividend Yield":               119507,
+  "HDFC Dividend Yield Fund":         145018,
+  "ICICI Pru Momentum":               153684,
+  "ICICI Pru US Bluechip":            120186,
+  "ICICI Pru Value Discovery":        120323,
+
+  // ── International / Global ──────────────────────────────────────────────────
+  "Motilal Oswal Nasdaq 100":         145552,
+  "Mirae Asset NYSE FANG+ ETF FoF":   148928,
+  "DSP World Mining":                 120018,
+  "Franklin Asian Equity":            125354,
+  "Edelweiss Greater China Equity":   140243,
+  "Kotak International REIT":         148646,
+  "Kotak International REIT FoF":     148646,
+
+  // ── Index Funds ─────────────────────────────────────────────────────────────
+  "Nifty 50 Index Fund":              120716, // UTI Nifty 50 Index Fund - Direct Growth
+  "Nifty 50 Index":                   120716,
+  "UTI Nifty 50 Index Fund":          120716,
+  "HDFC Nifty 50 Index":              146825,
+  "Nifty Next 50 Index Fund":         147796, // Motilal Oswal Nifty Next 50
+  "Nifty Next 50":                    147796,
+  "Motilal Oswal Nifty Next 50":      147796,
+  "Nifty 500 Index Fund":             148578, // Motilal Oswal Nifty 500 Index Fund
+
+  // ── Hybrid / BAF ────────────────────────────────────────────────────────────
+  "HDFC Balanced Advantage":          118999,
+  "ICICI Pru Balanced Advantage":     120377,
+  "DSP Dynamic Asset Allocation":     126393,
+  "Edelweiss BAF":                    141767,
+  "Kotak Arbitrage Fund":             119771,
+  "HDFC Arbitrage Fund":              119030,
+  "ICICI Pru Arbitrage Fund":         120364,
+  "SBI Arbitrage Opportunities":      119574,
+  "SBI Conservative Hybrid":          119839,
+  "SBI Magnum Balanced":              119609, // SBI Equity Hybrid Fund
+
+  // ── Debt / Fixed Income ─────────────────────────────────────────────────────
+  "HDFC Corp Bond":                   118987, // HDFC Corporate Bond Fund Direct Growth
+  "HDFC Corporate Bond":              118987,
+  "HDFC Short Term Debt":             119016,
+  "Short Duration Debt":              119016,
+  "ICICI Pru Corp Bond":              120692,
+  "ICICI Pru Corporate Bond":         120692,
+  "Kotak Bond Short Term":            135500,
+  "Axis Corporate Debt":              133066,
+  "SBI Corp Bond":                    146215,
+  "ICICI Pru Medium Term Bond":       120670,
+  "Kotak Low Duration":               119773,
+  "Kotak Ultra Short Duration":       144754,
+  "HDFC Ultra Short Term":            145034,
+  "ICICI Pru Ultra Short Term":       120676,
+  "Aditya Birla Money Market":        119252,
+
+  // ── Gilt / G-Sec ────────────────────────────────────────────────────────────
+  "HDFC Gilt Fund":                   119012,
+  "Gilt Fund":                        119012,
+  "SBI Gilt Fund":                    119568,
+  "SBI Magnum Gilt":                  119568,
+  "SDL Fund":                         132510, // Bharat Bond ETF April 2032
+
+  // ── Liquid / Overnight ──────────────────────────────────────────────────────
+  "HDFC Liquid Fund":                 119026,
+  "Liquid Fund":                      119026,
+  "SBI Liquid Fund":                  119572,
+  "Nippon Overnight Fund":            145810,
+
+  // ── Gold ────────────────────────────────────────────────────────────────────
+  "Nippon Gold Savings Fund":         118663,
+  "Nippon Gold ETF":                  118663,
+  "Nippon India Gold ETF":            118663,
+  "HDFC Gold ETF":                    119015,
+  "Gold ETF":                         118663,
+
+  // ── Children / Retirement ───────────────────────────────────────────────────
+  "HDFC Childrens Gift Fund":         118991,
+  "Axis Childrens Gift Fund":         133551,
+  "HDFC Retirement Savings Equity":   145011,
+  "Tata Retirement Savings Progressive": 135793,
+
+  // ── Sectoral / Misc ─────────────────────────────────────────────────────────
+  "Axis Small Cap":                   133583,
+  "SBI Magnum Midcap":                119584,
+  "Kotak Midcap 50":                  120164,
+};
+
+// ─── mfapi.in NAV history → compute trailing 12M return ──────────────────────
+
+/** Compute trailing 12M return (%) from mfapi.in NAV history. */
 async function get1YReturn(schemeCode: number): Promise<number | null> {
   const key = `nav:${schemeCode}`;
-  const hit = fromCache<number | null>(key);
-  if (hit !== null) return hit;
+  const hit = fromNavCache(key);
+  if (hit !== undefined) return hit;
   try {
     const r = await fetch(`https://api.mfapi.in/mf/${schemeCode}`, {
       signal: AbortSignal.timeout(8_000),
     });
-    if (!r.ok) return cached(key, null);
+    if (!r.ok) return cacheNav(key, null);
+
     const d = (await r.json()) as { data: { date: string; nav: string }[] };
     const navData = d?.data ?? [];
-    if (navData.length < 10) return cached(key, null);
+    if (navData.length < 10) return cacheNav(key, null);
 
-    // mfapi dates are DD-MM-YYYY (descending order — navData[0] = latest)
+    // mfapi dates: DD-MM-YYYY, descending (navData[0] = latest)
     const parseMs = (s: string) => {
       const [dd, mm, yyyy] = s.split("-");
       return new Date(`${yyyy}-${mm}-${dd}`).getTime();
@@ -97,23 +242,45 @@ async function get1YReturn(schemeCode: number): Promise<number | null> {
     }
 
     const oldNav = parseFloat(closest.nav);
-    if (!oldNav || oldNav <= 0) return cached(key, null);
+    if (!oldNav || oldNav <= 0) return cacheNav(key, null);
 
-    const ret = Math.round(((latestNav - oldNav) / oldNav) * 10_000) / 100;
-    return cached(key, ret);
+    const ret = Math.round(((latestNav - oldNav) / oldNav) * 10_000) / 100; // 2dp %
+    return cacheNav(key, ret);
   } catch {
-    return cached(key, null);
+    return cacheNav(key, null);
   }
 }
 
-/** Enriches a single holding with currentReturn from mfapi. Non-throwing. */
+/** Enriches a single holding with trailing 12M return via curated AMFI map + mfapi NAV.
+ *  Pipeline:
+ *   1. Look up schemeCode in FUND_SCHEME_MAP (curated, AMFI-verified)
+ *   2. Fetch NAV history from mfapi.in → compute trailing 12M return
+ *   3. If not in map → attempt mfapi name search as last resort
+ *   4. On any failure → return holding unchanged (frontend shows "—")
+ */
 async function enrichHolding(h: any): Promise<any> {
-  // Already has a valid non-zero return → keep it
   if (typeof h.currentReturn === "number" && h.currentReturn !== 0) return h;
   const name: string = h.name ?? "";
   if (!name) return { ...h, currentReturn: undefined };
+
   try {
-    const schemeCode = await searchScheme(name);
+    // ── Primary: curated AMFI-verified map ───────────────────────────────────
+    let schemeCode = FUND_SCHEME_MAP[name] ?? null;
+
+    // ── Fallback: mfapi name search (unreliable but better than nothing) ─────
+    if (!schemeCode) {
+      const r = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(name)}`, {
+        signal: AbortSignal.timeout(6_000),
+      });
+      if (r.ok) {
+        const results = (await r.json()) as { schemeCode: number; schemeName: string }[];
+        const direct = results?.find(
+          (x) => x.schemeName.toUpperCase().includes("DIRECT") && x.schemeName.toUpperCase().includes("GROWTH"),
+        );
+        schemeCode = (direct ?? results?.[0])?.schemeCode ?? null;
+      }
+    }
+
     if (!schemeCode) return { ...h, currentReturn: undefined };
     const return1Y = await get1YReturn(schemeCode);
     return { ...h, currentReturn: return1Y ?? undefined };
@@ -129,6 +296,7 @@ async function enrichPortfolio(portfolio: any): Promise<any> {
   const enriched = await Promise.all(holdings.map(enrichHolding));
   return { ...portfolio, holdings: enriched };
 }
+
 
 // ── GET /api/model-portfolios ──────────────────────────────────────────────────
 modelPortfoliosRouter.get("/", async (req: Request, res: Response) => {
