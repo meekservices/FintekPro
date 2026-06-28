@@ -882,7 +882,7 @@ class RebalancingEngine {
 		afterMetrics: PortfolioMetrics;
 		improvement: PortfolioMetrics;
 	} {
-		const analysis = this.analyzeAndRebalance(input);
+		const analysis = await this.analyzeAndRebalance(input);
 
 		const beforeMetrics = this.calculatePortfolioMetrics(
 			input.currentAllocations,
@@ -977,7 +977,7 @@ class AIEnhancedRebalancingService {
 		availableProducts?: ProductData[],
 	): Promise<AIEnhancedRebalanceResult> {
 		// Start with rule-based analysis
-		const baseAnalysis = rebalancingEngine.analyzeAndRebalance(input);
+		const baseAnalysis = await rebalancingEngine.analyzeAndRebalance(input);
 
 		const aiRecommendations: AIEnhancedRebalanceResult["aiRecommendations"] =
 			[];

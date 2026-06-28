@@ -162,7 +162,7 @@ Output JSON only: {"summary": "...", "strengths": ["..."], "considerations": [".
 			prompt,
 			category: "mutual_funds",
 			responseParser: (text: string) => text,
-			fallback: () => null,
+			fallback: () => "",
 		});
 
 		if (!result) return null;
@@ -250,10 +250,12 @@ async function refreshPortfolioMetrics(
 				logger.warn(`[ModelPortfolioMetrics] Backtest error for ${portfolio.id}: ${backtestResult.error}`);
 				return;
 			}
+			// Non-null: error check above guarantees backtestResult is valid beyond this point
+			const btResult = backtestResult!;
 
 			// Compute CAGR estimates
 			const { cagr1Y, cagr3Y, cagr5Y } = computeCAGR(
-				backtestResult.annualizedReturn ?? 0,
+				btResult.annualizedReturn ?? 0,
 				allocation,
 			);
 
@@ -273,8 +275,8 @@ async function refreshPortfolioMetrics(
 					assetClass: portfolio.assetClass,
 					cagr1Y,
 					cagr3Y,
-					sharpeRatio: backtestResult.sharpeRatio ?? 0,
-					maxDrawdown: Math.abs(backtestResult.maxDrawdown ?? 0) * 100,
+					sharpeRatio: btResult.sharpeRatio ?? 0,
+					maxDrawdown: Math.abs(btResult.maxDrawdown ?? 0) * 100,
 					allocation,
 				});
 			}
@@ -286,10 +288,10 @@ async function refreshPortfolioMetrics(
 					cagr1Y: String(cagr1Y),
 					cagr3Y: String(cagr3Y),
 					cagr5Y: String(cagr5Y),
-					sharpeRatio: String((backtestResult.sharpeRatio ?? 0).toFixed(3)),
-					maxDrawdown: String((Math.abs(backtestResult.maxDrawdown ?? 0) * 100).toFixed(2)),
-					volatility: String(((backtestResult.portfolioVolatility ?? 0) * 100).toFixed(2)),
-					alpha: String(((backtestResult.alpha ?? 0) * 100).toFixed(2)),
+					sharpeRatio: String((btResult.sharpeRatio ?? 0).toFixed(3)),
+					maxDrawdown: String((Math.abs(btResult.maxDrawdown ?? 0) * 100).toFixed(2)),
+					volatility: String(((btResult.portfolioVolatility ?? 0) * 100).toFixed(2)),
+					alpha: String(((btResult.alpha ?? 0) * 100).toFixed(2)),
 					engineVersion: ENGINE_VERSION,
 					...(aiInsight !== portfolio.aiInsight
 						? { aiInsight, aiInsightUpdatedAt: new Date() }
@@ -299,7 +301,7 @@ async function refreshPortfolioMetrics(
 				})
 				.where(eq(modelPortfolios.id, portfolio.id));
 
-			logger.info(`[ModelPortfolioMetrics] ✅ Updated ${portfolio.id}: CAGR1Y=${cagr1Y}%, Sharpe=${(backtestResult.sharpeRatio ?? 0).toFixed(2)}`);
+			logger.info(`[ModelPortfolioMetrics] ✅ Updated ${portfolio.id}: CAGR1Y=${cagr1Y}%, Sharpe=${(btResult.sharpeRatio ?? 0).toFixed(2)}`);
 			return;
 		} catch (err) {
 			attempt++;
