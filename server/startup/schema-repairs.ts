@@ -1820,6 +1820,14 @@ crypto_status VARCHAR,
     `);
 		console.log("✅ screener_shareholding table ready");
 
+		// 1b. Ensure unique index on screener_price_history(symbol, date)
+		//     Required for ON CONFLICT (symbol, date) DO NOTHING in price history ingestion
+		await migDb.execute(migSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_screener_price_history_symbol_date
+      ON screener_price_history(symbol, date)
+    `);
+		console.log("✅ screener_price_history unique index on (symbol, date) ensured");
+
 		// 2. Extend screener_derived_metrics with return series + risk + quality
 		await migDb.execute(migSql`
       ALTER TABLE screener_derived_metrics

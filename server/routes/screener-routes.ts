@@ -32,6 +32,7 @@ import {
 	getEnrichmentProgress,
 } from "../services/screener/enrichment-service";
 import { recalculateAllMetrics } from "../services/screener/derived-metrics-engine";
+import { ingestPriceHistory } from "../services/screener/screener-price-history-service";
 import { fmpUsageMonitor } from "../services/screener/fmp-usage-monitor";
 import {
 	runPriorityEnrichmentBatch,
@@ -428,6 +429,45 @@ router.post("/api/screener/admin/shareholding-refresh/:symbol", async (req, res)
 		res.status(500).json({
 			success: false,
 			error: "Single-symbol shareholding refresh failed",
+			message: err.message,
+			meta: { timestamp: new Date().toISOString(), version: "1.0" },
+		});
+	}
+});
+
+/**
+ * POST /api/screener/admin/fetch-price-history
+ * Batch-ingest 5-year OHLCV from Yahoo Finance into screener_price_history.
+ * Body: { limit?: number (default 100), offset?: number (default 0), force?: boolean (default false) }
+ * force=true re-fetches symbols already loaded in the last 3 days.
+ */
+router.post("/api/screener/admin/fetch-price-history", async (req, res) => {
+	try {
+		const limit  = Number(req.body?.limit  ?? 100);
+		const offset = Number(req.body?.offset ?? 0);
+		const force  = Boolean(req.body?.force ?? false);
+
+		// Run async — respond immediately with 202 Accepted
+		res.status(202).json({
+			success: true,
+			message: `Price history ingestion started (limit=${limit}, offset=${offset}, force=${force})`,
+			meta: { timestamp: new Date().toISOString(), version: "1.0" },
+		});
+
+		// Fire-and-forget — runs in background
+		ingestPriceHistory(limit, force, offset)
+			.then((result) =>
+				console.log(
+					`[PriceHistory] Admin batch complete: ${result.succeeded} ok / ${result.processed} processed / ${result.totalRows} rows`,
+				)
+			)
+			.catch((err) =>
+				console.error("[PriceHistory] Admin batch error:", err?.message),
+			);
+	} catch (err: any) {
+		res.status(500).json({
+			success: false,
+			error: "Failed to start price history ingestion",
 			message: err.message,
 			meta: { timestamp: new Date().toISOString(), version: "1.0" },
 		});
