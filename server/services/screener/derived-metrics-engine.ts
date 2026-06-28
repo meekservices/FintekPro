@@ -438,7 +438,11 @@ export async function recalculateAllMetrics(): Promise<{
 			console.warn("[DerivedMetrics] OHLCV return pass failed (non-fatal):", phase2Err?.message);
 		}
 	} catch (err: any) {
-		console.error(`[DerivedMetrics] Bulk recalculation error: ${err.message}`);
+		// Log the full Postgres error (err.message is just the SQL from Drizzle; actual PG error is in cause)
+		const pgMsg = err?.cause?.message ?? err?.cause ?? "unknown";
+		const pgCode = err?.cause?.code ?? "";
+		console.error(`[DerivedMetrics] Bulk recalculation error [PG ${pgCode}]: ${pgMsg}`);
+		console.error(`[DerivedMetrics] Full error: ${String(err?.message ?? err).substring(0, 300)}`);
 		errors++;
 	}
 
