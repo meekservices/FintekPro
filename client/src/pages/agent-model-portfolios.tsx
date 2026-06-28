@@ -3059,7 +3059,6 @@ export default function AgentModelPortfoliosPage() {
                         Returns as of last NAV · Source: mfapi.in
                       </p>
                     )}
-                    </div>
 
                     {/* Client gate: blurred ghost rows + upgrade overlay */}
                     {!canViewFullHoldings && selectedPortfolio.holdings.length > 5 && (
