@@ -2136,7 +2136,12 @@ export default function AgentModelPortfoliosPage() {
   const canShare = user?.roles?.some((r: string) => PRIVILEGED_ROLES.includes(r));
   /** Agents and above can view the full holdings list; clients see top-5 preview */
   const canViewFullHoldings = user?.roles?.some((r: string) => PRIVILEGED_ROLES.includes(r)) ?? false;
-  const [showAllHoldings, setShowAllHoldings] = useState(false);
+  // Agents and above default to showing all holdings; clients default to top-5
+  const [showAllHoldings, setShowAllHoldings] = useState(canViewFullHoldings);
+  // Sync once user/roles resolves (guards against useState running before auth query returns)
+  useEffect(() => {
+    if (canViewFullHoldings) setShowAllHoldings(true);
+  }, [canViewFullHoldings]);
 
   // Available sub-categories for current asset class filter
   const availableSubCategories = useMemo(() => {
@@ -2962,7 +2967,7 @@ export default function AgentModelPortfoliosPage() {
                     {/* Holdings rows — controlled by role + toggle */}
                     <div className="space-y-2">
                       {(canViewFullHoldings
-                        ? showAllHoldings ? selectedPortfolio.holdings : selectedPortfolio.holdings.slice(0, 5)
+                        ? (showAllHoldings ? selectedPortfolio.holdings : selectedPortfolio.holdings.slice(0, 5))
                         : selectedPortfolio.holdings.slice(0, 5)
                       ).map((h) => (
                         <div
