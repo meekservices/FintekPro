@@ -2188,8 +2188,26 @@ export default function AgentModelPortfoliosPage() {
     },
   });
 
-  // Use enriched holdings when available, fall back to portfolio holdings from list
+  // When Holdings tab is active and enrichedHoldings is loaded, use it as the
+  // primary display list. This ensures all DB holdings are shown, including
+  // any that weren't pre-loaded in the list endpoint (which skips enrichment).
   const enrichedHoldings = holdingsData?.data ?? null;
+  const displayHoldings: Holding[] = (enrichedHoldings && enrichedHoldings.length > 0)
+    ? enrichedHoldings.map((h: any, idx: number) => ({
+        rank: h.rank ?? idx + 1,
+        name: h.name ?? "",
+        symbol: h.symbol ?? selectedPortfolio?.holdings?.[idx]?.symbol,
+        category: h.type ?? h.category ?? selectedPortfolio?.holdings?.[idx]?.category ?? "Other",
+        weight: h.weight ?? h.percentage ?? selectedPortfolio?.holdings?.[idx]?.weight ?? 0,
+        currentReturn: typeof h.currentReturn === "number" ? h.currentReturn : undefined,
+        isin: h.isin ?? selectedPortfolio?.holdings?.[idx]?.isin,
+        beta: h.beta,
+        sharpe: h.sharpe,
+        maxDrawdown: h.maxDrawdown,
+        screenerUrl: h.screenerUrl,
+        returnSource: h.returnSource,
+      }))
+    : (selectedPortfolio?.holdings ?? []);
 
   // Available sub-categories for current asset class filter
   const availableSubCategories = useMemo(() => {
@@ -3004,37 +3022,34 @@ export default function AgentModelPortfoliosPage() {
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-muted-foreground">
                         {canViewFullHoldings
-                          ? `${showAllHoldings ? selectedPortfolio.holdings.length : Math.min(5, selectedPortfolio.holdings.length)} of ${selectedPortfolio.holdings.length} holdings shown (${selectedPortfolio.totalHoldings} total instruments)`
+                          ? `${showAllHoldings ? displayHoldings.length : Math.min(5, displayHoldings.length)} of ${displayHoldings.length} holdings shown`
                           : `Top 5 of ${selectedPortfolio.totalHoldings} holdings · full list for registered advisors`}
                       </p>
-                      {canViewFullHoldings && selectedPortfolio.holdings.length > 5 && (
+                      {canViewFullHoldings && displayHoldings.length > 5 && (
                         <button
                           id="toggle-holdings-expand"
                           onClick={() => setShowAllHoldings((v) => !v)}
                           className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 dark:hover:text-indigo-400 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
                         >
-                          {showAllHoldings ? "▲ Top 5" : `▼ All ${selectedPortfolio.holdings.length}`}
+                          {showAllHoldings ? "▲ Top 5" : `▼ All ${displayHoldings.length}`}
                         </button>
                       )}
                     </div>
 
                     {/* Holdings rows — controlled by role + toggle */}
-                    {/* enrichedHoldings has live 1Y returns from mfapi.in (fetched on tab open) */}
                     <div className="space-y-2">
                       {holdingsLoading && !enrichedHoldings && (
                         <div className="flex items-center gap-2 text-[10px] text-muted-foreground py-2 px-3">
-                          <span className="animate-spin">⟳</span> Loading 1Y returns…
+                          <span className="animate-spin">⟳</span> Loading holdings…
                         </div>
                       )}
                       {(canViewFullHoldings
-                        ? (showAllHoldings ? selectedPortfolio.holdings : selectedPortfolio.holdings.slice(0, 5))
-                        : selectedPortfolio.holdings.slice(0, 5)
-                      ).map((h, idx) => {
-                        const enriched = enrichedHoldings?.[idx];
-                        const displayReturn = enriched?.currentReturn ?? h.currentReturn;
-                        const displayBeta = enriched?.beta ?? h.beta;
-                        const displaySharpe = enriched?.sharpe ?? h.sharpe;
-                        const screenerUrl = enriched?.screenerUrl ?? h.screenerUrl;
+                        ? (showAllHoldings ? displayHoldings : displayHoldings.slice(0, 5))
+                        : displayHoldings.slice(0, 5)
+                      ).map((h, _idx) => {
+                        const displayBeta = h.beta;
+                        const displaySharpe = h.sharpe;
+                        const screenerUrl = h.screenerUrl;
                         const isStock = !!(h.symbol && screenerUrl);
                         return (
                           <div
@@ -3081,9 +3096,9 @@ export default function AgentModelPortfoliosPage() {
                             </div>
                             <div className="text-right shrink-0">
                               <p className="text-xs font-bold">{h.weight}%</p>
-                              {displayReturn !== undefined && displayReturn !== null ? (
-                                <p className={`text-[10px] font-semibold ${displayReturn >= 0 ? "text-green-600" : "text-red-500"}`}>
-                                  {displayReturn >= 0 ? "+" : ""}{typeof displayReturn === "number" ? displayReturn.toFixed(1) : displayReturn}%
+                              {h.currentReturn !== undefined && h.currentReturn !== null ? (
+                                <p className={`text-[10px] font-semibold ${h.currentReturn >= 0 ? "text-green-600" : "text-red-500"}`}>
+                                  {h.currentReturn >= 0 ? "+" : ""}{typeof h.currentReturn === "number" ? h.currentReturn.toFixed(1) : h.currentReturn}%
                                 </p>
                               ) : holdingsLoading ? (
                                 <p className="text-[10px] text-muted-foreground">…</p>

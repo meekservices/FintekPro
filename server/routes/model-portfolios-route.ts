@@ -330,6 +330,32 @@ async function enrichPortfolio(portfolio: any): Promise<any> {
 }
 
 
+// ── POST /api/model-portfolios/admin/fix-total-holdings ────────────────────────
+// Sets total_holdings = actual JSONB array length for every published portfolio.
+// Fixes the mismatch where totalHoldings was manually set higher than stored data.
+modelPortfoliosRouter.post("/admin/fix-total-holdings", async (_req: Request, res: Response) => {
+  try {
+    const result = await db.execute(sql`
+      UPDATE model_portfolios
+      SET total_holdings = jsonb_array_length(holdings)
+      WHERE holdings IS NOT NULL
+        AND holdings != 'null'::jsonb
+        AND jsonb_typeof(holdings) = 'array'
+    `);
+    const rowCount = (result as any).rowCount ?? 0;
+    logger.info(`[ModelPortfolios] fix-total-holdings: updated ${rowCount} rows`);
+    return res.json({
+      success: true,
+      updated: rowCount,
+      message: `Set total_holdings = JSONB array length for ${rowCount} portfolios`,
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] fix-total-holdings error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ── GET /api/model-portfolios ──────────────────────────────────────────────────
 modelPortfoliosRouter.get("/", async (req: Request, res: Response) => {
   const start = Date.now();
