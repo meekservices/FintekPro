@@ -350,7 +350,6 @@ export async function recalculateAllMetrics(): Promise<{
 			const symbolsWithHistory = await db.execute(sql`
         SELECT DISTINCT symbol FROM screener_price_history
         ORDER BY symbol
-        LIMIT 500
       `);
 			const symbols: string[] = ((symbolsWithHistory as any).rows || []).map(
 				(r: any) => r.symbol,
