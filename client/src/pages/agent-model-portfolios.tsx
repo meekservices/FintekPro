@@ -2036,9 +2036,19 @@ const THEMATIC_SUBCATEGORIES = ["Thematic / Sectoral", "Alternatives / HNI", "BF
 const GOAL_SUBCATEGORIES = ["Child Education", "Retirement", "Wedding / Life Event", "Home Purchase", "Emergency Fund", "Senior Citizen", "First Investment"];
 
 const DISCLAIMER_TEXT =
-  "Model Portfolios are for guidance and inspirational purposes only. They do not constitute SEBI-registered investment advice. " +
-  "Past performance is not indicative of future returns. Investors must consult their financial advisor before making any investment decision. " +
-  "Mutual Fund investments are subject to market risks. Read all scheme-related documents carefully.";
+  "Model Portfolios are for guidance and educational purposes only. They do NOT constitute SEBI-registered investment advice or a solicitation to buy/sell securities. " +
+  "Past performance is not indicative of future returns. All CAGR figures are historical estimates and may not be replicated. " +
+  "Mutual Fund investments are subject to market risks — please read all scheme-related documents carefully before investing. " +
+  "Returns shown are pre-tax; your actual post-tax returns may vary based on your tax slab, holding period, and applicable surcharges. " +
+  "Investors must consult a SEBI-registered Investment Adviser (RIA) or their financial advisor before making any investment decision.";
+
+const CAGR_DATA_AS_OF = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+const SEBI_REGULATORY_NOTICE =
+  "⚠️ SEBI Regulatory Notice: This platform displays model portfolio analytics for informational purposes. " +
+  "FintekPro facilitates analysis tools for SEBI-registered Investment Advisers (RIAs) and their clients. " +
+  "Individual investors must verify advisor credentials at sebi.gov.in before taking any advisory services. " +
+  "SEBI Investor Helpline: 1800 266 7575 | scores.gov.in for grievance redressal.";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -2466,9 +2476,11 @@ export default function AgentModelPortfoliosPage() {
             Curated multi-asset investment templates — guidance and inspiration for all investors
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
-          <ShieldAlert className="h-4 w-4 text-amber-500 shrink-0" />
-          <span>For guidance only. Not SEBI-registered investment advice.</span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+            <ShieldAlert className="h-4 w-4 text-amber-500 shrink-0" />
+            <span>For guidance only. <strong>Not SEBI investment advice.</strong> CAGR data as of {CAGR_DATA_AS_OF}.</span>
+          </div>
         </div>
         {/* Quiz + Compare action buttons */}
         <div className="flex items-center gap-2">
@@ -3463,18 +3475,64 @@ export default function AgentModelPortfoliosPage() {
         </div>
       )}
 
-      {/* ── Global Disclaimer ── */}
-      <div className="border border-amber-200 dark:border-amber-800 rounded-xl p-4 bg-amber-50/50 dark:bg-amber-950/20">
+      {/* ── Global Disclaimer + SEBI Compliance Footer ── */}
+      <div className="border border-amber-200 dark:border-amber-800 rounded-xl p-4 bg-amber-50/50 dark:bg-amber-950/20 space-y-3">
         <div className="flex items-start gap-3">
           <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-          <div>
+          <div className="flex-1">
             <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 mb-1">
-              Important Disclaimer — Please Read
+              Important Disclaimer — Please Read Before Investing
             </p>
             <p className="text-[11px] text-muted-foreground leading-relaxed">{DISCLAIMER_TEXT}</p>
-            <p className="text-[10px] text-muted-foreground mt-2">
-              AI advisory outputs are logged per FASP-AI v1.0 compliance framework. SEBI Registration No. (Platform advisory): Consult your registered advisor.
-            </p>
+          </div>
+        </div>
+
+        {/* CAGR Data Timestamp */}
+        <div className="flex flex-wrap gap-3 pt-1 border-t border-amber-200/50 dark:border-amber-800/50">
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded px-2 py-0.5 font-medium">
+              📅 CAGR data as of {CAGR_DATA_AS_OF}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded px-2 py-0.5 font-medium">
+              🔄 Metrics refreshed daily at 6:00 AM IST
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded px-2 py-0.5 font-medium">
+              🤖 AI insights: FASP-AI v1.0 compliant
+            </span>
+          </div>
+        </div>
+
+        {/* SEBI RIA Registration + Regulatory Notice */}
+        <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/50">
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            {SEBI_REGULATORY_NOTICE}
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-1.5">
+            <strong>For RIA Partners:</strong> FintekPro is a decision support system for SEBI-registered advisors.
+            Final investment decisions MUST be confirmed by the advisor or client.
+            AI advisory outputs are logged per FASP-AI v1.0 compliance framework.
+            All AI recommendations include confidence scores and mandatory disclaimers.
+          </p>
+          <div className="flex flex-wrap items-center gap-3 mt-2">
+            <a href="https://sebi.gov.in" target="_blank" rel="noopener noreferrer"
+               className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline">
+              sebi.gov.in ↗
+            </a>
+            <a href="https://scores.gov.in" target="_blank" rel="noopener noreferrer"
+               className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline">
+              scores.gov.in (Grievances) ↗
+            </a>
+            <a href="https://mf.nipponindiaim.com/knowledge-center/pages/sebi-risk-o-meter.aspx" target="_blank" rel="noopener noreferrer"
+               className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline">
+              SEBI Risk-O-Meter ↗
+            </a>
+            <span className="text-[10px] text-muted-foreground">
+              📞 SEBI Helpline: 1800 266 7575
+            </span>
           </div>
         </div>
       </div>

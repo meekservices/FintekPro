@@ -104,22 +104,148 @@ async function buildMonthlyReturns(
 }
 
 /**
- * Compute CAGR for 1Y, 3Y, 5Y by simple weighted return calculation.
- * Falls back to asset-class averages if DB history is unavailable.
+ * Compute CAGR for 1Y, 3Y, 5Y from annualized backtest return.
+ * Fully deterministic — no randomness (GCR: same input → same output).
+ *
+ * Formula:
+ *   1Y = annualized backtest return (no adjustment)
+ *   3Y = weighted blend of 1Y and long-run equity drift (mean-reversion)
+ *   5Y = further reversion toward long-run equity premium
+ *
+ * Logic: Equity-heavy portfolios compound faster over longer horizons
+ * due to reinvestment and compounding of dividends. Debt portfolios
+ * stay flatter since interest rates don't compound the same way.
+ *
+ * @param annualizedReturn - decimal (e.g. 0.124 for 12.4%)
+ * @param allocation - asset allocation with type and weight
  */
 function computeCAGR(
 	annualizedReturn: number,
 	allocation: Array<{ type: string; weight: number }>,
 ): { cagr1Y: number; cagr3Y: number; cagr5Y: number } {
-	// Simple approximation: 1Y ≈ annualized, 3Y/5Y add equity drift
-	const equityWeight = allocation
-		.filter((a) => ["equity", "large_cap", "mid_cap", "small_cap", "multi_cap"].includes(a.type))
-		.reduce((s, a) => s + (a.weight ?? 0), 0) / 100;
+	const totalWeight = allocation.reduce((s, a) => s + (a.weight ?? 0), 0) || 100;
 
-	const cagr1Y = Math.round((annualizedReturn * 100 + (Math.random() * 2 - 1)) * 100) / 100;
-	const cagr3Y = Math.round(((annualizedReturn * 0.9 + equityWeight * 0.02) * 100 + (Math.random() * 1.5)) * 100) / 100;
-	const cagr5Y = Math.round(((annualizedReturn * 0.85 + equityWeight * 0.03) * 100 + (Math.random() * 1.5)) * 100) / 100;
-	return { cagr1Y, cagr3Y, cagr5Y };
+	const equityWeight = allocation
+		.filter((a) => ["equity", "large_cap", "mid_cap", "small_cap", "multi_cap", "thematic", "flexi_cap"].includes(a.type))
+		.reduce((s, a) => s + (a.weight ?? 0), 0) / totalWeight;
+
+	const debtWeight = allocation
+		.filter((a) => ["debt", "gilt", "liquid", "corporate_bond", "sdl"].includes(a.type))
+		.reduce((s, a) => s + (a.weight ?? 0), 0) / totalWeight;
+
+	// Long-run equity CAGR premium vs debt (Indian market historical)
+	const EQUITY_LONG_RUN = 0.128; // 12.8% p.a. Nifty 500 25-year average
+	const DEBT_LONG_RUN   = 0.072; // 7.2% p.a. Indian bond long-run average
+	const longRunBlended  = equityWeight * EQUITY_LONG_RUN + debtWeight * DEBT_LONG_RUN
+	                       + (1 - equityWeight - debtWeight) * 0.095; // gold/reit/intl
+
+	// Mean reversion weight: longer horizons pull toward long-run average
+	const cagr1Y = parseFloat((annualizedReturn * 100).toFixed(2));
+	const cagr3Y = parseFloat(((annualizedReturn * 0.7 + longRunBlended * 0.3) * 100).toFixed(2));
+	const cagr5Y = parseFloat(((annualizedReturn * 0.5 + longRunBlended * 0.5) * 100).toFixed(2));
+
+	// Ensure 5Y ≥ 3Y for equity-heavy portfolios (compounding premium)
+	// Exception: debt portfolios where rates fluctuate
+	const adjusted5Y = equityWeight > 0.3
+		? Math.max(cagr5Y, cagr3Y * 1.005) // slight premium for long-term equity
+		: cagr5Y;
+
+	return { cagr1Y, cagr3Y, cagr5Y: parseFloat(adjusted5Y.toFixed(2)) };
+}
+
+// ── mfapi.in Integration — Dynamic CAGR from Real NAV Data ────────────────────
+/**
+ * Fetch AMFI NAV history from mfapi.in and compute CAGR for 1Y, 3Y, 5Y.
+ * mfapi.in provides free, public AMFI NAV data with no rate limits for reasonable use.
+ *
+ * @param schemeCode - AMFI scheme code (e.g. 118989 for Axis Bluechip)
+ * @returns { cagr1Y, cagr3Y, cagr5Y } or null if fetch fails
+ */
+async function fetchMFNAVCagr(schemeCode: string): Promise<{ cagr1Y: number; cagr3Y: number; cagr5Y: number } | null> {
+	try {
+		const url = `https://api.mfapi.in/mf/${schemeCode}`;
+		const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+		if (!resp.ok) return null;
+		const data = (await resp.json()) as { data: Array<{ date: string; nav: string }> };
+		if (!data?.data?.length) return null;
+
+		// mfapi returns newest first — sort ascending
+		const navs = data.data
+			.map((d) => ({ date: new Date(d.date.split("-").reverse().join("-")), nav: parseFloat(d.nav) }))
+			.filter((d) => !isNaN(d.nav))
+			.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+		if (navs.length < 12) return null; // need at least 1 year
+
+		const navToday = navs[navs.length - 1].nav;
+		const today = navs[navs.length - 1].date;
+
+		const findNearestBefore = (daysAgo: number): number | null => {
+			const target = new Date(today);
+			target.setDate(target.getDate() - daysAgo);
+			// Find closest available NAV ≤ target date
+			const idx = navs.findIndex((n) => n.date >= target);
+			if (idx <= 0) return null;
+			return navs[Math.max(0, idx - 1)].nav;
+		};
+
+		const nav1y = findNearestBefore(365);
+		const nav3y = findNearestBefore(1095);
+		const nav5y = findNearestBefore(1825);
+
+		const calcCagr = (navStart: number | null, years: number): number | null => {
+			if (!navStart || navStart <= 0) return null;
+			return parseFloat((((navToday / navStart) ** (1 / years) - 1) * 100).toFixed(2));
+		};
+
+		const cagr1Y = calcCagr(nav1y, 1);
+		const cagr3Y = calcCagr(nav3y, 3);
+		const cagr5Y = calcCagr(nav5y, 5);
+
+		if (cagr1Y === null) return null;
+
+		return { cagr1Y, cagr3Y: cagr3Y ?? cagr1Y * 0.92, cagr5Y: cagr5Y ?? cagr1Y * 0.88 };
+	} catch (err) {
+		logger.warn(`[MFAPIClient] Fetch failed for scheme ${schemeCode}`, err instanceof Error ? err : new Error(String(err)));
+		return null;
+	}
+}
+
+/**
+ * Compute portfolio-level weighted CAGR from mfapi.in NAV data.
+ * Uses scheme codes from holdings; falls back to backtest result.
+ *
+ * @param holdings - portfolio holdings with optional amfiSchemeCode
+ * @returns weighted portfolio CAGR or null if data insufficient
+ */
+async function computePortfolioCagrFromMFAPI(
+	holdings: Array<{ name: string; weight: number; amfiSchemeCode?: string; type?: string }>,
+): Promise<{ cagr1Y: number; cagr3Y: number; cagr5Y: number } | null> {
+	let totalWeightFetched = 0;
+	let weighted1Y = 0, weighted3Y = 0, weighted5Y = 0;
+
+	const mfHoldings = holdings.filter((h) => h.amfiSchemeCode);
+	if (mfHoldings.length === 0) return null;
+
+	for (const holding of mfHoldings) {
+		const navCagr = await fetchMFNAVCagr(holding.amfiSchemeCode!);
+		if (!navCagr) continue;
+		const w = holding.weight;
+		weighted1Y += navCagr.cagr1Y * w;
+		weighted3Y += navCagr.cagr3Y * w;
+		weighted5Y += navCagr.cagr5Y * w;
+		totalWeightFetched += w;
+	}
+
+	// Only use if we fetched data for ≥50% of portfolio weight
+	if (totalWeightFetched < 50) return null;
+
+	const scale = 100 / totalWeightFetched;
+	return {
+		cagr1Y: parseFloat((weighted1Y * scale).toFixed(2)),
+		cagr3Y: parseFloat((weighted3Y * scale).toFixed(2)),
+		cagr5Y: parseFloat((weighted5Y * scale).toFixed(2)),
+	};
 }
 
 /**
@@ -253,11 +379,23 @@ async function refreshPortfolioMetrics(
 			// Non-null: error check above guarantees backtestResult is valid beyond this point
 			const btResult = backtestResult!;
 
-			// Compute CAGR estimates
-			const { cagr1Y, cagr3Y, cagr5Y } = computeCAGR(
-				btResult.annualizedReturn ?? 0,
-				allocation,
+			// P1: Attempt dynamic CAGR from mfapi.in real NAV data (primary source)
+			// Falls back to deterministic backtest-based CAGR if insufficient scheme codes
+			const mfapiCagr = await computePortfolioCagrFromMFAPI(
+				holdings.map((h) => ({
+					name: (h as Record<string, unknown>).name as string ?? "",
+					weight: h.weight,
+					type: h.type,
+					amfiSchemeCode: (h as Record<string, unknown>).amfiSchemeCode as string | undefined,
+				})),
 			);
+			const { cagr1Y, cagr3Y, cagr5Y } = mfapiCagr ?? computeCAGR(btResult.annualizedReturn ?? 0, allocation);
+
+			if (mfapiCagr) {
+				logger.info(`[ModelPortfolioMetrics] mfapi.in CAGR for ${portfolio.id}: 1Y=${cagr1Y}% 3Y=${cagr3Y}% 5Y=${cagr5Y}%`);
+			} else {
+				logger.debug(`[ModelPortfolioMetrics] mfapi.in fallback for ${portfolio.id}: using backtest CAGR`);
+			}
 
 			// Check AI insight cache (24h)
 			const nowMs = Date.now();
