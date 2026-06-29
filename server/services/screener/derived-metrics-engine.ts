@@ -355,6 +355,21 @@ export async function recalculateAllMetrics(): Promise<{
 				(r: any) => r.symbol,
 			);
 
+			// Pre-fetch Nifty50 benchmark closes (symbol = '^NSEI') for beta computation.
+			// Indexed by date string (YYYY-MM-DD) for O(1) alignment per stock.
+			const niftyRows = await db.execute(sql`
+        SELECT date, close FROM screener_price_history
+        WHERE symbol = '^NSEI'
+        ORDER BY date ASC
+        LIMIT 1300
+      `);
+			const niftyByDate = new Map<string, number>(
+				((niftyRows as any).rows || []).map((r: any) => [
+					String(r.date).substring(0, 10),
+					Number(r.close),
+				])
+			);
+
 			let returnPassProcessed = 0;
 			let returnPassErrors = 0;
 
@@ -373,8 +388,14 @@ export async function recalculateAllMetrics(): Promise<{
 					const closes = rows.map((r: any) => Number(r.close));
 					const dates = rows.map((r: any) => String(r.date).substring(0, 10));
 
+					// Align Nifty50 closes to this stock's dates for beta computation.
+					// Falls back to empty array (beta = null) when Nifty data unavailable.
+					const niftyCloses: number[] = niftyByDate.size > 0
+						? dates.map((d: string) => niftyByDate.get(d) ?? NaN).filter((v: number) => !isNaN(v))
+						: [];
+
 					const returns = computeReturnSeries(closes, dates);
-					const risk = computeRiskMetrics(closes, dates);
+					const risk = computeRiskMetrics(closes, niftyCloses);
 
 					// Fetch financials for Piotroski (if available)
 					const [fin] = await db
