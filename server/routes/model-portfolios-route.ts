@@ -250,23 +250,55 @@ async function get1YReturn(schemeCode: number): Promise<number | null> {
   }
 }
 
-/** Enriches a single holding with trailing 12M return via curated AMFI map + mfapi NAV.
- *  Pipeline:
- *   1. Look up schemeCode in FUND_SCHEME_MAP (curated, AMFI-verified)
- *   2. Fetch NAV history from mfapi.in → compute trailing 12M return
- *   3. If not in map → attempt mfapi name search as last resort
- *   4. On any failure → return holding unchanged (frontend shows "—")
+/** Enriches a single holding.
+ *  For stock holdings (h.symbol set — NSE ticker):
+ *    → Fetches return_1y, beta, sharpe_ratio_1y from screener_derived_metrics.
+ *    → Adds screenerUrl for frontend deeplink to the screener.
+ *  For MF/fund holdings (no symbol or AMFI schemeCode):
+ *    → Existing mfapi.in NAV-based 1Y return pipeline unchanged.
  */
 async function enrichHolding(h: any): Promise<any> {
-  if (typeof h.currentReturn === "number" && h.currentReturn !== 0) return h;
+  const symbol: string | undefined = h.symbol;
   const name: string = h.name ?? "";
+
+  // ── Stock holding: enrich from screener_derived_metrics ─────────────────────
+  const isStock = symbol && symbol.length <= 20 && !/^\d+$/.test(symbol) && !symbol.includes(".");
+  if (isStock) {
+    try {
+      const dmRow = await db.execute(sql`
+        SELECT return_1y, return_3y, return_6m, beta, sharpe_ratio_1y, max_drawdown_1y, volatility_30d
+        FROM screener_derived_metrics
+        WHERE symbol = ${symbol.toUpperCase()}
+        LIMIT 1
+      `).catch(() => ({ rows: [] }));
+      const r = (dmRow as any).rows?.[0];
+
+      const return1Y = r?.return_1y != null ? Math.round(Number(r.return_1y) * 10000) / 100 : undefined;
+      const beta     = r?.beta != null ? Math.round(Number(r.beta) * 10000) / 10000 : undefined;
+      const sharpe   = r?.sharpe_ratio_1y != null ? Math.round(Number(r.sharpe_ratio_1y) * 100) / 100 : undefined;
+      const maxDD    = r?.max_drawdown_1y != null ? Math.round(Number(r.max_drawdown_1y) * 10000) / 100 : undefined;
+
+      return {
+        ...h,
+        currentReturn: return1Y ?? (typeof h.currentReturn === "number" && h.currentReturn !== 0 ? h.currentReturn : undefined),
+        beta,
+        sharpe,
+        maxDrawdown: maxDD,
+        screenerUrl: `/agent/screener?search=${encodeURIComponent(symbol.toUpperCase())}`,
+        returnSource: "screener_derived_metrics",
+      };
+    } catch {
+      return { ...h, screenerUrl: `/agent/screener?search=${encodeURIComponent(symbol.toUpperCase())}` };
+    }
+  }
+
+  // ── Mutual fund holding: mfapi.in NAV-based 1Y return ───────────────────────
+  if (typeof h.currentReturn === "number" && h.currentReturn !== 0) return h;
   if (!name) return { ...h, currentReturn: undefined };
 
   try {
-    // ── Primary: curated AMFI-verified map ───────────────────────────────────
     let schemeCode = FUND_SCHEME_MAP[name] ?? null;
 
-    // ── Fallback: mfapi name search (unreliable but better than nothing) ─────
     if (!schemeCode) {
       const r = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(name)}`, {
         signal: AbortSignal.timeout(6_000),
@@ -282,11 +314,12 @@ async function enrichHolding(h: any): Promise<any> {
 
     if (!schemeCode) return { ...h, currentReturn: undefined };
     const return1Y = await get1YReturn(schemeCode);
-    return { ...h, currentReturn: return1Y ?? undefined };
+    return { ...h, currentReturn: return1Y ?? undefined, returnSource: "mfapi.in" };
   } catch {
     return { ...h, currentReturn: undefined };
   }
 }
+
 
 /** Enriches all holdings of a portfolio with live 1Y returns. Non-throwing. */
 async function enrichPortfolio(portfolio: any): Promise<any> {

@@ -133,6 +133,12 @@ type Holding = {
   weight: number;
   currentReturn?: number;
   isin?: string;
+  // Enriched fields (stock holdings from screener_derived_metrics)
+  beta?: number;
+  sharpe?: number;
+  maxDrawdown?: number;
+  screenerUrl?: string;
+  returnSource?: string;
 };
 
 type PerformancePoint = {
@@ -3024,9 +3030,12 @@ export default function AgentModelPortfoliosPage() {
                         ? (showAllHoldings ? selectedPortfolio.holdings : selectedPortfolio.holdings.slice(0, 5))
                         : selectedPortfolio.holdings.slice(0, 5)
                       ).map((h, idx) => {
-                        // Merge enriched return (by index) onto the holding
                         const enriched = enrichedHoldings?.[idx];
                         const displayReturn = enriched?.currentReturn ?? h.currentReturn;
+                        const displayBeta = enriched?.beta ?? h.beta;
+                        const displaySharpe = enriched?.sharpe ?? h.sharpe;
+                        const screenerUrl = enriched?.screenerUrl ?? h.screenerUrl;
+                        const isStock = !!(h.symbol && screenerUrl);
                         return (
                           <div
                             key={h.rank}
@@ -3037,14 +3046,44 @@ export default function AgentModelPortfoliosPage() {
                               {h.rank}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold truncate">{h.name}</p>
+                              {isStock ? (
+                                <a
+                                  href={screenerUrl}
+                                  className="text-xs font-semibold truncate block text-indigo-700 dark:text-indigo-300 hover:underline cursor-pointer"
+                                  title={`View ${h.symbol} in screener`}
+                                >
+                                  {h.name}
+                                  <span className="ml-1 text-[9px] text-indigo-400">↗</span>
+                                </a>
+                              ) : (
+                                <p className="text-xs font-semibold truncate">{h.name}</p>
+                              )}
                               <p className="text-[10px] text-muted-foreground">{h.category}</p>
+                              {/* Beta / Sharpe pills for stock holdings */}
+                              {isStock && (displayBeta != null || displaySharpe != null) && (
+                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                  {displayBeta != null && (
+                                    <span className="inline-flex items-center gap-0.5 text-[9px] bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded px-1 py-0">
+                                      β {displayBeta.toFixed(2)}
+                                    </span>
+                                  )}
+                                  {displaySharpe != null && (
+                                    <span className={`inline-flex items-center gap-0.5 text-[9px] rounded px-1 py-0 ${
+                                      displaySharpe >= 1 ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300" :
+                                      displaySharpe >= 0 ? "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300" :
+                                      "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300"
+                                    }`}>
+                                      SR {displaySharpe.toFixed(2)}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                             <div className="text-right shrink-0">
                               <p className="text-xs font-bold">{h.weight}%</p>
                               {displayReturn !== undefined && displayReturn !== null ? (
                                 <p className={`text-[10px] font-semibold ${displayReturn >= 0 ? "text-green-600" : "text-red-500"}`}>
-                                  {displayReturn >= 0 ? "+" : ""}{displayReturn}%
+                                  {displayReturn >= 0 ? "+" : ""}{typeof displayReturn === "number" ? displayReturn.toFixed(1) : displayReturn}%
                                 </p>
                               ) : holdingsLoading ? (
                                 <p className="text-[10px] text-muted-foreground">…</p>
@@ -3056,7 +3095,9 @@ export default function AgentModelPortfoliosPage() {
                     </div>
                     {enrichedHoldings && (
                       <p className="text-[9px] text-muted-foreground text-right mt-1">
-                        Returns as of last NAV · Source: mfapi.in
+                        📊 Stocks: screener_derived_metrics · Funds: mfapi.in NAV
+                        {" · "}
+                        <span className="text-indigo-500">↗ Click stock name to open in Screener</span>
                       </p>
                     )}
 
