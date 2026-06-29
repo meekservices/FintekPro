@@ -1,3 +1,4 @@
+import { logger } from "../logger";
 import { db } from "../db";
 import {
 	listedStocks,
@@ -77,13 +78,32 @@ export async function getLiveInstrumentPrice(
 		switch (pick.category) {
 			case "listed_stocks": {
 				const row = await db
-					.select({ currentPrice: listedStocks.currentPrice })
+					.select({ currentPrice: listedStocks.currentPrice, symbol: listedStocks.symbol })
 					.from(listedStocks)
 					.where(eq(listedStocks.id, pick.instrumentId))
 					.limit(1);
-				return row[0]?.currentPrice
-					? Number.parseFloat(row[0].currentPrice)
-					: null;
+				const dbPrice = row[0]?.currentPrice ? Number.parseFloat(row[0].currentPrice) : null;
+				if (dbPrice && dbPrice > 0) return dbPrice;
+				// DB price missing/zero — try Yahoo Finance live feed (.NS for NSE)
+				const sym = row[0]?.symbol || pick.symbol;
+				if (sym) {
+					try {
+						const yahooFinance = (await import("yahoo-finance2")).default;
+						const q = await (yahooFinance as any).quote(`${sym}.NS`).catch(() => null)
+							|| await (yahooFinance as any).quote(`${sym}.BO`).catch(() => null);
+						const yPrice = q?.regularMarketPrice ?? q?.ask;
+						if (yPrice && Number.isFinite(Number(yPrice)) && Number(yPrice) > 0) {
+							const lp = Math.round(Number(yPrice) * 100) / 100;
+							// Write back to DB so next request uses cached price
+							db.update(listedStocks)
+								.set({ currentPrice: String(lp) })
+								.where(eq(listedStocks.id, pick.instrumentId))
+								.catch(() => {});
+							return lp;
+						}
+					} catch { /* Yahoo Finance unavailable */ }
+				}
+				return null;
 			}
 			case "mutual_funds": {
 				const row = await db
@@ -395,16 +415,16 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 							.set({ keyMetrics: km, updatedAt: new Date() })
 							.where(eq(dailyPicks.id, pick.id))
 							.catch((err) =>
-								console.warn(
+								logger.warn(
 									`[PickEnrich] Failed to cache metrics for pick ${pick.id}:`,
 									err,
 								),
 							);
 					}
 				} catch (err) {
-					console.warn(
+					logger.warn(
 						`[PickEnrich] RSI/ROIC enrichment failed for ${pick.symbol}:`,
-						err,
+						{ error: err instanceof Error ? err.message : String(err) },
 					);
 				}
 			}
@@ -463,7 +483,7 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 								.set({ keyMetrics: km, updatedAt: new Date() })
 								.where(eq(dailyPicks.id, pick.id))
 								.catch((err) =>
-									console.warn(
+									logger.warn(
 										`[PickEnrich] screener_derived_metrics cache write failed for pick ${pick.id}:`,
 										err,
 									),
@@ -471,9 +491,9 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 						}
 					}
 				} catch (err) {
-					console.warn(
+					logger.warn(
 						`[PickEnrich] screener_derived_metrics enrichment failed for ${pick.symbol}:`,
-						err,
+						{ error: err instanceof Error ? err.message : String(err) },
 					);
 				}
 			}
@@ -493,7 +513,8 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 					),
 				);
 		} catch (err) {
-			console.warn("[PickOfDay] Failed to auto-expire picks in DB:", err);
+			logger.warn("[PickOfDay] Failed to auto-expire picks in DB:",
+				{ error: err instanceof Error ? err.message : String(err) });
 		}
 	}
 
@@ -512,14 +533,14 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 					})
 					.where(eq(dailyPicks.id, u.id))
 					.catch((err) =>
-						console.warn(
+						logger.warn(
 							`[PickEnrich] DB price update failed for pick ${u.id}:`,
 							err,
 						),
 					),
 			),
 		).catch((err) =>
-			console.error("[PickEnrich] Batch price update error:", err),
+			logger.error("[PickEnrich] Batch price update error:", err),
 		);
 	}
 

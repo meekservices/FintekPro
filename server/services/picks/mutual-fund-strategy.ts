@@ -1,6 +1,7 @@
 import { db } from "../../db";
 import { mutualFunds } from "@shared/schema";
 import { and, eq, sql } from "drizzle-orm";
+import { logger } from "../../logger";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
@@ -19,6 +20,15 @@ export class MutualFundStrategy extends BaseStrategy {
 						eq(mutualFunds.isPublished, true),
 						sql`${mutualFunds.nav} IS NOT NULL`,
 						sql`${mutualFunds.nav}::float > 0`,
+						// SEBI best-practice: recommend only Direct Growth plans
+						// Direct plans have 0.5-1.5% lower expense ratio than Regular plans
+						sql`${mutualFunds.schemeName} ILIKE '%Direct%'`,
+						sql`${mutualFunds.schemeName} ILIKE '%Growth%'`,
+						// Exclude dividend/IDCW options — not ideal for wealth creation
+						sql`${mutualFunds.schemeName} NOT ILIKE '%IDCW%'`,
+						sql`${mutualFunds.schemeName} NOT ILIKE '%Dividend%'`,
+						sql`${mutualFunds.schemeName} NOT ILIKE '%Payout%'`,
+						// Exclude ETFs from MF picks (ETFStrategy handles those)
 						sql`(${mutualFunds.category} IS NULL OR ${mutualFunds.category} NOT ILIKE '%ETF%')`,
 						sql`${mutualFunds.schemeName} NOT ILIKE '%ETF%'`,
 						sql`(${mutualFunds.lastUpdated} IS NULL OR ${mutualFunds.lastUpdated} > NOW() - INTERVAL '45 days')`,
@@ -31,8 +41,15 @@ export class MutualFundStrategy extends BaseStrategy {
 			const nonEtfFunds = funds.filter((fund) => {
 				const name = (fund.schemeName || "").toUpperCase();
 				const cat = (fund.category || "").toUpperCase();
-				return !(name.includes("ETF") || cat.includes("ETF"));
+				// Double-check: filter must be Direct Growth, no IDCW/Regular/Dividend
+				if (!(name.includes("ETF") || cat.includes("ETF"))) {
+					if (name.includes("IDCW") || name.includes("DIVIDEND") || name.includes("PAYOUT")) return false;
+					if (!name.includes("DIRECT") || !name.includes("GROWTH")) return false;
+					return true;
+				}
+				return false;
 			});
+
 
 			const investableFunds = nonEtfFunds.filter(
 				(fund) =>
@@ -125,7 +142,7 @@ export class MutualFundStrategy extends BaseStrategy {
 				},
 			};
 		} catch (error) {
-			console.error("[MutualFundStrategy] Error:", error);
+			logger.error("[MutualFundStrategy] Error:", error instanceof Error ? error : new Error(String(error)));
 			return null;
 		}
 	}

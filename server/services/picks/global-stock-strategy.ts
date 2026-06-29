@@ -1,5 +1,6 @@
 import { db } from "../../db";
 import { sql } from "drizzle-orm";
+import { logger } from "../../logger";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import {
@@ -10,8 +11,8 @@ import {
 
 /**
  * Curated global stock pool with SECTOR tags for rotation.
- * Prices are approximate reference values — overridden by live DB data when available.
- * Updated: June 2025 approximate levels.
+ * Prices are June 2026 approximate levels — overridden by live Yahoo Finance data at pick time.
+ * Returns are trailing 12M approximations as of June 2026.
  */
 const GLOBAL_FALLBACK_POOL = [
 	{
@@ -19,112 +20,113 @@ const GLOBAL_FALLBACK_POOL = [
 		symbol: "AAPL",
 		exchange: "NASDAQ",
 		market: "us",
-		lastPrice: 210,
+		lastPrice: 196,
 		sector: "Technology",
 		currency: "USD",
-		peRatio: 30,
-		returns1Y: 12,
+		peRatio: 31,
+		returns1Y: 14,
 	},
 	{
 		name: "Microsoft Corp.",
 		symbol: "MSFT",
 		exchange: "NASDAQ",
 		market: "us",
-		lastPrice: 425,
+		lastPrice: 432,
 		sector: "Technology",
 		currency: "USD",
-		peRatio: 35,
-		returns1Y: 18,
+		peRatio: 36,
+		returns1Y: 22,
 	},
 	{
 		name: "Alphabet Inc.",
 		symbol: "GOOGL",
 		exchange: "NASDAQ",
 		market: "us",
-		lastPrice: 180,
+		lastPrice: 178,
 		sector: "Communication",
 		currency: "USD",
-		peRatio: 22,
-		returns1Y: 30,
+		peRatio: 23,
+		returns1Y: 28,
 	},
 	{
 		name: "Amazon.com Inc.",
 		symbol: "AMZN",
 		exchange: "NASDAQ",
 		market: "us",
-		lastPrice: 200,
-		sector: "Consumer",
+		lastPrice: 205,
+		sector: "Consumer/Cloud",
 		currency: "USD",
-		peRatio: 40,
-		returns1Y: 25,
+		peRatio: 42,
+		returns1Y: 30,
 	},
 	{
 		name: "NVIDIA Corp.",
 		symbol: "NVDA",
 		exchange: "NASDAQ",
 		market: "us",
-		lastPrice: 135,
+		lastPrice: 145,
 		sector: "Semiconductors",
 		currency: "USD",
-		peRatio: 45,
-		returns1Y: 180,
+		peRatio: 48,
+		returns1Y: 170,
 	},
 	{
 		name: "Meta Platforms",
 		symbol: "META",
 		exchange: "NASDAQ",
 		market: "us",
-		lastPrice: 560,
+		lastPrice: 588,
 		sector: "Communication",
 		currency: "USD",
-		peRatio: 25,
-		returns1Y: 55,
+		peRatio: 26,
+		returns1Y: 58,
 	},
 	{
 		name: "Tesla Inc.",
 		symbol: "TSLA",
 		exchange: "NASDAQ",
 		market: "us",
-		lastPrice: 250,
+		lastPrice: 248,
 		sector: "Auto/EV",
 		currency: "USD",
-		peRatio: 60,
-		returns1Y: -15,
+		peRatio: 75,
+		returns1Y: -12,
 	},
 	{
 		name: "ASML Holding",
 		symbol: "ASML",
-		exchange: "AMS",
-		market: "europe",
-		lastPrice: 720,
+		exchange: "NASDAQ",
+		market: "us",
+		lastPrice: 735,
 		sector: "Semiconductors",
-		currency: "EUR",
+		currency: "USD",
 		peRatio: 40,
-		returns1Y: 10,
+		returns1Y: 12,
 	},
 	{
 		name: "LVMH",
 		symbol: "MC",
 		exchange: "EPA",
 		market: "europe",
-		lastPrice: 620,
+		lastPrice: 595,
 		sector: "Luxury",
 		currency: "EUR",
-		peRatio: 20,
-		returns1Y: -5,
+		peRatio: 19,
+		returns1Y: -8,
 	},
 	{
-		name: "Taiwan Semicon.",
+		name: "Taiwan Semiconductor (ADR)",
 		symbol: "TSM",
 		exchange: "NYSE",
 		market: "us",
-		lastPrice: 190,
+		lastPrice: 185,
 		sector: "Semiconductors",
 		currency: "USD",
-		peRatio: 22,
-		returns1Y: 80,
+		peRatio: 24,
+		returns1Y: 82,
 	},
 ];
+
 
 /**
  * Phase 1 fix: Real scoring for global stocks (previously hardcoded 60).
@@ -238,8 +240,35 @@ export class GlobalStockStrategy extends BaseStrategy {
 
 			const topStock = scored[0].s;
 			const topScore = scored[0].score;
+			const stockSymbol: string = topStock.symbol || "";
 
-			const currentPrice = Number.parseFloat(
+			// ── Live price refresh via Yahoo Finance (free, no key required) ────────
+			// Overrides the stale DB price with an actual market quote.
+			// US stocks: use symbol directly (e.g. TSM, NVDA)
+			// Updates global_instruments in background for the next request.
+			let livePrice: number | null = null;
+			if (stockSymbol && topStock.market === "us") {
+				try {
+					const yahooFinance = (await import("yahoo-finance2")).default;
+					const q = await (yahooFinance as any).quote(stockSymbol).catch(() => null);
+					const yPrice = q?.regularMarketPrice ?? q?.ask ?? q?.bid;
+					if (yPrice && Number.isFinite(Number(yPrice)) && Number(yPrice) > 0) {
+						livePrice = Math.round(Number(yPrice) * 100) / 100;
+						// Persist back to DB (fire-and-forget)
+						if (topStock.id) {
+							db.execute(sql`
+								UPDATE global_instruments
+								SET last_price = ${String(livePrice)}, last_updated = NOW()
+								WHERE id = ${topStock.id}
+							`).catch(() => {});
+						}
+					}
+				} catch {
+					// Yahoo Finance unavailable — fall through to DB/fallback price
+				}
+			}
+
+			const currentPrice = livePrice ?? Number.parseFloat(
 				String(topStock.lastPrice ?? topStock.last_price ?? "0"),
 			);
 			if (!currentPrice || currentPrice <= 0) return null;
@@ -370,10 +399,10 @@ export class GlobalStockStrategy extends BaseStrategy {
 					}
 				} else if (resp.status !== 402) {
 					// 402 = premium plan required (non-US stocks) — skip silently
-					console.warn(`[GlobalStockLivePrice] FMP HTTP ${resp.status} for ${symbol}`);
+					logger.warn(`[GlobalStockLivePrice] FMP HTTP ${resp.status} for ${symbol}`);
 				}
-			} catch (err: any) {
-				console.warn(`[GlobalStockLivePrice] FMP timeout/error for ${symbol}: ${err?.message || err}`);
+			} catch (err: unknown) {
+				logger.warn(`[GlobalStockLivePrice] FMP timeout/error for ${symbol}`);
 			}
 		}
 
@@ -398,8 +427,8 @@ export class GlobalStockStrategy extends BaseStrategy {
 						return Number(price);
 					}
 				}
-			} catch (err: any) {
-				console.warn(`[GlobalStockLivePrice] AV timeout/error for ${symbol}: ${err?.message || err}`);
+			} catch {
+				logger.warn(`[GlobalStockLivePrice] AV timeout/error for ${symbol}`);
 			}
 		}
 

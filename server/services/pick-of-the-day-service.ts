@@ -756,7 +756,19 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 		if (text.startsWith("{")) {
 			try {
 				const parsed = JSON.parse(text);
-				return (parsed.rationale || parsed.content || text).trim();
+				// Check all key variants that AI models may return for the rationale text
+				const rationaleValue =
+					parsed.rationale ??
+					parsed.investmentRationale ??
+					parsed.investment_rationale ??
+					parsed.content ??
+					parsed.recommendation ??
+					parsed.summary ??
+					parsed.description ??
+					parsed.text ??
+					parsed.analysis ??
+					null;
+				return (rationaleValue !== null ? String(rationaleValue) : text).trim();
 			} catch {
 				return text;
 			}
