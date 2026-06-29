@@ -342,11 +342,28 @@ export async function recalculateAllMetrics(): Promise<{
 		console.log(
 			`[DerivedMetrics] Bulk recalculation: ${inserted} inserted, ${processed} updated`,
 		);
+	} catch (err: any) {
+		const pgMsg = err?.cause?.message ?? err?.cause ?? "unknown";
+		const pgCode = err?.cause?.code ?? "";
+		console.error(`[DerivedMetrics] Bulk recalculation error [PG ${pgCode}]: ${pgMsg}`);
+		errors++;
+	}
 
-		// ── Phase 2: OHLCV-based returns + risk + Piotroski ──────────────────
-		// Fetch symbols that have price history and compute all dynamic metrics.
-		// This runs after the scoring pass so return data is always fresh.
-		try {
+	return { processed, errors };
+}
+
+/**
+ * Phase 2: OHLCV-based returns + risk metrics + Piotroski score.
+ * Processes all symbols that have price history. Takes 2-4 min for ~2500 symbols.
+ * Call this as a fire-and-forget after Phase 1 (recalculateAllMetrics) returns.
+ */
+export async function runOHLCVReturnPass(): Promise<{ processed: number; errors: number }> {
+	let returnPassProcessed = 0;
+	let returnPassErrors = 0;
+
+	// ── Phase 2: OHLCV-based returns + risk + Piotroski ──────────────────
+	// Fetch symbols that have price history and compute all dynamic metrics.
+	try {
 			const symbolsWithHistory = await db.execute(sql`
         SELECT DISTINCT symbol FROM screener_price_history
         ORDER BY symbol
@@ -468,14 +485,6 @@ export async function recalculateAllMetrics(): Promise<{
 		} catch (phase2Err: any) {
 			console.warn("[DerivedMetrics] OHLCV return pass failed (non-fatal):", phase2Err?.message);
 		}
-	} catch (err: any) {
-		// Log the full Postgres error (err.message is just the SQL from Drizzle; actual PG error is in cause)
-		const pgMsg = err?.cause?.message ?? err?.cause ?? "unknown";
-		const pgCode = err?.cause?.code ?? "";
-		console.error(`[DerivedMetrics] Bulk recalculation error [PG ${pgCode}]: ${pgMsg}`);
-		console.error(`[DerivedMetrics] Full error: ${String(err?.message ?? err).substring(0, 300)}`);
-		errors++;
-	}
 
-	return { processed, errors };
+	return { processed: returnPassProcessed, errors: returnPassErrors };
 }

@@ -31,7 +31,7 @@ import {
 	runDailyEnrichmentBatch,
 	getEnrichmentProgress,
 } from "../services/screener/enrichment-service";
-import { recalculateAllMetrics } from "../services/screener/derived-metrics-engine";
+import { recalculateAllMetrics, runOHLCVReturnPass } from "../services/screener/derived-metrics-engine";
 import { ingestPriceHistory, ingestBenchmarkSymbols } from "../services/screener/screener-price-history-service";
 import { fmpUsageMonitor } from "../services/screener/fmp-usage-monitor";
 import {
@@ -379,8 +379,19 @@ router.post("/api/screener/admin/enrich/daily-batch", async (req, res) => {
 
 router.post("/api/screener/admin/recalculate-metrics", async (req, res) => {
 	try {
+		// Phase 1: bulk SQL score update (fast, ~2s). Returns immediately.
 		const result = await recalculateAllMetrics();
-		res.json(result);
+		res.json({
+			...result,
+			background: "OHLCV return pass running in background (~90s)",
+			meta: { timestamp: new Date().toISOString(), version: "1.0" },
+		});
+		// Phase 2: per-symbol OHLCV returns (slow, ~90s). Fire and forget.
+		void runOHLCVReturnPass().then(r =>
+			console.log(`[Metrics] Background OHLCV pass done: ${r.processed} symbols, ${r.errors} errors`)
+		).catch(err =>
+			console.error("[Metrics] Background OHLCV pass failed:", err?.message)
+		);
 	} catch (err: any) {
 		res
 			.status(500)
