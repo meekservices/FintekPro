@@ -22,9 +22,10 @@ import { screenerStocks } from "@shared/schema/screener";
 import { sql } from "drizzle-orm";
 
 const YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart";
-const FETCH_TIMEOUT_MS = 20_000;
-const INTER_SYMBOL_DELAY_MS = 400; // ~2.5 req/s to stay under Yahoo rate limit
-const BATCH_PAUSE_MS = 5_000;      // pause every 50 symbols
+const FETCH_TIMEOUT_MS = 8_000;       // 8s — fast failure on GCP IP throttles
+const CONCURRENCY = 8;                // symbols fetched in parallel per chunk
+const INTER_CHUNK_DELAY_MS = 300;     // ms between chunks (~26.6 chunks/batch, ~2.5 req/s net)
+const BATCH_PAUSE_MS = 2_000;         // pause every 50 symbols
 
 interface OHLCVRow {
   date: string; // YYYY-MM-DD
@@ -214,42 +215,51 @@ export async function ingestPriceHistory(
     `[PriceHistory] Processing ${symbolsToProcess.length}/${activeSymbols.length} symbols (offset=${offset}, limit=${limit}, force=${force})`
   );
 
-  for (let idx = 0; idx < symbolsToProcess.length; idx++) {
-    const symbol = symbolsToProcess[idx];
-    result.processed++;
+  // Process in concurrent chunks of CONCURRENCY to keep total time within 300s
+  for (let chunkStart = 0; chunkStart < symbolsToProcess.length; chunkStart += CONCURRENCY) {
+    const chunk = symbolsToProcess.slice(chunkStart, chunkStart + CONCURRENCY);
 
-    try {
-      const rows = await fetchYahooOHLCV(symbol);
-
-      if (rows.length === 0) {
-        result.details.push({ symbol, status: "no_data", rows: 0 });
-        result.failed++;
-      } else {
+    const chunkResults = await Promise.allSettled(
+      chunk.map(async (symbol) => {
+        const rows = await fetchYahooOHLCV(symbol);
+        if (rows.length === 0) return { symbol, status: "no_data" as const, rows: 0 };
         await persistRows(symbol, rows);
-        result.succeeded++;
-        result.totalRows += rows.length;
-        result.details.push({ symbol, status: "ok", rows: rows.length });
+        return { symbol, status: "ok" as const, rows: rows.length };
+      })
+    );
 
-        if (result.succeeded % 10 === 0) {
-          console.log(
-            `[PriceHistory] Progress: ${result.succeeded} ok / ${result.processed} processed / ${result.totalRows} rows`
-          );
+    for (const r of chunkResults) {
+      result.processed++;
+      if (r.status === "fulfilled") {
+        if (r.value.status === "ok") {
+          result.succeeded++;
+          result.totalRows += r.value.rows;
+          result.details.push(r.value as IngestionResult);
+        } else {
+          result.failed++;
+          result.details.push(r.value as IngestionResult);
         }
-      }
-    } catch (err: any) {
-      const errMsg = err?.message ?? String(err);
-      result.failed++;
-      result.details.push({ symbol, status: "error", rows: 0, error: errMsg });
-      if (result.failed <= 5) {
-        console.warn(`[PriceHistory] Error for ${symbol}: ${errMsg}`);
+      } else {
+        result.failed++;
+        const sym = chunk[chunkResults.indexOf(r)];
+        const errMsg = r.reason?.message ?? String(r.reason);
+        result.details.push({ symbol: sym, status: "error", rows: 0, error: errMsg });
+        if (result.failed <= 5) {
+          console.warn(`[PriceHistory] Error for ${sym}: ${errMsg}`);
+        }
       }
     }
 
-    await new Promise((r) => setTimeout(r, INTER_SYMBOL_DELAY_MS));
+    if (result.processed % 40 === 0 || result.processed === symbolsToProcess.length) {
+      console.log(
+        `[PriceHistory] Progress: ${result.succeeded} ok / ${result.processed} processed / ${result.totalRows} rows`
+      );
+    }
 
-    if (idx > 0 && idx % 50 === 0) {
-      console.log(`[PriceHistory] Batch pause at ${idx}/${symbolsToProcess.length}...`);
-      await new Promise((r) => setTimeout(r, BATCH_PAUSE_MS));
+    // Pause between chunks; longer pause every 50 symbols
+    if (chunkStart + CONCURRENCY < symbolsToProcess.length) {
+      const isPause = Math.floor((chunkStart + CONCURRENCY) / 50) > Math.floor(chunkStart / 50);
+      await new Promise((r) => setTimeout(r, isPause ? BATCH_PAUSE_MS : INTER_CHUNK_DELAY_MS));
     }
   }
 

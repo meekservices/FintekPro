@@ -1820,7 +1820,18 @@ crypto_status VARCHAR,
     `);
 		console.log("✅ screener_shareholding table ready");
 
-		// 1b. Ensure unique index on screener_price_history(symbol, date)
+		// 1b. Deduplicate screener_price_history before creating unique index
+		//     (partial fire-and-forget loads may have inserted duplicate symbol+date rows)
+		await migDb.execute(migSql`
+      DELETE FROM screener_price_history a
+      USING screener_price_history b
+      WHERE a.id < b.id
+        AND a.symbol = b.symbol
+        AND a.date = b.date
+    `);
+		console.log("✅ screener_price_history duplicates removed");
+
+		// 1c. Ensure unique index on screener_price_history(symbol, date)
 		//     Required for ON CONFLICT (symbol, date) DO NOTHING in price history ingestion
 		await migDb.execute(migSql`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_screener_price_history_symbol_date
