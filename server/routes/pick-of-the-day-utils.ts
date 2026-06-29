@@ -409,6 +409,75 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 				}
 			}
 		}
+
+		// ── screener_derived_metrics enrichment (beta, sharpe, return1y) ──────
+		// Fills missing performance/risk metrics for listed stock picks from the
+		// OHLCV-computed screener_derived_metrics table (80–86% symbol coverage).
+		// Runs AFTER the RSI/ROIC block so it can batch with the same DB round-trip.
+		if (pick.category === "listed_stocks" && pick.symbol && pick.keyMetrics) {
+			const km =
+				typeof pick.keyMetrics === "string"
+					? JSON.parse(pick.keyMetrics)
+					: pick.keyMetrics;
+
+			const needsBeta   = km.beta == null;
+			const needsSharpe = km.sharpe == null;
+			const needsReturn = km.returns1y == null;
+
+			if (needsBeta || needsSharpe || needsReturn) {
+				try {
+					const dmRow = await db.execute(sql`
+            SELECT return_1y, return_3y, beta, sharpe_ratio_1y, max_drawdown_1y, volatility_30d
+            FROM screener_derived_metrics
+            WHERE symbol = ${pick.symbol.toUpperCase()}
+            LIMIT 1
+          `).catch(() => ({ rows: [] }));
+					const r = (dmRow as any).rows?.[0];
+					if (r) {
+						let dmUpdated = false;
+						if (needsReturn && r.return_1y != null) {
+							km.returns1y = Math.round(Number(r.return_1y) * 10000) / 10000;
+							dmUpdated = true;
+						}
+						if (r.return_3y != null && km.returns3y == null) {
+							km.returns3y = Math.round(Number(r.return_3y) * 10000) / 10000;
+							dmUpdated = true;
+						}
+						if (needsBeta && r.beta != null) {
+							km.beta = Math.round(Number(r.beta) * 10000) / 10000;
+							dmUpdated = true;
+						}
+						if (needsSharpe && r.sharpe_ratio_1y != null) {
+							km.sharpe = Math.round(Number(r.sharpe_ratio_1y) * 10000) / 10000;
+							dmUpdated = true;
+						}
+						if (r.max_drawdown_1y != null && km.maxDrawdown == null) {
+							km.maxDrawdown = Math.round(Number(r.max_drawdown_1y) * 10000) / 10000;
+							dmUpdated = true;
+						}
+						pick.keyMetrics = km;
+
+						// Persist so subsequent requests skip this fetch
+						if (dmUpdated && pick.id) {
+							db.update(dailyPicks)
+								.set({ keyMetrics: km, updatedAt: new Date() })
+								.where(eq(dailyPicks.id, pick.id))
+								.catch((err) =>
+									console.warn(
+										`[PickEnrich] screener_derived_metrics cache write failed for pick ${pick.id}:`,
+										err,
+									),
+								);
+						}
+					}
+				} catch (err) {
+					console.warn(
+						`[PickEnrich] screener_derived_metrics enrichment failed for ${pick.symbol}:`,
+						err,
+					);
+				}
+			}
+		}
 	}
 
 	if (expiredPickIds.length > 0) {

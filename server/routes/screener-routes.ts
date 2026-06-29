@@ -400,6 +400,49 @@ router.post("/api/screener/admin/recalculate-metrics", async (req, res) => {
 });
 
 /**
+ * POST /api/screener/admin/sync-to-listed-stocks
+ * Copies return1Y, return3Y, beta, volatility from screener_derived_metrics → listed_stocks.
+ * Bridges the screener pipeline (80%+ return/beta coverage) to the recommendation engine
+ * which reads listed_stocks for pick generation and scoring.
+ *
+ * Safe to run multiple times (idempotent UPDATE WHERE symbol matches).
+ * Run this after /recalculate-metrics has completed.
+ */
+router.post("/api/screener/admin/sync-to-listed-stocks", async (req, res) => {
+	try {
+		const result = await db.execute(sql`
+      UPDATE listed_stocks ls
+      SET
+        returns_1y    = sdm.return_1y,
+        returns_3y    = sdm.return_3y,
+        returns_1m    = sdm.return_1w,
+        returns_3m    = sdm.return_3m,
+        returns_6m    = sdm.return_6m,
+        beta          = sdm.beta,
+        volatility    = sdm.volatility_30d,
+        updated_at    = NOW()
+      FROM screener_derived_metrics sdm
+      WHERE UPPER(ls.symbol) = UPPER(sdm.symbol)
+        AND (
+          sdm.return_1y IS NOT NULL
+          OR sdm.beta IS NOT NULL
+        )
+    `);
+		const rowCount = (result as any).rowCount ?? (result as any).count ?? 0;
+		console.log(`[SyncToListed] Updated ${rowCount} listed_stocks rows from screener_derived_metrics`);
+		res.json({
+			success: true,
+			updated: rowCount,
+			message: `Synced screener_derived_metrics → listed_stocks for ${rowCount} symbols`,
+			meta: { timestamp: new Date().toISOString(), version: "1.0" },
+		});
+	} catch (err: any) {
+		console.error("[SyncToListed] Error:", err?.message);
+		res.status(500).json({ error: "Sync failed", message: err.message });
+	}
+});
+
+/**
  * POST /api/screener/admin/shareholding-refresh
  * Triggers full quarterly shareholding batch (BSE → NSE fallback) for all stocks.
  * Safe to run multiple times — uses UPSERT on (symbol, quarter_date).
