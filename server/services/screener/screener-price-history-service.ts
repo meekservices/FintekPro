@@ -298,7 +298,7 @@ export async function ingestDailyPriceUpdate(): Promise<{
     } catch {
       failed++;
     }
-    await new Promise((r) => setTimeout(r, INTER_SYMBOL_DELAY_MS));
+    await new Promise((r) => setTimeout(r, INTER_CHUNK_DELAY_MS));
   }
 
   console.log(`[PriceHistory] Daily update: ${updated} updated, ${failed} failed`);
