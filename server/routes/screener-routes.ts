@@ -415,12 +415,12 @@ router.post("/api/screener/admin/sync-to-listed-stocks", async (req, res) => {
       SET
         returns_1y    = sdm.return_1y,
         returns_3y    = sdm.return_3y,
-        returns_1m    = sdm.return_1w,
+        returns_1m    = sdm.return_1m,
         returns_3m    = sdm.return_3m,
         returns_6m    = sdm.return_6m,
         beta          = sdm.beta,
         volatility    = sdm.volatility_30d,
-        updated_at    = NOW()
+        last_updated  = NOW()
       FROM screener_derived_metrics sdm
       WHERE UPPER(ls.symbol) = UPPER(sdm.symbol)
         AND (
