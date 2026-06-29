@@ -388,14 +388,26 @@ export async function recalculateAllMetrics(): Promise<{
 					const closes = rows.map((r: any) => Number(r.close));
 					const dates = rows.map((r: any) => String(r.date).substring(0, 10));
 
-					// Align Nifty50 closes to this stock's dates for beta computation.
-					// Falls back to empty array (beta = null) when Nifty data unavailable.
-					const niftyCloses: number[] = niftyByDate.size > 0
-						? dates.map((d: string) => niftyByDate.get(d) ?? NaN).filter((v: number) => !isNaN(v))
-						: [];
+					// Build date-aligned parallel arrays for beta computation.
+					// IMPORTANT: alignedStockCloses[i] and alignedNiftyCloses[i] MUST correspond
+					// to the same trading date. Filtering niftyCloses alone (without filtering
+					// closes in parallel) would cause index offset → wrong beta values.
+					const alignedStockCloses: number[] = [];
+					const alignedNiftyCloses: number[] = [];
+					if (niftyByDate.size > 0) {
+						for (let i = 0; i < dates.length; i++) {
+							const nc = niftyByDate.get(dates[i] as string);
+							if (nc !== undefined && !isNaN(nc)) {
+								alignedStockCloses.push(closes[i]);
+								alignedNiftyCloses.push(nc);
+							}
+						}
+					}
+					// Use aligned arrays for risk (beta), full closes for return series
+					const stockClosesForRisk = alignedStockCloses.length >= 22 ? alignedStockCloses : closes;
 
 					const returns = computeReturnSeries(closes, dates);
-					const risk = computeRiskMetrics(closes, niftyCloses);
+					const risk = computeRiskMetrics(stockClosesForRisk, alignedNiftyCloses);
 
 					// Fetch financials for Piotroski (if available)
 					const [fin] = await db
