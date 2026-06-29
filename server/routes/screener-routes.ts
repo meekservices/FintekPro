@@ -437,37 +437,36 @@ router.post("/api/screener/admin/shareholding-refresh/:symbol", async (req, res)
 
 /**
  * POST /api/screener/admin/fetch-price-history
- * Batch-ingest 5-year OHLCV from Yahoo Finance into screener_price_history.
- * Body: { limit?: number (default 100), offset?: number (default 0), force?: boolean (default false) }
- * force=true re-fetches symbols already loaded in the last 3 days.
+ * Synchronously ingest 5-year OHLCV from Yahoo Finance into screener_price_history.
+ * Holds the HTTP connection open while processing (keeps Cloud Run CPU active).
+ * Body: { limit?: number (default 200), offset?: number (default 0), force?: boolean }
+ * Tip: run parallel curl calls with --max-time 120 to cover all symbol offsets.
  */
 router.post("/api/screener/admin/fetch-price-history", async (req, res) => {
 	try {
-		const limit  = Number(req.body?.limit  ?? 100);
+		const limit  = Number(req.body?.limit  ?? 200);
 		const offset = Number(req.body?.offset ?? 0);
 		const force  = Boolean(req.body?.force ?? false);
 
-		// Run async — respond immediately with 202 Accepted
-		res.status(202).json({
+		// SYNCHRONOUS — await result so Cloud Run keeps CPU active throughout
+		const result = await ingestPriceHistory(limit, force, offset);
+
+		console.log(
+			`[PriceHistory] Batch complete: ok=${result.succeeded} failed=${result.failed} rows=${result.totalRows}`,
+		);
+
+		res.json({
 			success: true,
-			message: `Price history ingestion started (limit=${limit}, offset=${offset}, force=${force})`,
+			processed: result.processed,
+			succeeded: result.succeeded,
+			failed: result.failed,
+			totalRows: result.totalRows,
 			meta: { timestamp: new Date().toISOString(), version: "1.0" },
 		});
-
-		// Fire-and-forget — runs in background
-		ingestPriceHistory(limit, force, offset)
-			.then((result) =>
-				console.log(
-					`[PriceHistory] Admin batch complete: ${result.succeeded} ok / ${result.processed} processed / ${result.totalRows} rows`,
-				)
-			)
-			.catch((err) =>
-				console.error("[PriceHistory] Admin batch error:", err?.message),
-			);
 	} catch (err: any) {
 		res.status(500).json({
 			success: false,
-			error: "Failed to start price history ingestion",
+			error: "Price history ingestion failed",
 			message: err.message,
 			meta: { timestamp: new Date().toISOString(), version: "1.0" },
 		});
