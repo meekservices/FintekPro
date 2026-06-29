@@ -26,7 +26,7 @@ import { Router, Request, Response } from "express";
 import fetch from "node-fetch";
 import { db } from "../db";
 import { modelPortfolios } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { logger } from "../logger";
 
 export const modelPortfoliosRouter = Router();
