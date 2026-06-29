@@ -1,5 +1,6 @@
 import { db } from "../../db";
 import { sql } from "drizzle-orm";
+import { logger } from "../../logger";
 import { BaseStrategy } from "./base-strategy";
 import type { StrategyContext } from "./types";
 import type { DailyPickData, PickCategory } from "../pick-of-the-day-service";
@@ -81,8 +82,7 @@ export class SGBStrategy extends BaseStrategy {
 				},
 			};
 		} catch (error) {
-			// eslint-disable-next-line no-console
-			console.error("[SGBStrategy] Error:", error);
+			logger.error("[SGBStrategy] Error:", error instanceof Error ? error : new Error(String(error)));
 			return null;
 		}
 	}
@@ -134,21 +134,51 @@ export class SGBStrategy extends BaseStrategy {
 	private async buildSyntheticSgbPick(
 		context: StrategyContext,
 	): Promise<DailyPickData | null> {
-		// Try fetching gold price from commodity_prices table
+		// Tier 1: MCX Gold spot from commodity_prices table
 		let goldPrice: number | null = null;
 		try {
 			const result = await db.execute(sql`
-        SELECT current_price FROM commodity_prices
+        SELECT current_price, last_updated FROM commodity_prices
         WHERE symbol = 'GOLD'
         ORDER BY last_updated DESC
         LIMIT 1
       `);
-			const row = (result.rows?.[0] ?? null) as unknown as GoldPriceRow | null;
+			const row = (result.rows?.[0] ?? null) as unknown as { current_price?: string | number | null; last_updated?: string } | null;
 			if (row?.current_price != null) {
-				goldPrice = Number.parseFloat(String(row.current_price));
+				const priceVal = Number.parseFloat(String(row.current_price));
+				// Accept DB price only if it's reasonable (gold in INR > 4000/g) and fresh (< 7 days)
+				const updatedAt = row.last_updated ? new Date(row.last_updated) : null;
+				const ageHours = updatedAt ? (Date.now() - updatedAt.getTime()) / 3600000 : 999;
+				if (priceVal > 4000 && ageHours < 168) {
+					goldPrice = priceVal;
+				}
 			}
-		} catch {
-			/* non-fatal */
+		} catch { /* non-fatal */ }
+
+		// Tier 2: Yahoo Finance GC=F (gold futures in USD) converted to INR
+		if (!goldPrice) {
+			try {
+				const yahooFinance = (await import("yahoo-finance2")).default;
+				// GC=F = COMEX Gold Futures (USD/troy oz)
+				// USDINR=X = USD/INR spot rate
+				const [gcQuote, usdInrQuote] = await Promise.all([
+					(yahooFinance as any).quote("GC=F").catch(() => null),
+					(yahooFinance as any).quote("USDINR=X").catch(() => null),
+				]);
+				const goldUsdOz = gcQuote?.regularMarketPrice;
+				const usdInr = usdInrQuote?.regularMarketPrice ?? 83.5;
+				if (goldUsdOz && Number.isFinite(goldUsdOz) && goldUsdOz > 1000) {
+					// Convert: USD/troy-oz → INR/gram (1 troy oz = 31.1035 g)
+					goldPrice = Math.round((goldUsdOz * usdInr / 31.1035) * 10) / 10;
+					// Persist to commodity_prices for next time
+					db.execute(sql`
+						INSERT INTO commodity_prices (symbol, current_price, last_updated)
+						VALUES ('GOLD', ${String(goldPrice)}, NOW())
+						ON CONFLICT (symbol) DO UPDATE
+						SET current_price = EXCLUDED.current_price, last_updated = NOW()
+					`).catch(() => {});
+				}
+			} catch { /* Yahoo Finance unavailable */ }
 		}
 
 		// Fallback gold price benchmark (per gram, approximate MCX Gold rate in INR)
@@ -183,9 +213,7 @@ export class SGBStrategy extends BaseStrategy {
 			rationale = `Sovereign Gold Bonds (SGBs) are government securities denominated in grams of gold. They offer a fixed interest of 2.5% p.a. plus capital appreciation tied to gold prices. Ideal for long-term wealth preservation with sovereign safety.`;
 		}
 
-		console.log(
-			`[SGBStrategy] No active SGB tranches found. Using synthetic SGB pick at gold price ₹${currentPrice}/g`,
-		);
+		logger.info(`[SGBStrategy] Using gold price ₹${currentPrice}/g (source: ${goldPrice ? 'live' : 'benchmark'})`);
 
 		return {
 			category: "sgb",

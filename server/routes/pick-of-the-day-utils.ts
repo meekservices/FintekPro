@@ -154,26 +154,90 @@ export async function getLiveInstrumentPrice(
           LIMIT 1
         `);
 				const reitRow = (result as any).rows?.[0] || (result as any)[0];
-				return reitRow?.current_price
-					? Number.parseFloat(reitRow.current_price)
-					: null;
+				const dbReitPrice = reitRow?.current_price ? Number.parseFloat(reitRow.current_price) : null;
+				if (dbReitPrice && dbReitPrice > 0) return dbReitPrice;
+				// DB stale — try Yahoo Finance with NSE suffix (REITs like INDIGRID, EMBASSY trade on NSE)
+				const reitSym = pick.symbol;
+				if (reitSym) {
+					try {
+						const yahooFinance = (await import("yahoo-finance2")).default;
+						const q = await (yahooFinance as any).quote(`${reitSym}.NS`).catch(() => null);
+						const yPrice = q?.regularMarketPrice;
+						if (yPrice && Number.isFinite(Number(yPrice)) && Number(yPrice) > 0) {
+							return Math.round(Number(yPrice) * 100) / 100;
+						}
+					} catch { /* Yahoo Finance unavailable */ }
+				}
+				return null;
 			}
 			case "sgb": {
-				const result = await db.execute(sql`
-          SELECT current_price FROM commodity_prices WHERE symbol = 'GOLD' ORDER BY last_updated DESC LIMIT 1
+				const goldResult = await db.execute(sql`
+          SELECT current_price, last_updated FROM commodity_prices WHERE symbol = 'GOLD' ORDER BY last_updated DESC LIMIT 1
         `);
-				const goldRow = (result as any).rows?.[0] || (result as any)[0];
-				return goldRow?.current_price
-					? Number.parseFloat(goldRow.current_price)
-					: null;
+				const goldRow = (goldResult as any).rows?.[0] || (goldResult as any)[0];
+				if (goldRow?.current_price) {
+					const priceVal = Number.parseFloat(goldRow.current_price);
+					const ageHours = goldRow.last_updated
+						? (Date.now() - new Date(goldRow.last_updated).getTime()) / 3600000
+						: 999;
+					// Only use DB gold price if fresh (< 7 days) and in expected INR/gram range
+					if (priceVal > 4000 && ageHours < 168) return priceVal;
+				}
+				// DB stale — fetch gold from Yahoo Finance (GC=F + USDINR=X)
+				try {
+					const yahooFinance = (await import("yahoo-finance2")).default;
+					const [gcQ, usdInrQ] = await Promise.all([
+						(yahooFinance as any).quote("GC=F").catch(() => null),
+						(yahooFinance as any).quote("USDINR=X").catch(() => null),
+					]);
+					const goldUsd = gcQ?.regularMarketPrice;
+					const usdInr = usdInrQ?.regularMarketPrice ?? 83.5;
+					if (goldUsd && Number.isFinite(goldUsd) && goldUsd > 1000) {
+						return Math.round((goldUsd * usdInr / 31.1035) * 10) / 10;
+					}
+				} catch { /* Yahoo Finance unavailable */ }
+				return null;
+			}
+			case "derivatives": {
+				// For derivatives: return current option premium * lotSize (not the underlying index level)
+				const derivSym = pick.symbol || pick.instrumentId;
+				if (!derivSym) return null;
+				try {
+					const { derivativesService } = await import("../services/derivatives-service");
+					const chain = await (derivativesService as any).getOptionsChain(derivSym);
+					const spotPrice = chain.underlyingValue;
+					if (!spotPrice || spotPrice <= 0) return null;
+					const km = typeof pick.keyMetrics === "string" ? JSON.parse(pick.keyMetrics) : (pick.keyMetrics || {});
+					const lotSize: number = km.lotSize || ({ NIFTY: 25, BANKNIFTY: 15, FINNIFTY: 40 } as Record<string, number>)[derivSym] || 50;
+					const strikePrice: number = km.strikePrice;
+					const strategy: string = km.strategy || "Long Call";
+					// Try to find the specific strike in the chain
+					const callOption = strikePrice && chain.options?.calls?.find((c: any) => c.strikePrice === strikePrice);
+					const putOption = strikePrice && chain.options?.puts?.find((p: any) => p.strikePrice === strikePrice);
+					const callPrice = callOption?.lastPrice || 0;
+					const putPrice = putOption?.lastPrice || 0;
+					// Compute current strategy value
+					let premiumNow = 0;
+					if (strategy.includes("Straddle") || strategy.includes("Strangle")) {
+						premiumNow = callPrice + putPrice;
+					} else if (strategy.toLowerCase().includes("put") || strategy.toLowerCase().includes("bear")) {
+						premiumNow = putPrice;
+					} else {
+						premiumNow = callPrice;
+					}
+					// If specific strike prices found, use them; else approximate from spot
+					const effectivePremium = premiumNow > 0 ? premiumNow : spotPrice * 0.0045;
+					return Math.round(effectivePremium * lotSize * 100) / 100;
+				} catch { return null; }
 			}
 			case "fixed_deposits": {
-				// FDs don't have a market price — return the unit investment (100,000) or the stored recoPrice
+				// FDs don't have a market price — return the stored recoPrice (principal investment)
 				return pick.recoPrice ? Number.parseFloat(pick.recoPrice) : 100_000;
 			}
 			default:
 				return null;
 		}
+
 	} catch {
 		return null;
 	}

@@ -1,3 +1,4 @@
+import { logger } from "../../logger";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
@@ -146,10 +147,9 @@ export class DerivativeStrategy extends BaseStrategy {
 			const { lotSizes } = await derivativesService.getAvailableSymbols();
 			const indexSymbols = ["NIFTY", "BANKNIFTY", "FINNIFTY"];
 
-			// Always use index derivatives in Phase 1 (more liquid, tighter spreads)
-			// Stock option logic is deferred to Phase 2
-			const selectedSymbol =
-				indexSymbols[Math.floor(Math.random() * indexSymbols.length)];
+			// Deterministic rotation by IST day-of-year — no Math.random()
+			const istDay = Math.floor((Date.now() + 5.5 * 3600000) / 86400000);
+			const selectedSymbol = indexSymbols[istDay % indexSymbols.length];
 
 			const chain = await derivativesService.getOptionsChain(selectedSymbol);
 			const spotPrice = chain.underlyingValue;
@@ -228,6 +228,8 @@ export class DerivativeStrategy extends BaseStrategy {
 
 			return {
 				category: "derivatives",
+				// instrumentId = symbol so getLiveInstrumentPrice can find current premium
+				instrumentId: selectedSymbol,
 				instrumentName: `${selectedSymbol} ${strategy.name}`,
 				symbol: selectedSymbol,
 				exchange: "NSE",
@@ -235,6 +237,8 @@ export class DerivativeStrategy extends BaseStrategy {
 				recoPrice: entryPrice,
 				targetPrice,
 				stoplossPrice,
+				// currentPrice = option premium * lot (NOT the spot/index level)
+				currentPrice: entryPrice,
 				status: "live",
 				expiryDate: this.getExpiryDate(7),
 				rationale,
@@ -251,17 +255,15 @@ export class DerivativeStrategy extends BaseStrategy {
 					lotSize,
 					strikePrice: atmStrike,
 					spotPrice,
+					premiumPerUnit,
 					iv,
 					ivRegime: ivRegimeLabel,
 					volPreference: strategy.volPreference,
 				},
 			};
 		} catch (error) {
-			// eslint-disable-next-line no-console
-			console.error(
-				"[DerivativeStrategy] NSE API error, using curated fallback:",
-				error,
-			);
+			logger.error("[DerivativeStrategy] NSE API error, using curated fallback:",
+				error instanceof Error ? error : new Error(String(error)));
 			return this.generateFallbackPick(context);
 		}
 	}
@@ -311,7 +313,9 @@ export class DerivativeStrategy extends BaseStrategy {
 				},
 			];
 
-			const idx = Math.floor(Math.random() * FALLBACK_INDEX.length);
+			// Deterministic rotation by IST day-of-year — no Math.random()
+			const istDay = Math.floor((Date.now() + 5.5 * 3600000) / 86400000);
+			const idx = istDay % FALLBACK_INDEX.length;
 			const { symbol, spotPrice, lotSize, sector } = FALLBACK_INDEX[idx];
 
 			// Phase 1 fix: Apply regime-selection even in fallback (assume IV=18, neutral outlook)
@@ -345,6 +349,7 @@ export class DerivativeStrategy extends BaseStrategy {
 
 			return {
 				category: "derivatives",
+				instrumentId: symbol,
 				instrumentName: `${symbol} ${strategy.name}`,
 				symbol,
 				exchange: "NSE",
@@ -352,6 +357,7 @@ export class DerivativeStrategy extends BaseStrategy {
 				recoPrice: entryPrice,
 				targetPrice,
 				stoplossPrice,
+				currentPrice: entryPrice,
 				status: "live",
 				expiryDate: this.getExpiryDate(7),
 				rationale,
@@ -366,13 +372,14 @@ export class DerivativeStrategy extends BaseStrategy {
 					lotSize,
 					strikePrice: atmStrike,
 					spotPrice,
+					premiumPerUnit: approxPremium,
 					iv: 18,
 					dataSource: "fallback_curated",
 				},
 			};
 		} catch (err) {
-			// eslint-disable-next-line no-console
-			console.error("[DerivativeStrategy] Fallback also failed:", err);
+			logger.error("[DerivativeStrategy] Fallback also failed:",
+				err instanceof Error ? err : new Error(String(err)));
 			return null;
 		}
 	}
@@ -392,8 +399,16 @@ export class DerivativeStrategy extends BaseStrategy {
 
 	async getLivePrice(instrumentId: string): Promise<number | null> {
 		try {
+			// Returns the current option premium * lot size (NOT the spot/index level)
 			const chain = await derivativesService.getOptionsChain(instrumentId);
-			return chain.underlyingValue;
+			const spotPrice = chain.underlyingValue;
+			if (!spotPrice) return null;
+			// Approximate current ATM straddle value as ~0.45% of spot * lot (conservative)
+			// This avoids returning the raw index level (e.g. 23500) as the "current price"
+			const lotSizes: Record<string, number> = { NIFTY: 25, BANKNIFTY: 15, FINNIFTY: 40 };
+			const lotSize = lotSizes[instrumentId] || 50;
+			const approxPremium = spotPrice * 0.0045;
+			return Math.round(approxPremium * lotSize * 100) / 100;
 		} catch {
 			return null;
 		}
