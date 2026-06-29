@@ -165,6 +165,90 @@ async function persistRows(symbol: string, rows: OHLCVRow[]): Promise<number> {
 }
 
 /**
+ * Fetch 5-year daily OHLCV for an index/benchmark ticker (no .NS/.BO suffix).
+ * Used for ^NSEI (Nifty50), ^BSESN (Sensex), ^NSEBANK (Bank Nifty).
+ */
+async function fetchYahooBenchmark(ticker: string): Promise<OHLCVRow[]> {
+  const url = `${YAHOO_BASE}/${encodeURIComponent(ticker)}?range=5y&interval=1d&includeAdjustedClose=true`;
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; FintekPro/1.0; +https://fintekpro.com)",
+        "Accept": "application/json",
+      },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!resp.ok) return [];
+
+    const json: any = await resp.json();
+    const result = json?.chart?.result?.[0];
+    if (!result) return [];
+
+    const timestamps: number[] = result.timestamps ?? result.timestamp ?? [];
+    const quote = result.indicators?.quote?.[0] ?? {};
+    const adjCloseArr: number[] = result.indicators?.adjclose?.[0]?.adjclose ?? [];
+
+    if (timestamps.length === 0) return [];
+
+    const rows: OHLCVRow[] = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      const close = quote.close?.[i] ?? null;
+      if (close == null || isNaN(close)) continue;
+
+      const prevClose = i > 0 ? (quote.close?.[i - 1] ?? null) : null;
+      const changePercent =
+        prevClose != null && prevClose !== 0
+          ? Math.round(((close - prevClose) / prevClose) * 100 * 10000) / 10000
+          : null;
+
+      const d = new Date(timestamps[i] * 1000);
+      const date = d.toISOString().slice(0, 10);
+
+      rows.push({
+        date,
+        open:   quote.open?.[i]   ?? null,
+        high:   quote.high?.[i]   ?? null,
+        low:    quote.low?.[i]    ?? null,
+        close,
+        adjClose:     adjCloseArr[i] ?? close,
+        volume:       quote.volume?.[i] ?? null,
+        changePercent,
+      });
+    }
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch and persist benchmark index OHLCV (Nifty50, Sensex, Bank Nifty).
+ * Stores with exact symbol name (e.g. "^NSEI") for use in beta computation.
+ *
+ * @param tickers  Yahoo Finance tickers to fetch (e.g. ["^NSEI", "^BSESN"])
+ */
+export async function ingestBenchmarkSymbols(
+  tickers: string[] = ["^NSEI", "^BSESN", "^NSEBANK"],
+): Promise<{ symbol: string; rows: number; status: string }[]> {
+  const results = [];
+  for (const ticker of tickers) {
+    try {
+      const rows = await fetchYahooBenchmark(ticker);
+      if (rows.length === 0) {
+        results.push({ symbol: ticker, rows: 0, status: "no_data" });
+        continue;
+      }
+      const inserted = await persistRows(ticker, rows);
+      console.log(`[PriceHistory] Benchmark ${ticker}: ${rows.length} rows fetched, ${inserted} persisted`);
+      results.push({ symbol: ticker, rows: rows.length, status: "ok" });
+    } catch (err: any) {
+      results.push({ symbol: ticker, rows: 0, status: `error: ${err?.message}` });
+    }
+  }
+  return results;
+}
+
+/**
  * Full 5-year backfill for a batch of active screener stocks.
  * Skips symbols already loaded within the last 3 days (unless force=true).
  *

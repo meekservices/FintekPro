@@ -32,7 +32,7 @@ import {
 	getEnrichmentProgress,
 } from "../services/screener/enrichment-service";
 import { recalculateAllMetrics } from "../services/screener/derived-metrics-engine";
-import { ingestPriceHistory } from "../services/screener/screener-price-history-service";
+import { ingestPriceHistory, ingestBenchmarkSymbols } from "../services/screener/screener-price-history-service";
 import { fmpUsageMonitor } from "../services/screener/fmp-usage-monitor";
 import {
 	runPriorityEnrichmentBatch,
@@ -467,6 +467,31 @@ router.post("/api/screener/admin/fetch-price-history", async (req, res) => {
 		res.status(500).json({
 			success: false,
 			error: "Price history ingestion failed",
+			message: err.message,
+			meta: { timestamp: new Date().toISOString(), version: "1.0" },
+		});
+	}
+});
+
+/**
+ * POST /api/screener/admin/fetch-benchmarks
+ * Fetch and persist 5-year OHLCV for market index benchmarks (^NSEI, ^BSESN, ^NSEBANK).
+ * Stored as-is in screener_price_history; used as beta benchmark in recalculate-metrics.
+ * Body: { tickers?: string[] } — defaults to ["^NSEI", "^BSESN", "^NSEBANK"]
+ */
+router.post("/api/screener/admin/fetch-benchmarks", async (req, res) => {
+	try {
+		const tickers: string[] = req.body?.tickers ?? ["^NSEI", "^BSESN", "^NSEBANK"];
+		const results = await ingestBenchmarkSymbols(tickers);
+		res.json({
+			success: true,
+			results,
+			meta: { timestamp: new Date().toISOString(), version: "1.0" },
+		});
+	} catch (err: any) {
+		res.status(500).json({
+			success: false,
+			error: "Benchmark ingestion failed",
 			message: err.message,
 			meta: { timestamp: new Date().toISOString(), version: "1.0" },
 		});
