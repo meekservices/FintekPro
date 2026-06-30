@@ -329,6 +329,89 @@ class AssetAllocationOptimizer {
 	private riskFreeRate = 7.15; // India 10Y G-Sec as of Mar 2026 — update periodically
 	private assetTypes = ASSET_CLASSES.map((a) => a.type);
 
+	/**
+	 * Maps ASSET_CLASSES type → model_portfolio_holdings asset_class + sub_category
+	 * Used to fetch live cagr_1y from DB to replace static expectedReturn.
+	 */
+	private static readonly LIVE_RETURN_CATEGORY_MAP: Record<string, { assetClass: string; subCategory: string }> = {
+		large_cap_equity:    { assetClass: "equity",        subCategory: "large_cap"      },
+		mid_cap_equity:      { assetClass: "equity",        subCategory: "mid_cap"        },
+		small_cap_equity:    { assetClass: "equity",        subCategory: "small_cap"      },
+		international_equity:{ assetClass: "equity",        subCategory: "international"  },
+		government_bonds:    { assetClass: "debt",          subCategory: "gilt"           },
+		corporate_bonds:     { assetClass: "debt",          subCategory: "corporate_bond" },
+		money_market:        { assetClass: "liquid",        subCategory: "liquid"         },
+		gold:                { assetClass: "gold",          subCategory: "gold"           },
+		real_estate:         { assetClass: "real_estate",   subCategory: "reit"           },
+		alternatives:        { assetClass: "alternatives",  subCategory: "alternatives"   },
+	};
+
+	/** In-memory cache — refreshed once per calendar day to avoid repeated DB hits per optimize() call */
+	private liveReturnsCache: { date: string; returns: Record<string, number> } | null = null;
+
+	/** Session-scoped live asset classes — set at the start of each optimize() call */
+	private liveAssetClasses: typeof ASSET_CLASSES = ASSET_CLASSES;
+
+	/**
+	 * Fetches average 1-year CAGR per asset class from model_portfolio_holdings (active rows only).
+	 * Returns a map of assetType → expected annual return (%), falling back to static values.
+	 * Cache is scoped to the current calendar day.
+	 */
+	private async getLiveExpectedReturns(): Promise<Record<string, number>> {
+		const today = new Date().toISOString().slice(0, 10);
+		if (this.liveReturnsCache?.date === today) return this.liveReturnsCache.returns;
+
+		const result: Record<string, number> = {};
+		try {
+			const { db } = await import("../db");
+			const { modelPortfolioHoldings } = await import("@shared/schema");
+			const { isNull, avg, sql: drizzleSql } = await import("drizzle-orm");
+
+			// Aggregate average cagr_1y per (asset_class, sub_category) from active holdings
+			const rows = await db
+				.select({
+					assetClass:  modelPortfolioHoldings.assetClass,
+					subCategory: modelPortfolioHoldings.subCategory,
+					avgCagr1y:   avg(modelPortfolioHoldings.cagr1y),
+				})
+				.from(modelPortfolioHoldings)
+				.where(isNull(modelPortfolioHoldings.removedAt))
+				.groupBy(modelPortfolioHoldings.assetClass, modelPortfolioHoldings.subCategory);
+
+			// Map DB aggregates back to ASSET_CLASSES types
+			for (const [assetType, { assetClass, subCategory }] of Object.entries(
+				AssetAllocationOptimizer.LIVE_RETURN_CATEGORY_MAP,
+			)) {
+				const match = rows.find(
+					(r) => r.assetClass === assetClass && r.subCategory === subCategory,
+				);
+				if (match?.avgCagr1y !== null && match?.avgCagr1y !== undefined) {
+					const live = Number(match.avgCagr1y);
+					if (live > 0 && live < 100) result[assetType] = live; // sanity bounds
+				}
+			}
+		} catch {
+			// DB unavailable — fallback to static values (handled at call site)
+		}
+
+		this.liveReturnsCache = { date: today, returns: result };
+		return result;
+	}
+
+	/**
+	 * Returns ASSET_CLASSES with expectedReturn overridden by live cagr_1y from DB.
+	 * Any asset class without DB data retains its static expectedReturn.
+	 */
+	async getLiveAdjustedAssetClasses(): Promise<typeof ASSET_CLASSES> {
+		const live = await this.getLiveExpectedReturns();
+		if (Object.keys(live).length === 0) return ASSET_CLASSES; // all static
+		return ASSET_CLASSES.map((ac) =>
+			live[ac.type] !== undefined
+				? { ...ac, expectedReturn: live[ac.type] }
+				: ac,
+		);
+	}
+
 	getRiskProfile(riskScore: number): string {
 		if (riskScore <= 25) return "very_conservative";
 		if (riskScore <= 40) return "conservative";
@@ -478,7 +561,7 @@ class AssetAllocationOptimizer {
 	private calculatePortfolioReturn(weights: number[]): number {
 		let ret = 0;
 		for (let i = 0; i < weights.length; i++) {
-			ret += (weights[i] / 100) * ASSET_CLASSES[i].expectedReturn;
+			ret += (weights[i] / 100) * this.liveAssetClasses[i].expectedReturn;
 		}
 		return ret;
 	}
@@ -1010,7 +1093,15 @@ class AssetAllocationOptimizer {
 		return frontier;
 	}
 
-	optimize(input: OptimizationInput): OptimizationResult {
+	/**
+	 * Optimizes asset allocation using Modern Portfolio Theory.
+	 * Fetches live cagr_1y from model_portfolio_holdings to replace static expectedReturn — then runs MVO.
+	 * @param input - Optimization inputs (riskScore, segment, investmentHorizon, etc.)
+	 */
+	async optimize(input: OptimizationInput): Promise<OptimizationResult> {
+		// Inject live expected returns from DB (falls back to static if DB unavailable)
+		this.liveAssetClasses = await this.getLiveAdjustedAssetClasses();
+
 		const {
 			riskScore,
 			segment,
@@ -1057,7 +1148,7 @@ class AssetAllocationOptimizer {
 
 		for (let i = 0; i < weights.length; i++) {
 			if (weights[i] > 0.01) {
-				const asset = ASSET_CLASSES[i];
+				const asset = this.liveAssetClasses[i];
 				const contribution = (weights[i] / 100) * asset.volatility;
 
 				allocationResults.push({

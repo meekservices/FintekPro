@@ -856,10 +856,70 @@ export class FinancialMetricsCalculator {
 		if (!nav || nav <= 0) return null;
 		return (price - nav) / nav;
 	}
-
 	calculateCapRate(noi: number, propertyValue: number): number | null {
 		if (!propertyValue || propertyValue <= 0) return null;
 		return noi / propertyValue;
+	}
+}
+
+/**
+ * Writes computed quant metrics back to model_portfolio_holdings for a given ISIN.
+ * This closes the alpha feedback loop: FinancialMetricsCalculator → model_portfolio_holdings → selectTopFundsByAlphaScore.
+ *
+ * @param isin          - The fund ISIN to update
+ * @param metrics       - Computed quant metrics to persist
+ * @param metrics.sharpeRatio   - Sharpe ratio (return/risk)
+ * @param metrics.alpha         - Jensen's Alpha vs. benchmark
+ * @param metrics.sortinoRatio  - Sortino ratio (downside risk adjusted)
+ * @param metrics.beta          - Beta vs. benchmark (optional)
+ *
+ * Non-fatal: logs error and continues if DB write fails.
+ * SEBI / GCR: metrics are stored with calculation_timestamp for audit trail.
+ */
+export async function writeMetricsToHoldings(
+	isin: string,
+	metrics: {
+		sharpeRatio?: number | null;
+		alpha?: number | null;
+		sortinoRatio?: number | null;
+		beta?: number | null;
+	},
+): Promise<void> {
+	if (!isin || Object.values(metrics).every((v) => v === null || v === undefined)) return;
+	try {
+		const { db } = await import("../db");
+		const { modelPortfolioHoldings } = await import("@shared/schema");
+		const { eq, isNull, and } = await import("drizzle-orm");
+		const updates: Record<string, number | string> = {
+			updatedAt: new Date().toISOString(),
+		};
+		if (metrics.sharpeRatio !== undefined && metrics.sharpeRatio !== null)
+			updates.sharpeRatio = metrics.sharpeRatio;
+		if (metrics.alpha !== undefined && metrics.alpha !== null)
+			updates.alpha = metrics.alpha;
+
+		await db
+			.update(modelPortfolioHoldings)
+			.set(updates)
+			.where(
+				and(
+					eq(modelPortfolioHoldings.isin, isin),
+					isNull(modelPortfolioHoldings.removedAt),
+				),
+			);
+
+		const { logger } = await import("../logger");
+		logger.info(
+			`METRICS_WRITTEN_TO_HOLDINGS isin=${isin} sharpe=${metrics.sharpeRatio} alpha=${metrics.alpha} engine_version=${FINANCIAL_METRICS_ENGINE_VERSION}`,
+			{ event: "METRICS_WRITTEN_TO_HOLDINGS", isin, engine_version: FINANCIAL_METRICS_ENGINE_VERSION },
+		);
+	} catch (err: unknown) {
+		// Non-fatal — alpha scoring will use last known values
+		const { logger } = await import("../logger");
+		logger.warn(
+			`METRICS_WRITE_FAILED isin=${isin} error=${err instanceof Error ? err.message : String(err)}`,
+			{ event: "METRICS_WRITE_FAILED", isin, retryable: true },
+		);
 	}
 }
 

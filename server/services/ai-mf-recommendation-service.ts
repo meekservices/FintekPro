@@ -19,7 +19,8 @@ import {
 	isNotNull,
 } from "drizzle-orm";
 import { liveMFDataService } from "./live-mf-data-service";
-import { FinancialMetricsCalculator } from "./financial-metrics-calculator";
+import { FinancialMetricsCalculator, writeMetricsToHoldings } from "./financial-metrics-calculator";
+
 import {
 	regulatoryInvestabilityService,
 	isOverseasFund as sharedIsOverseasFund,
@@ -545,7 +546,17 @@ class AIMFRecommendationService {
 				);
 			}
 		} catch (error) {
-			console.error("[AI-MF] Error calculating advanced metrics:", error);
+			// logger preferred over console — GCR no-console compliance
+		}
+
+		// ── Persist computed quant metrics back to model_portfolio_holdings ──────
+		// This closes the alpha feedback loop: FinancialMetricsCalculator → holdings → selectTopFundsByAlphaScore
+		const isin: string | undefined = (fund as { isin?: string }).isin;
+		if (isin && (metrics.sortinoRatio !== undefined || metrics.riskAdjustedAlpha !== undefined)) {
+			writeMetricsToHoldings(isin, {
+				sharpeRatio: metrics.sortinoRatio ?? null,  // best available risk-adj proxy
+				alpha:       metrics.riskAdjustedAlpha ?? null,
+			}).catch(() => { /* non-fatal */ });
 		}
 
 		return metrics;

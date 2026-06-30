@@ -215,7 +215,8 @@ class RebalancingEngine {
 			if (pyAllocations) {
 				targetAllocations = pyAllocations;
 			} else {
-				const optimizationResult = assetAllocationOptimizer.optimize({
+				const optimizationResult = await assetAllocationOptimizer.optimize({
+
 					riskScore: input.riskScore,
 					segment: input.segment as
 						| "retail"
@@ -276,6 +277,58 @@ class RebalancingEngine {
 			input,
 		);
 
+		// ── Alpha Upgrade Check ────────────────────────────────────────────────────
+		// After drift fix, check if the instruments within each asset class
+		// should be upgraded to better-alpha alternatives using the alpha engine.
+		const alphaUpgradeRecs: string[] = [];
+		try {
+			const { selectTopFundsByAlphaScore } = await import("./model-portfolio-metrics-service");
+			// Pull current holdings alpha scores from model_portfolio_holdings if available
+			const { db } = await import("../db");
+			const { modelPortfolioHoldings } = await import("@shared/schema");
+			const { isNull } = await import("drizzle-orm");
+			const activeHoldings = await db
+				.select()
+				.from(modelPortfolioHoldings)
+				.where(isNull(modelPortfolioHoldings.removedAt));
+
+			// Check each asset class present in current allocations
+			const assetClassesSeen = new Set<string>();
+			for (const [assetType, weight] of Object.entries(input.currentAllocations)) {
+				if ((weight as number) < 1) continue;
+				const ac = assetType.includes("equity") ? "equity"
+					: assetType.includes("bond") || assetType.includes("debt") ? "debt"
+					: assetType === "gold" ? "gold"
+					: assetType.includes("international") ? "international" : null;
+				if (!ac || assetClassesSeen.has(ac)) continue;
+				assetClassesSeen.add(ac);
+
+				const rp = input.riskScore >= 70 ? "aggressive" : input.riskScore >= 40 ? "moderate" : "conservative";
+				const topFunds = await selectTopFundsByAlphaScore(ac, ac, rp, 1);
+				if (!topFunds.length) continue;
+				const best = topFunds[0];
+
+				// Find the current holding for this asset class (if tracked in model_portfolio_holdings)
+				const currentHolding = activeHoldings.find((h) => h.assetClass === ac);
+				const currentScore = currentHolding ? Number(currentHolding.alphaScore ?? 0) : 0;
+				const bestScore = best.alphaScore ?? 0;
+
+				if (bestScore - currentScore >= 15) {
+					alphaUpgradeRecs.push(
+						`📈 Alpha Upgrade [${ac}]: ${best.instrumentName} scores ${bestScore.toFixed(1)} ` +
+						`vs current ${currentScore.toFixed(1)} (+${(bestScore - currentScore).toFixed(1)} pts). ` +
+						`1Y CAGR: ${best.returns1y?.toFixed(1)}%, ER: ${best.expenseRatio?.toFixed(2)}%. ` +
+						`ISIN: ${best.isin}. Advisor approval required before switching.`,
+					);
+				}
+			}
+		} catch { /* non-fatal — alpha check is best-effort */ }
+
+		const allRecommendations = [
+			...recommendations,
+			...alphaUpgradeRecs,
+		];
+
 		return {
 			needsRebalance,
 			urgency,
@@ -283,7 +336,7 @@ class RebalancingEngine {
 			trades,
 			summary,
 			constraints: constraintAnalysis,
-			recommendations,
+			recommendations: allRecommendations,
 			engine_version: REBALANCING_ENGINE_VERSION,
 			calculation_timestamp: new Date().toISOString(),
 		};

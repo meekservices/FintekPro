@@ -33,7 +33,7 @@ const rebalanceInputSchema = z.object({
 router.post("/optimize", async (req: Request, res: Response) => {
 	try {
 		const input = optimizationInputSchema.parse(req.body);
-		const result = assetAllocationOptimizer.optimize(input);
+		const result = await assetAllocationOptimizer.optimize(input);
 		res.json({ success: true, data: result });
 	} catch (error) {
 		if (error instanceof z.ZodError) {
