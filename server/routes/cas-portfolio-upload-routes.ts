@@ -229,4 +229,118 @@ export function registerCasPortfolioUploadRoutes(app: Express): void {
       }
     }
   );
+
+  // ─── CAMS On-demand Sync ─────────────────────────────────────────────────────
+  /**
+   * POST /api/portfolio/cams/sync/:pan
+   * Triggers on-demand CAMS portfolio sync for a PAN.
+   * Requires CAMS_API_KEY + CAMS_MEMBER_ID env vars to be configured.
+   */
+  app.post(
+    "/api/portfolio/cams/sync/:pan",
+    isAuthenticated,
+    requireAgent,
+    async (req: Request, res: Response) => {
+      const pan = req.params.pan.toUpperCase().trim();
+      if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) {
+        return res.status(400).json({ success: false, message: "Invalid PAN format." });
+      }
+      if (!process.env.CAMS_API_KEY || !process.env.CAMS_MEMBER_ID) {
+        return res.status(503).json({
+          success: false,
+          error_code: "CAMS_NOT_CONFIGURED",
+          message: "CAMS credentials not configured. Contact admin to set CAMS_API_KEY and CAMS_MEMBER_ID.",
+          retryable: false,
+        });
+      }
+      try {
+        const { syncCamsHoldingsForPan } = await import("../services/cams-holdings-sync-service");
+        const result = await syncCamsHoldingsForPan(pan, (req as any).user?.id);
+        return res.json({
+          success: true,
+          data: { ...result, source: "cams", pan: pan.slice(0, 3) + "**" },
+          meta: { timestamp: new Date().toISOString(), version: "1.0.0" },
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return res.status(500).json({ success: false, message: msg, retryable: true });
+      }
+    }
+  );
+
+  // ─── MFCentral OTP Flow ──────────────────────────────────────────────────────
+  /**
+   * POST /api/portfolio/mfcentral/initiate
+   * Step 1: Send OTP to investor's registered mobile/email.
+   * Body: { pan, mode?: "mobile" | "email" }
+   */
+  app.post(
+    "/api/portfolio/mfcentral/initiate",
+    isAuthenticated,
+    requireAgent,
+    async (req: Request, res: Response) => {
+      const { pan, mode = "mobile" } = req.body;
+      if (!pan || !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan.toUpperCase())) {
+        return res.status(400).json({ success: false, message: "Valid PAN required." });
+      }
+      if (!process.env.MFCENTRAL_CLIENT_ID || !process.env.MFCENTRAL_CLIENT_SECRET) {
+        return res.status(503).json({
+          success: false,
+          error_code: "MFCENTRAL_NOT_CONFIGURED",
+          message: "MFCentral credentials not configured. Contact admin to set MFCENTRAL_CLIENT_ID and MFCENTRAL_CLIENT_SECRET.",
+          retryable: false,
+        });
+      }
+      try {
+        const { initiateMFCentralCASRequest } = await import("../services/mfcentral-holdings-sync-service");
+        const result = await initiateMFCentralCASRequest(pan.toUpperCase(), mode);
+        return res.json({
+          success: true,
+          data: { ...result, mode, pan: pan.slice(0, 3) + "**" },
+          meta: { timestamp: new Date().toISOString(), version: "1.0.0" },
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return res.status(500).json({ success: false, message: msg, retryable: true });
+      }
+    }
+  );
+
+  /**
+   * POST /api/portfolio/mfcentral/validate
+   * Step 2: Validate OTP and sync holdings into comprehensiveHoldings.
+   * Body: { pan, requestId, otp }
+   */
+  app.post(
+    "/api/portfolio/mfcentral/validate",
+    isAuthenticated,
+    requireAgent,
+    async (req: Request, res: Response) => {
+      const { pan, requestId, otp } = req.body;
+      if (!pan || !requestId || !otp) {
+        return res.status(400).json({ success: false, message: "pan, requestId, and otp are required." });
+      }
+      try {
+        const { validateAndSyncMFCentral } = await import("../services/mfcentral-holdings-sync-service");
+        const result = await validateAndSyncMFCentral(
+          pan.toUpperCase(),
+          requestId,
+          otp,
+          (req as any).user?.id,
+        );
+        return res.json({
+          success: true,
+          data: { ...result, source: "mfcentral", pan: pan.slice(0, 3) + "**" },
+          meta: {
+            timestamp: new Date().toISOString(),
+            version: "1.0.0",
+            disclaimer: "Holdings synced from MFCentral CAS. All investment decisions require advisor review.",
+          },
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return res.status(500).json({ success: false, message: msg, retryable: true });
+      }
+    }
+  );
 }
