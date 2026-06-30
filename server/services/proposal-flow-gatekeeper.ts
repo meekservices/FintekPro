@@ -193,7 +193,7 @@ export class ProposalFlowGatekeeper {
 			phase,
 		);
 		if (!validation.valid) {
-			return { success: false, error: validation.issues.join(", ") };
+			return { success: false, error: validation.errors.join(", ") };
 		}
 
 		const updates: Partial<InsertProposalFlowState> = {};
@@ -527,7 +527,7 @@ export function createPhaseValidationMiddleware(targetPhase: ProposalPhase) {
 				error: "PHASE_LOCKED",
 				message: "This phase is locked due to incomplete prerequisites",
 				phase: targetPhase,
-				errors: validation.issues,
+				errors: validation.errors,
 			});
 		}
 

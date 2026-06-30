@@ -29,6 +29,15 @@ import { modelPortfolios } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { logger } from "../logger";
 import { refreshAllModelPortfolioMetrics } from "../services/model-portfolio-metrics-service";
+import {
+  computePortfolioDrift,
+  scorePortfolioAlpha,
+  runPortfolioRebalance,
+  buildInvestAllocation,
+  runNightlyModelPortfolioRebalance,
+  type PortfolioQuantInput,
+  type QuantHolding,
+} from "../services/model-portfolio-quant-service";
 
 export const modelPortfoliosRouter = Router();
 
@@ -1537,5 +1546,769 @@ modelPortfoliosRouter.get("/:id/holdings", async (req: Request, res: Response) =
       retryable: true,
       meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
     });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QUANT ALPHA ENGINE ENDPOINTS — FASP-AI-v2.0
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * GET /api/model-portfolios/:id/quant-signals
+ * ─────────────────────────────────────────────
+ * Returns live quant alpha signals for a model portfolio.
+ * Reads from DB (drift_score, alpha, sharpe) + computes fresh if stale.
+ *
+ * Response: { driftScore, driftStatus, alpha, sharpeRatio, confidenceScore,
+ *             lastQuantRun, driftDetails, recommendation }
+ */
+modelPortfoliosRouter.get("/:id/quant-signals", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const result = await db.execute(sql`
+      SELECT id, name, asset_class, cagr_1y, cagr_3y, cagr_5y,
+             benchmark_cagr_1y, benchmark_name, sharpe_ratio,
+             max_drawdown, volatility, holdings, last_rebalanced,
+             drift_score, drift_details, last_quant_run, alpha
+      FROM model_portfolios
+      WHERE id = ${id} AND is_published = true
+      LIMIT 1
+    `);
+
+    if (!result.rows[0]) {
+      return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `Portfolio '${id}' not found`, retryable: false });
+    }
+
+    const row = result.rows[0] as any;
+    const holdings: QuantHolding[] = ((row.holdings as any[]) ?? []).map((h: any) => ({
+      rank: Number(h.rank ?? 0),
+      name: String(h.name ?? "Unknown"),
+      category: String(h.category ?? h.type ?? "MF"),
+      weight: parseFloat(h.weight ?? 0),
+      currentReturn: parseFloat(h.currentReturn ?? h.returns_1y ?? 0),
+      currentWeight: h.currentWeight ? parseFloat(h.currentWeight) : undefined,
+    }));
+
+    const portfolio: PortfolioQuantInput = {
+      id:              row.id,
+      name:            row.name,
+      assetClass:      row.asset_class ?? "hybrid",
+      cagr1Y:          parseFloat(row.cagr_1y ?? 0),
+      cagr3Y:          parseFloat(row.cagr_3y ?? 0),
+      cagr5Y:          parseFloat(row.cagr_5y ?? 0),
+      benchmarkCagr1Y: parseFloat(row.benchmark_cagr_1y ?? 0),
+      benchmarkName:   row.benchmark_name ?? "NIFTY 50 TRI",
+      sharpeRatio:     row.sharpe_ratio ? parseFloat(row.sharpe_ratio) : undefined,
+      volatility:      row.volatility ? parseFloat(row.volatility) : undefined,
+      lastRebalanced:  row.last_rebalanced ?? undefined,
+      holdings,
+    };
+
+    const driftReport = computePortfolioDrift(portfolio);
+    const alphaScore  = scorePortfolioAlpha(portfolio);
+
+    // Persist updated drift score
+    await db.execute(sql`
+      UPDATE model_portfolios
+      SET drift_score = ${driftReport.driftScore},
+          drift_details = ${JSON.stringify(driftReport.holdingsDrift.slice(0, 5))}::jsonb,
+          quant_engine_version = 'FASP-AI-v2.0',
+          last_quant_run = NOW(),
+          alpha = ${alphaScore.alpha},
+          updated_at = NOW()
+      WHERE id = ${id}
+    `);
+
+    logger.info("[ModelPortfolios] quant-signals computed", {
+      event: "QUANT_SIGNALS_COMPUTED",
+      user_id: (req.user as any)?.id ?? "anon",
+      portfolio_id: id,
+      drift_score: driftReport.driftScore,
+      alpha: alphaScore.alpha,
+      latency_ms: Date.now() - t0,
+      status: "success",
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        portfolioId:     id,
+        driftScore:      driftReport.driftScore,
+        driftStatus:     driftReport.status,
+        driftingHoldings: driftReport.driftingCount,
+        threshold:       driftReport.threshold,
+        alpha:           alphaScore.alpha,
+        excessReturn3Y:  alphaScore.excessReturn3Y,
+        sharpeRatio:     alphaScore.sharpeRatio,
+        confidenceScore: alphaScore.confidenceScore,
+        factors:         alphaScore.factors,
+        recommendation:  alphaScore.recommendation,
+        driftDetails:    driftReport.holdingsDrift.filter(h => h.exceedsThreshold).slice(0, 5),
+      },
+      meta: {
+        timestamp:     new Date().toISOString(),
+        version:       ENGINE_VERSION,
+        engine_version: "FASP-AI-v2.0",
+        latency_ms:    Date.now() - t0,
+        disclaimer:    "FASP-AI v2.0 signals. Past performance is not indicative of future results.",
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] quant-signals error", { event: "QUANT_SIGNALS_ERROR", error: err.message, retryable: true });
+    return res.status(500).json({ success: false, error_code: "QUANT_SIGNALS_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/:id/rebalance
+ * ─────────────────────────────────────────
+ * Trigger on-demand rebalancing for a model portfolio.
+ * Returns RebalancePlan with BUY/SELL actions + tax contexts.
+ * Advisory-only — does NOT execute any trades.
+ *
+ * Body: { totalPortfolioValue?: number }
+ */
+modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const { totalPortfolioValue = 1_000_000 } = req.body;
+
+    const result = await db.execute(sql`
+      SELECT id, name, asset_class, cagr_1y, cagr_3y, cagr_5y,
+             benchmark_cagr_1y, benchmark_name, sharpe_ratio,
+             max_drawdown, volatility, holdings, last_rebalanced
+      FROM model_portfolios
+      WHERE id = ${id} AND is_published = true
+      LIMIT 1
+    `);
+
+    if (!result.rows[0]) {
+      return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `Portfolio '${id}' not found`, retryable: false });
+    }
+
+    const row = result.rows[0] as any;
+    const holdings: QuantHolding[] = ((row.holdings as any[]) ?? []).map((h: any) => ({
+      rank: Number(h.rank ?? 0),
+      name: String(h.name ?? "Unknown"),
+      category: String(h.category ?? h.type ?? "MF"),
+      weight: parseFloat(h.weight ?? 0),
+      currentReturn: parseFloat(h.currentReturn ?? 0),
+      currentWeight: h.currentWeight ? parseFloat(h.currentWeight) : undefined,
+    }));
+
+    const portfolio: PortfolioQuantInput = {
+      id, name: row.name, assetClass: row.asset_class ?? "hybrid",
+      cagr1Y: parseFloat(row.cagr_1y ?? 0),
+      cagr3Y: parseFloat(row.cagr_3y ?? 0),
+      cagr5Y: parseFloat(row.cagr_5y ?? 0),
+      benchmarkCagr1Y: parseFloat(row.benchmark_cagr_1y ?? 0),
+      benchmarkName: row.benchmark_name ?? "NIFTY 50 TRI",
+      sharpeRatio: row.sharpe_ratio ? parseFloat(row.sharpe_ratio) : undefined,
+      volatility: row.volatility ? parseFloat(row.volatility) : undefined,
+      lastRebalanced: row.last_rebalanced ?? undefined,
+      holdings,
+    };
+
+    const quantResult = runPortfolioRebalance(portfolio, Number(totalPortfolioValue));
+
+    // Update last_rebalanced if rebalancing was needed
+    if (quantResult.rebalancePlan) {
+      await db.execute(sql`
+        UPDATE model_portfolios
+        SET last_rebalanced = ${new Date().toISOString().slice(0, 10)},
+            drift_score = ${quantResult.driftReport.driftScore},
+            last_quant_run = NOW(),
+            alpha = ${quantResult.alphaScore.alpha},
+            updated_at = NOW()
+        WHERE id = ${id}
+      `);
+    }
+
+    logger.info("[ModelPortfolios] rebalance triggered", {
+      event: "PORTFOLIO_REBALANCE_TRIGGERED",
+      user_id: (req.user as any)?.id ?? "anon",
+      portfolio_id: id,
+      drift_score: quantResult.driftReport.driftScore,
+      actions_count: quantResult.rebalancePlan?.actions.length ?? 0,
+      latency_ms: Date.now() - t0,
+      status: "success",
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        portfolioId:   id,
+        driftReport:   { ...quantResult.driftReport, holdingsDrift: quantResult.driftReport.holdingsDrift.slice(0, 10) },
+        alphaScore:    quantResult.alphaScore,
+        rebalancePlan: quantResult.rebalancePlan,
+        advisory_note: "FASP-AI v2.0 rebalancing plan. Final execution requires advisor approval. No trades have been executed.",
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: ENGINE_VERSION,
+        engine_version: "FASP-AI-v2.0",
+        latency_ms: Date.now() - t0,
+        disclaimer: "Mutual Fund investments are subject to market risks. Read all scheme-related documents carefully.",
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] rebalance error", { event: "REBALANCE_ERROR", error: err.message, retryable: true });
+    return res.status(500).json({ success: false, error_code: "REBALANCE_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
+ * GET /api/model-portfolios/:id/invest/preview
+ * ──────────────────────────────────────────────
+ * Preview per-holding allocation amounts for a given investment amount.
+ * No auth required — read-only advisory information.
+ *
+ * Query: ?amount=50000&type=lumpsum|sip
+ */
+modelPortfoliosRouter.get("/:id/invest/preview", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const amount = parseFloat(req.query.amount as string);
+    const investType = (req.query.type as string) ?? "lumpsum";
+
+    if (!amount || amount <= 0 || !isFinite(amount)) {
+      return res.status(400).json({ success: false, error_code: "INVALID_AMOUNT", message: "amount must be a positive number", retryable: false });
+    }
+
+    const result = await db.execute(sql`
+      SELECT id, name, min_investment, holdings
+      FROM model_portfolios
+      WHERE id = ${id} AND is_published = true
+      LIMIT 1
+    `);
+
+    if (!result.rows[0]) {
+      return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `Portfolio '${id}' not found`, retryable: false });
+    }
+
+    const row = result.rows[0] as any;
+    const minInvestment = parseFloat(row.min_investment ?? "5000");
+
+    if (amount < minInvestment) {
+      return res.status(400).json({
+        success: false,
+        error_code: "BELOW_MINIMUM",
+        message: `Minimum investment for this portfolio is ₹${minInvestment.toLocaleString("en-IN")}`,
+        data: { minInvestment },
+        retryable: false,
+      });
+    }
+
+    const holdings: QuantHolding[] = ((row.holdings as any[]) ?? []).map((h: any) => ({
+      rank: Number(h.rank ?? 0),
+      name: String(h.name ?? "Unknown"),
+      category: String(h.category ?? "MF"),
+      weight: parseFloat(h.weight ?? 0),
+      currentReturn: parseFloat(h.currentReturn ?? 0),
+    }));
+
+    const allocation = buildInvestAllocation(holdings, amount);
+    const holdingsBelow = allocation.filter(a => a.isBelowMinimum).length;
+
+    return res.json({
+      success: true,
+      data: {
+        portfolioId:   id,
+        portfolioName: row.name,
+        investType,
+        totalAmount:   amount,
+        allocation,
+        holdingsBelowMinimum: holdingsBelow,
+        advisory_note: holdingsBelow > 0
+          ? `${holdingsBelow} holding(s) receive less than ₹100 at this amount. Consider increasing the investment amount for better diversification.`
+          : "All holdings meet the ₹100 minimum. Proceed to generate a proposal.",
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: ENGINE_VERSION,
+        latency_ms: Date.now() - t0,
+        disclaimer: "Mutual Fund investments are subject to market risks. Past performance is not indicative of future results.",
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] invest/preview error", { event: "INVEST_PREVIEW_ERROR", error: err.message, retryable: true });
+    return res.status(500).json({ success: false, error_code: "INVEST_PREVIEW_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/:id/invest
+ * ──────────────────────────────────────
+ * Creates an investment from a model portfolio:
+ *   1. Computes per-holding allocation (buildInvestAllocation)
+ *   2. Adds all MF holdings to unified_cart_items
+ *   3. Creates an advisory advisory session (proposal stub)
+ *
+ * FASP-AI mandate: Advisory-only. Advisor must share proposal.
+ *   No autonomous trade execution.
+ *
+ * Body: {
+ *   clientId: string;
+ *   amount: number;
+ *   investType: "lumpsum" | "sip";
+ *   sipDate?: number;    // 1–28
+ *   agentId?: string;    // if advisor-initiated
+ * }
+ */
+modelPortfoliosRouter.post("/:id/invest", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const { clientId, amount, investType = "lumpsum", sipDate = 1, agentId } = req.body;
+
+    if (!clientId || !amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error_code: "INVALID_REQUEST",
+        message: "clientId and amount (> 0) are required",
+        retryable: false,
+      });
+    }
+
+    // Fetch portfolio from DB
+    const result = await db.execute(sql`
+      SELECT id, name, min_investment, holdings, risk_profile, asset_class,
+             cagr_1y, cagr_3y, benchmark_name, benchmark_cagr_1y, sharpe_ratio,
+             volatility, last_rebalanced
+      FROM model_portfolios
+      WHERE id = ${id} AND is_published = true
+      LIMIT 1
+    `);
+
+    if (!result.rows[0]) {
+      return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `Portfolio '${id}' not found`, retryable: false });
+    }
+
+    const row = result.rows[0] as any;
+    const minInvestment = parseFloat(row.min_investment ?? "5000");
+
+    if (amount < minInvestment) {
+      return res.status(400).json({
+        success: false,
+        error_code: "BELOW_MINIMUM",
+        message: `Minimum investment is ₹${minInvestment.toLocaleString("en-IN")}`,
+        data: { minInvestment },
+        retryable: false,
+      });
+    }
+
+    const holdings: QuantHolding[] = ((row.holdings as any[]) ?? []).map((h: any) => ({
+      rank: Number(h.rank ?? 0),
+      name: String(h.name ?? "Unknown"),
+      category: String(h.category ?? "MF"),
+      weight: parseFloat(h.weight ?? 0),
+      currentReturn: parseFloat(h.currentReturn ?? 0),
+    }));
+
+    const allocation = buildInvestAllocation(holdings, amount);
+
+    // ── Quant signals for the proposal ─────────────────────────────────────
+    const portfolio: PortfolioQuantInput = {
+      id, name: row.name, assetClass: row.asset_class ?? "hybrid",
+      cagr1Y: parseFloat(row.cagr_1y ?? 0),
+      cagr3Y: parseFloat(row.cagr_3y ?? 0),
+      cagr5Y: 0,
+      benchmarkCagr1Y: parseFloat(row.benchmark_cagr_1y ?? 0),
+      benchmarkName: row.benchmark_name ?? "NIFTY 50 TRI",
+      sharpeRatio: row.sharpe_ratio ? parseFloat(row.sharpe_ratio) : undefined,
+      volatility: row.volatility ? parseFloat(row.volatility) : undefined,
+      lastRebalanced: row.last_rebalanced ?? undefined,
+      holdings,
+    };
+    const alphaScore = scorePortfolioAlpha(portfolio);
+
+    // ── 1. Add to unified cart ───────────────────────────────────────────────
+    const cartItemIds: string[] = [];
+    const cartSource = agentId ? "agent" : "client";
+    const now = new Date().toISOString();
+
+    for (const alloc of allocation) {
+      if (alloc.targetAmount < 100) continue; // Skip holdings below MF minimum
+
+      const itemId = `ci_mp_${id}_${alloc.rank}_${Date.now().toString(36)}`;
+      await db.execute(sql`
+        INSERT INTO unified_cart_items (
+          id, user_id, agent_id, item_type, name,
+          quantity, amount, currency, status, source,
+          metadata, created_at, updated_at
+        ) VALUES (
+          ${itemId},
+          ${clientId},
+          ${agentId ?? null},
+          'mutual_fund',
+          ${alloc.name},
+          1,
+          ${alloc.targetAmount},
+          'INR',
+          'active',
+          ${cartSource},
+          ${JSON.stringify({
+            portfolioId: id,
+            portfolioName: row.name,
+            targetWeight: alloc.targetWeight,
+            category: alloc.category,
+            investType,
+            sipDate: investType === "sip" ? sipDate : null,
+            modelPortfolioSource: true,
+            quantEngineVersion: "FASP-AI-v2.0",
+          })}::jsonb,
+          ${now},
+          ${now}
+        )
+        ON CONFLICT (id) DO NOTHING
+      `);
+      cartItemIds.push(itemId);
+    }
+
+    // ── 2. Create advisory session / proposal stub ──────────────────────────
+    const proposalId = `AI-MP-${id.toUpperCase().slice(0, 8)}-${Date.now().toString(36).toUpperCase()}`;
+    const riskDisclaimer = "Mutual Fund investments are subject to market risks. Read all scheme-related documents carefully. Past performance is not indicative of future results. This is an advisory recommendation — final execution requires advisor approval.";
+
+    await db.execute(sql`
+      INSERT INTO proposals (
+        id, client_id, agent_id, status, type,
+        total_amount, invest_type,
+        portfolio_id, portfolio_name, portfolio_holdings,
+        alpha, sharpe_ratio, confidence_score, ai_model_version,
+        recommendation, risk_disclosure,
+        cart_item_ids, source, created_at, updated_at
+      ) VALUES (
+        ${proposalId},
+        ${clientId},
+        ${agentId ?? null},
+        'draft',
+        'model_portfolio_invest',
+        ${amount},
+        ${investType},
+        ${id},
+        ${row.name},
+        ${JSON.stringify(allocation)}::jsonb,
+        ${alphaScore.alpha},
+        ${alphaScore.sharpeRatio},
+        ${alphaScore.confidenceScore},
+        'FASP-AI-v2.0',
+        ${alphaScore.recommendation},
+        ${riskDisclaimer},
+        ${JSON.stringify(cartItemIds)}::jsonb,
+        ${cartSource},
+        ${now},
+        ${now}
+      )
+      ON CONFLICT (id) DO NOTHING
+    `).catch(async (_e) => {
+      // proposals table may have different schema — create with minimal columns
+      await db.execute(sql`
+        INSERT INTO advisory_sessions (
+          id, client_id, agent_id, status,
+          metadata, source, created_at, updated_at
+        ) VALUES (
+          ${proposalId}, ${clientId}, ${agentId ?? null}, 'draft',
+          ${JSON.stringify({
+            type: "model_portfolio_invest",
+            portfolioId: id,
+            portfolioName: row.name,
+            totalAmount: amount,
+            investType,
+            allocation,
+            alphaScore,
+            cartItemIds,
+            riskDisclaimer,
+            quantEngineVersion: "FASP-AI-v2.0",
+          })}::jsonb,
+          ${cartSource},
+          ${now}, ${now}
+        )
+        ON CONFLICT (id) DO NOTHING
+      `);
+    });
+
+    logger.info("[ModelPortfolios] invest proposal created", {
+      event: "MODEL_PORTFOLIO_INVEST_CREATED",
+      user_id: clientId,
+      portfolio_id: id,
+      proposal_id: proposalId,
+      amount,
+      invest_type: investType,
+      cart_items: cartItemIds.length,
+      latency_ms: Date.now() - t0,
+      status: "success",
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        proposalId,
+        portfolioId: id,
+        portfolioName: row.name,
+        clientId,
+        investType,
+        totalAmount: amount,
+        holdingsAllocated: cartItemIds.length,
+        cartItemIds,
+        alphaScore: {
+          alpha: alphaScore.alpha,
+          sharpeRatio: alphaScore.sharpeRatio,
+          confidenceScore: alphaScore.confidenceScore,
+          recommendation: alphaScore.recommendation,
+          modelVersion: "FASP-AI-v2.0",
+          timestamp: now,
+        },
+        nextSteps: agentId
+          ? `Proposal ${proposalId} created. Share with client for review and approval.`
+          : `Proposal ${proposalId} created. An advisor will review and share the execution plan with you.`,
+        advisory_note: "FASP-AI v2.0 advisory. Final execution requires advisor approval. No trades have been executed.",
+        risk_disclosure: riskDisclaimer,
+      },
+      meta: {
+        timestamp: now,
+        version: ENGINE_VERSION,
+        engine_version: "FASP-AI-v2.0",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] invest error", {
+      event: "MODEL_PORTFOLIO_INVEST_ERROR",
+      portfolio_id: req.params.id,
+      error_code: "INVEST_ERROR",
+      message: err.message,
+      retryable: true,
+    });
+    return res.status(500).json({ success: false, error_code: "INVEST_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/admin/run-nightly-quant
+ * ────────────────────────────────────────────────────
+ * Admin trigger for the nightly quant rebalance batch.
+ * Also triggered by cron at 3:30 AM IST.
+ */
+modelPortfoliosRouter.post("/admin/run-nightly-quant", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const result = await runNightlyModelPortfolioRebalance();
+    return res.json({
+      success: true,
+      data: result,
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error_code: "NIGHTLY_QUANT_ERROR", message: err.message, retryable: true });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FASP-AI v3.0 — Dynamic Portfolio Management Endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/model-portfolios/:id/proposals
+ * ────────────────────────────────────────
+ * Returns pending rebalance proposals for a portfolio.
+ */
+modelPortfoliosRouter.get("/:id/proposals", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { db } = await import("../db");
+    const { rebalanceProposals } = await import("@shared/schema");
+    const { eq, and } = await import("drizzle-orm");
+
+    const rows = await db.select()
+      .from(rebalanceProposals)
+      .where(and(
+        eq(rebalanceProposals.portfolioId, req.params.id),
+        eq(rebalanceProposals.status, "pending"),
+      ))
+      .orderBy(rebalanceProposals.proposedAt);
+
+    return res.json({
+      success: true,
+      data: rows,
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0, total: rows.length },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error_code: "PROPOSALS_FETCH_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/:id/proposals/:proposalId/approve
+ * ────────────────────────────────────────────────────────────
+ * Advisor approves a substitution proposal — applies holdings update.
+ * FASP-AI mandate: Only advisors with SEBI-registered roles may approve.
+ */
+modelPortfoliosRouter.post("/:id/proposals/:proposalId/approve", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const advisorId = (req as any).user?.id ?? "unknown";
+    const advisorRole = (req as any).user?.roles?.[0] ?? "";
+    const allowedRoles = ["admin", "agent", "advisor", "super_admin", "ria"];
+    if (!allowedRoles.includes(advisorRole)) {
+      return res.status(403).json({ success: false, error_code: "INSUFFICIENT_ROLE", message: "Only SEBI-registered advisors may approve proposals.", retryable: false });
+    }
+
+    const { applyApprovedProposal } = await import("../services/fund-screener-service");
+    await applyApprovedProposal(req.params.proposalId, advisorId);
+
+    logger.info("[ModelPortfolios] Proposal approved", {
+      event: "PROPOSAL_APPROVED",
+      portfolioId: req.params.id,
+      proposalId: req.params.proposalId,
+      advisorId,
+      latency_ms: Date.now() - t0,
+    });
+
+    return res.json({
+      success: true,
+      data: { proposalId: req.params.proposalId, status: "executed", approvedBy: advisorId },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error_code: "PROPOSAL_APPROVE_ERROR", message: err.message, retryable: false });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/:id/proposals/:proposalId/reject
+ * ───────────────────────────────────────────────────────────
+ * Advisor rejects a proposal with an optional reason.
+ */
+modelPortfoliosRouter.post("/:id/proposals/:proposalId/reject", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { db } = await import("../db");
+    const { rebalanceProposals } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+    const advisorId = (req as any).user?.id ?? "unknown";
+    const reason = (req.body?.reason as string | undefined) ?? "Rejected by advisor";
+
+    await db.update(rebalanceProposals)
+      .set({ status: "rejected", reviewedBy: advisorId, reviewedAt: new Date(), rejectionReason: reason, updatedAt: new Date() })
+      .where(eq(rebalanceProposals.id, req.params.proposalId));
+
+    return res.json({
+      success: true,
+      data: { proposalId: req.params.proposalId, status: "rejected", rejectedBy: advisorId, reason },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error_code: "PROPOSAL_REJECT_ERROR", message: err.message, retryable: false });
+  }
+});
+
+/**
+ * GET /api/model-portfolios/alerts
+ * ────────────────────────────────
+ * Returns all active (unread) portfolio alerts for the advisor's portfolio set.
+ */
+modelPortfoliosRouter.get("/alerts", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { getPortfolioAlerts } = await import("../services/portfolio-alert-service");
+    const includeRead = req.query.includeRead === "true";
+    const portfolioId = (req.query.portfolioId as string | undefined) ?? "all";
+    const alerts = await getPortfolioAlerts(portfolioId, includeRead);
+
+    return res.json({
+      success: true,
+      data: alerts,
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0, total: alerts.length },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error_code: "ALERTS_FETCH_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/alerts/:alertId/read
+ * ─────────────────────────────────────────────────
+ * Mark an alert as read.
+ */
+modelPortfoliosRouter.post("/alerts/:alertId/read", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { markAlertRead } = await import("../services/portfolio-alert-service");
+    await markAlertRead(req.params.alertId);
+    return res.json({
+      success: true,
+      data: { alertId: req.params.alertId, isRead: true },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error_code: "ALERT_READ_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
+ * GET /api/model-portfolios/fund-performance/:isin
+ * ─────────────────────────────────────────────────
+ * Returns rolling return data for a specific fund ISIN.
+ */
+modelPortfoliosRouter.get("/fund-performance/:isin", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { db } = await import("../db");
+    const { fundPerformanceCache } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const rows = await db.select().from(fundPerformanceCache).where(eq(fundPerformanceCache.isin, req.params.isin)).limit(1);
+    if (!rows[0]) return res.status(404).json({ success: false, error_code: "FUND_NOT_FOUND", message: `No performance data for ISIN ${req.params.isin}`, retryable: false });
+
+    return res.json({
+      success: true,
+      data: rows[0],
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0,
+        disclaimer: "Past performance is not indicative of future results. SEBI-registered advisory only." },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error_code: "FUND_PERF_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/admin/run-nav-update
+ * ─────────────────────────────────────────────────
+ * Manual trigger for nightly NAV update (admin only).
+ */
+modelPortfoliosRouter.post("/admin/run-nav-update", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { runNightlyNAVUpdate } = await import("../services/nav-feed-service");
+    await runNightlyNAVUpdate();
+    return res.json({
+      success: true,
+      data: { message: "NAV update triggered" },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error_code: "NAV_UPDATE_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/admin/run-screener
+ * ───────────────────────────────────────────────
+ * Manual trigger for weekly fund screener (admin only).
+ */
+modelPortfoliosRouter.post("/admin/run-screener", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { runWeeklyScreener } = await import("../services/fund-screener-service");
+    await runWeeklyScreener();
+    return res.json({
+      success: true,
+      data: { message: "Fund screener run complete" },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error_code: "SCREENER_ERROR", message: err.message, retryable: true });
   }
 });

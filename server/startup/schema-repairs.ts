@@ -1,3 +1,6 @@
+/* eslint-disable no-console */
+// schema-repairs.ts — startup bootstrap migration utility.
+// console.* is intentional here: logger depends on DB which may not be ready yet.
 export async function runStartupSchemaRepairs() {
 	// ── DATABASE REPAIR & MIGRATION ──────────────────────────────────────────
 	// Perform critical schema updates needed for boot.
@@ -1958,7 +1961,139 @@ crypto_status VARCHAR,
 		console.log("✅ screener_stocks.is_active ensured");
 
 		console.log("✅ [Screener MoneyControl-parity] All migrations complete");
-	} catch (screenerMigErr: any) {
+	    // ── model_portfolios — Quant Alpha Engine columns (FASP-AI-v2.0) ──────────
+    try {
+      await migDb.execute(migSql`
+        ALTER TABLE model_portfolios
+          ADD COLUMN IF NOT EXISTS drift_score          INTEGER         DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS drift_details        JSONB           DEFAULT '[]',
+          ADD COLUMN IF NOT EXISTS quant_engine_version VARCHAR(50)     DEFAULT 'FASP-AI-v2.0',
+          ADD COLUMN IF NOT EXISTS last_quant_run       TIMESTAMP
+      `);
+      await migDb.execute(migSql`
+        CREATE INDEX IF NOT EXISTS idx_model_portfolios_drift ON model_portfolios (drift_score DESC)
+      `);
+      console.log("  ✅ model_portfolios: quant alpha columns (drift_score, drift_details, last_quant_run)");
+    } catch (e: any) {
+      console.warn("  ⚠️  model_portfolios quant columns migration (non-fatal):", e.message?.slice(0, 80));
+    }
+
+    } catch (screenerMigErr: any) {
 		console.warn("[Migration] Screener parity migration skipped (non-fatal):", screenerMigErr?.message);
 	}
+}
+
+// ── FASP-AI v3.0 Dynamic Portfolio Management Tables ──────────────────────────
+export async function runFASPAIv3Migrations(): Promise<void> {
+  const { neon } = await import("@neondatabase/serverless");
+  const { drizzle } = await import("drizzle-orm/neon-http");
+  const { sql: migSql } = await import("drizzle-orm");
+
+  const migDb = drizzle(neon(process.env.DATABASE_URL!));
+
+  // 1. fund_performance_cache — live NAV + rolling returns
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS fund_performance_cache (
+        isin               VARCHAR(20)         PRIMARY KEY,
+        scheme_code        VARCHAR(12),
+        scheme_name        VARCHAR(300),
+        asset_class        VARCHAR(50),
+        category           VARCHAR(100),
+        risk_rating        VARCHAR(20),
+        current_nav        NUMERIC(12,4),
+        nav_date           DATE,
+        cagr_1m            NUMERIC(6,2),
+        cagr_3m            NUMERIC(6,2),
+        cagr_6m            NUMERIC(6,2),
+        cagr_1y            NUMERIC(6,2),
+        cagr_3y            NUMERIC(6,2),
+        alpha_vs_nifty     NUMERIC(6,2),
+        alpha_vs_crisil    NUMERIC(6,2),
+        sharpe_ratio       NUMERIC(6,3),
+        sortino_ratio      NUMERIC(6,3),
+        max_drawdown       NUMERIC(6,2),
+        volatility         NUMERIC(6,2),
+        aum_cr             NUMERIC(14,2),
+        expense_ratio      NUMERIC(5,3),
+        alpha_score        NUMERIC(6,2),
+        nav_updated_at     TIMESTAMP,
+        returns_updated_at TIMESTAMP,
+        engine_version     VARCHAR(30)  DEFAULT 'FASP-AI-v3.0',
+        source             VARCHAR(20)  DEFAULT 'cron',
+        created_at         TIMESTAMP    DEFAULT NOW(),
+        updated_at         TIMESTAMP    DEFAULT NOW()
+      )
+    `);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_fpc_asset_class ON fund_performance_cache(asset_class)`);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_fpc_alpha_score ON fund_performance_cache(alpha_score DESC)`);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_fpc_nav_date ON fund_performance_cache(nav_date)`);
+    console.log("  ✅ fund_performance_cache: created");
+  } catch (e: any) {
+    console.warn("  ⚠️  fund_performance_cache (non-fatal):", e.message?.slice(0, 80));
+  }
+
+  // 2. rebalance_proposals — advisor-reviewed substitution plans
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS rebalance_proposals (
+        id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+        portfolio_id     VARCHAR(100) NOT NULL REFERENCES model_portfolios(id),
+        proposed_at      TIMESTAMP    DEFAULT NOW(),
+        proposed_by      VARCHAR(50)  DEFAULT 'FASP-AI-v3.0',
+        engine_version   VARCHAR(30)  DEFAULT 'FASP-AI-v3.0',
+        status           VARCHAR(20)  DEFAULT 'pending',
+        reviewed_by      VARCHAR(100),
+        reviewed_at      TIMESTAMP,
+        rejection_reason TEXT,
+        substitutions    JSONB        NOT NULL DEFAULT '[]',
+        total_alpha_gain NUMERIC(6,2),
+        confidence       INTEGER      DEFAULT 0,
+        drift_severity   VARCHAR(20),
+        executed_at      TIMESTAMP,
+        execution_notes  TEXT,
+        disclaimer       TEXT         DEFAULT 'Past performance is not indicative of future results. Advisor approval required.',
+        source           VARCHAR(20)  DEFAULT 'system',
+        created_at       TIMESTAMP    DEFAULT NOW(),
+        updated_at       TIMESTAMP    DEFAULT NOW()
+      )
+    `);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_rp_portfolio_status ON rebalance_proposals(portfolio_id, status)`);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_rp_proposed_at ON rebalance_proposals(proposed_at DESC)`);
+    console.log("  ✅ rebalance_proposals: created");
+  } catch (e: any) {
+    console.warn("  ⚠️  rebalance_proposals (non-fatal):", e.message?.slice(0, 80));
+  }
+
+  // 3. portfolio_alerts — drift/alpha/substitution notifications
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS portfolio_alerts (
+        id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+        portfolio_id  VARCHAR(100) REFERENCES model_portfolios(id),
+        alert_type    VARCHAR(50)  NOT NULL,
+        severity      VARCHAR(20)  NOT NULL DEFAULT 'info',
+        title         VARCHAR(200) NOT NULL,
+        message       TEXT         NOT NULL,
+        metadata      JSONB        DEFAULT '{}',
+        is_read       BOOLEAN      DEFAULT FALSE,
+        snoozed_until TIMESTAMP,
+        expires_at    TIMESTAMP,
+        dedup_key     VARCHAR(200),
+        engine_version VARCHAR(30) DEFAULT 'FASP-AI-v3.0',
+        source        VARCHAR(20)  DEFAULT 'system',
+        created_at    TIMESTAMP    DEFAULT NOW(),
+        updated_at    TIMESTAMP    DEFAULT NOW(),
+        UNIQUE(dedup_key)
+      )
+    `);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_pa_portfolio_read ON portfolio_alerts(portfolio_id, is_read)`);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_pa_alert_type ON portfolio_alerts(alert_type, severity)`);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_pa_created ON portfolio_alerts(created_at DESC)`);
+    console.log("  ✅ portfolio_alerts: created");
+  } catch (e: any) {
+    console.warn("  ⚠️  portfolio_alerts (non-fatal):", e.message?.slice(0, 80));
+  }
+
+  console.log("  ✅ [FASP-AI v3.0] All dynamic portfolio management tables created");
 }

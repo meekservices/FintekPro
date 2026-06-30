@@ -90,22 +90,39 @@ export function initializeIrisSyncCrons(): void {
       timestamp: new Date().toISOString(),
     });
     try {
-      // Trigger alpha scoring refresh for all active model portfolios
-      // The scoring engine reads model_portfolio_holdings and updates alpha scores
-      const { selectTopFundsByAlphaScore } = await import("./services/model-portfolio-metrics-service");
-      // Asset classes to refresh
-      const assetClasses = ["equity", "debt", "gold", "international", "liquid"];
-      const riskProfiles = ["conservative", "moderate", "aggressive"];
-      let refreshCount = 0;
-      for (const ac of assetClasses) {
-        for (const rp of riskProfiles) {
-          await selectTopFundsByAlphaScore(ac, ac, rp, 5);
-          refreshCount++;
-        }
-      }
-      logger.info("[CRON][Rebalancing] Alpha scores refreshed", {
-        event: "CRON_ALPHA_REFRESH_COMPLETE", refreshCount
+      // ── FASP-AI-v2.0: Run nightly quant rebalance for all 37 model portfolios ─
+      const { runNightlyModelPortfolioRebalance } = await import("./services/model-portfolio-quant-service");
+      const quantResult = await runNightlyModelPortfolioRebalance();
+      logger.info("[CRON][Rebalancing] Nightly quant rebalance complete", {
+        event: "CRON_NIGHTLY_QUANT_COMPLETE",
+        portfolios_scored: quantResult.portfolios_scored,
+        drifting: quantResult.drifting,
+        needing_rebalance: quantResult.needing_rebalance,
+        errors: quantResult.errors,
+        latency_ms: quantResult.latency_ms,
+        engine: "FASP-AI-v2.0",
       });
+
+      // ── Also refresh alpha scoring from model_portfolio_holdings ──────────
+      try {
+        const { selectTopFundsByAlphaScore } = await import("./services/model-portfolio-metrics-service");
+        const assetClasses = ["equity", "debt", "gold", "international", "liquid"];
+        const riskProfiles = ["conservative", "moderate", "aggressive"];
+        let refreshCount = 0;
+        for (const ac of assetClasses) {
+          for (const rp of riskProfiles) {
+            await selectTopFundsByAlphaScore(ac, ac, rp, 5);
+            refreshCount++;
+          }
+        }
+        logger.info("[CRON][Rebalancing] Alpha scores refreshed", {
+          event: "CRON_ALPHA_REFRESH_COMPLETE", refreshCount
+        });
+      } catch (metricsErr: unknown) {
+        logger.warn("[CRON][Rebalancing] Alpha metrics refresh (non-fatal)", {
+          error: metricsErr instanceof Error ? metricsErr.message : String(metricsErr),
+        });
+      }
       logger.info("[CRON][Rebalancing] Daily alpha rebalancing complete", {
         event: "CRON_REBALANCE_ALPHA_COMPLETE",
         timestamp: new Date().toISOString(),
@@ -120,12 +137,61 @@ export function initializeIrisSyncCrons(): void {
     }
   });
 
+  // ── FASP-AI v3.0: Nightly NAV update — 9PM IST (after AMFI publishes EOD NAVs) ────
+  cron.schedule("0 21 * * 1-5", async () => {
+    logger.info("[CRON][NAV] Nightly NAV update starting", { event: "CRON_NAV_UPDATE_START" });
+    try {
+      const { runNightlyNAVUpdate } = await import("./services/nav-feed-service");
+      await runNightlyNAVUpdate();
+    } catch (err: unknown) {
+      logger.error("[CRON][NAV] Nightly NAV update failed", {
+        event: "CRON_NAV_UPDATE_FAILED",
+        error: err instanceof Error ? err.message : String(err),
+        retryable: true,
+      });
+    }
+  }, { timezone: "Asia/Kolkata" });
+
+  // ── FASP-AI v3.0: Weekly rolling returns — Sunday 6AM IST ────────────────────
+  cron.schedule("0 6 * * 0", async () => {
+    logger.info("[CRON][Returns] Weekly rolling returns refresh starting", { event: "CRON_ROLLING_RETURNS_START" });
+    try {
+      const { refreshFundPerformanceCache } = await import("./services/rolling-returns-service");
+      await refreshFundPerformanceCache();
+    } catch (err: unknown) {
+      logger.error("[CRON][Returns] Rolling returns refresh failed", {
+        event: "CRON_ROLLING_RETURNS_FAILED",
+        error: err instanceof Error ? err.message : String(err),
+        retryable: true,
+      });
+    }
+  }, { timezone: "Asia/Kolkata" });
+
+  // ── FASP-AI v3.0: Weekly fund screener — Sunday 7AM IST (after returns refresh) ──
+  cron.schedule("0 7 * * 0", async () => {
+    logger.info("[CRON][Screener] Weekly fund screener starting", { event: "CRON_FUND_SCREENER_START" });
+    try {
+      const { runWeeklyScreener } = await import("./services/fund-screener-service");
+      await runWeeklyScreener();
+    } catch (err: unknown) {
+      logger.error("[CRON][Screener] Weekly fund screener failed", {
+        event: "CRON_FUND_SCREENER_FAILED",
+        error: err instanceof Error ? err.message : String(err),
+        retryable: true,
+      });
+    }
+  }, { timezone: "Asia/Kolkata" });
+
   logger.info("[CRON][PortfolioSync] All-registrar sync crons initialized", {
     event: "CRON_ALL_REGISTRAR_SYNC_INIT",
     schedules: [
       "nightly_all_registrar@02:30_IST",
       "daily_alpha_rebalancing@07:00_IST",
+      "nightly_nav_update@21:00_IST",
+      "weekly_rolling_returns@06:00_IST_Sunday",
+      "weekly_fund_screener@07:00_IST_Sunday",
     ],
     registrars: ["kfintech_iris", "cams", "mfcentral"],
+    faspaiv3: "nav_feed+rolling_returns+fund_screener",
   });
 }

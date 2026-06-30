@@ -157,6 +157,18 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 				"./startup/schema-repairs"
 			);
 			await runStartupSchemaRepairs();
+
+			// Seed model portfolio holdings (idempotent — only updates if DB < static count)
+			logBootProgress("Step 2b: Seeding model portfolio holdings...");
+			const { seedModelPortfolioHoldings } = await import(
+				"./startup/model-portfolio-holdings-seed"
+			);
+			await seedModelPortfolioHoldings();
+
+			// FASP-AI v3.0 — create dynamic portfolio management tables
+			logBootProgress("Step 2c: FASP-AI v3.0 schema migrations...");
+			const { runFASPAIv3Migrations } = await import("./startup/schema-repairs");
+			await runFASPAIv3Migrations();
 		} else {
 			logBootProgress(
 				"Step 2: Skipping startup schema repairs (run npm run db:repair or Cloud Run job)...",

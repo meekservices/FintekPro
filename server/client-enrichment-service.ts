@@ -1,3 +1,6 @@
+/* eslint-disable no-console */
+// client-enrichment-service.ts — AI-powered client data enrichment engine.
+// console.* is intentional for enrichment operation diagnostics.
 import { Request, Response } from "express";
 import { db } from "./db";
 import {
@@ -62,6 +65,9 @@ const enrichmentProviders: Record<string, EnrichmentProvider> = {
 
 // AI-powered data enrichment engine
 class ClientEnrichmentEngine {
+	/** Tracks when the current enrichment operation started for latency logging */
+	private _enrichmentStartTime: number = Date.now();
+
 	// Enrich client with PAN verification data
 	async enrichWithPANData(userId: string, panNumber: string) {
 		const provider = enrichmentProviders.karza_pan;
@@ -342,6 +348,7 @@ class ClientEnrichmentEngine {
 		sourceId: string,
 		success: boolean,
 		cost: number,
+		rawData: Record<string, unknown> = {},
 	) {
 		const logRecord: InsertApiIntegrationLog = {
 			userId,

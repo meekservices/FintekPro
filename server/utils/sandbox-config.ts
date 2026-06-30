@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+// sandbox-config.ts — BSE Sandbox auth utility. console.* intentional for auth diagnostics.
 import axios from "axios";
 import type { AxiosResponse } from "axios";
 
@@ -48,8 +50,6 @@ export async function getSandboxAccessToken(): Promise<string> {
 			"[Sandbox Auth] API credentials not configured. Returning dummy token for degraded mode.",
 		);
 		throw new Error("SANDBOX_AUTH_NOT_CONFIGURED: BSE sandbox credentials missing. Set SANDBOX_USER_ID, SANDBOX_PASSWORD env vars.");
-		tokenExpiry = Date.now() + 3600 * 1000;
-		return cachedToken;
 	}
 
 	const baseUrl = getSandboxBaseUrl();
@@ -85,8 +85,6 @@ export async function getSandboxAccessToken(): Promise<string> {
 				"[Sandbox Auth] Production authentication failed. Falling back to dummy token to maintain service availability.",
 			);
 			throw new Error("SANDBOX_AUTH_FAILED: BSE sandbox authentication failed. Verify SANDBOX_USER_ID and SANDBOX_PASSWORD.");
-			tokenExpiry = Date.now() + 600 * 1000; // Retry in 10 mins
-			return cachedToken;
 		}
 		throw new Error(
 			`Sandbox authentication failed (HTTP ${status}): ${errData?.message || authError.message}`,

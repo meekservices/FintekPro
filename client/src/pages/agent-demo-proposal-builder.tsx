@@ -1245,6 +1245,23 @@ export default function AgentDemoProposalBuilder() {
 	}, [selectedClient, prospectPortfolio]);
 
 	const handleNext = () => {
+		if (!canProceed()) {
+			const blockMessages: Record<number, string> = {
+				1: "Please select a client or prospect before proceeding.",
+				2: "Please set a primary goal, investment horizon, and a target amount greater than 0.",
+				3: "Asset allocation must total exactly 100% before proceeding.",
+				4: "Please complete the risk profile assessment.",
+				6: "Please select at least one proposal section.",
+				7: "Please select at least one proposal section.",
+				8: "Please complete all required steps before generating the proposal.",
+			};
+			toast({
+				title: "Step Incomplete",
+				description: blockMessages[currentStep] || "Please complete this step before proceeding.",
+				variant: "destructive",
+			});
+			return;
+		}
 		if (currentStep < 8) {
 			setCurrentStep((prev) => prev + 1);
 		}

@@ -333,14 +333,24 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "reits", label: "REITs/InvITs", weight: 10, color: "#EF4444", icon: "🏢" },
     ],
     holdings: [
-      { rank: 1, name: "HDFC Top 100 Fund", symbol: "HDFC100", category: "Large Cap MF", weight: 15, currentReturn: 13.4 },
-      { rank: 2, name: "SBI Magnum Gilt Fund", category: "Gilt Bond MF", weight: 12, currentReturn: 7.2 },
-      { rank: 3, name: "Nippon India Gold Savings", category: "Gold ETF", weight: 10, currentReturn: 11.1 },
-      { rank: 4, name: "ICICI Pru Liquid Fund", category: "Liquid MF", weight: 10, currentReturn: 7.5 },
-      { rank: 5, name: "Kotak NIFTY 50 ETF", category: "Index ETF", weight: 10, currentReturn: 12.7 },
-      { rank: 6, name: "Embassy Office Parks REIT", category: "REIT", weight: 8, currentReturn: 9.8 },
-      { rank: 7, name: "Axis AAA Bond Plus SDL", category: "Bond MF", weight: 8, currentReturn: 8.1 },
-      { rank: 8, name: "HDFC Corporate Bond Fund", category: "Bond MF", weight: 7, currentReturn: 7.9 },
+      { rank: 1,  name: "HDFC Top 100 Fund",               category: "Large Cap MF",    weight: 12, currentReturn: 13.4 },
+      { rank: 2,  name: "Kotak NIFTY 50 ETF",               category: "Index ETF",       weight: 10, currentReturn: 12.7 },
+      { rank: 3,  name: "SBI Magnum Gilt Fund",              category: "Gilt Bond MF",    weight: 8,  currentReturn: 7.2  },
+      { rank: 4,  name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 8,  currentReturn: 7.5  },
+      { rank: 5,  name: "Nippon India Gold Savings",         category: "Gold ETF",        weight: 8,  currentReturn: 11.1 },
+      { rank: 6,  name: "Embassy Office Parks REIT",         category: "REIT",            weight: 7,  currentReturn: 9.8  },
+      { rank: 7,  name: "Axis AAA Bond Plus SDL",            category: "Bond MF",         weight: 7,  currentReturn: 8.1  },
+      { rank: 8,  name: "HDFC Corporate Bond Fund",          category: "Bond MF",         weight: 7,  currentReturn: 7.9  },
+      { rank: 9,  name: "Mirae Asset Large Cap Fund",        category: "Large Cap MF",    weight: 6,  currentReturn: 14.1 },
+      { rank: 10, name: "ICICI Pru Balanced Advantage",      category: "Hybrid MF",       weight: 5,  currentReturn: 11.2 },
+      { rank: 11, name: "SBI Banking & PSU Fund",            category: "Bond MF",         weight: 5,  currentReturn: 7.6  },
+      { rank: 12, name: "Parag Parikh Flexi Cap Fund",       category: "Flexi Cap MF",    weight: 4,  currentReturn: 16.8 },
+      { rank: 13, name: "Quantum Gold Fund ETF",             category: "Gold ETF",        weight: 3,  currentReturn: 10.9 },
+      { rank: 14, name: "Mindspace Business Parks REIT",     category: "REIT",            weight: 3,  currentReturn: 8.7  },
+      { rank: 15, name: "HDFC Short Term Debt Fund",         category: "Short Term MF",   weight: 3,  currentReturn: 7.4  },
+      { rank: 16, name: "Aditya Birla SL Savings Fund",      category: "Ultra Short MF",  weight: 2,  currentReturn: 7.1  },
+      { rank: 17, name: "Nippon India ETF Nifty BeES",       category: "Index ETF",       weight: 1,  currentReturn: 12.5 },
+      { rank: 18, name: "UTI Nifty 50 Index Fund",           category: "Index MF",        weight: 1,  currentReturn: 12.4 },
     ],
     performance: PERFORMANCE_BASE("all-weather-india", 1000, 24, 9.2, 3),
     riskMetrics: { sharpeRatio: 1.42, maxDrawdown: -6.8, volatility: 7.2, beta: 0.48, alpha: 2.1 },
@@ -385,14 +395,28 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid", label: "Liquid Fund", weight: 8, color: "#6B7280", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "HDFC Flexicap Fund", category: "Flexicap MF", weight: 20, currentReturn: 16.2 },
-      { rank: 2, name: "Kotak NIFTY 50 ETF", category: "Index ETF", weight: 15, currentReturn: 12.8 },
-      { rank: 3, name: "Reliance Industries", symbol: "RELIANCE", category: "Large Cap Stock", weight: 12, currentReturn: 18.4 },
-      { rank: 4, name: "HDFC Bank Ltd", symbol: "HDFCBANK", category: "Large Cap Stock", weight: 10, currentReturn: 14.1 },
-      { rank: 5, name: "Infosys Ltd", symbol: "INFY", category: "Large Cap Stock", weight: 9, currentReturn: 22.3 },
-      { rank: 6, name: "ITC Limited", symbol: "ITC", category: "Large Cap Stock", weight: 8, currentReturn: 11.7 },
-      { rank: 7, name: "Bajaj Finance", symbol: "BAJFINANCE", category: "Large Cap Stock", weight: 7, currentReturn: 17.6 },
-      { rank: 8, name: "ICICI Pru Short Term Fund", category: "Bond MF", weight: 7, currentReturn: 8.2 },
+      { rank: 1,  name: "Mirae Asset Large Cap Fund",        category: "Large Cap MF",    weight: 10, currentReturn: 14.1 },
+      { rank: 2,  name: "HDFC Top 100 Fund",                 category: "Large Cap MF",    weight: 9,  currentReturn: 13.4 },
+      { rank: 3,  name: "SBI Bluechip Fund",                 category: "Large Cap MF",    weight: 8,  currentReturn: 12.9 },
+      { rank: 4,  name: "Kotak NIFTY 50 ETF",               category: "Index ETF",       weight: 8,  currentReturn: 12.7 },
+      { rank: 5,  name: "Axis Bluechip Fund",                category: "Large Cap MF",    weight: 7,  currentReturn: 13.1 },
+      { rank: 6,  name: "ICICI Pru Bluechip Fund",           category: "Large Cap MF",    weight: 7,  currentReturn: 12.8 },
+      { rank: 7,  name: "Nippon India Large Cap Fund",       category: "Large Cap MF",    weight: 6,  currentReturn: 13.6 },
+      { rank: 8,  name: "Aditya Birla SL Frontline Equity",  category: "Large Cap MF",    weight: 6,  currentReturn: 13.2 },
+      { rank: 9,  name: "Franklin India Bluechip Fund",      category: "Large Cap MF",    weight: 5,  currentReturn: 12.5 },
+      { rank: 10, name: "DSP Top 100 Equity Fund",           category: "Large Cap MF",    weight: 5,  currentReturn: 12.3 },
+      { rank: 11, name: "Canara Robeco Bluechip Equity",     category: "Large Cap MF",    weight: 4,  currentReturn: 13.8 },
+      { rank: 12, name: "Edelweiss Large Cap Fund",          category: "Large Cap MF",    weight: 4,  currentReturn: 12.1 },
+      { rank: 13, name: "HDFC Index Fund NIFTY 50",          category: "Index MF",        weight: 4,  currentReturn: 12.6 },
+      { rank: 14, name: "UTI NIFTY Next 50 Index Fund",      category: "Index MF",        weight: 3,  currentReturn: 13.4 },
+      { rank: 15, name: "ICICI Pru NIFTY Next 50 Index",     category: "Index MF",        weight: 3,  currentReturn: 13.2 },
+      { rank: 16, name: "Kotak Bluechip Fund",               category: "Large Cap MF",    weight: 3,  currentReturn: 12.7 },
+      { rank: 17, name: "Tata Large Cap Fund",               category: "Large Cap MF",    weight: 3,  currentReturn: 12.2 },
+      { rank: 18, name: "Invesco India Large Cap Fund",      category: "Large Cap MF",    weight: 3,  currentReturn: 12.4 },
+      { rank: 19, name: "PGIM India Large Cap Fund",         category: "Large Cap MF",    weight: 3,  currentReturn: 11.9 },
+      { rank: 20, name: "Nippon ETF NIFTY BeES",             category: "Index ETF",       weight: 3,  currentReturn: 12.6 },
+      { rank: 21, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 2,  currentReturn: 7.4  },
+      { rank: 22, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 2,  currentReturn: 7.5  },
     ],
     performance: PERFORMANCE_BASE("blue-chip-growth", 1000, 36, 14.8, 6),
     riskMetrics: { sharpeRatio: 1.78, maxDrawdown: -14.2, volatility: 13.4, beta: 0.82, alpha: 3.4 },
@@ -435,13 +459,34 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid", label: "Tactical Cash", weight: 10, color: "#6B7280", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "Quant Mid Cap Fund", category: "Mid Cap MF", weight: 18, currentReturn: 24.8 },
-      { rank: 2, name: "Nippon Small Cap Fund", category: "Small Cap MF", weight: 15, currentReturn: 31.2 },
-      { rank: 3, name: "Dixon Technologies", symbol: "DIXON", category: "Mid Cap Stock", weight: 8, currentReturn: 44.7 },
-      { rank: 4, name: "Tata Elxsi", symbol: "TATAELXSI", category: "Mid Cap Stock", weight: 7, currentReturn: 19.3 },
-      { rank: 5, name: "Polycab India", symbol: "POLYCAB", category: "Mid Cap Stock", weight: 7, currentReturn: 28.6 },
-      { rank: 6, name: "Kotak NIFTY 50 ETF", category: "Large Cap ETF", weight: 10, currentReturn: 12.4 },
-      { rank: 7, name: "Kaynes Technology", symbol: "KAYNES", category: "Small Cap Stock", weight: 6, currentReturn: 52.1 },
+      { rank: 1,  name: "Nippon India Small Cap Fund",       category: "Small Cap MF",    weight: 8,  currentReturn: 24.3 },
+      { rank: 2,  name: "SBI Small Cap Fund",                category: "Small Cap MF",    weight: 7,  currentReturn: 22.8 },
+      { rank: 3,  name: "Axis Small Cap Fund",               category: "Small Cap MF",    weight: 6,  currentReturn: 21.4 },
+      { rank: 4,  name: "HDFC Mid-Cap Opportunities",        category: "Mid Cap MF",      weight: 6,  currentReturn: 20.1 },
+      { rank: 5,  name: "Kotak Emerging Equity Fund",        category: "Mid Cap MF",      weight: 5,  currentReturn: 19.8 },
+      { rank: 6,  name: "ICICI Pru Midcap Fund",             category: "Mid Cap MF",      weight: 5,  currentReturn: 19.5 },
+      { rank: 7,  name: "Quant Small Cap Fund",              category: "Small Cap MF",    weight: 5,  currentReturn: 26.1 },
+      { rank: 8,  name: "DSP Small Cap Fund",                category: "Small Cap MF",    weight: 4,  currentReturn: 20.7 },
+      { rank: 9,  name: "Tata Small Cap Fund",               category: "Small Cap MF",    weight: 4,  currentReturn: 21.2 },
+      { rank: 10, name: "Edelweiss Mid Cap Fund",             category: "Mid Cap MF",      weight: 4,  currentReturn: 18.9 },
+      { rank: 11, name: "Canara Robeco Small Cap Fund",      category: "Small Cap MF",    weight: 4,  currentReturn: 22.4 },
+      { rank: 12, name: "Invesco India Midcap Fund",         category: "Mid Cap MF",      weight: 4,  currentReturn: 18.4 },
+      { rank: 13, name: "Franklin India Smaller Companies",  category: "Small Cap MF",    weight: 3,  currentReturn: 19.6 },
+      { rank: 14, name: "Aditya Birla SL Small Cap Fund",    category: "Small Cap MF",    weight: 3,  currentReturn: 20.3 },
+      { rank: 15, name: "PGIM India Midcap Opp Fund",        category: "Mid Cap MF",      weight: 3,  currentReturn: 17.8 },
+      { rank: 16, name: "Mirae Asset Midcap Fund",           category: "Mid Cap MF",      weight: 3,  currentReturn: 19.1 },
+      { rank: 17, name: "Nippon India ETF Nifty Midcap 150", category: "Mid Cap ETF",     weight: 3,  currentReturn: 18.7 },
+      { rank: 18, name: "Motilal Oswal Midcap Fund",         category: "Mid Cap MF",      weight: 3,  currentReturn: 20.5 },
+      { rank: 19, name: "Sundaram Small Cap Fund",           category: "Small Cap MF",    weight: 3,  currentReturn: 19.2 },
+      { rank: 20, name: "Union Small Cap Fund",              category: "Small Cap MF",    weight: 3,  currentReturn: 18.1 },
+      { rank: 21, name: "Quant Mid Cap Fund",                category: "Mid Cap MF",      weight: 3,  currentReturn: 22.7 },
+      { rank: 22, name: "Bandhan Small Cap Fund",            category: "Small Cap MF",    weight: 3,  currentReturn: 19.4 },
+      { rank: 23, name: "LIC MF Midcap Fund",                category: "Mid Cap MF",      weight: 2,  currentReturn: 17.2 },
+      { rank: 24, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 2,  currentReturn: 7.5  },
+      { rank: 25, name: "SBI Liquid Fund",                   category: "Liquid MF",       weight: 2,  currentReturn: 7.4  },
+      { rank: 26, name: "Nippon India Liquid Fund",          category: "Liquid MF",       weight: 2,  currentReturn: 7.3  },
+      { rank: 27, name: "Kotak Liquid Fund",                 category: "Liquid MF",       weight: 1,  currentReturn: 7.2  },
+      { rank: 28, name: "Axis Liquid Fund",                  category: "Liquid MF",       weight: 1,  currentReturn: 7.2  },
     ],
     performance: PERFORMANCE_BASE("emerging-leaders", 1000, 24, 21.3, 14),
     riskMetrics: { sharpeRatio: 1.53, maxDrawdown: -28.4, volatility: 21.6, beta: 1.32, alpha: 5.8 },
@@ -483,13 +528,26 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "sgb", label: "SGBs (Sovereign Gold)", weight: 15, color: "#EF4444", icon: "🥇" },
     ],
     holdings: [
-      { rank: 1, name: "ITC Limited", symbol: "ITC", category: "Dividend Stock", weight: 12, currentReturn: 11.7 },
-      { rank: 2, name: "Coal India", symbol: "COALINDIA", category: "PSU Dividend Stock", weight: 10, currentReturn: 16.2 },
-      { rank: 3, name: "HDFC Corporate Bond Fund", category: "Bond MF", weight: 12, currentReturn: 8.1 },
-      { rank: 4, name: "Mindspace Business Parks REIT", category: "REIT", weight: 10, currentReturn: 10.2 },
-      { rank: 5, name: "Power Grid Corp", symbol: "POWERGRID", category: "Dividend Stock", weight: 9, currentReturn: 14.8 },
-      { rank: 6, name: "Sovereign Gold Bond 2028", category: "SGB", weight: 8, currentReturn: 11.4 },
-      { rank: 7, name: "ONGC Ltd", symbol: "ONGC", category: "PSU Dividend Stock", weight: 8, currentReturn: 19.3 },
+      { rank: 1,  name: "HDFC Dividend Yield Fund",           category: "Dividend Yield",  weight: 10, currentReturn: 12.1 },
+      { rank: 2,  name: "ICICI Pru Dividend Yield Equity",   category: "Dividend Yield",  weight: 9,  currentReturn: 11.8 },
+      { rank: 3,  name: "Aditya Birla SL Dividend Yield",    category: "Dividend Yield",  weight: 8,  currentReturn: 11.4 },
+      { rank: 4,  name: "UTI Dividend Yield Fund",           category: "Dividend Yield",  weight: 8,  currentReturn: 11.0 },
+      { rank: 5,  name: "Sundaram Dividend Yield Fund",      category: "Dividend Yield",  weight: 7,  currentReturn: 10.7 },
+      { rank: 6,  name: "Embassy Office Parks REIT",         category: "REIT",            weight: 7,  currentReturn: 9.8  },
+      { rank: 7,  name: "Nexus Select Trust REIT",           category: "REIT",            weight: 6,  currentReturn: 8.4  },
+      { rank: 8,  name: "Mindspace Business Parks REIT",     category: "REIT",            weight: 6,  currentReturn: 8.7  },
+      { rank: 9,  name: "HDFC Corporate Bond Fund",          category: "Bond MF",         weight: 6,  currentReturn: 7.9  },
+      { rank: 10, name: "Axis AAA Bond Plus SDL",            category: "Bond MF",         weight: 5,  currentReturn: 8.1  },
+      { rank: 11, name: "SBI Magnum Income Fund",            category: "Income MF",       weight: 5,  currentReturn: 7.8  },
+      { rank: 12, name: "Nippon India Income Fund",          category: "Income MF",       weight: 5,  currentReturn: 7.6  },
+      { rank: 13, name: "IndiGrid Infrastructure InvIT",     category: "InvIT",           weight: 4,  currentReturn: 9.1  },
+      { rank: 14, name: "Power Grid Corp InvIT",             category: "InvIT",           weight: 4,  currentReturn: 8.6  },
+      { rank: 15, name: "ICICI Pru Banking & PSU Debt",      category: "Bond MF",         weight: 4,  currentReturn: 7.5  },
+      { rank: 16, name: "Kotak Banking & PSU Debt Fund",     category: "Bond MF",         weight: 3,  currentReturn: 7.4  },
+      { rank: 17, name: "Tata AAA Bond Plus SDL",            category: "Bond MF",         weight: 3,  currentReturn: 8.0  },
+      { rank: 18, name: "DSP Banking & PSU Debt Fund",       category: "Bond MF",         weight: 3,  currentReturn: 7.3  },
+      { rank: 19, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 2,  currentReturn: 7.5  },
+      { rank: 20, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 2,  currentReturn: 7.4  },
     ],
     performance: PERFORMANCE_BASE("dividend-harvest", 1000, 36, 11.5, 5),
     riskMetrics: { sharpeRatio: 1.61, maxDrawdown: -9.4, volatility: 9.8, beta: 0.61, alpha: 2.8 },
@@ -532,12 +590,20 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid", label: "Liquid Fund", weight: 8, color: "#6B7280", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "Mirae Asset Tax Saver Fund (ELSS)", category: "ELSS", weight: 20, currentReturn: 16.4 },
-      { rank: 2, name: "Axis Long Term Equity Fund (ELSS)", category: "ELSS", weight: 18, currentReturn: 13.2 },
-      { rank: 3, name: "Quant Tax Plan (ELSS)", category: "ELSS", weight: 17, currentReturn: 24.1 },
-      { rank: 4, name: "HDFC Top 100 Fund", category: "Large Cap MF", weight: 15, currentReturn: 13.7 },
-      { rank: 5, name: "NHAI Tax-free Bonds 2027", category: "Tax-free Bond", weight: 8, currentReturn: 6.8 },
-      { rank: 6, name: "PFC Tax-free Bonds 2028", category: "Tax-free Bond", weight: 7, currentReturn: 6.6 },
+      { rank: 1,  name: "Axis Long Term Equity Fund (ELSS)",   category: "ELSS",            weight: 15, currentReturn: 14.2 },
+      { rank: 2,  name: "Mirae Asset Tax Saver Fund (ELSS)", category: "ELSS",            weight: 14, currentReturn: 15.1 },
+      { rank: 3,  name: "Canara Robeco Equity Tax Saver",    category: "ELSS",            weight: 13, currentReturn: 14.8 },
+      { rank: 4,  name: "HDFC Tax Saver (ELSS)",             category: "ELSS",            weight: 12, currentReturn: 13.9 },
+      { rank: 5,  name: "Quant Tax Plan Fund (ELSS)",        category: "ELSS",            weight: 11, currentReturn: 17.4 },
+      { rank: 6,  name: "SBI Long Term Equity (ELSS)",       category: "ELSS",            weight: 10, currentReturn: 13.5 },
+      { rank: 7,  name: "Kotak Tax Saver Fund (ELSS)",       category: "ELSS",            weight: 9,  currentReturn: 13.1 },
+      { rank: 8,  name: "DSP Tax Saver Fund (ELSS)",         category: "ELSS",            weight: 8,  currentReturn: 13.8 },
+      { rank: 9,  name: "ICICI Pru Long Term Equity (ELSS)", category: "ELSS",            weight: 5,  currentReturn: 13.2 },
+      { rank: 10, name: "Nippon India Tax Saver (ELSS)",     category: "ELSS",            weight: 3,  currentReturn: 12.8 },
+      { rank: 11, name: "UTI Long Term Equity Fund (ELSS)",  category: "ELSS",            weight: 3,  currentReturn: 12.4 },
+      { rank: 12, name: "Aditya Birla SL Tax Relief 96",     category: "ELSS",            weight: 3,  currentReturn: 13.0 },
+      { rank: 13, name: "Tata India Tax Savings Fund (ELSS)",category: "ELSS",            weight: 3,  currentReturn: 12.1 },
+      { rank: 14, name: "L&T Tax Advantage Fund (ELSS)",     category: "ELSS",            weight: 1,  currentReturn: 11.8 },
     ],
     performance: PERFORMANCE_BASE("tax-saver-portfolio", 1000, 24, 12.1, 7),
     riskMetrics: { sharpeRatio: 1.69, maxDrawdown: -16.2, volatility: 14.1, beta: 0.89, alpha: 3.1 },
@@ -579,12 +645,18 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "unlisted", label: "Unlisted Equity", weight: 15, color: "#10B981", icon: "💼" },
     ],
     holdings: [
-      { rank: 1, name: "Alchemy Leaders of Tomorrow (PMS)", category: "PMS", weight: 18, currentReturn: 22.4 },
-      { rank: 2, name: "Motilal Oswal Focused PMS", category: "PMS", weight: 17, currentReturn: 19.8 },
-      { rank: 3, name: "IIFL Special Opportunities Fund (AIF)", category: "AIF Cat-II", weight: 15, currentReturn: 24.7 },
-      { rank: 4, name: "Stride Ventures Fund (AIF Cat-I)", category: "AIF Cat-I", weight: 15, currentReturn: 31.2 },
-      { rank: 5, name: "Swiggy Pre-IPO", category: "Pre-IPO", weight: 12, currentReturn: 38.4 },
-      { rank: 6, name: "National Stock Exchange (Unlisted)", category: "Unlisted", weight: 10, currentReturn: 28.1 },
+      { rank: 1,  name: "Kotak AIF – Growth Fund III",         category: "Category III AIF",weight: 18, currentReturn: 19.4 },
+      { rank: 2,  name: "IIFL Special Opportunities Fund",   category: "Category III AIF",weight: 15, currentReturn: 21.2 },
+      { rank: 3,  name: "DSP BlackRock Alt Fund",            category: "Category II AIF", weight: 14, currentReturn: 16.8 },
+      { rank: 4,  name: "Motilal Oswal AIF PE Fund",         category: "Category II AIF", weight: 13, currentReturn: 18.1 },
+      { rank: 5,  name: "Embassy Office Parks REIT",         category: "REIT",            weight: 12, currentReturn: 9.8  },
+      { rank: 6,  name: "Nippon India ETF Gold BeES",        category: "Gold ETF",        weight: 11, currentReturn: 11.1 },
+      { rank: 7,  name: "Sovereign Gold Bond 2026-27 Series",category: "SGB",             weight: 10, currentReturn: 10.8 },
+      { rank: 8,  name: "IndiGrid Infrastructure InvIT",     category: "InvIT",           weight: 7,  currentReturn: 9.1  },
+      { rank: 9,  name: "Power Grid Corp InvIT",             category: "InvIT",           weight: 5,  currentReturn: 8.6  },
+      { rank: 10, name: "Aditya Birla Private Equity Fund",  category: "Category II AIF", weight: 3,  currentReturn: 17.2 },
+      { rank: 11, name: "Quantum Long Term Equity Fund",     category: "Large Cap MF",    weight: 1,  currentReturn: 13.4 },
+      { rank: 12, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 1,  currentReturn: 7.4  },
     ],
     performance: PERFORMANCE_BASE("hni-alternatives", 1000, 36, 18.7, 9),
     riskMetrics: { sharpeRatio: 1.91, maxDrawdown: -22.1, volatility: 17.4, beta: 0.74, alpha: 7.2 },
@@ -627,13 +699,22 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "reits", label: "REITs (yield focus)", weight: 10, color: "#EF4444", icon: "🏢" },
     ],
     holdings: [
-      { rank: 1, name: "SBI Magnum Constant Maturity", category: "Gilt MF", weight: 16, currentReturn: 8.4 },
-      { rank: 2, name: "HDFC Ultra Short Term Fund", category: "Liquid MF", weight: 12, currentReturn: 7.8 },
-      { rank: 3, name: "Sovereign Gold Bond 2030", category: "SGB", weight: 12, currentReturn: 11.1 },
-      { rank: 4, name: "Kotak Dynamic Bond Fund", category: "Bond MF", weight: 12, currentReturn: 9.2 },
-      { rank: 5, name: "ITC Limited (Dividend)", symbol: "ITC", category: "Dividend Stock", weight: 9, currentReturn: 11.7 },
-      { rank: 6, name: "Embassy Office Parks REIT", category: "REIT", weight: 10, currentReturn: 10.4 },
-      { rank: 7, name: "NHAI Tax-free Bond", category: "Tax-free Bond", weight: 8, currentReturn: 6.7 },
+      { rank: 1,  name: "SBI Retirement Benefit Fund",        category: "Retirement MF",   weight: 10, currentReturn: 9.2  },
+      { rank: 2,  name: "HDFC Retirement Savings — Hybrid",  category: "Retirement MF",   weight: 9,  currentReturn: 9.8  },
+      { rank: 3,  name: "ICICI Pru Retirement Balanced",     category: "Retirement MF",   weight: 8,  currentReturn: 9.4  },
+      { rank: 4,  name: "Franklin India Pension Plan",        category: "Retirement MF",   weight: 8,  currentReturn: 8.9  },
+      { rank: 5,  name: "HDFC Corporate Bond Fund",          category: "Bond MF",         weight: 8,  currentReturn: 7.9  },
+      { rank: 6,  name: "SBI Magnum Gilt Fund",              category: "Gilt MF",         weight: 7,  currentReturn: 7.2  },
+      { rank: 7,  name: "Axis AAA Bond Plus SDL",            category: "Bond MF",         weight: 7,  currentReturn: 8.1  },
+      { rank: 8,  name: "Embassy REIT",                      category: "REIT",            weight: 6,  currentReturn: 9.8  },
+      { rank: 9,  name: "Nippon India Gold Savings Fund",    category: "Gold ETF",        weight: 6,  currentReturn: 11.1 },
+      { rank: 10, name: "ICICI Pru Equity & Debt Fund",      category: "Hybrid MF",       weight: 6,  currentReturn: 11.8 },
+      { rank: 11, name: "Kotak NIFTY 50 ETF",               category: "Index ETF",       weight: 5,  currentReturn: 12.7 },
+      { rank: 12, name: "Mirae Asset Large Cap Fund",        category: "Large Cap MF",    weight: 5,  currentReturn: 14.1 },
+      { rank: 13, name: "IndiGrid InvIT",                    category: "InvIT",           weight: 5,  currentReturn: 9.1  },
+      { rank: 14, name: "Aditya Birla SL Savings Fund",      category: "Ultra Short MF",  weight: 4,  currentReturn: 7.1  },
+      { rank: 15, name: "DSP BlackRock Short Term Fund",     category: "Short Term MF",   weight: 4,  currentReturn: 7.4  },
+      { rank: 16, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 2,  currentReturn: 7.5  },
     ],
     performance: PERFORMANCE_BASE("retirement-shield", 1000, 36, 8.5, 2.5),
     riskMetrics: { sharpeRatio: 1.88, maxDrawdown: -4.2, volatility: 5.1, beta: 0.28, alpha: 1.9 },
@@ -677,13 +758,30 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid", label: "Cash/Liquid", weight: 10, color: "#6B7280", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "Larsen & Toubro", symbol: "LT", category: "Infrastructure", weight: 12, currentReturn: 21.4 },
-      { rank: 2, name: "Adani Ports", symbol: "ADANIPORTS", category: "Infrastructure", weight: 10, currentReturn: 18.7 },
-      { rank: 3, name: "Dixon Technologies", symbol: "DIXON", category: "PLI Manufacturing", weight: 9, currentReturn: 44.7 },
-      { rank: 4, name: "Bajaj Finance", symbol: "BAJFINANCE", category: "NBFC", weight: 9, currentReturn: 17.3 },
-      { rank: 5, name: "Tata Motors", symbol: "TATAMOTORS", category: "EV/Auto", weight: 8, currentReturn: 23.2 },
-      { rank: 6, name: "Hindustan Unilever", symbol: "HINDUNILVR", category: "FMCG", weight: 8, currentReturn: 9.4 },
-      { rank: 7, name: "NTPC Green Energy", category: "Renewable Infra", weight: 7, currentReturn: 28.1 },
+      { rank: 1,  name: "SBI PSU Fund",                         category: "PSU/Thematic MF", weight: 7,  currentReturn: 18.4 },
+      { rank: 2,  name: "Nippon India Power & Infra Fund",   category: "Infra MF",        weight: 6,  currentReturn: 21.3 },
+      { rank: 3,  name: "HDFC Infrastructure Fund",          category: "Infra MF",        weight: 6,  currentReturn: 19.7 },
+      { rank: 4,  name: "Quant Infrastructure Fund",         category: "Infra MF",        weight: 5,  currentReturn: 24.1 },
+      { rank: 5,  name: "Kotak Infrastructure & Eco Reform", category: "Infra MF",        weight: 5,  currentReturn: 20.5 },
+      { rank: 6,  name: "Aditya Birla SL India GenNext",     category: "Thematic MF",     weight: 5,  currentReturn: 17.8 },
+      { rank: 7,  name: "Franklin India Opportunities Fund", category: "Thematic MF",     weight: 5,  currentReturn: 16.4 },
+      { rank: 8,  name: "UTI Infrastructure Fund",           category: "Infra MF",        weight: 5,  currentReturn: 18.9 },
+      { rank: 9,  name: "DSP Natural Resources Fund",        category: "Thematic MF",     weight: 4,  currentReturn: 19.2 },
+      { rank: 10, name: "Tata Resources & Energy Fund",      category: "Thematic MF",     weight: 4,  currentReturn: 18.3 },
+      { rank: 11, name: "ICICI Pru Manufacturing Fund",      category: "Thematic MF",     weight: 4,  currentReturn: 17.6 },
+      { rank: 12, name: "IndiGrid InvIT",                    category: "InvIT",           weight: 4,  currentReturn: 9.1  },
+      { rank: 13, name: "Power Grid Corp InvIT",             category: "InvIT",           weight: 4,  currentReturn: 8.6  },
+      { rank: 14, name: "Embassy Office Parks REIT",         category: "REIT",            weight: 4,  currentReturn: 9.8  },
+      { rank: 15, name: "Axis India Manufacturing Fund",     category: "Thematic MF",     weight: 4,  currentReturn: 17.1 },
+      { rank: 16, name: "Mirae Asset Great Consumer Fund",   category: "Thematic MF",     weight: 4,  currentReturn: 16.8 },
+      { rank: 17, name: "Edelweiss India Defence Fund",      category: "Thematic MF",     weight: 4,  currentReturn: 22.7 },
+      { rank: 18, name: "Nippon India Nifty Midcap 150 ETF", category: "Mid Cap ETF",     weight: 3,  currentReturn: 18.7 },
+      { rank: 19, name: "Bandhan Infrastructure Fund",       category: "Infra MF",        weight: 3,  currentReturn: 18.1 },
+      { rank: 20, name: "PGIM India Flexi Cap Fund",         category: "Flexi Cap MF",    weight: 3,  currentReturn: 16.2 },
+      { rank: 21, name: "Parag Parikh Flexi Cap Fund",       category: "Flexi Cap MF",    weight: 3,  currentReturn: 16.8 },
+      { rank: 22, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 3,  currentReturn: 7.4  },
+      { rank: 23, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 2,  currentReturn: 7.5  },
+      { rank: 24, name: "SBI Liquid Fund",                   category: "Liquid MF",       weight: 1,  currentReturn: 7.4  },
     ],
     performance: PERFORMANCE_BASE("bharat-2030", 1000, 24, 17.4, 10),
     riskMetrics: { sharpeRatio: 1.64, maxDrawdown: -18.7, volatility: 16.3, beta: 1.08, alpha: 4.2 },
@@ -726,11 +824,18 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid", label: "Liquid MF", weight: 5, color: "#9CA3AF", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "Kotak Nifty 50 ETF", symbol: "KOTAKNIFTY", category: "Large Cap ETF", weight: 30, currentReturn: 13.2 },
-      { rank: 2, name: "Nippon India Nifty 50 BeES", symbol: "NIFTYBEES", category: "Large Cap ETF", weight: 25, currentReturn: 13.0 },
-      { rank: 3, name: "Motilal Oswal Nifty Next 50", category: "Large Cap ETF", weight: 25, currentReturn: 14.7 },
-      { rank: 4, name: "HDFC Bank", symbol: "HDFCBANK", category: "Quality Large Cap", weight: 10, currentReturn: 9.2 },
-      { rank: 5, name: "TCS", symbol: "TCS", category: "Quality Large Cap", weight: 5, currentReturn: 16.1 },
+      { rank: 1,  name: "UTI NIFTY 50 Index Fund",            category: "Index MF",        weight: 20, currentReturn: 12.4 },
+      { rank: 2,  name: "HDFC Index Fund — NIFTY 50",        category: "Index MF",        weight: 18, currentReturn: 12.6 },
+      { rank: 3,  name: "ICICI Pru NIFTY 50 Index Fund",     category: "Index MF",        weight: 15, currentReturn: 12.5 },
+      { rank: 4,  name: "Kotak NIFTY 50 ETF",               category: "Index ETF",       weight: 14, currentReturn: 12.7 },
+      { rank: 5,  name: "Nippon India ETF Nifty BeES",       category: "Index ETF",       weight: 13, currentReturn: 12.5 },
+      { rank: 6,  name: "SBI NIFTY Index Fund",              category: "Index MF",        weight: 8,  currentReturn: 12.3 },
+      { rank: 7,  name: "UTI NIFTY Next 50 Index Fund",      category: "Index MF",        weight: 5,  currentReturn: 13.4 },
+      { rank: 8,  name: "Nippon India ETF Nifty Next 50",    category: "Index ETF",       weight: 4,  currentReturn: 13.1 },
+      { rank: 9,  name: "Aditya Birla NIFTY 50 ETF",         category: "Index ETF",       weight: 2,  currentReturn: 12.4 },
+      { rank: 10, name: "Mirae Asset NIFTY 50 ETF",          category: "Index ETF",       weight: 1,  currentReturn: 12.5 },
+      { rank: 11, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 1,  currentReturn: 7.5  },
+      { rank: 12, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 1,  currentReturn: 7.4  },
     ],
     performance: PERFORMANCE_BASE("nifty50-index-alpha", 1000, 24, 13.2, 5),
     riskMetrics: { sharpeRatio: 1.38, maxDrawdown: -11.2, volatility: 10.8, beta: 0.95, alpha: 1.9 },
@@ -775,12 +880,26 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid", label: "Cash Buffer", weight: 5, color: "#9CA3AF", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "Persistent Systems", symbol: "PERSISTENT", category: "Mid Cap IT", weight: 9, currentReturn: 38.4 },
-      { rank: 2, name: "Chalet Hotels", symbol: "CHALET", category: "Mid Cap Hotels", weight: 8, currentReturn: 31.2 },
-      { rank: 3, name: "Kaynes Technology", symbol: "KAYNES", category: "Mid Cap Electronics", weight: 7, currentReturn: 55.1 },
-      { rank: 4, name: "Motilal Nifty Midcap 150", category: "Midcap ETF", weight: 15, currentReturn: 18.4 },
-      { rank: 5, name: "Varun Beverages", symbol: "VBL", category: "Mid Cap FMCG", weight: 7, currentReturn: 27.3 },
-      { rank: 6, name: "Blue Star", symbol: "BLUESTAR", category: "Mid Cap Consumer", weight: 6, currentReturn: 22.8 },
+      { rank: 1,  name: "HDFC Mid-Cap Opportunities Fund",     category: "Mid Cap MF",      weight: 9,  currentReturn: 20.1 },
+      { rank: 2,  name: "Kotak Emerging Equity Fund",        category: "Mid Cap MF",      weight: 8,  currentReturn: 19.8 },
+      { rank: 3,  name: "Nippon India Growth Fund",          category: "Mid Cap MF",      weight: 8,  currentReturn: 21.4 },
+      { rank: 4,  name: "SBI Magnum Midcap Fund",            category: "Mid Cap MF",      weight: 7,  currentReturn: 19.2 },
+      { rank: 5,  name: "Franklin India Prima Fund",         category: "Mid Cap MF",      weight: 7,  currentReturn: 18.7 },
+      { rank: 6,  name: "ICICI Pru Midcap Fund",             category: "Mid Cap MF",      weight: 6,  currentReturn: 19.5 },
+      { rank: 7,  name: "Quant Mid Cap Fund",                category: "Mid Cap MF",      weight: 6,  currentReturn: 22.7 },
+      { rank: 8,  name: "Axis Midcap Fund",                  category: "Mid Cap MF",      weight: 6,  currentReturn: 18.4 },
+      { rank: 9,  name: "Motilal Oswal Midcap Fund",         category: "Mid Cap MF",      weight: 6,  currentReturn: 20.5 },
+      { rank: 10, name: "Aditya Birla SL Midcap Fund",       category: "Mid Cap MF",      weight: 6,  currentReturn: 18.9 },
+      { rank: 11, name: "Edelweiss Mid Cap Fund",             category: "Mid Cap MF",      weight: 5,  currentReturn: 18.4 },
+      { rank: 12, name: "DSP Midcap Fund",                   category: "Mid Cap MF",      weight: 5,  currentReturn: 18.1 },
+      { rank: 13, name: "PGIM India Midcap Opp Fund",        category: "Mid Cap MF",      weight: 5,  currentReturn: 17.8 },
+      { rank: 14, name: "Nippon ETF Nifty Midcap 150",       category: "Mid Cap ETF",     weight: 5,  currentReturn: 18.7 },
+      { rank: 15, name: "Tata Mid Cap Growth Fund",          category: "Mid Cap MF",      weight: 5,  currentReturn: 17.4 },
+      { rank: 16, name: "Bandhan Core Equity Fund",          category: "Mid Cap MF",      weight: 4,  currentReturn: 17.9 },
+      { rank: 17, name: "Mirae Asset Midcap Fund",           category: "Mid Cap MF",      weight: 4,  currentReturn: 19.1 },
+      { rank: 18, name: "Invesco India Midcap Fund",         category: "Mid Cap MF",      weight: 4,  currentReturn: 18.4 },
+      { rank: 19, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 2,  currentReturn: 7.5  },
+      { rank: 20, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 2,  currentReturn: 7.4  },
     ],
     performance: PERFORMANCE_BASE("midcap-momentum", 1000, 24, 21.3, 13),
     riskMetrics: { sharpeRatio: 1.51, maxDrawdown: -22.4, volatility: 18.7, beta: 1.22, alpha: 5.8 },
@@ -824,11 +943,31 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid", label: "Cash Buffer", weight: 10, color: "#9CA3AF", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "Neuland Laboratories", symbol: "NEULANDLAB", category: "Small Cap Pharma", weight: 8, currentReturn: 67.3 },
-      { rank: 2, name: "KPIT Technologies", symbol: "KPITTECH", category: "Small Cap IT", weight: 7, currentReturn: 44.1 },
-      { rank: 3, name: "Utkarsh Small Finance Bank", symbol: "UTKARSHBNK", category: "Small Cap Bank", weight: 6, currentReturn: -12.4 },
-      { rank: 4, name: "Garware Technical Fibres", symbol: "GARFIBRES", category: "Small Cap Specialty", weight: 6, currentReturn: 38.7 },
-      { rank: 5, name: "Nippon Smallcap 250 BeES", category: "Smallcap ETF", weight: 20, currentReturn: 20.1 },
+      { rank: 1,  name: "Nippon India Small Cap Fund",       category: "Small Cap MF",    weight: 10, currentReturn: 24.3 },
+      { rank: 2,  name: "SBI Small Cap Fund",                category: "Small Cap MF",    weight: 9,  currentReturn: 22.8 },
+      { rank: 3,  name: "Quant Small Cap Fund",              category: "Small Cap MF",    weight: 8,  currentReturn: 26.1 },
+      { rank: 4,  name: "Axis Small Cap Fund",               category: "Small Cap MF",    weight: 8,  currentReturn: 21.4 },
+      { rank: 5,  name: "HDFC Small Cap Fund",               category: "Small Cap MF",    weight: 7,  currentReturn: 20.8 },
+      { rank: 6,  name: "Kotak Small Cap Fund",              category: "Small Cap MF",    weight: 6,  currentReturn: 20.2 },
+      { rank: 7,  name: "Canara Robeco Small Cap Fund",      category: "Small Cap MF",    weight: 6,  currentReturn: 22.4 },
+      { rank: 8,  name: "Tata Small Cap Fund",               category: "Small Cap MF",    weight: 5,  currentReturn: 21.2 },
+      { rank: 9,  name: "DSP Small Cap Fund",                category: "Small Cap MF",    weight: 5,  currentReturn: 20.7 },
+      { rank: 10, name: "Franklin India Smaller Companies",  category: "Small Cap MF",    weight: 5,  currentReturn: 19.6 },
+      { rank: 11, name: "Aditya Birla SL Small Cap Fund",    category: "Small Cap MF",    weight: 5,  currentReturn: 20.3 },
+      { rank: 12, name: "Bandhan Small Cap Fund",            category: "Small Cap MF",    weight: 5,  currentReturn: 19.4 },
+      { rank: 13, name: "Edelweiss Small Cap Fund",          category: "Small Cap MF",    weight: 4,  currentReturn: 21.0 },
+      { rank: 14, name: "ICICI Pru Small Cap Fund",          category: "Small Cap MF",    weight: 4,  currentReturn: 20.1 },
+      { rank: 15, name: "Invesco India Smallcap Fund",       category: "Small Cap MF",    weight: 4,  currentReturn: 19.8 },
+      { rank: 16, name: "Union Small Cap Fund",              category: "Small Cap MF",    weight: 4,  currentReturn: 18.1 },
+      { rank: 17, name: "Mirae Asset Small Cap Fund",        category: "Small Cap MF",    weight: 4,  currentReturn: 20.6 },
+      { rank: 18, name: "Sundaram Small Cap Fund",           category: "Small Cap MF",    weight: 3,  currentReturn: 19.2 },
+      { rank: 19, name: "PGIM India Small Cap Fund",         category: "Small Cap MF",    weight: 3,  currentReturn: 18.9 },
+      { rank: 20, name: "Motilal Oswal Small Cap Fund",      category: "Small Cap MF",    weight: 3,  currentReturn: 21.8 },
+      { rank: 21, name: "LIC MF Small Cap Fund",             category: "Small Cap MF",    weight: 3,  currentReturn: 17.4 },
+      { rank: 22, name: "Navi Small Cap Index Fund",         category: "Small Cap ETF",   weight: 3,  currentReturn: 20.4 },
+      { rank: 23, name: "Baroda BNP Paribas Small Cap",      category: "Small Cap MF",    weight: 2,  currentReturn: 18.7 },
+      { rank: 24, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 1,  currentReturn: 7.5  },
+      { rank: 25, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 1,  currentReturn: 7.4  },
     ],
     performance: PERFORMANCE_BASE("smallcap-discovery", 1000, 24, 24.7, 18),
     riskMetrics: { sharpeRatio: 1.32, maxDrawdown: -31.2, volatility: 24.3, beta: 1.41, alpha: 7.2 },
@@ -873,11 +1012,36 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid", label: "Cash", weight: 5, color: "#9CA3AF", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "Reliance Industries", symbol: "RELIANCE", category: "Large Cap", weight: 10, currentReturn: 11.4 },
-      { rank: 2, name: "HDFC Bank", symbol: "HDFCBANK", category: "Large Cap", weight: 9, currentReturn: 9.2 },
-      { rank: 3, name: "Trent", symbol: "TRENT", category: "Mid Cap", weight: 8, currentReturn: 43.7 },
-      { rank: 4, name: "Cholamandalam Investment", symbol: "CHOLAFIN", category: "Mid Cap", weight: 7, currentReturn: 28.3 },
-      { rank: 5, name: "Neuland Laboratories", symbol: "NEULANDLAB", category: "Small Cap", weight: 5, currentReturn: 67.3 },
+      { rank: 1,  name: "Parag Parikh Flexi Cap Fund",       category: "Flexi Cap MF",    weight: 7,  currentReturn: 16.8 },
+      { rank: 2,  name: "HDFC Flexi Cap Fund",               category: "Flexi Cap MF",    weight: 6,  currentReturn: 15.4 },
+      { rank: 3,  name: "Kotak Flexi Cap Fund",              category: "Flexi Cap MF",    weight: 5,  currentReturn: 14.9 },
+      { rank: 4,  name: "SBI Flexi Cap Fund",                category: "Flexi Cap MF",    weight: 5,  currentReturn: 14.6 },
+      { rank: 5,  name: "Franklin India Flexi Cap Fund",     category: "Flexi Cap MF",    weight: 5,  currentReturn: 15.1 },
+      { rank: 6,  name: "Quant Flexi Cap Fund",              category: "Flexi Cap MF",    weight: 5,  currentReturn: 18.2 },
+      { rank: 7,  name: "DSP Flexi Cap Fund",                category: "Flexi Cap MF",    weight: 4,  currentReturn: 14.3 },
+      { rank: 8,  name: "Axis Flexi Cap Fund",               category: "Flexi Cap MF",    weight: 4,  currentReturn: 14.7 },
+      { rank: 9,  name: "Union Flexi Cap Fund",              category: "Flexi Cap MF",    weight: 4,  currentReturn: 13.9 },
+      { rank: 10, name: "PGIM India Flexi Cap Fund",         category: "Flexi Cap MF",    weight: 4,  currentReturn: 16.2 },
+      { rank: 11, name: "Mirae Asset Flexi Cap Fund",        category: "Flexi Cap MF",    weight: 4,  currentReturn: 15.6 },
+      { rank: 12, name: "Canara Robeco Flexi Cap Fund",      category: "Flexi Cap MF",    weight: 4,  currentReturn: 14.1 },
+      { rank: 13, name: "Aditya Birla SL Flexi Cap Fund",    category: "Flexi Cap MF",    weight: 4,  currentReturn: 14.4 },
+      { rank: 14, name: "Tata Flexi Cap Fund",               category: "Flexi Cap MF",    weight: 4,  currentReturn: 13.8 },
+      { rank: 15, name: "Edelweiss Flexi Cap Fund",          category: "Flexi Cap MF",    weight: 4,  currentReturn: 14.2 },
+      { rank: 16, name: "Bandhan Flexi Cap Fund",            category: "Flexi Cap MF",    weight: 4,  currentReturn: 13.6 },
+      { rank: 17, name: "Nippon India Flexi Cap Fund",       category: "Flexi Cap MF",    weight: 4,  currentReturn: 15.8 },
+      { rank: 18, name: "Invesco India Multicap Fund",       category: "Multi Cap MF",    weight: 4,  currentReturn: 14.9 },
+      { rank: 19, name: "ICICI Pru Multi Asset Fund",        category: "Multi Asset",     weight: 4,  currentReturn: 14.1 },
+      { rank: 20, name: "UTI Flexi Cap Fund",                category: "Flexi Cap MF",    weight: 4,  currentReturn: 13.5 },
+      { rank: 21, name: "Kotak Multi Asset Allocator",       category: "Multi Asset",     weight: 3,  currentReturn: 13.8 },
+      { rank: 22, name: "HDFC Multi Asset Fund",             category: "Multi Asset",     weight: 3,  currentReturn: 13.1 },
+      { rank: 23, name: "SBI Multi Asset Allocation Fund",   category: "Multi Asset",     weight: 3,  currentReturn: 12.7 },
+      { rank: 24, name: "Franklin India Multi Asset Sol",    category: "Multi Asset",     weight: 3,  currentReturn: 12.4 },
+      { rank: 25, name: "Nippon India Multi Asset Fund",     category: "Multi Asset",     weight: 3,  currentReturn: 13.0 },
+      { rank: 26, name: "DSP Multi Asset Allocation Fund",   category: "Multi Asset",     weight: 3,  currentReturn: 12.8 },
+      { rank: 27, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 2,  currentReturn: 7.4  },
+      { rank: 28, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 2,  currentReturn: 7.5  },
+      { rank: 29, name: "Axis Liquid Fund",                  category: "Liquid MF",       weight: 1,  currentReturn: 7.2  },
+      { rank: 30, name: "SBI Liquid Fund",                   category: "Liquid MF",       weight: 1,  currentReturn: 7.4  },
     ],
     performance: PERFORMANCE_BASE("flexicap-allcap", 1000, 24, 16.8, 9),
     riskMetrics: { sharpeRatio: 1.58, maxDrawdown: -16.3, volatility: 14.2, beta: 1.05, alpha: 4.1 },
@@ -921,11 +1085,36 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid", label: "Cash", weight: 5, color: "#9CA3AF", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "Infosys", symbol: "INFY", category: "Large Cap", weight: 9, currentReturn: 14.7 },
-      { rank: 2, name: "ICICI Bank", symbol: "ICICIBANK", category: "Large Cap", weight: 9, currentReturn: 18.3 },
-      { rank: 3, name: "Supreme Industries", symbol: "SUPREMEIND", category: "Mid Cap", weight: 8, currentReturn: 22.1 },
-      { rank: 4, name: "Emami", symbol: "EMAMILTD", category: "Mid Cap", weight: 8, currentReturn: 7.4 },
-      { rank: 5, name: "Deepak Nitrite", symbol: "DEEPAKNTR", category: "Small Cap", weight: 7, currentReturn: 31.2 },
+      { rank: 1,  name: "Nippon India Multi Cap Fund",        category: "Multi Cap MF",    weight: 7,  currentReturn: 18.2 },
+      { rank: 2,  name: "HDFC Multi Cap Fund",               category: "Multi Cap MF",    weight: 6,  currentReturn: 17.4 },
+      { rank: 3,  name: "Quant Active Fund",                 category: "Multi Cap MF",    weight: 6,  currentReturn: 22.1 },
+      { rank: 4,  name: "Kotak Multicap Fund",               category: "Multi Cap MF",    weight: 6,  currentReturn: 16.8 },
+      { rank: 5,  name: "Mahindra Manulife Multi Cap Fund",  category: "Multi Cap MF",    weight: 5,  currentReturn: 16.2 },
+      { rank: 6,  name: "ITI Multi Cap Fund",                category: "Multi Cap MF",    weight: 5,  currentReturn: 15.4 },
+      { rank: 7,  name: "SBI Multi Cap Fund",                category: "Multi Cap MF",    weight: 5,  currentReturn: 16.1 },
+      { rank: 8,  name: "Axis Multi Cap Fund",               category: "Multi Cap MF",    weight: 5,  currentReturn: 15.8 },
+      { rank: 9,  name: "ICICI Pru Multi Cap Fund",          category: "Multi Cap MF",    weight: 5,  currentReturn: 16.4 },
+      { rank: 10, name: "Sundaram Multi Cap Fund",           category: "Multi Cap MF",    weight: 4,  currentReturn: 15.1 },
+      { rank: 11, name: "Tata Multi Cap Fund",               category: "Multi Cap MF",    weight: 4,  currentReturn: 14.8 },
+      { rank: 12, name: "Franklin India Multi Cap Fund",     category: "Multi Cap MF",    weight: 4,  currentReturn: 15.6 },
+      { rank: 13, name: "Mirae Asset Multi Cap Fund",        category: "Multi Cap MF",    weight: 4,  currentReturn: 16.7 },
+      { rank: 14, name: "DSP Multi Cap Fund",                category: "Multi Cap MF",    weight: 4,  currentReturn: 15.2 },
+      { rank: 15, name: "Edelweiss Multi Cap Fund",          category: "Multi Cap MF",    weight: 4,  currentReturn: 14.6 },
+      { rank: 16, name: "Canara Robeco Multi Cap Fund",      category: "Multi Cap MF",    weight: 4,  currentReturn: 15.9 },
+      { rank: 17, name: "Bandhan Multi Cap Fund",            category: "Multi Cap MF",    weight: 4,  currentReturn: 14.3 },
+      { rank: 18, name: "Aditya Birla SL Multi Cap Fund",    category: "Multi Cap MF",    weight: 4,  currentReturn: 15.4 },
+      { rank: 19, name: "Invesco India Multicap Fund",       category: "Multi Cap MF",    weight: 4,  currentReturn: 14.9 },
+      { rank: 20, name: "Union Multi Cap Fund",              category: "Multi Cap MF",    weight: 4,  currentReturn: 14.1 },
+      { rank: 21, name: "Navi Nifty 500 Value 50 Index Fund",category: "Multi Cap ETF",   weight: 3,  currentReturn: 15.8 },
+      { rank: 22, name: "PGIM India Flexi Cap Fund",         category: "Flexi Cap MF",    weight: 3,  currentReturn: 16.2 },
+      { rank: 23, name: "Parag Parikh Flexi Cap Fund",       category: "Flexi Cap MF",    weight: 3,  currentReturn: 16.8 },
+      { rank: 24, name: "UTI Multi Asset Allocation Fund",   category: "Multi Asset",     weight: 3,  currentReturn: 13.2 },
+      { rank: 25, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 3,  currentReturn: 7.5  },
+      { rank: 26, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 2,  currentReturn: 7.4  },
+      { rank: 27, name: "SBI Liquid Fund",                   category: "Liquid MF",       weight: 2,  currentReturn: 7.4  },
+      { rank: 28, name: "Axis Liquid Fund",                  category: "Liquid MF",       weight: 2,  currentReturn: 7.2  },
+      { rank: 29, name: "Kotak Liquid Fund",                 category: "Liquid MF",       weight: 2,  currentReturn: 7.2  },
+      { rank: 30, name: "Nippon India Liquid Fund",          category: "Liquid MF",       weight: 1,  currentReturn: 7.3  },
     ],
     performance: PERFORMANCE_BASE("multicap-balanced", 1000, 24, 18.9, 12),
     riskMetrics: { sharpeRatio: 1.44, maxDrawdown: -19.8, volatility: 16.9, beta: 1.15, alpha: 4.6 },
@@ -969,11 +1158,21 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid", label: "Liquid/T-Bills", weight: 10, color: "#9CA3AF", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "HDFC Corporate Bond Fund", category: "Short Term Bond MF", weight: 20, currentReturn: 7.9 },
-      { rank: 2, name: "ICICI Pru Short Term Fund", category: "Short Term Bond MF", weight: 18, currentReturn: 8.1 },
-      { rank: 3, name: "Axis Banking & PSU Debt Fund", category: "Banking & PSU", weight: 15, currentReturn: 7.6 },
-      { rank: 4, name: "SBI Short Term Debt Fund", category: "Short Term Bond MF", weight: 12, currentReturn: 7.8 },
-      { rank: 5, name: "RBI T-Bills (via ETF)", category: "G-Sec ETF", weight: 10, currentReturn: 7.2 },
+      { rank: 1,  name: "HDFC Short Term Debt Fund",          category: "Short Term MF",   weight: 12, currentReturn: 7.4  },
+      { rank: 2,  name: "Kotak Short Term Fund",             category: "Short Term MF",   weight: 10, currentReturn: 7.3  },
+      { rank: 3,  name: "ICICI Pru Short Term Fund",         category: "Short Term MF",   weight: 10, currentReturn: 7.5  },
+      { rank: 4,  name: "Aditya Birla SL Short Term Fund",   category: "Short Term MF",   weight: 10, currentReturn: 7.2  },
+      { rank: 5,  name: "SBI Short Term Debt Fund",          category: "Short Term MF",   weight: 9,  currentReturn: 7.1  },
+      { rank: 6,  name: "Nippon India Short Term Fund",      category: "Short Term MF",   weight: 8,  currentReturn: 7.4  },
+      { rank: 7,  name: "Axis Short Term Fund",              category: "Short Term MF",   weight: 8,  currentReturn: 7.3  },
+      { rank: 8,  name: "DSP Short Term Fund",               category: "Short Term MF",   weight: 7,  currentReturn: 7.2  },
+      { rank: 9,  name: "Franklin India Short Term Income",  category: "Short Term MF",   weight: 7,  currentReturn: 7.6  },
+      { rank: 10, name: "Tata Short Term Bond Fund",         category: "Short Term MF",   weight: 7,  currentReturn: 7.1  },
+      { rank: 11, name: "Mirae Asset Short Duration Fund",   category: "Short Term MF",   weight: 6,  currentReturn: 7.0  },
+      { rank: 12, name: "Invesco India Short Term Fund",     category: "Short Term MF",   weight: 5,  currentReturn: 7.1  },
+      { rank: 13, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 4,  currentReturn: 7.5  },
+      { rank: 14, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 2,  currentReturn: 7.4  },
+      { rank: 15, name: "Axis Liquid Fund",                  category: "Liquid MF",       weight: 1,  currentReturn: 7.2  },
     ],
     performance: PERFORMANCE_BASE("debt-short-duration", 1000, 24, 7.8, 1),
     riskMetrics: { sharpeRatio: 2.1, maxDrawdown: -1.2, volatility: 2.1, beta: 0.08, alpha: 0.7 },
@@ -1070,11 +1269,24 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid", label: "Liquid", weight: 5, color: "#9CA3AF", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "HDFC Corporate Bond Fund", category: "Corp Bond MF", weight: 22, currentReturn: 8.8 },
-      { rank: 2, name: "Kotak Corporate Bond Fund", category: "Corp Bond MF", weight: 18, currentReturn: 8.6 },
-      { rank: 3, name: "Bajaj Finance NCD 8.65%", category: "NCD", weight: 12, currentReturn: 8.65 },
-      { rank: 4, name: "NTPC Bond 8.10%", category: "PSU Bond", weight: 10, currentReturn: 8.1 },
-      { rank: 5, name: "Aditya Birla Corp Bond", category: "Corp Bond MF", weight: 10, currentReturn: 8.7 },
+      { rank: 1,  name: "HDFC Corporate Bond Fund",          category: "Corp Bond MF",    weight: 12, currentReturn: 7.9  },
+      { rank: 2,  name: "Kotak Corporate Bond Fund",         category: "Corp Bond MF",    weight: 10, currentReturn: 7.8  },
+      { rank: 3,  name: "ICICI Pru Corporate Bond Fund",     category: "Corp Bond MF",    weight: 10, currentReturn: 7.9  },
+      { rank: 4,  name: "Axis Corporate Debt Fund",          category: "Corp Bond MF",    weight: 9,  currentReturn: 7.7  },
+      { rank: 5,  name: "Aditya Birla SL Corporate Bond",    category: "Corp Bond MF",    weight: 9,  currentReturn: 7.8  },
+      { rank: 6,  name: "Nippon India Corporate Bond Fund",  category: "Corp Bond MF",    weight: 8,  currentReturn: 7.6  },
+      { rank: 7,  name: "SBI Corporate Bond Fund",           category: "Corp Bond MF",    weight: 8,  currentReturn: 7.7  },
+      { rank: 8,  name: "DSP Corporate Bond Fund",           category: "Corp Bond MF",    weight: 7,  currentReturn: 7.5  },
+      { rank: 9,  name: "Franklin India Corporate Debt Fund",category: "Corp Bond MF",    weight: 7,  currentReturn: 7.9  },
+      { rank: 10, name: "Tata Corporate Bond Fund",          category: "Corp Bond MF",    weight: 6,  currentReturn: 7.4  },
+      { rank: 11, name: "Mirae Asset Corporate Bond Fund",   category: "Corp Bond MF",    weight: 5,  currentReturn: 7.6  },
+      { rank: 12, name: "ICICI Pru Banking & PSU Debt",      category: "Bond MF",         weight: 5,  currentReturn: 7.5  },
+      { rank: 13, name: "Kotak Banking & PSU Debt Fund",     category: "Bond MF",         weight: 4,  currentReturn: 7.4  },
+      { rank: 14, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 3,  currentReturn: 7.5  },
+      { rank: 15, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 3,  currentReturn: 7.4  },
+      { rank: 16, name: "Axis Liquid Fund",                  category: "Liquid MF",       weight: 2,  currentReturn: 7.2  },
+      { rank: 17, name: "Nippon India Liquid Fund",          category: "Liquid MF",       weight: 1,  currentReturn: 7.3  },
+      { rank: 18, name: "SBI Liquid Fund",                   category: "Liquid MF",       weight: 1,  currentReturn: 7.4  },
     ],
     performance: PERFORMANCE_BASE("debt-corporate-bond", 1000, 24, 8.6, 1.5),
     riskMetrics: { sharpeRatio: 1.87, maxDrawdown: -2.1, volatility: 2.8, beta: 0.12, alpha: 0.9 },
@@ -1118,11 +1330,14 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "arbitrage", label: "Arbitrage Fund", weight: 5, color: "#F59E0B", icon: "⚡" },
     ],
     holdings: [
-      { rank: 1, name: "ICICI Pru Liquid Fund", category: "Liquid MF", weight: 25, currentReturn: 7.4 },
-      { rank: 2, name: "HDFC Liquid Fund", category: "Liquid MF", weight: 20, currentReturn: 7.3 },
-      { rank: 3, name: "Aditya Birla Overnight Fund", category: "Overnight MF", weight: 20, currentReturn: 7.1 },
-      { rank: 4, name: "Nippon India ETF Nifty 1D Rate", category: "Overnight ETF", weight: 15, currentReturn: 7.0 },
-      { rank: 5, name: "Kotak Arbitrage Fund", category: "Arbitrage", weight: 5, currentReturn: 8.2 },
+      { rank: 1,  name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 20, currentReturn: 7.5  },
+      { rank: 2,  name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 18, currentReturn: 7.4  },
+      { rank: 3,  name: "SBI Liquid Fund",                   category: "Liquid MF",       weight: 17, currentReturn: 7.4  },
+      { rank: 4,  name: "Kotak Liquid Fund",                 category: "Liquid MF",       weight: 15, currentReturn: 7.2  },
+      { rank: 5,  name: "Nippon India Liquid Fund",          category: "Liquid MF",       weight: 15, currentReturn: 7.3  },
+      { rank: 6,  name: "Aditya Birla SL Liquid Fund",       category: "Liquid MF",       weight: 8,  currentReturn: 7.1  },
+      { rank: 7,  name: "Axis Liquid Fund",                  category: "Liquid MF",       weight: 5,  currentReturn: 7.2  },
+      { rank: 8,  name: "DSP Liquidity Fund",                category: "Liquid MF",       weight: 2,  currentReturn: 7.0  },
     ],
     performance: PERFORMANCE_BASE("debt-liquid-park", 1000, 24, 7.3, 0.3),
     riskMetrics: { sharpeRatio: 3.2, maxDrawdown: -0.1, volatility: 0.3, beta: 0.01, alpha: 0.4 },
@@ -1166,10 +1381,26 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "arbitrage", label: "Arbitrage", weight: 10, color: "#F59E0B", icon: "⚡" },
     ],
     holdings: [
-      { rank: 1, name: "HDFC Balanced Advantage Fund", category: "BAF", weight: 30, currentReturn: 11.8 },
-      { rank: 2, name: "ICICI Pru Balanced Advantage Fund", category: "BAF", weight: 25, currentReturn: 12.1 },
-      { rank: 3, name: "Nippon India Balanced Advantage", category: "BAF", weight: 20, currentReturn: 11.2 },
-      { rank: 4, name: "Kotak Balanced Advantage Fund", category: "BAF", weight: 15, currentReturn: 10.9 },
+      { rank: 1,  name: "HDFC Balanced Advantage Fund",       category: "Balanced Adv MF",  weight: 15, currentReturn: 12.4 },
+      { rank: 2,  name: "ICICI Pru Balanced Advantage Fund", category: "Balanced Adv MF",  weight: 14, currentReturn: 11.8 },
+      { rank: 3,  name: "Kotak Balanced Advantage Fund",     category: "Balanced Adv MF",  weight: 12, currentReturn: 11.2 },
+      { rank: 4,  name: "Nippon India Balanced Advantage",   category: "Balanced Adv MF",  weight: 10, currentReturn: 11.4 },
+      { rank: 5,  name: "Edelweiss Balanced Advantage Fund", category: "Balanced Adv MF",  weight: 9,  currentReturn: 10.9 },
+      { rank: 6,  name: "SBI Balanced Advantage Fund",       category: "Balanced Adv MF",  weight: 8,  currentReturn: 11.1 },
+      { rank: 7,  name: "Axis Balanced Advantage Fund",      category: "Balanced Adv MF",  weight: 8,  currentReturn: 10.7 },
+      { rank: 8,  name: "DSP Dynamic Asset Allocation Fund", category: "Balanced Adv MF",  weight: 7,  currentReturn: 10.4 },
+      { rank: 9,  name: "Franklin India Dynamic Asset Alloc",category: "Balanced Adv MF",  weight: 7,  currentReturn: 10.6 },
+      { rank: 10, name: "Mirae Asset Dynamic Allocation Fund",category: "Balanced Adv MF", weight: 6,  currentReturn: 11.3 },
+      { rank: 11, name: "Aditya Birla SL Balanced Advantage",category: "Balanced Adv MF",  weight: 5,  currentReturn: 10.8 },
+      { rank: 12, name: "Tata Balanced Advantage Fund",      category: "Balanced Adv MF",  weight: 5,  currentReturn: 10.3 },
+      { rank: 13, name: "Invesco India Dynamic Equity Fund", category: "Balanced Adv MF",  weight: 4,  currentReturn: 10.1 },
+      { rank: 14, name: "PGIM India Balanced Advantage Fund",category: "Balanced Adv MF",  weight: 4,  currentReturn: 10.5 },
+      { rank: 15, name: "Quant Dynamic Asset Allocation",    category: "Balanced Adv MF",  weight: 4,  currentReturn: 12.8 },
+      { rank: 16, name: "UTI Balanced Advantage Fund",       category: "Balanced Adv MF",  weight: 4,  currentReturn: 10.2 },
+      { rank: 17, name: "Bandhan Balanced Advantage Fund",   category: "Balanced Adv MF",  weight: 4,  currentReturn: 9.8  },
+      { rank: 18, name: "LIC MF Balanced Advantage Fund",    category: "Balanced Adv MF",  weight: 3,  currentReturn: 9.6  },
+      { rank: 19, name: "HDFC Liquid Fund",                  category: "Liquid MF",        weight: 1,  currentReturn: 7.5  },
+      { rank: 20, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",        weight: 1,  currentReturn: 7.4  },
     ],
     performance: PERFORMANCE_BASE("balanced-advantage", 1000, 24, 11.4, 5),
     riskMetrics: { sharpeRatio: 1.68, maxDrawdown: -9.3, volatility: 8.2, beta: 0.58, alpha: 2.8 },
@@ -1215,13 +1446,14 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "arbitrage", label: "Arbitrage Funds", weight: 5, color: "#6B7280", icon: "⚡" },
     ],
     holdings: [
-      { rank: 1, name: "HDFC Liquid Fund – Growth", category: "Liquid MF", weight: 22, currentReturn: 7.4 },
-      { rank: 2, name: "ICICI Pru Liquid Fund – Growth", category: "Liquid MF", weight: 18, currentReturn: 7.5 },
-      { rank: 3, name: "Aditya Birla Overnight Fund", category: "Overnight MF", weight: 15, currentReturn: 7.2 },
-      { rank: 4, name: "SBI Overnight Fund", category: "Overnight MF", weight: 10, currentReturn: 7.1 },
-      { rank: 5, name: "Nippon ETF Nifty 1D Rate", category: "Overnight ETF", weight: 10, currentReturn: 7.0 },
-      { rank: 6, name: "ICICI Bank FD (91-day)", category: "Scheduled Bank FD", weight: 10, currentReturn: 7.6 },
-      { rank: 7, name: "Kotak Arbitrage Fund", category: "Arbitrage MF", weight: 5, currentReturn: 8.2 },
+      { rank: 1, name: "HDFC Liquid Fund",                   category: "Liquid MF",       weight: 20, currentReturn: 7.5  },
+      { rank: 2, name: "ICICI Pru Liquid Fund",              category: "Liquid MF",       weight: 18, currentReturn: 7.4  },
+      { rank: 3, name: "SBI Liquid Fund",                    category: "Liquid MF",       weight: 15, currentReturn: 7.4  },
+      { rank: 4, name: "Kotak Liquid Fund",                  category: "Liquid MF",       weight: 14, currentReturn: 7.2  },
+      { rank: 5, name: "Nippon India Liquid Fund",           category: "Liquid MF",       weight: 13, currentReturn: 7.3  },
+      { rank: 6, name: "Aditya Birla SL Liquid Fund",        category: "Liquid MF",       weight: 10, currentReturn: 7.1  },
+      { rank: 7, name: "Axis Liquid Fund",                   category: "Liquid MF",       weight: 5,  currentReturn: 7.2  },
+      { rank: 8, name: "DSP Liquidity Fund",                 category: "Liquid MF",       weight: 5,  currentReturn: 7.0  },
     ],
     performance: PERFORMANCE_BASE("corp-treasury-operational", 1000, 24, 7.5, 0.2),
     riskMetrics: { sharpeRatio: 3.8, maxDrawdown: -0.05, volatility: 0.2, beta: 0.00, alpha: 0.6 },
@@ -1274,14 +1506,18 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid_mf", label: "Liquid Buffer", weight: 8, color: "#9CA3AF", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "Bajaj Finance NCD 8.65% (6M)", category: "AAA NCD", weight: 15, currentReturn: 8.65 },
-      { rank: 2, name: "HDFC Bank CD (180-day)", category: "Bank CD", weight: 12, currentReturn: 7.95 },
-      { rank: 3, name: "Axis Banking & PSU Debt Fund", category: "Banking & PSU MF", weight: 13, currentReturn: 7.9 },
-      { rank: 4, name: "ICICI Pru Banking & PSU Fund", category: "Banking & PSU MF", weight: 12, currentReturn: 8.0 },
-      { rank: 5, name: "Nippon India SDL Index 2026", category: "SDL ETF", weight: 12, currentReturn: 8.1 },
-      { rank: 6, name: "NTPC Bond 8.10% (1Y)", category: "PSU Bond (AAA)", weight: 10, currentReturn: 8.1 },
-      { rank: 7, name: "HDFC Corporate Bond Fund", category: "Corp Bond MF", weight: 10, currentReturn: 8.5 },
-      { rank: 8, name: "ICICI Pru Liquid Fund", category: "Liquid Buffer", weight: 8, currentReturn: 7.4 },
+      { rank: 1,  name: "HDFC Banking & PSU Debt Fund",      category: "Banking & PSU MF",weight: 12, currentReturn: 7.8  },
+      { rank: 2,  name: "ICICI Pru Banking & PSU Debt Fund", category: "Banking & PSU MF",weight: 11, currentReturn: 7.7  },
+      { rank: 3,  name: "Kotak Banking & PSU Debt Fund",     category: "Banking & PSU MF",weight: 10, currentReturn: 7.6  },
+      { rank: 4,  name: "Nippon India Banking & PSU Debt",   category: "Banking & PSU MF",weight: 10, currentReturn: 7.7  },
+      { rank: 5,  name: "SBI Banking & PSU Fund",            category: "Banking & PSU MF",weight: 9,  currentReturn: 7.5  },
+      { rank: 6,  name: "Aditya Birla SL Banking & PSU Debt",category: "Banking & PSU MF",weight: 9,  currentReturn: 7.6  },
+      { rank: 7,  name: "DSP Banking & PSU Debt Fund",       category: "Banking & PSU MF",weight: 8,  currentReturn: 7.4  },
+      { rank: 8,  name: "Axis Banking & PSU Debt Fund",      category: "Banking & PSU MF",weight: 8,  currentReturn: 7.5  },
+      { rank: 9,  name: "HDFC Short Term Debt Fund",         category: "Short Term MF",   weight: 8,  currentReturn: 7.4  },
+      { rank: 10, name: "ICICI Pru Short Term Fund",         category: "Short Term MF",   weight: 7,  currentReturn: 7.5  },
+      { rank: 11, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 5,  currentReturn: 7.5  },
+      { rank: 12, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 3,  currentReturn: 7.4  },
     ],
     performance: PERFORMANCE_BASE("corp-treasury-strategic", 1000, 24, 8.4, 0.8),
     riskMetrics: { sharpeRatio: 2.6, maxDrawdown: -0.8, volatility: 1.2, beta: 0.05, alpha: 0.8 },
@@ -1331,12 +1567,20 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "gold", label: "Gold ETF", weight: 5, color: "#F59E0B", icon: "🥇" },
     ],
     holdings: [
-      { rank: 1, name: "Parag Parikh Flexi Cap Fund", category: "Flexi Cap MF", weight: 20, currentReturn: 18.4 },
-      { rank: 2, name: "Axis Bluechip Fund", category: "Large Cap MF", weight: 18, currentReturn: 13.1 },
-      { rank: 3, name: "Mirae Asset ELSS Tax Saver", category: "ELSS MF", weight: 15, currentReturn: 16.2 },
-      { rank: 4, name: "Kotak Emerging Equity Fund", category: "Mid Cap MF", weight: 12, currentReturn: 22.3 },
-      { rank: 5, name: "HDFC Corporate Bond Fund", category: "Corporate Bond", weight: 10, currentReturn: 8.5 },
-      { rank: 6, name: "Nippon Gold ETF", category: "Gold ETF", weight: 5, currentReturn: 14.2 },
+      { rank: 1,  name: "Axis Long Term Equity Fund (ELSS)",   category: "ELSS MF",         weight: 12, currentReturn: 14.2 },
+      { rank: 2,  name: "Mirae Asset Tax Saver Fund",        category: "ELSS MF",         weight: 10, currentReturn: 15.1 },
+      { rank: 3,  name: "Mirae Asset Large Cap Fund",        category: "Large Cap MF",    weight: 9,  currentReturn: 14.1 },
+      { rank: 4,  name: "Parag Parikh Flexi Cap Fund",       category: "Flexi Cap MF",    weight: 9,  currentReturn: 16.8 },
+      { rank: 5,  name: "HDFC Mid-Cap Opportunities Fund",   category: "Mid Cap MF",      weight: 8,  currentReturn: 20.1 },
+      { rank: 6,  name: "SBI Small Cap Fund",                category: "Small Cap MF",    weight: 8,  currentReturn: 22.8 },
+      { rank: 7,  name: "HDFC Corporate Bond Fund",          category: "Corp Bond MF",    weight: 8,  currentReturn: 7.9  },
+      { rank: 8,  name: "Axis AAA Bond Plus SDL",            category: "Bond MF",         weight: 8,  currentReturn: 8.1  },
+      { rank: 9,  name: "Nippon India Gold Savings Fund",    category: "Gold ETF",        weight: 7,  currentReturn: 11.1 },
+      { rank: 10, name: "Kotak NIFTY 50 ETF",               category: "Index ETF",       weight: 6,  currentReturn: 12.7 },
+      { rank: 11, name: "SBI Magnum Gilt Fund",              category: "Gilt MF",         weight: 5,  currentReturn: 7.2  },
+      { rank: 12, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 5,  currentReturn: 7.4  },
+      { rank: 13, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 4,  currentReturn: 7.5  },
+      { rank: 14, name: "Axis Liquid Fund",                  category: "Liquid MF",       weight: 1,  currentReturn: 7.2  },
     ],
     performance: PERFORMANCE_BASE("goal-child-education", 1000, 36, 14.2, 8),
     riskMetrics: { sharpeRatio: 1.52, maxDrawdown: -14.3, volatility: 12.4, beta: 0.88, alpha: 3.1 },
@@ -1371,10 +1615,22 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "gold", label: "Gold ETF / SGB", weight: 10, color: "#F59E0B", icon: "🥇" },
     ],
     holdings: [
-      { rank: 1, name: "NPS Tier I — Equity (E) + Govt (G)", category: "NPS", weight: 20, currentReturn: 12.4 },
-      { rank: 2, name: "SBI Bluechip Fund", category: "Large Cap MF", weight: 18, currentReturn: 13.7 },
-      { rank: 3, name: "Mirae Asset Large & Midcap", category: "Large & Mid", weight: 15, currentReturn: 16.8 },
-      { rank: 4, name: "Sovereign Gold Bonds 2030", category: "SGB", weight: 10, currentReturn: 16.1 },
+      { rank: 1,  name: "HDFC Retirement Savings — Hybrid Equity",category: "Retirement MF",  weight: 10, currentReturn: 12.1 },
+      { rank: 2,  name: "ICICI Pru Balanced Advantage Fund", category: "Balanced Adv MF",  weight: 9,  currentReturn: 11.8 },
+      { rank: 3,  name: "SBI Retirement Benefit Fund",        category: "Retirement MF",    weight: 8,  currentReturn: 9.2  },
+      { rank: 4,  name: "Parag Parikh Flexi Cap Fund",        category: "Flexi Cap MF",     weight: 7,  currentReturn: 16.8 },
+      { rank: 5,  name: "Mirae Asset Large Cap Fund",         category: "Large Cap MF",     weight: 7,  currentReturn: 14.1 },
+      { rank: 6,  name: "SBI Magnum Gilt Fund",               category: "Gilt MF",          weight: 7,  currentReturn: 7.2  },
+      { rank: 7,  name: "HDFC Corporate Bond Fund",           category: "Corp Bond MF",     weight: 7,  currentReturn: 7.9  },
+      { rank: 8,  name: "Embassy Office Parks REIT",          category: "REIT",             weight: 7,  currentReturn: 9.8  },
+      { rank: 9,  name: "Nippon India Gold Savings Fund",     category: "Gold ETF",         weight: 6,  currentReturn: 11.1 },
+      { rank: 10, name: "Axis AAA Bond Plus SDL",             category: "Bond MF",          weight: 6,  currentReturn: 8.1  },
+      { rank: 11, name: "HDFC Balanced Advantage Fund",       category: "Balanced Adv MF",  weight: 6,  currentReturn: 12.4 },
+      { rank: 12, name: "Kotak NIFTY 50 ETF",                category: "Index ETF",        weight: 6,  currentReturn: 12.7 },
+      { rank: 13, name: "IndiGrid InvIT",                     category: "InvIT",            weight: 5,  currentReturn: 9.1  },
+      { rank: 14, name: "Aditya Birla SL Savings Fund",       category: "Ultra Short MF",   weight: 5,  currentReturn: 7.1  },
+      { rank: 15, name: "HDFC Liquid Fund",                   category: "Liquid MF",        weight: 4,  currentReturn: 7.5  },
+      { rank: 16, name: "ICICI Pru Liquid Fund",              category: "Liquid MF",        weight: 1,  currentReturn: 7.4  },
     ],
     performance: PERFORMANCE_BASE("goal-retirement", 1000, 36, 13.1, 7),
     riskMetrics: { sharpeRatio: 1.61, maxDrawdown: -12.8, volatility: 11.2, beta: 0.82, alpha: 2.8 },
@@ -1409,10 +1665,16 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid", label: "Liquid Buffer", weight: 10, color: "#9CA3AF", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "ICICI Pru Bluechip Fund", category: "Large Cap MF", weight: 22, currentReturn: 14.1 },
-      { rank: 2, name: "Axis Short Term Fund", category: "Short Term Bond", weight: 18, currentReturn: 8.1 },
-      { rank: 3, name: "Nippon Gold ETF", category: "Gold ETF", weight: 15, currentReturn: 14.2 },
-      { rank: 4, name: "ICICI Pru Liquid Fund", category: "Liquid MF", weight: 10, currentReturn: 7.4 },
+      { rank: 1,  name: "Kotak NIFTY 50 ETF",               category: "Index ETF",       weight: 20, currentReturn: 12.7 },
+      { rank: 2,  name: "HDFC Top 100 Fund",                 category: "Large Cap MF",    weight: 15, currentReturn: 13.4 },
+      { rank: 3,  name: "Parag Parikh Flexi Cap Fund",       category: "Flexi Cap MF",    weight: 14, currentReturn: 16.8 },
+      { rank: 4,  name: "HDFC Corporate Bond Fund",          category: "Corp Bond MF",    weight: 12, currentReturn: 7.9  },
+      { rank: 5,  name: "SBI Magnum Gilt Fund",              category: "Gilt MF",         weight: 12, currentReturn: 7.2  },
+      { rank: 6,  name: "Nippon India Gold Savings Fund",    category: "Gold ETF",        weight: 12, currentReturn: 11.1 },
+      { rank: 7,  name: "ICICI Pru Balanced Advantage Fund", category: "Balanced Adv MF", weight: 8,  currentReturn: 11.8 },
+      { rank: 8,  name: "Axis AAA Bond Plus SDL",            category: "Bond MF",         weight: 5,  currentReturn: 8.1  },
+      { rank: 9,  name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 1,  currentReturn: 7.5  },
+      { rank: 10, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 1,  currentReturn: 7.4  },
     ],
     performance: PERFORMANCE_BASE("goal-wedding-fund", 1000, 24, 11.8, 6),
     riskMetrics: { sharpeRatio: 1.74, maxDrawdown: -8.4, volatility: 7.8, beta: 0.52, alpha: 2.4 },
@@ -1447,10 +1709,14 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "conservative_equity", label: "Conservative Hybrid", weight: 10, color: "#8B5CF6", icon: "⚖️" },
     ],
     holdings: [
-      { rank: 1, name: "HDFC Short Term Debt Fund", category: "Short Term Bond", weight: 25, currentReturn: 8.1 },
-      { rank: 2, name: "Axis Banking & PSU Debt Fund", category: "Banking & PSU", weight: 25, currentReturn: 7.9 },
-      { rank: 3, name: "HDFC Liquid Fund", category: "Liquid MF", weight: 15, currentReturn: 7.4 },
-      { rank: 4, name: "ICICI Pru Regular Savings Fund", category: "Conservative Hybrid", weight: 10, currentReturn: 9.8 },
+      { rank: 1,  name: "HDFC Short Term Debt Fund",          category: "Short Term MF",   weight: 22, currentReturn: 7.4  },
+      { rank: 2,  name: "ICICI Pru Short Term Fund",         category: "Short Term MF",   weight: 20, currentReturn: 7.5  },
+      { rank: 3,  name: "Kotak Short Term Fund",             category: "Short Term MF",   weight: 18, currentReturn: 7.3  },
+      { rank: 4,  name: "SBI Magnum Income Fund",            category: "Income MF",       weight: 15, currentReturn: 7.8  },
+      { rank: 5,  name: "HDFC Corporate Bond Fund",          category: "Corp Bond MF",    weight: 12, currentReturn: 7.9  },
+      { rank: 6,  name: "Nippon India Gold Savings Fund",    category: "Gold ETF",        weight: 7,  currentReturn: 11.1 },
+      { rank: 7,  name: "Axis Liquid Fund",                  category: "Liquid MF",       weight: 3,  currentReturn: 7.2  },
+      { rank: 8,  name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 3,  currentReturn: 7.5  },
     ],
     performance: PERFORMANCE_BASE("goal-home-downpayment", 1000, 24, 8.9, 1.5),
     riskMetrics: { sharpeRatio: 2.3, maxDrawdown: -2.1, volatility: 2.8, beta: 0.09, alpha: 1.1 },
@@ -1523,10 +1789,16 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid", label: "Liquid Buffer", weight: 10, color: "#9CA3AF", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "Senior Citizen Savings Scheme (Post Office)", category: "SCSS", weight: 30, currentReturn: 8.2 },
-      { rank: 2, name: "PMVVY (LIC)", category: "Govt Pension Scheme", weight: 20, currentReturn: 7.4 },
-      { rank: 3, name: "RBI Floating Rate Savings Bond 2020", category: "RBI Bond", weight: 20, currentReturn: 8.05 },
-      { rank: 4, name: "HDFC Dividend Yield Fund", category: "Dividend Yield MF", weight: 12, currentReturn: 11.2 },
+      { rank: 1,  name: "SBI Magnum Income Fund",            category: "Income MF",       weight: 15, currentReturn: 7.8  },
+      { rank: 2,  name: "HDFC Corporate Bond Fund",          category: "Corp Bond MF",    weight: 14, currentReturn: 7.9  },
+      { rank: 3,  name: "ICICI Pru Gilt Fund",               category: "Gilt MF",         weight: 13, currentReturn: 7.6  },
+      { rank: 4,  name: "Embassy Office Parks REIT",         category: "REIT",            weight: 13, currentReturn: 9.8  },
+      { rank: 5,  name: "Axis AAA Bond Plus SDL",            category: "Bond MF",         weight: 12, currentReturn: 8.1  },
+      { rank: 6,  name: "Nippon India Gold Savings Fund",    category: "Gold ETF",        weight: 10, currentReturn: 11.1 },
+      { rank: 7,  name: "IndiGrid InvIT",                    category: "InvIT",           weight: 8,  currentReturn: 9.1  },
+      { rank: 8,  name: "HDFC Short Term Debt Fund",         category: "Short Term MF",   weight: 8,  currentReturn: 7.4  },
+      { rank: 9,  name: "ICICI Pru Liquid Fund",             category: "Liquid MF",       weight: 4,  currentReturn: 7.4  },
+      { rank: 10, name: "HDFC Liquid Fund",                  category: "Liquid MF",       weight: 3,  currentReturn: 7.5  },
     ],
     performance: PERFORMANCE_BASE("goal-senior-citizen", 1000, 24, 8.8, 1),
     riskMetrics: { sharpeRatio: 2.8, maxDrawdown: -1.8, volatility: 1.9, beta: 0.06, alpha: 1.4 },
@@ -1600,11 +1872,24 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "psu_banks", label: "PSU Banks", weight: 5, color: "#6B7280", icon: "🏛️" },
     ],
     holdings: [
-      { rank: 1, name: "HDFC Bank", symbol: "HDFCBANK", category: "Private Bank", weight: 14, currentReturn: 9.2 },
-      { rank: 2, name: "ICICI Bank", symbol: "ICICIBANK", category: "Private Bank", weight: 12, currentReturn: 18.3 },
-      { rank: 3, name: "Bajaj Finance", symbol: "BAJFINANCE", category: "NBFC", weight: 10, currentReturn: 17.3 },
-      { rank: 4, name: "SBI Life Insurance", symbol: "SBILIFE", category: "Life Insurance", weight: 9, currentReturn: 14.6 },
-      { rank: 5, name: "Kotak Mahindra Bank", symbol: "KOTAKBANK", category: "Private Bank", weight: 9, currentReturn: 11.4 },
+      { rank: 1,  name: "Nippon India Banking & Financial Services",category: "BFSI Thematic",  weight: 10, currentReturn: 16.8 },
+      { rank: 2,  name: "ICICI Pru Banking & Financial Services",  category: "BFSI Thematic",  weight: 9,  currentReturn: 15.4 },
+      { rank: 3,  name: "SBI Banking & Financial Services Fund",   category: "BFSI Thematic",  weight: 8,  currentReturn: 14.9 },
+      { rank: 4,  name: "Aditya Birla SL Banking & Financial Serv",category: "BFSI Thematic",  weight: 8,  currentReturn: 15.1 },
+      { rank: 5,  name: "HDFC Banking and Financial Services Fund",category: "BFSI Thematic",  weight: 7,  currentReturn: 14.6 },
+      { rank: 6,  name: "Kotak Banking and Financial Services",    category: "BFSI Thematic",  weight: 7,  currentReturn: 14.3 },
+      { rank: 7,  name: "Invesco India Financial Services Fund",   category: "BFSI Thematic",  weight: 6,  currentReturn: 13.8 },
+      { rank: 8,  name: "Tata Banking & Financial Services Fund",  category: "BFSI Thematic",  weight: 6,  currentReturn: 14.1 },
+      { rank: 9,  name: "MIRAE Asset Banking & Fin Services ETF",  category: "BFSI ETF",        weight: 6,  currentReturn: 15.2 },
+      { rank: 10, name: "Nippon ETF Bank BeES",                    category: "BFSI ETF",        weight: 6,  currentReturn: 14.8 },
+      { rank: 11, name: "DSP Banking & Financial Services Fund",   category: "BFSI Thematic",   weight: 6,  currentReturn: 13.6 },
+      { rank: 12, name: "Canara Robeco Banking & Financial Serv",  category: "BFSI Thematic",   weight: 6,  currentReturn: 13.4 },
+      { rank: 13, name: "LIC MF Banking & Financial Services",     category: "BFSI Thematic",   weight: 5,  currentReturn: 12.9 },
+      { rank: 14, name: "Groww Banking & Financial Services Fund", category: "BFSI Thematic",   weight: 5,  currentReturn: 13.2 },
+      { rank: 15, name: "Motilal Oswal S&P BSE Fin Services ETF",  category: "BFSI ETF",        weight: 5,  currentReturn: 14.1 },
+      { rank: 16, name: "HDFC Liquid Fund",                        category: "Liquid MF",       weight: 3,  currentReturn: 7.5  },
+      { rank: 17, name: "ICICI Pru Liquid Fund",                   category: "Liquid MF",       weight: 2,  currentReturn: 7.4  },
+      { rank: 18, name: "SBI Liquid Fund",                         category: "Liquid MF",       weight: 1,  currentReturn: 7.4  },
     ],
     performance: PERFORMANCE_BASE("thematic-bfsi", 1000, 24, 15.7, 9),
     riskMetrics: { sharpeRatio: 1.48, maxDrawdown: -17.4, volatility: 14.8, beta: 1.08, alpha: 3.9 },
@@ -1639,10 +1924,26 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "medtech", label: "Medtech / Devices", weight: 15, color: "#F59E0B", icon: "⚕️" },
     ],
     holdings: [
-      { rank: 1, name: "Sun Pharmaceutical", symbol: "SUNPHARMA", category: "Large Cap Pharma", weight: 12, currentReturn: 22.4 },
-      { rank: 2, name: "Divi's Laboratories", symbol: "DIVISLAB", category: "API Exporter", weight: 10, currentReturn: 18.7 },
-      { rank: 3, name: "Apollo Hospitals", symbol: "APOLLOHOSP", category: "Hospital", weight: 10, currentReturn: 31.2 },
-      { rank: 4, name: "Neuland Laboratories", symbol: "NEULANDLAB", category: "API Exporter", weight: 7, currentReturn: 67.3 },
+      { rank: 1,  name: "Nippon India Pharma Fund",             category: "Pharma Thematic", weight: 9,  currentReturn: 18.4 },
+      { rank: 2,  name: "SBI Healthcare Opportunities Fund",  category: "Pharma Thematic", weight: 8,  currentReturn: 17.2 },
+      { rank: 3,  name: "UTI Healthcare Fund",                category: "Pharma Thematic", weight: 8,  currentReturn: 16.8 },
+      { rank: 4,  name: "ICICI Pru Pharma Healthcare Fund",   category: "Pharma Thematic", weight: 7,  currentReturn: 17.4 },
+      { rank: 5,  name: "Aditya Birla SL Healthcare Fund",    category: "Pharma Thematic", weight: 7,  currentReturn: 16.1 },
+      { rank: 6,  name: "Tata India Pharma & Healthcare Fund",category: "Pharma Thematic", weight: 7,  currentReturn: 18.9 },
+      { rank: 7,  name: "Kotak Healthcare Fund",              category: "Pharma Thematic", weight: 6,  currentReturn: 16.4 },
+      { rank: 8,  name: "DSP Healthcare Fund",                category: "Pharma Thematic", weight: 6,  currentReturn: 15.9 },
+      { rank: 9,  name: "Quant Healthcare Fund",              category: "Pharma Thematic", weight: 6,  currentReturn: 20.1 },
+      { rank: 10, name: "Mirae Asset Healthcare Fund",        category: "Pharma Thematic", weight: 6,  currentReturn: 16.7 },
+      { rank: 11, name: "Nippon ETF Pharma BeES",             category: "Pharma ETF",      weight: 6,  currentReturn: 17.1 },
+      { rank: 12, name: "Mirae Asset Nifty India Pharma ETF", category: "Pharma ETF",      weight: 6,  currentReturn: 16.5 },
+      { rank: 13, name: "HDFC Pharma and Healthcare Fund",    category: "Pharma Thematic", weight: 5,  currentReturn: 15.4 },
+      { rank: 14, name: "Canara Robeco Healthcare Fund",      category: "Pharma Thematic", weight: 5,  currentReturn: 15.7 },
+      { rank: 15, name: "ICICI Pru Liquid Fund",              category: "Liquid MF",       weight: 4,  currentReturn: 7.4  },
+      { rank: 16, name: "Invesco India Healthcare Fund",      category: "Pharma Thematic", weight: 4,  currentReturn: 15.1 },
+      { rank: 17, name: "Bandhan Healthcare Fund",            category: "Pharma Thematic", weight: 4,  currentReturn: 14.8 },
+      { rank: 18, name: "LIC MF Healthcare Fund",             category: "Pharma Thematic", weight: 4,  currentReturn: 14.2 },
+      { rank: 19, name: "HDFC Liquid Fund",                   category: "Liquid MF",       weight: 2,  currentReturn: 7.5  },
+      { rank: 20, name: "SBI Liquid Fund",                    category: "Liquid MF",       weight: 1,  currentReturn: 7.4  },
     ],
     performance: PERFORMANCE_BASE("thematic-pharma", 1000, 24, 18.4, 11),
     riskMetrics: { sharpeRatio: 1.56, maxDrawdown: -19.8, volatility: 16.4, beta: 0.98, alpha: 5.2 },
@@ -1677,11 +1978,21 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "electronics", label: "Defence Electronics", weight: 10, color: "#3B82F6", icon: "📡" },
     ],
     holdings: [
-      { rank: 1, name: "HAL (Hindustan Aeronautics)", symbol: "HAL", category: "Defence PSU", weight: 15, currentReturn: 42.3 },
-      { rank: 2, name: "BEL (Bharat Electronics)", symbol: "BEL", category: "Defence Electronics", weight: 14, currentReturn: 31.7 },
-      { rank: 3, name: "Mazagon Dock Shipbuilders", symbol: "MAZDOCK", category: "Defence PSU", weight: 11, currentReturn: 87.4 },
-      { rank: 4, name: "Data Patterns", symbol: "DATAPATTNS", category: "Aerospace Electronics", weight: 9, currentReturn: 38.2 },
-      { rank: 5, name: "Solar Industries", symbol: "SOLARINDS", category: "Ammunition", weight: 8, currentReturn: 44.1 },
+      { rank: 1,  name: "Motilal Oswal Nifty India Defence ETF", category: "Defence ETF",     weight: 18, currentReturn: 24.7 },
+      { rank: 2,  name: "Nippon India Nifty India Defence ETF",category: "Defence ETF",   weight: 16, currentReturn: 23.8 },
+      { rank: 3,  name: "HDFC Defence Fund",                  category: "Defence Thematic",weight: 14, currentReturn: 22.4 },
+      { rank: 4,  name: "Aditya Birla SL Defence Fund",       category: "Defence Thematic",weight: 12, currentReturn: 21.9 },
+      { rank: 5,  name: "Quant Defence Fund",                 category: "Defence Thematic",weight: 12, currentReturn: 25.6 },
+      { rank: 6,  name: "SBI Defence Opportunities Fund",     category: "Defence Thematic",weight: 10, currentReturn: 20.7 },
+      { rank: 7,  name: "ICICI Pru Defence Fund",             category: "Defence Thematic",weight: 9,  currentReturn: 21.4 },
+      { rank: 8,  name: "Edelweiss India Defence Fund",       category: "Defence Thematic",weight: 5,  currentReturn: 22.7 },
+      { rank: 9,  name: "Tata Indian Defence Fund",           category: "Defence Thematic",weight: 3,  currentReturn: 20.1 },
+      { rank: 10, name: "Mirae Asset Nifty India Defence ETF",category: "Defence ETF",    weight: 3,  currentReturn: 23.2 },
+      { rank: 11, name: "HDFC Liquid Fund",                   category: "Liquid MF",       weight: 3,  currentReturn: 7.5  },
+      { rank: 12, name: "ICICI Pru Liquid Fund",              category: "Liquid MF",       weight: 2,  currentReturn: 7.4  },
+      { rank: 13, name: "SBI Liquid Fund",                    category: "Liquid MF",       weight: 2,  currentReturn: 7.4  },
+      { rank: 14, name: "Axis Liquid Fund",                   category: "Liquid MF",       weight: 1,  currentReturn: 7.2  },
+      { rank: 15, name: "Kotak Liquid Fund",                  category: "Liquid MF",       weight: 1,  currentReturn: 7.2  },
     ],
     performance: PERFORMANCE_BASE("thematic-defence", 1000, 24, 31.4, 16),
     riskMetrics: { sharpeRatio: 1.72, maxDrawdown: -24.3, volatility: 21.4, beta: 1.18, alpha: 9.8 },
@@ -1716,10 +2027,24 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "green_hydrogen", label: "Green Hydrogen", weight: 15, color: "#8B5CF6", icon: "🌿" },
     ],
     holdings: [
-      { rank: 1, name: "Adani Green Energy", symbol: "ADANIGREEN", category: "Solar Developer", weight: 14, currentReturn: 38.2 },
-      { rank: 2, name: "NTPC Green Energy", category: "Renewable PSU", weight: 12, currentReturn: 28.1 },
-      { rank: 3, name: "Waaree Energies", symbol: "WAAREE", category: "Solar Panel Mfg", weight: 8, currentReturn: 54.3 },
-      { rank: 4, name: "Tata Motors (EV)", symbol: "TATAMOTORS", category: "EV Manufacturer", weight: 10, currentReturn: 23.2 },
+      { rank: 1,  name: "Nippon India Nifty India Green Energy ETF",category: "Green Energy ETF",weight: 15, currentReturn: 21.4 },
+      { rank: 2,  name: "Mirae Asset Nifty India Green Ener ETF",  category: "Green Energy ETF",weight: 13, currentReturn: 20.8 },
+      { rank: 3,  name: "Quantum Green Energy Fund",          category: "Green Energy MF", weight: 11, currentReturn: 18.7 },
+      { rank: 4,  name: "HDFC Green Energy Fund",             category: "Green Energy MF", weight: 10, currentReturn: 19.2 },
+      { rank: 5,  name: "SBI Energy Opportunities Fund",      category: "Green Energy MF", weight: 9,  currentReturn: 20.1 },
+      { rank: 6,  name: "Aditya Birla SL New Energy Fund",    category: "Green Energy MF", weight: 9,  currentReturn: 18.4 },
+      { rank: 7,  name: "DSP Natural Resources & New Energy", category: "Green Energy MF", weight: 8,  currentReturn: 19.5 },
+      { rank: 8,  name: "Tata Resources & Energy Fund",       category: "Energy Thematic", weight: 8,  currentReturn: 18.3 },
+      { rank: 9,  name: "ICICI Pru Green Energy Fund",        category: "Green Energy MF", weight: 7,  currentReturn: 19.8 },
+      { rank: 10, name: "Invesco India ESG Equity Fund",      category: "ESG MF",          weight: 5,  currentReturn: 16.2 },
+      { rank: 11, name: "Mirae Asset ESG Sector Leaders ETF", category: "ESG ETF",         weight: 4,  currentReturn: 15.8 },
+      { rank: 12, name: "HDFC Liquid Fund",                   category: "Liquid MF",       weight: 1,  currentReturn: 7.5  },
+      { rank: 13, name: "ICICI Pru Liquid Fund",              category: "Liquid MF",       weight: 1,  currentReturn: 7.4  },
+      { rank: 14, name: "SBI Liquid Fund",                    category: "Liquid MF",       weight: 1,  currentReturn: 7.4  },
+      { rank: 15, name: "Axis Liquid Fund",                   category: "Liquid MF",       weight: 1,  currentReturn: 7.2  },
+      { rank: 16, name: "Kotak Liquid Fund",                  category: "Liquid MF",       weight: 1,  currentReturn: 7.2  },
+      { rank: 17, name: "Nippon India Liquid Fund",           category: "Liquid MF",       weight: 1,  currentReturn: 7.3  },
+      { rank: 18, name: "DSP Liquidity Fund",                 category: "Liquid MF",       weight: 1,  currentReturn: 7.0  },
     ],
     performance: PERFORMANCE_BASE("thematic-green-energy", 1000, 24, 26.8, 15),
     riskMetrics: { sharpeRatio: 1.58, maxDrawdown: -26.4, volatility: 22.1, beta: 1.24, alpha: 7.4 },
@@ -1754,10 +2079,26 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "fintech", label: "Fintech / Payments", weight: 15, color: "#F59E0B", icon: "📱" },
     ],
     holdings: [
-      { rank: 1, name: "TCS", symbol: "TCS", category: "IT Services", weight: 13, currentReturn: 16.1 },
-      { rank: 2, name: "Infosys", symbol: "INFY", category: "IT Services", weight: 12, currentReturn: 14.7 },
-      { rank: 3, name: "Persistent Systems", symbol: "PERSISTENT", category: "Mid-Cap IT", weight: 10, currentReturn: 38.4 },
-      { rank: 4, name: "Tata Elxsi", symbol: "TATAELXSI", category: "Tech Design", weight: 8, currentReturn: 29.7 },
+      { rank: 1,  name: "Nippon India ETF Nifty IT",           category: "IT ETF",          weight: 12, currentReturn: 19.4 },
+      { rank: 2,  name: "Mirae Asset NYSE FANG+ ETF",         category: "Int'l Tech ETF",  weight: 10, currentReturn: 22.1 },
+      { rank: 3,  name: "Tata Digital India Fund",            category: "IT Thematic MF",  weight: 10, currentReturn: 17.8 },
+      { rank: 4,  name: "Aditya Birla SL Digital India Fund", category: "IT Thematic MF",  weight: 9,  currentReturn: 18.2 },
+      { rank: 5,  name: "ICICI Pru Technology Fund",          category: "IT Thematic MF",  weight: 9,  currentReturn: 18.6 },
+      { rank: 6,  name: "SBI Technology Opportunities Fund",  category: "IT Thematic MF",  weight: 8,  currentReturn: 17.4 },
+      { rank: 7,  name: "Franklin India Technology Fund",     category: "IT Thematic MF",  weight: 8,  currentReturn: 17.1 },
+      { rank: 8,  name: "Kotak Technology Fund",              category: "IT Thematic MF",  weight: 7,  currentReturn: 16.9 },
+      { rank: 9,  name: "DSP Technology.com Fund",            category: "IT Thematic MF",  weight: 7,  currentReturn: 17.3 },
+      { rank: 10, name: "Axis Digital India Fund",            category: "IT Thematic MF",  weight: 7,  currentReturn: 16.4 },
+      { rank: 11, name: "Quant IT Fund",                      category: "IT Thematic MF",  weight: 6,  currentReturn: 20.8 },
+      { rank: 12, name: "HDFC Technology Fund",               category: "IT Thematic MF",  weight: 5,  currentReturn: 16.2 },
+      { rank: 13, name: "Nippon India Liquid Fund",           category: "Liquid MF",       weight: 3,  currentReturn: 7.3  },
+      { rank: 14, name: "HDFC Liquid Fund",                   category: "Liquid MF",       weight: 3,  currentReturn: 7.5  },
+      { rank: 15, name: "ICICI Pru Liquid Fund",              category: "Liquid MF",       weight: 2,  currentReturn: 7.4  },
+      { rank: 16, name: "SBI Liquid Fund",                    category: "Liquid MF",       weight: 2,  currentReturn: 7.4  },
+      { rank: 17, name: "Axis Liquid Fund",                   category: "Liquid MF",       weight: 1,  currentReturn: 7.2  },
+      { rank: 18, name: "Kotak Liquid Fund",                  category: "Liquid MF",       weight: 1,  currentReturn: 7.2  },
+      { rank: 19, name: "DSP Liquidity Fund",                 category: "Liquid MF",       weight: 1,  currentReturn: 7.0  },
+      { rank: 20, name: "Mirae Asset Liquid Fund",            category: "Liquid MF",       weight: 1,  currentReturn: 7.1  },
     ],
     performance: PERFORMANCE_BASE("thematic-digital-india", 1000, 24, 17.8, 10),
     riskMetrics: { sharpeRatio: 1.54, maxDrawdown: -20.1, volatility: 16.8, beta: 1.11, alpha: 4.7 },
@@ -1792,10 +2133,28 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "auto_2w", label: "2-Wheeler / Auto", weight: 20, color: "#3B82F6", icon: "🏍️" },
     ],
     holdings: [
-      { rank: 1, name: "Hindustan Unilever", symbol: "HINDUNILVR", category: "FMCG", weight: 10, currentReturn: 9.4 },
-      { rank: 2, name: "Trent", symbol: "TRENT", category: "Retail / Lifestyle", weight: 9, currentReturn: 43.7 },
-      { rank: 3, name: "Titan Company", symbol: "TITAN", category: "Premium Lifestyle", weight: 9, currentReturn: 16.2 },
-      { rank: 4, name: "Varun Beverages", symbol: "VBL", category: "FMCG Beverages", weight: 7, currentReturn: 27.3 },
+      { rank: 1,  name: "Mirae Asset Great Consumer Fund",    category: "Consumption MF",  weight: 8,  currentReturn: 16.8 },
+      { rank: 2,  name: "Nippon India Consumption Fund",      category: "Consumption MF",  weight: 8,  currentReturn: 15.4 },
+      { rank: 3,  name: "ICICI Pru FMCG Fund",               category: "FMCG Thematic",   weight: 7,  currentReturn: 14.2 },
+      { rank: 4,  name: "SBI Consumption Opportunities Fund", category: "Consumption MF",  weight: 7,  currentReturn: 14.8 },
+      { rank: 5,  name: "Aditya Birla SL India GenNext Fund", category: "Consumption MF",  weight: 6,  currentReturn: 15.1 },
+      { rank: 6,  name: "UTI India Consumer Fund",            category: "Consumption MF",  weight: 6,  currentReturn: 14.4 },
+      { rank: 7,  name: "Bandhan Consumer Fund",              category: "Consumption MF",  weight: 6,  currentReturn: 13.9 },
+      { rank: 8,  name: "Tata India Consumer Fund",           category: "Consumption MF",  weight: 6,  currentReturn: 14.6 },
+      { rank: 9,  name: "Kotak India Growth Fund",            category: "Consumption MF",  weight: 5,  currentReturn: 14.1 },
+      { rank: 10, name: "Axis India Manufacturing Fund",      category: "Consumption MF",  weight: 5,  currentReturn: 15.4 },
+      { rank: 11, name: "DSP India T.I.G.E.R. Fund",         category: "Infrastructure",   weight: 5,  currentReturn: 18.7 },
+      { rank: 12, name: "Franklin India Feeder — US Opp",     category: "Int'l MF",        weight: 5,  currentReturn: 16.2 },
+      { rank: 13, name: "HDFC Liquid Fund",                   category: "Liquid MF",       weight: 5,  currentReturn: 7.5  },
+      { rank: 14, name: "ICICI Pru Liquid Fund",              category: "Liquid MF",       weight: 4,  currentReturn: 7.4  },
+      { rank: 15, name: "SBI Liquid Fund",                    category: "Liquid MF",       weight: 4,  currentReturn: 7.4  },
+      { rank: 16, name: "Nippon India Liquid Fund",           category: "Liquid MF",       weight: 4,  currentReturn: 7.3  },
+      { rank: 17, name: "Axis Liquid Fund",                   category: "Liquid MF",       weight: 4,  currentReturn: 7.2  },
+      { rank: 18, name: "Kotak Liquid Fund",                  category: "Liquid MF",       weight: 4,  currentReturn: 7.2  },
+      { rank: 19, name: "DSP Liquidity Fund",                 category: "Liquid MF",       weight: 4,  currentReturn: 7.0  },
+      { rank: 20, name: "Aditya Birla SL Liquid Fund",        category: "Liquid MF",       weight: 4,  currentReturn: 7.1  },
+      { rank: 21, name: "Mirae Asset Liquid Fund",            category: "Liquid MF",       weight: 3,  currentReturn: 7.1  },
+      { rank: 22, name: "Tata Liquid Fund",                   category: "Liquid MF",       weight: 3,  currentReturn: 7.0  },
     ],
     performance: PERFORMANCE_BASE("thematic-consumption", 1000, 24, 14.3, 8),
     riskMetrics: { sharpeRatio: 1.62, maxDrawdown: -13.7, volatility: 12.4, beta: 0.94, alpha: 3.6 },
@@ -1829,9 +2188,14 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "psu_2028", label: "PSU Bonds maturing 2028", weight: 10, color: "#10B981", icon: "🏦" },
     ],
     holdings: [
-      { rank: 1, name: "Nippon ETF Nifty 3D Gilt 2028", category: "G-Sec ETF", weight: 35, currentReturn: 8.2 },
-      { rank: 2, name: "HDFC NIFTY G-Sec Dec 2028 Index Fund", category: "G-Sec Index Fund", weight: 25, currentReturn: 8.1 },
-      { rank: 3, name: "Aditya Birla SDL Dec 2028 Index Fund", category: "SDL Index Fund", weight: 15, currentReturn: 8.5 },
+      { rank: 1, name: "Edelweiss NIFTY PSU Bond + SDL Index 2028",category: "Target Maturity ETF",weight: 20, currentReturn: 7.8 },
+      { rank: 2, name: "HDFC NIFTY SDL Plus G-Sec Jun 2028 Index",  category: "Target Maturity ETF",weight: 18, currentReturn: 7.7 },
+      { rank: 3, name: "IDFC CRISIL IBX Triple A Financial June 2028",category: "Target Maturity",weight: 15, currentReturn: 7.8 },
+      { rank: 4, name: "Nippon India ETF Nifty SDL 2028 Maturity",  category: "Target Maturity ETF",weight: 15, currentReturn: 7.6 },
+      { rank: 5, name: "Aditya Birla SL CRISIL IBX SDL May 2028",   category: "Target Maturity",weight: 12, currentReturn: 7.7 },
+      { rank: 6, name: "Kotak NIFTY SDL Jul 2028 Index Fund",        category: "Target Maturity",weight: 10, currentReturn: 7.5 },
+      { rank: 7, name: "SBI Magnum CRISIL IBX Gilt Fund 2028",       category: "Target Maturity",weight: 7,  currentReturn: 7.4 },
+      { rank: 8, name: "ICICI Pru Liquid Fund",                      category: "Liquid MF",      weight: 3,  currentReturn: 7.4 },
     ],
     performance: PERFORMANCE_BASE("debt-target-maturity-2028", 1000, 24, 8.1, 0.8),
     riskMetrics: { sharpeRatio: 2.4, maxDrawdown: -1.4, volatility: 2.1, beta: 0.07, alpha: 0.7 },
@@ -1867,11 +2231,11 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "tbill_etf",    label: "T-Bills (via ETF)", weight: 20, color: "#6366F1", icon: "🏛️" },
     ],
     holdings: [
-      { rank: 1, name: "Nippon India Overnight Fund",     category: "Overnight MF", weight: 25, currentReturn: 6.95 },
-      { rank: 2, name: "ICICI Pru Overnight Fund",        category: "Overnight MF", weight: 25, currentReturn: 6.92 },
-      { rank: 3, name: "HDFC Liquid Fund",                category: "Liquid MF",    weight: 20, currentReturn: 7.20 },
-      { rank: 4, name: "SBI Liquid Fund",                 category: "Liquid MF",    weight: 10, currentReturn: 7.15 },
-      { rank: 5, name: "Nippon ETF Nifty 1D Rate Liquid BeES", category: "T-Bill ETF", weight: 20, currentReturn: 7.05 },
+      { rank: 1, name: "HDFC Overnight Fund",                 category: "Overnight MF",    weight: 28, currentReturn: 6.8 },
+      { rank: 2, name: "ICICI Pru Overnight Fund",            category: "Overnight MF",    weight: 24, currentReturn: 6.7 },
+      { rank: 3, name: "SBI Overnight Fund",                  category: "Overnight MF",    weight: 20, currentReturn: 6.7 },
+      { rank: 4, name: "Kotak Overnight Fund",                category: "Overnight MF",    weight: 16, currentReturn: 6.6 },
+      { rank: 5, name: "Nippon India Overnight Fund",         category: "Overnight MF",    weight: 12, currentReturn: 6.5 },
     ],
     performance: PERFORMANCE_BASE("corp-treasury-overnight", 1000, 24, 7.0, 0.2),
     riskMetrics: { sharpeRatio: 3.8, maxDrawdown: -0.1, volatility: 0.3, beta: 0.01, alpha: 0.5 },
@@ -2084,6 +2448,15 @@ export default function AgentModelPortfoliosPage() {
   const [selectedPortfolio, setSelectedPortfolio] = useState<ModelPortfolio | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareChannel, setShareChannel] = useState<"whatsapp" | "email">("whatsapp");
+  // Invest Modal state
+  const [investModalOpen, setInvestModalOpen] = useState(false);
+  const [investAmount, setInvestAmount] = useState<string>("");
+  const [investType, setInvestType] = useState<"lumpsum" | "sip">("lumpsum");
+  const [sipDate, setSipDate] = useState<number>(1);
+  const [investPreview, setInvestPreview] = useState<any[]>([]);
+  const [investLoading, setInvestLoading] = useState(false);
+  const [investSubmitting, setInvestSubmitting] = useState(false);
+  const [quantSignals, setQuantSignals] = useState<Record<string, any>>({});
   const [compareList, setCompareList] = useState<string[]>([]); // portfolio IDs
   const [compareOpen, setCompareOpen] = useState(false);
   const [quizOpen, setQuizOpen] = useState(false);
@@ -2178,11 +2551,102 @@ export default function AgentModelPortfoliosPage() {
   /** Agents and above can view the full holdings list; clients see top-5 preview */
   const canViewFullHoldings = user?.roles?.some((r: string) => PRIVILEGED_ROLES.includes(r)) ?? false;
   // Agents and above default to showing all holdings; clients default to top-5
-  const [showAllHoldings, setShowAllHoldings] = useState(canViewFullHoldings);
+  const [showAllHoldings, setShowAllHoldings] = useState(true); // Default open — agents always see all holdings
   // Reset to full-view whenever portfolio changes or role resolves
   useEffect(() => {
-    if (canViewFullHoldings) setShowAllHoldings(true);
+    setShowAllHoldings(true); // Always show all when switching portfolios
   }, [canViewFullHoldings, selectedPortfolio?.id]);
+
+  // ── FASP-AI v3.0: Proposals + Alerts state ──────────────────────────────────
+  const [proposals, setProposals] = useState<Record<string, any[]>>({});
+  const [alertsUnread, setAlertsUnread] = useState<number>(0);
+  const [approvingProposal, setApprovingProposal] = useState<string | null>(null);
+  const [rejectingProposal, setRejectingProposal] = useState<string | null>(null);
+
+  // Fetch proposals when portfolio is selected
+  useEffect(() => {
+    if (!selectedPortfolio || !canViewFullHoldings) return;
+    const id = selectedPortfolio.id;
+    if (proposals[id]) return;
+    fetch(`/api/model-portfolios/${id}/proposals`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.success) {
+          setProposals(prev => ({ ...prev, [id]: data.data ?? [] }));
+        }
+      })
+      .catch(() => {});
+  }, [selectedPortfolio?.id, canViewFullHoldings]);
+
+  // Fetch unread alert count
+  useEffect(() => {
+    if (!canViewFullHoldings) return;
+    fetch('/api/model-portfolios/alerts?includeRead=false')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.success) setAlertsUnread(data.meta?.total ?? 0);
+      })
+      .catch(() => {});
+  }, [canViewFullHoldings, selectedPortfolio?.id]);
+
+  const handleApproveProposal = async (portfolioId: string, proposalId: string) => {
+    setApprovingProposal(proposalId);
+    try {
+      const res = await fetch(`/api/model-portfolios/${portfolioId}/proposals/${proposalId}/approve`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setProposals(prev => ({ ...prev, [portfolioId]: (prev[portfolioId] ?? []).filter(p => p.id !== proposalId) }));
+      }
+    } finally {
+      setApprovingProposal(null);
+    }
+  };
+
+  const handleRejectProposal = async (portfolioId: string, proposalId: string) => {
+    setRejectingProposal(proposalId);
+    try {
+      const res = await fetch(`/api/model-portfolios/${portfolioId}/proposals/${proposalId}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'Rejected by advisor' }) });
+      const data = await res.json();
+      if (data.success) {
+        setProposals(prev => ({ ...prev, [portfolioId]: (prev[portfolioId] ?? []).filter(p => p.id !== proposalId) }));
+      }
+    } finally {
+      setRejectingProposal(null);
+    }
+  };
+
+  // ── Fetch quant signals when a portfolio is selected (FASP-AI-v2.0) ────────
+  useEffect(() => {
+    if (!selectedPortfolio) return;
+    const id = selectedPortfolio.id;
+    if (quantSignals[id]) return; // Already cached
+    fetch(`/api/model-portfolios/${id}/quant-signals`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.success && data.data) {
+          setQuantSignals(prev => ({ ...prev, [id]: data.data }));
+        }
+      })
+      .catch(() => {}); // Silent — quant signals are enhancement only
+  }, [selectedPortfolio?.id]);
+
+  // ── Fetch invest preview when amount changes (debounced 600ms) ─────────────
+  useEffect(() => {
+    if (!investModalOpen || !selectedPortfolio || !investAmount) { setInvestPreview([]); return; }
+    const amt = Number.parseFloat(investAmount);
+    if (!amt || amt < 100) { setInvestPreview([]); return; }
+    const timer = setTimeout(() => {
+      setInvestLoading(true);
+      fetch(`/api/model-portfolios/${selectedPortfolio.id}/invest/preview?amount=${amt}&type=${investType}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data?.success) setInvestPreview(data.data.allocation ?? []);
+        })
+        .catch(() => {})
+        .finally(() => setInvestLoading(false));
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [investModalOpen, investAmount, investType, selectedPortfolio?.id]);
 
   // ── Detail panel tab + on-demand holdings enrichment ─────────────────────────
   const [activeDetailTab, setActiveDetailTab] = useState("overview");
@@ -2470,6 +2934,7 @@ export default function AgentModelPortfoliosPage() {
   };
 
   return (
+    <>
     <div className="container mx-auto py-6 space-y-6 max-w-7xl">
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -2624,6 +3089,13 @@ export default function AgentModelPortfoliosPage() {
         {filtered.map((portfolio) => {
           const risk = RISK_CONFIG[portfolio.riskProfile];
           const alphaVsBenchmark = portfolio.cagr1Y - portfolio.benchmarkCagr1Y;
+          // Drift badge from quant signals cache
+          const qs = quantSignals[portfolio.id];
+          const driftBadge = qs
+            ? qs.driftScore > 15 ? { color: "bg-red-500", label: "⚡ Rebalance", tip: `${qs.driftingHoldings} holdings drifted` }
+            : qs.driftScore > 5  ? { color: "bg-amber-500", label: "⚠ Minor drift", tip: `Drift score: ${qs.driftScore}` }
+            : { color: "bg-emerald-500", label: "✓ Balanced", tip: `Drift score: ${qs.driftScore}` }
+            : null;
           return (
             <Card
               key={portfolio.id}
@@ -2646,6 +3118,17 @@ export default function AgentModelPortfoliosPage() {
                 )}
                 {portfolio.isNew && (
                   <Badge className="bg-indigo-600 text-white text-[10px] px-1.5">NEW</Badge>
+                )}
+                {driftBadge && (
+                  <span title={driftBadge.tip} className={`${driftBadge.color} text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full`}>
+                    {driftBadge.label}
+                  </span>
+                )}
+                {/* FASP-AI v3.0: Pending proposals badge */}
+                {canViewFullHoldings && (proposals[portfolio.id]?.length ?? 0) > 0 && (
+                  <span title={`${proposals[portfolio.id].length} rebalance proposal(s) pending`} className="bg-amber-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full animate-pulse">
+                    ⚡ {proposals[portfolio.id].length}P
+                  </span>
                 )}
               </div>
 
@@ -2793,6 +3276,21 @@ export default function AgentModelPortfoliosPage() {
               </div>
 
               {/* Action Buttons */}
+              {/* ── Invest Now button (always visible) ── */}
+              <div className="flex gap-2 px-5 pt-3 pb-0 shrink-0">
+                <button
+                  id="invest-now-btn"
+                  onClick={() => { setInvestAmount(String(selectedPortfolio.minInvestment)); setInvestModalOpen(true); }}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors shadow-md"
+                >
+                  ⚡ Invest Now
+                </button>
+                {!canShare && (
+                  <span className="text-xs text-muted-foreground self-center ml-1">
+                    An advisor will review and share the proposal with you.
+                  </span>
+                )}
+              </div>
               {canShare && (
                 <div className="flex gap-2 px-5 py-3 border-b shrink-0">
                   <Button
@@ -3040,12 +3538,10 @@ export default function AgentModelPortfoliosPage() {
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-muted-foreground">
                         {canViewFullHoldings
-                          ? showAllHoldings
-                             ? `Showing all ${displayHoldings.length} holdings`
-                             : `Showing 5 of ${displayHoldings.length} holdings`
+                          ? `Showing all ${displayHoldings.length} holdings · ${selectedPortfolio.totalHoldings} total instruments`
                           : `Top 5 of ${selectedPortfolio.totalHoldings} holdings · full list for registered advisors`}
                       </p>
-                      {canViewFullHoldings && displayHoldings.length > 5 && (
+                      {canViewFullHoldings && displayHoldings.length > 8 && (
                         <button
                           id="toggle-holdings-expand"
                           onClick={() => setShowAllHoldings((v) => !v)}
@@ -3064,7 +3560,7 @@ export default function AgentModelPortfoliosPage() {
                         </div>
                       )}
                       {(canViewFullHoldings
-                        ? (showAllHoldings ? displayHoldings : displayHoldings.slice(0, 5))
+                        ? displayHoldings  // Always show all for agents — no slice
                         : displayHoldings.slice(0, 5)
                       ).map((h, _idx) => {
                         const displayBeta = h.beta;
@@ -3233,6 +3729,38 @@ export default function AgentModelPortfoliosPage() {
 
                   {/* Rebalancing Tab */}
                   <TabsContent value="rebalancing" className="space-y-3">
+                     {/* ── FASP-AI v3.0: Substitution Proposals Panel ─────────── */}
+                     {canViewFullHoldings && proposals[selectedPortfolio.id]?.length > 0 && (
+                       <div className="space-y-2">
+                         <div className="flex items-center gap-2 mb-1">
+                           <span className="text-xs font-bold text-amber-600 dark:text-amber-400">⚡ Rebalance Proposals</span>
+                           <span className="text-[9px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-semibold">{proposals[selectedPortfolio.id].length} pending</span>
+                         </div>
+                         {proposals[selectedPortfolio.id].map((proposal: any) => (
+                           <div key={proposal.id} className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20 p-3 space-y-2">
+                             <div className="flex items-start justify-between gap-2">
+                               <div>
+                                 <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300">Est. Alpha Gain: +{Number.parseFloat(proposal.totalAlphaGain || 0).toFixed(1)}%/yr</p>
+                                 <p className="text-[9px] text-muted-foreground">Confidence: {proposal.confidence}% · {new Date(proposal.proposedAt).toLocaleDateString("en-IN")}</p>
+                               </div>
+                               <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${proposal.driftSeverity === "critical" ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"}`}>{proposal.driftSeverity ?? "moderate"}</span>
+                             </div>
+                             {(proposal.substitutions ?? []).map((sub: any, si: number) => (
+                               <div key={si} className="bg-white/70 dark:bg-black/20 rounded-lg p-2 text-[10px] space-y-1">
+                                 <div className="flex items-center gap-1.5"><span className="text-red-500 font-bold">−</span><span className="text-muted-foreground font-medium truncate">{sub.removeName}</span><span className="text-[9px] text-red-500">(α: {sub.removeAlpha?.toFixed(1)}%)</span></div>
+                                 <div className="flex items-center gap-1.5"><span className="text-green-500 font-bold">+</span><span className="font-semibold truncate">{sub.addName}</span><span className="text-[9px] text-green-600">(α: +{sub.addAlpha?.toFixed(1)}%)</span></div>
+                                 <p className="text-[9px] text-muted-foreground italic">{sub.reason}</p>
+                               </div>
+                             ))}
+                             <div className="flex gap-2 pt-1">
+                               <button id={`approve-proposal-${proposal.id}`} disabled={approvingProposal === proposal.id} onClick={() => handleApproveProposal(selectedPortfolio.id, proposal.id)} className="flex-1 text-[10px] font-bold py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-50">{approvingProposal === proposal.id ? "Approving…" : "✓ Approve & Apply"}</button>
+                               <button id={`reject-proposal-${proposal.id}`} disabled={rejectingProposal === proposal.id} onClick={() => handleRejectProposal(selectedPortfolio.id, proposal.id)} className="flex-1 text-[10px] font-bold py-1.5 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50">{rejectingProposal === proposal.id ? "Rejecting…" : "✗ Reject"}</button>
+                             </div>
+                             <p className="text-[8px] text-muted-foreground italic">{proposal.disclaimer}</p>
+                           </div>
+                         ))}
+                       </div>
+                     )}
                      {/* Monitoring Summary */}
                      {(() => {
                        const lastRebalDate = new Date(selectedPortfolio.lastRebalanced);
@@ -3545,5 +4073,183 @@ export default function AgentModelPortfoliosPage() {
         </div>
       </div>
     </div>
+    {/* ═══════════════════════════════════════════════════════════════════
+        INVEST MODAL — Model Portfolio Investment
+        FASP-AI v2.0 | Advisory-only | Advisor shares proposal
+        ═══════════════════════════════════════════════════════════════════ */}
+    {investModalOpen && selectedPortfolio && (
+      <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center">
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setInvestModalOpen(false)} />
+        <div className="relative w-full sm:max-w-lg bg-background rounded-t-2xl sm:rounded-2xl shadow-2xl border border-border flex flex-col max-h-[90vh] overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-5 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-emerald-200 font-medium uppercase tracking-wide">💼 Invest in Model Portfolio</p>
+                <h2 className="text-lg font-bold mt-0.5">{selectedPortfolio.name}</h2>
+              </div>
+              <button onClick={() => setInvestModalOpen(false)} className="text-white/70 hover:text-white text-xl font-bold leading-none">×</button>
+            </div>
+            <div className="flex gap-4 mt-3 text-xs">
+              <span className="bg-white/15 rounded px-2 py-1">Min ₹{selectedPortfolio.minInvestment.toLocaleString("en-IN")}</span>
+              <span className="bg-white/15 rounded px-2 py-1">{selectedPortfolio.holdings.length} holdings</span>
+              <span className="bg-white/15 rounded px-2 py-1">1Y CAGR {selectedPortfolio.cagr1Y}%</span>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            {/* Invest Type Toggle */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Investment Type</label>
+              <div className="flex gap-2">
+                {(["lumpsum", "sip"] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setInvestType(t)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition-colors ${
+                      investType === t
+                        ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
+                        : "border-border bg-background text-muted-foreground hover:border-emerald-300"
+                    }`}
+                  >
+                    {t === "lumpsum" ? "💰 Lumpsum" : "📅 Monthly SIP"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Amount Input */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
+                {investType === "sip" ? "Monthly SIP Amount" : "Investment Amount"}
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">₹</span>
+                <input
+                  id="invest-amount-input"
+                  type="number"
+                  min={selectedPortfolio.minInvestment}
+                  step={1000}
+                  value={investAmount}
+                  onChange={e => setInvestAmount(e.target.value)}
+                  placeholder={`Min ${selectedPortfolio.minInvestment.toLocaleString("en-IN")}`}
+                  className="w-full pl-7 pr-4 py-2.5 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+              {investType === "sip" && (
+                <div className="mt-2">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">SIP Date</label>
+                  <select
+                    value={sipDate}
+                    onChange={e => setSipDate(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background"
+                  >
+                    {[1,5,7,10,15,20,25,28].map(d => (
+                      <option key={d} value={d}>{d === 1 ? "1st" : d === 5 ? "5th" : d === 7 ? "7th" : d === 10 ? "10th" : d === 15 ? "15th" : d === 20 ? "20th" : d === 25 ? "25th" : "28th"} of every month</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Allocation Preview */}
+            {investPreview.length > 0 && (
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
+                  Allocation ({investPreview.length} holdings)
+                </label>
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                  {investPreview.map((a: any) => (
+                    <div key={a.rank} className={`flex items-center justify-between text-xs px-3 py-2 rounded-lg ${a.isBelowMinimum ? "bg-amber-50 dark:bg-amber-900/20 border border-amber-200" : "bg-muted/40"}`}>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{a.name}</p>
+                        <p className="text-muted-foreground">{a.category} · {a.targetWeight}%</p>
+                      </div>
+                      <div className="text-right ml-3 shrink-0">
+                        <p className={`font-semibold ${a.isBelowMinimum ? "text-amber-600" : "text-foreground"}`}>
+                          ₹{a.targetAmount.toLocaleString("en-IN")}
+                        </p>
+                        {a.isBelowMinimum && <p className="text-[9px] text-amber-500">Below ₹100 min</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {investLoading && (
+              <div className="text-center text-xs text-muted-foreground py-3">Computing allocation...</div>
+            )}
+
+            {/* SEBI Disclaimer */}
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2.5">
+              <p className="text-[10px] text-amber-800 dark:text-amber-200 leading-relaxed">
+                <strong>⚠️ Important:</strong> Mutual Fund investments are subject to market risks. Past performance is not indicative of future results. This is an advisory recommendation. Final execution requires advisor review and approval. No trades have been executed.
+              </p>
+            </div>
+
+            {/* Advisory note for clients */}
+            {!canShare && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 rounded-lg px-3 py-2.5">
+                <p className="text-[10px] text-blue-800 dark:text-blue-200">
+                  📋 Your advisor will review this proposal and share an execution plan with you. Online transaction support coming soon.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="px-5 py-4 border-t shrink-0 flex gap-3">
+            <button
+              onClick={() => setInvestModalOpen(false)}
+              className="flex-1 py-2.5 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              id="generate-invest-proposal-btn"
+              disabled={investSubmitting || !investAmount || Number.parseFloat(investAmount) < selectedPortfolio.minInvestment}
+              onClick={async () => {
+                if (!investAmount || Number.parseFloat(investAmount) < selectedPortfolio.minInvestment) return;
+                setInvestSubmitting(true);
+                try {
+                  const r = await fetch(`/api/model-portfolios/${selectedPortfolio.id}/invest`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      clientId: (window as any).__currentUser?.id ?? "client",
+                      amount: Number.parseFloat(investAmount),
+                      investType,
+                      sipDate,
+                    }),
+                  });
+                  const data = await r.json();
+                  if (data.success) {
+                    setInvestModalOpen(false);
+                    // Show success toast via global toast if available
+                    if ((window as any).__toast) {
+                      (window as any).__toast({
+                        title: "✅ Proposal Created",
+                        description: `${data.data.proposalId} — ${data.data.holdingsAllocated} holdings added to cart. ${data.data.nextSteps}`,
+                      });
+                    }
+                  }
+                } catch {}
+                finally { setInvestSubmitting(false); }
+              }}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                investSubmitting || !investAmount || Number.parseFloat(investAmount || "0") < selectedPortfolio.minInvestment
+                  ? "bg-emerald-200 text-emerald-400 cursor-not-allowed"
+                  : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-md"
+              }`}
+            >
+              {investSubmitting ? "Creating..." : "Generate Proposal →"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

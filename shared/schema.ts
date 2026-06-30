@@ -11349,6 +11349,11 @@ export const modelPortfolios = pgTable("model_portfolios", {
   // AI insight (cached 24h)
   aiInsight:            jsonb("ai_insight"),
   aiInsightUpdatedAt:   timestamp("ai_insight_updated_at"),
+  // Quant Alpha Engine — FASP-AI-v2.0
+  driftScore:           integer("drift_score").default(0),               // 0-100 composite drift severity
+  driftDetails:         jsonb("drift_details").default([]),              // top 5 drifting holdings
+  quantEngineVersion:   varchar("quant_engine_version").default("FASP-AI-v2.0"),
+  lastQuantRun:         timestamp("last_quant_run"),
   // GCR compliance
   engineVersion:        varchar("engine_version").default("1.0.0"),
   createdAt:            timestamp("created_at").defaultNow(),
@@ -11431,3 +11436,108 @@ export const insertModelPortfolioHoldingSchema = createInsertSchema(modelPortfol
 });
 export type ModelPortfolioHolding = typeof modelPortfolioHoldings.$inferSelect;
 export type InsertModelPortfolioHolding = typeof modelPortfolioHoldings.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FASP-AI v3.0 — Dynamic Portfolio Management Tables
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── fund_performance_cache ────────────────────────────────────────────────────
+export const fundPerformanceCache = pgTable("fund_performance_cache", {
+  isin:             varchar("isin", { length: 20 }).primaryKey(),
+  schemeCode:       varchar("scheme_code", { length: 12 }),
+  schemeName:       varchar("scheme_name", { length: 300 }),
+  assetClass:       varchar("asset_class", { length: 50 }),
+  category:         varchar("category", { length: 100 }),
+  riskRating:       varchar("risk_rating", { length: 20 }),
+  currentNav:       numeric("current_nav", { precision: 12, scale: 4 }),
+  navDate:          date("nav_date"),
+  cagr1m:           numeric("cagr_1m", { precision: 6, scale: 2 }),
+  cagr3m:           numeric("cagr_3m", { precision: 6, scale: 2 }),
+  cagr6m:           numeric("cagr_6m", { precision: 6, scale: 2 }),
+  cagr1y:           numeric("cagr_1y", { precision: 6, scale: 2 }),
+  cagr3y:           numeric("cagr_3y", { precision: 6, scale: 2 }),
+  alphaVsNifty:     numeric("alpha_vs_nifty", { precision: 6, scale: 2 }),
+  alphaVsCrisil:    numeric("alpha_vs_crisil", { precision: 6, scale: 2 }),
+  sharpeRatio:      numeric("sharpe_ratio", { precision: 6, scale: 3 }),
+  sortinoRatio:     numeric("sortino_ratio", { precision: 6, scale: 3 }),
+  maxDrawdown:      numeric("max_drawdown", { precision: 6, scale: 2 }),
+  volatility:       numeric("volatility", { precision: 6, scale: 2 }),
+  aumCr:            numeric("aum_cr", { precision: 14, scale: 2 }),
+  expenseRatio:     numeric("expense_ratio", { precision: 5, scale: 3 }),
+  alphaScore:       numeric("alpha_score", { precision: 6, scale: 2 }),
+  navUpdatedAt:     timestamp("nav_updated_at"),
+  returnsUpdatedAt: timestamp("returns_updated_at"),
+  engineVersion:    varchar("engine_version", { length: 30 }).default("FASP-AI-v3.0"),
+  source:           varchar("source", { length: 20 }).default("cron"),
+  createdAt:        timestamp("created_at").defaultNow(),
+  updatedAt:        timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_fpc_asset_class").on(table.assetClass),
+  index("idx_fpc_alpha_score").on(table.alphaScore),
+  index("idx_fpc_nav_date").on(table.navDate),
+]);
+export type FundPerformanceCache = typeof fundPerformanceCache.$inferSelect;
+export type InsertFundPerformanceCache = typeof fundPerformanceCache.$inferInsert;
+export const insertFundPerformanceCacheSchema = createInsertSchema(fundPerformanceCache).omit({
+  createdAt: true, updatedAt: true,
+});
+
+// ── rebalance_proposals ───────────────────────────────────────────────────────
+// FASP-AI mandate: AI proposes, advisor approves. Never autonomous execution.
+export const rebalanceProposals = pgTable("rebalance_proposals", {
+  id:              uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  portfolioId:     varchar("portfolio_id", { length: 100 }).notNull().references(() => modelPortfolios.id),
+  proposedAt:      timestamp("proposed_at").defaultNow(),
+  proposedBy:      varchar("proposed_by", { length: 50 }).default("FASP-AI-v3.0"),
+  engineVersion:   varchar("engine_version", { length: 30 }).default("FASP-AI-v3.0"),
+  status:          varchar("status", { length: 20 }).default("pending"),
+  reviewedBy:      varchar("reviewed_by", { length: 100 }),
+  reviewedAt:      timestamp("reviewed_at"),
+  rejectionReason: text("rejection_reason"),
+  substitutions:   jsonb("substitutions").notNull().default([]),
+  totalAlphaGain:  numeric("total_alpha_gain", { precision: 6, scale: 2 }),
+  confidence:      integer("confidence").default(0),
+  driftSeverity:   varchar("drift_severity", { length: 20 }),
+  executedAt:      timestamp("executed_at"),
+  executionNotes:  text("execution_notes"),
+  disclaimer:      text("disclaimer").default("Past performance is not indicative of future results. Advisor approval required. Not autonomous advice."),
+  source:          varchar("source", { length: 20 }).default("system"),
+  createdAt:       timestamp("created_at").defaultNow(),
+  updatedAt:       timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_rp_portfolio_status").on(table.portfolioId, table.status),
+  index("idx_rp_proposed_at").on(table.proposedAt),
+]);
+export type RebalanceProposal = typeof rebalanceProposals.$inferSelect;
+export type InsertRebalanceProposal = typeof rebalanceProposals.$inferInsert;
+export const insertRebalanceProposalSchema = createInsertSchema(rebalanceProposals).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+
+// ── portfolio_alerts ──────────────────────────────────────────────────────────
+export const portfolioAlerts = pgTable("portfolio_alerts", {
+  id:           uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  portfolioId:  varchar("portfolio_id", { length: 100 }).references(() => modelPortfolios.id),
+  alertType:    varchar("alert_type", { length: 50 }).notNull(),
+  severity:     varchar("severity", { length: 20 }).notNull().default("info"),
+  title:        varchar("title", { length: 200 }).notNull(),
+  message:      text("message").notNull(),
+  metadata:     jsonb("metadata").default({}),
+  isRead:       boolean("is_read").default(false),
+  snoozedUntil: timestamp("snoozed_until"),
+  expiresAt:    timestamp("expires_at"),
+  dedupKey:     varchar("dedup_key", { length: 200 }),
+  engineVersion: varchar("engine_version", { length: 30 }).default("FASP-AI-v3.0"),
+  source:        varchar("source", { length: 20 }).default("system"),
+  createdAt:     timestamp("created_at").defaultNow(),
+  updatedAt:     timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_pa_portfolio_read").on(table.portfolioId, table.isRead),
+  index("idx_pa_alert_type").on(table.alertType, table.severity),
+  index("idx_pa_created").on(table.createdAt),
+]);
+export type PortfolioAlert = typeof portfolioAlerts.$inferSelect;
+export type InsertPortfolioAlert = typeof portfolioAlerts.$inferInsert;
+export const insertPortfolioAlertSchema = createInsertSchema(portfolioAlerts).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
