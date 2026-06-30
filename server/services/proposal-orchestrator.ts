@@ -1455,7 +1455,8 @@ export class ProposalOrchestrator {
 		const allocations: any[] = [];
 
 		for (const asset of strategy.snapshot.assetAllocation) {
-			const instruments = ProposalOrchestrator.getInstrumentsForAssetClass(
+			// Use async dynamic selection from DB (alpha-scored, Direct Growth)
+			const instruments = await ProposalOrchestrator.getInstrumentsForAssetClass(
 				asset.assetClass,
 				proposal.riskProfile || "moderate",
 			);
@@ -1489,216 +1490,128 @@ export class ProposalOrchestrator {
 			);
 		}
 
+
 		return { allocations, totalAmount: investmentAmount };
 	}
 
-	private static getInstrumentsForAssetClass(
+	/**
+	 * Dynamic instrument selection — queries mutual_funds DB and ranks by multi-factor alpha score.
+	 * Falls back to curated static list when DB has insufficient data (< 3 qualifying funds).
+	 *
+	 * Alpha Score = returns1y*30% + crisilProxy*20% + sharpe*20% + alpha*15% + costEfficiency*15%
+	 *
+	 * @param assetClass  - equity|debt|gold|international
+	 * @param riskProfile - conservative|moderate|aggressive
+	 * @returns Sorted list of fund instruments for this asset class
+	 */
+	private static async getInstrumentsForAssetClass(
 		assetClass: string,
 		riskProfile: string,
-	): {
+	): Promise<{
 		instrumentType: string;
 		instrumentName: string;
 		isin: string;
 		weightWithinClass: number;
 		rationale: string;
 		riskCategory: string;
-	}[] {
-		const instrumentMap: Record<string, Record<string, any[]>> = {
+	}[]> {
+		// Sub-category mapping based on risk profile
+		const subCatMap: Record<string, Record<string, string>> = {
+			equity: {
+				conservative: "large_cap",
+				moderate:     "flexi_cap",
+				aggressive:   "small_cap",
+			},
+			debt: {
+				conservative: "gilt",
+				moderate:     "corporate_bond",
+				aggressive:   "corporate_bond",
+			},
+			gold: {
+				conservative: "gold",
+				moderate:     "gold",
+				aggressive:   "gold",
+			},
+			international: {
+				conservative: "international",
+				moderate:     "international",
+				aggressive:   "international",
+			},
+			liquid: {
+				conservative: "liquid",
+				moderate:     "liquid",
+				aggressive:   "liquid",
+			},
+		};
+		const subCategory = subCatMap[assetClass]?.[riskProfile] ?? assetClass;
+
+		try {
+			// Dynamic: query DB, score by alpha, return top 3 Direct Growth funds
+			const { selectTopFundsByAlphaScore } = await import("./model-portfolio-metrics-service");
+			const scored = await selectTopFundsByAlphaScore(assetClass, subCategory, riskProfile, 3);
+			if (scored.length >= 1) {
+				return scored.map((f) => ({
+					instrumentType: f.instrumentType,
+					instrumentName: f.instrumentName,
+					isin:           f.isin,
+					weightWithinClass: f.weightWithinClass,
+					rationale:      f.rationale,
+					riskCategory:   riskProfile,
+				}));
+			}
+		} catch { /* non-fatal — fall through to curated list */ }
+
+		// Static fallback (used when DB has insufficient data)
+
+		const staticFallback: Record<string, Record<string, any[]>> = {
 			equity: {
 				conservative: [
-					{
-						instrumentType: "large_cap_fund",
-						instrumentName: "Axis Bluechip Fund - Growth",
-						isin: "INF846K01EW2",
-						weightWithinClass: 60,
-						rationale: "Blue-chip exposure for stability",
-						riskCategory: "moderate",
-					},
-					{
-						instrumentType: "index_fund",
-						instrumentName: "UTI Nifty 50 Index Fund",
-						isin: "INF789F01YN0",
-						weightWithinClass: 40,
-						rationale: "Low-cost market-cap tracking",
-						riskCategory: "moderate",
-					},
+					{ instrumentType: "large_cap_fund",  instrumentName: "Mirae Asset Large Cap Fund - Direct Growth",       isin: "INF769K01EW5", weightWithinClass: 60, rationale: "Consistent top-quartile large-cap performer",             riskCategory: "conservative" },
+					{ instrumentType: "index_fund",      instrumentName: "UTI Nifty 50 Index Fund - Direct Growth",          isin: "INF789F01YN0", weightWithinClass: 40, rationale: "Lowest-cost Nifty 50 index tracking",                   riskCategory: "conservative" },
 				],
 				moderate: [
-					{
-						instrumentType: "flexi_cap_fund",
-						instrumentName: "Parag Parikh Flexi Cap Fund - Growth",
-						isin: "INF879O01027",
-						weightWithinClass: 50,
-						rationale: "Diversified equity across market caps",
-						riskCategory: "moderate",
-					},
-					{
-						instrumentType: "mid_cap_fund",
-						instrumentName: "Kotak Emerging Equity Fund - Growth",
-						isin: "INF174K01LS2",
-						weightWithinClass: 30,
-						rationale: "Mid-cap growth potential",
-						riskCategory: "aggressive",
-					},
-					{
-						instrumentType: "large_cap_fund",
-						instrumentName: "ICICI Pru Bluechip Fund",
-						isin: "INF109K01BD8",
-						weightWithinClass: 20,
-						rationale: "Large-cap stability anchor",
-						riskCategory: "moderate",
-					},
+					{ instrumentType: "flexi_cap_fund",  instrumentName: "Parag Parikh Flexi Cap Fund - Direct Growth",      isin: "INF879O01027", weightWithinClass: 50, rationale: "Global + domestic diversification, quality bias",         riskCategory: "moderate"     },
+					{ instrumentType: "mid_cap_fund",    instrumentName: "Kotak Emerging Equity Fund - Direct Growth",       isin: "INF174K01DC2", weightWithinClass: 30, rationale: "Mid-cap alpha with quality focus",                     riskCategory: "moderate"     },
+					{ instrumentType: "large_cap_fund",  instrumentName: "HDFC Top 100 Fund - Direct Growth",                isin: "INF179K01BB1", weightWithinClass: 20, rationale: "Large-cap stability anchor",                           riskCategory: "moderate"     },
 				],
 				aggressive: [
-					{
-						instrumentType: "small_cap_fund",
-						instrumentName: "Nippon India Small Cap Fund",
-						isin: "INF204K01UN5",
-						weightWithinClass: 40,
-						rationale: "High growth from small-cap",
-						riskCategory: "aggressive",
-					},
-					{
-						instrumentType: "mid_cap_fund",
-						instrumentName: "Axis Midcap Fund - Growth",
-						isin: "INF846K01EW2",
-						weightWithinClass: 35,
-						rationale: "Quality mid-caps",
-						riskCategory: "aggressive",
-					},
-					{
-						instrumentType: "sector_fund",
-						instrumentName: "ICICI Technology Fund",
-						isin: "INF109K01VL5",
-						weightWithinClass: 25,
-						rationale: "Sectoral tech exposure",
-						riskCategory: "aggressive",
-					},
+					{ instrumentType: "small_cap_fund",  instrumentName: "SBI Small Cap Fund - Direct Growth",               isin: "INF200K01WK8", weightWithinClass: 40, rationale: "High growth from disciplined small-cap selection",       riskCategory: "aggressive"   },
+					{ instrumentType: "mid_cap_fund",    instrumentName: "Nippon India Growth Fund - Direct Growth",         isin: "INF204K01QY2", weightWithinClass: 35, rationale: "Diversified mid-cap momentum",                         riskCategory: "aggressive"   },
+					{ instrumentType: "flexi_cap_fund",  instrumentName: "HDFC Flexi Cap Fund - Direct Growth",              isin: "INF179K01VR1", weightWithinClass: 25, rationale: "Multi-cap alpha generation",                           riskCategory: "aggressive"   },
 				],
 			},
 			debt: {
 				conservative: [
-					{
-						instrumentType: "corporate_bond_fund",
-						instrumentName: "HDFC Corporate Bond Fund",
-						isin: "INF179K01AB1",
-						weightWithinClass: 60,
-						rationale: "Capital preservation",
-						riskCategory: "conservative",
-					},
-					{
-						instrumentType: "gilt_fund",
-						instrumentName: "SBI Magnum Gilt Fund",
-						isin: "INF200K01RJ1",
-						weightWithinClass: 40,
-						rationale: "Sovereign safety",
-						riskCategory: "conservative",
-					},
+					{ instrumentType: "gilt_fund",           instrumentName: "SBI Magnum Gilt Fund - Direct Growth",         isin: "INF200K01RJ1", weightWithinClass: 60, rationale: "Sovereign safety with active duration management",      riskCategory: "conservative" },
+					{ instrumentType: "corporate_bond_fund", instrumentName: "HDFC Corporate Bond Fund - Direct Growth",    isin: "INF179K01AB1", weightWithinClass: 40, rationale: "AA+ credit quality, capital preservation",              riskCategory: "conservative" },
 				],
 				moderate: [
-					{
-						instrumentType: "dynamic_bond_fund",
-						instrumentName: "ICICI Dynamic Bond Fund",
-						isin: "INF109K01Z82",
-						weightWithinClass: 50,
-						rationale: "Active duration management",
-						riskCategory: "moderate",
-					},
-					{
-						instrumentType: "short_duration_fund",
-						instrumentName: "Axis Short Term Fund",
-						isin: "INF846K01C55",
-						weightWithinClass: 50,
-						rationale: "Short duration stability",
-						riskCategory: "conservative",
-					},
+					{ instrumentType: "corporate_bond_fund", instrumentName: "HDFC Corporate Bond Fund - Direct Growth",    isin: "INF179K01AB1", weightWithinClass: 50, rationale: "Strong credit quality, consistent accrual",              riskCategory: "moderate"     },
+					{ instrumentType: "gilt_fund",           instrumentName: "ICICI Prudential Gilt Fund - Direct Growth",  isin: "INF109K01Z82", weightWithinClass: 50, rationale: "Active duration in falling rate environment",            riskCategory: "moderate"     },
 				],
 				aggressive: [
-					{
-						instrumentType: "credit_risk_fund",
-						instrumentName: "HDFC Credit Risk Fund",
-						isin: "INF179K01GH2",
-						weightWithinClass: 50,
-						rationale: "Higher yield potential",
-						riskCategory: "moderate",
-					},
-					{
-						instrumentType: "dynamic_bond_fund",
-						instrumentName: "ICICI Dynamic Bond Fund",
-						isin: "INF109K01Z82",
-						weightWithinClass: 50,
-						rationale: "Active duration play",
-						riskCategory: "moderate",
-					},
+					{ instrumentType: "corporate_bond_fund", instrumentName: "Aditya Birla SL Corp Bond - Direct Growth",   isin: "INF209K01YQ8", weightWithinClass: 60, rationale: "Diversified credit with accrual income",                 riskCategory: "moderate"     },
+					{ instrumentType: "gilt_fund",           instrumentName: "SBI Magnum Gilt Fund - Direct Growth",         isin: "INF200K01RJ1", weightWithinClass: 40, rationale: "Duration play for rate cycles",                          riskCategory: "moderate"     },
 				],
 			},
 			gold: {
-				conservative: [
-					{
-						instrumentType: "sovereign_gold_bond",
-						instrumentName: "Sovereign Gold Bond 2.5%",
-						isin: "SGB2024",
-						weightWithinClass: 100,
-						rationale: "Gold with interest income",
-						riskCategory: "conservative",
-					},
-				],
-				moderate: [
-					{
-						instrumentType: "gold_etf",
-						instrumentName: "SBI Gold ETF",
-						isin: "INF200K01VN1",
-						weightWithinClass: 100,
-						rationale: "Gold exposure via ETF",
-						riskCategory: "conservative",
-					},
-				],
-				aggressive: [
-					{
-						instrumentType: "gold_etf",
-						instrumentName: "Nippon Gold ETF",
-						isin: "INF204K01EY0",
-						weightWithinClass: 100,
-						rationale: "Portfolio hedge",
-						riskCategory: "conservative",
-					},
-				],
+				conservative: [{ instrumentType: "gold_etf", instrumentName: "Nippon India Gold BeES - ETF",  isin: "INF204KB15I2", weightWithinClass: 100, rationale: "Most liquid gold ETF on NSE",         riskCategory: "conservative" }],
+				moderate:     [{ instrumentType: "gold_etf", instrumentName: "Nippon India Gold BeES - ETF",  isin: "INF204KB15I2", weightWithinClass: 100, rationale: "Inflation hedge, portfolio stabiliser", riskCategory: "conservative" }],
+				aggressive:   [{ instrumentType: "gold_etf", instrumentName: "SBI Gold ETF",                  isin: "INF200K01VN1", weightWithinClass: 100, rationale: "Sovereign gold exposure",               riskCategory: "conservative" }],
 			},
 			international: {
-				conservative: [
-					{
-						instrumentType: "international_fund",
-						instrumentName: "Motilal Oswal S&P 500 Index Fund",
-						isin: "INF247L01CZ2",
-						weightWithinClass: 100,
-						rationale: "US market diversification",
-						riskCategory: "moderate",
-					},
-				],
-				moderate: [
-					{
-						instrumentType: "international_fund",
-						instrumentName: "Motilal Oswal Nasdaq 100 ETF",
-						isin: "INF247L01AP2",
-						weightWithinClass: 100,
-						rationale: "Global tech diversification",
-						riskCategory: "aggressive",
-					},
-				],
-				aggressive: [
-					{
-						instrumentType: "international_fund",
-						instrumentName: "Motilal Oswal Nasdaq 100 ETF",
-						isin: "INF247L01AP2",
-						weightWithinClass: 100,
-						rationale: "High-growth US tech",
-						riskCategory: "aggressive",
-					},
-				],
+				conservative: [{ instrumentType: "international_fund", instrumentName: "Motilal Oswal S&P 500 Index Fund - Direct Growth",  isin: "INF247L01CZ2", weightWithinClass: 100, rationale: "Low-cost US market diversification",        riskCategory: "moderate" }],
+				moderate:     [{ instrumentType: "international_fund", instrumentName: "Motilal Oswal Nasdaq 100 FOF - Direct Growth",      isin: "INF247L01AT4", weightWithinClass: 100, rationale: "Best-in-class US tech exposure",             riskCategory: "moderate" }],
+				aggressive:   [{ instrumentType: "international_fund", instrumentName: "Motilal Oswal Nasdaq 100 FOF - Direct Growth",      isin: "INF247L01AT4", weightWithinClass: 100, rationale: "High-growth US tech alpha",                  riskCategory: "aggressive" }],
+			},
+			liquid: {
+				conservative: [{ instrumentType: "liquid_fund", instrumentName: "HDFC Liquid Fund - Direct Growth", isin: "INF179KB1AB1", weightWithinClass: 100, rationale: "T+1 redemption, highest AUM liquid fund", riskCategory: "conservative" }],
+				moderate:     [{ instrumentType: "liquid_fund", instrumentName: "HDFC Liquid Fund - Direct Growth", isin: "INF179KB1AB1", weightWithinClass: 100, rationale: "T+1 redemption, highest AUM liquid fund", riskCategory: "conservative" }],
+				aggressive:   [{ instrumentType: "liquid_fund", instrumentName: "HDFC Liquid Fund - Direct Growth", isin: "INF179KB1AB1", weightWithinClass: 100, rationale: "T+1 redemption, highest AUM liquid fund", riskCategory: "conservative" }],
 			},
 		};
 
-		const classInstruments = instrumentMap[assetClass];
+		const classInstruments = staticFallback[assetClass];
 		if (!classInstruments) {
 			return [
 				{
@@ -1706,7 +1619,7 @@ export class ProposalOrchestrator {
 					instrumentName: `${assetClass} Index Fund`,
 					isin: `GENERIC_${assetClass.toUpperCase()}`,
 					weightWithinClass: 100,
-					rationale: `${assetClass} exposure`,
+					rationale: `${assetClass} exposure via index`,
 					riskCategory: "moderate",
 				},
 			];

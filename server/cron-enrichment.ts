@@ -29,7 +29,9 @@ import {
 	isEnrichmentWindow,
 } from "./utils/enrichment-guard";
 import { runDailyFixedIncomeRefresh } from "./cron/fixed-income-daily-refresh";
+import { startModelPortfolioHoldingsRebalanceScheduler } from "./services/model-portfolio-metrics-service";
 import type { StaggerFn } from "./cron/utils";
+
 
 const STAGGER = 120_000; // 2 min between each staggered service start
 
@@ -843,7 +845,21 @@ export function initializeEnrichmentCrons(
 	);
 	delay += STAGGER;
 
+	// ─ Model Portfolio Holdings Refresh + Rebalancing Detection (7:00 AM IST daily) ─
+	staggeredStart(
+		"Model Portfolio Rebalancing",
+		() => {
+			startModelPortfolioHoldingsRebalanceScheduler();
+			logger.info(
+				"📊 [ModelPortfolioRebalance] Holdings refresh + drift/underperformance detection scheduled (7:00 AM IST daily)",
+			);
+		},
+		delay,
+	);
+	delay += STAGGER;
+
 	return delay;
+
 }
 
 // ── Fixed Income Status — runs at module load (production only) ─────────────

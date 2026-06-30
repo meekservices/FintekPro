@@ -11365,3 +11365,69 @@ export const insertModelPortfolioSchema = createInsertSchema(modelPortfolios).om
 });
 export type ModelPortfolioRow = typeof modelPortfolios.$inferSelect;
 export type InsertModelPortfolio = typeof modelPortfolios.$inferInsert;
+
+// ── Model Portfolio Holdings (normalized — one row per holding) ──────────────
+// Companion to model_portfolios.holdings (JSONB) for SQL-level analytics,
+// drift tracking, change history, and alpha scoring.
+export const modelPortfolioHoldings = pgTable("model_portfolio_holdings", {
+  id:             serial("id").primaryKey(),
+  portfolioId:    varchar("portfolio_id").notNull().references(() => modelPortfolios.id, { onDelete: "cascade" }),
+
+  // Instrument identity
+  isin:           varchar("isin", { length: 12 }),
+  symbol:         varchar("symbol"),
+  instrumentName: varchar("instrument_name").notNull(),
+  instrumentType: varchar("instrument_type").notNull(), // large_cap_fund|index_fund|small_cap_fund|gilt|liquid|etc
+  assetClass:     varchar("asset_class").notNull(),     // equity|debt|gold|cash|international
+  subCategory:    varchar("sub_category"),              // large_cap|mid_cap|small_cap|flexi_cap|gilt|corporate|etc
+
+  // Allocation
+  weight:         numeric("weight", { precision: 5, scale: 2 }).notNull(), // % target weight in portfolio
+
+  // mfapi.in / AMFI identifiers for live NAV fetch
+  schemeCode:     varchar("scheme_code"),   // AMFI scheme code e.g. "118989"
+
+  // Current pricing
+  currentNav:     numeric("current_nav", { precision: 12, scale: 4 }),
+  navDate:        date("nav_date"),
+
+  // Per-holding performance (from mfapi.in NAV history)
+  cagr1y:         numeric("cagr_1y", { precision: 6, scale: 2 }),
+  cagr3y:         numeric("cagr_3y", { precision: 6, scale: 2 }),
+  cagr5y:         numeric("cagr_5y", { precision: 6, scale: 2 }),
+
+  // Quality metrics (from mutual_funds table)
+  expenseRatio:   numeric("expense_ratio", { precision: 4, scale: 2 }),
+  sharpeRatio:    numeric("sharpe_ratio", { precision: 6, scale: 3 }),
+  alpha:          numeric("alpha", { precision: 6, scale: 3 }),   // excess return over benchmark
+
+  // Multi-factor alpha score (computed by selectTopFundsByAlphaScore)
+  // Score = returns1y*0.30 + crisilRating*0.20 + sharpe*0.20 + alpha*0.15 + (1/er)*0.15
+  alphaScore:     numeric("alpha_score", { precision: 6, scale: 2 }),
+
+  // Drift tracking
+  currentWeight:  numeric("current_weight", { precision: 5, scale: 2 }), // actual current % after NAV moves
+  drift:          numeric("drift", { precision: 5, scale: 2 }),           // currentWeight - targetWeight
+
+  // Lifecycle
+  addedAt:        date("added_at").default(sql`CURRENT_DATE`),
+  removedAt:      date("removed_at"),               // null = currently active holding
+  removalReason:  varchar("removal_reason"),         // DRIFT|UNDERPERFORMANCE|REBALANCE|MANUAL
+
+  // GCR compliance
+  source:         varchar("source").default("system"), // api|system|cron|manual
+  engineVersion:  varchar("engine_version").default("1.0.0"),
+  createdAt:      timestamp("created_at").defaultNow(),
+  updatedAt:      timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_mph_portfolio_id").on(table.portfolioId),
+  index("idx_mph_isin").on(table.isin),
+  index("idx_mph_active").on(table.portfolioId, table.removedAt),
+  index("idx_mph_alpha_score").on(table.assetClass, table.alphaScore),
+]);
+
+export const insertModelPortfolioHoldingSchema = createInsertSchema(modelPortfolioHoldings).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type ModelPortfolioHolding = typeof modelPortfolioHoldings.$inferSelect;
+export type InsertModelPortfolioHolding = typeof modelPortfolioHoldings.$inferInsert;
