@@ -230,6 +230,16 @@ export class UniPortfolioService {
 				segment,
 				investmentHorizon: horizon,
 				driftThreshold: model.rebalance_policy.drift_threshold,
+				// Per-stock positions for DCF/ROIC/RSI signal check (Fix 2)
+				stockPositions: aggregated.holdings
+					.filter((h) => h.allocationGroup === "EQUITY_IN" && h.currentValueInr > 0)
+					.map((h) => ({
+						symbol: h.symbol,
+						value: h.currentValueInr,
+						weight: aggregated.summary.totalValueInr > 0
+							? (h.currentValueInr / aggregated.summary.totalValueInr) * 100
+							: 0,
+					})),
 			});
 		} catch (err: any) {
 			logger.warn(

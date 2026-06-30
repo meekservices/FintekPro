@@ -136,6 +136,13 @@ export interface RebalanceInput {
 	cashOutflow?: number;
 	rebalanceReason?: RebalanceReason;
 	targetAllocations?: { [assetType: string]: number };
+	/**
+	 * Individual stock positions within the EQUITY_IN bucket.
+	 * When provided, the rebalancer runs per-stock DCF / ROIC / RSI / analyst signals
+	 * via getEnrichedRebalanceReasons() and surfaces SELL recommendations.
+	 * Weight = position value / totalPortfolioValue * 100.
+	 */
+	stockPositions?: { symbol: string; value: number; weight: number }[];
 }
 
 /**
@@ -324,9 +331,49 @@ class RebalancingEngine {
 			}
 		} catch { /* non-fatal — alpha check is best-effort */ }
 
+		// ── Per-Stock Fundamental Signals (Fix 2) ─────────────────────────────────
+		// For each EQUITY_IN holding, run getEnrichedRebalanceReasons() to surface
+		// DCF overvaluation, low ROIC, overbought RSI, analyst downgrades, EPS decline.
+		// Runs in parallel via Promise.allSettled — never blocks full rebalance on one slow call.
+		// SEBI/GCR: all signals are Decision Support only — advisor approval required.
+		const stockSignalRecs: string[] = [];
+		try {
+			const equityHoldings = Object.entries(input.currentAllocations)
+				.filter(([type, w]) => type === "EQUITY_IN" && (w as number) >= 1);
+
+			if (equityHoldings.length > 0 && input.currentValues) {
+				// Get individual stock positions if available on the input
+				const stockPositions: { symbol: string; value: number; weight: number }[] =
+					(input as { stockPositions?: { symbol: string; value: number; weight: number }[] })
+						.stockPositions ?? [];
+
+				const results = await Promise.allSettled(
+					stockPositions
+						.filter((p) => p.weight >= 1) // only positions ≥1% of portfolio
+						.slice(0, 10)                  // cap at 10 to avoid API overload
+						.map(async (pos) => {
+							const reasons = await getEnrichedRebalanceReasons(pos.symbol);
+							return { symbol: pos.symbol, weight: pos.weight, reasons };
+						}),
+				);
+
+				for (const r of results) {
+					if (r.status === "fulfilled" && r.value.reasons.length > 0) {
+						const { symbol, weight, reasons } = r.value;
+						stockSignalRecs.push(
+							`⚠️ SELL SIGNAL [${symbol}] (${weight.toFixed(1)}% of portfolio): ` +
+							reasons.join("; ") +
+							". Review with advisor before any action.",
+						);
+					}
+				}
+			}
+		} catch { /* non-fatal — stock signal check is best-effort */ }
+
 		const allRecommendations = [
 			...recommendations,
 			...alphaUpgradeRecs,
+			...stockSignalRecs,
 		];
 
 		return {

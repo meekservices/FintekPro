@@ -78,31 +78,50 @@ export interface UnifiedPortfolioResult {
 }
 
 // ─── Asset class → allocation group mapping ───────────────────────────────────
+/**
+ * Maps each BrokerCapability to a rebalancer-friendly allocation group.
+ * New instrument types must be added here + in COUNTRY_MAP to avoid
+ * falling through to "OTHER" (which makes them invisible to the rebalancer).
+ */
 const CAPABILITY_TO_GROUP: Record<BrokerCapability, string> = {
-	EQUITY_IN: "EQUITY_IN",
-	EQUITY_US: "EQUITY_US",
-	FNO: "DERIVATIVES",
-	MF: "MUTUAL_FUND",
-	NFO: "MUTUAL_FUND",
-	FD: "FIXED_INCOME",
-	BOND: "FIXED_INCOME",
-	PMS: "ALTERNATIVES",
-	AIF: "ALTERNATIVES",
-	CRYPTO: "CRYPTO",
+	EQUITY_IN:      "EQUITY_IN",
+	EQUITY_US:      "EQUITY_US",
+	FNO:            "DERIVATIVES",
+	MF:             "MUTUAL_FUND",
+	NFO:            "MUTUAL_FUND",
+	FD:             "FIXED_INCOME",
+	BOND:           "FIXED_INCOME",
+	PMS:            "ALTERNATIVES",
+	AIF:            "ALTERNATIVES",
+	CRYPTO:         "CRYPTO",
+	// ── New instrument types (Fix 1) ──────────────────────────────────────────
+	SGB:            "gold",          // Sovereign Gold Bond → gold allocation bucket
+	REIT:           "real_estate",   // REIT → real estate allocation bucket
+	INVIT:          "real_estate",   // InvIT → real estate allocation bucket
+	GOLD_ETF:       "gold",          // Gold ETF → gold allocation bucket
+	COMMODITY:      "commodity",     // MCX commodity → commodity bucket
+	NPS:            "pension",       // NPS Tier I/II → pension bucket
 	NOTIONAL_ORDER: "OTHER",
 };
 
 const COUNTRY_MAP: Record<string, "IN" | "US" | "OTHER"> = {
-	EQUITY_IN: "IN",
-	FNO: "IN",
-	MF: "IN",
-	NFO: "IN",
-	FD: "IN",
-	BOND: "IN",
-	PMS: "IN",
-	AIF: "IN",
-	EQUITY_US: "US",
-	CRYPTO: "OTHER",
+	EQUITY_IN:      "IN",
+	FNO:            "IN",
+	MF:             "IN",
+	NFO:            "IN",
+	FD:             "IN",
+	BOND:           "IN",
+	PMS:            "IN",
+	AIF:            "IN",
+	// New instrument types (Fix 1) — all India-domiciled
+	SGB:            "IN",
+	REIT:           "IN",
+	INVIT:          "IN",
+	GOLD_ETF:       "IN",
+	COMMODITY:      "IN",
+	NPS:            "IN",
+	EQUITY_US:      "US",
+	CRYPTO:         "OTHER",
 	NOTIONAL_ORDER: "OTHER",
 };
 

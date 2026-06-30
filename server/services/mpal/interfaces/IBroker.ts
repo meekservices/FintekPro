@@ -18,16 +18,22 @@
  * no hardcoded if-else per asset class.
  */
 export type BrokerCapability =
-	| "EQUITY_IN" // Indian equities (cash segment, NSE/BSE)
-	| "FNO" // Indian futures & options (F&O segment)
-	| "EQUITY_US" // US equities via LRS / Alpaca
-	| "CRYPTO" // Crypto assets
-	| "MF" // Mutual fund purchase / redemption / SIP
-	| "NFO" // New Fund Offer subscription
-	| "FD" // Fixed deposit
-	| "PMS" // Portfolio management service
-	| "AIF" // Alternative investment fund
-	| "BOND" // Bond / NCD / G-Sec
+	| "EQUITY_IN"       // Indian equities (cash segment, NSE/BSE)
+	| "FNO"             // Indian futures & options (F&O segment)
+	| "EQUITY_US"       // US equities via LRS / Alpaca
+	| "CRYPTO"          // Crypto assets
+	| "MF"              // Mutual fund purchase / redemption / SIP
+	| "NFO"             // New Fund Offer subscription
+	| "FD"              // Fixed deposit
+	| "PMS"             // Portfolio management service
+	| "AIF"             // Alternative investment fund
+	| "BOND"            // Bond / NCD / G-Sec
+	| "SGB"             // Sovereign Gold Bond (RBI-issued, gold-linked)
+	| "REIT"            // Real Estate Investment Trust (SEBI-regulated)
+	| "INVIT"           // Infrastructure Investment Trust
+	| "GOLD_ETF"        // Gold ETF (exchange-traded, tracks MCX gold)
+	| "COMMODITY"       // Commodity contracts (MCX: gold, silver, crude)
+	| "NPS"             // National Pension System (Tier I / Tier II)
 	| "NOTIONAL_ORDER"; // Fractional / notional (dollar/rupee-value) order
 
 // ─── Shared domain types ──────────────────────────────────────────────────────
