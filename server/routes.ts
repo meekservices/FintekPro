@@ -99,6 +99,7 @@ import { registerStakeholderRoutes } from "./stakeholder-routes";
 import { registerSystemAdminRoutes } from "./routes/system-admin";
 import { registerIrisKfintechRoutes } from "./routes/iris-kfintech-routes";
 import { registerIrisLasRoutes } from "./routes/iris-las-routes";
+import { registerCasPortfolioUploadRoutes } from "./routes/cas-portfolio-upload-routes";
 import { registerComplianceGateRoutes } from "./routes/compliance-gate-routes";
 import { registerCrmRoutes } from "./routes/crm";
 import { registerLoanRoutes } from "./routes/loans/index";
@@ -398,6 +399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	registerSystemAdminRoutes(app); // /api/admin/system/* routes
 	registerIrisKfintechRoutes(app); // /api/iris/* KFintech integration
 	registerIrisLasRoutes(app);       // /api/iris/las/* LAS/LAMF pledge-and-lend lifecycle
+	registerCasPortfolioUploadRoutes(app); // /api/portfolio/upload-cas-pdf + /api/portfolio/sync-status
 	registerComplianceGateRoutes(app); // GET /api/compliance/transaction-readiness
 	registerCrmRoutes(app); // /api/crm/* client relationship management
 	registerLoanRoutes(app); // /api/loans/* loan marketplace

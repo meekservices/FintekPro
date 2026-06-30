@@ -44,6 +44,8 @@
  *  Weekly Sun 8 PM  │ Golden price stale marker
  *  Monthly 1st 6 AM │ Exit load sync, Monthly MF returns
  *  Quarterly 1st 3AM│ Valuation governance staleness sweep
+ *  Daily  2:30 AM   │ IRIS / KFintech CAS portfolio sync (all active PANs)
+ *  Daily  7:00 AM   │ Model portfolio alpha scoring + rebalancing check
  */
 
 import { staggeredStart } from "./cron/utils";
@@ -52,6 +54,7 @@ import { initializeEnrichmentCrons } from "./cron-enrichment";
 import { initializeUnlistedCrons } from "./cron-unlisted";
 import { initializeOrderOpsCrons } from "./cron-order-ops";
 import { initializeComplianceCrons } from "./cron-compliance";
+import { initializeIrisSyncCrons } from "./cron-iris-sync";
 import { logger } from "./logger";
 
 export function initializeCronJobs(): void {
@@ -79,6 +82,11 @@ export function initializeCronJobs(): void {
 
 	// ── Compliance domain ──────────────────────────────────────────────────────
 	initializeComplianceCrons();
+
+	// ── IRIS portfolio sync + model portfolio rebalancing domain ─────────────────────────
+	// ∙2:30 AM IST: nightly IRIS/KFintech CAS sync for all active PANs
+	// →7:00 AM IST: daily alpha scoring + rebalancing check
+	initializeIrisSyncCrons();
 
 	// Disabled pipelines — kept as tombstone comments for audit trail
 	logger.info("Disabled pipelines skipped (tombstone)", {
