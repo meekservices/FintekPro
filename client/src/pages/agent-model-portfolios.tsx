@@ -1017,10 +1017,16 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { category: "liquid", label: "Liquid Buffer", weight: 5, color: "#9CA3AF", icon: "💧" },
     ],
     holdings: [
-      { rank: 1, name: "SBI Magnum Gilt Fund", category: "Gilt Fund", weight: 30, currentReturn: 9.8 },
-      { rank: 2, name: "ICICI Pru Gilt Fund", category: "Gilt Fund", weight: 25, currentReturn: 10.1 },
-      { rank: 3, name: "HDFC Gilt Fund", category: "Gilt Fund", weight: 20, currentReturn: 9.4 },
-      { rank: 4, name: "Nippon India Gilt SDL Index", category: "SDL ETF", weight: 20, currentReturn: 8.7 },
+      { rank: 1,  name: "SBI Magnum Gilt Fund",          category: "Gilt Fund",       weight: 20, currentReturn: 9.8 },
+      { rank: 2,  name: "ICICI Pru Gilt Fund",           category: "Gilt Fund",       weight: 18, currentReturn: 10.1 },
+      { rank: 3,  name: "HDFC Gilt Fund",                category: "Gilt Fund",       weight: 15, currentReturn: 9.4 },
+      { rank: 4,  name: "Nippon India Gilt SDL Index",   category: "SDL ETF",         weight: 12, currentReturn: 8.7 },
+      { rank: 5,  name: "Kotak Gilt Fund",               category: "Gilt Fund",       weight: 10, currentReturn: 9.2 },
+      { rank: 6,  name: "IDFC GSF Constant Maturity",   category: "Gilt 10Y Fund",   weight: 10, currentReturn: 9.0 },
+      { rank: 7,  name: "Quantum Dynamic Bond Fund",     category: "Dynamic Bond MF", weight: 7,  currentReturn: 8.4 },
+      { rank: 8,  name: "Edelweiss SDL+AAA PSU Bond",   category: "Target Maturity",  weight: 5,  currentReturn: 8.6 },
+      { rank: 9,  name: "DSP Govt Securities Fund",     category: "Gilt Fund",        weight: 2,  currentReturn: 8.9 },
+      { rank: 10, name: "ICICI Pru Liquid Fund (Buffer)",category: "Liquid Buffer",   weight: 1,  currentReturn: 7.2 },
     ],
     performance: PERFORMANCE_BASE("debt-long-duration", 1000, 24, 9.4, 4),
     riskMetrics: { sharpeRatio: 1.21, maxDrawdown: -5.8, volatility: 5.9, beta: 0.22, alpha: 1.4 },
@@ -3034,7 +3040,9 @@ export default function AgentModelPortfoliosPage() {
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-muted-foreground">
                         {canViewFullHoldings
-                          ? `${showAllHoldings ? displayHoldings.length : Math.min(5, displayHoldings.length)} of ${displayHoldings.length} holdings shown`
+                          ? showAllHoldings
+                             ? `Showing all ${displayHoldings.length} holdings`
+                             : `Showing 5 of ${displayHoldings.length} holdings`
                           : `Top 5 of ${selectedPortfolio.totalHoldings} holdings · full list for registered advisors`}
                       </p>
                       {canViewFullHoldings && displayHoldings.length > 5 && (
@@ -3043,7 +3051,7 @@ export default function AgentModelPortfoliosPage() {
                           onClick={() => setShowAllHoldings((v) => !v)}
                           className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 dark:hover:text-indigo-400 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
                         >
-                          {showAllHoldings ? "▲ Top 5" : `▼ All ${displayHoldings.length}`}
+                          {showAllHoldings ? "▲ Collapse" : `▼ Show all ${displayHoldings.length}`}
                         </button>
                       )}
                     </div>
