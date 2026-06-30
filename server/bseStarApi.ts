@@ -196,7 +196,7 @@ export class BSEStarApiService {
 		try {
 			const orderRequest: BSEOrderRequest = {
 				transCode: item.transactionType, // 'P' for Purchase, 'R' for Redeem
-				transNo: `${transNo}${Math.floor(Math.random() * 1000)}`, // Unique trans number for each item
+				transNo: `${transNo}${String(Date.now()).slice(-4)}`, // Unique trans number per item
 				orderId,
 				userId: BSE_CREDENTIALS.userId,
 				memberId: BSE_CREDENTIALS.memberId,
@@ -245,7 +245,7 @@ export class BSEStarApiService {
 		try {
 			const sipRequest: BSESIPOrderRequest = {
 				transCode: "NEW", // Always NEW for SIP
-				transNo: `${transNo}${Math.floor(Math.random() * 1000)}`,
+				transNo: `${transNo}${String(Date.now()).slice(-4)}`,
 				orderId,
 				userId: BSE_CREDENTIALS.userId,
 				memberId: BSE_CREDENTIALS.memberId,
@@ -315,13 +315,8 @@ export class BSEStarApiService {
 				"Production BSE API integration requires valid credentials",
 			);
 		}
-		// Demo payment status
-		return {
-			paid: Math.random() > 0.5, // Random demo status
-			amount: 10000,
-			paymentDate: new Date().toISOString(),
-			referenceNo: `PAY${Math.floor(Math.random() * 1000000)}`,
-		};
+		// Production guard: sandbox mode not available
+		throw new Error("BSE_PAYMENT_STATUS_NOT_CONFIGURED: Real BSE API credentials required. Set BSE_MEMBER_ID, BSE_PASSWORD, BSE_APP_NAME env vars.");
 	}
 
 	/**
@@ -340,18 +335,8 @@ export class BSEStarApiService {
 				"Production BSE API integration requires valid credentials",
 			);
 		}
-		// Demo order status
-		const statuses = ["SUCCESS", "PENDING", "FAILED"] as const;
-		const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
-
-		return {
-			status: randomStatus,
-			message: `Demo: Order ${randomStatus.toLowerCase()}`,
-			units: randomStatus === "SUCCESS" ? 100.5 : undefined,
-			nav: randomStatus === "SUCCESS" ? 99.75 : undefined,
-			allotmentDate:
-				randomStatus === "SUCCESS" ? new Date().toISOString() : undefined,
-		};
+		// Production guard: real status only from BSE API
+		throw new Error("BSE_ORDER_STATUS_NOT_CONFIGURED: Real BSE API credentials required. Set BSE_MEMBER_ID, BSE_PASSWORD, BSE_APP_NAME env vars.");
 	}
 
 	/**
@@ -366,7 +351,7 @@ export class BSEStarApiService {
 		const hour = String(now.getHours()).padStart(2, "0");
 		const minute = String(now.getMinutes()).padStart(2, "0");
 		const second = String(now.getSeconds()).padStart(2, "0");
-		const random = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
+		const random = String(Number(process.hrtime.bigint()) % 1000).padStart(3, "0");
 
 		return `${year}${month}${day}${hour}${minute}${second}${random}`;
 	}
@@ -480,7 +465,7 @@ export class BSEStarApiService {
 		// Demo mandate creation
 		return {
 			success: true,
-			mandateId: `MAN${Math.floor(Math.random() * 1000000)}`,
+			mandateId: `MAN${Date.now().toString().slice(-7)}`,
 			message: `Demo: Mandate created for ${clientCode} with amount ${amount}`,
 		};
 	}

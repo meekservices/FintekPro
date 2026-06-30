@@ -264,9 +264,7 @@ class AITransactionTracker {
 	// AI-powered transaction analysis
 	private async analyzeTransactionWithAI(transactionData: any) {
 		// Simulate AI analysis delay and processing
-		await new Promise((resolve) =>
-			setTimeout(resolve, Math.random() * 500 + 200),
-		);
+		// Analysis is synchronous — no artificial delay in production
 
 		const amount = Number.parseFloat(transactionData.amount.toString());
 		const isLargeTransaction = amount > 100000; // > ₹1 lakh
@@ -292,7 +290,7 @@ class AITransactionTracker {
 			timingBehavior: this.analyzeTimingBehavior(transactionData),
 			methodPreference: this.analyzePaymentMethodPreference(transactionData),
 			riskIndicators: this.identifyRiskIndicators(transactionData),
-			aiConfidence: Math.min(95, 70 + Math.random() * 25),
+			aiConfidence: Math.min(95, Math.max(50, 95 - riskScore * 0.45)),
 		};
 
 		return {

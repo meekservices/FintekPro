@@ -263,7 +263,7 @@ export function registerAgentCapitalGainPart1Part2Routes(app: Express): void {
 				fullName: (req.user as any)!.firstName
 					? `${(req.user as any)!.firstName} ${(req.user as any)!.lastName || ""}`.trim()
 					: "Test Agent",
-				email: (req.user as any)!.email || "test@fintekpro.com",
+				email: (req.user as any)?.email || "",
 				phone: (req.user as any)!.phone || "+91-9876543210",
 				euinNumber: "E317634",
 				arnCode: "ARN-317634",

@@ -67,7 +67,7 @@ export function registerPartnerPortalPart2Routes(app: Express): void {
 					],
 					firstName: "Test",
 					lastName: "SuperUser",
-					email: "test@fintekpro.com",
+					email: (req.user as any)?.email || "",
 					userId: "central-test-user",
 				};
 			} else {

@@ -64,7 +64,7 @@ class ComplianceMonitor {
 	async logEvent(
 		event: Omit<ComplianceEvent, "id" | "timestamp">,
 	): Promise<string> {
-		const eventId = `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		const eventId = `evt_${Date.now()}_${require('crypto').randomBytes(4).toString('hex')}`;
 
 		const complianceEvent: ComplianceEvent = {
 			id: eventId,
@@ -260,7 +260,7 @@ class ComplianceMonitor {
 	}
 
 	private createAlert(alert: Omit<SecurityAlert, "id" | "timestamp">): string {
-		const alertId = `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		const alertId = `alert_${Date.now()}_${require('crypto').randomBytes(4).toString('hex')}`;
 
 		const securityAlert: SecurityAlert = {
 			id: alertId,

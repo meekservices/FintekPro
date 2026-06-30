@@ -165,7 +165,7 @@ export class BSEDirectApiService {
 		const orderNumber = `DO${Date.now().toString().substring(5)}`;
 
 		// Simulate market price
-		const simulatedPrice = request.price || 1000 + Math.random() * 100;
+		const simulatedPrice = request.price || 1000; // Fixed fallback NAV for sandbox
 		const totalAmount = simulatedPrice * request.quantity;
 
 		return {
@@ -216,8 +216,8 @@ export class BSEDirectApiService {
 	 * Generate demo market quote
 	 */
 	private getDemoQuote(symbol: string, segment: string): MarketQuote {
-		const basePrice = 1000 + Math.random() * 500;
-		const change = (Math.random() - 0.5) * 50;
+		const basePrice = 1000; // Fixed base NAV for sandbox — no random pricing
+		const change = 0; // Deterministic: no simulated price change in sandbox
 
 		return {
 			symbol: symbol,
@@ -225,7 +225,7 @@ export class BSEDirectApiService {
 			lastPrice: Math.round(basePrice * 100) / 100,
 			change: Math.round(change * 100) / 100,
 			changePercent: Math.round((change / basePrice) * 10000) / 100,
-			volume: Math.floor(Math.random() * 1000000),
+			volume: 0, // Volume not available in sandbox mode
 			bid: Math.round((basePrice - 0.5) * 100) / 100,
 			ask: Math.round((basePrice + 0.5) * 100) / 100,
 			high: Math.round((basePrice + Math.abs(change)) * 100) / 100,

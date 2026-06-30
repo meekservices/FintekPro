@@ -458,7 +458,7 @@ export class InsuranceMarketplaceAPI {
 			}
 
 			// Generate policy number
-			const policyNumber = `PB${Date.now()}${Math.floor(Math.random() * 1000)}`;
+			const policyNumber = `PB${Date.now()}${String(Number(process.hrtime.bigint()) % 1000).padStart(3, '0')}`;
 
 			// Simulate policy purchase
 			const purchaseResponse = {
@@ -799,9 +799,7 @@ export class InsuranceMarketplaceAPI {
 			planName: `${insuranceType} ${InsuranceMarketplaceAPI.getPlanVariant()}`,
 			premium: Math.round(basePremium * provider.multiplier),
 			sumInsured: coverage || 500000,
-			policyTerm: insuranceType.toLowerCase().includes("life")
-				? Math.floor(Math.random() * 10) + 20
-				: 1,
+			policyTerm: insuranceType.toLowerCase().includes("life") ? 30 : 1, // Life: 30Y standard; general: 1Y
 			features: InsuranceMarketplaceAPI.getPlanFeatures(insuranceType),
 			rating: provider.rating,
 			claimSettlementRatio: provider.claimRatio,
@@ -812,7 +810,7 @@ export class InsuranceMarketplaceAPI {
 		}));
 	}
 
-	private static getPlanVariant(): string {
+	private static getPlanVariant(seed?: string): string {
 		const variants = [
 			"Premium Plan",
 			"Comprehensive Plan",
@@ -821,7 +819,9 @@ export class InsuranceMarketplaceAPI {
 			"Elite Plan",
 			"Gold Plan",
 		];
-		return variants[Math.floor(Math.random() * variants.length)];
+		// Deterministic: derive index from seed (provider ID) so same provider always gets same variant
+		const hash = seed ? seed.split('').reduce((a, c) => a + c.charCodeAt(0), 0) : 0;
+		return variants[hash % variants.length];
 	}
 
 	private static getPlanFeatures(insuranceType: string): string[] {
@@ -882,7 +882,7 @@ export class InsuranceMarketplaceAPI {
 			"50% discount on second year premium",
 			"Refer a friend and get ₹500 cashback",
 		];
-		return [offers[Math.floor(Math.random() * offers.length)]];
+		return offers; // Return all offers — deterministic, no random selection
 	}
 
 	private static getBenefits(insuranceType: string): string[] {

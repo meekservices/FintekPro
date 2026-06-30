@@ -94,7 +94,8 @@ export class CashfreeService {
 	 * Generate a unique order ID
 	 */
 	generateOrderId(): string {
-		return `order_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+		const nano = Math.abs(require('crypto').randomInt(0, 999999)).toString().padStart(6, '0');
+		return `order_${Date.now()}_${nano}`;
 	}
 
 	/**
@@ -478,7 +479,7 @@ export class CashfreeService {
 					? "https://api.cashfree.com/pg/eligibility/emandate"
 					: "https://sandbox.cashfree.com/pg/eligibility/emandate";
 
-			const mandateId = `mandate_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+			const mandateId = `mandate_${Date.now()}_${require('crypto').randomBytes(4).toString('hex')}`;
 			const start = startDate || new Date();
 			const end =
 				endDate || new Date(start.getTime() + 10 * 365 * 24 * 60 * 60 * 1000);

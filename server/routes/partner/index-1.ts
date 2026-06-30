@@ -101,7 +101,7 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
 			(req as any).partner = {
 				id: "central-test-user",
 				companyName: "Test SuperUser",
-				contactEmail: "test@fintekpro.com",
+				contactEmail: (req.user as any)?.email || process.env.SUPPORT_EMAIL || "",
 				partnerType: "distributor",
 				permissions: ["read", "write"],
 			};
@@ -682,7 +682,7 @@ export function registerPartnerPortalPart1Routes(app: Express): void {
 					],
 					firstName: "Test",
 					lastName: "SuperUser",
-					email: "test@fintekpro.com",
+					email: (req.user as any)?.email || "",
 					userId: "central-test-user",
 				};
 			} else {

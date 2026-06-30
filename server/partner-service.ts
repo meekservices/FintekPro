@@ -49,7 +49,7 @@ class PartnerService {
 		const demoPartner: Partner = {
 			id: "central-test-user",
 			companyName: "FinTech Solutions Ltd",
-			contactEmail: "test@fintekpro.com",
+			contactEmail: process.env.SUPPORT_EMAIL || "support@fintekpro.com",
 			contactPhone: "+91-9876543210",
 			address: "123 Business Park, Mumbai, Maharashtra",
 			website: "https://fintech-solutions.com",

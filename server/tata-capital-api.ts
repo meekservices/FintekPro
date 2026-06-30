@@ -267,7 +267,8 @@ export class TataCapitalAPI {
 		recommendedProducts: string[];
 	}> {
 		// Simulate credit score (in real implementation, this would call bureau APIs)
-		const creditScore = Math.floor(Math.random() * (850 - 650) + 650); // Random score between 650-850
+		// creditScore must come from real bureau API (CIBIL/Experian) — not simulated
+		const creditScore = 0; // Placeholder: fetch from bureau API
 
 		let riskCategory: "low" | "medium" | "high" = "medium";
 		if (creditScore >= 750) riskCategory = "low";
@@ -331,10 +332,10 @@ export class TataCapitalAPI {
 		riskProfile: "low" | "medium" | "high";
 	} {
 		// Simulate bank statement analysis
-		const averageBalance = Math.floor(Math.random() * 500000 + 50000);
-		const creditScore = Math.floor(Math.random() * (800 - 650) + 650);
-		const salaryCredits = Math.floor(Math.random() * 100000 + 30000);
-		const bounceCharges = Math.floor(Math.random() * 5000);
+		const averageBalance = 0; // Must come from bank statement API
+		const creditScore = 0; // Must come from bureau API
+		const salaryCredits = 0; // Must come from bank statement API
+		const bounceCharges = 0; // Must come from bank statement API
 
 		let riskProfile: "low" | "medium" | "high" = "medium";
 		if (averageBalance > 200000 && bounceCharges < 1000) riskProfile = "low";
@@ -365,7 +366,7 @@ export class TataCapitalAPI {
 		extractedData?: any;
 	}> {
 		// Simulate document upload
-		const documentId = `DOC_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		const documentId = `DOC_${Date.now()}_${require('crypto').randomBytes(4).toString('hex')}`;
 
 		return {
 			success: true,
@@ -427,7 +428,7 @@ export class TataCapitalAPI {
 		amount: number;
 		status: "processed" | "pending" | "failed";
 	}> {
-		const transactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		const transactionId = `TXN_${Date.now()}_${require('crypto').randomBytes(4).toString('hex')}`;
 
 		return {
 			success: true,
@@ -450,9 +451,9 @@ export class TataCapitalAPI {
 		nextEmiAmount: number;
 	}> {
 		// Simulate outstanding balance
-		const principalOutstanding = Math.floor(Math.random() * 500000 + 100000);
-		const interestDue = Math.floor(Math.random() * 10000 + 1000);
-		const overduePrincipal = Math.floor(Math.random() * 5000);
+		const principalOutstanding = 0; // Must come from Tata Capital loan API
+		const interestDue = 0; // Must come from Tata Capital loan API
+		const overduePrincipal = 0; // Must come from Tata Capital loan API
 		const overdueInterest = Math.floor(Math.random() * 2000);
 		const bounceCharges = Math.floor(Math.random() * 1000);
 

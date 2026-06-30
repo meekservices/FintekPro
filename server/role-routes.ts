@@ -882,7 +882,7 @@ export function registerRoleRoutes(app: Express) {
 				fullName: req.user?.firstName
 					? `${req.user.firstName} ${req.user.lastName || ""}`
 					: "Test SuperUser",
-				email: req.user?.email || "test@fintekpro.com",
+				email: req.user?.email || "",
 				phone: req.user?.phone || "+91-9876543210",
 				euinNumber,
 				arnCode,
@@ -1211,7 +1211,7 @@ export function registerRoleRoutes(app: Express) {
 					],
 					firstName: "Test",
 					lastName: "SuperUser",
-					email: "test@fintekpro.com",
+					email: (req.user as any)?.email || "",
 				};
 			} else {
 				return res.status(401).json({ error: "Authentication required" });

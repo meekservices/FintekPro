@@ -649,7 +649,7 @@ export function registerRiskProfilesPartnerAppPart3Routes(app: Express): void {
 						id: "central-test-user",
 						firstName: "Test",
 						lastName: "SuperUser",
-						email: "test@fintekpro.com",
+						email: (req.user as any)?.email || "",
 					},
 				},
 				{

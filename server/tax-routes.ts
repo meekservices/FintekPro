@@ -1780,7 +1780,7 @@ router.post("/itr/verify/submit", async (req: Request, res: Response) => {
 			return res.status(400).json({ error: "Invalid OTP" });
 		}
 
-		const acknowledgementNumber = `ACK${Date.now()}${Math.floor(Math.random() * 1000)}`;
+		const acknowledgementNumber = `ACK${Date.now()}${String(process.hrtime.bigint()).slice(-4)}`;
 		const filingDate = new Date().toISOString();
 		const userRole = getUserTaxRole(req);
 

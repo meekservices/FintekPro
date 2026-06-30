@@ -47,7 +47,7 @@ export async function getSandboxAccessToken(): Promise<string> {
 		console.warn(
 			"[Sandbox Auth] API credentials not configured. Returning dummy token for degraded mode.",
 		);
-		cachedToken = "dummy_token_degraded_mode";
+		throw new Error("SANDBOX_AUTH_NOT_CONFIGURED: BSE sandbox credentials missing. Set SANDBOX_USER_ID, SANDBOX_PASSWORD env vars.");
 		tokenExpiry = Date.now() + 3600 * 1000;
 		return cachedToken;
 	}
@@ -84,7 +84,7 @@ export async function getSandboxAccessToken(): Promise<string> {
 			console.warn(
 				"[Sandbox Auth] Production authentication failed. Falling back to dummy token to maintain service availability.",
 			);
-			cachedToken = "dummy_token_auth_failed";
+			throw new Error("SANDBOX_AUTH_FAILED: BSE sandbox authentication failed. Verify SANDBOX_USER_ID and SANDBOX_PASSWORD.");
 			tokenExpiry = Date.now() + 600 * 1000; // Retry in 10 mins
 			return cachedToken;
 		}
@@ -101,7 +101,7 @@ export async function getSandboxAccessToken(): Promise<string> {
 			JSON.stringify(response.data).substring(0, 200),
 		);
 		if (process.env.NODE_ENV === "production") {
-			return "dummy_token_malformed_response";
+			throw new Error("SANDBOX_AUTH_MALFORMED: BSE sandbox returned malformed response. Check API endpoint and credentials.");
 		}
 		throw new Error(
 			"Sandbox authentication succeeded but no access_token returned",

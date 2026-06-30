@@ -54,7 +54,8 @@ export class RebalanceOptimizer {
 					asset: drift.asset,
 					quantity: Math.round(monetaryShift),
 					estimated_gain_val: monetaryShift * 0.15, // Mocking a 15% profit extraction on the sold amount
-					is_long_term: Math.random() > 0.5, // 50/50 mock distribution
+					// is_long_term derived from holding period: > 12 months = long-term
+					is_long_term: false, // Conservative: classify as short-term (STCG) until actual purchase date is known
 				});
 
 				transactionFees += TX_FEE_PROXY;
@@ -72,7 +73,7 @@ export class RebalanceOptimizer {
 		}
 
 		const plan: RebalancePlan = {
-			plan_id: `rebal_${Math.random().toString(36).substring(7)}`,
+			plan_id: `rebal_${Date.now().toString(36)}_${process.hrtime.bigint().toString(36).slice(-6)}`,
 			actions: actions,
 			estimated_cost: transactionFees,
 		};

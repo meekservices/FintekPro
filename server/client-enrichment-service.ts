@@ -207,7 +207,8 @@ class ClientEnrichmentEngine {
 			keyFindings: this.extractKeyFindings(rawData, analysisType),
 			riskAssessment: this.assessRisk(rawData),
 			recommendedActions: this.generateRecommendations(rawData, analysisType),
-			confidence: Math.floor(Math.random() * 20) + 80, // 80-100% confidence
+			// Confidence derived from number of key findings (more signals = higher confidence)
+			confidence: Math.min(97, 75 + Math.min(5, this.extractKeyFindings(rawData, analysisType).length) * 4),
 			processedAt: new Date().toISOString(),
 		};
 
@@ -350,15 +351,15 @@ class ClientEnrichmentEngine {
 			requestPayload: { type: "enrichment_request" },
 			responsePayload: { success },
 			statusCode: success ? 200 : 500,
-			responseTime: Math.floor(Math.random() * 2000) + 500,
+			responseTime: Date.now() - (this._enrichmentStartTime ?? Date.now()),
 			success,
-			dataPoints: success ? Math.floor(Math.random() * 50) + 10 : 0,
+			dataPoints: success ? Object.keys(rawData ?? {}).length : 0,
 			costIncurred: cost.toString(),
 			dataQuality: success ? "high" : "low",
-			dataCompleteness: success ? Math.floor(Math.random() * 20) + 80 : 0,
-			confidenceScore: success ? Math.floor(Math.random() * 20) + 80 : 0,
+			dataCompleteness: success ? Math.min(99, 70 + Object.keys(rawData ?? {}).filter(k => rawData[k] != null).length * 3) : 0,
+			confidenceScore: success ? Math.min(99, 70 + Object.keys(rawData ?? {}).filter(k => rawData[k] != null).length * 3) : 0,
 			enrichmentTriggered: success,
-			aiProcessingTime: Math.floor(Math.random() * 1000) + 200,
+			aiProcessingTime: Date.now() - (this._enrichmentStartTime ?? Date.now()),
 		};
 
 		await db.insert(apiIntegrationLogs).values(logRecord);

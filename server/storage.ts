@@ -926,7 +926,7 @@ export class DatabaseStorage implements IStorage {
 		consent: InsertGovernmentSchemeConsent,
 	): Promise<GovernmentSchemeConsent> {
 		try {
-			const consentId = `consent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+			const consentId = `consent_${Date.now()}_${require('crypto').randomBytes(4).toString('hex')}`;
 			const now = new Date();
 			const expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
 
@@ -10263,7 +10263,7 @@ export class DatabaseStorage implements IStorage {
 				continue;
 			}
 
-			const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+			const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${require('crypto').randomBytes(2).toString('hex').toUpperCase()}`;
 
 			const productTypeMap: Record<string, string> = {
 				store: "store",
