@@ -3158,3 +3158,6 @@ export default function AgentScreener() {
 					</CardContent>
 				</Card>
 			)}
+		</div>
+	);
+}
