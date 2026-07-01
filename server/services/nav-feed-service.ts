@@ -33,7 +33,7 @@ export async function fetchAMFINavMap(): Promise<Map<string, AMFIRecord>> {
   if (_navCache && Date.now() - _navCacheTime < CACHE_TTL_MS) return _navCache;
 
   const t0 = Date.now();
-  logger.info({ event: "AMFI_NAV_FETCH_START", url: AMFI_NAV_URL });
+  logger.info("AMFI_NAV_FETCH_START", {event: "AMFI_NAV_FETCH_START", url: AMFI_NAV_URL});
 
   let text: string;
   try {
@@ -44,7 +44,7 @@ export async function fetchAMFINavMap(): Promise<Map<string, AMFIRecord>> {
     });
     text = resp.data;
   } catch (err) {
-    logger.error({ event: "AMFI_NAV_FETCH_ERROR", error: err instanceof Error ? err.message : String(err), retryable: true });
+    logger.error("AMFI_NAV_FETCH_ERROR", {event: "AMFI_NAV_FETCH_ERROR", error: err instanceof Error ? err.message : String(err), retryable: true});
     throw new Error("AMFI NAV fetch failed");
   }
 
@@ -66,7 +66,7 @@ export async function fetchAMFINavMap(): Promise<Map<string, AMFIRecord>> {
     parsed++;
   }
 
-  logger.info({ event: "AMFI_NAV_FETCH_COMPLETE", parsed, mapSize: map.size, latency_ms: Date.now() - t0 });
+  logger.info("AMFI_NAV_FETCH_COMPLETE", {event: "AMFI_NAV_FETCH_COMPLETE", parsed, mapSize: map.size, latency_ms: Date.now() - t0});
   _navCache = map;
   _navCacheTime = Date.now();
   return map;
@@ -135,7 +135,7 @@ export async function seedNavCacheForISINs(isins: string[]): Promise<void> {
       seeded++;
     } catch (__err) { /* non-fatal — ETF/REIT may not be in AMFI */ }
   }
-  logger.info({ event: "NAV_CACHE_SEEDED", total: isins.length, seeded, engine_version: ENGINE_VERSION });
+  logger.info("NAV_CACHE_SEEDED", {event: "NAV_CACHE_SEEDED", total: isins.length, seeded, engine_version: ENGINE_VERSION});
 }
 
 /** Update live NAVs for all ISINs already in fund_performance_cache */
@@ -151,7 +151,7 @@ export async function updateLiveNAVsInCache(): Promise<void> {
       .where(eq(fundPerformanceCache.isin, isin));
     updated++;
   }
-  logger.info({ event: "NAV_LIVE_UPDATE_COMPLETE", updated, engine_version: ENGINE_VERSION });
+  logger.info("NAV_LIVE_UPDATE_COMPLETE", {event: "NAV_LIVE_UPDATE_COMPLETE", updated, engine_version: ENGINE_VERSION});
 }
 
 /** Recompute actual weight drift for a portfolio from live NAV moves */
@@ -185,7 +185,7 @@ export async function recomputePortfolioWeights(portfolioId: string): Promise<{ 
 /** Main nightly NAV update — called by cron at 9PM IST */
 export async function runNightlyNAVUpdate(): Promise<void> {
   const t0 = Date.now();
-  logger.info({ event: "NIGHTLY_NAV_UPDATE_START", engine_version: ENGINE_VERSION });
+  logger.info("NIGHTLY_NAV_UPDATE_START", {event: "NIGHTLY_NAV_UPDATE_START", engine_version: ENGINE_VERSION});
   try {
     const isins = await extractAllPortfolioISINs();
     await seedNavCacheForISINs(isins);
@@ -195,10 +195,10 @@ export async function runNightlyNAVUpdate(): Promise<void> {
     let ok = 0, err = 0;
     for (const { id } of portfolios) {
       try { await recomputePortfolioWeights(id); ok++; }
-      catch (e) { err++; logger.warn({ event: "WEIGHT_ERR", portfolioId: id, error: e instanceof Error ? e.message : String(e) }); }
+      catch (e) { err++; logger.warn("WEIGHT_ERR", {event: "WEIGHT_ERR", portfolioId: id, error: e instanceof Error ? e.message : String(e)}); }
     }
-    logger.info({ event: "NIGHTLY_NAV_UPDATE_COMPLETE", portfolios: portfolios.length, ok, err, latency_ms: Date.now() - t0, engine_version: ENGINE_VERSION });
+    logger.info("NIGHTLY_NAV_UPDATE_COMPLETE", {event: "NIGHTLY_NAV_UPDATE_COMPLETE", portfolios: portfolios.length, ok, err, latency_ms: Date.now() - t0, engine_version: ENGINE_VERSION});
   } catch (err) {
-    logger.error({ event: "NIGHTLY_NAV_UPDATE_FAILED", error: err instanceof Error ? err.message : String(err), retryable: true });
+    logger.error("NIGHTLY_NAV_UPDATE_FAILED", {event: "NIGHTLY_NAV_UPDATE_FAILED", error: err instanceof Error ? err.message : String(err), retryable: true});
   }
 }

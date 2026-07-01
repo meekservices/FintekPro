@@ -105,7 +105,7 @@ router.put("/ai/alert/:alertId/action", async (req, res) => {
 				agentNotes: notes,
 				status:
 					action === "dismissed"
-						? "dismissed"
+						? "resolved"
 						: action === "acted"
 							? "resolved"
 							: "active",

@@ -236,20 +236,18 @@ export async function applyApprovedProposal(proposalId: string, advisorUserId: s
     })
     .where(eq(rebalanceProposals.id, proposalId));
 
-  logger.info({
-    event: "PROPOSAL_EXECUTED",
+  logger.info("PROPOSAL_EXECUTED", {event: "PROPOSAL_EXECUTED",
     proposalId,
     portfolioId: proposal.portfolioId,
     substitutions: substitutions.length,
     approvedBy: advisorUserId,
-    engine_version: ENGINE_VERSION,
-  });
+    engine_version: ENGINE_VERSION,});
 }
 
 // ── Weekly screener batch — runs Sunday 7AM IST ───────────────────────────────
 export async function runWeeklyScreener(): Promise<void> {
   const t0 = Date.now();
-  logger.info({ event: "WEEKLY_SCREENER_START", engine_version: ENGINE_VERSION });
+  logger.info("WEEKLY_SCREENER_START", {event: "WEEKLY_SCREENER_START", engine_version: ENGINE_VERSION});
 
   const portfolios = await db.select({ id: modelPortfolios.id, name: modelPortfolios.name }).from(modelPortfolios);
   let proposed = 0, clean = 0, errors = 0;
@@ -274,18 +272,14 @@ export async function runWeeklyScreener(): Promise<void> {
       }
     } catch (err) {
       errors++;
-      logger.warn({
-        event: "SCREENER_PORTFOLIO_ERR",
+      logger.warn("SCREENER_PORTFOLIO_ERR", {event: "SCREENER_PORTFOLIO_ERR",
         portfolioId: portfolio.id,
-        error: err instanceof Error ? err.message : String(err),
-      });
+        error: err instanceof Error ? err.message : String(err),});
     }
   }
 
-  logger.info({
-    event: "WEEKLY_SCREENER_COMPLETE",
+  logger.info("WEEKLY_SCREENER_COMPLETE", {event: "WEEKLY_SCREENER_COMPLETE",
     portfolios: portfolios.length, proposed, clean, errors,
     latency_ms: Date.now() - t0,
-    engine_version: ENGINE_VERSION,
-  });
+    engine_version: ENGINE_VERSION,});
 }

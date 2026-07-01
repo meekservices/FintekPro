@@ -199,7 +199,7 @@ export async function refreshFundReturns(isin: string, schemeCode: string, asset
 /** Called Sunday 6AM IST by cron. Refreshes rolling returns for all cached funds. */
 export async function refreshFundPerformanceCache(): Promise<void> {
   const t0 = Date.now();
-  logger.info({ event: "ROLLING_RETURNS_REFRESH_START", engine_version: ENGINE_VERSION });
+  logger.info("ROLLING_RETURNS_REFRESH_START", {event: "ROLLING_RETURNS_REFRESH_START", engine_version: ENGINE_VERSION});
 
   const funds = await db.select({
     isin: fundPerformanceCache.isin,
@@ -218,20 +218,16 @@ export async function refreshFundPerformanceCache(): Promise<void> {
       await new Promise((r) => setTimeout(r, 100));
     } catch (err) {
       errors++;
-      logger.warn({
-        event: "ROLLING_RETURNS_ERR",
+      logger.warn("ROLLING_RETURNS_ERR", {event: "ROLLING_RETURNS_ERR",
         isin: fund.isin,
         schemeCode: fund.schemeCode,
-        error: err instanceof Error ? err.message : String(err),
-      });
+        error: err instanceof Error ? err.message : String(err),});
     }
   }
 
   const latency = Date.now() - t0;
-  logger.info({
-    event: "ROLLING_RETURNS_REFRESH_COMPLETE",
+  logger.info("ROLLING_RETURNS_REFRESH_COMPLETE", {event: "ROLLING_RETURNS_REFRESH_COMPLETE",
     total: funds.length, ok, skipped, errors,
     latency_ms: latency,
-    engine_version: ENGINE_VERSION,
-  });
+    engine_version: ENGINE_VERSION,});
 }

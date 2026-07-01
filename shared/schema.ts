@@ -11514,30 +11514,3 @@ export const insertRebalanceProposalSchema = createInsertSchema(rebalanceProposa
   id: true, createdAt: true, updatedAt: true,
 });
 
-// ── portfolio_alerts ──────────────────────────────────────────────────────────
-export const portfolioAlerts = pgTable("portfolio_alerts", {
-  id:           uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  portfolioId:  varchar("portfolio_id", { length: 100 }).references(() => modelPortfolios.id),
-  alertType:    varchar("alert_type", { length: 50 }).notNull(),
-  severity:     varchar("severity", { length: 20 }).notNull().default("info"),
-  title:        varchar("title", { length: 200 }).notNull(),
-  message:      text("message").notNull(),
-  metadata:     jsonb("metadata").default({}),
-  isRead:       boolean("is_read").default(false),
-  snoozedUntil: timestamp("snoozed_until"),
-  expiresAt:    timestamp("expires_at"),
-  dedupKey:     varchar("dedup_key", { length: 200 }),
-  engineVersion: varchar("engine_version", { length: 30 }).default("FASP-AI-v3.0"),
-  source:        varchar("source", { length: 20 }).default("system"),
-  createdAt:     timestamp("created_at").defaultNow(),
-  updatedAt:     timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_pa_portfolio_read").on(table.portfolioId, table.isRead),
-  index("idx_pa_alert_type").on(table.alertType, table.severity),
-  index("idx_pa_created").on(table.createdAt),
-]);
-export type PortfolioAlert = typeof portfolioAlerts.$inferSelect;
-export type InsertPortfolioAlert = typeof portfolioAlerts.$inferInsert;
-export const insertPortfolioAlertSchema = createInsertSchema(portfolioAlerts).omit({
-  id: true, createdAt: true, updatedAt: true,
-});
