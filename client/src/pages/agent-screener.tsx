@@ -3093,35 +3093,64 @@ export default function AgentScreener() {
 					<CardHeader className="pb-2 pt-4 px-4">
 						<CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
 							<Building2 className="h-3.5 w-3.5" />
-							Top 20 Sectors by Stock Count
+							Top 20 Sectors · REIT · InvIT
 						</CardTitle>
 					</CardHeader>
 					<CardContent className="px-4 pb-4">
 						<div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
 							{distribution.sectors.map((d: any) => {
-								const total = distribution.sectors.reduce(
-									(s: number, x: any) => s + Number(x.count),
-									0,
-								);
-								const pct = total > 0 ? (Number(d.count) / total) * 100 : 0;
+								const isReit  = d.sector === "REIT";
+								const isInvit = d.sector === "InvIT";
+								const isPinned = isReit || isInvit;
+								const stocksOnly = distribution.sectors.filter((x: any) => !x.pinned);
+								const total = stocksOnly.reduce((s: number, x: any) => s + Number(x.count), 0);
+								const pct = !isPinned && total > 0 ? (Number(d.count) / total) * 100 : null;
 								return (
 									<div
 										key={d.sector}
-										className="flex items-center justify-between p-2 bg-muted/30 rounded-md hover:bg-muted/50 transition-colors cursor-pointer text-xs"
+										className={`flex items-center justify-between p-2 rounded-md transition-colors cursor-pointer text-xs ${
+											isReit
+												? "bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20"
+												: isInvit
+												? "bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20"
+												: "bg-muted/30 hover:bg-muted/50"
+										}`}
 										onClick={() => {
-											setDbSector(d.sector);
-											setDbPage(1);
+											if (isReit) {
+												window.location.href = "/reit-invit?tab=reits";
+											} else if (isInvit) {
+												window.location.href = "/reit-invit?tab=invits";
+											} else {
+												setDbSector(d.sector);
+												setDbPage(1);
+											}
 										}}
 									>
-										<span className="truncate flex-1 mr-2" title={d.sector}>
-											{d.sector}
-										</span>
-										<Badge
-											variant="secondary"
-											className="text-[10px] h-4 px-1.5 shrink-0"
+										<span
+											className={`truncate flex-1 mr-2 font-medium ${
+												isReit ? "text-amber-600 dark:text-amber-400" : isInvit ? "text-violet-600 dark:text-violet-400" : ""
+											}`}
+											title={d.sector}
 										>
-											{Number(d.count)}
-										</Badge>
+											{isReit ? "REIT" : isInvit ? "InvIT" : d.sector}
+										</span>
+										<div className="flex items-center gap-1 shrink-0">
+											{pct !== null && (
+												<span className="text-[9px] text-muted-foreground">{pct.toFixed(1)}%</span>
+											)}
+											<Badge
+												variant="secondary"
+												className={`text-[10px] h-4 px-1.5 ${
+													isReit
+														? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+														: isInvit
+														? "bg-violet-500/20 text-violet-700 dark:text-violet-300"
+														: ""
+												}`}
+											>
+												{Number(d.count)}
+											</Badge>
+										</div>
 									</div>
 								);
 							})}
@@ -3129,6 +3158,3 @@ export default function AgentScreener() {
 					</CardContent>
 				</Card>
 			)}
-		</div>
-	);
-}

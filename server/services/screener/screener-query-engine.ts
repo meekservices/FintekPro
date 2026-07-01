@@ -510,6 +510,14 @@ export async function getScreenerDistribution() {
     GROUP BY sector ORDER BY count DESC LIMIT 20
   `);
 
+	// ── Pinned: REIT & InvIT (live in separate tables, not screener_stocks) ──
+	const reitCount = await db.execute(sql`
+    SELECT COUNT(*) as count FROM reits WHERE is_active = true
+  `);
+	const invitCount = await db.execute(sql`
+    SELECT COUNT(*) as count FROM invits WHERE is_active = true
+  `);
+
 	const ratingDist = await db.execute(sql`
     SELECT fintek_rating as rating, COUNT(*) as count 
     FROM screener_derived_metrics dm 
@@ -534,7 +542,12 @@ export async function getScreenerDistribution() {
 
 	return {
 		marketCap: (marketCapDist as any).rows || marketCapDist,
-		sectors: (sectorDist as any).rows || sectorDist,
+		sectors: [
+			...((sectorDist as any).rows || sectorDist),
+			// Always include REIT and InvIT — pinned regardless of stock count
+			{ sector: "REIT",  count: Number(((reitCount  as any).rows?.[0] || {}).count ?? 0), pinned: true },
+			{ sector: "InvIT", count: Number(((invitCount as any).rows?.[0] || {}).count ?? 0), pinned: true },
+		],
 		ratings: (ratingDist as any).rows || ratingDist,
 		scoreRanges: (scoreDistribution as any).rows || scoreDistribution,
 	};
