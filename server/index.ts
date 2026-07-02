@@ -151,24 +151,36 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 			// Continue booting so Cloud Run keeps the instance alive
 		}
 
+		// ── STARTUP MIGRATIONS — run in background after routes are live ──────────────
+		// CRITICAL FIX: Deferred to fire-and-forget so routesReady=true is set within
+		// ~2-3s of boot. Previously ran synchronously, causing 3-4 min of 503s on
+		// ALL API calls (including /api/login) before routes were registered.
 		if (process.env.RUN_STARTUP_MIGRATIONS === "true") {
-			logBootProgress("Step 2: Checking schema migrations...");
-			const { runStartupSchemaRepairs } = await import(
-				"./startup/schema-repairs"
-			);
-			await runStartupSchemaRepairs();
+			void (async () => {
+				try {
+					logBootProgress("Step 2 (bg): Checking schema migrations...");
+					const { runStartupSchemaRepairs } = await import(
+						"./startup/schema-repairs"
+					);
+					await runStartupSchemaRepairs();
 
-			// Seed model portfolio holdings (idempotent — only updates if DB < static count)
-			logBootProgress("Step 2b: Seeding model portfolio holdings...");
-			const { seedModelPortfolioHoldings } = await import(
-				"./startup/model-portfolio-holdings-seed"
-			);
-			await seedModelPortfolioHoldings();
+					// Seed model portfolio holdings (idempotent)
+					logBootProgress("Step 2b (bg): Seeding model portfolio holdings...");
+					const { seedModelPortfolioHoldings } = await import(
+						"./startup/model-portfolio-holdings-seed"
+					);
+					await seedModelPortfolioHoldings();
 
-			// FASP-AI v3.0 — create dynamic portfolio management tables
-			logBootProgress("Step 2c: FASP-AI v3.0 schema migrations...");
-			const { runFASPAIv3Migrations } = await import("./startup/schema-repairs");
-			await runFASPAIv3Migrations();
+					// FASP-AI v3.0 — create dynamic portfolio management tables
+					logBootProgress("Step 2c (bg): FASP-AI v3.0 schema migrations...");
+					const { runFASPAIv3Migrations } = await import("./startup/schema-repairs");
+					await runFASPAIv3Migrations();
+
+					logBootProgress("Step 2 (bg): All schema migrations complete.");
+				} catch (migErr: any) {
+					logger.warn("[Boot] Background migration error (non-fatal):", migErr?.message);
+				}
+			})();
 		} else {
 			logBootProgress(
 				"Step 2: Skipping startup schema repairs (run npm run db:repair or Cloud Run job)...",
