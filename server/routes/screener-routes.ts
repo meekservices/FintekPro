@@ -400,6 +400,49 @@ router.post("/api/screener/admin/recalculate-metrics", async (req, res) => {
 });
 
 /**
+ * POST /api/screener/admin/normalize-market-caps
+ * One-shot fix: normalises market_cap_category to lowercase codes
+ * ('Micro Cap' -> 'micro', 'Large Cap' -> 'large', etc.) and recomputes
+ * from market_cap_value for stocks where category is NULL or unrecognised.
+ * Safe to run multiple times (idempotent). Also triggered automatically
+ * by recalculateAllMetrics().
+ */
+router.post("/api/screener/admin/normalize-market-caps", async (req, res) => {
+	try {
+		const result = await db.execute(sql`
+      UPDATE screener_stocks SET market_cap_category =
+        CASE
+          WHEN LOWER(market_cap_category) IN ('mega cap','mega')    THEN 'mega'
+          WHEN LOWER(market_cap_category) IN ('large cap','large')  THEN 'large'
+          WHEN LOWER(market_cap_category) IN ('mid cap','mid')      THEN 'mid'
+          WHEN LOWER(market_cap_category) IN ('small cap','small')  THEN 'small'
+          WHEN LOWER(market_cap_category) IN ('micro cap','micro')  THEN 'micro'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 1000000000000 THEN 'mega'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 200000000000  THEN 'large'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 50000000000   THEN 'mid'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 5000000000    THEN 'small'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >  0             THEN 'micro'
+          ELSE market_cap_category
+        END
+      WHERE is_active = true
+        AND (
+          market_cap_category ~ '[A-Z ]'
+          OR (market_cap_category IS NULL AND market_cap_value IS NOT NULL)
+        )
+    `);
+		const updated = (result as any)?.rowCount ?? 0;
+		res.json({
+			success: true,
+			updated,
+			message: `Normalised ${updated} market_cap_category values`,
+			meta: { timestamp: new Date().toISOString(), version: "1.0" },
+		});
+	} catch (err: any) {
+		res.status(500).json({ error: "Market cap normalisation failed", message: err.message });
+	}
+});
+
+/**
  * POST /api/screener/admin/sync-to-listed-stocks
  * Copies return1Y, return3Y, beta, volatility from screener_derived_metrics → listed_stocks.
  * Bridges the screener pipeline (80%+ return/beta coverage) to the recommendation engine

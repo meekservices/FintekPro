@@ -679,6 +679,32 @@ export async function seedFromListedStocks(
     `);
 		const financialsAdded = (finResult as any)?.rowCount || 0;
 
+
+		// ── Auto-normalize market_cap_category after seeding ──────────────────────
+		// listed_stocks seeds title-case labels ('Micro Cap', 'Large Cap', etc.)
+		// while FMP enrichment uses lowercase codes ('micro', 'large').
+		// Normalise immediately so screener filters always work correctly.
+		await db.execute(sql`
+      UPDATE screener_stocks SET market_cap_category =
+        CASE
+          WHEN LOWER(market_cap_category) IN ('mega cap','mega')    THEN 'mega'
+          WHEN LOWER(market_cap_category) IN ('large cap','large')  THEN 'large'
+          WHEN LOWER(market_cap_category) IN ('mid cap','mid')      THEN 'mid'
+          WHEN LOWER(market_cap_category) IN ('small cap','small')  THEN 'small'
+          WHEN LOWER(market_cap_category) IN ('micro cap','micro')  THEN 'micro'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 1000000000000 THEN 'mega'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 200000000000  THEN 'large'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 50000000000   THEN 'mid'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 5000000000    THEN 'small'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >  0             THEN 'micro'
+          ELSE market_cap_category
+        END
+      WHERE is_active = true
+        AND (
+          market_cap_category ~ '[A-Z ]'
+          OR (market_cap_category IS NULL AND market_cap_value IS NOT NULL)
+        )
+    `);
 		console.log(
 			`[Screener Seed] Seeded ${processed} stocks, ${financialsAdded} financials from listed_stocks`,
 		);

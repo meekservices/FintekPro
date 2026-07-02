@@ -192,10 +192,10 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
 	);
 
 	let fintekRating = 3;
-	if (compositeScore >= 80) fintekRating = 5;
-	else if (compositeScore >= 65) fintekRating = 4;
-	else if (compositeScore >= 45) fintekRating = 3;
-	else if (compositeScore >= 25) fintekRating = 2;
+	if (compositeScore >= 75) fintekRating = 5;
+	else if (compositeScore >= 60) fintekRating = 4;
+	else if (compositeScore >= 40) fintekRating = 3;
+	else if (compositeScore >= 20) fintekRating = 2;
 	else fintekRating = 1;
 
 	const values = {
@@ -303,10 +303,10 @@ export async function recalculateAllMetrics(): Promise<{
         risk_score = sub.risk_score,
         composite_score = ROUND(sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20, 2),
         fintek_rating = CASE
-          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 80 THEN 5
-          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 65 THEN 4
-          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 45 THEN 3
-          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 25 THEN 2
+          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 75 THEN 5
+          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 60 THEN 4
+          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 40 THEN 3
+          WHEN (sub.growth_score * 0.25 + sub.quality_score * 0.30 + sub.value_score * 0.25 + sub.risk_score * 0.20) >= 20 THEN 2
           ELSE 1
         END,
         last_calculated = NOW()
@@ -347,6 +347,40 @@ export async function recalculateAllMetrics(): Promise<{
 		const pgCode = err?.cause?.code ?? "";
 		console.error(`[DerivedMetrics] Bulk recalculation error [PG ${pgCode}]: ${pgMsg}`);
 		errors++;
+	}
+
+	// ── Step 2: Normalize market_cap_category ─────────────────────────────────────────────
+	// Fixes: 'Micro Cap' → 'micro', 'Small Cap' → 'small', etc. (listed_stocks seed uses
+	// title-case labels; FMP enrichment uses lowercase codes). Also recomputes from
+	// market_cap_value for rows where category is NULL or still wrong.
+	try {
+		await db.execute(sql`
+      UPDATE screener_stocks SET market_cap_category =
+        CASE
+          WHEN LOWER(market_cap_category) IN ('mega cap','mega')    THEN 'mega'
+          WHEN LOWER(market_cap_category) IN ('large cap','large')  THEN 'large'
+          WHEN LOWER(market_cap_category) IN ('mid cap','mid')      THEN 'mid'
+          WHEN LOWER(market_cap_category) IN ('small cap','small')  THEN 'small'
+          WHEN LOWER(market_cap_category) IN ('micro cap','micro')  THEN 'micro'
+          -- Recompute from market_cap_value for NULL or unrecognised labels
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 1000000000000 THEN 'mega'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 200000000000  THEN 'large'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 50000000000   THEN 'mid'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 5000000000    THEN 'small'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >  0             THEN 'micro'
+          ELSE market_cap_category
+        END
+      WHERE is_active = true
+        AND (
+          -- Already wrong case
+          market_cap_category ~ '[A-Z ]'
+          -- Or missing and we have the value to compute it
+          OR (market_cap_category IS NULL AND market_cap_value IS NOT NULL)
+        )
+    `);
+		console.log("[DerivedMetrics] market_cap_category normalization complete");
+	} catch (normErr: any) {
+		console.error("[DerivedMetrics] market_cap_category normalization error:", normErr?.message);
 	}
 
 	return { processed, errors };

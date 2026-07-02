@@ -213,6 +213,22 @@ async function startDataEnrichment() {
 	}
 }
 
+// ── Market Cap Category Normalization (runs on every boot) ─────────────────────────
+// Fixes 'Micro Cap' -> 'micro', 'Large Cap' -> 'large', etc.
+// Runs once on startup so every deploy self-heals category data.
+async function normalizeMarketCapCategories() {
+	try {
+		const { recalculateAllMetrics } = await import(
+			"../services/screener/derived-metrics-engine"
+		);
+		// recalculateAllMetrics already includes the normalization step as Step 2
+		await recalculateAllMetrics();
+		console.log("[Scheduler] Market cap category normalization complete");
+	} catch (err: any) {
+		console.warn("[Scheduler] Market cap normalization skipped:", err?.message);
+	}
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 6. FINANCIAL DATA SCHEDULER — PE/PB/EPS/financial metrics refresh
 // ─────────────────────────────────────────────────────────────────────────────
@@ -402,6 +418,8 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 		runStartupTask("Data Enrichment Scheduler", startDataEnrichment);
 		runStartupTask("Financial Data Scheduler", startFinancialDataScheduler);
 		runStartupTask("REIT/InvIT Data Refresh", startReitInvitRefresh);
+		// Auto-normalize market_cap_category on every boot (no admin action needed)
+		runStartupTask("Market Cap Category Normalization", normalizeMarketCapCategories);
 
 		// ── Phase 4: Pick of the Day (needs Phase 3 data, runs at 9 AM IST) ──────
 		await runStartupTask(
