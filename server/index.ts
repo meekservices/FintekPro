@@ -376,7 +376,17 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 		const pythonProxyRoutes = await import("./routes/python-proxy");
 		app.use(pythonProxyRoutes.default);
 
-		logBootProgress("Step 5: Registering KYC & User Management Routes...");
+		// ── CORE BUSINESS ROUTES — register FIRST so /api/login is immediately available ─
+		// CRITICAL: routesReady=true is set right after registerRoutes() completes.
+		// Steps 5-9b (KYC, marketplace, portfolio, algo) continue after the boot gate
+		// opens, so they don't block user authentication.
+		logBootProgress("Step 4b: Registering Core Business Routes (auth-critical)...");
+		await registerRoutes(app);
+		// ✔ Boot gate OPEN — /api/login, /api/user, /api/register are ready.
+		bootState.routesReady = true;
+		logBootProgress("Step 4b: Boot gate OPEN — server is serving auth requests.");
+
+				logBootProgress("Step 5: Registering KYC & User Management Routes...");
 
 		const [
 			kycVaultMod,
@@ -598,13 +608,9 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 			} catch {}
 		})();
 
-		// ── REGISTER BUSINESS ROUTES ─────────────────────────────────────────────
-		// Call the centralized route registration to ensure all API endpoints are up
-		logBootProgress("Step 11: Registering Business Logic Routes...");
-		await registerRoutes(app);
-		bootState.routesReady = true;
-
-		logBootProgress("Step 12: Boot sequence complete. Server is operational.");
+		// ── Step 11 moved to Step 4b above (before Step 5) so routesReady=true
+		// is set as early as possible after core auth routes are available.
+		logBootProgress("Step 12: All secondary routes registered. Server fully operational.");
 
 		// ── Auto-load Alpaca credentials from DB if not in env ───────────────────
 		// When ALPACA_API_KEY is not set via Cloud Run env vars, attempt to restore
