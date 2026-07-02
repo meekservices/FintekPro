@@ -17,6 +17,8 @@ export interface FinancialRatios {
 	period: string;
 	date?: string;
 	peRatio?: number;
+	forwardPe?: number;       // forward P/E from quote or key-metrics endpoint
+	pegRatio?: number;        // price-to-earnings-growth ratio
 	pbRatio?: number;
 	evToEbitda?: number;
 	priceToSales?: number;

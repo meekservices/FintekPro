@@ -180,6 +180,11 @@ export async function enrichFinancialRatios(
 					values.revenueGrowth = ratios.revenueGrowth.toString();
 				if (ratios.earningsGrowth != null)
 					values.earningsGrowth = ratios.earningsGrowth.toString();
+				// Forward PE and PEG — new fields, written when available from FMP /ratios/
+				if (ratios.forwardPe != null)
+					values.forwardPe = ratios.forwardPe.toString();
+				if (ratios.pegRatio != null)
+					values.pegRatio = ratios.pegRatio.toString();
 
 				const [existing] = await db
 					.select({ id: screenerFinancials.id })

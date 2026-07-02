@@ -103,6 +103,8 @@ class FMPFreeProvider implements IDataProvider {
 			period: r.period || "FY",
 			date: r.date,
 			peRatio: r.peRatio,
+			forwardPe: r.priceEarningsRatio ?? r.forwardPE ?? undefined,   // FMP key-metrics or ratios
+			pegRatio: r.priceEarningsToGrowthRatio ?? r.pegRatio ?? undefined,
 			pbRatio: r.priceToBookRatio,
 			evToEbitda: r.enterpriseValueOverEBITDA,
 			priceToSales: r.priceToSalesRatio,

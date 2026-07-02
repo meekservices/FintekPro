@@ -105,6 +105,8 @@ export interface ScreenerResult {
 
 	// Fundamentals
 	peRatio: string | null;
+	forwardPe: string | null;
+	pegRatio: string | null;
 	pbRatio: string | null;
 	roe: string | null;
 	roce: string | null;
@@ -296,6 +298,8 @@ export async function queryScreener(
 		case "currentPrice": sortColumn = screenerStocks.currentPrice; break;
 		case "marketCap": sortColumn = screenerStocks.marketCapValue; break;
 		case "peRatio": sortColumn = screenerFinancials.peRatio; break;
+		case "forwardPe": sortColumn = screenerFinancials.forwardPe; break;
+		case "pegRatio": sortColumn = screenerFinancials.pegRatio; break;
 		case "roe": sortColumn = screenerFinancials.roe; break;
 		case "compositeScore": sortColumn = screenerDerivedMetrics.compositeScore; break;
 		case "fintekRating": sortColumn = screenerDerivedMetrics.fintekRating; break;
@@ -323,6 +327,8 @@ export async function queryScreener(
 			marketCapCategory: screenerStocks.marketCapCategory,
 			// Fundamentals
 			peRatio: screenerFinancials.peRatio,
+			forwardPe: screenerFinancials.forwardPe,
+			pegRatio: screenerFinancials.pegRatio,
 			pbRatio: screenerFinancials.pbRatio,
 			roe: screenerFinancials.roe,
 			roce: screenerFinancials.roce,

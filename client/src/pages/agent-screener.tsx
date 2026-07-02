@@ -1330,6 +1330,19 @@ export default function AgentScreener() {
 																	sortKey="peRatio"
 																	align="right"
 																/>
+																<DbSortableHeader
+																	label="Fwd PE"
+																	sortKey="forwardPe"
+																	align="right"
+																/>
+																<DbSortableHeader
+																	label="PEG"
+																	sortKey="pegRatio"
+																	align="right"
+																/>
+																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">
+																	Div %
+																</th>
 																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">
 																	EPS
 																</th>
@@ -1401,6 +1414,27 @@ export default function AgentScreener() {
 																			</td>
 																			<td className="py-2.5 px-3 text-right font-mono text-xs">
 																				{formatNum(stock.peRatio)}
+																			</td>
+																			<td className="py-2.5 px-3 text-right font-mono text-xs">
+																				{formatNum(stock.forwardPe)}
+																			</td>
+																			<td
+																				className={`py-2.5 px-3 text-right font-mono text-xs ${
+																					stock.pegRatio
+																						? Number.parseFloat(stock.pegRatio) < 1
+																							? "text-emerald-600 dark:text-emerald-400 font-semibold" // undervalued
+																							: Number.parseFloat(stock.pegRatio) > 2
+																							? "text-red-600 dark:text-red-400" // expensive
+																							: ""
+																						: ""
+																				}`}
+																			>
+																				{formatNum(stock.pegRatio)}
+																			</td>
+																			<td className="py-2.5 px-3 text-right font-mono text-xs">
+																				{stock.dividendYield
+																					? `${(Number.parseFloat(stock.dividendYield) * 100).toFixed(2)}%`
+																					: "-"}
 																			</td>
 																			<td className="py-2.5 px-3 text-right font-mono text-xs">
 																				{formatNum(stock.eps)}

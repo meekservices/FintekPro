@@ -39,6 +39,8 @@ export const screenerFinancials = pgTable("screener_financials", {
   fiscalYear: integer("fiscal_year"),
   fiscalDate: varchar("fiscal_date"),
   peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
+  forwardPe: decimal("forward_pe", { precision: 10, scale: 2 }),    // forward P/E from analyst estimates
+  pegRatio: decimal("peg_ratio", { precision: 10, scale: 4 }),      // PEG = PE / EPS growth
   pbRatio: decimal("pb_ratio", { precision: 10, scale: 2 }),
   evToEbitda: decimal("ev_to_ebitda", { precision: 10, scale: 2 }),
   priceToSales: decimal("price_to_sales", { precision: 10, scale: 2 }),
