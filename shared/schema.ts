@@ -9454,6 +9454,8 @@ export const stockFinancialMetrics = pgTable("stock_financial_metrics", {
   trailingPe: decimal("trailing_pe", { precision: 12, scale: 4 }),
   forwardPe: decimal("forward_pe", { precision: 12, scale: 4 }),
   pegRatio: decimal("peg_ratio", { precision: 10, scale: 4 }),
+  /** Why pegRatio is null: 'negative_pe' | 'negative_growth' | 'zero_growth' | 'missing_data' */
+  pegRatioNullReason: varchar("peg_ratio_null_reason", { length: 32 }),
   priceToBook: decimal("price_to_book", { precision: 10, scale: 4 }),
   priceToSales: decimal("price_to_sales", { precision: 10, scale: 4 }),
   priceToFreeCashFlow: decimal("price_to_fcf", { precision: 12, scale: 4 }),

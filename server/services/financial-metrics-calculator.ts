@@ -50,9 +50,40 @@ export class FinancialMetricsCalculator {
 		return price / epsEstimate;
 	}
 
-	calculatePEGRatio(pe: number, epsGrowthRate: number): number | null {
-		if (!pe || pe <= 0 || !epsGrowthRate || epsGrowthRate <= 0) return null;
-		return pe / (epsGrowthRate * 100);
+	/**
+	 * PEG Ratio = P/E ÷ EPS Growth Rate (annualised %).
+	 *
+	 * Returns a typed result so callers can distinguish WHY a null was returned:
+	 *   - 'negative_pe'     → P/E is negative (loss-making company / value trap)
+	 *   - 'negative_growth' → EPS growth is negative (earnings deterioration)
+	 *   - 'zero_growth'     → EPS growth is zero (division by zero)
+	 *   - 'missing_data'    → pe or epsGrowthRate is missing/null
+	 *
+	 * @param pe            - Trailing or forward P/E ratio
+	 * @param epsGrowthRate - EPS growth rate as a decimal (e.g. 0.15 = 15%)
+	 * @returns { value: number | null; nullReason: string | null }
+	 */
+	calculatePEGRatio(
+		pe: number | null | undefined,
+		epsGrowthRate: number | null | undefined,
+	): { value: number | null; nullReason: string | null } {
+		if (pe == null || epsGrowthRate == null) {
+			return { value: null, nullReason: "missing_data" };
+		}
+		if (pe < 0) {
+			return { value: null, nullReason: "negative_pe" }; // loss-making or value trap
+		}
+		if (pe === 0) {
+			return { value: null, nullReason: "missing_data" };
+		}
+		if (epsGrowthRate < 0) {
+			return { value: null, nullReason: "negative_growth" }; // earnings deterioration
+		}
+		if (epsGrowthRate === 0) {
+			return { value: null, nullReason: "zero_growth" }; // division-by-zero guard
+		}
+		// Standard PEG: pe divided by growth rate expressed as a percentage
+		return { value: pe / (epsGrowthRate * 100), nullReason: null };
 	}
 
 	calculatePriceToBook(
@@ -455,10 +486,20 @@ export class FinancialMetricsCalculator {
 			forwardPe: epsEstimate
 				? this.calculateForwardPE(price, epsEstimate)?.toString()
 				: undefined,
-			pegRatio: this.calculatePEGRatio(
-				this.calculateTrailingPE(price, current.eps || 0) || 0,
-				this.calculateYoYGrowth(current.eps || 0, prevYear?.eps || 0) || 0,
-			)?.toString(),
+			pegRatio: (() => {
+				const peg = this.calculatePEGRatio(
+					this.calculateTrailingPE(price, current.eps || 0),
+					this.calculateYoYGrowth(current.eps || 0, prevYear?.eps || 0),
+				);
+				return peg.value?.toString() ?? undefined;
+			})(),
+			pegRatioNullReason: (() => {
+				const peg = this.calculatePEGRatio(
+					this.calculateTrailingPE(price, current.eps || 0),
+					this.calculateYoYGrowth(current.eps || 0, prevYear?.eps || 0),
+				);
+				return peg.nullReason ?? undefined; // 'negative_pe'|'negative_growth'|'zero_growth'|'missing_data'
+			})(),
 			priceToBook: this.calculatePriceToBook(
 				price,
 				current.bookValuePerShare || 0,
