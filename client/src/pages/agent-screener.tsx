@@ -3093,7 +3093,7 @@ export default function AgentScreener() {
 					<CardHeader className="pb-2 pt-4 px-4">
 						<CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
 							<Building2 className="h-3.5 w-3.5" />
-							Top 20 Sectors · REIT · InvIT
+							Top {distribution.sectors.filter((d: any) => !d.pinned).length} Sectors · REIT · InvIT
 						</CardTitle>
 					</CardHeader>
 					<CardContent className="px-4 pb-4">

@@ -507,7 +507,7 @@ export async function getScreenerDistribution() {
 	const sectorDist = await db.execute(sql`
     SELECT sector, COUNT(*) as count 
     FROM screener_stocks WHERE is_active = true AND sector IS NOT NULL 
-    GROUP BY sector ORDER BY count DESC LIMIT 20
+    GROUP BY sector ORDER BY count DESC
   `);
 
 	// ── Pinned: REIT & InvIT (live in separate tables, not screener_stocks) ──
@@ -518,26 +518,50 @@ export async function getScreenerDistribution() {
     SELECT COUNT(*) as count FROM invits WHERE is_active = true
   `);
 
+	// Always show all 5 star buckets (1-5) even when count = 0
 	const ratingDist = await db.execute(sql`
-    SELECT fintek_rating as rating, COUNT(*) as count 
-    FROM screener_derived_metrics dm 
-    INNER JOIN screener_stocks ss ON ss.symbol = dm.symbol AND ss.is_active = true
-    GROUP BY fintek_rating ORDER BY fintek_rating DESC
+    SELECT
+      s.rating,
+      COALESCE(r.count, 0) AS count
+    FROM (SELECT generate_series(1,5) AS rating) s
+    LEFT JOIN (
+      SELECT fintek_rating AS rating, COUNT(*) AS count
+      FROM screener_derived_metrics dm
+      INNER JOIN screener_stocks ss ON ss.symbol = dm.symbol AND ss.is_active = true
+      GROUP BY fintek_rating
+    ) r ON r.rating = s.rating
+    ORDER BY s.rating DESC
   `);
 
+	// Always show all 5 score buckets — even when 80-100 has 0 stocks
 	const scoreDistribution = await db.execute(sql`
-    SELECT 
-      CASE 
-        WHEN composite_score::numeric >= 80 THEN '80-100'
-        WHEN composite_score::numeric >= 60 THEN '60-80'
-        WHEN composite_score::numeric >= 40 THEN '40-60'
-        WHEN composite_score::numeric >= 20 THEN '20-40'
-        ELSE '0-20'
-      END as range,
-      COUNT(*) as count
-    FROM screener_derived_metrics dm
-    INNER JOIN screener_stocks ss ON ss.symbol = dm.symbol AND ss.is_active = true
-    GROUP BY range ORDER BY range
+    SELECT
+      r.range,
+      r.sort_order,
+      COALESCE(d.count, 0) AS count
+    FROM (
+      VALUES
+        ('0-20',   1),
+        ('20-40',  2),
+        ('40-60',  3),
+        ('60-80',  4),
+        ('80-100', 5)
+    ) AS r(range, sort_order)
+    LEFT JOIN (
+      SELECT
+        CASE
+          WHEN composite_score::numeric >= 80 THEN '80-100'
+          WHEN composite_score::numeric >= 60 THEN '60-80'
+          WHEN composite_score::numeric >= 40 THEN '40-60'
+          WHEN composite_score::numeric >= 20 THEN '20-40'
+          ELSE '0-20'
+        END AS range,
+        COUNT(*) AS count
+      FROM screener_derived_metrics dm
+      INNER JOIN screener_stocks ss ON ss.symbol = dm.symbol AND ss.is_active = true
+      GROUP BY range
+    ) d ON d.range = r.range
+    ORDER BY r.sort_order
   `);
 
 	return {
