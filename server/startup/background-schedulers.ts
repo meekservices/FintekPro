@@ -213,9 +213,10 @@ async function startDataEnrichment() {
 	}
 }
 
-// ── Market Cap Category Normalization (runs on every boot) ─────────────────────────
+// ── Market Cap Category Normalization ──────────────────────────────────────────
 // Fixes 'Micro Cap' -> 'micro', 'Large Cap' -> 'large', etc.
-// Runs once on startup so every deploy self-heals category data.
+// Runs on every boot AND daily at 1:30 AM IST (20:00 UTC) to heal newly-added
+// stocks that arrive with raw category strings from NSE/BSE data feeds.
 async function normalizeMarketCapCategories() {
 	try {
 		const { recalculateAllMetrics } = await import(
@@ -224,10 +225,55 @@ async function normalizeMarketCapCategories() {
 		// recalculateAllMetrics already includes the normalization step as Step 2
 		await recalculateAllMetrics();
 		console.log("[Scheduler] Market cap category normalization complete");
+
+		// Invalidate distribution cache so next /api/screener/distribution
+		// reflects the fresh normalized data (avoids 5-min stale window after normalization)
+		try {
+			const { invalidateDistributionCache } = await import(
+				"../routes/screener-routes"
+			);
+			invalidateDistributionCache();
+			console.log("[Scheduler] Distribution cache invalidated after normalization");
+		} catch {
+			// screener-routes may not be loaded yet on first boot pass — safe to ignore
+		}
 	} catch (err: any) {
 		console.warn("[Scheduler] Market cap normalization skipped:", err?.message);
 	}
 }
+
+// Daily normalization cron: 1:30 AM IST = 20:00 UTC
+// Uses a lightweight setInterval wrapper \u2014 fires once per 24h from boot time,
+// then self-corrects to wall-clock time within the same day window.
+function scheduleDailyNormalization() {
+	const TWENTY_FOUR_H_MS = 24 * 60 * 60 * 1000;
+
+	// Calculate ms until next 20:00 UTC (1:30 AM IST)
+	function msUntilNext2000UTC(): number {
+		const now = new Date();
+		const next = new Date(now);
+		next.setUTCHours(20, 0, 0, 0);
+		if (next.getTime() <= now.getTime()) {
+			next.setUTCDate(next.getUTCDate() + 1);
+		}
+		return next.getTime() - now.getTime();
+	}
+
+	// Fire once at the next 20:00 UTC, then repeat every 24h
+	setTimeout(() => {
+		console.log("[Scheduler] Daily market cap normalization triggered (1:30 AM IST)");
+		void normalizeMarketCapCategories();
+		setInterval(() => {
+			console.log("[Scheduler] Daily market cap normalization triggered (1:30 AM IST)");
+			void normalizeMarketCapCategories();
+		}, TWENTY_FOUR_H_MS);
+	}, msUntilNext2000UTC());
+
+	console.log(
+		`[Scheduler] Daily market cap normalization scheduled — next run in ${Math.round(msUntilNext2000UTC() / 60000)} min`,
+	);
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 6. FINANCIAL DATA SCHEDULER — PE/PB/EPS/financial metrics refresh
@@ -420,6 +466,8 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 		runStartupTask("REIT/InvIT Data Refresh", startReitInvitRefresh);
 		// Auto-normalize market_cap_category on every boot (no admin action needed)
 		runStartupTask("Market Cap Category Normalization", normalizeMarketCapCategories);
+		// Schedule daily re-normalization at 1:30 AM IST for newly added stocks
+		scheduleDailyNormalization();
 
 		// ── Phase 4: Pick of the Day (needs Phase 3 data, runs at 9 AM IST) ──────
 		await runStartupTask(

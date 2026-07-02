@@ -69,6 +69,8 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SectorDistributionPanel } from "@/components/screener/SectorDistributionPanel";
 
 type ScreenerType = "mutual_fund" | "stock" | "bond" | "etf";
 type ViewMode = "table" | "cards";
@@ -339,11 +341,11 @@ const RATING_COLORS: Record<string, string> = {
 };
 
 const SCORE_COLORS: Record<string, string> = {
-	"80-100": "bg-emerald-500",
-	"60-80": "bg-blue-500",
-	"40-60": "bg-amber-500",
-	"20-40": "bg-orange-500",
-	"0-20": "bg-red-500",
+	"75-100": "bg-emerald-500",
+	"60-75":  "bg-blue-500",
+	"40-60":  "bg-amber-500",
+	"20-40":  "bg-orange-500",
+	"0-20":   "bg-red-500",
 };
 
 export default function AgentScreener() {
@@ -2964,8 +2966,28 @@ export default function AgentScreener() {
 				</Card>
 			</Tabs>
 
-			{distribution && (
+			{/* Distribution cards — skeleton while loading, real data when ready */}
+			{!distribution ? (
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+					{[1, 2, 3].map((i) => (
+						<Card key={i}>
+							<CardHeader className="pb-2 pt-4 px-4">
+								<Skeleton className="h-3 w-36" />
+							</CardHeader>
+							<CardContent className="px-4 pb-4 space-y-2">
+								{[1, 2, 3, 4, 5].map((j) => (
+									<div key={j} className="flex items-center gap-2">
+										<Skeleton className="w-2 h-2 rounded-full shrink-0" />
+										<Skeleton className="flex-1 h-3" />
+										<Skeleton className="w-12 h-3" />
+									</div>
+								))}
+							</CardContent>
+						</Card>
+					))}
+				</div>
+			) : (
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 					<Card>
 						<CardHeader className="pb-2 pt-4 px-4">
 							<CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -3097,64 +3119,13 @@ export default function AgentScreener() {
 						</CardTitle>
 					</CardHeader>
 					<CardContent className="px-4 pb-4">
-						<div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
-							{distribution.sectors.map((d: any) => {
-								const isReit  = d.sector === "REIT";
-								const isInvit = d.sector === "InvIT";
-								const isPinned = isReit || isInvit;
-								const stocksOnly = distribution.sectors.filter((x: any) => !x.pinned);
-								const total = stocksOnly.reduce((s: number, x: any) => s + Number(x.count), 0);
-								const pct = !isPinned && total > 0 ? (Number(d.count) / total) * 100 : null;
-								return (
-									<div
-										key={d.sector}
-										className={`flex items-center justify-between p-2 rounded-md transition-colors cursor-pointer text-xs ${
-											isReit
-												? "bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20"
-												: isInvit
-												? "bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20"
-												: "bg-muted/30 hover:bg-muted/50"
-										}`}
-										onClick={() => {
-											if (isReit) {
-												window.location.href = "/reit-invit?tab=reits";
-											} else if (isInvit) {
-												window.location.href = "/reit-invit?tab=invits";
-											} else {
-												setDbSector(d.sector);
-												setDbPage(1);
-											}
-										}}
-									>
-										<span
-											className={`truncate flex-1 mr-2 font-medium ${
-												isReit ? "text-amber-600 dark:text-amber-400" : isInvit ? "text-violet-600 dark:text-violet-400" : ""
-											}`}
-											title={d.sector}
-										>
-											{isReit ? "REIT" : isInvit ? "InvIT" : d.sector}
-										</span>
-										<div className="flex items-center gap-1 shrink-0">
-											{pct !== null && (
-												<span className="text-[9px] text-muted-foreground">{pct.toFixed(1)}%</span>
-											)}
-											<Badge
-												variant="secondary"
-												className={`text-[10px] h-4 px-1.5 ${
-													isReit
-														? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
-														: isInvit
-														? "bg-violet-500/20 text-violet-700 dark:text-violet-300"
-														: ""
-												}`}
-											>
-												{Number(d.count)}
-											</Badge>
-										</div>
-									</div>
-								);
-							})}
-						</div>
+						<SectorDistributionPanel
+							sectors={distribution.sectors}
+							onSectorClick={(sector) => {
+								setDbSector(sector);
+								setDbPage(1);
+							}}
+						/>
 					</CardContent>
 				</Card>
 			)}

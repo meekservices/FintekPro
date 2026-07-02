@@ -702,24 +702,43 @@ export class PickOfTheDayService {
 	}
 
 	async generateRationale(params: RationaleParams): Promise<string> {
-		try {
-			const prompt = this.buildRationalePrompt(params);
-			const category = params.category || "stocks";
-			const { result } = await unifiedAIRecommendationEngine.runPrompt<string>({
-				prompt,
-				category,
-				responseParser: (text: string) => text,
-				fallback: () => this.generateFallbackRationale(params),
-			});
-			const rawResult = result || this.generateFallbackRationale(params);
-			// Coerce to string — AI engine may return an object when model output is structured JSON
-			const resultStr =
-				typeof rawResult === "string" ? rawResult : JSON.stringify(rawResult);
-			return this.extractRationaleText(resultStr);
-		} catch (error) {
-			logger.error("[PickOfTheDay] AI rationale generation failed:", error instanceof Error ? error : new Error(String(error)));
-			return this.generateFallbackRationale(params);
+		// Retry AI call with exponential backoff (max 3 attempts: 1s, 2s, 4s)
+		// Falls back to rule-based rationale if all attempts fail (e.g. Gemini rate-limit at 9 AM IST)
+		const MAX_ATTEMPTS = 3;
+		for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+			try {
+				const prompt = this.buildRationalePrompt(params);
+				const category = params.category || "stocks";
+				const { result } = await unifiedAIRecommendationEngine.runPrompt<string>({
+					prompt,
+					category,
+					responseParser: (text: string) => text,
+					fallback: () => this.generateFallbackRationale(params),
+				});
+				const rawResult = result || this.generateFallbackRationale(params);
+				const resultStr =
+					typeof rawResult === "string" ? rawResult : JSON.stringify(rawResult);
+				return this.extractRationaleText(resultStr);
+			} catch (error) {
+				const isLastAttempt = attempt === MAX_ATTEMPTS;
+				if (isLastAttempt) {
+					logger.warn(
+						`[PickOfTheDay] AI rationale failed after ${MAX_ATTEMPTS} attempts — using rule-based fallback`,
+						{ event: "AI_RATIONALE_FALLBACK", attempt, error: error instanceof Error ? error.message : String(error), retryable: false },
+					);
+					return this.generateFallbackRationale(params);
+				}
+				// Exponential backoff: 1s, 2s, 4s
+				const delayMs = Math.pow(2, attempt - 1) * 1000;
+				logger.warn(
+					`[PickOfTheDay] AI rationale attempt ${attempt} failed, retrying in ${delayMs}ms`,
+					{ event: "AI_RATIONALE_RETRY", attempt, delayMs, error: error instanceof Error ? error.message : String(error), retryable: true },
+				);
+				await new Promise((r) => setTimeout(r, delayMs));
+			}
 		}
+		// TypeScript: unreachable but satisfies return type
+		return this.generateFallbackRationale(params);
 	}
 
 	private buildRationalePrompt(params: RationaleParams): string {

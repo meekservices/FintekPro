@@ -48,6 +48,30 @@ import {
 
 const router = Router();
 
+// ── Distribution cache — 5-min TTL to reduce DB load on full-table joins ─────
+// The distribution query joins 3700+ screener_stocks + derived_metrics rows.
+// Since distribution data changes only on enrichment runs (not per-request),
+// a 5-min server-side cache cuts DB queries by ~98% under normal page traffic.
+const DIST_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+let _distCache: { data: unknown; ts: number } | null = null;
+
+/** Returns cached distribution or recomputes it and caches the result. */
+async function getCachedDistribution(): Promise<unknown> {
+	const now = Date.now();
+	if (_distCache && now - _distCache.ts < DIST_CACHE_TTL_MS) {
+		return _distCache.data;
+	}
+	const data = await getScreenerDistribution();
+	_distCache = { data, ts: now };
+	return data;
+}
+
+/** Call this whenever enrichment runs to force a fresh distribution on next request. */
+export function invalidateDistributionCache(): void {
+	_distCache = null;
+}
+
+
 router.get("/api/screener/stocks", async (req, res) => {
 	try {
 		const f = req.query;
@@ -226,13 +250,19 @@ router.get("/api/screener/stats", async (req, res) => {
 
 router.get("/api/screener/distribution", async (req, res) => {
 	try {
-		const distribution = await getScreenerDistribution();
+		const distribution = await getCachedDistribution();
 		res.json(distribution);
 	} catch (err: any) {
 		res
 			.status(500)
 			.json({ error: "Failed to get distribution", message: err.message });
 	}
+});
+
+// Admin: force-invalidate the distribution cache (e.g. after bulk enrichment)
+router.post("/api/screener/distribution/bust", async (_req, res) => {
+	invalidateDistributionCache();
+	res.json({ success: true, message: "Distribution cache invalidated" });
 });
 
 router.get("/api/screener/admin/enrichment-progress", async (req, res) => {

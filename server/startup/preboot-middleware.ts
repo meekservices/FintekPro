@@ -158,8 +158,14 @@ export function registerPrebootMiddleware(app: Express) {
 	// Excluded: /api/health and /api/boot-status are always available.
 	app.use("/api", (req, res, next) => {
 		if (bootState.routesReady) return next();
-		const safePaths = ["/api/health", "/api/boot-status"];
-		if (safePaths.some((p) => req.path === p || req.originalUrl === p)) return next();
+		// Safe paths bypass the boot gate — must be registered BEFORE registerRoutes()
+		// and must NOT require DB access. /api/version is static (APP_VERSION env var).
+		const safePaths = [
+			"/api/health",
+			"/api/boot-status",
+			"/api/version",      // static, no DB — prevents 503 on frontend version check
+		];
+		if (safePaths.some((p) => req.path === p || req.originalUrl === p || req.originalUrl.startsWith(p + "?"))) return next();
 		res.setHeader("Retry-After", "5");
 		return res.status(503).json({
 			success: false,

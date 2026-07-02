@@ -533,7 +533,8 @@ export async function getScreenerDistribution() {
     ORDER BY s.rating DESC
   `);
 
-	// Always show all 5 score buckets — even when 80-100 has 0 stocks
+	// Always show all 5 score buckets — aligned with FintekRating thresholds:
+	// 5-star = ≥75, 4-star = ≥60, 3-star = ≥40, 2-star = ≥20, 1-star = <20
 	const scoreDistribution = await db.execute(sql`
     SELECT
       r.range,
@@ -544,14 +545,14 @@ export async function getScreenerDistribution() {
         ('0-20',   1),
         ('20-40',  2),
         ('40-60',  3),
-        ('60-80',  4),
-        ('80-100', 5)
+        ('60-75',  4),
+        ('75-100', 5)
     ) AS r(range, sort_order)
     LEFT JOIN (
       SELECT
         CASE
-          WHEN composite_score::numeric >= 80 THEN '80-100'
-          WHEN composite_score::numeric >= 60 THEN '60-80'
+          WHEN composite_score::numeric >= 75 THEN '75-100'
+          WHEN composite_score::numeric >= 60 THEN '60-75'
           WHEN composite_score::numeric >= 40 THEN '40-60'
           WHEN composite_score::numeric >= 20 THEN '20-40'
           ELSE '0-20'
