@@ -401,9 +401,9 @@ export async function computePortfolioCagrFromDB(
 
 				const r = (ficRow as any).rows?.[0];
 				if (r?.return_1y != null) {
-					// financial_instruments_cache stores as decimal fraction (e.g. 0.245 = 24.5%)
-					// OR as percentage (24.5). Normalise: if |value| < 2, treat as fraction.
-					const normalise = (v: number) => Math.abs(v) < 2 ? v * 100 : v;
+					// financial_instruments_cache stores returns as decimal fractions (0.174 = 17.4%)
+					// Normalise: multiply by 100 to get percentage for display
+					const normalise = (v: number) => Math.abs(v) < 5 ? v * 100 : v;
 					const r1y = normalise(Number(r.return_1y));
 					const r3y = r?.return_3y != null ? normalise(Number(r.return_3y)) : r1y * 0.88;
 					const r5y = r?.return_5y != null ? normalise(Number(r.return_5y)) : r1y * 0.82;

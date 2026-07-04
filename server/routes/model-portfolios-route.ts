@@ -491,9 +491,12 @@ async function enrichHolding(h: any): Promise<any> {
     `).catch(() => ({ rows: [] }));
 
     const r = (dbRow as any).rows?.[0];
-    const dbReturn1Y = r?.return_1y != null ? Math.round(Number(r.return_1y) * 100) / 100 : null;
-    const dbReturn3Y = r?.return_3y != null ? Math.round(Number(r.return_3y) * 100) / 100 : null;
-    const dbReturn6M = r?.return_6m != null ? Math.round(Number(r.return_6m) * 100) / 100 : null;
+    // financial_instruments_cache stores returns as decimal fractions (0.174 = 17.4%)
+    const toPercent = (v: number | null): number | null =>
+      v == null ? null : Math.abs(v) < 5 ? Math.round(v * 10000) / 100 : Math.round(v * 100) / 100;
+    const dbReturn1Y = r?.return_1y != null ? toPercent(Number(r.return_1y)) : null;
+    const dbReturn3Y = r?.return_3y != null ? toPercent(Number(r.return_3y)) : null;
+    const dbReturn6M = r?.return_6m != null ? toPercent(Number(r.return_6m)) : null;
     const dbNav      = r?.nav != null ? Number(r.nav) : undefined;
     const dbExpense  = r?.expense_ratio != null ? Number(r.expense_ratio) : undefined;
 
