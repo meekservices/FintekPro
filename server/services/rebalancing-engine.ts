@@ -1288,6 +1288,34 @@ export async function getEnrichedRebalanceReasons(
 				`Declining earnings - EPS growth at ${(snapshot.growth.epsGrowth * 100).toFixed(1)}%`,
 			);
 		}
+
+		// ── Fix 3: screener_derived_metrics risk signals ──────────────────────────
+		// All sourced from OHLCV-computed screener_derived_metrics, not synthetic estimates.
+		const perf = snapshot.performance;
+
+		if (perf?.beta != null && perf.beta > 1.8) {
+			reasons.push(
+				`High market sensitivity - Beta ${perf.beta.toFixed(2)} (>1.8 amplifies drawdowns in corrections)`,
+			);
+		}
+
+		if (perf?.return1Y != null && perf.return1Y < 0) {
+			reasons.push(
+				`Sustained underperformance - 1Y return ${perf.return1Y.toFixed(1)}% (negative OHLCV-verified)`,
+			);
+		}
+
+		if (perf?.maxDrawdown1Y != null && perf.maxDrawdown1Y < -35) {
+			reasons.push(
+				`Severe capital risk - Max 1Y drawdown ${perf.maxDrawdown1Y.toFixed(1)}% (systemic loss pattern)`,
+			);
+		}
+
+		if (perf?.returnVsNifty1Y != null && perf.returnVsNifty1Y < -15) {
+			reasons.push(
+				`Alpha deficit - ${perf.returnVsNifty1Y.toFixed(1)}% vs Nifty over 1Y (persistent underperformance vs benchmark)`,
+			);
+		}
 	} catch (error: any) {
 		console.error(
 			`[RebalancingEngine] Error fetching enriched rebalance reasons for ${symbol}:`,

@@ -331,6 +331,10 @@ router.post("/iris/initiate", requireAuth, async (req, res): Promise<void> => {
 			res.status(400).json({ error: "PAN is required" });
 			return;
 		}
+		if (!mobile) {
+			res.status(400).json({ error: "Mobile number is required" });
+			return;
+		}
 
 		if (!irisKfintechService.isConfigured) {
 			res.status(503).json({
@@ -341,12 +345,23 @@ router.post("/iris/initiate", requireAuth, async (req, res): Promise<void> => {
 			return;
 		}
 
-		// IRIS sendOtp can take mobile, but often uses the one registered with PAN
-		const result = await irisKfintechService.sendOtp(mobile);
+		// Pass BOTH pan and mobile — IRIS requires pan to locate the investor
+		// and mobile to confirm the registered number for OTP dispatch.
+		const result = await irisKfintechService.sendOtp(pan, mobile);
+
+		if (!result.success) {
+			res.status(502).json({
+				success: false,
+				error: result.message || "IRIS OTP dispatch failed",
+				message: result.message,
+			});
+			return;
+		}
+
 		res.json({
 			success: true,
-			requestId: result.success ? "iris-otp-sent" : null,
-			message: result.message,
+			requestId: "iris-otp-sent",
+			message: result.message || "OTP sent to client's registered mobile via IRIS KFintech",
 		});
 	} catch (err: unknown) {
 		console.error("[IRIS Initiate] Error:", err);

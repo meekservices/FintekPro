@@ -57,8 +57,14 @@ export function registerIrisKfintechRoutes(app: Express): void {
 		requireAdmin,
 		async (req, res) => {
 			try {
+				const pan = req.body?.pan as string | undefined;
+				const mobile = req.body?.mobile as string | undefined;
+				if (!pan) {
+					return res.status(400).json({ success: false, message: "PAN is required" });
+				}
 				const result = (await irisKfintechService.sendOtp(
-					req.body?.mobile as string | undefined,
+					pan,
+					mobile,
 				)) as { success?: boolean; message?: string };
 				if (result?.success === false) {
 					res.status(502).json(result);

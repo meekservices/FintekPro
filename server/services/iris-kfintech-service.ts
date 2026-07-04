@@ -18,13 +18,21 @@ class IrisKfintechService {
 	private dbTokenLoaded = false;
 
 	constructor() {
+		const tenantCode =
+			process.env.IRIS_TENANT_CODE ||
+			process.env.KFINTECH_MEMBER_ID ||
+			"";
 		this.client = axios.create({
 			baseURL: IRIS_BASE_URL,
 			timeout: 30000,
-			headers: { "Content-Type": "application/json" },
+			headers: {
+				"Content-Type": "application/json",
+				...(tenantCode ? { "X-Tenant-Code": tenantCode } : {}),
+			},
 		});
 		logger.info("[IRIS] KFintech service initialized", {
 			baseUrl: IRIS_BASE_URL,
+			tenantConfigured: !!tenantCode,
 		});
 	}
 
@@ -107,9 +115,14 @@ class IrisKfintechService {
 			};
 		}
 		try {
+			const tenantCode =
+				process.env.IRIS_TENANT_CODE ||
+				process.env.KFINTECH_MEMBER_ID ||
+				undefined;
 			const resp = await this.client.post("/auth/login", {
 				username,
 				password,
+				...(tenantCode ? { tenantCode } : {}),
 			});
 			const data = resp.data;
 			if (data?.token) {
@@ -140,14 +153,42 @@ class IrisKfintechService {
 		}
 	}
 
+	/**
+	 * Send CAS OTP to client's IRIS-registered mobile.
+	 * IRIS requires BOTH pan and mobile to identify the correct investor record
+	 * and dispatch the OTP to their registered number.
+	 *
+	 * @param pan - Client's PAN (mandatory for CAS OTP)
+	 * @param mobile - Client's registered mobile (optional fallback to IRIS profile)
+	 */
 	async sendOtp(
+		pan: string,
 		mobile?: string,
 	): Promise<{ success: boolean; message?: string }> {
 		try {
-			const resp = await this.client.post("/auth/send-otp", { mobile });
+			const tenantCode =
+				process.env.IRIS_TENANT_CODE ||
+				process.env.KFINTECH_MEMBER_ID ||
+				undefined;
+			const payload: Record<string, string> = { pan: pan.toUpperCase() };
+			if (mobile) payload.mobile = mobile;
+			if (tenantCode) payload.tenantCode = tenantCode;
+			const resp = await this.client.post("/auth/send-otp", payload);
 			this.pendingOtp = { txnId: resp.data?.txnId, mobile };
-			return { success: true, message: resp.data?.message };
+			logger.info("[IRIS] CAS OTP dispatched", {
+				event: "IRIS_OTP_SENT",
+				pan: pan.slice(0, 5) + "*****",
+				hasCustomMobile: !!mobile,
+				txnId: resp.data?.txnId,
+			});
+			return { success: true, message: resp.data?.message || "OTP sent to registered mobile" };
 		} catch (err: any) {
+			logger.error("[IRIS] CAS OTP dispatch failed", {
+				event: "IRIS_OTP_FAILED",
+				pan: pan.slice(0, 5) + "*****",
+				status: err?.response?.status,
+				error: err?.response?.data?.message || err.message,
+			});
 			return {
 				success: false,
 				message: err?.response?.data?.message || err.message,

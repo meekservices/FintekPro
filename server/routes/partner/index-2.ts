@@ -6,7 +6,11 @@ import * as schema from "@shared/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { registerPartnerHierarchyRoutes } from "./hierarchy-routes";
 
+let _partnerTablesReady = false;
 async function ensurePartnerTables() {
+	// De-dup guard: ensureSharedRouteTables() in schema-repairs.ts runs this at boot.
+	if (_partnerTablesReady) return;
+	_partnerTablesReady = true;
 	try {
 		await db.execute(sql`
       CREATE TABLE IF NOT EXISTS partner_team_members (

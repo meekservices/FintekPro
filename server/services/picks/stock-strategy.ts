@@ -558,7 +558,11 @@ export class StockStrategy extends BaseStrategy {
 		if (analystRating.includes("strong buy")) score += 25;
 		else if (analystRating.includes("buy")) score += 20;
 
-		const returns1Y = stock.returns1Y ? Number.parseFloat(stock.returns1Y) : 0;
+		// ── Fix 2a: prefer screener OHLCV return_1y over stale listed_stocks.returns1Y ──
+		// screener_derived_metrics.return_1y is computed nightly from OHLCV price history.
+		// listed_stocks.returns1Y is a static FMP column updated infrequently.
+		const returns1Y = enriched?.performance?.return1Y
+			?? (stock.returns1Y ? Number.parseFloat(stock.returns1Y) : 0);
 		if (returns1Y > 30) score += 20;
 		else if (returns1Y > 15) score += 15;
 
@@ -587,8 +591,9 @@ export class StockStrategy extends BaseStrategy {
 			if (pos52w >= 0.80) score += 12;      // Near 52w high — momentum leader / breakout
 			else if (pos52w <= 0.30) score += 8;  // Near 52w low — value entry (contrarian)
 			// Penalty: near all-time high with recent negative momentum = distribution
-			const returns1Y = stock.returns1Y ? Number.parseFloat(stock.returns1Y) : 0;
-			if (pos52w >= 0.90 && returns1Y < 0) score -= 10;
+			const screenerReturn1Y = enriched?.performance?.return1Y
+				?? (stock.returns1Y ? Number.parseFloat(stock.returns1Y) : 0);
+			if (pos52w >= 0.90 && screenerReturn1Y < 0) score -= 10;
 		}
 
 		// ── P0 Alpha Factor B: Beneish M-Score (Earnings Manipulation Detector) ─────
@@ -623,6 +628,25 @@ export class StockStrategy extends BaseStrategy {
 				score += 8;
 			if (enriched.growth?.epsGrowth && enriched.growth.epsGrowth > 20)
 				score += 8;
+
+			// ── Fix 2b: FintekPro screener composite quality signal ──
+			// compositeScore (0–100): holistic quality+value+growth+risk blend
+			const cs = enriched.derivedMetrics?.compositeScore ?? 0;
+			if (cs >= 75) score += 15;       // strong buy-zone quality
+			else if (cs >= 60) score += 8;   // moderate quality signal
+
+			// fintekRating (1–5): platform advisory rating
+			const fr = enriched.derivedMetrics?.fintekRating ?? 0;
+			if (fr >= 4) score += 10;        // Buy / Strong Buy
+			else if (fr === 3) score += 5;   // Hold
+
+			// ── Fix 2c: beta/maxDrawdown risk penalty ──
+			// High beta stocks in down markets are distribution traps.
+			// Severe drawdown history (-40%+) = systemic risk in portfolio.
+			const beta = enriched.performance?.beta;
+			if (beta != null && beta > 1.8) score -= 8;  // very high market sensitivity
+			const maxDd = enriched.performance?.maxDrawdown1Y;
+			if (maxDd != null && maxDd < -40) score -= 10; // severe 1Y drawdown
 		}
 
 		// ── AI Alpha Boost (merged from Stock AI engine) ───────────────────────────
@@ -675,9 +699,9 @@ export class StockStrategy extends BaseStrategy {
 			const roe =
 				enriched?.fundamentals?.roe ??
 				(stock.roe ? Number.parseFloat(stock.roe) : undefined);
-			const returns1Y = stock.returns1Y
-				? Number.parseFloat(stock.returns1Y)
-				: undefined;
+			// Fix 2d: prefer screener OHLCV return in AI boost context data
+			const returns1Y = enriched?.performance?.return1Y
+				?? (stock.returns1Y ? Number.parseFloat(stock.returns1Y) : undefined);
 			const sector = stock.sector || stock.broadSector || "Equity";
 			const currentPrice = stock.currentPrice
 				? Number.parseFloat(stock.currentPrice)

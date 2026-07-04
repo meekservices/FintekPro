@@ -25,7 +25,12 @@ import { hasRole } from "../../middleware/auth";
 import { hdfcBankAPI } from "../../hdfc-bank-api";
 import { iciciBankAPI } from "../../icici-bank-api";
 
+let _agentNotifTableReady = false;
 async function ensureAgentNotificationsTable() {
+	// De-dup guard: ensureSharedRouteTables() in schema-repairs.ts runs this at boot.
+	// hasRun flag prevents redundant DB DDL calls across 11 admin modules.
+	if (_agentNotifTableReady) return;
+	_agentNotifTableReady = true;
 	try {
 		await db.execute(sql`
       CREATE TABLE IF NOT EXISTS agent_notifications (
