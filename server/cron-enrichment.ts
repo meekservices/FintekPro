@@ -30,6 +30,8 @@ import {
 } from "./utils/enrichment-guard";
 import { runDailyFixedIncomeRefresh } from "./cron/fixed-income-daily-refresh";
 import { startModelPortfolioHoldingsRebalanceScheduler } from "./services/model-portfolio-metrics-service";
+import { invalidateDistributionCache } from "./routes/screener-routes";
+import { refreshAllHoldingNAVs } from "./services/model-portfolio-holdings-service";
 import type { StaggerFn } from "./cron/utils";
 
 
@@ -1010,6 +1012,10 @@ async function runScreenerEnrichmentBatch(
 		logger.info(
 			`[${label}] Batch complete: ${done} enriched, ${failed} failed out of ${staleSymbols.length}`,
 		);
+		// Invalidate the 5-min server-side distribution cache so that the next
+		// GET /api/screener/distribution reflects freshly enriched sector / market-cap data.
+		invalidateDistributionCache();
+		logger.info(`[${label}] Distribution cache busted — fresh data on next request.`);
 	} catch (e: any) {
 		logger.warn(
 			`[${label}] Enrichment batch failed:`,
@@ -1028,8 +1034,41 @@ if (isProductionEnvironment() && !ENRICHMENT_OFFLOADED) {
 		6 * 60 * 60 * 1000,
 	);
 
+	// ── Daily deep-enrichment — 1:00 AM IST (7:30 PM UTC) ────────────────────
+	// Runs after Indian market close + post-settlement data push from NSE/BSE.
+	// Processes 250 stocks — enough to fully refresh the entire ~3700-stock
+	// screener universe across 15 daily runs. Busts the distribution cache
+	// automatically via the invalidateDistributionCache() call inside
+	// runScreenerEnrichmentBatch.
+	cron.schedule("30 19 * * *", async () => {
+		logger.info("[CRON] 1AM IST daily screener enrichment starting (250 stocks)...");
+		await runScreenerEnrichmentBatch(250, "DailyDeepEnrich");
+	});
+
+	// ── Phase B — Holding NAV refresh — 1:30 AM IST (20:00 UTC) ─────────────
+	// Fires 30 min after the screener enrichment batch so fresh fundamental
+	// data is already written before NAV + drift are computed.
+	// Updates model_portfolio_holdings: currentNav, navDate, cagr1y, drift, alphaScore.
+	cron.schedule("0 20 * * *", async () => {
+		logger.info("[CRON] 1:30AM IST Phase B holding NAV refresh starting...");
+		try {
+			const result = await refreshAllHoldingNAVs();
+			logger.info("[CRON] Phase B holding NAV refresh complete", {
+				event: "HOLDING_NAV_REFRESH_COMPLETE",
+				user_id: "cron",
+				status: "success",
+				...result,
+			});
+		} catch (err: unknown) {
+			logger.error("[CRON] Phase B holding NAV refresh failed", {
+				error: err instanceof Error ? err.message : String(err),
+				retryable: true,
+			});
+		}
+	});
+
 	logger.info(
-		"✅ [StartupEnrich] Screener.in enrichment scheduled: 150 stocks at boot+5min, 100 every 6h",
+		"✅ [StartupEnrich] Screener enrichment scheduled: 150 at boot+5min | 100 every 6h | 250 at 1AM IST | holding NAV refresh at 1:30AM IST",
 	);
 } else {
 	logger.info(

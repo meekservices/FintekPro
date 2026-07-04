@@ -173,8 +173,23 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 
 					// FASP-AI v3.0 — create dynamic portfolio management tables
 					logBootProgress("Step 2c (bg): FASP-AI v3.0 schema migrations...");
-					const { runFASPAIv3Migrations } = await import("./startup/schema-repairs");
+					const { runFASPAIv3Migrations, applyPhaseB_HoldingsUniqueIndex } = await import("./startup/schema-repairs");
 					await runFASPAIv3Migrations();
+
+					// Phase B — unique index + auto-migrate JSONB holdings → relational table
+					logBootProgress("Step 2d (bg): Phase B — model_portfolio_holdings migration...");
+					await applyPhaseB_HoldingsUniqueIndex();
+					const { ensureHoldingsRelationalTablePopulated } = await import(
+						"./services/model-portfolio-holdings-service"
+					);
+					await ensureHoldingsRelationalTablePopulated();
+
+					// De-duplication: ensure shared route tables (agent_notifications,
+					// partner_team_members, partner_agent_invitations) are created
+					// from a single canonical source — not 11+ scattered route files.
+					logBootProgress("Step 2e (bg): Ensuring shared route tables...");
+					const { ensureSharedRouteTables } = await import("./startup/schema-repairs");
+					await ensureSharedRouteTables();
 
 					logBootProgress("Step 2 (bg): All schema migrations complete.");
 				} catch (migErr: any) {

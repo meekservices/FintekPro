@@ -200,6 +200,12 @@ function collectIssues(isProduction: boolean): EnvIssue[] {
 		warn("Exchange", "KFintech",
 			"KFintech credentials not set. KFintech registry services and CAS integration will be unavailable.");
 	}
+	// IRIS_TENANT_CODE is required for IRIS API to identify the distributor.
+	// Without it every IRIS call returns "Invalid Tenant".
+	if (hasIrisKfintech && !has("IRIS_TENANT_CODE") && !has("KFINTECH_MEMBER_ID")) {
+		warn("Exchange", "IRIS Tenant",
+			"IRIS_TENANT_CODE not set. IRIS API will return 'Invalid Tenant' on all requests. Set to your KFintech distributor/member code.");
+	}
 
 	if (!hasAll("CAMS_API_KEY", "CAMS_MEMBER_ID")) {
 		warn("Exchange", "CAMS",

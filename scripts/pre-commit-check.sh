@@ -113,13 +113,25 @@ if [[ -n "$SERVER_STAGED" ]]; then
 
   if [[ -z "$ESLINT_FILES" ]]; then
     echo -e "${INFO}All staged server files skipped from pre-commit ESLint (too large) — CI covers them"
-  # --max-warnings=-1: warnings don't block; only errors do
-  # timeout 90s: prevents infinite hang on complex rule evaluation
-  elif timeout 90s sh -c "NODE_ENV=production npx eslint --max-warnings=-1 $ESLINT_FILES 2>&1"; then
-    echo -e "${PASS} ESLint: zero errors in staged server files"
   else
-    EXIT_CODE=$?
-    if [[ $EXIT_CODE -eq 124 ]]; then
+    # --max-warnings=-1: warnings don't block; only errors do
+    # Portable 90s timeout: works on macOS (no coreutils) and Linux
+    ESLINT_EXIT=0
+    NODE_ENV=production npx eslint --max-warnings=-1 $ESLINT_FILES 2>&1 &
+    ESLINT_PID=$!
+    # Kill after 90s if still running
+    ( sleep 90 && kill -0 "$ESLINT_PID" 2>/dev/null && kill "$ESLINT_PID" && echo -e "${INFO}ESLint timed out (90s) — skipping locally, CI will catch errors" ) &
+    WATCHDOG_PID=$!
+    wait "$ESLINT_PID" 2>/dev/null
+    ESLINT_EXIT=$?
+    # Cancel watchdog if ESLint finished in time
+    kill "$WATCHDOG_PID" 2>/dev/null
+    wait "$WATCHDOG_PID" 2>/dev/null || true
+
+    if [[ $ESLINT_EXIT -eq 0 ]]; then
+      echo -e "${PASS} ESLint: zero errors in staged server files"
+    elif [[ $ESLINT_EXIT -eq 143 || $ESLINT_EXIT -eq 137 ]]; then
+      # 143 = SIGTERM, 137 = SIGKILL — timed out
       echo -e "${INFO}ESLint timed out (90s) — skipping locally, CI will catch errors"
     else
       echo -e "${FAIL} ESLint: errors found — fix before committing"

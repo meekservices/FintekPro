@@ -1355,6 +1355,21 @@ export default function AgentScreener() {
 																	D/E
 																</th>
 																<DbSortableHeader
+																	label="α Nifty"
+																	sortKey="returnVsNifty1Y"
+																	align="right"
+																/>
+																<DbSortableHeader
+																	label="Analyst↑%"
+																	sortKey="analystUpside"
+																	align="right"
+																/>
+																<DbSortableHeader
+																	label="DCF↑%"
+																	sortKey="dcfUpside"
+																	align="right"
+																/>
+																<DbSortableHeader
 																	label="Score"
 																	sortKey="compositeScore"
 																	align="center"
@@ -1451,6 +1466,52 @@ export default function AgentScreener() {
 																			>
 																				{formatNum(stock.debtToEquity)}
 																			</td>
+																			{/* Phase 4a: Alpha vs NIFTY 50 — green=outperformed, red=underperformed */}
+																			<td
+																				className={`py-2.5 px-3 text-right font-mono text-xs ${
+																					stock.returnVsNifty1Y
+																						? Number.parseFloat(stock.returnVsNifty1Y) > 0
+																							? "text-emerald-600 dark:text-emerald-400 font-semibold"
+																							: "text-red-500 dark:text-red-400"
+																						: "text-muted-foreground"
+																				}`}
+																			>
+																				{stock.returnVsNifty1Y
+																					? `${Number.parseFloat(stock.returnVsNifty1Y) > 0 ? "+" : ""}${(Number.parseFloat(stock.returnVsNifty1Y) * 100).toFixed(1)}%`
+																					: "-"}
+																			</td>
+																			{/* Phase 4b: Analyst consensus upside % */}
+																			<td
+																				className={`py-2.5 px-3 text-right font-mono text-xs ${
+																					stock.analystUpsidePct
+																						? Number.parseFloat(stock.analystUpsidePct) > 10
+																							? "text-emerald-600 dark:text-emerald-400 font-semibold"
+																							: Number.parseFloat(stock.analystUpsidePct) < -5
+																							? "text-red-500 dark:text-red-400"
+																							: ""
+																						: "text-muted-foreground"
+																				}`}
+																			>
+																				{stock.analystUpsidePct
+																					? `${Number.parseFloat(stock.analystUpsidePct) > 0 ? "+" : ""}${Number.parseFloat(stock.analystUpsidePct).toFixed(1)}%`
+																					: "-"}
+																			</td>
+																			{/* Phase 4c: DCF intrinsic value upside % */}
+																			<td
+																				className={`py-2.5 px-3 text-right font-mono text-xs ${
+																					stock.dcfUpsidePercent
+																						? Number.parseFloat(stock.dcfUpsidePercent) > 15
+																							? "text-emerald-600 dark:text-emerald-400 font-semibold"
+																							: Number.parseFloat(stock.dcfUpsidePercent) < -15
+																							? "text-red-500 dark:text-red-400"
+																							: ""
+																						: "text-muted-foreground"
+																				}`}
+																			>
+																				{stock.dcfUpsidePercent
+																					? `${Number.parseFloat(stock.dcfUpsidePercent) > 0 ? "+" : ""}${Number.parseFloat(stock.dcfUpsidePercent).toFixed(1)}%`
+																					: "-"}
+																			</td>
 																			<td className="py-2.5 px-3 text-center">
 																				<ScoreBreakdownTooltip stock={stock} />
 																			</td>
@@ -1481,7 +1542,7 @@ export default function AgentScreener() {
 																		{expandedStock === stock.symbol && (
 																			<tr key={`${stock.symbol}-detail`}>
 																				<td
-																					colSpan={12}
+																					colSpan={15}
 																					className="bg-muted/10 border-b"
 																				>
 																					<div className="p-4">
@@ -1491,7 +1552,7 @@ export default function AgentScreener() {
 																								Loading details...
 																							</div>
 																						) : stockDetail ? (
-																							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+																								<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
 																								<div className="space-y-3">
 																									<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
 																										<Building2 className="h-3.5 w-3.5" />
@@ -1749,6 +1810,30 @@ export default function AgentScreener() {
 																											available
 																										</p>
 																									)}
+																								</div>
+																								{/* Phase 4b: Valuation Signals — Analyst Consensus + DCF + Alpha */}
+																								<div className="space-y-3">
+																									<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+																										<TrendingUp className="h-3.5 w-3.5" />
+																									Valuation Signals
+																									</h4>
+																									<div className="space-y-1.5 text-xs">
+																										{stock.analystAvgTarget ? (
+																											<>
+																												<div className="flex justify-between items-center"><span className="text-muted-foreground">Analyst Rating</span>{stock.analystConsensusRating && (<Badge variant="outline" className={`text-[9px] h-4 ${stock.analystConsensusRating === 'Strong Buy' || stock.analystConsensusRating === 'Buy' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : stock.analystConsensusRating === 'Sell' ? 'border-red-500 text-red-600 dark:text-red-400' : ''}`}>{stock.analystConsensusRating}</Badge>)}</div>
+																												<div className="flex justify-between"><span className="text-muted-foreground">Avg Target</span><span className="font-mono font-semibold">₹{Number.parseFloat(stock.analystAvgTarget).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span></div>
+																												<div className="flex justify-between"><span className="text-muted-foreground">Analyst Upside</span><span className={`font-mono font-semibold ${stock.analystUpsidePct && Number.parseFloat(stock.analystUpsidePct) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>{stock.analystUpsidePct ? `${Number.parseFloat(stock.analystUpsidePct) > 0 ? "+" : ""}${Number.parseFloat(stock.analystUpsidePct).toFixed(1)}%` : "-"}</span></div>
+																												<div className="flex justify-between"><span className="text-muted-foreground">Analysts</span><span className="font-mono">{stock.analystCount ?? "-"}</span></div>
+																											</>
+																										) : (<p className="text-muted-foreground text-xs">No analyst targets yet</p>)}
+																										{stock.dcfUpsidePercent && (
+																											<div className="mt-2 pt-2 border-t space-y-1.5">
+																												<div className="flex justify-between items-center"><span className="text-muted-foreground">DCF vs CMP</span><span className={`font-mono font-semibold ${Number.parseFloat(stock.dcfUpsidePercent) > 15 ? 'text-emerald-600 dark:text-emerald-400' : Number.parseFloat(stock.dcfUpsidePercent) < -15 ? 'text-red-500 dark:text-red-400' : ''}`}>{`${Number.parseFloat(stock.dcfUpsidePercent) > 0 ? "+" : ""}${Number.parseFloat(stock.dcfUpsidePercent).toFixed(1)}%`}</span></div>
+																												<div className="flex justify-between"><span className="text-muted-foreground">Signal</span><Badge variant="outline" className={`text-[9px] h-4 ${Number.parseFloat(stock.dcfUpsidePercent) > 15 ? 'border-emerald-500 text-emerald-600' : Number.parseFloat(stock.dcfUpsidePercent) < -15 ? 'border-red-500 text-red-600' : ''}`}>{Number.parseFloat(stock.dcfUpsidePercent) > 15 ? 'Undervalued' : Number.parseFloat(stock.dcfUpsidePercent) < -15 ? 'Overvalued' : 'Fair Value'}</Badge></div>
+																											</div>
+																										)}
+																										{stock.returnVsNifty1Y && (<div className="mt-2 pt-2 border-t"><div className="flex justify-between"><span className="text-muted-foreground">α vs NIFTY (1Y)</span><span className={`font-mono font-semibold ${Number.parseFloat(stock.returnVsNifty1Y) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>{`${Number.parseFloat(stock.returnVsNifty1Y) > 0 ? "+" : ""}${(Number.parseFloat(stock.returnVsNifty1Y) * 100).toFixed(1)}%`}</span></div></div>)}
+																									</div>
 																								</div>
 																								<div className="space-y-3">
 																									<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -2518,6 +2603,39 @@ export default function AgentScreener() {
 													value={enrichmentProgress?.tiers?.tier4Percent ?? 0}
 													className="h-1.5"
 												/>
+											</div>
+										</CardContent>
+									</Card>
+
+									{/* Phase 4d: Data Freshness Panel */}
+									<Card className="border-l-4 border-l-teal-500">
+										<CardContent className="pt-4 pb-3 px-4">
+											<div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+												<Database className="h-3 w-3" />
+												Data Freshness (30-day)
+											</div>
+											<div className="space-y-2.5 text-xs">
+												{([
+													{ label: "Financials",   key: "financials"   },
+													{ label: "Key Metrics",  key: "keyMetrics"   },
+													{ label: "Technicals",   key: "technicals"   },
+													{ label: "Shareholding", key: "shareholding" },
+												] as const).map(({ label, key }) => {
+													const stat = enrichmentProgress?.freshness?.[key];
+													const pct = stat?.coveragePct ?? 0;
+													const barColor = pct >= 80 ? "[&>div]:bg-emerald-500" : pct >= 50 ? "[&>div]:bg-amber-500" : "[&>div]:bg-red-500";
+													return (
+														<div key={key}>
+															<div className="flex justify-between mb-0.5">
+																<span className="text-muted-foreground">{label}</span>
+																<span className={`font-mono font-semibold ${pct >= 80 ? "text-emerald-600 dark:text-emerald-400" : pct >= 50 ? "text-amber-600 dark:text-amber-400" : "text-red-500 dark:text-red-400"}`}>
+																	{pct}% <span className="text-muted-foreground font-normal">({stat?.synced ?? "—"}/{(stat?.synced ?? 0) + (stat?.stale ?? 0)})</span>
+																</span>
+															</div>
+															<Progress value={pct} className={`h-1.5 ${barColor}`} />
+														</div>
+													);
+												})}
 											</div>
 										</CardContent>
 									</Card>
