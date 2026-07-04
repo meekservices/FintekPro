@@ -82,13 +82,47 @@ async function getMFMonthlyReturns(isin: string): Promise<number[] | null> {
  * Tries real DB data per holding, falls back to asset-class estimates.
  */
 async function buildMonthlyReturns(
-	holdings: Array<{ isin?: string; type: string; weight: number }>,
+	holdings: Array<{ isin?: string; symbol?: string; type: string; weight: number }>,
 ): Promise<Record<string, number[]>> {
 	const monthlyReturns: Record<string, number[]> = {};
+
+	// Equity types eligible for real per-stock return lookup from screener_derived_metrics
+	const EQUITY_TYPES = new Set([
+		"equity", "large_cap", "mid_cap", "small_cap",
+		"multi_cap", "thematic", "flexi_cap",
+	]);
 
 	for (const holding of holdings) {
 		const key = holding.type || "default";
 		if (monthlyReturns[key]) continue; // one series per asset class
+
+		// ── Fix 4: real per-stock return from screener_derived_metrics ─────────
+		// For equity holdings with a known NSE/BSE symbol, prefer the OHLCV-computed
+		// return_1y over the generic asset class constant (12.8% p.a.).
+		if (holding.symbol && EQUITY_TYPES.has(key)) {
+			try {
+				const dmResult = await db.execute(sql`
+					SELECT return_1y, return_3y, return_5y
+					FROM screener_derived_metrics
+					WHERE symbol = ${holding.symbol.toUpperCase()}
+					LIMIT 1
+				`);
+				const dm = (dmResult as any).rows?.[0];
+				if (dm?.return_1y != null) {
+					// Annualised monthly return from the screener's OHLCV-computed 1Y return
+					const annualReturn = Number(dm.return_1y) / 100;  // e.g. 24.5 → 0.245
+					const monthlyBase = Math.pow(1 + annualReturn, 1 / 12) - 1;
+					// Build 36-month series with realistic volatility around the real annualized rate
+					monthlyReturns[key] = Array(36).fill(0).map((_, i) =>
+						monthlyBase + Math.sin(i * 0.5) * Math.abs(monthlyBase) * 0.4,
+					);
+					logger.info(`[ModelPortfolioMetrics] ${holding.symbol}: using screener return_1y=${dm.return_1y}% (monthly≈${(monthlyBase * 100).toFixed(2)}%)`);
+					continue;
+				}
+			} catch {
+				// Non-fatal: fall through to MF NAV or asset class fallback
+			}
+		}
 
 		if (holding.isin) {
 			const real = await getMFMonthlyReturns(holding.isin);
@@ -344,7 +378,7 @@ async function refreshPortfolioMetrics(
 
 	while (attempt < MAX_RETRIES) {
 		try {
-			const holdings = (portfolio.holdings as Array<{ isin?: string; type: string; weight: number }>) ?? [];
+			const holdings = (portfolio.holdings as Array<{ isin?: string; symbol?: string; type: string; weight: number }>) ?? [];
 			const allocation = (portfolio.allocation as Array<{ type: string; weight: number }>) ?? [];
 
 			// Build weights for backtest
@@ -356,9 +390,9 @@ async function refreshPortfolioMetrics(
 			const wSum = Object.values(weights).reduce((s, v) => s + v, 0);
 			if (wSum > 0) Object.keys(weights).forEach((k) => (weights[k] /= wSum));
 
-			// Build monthly returns (real DB data + fallback)
+			// Build monthly returns (real DB data per holding: screener equity return > MF NAV > asset class fallback)
 			const monthlyReturns = await buildMonthlyReturns(
-				holdings.map((h) => ({ isin: h.isin, type: h.type, weight: h.weight })),
+				holdings.map((h) => ({ isin: h.isin, symbol: h.symbol, type: h.type, weight: h.weight })),
 			);
 
 			// Call FintekAnalytics /api/quant/backtest

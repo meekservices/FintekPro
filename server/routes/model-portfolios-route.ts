@@ -30,6 +30,12 @@ import { eq, and, sql } from "drizzle-orm";
 import { logger } from "../logger";
 import { refreshAllModelPortfolioMetrics } from "../services/model-portfolio-metrics-service";
 import {
+  migrateHoldingsToRelationalTable,
+  getHoldingsForPortfolio,
+  refreshAllHoldingNAVs,
+  getTopFundsByAlphaScore,
+} from "../services/model-portfolio-holdings-service";
+import {
   computePortfolioDrift,
   scorePortfolioAlpha,
   runPortfolioRebalance,
@@ -522,7 +528,78 @@ modelPortfoliosRouter.post("/admin/trigger-metrics-refresh", async (_req: Reques
   }
 });
 
-// ── POST /api/model-portfolios/admin/persist-holdings-enrichment ───────────────
+// ── POST /api/model-portfolios/admin/migrate-to-relational ─────────────────────
+// Phase B: Migrates all holdings from model_portfolios.holdings (JSONB) to the
+// model_portfolio_holdings relational table. Idempotent — safe to run multiple
+// times. Uses ON CONFLICT (portfolio_id, instrument_name) DO UPDATE.
+modelPortfoliosRouter.post("/admin/migrate-to-relational", async (_req: Request, res: Response) => {
+  try {
+    const result = await migrateHoldingsToRelationalTable();
+    return res.json({
+      success: true,
+      data: result,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: ENGINE_VERSION,
+        message: `Migrated ${result.migrated} holdings to relational table (${result.errors} errors, ${result.skipped} skipped).`,
+      },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error("[ModelPortfolios] migrate-to-relational failed", new Error(msg));
+    return res.status(500).json({ success: false, error: msg });
+  }
+});
+
+// ── POST /api/model-portfolios/admin/refresh-holding-navs ─────────────────────
+// Triggers an on-demand nightly NAV refresh for all active holdings.
+// Production: runs automatically at 1:30 AM IST via cron-enrichment.ts.
+// Use this endpoint to trigger it manually (e.g. after a rebalance event).
+modelPortfoliosRouter.post("/admin/refresh-holding-navs", async (_req: Request, res: Response) => {
+  try {
+    // Fire-and-forget — can take 25-60s for full 566-holding refresh
+    void refreshAllHoldingNAVs().then((result) => {
+      logger.info("[ModelPortfolios] Manual NAV refresh complete", result);
+    });
+    return res.json({
+      success: true,
+      data: { status: "running" },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: ENGINE_VERSION,
+        message: "NAV refresh started in background. Check logs for completion.",
+      },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ success: false, error: msg });
+  }
+});
+
+// ── GET /api/model-portfolios/top-funds/:assetClass ───────────────────────────
+// Returns top N funds by alpha score for a given asset class.
+// Used by Pick of the Day engine and rebalancing substitution logic.
+modelPortfoliosRouter.get("/top-funds/:assetClass", async (req: Request, res: Response) => {
+  try {
+    const { assetClass } = req.params;
+    const limit = Math.min(parseInt(String(req.query.limit ?? "10"), 10), 50);
+    const funds = await getTopFundsByAlphaScore(assetClass, limit);
+    return res.json({
+      success: true,
+      data: funds,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: ENGINE_VERSION,
+        assetClass,
+        count: funds.length,
+      },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ success: false, error: msg });
+  }
+});
+
 // Persists live holding-level data (AMFI code, currentReturn, screenerUrl,
 // expenseRatio) into the DB holdings JSONB so agent queries always see real data
 // without re-fetching mfapi.in on every request.
