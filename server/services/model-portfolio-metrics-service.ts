@@ -494,7 +494,7 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 	results: Array<{ id: string; name: string; cagr1Y: number | null; coverage: number; source: string }>;
 }> {
 	const portfolios = await db
-		.select({ id: modelPortfolios.id, name: modelPortfolios.name, holdings: modelPortfolios.holdings, allocation: modelPortfolios.allocation })
+		.select({ id: modelPortfolios.id, name: modelPortfolios.name, holdings: modelPortfolios.holdings })
 		.from(modelPortfolios)
 		.where(eq(modelPortfolios.isPublished, true));
 
