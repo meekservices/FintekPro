@@ -61,7 +61,8 @@ export abstract class BaseStrategy implements IPickStrategy {
 	protected getDynamicTargetStoploss(
 		category: PickCategory,
 		volatility?: number,
-	): { targetPct: number; stoplossPct: number } {
+		currentPrice?: number,
+	): { targetPct: number; stoplossPct: number; atrPct?: number } {
 		const baseTargets: Record<string, { target: number; stoploss: number }> = {
 			listed_stocks: { target: 0.15, stoploss: 0.08 },
 			mutual_funds: { target: 0.12, stoploss: 0.05 },
@@ -80,6 +81,32 @@ export abstract class BaseStrategy implements IPickStrategy {
 			return { targetPct: base.target, stoplossPct: base.stoploss };
 		}
 
+		// ── Fix C: ATR-based stoploss ──────────────────────────────────────────
+		// When currentPrice is provided, compute a synthetic 14-day ATR using the
+		// relationship between annualised volatility and intraday true range:
+		//   ATR_14 ≈ price × (annualVol% / 100) / √252 × √14
+		// Stoploss at 1.5× ATR (tight in low-vol, wide in high-vol).
+		// Target at 3× ATR above entry to maintain a 2:1 reward-to-risk ratio.
+		// Floors: stoploss ≥ 3%, target ≥ 6% (protect against near-zero ATR).
+		// Caps: stoploss ≤ 15%, target ≤ 35%.
+		if (
+			currentPrice != null &&
+			currentPrice > 0 &&
+			(category === "listed_stocks" || category === "global_stocks" || category === "etfs")
+		) {
+			const annualVolFrac = volatility / 100;
+			// ATR as a fraction of price (14-day window)
+			const atrFrac = annualVolFrac / Math.sqrt(252) * Math.sqrt(14);
+			const stoplossPct = Math.min(0.15, Math.max(0.03, Math.round(atrFrac * 1.5 * 1000) / 1000));
+			const targetPct = Math.min(0.35, Math.max(0.06, Math.round(atrFrac * 3.0 * 1000) / 1000));
+			return {
+				targetPct,
+				stoplossPct,
+				atrPct: Math.round(atrFrac * 10000) / 10000, // expose for keyMetrics
+			};
+		}
+
+		// Fallback: annualised-vol scaling (original formula for non-equity categories)
 		const volFactor = volatility / 20;
 		const adjustedTarget = Math.min(
 			base.target * (0.7 + 0.3 * volFactor),

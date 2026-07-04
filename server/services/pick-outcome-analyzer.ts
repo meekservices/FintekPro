@@ -1,0 +1,373 @@
+/**
+ * @module pick-outcome-analyzer
+ * @description Fix 8: Pick Outcome Feedback Loop
+ *
+ * Purpose:
+ *   After picks close (target_hit / stoploss_hit / expired), correlate the
+ *   outcome with the quant signals captured in keyMetrics at pick generation time.
+ *   Emit a SignalEfficacyReport that advisors and the scoring engine team can use
+ *   to understand which signals are genuinely predictive.
+ *
+ * FASP-AI v3.0 compliance:
+ *   This is a Decision Support System ONLY — it generates SUGGESTIONS.
+ *   No autonomous scoring weight changes are made.
+ *   All weight adjustments require explicit human approval before deployment.
+ *
+ * Inputs:   daily_picks table (closed picks with keyMetrics JSON)
+ * Outputs:  Structured SignalEfficacyReport, logged to advisory audit trail
+ * Schedule: Called weekly from pick-of-the-day-service after EOD update.
+ *
+ * @version 3.0.0
+ */
+
+import { db } from "../db";
+import { dailyPicks } from "@shared/schema";
+import { and, sql, gte, isNotNull } from "drizzle-orm";
+import { logger } from "../logger";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export interface SignalEfficacyEntry {
+  /** Signal name as stored in keyMetrics (e.g. "pe", "roic", "rawQuantScore") */
+  signal: string;
+  /** Number of closed picks where this signal was present */
+  picksWithSignal: number;
+  /** Hit rate for picks where signal was in "good" range (0-100%) */
+  hitRateWhenGood: number;
+  /** Hit rate for picks where signal was in "bad" range (0-100%) */
+  hitRateWhenBad: number;
+  /** Lift: hitRateWhenGood / hitRateWhenBad — >1 means signal is predictive */
+  lift: number;
+  /** Average return when signal was in "good" range */
+  avgReturnWhenGood: number;
+  /** Average return when signal was in "bad" range */
+  avgReturnWhenBad: number;
+}
+
+export interface CategoryOutcomeSummary {
+  category: string;
+  totalClosed: number;
+  hitRate: number;
+  avgReturn: number;
+  avgDaysHeld: number;
+  bestSignals: string[];  // top 3 signals with lift > 1.2 for this category
+  weakSignals: string[];  // signals with lift < 0.8 for this category
+}
+
+export interface SignalEfficacyReport {
+  generatedAt: string;
+  windowDays: number;
+  totalClosedPicks: number;
+  overallHitRate: number;
+  overallAvgReturn: number;
+  byCategory: CategoryOutcomeSummary[];
+  signalEfficacy: SignalEfficacyEntry[];
+  /**
+   * Suggested scoring weight nudges for the engineering team to review.
+   * These are SUGGESTIONS only — no autonomous weight changes are made.
+   * Human approval is required before any scoring engine changes.
+   */
+  scoringWeightHints: Array<{
+    signal: string;
+    currentWeight: "not_tracked" | number;
+    suggestedAction: "increase" | "decrease" | "maintain";
+    rationale: string;
+  }>;
+  meta: {
+    engine_version: string;
+    disclaimer: string;
+  };
+}
+
+// ── Signal evaluation thresholds ──────────────────────────────────────────────
+// "Good" vs "bad" ranges for each keyMetrics signal.
+// Used to split the pick universe and compute outcome lift.
+
+const SIGNAL_THRESHOLDS: Record<
+  string,
+  { good: (v: number) => boolean; bad: (v: number) => boolean }
+> = {
+  pe: {
+    good: (v) => v > 0 && v < 25,
+    bad: (v) => v >= 25 || v <= 0,
+  },
+  roic: {
+    good: (v) => v > 20,
+    bad: (v) => v < 10,
+  },
+  rsi: {
+    good: (v) => v >= 40 && v <= 65,
+    bad: (v) => v > 80 || v < 25,
+  },
+  rawQuantScore: {
+    good: (v) => v >= 60,
+    bad: (v) => v < 40,
+  },
+  compositeScore: {
+    good: (v) => v >= 70,
+    bad: (v) => v < 50,
+  },
+  piotroskiFScore: {
+    good: (v) => v >= 7,
+    bad: (v) => v <= 3,
+  },
+  interestCoverage: {
+    good: (v) => v >= 3,
+    bad: (v) => v < 1.5,
+  },
+  quickRatio: {
+    good: (v) => v >= 1,
+    bad: (v) => v < 0.5,
+  },
+};
+
+const ENGINE_VERSION = "pick-outcome-analyzer-v3.0";
+
+// ── Main Service ──────────────────────────────────────────────────────────────
+
+export class PickOutcomeAnalyzer {
+  /**
+   * Runs the feedback loop analysis over the last `windowDays` of closed picks.
+   *
+   * @param windowDays  Look-back window in days (default 90)
+   * @returns SignalEfficacyReport with signal lift scores and weight hints
+   */
+  async analyzeOutcomes(windowDays = 90): Promise<SignalEfficacyReport> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - windowDays);
+    const startStr = startDate.toISOString().split("T")[0];
+
+    logger.info(
+      `[PickOutcomeAnalyzer] Starting outcome analysis: last ${windowDays} days (from ${startStr})`,
+    );
+
+    // ── Fetch all closed picks in the window ────────────────────────────────
+    const closedPicks = await db
+      .select({
+        id: dailyPicks.id,
+        category: dailyPicks.category,
+        status: dailyPicks.status,
+        recoDate: dailyPicks.recoDate,
+        returnPct: dailyPicks.returnPct,
+        daysHeld: dailyPicks.daysHeld,
+        keyMetrics: dailyPicks.keyMetrics,
+        confidenceScore: dailyPicks.confidenceScore,
+      })
+      .from(dailyPicks)
+      .where(
+        and(
+          sql`${dailyPicks.status} IN ('target_hit', 'stoploss_hit', 'expired')`,
+          gte(dailyPicks.recoDate, startStr),
+          isNotNull(dailyPicks.keyMetrics),
+        ),
+      )
+      .orderBy(dailyPicks.recoDate);
+
+    if (closedPicks.length === 0) {
+      logger.info("[PickOutcomeAnalyzer] No closed picks found in window.");
+      return this.emptyReport(windowDays);
+    }
+
+    // ── Overall stats ──────────────────────────────────────────────────────
+    const totalClosed = closedPicks.length;
+    const hits = closedPicks.filter((p) => p.status === "target_hit").length;
+    const overallHitRate = Math.round((hits / totalClosed) * 1000) / 10;
+    const returns = closedPicks
+      .map((p) => Number.parseFloat(p.returnPct ?? "0"))
+      .filter((r) => !Number.isNaN(r));
+    const overallAvgReturn =
+      returns.length > 0
+        ? Math.round(
+            (returns.reduce((a, b) => a + b, 0) / returns.length) * 100,
+          ) / 100
+        : 0;
+
+    // ── Per-category summary ────────────────────────────────────────────────
+    const catMap = new Map<
+      string,
+      { total: number; hits: number; returns: number[]; days: number[] }
+    >();
+    for (const p of closedPicks) {
+      const cat = p.category ?? "unknown";
+      const entry = catMap.get(cat) ?? { total: 0, hits: 0, returns: [], days: [] };
+      entry.total++;
+      if (p.status === "target_hit") entry.hits++;
+      const ret = Number.parseFloat(p.returnPct ?? "0");
+      if (!Number.isNaN(ret)) entry.returns.push(ret);
+      if (p.daysHeld) entry.days.push(p.daysHeld);
+      catMap.set(cat, entry);
+    }
+
+    const byCategory: CategoryOutcomeSummary[] = Array.from(catMap.entries()).map(
+      ([category, data]) => ({
+        category,
+        totalClosed: data.total,
+        hitRate: Math.round((data.hits / data.total) * 1000) / 10,
+        avgReturn:
+          data.returns.length > 0
+            ? Math.round(
+                (data.returns.reduce((a, b) => a + b, 0) / data.returns.length) * 100,
+              ) / 100
+            : 0,
+        avgDaysHeld:
+          data.days.length > 0
+            ? Math.round(data.days.reduce((a, b) => a + b, 0) / data.days.length)
+            : 0,
+        bestSignals: [],
+        weakSignals: [],
+      }),
+    );
+
+    // ── Signal efficacy computation ─────────────────────────────────────────
+    const signalEfficacy: SignalEfficacyEntry[] = [];
+
+    for (const [signal, thresholds] of Object.entries(SIGNAL_THRESHOLDS)) {
+      const withGood = closedPicks.filter((p) => {
+        const km = p.keyMetrics as Record<string, any> | null;
+        const v = km?.[signal];
+        return v != null && typeof v === "number" && thresholds.good(v);
+      });
+      const withBad = closedPicks.filter((p) => {
+        const km = p.keyMetrics as Record<string, any> | null;
+        const v = km?.[signal];
+        return v != null && typeof v === "number" && thresholds.bad(v);
+      });
+
+      // Need at least 3 picks in each bucket for statistical validity
+      if (withGood.length < 3 && withBad.length < 3) continue;
+
+      const hitRateGood =
+        withGood.length > 0
+          ? withGood.filter((p) => p.status === "target_hit").length / withGood.length
+          : 0;
+      const hitRateBad =
+        withBad.length > 0
+          ? withBad.filter((p) => p.status === "target_hit").length / withBad.length
+          : 0;
+
+      // Lift: how much better is the "good" bucket vs the "bad" bucket?
+      const lift = hitRateBad > 0 ? hitRateGood / hitRateBad : hitRateGood > 0 ? 2 : 1;
+
+      const avgRetGood =
+        withGood.length > 0
+          ? withGood.reduce((a, p) => a + Number.parseFloat(p.returnPct ?? "0"), 0) /
+            withGood.length
+          : 0;
+      const avgRetBad =
+        withBad.length > 0
+          ? withBad.reduce((a, p) => a + Number.parseFloat(p.returnPct ?? "0"), 0) /
+            withBad.length
+          : 0;
+
+      signalEfficacy.push({
+        signal,
+        picksWithSignal: withGood.length + withBad.length,
+        hitRateWhenGood: Math.round(hitRateGood * 1000) / 10,
+        hitRateWhenBad: Math.round(hitRateBad * 1000) / 10,
+        lift: Math.round(lift * 100) / 100,
+        avgReturnWhenGood: Math.round(avgRetGood * 100) / 100,
+        avgReturnWhenBad: Math.round(avgRetBad * 100) / 100,
+      });
+    }
+
+    // Annotate each category with its best/worst signals
+    for (const cat of byCategory) {
+      const catPicks = closedPicks.filter((p) => p.category === cat.category);
+      const baseHitRate = cat.hitRate / 100 || 0.01;
+
+      for (const entry of signalEfficacy) {
+        const good = catPicks.filter((p) => {
+          const km = p.keyMetrics as Record<string, any> | null;
+          const v = km?.[entry.signal];
+          return (
+            v != null && typeof v === "number" && SIGNAL_THRESHOLDS[entry.signal]?.good(v)
+          );
+        });
+        if (good.length < 3) continue;
+        const hitsGood = good.filter((p) => p.status === "target_hit").length;
+        const catLift = (hitsGood / good.length) / baseHitRate;
+        if (catLift >= 1.2) cat.bestSignals.push(entry.signal);
+        if (catLift < 0.8) cat.weakSignals.push(entry.signal);
+      }
+      cat.bestSignals = cat.bestSignals.slice(0, 3);
+      cat.weakSignals = cat.weakSignals.slice(0, 3);
+    }
+
+    // ── Scoring weight hints ──────────────────────────────────────────────
+    const scoringWeightHints = signalEfficacy.map((entry) => {
+      let suggestedAction: "increase" | "decrease" | "maintain";
+      let rationale: string;
+      if (entry.lift >= 1.5) {
+        suggestedAction = "increase";
+        rationale = `${entry.lift}x lift — strongly predictive. Consider increasing scoring weight.`;
+      } else if (entry.lift <= 0.7) {
+        suggestedAction = "decrease";
+        rationale = `${entry.lift}x lift — poor predictor. Consider reducing weight or removing.`;
+      } else {
+        suggestedAction = "maintain";
+        rationale = `${entry.lift}x lift — adequate. Maintain current weight.`;
+      }
+      return {
+        signal: entry.signal,
+        currentWeight: "not_tracked" as const,
+        suggestedAction,
+        rationale,
+      };
+    });
+
+    const report: SignalEfficacyReport = {
+      generatedAt: new Date().toISOString(),
+      windowDays,
+      totalClosedPicks: totalClosed,
+      overallHitRate,
+      overallAvgReturn,
+      byCategory,
+      signalEfficacy: signalEfficacy.sort((a, b) => b.lift - a.lift),
+      scoringWeightHints,
+      meta: {
+        engine_version: ENGINE_VERSION,
+        disclaimer:
+          "This report is a Decision Support System for human advisors. " +
+          "No autonomous scoring changes are made. All weight adjustments require " +
+          "explicit human review and approval before deployment (FASP-AI v3.0).",
+      },
+    };
+
+    logger.info(
+      `[PickOutcomeAnalyzer] Analysis complete: ${totalClosed} picks, ` +
+        `${overallHitRate}% hit rate, ${signalEfficacy.length} signals evaluated`,
+      {
+        event: "PICK_OUTCOME_ANALYSIS_COMPLETE",
+        user_id: "SYSTEM",
+        latency_ms: 0,
+        status: "success",
+        totalClosedPicks: totalClosed,
+        overallHitRate,
+        overallAvgReturn,
+        signalsEvaluated: signalEfficacy.length,
+        engine_version: ENGINE_VERSION,
+      },
+    );
+
+    return report;
+  }
+
+  private emptyReport(windowDays: number): SignalEfficacyReport {
+    return {
+      generatedAt: new Date().toISOString(),
+      windowDays,
+      totalClosedPicks: 0,
+      overallHitRate: 0,
+      overallAvgReturn: 0,
+      byCategory: [],
+      signalEfficacy: [],
+      scoringWeightHints: [],
+      meta: {
+        engine_version: ENGINE_VERSION,
+        disclaimer: "No closed picks found in the analysis window. (FASP-AI v3.0)",
+      },
+    };
+  }
+}
+
+export const pickOutcomeAnalyzer = new PickOutcomeAnalyzer();

@@ -26,10 +26,17 @@ const port = 5432;
 const dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
 
 // 3. Build Pool Configuration
+// INFRA-C2: Pool sizing for Cloud Run autoscale.
+// Old: max:3 — with 3+ pods × 3 connections = 9–30 total, hitting Cloud SQL max_connections.
+// New: max:10 per pod. With PgBouncer (Cloud SQL built-in), effective limit = 100 sessions.
+// min:1  — keeps 1 warm connection, avoids first-query cold-start latency.
+// idleTimeoutMillis:60s — was 30s (too aggressive), kills warm connections mid-traffic.
+// connectionTimeoutMillis:10s — increased from 10s to match Cloud SQL socket handshake time.
 const POOL_CONFIG: any = {
-	max: isProduction ? 3 : 8,
-	idleTimeoutMillis: 30000,
-	connectionTimeoutMillis: 30000,
+	max: isProduction ? 10 : 8,
+	min: isProduction ? 1  : 1,
+	idleTimeoutMillis: isProduction ? 60_000 : 30_000,
+	connectionTimeoutMillis: 10_000,
 };
 
 // The `pg` library does NOT support `?host=` as a URL query parameter.

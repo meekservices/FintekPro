@@ -139,6 +139,13 @@ type Holding = {
   maxDrawdown?: number;
   screenerUrl?: string;
   returnSource?: string;
+  // Enriched fields (MF holdings from financial_instruments_cache / mfapi.in)
+  return3Y?: number;
+  return6M?: number;
+  nav?: number;
+  expenseRatio?: number;
+  amfiSchemeCode?: string;
+  amfiUrl?: string;
 };
 
 type PerformancePoint = {
@@ -2524,7 +2531,7 @@ export default function AgentModelPortfoliosPage() {
           percentage: h.weight ?? h.percentage ?? 0,
           category: h.type ?? h.category ?? "Other",
           type: h.type ?? "equity",
-          currentReturn: typeof h.currentReturn === "number" && h.currentReturn !== 0 ? h.currentReturn : undefined,
+          currentReturn: typeof h.currentReturn === "number" ? h.currentReturn : undefined,
           expenseRatio: h.expenseRatio ?? undefined,
           rating: h.rating ?? undefined,
         })),
@@ -2686,6 +2693,13 @@ export default function AgentModelPortfoliosPage() {
         maxDrawdown: h.maxDrawdown,
         screenerUrl: h.screenerUrl,
         returnSource: h.returnSource,
+        // MF-specific fields from financial_instruments_cache / mfapi.in
+        return3Y: typeof h.return3Y === "number" ? h.return3Y : undefined,
+        return6M: typeof h.return6M === "number" ? h.return6M : undefined,
+        nav: typeof h.nav === "number" ? h.nav : undefined,
+        expenseRatio: typeof h.expenseRatio === "number" ? h.expenseRatio : undefined,
+        amfiSchemeCode: h.amfiSchemeCode,
+        amfiUrl: h.amfiUrl,
       }))
     : (selectedPortfolio?.holdings ?? []);
 

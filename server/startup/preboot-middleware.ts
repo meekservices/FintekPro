@@ -1,6 +1,7 @@
 import cors from "cors";
 import helmet from "helmet";
-import express, { type Express } from "express";
+import compression from "compression";
+import express, { type Express, type Request, type Response } from "express";
 import { randomUUID } from "crypto";
 import { APP_VERSION } from "../../shared/version";
 import { bootState } from "../utils/boot-state";
@@ -52,6 +53,45 @@ function isAllowedCorsOrigin(
 export function registerPrebootMiddleware(app: Express) {
 	// ── Cloud Run: trust the Google Frontend proxy for real IPs ─────────────
 	app.set("trust proxy", 1);
+
+	// ── INFRA-M1: Gzip compression ────────────────────────────────────────────
+	// Compresses JSON API responses and static assets before sending to client.
+	// threshold:1024 — skip compression for very small responses (<1KB, not worth it).
+	// level:6 — balanced compression (Node default). Level 9 = smaller but ~30% slower.
+	// Expected savings: 60–80% reduction on API JSON responses over mobile connections.
+	app.use(compression({ level: 6, threshold: 1024 }));
+
+	// ── INFRA-M4: Structured Access Log (SEBI Audit Trail) ────────────────────
+	// Logs every API request with user_id, endpoint, method, status, latency_ms.
+	// SEBI Investment Advisory Regulations 2020 require a 5-year audit trail of
+	// all advisor actions. Cloud Logging retains structured logs automatically.
+	// Non-API paths (static assets) are excluded to reduce log volume.
+	app.use((req: Request, res: Response, next) => {
+		if (!req.path.startsWith("/api")) return next();
+		const start = Date.now();
+		res.on("finish", () => {
+			const latencyMs = Date.now() - start;
+			const userId =
+				(req as any).session?.userId ??
+				(req as any).user?.id ??
+				null;
+			// Skip health probes from the audit log — they generate high-frequency noise
+			const skipPaths = ["/api/health", "/api/boot-status"];
+			if (skipPaths.includes(req.path)) return;
+			logger.info(JSON.stringify({
+				event: "API_REQUEST",
+				method: req.method,
+				path: req.path,
+				status: res.statusCode,
+				latency_ms: latencyMs,
+				user_id: userId,
+				ip: req.ip,
+				request_id: res.locals.requestId,
+				user_agent: req.get("user-agent")?.slice(0, 80),
+			}));
+		});
+		next();
+	});
 
 	// ── www → apex redirect ──────────────────────────────────────────────────
 	app.use((req, res, next) => {

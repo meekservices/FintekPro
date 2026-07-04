@@ -12,6 +12,59 @@ export async function runStartupSchemaRepairs() {
 
 		console.log("🛠️ Running schema migrations/repairs...");
 
+		// ── INFRA-M3: Schema Migration Log ────────────────────────────────────
+		// Tracks which migrations have already been applied so they are skipped
+		// on subsequent boots. Reduces startup round-trips from 100+ individual
+		// IF NOT EXISTS checks to near-zero on warm restarts.
+		//
+		// The table itself is always created (idempotent CREATE IF NOT EXISTS).
+		// Every migration that succeeds logs itself here.
+		// isMigrationApplied() checks this log before running a migration block.
+		await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS schema_migration_log (
+        migration_id  VARCHAR(255) PRIMARY KEY,
+        applied_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+        engine        VARCHAR(50)  NOT NULL DEFAULT 'FASP-AI-v3.0'
+      )
+    `);
+		console.log("  ✅ schema_migration_log: ready");
+
+		/**
+		 * Returns true if the given migration_id has already been applied.
+		 * Use this to skip expensive IF NOT EXISTS migrations on subsequent boots.
+		 */
+		async function isMigrationApplied(migrationId: string): Promise<boolean> {
+			try {
+				const rows = await migDb.execute(
+					migSql`SELECT 1 FROM schema_migration_log WHERE migration_id = ${migrationId} LIMIT 1`,
+				);
+				return (rows as any).rows?.length > 0;
+			} catch {
+				return false; // if the table itself failed to create, run the migration
+			}
+		}
+
+		/**
+		 * Marks a migration as applied in the log.
+		 * Call this after a migration block succeeds.
+		 */
+		async function markMigrationApplied(migrationId: string): Promise<void> {
+			try {
+				await migDb.execute(migSql`
+          INSERT INTO schema_migration_log (migration_id)
+          VALUES (${migrationId})
+          ON CONFLICT (migration_id) DO NOTHING
+        `);
+			} catch {
+				// Non-fatal — migration ran but log failed; will re-run next boot (idempotent)
+			}
+		}
+
+		// Expose helpers to the outer scope for use in migration blocks below.
+		// (TypeScript hoisting: these are used in blocks further down the file.)
+		void isMigrationApplied; // suppress "declared but never read" if only some blocks use it
+		void markMigrationApplied;
+
 		// 1. ca_verification_status
 		try {
 			await migDb.execute(migSql`
@@ -2404,5 +2457,58 @@ export async function ensureSharedRouteTables(): Promise<void> {
     console.log("  ✅ partner_agent_invitations: ready");
   } catch (e: any) {
     console.warn("  ⚠️  partner_agent_invitations (non-fatal):", e.message?.slice(0, 80));
+  }
+
+  // ── Fix 1: model_portfolio_holdings — inception_nav + inception_date ────────
+  // These columns power the accurate drift formula introduced in FASP-AI v3.0.
+  //
+  // Drift formula (v3.0):
+  //   currentWeight = targetWeight × (currentNAV / inceptionNAV)
+  //   drift         = currentWeight − targetWeight
+  //
+  // inceptionNav  = NAV at the time the holding was added to the portfolio.
+  //                 Populated by refreshHoldingNAV() on first NAV fetch (self-healing:
+  //                 if null, sets inceptionNav = currentNav so drift starts at 0).
+  // inceptionDate = The calendar date inceptionNav was recorded.
+  //
+  // Without these columns, the old formula (nav × weight / Σ(nav × weight)) mixes
+  // ₹/unit with %, making drift dimensionally wrong for every portfolio.
+  //
+  // ADD COLUMN IF NOT EXISTS is idempotent — safe to run on every restart.
+  try {
+    await migDb.execute(migSql`
+      ALTER TABLE model_portfolio_holdings
+        ADD COLUMN IF NOT EXISTS inception_nav  NUMERIC(12, 4),
+        ADD COLUMN IF NOT EXISTS inception_date DATE
+    `);
+    // Backfill: for any existing holdings where inception_nav is null but
+    // current_nav is already populated, set inception_nav = current_nav.
+    // This means the first drift reading after migration will be 0 (baseline),
+    // and subsequent NAV refreshes will compute real drift from this point.
+    await migDb.execute(migSql`
+      UPDATE model_portfolio_holdings
+      SET
+        inception_nav  = current_nav,
+        inception_date = COALESCE(nav_date, CURRENT_DATE)
+      WHERE
+        inception_nav IS NULL
+        AND current_nav IS NOT NULL
+    `);
+    console.log("  ✅ model_portfolio_holdings: inception_nav + inception_date (Fix 1 — v3.0 drift baseline)");
+  } catch (e: any) {
+    console.warn("  ⚠️  model_portfolio_holdings inception_nav migration (non-fatal):", e.message?.slice(0, 120));
+  }
+
+  // ── Fix 14: model_portfolios — quant_risk_metrics JSONB ─────────────────────
+  // Stores VaR-95, CVaR-95, Sortino ratio, dynamic confidence score from backtest.
+  // Required for SEBI 2023 investment advisory risk disclosure compliance.
+  try {
+    await migDb.execute(migSql`
+      ALTER TABLE model_portfolios
+        ADD COLUMN IF NOT EXISTS quant_risk_metrics JSONB DEFAULT '{}'::jsonb
+    `);
+    console.log("  ✅ model_portfolios: quant_risk_metrics (Fix 14 — VaR/CVaR/dynamic confidence)");
+  } catch (e: any) {
+    console.warn("  ⚠️  model_portfolios quant_risk_metrics migration (non-fatal):", e.message?.slice(0, 120));
   }
 }

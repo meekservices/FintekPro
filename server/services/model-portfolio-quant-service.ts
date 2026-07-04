@@ -19,7 +19,7 @@ import { sql } from "drizzle-orm";
 import { rebalanceOptimizer } from "../core/rebalance-optimizer";
 import { logger } from "../logger";
 
-export const ENGINE_VERSION = "FASP-AI-v2.0";
+export const ENGINE_VERSION = "FASP-AI-v3.0"; // Fix 5: mandatory version per FASP-AI v3.0
 const RISK_FREE_RATE = 7.1; // RBI repo rate proxy (annualised %)
 
 // ── Asset-class drift thresholds ─────────────────────────────────────────────

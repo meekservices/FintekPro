@@ -1,6 +1,6 @@
 import { db } from "../../db";
-import { mutualFunds } from "@shared/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { mutualFunds, dailyPicks } from "@shared/schema";
+import { and, eq, sql, gte } from "drizzle-orm";
 import { logger } from "../../logger";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
@@ -66,7 +66,45 @@ export class MutualFundStrategy extends BaseStrategy {
 				(f) => f.schemeCode,
 			);
 
-			const scoredFunds = freshFunds
+			// ── 7-day SEBI category dedup ───────────────────────────────────────────
+			// Prevents picking the same SEBI category (e.g. Flexi Cap, Large Cap)
+			// two days in a row, which erodes advisor confidence in pick diversity.
+			// Strategy: sort freshFunds so un-recently-used categories rank first.
+			// Falls back to all categories when the 7-day window exhausts them all.
+			let categoryDedupFunds = freshFunds;
+			try {
+				const sevenDaysAgo = new Date();
+				sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+				const recentMfPicks = await db
+					.select({ sectorCategory: dailyPicks.sectorCategory })
+					.from(dailyPicks)
+					.where(
+						and(
+							eq(dailyPicks.category, "mutual_funds"),
+							gte(dailyPicks.recoDate, sevenDaysAgo.toISOString().split("T")[0]),
+						),
+					);
+				const recentMfCategories = new Set(
+					recentMfPicks
+						.map((p) => (p.sectorCategory ?? "").toUpperCase().trim())
+						.filter(Boolean),
+				);
+				if (recentMfCategories.size > 0) {
+					const fresh = freshFunds.filter(
+						(f) => !recentMfCategories.has((f.category ?? "").toUpperCase().trim()),
+					);
+					// Fall back to full pool only when every category was recently used
+					categoryDedupFunds = fresh.length > 0 ? fresh : freshFunds;
+					logger.info(
+						`[MFStrategy] 7-day category dedup: ${recentMfCategories.size} categories excluded → ${categoryDedupFunds.length}/${freshFunds.length} funds remain`,
+					);
+				}
+			} catch (dedupErr) {
+				// Non-fatal — proceed with undeduplicated list
+				logger.warn(`[MFStrategy] Category dedup failed (non-fatal): ${dedupErr instanceof Error ? dedupErr.message : String(dedupErr)}`);
+			}
+
+			const scoredFunds = categoryDedupFunds
 				.map((fund) => ({
 					fund,
 					score: this.score(fund),
@@ -156,8 +194,57 @@ export class MutualFundStrategy extends BaseStrategy {
 		else if (smartRating >= 3) score += 15;
 
 		const returns1y = fund.returns1y ? Number.parseFloat(fund.returns1y) : 0;
-		if (returns1y > 20) score += 20;
-		else if (returns1y > 12) score += 15;
+
+		// ── Fix F: Category risk-adjusted return (relative outperformance) ────────
+		// Compare fund's 1Y return to SEBI category benchmark average.
+		// Source: AMFI industry averages — updated quarterly (last: July 2026).
+		// Funds outperforming their category by >3% get a premium score boost.
+		const CATEGORY_BENCHMARKS: Record<string, number> = {
+			// Equity
+			"Large Cap Fund": 18.5,
+			"Mid Cap Fund": 26.0,
+			"Small Cap Fund": 28.0,
+			"Flexi Cap Fund": 22.0,
+			"Multi Cap Fund": 23.5,
+			"Large & Mid Cap Fund": 21.0,
+			"ELSS": 20.5,
+			"Focused Fund": 21.5,
+			"Sectoral/Thematic": 24.0,
+			// Hybrid
+			"Aggressive Hybrid Fund": 18.0,
+			"Balanced Advantage Fund": 14.0,
+			"Conservative Hybrid Fund": 10.0,
+			"Arbitrage Fund": 8.0,
+			// Debt
+			"Short Duration Fund": 7.5,
+			"Medium Duration Fund": 7.8,
+			"Long Duration Fund": 9.0,
+			"Dynamic Bond Fund": 8.2,
+			"Credit Risk Fund": 8.5,
+			"Liquid Fund": 7.2,
+			"Overnight Fund": 6.8,
+		};
+		const category = (fund.category ?? "").trim();
+		// Try exact match, then partial match (handles AMFI naming variations)
+		const benchmarkAvg =
+			CATEGORY_BENCHMARKS[category] ??
+			Object.entries(CATEGORY_BENCHMARKS).find(([k]) =>
+				category.toLowerCase().includes(k.toLowerCase().split(" ")[0])
+			)?.[1] ??
+			null;
+
+		if (benchmarkAvg !== null) {
+			const outperformance = returns1y - benchmarkAvg; // percentage points
+			if (outperformance > 5) score += 25;      // premium alpha generator
+			else if (outperformance > 3) score += 20; // strong outperformer
+			else if (outperformance > 1) score += 12; // moderate outperformer
+			else if (outperformance > -1) score += 5; // inline with category
+			// Negative: no points — underperforming category average
+		} else {
+			// Category not in benchmark map — fall back to absolute return scoring
+			if (returns1y > 20) score += 20;
+			else if (returns1y > 12) score += 15;
+		}
 
 		const expenseRatio = fund.expenseRatio
 			? Number.parseFloat(fund.expenseRatio)

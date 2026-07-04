@@ -1,9 +1,87 @@
 import { db } from "../../db";
 import { bondCatalog } from "@shared/schema";
 import { and, sql } from "drizzle-orm";
+import { logger } from "../../logger";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
+
+// ── Fix H: G-Sec 10Y benchmark yield — FBIL primary, RBI secondary ─────────────
+// Primary:  FBIL daily benchmark page (fbil.org.in) — the authoritative India rate
+// Secondary: RBI press-release feed (rbi.org.in) for yield data
+// Fallback:  7.1% (repo 6.5% + ~60bps term premium, updated July 2026)
+let _gSecYieldCache: { value: number | null; ts: number } = { value: null, ts: 0 };
+const GSEC_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Attempts to parse the 10Y G-Sec yield from FBIL's benchmark page.
+ * FBIL publishes "FBIL-ZCYC" (zero coupon yield curve) — we extract the 10Y point.
+ */
+async function fetchFBILYield(): Promise<number | null> {
+	try {
+		const url = "https://fbil.org.in/api/benchmarks/FBIL-ZCYC";
+		const res = await fetch(url, {
+			headers: { "Accept": "application/json", "User-Agent": "FintekPro/3.0 Research-Tool" },
+			signal: AbortSignal.timeout(6000),
+		});
+		if (!res.ok) return null;
+		const json = await res.json() as any;
+		// FBIL ZCYC response: { data: [{ tenor: "10Y", rate: "7.12", ... }] }
+		const tenors: any[] = json?.data ?? json?.rates ?? [];
+		const ten = tenors.find((t: any) => String(t.tenor ?? t.maturity ?? "").includes("10"));
+		const rate = ten ? Number.parseFloat(ten.rate ?? ten.yield ?? ten.value) : NaN;
+		return rate > 4 && rate < 16 ? Math.round(rate * 100) / 100 : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Returns the current India 10Y G-Sec yield in percent.
+ * Triggers a background refresh daily. Non-fatal — defaults to 7.1% on failure.
+ */
+function getGSec10YYield(): number {
+	if (
+		_gSecYieldCache.value !== null &&
+		Date.now() - _gSecYieldCache.ts < GSEC_CACHE_TTL_MS
+	) {
+		return _gSecYieldCache.value;
+	}
+	// Background refresh — non-blocking
+	void (async () => {
+		try {
+			// Primary: FBIL benchmark API
+			let yield10Y = await fetchFBILYield();
+
+			// Secondary: Yahoo Finance (IN10Y.NS — India 10Y Government Bond)
+			if (yield10Y === null) {
+				const url = "https://query1.finance.yahoo.com/v8/finance/chart/IN10Y.NS?range=1d&interval=1d";
+				const res = await fetch(url, {
+					headers: { "User-Agent": "Mozilla/5.0" },
+					signal: AbortSignal.timeout(5000),
+				});
+				if (res.ok) {
+					const json = await res.json() as any;
+					const closes: number[] =
+						json?.chart?.result?.[0]?.indicators?.adjclose?.[0]?.adjclose ?? [];
+					const last = closes.findLast((c: number) => c != null);
+					if (last && last > 4 && last < 16) {
+						yield10Y = Math.round(last * 100) / 100;
+					}
+				}
+			}
+
+			if (yield10Y !== null) {
+				_gSecYieldCache = { value: yield10Y, ts: Date.now() };
+				logger.info(`[BondStrategy] G-Sec 10Y refreshed (FBIL/Yahoo): ${yield10Y}%`);
+			}
+		} catch {
+			// Non-fatal — cache retains previous value or defaults below
+		}
+	})();
+	return _gSecYieldCache.value ?? 7.1; // fallback: RBI repo 6.5% + ~60bps term premium
+}
+
 
 /**
  * Maps a credit rating string to a risk level.
@@ -191,7 +269,7 @@ export class BondStrategy extends BaseStrategy {
 		if (issuerType === "sovereign" || issuerType === "psu") score += 10;
 		else if (issuerType === "nbfc") score += 5;
 
-		// Phase 1 fix: duration preference (2-5 yr optimal)
+		// Duration preference (2-5 yr optimal)
 		const yrs = durationYears(bond.maturityDate);
 		if (yrs !== null) {
 			if (yrs >= 2 && yrs <= 5) score += 8;
@@ -199,7 +277,45 @@ export class BondStrategy extends BaseStrategy {
 			else if (yrs > 10) score -= 5; // long-duration interest rate risk
 		}
 
+		// ── Fix 3: G-Sec spread signal ───────────────────────────────────────────
+		// Penalise yield traps (inadequate spread for credit risk).
+		// Reward bonds with generous risk-adjusted compensation over the benchmark.
+		if (ytm > 0) {
+			score += this.gSecSpreadScore(rating, ytm);
+		}
+
 		return score;
+	}
+
+	/**
+	 * G-Sec minimum spread requirements by credit tier.
+	 * Below minimum = yield trap (too much credit risk for too little compensation).
+	 * Above double the minimum = generous spread (quality pick signal).
+	 *
+	 * @param rating  Credit rating string from bondCatalog
+	 * @param ytm     Bond YTM in percent
+	 * @returns Score delta (positive for generous spread, negative for yield trap)
+	 */
+	private gSecSpreadScore(rating: string, ytm: number): number {
+		const gsec = getGSec10YYield();
+		const spread = ytm - gsec; // in percentage points
+
+		// Minimum spread requirements by credit tier (in bps, expressed as %)
+		const ratingUpper = rating.toUpperCase();
+		let minSpread: number;
+		if (ratingUpper.includes("AAA") || ratingUpper.includes("SOV")) {
+			minSpread = 0.40; // 40 bps
+		} else if (ratingUpper.startsWith("AA")) {
+			minSpread = 1.00; // 100 bps
+		} else {
+			minSpread = 1.80; // 180 bps for A and below
+		}
+
+		if (spread < 0) return -20;               // YTM below G-Sec — never recommend
+		if (spread < minSpread) return -10;        // Yield trap: inadequate compensation
+		if (spread >= minSpread * 2) return +12;   // Generous spread: quality pick
+		if (spread >= minSpread) return +5;        // Adequate spread
+		return 0;
 	}
 
 	/** Classify issuer type from name for scoring and display. */

@@ -11408,13 +11408,21 @@ export const modelPortfolioHoldings = pgTable("model_portfolio_holdings", {
   sharpeRatio:    numeric("sharpe_ratio", { precision: 6, scale: 3 }),
   alpha:          numeric("alpha", { precision: 6, scale: 3 }),   // excess return over benchmark
 
-  // Multi-factor alpha score (computed by selectTopFundsByAlphaScore)
-  // Score = returns1y*0.30 + crisilRating*0.20 + sharpe*0.20 + alpha*0.15 + (1/er)*0.15
+  // Multi-factor alpha score (FASP-AI v3.0 weights):
+  //   returns1y=0.10, drawdownQuality=0.20, sharpe=0.20, alpha=0.15, costEff=0.15, sortino=0.10, momentum3M=0.10
   alphaScore:     numeric("alpha_score", { precision: 6, scale: 2 }),
 
   // Drift tracking
   currentWeight:  numeric("current_weight", { precision: 5, scale: 2 }), // actual current % after NAV moves
   drift:          numeric("drift", { precision: 5, scale: 2 }),           // currentWeight - targetWeight
+
+  // Fix 1 — Inception NAV: the NAV at the time this holding was added to the portfolio.
+  // Used by computePortfolioHoldingDrift() to compute accurate drift via:
+  //   currentWeight = targetWeight × (currentNAV / inceptionNAV)
+  // Without this, drift is dimensionally wrong (nav ₹/unit mixed with weight %).
+  // Populated by refreshHoldingNAV() on first NAV fetch (inceptionNav = currentNav when null).
+  inceptionNav:   numeric("inception_nav", { precision: 12, scale: 4 }),  // NAV at time of add
+  inceptionDate:  date("inception_date"),                                   // date inception_nav was set
 
   // Lifecycle
   addedAt:        date("added_at").default(sql`CURRENT_DATE`),
@@ -11423,7 +11431,7 @@ export const modelPortfolioHoldings = pgTable("model_portfolio_holdings", {
 
   // GCR compliance
   source:         varchar("source").default("system"), // api|system|cron|manual
-  engineVersion:  varchar("engine_version").default("1.0.0"),
+  engineVersion:  varchar("engine_version").default("FASP-AI-v3.0"),
   createdAt:      timestamp("created_at").defaultNow(),
   updatedAt:      timestamp("updated_at").defaultNow(),
 }, (table) => [

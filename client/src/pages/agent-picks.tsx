@@ -212,7 +212,14 @@ type DiversificationData = {
 	recommendations: string[];
 };
 
-type CategoryStats = { total: number; hits: number; hitRate: number };
+type CategoryStats = {
+	total: number;
+	hits: number;
+	hitRate: number;
+	avgReturn?: number;
+	targetHits?: number;
+	stoplossHits?: number;
+};
 
 type PickStats = {
 	totalPicks: number;
@@ -1433,13 +1440,15 @@ export default function AgentPicksPage() {
 				</div>
 			)}
 
-			{/* #1 Performance Hero Banner */}
+			{/* #1 Performance Hero Banner — aggregate + category breakdown */}
 			{loadingStats ? (
-				<Skeleton className="h-36 w-full rounded-xl" />
+				<Skeleton className="h-48 w-full rounded-xl" />
 			) : stats ? (
-				<div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6">
+				<div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-primary/10 via-primary/5 to-background">
 					<div className="absolute inset-0 bg-grid-white/5 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.6))]" />
-					<div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+
+					{/* ── Row 1: Aggregate numbers ─────────────────────────────── */}
+					<div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 pt-5 pb-4">
 						<div>
 							<p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">
 								AI Performance Track Record
@@ -1455,7 +1464,9 @@ export default function AgentPicksPage() {
 								</div>
 								<div>
 									<div
-										className={`text-4xl font-black leading-none ${Number(stats.avgReturn ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}
+										className={`text-4xl font-black leading-none ${
+											Number(stats.avgReturn ?? 0) >= 0 ? "text-green-600" : "text-red-600"
+										}`}
 									>
 										{Number(stats.avgReturn ?? 0) >= 0 ? "+" : ""}
 										{Number(stats.avgReturn ?? 0).toFixed(1)}%
@@ -1529,6 +1540,110 @@ export default function AgentPicksPage() {
 							)}
 						</div>
 					</div>
+
+					{/* ── Row 2: Category-wise breakdown strip ─────────────────── */}
+					{stats.byCategory && Object.keys(stats.byCategory).length > 0 && (
+						<>
+							<div className="relative mx-6 h-px bg-border/60" />
+							<div className="relative px-4 pb-4 pt-3">
+								<p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2.5 px-2">
+									Performance by Category
+								</p>
+								{/* Horizontal scroll on mobile, wrapping grid on desktop */}
+								<div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+									{([
+										"listed_stocks",
+										"mutual_funds",
+										"bonds",
+										"global_stocks",
+										"etfs",
+										"fixed_deposits",
+										"unlisted",
+										"reits_invits",
+										"sgb",
+										"derivatives",
+									] as const).map((catKey) => {
+										const catData = stats.byCategory?.[catKey];
+										// Skip categories with no closed picks
+										if (!catData || catData.total === 0) return null;
+
+										const hitRate = Number(catData.hitRate ?? 0);
+										const avgRet = Number(catData.avgReturn ?? 0);
+										const label = categoryLabels[catKey] ?? catKey;
+										const CatIcon = categoryIcons[catKey];
+
+										// Color tier: green ≥50%, amber 25–49%, muted <25%
+										const hitColor =
+											hitRate >= 50
+												? "text-green-600 dark:text-green-400"
+												: hitRate >= 25
+													? "text-amber-600 dark:text-amber-400"
+													: "text-muted-foreground";
+										const barColor =
+											hitRate >= 50
+												? "[&>div]:bg-green-500"
+												: hitRate >= 25
+													? "[&>div]:bg-amber-500"
+													: "[&>div]:bg-muted-foreground/40";
+										const retColor =
+											avgRet >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500";
+
+										return (
+											<div
+												key={catKey}
+												className="flex-shrink-0 w-[128px] rounded-lg border bg-background/60 backdrop-blur-sm px-3 py-2.5 space-y-1.5 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+											>
+												{/* Header: icon + label */}
+												<div className="flex items-center gap-1.5">
+													{CatIcon && (
+														<CatIcon className="h-3 w-3 text-primary shrink-0" />
+													)}
+													<span className="text-[10px] font-semibold text-foreground truncate">
+														{label}
+													</span>
+												</div>
+
+												{/* Hit rate — primary metric */}
+												<div className={`text-lg font-black leading-none ${hitColor}`}>
+													{hitRate.toFixed(0)}%
+													<span className="text-[9px] font-normal text-muted-foreground ml-1">
+														hit rate
+													</span>
+												</div>
+
+												{/* Progress bar */}
+												<Progress
+													value={hitRate}
+													className={`h-1 ${barColor}`}
+												/>
+
+												{/* Avg return */}
+												<div className={`text-[11px] font-bold ${retColor}`}>
+													{avgRet >= 0 ? "+" : ""}{avgRet.toFixed(1)}%
+													<span className="text-[9px] font-normal text-muted-foreground ml-0.5">
+														avg return
+													</span>
+												</div>
+
+												{/* Pick count footer */}
+												<div className="text-[9px] text-muted-foreground flex items-center gap-1">
+													<span className="tabular-nums font-medium text-foreground/70">
+														{catData.total}
+													</span>{" "}
+													picks
+													{catData.stoplossHits != null && catData.stoplossHits > 0 && (
+														<span className="text-red-400 ml-auto">
+															·{" "}{catData.stoplossHits} SL
+														</span>
+													)}
+												</div>
+											</div>
+										);
+									})}
+								</div>
+							</div>
+						</>
+					)}
 				</div>
 			) : null}
 

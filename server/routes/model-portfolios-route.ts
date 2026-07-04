@@ -28,7 +28,7 @@ import { db } from "../db";
 import { modelPortfolios } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { logger } from "../logger";
-import { refreshAllModelPortfolioMetrics } from "../services/model-portfolio-metrics-service";
+import { refreshAllModelPortfolioMetrics, computeAndPersistAllPortfolioCAGRs } from "../services/model-portfolio-metrics-service";
 import {
   migrateHoldingsToRelationalTable,
   getHoldingsForPortfolio,
@@ -47,7 +47,7 @@ import {
 
 export const modelPortfoliosRouter = Router();
 
-const ENGINE_VERSION = "1.1.0";
+const ENGINE_VERSION = "FASP-AI-v3.0"; // Fix 5: mandatory version per FASP-AI v3.0
 
 // ─── In-memory NAV cache: schemeCode → { return1Y, ts } ──────────────────────
 const CACHE_TTL_MS = 6 * 60 * 60 * 1_000; // 6 hours
@@ -456,10 +456,64 @@ async function enrichHolding(h: any): Promise<any> {
     }
   }
 
-  // ── Mutual fund holding: mfapi.in NAV-based 1Y return ───────────────────────
-  if (typeof h.currentReturn === "number" && h.currentReturn !== 0) return h;
+  // ── Mutual fund holding: DB-first → mfapi.in fallback ───────────────────────
+  //
+  // BUG FIX (two issues resolved):
+  //
+  // 1. EARLY-EXIT BUG: The old guard `if (currentReturn !== 0) return h` caused
+  //    ALL MF holdings to skip enrichment because DB JSONB holdings default
+  //    currentReturn to 0 (or null). Only skip if already enriched from THIS session.
+  //    We detect "already enriched" by checking returnSource, not currentReturn value.
+  //
+  // 2. DB NOT USED: financial_instruments_cache already stores return_1y, return_3y,
+  //    return_6m for all MFs synced by mutual-fund-sync-service. We now query it
+  //    first (identical pattern to how stocks use screener_derived_metrics) before
+  //    making a live mfapi.in network call.
+  //
+  if (h.returnSource && h.returnSource !== "db_stale") return h; // already enriched this session
   if (!name) return { ...h, currentReturn: undefined };
 
+  // ── Step 1: Try DB (financial_instruments_cache) ─────────────────────────────
+  try {
+    const dbRow = await db.execute(sql`
+      SELECT return_1y, return_3y, return_6m, nav, nav_date, expense_ratio
+      FROM financial_instruments_cache
+      WHERE instrument_type = 'mutual_fund'
+        AND (
+          LOWER(name) = LOWER(${name})
+          OR name ILIKE ${"%" + name.replace(/%/g, "\\%") + "%"}
+          OR (isin IS NOT NULL AND isin = ${h.isin ?? ""})
+        )
+      ORDER BY
+        CASE WHEN LOWER(name) = LOWER(${name}) THEN 0 ELSE 1 END,
+        updated_at DESC NULLS LAST
+      LIMIT 1
+    `).catch(() => ({ rows: [] }));
+
+    const r = (dbRow as any).rows?.[0];
+    const dbReturn1Y = r?.return_1y != null ? Math.round(Number(r.return_1y) * 100) / 100 : null;
+    const dbReturn3Y = r?.return_3y != null ? Math.round(Number(r.return_3y) * 100) / 100 : null;
+    const dbReturn6M = r?.return_6m != null ? Math.round(Number(r.return_6m) * 100) / 100 : null;
+    const dbNav      = r?.nav != null ? Number(r.nav) : undefined;
+    const dbExpense  = r?.expense_ratio != null ? Number(r.expense_ratio) : undefined;
+
+    if (dbReturn1Y !== null) {
+      const expenseRatio = dbExpense ?? TYPE_EXPENSE_RATIO[h.type ?? ""] ?? 0.5;
+      return {
+        ...h,
+        currentReturn: dbReturn1Y,
+        return3Y: dbReturn3Y ?? undefined,
+        return6M: dbReturn6M ?? undefined,
+        nav: dbNav,
+        expenseRatio,
+        returnSource: "db:financial_instruments_cache",
+      };
+    }
+  } catch {
+    // DB lookup failed — fall through to mfapi.in
+  }
+
+  // ── Step 2: Live mfapi.in fallback (if DB has no data for this fund) ─────────
   try {
     let schemeCode = FUND_SCHEME_MAP[name] ?? null;
 
@@ -478,7 +532,6 @@ async function enrichHolding(h: any): Promise<any> {
 
     if (!schemeCode) return { ...h, currentReturn: undefined };
     const return1Y = await get1YReturn(schemeCode);
-    // Also persist AMFI code + expense ratio onto the holding for agent use
     const expenseRatio = TYPE_EXPENSE_RATIO[h.type ?? ""] ?? 0.5;
     const amfiUrl = `https://www.amfiindia.com/product?mfID=${schemeCode}`;
     return {
@@ -525,6 +578,45 @@ modelPortfoliosRouter.post("/admin/trigger-metrics-refresh", async (_req: Reques
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return res.status(500).json({ success: false, error: msg });
+  }
+});
+
+// ── POST /api/model-portfolios/admin/recompute-cagr-from-holdings ──────────────
+// Recomputes 1Y/3Y/5Y CAGR for all portfolios from actual holding returns stored in:
+//   - financial_instruments_cache (MFs: return_1y, return_3y, return_5y)
+//   - screener_derived_metrics    (Stocks: return_1y, return_3y)
+//
+// This replaces any hardcoded calibration values with real data.
+// Runs synchronously (blocking) so the caller can see per-portfolio results.
+// Idempotent — safe to run multiple times.
+//
+// GCR: structured log per portfolio; engine_version + calculation_timestamp on every write.
+modelPortfoliosRouter.post("/admin/recompute-cagr-from-holdings", async (_req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const result = await computeAndPersistAllPortfolioCAGRs();
+    logger.info(JSON.stringify({
+      event: "ADMIN_CAGR_RECOMPUTE_COMPLETE",
+      processed: result.processed,
+      updated: result.updated,
+      skipped: result.skipped,
+      latency_ms: Date.now() - t0,
+      engine_version: ENGINE_VERSION,
+      calculation_timestamp: new Date().toISOString(),
+    }));
+    return res.json({
+      success: true,
+      data: result,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: ENGINE_VERSION,
+        latency_ms: Date.now() - t0,
+        message: `Recomputed CAGR for ${result.updated} portfolios from real holding data. ${result.skipped} skipped (insufficient DB coverage — will retain existing values).`,
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] recompute-cagr-from-holdings error:", err);
+    return res.status(500).json({ success: false, error_code: "CAGR_RECOMPUTE_ERROR", message: err.message, retryable: true });
   }
 });
 

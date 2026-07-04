@@ -117,6 +117,17 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 	bootState.serverListening = true;
 });
 
+// INFRA-M2: Request timeout guards against hanging DB/external API calls.
+// Without these, a slow Finnhub/mfapi.in/Cloud SQL call holds the socket open
+// indefinitely, leaking memory and starving the event loop under concurrent load.
+//
+// requestTimeout:   30s  — hard cap per HTTP request (Cloud Run default is 3600s)
+// keepAliveTimeout: 65s  — must be > Cloud Run's 60s idle timeout to avoid ECONNRESET
+// headersTimeout:   66s  — must be > keepAliveTimeout (Node.js requirement)
+server.requestTimeout   = 30_000;  // 30s hard cap on any single request
+server.keepAliveTimeout = 65_000;  // 65s > Cloud Run 60s idle timeout
+server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
+
 // ============================================================================
 // PHASE 3: ASYNC BOOT SEQUENCE
 // ============================================================================

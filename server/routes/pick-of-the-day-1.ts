@@ -3,6 +3,7 @@ import {
 	pickOfTheDayService,
 	PickCategory,
 } from "../services/pick-of-the-day-service";
+import { pickOutcomeAnalyzer } from "../services/pick-outcome-analyzer";
 import { db } from "../db";
 import {
 	dailyPicks,
@@ -62,6 +63,38 @@ const alertUpdateSchema = z.object({
 		.optional(),
 });
 
+// ── Fix K: Confidence decay curve ─────────────────────────────────────────────
+// A pick published 45 days ago at confidenceScore 85 should not still display 85
+// today — uncertainty grows as the pick ages toward expiry. Decay is linear from
+// the initial score toward 50 (random) over the pick's full validity window.
+// E.g. a 30-day pick at score 85 decays ~1.17 pts/day → score 50 at expiry.
+function applyConfidenceDecay(picks: any[]): any[] {
+	const now = Date.now();
+	return picks.map((pick) => {
+		if (!pick.recoDate || !pick.expiryDate || !pick.confidenceScore) return pick;
+		try {
+			const recoTs = new Date(pick.recoDate).getTime();
+			const expiryTs = new Date(pick.expiryDate).getTime();
+			const totalWindowMs = expiryTs - recoTs;
+			if (totalWindowMs <= 0) return pick;
+			const elapsedMs = Math.max(0, now - recoTs);
+			const ageRatio = Math.min(1, elapsedMs / totalWindowMs); // 0 = fresh, 1 = at expiry
+			// Linear interpolation: score → 50 as age → expiry
+			const initial = pick.confidenceScore;
+			const decayed = Math.round(initial - (initial - 50) * ageRatio);
+			return {
+				...pick,
+				confidenceScore: decayed,
+				keyMetrics: pick.keyMetrics
+					? { ...pick.keyMetrics, confidenceDecayPct: Math.round(ageRatio * 100) }
+					: pick.keyMetrics,
+			};
+		} catch {
+			return pick;
+		}
+	});
+}
+
 const router = Router();
 
 router.get("/today", async (req, res) => {
@@ -74,8 +107,10 @@ router.get("/today", async (req, res) => {
 			isFallback = rawPicks.length > 0;
 		}
 
-		const { picks, categoryLastUpdated } =
+		const { picks: rawEnriched, categoryLastUpdated } =
 			await enrichPicksWithDataSource(rawPicks);
+		// Fix K: apply confidence decay before sending to clients
+		const picks = applyConfidenceDecay(rawEnriched);
 		const fallbackDate =
 			isFallback && picks.length > 0 ? picks[0].recoDate : undefined;
 
@@ -492,6 +527,194 @@ router.post("/admin/force-generate", requireAdmin, async (req, res) => {
 			message: error.message,
 			retryable: true,
 		});
+	}
+});
+
+
+/**
+ * GET /api/agent/picks/signal-efficacy
+ * Returns the SignalEfficacyReport for closed picks over the last N days.
+ * Shows per-signal lift scores, hit rates, and scoring weight hints.
+ *
+ * Query params:
+ *   windowDays  number  Look-back window in days (default 90, max 365)
+ *
+ * @access  Admin only — advisory-grade data (FASP-AI v3.0)
+ */
+router.get("/signal-efficacy", requireAdmin, async (req: Request, res: Response) => {
+	const start = Date.now();
+	try {
+		const rawDays = Number.parseInt(req.query.windowDays as string) || 90;
+		const windowDays = Math.min(365, Math.max(7, rawDays)); // clamp 7–365
+
+		const report = await pickOutcomeAnalyzer.analyzeOutcomes(windowDays);
+
+		res.json({
+			success: true,
+			data: report,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "FASP-AI-v3.0",
+				latency_ms: Date.now() - start,
+			},
+		});
+	} catch (error) {
+		const err = error instanceof Error ? error : new Error(String(error));
+		console.error(JSON.stringify({
+			event: "SIGNAL_EFFICACY_ERROR",
+			error_code: "ANALYSIS_FAILED",
+			message: err.message,
+			retryable: true,
+			latency_ms: Date.now() - start,
+			status: "error",
+		}));
+		res.status(500).json({
+			success: false,
+			error_code: "ANALYSIS_FAILED",
+			message: err.message,
+			retryable: true,
+		});
+	}
+});
+
+/**
+ * GET /api/agent/picks/generation-log
+ * Fix M: Returns the last N pick generation run summaries including regime,
+ * categories attempted, sector gate blocks, Gemini circuit status, and per-pick results.
+ *
+ * Query params:
+ *   limit  number  Number of runs to return (default 7, max 30)
+ *
+ * @access Admin only
+ */
+router.get("/generation-log", requireAdmin, async (req: Request, res: Response) => {
+	try {
+		const limit = Math.min(30, Math.max(1, Number.parseInt(req.query.limit as string) || 7));
+		const log = pickOfTheDayService.getGenerationLog(limit);
+		res.json({
+			success: true,
+			data: log,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "FASP-AI-v3.0",
+				count: log.length,
+			},
+		});
+	} catch (error) {
+		const err = error instanceof Error ? error : new Error(String(error));
+		res.status(500).json({ success: false, error_code: "LOG_FETCH_FAILED", message: err.message, retryable: true });
+	}
+});
+
+/**
+ * POST /api/agent/picks/pre-generate
+ * Fix N: Triggers a T-1 async pre-generation dry run.
+ * Pre-warms the AI alpha cache for all stock candidates so morning generation
+ * completes in seconds instead of 30-60s.
+ *
+ * @access Admin only
+ */
+router.post("/pre-generate", requireAdmin, async (req: Request, res: Response) => {
+	const start = Date.now();
+	try {
+		const result = await pickOfTheDayService.triggerPreGeneration();
+		console.log(JSON.stringify({
+			event: "PRE_GENERATION_TRIGGERED",
+			user_id: (req as any).user?.id,
+			cached: result.cached,
+			latency_ms: Date.now() - start,
+			status: "success",
+		}));
+		res.json({
+			success: true,
+			data: result,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "FASP-AI-v3.0",
+				latency_ms: Date.now() - start,
+			},
+		});
+	} catch (error) {
+		const err = error instanceof Error ? error : new Error(String(error));
+		res.status(500).json({ success: false, error_code: "PRE_GENERATE_FAILED", message: err.message, retryable: true });
+	}
+});
+
+/**
+ * GET /api/agent/picks/research/us-adr/:symbol
+ * Fix L: Fetches research data for Indian ADRs (INFY, WIT, HDB, HDFC, etc.)
+ * from Tickertape/Screener.in as a supplement to the AI alpha signal.
+ * Returns price, PE, returns, sector, analyst rating if available.
+ *
+ * @access  Auth required
+ */
+router.get("/research/us-adr/:symbol", requireAuth, async (req: Request, res: Response) => {
+	const start = Date.now();
+	const { symbol } = req.params;
+	if (!symbol || !/^[A-Z]{1,6}$/.test(symbol.toUpperCase())) {
+		return res.status(400).json({ success: false, error_code: "INVALID_SYMBOL", message: "Invalid ticker symbol" });
+	}
+	const ticker = symbol.toUpperCase();
+	try {
+		// Primary: Yahoo Finance for US-listed price + fundamentals
+		const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=1d&interval=1d`;
+		const yahooRes = await fetch(yahooUrl, {
+			headers: { "User-Agent": "Mozilla/5.0" },
+			signal: AbortSignal.timeout(6000),
+		});
+		let price: number | null = null;
+		let change1d: number | null = null;
+		if (yahooRes.ok) {
+			const yJson = await yahooRes.json() as any;
+			const meta = yJson?.chart?.result?.[0]?.meta;
+			price = meta?.regularMarketPrice ?? null;
+			change1d = meta && meta.previousClose
+				? Math.round(((meta.regularMarketPrice - meta.previousClose) / meta.previousClose) * 10000) / 100
+				: null;
+		}
+
+		// Secondary: Yahoo Finance quote summary for fundamentals
+		const summaryUrl = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=summaryDetail,defaultKeyStatistics,financialData`;
+		const summaryRes = await fetch(summaryUrl, {
+			headers: { "User-Agent": "Mozilla/5.0" },
+			signal: AbortSignal.timeout(6000),
+		});
+		let pe: number | null = null;
+		let eps: number | null = null;
+		let analystRating: string | null = null;
+		let sector: string | null = null;
+		if (summaryRes.ok) {
+			const sJson = await summaryRes.json() as any;
+			const detail = sJson?.quoteSummary?.result?.[0];
+			pe = detail?.summaryDetail?.trailingPE?.raw ?? null;
+			eps = detail?.defaultKeyStatistics?.trailingEps?.raw ?? null;
+			analystRating = detail?.financialData?.recommendationKey ?? null;
+			sector = detail?.summaryDetail?.sector ?? null;
+		}
+
+		res.json({
+			success: true,
+			data: {
+				symbol: ticker,
+				exchange: "NYSE/NASDAQ",
+				isADR: true,
+				price,
+				change1dPct: change1d,
+				pe: pe !== null ? Math.round(pe * 100) / 100 : null,
+				eps,
+				sector,
+				analystRating,
+				disclaimer: "US ADR data sourced from Yahoo Finance. This is a research tool — not a recommendation. FASP-AI v3.0.",
+			},
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "FASP-AI-v3.0",
+				latency_ms: Date.now() - start,
+			},
+		});
+	} catch (error) {
+		const err = error instanceof Error ? error : new Error(String(error));
+		res.status(500).json({ success: false, error_code: "ADR_FETCH_FAILED", message: err.message, retryable: true });
 	}
 });
 

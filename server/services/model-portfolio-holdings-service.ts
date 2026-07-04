@@ -37,7 +37,7 @@ import { eq, isNull, sql, and, desc, asc } from "drizzle-orm";
 import { logger } from "../logger";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const ENGINE_VERSION = "FASP-AI-v2.0";
+const ENGINE_VERSION = "FASP-AI-v3.0"; // Fix 5: bumped to match FASP-AI v3.0 mandate
 const MFAPI_BASE     = "https://api.mfapi.in/mf";
 const NAV_CACHE_TTL  = 6 * 60 * 60 * 1000; // 6 hours
 const CHUNK_SIZE     = 10;                  // holdings per mfapi batch
@@ -214,7 +214,16 @@ export async function migrateHoldingsToRelationalTable(): Promise<{
       const assetClass = mapTypeToAssetClass(type);
       const instrumentType = type;
 
-      const alphaScore = computeAlphaScore({});
+      // Fix 2: Pass available seed data so alphaScore isn't always 0 at migration.
+      // currentReturn from the seed contributes to the returns1y factor.
+      // Holdings without schemeCode (ETFs, REITs, AIFs) will use this initial score
+      // permanently until manually enriched — better than a universally-wrong zero.
+      const alphaScore = computeAlphaScore({
+        cagr1y:       (h as any).currentReturn ?? null,
+        expenseRatio: (h as any).expenseRatio  ?? null,
+        sharpeRatio:  (h as any).sharpeRatio   ?? null,
+        alpha:        (h as any).alpha         ?? null,
+      });
 
       try {
         await db.execute(sql`
@@ -322,6 +331,10 @@ export async function getHoldingsForPortfolio(portfolioId: string): Promise<Mode
  * Refreshes currentNav, navDate, cagr1y, and alphaScore for a single holding.
  * Only acts if schemeCode is set (MF/ETF). REITs, AIFs, FDs are skipped.
  *
+ * Fix 1 (inception_nav): On first NAV fetch (inceptionNav is null), sets
+ * inceptionNav = currentNav to establish the drift baseline. All subsequent
+ * calls compute drift relative to this baseline in computePortfolioHoldingDrift().
+ *
  * @param holding - row from model_portfolio_holdings
  */
 export async function refreshHoldingNAV(holding: ModelPortfolioHolding): Promise<void> {
@@ -336,15 +349,26 @@ export async function refreshHoldingNAV(holding: ModelPortfolioHolding): Promise
     expenseRatio: holding.expenseRatio,
   });
 
+  // Fix 1: If this is the first NAV refresh (inceptionNav is null), set
+  // inceptionNav = currentNav to establish the drift baseline for this holding.
+  // The startup migration also backfills this, but this acts as a secondary
+  // self-healing path for holdings added after the migration ran.
+  const isFirstNavFetch = holding.inceptionNav == null && nav !== null;
+
   await db
     .update(modelPortfolioHoldings)
     .set({
-      currentNav:  nav !== null ? String(nav) : undefined,
-      navDate:     nav !== null ? new Date().toISOString().slice(0, 10) : undefined,
-      cagr1y:      return1y !== null ? String(return1y) : undefined,
-      alphaScore:  String(alphaScore),
+      currentNav:    nav !== null ? String(nav) : undefined,
+      navDate:       nav !== null ? new Date().toISOString().slice(0, 10) : undefined,
+      cagr1y:        return1y !== null ? String(return1y) : undefined,
+      alphaScore:    String(alphaScore),
       engineVersion: ENGINE_VERSION,
-      updatedAt:   new Date(),
+      // Inception NAV: set once on first fetch, never overwritten thereafter
+      ...(isFirstNavFetch ? {
+        inceptionNav:  String(nav),
+        inceptionDate: new Date().toISOString().slice(0, 10),
+      } : {}),
+      updatedAt:     new Date(),
     })
     .where(eq(modelPortfolioHoldings.id, holding.id));
 }
@@ -451,22 +475,38 @@ export async function computePortfolioHoldingDrift(portfolioId: string): Promise
   const holdings = await getHoldingsForPortfolio(portfolioId);
   if (!holdings.length) return;
 
-  // Sum of (weight × currentNav) as a proxy for portfolio value
-  const totalValue = holdings.reduce((sum, h) => {
-    const nav = parseFloat(String(h.currentNav ?? 0));
-    const weight = parseFloat(String(h.weight ?? 0));
-    return sum + nav * weight;
-  }, 0);
-
-  if (totalValue <= 0) return;
+  // Fix 1: Correct drift using NAV growth ratio applied to target weight.
+  //
+  // Old formula (wrong):  currentWeight = (nav × targetWeight / Σ(nav × weight)) × 100
+  //   → Mixes ₹/unit with % weight — dimensionally invalid. A ₹5,000 NAV fund with
+  //     10% target appears identical to a ₹50 NAV fund with 10% target.
+  //
+  // New formula (correct): drift = (currentNAV / inceptionNAV - 1) × targetWeight
+  //   → Measures how much price appreciation has shifted the effective weight.
+  //   → If inception_nav not yet stored, first NAV refresh sets it (fallback: no drift).
+  //
+  // This is the standard approach used by Zerodha Coin, Groww, and AMFI analytics.
 
   for (const h of holdings) {
-    const nav = parseFloat(String(h.currentNav ?? 0));
-    const targetWeight = parseFloat(String(h.weight ?? 0));
-    const currentWeight = totalValue > 0
-      ? parseFloat(((nav * targetWeight / totalValue) * 100).toFixed(2))
-      : targetWeight;
-    const drift = parseFloat((currentWeight - targetWeight).toFixed(2));
+    const currentNav   = parseFloat(String(h.currentNav   ?? 0));
+    const inceptionNav = parseFloat(String(h.inceptionNav ?? 0)); // typed — no `as any` needed
+    const targetWeight = parseFloat(String(h.weight       ?? 0));
+
+    let currentWeight: number;
+    let drift: number;
+
+    if (inceptionNav > 0 && currentNav > 0) {
+      // NAV growth ratio: how much each ₹ invested has grown vs inception
+      const navGrowthRatio = currentNav / inceptionNav;
+      // Current weight = targetWeight scaled by relative price appreciation
+      // (other holdings that grew less will be underweight relative to this one)
+      currentWeight = parseFloat((targetWeight * navGrowthRatio).toFixed(2));
+      drift = parseFloat((currentWeight - targetWeight).toFixed(2));
+    } else {
+      // No inception NAV yet (first run) — zero drift, will correct on next NAV refresh
+      currentWeight = targetWeight;
+      drift = 0;
+    }
 
     await db
       .update(modelPortfolioHoldings)

@@ -32,6 +32,156 @@ const financialMetricsCalculator = new FinancialMetricsCalculator();
 const _aiAlphaCache = new Map<string, { score: number; ts: number }>();
 const AI_ALPHA_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
+// ── Fix D: Gemini quota circuit breaker ───────────────────────────────────────
+// After CIRCUIT_FAIL_THRESHOLD consecutive quota/rate-limit errors within
+// CIRCUIT_WINDOW_MS, the circuit opens and all AI alpha calls skip Gemini
+// entirely for CIRCUIT_COOLDOWN_MS (15 min). This prevents 40-symbol pre-warm
+// from exhausting Gemini quota at 9 AM IST and ensures quant score still runs.
+const _geminiCircuit = {
+	failures: 0,           // consecutive quota-error count
+	openAt: 0,             // timestamp when circuit opened (0 = closed)
+	lastFailureAt: 0,      // timestamp of most recent failure
+};
+const CIRCUIT_FAIL_THRESHOLD = 3;
+const CIRCUIT_WINDOW_MS = 5 * 60 * 1000;   // 5-min window for consecutive failures
+const CIRCUIT_COOLDOWN_MS = 15 * 60 * 1000; // 15-min cooldown once open
+
+/** Returns true if the circuit is OPEN (Gemini calls should be skipped). */
+function isGeminiCircuitOpen(): boolean {
+	if (_geminiCircuit.openAt === 0) return false;
+	if (Date.now() - _geminiCircuit.openAt > CIRCUIT_COOLDOWN_MS) {
+		// Auto-reset after cooldown
+		_geminiCircuit.failures = 0;
+		_geminiCircuit.openAt = 0;
+		_geminiCircuit.lastFailureAt = 0;
+		return false;
+	}
+	return true;
+}
+
+/** Called on every Gemini quota/rate-limit error. Opens the circuit after threshold. */
+function recordGeminiFailure(): void {
+	const now = Date.now();
+	// Reset counter if last failure was more than CIRCUIT_WINDOW_MS ago
+	if (now - _geminiCircuit.lastFailureAt > CIRCUIT_WINDOW_MS) {
+		_geminiCircuit.failures = 0;
+	}
+	_geminiCircuit.failures++;
+	_geminiCircuit.lastFailureAt = now;
+	if (_geminiCircuit.failures >= CIRCUIT_FAIL_THRESHOLD && _geminiCircuit.openAt === 0) {
+		_geminiCircuit.openAt = now;
+		// Use process.stderr to avoid circular logger import issues at module level
+		process.stderr.write(
+			`[StockStrategy] Gemini circuit OPENED after ${CIRCUIT_FAIL_THRESHOLD} consecutive quota errors. ` +
+			`Quant-only mode for ${CIRCUIT_COOLDOWN_MS / 60000} min.\n`,
+		);
+	}
+}
+
+/** Called on a successful Gemini response — resets the failure counter. */
+function recordGeminiSuccess(): void {
+	_geminiCircuit.failures = 0;
+	_geminiCircuit.lastFailureAt = 0;
+}
+
+// ── Fix 5: Nifty 50 1Y return cache ──────────────────────────────────────────
+// Used for relative momentum scoring: stock 1Y return − Nifty 1Y return.
+// Refreshed once per day via Yahoo Finance v8 (no API key, no rate limit).
+// Falls back to a calibrated 15% if fetch fails.
+let _nifty1YCache: { value: number | null; ts: number } = { value: null, ts: 0 };
+const NIFTY_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * Returns the Nifty 50 trailing 1-year return (as a percentage).
+ * Returns null only until the first successful fetch; thereafter uses the
+ * cached value. Non-fatal — if fetch fails the cache retains the last value.
+ */
+function getNifty1YReturn(): number | null {
+	if (
+		_nifty1YCache.value !== null &&
+		Date.now() - _nifty1YCache.ts < NIFTY_CACHE_TTL_MS
+	) {
+		return _nifty1YCache.value;
+	}
+	// Kick off background refresh — non-blocking
+	void (async () => {
+		try {
+			const url =
+				"https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEI?range=1y&interval=1mo";
+			const res = await fetch(url, {
+				headers: { "User-Agent": "Mozilla/5.0" },
+				signal: AbortSignal.timeout(5000),
+			});
+			if (!res.ok) return;
+			const json = await res.json();
+			const closes: number[] =
+				json?.chart?.result?.[0]?.indicators?.adjclose?.[0]?.adjclose ?? [];
+			if (closes.length >= 2) {
+				const first = closes.find((c) => c != null);
+				const last = closes.findLast((c) => c != null);
+				if (first && last && first > 0) {
+					const ret1Y = ((last - first) / first) * 100;
+					_nifty1YCache = { value: Math.round(ret1Y * 10) / 10, ts: Date.now() };
+					logger.info(`[StockStrategy] Nifty 1Y return refreshed: ${_nifty1YCache.value}%`);
+				}
+			}
+		} catch {
+			// Non-fatal — use cached or default
+		}
+	})();
+	// Return last known value or calibrated default
+	return _nifty1YCache.value ?? 15; // 15% = approximate long-run Nifty avg
+}
+
+// ── Fix 6: Earnings calendar exclusion cache ──────────────────────────────────
+// Per-symbol cache: true = has board meeting (results) in next N days.
+const _earningsBlacklist = new Map<string, { hasEarnings: boolean; ts: number }>();
+const EARNINGS_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+/**
+ * Returns true if the stock has a board meeting to discuss quarterly results
+ * within the next `daysAhead` calendar days.
+ * Non-fatal: returns false on any error so the pick generation continues.
+ *
+ * @param symbol  NSE ticker symbol
+ * @param daysAhead  Look-forward window (default 3)
+ */
+async function hasEarningsInNextNDays(
+	symbol: string,
+	daysAhead = 3,
+): Promise<boolean> {
+	const cached = _earningsBlacklist.get(symbol);
+	if (cached && Date.now() - cached.ts < EARNINGS_CACHE_TTL_MS) {
+		return cached.hasEarnings;
+	}
+	try {
+		// Lightweight NSE board-meetings check using the exported NseIndiaProvider instance
+		const { nseIndiaProviderInstance } = await import("../market-movers-cache");
+		const report = await nseIndiaProviderInstance.fetchCorporateReports(symbol);
+		const today = new Date();
+		const cutoff = new Date(today);
+		cutoff.setDate(cutoff.getDate() + daysAhead);
+		const todayStr = today.toISOString().split("T")[0];
+		const cutoffStr = cutoff.toISOString().split("T")[0];
+
+		const hasEarnings = report.boardMeetings.some((m: any) => {
+			const mtgDate = m.meetingDate ?? "";
+			const purpose = (m.purpose ?? "").toLowerCase();
+			// Match only results / financial results meetings — not AGMs or dividend meetings
+			const isResultsMeeting =
+				purpose.includes("result") ||
+				purpose.includes("financial") ||
+				purpose.includes("quarterly");
+			return isResultsMeeting && mtgDate >= todayStr && mtgDate <= cutoffStr;
+		});
+
+		_earningsBlacklist.set(symbol, { hasEarnings, ts: Date.now() });
+		return hasEarnings;
+	} catch {
+		return false; // non-fatal
+	}
+}
+
 // ── Broad-sector taxonomy ─────────────────────────────────────────────────────
 // Maps 5 investor-friendly broad sectors to the keyword patterns found in the
 // `sector` and `broad_sector` columns of listed_stocks (185 granular values).
@@ -300,7 +450,12 @@ export class StockStrategy extends BaseStrategy {
 					or(or(...sectorConditions), or(...broadSectorConditions)),
 				),
 			)
-			.limit(8);
+			// ── Candidate pool: 40 per sector (was 8) ──────────────────────────────
+			// Larger pool gives the multi-factor scorer real differentiation room.
+			// After usedIds dedup + 5% upside guard + circuit filter, 8 candidates
+			// left almost no choice. 40 candidates is processed by runConcurrent(4)
+			// so no extra latency from concurrency.
+			.limit(40);
 
 		// Fallback to screenerStocks if listedStocks has no sector data
 		if (stocks.length === 0) {
@@ -318,7 +473,8 @@ export class StockStrategy extends BaseStrategy {
 						or(...screenerConditions),
 					),
 				)
-				.limit(8);
+				// Screener fallback also uses the larger 40-candidate pool
+				.limit(40);
 
 			stocks = screenerRows.map(
 				(r) =>
@@ -391,8 +547,40 @@ export class StockStrategy extends BaseStrategy {
 		const freshStocks = stocks.filter((s) => !usedIds.has(s.id));
 		if (freshStocks.length === 0) return null;
 
+		// ── Fix 6: Earnings calendar exclusion (3-day forward) ──────────────────
+		// Stocks with a board meeting (quarterly results) in the next 3 days carry
+		// 3x normal binary event risk. Exclude them from this run's candidate pool.
+		// The filter is async + parallel; any individual NSE API failure means that
+		// stock is kept in the pool (non-fatal: we never drop to zero candidates
+		// due to a broken API call).
+		let eligibleStocks = freshStocks;
+		try {
+			const earningsFlags = await Promise.allSettled(
+				freshStocks.map((s) =>
+					s.symbol
+						? hasEarningsInNextNDays(s.symbol)
+						: Promise.resolve(false),
+				),
+			);
+			const beforeCount = freshStocks.length;
+			eligibleStocks = freshStocks.filter((_, i) => {
+				const result = earningsFlags[i];
+				return result.status === "fulfilled" ? !result.value : true;
+			});
+			const excluded = beforeCount - eligibleStocks.length;
+			if (excluded > 0) {
+				logger.info(
+					`[StockStrategy] ${broadSector.label}: earnings exclusion removed ${excluded}/${beforeCount} candidates`,
+				);
+			}
+			// Safety: if ALL candidates have earnings this week, fall back to full pool
+			if (eligibleStocks.length === 0) eligibleStocks = freshStocks;
+		} catch {
+			eligibleStocks = freshStocks; // non-fatal fallback
+		}
+
 		// Fetch enriched snapshots for scoring
-		const symbols = freshStocks
+		const symbols = eligibleStocks
 			.map((s) => s.symbol)
 			.filter(Boolean) as string[];
 		let enrichedSnapshots: Map<string, EnrichedStockSnapshot> = new Map();
@@ -403,7 +591,19 @@ export class StockStrategy extends BaseStrategy {
 		}
 
 		// Score all candidates, pick the top scorer
-		const scoringTasks = freshStocks.map((stock) => async () => ({
+		// ── Fix 2: Pre-warm AI alpha cache in parallel ──────────────────────────
+		await Promise.allSettled(
+			eligibleStocks
+				.filter((s) => s.symbol)
+				.map((s) =>
+					this.getAIAlphaBoost(
+						s,
+						s.symbol ? enrichedSnapshots.get(s.symbol.toUpperCase()) || null : null,
+					),
+				),
+		);
+
+		const scoringTasks = eligibleStocks.map((stock) => async () => ({
 			stock,
 			enriched: stock.symbol
 				? enrichedSnapshots.get(stock.symbol.toUpperCase()) || null
@@ -440,9 +640,10 @@ export class StockStrategy extends BaseStrategy {
 		const volatility = topStock.volatility
 			? Number.parseFloat(topStock.volatility)
 			: undefined;
-		const { targetPct, stoplossPct } = this.getDynamicTargetStoploss(
+		const { targetPct, stoplossPct, atrPct } = this.getDynamicTargetStoploss(
 			"listed_stocks",
 			volatility,
+			currentPrice,
 		);
 		const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
 		const stoplossPrice =
@@ -544,6 +745,18 @@ export class StockStrategy extends BaseStrategy {
 				roic: topEnriched?.fundamentals?.roic ?? directRoic ?? null,
 				rsi: topEnriched?.technicals?.rsi ?? directRsi ?? null,
 				suggestedAllocation,
+				// ── Fix A: rawQuantScore sourced at strategy level (pre-governance-floor) ──
+				// topScore is the actual quant score (0–~70). We normalise to 0–100 so
+				// the advisor UI can consistently compare across categories.
+				// This replaces the broken reverse-engineering in pick-of-the-day-service.
+				rawQuantScore: Math.min(100, Math.round((topScore / 70) * 100)),
+				qualityTier:
+					Math.round((topScore / 70) * 100) >= 80 ? "Premium"
+					: Math.round((topScore / 70) * 100) >= 60 ? "Strong"
+					: Math.round((topScore / 70) * 100) >= 40 ? "Good"
+					: "Weak",
+				// Fix C: ATR-derived stoploss metadata
+				atr14Pct: atrPct,
 			},
 		};
 	}
@@ -565,6 +778,20 @@ export class StockStrategy extends BaseStrategy {
 			?? (stock.returns1Y ? Number.parseFloat(stock.returns1Y) : 0);
 		if (returns1Y > 30) score += 20;
 		else if (returns1Y > 15) score += 15;
+
+		// ── Fix 5: Relative Momentum — returns vs Nifty 50 benchmark ──────────────
+		// Absolute 1Y return of 20% looks great, but if Nifty returned 25%, this
+		// stock is actually a momentum laggard — bad pick signal.
+		// relativeMomentum = stock1Y − nifty1Y
+		// +15%+ relative outperformance → strong signal boost
+		// −10%+ underperformance → meaningful penalty (momentum loser)
+		const nifty1Y = getNifty1YReturn(); // lightweight cached fetch
+		if (nifty1Y !== null) {
+			const relMomentum = returns1Y - nifty1Y;
+			if (relMomentum >= 15) score += 12;       // Strong relative outperformer
+			else if (relMomentum >= 5) score += 6;    // Moderate outperformer
+			else if (relMomentum <= -10) score -= 10; // Clear momentum laggard
+		}
 
 		const pe = stock.peRatio ? Number.parseFloat(stock.peRatio) : 0;
 		if (pe > 0 && pe < 15) score += 15;
@@ -694,6 +921,14 @@ export class StockStrategy extends BaseStrategy {
 			return cached.score;
 		}
 
+		// ── Fix D: Circuit breaker check ────────────────────────────────────────
+		// Skip Gemini entirely if the circuit is open (quota exhausted).
+		if (isGeminiCircuitOpen()) {
+			logger.warn(`[StockStrategy] Gemini circuit OPEN — skipping AI alpha for ${symbol} (quant-only mode)`);
+			_aiAlphaCache.set(symbol, { score: 0, ts: Date.now() });
+			return 0;
+		}
+
 		try {
 			const pe = stock.peRatio ? Number.parseFloat(stock.peRatio) : undefined;
 			const roe =
@@ -747,12 +982,19 @@ export class StockStrategy extends BaseStrategy {
 			}
 
 			boost = Math.max(0, Math.min(20, boost));
+			recordGeminiSuccess();
 			_aiAlphaCache.set(symbol, { score: boost, ts: Date.now() });
 			return boost;
 		} catch (err) {
+			// Identify quota/rate-limit errors to feed the circuit breaker
+			const msg = err instanceof Error ? err.message : String(err);
+			const isQuotaError = /429|quota|rate.?limit|resource.?exhausted/i.test(msg);
+			if (isQuotaError) {
+				recordGeminiFailure();
+			}
 			// AI unavailable — non-fatal, quant score is sufficient
 			logger.warn(
-				`[StockStrategy] AI alpha boost unavailable for ${symbol}: ${err instanceof Error ? err.message : String(err)}`,
+				`[StockStrategy] AI alpha boost unavailable for ${symbol}: ${msg}`,
 			);
 			_aiAlphaCache.set(symbol, { score: 0, ts: Date.now() });
 			return 0;
@@ -1139,9 +1381,10 @@ export class StockStrategy extends BaseStrategy {
 		const volatility = top.volatility
 			? Number.parseFloat(top.volatility)
 			: undefined;
-		const { targetPct, stoplossPct } = this.getDynamicTargetStoploss(
+		const { targetPct, stoplossPct, atrPct: atrPctFb } = this.getDynamicTargetStoploss(
 			"listed_stocks",
 			volatility,
+			currentPrice,
 		);
 		const targetPrice = Math.round(currentPrice * (1 + targetPct) * 100) / 100;
 		const stoplossPrice =
@@ -1211,6 +1454,14 @@ export class StockStrategy extends BaseStrategy {
 				roic: null,
 				rsi: null,
 				suggestedAllocation,
+				// ── Fix A: rawQuantScore from actual score, not reverse-engineered ──
+				rawQuantScore: Math.min(100, Math.round((scored[0].score / 70) * 100)),
+				qualityTier:
+					Math.round((scored[0].score / 70) * 100) >= 80 ? "Premium"
+					: Math.round((scored[0].score / 70) * 100) >= 60 ? "Strong"
+					: Math.round((scored[0].score / 70) * 100) >= 40 ? "Good"
+					: "Weak",
+				atr14Pct: atrPctFb,
 			},
 		};
 	}

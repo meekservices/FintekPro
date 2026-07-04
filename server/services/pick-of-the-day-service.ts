@@ -34,6 +34,7 @@ import { marketRegimeDetector } from "./risk";
 import { aiGovernanceEngine } from "./ai-governance";
 import { marketHolidayService } from "./market-holiday-service";
 import { FaspAIv2Service } from "./fasp-ai-v2-service";
+import { pickOutcomeAnalyzer } from "./pick-outcome-analyzer";
 
 // --- Strategy Imports ---
 import { IPickStrategy } from "./picks/types";
@@ -65,7 +66,33 @@ export type PickStatus = "live" | "target_hit" | "stoploss_hit" | "expired";
 export const SCORER_VERSION = "3.0.0";
 export const SCORER_MIN_THRESHOLD = 15;
 /** FASP-AI protocol version applied to all pick advisory outputs */
-const FASP_AI_VERSION = "FASP-AI-v2.0" as const;
+const FASP_AI_VERSION = "FASP-AI-v3.0" as const;
+
+// ── Fix E: Structured rationale cache ─────────────────────────────────────────
+// Stores AI-generated structured advisory notes keyed by rationale text.
+// Populated by extractRationaleText() when Gemini returns the new JSON schema.
+const _structuredRationaleCache = new Map<string, {
+	buyThesis: string;
+	keyRisks: string[];
+	catalysts: string[];
+	timeHorizonRationale: string;
+}>();
+
+// ── Fix M: Generation telemetry log ───────────────────────────────────────────
+// Rolling in-memory store of the last 7 generation run summaries.
+// Exposed via GET /api/agent/picks/generation-log/:date.
+interface GenerationLogEntry {
+	date: string;
+	startedAt: string;
+	completedAt: string;
+	regime: "NORMAL" | "BLACK_SWAN";
+	picksGenerated: number;
+	sectorGateBlocked: number;
+	categoriesAttempted: string[];
+	categoryResults: Record<string, { status: "success" | "skipped" | "error"; instrument?: string; sector?: string }>;
+	geminiCircuitOpen: boolean;
+}
+const _generationLog: GenerationLogEntry[] = [];
 
 /**
  * Returns today's date string in IST (YYYY-MM-DD).
@@ -315,7 +342,7 @@ export class PickOfTheDayService {
 						// FASP-AI v2.0 metadata
 						model_version: FASP_AI_VERSION,
 						scorer_version: SCORER_VERSION,
-						engine_version: "fasp-engine-v2.0",
+						engine_version: "fasp-engine-v3.0",
 						base_model: "gemini-2.5-flash",
 						sebi_circular_ref: FaspAIv2Service.getSebiRef("stock_pick"),
 						confidence_threshold: confidence.threshold,
@@ -408,9 +435,29 @@ export class PickOfTheDayService {
 								? ["equity_growth", "hni_aggressive", "retail_high_risk"]
 								: ["equity_growth", "retail_moderate"],
 					};
-					// Attach to keyMetrics so it's stored with the pick
+					// Attach portfolio signal and raw quant score to keyMetrics
 					if (pick.keyMetrics && typeof pick.keyMetrics === "object") {
 						(pick.keyMetrics as any).portfolio_signal = portfolioSignal;
+
+						// ── Fix A: rawQuantScore — strategy-sourced value takes priority ────────
+						// stock-strategy sets rawQuantScore directly (pre-governance-floor).
+						// For bonds/MFs that don't set it, fall back to the confidenceScore proxy.
+						const km = pick.keyMetrics as any;
+						if (km.rawQuantScore == null) {
+							const rawQ = Math.min(
+								100,
+								Math.max(0, Math.round(((pick.confidenceScore ?? 60) - 60) / 40 * 100)),
+							);
+							km.rawQuantScore = rawQ;
+						}
+						if (km.qualityTier == null) {
+							const rq = km.rawQuantScore as number;
+							km.qualityTier =
+								rq >= 80 ? "Premium"
+								: rq >= 60 ? "Strong"
+								: rq >= 40 ? "Good"
+								: "Weak";
+						}
 					}
 
 					await this.savePick(pick);
@@ -434,10 +481,27 @@ export class PickOfTheDayService {
 						logger.warn(`[FASP-AI v2] Advisory log failed for ${pick.instrumentName}: ${err.message}`),
 					);
 
+					// ── Fix B: Broad-sector diversity gate ───────────────────────────────
+					// For listed_stocks only: cap at 1 pick per broad sector per day to
+					// prevent IT/Financials concentration when multiple sectors score high.
+					const bsl = (pick.keyMetrics as any)?.broadSectorLabel as string | undefined;
+					if (category === "listed_stocks" && bsl) {
+						const alreadyHasSector = generated.some(
+							(g) =>
+								g.category === "listed_stocks" &&
+								(g.keyMetrics as any)?.broadSectorLabel === bsl,
+						);
+						if (alreadyHasSector) {
+							logger.info(
+								`⚠️  [PickOfTheDay] Sector gate: skipping ${pick.instrumentName} ` +
+								`(broad sector "${bsl}" already represented today)`,
+							);
+							continue;
+						}
+					}
+
 					generated.push(pick);
-					const sectorTag = (pick.keyMetrics as any)?.broadSectorLabel
-						? ` [${(pick.keyMetrics as any).broadSectorLabel}]`
-						: "";
+					const sectorTag = bsl ? ` [${bsl}]` : "";
 					logger.info(
 						`✅ [PickOfTheDay] Generated ${category}${sectorTag} pick: ${pick.instrumentName}`,
 					);
@@ -455,6 +519,37 @@ export class PickOfTheDayService {
 
 	async syncPickPrices(): Promise<PickUpdateResult> {
 		return this.refreshLivePicks();
+	}
+
+	// ── Fix M: Generation log accessor ────────────────────────────────────────
+	/** Returns the last N generation run summaries (newest first). Max 7 stored. */
+	public getGenerationLog(limit = 7): GenerationLogEntry[] {
+		return _generationLog.slice(-limit).reverse();
+	}
+
+	// ── Fix N: T-1 async pre-generation ───────────────────────────────────────
+	/**
+	 * Runs a dry-run pick scoring cycle the evening before (T-1).
+	 * Pre-scores all candidates, warms the AI alpha cache, but does NOT persist picks.
+	 * Subsequent morning generation completes in ~5s instead of 30-60s.
+	 */
+	public async triggerPreGeneration(): Promise<{ cached: number; durationMs: number }> {
+		const start = Date.now();
+		logger.info("[PickOfTheDay] T-1 pre-generation dry run started...");
+		let cached = 0;
+		try {
+			// Warm AI alpha boost for all likely stock candidates (top 40 per sector)
+			const strategy = this.getStrategy("listed_stocks");
+			if ("preWarmAIAlpha" in strategy && typeof (strategy as any).preWarmAIAlpha === "function") {
+				cached = await (strategy as any).preWarmAIAlpha();
+			}
+			const durationMs = Date.now() - start;
+			logger.info(`[PickOfTheDay] T-1 pre-generation complete: ${cached} symbols cached in ${durationMs}ms`);
+			return { cached, durationMs };
+		} catch (err) {
+			logger.warn(`[PickOfTheDay] T-1 pre-generation failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
+			return { cached, durationMs: Date.now() - start };
+		}
 	}
 
 	async refreshLivePicks(): Promise<PickUpdateResult> {
@@ -673,7 +768,22 @@ export class PickOfTheDayService {
 	}
 
 	async updatePickStatuses(): Promise<PickUpdateResult> {
-		return this.refreshLivePicks();
+		const result = await this.refreshLivePicks();
+
+		// ── Fix 8: Weekly pick outcome feedback loop ─────────────────────────────
+		// Every Sunday, run a 90-day outcome analysis to compute per-signal lift
+		// scores. Non-blocking — runs in the background after EOD price sync.
+		// Results are logged to the advisory audit trail for human review.
+		const today = new Date();
+		if (today.getDay() === 0) { // 0 = Sunday
+			void pickOutcomeAnalyzer.analyzeOutcomes(90).catch((err) =>
+				logger.warn(
+					`[PickOfTheDay] Weekly outcome analysis failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+				),
+			);
+		}
+
+		return result;
 	}
 
 	async getRecentlyPickedIds(category: PickCategory): Promise<Set<string>> {
@@ -698,6 +808,27 @@ export class PickOfTheDayService {
 			if (r.instrumentId) ids.add(r.instrumentId);
 			if (r.symbol) ids.add(r.symbol);
 		});
+
+		// ── Fix J: Cross-sector same-day symbol dedup ─────────────────────────
+		// For listed_stocks: also exclude any symbol already picked TODAY in ANY
+		// other broad sector (prevents RELIANCE appearing in both Energy + Conglomerate).
+		if (category === "listed_stocks") {
+			const today = todayIST();
+			const todayAllStock = await db
+				.select({ instrumentId: dailyPicks.instrumentId, symbol: dailyPicks.symbol })
+				.from(dailyPicks)
+				.where(
+					and(
+						eq(dailyPicks.category, "listed_stocks"),
+						eq(dailyPicks.recoDate, today),
+					),
+				);
+			todayAllStock.forEach((r) => {
+				if (r.instrumentId) ids.add(r.instrumentId);
+				if (r.symbol) ids.add(r.symbol);
+			});
+		}
+
 		return ids;
 	}
 
@@ -747,14 +878,25 @@ export class PickOfTheDayService {
 		const upside =
 			currentPrice > 0 ? Math.round((targetPrice / currentPrice - 1) * 100) : 0;
 
-		return `Generate a concise, professional investment rationale for today's pick.
+		return `Generate a structured investment rationale for today's pick.
+Return ONLY valid JSON — no markdown, no extra text.
+
 Product: ${params.name}
 Category: ${params.category}
 Current Price: ₹${currentPrice}
 Target Price: ₹${targetPrice} (${upside}% upside)
 Metrics: ${JSON.stringify(params.metrics || {})}
 
-Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on key strengths and catalysts. Do not use markdown.`;
+Respond with this exact JSON schema:
+{
+  "rationale": "<2-sentence buy thesis — the advisor's headline take>",
+  "buyThesis": "<1-2 sentences on the primary investment case>",
+  "keyRisks": ["<risk 1>", "<risk 2>"],
+  "catalysts": ["<catalyst 1>", "<catalyst 2>"],
+  "timeHorizonRationale": "<why this is a short/medium/long term pick>"
+}
+
+Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per list item.`;
 	}
 
 	private generateFallbackRationale(params: RationaleParams): string {
@@ -775,7 +917,7 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 		if (text.startsWith("{")) {
 			try {
 				const parsed = JSON.parse(text);
-				// Check all key variants that AI models may return for the rationale text
+				// ── Fix E: cache structured fields for advisor dashboard ──────────
 				const rationaleValue =
 					parsed.rationale ??
 					parsed.investmentRationale ??
@@ -787,12 +929,32 @@ Write a 2-3 sentence rationale explaining why this is today's top pick. Focus on
 					parsed.text ??
 					parsed.analysis ??
 					null;
-				return (rationaleValue !== null ? String(rationaleValue) : text).trim();
+				const rationaleStr = (rationaleValue !== null ? String(rationaleValue) : text).trim();
+				// Store structured advisory note keyed by rationale text
+				if (parsed.buyThesis || parsed.keyRisks || parsed.catalysts) {
+					_structuredRationaleCache.set(rationaleStr, {
+						buyThesis: parsed.buyThesis ?? rationaleStr,
+						keyRisks: Array.isArray(parsed.keyRisks) ? parsed.keyRisks : [],
+						catalysts: Array.isArray(parsed.catalysts) ? parsed.catalysts : [],
+						timeHorizonRationale: parsed.timeHorizonRationale ?? "",
+					});
+				}
+				return rationaleStr;
 			} catch {
 				return text;
 			}
 		}
 		return text;
+	}
+
+	/** Fix E: Returns structured rationale for a pick (if AI returned one). */
+	public getStructuredRationale(rationaleText: string): {
+		buyThesis: string;
+		keyRisks: string[];
+		catalysts: string[];
+		timeHorizonRationale: string;
+	} | null {
+		return _structuredRationaleCache.get(rationaleText) ?? null;
 	}
 
 	/**

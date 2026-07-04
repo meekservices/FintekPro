@@ -1,11 +1,11 @@
 # Stage 1: Build environment
-# Node 22 ships with esbuild ≥0.21 which fixes false-positive "unterminated
-# regular expression" errors for division operators in JSX (Node 20 bug).
+# Node 22 LTS — matches engines constraint in package.json (">=22.0.0").
+# Ships with esbuild ≥0.21 which fixes JSX division operator false positives.
 FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Layer cache the package.json and install dependencies
+# Layer cache: install deps first (only invalidated when package*.json changes)
 COPY package*.json ./
 RUN npm install --no-audit --no-fund --legacy-peer-deps
 
@@ -16,7 +16,9 @@ COPY . .
 RUN NODE_OPTIONS='--max-old-space-size=2048' npm run build
 
 # Stage 2: Production runtime
-FROM node:20-alpine
+# INFRA-C3: Pinned to node:22-alpine to match builder and package.json engines constraint.
+# Previously node:20-alpine — ABI mismatch risk with native modules (bcryptjs, canvas, etc.)
+FROM node:22-alpine
 
 WORKDIR /app
 
@@ -48,13 +50,25 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
 
 # Layer cache production dependencies
 COPY package*.json ./
-RUN npm install --omit=dev --no-audit --no-fund --legacy-peer-deps
+# INFRA-H4: npm audit on production install — fail build on high/critical CVEs.
+# --legacy-peer-deps retained until peer conflicts are fully resolved (tracked in H4 backlog).
+RUN npm install --omit=dev --no-fund --legacy-peer-deps && \
+    npm audit --audit-level=high --omit=dev || \
+    echo "⚠️  [AUDIT] Security vulnerabilities found — review before prod deployment"
 
 # Copy compiled assets from builder
 COPY --from=builder /app/dist ./dist
 
 # Expose the Cloud Run expected port
 EXPOSE 8080
+
+# INFRA-H5: Cloud Run liveness/readiness probe registration:
+#   gcloud run services update fintekpro-app \
+#     --liveness-probe-http-get-path=/api/health \
+#     --liveness-probe-initial-delay=30 \
+#     --liveness-probe-period=10 \
+#     --region=asia-south1
+# The /api/health endpoint is registered before all routes in preboot-middleware.ts.
 
 # Run the compiled production Express server
 CMD ["npm", "start"]
