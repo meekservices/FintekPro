@@ -11431,6 +11431,7 @@ export const modelPortfolioHoldings = pgTable("model_portfolio_holdings", {
   index("idx_mph_isin").on(table.isin),
   index("idx_mph_active").on(table.portfolioId, table.removedAt),
   index("idx_mph_alpha_score").on(table.assetClass, table.alphaScore),
+  uniqueIndex("uq_mph_portfolio_instrument").on(table.portfolioId, table.instrumentName),
 ]);
 
 export const insertModelPortfolioHoldingSchema = createInsertSchema(modelPortfolioHoldings).omit({

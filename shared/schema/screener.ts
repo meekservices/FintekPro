@@ -23,6 +23,11 @@ export const screenerStocks = pgTable("screener_stocks", {
   fmpSymbol: varchar("fmp_symbol"),
   lastFmpSync: timestamp("last_fmp_sync"),
   dataSource: varchar("data_source").default("fmp"),
+  // ── Per-table enrichment freshness (Phase 2f) ────────────────────────────
+  lastFinancialsSync: timestamp("last_financials_sync"),
+  lastTechnicalsSync: timestamp("last_technicals_sync"),
+  lastShareholdingSync: timestamp("last_shareholding_sync"),
+  lastKeyMetricsSync: timestamp("last_key_metrics_sync"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -69,24 +74,24 @@ export const screenerFinancials = pgTable("screener_financials", {
   operatingCashFlow: decimal("operating_cash_flow", { precision: 20, scale: 2 }),
   freeCashFlow: decimal("free_cash_flow", { precision: 20, scale: 2 }),
   capitalExpenditure: decimal("capital_expenditure", { precision: 20, scale: 2 }),
-  return1y: decimal("return_1y", { precision: 10, scale: 4 }),
-  return2y: decimal("return_2y", { precision: 10, scale: 4 }),
-  return3y: decimal("return_3y", { precision: 10, scale: 4 }),
-  return5y: decimal("return_5y", { precision: 10, scale: 4 }),
+  // NOTE: return1y–5y removed (Phase 2b) — static values, never reliable.
+  // All returns live in screener_derived_metrics, computed from OHLCV nightly.
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_screener_fin_symbol").on(table.symbol),
-  index("idx_screener_fin_period").on(table.symbol, table.period),
+  uniqueIndex("uq_screener_fin_symbol_period").on(table.symbol, table.period), // Phase 1
   index("idx_screener_fin_pe").on(table.peRatio),
+  index("idx_screener_fin_pe_symbol").on(table.symbol, table.peRatio),        // Phase 3a composite
   index("idx_screener_fin_roe").on(table.roe),
+  index("idx_screener_fin_roe_symbol").on(table.symbol, table.roe),           // Phase 3a composite
   index("idx_screener_fin_de").on(table.debtToEquity),
 ]);
 
 export const screenerPriceHistory = pgTable("screener_price_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   symbol: varchar("symbol").notNull(),
-  date: varchar("date").notNull(),
+  date: date("date").notNull(),       // Migrated from varchar → date (schema-repairs Phase 5)
   open: decimal("open", { precision: 15, scale: 2 }),
   high: decimal("high", { precision: 15, scale: 2 }),
   low: decimal("low", { precision: 15, scale: 2 }),
@@ -97,7 +102,7 @@ export const screenerPriceHistory = pgTable("screener_price_history", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_screener_price_symbol").on(table.symbol),
-  index("idx_screener_price_date").on(table.symbol, table.date),
+  uniqueIndex("uq_screener_price_hist").on(table.symbol, table.date),          // Phase 1 — prevents duplicate OHLCV rows
 ]);
 
 export const screenerDerivedMetrics = pgTable("screener_derived_metrics", {
@@ -162,7 +167,10 @@ export const screenerDerivedMetrics = pgTable("screener_derived_metrics", {
   index("idx_screener_derived_symbol").on(table.symbol),
   index("idx_screener_derived_composite").on(table.compositeScore),
   index("idx_screener_derived_rating").on(table.fintekRating),
+  index("idx_screener_derived_score_rating").on(table.compositeScore, table.fintekRating), // Phase 3a
   index("idx_screener_derived_return1y").on(table.return1Y),
+  index("idx_screener_derived_return1y_score").on(table.return1Y, table.compositeScore),   // Phase 3a
+  index("idx_screener_derived_return_beta").on(table.return1Y, table.beta),                // Phase 3a — risk-adjusted: high return + low beta
   index("idx_screener_derived_piotroski").on(table.piotroskiScore),
   index("idx_screener_derived_beta").on(table.beta),
   index("idx_screener_derived_tech_rating").on(table.technicalRating),
@@ -218,7 +226,7 @@ export const screenerGrowthMetrics = pgTable("screener_growth_metrics", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_screener_growth_symbol").on(table.symbol),
-  index("idx_screener_growth_date").on(table.symbol, table.date),
+  uniqueIndex("uq_screener_growth").on(table.symbol, table.date, table.period), // Phase 1
 ]);
 
 // Tier 1: Key Metrics (from /key-metrics endpoint)
@@ -285,7 +293,7 @@ export const screenerKeyMetrics = pgTable("screener_key_metrics", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_screener_km_symbol").on(table.symbol),
-  index("idx_screener_km_date").on(table.symbol, table.date),
+  uniqueIndex("uq_screener_km").on(table.symbol, table.date, table.period),    // Phase 1
   index("idx_screener_km_roic").on(table.roic),
 ]);
 
@@ -296,10 +304,13 @@ export const screenerDcfValuations = pgTable("screener_dcf_valuations", {
   date: varchar("date"),
   dcf: decimal("dcf", { precision: 15, scale: 4 }),
   stockPrice: decimal("stock_price", { precision: 15, scale: 4 }),
+  upsidePercent: decimal("upside_percent", { precision: 8, scale: 2 }),  // Phase 2c: (dcf-price)/price*100
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_screener_dcf_symbol").on(table.symbol),
+  uniqueIndex("uq_screener_dcf").on(table.symbol, table.date),                // Phase 1
+  index("idx_screener_dcf_upside").on(table.upsidePercent),                  // Phase 3a
 ]);
 
 // Tier 1: Company Ratings (from /rating endpoint)
@@ -517,7 +528,7 @@ export const screenerSectorPerformance = pgTable("screener_sector_performance", 
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_screener_sp_sector").on(table.sector),
-  index("idx_screener_sp_date").on(table.date),
+  uniqueIndex("uq_sector_perf").on(table.sector, table.date),                 // Phase 1
 ]);
 
 // Tier 3: Technical Indicators — extended with full MoneyControl Technical tab coverage
@@ -623,6 +634,75 @@ export const screenerTechnicalIndicators = pgTable("screener_technical_indicator
   index("idx_screener_ti_rsi").on(table.rsi14),
   index("idx_screener_ti_rating").on(table.technicalRating),
 ]);
+
+
+// ── Technical Indicators LATEST (hot table) ─────────────────────────────────
+// One row per symbol — always the most recent technical snapshot.
+// Query engine JOINs this instead of the full historical archive to avoid
+// per-query date-sort + dedup on a potentially millions-row table.
+// Written by an UPSERT (ON CONFLICT symbol DO UPDATE) after each Tier 3 batch.
+export const screenerTechnicalIndicatorsLatest = pgTable("screener_technical_indicators_latest", {
+  symbol: varchar("symbol").primaryKey(),   // unique — symbol IS the PK; no UUID needed
+  date: varchar("date"),
+  timeframe: varchar("timeframe").default("daily"),
+  // OHLCV (for pivot/ATR computation and stock detail view)
+  open: decimal("open", { precision: 15, scale: 4 }),
+  high: decimal("high", { precision: 15, scale: 4 }),
+  low: decimal("low", { precision: 15, scale: 4 }),
+  close: decimal("close", { precision: 15, scale: 4 }),
+  volume: decimal("volume", { precision: 20, scale: 0 }),
+  // Momentum — query-engine filter + screener display columns
+  rsi14: decimal("rsi_14", { precision: 10, scale: 4 }),
+  macd: decimal("macd", { precision: 15, scale: 4 }),
+  macdSignal: decimal("macd_signal", { precision: 15, scale: 4 }),
+  macdHist: decimal("macd_hist", { precision: 15, scale: 4 }),
+  // Trend
+  sma50: decimal("sma_50", { precision: 15, scale: 4 }),
+  sma200: decimal("sma_200", { precision: 15, scale: 4 }),
+  adx: decimal("adx", { precision: 10, scale: 4 }),
+  atr14: decimal("atr_14", { precision: 15, scale: 4 }),
+  bollingerUpper: decimal("bollinger_upper", { precision: 15, scale: 4 }),
+  bollingerLower: decimal("bollinger_lower", { precision: 15, scale: 4 }),
+  bollingerPercentB: decimal("bollinger_pct_b", { precision: 10, scale: 4 }),
+  // 52-Week Range
+  weekHigh52: decimal("week_high_52", { precision: 15, scale: 4 }),
+  weekLow52: decimal("week_low_52", { precision: 15, scale: 4 }),
+  pctFrom52WHigh: decimal("pct_from_52w_high", { precision: 8, scale: 4 }),
+  // Aggregated signal
+  technicalRating: varchar("technical_rating"),
+  bullishSignals: integer("bullish_signals"),
+  bearishSignals: integer("bearish_signals"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+}, (table) => [
+  index("idx_ti_latest_rsi").on(table.rsi14),
+  index("idx_ti_latest_rating").on(table.technicalRating),
+  index("idx_ti_latest_adx").on(table.adx),
+]);
+export type ScreenerTechnicalIndicatorsLatest = typeof screenerTechnicalIndicatorsLatest.$inferSelect;
+
+// ── Analyst Consensus (Phase 2d) — Materialized summary from analyst_targets ──
+// Rebuilt after each analyst_targets enrichment batch to eliminate live GROUP BY
+export const screenerAnalystConsensus = pgTable("screener_analyst_consensus", {
+  symbol: varchar("symbol").primaryKey(),
+  avgTarget: decimal("avg_target", { precision: 15, scale: 2 }),
+  highTarget: decimal("high_target", { precision: 15, scale: 2 }),
+  lowTarget: decimal("low_target", { precision: 15, scale: 2 }),
+  analystCount: integer("analyst_count").default(0),
+  buyCount: integer("buy_count").default(0),
+  holdCount: integer("hold_count").default(0),
+  sellCount: integer("sell_count").default(0),
+  /** Strong Buy | Buy | Hold | Sell | Strong Sell */
+  consensusRating: varchar("consensus_rating"),
+  /** Upside % = (avgTarget - currentPrice) / currentPrice * 100 */
+  upsidePct: decimal("upside_pct", { precision: 8, scale: 2 }),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+}, (table) => [
+  index("idx_analyst_consensus_upside").on(table.upsidePct),
+  index("idx_analyst_consensus_rating").on(table.consensusRating),
+]);
+
+export const insertScreenerAnalystConsensusSchema = createInsertSchema(screenerAnalystConsensus);
+export type ScreenerAnalystConsensus = typeof screenerAnalystConsensus.$inferSelect;
 
 // ── Shareholding Pattern (quarterly, from BSE/NSE filings) ──────────────────
 // Source: BSE shareholding pattern CSV / NSE shareholding API (free, quarterly)

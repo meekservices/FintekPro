@@ -1961,7 +1961,7 @@ crypto_status VARCHAR,
 		console.log("✅ screener_stocks.is_active ensured");
 
 		console.log("✅ [Screener MoneyControl-parity] All migrations complete");
-	    // ── model_portfolios — Quant Alpha Engine columns (FASP-AI-v2.0) ──────────
+    // ── model_portfolios — Quant Alpha Engine columns (FASP-AI-v2.0) ──────────
     try {
       await migDb.execute(migSql`
         ALTER TABLE model_portfolios
@@ -1981,7 +1981,219 @@ crypto_status VARCHAR,
     } catch (screenerMigErr: any) {
 		console.warn("[Migration] Screener parity migration skipped (non-fatal):", screenerMigErr?.message);
 	}
+
+	// ── Phase 1: Screener unique constraints (data integrity) ─────────────────
+	// Safe on existing data: CREATE UNIQUE INDEX CONCURRENTLY does not lock.
+	// If duplicates exist the constraint creation will fail gracefully (non-fatal).
+	// Phase 1-3 use db + sql re-imported at function scope (inner catch closed prev scope).
+	const { db: p1Db } = await import("../db");
+	const { sql: p1Sql } = await import("drizzle-orm");
+	try {
+		await p1Db.execute(p1Sql`ALTER TABLE screener_financials DROP CONSTRAINT IF EXISTS uq_screener_fin_symbol_period`);
+		await p1Db.execute(p1Sql`
+			CREATE UNIQUE INDEX IF NOT EXISTS uq_screener_fin_symbol_period
+			ON screener_financials (symbol, period)
+		`);
+		console.log("  ✅ screener_financials: unique(symbol, period)");
+	} catch (e: any) {
+		console.warn("  ⚠️  screener_financials unique constraint (non-fatal):", e.message?.slice(0, 120));
+	}
+	try {
+		await p1Db.execute(p1Sql`
+			CREATE UNIQUE INDEX IF NOT EXISTS uq_screener_price_hist
+			ON screener_price_history (symbol, date)
+		`);
+		console.log("  ✅ screener_price_history: unique(symbol, date)");
+	} catch (e: any) {
+		console.warn("  ⚠️  screener_price_history unique constraint (non-fatal):", e.message?.slice(0, 120));
+	}
+	try {
+		await p1Db.execute(p1Sql`
+			CREATE UNIQUE INDEX IF NOT EXISTS uq_screener_growth
+			ON screener_growth_metrics (symbol, date, period)
+		`);
+		console.log("  ✅ screener_growth_metrics: unique(symbol, date, period)");
+	} catch (e: any) {
+		console.warn("  ⚠️  screener_growth_metrics unique constraint (non-fatal):", e.message?.slice(0, 120));
+	}
+	try {
+		await p1Db.execute(p1Sql`
+			CREATE UNIQUE INDEX IF NOT EXISTS uq_screener_km
+			ON screener_key_metrics (symbol, date, period)
+		`);
+		console.log("  ✅ screener_key_metrics: unique(symbol, date, period)");
+	} catch (e: any) {
+		console.warn("  ⚠️  screener_key_metrics unique constraint (non-fatal):", e.message?.slice(0, 120));
+	}
+	try {
+		await p1Db.execute(p1Sql`
+			CREATE UNIQUE INDEX IF NOT EXISTS uq_screener_dcf
+			ON screener_dcf_valuations (symbol, date)
+		`);
+		console.log("  ✅ screener_dcf_valuations: unique(symbol, date)");
+	} catch (e: any) {
+		console.warn("  ⚠️  screener_dcf_valuations unique constraint (non-fatal):", e.message?.slice(0, 120));
+	}
+	try {
+		await p1Db.execute(p1Sql`
+			CREATE UNIQUE INDEX IF NOT EXISTS uq_sector_perf
+			ON screener_sector_performance (sector, date)
+		`);
+		console.log("  ✅ screener_sector_performance: unique(sector, date)");
+	} catch (e: any) {
+		console.warn("  ⚠️  screener_sector_performance unique constraint (non-fatal):", e.message?.slice(0, 120));
+	}
+
+	// ── Phase 1: Per-table freshness columns in screener_stocks ───────────────
+	try {
+		await p1Db.execute(p1Sql`
+			ALTER TABLE screener_stocks
+			  ADD COLUMN IF NOT EXISTS last_financials_sync  TIMESTAMP,
+			  ADD COLUMN IF NOT EXISTS last_technicals_sync  TIMESTAMP,
+			  ADD COLUMN IF NOT EXISTS last_shareholding_sync TIMESTAMP,
+			  ADD COLUMN IF NOT EXISTS last_key_metrics_sync  TIMESTAMP
+		`);
+		console.log("  ✅ screener_stocks: per-table freshness columns added");
+	} catch (e: any) {
+		console.warn("  ⚠️  screener_stocks freshness columns (non-fatal):", e.message?.slice(0, 120));
+	}
+
+	// ── Phase 2c: DCF upside_percent column ───────────────────────────────────
+	try {
+		await p1Db.execute(p1Sql`
+			ALTER TABLE screener_dcf_valuations
+			  ADD COLUMN IF NOT EXISTS upside_percent DECIMAL(8,2)
+		`);
+		console.log("  ✅ screener_dcf_valuations: upside_percent column added");
+	} catch (e: any) {
+		console.warn("  ⚠️  screener_dcf_valuations upside_percent (non-fatal):", e.message?.slice(0, 120));
+	}
+
+	// ── Phase 2d: screener_analyst_consensus materialized table ───────────────
+	try {
+		await p1Db.execute(p1Sql`
+			CREATE TABLE IF NOT EXISTS screener_analyst_consensus (
+				symbol            VARCHAR   PRIMARY KEY,
+				avg_target        DECIMAL(15,2),
+				high_target       DECIMAL(15,2),
+				low_target        DECIMAL(15,2),
+				analyst_count     INTEGER DEFAULT 0,
+				buy_count         INTEGER DEFAULT 0,
+				hold_count        INTEGER DEFAULT 0,
+				sell_count        INTEGER DEFAULT 0,
+				consensus_rating  VARCHAR,
+				upside_pct        DECIMAL(8,2),
+				last_updated      TIMESTAMP DEFAULT NOW()
+			)
+		`);
+		await p1Db.execute(p1Sql`CREATE INDEX IF NOT EXISTS idx_analyst_consensus_upside ON screener_analyst_consensus (upside_pct)`);
+		await p1Db.execute(p1Sql`CREATE INDEX IF NOT EXISTS idx_analyst_consensus_rating ON screener_analyst_consensus (consensus_rating)`);
+		console.log("  ✅ screener_analyst_consensus: created");
+	} catch (e: any) {
+		console.warn("  ⚠️  screener_analyst_consensus (non-fatal):", e.message?.slice(0, 120));
+	}
+
+	// ── Phase 3a: Composite performance indexes ────────────────────────────────
+	try {
+		await p1Db.execute(p1Sql`CREATE INDEX IF NOT EXISTS idx_fin_pe_symbol ON screener_financials (symbol, pe_ratio)`);
+		await p1Db.execute(p1Sql`CREATE INDEX IF NOT EXISTS idx_fin_roe_symbol ON screener_financials (symbol, roe)`);
+		await p1Db.execute(p1Sql`CREATE INDEX IF NOT EXISTS idx_derived_score_rating ON screener_derived_metrics (composite_score, fintek_rating)`);
+		await p1Db.execute(p1Sql`CREATE INDEX IF NOT EXISTS idx_derived_return1y_score ON screener_derived_metrics (return_1y, composite_score)`);
+		await p1Db.execute(p1Sql`CREATE INDEX IF NOT EXISTS idx_derived_return_beta ON screener_derived_metrics (return_1y, beta)`);        // Phase 3a remaining
+		await p1Db.execute(p1Sql`CREATE INDEX IF NOT EXISTS idx_derived_alpha_nifty ON screener_derived_metrics (return_vs_nifty_1y)`);     // Phase 3a remaining
+		await p1Db.execute(p1Sql`CREATE INDEX IF NOT EXISTS idx_screener_dcf_upside ON screener_dcf_valuations (upside_percent)`);
+		console.log("  ✅ screener: composite performance indexes added");
+	} catch (e: any) {
+		console.warn("  ⚠️  screener composite indexes (non-fatal):", e.message?.slice(0, 120));
+	}
+
+	console.log("✅ [Phase 1-3] Screener DB integrity + performance upgrades complete");
+
+	// ── Phase 5: Date type migration + hot-cold split ────────────────────────
+	// 5a: screener_price_history.date varchar → date (safe: all rows are YYYY-MM-DD)
+	try {
+		await p1Db.execute(p1Sql`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'screener_price_history'
+            AND column_name = 'date'
+            AND data_type = 'character varying'
+        ) THEN
+          -- Drop the unique index first (can't change column type with index on it)
+          DROP INDEX IF EXISTS uq_screener_price_hist;
+          -- Recast in-place — all values are YYYY-MM-DD strings so cast is lossless
+          ALTER TABLE screener_price_history
+            ALTER COLUMN date TYPE date USING date::date;
+          -- Recreate the unique index on the new date type
+          CREATE UNIQUE INDEX IF NOT EXISTS uq_screener_price_hist
+            ON screener_price_history (symbol, date);
+          RAISE NOTICE 'screener_price_history.date migrated varchar → date';
+        END IF;
+      END $$
+    `);
+		console.log("  ✅ Phase 5a: screener_price_history.date → date type");
+	} catch (e: any) {
+		console.warn("  ⚠️  Phase 5a date migration (non-fatal):", e.message?.slice(0, 120));
+	}
+
+	// 5b: screener_technical_indicators_latest (hot table for query engine)
+	try {
+		await p1Db.execute(p1Sql`
+      CREATE TABLE IF NOT EXISTS screener_technical_indicators_latest (
+        symbol              VARCHAR PRIMARY KEY,
+        date                VARCHAR,
+        timeframe           VARCHAR DEFAULT 'daily',
+        open                DECIMAL(15,4), high DECIMAL(15,4), low DECIMAL(15,4),
+        close               DECIMAL(15,4), volume DECIMAL(20,0),
+        rsi_14              DECIMAL(10,4),
+        macd                DECIMAL(15,4), macd_signal DECIMAL(15,4), macd_hist DECIMAL(15,4),
+        sma_50              DECIMAL(15,4), sma_200 DECIMAL(15,4),
+        adx                 DECIMAL(10,4), atr_14 DECIMAL(15,4),
+        bollinger_upper     DECIMAL(15,4), bollinger_lower DECIMAL(15,4), bollinger_pct_b DECIMAL(10,4),
+        week_high_52        DECIMAL(15,4), week_low_52 DECIMAL(15,4), pct_from_52w_high DECIMAL(8,4),
+        technical_rating    VARCHAR,
+        bullish_signals     INTEGER, bearish_signals INTEGER,
+        last_updated        TIMESTAMP DEFAULT NOW()
+      )
+    `);
+		await p1Db.execute(p1Sql`CREATE INDEX IF NOT EXISTS idx_ti_latest_rsi     ON screener_technical_indicators_latest (rsi_14)`);
+		await p1Db.execute(p1Sql`CREATE INDEX IF NOT EXISTS idx_ti_latest_rating  ON screener_technical_indicators_latest (technical_rating)`);
+		await p1Db.execute(p1Sql`CREATE INDEX IF NOT EXISTS idx_ti_latest_adx     ON screener_technical_indicators_latest (adx)`);
+		console.log("  ✅ Phase 5b: screener_technical_indicators_latest hot table ready");
+	} catch (e: any) {
+		console.warn("  ⚠️  Phase 5b ti_latest create (non-fatal):", e.message?.slice(0, 120));
+	}
+
+	// 5c: Back-fill hot table from existing archive (first-time only)
+	try {
+		await p1Db.execute(p1Sql`
+      INSERT INTO screener_technical_indicators_latest (
+        symbol, date, timeframe, open, high, low, close, volume,
+        rsi_14, macd, macd_signal, macd_hist, sma_50, sma_200,
+        adx, atr_14, bollinger_upper, bollinger_lower, bollinger_pct_b,
+        week_high_52, week_low_52, pct_from_52w_high,
+        technical_rating, bullish_signals, bearish_signals, last_updated
+      )
+      SELECT DISTINCT ON (symbol)
+        symbol, date, timeframe, open, high, low, close, volume,
+        rsi_14, macd, macd_signal, macd_hist, sma_50, sma_200,
+        adx, atr_14, bollinger_upper, bollinger_lower, bollinger_pct_b,
+        week_high_52, week_low_52, pct_from_52w_high,
+        technical_rating, bullish_signals, bearish_signals, last_updated
+      FROM screener_technical_indicators
+      ORDER BY symbol, date DESC NULLS LAST
+      ON CONFLICT (symbol) DO NOTHING
+    `);
+		console.log("  ✅ Phase 5c: hot table back-filled from archive");
+	} catch (e: any) {
+		console.warn("  ⚠️  Phase 5c ti_latest back-fill (non-fatal):", e.message?.slice(0, 120));
+	}
+
+	console.log("✅ [Phase 5] Date type + hot-cold split migrations complete");
 }
+
 
 // ── FASP-AI v3.0 Dynamic Portfolio Management Tables ──────────────────────────
 export async function runFASPAIv3Migrations(): Promise<void> {
@@ -2096,4 +2308,101 @@ export async function runFASPAIv3Migrations(): Promise<void> {
   }
 
   console.log("  ✅ [FASP-AI v3.0] All dynamic portfolio management tables created");
+}
+
+// ── Phase B — model_portfolio_holdings unique index ───────────────────────────
+// Required for ON CONFLICT (portfolio_id, instrument_name) upserts in the
+// Phase B migration service. Non-fatal — no-op if already present.
+export async function applyPhaseB_HoldingsUniqueIndex(): Promise<void> {
+  const { neon } = await import("@neondatabase/serverless");
+  const { drizzle } = await import("drizzle-orm/neon-http");
+  const { sql: migSql } = await import("drizzle-orm");
+  const migDb = drizzle(neon(process.env.DATABASE_URL!));
+  try {
+    await migDb.execute(migSql`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_mph_portfolio_instrument
+      ON model_portfolio_holdings (portfolio_id, instrument_name)
+    `);
+    console.log("  ✅ [Phase B] model_portfolio_holdings unique index: uq_mph_portfolio_instrument");
+  } catch (e: any) {
+    console.warn("  ⚠️  [Phase B] uq_mph_portfolio_instrument (non-fatal):", e.message?.slice(0, 80));
+  }
+}
+
+// ── De-duplication: Consolidated table DDL ────────────────────────────────────
+// agent_notifications was previously created in 11 separate admin route files.
+// partner_team_members + partner_agent_invitations in 2 partner route files.
+// All route-level `ensure*` functions now guard with a hasRun flag and are
+// instant no-ops after this canonical startup migration runs first.
+export async function ensureSharedRouteTables(): Promise<void> {
+  const { neon } = await import("@neondatabase/serverless");
+  const { drizzle } = await import("drizzle-orm/neon-http");
+  const { sql: migSql } = await import("drizzle-orm");
+  const migDb = drizzle(neon(process.env.DATABASE_URL!));
+
+  // ── agent_notifications ─────────────────────────────────────────────────────
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS agent_notifications (
+        id          SERIAL PRIMARY KEY,
+        agent_id    VARCHAR(255) NOT NULL,
+        title       TEXT NOT NULL,
+        body        TEXT NOT NULL,
+        type        TEXT NOT NULL DEFAULT 'info',
+        link        TEXT,
+        read_at     TIMESTAMPTZ,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await migDb.execute(migSql`
+      CREATE INDEX IF NOT EXISTS idx_agent_notifications_agent_id
+      ON agent_notifications (agent_id)
+    `);
+    console.log("  ✅ agent_notifications: ready");
+  } catch (e: any) {
+    console.warn("  ⚠️  agent_notifications (non-fatal):", e.message?.slice(0, 80));
+  }
+
+  // ── partner_team_members ────────────────────────────────────────────────────
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS partner_team_members (
+        id                   SERIAL PRIMARY KEY,
+        partner_user_id      VARCHAR(255) NOT NULL,
+        agent_user_id        VARCHAR(255) NOT NULL,
+        role                 TEXT NOT NULL DEFAULT 'agent',
+        commission_split_pct NUMERIC(5,2) DEFAULT 0,
+        status               TEXT NOT NULL DEFAULT 'active',
+        joined_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (partner_user_id, agent_user_id)
+      )
+    `);
+    console.log("  ✅ partner_team_members: ready");
+  } catch (e: any) {
+    console.warn("  ⚠️  partner_team_members (non-fatal):", e.message?.slice(0, 80));
+  }
+
+  // ── partner_agent_invitations ───────────────────────────────────────────────
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS partner_agent_invitations (
+        id                   SERIAL PRIMARY KEY,
+        partner_user_id      VARCHAR(255) NOT NULL,
+        invite_code          VARCHAR(50) NOT NULL UNIQUE,
+        invitee_name         TEXT,
+        invitee_email        TEXT,
+        invitee_mobile       TEXT,
+        status               TEXT NOT NULL DEFAULT 'pending',
+        accepted_by_user_id  VARCHAR(255),
+        accepted_at          TIMESTAMPTZ,
+        expires_at           TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days'),
+        created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    console.log("  ✅ partner_agent_invitations: ready");
+  } catch (e: any) {
+    console.warn("  ⚠️  partner_agent_invitations (non-fatal):", e.message?.slice(0, 80));
+  }
 }
