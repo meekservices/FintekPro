@@ -68,9 +68,10 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
 		safeNum(financials.earningsGrowth);
 	const fcfGrowth = safeNum(growthData?.free_cash_flow_growth);
 	const epsGrowth = safeNum(growthData?.eps_growth);
-	const ret1y = safeNum(financials.return1y);
-	const ret3y = safeNum(financials.return3y);
-	const ret5y = safeNum(financials.return5y);
+	// Phase 2b: ret1y/3y/5y removed from screener_financials — always null, real values from OHLCV nightly
+	const ret1y = null;
+	const ret3y = null;
+	const ret5y = null;
 	const roe = safeNum(keyMetricData?.roe) ?? safeNum(financials.roe);
 	const roa = safeNum(financials.roa);
 	const roic = safeNum(keyMetricData?.roic);
@@ -86,7 +87,8 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
 		safeNum(keyMetricData?.dividend_yield) ?? safeNum(financials.dividendYield);
 	const grahamNumber = safeNum(keyMetricData?.graham_number);
 
-	const hasReturns = ret1y != null || ret3y != null || ret5y != null;
+	// Phase 2b: hasReturns now false at this stage; OHLCV pass will overwrite returns nightly
+	const hasReturns = false;
 	const hasEnrichedGrowth = fcfGrowth != null || epsGrowth != null;
 	const hasFundamentals = revGrowth != null || earnGrowth != null;
 
@@ -486,22 +488,24 @@ export async function runOHLCVReturnPass(): Promise<{ processed: number; errors:
 					// Upsert into derived metrics
 					await db.execute(sql`
             UPDATE screener_derived_metrics SET
-              return_1w    = ${returns.return1W},
-              return_1m    = ${returns.return1M},
-              return_3m    = ${returns.return3M},
-              return_6m    = ${returns.return6M},
-              return_1y    = ${returns.return1Y},
-              return_2y    = ${returns.return2Y},
-              return_3y    = ${returns.return3Y},
-              return_5y    = ${returns.return5Y},
-              return_ytd   = ${returns.returnYTD},
-              beta              = ${risk.beta},
-              sharpe_ratio_1y   = ${risk.sharpeRatio1Y},
-              sortino_ratio_1y  = ${risk.sortinoRatio1Y},
-              max_drawdown_1y   = ${risk.maxDrawdown1Y},
-              volatility_30d    = ${risk.volatility30D},
-              piotroski_score   = ${piotroski?.score ?? null},
-              last_calculated   = NOW()
+              return_1w           = ${returns.return1W},
+              return_1m           = ${returns.return1M},
+              return_3m           = ${returns.return3M},
+              return_6m           = ${returns.return6M},
+              return_1y           = ${returns.return1Y},
+              return_2y           = ${returns.return2Y},
+              return_3y           = ${returns.return3Y},
+              return_5y           = ${returns.return5Y},
+              return_ytd          = ${returns.returnYTD},
+              beta                = ${risk.beta},
+              sharpe_ratio_1y     = ${risk.sharpeRatio1Y},
+              sortino_ratio_1y    = ${risk.sortinoRatio1Y},
+              max_drawdown_1y     = ${risk.maxDrawdown1Y},
+              volatility_30d      = ${risk.volatility30D},
+              return_vs_nifty_1y  = ${risk.returnVsNifty1Y},
+              return_vs_sector_1y = ${risk.returnVsSector1Y},
+              piotroski_score     = ${piotroski?.score ?? null},
+              last_calculated     = NOW()
             WHERE symbol = ${symbol}
           `);
 					returnPassProcessed++;

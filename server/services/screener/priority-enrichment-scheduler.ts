@@ -166,6 +166,12 @@ export async function enrichTier1(budget: number): Promise<TierResult> {
               ${k.roe}, ${k.capexPerShare})
             ON CONFLICT DO NOTHING
           `);
+					// Phase 2f: write per-table freshness timestamp
+					await db.execute(sql`
+              UPDATE screener_stocks
+              SET last_key_metrics_sync = NOW(), updated_at = NOW()
+              WHERE symbol = ${stock.symbol}
+            `);
 					processed++;
 				} else {
 					skipped++;
@@ -205,10 +211,16 @@ export async function enrichTier1(budget: number): Promise<TierResult> {
 				const data = await provider.getDCF(fmpSymbol);
 				apiCalls++;
 				if (data) {
+					// Phase 2c: Compute and store upside_percent = (dcf - price) / price * 100
+					const upsidePct = data.dcf != null && data.stockPrice != null && Number(data.stockPrice) > 0
+						? +((Number(data.dcf) - Number(data.stockPrice)) / Number(data.stockPrice) * 100).toFixed(2)
+						: null;
 					await db.execute(sql`
-            INSERT INTO screener_dcf_valuations (symbol, date, dcf, stock_price)
-            VALUES (${stock.symbol}, ${data.date}, ${data.dcf}, ${data.stockPrice})
-            ON CONFLICT DO NOTHING
+            INSERT INTO screener_dcf_valuations (symbol, date, dcf, stock_price, upside_percent)
+            VALUES (${stock.symbol}, ${data.date}, ${data.dcf}, ${data.stockPrice}, ${upsidePct})
+            ON CONFLICT (symbol, date) DO UPDATE SET
+              dcf = EXCLUDED.dcf, stock_price = EXCLUDED.stock_price,
+              upside_percent = EXCLUDED.upside_percent, last_updated = NOW()
           `);
 					processed++;
 				} else {
@@ -355,6 +367,54 @@ export async function enrichTier2(budget: number): Promise<TierResult> {
 		apiCalls,
 	);
 	totalApiCalls += apiCalls;
+
+	// Phase 2d: Rebuild analyst_consensus materialized table for all processed symbols
+	try {
+		await db.execute(sql`
+      INSERT INTO screener_analyst_consensus
+        (symbol, avg_target, high_target, low_target, analyst_count,
+         buy_count, hold_count, sell_count, consensus_rating, upside_pct, last_updated)
+      SELECT
+        sat.symbol,
+        ROUND(AVG(sat.price_target::numeric), 2)   AS avg_target,
+        ROUND(MAX(sat.price_target::numeric), 2)   AS high_target,
+        ROUND(MIN(sat.price_target::numeric), 2)   AS low_target,
+        COUNT(*)                                   AS analyst_count,
+        COUNT(*) FILTER (WHERE LOWER(sat.analyst_company) LIKE '%buy%' OR LOWER(sat.news_title) LIKE '%buy%')  AS buy_count,
+        COUNT(*) FILTER (WHERE LOWER(sat.news_title) LIKE '%hold%' OR LOWER(sat.news_title) LIKE '%neutral%')  AS hold_count,
+        COUNT(*) FILTER (WHERE LOWER(sat.news_title) LIKE '%sell%' OR LOWER(sat.news_title) LIKE '%underper%') AS sell_count,
+        CASE
+          WHEN AVG(sat.price_target::numeric) > MAX(ss.current_price::numeric) * 1.20 THEN 'Strong Buy'
+          WHEN AVG(sat.price_target::numeric) > MAX(ss.current_price::numeric) * 1.05 THEN 'Buy'
+          WHEN AVG(sat.price_target::numeric) > MAX(ss.current_price::numeric) * 0.95 THEN 'Hold'
+          ELSE 'Sell'
+        END AS consensus_rating,
+        ROUND(
+          (AVG(sat.price_target::numeric) - MAX(ss.current_price::numeric))
+          / NULLIF(MAX(ss.current_price::numeric), 0) * 100,
+          2
+        ) AS upside_pct,
+        NOW() AS last_updated
+      FROM screener_analyst_targets sat
+      INNER JOIN screener_stocks ss ON ss.symbol = sat.symbol
+      WHERE sat.price_target IS NOT NULL AND sat.price_target::numeric > 0
+      GROUP BY sat.symbol
+      ON CONFLICT (symbol) DO UPDATE SET
+        avg_target      = EXCLUDED.avg_target,
+        high_target     = EXCLUDED.high_target,
+        low_target      = EXCLUDED.low_target,
+        analyst_count   = EXCLUDED.analyst_count,
+        buy_count       = EXCLUDED.buy_count,
+        hold_count      = EXCLUDED.hold_count,
+        sell_count      = EXCLUDED.sell_count,
+        consensus_rating = EXCLUDED.consensus_rating,
+        upside_pct      = EXCLUDED.upside_pct,
+        last_updated    = NOW()
+    `);
+		console.log("[Tier2] Analyst consensus materialized table rebuilt");
+	} catch (consensusErr: any) {
+		console.warn("[Tier2] Analyst consensus rebuild failed (non-fatal):", consensusErr?.message?.slice(0, 100));
+	}
 
 	processed = 0;
 	errors = 0;
@@ -546,6 +606,9 @@ export async function enrichTier2(budget: number): Promise<TierResult> {
 			const data = await provider.getEconomicCalendar(today, oneMonthLater);
 			apiCalls++;
 			for (const e of data) {
+				// Phase 3b: Only store High-impact events for key markets (IN, US, GB)
+				if (!e.impact || e.impact !== 'High') continue;
+				if (!['IN', 'US', 'GB', 'EU'].includes(e.country || '')) continue;
 				await db.execute(sql`
           INSERT INTO screener_economic_calendar (event, date, country, actual, previous, change, change_percentage, estimate, impact)
           VALUES (${e.event}, ${e.date}, ${e.country}, ${e.actual}, ${e.previous}, ${e.change}, ${e.changePercentage}, ${e.estimate}, ${e.impact})
@@ -782,6 +845,26 @@ export async function enrichTier3(budget: number): Promise<TierResult> {
             VALUES (${stock.symbol}, ${latest.date}, 'daily', ${latest.open}, ${latest.high}, ${latest.low}, ${latest.close}, ${latest.volume}, ${latest.rsi})
             ON CONFLICT DO NOTHING
           `);
+					// Phase 2f: write per-table freshness timestamp
+					await db.execute(sql`
+              UPDATE screener_stocks
+              SET last_technicals_sync = NOW(), updated_at = NOW()
+              WHERE symbol = ${stock.symbol}
+            `);
+					// Hot-cold split (Phase 5b): keep the latest snapshot in the hot table
+					await db.execute(sql`
+              INSERT INTO screener_technical_indicators_latest
+                (symbol, date, timeframe, open, high, low, close, volume, rsi_14)
+              VALUES (${stock.symbol}, ${latest.date}, 'daily',
+                ${latest.open}, ${latest.high}, ${latest.low}, ${latest.close}, ${latest.volume}, ${latest.rsi})
+              ON CONFLICT (symbol) DO UPDATE SET
+                date = EXCLUDED.date,
+                timeframe = EXCLUDED.timeframe,
+                open = EXCLUDED.open, high = EXCLUDED.high, low = EXCLUDED.low,
+                close = EXCLUDED.close, volume = EXCLUDED.volume,
+                rsi_14 = EXCLUDED.rsi_14,
+                last_updated = NOW()
+            `);
 					processed++;
 				} else {
 					skipped++;
@@ -937,6 +1020,13 @@ export async function getExtendedEnrichmentProgress(): Promise<{
 		tier3Percent: number;
 		tier4Percent: number;
 	};
+	// Phase 2f/4d: per-table freshness coverage (synced within 30 days)
+	freshness: {
+		financials:   { synced: number; stale: number; coveragePct: number };
+		keyMetrics:   { synced: number; stale: number; coveragePct: number };
+		technicals:   { synced: number; stale: number; coveragePct: number };
+		shareholding: { synced: number; stale: number; coveragePct: number };
+	};
 }> {
 	const result = await db.execute(sql`
     SELECT
@@ -957,7 +1047,12 @@ export async function getExtendedEnrichmentProgress(): Promise<{
       (SELECT COUNT(*) FROM screener_dividend_calendar) as dividend_count,
       (SELECT COUNT(*) FROM screener_split_calendar) as split_count,
       (SELECT COUNT(*) FROM screener_ipo_calendar) as ipo_count,
-      (SELECT COUNT(*) FROM screener_economic_calendar) as economic_count
+      (SELECT COUNT(*) FROM screener_economic_calendar) as economic_count,
+      -- Phase 2f/4d: per-table freshness (synced within 30 days)
+      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_financials_sync  > NOW() - INTERVAL '30 days') as fin_synced,
+      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_key_metrics_sync > NOW() - INTERVAL '30 days') as km_synced,
+      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_technicals_sync  > NOW() - INTERVAL '30 days') as tech_synced,
+      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_shareholding_sync > NOW() - INTERVAL '30 days') as sh_synced
   `);
 
 	const row = ((result as any).rows || result)[0];
@@ -1042,6 +1137,12 @@ export async function getExtendedEnrichmentProgress(): Promise<{
 			tier2Percent,
 			tier3Percent,
 			tier4Percent,
+		},
+		freshness: {
+			financials:   { synced: Number(row.fin_synced),  stale: total - Number(row.fin_synced),  coveragePct: Math.round((Number(row.fin_synced)  / total) * 100) },
+			keyMetrics:   { synced: Number(row.km_synced),   stale: total - Number(row.km_synced),   coveragePct: Math.round((Number(row.km_synced)   / total) * 100) },
+			technicals:   { synced: Number(row.tech_synced), stale: total - Number(row.tech_synced), coveragePct: Math.round((Number(row.tech_synced) / total) * 100) },
+			shareholding: { synced: Number(row.sh_synced),   stale: total - Number(row.sh_synced),   coveragePct: Math.round((Number(row.sh_synced)   / total) * 100) },
 		},
 	};
 }

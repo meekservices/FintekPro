@@ -163,6 +163,7 @@ class FMPFreeProvider implements IDataProvider {
 			totalDebt: (s.longTermDebt || 0) + (s.shortTermDebt || 0),
 			totalEquity: s.totalStockholdersEquity,
 			totalAssets: s.totalAssets,
+			currentLiabilities: s.totalCurrentLiabilities, // Phase 2e: needed for Capital Employed = Total Assets - Current Liabilities
 		}));
 	}
 

@@ -138,6 +138,27 @@ export interface EnrichedStockSnapshot {
 		compositeScore: number | null;
 		fintekRating: number | null;
 	} | null;
+
+	/**
+	 * OHLCV-computed returns and risk metrics from screener_derived_metrics.
+	 * Null when screener enrichment hasn't run for this symbol yet.
+	 * Used by: pick-of-day scoring, rebalancing engine, portfolio CAGR.
+	 */
+	performance: {
+		return1W:        number | null;
+		return1M:        number | null;
+		return3M:        number | null;
+		return6M:        number | null;
+		return1Y:        number | null;
+		return2Y:        number | null;
+		return3Y:        number | null;
+		return5Y:        number | null;
+		returnYTD:       number | null;
+		returnVsNifty1Y: number | null;
+		beta:            number | null;
+		sharpeRatio1Y:   number | null;
+		maxDrawdown1Y:   number | null;
+	} | null;
 }
 
 function safeNum(val: any): number | null {
@@ -488,6 +509,25 @@ export async function getEnrichedStockSnapshot(
 						riskScore: safeNum(dm.risk_score),
 						compositeScore: safeNum(dm.composite_score),
 						fintekRating: safeNum(dm.fintek_rating),
+					}
+				: null,
+
+			// ── Fix 1: expose all OHLCV-computed returns + risk from screener_derived_metrics ──
+			performance: dm
+				? {
+						return1W:        safeNum(dm.return_1w),
+						return1M:        safeNum(dm.return_1m),
+						return3M:        safeNum(dm.return_3m),
+						return6M:        safeNum(dm.return_6m),
+						return1Y:        safeNum(dm.return_1y),
+						return2Y:        safeNum(dm.return_2y),
+						return3Y:        safeNum(dm.return_3y),
+						return5Y:        safeNum(dm.return_5y),
+						returnYTD:       safeNum(dm.return_ytd),
+						returnVsNifty1Y: safeNum(dm.return_vs_nifty_1y),
+						beta:            safeNum(dm.beta),
+						sharpeRatio1Y:   safeNum(dm.sharpe_ratio_1y),
+						maxDrawdown1Y:   safeNum(dm.max_drawdown_1y),
 					}
 				: null,
 		};

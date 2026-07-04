@@ -186,6 +186,49 @@ export async function enrichFinancialRatios(
 				if (ratios.pegRatio != null)
 					values.pegRatio = ratios.pegRatio.toString();
 
+				// Phase 2e: True ROCE = EBIT / Capital Employed
+				// Capital Employed = Total Assets − Current Liabilities (FMP: totalCurrentLiabilities)
+				// EBIT = operatingIncome from income statement
+				// Fallback: proxy ROCE = operatingMargin × 1.1 if balance sheet unavailable
+				try {
+					const provider = getDataProvider();
+					const [incomeStmts, balanceSheets] = await Promise.all([
+						provider.getIncomeStatement(fmpSymbol, "annual"),
+						provider.getBalanceSheet(fmpSymbol, "annual"),
+					]);
+					apiCalls += 2;
+
+					if (incomeStmts.length > 0 && balanceSheets.length > 0) {
+						const income = incomeStmts[0];
+						const balance = balanceSheets[0];
+						const ebit = income.operatingIncome;
+						const capitalEmployed =
+							balance.totalAssets != null && balance.currentLiabilities != null
+								? balance.totalAssets - balance.currentLiabilities
+								: null;
+
+						if (ebit != null && capitalEmployed != null && capitalEmployed > 0) {
+							const trueRoce = +(ebit / capitalEmployed).toFixed(6);
+							values.roce = trueRoce.toString();
+							console.log(
+								`[Enrichment] ROCE computed: ${stock.symbol} EBIT=${ebit} CE=${capitalEmployed} ROCE=${(trueRoce * 100).toFixed(2)}%`,
+							);
+						} else if (ratios.operatingMargin != null) {
+							// Partial data — use proxy fallback
+							values.roce = +(ratios.operatingMargin * 1.1).toFixed(6) + "";
+						}
+					} else if (ratios.operatingMargin != null) {
+						// No statement data — proxy fallback
+						values.roce = +(ratios.operatingMargin * 1.1).toFixed(6) + "";
+					}
+				} catch (roceErr: any) {
+					// Non-fatal — proxy fallback if IS/BS fetch fails
+					if (ratios.operatingMargin != null) {
+						values.roce = +(ratios.operatingMargin * 1.1).toFixed(6) + "";
+					}
+					console.warn(`[Enrichment] ROCE fetch failed for ${stock.symbol}: ${roceErr.message?.slice(0, 80)}`);
+				}
+
 				const [existing] = await db
 					.select({ id: screenerFinancials.id })
 					.from(screenerFinancials)
@@ -205,6 +248,7 @@ export async function enrichFinancialRatios(
 					.update(screenerStocks)
 					.set({
 						lastFmpSync: new Date(),
+						lastFinancialsSync: new Date(), // Phase 2f: track per-table freshness
 						updatedAt: new Date(),
 					})
 					.where(eq(screenerStocks.symbol, stock.symbol));
@@ -241,6 +285,108 @@ export async function enrichFinancialRatios(
 		providerBreakdown,
 	};
 }
+
+/**
+ * Fetch and store FMP key metrics for all active stocks missing coverage.
+ *
+ * Purpose: Ensures 100% key_metrics coverage by running independently of Tier 1
+ *          budget-cap. Each call processes `batchSize` stocks ordered by market cap
+ *          (largest first) so the most important symbols are covered first.
+ *
+ * Inputs:  batchSize — max stocks per run (default 10)
+ * Outputs: EnrichmentResult with processed/errors/skipped counts
+ * Edge cases:
+ *   - ON CONFLICT DO NOTHING — idempotent; safe to re-run
+ *   - lastKeyMetricsSync written only on successful INSERT
+ *   - Non-fatal: single-stock errors do not abort the batch
+ */
+export async function enrichKeyMetrics(
+	batchSize = 10,
+): Promise<EnrichmentResult> {
+	const provider = getDataProvider();
+	let processed = 0, errors = 0, skipped = 0, apiCalls = 0;
+	const errorDetails: string[] = [];
+
+	if (!(await fmpUsageMonitor.canMakeCall())) {
+		const stats = await fmpUsageMonitor.getDailyStats();
+		return { task: "key_metrics", processed: 0, errors: 0, skipped: 0, apiCallsUsed: 0, remaining: stats.remaining };
+	}
+
+	// Select stocks missing key_metrics, ordered by market cap
+	const rows = await db.execute(sql`
+    SELECT ss.symbol, ss.fmp_symbol
+    FROM screener_stocks ss
+    LEFT JOIN screener_key_metrics skm ON skm.symbol = ss.symbol
+    WHERE ss.is_active = true AND skm.id IS NULL
+    ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
+    LIMIT ${batchSize}
+  `);
+	const stocks = (rows as any).rows || rows;
+
+	for (const stock of stocks) {
+		if (!(await fmpUsageMonitor.canMakeCall())) break;
+		try {
+			const fmpSymbol = stock.fmp_symbol || `${stock.symbol}.NS`;
+			const data = await provider.getKeyMetrics(fmpSymbol, 1);
+			apiCalls++;
+
+			if (data.length > 0) {
+				const k = data[0];
+				await db.execute(sql`
+          INSERT INTO screener_key_metrics (symbol, date, period,
+            revenue_per_share, net_income_per_share, operating_cash_flow_per_share,
+            free_cash_flow_per_share, cash_per_share, book_value_per_share,
+            tangible_book_value_per_share, market_cap, enterprise_value,
+            pe_ratio, price_to_sales_ratio, pb_ratio, ev_to_sales,
+            enterprise_value_over_ebitda, earnings_yield, free_cash_flow_yield,
+            debt_to_equity, debt_to_assets, net_debt_to_ebitda, current_ratio,
+            interest_coverage, income_quality, dividend_yield, payout_ratio,
+            graham_number, roic, return_on_tangible_assets, working_capital,
+            invested_capital, days_sales_outstanding, days_payables_outstanding,
+            days_of_inventory_on_hand, roe, capex_per_share)
+          VALUES (${stock.symbol}, ${k.date || null}, ${k.period || "annual"},
+            ${k.revenuePerShare}, ${k.netIncomePerShare}, ${k.operatingCashFlowPerShare},
+            ${k.freeCashFlowPerShare}, ${k.cashPerShare}, ${k.bookValuePerShare},
+            ${k.tangibleBookValuePerShare}, ${k.marketCap}, ${k.enterpriseValue},
+            ${k.peRatio}, ${k.priceToSalesRatio}, ${k.pbRatio}, ${k.evToSales},
+            ${k.enterpriseValueOverEBITDA}, ${k.earningsYield}, ${k.freeCashFlowYield},
+            ${k.debtToEquity}, ${k.debtToAssets}, ${k.netDebtToEBITDA},
+            ${k.currentRatio}, ${k.interestCoverage}, ${k.incomeQuality},
+            ${k.dividendYield}, ${k.payoutRatio}, ${k.grahamNumber}, ${k.roic},
+            ${k.returnOnTangibleAssets}, ${k.workingCapital}, ${k.investedCapital},
+            ${k.daysSalesOutstanding}, ${k.daysPayablesOutstanding}, ${k.daysOfInventoryOnHand},
+            ${k.roe}, ${k.capexPerShare})
+          ON CONFLICT DO NOTHING
+        `);
+				// Phase 2f: write freshness timestamp
+				await db.execute(sql`
+          UPDATE screener_stocks SET last_key_metrics_sync = NOW(), updated_at = NOW()
+          WHERE symbol = ${stock.symbol}
+        `);
+				console.log(`[Enrichment] KeyMetrics: ${stock.symbol} ROIC=${k.roic} Graham=${k.grahamNumber}`);
+				processed++;
+			} else {
+				skipped++;
+			}
+		} catch (err: any) {
+			errors++;
+			errorDetails.push(`${stock.symbol}: ${err.message?.slice(0, 80)}`);
+			console.error(`[Enrichment] KeyMetrics error ${stock.symbol}: ${err.message}`);
+		}
+	}
+
+	const stats = await fmpUsageMonitor.getDailyStats();
+	return {
+		task: "key_metrics",
+		processed,
+		errors,
+		skipped,
+		apiCallsUsed: apiCalls,
+		remaining: stats.remaining,
+		details: { errors: errorDetails },
+	};
+}
+
 
 export async function enrichPriceHistory(
 	batchSize = 3,
@@ -514,6 +660,13 @@ export async function getEnrichmentProgress(): Promise<{
 	missingReturns: number;
 	enrichmentPercent: number;
 	estimatedDaysRemaining: number;
+	// Phase 2f / 4d: per-table freshness coverage (stocks synced in last 30d)
+	freshness: {
+		financials: { synced: number; stale: number; coveragePct: number };
+		keyMetrics: { synced: number; stale: number; coveragePct: number };
+		technicals: { synced: number; stale: number; coveragePct: number };
+		shareholding: { synced: number; stale: number; coveragePct: number };
+	};
 }> {
 	const result = await db.execute(sql`
     SELECT
@@ -525,7 +678,12 @@ export async function getEnrichmentProgress(): Promise<{
        WHERE ss.is_active = true AND (sf.roe IS NULL AND sf.pb_ratio IS NULL AND sf.debt_to_equity IS NULL)) as missing_ratios,
       (SELECT COUNT(*) FROM screener_stocks ss 
        LEFT JOIN screener_financials sf ON sf.symbol = ss.symbol
-       WHERE ss.is_active = true AND sf.return_1y IS NULL) as missing_returns
+       WHERE ss.is_active = true AND sf.return_1y IS NULL) as missing_returns,
+      -- Phase 2f: per-table freshness (synced within 30 days)
+      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_financials_sync  > NOW() - INTERVAL '30 days') as fin_synced,
+      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_key_metrics_sync > NOW() - INTERVAL '30 days') as km_synced,
+      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_technicals_sync  > NOW() - INTERVAL '30 days') as tech_synced,
+      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_shareholding_sync > NOW() - INTERVAL '30 days') as sh_synced
   `);
 
 	const row = ((result as any).rows || result)[0];
@@ -542,6 +700,13 @@ export async function getEnrichmentProgress(): Promise<{
 	const estimatedDaysRemaining =
 		totalMissing > 0 ? Math.ceil(totalMissing / callsPerDay) : 0;
 
+	// Per-table freshness
+	const finSynced = Number(row.fin_synced);
+	const kmSynced = Number(row.km_synced);
+	const techSynced = Number(row.tech_synced);
+	const shSynced = Number(row.sh_synced);
+	const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+
 	return {
 		total,
 		withRatios,
@@ -550,6 +715,12 @@ export async function getEnrichmentProgress(): Promise<{
 		missingReturns,
 		enrichmentPercent,
 		estimatedDaysRemaining,
+		freshness: {
+			financials:   { synced: finSynced,  stale: total - finSynced,  coveragePct: pct(finSynced)  },
+			keyMetrics:   { synced: kmSynced,   stale: total - kmSynced,   coveragePct: pct(kmSynced)   },
+			technicals:   { synced: techSynced, stale: total - techSynced, coveragePct: pct(techSynced) },
+			shareholding: { synced: shSynced,   stale: total - shSynced,   coveragePct: pct(shSynced)   },
+		},
 	};
 }
 

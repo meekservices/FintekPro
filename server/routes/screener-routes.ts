@@ -23,6 +23,7 @@ import {
 import {
 	enrichStockProfiles,
 	enrichFinancialRatios,
+	enrichKeyMetrics,
 	enrichPriceHistory,
 	seedScreenerFromFmp,
 	seedFromListedStocks,
@@ -382,6 +383,23 @@ router.post("/api/screener/admin/enrich/prices", async (req, res) => {
 		res
 			.status(500)
 			.json({ error: "Price enrichment failed", message: err.message });
+	}
+});
+
+router.post("/api/screener/admin/enrich/key-metrics", async (req, res) => {
+	try {
+		if (!isProductionEnrichmentAllowed() && !req.body?.force) {
+			return res.json({
+				task: "key_metrics",
+				processed: 0, errors: 0, skipped: 0, apiCallsUsed: 0, remaining: 0,
+				message: "FMP enrichment restricted to production. Use force=true to override.",
+			});
+		}
+		const batchSize = req.body?.batchSize || 10;
+		const result = await enrichKeyMetrics(batchSize);
+		res.json(result);
+	} catch (err: any) {
+		res.status(500).json({ error: "Key metrics enrichment failed", message: err.message });
 	}
 });
 

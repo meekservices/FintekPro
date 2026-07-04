@@ -4,7 +4,10 @@ import {
 	screenerFinancials,
 	screenerDerivedMetrics,
 	screenerTechnicalIndicators,
+	screenerTechnicalIndicatorsLatest,
 	screenerShareholding,
+	screenerAnalystConsensus,
+	screenerDcfValuations,
 } from "@shared/schema";
 import {
 	eq,
@@ -130,6 +133,19 @@ export interface ScreenerResult {
 	beta: string | null;
 	sharpeRatio1Y: string | null;
 	maxDrawdown1Y: string | null;
+
+	// Alpha (vs benchmark)
+	returnVsNifty1Y: string | null;   // Stock 1Y return minus Nifty 1Y return
+	returnVsSector1Y: string | null;  // Stock 1Y return minus sector index 1Y return
+
+	// Analyst Consensus (from screener_analyst_consensus)
+	analystAvgTarget: string | null;
+	analystUpsidePct: string | null;
+	analystConsensusRating: string | null;
+	analystCount: number | null;
+
+	// DCF
+	dcfUpsidePercent: string | null;  // (dcf - price) / price * 100
 
 	// Scoring
 	compositeScore: string | null;
@@ -270,10 +286,10 @@ export async function queryScreener(
 	if (filters.minSharpe != null) derivedConditions.push(gte(screenerDerivedMetrics.sharpeRatio1Y, filters.minSharpe.toString()));
 	if (filters.maxDrawdown != null) derivedConditions.push(gte(screenerDerivedMetrics.maxDrawdown1Y, filters.maxDrawdown.toString()));
 
-	// Technical indicator conditions
+	// Technical indicator conditions (query engine reads from hot table)
 	const technicalConditions: any[] = [];
-	if (filters.minRSI != null) technicalConditions.push(gte(screenerTechnicalIndicators.rsi14, filters.minRSI.toString()));
-	if (filters.maxRSI != null) technicalConditions.push(lte(screenerTechnicalIndicators.rsi14, filters.maxRSI.toString()));
+	if (filters.minRSI != null) technicalConditions.push(gte(screenerTechnicalIndicatorsLatest.rsi14, filters.minRSI.toString()));
+	if (filters.maxRSI != null) technicalConditions.push(lte(screenerTechnicalIndicatorsLatest.rsi14, filters.maxRSI.toString()));
 
 	// Shareholding conditions
 	const shareholdingConditions: any[] = [];
@@ -306,10 +322,13 @@ export async function queryScreener(
 		case "return1Y": sortColumn = screenerDerivedMetrics.return1Y; break;
 		case "return1M": sortColumn = screenerDerivedMetrics.return1M; break;
 		case "return3M": sortColumn = screenerDerivedMetrics.return3M; break;
+		case "returnVsNifty1Y": sortColumn = screenerDerivedMetrics.returnVsNifty1Y; break;
+		case "analystUpside": sortColumn = screenerAnalystConsensus.upsidePct; break;
+		case "dcfUpside": sortColumn = screenerDcfValuations.upsidePercent; break;
 		case "beta": sortColumn = screenerDerivedMetrics.beta; break;
 		case "sharpe": sortColumn = screenerDerivedMetrics.sharpeRatio1Y; break;
 		case "piotroski": sortColumn = screenerDerivedMetrics.piotroskiScore; break;
-		case "rsi": sortColumn = screenerTechnicalIndicators.rsi14; break;
+		case "rsi": sortColumn = screenerTechnicalIndicatorsLatest.rsi14; break;
 		case "promoterHolding": sortColumn = screenerShareholding.promoterHolding; break;
 		default: sortColumn = screenerStocks.symbol;
 	}
@@ -350,6 +369,16 @@ export async function queryScreener(
 			beta: screenerDerivedMetrics.beta,
 			sharpeRatio1Y: screenerDerivedMetrics.sharpeRatio1Y,
 			maxDrawdown1Y: screenerDerivedMetrics.maxDrawdown1Y,
+			// Alpha vs benchmarks (Phase 4a)
+			returnVsNifty1Y: screenerDerivedMetrics.returnVsNifty1Y,
+			returnVsSector1Y: screenerDerivedMetrics.returnVsSector1Y,
+			// Analyst Consensus (Phase 4b)
+			analystAvgTarget: screenerAnalystConsensus.avgTarget,
+			analystUpsidePct: screenerAnalystConsensus.upsidePct,
+			analystConsensusRating: screenerAnalystConsensus.consensusRating,
+			analystCount: screenerAnalystConsensus.analystCount,
+			// DCF Upside (Phase 4c)
+			dcfUpsidePercent: screenerDcfValuations.upsidePercent,
 			// Scoring
 			compositeScore: screenerDerivedMetrics.compositeScore,
 			fintekRating: screenerDerivedMetrics.fintekRating,
@@ -367,8 +396,10 @@ export async function queryScreener(
 		.from(screenerStocks)
 		.leftJoin(screenerFinancials, eq(screenerStocks.symbol, screenerFinancials.symbol))
 		.leftJoin(screenerDerivedMetrics, eq(screenerStocks.symbol, screenerDerivedMetrics.symbol))
-		.leftJoin(screenerTechnicalIndicators, eq(screenerStocks.symbol, screenerTechnicalIndicators.symbol))
+		.leftJoin(screenerTechnicalIndicatorsLatest, eq(screenerStocks.symbol, screenerTechnicalIndicatorsLatest.symbol))  // hot table: one row/symbol, no date-sort needed
 		.leftJoin(screenerShareholding, eq(screenerStocks.symbol, screenerShareholding.symbol))
+		.leftJoin(screenerAnalystConsensus, eq(screenerStocks.symbol, screenerAnalystConsensus.symbol))
+		.leftJoin(screenerDcfValuations, eq(screenerStocks.symbol, screenerDcfValuations.symbol))
 		.where(
 			and(
 				...conditions,
@@ -387,7 +418,7 @@ export async function queryScreener(
 		.from(screenerStocks)
 		.leftJoin(screenerFinancials, eq(screenerStocks.symbol, screenerFinancials.symbol))
 		.leftJoin(screenerDerivedMetrics, eq(screenerStocks.symbol, screenerDerivedMetrics.symbol))
-		.leftJoin(screenerTechnicalIndicators, eq(screenerStocks.symbol, screenerTechnicalIndicators.symbol))
+		.leftJoin(screenerTechnicalIndicatorsLatest, eq(screenerStocks.symbol, screenerTechnicalIndicatorsLatest.symbol))
 		.leftJoin(screenerShareholding, eq(screenerStocks.symbol, screenerShareholding.symbol))
 		.where(
 			and(
