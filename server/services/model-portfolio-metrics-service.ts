@@ -342,46 +342,94 @@ export async function computePortfolioCagrFromDB(
 		const symbol = h.symbol ?? "";
 		const isin   = h.isin ?? "";
 
-		// Determine if this is a stock holding (has NSE ticker symbol)
-		const isStock = symbol.length > 0 &&
+		// Determine if this is a stock holding — by symbol OR by type field
+		const typeStr = (h.type ?? "").toLowerCase();
+		const isStockByType = typeStr.includes("stock") || typeStr.includes("equity") || typeStr.includes("large cap") || typeStr.includes("mid cap") || typeStr.includes("small cap");
+		const isStockBySymbol = symbol.length > 0 &&
 			symbol.length <= 20 &&
 			!/^\d+$/.test(symbol) &&
 			!symbol.includes(".") &&
 			!symbol.includes("_");
+		const isStock = isStockBySymbol || (isStockByType && !typeStr.includes("fund") && !typeStr.includes("etf") && !typeStr.includes("mf"));
 
 		if (isStock) {
-			// ── Stock: screener_derived_metrics ─────────────────────────────────
+			// ── Stock: screener_derived_metrics — by symbol, then by name ──────
 			try {
-				const dmRow = await db.execute(sql`
-					SELECT return_1y, return_3y
-					FROM screener_derived_metrics
-					WHERE symbol = ${symbol.toUpperCase()}
-					LIMIT 1
-				`).catch(() => ({ rows: [] }));
-				const r = (dmRow as any).rows?.[0];
-				if (r?.return_1y != null) {
-					const r1y = Number(r.return_1y);
-					// screener return_1y is stored as % (e.g. 24.5 = 24.5%)
-					// return_3y may be stored as % or null
-					const r3y = r?.return_3y != null ? Number(r.return_3y) : r1y * 0.85;
-					// Estimate 5Y with mild mean-reversion toward 12.8% long-run equity CAGR
-					const r5y = r1y * 0.6 + 12.8 * 0.4;
-					weighted1Y += r1y * w;
-					weighted3Y += r3y * w;
-					weighted5Y += r5y * w;
-					coveredWeight += w;
-					continue;
+				// Try symbol match first
+				if (symbol) {
+					const dmRow = await db.execute(sql`
+						SELECT return_1y, return_3y
+						FROM screener_derived_metrics
+						WHERE symbol = ${symbol.toUpperCase()}
+						LIMIT 1
+					`).catch(() => ({ rows: [] }));
+					const r = (dmRow as any).rows?.[0];
+					if (r?.return_1y != null) {
+						const r1y = Number(r.return_1y);
+						const r3y = r?.return_3y != null ? Number(r.return_3y) : r1y * 0.85;
+						const r5y = r1y * 0.6 + 12.8 * 0.4;
+						weighted1Y += r1y * w;
+						weighted3Y += r3y * w;
+						weighted5Y += r5y * w;
+						coveredWeight += w;
+						continue;
+					}
+				}
+				// Fallback: name-based match in screener_derived_metrics
+				if (name) {
+					const dmRow2 = await db.execute(sql`
+						SELECT return_1y, return_3y
+						FROM screener_derived_metrics
+						WHERE LOWER(company_name) = LOWER(${name})
+						   OR company_name ILIKE ${'%' + name.replace(/%/g, '\\%') + '%'}
+						ORDER BY CASE WHEN LOWER(company_name) = LOWER(${name}) THEN 0 ELSE 1 END
+						LIMIT 1
+					`).catch(() => ({ rows: [] }));
+					const r2 = (dmRow2 as any).rows?.[0];
+					if (r2?.return_1y != null) {
+						const r1y = Number(r2.return_1y);
+						const r3y = r2?.return_3y != null ? Number(r2.return_3y) : r1y * 0.85;
+						const r5y = r1y * 0.6 + 12.8 * 0.4;
+						weighted1Y += r1y * w;
+						weighted3Y += r3y * w;
+						weighted5Y += r5y * w;
+						coveredWeight += w;
+						continue;
+					}
 				}
 			} catch { /* non-fatal */ }
 		} else {
-			// ── MF / ETF / Bond: financial_instruments_cache ─────────────────────
+			// ── MF / ETF / Bond: model_portfolio_holdings (primary) → financial_instruments_cache (fallback) ─
 			try {
-				const conditions = [];
-				if (isin) conditions.push(`isin = '${isin.replace(/'/g, "''")}'`);
-				if (name) conditions.push(`LOWER(name) = LOWER('${name.replace(/'/g, "''")}')`);
-				if (name) conditions.push(`name ILIKE '%${name.replace(/'/g, "''")}%'`);
-				if (!conditions.length) continue;
+				// PRIMARY: model_portfolio_holdings relational table (populated by persist-holdings-enrichment)
+				// Has cagr_1y/3y/5y from real mfapi.in NAV history — most authoritative source
+				if (name) {
+					const mphRow = await db.execute(sql`
+						SELECT cagr_1y, cagr_3y, cagr_5y
+						FROM model_portfolio_holdings
+						WHERE LOWER(instrument_name) = LOWER(${name})
+						   OR instrument_name ILIKE ${'%' + name.replace(/%/g, '\\%') + '%'}
+						ORDER BY
+						  CASE WHEN LOWER(instrument_name) = LOWER(${name}) THEN 0 ELSE 1 END,
+						  updated_at DESC NULLS LAST
+						LIMIT 1
+					`).catch(() => ({ rows: [] }));
+					const r = (mphRow as any).rows?.[0];
+					if (r?.cagr_1y != null) {
+						// model_portfolio_holdings stores CAGR as percentage (e.g. 17.4 = 17.4%)
+						const r1y = Number(r.cagr_1y);
+						const r3y = r?.cagr_3y != null ? Number(r.cagr_3y) : r1y * 0.88;
+						const r5y = r?.cagr_5y != null ? Number(r.cagr_5y) : r1y * 0.82;
+						weighted1Y += r1y * w;
+						weighted3Y += r3y * w;
+						weighted5Y += r5y * w;
+						coveredWeight += w;
+						continue;
+					}
+				}
 
+				// FALLBACK: financial_instruments_cache
+				if (!name && !isin) continue;
 				const ficRow = await db.execute(sql`
 					SELECT return_1y, return_3y, return_5y
 					FROM financial_instruments_cache
