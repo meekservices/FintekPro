@@ -3609,7 +3609,7 @@ export default function AgentModelPortfoliosPage() {
                                 <button
                                   id={`isin-copy-${h.rank}-${selectedPortfolio.id}`}
                                   onClick={() => {
-                                    navigator.clipboard.writeText(h.isin);
+                                    navigator.clipboard.writeText(h.isin!);
                                   }}
                                   title={`ISIN: ${h.isin} — click to copy`}
                                   className="mt-0.5 inline-flex items-center gap-1 text-[9px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
