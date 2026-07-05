@@ -794,6 +794,62 @@ crypto_status VARCHAR,
 
 		console.log("✅ Critical schema repairs complete");
 
+		// ── Fix 15: model_portfolios — SEBI compliance + return optimisation columns ─
+		// Adds: portfolio_code (FP-NNN), inception_date, twrr_1y/3y (SEBI-mandated),
+		//       blended_benchmark_return, drift_threshold, max_drawdown_threshold,
+		//       conflict_disclosure (SEBI IA Regs distributor trail disclosure).
+		// NOTE: Also present in ensureSharedRouteTables() — this copy ensures the
+		//       Cloud Run schema-repair job (which only calls runStartupSchemaRepairs)
+		//       applies these columns on every run.
+		try {
+			await migDb.execute(migSql`
+        ALTER TABLE model_portfolios
+          ADD COLUMN IF NOT EXISTS portfolio_code           VARCHAR(20),
+          ADD COLUMN IF NOT EXISTS inception_date           DATE,
+          ADD COLUMN IF NOT EXISTS twrr_1y                 NUMERIC(8,4),
+          ADD COLUMN IF NOT EXISTS twrr_3y                 NUMERIC(8,4),
+          ADD COLUMN IF NOT EXISTS blended_benchmark_return NUMERIC(8,4),
+          ADD COLUMN IF NOT EXISTS drift_threshold          NUMERIC(5,2) DEFAULT 5,
+          ADD COLUMN IF NOT EXISTS max_drawdown_threshold   NUMERIC(5,2),
+          ADD COLUMN IF NOT EXISTS conflict_disclosure      TEXT
+      `);
+			// Back-fill portfolio_code as FP-NNN using row_number over creation order
+			await migDb.execute(migSql`
+        UPDATE model_portfolios mp
+        SET portfolio_code = sub.code
+        FROM (
+          SELECT id,
+                 'FP-' || LPAD(ROW_NUMBER() OVER (ORDER BY created_at, id)::text, 3, '0') AS code
+          FROM model_portfolios
+          WHERE portfolio_code IS NULL
+        ) sub
+        WHERE mp.id = sub.id AND mp.portfolio_code IS NULL
+      `);
+			// Back-fill per-class drift thresholds
+			await migDb.execute(migSql`
+        UPDATE model_portfolios SET drift_threshold = 2
+        WHERE (asset_class = 'debt' OR id ILIKE '%emergency%' OR id ILIKE '%liquid%') AND drift_threshold = 5
+      `);
+			await migDb.execute(migSql`
+        UPDATE model_portfolios SET drift_threshold = 7
+        WHERE (asset_class = 'thematic' OR id ILIKE '%smallcap%' OR id ILIKE '%midcap%') AND drift_threshold = 5
+      `);
+			// Back-fill max_drawdown_threshold by risk_profile
+			await migDb.execute(migSql`
+        UPDATE model_portfolios SET max_drawdown_threshold =
+          CASE risk_profile
+            WHEN 'conservative' THEN 8
+            WHEN 'moderate'     THEN 15
+            WHEN 'aggressive'   THEN 25
+            ELSE 20
+          END
+        WHERE max_drawdown_threshold IS NULL
+      `);
+			console.log("  ✅ Fix 15: model_portfolios — portfolio_code, inception_date, TWRR, drift/drawdown thresholds, conflict_disclosure");
+		} catch (e: any) {
+			console.warn("  ⚠️  Fix 15 model_portfolios columns (non-fatal):", e.message?.slice(0, 120));
+		}
+
 		// ── 29. REITs & InvITs — schema drift repair ──────────────────────────────
 		// The reits/invits tables in production are missing columns added in the
 		// reit-invit.ts schema after the initial table creation, causing a
