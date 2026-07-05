@@ -626,19 +626,17 @@ modelPortfoliosRouter.post("/admin/recompute-cagr-from-holdings", async (_req: R
 // ── GET /api/model-portfolios/admin/debug-cagr-data ────────────────────────────
 modelPortfoliosRouter.get("/admin/debug-cagr-data", async (_req: Request, res: Response) => {
   try {
-    const [ficCount, ficSample, scrCount, scrSample, holdingsSample] = await Promise.all([
-      db.execute(sql`SELECT COUNT(*) as total, COUNT(return_1y) as with_return FROM financial_instruments_cache WHERE instrument_type = 'mutual_fund'`),
-      db.execute(sql`SELECT name, return_1y, return_3y FROM financial_instruments_cache WHERE instrument_type = 'mutual_fund' AND return_1y IS NOT NULL LIMIT 5`),
-      db.execute(sql`SELECT COUNT(*) as total, COUNT(return_1y) as with_return FROM screener_derived_metrics`),
-      db.execute(sql`SELECT company_name, return_1y FROM screener_derived_metrics WHERE return_1y IS NOT NULL LIMIT 5`),
+    const [tables, ficData, holdingsSample] = await Promise.all([
+      db.execute(sql`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`),
+      db.execute(sql`SELECT name, return_1y, return_3y, instrument_type FROM financial_instruments_cache WHERE return_1y IS NOT NULL LIMIT 8`).catch(() => ({ rows: [] })),
       db.execute(sql`SELECT holdings FROM model_portfolios WHERE id = 'small-cap-alpha' LIMIT 1`),
     ]);
     const rawHoldings = ((holdingsSample as any).rows[0]?.holdings ?? []).slice(0, 6);
     return res.json({
       success: true,
       data: {
-        financial_instruments_cache_mf: { stats: (ficCount as any).rows[0], sample: (ficSample as any).rows },
-        screener_derived_metrics: { stats: (scrCount as any).rows[0], sample: (scrSample as any).rows },
+        all_tables: (tables as any).rows.map((r: any) => r.table_name),
+        financial_instruments_cache_sample: (ficData as any).rows,
         small_cap_alpha_holdings_jsonb: rawHoldings,
       },
     });
