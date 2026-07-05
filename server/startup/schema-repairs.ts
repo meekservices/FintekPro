@@ -1600,6 +1600,9 @@ crypto_status VARCHAR,
 	try {
 		const { db: mpDb } = await import("../db");
 		const { sql: mpSql } = await import("drizzle-orm");
+		// ── Step 1: CREATE TABLE (separate execute — Neon HTTP driver does not support
+		//   multi-statement SQL in a single call; combining CREATE + INSERT causes
+		//   "Failed query" and silently skips the entire migration block).
 		await mpDb.execute(mpSql`
       CREATE TABLE IF NOT EXISTS model_portfolios (
         id                    VARCHAR PRIMARY KEY,
@@ -1634,13 +1637,39 @@ crypto_status VARCHAR,
         alpha                 NUMERIC,
         ai_insight            JSONB,
         ai_insight_updated_at TIMESTAMP,
+        -- Quant Alpha Engine columns (FASP-AI-v2.0) — must match Drizzle schema
+        drift_score           INTEGER   DEFAULT 0,
+        drift_details         JSONB     DEFAULT '[]'::jsonb,
+        quant_engine_version  VARCHAR   DEFAULT 'FASP-AI-v2.0',
+        last_quant_run        TIMESTAMP,
         engine_version        VARCHAR  DEFAULT '1.0.0',
         created_at            TIMESTAMP DEFAULT NOW(),
         updated_at            TIMESTAMP DEFAULT NOW(),
         source                VARCHAR  DEFAULT 'api'
-      );
+      )
+    `);
+		console.log("✅ model_portfolios table ensured (engine audit Fix #6)");
 
-      -- Seed 5 representative model portfolios (engine audit Fix #6)
+		// ── Step 2: Ensure quant alpha columns exist on pre-existing tables
+		//   (ADD COLUMN IF NOT EXISTS is a no-op if already present)
+		await mpDb.execute(mpSql`
+      ALTER TABLE model_portfolios
+        ADD COLUMN IF NOT EXISTS drift_score          INTEGER   DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS drift_details        JSONB     DEFAULT '[]',
+        ADD COLUMN IF NOT EXISTS quant_engine_version VARCHAR   DEFAULT 'FASP-AI-v2.0',
+        ADD COLUMN IF NOT EXISTS last_quant_run       TIMESTAMP
+    `);
+
+		// ── Step 3: Ensure indexes exist
+		await mpDb.execute(mpSql`CREATE INDEX IF NOT EXISTS idx_model_portfolios_risk      ON model_portfolios (risk_profile)`);
+		await mpDb.execute(mpSql`CREATE INDEX IF NOT EXISTS idx_model_portfolios_asset     ON model_portfolios (asset_class)`);
+		await mpDb.execute(mpSql`CREATE INDEX IF NOT EXISTS idx_model_portfolios_published ON model_portfolios (is_published)`);
+		await mpDb.execute(mpSql`CREATE INDEX IF NOT EXISTS idx_model_portfolios_drift     ON model_portfolios (drift_score DESC)`);
+
+		// ── Step 4: Seed representative portfolios (separate execute — multi-statement
+		//   SQL not allowed in single Neon HTTP execute call).
+		//   INSERT ON CONFLICT DO NOTHING: never overwrites existing rows with live metrics.
+		await mpDb.execute(mpSql`
       INSERT INTO model_portfolios (id, name, tagline, risk_profile, asset_class, goals, min_investment, time_horizon, benchmark_name, last_rebalanced, rebalancing_frequency, total_holdings, highlight, icon, is_featured, allocation, holdings)
       VALUES
         ('all-weather-india', 'All Weather India', 'Stays resilient across economic cycles', 'all_weather', 'hybrid',
@@ -2220,6 +2249,10 @@ crypto_status VARCHAR,
 	}
 
 	// 5c: Back-fill hot table from existing archive (first-time only)
+	// NOTE: screener_technical_indicators stores Bollinger columns as bb_upper/bb_lower/bb_pct_b
+	//       (added by Phase 3 ALTER TABLE). The _latest table uses bollinger_* names.
+	//       Must alias them in the SELECT — a direct column reference would throw
+	//       "column bollinger_upper does not exist" and silently skip this backfill.
 	try {
 		await p1Db.execute(p1Sql`
       INSERT INTO screener_technical_indicators_latest (
@@ -2232,9 +2265,12 @@ crypto_status VARCHAR,
       SELECT DISTINCT ON (symbol)
         symbol, date, timeframe, open, high, low, close, volume,
         rsi_14, macd, macd_signal, macd_hist, sma_50, sma_200,
-        adx, atr_14, bollinger_upper, bollinger_lower, bollinger_pct_b,
+        adx, atr_14,
+        bb_upper    AS bollinger_upper,
+        bb_lower    AS bollinger_lower,
+        bb_pct_b    AS bollinger_pct_b,
         week_high_52, week_low_52, pct_from_52w_high,
-        technical_rating, bullish_signals, bearish_signals, last_updated
+        technical_rating, bullish_signals, bearish_signals, NOW() AS last_updated
       FROM screener_technical_indicators
       ORDER BY symbol, date DESC NULLS LAST
       ON CONFLICT (symbol) DO NOTHING
