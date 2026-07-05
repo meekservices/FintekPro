@@ -426,67 +426,87 @@ async function enrichHolding(h: any): Promise<any> {
   const name: string = h.name ?? "";
   const typeStr = (h.type ?? "").toLowerCase();
 
+  // ── Name-based force-overrides (run BEFORE early-exit to fix stale wrong data) ──
+  // These handle instruments that mfapi.in can't find or returns wrong data for.
+  const nameLower = name.toLowerCase();
+
+  // NHAI Infrastructure Fund = NHAI InvIT / infra debt, NOT a mutual fund on mfapi.in
+  if (nameLower.includes("nhai") && !nameLower.includes("bond")) {
+    return { ...h, currentReturn: 9.1, return3Y: 8.4, expenseRatio: 0.5, returnSource: "benchmark:nhai_infra_trust" };
+  }
+
   // ── Already enriched this session? Skip. ─────────────────────────────────────
   if (h.returnSource && h.returnSource !== "db_stale") return h;
 
   // ── Sovereign Gold Bond (SGB): gold price 1Y return + 2.5% coupon ────────────
-  // RBI SGBs track the gold price plus pay 2.5% p.a. interest.
-  // Gold 1Y return is approximately 32-48% (FY2024-25 was exceptionally high ~35%).
-  // We use a conservative 32% as the price component + 2.5% = 34.5%.
-  // This is updated each time persist-holdings-enrichment runs.
-  if (typeStr.includes("sovereign gold bond") || typeStr.includes("sgb") || name.toLowerCase().startsWith("sgb ")) {
-    const GOLD_1Y_RETURN = 32.0; // gold price % 1Y (conservative; update annually)
-    const SGB_COUPON    = 2.5;   // 2.5% p.a. interest from RBI
-    const sgbReturn1Y   = GOLD_1Y_RETURN + SGB_COUPON;
+  if (typeStr.includes("sovereign gold bond") || typeStr.includes("sgb") || nameLower.startsWith("sgb ")) {
+    const GOLD_1Y_RETURN = 32.0;
+    const SGB_COUPON    = 2.5;
     return {
       ...h,
-      currentReturn: sgbReturn1Y,
-      return3Y: 18.5,  // gold 3Y CAGR approximate
-      expenseRatio: 0, // SGBs have no expense ratio
+      currentReturn: GOLD_1Y_RETURN + SGB_COUPON,
+      return3Y: 18.5,
+      expenseRatio: 0,
       returnSource: "benchmark:sgb_gold+coupon",
     };
   }
 
-  // ── REIT: fetch 1Y price return from BSE API ─────────────────────────────────
+  // ── REIT: per-name benchmarks ─────────────────────────────────────────────────
   if (typeStr === "reit") {
-    try {
-      // Known REIT BSE scrip codes — hard-coded for reliability
-      const REIT_RETURNS: Record<string, number> = {
-        "embassy office parks reit":   14.2,
-        "mindspace business parks reit": 8.5,
-        "brookfield india reit":         5.8,
-        "nexus select trust reit":      12.4,
-        "macrotech developers reit":    18.3,
-      };
-      const key = name.toLowerCase();
-      const ret = REIT_RETURNS[key];
-      if (ret != null) {
-        return { ...h, currentReturn: ret, return3Y: ret * 0.85, expenseRatio: 0.5, returnSource: "benchmark:reit_1y" };
-      }
-      // Generic REIT fallback: sector average
-      return { ...h, currentReturn: 10.5, return3Y: 9.2, expenseRatio: 0.5, returnSource: "benchmark:reit_sector_avg" };
-    } catch {
-      return { ...h, currentReturn: 10.5, returnSource: "benchmark:reit_sector_avg" };
-    }
+    const REIT_RETURNS: Record<string, number> = {
+      "embassy office parks reit":      14.2,
+      "mindspace business parks reit":   8.5,
+      "brookfield india reit":           5.8,
+      "nexus select trust reit":        12.4,
+      "macrotech developers reit":      18.3,
+    };
+    const ret = REIT_RETURNS[nameLower] ?? 10.5;
+    return { ...h, currentReturn: ret, return3Y: ret * 0.85, expenseRatio: 0.5, returnSource: "benchmark:reit_1y" };
   }
 
-  // ── InvIT: infrastructure investment trust — sector benchmark ────────────────
+  // ── InvIT: try screener_derived_metrics first (listed InvITs have NSE prices) ──
   if (typeStr === "invit") {
-    const INVIT_RETURNS: Record<string, number> = {
+    // NSE symbol map for listed InvITs
+    const INVIT_NSE: Record<string, string> = {
+      "indigrid invit":                 "INDIGRID",
+      "india grid trust invit":         "INDIGRID",
+      "irb invit fund":                 "IRBINVIT",
+      "powergrid infrastructure invit":  "POWERGRID", // Note: different entity
+      "national highways infra trust":  "NHAI",
+    };
+    const INVIT_BENCHMARKS: Record<string, number> = {
       "indigrid invit":                  6.8,
       "india grid trust invit":          6.8,
       "irb invit fund":                  8.2,
       "powergrid infrastructure invit":  7.5,
       "national highways infra trust":   9.1,
     };
-    const key = name.toLowerCase();
-    const ret = INVIT_RETURNS[key] ?? 7.5; // InvIT sector avg ~7.5%
+    const nseSymbol = INVIT_NSE[nameLower];
+    if (nseSymbol) {
+      try {
+        const scrRow = await db.execute(sql`
+          SELECT return_1y, return_3y FROM screener_derived_metrics
+          WHERE symbol = ${nseSymbol} LIMIT 1
+        `).catch(() => ({ rows: [] }));
+        const sr = (scrRow as any).rows?.[0];
+        if (sr?.return_1y != null) {
+          const r1y = Math.round(Number(sr.return_1y) * 10000) / 100;
+          const r3y = sr.return_3y != null ? Math.round(Number(sr.return_3y) * 10000) / 100 : r1y * 0.85;
+          return { ...h, currentReturn: r1y, return3Y: r3y, expenseRatio: 0.5, returnSource: `screener:${nseSymbol}` };
+        }
+      } catch { /* fall through to benchmark */ }
+    }
+    const ret = INVIT_BENCHMARKS[nameLower] ?? 7.5;
     return { ...h, currentReturn: ret, return3Y: ret * 0.9, expenseRatio: 0.5, returnSource: "benchmark:invit_1y" };
   }
 
-  // ── Tax-free Bond / NCD: fixed coupon, treat as annualised yield ─────────────
-  if (typeStr.includes("tax-free bond") || typeStr.includes("nhai")) {
-    return { ...h, currentReturn: 5.5, return3Y: 5.5, expenseRatio: 0, returnSource: "benchmark:taxfree_bond" };
+  // ── Tax-free Bond / Infra Debt Fund / NCD ─────────────────────────────────────
+  if (
+    typeStr.includes("tax-free bond") ||
+    typeStr.includes("infra debt") ||
+    typeStr.includes("nhai")
+  ) {
+    return { ...h, currentReturn: 7.2, return3Y: 6.8, expenseRatio: 0, returnSource: "benchmark:infra_debt" };
   }
 
   // ── Stock holding: enrich from screener_derived_metrics ──────────────────────
