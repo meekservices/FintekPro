@@ -1,178 +1,183 @@
 /**
  * @file market-regime-detector.ts
- * @description Detects current market regime (BULL/BEAR/NEUTRAL) using screener aggregate data.
+ * @description Thin adapter that wraps AIRegimeDetectionEngine (the authoritative, signal-rich
+ *              engine) and exposes the MarketRegime type used by:
+ *                - portfolio-rebalance-scheduler.ts
+ *                - portfolio-risk-guard.ts
+ *                - background-schedulers.ts
  *
- * Purpose:
- *   Provides market context to the rebalance scheduler and risk guard.
- *   Used to modulate auto-rebalance decisions — no high-beta additions in BEAR.
+ * UPGRADE (Audit #2): Previous version used a simple screener proxy (return_1m aggregate).
+ * This version delegates to AIRegimeDetectionEngine which uses:
+ *   - India VIX proxy (annualized vol from NIFTY prices)
+ *   - 50-DMA / 200-DMA breadth (% stocks above DMA)
+ *   - Advance/Decline ratio from listed_stocks
+ *   - Momentum (5/10/20/50-day multi-period)
+ *   - Trend strength (R² of linear regression on 50-day price series)
+ *   - Volatility clustering (10-day vs 60-day vol ratio)
  *
- * Inputs:
- *   - screener_derived_metrics: return_1y, return_6m, beta, sharpe_ratio_1y (top 500 stocks)
- *   - financial_instruments_cache: nifty500 proxy NAV if available
+ * NSE breadth data is optionally injected (Audit #6) when available.
  *
- * Outputs:
- *   - MarketRegime: "BULL" | "BEAR" | "NEUTRAL"
- *   - Supporting metrics: avg1M return, drawdown estimate, breadth score
+ * Cache: Redis 6h (shared across pods). Falls back to in-memory if Redis is unavailable.
  *
- * Edge cases:
- *   - Insufficient data: defaults to "NEUTRAL" (conservative)
- *   - Screener data stale (> 7 days): warns but still returns last known regime
- *
- * FASP-AI v3.0: This is a data computation module. Output used to gate auto-apply decisions.
+ * FASP-AI v3.0: Every regime detection is persisted to ai_regime_history for audit.
  */
 
-import { db } from "../db";
-import { sql } from "drizzle-orm";
+import { aiRegimeDetectionEngine, RegimeLabel } from "./ai-regime-detection-engine";
 import { logger } from "../logger";
+import { getNSEMarketBreadth } from "./screener/nse-india-provider";
 
-export type MarketRegime = "BULL" | "BEAR" | "NEUTRAL";
+export type MarketRegime = "BULL" | "BEAR" | "NEUTRAL" | "HIGH_VOL";
 
 export interface RegimeResult {
   regime: MarketRegime;
-  /** Proxy 1-month return: avg of top-500 stocks by market cap */
-  proxy1MReturn: number;
-  /** Fraction of stocks with positive 1Y return */
-  breadthScore: number;
-  /** Estimated drawdown from rolling 52-week high proxy */
-  estimatedDrawdown: number;
-  /** Number of stocks sampled */
-  sampleSize: number;
-  stale: boolean;
-  calculation_timestamp: string;
-  model_version: string;
+  label: RegimeLabel;           // raw label from AIRegimeDetectionEngine
+  confidence: number;           // 0–100
+  breadthScore: number;         // advance/decline ratio
+  vixProxy: number;             // India VIX proxy
+  pctAbove50DMA: number;        // % stocks above 50-DMA
+  signals: string[];            // human-readable signal descriptions
+  source: string;               // "ai_regime_engine" | "fallback"
+  timestamp: string;
 }
 
-const MODEL_VERSION = "FASP-AI v3.0 / regime-v1";
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+let _memCache: { result: RegimeResult; at: number } | null = null;
 
-// Regime thresholds
-const BULL_PROXY_1M = 2.0;        // avg 1M return > 2% → bull
-const BEAR_PROXY_1M = -3.0;       // avg 1M return < -3% → bear
-const BEAR_DRAWDOWN_PCT = 12.0;   // estimated drawdown > 12% → bear override
-const BEAR_BREADTH = 0.35;        // < 35% stocks positive → breadth confirms bear
+// ── Redis ─────────────────────────────────────────────────────────────────────
+let _redis: any = null;
+async function getRedis() {
+  if (_redis) return _redis;
+  try {
+    if (!process.env.REDIS_URL) return null;
+    const { createClient } = await import("redis");
+    _redis = createClient({ url: process.env.REDIS_URL });
+    _redis.on("error", () => { _redis = null; });
+    await _redis.connect();
+    return _redis;
+  } catch { return null; }
+}
 
-/** Singleton cache — regime persists for 6 hours to avoid thrashing */
-let _cached: RegimeResult | null = null;
-let _cachedAt = 0;
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const REDIS_KEY = "market:regime";
+
+// ── Label → MarketRegime mapping ─────────────────────────────────────────────
+function toMarketRegime(label: RegimeLabel): MarketRegime {
+  switch (label) {
+    case "bull":     return "BULL";
+    case "bear":     return "BEAR";
+    case "high_vol": return "HIGH_VOL";
+    default:         return "NEUTRAL";
+  }
+}
+
+// ── Main export ───────────────────────────────────────────────────────────────
 
 /**
- * Detects current market regime from screener aggregate data.
- * Cached for 6h; force-refresh with forceRefresh=true.
+ * Detects current market regime using the full AI signal stack.
+ *
+ * @param forceRefresh - If true, bypasses both Redis and in-memory cache
  */
 export async function detectRegime(forceRefresh = false): Promise<RegimeResult> {
-  if (!forceRefresh && _cached && Date.now() - _cachedAt < CACHE_TTL_MS) {
-    return _cached;
-  }
-
   const ts = new Date().toISOString();
 
+  // 1. Redis cache check
+  if (!forceRefresh) {
+    const redis = await getRedis();
+    if (redis) {
+      try {
+        const cached = await redis.get(REDIS_KEY);
+        if (cached) {
+          const r = JSON.parse(cached) as RegimeResult;
+          logger.info("[MarketRegime] Redis cache HIT", {
+            event: "REGIME_CACHE_HIT",
+            user_id: "system",
+            regime: r.regime,
+            latency_ms: 0,
+            status: "success",
+          });
+          return r;
+        }
+      } catch { /* fall through */ }
+    }
+
+    // 2. In-memory cache fallback
+    if (_memCache && Date.now() - _memCache.at < CACHE_TTL_MS) {
+      return _memCache.result;
+    }
+  }
+
+  // 3. Call AIRegimeDetectionEngine (authoritative)
+  let result: RegimeResult;
   try {
-    // Aggregate across all screener stocks (proxy for broad market)
-    const agg = await db.execute(sql`
-      SELECT
-        COUNT(*)                                                    AS sample_size,
-        AVG(COALESCE(return_1m, return_1y / 12.0))                AS avg_1m_return,
-        AVG(return_1y)                                             AS avg_1y_return,
-        AVG(return_6m)                                             AS avg_6m_return,
-        SUM(CASE WHEN return_1y > 0 THEN 1 ELSE 0 END)::float /
-          NULLIF(COUNT(*), 0)                                      AS breadth_score,
-        AVG(beta)                                                  AS avg_beta,
-        -- Drawdown proxy: if 6M return >> 1Y return, recent selloff detected
-        CASE
-          WHEN AVG(return_1y) > 0 AND AVG(return_6m) < 0
-          THEN ABS(AVG(return_6m) / NULLIF(AVG(return_1y), 1)) * 100
-          ELSE 0
-        END                                                        AS drawdown_proxy
-      FROM screener_derived_metrics
-      WHERE return_1y IS NOT NULL
-    `).catch(() => ({ rows: [] }));
+    const [aiResult, nseData] = await Promise.allSettled([
+      aiRegimeDetectionEngine.detectCurrentRegime(),
+      getNSEMarketBreadth(),
+    ]);
 
-    const row = (agg as any).rows?.[0];
-    if (!row || Number(row.sample_size) < 50) {
-      // Not enough data — default to NEUTRAL
-      const result: RegimeResult = {
-        regime: "NEUTRAL",
-        proxy1MReturn: 0,
-        breadthScore: 0.5,
-        estimatedDrawdown: 0,
-        sampleSize: 0,
-        stale: true,
-        calculation_timestamp: ts,
-        model_version: MODEL_VERSION,
-      };
-      _cached = result;
-      _cachedAt = Date.now();
-      return result;
-    }
+    const ai = aiResult.status === "fulfilled" ? aiResult.value : null;
+    const nse = nseData.status === "fulfilled" ? nseData.value : null;
 
-    const proxy1M = Math.round(Number(row.avg_1m_return ?? 0) * 10000) / 100;
-    const breadth = Math.round(Number(row.breadth_score ?? 0.5) * 100) / 100;
-    const drawdown = Math.round(Number(row.drawdown_proxy ?? 0) * 100) / 100;
-    const sampleSize = Number(row.sample_size);
+    if (!ai) throw new Error("AIRegimeDetectionEngine returned null");
 
-    // Regime classification
-    let regime: MarketRegime = "NEUTRAL";
+    // Blend NSE live breadth with AI breadth estimate
+    const breadthScore = nse?.advanceDeclineRatio ?? ai.marketData.advanceDeclineRatio;
+    const pctAbove50DMA = nse?.pctAbove50DMAProxy ?? ai.marketData.pctAbove50DMA;
 
-    if (
-      proxy1M > BULL_PROXY_1M &&
-      breadth > 0.55
-    ) {
-      regime = "BULL";
-    } else if (
-      proxy1M < BEAR_PROXY_1M ||
-      drawdown > BEAR_DRAWDOWN_PCT ||
-      breadth < BEAR_BREADTH
-    ) {
-      regime = "BEAR";
-    }
-
-    const result: RegimeResult = {
-      regime,
-      proxy1MReturn: proxy1M,
-      breadthScore: breadth,
-      estimatedDrawdown: drawdown,
-      sampleSize,
-      stale: false,
-      calculation_timestamp: ts,
-      model_version: MODEL_VERSION,
+    result = {
+      regime: toMarketRegime(ai.regimeLabel),
+      label: ai.regimeLabel,
+      confidence: ai.confidence,
+      breadthScore,
+      vixProxy: ai.marketData.indiaVix,
+      pctAbove50DMA,
+      signals: ai.signals.map(s => `${s.name}: ${s.description}`),
+      source: "ai_regime_engine",
+      timestamp: ts,
     };
 
-    _cached = result;
-    _cachedAt = Date.now();
+    // 4. Persist to ai_regime_history
+    await aiRegimeDetectionEngine.persistRegime(ai).catch(() => {});
 
-    logger.info("[MarketRegime] Regime detected", {
-      event: "MARKET_REGIME_COMPUTED",
+    logger.info("[MarketRegime] Detected", {
+      event: "REGIME_DETECTED",
       user_id: "system",
-      regime,
-      proxy1M,
-      breadth,
-      drawdown,
-      sampleSize,
+      regime: result.regime,
+      confidence: result.confidence,
+      vix_proxy: result.vixProxy,
+      breadth: result.breadthScore,
+      pct_above_50dma: result.pctAbove50DMA,
+      nse_data_used: !!nse,
       latency_ms: 0,
       status: "success",
     });
-
-    return result;
   } catch (err) {
-    logger.error("[MarketRegime] Detection failed", err as Error);
-    const fallback: RegimeResult = {
+    logger.warn("[MarketRegime] Engine failed, using NEUTRAL fallback", {
+      event: "REGIME_FALLBACK",
+      user_id: "system",
+      error: (err as Error).message,
+      latency_ms: 0,
+      status: "warning",
+    });
+    result = {
       regime: "NEUTRAL",
-      proxy1MReturn: 0,
-      breadthScore: 0.5,
-      estimatedDrawdown: 0,
-      sampleSize: 0,
-      stale: true,
-      calculation_timestamp: ts,
-      model_version: MODEL_VERSION,
+      label: "sideways",
+      confidence: 30,
+      breadthScore: 1.0,
+      vixProxy: 15,
+      pctAbove50DMA: 50,
+      signals: ["Fallback: insufficient data"],
+      source: "fallback",
+      timestamp: ts,
     };
-    _cached = fallback;
-    _cachedAt = Date.now();
-    return fallback;
   }
-}
 
-/** Clear the regime cache (useful for testing) */
-export function clearRegimeCache(): void {
-  _cached = null;
-  _cachedAt = 0;
+  // 5. Update caches
+  const redis = await getRedis();
+  if (redis) {
+    try {
+      await redis.setEx(REDIS_KEY, CACHE_TTL_MS / 1000, JSON.stringify(result));
+    } catch { /* non-fatal */ }
+  }
+  _memCache = { result, at: Date.now() };
+
+  return result;
 }

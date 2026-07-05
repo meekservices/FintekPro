@@ -367,7 +367,7 @@ class AssetAllocationOptimizer {
 			const { modelPortfolioHoldings } = await import("@shared/schema");
 			const { isNull, avg, sql: drizzleSql } = await import("drizzle-orm");
 
-			// Aggregate average cagr_1y per (asset_class, sub_category) from active holdings
+			// Source 1: Aggregate average cagr_1y per (asset_class, sub_category) from active holdings
 			const rows = await db
 				.select({
 					assetClass:  modelPortfolioHoldings.assetClass,
@@ -389,6 +389,50 @@ class AssetAllocationOptimizer {
 					const live = Number(match.avgCagr1y);
 					if (live > 0 && live < 100) result[assetType] = live; // sanity bounds
 				}
+			}
+
+			// Source 2: Supplement equity returns from screener_derived_metrics (Audit #7 upgrade)
+			// This makes the efficient frontier market-adaptive rather than using only portfolio history.
+			const screenerReturns = await db.execute(drizzleSql`
+				SELECT
+					AVG(return_1y) FILTER (WHERE sector NOT IN ('Debt','Liquid') AND market_cap_category = 'Large Cap') AS large_cap_return,
+					AVG(return_1y) FILTER (WHERE sector NOT IN ('Debt','Liquid') AND market_cap_category = 'Mid Cap') AS mid_cap_return,
+					AVG(return_1y) FILTER (WHERE sector NOT IN ('Debt','Liquid') AND market_cap_category = 'Small Cap') AS small_cap_return,
+					STDDEV(return_1y) FILTER (WHERE sector NOT IN ('Debt','Liquid') AND market_cap_category = 'Large Cap') AS large_cap_vol,
+					STDDEV(return_1y) FILTER (WHERE sector NOT IN ('Debt','Liquid') AND market_cap_category = 'Mid Cap') AS mid_cap_vol,
+					STDDEV(return_1y) FILTER (WHERE sector NOT IN ('Debt','Liquid') AND market_cap_category = 'Small Cap') AS small_cap_vol
+				FROM screener_derived_metrics
+				WHERE return_1y IS NOT NULL AND return_1y > -50 AND return_1y < 200
+			`).catch(() => ({ rows: [] }));
+
+			const sr = (screenerReturns as any).rows?.[0];
+			if (sr) {
+				// Blend: 60% screener live, 40% portfolio CAGR (if both available)
+				const blend = (screener: number | null, portfolio: number | null, fallback: number): number => {
+					if (screener && portfolio) return Math.round((screener * 0.6 + portfolio * 0.4) * 10) / 10;
+					if (screener) return Math.round(screener * 10) / 10;
+					return portfolio ?? fallback;
+				};
+
+				const lcReturn = sr.large_cap_return ? Number(sr.large_cap_return) : null;
+				const mcReturn = sr.mid_cap_return ? Number(sr.mid_cap_return) : null;
+				const scReturn = sr.small_cap_return ? Number(sr.small_cap_return) : null;
+
+				if (lcReturn && lcReturn > 0 && lcReturn < 100)
+					result["large_cap_equity"] = blend(lcReturn, result["large_cap_equity"] ?? null, 12);
+				if (mcReturn && mcReturn > 0 && mcReturn < 100)
+					result["mid_cap_equity"] = blend(mcReturn, result["mid_cap_equity"] ?? null, 14);
+				if (scReturn && scReturn > 0 && scReturn < 100)
+					result["small_cap_equity"] = blend(scReturn, result["small_cap_equity"] ?? null, 16);
+
+				// Also update volatility estimates from screener data
+				// Stored in the cache with a "vol:" prefix for later override
+				const lcVol = sr.large_cap_vol ? Number(sr.large_cap_vol) : null;
+				const mcVol = sr.mid_cap_vol ? Number(sr.mid_cap_vol) : null;
+				const scVol = sr.small_cap_vol ? Number(sr.small_cap_vol) : null;
+				if (lcVol && lcVol > 0) result["_vol_large_cap_equity"] = Math.min(50, lcVol);
+				if (mcVol && mcVol > 0) result["_vol_mid_cap_equity"] = Math.min(60, mcVol);
+				if (scVol && scVol > 0) result["_vol_small_cap_equity"] = Math.min(70, scVol);
 			}
 		} catch {
 			// DB unavailable — fallback to static values (handled at call site)

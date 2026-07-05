@@ -28,10 +28,11 @@
 
 import { db } from "../db";
 import { sql, eq } from "drizzle-orm";
-import { modelPortfolios } from "../../shared/schema";
+import { modelPortfolios, faspAdvisoryOutputs } from "../../shared/schema";
 import { logger } from "../logger";
 import { detectRegime, MarketRegime } from "./market-regime-detector";
-import { checkRiskBudget, RiskReport } from "./portfolio-risk-guard";
+import { checkRiskBudget, buildPortfolioRiskSummary, RiskReport } from "./portfolio-risk-guard";
+import { FaspAIv2Service } from "./fasp-ai-v2-service";
 import {
   analyzeAlphaGaps,
   generateOptimizationSuggestions,
@@ -417,9 +418,46 @@ export async function autoApplyHighConfidenceSwaps(
       })
       .where(eq(modelPortfolios.id, portfolioId));
 
+    // Compute average confidence of applied swaps
     const avgConfidence = pSuggestions
       .filter(s => applied.some(a => a.includes(s.alphaDragHolding.name)))
       .reduce((sum, s) => sum + s.confidence_score, 0) / Math.max(applied.length, 1);
+
+    // ── FASP-AI v3.0: Persist to advisory outputs for SEBI audit trail ──
+    const confidence = FaspAIv2Service.computeConfidence({
+      responseLength: JSON.stringify(applied).length,
+      hasStructuredData: true,
+      factorCount: [...new Set(factors)].length,
+      userSegment: "institutional",
+    });
+    await db.insert(faspAdvisoryOutputs).values({
+      advisoryType: "model_portfolio",
+      userSegment: "institutional",
+      inputContext: {
+        portfolioId,
+        regime: regime.regime,
+        triggeredBy: "auto_rebalance",
+        swapsApplied: applied.length,
+      } as any,
+      recommendation: `Auto-rebalanced ${applied.length} holdings in portfolio ${portfolioId}. Changes: ${applied.join("; ").substring(0, 1000)}`,
+      outputSnapshot: {
+        applied,
+        queued,
+        marketRegime: regime.regime,
+        riskApproved: riskReport.approved,
+      } as any,
+      modelVersion: "FASP-AI-v3.0",
+      baseModel: "rule-engine",
+      confidenceScore: Math.round(avgConfidence * 100),
+      confidenceBreakdown: confidence.breakdown as any,
+      confidenceThreshold: 70,
+      meetsThreshold: avgConfidence >= 0.70,
+      humanReviewRequired: false,
+      sebiCircularRef: "SEBI/HO/IMD/2023/P/CIR/0188",
+      source: "cron",
+    }).catch(err => {
+      logger.warn("[Rebalance] FASP persist failed (non-fatal)", { error: err?.message });
+    });
 
     const result: AutoApplyResult = {
       portfolioId,

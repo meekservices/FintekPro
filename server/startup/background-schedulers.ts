@@ -664,6 +664,107 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 		// ── Phase 7: Supervisor Dashboard ────────────────────────────────────────
 		runStartupTask("Data Health Monitor", startDataHealthMonitor);
 
+		// ── Phase 5e: NSE India Beta + return_1m Enrichment ─────────────────────
+		// Weekly Saturday midnight IST — fills null beta values in screener_derived_metrics
+		// using NSE public API. Critical for RiskGuard accuracy (Audit #6 upgrade).
+		runStartupTask("NSE India Data Enrichment", async () => {
+			const WEEKLY_MS = 7 * 24 * 60 * 60 * 1000;
+			const now = new Date();
+			const next = new Date();
+			const daysToSat = (6 - now.getUTCDay() + 7) % 7 || 7;
+			next.setTime(now.getTime() + daysToSat * 24 * 60 * 60 * 1000);
+			next.setUTCHours(18, 30, 0, 0); // midnight IST
+
+			setTimeout(async () => {
+				const run = async () => {
+					try {
+						console.log("[NSEEnrich] Starting beta + return_1m enrichment...");
+						const { enrichScreenerWithNSEData } = await import("../services/screener/nse-india-provider");
+						const { db } = await import("../db");
+						const { sql } = await import("drizzle-orm");
+
+						// Get symbols with null beta (top 200 most critical)
+						const res = await db.execute(sql`
+							SELECT DISTINCT symbol FROM screener_derived_metrics
+							WHERE (beta IS NULL OR ABS(CAST(beta AS numeric) - 1.0) < 0.001)
+							  AND return_1y IS NOT NULL
+							ORDER BY return_1y DESC NULLS LAST
+							LIMIT 200
+						`).catch(() => ({ rows: [] }));
+
+						const symbols = ((res as any).rows ?? []).map((r: any) => r.symbol as string);
+						if (symbols.length > 0) {
+							const { enriched, errors } = await enrichScreenerWithNSEData(db, sql, symbols);
+							console.log(`[NSEEnrich] ✅ Enriched ${enriched} symbols, ${errors} errors`);
+						}
+					} catch (err) {
+						console.error("[NSEEnrich] Weekly enrichment failed:", err);
+					}
+					setInterval(run, WEEKLY_MS);
+				};
+				await run();
+			}, Math.max(next.getTime() - now.getTime(), 1000));
+
+			console.log("[NSEEnrich] 📊 NSE beta enrichment scheduled (weekly Saturday midnight IST)");
+		});
+
+		// ── Phase 5f: Redis Cache Warming ────────────────────────────────────────
+		// Warms the top 5 expensive operations into Redis on boot + daily refresh.
+		// Prevents cold-start latency spikes for regime/pick/screener data.
+		runStartupTask("Redis Cache Warming", async () => {
+			if (!process.env.REDIS_URL) {
+				console.log("[CacheWarm] REDIS_URL not set — skipping Redis warming");
+				return;
+			}
+			const warm = async () => {
+				try {
+					// 1. Market regime (consumed by portfolio intelligence engine)
+					const { detectRegime } = await import("../services/market-regime-detector");
+					await detectRegime(true); // force-refresh into Redis
+					console.log("[CacheWarm] ✅ Market regime cached");
+				} catch { /* non-fatal */ }
+
+				try {
+					// 2. screener_derived_metrics aggregate (consumed by optimizer + regime detector)
+					const { createClient } = await import("redis");
+					const redis = createClient({ url: process.env.REDIS_URL });
+					redis.on("error", () => {});
+					await redis.connect().catch(() => {});
+					const { db } = await import("../db");
+					const { sql } = await import("drizzle-orm");
+					const res = await db.execute(sql`
+						SELECT
+							COUNT(*) as total,
+							AVG(return_1y) as avg_return_1y,
+							AVG(CAST(beta AS numeric)) as avg_beta,
+							COUNT(*) FILTER (WHERE return_1y > 20) as above_20pct
+						FROM screener_derived_metrics
+						WHERE return_1y IS NOT NULL
+					`).catch(() => ({ rows: [] }));
+					const row = (res as any).rows?.[0];
+					if (row && redis.isOpen) {
+						await redis.setEx("screener:aggregate", 3600, JSON.stringify(row));
+						console.log("[CacheWarm] ✅ Screener aggregate cached (1h TTL)");
+					}
+					await redis.disconnect().catch(() => {});
+				} catch { /* non-fatal */ }
+			};
+
+			await warm();
+			// Refresh daily at 7:30 AM IST (02:00 UTC)
+			const now2 = new Date();
+			const next2 = new Date();
+			next2.setUTCHours(2, 0, 0, 0);
+			if (next2 <= now2) next2.setTime(next2.getTime() + 24 * 60 * 60 * 1000);
+			setTimeout(() => {
+				warm();
+				setInterval(warm, 24 * 60 * 60 * 1000);
+			}, next2.getTime() - now2.getTime());
+
+			console.log("[CacheWarm] 🔥 Redis cache warming active");
+		});
+
+
 		console.log(
 			"✅ [Schedulers] All background services initialized. Portal is self-operating.",
 		);
