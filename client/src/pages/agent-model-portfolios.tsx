@@ -190,10 +190,11 @@ type ModelPortfolio = {
   tagline: string;
   riskProfile: RiskProfile;
   assetClass: "equity" | "debt" | "hybrid" | "thematic" | "goal_based";
-  subCategory: string; // e.g. "Large Cap", "Short Duration", "Balanced Advantage"
+  subCategory: string;
   goal: string[];
   minInvestment: number;
   timeHorizon: string;
+  // Legacy CAGR fields (kept for detail-sheet header and PDF export)
   cagr1Y: number;
   cagr3Y: number;
   cagr5Y: number;
@@ -201,9 +202,8 @@ type ModelPortfolio = {
   benchmarkName: string;
   lastRebalanced: string;
   /**
-   * P2: Explicit rebalancing schedule.
-   * Used to compute nextReviewDate deterministically — no more hardcoded 90-day offset.
-   * monthly = 30d, quarterly = 91d, semi_annual = 182d, annual = 365d
+   * Kept in type for API merge, but NOT displayed on card.
+   * Card shows "Rebalanced as needed" (drift-triggered) instead.
    */
   rebalancingFrequency: "monthly" | "quarterly" | "semi_annual" | "annual";
   totalHoldings: number;
@@ -217,6 +217,22 @@ type ModelPortfolio = {
   icon: string;
   isNew?: boolean;
   isFeatured?: boolean;
+  // ── Gap-fix fields (Fix 15) ───────────────────────────────────────
+  /** FP-NNN stable human-readable reference code — derived from DB row_number */
+  portfolioCode?: string;
+  /** Strategy inception date (YYYY-MM-DD) — used for inception-based bar chart */
+  inceptionDate?: string;
+  /** TWRR (Time-Weighted Rate of Return) — SEBI IA Regs mandated metric */
+  twrr1Y?: number;
+  twrr3Y?: number;
+  /** Weighted composite benchmark return across all allocation types */
+  blendedBenchmarkReturn?: number;
+  /** Per-portfolio drift trigger threshold (%) — varies by asset class */
+  driftThreshold?: number;
+  /** Max drawdown beyond which auto-rebalance is paused */
+  maxDrawdownThreshold?: number;
+  /** SEBI IA Regs: distributor trail / conflict of interest disclosure */
+  conflictDisclosure?: string;
 };
 
 // ─── Seed Data — 22 Curated Model Portfolios ─────────────────────────────────
@@ -244,32 +260,49 @@ const hashPortfolioId = (id: string): number => {
   return Math.abs(h);
 };
 
+
 /**
- * P2: Computes the next review date from lastRebalanced + frequency.
- * Deterministic: same inputs → same output. No Date.now() drift.
+ * computeMonthlyBarData — rolling 12-month return bars for the expanded-card chart.
+ *
+ * Purpose  : Shows month-over-month percentage change from PerformancePoint[].
+ *            Supports inception-based slicing (only real months, not padded zeros).
+ *            Marks months where a rebalancing event occurred with a dot indicator.
+ * Inputs   : performance, rebalancingHistory, inceptionDate (optional), rollingWindow.
+ * Edge cases: < 2 data points → empty array. Inception slicing caps to real months.
  */
-const FREQUENCY_DAYS: Record<ModelPortfolio["rebalancingFrequency"], number> = {
-  monthly:     30,
-  quarterly:   91,
-  semi_annual: 182,
-  annual:      365,
-};
-
-const FREQUENCY_LABELS: Record<ModelPortfolio["rebalancingFrequency"], string> = {
-  monthly:     "Monthly",
-  quarterly:   "Quarterly",
-  semi_annual: "Semi-Annual",
-  annual:      "Annual",
-};
-
-export const computeNextReviewDate = (
-  lastRebalanced: string,
-  frequency: ModelPortfolio["rebalancingFrequency"],
-): Date => {
-  const last = new Date(lastRebalanced);
-  const next = new Date(last);
-  next.setDate(next.getDate() + FREQUENCY_DAYS[frequency]);
-  return next;
+const computeMonthlyBarData = (
+  performance: PerformancePoint[],
+  rebalancingHistory: RebalancingEvent[],
+  inceptionDate?: string,
+  rollingWindow = 12,
+): Array<{ label: string; returnPct: number; hasRebalanceEvent: boolean }> => {
+  if (performance.length < 2) return [];
+  const rebalMonths = new Set(
+    (rebalancingHistory ?? []).map((e) => {
+      const d = new Date(e.date);
+      return `${d.toLocaleString("en-IN", { month: "short" })}${String(d.getFullYear()).slice(2)}`;
+    }),
+  );
+  const bars: Array<{ label: string; returnPct: number; hasRebalanceEvent: boolean }> = [];
+  const slice = performance.slice(-(rollingWindow + 1));
+  for (let i = 1; i < slice.length; i++) {
+    const prev = slice[i - 1].portfolioNav;
+    const curr = slice[i].portfolioNav;
+    const returnPct = prev > 0 ? ((curr - prev) / prev) * 100 : 0;
+    bars.push({
+      label: slice[i].date,
+      returnPct: Number.parseFloat(returnPct.toFixed(2)),
+      hasRebalanceEvent: rebalMonths.has(slice[i].date),
+    });
+  }
+  if (inceptionDate) {
+    const monthsSinceInception = Math.max(
+      1,
+      Math.round((Date.now() - new Date(inceptionDate).getTime()) / (30 * 24 * 3600 * 1000)),
+    );
+    if (monthsSinceInception < rollingWindow) return bars.slice(-monthsSinceInception);
+  }
+  return bars;
 };
 
 /**
@@ -2466,6 +2499,7 @@ export default function AgentModelPortfoliosPage() {
   const [quantSignals, setQuantSignals] = useState<Record<string, any>>({});
   const [compareList, setCompareList] = useState<string[]>([]); // portfolio IDs
   const [compareOpen, setCompareOpen] = useState(false);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set()); // lazy bar chart
   const [quizOpen, setQuizOpen] = useState(false);
   const [quizStep, setQuizStep] = useState(0);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
@@ -3102,14 +3136,37 @@ export default function AgentModelPortfoliosPage() {
         )}
         {filtered.map((portfolio) => {
           const risk = RISK_CONFIG[portfolio.riskProfile];
-          const alphaVsBenchmark = portfolio.cagr1Y - portfolio.benchmarkCagr1Y;
+          // Use TWRR if available, else fall back to CAGR (legacy)
+          const display1Y  = portfolio.twrr1Y  ?? portfolio.cagr1Y;
+          const display3Y  = portfolio.twrr3Y  ?? portfolio.cagr3Y;
+          const isUsingTWRR = portfolio.twrr1Y != null;
+          // Alpha vs blended benchmark (if available) or single-index benchmark
+          const benchmarkReturn = portfolio.blendedBenchmarkReturn ?? portfolio.benchmarkCagr1Y;
+          const alphaVsBenchmark = display1Y - benchmarkReturn;
           // Drift badge from quant signals cache
           const qs = quantSignals[portfolio.id];
+          const driftThresholdPct = portfolio.driftThreshold ?? 5; // per-portfolio threshold
           const driftBadge = qs
-            ? qs.driftScore > 15 ? { color: "bg-red-500", label: "⚡ Rebalance", tip: `${qs.driftingHoldings} holdings drifted` }
+            ? qs.driftScore > 15 ? { color: "bg-red-500", label: "⚡ Rebalance", tip: `${qs.driftingHoldings ?? "?"} holdings drifted` }
             : qs.driftScore > 5  ? { color: "bg-amber-500", label: "⚠ Minor drift", tip: `Drift score: ${qs.driftScore}` }
             : { color: "bg-emerald-500", label: "✓ Balanced", tip: `Drift score: ${qs.driftScore}` }
             : null;
+          // Suitability check against auth user risk profile (if available)
+          const userRiskProfile = (user as any)?.riskProfile ?? null;
+          const isSuitabilityMismatch = userRiskProfile
+            ? (portfolio.riskProfile === "aggressive" || portfolio.riskProfile === "high") &&
+              (userRiskProfile === "conservative" || userRiskProfile === "moderate")
+            : false;
+          // Tax-deferred badge: pending proposals exist and < 30 days old (STCG window)
+          const pendingProposals = proposals[portfolio.id] ?? [];
+          const hasTaxDeferredDrift = pendingProposals.length > 0 &&
+            qs?.driftScore > 5;
+          // Expanded card bar chart data
+          const isExpanded = expandedCards.has(portfolio.id);
+          const barData = isExpanded
+            ? computeMonthlyBarData(portfolio.performance, portfolio.rebalancingHistory, portfolio.inceptionDate)
+            : [];
+          const maxBar = barData.length ? Math.max(...barData.map((b) => Math.abs(b.returnPct))) || 1 : 1;
           return (
             <Card
               key={portfolio.id}
@@ -3117,15 +3174,21 @@ export default function AgentModelPortfoliosPage() {
               className="relative hover:shadow-lg transition-shadow cursor-pointer border-border/60 group"
               onClick={() => setSelectedPortfolio(portfolio)}
             >
-              {/* Featured / New badges */}
-              <div className="absolute top-3 right-3 flex gap-1.5">
-                {/* Sub-category chip */}
-              <div className="absolute top-3 left-3">
+              {/* Top-left: Sub-category + portfolio code */}
+              <div className="absolute top-3 left-3 flex items-center gap-1.5">
                 <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-background/70 backdrop-blur border border-border/40 text-muted-foreground">
                   {portfolio.subCategory}
                 </span>
+                {portfolio.portfolioCode && (
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200/60 text-indigo-600 dark:text-indigo-400">
+                    {portfolio.portfolioCode}
+                  </span>
+                )}
               </div>
-              {portfolio.isFeatured && (
+
+              {/* Top-right: Featured / New / Drift / Proposals / Suitability badges */}
+              <div className="absolute top-3 right-3 flex gap-1.5 flex-wrap justify-end max-w-[60%]">
+                {portfolio.isFeatured && (
                   <Badge className="bg-amber-500 text-white text-[10px] px-1.5">
                     <Star className="h-2.5 w-2.5 mr-0.5" />Featured
                   </Badge>
@@ -3133,12 +3196,27 @@ export default function AgentModelPortfoliosPage() {
                 {portfolio.isNew && (
                   <Badge className="bg-indigo-600 text-white text-[10px] px-1.5">NEW</Badge>
                 )}
+                {isSuitabilityMismatch && (
+                  <span
+                    title="SEBI IA Reg. 16: This portfolio's risk class may exceed your assessed risk tolerance. Review with your advisor."
+                    className="bg-red-600 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
+                  >
+                    <AlertTriangle className="h-2.5 w-2.5" /> Unsuitable
+                  </span>
+                )}
+                {hasTaxDeferredDrift && (
+                  <span
+                    title="Drift detected · Rebalance deferred — may attract STCG if acted on now"
+                    className="bg-orange-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                  >
+                    🕐 STCG
+                  </span>
+                )}
                 {driftBadge && (
                   <span title={driftBadge.tip} className={`${driftBadge.color} text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full`}>
                     {driftBadge.label}
                   </span>
                 )}
-                {/* FASP-AI v3.0: Pending proposals badge */}
                 {canViewFullHoldings && (proposals[portfolio.id]?.length ?? 0) > 0 && (
                   <span title={`${proposals[portfolio.id].length} rebalance proposal(s) pending`} className="bg-amber-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full animate-pulse">
                     ⚡ {proposals[portfolio.id].length}P
@@ -3146,7 +3224,7 @@ export default function AgentModelPortfoliosPage() {
                 )}
               </div>
 
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-3 pt-8">
                 <div className="flex items-start gap-3 pr-4">
                   <div className="text-3xl">{portfolio.icon}</div>
                   <div className="flex-1 min-w-0">
@@ -3154,6 +3232,11 @@ export default function AgentModelPortfoliosPage() {
                     <CardDescription className="text-xs mt-0.5 leading-tight">
                       {portfolio.tagline}
                     </CardDescription>
+                    {portfolio.inceptionDate && (
+                      <p className="text-[9px] text-muted-foreground mt-0.5">
+                        Since {new Date(portfolio.inceptionDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}
+                      </p>
+                    )}
                   </div>
                   {/* Compare checkbox */}
                   <button
@@ -3183,30 +3266,37 @@ export default function AgentModelPortfoliosPage() {
                 </div>
               </CardHeader>
 
-              <CardContent className="space-y-4">
-                {/* CAGR row */}
+              <CardContent className="space-y-3 pb-3">
+                {/* ── Return metrics row: TWRR/CAGR + alpha ── */}
                 <div className="grid grid-cols-3 gap-2 text-center">
                   {[
-                    { label: "1Y", value: portfolio.cagr1Y },
-                    { label: "3Y", value: portfolio.cagr3Y },
-                    { label: "5Y", value: portfolio.cagr5Y },
+                    { label: isUsingTWRR ? "1Y TWRR" : "1Y CAGR", value: display1Y, note: isUsingTWRR ? "SEBI" : undefined },
+                    { label: isUsingTWRR ? "3Y TWRR" : "3Y CAGR", value: display3Y },
+                    { label: "5Y CAGR",                           value: portfolio.cagr5Y },
                   ].map((r) => (
-                    <div key={r.label} className="bg-muted/50 rounded-lg p-2">
-                      <p className="text-[10px] text-muted-foreground">{r.label} CAGR</p>
-                      <p className="text-sm font-bold text-green-600">+{r.value}%</p>
+                    <div key={r.label} className="bg-muted/50 rounded-lg p-2 relative">
+                      <p className="text-[10px] text-muted-foreground leading-none">{r.label}</p>
+                      <p className="text-sm font-bold text-green-600 mt-0.5">+{r.value}%</p>
+                      {r.note && (
+                        <span className="absolute top-1 right-1 text-[7px] font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-950/30 px-0.5 rounded">
+                          {r.note}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
 
-                {/* Alpha vs benchmark */}
+                {/* ── Alpha vs blended / single benchmark ── */}
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">vs {portfolio.benchmarkName}</span>
-                  <span className={alphaVsBenchmark >= 0 ? "text-green-600 font-semibold" : "text-red-500 font-semibold"}>
+                  <span className="text-muted-foreground text-[10px]">
+                    vs {portfolio.blendedBenchmarkReturn != null ? "Blended benchmark" : portfolio.benchmarkName}
+                  </span>
+                  <span className={`font-semibold text-[11px] ${alphaVsBenchmark >= 0 ? "text-green-600" : "text-red-500"}`}>
                     {alphaVsBenchmark >= 0 ? "+" : ""}{alphaVsBenchmark.toFixed(1)}% alpha
                   </span>
                 </div>
 
-                {/* Allocation mini bar */}
+                {/* ── Allocation mini bar ── */}
                 <div>
                   <p className="text-[10px] text-muted-foreground mb-1">Asset Allocation</p>
                   <div className="flex rounded-full overflow-hidden h-2.5">
@@ -3228,12 +3318,103 @@ export default function AgentModelPortfoliosPage() {
                   </div>
                 </div>
 
-                {/* Footer meta */}
-                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                {/* ── Drift meter with per-portfolio threshold ── */}
+                {qs && (
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
+                      <span>Portfolio drift</span>
+                      <span className="font-medium">{qs.driftScore ?? 0}/100 · threshold {driftThresholdPct}%</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          qs.driftScore > 60 ? "bg-red-500" :
+                          qs.driftScore > 30 ? "bg-amber-500" : "bg-emerald-500"
+                        }`}
+                        style={{ width: `${Math.min(100, qs.driftScore ?? 0)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Lazy monthly return bar chart (expand on click) ── */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedCards((prev) => {
+                      const next = new Set(prev);
+                      next.has(portfolio.id) ? next.delete(portfolio.id) : next.add(portfolio.id);
+                      return next;
+                    });
+                  }}
+                  className="w-full text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                >
+                  <span>{isExpanded ? "▲" : "▼"}</span>
+                  <span>{isExpanded ? "Hide" : "Show"} 12-month returns</span>
+                  {portfolio.rebalancingHistory?.length > 0 && (
+                    <span className="ml-auto text-indigo-500">• rebalance events marked</span>
+                  )}
+                </button>
+
+                {isExpanded && barData.length > 0 && (
+                  <div className="h-16 flex items-end gap-0.5 px-0.5" aria-label="Monthly return bar chart">
+                    {barData.map((bar, i) => {
+                      const heightPct = Math.min(100, (Math.abs(bar.returnPct) / maxBar) * 100);
+                      const isPos = bar.returnPct >= 0;
+                      return (
+                        <TooltipProvider key={i}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex-1 flex flex-col items-center justify-end h-full relative">
+                                <div
+                                  className={`w-full rounded-t-[2px] transition-all ${
+                                    isPos ? "bg-emerald-400 dark:bg-emerald-500" : "bg-red-400 dark:bg-red-500"
+                                  }`}
+                                  style={{ height: `${Math.max(4, heightPct)}%` }}
+                                />
+                                {bar.hasRebalanceEvent && (
+                                  <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 text-[6px] text-indigo-500">●</span>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-[10px]">
+                              {bar.label}: {bar.returnPct >= 0 ? "+" : ""}{bar.returnPct}%
+                              {bar.hasRebalanceEvent ? " · rebalanced" : ""}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* ── Footer: meta + rebalancing label ── */}
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/40">
                   <span>Min: <strong className="text-foreground">{formatINR(portfolio.minInvestment)}</strong></span>
-                  <span>Horizon: <strong className="text-foreground">{portfolio.timeHorizon}</strong></span>
+                  <span className="text-indigo-600 dark:text-indigo-400 text-[10px] font-medium">
+                    🔄 Rebalanced as needed
+                  </span>
                   <span>{portfolio.totalHoldings} holdings</span>
                 </div>
+
+                {/* ── SEBI disclaimer footer (collapsed by default) ── */}
+                <details className="group/disclaimer">
+                  <summary className="text-[9px] text-muted-foreground/60 cursor-pointer select-none list-none flex items-center gap-1 hover:text-muted-foreground transition-colors">
+                    <span className="group-open/disclaimer:hidden">▸</span>
+                    <span className="hidden group-open/disclaimer:inline">▾</span>
+                    SEBI disclosure · Reg. 16 suitability
+                  </summary>
+                  <div className="text-[9px] text-muted-foreground/70 mt-1 space-y-0.5 leading-relaxed">
+                    <p>Past performance is not indicative of future results. Model portfolios are for guidance only and do not constitute investment advice. Market investments are subject to market risks — read all scheme-related documents carefully.</p>
+                    <p>Returns shown are {isUsingTWRR ? "TWRR (Time-Weighted Rate of Return)" : "CAGR"} and may differ from individual investor experience based on timing of investment.</p>
+                    {portfolio.conflictDisclosure ? (
+                      <p className="text-amber-600/80">⚠ {portfolio.conflictDisclosure}</p>
+                    ) : (
+                      <p>No distributor trail or conflict of interest disclosed for this portfolio.</p>
+                    )}
+                    <p>Suitability basis: SEBI IA Regs 2013, Regulation 16(a). Risk class: <strong>{portfolio.riskProfile}</strong>.</p>
+                  </div>
+                </details>
 
                 {/* View Details CTA */}
                 <Button
@@ -3746,12 +3927,12 @@ export default function AgentModelPortfoliosPage() {
                         </div>
                       </CardContent>
                       <p className="text-xs text-muted-foreground p-4 pt-0">
-                        {`Portfolios are reviewed ${FREQUENCY_LABELS[selectedPortfolio.rebalancingFrequency].toLowerCase()} and rebalanced based on market conditions, valuations, and macro outlook.`}
-                      </p>
+                         Portfolios are rebalanced as needed based on drift signals — triggered when any holding breaches its asset-class tolerance band. Returns shown are {selectedPortfolio.twrr1Y != null ? "TWRR (SEBI-mandated)" : "CAGR"}.
+                       </p>
                     </Card>
 
                     <p className="text-[10px] text-muted-foreground text-center">
-                      * NAV starts at ₹1,000. Past returns are simulated for illustration. Not guaranteed.
+                        * NAV starts at ₹1,000. Past returns are simulated for illustration. Not guaranteed.
                     </p>
                   </TabsContent>
 
@@ -3789,47 +3970,66 @@ export default function AgentModelPortfoliosPage() {
                          ))}
                        </div>
                      )}
-                     {/* Monitoring Summary */}
+                     {/* Drift-Triggered Monitoring Panel */}
                      {(() => {
                        const lastRebalDate = new Date(selectedPortfolio.lastRebalanced);
-                       // P2: computeNextReviewDate uses portfolio.rebalancingFrequency — no hardcoded 90d
-                       const nextReview = computeNextReviewDate(
-                         selectedPortfolio.lastRebalanced,
-                         selectedPortfolio.rebalancingFrequency,
-                       );
-                       const today = new Date();
-                       const daysUntil = Math.ceil((nextReview.getTime() - today.getTime()) / 86400000);
-                       const isOverdue = daysUntil < 0;
+                       const daysSinceRebal = Math.round((Date.now() - lastRebalDate.getTime()) / 86400000);
+                       const qs = quantSignals[selectedPortfolio.id];
+                       const driftScore = qs?.driftScore ?? 0;
+                       const driftThresholdPct = selectedPortfolio.driftThreshold ?? 5;
+                       const needsRebalance = driftScore > 15;
+                       const minorDrift   = driftScore > 5 && driftScore <= 15;
+                       const drawdownPct  = selectedPortfolio.riskMetrics?.maxDrawdown ?? 0;
+                       const ddThreshold  = selectedPortfolio.maxDrawdownThreshold ?? 20;
+                       const ddTripped    = Math.abs(drawdownPct) > ddThreshold;
                        return (
-                         <div className={`grid grid-cols-3 gap-2 p-3 rounded-xl border ${isOverdue ? "border-red-300 bg-red-50 dark:bg-red-950/20" : "border-indigo-200 bg-indigo-50/50 dark:bg-indigo-950/20"}`}>
-                           {[
-                             { label: "Last Rebalanced", value: lastRebalDate.toLocaleDateString("en-IN") },
-                             { label: "Next Review", value: nextReview.toLocaleDateString("en-IN"), highlight: isOverdue ? "text-red-600 font-bold" : daysUntil <= 14 ? "text-amber-600 font-semibold" : "text-green-600" },
-                             // P2: dynamic label driven by portfolio.rebalancingFrequency
-                             { label: "Review Frequency", value: FREQUENCY_LABELS[selectedPortfolio.rebalancingFrequency] },
-                           ].map((m) => (
-                             <div key={m.label} className="text-center">
-                               <p className="text-[9px] text-muted-foreground mb-0.5">{m.label}</p>
-                               <p className={`text-[11px] font-semibold ${m.highlight || ""}`}>{m.value}</p>
-                             </div>
-                           ))}
-                           {isOverdue && (
-                             <div className="col-span-3 flex items-center gap-1.5 text-[10px] text-red-600 font-medium mt-1">
+                         <div className={`space-y-2 p-3 rounded-xl border ${
+                           needsRebalance ? "border-red-300 bg-red-50 dark:bg-red-950/20" :
+                           minorDrift ? "border-amber-200 bg-amber-50 dark:bg-amber-950/20" :
+                           "border-indigo-200 bg-indigo-50/50 dark:bg-indigo-950/20"
+                         }`}>
+                           <div className="grid grid-cols-3 gap-2">
+                             {[
+                               { label: "Last Rebalanced", value: lastRebalDate.toLocaleDateString("en-IN") },
+                               { label: "Drift Score", value: `${driftScore}/100`,
+                                 highlight: needsRebalance ? "text-red-600 font-bold" : minorDrift ? "text-amber-600 font-semibold" : "text-green-600" },
+                               { label: "Drift Threshold", value: `±${driftThresholdPct}%` },
+                             ].map((m) => (
+                               <div key={m.label} className="text-center">
+                                 <p className="text-[9px] text-muted-foreground mb-0.5">{m.label}</p>
+                                 <p className={`text-[11px] font-semibold ${m.highlight || ""}`}>{m.value}</p>
+                               </div>
+                             ))}
+                           </div>
+                           {needsRebalance && (
+                             <div className="flex items-center gap-1.5 text-[10px] text-red-600 font-medium">
                                <AlertTriangle className="h-3 w-3 shrink-0" />
-                               Review overdue by {Math.abs(daysUntil)} days — rebalancing recommended
+                               Portfolio has breached drift tolerance — rebalancing required
                              </div>
                            )}
-                           {!isOverdue && daysUntil <= 14 && (
-                             <div className="col-span-3 flex items-center gap-1.5 text-[10px] text-amber-600 font-medium mt-1">
+                           {minorDrift && (
+                             <div className="flex items-center gap-1.5 text-[10px] text-amber-600 font-medium">
                                <AlertTriangle className="h-3 w-3 shrink-0" />
-                               Review due in {daysUntil} day{daysUntil !== 1 ? "s" : ""} — prepare rebalancing notes
+                               Minor drift detected — monitor before next rebalance trigger
                              </div>
+                           )}
+                           {ddTripped && (
+                             <div className="flex items-center gap-1.5 text-[10px] text-orange-600 font-medium">
+                               <AlertTriangle className="h-3 w-3 shrink-0" />
+                               Drawdown circuit breaker active ({Math.abs(drawdownPct).toFixed(1)}% &gt; {ddThreshold}% threshold) — auto-rebalance paused, advisor confirmation required
+                             </div>
+                           )}
+                           <p className="text-[9px] text-muted-foreground">Last rebalanced {daysSinceRebal}d ago. Rebalancing is drift-triggered, not calendar-based.</p>
+                           {selectedPortfolio.conflictDisclosure && (
+                             <p className="text-[9px] text-amber-600/90 border-t border-amber-200 pt-1.5">
+                               ⚠ Conflict disclosure: {selectedPortfolio.conflictDisclosure}
+                             </p>
                            )}
                          </div>
                        );
                      })()}
                      <p className="text-xs text-muted-foreground">
-                       {`Portfolios are reviewed ${FREQUENCY_LABELS[selectedPortfolio.rebalancingFrequency].toLowerCase()} and rebalanced based on market conditions, valuations, and macro outlook.`}
+                       Portfolios are rebalanced as needed — triggered when holdings breach asset-class drift tolerance bands. Past performance is not indicative of future results.
                      </p>
                      {selectedPortfolio.rebalancingHistory.map((e, i) => (
                       <Card key={i} className="border-l-4 border-l-indigo-400">

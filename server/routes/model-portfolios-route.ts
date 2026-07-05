@@ -41,6 +41,10 @@ import {
   runPortfolioRebalance,
   buildInvestAllocation,
   runNightlyModelPortfolioRebalance,
+  checkPortfolioSuitability,
+  checkDrawdownCircuitBreaker,
+  computeBlendedBenchmark,
+  getDriftThreshold,
   type PortfolioQuantInput,
   type QuantHolding,
 } from "../services/model-portfolio-quant-service";
@@ -2054,6 +2058,63 @@ modelPortfoliosRouter.post("/admin/fix-total-holdings", async (_req: Request, re
   } catch (err: any) {
     logger.error("[ModelPortfolios] fix-total-holdings error:", err);
     return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/model-portfolios/:id/suitability
+ * ───────────────────────────────────────────
+ * SEBI IA Regs 2013, Reg. 16(a) — mandatory suitability check before any
+ * portfolio recommendation or assignment.
+ *
+ * Query params: clientRiskProfile (conservative|moderate|aggressive|very_aggressive)
+ * Response: { suitable, requiresOverride, reason, portfolioRiskProfile, clientRiskProfile }
+ */
+modelPortfoliosRouter.get("/:id/suitability", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const clientRiskProfile = (req.query.clientRiskProfile as string)?.toLowerCase() ?? "moderate";
+
+    const result = await db.execute(sql`
+      SELECT id, name, risk_profile FROM model_portfolios
+      WHERE id = ${id} AND is_published = true LIMIT 1
+    `);
+    const row = result.rows[0] as any;
+    if (!row) {
+      return res.status(404).json({ success: false, error_code: "PORTFOLIO_NOT_FOUND", message: `Portfolio '${id}' not found`, retryable: false });
+    }
+
+    const suitability = checkPortfolioSuitability(row.risk_profile ?? "moderate", clientRiskProfile);
+
+    // SEBI IA Regs: every suitability check must be logged
+    logger.info("[ModelPortfolios] Suitability check performed", {
+      event: "SUITABILITY_CHECK",
+      portfolio_id: id,
+      portfolio_risk_profile: row.risk_profile,
+      client_risk_profile: clientRiskProfile,
+      suitable: suitability.suitable,
+      requires_override: suitability.requiresOverride,
+      latency_ms: Date.now() - t0,
+      status: suitability.suitable ? "pass" : "warn",
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        portfolioId: id,
+        portfolioRiskProfile: row.risk_profile,
+        clientRiskProfile,
+        suitable: suitability.suitable,
+        requiresOverride: suitability.requiresOverride,
+        reason: suitability.reason,
+        regulatoryBasis: "SEBI Investment Adviser Regulations 2013, Regulation 16(a)",
+      },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] suitability check error", { event: "SUITABILITY_CHECK_ERROR", error: err.message, retryable: true });
+    return res.status(500).json({ success: false, error_code: "SUITABILITY_ERROR", message: err.message, retryable: true });
   }
 });
 

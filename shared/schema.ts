@@ -11361,6 +11361,22 @@ export const modelPortfolios = pgTable("model_portfolios", {
   createdAt:            timestamp("created_at").defaultNow(),
   updatedAt:            timestamp("updated_at").defaultNow(),
   source:               varchar("source").default("api"),
+  // ── Gap-fix columns (SEBI compliance + return optimisation) ─────────────────
+  /** FP-NNN stable human-readable ID — printed on cards, reports, and audit logs */
+  portfolioCode:        varchar("portfolio_code"),                           // e.g. "FP-001"
+  /** Actual strategy inception date — used for inception-based rolling bar chart */
+  inceptionDate:        date("inception_date"),
+  /** TWRR (Time-Weighted Rate of Return) — SEBI IA Regs require TWRR not CAGR for advisory reporting */
+  twrr1Y:               numeric("twrr_1y"),
+  twrr3Y:               numeric("twrr_3y"),
+  /** Blended benchmark return — weighted composite per asset allocation; replaces single-index comparison */
+  blendedBenchmarkReturn: numeric("blended_benchmark_return"),
+  /** Per-portfolio drift trigger threshold (%) — overrides global 5% default */
+  driftThreshold:       numeric("drift_threshold").default("5"),             // e.g. 2 for Liquid, 7 for Aggressive
+  /** Max drawdown beyond which auto-rebalance pauses and an alert fires */
+  maxDrawdownThreshold: numeric("max_drawdown_threshold"),                   // e.g. 8 for Conservative, 25 for Aggressive
+  /** SEBI IA Regs: free-text disclosure of any distributor trail/conflict for this portfolio */
+  conflictDisclosure:   text("conflict_disclosure"),
 }, (table) => [
   index("idx_model_portfolios_risk").on(table.riskProfile),
   index("idx_model_portfolios_asset").on(table.assetClass),
