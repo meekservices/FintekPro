@@ -34,44 +34,89 @@
 import { logger } from "../logger";
 
 // ── Secret name mapping: ENV_VAR_NAME → GCP Secret Manager ID ────────────────
-// Only the most sensitive secrets are managed via GCP Secret Manager.
-// Lower-sensitivity config (APP_URL, NODE_ENV etc.) stays as env vars.
+// GCP secrets use the same UPPER_CASE name as the env var (no translation).
+// Full inventory verified 2026-07-05 from: gcloud secrets list --project=fintekpro
 export const SECRET_MAP: Record<string, string> = {
-  // Database
-  DATABASE_URL:                    "database-url",
-  // Gemini AI
-  GEMINI_API_KEY:                  "gemini-api-key",
-  AI_INTEGRATIONS_GOOGLE_API_KEY:  "google-ai-api-key",
-  // Redis
-  REDIS_URL:                       "redis-url",
-  // Brokers
-  ALPACA_API_KEY:                  "alpaca-api-key",
-  ALPACA_SECRET_KEY:               "alpaca-secret-key",
-  ALPACA_BROKER_KEY_ID:            "alpaca-broker-key-id",
-  ALPACA_BROKER_SECRET_KEY:        "alpaca-broker-secret-key",
-  ALPACA_WEBHOOK_SECRET:           "alpaca-webhook-secret",
-  // Data providers
-  ALPHAVANTAGE_API_KEY:            "alphavantage-api-key",
-  FMP_API_KEY:                     "fmp-api-key",
-  // Messaging / auth
-  TWILIO_ACCOUNT_SID:              "twilio-account-sid",
-  TWILIO_AUTH_TOKEN:               "twilio-auth-token",
-  SENDGRID_API_KEY:                "sendgrid-api-key",
-  SESSION_SECRET:                  "session-secret",
-  JWT_SECRET:                      "jwt-secret",
-  // Payments
-  RAZORPAY_KEY_ID:                 "razorpay-key-id",
-  RAZORPAY_KEY_SECRET:             "razorpay-key-secret",
-  STRIPE_SECRET_KEY:               "stripe-secret-key",
-  STRIPE_WEBHOOK_SECRET:           "stripe-webhook-secret",
-  // Compliance / KYC
-  AUTHBRIDGE_API_KEY:              "authbridge-api-key",
-  AUTHBRIDGE_CLIENT_SECRET:        "authbridge-client-secret",
-  AUTHBRIDGE_ESIGN_API_KEY:        "authbridge-esign-api-key",
-  AUTHBRIDGE_ESIGN_CLIENT_SECRET:  "authbridge-esign-client-secret",
-  // AMFI / BSE
-  BSE_BOND_PASSWORD:               "bse-bond-password",
-  APY_API_KEY:                     "apy-api-key",
+  // ── Database ────────────────────────────────────────────────────────────────
+  DATABASE_URL:                     "DATABASE_URL",
+  PRODUCTION_DATABASE_URL:          "PRODUCTION_DATABASE_URL",
+  // ── AI / LLM ────────────────────────────────────────────────────────────────
+  GEMINI_API_KEY:                   "GEMINI_API_KEY",
+  OPENAI_API_KEY:                   "OPENAI_API_KEY",
+  GROQ_API_KEY:                     "GROQ_API_KEY",
+  CEREBRAS_API_KEY:                 "CEREBRAS_API_KEY",
+  // ── Market data providers ────────────────────────────────────────────────────
+  FMP_API_KEY:                      "FMP_API_KEY",
+  ALPHA_VANTAGE_API_KEY:            "ALPHA_VANTAGE_API_KEY",
+  FINNHUB_API_KEY:                  "FINNHUB_API_KEY",
+  POLYGON_API_KEY:                  "POLYGON_API_KEY",
+  INDIAN_API_KEY:                   "INDIAN_API_KEY",
+  EXCHANGE_RATE_API_KEY:            "EXCHANGE_RATE_API_KEY",
+  // ── Infrastructure / caching ─────────────────────────────────────────────────
+  REDIS_URL:                        "REDIS_URL",
+  PYTHON_SERVICE_URL:               "PYTHON_SERVICE_URL",
+  PYTHON_SERVICE_SECRET:            "PYTHON_SERVICE_SECRET",
+  SERVICE_NAME:                     "SERVICE_NAME",
+  DEFAULT_OBJECT_STORAGE_BUCKET_ID: "DEFAULT_OBJECT_STORAGE_BUCKET_ID",
+  // ── Payments — Cashfree ──────────────────────────────────────────────────────
+  CASHFREE_APP_ID:                  "CASHFREE_APP_ID",
+  CASHFREE_SECRET_KEY:              "CASHFREE_SECRET_KEY",
+  CASHFREE_ENVIRONMENT:             "CASHFREE_ENVIRONMENT",
+  CASHFREE_PG_APP_ID:               "CASHFREE_PG_APP_ID",
+  CASHFREE_PG_SECRET_KEY:           "CASHFREE_PG_SECRET_KEY",
+  CASHFREE_PAYOUTS_APP_ID:          "CASHFREE_PAYOUTS_APP_ID",
+  CASHFREE_PAYOUTS_SECRET_KEY:      "CASHFREE_PAYOUTS_SECRET_KEY",
+  // ── Payments — PhonePe ───────────────────────────────────────────────────────
+  PHONEPE_MERCHANT_ID:              "PHONEPE_MERCHANT_ID",
+  PHONEPE_SALT_KEY:                 "PHONEPE_SALT_KEY",
+  PHONEPE_SALT_INDEX:               "PHONEPE_SALT_INDEX",
+  // ── Testing / sandbox ────────────────────────────────────────────────────────
+  SANDBOX_API_KEY:                  "SANDBOX_API_KEY",
+  SANDBOX_API_SECRET:               "SANDBOX_API_SECRET",
+  SANDBOX_BASE_URL:                 "SANDBOX_BASE_URL",
+  // ── Compliance / KYC ────────────────────────────────────────────────────────
+  AUTHBRIDGE_API_KEY:               "AUTHBRIDGE_API_KEY",
+  AUTHBRIDGE_CLIENT_ID:             "AUTHBRIDGE_CLIENT_ID",
+  AUTHBRIDGE_CLIENT_SECRET:         "AUTHBRIDGE_CLIENT_SECRET",
+  KMS_KEY_ID:                       "KMS_KEY_ID",
+  COMPLIANCE_SECRET:                "COMPLIANCE_SECRET",
+  TRUTHSCREEN_USERNAME:             "TRUTHSCREEN_USERNAME",
+  TRUTHSCREEN_PASSWORD:             "TRUTHSCREEN_PASSWORD",
+  // ── eSign / IRIS ─────────────────────────────────────────────────────────────
+  IRIS_USERNAME:                    "IRIS_USERNAME",
+  IRIS_PASSWORD:                    "IRIS_PASSWORD",
+  // ── Encryption ───────────────────────────────────────────────────────────────
+  ENCRYPTION_MASTER_KEY:            "ENCRYPTION_MASTER_KEY",
+  FIELD_ENCRYPTION_KEY:             "FIELD_ENCRYPTION_KEY",
+  // ── Session / auth ───────────────────────────────────────────────────────────
+  SESSION_SECRET:                   "SESSION_SECRET",
+  // ── Communication — Twilio ───────────────────────────────────────────────────
+  TWILIO_ACCOUNT_SID:               "TWILIO_ACCOUNT_SID",
+  TWILIO_AUTH_TOKEN:                "TWILIO_AUTH_TOKEN",
+  TWILIO_PHONE_NUMBER:              "TWILIO_PHONE_NUMBER",
+  TWILIO_PRIMARY_PHONE:             "TWILIO_PRIMARY_PHONE",
+  TWILIO_MESSAGING_SERVICE_SID:     "TWILIO_MESSAGING_SERVICE_SID",
+  TWILIO_VERIFY_SERVICE_SID:        "TWILIO_VERIFY_SERVICE_SID",
+  TWILIO_WHATSAPP_NUMBER:           "TWILIO_WHATSAPP_NUMBER",
+  // ── Communication — Email ────────────────────────────────────────────────────
+  EMAIL_HOST:                       "EMAIL_HOST",
+  EMAIL_PORT:                       "EMAIL_PORT",
+  EMAIL_USER:                       "EMAIL_USER",
+  EMAIL_PASS:                       "EMAIL_PASS",
+  EMAIL_FROM:                       "EMAIL_FROM",
+  // ── Communication — Slack ────────────────────────────────────────────────────
+  SLACK_BOT_TOKEN:                  "SLACK_BOT_TOKEN",
+  SLACK_SIGNING_SECRET:             "SLACK_SIGNING_SECRET",
+  // ── CRM — Zoho ───────────────────────────────────────────────────────────────
+  ZOHO_CLIENT_ID:                   "ZOHO_CLIENT_ID",
+  ZOHO_CLIENT_SECRET:               "ZOHO_CLIENT_SECRET",
+  ZOHO_REFRESH_TOKEN:               "ZOHO_REFRESH_TOKEN",
+  ZOHO_WEBHOOK_SECRET:              "ZOHO_WEBHOOK_SECRET",
+  // ── Infra — Cloudflare ───────────────────────────────────────────────────────
+  CLOUDFLARE_API_KEY:               "CLOUDFLARE_API_KEY",
+  CLOUDFLARE_ACCOUNT_ID:            "CLOUDFLARE_ACCOUNT_ID",
+  // ── Dev tools ────────────────────────────────────────────────────────────────
+  GITHUB_TOKEN:                     "GITHUB_TOKEN",
 };
 
 const GCP_PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || "fintekpro";
