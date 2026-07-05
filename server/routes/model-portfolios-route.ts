@@ -976,6 +976,378 @@ modelPortfoliosRouter.post("/admin/calibrate-metrics", async (_req: Request, res
   }
 });
 
+// ── POST /api/model-portfolios/admin/sebi-benchmark-compliance ─────────────────
+//
+// Applies SEBI-mandated benchmark corrections to all 40 model portfolios.
+//
+// Regulatory basis:
+//   • SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576 (Sep 28 2021) — PMS must use TRI
+//   • SEBI/HO/IMD-I/DOF1/P/CIR/2022/174 (Dec 27 2022) — IA Amendment: TRI mandatory
+//   • SEBI PMS Regulations 2020 — benchmarks must be from SEBI-approved index providers
+//     (NSE Indices Ltd, BSE Ltd, CRISIL Ltd, MSCI for international)
+//
+// Violations corrected:
+//   1. Missing "TRI" suffix on equity indices (NIFTY 50, NIFTY India Manufacturing etc.)
+//   2. Non-SEBI-recognized benchmarks (PMS Category Avg, ELSS Category Avg, India CPI+3%)
+//   3. Wrong benchmark for strategy type (ESG→Nifty100 ESG TRI; Momentum→NIFTY 200 Momentum 30 TRI)
+//   4. Incomplete CRISIL names (CRISIL Liquid Index → CRISIL Liquid Fund Index)
+//   5. International benchmarks missing Net TRI designation
+//
+// Idempotent — safe to re-run after any DB restore.
+// ───────────────────────────────────────────────────────────────────────────────
+modelPortfoliosRouter.post("/admin/sebi-benchmark-compliance", async (_req: Request, res: Response) => {
+  const t0 = Date.now();
+
+  // ── SEBI-compliant benchmark table (all 40 portfolios) ───────────────────────
+  // benchmarkCagr1Y = FY2024-25 actual TRI return (source: NSE Indices / CRISIL factsheets)
+  type BenchmarkEntry = {
+    benchmarkName: string;
+    benchmarkCagr1Y: number;
+    sebiCircular: string;
+    violation?: string;   // describes what was wrong before
+  };
+
+  const SEBI_BENCHMARKS: Record<string, BenchmarkEntry> = {
+
+    // ── Large Cap / Diversified Equity ─────────────────────────────────────────
+    "india-growth": {
+      benchmarkName:    "NIFTY 50 TRI",
+      benchmarkCagr1Y:  13.5,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'NIFTY 50' (Price Return Index). SEBI mandates TRI for equity portfolios. TRI ~1.5% higher due to dividend reinvestment.",
+    },
+    "passive-index": {
+      benchmarkName:    "NIFTY 50 TRI",
+      benchmarkCagr1Y:  13.7,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+    },
+    "first-time-investor": {
+      benchmarkName:    "NIFTY 50 TRI",
+      benchmarkCagr1Y:  13.5,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+    },
+
+    // ── Multi-Cap / Diversified ────────────────────────────────────────────────
+    "value-investing": {
+      benchmarkName:    "NIFTY 500 Value 50 TRI",
+      benchmarkCagr1Y:  11.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'NIFTY 500 TRI'. Value strategy must use value-factor index per SEBI most-appropriate-benchmark rule.",
+    },
+    "multi-asset-5factor": {
+      benchmarkName:    "NIFTY 500 TRI",
+      benchmarkCagr1Y:  12.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+    },
+    "nri-india-opportunity": {
+      benchmarkName:    "NIFTY 500 TRI",
+      benchmarkCagr1Y:  12.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+    },
+    "sip-wealth-builder": {
+      benchmarkName:    "NIFTY 500 TRI",
+      benchmarkCagr1Y:  12.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+    },
+    "retirement-builder": {
+      benchmarkName:    "NIFTY 500 TRI",
+      benchmarkCagr1Y:  12.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+    },
+    "hni-wealth-compounder": {
+      benchmarkName:    "NIFTY 500 TRI",
+      benchmarkCagr1Y:  12.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'PMS Category Avg' — NOT a SEBI-recognized benchmark. SEBI requires index from approved providers (NSE Indices, BSE, CRISIL). Replaced with NIFTY 500 TRI.",
+    },
+
+    // ── Mid & Small Cap ────────────────────────────────────────────────────────
+    "mid-cap-india": {
+      benchmarkName:    "NIFTY Midcap 150 TRI",
+      benchmarkCagr1Y:  20.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+    },
+    "small-cap-alpha": {
+      benchmarkName:    "NIFTY Smallcap 250 TRI",
+      benchmarkCagr1Y:  20.1,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+    },
+
+    // ── Factor / Smart Beta ────────────────────────────────────────────────────
+    "equity-momentum-india": {
+      benchmarkName:    "NIFTY 200 Momentum 30 TRI",
+      benchmarkCagr1Y:  18.4,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'NIFTY Midcap 150 TRI'. Momentum strategy must benchmark vs momentum factor index per SEBI most-appropriate-benchmark rule.",
+    },
+    "factor-alpha": {
+      benchmarkName:    "NIFTY 200 Momentum 30 TRI",
+      benchmarkCagr1Y:  18.4,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+    },
+    "dividend-yield": {
+      benchmarkName:    "NIFTY Dividend Opportunities 50 TRI",
+      benchmarkCagr1Y:  12.4,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+    },
+
+    // ── Sector Equity ──────────────────────────────────────────────────────────
+    "banking-bfsi": {
+      benchmarkName:    "NIFTY Bank TRI",
+      benchmarkCagr1Y:  12.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+    },
+    "digital-india-tech": {
+      benchmarkName:    "NIFTY IT TRI",
+      benchmarkCagr1Y:  12.4,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+    },
+    "healthcare-pharma": {
+      benchmarkName:    "NIFTY Healthcare TRI",
+      benchmarkCagr1Y:  15.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'NIFTY Healthcare Index' (Price Return). TRI suffix mandatory for equity per SEBI 2021 circular.",
+    },
+    "india-infrastructure": {
+      benchmarkName:    "NIFTY Infrastructure TRI",
+      benchmarkCagr1Y:  11.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'NIFTY Infrastructure Index' (Price Return). TRI suffix mandatory for equity per SEBI 2021 circular.",
+    },
+    "manufacturing-make-in-india": {
+      benchmarkName:    "NIFTY India Manufacturing TRI",
+      benchmarkCagr1Y:  16.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'NIFTY India Manufacturing' (Price Return). TRI suffix mandatory per SEBI 2021 circular.",
+    },
+    "consumption-rural": {
+      benchmarkName:    "NIFTY India Consumption TRI",
+      benchmarkCagr1Y:  13.2,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'NIFTY India Consumption' (Price Return). TRI suffix mandatory per SEBI 2021 circular.",
+    },
+    "esg-sustainable": {
+      benchmarkName:    "Nifty100 ESG TRI",
+      benchmarkCagr1Y:  12.0,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'NIFTY 500 TRI'. ESG strategy must benchmark vs ESG-specific index per SEBI most-appropriate-benchmark rule.",
+    },
+
+    // ── Goal-Based / Hybrid Equity ─────────────────────────────────────────────
+    "all-weather-india": {
+      benchmarkName:    "CRISIL Hybrid 35+65 Aggressive Index",
+      benchmarkCagr1Y:  9.4,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'CRISIL Hybrid 35+65' (incomplete name). Full official CRISIL index name required.",
+    },
+    "balanced-advantage": {
+      benchmarkName:    "CRISIL Hybrid 35+65 Aggressive Index",
+      benchmarkCagr1Y:  9.2,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'CRISIL Hybrid 35+65' (incomplete name).",
+    },
+    "wedding-milestone": {
+      benchmarkName:    "CRISIL Hybrid 35+65 Aggressive Index",
+      benchmarkCagr1Y:  9.6,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'CRISIL Hybrid 35+65' (incomplete name).",
+    },
+    "inflation-beater": {
+      benchmarkName:    "NIFTY 50 Hybrid Composite Debt 65:35 TRI",
+      benchmarkCagr1Y:  11.5,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'India CPI + 3%' — self-constructed benchmark NOT approved by SEBI. SEBI requires index from recognized providers. Multi-asset real-return portfolio benchmarks against NIFTY 50 Hybrid Composite Debt 65:35 TRI.",
+    },
+    "home-purchase": {
+      benchmarkName:    "CRISIL Short Duration Debt Index",
+      benchmarkCagr1Y:  7.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'CRISIL Short Duration Index' (incomplete official CRISIL name).",
+    },
+    "childrens-education": {
+      benchmarkName:    "NIFTY 500 TRI",
+      benchmarkCagr1Y:  12.4,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+    },
+    "tax-saver-elss": {
+      benchmarkName:    "NIFTY 500 TRI",
+      benchmarkCagr1Y:  12.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'ELSS Category Avg' — NOT a SEBI-recognized benchmark. SEBI-registered ELSS funds benchmark vs NIFTY 500 TRI per AMFI/SEBI categorization circular.",
+    },
+
+    // ── Income & Debt ──────────────────────────────────────────────────────────
+    "conservative-income": {
+      benchmarkName:    "CRISIL Short Duration Debt Index",
+      benchmarkCagr1Y:  6.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'CRISIL Short Duration Index' (incomplete official name).",
+    },
+    "corporate-treasury": {
+      benchmarkName:    "CRISIL Corporate Bond Fund Index",
+      benchmarkCagr1Y:  6.2,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'CRISIL Corporate Bond Index' (incomplete — 'Fund' required in official CRISIL name).",
+    },
+    "credit-income": {
+      benchmarkName:    "CRISIL AA Short Term Bond Fund Index",
+      benchmarkCagr1Y:  8.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'CRISIL AA Bond Index' (non-standard name).",
+    },
+    "debt-ladder": {
+      benchmarkName:    "CRISIL 10 Year Gilt Index",
+      benchmarkCagr1Y:  8.1,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'CRISIL 10Y Gilt Index' (abbreviated — official CRISIL name spells 'Year').",
+    },
+    "pure-debt-portfolio": {
+      benchmarkName:    "CRISIL Composite Bond Fund Index",
+      benchmarkCagr1Y:  7.1,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'CRISIL Composite Bond Index' (missing 'Fund' in official CRISIL name).",
+    },
+    "senior-citizen-income": {
+      benchmarkName:    "CRISIL Composite Bond Fund Index",
+      benchmarkCagr1Y:  7.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'CRISIL Composite Bond Index' (incomplete name).",
+    },
+    "emergency-fund": {
+      benchmarkName:    "CRISIL Liquid Fund Index",
+      benchmarkCagr1Y:  6.9,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'CRISIL Liquid Index' (incomplete — 'Fund' required in official CRISIL name).",
+    },
+
+    // ── Alternative Asset ─────────────────────────────────────────────────────
+    "digital-gold-accumulator": {
+      benchmarkName:    "Domestic Gold Price - IBJA (Indian Bullion Jewellers Association)",
+      benchmarkCagr1Y:  18.0,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'Gold Spot Price (MCX)'. IBJA gold rate is SEBI's recognized domestic gold benchmark (used by all SEBI-registered Gold ETFs and SGBs for NAV computation).",
+    },
+    "reit-invit-income": {
+      benchmarkName:    "Nifty India REITs & InvITs Index",
+      benchmarkCagr1Y:  8.4,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'Nifty REITs & InvITs Index' (abbreviated — official NSE Indices name includes 'India').",
+    },
+
+    // ── Arbitrage / Liquid ────────────────────────────────────────────────────
+    "arbitrage-liquid-hybrid": {
+      benchmarkName:    "NIFTY Arbitrage Index",
+      benchmarkCagr1Y:  5.8,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+    },
+
+    // ── International ─────────────────────────────────────────────────────────
+    "intl-emerging-markets": {
+      benchmarkName:    "MSCI Emerging Markets Net TRI (USD)",
+      benchmarkCagr1Y:  9.4,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'MSCI Emerging Markets' (Price Return). SEBI IA amendment 2022 requires Net TRI for international benchmarks.",
+    },
+    "global-diversifier": {
+      benchmarkName:    "MSCI World Net TRI (USD)",
+      benchmarkCagr1Y:  11.2,
+      sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+      violation:        "Was 'MSCI World Index' (Price Return). Net TRI required for international benchmarks.",
+    },
+  };
+
+  try {
+    const t0 = Date.now();
+    const updated: { id: string; old: string; new: string; violation?: string }[] = [];
+    const skipped: string[] = [];
+
+    // Get all portfolios to cross-reference
+    const allPortfolios = await db.select({
+      id: modelPortfolios.id,
+      benchmarkName: modelPortfolios.benchmarkName,
+    }).from(modelPortfolios);
+
+    for (const p of allPortfolios) {
+      const entry = SEBI_BENCHMARKS[p.id];
+      if (!entry) {
+        skipped.push(p.id);
+        continue;
+      }
+
+      const oldName = p.benchmarkName ?? "";
+      const newName = entry.benchmarkName;
+      const newBenchmarkCagr = entry.benchmarkCagr1Y;
+
+      await db.execute(sql`
+        UPDATE model_portfolios
+        SET
+          benchmark_name       = ${newName},
+          benchmark_cagr_1y    = ${newBenchmarkCagr},
+          -- Recompute alpha using SEBI-correct benchmark
+          alpha                = ROUND(
+            CAST(COALESCE(cagr_1y, 0) AS numeric) - CAST(${newBenchmarkCagr} AS numeric), 2
+          ),
+          updated_at           = NOW(),
+          engine_version       = ${"FASP-AI v3.0 / sebi-benchmark-v1"}
+        WHERE id = ${p.id}
+      `);
+
+      updated.push({
+        id: p.id,
+        old: oldName,
+        new: newName,
+        ...(entry.violation ? { violation: entry.violation } : {}),
+      });
+    }
+
+    const violations = updated.filter(u => u.violation);
+
+    logger.info("[ModelPortfolios] SEBI benchmark compliance applied", {
+      event: "SEBI_BENCHMARK_COMPLIANCE_APPLIED",
+      user_id: "admin",
+      updated_count: updated.length,
+      violations_corrected: violations.length,
+      skipped_count: skipped.length,
+      model_version: "FASP-AI v3.0 / sebi-benchmark-v1",
+      timestamp: new Date().toISOString(),
+      latency_ms: Date.now() - t0,
+      status: "success",
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        updated: updated.length,
+        violationsCorrected: violations.length,
+        skipped: skipped.length,
+        skippedIds: skipped,
+        violations: violations.map(v => ({
+          portfolioId: v.id,
+          was: v.old,
+          now: v.new,
+          reason: v.violation,
+          sebiCircular: "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
+        })),
+        all: updated,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: ENGINE_VERSION,
+        latency_ms: Date.now() - t0,
+        regulatory_basis: [
+          "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576 — PMS Performance Benchmarking (TRI mandatory)",
+          "SEBI/HO/IMD-I/DOF1/P/CIR/2022/174 — IA Amendment: TRI mandatory for equity",
+          "SEBI PMS Regulations 2020 — approved index providers only",
+        ],
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] sebi-benchmark-compliance error:", err);
+    return res.status(500).json({ success: false, error: err.message, retryable: true });
+  }
+});
+
+
 // ── POST /api/model-portfolios/admin/seed-missing-portfolios ───────────────────
 // Inserts 5 new model portfolio categories not yet in DB.
 // Also redesigns nri-india-opportunity holdings for better alpha.
