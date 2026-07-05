@@ -2527,7 +2527,6 @@ export default function AgentModelPortfoliosPage() {
         riskProfile: p.riskProfile as RiskProfile,
         assetClass: p.assetClass,
         subCategory: p.subCategory ?? undefined,
-        goals: p.goals ?? [],
         minInvestment: Number(p.minInvestment ?? staticP?.minInvestment ?? 5000),
         timeHorizon: p.timeHorizon ?? staticP?.timeHorizon ?? "N/A",
         benchmarkName: p.benchmarkName ?? staticP?.benchmarkName ?? "Nifty 500",
@@ -2582,6 +2581,15 @@ export default function AgentModelPortfoliosPage() {
           Number(p.cagr1Y) || staticP?.cagr1Y || 12,
           Number(p.volatility) || staticP?.riskMetrics?.volatility || 6,
         ),
+        // ── Gap-fix fields (Fix 15) — mapped from DB columns ──────────────────
+        portfolioCode: p.portfolioCode ?? staticP?.portfolioCode ?? undefined,
+        inceptionDate: p.inceptionDate ?? staticP?.inceptionDate ?? undefined,
+        twrr1Y:  p.twrr1Y  != null ? Number(p.twrr1Y)  : staticP?.twrr1Y  ?? undefined,
+        twrr3Y:  p.twrr3Y  != null ? Number(p.twrr3Y)  : staticP?.twrr3Y  ?? undefined,
+        blendedBenchmarkReturn: p.blendedBenchmarkReturn != null ? Number(p.blendedBenchmarkReturn) : staticP?.blendedBenchmarkReturn ?? undefined,
+        driftThreshold:         p.driftThreshold        != null ? Number(p.driftThreshold)         : staticP?.driftThreshold         ?? 5,
+        maxDrawdownThreshold:   p.maxDrawdownThreshold  != null ? Number(p.maxDrawdownThreshold)   : staticP?.maxDrawdownThreshold   ?? 20,
+        conflictDisclosure: p.conflictDisclosure ?? staticP?.conflictDisclosure ?? undefined,
       };
     });
   }, [apiData]);
@@ -3136,113 +3144,124 @@ export default function AgentModelPortfoliosPage() {
         )}
         {filtered.map((portfolio) => {
           const risk = RISK_CONFIG[portfolio.riskProfile];
-          // Use TWRR if available, else fall back to CAGR (legacy)
+          // ── Per-card computed values ────────────────────────────────────────
+          // TWRR if scheduler has run, else CAGR fallback
           const display1Y  = portfolio.twrr1Y  ?? portfolio.cagr1Y;
           const display3Y  = portfolio.twrr3Y  ?? portfolio.cagr3Y;
           const isUsingTWRR = portfolio.twrr1Y != null;
-          // Alpha vs blended benchmark (if available) or single-index benchmark
-          const benchmarkReturn = portfolio.blendedBenchmarkReturn ?? portfolio.benchmarkCagr1Y;
+          // Alpha vs blended or single-index benchmark
+          const benchmarkReturn  = portfolio.blendedBenchmarkReturn ?? portfolio.benchmarkCagr1Y;
           const alphaVsBenchmark = display1Y - benchmarkReturn;
-          // Drift badge from quant signals cache
+          // Avg return label: use inception months if < 12, else "9M avg" / "1Y"
+          const inceptionMonths = portfolio.inceptionDate
+            ? Math.round((Date.now() - new Date(portfolio.inceptionDate).getTime()) / (30 * 24 * 3600 * 1000))
+            : 12;
+          const returnLabel = inceptionMonths < 12 ? `${inceptionMonths}M avg` : "1Y";
+          // Drift from quantSignals cache
           const qs = quantSignals[portfolio.id];
-          const driftThresholdPct = portfolio.driftThreshold ?? 5; // per-portfolio threshold
-          const driftBadge = qs
-            ? qs.driftScore > 15 ? { color: "bg-red-500", label: "⚡ Rebalance", tip: `${qs.driftingHoldings ?? "?"} holdings drifted` }
-            : qs.driftScore > 5  ? { color: "bg-amber-500", label: "⚠ Minor drift", tip: `Drift score: ${qs.driftScore}` }
-            : { color: "bg-emerald-500", label: "✓ Balanced", tip: `Drift score: ${qs.driftScore}` }
-            : null;
-          // Suitability check against auth user risk profile (if available)
+          const driftThresholdPct = portfolio.driftThreshold ?? 5;
+          const driftScore = qs?.driftScore ?? 0;
+          // Drift as % of threshold band (for the brief-style progress bar)
+          const driftPct      = qs ? Math.min(100, (driftScore / (driftThresholdPct * 20)) * 100) : 0;
+          const driftAbsPct   = qs ? (driftScore / 20).toFixed(1) : "–";
+          const driftStatusColor = driftScore > 15 ? "bg-red-500" : driftScore > 5 ? "bg-amber-500" : "bg-emerald-500";
+          const driftStatusLabel = driftScore > 15 ? "Rebalance" : driftScore > 5 ? "Minor drift" : "Balanced";
+          // Suitability check
           const userRiskProfile = (user as any)?.riskProfile ?? null;
           const isSuitabilityMismatch = userRiskProfile
             ? (portfolio.riskProfile === "aggressive" || portfolio.riskProfile === "high") &&
               (userRiskProfile === "conservative" || userRiskProfile === "moderate")
             : false;
-          // Tax-deferred badge: pending proposals exist and < 30 days old (STCG window)
+          // Pending proposals / STCG
           const pendingProposals = proposals[portfolio.id] ?? [];
-          const hasTaxDeferredDrift = pendingProposals.length > 0 &&
-            qs?.driftScore > 5;
-          // Expanded card bar chart data
-          const isExpanded = expandedCards.has(portfolio.id);
-          const barData = isExpanded
-            ? computeMonthlyBarData(portfolio.performance, portfolio.rebalancingHistory, portfolio.inceptionDate)
-            : [];
-          const maxBar = barData.length ? Math.max(...barData.map((b) => Math.abs(b.returnPct))) || 1 : 1;
+          const hasTaxDeferredDrift = pendingProposals.length > 0 && driftScore > 5;
+          // Performance section toggle — open by default (matches brief design)
+          const isPerfOpen = !expandedCards.has(`hide-${portfolio.id}`);
+          // Monthly bar chart data (always computed — no lazy gate since section is open by default)
+          const barData = computeMonthlyBarData(portfolio.performance, portfolio.rebalancingHistory, portfolio.inceptionDate ?? undefined);
+          const maxBar  = barData.length ? Math.max(...barData.map((b) => Math.abs(b.returnPct))) || 1 : 1;
+          // Last rebalanced display (e.g. "Apr 26")
+          const lastRebalLabel = portfolio.lastRebalanced
+            ? new Date(portfolio.lastRebalanced).toLocaleDateString("en-IN", { month: "short", year: "2-digit" })
+            : "—";
           return (
             <Card
               key={portfolio.id}
               id={`portfolio-card-${portfolio.id}`}
-              className="relative hover:shadow-lg transition-shadow cursor-pointer border-border/60 group"
+              className="relative hover:shadow-lg transition-all duration-200 cursor-pointer border-border/60 group overflow-hidden"
               onClick={() => setSelectedPortfolio(portfolio)}
             >
-              {/* Top-left: Sub-category + portfolio code */}
-              <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-background/70 backdrop-blur border border-border/40 text-muted-foreground">
-                  {portfolio.subCategory}
+              {/* ── Top badge row ─────────────────────────────────────────── */}
+              <div className="flex items-center justify-between px-4 pt-3 pb-0 gap-2">
+                {/* Left: drift status pill */}
+                <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full text-white ${driftStatusColor}`}>
+                  {driftStatusLabel}
                 </span>
-                {portfolio.portfolioCode && (
-                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200/60 text-indigo-600 dark:text-indigo-400">
-                    {portfolio.portfolioCode}
-                  </span>
-                )}
+
+                {/* Right: risk / featured / suitability / proposals */}
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                  {isSuitabilityMismatch && (
+                    <span
+                      title="SEBI IA Reg. 16: risk class may exceed your assessed tolerance"
+                      className="bg-red-600 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
+                    >
+                      <AlertTriangle className="h-2.5 w-2.5" /> Unsuitable
+                    </span>
+                  )}
+                  {hasTaxDeferredDrift && (
+                    <span title="STCG risk if rebalanced now" className="bg-orange-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full">
+                      STCG
+                    </span>
+                  )}
+                  {canViewFullHoldings && pendingProposals.length > 0 && (
+                    <span title={`${pendingProposals.length} rebalance proposal(s) pending`} className="bg-amber-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full animate-pulse">
+                      ⚡ {pendingProposals.length}P
+                    </span>
+                  )}
+                  {portfolio.isFeatured && (
+                    <Badge className="bg-amber-500 text-white text-[10px] px-1.5">
+                      <Star className="h-2.5 w-2.5 mr-0.5" />Featured
+                    </Badge>
+                  )}
+                  {portfolio.isNew && (
+                    <Badge className="bg-indigo-600 text-white text-[10px] px-1.5">NEW</Badge>
+                  )}
+                </div>
               </div>
 
-              {/* Top-right: Featured / New / Drift / Proposals / Suitability badges */}
-              <div className="absolute top-3 right-3 flex gap-1.5 flex-wrap justify-end max-w-[60%]">
-                {portfolio.isFeatured && (
-                  <Badge className="bg-amber-500 text-white text-[10px] px-1.5">
-                    <Star className="h-2.5 w-2.5 mr-0.5" />Featured
-                  </Badge>
-                )}
-                {portfolio.isNew && (
-                  <Badge className="bg-indigo-600 text-white text-[10px] px-1.5">NEW</Badge>
-                )}
-                {isSuitabilityMismatch && (
-                  <span
-                    title="SEBI IA Reg. 16: This portfolio's risk class may exceed your assessed risk tolerance. Review with your advisor."
-                    className="bg-red-600 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
-                  >
-                    <AlertTriangle className="h-2.5 w-2.5" /> Unsuitable
-                  </span>
-                )}
-                {hasTaxDeferredDrift && (
-                  <span
-                    title="Drift detected · Rebalance deferred — may attract STCG if acted on now"
-                    className="bg-orange-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
-                  >
-                    🕐 STCG
-                  </span>
-                )}
-                {driftBadge && (
-                  <span title={driftBadge.tip} className={`${driftBadge.color} text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full`}>
-                    {driftBadge.label}
-                  </span>
-                )}
-                {canViewFullHoldings && (proposals[portfolio.id]?.length ?? 0) > 0 && (
-                  <span title={`${proposals[portfolio.id].length} rebalance proposal(s) pending`} className="bg-amber-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full animate-pulse">
-                    ⚡ {proposals[portfolio.id].length}P
-                  </span>
-                )}
-              </div>
-
-              <CardHeader className="pb-3 pt-8">
-                <div className="flex items-start gap-3 pr-4">
-                  <div className="text-3xl">{portfolio.icon}</div>
+              {/* ── Header: icon + name + code + inception ─────────────────── */}
+              <CardHeader className="pb-2 pt-2">
+                <div className="flex items-start gap-3">
+                  <div className="text-2xl leading-none mt-0.5">{portfolio.icon}</div>
                   <div className="flex-1 min-w-0">
-                    <CardTitle className="text-base leading-tight">{portfolio.name}</CardTitle>
-                    <CardDescription className="text-xs mt-0.5 leading-tight">
-                      {portfolio.tagline}
-                    </CardDescription>
-                    {portfolio.inceptionDate && (
-                      <p className="text-[9px] text-muted-foreground mt-0.5">
-                        Since {new Date(portfolio.inceptionDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}
-                      </p>
-                    )}
+                    <CardTitle className="text-[14px] font-semibold leading-tight">{portfolio.name}</CardTitle>
+                    <CardDescription className="text-[11px] mt-0.5 leading-snug">{portfolio.tagline}</CardDescription>
+                    {/* Code + inception row */}
+                    <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
+                      {portfolio.portfolioCode && (
+                        <span className="flex items-center gap-0.5">
+                          <span className="text-muted-foreground/60">#</span>
+                          <span className="font-mono font-semibold text-foreground/70">Portfolio {portfolio.portfolioCode}</span>
+                        </span>
+                      )}
+                      {portfolio.inceptionDate && (
+                        <span className="flex items-center gap-0.5">
+                          <span className="text-muted-foreground/60">📅</span>
+                          <span>Inception {new Date(portfolio.inceptionDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}</span>
+                        </span>
+                      )}
+                    </div>
+                    {/* Rebalanced as needed label */}
+                    <div className="flex items-center gap-1 mt-1 text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                      <RefreshCw className="h-2.5 w-2.5" />
+                      Rebalanced as needed
+                    </div>
                   </div>
-                  {/* Compare checkbox */}
+                  {/* Compare toggle */}
                   <button
                     onClick={e => { e.stopPropagation(); toggleCompare(portfolio.id); }}
-                    title={compareList.includes(portfolio.id) ? "Remove from compare" : compareList.length >= 3 ? "Max 3 portfolios" : "Add to compare"}
-                    className={`shrink-0 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-colors text-xs ${
+                    title={compareList.includes(portfolio.id) ? "Remove from compare" : compareList.length >= 3 ? "Max 3" : "Add to compare"}
+                    className={`shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-colors text-[10px] ${
                       compareList.includes(portfolio.id)
                         ? "bg-emerald-600 border-emerald-600 text-white"
                         : compareList.length >= 3
@@ -3253,180 +3272,180 @@ export default function AgentModelPortfoliosPage() {
                     {compareList.includes(portfolio.id) ? "✓" : "⚖"}
                   </button>
                 </div>
-
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <Badge variant="outline" className={`text-[10px] ${risk.bg} border-0`}>
+                {/* Goal tags row */}
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                  <Badge variant="outline" className={`text-[9px] ${risk.bg} border-0 px-1.5 py-0`}>
                     {risk.icon} {risk.label}
                   </Badge>
-                  {portfolio.goal.slice(0, 2).map((g) => (
-                    <Badge key={g} variant="outline" className="text-[10px]">
+                  {portfolio.goal.slice(0, 3).map((g) => (
+                    <Badge key={g} variant="outline" className="text-[9px] px-1.5 py-0">
                       {GOAL_LABELS[g] || g}
                     </Badge>
                   ))}
                 </div>
               </CardHeader>
 
-              <CardContent className="space-y-3 pb-3">
-                {/* ── Return metrics row: TWRR/CAGR + alpha ── */}
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  {[
-                    { label: isUsingTWRR ? "1Y TWRR" : "1Y CAGR", value: display1Y, note: isUsingTWRR ? "SEBI" : undefined },
-                    { label: isUsingTWRR ? "3Y TWRR" : "3Y CAGR", value: display3Y },
-                    { label: "5Y CAGR",                           value: portfolio.cagr5Y },
-                  ].map((r) => (
-                    <div key={r.label} className="bg-muted/50 rounded-lg p-2 relative">
-                      <p className="text-[10px] text-muted-foreground leading-none">{r.label}</p>
-                      <p className="text-sm font-bold text-green-600 mt-0.5">+{r.value}%</p>
-                      {r.note && (
-                        <span className="absolute top-1 right-1 text-[7px] font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-950/30 px-0.5 rounded">
-                          {r.note}
+              <CardContent className="space-y-2.5 pb-3 pt-0">
+                {/* ── Performance toggle header ─────────────────────────── */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    {/* Avg return */}
+                    <div>
+                      <p className="text-[9px] text-muted-foreground">{returnLabel}</p>
+                      <p className="text-[13px] font-bold text-emerald-600">+{display1Y.toFixed(2)}%</p>
+                    </div>
+                    {/* Alpha */}
+                    <div>
+                      <p className="text-[9px] text-muted-foreground">
+                        Vs {portfolio.blendedBenchmarkReturn != null ? "benchmark" : portfolio.benchmarkName}
+                      </p>
+                      <p className={`text-[13px] font-bold ${alphaVsBenchmark >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                        {alphaVsBenchmark >= 0 ? "+" : ""}{alphaVsBenchmark.toFixed(2)}% alpha
+                      </p>
+                    </div>
+                  </div>
+                  {/* Show / Hide performance toggle */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedCards((prev) => {
+                        const next = new Set(prev);
+                        const key = `hide-${portfolio.id}`;
+                        next.has(key) ? next.delete(key) : next.add(key);
+                        return next;
+                      });
+                    }}
+                    className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 border border-border/60 rounded px-1.5 py-0.5 transition-colors"
+                  >
+                    {isPerfOpen ? "Hide" : "Show"} performance
+                    <span>{isPerfOpen ? " ▲" : " ▼"}</span>
+                  </button>
+                </div>
+
+                {/* ── Expandable performance section ───────────────────── */}
+                {isPerfOpen && (
+                  <div className="space-y-2.5">
+                    {/* Drift meter — always show even without quant signals */}
+                    <div className="space-y-0.5">
+                      <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                        <span>Current allocation drift</span>
+                        <span className="font-medium text-foreground/80">
+                          {qs ? `${driftAbsPct}% of ${driftThresholdPct}%` : `–% of ${driftThresholdPct}%`}
                         </span>
-                      )}
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${driftStatusColor}`}
+                          style={{ width: `${qs ? driftPct : 0}%` }}
+                        />
+                      </div>
+                      <p className="text-[8px] text-muted-foreground/60">
+                        Rebalance trigger at {driftThresholdPct}% drift from target weights
+                      </p>
                     </div>
-                  ))}
-                </div>
 
-                {/* ── Alpha vs blended / single benchmark ── */}
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground text-[10px]">
-                    vs {portfolio.blendedBenchmarkReturn != null ? "Blended benchmark" : portfolio.benchmarkName}
-                  </span>
-                  <span className={`font-semibold text-[11px] ${alphaVsBenchmark >= 0 ? "text-green-600" : "text-red-500"}`}>
-                    {alphaVsBenchmark >= 0 ? "+" : ""}{alphaVsBenchmark.toFixed(1)}% alpha
-                  </span>
-                </div>
+                    {/* Monthly return bar chart */}
+                    {barData.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-[9px] text-muted-foreground">
+                          Rolling monthly returns since inception
+                          {portfolio.rebalancingHistory?.length > 0 && (
+                            <span className="ml-1 text-indigo-500">· marks a drift-triggered rebalance</span>
+                          )}
+                        </p>
+                        <div className="flex items-end gap-0.5 h-14" aria-label="Monthly returns bar chart">
+                          {barData.map((bar, i) => {
+                            const heightPct = Math.min(100, (Math.abs(bar.returnPct) / maxBar) * 100);
+                            const isPos = bar.returnPct >= 0;
+                            return (
+                              <TooltipProvider key={i}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex-1 flex flex-col items-center justify-end h-full gap-0.5 relative group/bar">
+                                      {/* Return % label above bar */}
+                                      <span className="text-[7px] text-muted-foreground hidden group-hover/bar:block absolute top-0">
+                                        {bar.returnPct >= 0 ? "+" : ""}{bar.returnPct}%
+                                      </span>
+                                      {/* Rebalance dot */}
+                                      {bar.hasRebalanceEvent && (
+                                        <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-indigo-500" />
+                                      )}
+                                      {/* Bar */}
+                                      <div
+                                        className={`w-full rounded-t-sm transition-all ${isPos ? "bg-emerald-400 dark:bg-emerald-500" : "bg-red-400 dark:bg-red-500"}`}
+                                        style={{ height: `${Math.max(6, heightPct)}%` }}
+                                      />
+                                      {/* Month label */}
+                                      <span className="text-[7px] text-muted-foreground/70 leading-none">{bar.label}</span>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="text-[10px]">
+                                    {bar.label}: {bar.returnPct >= 0 ? "+" : ""}{bar.returnPct}%
+                                    {bar.hasRebalanceEvent ? " · rebalanced" : ""}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
-                {/* ── Allocation mini bar ── */}
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-1">Asset Allocation</p>
-                  <div className="flex rounded-full overflow-hidden h-2.5">
-                    {portfolio.allocation.map((a) => (
-                      <TooltipProvider key={a.category}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div
-                              style={{ width: `${a.weight}%`, backgroundColor: a.color }}
-                              className="transition-opacity hover:opacity-80"
-                            />
-                          </TooltipTrigger>
-                          <TooltipContent className="text-xs">
-                            {a.label}: {a.weight}%
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ── Drift meter with per-portfolio threshold ── */}
-                {qs && (
-                  <div>
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
-                      <span>Portfolio drift</span>
-                      <span className="font-medium">{qs.driftScore ?? 0}/100 · threshold {driftThresholdPct}%</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          qs.driftScore > 60 ? "bg-red-500" :
-                          qs.driftScore > 30 ? "bg-amber-500" : "bg-emerald-500"
-                        }`}
-                        style={{ width: `${Math.min(100, qs.driftScore ?? 0)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* ── Lazy monthly return bar chart (expand on click) ── */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setExpandedCards((prev) => {
-                      const next = new Set(prev);
-                      next.has(portfolio.id) ? next.delete(portfolio.id) : next.add(portfolio.id);
-                      return next;
-                    });
-                  }}
-                  className="w-full text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                >
-                  <span>{isExpanded ? "▲" : "▼"}</span>
-                  <span>{isExpanded ? "Hide" : "Show"} 12-month returns</span>
-                  {portfolio.rebalancingHistory?.length > 0 && (
-                    <span className="ml-auto text-indigo-500">• rebalance events marked</span>
-                  )}
-                </button>
-
-                {isExpanded && barData.length > 0 && (
-                  <div className="h-16 flex items-end gap-0.5 px-0.5" aria-label="Monthly return bar chart">
-                    {barData.map((bar, i) => {
-                      const heightPct = Math.min(100, (Math.abs(bar.returnPct) / maxBar) * 100);
-                      const isPos = bar.returnPct >= 0;
-                      return (
-                        <TooltipProvider key={i}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="flex-1 flex flex-col items-center justify-end h-full relative">
+                    {/* Allocation bar */}
+                    <div>
+                      <p className="text-[9px] text-muted-foreground mb-1">
+                        Vs {portfolio.blendedBenchmarkReturn != null ? "Blended" : portfolio.benchmarkName} index, cumulative
+                      </p>
+                      <div className="flex rounded-full overflow-hidden h-1.5">
+                        {portfolio.allocation.map((a) => (
+                          <TooltipProvider key={a.category}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
                                 <div
-                                  className={`w-full rounded-t-[2px] transition-all ${
-                                    isPos ? "bg-emerald-400 dark:bg-emerald-500" : "bg-red-400 dark:bg-red-500"
-                                  }`}
-                                  style={{ height: `${Math.max(4, heightPct)}%` }}
+                                  style={{ width: `${a.weight}%`, backgroundColor: a.color }}
+                                  className="transition-opacity hover:opacity-80"
                                 />
-                                {bar.hasRebalanceEvent && (
-                                  <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 text-[6px] text-indigo-500">●</span>
-                                )}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-[10px]">
-                              {bar.label}: {bar.returnPct >= 0 ? "+" : ""}{bar.returnPct}%
-                              {bar.hasRebalanceEvent ? " · rebalanced" : ""}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      );
-                    })}
+                              </TooltipTrigger>
+                              <TooltipContent className="text-xs">{a.label}: {a.weight}%</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {/* ── Footer: meta + rebalancing label ── */}
-                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/40">
-                  <span>Min: <strong className="text-foreground">{formatINR(portfolio.minInvestment)}</strong></span>
-                  <span className="text-indigo-600 dark:text-indigo-400 text-[10px] font-medium">
-                    🔄 Rebalanced as needed
-                  </span>
-                  <span>{portfolio.totalHoldings} holdings</span>
+                {/* ── Footer ───────────────────────────────────────────── */}
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground border-t border-border/40 pt-2 mt-1">
+                  <span>Min <strong className="text-foreground">{formatINR(portfolio.minInvestment)}</strong></span>
+                  <span>Horizon <strong className="text-foreground">{portfolio.timeHorizon}</strong></span>
+                  <span>Last rebalanced <strong className="text-foreground">{lastRebalLabel}</strong></span>
                 </div>
 
-                {/* ── SEBI disclaimer footer (collapsed by default) ── */}
+                {/* ── SEBI disclaimer (collapsed) ───────────────────────── */}
                 <details className="group/disclaimer">
-                  <summary className="text-[9px] text-muted-foreground/60 cursor-pointer select-none list-none flex items-center gap-1 hover:text-muted-foreground transition-colors">
+                  <summary className="text-[8px] text-muted-foreground/50 cursor-pointer select-none list-none flex items-center gap-1 hover:text-muted-foreground transition-colors">
                     <span className="group-open/disclaimer:hidden">▸</span>
                     <span className="hidden group-open/disclaimer:inline">▾</span>
                     SEBI disclosure · Reg. 16 suitability
+                    {portfolio.conflictDisclosure && <span className="text-amber-500 ml-1">⚠</span>}
                   </summary>
-                  <div className="text-[9px] text-muted-foreground/70 mt-1 space-y-0.5 leading-relaxed">
-                    <p>Past performance is not indicative of future results. Model portfolios are for guidance only and do not constitute investment advice. Market investments are subject to market risks — read all scheme-related documents carefully.</p>
-                    <p>Returns shown are {isUsingTWRR ? "TWRR (Time-Weighted Rate of Return)" : "CAGR"} and may differ from individual investor experience based on timing of investment.</p>
-                    {portfolio.conflictDisclosure ? (
+                  <div className="text-[8px] text-muted-foreground/70 mt-1 space-y-0.5 leading-relaxed">
+                    <p>Past performance is not indicative of future results. Returns shown are {isUsingTWRR ? "TWRR (SEBI-mandated)" : "CAGR"}. Risk class: <strong>{portfolio.riskProfile}</strong>.</p>
+                    {portfolio.conflictDisclosure && (
                       <p className="text-amber-600/80">⚠ {portfolio.conflictDisclosure}</p>
-                    ) : (
-                      <p>No distributor trail or conflict of interest disclosed for this portfolio.</p>
                     )}
-                    <p>Suitability basis: SEBI IA Regs 2013, Regulation 16(a). Risk class: <strong>{portfolio.riskProfile}</strong>.</p>
                   </div>
                 </details>
 
-                {/* View Details CTA */}
+                {/* ── CTA ───────────────────────────────────────────────── */}
                 <Button
                   id={`view-portfolio-${portfolio.id}`}
                   className="w-full h-8 text-xs gap-1 group-hover:bg-indigo-600 group-hover:text-white transition-colors"
                   variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPortfolio(portfolio);
-                  }}
+                  onClick={(e) => { e.stopPropagation(); setSelectedPortfolio(portfolio); }}
                 >
-                  View Full Portfolio
+                  View full portfolio
                   <ChevronRight className="h-3 w-3" />
                 </Button>
               </CardContent>
