@@ -1,4 +1,12 @@
-// @ts-nocheck
+/**
+ * @file capital-gains-calculator.ts
+ * @description Capital gains tax computation service for Indian tax regime.
+ *   Computes unrealized/realized STCG+LTCG, applies LTCG exemption (₹1.25L),
+ *   and generates quarterly advance tax reminders.
+ *
+ * UPGRADE (Audit #1): Removed @ts-nocheck. holdingsBreakdown is now explicitly
+ * typed via HoldingBreakdownItem to prevent silent type drift.
+ */
 import { db } from "../db";
 import {
 	portfolioHoldings,
@@ -10,6 +18,19 @@ import { eq, and, sql, inArray, gte, lte } from "drizzle-orm";
 import type { InsertCapitalGainsTaxReminder } from "@shared/schema";
 import { exitLoadService } from "./exit-load-service";
 import { getTaxRatesForAsset, type TaxAssetClass } from "./tax-regime-config";
+
+/** Typed row for the holdings breakdown array */
+interface HoldingBreakdownItem {
+	symbol: string;
+	quantity: number;
+	avgPrice: number;
+	currentPrice: number;
+	priceSource: "market" | "estimate";
+	holdingPeriodDays: number;
+	type: "STCG" | "LTCG";
+	unrealizedGain: number;
+	unrealizedTax: number;
+}
 
 interface CapitalGainsBreakdown {
 	stcgAmount: number;
@@ -138,15 +159,18 @@ export class CapitalGainsCalculatorService {
 
 			let totalSTCG = 0;
 			let totalLTCG = 0;
-			const holdingsBreakdown = [];
+			const holdingsBreakdown: HoldingBreakdownItem[] = [];
 
 			for (const holding of flattenedHoldings) {
 				const quantity = Number.parseFloat(holding.quantity?.toString() || "0");
 				const avgPrice = Number.parseFloat(holding.avgPrice?.toString() || "0");
 
-				const dbCurrentPrice = holding.currentPrice
-					? Number.parseFloat(holding.currentPrice.toString())
-					: null;
+				// Schema stores current value as 'currentValue' (not 'currentPrice')
+				const dbCurrentPrice = (holding as any).currentPrice != null
+					? Number.parseFloat(String((holding as any).currentPrice))
+					: holding.currentValue != null
+						? Number.parseFloat(holding.currentValue.toString()) / Math.max(quantity, 1)
+						: null;
 				const hasMarketPrice = dbCurrentPrice !== null && dbCurrentPrice > 0;
 				const currentPrice = hasMarketPrice ? dbCurrentPrice : avgPrice;
 				const priceSource: "market" | "estimate" = hasMarketPrice
@@ -180,7 +204,7 @@ export class CapitalGainsCalculatorService {
 				}
 
 				holdingsBreakdown.push({
-					symbol: holding.symbol,
+					symbol: holding.symbol ?? "",
 					quantity,
 					avgPrice,
 					currentPrice,
