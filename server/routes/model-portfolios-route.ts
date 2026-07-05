@@ -513,13 +513,21 @@ async function enrichHolding(h: any): Promise<any> {
   const isStock = symbol && symbol.length <= 20 && !/^\d+$/.test(symbol) && !symbol.includes(".");
   if (isStock) {
     try {
-      const dmRow = await db.execute(sql`
-        SELECT return_1y, return_3y, return_6m, beta, sharpe_ratio_1y, max_drawdown_1y, volatility_30d
-        FROM screener_derived_metrics
-        WHERE symbol = ${symbol.toUpperCase()}
-        LIMIT 1
-      `).catch(() => ({ rows: [] }));
+      const [dmRow, isinRow] = await Promise.all([
+        db.execute(sql`
+          SELECT return_1y, return_3y, return_6m, beta, sharpe_ratio_1y, max_drawdown_1y, volatility_30d
+          FROM screener_derived_metrics
+          WHERE symbol = ${symbol.toUpperCase()}
+          LIMIT 1
+        `).catch(() => ({ rows: [] })),
+        db.execute(sql`
+          SELECT isin FROM screener_stocks
+          WHERE symbol = ${symbol.toUpperCase()}
+          LIMIT 1
+        `).catch(() => ({ rows: [] })),
+      ]);
       const r = (dmRow as any).rows?.[0];
+      const isin = (isinRow as any).rows?.[0]?.isin ?? h.isin ?? undefined;
 
       const return1Y = r?.return_1y != null ? Math.round(Number(r.return_1y) * 10000) / 100 : undefined;
       const beta     = r?.beta != null ? Math.round(Number(r.beta) * 10000) / 10000 : undefined;
@@ -528,6 +536,7 @@ async function enrichHolding(h: any): Promise<any> {
 
       return {
         ...h,
+        isin,
         currentReturn: return1Y ?? (typeof h.currentReturn === "number" && h.currentReturn !== 0 ? h.currentReturn : undefined),
         beta,
         sharpe,
@@ -543,10 +552,10 @@ async function enrichHolding(h: any): Promise<any> {
   // ── Mutual fund holding: DB-first → mfapi.in fallback ───────────────────────
   if (!name) return { ...h, currentReturn: undefined };
 
-  // ── Step 1: Try DB (financial_instruments_cache) ─────────────────────────────
+  // ── Step 1: Try DB (financial_instruments_cache) — also fetches ISIN ──────────
   try {
     const dbRow = await db.execute(sql`
-      SELECT return_1y, return_3y, return_6m, nav, nav_date, expense_ratio
+      SELECT return_1y, return_3y, return_6m, nav, nav_date, expense_ratio, isin
       FROM financial_instruments_cache
       WHERE instrument_type = 'mutual_fund'
         AND (
@@ -569,11 +578,13 @@ async function enrichHolding(h: any): Promise<any> {
     const dbReturn6M = r?.return_6m != null ? toPercent(Number(r.return_6m)) : null;
     const dbNav      = r?.nav != null ? Number(r.nav) : undefined;
     const dbExpense  = r?.expense_ratio != null ? Number(r.expense_ratio) : undefined;
+    const dbIsin     = r?.isin ?? h.isin ?? undefined;
 
     if (dbReturn1Y !== null) {
       const expenseRatio = dbExpense ?? TYPE_EXPENSE_RATIO[h.type ?? ""] ?? 0.5;
       return {
         ...h,
+        isin: dbIsin,
         currentReturn: dbReturn1Y,
         return3Y: dbReturn3Y ?? undefined,
         return6M: dbReturn6M ?? undefined,
