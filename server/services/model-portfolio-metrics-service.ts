@@ -518,22 +518,25 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 	}
 	const namesList = [...allHoldingNames];
 
-	// ── Step 1: Bulk fetch model_portfolio_holdings CAGR data ───────────────
-	// cagr_1y/3y/5y stored as % (e.g. 17.4 = 17.4%) from mfapi.in NAV history
-	const mphMap = new Map<string, { cagr1Y: number; cagr3Y: number; cagr5Y: number }>();
+	// ── Step 1: Bulk fetch financial_instruments_cache for MF/ETF/Bond returns ──
+	// returns stored as decimal fractions (0.174 = 17.4%) — multiply by 100
+	const ficMap = new Map<string, { cagr1Y: number; cagr3Y: number; cagr5Y: number }>();
 	try {
-		const mphRows = await db.execute(sql`
-			SELECT LOWER(instrument_name) as key, cagr_1y, cagr_3y, cagr_5y
-			FROM model_portfolio_holdings
-			WHERE cagr_1y IS NOT NULL
+		const ficRows = await db.execute(sql`
+			SELECT LOWER(name) as key, return_1y, return_3y, return_5y
+			FROM financial_instruments_cache
+			WHERE instrument_type = 'mutual_fund'
+			  AND return_1y IS NOT NULL
 			ORDER BY updated_at DESC NULLS LAST
 		`).catch(() => ({ rows: [] }));
-		for (const row of (mphRows as any).rows ?? []) {
-			if (!mphMap.has(row.key)) {
-				mphMap.set(row.key, {
-					cagr1Y: Number(row.cagr_1y),
-					cagr3Y: row.cagr_3y != null ? Number(row.cagr_3y) : Number(row.cagr_1y) * 0.88,
-					cagr5Y: row.cagr_5y != null ? Number(row.cagr_5y) : Number(row.cagr_1y) * 0.82,
+		const norm = (v: number) => Math.abs(v) < 5 ? v * 100 : v;
+		for (const row of (ficRows as any).rows ?? []) {
+			if (!ficMap.has(row.key)) {
+				const r1y = norm(Number(row.return_1y));
+				ficMap.set(row.key, {
+					cagr1Y: r1y,
+					cagr3Y: row.return_3y != null ? norm(Number(row.return_3y)) : r1y * 0.88,
+					cagr5Y: row.return_5y != null ? norm(Number(row.return_5y)) : r1y * 0.82,
 				});
 			}
 		}
@@ -593,8 +596,8 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 					coveredWeight += w;
 				}
 			} else {
-				// MF / ETF / Bond: model_portfolio_holdings (exact name match)
-				const m = mphMap.get(name);
+				// MF / ETF / Bond: financial_instruments_cache (name-based lookup, returns as %)
+				const m = ficMap.get(name);
 				if (m) {
 					weighted1Y += m.cagr1Y * w;
 					weighted3Y += m.cagr3Y * w;
