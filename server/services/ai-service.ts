@@ -312,11 +312,16 @@ export class AIService {
 		let initialModel = defaultModel;
 
 		// Capability → best available model selection
-		// NOTE: Gemini is primary — Groq free TPD (100K/day) exhausts mid-day.
-		// Gemini 2.5 Flash has no hard TPD cap on the free tier.
+		// Cerebras is primary — world's fastest inference (1000+ tok/s), free tier.
+		// Gemini is secondary — no hard TPD cap on Flash free tier.
+		// Groq free TPD (100K/day) used as tertiary.
+		const cerebras = process.env.CEREBRAS_API_KEY;
 		if (capability === AICapability.SUPERIOR) {
-			// Best reasoning — prefer Gemini Flash, Groq 70B as fallback
-			if (gemini) {
+			// Best reasoning — Cerebras 120B → Gemini Flash → Groq 70B
+			if (cerebras && this.isProviderHealthy("cerebras")) {
+				initialProvider = "cerebras";
+				initialModel = "gpt-oss-120b";
+			} else if (gemini) {
 				initialProvider = "gemini";
 				initialModel = "gemini-2.5-flash";
 			} else if (groq && this.isProviderHealthy("groq")) {
@@ -327,8 +332,11 @@ export class AIService {
 				initialModel = "gemini-2.5-flash";
 			}
 		} else if (capability === AICapability.OPTIMIZED) {
-			// Speed + bulk — Gemini Flash Lite is cheapest, Groq instant as fallback
-			if (gemini) {
+			// Speed + bulk — Cerebras fastest, then Gemini Lite, then Groq instant
+			if (cerebras && this.isProviderHealthy("cerebras")) {
+				initialProvider = "cerebras";
+				initialModel = "gpt-oss-120b";
+			} else if (gemini) {
 				initialProvider = "gemini";
 				initialModel = "gemini-2.5-flash-lite";
 			} else if (groq && this.isProviderHealthy("groq")) {
@@ -339,25 +347,30 @@ export class AIService {
 				initialModel = "gemini-2.5-flash-lite";
 			}
 		} else if (capability === AICapability.STANDARD) {
-			// General use — Gemini is primary (no TPD cap), Groq fallback
-			initialProvider = gemini ? "gemini" : "groq";
-			initialModel = gemini ? "gemini-2.5-flash" : "llama-3.3-70b-versatile";
+			// General use — Cerebras → Gemini → Groq
+			if (cerebras && this.isProviderHealthy("cerebras")) {
+				initialProvider = "cerebras";
+				initialModel = "gpt-oss-120b";
+			} else {
+				initialProvider = gemini ? "gemini" : "groq";
+				initialModel = gemini ? "gemini-2.5-flash" : "llama-3.3-70b-versatile";
+			}
 		}
 
-		// Fallback chain — ordered by daily quota headroom:
-		// Gemini (no hard TPD cap) → Groq (100K TPD) → Cerebras → Cloudflare
+		// Fallback chain — ordered by speed + quota headroom:
+		// Cerebras (fastest inference, 1000+ tok/s) → Gemini (no TPD cap) → Groq (100K TPD) → Cloudflare
 		const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
-			// Gemini — large free quota, no daily token cap (PRIMARY)
+			// Cerebras — world's fastest inference, free tier (PRIMARY)
+			{ provider: "cerebras", model: "gpt-oss-120b" },
+			{ provider: "cerebras", model: "zai-glm-4.7" },
+			// Gemini — large free quota, no daily token cap
 			{ provider: "gemini", model: "gemini-2.5-flash" },
 			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
-			// Groq — fast, 100K TPD free; 70b first, scout as mid-tier, 8b last
+			// Groq — 100K TPD free; 70b first, scout mid-tier, 8b fast last
 			{ provider: "groq", model: "llama-3.3-70b-versatile" },
 			{ provider: "groq", model: "meta-llama/llama-4-scout-17b-16e-instruct" },
 			{ provider: "groq", model: "qwen/qwen3-32b" },
 			{ provider: "groq", model: "llama-3.1-8b-instant" },
-			// Cerebras — fast but narrow RPM; comes after Gemini/Groq
-			{ provider: "cerebras", model: "gpt-oss-120b" },
-			{ provider: "cerebras", model: "zai-glm-4.7" },
 			// Cloudflare Workers AI — free forever (only if configured)
 			{
 				provider: "cloudflare",
@@ -604,7 +617,10 @@ export class AIService {
 		}
 
 		const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
-			// Gemini first — no daily TPD cap
+			// Cerebras — fastest inference, free tier (PRIMARY)
+			{ provider: "cerebras", model: "gpt-oss-120b" },
+			{ provider: "cerebras", model: "zai-glm-4.7" },
+			// Gemini — no daily TPD cap
 			{ provider: "gemini", model: "gemini-2.5-flash" },
 			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
 			// Groq — 100K TPD free; 70b first, llama-4-scout mid-tier, 8b fast last
@@ -612,8 +628,6 @@ export class AIService {
 			{ provider: "groq", model: "meta-llama/llama-4-scout-17b-16e-instruct" },
 			{ provider: "groq", model: "qwen/qwen3-32b" },
 			{ provider: "groq", model: "llama-3.1-8b-instant" },
-			{ provider: "cerebras", model: "gpt-oss-120b" },
-			{ provider: "cerebras", model: "zai-glm-4.7" },
 			{
 				provider: "cloudflare",
 				model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
