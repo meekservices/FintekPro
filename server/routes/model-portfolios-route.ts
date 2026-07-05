@@ -430,9 +430,12 @@ async function enrichHolding(h: any): Promise<any> {
   // These handle instruments that mfapi.in can't find or returns wrong data for.
   const nameLower = name.toLowerCase();
 
-  // NHAI Infrastructure Fund = NHAI InvIT / infra debt, NOT a mutual fund on mfapi.in
+  // NHAI Infrastructure Fund = infra DEBT fund investing in NHAI bonds (NOT the NHAI InvIT).
+  // type: "Infra Debt Fund" → yield-based return ~7.2% (debt benchmark).
+  // The NHAI InvIT (National Highways Infra Trust, NSE: NHAI) is a separate listed entity
+  // covered by the InvIT block below under name "national highways infra trust".
   if (nameLower.includes("nhai") && !nameLower.includes("bond")) {
-    return { ...h, currentReturn: 9.1, return3Y: 8.4, expenseRatio: 0.5, returnSource: "benchmark:nhai_infra_trust" };
+    return { ...h, currentReturn: 7.2, return3Y: 6.8, expenseRatio: 0.5, returnSource: "benchmark:nhai_infra_debt" };
   }
 
   // ── Already enriched this session? Skip. ─────────────────────────────────────
