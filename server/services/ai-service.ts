@@ -69,12 +69,14 @@ export type AIModel =
 	| "gemini-2.5-flash-lite" // Ultra-cheap fast fallback (2.5 family)
 	| "gemini-2.0-flash" // Full Flash — still available
 	// ── Groq (free tier, OpenAI-compatible) ─────────────────────────────────
-	| "llama-3.3-70b-versatile" // Best Groq model — free
-	| "llama-3.1-8b-instant" // Ultra-fast bulk processing — free
-	| "qwen/qwen3-32b" // Qwen3 32B on Groq — replaces DeepSeek R1 (free)
-	| "meta-llama/llama-4-scout-17b-16e-instruct" // Llama 4 Scout on Groq — free
-	| "gemma2-9b-it" // Google Gemma 2 on Groq — free
-	| "compound-beta" // Groq auto-router — picks best model
+	| "llama-3.3-70b-versatile"                      // Groq flagship — best quality free
+	| "llama-3.1-8b-instant"                          // Ultra-fast bulk processing — free
+	| "meta-llama/llama-4-scout-17b-16e-instruct"    // Llama 4 Scout — fast mid-tier free
+	| "qwen/qwen3-32b"                                // Qwen3 32B — reasoning + coding
+	| "qwen/qwen3.6-27b"                              // Qwen3.6 27B — newest Qwen on Groq
+	| "openai/gpt-oss-120b"                           // OpenAI OSS 120B via Groq — premium
+	| "groq/compound"                                 // Groq auto-router (replaces compound-beta)
+	| "groq/compound-mini"                            // Groq auto-router — lightweight tasks
 	// ── Cerebras (free tier, fastest inference) ────────────────────────────
 	| "gpt-oss-120b" // OpenAI OSS 120B on Cerebras — free (fastest)
 	| "zai-glm-4.7" // ZAI GLM 4.7 on Cerebras — free
@@ -343,14 +345,14 @@ export class AIService {
 		}
 
 		// Fallback chain — ordered by daily quota headroom:
-		// Gemini (no hard TPD cap) → Groq (100K TPD, exhausts mid-day) → Cerebras → Cloudflare
-		// Providers without env vars are skipped silently (not as ERRORs)
+		// Gemini (no hard TPD cap) → Groq (100K TPD) → Cerebras → Cloudflare
 		const fallbackChain: { provider: AIProvider; model: AIModel }[] = [
-			// Gemini — large free quota, no daily token cap on Flash (PRIMARY)
+			// Gemini — large free quota, no daily token cap (PRIMARY)
 			{ provider: "gemini", model: "gemini-2.5-flash" },
 			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
-			// Groq — fast, 100K TPD free (exhausts mid-day on heavy usage)
+			// Groq — fast, 100K TPD free; 70b first, scout as mid-tier, 8b last
 			{ provider: "groq", model: "llama-3.3-70b-versatile" },
+			{ provider: "groq", model: "meta-llama/llama-4-scout-17b-16e-instruct" },
 			{ provider: "groq", model: "qwen/qwen3-32b" },
 			{ provider: "groq", model: "llama-3.1-8b-instant" },
 			// Cerebras — fast but narrow RPM; comes after Gemini/Groq
@@ -605,8 +607,9 @@ export class AIService {
 			// Gemini first — no daily TPD cap
 			{ provider: "gemini", model: "gemini-2.5-flash" },
 			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
-			// Groq — 100K TPD, fast (secondary)
+			// Groq — 100K TPD free; 70b first, llama-4-scout mid-tier, 8b fast last
 			{ provider: "groq", model: "llama-3.3-70b-versatile" },
+			{ provider: "groq", model: "meta-llama/llama-4-scout-17b-16e-instruct" },
 			{ provider: "groq", model: "qwen/qwen3-32b" },
 			{ provider: "groq", model: "llama-3.1-8b-instant" },
 			{ provider: "cerebras", model: "gpt-oss-120b" },
