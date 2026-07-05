@@ -623,6 +623,30 @@ modelPortfoliosRouter.post("/admin/recompute-cagr-from-holdings", async (_req: R
   }
 });
 
+// ── GET /api/model-portfolios/admin/debug-cagr-data ────────────────────────────
+// Diagnostic: check what's in model_portfolio_holdings + screener_derived_metrics
+modelPortfoliosRouter.get("/admin/debug-cagr-data", async (_req: Request, res: Response) => {
+  try {
+    const [mphCount, mphSample, scrCount, scrSample, holdingsSample] = await Promise.all([
+      db.execute(sql`SELECT COUNT(*) as total, COUNT(cagr_1y) as with_cagr FROM model_portfolio_holdings`),
+      db.execute(sql`SELECT instrument_name, cagr_1y, cagr_3y FROM model_portfolio_holdings WHERE cagr_1y IS NOT NULL LIMIT 5`),
+      db.execute(sql`SELECT COUNT(*) as total FROM screener_derived_metrics`),
+      db.execute(sql`SELECT company_name, return_1y FROM screener_derived_metrics WHERE return_1y IS NOT NULL LIMIT 5`),
+      db.execute(sql`SELECT holdings FROM model_portfolios WHERE id = 'small-cap-alpha' LIMIT 1`),
+    ]);
+    return res.json({
+      success: true,
+      data: {
+        model_portfolio_holdings: { stats: (mphCount as any).rows[0], sample: (mphSample as any).rows },
+        screener_derived_metrics: { stats: (scrCount as any).rows[0], sample: (scrSample as any).rows },
+        small_cap_alpha_holdings_sample: ((holdingsSample as any).rows[0]?.holdings ?? []).slice(0, 4),
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ── POST /api/model-portfolios/admin/migrate-to-relational ─────────────────────
 // Phase B: Migrates all holdings from model_portfolios.holdings (JSONB) to the
 // model_portfolio_holdings relational table. Idempotent — safe to run multiple
