@@ -500,7 +500,7 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 	skipped: number;
 	results: Array<{ id: string; name: string; cagr1Y: number | null; coverage: number; source: string }>;
 }> {
-	// ── Step 0: Fetch all published portfolios ──────────────────────────────
+	// ── Step 0: Fetch all published portfolios (holdings JSONB already has currentReturn) ──
 	const portfolios = await db
 		.select({ id: modelPortfolios.id, name: modelPortfolios.name, holdings: modelPortfolios.holdings })
 		.from(modelPortfolios)
@@ -508,42 +508,8 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 
 	if (!portfolios.length) return { processed: 0, updated: 0, skipped: 0, results: [] };
 
-	// Collect all holding names across all portfolios for bulk lookups
-	const allHoldingNames = new Set<string>();
-	for (const p of portfolios) {
-		const h = Array.isArray(p.holdings) ? p.holdings : [];
-		for (const holding of h as Array<{ name?: string }>) {
-			if (holding.name) allHoldingNames.add(holding.name);
-		}
-	}
-	const namesList = [...allHoldingNames];
-
-	// ── Step 1: Bulk fetch financial_instruments_cache for MF/ETF/Bond returns ──
-	// returns stored as decimal fractions (0.174 = 17.4%) — multiply by 100
-	const ficMap = new Map<string, { cagr1Y: number; cagr3Y: number; cagr5Y: number }>();
-	try {
-		const ficRows = await db.execute(sql`
-			SELECT LOWER(name) as key, return_1y, return_3y, return_5y
-			FROM financial_instruments_cache
-			WHERE instrument_type = 'mutual_fund'
-			  AND return_1y IS NOT NULL
-			ORDER BY updated_at DESC NULLS LAST
-		`).catch(() => ({ rows: [] }));
-		const norm = (v: number) => Math.abs(v) < 5 ? v * 100 : v;
-		for (const row of (ficRows as any).rows ?? []) {
-			if (!ficMap.has(row.key)) {
-				const r1y = norm(Number(row.return_1y));
-				ficMap.set(row.key, {
-					cagr1Y: r1y,
-					cagr3Y: row.return_3y != null ? norm(Number(row.return_3y)) : r1y * 0.88,
-					cagr5Y: row.return_5y != null ? norm(Number(row.return_5y)) : r1y * 0.82,
-				});
-			}
-		}
-	} catch { /* non-fatal */ }
-
-	// ── Step 2: Bulk fetch screener_derived_metrics for stock holdings ───────
-	// return_1y stored as % (e.g. 24.5 = 24.5%)
+	// ── Step 1: Bulk fetch screener_derived_metrics for stock supplemental data ──
+	// Only needed for stocks where currentReturn is missing from JSONB
 	const screenerMap = new Map<string, { r1y: number; r3y: number }>();
 	try {
 		const scrRows = await db.execute(sql`
@@ -561,14 +527,17 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 		}
 	} catch { /* non-fatal */ }
 
-	// ── Step 3: Compute weighted CAGR in-memory per portfolio ───────────────
+	// ── Step 2: Compute weighted CAGR per portfolio using JSONB currentReturn ──
+	// persist-holdings-enrichment already populates holdings[].currentReturn (1Y %)
+	// from mfapi.in NAV history for MFs and enrichment data for stocks.
 	const results: Array<{ id: string; name: string; cagr1Y: number | null; coverage: number; source: string }> = [];
 	let updated = 0;
 	let skipped = 0;
 
 	for (const p of portfolios) {
 		const holdings = (Array.isArray(p.holdings) ? p.holdings : []) as Array<{
-			name?: string; symbol?: string; type?: string; weight?: number;
+			name?: string; type?: string; weight?: number;
+			currentReturn?: number; return3Y?: number; return6M?: number;
 		}>;
 		if (!holdings.length) { skipped++; continue; }
 
@@ -580,30 +549,27 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 			if (!w || w <= 0) continue;
 			totalWeight += w;
 
-			const name = (h.name ?? "").toLowerCase();
-			const typeStr = (h.type ?? "").toLowerCase();
-			const isStock = typeStr.includes("stock") &&
-				!typeStr.includes("fund") && !typeStr.includes("etf") && !typeStr.includes("mf");
+			// Primary: currentReturn already in JSONB from persist-holdings-enrichment (%)
+			if (h.currentReturn != null && !isNaN(Number(h.currentReturn))) {
+				const r1y = Number(h.currentReturn);
+				const r3y = h.return3Y != null ? Number(h.return3Y) : r1y * 0.88;
+				const r5y = r1y * 0.75 + 12.5 * 0.25; // mean reversion toward 12.5% long-run
+				weighted1Y += r1y * w;
+				weighted3Y += r3y * w;
+				weighted5Y += r5y * w;
+				coveredWeight += w;
+				continue;
+			}
 
-			if (isStock) {
-				// Stock: screener_derived_metrics (by company name)
-				const s = screenerMap.get(name);
-				if (s) {
-					const r5y = s.r1y * 0.6 + 12.8 * 0.4;
-					weighted1Y += s.r1y * w;
-					weighted3Y += s.r3y * w;
-					weighted5Y += r5y * w;
-					coveredWeight += w;
-				}
-			} else {
-				// MF / ETF / Bond: financial_instruments_cache (name-based lookup, returns as %)
-				const m = ficMap.get(name);
-				if (m) {
-					weighted1Y += m.cagr1Y * w;
-					weighted3Y += m.cagr3Y * w;
-					weighted5Y += m.cagr5Y * w;
-					coveredWeight += w;
-				}
+			// Fallback: screener_derived_metrics for stocks missing currentReturn
+			const name = (h.name ?? "").toLowerCase();
+			const s = screenerMap.get(name);
+			if (s) {
+				const r5y = s.r1y * 0.6 + 12.8 * 0.4;
+				weighted1Y += s.r1y * w;
+				weighted3Y += s.r3y * w;
+				weighted5Y += r5y * w;
+				coveredWeight += w;
 			}
 		}
 
@@ -611,7 +577,7 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 		const coverage = Math.round((coveredWeight / totalWeight) * 100);
 
 		if (coverage < 50) {
-			results.push({ id: p.id, name: p.name, cagr1Y: null, coverage, source: "skipped:insufficient_db_coverage" });
+			results.push({ id: p.id, name: p.name, cagr1Y: null, coverage, source: "skipped:insufficient_coverage" });
 			skipped++;
 			continue;
 		}
@@ -621,7 +587,7 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 		const cagr3Y = parseFloat((weighted3Y * scale).toFixed(2));
 		const cagr5Y = parseFloat((weighted5Y * scale).toFixed(2));
 
-		// ── Step 4: Persist ────────────────────────────────────────────────
+		// ── Step 3: Persist ──────────────────────────────────────────────────
 		await db.execute(sql`
 			UPDATE model_portfolios
 			SET
@@ -630,18 +596,18 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 			  cagr_5y        = ${cagr5Y},
 			  engine_version = ${ENGINE_VERSION},
 			  updated_at     = NOW(),
-			  source         = 'db_holdings_cagr'
+			  source         = 'jsonb_holdings_cagr'
 			WHERE id = ${p.id}
 		`);
 
-		results.push({ id: p.id, name: p.name, cagr1Y, coverage, source: "db:model_portfolio_holdings+screener" });
+		results.push({ id: p.id, name: p.name, cagr1Y, coverage, source: "jsonb:currentReturn+screener" });
 		updated++;
 		logger.info(JSON.stringify({
 			event: "PORTFOLIO_CAGR_UPDATED",
 			portfolio_id: p.id,
 			cagr1Y, cagr3Y, cagr5Y,
 			coverage_pct: coverage,
-			source: "batch_db_holdings",
+			source: "jsonb_holdings_cagr",
 			engine_version: ENGINE_VERSION,
 			calculation_timestamp: new Date().toISOString(),
 		}));
