@@ -2160,11 +2160,14 @@ modelPortfoliosRouter.get("/", async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    logger.error("[ModelPortfolios] GET / error:", error instanceof Error ? error : new Error(String(error)));
+    const msg = error instanceof Error ? error.message : String(error);
+    const cause = (error as any)?.cause?.message ?? (error as any)?.detail ?? "";
+    logger.error(`[ModelPortfolios] GET / DB error: ${msg} ${cause}`);
     return res.status(500).json({
       success: false,
       error_code: "MODEL_PORTFOLIO_FETCH_ERROR",
       message: "Failed to fetch model portfolios",
+      detail: process.env.NODE_ENV !== "production" ? msg : undefined,
       retryable: true,
       meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
     });
