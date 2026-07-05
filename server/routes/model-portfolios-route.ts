@@ -2974,3 +2974,201 @@ modelPortfoliosRouter.post("/admin/run-screener", async (req: Request, res: Resp
     return res.status(500).json({ success: false, error_code: "SCREENER_ERROR", message: err.message, retryable: true });
   }
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PORTFOLIO INTELLIGENCE ENGINE — FASP-AI v3.0
+// Market-driven, autonomous model portfolio maintenance
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── GET /api/model-portfolios/admin/alpha-analysis ────────────────────────────
+// Returns per-portfolio alpha vs SEBI-compliant benchmark.
+// Identifies alpha-drag holdings and calculates gap to 20% outperformance target.
+modelPortfoliosRouter.get("/admin/alpha-analysis", async (_req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { analyzeAlphaGaps } = await import("../services/model-portfolio-optimizer");
+    const analyses = await analyzeAlphaGaps();
+    const critical = analyses.filter(a => a.status === "critical" || a.status === "underperforming");
+    return res.json({
+      success: true,
+      data: {
+        total: analyses.length,
+        critical: critical.length,
+        outperforming: analyses.filter(a => a.status === "outperforming").length,
+        analyses,
+      },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message, retryable: true });
+  }
+});
+
+// ── POST /api/model-portfolios/admin/optimize-alpha ───────────────────────────
+// Generates FASP-AI v3.0 holding replacement suggestions (read-only, no auto-apply).
+// Each suggestion includes confidence_score, factors_considered, risk_disclaimer.
+// Body: { portfolioIds?: string[] }  — empty = all underperforming
+modelPortfoliosRouter.post("/admin/optimize-alpha", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { portfolioIds } = req.body as { portfolioIds?: string[] };
+    const { generateOptimizationSuggestions } = await import("../services/model-portfolio-optimizer");
+    const suggestions = await generateOptimizationSuggestions(portfolioIds);
+    return res.json({
+      success: true,
+      data: {
+        count: suggestions.length,
+        byRecommendation: {
+          replace: suggestions.filter(s => s.recommendation === "replace").length,
+          reduce_weight: suggestions.filter(s => s.recommendation === "reduce_weight").length,
+          manual_review: suggestions.filter(s => s.recommendation === "manual_review").length,
+          hold: suggestions.filter(s => s.recommendation === "hold").length,
+        },
+        suggestions,
+      },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message, retryable: true });
+  }
+});
+
+// ── POST /api/model-portfolios/admin/apply-optimization ──────────────────────
+// Applies advisor-approved holding replacements. REQUIRES advisor_id.
+// Body: { portfolioId: string, replacements: [{rank, newSymbol, newName, newWeight?}], advisorId: string }
+modelPortfoliosRouter.post("/admin/apply-optimization", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { portfolioId, replacements, advisorId } = req.body as {
+      portfolioId: string;
+      replacements: { rank: number; newSymbol: string; newName: string; newWeight?: number }[];
+      advisorId: string;
+    };
+    if (!portfolioId || !replacements?.length || !advisorId) {
+      return res.status(400).json({
+        success: false,
+        error_code: "MISSING_PARAMS",
+        message: "portfolioId, replacements[], and advisorId are all required (FASP-AI v3.0)",
+        retryable: false,
+      });
+    }
+    const { applyApprovedReplacements } = await import("../services/model-portfolio-optimizer");
+    const result = await applyApprovedReplacements(portfolioId, replacements, advisorId);
+    return res.json({
+      success: true,
+      data: result,
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message, retryable: false });
+  }
+});
+
+// ── GET /api/model-portfolios/admin/risk-report ───────────────────────────────
+// Returns risk budget status for all 40 portfolios.
+// Flags hard breaches (auto-apply blocked) and soft warnings.
+modelPortfoliosRouter.get("/admin/risk-report", async (_req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { buildPortfolioRiskSummary } = await import("../services/portfolio-risk-guard");
+    const allPortfolios = await db.select({
+      id: modelPortfolios.id,
+      riskProfile: modelPortfolios.riskProfile,
+      holdings: modelPortfolios.holdings,
+    }).from(modelPortfolios);
+
+    const reports = await buildPortfolioRiskSummary(
+      allPortfolios.map(p => ({
+        id: p.id,
+        riskProfile: p.riskProfile,
+        holdings: Array.isArray(p.holdings) ? p.holdings as any[] : [],
+      }))
+    );
+
+    const hardBreaches = reports.filter(r => !r.approved);
+    return res.json({
+      success: true,
+      data: {
+        total: reports.length,
+        approved: reports.filter(r => r.approved).length,
+        hardBreaches: hardBreaches.length,
+        reports,
+      },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message, retryable: true });
+  }
+});
+
+// ── GET /api/model-portfolios/admin/rebalance-queue ───────────────────────────
+// Returns portfolios that need rebalancing, sorted by urgency.
+// Also returns current market regime (BULL/BEAR/NEUTRAL).
+modelPortfoliosRouter.get("/admin/rebalance-queue", async (_req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { runRebalanceScan } = await import("../services/portfolio-rebalance-scheduler");
+    const queue = await runRebalanceScan();
+    return res.json({
+      success: true,
+      data: queue,
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message, retryable: true });
+  }
+});
+
+// ── POST /api/model-portfolios/admin/run-rebalance-scan ──────────────────────
+// Manually triggers the full rebalance scan + auto-applies high-confidence swaps.
+// Body: { portfolioIds?: string[] }  — empty = all eligible
+// This is what the weekly cron calls; also available for on-demand admin override.
+modelPortfoliosRouter.post("/admin/run-rebalance-scan", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { portfolioIds } = req.body as { portfolioIds?: string[] };
+    const { autoApplyHighConfidenceSwaps, runRebalanceScan } = await import(
+      "../services/portfolio-rebalance-scheduler"
+    );
+
+    const [queue, applyResults] = await Promise.all([
+      runRebalanceScan(),
+      autoApplyHighConfidenceSwaps(portfolioIds),
+    ]);
+
+    const applied = applyResults.filter(r => r.swapsApplied > 0);
+    const totalSwaps = applyResults.reduce((s, r) => s + r.swapsApplied, 0);
+
+    logger.info("[ModelPortfolios] Manual rebalance scan triggered", {
+      event: "MANUAL_REBALANCE_SCAN",
+      user_id: "admin",
+      portfolios_scanned: queue.totalPortfoliosScanned,
+      portfolios_updated: applied.length,
+      total_swaps: totalSwaps,
+      market_regime: queue.marketRegime,
+      model_version: "FASP-AI v3.0 / rebalance-v1",
+      timestamp: new Date().toISOString(),
+      latency_ms: Date.now() - t0,
+      status: "success",
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        marketRegime: queue.marketRegime,
+        portfoliosScanned: queue.totalPortfoliosScanned,
+        portfoliosInQueue: queue.candidates.length,
+        portfoliosUpdated: applied.length,
+        totalSwapsApplied: totalSwaps,
+        queuedForAdvisor: queue.queuedForAdvisor,
+        applyResults,
+        queue: queue.candidates,
+      },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] run-rebalance-scan error:", err);
+    return res.status(500).json({ success: false, error: err.message, retryable: true });
+  }
+});
+

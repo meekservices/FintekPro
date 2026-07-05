@@ -547,6 +547,110 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			}
 		});
 
+		// ── Phase 5d: Portfolio Intelligence Engine (FASP-AI v3.0) ───────────────
+		// Autonomous model portfolio maintenance — detects market regime, momentum
+		// signals, and alpha/risk breaches. Auto-rebalances MODEL TEMPLATES only.
+		// Client account rebalancing is queued for 1-tap approval (SEBI IA compliant).
+		runStartupTask("Portfolio Intelligence Engine", async () => {
+			const DAILY_MS   = 24 * 60 * 60 * 1000;
+			const WEEKLY_MS  = 7  * DAILY_MS;
+
+			// ── Daily 6:30 AM IST (01:00 UTC) — regime + risk scan ────────────
+			const scheduleDailyRegimeScan = () => {
+				const now = new Date();
+				const next = new Date();
+				next.setUTCHours(1, 0, 0, 0);
+				if (next <= now) next.setTime(next.getTime() + DAILY_MS);
+				const delay = next.getTime() - now.getTime();
+
+				setTimeout(async () => {
+					try {
+						const { detectRegime } = await import("../services/market-regime-detector");
+						const { buildPortfolioRiskSummary } = await import("../services/portfolio-risk-guard");
+						const { db } = await import("../db");
+						const { modelPortfolios } = await import("../../shared/schema");
+
+						const regime = await detectRegime(true); // force refresh
+						console.log(`[PortfolioIntel] Market regime: ${regime.regime} (breadth=${regime.breadthScore})`);
+
+						const allPortfolios = await db.select({
+							id: modelPortfolios.id,
+							riskProfile: modelPortfolios.riskProfile,
+							holdings: modelPortfolios.holdings,
+						}).from(modelPortfolios);
+
+						const riskReports = await buildPortfolioRiskSummary(
+							allPortfolios.map(p => ({
+								id: p.id,
+								riskProfile: p.riskProfile,
+								holdings: Array.isArray(p.holdings) ? p.holdings : [],
+							}))
+						);
+
+						const breaches = riskReports.filter(r => !r.approved);
+						if (breaches.length > 0) {
+							console.warn(`[PortfolioIntel] ⚠️  ${breaches.length} portfolios have hard risk breaches: ${breaches.map(b => b.portfolioId).join(", ")}`);
+						}
+					} catch (err) {
+						console.error("[PortfolioIntel] Daily regime scan failed:", err);
+					}
+					setInterval(async () => {
+						try {
+							const { detectRegime } = await import("../services/market-regime-detector");
+							await detectRegime(true);
+						} catch { /* silent */ }
+					}, DAILY_MS);
+				}, delay);
+			};
+			scheduleDailyRegimeScan();
+
+			// ── Weekly Sunday 11 PM IST (17:30 UTC) — momentum rescore + auto-rebalance ─
+			const scheduleWeeklyRebalance = () => {
+				const now = new Date();
+				const next = new Date();
+				// Next Sunday
+				const daysToSunday = (7 - now.getUTCDay()) % 7 || 7;
+				next.setTime(now.getTime() + daysToSunday * DAILY_MS);
+				next.setUTCHours(17, 30, 0, 0);
+
+				setTimeout(async () => {
+					try {
+						console.log("[PortfolioIntel] 🔄 Weekly rebalance scan starting...");
+						const { autoApplyHighConfidenceSwaps } = await import(
+							"../services/portfolio-rebalance-scheduler"
+						);
+						const results = await autoApplyHighConfidenceSwaps();
+						const applied = results.filter(r => r.swapsApplied > 0);
+						console.log(`[PortfolioIntel] ✅ Weekly rebalance: ${applied.length} portfolios updated, ${results.reduce((s, r) => s + r.swapsApplied, 0)} swaps applied`);
+
+						// Re-enrich updated holdings
+						if (applied.length > 0) {
+							const { default: fetch } = await import("node-fetch").catch(() => ({ default: null as any }));
+							if (fetch) {
+								await fetch("http://localhost:5000/api/model-portfolios/admin/persist-holdings-enrichment", { method: "POST" })
+									.catch(() => { /* non-fatal */ });
+								await fetch("http://localhost:5000/api/model-portfolios/admin/recompute-cagr-from-holdings", { method: "POST" })
+									.catch(() => { /* non-fatal */ });
+							}
+						}
+					} catch (err) {
+						console.error("[PortfolioIntel] Weekly rebalance failed:", err);
+					}
+					setInterval(async () => {
+						try {
+							const { autoApplyHighConfidenceSwaps } = await import(
+								"../services/portfolio-rebalance-scheduler"
+							);
+							await autoApplyHighConfidenceSwaps();
+						} catch { /* silent */ }
+					}, WEEKLY_MS);
+				}, Math.max(next.getTime() - now.getTime(), 1000));
+			};
+			scheduleWeeklyRebalance();
+
+			console.log("[PortfolioIntel] 🧠 Portfolio Intelligence Engine active (daily regime + weekly rebalance)");
+		});
+
 		// ── Phase 6: Audit & Compliance Cleanup ──────────────────────────────────
 		runStartupTask(
 			"Unlisted Regulatory Audit Cleanup",
