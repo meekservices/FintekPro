@@ -52,6 +52,8 @@ export interface FinancialStatement {
 	totalDebt?: number;
 	totalEquity?: number;
 	totalAssets?: number;
+	/** totalCurrentLiabilities from balance sheet — used for Capital Employed = Assets - CL */
+	currentLiabilities?: number;
 	operatingCashFlow?: number;
 	freeCashFlow?: number;
 	capitalExpenditure?: number;

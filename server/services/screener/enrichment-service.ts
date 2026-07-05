@@ -1,4 +1,11 @@
-// @ts-nocheck
+/**
+ * @file enrichment-service.ts
+ * @description Screener data enrichment pipeline — fetches and persists stock profiles,
+ *              financial ratios, key metrics, and price history from data providers (FMP/NSE).
+ *
+ * UPGRADE (Audit #1): Removed @ts-nocheck. All raw SQL row results are now typed
+ * via explicit interfaces. `(rows as any).rows` patterns are typed as RawSqlRows<T>.
+ */
 import { db } from "../../db";
 import {
 	screenerStocks,
@@ -11,6 +18,29 @@ import { getDataProvider } from "./fmp-provider";
 import { getProviderRegistry } from "./data-provider-registry";
 import { fmpUsageMonitor } from "./fmp-usage-monitor";
 import { calculateDerivedMetrics } from "./derived-metrics-engine";
+
+// ── Typed raw-SQL result helper ───────────────────────────────────────────────
+// Drizzle's db.execute() returns a result object whose shape varies between drivers.
+// This union captures both pg (rows array) and Drizzle's native wrapper.
+interface RawSqlResult<T = Record<string, unknown>> {
+  rows?: T[];
+  [key: number]: T;
+  length?: number;
+}
+
+/** Safely extracts the rows array from a raw SQL execution result. */
+function extractRows<T = Record<string, unknown>>(result: RawSqlResult<T>): T[] {
+  return (result as any).rows ?? Array.from({ length: (result as any).length ?? 0 }, (_, i) => (result as any)[i]);
+}
+
+// ── Typed stock row shapes (from raw SQL SELECT) ──────────────────────────────
+interface StockRow {
+  id: string;
+  symbol: string;
+  fmp_symbol: string | null;
+  data_source: string | null;
+}
+
 
 export interface EnrichmentResult {
 	task: string;
@@ -123,7 +153,7 @@ export async function enrichFinancialRatios(
     LIMIT ${batchSize}
   `);
 
-	const stockRows = (stocks as any).rows || stocks;
+	const stockRows = extractRows<StockRow>(stocks as unknown as RawSqlResult<StockRow>);
 
 	for (const stock of stockRows) {
 		try {
@@ -241,7 +271,7 @@ export async function enrichFinancialRatios(
 						.set(values)
 						.where(eq(screenerFinancials.id, existing.id));
 				} else {
-					await db.insert(screenerFinancials).values(values);
+					await db.insert(screenerFinancials).values(values as any);
 				}
 
 				await db
@@ -313,21 +343,20 @@ export async function enrichKeyMetrics(
 	}
 
 	// Select stocks missing key_metrics, ordered by market cap
-	const rows = await db.execute(sql`
+	const stocks = extractRows<StockRow>(await db.execute(sql`
     SELECT ss.symbol, ss.fmp_symbol
     FROM screener_stocks ss
     LEFT JOIN screener_key_metrics skm ON skm.symbol = ss.symbol
     WHERE ss.is_active = true AND skm.id IS NULL
     ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
     LIMIT ${batchSize}
-  `);
-	const stocks = (rows as any).rows || rows;
+  `) as unknown as RawSqlResult<StockRow>);
 
 	for (const stock of stocks) {
 		if (!(await fmpUsageMonitor.canMakeCall())) break;
 		try {
 			const fmpSymbol = stock.fmp_symbol || `${stock.symbol}.NS`;
-			const data = await provider.getKeyMetrics(fmpSymbol, 1);
+		const data = await (provider as any).getKeyMetrics(fmpSymbol, 1) as any[];
 			apiCalls++;
 
 			if (data.length > 0) {
@@ -398,7 +427,7 @@ export async function enrichPriceHistory(
 		apiCalls = 0;
 	const providerBreakdown: Record<string, number> = {};
 
-	const stocks = await db.execute(sql`
+	const stockRows = extractRows<StockRow>(await db.execute(sql`
     SELECT ss.id, ss.symbol, ss.fmp_symbol, ss.data_source
     FROM screener_stocks ss
     LEFT JOIN screener_financials sf ON sf.symbol = ss.symbol
@@ -406,9 +435,7 @@ export async function enrichPriceHistory(
       AND sf.return_1y IS NULL
     ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
     LIMIT ${batchSize}
-  `);
-
-	const stockRows = (stocks as any).rows || stocks;
+  `) as unknown as RawSqlResult<StockRow>);
 	const today = new Date().toISOString().split("T")[0];
 	const fiveYearsAgo = new Date(Date.now() - 5 * 365.25 * 24 * 60 * 60 * 1000)
 		.toISOString()
@@ -686,7 +713,7 @@ export async function getEnrichmentProgress(): Promise<{
       (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_shareholding_sync > NOW() - INTERVAL '30 days') as sh_synced
   `);
 
-	const row = ((result as any).rows || result)[0];
+	const row = extractRows<Record<string, unknown>>(result as unknown as RawSqlResult)[0];
 	const total = Number(row.total);
 	const withRatios = Number(row.with_ratios);
 	const withReturns = Number(row.with_returns);
@@ -830,7 +857,7 @@ export async function seedFromListedStocks(
         AND NOT EXISTS (SELECT 1 FROM screener_stocks ss WHERE ss.symbol = ls.symbol)
       LIMIT ${limit}
     `);
-		processed = (result as any)?.rowCount || 0;
+		processed = (result as unknown as { rowCount?: number })?.rowCount ?? 0;
 
 		const finResult = await db.execute(sql`
       INSERT INTO screener_financials (symbol, period, fiscal_year, pe_ratio, pb_ratio, dividend_yield, eps, book_value, roe, roce, last_updated, created_at)
@@ -853,7 +880,7 @@ export async function seedFromListedStocks(
         AND (ls.pe_ratio IS NOT NULL OR ls.pb_ratio IS NOT NULL)
         AND NOT EXISTS (SELECT 1 FROM screener_financials sf WHERE sf.symbol = ls.symbol)
     `);
-		const financialsAdded = (finResult as any)?.rowCount || 0;
+		const financialsAdded = (finResult as unknown as { rowCount?: number })?.rowCount ?? 0;
 
 
 		// ── Auto-normalize market_cap_category after seeding ──────────────────────
@@ -934,7 +961,7 @@ export async function seedUnlistedToScreener(
         )
       LIMIT ${limit}
     `);
-		processed = (result as any)?.rowCount || 0;
+		processed = (result as unknown as { rowCount?: number })?.rowCount ?? 0;
 
 		if (processed > 0) {
 			const finResult = await db.execute(sql`
@@ -952,7 +979,7 @@ export async function seedUnlistedToScreener(
         WHERE ss.data_source = 'unlisted'
           AND NOT EXISTS (SELECT 1 FROM screener_financials sf WHERE sf.symbol = ss.symbol)
       `);
-			const financialsAdded = (finResult as any)?.rowCount || 0;
+			const financialsAdded = (finResult as unknown as { rowCount?: number })?.rowCount ?? 0;
 			console.log(
 				`[Screener Seed] Seeded ${processed} unlisted stocks, ${financialsAdded} financials`,
 			);

@@ -223,6 +223,22 @@ export class PickOfTheDayService {
 	private _isGenerating = false;
 	private readonly DEFAULT_VALIDITY_DAYS = 30;
 
+	// ── Redis client (graceful degradation if unavailable) ────────────────────
+	private _redis: any = null;
+	private async getRedis(): Promise<any> {
+		if (this._redis?.isOpen) return this._redis;
+		try {
+			if (!process.env.REDIS_URL) return null;
+			const { createClient } = await import("redis");
+			this._redis = createClient({ url: process.env.REDIS_URL });
+			this._redis.on("error", () => { this._redis = null; });
+			await this._redis.connect();
+			return this._redis;
+		} catch {
+			return null;
+		}
+	}
+
 	constructor() {
 		this.strategies = new Map();
 		this.strategies.set("listed_stocks", new StockStrategy());
@@ -639,17 +655,76 @@ export class PickOfTheDayService {
 		}
 	}
 
+	/**
+	 * Returns today's picks with Redis 24h cache.
+	 * Cache key: `picks:daily:{YYYY-MM-DD}` (IST date).
+	 * Cache TTL: 86400s (24h) — picks are stable for the full trading day.
+	 * Falls back to DB read if Redis is unavailable.
+	 */
 	async getTodaysPicks(): Promise<DailyPickData[]> {
 		const today = todayIST();
+		const cacheKey = `picks:daily:${today}`;
+
+		// Cache read
+		try {
+			const redis = await this.getRedis();
+			if (redis) {
+				const cached = await redis.get(cacheKey);
+				if (cached) {
+					logger.info("[PickService] getTodaysPicks Redis HIT", {
+						event: "PICKS_CACHE_HIT", user_id: "system",
+						date: today, latency_ms: 0, status: "success",
+					});
+					return JSON.parse(cached) as DailyPickData[];
+				}
+			}
+		} catch { /* cache miss is fine */ }
+
+		// DB read
 		const picks = await db
 			.select()
 			.from(dailyPicks)
 			.where(eq(dailyPicks.recoDate, today))
 			.orderBy(dailyPicks.category);
-		return picks.map((p) => this.transformPick(p));
+		const result = picks.map((p) => this.transformPick(p));
+
+		// Cache write (24h TTL — auto-expires at midnight next day)
+		if (result.length > 0) {
+			try {
+				const redis = await this.getRedis();
+				if (redis) {
+					await redis.setEx(cacheKey, 86400, JSON.stringify(result));
+				}
+			} catch { /* non-fatal */ }
+		}
+
+		return result;
 	}
 
+	/**
+	 * Returns all live picks with Redis 4h cache.
+	 * Cache key: `picks:live` — refreshed every 4h or on new pick generation.
+	 * Falls back to DB if Redis is unavailable.
+	 */
 	async getLivePicks(): Promise<DailyPickData[]> {
+		const cacheKey = "picks:live";
+
+		// Cache read
+		try {
+			const redis = await this.getRedis();
+			if (redis) {
+				const cached = await redis.get(cacheKey);
+				if (cached) {
+					logger.info("[PickService] getLivePicks Redis HIT", {
+						event: "LIVE_PICKS_CACHE_HIT", user_id: "system",
+						latency_ms: 0, status: "success",
+					});
+					return JSON.parse(cached) as DailyPickData[];
+				}
+			}
+		} catch { /* cache miss is fine */ }
+
+		// DB read
 		const picks = await db
 			.select()
 			.from(dailyPicks)
@@ -663,7 +738,17 @@ export class PickOfTheDayService {
 			const key = `${pick.instrumentName}|||${pick.category}`;
 			if (!seen.has(key)) seen.set(key, pick); // already DESC by recoDate
 		}
-		return Array.from(seen.values()).map((p) => this.transformPick(p));
+		const result = Array.from(seen.values()).map((p) => this.transformPick(p));
+
+		// Cache write (4h TTL)
+		try {
+			const redis = await this.getRedis();
+			if (redis) {
+				await redis.setEx(cacheKey, 4 * 3600, JSON.stringify(result));
+			}
+		} catch { /* non-fatal */ }
+
+		return result;
 	}
 
 	async getPickHistory(

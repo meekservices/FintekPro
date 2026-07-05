@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Return Forecasting Engine
  *
@@ -9,9 +8,20 @@
  * - Stress Return (worst-case scenarios)
  * - Max Drawdown (maximum peak-to-trough decline)
  * - Forward projections with confidence intervals
+ *
+ * UPGRADE (Audit #3): All calculations now run in pure TypeScript via xirr-calculator.ts.
+ * Python sidecar (callPython) is attempted first for XIRR and SIP Monte Carlo;
+ * if unavailable the TS implementation is used automatically.
  */
 
 import { callPython } from "../clients/python-client";
+import {
+  computeXIRR as tsXIRR,
+  computeIRR as tsIRR,
+  computeMaxDrawdown as tsMaxDrawdown,
+  computeSharpe as tsSharpe,
+  type CashFlow as XirrCashFlow,
+} from "./xirr-calculator";
 
 export interface AssetReturns {
 	assetId: string;
@@ -283,12 +293,18 @@ export class ReturnForecastingEngine {
 
 	/**
 	 * Calculate XIRR for irregular cash flows.
-	 * Routes to Python sidecar (scipy brentq) first; falls back to Newton-Raphson.
+	 *
+	 * Priority order:
+	 *   1. Python sidecar (scipy brentq) — most accurate for edge cases
+	 *   2. xirr-calculator.ts (Newton-Raphson, pure TS) — primary fallback, no sidecar needed
+	 *
+	 * @param cashFlows - Irregular dated cash flows
+	 * @returns XIRR as a percentage (e.g. 15.3 for 15.3% p.a.)
 	 */
 	private async calculateXIRR(cashFlows: CashFlow[]): Promise<number> {
 		if (cashFlows.length < 2) return 0;
 
-		// Python sidecar primary path
+		// 1. Python sidecar (scipy brentq) — most accurate, attempted first
 		try {
 			const payload = cashFlows.map((cf) => ({
 				date:
@@ -304,65 +320,24 @@ export class ReturnForecastingEngine {
 			);
 			if (r?.xirr_pct != null && !r.error) return r.xirr_pct;
 		} catch {
-			// sidecar unavailable — fall through
+			// sidecar unavailable — fall through to TS implementation
 		}
 
-		// Newton-Raphson fallback
-		const maxIterations = 100;
-		const tolerance = 0.0001;
-		let rate = 0.1;
-
-		for (let i = 0; i < maxIterations; i++) {
-			let npv = 0;
-			let npvDerivative = 0;
-			const firstDate = cashFlows[0].date;
-
-			for (const cf of cashFlows) {
-				const years = this.getYearsDifference(firstDate, cf.date);
-				const denominator = (1 + rate) ** years;
-				npv += cf.amount / denominator;
-				npvDerivative -= (years * cf.amount) / (denominator * (1 + rate));
-			}
-
-			if (Math.abs(npv) < tolerance) return rate * 100;
-
-			const newRate = rate - npv / npvDerivative;
-			if (Math.abs(newRate - rate) < tolerance) return newRate * 100;
-			rate = newRate;
-		}
-
-		return rate * 100;
+		// 2. Pure TS XIRR (xirr-calculator.ts, Newton-Raphson — Audit #3 upgrade)
+		const xirrFlows: XirrCashFlow[] = cashFlows.map((cf) => ({
+			date: cf.date instanceof Date ? cf.date : new Date(cf.date),
+			amount: cf.amount,
+		}));
+		const xirr = tsXIRR(xirrFlows);
+		return xirr * 100; // xirr-calculator returns decimal; this method returns %
 	}
 
 	/**
-	 * Calculate simple IRR for regular cash flows
+	 * Calculate simple IRR for regular (equal-period) cash flows.
+	 * Delegates to xirr-calculator.ts canonical implementation (Audit #3 upgrade).
 	 */
 	private calculateSimpleIRR(cashFlows: number[]): number {
-		const maxIterations = 100;
-		const tolerance = 0.0001;
-		let rate = 0.1;
-
-		for (let i = 0; i < maxIterations; i++) {
-			let npv = 0;
-			let npvDerivative = 0;
-
-			for (let j = 0; j < cashFlows.length; j++) {
-				npv += cashFlows[j] / (1 + rate) ** j;
-				npvDerivative -= (j * cashFlows[j]) / (1 + rate) ** (j + 1);
-			}
-
-			if (Math.abs(npv) < tolerance) {
-				return rate * 100;
-			}
-
-			const newRate = rate - npv / npvDerivative;
-			if (Math.abs(newRate - rate) < tolerance) {
-				return newRate * 100;
-			}
-			rate = newRate;
-		}
-
-		return rate * 100;
+		return tsIRR(cashFlows) * 100; // tsIRR returns decimal; this method returns %
 	}
 
 	/**
@@ -531,7 +506,7 @@ export class ReturnForecastingEngine {
 
 			let confidenceBand: { p10: number; p50: number; p90: number } | undefined;
 
-			// Python sidecar enrichment with real Monte Carlo p10/p50/p90
+			// Priority 1: Python sidecar — real Monte Carlo p10/p50/p90
 			try {
 				const sipPayload = {
 					initial_amount: asset.currentValue ?? 0,
@@ -553,7 +528,23 @@ export class ReturnForecastingEngine {
 					};
 				}
 			} catch {
-				// sidecar unavailable — no confidence band
+				// sidecar unavailable — fall through to TS Monte Carlo
+			}
+
+			// Priority 2: Pure TS parametric confidence band (Audit #3 — no Python dependency)
+			// Uses log-normal distribution: ln(1+r) ~ N(μ, σ²) over T years.
+			// p10/p50/p90 from normal quantiles: z = -1.28, 0, +1.28
+			if (!confidenceBand) {
+				const mu = Math.log(1 + expectedReturn / 100) * years;
+				const sigma = (volatility / 100) * Math.sqrt(years);
+				const p10 = asset.currentValue * Math.exp(mu - 1.28 * sigma);
+				const p50 = asset.currentValue * Math.exp(mu);
+				const p90 = asset.currentValue * Math.exp(mu + 1.28 * sigma);
+				confidenceBand = {
+					p10: Math.round(Math.max(p10, 1)),
+					p50: Math.round(p50),
+					p90: Math.round(p90),
+				};
 			}
 
 			results.push({
@@ -617,22 +608,23 @@ export class ReturnForecastingEngine {
 	}
 
 	/**
-	 * Get comprehensive returns analysis for an asset
+	 * Get comprehensive returns analysis for an asset.
+	 * Async — awaits calculateIRR (XIRR) and generateProjections (Monte Carlo / log-normal).
 	 */
-	getComprehensiveReturns(
+	async getComprehensiveReturns(
 		asset: AssetReturns,
 		cashFlows?: CashFlow[],
-	): ComprehensiveReturns {
+	): Promise<ComprehensiveReturns> {
 		const returnMetrics = this.calculateReturnMetrics(asset);
 		const irrMetrics = cashFlows
-			? this.calculateIRR(cashFlows, asset.currentValue)
+			? await this.calculateIRR(cashFlows, asset.currentValue)
 			: { irr: returnMetrics.cagr, xirr: returnMetrics.cagr };
 		const yieldMetrics = this.calculateYieldMetrics(asset);
 		const stressTests = this.runStressTests(asset);
 		const drawdownMetrics = this.calculateDrawdownMetrics(
 			asset.historicalReturns || [],
 		);
-		const projections = this.generateProjections(asset);
+		const projections = await this.generateProjections(asset);
 		const riskAdjustedReturns = this.calculateRiskAdjustedReturns(asset);
 
 		return {

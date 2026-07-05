@@ -134,6 +134,19 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 
 (async () => {
 	try {
+		// ── Step 0: GCP Secret Manager bootstrap ───────────────────────────────
+		// Must run BEFORE any DB/API clients are instantiated so that
+		// process.env.DATABASE_URL, GEMINI_API_KEY, REDIS_URL etc. are populated.
+		// No-op in dev (env vars take precedence). Non-fatal — will fall back to env.
+		try {
+			const { bootstrapSecrets } = await import("./services/gcp-secret-manager");
+			await bootstrapSecrets();
+		} catch (secretErr) {
+			logger.warn("⚠️  GCP Secret Manager bootstrap failed (non-fatal — using env vars):", {
+				error: secretErr instanceof Error ? secretErr.message : String(secretErr),
+			});
+		}
+
 		logBootProgress("Step 1: Starting database connection...");
 
 		// Test database connection
