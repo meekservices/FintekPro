@@ -64,6 +64,8 @@ import { registerAdminComplianceTestRoutes } from "./routes/admin-compliance-tes
 import adminAgentPayoutRouter from "./routes/admin-agent-payout-routes";
 import adminDatabaseRouter from "./routes/admin-database";
 import adminGlobalInstrumentsRouter from "./routes/admin-global-instruments";
+import instrumentsRouter from "./routes/instruments-1"; // /api/instruments/search, /price/:isin
+
 import policyStatusRouter from "./routes/admin/policy-status-routes";
 import aiGovernanceRouter from "./routes/admin/ai-governance";
 import { registerAdminPanelRoutes } from "./routes/admin/index";
@@ -365,6 +367,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/admin/agent-payouts", adminAgentPayoutRouter);
 	app.use("/api/admin/database", adminDatabaseRouter);
 	app.use("/api/admin/global-instruments", adminGlobalInstrumentsRouter);
+	app.use(instrumentsRouter); // /api/instruments/search + /api/instruments/price/:isin (proposal builder ISIN lookup)
+
 	app.use("/api/admin", policyStatusRouter); // /status is router path, so prefix is /api/admin
 	app.use(aiGovernanceRouter); // router already has full /api/admin/ai/... paths
 	registerAdminPanelRoutes(app);
