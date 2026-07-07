@@ -9,6 +9,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --no-audit --no-fund --legacy-peer-deps
 
+# Layer-cache buster: pass --build-arg CACHE_BUST=$(date +%s) to force full rebuild
+# when source hasn't changed enough to bust the COPY layer hash automatically.
+ARG CACHE_BUST=1
 # Copy all source files
 COPY . .
 

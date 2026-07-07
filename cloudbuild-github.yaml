@@ -37,6 +37,7 @@ steps:
     docker build \
       --cache-from asia-south1-docker.pkg.dev/fintekpro/fintekpro-repo/fintekpro-app:cache \
       --build-arg BUILDKIT_INLINE_CACHE=1 \
+      --build-arg CACHE_BUST="$(date +%s)" \
       -t asia-south1-docker.pkg.dev/fintekpro/fintekpro-repo/fintekpro-app:latest \
       -t asia-south1-docker.pkg.dev/fintekpro/fintekpro-repo/fintekpro-app:cache \
       /workspace/app
