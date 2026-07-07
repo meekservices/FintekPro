@@ -2661,5 +2661,123 @@ export async function ensureSharedRouteTables(): Promise<void> {
   } catch (e: any) {
     console.warn("  ⚠️  model_portfolios Fix 15 columns migration (non-fatal):", e.message?.slice(0, 120));
   }
-}
 
+  // ── Fix IM-1: Drop orphan instrument cache tables ─────────────────────────
+  // financial_instruments_cache and stock_prices_cache have 0 reads and 0 writes
+  // across all server files. Superseded by listed_stocks.currentPrice.
+  try {
+    await migDb.execute(migSql`DROP TABLE IF EXISTS financial_instruments_cache CASCADE`);
+    await migDb.execute(migSql`DROP TABLE IF EXISTS stock_prices_cache CASCADE`);
+    console.log("  ✅ Fix IM-1: dropped orphan tables financial_instruments_cache, stock_prices_cache");
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix IM-1 orphan table drop (non-fatal):", e.message?.slice(0, 120));
+  }
+
+  // ── Fix IM-2: Add missing instrument-level columns to bond_catalog ────────
+  // corporate_bonds conflated master data with holdings. The instrument-level
+  // fields go to bond_catalog so it serves as the single bond master.
+  try {
+    await migDb.execute(migSql`
+      ALTER TABLE bond_catalog
+        ADD COLUMN IF NOT EXISTS bond_type            VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS coupon_type          VARCHAR(30),
+        ADD COLUMN IF NOT EXISTS tenor_years          NUMERIC(5,2),
+        ADD COLUMN IF NOT EXISTS issue_price          NUMERIC(15,4),
+        ADD COLUMN IF NOT EXISTS current_price        NUMERIC(15,4),
+        ADD COLUMN IF NOT EXISTS listing_date         DATE,
+        ADD COLUMN IF NOT EXISTS trading_status       VARCHAR(20) DEFAULT 'active',
+        ADD COLUMN IF NOT EXISTS is_callable          BOOLEAN     DEFAULT false,
+        ADD COLUMN IF NOT EXISTS call_date            DATE,
+        ADD COLUMN IF NOT EXISTS call_price           NUMERIC(15,4),
+        ADD COLUMN IF NOT EXISTS is_puttable          BOOLEAN     DEFAULT false,
+        ADD COLUMN IF NOT EXISTS put_date             DATE,
+        ADD COLUMN IF NOT EXISTS put_price            NUMERIC(15,4),
+        ADD COLUMN IF NOT EXISTS secured              BOOLEAN     DEFAULT false,
+        ADD COLUMN IF NOT EXISTS security_code        VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS duration             NUMERIC(8,4),
+        ADD COLUMN IF NOT EXISTS modified_duration    NUMERIC(8,4),
+        ADD COLUMN IF NOT EXISTS convexity            NUMERIC(10,4),
+        ADD COLUMN IF NOT EXISTS last_traded_price    NUMERIC(15,4),
+        ADD COLUMN IF NOT EXISTS last_traded_date     DATE,
+        ADD COLUMN IF NOT EXISTS volume               INTEGER,
+        ADD COLUMN IF NOT EXISTS yield_to_call        NUMERIC(8,4),
+        ADD COLUMN IF NOT EXISTS issuer_sector        VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS issuer_industry      VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS structure_complexity INTEGER,
+        ADD COLUMN IF NOT EXISTS liquidity_score      INTEGER,
+        ADD COLUMN IF NOT EXISTS sebi_approved        BOOLEAN     DEFAULT false,
+        ADD COLUMN IF NOT EXISTS instrument_status    VARCHAR(16) DEFAULT 'HIDDEN',
+        ADD COLUMN IF NOT EXISTS indexation_benefit   BOOLEAN     DEFAULT false,
+        ADD COLUMN IF NOT EXISTS security_type        VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS collateral_type      TEXT,
+        ADD COLUMN IF NOT EXISTS special_features     JSONB       DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS updated_at           TIMESTAMPTZ DEFAULT NOW()
+    `);
+    console.log("  ✅ Fix IM-2: bond_catalog — 30 instrument-level columns added");
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix IM-2 bond_catalog columns (non-fatal):", e.message?.slice(0, 120));
+  }
+
+  // ── Fix IM-3: Add enrichment-tracking columns to listed_stocks ────────────
+  // Adds per-category sync timestamps from screener_stocks so screener services
+  // can write directly to listed_stocks (single stock master).
+  try {
+    await migDb.execute(migSql`
+      ALTER TABLE listed_stocks
+        ADD COLUMN IF NOT EXISTS last_financials_sync    TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS last_technicals_sync    TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS last_shareholding_sync  TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS last_key_metrics_sync   TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS fmp_symbol              VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS market_cap_category     VARCHAR(20)
+    `);
+    console.log("  ✅ Fix IM-3: listed_stocks — 6 screener-merge columns added");
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix IM-3 listed_stocks screener columns (non-fatal):", e.message?.slice(0, 120));
+  }
+
+  // ── Fix IM-4: Extend mf_monthwise_performance to cover AIF/PMS funds ──────
+  // fund_performance_monthwise (7 files) stores monthly returns for AIF+PMS.
+  // Adding fund_type + fund_id unifies all monthly perf into one table.
+  try {
+    await migDb.execute(migSql`
+      ALTER TABLE mf_monthwise_performance
+        ADD COLUMN IF NOT EXISTS fund_type   VARCHAR(20) DEFAULT 'mutual_fund',
+        ADD COLUMN IF NOT EXISTS fund_id     VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS nav_end     NUMERIC(15,4),
+        ADD COLUMN IF NOT EXISTS return_pct  NUMERIC(8,4)
+    `);
+    console.log("  ✅ Fix IM-4: mf_monthwise_performance — fund_type, fund_id, nav_end, return_pct added");
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix IM-4 mf_monthwise_performance columns (non-fatal):", e.message?.slice(0, 120));
+  }
+
+  // ── Fix IM-5: AMFI bulk import if mutual_funds is empty ───────────────────
+  // mutual_funds has 0 rows in production despite 138 server files depending on it.
+  // Fire-and-forget after boot so startup is not delayed.
+  try {
+    const mfCountResult = await migDb.execute(
+      migSql`SELECT COUNT(*)::int AS cnt FROM mutual_funds`
+    );
+    const mfCount = Number((mfCountResult as any).rows?.[0]?.cnt ?? 0);
+    if (mfCount === 0) {
+      console.log("  ⚠️  mutual_funds table is EMPTY — triggering background AMFI import (~18k schemes)...");
+      import("../services/amfi-import-service")
+        .then(({ importAmfiData }: { importAmfiData: () => Promise<any> }) =>
+          importAmfiData()
+        )
+        .then((result: any) => {
+          console.log(
+            `  ✅ Fix IM-5: AMFI import complete — imported: ${result?.imported ?? "?"}, updated: ${result?.updated ?? "?"}`
+          );
+        })
+        .catch((err: Error) => {
+          console.warn("  ⚠️  Fix IM-5: AMFI import failed (non-fatal):", err.message?.slice(0, 120));
+        });
+    } else {
+      console.log(`  ✅ Fix IM-5: mutual_funds has ${mfCount} rows — AMFI seed not needed`);
+    }
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix IM-5 mutual_funds seed check (non-fatal):", e.message?.slice(0, 120));
+  }
+}

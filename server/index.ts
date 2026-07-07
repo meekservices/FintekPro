@@ -215,9 +215,21 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					const { ensureSharedRouteTables } = await import("./startup/schema-repairs");
 					await ensureSharedRouteTables();
 
+					// ── Instrument Master Sync — single source of truth ─────────────
+					// Upserts from mutual_funds, listed_stocks, bond_catalog, reits,
+					// aif_master, mld_master into instrument_master.
+					// Fires immediately if empty (boot seed), then nightly at 02:00 IST.
+					logBootProgress("Step 2f (bg): Scheduling instrument_master sync...");
+					const { scheduleInstrumentMasterSync } = await import(
+						"./jobs/instrument-master-sync"
+					);
+					scheduleInstrumentMasterSync().catch((e: Error) =>
+						logger.warn("[Boot] instrument-master-sync schedule failed (non-fatal)", { error: e.message })
+					);
+
 					logBootProgress("Step 2 (bg): All schema migrations complete.");
 				} catch (migErr: any) {
-					logger.warn("[Boot] Background migration error (non-fatal):", migErr?.message);
+					logger.warn("[Boot] Background migration error (non-fatal):", { error: migErr?.message });
 				}
 			})();
 		} else {
