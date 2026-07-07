@@ -2,6 +2,7 @@
 import { Router, Request, Response } from "express";
 import { db } from "../db";
 import { logger } from "../logger";
+
 import {
 	instrumentMaster,
 	proposalHoldings,
@@ -845,9 +846,49 @@ router.get("/api/instruments/search", async (req: Request, res: Response) => {
 			}
 		}
 
+		// ── Live MFAPI fallback ─────────────────────────────────────────────────
+		// When all DB tables are empty (fresh deploy, not yet seeded), fall back to
+		// api.mfapi.in/mf/search so the proposal builder ISIN lookup always works.
+		if (
+			instruments.length === 0 &&
+			(!assetClassStr || assetClassStr === "mutual_fund" || assetClassStr === "etf")
+		) {
+			try {
+				const mfapiRes = await fetch(
+					`https://api.mfapi.in/mf/search?q=${encodeURIComponent(String(q))}`,
+					{ signal: AbortSignal.timeout(4000) },
+				);
+				if (mfapiRes.ok) {
+					const mfapiData: Array<{ schemeCode: number; schemeName: string }> =
+						await mfapiRes.json();
+					for (const mf of mfapiData.slice(0, maxResults)) {
+						instruments.push({
+							id: mf.schemeCode,
+							isin: `MF${mf.schemeCode}`,
+							symbol: String(mf.schemeCode),
+							name: mf.schemeName,
+							shortName: mf.schemeName,
+							assetClass: "mutual_fund",
+							subType: null,
+							category: null,
+							issuer: null,
+							lastPrice: null,
+							currency: "INR",
+							riskLevel: null,
+							priceUpdatedAt: null,
+						});
+					}
+				}
+			} catch (_mfErr) {
+				// non-fatal — DB results (even empty) are returned below
+				logger.warn({ event: "mfapi_fallback_error", error: String(_mfErr) }, "MFAPI fallback failed");
+			}
+		}
+
 		res.json({ instruments });
 	} catch (error: any) {
-		console.error("Instrument search error:", error);
+			logger.error({ event: "instrument_search_error", error: String(error) }, "Instrument search error");
+
 		res.status(500).json({ error: "Failed to search instruments" });
 	}
 });
@@ -868,7 +909,7 @@ router.get("/api/instruments/:isin", async (req: Request, res: Response) => {
 
 		res.json({ instrument });
 	} catch (error: any) {
-		console.error("Get instrument error:", error);
+		logger.error({ event: "instrument_by_isin_error", error: String(error) }, "Get instrument by ISIN error");
 		res.status(500).json({ error: "Failed to get instrument" });
 	}
 });
