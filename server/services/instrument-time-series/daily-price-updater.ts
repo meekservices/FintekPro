@@ -7,6 +7,7 @@ import {
 } from "@shared/schema";
 import { eq, and, sql, isNull, lte, or } from "drizzle-orm";
 import { getProviderRegistry } from "../screener/data-provider-registry";
+import { updateInstrumentPrice } from "../instrument-price-router";
 
 interface DailyUpdateResult {
 	processed: number;
@@ -147,6 +148,16 @@ export async function runDailyPriceUpdate(): Promise<DailyUpdateResult> {
 					dayChangePercent: quote.changePercent?.toString(),
 				})
 				.where(eq(listedStocks.id, instrument.id));
+
+			// Canonical price router — emits PRICE_UPDATED log for observability
+			await updateInstrumentPrice({
+				instrumentType: "equity",
+				identifier: instrument.symbol,
+				price: quote.price,
+				priceDate: yesterdayStr,
+				source: "exchange",
+				dayChangePercent: quote.changePercent,
+			});
 
 			await logJob(
 				"DAILY_UPDATE",

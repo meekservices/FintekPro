@@ -12,6 +12,7 @@ import axios from "axios";
 import { db } from "../db";
 import { mutualFunds, mfNavHistory } from "@shared/schema";
 import { eq, sql, and } from "drizzle-orm";
+import { updateInstrumentPrice } from "./instrument-price-router";
 
 interface AmfiNavRecord {
 	schemeCode: string;
@@ -258,7 +259,7 @@ class AmfiOfficialNavService {
 							? record.isinDividendReinvest
 							: undefined;
 
-						// Update existing fund by scheme code
+						// Update existing fund metadata by scheme code
 						const updateResult = await db
 							.update(mutualFunds)
 							.set({
@@ -273,6 +274,15 @@ class AmfiOfficialNavService {
 							})
 							.where(eq(mutualFunds.schemeCode, record.schemeCode))
 							.returning({ id: mutualFunds.id });
+
+						// Route the NAV price through the canonical price router
+						await updateInstrumentPrice({
+							instrumentType: "mutual_fund",
+							identifier: record.schemeCode,
+							price: record.nav,
+							priceDate: record.navDate,
+							source: "amfi",
+						});
 
 						if (updateResult.length > 0) {
 							// Insert historical NAV record for SEBI audit trail
