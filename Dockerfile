@@ -3,15 +3,16 @@
 # Ships with esbuild ≥0.21 which fixes JSX division operator false positives.
 FROM node:22-alpine AS builder
 
+# CACHE_BUST: pass --build-arg CACHE_BUST=$(date +%s) to force full rebuild.
+# Must be declared FIRST — before any COPY — so every layer below is invalidated.
+ARG CACHE_BUST=1
+
 WORKDIR /app
 
 # Layer cache: install deps first (only invalidated when package*.json changes)
 COPY package*.json ./
 RUN npm install --no-audit --no-fund --legacy-peer-deps
 
-# Layer-cache buster: pass --build-arg CACHE_BUST=$(date +%s) to force full rebuild
-# when source hasn't changed enough to bust the COPY layer hash automatically.
-ARG CACHE_BUST=1
 # Copy all source files
 COPY . .
 
