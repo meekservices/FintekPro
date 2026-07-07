@@ -670,7 +670,7 @@ const ENGINE_REGISTRY: EngineRegistryEntry[] = [
 		pythonMigrated: true,
 		currentVersion: "py-mf-analytics-v2",
 		upgradeNote:
-			"8 endpoints: compute-metrics, scheme-analytics (DB-native), monthly-series, bulk-compute-db, cross-sectional-rank (fills category_rank/percentile_rank for 6K+ schemes), risk-from-monthly (VaR/CVaR/semi-deviation/consistency/capture ratios from mf_monthly_returns), sync-change-pct (mutual_funds.change_percent from mf_nav_history), derived-metrics (Treynor/Jensen alpha). SQL syncs: return_1y +2104, return_3y +1727, return_5y +943 in mutual_fund_metrics; benchmark_index_code filled for 5529 funds.",
+			"8 endpoints: compute-metrics, scheme-analytics (DB-native), monthly-series, bulk-compute-db, cross-sectional-rank (fills category_rank/percentile_rank for 6K+ schemes), risk-from-monthly (VaR/CVaR/semi-deviation/consistency/capture ratios from mf_monthwise_performance), sync-change-pct (mutual_funds.change_percent from mf_nav_history), derived-metrics (Treynor/Jensen alpha). SQL syncs: return_1y +2104, return_3y +1727, return_5y +943 in mutual_fund_metrics; benchmark_index_code filled for 5529 funds.",
 		priority: "critical",
 	},
 	{

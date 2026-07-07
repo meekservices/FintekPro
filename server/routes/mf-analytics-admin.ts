@@ -62,7 +62,7 @@ router.get(
         (SELECT MAX(cnt) FROM (SELECT COUNT(*) cnt FROM mf_nav_history GROUP BY scheme_code) s) AS nav_max_days,
         (SELECT COUNT(*) FROM (SELECT scheme_code FROM mf_nav_history GROUP BY scheme_code HAVING COUNT(*) >= 100) s) AS nav_schemes_100plus,
         (SELECT COUNT(*) FROM (SELECT scheme_code FROM mf_nav_history GROUP BY scheme_code HAVING COUNT(*) >= 365) s) AS nav_schemes_365plus,
-        (SELECT COUNT(DISTINCT scheme_code) FROM mf_monthly_returns) AS monthly_returns_schemes,
+        (SELECT COUNT(DISTINCT scheme_code) FROM mf_monthwise_performance) AS monthly_returns_schemes,
         (SELECT COUNT(*) FROM historical_nav_data WHERE identifier_type = 'mutual_fund') AS historical_nav_rows
     `);
 

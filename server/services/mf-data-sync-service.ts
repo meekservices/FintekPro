@@ -2,7 +2,7 @@ import axios from "axios";
 import { db } from "../db";
 import {
 	mfNavHistory,
-	mfMonthlyReturns,
+	mfMonthwisePerformance,
 	mfSchemeExitLoads,
 	mutualFunds,
 } from "@shared/schema";
@@ -178,7 +178,7 @@ class MFDataSyncService {
 					((data.last.nav - data.first.nav) / data.first.nav) * 100;
 
 				await db
-					.insert(mfMonthlyReturns)
+					.insert(mfMonthwisePerformance)
 					.values({
 						schemeCode,
 						monthYear,
@@ -189,7 +189,7 @@ class MFDataSyncService {
 						endDate: data.last.date,
 					})
 					.onConflictDoUpdate({
-						target: [mfMonthlyReturns.schemeCode, mfMonthlyReturns.monthYear],
+						target: [mfMonthwisePerformance.schemeCode, mfMonthwisePerformance.monthYear],
 						set: {
 							returnPercent: returnPercent.toFixed(4),
 							navStart: data.first.nav.toString(),
@@ -446,12 +446,12 @@ class MFDataSyncService {
 		try {
 			const recentReturns = await db
 				.select({
-					monthYear: mfMonthlyReturns.monthYear,
-					returnPercent: mfMonthlyReturns.returnPercent,
+					monthYear: mfMonthwisePerformance.monthYear,
+					returnPercent: mfMonthwisePerformance.returnPercent,
 				})
-				.from(mfMonthlyReturns)
-				.where(eq(mfMonthlyReturns.schemeCode, schemeCode))
-				.orderBy(desc(mfMonthlyReturns.monthYear))
+				.from(mfMonthwisePerformance)
+				.where(eq(mfMonthwisePerformance.schemeCode, schemeCode))
+				.orderBy(desc(mfMonthwisePerformance.monthYear))
 				.limit(6);
 
 			if (recentReturns.length < 3) return null;

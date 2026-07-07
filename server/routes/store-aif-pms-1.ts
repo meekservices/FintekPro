@@ -5,7 +5,7 @@ import {
 	aifMaster,
 	pmsMaster,
 	fundManagers,
-	fundPerformanceMonthwise,
+	mfMonthwisePerformance,
 	fundPerformanceRolling,
 	insertAifMasterSchema,
 	insertPmsMasterSchema,
@@ -461,17 +461,17 @@ router.get("/performance/fund/:id/monthwise", async (req, res) => {
 
 		const performance = await db
 			.select()
-			.from(fundPerformanceMonthwise)
+			.from(mfMonthwisePerformance)
 			.where(
 				and(
-					eq(fundPerformanceMonthwise.fundId, id),
-					eq(fundPerformanceMonthwise.fundType, fundType as string),
-					gte(fundPerformanceMonthwise.year, yearsAgo.getFullYear()),
+					eq(mfMonthwisePerformance.fundId, id),
+					eq(mfMonthwisePerformance.fundType, fundType as string),
+					gte(mfMonthwisePerformance.year, yearsAgo.getFullYear()),
 				),
 			)
 			.orderBy(
-				desc(fundPerformanceMonthwise.year),
-				desc(fundPerformanceMonthwise.month),
+				desc(mfMonthwisePerformance.year),
+				desc(mfMonthwisePerformance.month),
 			);
 
 		res.json({ performance });

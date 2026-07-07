@@ -2838,4 +2838,91 @@ export async function ensureSharedRouteTables(): Promise<void> {
   } catch (e: any) {
     console.warn("  ⚠️  Fix IM-7 screener_stocks view (non-fatal):", e.message?.slice(0, 120));
   }
+
+  // ── Fix IM-8: mf_monthly_returns compat VIEW (Phase 4) ───────────────────────
+  // mf_monthly_returns was a duplicate of mf_monthwise_performance.
+  // Any raw SQL that still references it will transparently read from the canonical table.
+  try {
+    await migDb.execute(migSql`
+      CREATE OR REPLACE VIEW mf_monthly_returns AS
+      SELECT
+        id,
+        scheme_code,
+        month_year,
+        return_percent,
+        nav_start,
+        nav_end,
+        start_date,
+        end_date,
+        'mutual_fund'  AS fund_type,
+        NULL::varchar  AS fund_id,
+        return_pct,
+        created_at,
+        updated_at
+      FROM mf_monthwise_performance
+    `);
+    console.log("  ✅ Fix IM-8: mf_monthly_returns compat VIEW created → mf_monthwise_performance");
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix IM-8 mf_monthly_returns view (non-fatal):", e.message?.slice(0, 120));
+  }
+
+  // ── Fix IM-9: fund_performance_monthwise compat VIEW (Phase 4) ───────────────
+  // fund_performance_monthwise stored AIF+PMS monthly returns — now merged via
+  // fund_type + fund_id columns added to mf_monthwise_performance in Phase 1.
+  try {
+    await migDb.execute(migSql`
+      CREATE OR REPLACE VIEW fund_performance_monthwise AS
+      SELECT
+        id,
+        fund_id,
+        fund_type,
+        month_year,
+        return_percent,
+        nav_start,
+        nav_end,
+        start_date,
+        end_date,
+        created_at,
+        updated_at
+      FROM mf_monthwise_performance
+      WHERE fund_type IN ('aif', 'pms')
+    `);
+    console.log("  ✅ Fix IM-9: fund_performance_monthwise compat VIEW created → mf_monthwise_performance");
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix IM-9 fund_performance_monthwise view (non-fatal):", e.message?.slice(0, 120));
+  }
+
+  // ── Fix IM-10: aif_funds compat VIEW (Phase 4) ────────────────────────────────
+  // aif_funds had only 1 route usage. IRIS API is now authoritative → aif_master.
+  try {
+    await migDb.execute(migSql`
+      CREATE OR REPLACE VIEW aif_funds AS
+      SELECT
+        id,
+        fund_name,
+        fund_manager,
+        category,
+        sub_category,
+        inception_date,
+        aum,
+        vintage,
+        irr,
+        nav,
+        hurdle_rate,
+        management_fee,
+        performance_fee,
+        lock_in_period,
+        risk_level,
+        minimum_investment,
+        sebi_registration_number,
+        data_source,
+        is_active,
+        created_at,
+        updated_at
+      FROM aif_master
+    `);
+    console.log("  ✅ Fix IM-10: aif_funds compat VIEW created → aif_master");
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix IM-10 aif_funds view (non-fatal):", e.message?.slice(0, 120));
+  }
 }

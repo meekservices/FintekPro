@@ -5,7 +5,7 @@ import {
 	aifMaster,
 	pmsMaster,
 	fundManagers,
-	fundPerformanceMonthwise,
+	mfMonthwisePerformance,
 	fundPerformanceRolling,
 	insertAifMasterSchema,
 	insertPmsMasterSchema,
@@ -504,7 +504,7 @@ router.get("/fund-managers/:id", async (req, res) => {
 			.where(and(eq(pmsMaster.managerId, id), eq(pmsMaster.isPublished, true)));
 
 		// Get AIF funds managed by this manager
-		const aifFunds = await db
+		const aifMaster = await db
 			.select({
 				id: aifMaster.id,
 				name: aifMaster.name,
@@ -522,8 +522,8 @@ router.get("/fund-managers/:id", async (req, res) => {
 			manager,
 			managedFunds: {
 				pms: pmsFunds,
-				aif: aifFunds,
-				total: pmsFunds.length + aifFunds.length,
+				aif: aifMaster,
+				total: pmsFunds.length + aifMaster.length,
 			},
 		});
 	} catch (error: any) {
@@ -562,7 +562,7 @@ router.get("/fund-managers/:id/other-funds", async (req, res) => {
 		});
 
 		// Get AIF funds
-		const aifFunds = await db
+		const aifMaster = await db
 			.select({
 				id: aifMaster.id,
 				name: aifMaster.name,
@@ -576,7 +576,7 @@ router.get("/fund-managers/:id/other-funds", async (req, res) => {
 			.from(aifMaster)
 			.where(and(eq(aifMaster.managerId, id), eq(aifMaster.isPublished, true)));
 
-		aifFunds.forEach((fund) => {
+		aifMaster.forEach((fund) => {
 			if (excludeFundId && fundType === "aif" && fund.id === excludeFundId)
 				return;
 			otherFunds.push({ ...fund, fundType: "aif" });

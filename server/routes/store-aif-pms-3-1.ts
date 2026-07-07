@@ -4,7 +4,7 @@ import {
 	aifMaster,
 	pmsMaster,
 	fundManagers,
-	fundPerformanceMonthwise,
+	mfMonthwisePerformance,
 	fundPerformanceRolling,
 	insertAifMasterSchema,
 	insertPmsMasterSchema,
