@@ -201,7 +201,7 @@ export async function runInstitutionalDataMigration(): Promise<void> {
           CAST(last_traded_price AS NUMERIC) AS current_price,
           'INR'::varchar AS currency,
           NULL::timestamp AS updated_at
-        FROM corporate_bonds
+        FROM bond_catalog
         WHERE isin IS NOT NULL
       UNION ALL
         SELECT

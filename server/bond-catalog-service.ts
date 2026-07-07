@@ -8,13 +8,13 @@
 import { db } from "./db";
 import {
 	governmentSecurities,
-	corporateBonds,
 	GovernmentSecurity,
-	CorporateBond,
+	bondCatalog,
 } from "@shared/schema";
+import type { BondCatalogEntry } from "@shared/schema/bonds";
 import { nseNcbApi } from "./nseNcbApi";
 import { bseBondApi } from "./bseBondApi";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 export interface BondRefreshResult {
 	gsec: { count: number; error?: string };
@@ -220,7 +220,7 @@ export class BondCatalogService {
 	}
 
 	/**
-	 * Refresh corporate bonds from BSE
+	 * Refresh corporate bonds from BSE — writes to bond_catalog (authoritative master)
 	 * Throws on error so caller can handle and track failures
 	 */
 	async refreshCorporateBonds(): Promise<number> {
@@ -229,16 +229,18 @@ export class BondCatalogService {
 		for (const bond of bonds) {
 			const existing = await db
 				.select()
-				.from(corporateBonds)
-				.where(eq(corporateBonds.isin, bond.isin))
+				.from(bondCatalog)
+				.where(eq(bondCatalog.isin, bond.isin))
 				.limit(1);
 
 			const bondData = {
 				isin: bond.isin,
 				securityCode: bond.securityCode,
 				bondName: bond.bondName,
-				issuer: bond.issuer,
+				issuerName: bond.issuer,           // corporate_bonds.issuer → bondCatalog.issuerName
 				bondType: bond.bondType,
+				source: 'bse' as const,
+				instrumentType: 'corporate_bond' as const,
 				issueDate: new Date().toISOString().split("T")[0],
 				maturityDate: bond.maturityDate,
 				faceValue: bond.faceValue.toString(),
@@ -249,24 +251,24 @@ export class BondCatalogService {
 				yieldToMaturity: bond.yieldToMaturity.toString(),
 				creditRating: bond.creditRating,
 				ratingAgency: bond.ratingAgency,
-				minimumLotSize: bond.minimumLotSize.toString(),
+				lotSize: bond.minimumLotSize,               // corporate_bonds.minimumLotSize → bondCatalog.lotSize
 				tradingStatus: bond.tradingStatus,
 				lastTradedPrice: bond.lastTradedPrice.toString(),
-				volume: bond.volume.toString(),
-				lastUpdated: new Date(),
+				volume: bond.volume,
+				updatedAt: new Date(),                      // corporate_bonds.lastUpdated → bondCatalog.updatedAt
 			};
 
 			if (existing.length > 0) {
 				await db
-					.update(corporateBonds)
+					.update(bondCatalog)
 					.set(bondData as any)
-					.where(eq(corporateBonds.isin, bond.isin));
+					.where(eq(bondCatalog.isin, bond.isin));
 			} else {
-				await db.insert(corporateBonds).values(bondData as any);
+				await db.insert(bondCatalog).values(bondData as any);
 			}
 		}
 
-		console.log(`✅ Refreshed ${bonds.length} corporate bonds`);
+		console.log(`✅ Refreshed ${bonds.length} corporate bonds → bond_catalog`);
 		return bonds.length;
 	}
 
@@ -324,7 +326,7 @@ export class BondCatalogService {
 	}
 
 	/**
-	 * Refresh tax-free bonds
+	 * Refresh tax-free bonds from BSE — writes to bond_catalog
 	 * Throws on error so caller can handle and track failures
 	 */
 	async refreshTaxFreeBonds(): Promise<number> {
@@ -333,16 +335,19 @@ export class BondCatalogService {
 		for (const bond of taxFreeBonds) {
 			const existing = await db
 				.select()
-				.from(corporateBonds)
-				.where(eq(corporateBonds.isin, bond.isin))
+				.from(bondCatalog)
+				.where(eq(bondCatalog.isin, bond.isin))
 				.limit(1);
 
 			const bondData = {
 				isin: bond.isin,
 				securityCode: bond.securityCode,
 				bondName: bond.bondName,
-				issuer: bond.issuer,
+				issuerName: bond.issuer,
 				bondType: bond.bondType,
+				source: 'bse' as const,
+				instrumentType: 'corporate_bond' as const,
+				taxCategory: 'tax_free',                    // corporate_bonds.taxStatus → bondCatalog.taxCategory
 				issueDate: new Date().toISOString().split("T")[0],
 				maturityDate: bond.maturityDate,
 				faceValue: bond.faceValue.toString(),
@@ -353,30 +358,29 @@ export class BondCatalogService {
 				yieldToMaturity: bond.yieldToMaturity.toString(),
 				creditRating: bond.creditRating,
 				ratingAgency: bond.ratingAgency,
-				minimumLotSize: bond.minimumLotSize.toString(),
+				lotSize: bond.minimumLotSize,
 				tradingStatus: bond.tradingStatus,
 				lastTradedPrice: bond.lastTradedPrice.toString(),
-				volume: bond.volume.toString(),
-				taxBenefit: bond.taxBenefit,
-				lastUpdated: new Date(),
+				volume: bond.volume,
+				updatedAt: new Date(),
 			};
 
 			if (existing.length > 0) {
 				await db
-					.update(corporateBonds)
+					.update(bondCatalog)
 					.set(bondData)
-					.where(eq(corporateBonds.isin, bond.isin));
+					.where(eq(bondCatalog.isin, bond.isin));
 			} else {
-				await db.insert(corporateBonds).values(bondData);
+				await db.insert(bondCatalog).values(bondData);
 			}
 		}
 
-		console.log(`✅ Refreshed ${taxFreeBonds.length} tax-free bonds`);
+		console.log(`✅ Refreshed ${taxFreeBonds.length} tax-free bonds → bond_catalog`);
 		return taxFreeBonds.length;
 	}
 
 	/**
-	 * Refresh infrastructure bonds
+	 * Refresh infrastructure bonds — writes to bond_catalog
 	 * Throws on error so caller can handle and track failures
 	 */
 	async refreshInfrastructureBonds(): Promise<number> {
@@ -385,16 +389,18 @@ export class BondCatalogService {
 		for (const bond of infraBonds) {
 			const existing = await db
 				.select()
-				.from(corporateBonds)
-				.where(eq(corporateBonds.isin, bond.isin))
+				.from(bondCatalog)
+				.where(eq(bondCatalog.isin, bond.isin))
 				.limit(1);
 
 			const bondData = {
 				isin: bond.isin,
 				securityCode: bond.securityCode,
 				bondName: bond.bondName,
-				issuer: bond.issuer,
+				issuerName: bond.issuer,
 				bondType: bond.bondType,
+				source: 'bse' as const,
+				instrumentType: 'infrastructure_bond' as const,
 				issueDate: new Date().toISOString().split("T")[0],
 				maturityDate: bond.maturityDate,
 				faceValue: bond.faceValue.toString(),
@@ -405,26 +411,25 @@ export class BondCatalogService {
 				yieldToMaturity: bond.yieldToMaturity.toString(),
 				creditRating: bond.creditRating,
 				ratingAgency: bond.ratingAgency,
-				minimumLotSize: bond.minimumLotSize.toString(),
+				lotSize: bond.minimumLotSize,
 				tradingStatus: bond.tradingStatus,
 				lastTradedPrice: bond.lastTradedPrice.toString(),
-				volume: bond.volume.toString(),
+				volume: bond.volume,
 				infraSector: bond.sector,
-				infraProjectType: bond.projectType,
-				lastUpdated: new Date(),
+				updatedAt: new Date(),
 			};
 
 			if (existing.length > 0) {
 				await db
-					.update(corporateBonds)
+					.update(bondCatalog)
 					.set(bondData)
-					.where(eq(corporateBonds.isin, bond.isin));
+					.where(eq(bondCatalog.isin, bond.isin));
 			} else {
-				await db.insert(corporateBonds).values(bondData);
+				await db.insert(bondCatalog).values(bondData);
 			}
 		}
 
-		console.log(`✅ Refreshed ${infraBonds.length} infrastructure bonds`);
+		console.log(`✅ Refreshed ${infraBonds.length} infrastructure bonds → bond_catalog`);
 		return infraBonds.length;
 	}
 
@@ -458,7 +463,7 @@ export class BondCatalogService {
 	}
 
 	/**
-	 * Get cached corporate bonds
+	 * Get cached corporate bonds — reads from bond_catalog (single source of truth)
 	 */
 	async getCachedCorporateBonds(filters?: {
 		bondType?: string;
@@ -466,11 +471,10 @@ export class BondCatalogService {
 		minYield?: number;
 		maxYield?: number;
 	}) {
-		const query = db.select().from(corporateBonds);
+		const results = await db.select().from(bondCatalog)
+			.where(inArray(bondCatalog.instrumentType, ['corporate_bond', 'ncd', 'infrastructure_bond', 'unlisted_bond']));
 
-		const results = await query;
-
-		return results.filter((bond: CorporateBond) => {
+		return results.filter((bond: BondCatalogEntry) => {
 			if (filters?.bondType && bond.bondType !== filters.bondType) {
 				return false;
 			}
@@ -510,7 +514,7 @@ export class BondCatalogService {
 	}
 
 	/**
-	 * Force refresh of specific bond by ISIN
+	 * Force refresh of specific bond by ISIN — writes to bond_catalog
 	 */
 	async refreshBondByISIN(isin: string) {
 		try {
@@ -556,22 +560,24 @@ export class BondCatalogService {
 				return;
 			}
 
-			// Try BSE corporate bond
+			// Try BSE corporate bond — write to bond_catalog
 			const bondDetails = await bseBondApi.getBondDetails(isin);
 
 			if (bondDetails) {
 				const existing = await db
 					.select()
-					.from(corporateBonds)
-					.where(eq(corporateBonds.isin, isin))
+					.from(bondCatalog)
+					.where(eq(bondCatalog.isin, isin))
 					.limit(1);
 
 				const bondData = {
 					isin: bondDetails.isin,
 					securityCode: bondDetails.securityCode,
 					bondName: bondDetails.bondName,
-					issuer: bondDetails.issuer,
+					issuerName: bondDetails.issuer,
 					bondType: bondDetails.bondType,
+					source: 'bse' as const,
+					instrumentType: 'corporate_bond' as const,
 					issueDate: new Date().toISOString().split("T")[0],
 					maturityDate: bondDetails.maturityDate,
 					faceValue: bondDetails.faceValue.toString(),
@@ -582,23 +588,23 @@ export class BondCatalogService {
 					yieldToMaturity: bondDetails.yieldToMaturity.toString(),
 					creditRating: bondDetails.creditRating,
 					ratingAgency: bondDetails.ratingAgency,
-					minimumLotSize: bondDetails.minimumLotSize.toString(),
+					lotSize: bondDetails.minimumLotSize,
 					tradingStatus: bondDetails.tradingStatus,
 					lastTradedPrice: bondDetails.lastTradedPrice.toString(),
-					volume: bondDetails.volume.toString(),
-					lastUpdated: new Date(),
+					volume: bondDetails.volume,
+					updatedAt: new Date(),
 				};
 
 				if (existing.length > 0) {
 					await db
-						.update(corporateBonds)
+						.update(bondCatalog)
 						.set(bondData as any)
-						.where(eq(corporateBonds.isin, isin));
+						.where(eq(bondCatalog.isin, isin));
 				} else {
-					await db.insert(corporateBonds).values(bondData as any);
+					await db.insert(bondCatalog).values(bondData as any);
 				}
 
-				console.log(`✅ Refreshed corporate bond ${isin}`);
+				console.log(`✅ Refreshed corporate bond ${isin} → bond_catalog`);
 			}
 		} catch (error) {
 			console.error(`Error refreshing bond ${isin}:`, error);

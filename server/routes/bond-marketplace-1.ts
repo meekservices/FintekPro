@@ -69,11 +69,11 @@ router.get("/catalog", async (req: Request, res: Response) => {
 		if (!type || type === "all" || type === "corporate") {
 			const corpQuery = db
 				.select()
-				.from(schema.corporateBonds)
+				.from(schema.bondCatalog)
 				.where(
 					and(
-						eq(schema.corporateBonds.tradingStatus, "active"),
-						sql`${schema.corporateBonds.instrumentStatus} IN ('SELLABLE', 'VISIBLE')`,
+						eq(schema.bondCatalog.tradingStatus, "active"),
+						sql`${schema.bondCatalog.instrumentStatus} IN ('SELLABLE', 'VISIBLE')`,
 					),
 				);
 
@@ -124,8 +124,8 @@ router.get("/catalog/:isin", async (req: Request, res: Response) => {
 		// Try corporate bonds
 		const [corpBond] = await db
 			.select()
-			.from(schema.corporateBonds)
-			.where(eq(schema.corporateBonds.isin, isin));
+			.from(schema.bondCatalog)
+			.where(eq(schema.bondCatalog.isin, isin));
 
 		if (corpBond) {
 			return apiResponse.success(res, {

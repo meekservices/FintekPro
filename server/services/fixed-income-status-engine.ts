@@ -339,7 +339,7 @@ export class FixedIncomeStatusEngine {
       SELECT 
         instrument_status,
         COUNT(*) as count
-      FROM corporate_bonds
+      FROM bond_catalog
       WHERE trading_status = 'active'
       GROUP BY instrument_status
     `);

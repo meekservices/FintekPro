@@ -8,7 +8,7 @@ import {
 	customerCareAgents,
 	mutualFunds,
 	mutualFundMetrics,
-	corporateBonds,
+	bondCatalog,
 	aifMaster,
 	pmsMaster,
 	mldMaster,

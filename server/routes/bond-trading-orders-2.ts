@@ -14,7 +14,7 @@ import { bseBondApi } from "../bseBondApi";
 import { bseDirectApi } from "../bseDirectApi";
 import {
 	governmentSecurities,
-	corporateBonds,
+	bondCatalog,
 	bondOrders,
 	bondHoldings,
 	insertBondOrderSchema,

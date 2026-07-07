@@ -4,7 +4,7 @@ import { runDailyFixedIncomeRefresh } from "../cron/fixed-income-daily-refresh";
 import { apiResponse } from "../utils/responses";
 import { requireAuth, requireRole } from "../middleware/roleMiddleware";
 import { db } from "../db";
-import { corporateBonds, fixedIncomeStatusLog } from "@shared/schema";
+import { bondCatalog, fixedIncomeStatusLog } from "@shared/schema";
 import {
 	seedBondUniverse,
 	getBondUniverseStats,
@@ -37,24 +37,24 @@ router.get(
 
 			const bonds: CorporateBond[] = await db
 				.select()
-				.from(corporateBonds)
+				.from(bondCatalog)
 				.where(
 					and(
-						eq(corporateBonds.tradingStatus, "active"),
-						eq(corporateBonds.instrumentStatus, "SELLABLE"),
+						eq(bondCatalog.tradingStatus, "active"),
+						eq(bondCatalog.instrumentStatus, "SELLABLE"),
 					),
 				)
 				.limit(queryInt(limit, 50))
 				.offset(queryInt(offset, 0))
-				.orderBy(desc(corporateBonds.yieldToMaturity));
+				.orderBy(desc(bondCatalog.yieldToMaturity));
 
 			const [totalRow] = await db
 				.select({ count: sql<string>`count(*)` })
-				.from(corporateBonds)
+				.from(bondCatalog)
 				.where(
 					and(
-						eq(corporateBonds.tradingStatus, "active"),
-						eq(corporateBonds.instrumentStatus, "SELLABLE"),
+						eq(bondCatalog.tradingStatus, "active"),
+						eq(bondCatalog.instrumentStatus, "SELLABLE"),
 					),
 				);
 
@@ -85,11 +85,11 @@ router.get(
 
 			const bonds: CorporateBond[] = await db
 				.select()
-				.from(corporateBonds)
+				.from(bondCatalog)
 				.where(
 					and(
-						eq(corporateBonds.tradingStatus, "active"),
-						sql`${corporateBonds.instrumentStatus} IN ('SELLABLE', 'VISIBLE')`,
+						eq(bondCatalog.tradingStatus, "active"),
+						sql`${bondCatalog.instrumentStatus} IN ('SELLABLE', 'VISIBLE')`,
 					),
 				)
 				.limit(queryInt(limit, 100))
@@ -142,8 +142,8 @@ router.get(
 
 			const [bond] = (await db
 				.select()
-				.from(corporateBonds)
-				.where(eq(corporateBonds.isin, isin))) as (CorporateBond | undefined)[];
+				.from(bondCatalog)
+				.where(eq(bondCatalog.isin, isin))) as (CorporateBond | undefined)[];
 
 			if (!bond) {
 				apiResponse.notFound(res, "Bond not found");
@@ -259,19 +259,19 @@ router.get(
 
 			const bonds: CorporateBond[] = await db
 				.select()
-				.from(corporateBonds)
+				.from(bondCatalog)
 				.where(
 					and(
-						eq(corporateBonds.tradingStatus, "active"),
-						type !== "all" ? eq(corporateBonds.bondType, type) : sql`1=1`,
+						eq(bondCatalog.tradingStatus, "active"),
+						type !== "all" ? eq(bondCatalog.bondType, type) : sql`1=1`,
 						rating !== "all"
-							? eq(corporateBonds.creditRating, rating)
+							? eq(bondCatalog.creditRating, rating)
 							: sql`1=1`,
 					),
 				)
 				.limit(queryInt(limit, 10))
 				.offset(queryInt(offset, 0))
-				.orderBy(desc(corporateBonds.yieldToMaturity));
+				.orderBy(desc(bondCatalog.yieldToMaturity));
 
 			apiResponse.success(res, {
 				bonds: bonds.map((b) => ({

@@ -1,7 +1,6 @@
 import { db } from "../db";
 import {
 	governmentSecurities,
-	corporateBonds,
 	bondOrders,
 	bondHoldings,
 	ncdPublicIssues,
@@ -13,6 +12,7 @@ import {
 	rbiRetailDirectAccounts,
 	bondNcdApplications,
 	users,
+	bondCatalog,
 } from "@shared/schema";
 import {
 	eq,
@@ -25,6 +25,7 @@ import {
 	or,
 	like,
 	ilike,
+	inArray,
 } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 
@@ -119,33 +120,36 @@ class FixedIncomeMarketplaceService {
 			filters.bondType === "corporate" ||
 			!filters.bondType
 		) {
-			const conditions: any[] = [eq(corporateBonds.tradingStatus, "active")];
+			const conditions: any[] = [
+				eq(bondCatalog.tradingStatus, "active"),
+				inArray(bondCatalog.instrumentType, ['corporate_bond', 'ncd', 'infrastructure_bond', 'unlisted_bond', 'tax_free_bond'])
+			];
 
 			if (filters.creditRating) {
-				conditions.push(eq(corporateBonds.creditRating, filters.creditRating));
+				conditions.push(eq(bondCatalog.creditRating, filters.creditRating));
 			}
-			if (filters.minYield) {
+			if (filters.minYield !== undefined) {
 				conditions.push(
-					gte(corporateBonds.yieldToMaturity, filters.minYield.toString()),
+					gte(bondCatalog.yieldToMaturity, filters.minYield.toString()),
 				);
 			}
-			if (filters.maxYield) {
+			if (filters.maxYield !== undefined) {
 				conditions.push(
-					lte(corporateBonds.yieldToMaturity, filters.maxYield.toString()),
+					lte(bondCatalog.yieldToMaturity, filters.maxYield.toString()),
 				);
 			}
 			if (filters.issuer) {
-				conditions.push(ilike(corporateBonds.issuer, `%${filters.issuer}%`));
+				conditions.push(ilike(bondCatalog.issuerName, `%${filters.issuer}%`));
 			}
 			if (filters.taxStatus) {
-				conditions.push(eq(corporateBonds.taxStatus, filters.taxStatus));
+				conditions.push(eq(bondCatalog.taxCategory, filters.taxStatus));
 			}
 
 			corpBonds = await db
 				.select()
-				.from(corporateBonds)
+				.from(bondCatalog)
 				.where(and(...conditions))
-				.orderBy(desc(corporateBonds.yieldToMaturity))
+				.orderBy(desc(bondCatalog.yieldToMaturity))
 				.limit(filters.bondType === "corporate" ? limit : Math.floor(limit / 2))
 				.offset(filters.bondType === "corporate" ? offset : 0);
 		}
@@ -183,8 +187,8 @@ class FixedIncomeMarketplaceService {
 		}
 		const [bond] = await db
 			.select()
-			.from(corporateBonds)
-			.where(eq(corporateBonds.id, bondId));
+			.from(bondCatalog)
+			.where(eq(bondCatalog.id, bondId));
 		return bond ? { ...bond, category: "corporate" } : null;
 	}
 
@@ -200,8 +204,8 @@ class FixedIncomeMarketplaceService {
 
 		const [corpBond] = await db
 			.select()
-			.from(corporateBonds)
-			.where(eq(corporateBonds.isin, isin));
+			.from(bondCatalog)
+			.where(eq(bondCatalog.isin, isin));
 
 		return corpBond ? { ...corpBond, category: "corporate" as const } : null;
 	}

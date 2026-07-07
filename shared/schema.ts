@@ -282,6 +282,8 @@ import {
     insertBondCalendarEventSchema,
     governmentSecurities,
     corporateBonds,
+    bondCatalog,
+    insertBondCatalogSchema,
     fixedIncomeStatusLog,
     insertGovernmentSecuritySchema
 } from './schema/bonds.ts';

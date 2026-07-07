@@ -110,8 +110,8 @@ router.get("/enhanced-catalog", async (req: Request, res: Response) => {
 		if (type === "all" || type === "corporate") {
 			const corpBonds = await db
 				.select()
-				.from(schema.corporateBonds)
-				.where(eq(schema.corporateBonds.tradingStatus, "active"))
+				.from(schema.bondCatalog)
+				.where(eq(schema.bondCatalog.tradingStatus, "active"))
 				.limit(Number.parseInt(limit as string));
 
 			bonds.push(
@@ -373,8 +373,8 @@ router.get("/maturity-ladder", async (req: Request, res: Response) => {
 				.where(eq(schema.governmentSecurities.tradingStatus, "active")),
 			db
 				.select()
-				.from(schema.corporateBonds)
-				.where(eq(schema.corporateBonds.tradingStatus, "active")),
+				.from(schema.bondCatalog)
+				.where(eq(schema.bondCatalog.tradingStatus, "active")),
 		]);
 
 		const allBonds = [
@@ -520,8 +520,8 @@ router.post("/compare", async (req: Request, res: Response) => {
 			// Try corporate bonds
 			const [corpBond] = await db
 				.select()
-				.from(schema.corporateBonds)
-				.where(eq(schema.corporateBonds.isin, isin));
+				.from(schema.bondCatalog)
+				.where(eq(schema.bondCatalog.isin, isin));
 
 			if (corpBond) {
 				const riskLevel = getRiskLevel(corpBond.creditRating || "");
@@ -634,8 +634,8 @@ router.get(
 			} else {
 				const [corpBond] = await db
 					.select()
-					.from(schema.corporateBonds)
-					.where(eq(schema.corporateBonds.isin, isin));
+					.from(schema.bondCatalog)
+					.where(eq(schema.bondCatalog.isin, isin));
 
 				if (corpBond) {
 					bond = corpBond;

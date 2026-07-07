@@ -1,7 +1,8 @@
 import { db } from "../db";
-import { corporateBonds } from "@shared/schema";
+import { bondCatalog } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
 import { fixedIncomeStatusEngine } from "./fixed-income-status-engine";
+
 
 const ISSUERS = [
 	{
@@ -435,8 +436,10 @@ function generateBond(index: number): any {
 		isin: generateISIN(),
 		securityCode: `BSE${100000 + index}`,
 		bondName: `${issuer.name} ${bondType === "ncd" ? "NCD" : "Bond"} Series ${Math.floor(Math.random() * 100) + 1} ${maturityDate.getFullYear()}`,
-		issuer: issuer.name,
+		issuerName: issuer.name,            // corporateBonds.issuer → bondCatalog.issuerName
 		bondType,
+		source: 'manual' as const,
+		instrumentType: bondType === 'ncd' ? 'ncd' : 'corporate_bond',
 		faceValue: faceValue.toString(),
 		couponType,
 		couponRate: couponRate.toFixed(4),
@@ -448,8 +451,8 @@ function generateBond(index: number): any {
 		currentPrice: currentPrice.toFixed(4),
 		yieldToMaturity: yieldToMaturity.toFixed(4),
 		tradingStatus: "active",
-		minimumLotSize: 1,
-		minimumInvestment: (faceValue * (bondType === "ncd" ? 10 : 1)).toString(),
+		lotSize: 1,                          // corporateBonds.minimumLotSize → bondCatalog.lotSize
+		minInvestment: faceValue * (bondType === "ncd" ? 10 : 1), // corporateBonds.minimumInvestment → bondCatalog.minInvestment
 		isCallable,
 		isPuttable,
 		secured: securityType !== "unsecured",
@@ -465,16 +468,13 @@ function generateBond(index: number): any {
 		lastTradedPrice: currentPrice.toFixed(4),
 		lastTradedDate: lastTradedDate.toISOString().split("T")[0],
 		volume: Math.floor(Math.random() * 10000),
-		turnover: (Math.random() * 1000000).toFixed(2),
 		issuerSector: issuer.sector,
 		issuerIndustry: issuer.industry,
-		taxStatus: bondType === "tax_free_bond" ? "tax_free" : "taxable",
-		dataSource: "seed_script",
+		taxCategory: bondType === "tax_free_bond" ? "tax_free" : "taxable", // corporateBonds.taxStatus → bondCatalog.taxCategory
 		instrumentStatus,
 		isListed,
 		liquidityScore,
 		ratingCurrent: issuer.rating.substring(0, 10),
-		ratingTrend: ["up", "stable", "down"][Math.floor(Math.random() * 3)],
 		structureComplexity,
 		regulatoryEligibility,
 		bidAskSpread: bidAskSpread.toFixed(2),
@@ -511,7 +511,8 @@ export async function seedBondUniverse(count: number = 8000): Promise<{
 		}
 
 		try {
-			await db.insert(corporateBonds).values(bonds).onConflictDoNothing();
+			await db.insert(bondCatalog).values(bonds as any).onConflictDoNothing();
+
 
 			for (const bond of bonds) {
 				inserted++;
@@ -549,19 +550,19 @@ export async function getBondUniverseStats(): Promise<{
 }> {
 	const statusResult = await db.execute(sql`
     SELECT instrument_status, COUNT(*) as count
-    FROM corporate_bonds
+    FROM bond_catalog
     GROUP BY instrument_status
   `);
 
 	const typeResult = await db.execute(sql`
     SELECT bond_type, COUNT(*) as count
-    FROM corporate_bonds
+    FROM bond_catalog
     GROUP BY bond_type
   `);
 
 	const sectorResult = await db.execute(sql`
     SELECT issuer_sector, COUNT(*) as count
-    FROM corporate_bonds
+    FROM bond_catalog
     GROUP BY issuer_sector
     ORDER BY count DESC
     LIMIT 10
@@ -569,13 +570,13 @@ export async function getBondUniverseStats(): Promise<{
 
 	const ratingResult = await db.execute(sql`
     SELECT credit_rating, COUNT(*) as count
-    FROM corporate_bonds
+    FROM bond_catalog
     GROUP BY credit_rating
     ORDER BY count DESC
   `);
 
 	const totalResult = await db.execute(
-		sql`SELECT COUNT(*) as count FROM corporate_bonds`,
+		sql`SELECT COUNT(*) as count FROM bond_catalog`,
 	);
 
 	return {

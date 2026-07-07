@@ -68,8 +68,8 @@ router.get("/watchlist", requireAuth, async (req: Request, res: Response) => {
 				} else {
 					const [corpBond] = await db
 						.select()
-						.from(schema.corporateBonds)
-						.where(eq(schema.corporateBonds.isin, item.isin));
+						.from(schema.bondCatalog)
+						.where(eq(schema.bondCatalog.isin, item.isin));
 
 					if (corpBond) {
 						currentData = {
@@ -150,8 +150,8 @@ router.post("/watchlist", requireAuth, async (req: Request, res: Response) => {
 		} else {
 			const [corpBond] = await db
 				.select()
-				.from(schema.corporateBonds)
-				.where(eq(schema.corporateBonds.isin, isin));
+				.from(schema.bondCatalog)
+				.where(eq(schema.bondCatalog.isin, isin));
 
 			if (corpBond) {
 				bondName = corpBond.bondName || isin;
@@ -330,8 +330,8 @@ router.get(
 			} else {
 				const [corpBond] = await db
 					.select()
-					.from(schema.corporateBonds)
-					.where(eq(schema.corporateBonds.isin, isin));
+					.from(schema.bondCatalog)
+					.where(eq(schema.bondCatalog.isin, isin));
 
 				if (corpBond) {
 					bond = corpBond;
@@ -413,8 +413,8 @@ router.get(
 					.limit(50),
 				db
 					.select()
-					.from(schema.corporateBonds)
-					.where(eq(schema.corporateBonds.tradingStatus, "active"))
+					.from(schema.bondCatalog)
+					.where(eq(schema.bondCatalog.tradingStatus, "active"))
 					.limit(50),
 			]);
 

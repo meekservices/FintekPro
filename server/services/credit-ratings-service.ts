@@ -1,11 +1,11 @@
 import { db } from "../db";
-import { creditRatings, corporateBonds } from "@shared/schema";
+import { creditRatings, bondCatalog } from "@shared/schema";
 import { sql, eq, desc } from "drizzle-orm";
 import { type CreditRating, type InsertCreditRating } from "@shared/schema";
 
 export class CreditRatingsService {
 	async seedCreditRatings() {
-		console.log("🌱 Seeding credit ratings from corporate_bonds...");
+		console.log("🌱 Seeding credit ratings from bond_catalog...");
 		try {
 			// Using raw SQL for the specific ON CONFLICT requirement and complex SELECT
 			// We check if the rating exists for the ISIN, Agency, and Date to avoid duplicates
@@ -21,7 +21,7 @@ export class CreditRatingsService {
           'Assigned', 
           true, 
           'bonds_table'
-        FROM corporate_bonds
+        FROM bond_catalog
         WHERE isin IS NOT NULL AND credit_rating IS NOT NULL
         ON CONFLICT DO NOTHING
       `);
