@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import {
-	screenerStocks,
+	listedStocks,
 	screenerFinancials,
 	screenerDerivedMetrics,
 	screenerTechnicalIndicators,
@@ -184,24 +184,24 @@ export async function queryScreener(
 	const limit = Math.min(filters.limit || 25, 100);
 	const offset = (page - 1) * limit;
 
-	const conditions: any[] = [eq(screenerStocks.isActive, true)];
+	const conditions: any[] = [eq(listedStocks.isActive, true)];
 
 	if (filters.sector)
-		conditions.push(eq(screenerStocks.sector, filters.sector));
+		conditions.push(eq(listedStocks.sector, filters.sector));
 	if (filters.industry)
-		conditions.push(eq(screenerStocks.industry, filters.industry));
+		conditions.push(eq(listedStocks.industry, filters.industry));
 	if (filters.marketCapCategory)
 		conditions.push(
-			eq(screenerStocks.marketCapCategory, filters.marketCapCategory),
+			eq(listedStocks.marketCapCategory, filters.marketCapCategory),
 		);
 	if (filters.exchange)
-		conditions.push(eq(screenerStocks.exchange, filters.exchange));
+		conditions.push(eq(listedStocks.exchange, filters.exchange));
 
 	if (filters.search) {
 		conditions.push(
 			or(
-				ilike(screenerStocks.symbol, `%${filters.search}%`),
-				ilike(screenerStocks.companyName, `%${filters.search}%`),
+				ilike(listedStocks.symbol, `%${filters.search}%`),
+				ilike(listedStocks.companyName, `%${filters.search}%`),
 			),
 		);
 	}
@@ -305,14 +305,14 @@ export async function queryScreener(
 	const hasTechnicalFilters = technicalConditions.length > 0;
 	const hasShareholdingFilters = shareholdingConditions.length > 0;
 
-	let sortColumn: any = screenerStocks.symbol;
+	let sortColumn: any = listedStocks.symbol;
 	let sortDir: any = asc;
 	if (filters.sortOrder === "desc") sortDir = desc;
 
 	switch (filters.sortBy) {
-		case "companyName": sortColumn = screenerStocks.companyName; break;
-		case "currentPrice": sortColumn = screenerStocks.currentPrice; break;
-		case "marketCap": sortColumn = screenerStocks.marketCapValue; break;
+		case "companyName": sortColumn = listedStocks.companyName; break;
+		case "currentPrice": sortColumn = listedStocks.currentPrice; break;
+		case "marketCap": sortColumn = listedStocks.marketCapValue; break;
 		case "peRatio": sortColumn = screenerFinancials.peRatio; break;
 		case "forwardPe": sortColumn = screenerFinancials.forwardPe; break;
 		case "pegRatio": sortColumn = screenerFinancials.pegRatio; break;
@@ -330,20 +330,20 @@ export async function queryScreener(
 		case "piotroski": sortColumn = screenerDerivedMetrics.piotroskiScore; break;
 		case "rsi": sortColumn = screenerTechnicalIndicatorsLatest.rsi14; break;
 		case "promoterHolding": sortColumn = screenerShareholding.promoterHolding; break;
-		default: sortColumn = screenerStocks.symbol;
+		default: sortColumn = listedStocks.symbol;
 	}
 
 	const baseQuery = db
 		.select({
 			// Core
-			symbol: screenerStocks.symbol,
-			companyName: screenerStocks.companyName,
-			sector: screenerStocks.sector,
-			industry: screenerStocks.industry,
-			exchange: screenerStocks.exchange,
-			currentPrice: screenerStocks.currentPrice,
-			marketCapValue: screenerStocks.marketCapValue,
-			marketCapCategory: screenerStocks.marketCapCategory,
+			symbol: listedStocks.symbol,
+			companyName: listedStocks.companyName,
+			sector: listedStocks.sector,
+			industry: listedStocks.industry,
+			exchange: listedStocks.exchange,
+			currentPrice: listedStocks.currentPrice,
+			marketCapValue: listedStocks.marketCapValue,
+			marketCapCategory: listedStocks.marketCapCategory,
 			// Fundamentals
 			peRatio: screenerFinancials.peRatio,
 			forwardPe: screenerFinancials.forwardPe,
@@ -393,13 +393,13 @@ export async function queryScreener(
 			weekHigh52: screenerDerivedMetrics.weekHigh52,
 			weekLow52: screenerDerivedMetrics.weekLow52,
 		})
-		.from(screenerStocks)
-		.leftJoin(screenerFinancials, eq(screenerStocks.symbol, screenerFinancials.symbol))
-		.leftJoin(screenerDerivedMetrics, eq(screenerStocks.symbol, screenerDerivedMetrics.symbol))
-		.leftJoin(screenerTechnicalIndicatorsLatest, eq(screenerStocks.symbol, screenerTechnicalIndicatorsLatest.symbol))  // hot table: one row/symbol, no date-sort needed
-		.leftJoin(screenerShareholding, eq(screenerStocks.symbol, screenerShareholding.symbol))
-		.leftJoin(screenerAnalystConsensus, eq(screenerStocks.symbol, screenerAnalystConsensus.symbol))
-		.leftJoin(screenerDcfValuations, eq(screenerStocks.symbol, screenerDcfValuations.symbol))
+		.from(listedStocks)
+		.leftJoin(screenerFinancials, eq(listedStocks.symbol, screenerFinancials.symbol))
+		.leftJoin(screenerDerivedMetrics, eq(listedStocks.symbol, screenerDerivedMetrics.symbol))
+		.leftJoin(screenerTechnicalIndicatorsLatest, eq(listedStocks.symbol, screenerTechnicalIndicatorsLatest.symbol))  // hot table: one row/symbol, no date-sort needed
+		.leftJoin(screenerShareholding, eq(listedStocks.symbol, screenerShareholding.symbol))
+		.leftJoin(screenerAnalystConsensus, eq(listedStocks.symbol, screenerAnalystConsensus.symbol))
+		.leftJoin(screenerDcfValuations, eq(listedStocks.symbol, screenerDcfValuations.symbol))
 		.where(
 			and(
 				...conditions,
@@ -414,12 +414,12 @@ export async function queryScreener(
 		.offset(offset);
 
 	const countQuery = db
-		.select({ count: sql<number>`count(DISTINCT ${screenerStocks.symbol})` })
-		.from(screenerStocks)
-		.leftJoin(screenerFinancials, eq(screenerStocks.symbol, screenerFinancials.symbol))
-		.leftJoin(screenerDerivedMetrics, eq(screenerStocks.symbol, screenerDerivedMetrics.symbol))
-		.leftJoin(screenerTechnicalIndicatorsLatest, eq(screenerStocks.symbol, screenerTechnicalIndicatorsLatest.symbol))
-		.leftJoin(screenerShareholding, eq(screenerStocks.symbol, screenerShareholding.symbol))
+		.select({ count: sql<number>`count(DISTINCT ${listedStocks.symbol})` })
+		.from(listedStocks)
+		.leftJoin(screenerFinancials, eq(listedStocks.symbol, screenerFinancials.symbol))
+		.leftJoin(screenerDerivedMetrics, eq(listedStocks.symbol, screenerDerivedMetrics.symbol))
+		.leftJoin(screenerTechnicalIndicatorsLatest, eq(listedStocks.symbol, screenerTechnicalIndicatorsLatest.symbol))
+		.leftJoin(screenerShareholding, eq(listedStocks.symbol, screenerShareholding.symbol))
 		.where(
 			and(
 				...conditions,
@@ -436,30 +436,30 @@ export async function queryScreener(
 
 	const [sectors, industries, marketCaps] = await Promise.all([
 		db
-			.selectDistinct({ value: screenerStocks.sector })
-			.from(screenerStocks)
+			.selectDistinct({ value: listedStocks.sector })
+			.from(listedStocks)
 			.where(
 				and(
-					eq(screenerStocks.isActive, true),
-					isNotNull(screenerStocks.sector),
+					eq(listedStocks.isActive, true),
+					isNotNull(listedStocks.sector),
 				),
 			),
 		db
-			.selectDistinct({ value: screenerStocks.industry })
-			.from(screenerStocks)
+			.selectDistinct({ value: listedStocks.industry })
+			.from(listedStocks)
 			.where(
 				and(
-					eq(screenerStocks.isActive, true),
-					isNotNull(screenerStocks.industry),
+					eq(listedStocks.isActive, true),
+					isNotNull(listedStocks.industry),
 				),
 			),
 		db
-			.selectDistinct({ value: screenerStocks.marketCapCategory })
-			.from(screenerStocks)
+			.selectDistinct({ value: listedStocks.marketCapCategory })
+			.from(listedStocks)
 			.where(
 				and(
-					eq(screenerStocks.isActive, true),
-					isNotNull(screenerStocks.marketCapCategory),
+					eq(listedStocks.isActive, true),
+					isNotNull(listedStocks.marketCapCategory),
 				),
 			),
 	]);
@@ -482,8 +482,8 @@ export async function queryScreener(
 export async function getStockDetail(symbol: string) {
 	const [stock] = await db
 		.select()
-		.from(screenerStocks)
-		.where(eq(screenerStocks.symbol, symbol))
+		.from(listedStocks)
+		.where(eq(listedStocks.symbol, symbol))
 		.limit(1);
 
 	if (!stock) return null;
@@ -518,8 +518,8 @@ export async function getStockDetail(symbol: string) {
 export async function getScreenerStats() {
 	const [stockCount] = await db
 		.select({ count: sql<number>`count(*)` })
-		.from(screenerStocks)
-		.where(eq(screenerStocks.isActive, true));
+		.from(listedStocks)
+		.where(eq(listedStocks.isActive, true));
 	const [financialCount] = await db
 		.select({ count: sql<number>`count(*)` })
 		.from(screenerFinancials);
@@ -537,13 +537,13 @@ export async function getScreenerStats() {
 export async function getScreenerDistribution() {
 	const marketCapDist = await db.execute(sql`
     SELECT market_cap_category as category, COUNT(*) as count 
-    FROM screener_stocks WHERE is_active = true AND market_cap_category IS NOT NULL 
+    FROM listed_stocks WHERE is_active = true AND market_cap_category IS NOT NULL 
     GROUP BY market_cap_category ORDER BY count DESC
   `);
 
 	const sectorDist = await db.execute(sql`
     SELECT sector, COUNT(*) as count 
-    FROM screener_stocks WHERE is_active = true AND sector IS NOT NULL 
+    FROM listed_stocks WHERE is_active = true AND sector IS NOT NULL 
     GROUP BY sector ORDER BY count DESC
   `);
 

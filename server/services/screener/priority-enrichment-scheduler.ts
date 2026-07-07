@@ -72,7 +72,7 @@ export async function enrichTier1(budget: number): Promise<TierResult> {
 		apiCalls = 0;
 	if (await canContinue()) {
 		const stocks = await db.execute(sql`
-      SELECT ss.symbol, ss.fmp_symbol FROM screener_stocks ss
+      SELECT ss.symbol, ss.fmp_symbol FROM listed_stocks ss
       LEFT JOIN screener_growth_metrics sgm ON sgm.symbol = ss.symbol
       WHERE ss.is_active = true AND sgm.id IS NULL
       ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
@@ -128,7 +128,7 @@ export async function enrichTier1(budget: number): Promise<TierResult> {
 	apiCalls = 0;
 	if (await canContinue()) {
 		const stocks = await db.execute(sql`
-      SELECT ss.symbol, ss.fmp_symbol FROM screener_stocks ss
+      SELECT ss.symbol, ss.fmp_symbol FROM listed_stocks ss
       LEFT JOIN screener_key_metrics skm ON skm.symbol = ss.symbol
       WHERE ss.is_active = true AND skm.id IS NULL
       ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
@@ -168,7 +168,7 @@ export async function enrichTier1(budget: number): Promise<TierResult> {
           `);
 					// Phase 2f: write per-table freshness timestamp
 					await db.execute(sql`
-              UPDATE screener_stocks
+              UPDATE listed_stocks
               SET last_key_metrics_sync = NOW(), updated_at = NOW()
               WHERE symbol = ${stock.symbol}
             `);
@@ -197,7 +197,7 @@ export async function enrichTier1(budget: number): Promise<TierResult> {
 	apiCalls = 0;
 	if (await canContinue()) {
 		const stocks = await db.execute(sql`
-      SELECT ss.symbol, ss.fmp_symbol FROM screener_stocks ss
+      SELECT ss.symbol, ss.fmp_symbol FROM listed_stocks ss
       LEFT JOIN screener_dcf_valuations sdv ON sdv.symbol = ss.symbol
       WHERE ss.is_active = true AND sdv.id IS NULL
       ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
@@ -247,7 +247,7 @@ export async function enrichTier1(budget: number): Promise<TierResult> {
 	apiCalls = 0;
 	if (await canContinue()) {
 		const stocks = await db.execute(sql`
-      SELECT ss.symbol, ss.fmp_symbol FROM screener_stocks ss
+      SELECT ss.symbol, ss.fmp_symbol FROM listed_stocks ss
       LEFT JOIN screener_company_ratings scr ON scr.symbol = ss.symbol
       WHERE ss.is_active = true AND scr.id IS NULL
       ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
@@ -326,7 +326,7 @@ export async function enrichTier2(budget: number): Promise<TierResult> {
 		apiCalls = 0;
 	if (await canContinue()) {
 		const stocks = await db.execute(sql`
-      SELECT ss.symbol, ss.fmp_symbol FROM screener_stocks ss
+      SELECT ss.symbol, ss.fmp_symbol FROM listed_stocks ss
       LEFT JOIN screener_analyst_targets sat ON sat.symbol = ss.symbol
       WHERE ss.is_active = true AND sat.id IS NULL
       ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
@@ -422,7 +422,7 @@ export async function enrichTier2(budget: number): Promise<TierResult> {
 	apiCalls = 0;
 	if (await canContinue()) {
 		const stocks = await db.execute(sql`
-      SELECT ss.symbol, ss.fmp_symbol FROM screener_stocks ss
+      SELECT ss.symbol, ss.fmp_symbol FROM listed_stocks ss
       LEFT JOIN screener_analyst_grades sag ON sag.symbol = ss.symbol
       WHERE ss.is_active = true AND sag.id IS NULL
       ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
@@ -650,7 +650,7 @@ export async function enrichTier3(budget: number): Promise<TierResult> {
 		apiCalls = 0;
 	if (await canContinue()) {
 		const stocks = await db.execute(sql`
-      SELECT ss.symbol, ss.fmp_symbol FROM screener_stocks ss
+      SELECT ss.symbol, ss.fmp_symbol FROM listed_stocks ss
       LEFT JOIN screener_institutional_holders sih ON sih.symbol = ss.symbol
       WHERE ss.is_active = true AND sih.id IS NULL
       ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
@@ -695,7 +695,7 @@ export async function enrichTier3(budget: number): Promise<TierResult> {
 	apiCalls = 0;
 	if (await canContinue()) {
 		const stocks = await db.execute(sql`
-      SELECT ss.symbol, ss.fmp_symbol FROM screener_stocks ss
+      SELECT ss.symbol, ss.fmp_symbol FROM listed_stocks ss
       LEFT JOIN screener_insider_trades sit ON sit.symbol = ss.symbol
       WHERE ss.is_active = true AND sit.id IS NULL
       ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
@@ -742,7 +742,7 @@ export async function enrichTier3(budget: number): Promise<TierResult> {
 	apiCalls = 0;
 	if (await canContinue()) {
 		const stocks = await db.execute(sql`
-      SELECT ss.symbol, ss.fmp_symbol FROM screener_stocks ss
+      SELECT ss.symbol, ss.fmp_symbol FROM listed_stocks ss
       LEFT JOIN screener_stock_news ssn ON ssn.symbol = ss.symbol
       WHERE ss.is_active = true AND ssn.id IS NULL
       ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
@@ -820,7 +820,7 @@ export async function enrichTier3(budget: number): Promise<TierResult> {
 	apiCalls = 0;
 	if (await canContinue()) {
 		const stocks = await db.execute(sql`
-      SELECT ss.symbol, ss.fmp_symbol FROM screener_stocks ss
+      SELECT ss.symbol, ss.fmp_symbol FROM listed_stocks ss
       LEFT JOIN screener_technical_indicators sti ON sti.symbol = ss.symbol
       WHERE ss.is_active = true AND sti.id IS NULL AND ss.exchange != 'UNLISTED'
       ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
@@ -847,7 +847,7 @@ export async function enrichTier3(budget: number): Promise<TierResult> {
           `);
 					// Phase 2f: write per-table freshness timestamp
 					await db.execute(sql`
-              UPDATE screener_stocks
+              UPDATE listed_stocks
               SET last_technicals_sync = NOW(), updated_at = NOW()
               WHERE symbol = ${stock.symbol}
             `);
@@ -1030,7 +1030,7 @@ export async function getExtendedEnrichmentProgress(): Promise<{
 }> {
 	const result = await db.execute(sql`
     SELECT
-      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true) as total,
+      (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true) as total,
       (SELECT COUNT(DISTINCT symbol) FROM screener_financials WHERE roe IS NOT NULL OR pb_ratio IS NOT NULL) as with_ratios,
       (SELECT COUNT(DISTINCT symbol) FROM screener_financials WHERE return_1y IS NOT NULL) as with_returns,
       (SELECT COUNT(DISTINCT symbol) FROM screener_growth_metrics) as with_growth,
@@ -1049,10 +1049,10 @@ export async function getExtendedEnrichmentProgress(): Promise<{
       (SELECT COUNT(*) FROM screener_ipo_calendar) as ipo_count,
       (SELECT COUNT(*) FROM screener_economic_calendar) as economic_count,
       -- Phase 2f/4d: per-table freshness (synced within 30 days)
-      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_financials_sync  > NOW() - INTERVAL '30 days') as fin_synced,
-      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_key_metrics_sync > NOW() - INTERVAL '30 days') as km_synced,
-      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_technicals_sync  > NOW() - INTERVAL '30 days') as tech_synced,
-      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_shareholding_sync > NOW() - INTERVAL '30 days') as sh_synced
+      (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_financials_sync  > NOW() - INTERVAL '30 days') as fin_synced,
+      (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_key_metrics_sync > NOW() - INTERVAL '30 days') as km_synced,
+      (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_technicals_sync  > NOW() - INTERVAL '30 days') as tech_synced,
+      (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_shareholding_sync > NOW() - INTERVAL '30 days') as sh_synced
   `);
 
 	const row = ((result as any).rows || result)[0];

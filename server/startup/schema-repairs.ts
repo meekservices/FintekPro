@@ -2780,4 +2780,62 @@ export async function ensureSharedRouteTables(): Promise<void> {
   } catch (e: any) {
     console.warn("  ⚠️  Fix IM-5 mutual_funds seed check (non-fatal):", e.message?.slice(0, 120));
   }
+
+  // ── Fix IM-6: listed_stocks — add fmp_symbol + last_fmp_sync columns ────────
+  // Required for Phase 3: screener enrichment now writes to listed_stocks.
+  // These mirror screener_stocks.fmp_symbol / last_fmp_sync so enrichment-service
+  // can track FMP sync freshness on the master table.
+  try {
+    await migDb.execute(migSql`
+      ALTER TABLE listed_stocks
+        ADD COLUMN IF NOT EXISTS exchange           VARCHAR(20)  DEFAULT 'NSE',
+        ADD COLUMN IF NOT EXISTS country            VARCHAR(10)  DEFAULT 'IN',
+        ADD COLUMN IF NOT EXISTS currency           VARCHAR(10)  DEFAULT 'INR',
+        ADD COLUMN IF NOT EXISTS fmp_symbol         VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS last_fmp_sync      TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS market_cap_category VARCHAR(50)
+    `);
+    console.log("  ✅ Fix IM-6: listed_stocks — exchange, country, currency, fmp_symbol, last_fmp_sync, market_cap_category added");
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix IM-6 listed_stocks fmp columns (non-fatal):", e.message?.slice(0, 120));
+  }
+
+  // ── Fix IM-7: screener_stocks compat VIEW (Phase 3) ─────────────────────────
+  // Create a VIEW that maps listed_stocks columns back to the old screener_stocks
+  // column names. This allows any SQL that still references screener_stocks to
+  // transparently read from listed_stocks during the migration window.
+  // DROP + CREATE is safe here since it's a view, not a table — no data loss.
+  try {
+    await migDb.execute(migSql`
+      CREATE OR REPLACE VIEW screener_stocks AS
+      SELECT
+        id,
+        symbol,
+        company_name         AS company_name,
+        'NSE'                AS exchange,
+        isin,
+        sector,
+        industry,
+        market_cap           AS market_cap_category,
+        'IN'                 AS country,
+        'INR'                AS currency,
+        is_active,
+        current_price,
+        market_cap_value,
+        fmp_symbol,
+        last_fmp_sync,
+        'fmp'                AS data_source,
+        NULL::timestamptz    AS last_financials_sync,
+        NULL::timestamptz    AS last_technicals_sync,
+        NULL::timestamptz    AS last_shareholding_sync,
+        NULL::timestamptz    AS last_key_metrics_sync,
+        created_at,
+        last_updated         AS updated_at
+      FROM listed_stocks
+      WHERE is_active = true
+    `);
+    console.log("  ✅ Fix IM-7: screener_stocks compat VIEW created → listed_stocks");
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix IM-7 screener_stocks view (non-fatal):", e.message?.slice(0, 120));
+  }
 }

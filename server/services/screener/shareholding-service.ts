@@ -16,7 +16,7 @@
 
 import { db } from "../../db";
 import { screenerShareholding } from "@shared/schema/screener";
-import { screenerStocks } from "@shared/schema/screener";
+import { listedStocks } from "@shared/schema/screener";
 import { eq, desc } from "drizzle-orm";
 
 const BSE_SHAREHOLDING_URL = "https://api.bseindia.com/BseIndiaAPI/api/ShareHoldingPatterns/w";
@@ -299,9 +299,9 @@ export async function runShareholdingBatchJob(limit?: number): Promise<{
   console.log(`[Shareholding] Starting batch job${limit ? ` (limit: ${limit})` : ''}`);
 
   const stocks = await db
-    .select({ symbol: screenerStocks.symbol })
-    .from(screenerStocks)
-    .where(eq(screenerStocks.isActive, true))
+    .select({ symbol: listedStocks.symbol })
+    .from(listedStocks)
+    .where(eq(listedStocks.isActive, true))
     .limit(limit ?? 10000);
 
   let succeeded = 0, failed = 0;

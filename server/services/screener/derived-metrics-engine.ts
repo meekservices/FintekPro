@@ -2,7 +2,7 @@ import { db } from "../../db";
 import {
 	screenerFinancials,
 	screenerDerivedMetrics,
-	screenerStocks,
+	listedStocks,
 	screenerPriceHistory,
 } from "@shared/schema";
 import { eq, desc, isNotNull, sql, and } from "drizzle-orm";
@@ -357,7 +357,7 @@ export async function recalculateAllMetrics(): Promise<{
 	// market_cap_value for rows where category is NULL or still wrong.
 	try {
 		await db.execute(sql`
-      UPDATE screener_stocks SET market_cap_category =
+      UPDATE listed_stocks SET market_cap_category =
         CASE
           WHEN LOWER(market_cap_category) IN ('mega cap','mega')    THEN 'mega'
           WHEN LOWER(market_cap_category) IN ('large cap','large')  THEN 'large'

@@ -226,7 +226,7 @@ export async function generateOptimizationSuggestions(
       if (drag.symbol) {
         try {
           const sectorRow = await db.execute(sql`
-            SELECT sector, market_cap_category FROM screener_stocks
+            SELECT sector, market_cap_category FROM listed_stocks
             WHERE symbol = ${drag.symbol.toUpperCase()} LIMIT 1
           `).catch(() => ({ rows: [] }));
           const sd = (sectorRow as any).rows?.[0];

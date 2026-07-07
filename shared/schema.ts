@@ -960,6 +960,10 @@ export const listedStocks = pgTable("listed_stocks", {
   bseCode: varchar("bse_code"), // BSE scrip code
   nseCode: varchar("nse_code"), // NSE series (EQ, BE, etc.)
   companyName: text("company_name").notNull(),
+  // Multi-exchange support (NSE, BSE, global stocks)
+  exchange: varchar("exchange").default("NSE"),    // Primary exchange: NSE | BSE | NYSE | NASDAQ
+  country: varchar("country").default("IN"),       // ISO 2-letter country code
+  currency: varchar("currency").default("INR"),    // ISO 4217 currency code
   
   // Classification
   
@@ -1036,6 +1040,10 @@ export const listedStocks = pgTable("listed_stocks", {
   enrichmentStatus: varchar("enrichment_status").default("pending"), // 'pending', 'partial', 'complete', 'failed'
   lastEnrichedAt: timestamp("last_enriched_at"), // Last successful enrichment
   enrichmentSource: varchar("enrichment_source"), // 'probe42', 'nse', 'bse', 'finnhub'
+  // ── Phase 3: FMP enrichment tracking (merged from screener_stocks) ──────────
+  fmpSymbol: varchar("fmp_symbol"),              // FMP API symbol (e.g. RELIANCE.NS)
+  lastFmpSync: timestamp("last_fmp_sync"),        // Last FMP enrichment timestamp
+  marketCapCategory: varchar("market_cap_category"), // Large Cap | Mid Cap | Small Cap (from FMP)
   lastUpdated: timestamp("last_updated").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
 });

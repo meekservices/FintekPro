@@ -1434,7 +1434,7 @@ async function seedInvits(): Promise<BootstrapResult> {
 async function seedScreenerStocks(): Promise<BootstrapResult> {
 	try {
 		const screenerCheck = await db.execute(
-			sql`SELECT COUNT(*) as cnt FROM screener_stocks`,
+			sql`SELECT COUNT(*) as cnt FROM listed_stocks`,
 		);
 		const screenerCount = Number.parseInt(
 			String((screenerCheck.rows[0] as any)?.cnt || "0"),
@@ -1488,17 +1488,17 @@ async function seedScreenerStocks(): Promise<BootstrapResult> {
 		// unique constraint name — ON CONFLICT (symbol) fails when the DB index
 		// was created as a non-unique index before the schema added .unique().
 		await db.execute(sql`
-      INSERT INTO screener_stocks (symbol, company_name, isin, exchange, sector, industry, is_active, data_source)
+      INSERT INTO listed_stocks (symbol, company_name, isin, exchange, sector, industry, is_active, data_source)
       SELECT ls.symbol, ls.company_name, ls.isin, 'NSE', ls.sector, ls.industry, true, 'listed_stocks'
       FROM listed_stocks ls
       WHERE ls.symbol IS NOT NULL AND ls.symbol != ''
         AND NOT EXISTS (
-          SELECT 1 FROM screener_stocks ss WHERE ss.symbol = ls.symbol
+          SELECT 1 FROM listed_stocks ss WHERE ss.symbol = ls.symbol
         )
     `);
 
 		const newCheck = await db.execute(
-			sql`SELECT COUNT(*) as cnt FROM screener_stocks`,
+			sql`SELECT COUNT(*) as cnt FROM listed_stocks`,
 		);
 		const newCount = Number.parseInt(
 			String((newCheck.rows[0] as any)?.cnt || "0"),

@@ -1677,7 +1677,7 @@ class ExchangeStockService {
 
 			// Mirror into screener_stocks
 			await db.execute(sql`
-        INSERT INTO screener_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, market_cap_value, data_source, created_at, updated_at)
+        INSERT INTO listed_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, market_cap_value, data_source, created_at, updated_at)
         VALUES (
           ${stockData.symbol},
           ${stockData.companyName},

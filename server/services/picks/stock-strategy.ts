@@ -5,7 +5,7 @@ import {
 	goldenPrices,
 	stockFinancialMetrics,
 } from "@shared/schema";
-import { screenerStocks } from "@shared/schema/screener";
+import { listedStocks } from "@shared/schema/screener";
 import { and, eq, sql, gte, asc, desc, count, or, ilike } from "drizzle-orm";
 
 import { BaseStrategy } from "./base-strategy";
@@ -457,19 +457,19 @@ export class StockStrategy extends BaseStrategy {
 			// so no extra latency from concurrency.
 			.limit(40);
 
-		// Fallback to screenerStocks if listedStocks has no sector data
+		// Fallback to listedStocks if listedStocks has no sector data
 		if (stocks.length === 0) {
 			const screenerConditions = broadSector.keywords.map((kw) =>
-				ilike(screenerStocks.sector, `%${kw}%`),
+				ilike(listedStocks.sector, `%${kw}%`),
 			);
 			const screenerRows = await db
 				.select()
-				.from(screenerStocks)
+				.from(listedStocks)
 				.where(
 					and(
-						eq(screenerStocks.isActive, true),
-						sql`${screenerStocks.currentPrice} IS NOT NULL`,
-						sql`CAST(${screenerStocks.currentPrice} AS DECIMAL) > 50`,
+						eq(listedStocks.isActive, true),
+						sql`${listedStocks.currentPrice} IS NOT NULL`,
+						sql`CAST(${listedStocks.currentPrice} AS DECIMAL) > 50`,
 						or(...screenerConditions),
 					),
 				)
@@ -904,7 +904,7 @@ export class StockStrategy extends BaseStrategy {
 	 * Returns 0–20 additional score points based on AI signal strength.
 	 * Results are cached per symbol for 4 hours to avoid repeated API calls per batch run.
 	 *
-	 * @param stock - The stock row from listedStocks or screenerStocks.
+	 * @param stock - The stock row from listedStocks or listedStocks.
 	 * @param enriched - Optional enriched snapshot with fundamentals/technicals.
 	 * @returns A score boost in the range [0, 20]. Returns 0 on any error.
 	 */

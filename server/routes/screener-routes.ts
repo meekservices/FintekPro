@@ -458,7 +458,7 @@ router.post("/api/screener/admin/recalculate-metrics", async (req, res) => {
 router.post("/api/screener/admin/normalize-market-caps", async (req, res) => {
 	try {
 		const result = await db.execute(sql`
-      UPDATE screener_stocks SET market_cap_category =
+      UPDATE listed_stocks SET market_cap_category =
         CASE
           WHEN LOWER(market_cap_category) IN ('mega cap','mega')    THEN 'mega'
           WHEN LOWER(market_cap_category) IN ('large cap','large')  THEN 'large'

@@ -8,7 +8,7 @@
  */
 import { db } from "../../db";
 import {
-	screenerStocks,
+	listedStocks,
 	screenerFinancials,
 	screenerPriceHistory,
 	screenerDerivedMetrics,
@@ -68,11 +68,11 @@ export async function enrichStockProfiles(
 	).toISOString();
 	const stocks = await db
 		.select()
-		.from(screenerStocks)
+		.from(listedStocks)
 		.where(
-			sql`${screenerStocks.lastFmpSync} IS NULL OR ${screenerStocks.lastFmpSync} < ${staleCutoff}::timestamp`,
+			sql`${listedStocks.lastFmpSync} IS NULL OR ${listedStocks.lastFmpSync} < ${staleCutoff}::timestamp`,
 		)
-		.orderBy(asc(screenerStocks.lastFmpSync))
+		.orderBy(asc(listedStocks.lastFmpSync))
 		.limit(batchSize);
 
 	for (const stock of stocks) {
@@ -86,7 +86,7 @@ export async function enrichStockProfiles(
 				providerBreakdown[providerName] =
 					(providerBreakdown[providerName] || 0) + 1;
 				await db
-					.update(screenerStocks)
+					.update(listedStocks)
 					.set({
 						companyName: profile.companyName || stock.companyName,
 						sector: profile.sector || stock.sector,
@@ -94,11 +94,14 @@ export async function enrichStockProfiles(
 						currentPrice: profile.price?.toString(),
 						marketCapValue: profile.marketCap?.toString(),
 						marketCapCategory: categorizeMarketCap(profile.marketCap),
+						marketCap: categorizeMarketCap(profile.marketCap),  // listed_stocks canonical column
 						lastFmpSync: new Date(),
+						lastEnrichedAt: new Date(),
+						enrichmentSource: providerName.toLowerCase(),
 						dataSource: providerName.toLowerCase(),
-						updatedAt: new Date(),
+						lastUpdated: new Date(),
 					})
-					.where(eq(screenerStocks.id, stock.id));
+					.where(eq(listedStocks.id, stock.id));
 				processed++;
 			} else {
 				skipped++;
@@ -136,7 +139,7 @@ export async function enrichFinancialRatios(
 
 	const stocks = await db.execute(sql`
     SELECT ss.id, ss.symbol, ss.fmp_symbol, ss.data_source
-    FROM screener_stocks ss
+    FROM listed_stocks ss
     LEFT JOIN screener_financials sf ON sf.symbol = ss.symbol
     WHERE ss.is_active = true
       AND (
@@ -275,13 +278,13 @@ export async function enrichFinancialRatios(
 				}
 
 				await db
-					.update(screenerStocks)
+					.update(listedStocks)
 					.set({
 						lastFmpSync: new Date(),
 						lastFinancialsSync: new Date(), // Phase 2f: track per-table freshness
 						updatedAt: new Date(),
 					})
-					.where(eq(screenerStocks.symbol, stock.symbol));
+					.where(eq(listedStocks.symbol, stock.symbol));
 
 				await calculateDerivedMetrics(stock.symbol);
 				processed++;
@@ -345,7 +348,7 @@ export async function enrichKeyMetrics(
 	// Select stocks missing key_metrics, ordered by market cap
 	const stocks = extractRows<StockRow>(await db.execute(sql`
     SELECT ss.symbol, ss.fmp_symbol
-    FROM screener_stocks ss
+    FROM listed_stocks ss
     LEFT JOIN screener_key_metrics skm ON skm.symbol = ss.symbol
     WHERE ss.is_active = true AND skm.id IS NULL
     ORDER BY ss.market_cap_value::numeric DESC NULLS LAST
@@ -389,7 +392,7 @@ export async function enrichKeyMetrics(
         `);
 				// Phase 2f: write freshness timestamp
 				await db.execute(sql`
-          UPDATE screener_stocks SET last_key_metrics_sync = NOW(), updated_at = NOW()
+          UPDATE listed_stocks SET last_key_metrics_sync = NOW(), updated_at = NOW()
           WHERE symbol = ${stock.symbol}
         `);
 				console.log(`[Enrichment] KeyMetrics: ${stock.symbol} ROIC=${k.roic} Graham=${k.grahamNumber}`);
@@ -429,7 +432,7 @@ export async function enrichPriceHistory(
 
 	const stockRows = extractRows<StockRow>(await db.execute(sql`
     SELECT ss.id, ss.symbol, ss.fmp_symbol, ss.data_source
-    FROM screener_stocks ss
+    FROM listed_stocks ss
     LEFT JOIN screener_financials sf ON sf.symbol = ss.symbol
     WHERE ss.is_active = true
       AND sf.return_1y IS NULL
@@ -697,20 +700,20 @@ export async function getEnrichmentProgress(): Promise<{
 }> {
 	const result = await db.execute(sql`
     SELECT
-      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true) as total,
+      (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true) as total,
       (SELECT COUNT(*) FROM screener_financials WHERE roe IS NOT NULL OR pb_ratio IS NOT NULL OR debt_to_equity IS NOT NULL) as with_ratios,
       (SELECT COUNT(*) FROM screener_financials WHERE return_1y IS NOT NULL) as with_returns,
-      (SELECT COUNT(*) FROM screener_stocks ss 
+      (SELECT COUNT(*) FROM listed_stocks ss 
        LEFT JOIN screener_financials sf ON sf.symbol = ss.symbol
        WHERE ss.is_active = true AND (sf.roe IS NULL AND sf.pb_ratio IS NULL AND sf.debt_to_equity IS NULL)) as missing_ratios,
-      (SELECT COUNT(*) FROM screener_stocks ss 
+      (SELECT COUNT(*) FROM listed_stocks ss 
        LEFT JOIN screener_financials sf ON sf.symbol = ss.symbol
        WHERE ss.is_active = true AND sf.return_1y IS NULL) as missing_returns,
       -- Phase 2f: per-table freshness (synced within 30 days)
-      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_financials_sync  > NOW() - INTERVAL '30 days') as fin_synced,
-      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_key_metrics_sync > NOW() - INTERVAL '30 days') as km_synced,
-      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_technicals_sync  > NOW() - INTERVAL '30 days') as tech_synced,
-      (SELECT COUNT(*) FROM screener_stocks WHERE is_active = true AND last_shareholding_sync > NOW() - INTERVAL '30 days') as sh_synced
+      (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_financials_sync  > NOW() - INTERVAL '30 days') as fin_synced,
+      (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_key_metrics_sync > NOW() - INTERVAL '30 days') as km_synced,
+      (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_technicals_sync  > NOW() - INTERVAL '30 days') as tech_synced,
+      (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_shareholding_sync > NOW() - INTERVAL '30 days') as sh_synced
   `);
 
 	const row = extractRows<Record<string, unknown>>(result as unknown as RawSqlResult)[0];
@@ -777,11 +780,11 @@ export async function seedScreenerFromFmp(
 	for (const stock of results) {
 		try {
 			const [existing] = await db
-				.select({ id: screenerStocks.id })
-				.from(screenerStocks)
+				.select({ id: listedStocks.id })
+				.from(listedStocks)
 				.where(
 					eq(
-						screenerStocks.symbol,
+						listedStocks.symbol,
 						stock.symbol.replace(".NS", "").replace(".BO", ""),
 					),
 				)
@@ -792,21 +795,23 @@ export async function seedScreenerFromFmp(
 				continue;
 			}
 
-			await db.insert(screenerStocks).values({
+			await db.insert(listedStocks).values({
 				symbol: stock.symbol.replace(".NS", "").replace(".BO", ""),
 				companyName: stock.companyName,
-				exchange: stock.exchange || exchange,
+				exchange: stock.exchange || exchange,    // NSE | BSE | NYSE | NASDAQ
+				country: stock.country || "IN",          // ISO country code
+				currency: "INR",                         // default INR; global stocks override later
 				sector: stock.sector,
 				industry: stock.industry,
 				marketCapValue: stock.marketCap?.toString(),
 				marketCapCategory: categorizeMarketCap(stock.marketCap),
+				marketCap: categorizeMarketCap(stock.marketCap),
 				currentPrice: stock.price?.toString(),
-				country: stock.country || "IN",
-				currency: "INR",
 				fmpSymbol: stock.symbol,
 				dataSource: "fmp",
 				isActive: true,
-			});
+				enrichmentStatus: "pending",
+			} as any);
 			processed++;
 		} catch (err: any) {
 			errors++;
@@ -833,7 +838,7 @@ export async function seedFromListedStocks(
 
 	try {
 		const result = await db.execute(sql`
-      INSERT INTO screener_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, market_cap_value, data_source, created_at, updated_at)
+      INSERT INTO listed_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, market_cap_value, data_source, created_at, updated_at)
       SELECT 
         ls.symbol,
         ls.company_name,
@@ -854,7 +859,7 @@ export async function seedFromListedStocks(
       WHERE ls.is_published = true
         AND ls.symbol IS NOT NULL
         AND ls.symbol != ''
-        AND NOT EXISTS (SELECT 1 FROM screener_stocks ss WHERE ss.symbol = ls.symbol)
+        AND NOT EXISTS (SELECT 1 FROM listed_stocks ss WHERE ss.symbol = ls.symbol)
       LIMIT ${limit}
     `);
 		processed = (result as unknown as { rowCount?: number })?.rowCount ?? 0;
@@ -888,7 +893,7 @@ export async function seedFromListedStocks(
 		// while FMP enrichment uses lowercase codes ('micro', 'large').
 		// Normalise immediately so screener filters always work correctly.
 		await db.execute(sql`
-      UPDATE screener_stocks SET market_cap_category =
+      UPDATE listed_stocks SET market_cap_category =
         CASE
           WHEN LOWER(market_cap_category) IN ('mega cap','mega')    THEN 'mega'
           WHEN LOWER(market_cap_category) IN ('large cap','large')  THEN 'large'
@@ -935,7 +940,7 @@ export async function seedUnlistedToScreener(
 
 	try {
 		const result = await db.execute(sql`
-      INSERT INTO screener_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, data_source, created_at, updated_at)
+      INSERT INTO listed_stocks (symbol, company_name, exchange, isin, sector, industry, market_cap_category, country, currency, is_active, current_price, data_source, created_at, updated_at)
       SELECT 
         COALESCE(uc.cin, uc.id::text),
         uc.name,
@@ -956,7 +961,7 @@ export async function seedUnlistedToScreener(
         AND uc.name != ''
         AND uc.status = 'active'
         AND NOT EXISTS (
-          SELECT 1 FROM screener_stocks ss 
+          SELECT 1 FROM listed_stocks ss 
           WHERE ss.symbol = COALESCE(uc.cin, uc.id::text)
         )
       LIMIT ${limit}
@@ -973,7 +978,7 @@ export async function seedUnlistedToScreener(
           cr.pe_ratio::numeric,
           NOW(),
           NOW()
-        FROM screener_stocks ss
+        FROM listed_stocks ss
         INNER JOIN unlisted_companies uc ON COALESCE(uc.cin, uc.id::text) = ss.symbol
         LEFT JOIN company_ratios cr ON cr.company_id = uc.id
         WHERE ss.data_source = 'unlisted'

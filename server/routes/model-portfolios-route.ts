@@ -528,7 +528,7 @@ async function enrichHolding(h: any): Promise<any> {
           LIMIT 1
         `).catch(() => ({ rows: [] })),
         db.execute(sql`
-          SELECT isin FROM screener_stocks
+          SELECT isin FROM listed_stocks
           WHERE symbol = ${symbol.toUpperCase()}
           LIMIT 1
         `).catch(() => ({ rows: [] })),
