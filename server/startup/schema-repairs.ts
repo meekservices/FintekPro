@@ -2925,4 +2925,127 @@ export async function ensureSharedRouteTables(): Promise<void> {
   } catch (e: any) {
     console.warn("  ⚠️  Fix IM-10 aif_funds view (non-fatal):", e.message?.slice(0, 120));
   }
+
+  // ── Fix FASP-1: portfolio_ai_decisions ─────────────────────────────────────
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS portfolio_ai_decisions (
+        id                       SERIAL PRIMARY KEY,
+        portfolio_id             VARCHAR NOT NULL REFERENCES model_portfolios(id) ON DELETE CASCADE,
+        portfolio_code           VARCHAR,
+        decided_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        decision_type            TEXT NOT NULL,
+        trigger                  TEXT NOT NULL,
+        chosen_scheme_code       TEXT,
+        chosen_isin              TEXT,
+        chosen_name              TEXT NOT NULL,
+        chosen_weight_pct        REAL,
+        chosen_nav_at_decision   NUMERIC(15,4),
+        rejected_scheme_code     TEXT,
+        rejected_isin            TEXT,
+        rejected_name            TEXT,
+        rejected_nav_at_decision NUMERIC(15,4),
+        rationale_code           TEXT NOT NULL,
+        rationale_detail         TEXT NOT NULL,
+        ai_confidence_score      REAL,
+        model_version            TEXT NOT NULL DEFAULT 'FASP-AI-v2.0',
+        outcome_period_months    INTEGER,
+        outcome_return_pct       REAL,
+        outcome_benchmark_pct    REAL,
+        rejected_return_pct      REAL,
+        alpha_captured_pct       REAL,
+        is_win                   BOOLEAN,
+        outcome_computed_at      TIMESTAMPTZ,
+        advisor_id               TEXT,
+        advisor_approved_at      TIMESTAMPTZ,
+        advisor_notes            TEXT,
+        proposal_id              TEXT,
+        source                   TEXT NOT NULL DEFAULT 'fasp_ai',
+        created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_pad_portfolio_decided ON portfolio_ai_decisions(portfolio_id, decided_at DESC)`);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_pad_chosen_scheme ON portfolio_ai_decisions(chosen_scheme_code)`);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_pad_outcome_pending ON portfolio_ai_decisions(outcome_computed_at)`);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_pad_decision_type ON portfolio_ai_decisions(decision_type)`);
+    console.log("  \u2705 Fix FASP-1: portfolio_ai_decisions created (FASP-AI track record)");
+  } catch (e: any) {
+    console.warn("  \u26a0\ufe0f  Fix FASP-1 portfolio_ai_decisions (non-fatal):", e.message?.slice(0, 120));
+  }
+
+  // ── Fix FASP-2: portfolio_rebalance_events ───────────────────────────────────
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS portfolio_rebalance_events (
+        id                   SERIAL PRIMARY KEY,
+        portfolio_id         VARCHAR NOT NULL REFERENCES model_portfolios(id) ON DELETE CASCADE,
+        triggered_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        trigger_type         TEXT NOT NULL,
+        drift_score_at_trigger INTEGER,
+        drift_threshold_pct  REAL,
+        holdings_drift       JSONB,
+        action_taken         TEXT NOT NULL,
+        deferral_reason      TEXT,
+        advisor_id           TEXT,
+        proposal_id          TEXT,
+        engine_version       TEXT DEFAULT 'FASP-AI-v2.0',
+        source               TEXT DEFAULT 'system',
+        created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_pre_portfolio_triggered ON portfolio_rebalance_events(portfolio_id, triggered_at DESC)`);
+    console.log("  \u2705 Fix FASP-2: portfolio_rebalance_events created (drift audit log)");
+  } catch (e: any) {
+    console.warn("  \u26a0\ufe0f  Fix FASP-2 portfolio_rebalance_events (non-fatal):", e.message?.slice(0, 120));
+  }
+
+  // ── Fix FASP-3: backfill inception_date ──────────────────────────────────────
+  try {
+    const nullPorts = await migDb.execute(migSql`
+      SELECT id, holdings FROM model_portfolios WHERE inception_date IS NULL
+    `);
+    for (const port of nullPorts.rows as any[]) {
+      try {
+        const hArr = JSON.parse(port.holdings ?? "[]");
+        const match = hArr.find((h: any) => h.amfiSchemeCode || h.schemeCode);
+        const sc: string | null = match?.amfiSchemeCode ?? match?.schemeCode ?? null;
+        if (!sc) continue;
+        const res = await migDb.execute(migSql`
+          SELECT MIN(month_year) AS earliest FROM mf_monthwise_performance WHERE scheme_code = ${sc}
+        `);
+        const dt: string | null = (res.rows[0] as any)?.earliest ?? null;
+        if (!dt) continue;
+        await migDb.execute(migSql`
+          UPDATE model_portfolios SET inception_date = ${dt} WHERE id = ${port.id}
+        `);
+      } catch { /* per-portfolio failure is non-fatal */ }
+    }
+    console.log("  \u2705 Fix FASP-3: inception_date backfilled from mf_monthwise_performance");
+  } catch (e: any) {
+    console.warn("  \u26a0\ufe0f  Fix FASP-3 inception_date backfill (non-fatal):", e.message?.slice(0, 120));
+  }
+
+  // ── Fix FASP-4: Materialised period return columns on model_portfolios ──────────
+  // ADD COLUMN IF NOT EXISTS — safe to run on every boot.
+  const phase4Cols: Array<[string, string]> = [
+    ["return_1m",                "NUMERIC(8,4)"],
+    ["return_3m",                "NUMERIC(8,4)"],
+    ["return_6m",                "NUMERIC(8,4)"],
+    ["return_ytd",               "NUMERIC(8,4)"],
+    ["cagr_2y",                  "NUMERIC(8,4)"],
+    ["return_since_inception",   "NUMERIC(8,4)"],
+    ["benchmark_since_inception","NUMERIC(8,4)"],
+    ["periods_computed_at",      "TIMESTAMPTZ"],
+  ];
+  let p4ok = 0;
+  for (const [col, colType] of phase4Cols) {
+    try {
+      // Use raw string to avoid drizzle template literal parsing of SQL identifiers
+      await migDb.execute({ sql: `ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS "${col}" ${colType}`, params: [] } as any);
+      p4ok++;
+    } catch (e: any) {
+      console.warn(`  ⚠️  Fix FASP-4 col ${col} (non-fatal):`, e.message?.slice(0, 80));
+    }
+  }
+  console.log(`  ✅ Fix FASP-4: ${p4ok}/${phase4Cols.length} period columns ensured`);
 }

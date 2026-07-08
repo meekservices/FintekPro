@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { aifMaster } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
+import { updateInstrumentPrice } from "./instrument-price-router";
 
 /**
  * AIF NAV Sync Scheduler
@@ -126,12 +127,29 @@ class AifNavSyncScheduler {
 
 			for (const fund of staleFunds) {
 				try {
+					const navValue = fund.latestNav != null ? parseFloat(String(fund.latestNav)) : null;
+
 					await db
 						.update(aifMaster)
 						.set({
+							// Write NAV fields when available; placeholders until IRIS live feed is connected
+							...(navValue != null ? { latestNav: String(navValue), lastNavDate: new Date().toISOString().slice(0, 10) } : {}),
 							updatedAt: new Date(),
 						})
 						.where(eq(aifMaster.id, fund.id));
+
+					// Route NAV through central price gateway when a real value exists
+					if (navValue != null && navValue > 0) {
+						await updateInstrumentPrice({
+							instrumentType: "aif",
+							identifier: fund.id,
+							price: navValue,
+							source: "iris_api",
+						}).catch((e: Error) =>
+							console.warn(`[AIF Sync] Price router warn for ${fund.id}: ${e.message}`),
+						);
+					}
+
 					updated++;
 				} catch (err) {
 					errors++;

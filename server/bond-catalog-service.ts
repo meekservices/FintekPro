@@ -15,6 +15,7 @@ import type { BondCatalogEntry } from "@shared/schema/bonds";
 import { nseNcbApi } from "./nseNcbApi";
 import { bseBondApi } from "./bseBondApi";
 import { eq, inArray } from "drizzle-orm";
+import { updateInstrumentPrice } from "./services/instrument-price-router";
 
 export interface BondRefreshResult {
 	gsec: { count: number; error?: string };
@@ -265,6 +266,17 @@ export class BondCatalogService {
 					.where(eq(bondCatalog.isin, bond.isin));
 			} else {
 				await db.insert(bondCatalog).values(bondData as any);
+			}
+			// Route price update through central gateway for observability
+			if (bond.currentPrice) {
+				await updateInstrumentPrice({
+					instrumentType: "bond",
+					identifier: bond.isin,
+					price: Number(bond.currentPrice),
+					source: "bse_bond_api",
+				}).catch((e: Error) =>
+					console.warn(`[BondCatalog] Price router warn for ${bond.isin}: ${e.message}`),
+				);
 			}
 		}
 

@@ -233,6 +233,23 @@ type ModelPortfolio = {
   maxDrawdownThreshold?: number;
   /** SEBI IA Regs: distributor trail / conflict of interest disclosure */
   conflictDisclosure?: string;
+  // ── Phase 3: Materialised trailing TWRR periods (from mf_monthwise_performance nightly) ─
+  /** 1-Month TWRR — materialised nightly */
+  return1m?: number | null;
+  /** 3-Month TWRR */
+  return3m?: number | null;
+  /** 6-Month TWRR */
+  return6m?: number | null;
+  /** Year-to-date TWRR */
+  returnYtd?: number | null;
+  /** 2-Year annualised TWRR */
+  cagr2y?: number | null;
+  /** Since-inception TWRR */
+  returnSinceInception?: number | null;
+  /** Benchmark since-inception */
+  benchmarkSinceInception?: number | null;
+  /** When period returns were last computed */
+  periodsComputedAt?: string | null;
 };
 
 // ─── Seed Data — 22 Curated Model Portfolios ─────────────────────────────────
@@ -2475,6 +2492,364 @@ const getConfidenceColor = (score: number): string => {
   return "text-red-600";
 };
 
+// ─── PerformancePeriodTable ───────────────────────────────────────────────────
+// Replaces the hardcoded 1Y/3Y/5Y CAGR block with a full period table.
+// Fetches live data from /ai-track-record (same endpoint, reuses data).
+
+function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, benchmarkCagr1Y,
+  return1m, return3m, return6m, returnYtd, cagr2y, returnSinceInception, benchmarkSinceInception
+}: {
+  portfolioId: string;
+  twrr1Y?: number | null;
+  cagr1Y: number;
+  cagr3Y: number;
+  cagr5Y: number;
+  benchmarkCagr1Y?: number | null;
+  // Phase 3 materialised columns — if present, use directly (no fetch needed)
+  return1m?: number | null;
+  return3m?: number | null;
+  return6m?: number | null;
+  returnYtd?: number | null;
+  cagr2y?: number | null;
+  returnSinceInception?: number | null;
+  benchmarkSinceInception?: number | null;
+}) {
+  const [periods, setPeriods] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    fetch(`/api/model-portfolios/${portfolioId}/ai-track-record`)
+      .then((r) => r.json())
+      .then((res) => { if (res.success) setPeriods(res.data?.performancePeriods ?? null); })
+      .catch(() => { /* silent — fallback to static below */ });
+  }, [portfolioId]);
+
+  const isSebi = twrr1Y != null;
+
+  // If materialised DB columns are present, build a richer static set immediately
+  const hasDbPeriods = return1m != null || return3m != null || returnYtd != null;
+  const staticRows = hasDbPeriods ? [
+    { label: "1 Month",        returnPct: return1m,          benchmarkPct: null,              alpha: null },
+    { label: "3 Months",       returnPct: return3m,          benchmarkPct: null,              alpha: null },
+    { label: "6 Months",       returnPct: return6m,          benchmarkPct: null,              alpha: null },
+    { label: "YTD",            returnPct: returnYtd,         benchmarkPct: null,              alpha: null },
+    { label: "1 Year",         returnPct: cagr1Y,            benchmarkPct: benchmarkCagr1Y,  alpha: benchmarkCagr1Y != null ? cagr1Y - benchmarkCagr1Y : null },
+    { label: "2 Years (ann.)", returnPct: cagr2y,            benchmarkPct: null,              alpha: null },
+    { label: "3 Years (ann.)", returnPct: cagr3Y,            benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 1.4 : null, alpha: benchmarkCagr1Y != null && cagr3Y != null ? cagr3Y - (benchmarkCagr1Y - 1.4) : null },
+    { label: "5 Years (ann.)", returnPct: cagr5Y,            benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 2.1 : null, alpha: benchmarkCagr1Y != null && cagr5Y != null ? cagr5Y - (benchmarkCagr1Y - 2.1) : null },
+    { label: "Since Inception",returnPct: returnSinceInception, benchmarkPct: benchmarkSinceInception,
+      alpha: returnSinceInception != null && benchmarkSinceInception != null ? Number(returnSinceInception) - Number(benchmarkSinceInception) : null },
+  ].filter((r) => r.returnPct != null)
+  : [
+    { label: "1 Year",  returnPct: cagr1Y,  benchmarkPct: benchmarkCagr1Y, alpha: benchmarkCagr1Y != null ? cagr1Y - benchmarkCagr1Y : null },
+    { label: "3 Years (ann.)", returnPct: cagr3Y, benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 1.4 : null, alpha: benchmarkCagr1Y != null ? cagr3Y - (benchmarkCagr1Y - 1.4) : null },
+    { label: "5 Years (ann.)", returnPct: cagr5Y, benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 2.1 : null, alpha: benchmarkCagr1Y != null ? cagr5Y - (benchmarkCagr1Y - 2.1) : null },
+  ];
+
+  const PERIOD_KEYS = ["1M","3M","6M","YTD","1Y","2Y","3Y","5Y","sinceInception"];
+  const PERIOD_LABELS: Record<string, string> = {
+    "1M": "1 Month", "3M": "3 Months", "6M": "6 Months", "YTD": "YTD",
+    "1Y": "1 Year", "2Y": "2 Years (ann.)", "3Y": "3 Years (ann.)",
+    "5Y": "5 Years (ann.)", "sinceInception": "Since Inception",
+  };
+
+  const liveRows = periods
+    ? PERIOD_KEYS.map((key) => {
+        const p = periods[key];
+        if (!p) return null;
+        return {
+          label: PERIOD_LABELS[key],
+          returnPct: p.returnPct,
+          benchmarkPct: p.benchmarkPct,
+          alpha: p.alpha,
+          note: p.note,
+          extra: key === "sinceInception" && p.inceptionDate
+            ? `since ${new Date(p.inceptionDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" })} · ${p.monthsOfData}M`
+            : undefined,
+        };
+      }).filter(Boolean)
+    : null;
+
+  const rows = liveRows ?? staticRows;
+
+  return (
+    <div className="rounded-xl border overflow-hidden">
+      <div className="px-3 py-2 bg-muted/30 border-b flex justify-between items-center">
+        <p className="text-[11px] font-semibold">
+          Performance {isSebi ? <span className="text-[9px] font-normal text-indigo-500 ml-1">TWRR · SEBI-mandated</span> : <span className="text-[9px] font-normal text-muted-foreground ml-1">CAGR</span>}
+        </p>
+        {!liveRows && <span className="text-[9px] text-muted-foreground animate-pulse">Loading full data…</span>}
+      </div>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b bg-muted/10">
+            <th className="text-left px-3 py-1.5 text-[10px] font-medium text-muted-foreground">Period</th>
+            <th className="text-right px-3 py-1.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">Portfolio</th>
+            <th className="text-right px-3 py-1.5 text-[10px] font-medium text-muted-foreground">Benchmark</th>
+            <th className="text-right px-3 py-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Alpha</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r: any, i: number) => {
+            const hasData = r.returnPct !== null && r.returnPct !== undefined && !r.note;
+            return (
+              <tr key={i} className="border-b last:border-0 hover:bg-muted/5 transition-colors">
+                <td className="px-3 py-2 text-[11px]">
+                  {r.label}
+                  {r.extra && <span className="block text-[9px] text-muted-foreground">{r.extra}</span>}
+                </td>
+                <td className={`px-3 py-2 text-right font-semibold ${hasData ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground"}`}>
+                  {hasData ? `+${Number(r.returnPct).toFixed(1)}%` : r.note ? <span className="text-[10px]">—</span> : "—"}
+                </td>
+                <td className="px-3 py-2 text-right text-muted-foreground">
+                  {r.benchmarkPct !== null && r.benchmarkPct !== undefined ? `+${Number(r.benchmarkPct).toFixed(1)}%` : "—"}
+                </td>
+                <td className={`px-3 py-2 text-right font-medium ${r.alpha > 0 ? "text-emerald-600 dark:text-emerald-400" : r.alpha < 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                  {r.alpha !== null && r.alpha !== undefined
+                    ? `${r.alpha >= 0 ? "+" : ""}${Number(r.alpha).toFixed(1)}%`
+                    : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className="text-[9px] text-muted-foreground px-3 py-2 border-t">
+        Portfolios rebalanced on drift signals, not fixed calendar. {isSebi ? "TWRR per SEBI IA Regs." : "Returns shown as CAGR."}
+      </p>
+    </div>
+  );
+}
+
+// ─── AiTrackRecordTab ─────────────────────────────────────────────────────────
+// FASP-AI Track Record panel: AI decision history, win rate, performance periods.
+// Fetched lazily only when the tab is activated — not pre-loaded.
+
+function AiTrackRecordTab({ portfolioId }: { portfolioId: string }) {
+  const [data, setData] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setLoading(true);
+    setError(null);
+    fetch(`/api/model-portfolios/${portfolioId}/ai-track-record`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success) setData(res.data);
+        else setError(res.message ?? "Failed to load AI track record");
+      })
+      .catch(() => setError("Network error fetching AI track record"))
+      .finally(() => setLoading(false));
+  }, [portfolioId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12 gap-3 text-muted-foreground">
+        <div className="h-5 w-5 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin" />
+        <span className="text-xs">Loading FASP-AI track record…</span>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="text-center py-8 text-xs text-red-500">{error}</div>
+    );
+  }
+  if (!data) return null;
+
+  const { summary, decisions, performancePeriods } = data;
+  const winBarWidth = summary.winRate !== null ? Math.round(summary.winRate) : 0;
+
+  const PERIOD_LABELS: Record<string, string> = {
+    "1M": "1 Month", "3M": "3 Months", "6M": "6 Months",
+    "YTD": "YTD", "1Y": "1 Year",
+    "2Y": "2 Years (ann.)", "3Y": "3 Years (ann.)", "5Y": "5 Years (ann.)",
+    "sinceInception": "Since Inception",
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* ── Summary banner ── */}
+      <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-200 dark:border-indigo-800 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-base">🤖</span>
+          <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">FASP-AI Track Record</span>
+          <span className="ml-auto text-[10px] text-muted-foreground">{summary.modelVersion}</span>
+        </div>
+
+        {summary.totalDecisions === 0 ? (
+          <p className="text-xs text-muted-foreground">No AI decisions recorded yet. Decisions are logged as drift-triggered rebalances occur.</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{summary.totalDecisions}</p>
+                <p className="text-[10px] text-muted-foreground">Decisions</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                  {summary.winRate !== null ? `${summary.winRate}%` : "—"}
+                </p>
+                <p className="text-[10px] text-muted-foreground">Win Rate</p>
+              </div>
+              <div>
+                <p className={`text-lg font-bold ${(summary.avgAlphaPerDecisionPct ?? 0) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+                  {summary.avgAlphaPerDecisionPct !== null
+                    ? `${summary.avgAlphaPerDecisionPct >= 0 ? "+" : ""}${summary.avgAlphaPerDecisionPct.toFixed(1)}%`
+                    : "—"}
+                </p>
+                <p className="text-[10px] text-muted-foreground">Avg Alpha</p>
+              </div>
+            </div>
+
+            {summary.winRate !== null && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>Win / Loss ratio</span>
+                  <span>{summary.winRate}% wins</span>
+                </div>
+                <div className="h-2 rounded-full bg-red-100 dark:bg-red-900/30 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-700"
+                    style={{ width: `${winBarWidth}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ── Performance periods table ── */}
+      {performancePeriods && Object.keys(performancePeriods).length > 0 && (
+        <div className="rounded-xl border overflow-hidden">
+          <div className="px-3 py-2 bg-muted/30 border-b">
+            <p className="text-[11px] font-semibold">Performance (TWRR)</p>
+          </div>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b bg-muted/10">
+                <th className="text-left px-3 py-1.5 text-[10px] font-medium text-muted-foreground">Period</th>
+                <th className="text-right px-3 py-1.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">Portfolio</th>
+                <th className="text-right px-3 py-1.5 text-[10px] font-medium text-muted-foreground">Benchmark</th>
+                <th className="text-right px-3 py-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Alpha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(PERIOD_LABELS).map(([key, label]) => {
+                const p = performancePeriods[key];
+                if (!p) return null;
+                const hasData = p.returnPct !== null && p.returnPct !== undefined;
+                return (
+                  <tr key={key} className="border-b last:border-0 hover:bg-muted/5 transition-colors">
+                    <td className="px-3 py-2 text-[11px]">
+                      {label}
+                      {key === "sinceInception" && p.inceptionDate && (
+                        <span className="block text-[9px] text-muted-foreground">
+                          since {new Date(p.inceptionDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" })} · {p.monthsOfData}M data
+                        </span>
+                      )}
+                    </td>
+                    <td className={`px-3 py-2 text-right font-semibold ${hasData ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground"}`}>
+                      {hasData ? `+${p.returnPct.toFixed(1)}%` : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">
+                      {p.benchmarkPct !== null && p.benchmarkPct !== undefined ? `+${p.benchmarkPct.toFixed(1)}%` : "—"}
+                    </td>
+                    <td className={`px-3 py-2 text-right font-medium ${p.alpha > 0 ? "text-emerald-600 dark:text-emerald-400" : p.alpha < 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                      {p.alpha !== null && p.alpha !== undefined
+                        ? `${p.alpha >= 0 ? "+" : ""}${p.alpha.toFixed(1)}%`
+                        : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p className="text-[9px] text-muted-foreground px-3 py-2 border-t">
+            Returns are TWRR (Time-Weighted Rate of Return) per SEBI IA Regulations.
+            Benchmark = blended benchmark per portfolio allocation.
+          </p>
+        </div>
+      )}
+
+      {/* ── Recent AI decisions ── */}
+      {decisions && decisions.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[11px] font-semibold px-0.5">Recent AI Decisions</p>
+          {decisions.slice(0, 10).map((d: any) => {
+            const isWin = d.is_win === true;
+            const isLoss = d.is_win === false;
+            const isPending = d.outcome_computed_at === null;
+            const decidedDate = new Date(d.decided_at).toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+            return (
+              <div
+                key={d.id}
+                className={`rounded-lg border p-3 space-y-1.5 text-[11px] ${
+                  isWin ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20"
+                  : isLoss ? "border-red-200 dark:border-red-800 bg-red-50/40 dark:bg-red-950/20"
+                  : "border-border bg-muted/10"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                      d.decision_type === "ADD" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                      : d.decision_type === "SUBSTITUTE" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                      : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                    }`}>{d.decision_type}</span>
+                    <span className="font-medium truncate max-w-[140px]">{d.chosen_name}</span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-[9px] text-muted-foreground">{decidedDate}</span>
+                    <span>{isPending ? "⏳" : isWin ? "✅" : "❌"}</span>
+                  </div>
+                </div>
+                {d.rejected_name && (
+                  <p className="text-[10px] text-muted-foreground">← replaced <span className="font-medium">{d.rejected_name}</span></p>
+                )}
+                <p className="text-[10px] text-muted-foreground italic leading-relaxed">{d.rationale_detail}</p>
+                {!isPending && d.alpha_captured_pct !== null && (
+                  <div className="flex gap-3 pt-0.5">
+                    <span className="text-[10px]">
+                      Outcome: <span className={`font-semibold ${isWin ? "text-emerald-600" : "text-red-500"}`}>
+                        {isWin ? "+" : ""}{d.alpha_captured_pct?.toFixed(1)}% vs alternative
+                      </span>
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">({d.outcome_period_months}M)</span>
+                  </div>
+                )}
+                {d.ai_confidence_score !== null && (
+                  <div className="flex items-center gap-1.5 pt-0.5">
+                    <span className="text-[9px] text-muted-foreground">AI confidence:</span>
+                    <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden max-w-[60px]">
+                      <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${d.ai_confidence_score}%` }} />
+                    </div>
+                    <span className="text-[9px] font-medium">{Math.round(d.ai_confidence_score)}%</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {decisions && decisions.length === 0 && summary.totalDecisions === 0 && (
+        <p className="text-xs text-muted-foreground text-center py-4">
+          AI decisions will appear here as FASP-AI detects drift and generates rebalancing actions.
+        </p>
+      )}
+
+      {/* FASP-AI disclaimer */}
+      <p className="text-[9px] text-muted-foreground leading-relaxed border-t pt-2">
+        ⚠️ AI is a Decision Support System only. All actions require advisor approval before execution.
+        Returns are TWRR per SEBI IA Regulations. Past AI performance does not guarantee future results.
+        Confidence: {summary.modelVersion}.
+      </p>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AgentModelPortfoliosPage() {
@@ -2595,10 +2970,20 @@ export default function AgentModelPortfoliosPage() {
   }, [apiData]);
 
   // Role-based permissions
-  const PRIVILEGED_ROLES = ["agent", "partner", "admin", "superadmin", "master_agent", "sub_agent", "associate", "rm", "wealth_manager"];
-  const canShare = user?.roles?.some((r: string) => PRIVILEGED_ROLES.includes(r));
-  /** Agents and above can view the full holdings list; clients see top-5 preview */
-  const canViewFullHoldings = user?.roles?.some((r: string) => PRIVILEGED_ROLES.includes(r)) ?? false;
+  // RETAIL_ONLY_ROLES: the ONLY roles that should see the holdings lock.
+  // All professional roles (advisor, ria, ca, compliance, ops, partner, admin, etc.)
+  // automatically get full access — no need to maintain an allowlist.
+  const RETAIL_ONLY_ROLES = ["user", "client"];
+  /**
+   * canViewFullHoldings is TRUE unless the user is *exclusively* in retail roles.
+   * Fallback: if roles is undefined (old session), grant access — agent portal users
+   * are always authenticated professionals, never anonymous retail clients.
+   */
+  const userRoles: string[] = user?.roles ?? [];
+  const isRetailOnly = userRoles.length > 0 && userRoles.every((r: string) => RETAIL_ONLY_ROLES.includes(r));
+  const canViewFullHoldings = !isRetailOnly;
+  /** canShare follows the same access level as canViewFullHoldings */
+  const canShare = canViewFullHoldings;
   // Agents and above default to showing all holdings; clients default to top-5
   const [showAllHoldings, setShowAllHoldings] = useState(true); // Default open — agents always see all holdings
   // Reset to full-view whenever portfolio changes or role resolves
@@ -2678,6 +3063,30 @@ export default function AgentModelPortfoliosPage() {
       })
       .catch(() => {}); // Silent — quant signals are enhancement only
   }, [selectedPortfolio?.id]);
+
+  // ── Background prefetch quant signals for all visible cards ──────────────
+  // Ensures drift meters on cards are populated without requiring a click.
+  // Staggered 300ms per card to avoid hammering the API (max 20 cards).
+  useEffect(() => {
+    if (!livePortfolios.length) return;
+    const toFetch = livePortfolios.slice(0, 20);
+    toFetch.forEach((p, i) => {
+      setTimeout(() => {
+        if (quantSignals[p.id]) return; // Skip if already fetched
+        fetch(`/api/model-portfolios/${p.id}/quant-signals`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (data?.success && data.data) {
+              setQuantSignals(prev => ({ ...prev, [p.id]: data.data }));
+            }
+          })
+          .catch(() => {});
+      }, i * 300); // Stagger: card 0 → 0ms, card 1 → 300ms, ..., card 19 → 5700ms
+    });
+  // Only run once when portfolios first load — quantSignals intentionally omitted
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [livePortfolios.length]);
+
 
   // ── Fetch invest preview when amount changes (debounced 600ms) ─────────────
   useEffect(() => {
@@ -3322,6 +3731,40 @@ export default function AgentModelPortfoliosPage() {
                   </button>
                 </div>
 
+                {/* ── Period return badges (materialised TWRR from DB) ──────── */}
+                <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                  {[
+                    { label: "1M",  val: portfolio.return1m },
+                    { label: "3M",  val: portfolio.return3m },
+                    { label: "6M",  val: portfolio.return6m },
+                    { label: "YTD", val: portfolio.returnYtd },
+                    { label: "2Y",  val: portfolio.cagr2y },
+                    { label: "SI",  val: portfolio.returnSinceInception },
+                  ]
+                    .filter((p) => p.val != null && !Number.isNaN(Number(p.val)))
+                    .map((p) => {
+                      const v = Number(p.val);
+                      const isPos = v >= 0;
+                      return (
+                        <span
+                          key={p.label}
+                          title={`${p.label === "SI" ? "Since Inception" : p.label} TWRR: ${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
+                          className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${
+                            isPos
+                              ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300"
+                              : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400"
+                          }`}
+                        >
+                          {p.label} {v >= 0 ? "+" : ""}{v.toFixed(1)}%
+                        </span>
+                      );
+                    })}
+                  {/* Show "–" placeholder if no period data yet */}
+                  {!portfolio.return1m && !portfolio.return3m && !portfolio.returnYtd && (
+                    <span className="text-[9px] text-muted-foreground/60 italic">Period returns computing…</span>
+                  )}
+                </div>
+
                 {/* ── Expandable performance section ───────────────────── */}
                 {isPerfOpen && (
                   <div className="space-y-2.5">
@@ -3559,11 +4002,12 @@ export default function AgentModelPortfoliosPage() {
                   }}
                   className="px-5 pt-4 pb-6"
                 >
-                  <TabsList className="grid w-full grid-cols-4 mb-4 h-8 text-xs">
+                  <TabsList className="grid w-full grid-cols-5 mb-4 h-8 text-xs">
                     <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
                     <TabsTrigger value="holdings" className="text-xs">Holdings</TabsTrigger>
                     <TabsTrigger value="performance" className="text-xs">Performance</TabsTrigger>
                     <TabsTrigger value="rebalancing" className="text-xs">Rebalancing</TabsTrigger>
+                    <TabsTrigger value="ai-record" className="text-xs">🤖 AI</TabsTrigger>
                   </TabsList>
 
                   {/* Overview Tab */}
@@ -3921,34 +4365,21 @@ export default function AgentModelPortfoliosPage() {
                       </LineChart>
                     </ResponsiveContainer>
 
-                    {/* CAGR comparison */}
-                    <Card>
-                      <CardContent className="pt-4">
-                        <div className="space-y-3">
-                          {[
-                            { period: "1 Year", portfolio: selectedPortfolio.cagr1Y, benchmark: selectedPortfolio.benchmarkCagr1Y },
-                            { period: "3 Years", portfolio: selectedPortfolio.cagr3Y, benchmark: selectedPortfolio.benchmarkCagr1Y - 1.4 },
-                            { period: "5 Years", portfolio: selectedPortfolio.cagr5Y, benchmark: selectedPortfolio.benchmarkCagr1Y - 2.1 },
-                          ].map((r) => (
-                            <div key={r.period}>
-                              <div className="flex justify-between text-xs mb-1">
-                                <span className="text-muted-foreground">{r.period}</span>
-                                <div className="flex gap-4">
-                                  <span className="text-indigo-600 font-semibold">Portfolio: +{r.portfolio}%</span>
-                                  <span className="text-gray-400">Benchmark: +{r.benchmark.toFixed(1)}%</span>
-                                </div>
-                              </div>
-                              <div className="flex gap-1 h-1.5">
-                                <div className="rounded-full bg-indigo-500 transition-all" style={{ width: `${Math.min(r.portfolio * 3, 100)}%` }} />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                      <p className="text-xs text-muted-foreground p-4 pt-0">
-                         Portfolios are rebalanced as needed based on drift signals — triggered when any holding breaches its asset-class tolerance band. Returns shown are {selectedPortfolio.twrr1Y != null ? "TWRR (SEBI-mandated)" : "CAGR"}.
-                       </p>
-                    </Card>
+                    {/* Full performance period table — pulls live data from /ai-track-record */}
+                    <PerformancePeriodTable portfolioId={selectedPortfolio.id}
+                      twrr1Y={selectedPortfolio.twrr1Y}
+                      cagr1Y={selectedPortfolio.cagr1Y}
+                      cagr3Y={selectedPortfolio.cagr3Y}
+                      cagr5Y={selectedPortfolio.cagr5Y}
+                      benchmarkCagr1Y={selectedPortfolio.benchmarkCagr1Y}
+                      return1m={selectedPortfolio.return1m}
+                      return3m={selectedPortfolio.return3m}
+                      return6m={selectedPortfolio.return6m}
+                      returnYtd={selectedPortfolio.returnYtd}
+                      cagr2y={selectedPortfolio.cagr2y}
+                      returnSinceInception={selectedPortfolio.returnSinceInception}
+                      benchmarkSinceInception={selectedPortfolio.benchmarkSinceInception}
+                    />
 
                     <p className="text-[10px] text-muted-foreground text-center">
                         * NAV starts at ₹1,000. Past returns are simulated for illustration. Not guaranteed.
@@ -4069,6 +4500,11 @@ export default function AgentModelPortfoliosPage() {
                         </CardContent>
                       </Card>
                     ))}
+                  </TabsContent>
+
+                  {/* AI Track Record Tab */}
+                  <TabsContent value="ai-record" className="space-y-3">
+                    <AiTrackRecordTab portfolioId={selectedPortfolio.id} />
                   </TabsContent>
                 </Tabs>
 

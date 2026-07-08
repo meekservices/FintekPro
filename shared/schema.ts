@@ -11387,6 +11387,23 @@ export const modelPortfolios = pgTable("model_portfolios", {
   maxDrawdownThreshold: numeric("max_drawdown_threshold"),                   // e.g. 8 for Conservative, 25 for Aggressive
   /** SEBI IA Regs: free-text disclosure of any distributor trail/conflict for this portfolio */
   conflictDisclosure:   text("conflict_disclosure"),
+  // ── Phase 3: Materialised trailing performance periods (TWRR, nightly) ─────────────
+  /** 1-Month TWRR — geometric chain of last 1 monthly return from mf_monthwise_performance */
+  return1m:             numeric("return_1m"),
+  /** 3-Month TWRR — geometric chain of last 3 monthly returns */
+  return3m:             numeric("return_3m"),
+  /** 6-Month TWRR — geometric chain of last 6 monthly returns */
+  return6m:             numeric("return_6m"),
+  /** Year-to-date TWRR — chain from Jan 1 of current year to latest available month */
+  returnYtd:            numeric("return_ytd"),
+  /** 2-Year annualised TWRR */
+  cagr2y:               numeric("cagr_2y"),
+  /** Since-inception TWRR — chain from inception_date to latest month */
+  returnSinceInception: numeric("return_since_inception"),
+  /** Benchmark since-inception TWRR — for direct comparison on the AI tab */
+  benchmarkSinceInception: numeric("benchmark_since_inception"),
+  /** Timestamp when period returns were last computed by the nightly job */
+  periodsComputedAt:    timestamp("periods_computed_at"),
 }, (table) => [
   index("idx_model_portfolios_risk").on(table.riskProfile),
   index("idx_model_portfolios_asset").on(table.assetClass),
@@ -11551,3 +11568,71 @@ export const insertRebalanceProposalSchema = createInsertSchema(rebalanceProposa
   id: true, createdAt: true, updatedAt: true,
 });
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FASP-AI Track Record — portfolio_ai_decisions
+// ─────────────────────────────────────────────────────────────────────────────
+// Every instrument selection or substitution made by FASP-AI is logged here.
+// Dual purpose:
+//   1. SEBI Reg 16 — unbounded 5-year audit trail of every AI advisory action
+//   2. Marketing USP — "FASP-AI Track Record": win rate, avg alpha per decision
+//
+// Outcome fields are NULL on insert, computed nightly from mf_monthwise_performance.
+// ─────────────────────────────────────────────────────────────────────────────
+export const portfolioAiDecisions = pgTable("portfolio_ai_decisions", {
+  id:                    serial("id").primaryKey(),
+  portfolioId:           varchar("portfolio_id").notNull().references(() => modelPortfolios.id, { onDelete: "cascade" }),
+  portfolioCode:         varchar("portfolio_code"),
+  decidedAt:             timestamp("decided_at").defaultNow().notNull(),
+  // ADD | SUBSTITUTE | TRIM | EXIT | HOLD_OVERRIDE
+  decisionType:          text("decision_type").notNull(),
+  // drift_threshold | underperformance | ai_alpha_upgrade | manual_override | cost_deferral | tax_deferral
+  trigger:               text("trigger").notNull(),
+  // Chosen instrument
+  chosenSchemeCode:      text("chosen_scheme_code"),
+  chosenIsin:            text("chosen_isin"),
+  chosenName:            text("chosen_name").notNull(),
+  chosenWeightPct:       real("chosen_weight_pct"),
+  chosenNavAtDecision:   numeric("chosen_nav_at_decision", { precision: 15, scale: 4 }),
+  // Rejected alternative (SUBSTITUTE only)
+  rejectedSchemeCode:    text("rejected_scheme_code"),
+  rejectedIsin:          text("rejected_isin"),
+  rejectedName:          text("rejected_name"),
+  rejectedNavAtDecision: numeric("rejected_nav_at_decision", { precision: 15, scale: 4 }),
+  // SEBI Reg 16 rationale (mandatory)
+  // ALPHA_UPGRADE | DRIFT_CORRECTION | RISK_REDUCTION | COST_OPTIMISATION | DIVERSIFICATION | BENCHMARK_CHANGE
+  rationaleCode:         text("rationale_code").notNull(),
+  rationaleDetail:       text("rationale_detail").notNull(),
+  aiConfidenceScore:     real("ai_confidence_score"),
+  modelVersion:          text("model_version").default("FASP-AI-v2.0").notNull(),
+  // Outcome — NULL on insert; nightly scheduler fills via mf_monthwise_performance
+  outcomePeriodMonths:   integer("outcome_period_months"),
+  outcomeReturnPct:      real("outcome_return_pct"),
+  outcomeBenchmarkPct:   real("outcome_benchmark_pct"),
+  rejectedReturnPct:     real("rejected_return_pct"),
+  alphaCapturedPct:      real("alpha_captured_pct"),
+  isWin:                 boolean("is_win"),
+  outcomeComputedAt:     timestamp("outcome_computed_at"),
+  // Advisor approval
+  advisorId:             text("advisor_id"),
+  advisorApprovedAt:     timestamp("advisor_approved_at"),
+  advisorNotes:          text("advisor_notes"),
+  // Proposal linkage
+  proposalId:            text("proposal_id"),
+  source:                text("source").default("fasp_ai").notNull(),
+  createdAt:             timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_pad_portfolio_decided").on(table.portfolioId, table.decidedAt),
+  index("idx_pad_chosen_scheme").on(table.chosenSchemeCode),
+  index("idx_pad_outcome_pending").on(table.outcomeComputedAt),
+  index("idx_pad_decision_type").on(table.decisionType),
+]);
+
+export const insertPortfolioAiDecisionSchema = createInsertSchema(portfolioAiDecisions).omit({
+  id: true, createdAt: true, outcomeComputedAt: true,
+  outcomePeriodMonths: true, outcomeReturnPct: true,
+  outcomeBenchmarkPct: true, rejectedReturnPct: true,
+  alphaCapturedPct: true, isWin: true,
+});
+export type PortfolioAiDecision = typeof portfolioAiDecisions.$inferSelect;
+export type InsertPortfolioAiDecision = z.infer<typeof insertPortfolioAiDecisionSchema>;

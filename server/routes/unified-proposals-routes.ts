@@ -6,12 +6,104 @@ import {
 	investmentProposalItems,
 	unifiedCartItems,
 	users,
+	mutualFunds,
+	bondCatalog,
+	listedStocks,
+	aifMaster,
 } from "@shared/schema";
-import { eq, and, or, desc, sql } from "drizzle-orm";
+import { eq, and, or, desc, sql, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { complianceMonitor } from "../compliance-monitor";
 
 const router = Router();
+
+// ── Product Name Resolver ─────────────────────────────────────────────────────
+/**
+ * Batch-resolves productName from the canonical instrument tables for any
+ * proposal items where productName is NULL (e.g. AI-generated proposals that
+ * only store productId/isin). Uses one query per asset type — no N+1 queries.
+ *
+ * @param items - Raw proposal items from DB
+ * @returns Same items array with productName populated where missing
+ */
+async function resolveProductNames(
+	items: Array<{
+		productId?: string | null;
+		productType?: string | null;
+		productName?: string | null;
+		isin?: string | null;
+	}>,
+): Promise<Map<string | undefined, string>> {
+	/** key = productId or isin, value = resolved name */
+	const nameMap = new Map<string | undefined, string>();
+
+	// Group items by type that need resolution
+	const mfIds = items
+		.filter((i) => (i.productType === "mutual_fund" || i.productType === "mf") && !i.productName && i.productId)
+		.map((i) => i.productId!);
+	const bondIsins = items
+		.filter((i) => i.productType === "bond" && !i.productName && (i.isin || i.productId))
+		.map((i) => (i.isin || i.productId)!);
+	const equitySymbols = items
+		.filter((i) => (i.productType === "equity" || i.productType === "stock") && !i.productName && i.productId)
+		.map((i) => i.productId!);
+	const aifIds = items
+		.filter((i) => (i.productType === "aif" || i.productType === "pms") && !i.productName && i.productId)
+		.map((i) => i.productId!);
+
+	if (mfIds.length > 0) {
+		try {
+			const rows = await db
+				.select({ schemeCode: mutualFunds.schemeCode, schemeName: mutualFunds.schemeName })
+				.from(mutualFunds)
+				.where(inArray(mutualFunds.schemeCode, mfIds));
+			rows.forEach((r) => r.schemeName && nameMap.set(r.schemeCode, r.schemeName));
+		} catch (e) {
+			console.warn("[ProposalNames] MF name lookup failed:", (e as Error).message);
+		}
+	}
+
+	if (bondIsins.length > 0) {
+		try {
+			const rows = await db
+				.select({ isin: bondCatalog.isin, issuerName: bondCatalog.issuerName })
+				.from(bondCatalog)
+				.where(inArray(bondCatalog.isin, bondIsins));
+			rows.forEach((r) => r.issuerName && nameMap.set(r.isin ?? undefined, r.issuerName));
+		} catch (e) {
+			console.warn("[ProposalNames] Bond name lookup failed:", (e as Error).message);
+		}
+	}
+
+	if (equitySymbols.length > 0) {
+		try {
+			const rows = await db
+				.select({ symbol: listedStocks.symbol, companyName: listedStocks.companyName })
+				.from(listedStocks)
+				.where(inArray(listedStocks.symbol, equitySymbols));
+			rows.forEach((r) => r.companyName && nameMap.set(r.symbol, r.companyName));
+		} catch (e) {
+			console.warn("[ProposalNames] Equity name lookup failed:", (e as Error).message);
+		}
+	}
+
+	if (aifIds.length > 0) {
+		try {
+			const rows = await db
+				.select({ id: aifMaster.id, fundName: (aifMaster as any).fundName ?? (aifMaster as any).name })
+				.from(aifMaster)
+				.where(inArray(aifMaster.id, aifIds));
+			rows.forEach((r: any) => {
+				const name = r.fundName ?? r.name;
+				if (name) nameMap.set(r.id, name);
+			});
+		} catch (e) {
+			console.warn("[ProposalNames] AIF name lookup failed:", (e as Error).message);
+		}
+	}
+
+	return nameMap;
+}
 
 type ProposalSourceType =
 	| "ai_rebalancing"
@@ -118,35 +210,41 @@ router.get("/", async (req: Request, res: Response) => {
 
 		const result: UnifiedProposal[] = [];
 
-		for (const proposal of proposals) {
-			const items = await db
-				.select({
-					id: investmentProposalItems.id,
-					proposalId: investmentProposalItems.proposalId,
-					productType: investmentProposalItems.productType,
-					productId: investmentProposalItems.productId,
-					productName: investmentProposalItems.productName,
-					isin: investmentProposalItems.isin,
-					actionType: investmentProposalItems.actionType,
-					amount: investmentProposalItems.amount,
-					units: investmentProposalItems.units,
-					rationale: (investmentProposalItems as any).rationale,
-					status: (investmentProposalItems as any).status,
-				})
-				.from(investmentProposalItems)
-				.where(eq(investmentProposalItems.proposalId, proposal.id));
+		const itemArrays = await Promise.all(
+			proposals.map((proposal) =>
+				db
+					.select({
+						id: investmentProposalItems.id,
+						proposalId: investmentProposalItems.proposalId,
+						productType: investmentProposalItems.productType,
+						productId: investmentProposalItems.productId,
+						productName: investmentProposalItems.productName,
+						isin: investmentProposalItems.isin,
+						actionType: investmentProposalItems.actionType,
+						amount: investmentProposalItems.amount,
+						units: investmentProposalItems.units,
+						rationale: (investmentProposalItems as any).rationale,
+						status: (investmentProposalItems as any).status,
+					})
+					.from(investmentProposalItems)
+					.where(eq(investmentProposalItems.proposalId, proposal.id)),
+			),
+		);
 
+		// Flatten all items for batch name resolution
+		const allItems = itemArrays.flat();
+		const nameMap = await resolveProductNames(allItems);
+
+		let itemsIdx = 0;
+		for (const proposal of proposals) {
+			const items = itemArrays[itemsIdx++];
 			const mappedSource = mapProposalSource(
 				proposal.proposalSource || "agent",
 				proposal.aiSubType || undefined,
 			);
 
-			const approvedCount = items.filter(
-				(i: any) => i.status === "approved",
-			).length;
-			const rejectedCount = items.filter(
-				(i: any) => i.status === "rejected",
-			).length;
+			const approvedCount = items.filter((i: any) => i.status === "approved").length;
+			const rejectedCount = items.filter((i: any) => i.status === "rejected").length;
 
 			result.push({
 				id: proposal.id,
@@ -163,27 +261,34 @@ router.get("/", async (req: Request, res: Response) => {
 				status: proposal.status || "draft",
 				totalAmount: Number(proposal.totalInvestmentAmount) || 0,
 				validUntil: proposal.validUntil?.toISOString() || undefined,
-				createdAt:
-					proposal.createdAt?.toISOString() || new Date().toISOString(),
+				createdAt: proposal.createdAt?.toISOString() || new Date().toISOString(),
 				updatedAt: proposal.updatedAt?.toISOString() || undefined,
-				items: items.map((item: any) => ({
-					id: item.id,
-					proposalId: item.proposalId,
-					productType: item.productType || "mutual_fund",
-					productId: (item as any).productId || undefined,
-					productName: item.productName || "Unknown Product",
-					isin: (item as any).isin || undefined,
-					actionType: item.actionType as
-						| "BUY"
-						| "SELL"
-						| "SWITCH"
-						| "HOLD"
-						| undefined,
-					amount: Number((item as any).amount) || 0,
-					units: item.units ? Number(item.units) : undefined,
-					rationale: item.rationale || undefined,
-					status: item.status || "pending",
-				})),
+				items: items.map((item: any) => {
+					// Resolve product name: DB value → nameMap lookup → productId fallback
+					const resolvedName =
+						item.productName ||
+						nameMap.get(item.isin || item.productId) ||
+						item.productId ||
+						"Unknown Product";
+					return {
+						id: item.id,
+						proposalId: item.proposalId,
+						productType: item.productType || "mutual_fund",
+						productId: item.productId || undefined,
+						productName: resolvedName,
+						isin: item.isin || undefined,
+						actionType: item.actionType as
+							| "BUY"
+							| "SELL"
+							| "SWITCH"
+							| "HOLD"
+							| undefined,
+						amount: Number(item.amount) || 0,
+						units: item.units ? Number(item.units) : undefined,
+						rationale: item.rationale || undefined,
+						status: item.status || "pending",
+					};
+				}),
 				approvedItemsCount: approvedCount,
 				rejectedItemsCount: rejectedCount,
 				addedToCart: !!proposal.addedToCartAt,

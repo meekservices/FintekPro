@@ -8,6 +8,7 @@ import { storage } from "./storage";
 import { User as UserType } from "@shared/schema";
 import { db } from "./db";
 import { userTrustedDevices, users } from "@shared/schema/users";
+import { sessions } from "@shared/schema";
 
 declare global {
 	namespace Express {
@@ -1360,13 +1361,19 @@ export function registerAuthRoutes(app: Express) {
 
 			console.log(`[Session Check] Checking sessions for user ID: ${user.id}`);
 
-			// Query sessions table for active sessions for this user
-			// Using raw SQL to query JSONB column
+			// FIX: Use typed Drizzle `sessions` table instead of sql.raw("sessions")
+			// The sessions table has: sid (PK), sess (jsonb), expire (timestamp)
+			// We query JSONB field sess->passport->>'user' for the user's ID
+			// and only count non-expired sessions.
 			const activeSessions = await db
-				.select()
-				.from(sql.raw("sessions"))
-				.where(sql`sess->'passport'->>'user' = ${user.id}`)
-				.execute();
+				.select({ sid: sessions.sid })
+				.from(sessions)
+				.where(
+					and(
+						sql`${sessions.sess}->'passport'->>'user' = ${user.id}`,
+						sql`${sessions.expire} > NOW()`,
+					),
+				);
 
 			console.log(
 				`[Session Check] Found ${activeSessions.length} active session(s) for user ${user.id}`,

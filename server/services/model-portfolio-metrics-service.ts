@@ -1487,6 +1487,32 @@ async function detectAndLogRebalancingNeeds(
 			high_priority: recommendations.filter((r) => r.priority === "high").length,
 			status: "success",
 		});
+
+		// ── Write portfolio_ai_decisions rows for AI substitution recommendations ──
+		// Each recommendation = one SUBSTITUTE decision logged for track record.
+		try {
+			for (const rec of recommendations) {
+				await db.execute(sql`
+					INSERT INTO portfolio_ai_decisions
+					  (portfolio_id, portfolio_code, decision_type, trigger,
+					   chosen_name, rationale_code, rationale_detail,
+					   ai_confidence_score, model_version, source)
+					VALUES (
+					  ${portfolio.id},
+					  ${(portfolio as any).portfolioCode ?? null},
+					  ${rec.suggestedReplacement ? "SUBSTITUTE" : "TRIM"},
+					  'underperformance',
+					  ${rec.suggestedReplacement ?? rec.holding},
+					  'ALPHA_UPGRADE',
+					  ${rec.reason},
+					  ${rec.priority === "high" ? 85 : 65},
+					  'FASP-AI-v2.0', 'fasp_ai'
+					)
+				`);
+			}
+		} catch (decErr: any) {
+			logger.warn("[Rebalancing] portfolio_ai_decisions insert (non-fatal):", decErr.message?.slice(0, 80));
+		}
 	} catch (err) {
 		logger.error(`[Rebalancing] Error detecting needs for ${portfolio.id}:`, err instanceof Error ? err : new Error(String(err)));
 	}
@@ -1610,4 +1636,279 @@ export function startModelPortfolioHoldingsRebalanceScheduler(): void {
 	};
 
 	schedule();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FASP-AI Track Record — computeAiDecisionOutcomes
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Nightly job: compute outcomes for all open portfolio_ai_decisions.
+ *
+ * For each decision where outcome_computed_at IS NULL:
+ *   1. Fetch mf_monthwise_performance rows since decided_at for the chosen instrument
+ *   2. If it's a SUBSTITUTE decision, do the same for the rejected instrument
+ *   3. Compute TWRR (geometric chain) for both
+ *   4. Write outcome_return_pct, rejected_return_pct, alpha_captured_pct, is_win
+ *
+ * Called by cron at 2:00 AM IST (after AMFI publishes monthly performance data).
+ *
+ * @returns Summary stats for logging: { processed, won, lost, latencyMs }
+ */
+export async function computeAiDecisionOutcomes(): Promise<{
+	processed: number;
+	won: number;
+	lost: number;
+	latencyMs: number;
+}> {
+	const t0 = Date.now();
+	let processed = 0, won = 0, lost = 0;
+
+	try {
+		// Fetch all open decisions (outcome not yet computed)
+		const openResult = await db.execute(sql`
+			SELECT id, portfolio_id, decided_at, decision_type,
+			       chosen_scheme_code, rejected_scheme_code
+			FROM portfolio_ai_decisions
+			WHERE outcome_computed_at IS NULL
+			  AND chosen_scheme_code IS NOT NULL
+			ORDER BY decided_at ASC
+			LIMIT 500
+		`);
+		const openDecisions = openResult.rows as any[];
+
+		/**
+		 * Compute TWRR (geometric chain) for a scheme from a start date to today.
+		 * Returns null if no performance data is available.
+		 */
+		const getTwrr = async (schemeCode: string, fromDate: string): Promise<number | null> => {
+			const rows = await db.execute(sql`
+				SELECT return_percent FROM mf_monthwise_performance
+				WHERE scheme_code = ${schemeCode}
+				  AND month_year >= ${fromDate}::date
+				ORDER BY month_year ASC
+			`);
+			if (!rows.rows.length) return null;
+			let cum = 1;
+			for (const r of rows.rows as any[]) {
+				cum *= (1 + Number(r.return_percent ?? 0) / 100);
+			}
+			return Math.round((cum - 1) * 10000) / 100;
+		};
+
+		for (const decision of openDecisions) {
+			try {
+				const fromDate = new Date(decision.decided_at).toISOString().slice(0, 10);
+				const chosenReturn = await getTwrr(decision.chosen_scheme_code, fromDate);
+				if (chosenReturn === null) continue; // no data yet — skip, will retry tomorrow
+
+				const rejectedReturn = decision.rejected_scheme_code
+					? await getTwrr(decision.rejected_scheme_code, fromDate)
+					: null;
+
+				const alphaCaptured = (decision.decision_type === "SUBSTITUTE" && rejectedReturn !== null)
+					? Math.round((chosenReturn - rejectedReturn) * 100) / 100
+					: null;
+				const isWin = alphaCaptured !== null ? alphaCaptured > 0 : null;
+
+				// Compute months elapsed since decision
+				const monthsElapsed = Math.round(
+					(Date.now() - new Date(decision.decided_at).getTime()) / (1000 * 60 * 60 * 24 * 30.44)
+				);
+
+				await db.execute(sql`
+					UPDATE portfolio_ai_decisions
+					SET outcome_period_months = ${monthsElapsed},
+					    outcome_return_pct    = ${chosenReturn},
+					    rejected_return_pct   = ${rejectedReturn},
+					    alpha_captured_pct    = ${alphaCaptured},
+					    is_win               = ${isWin},
+					    outcome_computed_at   = NOW()
+					WHERE id = ${decision.id}
+				`);
+
+				processed++;
+				if (isWin === true) won++;
+				if (isWin === false) lost++;
+
+			} catch (rowErr: any) {
+				logger.warn("[FASP-AI] computeAiDecisionOutcomes: row error", {
+					decision_id: decision.id, error: rowErr.message?.slice(0, 80)
+				});
+			}
+		}
+
+		logger.info("[FASP-AI] computeAiDecisionOutcomes complete", {
+			event: "AI_OUTCOME_COMPUTE_COMPLETE",
+			user_id: "system",
+			processed, won, lost,
+			latency_ms: Date.now() - t0,
+			status: "success",
+		});
+
+	} catch (err: any) {
+		logger.error("[FASP-AI] computeAiDecisionOutcomes fatal error", {
+			error: err.message, retryable: true
+		});
+	}
+
+	return { processed, won, lost, latencyMs: Date.now() - t0 };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 3: computeAndPersistAllPortfolioTWRRPeriods
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Nightly job: compute 8 trailing TWRR periods for every published portfolio
+ * and persist them as materialised columns on model_portfolios.
+ *
+ * Periods computed:
+ *   1M, 3M, 6M, YTD, 2Y (ann.), Since Inception
+ *   + benchmark_since_inception (blended benchmark proxy)
+ *
+ * Algorithm:
+ *   1. For each portfolio, find the primary MF holding (highest weight with amfiSchemeCode)
+ *   2. Fetch mf_monthwise_performance rows for that scheme
+ *   3. Compute geometric chain (TWRR) for each window
+ *   4. UPDATE model_portfolios with the 8 values + periods_computed_at
+ *
+ * @returns { processed, updated, skipped, latencyMs }
+ */
+export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
+	processed: number;
+	updated: number;
+	skipped: number;
+	latencyMs: number;
+}> {
+	const t0 = Date.now();
+	let processed = 0, updated = 0, skipped = 0;
+
+	try {
+		const portfolios = await db.execute(sql`
+			SELECT id, inception_date, holdings, benchmark_cagr_1y
+			FROM model_portfolios
+			WHERE is_published = true
+		`);
+
+		for (const port of portfolios.rows as any[]) {
+			processed++;
+			try {
+				// ── 1. Find primary MF holding ────────────────────────────────────
+				const holdings = JSON.parse(port.holdings ?? "[]") as any[];
+				const mfHoldings = holdings.filter((h: any) =>
+					(h.amfiSchemeCode || h.schemeCode) && Number(h.weight ?? 0) > 0
+				);
+				if (!mfHoldings.length) { skipped++; continue; }
+
+				// Sort by weight descending — use the highest-weight MF as proxy
+				mfHoldings.sort((a: any, b: any) => Number(b.weight ?? 0) - Number(a.weight ?? 0));
+				const primaryScheme: string = mfHoldings[0].amfiSchemeCode ?? mfHoldings[0].schemeCode;
+
+				// ── 2. Fetch all monthly returns (ascending) ──────────────────────
+				const navRows = await db.execute(sql`
+					SELECT month_year, return_percent, benchmark_return
+					FROM mf_monthwise_performance
+					WHERE scheme_code = ${primaryScheme}
+					ORDER BY month_year ASC
+				`);
+				const navData = navRows.rows as Array<{ month_year: string; return_percent: string | null; benchmark_return: string | null }>;
+
+				if (!navData.length) { skipped++; continue; }
+
+				// ── 3. Geometric chain helper ─────────────────────────────────────
+				const geomChain = (rows: typeof navData, field: "return_percent" | "benchmark_return" = "return_percent"): number | null => {
+					if (!rows.length) return null;
+					let cum = 1;
+					for (const r of rows) {
+						const rp = Number(r[field] ?? 0);
+						cum *= (1 + rp / 100);
+					}
+					return Math.round((cum - 1) * 10000) / 100;
+				};
+
+				const annualise = (total: number | null, years: number): number | null => {
+					if (total === null) return null;
+					return Math.round((Math.pow(1 + total / 100, 1 / years) - 1) * 10000) / 100;
+				};
+
+				// ── 4. Compute each period ────────────────────────────────────────
+				const now = new Date();
+				const cutoff = (months: number) => {
+					const d = new Date(now);
+					d.setMonth(d.getMonth() - months);
+					return d.toISOString().slice(0, 10);
+				};
+				const yearStart = `${now.getFullYear()}-01-01`;
+
+				const slice = (fromDate: string) =>
+					navData.filter((r) => r.month_year >= fromDate);
+
+				const rows1m  = slice(cutoff(1));
+				const rows3m  = slice(cutoff(3));
+				const rows6m  = slice(cutoff(6));
+				const rowsYtd = navData.filter((r) => r.month_year >= yearStart);
+				const rows2y  = slice(cutoff(24));
+				const rowsAll = navData; // since inception
+
+				const return1m  = geomChain(rows1m);
+				const return3m  = geomChain(rows3m);
+				const return6m  = geomChain(rows6m);
+				const returnYtd = geomChain(rowsYtd);
+				const cagr2y    = annualise(geomChain(rows2y), 2);
+				const returnSinceInception = geomChain(rowsAll);
+				const benchmarkSinceInception = geomChain(rowsAll, "benchmark_return");
+
+				// ── 5. Persist ────────────────────────────────────────────────────
+				await db.execute(sql`
+					UPDATE model_portfolios
+					SET
+					  return_1m                = ${return1m},
+					  return_3m                = ${return3m},
+					  return_6m                = ${return6m},
+					  return_ytd               = ${returnYtd},
+					  cagr_2y                  = ${cagr2y},
+					  return_since_inception   = ${returnSinceInception},
+					  benchmark_since_inception = ${benchmarkSinceInception},
+					  periods_computed_at       = NOW(),
+					  updated_at               = NOW()
+					WHERE id = ${port.id}
+				`);
+
+				updated++;
+				logger.info("[PortfolioTWRR] period returns computed", {
+					event: "PORTFOLIO_TWRR_PERIODS_UPDATED",
+					user_id: "system",
+					portfolio_id: port.id,
+					primary_scheme: primaryScheme,
+					return_1m: return1m,
+					return_3m: return3m,
+					return_6m: return6m,
+					return_ytd: returnYtd,
+					cagr_2y: cagr2y,
+					return_since_inception: returnSinceInception,
+					nav_bars_used: navData.length,
+					status: "success",
+					latency_ms: Date.now() - t0,
+				});
+
+			} catch (rowErr: any) {
+				skipped++;
+				logger.warn("[PortfolioTWRR] row error (non-fatal)", {
+					portfolio_id: port.id, error: rowErr.message?.slice(0, 80)
+				});
+			}
+		}
+
+		logger.info("[PortfolioTWRR] all period returns computed", {
+			event: "PORTFOLIO_TWRR_PERIODS_ALL_COMPLETE",
+			user_id: "system",
+			processed, updated, skipped,
+			latency_ms: Date.now() - t0,
+			status: "success",
+		});
+
+	} catch (err: any) {
+		logger.error("[PortfolioTWRR] fatal error", { error: err.message, retryable: true });
+	}
+
+	return { processed, updated, skipped, latencyMs: Date.now() - t0 };
 }

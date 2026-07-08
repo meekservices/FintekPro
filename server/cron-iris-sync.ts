@@ -123,6 +123,22 @@ export function initializeIrisSyncCrons(): void {
           error: metricsErr instanceof Error ? metricsErr.message : String(metricsErr),
         });
       }
+      // ── Phase 3: Materialise TWRR period returns on model_portfolios ────────
+      try {
+        const { computeAndPersistAllPortfolioTWRRPeriods } = await import("./services/model-portfolio-metrics-service");
+        const twrrResult = await computeAndPersistAllPortfolioTWRRPeriods();
+        logger.info("[CRON][TWRR] Period returns materialised", {
+          event: "CRON_TWRR_PERIODS_COMPLETE",
+          updated: twrrResult.updated,
+          skipped: twrrResult.skipped,
+          latency_ms: twrrResult.latencyMs,
+        });
+      } catch (twrrErr: unknown) {
+        logger.warn("[CRON][TWRR] Period compute (non-fatal)", {
+          error: twrrErr instanceof Error ? twrrErr.message : String(twrrErr),
+        });
+      }
+
       logger.info("[CRON][Rebalancing] Daily alpha rebalancing complete", {
         event: "CRON_REBALANCE_ALPHA_COMPLETE",
         timestamp: new Date().toISOString(),
@@ -182,6 +198,36 @@ export function initializeIrisSyncCrons(): void {
     }
   }, { timezone: "Asia/Kolkata" });
 
+  // ── FASP-AI Track Record: Nightly outcome compute — 2:00 AM IST ─────────────
+  // For every portfolio_ai_decisions row where outcome_computed_at IS NULL,
+  // fetches mf_monthwise_performance returns since decided_at for both chosen
+  // and rejected instruments, computes TWRR, sets is_win and alpha_captured_pct.
+  cron.schedule("30 20 * * *", async () => {
+    logger.info("[CRON][FASP-AI] Nightly AI decision outcome compute starting", {
+      event: "CRON_AI_OUTCOME_COMPUTE_START",
+      schedule: "daily_0200_IST",
+      timestamp: new Date().toISOString(),
+    });
+    try {
+      const { computeAiDecisionOutcomes } = await import("./services/model-portfolio-metrics-service");
+      const result = await computeAiDecisionOutcomes();
+      logger.info("[CRON][FASP-AI] AI decision outcome compute complete", {
+        event: "CRON_AI_OUTCOME_COMPUTE_COMPLETE",
+        decisions_processed: result.processed,
+        decisions_won: result.won,
+        decisions_lost: result.lost,
+        latency_ms: result.latencyMs,
+        engine: "FASP-AI-v2.0",
+      });
+    } catch (err: unknown) {
+      logger.error("[CRON][FASP-AI] AI decision outcome compute failed", {
+        event: "CRON_AI_OUTCOME_COMPUTE_FAILED",
+        error: err instanceof Error ? err.message : String(err),
+        retryable: true,
+      });
+    }
+  }, { timezone: "Asia/Kolkata" });
+
   logger.info("[CRON][PortfolioSync] All-registrar sync crons initialized", {
     event: "CRON_ALL_REGISTRAR_SYNC_INIT",
     schedules: [
@@ -190,8 +236,9 @@ export function initializeIrisSyncCrons(): void {
       "nightly_nav_update@21:00_IST",
       "weekly_rolling_returns@06:00_IST_Sunday",
       "weekly_fund_screener@07:00_IST_Sunday",
+      "nightly_ai_outcome_compute@02:00_IST",
     ],
     registrars: ["kfintech_iris", "cams", "mfcentral"],
-    faspaiv3: "nav_feed+rolling_returns+fund_screener",
+    faspaiv3: "nav_feed+rolling_returns+fund_screener+ai_outcome_compute",
   });
 }

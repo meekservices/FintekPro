@@ -172,9 +172,16 @@ export async function setupAuth(app: Express) {
 				return done(null, false);
 			}
 			done(null, user);
-		} catch (err) {
-			console.error(`[PASSPORT] deserializeUser ERROR for id ${id}:`, err);
-			done(err);
+		} catch (err: unknown) {
+			// CRITICAL FIX: calling done(err) here propagates the DB error as an
+			// Express error, causing subsequent requests to fail with 500 instead of
+			// a clean 401. We call done(null, false) to gracefully invalidate the
+			// session and let the client re-authenticate.
+			const e = err as { message?: string; code?: string };
+			console.error(
+				`[PASSPORT] deserializeUser DB error for user ${id}: ${e.message ?? e.code ?? "unknown"} — session invalidated gracefully`,
+			);
+			done(null, false);
 		}
 	});
 

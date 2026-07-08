@@ -2386,6 +2386,308 @@ modelPortfoliosRouter.get("/:id/quant-signals", async (req: Request, res: Respon
 });
 
 /**
+ * GET /api/model-portfolios/:id/drift
+ * ─────────────────────────────────────
+ * Returns current drift state for a portfolio card's drift meter.
+ * - currentDriftPct: max holding drift vs target weight (%)
+ * - driftThreshold: per-portfolio trigger threshold (%)
+ * - isTriggered: true if drift >= threshold
+ * - holdingsDrift: per-holding breakdown
+ */
+modelPortfoliosRouter.get("/:id/drift", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const result = await db.execute(sql`
+      SELECT id, name, holdings, drift_threshold, drift_score, last_quant_run
+      FROM model_portfolios
+      WHERE id = ${id} AND is_published = true
+      LIMIT 1
+    `);
+    if (!result.rows[0]) {
+      return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `Portfolio '${id}' not found`, retryable: false });
+    }
+    const row = result.rows[0] as any;
+    const driftThreshold = parseFloat(row.drift_threshold ?? "5");
+    const driftScore = row.drift_score != null ? parseFloat(row.drift_score) : null;
+    // driftScore is on a 0–20 scale in quant engine; convert to % relative to threshold
+    const currentDriftPct = driftScore != null ? parseFloat((driftScore / 20 * driftThreshold * 2).toFixed(2)) : null;
+    const holdings: any[] = Array.isArray(row.holdings) ? row.holdings : [];
+    const holdingsDrift = holdings.map((h: any) => ({
+      name: h.name ?? "Unknown",
+      targetWeight: parseFloat(h.weight ?? h.percentage ?? 0),
+      currentWeight: h.currentWeight != null ? parseFloat(h.currentWeight) : null,
+      driftPct: h.currentWeight != null
+        ? parseFloat(Math.abs(parseFloat(h.currentWeight) - parseFloat(h.weight ?? h.percentage ?? 0)).toFixed(2))
+        : null,
+    }));
+    return res.json({
+      success: true,
+      data: {
+        portfolioId: id,
+        currentDriftPct,
+        driftThreshold,
+        isTriggered: currentDriftPct != null && currentDriftPct >= driftThreshold,
+        driftStatus: currentDriftPct == null ? "unknown"
+          : currentDriftPct >= driftThreshold ? "triggered"
+          : currentDriftPct >= driftThreshold * 0.6 ? "warning"
+          : "balanced",
+        holdingsDrift,
+        lastCheckedAt: row.last_quant_run ?? null,
+      },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] drift error", { event: "DRIFT_ERROR", error: err.message, retryable: true });
+    return res.status(500).json({ success: false, error_code: "DRIFT_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
+ * GET /api/model-portfolios/:id/ai-track-record
+ * ──────────────────────────────────────────────
+ * FASP-AI Track Record — returns:
+ *   - All AI instrument decisions (ADD/SUBSTITUTE/TRIM/EXIT) since portfolio inception
+ *   - Computed outcomes (return since decision vs rejected alternative, win/loss)
+ *   - Summary stats: win rate, avg alpha/decision, cumulative AI attribution
+ *   - Full trailing performance periods: 1M, 3M, 6M, YTD, 1Y, 2Y, 3Y, Since Inception
+ *
+ * Dual purpose: SEBI Reg 16 audit trail + marketing USP "FASP-AI Track Record".
+ * Public endpoint — no auth required (read-only advisory data).
+ */
+modelPortfoliosRouter.get("/:id/ai-track-record", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+
+    // 1. Fetch portfolio basics
+    const portResult = await db.execute(sql`
+      SELECT id, portfolio_code, inception_date, holdings, last_rebalanced
+      FROM model_portfolios WHERE id = ${id} AND is_published = true LIMIT 1
+    `);
+    if (!portResult.rows[0]) {
+      return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `Portfolio '${id}' not found`, retryable: false });
+    }
+    const port = portResult.rows[0] as any;
+
+    // 2. Fetch all AI decisions ordered newest first
+    const decisionsResult = await db.execute(sql`
+      SELECT
+        id, decided_at, decision_type, trigger,
+        chosen_name, chosen_scheme_code, chosen_weight_pct, chosen_nav_at_decision,
+        rejected_name, rejected_scheme_code, rejected_nav_at_decision,
+        rationale_code, rationale_detail, ai_confidence_score, model_version,
+        outcome_period_months, outcome_return_pct, outcome_benchmark_pct,
+        rejected_return_pct, alpha_captured_pct, is_win, outcome_computed_at,
+        advisor_id, advisor_approved_at, proposal_id
+      FROM portfolio_ai_decisions
+      WHERE portfolio_id = ${id}
+      ORDER BY decided_at DESC
+      LIMIT 200
+    `);
+    const decisions = decisionsResult.rows as any[];
+
+    // 3. Compute summary stats from decisions that have outcomes
+    const resolved = decisions.filter((d) => d.outcome_computed_at !== null);
+    const substitutions = resolved.filter((d) => d.decision_type === "SUBSTITUTE" && d.alpha_captured_pct !== null);
+    const wins = substitutions.filter((d) => d.is_win === true);
+    const winRate = substitutions.length > 0 ? Math.round((wins.length / substitutions.length) * 100) : null;
+    const avgAlpha = substitutions.length > 0
+      ? substitutions.reduce((sum: number, d: any) => sum + (d.alpha_captured_pct ?? 0), 0) / substitutions.length
+      : null;
+    const cumAlpha = substitutions.reduce((sum: number, d: any) => sum + (d.alpha_captured_pct ?? 0), 0);
+
+    // 4. Compute trailing performance periods via geometric chain from mf_monthwise_performance
+    const primaryScheme = (() => {
+      try {
+        const holdings = JSON.parse(port.holdings ?? "[]");
+        const mfHoldings = holdings.filter((h: any) => h.amfiSchemeCode || h.schemeCode);
+        if (!mfHoldings.length) return null;
+        mfHoldings.sort((a: any, b: any) => (Number(b.weight) || 0) - (Number(a.weight) || 0));
+        return mfHoldings[0].amfiSchemeCode ?? mfHoldings[0].schemeCode ?? null;
+      } catch { return null; }
+    })();
+
+    let performancePeriods: Record<string, any> = {};
+    if (primaryScheme) {
+      const navRows = await db.execute(sql`
+        SELECT month_year, return_percent, benchmark_return
+        FROM mf_monthwise_performance
+        WHERE scheme_code = ${primaryScheme}
+        ORDER BY month_year ASC
+      `);
+      const navData = navRows.rows as any[];
+
+      const geomChain = (rows: any[]): number | null => {
+        if (!rows.length) return null;
+        let cum = 1;
+        for (const r of rows) {
+          const rp = Number(r.return_percent ?? 0);
+          cum *= (1 + rp / 100);
+        }
+        return Math.round((cum - 1) * 10000) / 100;
+      };
+      const annualise = (totalPct: number | null, years: number): number | null => {
+        if (totalPct === null) return null;
+        return Math.round((Math.pow(1 + totalPct / 100, 1 / years) - 1) * 10000) / 100;
+      };
+
+      const now = new Date();
+      const yearStart = new Date(now.getFullYear(), 0, 1);
+      const cutoff = (months: number) => { const d = new Date(now); d.setMonth(d.getMonth() - months); return d; };
+
+      const slice = (from: Date) => navData.filter((r) => new Date(r.month_year) >= from);
+      const ytdRows = navData.filter((r) => new Date(r.month_year) >= yearStart);
+
+      const periods: any[] = [
+        { label: "1M",  rows: slice(cutoff(1)),   annYears: null },
+        { label: "3M",  rows: slice(cutoff(3)),   annYears: null },
+        { label: "6M",  rows: slice(cutoff(6)),   annYears: null },
+        { label: "YTD", rows: ytdRows,             annYears: null },
+        { label: "1Y",  rows: slice(cutoff(12)),  annYears: null },
+        { label: "2Y",  rows: slice(cutoff(24)),  annYears: 2    },
+        { label: "3Y",  rows: slice(cutoff(36)),  annYears: 3    },
+        { label: "5Y",  rows: slice(cutoff(60)),  annYears: 5    },
+        { label: "sinceInception", rows: navData,  annYears: null },
+      ];
+
+      for (const p of periods) {
+        if (!p.rows.length) {
+          performancePeriods[p.label] = { returnPct: null, note: "Insufficient data" };
+          continue;
+        }
+        const raw = geomChain(p.rows);
+        const benchRaw = geomChain(p.rows.map((r: any) => ({ return_percent: r.benchmark_return })));
+        const returnPct = p.annYears ? annualise(raw, p.annYears) : raw;
+        const benchPct  = p.annYears ? annualise(benchRaw, p.annYears) : benchRaw;
+        performancePeriods[p.label] = {
+          returnPct,
+          benchmarkPct: benchPct,
+          alpha: returnPct !== null && benchPct !== null ? Math.round((returnPct - benchPct) * 100) / 100 : null,
+          annualised: !!p.annYears,
+          barsUsed: p.rows.length,
+          ...(p.label === "sinceInception" ? {
+            inceptionDate: port.inception_date,
+            monthsOfData: navData.length,
+          } : {}),
+        };
+      }
+    }
+
+    logger.info("[ModelPortfolios] ai-track-record fetched", {
+      event: "AI_TRACK_RECORD_FETCHED",
+      user_id: (req.user as any)?.id ?? "anon",
+      portfolio_id: id,
+      decisions_count: decisions.length,
+      latency_ms: Date.now() - t0,
+      status: "success",
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        portfolioId:  id,
+        portfolioCode: port.portfolio_code,
+        inceptionDate: port.inception_date,
+        summary: {
+          totalDecisions: decisions.length,
+          resolvedDecisions: resolved.length,
+          substitutionDecisions: substitutions.length,
+          winRate,
+          avgAlphaPerDecisionPct: avgAlpha !== null ? Math.round(avgAlpha * 100) / 100 : null,
+          cumulativeAiAttributionPct: Math.round(cumAlpha * 100) / 100,
+          modelVersion: "FASP-AI-v2.0",
+          disclaimer: "AI is a Decision Support System. Advisor approval required before execution. Past AI performance does not guarantee future results. Returns are TWRR per SEBI IA Regs.",
+        },
+        decisions: decisions.slice(0, 50),
+        performancePeriods,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: ENGINE_VERSION,
+        engine_version: "FASP-AI-v2.0",
+        latency_ms: Date.now() - t0,
+        disclaimer: "Mutual Fund investments are subject to market risks. Read all scheme-related documents carefully.",
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] ai-track-record error", { event: "AI_TRACK_RECORD_ERROR", error: err.message, retryable: true });
+    return res.status(500).json({ success: false, error_code: "AI_TRACK_RECORD_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
+ * GET /api/model-portfolios/:id/monthly-perf
+ * ─────────────────────────────────────────────
+ * Rolling monthly return bars since inception for the expanded card chart.
+ * Query: ?window=12 (default 12, max 60)
+ * Uses mf_monthwise_performance (canonical table) joined to the portfolio's
+ * primary MF holding (highest weight with amfiSchemeCode).
+ */
+modelPortfoliosRouter.get("/:id/monthly-perf", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const rollingWindow = Math.min(60, parseInt((req.query.window as string) ?? "12", 10) || 12);
+
+    const portResult = await db.execute(sql`
+      SELECT id, inception_date, holdings, last_rebalanced
+      FROM model_portfolios WHERE id = ${id} AND is_published = true LIMIT 1
+    `);
+    if (!portResult.rows[0]) {
+      return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `Portfolio '${id}' not found`, retryable: false });
+    }
+    const port = portResult.rows[0] as any;
+    const inceptionDate: string | null = port.inception_date ?? null;
+    const holdings: any[] = Array.isArray(port.holdings) ? port.holdings : [];
+
+    // Primary holding = highest-weight MF with a scheme code
+    const primaryHolding = holdings
+      .filter((h: any) => h.amfiSchemeCode || h.schemeCode || h.isin)
+      .sort((a: any, b: any) => parseFloat(b.weight ?? 0) - parseFloat(a.weight ?? 0))[0];
+
+    if (!primaryHolding) {
+      return res.json({ success: true, data: [], meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, note: "No AMFI-linked holdings found", latency_ms: Date.now() - t0 } });
+    }
+
+    const schemeCode = primaryHolding.amfiSchemeCode ?? primaryHolding.schemeCode ?? "";
+    const isin = primaryHolding.isin ?? "";
+
+    const perfRows = await db.execute(sql`
+      SELECT month_year, nav_end, return_pct
+      FROM mf_monthwise_performance
+      WHERE (scheme_code = ${schemeCode} OR isin = ${isin})
+        AND return_pct IS NOT NULL
+        ${inceptionDate ? sql`AND TO_DATE(month_year, 'Mon-YY') >= ${inceptionDate}::date` : sql``}
+      ORDER BY TO_DATE(month_year, 'Mon-YY') DESC
+      LIMIT ${rollingWindow}
+    `);
+
+    const rows = (perfRows.rows as any[]).reverse();
+    const lastRebal = port.last_rebalanced ? new Date(port.last_rebalanced) : null;
+
+    const bars = rows.map((r: any) => {
+      const [mon, yr] = (r.month_year ?? "").split("-");
+      const label = mon && yr ? `${mon}${yr}` : (r.month_year ?? "?");
+      const barDate = r.month_year ? new Date(`1 ${r.month_year}`) : null;
+      const hasRebalanceEvent = !!(lastRebal && barDate &&
+        barDate.getFullYear() === lastRebal.getFullYear() &&
+        barDate.getMonth() === lastRebal.getMonth());
+      return { label, returnPct: parseFloat(parseFloat(r.return_pct ?? "0").toFixed(2)), hasRebalanceEvent };
+    });
+
+    return res.json({
+      success: true,
+      data: bars,
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, portfolioId: id, barsReturned: bars.length, rollingWindow, inceptionDate, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] monthly-perf error", { event: "MONTHLY_PERF_ERROR", error: err.message, retryable: true });
+    return res.status(500).json({ success: false, error_code: "MONTHLY_PERF_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
  * POST /api/model-portfolios/:id/rebalance
  * ─────────────────────────────────────────
  * Trigger on-demand rebalancing for a model portfolio.
@@ -2449,6 +2751,57 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
             updated_at = NOW()
         WHERE id = ${id}
       `);
+
+      // ── Write portfolio_rebalance_events (SEBI audit + bar-chart dot source) ──
+      try {
+        await db.execute(sql`
+          INSERT INTO portfolio_rebalance_events
+            (portfolio_id, trigger_type, drift_score_at_trigger, drift_threshold_pct,
+             holdings_drift, action_taken, advisor_id, engine_version, source)
+          VALUES (
+            ${id}, 'drift_threshold',
+            ${quantResult.driftReport.driftScore},
+            ${(row as any).drift_threshold ?? 5},
+            ${JSON.stringify(quantResult.driftReport.holdingsDrift.slice(0, 10))}::jsonb,
+            'REBALANCED',
+            ${(req.user as any)?.id ?? null},
+            'FASP-AI-v2.0', 'api'
+          )
+        `);
+      } catch (logErr: any) {
+        logger.warn("[ModelPortfolios] rebalance_events insert (non-fatal)", { error: logErr.message });
+      }
+
+      // ── Write portfolio_ai_decisions — one row per BUY/SELL action ────────────
+      const rebalActions = quantResult.rebalancePlan?.actions ?? [];
+      if (rebalActions.length > 0) {
+        try {
+          const portCodeRow = await db.execute(sql`SELECT portfolio_code FROM model_portfolios WHERE id = ${id} LIMIT 1`);
+          const portCode = (portCodeRow.rows[0] as any)?.portfolio_code ?? null;
+          for (const action of rebalActions) {
+            const dtype = action.action === "BUY" ? "ADD" : "TRIM";
+            await db.execute(sql`
+              INSERT INTO portfolio_ai_decisions
+                (portfolio_id, portfolio_code, decision_type, trigger,
+                 chosen_name, chosen_scheme_code, chosen_weight_pct,
+                 rationale_code, rationale_detail, ai_confidence_score,
+                 model_version, advisor_id, source)
+              VALUES (
+                ${id}, ${portCode}, ${dtype}, 'drift_threshold',
+                ${String(action.holding?.name ?? "Unknown")},
+                ${action.holding?.schemeCode ?? action.holding?.amfiSchemeCode ?? null},
+                ${action.targetWeight ?? null},
+                'DRIFT_CORRECTION',
+                ${`Drift ${quantResult.driftReport.driftScore}/20. ${action.action} ${action.holding?.name ?? ""}. ΔWeight: ${action.changeAmount ?? 0}`},
+                ${Math.round((1 - Math.min(20, quantResult.driftReport.driftScore) / 20) * 100)},
+                'FASP-AI-v2.0', ${(req.user as any)?.id ?? null}, 'fasp_ai'
+              )
+            `);
+          }
+        } catch (decErr: any) {
+          logger.warn("[ModelPortfolios] ai_decisions insert (non-fatal)", { error: decErr.message });
+        }
+      }
     }
 
     logger.info("[ModelPortfolios] rebalance triggered", {
