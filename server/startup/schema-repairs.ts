@@ -8,6 +8,7 @@ export async function runStartupSchemaRepairs() {
 	// kill the whole server if the core tables are still functional.
 	try {
 		const { db: migDb } = await import("../db");
+		const { pool: migPool } = await import("../db");
 		const { sql: migSql } = await import("drizzle-orm");
 
 		console.log("🛠️ Running schema migrations/repairs...");
@@ -15,8 +16,8 @@ export async function runStartupSchemaRepairs() {
 		// ── CRITICAL FAST-PATH: model_portfolios period return columns ────────
 		// These columns are referenced by the Drizzle ORM schema on every
 		// GET /api/model-portfolios call. They must exist before routes serve.
-		// Using raw SQL strings (not tagged template literals) to avoid Drizzle
-		// parameterisation of SQL identifiers like column names.
+		// Use pool.query() directly — node-postgres Drizzle driver does NOT
+		// support db.execute({ sql, params }) object form for raw DDL.
 		const _criticalCols: Array<[string, string]> = [
 			["return_1m",                "NUMERIC(8,4)"],
 			["return_3m",                "NUMERIC(8,4)"],
@@ -30,7 +31,7 @@ export async function runStartupSchemaRepairs() {
 		let _ccOk = 0;
 		for (const [col, colType] of _criticalCols) {
 			try {
-				await migDb.execute({ sql: `ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS "${col}" ${colType}`, params: [] } as any);
+				await migPool.query(`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS "${col}" ${colType}`);
 				_ccOk++;
 			} catch { /* column already exists or table missing — non-fatal */ }
 		}

@@ -171,8 +171,10 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 			// any HTTP request can reach GET /api/model-portfolios. The Drizzle ORM
 			// schema references these columns in every SELECT. If they don't exist
 			// the endpoint returns 500 immediately on every cold-start.
-			// This block is safe to run on every boot (ADD COLUMN IF NOT EXISTS).
+			// Use pool.query() directly — node-postgres Drizzle driver does NOT support
+			// db.execute({ sql, params }) object form; only tagged sql`` is valid.
 			logBootProgress("Step 1b: Ensuring model_portfolios period return columns...");
+			const { pool: _pgPool } = await import("./db");
 			const _periodCols: Array<[string, string]> = [
 				["return_1m",                "NUMERIC(8,4)"],
 				["return_3m",                "NUMERIC(8,4)"],
@@ -186,9 +188,9 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 			let _pcOk = 0;
 			for (const [col, colType] of _periodCols) {
 				try {
-					await db.execute({ sql: `ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS "${col}" ${colType}`, params: [] } as any);
+					await _pgPool.query(`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS "${col}" ${colType}`);
 					_pcOk++;
-				} catch { /* column already exists — non-fatal */ }
+				} catch { /* column already exists or table missing — non-fatal */ }
 			}
 			logger.info(`✅ model_portfolios period columns: ${_pcOk}/${_periodCols.length} ensured`);
 			// ── END CRITICAL SYNC MIGRATION ───────────────────────────────────────
