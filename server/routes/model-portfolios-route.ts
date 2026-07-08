@@ -2062,6 +2062,51 @@ modelPortfoliosRouter.post("/admin/fix-total-holdings", async (_req: Request, re
 });
 
 /**
+ * GET /api/model-portfolios/alerts
+ * ────────────────────────────────
+ * Returns all active (unread) portfolio alerts for the advisor's portfolio set.
+ * IMPORTANT: registered before /:id/* parametric routes so Express does not
+ * capture the literal string "alerts" as an :id parameter.
+ */
+modelPortfoliosRouter.get("/alerts", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { getPortfolioAlerts } = await import("../services/portfolio-alert-service");
+    const includeRead = req.query.includeRead === "true";
+    const portfolioId = (req.query.portfolioId as string | undefined) ?? "all";
+    const alerts = await getPortfolioAlerts(portfolioId, includeRead);
+
+    return res.json({
+      success: true,
+      data: alerts,
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0, total: alerts.length },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error_code: "ALERTS_FETCH_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/alerts/:alertId/read
+ * ─────────────────────────────────────────────────
+ * Mark an alert as read.
+ */
+modelPortfoliosRouter.post("/alerts/:alertId/read", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { markAlertRead } = await import("../services/portfolio-alert-service");
+    await markAlertRead(req.params.alertId);
+    return res.json({
+      success: true,
+      data: { alertId: req.params.alertId, isRead: true },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error_code: "ALERT_READ_ERROR", message: err.message, retryable: true });
+  }
+});
+
+/**
  * GET /api/model-portfolios/:id/suitability
  * ───────────────────────────────────────────
  * SEBI IA Regs 2013, Reg. 16(a) — mandatory suitability check before any
@@ -2778,8 +2823,10 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
         try {
           const portCodeRow = await db.execute(sql`SELECT portfolio_code FROM model_portfolios WHERE id = ${id} LIMIT 1`);
           const portCode = (portCodeRow.rows[0] as any)?.portfolio_code ?? null;
-          for (const action of rebalActions) {
-            const dtype = action.action === "BUY" ? "ADD" : "TRIM";
+          for (const _rawAction of rebalActions) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const action = _rawAction as any;
+            const dtype = (action.action === "BUY" || action.action === "ADD") ? "ADD" : "TRIM";
             await db.execute(sql`
               INSERT INTO portfolio_ai_decisions
                 (portfolio_id, portfolio_code, decision_type, trigger,
@@ -3280,49 +3327,6 @@ modelPortfoliosRouter.post("/:id/proposals/:proposalId/reject", async (req: Requ
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error_code: "PROPOSAL_REJECT_ERROR", message: err.message, retryable: false });
-  }
-});
-
-/**
- * GET /api/model-portfolios/alerts
- * ────────────────────────────────
- * Returns all active (unread) portfolio alerts for the advisor's portfolio set.
- */
-modelPortfoliosRouter.get("/alerts", async (req: Request, res: Response) => {
-  const t0 = Date.now();
-  try {
-    const { getPortfolioAlerts } = await import("../services/portfolio-alert-service");
-    const includeRead = req.query.includeRead === "true";
-    const portfolioId = (req.query.portfolioId as string | undefined) ?? "all";
-    const alerts = await getPortfolioAlerts(portfolioId, includeRead);
-
-    return res.json({
-      success: true,
-      data: alerts,
-      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0, total: alerts.length },
-    });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error_code: "ALERTS_FETCH_ERROR", message: err.message, retryable: true });
-  }
-});
-
-/**
- * POST /api/model-portfolios/alerts/:alertId/read
- * ─────────────────────────────────────────────────
- * Mark an alert as read.
- */
-modelPortfoliosRouter.post("/alerts/:alertId/read", async (req: Request, res: Response) => {
-  const t0 = Date.now();
-  try {
-    const { markAlertRead } = await import("../services/portfolio-alert-service");
-    await markAlertRead(req.params.alertId);
-    return res.json({
-      success: true,
-      data: { alertId: req.params.alertId, isRead: true },
-      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
-    });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error_code: "ALERT_READ_ERROR", message: err.message, retryable: true });
   }
 });
 

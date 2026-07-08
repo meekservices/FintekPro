@@ -470,7 +470,24 @@ router.post("/analyze-portfolio", async (req: Request, res: Response) => {
 		}
 
 		const { holdings, riskProfile } = req.body;
-		const flexibleHoldings = z.array(flexibleHoldingSchema).parse(holdings);
+
+		// If no existing portfolio uploaded, allow wizard to proceed with empty-portfolio baseline.
+		// The proposal step will treat this as a fresh allocation (no legacy holdings to consider).
+		const rawHoldings = Array.isArray(holdings) ? holdings : [];
+		if (rawHoldings.length === 0) {
+			return res.json({
+				success: true,
+				analysis: {
+					isEmpty: true,
+					totalValue: 0,
+					holdings: [],
+					summary: "No existing portfolio provided — starting with a fresh allocation.",
+				},
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		}
+
+		const flexibleHoldings = z.array(flexibleHoldingSchema).parse(rawHoldings);
 		const normalizedHoldings = normalizeHoldings(flexibleHoldings);
 		const parsedRiskProfile = riskProfileSchema.parse(riskProfile);
 

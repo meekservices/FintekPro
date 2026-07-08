@@ -78,6 +78,13 @@ import versionRouter from "./routes/version";
 import { registerBankingRoutes } from "./routes/banking";
 import prospectWizardRoutes1 from "./routes/agent-prospect-wizard-1";
 import prospectWizardRoutes2 from "./routes/agent-prospect-wizard-5-2";
+import prospectWizardRoutes_w2 from "./routes/agent-prospect-wizard-2";
+import prospectWizardRoutes_w3_1_2 from "./routes/agent-prospect-wizard-3-1-2";
+import prospectWizardRoutes_w3_2 from "./routes/agent-prospect-wizard-3-2";
+import prospectWizardRoutes_w4_1 from "./routes/agent-prospect-wizard-4-1";
+import prospectWizardRoutes_w4_2 from "./routes/agent-prospect-wizard-4-2";
+import prospectWizardRoutes_w5_1 from "./routes/agent-prospect-wizard-5-1";
+import prospectWizardRoutes_w3_1_1_2 from "./routes/agent-prospect-wizard-3-1-1-2";
 import { registerAgentCapitalGainPart1Part2Routes } from "./routes/agent-capital-gains-1-2";
 import { registerAgentCapitalGainPart1Routes } from "./routes/agent-capital-gains-1";
 import { registerAgentCapitalGainPart2Part2Routes } from "./routes/agent-capital-gains-2-2";
@@ -300,8 +307,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/agent", agentMarketAlertsRoutes);
 
 	// Agent Wizard & Prospect Management Routes
+	// NOTE: static routes (no path params) must come before parametric ones.
+	// wizard-3-1-2 (GET /prospects/:id/holdings) and wizard-3-2 (POST /prospects/:id/holdings)
+	// are mounted AFTER wizard-2 (analyze-portfolio) which has only static paths — safe ordering.
 	app.use("/api/agent-wizard", prospectWizardRoutes1);
 	app.use("/api/agent-wizard", prospectWizardRoutes2);
+	app.use("/api/agent-wizard", prospectWizardRoutes_w2);        // analyze-portfolio, rebalancing-suggestions, generate-proposal
+	app.use("/api/agent-wizard", prospectWizardRoutes_w3_1_2);   // GET prospects/:id/holdings, GET prospects/:id/portfolio
+	app.use("/api/agent-wizard", prospectWizardRoutes_w3_2);     // POST/PUT/DELETE prospects/:id/holdings, GET zoho/status
+	app.use("/api/agent-wizard", prospectWizardRoutes_w4_1);     // zoho/team-agents, zoho/import/leads, zoho/import/contacts
+	app.use("/api/agent-wizard", prospectWizardRoutes_w4_2);     // zoho/webhook, listed/unlisted stock data
+	app.use("/api/agent-wizard", prospectWizardRoutes_w5_1);     // scoring sub-routes
+	app.use("/api/agent-wizard", prospectWizardRoutes_w3_1_1_2); // proposal-analytics
 	registerAgentCapitalGainPart1Part2Routes(app);
 	registerAgentCapitalGainPart1Routes(app);
 	registerAgentCapitalGainPart2Part2Routes(app);
