@@ -444,6 +444,16 @@ const INSTRUMENT_REGISTRY: Record<string, { schemeCode: number | null; isin: str
   // ── Non-MF / Not Resolvable ────────────────────────────────────────────────
   "1-Month Bank FD":                  { schemeCode: null, isin: null, type: "liquid" },
   "Liquid Fund (any AMC)":            { schemeCode: 119581, isin: "INF200K01975", type: "liquid" }, // map to SBI Liquid
+
+  // ── Family Office specific ─────────────────────────────────────────────────
+  "Motilal Oswal Nasdaq 100 ETF":     { schemeCode: 145552, isin: "INF247L01EW1", type: "international" },
+  "ICICI Pru US Bluechip Fund":       { schemeCode: 120186, isin: "INF109K01OQ3", type: "international" },
+  "BHARAT Bond ETF Apr 2032":         { schemeCode: null,   isin: "INF464K01000", type: "debt" },
+  "Sovereign Gold Bond 2026-27 SGB":  { schemeCode: null,   isin: "IN0020240135", type: "gold" },
+  "Kotak AIF Growth Fund III":        { schemeCode: null,   isin: null,           type: "alternatives" },
+  "IIFL Special Opportunities AIF":   { schemeCode: null,   isin: null,           type: "alternatives" },
+  "Nexus Select Trust REIT FO":       { schemeCode: null,   isin: "INE673K25010", type: "reit" },
+  "IndiGrid Infrastructure Trust":    { schemeCode: null,   isin: "INE219X25012", type: "reit" },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1054,6 +1064,32 @@ const RAW_HOLDINGS: Record<string, Array<{ rank: number; name: string; category:
     {rank:6,name:"Aditya Birla SL Corporate Bond Fund",category:"Corporate Bond MF",weight:10.0},
     {rank:7,name:"Aditya Birla SL Floating Rate Fund",category:"Floating Rate MF",weight:10.0},
     {rank:8,name:"HDFC Floating Rate Debt Fund",category:"Floating Rate MF",weight:5.0},
+  ],
+  // ── Family Office Portfolio ─────────────────────────────────────────────────
+  // UHNI / multi-generational wealth: 6-asset-class diversification
+  // Min ₹1 Cr | Benchmark: CRISIL Multi Asset 60:40 Index | Horizon: 10+ yrs
+  "family-office": [
+    // Quality Indian Equity — 25%
+    {rank:1, name:"Parag Parikh Flexi Cap Fund",      category:"Flexi Cap MF",         weight:12.0},
+    {rank:2, name:"Mirae Asset Large Cap Fund",        category:"Large Cap MF",          weight:8.0},
+    {rank:3, name:"UTI NIFTY 50 Index Fund",           category:"Index MF",              weight:5.0},
+    // International Equity — 15%
+    {rank:4, name:"ICICI Pru US Bluechip Fund",        category:"International MF",      weight:8.0},
+    {rank:5, name:"Motilal Oswal Nasdaq 100 ETF",      category:"International ETF",     weight:7.0},
+    // REIT & InvIT — 15%
+    {rank:6, name:"Embassy Office Parks REIT",         category:"REIT",                  weight:8.0},
+    {rank:7, name:"Mindspace Business Parks REIT",     category:"REIT",                  weight:4.0},
+    {rank:8, name:"IndiGrid Infrastructure InvIT",     category:"InvIT",                 weight:3.0},
+    // AIF / Alternatives — 15% (no schemeCode — managed outside MF universe)
+    {rank:9, name:"Kotak AIF Growth Fund III",         category:"Category III AIF",      weight:8.0},
+    {rank:10,name:"IIFL Special Opportunities AIF",    category:"Category II AIF",       weight:7.0},
+    // Debt & Fixed Income — 20%
+    {rank:11,name:"ICICI Pru Corporate Bond Fund",     category:"Corporate Bond MF",     weight:8.0},
+    {rank:12,name:"BHARAT Bond ETF Apr 2032",          category:"Target Maturity ETF",   weight:7.0},
+    {rank:13,name:"SBI Magnum Gilt Fund",              category:"Gilt MF",               weight:5.0},
+    // Gold & SGBs — 10%
+    {rank:14,name:"Nippon India ETF Gold BeES",        category:"Gold ETF",              weight:6.0},
+    {rank:15,name:"Sovereign Gold Bond 2026-27 Series",category:"SGB",                   weight:4.0},
   ],
 };
 
