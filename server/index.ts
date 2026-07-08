@@ -165,6 +165,34 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 			).then(() =>
 				logger.info("✅ DB connection pool warmed up (5 connections)"),
 			);
+
+			// ── CRITICAL SYNC MIGRATION: model_portfolios period return columns ────
+			// Must run SYNCHRONOUSLY here — before routes are registered and before
+			// any HTTP request can reach GET /api/model-portfolios. The Drizzle ORM
+			// schema references these columns in every SELECT. If they don't exist
+			// the endpoint returns 500 immediately on every cold-start.
+			// This block is safe to run on every boot (ADD COLUMN IF NOT EXISTS).
+			logBootProgress("Step 1b: Ensuring model_portfolios period return columns...");
+			const _periodCols: Array<[string, string]> = [
+				["return_1m",                "NUMERIC(8,4)"],
+				["return_3m",                "NUMERIC(8,4)"],
+				["return_6m",                "NUMERIC(8,4)"],
+				["return_ytd",               "NUMERIC(8,4)"],
+				["cagr_2y",                  "NUMERIC(8,4)"],
+				["return_since_inception",   "NUMERIC(8,4)"],
+				["benchmark_since_inception","NUMERIC(8,4)"],
+				["periods_computed_at",      "TIMESTAMPTZ"],
+			];
+			let _pcOk = 0;
+			for (const [col, colType] of _periodCols) {
+				try {
+					await db.execute({ sql: `ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS "${col}" ${colType}`, params: [] } as any);
+					_pcOk++;
+				} catch { /* column already exists — non-fatal */ }
+			}
+			logger.info(`✅ model_portfolios period columns: ${_pcOk}/${_periodCols.length} ensured`);
+			// ── END CRITICAL SYNC MIGRATION ───────────────────────────────────────
+
 		} catch (dbErr) {
 			// Log DB failure but do NOT crash — server is already listening
 			logger.error(
