@@ -40,8 +40,8 @@ router.get(
 				.from(bondCatalog)
 				.where(
 					and(
-						eq(bondCatalog.tradingStatus, "active"),
-						eq(bondCatalog.instrumentStatus, "SELLABLE"),
+						eq(bondCatalog.isListed, true),
+						eq(bondCatalog.status, "published"),
 					),
 				)
 				.limit(queryInt(limit, 50))
@@ -53,8 +53,8 @@ router.get(
 				.from(bondCatalog)
 				.where(
 					and(
-						eq(bondCatalog.tradingStatus, "active"),
-						eq(bondCatalog.instrumentStatus, "SELLABLE"),
+						eq(bondCatalog.isListed, true),
+						eq(bondCatalog.status, "published"),
 					),
 				);
 
@@ -88,8 +88,8 @@ router.get(
 				.from(bondCatalog)
 				.where(
 					and(
-						eq(bondCatalog.tradingStatus, "active"),
-						sql`${bondCatalog.instrumentStatus} IN ('SELLABLE', 'VISIBLE')`,
+						eq(bondCatalog.isListed, true),
+						sql`${bondCatalog.status} IN ('published', 'draft')`,
 					),
 				)
 				.limit(queryInt(limit, 100))
@@ -98,11 +98,11 @@ router.get(
 			apiResponse.success(res, {
 				bonds: bonds.map((b) => ({
 					...b,
-					canRecommend: b.instrumentStatus === "SELLABLE",
-					canTransact: b.instrumentStatus === "SELLABLE",
-					viewOnly: b.instrumentStatus === "VISIBLE",
+					canRecommend: b.status === "published",
+					canTransact: b.status === "published",
+					viewOnly: b.status === "draft",
 					warningBanner:
-						b.instrumentStatus === "VISIBLE"
+						b.status === "draft"
 							? "This instrument is shown for reference only and cannot be recommended or transacted."
 							: null,
 				})),
@@ -156,11 +156,11 @@ router.get(
 			apiResponse.success(res, {
 				isin: bond.isin,
 				bondName: bond.bondName,
-				currentStatus: bond.instrumentStatus,
-				statusReason: bond.statusReason,
-				statusLastUpdated: bond.statusLastUpdated,
+				currentStatus: bond.status,
+				statusReason: bond.unpublishReason,
+				statusLastUpdated: bond.updatedAt,
 				isListed: bond.isListed,
-				liquidityScore: bond.liquidityScore,
+				liquidityScore: null,
 				creditRating: bond.creditRating,
 				history,
 			});
@@ -262,8 +262,8 @@ router.get(
 				.from(bondCatalog)
 				.where(
 					and(
-						eq(bondCatalog.tradingStatus, "active"),
-						type !== "all" ? eq(bondCatalog.bondType, type) : sql`1=1`,
+						eq(bondCatalog.isListed, true),
+						type !== "all" ? eq(bondCatalog.instrumentType, type) : sql`1=1`,
 						rating !== "all"
 							? eq(bondCatalog.creditRating, rating)
 							: sql`1=1`,

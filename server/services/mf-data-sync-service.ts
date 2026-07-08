@@ -185,8 +185,6 @@ class MFDataSyncService {
 						returnPercent: returnPercent.toFixed(4),
 						navStart: data.first.nav.toString(),
 						navEnd: data.last.nav.toString(),
-						startDate: data.first.date,
-						endDate: data.last.date,
 					})
 					.onConflictDoUpdate({
 						target: [mfMonthwisePerformance.schemeCode, mfMonthwisePerformance.monthYear],
@@ -194,8 +192,6 @@ class MFDataSyncService {
 							returnPercent: returnPercent.toFixed(4),
 							navStart: data.first.nav.toString(),
 							navEnd: data.last.nav.toString(),
-							startDate: data.first.date,
-							endDate: data.last.date,
 							updatedAt: sql`NOW()`,
 						},
 					});

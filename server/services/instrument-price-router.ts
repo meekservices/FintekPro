@@ -158,9 +158,9 @@ export async function updateInstrumentPrice(
         const result = await db
           .update(mutualFunds)
           .set({
-            currentNav: priceStr,
-            navDate: update.priceDate ?? now.toISOString().split("T")[0],
-            lastUpdated: now,
+            nav: priceStr,
+            // navDate and lastUpdated are not top-level columns on mutual_funds;
+            // they live in extendedData JSONB. Store in the primary nav field only.
           })
           .where(eq(mutualFunds.schemeCode, update.identifier))
           .returning({ id: mutualFunds.id });
@@ -203,7 +203,7 @@ export async function updateInstrumentPrice(
         const result = await db
           .update(bondCatalog)
           .set({
-            currentPrice: priceStr,
+            cleanPrice: priceStr,
             updatedAt: now,
             source: update.source,
           })

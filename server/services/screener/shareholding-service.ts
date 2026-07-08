@@ -16,7 +16,7 @@
 
 import { db } from "../../db";
 import { screenerShareholding } from "@shared/schema/screener";
-import { listedStocks } from "@shared/schema/screener";
+import { listedStocks } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
 const BSE_SHAREHOLDING_URL = "https://api.bseindia.com/BseIndiaAPI/api/ShareHoldingPatterns/w";

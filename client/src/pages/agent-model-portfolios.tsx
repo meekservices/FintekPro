@@ -2514,9 +2514,9 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
   returnSinceInception?: number | null;
   benchmarkSinceInception?: number | null;
 }) {
-  const [periods, setPeriods] = React.useState<any>(null);
+  const [periods, setPeriods] = useState<any>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetch(`/api/model-portfolios/${portfolioId}/ai-track-record`)
       .then((r) => r.json())
       .then((res) => { if (res.success) setPeriods(res.data?.performancePeriods ?? null); })
@@ -2625,11 +2625,11 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
 // Fetched lazily only when the tab is activated — not pre-loaded.
 
 function AiTrackRecordTab({ portfolioId }: { portfolioId: string }) {
-  const [data, setData] = React.useState<any>(null);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setLoading(true);
     setError(null);
     fetch(`/api/model-portfolios/${portfolioId}/ai-track-record`)

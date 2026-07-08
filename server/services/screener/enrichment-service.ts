@@ -281,8 +281,6 @@ export async function enrichFinancialRatios(
 					.update(listedStocks)
 					.set({
 						lastFmpSync: new Date(),
-						lastFinancialsSync: new Date(), // Phase 2f: track per-table freshness
-						updatedAt: new Date(),
 					})
 					.where(eq(listedStocks.symbol, stock.symbol));
 

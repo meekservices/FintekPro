@@ -5,7 +5,6 @@ import {
 	goldenPrices,
 	stockFinancialMetrics,
 } from "@shared/schema";
-import { listedStocks } from "@shared/schema/screener";
 import { and, eq, sql, gte, asc, desc, count, or, ilike } from "drizzle-orm";
 
 import { BaseStrategy } from "./base-strategy";
@@ -522,7 +521,7 @@ export class StockStrategy extends BaseStrategy {
 						enrichmentStatus: "partial",
 						lastEnrichedAt: null,
 						enrichmentSource: null,
-						lastUpdated: r.updatedAt ?? new Date(),
+						lastUpdated: new Date(), // listedStocks.updatedAt not in schema; use current time
 						createdAt: r.createdAt ?? new Date(),
 						previousClose: null,
 						dayChange: null,

@@ -487,7 +487,7 @@ export class BondCatalogService {
 			.where(inArray(bondCatalog.instrumentType, ['corporate_bond', 'ncd', 'infrastructure_bond', 'unlisted_bond']));
 
 		return results.filter((bond: BondCatalogEntry) => {
-			if (filters?.bondType && bond.bondType !== filters.bondType) {
+			if (filters?.bondType && bond.instrumentType !== filters.bondType) {
 				return false;
 			}
 

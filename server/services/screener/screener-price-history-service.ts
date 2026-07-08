@@ -18,7 +18,7 @@
  */
 
 import { db } from "../../db";
-import { listedStocks } from "@shared/schema/screener";
+import { listedStocks } from "@shared/schema";
 import { sql } from "drizzle-orm";
 
 const YAHOO_BASE = "https://query1.finance.yahoo.com/v8/finance/chart";

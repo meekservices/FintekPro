@@ -6,7 +6,6 @@ import {
 	bondFeeOverrides,
 	bondCatalog,
 	governmentSecurities,
-	bondCatalog,
 	bondMarketplaceAuditLogs,
 } from "@shared/schema";
 import {

@@ -74,8 +74,8 @@ router.get("/watchlist", requireAuth, async (req: Request, res: Response) => {
 					if (corpBond) {
 						currentData = {
 							currentYield: corpBond.yieldToMaturity,
-							currentPrice: corpBond.lastTradedPrice || corpBond.currentPrice,
-							lastUpdated: corpBond.lastUpdated,
+							currentPrice: corpBond.cleanPrice,
+							lastUpdated: corpBond.lastSyncAt,
 						};
 					}
 				}
@@ -155,8 +155,8 @@ router.post("/watchlist", requireAuth, async (req: Request, res: Response) => {
 
 			if (corpBond) {
 				bondName = corpBond.bondName || isin;
-				instrumentType = corpBond.bondType || "corporate";
-				issuer = corpBond.issuer || "Unknown";
+				instrumentType = corpBond.instrumentType || "corporate";
+				issuer = corpBond.issuerName || "Unknown";
 				targetBuyYield = corpBond.yieldToMaturity || null;
 			}
 		}
@@ -335,14 +335,14 @@ router.get(
 
 				if (corpBond) {
 					bond = corpBond;
-					instrumentType = corpBond.bondType || "corporate";
+					instrumentType = corpBond.instrumentType || "corporate";
 					bondYield = Number.parseFloat(corpBond.yieldToMaturity || "0");
 					maturityDate = corpBond.maturityDate
 						? new Date(corpBond.maturityDate)
 						: null;
 					creditRating = corpBond.creditRating || "";
-					isListed = corpBond.tradingStatus === "active";
-					bondName = corpBond.bondName || corpBond.issuer || isin;
+					isListed = corpBond.isListed === true;
+					bondName = corpBond.bondName || corpBond.issuerName || isin;
 				}
 			}
 
@@ -414,7 +414,7 @@ router.get(
 				db
 					.select()
 					.from(schema.bondCatalog)
-					.where(eq(schema.bondCatalog.tradingStatus, "active"))
+					.where(eq(schema.bondCatalog.isListed, true))
 					.limit(50),
 			]);
 
@@ -444,17 +444,17 @@ router.get(
 
 			corpBonds.forEach((bond) => {
 				const scores = calculateSuitabilityScores(riskProfile, {
-					instrumentType: bond.bondType || "corporate",
+					instrumentType: bond.instrumentType || "corporate",
 					yield: Number.parseFloat(bond.yieldToMaturity || "0"),
 					maturityDate: bond.maturityDate ? new Date(bond.maturityDate) : null,
 					creditRating: bond.creditRating || "",
-					isListed: bond.tradingStatus === "active",
+					isListed: bond.isListed === true,
 				});
 
 				scoredBonds.push({
 					isin: bond.isin,
-					bondName: bond.bondName || bond.issuer,
-					instrumentType: bond.bondType || "corporate",
+					bondName: bond.bondName || bond.issuerName,
+					instrumentType: bond.instrumentType || "corporate",
 					yield: bond.yieldToMaturity,
 					maturityDate: bond.maturityDate,
 					creditRating: bond.creditRating,
