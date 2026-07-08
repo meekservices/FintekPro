@@ -12,6 +12,32 @@ export async function runStartupSchemaRepairs() {
 
 		console.log("🛠️ Running schema migrations/repairs...");
 
+		// ── CRITICAL FAST-PATH: model_portfolios period return columns ────────
+		// These columns are referenced by the Drizzle ORM schema on every
+		// GET /api/model-portfolios call. They must exist before routes serve.
+		// Using raw SQL strings (not tagged template literals) to avoid Drizzle
+		// parameterisation of SQL identifiers like column names.
+		const _criticalCols: Array<[string, string]> = [
+			["return_1m",                "NUMERIC(8,4)"],
+			["return_3m",                "NUMERIC(8,4)"],
+			["return_6m",                "NUMERIC(8,4)"],
+			["return_ytd",               "NUMERIC(8,4)"],
+			["cagr_2y",                  "NUMERIC(8,4)"],
+			["return_since_inception",   "NUMERIC(8,4)"],
+			["benchmark_since_inception","NUMERIC(8,4)"],
+			["periods_computed_at",      "TIMESTAMPTZ"],
+		];
+		let _ccOk = 0;
+		for (const [col, colType] of _criticalCols) {
+			try {
+				await migDb.execute({ sql: `ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS "${col}" ${colType}`, params: [] } as any);
+				_ccOk++;
+			} catch { /* column already exists or table missing — non-fatal */ }
+		}
+		console.log(`  ✅ [CRITICAL] model_portfolios period columns: ${_ccOk}/${_criticalCols.length} ensured`);
+		// ── END CRITICAL FAST-PATH ────────────────────────────────────────────
+
+
 		// ── INFRA-M3: Schema Migration Log ────────────────────────────────────
 		// Tracks which migrations have already been applied so they are skipped
 		// on subsequent boots. Reduces startup round-trips from 100+ individual
