@@ -3084,8 +3084,10 @@ export default function AgentModelPortfoliosPage() {
   };
 
   // ── Fetch quant signals when a portfolio is selected (FASP-AI-v2.0) ────────
+  // Guard: only fetch if apiData is loaded (ensures id exists in DB, not just static fallback)
   useEffect(() => {
     if (!selectedPortfolio) return;
+    if (!apiData?.data) return; // Static fallback IDs don't exist in DB — skip
     const id = selectedPortfolio.id;
     if (quantSignals[id]) return; // Already cached
     fetch(`/api/model-portfolios/${id}/quant-signals`)
@@ -3096,30 +3098,32 @@ export default function AgentModelPortfoliosPage() {
         }
       })
       .catch(() => {}); // Silent — quant signals are enhancement only
-  }, [selectedPortfolio?.id]);
+  }, [selectedPortfolio?.id, !!apiData?.data]);
 
   // ── Background prefetch quant signals for all visible cards ──────────────
   // Ensures drift meters on cards are populated without requiring a click.
   // Staggered 300ms per card to avoid hammering the API (max 20 cards).
+  // Guard: only prefetch when apiData is loaded — static fallback IDs don't match DB.
   useEffect(() => {
-    if (!livePortfolios.length) return;
-    const toFetch = livePortfolios.slice(0, 20);
-    toFetch.forEach((p, i) => {
+    if (!apiData?.data?.length) return; // Wait for real API data — static IDs cause 404s
+    const toFetch = (apiData.data as any[]).slice(0, 20);
+    toFetch.forEach((p: any, i: number) => {
       setTimeout(() => {
-        if (quantSignals[p.id]) return; // Skip if already fetched
-        fetch(`/api/model-portfolios/${p.id}/quant-signals`)
+        const id = p.id;
+        if (!id || quantSignals[id]) return; // Skip if already fetched
+        fetch(`/api/model-portfolios/${id}/quant-signals`)
           .then(r => r.ok ? r.json() : null)
           .then(data => {
             if (data?.success && data.data) {
-              setQuantSignals(prev => ({ ...prev, [p.id]: data.data }));
+              setQuantSignals(prev => ({ ...prev, [id]: data.data }));
             }
           })
           .catch(() => {});
       }, i * 300); // Stagger: card 0 → 0ms, card 1 → 300ms, ..., card 19 → 5700ms
     });
-  // Only run once when portfolios first load — quantSignals intentionally omitted
+  // Only run once when API data first loads — quantSignals intentionally omitted
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [livePortfolios.length]);
+  }, [apiData?.data?.length]);
 
 
   // ── Fetch invest preview when amount changes (debounced 600ms) ─────────────
