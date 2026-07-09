@@ -189,7 +189,7 @@ type ModelPortfolio = {
   name: string;
   tagline: string;
   riskProfile: RiskProfile;
-  assetClass: "equity" | "debt" | "hybrid" | "thematic" | "goal_based";
+  assetClass: "equity" | "debt" | "hybrid" | "thematic" | "goal_based" | "hni";
   subCategory: string;
   goal: string[];
   minInvestment: number;
@@ -2424,8 +2424,14 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
 ];
 
 
-// Merge all portfolio lists into one master list
-const MODEL_PORTFOLIOS_ALL: ModelPortfolio[] = [...MODEL_PORTFOLIOS];
+// Merge all portfolio lists + HNI stubs seeded directly in DB (not in static list)
+// Stubs use 'as unknown[]' cast — they are minimal fallback data overwritten by live API.
+const HNI_PORTFOLIO_STUBS = [
+  { id: "hni-50l-multi-asset",  name: "HNI Multi-Asset ₹50L",       assetClass: "hni", minInvestment: 5000000,   cagr1Y: 15.4, cagr3Y: 13.1, cagr5Y: 12.8, riskProfile: "moderate", subCategory: "Multi-Asset ₹50L",  totalHoldings: 10, holdings: [], allocation: [], isFeatured: true, isNew: true },
+  { id: "hni-1cr-multi-asset",  name: "HNI Multi-Asset ₹1Cr",       assetClass: "hni", minInvestment: 10000000,  cagr1Y: 16.2, cagr3Y: 13.8, cagr5Y: 13.2, riskProfile: "moderate", subCategory: "Multi-Asset ₹1Cr",  totalHoldings: 12, holdings: [], allocation: [], isFeatured: true, isNew: true },
+  { id: "family-office",        name: "Family Office Portfolio", assetClass: "hni", minInvestment: 100000000, cagr1Y: 16.8, cagr3Y: 14.2, cagr5Y: 13.6, riskProfile: "moderate", subCategory: "Multi-Asset ₹10Cr", totalHoldings: 12, holdings: [], allocation: [], isFeatured: true, isNew: true },
+] as unknown[] as ModelPortfolio[];
+const MODEL_PORTFOLIOS_ALL: ModelPortfolio[] = [...MODEL_PORTFOLIOS, ...HNI_PORTFOLIO_STUBS];
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
