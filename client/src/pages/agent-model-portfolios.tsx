@@ -2528,6 +2528,275 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
   );
 }
 
+// ─── D5: SIP Simulator Tab ─────────────────────────────────────────────────
+// Pure-frontend compound growth calculator.
+// Computes: Wealth = P \u00d7 [(1+r)^n - 1] / r \u00d7 (1+r)  for SIP
+// Optionally adds a lump-sum component: L \u00d7 (1+r)^n
+
+function SipSimulatorTab({ portfolio }: { portfolio: ModelPortfolio }) {
+  const expectedReturn = portfolio.cagr1Y ?? portfolio.cagr3Y ?? portfolio.cagr5Y ?? 12;
+  const [monthlyAmt,  setMonthlyAmt]  = useState<string>("10000");
+  const [lumpSum,     setLumpSum]     = useState<string>("0");
+  const [years,       setYears]       = useState<number>(10);
+  const [customRate,  setCustomRate]  = useState<string>(String(Math.max(0, Math.round(expectedReturn * 10) / 10)));
+
+  const rateStr  = customRate.trim() === "" ? "0" : customRate;
+  const r        = Math.max(0, Math.min(100, Number.parseFloat(rateStr) || 0)) / 100 / 12; // monthly rate
+  const n        = years * 12; // months
+  const P        = Math.max(0, Number.parseInt(monthlyAmt.replace(/,/g, ""), 10) || 0);
+  const L        = Math.max(0, Number.parseInt(lumpSum.replace(/,/g, ""), 10) || 0);
+
+  // SIP future value (end-of-month payments)
+  const sipFV    = r > 0 ? P * ((Math.pow(1 + r, n) - 1) / r) * (1 + r) : P * n;
+  // Lump-sum future value
+  const lumpFV   = L * Math.pow(1 + r, n);
+  const totalFV  = sipFV + lumpFV;
+  const invested = P * n + L;
+  const gains    = totalFV - invested;
+
+  const fmt = (v: number) => v >= 10_000_000
+    ? `\u20b9${(v / 10_000_000).toFixed(2)} Cr`
+    : v >= 100_000
+    ? `\u20b9${(v / 100_000).toFixed(2)} L`
+    : `\u20b9${Math.round(v).toLocaleString("en-IN")}`;
+
+  // Build year-by-year data for sparkline
+  const chartData = Array.from({ length: years }, (_, i) => {
+    const yr = i + 1;
+    const m  = yr * 12;
+    const sv = r > 0 ? P * ((Math.pow(1 + r, m) - 1) / r) * (1 + r) : P * m;
+    const lv = L * Math.pow(1 + r, m);
+    return { yr, wealth: sv + lv, invested: P * m + L };
+  });
+  const maxWealth = chartData.length ? Math.max(...chartData.map(d => d.wealth)) : 1;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">\ud83d\udcb0</span>
+        <div>
+          <p className="text-sm font-semibold">SIP + Lump-Sum Simulator</p>
+          <p className="text-[11px] text-muted-foreground">Based on {portfolio.name} historical {Math.round(expectedReturn * 10) / 10}% CAGR</p>
+        </div>
+      </div>
+
+      {/* Inputs */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <label className="text-[10px] text-muted-foreground font-medium">Monthly SIP (\u20b9)</label>
+          <input
+            type="number" min={0} step={500}
+            value={monthlyAmt}
+            onChange={(e) => setMonthlyAmt(e.target.value)}
+            className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] text-muted-foreground font-medium">Lump Sum (\u20b9)</label>
+          <input
+            type="number" min={0} step={10000}
+            value={lumpSum}
+            onChange={(e) => setLumpSum(e.target.value)}
+            className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] text-muted-foreground font-medium">Expected CAGR (%)</label>
+          <input
+            type="number" min={0} max={100} step={0.5}
+            value={customRate}
+            onChange={(e) => setCustomRate(e.target.value)}
+            className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] text-muted-foreground font-medium">Duration (years): {years}</label>
+          <input
+            type="range" min={1} max={30} step={1}
+            value={years}
+            onChange={(e) => setYears(Number(e.target.value))}
+            className="w-full accent-indigo-600"
+          />
+        </div>
+      </div>
+
+      {/* Results */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: "Amount Invested",  value: fmt(invested),  color: "text-foreground" },
+          { label: "Estimated Gains",  value: fmt(gains),     color: "text-emerald-600 dark:text-emerald-400" },
+          { label: "Total Corpus",     value: fmt(totalFV),   color: "text-indigo-600 dark:text-indigo-400 font-bold" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-lg bg-muted/50 p-2.5 text-center">
+            <p className="text-[9px] text-muted-foreground">{s.label}</p>
+            <p className={`text-[13px] font-semibold ${s.color}`}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Year-by-year mini chart */}
+      {chartData.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[9px] text-muted-foreground">Wealth accumulation by year</p>
+          <div className="flex items-end gap-0.5 h-16">
+            {chartData.map((d) => {
+              const wPct = (d.wealth / maxWealth) * 100;
+              const iPct = (d.invested / maxWealth) * 100;
+              return (
+                <TooltipProvider key={d.yr}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex-1 flex flex-col items-center justify-end h-full relative">
+                        {/* Total wealth bar */}
+                        <div
+                          className="w-full rounded-t-sm bg-indigo-400/60 dark:bg-indigo-600/50 absolute bottom-0"
+                          style={{ height: `${Math.max(4, wPct)}%` }}
+                        />
+                        {/* Invested portion overlay */}
+                        <div
+                          className="w-full bg-slate-400/40 absolute bottom-0 rounded-t-sm"
+                          style={{ height: `${Math.max(2, iPct)}%` }}
+                        />
+                        <span className="text-[7px] text-muted-foreground/70 leading-none absolute -bottom-3.5">{d.yr}Y</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">
+                      Yr {d.yr}: {fmt(d.wealth)} (invested {fmt(d.invested)})
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-3 text-[8px] text-muted-foreground mt-5">
+            <span className="flex items-center gap-1"><span className="inline-block w-3 h-2 rounded-sm bg-indigo-400/60" /> Total corpus</span>
+            <span className="flex items-center gap-1"><span className="inline-block w-3 h-2 rounded-sm bg-slate-400/40" /> Amount invested</span>
+          </div>
+        </div>
+      )}
+
+      <p className="text-[8px] text-muted-foreground/60 leading-relaxed">
+        \u26a0\ufe0f Projections are illustrative only. Actual returns will vary. Past CAGR is not indicative of future results.
+        Consult your SEBI-registered advisor before investing.
+      </p>
+    </div>
+  );
+}
+
+// ─── D6: Holding Overlap Tab ──────────────────────────────────────────────────
+// Detects holdings that appear in multiple portfolios.
+// Helps advisors identify concentration risk when a client holds multiple portfolios.
+
+function HoldingOverlapTab({ selectedPortfolio, allPortfolios }: {
+  selectedPortfolio: ModelPortfolio;
+  allPortfolios: ModelPortfolio[];
+}) {
+  const myHoldings = selectedPortfolio.holdings ?? [];
+
+  // Build a map: holding symbol/name \u2192 list of other portfolios that contain it
+  const overlapMap = new Map<string, { name: string; weight: number; otherPortfolios: { id: string; name: string; weight: number }[] }>();
+
+  for (const h of myHoldings) {
+    const key = h.symbol ?? h.name;
+    if (!key) continue;
+    const others: { id: string; name: string; weight: number }[] = [];
+    for (const p of allPortfolios) {
+      if (p.id === selectedPortfolio.id) continue;
+      const match = (p.holdings ?? []).find(
+        (ph) => ph.symbol === h.symbol || ph.name === h.name,
+      );
+      if (match) others.push({ id: p.id, name: p.name, weight: Number(match.weight ?? 0) });
+    }
+    if (others.length > 0) {
+      overlapMap.set(key, { name: h.name, weight: Number(h.weight ?? 0), otherPortfolios: others });
+    }
+  }
+
+  const overlaps = Array.from(overlapMap.entries()).sort((a, b) => b[1].otherPortfolios.length - a[1].otherPortfolios.length);
+  const overlapPct = myHoldings.length > 0 ? Math.round((overlaps.length / myHoldings.length) * 100) : 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">\ud83d\udd17</span>
+        <div>
+          <p className="text-sm font-semibold">Holding Overlap Detector</p>
+          <p className="text-[11px] text-muted-foreground">
+            {overlaps.length === 0
+              ? "No overlapping holdings found across other portfolios."
+              : `${overlaps.length} of ${myHoldings.length} holdings (${overlapPct}%) appear in other portfolios`}
+          </p>
+        </div>
+      </div>
+
+      {overlaps.length === 0 ? (
+        <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20 p-4 text-center">
+          <p className="text-emerald-600 dark:text-emerald-400 text-sm font-medium">\u2705 No concentration risk detected</p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            All {myHoldings.length} holdings in this portfolio are unique across the catalogue.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {/* Concentration risk meter */}
+          <div className="space-y-1">
+            <div className="flex justify-between text-[9px] text-muted-foreground">
+              <span>Overlap concentration</span>
+              <span className={overlapPct > 40 ? "text-red-500 font-semibold" : overlapPct > 20 ? "text-amber-500 font-semibold" : "text-emerald-600 font-semibold"}>
+                {overlapPct}% of holdings
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${overlapPct > 40 ? "bg-red-500" : overlapPct > 20 ? "bg-amber-500" : "bg-emerald-500"}`}
+                style={{ width: `${Math.min(100, overlapPct)}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Overlap list */}
+          <div className="space-y-1.5">
+            {overlaps.map(([key, { name, weight, otherPortfolios }]) => (
+              <div key={key} className="rounded-lg border border-border/60 bg-muted/30 p-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-semibold truncate">{name}</p>
+                    <p className="text-[9px] text-muted-foreground">
+                      {weight.toFixed(1)}% weight in this portfolio
+                    </p>
+                  </div>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0 ${
+                    otherPortfolios.length >= 3 ? "bg-red-500" : otherPortfolios.length >= 2 ? "bg-amber-500" : "bg-slate-500"
+                  }`}>
+                    {otherPortfolios.length} more
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {otherPortfolios.slice(0, 4).map((op) => (
+                    <span key={op.id} className="text-[8px] px-1.5 py-0.5 rounded bg-muted border border-border/50 text-muted-foreground">
+                      {op.name.length > 22 ? op.name.substring(0, 22) + "\u2026" : op.name} ({op.weight.toFixed(1)}%)
+                    </span>
+                  ))}
+                  {otherPortfolios.length > 4 && (
+                    <span className="text-[8px] px-1.5 py-0.5 rounded bg-muted border border-border/50 text-muted-foreground">
+                      +{otherPortfolios.length - 4} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-[8px] text-muted-foreground/60 leading-relaxed">
+            Overlap analysis compares holdings by symbol and name. High overlap may indicate portfolio concentration risk
+            if a client subscribes to multiple model portfolios simultaneously.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── AiTrackRecordTab ─────────────────────────────────────────────────────────
 // FASP-AI Track Record panel: AI decision history, win rate, performance periods.
 // Fetched lazily only when the tab is activated — not pre-loaded.
@@ -3669,10 +3938,22 @@ export default function AgentModelPortfoliosPage() {
                 {/* ── Performance toggle header ─────────────────────────── */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    {/* Avg return */}
+                    {/* Avg return — D1: show LIVE badge when TWRR from scheduler */}
                     <div>
-                      <p className="text-[9px] text-muted-foreground">{returnLabel}</p>
-                      <p className="text-[13px] font-bold text-emerald-600">+{display1Y.toFixed(2)}%</p>
+                      <p className="text-[9px] text-muted-foreground flex items-center gap-1">
+                        {returnLabel}
+                        {isUsingTWRR && (
+                          <span
+                            title="Time-Weighted Return (SEBI TWRR methodology) — computed live by the quant engine"
+                            className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[7px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 animate-pulse"
+                          >
+                            ⚡ LIVE
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-[13px] font-bold text-emerald-600">
+                        {display1Y >= 0 ? "+" : ""}{display1Y.toFixed(2)}%
+                      </p>
                     </div>
                     {/* Alpha */}
                     <div>
@@ -3761,10 +4042,17 @@ export default function AgentModelPortfoliosPage() {
                     {/* Monthly return bar chart */}
                     {barData.length > 0 && (
                       <div className="space-y-1">
-                        <p className="text-[9px] text-muted-foreground">
-                          Rolling monthly returns since inception
+                        <p className="text-[9px] text-muted-foreground flex items-center gap-1">
+                          {isUsingTWRR ? (
+                            <>
+                              <span className="inline-flex items-center gap-0.5 px-1 rounded text-[7px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">⚡ TWRR</span>
+                              Monthly returns (SEBI time-weighted)
+                            </>
+                          ) : (
+                            <>Rolling monthly returns since inception</>
+                          )}
                           {portfolio.rebalancingHistory?.length > 0 && (
-                            <span className="ml-1 text-indigo-500">· marks a drift-triggered rebalance</span>
+                            <span className="text-indigo-500">· marks a drift-triggered rebalance</span>
                           )}
                         </p>
                         <div className="flex items-end gap-0.5 h-14" aria-label="Monthly returns bar chart">
@@ -3973,11 +4261,13 @@ export default function AgentModelPortfoliosPage() {
                   }}
                   className="px-5 pt-4 pb-6"
                 >
-                  <TabsList className="grid w-full grid-cols-5 mb-4 h-8 text-xs">
+                  <TabsList className="grid w-full grid-cols-7 mb-4 h-8 text-xs">
                     <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
                     <TabsTrigger value="holdings" className="text-xs">Holdings</TabsTrigger>
                     <TabsTrigger value="performance" className="text-xs">Performance</TabsTrigger>
                     <TabsTrigger value="rebalancing" className="text-xs">Rebalancing</TabsTrigger>
+                    <TabsTrigger value="sip" className="text-xs">💰 SIP</TabsTrigger>
+                    <TabsTrigger value="overlap" className="text-xs">🔗 Overlap</TabsTrigger>
                     <TabsTrigger value="ai-record" className="text-xs">🤖 AI</TabsTrigger>
                   </TabsList>
 
@@ -4452,6 +4742,16 @@ export default function AgentModelPortfoliosPage() {
                   {/* AI Track Record Tab */}
                   <TabsContent value="ai-record" className="space-y-3">
                     <AiTrackRecordTab portfolioId={selectedPortfolio.id} />
+                  </TabsContent>
+
+                  {/* D5: SIP Simulator Tab */}
+                  <TabsContent value="sip" className="space-y-4">
+                    <SipSimulatorTab portfolio={selectedPortfolio} />
+                  </TabsContent>
+
+                  {/* D6: Holding Overlap Tab */}
+                  <TabsContent value="overlap" className="space-y-4">
+                    <HoldingOverlapTab selectedPortfolio={selectedPortfolio} allPortfolios={livePortfolios} />
                   </TabsContent>
                 </Tabs>
 
