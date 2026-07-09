@@ -2454,6 +2454,7 @@ const ASSET_CLASS_CONFIG: Record<string, { label: string; icon: string; color: s
   hybrid: { label: "Hybrid", icon: "⚖️", color: "bg-purple-600" },
   thematic: { label: "Thematic", icon: "🎯", color: "bg-orange-600" },
   goal_based: { label: "Goal-Based", icon: "🏆", color: "bg-rose-600" },
+  hni: { label: "HNI / Ultra HNI", icon: "💎", color: "bg-amber-600" },
 };
 
 const EQUITY_SUBCATEGORIES = ["Large Cap", "Mid Cap", "Small Cap", "Flexi Cap", "Multi Cap"];
@@ -2461,6 +2462,7 @@ const DEBT_SUBCATEGORIES = ["Short Duration", "Long Duration", "Corporate Bond",
 const HYBRID_SUBCATEGORIES = ["All-Weather", "Balanced Advantage", "Dividend / Income", "Retirement"];
 const THEMATIC_SUBCATEGORIES = ["Thematic / Sectoral", "Alternatives / HNI", "BFSI", "Healthcare & Pharma", "Defence & Aerospace", "Green Energy", "Digital India", "Consumption India"];
 const GOAL_SUBCATEGORIES = ["Child Education", "Retirement", "Wedding / Life Event", "Home Purchase", "Emergency Fund", "Senior Citizen", "First Investment"];
+const HNI_SUBCATEGORIES = ["Multi-Asset ₹50L", "Multi-Asset ₹1Cr", "Multi-Asset ₹10Cr"];
 
 const DISCLAIMER_TEXT =
   "Model Portfolios are for guidance and educational purposes only. They do NOT constitute SEBI-registered investment advice or a solicitation to buy/sell securities. " +
@@ -3172,6 +3174,7 @@ export default function AgentModelPortfoliosPage() {
     if (assetClassFilter === "hybrid") return HYBRID_SUBCATEGORIES;
     if (assetClassFilter === "thematic") return THEMATIC_SUBCATEGORIES;
     if (assetClassFilter === "goal_based") return GOAL_SUBCATEGORIES;
+    if (assetClassFilter === "hni") return HNI_SUBCATEGORIES;
     return [];
   }, [assetClassFilter]);
 
@@ -3453,8 +3456,8 @@ export default function AgentModelPortfoliosPage() {
       {/* ── Stats bar ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Model Portfolios", value: MODEL_PORTFOLIOS_ALL.length, icon: LayoutGrid, color: "text-indigo-500" },
-          { label: "Asset Classes", value: "5 Classes", icon: PieChart, color: "text-blue-500" },
+          { label: "Model Portfolios", value: livePortfolios.length || MODEL_PORTFOLIOS_ALL.length, icon: LayoutGrid, color: "text-indigo-500" },
+          { label: "Asset Classes", value: "6 Classes", icon: PieChart, color: "text-blue-500" },
           { label: "Best 5Y CAGR", value: "31.2%", icon: TrendingUp, color: "text-green-500" },
           { label: "Min Investment", value: "₹500", icon: Target, color: "text-amber-500" },
         ].map((s) => (
@@ -3489,7 +3492,7 @@ export default function AgentModelPortfoliosPage() {
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full ml-1 ${
                 assetClassFilter === key ? "bg-white/20" : "bg-muted-foreground/20"
               }`}>
-                {MODEL_PORTFOLIOS_ALL.filter(p => key === "all" || p.assetClass === key).length}
+                {(livePortfolios.length ? livePortfolios : MODEL_PORTFOLIOS_ALL).filter(p => key === "all" || p.assetClass === key).length}
               </span>
             </button>
           ))}
@@ -3506,7 +3509,7 @@ export default function AgentModelPortfoliosPage() {
                   : "border-border text-muted-foreground hover:bg-muted/60"
               }`}
             >
-              All {assetClassFilter === "equity" ? "Equity" : assetClassFilter === "debt" ? "Debt" : "Hybrid"}
+              All {assetClassFilter === "equity" ? "Equity" : assetClassFilter === "debt" ? "Debt" : assetClassFilter === "hni" ? "HNI" : assetClassFilter === "thematic" ? "Thematic" : assetClassFilter === "goal_based" ? "Goal-Based" : "Hybrid"}
             </button>
             {availableSubCategories.map((sub) => (
               <button
@@ -3548,7 +3551,7 @@ export default function AgentModelPortfoliosPage() {
             </button>
           ))}
           <span className="text-xs text-muted-foreground ml-auto">
-            Showing {filtered.length} of {MODEL_PORTFOLIOS_ALL.length} portfolios
+            Showing {filtered.length} of {livePortfolios.length || MODEL_PORTFOLIOS_ALL.length} portfolios
           </span>
         </div>
       </div>
