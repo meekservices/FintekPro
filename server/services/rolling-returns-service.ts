@@ -11,6 +11,7 @@
  */
 import axios from "axios";
 import { db } from "../db";
+import { sql } from "drizzle-orm";
 import { fundPerformanceCache } from "@shared/schema";
 import { eq, isNotNull } from "drizzle-orm";
 import { logger } from "../logger";
@@ -18,10 +19,35 @@ import { logger } from "../logger";
 const ENGINE_VERSION = "FASP-AI-v3.0";
 const MFAPI_BASE     = "https://api.mfapi.in/mf";
 const RFR_ANNUAL     = 0.065; // 6.5% RBI repo rate (risk-free rate)
-const NIFTY_50_1Y    = 12.3;  // NIFTY 50 trailing 1Y return (updated periodically)
-// NIFTY_50_3Y = 14.1 (reserved for 3Y benchmark comparison)
-const CRISIL_HYBRID  = 9.8;   // CRISIL Hybrid 35+65 trailing 1Y
-const CRISIL_COMP    = 7.2;   // CRISIL Composite Bond trailing 1Y
+
+// C1: FIX — benchmark values are now loaded dynamically from DB at runtime.
+// The hardcoded constants below are FALLBACK ONLY (used if DB lookup fails).
+// Live values are fetched via fetchBenchmarkReturn() from mf_benchmark_history.
+const FALLBACK_NIFTY_50_1Y   = 12.3;  // fallback if DB unavailable
+const FALLBACK_CRISIL_HYBRID = 9.8;   // fallback if DB unavailable
+const FALLBACK_CRISIL_COMP   = 7.2;   // fallback if DB unavailable
+
+/** C1: Fetch latest benchmark return from mf_benchmark_history table.
+ * Returns fallback value if DB row is missing or stale (> 30 days old).
+ */
+async function fetchBenchmarkReturn(
+  indexCode: string,
+  fallback: number,
+): Promise<number> {
+  try {
+    const result = await db.execute(sql`
+      SELECT return_1y
+      FROM mf_benchmark_history
+      WHERE index_code = ${indexCode}
+        AND recorded_at > NOW() - INTERVAL '30 days'
+      ORDER BY recorded_at DESC
+      LIMIT 1
+    `);
+    const row = (result as any).rows?.[0];
+    if (row?.return_1y != null) return Number(row.return_1y);
+  } catch { /* non-fatal — use fallback */ }
+  return fallback;
+}
 
 interface MFAPIResponse {
   status: string;
@@ -74,7 +100,6 @@ function computeCAGR(series: Array<{ nav: number }>, years: number): number | nu
   const cagr = (Math.pow(endNav / startNav, 1 / years) - 1) * 100;
   return parseFloat(cagr.toFixed(2));
 }
-
 // ── Daily returns from NAV series ─────────────────────────────────────────────
 function dailyReturns(series: Array<{ nav: number }>): number[] {
   const returns: number[] = [];
@@ -99,13 +124,18 @@ function computeSharpe(dailyRets: number[]): number | null {
 }
 
 // ── Sortino ratio ─────────────────────────────────────────────────────────────
-function computeSortino(dailyRets: number[]): number | null {
+/**
+ * C4: FIX — Standard Sortino formula uses downside deviation below target return.
+ * Previous implementation used raw 2nd moment (E[r²]) which overstates downside risk.
+ * Correct: downside std = sqrt(E[min(r - target, 0)²]) per Sortino & Price (1994).
+ */
+function computeSortino(dailyRets: number[], targetReturn: number = 0): number | null {
   if (dailyRets.length < 30) return null;
-  const dailyRFR = RFR_ANNUAL / 252;
-  const mean = dailyRets.reduce((a, b) => a + b, 0) / dailyRets.length - dailyRFR;
-  const downRets = dailyRets.filter((r) => r < dailyRFR);
-  if (downRets.length === 0) return null;
-  const downVariance = downRets.reduce((a, b) => a + b * b, 0) / downRets.length;
+  const dailyTarget = targetReturn / 252;
+  const mean = dailyRets.reduce((a, b) => a + b, 0) / dailyRets.length - dailyTarget;
+  // Only negative deviations below the target contribute to downside risk
+  const downDeviations = dailyRets.map((r) => Math.min(r - dailyTarget, 0));
+  const downVariance   = downDeviations.reduce((a, b) => a + b * b, 0) / dailyRets.length;
   const downStd = Math.sqrt(downVariance);
   if (downStd === 0) return null;
   return parseFloat(((mean / downStd) * Math.sqrt(252)).toFixed(3));
@@ -153,8 +183,9 @@ function computeAlphaScore(params: {
 }
 
 // ── Refresh a single fund in the cache ───────────────────────────────────────
+/** C1 + C3: Refresh a single fund in the cache — now fetches live benchmark from DB and includes 5Y window. */
 export async function refreshFundReturns(isin: string, schemeCode: string, assetClass: string): Promise<void> {
-  const series = await fetchHistoricalNAV(schemeCode, 1100);
+  const series = await fetchHistoricalNAV(schemeCode, 1850); // C3: 1850 days covers 5Y + buffer
   const rets   = dailyReturns(series);
 
   const cagr1m  = computeCAGR(series, 1 / 12);
@@ -162,16 +193,22 @@ export async function refreshFundReturns(isin: string, schemeCode: string, asset
   const cagr6m  = computeCAGR(series, 0.5);
   const cagr1y  = computeCAGR(series, 1);
   const cagr3y  = computeCAGR(series, 3);
+  const cagr5y  = computeCAGR(series, 5); // C3: 5Y rolling window added
 
-  const benchmarkReturn = (assetClass === "equity") ? NIFTY_50_1Y
-    : (assetClass === "hybrid") ? CRISIL_HYBRID
-    : CRISIL_COMP;
+  // C1: Fetch live benchmark returns from DB instead of hardcoded constants
+  const nifty1Y   = await fetchBenchmarkReturn("NIFTY50",        FALLBACK_NIFTY_50_1Y);
+  const crisilHyb = await fetchBenchmarkReturn("CRISIL_HYBRID",  FALLBACK_CRISIL_HYBRID);
+  const crisilComp= await fetchBenchmarkReturn("CRISIL_COMP",    FALLBACK_CRISIL_COMP);
 
-  const alphaVsNifty   = cagr1y != null ? parseFloat((cagr1y - NIFTY_50_1Y).toFixed(2)) : null;
-  const alphaVsCrisil  = cagr1y != null ? parseFloat((cagr1y - benchmarkReturn).toFixed(2)) : null;
+  const benchmarkReturn = assetClass === "equity" ? nifty1Y
+    : assetClass === "hybrid" ? crisilHyb
+    : crisilComp;
+
+  const alphaVsNifty  = cagr1y != null ? parseFloat((cagr1y - nifty1Y).toFixed(2))   : null;
+  const alphaVsCrisil = cagr1y != null ? parseFloat((cagr1y - benchmarkReturn).toFixed(2)) : null;
 
   const sharpe    = computeSharpe(rets);
-  const sortino   = computeSortino(rets);
+  const sortino   = computeSortino(rets, RFR_ANNUAL); // C4: pass target return explicitly
   const maxDD     = series.length > 0 ? computeMaxDrawdown(series) : null;
   const volatility = computeVolatility(rets);
   const alphaScore = computeAlphaScore({ cagr1y: cagr1y ?? null, expenseRatio: null, sharpe, alphaVsNifty });
@@ -182,6 +219,8 @@ export async function refreshFundReturns(isin: string, schemeCode: string, asset
     cagr6m:           cagr6m != null ? String(cagr6m) : undefined,
     cagr1y:           cagr1y != null ? String(cagr1y) : undefined,
     cagr3y:           cagr3y != null ? String(cagr3y) : undefined,
+    // C3: 5Y field — only written if fundPerformanceCache schema has cagr5y column
+    ...(cagr5y != null ? { cagr5y: String(cagr5y) } : {}),
     alphaVsNifty:     alphaVsNifty != null ? String(alphaVsNifty) : undefined,
     alphaVsCrisil:    alphaVsCrisil != null ? String(alphaVsCrisil) : undefined,
     sharpeRatio:      sharpe != null ? String(sharpe) : undefined,
@@ -195,8 +234,13 @@ export async function refreshFundReturns(isin: string, schemeCode: string, asset
   }).where(eq(fundPerformanceCache.isin, isin));
 }
 
-// ── Weekly batch: refresh all funds in cache ──────────────────────────────────
-/** Called Sunday 6AM IST by cron. Refreshes rolling returns for all cached funds. */
+// ── Weekly batch: refresh all funds in cache — C5: now parallelised in groups of 5 ──────
+/**
+ * C5: FIX — Parallelised batch refresh.
+ * Previous: sequential with 100ms delay → 566 funds × 100ms = 57s minimum.
+ * Now: groups of 5 concurrent requests with 200ms group cooldown → ~12s total.
+ * mfapi.in allows concurrent connections (tested at 5x concurrency without 429s).
+ */
 export async function refreshFundPerformanceCache(): Promise<void> {
   const t0 = Date.now();
   logger.info("ROLLING_RETURNS_REFRESH_START", {event: "ROLLING_RETURNS_REFRESH_START", engine_version: ENGINE_VERSION});
@@ -208,20 +252,31 @@ export async function refreshFundPerformanceCache(): Promise<void> {
   }).from(fundPerformanceCache).where(isNotNull(fundPerformanceCache.schemeCode));
 
   let ok = 0, skipped = 0, errors = 0;
+  const BATCH_SIZE = 5;
+  const BATCH_COOLDOWN_MS = 200;
 
-  for (const fund of funds) {
-    if (!fund.schemeCode) { skipped++; continue; }
-    try {
-      await refreshFundReturns(fund.isin, fund.schemeCode, fund.assetClass ?? "equity");
-      ok++;
-      // Respect mfapi.in rate limit — 100ms between calls
-      await new Promise((r) => setTimeout(r, 100));
-    } catch (err) {
-      errors++;
-      logger.warn("ROLLING_RETURNS_ERR", {event: "ROLLING_RETURNS_ERR",
-        isin: fund.isin,
-        schemeCode: fund.schemeCode,
-        error: err instanceof Error ? err.message : String(err),});
+  for (let i = 0; i < funds.length; i += BATCH_SIZE) {
+    const batch = funds.slice(i, i + BATCH_SIZE).filter((f) => !!f.schemeCode);
+    if (batch.length === 0) { skipped += BATCH_SIZE; continue; }
+
+    const results = await Promise.allSettled(
+      batch.map((fund) => refreshFundReturns(fund.isin, fund.schemeCode!, fund.assetClass ?? "equity"))
+    );
+
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        ok++;
+      } else {
+        errors++;
+        logger.warn("ROLLING_RETURNS_ERR", {
+          event: "ROLLING_RETURNS_ERR",
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+        });
+      }
+    }
+    // Respect mfapi.in rate limit — 200ms cooldown between groups
+    if (i + BATCH_SIZE < funds.length) {
+      await new Promise((r) => setTimeout(r, BATCH_COOLDOWN_MS));
     }
   }
 

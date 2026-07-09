@@ -113,11 +113,32 @@ export interface ApplyResult {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Composite score: return_1y×0.5 + sharpe×30 − |beta−1|×10.
- * Higher = better candidate.
+ * Composite score for instrument selection — FASP-AI v3.0
+ *
+ * Formula (weights must sum to 1.0):
+ *   returns_1y   × 0.40   — primary return signal
+ *   sharpe       × 0.25   — risk-adjusted quality (previously × 30 was dominating)
+ *   alpha        × 0.20   — benchmark outperformance signal
+ *   beta_penalty × 0.10   — penalise extreme beta (avoid very high/low beta)
+ *   expense      × 0.05   — cost efficiency (bonus for low expense ratio)
+ *
+ * Note: all inputs must be in consistent units (returns as %, sharpe as decimal).
  */
-function compositeScore(r1y: number, sharpe: number | null, beta: number | null): number {
-  return r1y * 0.5 + (sharpe ?? 0.5) * 30 - Math.abs((beta ?? 1.0) - 1.0) * 10;
+function compositeScore(
+  r1y: number,
+  sharpe: number | null,
+  beta: number | null,
+  alpha?: number | null,
+  expenseRatio?: number | null,
+): number {
+  const returnScore   = r1y * 0.40;                                     // 0–40 range for typical returns
+  const sharpeScore   = Math.min(10, (sharpe ?? 0.5) * 10) * 0.25;     // cap at Sharpe=4 → max 10pts
+  const alphaScore    = Math.min(8, Math.max(-8, (alpha ?? 0) * 2)) * 0.20; // alpha in %
+  const betaPenalty   = Math.abs((beta ?? 1.0) - 1.0) * 10 * 0.10;    // 0 penalty at beta=1
+  const expensebonus  = expenseRatio != null && expenseRatio > 0
+    ? Math.min(2, (1 / expenseRatio)) * 0.05
+    : 0;
+  return returnScore + sharpeScore + alphaScore - betaPenalty + expensebonus;
 }
 
 function classifyStatus(gap: number): AlphaAnalysis["status"] {
@@ -154,13 +175,14 @@ export async function analyzeAlphaGaps(): Promise<AlphaAnalysis[]> {
       .filter((r): r is number => r !== null);
     const avgReturn = returns.length > 0 ? returns.reduce((a, b) => a + b, 0) / returns.length : 0;
 
+    // A5: Include all replaceable holding types (not just stocks/MFs)
+    // Excluded from optimisation: sovereign bonds, locked-in instruments (SGB, PPF, etc.)
+    const EXCLUDED_TYPES = new Set(["sgb", "sovereign", "ppf", "epf", "nsc", "kisan", "locked"]);
     const alphaDragHoldings: AlphaDragHolding[] = holdings
       .filter((h: any) => {
         const t = (h.type ?? "").toLowerCase();
-        return (
-          (t.includes("stock") || t.includes(" mf") || t.includes("fund") || t.includes("etf")) &&
-          !t.includes("bond") && !t.includes("sgb") && !t.includes("sovereign")
-        );
+        // Exclude sovereign/locked instruments; include everything else
+        return !EXCLUDED_TYPES.has(t) && !Array.from(EXCLUDED_TYPES).some((ex) => t.includes(ex));
       })
       .filter((h: any) => h.currentReturn != null && Number(h.currentReturn) < avgReturn)
       .map((h: any) => ({
@@ -222,7 +244,7 @@ export async function generateOptimizationSuggestions(
       const factors: string[] = [`portfolio_status:${analysis.status}`, `drag_score:${drag.dragScore}`];
       let alternatives: HoldingCandidate[] = [];
 
-      // ── Stock: query screener by sector ──────────────────────────────────
+      // ── A4: Stock: query screener by sector + market-cap-category alignment ─
       if (drag.symbol) {
         try {
           const sectorRow = await db.execute(sql`
@@ -231,14 +253,14 @@ export async function generateOptimizationSuggestions(
           `).catch(() => ({ rows: [] }));
           const sd = (sectorRow as any).rows?.[0];
           const sector: string | null = sd?.sector ?? null;
-          const cap: string | null = sd?.market_cap_category ?? null;
+          const cap: string | null = sd?.market_cap_category ?? null; // A4: align market cap
 
           if (sector) {
             const candidateRows = await db.execute(sql`
               SELECT
                 sdm.symbol, ss.name, sdm.sector,
                 sdm.return_1y, sdm.return_3y,
-                sdm.sharpe_ratio_1y, sdm.beta,
+                sdm.sharpe_ratio_1y, sdm.beta, sdm.alpha_vs_nifty,
                 ss.isin, ss.market_cap_category
               FROM screener_derived_metrics sdm
               LEFT JOIN screener_stocks ss ON ss.symbol = sdm.symbol
@@ -246,27 +268,35 @@ export async function generateOptimizationSuggestions(
                 AND sdm.symbol != ${drag.symbol.toUpperCase()}
                 AND sdm.return_1y > ${(drag.currentReturn ?? 0) / 100}
                 AND (sdm.sharpe_ratio_1y IS NULL OR sdm.sharpe_ratio_1y > 0)
-                AND (sdm.beta IS NULL OR sdm.beta < 2.0)
+                AND (sdm.beta IS NULL OR sdm.beta BETWEEN 0.3 AND 2.0)
+                -- A4: same market-cap bucket (prevents replacing large-cap drag with small-cap)
+                AND (${cap}::text IS NULL OR ss.market_cap_category = ${cap})
               ORDER BY (
-                COALESCE(sdm.return_1y, 0) * 0.5 +
-                COALESCE(sdm.sharpe_ratio_1y, 0.5) * 30 -
-                ABS(COALESCE(sdm.beta, 1.0) - 1.0) * 10
+                -- A1: Updated composite score weights
+                COALESCE(sdm.return_1y, 0) * 100 * 0.40 +
+                LEAST(10, COALESCE(sdm.sharpe_ratio_1y, 0.5) * 10) * 0.25 +
+                LEAST(8, GREATEST(-8, COALESCE(sdm.alpha_vs_nifty, 0) * 2)) * 0.20 -
+                ABS(COALESCE(sdm.beta, 1.0) - 1.0) * 10 * 0.10
               ) DESC
               LIMIT 5
             `).catch(() => ({ rows: [] }));
 
             alternatives = ((candidateRows as any).rows ?? []).map((r: any) => {
               const r1y = Math.round(Number(r.return_1y) * 10000) / 100;
+              const sharpe = r.sharpe_ratio_1y != null ? Math.round(Number(r.sharpe_ratio_1y) * 100) / 100 : null;
+              const beta   = r.beta != null ? Math.round(Number(r.beta) * 10000) / 10000 : null;
+              const alpha  = r.alpha_vs_nifty != null ? Math.round(Number(r.alpha_vs_nifty) * 10000) / 100 : null;
               return {
                 symbol: r.symbol,
                 name: r.name ?? r.symbol,
                 sector: r.sector,
                 return_1y: r1y,
                 return_3y: r.return_3y != null ? Math.round(Number(r.return_3y) * 10000) / 100 : null,
-                sharpe: r.sharpe_ratio_1y != null ? Math.round(Number(r.sharpe_ratio_1y) * 100) / 100 : null,
-                beta: r.beta != null ? Math.round(Number(r.beta) * 10000) / 10000 : null,
+                sharpe,
+                beta,
                 isin: r.isin ?? null,
-                compositeScore: Math.round(compositeScore(r1y, r.sharpe_ratio_1y != null ? Number(r.sharpe_ratio_1y) : null, r.beta != null ? Number(r.beta) : null) * 100) / 100,
+                // A1: use updated compositeScore signature
+                compositeScore: Math.round(compositeScore(r1y, sharpe, beta, alpha) * 100) / 100,
                 improvementVsCurrent: Math.round((r1y - (drag.currentReturn ?? 0)) * 100) / 100,
               };
             });
@@ -284,34 +314,47 @@ export async function generateOptimizationSuggestions(
         }
       }
 
-      // ── MF: query financial_instruments_cache by category ─────────────────
+      // ── A3: MF: query financial_instruments_cache with quality filters ──────
+      // Filters: expense_ratio < 1.5%, AUM > 500Cr (where available), return > drag holding
       if (alternatives.length === 0 && !drag.symbol) {
         try {
           const cat = drag.type.toLowerCase()
             .replace(" mf", "").replace("mutual fund", "").replace("fund", "").trim();
           const mfRows = await db.execute(sql`
-            SELECT name, isin, return_1y, return_3y, expense_ratio
+            SELECT name, isin, return_1y, return_3y, expense_ratio,
+                   sharpe_ratio, aum_cr, sebi_category
             FROM financial_instruments_cache
             WHERE instrument_type = 'mutual_fund'
               AND name ILIKE ${"%" + cat + "%"}
               AND return_1y IS NOT NULL
               AND return_1y > ${(drag.currentReturn ?? 0) / 100}
-            ORDER BY return_1y DESC LIMIT 5
+              -- A3: Quality filters
+              AND (expense_ratio IS NULL OR expense_ratio < 1.5)  -- exclude high-cost funds
+              AND (aum_cr IS NULL OR aum_cr > 500)                -- minimum AUM ₹500Cr
+            ORDER BY (
+              -- A1: updated composite weighting for MFs
+              COALESCE(return_1y, 0) * 100 * 0.45 +
+              LEAST(10, COALESCE(sharpe_ratio, 0.5) * 10) * 0.30 -
+              COALESCE(expense_ratio, 1.0) * 5 * 0.25
+            ) DESC
+            LIMIT 5
           `).catch(() => ({ rows: [] }));
 
           const tp = (v: number) => Math.abs(v) < 5 ? Math.round(v * 10000) / 100 : Math.round(v * 100) / 100;
           alternatives = ((mfRows as any).rows ?? []).map((r: any) => {
             const r1y = tp(Number(r.return_1y));
+            const sharpe = r.sharpe_ratio != null ? Math.round(Number(r.sharpe_ratio) * 100) / 100 : null;
             return {
               symbol: r.isin ?? r.name?.substring(0, 10) ?? "MF",
               name: r.name,
-              sector: null,
+              sector: r.sebi_category ?? null,
               return_1y: r1y,
               return_3y: r.return_3y != null ? tp(Number(r.return_3y)) : null,
-              sharpe: null,
+              sharpe,
               beta: null,
               isin: r.isin ?? null,
-              compositeScore: r1y,
+              // A1: use updated compositeScore
+              compositeScore: Math.round(compositeScore(r1y, sharpe, null) * 100) / 100,
               improvementVsCurrent: Math.round((r1y - (drag.currentReturn ?? 0)) * 100) / 100,
             };
           });

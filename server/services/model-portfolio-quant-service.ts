@@ -29,24 +29,47 @@ import { logger } from "../logger";
 export const ENGINE_VERSION = "FASP-AI-v3.0"; // Fix 5: mandatory version per FASP-AI v3.0
 const RISK_FREE_RATE = 7.1; // RBI repo rate proxy (annualised %)
 
-// ── Asset-class drift thresholds ─────────────────────────────────────────────
+/**
+ * getDriftThreshold — SEBI-calibrated drift thresholds by asset class.
+ *
+ * FIX (B1): Now uses assetClass as primary discriminator, not string ID matching.
+ * String ID patterns ("blue", "smallcap") were designed for the old static IDs and
+ * fail silently for the 43 DB portfolio IDs (india-growth, small-cap-alpha, etc.).
+ * ID matching is kept as an override layer only for legacy compatibility.
+ *
+ * Thresholds (SEBI IA Regs, conservative):
+ *   Liquid / Overnight     : 1–2%
+ *   Debt                   : 3%
+ *   Hybrid / Goal-Based    : 5%
+ *   Equity / Thematic      : 5% (moderate) to 7% (aggressive/thematic)
+ *   HNI / Multi-Asset      : 5%
+ */
 export function getDriftThreshold(portfolioId: string, assetClass?: string): number {
-  const id = portfolioId.toLowerCase();
-  if (id.includes("treasury") || id.includes("overnight")) return 0.01;
-  if (id.startsWith("debt-") || id === "pure-debt-portfolio" || id === "emergency-fund" || id === "debt-liquid-park") return 0.02;
-  if (id.includes("liquid") && !id.includes("equity")) return 0.02;
-  if (id.includes("hybrid") || id.includes("balanced") || id.includes("all-weather") || id.includes("retirement")) return 0.05;
-  if (id.startsWith("goal-")) return 0.05;
-  if (id.startsWith("thematic-") || id.includes("smallcap") || id.includes("small-cap") ||
-      id.includes("midcap") || id.includes("mid-cap") || id.includes("emerging") ||
-      id.includes("multicap") || id.includes("flexicap") || id.includes("blue")) return 0.07;
+  // ── PRIMARY: assetClass from DB (reliable for all 43 DB portfolios) ────────────
   if (assetClass) {
     const ac = assetClass.toLowerCase();
-    if (ac.includes("debt") || ac.includes("bond") || ac.includes("gilt")) return 0.02;
-    if (ac.includes("hybrid") || ac.includes("balance")) return 0.05;
-    if (ac === "thematic") return 0.07;
+    if (ac === "gold" || ac === "liquid")                    return 0.02; // 2% — low-volatility assets
+    if (ac === "debt")                                        return 0.03; // 3%
+    if (ac === "hybrid" || ac === "hni" || ac === "alternatives") return 0.05; // 5%
+    if (ac === "goal_based" || ac === "international")        return 0.05; // 5%
+    if (ac === "thematic")                                    return 0.07; // 7% — higher volatility expected
+    if (ac === "equity")                                      return 0.05; // 5% default for equity
   }
-  return 0.05;
+
+  // ── FALLBACK: ID-based pattern matching for legacy/unknown assetClass ──────
+  const id = portfolioId.toLowerCase();
+  if (id.includes("treasury") || id.includes("overnight") || id === "emergency-fund") return 0.01;
+  if (id.startsWith("debt-") || id === "pure-debt-portfolio" || id === "conservative-income"
+      || id === "credit-income" || id === "debt-ladder")     return 0.03;
+  if (id.includes("liquid") && !id.includes("equity"))       return 0.02;
+  if (id.includes("hybrid") || id.includes("balanced") || id.includes("all-weather")) return 0.05;
+  if (id.startsWith("goal-") || id.includes("education") || id.includes("retirement")
+      || id.includes("wedding") || id.includes("home-purchase")) return 0.05;
+  if (id.includes("small-cap") || id.includes("thematic") || id.includes("banking")
+      || id.includes("healthcare") || id.includes("digital") || id.includes("manufacturing")
+      || id.includes("factor-alpha") || id.includes("equity-momentum")) return 0.07;
+
+  return 0.05; // safe default
 }
 
 // ── Max drawdown thresholds by risk profile ──────────────────────────────────
@@ -126,19 +149,27 @@ export function computeBlendedBenchmark(
  *            dbThreshold — optional override from model_portfolios.max_drawdown_threshold
  * Outputs  : { tripped: boolean; threshold: number; message: string }
  */
+/**
+ * B5: drawdownCircuitBreaker — sign convention documented.
+ * max_drawdown in DB is stored as a NEGATIVE percentage (e.g. -14.2 for a 14.2% drawdown).
+ * We normalise with Math.abs() to compare against positive thresholds.
+ */
 export function checkDrawdownCircuitBreaker(
-  currentMaxDrawdown: number,
+  currentMaxDrawdown: number, // negative value expected (e.g. -14.2)
   riskProfile: string,
   dbThreshold?: number | null,
 ): { tripped: boolean; threshold: number; message: string } {
   const threshold = dbThreshold ?? (MAX_DRAWDOWN_BY_RISK[riskProfile.toLowerCase()] ?? 0.20);
-  const tripped = Math.abs(currentMaxDrawdown) > threshold * 100; // maxDrawdown stored as %
+  // Normalise: DB stores negative %, we compare absolute magnitude against threshold %
+  const absDrawdown = Math.abs(currentMaxDrawdown);
+  const thresholdPct = threshold * 100;
+  const tripped = absDrawdown > thresholdPct;
   return {
     tripped,
-    threshold: threshold * 100,
+    threshold: thresholdPct,
     message: tripped
-      ? `Portfolio in drawdown protection mode (current: ${Math.abs(currentMaxDrawdown).toFixed(1)}% > threshold: ${(threshold * 100).toFixed(0)}%). Auto-rebalance paused — advisor confirmation required.`
-      : `Drawdown within limits (${Math.abs(currentMaxDrawdown).toFixed(1)}% / ${(threshold * 100).toFixed(0)}% threshold).`,
+      ? `Portfolio in drawdown protection mode (current: ${absDrawdown.toFixed(1)}% > threshold: ${thresholdPct.toFixed(0)}%). Auto-rebalance paused — advisor confirmation required.`
+      : `Drawdown within limits (${absDrawdown.toFixed(1)}% / ${thresholdPct.toFixed(0)}% threshold).`,
   };
 }
 
@@ -259,23 +290,39 @@ export interface QuantRebalanceResult {
  * If live currentWeight is unavailable, simulates drift from CAGR differential
  * (deterministic — no Math.random).
  */
+/**
+ * computePortfolioDrift — FIX B2: Correct compound weight evolution formula.
+ *
+ * PROBLEM: Previous formula `returnDiff × weight × months/12` is not how drift works.
+ * CORRECT formula: Each holding's weight compounds at its own return rate.
+ *   w_i(t) = w_i(0) × (1 + r_i)^t / Σ_j [w_j(0) × (1 + r_j)^t]
+ * Where t = fraction of year elapsed since last rebalance.
+ *
+ * If live currentWeight is available in the holding, it takes precedence over simulation.
+ */
 export function computePortfolioDrift(portfolio: PortfolioQuantInput): PortfolioDriftReport {
   const threshold = getDriftThreshold(portfolio.id, portfolio.assetClass);
   const holdingsDrift: HoldingDrift[] = [];
 
-  const avgReturn = portfolio.holdings.length > 0
-    ? portfolio.holdings.reduce((s, x) => s + x.currentReturn, 0) / portfolio.holdings.length
-    : 0;
-
   const monthsSinceRebalance = portfolio.lastRebalanced
     ? Math.min(24, Math.round((Date.now() - new Date(portfolio.lastRebalanced).getTime()) / (30 * 24 * 3600 * 1000)))
     : 6;
+  const t = monthsSinceRebalance / 12; // fraction of year
 
-  for (const h of portfolio.holdings) {
-    const returnDiff = (h.currentReturn - avgReturn) / 100;
-    const simulatedDrift = returnDiff * (h.weight / 100) * (monthsSinceRebalance / 12);
-    const currentWeight = h.currentWeight ?? (h.weight / 100 + simulatedDrift) * 100;
-    const delta = (currentWeight - h.weight) / 100;
+  // FIX B2: Compute compound weight evolution
+  // Each holding's value grows at (1 + annualReturn/100)^t
+  const compoundedValues = portfolio.holdings.map((h) => ({
+    holding: h,
+    compoundedValue: (h.weight / 100) * Math.pow(1 + (h.currentReturn ?? 0) / 100, t),
+  }));
+  const totalCompoundedValue = compoundedValues.reduce((s, x) => s + x.compoundedValue, 0) || 1;
+
+  for (const { holding: h, compoundedValue } of compoundedValues) {
+    // Simulated current weight from compound growth
+    const simulatedCurrentWeightPct = (compoundedValue / totalCompoundedValue) * 100;
+    // Prefer live currentWeight if the DB/API provides it
+    const currentWeight = h.currentWeight ?? simulatedCurrentWeightPct;
+    const delta = (currentWeight - h.weight) / 100; // as fraction
     const exceedsThreshold = Math.abs(delta) > threshold;
 
     holdingsDrift.push({
@@ -474,12 +521,15 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
   });
 
   try {
+    // B3: FIX — only process published portfolios (is_published = true)
+    // Without this, draft/unpublished portfolios consume quant budget and write back stale drift scores
     const portfolios = await db.execute(sql`
-      SELECT id, name, asset_class, cagr_1y, cagr_3y, cagr_5y,
+      SELECT id, name, asset_class, risk_profile, cagr_1y, cagr_3y, cagr_5y,
              benchmark_cagr_1y, benchmark_name, sharpe_ratio,
-             max_drawdown, volatility, holdings, last_rebalanced
+             max_drawdown, volatility, holdings, last_rebalanced, allocation,
+             max_drawdown_threshold
       FROM model_portfolios
-      WHERE id IS NOT NULL
+      WHERE is_published = true
       ORDER BY id
     `);
 

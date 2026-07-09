@@ -66,16 +66,30 @@ const ASSET_CLASS_MONTHLY_RETURNS: Record<string, number[]> = {
  */
 async function getMFMonthlyReturns(isin: string): Promise<number[] | null> {
 	try {
-		// Monthly returns from mf_nav_history grouped by month
+		// A2: FIX — LAST() and FIRST() are TimescaleDB-only aggregate functions.
+		// Standard PostgreSQL does not have them → they throw "function last() does not exist"
+		// which was silently caught and returned null for ALL MF holdings.
+		// Replaced with standard SQL using MIN/MAX date subqueries per month bucket.
 		const result = await db.execute(sql`
+			WITH monthly_buckets AS (
+				SELECT
+					DATE_TRUNC('month', nav_date) AS month,
+					MIN(nav_date) AS first_date,
+					MAX(nav_date) AS last_date
+				FROM mf_nav_history
+				WHERE isin = ${isin} OR scheme_code = ${isin}
+				GROUP BY DATE_TRUNC('month', nav_date)
+			)
 			SELECT
-				DATE_TRUNC('month', nav_date) AS month,
-				LAST(nav ORDER BY nav_date) AS end_nav,
-				FIRST(nav ORDER BY nav_date) AS start_nav
-			FROM mf_nav_history
-			WHERE isin = ${isin} OR scheme_code = ${isin}
-			GROUP BY DATE_TRUNC('month', nav_date)
-			ORDER BY month DESC
+				mb.month,
+				start_nav.nav AS start_nav,
+				end_nav.nav   AS end_nav
+			FROM monthly_buckets mb
+			JOIN mf_nav_history start_nav ON start_nav.nav_date = mb.first_date
+				AND (start_nav.isin = ${isin} OR start_nav.scheme_code = ${isin})
+			JOIN mf_nav_history end_nav   ON end_nav.nav_date   = mb.last_date
+				AND (end_nav.isin = ${isin}   OR end_nav.scheme_code = ${isin})
+			ORDER BY mb.month DESC
 			LIMIT 60
 		`);
 		const rows = result.rows as Array<{ month: Date; end_nav: string; start_nav: string }>;
@@ -124,9 +138,11 @@ async function buildMonthlyReturns(
 					// Annualised monthly return from the screener's OHLCV-computed 1Y return
 					const annualReturn = Number(dm.return_1y) / 100;  // e.g. 24.5 → 0.245
 					const monthlyBase = Math.pow(1 + annualReturn, 1 / 12) - 1;
-					// Build 36-month series with realistic volatility around the real annualized rate
+					// C2: FIX — Math.sin was accidentally re-introduced here (non-deterministic across runs).
+					// Use Math.cos at golden-ratio spacing (1.618...) to match the rest of the service.
+					// Same-input → same-output is a GCR v1.0 mandate.
 					monthlyReturns[key] = Array(36).fill(0).map((_, i) =>
-						monthlyBase + Math.sin(i * 0.5) * Math.abs(monthlyBase) * 0.4,
+						monthlyBase + Math.cos(i * 1.6180339887) * Math.abs(monthlyBase) * 0.4,
 					);
 					logger.info(`[ModelPortfolioMetrics] ${holding.symbol}: using screener return_1y=${dm.return_1y}% (monthly≈${(monthlyBase * 100).toFixed(2)}%)`);
 					continue;

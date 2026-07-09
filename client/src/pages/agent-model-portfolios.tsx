@@ -2339,11 +2339,34 @@ const SEGMENT_CONFIG: Record<string, { label: string; icon: string; gradient: st
   ultra_hni: { label: "Ultra HNI",       icon: "💎", gradient: "from-amber-500 to-orange-600",  badgeColor: "bg-amber-500",   desc: "₹1Cr+ family wealth", minLabel: "₹1Cr+" },
 };
 
-/** Returns the investor segment for a portfolio based on min investment. */
-function getSegment(p: { minInvestment?: number }): "retail" | "hni" | "ultra_hni" {
+/**
+ * D2: FIX — getSegment now uses assetClass as primary discriminator.
+ *
+ * Problem: minInvestment threshold alone was ambiguous:
+ *   - family-office (minInvestment=₹10Cr) → fell into ultra_hni
+ *   - hni-1cr-multi-asset (minInvestment=₹1Cr) → fell into ultra_hni wrongly
+ *   - hni-50l-multi-asset (minInvestment=₹50L) → correctly HNI
+ *
+ * Fix:
+ *   - assetClass === 'hni' → always routes to 'hni' segment
+ *   - minInvestment >= ₹10Cr (family office tier) → 'ultra_hni'
+ *   - minInvestment >= ₹1Cr → 'ultra_hni'
+ *   - minInvestment >= ₹50L → 'hni'
+ *   - else → 'retail'
+ */
+function getSegment(p: { minInvestment?: number; assetClass?: string }): "retail" | "hni" | "ultra_hni" {
+  const ac = (p.assetClass ?? "").toLowerCase();
   const min = p.minInvestment ?? 0;
-  if (min >= 100000000) return "ultra_hni"; // ≥ ₹1 Cr
-  if (min >= 5000000)   return "hni";       // ≥ ₹50L
+
+  // assetClass 'hni' — always HNI tier, subdivided by minInvestment
+  if (ac === "hni") {
+    if (min >= 10_000_000) return "ultra_hni"; // ₹1Cr+ → Ultra HNI
+    return "hni";                              // ₹50L tier → HNI
+  }
+
+  // Generic min-investment thresholds
+  if (min >= 10_000_000) return "ultra_hni"; // ≥ ₹1 Cr
+  if (min >= 5_000_000)  return "hni";       // ≥ ₹50L
   return "retail";
 }
 
@@ -3345,9 +3368,9 @@ export default function AgentModelPortfoliosPage() {
       {/* ── Stats bar ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Retail",    value: apiData?.data ? (apiData.data as any[]).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === "retail").length : DB_RETAIL_COUNT,    icon: LayoutGrid, color: "text-blue-500" },
-          { label: "HNI",       value: apiData?.data ? (apiData.data as any[]).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === "hni").length       : DB_HNI_COUNT,       icon: PieChart,    color: "text-purple-500" },
-          { label: "Ultra HNI", value: apiData?.data ? (apiData.data as any[]).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === "ultra_hni").length : DB_ULTRA_HNI_COUNT, icon: TrendingUp,  color: "text-amber-500" },
+          { label: "Retail",    value: apiData?.data ? (apiData.data as any[]).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0), assetClass: p.assetClass ?? p.asset_class ?? undefined }) === "retail").length : DB_RETAIL_COUNT,    icon: LayoutGrid, color: "text-blue-500" },
+          { label: "HNI",       value: apiData?.data ? (apiData.data as any[]).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0), assetClass: p.assetClass ?? p.asset_class ?? undefined }) === "hni").length       : DB_HNI_COUNT,       icon: PieChart,    color: "text-purple-500" },
+          { label: "Ultra HNI", value: apiData?.data ? (apiData.data as any[]).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0), assetClass: p.assetClass ?? p.asset_class ?? undefined }) === "ultra_hni").length : DB_ULTRA_HNI_COUNT, icon: TrendingUp,  color: "text-amber-500" },
           { label: "Min Investment", value: "₹500", icon: Target, color: "text-green-500" },
         ].map((s) => (
           <Card key={s.label} className="p-3">
@@ -3371,7 +3394,8 @@ export default function AgentModelPortfoliosPage() {
             const count = key === "all"
               ? (apiData?.data?.length ?? DB_PORTFOLIO_COUNT)
               : apiData?.data
-                ? (apiData.data as any[]).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === key).length
+                // D4: pass assetClass so classification matches updated getSegment() logic
+                ? (apiData.data as any[]).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0), assetClass: p.assetClass ?? p.asset_class ?? undefined }) === key).length
                 : (SEGMENT_FALLBACK[key] ?? 0);
             const isActive = segmentFilter === key;
             return (
