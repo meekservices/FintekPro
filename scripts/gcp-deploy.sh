@@ -177,6 +177,17 @@ gcloud run services describe $SERVICE_NAME --platform managed --region $REGION -
 
 # ── Firebase Hosting Deploy (serves the static frontend at agent.fintekpro.com) ──
 echo ""
+echo "🔥 Building frontend locally for Firebase Hosting..."
+echo "   (Firebase Hosting serves agent.fintekpro.com — must deploy from freshly built dist/)"
+NODE_OPTIONS=--max-old-space-size=8192 npm run build 2>&1 | tail -5
+if [ $? -ne 0 ]; then
+  echo "❌ Local vite build failed — Firebase deploy aborted"
+  exit 1
+fi
+AGENT_HASH=$(ls dist/public/assets/chunk-agent-*.js 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "unknown")
+echo "   Built bundle: ${AGENT_HASH}"
+
+echo ""
 echo "🔥 Deploying frontend to Firebase Hosting..."
 echo "   (Firebase Hosting is the CDN that serves agent.fintekpro.com — must stay in sync with Cloud Run)"
 npx -y firebase-tools@latest deploy --only hosting --project fintekpro --non-interactive 2>&1 | tail -8
