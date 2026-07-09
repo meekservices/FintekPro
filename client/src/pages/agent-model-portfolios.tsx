@@ -4055,30 +4055,51 @@ export default function AgentModelPortfoliosPage() {
                             <span className="text-indigo-500">· marks a drift-triggered rebalance</span>
                           )}
                         </p>
-                        <div className="flex items-end gap-0.5 h-14" aria-label="Monthly returns bar chart">
+                        {/* Zero-axis bar chart — positive above line, negative below */}
+                        <div
+                          className="relative flex items-stretch gap-0.5"
+                          style={{ height: "56px" }}
+                          aria-label="Monthly returns bar chart"
+                        >
+                          {/* Zero reference line at vertical midpoint */}
+                          <div className="absolute inset-x-0 top-1/2 -translate-y-px h-px bg-border/70 z-10 pointer-events-none" />
+
                           {barData.map((bar, i) => {
-                            const heightPct = Math.min(100, (Math.abs(bar.returnPct) / maxBar) * 100);
                             const isPos = bar.returnPct >= 0;
+                            // Each bar occupies half the container height (28px = top or bottom half)
+                            const halfH = 28; // px
+                            const barH  = Math.max(2, Math.min(halfH, (Math.abs(bar.returnPct) / maxBar) * halfH));
                             return (
                               <TooltipProvider key={i}>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <div className="flex-1 flex flex-col items-center justify-end h-full gap-0.5 relative group/bar">
-                                      {/* Return % label above bar */}
-                                      <span className="text-[7px] text-muted-foreground hidden group-hover/bar:block absolute top-0">
+                                    <div className="flex-1 relative h-full group/bar">
+                                      {/* Hover label */}
+                                      <span className={`absolute ${isPos ? "bottom-[50%] mb-0.5" : "top-[50%] mt-0.5"} left-1/2 -translate-x-1/2 text-[7px] text-foreground/70 font-medium hidden group-hover/bar:block whitespace-nowrap z-20 bg-background/90 px-0.5 rounded`}>
                                         {bar.returnPct >= 0 ? "+" : ""}{bar.returnPct}%
                                       </span>
-                                      {/* Rebalance dot */}
+                                      {/* Rebalance dot — above zero line */}
                                       {bar.hasRebalanceEvent && (
-                                        <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-indigo-500" />
+                                        <span className="absolute top-[calc(50%-6px)] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-indigo-500 z-20" />
                                       )}
-                                      {/* Bar */}
-                                      <div
-                                        className={`w-full rounded-t-sm transition-all ${isPos ? "bg-emerald-400 dark:bg-emerald-500" : "bg-red-400 dark:bg-red-500"}`}
-                                        style={{ height: `${Math.max(6, heightPct)}%` }}
-                                      />
-                                      {/* Month label */}
-                                      <span className="text-[7px] text-muted-foreground/70 leading-none">{bar.label}</span>
+                                      {/* Positive bar: anchored at 50%, grows upward */}
+                                      {isPos && (
+                                        <div
+                                          className="absolute bottom-[50%] left-0 right-0 bg-emerald-400 dark:bg-emerald-500 rounded-t-sm transition-all duration-300"
+                                          style={{ height: `${barH}px` }}
+                                        />
+                                      )}
+                                      {/* Negative bar: anchored at 50%, grows downward */}
+                                      {!isPos && (
+                                        <div
+                                          className="absolute top-[50%] left-0 right-0 bg-red-400 dark:bg-red-500 rounded-b-sm transition-all duration-300"
+                                          style={{ height: `${barH}px` }}
+                                        />
+                                      )}
+                                      {/* Month label at very bottom */}
+                                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[7px] text-muted-foreground/70 leading-none">
+                                        {bar.label}
+                                      </span>
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent className="text-[10px]">
