@@ -2424,14 +2424,18 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
 ];
 
 
-// Merge all portfolio lists + HNI stubs seeded directly in DB (not in static list)
-// Stubs use 'as unknown[]' cast — they are minimal fallback data overwritten by live API.
-const HNI_PORTFOLIO_STUBS = [
-  { id: "hni-50l-multi-asset",  name: "HNI Multi-Asset ₹50L",       assetClass: "hni", minInvestment: 5000000,   cagr1Y: 15.4, cagr3Y: 13.1, cagr5Y: 12.8, riskProfile: "moderate", subCategory: "Multi-Asset ₹50L",  totalHoldings: 10, holdings: [], allocation: [], isFeatured: true, isNew: true },
-  { id: "hni-1cr-multi-asset",  name: "HNI Multi-Asset ₹1Cr",       assetClass: "hni", minInvestment: 10000000,  cagr1Y: 16.2, cagr3Y: 13.8, cagr5Y: 13.2, riskProfile: "moderate", subCategory: "Multi-Asset ₹1Cr",  totalHoldings: 12, holdings: [], allocation: [], isFeatured: true, isNew: true },
-  { id: "family-office",        name: "Family Office Portfolio", assetClass: "hni", minInvestment: 100000000, cagr1Y: 16.8, cagr3Y: 14.2, cagr5Y: 13.6, riskProfile: "moderate", subCategory: "Multi-Asset ₹10Cr", totalHoldings: 12, holdings: [], allocation: [], isFeatured: true, isNew: true },
-] as unknown[] as ModelPortfolio[];
-const MODEL_PORTFOLIOS_ALL: ModelPortfolio[] = [...MODEL_PORTFOLIOS, ...HNI_PORTFOLIO_STUBS];
+// Total portfolios in DB (used for count displays before/after API loads)
+// Breakdown: 37 static retail + 3 HNI portfolios seeded in DB = 40 published retail+HNI
+// Additional DB-only portfolios bring total to 43.
+const DB_PORTFOLIO_COUNT = 43;
+const DB_RETAIL_COUNT    = 40;
+const DB_HNI_COUNT       = 2;
+const DB_ULTRA_HNI_COUNT = 1;
+
+// MODEL_PORTFOLIOS_ALL is ONLY used as the render-safe static fallback (37 fully-populated items).
+// DO NOT add minimal stubs here — the card renderer accesses .riskMetrics, .performance, .goal
+// etc. and will crash if those fields are undefined.
+const MODEL_PORTFOLIOS_ALL: ModelPortfolio[] = [...MODEL_PORTFOLIOS];
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -3480,9 +3484,9 @@ export default function AgentModelPortfoliosPage() {
       {/* ── Stats bar ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Retail",    value: (apiData?.data ?? livePortfolios).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === "retail").length,    icon: LayoutGrid, color: "text-blue-500" },
-          { label: "HNI",       value: (apiData?.data ?? livePortfolios).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === "hni").length,       icon: PieChart,    color: "text-purple-500" },
-          { label: "Ultra HNI", value: (apiData?.data ?? livePortfolios).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === "ultra_hni").length, icon: TrendingUp,  color: "text-amber-500" },
+          { label: "Retail",    value: apiData?.data ? (apiData.data as any[]).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === "retail").length : DB_RETAIL_COUNT,    icon: LayoutGrid, color: "text-blue-500" },
+          { label: "HNI",       value: apiData?.data ? (apiData.data as any[]).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === "hni").length       : DB_HNI_COUNT,       icon: PieChart,    color: "text-purple-500" },
+          { label: "Ultra HNI", value: apiData?.data ? (apiData.data as any[]).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === "ultra_hni").length : DB_ULTRA_HNI_COUNT, icon: TrendingUp,  color: "text-amber-500" },
           { label: "Min Investment", value: "₹500", icon: Target, color: "text-green-500" },
         ].map((s) => (
           <Card key={s.label} className="p-3">
@@ -3502,9 +3506,12 @@ export default function AgentModelPortfoliosPage() {
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Investor Segment</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {Object.entries(SEGMENT_CONFIG).map(([key, seg]) => {
+            const SEGMENT_FALLBACK: Record<string, number> = { retail: DB_RETAIL_COUNT, hni: DB_HNI_COUNT, ultra_hni: DB_ULTRA_HNI_COUNT };
             const count = key === "all"
-              ? (apiData?.data?.length || livePortfolios.length)
-              : (apiData?.data ?? livePortfolios).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === key).length;
+              ? (apiData?.data?.length ?? DB_PORTFOLIO_COUNT)
+              : apiData?.data
+                ? (apiData.data as any[]).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === key).length
+                : (SEGMENT_FALLBACK[key] ?? 0);
             const isActive = segmentFilter === key;
             return (
               <button
@@ -3616,7 +3623,7 @@ export default function AgentModelPortfoliosPage() {
             </button>
           ))}
           <span className="text-xs text-muted-foreground ml-auto">
-            Showing {filtered.length} of {apiData?.data?.length || livePortfolios.length || MODEL_PORTFOLIOS_ALL.length} portfolios
+            Showing {filtered.length} of {apiData?.data?.length ?? DB_PORTFOLIO_COUNT} portfolios
           </span>
         </div>
       </div>
