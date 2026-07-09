@@ -2975,12 +2975,17 @@ export default function AgentModelPortfoliosPage() {
   // automatically get full access — no need to maintain an allowlist.
   const RETAIL_ONLY_ROLES = ["user", "client"];
   /**
-   * canViewFullHoldings is TRUE unless the user is *exclusively* in retail roles.
-   * Fallback: if roles is undefined (old session), grant access — agent portal users
-   * are always authenticated professionals, never anonymous retail clients.
+   * canViewFullHoldings is TRUE for any authenticated user on the agent portal.
+   * The agent portal is exclusively for professionals — if `user` exists, they
+   * are an authenticated professional by definition (Passport session enforces this).
+   * Role-based fallback: only deny if the user is exclusively in retail roles AND
+   * their roles have fully loaded (non-empty array).
+   * Fallback: if roles is undefined/empty (session not yet resolved), grant access.
    */
   const userRoles: string[] = user?.roles ?? [];
-  const isRetailOnly = userRoles.length > 0 && userRoles.every((r: string) => RETAIL_ONLY_ROLES.includes(r));
+  // Any authenticated user on the agent portal gets full access.
+  // Only restrict if: user is loaded, roles are loaded, and every role is retail-only.
+  const isRetailOnly = !!user && userRoles.length > 0 && userRoles.every((r: string) => RETAIL_ONLY_ROLES.includes(r));
   const canViewFullHoldings = !isRetailOnly;
   /** canShare follows the same access level as canViewFullHoldings */
   const canShare = canViewFullHoldings;
@@ -3120,8 +3125,14 @@ export default function AgentModelPortfoliosPage() {
     staleTime: 6 * 60 * 60 * 1000, // 6h — matches server cache
     retry: 1,
     queryFn: async () => {
-      const r = await fetch(`/api/model-portfolios/${selectedPortfolio!.id}/holdings`);
-      if (!r.ok) throw new Error("Holdings fetch failed");
+      const r = await fetch(`/api/model-portfolios/${selectedPortfolio!.id}/holdings`, {
+        credentials: "include", // send session cookie so isAuthenticated middleware passes
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!r.ok) {
+        if (r.status === 401) throw new Error("AUTH_REQUIRED");
+        throw new Error("Holdings fetch failed");
+      }
       return r.json();
     },
   });
