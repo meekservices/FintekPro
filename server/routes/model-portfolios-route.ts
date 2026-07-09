@@ -22,7 +22,8 @@
  * @inputs  - Query params: riskProfile, assetClass, featured
  * @outputs - { success, data: ModelPortfolioRow[], meta }
  */
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
+import { isAuthenticated } from "../auth-setup";
 import fetch from "node-fetch";
 import { db } from "../db";
 import { modelPortfolios } from "@shared/schema";
@@ -2270,7 +2271,9 @@ modelPortfoliosRouter.get("/:id", async (req: Request, res: Response) => {
 // Called on-demand when user opens the Holdings tab for a specific portfolio.
 // Returns holdings enriched with live 1Y returns from mfapi.in (free, no key).
 // Results are cached 6h per scheme code in the module-level _cache Map.
-modelPortfoliosRouter.get("/:id/holdings", async (req: Request, res: Response) => {
+// FASP-AI SECURITY: Full holdings are restricted to authenticated agents/advisors.
+// The frontend shows a 🔒 lock to unauthenticated users; this enforces it at the API layer.
+modelPortfoliosRouter.get("/:id/holdings", isAuthenticated, async (req: Request, res: Response) => {
   const start = Date.now();
   try {
     const { id } = req.params;
