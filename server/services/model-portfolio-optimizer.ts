@@ -153,6 +153,10 @@ function classifyStatus(gap: number): AlphaAnalysis["status"] {
 /**
  * Analyses all model portfolios vs benchmarks.
  * Returns sorted by alphaGap descending (worst first).
+ *
+ * E3: alphaDragHoldings flags holdings below MAX(portfolio avg, benchmark).
+ * This catches sub-benchmark holdings even when ALL holdings are below the
+ * benchmark (otherwise, no holding would appear "below average").
  */
 export async function analyzeAlphaGaps(): Promise<AlphaAnalysis[]> {
   const rows = await db.select().from(modelPortfolios);
@@ -160,20 +164,26 @@ export async function analyzeAlphaGaps(): Promise<AlphaAnalysis[]> {
   const results: AlphaAnalysis[] = [];
 
   for (const p of rows) {
-    const cagr1Y = p.cagr1Y != null ? Number(p.cagr1Y) : 0;
+    const cagr1Y    = p.cagr1Y          != null ? Number(p.cagr1Y)          : 0;
     const benchCagr = p.benchmarkCagr1Y != null ? Number(p.benchmarkCagr1Y) : 0;
     if (benchCagr === 0) continue;
 
-    const trueAlpha = cagr1Y - benchCagr;
+    const trueAlpha  = cagr1Y - benchCagr;
     const targetAlpha = benchCagr * TARGET_ALPHA_RATIO;
-    const alphaGap = targetAlpha - trueAlpha;
-    const status = classifyStatus(alphaGap);
+    const alphaGap   = targetAlpha - trueAlpha;
+    const status     = classifyStatus(alphaGap);
 
     const holdings: any[] = Array.isArray(p.holdings) ? p.holdings : [];
     const returns = holdings
       .map((h: any) => (h.currentReturn != null ? Number(h.currentReturn) : null))
       .filter((r): r is number => r !== null);
     const avgReturn = returns.length > 0 ? returns.reduce((a, b) => a + b, 0) / returns.length : 0;
+
+    // E3: dragThreshold = MAX(portfolio avg return, benchmark return)
+    // Using MAX means:
+    //   - If benchmark > avg → flags any holding below benchmark (catches full-portfolio underperformance)
+    //   - If avg > benchmark → flags any holding below avg (catches relative drag within portfolio)
+    const dragThreshold = Math.max(avgReturn, benchCagr);
 
     // A5: Include all replaceable holding types (not just stocks/MFs)
     // Excluded from optimisation: sovereign bonds, locked-in instruments (SGB, PPF, etc.)
@@ -184,7 +194,8 @@ export async function analyzeAlphaGaps(): Promise<AlphaAnalysis[]> {
         // Exclude sovereign/locked instruments; include everything else
         return !EXCLUDED_TYPES.has(t) && !Array.from(EXCLUDED_TYPES).some((ex) => t.includes(ex));
       })
-      .filter((h: any) => h.currentReturn != null && Number(h.currentReturn) < avgReturn)
+      // E3: use dragThreshold instead of bare avgReturn
+      .filter((h: any) => h.currentReturn != null && Number(h.currentReturn) < dragThreshold)
       .map((h: any) => ({
         rank: h.rank,
         name: h.name,
@@ -193,8 +204,9 @@ export async function analyzeAlphaGaps(): Promise<AlphaAnalysis[]> {
         weight: Number(h.weight ?? 0),
         currentReturn: Number(h.currentReturn),
         portfolioAvgReturn: Math.round(avgReturn * 100) / 100,
+        // dragScore: weighted shortfall vs dragThreshold (benchmark-anchored)
         dragScore: Math.round(
-          (avgReturn - Number(h.currentReturn)) * Number(h.weight ?? 0) / 100 * 100
+          (dragThreshold - Number(h.currentReturn)) * Number(h.weight ?? 0) / 100 * 100
         ) / 100,
       }))
       .sort((a, b) => b.dragScore - a.dragScore)
@@ -240,11 +252,16 @@ export async function generateOptimizationSuggestions(
   );
 
   for (const analysis of targets) {
+    // E1: benchmark return as a fraction — all candidates must beat this floor
+    const benchFloor = analysis.benchmarkCagr1Y / 100;
+
     for (const drag of analysis.alphaDragHoldings) {
       const factors: string[] = [`portfolio_status:${analysis.status}`, `drag_score:${drag.dragScore}`];
       let alternatives: HoldingCandidate[] = [];
 
-      // ── A4: Stock: query screener by sector + market-cap-category alignment ─
+      // ── E1/A4: Stock — sector + market-cap aligned, BENCHMARK-RELATIVE floor ─
+      // E1: candidate must beat benchmark CAGR, not just the drag holding
+      // E2: alpha_vs_nifty must be > 0 (positive alpha vs index is mandatory)
       if (drag.symbol) {
         try {
           const sectorRow = await db.execute(sql`
@@ -253,7 +270,7 @@ export async function generateOptimizationSuggestions(
           `).catch(() => ({ rows: [] }));
           const sd = (sectorRow as any).rows?.[0];
           const sector: string | null = sd?.sector ?? null;
-          const cap: string | null = sd?.market_cap_category ?? null; // A4: align market cap
+          const cap: string | null    = sd?.market_cap_category ?? null;
 
           if (sector) {
             const candidateRows = await db.execute(sql`
@@ -265,45 +282,56 @@ export async function generateOptimizationSuggestions(
               FROM screener_derived_metrics sdm
               LEFT JOIN screener_stocks ss ON ss.symbol = sdm.symbol
               WHERE sdm.sector = ${sector}
-                AND sdm.symbol != ${drag.symbol.toUpperCase()}
-                AND sdm.return_1y > ${(drag.currentReturn ?? 0) / 100}
-                AND (sdm.sharpe_ratio_1y IS NULL OR sdm.sharpe_ratio_1y > 0)
+                AND sdm.symbol   != ${drag.symbol.toUpperCase()}
+                -- E1: must beat the portfolio benchmark return (not just the drag holding)
+                AND sdm.return_1y >  ${benchFloor}
+                -- E2: mandatory positive alpha vs Nifty — never select a sub-benchmark instrument
+                AND sdm.alpha_vs_nifty > 0
+                -- Quality gate: positive Sharpe, sensible beta
+                AND sdm.sharpe_ratio_1y > 0
                 AND (sdm.beta IS NULL OR sdm.beta BETWEEN 0.3 AND 2.0)
                 -- A4: same market-cap bucket (prevents replacing large-cap drag with small-cap)
                 AND (${cap}::text IS NULL OR ss.market_cap_category = ${cap})
               ORDER BY (
-                -- A1: Updated composite score weights
+                -- A1 composite score weights (unchanged)
                 COALESCE(sdm.return_1y, 0) * 100 * 0.40 +
                 LEAST(10, COALESCE(sdm.sharpe_ratio_1y, 0.5) * 10) * 0.25 +
                 LEAST(8, GREATEST(-8, COALESCE(sdm.alpha_vs_nifty, 0) * 2)) * 0.20 -
                 ABS(COALESCE(sdm.beta, 1.0) - 1.0) * 10 * 0.10
               ) DESC
-              LIMIT 5
+              LIMIT 10
             `).catch(() => ({ rows: [] }));
 
-            alternatives = ((candidateRows as any).rows ?? []).map((r: any) => {
-              const r1y = Math.round(Number(r.return_1y) * 10000) / 100;
+            // E2: post-filter — discard any candidate where alpha ≤ 0 (NULL also rejected)
+            const rawCandidates = ((candidateRows as any).rows ?? []) as any[];
+            const posAlphaCandidates = rawCandidates.filter(
+              (r) => r.alpha_vs_nifty != null && Number(r.alpha_vs_nifty) > 0
+            );
+
+            alternatives = posAlphaCandidates.slice(0, 5).map((r: any) => {
+              const r1y   = Math.round(Number(r.return_1y) * 10000) / 100;
               const sharpe = r.sharpe_ratio_1y != null ? Math.round(Number(r.sharpe_ratio_1y) * 100) / 100 : null;
               const beta   = r.beta != null ? Math.round(Number(r.beta) * 10000) / 10000 : null;
               const alpha  = r.alpha_vs_nifty != null ? Math.round(Number(r.alpha_vs_nifty) * 10000) / 100 : null;
               return {
                 symbol: r.symbol,
-                name: r.name ?? r.symbol,
+                name:   r.name ?? r.symbol,
                 sector: r.sector,
                 return_1y: r1y,
                 return_3y: r.return_3y != null ? Math.round(Number(r.return_3y) * 10000) / 100 : null,
                 sharpe,
                 beta,
                 isin: r.isin ?? null,
-                // A1: use updated compositeScore signature
                 compositeScore: Math.round(compositeScore(r1y, sharpe, beta, alpha) * 100) / 100,
                 improvementVsCurrent: Math.round((r1y - (drag.currentReturn ?? 0)) * 100) / 100,
               };
             });
 
             if (alternatives.length > 0) {
-              factors.push(`screener:sector:${sector}`);
+              factors.push(`screener:sector:${sector}`, "alpha_floor:benchmark_relative", "alpha_gate:positive_alpha_only");
               if (cap) factors.push(`screener:cap:${cap}`);
+            } else {
+              factors.push("no_positive_alpha_candidates_found");
             }
           } else {
             factors.push("sector_not_found");
@@ -314,8 +342,9 @@ export async function generateOptimizationSuggestions(
         }
       }
 
-      // ── A3: MF: query financial_instruments_cache with quality filters ──────
-      // Filters: expense_ratio < 1.5%, AUM > 500Cr (where available), return > drag holding
+      // ── E4/E5/A3: MF — benchmark floor + positive return + strict Sharpe ────
+      // E4: must beat benchmark CAGR AND have return_1y > 0 (never negative-return MF)
+      // E5: sharpe_ratio > 0.3 (strict — NULL no longer allowed through)
       if (alternatives.length === 0 && !drag.symbol) {
         try {
           const cat = drag.type.toLowerCase()
@@ -327,12 +356,16 @@ export async function generateOptimizationSuggestions(
             WHERE instrument_type = 'mutual_fund'
               AND name ILIKE ${"%" + cat + "%"}
               AND return_1y IS NOT NULL
-              AND return_1y > ${(drag.currentReturn ?? 0) / 100}
+              -- E4: beat benchmark CAGR (absolute floor — never below benchmark)
+              AND return_1y > ${benchFloor}
+              -- E4: never accept a negative-return fund as a replacement
+              AND return_1y > 0
+              -- E5: strict Sharpe gate — NULL funds rejected (unknown risk profile)
+              AND sharpe_ratio > 0.3
               -- A3: Quality filters
-              AND (expense_ratio IS NULL OR expense_ratio < 1.5)  -- exclude high-cost funds
-              AND (aum_cr IS NULL OR aum_cr > 500)                -- minimum AUM ₹500Cr
+              AND (expense_ratio IS NULL OR expense_ratio < 1.5)
+              AND (aum_cr IS NULL OR aum_cr > 500)
             ORDER BY (
-              -- A1: updated composite weighting for MFs
               COALESCE(return_1y, 0) * 100 * 0.45 +
               LEAST(10, COALESCE(sharpe_ratio, 0.5) * 10) * 0.30 -
               COALESCE(expense_ratio, 1.0) * 5 * 0.25
@@ -342,23 +375,22 @@ export async function generateOptimizationSuggestions(
 
           const tp = (v: number) => Math.abs(v) < 5 ? Math.round(v * 10000) / 100 : Math.round(v * 100) / 100;
           alternatives = ((mfRows as any).rows ?? []).map((r: any) => {
-            const r1y = tp(Number(r.return_1y));
+            const r1y   = tp(Number(r.return_1y));
             const sharpe = r.sharpe_ratio != null ? Math.round(Number(r.sharpe_ratio) * 100) / 100 : null;
             return {
               symbol: r.isin ?? r.name?.substring(0, 10) ?? "MF",
-              name: r.name,
+              name:   r.name,
               sector: r.sebi_category ?? null,
               return_1y: r1y,
               return_3y: r.return_3y != null ? tp(Number(r.return_3y)) : null,
               sharpe,
               beta: null,
               isin: r.isin ?? null,
-              // A1: use updated compositeScore
               compositeScore: Math.round(compositeScore(r1y, sharpe, null) * 100) / 100,
               improvementVsCurrent: Math.round((r1y - (drag.currentReturn ?? 0)) * 100) / 100,
             };
           });
-          if (alternatives.length > 0) factors.push(`mf_db:category:${cat}`);
+          if (alternatives.length > 0) factors.push(`mf_db:category:${cat}`, "alpha_floor:benchmark_relative", "sharpe_gate:strict");
         } catch { /* silent */ }
       }
 
@@ -373,35 +405,47 @@ export async function generateOptimizationSuggestions(
       if (best?.improvementVsCurrent != null && best.improvementVsCurrent > 10) confidence += 0.15;
       confidence = Math.min(Math.round(confidence * 100) / 100, 1.0);
 
-      const recommendation: OptimizationSuggestion["recommendation"] =
+      // ── E6: Recommendation gate — never issue "replace" for non-positive-alpha candidate ──
+      // Even if confidence is high, downgrade if the best candidate has no confirmed positive alpha.
+      // This prevents the advisor being presented with a "replace" action that could worsen alpha.
+      let recommendation: OptimizationSuggestion["recommendation"] =
         alternatives.length === 0 ? "manual_review"
         : confidence < MIN_CONFIDENCE_FOR_REPLACE ? "reduce_weight"
         : drag.dragScore > 1 ? "replace"
         : "hold";
 
+      // E6: downgrade to reduce_weight if best candidate has no verified positive alpha
+      if (recommendation === "replace" && drag.symbol) {
+        const bestAlpha = (best as any)?.alpha ?? null;
+        if (bestAlpha === null || bestAlpha <= 0) {
+          recommendation = "reduce_weight";
+          factors.push("E6:best_candidate_alpha_unverified_or_non_positive");
+        }
+      }
+
       suggestions.push({
-        portfolioId: analysis.portfolioId,
-        portfolioName: analysis.portfolioName,
+        portfolioId:      analysis.portfolioId,
+        portfolioName:    analysis.portfolioName,
         alphaDragHolding: drag,
         alternatives,
         recommendation,
         confidence_score: confidence,
         factors_considered: factors,
-        model_version: OPTIMIZER_MODEL_VERSION,
-        timestamp: ts,
-        risk_disclaimer: RISK_DISCLAIMER,
+        model_version:    OPTIMIZER_MODEL_VERSION,
+        timestamp:        ts,
+        risk_disclaimer:  RISK_DISCLAIMER,
       });
     }
   }
 
   logger.info("[Optimizer] Suggestions generated", {
-    event: "AI_ADVICE_GENERATED",
-    user_id: "system",
+    event:          "AI_ADVICE_GENERATED",
+    user_id:        "system",
     output_summary: `${suggestions.length} suggestions for ${targets.length} portfolios`,
-    model_version: OPTIMIZER_MODEL_VERSION,
-    timestamp: ts,
-    latency_ms: 0,
-    status: "success",
+    model_version:  OPTIMIZER_MODEL_VERSION,
+    timestamp:      ts,
+    latency_ms:     0,
+    status:         "success",
   });
 
   return suggestions;

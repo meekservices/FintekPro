@@ -614,6 +614,51 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
         if (driftReport.status !== "balanced") drifting++;
         if (driftReport.status === "needs_rebalance") needingRebalance++;
 
+        // ── E7: Negative Alpha Detection ────────────────────────────────────────
+        // If the portfolio is earning less than its benchmark after scoring, emit a
+        // WARNING alert and trigger optimisation suggestions asynchronously.
+        // This ensures advisors see an immediate flag without waiting for the next
+        // scheduled optimisation run.
+        const negAlpha = portfolio.cagr1Y - portfolio.benchmarkCagr1Y;
+        if (portfolio.benchmarkCagr1Y > 0 && negAlpha < 0) {
+          logger.warn(`[QuantEngine] NEGATIVE ALPHA detected for ${row.id}`, {
+            event:          "NEGATIVE_ALPHA_DETECTED",
+            portfolio_id:   row.id,
+            portfolio_name: row.name,
+            cagr_1y:        portfolio.cagr1Y,
+            benchmark_cagr: portfolio.benchmarkCagr1Y,
+            alpha:          Math.round(negAlpha * 100) / 100,
+            engine_version: ENGINE_VERSION,
+            latency_ms:     Date.now() - t0,
+            status:         "alert",
+            retryable:      false,
+          });
+
+          // Fire optimisation suggestions asynchronously — do not block nightly loop
+          import("./model-portfolio-optimizer")
+            .then(({ generateOptimizationSuggestions }) =>
+              generateOptimizationSuggestions([row.id])
+            )
+            .then((suggestions) => {
+              logger.info(`[QuantEngine] Optimization suggestions triggered for negative-alpha portfolio ${row.id}`, {
+                event:        "NEGATIVE_ALPHA_OPTIMIZATION_TRIGGERED",
+                portfolio_id: row.id,
+                suggestions:  suggestions.length,
+                latency_ms:   Date.now() - t0,
+                status:       "success",
+              });
+            })
+            .catch((err: Error) => {
+              logger.error(`[QuantEngine] Failed to trigger optimization for ${row.id}`, {
+                event:        "NEGATIVE_ALPHA_OPTIMIZATION_ERROR",
+                portfolio_id: row.id,
+                message:      err.message,
+                retryable:    true,
+              });
+            });
+        }
+
+
       } catch (rowErr: any) {
         errors++;
         logger.error(`[QuantEngine] Error scoring portfolio ${row.id}`, {
