@@ -1,5 +1,7 @@
 import { PickCategory, DailyPickData } from "../pick-of-the-day-service";
 import { IPickStrategy, StrategyContext } from "./types";
+import { logger } from "../../logger";
+
 
 export abstract class BaseStrategy implements IPickStrategy {
 	abstract category: PickCategory;
@@ -34,6 +36,8 @@ export abstract class BaseStrategy implements IPickStrategy {
 		category: PickCategory,
 		score: number,
 		maxScore: number,
+		/** Number of keyMetrics signals present at pick time (for data-density gate) */
+		keyMetricsCount = 4,
 	): number {
 		const scoreRatio = score / Math.max(maxScore, 1);
 		let confidence = Math.round(50 + scoreRatio * 40);
@@ -51,11 +55,24 @@ export abstract class BaseStrategy implements IPickStrategy {
 				break;
 		}
 
-		// Governance gate (ExplainabilityValidator EXP_004) blocks picks with
-		// confidence_score < 0.6. Enforce a minimum of 60 so data-sparse categories
-		// (e.g. listed_stocks with empty stockFinancialMetrics) still pass.
-		const MIN_GOVERNANCE_CONFIDENCE = 60;
-		return Math.min(100, Math.max(MIN_GOVERNANCE_CONFIDENCE, confidence));
+		// ── Fix 12: Data-density gate ────────────────────────────────────────────
+		// Replace the blanket 60-floor with a density-scaled cap+floor.
+		// Data-rich picks (4+ signals) → normal governance floor of 60.
+		// Data-sparse picks (2–3 signals) → max 70, floor 55 (honest uncertainty).
+		// Very sparse (≤1 signal) → max 65, floor 50 (clear low-confidence label).
+		let maxConfidence: number;
+		let minConfidence: number;
+		if (keyMetricsCount >= 4) {
+			maxConfidence = 100;
+			minConfidence = 60; // full governance gate
+		} else if (keyMetricsCount >= 2) {
+			maxConfidence = 70;
+			minConfidence = 55; // moderate uncertainty
+		} else {
+			maxConfidence = 65;
+			minConfidence = 50; // sparse data — honest low-confidence
+		}
+		return Math.min(maxConfidence, Math.max(minConfidence, confidence));
 	}
 
 	protected getDynamicTargetStoploss(
@@ -173,11 +190,12 @@ export abstract class BaseStrategy implements IPickStrategy {
 	): T[] {
 		const filtered = candidates.filter((c) => !recentIds.has(idExtractor(c)));
 		if (filtered.length === 0) {
-			console.log(
+			logger.info(
 				`[PickStrategy:${this.category}] All candidates recently picked, allowing repeats`,
 			);
 			return candidates;
 		}
 		return filtered;
+
 	}
 }

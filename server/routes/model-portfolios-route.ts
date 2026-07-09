@@ -2518,6 +2518,47 @@ modelPortfoliosRouter.get("/:id/ai-track-record", async (req: Request, res: Resp
     }
     const port = portResult.rows[0] as any;
 
+    // ── Self-healing: create portfolio_ai_decisions if not yet migrated ──────
+    try {
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS portfolio_ai_decisions (
+          id                      SERIAL PRIMARY KEY,
+          portfolio_id            VARCHAR NOT NULL,
+          portfolio_code          VARCHAR,
+          decided_at              TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+          decision_type           TEXT NOT NULL,
+          trigger                 TEXT NOT NULL,
+          chosen_scheme_code      TEXT,
+          chosen_isin             TEXT,
+          chosen_name             TEXT NOT NULL,
+          chosen_weight_pct       REAL,
+          chosen_nav_at_decision  NUMERIC(15,4),
+          rejected_scheme_code    TEXT,
+          rejected_isin           TEXT,
+          rejected_name           TEXT,
+          rejected_nav_at_decision NUMERIC(15,4),
+          rationale_code          TEXT NOT NULL,
+          rationale_detail        TEXT NOT NULL,
+          ai_confidence_score     REAL,
+          model_version           TEXT DEFAULT 'FASP-AI-v2.0' NOT NULL,
+          outcome_period_months   INTEGER,
+          outcome_return_pct      REAL,
+          outcome_benchmark_pct   REAL,
+          rejected_return_pct     REAL,
+          alpha_captured_pct      REAL,
+          is_win                  BOOLEAN,
+          outcome_computed_at     TIMESTAMPTZ,
+          advisor_id              TEXT,
+          advisor_approved_at     TIMESTAMPTZ,
+          advisor_notes           TEXT,
+          proposal_id             UUID
+        )
+      `);
+    } catch {
+      // Already exists — continue
+    }
+
+
     // 2. Fetch all AI decisions ordered newest first
     const decisionsResult = await db.execute(sql`
       SELECT
@@ -2659,6 +2700,41 @@ modelPortfoliosRouter.get("/:id/ai-track-record", async (req: Request, res: Resp
       },
     });
   } catch (err: any) {
+    // ── Graceful fallback for missing portfolio_ai_decisions table ───────────
+    // On first deploy the table may not exist yet. Return empty track record
+    // instead of a 500 so the UI shows a clean "No decisions yet" state.
+    const isRelationError = /relation.*does not exist|table.*not found|column.*does not exist/i.test(err.message ?? "");
+    if (isRelationError) {
+      logger.warn("[ModelPortfolios] ai-track-record table not yet initialised — returning empty track record", {
+        event: "AI_TRACK_RECORD_TABLE_MISSING",
+        portfolio_id: req.params.id,
+        message: err.message,
+      });
+      return res.json({
+        success: true,
+        data: {
+          portfolioId:  req.params.id,
+          portfolioCode: null,
+          inceptionDate: null,
+          summary: {
+            totalDecisions: 0, resolvedDecisions: 0, substitutionDecisions: 0,
+            winRate: null, avgAlphaPerDecisionPct: null, cumulativeAiAttributionPct: 0,
+            modelVersion: "FASP-AI-v2.0",
+            disclaimer: "AI is a Decision Support System. Advisor approval required before execution. Past AI performance does not guarantee future results. Returns are TWRR per SEBI IA Regs.",
+          },
+          decisions: [],
+          performancePeriods: {},
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          version: ENGINE_VERSION,
+          engine_version: "FASP-AI-v2.0",
+          latency_ms: Date.now() - t0,
+          note: "Track record table initializing. AI decisions will appear here as the system processes rebalancing proposals.",
+          disclaimer: "Mutual Fund investments are subject to market risks. Read all scheme-related documents carefully.",
+        },
+      });
+    }
     logger.error("[ModelPortfolios] ai-track-record error", { event: "AI_TRACK_RECORD_ERROR", error: err.message, retryable: true });
     return res.status(500).json({ success: false, error_code: "AI_TRACK_RECORD_ERROR", message: err.message, retryable: true });
   }
@@ -3250,6 +3326,36 @@ modelPortfoliosRouter.get("/:id/proposals", async (req: Request, res: Response) 
     const { rebalanceProposals } = await import("@shared/schema");
     const { eq, and } = await import("drizzle-orm");
 
+    // ── Self-healing: ensure table exists on first deploy ───────────────────
+    // Prevents 500 when migration has not yet run in production.
+    try {
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS rebalance_proposals (
+          id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          portfolio_id     VARCHAR(100) NOT NULL,
+          proposed_at      TIMESTAMPTZ DEFAULT NOW(),
+          proposed_by      VARCHAR(50)  DEFAULT 'FASP-AI-v3.0',
+          engine_version   VARCHAR(30)  DEFAULT 'FASP-AI-v3.0',
+          status           VARCHAR(20)  DEFAULT 'pending',
+          reviewed_by      VARCHAR(100),
+          reviewed_at      TIMESTAMPTZ,
+          rejection_reason TEXT,
+          substitutions    JSONB NOT NULL DEFAULT '[]',
+          total_alpha_gain NUMERIC(6,2),
+          confidence       INTEGER DEFAULT 0,
+          drift_severity   VARCHAR(20),
+          executed_at      TIMESTAMPTZ,
+          execution_notes  TEXT,
+          disclaimer       TEXT DEFAULT 'Past performance is not indicative of future results. Advisor approval required.',
+          source           VARCHAR(20)  DEFAULT 'system',
+          created_at       TIMESTAMPTZ DEFAULT NOW(),
+          updated_at       TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+    } catch {
+      // Table already exists — ignore
+    }
+
     const rows = await db.select()
       .from(rebalanceProposals)
       .where(and(
@@ -3264,9 +3370,20 @@ modelPortfoliosRouter.get("/:id/proposals", async (req: Request, res: Response) 
       meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0, total: rows.length },
     });
   } catch (err: any) {
+    // Graceful degradation — proposals are non-critical UI; return empty list
+    const isRelationError = /relation.*does not exist|table.*not found/i.test(err.message ?? "");
+    if (isRelationError) {
+      return res.json({
+        success: true,
+        data: [],
+        meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0, total: 0 },
+      });
+    }
+    logger.error("[ModelPortfolios] GET /:id/proposals error", { event: "PROPOSALS_FETCH_ERROR", portfolio_id: req.params.id, message: err.message, retryable: true });
     return res.status(500).json({ success: false, error_code: "PROPOSALS_FETCH_ERROR", message: err.message, retryable: true });
   }
 });
+
 
 /**
  * POST /api/model-portfolios/:id/proposals/:proposalId/approve

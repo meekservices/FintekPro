@@ -32,6 +32,11 @@ export class MutualFundStrategy extends BaseStrategy {
 						sql`(${mutualFunds.category} IS NULL OR ${mutualFunds.category} NOT ILIKE '%ETF%')`,
 						sql`${mutualFunds.schemeName} NOT ILIKE '%ETF%'`,
 						sql`(${mutualFunds.lastUpdated} IS NULL OR ${mutualFunds.lastUpdated} > NOW() - INTERVAL '45 days')`,
+						// ── Fix 3: Minimum ₹200 Cr AUM filter ───────────────────────────────
+						// Funds below ₹200 Cr AUM face redemption pressure and closure risk.
+						// aum column may be NULL for older records — allow NULL through
+						// to avoid dropping all data; the JS post-filter handles NULLs.
+						sql`(${mutualFunds.aum} IS NULL OR ${mutualFunds.aum}::float >= 200)`,
 					),
 				)
 				.limit(100);
@@ -192,7 +197,10 @@ export class MutualFundStrategy extends BaseStrategy {
 			: 0;
 		if (smartRating >= 5) score += 25;
 		else if (smartRating >= 3) score += 15;
-
+		// ── Fix 5: CRISIL null gate ─────────────────────────────────────────────
+		// Unrated funds get 0 bonus; they should also be penalised to prevent them
+		// from competing equally against rated funds on other dimensions alone.
+		else if (smartRating === 0) score -= 10; // unrated = unknown quality
 		const returns1y = fund.returns1y ? Number.parseFloat(fund.returns1y) : 0;
 
 		// ── Fix F: Category risk-adjusted return (relative outperformance) ────────

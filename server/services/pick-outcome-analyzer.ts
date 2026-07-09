@@ -333,6 +333,33 @@ export class PickOutcomeAnalyzer {
       },
     };
 
+    // ── Fix 11: Per-category hit-rate degradation alert ─────────────────────
+    // If any category's hit rate falls below 40% on ≥ 10 closed picks, emit a
+    // WARNING so ops can investigate before advisors lose confidence in that strategy.
+    // Threshold: 40% hit rate = performing at chance level — suggests a broken signal.
+    const DEGRADED_HIT_RATE_THRESHOLD = 40;
+    const MIN_PICKS_FOR_DEGRADATION_ALERT = 10;
+    for (const cat of byCategory) {
+      if (
+        cat.totalClosed >= MIN_PICKS_FOR_DEGRADATION_ALERT &&
+        cat.hitRate < DEGRADED_HIT_RATE_THRESHOLD
+      ) {
+        logger.warn(`[PickOutcomeAnalyzer] CATEGORY DEGRADED: ${cat.category} hit rate ${cat.hitRate}% on ${cat.totalClosed} picks`, {
+          event:        "PICK_CATEGORY_DEGRADED",
+          user_id:      "SYSTEM",
+          category:     cat.category,
+          hit_rate:     cat.hitRate,
+          total_closed: cat.totalClosed,
+          avg_return:   cat.avgReturn,
+          threshold:    DEGRADED_HIT_RATE_THRESHOLD,
+          latency_ms:   0,
+          status:       "alert",
+          retryable:    false,
+          engine_version: ENGINE_VERSION,
+        });
+      }
+    }
+
     logger.info(
       `[PickOutcomeAnalyzer] Analysis complete: ${totalClosed} picks, ` +
         `${overallHitRate}% hit rate, ${signalEfficacy.length} signals evaluated`,
@@ -351,6 +378,7 @@ export class PickOutcomeAnalyzer {
 
     return report;
   }
+
 
   private emptyReport(windowDays: number): SignalEfficacyReport {
     return {
