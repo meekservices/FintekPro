@@ -3456,7 +3456,7 @@ export default function AgentModelPortfoliosPage() {
       {/* ── Stats bar ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Model Portfolios", value: livePortfolios.length || MODEL_PORTFOLIOS_ALL.length, icon: LayoutGrid, color: "text-indigo-500" },
+          { label: "Model Portfolios", value: apiData?.data?.length || livePortfolios.length || MODEL_PORTFOLIOS_ALL.length, icon: LayoutGrid, color: "text-indigo-500" },
           { label: "Asset Classes", value: "6 Classes", icon: PieChart, color: "text-blue-500" },
           { label: "Best 5Y CAGR", value: "31.2%", icon: TrendingUp, color: "text-green-500" },
           { label: "Min Investment", value: "₹500", icon: Target, color: "text-amber-500" },
@@ -3492,7 +3492,7 @@ export default function AgentModelPortfoliosPage() {
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full ml-1 ${
                 assetClassFilter === key ? "bg-white/20" : "bg-muted-foreground/20"
               }`}>
-                {(livePortfolios.length ? livePortfolios : MODEL_PORTFOLIOS_ALL).filter(p => key === "all" || p.assetClass === key).length}
+                {(apiData?.data?.length ? apiData.data : livePortfolios.length ? livePortfolios : MODEL_PORTFOLIOS_ALL).filter((p: any) => key === "all" || p.assetClass === key || p.asset_class === key).length}
               </span>
             </button>
           ))}
@@ -3551,7 +3551,7 @@ export default function AgentModelPortfoliosPage() {
             </button>
           ))}
           <span className="text-xs text-muted-foreground ml-auto">
-            Showing {filtered.length} of {livePortfolios.length || MODEL_PORTFOLIOS_ALL.length} portfolios
+            Showing {filtered.length} of {apiData?.data?.length || livePortfolios.length || MODEL_PORTFOLIOS_ALL.length} portfolios
           </span>
         </div>
       </div>
@@ -4318,36 +4318,12 @@ export default function AgentModelPortfoliosPage() {
                       </p>
                     )}
 
-                    {/* Client gate: blurred ghost rows + upgrade overlay */}
-                    {!canViewFullHoldings && selectedPortfolio.holdings.length > 5 && (
-                      <div className="relative mt-1">
-                        {/* Blurred ghost rows */}
-                        <div className="space-y-2 blur-sm select-none pointer-events-none" aria-hidden="true">
-                          {selectedPortfolio.holdings.slice(5, Math.min(8, selectedPortfolio.holdings.length)).map((h) => (
-                            <div key={h.rank} className="flex items-center gap-3 p-3 rounded-lg bg-muted/40">
-                              <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-xs font-bold text-indigo-600">{h.rank}</div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-semibold truncate">{h.name}</p>
-                                <p className="text-[10px] text-muted-foreground">{h.category}</p>
-                              </div>
-                              <div className="text-right shrink-0"><p className="text-xs font-bold">{h.weight}%</p></div>
-                            </div>
-                          ))}
-                        </div>
-                        {/* Overlay */}
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/75 backdrop-blur-[2px] rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700">
-                          <div className="text-center px-5 py-3">
-                            <div className="text-2xl mb-1.5">🔒</div>
-                            <p className="text-xs font-semibold">Full Holdings for Registered Advisors</p>
-                            <p className="text-[10px] text-muted-foreground mt-1">
-                              {selectedPortfolio.totalHoldings - 5} more holdings available for SEBI-registered advisors &amp; agents
-                            </p>
-                            <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-2 font-medium">
-                              Contact your FintekPro advisor for complete portfolio details
-                            </p>
-                          </div>
-                        </div>
-                      </div>
+
+                    {/* Holdings auth error — only shows if backend returns 401 */}
+                    {holdingsData === undefined && !holdingsLoading && activeDetailTab === "holdings" && (
+                      <p className="text-[10px] text-amber-600 text-center py-2">
+                        Sign in again if holdings fail to load.
+                      </p>
                     )}
 
                     <p className="text-[10px] text-muted-foreground text-center pt-2">

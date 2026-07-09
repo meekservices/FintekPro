@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fintekpro-agent-v1';
+const CACHE_NAME = 'fintekpro-agent-v2'; // bumped 2026-07-09: force evict old JS bundle cache
 
 self.addEventListener('install', (event) => {
   console.log('[SW] Service Worker installing...');
