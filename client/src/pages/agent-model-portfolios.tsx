@@ -2464,6 +2464,22 @@ const THEMATIC_SUBCATEGORIES = ["Thematic / Sectoral", "Alternatives / HNI", "BF
 const GOAL_SUBCATEGORIES = ["Child Education", "Retirement", "Wedding / Life Event", "Home Purchase", "Emergency Fund", "Senior Citizen", "First Investment"];
 const HNI_SUBCATEGORIES = ["Multi-Asset ₹50L", "Multi-Asset ₹1Cr", "Multi-Asset ₹10Cr"];
 
+// ── Investor Segment Tiers ──────────────────────────────────────────────────
+const SEGMENT_CONFIG: Record<string, { label: string; icon: string; gradient: string; badgeColor: string; desc: string; minLabel: string }> = {
+  all:       { label: "All Portfolios",  icon: "🗂️", gradient: "from-slate-600 to-slate-700",   badgeColor: "bg-slate-500",   desc: "Full catalogue",     minLabel: "" },
+  retail:    { label: "Retail",          icon: "🏠", gradient: "from-blue-600 to-indigo-600",  badgeColor: "bg-blue-500",    desc: "Up to ₹10L min",    minLabel: "₹500 — ₹10L" },
+  hni:       { label: "HNI",             icon: "💼", gradient: "from-purple-600 to-violet-600", badgeColor: "bg-purple-500",  desc: "₹50L — ₹1Cr tier",   minLabel: "₹50L — ₹1Cr" },
+  ultra_hni: { label: "Ultra HNI",       icon: "💎", gradient: "from-amber-500 to-orange-600",  badgeColor: "bg-amber-500",   desc: "₹1Cr+ family wealth", minLabel: "₹1Cr+" },
+};
+
+/** Returns the investor segment for a portfolio based on min investment. */
+function getSegment(p: { minInvestment?: number }): "retail" | "hni" | "ultra_hni" {
+  const min = p.minInvestment ?? 0;
+  if (min >= 100000000) return "ultra_hni"; // ≥ ₹1 Cr
+  if (min >= 5000000)   return "hni";       // ≥ ₹50L
+  return "retail";
+}
+
 const DISCLAIMER_TEXT =
   "Model Portfolios are for guidance and educational purposes only. They do NOT constitute SEBI-registered investment advice or a solicitation to buy/sell securities. " +
   "Past performance is not indicative of future returns. All CAGR figures are historical estimates and may not be replicated. " +
@@ -2862,6 +2878,7 @@ export default function AgentModelPortfoliosPage() {
   const [assetClassFilter, setAssetClassFilter] = useState<string>("all");
   const [subCategoryFilter, setSubCategoryFilter] = useState<string>("all");
   const [riskFilter, setRiskFilter] = useState<string>("all");
+  const [segmentFilter, setSegmentFilter] = useState<string>("all");
   const [selectedPortfolio, setSelectedPortfolio] = useState<ModelPortfolio | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareChannel, setShareChannel] = useState<"whatsapp" | "email">("whatsapp");
@@ -3180,12 +3197,13 @@ export default function AgentModelPortfoliosPage() {
 
   const filtered = useMemo(() => {
     return livePortfolios.filter((p) => {
+      if (segmentFilter !== "all" && getSegment(p) !== segmentFilter) return false;
       if (assetClassFilter !== "all" && p.assetClass !== assetClassFilter) return false;
       if (subCategoryFilter !== "all" && p.subCategory !== subCategoryFilter) return false;
       if (riskFilter !== "all" && p.riskProfile !== riskFilter) return false;
       return true;
     });
-  }, [livePortfolios, assetClassFilter, subCategoryFilter, riskFilter]);
+  }, [livePortfolios, segmentFilter, assetClassFilter, subCategoryFilter, riskFilter]);
 
   // Compare helpers
   const toggleCompare = (id: string) => {
@@ -3456,10 +3474,10 @@ export default function AgentModelPortfoliosPage() {
       {/* ── Stats bar ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Model Portfolios", value: apiData?.data?.length || livePortfolios.length || MODEL_PORTFOLIOS_ALL.length, icon: LayoutGrid, color: "text-indigo-500" },
-          { label: "Asset Classes", value: "6 Classes", icon: PieChart, color: "text-blue-500" },
-          { label: "Best 5Y CAGR", value: "31.2%", icon: TrendingUp, color: "text-green-500" },
-          { label: "Min Investment", value: "₹500", icon: Target, color: "text-amber-500" },
+          { label: "Retail",    value: (apiData?.data ?? livePortfolios).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === "retail").length,    icon: LayoutGrid, color: "text-blue-500" },
+          { label: "HNI",       value: (apiData?.data ?? livePortfolios).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === "hni").length,       icon: PieChart,    color: "text-purple-500" },
+          { label: "Ultra HNI", value: (apiData?.data ?? livePortfolios).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === "ultra_hni").length, icon: TrendingUp,  color: "text-amber-500" },
+          { label: "Min Investment", value: "₹500", icon: Target, color: "text-green-500" },
         ].map((s) => (
           <Card key={s.label} className="p-3">
             <div className="flex items-center gap-2">
@@ -3471,6 +3489,47 @@ export default function AgentModelPortfoliosPage() {
             </div>
           </Card>
         ))}
+      </div>
+
+      {/* ── Investor Segment Selector ── */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Investor Segment</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {Object.entries(SEGMENT_CONFIG).map(([key, seg]) => {
+            const count = key === "all"
+              ? (apiData?.data?.length || livePortfolios.length)
+              : (apiData?.data ?? livePortfolios).filter((p: any) => getSegment({ minInvestment: Number(p.minInvestment ?? p.min_investment ?? 0) }) === key).length;
+            const isActive = segmentFilter === key;
+            return (
+              <button
+                key={key}
+                id={`segment-filter-${key}`}
+                onClick={() => {
+                  setSegmentFilter(key);
+                  setAssetClassFilter(key === "hni" || key === "ultra_hni" ? "hni" : "all");
+                  setSubCategoryFilter("all");
+                  setRiskFilter("all");
+                }}
+                className={`relative overflow-hidden rounded-xl p-3.5 text-left transition-all border-2 ${
+                  isActive
+                    ? `bg-gradient-to-br ${seg.gradient} text-white border-transparent shadow-lg scale-[1.02]`
+                    : "bg-card border-border hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md"
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <span className="text-xl">{seg.icon}</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    isActive ? "bg-white/20 text-white" : `${seg.badgeColor} text-white`
+                  }`}>{count}</span>
+                </div>
+                <p className={`text-sm font-bold mt-1.5 ${isActive ? "text-white" : ""}`}>{seg.label}</p>
+                <p className={`text-[10px] mt-0.5 ${isActive ? "text-white/75" : "text-muted-foreground"}`}>
+                  {key === "all" ? "All portfolios" : seg.minLabel}
+                </p>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* ── Asset Class Tabs ── */}
