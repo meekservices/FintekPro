@@ -3864,10 +3864,10 @@ export default function AgentModelPortfoliosPage() {
           // Pending proposals / STCG
           const pendingProposals = proposals[portfolio.id] ?? [];
           const hasTaxDeferredDrift = pendingProposals.length > 0 && driftScore > 5;
-          // Performance section toggle — open by default (matches brief design)
-          const isPerfOpen = !expandedCards.has(`hide-${portfolio.id}`);
-          // Monthly bar chart data (always computed — no lazy gate since section is open by default)
-          const barData = computeMonthlyBarData(portfolio.performance, portfolio.rebalancingHistory, portfolio.inceptionDate ?? undefined);
+          // Performance section toggle — collapsed by default (brief §2: grid density, lazy render)
+          const isPerfOpen = expandedCards.has(`show-${portfolio.id}`);
+          // barData: computed lazily — only when the section is open (perf: avoids 44× compute on initial load)
+          const barData = isPerfOpen ? computeMonthlyBarData(portfolio.performance, portfolio.rebalancingHistory, portfolio.inceptionDate ?? undefined) : [];
           const maxBar  = barData.length ? Math.max(...barData.map((b) => Math.abs(b.returnPct))) || 1 : 1;
           // Last rebalanced display (e.g. "Apr 26")
           const lastRebalLabel = portfolio.lastRebalanced
@@ -4011,7 +4011,7 @@ export default function AgentModelPortfoliosPage() {
                       e.stopPropagation();
                       setExpandedCards((prev) => {
                         const next = new Set(prev);
-                        const key = `hide-${portfolio.id}`;
+                        const key = `show-${portfolio.id}`;
                         next.has(key) ? next.delete(key) : next.add(key);
                         return next;
                       });
@@ -4114,8 +4114,8 @@ export default function AgentModelPortfoliosPage() {
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <div className="flex-1 relative h-full group/bar">
-                                      {/* Hover label */}
-                                      <span className={`absolute ${isPos ? "bottom-[50%] mb-0.5" : "top-[50%] mt-0.5"} left-1/2 -translate-x-1/2 text-[7px] text-foreground/70 font-medium hidden group-hover/bar:block whitespace-nowrap z-20 bg-background/90 px-0.5 rounded`}>
+                                      {/* Return value label — always visible for ≤8 bars, hover-only for denser charts */}
+                                      <span className={`absolute ${isPos ? "bottom-[50%] mb-0.5" : "top-[50%] mt-0.5"} left-1/2 -translate-x-1/2 text-[6px] font-medium whitespace-nowrap z-20 bg-background/90 px-0.5 rounded ${isPos ? "text-emerald-600/80 dark:text-emerald-400/80" : "text-red-500/80"} ${barData.length <= 8 ? "block" : "hidden group-hover/bar:block"}`}>
                                         {bar.returnPct >= 0 ? "+" : ""}{bar.returnPct}%
                                       </span>
                                       {/* Rebalance dot — above zero line */}
@@ -4154,25 +4154,55 @@ export default function AgentModelPortfoliosPage() {
                       </div>
                     )}
 
-                    {/* Allocation bar */}
-                    <div>
-                      <p className="text-[9px] text-muted-foreground mb-1">
-                        Vs {portfolio.blendedBenchmarkReturn != null ? "Blended" : portfolio.benchmarkName} index, cumulative
-                      </p>
-                      <div className="flex rounded-full overflow-hidden h-1.5">
-                        {(portfolio.allocation ?? []).map((a) => (
-                          <TooltipProvider key={a.category}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div
-                                  style={{ width: `${a.weight}%`, backgroundColor: a.color }}
-                                  className="transition-opacity hover:opacity-80"
-                                />
-                              </TooltipTrigger>
-                              <TooltipContent className="text-xs">{a.label}: {a.weight}%</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ))}
+                    {/* Cumulative portfolio vs benchmark line chart (brief §2) */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                        <span>Portfolio vs {portfolio.blendedBenchmarkReturn != null ? "Blended" : portfolio.benchmarkName} (cumulative)</span>
+                        <span className={`font-semibold tabular-nums ${alphaVsBenchmark >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+                          {alphaVsBenchmark >= 0 ? "+" : ""}{alphaVsBenchmark.toFixed(1)}% alpha
+                        </span>
+                      </div>
+                      {(() => {
+                        const pts = (portfolio.performance ?? []).slice(-13);
+                        if (pts.length < 2) return (
+                          <p className="text-[8px] text-muted-foreground/50 italic h-9 flex items-center pl-0.5">Chart computing…</p>
+                        );
+                        const baseNav   = pts[0].portfolioNav;
+                        const baseBench = pts[0].benchmarkNav ?? pts[0].portfolioNav;
+                        const norm = pts.map((p) => ({
+                          p: ((p.portfolioNav / baseNav) - 1) * 100,
+                          b: (((p.benchmarkNav ?? baseBench) / baseBench) - 1) * 100,
+                        }));
+                        const allVals = norm.flatMap((n) => [n.p, n.b]);
+                        const minV = Math.min(...allVals, 0);
+                        const maxV = Math.max(...allVals, 0);
+                        const range = maxV - minV || 1;
+                        const W = 200; const H = 36;
+                        const xStep = W / Math.max(norm.length - 1, 1);
+                        const toY = (v: number) => H - ((v - minV) / range) * H;
+                        const zeroY = toY(0).toFixed(1);
+                        const portPts  = norm.map((n, i) => `${(i * xStep).toFixed(1)},${toY(n.p).toFixed(1)}`).join(" ");
+                        const benchPts = norm.map((n, i) => `${(i * xStep).toFixed(1)},${toY(n.b).toFixed(1)}`).join(" ");
+                        return (
+                          <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-9" preserveAspectRatio="none" aria-hidden="true">
+                            {/* Zero baseline */}
+                            <line x1="0" y1={zeroY} x2={W} y2={zeroY} stroke="currentColor" strokeWidth="0.5" opacity="0.25" strokeDasharray="3,2" />
+                            {/* Benchmark line — muted */}
+                            <polyline points={benchPts} fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+                            {/* Portfolio line — indigo */}
+                            <polyline points={portPts} fill="none" stroke="#6366f1" strokeWidth="1.5" strokeLinejoin="round" />
+                          </svg>
+                        );
+                      })()}
+                      <div className="flex items-center gap-3 text-[8px] text-muted-foreground/60">
+                        <span className="flex items-center gap-1">
+                          <span className="inline-block w-4 h-px bg-indigo-500 rounded" />
+                          Portfolio
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="inline-block w-4 h-px bg-current rounded opacity-30" />
+                          Benchmark
+                        </span>
                       </div>
                     </div>
                   </div>
