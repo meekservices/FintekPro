@@ -3326,7 +3326,7 @@ export default function AgentModelPortfoliosPage() {
     data: any[];
   }>({
     queryKey: ["/api/model-portfolios", selectedPortfolio?.id, "holdings"],
-    enabled: activeDetailTab === "holdings" && !!selectedPortfolio?.id,
+    enabled: activeDetailTab === "holdings" && !!selectedPortfolio?.id && !!user && canViewFullHoldings,
     staleTime: 6 * 60 * 60 * 1000, // 6h — matches server cache
     retry: 1,
     queryFn: async () => {
