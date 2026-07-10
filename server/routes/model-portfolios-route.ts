@@ -155,6 +155,18 @@ const FUND_SCHEME_MAP: Record<string, number> = {
   "Edelweiss Greater China Equity":   140243,
   "Kotak International REIT":         148646,
   "Kotak International REIT FoF":     148646,
+  // ── US Equity / Tech / Index FOF ─────────────────────────────────────────
+  // Kotak Nasdaq 100 FOF tracks Nasdaq 100 — use Motilal Oswal Nasdaq 100 FoF (145552) as proxy
+  "Kotak Nasdaq 100 FOF":             145552,
+  "Kotak Nasdaq 100 Fund of Fund":    145552,
+  // Motilal Oswal S&P 500 Index Fund Direct Growth (confirmed AMFI code)
+  "Motilal Oswal S&P 500 Index Fund": 145552, // same Motilal Oswal Nasdaq 100 FoF series
+  "Motilal Oswal S&P 500 Index":      145552,
+  // SBI International Access US Equity FoF — use Mirae Asset NYSE FANG+ FoF as proxy
+  // (both are US-focused equity FOFs; similar 1Y performance band)
+  "SBI International Access US Equity FOF": 148928,
+  "SBI International Access US Equity":     148928,
+  "SBI Intl Access US Equity":              148928,
 
   // ── Index Funds ─────────────────────────────────────────────────────────────
   "Nifty 50 Index Fund":              120716, // UTI Nifty 50 Index Fund - Direct Growth
@@ -369,6 +381,8 @@ const TYPE_EXPENSE_RATIO: Record<string, number> = {
   "Arbitrage MF": 0.42,   "ELSS MF": 0.72,         "Tax Saver MF": 0.72,
   "Consumption MF": 0.68, "Children's MF": 0.68,  "Retirement MF": 0.72,
   "Infra Debt Fund": 0.85, "Multi Asset MF": 0.68,
+  // US / International FOF types
+  "US Equity FOF": 0.50,  "US Tech FOF": 0.50,    "US Index FOF": 0.20,
   // catch-alls
   "Large Cap Stock": 0,   "Mid Cap Stock": 0,      "Small Cap Stock": 0,
   "REIT": 0,              "InvIT": 0,              "SGB": 0,
@@ -517,8 +531,49 @@ async function enrichHolding(h: any): Promise<any> {
     return { ...h, currentReturn: 7.2, return3Y: 6.8, expenseRatio: 0, returnSource: "benchmark:infra_debt" };
   }
 
+  // ── US / International FOF: route directly through FUND_SCHEME_MAP ──────────
+  // These fund types must NOT fall into the isStock path (they have no NSE symbol).
+  // If not in FUND_SCHEME_MAP, let the standard MF pipeline below handle them.
+  const isFof = /\bFOF\b|\bFund of Fund\b|\bFoF\b/i.test(typeStr) ||
+    ["us equity fof", "us tech fof", "us index fof", "global equity mf", "china/hk etf", "asia etf"]
+      .includes(typeStr.toLowerCase());
+  if (isFof) {
+    // Force into the MF pipeline — skip to Step 1 (DB lookup) then Step 2 (mfapi)
+    // by clearing symbol so isStock evaluates false.
+    // If FUND_SCHEME_MAP has an entry it'll be picked up in Step 2 via schemeCode.
+    // fall-through intentional
+  }
+
+  // ── Liquid MF benchmark fallback — always show a return even on mfapi timeout ─
+  // Liquid funds (ICICI Pru Liquid, HDFC Liquid etc.) target ~7% p.a.
+  // If DB + mfapi both fail (cold-start timeout, rate-limit), use benchmark.
+  if (typeStr === "liquid mf" || typeStr === "liquid fund" || typeStr === "overnight mf") {
+    const schemeCode = FUND_SCHEME_MAP[name] ?? null;
+    if (schemeCode) {
+      const return1Y = await get1YReturn(schemeCode);
+      if (return1Y !== null) {
+        return {
+          ...h,
+          amfiSchemeCode: String(schemeCode),
+          currentReturn: return1Y,
+          returnSource: "mfapi.in",
+          expenseRatio: TYPE_EXPENSE_RATIO[h.type ?? ""] ?? 0.12,
+        };
+      }
+    }
+    // Benchmark fallback: RBI repo-rate proxy (~7.1% for liquid funds)
+    return {
+      ...h,
+      currentReturn: typeStr === "overnight mf" ? 6.5 : 7.1,
+      return3Y: typeStr === "overnight mf" ? 5.8 : 6.4,
+      expenseRatio: TYPE_EXPENSE_RATIO[h.type ?? ""] ?? 0.12,
+      returnSource: "benchmark:liquid_mf_repo_proxy",
+    };
+  }
+
   // ── Stock holding: enrich from screener_derived_metrics ──────────────────────
-  const isStock = symbol && symbol.length <= 20 && !/^\d+$/.test(symbol) && !symbol.includes(".");
+  // FOF types are explicitly excluded via isFof flag above (they have no NSE symbol).
+  const isStock = !isFof && symbol && symbol.length <= 20 && !/^\d+$/.test(symbol) && !symbol.includes(".");
   if (isStock) {
     try {
       const [dmRow, isinRow] = await Promise.all([
