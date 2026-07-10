@@ -164,8 +164,15 @@ type RiskMetrics = {
 
 type RebalancingEvent = {
   date: string;
-  description: string;
-  changes: string[];
+  type?: string;                                 // e.g. "INCEPTION_PORTFOLIO_LAUNCH", "QUARTERLY"
+  description?: string;                          // legacy field
+  rationale?: string;                            // SEBI audit field
+  action_taken?: string;                         // SEBI audit field
+  changes?: string[];                            // legacy format: ["Reduced HDFC to 15%", ...]
+  weight_after?: Record<string, number>;         // SEBI audit format: { "HDFC Top 100": 18, ... }
+  sebi_compliant?: boolean;
+  engine_version?: string;
+  disclaimer?: string;
 };
 
 type AIInsight = {
@@ -4136,7 +4143,7 @@ export default function AgentModelPortfoliosPage() {
                         Vs {portfolio.blendedBenchmarkReturn != null ? "Blended" : portfolio.benchmarkName} index, cumulative
                       </p>
                       <div className="flex rounded-full overflow-hidden h-1.5">
-                        {portfolio.allocation.map((a) => (
+                        {(portfolio.allocation ?? []).map((a) => (
                           <TooltipProvider key={a.category}>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -4755,16 +4762,21 @@ export default function AgentModelPortfoliosPage() {
                      <p className="text-xs text-muted-foreground">
                        Portfolios are rebalanced as needed — triggered when holdings breach asset-class drift tolerance bands. Past performance is not indicative of future results.
                      </p>
-                     {selectedPortfolio.rebalancingHistory.map((e, i) => (
+                     {(selectedPortfolio.rebalancingHistory ?? []).map((e, i) => (
                       <Card key={i} className="border-l-4 border-l-indigo-400">
                         <CardContent className="pt-3 pb-3">
                           <div className="flex items-center gap-2 mb-2">
                             <RefreshCw className="h-3.5 w-3.5 text-indigo-500" />
                             <span className="text-xs font-semibold">{e.date}</span>
                           </div>
-                          <p className="text-xs text-muted-foreground mb-2">{e.description}</p>
+                          <p className="text-xs text-muted-foreground mb-2">{e.description ?? e.rationale ?? e.action_taken ?? ""}</p>
                           <div className="space-y-1">
-                            {e.changes.map((c, j) => (
+                            {(Array.isArray(e.changes)
+                              ? e.changes
+                              : e.weight_after
+                                ? Object.entries(e.weight_after as Record<string, number>).slice(0, 8).map(([k, v]) => `${k}: ${v}%`)
+                                : []
+                            ).map((c: string, j: number) => (
                               <div key={j} className="flex items-center gap-1.5 text-xs">
                                 <ChevronRight className="h-3 w-3 text-indigo-400 shrink-0" />
                                 <span>{c}</span>
