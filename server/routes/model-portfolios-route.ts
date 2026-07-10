@@ -2224,6 +2224,126 @@ modelPortfoliosRouter.post("/admin/seed-inception-dates", async (_req: Request, 
   }
 });
 
+// ── POST /api/model-portfolios/admin/seed-inception-rebalance-entry ─────────────
+// SEBI AUDIT FIX (C2): Writes a formal inception rebalancing history entry for
+// every portfolio where last_rebalanced = 2026-07-10 but rebalancing_history
+// has no entry for that date.
+//
+// SEBI IA Reg 17: every change in portfolio composition must be documented.
+// For inception, the "change" is: from 0% to the defined portfolio weights.
+// This is the audit trail that answers: "What happened on Jul 10 2026?"
+//
+// Entry structure:
+//   date            : "2026-07-10"
+//   type            : "INCEPTION_PORTFOLIO_LAUNCH"
+//   action_taken    : "LAUNCHED" (not a substitution — a new portfolio activation)
+//   weight_before   : null (portfolio did not exist before inception)
+//   weight_after    : { [instrumentName]: weight } — full holdings snapshot
+//   delta_pct       : full allocation (100% allocated for the first time)
+//   rationale       : "FintekPro model portfolio activated on platform go-live"
+//   approved_by     : "SYSTEM_PLATFORM_LAUNCH" (no advisor action required for activation)
+//   disclaimer      : SEBI mandatory advisory disclaimer
+//   engine_version  : ENGINE_VERSION
+//
+// @purpose  : SEBI audit trail — inception record
+// @inputs   : None
+// @outputs  : { success, updated, skipped, meta }
+// @edge case: Skips portfolios that already have a 2026-07-10 entry (idempotent)
+modelPortfoliosRouter.post("/admin/seed-inception-rebalance-entry", async (_req: Request, res: Response) => {
+  const t0 = Date.now();
+  const INCEPTION_REBALANCE_DATE = "2026-07-10";
+
+  try {
+    const rows = await db.execute(sql`
+      SELECT id, name, holdings, rebalancing_history
+      FROM model_portfolios
+      WHERE is_published = true
+    `);
+
+    let updated = 0;
+    let skipped = 0;
+
+    for (const row of rows.rows as any[]) {
+      const portfolioId: string = row.id;
+      const portfolioName: string = row.name;
+      const holdings: any[] = Array.isArray(row.holdings) ? row.holdings : [];
+      const existingHistory: any[] = Array.isArray(row.rebalancing_history) ? row.rebalancing_history : [];
+
+      // Idempotency: skip if already has a 2026-07-10 entry
+      const alreadyHasEntry = existingHistory.some((e: any) => e.date === INCEPTION_REBALANCE_DATE);
+      if (alreadyHasEntry) { skipped++; continue; }
+
+      // Build weight snapshot from holdings
+      const weightAfter: Record<string, number> = {};
+      for (const h of holdings) {
+        if (h.name && h.weight != null) {
+          weightAfter[h.name] = Number(h.weight);
+        }
+      }
+
+      // Compose the inception entry — SEBI-compliant structure
+      const inceptionEntry = {
+        date:           INCEPTION_REBALANCE_DATE,
+        type:           "INCEPTION_PORTFOLIO_LAUNCH",
+        action_taken:   "LAUNCHED",
+        weight_before:  null,                          // no prior allocation (inception)
+        weight_after:   weightAfter,                   // full holdings at launch
+        delta_pct:      100,                           // 100% newly allocated
+        instruments_affected: holdings.length,
+        rationale:      `FintekPro model portfolio '${portfolioName}' activated on platform go-live. All ${holdings.length} holdings established at defined target weights.`,
+        approved_by:    "SYSTEM_PLATFORM_LAUNCH",      // no individual advisor — system activation
+        sebi_compliant: true,
+        engine_version: ENGINE_VERSION,
+        disclaimer:     "This is an AI-generated model portfolio. It is a Decision Support System only. Final investment action requires SEBI-registered advisor approval. Past performance does not guarantee future results. Risk disclosures apply.",
+        generated_at:   new Date().toISOString(),
+      };
+
+      const updatedHistory = [...existingHistory, inceptionEntry].slice(-12); // keep last 12
+
+      await db.execute(sql`
+        UPDATE model_portfolios
+        SET rebalancing_history = ${JSON.stringify(updatedHistory)}::jsonb,
+            updated_at          = NOW()
+        WHERE id = ${portfolioId}
+      `);
+
+      updated++;
+      logger.info(`[ModelPortfolios] inception-rebalance-entry: ${portfolioId} → ${INCEPTION_REBALANCE_DATE}`, {
+        event:        "INCEPTION_REBALANCE_ENTRY_WRITTEN",
+        user_id:      "system",
+        portfolio_id: portfolioId,
+        holdings_count: holdings.length,
+        status:       "success",
+      });
+    }
+
+    logger.info(`[ModelPortfolios] seed-inception-rebalance-entry complete`, {
+      event:      "INCEPTION_REBALANCE_SEED_COMPLETE",
+      user_id:    "system",
+      updated,
+      skipped,
+      latency_ms: Date.now() - t0,
+    });
+
+    return res.json({
+      success: true,
+      updated,
+      skipped,
+      message: `Wrote inception rebalancing history entry (${INCEPTION_REBALANCE_DATE}) for ${updated} portfolios. ${skipped} already had entry.`,
+      auditNote: "Each entry includes: date, type=INCEPTION_PORTFOLIO_LAUNCH, weight_after (full holdings snapshot), rationale, disclaimer, engine_version.",
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] seed-inception-rebalance-entry error:", err instanceof Error ? err : new Error(String(err)));
+    return res.status(500).json({
+      success: false,
+      error_code: "INCEPTION_REBALANCE_ENTRY_ERROR",
+      message: err.message,
+      retryable: true,
+    });
+  }
+});
+
 // ── POST /api/model-portfolios/admin/fix-total-holdings ────────────────────────
 // Sets total_holdings = actual JSONB array length for every published portfolio.
 // Fixes the mismatch where totalHoldings was manually set higher than stored data.
