@@ -3330,11 +3330,20 @@ export default function AgentModelPortfoliosPage() {
     queryKey: ["/api/model-portfolios", selectedPortfolio?.id, "holdings"],
     enabled: activeDetailTab === "holdings" && !!selectedPortfolio?.id && !!user && canViewFullHoldings,
     staleTime: 6 * 60 * 60 * 1000, // 6h — matches server cache
-    retry: 1,
+    gcTime: 6 * 60 * 60 * 1000,    // keep cache alive across portfolio switches
+    // DO NOT set retry here — the global QueryClient retry guard already returns
+    // false for ApiError with status 4xx, which correctly suppresses duplicate
+    // 401 requests. A per-query override would bypass that guard.
     queryFn: async () => {
+      const { getStoredSessionId, getStoredPinDeviceToken } = await import("@/lib/queryClient");
       const r = await fetch(`/api/model-portfolios/${selectedPortfolio!.id}/holdings`, {
-        credentials: "include", // send session cookie so isAuthenticated middleware passes
-        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          // Session ID fallback — required when Chrome 3PCD blocks cookies on agent.fintekpro.com
+          ...(getStoredSessionId() ? { "X-Session-ID": getStoredSessionId()! } : {}),
+          ...(getStoredPinDeviceToken() ? { "X-Pin-Device-Token": getStoredPinDeviceToken()! } : {}),
+        },
       });
       if (!r.ok) {
         // Throw ApiError so the global QueryClient retry guard (which blocks 4xx
