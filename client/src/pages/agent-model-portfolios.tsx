@@ -3187,7 +3187,9 @@ export default function AgentModelPortfoliosPage() {
   // Any authenticated user on the agent portal gets full access.
   // Only restrict if: user is loaded, roles are loaded, and every role is retail-only.
   const isRetailOnly = !!user && userRoles.length > 0 && userRoles.every((r: string) => RETAIL_ONLY_ROLES.includes(r));
-  const canViewFullHoldings = !isRetailOnly;
+  // Explicitly false when user is null — prevents a stale React Query cache from
+  // yielding canViewFullHoldings=true before the session has been verified.
+  const canViewFullHoldings = !!user && !isRetailOnly;
   /** canShare follows the same access level as canViewFullHoldings */
   const canShare = canViewFullHoldings;
   // Agents and above default to showing all holdings; clients default to top-5
@@ -3335,8 +3337,14 @@ export default function AgentModelPortfoliosPage() {
         headers: { "Content-Type": "application/json" },
       });
       if (!r.ok) {
-        if (r.status === 401) throw new Error("AUTH_REQUIRED");
-        throw new Error("Holdings fetch failed");
+        // Throw ApiError so the global QueryClient retry guard (which blocks 4xx
+        // retries) correctly suppresses the duplicate 401 attempt seen in the console.
+        const { ApiError } = await import("@/lib/queryClient");
+        throw new ApiError(
+          r.status === 401 ? "AUTH_REQUIRED" : "Holdings fetch failed",
+          r.status,
+          { code: r.status === 401 ? "UNAUTHORIZED" : "FETCH_ERROR" },
+        );
       }
       return r.json();
     },
