@@ -2907,13 +2907,17 @@ modelPortfoliosRouter.get("/:id/ai-track-record", async (req: Request, res: Resp
 
     let performancePeriods: Record<string, any> = {};
     if (primaryScheme) {
-      const navRows = await db.execute(sql`
-        SELECT month_year, return_percent, benchmark_return
-        FROM mf_monthwise_performance
-        WHERE scheme_code = ${primaryScheme}
-        ORDER BY month_year ASC
-      `);
-      const navData = navRows.rows as any[];
+      // Wrap in its own try/catch: if mf_monthwise_performance is missing columns
+      // (e.g. schema repairs were skipped on this cold start), return empty periods
+      // instead of 500ing the whole endpoint. Non-critical — UI shows "—" gracefully.
+      try {
+        const navRows = await db.execute(sql`
+          SELECT month_year, return_percent, benchmark_return
+          FROM mf_monthwise_performance
+          WHERE scheme_code = ${primaryScheme}
+          ORDER BY month_year ASC
+        `);
+        const navData = navRows.rows as any[];
 
       const geomChain = (rows: any[]): number | null => {
         if (!rows.length) return null;
@@ -2968,6 +2972,17 @@ modelPortfoliosRouter.get("/:id/ai-track-record", async (req: Request, res: Resp
             monthsOfData: navData.length,
           } : {}),
         };
+      } // end for
+      } catch (perfErr: any) {
+        // Schema not yet migrated (column missing / table absent) — return empty periods.
+        // This happens when a revision starts with schema repairs skipped.
+        logger.warn("[ModelPortfolios] ai-track-record: performancePeriods skipped due to schema gap", {
+          event: "AI_TRACK_RECORD_PERF_SKIP",
+          portfolio_id: id,
+          scheme: primaryScheme,
+          reason: perfErr?.message?.slice(0, 120),
+        });
+        performancePeriods = {};
       }
     }
 
@@ -3681,6 +3696,22 @@ modelPortfoliosRouter.get("/:id/proposals", async (req: Request, res: Response) 
     // Graceful degradation — proposals are non-critical UI; return empty list
     const isRelationError = /relation.*does not exist|table.*not found/i.test(err.message ?? "");
     if (isRelationError) {
+      return res.json({
+        success: true,
+        data: [],
+        meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0, total: 0 },
+      });
+    }
+    // Broaden graceful degradation: any DB-level error during cold start
+    // (connection reset, FK violation before schema repair, pool timeout) should
+    // return an empty list — proposals are non-critical UI chrome.
+    const isDbError = /relation.*does not exist|table.*not found|connection.*terminated|FK|foreign key|pool|ETIMEDOUT|ECONNRESET/i.test(err.message ?? "");
+    if (isDbError) {
+      logger.warn("[ModelPortfolios] GET /:id/proposals — DB error, returning empty list (non-critical)", {
+        event: "PROPOSALS_FETCH_DEGRADED",
+        portfolio_id: req.params.id,
+        reason: err.message?.slice(0, 120),
+      });
       return res.json({
         success: true,
         data: [],
