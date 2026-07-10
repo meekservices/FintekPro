@@ -300,7 +300,7 @@ const computeMonthlyBarData = (
   inceptionDate?: string,
   rollingWindow = 12,
 ): Array<{ label: string; returnPct: number; hasRebalanceEvent: boolean }> => {
-  if (performance.length < 2) return [];
+  if (!performance || performance.length < 2) return [];
   const rebalMonths = new Set(
     (rebalancingHistory ?? []).map((e) => {
       const d = new Date(e.date);
@@ -4540,8 +4540,8 @@ export default function AgentModelPortfoliosPage() {
                         </div>
                       )}
                       {(canViewFullHoldings
-                        ? displayHoldings  // Always show all for agents — no slice
-                        : displayHoldings.slice(0, 5)
+                        ? (displayHoldings ?? [])        // Always show all for agents — no slice
+                        : (displayHoldings ?? []).slice(0, 5)
                       ).map((h, _idx) => {
                         const displayBeta = h.beta;
                         const displaySharpe = h.sharpe;
@@ -5089,7 +5089,7 @@ export default function AgentModelPortfoliosPage() {
             </div>
             <div className="flex gap-4 mt-3 text-xs">
               <span className="bg-white/15 rounded px-2 py-1">Min ₹{selectedPortfolio.minInvestment.toLocaleString("en-IN")}</span>
-              <span className="bg-white/15 rounded px-2 py-1">{selectedPortfolio.holdings.length} holdings</span>
+              <span className="bg-white/15 rounded px-2 py-1">{selectedPortfolio.holdings?.length ?? 0} holdings</span>
               <span className="bg-white/15 rounded px-2 py-1">1Y CAGR {selectedPortfolio.cagr1Y}%</span>
             </div>
           </div>
