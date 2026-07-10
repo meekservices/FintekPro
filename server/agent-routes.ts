@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { logger } from "./logger";
 import { storage } from "./storage";
 import { amfiValidationService } from "./amfi-validation-service";
 import { CashfreeAadhaarService } from "./services/cashfree-aadhaar-service";
@@ -27,7 +28,7 @@ async function getZohoCRMService(): Promise<ZohoCRMService | null> {
 		}
 		return null;
 	} catch (error) {
-		console.warn("Zoho CRM service not available:", error);
+		logger.warn("Zoho CRM service not available:");
 		return null;
 	}
 }
@@ -534,10 +535,10 @@ router.post("/register", async (req, res) => {
 			const zohoCRM = await getZohoCRMService();
 			if (zohoCRM) {
 				await zohoCRM.createAgentAsLead(agent.id);
-				console.log(`✅ Agent ${agent.id} synced to Zoho CRM as Lead`);
+				logger.info(`✅ Agent ${agent.id} synced to Zoho CRM as Lead`);
 			}
 		} catch (zohoError) {
-			console.warn("Zoho CRM sync failed (non-blocking):", zohoError);
+			logger.warn("Zoho CRM sync failed (non-blocking):");
 		}
 
 		res.json({
@@ -554,7 +555,7 @@ router.post("/register", async (req, res) => {
 			},
 		});
 	} catch (error) {
-		console.error("Agent registration error:", error);
+		logger.error("Agent registration error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to register agent" });
 	}
 });
@@ -580,7 +581,7 @@ router.post("/validate-arn", async (req, res) => {
 			distributorDetails: arnValidation.distributorDetails,
 		});
 	} catch (error) {
-		console.error("ARN validation error:", error);
+		logger.error("ARN validation error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to validate ARN" });
 	}
 });
@@ -609,7 +610,7 @@ router.post("/validate-euin", async (req, res) => {
 			euinDetails: euinValidation.euinDetails,
 		});
 	} catch (error) {
-		console.error("EUIN validation error:", error);
+		logger.error("EUIN validation error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to validate EUIN" });
 	}
 });
@@ -662,7 +663,7 @@ router.post("/:agentId/aadhaar/generate-otp", requireAuth, async (req, res) => {
 			maskedAadhaar: otpResponse.maskedAadhaar,
 		});
 	} catch (error) {
-		console.error("Aadhaar OTP generation error:", error);
+		logger.error("Aadhaar OTP generation error:", { error: error instanceof Error ? error.message : String(error) });
 		res
 			.status(500)
 			.json({ error: "Failed to generate OTP for Aadhaar verification" });
@@ -742,7 +743,7 @@ router.post("/:agentId/aadhaar/verify-otp", requireAuth, async (req, res) => {
 			},
 		});
 	} catch (error) {
-		console.error("Aadhaar OTP verification error:", error);
+		logger.error("Aadhaar OTP verification error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to verify Aadhaar OTP" });
 	}
 });
@@ -794,7 +795,7 @@ router.post("/:agentId/documents", requireAuth, async (req, res) => {
 
 		res.json({ success: true, document });
 	} catch (error) {
-		console.error("Document upload error:", error);
+		logger.error("Document upload error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to upload document" });
 	}
 });
@@ -815,7 +816,7 @@ router.get("/:agentId/documents", requireAuth, async (req, res) => {
 		const documents = await storage.getAgentDocuments(agentId);
 		res.json({ documents });
 	} catch (error) {
-		console.error("Get documents error:", error);
+		logger.error("Get documents error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to fetch documents" });
 	}
 });
@@ -871,7 +872,7 @@ router.post(
 
 			res.json({ success: true, document });
 		} catch (error) {
-			console.error("Document verification error:", error);
+			logger.error("Document verification error:", { error: error instanceof Error ? error.message : String(error) });
 			res.status(500).json({ error: "Failed to verify document" });
 		}
 	},
@@ -925,21 +926,20 @@ router.post(
 					const zohoCRM = await getZohoCRMService();
 					if (zohoCRM) {
 						await zohoCRM.syncAgentToContact(agentId);
-						console.log(
-							`✅ Approved agent ${agentId} synced to Zoho CRM as Contact`,
-						);
+						logger.info(`[Agent] Approved agent ${agentId} synced to Zoho CRM as Contact`, {
+							event: "ZOHO_AGENT_SYNCED", agent_id: agentId, status: "success",
+						});
 					}
 				} catch (zohoError) {
-					console.warn(
-						"Zoho CRM sync on approval failed (non-blocking):",
-						zohoError,
-					);
+					logger.warn("[Agent] Zoho CRM sync on approval failed (non-blocking)", {
+						event: "ZOHO_SYNC_FAILED", agent_id: agentId, error: String(zohoError), retryable: true,
+					});
 				}
 			}
 
 			res.json({ success: true, agent });
 		} catch (error) {
-			console.error("Agent approval error:", error);
+			logger.error("Agent approval error:", { error: error instanceof Error ? error.message : String(error) });
 			res.status(500).json({ error: "Failed to approve/reject agent" });
 		}
 	},
@@ -952,7 +952,7 @@ router.get("/api/admin/agents", requireAdmin, async (req, res) => {
 		const agents = await storage.getAllAgentsByStatus(status as string);
 		res.json({ agents });
 	} catch (error) {
-		console.error("Get agents error:", error);
+		logger.error("Get agents error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to fetch agents" });
 	}
 });
@@ -978,7 +978,7 @@ router.get("/api/agents/:agentId", requireAuth, async (req, res) => {
 
 		res.json({ agent });
 	} catch (error) {
-		console.error("Get agent error:", error);
+		logger.error("Get agent error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to fetch agent" });
 	}
 });
@@ -1002,7 +1002,7 @@ router.get(
 			const subAgents = await storage.getSubAgents(masterAgentId);
 			res.json({ subAgents });
 		} catch (error) {
-			console.error("Get sub-agents error:", error);
+			logger.error("Get sub-agents error:", { error: error instanceof Error ? error.message : String(error) });
 			res.status(500).json({ error: "Failed to fetch sub-agents" });
 		}
 	},
@@ -1052,7 +1052,7 @@ router.post(
 
 			res.json({ success: true, split });
 		} catch (error) {
-			console.error("Create commission split error:", error);
+			logger.error("Create commission split error:", { error: error instanceof Error ? error.message : String(error) });
 			res.status(500).json({ error: "Failed to create commission split" });
 		}
 	},
@@ -1094,7 +1094,7 @@ router.get("/api/agents/commission-splits", requireAuth, async (req, res) => {
 		);
 		res.json({ splits });
 	} catch (error) {
-		console.error("Get commission splits error:", error);
+		logger.error("Get commission splits error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to fetch commission splits" });
 	}
 });
@@ -1125,7 +1125,7 @@ router.get(
 
 			res.json({ commissions });
 		} catch (error) {
-			console.error("Get agent commissions error:", error);
+			logger.error("Get agent commissions error:", { error: error instanceof Error ? error.message : String(error) });
 			res.status(500).json({ error: "Failed to fetch commissions" });
 		}
 	},
@@ -1155,7 +1155,7 @@ router.get(
 			);
 			res.json({ summary });
 		} catch (error) {
-			console.error("Get commission summary error:", error);
+			logger.error("Get commission summary error:", { error: error instanceof Error ? error.message : String(error) });
 			res.status(500).json({ error: "Failed to fetch commission summary" });
 		}
 	},
@@ -1171,7 +1171,7 @@ router.get("/api/admin/agents/amfi-logs", requireAdmin, async (req, res) => {
 		);
 		res.json({ logs });
 	} catch (error) {
-		console.error("Get AMFI logs error:", error);
+		logger.error("Get AMFI logs error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to fetch AMFI logs" });
 	}
 });
@@ -1196,7 +1196,7 @@ router.get(
 			const stats = await storage.getAgentReferralStats(agentId);
 			res.json(stats);
 		} catch (error) {
-			console.error("Get referral stats error:", error);
+			logger.error("Get referral stats error:", { error: error instanceof Error ? error.message : String(error) });
 			res.status(500).json({ error: "Failed to fetch referral statistics" });
 		}
 	},
@@ -1220,7 +1220,7 @@ router.get(
 			const clients = await storage.getReferredClients(agentId);
 			res.json(clients);
 		} catch (error) {
-			console.error("Get referred clients error:", error);
+			logger.error("Get referred clients error:", { error: error instanceof Error ? error.message : String(error) });
 			res.status(500).json({ error: "Failed to fetch referred clients" });
 		}
 	},
@@ -1241,7 +1241,7 @@ router.get("/api/agents/:agentId/earnings", requireAuth, async (req, res) => {
 		const earnings = await storage.getAgentEarnings(agentId);
 		res.json(earnings);
 	} catch (error) {
-		console.error("Get earnings error:", error);
+		logger.error("Get earnings error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to fetch earnings" });
 	}
 });
@@ -1286,7 +1286,7 @@ router.post(
 
 			res.json({ success: true, referral });
 		} catch (error) {
-			console.error("Refer client error:", error);
+			logger.error("Refer client error:", { error: error instanceof Error ? error.message : String(error) });
 			res.status(500).json({ error: "Failed to refer client" });
 		}
 	},
@@ -1371,7 +1371,7 @@ router.get("/appointments", requireAuth, async (req, res) => {
 
 		res.json({ appointments: filtered });
 	} catch (error) {
-		console.error("Get appointments error:", error);
+		logger.error("Get appointments error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to fetch appointments" });
 	}
 });
@@ -1427,7 +1427,7 @@ router.post("/appointments", requireAuth, async (req, res) => {
 
 		res.json({ success: true, appointment });
 	} catch (error) {
-		console.error("Create appointment error:", error);
+		logger.error("Create appointment error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to create appointment" });
 	}
 });
@@ -1484,7 +1484,7 @@ router.patch("/appointments/:id", requireAuth, async (req, res) => {
 			appointment: appointmentsStore[appointmentIndex],
 		});
 	} catch (error) {
-		console.error("Update appointment error:", error);
+		logger.error("Update appointment error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to update appointment" });
 	}
 });
@@ -1505,7 +1505,7 @@ router.delete("/appointments/:id", requireAuth, async (req, res) => {
 
 		res.json({ success: true, message: "Appointment deleted" });
 	} catch (error) {
-		console.error("Delete appointment error:", error);
+		logger.error("Delete appointment error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to delete appointment" });
 	}
 });
@@ -1594,7 +1594,7 @@ router.get("/clients", requireAuth, async (req, res) => {
 
 		res.json(allClientsAndProspects);
 	} catch (error) {
-		console.error("Get clients error:", error);
+		logger.error("Get clients error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({ error: "Failed to fetch clients" });
 	}
 });
@@ -1689,7 +1689,7 @@ router.post("/clients/onboard", requireAuth, async (req, res) => {
 			updatedAt: new Date().toISOString(),
 		};
 
-		console.log("New client onboarded:", newClient);
+		logger.info("New client onboarded:");
 
 		res.json({
 			success: true,
@@ -1697,7 +1697,7 @@ router.post("/clients/onboard", requireAuth, async (req, res) => {
 			message: "Client onboarded successfully",
 		});
 	} catch (error) {
-		console.error("Client onboarding error:", error);
+		logger.error("Client onboarding error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({
 			success: false,
 			error: "Failed to onboard client",
@@ -1734,7 +1734,7 @@ router.post("/clients/onboard/draft", requireAuth, async (req, res) => {
 			message: "Draft saved successfully",
 		});
 	} catch (error) {
-		console.error("Save draft error:", error);
+		logger.error("Save draft error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({
 			success: false,
 			error: "Failed to save draft",
@@ -1770,7 +1770,7 @@ router.get("/clients/onboard/draft/:id", requireAuth, async (req, res) => {
 			draft,
 		});
 	} catch (error) {
-		console.error("Get draft error:", error);
+		logger.error("Get draft error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({
 			success: false,
 			error: "Failed to retrieve draft",
@@ -1795,7 +1795,7 @@ router.get("/clients/onboard/drafts", requireAuth, async (req, res) => {
 			drafts,
 		});
 	} catch (error) {
-		console.error("List drafts error:", error);
+		logger.error("List drafts error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({
 			success: false,
 			error: "Failed to list drafts",
@@ -1832,7 +1832,7 @@ router.delete("/clients/onboard/draft/:id", requireAuth, async (req, res) => {
 			message: "Draft deleted successfully",
 		});
 	} catch (error) {
-		console.error("Delete draft error:", error);
+		logger.error("Delete draft error:", { error: error instanceof Error ? error.message : String(error) });
 		res.status(500).json({
 			success: false,
 			error: "Failed to delete draft",
@@ -1884,7 +1884,7 @@ router.get("/zoho/leads", requireAuth, async (req, res) => {
 			total: Array.isArray(result) ? result.length : 0,
 		});
 	} catch (error: any) {
-		console.error("[Agent Zoho] Get leads error:", error.message);
+logger.error("[Agent Zoho] Get leads error:", { error: error.message });
 		res.status(500).json({
 			success: false,
 			connected: false,
@@ -1929,7 +1929,7 @@ router.post("/zoho/sync", requireAuth, async (req, res) => {
 			message: "Leads synced successfully",
 		});
 	} catch (error: any) {
-		console.error("[Agent Zoho] Sync error:", error.message);
+logger.error("[Agent Zoho] Sync error:", { error: error.message });
 		res.status(500).json({
 			success: false,
 			error: error.message,
@@ -1972,7 +1972,7 @@ router.get("/zoho/leads/:leadId", requireAuth, async (req, res) => {
 
 		res.json(lead);
 	} catch (error: any) {
-		console.error("[Agent Zoho] Get lead error:", error.message);
+logger.error("[Agent Zoho] Get lead error:", { error: error.message });
 		res.status(500).json({
 			error: error.message,
 		});
@@ -2034,9 +2034,9 @@ router.post("/zoho/leads/:leadId/proposal", requireAuth, async (req, res) => {
 		const connection = await ZohoConnectionResolver.resolveForAgent(agentId);
 
 		if (!connection) {
-			console.log(
-				`[Agent Zoho] Zoho not connected - proposal ${proposalId} not synced`,
-			);
+			logger.info("[Agent Zoho] Zoho not connected", {
+				event: "ZOHO_NOT_CONNECTED", agent_id: agentId, proposal_id: proposalId, status: "skipped",
+			});
 			return res.status(503).json({
 				success: false,
 				synced: false,
@@ -2070,7 +2070,7 @@ router.post("/zoho/leads/:leadId/proposal", requireAuth, async (req, res) => {
 		});
 
 		if (!noteId) {
-			console.warn("[Agent Zoho] Failed to create note for lead", leadId);
+			logger.warn("[Agent Zoho] Failed to create note for lead");
 			return res.status(502).json({
 				success: false,
 				synced: false,
@@ -2086,14 +2086,14 @@ router.post("/zoho/leads/:leadId/proposal", requireAuth, async (req, res) => {
 		);
 
 		if (!statusUpdated) {
-			console.warn(
-				`[Agent Zoho] Note created but status update failed for lead ${leadId}`,
-			);
+			logger.warn(`[Agent Zoho] Note created but status update failed for lead ${leadId}`, {
+				event: "ZOHO_STATUS_UPDATE_FAILED", lead_id: leadId, note_id: noteId, retryable: true,
+			});
 		}
 
-		console.log(
-			`[Agent Zoho] Proposal ${proposalId} synced to Zoho lead ${leadId} (note: ${noteId})`,
-		);
+		logger.info(`[Agent Zoho] Proposal ${proposalId} synced to Zoho lead ${leadId}`, {
+			event: "ZOHO_PROPOSAL_SYNCED", proposal_id: proposalId, lead_id: leadId, note_id: noteId, status: "success",
+		});
 
 		res.json({
 			success: true,
@@ -2107,7 +2107,7 @@ router.post("/zoho/leads/:leadId/proposal", requireAuth, async (req, res) => {
 			proposalId,
 		});
 	} catch (error: any) {
-		console.error("[Agent Zoho] Log proposal error:", error.message);
+logger.error("[Agent Zoho] Log proposal error:", { error: error.message });
 		res.status(500).json({
 			success: false,
 			synced: false,
@@ -2357,14 +2357,14 @@ router.get("/model-portfolios", requireAuth, (req: any, res: any) => {
 		}
 
 		// FASP-AI: log the advisory fetch event
-		console.info(JSON.stringify({
+		logger.info("[Agent] MODEL_PORTFOLIO_LIST_FETCHED", {
 			event: "MODEL_PORTFOLIO_LIST_FETCHED",
 			user_id: req.user?.id,
 			filters: { riskProfile, goal },
 			count: portfolios.length,
 			latency_ms: Date.now() - startTime,
 			status: "success",
-		}));
+		});
 
 		res.json({
 			success: true,
@@ -2377,7 +2377,7 @@ router.get("/model-portfolios", requireAuth, (req: any, res: any) => {
 			},
 		});
 	} catch (error: any) {
-		console.error(JSON.stringify({
+		logger.error("[Agent] MODEL_PORTFOLIO_LIST_ERROR", {
 			event: "MODEL_PORTFOLIO_LIST_ERROR",
 			user_id: req.user?.id,
 			error_code: "MODEL_PORTFOLIO_FETCH_FAILED",
@@ -2385,7 +2385,7 @@ router.get("/model-portfolios", requireAuth, (req: any, res: any) => {
 			retryable: true,
 			latency_ms: Date.now() - startTime,
 			status: "error",
-		}));
+		});
 		res.status(500).json({
 			success: false,
 			error_code: "MODEL_PORTFOLIO_FETCH_FAILED",
@@ -2418,7 +2418,7 @@ router.get("/model-portfolios/:id", requireAuth, (req: any, res: any) => {
 		}
 
 		// FASP-AI: log advisory output access per compliance
-		console.info(JSON.stringify({
+		logger.info("[Agent] MODEL_PORTFOLIO_AI_INSIGHT", {
 			event: "MODEL_PORTFOLIO_AI_INSIGHT",
 			user_id: req.user?.id,
 			input_context: { portfolio_id: id },
@@ -2430,7 +2430,7 @@ router.get("/model-portfolios/:id", requireAuth, (req: any, res: any) => {
 			timestamp: portfolio.aiInsight.timestamp,
 			latency_ms: Date.now() - startTime,
 			status: "success",
-		}));
+		});
 
 		res.json({
 			success: true,
@@ -2442,7 +2442,7 @@ router.get("/model-portfolios/:id", requireAuth, (req: any, res: any) => {
 			},
 		});
 	} catch (error: any) {
-		console.error(JSON.stringify({
+		logger.error("[Agent] MODEL_PORTFOLIO_DETAIL_ERROR", {
 			event: "MODEL_PORTFOLIO_DETAIL_ERROR",
 			user_id: req.user?.id,
 			error_code: "MODEL_PORTFOLIO_DETAIL_FAILED",
@@ -2450,7 +2450,7 @@ router.get("/model-portfolios/:id", requireAuth, (req: any, res: any) => {
 			retryable: true,
 			latency_ms: Date.now() - startTime,
 			status: "error",
-		}));
+		});
 		res.status(500).json({
 			success: false,
 			error_code: "MODEL_PORTFOLIO_DETAIL_FAILED",
@@ -2510,7 +2510,7 @@ router.post("/model-portfolios/:id/share", requireAuth, async (req: any, res: an
 		}
 
 		// Log the share event
-		console.info(JSON.stringify({
+		logger.info("[Agent] MODEL_PORTFOLIO_SHARED", {
 			event: "MODEL_PORTFOLIO_SHARED",
 			user_id: req.user?.id,
 			portfolio_id: id,
@@ -2518,7 +2518,7 @@ router.post("/model-portfolios/:id/share", requireAuth, async (req: any, res: an
 			client_id: clientId,
 			latency_ms: Date.now() - startTime,
 			status: "success",
-		}));
+		});
 
 		res.json({
 			success: true,
@@ -2536,7 +2536,7 @@ router.post("/model-portfolios/:id/share", requireAuth, async (req: any, res: an
 			},
 		});
 	} catch (error: any) {
-		console.error(JSON.stringify({
+		logger.error("[Agent] MODEL_PORTFOLIO_SHARE_ERROR", {
 			event: "MODEL_PORTFOLIO_SHARE_ERROR",
 			user_id: req.user?.id,
 			error_code: "PORTFOLIO_SHARE_FAILED",
@@ -2544,7 +2544,7 @@ router.post("/model-portfolios/:id/share", requireAuth, async (req: any, res: an
 			retryable: true,
 			latency_ms: Date.now() - startTime,
 			status: "error",
-		}));
+		});
 		res.status(500).json({
 			success: false,
 			error_code: "PORTFOLIO_SHARE_FAILED",

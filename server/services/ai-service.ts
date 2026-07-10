@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import crypto from "crypto";
 import { errorTrackingService } from "./error-tracking-service";
+import { logger } from "../logger";
 
 // the newest OpenAI model is "gpt-4o" which was released August 7, 2025. do not change this unless explicitly requested by the user
 
@@ -182,9 +183,9 @@ export class AIService {
 		const deadline = Date.now() + 12_000;
 		while (this.getInflight(provider) >= cap) {
 			if (Date.now() > deadline) {
-				console.warn(
-					`[AIService] ⚠️ Concurrency cap (${cap}) hit for ${provider} — skipping after wait`,
-				);
+				logger.warn(`[AIService] Concurrency cap (${cap}) hit for ${provider} — skipping after wait`, {
+					event: "AI_CONCURRENCY_CAP_HIT", provider, cap, latency_ms: 12000,
+				});
 				return false;
 			}
 			await new Promise((r) => setTimeout(r, 200));
@@ -209,9 +210,9 @@ export class AIService {
 	}
 
 	private markProviderUnhealthy(provider: AIProvider) {
-		console.warn(
-			`[AIService] Marking ${provider} as unhealthy (cool-down starting)`,
-		);
+		logger.warn(`[AIService] Marking ${provider} as unhealthy (cool-down starting)`, {
+			event: "AI_PROVIDER_UNHEALTHY", provider, status: "unhealthy",
+		});
 		this.providerStatus[provider] = {
 			healthy: false,
 			lastErrorTime: Date.now(),
@@ -230,9 +231,9 @@ export class AIService {
 			"openai-direct": "gpt-4o",
 		};
 		this._defaultModel = defaultModels[provider] ?? "llama-3.3-70b-versatile";
-		console.log(
-			`[AIService] Default provider switched to: ${provider} (model: ${this._defaultModel})`,
-		);
+		logger.info(`[AIService] Default provider switched to: ${provider} (model: ${this._defaultModel})`, {
+			event: "AI_PROVIDER_SWITCHED", provider, model: this._defaultModel, status: "success",
+		});
 	}
 
 	getDefaultProvider(): { provider: AIProvider; model: AIModel } {
@@ -264,7 +265,7 @@ export class AIService {
 				responsePreviewHash: hash,
 			});
 		} catch (err: any) {
-			console.warn("[AIService] Failed to log prompt usage:", err.message);
+			logger.warn("[AIService] Failed to log prompt usage", { event: "PROMPT_USAGE_LOG_ERROR", error: err.message });
 		}
 	}
 
@@ -419,7 +420,9 @@ export class AIService {
 
 		for (const { provider, model } of finalChain) {
 			if (!this.isProviderHealthy(provider)) {
-				console.log(`[AIService] Skipping unhealthy provider: ${provider}`);
+				logger.info(`[AIService] Skipping unhealthy provider: ${provider}`, {
+					event: "AI_PROVIDER_SKIPPED", provider, status: "unhealthy",
+				});
 				continue;
 			}
 
@@ -430,9 +433,9 @@ export class AIService {
 			let attempt = 0;
 			while (attempt <= MAX_RETRIES) {
 				try {
-					console.log(
-						`[AIService] Attempting chat with ${provider} (${model}) [Attempt ${attempt + 1}]...`,
-					);
+					logger.info(`[AIService] Attempting chat with ${provider} (${model}) [Attempt ${attempt + 1}]`, {
+						event: "AI_CHAT_ATTEMPT", provider, model, attempt: attempt + 1,
+					});
 
 					let result: { content: string; usage: AIUsageMetrics };
 
@@ -482,9 +485,9 @@ export class AIService {
 						);
 					} else {
 						// Provider not configured — skip silently, try next in chain
-						console.log(
-							`[AIService] Provider '${provider}' not configured, skipping`,
-						);
+						logger.info(`[AIService] Provider '${provider}' not configured, skipping`, {
+							event: "AI_PROVIDER_NOT_CONFIGURED", provider,
+						});
 						break;
 					}
 
@@ -507,6 +510,25 @@ export class AIService {
 					}
 
 					this.releaseSlot(provider);
+					// ── H2: AI_ADVICE_GENERATED — FASP-AI v3.0 mandatory audit log ──────
+					// Every AI output that reaches a user/advisor must be logged with:
+					// model_version, timestamp, user_id, feature, output length.
+					// This fires on the single central success path for all chat() calls.
+					logger.info("[AIService] AI advisory output generated", {
+						event:           "AI_ADVICE_GENERATED",
+						user_id:         userId ?? "anonymous",
+						feature:         feature ?? "unknown",
+						provider,
+						model,
+						model_version:   model,
+						output_chars:    result.content?.length ?? 0,
+						prompt_tokens:   result.usage?.promptTokens ?? 0,
+						completion_tokens: result.usage?.completionTokens ?? 0,
+						attempt,
+						disclaimer_note: "AI output is decision support only. Requires advisor/user confirmation before action.",
+						timestamp:       new Date().toISOString(),
+						status:          "success",
+					});
 					return result;
 				} catch (error: any) {
 					if (attempt >= MAX_RETRIES) this.releaseSlot(provider);
@@ -516,9 +538,9 @@ export class AIService {
 						error.statusCode ||
 						(error.response ? error.response.status : "N/A");
 
-					console.error(
-						`[AIService] ❌ ${provider} (${model}) failed [Status: ${status}]: ${error.message}`,
-					);
+					logger.error(`[AIService] ${provider} (${model}) failed [Status: ${status}]: ${error.message}`, {
+						event: "AI_PROVIDER_ERROR", provider, model, status, attempt, feature, user_id: userId, error: error.message,
+					});
 
 					// Log each failure to error tracker
 					errorTrackingService
@@ -551,26 +573,25 @@ export class AIService {
 
 					if (is429) {
 						if (attempt < MAX_RETRIES) {
-							const delay = (attempt + 1) * 3000;
-							console.warn(
-								`[AIService] ⏳ Rate limit (429) hit for ${provider}. Retrying in ${delay}ms...`,
-							);
-							await new Promise((resolve) => setTimeout(resolve, delay));
-							attempt++;
+								const delay = (attempt + 1) * 3000;
+								logger.warn(`[AIService] Rate limit (429) hit for ${provider}. Retrying in ${delay}ms...`, {
+									event: "AI_RATE_LIMIT_RETRY", provider, model, attempt, delay_ms: delay, user_id: userId,
+								});
+								await new Promise((resolve) => setTimeout(resolve, delay));
+								attempt++;
 							continue;
 						}
-						console.error(
-							`[AIService] ⚠️ Max retries reached for ${provider} after 429. Marking unhealthy.`,
-						);
+						logger.error(`[AIService] Max retries reached for ${provider} after 429. Marking unhealthy.`, {
+							event: "AI_PROVIDER_MAX_RETRIES", provider, model, attempt, user_id: userId,
+						});
 						this.markProviderUnhealthy(provider);
 						this.releaseSlot(provider);
 						break; // Move to next provider
 					}
 
-					console.error(
-						`[AIService] ${provider} failed (non-retryable or max retries):`,
-						error.message,
-					);
+					logger.error(`[AIService] ${provider} failed (non-retryable or max retries)`, {
+						event: "AI_PROVIDER_FAILED", provider, model, error: error.message, user_id: userId, feature,
+					});
 					this.releaseSlot(provider);
 					break; // Move to next provider in chain
 				}
@@ -599,10 +620,9 @@ export class AIService {
 				},
 			})
 			.catch((err) =>
-				console.error(
-					"[AIService] Failed to log error to ErrorTrackingService:",
-					err,
-				),
+				logger.error("[AIService] Failed to log error to ErrorTrackingService", {
+					event: "ERROR_TRACKING_LOG_FAILURE", error: String(err),
+				}),
 			);
 
 		throw new Error(errorMessage);
@@ -675,9 +695,9 @@ export class AIService {
 			if (!this.isProviderHealthy(provider)) continue;
 
 			try {
-				console.log(
-					`[AIService] Attempting stream with ${provider} (${model})...`,
-				);
+				logger.info(`[AIService] Attempting stream with ${provider} (${model})`, {
+					event: "AI_STREAM_ATTEMPT", provider, model,
+				});
 
 				if (provider === "openai" || provider === "openai-direct") {
 					return await this.streamOpenAI(
@@ -727,10 +747,9 @@ export class AIService {
 				throw new Error(`Provider ${provider} not available for streaming`);
 			} catch (error: any) {
 				lastError = error;
-				console.error(
-					`[AIService] Streaming ${provider} failed:`,
-					error.message,
-				);
+				logger.error(`[AIService] Streaming ${provider} failed`, {
+					event: "AI_STREAM_FAILED", provider, model, error: error.message,
+				});
 				if (error.status === 429 || error.message?.includes("429")) {
 					this.markProviderUnhealthy(provider);
 				}
@@ -771,10 +790,9 @@ export class AIService {
 		// Ensure content is always a string
 		let content = response.choices[0]?.message?.content || "";
 		if (typeof content !== "string") {
-			console.warn(
-				"[AI Service] OpenAI returned non-string content, converting to JSON:",
-				typeof content,
-			);
+			logger.warn("[AIService] OpenAI returned non-string content, converting to JSON", {
+				event: "AI_NON_STRING_CONTENT", provider: "openai", model, contentType: typeof content,
+			});
 			content = JSON.stringify(content);
 		}
 		const usage: AIUsageMetrics = {
