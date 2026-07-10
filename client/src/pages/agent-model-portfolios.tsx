@@ -3121,9 +3121,23 @@ export default function AgentModelPortfoliosPage() {
           expenseRatio: h.expenseRatio ?? undefined,
           rating: h.rating ?? undefined,
         })),
-        rebalancingHistory: p.rebalancingHistory ?? staticP?.rebalancingHistory ?? [],
+        rebalancingHistory: (() => {
+          const rh = p.rebalancingHistory ?? staticP?.rebalancingHistory;
+          if (Array.isArray(rh)) return rh;
+          if (typeof rh === "string") { try { const parsed = JSON.parse(rh); return Array.isArray(parsed) ? parsed : []; } catch { return []; } }
+          return [];
+        })(),
         aiInsight: p.aiInsight ?? null,
-        goal: Array.isArray(p.goals) && p.goals.length > 0 ? p.goals : (staticP?.goal ?? ["wealth_creation"]),
+        goal: (() => {
+          // p.goals: DB column is JSONB — Drizzle returns array, but may come as string if serialized
+          const raw = p.goals ?? p.goal;
+          if (Array.isArray(raw) && raw.length > 0) return raw;
+          if (typeof raw === "string") {
+            try { const parsed = JSON.parse(raw); if (Array.isArray(parsed) && parsed.length > 0) return parsed; } catch { /* fall through */ }
+          }
+          // Fallback: static seed definition → hardcoded safe default
+          return staticP?.goal ?? ["wealth_creation"];
+        })(),
         performance: PERFORMANCE_BASE(
           p.id ?? "portfolio", 1000, 24,
           Number(p.cagr1Y) || staticP?.cagr1Y || 12,
@@ -3526,7 +3540,7 @@ export default function AgentModelPortfoliosPage() {
       autoTable(doc, {
         startY: 62,
         head: [["Asset Class", "Weight %"]],
-        body: selectedPortfolio.allocation.map((a) => [a.label, `${a.weight}%`]),
+        body: (selectedPortfolio.allocation ?? []).map((a) => [a.label, `${a.weight}%`]),
         styles: { fontSize: 8, cellPadding: 2 },
         headStyles: { fillColor: [30, 64, 175], textColor: 255, fontStyle: "bold" },
         alternateRowStyles: { fillColor: [239, 246, 255] },
@@ -3563,7 +3577,7 @@ export default function AgentModelPortfoliosPage() {
       autoTable(doc, {
         startY: afterY + 12,
         head: [["#", "Instrument", "Category", "Weight %", "Return %"]],
-        body: selectedPortfolio.holdings.map((h) => [
+        body: (selectedPortfolio.holdings ?? []).map((h) => [
           h.rank,
           h.name,
           h.category,
@@ -3928,7 +3942,7 @@ export default function AgentModelPortfoliosPage() {
                   <Badge variant="outline" className={`text-[9px] ${risk.bg} border-0 px-1.5 py-0`}>
                     {risk.icon} {risk.label}
                   </Badge>
-                  {portfolio.goal.slice(0, 3).map((g) => (
+                  {(portfolio.goal ?? []).slice(0, 3).map((g) => (
                     <Badge key={g} variant="outline" className="text-[9px] px-1.5 py-0">
                       {GOAL_LABELS[g] || g}
                     </Badge>
@@ -4330,13 +4344,13 @@ export default function AgentModelPortfoliosPage() {
                               dataKey="weight"
                               strokeWidth={2}
                             >
-                              {selectedPortfolio.allocation.map((a) => (
+                              {(selectedPortfolio.allocation ?? []).map((a) => (
                                 <Cell key={a.category} fill={a.color} />
                               ))}
                             </Pie>
                           </RechartsPieChart>
                           <div className="flex-1 space-y-2">
-                            {selectedPortfolio.allocation.map((a) => (
+                            {(selectedPortfolio.allocation ?? []).map((a) => (
                               <div key={a.category} className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: a.color }} />
                                 <span className="text-xs flex-1 truncate">{a.label}</span>
