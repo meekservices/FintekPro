@@ -351,7 +351,42 @@ export class StockStrategy extends BaseStrategy {
 			const results: DailyPickData[] = [];
 			const usedIds = new Set<string>(context.recentIds ?? []);
 
+			// ── Fix 1: 2-day broad-sector dedup ─────────────────────────────────────
+			// Prevents the same broad sector (e.g. IT) from being picked 3 days in a row.
+			// Reads the last 2 days of stock picks from dailyPicks and tracks which
+			// broadSector IDs were used. Non-fatal: if DB fails, proceed without dedup.
+			const recentBroadSectors = new Set<string>();
+			try {
+				const { dailyPicks } = await import("@shared/schema");
+				const { gte, eq } = await import("drizzle-orm");
+				const twoDaysAgo = new Date();
+				twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+				const recentPicks = await db
+					.select({ keyMetrics: dailyPicks.keyMetrics })
+					.from(dailyPicks)
+					.where(
+						and(
+							eq(dailyPicks.category, "listed_stocks"),
+							gte(dailyPicks.recoDate, twoDaysAgo.toISOString().split("T")[0]),
+						),
+					);
+				for (const p of recentPicks) {
+					const km = p.keyMetrics as Record<string, any> | null;
+					if (km?.broadSector) recentBroadSectors.add(String(km.broadSector));
+				}
+				if (recentBroadSectors.size > 0) {
+					logger.info(`[StockStrategy] Fix 1: excluding ${recentBroadSectors.size} recently-used broad sectors: ${[...recentBroadSectors].join(", ")}`);
+				}
+			} catch {
+				// Non-fatal — proceed without sector dedup
+			}
+
 			for (const broadSector of BROAD_SECTORS) {
+				// Fix 1: Skip sectors used in the last 2 days
+				if (recentBroadSectors.has(broadSector.id) && results.length > 0) {
+					logger.info(`[StockStrategy] Fix 1: skipping ${broadSector.label} (recently used)`);
+					continue;
+				}
 				try {
 					const pick = await this.pickBestForSector(
 						broadSector,
@@ -612,6 +647,7 @@ export class StockStrategy extends BaseStrategy {
 				stock.symbol
 					? enrichedSnapshots.get(stock.symbol.toUpperCase()) || null
 					: null,
+				context, // Fix 2: pass context for regime-aware scoring
 			),
 		}));
 		const scored = (await runConcurrent(scoringTasks, 4)).sort(
@@ -763,6 +799,8 @@ export class StockStrategy extends BaseStrategy {
 	async score(
 		stock: any,
 		enriched?: EnrichedStockSnapshot | null,
+		/** Optional StrategyContext — used for Fix 2 market-regime-aware score multipliers */
+		context?: StrategyContext | null,
 	): Promise<number> {
 		let score = 0;
 
@@ -895,8 +933,39 @@ export class StockStrategy extends BaseStrategy {
 		if (dayChangePct !== null && dayChangePct <= -7) score -= 40; // near/at lower circuit
 		if (dayChangePct !== null && dayChangePct >= 7) score -= 15;  // near upper circuit gap-up
 
+		// ── Fix 2: Market-regime-aware score multipliers ──────────────────────────
+		// Adjust signal weights based on current market regime from detectRegime().
+		// BEAR/HIGH_VOL: boost defensive characteristics, penalise high-beta momentum.
+		// NEUTRAL:       shift weight towards value (low-PE, high-ROIC) signals.
+		// BULL:          momentum weights already optimised — no additional adjustment.
+		const regime = context?.regime ?? "BULL";
+		if (regime === "BEAR" || regime === "HIGH_VOL") {
+			// ✔ Dividend yield → safe harbour income premium in volatile markets
+			if (stock.dividendYield) {
+				const dy = Number.parseFloat(stock.dividendYield);
+				if (dy >= 3) score += 12;       // strong income floor
+				else if (dy >= 1.5) score += 6; // moderate yield buffer
+			}
+			// ✔ Low beta → defensive profile (less drawdown in falling markets)
+			const betaRegime = enriched?.performance?.beta ?? (stock.beta ? Number.parseFloat(stock.beta) : null);
+			if (betaRegime !== null) {
+				if (betaRegime < 0.7) score += 10;       // very defensive
+				else if (betaRegime < 1.0) score += 5;   // mild defensive
+				else if (betaRegime > 1.5) score -= 12;  // high-beta = magnified drawdown risk
+			}
+			// ✘ Fast-falling stocks get extra penalty in bear regime
+			const ret1M = stock.returns1M ? Number.parseFloat(stock.returns1M) : null;
+			if (ret1M !== null && ret1M < -5) score -= 8;
+		} else if (regime === "NEUTRAL") {
+			// Sideways market: reward value + quality compounders
+			const pe = stock.peRatio ? Number.parseFloat(stock.peRatio) : 0;
+			if (pe > 0 && pe < 12) score += 8;  // deep value bonus in range-bound markets
+			if (advancedMetrics.roic && advancedMetrics.roic > 25) score += 6; // high ROIC compounder
+		}
+
 		return Math.max(0, score);
 	}
+
 
 	/**
 	 * Queries the unified AI recommendation engine for an alpha conviction boost.

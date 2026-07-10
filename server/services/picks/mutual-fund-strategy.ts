@@ -164,6 +164,8 @@ export class MutualFundStrategy extends BaseStrategy {
 					"mutual_funds",
 					scoredFunds[0].score,
 					70,
+					// Fix 12 wiring: pass available metrics count for data-density gate
+					[topFund.returns1y, topFund.returns3y, topFund.expenseRatio, topFund.crisilRating].filter(Boolean).length,
 				),
 				sectorCategory: topFund.category || undefined,
 				keyMetrics: {
@@ -201,9 +203,22 @@ export class MutualFundStrategy extends BaseStrategy {
 		// Unrated funds get 0 bonus; they should also be penalised to prevent them
 		// from competing equally against rated funds on other dimensions alone.
 		else if (smartRating === 0) score -= 10; // unrated = unknown quality
+
+		// ── Fix 4: 3Y consistency gate ──────────────────────────────────────────
+		// Penalise funds that lack a 3Y track record (new funds).
+		const returns3y = fund.returns3y ? Number.parseFloat(fund.returns3y) : null;
+		if (returns3y === null) score -= 15;
+
+		// Data quality check: count how many metrics are available
+		let keyMetricsCount = 0;
+		if (fund.returns1y) keyMetricsCount++;
+		if (fund.returns3y) keyMetricsCount++;
+		if (fund.expenseRatio) keyMetricsCount++;
+		if (keyMetricsCount < 2) score -= 10; // Low transparency
+
 		const returns1y = fund.returns1y ? Number.parseFloat(fund.returns1y) : 0;
 
-		// ── Fix F: Category risk-adjusted return (relative outperformance) ────────
+		// ── Fix F: Category risk-adjusted return (relative outperformance) ─────────────
 		// Compare fund's 1Y return to SEBI category benchmark average.
 		// Source: AMFI industry averages — updated quarterly (last: July 2026).
 		// Funds outperforming their category by >3% get a premium score boost.

@@ -179,6 +179,27 @@ function scoreGlobalStock(stock: any): number {
 	if (price > 300) score += 5;
 	else if (price > 100) score += 3;
 
+	// ── Fix 9: USD/INR Currency risk flag ─────────────────────────────────────────
+	// When INR depreciates sharply vs USD, Indian investors effectively pay
+	// more for US stocks than their USD price suggests. This is a hidden cost
+	// most advisors don't account for in pick selection.
+	//
+	// USD_INR_CURRENT is set by the daily enrichment scheduler (or falls back
+	// to 84.5, the approximate rate as of July 2026).
+	// USD_INR_3M is the rate 3 months ago (used for trend direction).
+	//
+	// Adjustment: only applied to USD-denominated global picks.
+	if (stock.currency === "USD" || stock.market === "us") {
+		const currentRate = Number(process.env.USD_INR_CURRENT || "84.5");
+		const rate3mAgo = Number(process.env.USD_INR_3M || "83.0");
+		if (currentRate > 0 && rate3mAgo > 0) {
+			const depreciation = ((currentRate - rate3mAgo) / rate3mAgo) * 100;
+			if (depreciation > 5) score -= 15;       // INR fell >5% in 3M — significant FX headwind
+			else if (depreciation > 3) score -= 8;   // INR fell 3-5% — moderate FX headwind
+			else if (depreciation < -2) score += 5;  // INR strengthened — global picks are cheaper
+		}
+	}
+
 	return Math.max(score, 1);
 }
 
@@ -350,8 +371,7 @@ export class GlobalStockStrategy extends BaseStrategy {
 				},
 			};
 		} catch (error) {
-			// eslint-disable-next-line no-console
-			console.error("[GlobalStockStrategy] Error:", error);
+			logger.error("[GlobalStockStrategy] Error:", error instanceof Error ? error : new Error(String(error)));
 			return null;
 		}
 	}

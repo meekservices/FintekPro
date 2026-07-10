@@ -149,11 +149,49 @@ export class BondStrategy extends BaseStrategy {
 				context.recentIds,
 				(b) => b.id,
 			);
+
+			// ── Fix 8: Issuer concentration gate ──────────────────────────────────────────
+			// Fetch last 7 days of bond picks, extract issuer names.
+			// Penalise any candidate that shares an issuer with a recent pick.
+			// Non-fatal: if DB fails, proceed without concentration check.
+			const recentBondIssuers = new Set<string>();
+			try {
+				const { dailyPicks } = await import("@shared/schema");
+				const { gte, eq } = await import("drizzle-orm");
+				const sevenDaysAgo = new Date();
+				sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+				const recentBondPicks = await db
+					.select({ keyMetrics: dailyPicks.keyMetrics })
+					.from(dailyPicks)
+					.where(
+						and(
+							eq(dailyPicks.category, "bonds"),
+							gte(dailyPicks.recoDate, sevenDaysAgo.toISOString().split("T")[0]),
+						),
+					);
+				for (const p of recentBondPicks) {
+					const km = p.keyMetrics as Record<string, any> | null;
+					if (km?.issuerName) recentBondIssuers.add(String(km.issuerName).toLowerCase());
+					if (km?.issuerType) recentBondIssuers.add(String(km.issuerType).toLowerCase());
+				}
+			} catch {
+				// Non-fatal — proceed without issuer dedup
+			}
+
 			const scoredBonds = freshBonds
-				.map((bond) => ({
-					bond,
-					score: this.score(bond),
-				}))
+				.map((bond) => {
+					let s = this.score(bond);
+					// Fix 8: penalise if issuer was recently recommended
+					const issuerLower = (bond.issuerName || "").toLowerCase();
+					const issuerType = this.detectIssuerType(bond.issuerName);
+					if (
+						(issuerLower && recentBondIssuers.has(issuerLower)) ||
+						(issuerType !== "corporate" && recentBondIssuers.has(issuerType))
+					) {
+						s -= 20; // issuer concentration penalty
+					}
+					return { bond, score: s };
+				})
 				.sort((a, b) => b.score - a.score);
 
 			if (scoredBonds.length === 0) return null;
@@ -233,8 +271,7 @@ export class BondStrategy extends BaseStrategy {
 				},
 			};
 		} catch (error) {
-			// eslint-disable-next-line no-console
-			console.error("[BondStrategy] Error:", error);
+			logger.error("[BondStrategy] Error:", error instanceof Error ? error : new Error(String(error)));
 			return null;
 		}
 	}

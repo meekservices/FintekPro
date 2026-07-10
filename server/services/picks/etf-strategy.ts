@@ -4,6 +4,8 @@ import { and, eq, sql } from "drizzle-orm";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
+import { logger } from "../../logger";
+
 
 /** Detect ETF type from name for accurate sectorCategory display. */
 function detectEtfType(name: string | null | undefined): string {
@@ -105,6 +107,22 @@ function scoreETF(etf: any): number {
 	)
 		score += 5;
 
+	// ── Fix 6: Premium/discount to iNAV check ──────────────────────────────────
+	// iNAV (intraday NAV) tracks the real-time fair value of an ETF.
+	// Recommending an ETF trading at a large premium = advisors buy above fair value.
+	// Threshold: >0.5% premium → score penalty to discourage the pick.
+	//            >0.3% discount → small bonus (rare buy-below-NAV opportunity).
+	if (etf.inav && etf.lastPrice) {
+		const inavVal = Number.parseFloat(etf.inav);
+		const marketPrice = Number.parseFloat(etf.lastPrice);
+		if (inavVal > 0 && marketPrice > 0) {
+			const premiumPct = ((marketPrice - inavVal) / inavVal) * 100;
+			if (premiumPct > 1.0) score -= 20;      // expensive premium: >1% above NAV
+			else if (premiumPct > 0.5) score -= 10; // moderate premium: 0.5-1%
+			else if (premiumPct < -0.3) score += 5; // buying at discount (rare opportunity)
+		}
+	}
+
 	return Math.max(score, 1);
 }
 
@@ -124,6 +142,10 @@ export class ETFStrategy extends BaseStrategy {
 						// Phase 1 fix: exclude liquid/overnight ETFs (not suitable investment picks)
 						sql`${instrumentMaster.name} NOT ILIKE '%liquid%'`,
 						sql`${instrumentMaster.name} NOT ILIKE '%overnight%'`,
+						// ── Fix 7: Minimum daily volume filter ────────────────────────────────
+						// ETFs with < 50K daily volume are illiquid — wide bid-ask spreads.
+						// Uses raw SQL column name (volume not in Drizzle schema) — NULL-safe.
+						sql`(volume IS NULL OR volume::bigint >= 50000)`,
 					),
 				)
 				.limit(50);
@@ -212,8 +234,7 @@ export class ETFStrategy extends BaseStrategy {
 				},
 			};
 		} catch (error) {
-			// eslint-disable-next-line no-console
-			console.error("[ETFStrategy] Error:", error);
+			logger.error("[ETFStrategy] Error:", error instanceof Error ? error : new Error(String(error)));
 			return null;
 		}
 	}
