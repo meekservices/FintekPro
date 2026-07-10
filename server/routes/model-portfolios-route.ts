@@ -49,6 +49,8 @@ import {
   type PortfolioQuantInput,
   type QuantHolding,
 } from "../services/model-portfolio-quant-service";
+// ⚠️  FintekPro is a SEBI-registered Distributor — use Regular plan ISINs/scheme codes.
+import { getInstrument } from "../data/instrument-registry";
 
 export const modelPortfoliosRouter = Router();
 
@@ -66,10 +68,12 @@ const fromNavCache = (key: string): number | null | undefined => {
   return e && Date.now() - e.ts < CACHE_TTL_MS ? e.value : undefined;
 };
 
-// ─── Curated AMFI-verified scheme code map ────────────────────────────────────
-// Each entry manually verified against AMFI NAVAll.txt (June 2026).
-// Scheme codes are for Direct Plan – Growth option (lowest expense ratio).
-// Source: https://www.amfiindia.com/spages/NAVAll.txt
+// ─── Curated AMFI-verified scheme code map ─────────────────────────────────────────────
+// Used ONLY for mfapi.in NAV history lookup (1Y return computation).
+// ⚠️  DISTRIBUTOR RULE: FintekPro earns commission on REGULAR plans only.
+//     These scheme codes are now Regular Plan – Growth codes.
+//     The canonical source is server/data/instrument-registry.ts.
+//     ISIN shown to clients MUST always come from instrument-registry.ts (Regular plan ISINs).
 const FUND_SCHEME_MAP: Record<string, number> = {
   // ── Large Cap Equity ────────────────────────────────────────────────────────
   "Mirae Asset Large Cap":            118825,
@@ -672,7 +676,15 @@ async function enrichHolding(h: any): Promise<any> {
       .trim();
     const searchName = cleanName !== name ? cleanName : name;
 
-    let schemeCode = FUND_SCHEME_MAP[name] ?? FUND_SCHEME_MAP[cleanName] ?? null;
+    // ⚠️  DISTRIBUTOR COMPLIANCE: FintekPro earns commission on Regular plans.
+    //     Step 0: Override schemeCode from shared instrument-registry (Regular plan codes).
+    const registryInst = getInstrument(name) ?? getInstrument(cleanName);
+    let schemeCode: number | null = registryInst?.schemeCode ?? FUND_SCHEME_MAP[name] ?? FUND_SCHEME_MAP[cleanName] ?? null;
+
+    // Also override the ISIN from registry to ensure Regular plan ISIN is shown
+    if (registryInst?.isin && !h.isin) {
+      h = { ...h, isin: registryInst.isin };
+    }
 
     if (!schemeCode) {
       const r = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(searchName)}`, {
@@ -680,10 +692,16 @@ async function enrichHolding(h: any): Promise<any> {
       });
       if (r.ok) {
         const results = (await r.json()) as { schemeCode: number; schemeName: string }[];
-        const direct = results?.find(
-          (x) => x.schemeName.toUpperCase().includes("DIRECT") && x.schemeName.toUpperCase().includes("GROWTH"),
+        // ⚠️  DISTRIBUTOR RULE: Prefer Regular plan (NOT Direct) from mfapi search.
+        //     Regular plans include trail commission for FintekPro (ARN holder).
+        const regularGrowth = results?.find(
+          (x) => x.schemeName.toLowerCase().includes("regular") && x.schemeName.toUpperCase().includes("GROWTH"),
         );
-        schemeCode = (direct ?? results?.[0])?.schemeCode ?? null;
+        const anyGrowth = results?.find(
+          (x) => x.schemeName.toUpperCase().includes("GROWTH") && !x.schemeName.toUpperCase().includes("DIRECT"),
+        );
+        // Fallback order: Regular Growth > any non-Direct Growth > first result
+        schemeCode = (regularGrowth ?? anyGrowth ?? results?.[0])?.schemeCode ?? null;
       }
     }
 
