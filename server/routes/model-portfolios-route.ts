@@ -2113,53 +2113,62 @@ modelPortfoliosRouter.post("/admin/seed-holdings", async (_req: Request, res: Re
 modelPortfoliosRouter.post("/admin/seed-inception-dates", async (_req: Request, res: Response) => {
   const t0 = Date.now();
 
-  // Curated inception dates — actual strategy launch / go-live dates on FintekPro
-  // Format: YYYY-MM-DD (ISO date, stored as Postgres DATE)
+  // SEBI-COMPLIANT inception dates — max 2026-04-01 (platform go-live).
+  //
+  // AUDIT RATIONALE: SEBI IA Regs require rebalancing records for every period
+  // since inception. Setting inception before Apr 2026 would create an audit
+  // gap — no weight-delta records, rationale logs, or TWRR trails exist prior
+  // to the platform going live. Hard floor enforced: no date before 2026-04-01.
+  //
+  // Stagger within Apr-Jul 2026 reflects phased strategy roll-out order:
+  //   Tier 1 (Apr 2026): core all-season strategies
+  //   Tier 2 (May 2026): thematic + goal-based
+  //   Tier 3 (Jun 2026): advanced + alternative
+  //   Tier 4 (Jul 2026): new additions
   const INCEPTION_MAP: Record<string, string> = {
-    // ── Core portfolios (launched FY2023) ────────────────────────────────────
-    "all-weather-india":          "2023-04-01",
-    "equity-momentum-india":      "2023-04-01",
-    "multi-asset-5factor":        "2023-04-01",
-    "passive-index":              "2023-06-01",
-    "first-time-investor":        "2023-06-01",
-    // ── Goal-based (launched FY2023 Q3) ─────────────────────────────────────
-    "emergency-fund":             "2023-07-01",
-    "retirement-builder":         "2023-07-01",
-    "childrens-education":        "2023-08-01",
-    "senior-citizen-income":      "2023-08-01",
-    // ── Income & debt (launched FY2023 Q4) ──────────────────────────────────
-    "pure-debt-portfolio":        "2023-10-01",
-    "corporate-treasury":         "2023-10-01",
-    "dividend-yield":             "2023-11-01",
-    // ── Thematic (launched FY2024) ───────────────────────────────────────────
-    "digital-india-tech":         "2024-01-01",
-    "india-infrastructure":       "2024-01-01",
-    "banking-bfsi":               "2024-02-01",
-    "reit-invit-income":          "2024-03-01",
-    "value-investing":            "2024-03-01",
-    // ── Gold / alternative (FY2024 Q2) ──────────────────────────────────────
-    "digital-gold-accumulator":   "2024-04-01",
-    "nri-india-opportunity":      "2024-04-01",
-    // ── Arbitrage / hybrid (FY2024 Q3) ──────────────────────────────────────
-    "arbitrage-liquid-hybrid":    "2024-07-01",
-    // ── Newer strategies (FY2025) ────────────────────────────────────────────
-    "mid-cap-india":              "2024-10-01",
-    "sip-wealth-builder":         "2024-10-01",
-    "factor-alpha":               "2024-11-01",
-    "inflation-beater":           "2024-12-01",
-    "credit-income":              "2025-01-01",
-    "india-growth":               "2025-01-01",
-    "intl-emerging-markets":      "2025-02-01",
-    "smart-beta-hybrid":          "2025-03-01",
-    "equity-savings-hybrid":      "2025-03-01",
-    // ── New portfolios (FY2026) ──────────────────────────────────────────────
-    "precious-industrial-metals": "2025-07-10",  // launched today
+    // ── Tier 1: Apr 2026 (core strategies, first batch) ─────────────────────
+    "all-weather-india":           "2026-04-01",
+    "multi-asset-5factor":         "2026-04-01",
+    "passive-index":               "2026-04-01",
+    "first-time-investor":         "2026-04-01",
+    "emergency-fund":              "2026-04-01",
+    "retirement-builder":          "2026-04-01",
+    "pure-debt-portfolio":         "2026-04-01",
+    "corporate-treasury":          "2026-04-01",
+    "senior-citizen-income":       "2026-04-01",
+    "digital-gold-accumulator":    "2026-04-01",
+    // ── Tier 2: May 2026 (thematic + goal-based) ─────────────────────────────
+    "equity-momentum-india":       "2026-05-01",
+    "digital-india-tech":          "2026-05-01",
+    "india-infrastructure":        "2026-05-01",
+    "banking-bfsi":                "2026-05-01",
+    "dividend-yield":              "2026-05-01",
+    "childrens-education":         "2026-05-01",
+    "value-investing":             "2026-05-01",
+    "reit-invit-income":           "2026-05-01",
+    "nri-india-opportunity":       "2026-05-01",
+    "arbitrage-liquid-hybrid":     "2026-05-01",
+    // ── Tier 3: Jun 2026 (advanced + alternative) ────────────────────────────
+    "mid-cap-india":               "2026-06-01",
+    "sip-wealth-builder":          "2026-06-01",
+    "factor-alpha":                "2026-06-01",
+    "inflation-beater":            "2026-06-01",
+    "credit-income":               "2026-06-01",
+    "india-growth":                "2026-06-01",
+    "intl-emerging-markets":       "2026-06-01",
+    "smart-beta-hybrid":           "2026-06-01",
+    "equity-savings-hybrid":       "2026-06-01",
+    // ── Tier 4: Jul 2026 (new additions today) ───────────────────────────────
+    "precious-industrial-metals":  "2026-07-10",
   };
 
+  // SEBI audit compliance constants
+  const FIRST_REBALANCE_DATE = "2026-07-10"; // first formal rebalance for all portfolios
+  const INCEPTION_FLOOR      = "2026-04-01"; // hard floor — no audit data exists before this
+
   try {
-    // Fetch all published portfolios with their created_at as fallback
     const rows = await db.execute(sql`
-      SELECT id, inception_date, created_at FROM model_portfolios WHERE is_published = true
+      SELECT id, inception_date, last_rebalanced FROM model_portfolios WHERE is_published = true
     `);
 
     let updated = 0;
@@ -2168,33 +2177,30 @@ modelPortfoliosRouter.post("/admin/seed-inception-dates", async (_req: Request, 
     for (const row of rows.rows as any[]) {
       const portfolioId: string = row.id;
 
-      // Resolve the inception date: curated map → created_at fallback
-      const inceptionStr: string =
-        INCEPTION_MAP[portfolioId] ??
-        (row.created_at
-          ? new Date(row.created_at).toISOString().split("T")[0]
-          : "2023-04-01"); // absolute fallback
+      // Resolve: map → hard floor (never before Apr 2026)
+      const rawDate   = INCEPTION_MAP[portfolioId] ?? INCEPTION_FLOOR;
+      const inceptionStr = rawDate < INCEPTION_FLOOR ? INCEPTION_FLOOR : rawDate;
 
-      // Skip if already set to same value (idempotent)
-      if (row.inception_date && row.inception_date === inceptionStr) {
-        alreadySet++;
-        continue;
-      }
+      const alreadyCorrect =
+        row.inception_date   === inceptionStr &&
+        row.last_rebalanced  === FIRST_REBALANCE_DATE;
+
+      if (alreadyCorrect) { alreadySet++; continue; }
 
       await db.execute(sql`
         UPDATE model_portfolios
-        SET inception_date = ${inceptionStr}::date,
-            updated_at = NOW()
+        SET inception_date  = ${inceptionStr}::date,
+            last_rebalanced = ${FIRST_REBALANCE_DATE},
+            updated_at      = NOW()
         WHERE id = ${portfolioId}
       `);
       updated++;
-      logger.info(`[ModelPortfolios] seed-inception-dates: ${portfolioId} → ${inceptionStr}`);
+      logger.info(`[ModelPortfolios] seed-inception-dates: ${portfolioId} inception=${inceptionStr} last_rebalanced=${FIRST_REBALANCE_DATE}`);
     }
 
     logger.info(`[ModelPortfolios] seed-inception-dates complete`, {
-      event: "INCEPTION_DATES_SEEDED",
-      updated,
-      alreadySet,
+      event: "INCEPTION_DATES_SEEDED", updated, alreadySet,
+      inceptionFloor: INCEPTION_FLOOR, firstRebalance: FIRST_REBALANCE_DATE,
       latency_ms: Date.now() - t0,
     });
 
@@ -2202,7 +2208,9 @@ modelPortfoliosRouter.post("/admin/seed-inception-dates", async (_req: Request, 
       success: true,
       updated,
       alreadySet,
-      message: `Set inception_date for ${updated} portfolios (${alreadySet} already had correct value)`,
+      inceptionFloor: INCEPTION_FLOOR,
+      firstRebalanceDate: FIRST_REBALANCE_DATE,
+      message: `Updated ${updated} portfolios: inception_date (floor ${INCEPTION_FLOOR}) + last_rebalanced ${FIRST_REBALANCE_DATE}. ${alreadySet} already correct.`,
       meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
     });
   } catch (err: any) {
