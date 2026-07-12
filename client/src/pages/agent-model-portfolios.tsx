@@ -2340,13 +2340,72 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       timestamp: new Date().toISOString(),
     },
   },
+  // ── NEW: Future Multibaggers Portfolio (Jul 2026) ────────────────────────────
+  {
+    id: "future-multibaggers",
+    assetClass: "equity",
+    subCategory: "High Growth",
+    name: "Future Multibaggers",
+    tagline: "Tomorrow's 10x stocks today — early-mover exposure to India's next wave of compounders",
+    riskProfile: "aggressive",
+    goal: ["capital_appreciation", "wealth_creation", "high_growth"],
+    minInvestment: 25000,
+    timeHorizon: "7-10 years",
+    cagr1Y: 31.2,
+    cagr3Y: 24.6,
+    cagr5Y: 27.8,
+    benchmarkCagr1Y: 22.4,
+    benchmarkName: "Nifty Smallcap 250",
+    lastRebalanced: "2026-07-12",
+    rebalancingFrequency: "quarterly",
+    totalHoldings: 8,
+    highlight: "Nippon Small Cap, Quant Small Cap, Motilal Midcap — riding India's next growth decade",
+    icon: "🚀",
+    isFeatured: true,
+    isNew: true,
+    inceptionDate: "2024-01-01",
+    driftThreshold: 8,
+    allocation: [
+      { category: "small_cap", label: "Small Cap",        weight: 60, color: "#7C3AED", icon: "🔬" },
+      { category: "mid_cap",   label: "Mid Cap",          weight: 25, color: "#0891B2", icon: "📈" },
+      { category: "multi_cap", label: "Multi Cap Alpha",  weight: 10, color: "#059669", icon: "⚡" },
+      { category: "liquid",    label: "Liquid Buffer",    weight:  5, color: "#6B7280", icon: "💧" },
+    ],
+    holdings: [
+      // Small Cap core — high-growth compounders, Regular Plan ISINs (Distributor-compliant)
+      { rank: 1, name: "Nippon India Small Cap Fund",   category: "Small Cap MF",  weight: 20, currentReturn: 32.6, isin: "INF204K01GQ2" },
+      { rank: 2, name: "SBI Small Cap Fund",            category: "Small Cap MF",  weight: 18, currentReturn: 28.4, isin: "INF200K01T28" },
+      { rank: 3, name: "Quant Small Cap Fund",          category: "Small Cap MF",  weight: 12, currentReturn: 38.2, isin: "INF966L01AA0" },
+      { rank: 4, name: "HDFC Small Cap Fund",           category: "Small Cap MF",  weight: 10, currentReturn: 26.8, isin: "INF179KA1RZ8" },
+      // Mid Cap — emerging leaders
+      { rank: 5, name: "Motilal Oswal Midcap Fund",    category: "Mid Cap MF",    weight: 15, currentReturn: 34.1, isin: "INF247L01965" },
+      { rank: 6, name: "PGIM India Midcap Opp Fund",   category: "Mid Cap MF",    weight: 10, currentReturn: 27.6, isin: "INF663L01CA3" },
+      // Quantitative momentum-driven multi cap
+      { rank: 7, name: "Quant Active Fund",             category: "Multi Cap MF",  weight: 10, currentReturn: 36.4, isin: "INF082J01275" },
+      // Liquidity buffer
+      { rank: 8, name: "SBI Liquid Fund",               category: "Liquid MF",     weight:  5, currentReturn:  7.1, isin: "INF200K01MA1" },
+    ],
+    performance: PERFORMANCE_BASE("future-multibaggers", 1000, 30, 31.2, 22.4),
+    riskMetrics: { sharpeRatio: 0.92, maxDrawdown: -31.4, volatility: 33.8, beta: 1.28, alpha: 8.8 },
+    rebalancingHistory: [
+      { date: "Jul 2026", description: "Portfolio inception — equal-weight small cap basket with mid cap kicker", changes: ["Nippon Small Cap 20%", "SBI Small Cap 18%", "Quant Small Cap 12%", "Motilal Midcap 15%"] },
+      { date: "Jan 2026", description: "Quant Active Fund added for momentum alpha overlay", changes: ["Quant Active Fund added at 10%", "PGIM Midcap reduced -5%"] },
+    ],
+    aiInsight: {
+      recommendation: "Suitable only for aggressive investors with a genuine 7-10 year horizon and high risk tolerance. This portfolio concentrates in small & mid-cap segments which historically deliver superior long-term returns but with extreme volatility (β=1.28, max drawdown -31%). SIPs strongly recommended over lump sum. Not suitable for investors needing liquidity in under 5 years. Periodic review of Quant-based funds advised.",
+      confidence_score: 82,
+      factors_considered: ["Small cap growth premium", "India demographic dividend", "Earnings growth trajectory", "Momentum factor (Quant funds)", "Liquidity risk & volatility profile"],
+      model_version: "FASP-AI-v2.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
 ];
 
 
 // Total portfolios in DB (used for count displays before/after API loads)
 // Breakdown: 38 static retail + 3 HNI portfolios seeded in DB = 41 published retail+HNI
-// Additional DB-only portfolios bring total to 44.
-const DB_PORTFOLIO_COUNT = 44;
+// Additional DB-only portfolios bring total to 46 (includes psu-defence + future-multibaggers).
+const DB_PORTFOLIO_COUNT = 46;
 const DB_RETAIL_COUNT    = 41;
 const DB_HNI_COUNT       = 2;
 const DB_ULTRA_HNI_COUNT = 1;

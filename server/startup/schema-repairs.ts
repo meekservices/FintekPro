@@ -2375,10 +2375,9 @@ crypto_status VARCHAR,
 
 	console.log("✅ [Phase 5] Date type + hot-cold split migrations complete");
 
-	// ── FASP-5: PSU & Defence Atmanirbhar portfolio seed (Jul 2026) ──────────
+	// ── FASP-5: PSU & Defence Atmanirbhar portfolio seed (Jul 2026) ─────────
 	// p1Db (pg pool Drizzle) and p1Sql are in scope from the function body level.
-	// Uses parameterised ${...} interpolations — safe for all string values.
-	// ON CONFLICT (id) DO NOTHING makes this idempotent on every run.
+	// Regular Plan ISINs only (FintekPro = SEBI distributor). Idempotent via ON CONFLICT.
 	try {
 		const _f5alloc = JSON.stringify([
 			{ type: "defence", label: "Defence & Aerospace", weight: 55, color: "#1D4ED8" },
@@ -2417,7 +2416,51 @@ crypto_status VARCHAR,
 		console.log("  ✅ FASP-5: psu-defence-atmanirbhar seeded (idempotent)");
 	} catch (e: any) {
 		console.error("  ❌ FASP-5 seed FATAL error:", e.message, e.stack?.slice(0, 500));
-		throw e; // make the job FAIL LOUDLY so we can see the error in logs
+		throw e;
+	}
+
+	// ── FASP-6: Future Multibaggers portfolio seed (Jul 2026) ─────────────────
+	// Small/mid cap high-growth portfolio. Regular Plan ISINs. Idempotent via ON CONFLICT.
+	try {
+		const _f6alloc = JSON.stringify([
+			{ type: "small_cap", label: "Small Cap",       weight: 60, color: "#7C3AED" },
+			{ type: "mid_cap",   label: "Mid Cap",         weight: 25, color: "#0891B2" },
+			{ type: "multi_cap", label: "Multi Cap Alpha", weight: 10, color: "#059669" },
+			{ type: "liquid",    label: "Liquid Buffer",   weight:  5, color: "#6B7280" },
+		]);
+		const _f6hold = JSON.stringify([
+			{ name: "Nippon India Small Cap Fund", isin: "INF204K01GQ2", weight: 20, type: "equity" },
+			{ name: "SBI Small Cap Fund",          isin: "INF200K01T28", weight: 18, type: "equity" },
+			{ name: "Quant Small Cap Fund",        isin: "INF966L01AA0", weight: 12, type: "equity" },
+			{ name: "HDFC Small Cap Fund",         isin: "INF179KA1RZ8", weight: 10, type: "equity" },
+			{ name: "Motilal Oswal Midcap Fund",   isin: "INF247L01965", weight: 15, type: "equity" },
+			{ name: "PGIM India Midcap Opp Fund",  isin: "INF663L01CA3", weight: 10, type: "equity" },
+			{ name: "Quant Active Fund",           isin: "INF082J01275", weight: 10, type: "equity" },
+			{ name: "SBI Liquid Fund",             isin: "INF200K01MA1", weight:  5, type: "liquid" },
+		]);
+		const _f6goal = JSON.stringify(["capital_appreciation", "wealth_creation", "high_growth"]);
+		const _f6id   = "future-multibaggers";
+		const _f6name = "Future Multibaggers";
+		const _f6tag  = "Tomorrow's 10x stocks today - early-mover exposure to India's next wave of compounders";
+		await p1Db.execute(p1Sql`
+			INSERT INTO model_portfolios
+				(id, name, tagline, risk_profile, asset_class, goal, min_investment,
+				 time_horizon, benchmark_name, last_rebalanced, rebalancing_frequency,
+				 total_holdings, highlight, icon, is_featured, allocation, holdings)
+			VALUES (
+				${_f6id}, ${_f6name}, ${_f6tag},
+				${"aggressive"}, ${"equity"}, ${_f6goal},
+				${25000}, ${"7-10 years"}, ${"Nifty Smallcap 250"}, ${"2026-07-12"},
+				${"quarterly"}, ${8},
+				${"Nippon Small Cap, Quant Small Cap, Motilal Midcap - riding India's next growth decade"},
+				${"[R]"}, ${true}, ${_f6alloc}, ${_f6hold}
+			)
+			ON CONFLICT (id) DO NOTHING
+		`);
+		console.log("  ✅ FASP-6: future-multibaggers seeded (idempotent)");
+	} catch (e: any) {
+		console.error("  ❌ FASP-6 seed FATAL error:", e.message, e.stack?.slice(0, 500));
+		throw e;
 	}
 }
 
