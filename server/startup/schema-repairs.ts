@@ -2852,15 +2852,58 @@ export async function ensureSharedRouteTables(): Promise<void> {
     console.warn("  ⚠️  model_portfolios Fix 15 columns migration (non-fatal):", e.message?.slice(0, 120));
   }
 
-  // ── Fix IM-1: Drop orphan instrument cache tables ─────────────────────────
-  // financial_instruments_cache and stock_prices_cache have 0 reads and 0 writes
-  // across all server files. Superseded by listed_stocks.currentPrice.
+  // ── Fix IM-1: Ensure financial_instruments_cache exists (actively used) ────
+  // NOTE: This table was mistakenly classified as an orphan. It IS actively used
+  // by financial-data-repository.ts, model-portfolio-optimizer.ts, and
+  // financial-data-routes.ts. DO NOT DROP IT.
   try {
-    await migDb.execute(migSql`DROP TABLE IF EXISTS financial_instruments_cache CASCADE`);
-    await migDb.execute(migSql`DROP TABLE IF EXISTS stock_prices_cache CASCADE`);
-    console.log("  ✅ Fix IM-1: dropped orphan tables financial_instruments_cache, stock_prices_cache");
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS financial_instruments_cache (
+        id                  VARCHAR       PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        instrument_type     VARCHAR       NOT NULL,
+        symbol              VARCHAR       NOT NULL,
+        isin                VARCHAR,
+        name                TEXT          NOT NULL,
+        exchange            VARCHAR,
+        currency            VARCHAR       DEFAULT 'INR',
+        country             VARCHAR       DEFAULT 'IN',
+        current_price       DECIMAL(15,4),
+        previous_close      DECIMAL(15,4),
+        day_change          DECIMAL(15,4),
+        day_change_percent  DECIMAL(10,4),
+        day_high            DECIMAL(15,4),
+        day_low             DECIMAL(15,4),
+        open_price          DECIMAL(15,4),
+        volume              BIGINT,
+        nav                 DECIMAL(15,4),
+        nav_date            DATE,
+        return_1d           DECIMAL(10,4),
+        return_1w           DECIMAL(10,4),
+        return_1m           DECIMAL(10,4),
+        return_3m           DECIMAL(10,4),
+        return_6m           DECIMAL(10,4),
+        return_1y           DECIMAL(10,4),
+        return_3y           DECIMAL(10,4),
+        return_5y           DECIMAL(10,4),
+        market_cap          DECIMAL(20,2),
+        pe_ratio            DECIMAL(10,4),
+        pb_ratio            DECIMAL(10,4),
+        dividend_yield      DECIMAL(10,4),
+        fifty_two_week_high DECIMAL(15,4),
+        fifty_two_week_low  DECIMAL(15,4),
+        metadata            JSONB,
+        data_source         VARCHAR       DEFAULT 'system',
+        fetched_at          TIMESTAMPTZ   DEFAULT NOW(),
+        expires_at          TIMESTAMPTZ,
+        created_at          TIMESTAMPTZ   DEFAULT NOW(),
+        updated_at          TIMESTAMPTZ   DEFAULT NOW()
+      )
+    `);
+    await migDb.execute(migSql`CREATE UNIQUE INDEX IF NOT EXISTS idx_fic_symbol_type ON financial_instruments_cache(symbol, instrument_type)`);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_fic_isin ON financial_instruments_cache(isin)`);
+    console.log("  ✅ Fix IM-1: financial_instruments_cache ensured (active table, never drop)");
   } catch (e: any) {
-    console.warn("  ⚠️  Fix IM-1 orphan table drop (non-fatal):", e.message?.slice(0, 120));
+    console.warn("  ⚠️  Fix IM-1 financial_instruments_cache (non-fatal):", e.message?.slice(0, 120));
   }
 
   // ── Fix IM-2: Add missing instrument-level columns to bond_catalog ────────
