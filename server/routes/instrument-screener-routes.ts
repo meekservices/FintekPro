@@ -119,7 +119,32 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
     if (type === "mutual_fund") {
       const conditions: ReturnType<typeof eq>[] = [];
 
-      if (category) conditions.push(ilike(mutualFunds.category, `%${category}%`));
+      // ── MF Category filter — handles AMFI's varied naming conventions ─────
+      if (category) {
+        if (category.toLowerCase() === "international") {
+          // AMFI stores international funds under multiple sub-categories:
+          // "Overseas Fund of Fund", "International Fund", "Global", "Overseas",
+          // "Thematic - International", "Equity Savings - International", etc.
+          conditions.push(
+            or(
+              ilike(mutualFunds.category, "%International%"),
+              ilike(mutualFunds.category, "%Overseas%"),
+              ilike(mutualFunds.category, "%Global%"),
+              ilike(mutualFunds.schemeName, "%Nasdaq%"),
+              ilike(mutualFunds.schemeName, "%S&P%"),
+              ilike(mutualFunds.schemeName, "%US Bluechip%"),
+              ilike(mutualFunds.schemeName, "%World%"),
+              ilike(mutualFunds.schemeName, "%Hang Seng%"),
+              ilike(mutualFunds.schemeName, "%FTSE%"),
+              ilike(mutualFunds.schemeSubCategory, "%International%"),
+              ilike(mutualFunds.schemeSubCategory, "%Overseas%"),
+            ) as ReturnType<typeof eq>
+          );
+        } else {
+          conditions.push(ilike(mutualFunds.category, `%${category}%`));
+        }
+      }
+
       if (fundHouse) conditions.push(ilike(mutualFunds.fundHouse, `%${fundHouse}%`));
       if (riskLevel) conditions.push(ilike(mutualFunds.riskLevel, `%${riskLevel}%`));
       if (q) conditions.push(ilike(mutualFunds.schemeName, `%${q}%`));
@@ -361,11 +386,50 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
         ilike(listedStocks.symbol, `%${q}%`),
       ) as ReturnType<typeof eq>);
 
-      if (etfCategory === "gold") etfConditions.push(ilike(listedStocks.companyName, "%Gold%"));
-      if (etfCategory === "international") etfConditions.push(
-        or(ilike(listedStocks.companyName, "%Nasdaq%"), ilike(listedStocks.companyName, "%S&P%"), ilike(listedStocks.companyName, "%US%")) as ReturnType<typeof eq>
+      if (etfCategory === "gold") etfConditions.push(
+        or(
+          ilike(listedStocks.companyName, "%Gold%"),
+          ilike(listedStocks.companyName, "%SGB%"),
+        ) as ReturnType<typeof eq>
       );
-      if (etfCategory === "nifty") etfConditions.push(ilike(listedStocks.companyName, "%Nifty%"));
+      if (etfCategory === "international") etfConditions.push(
+        or(
+          ilike(listedStocks.companyName, "%Nasdaq%"),
+          ilike(listedStocks.companyName, "%S&P%"),
+          ilike(listedStocks.companyName, "%US%"),
+          ilike(listedStocks.companyName, "%World%"),
+          ilike(listedStocks.companyName, "%Global%"),
+          ilike(listedStocks.companyName, "%Hang Seng%"),
+          ilike(listedStocks.companyName, "%N100%"),
+          ilike(listedStocks.companyName, "%MON100%"),
+          ilike(listedStocks.companyName, "%FTSE%"),
+          ilike(listedStocks.companyName, "%Nifty 50 USD%"),
+        ) as ReturnType<typeof eq>
+      );
+      if (etfCategory === "sectoral") etfConditions.push(
+        or(
+          ilike(listedStocks.companyName, "%Bank%"),
+          ilike(listedStocks.companyName, "%IT%"),
+          ilike(listedStocks.companyName, "%Pharma%"),
+          ilike(listedStocks.companyName, "%Auto%"),
+          ilike(listedStocks.companyName, "%Infra%"),
+          ilike(listedStocks.companyName, "%PSU%"),
+          ilike(listedStocks.companyName, "%Consumption%"),
+          ilike(listedStocks.companyName, "%Healthcare%"),
+          ilike(listedStocks.companyName, "%Energy%"),
+        ) as ReturnType<typeof eq>
+      );
+      if (etfCategory === "nifty") etfConditions.push(
+        or(
+          ilike(listedStocks.companyName, "%Nifty%"),
+          ilike(listedStocks.companyName, "%N50%"),
+          ilike(listedStocks.companyName, "%Nifty 50%"),
+          ilike(listedStocks.companyName, "%Nifty100%"),
+          ilike(listedStocks.companyName, "%Nifty 100%"),
+          ilike(listedStocks.companyName, "%Nifty Midcap%"),
+          ilike(listedStocks.companyName, "%Nifty Smallcap%"),
+        ) as ReturnType<typeof eq>
+      );
 
       const etfSortCol =
         sortBy === "currentPrice" ? listedStocks.currentPrice :

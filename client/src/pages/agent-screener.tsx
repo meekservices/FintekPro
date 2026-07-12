@@ -66,6 +66,7 @@ import {
 	Calculator,
 	Landmark,
 	Layers,
+	Globe,
 } from "lucide-react";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -1143,6 +1144,16 @@ export default function AgentScreener() {
 								{label}
 							</button>
 						))}
+						{/* ── Global / US Stocks — links to US Trading section — */}
+						<a
+							href="/agent/us-trading"
+							className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-150 border bg-background text-rose-600 dark:text-rose-400 border-border hover:bg-muted/60"
+							title="US & International equities via IB/Alpaca — opens US Trading"
+						>
+							<Globe className="h-3.5 w-3.5" />
+							Global Stocks
+							<span className="ml-0.5 text-[9px] opacity-60 font-normal">↗</span>
+						</a>
 					</div>
 				</CardHeader>
 
