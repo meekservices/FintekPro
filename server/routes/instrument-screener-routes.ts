@@ -187,6 +187,11 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           returns5y:     mutualFunds.returns5y,
           rating:        mutualFunds.crisilRating,
           ratingPercentile: mutualFunds.crisilPercentile,
+          // Transactability fields
+          isin:          mutualFunds.isin,
+          isinGrowth:    mutualFunds.isinGrowth,
+          amfiCode:      mutualFunds.amfiCode,
+          planType:      mutualFunds.planType,
         })
           .from(mutualFunds)
           .where(whereClause)
@@ -197,6 +202,23 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           .from(mutualFunds)
           .where(whereClause),
       ]);
+
+      // Build transact block for IRIS MF order placement
+      const fundsWithTransact = funds.map((f) => ({
+        ...f,
+        transact: {
+          // IRIS MF order identifiers
+          exchange: "BSE",                              // MF orders via BSE StarMF platform
+          isin: f.isinGrowth ?? f.isin ?? null,         // Prefer growth ISIN (regular plan)
+          schemeCode: f.schemeCode,                     // AMFI scheme code for IRIS / RTA
+          amfiCode: f.amfiCode ?? f.schemeCode,         // AMFI identifier (same as schemeCode for most)
+          planType: f.planType ?? "regular",            // FintekPro is a distributor — always regular
+          // Execution routing hint
+          executionApi: "iris",
+          orderType: "mf_purchase",
+        },
+      }));
+
       // eslint-disable-next-line no-console
       console.info(JSON.stringify({
         event: "SCREENER_MF_QUERY",
@@ -209,7 +231,7 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       return res.json({
         success: true,
         type: "mutual_fund",
-        data: funds,
+        data: fundsWithTransact,
         meta: {
           timestamp: new Date().toISOString(),
           engine_version: ENGINE_VERSION,
@@ -254,6 +276,8 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           minimumInvestment: governmentSecurities.minimumInvestment,
           securityType:    governmentSecurities.securityType,
           tradingStatus:   governmentSecurities.tradingStatus,
+          // Transactability
+          dataSource:      governmentSecurities.dataSource,
         })
         .from(governmentSecurities)
         .where(
@@ -289,6 +313,8 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           minimumInvestment: corporateBonds.minimumInvestment,
           securityType:    corporateBonds.bondType,
           tradingStatus:   corporateBonds.tradingStatus,
+          // Transactability
+          dataSource:      corporateBonds.dataSource,
         })
         .from(corporateBonds)
         .where(
@@ -327,6 +353,19 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
         );
         const total = bonds.length;
         bonds = bonds.slice(offset, offset + limitNum);
+
+        // Build transact block for IRIS bond desk order placement
+        bonds = (bonds as any[]).map((b) => ({
+          ...b,
+          transact: {
+            isin: b.isin,
+            // Derive exchange from data source
+            exchange: b.dataSource?.includes("bse") ? "BSE" : "NSE",
+            executionApi: "iris",
+            orderType: "bond_purchase",
+          },
+        }));
+
         // eslint-disable-next-line no-console
         console.info(JSON.stringify({
           event: "SCREENER_BOND_QUERY",
@@ -354,7 +393,15 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       return res.json({
         success: true,
         type: "bond",
-        data: bonds,
+        data: (bonds as any[]).map((b) => ({
+          ...b,
+          transact: {
+            isin: b.isin,
+            exchange: b.dataSource?.includes("bse") ? "BSE" : "NSE",
+            executionApi: "iris",
+            orderType: "bond_purchase",
+          },
+        })),
         meta: {
           timestamp: new Date().toISOString(),
           engine_version: ENGINE_VERSION,
@@ -438,15 +485,20 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
 
       const [etfs, etfCount] = await Promise.all([
         db.select({
-          id:          listedStocks.id,
-          symbol:      listedStocks.symbol,
-          companyName: listedStocks.companyName,
-          isin:        listedStocks.isin,
-          sector:      listedStocks.sector,
+          id:           listedStocks.id,
+          symbol:       listedStocks.symbol,
+          companyName:  listedStocks.companyName,
+          isin:         listedStocks.isin,
+          sector:       listedStocks.sector,
           currentPrice: listedStocks.currentPrice,
-          marketCap:   listedStocks.marketCap,
-          exchange:    listedStocks.exchange,
-          bseCode:     listedStocks.bseCode,
+          marketCap:    listedStocks.marketCap,
+          exchange:     listedStocks.exchange,
+          bseCode:      listedStocks.bseCode,
+          // Transactability fields
+          nseCode:      listedStocks.nseCode,
+          country:      listedStocks.country,
+          currency:     listedStocks.currency,
+          exchangeInfo: listedStocks.exchangeInfo,
         })
           .from(listedStocks)
           .where(and(...etfConditions))
@@ -458,10 +510,31 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           .where(and(...etfConditions)),
       ]);
 
+      // Build transact block for IRIS equity order placement
+      const etfsWithTransact = etfs.map((e) => {
+        const isIndian = !e.country || e.country === "IN";
+        return {
+          ...e,
+          transact: {
+            isin: e.isin,
+            exchange: e.exchange ?? "NSE",
+            // NSE symbol for IRIS (NSE is primary for Indian ETFs)
+            nseSymbol: e.symbol,
+            bseCode: e.bseCode ?? null,
+            nseCode: e.nseCode ?? "EQ",
+            currency: e.currency ?? "INR",
+            country: e.country ?? "IN",
+            // Execution routing: IRIS for Indian ETFs, Alpaca for US/international
+            executionApi: isIndian ? "iris" : "alpaca",
+            orderType: "etf_purchase",
+          },
+        };
+      });
+
       return res.json({
         success: true,
         type: "etf",
-        data: etfs,
+        data: etfsWithTransact,
         meta: {
           timestamp: new Date().toISOString(),
           engine_version: ENGINE_VERSION,
