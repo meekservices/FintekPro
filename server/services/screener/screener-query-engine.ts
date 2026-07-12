@@ -3,7 +3,6 @@ import {
 	listedStocks,
 	screenerFinancials,
 	screenerDerivedMetrics,
-	screenerTechnicalIndicators,
 	screenerTechnicalIndicatorsLatest,
 	screenerShareholding,
 	screenerAnalystConsensus,
@@ -496,9 +495,11 @@ export async function getStockDetail(symbol: string) {
 		db.select().from(screenerDerivedMetrics)
 			.where(eq(screenerDerivedMetrics.symbol, symbol))
 			.limit(1),
-		db.select().from(screenerTechnicalIndicators)
-			.where(eq(screenerTechnicalIndicators.symbol, symbol))
-			.orderBy(desc(screenerTechnicalIndicators.date))
+		// Use _latest table (symbol PK) — the full screener_technical_indicators
+		// historical table is not populated in production; _latest has everything
+		// needed for the stock detail view (current snapshot).
+		db.select().from(screenerTechnicalIndicatorsLatest)
+			.where(eq(screenerTechnicalIndicatorsLatest.symbol, symbol))
 			.limit(1),
 		db.select().from(screenerShareholding)
 			.where(eq(screenerShareholding.symbol, symbol))
