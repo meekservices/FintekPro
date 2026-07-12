@@ -2416,7 +2416,8 @@ crypto_status VARCHAR,
 		`);
 		console.log("  ✅ FASP-5: psu-defence-atmanirbhar seeded (idempotent)");
 	} catch (e: any) {
-		console.warn("  ⚠️  FASP-5 seed (non-fatal):", e.message?.slice(0, 200));
+		console.error("  ❌ FASP-5 seed FATAL error:", e.message, e.stack?.slice(0, 500));
+		throw e; // make the job FAIL LOUDLY so we can see the error in logs
 	}
 }
 
