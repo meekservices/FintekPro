@@ -838,7 +838,8 @@ crypto_status VARCHAR,
           ADD COLUMN IF NOT EXISTS blended_benchmark_return NUMERIC(8,4),
           ADD COLUMN IF NOT EXISTS drift_threshold          NUMERIC(5,2) DEFAULT 5,
           ADD COLUMN IF NOT EXISTS max_drawdown_threshold   NUMERIC(5,2),
-          ADD COLUMN IF NOT EXISTS conflict_disclosure      TEXT
+          ADD COLUMN IF NOT EXISTS conflict_disclosure      TEXT,
+          ADD COLUMN IF NOT EXISTS rebalancing_mode         VARCHAR(30) DEFAULT 'drift_triggered'
       `);
 			// Back-fill portfolio_code as FP-NNN using row_number over creation order
 			await migDb.execute(migSql`
@@ -2813,7 +2814,8 @@ export async function ensureSharedRouteTables(): Promise<void> {
         ADD COLUMN IF NOT EXISTS blended_benchmark_return NUMERIC(8,4),
         ADD COLUMN IF NOT EXISTS drift_threshold          NUMERIC(5,2)  DEFAULT 5,
         ADD COLUMN IF NOT EXISTS max_drawdown_threshold   NUMERIC(5,2),
-        ADD COLUMN IF NOT EXISTS conflict_disclosure      TEXT
+        ADD COLUMN IF NOT EXISTS conflict_disclosure      TEXT,
+        ADD COLUMN IF NOT EXISTS rebalancing_mode         VARCHAR(30) DEFAULT 'drift_triggered'
     `);
     // Back-fill portfolio_code as FP-NNN using row_number over creation order
     await migDb.execute(migSql`
