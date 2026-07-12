@@ -3085,4 +3085,43 @@ export async function ensureSharedRouteTables(): Promise<void> {
     }
   }
   console.log(`  ✅ Fix FASP-4: ${p4ok}/${phase4Cols.length} period columns ensured`);
+
+  // ── Fix FASP-5: PSU & Defence Atmanirbhar portfolio seed (Jul 2026) ───────────
+  // Fix #6 (which seeds model_portfolios) was already applied and migration-guarded,
+  // so new portfolios added AFTER Fix #6 ran require their own migration entry.
+  try {
+    const { db: fpDb } = await import("../db");
+    const { sql: fpSql } = await import("drizzle-orm");
+    const alreadySeeded = await fpDb.execute(
+      fpSql`SELECT 1 FROM model_portfolios WHERE id = 'psu-defence-atmanirbhar' LIMIT 1`
+    );
+    if ((alreadySeeded as any).rows?.length === 0) {
+      await fpDb.execute(fpSql`
+        INSERT INTO model_portfolios
+          (id, name, tagline, risk_profile, asset_class, goal, min_investment,
+           time_horizon, benchmark_name, last_rebalanced, rebalancing_frequency,
+           total_holdings, highlight, icon, is_featured, allocation, holdings)
+        VALUES (
+          'psu-defence-atmanirbhar',
+          'PSU & Defence Atmanirbhar',
+          'India''s self-reliance mission — government capex + defence indigenisation',
+          'aggressive', 'thematic',
+          '["capital_appreciation","thematic","government_capex"]',
+          15000, '5-7 years', 'Nifty India Defence Index',
+          TO_CHAR(NOW() - INTERVAL '2 days', 'YYYY-MM-DD'),
+          'quarterly', 8,
+          'HAL, BEL, GRSE, Cochin Shipyard — India defence capex supercycle',
+          '🪖', TRUE,
+          '[{"type":"defence","label":"Defence & Aerospace","weight":55,"color":"#1D4ED8","icon":"🪖"},{"type":"psu","label":"PSU Equity","weight":30,"color":"#059669","icon":"🏛️"},{"type":"liquid","label":"Liquid Buffer","weight":15,"color":"#6B7280","icon":"💧"}]',
+          '[{"name":"SBI Defence Opportunities Fund","isin":"INF200KB1290","weight":20,"type":"equity"},{"name":"HDFC Defence Fund","isin":"INF179KC1GL9","weight":18,"type":"equity"},{"name":"Edelweiss India Defence Fund","isin":"INF754K01LN7","weight":17,"type":"equity"},{"name":"SBI PSU Fund","isin":"INF200K01BC0","weight":15,"type":"equity"},{"name":"ICICI Pru Manufacturing Fund","isin":"INF109K01AW3","weight":10,"type":"equity"},{"name":"Nippon India Power & Infra Fund","isin":"INF204K01UB5","weight":10,"type":"equity"},{"name":"SBI Liquid Fund","isin":"INF200K01MA1","weight":8,"type":"liquid"},{"name":"ICICI Pru Liquid Fund","isin":"INF109K01027","weight":2,"type":"liquid"}]'
+        )
+        ON CONFLICT (id) DO NOTHING
+      `);
+      console.log("  ✅ Fix FASP-5: psu-defence-atmanirbhar portfolio seeded");
+    } else {
+      console.log("  ✅ Fix FASP-5: psu-defence-atmanirbhar already exists — skipped");
+    }
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix FASP-5 PSU-Defence seed (non-fatal):", e.message?.slice(0, 160));
+  }
 }
