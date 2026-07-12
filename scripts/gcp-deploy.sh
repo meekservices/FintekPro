@@ -175,6 +175,17 @@ gcloud run services update-traffic $SERVICE_NAME \
 echo "✅ Deployment complete!"
 gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format='value(status.url)'
 
+# ── Update Cloud Run Job image (keeps schema-repairs in sync with app) ────────
+echo ""
+echo "🔧 Updating fintekpro-schema-repairs job to latest image..."
+gcloud run jobs update fintekpro-schema-repairs \
+    --image=asia-south1-docker.pkg.dev/${PROJECT_ID}/fintekpro-repo/fintekpro-app:latest \
+    --project=$PROJECT_ID \
+    --region=$REGION \
+    --command="node" \
+    --args="dist/startup/schema-repairs-runner.js" 2>&1 | tail -3
+echo "✅ Schema-repairs job image updated — next job execution will use the latest code."
+
 # ── Firebase Hosting Deploy (serves the static frontend at agent.fintekpro.com) ──
 echo ""
 echo "🔥 Building frontend locally for Firebase Hosting..."
@@ -194,3 +205,4 @@ npx -y firebase-tools@latest deploy --only hosting --project fintekpro --non-int
 
 echo ""
 echo "✅ Firebase Hosting deploy complete — frontend is now in sync with backend!"
+
