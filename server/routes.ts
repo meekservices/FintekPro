@@ -96,6 +96,7 @@ import testerDiagnosticsRoutes from "./routes/tester-diagnostics-routes";
 import researchNoteRouter from "./routes/research-note-routes";
 import researchWorkspaceRouter from "./routes/research-workspace";
 import screenerRouter from "./routes/screener-routes";
+import { instrumentScreenerRouter } from "./routes/instrument-screener-routes";
 import errorTrackingRouter from "./routes/error-tracking-routes";
 import { Router } from "express";
 
@@ -400,6 +401,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// Stock Screener routes (/api/screener/stocks, /stats, /distribution, etc.)
 	app.use("/", screenerRouter);
+	// ── Universal instrument screener: MF, Bonds, ETFs ──────────────────────
+	app.use("/api/screener", instrumentScreenerRouter);
 
 	app.use("/api/live-mf", liveMFDataRouter);
 	app.use("/api/tester/diagnostics", testerDiagnosticsRoutes);

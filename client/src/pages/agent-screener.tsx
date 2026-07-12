@@ -382,6 +382,32 @@ export default function AgentScreener() {
 	const [dbPage, setDbPage] = useState(1);
 	const dbLimit = 25;
 
+	// ── MF filter state ───────────────────────────────────────────────────────
+	const [mfCategory, setMfCategory] = useState("");
+	const [mfFundHouse, setMfFundHouse] = useState("");
+	const [mfRiskLevel, setMfRiskLevel] = useState("");
+	const [mfMinReturn1y, setMfMinReturn1y] = useState("");
+	const [mfMinReturn3y, setMfMinReturn3y] = useState("");
+	const [mfMaxExpenseRatio, setMfMaxExpenseRatio] = useState("");
+	const [mfMinAum, setMfMinAum] = useState("");
+	const [mfSearch, setMfSearch] = useState("");
+	const [mfPage, setMfPage] = useState(1);
+	const [mfSortBy, setMfSortBy] = useState("returns1y");
+	const [mfSortOrder, setMfSortOrder] = useState<"asc" | "desc">("desc");
+
+	// ── Bond filter state ─────────────────────────────────────────────────────
+	const [bondType, setBondType] = useState("all");
+	const [bondMinYield, setBondMinYield] = useState("");
+	const [bondMaxMaturityYears, setBondMaxMaturityYears] = useState("");
+	const [bondMinRating, setBondMinRating] = useState("");
+	const [bondTaxStatus, setBondTaxStatus] = useState("all");
+	const [bondPage, setBondPage] = useState(1);
+
+	// ── ETF filter state ──────────────────────────────────────────────────────
+	const [etfCategory, setEtfCategory] = useState("all");
+	const [etfSearch, setEtfSearch] = useState("");
+	const [etfPage, setEtfPage] = useState(1);
+
 	const buildQueryParams = () => {
 		const params = new URLSearchParams();
 		params.set("page", String(dbPage));
@@ -400,6 +426,8 @@ export default function AgentScreener() {
 		return params.toString();
 	};
 
+	const isNonStockType = screenerType !== "stock";
+
 	const { data: dbScreenerData, isLoading: dbLoading } = useQuery<any>({
 		queryKey: [
 			"/api/screener/stocks",
@@ -416,6 +444,7 @@ export default function AgentScreener() {
 			dbSortBy,
 			dbSortOrder,
 		],
+		enabled: !isNonStockType,
 		queryFn: () =>
 			fetch(`/api/screener/stocks?${buildQueryParams()}`, {
 				credentials: "include",
@@ -424,6 +453,57 @@ export default function AgentScreener() {
 				return r.json();
 			}),
 	});
+
+	// ── Instrument screener query (MF / Bond / ETF) ───────────────────────────
+	const buildInstrumentParams = () => {
+		const p = new URLSearchParams();
+		p.set("type", screenerType);
+		p.set("limit", "25");
+		if (screenerType === "mutual_fund") {
+			p.set("page", String(mfPage));
+			p.set("sortBy", mfSortBy);
+			p.set("sortOrder", mfSortOrder);
+			if (mfSearch)           p.set("q", mfSearch);
+			if (mfCategory)         p.set("category", mfCategory);
+			if (mfFundHouse)        p.set("fundHouse", mfFundHouse);
+			if (mfRiskLevel)        p.set("riskLevel", mfRiskLevel);
+			if (mfMinReturn1y)      p.set("minReturn1y", mfMinReturn1y);
+			if (mfMinReturn3y)      p.set("minReturn3y", mfMinReturn3y);
+			if (mfMaxExpenseRatio)  p.set("maxExpenseRatio", mfMaxExpenseRatio);
+			if (mfMinAum)           p.set("minAum", mfMinAum);
+		} else if (screenerType === "bond") {
+			p.set("page", String(bondPage));
+			p.set("bondType", bondType);
+			if (bondMinYield)           p.set("minYield", bondMinYield);
+			if (bondMaxMaturityYears)   p.set("maxMaturityYears", bondMaxMaturityYears);
+			if (bondMinRating)          p.set("minRating", bondMinRating);
+			if (bondTaxStatus !== "all") p.set("taxStatus", bondTaxStatus);
+		} else if (screenerType === "etf") {
+			p.set("page", String(etfPage));
+			if (etfSearch)                 p.set("q", etfSearch);
+			if (etfCategory !== "all")     p.set("etfCategory", etfCategory);
+		}
+		return p.toString();
+	};
+
+	const { data: instrumentData, isLoading: instrumentLoading } = useQuery<any>({
+		queryKey: [
+			"/api/screener/instruments",
+			screenerType, mfPage, mfCategory, mfFundHouse, mfRiskLevel, mfSearch,
+			mfMinReturn1y, mfMinReturn3y, mfMaxExpenseRatio, mfMinAum, mfSortBy, mfSortOrder,
+			bondPage, bondType, bondMinYield, bondMaxMaturityYears, bondMinRating, bondTaxStatus,
+			etfPage, etfCategory, etfSearch,
+		],
+		enabled: isNonStockType,
+		queryFn: () =>
+			fetch(`/api/screener/instruments?${buildInstrumentParams()}`, {
+				credentials: "include",
+			}).then((r) => {
+				if (!r.ok) throw new Error(`Failed to fetch ${screenerType} screener`);
+				return r.json();
+			}),
+	});
+
 
 	const { data: screenerStats } = useQuery<any>({
 		queryKey: ["/api/screener/stats"],
@@ -999,7 +1079,12 @@ export default function AgentScreener() {
 									<Filter className="h-5 w-5 text-primary" />
 								</div>
 								<div>
-									<CardTitle className="text-lg">Stock Screener</CardTitle>
+									<CardTitle className="text-lg">
+									{screenerType === "mutual_fund" ? "Mutual Fund Screener" :
+									 screenerType === "bond" ? "Bond & Fixed Income Screener" :
+									 screenerType === "etf" ? "ETF Screener" :
+									 "Stock Screener"}
+								</CardTitle>
 									<CardDescription className="text-xs mt-0.5">
 										Screen{" "}
 										{screenerStats?.database?.totalStocks?.toLocaleString() ||
@@ -1037,6 +1122,223 @@ export default function AgentScreener() {
 					<TabsContent value="db-screener" className="m-0">
 						<CardContent className="pt-4 px-4">
 							<div className="space-y-3">
+
+								{/* ── Instrument Type Switcher ─────────────────────────────────── */}
+								<div className="flex items-center gap-3 border-b pb-3">
+									<span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Instrument:</span>
+									{(["stock","mutual_fund","bond","etf"] as ScreenerType[]).map((t) => (
+										<button
+											key={t}
+											type="button"
+											onClick={() => setScreenerType(t)}
+											className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+												screenerType === t
+													? "bg-primary text-primary-foreground"
+													: "bg-muted text-muted-foreground hover:bg-muted/70"
+											}`}
+										>
+											{t === "mutual_fund" ? "Mutual Funds" : t === "bond" ? "Bonds" : t === "etf" ? "ETFs" : "Stocks"}
+										</button>
+									))}
+								</div>
+
+								{/* ── MF Screener ──────────────────────────────────────────────── */}
+								{screenerType === "mutual_fund" && (
+									<div className="space-y-3">
+										<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+											<Input placeholder="Search fund..." className="h-7 text-xs" value={mfSearch}
+												onChange={(e) => { setMfSearch(e.target.value); setMfPage(1); }} />
+											<select className="h-7 text-xs border rounded-md px-2 bg-background" value={mfCategory}
+												onChange={(e) => { setMfCategory(e.target.value); setMfPage(1); }}>
+												<option value="">All Categories</option>
+												{["Equity","Debt","Hybrid","ELSS","Index","Liquid","Arbitrage","Thematic","International","Gold","FOF"].map(c => (
+													<option key={c} value={c}>{c}</option>
+												))}
+											</select>
+											<select className="h-7 text-xs border rounded-md px-2 bg-background" value={mfRiskLevel}
+												onChange={(e) => { setMfRiskLevel(e.target.value); setMfPage(1); }}>
+												<option value="">All Risk</option>
+												{["Low","Moderately Low","Moderate","Moderately High","High","Very High"].map(r => (
+													<option key={r} value={r}>{r}</option>
+												))}
+											</select>
+											<Input placeholder="Min 1Y Return %" type="number" className="h-7 text-xs" value={mfMinReturn1y}
+												onChange={(e) => { setMfMinReturn1y(e.target.value); setMfPage(1); }} />
+											<Input placeholder="Min 3Y Return %" type="number" className="h-7 text-xs" value={mfMinReturn3y}
+												onChange={(e) => { setMfMinReturn3y(e.target.value); setMfPage(1); }} />
+											<Input placeholder="Max Expense Ratio %" type="number" className="h-7 text-xs" value={mfMaxExpenseRatio}
+												onChange={(e) => { setMfMaxExpenseRatio(e.target.value); setMfPage(1); }} />
+										</div>
+										<div className="flex items-center justify-between text-xs text-muted-foreground">
+											<span>{instrumentData?.meta?.total?.toLocaleString() ?? 0} funds</span>
+											<div className="flex gap-2">
+												<Button variant="outline" size="sm" className="h-6 text-[10px]" disabled={mfPage <= 1} onClick={() => setMfPage(p => Math.max(1,p-1))}><ChevronLeft className="h-3 w-3" />Prev</Button>
+												<Button variant="outline" size="sm" className="h-6 text-[10px]" disabled={(instrumentData?.data?.length ?? 0) < 25} onClick={() => setMfPage(p => p+1)}>Next<ChevronRight className="h-3 w-3" /></Button>
+											</div>
+										</div>
+										{instrumentLoading ? (
+											<div className="flex items-center justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /><span className="ml-2 text-sm text-muted-foreground">Loading funds...</span></div>
+										) : (
+										<div className="border rounded-lg overflow-hidden">
+											<div className="overflow-x-auto">
+												<table className="w-full text-sm">
+													<thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10 border-b">
+														<tr>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">#</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider min-w-[220px]">Scheme Name</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Category</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Risk</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">NAV ₹</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("returns1y"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>1Y Ret %</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("returns3y"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>3Y Ret %</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("returns5y"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>5Y Ret %</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("aum"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>AUM Cr</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("expenseRatio"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>Exp Ratio</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Rating</th>
+														</tr>
+													</thead>
+													<tbody className="divide-y">
+														{(instrumentData?.data ?? []).map((f: any, i: number) => (
+															<tr key={f.id ?? f.schemeCode} className="hover:bg-muted/30 transition-colors">
+																<td className="py-2 px-3 text-xs text-muted-foreground">{(mfPage-1)*25+i+1}</td>
+																<td className="py-2 px-3 text-xs font-medium max-w-[240px] truncate" title={f.schemeName}>{f.schemeName}</td>
+																<td className="py-2 px-3 text-xs"><span className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-[10px]">{f.category ?? "—"}</span></td>
+																<td className="py-2 px-3 text-xs"><span className={`px-1.5 py-0.5 rounded text-[10px] ${
+																	f.riskLevel?.includes("High") ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400" :
+																	f.riskLevel?.includes("Low") ? "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400" :
+																	"bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
+																}`}>{f.riskLevel ?? "—"}</span></td>
+																<td className="py-2 px-3 text-right font-mono text-xs">{f.nav ? `₹${Number(f.nav).toFixed(2)}` : "—"}</td>
+																<td className={`py-2 px-3 text-right font-mono text-xs ${Number(f.returns1y) > 0 ? "text-emerald-600 dark:text-emerald-400" : Number(f.returns1y) < 0 ? "text-red-500" : ""}`}>{f.returns1y ? `${Number(f.returns1y).toFixed(2)}%` : "—"}</td>
+																<td className={`py-2 px-3 text-right font-mono text-xs ${Number(f.returns3y) > 0 ? "text-emerald-600 dark:text-emerald-400" : Number(f.returns3y) < 0 ? "text-red-500" : ""}`}>{f.returns3y ? `${Number(f.returns3y).toFixed(2)}%` : "—"}</td>
+																<td className={`py-2 px-3 text-right font-mono text-xs ${Number(f.returns5y) > 0 ? "text-emerald-600 dark:text-emerald-400" : Number(f.returns5y) < 0 ? "text-red-500" : ""}`}>{f.returns5y ? `${Number(f.returns5y).toFixed(2)}%` : "—"}</td>
+																<td className="py-2 px-3 text-right font-mono text-xs">{f.aum ? `₹${Number(f.aum/100).toFixed(0)}Cr` : "—"}</td>
+																<td className="py-2 px-3 text-right font-mono text-xs">{f.expenseRatio ? `${Number(f.expenseRatio).toFixed(2)}%` : "—"}</td>
+																<td className="py-2 px-3 text-right font-mono text-xs">{f.rating ? `★${f.rating}` : "—"}</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											</div>
+										</div>
+										)}
+										<p className="text-[10px] text-muted-foreground text-center py-1">⚠️ {instrumentData?.meta?.disclaimer}</p>
+									</div>
+								)}
+
+								{/* ── Bond Screener ─────────────────────────────────────────────── */}
+								{screenerType === "bond" && (
+									<div className="space-y-3">
+										<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+											<select className="h-7 text-xs border rounded-md px-2 bg-background" value={bondType} onChange={(e) => { setBondType(e.target.value); setBondPage(1); }}>
+												<option value="all">All Bonds</option><option value="govt">G-Sec / SDL</option><option value="corporate">Corporate</option>
+											</select>
+											<Input placeholder="Min YTM %" type="number" className="h-7 text-xs" value={bondMinYield} onChange={(e) => { setBondMinYield(e.target.value); setBondPage(1); }} />
+											<Input placeholder="Matures within (yrs)" type="number" className="h-7 text-xs" value={bondMaxMaturityYears} onChange={(e) => { setBondMaxMaturityYears(e.target.value); setBondPage(1); }} />
+											<select className="h-7 text-xs border rounded-md px-2 bg-background" value={bondMinRating} onChange={(e) => { setBondMinRating(e.target.value); setBondPage(1); }}>
+												<option value="">All Ratings</option>{["BBB","A","AA","AA+","AAA"].map(r => <option key={r} value={r}>{r}+</option>)}
+											</select>
+											<select className="h-7 text-xs border rounded-md px-2 bg-background" value={bondTaxStatus} onChange={(e) => { setBondTaxStatus(e.target.value); setBondPage(1); }}>
+												<option value="all">Any Tax Status</option><option value="taxfree">Tax-Free</option><option value="taxable">Taxable</option>
+											</select>
+										</div>
+										{instrumentLoading ? (
+											<div className="flex items-center justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /><span className="ml-2 text-sm text-muted-foreground">Loading bonds...</span></div>
+										) : (
+										<div className="border rounded-lg overflow-hidden">
+											<div className="overflow-x-auto">
+												<table className="w-full text-sm">
+													<thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10 border-b">
+														<tr>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">#</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider min-w-[200px]">Issuer / Name</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Type</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">YTM %</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Coupon %</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Maturity</th>
+															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">Rating</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Min Invest</th>
+															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">Tax</th>
+														</tr>
+													</thead>
+													<tbody className="divide-y">
+														{(instrumentData?.data ?? []).length === 0 && !instrumentLoading && (
+															<tr><td colSpan={9} className="py-12 text-center text-muted-foreground text-sm">No bonds match the current filters. The bond catalog is currently seeded with sample data.</td></tr>
+														)}
+														{(instrumentData?.data ?? []).map((b: any, i: number) => (
+															<tr key={b.id ?? b.isin} className="hover:bg-muted/30 transition-colors">
+																<td className="py-2 px-3 text-xs text-muted-foreground">{(bondPage-1)*25+i+1}</td>
+																<td className="py-2 px-3 text-xs font-medium max-w-[220px]"><div className="truncate" title={b.name}>{b.name}</div><div className="text-[10px] text-muted-foreground">{b.issuer}</div></td>
+																<td className="py-2 px-3 text-xs"><span className={`px-1.5 py-0.5 rounded text-[10px] ${b.bondType === "govt" ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" : "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"}`}>{b.bondType === "govt" ? "G-Sec" : "Corporate"}</span></td>
+																<td className="py-2 px-3 text-right font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400">{b.yieldToMaturity ? `${Number(b.yieldToMaturity).toFixed(2)}%` : "—"}</td>
+																<td className="py-2 px-3 text-right font-mono text-xs">{b.couponRate ? `${Number(b.couponRate).toFixed(2)}%` : "—"}</td>
+																<td className="py-2 px-3 text-right text-xs">{b.maturityDate ?? "—"}</td>
+																<td className="py-2 px-3 text-center text-xs"><span className="px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 rounded font-bold text-[10px]">{b.creditRating ?? "—"}</span></td>
+																<td className="py-2 px-3 text-right text-xs">{b.minimumInvestment ? `₹${Number(b.minimumInvestment).toLocaleString()}` : "—"}</td>
+																<td className="py-2 px-3 text-center text-[10px]">{b.taxStatus === "taxfree" ? <span className="text-emerald-600 font-medium">Tax-Free</span> : "Taxable"}</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											</div>
+										</div>
+										)}
+										<p className="text-[10px] text-muted-foreground text-center py-1">⚠️ {instrumentData?.meta?.disclaimer ?? "Bond investments carry credit risk. Not a solicitation to invest."}</p>
+									</div>
+								)}
+
+								{/* ── ETF Screener ──────────────────────────────────────────────── */}
+								{screenerType === "etf" && (
+									<div className="space-y-3">
+										<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+											<Input placeholder="Search ETF..." className="h-7 text-xs" value={etfSearch} onChange={(e) => { setEtfSearch(e.target.value); setEtfPage(1); }} />
+											<select className="h-7 text-xs border rounded-md px-2 bg-background" value={etfCategory} onChange={(e) => { setEtfCategory(e.target.value); setEtfPage(1); }}>
+												<option value="all">All ETFs</option><option value="nifty">Nifty ETFs</option><option value="gold">Gold ETFs</option><option value="international">International</option>
+											</select>
+										</div>
+										<span className="text-xs text-muted-foreground">{instrumentData?.meta?.total ?? 0} ETFs found</span>
+										{instrumentLoading ? (
+											<div className="flex items-center justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /><span className="ml-2 text-sm text-muted-foreground">Loading ETFs...</span></div>
+										) : (
+										<div className="border rounded-lg overflow-hidden">
+											<div className="overflow-x-auto">
+												<table className="w-full text-sm">
+													<thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10 border-b">
+														<tr>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Symbol</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider min-w-[220px]">Name</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Exchange</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Price ₹</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Market Cap</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">ISIN</th>
+														</tr>
+													</thead>
+													<tbody className="divide-y">
+														{(instrumentData?.data ?? []).length === 0 && !instrumentLoading && (
+															<tr><td colSpan={6} className="py-12 text-center text-muted-foreground text-sm">No ETFs found with current filters.</td></tr>
+														)}
+														{(instrumentData?.data ?? []).map((e: any) => (
+															<tr key={e.id ?? e.symbol} className="hover:bg-muted/30 transition-colors">
+																<td className="py-2 px-3 text-xs font-mono font-semibold">{e.symbol}</td>
+																<td className="py-2 px-3 text-xs max-w-[240px] truncate" title={e.companyName}>{e.companyName}</td>
+																<td className="py-2 px-3 text-xs text-muted-foreground">{e.exchange ?? "NSE"}</td>
+																<td className="py-2 px-3 text-right font-mono text-xs">{e.currentPrice ? `₹${Number(e.currentPrice).toFixed(2)}` : "—"}</td>
+																<td className="py-2 px-3 text-right text-xs">{e.marketCap ? `₹${(Number(e.marketCap)/10000000).toFixed(0)}Cr` : "—"}</td>
+																<td className="py-2 px-3 text-xs text-muted-foreground font-mono text-[10px]">{e.isin ?? "—"}</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											</div>
+										</div>
+										)}
+										<p className="text-[10px] text-muted-foreground text-center py-1">⚠️ ETFs are subject to market risk. Past performance is not indicative of future returns.</p>
+									</div>
+								)}
+
+								{/* ── Stock Screener (existing) ─────────────────────────────────── */}
+								{screenerType === "stock" && (
+								<div className="space-y-3">
 								<div className="flex items-center justify-between">
 									<Button
 										variant={showFilters ? "secondary" : "outline"}
@@ -2218,8 +2520,10 @@ export default function AgentScreener() {
 									</div>
 								)}
 							</div>
-						</CardContent>
-					</TabsContent>
+							)}
+						</div>
+					</CardContent>
+				</TabsContent>
 
 					<TabsContent value="builder" className="m-0">
 						<CardContent className="pt-6">
