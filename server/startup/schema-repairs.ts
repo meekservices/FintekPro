@@ -2487,11 +2487,8 @@ crypto_status VARCHAR,
 
 // ── FASP-AI v3.0 Dynamic Portfolio Management Tables ──────────────────────────
 export async function runFASPAIv3Migrations(): Promise<void> {
-  const { neon } = await import("@neondatabase/serverless");
-  const { drizzle } = await import("drizzle-orm/neon-http");
+  const { db: migDb } = await import("../db");
   const { sql: migSql } = await import("drizzle-orm");
-
-  const migDb = drizzle(neon(process.env.DATABASE_URL!));
 
   // 1. fund_performance_cache — live NAV + rolling returns
   try {
@@ -2655,10 +2652,8 @@ export async function runFASPAIv3Migrations(): Promise<void> {
 // Required for ON CONFLICT (portfolio_id, instrument_name) upserts in the
 // Phase B migration service. Non-fatal — no-op if already present.
 export async function applyPhaseB_HoldingsUniqueIndex(): Promise<void> {
-  const { neon } = await import("@neondatabase/serverless");
-  const { drizzle } = await import("drizzle-orm/neon-http");
+  const { db: migDb } = await import("../db");
   const { sql: migSql } = await import("drizzle-orm");
-  const migDb = drizzle(neon(process.env.DATABASE_URL!));
   try {
     await migDb.execute(migSql`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_mph_portfolio_instrument
@@ -2676,10 +2671,8 @@ export async function applyPhaseB_HoldingsUniqueIndex(): Promise<void> {
 // All route-level `ensure*` functions now guard with a hasRun flag and are
 // instant no-ops after this canonical startup migration runs first.
 export async function ensureSharedRouteTables(): Promise<void> {
-  const { neon } = await import("@neondatabase/serverless");
-  const { drizzle } = await import("drizzle-orm/neon-http");
+  const { db: migDb } = await import("../db");
   const { sql: migSql } = await import("drizzle-orm");
-  const migDb = drizzle(neon(process.env.DATABASE_URL!));
 
   // ── agent_notifications ─────────────────────────────────────────────────────
   try {
