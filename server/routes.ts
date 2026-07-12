@@ -94,6 +94,7 @@ import { registerAgentAdvisoryPart3Routes } from "./routes/agent-advisory-3";
 import { registerAgentProspectAcquisitionPart1Routes } from "./routes/agent-prospect-acquisition-1";
 import testerDiagnosticsRoutes from "./routes/tester-diagnostics-routes";
 import researchNoteRouter from "./routes/research-note-routes";
+import researchWorkspaceRouter from "./routes/research-workspace";
 import screenerRouter from "./routes/screener-routes";
 import errorTrackingRouter from "./routes/error-tracking-routes";
 import { Router } from "express";
@@ -393,6 +394,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// Research Note routes (/api/research-note/search, /preview, etc.)
 	app.use("/api/research-note", researchNoteRouter);
+
+	// Research Lists / Saved Screeners (/api/research-lists/screeners, etc.)
+	app.use("/api/research-lists", researchWorkspaceRouter);
 
 	// Stock Screener routes (/api/screener/stocks, /stats, /distribution, etc.)
 	app.use("/", screenerRouter);

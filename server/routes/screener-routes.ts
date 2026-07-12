@@ -147,17 +147,25 @@ router.get("/api/screener/stocks", async (req, res) => {
 
 		res.json(result);
 	} catch (err: any) {
+		const cause = err?.cause ?? {};
 		console.error("[Screener] Query error detail:", JSON.stringify({
-			message: err.message,
-			code: err.code,
-			detail: err.detail,
-			hint: err.hint,
-			position: err.position,
-			internalQuery: err.internalQuery,
+			message: err.message?.slice(0, 300),
+			code: err.code ?? cause?.code,
+			detail: err.detail ?? cause?.detail,
+			hint: err.hint ?? cause?.hint,
+			position: err.position ?? cause?.position,
+			severity: cause?.severity,
+			where: cause?.where,
+			causeMessage: cause?.message?.slice(0, 300),
 		}));
 		res
 			.status(500)
-			.json({ error: "Failed to query screener", message: err.message, code: err.code, detail: err.detail });
+			.json({
+				error: "Failed to query screener",
+				message: err.message,
+				code: err.code ?? cause?.code,
+				detail: err.detail ?? cause?.detail,
+			});
 	}
 });
 
