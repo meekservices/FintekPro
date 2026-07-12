@@ -2161,7 +2161,7 @@ crypto_status VARCHAR,
 	// Safe on existing data: CREATE UNIQUE INDEX CONCURRENTLY does not lock.
 	// If duplicates exist the constraint creation will fail gracefully (non-fatal).
 	// Phase 1-3 use db + sql re-imported at function scope (inner catch closed prev scope).
-	const { db: p1Db } = await import("../db");
+	const { db: p1Db, pool: p1Pool } = await import("../db");
 	const { sql: p1Sql } = await import("drizzle-orm");
 	try {
 		await p1Db.execute(p1Sql`ALTER TABLE screener_financials DROP CONSTRAINT IF EXISTS uq_screener_fin_symbol_period`);
@@ -2376,15 +2376,16 @@ crypto_status VARCHAR,
 	console.log("✅ [Phase 5] Date type + hot-cold split migrations complete");
 
 	// ── FASP-5: PSU & Defence Atmanirbhar portfolio seed (Jul 2026) ─────────
-	// p1Db (pg pool Drizzle) and p1Sql are in scope from the function body level.
-	// Regular Plan ISINs only (FintekPro = SEBI distributor). Idempotent via ON CONFLICT.
+	// Uses p1Pool.query() — raw pg.Pool parameterized SQL, same connection as all
+	// other schema repairs. Bypasses Drizzle template to ensure reliable INSERT.
+	// Regular Plan ISINs only. Idempotent via ON CONFLICT (id) DO NOTHING.
 	try {
-		const _f5alloc = JSON.stringify([
+		const f5Alloc = JSON.stringify([
 			{ type: "defence", label: "Defence & Aerospace", weight: 55, color: "#1D4ED8" },
 			{ type: "psu",     label: "PSU Equity",          weight: 30, color: "#059669" },
 			{ type: "liquid",  label: "Liquid Buffer",        weight: 15, color: "#6B7280" },
 		]);
-		const _f5hold = JSON.stringify([
+		const f5Hold = JSON.stringify([
 			{ name: "SBI Defence Opportunities Fund",  isin: "INF200KB1290", weight: 20, type: "equity" },
 			{ name: "HDFC Defence Fund",               isin: "INF179KC1GL9", weight: 18, type: "equity" },
 			{ name: "Edelweiss India Defence Fund",    isin: "INF754K01LN7", weight: 17, type: "equity" },
@@ -2394,41 +2395,42 @@ crypto_status VARCHAR,
 			{ name: "SBI Liquid Fund",                 isin: "INF200K01MA1", weight:  8, type: "liquid" },
 			{ name: "ICICI Pru Liquid Fund",           isin: "INF109K01027", weight:  2, type: "liquid" },
 		]);
-		const _f5goal = JSON.stringify(["capital_appreciation", "thematic", "government_capex"]);
-		const _f5id   = "psu-defence-atmanirbhar";
-		const _f5name = "PSU & Defence Atmanirbhar";
-		const _f5tag  = "India self-reliance mission - government capex + defence indigenisation";
-		await p1Db.execute(p1Sql`
-			INSERT INTO model_portfolios
+		const f5R = await p1Pool.query(
+			`INSERT INTO model_portfolios
 				(id, name, tagline, risk_profile, asset_class, goal, min_investment,
 				 time_horizon, benchmark_name, last_rebalanced, rebalancing_frequency,
 				 total_holdings, highlight, icon, is_featured, allocation, holdings)
-			VALUES (
-				${_f5id}, ${_f5name}, ${_f5tag},
-				${"aggressive"}, ${"thematic"}, ${_f5goal},
-				${15000}, ${"5-7 years"}, ${"Nifty India Defence Index"}, ${"2026-07-10"},
-				${"quarterly"}, ${8},
-				${"HAL, BEL, GRSE, Cochin Shipyard - India defence capex supercycle"},
-				${"[D]"}, ${true}, ${_f5alloc}, ${_f5hold}
-			)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
 			ON CONFLICT (id) DO NOTHING
-		`);
-		console.log("  ✅ FASP-5: psu-defence-atmanirbhar seeded (idempotent)");
+			RETURNING id`,
+			[
+				"psu-defence-atmanirbhar",
+				"PSU & Defence Atmanirbhar",
+				"India self-reliance mission - government capex + defence indigenisation",
+				"aggressive", "thematic",
+				 JSON.stringify(["capital_appreciation", "thematic", "government_capex"]),
+				15000, "5-7 years", "Nifty India Defence Index", "2026-07-10",
+				"quarterly", 8,
+				"HAL, BEL, GRSE, Cochin Shipyard - India defence capex supercycle",
+				"[D]", true, f5Alloc, f5Hold,
+			]
+		);
+		console.log(`  ✅ FASP-5: psu-defence-atmanirbhar — inserted ${f5R.rowCount} row(s)`);
 	} catch (e: any) {
-		console.error("  ❌ FASP-5 seed FATAL error:", e.message, e.stack?.slice(0, 500));
+		console.error("  ❌ FASP-5 FATAL:", e.message, e.code, e.detail);
 		throw e;
 	}
 
 	// ── FASP-6: Future Multibaggers portfolio seed (Jul 2026) ─────────────────
-	// Small/mid cap high-growth portfolio. Regular Plan ISINs. Idempotent via ON CONFLICT.
+	// Small/mid cap high-growth. Regular Plan ISINs. p1Pool.query() for reliability.
 	try {
-		const _f6alloc = JSON.stringify([
+		const f6Alloc = JSON.stringify([
 			{ type: "small_cap", label: "Small Cap",       weight: 60, color: "#7C3AED" },
 			{ type: "mid_cap",   label: "Mid Cap",         weight: 25, color: "#0891B2" },
 			{ type: "multi_cap", label: "Multi Cap Alpha", weight: 10, color: "#059669" },
 			{ type: "liquid",    label: "Liquid Buffer",   weight:  5, color: "#6B7280" },
 		]);
-		const _f6hold = JSON.stringify([
+		const f6Hold = JSON.stringify([
 			{ name: "Nippon India Small Cap Fund", isin: "INF204K01GQ2", weight: 20, type: "equity" },
 			{ name: "SBI Small Cap Fund",          isin: "INF200K01T28", weight: 18, type: "equity" },
 			{ name: "Quant Small Cap Fund",        isin: "INF966L01AA0", weight: 12, type: "equity" },
@@ -2438,28 +2440,29 @@ crypto_status VARCHAR,
 			{ name: "Quant Active Fund",           isin: "INF082J01275", weight: 10, type: "equity" },
 			{ name: "SBI Liquid Fund",             isin: "INF200K01MA1", weight:  5, type: "liquid" },
 		]);
-		const _f6goal = JSON.stringify(["capital_appreciation", "wealth_creation", "high_growth"]);
-		const _f6id   = "future-multibaggers";
-		const _f6name = "Future Multibaggers";
-		const _f6tag  = "Tomorrow's 10x stocks today - early-mover exposure to India's next wave of compounders";
-		await p1Db.execute(p1Sql`
-			INSERT INTO model_portfolios
+		const f6R = await p1Pool.query(
+			`INSERT INTO model_portfolios
 				(id, name, tagline, risk_profile, asset_class, goal, min_investment,
 				 time_horizon, benchmark_name, last_rebalanced, rebalancing_frequency,
 				 total_holdings, highlight, icon, is_featured, allocation, holdings)
-			VALUES (
-				${_f6id}, ${_f6name}, ${_f6tag},
-				${"aggressive"}, ${"equity"}, ${_f6goal},
-				${25000}, ${"7-10 years"}, ${"Nifty Smallcap 250"}, ${"2026-07-12"},
-				${"quarterly"}, ${8},
-				${"Nippon Small Cap, Quant Small Cap, Motilal Midcap - riding India's next growth decade"},
-				${"[R]"}, ${true}, ${_f6alloc}, ${_f6hold}
-			)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
 			ON CONFLICT (id) DO NOTHING
-		`);
-		console.log("  ✅ FASP-6: future-multibaggers seeded (idempotent)");
+			RETURNING id`,
+			[
+				"future-multibaggers",
+				"Future Multibaggers",
+				"Tomorrow's 10x stocks today - early-mover exposure to India's next wave of compounders",
+				"aggressive", "equity",
+				 JSON.stringify(["capital_appreciation", "wealth_creation", "high_growth"]),
+				25000, "7-10 years", "Nifty Smallcap 250", "2026-07-12",
+				"quarterly", 8,
+				"Nippon Small Cap, Quant Small Cap, Motilal Midcap - riding India's next growth decade",
+				"[R]", true, f6Alloc, f6Hold,
+			]
+		);
+		console.log(`  ✅ FASP-6: future-multibaggers — inserted ${f6R.rowCount} row(s)`);
 	} catch (e: any) {
-		console.error("  ❌ FASP-6 seed FATAL error:", e.message, e.stack?.slice(0, 500));
+		console.error("  ❌ FASP-6 FATAL:", e.message, e.code, e.detail);
 		throw e;
 	}
 }

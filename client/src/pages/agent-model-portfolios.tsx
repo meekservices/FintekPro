@@ -102,6 +102,8 @@ import {
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -2524,129 +2526,238 @@ const getConfidenceColor = (score: number): string => {
   return "text-red-600";
 };
 
-// ─── PerformancePeriodTable ───────────────────────────────────────────────────
-// Replaces the hardcoded 1Y/3Y/5Y CAGR block with a full period table.
-// Fetches live data from /ai-track-record (same endpoint, reuses data).
+// \u2500\u2500\u2500 PerformancePeriodTable \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// 3-view performance table: CAGR (annualised) | Absolute (cumulative) | Monthly Rolling
 
 function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, benchmarkCagr1Y,
-  return1m, return3m, return6m, returnYtd, cagr2y, returnSinceInception, benchmarkSinceInception
+  return1m, return3m, return6m, returnYtd, cagr2y, returnSinceInception, benchmarkSinceInception,
+  performance,
 }: {
   portfolioId: string;
   twrr1Y?: number | null;
-  cagr1Y: number;
-  cagr3Y: number;
-  cagr5Y: number;
+  cagr1Y: number; cagr3Y: number; cagr5Y: number;
   benchmarkCagr1Y?: number | null;
-  // Phase 3 materialised columns — if present, use directly (no fetch needed)
-  return1m?: number | null;
-  return3m?: number | null;
-  return6m?: number | null;
-  returnYtd?: number | null;
-  cagr2y?: number | null;
-  returnSinceInception?: number | null;
-  benchmarkSinceInception?: number | null;
+  return1m?: number | null; return3m?: number | null; return6m?: number | null;
+  returnYtd?: number | null; cagr2y?: number | null;
+  returnSinceInception?: number | null; benchmarkSinceInception?: number | null;
+  performance?: Array<{ date: string; portfolioNav: number; benchmarkNav: number }>;
 }) {
-  const [periods, setPeriods] = useState<any>(null);
+  const [liveData, setLiveData] = useState<any>(null);
+  const [perfView, setPerfView] = useState<"cagr" | "absolute" | "rolling">("cagr");
 
   useEffect(() => {
     fetch(`/api/model-portfolios/${portfolioId}/ai-track-record`)
-      .then((r) => r.json())
-      .then((res) => { if (res.success) setPeriods(res.data?.performancePeriods ?? null); })
-      .catch(() => { /* silent — fallback to static below */ });
+      .then(r => r.json())
+      .then(res => { if (res.success) setLiveData(res.data?.performancePeriods ?? null); })
+      .catch(() => {});
   }, [portfolioId]);
 
   const isSebi = twrr1Y != null;
-
-  // If materialised DB columns are present, build a richer static set immediately
   const hasDbPeriods = return1m != null || return3m != null || returnYtd != null;
+
   const staticRows = hasDbPeriods ? [
-    { label: "1 Month",        returnPct: return1m,          benchmarkPct: null,              alpha: null },
-    { label: "3 Months",       returnPct: return3m,          benchmarkPct: null,              alpha: null },
-    { label: "6 Months",       returnPct: return6m,          benchmarkPct: null,              alpha: null },
-    { label: "YTD",            returnPct: returnYtd,         benchmarkPct: null,              alpha: null },
-    { label: "1 Year",         returnPct: cagr1Y,            benchmarkPct: benchmarkCagr1Y,  alpha: benchmarkCagr1Y != null ? cagr1Y - benchmarkCagr1Y : null },
-    { label: "2 Years (ann.)", returnPct: cagr2y,            benchmarkPct: null,              alpha: null },
-    { label: "3 Years (ann.)", returnPct: cagr3Y,            benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 1.4 : null, alpha: benchmarkCagr1Y != null && cagr3Y != null ? cagr3Y - (benchmarkCagr1Y - 1.4) : null },
-    { label: "5 Years (ann.)", returnPct: cagr5Y,            benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 2.1 : null, alpha: benchmarkCagr1Y != null && cagr5Y != null ? cagr5Y - (benchmarkCagr1Y - 2.1) : null },
-    { label: "Since Inception",returnPct: returnSinceInception, benchmarkPct: benchmarkSinceInception,
-      alpha: returnSinceInception != null && benchmarkSinceInception != null ? Number(returnSinceInception) - Number(benchmarkSinceInception) : null },
-  ].filter((r) => r.returnPct != null)
+    { label: "1 Month",        returnPct: return1m,              benchmarkPct: null,                       alpha: null },
+    { label: "3 Months",       returnPct: return3m,              benchmarkPct: null,                       alpha: null },
+    { label: "6 Months",       returnPct: return6m,              benchmarkPct: null,                       alpha: null },
+    { label: "YTD",            returnPct: returnYtd,             benchmarkPct: null,                       alpha: null },
+    { label: "1 Year",         returnPct: cagr1Y,                benchmarkPct: benchmarkCagr1Y,            alpha: benchmarkCagr1Y != null ? cagr1Y - benchmarkCagr1Y : null },
+    { label: "2 Years (ann.)", returnPct: cagr2y,                benchmarkPct: null,                       alpha: null },
+    { label: "3 Years (ann.)", returnPct: cagr3Y,                benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 1.4 : null, alpha: benchmarkCagr1Y != null && cagr3Y != null ? cagr3Y - (benchmarkCagr1Y - 1.4) : null },
+    { label: "5 Years (ann.)", returnPct: cagr5Y,                benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 2.1 : null, alpha: benchmarkCagr1Y != null && cagr5Y != null ? cagr5Y - (benchmarkCagr1Y - 2.1) : null },
+    { label: "Since Inception",returnPct: returnSinceInception,  benchmarkPct: benchmarkSinceInception,    alpha: returnSinceInception != null && benchmarkSinceInception != null ? Number(returnSinceInception) - Number(benchmarkSinceInception) : null },
+  ].filter(r => r.returnPct != null)
   : [
-    { label: "1 Year",  returnPct: cagr1Y,  benchmarkPct: benchmarkCagr1Y, alpha: benchmarkCagr1Y != null ? cagr1Y - benchmarkCagr1Y : null },
+    { label: "1 Year",         returnPct: cagr1Y, benchmarkPct: benchmarkCagr1Y,                           alpha: benchmarkCagr1Y != null ? cagr1Y - benchmarkCagr1Y : null },
     { label: "3 Years (ann.)", returnPct: cagr3Y, benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 1.4 : null, alpha: benchmarkCagr1Y != null ? cagr3Y - (benchmarkCagr1Y - 1.4) : null },
     { label: "5 Years (ann.)", returnPct: cagr5Y, benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 2.1 : null, alpha: benchmarkCagr1Y != null ? cagr5Y - (benchmarkCagr1Y - 2.1) : null },
   ];
 
   const PERIOD_KEYS = ["1M","3M","6M","YTD","1Y","2Y","3Y","5Y","sinceInception"];
-  const PERIOD_LABELS: Record<string, string> = {
-    "1M": "1 Month", "3M": "3 Months", "6M": "6 Months", "YTD": "YTD",
-    "1Y": "1 Year", "2Y": "2 Years (ann.)", "3Y": "3 Years (ann.)",
-    "5Y": "5 Years (ann.)", "sinceInception": "Since Inception",
+  const PERIOD_LABELS: Record<string,string> = {
+    "1M":"1 Month","3M":"3 Months","6M":"6 Months","YTD":"YTD",
+    "1Y":"1 Year","2Y":"2 Years (ann.)","3Y":"3 Years (ann.)","5Y":"5 Years (ann.)","sinceInception":"Since Inception",
   };
 
-  const liveRows = periods
-    ? PERIOD_KEYS.map((key) => {
-        const p = periods[key];
-        if (!p) return null;
-        return {
-          label: PERIOD_LABELS[key],
-          returnPct: p.returnPct,
-          benchmarkPct: p.benchmarkPct,
-          alpha: p.alpha,
-          note: p.note,
+  const liveRows = liveData
+    ? PERIOD_KEYS.map(key => {
+        const p = liveData[key]; if (!p) return null;
+        return { label: PERIOD_LABELS[key], returnPct: p.returnPct, benchmarkPct: p.benchmarkPct, alpha: p.alpha, note: p.note,
           extra: key === "sinceInception" && p.inceptionDate
-            ? `since ${new Date(p.inceptionDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" })} · ${p.monthsOfData}M`
-            : undefined,
-        };
+            ? `since ${new Date(p.inceptionDate).toLocaleDateString("en-IN",{month:"short",year:"numeric"})} \u00b7 ${p.monthsOfData}M` : undefined };
       }).filter(Boolean)
     : null;
 
-  const rows = liveRows ?? staticRows;
+  const cagrRows = liveRows ?? staticRows;
+
+  // Absolute = cumulative total return: (1+cagr%)^years - 1
+  const absoluteRows = useMemo(() => cagrRows.map((r: any) => {
+    const yrs = r.label.includes("5 Year") ? 5 : r.label.includes("3 Year") ? 3 : r.label.includes("2 Year") ? 2 : null;
+    const abs  = yrs != null && r.returnPct   != null ? (Math.pow(1 + r.returnPct  /100, yrs)-1)*100 : r.returnPct;
+    const absB = yrs != null && r.benchmarkPct != null ? (Math.pow(1 + r.benchmarkPct/100, yrs)-1)*100 : r.benchmarkPct;
+    return { ...r,
+      returnPct:   abs  != null ? Number(abs.toFixed(2))         : null,
+      benchmarkPct:absB != null ? Number(absB.toFixed(2))        : null,
+      alpha:       abs  != null && absB != null ? Number((abs-absB).toFixed(2)) : r.alpha,
+      label: yrs != null ? r.label.replace("(ann.)","(total)") : r.label,
+    };
+  }), [cagrRows]);
+
+  // Monthly rolling: month-on-month NAV changes
+  const rollingData = useMemo(() => {
+    if (!performance || performance.length < 2) return [];
+    return performance.slice(1).map((pt, i) => {
+      const prev = performance![i];
+      const pr = ((pt.portfolioNav  - prev.portfolioNav)  / prev.portfolioNav)  * 100;
+      const br = ((pt.benchmarkNav  - prev.benchmarkNav)  / prev.benchmarkNav)  * 100;
+      return { date: pt.date, portfolio: +pr.toFixed(2), benchmark: +br.toFixed(2), alpha: +(pr-br).toFixed(2) };
+    });
+  }, [performance]);
+
+  const renderTableRows = (rows: any[], color: string) => rows.map((r: any, i: number) => {
+    const v  = r.returnPct  != null && !r.note ? Number(r.returnPct)   : null;
+    const bv = r.benchmarkPct != null           ? Number(r.benchmarkPct): null;
+    return (
+      <tr key={i} className="border-b last:border-0 hover:bg-muted/5 transition-colors">
+        <td className="px-3 py-2 text-[11px]">
+          {r.label}
+          {r.extra && <span className="block text-[9px] text-muted-foreground">{r.extra}</span>}
+        </td>
+        <td className={`px-3 py-2 text-right font-semibold ${v !== null ? color : "text-muted-foreground"}`}>
+          {v !== null ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : "—"}
+        </td>
+        <td className="px-3 py-2 text-right text-muted-foreground">
+          {bv !== null ? `${bv >= 0 ? "+" : ""}${bv.toFixed(1)}%` : "—"}
+        </td>
+        <td className={`px-3 py-2 text-right font-medium ${r.alpha > 0 ? "text-emerald-600 dark:text-emerald-400" : r.alpha < 0 ? "text-red-500" : "text-muted-foreground"}`}>
+          {r.alpha != null ? `${r.alpha >= 0 ? "+" : ""}${Number(r.alpha).toFixed(1)}%` : "—"}
+        </td>
+      </tr>
+    );
+  });
+
+  const views: Array<{key:"cagr"|"absolute"|"rolling"; label:string}> = [
+    {key:"cagr",    label:"CAGR"},
+    {key:"absolute",label:"Absolute"},
+    {key:"rolling", label:"Monthly"},
+  ];
 
   return (
     <div className="rounded-xl border overflow-hidden">
-      <div className="px-3 py-2 bg-muted/30 border-b flex justify-between items-center">
-        <p className="text-[11px] font-semibold">
-          Performance {isSebi ? <span className="text-[9px] font-normal text-indigo-500 ml-1">TWRR · SEBI-mandated</span> : <span className="text-[9px] font-normal text-muted-foreground ml-1">CAGR</span>}
+      {/* Header + switcher */}
+      <div className="px-3 py-2 bg-muted/30 border-b flex justify-between items-center gap-2">
+        <p className="text-[11px] font-semibold shrink-0">
+          Performance
+          {isSebi && <span className="text-[9px] font-normal text-indigo-500 ml-1">TWRR \u00b7 SEBI</span>}
         </p>
-        {!liveRows && <span className="text-[9px] text-muted-foreground animate-pulse">Loading full data…</span>}
+        <div className="flex items-center gap-1">
+          {views.map(({key,label}) => (
+            <button key={key} id={`perf-${key}-${portfolioId}`}
+              onClick={() => setPerfView(key)}
+              className={`text-[9px] px-2 py-0.5 rounded-full font-medium transition-colors ${
+                perfView === key ? "bg-indigo-600 text-white shadow-sm" : "bg-muted/40 text-muted-foreground hover:bg-muted/70"
+              }`}
+            >{label}</button>
+          ))}
+          {!liveData && perfView !== "rolling" && <span className="text-[9px] text-muted-foreground animate-pulse ml-1">Loading\u2026</span>}
+        </div>
       </div>
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b bg-muted/10">
-            <th className="text-left px-3 py-1.5 text-[10px] font-medium text-muted-foreground">Period</th>
+
+      {/* CAGR table */}
+      {perfView === "cagr" && (
+        <table className="w-full text-xs">
+          <thead><tr className="border-b bg-muted/10">
+            <th className="text-left  px-3 py-1.5 text-[10px] font-medium text-muted-foreground">Period</th>
             <th className="text-right px-3 py-1.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">Portfolio</th>
             <th className="text-right px-3 py-1.5 text-[10px] font-medium text-muted-foreground">Benchmark</th>
             <th className="text-right px-3 py-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Alpha</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r: any, i: number) => {
-            const hasData = r.returnPct !== null && r.returnPct !== undefined && !r.note;
-            return (
-              <tr key={i} className="border-b last:border-0 hover:bg-muted/5 transition-colors">
-                <td className="px-3 py-2 text-[11px]">
-                  {r.label}
-                  {r.extra && <span className="block text-[9px] text-muted-foreground">{r.extra}</span>}
-                </td>
-                <td className={`px-3 py-2 text-right font-semibold ${hasData ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground"}`}>
-                  {hasData ? `+${Number(r.returnPct).toFixed(1)}%` : r.note ? <span className="text-[10px]">—</span> : "—"}
-                </td>
-                <td className="px-3 py-2 text-right text-muted-foreground">
-                  {r.benchmarkPct !== null && r.benchmarkPct !== undefined ? `+${Number(r.benchmarkPct).toFixed(1)}%` : "—"}
-                </td>
-                <td className={`px-3 py-2 text-right font-medium ${r.alpha > 0 ? "text-emerald-600 dark:text-emerald-400" : r.alpha < 0 ? "text-red-500" : "text-muted-foreground"}`}>
-                  {r.alpha !== null && r.alpha !== undefined
-                    ? `${r.alpha >= 0 ? "+" : ""}${Number(r.alpha).toFixed(1)}%`
-                    : "—"}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+          </tr></thead>
+          <tbody>{renderTableRows(cagrRows, "text-indigo-600 dark:text-indigo-400")}</tbody>
+        </table>
+      )}
+
+      {/* Absolute table */}
+      {perfView === "absolute" && (
+        <>
+          <div className="px-3 py-1.5 bg-violet-50/60 dark:bg-violet-950/20 border-b">
+            <p className="text-[9px] text-violet-600 dark:text-violet-400 font-medium">
+              Total cumulative return (not annualised). Multi-year = actual wealth grown per \u20b9100 invested.
+            </p>
+          </div>
+          <table className="w-full text-xs">
+            <thead><tr className="border-b bg-muted/10">
+              <th className="text-left  px-3 py-1.5 text-[10px] font-medium text-muted-foreground">Period</th>
+              <th className="text-right px-3 py-1.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">Portfolio</th>
+              <th className="text-right px-3 py-1.5 text-[10px] font-medium text-muted-foreground">Benchmark</th>
+              <th className="text-right px-3 py-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Alpha</th>
+            </tr></thead>
+            <tbody>{renderTableRows(absoluteRows, "text-violet-600 dark:text-violet-400")}</tbody>
+          </table>
+        </>
+      )}
+
+      {/* Monthly Rolling chart + table */}
+      {perfView === "rolling" && (
+        <>
+          <div className="px-3 py-1.5 bg-emerald-50/60 dark:bg-emerald-950/20 border-b">
+            <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-medium">
+              Month-on-month returns (last {rollingData.length} months). Bar = portfolio, line = benchmark.
+            </p>
+          </div>
+          {rollingData.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={172}>
+                <BarChart data={rollingData} margin={{top:8,right:10,left:-12,bottom:0}} barCategoryGap="25%">
+                  <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.25}/>
+                  <XAxis dataKey="date" tick={{fontSize:8}} interval={Math.ceil(rollingData.length/8)-1}/>
+                  <YAxis tick={{fontSize:8}} tickFormatter={v=>`${v>0?"+":""}${v}%`}/>
+                  <RechartsTooltip
+                    formatter={(v:number,name:string)=>[`${v>=0?"+":""}${v.toFixed(2)}%`, name==="portfolio"?"Portfolio":"Benchmark"]}
+                    labelStyle={{fontSize:10}} contentStyle={{fontSize:10}}
+                  />
+                  <ReferenceLine y={0} stroke="#6B7280" strokeWidth={1}/>
+                  <Bar dataKey="portfolio"  name="portfolio"  fill="#6366F1" radius={[2,2,0,0]}/>
+                  <Bar dataKey="benchmark"  name="benchmark"  fill="#9CA3AF" radius={[2,2,0,0]}/>
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="max-h-40 overflow-y-auto border-t">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-background border-b">
+                    <tr>
+                      <th className="text-left  px-3 py-1.5 text-[10px] font-medium text-muted-foreground">Month</th>
+                      <th className="text-right px-3 py-1.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">Portfolio</th>
+                      <th className="text-right px-3 py-1.5 text-[10px] font-medium text-muted-foreground">Benchmark</th>
+                      <th className="text-right px-3 py-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Alpha</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...rollingData].reverse().map((m,i) => (
+                      <tr key={i} className="border-b last:border-0 hover:bg-muted/5 transition-colors">
+                        <td className="px-3 py-1.5 text-[10px]">{m.date}</td>
+                        <td className={`px-3 py-1.5 text-right text-[10px] font-semibold ${m.portfolio>=0?"text-indigo-600 dark:text-indigo-400":"text-red-500"}`}>
+                          {m.portfolio>=0?"+":""}{m.portfolio.toFixed(2)}%
+                        </td>
+                        <td className={`px-3 py-1.5 text-right text-[10px] ${m.benchmark>=0?"text-muted-foreground":"text-red-400"}`}>
+                          {m.benchmark>=0?"+":""}{m.benchmark.toFixed(2)}%
+                        </td>
+                        <td className={`px-3 py-1.5 text-right text-[10px] font-medium ${m.alpha>=0?"text-emerald-600 dark:text-emerald-400":"text-red-500"}`}>
+                          {m.alpha>=0?"+":""}{m.alpha.toFixed(2)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-6">No monthly data available.</p>
+          )}
+        </>
+      )}
+
       <p className="text-[9px] text-muted-foreground px-3 py-2 border-t">
-        Portfolios rebalanced on drift signals, not fixed calendar. {isSebi ? "TWRR per SEBI IA Regs." : "Returns shown as CAGR."}
+        {perfView==="cagr"     && (isSebi ? "TWRR per SEBI IA Regs. Drift-triggered rebalancing." : "Annualised CAGR. Rebalanced on drift signals, not calendar.")}
+        {perfView==="absolute" && "Cumulative total returns. Multi-year = (1\u202f+\u202fCAGR)\u207f\u202f\u2212\u202f1. Not annualised."}
+        {perfView==="rolling"  && "Month-over-month NAV change. Simulated from \u20b91,000 base. Past returns \u2260 future results."}
       </p>
     </div>
   );
@@ -4810,7 +4921,7 @@ export default function AgentModelPortfoliosPage() {
                       </LineChart>
                     </ResponsiveContainer>
 
-                    {/* Full performance period table — pulls live data from /ai-track-record */}
+                    {/* Full performance period table — CAGR / Absolute / Monthly Rolling */}
                     <PerformancePeriodTable portfolioId={selectedPortfolio.id}
                       twrr1Y={selectedPortfolio.twrr1Y}
                       cagr1Y={selectedPortfolio.cagr1Y}
@@ -4824,6 +4935,7 @@ export default function AgentModelPortfoliosPage() {
                       cagr2y={selectedPortfolio.cagr2y}
                       returnSinceInception={selectedPortfolio.returnSinceInception}
                       benchmarkSinceInception={selectedPortfolio.benchmarkSinceInception}
+                      performance={selectedPortfolio.performance}
                     />
 
                     <p className="text-[10px] text-muted-foreground text-center">
