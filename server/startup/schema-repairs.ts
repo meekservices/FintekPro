@@ -2049,9 +2049,19 @@ crypto_status VARCHAR,
         ADD COLUMN IF NOT EXISTS week_high_52 DECIMAL(12,4),
         ADD COLUMN IF NOT EXISTS week_low_52 DECIMAL(12,4),
         ADD COLUMN IF NOT EXISTS technical_rating VARCHAR(20),
-        ADD COLUMN IF NOT EXISTS last_calculated TIMESTAMPTZ DEFAULT NOW();
+        ADD COLUMN IF NOT EXISTS last_calculated TIMESTAMPTZ DEFAULT NOW(),
+        ADD COLUMN IF NOT EXISTS growth_score DECIMAL(5,2),
+        ADD COLUMN IF NOT EXISTS quality_score DECIMAL(5,2),
+        ADD COLUMN IF NOT EXISTS value_score DECIMAL(5,2),
+        ADD COLUMN IF NOT EXISTS risk_score DECIMAL(5,2),
+        ADD COLUMN IF NOT EXISTS momentum_score DECIMAL(5,2),
+        ADD COLUMN IF NOT EXISTS composite_score DECIMAL(5,2),
+        ADD COLUMN IF NOT EXISTS fintek_rating SMALLINT,
+        ADD COLUMN IF NOT EXISTS revenue_growth_3y DECIMAL(10,4),
+        ADD COLUMN IF NOT EXISTS earnings_growth_3y DECIMAL(10,4),
+        ADD COLUMN IF NOT EXISTS scoring_metadata JSONB;
     `);
-		console.log("✅ screener_derived_metrics extended with returns + risk + quality");
+		console.log("✅ screener_derived_metrics extended with returns + risk + quality + scoring columns");
 
 		// Ensure unique constraint exists on symbol (required for ON CONFLICT ... DO NOTHING)
 		await migDb.execute(migSql`
@@ -2125,9 +2135,12 @@ crypto_status VARCHAR,
         ADD COLUMN IF NOT EXISTS roce DECIMAL(10,4),
         ADD COLUMN IF NOT EXISTS current_ratio DECIMAL(8,4),
         ADD COLUMN IF NOT EXISTS quick_ratio DECIMAL(8,4),
-        ADD COLUMN IF NOT EXISTS interest_coverage DECIMAL(8,4);
+        ADD COLUMN IF NOT EXISTS interest_coverage DECIMAL(8,4),
+        ADD COLUMN IF NOT EXISTS forward_pe DECIMAL(10,2),
+        ADD COLUMN IF NOT EXISTS peg_ratio DECIMAL(10,4),
+        ADD COLUMN IF NOT EXISTS net_profit_margin DECIMAL(10,4);
     `);
-		console.log("✅ screener_financials extended with ROCE, ratios");
+		console.log("✅ screener_financials extended with ROCE, ratios, forward_pe, peg_ratio, net_profit_margin");
 
 		// 5. Ensure screener_stocks has is_active column (may be missing in older DB setups)
 		await migDb.execute(migSql`
