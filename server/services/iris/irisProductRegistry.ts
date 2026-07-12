@@ -130,26 +130,35 @@ export const IRIS_PRODUCT_REGISTRY: Record<IrisProductCategory, IrisEndpointDef>
     label: "ETF Purchase",
   },
 
+  // ── KYC — mandatory gateway before ANY investment ────────────────────────────
+  // SEBI mandates KYC compliance before any financial transaction.
+  // Advisor MUST verify investor identity documents and supervise submission.
+  // Involves Aadhaar/biometric data — requires explicit investor consent.
   KYC: {
     irisPath: "/investors/kyc/initiate",
     method: "POST",
     fintekproRoute: "/api/iris/investors/:pan/kyc",
     irisProductType: "EKYC_INITIATION",
-    requiredFields: ["pan", "kycMode"],
-    requiresAdvisorApproval: false,
-    requiresDisclaimer: false,
-    label: "eKYC / KRA Verification",
+    requiredFields: ["pan", "kycMode", "dob", "mobile", "email"],
+    requiresAdvisorApproval: true,   // SEBI: advisor must supervise KYC submission
+    requiresDisclaimer: true,         // Aadhaar/biometric consent disclaimer required
+    label: "eKYC / KRA Verification (Mandatory pre-investment gateway)",
   },
 
+  // ── eNACH — authorizes recurring bank debits (SIP mandates) ─────────────────
+  // eNACH registers an NPCI mandate that allows direct debits from the
+  // client's bank account for SIPs. This is an irrevocable authorization
+  // until explicitly cancelled — must have advisor + investor explicit consent.
+  // maxAmount cap and frequency must be disclosed clearly to the investor.
   ENACH: {
     irisPath: "/mandates/enach/create",
     method: "POST",
     fintekproRoute: "/api/iris/enach/create",
     irisProductType: "ENACH_REGISTRATION",
-    requiredFields: ["pan", "bankAccountNumber", "bankIfsc", "maxAmount", "frequency"],
-    requiresAdvisorApproval: false,
-    requiresDisclaimer: false,
-    label: "eNACH Mandate Registration",
+    requiredFields: ["pan", "bankAccountNumber", "bankIfsc", "maxAmount", "frequency", "startDate", "bankName"],
+    requiresAdvisorApproval: true,   // Authorizes bank debit — explicit client sign-off mandatory
+    requiresDisclaimer: true,         // Disclose: max debit limit, frequency, cancellation process
+    label: "eNACH Mandate Registration (Bank debit authorization for SIP)",
   },
 
   SIP: {
