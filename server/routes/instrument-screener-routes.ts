@@ -22,6 +22,7 @@ import {
   listedStocks,
 } from "@shared/schema";
 import { and, eq, gte, lte, ilike, sql, desc, asc, or } from "drizzle-orm";
+import { IRIS_PRODUCT_REGISTRY } from "../services/iris/irisProductRegistry";
 // Structured logging via console (PII-scrubbed by logger.ts interceptor)
 
 export const instrumentScreenerRouter = Router();
@@ -204,6 +205,8 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       ]);
 
       // Build transact block for IRIS MF order placement
+      const mfRegistry = IRIS_PRODUCT_REGISTRY.MUTUAL_FUND;
+      const sipRegistry = IRIS_PRODUCT_REGISTRY.SIP;
       const fundsWithTransact = funds.map((f) => ({
         ...f,
         transact: {
@@ -213,9 +216,16 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           schemeCode: f.schemeCode,                     // AMFI scheme code for IRIS / RTA
           amfiCode: f.amfiCode ?? f.schemeCode,         // AMFI identifier (same as schemeCode for most)
           planType: f.planType ?? "regular",            // FintekPro is a distributor — always regular
-          // Execution routing hint
+          // Execution routing
           executionApi: "iris",
           orderType: "mf_purchase",
+          fintekproRoute: mfRegistry.fintekproRoute,
+          requiredFields: mfRegistry.requiredFields,
+          requiresAdvisorApproval: mfRegistry.requiresAdvisorApproval,
+          requiresDisclaimer: mfRegistry.requiresDisclaimer,
+          // SIP-specific route for recurring investments
+          sipRoute: sipRegistry.fintekproRoute,
+          sipRequiredFields: sipRegistry.requiredFields,
         },
       }));
 
@@ -355,14 +365,18 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
         bonds = bonds.slice(offset, offset + limitNum);
 
         // Build transact block for IRIS bond desk order placement
+        const bondRegistry = IRIS_PRODUCT_REGISTRY.BOND;
         bonds = (bonds as any[]).map((b) => ({
           ...b,
           transact: {
             isin: b.isin,
-            // Derive exchange from data source
             exchange: b.dataSource?.includes("bse") ? "BSE" : "NSE",
             executionApi: "iris",
             orderType: "bond_purchase",
+            fintekproRoute: bondRegistry.fintekproRoute,
+            requiredFields: bondRegistry.requiredFields,
+            requiresAdvisorApproval: bondRegistry.requiresAdvisorApproval,
+            requiresDisclaimer: bondRegistry.requiresDisclaimer,
           },
         }));
 
@@ -400,6 +414,10 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
             exchange: b.dataSource?.includes("bse") ? "BSE" : "NSE",
             executionApi: "iris",
             orderType: "bond_purchase",
+            fintekproRoute: IRIS_PRODUCT_REGISTRY.BOND.fintekproRoute,
+            requiredFields: IRIS_PRODUCT_REGISTRY.BOND.requiredFields,
+            requiresAdvisorApproval: IRIS_PRODUCT_REGISTRY.BOND.requiresAdvisorApproval,
+            requiresDisclaimer: IRIS_PRODUCT_REGISTRY.BOND.requiresDisclaimer,
           },
         })),
         meta: {
@@ -511,6 +529,7 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       ]);
 
       // Build transact block for IRIS equity order placement
+      const etfRegistry = IRIS_PRODUCT_REGISTRY.ETF;
       const etfsWithTransact = etfs.map((e) => {
         const isIndian = !e.country || e.country === "IN";
         return {
@@ -518,15 +537,17 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           transact: {
             isin: e.isin,
             exchange: e.exchange ?? "NSE",
-            // NSE symbol for IRIS (NSE is primary for Indian ETFs)
             nseSymbol: e.symbol,
             bseCode: e.bseCode ?? null,
             nseCode: e.nseCode ?? "EQ",
             currency: e.currency ?? "INR",
             country: e.country ?? "IN",
-            // Execution routing: IRIS for Indian ETFs, Alpaca for US/international
             executionApi: isIndian ? "iris" : "alpaca",
             orderType: "etf_purchase",
+            fintekproRoute: etfRegistry.fintekproRoute,
+            requiredFields: etfRegistry.requiredFields,
+            requiresAdvisorApproval: etfRegistry.requiresAdvisorApproval,
+            requiresDisclaimer: etfRegistry.requiresDisclaimer,
           },
         };
       });
