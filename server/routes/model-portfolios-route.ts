@@ -2709,6 +2709,83 @@ modelPortfoliosRouter.get("/:id/holdings", isAuthenticated, async (req: Request,
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+
+// NAV HISTORY ENDPOINT — powers bar chart + benchmark line chart on portfolio card
+/**
+ * GET /api/model-portfolios/:id/nav-history
+ * Returns monthly NAV history for a portfolio, oldest-first.
+ * Consumed by the rolling bar chart + cumulative benchmark line chart.
+ * Query params: limit (default 24, max 60)
+ */
+modelPortfoliosRouter.get("/:id/nav-history", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const limit  = Math.min(60, Math.max(1, Number(req.query.limit ?? 24)));
+
+    const metaRes = await db.execute(sql`
+      SELECT id, inception_date, cagr_1y, cagr_3y, volatility,
+             benchmark_name, portfolio_code, name, holdings
+      FROM model_portfolios
+      WHERE id = ${id} AND is_published = TRUE
+    `);
+    const portfolio = ((metaRes as any).rows ?? [])[0];
+    if (!portfolio) {
+      return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: "Portfolio not found", retryable: false });
+    }
+
+    const histRes = await db.execute(sql`
+      SELECT month_start, nav, monthly_return, absolute_return,
+             benchmark_return, benchmark_cum_return,
+             had_rebalance_event, rebalance_trigger
+      FROM model_portfolio_nav_history
+      WHERE portfolio_id = ${id}
+      ORDER BY month_start DESC
+      LIMIT ${limit}
+    `).catch(() => ({ rows: [] }));
+
+    let rows = (((histRes as any).rows ?? []) as any[]).reverse();
+
+    // Trigger inline computation if table has no data yet (first request)
+    if (rows.length === 0) {
+      try {
+        const { computeAndStorePortfolioNavHistory } = await import(
+          "../services/model-portfolio-nav-service"
+        );
+        await computeAndStorePortfolioNavHistory(db, portfolio);
+        const freshRes = await db.execute(sql`
+          SELECT month_start, nav, monthly_return, absolute_return,
+                 benchmark_return, benchmark_cum_return,
+                 had_rebalance_event, rebalance_trigger
+          FROM model_portfolio_nav_history
+          WHERE portfolio_id = ${id}
+          ORDER BY month_start ASC
+          LIMIT ${limit}
+        `).catch(() => ({ rows: [] }));
+        rows = ((freshRes as any).rows ?? []) as any[];
+      } catch { /* non-fatal */ }
+    }
+
+    logger.info("[ModelPortfolios] nav-history fetched", {
+      event: "NAV_HISTORY_FETCHED", user_id: (req as any).user?.id ?? "anon",
+      portfolio_id: id, months: rows.length, latency_ms: Date.now() - t0, status: "ok",
+    });
+
+    return res.json({
+      success: true,
+      data: rows,
+      meta: {
+        portfolioId: id, portfolioCode: portfolio.portfolio_code,
+        count: rows.length, inception_date: portfolio.inception_date,
+        timestamp: new Date().toISOString(), version: "FASP-AI-v3.0",
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] nav-history error", { event: "NAV_HISTORY_ERROR", error: err.message, retryable: true });
+    return res.status(500).json({ success: false, error_code: "SERVER_ERROR", message: err.message, retryable: true });
+  }
+});
+
 // QUANT ALPHA ENGINE ENDPOINTS — FASP-AI-v2.0
 // ─────────────────────────────────────────────────────────────────────────────
 /**

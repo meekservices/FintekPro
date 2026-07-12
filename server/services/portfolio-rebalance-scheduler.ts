@@ -493,3 +493,419 @@ export async function autoApplyHighConfidenceSwaps(
 
   return results;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// autoApplyCalendarRebalancing
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Calendar-triggered autonomous rebalancing for all published portfolios.
+ *
+ * Purpose:
+ *   Runs on a cron schedule and checks each portfolio against its configured
+ *   rebalancingFrequency. If the portfolio is overdue, runs the full optimizer
+ *   pipeline and auto-applies confident swaps to the template.
+ *   No human intervention required — fully AI-driven per FASP-AI v1.0.
+ *
+ * Inputs:
+ *   - All published model_portfolios with their holdings, lastRebalanced, frequency
+ *   - Market regime from detectRegime()
+ *   - Optimization suggestions from generateOptimizationSuggestions()
+ *
+ * Outputs:
+ *   - Updated model_portfolios.holdings + lastRebalanced for due portfolios
+ *   - Structured log: AUTO_CALENDAR_REBALANCE_APPLIED per portfolio
+ *   - Summary log: CALENDAR_REBALANCE_RUN_COMPLETE
+ *
+ * FASP-AI v1.0 constraints:
+ *   - AI is Decision Support only — it cannot execute real trades
+ *   - Model template changes only (no client account execution)
+ *   - Every output includes: confidence_score, factors_considered, model_version, timestamp
+ *   - All events logged to FASP advisory outputs
+ */
+export async function autoApplyCalendarRebalancing(): Promise<{
+  portfoliosChecked: number;
+  portfoliosRebalanced: number;
+  portfoliosSkipped: number;
+  timestamp: string;
+}> {
+  const runStart = Date.now();
+  const today = new Date();
+  logger.info("[CalendarRebalance] Starting autonomous calendar rebalance run", {
+    event: "CALENDAR_REBALANCE_RUN_START",
+    user_id: "system",
+    timestamp: today.toISOString(),
+    model_version: MODEL_VERSION,
+    latency_ms: 0,
+    status: "running",
+  });
+
+  // Fetch all published portfolios with equity holdings
+  const allPortfolios = await db
+    .select({
+      id:                   modelPortfolios.id,
+      name:                 modelPortfolios.name,
+      holdings:             modelPortfolios.holdings,
+      lastRebalanced:       modelPortfolios.lastRebalanced,
+      rebalancingFrequency: modelPortfolios.rebalancingFrequency,
+      riskProfile:          modelPortfolios.riskProfile,
+    })
+    .from(modelPortfolios)
+    .where(eq(modelPortfolios.isPublished, true));
+
+  let portfoliosChecked = 0;
+  let portfoliosRebalanced = 0;
+  let portfoliosSkipped = 0;
+
+  for (const portfolio of allPortfolios) {
+    portfoliosChecked++;
+
+    // ── Calendar gate: check if rebalancing is due ────────────────────────────
+    const isDue = isCalendarRebalanceDue(
+      portfolio.lastRebalanced as string | null,
+      portfolio.rebalancingFrequency as string | null,
+    );
+
+    if (!isDue) {
+      portfoliosSkipped++;
+      continue;
+    }
+
+    const holdings = (portfolio.holdings as any[]) ?? [];
+
+    // Skip non-equity portfolios (pure debt, gold, REIT)
+    const hasEquity = holdings.some(
+      (h) => (h.type === "equity" || !h.type) && h.isin && h.isin.startsWith("INE")
+    );
+    if (!hasEquity) {
+      portfoliosSkipped++;
+      continue;
+    }
+
+    logger.info("[CalendarRebalance] Portfolio due for rebalancing", {
+      portfolio_id:          portfolio.id,
+      last_rebalanced:       portfolio.lastRebalanced,
+      rebalancing_frequency: portfolio.rebalancingFrequency,
+    });
+
+    try {
+      // Run optimizer pipeline for this specific portfolio only
+      const regime = await detectRegime();
+      const suggestions = await generateOptimizationSuggestions([portfolio.id]);
+
+      // Filter for high-confidence suggestions with actionable recommendations
+      const applicableSuggestions = suggestions.filter(
+        (s) =>
+          s.confidence_score >= MIN_CONFIDENCE_AUTO_APPLY &&
+          (s.recommendation === "replace" || s.recommendation === "reduce_weight")
+      );
+
+      if (applicableSuggestions.length === 0) {
+        // Portfolio is due but no confident suggestions — update lastRebalanced only
+        await db
+          .update(modelPortfolios)
+          .set({ lastRebalanced: today.toISOString().split("T")[0], updatedAt: today })
+          .where(eq(modelPortfolios.id, portfolio.id));
+
+        logger.info("[CalendarRebalance] No swaps warranted, refreshed rebalance date", {
+          portfolio_id: portfolio.id,
+        });
+        portfoliosSkipped++;
+        continue;
+      }
+
+      // Apply up to MAX_AUTO_SWAPS_PER_RUN swaps
+      let updatedHoldings = [...holdings];
+      const applied: string[] = [];
+      const swapLimit = Math.min(applicableSuggestions.length, MAX_AUTO_SWAPS_PER_RUN);
+
+      for (let i = 0; i < swapLimit; i++) {
+        const suggestion = applicableSuggestions[i];
+        if (!suggestion) break;
+
+        // Match drag holding by name or symbol (AlphaDragHolding has no isin field)
+        const dragIdx = updatedHoldings.findIndex(
+          (h) => h.name === suggestion.alphaDragHolding.name ||
+                 (suggestion.alphaDragHolding.symbol && h.symbol === suggestion.alphaDragHolding.symbol)
+        );
+        if (dragIdx === -1) continue;
+
+        if (suggestion.recommendation === "replace" && suggestion.alternatives.length > 0) {
+          // Swap the drag holding with the highest-ranked alternative
+          const best = suggestion.alternatives[0];
+          updatedHoldings[dragIdx] = {
+            ...updatedHoldings[dragIdx],
+            name:   best.name,
+            symbol: best.symbol,
+            isin:   best.isin ?? (updatedHoldings[dragIdx].isin as string | null),
+            // Preserve existing weight — swap the stock, not the allocation
+          };
+          applied.push(`Swap: ${suggestion.alphaDragHolding.name} → ${best.name}`);
+        } else if (suggestion.recommendation === "reduce_weight") {
+          // Trim weight by 5% (floor 1%)
+          const WEIGHT_TRIM = 5;
+          updatedHoldings[dragIdx] = {
+            ...updatedHoldings[dragIdx],
+            weight: Math.max(1, (updatedHoldings[dragIdx].weight as number) - WEIGHT_TRIM),
+          };
+          applied.push(`Reweight: ${suggestion.alphaDragHolding.name} -${WEIGHT_TRIM}%`);
+        }
+      }
+
+
+      // Normalize weights to 100
+      const totalWeight = updatedHoldings.reduce((sum, h) => sum + (h.weight ?? 0), 0);
+      if (totalWeight > 0 && Math.abs(totalWeight - 100) > 0.1) {
+        const scale = 100 / totalWeight;
+        updatedHoldings = updatedHoldings.map((h) => ({
+          ...h,
+          weight: Math.round(h.weight * scale * 10) / 10,
+        }));
+      }
+
+      // Persist updated template
+      await db
+        .update(modelPortfolios)
+        .set({
+          holdings:       updatedHoldings as any,
+          lastRebalanced: today.toISOString().split("T")[0],
+          updatedAt:      today,
+        })
+        .where(eq(modelPortfolios.id, portfolio.id));
+
+      // ── Append structured event to rebalancingHistory JSONB ────────────────
+      // This is what powers the rebalance-dot overlay on the bar chart card.
+      // Each event: { date, trigger, swapsApplied, changes[], confidence, engine }
+      const currentHistory: any[] = Array.isArray((portfolio as any).rebalancingHistory ?? (portfolio as any).rebalancing_history)
+        ? ((portfolio as any).rebalancingHistory ?? (portfolio as any).rebalancing_history)
+        : [];
+
+      const rebalanceEvent = {
+        date:         today.toISOString().split("T")[0],
+        trigger:      "drift_triggered",                         // always drift-triggered per product decision
+        swapsApplied: applied.length,
+        changes:      applied.slice(0, 10),                      // cap at 10 for JSONB size
+        confidence:   Math.round(
+          (applicableSuggestions.slice(0, swapLimit)
+            .reduce((s, sg) => s + sg.confidence_score, 0) / Math.max(swapLimit, 1)) * 100
+        ),
+        marketRegime: regime.regime,
+        engine:       MODEL_VERSION,
+      };
+
+      // Keep only the last 24 events to prevent unbounded JSONB growth
+      const updatedHistory = [...currentHistory, rebalanceEvent].slice(-24);
+
+      await db.execute(sql`
+        UPDATE model_portfolios
+        SET rebalancing_history = ${JSON.stringify(updatedHistory)}::jsonb
+        WHERE id = ${portfolio.id}
+      `);
+
+      logger.info("[CalendarRebalance] Rebalance event appended to history", {
+        portfolio_id: portfolio.id,
+        event_date:   rebalanceEvent.date,
+        swaps:        applied.length,
+      });
+
+      // FASP-AI v1.0 audit trail
+      const avgConfidence =
+        applicableSuggestions
+          .slice(0, swapLimit)
+          .reduce((sum, s) => sum + s.confidence_score, 0) / swapLimit;
+
+      await db.insert(faspAdvisoryOutputs).values({
+        advisoryType:    "model_portfolio",
+        userSegment:     "institutional",
+        inputContext: {
+          portfolioId:   portfolio.id,
+          regime:        regime.regime,
+          triggeredBy:   "calendar_rebalance",
+          swapsApplied:  applied.length,
+          frequency:     portfolio.rebalancingFrequency,
+        } as any,
+        recommendation:  `Calendar rebalance applied ${applied.length} changes: ${applied.join("; ").substring(0, 1000)}`,
+        outputSnapshot: {
+          applied,
+          marketRegime:  regime.regime,
+          avgConfidence,
+        } as any,
+        modelVersion:     "FASP-AI-v3.0",
+        baseModel:        "rule-engine",
+        confidenceScore:  Math.round(avgConfidence * 100),
+        confidenceBreakdown: {} as any,
+        confidenceThreshold: 70,
+        meetsThreshold:   avgConfidence >= 0.70,
+        humanReviewRequired: false,
+        sebiCircularRef:  "SEBI/HO/IMD/2023/P/CIR/0188",
+        source:           "cron",
+      }).catch((err) => {
+        logger.warn("[CalendarRebalance] FASP persist failed (non-fatal)", { error: err?.message });
+      });
+
+      logger.info("[CalendarRebalance] Calendar rebalance applied", {
+        event:          "AUTO_CALENDAR_REBALANCE_APPLIED",
+        user_id:        "system",
+        portfolio_id:   portfolio.id,
+        swaps_applied:  applied.length,
+        market_regime:  regime.regime,
+        avg_confidence: avgConfidence,
+        model_version:  MODEL_VERSION,
+        timestamp:      today.toISOString(),
+        latency_ms:     Date.now() - runStart,
+        status:         "success",
+      });
+
+      portfoliosRebalanced++;
+    } catch (err: any) {
+      logger.warn("[CalendarRebalance] Error processing portfolio", {
+        portfolio_id: portfolio.id,
+        error:        err?.message,
+      });
+      portfoliosSkipped++;
+    }
+  }
+
+  const summary = {
+    portfoliosChecked,
+    portfoliosRebalanced,
+    portfoliosSkipped,
+    timestamp: today.toISOString(),
+  };
+
+  logger.info("[CalendarRebalance] Run complete", {
+    event:                    "CALENDAR_REBALANCE_RUN_COMPLETE",
+    user_id:                  "system",
+    portfolios_checked:       portfoliosChecked,
+    portfolios_rebalanced:    portfoliosRebalanced,
+    portfolios_skipped:       portfoliosSkipped,
+    latency_ms:               Date.now() - runStart,
+    model_version:            MODEL_VERSION,
+    timestamp:                today.toISOString(),
+    status:                   "success",
+  });
+
+  return summary;
+}
+
+// ── Helper: is the portfolio's rebalancing calendar due? ─────────────────────
+
+/**
+ * Determines if a portfolio is due for calendar rebalancing.
+ *
+ * @param lastRebalanced - ISO date string of last rebalance (e.g. "2026-04-01")
+ * @param frequency - "weekly" | "monthly" | "quarterly" | "annually"
+ * @returns true if the portfolio has passed its rebalancing interval
+ */
+function isCalendarRebalanceDue(
+  lastRebalanced: string | null,
+  frequency: string | null,
+): boolean {
+  if (!lastRebalanced || !frequency) return true; // never rebalanced → always due
+
+  const last = new Date(lastRebalanced);
+  const now  = new Date();
+  const daysSinceLast = Math.floor((now.getTime() - last.getTime()) / 86_400_000);
+
+  const thresholds: Record<string, number> = {
+    weekly:    7,
+    monthly:   30,
+    quarterly: 90,
+    annually:  365,
+  };
+
+  const threshold = thresholds[frequency.toLowerCase()] ?? 90;
+  return daysSinceLast >= threshold;
+}
+
+// ── refreshDriftScores ───────────────────────────────────────────────────────────
+/**
+ * Computes per-portfolio drift scores for every published portfolio and writes
+ * them back to model_portfolios.drift_score + model_portfolios.drift_details.
+ *
+ * Called daily after calendar rebalance check. Powers the drift meter progress
+ * bar shown on the portfolio card (brief §4).
+ *
+ * @param portfolioIds - optional subset; if omitted, refreshes ALL published portfolios
+ */
+export async function refreshDriftScores(portfolioIds?: string[]): Promise<{
+  refreshed: number;
+  errors: number;
+}> {
+  const t0 = Date.now();
+  let refreshed = 0;
+  let errors = 0;
+
+  try {
+    const { driftEngine } = await import("./drift");
+
+    // Fetch portfolios to evaluate
+    const whereClause = portfolioIds?.length
+      ? sql`WHERE p.id = ANY(${portfolioIds}) AND p.is_published = TRUE`
+      : sql`WHERE p.is_published = TRUE`;
+
+    const res = await db.execute(
+      sql`SELECT p.id, p.holdings, p.allocation, p.drift_threshold FROM model_portfolios p ${whereClause} ORDER BY p.created_at ASC`
+    );
+    const portfolios = ((res as any).rows ?? []) as any[];
+
+    for (const p of portfolios) {
+      try {
+        const holdings: any[]   = Array.isArray(p.holdings)   ? p.holdings   : [];
+        const allocation: any[] = Array.isArray(p.allocation) ? p.allocation : [];
+        if (holdings.length === 0) continue;
+
+        // Build target allocation from holdings.weight
+        const targetAllocation = holdings.map((h: any) => ({
+          asset:  h.name ?? h.isin ?? h.symbol ?? "unknown",
+          weight: Number(h.weight ?? 0),
+        }));
+
+        // Build current allocation from allocation array (market-value weights)
+        const currentAllocation = allocation.length > 0
+          ? allocation.map((a: any) => ({
+              asset:  a.label ?? a.category ?? a.type ?? "other",
+              weight: Number(a.weight ?? a.percentage ?? 0),
+            }))
+          : targetAllocation; // If no current allocation, drift = 0
+
+        const driftThreshold = Number(p.drift_threshold ?? 5);
+        const report = driftEngine.calculateDrift(
+          { portfolio_id: p.id, target_allocation: targetAllocation, rebalance_policy: { frequency: "drift_triggered", drift_threshold: driftThreshold, tax_aware: false } },
+          currentAllocation,
+        );
+
+        // Map to 0-100 drift score (largest drift as % of threshold band, capped at 100)
+        const driftScore = Math.min(100, Math.round((report.largest_drift / Math.max(driftThreshold, 1)) * 100));
+        const top5 = report.drifting_assets
+          .filter((d) => Math.abs(d.delta) > 0)
+          .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+          .slice(0, 5);
+
+        await db.execute(sql`
+          UPDATE model_portfolios
+          SET drift_score   = ${driftScore},
+              drift_details = ${JSON.stringify(top5)}::jsonb,
+              updated_at    = NOW()
+          WHERE id = ${p.id}
+        `);
+        refreshed++;
+      } catch (err: any) {
+        logger.warn("[DriftRefresh] Error scoring portfolio", { portfolio_id: p.id, error: err?.message });
+        errors++;
+      }
+    }
+  } catch (err: any) {
+    logger.error("[DriftRefresh] Fatal error", { error: err?.message });
+    errors++;
+  }
+
+  logger.info("[DriftRefresh] Drift score refresh complete", {
+    event: "DRIFT_SCORES_REFRESHED",
+    refreshed, errors,
+    latency_ms: Date.now() - t0,
+    status: errors === 0 ? "ok" : "partial",
+  });
+
+  return { refreshed, errors };
+}

@@ -2229,5 +2229,137 @@ export function registerIrisKfintechRoutes(app: Express): void {
 		},
 	);
 
+	// ─── Client Portfolio Rebalancing (FASP-AI-v3.0) ──────────────────────────────
+	// AI generates proposal → advisor approves → IRIS executes legs.
+	// Per FASP-AI advisory compliance rules: never autonomous execution.
+
+	/**
+	 * POST /api/iris/rebalance/generate
+	 * Generates a drift-based rebalancing proposal for a client PAN vs a model portfolio.
+	 * Returns proposal with trade legs, confidence score, and FASP-AI disclaimer.
+	 * Does NOT execute any trades — proposal is pending_advisor_review.
+	 */
+	app.post(
+		"/api/iris/rebalance/generate",
+		requireAuth,
+		requireAgent,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const { pan, modelPortfolioId } = req.body as { pan?: string; modelPortfolioId?: string };
+				if (!pan)             return res.status(400).json({ success: false, message: "pan is required" });
+				if (!modelPortfolioId) return res.status(400).json({ success: false, message: "modelPortfolioId is required" });
+
+				const advisorId = (req as any).user?.id ?? "unknown";
+				const { generateClientRebalanceProposal } = await import("../services/iris-rebalance-orchestrator");
+				const proposal = await generateClientRebalanceProposal(pan, modelPortfolioId, advisorId);
+
+				res.json({
+					success: true,
+					data: proposal,
+					meta: { timestamp: new Date().toISOString(), version: "FASP-AI-v3.0", latency_ms: Date.now() - t0 },
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, message: err?.message ?? "Proposal generation failed", retryable: true });
+			}
+		},
+	);
+
+	/**
+	 * POST /api/iris/rebalance/:proposalId/approve
+	 * Advisor explicitly approves a pending_advisor_review proposal.
+	 * Triggers sequential IRIS switch / redemption / purchase calls.
+	 * Role-gated: admin | agent | advisor | ria only.
+	 * FASP-AI: This is the ONLY path that executes IRIS trades.
+	 */
+	app.post(
+		"/api/iris/rebalance/:proposalId/approve",
+		requireAuth,
+		requireAgent,
+		requireTransactionCompliance("MF", "switch"),
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const advisorId   = (req as any).user?.id ?? "unknown";
+				const advisorRole = (req as any).user?.roles?.[0] ?? "";
+				const allowed     = ["admin", "agent", "advisor", "super_admin", "ria"];
+				if (!allowed.includes(advisorRole)) {
+					return res.status(403).json({ success: false, message: "Only SEBI-registered advisors may approve rebalancing proposals." });
+				}
+
+				const { executeApprovedProposal } = await import("../services/iris-rebalance-orchestrator");
+				const result = await executeApprovedProposal(req.params.proposalId, advisorId);
+
+				res.json({
+					success: result.success,
+					data: result,
+					meta: { timestamp: new Date().toISOString(), version: "FASP-AI-v3.0", latency_ms: Date.now() - t0 },
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, message: err?.message ?? "Execution failed", retryable: false });
+			}
+		},
+	);
+
+	/**
+	 * POST /api/iris/rebalance/:proposalId/reject
+	 * Advisor rejects a proposal with an optional reason.
+	 * Marks status = 'rejected', records reviewer + timestamp.
+	 */
+	app.post(
+		"/api/iris/rebalance/:proposalId/reject",
+		requireAuth,
+		requireAgent,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const advisorId = (req as any).user?.id ?? "unknown";
+				const reason    = (req.body?.reason as string | undefined) ?? "Rejected by advisor";
+				const { db }    = await import("../db");
+				const { rebalanceProposals } = await import("@shared/schema");
+				const { eq }    = await import("drizzle-orm");
+
+				await db.update(rebalanceProposals)
+					.set({ status: "rejected", reviewedBy: advisorId, reviewedAt: new Date(),
+						   rejectionReason: reason, updatedAt: new Date() })
+					.where(eq(rebalanceProposals.id, req.params.proposalId));
+
+				res.json({
+					success: true,
+					data: { proposalId: req.params.proposalId, status: "rejected", rejectedBy: advisorId, reason },
+					meta: { timestamp: new Date().toISOString(), version: "FASP-AI-v3.0", latency_ms: Date.now() - t0 },
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, message: err?.message ?? "Rejection failed", retryable: false });
+			}
+		},
+	);
+
+	/**
+	 * GET /api/iris/rebalance/:proposalId/status
+	 * Returns proposal row + all per-leg iris_rebalance_executions rows.
+	 * Includes IRIS order IDs, leg status (pending/submitted/failed), and timestamps.
+	 */
+	app.get(
+		"/api/iris/rebalance/:proposalId/status",
+		requireAuth,
+		requireAgent,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const { getExecutionStatus } = await import("../services/iris-rebalance-orchestrator");
+				const data = await getExecutionStatus(req.params.proposalId);
+				if (!data.proposal) return res.status(404).json({ success: false, message: "Proposal not found" });
+				res.json({
+					success: true,
+					data,
+					meta: { timestamp: new Date().toISOString(), version: "FASP-AI-v3.0", latency_ms: Date.now() - t0 },
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, message: err?.message ?? "Status fetch failed", retryable: true });
+			}
+		},
+	);
+
 	console.log("✅ IRIS KFintech routes registered");
 }

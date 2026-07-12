@@ -1048,11 +1048,25 @@ export async function getExtendedEnrichmentProgress(): Promise<{
       (SELECT COUNT(*) FROM screener_split_calendar) as split_count,
       (SELECT COUNT(*) FROM screener_ipo_calendar) as ipo_count,
       (SELECT COUNT(*) FROM screener_economic_calendar) as economic_count,
-      -- Phase 2f/4d: per-table freshness (synced within 30 days)
-      (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_financials_sync  > NOW() - INTERVAL '30 days') as fin_synced,
-      (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_key_metrics_sync > NOW() - INTERVAL '30 days') as km_synced,
-      (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_technicals_sync  > NOW() - INTERVAL '30 days') as tech_synced,
-      (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_shareholding_sync > NOW() - INTERVAL '30 days') as sh_synced
+      -- Phase 2f/4d: per-table freshness
+      -- Use last_*_sync timestamps when available; fall back to satellite table row counts
+      -- (last_*_sync is NULL for stocks seeded via NSE/BSE before FMP enrichment ran)
+      GREATEST(
+        (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_financials_sync > NOW() - INTERVAL '30 days'),
+        (SELECT COUNT(DISTINCT symbol) FROM screener_financials)
+      ) as fin_synced,
+      GREATEST(
+        (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_key_metrics_sync > NOW() - INTERVAL '30 days'),
+        (SELECT COUNT(DISTINCT symbol) FROM screener_key_metrics)
+      ) as km_synced,
+      GREATEST(
+        (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_technicals_sync > NOW() - INTERVAL '30 days'),
+        (SELECT COUNT(DISTINCT symbol) FROM screener_technical_indicators)
+      ) as tech_synced,
+      GREATEST(
+        (SELECT COUNT(*) FROM listed_stocks WHERE is_active = true AND last_shareholding_sync > NOW() - INTERVAL '30 days'),
+        (SELECT COUNT(DISTINCT symbol) FROM screener_institutional_holders)
+      ) as sh_synced
   `);
 
 	const row = ((result as any).rows || result)[0];

@@ -11338,6 +11338,8 @@ export const modelPortfolios = pgTable("model_portfolios", {
   benchmarkName:        varchar("benchmark_name"),
   lastRebalanced:       varchar("last_rebalanced"),                          // YYYY-MM-DD
   rebalancingFrequency: varchar("rebalancing_frequency").default("quarterly"), // monthly|quarterly|semi_annual|annual
+  /** Rebalancing trigger mode — calendar (fixed cadence) or drift_triggered (need-based) */
+  rebalancingMode:      varchar("rebalancing_mode").default("drift_triggered"), // calendar|drift_triggered
   totalHoldings:        integer("total_holdings").default(0),
   highlight:            varchar("highlight"),
   icon:                 varchar("icon").default("📊"),
@@ -11491,6 +11493,56 @@ export const insertModelPortfolioHoldingSchema = createInsertSchema(modelPortfol
 export type ModelPortfolioHolding = typeof modelPortfolioHoldings.$inferSelect;
 export type InsertModelPortfolioHolding = typeof modelPortfolioHoldings.$inferInsert;
 
+// ── model_portfolio_nav_history ───────────────────────────────────────────────
+// Monthly NAV time-series per portfolio — powers the rolling bar chart
+// and cumulative benchmark comparison line chart on the portfolio card.
+// Populated nightly by the Portfolio NAV History Service.
+// Rule: first row must be the portfolio's actual inception month (no padding).
+export const modelPortfolioNavHistory = pgTable("model_portfolio_nav_history", {
+  id:               serial("id").primaryKey(),
+  portfolioId:      varchar("portfolio_id").notNull().references(() => modelPortfolios.id, { onDelete: "cascade" }),
+
+  /** First calendar day of the month this NAV represents (e.g. 2025-07-01) */
+  monthStart:       date("month_start").notNull(),
+
+  /** Blended portfolio NAV for this month (weighted sum of holding NAVs) */
+  nav:              numeric("nav", { precision: 15, scale: 4 }),
+
+  /** Month-on-month return = (nav_this – nav_prev) / nav_prev × 100 */
+  monthlyReturn:    numeric("monthly_return", { precision: 8, scale: 4 }),
+
+  /** Absolute return since inception = (nav_this / nav_inception – 1) × 100 */
+  absoluteReturn:   numeric("absolute_return", { precision: 8, scale: 4 }),
+
+  /** Benchmark index return for the same month (for cumulative line chart) */
+  benchmarkReturn:  numeric("benchmark_return", { precision: 8, scale: 4 }),
+
+  /** Cumulative benchmark return since inception */
+  benchmarkCumReturn: numeric("benchmark_cum_return", { precision: 8, scale: 4 }),
+
+  /** True if a drift-triggered rebalance occurred during this month (dot on bar chart) */
+  hadRebalanceEvent: boolean("had_rebalance_event").default(false),
+
+  /** Brief note on what triggered the rebalance (e.g. "HDFC Bank drifted +7.2%") */
+  rebalanceTrigger: text("rebalance_trigger"),
+
+  // GCR compliance
+  source:           varchar("source").default("cron"),
+  engineVersion:    varchar("engine_version").default("FASP-AI-v3.0"),
+  createdAt:        timestamp("created_at").defaultNow(),
+  updatedAt:        timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("uq_mpnh_portfolio_month").on(table.portfolioId, table.monthStart),
+  index("idx_mpnh_portfolio_id").on(table.portfolioId),
+  index("idx_mpnh_month_start").on(table.monthStart),
+]);
+
+export const insertModelPortfolioNavHistorySchema = createInsertSchema(modelPortfolioNavHistory).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+export type ModelPortfolioNavHistory = typeof modelPortfolioNavHistory.$inferSelect;
+export type InsertModelPortfolioNavHistory = typeof modelPortfolioNavHistory.$inferInsert;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // FASP-AI v3.0 — Dynamic Portfolio Management Tables
 // ─────────────────────────────────────────────────────────────────────────────
@@ -11556,11 +11608,15 @@ export const rebalanceProposals = pgTable("rebalance_proposals", {
   executionNotes:  text("execution_notes"),
   disclaimer:      text("disclaimer").default("Past performance is not indicative of future results. Advisor approval required. Not autonomous advice."),
   source:          varchar("source", { length: 20 }).default("system"),
+  // ── Client rebalancing fields (IRIS execution) ─────────────────────────────
+  clientPan:              varchar("client_pan", { length: 20 }),
+  targetModelPortfolioId: varchar("target_model_portfolio_id", { length: 100 }),
   createdAt:       timestamp("created_at").defaultNow(),
   updatedAt:       timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_rp_portfolio_status").on(table.portfolioId, table.status),
   index("idx_rp_proposed_at").on(table.proposedAt),
+  index("idx_rp_client_pan").on(table.clientPan),
 ]);
 export type RebalanceProposal = typeof rebalanceProposals.$inferSelect;
 export type InsertRebalanceProposal = typeof rebalanceProposals.$inferInsert;
@@ -11636,3 +11692,42 @@ export const insertPortfolioAiDecisionSchema = createInsertSchema(portfolioAiDec
 });
 export type PortfolioAiDecision = typeof portfolioAiDecisions.$inferSelect;
 export type InsertPortfolioAiDecision = z.infer<typeof insertPortfolioAiDecisionSchema>;
+
+// ── iris_rebalance_executions ─────────────────────────────────────────────────
+// Tracks per-leg IRIS transaction state after advisor approves a rebalance proposal.
+// One row per trade leg (switch / redemption / purchase) per proposal.
+// Engine version: FASP-AI-v3.0. AI proposes, advisor approves, this table records execution.
+export const irisRebalanceExecutions = pgTable("iris_rebalance_executions", {
+  id:             uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId:     uuid("proposal_id").notNull().references(() => rebalanceProposals.id),
+  clientPan:      varchar("client_pan", { length: 20 }).notNull(),
+  legIndex:       integer("leg_index").notNull(),             // order within proposal (0-based)
+  legType:        varchar("leg_type", { length: 20 }).notNull(), // 'switch' | 'redemption' | 'purchase'
+  fromIsin:       varchar("from_isin", { length: 20 }),
+  toIsin:         varchar("to_isin", { length: 20 }),
+  fromSchemeCode: varchar("from_scheme_code", { length: 50 }),
+  toSchemeCode:   varchar("to_scheme_code", { length: 50 }),
+  folioNo:        varchar("folio_no", { length: 30 }),
+  amount:         numeric("amount", { precision: 14, scale: 2 }),
+  units:          numeric("units", { precision: 14, scale: 4 }),
+  irisOrderId:    varchar("iris_order_id", { length: 100 }),  // returned by IRIS on submit
+  irisStatus:     varchar("iris_status", { length: 30 }).default("pending"), // pending|submitted|executed|failed
+  irisResponse:   jsonb("iris_response"),                     // raw IRIS API response
+  errorMessage:   text("error_message"),
+  engineVersion:  varchar("engine_version", { length: 30 }).default("FASP-AI-v3.0"),
+  submittedAt:    timestamp("submitted_at"),
+  confirmedAt:    timestamp("confirmed_at"),
+  source:         varchar("source", { length: 20 }).default("ai"),
+  createdAt:      timestamp("created_at").defaultNow(),
+  updatedAt:      timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_ire_proposal").on(table.proposalId),
+  index("idx_ire_client_pan").on(table.clientPan),
+  index("idx_ire_iris_status").on(table.irisStatus),
+]);
+
+export type IrisRebalanceExecution = typeof irisRebalanceExecutions.$inferSelect;
+export type InsertIrisRebalanceExecution = typeof irisRebalanceExecutions.$inferInsert;
+export const insertIrisRebalanceExecutionSchema = createInsertSchema(irisRebalanceExecutions).omit({
+  id: true, createdAt: true, updatedAt: true,
+});

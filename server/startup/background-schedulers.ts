@@ -469,6 +469,62 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 		// Schedule daily re-normalization at 1:30 AM IST for newly added stocks
 		scheduleDailyNormalization();
 
+		// ── Phase 3b: FMP Priority Enrichment (production only) ──────────────────
+		// Progressively fills T1-T4 FMP satellite tables (screener_growth_metrics,
+		// screener_key_metrics, screener_dcf_valuations, etc.) using 200 API calls/day.
+		// This is what drives the Screener Admin tab tier progress bars.
+		// Only runs when NODE_ENV=production to avoid consuming API quota in dev.
+		// Runs daily at 2:30 AM IST (21:00 UTC) — after NSE data sync completes.
+		runStartupTask("FMP Priority Enrichment Scheduler", async () => {
+			try {
+				const { isProductionEnrichmentAllowed } = await import(
+					"../services/screener/enrichment-service"
+				);
+				if (!isProductionEnrichmentAllowed()) {
+					console.log("[FMPEnrich] Skipping auto-scheduler (non-production)");
+					return;
+				}
+
+				const DAILY_MS = 24 * 60 * 60 * 1000;
+				const nowMs   = Date.now();
+				const nextRun  = new Date();
+				// 2:30 AM IST = 21:00 UTC previous day
+				nextRun.setUTCHours(21, 0, 0, 0);
+				if (nextRun.getTime() <= nowMs) {
+					nextRun.setTime(nextRun.getTime() + DAILY_MS);
+				}
+
+				const runBatch = async () => {
+					try {
+						console.log("[FMPEnrich] 🚀 Daily priority enrichment starting (budget: 200 calls)...");
+						const { runPriorityEnrichmentBatch } = await import(
+							"../services/screener/priority-enrichment-scheduler"
+						);
+						const result = await runPriorityEnrichmentBatch(undefined, 200);
+						console.log(
+							`[FMPEnrich] ✅ Priority enrichment complete: ` +
+							`${result.totalApiCalls ?? 0} API calls, ` +
+							`T1=${result.tiers?.[0]?.totalApiCalls ?? 0} ` +
+							`T2=${result.tiers?.[1]?.totalApiCalls ?? 0} ` +
+							`T3=${result.tiers?.[2]?.totalApiCalls ?? 0} ` +
+							`T4=${result.tiers?.[3]?.totalApiCalls ?? 0} calls`
+						);
+					} catch (err) {
+						console.error("[FMPEnrich] Daily batch failed:", err);
+					}
+				};
+
+				setTimeout(async () => {
+					await runBatch();
+					setInterval(runBatch, DAILY_MS);
+				}, Math.max(nextRun.getTime() - nowMs, 1000));
+
+				console.log(`[FMPEnrich] 📅 Scheduled next run at ${nextRun.toISOString()}`);
+			} catch (err) {
+				console.warn("[FMPEnrich] Scheduler init failed:", err);
+			}
+		});
+
 		// ── Phase 4: Pick of the Day (needs Phase 3 data, runs at 9 AM IST) ──────
 		await runStartupTask(
 			"Pick of the Day Scheduler",
@@ -648,7 +704,115 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			};
 			scheduleWeeklyRebalance();
 
-			console.log("[PortfolioIntel] 🧠 Portfolio Intelligence Engine active (daily regime + weekly rebalance)");
+			// ── Monthly: Calendar-triggered autonomous rebalancing ────────────────
+			// Checks every published portfolio against its configured frequency
+			// (weekly/monthly/quarterly/annually) and applies AI-driven swaps
+			// automatically if guardrails pass. No human intervention required.
+			// Runs Mon/Wed/Fri at 7 PM IST (13:30 UTC) — picks up all frequency tiers.
+			const scheduleCalendarRebalance = () => {
+				const DAILY_MS_CAL = 24 * 60 * 60 * 1000;
+				const now = new Date();
+				const next = new Date();
+				next.setUTCHours(13, 30, 0, 0);
+				if (next <= now) next.setTime(next.getTime() + DAILY_MS_CAL);
+
+				setTimeout(async () => {
+					const runCalendarRebalance = async () => {
+						try {
+							const day = new Date().getUTCDay(); // 0=Sun,1=Mon,...
+							if (day === 1 || day === 3 || day === 5) { // Mon, Wed, Fri only
+								console.log("[PortfolioIntel] 📅 Calendar rebalance check starting...");
+								const { autoApplyCalendarRebalancing } = await import(
+									"../services/portfolio-rebalance-scheduler"
+								);
+								const summary = await autoApplyCalendarRebalancing();
+								console.log(
+									`[PortfolioIntel] ✅ Calendar rebalance: ` +
+									`${summary.portfoliosRebalanced} updated, ` +
+									`${summary.portfoliosSkipped} already current, ` +
+									`checked=${summary.portfoliosChecked}`
+								);
+							}
+						} catch (err) {
+							console.error("[PortfolioIntel] Calendar rebalance failed:", err);
+						}
+					};
+					await runCalendarRebalance();
+					setInterval(runCalendarRebalance, DAILY_MS_CAL);
+				}, Math.max(next.getTime() - now.getTime(), 1000));
+			};
+			scheduleCalendarRebalance();
+
+			// ── Daily: Drift score refresh (after calendar check) ─────────────────
+			// Updates drift_score + drift_details on every published portfolio.
+			// Powers the drift meter progress bar on the portfolio card.
+			// Runs daily at 7:15 PM IST (13:45 UTC) — 15 min after calendar rebalance.
+			const scheduleDriftRefresh = () => {
+				const DAILY_MS_DRIFT = 24 * 60 * 60 * 1000;
+				const nowD = new Date();
+				const nextD = new Date();
+				nextD.setUTCHours(13, 45, 0, 0);
+				if (nextD <= nowD) nextD.setTime(nextD.getTime() + DAILY_MS_DRIFT);
+
+				setTimeout(async () => {
+					const runDriftRefresh = async () => {
+						try {
+							console.log("[DriftRefresh] 📊 Daily drift score refresh starting...");
+							const { refreshDriftScores } = await import(
+								"../services/portfolio-rebalance-scheduler"
+							);
+							const result = await refreshDriftScores();
+							console.log(
+								`[DriftRefresh] ✅ Drift scores refreshed: ` +
+								`${result.refreshed} updated, ${result.errors} errors`
+							);
+						} catch (err) {
+							console.error("[DriftRefresh] Daily refresh failed:", err);
+						}
+					};
+					await runDriftRefresh();
+					setInterval(runDriftRefresh, DAILY_MS_DRIFT);
+				}, Math.max(nextD.getTime() - nowD.getTime(), 1000));
+			};
+			scheduleDriftRefresh();
+
+			// ── Daily: Portfolio NAV History Refresh ──────────────────────────────
+			// Computes monthly NAV time-series for all published portfolios.
+			// Powers the rolling bar chart and cumulative benchmark line chart
+			// on the portfolio card (brief §2 & §3).
+			// Runs daily at 6:00 AM IST (00:30 UTC).
+			const scheduleNavHistoryRefresh = () => {
+				const DAILY_MS_NAV = 24 * 60 * 60 * 1000;
+				const nowN = new Date();
+				const nextN = new Date();
+				nextN.setUTCHours(0, 30, 0, 0);
+				if (nextN <= nowN) nextN.setTime(nextN.getTime() + DAILY_MS_NAV);
+
+				setTimeout(async () => {
+					const runNavRefresh = async () => {
+						try {
+							console.log("[NavHistory] 📅 Nightly portfolio NAV history refresh starting...");
+							const { db: navDb } = await import("../db");
+							const { refreshAllPortfolioNavHistory } = await import(
+								"../services/model-portfolio-nav-service"
+							);
+							const summary = await refreshAllPortfolioNavHistory(navDb);
+							console.log(
+								`[NavHistory] ✅ NAV history refreshed: ` +
+								`${summary.ok}/${summary.total} portfolios, ` +
+								`${summary.errors} errors, ${summary.noData} no data`
+							);
+						} catch (err) {
+							console.error("[NavHistory] Nightly refresh failed:", err);
+						}
+					};
+					await runNavRefresh();
+					setInterval(runNavRefresh, DAILY_MS_NAV);
+				}, Math.max(nextN.getTime() - nowN.getTime(), 1000));
+			};
+			scheduleNavHistoryRefresh();
+
+			console.log("[PortfolioIntel] 🧠 Portfolio Intelligence Engine active (daily regime + weekly momentum + calendar rebalance + drift refresh + NAV history)");
 		});
 
 		// ── Phase 6: Audit & Compliance Cleanup ──────────────────────────────────

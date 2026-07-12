@@ -111,6 +111,106 @@ async function main() {
     throw e;
   }
 
+  // ── Phase E: Convert MF scheme holdings → direct NSE equity stocks ──────────
+  // Only updates portfolios still holding INF-prefix MF ISINs.
+  // AI-rebalanced portfolios (already INE-based) are conditionally skipped.
+  // Excluded: ELSS, Arbitrage, Passive Index, International (per user directive).
+  console.log("Phase E — converting MF scheme holdings to direct equity stocks...");
+  try {
+    const { db: stockSeedDb } = await import("../db");
+    const { seedStockPortfolios } = await import("./portfolio-stock-seeds");
+    await seedStockPortfolios(stockSeedDb);
+  } catch (e: any) {
+    console.error("  ❌ Phase E error:", e.message);
+    // Non-fatal: schema repair job continues even if stock seed fails
+  }
+
+  // ── Phase F: Populate portfolioCode (FP-NNN) + inceptionDate + rebalancingMode ─
+  // portfolioCode — stable FP-NNN code printed on cards, reports and audit logs.
+  // inceptionDate — required for inception-based rolling bar chart.
+  // rebalancingMode — default all to drift_triggered per product decision.
+  // Also ensures model_portfolio_nav_history table exists (idempotent CREATE).
+  console.log("Phase F — populating portfolioCode, inceptionDate, rebalancingMode + nav history table...");
+  try {
+    const { db: phFDb } = await import("../db");
+    const { sql: phFSql } = await import("drizzle-orm");
+
+    // 1. Ensure model_portfolio_nav_history table exists
+    await phFDb.execute(phFSql`
+      CREATE TABLE IF NOT EXISTS model_portfolio_nav_history (
+        id               SERIAL PRIMARY KEY,
+        portfolio_id     VARCHAR NOT NULL REFERENCES model_portfolios(id) ON DELETE CASCADE,
+        month_start      DATE NOT NULL,
+        nav              NUMERIC(15,4),
+        monthly_return   NUMERIC(8,4),
+        absolute_return  NUMERIC(8,4),
+        benchmark_return NUMERIC(8,4),
+        benchmark_cum_return NUMERIC(8,4),
+        had_rebalance_event BOOLEAN DEFAULT FALSE,
+        rebalance_trigger   TEXT,
+        source           VARCHAR DEFAULT 'cron',
+        engine_version   VARCHAR DEFAULT 'FASP-AI-v3.0',
+        created_at       TIMESTAMP DEFAULT NOW(),
+        updated_at       TIMESTAMP DEFAULT NOW(),
+        CONSTRAINT uq_mpnh_portfolio_month UNIQUE (portfolio_id, month_start)
+      )
+    `);
+    await phFDb.execute(phFSql`CREATE INDEX IF NOT EXISTS idx_mpnh_portfolio_id ON model_portfolio_nav_history(portfolio_id)`);
+    await phFDb.execute(phFSql`CREATE INDEX IF NOT EXISTS idx_mpnh_month_start ON model_portfolio_nav_history(month_start)`);
+    console.log("  ✅ Phase F.1: model_portfolio_nav_history table ensured");
+
+    // 2. Ensure rebalancing_mode column exists (Drizzle migration may lag)
+    await phFDb.execute(phFSql`
+      ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS rebalancing_mode VARCHAR DEFAULT 'drift_triggered'
+    `).catch(() => {/* column may already exist */});
+
+    // 3. Assign FP-NNN codes to all portfolios that don't have one yet.
+    //    Uses a deterministic ordering by created_at so codes never change on re-runs.
+    const uncodedRes = await phFDb.execute(phFSql`
+      SELECT id FROM model_portfolios
+      WHERE portfolio_code IS NULL
+      ORDER BY created_at ASC
+    `);
+    const uncoded = (uncodedRes as any).rows ?? [];
+
+    // Find current max FP code to continue numbering
+    const maxCodeRes = await phFDb.execute(phFSql`
+      SELECT MAX(CAST(SUBSTRING(portfolio_code FROM 4) AS INTEGER)) AS max_num
+      FROM model_portfolios
+      WHERE portfolio_code IS NOT NULL AND portfolio_code LIKE 'FP-%'
+    `);
+    const startNum = ((maxCodeRes as any).rows?.[0]?.max_num ?? 0) + 1;
+
+    for (let i = 0; i < uncoded.length; i++) {
+      const code = `FP-${String(startNum + i).padStart(3, "0")}`;
+      await phFDb.execute(phFSql`
+        UPDATE model_portfolios SET portfolio_code = ${code} WHERE id = ${uncoded[i].id}
+      `);
+    }
+    console.log(`  ✅ Phase F.2: portfolioCode populated for ${uncoded.length} portfolios (starting FP-${String(startNum).padStart(3, "0")})`);
+
+    // 4. Set inceptionDate from created_at for portfolios that are missing it.
+    const inceptionRes = await phFDb.execute(phFSql`
+      UPDATE model_portfolios
+      SET inception_date = CAST(created_at AS DATE)
+      WHERE inception_date IS NULL
+      RETURNING id
+    `);
+    const inceptionCount = ((inceptionRes as any).rowCount ?? (inceptionRes as any).rows?.length ?? 0);
+    console.log(`  ✅ Phase F.3: inceptionDate populated for ${inceptionCount} portfolios`);
+
+    // 5. Set rebalancingMode = drift_triggered for all portfolios (product decision)
+    await phFDb.execute(phFSql`
+      UPDATE model_portfolios SET rebalancing_mode = 'drift_triggered'
+      WHERE rebalancing_mode IS NULL OR rebalancing_mode = 'quarterly'
+    `);
+    console.log("  ✅ Phase F.4: rebalancingMode = drift_triggered applied to all portfolios");
+
+  } catch (e: any) {
+    console.error("  ❌ Phase F error:", e.message, "|", e.code);
+    // Non-fatal
+  }
+
   console.log("FintekPro schema repair job complete.");
 }
 

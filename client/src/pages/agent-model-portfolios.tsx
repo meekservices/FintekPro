@@ -3288,6 +3288,22 @@ export default function AgentModelPortfoliosPage() {
   const [compareList, setCompareList] = useState<string[]>([]); // portfolio IDs
   const [compareOpen, setCompareOpen] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set()); // lazy bar chart
+  // Cache of fetched NAV history rows per portfolio ID, keyed by portfolio.id
+  const [navHistoryCache, setNavHistoryCache] = useState<Record<string, any[]>>({});
+
+  // Fetches NAV history from /api/model-portfolios/:id/nav-history and caches it
+  const fetchNavHistory = async (portfolioId: string) => {
+    if (navHistoryCache[portfolioId]) return; // already loaded
+    try {
+      const r = await fetch(`/api/model-portfolios/${portfolioId}/nav-history?limit=24`);
+      if (r.ok) {
+        const json = await r.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          setNavHistoryCache((prev) => ({ ...prev, [portfolioId]: json.data }));
+        }
+      }
+    } catch { /* non-fatal: card falls back to synthetic data */ }
+  };
   const [quizOpen, setQuizOpen] = useState(false);
   const [quizStep, setQuizStep] = useState(0);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
@@ -4094,8 +4110,20 @@ export default function AgentModelPortfoliosPage() {
           const hasTaxDeferredDrift = pendingProposals.length > 0 && driftScore > 5;
           // Performance section toggle — collapsed by default (brief §2: grid density, lazy render)
           const isPerfOpen = expandedCards.has(`show-${portfolio.id}`);
-          // barData: computed lazily — only when the section is open (perf: avoids 44× compute on initial load)
-          const barData = isPerfOpen ? computeMonthlyBarData(portfolio.performance, portfolio.rebalancingHistory, portfolio.inceptionDate ?? undefined) : [];
+          // barData: computed lazily — prefer real API data, fall back to synthetic
+          const realNavHistory = navHistoryCache[portfolio.id];
+          const barData = isPerfOpen
+            ? realNavHistory && realNavHistory.length > 0
+              ? realNavHistory.map((r, i) => ({
+                  label: new Date(r.month_start).toLocaleDateString("en-IN", { month: "short", year: "2-digit" }),
+                  returnPct: Number((Number(r.monthly_return) || 0).toFixed(2)),
+                  absoluteReturn: Number((Number(r.absolute_return) || 0).toFixed(2)),
+                  benchmarkReturn: Number((Number(r.benchmark_return) || 0).toFixed(2)),
+                  hasRebalanceEvent: Boolean(r.had_rebalance_event),
+                }))
+              : computeMonthlyBarData(portfolio.performance, portfolio.rebalancingHistory, portfolio.inceptionDate ?? undefined)
+            : [];
+          const isRealData = realNavHistory && realNavHistory.length > 0 && isPerfOpen;
           const maxBar  = barData.length ? Math.max(...barData.map((b) => Math.abs(b.returnPct))) || 1 : 1;
           // Last rebalanced display (e.g. "Apr 26")
           const lastRebalLabel = portfolio.lastRebalanced
@@ -4157,14 +4185,15 @@ export default function AgentModelPortfoliosPage() {
                     <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
                       {portfolio.portfolioCode && (
                         <span className="flex items-center gap-0.5">
-                          <span className="text-muted-foreground/60">#</span>
-                          <span className="font-mono font-semibold text-foreground/70">Portfolio {portfolio.portfolioCode}</span>
+                          <span className="font-mono font-semibold text-foreground/70 bg-muted/60 px-1.5 py-0.5 rounded text-[9px] tracking-wider">
+                            {portfolio.portfolioCode}
+                          </span>
                         </span>
                       )}
                       {portfolio.inceptionDate && (
                         <span className="flex items-center gap-0.5">
                           <span className="text-muted-foreground/60">📅</span>
-                          <span>Inception {new Date(portfolio.inceptionDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}</span>
+                          <span>Since {new Date(portfolio.inceptionDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}</span>
                         </span>
                       )}
                     </div>
@@ -4240,7 +4269,10 @@ export default function AgentModelPortfoliosPage() {
                       setExpandedCards((prev) => {
                         const next = new Set(prev);
                         const key = `show-${portfolio.id}`;
-                        next.has(key) ? next.delete(key) : next.add(key);
+                        const willOpen = !next.has(key);
+                        willOpen ? next.add(key) : next.delete(key);
+                        // Eagerly fetch real NAV history when first expanding
+                        if (willOpen) fetchNavHistory(portfolio.id);
                         return next;
                       });
                     }}
@@ -4311,7 +4343,12 @@ export default function AgentModelPortfoliosPage() {
                     {barData.length > 0 && (
                       <div className="space-y-1">
                         <p className="text-[9px] text-muted-foreground flex items-center gap-1">
-                          {isUsingTWRR ? (
+                          {isRealData ? (
+                            <>
+                              <span className="inline-flex items-center gap-0.5 px-1 rounded text-[7px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">📊 DB</span>
+                              Monthly returns (actual NAV history)
+                            </>
+                          ) : isUsingTWRR ? (
                             <>
                               <span className="inline-flex items-center gap-0.5 px-1 rounded text-[7px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">⚡ TWRR</span>
                               Monthly returns (SEBI time-weighted)
@@ -4391,6 +4428,32 @@ export default function AgentModelPortfoliosPage() {
                         </span>
                       </div>
                       {(() => {
+                        // Prefer real NAV history data for the cumulative line chart
+                        const navRows = realNavHistory && realNavHistory.length >= 2 ? realNavHistory : null;
+                        if (navRows) {
+                          const norm = navRows.map((r) => ({
+                            p: Number(r.absolute_return ?? 0),
+                            b: Number(r.benchmark_cum_return ?? 0),
+                          }));
+                          const allVals = norm.flatMap((n) => [n.p, n.b]);
+                          const minV = Math.min(...allVals, 0);
+                          const maxV = Math.max(...allVals, 0);
+                          const range = maxV - minV || 1;
+                          const W = 200; const H = 36;
+                          const xStep = W / Math.max(norm.length - 1, 1);
+                          const toY = (v: number) => H - ((v - minV) / range) * H;
+                          const zeroY = toY(0).toFixed(1);
+                          const portPts  = norm.map((n, i) => `${(i * xStep).toFixed(1)},${toY(n.p).toFixed(1)}`).join(" ");
+                          const benchPts = norm.map((n, i) => `${(i * xStep).toFixed(1)},${toY(n.b).toFixed(1)}`).join(" ");
+                          return (
+                            <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-9" preserveAspectRatio="none" aria-hidden="true">
+                              <line x1="0" y1={zeroY} x2={W} y2={zeroY} stroke="currentColor" strokeWidth="0.5" opacity="0.25" strokeDasharray="3,2" />
+                              <polyline points={benchPts} fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+                              <polyline points={portPts} fill="none" stroke="#6366f1" strokeWidth="1.5" strokeLinejoin="round" />
+                            </svg>
+                          );
+                        }
+                        // Fallback: synthetic performance array
                         const pts = (portfolio.performance ?? []).slice(-13);
                         if (pts.length < 2) return (
                           <p className="text-[8px] text-muted-foreground/50 italic h-9 flex items-center pl-0.5">Chart computing…</p>
@@ -4413,11 +4476,8 @@ export default function AgentModelPortfoliosPage() {
                         const benchPts = norm.map((n, i) => `${(i * xStep).toFixed(1)},${toY(n.b).toFixed(1)}`).join(" ");
                         return (
                           <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-9" preserveAspectRatio="none" aria-hidden="true">
-                            {/* Zero baseline */}
                             <line x1="0" y1={zeroY} x2={W} y2={zeroY} stroke="currentColor" strokeWidth="0.5" opacity="0.25" strokeDasharray="3,2" />
-                            {/* Benchmark line — muted */}
                             <polyline points={benchPts} fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3" />
-                            {/* Portfolio line — indigo */}
                             <polyline points={portPts} fill="none" stroke="#6366f1" strokeWidth="1.5" strokeLinejoin="round" />
                           </svg>
                         );

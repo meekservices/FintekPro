@@ -2583,6 +2583,57 @@ export async function runFASPAIv3Migrations(): Promise<void> {
     console.warn("  ⚠️  portfolio_alerts (non-fatal):", e.message?.slice(0, 80));
   }
 
+  // 4. iris_rebalance_executions — per-leg IRIS execution tracking (FASP-AI-v3.0)
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS iris_rebalance_executions (
+        id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+        proposal_id      UUID         NOT NULL REFERENCES rebalance_proposals(id),
+        client_pan       VARCHAR(20)  NOT NULL,
+        leg_index        INTEGER      NOT NULL,
+        leg_type         VARCHAR(20)  NOT NULL,
+        from_isin        VARCHAR(20),
+        to_isin          VARCHAR(20),
+        from_scheme_code VARCHAR(50),
+        to_scheme_code   VARCHAR(50),
+        folio_no         VARCHAR(30),
+        amount           NUMERIC(14,2),
+        units            NUMERIC(14,4),
+        iris_order_id    VARCHAR(100),
+        iris_status      VARCHAR(30)  DEFAULT 'pending',
+        iris_response    JSONB,
+        error_message    TEXT,
+        engine_version   VARCHAR(30)  DEFAULT 'FASP-AI-v3.0',
+        submitted_at     TIMESTAMP,
+        confirmed_at     TIMESTAMP,
+        source           VARCHAR(20)  DEFAULT 'ai',
+        created_at       TIMESTAMP    DEFAULT NOW(),
+        updated_at       TIMESTAMP    DEFAULT NOW()
+      )
+    `);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_ire_proposal   ON iris_rebalance_executions(proposal_id)`);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_ire_client_pan ON iris_rebalance_executions(client_pan)`);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_ire_iris_status ON iris_rebalance_executions(iris_status)`);
+    console.log("  ✅ iris_rebalance_executions: created");
+  } catch (e: any) {
+    console.warn("  ⚠️  iris_rebalance_executions (non-fatal):", e.message?.slice(0, 80));
+  }
+
+  // 4b. Patch rebalance_proposals with client-rebalancing columns (idempotent)
+  const rpPatches = [
+    `ALTER TABLE rebalance_proposals ADD COLUMN IF NOT EXISTS client_pan VARCHAR(20)`,
+    `ALTER TABLE rebalance_proposals ADD COLUMN IF NOT EXISTS target_model_portfolio_id VARCHAR(100)`,
+    `CREATE INDEX IF NOT EXISTS idx_rp_client_pan ON rebalance_proposals(client_pan)`,
+  ];
+  for (const patch of rpPatches) {
+    try {
+      await migDb.execute(migSql`${migSql.raw(patch)}`);
+    } catch {
+      // Column/index already exists — safe to ignore
+    }
+  }
+  console.log("  ✅ rebalance_proposals: client rebalancing columns patched");
+
   console.log("  ✅ [FASP-AI v3.0] All dynamic portfolio management tables created");
 }
 
