@@ -3087,52 +3087,27 @@ export async function ensureSharedRouteTables(): Promise<void> {
   console.log(`  ✅ Fix FASP-4: ${p4ok}/${phase4Cols.length} period columns ensured`);
 
   // ── Fix FASP-5: PSU & Defence Atmanirbhar portfolio seed (Jul 2026) ───────────
-  // Fix #6 (model_portfolios bulk INSERT) is migration-guarded and was already applied.
-  // New portfolios post-Fix-#6 require their own block using parameterised Drizzle
-  // interpolations (${...}) — avoids all raw-SQL quoting pitfalls.
-  // ON CONFLICT DO NOTHING makes this fully idempotent — no pre-check SELECT needed.
+  // Uses migDb/migSql already in scope (Neon HTTP driver) — same as all other blocks.
+  // Previous approach imported ../db (pg pool) which failed silently here.
+  // Raw SQL values with ON CONFLICT DO NOTHING — fully idempotent.
   try {
-    const { db: fpDb } = await import("../db");
-    const { sql: fpSql } = await import("drizzle-orm");
-    const _id   = "psu-defence-atmanirbhar";
-    const _name = "PSU & Defence Atmanirbhar";
-    const _tag  = "India's self-reliance mission — government capex + defence indigenisation";
-    const _risk = "aggressive";
-    const _cat  = "thematic";
-    const _goal = JSON.stringify(["capital_appreciation", "thematic", "government_capex"]);
-    const _min  = 15000;
-    const _hor  = "5-7 years";
-    const _bmk  = "Nifty India Defence Index";
-    const _reb  = "2026-07-10";
-    const _freq = "quarterly";
-    const _tot  = 8;
-    const _hl   = "HAL, BEL, GRSE, Cochin Shipyard — India defence capex supercycle";
-    const _icon = "\uD83E\uDE96"; // 🪖
-    const _feat = true;
-    const _alloc = JSON.stringify([
-      { type: "defence", label: "Defence & Aerospace", weight: 55, color: "#1D4ED8", icon: "\uD83E\uDE96" },
-      { type: "psu",     label: "PSU Equity",          weight: 30, color: "#059669", icon: "\uD83C\uDFDB\uFE0F" },
-      { type: "liquid",  label: "Liquid Buffer",        weight: 15, color: "#6B7280", icon: "\uD83D\uDCA7" },
-    ]);
-    const _hold = JSON.stringify([
-      { name: "SBI Defence Opportunities Fund",  isin: "INF200KB1290", weight: 20, type: "equity" },
-      { name: "HDFC Defence Fund",               isin: "INF179KC1GL9", weight: 18, type: "equity" },
-      { name: "Edelweiss India Defence Fund",    isin: "INF754K01LN7", weight: 17, type: "equity" },
-      { name: "SBI PSU Fund",                    isin: "INF200K01BC0", weight: 15, type: "equity" },
-      { name: "ICICI Pru Manufacturing Fund",    isin: "INF109K01AW3", weight: 10, type: "equity" },
-      { name: "Nippon India Power & Infra Fund", isin: "INF204K01UB5", weight: 10, type: "equity" },
-      { name: "SBI Liquid Fund",                 isin: "INF200K01MA1", weight:  8, type: "liquid" },
-      { name: "ICICI Pru Liquid Fund",           isin: "INF109K01027", weight:  2, type: "liquid" },
-    ]);
-    await fpDb.execute(fpSql`
+    await migDb.execute(migSql`
       INSERT INTO model_portfolios
         (id, name, tagline, risk_profile, asset_class, goal, min_investment,
          time_horizon, benchmark_name, last_rebalanced, rebalancing_frequency,
          total_holdings, highlight, icon, is_featured, allocation, holdings)
       VALUES (
-        ${_id}, ${_name}, ${_tag}, ${_risk}, ${_cat}, ${_goal}, ${_min},
-        ${_hor}, ${_bmk}, ${_reb}, ${_freq}, ${_tot}, ${_hl}, ${_icon}, ${_feat},
-        ${_alloc}, ${_hold}
+        'psu-defence-atmanirbhar',
+        'PSU & Defence Atmanirbhar',
+        'India''s self-reliance mission — government capex + defence indigenisation',
+        'aggressive', 'thematic',
+        '["capital_appreciation","thematic","government_capex"]',
+        15000, '5-7 years', 'Nifty India Defence Index', '2026-07-10',
+        'quarterly', 8,
+        'HAL, BEL, GRSE, Cochin Shipyard — India defence capex supercycle',
+        '🪖', TRUE,
+        '[{"type":"defence","label":"Defence & Aerospace","weight":55,"color":"#1D4ED8","icon":"🪖"},{"type":"psu","label":"PSU Equity","weight":30,"color":"#059669","icon":"🏛️"},{"type":"liquid","label":"Liquid Buffer","weight":15,"color":"#6B7280","icon":"💧"}]',
+        '[{"name":"SBI Defence Opportunities Fund","isin":"INF200KB1290","weight":20,"type":"equity"},{"name":"HDFC Defence Fund","isin":"INF179KC1GL9","weight":18,"type":"equity"},{"name":"Edelweiss India Defence Fund","isin":"INF754K01LN7","weight":17,"type":"equity"},{"name":"SBI PSU Fund","isin":"INF200K01BC0","weight":15,"type":"equity"},{"name":"ICICI Pru Manufacturing Fund","isin":"INF109K01AW3","weight":10,"type":"equity"},{"name":"Nippon India Power & Infra Fund","isin":"INF204K01UB5","weight":10,"type":"equity"},{"name":"SBI Liquid Fund","isin":"INF200K01MA1","weight":8,"type":"liquid"},{"name":"ICICI Pru Liquid Fund","isin":"INF109K01027","weight":2,"type":"liquid"}]'
       )
       ON CONFLICT (id) DO NOTHING
     `);
