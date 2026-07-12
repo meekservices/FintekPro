@@ -64,6 +64,8 @@ import {
 	AlertTriangle,
 	CheckCircle2,
 	Calculator,
+	Landmark,
+	Layers,
 } from "lucide-react";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -1056,91 +1058,97 @@ export default function AgentScreener() {
 								/>
 							)}
 							<div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-								{distribution?.marketCap?.slice(0, 3).map((d: any) => (
-									<span key={d.category} className="flex items-center gap-1">
-										<span
-											className={`w-1.5 h-1.5 rounded-full ${MARKET_CAP_COLORS[d.category] || "bg-gray-400"}`}
-										/>
-										{d.category}: {Number(d.count).toLocaleString()}
-									</span>
-								))}
-							</div>
+							{distribution?.marketCap?.slice(0, 3).map((d: any) => (
+								<span key={d.category} className="flex items-center gap-1">
+									<span
+										className={`w-1.5 h-1.5 rounded-full ${MARKET_CAP_COLORS[d.category] || "bg-gray-400"}`}
+									/>
+									{d.category}: {Number(d.count).toLocaleString()}
+								</span>
+							))}
 						</div>
-					</CardContent>
-				</Card>
-			</div>
+					</div>
+				</CardContent>
+			</Card>
+		</div>
 
-			<Tabs defaultValue="db-screener" className="w-full">
-				<Card>
-					<CardHeader className="pb-3 border-b">
-						<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-							<div className="flex items-center gap-3">
-								<div className="p-2 bg-primary/10 rounded-lg">
-									<Filter className="h-5 w-5 text-primary" />
-								</div>
-								<div>
-									<CardTitle className="text-lg">
+		<Tabs defaultValue="db-screener" className="w-full">
+			<Card>
+				<CardHeader className="pb-0 border-b">
+					{/* ── Row 1: Title + view tabs ─────────────────────────────────────── */}
+					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3">
+						<div className="flex items-center gap-3">
+							<div className="p-2 bg-primary/10 rounded-lg">
+								<Filter className="h-5 w-5 text-primary" />
+							</div>
+							<div>
+								<CardTitle className="text-lg">
 									{screenerType === "mutual_fund" ? "Mutual Fund Screener" :
 									 screenerType === "bond" ? "Bond & Fixed Income Screener" :
 									 screenerType === "etf" ? "ETF Screener" :
 									 "Stock Screener"}
 								</CardTitle>
-									<CardDescription className="text-xs mt-0.5">
-										Screen{" "}
-										{screenerStats?.database?.totalStocks?.toLocaleString() ||
-											0}{" "}
-										stocks with{" "}
-										{screenerStats?.database?.withDerivedMetrics?.toLocaleString() ||
-											0}{" "}
-										scored
-									</CardDescription>
-								</div>
-							</div>
-							<div className="flex items-center gap-2">
-								<TabsList className="h-8">
-									<TabsTrigger value="db-screener" className="text-xs px-3 h-7">
-										<Database className="h-3.5 w-3.5 mr-1" />
-										Screener
-									</TabsTrigger>
-									<TabsTrigger value="builder" className="text-xs px-3 h-7">
-										<SlidersHorizontal className="h-3.5 w-3.5 mr-1" />
-										Custom
-									</TabsTrigger>
-									<TabsTrigger value="saved" className="text-xs px-3 h-7">
-										<Save className="h-3.5 w-3.5 mr-1" />
-										Saved
-									</TabsTrigger>
-									<TabsTrigger value="admin" className="text-xs px-3 h-7">
-										<Settings className="h-3.5 w-3.5 mr-1" />
-										Admin
-									</TabsTrigger>
-								</TabsList>
+								<CardDescription className="text-xs mt-0.5">
+									{screenerType === "stock"
+										? `Screen ${screenerStats?.database?.totalStocks?.toLocaleString() ?? 0} stocks \u00b7 ${screenerStats?.database?.withDerivedMetrics?.toLocaleString() ?? 0} scored`
+										: screenerType === "mutual_fund"
+										? "Screen 14,000+ mutual fund schemes across all categories"
+										: screenerType === "bond"
+										? "Screen government securities & corporate bonds by yield, rating & maturity"
+										: "Screen ETFs by category, NAV & tracking error"}
+								</CardDescription>
 							</div>
 						</div>
-					</CardHeader>
+						<div className="flex items-center gap-2">
+							<TabsList className="h-8">
+								<TabsTrigger value="db-screener" className="text-xs px-3 h-7">
+									<Database className="h-3.5 w-3.5 mr-1" />
+									Screener
+								</TabsTrigger>
+								<TabsTrigger value="builder" className="text-xs px-3 h-7">
+									<SlidersHorizontal className="h-3.5 w-3.5 mr-1" />
+									Custom
+								</TabsTrigger>
+								<TabsTrigger value="saved" className="text-xs px-3 h-7">
+									<Save className="h-3.5 w-3.5 mr-1" />
+									Saved
+								</TabsTrigger>
+								<TabsTrigger value="admin" className="text-xs px-3 h-7">
+									<Settings className="h-3.5 w-3.5 mr-1" />
+									Admin
+								</TabsTrigger>
+							</TabsList>
+						</div>
+					</div>
+
+					{/* ── Row 2: Instrument Category Selector ─────────────────────────── */}
+					<div className="flex items-center gap-1.5 pb-3 overflow-x-auto scrollbar-none">
+						{([
+							{ type: "stock" as ScreenerType, label: "Stocks", icon: <BarChart3 className="h-3.5 w-3.5" />, color: "text-blue-600 dark:text-blue-400", activeBg: "bg-blue-600 dark:bg-blue-500" },
+							{ type: "mutual_fund" as ScreenerType, label: "Mutual Funds", icon: <PieChart className="h-3.5 w-3.5" />, color: "text-purple-600 dark:text-purple-400", activeBg: "bg-purple-600 dark:bg-purple-500" },
+							{ type: "bond" as ScreenerType, label: "Bonds & FD", icon: <Landmark className="h-3.5 w-3.5" />, color: "text-amber-600 dark:text-amber-400", activeBg: "bg-amber-600 dark:bg-amber-500" },
+							{ type: "etf" as ScreenerType, label: "ETFs", icon: <Layers className="h-3.5 w-3.5" />, color: "text-emerald-600 dark:text-emerald-400", activeBg: "bg-emerald-600 dark:bg-emerald-500" },
+						] as const).map(({ type, label, icon, color, activeBg }) => (
+							<button
+								key={type}
+								type="button"
+								onClick={() => setScreenerType(type)}
+								className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-150 border ${
+									screenerType === type
+										? `${activeBg} text-white border-transparent shadow-sm`
+										: `bg-background ${color} border-border hover:bg-muted/60`
+								}`}
+							>
+								{icon}
+								{label}
+							</button>
+						))}
+					</div>
+				</CardHeader>
 
 					<TabsContent value="db-screener" className="m-0">
 						<CardContent className="pt-4 px-4">
 							<div className="space-y-3">
-
-								{/* ── Instrument Type Switcher ─────────────────────────────────── */}
-								<div className="flex items-center gap-3 border-b pb-3">
-									<span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Instrument:</span>
-									{(["stock","mutual_fund","bond","etf"] as ScreenerType[]).map((t) => (
-										<button
-											key={t}
-											type="button"
-											onClick={() => setScreenerType(t)}
-											className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-												screenerType === t
-													? "bg-primary text-primary-foreground"
-													: "bg-muted text-muted-foreground hover:bg-muted/70"
-											}`}
-										>
-											{t === "mutual_fund" ? "Mutual Funds" : t === "bond" ? "Bonds" : t === "etf" ? "ETFs" : "Stocks"}
-										</button>
-									))}
-								</div>
 
 								{/* ── MF Screener ──────────────────────────────────────────────── */}
 								{screenerType === "mutual_fund" && (
