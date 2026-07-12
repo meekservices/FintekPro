@@ -2374,6 +2374,50 @@ crypto_status VARCHAR,
 	}
 
 	console.log("✅ [Phase 5] Date type + hot-cold split migrations complete");
+
+	// ── FASP-5: PSU & Defence Atmanirbhar portfolio seed (Jul 2026) ──────────
+	// p1Db (pg pool Drizzle) and p1Sql are in scope from the function body level.
+	// Uses parameterised ${...} interpolations — safe for all string values.
+	// ON CONFLICT (id) DO NOTHING makes this idempotent on every run.
+	try {
+		const _f5alloc = JSON.stringify([
+			{ type: "defence", label: "Defence & Aerospace", weight: 55, color: "#1D4ED8" },
+			{ type: "psu",     label: "PSU Equity",          weight: 30, color: "#059669" },
+			{ type: "liquid",  label: "Liquid Buffer",        weight: 15, color: "#6B7280" },
+		]);
+		const _f5hold = JSON.stringify([
+			{ name: "SBI Defence Opportunities Fund",  isin: "INF200KB1290", weight: 20, type: "equity" },
+			{ name: "HDFC Defence Fund",               isin: "INF179KC1GL9", weight: 18, type: "equity" },
+			{ name: "Edelweiss India Defence Fund",    isin: "INF754K01LN7", weight: 17, type: "equity" },
+			{ name: "SBI PSU Fund",                    isin: "INF200K01BC0", weight: 15, type: "equity" },
+			{ name: "ICICI Pru Manufacturing Fund",    isin: "INF109K01AW3", weight: 10, type: "equity" },
+			{ name: "Nippon India Power & Infra Fund", isin: "INF204K01UB5", weight: 10, type: "equity" },
+			{ name: "SBI Liquid Fund",                 isin: "INF200K01MA1", weight:  8, type: "liquid" },
+			{ name: "ICICI Pru Liquid Fund",           isin: "INF109K01027", weight:  2, type: "liquid" },
+		]);
+		const _f5goal = JSON.stringify(["capital_appreciation", "thematic", "government_capex"]);
+		const _f5id   = "psu-defence-atmanirbhar";
+		const _f5name = "PSU & Defence Atmanirbhar";
+		const _f5tag  = "India self-reliance mission - government capex + defence indigenisation";
+		await p1Db.execute(p1Sql`
+			INSERT INTO model_portfolios
+				(id, name, tagline, risk_profile, asset_class, goal, min_investment,
+				 time_horizon, benchmark_name, last_rebalanced, rebalancing_frequency,
+				 total_holdings, highlight, icon, is_featured, allocation, holdings)
+			VALUES (
+				${_f5id}, ${_f5name}, ${_f5tag},
+				${"aggressive"}, ${"thematic"}, ${_f5goal},
+				${15000}, ${"5-7 years"}, ${"Nifty India Defence Index"}, ${"2026-07-10"},
+				${"quarterly"}, ${8},
+				${"HAL, BEL, GRSE, Cochin Shipyard - India defence capex supercycle"},
+				${"[D]"}, ${true}, ${_f5alloc}, ${_f5hold}
+			)
+			ON CONFLICT (id) DO NOTHING
+		`);
+		console.log("  ✅ FASP-5: psu-defence-atmanirbhar seeded (idempotent)");
+	} catch (e: any) {
+		console.warn("  ⚠️  FASP-5 seed (non-fatal):", e.message?.slice(0, 200));
+	}
 }
 
 
