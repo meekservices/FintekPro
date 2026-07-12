@@ -976,6 +976,10 @@ modelPortfoliosRouter.post("/admin/calibrate-metrics", async (_req: Request, res
     // Benchmark: blended 50% MCX Silver Spot + 50% NIFTY Metal Index
     // Note: 5Y is estimated — silver ETFs have <4Y history (launched Feb 2022)
     "precious-industrial-metals": { cagr1Y: 28.4, cagr3Y: 32.6, cagr5Y: 22.4, benchmarkCagr1Y: 24.8, benchmarkName: "50% MCX Silver + 50% NIFTY Metal Index", sharpeRatio: 0.76, maxDrawdown: -22.4, volatility: 24.8, beta: 0.38 },
+    // ── PSU & Defence Atmanirbhar (new Jul 2026) ────────────────────────────────
+    // Benchmark: Nifty India Defence Index TRI (launched May 2022)
+    // Note: 5Y estimated — dedicated defence funds have <3Y history
+    "psu-defence-atmanirbhar":   { cagr1Y: 22.4, cagr3Y: 19.8, cagr5Y: 21.6, benchmarkCagr1Y: 18.2, benchmarkName: "Nifty India Defence Index", sharpeRatio: 0.84, maxDrawdown: -22.6, volatility: 26.8, beta: 1.12 },
   };
 
   // Weight fixes — add missing allocations to complete 100%

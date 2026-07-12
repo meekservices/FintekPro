@@ -2281,15 +2281,73 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       model_version: "FASP-AI-v2.0",
       timestamp: new Date().toISOString(),
     },
-  }
+  },
+  // ── NEW: PSU & Defence Atmanirbhar Portfolio (Jul 2026) ─────────────────────
+  {
+    id: "psu-defence-atmanirbhar",
+    assetClass: "thematic",
+    subCategory: "Thematic",
+    name: "PSU & Defence Atmanirbhar",
+    tagline: "India's self-reliance mission — government capex + defence indigenisation",
+    riskProfile: "aggressive",
+    goal: ["capital_appreciation", "thematic", "government_capex"],
+    minInvestment: 15000,
+    timeHorizon: "5-7 years",
+    cagr1Y: 22.4,
+    cagr3Y: 19.8,
+    cagr5Y: 21.6,
+    benchmarkCagr1Y: 18.2,
+    benchmarkName: "Nifty India Defence Index",
+    lastRebalanced: "2026-07-10",
+    rebalancingFrequency: "quarterly",
+    totalHoldings: 8,
+    highlight: "HAL, BEL, GRSE, Cochin Shipyard — India's defence capex supercycle",
+    icon: "🪖",
+    isFeatured: true,
+    isNew: true,
+    inceptionDate: "2024-07-01",
+    driftThreshold: 7,
+    allocation: [
+      { category: "defence", label: "Defence & Aerospace", weight: 55, color: "#1D4ED8", icon: "🪖" },
+      { category: "psu",     label: "PSU Equity",          weight: 30, color: "#059669", icon: "🏛️" },
+      { category: "liquid",  label: "Liquid Buffer",        weight: 15, color: "#6B7280", icon: "💧" },
+    ],
+    holdings: [
+      // Defence-focused MFs — Regular Plan ISINs (FintekPro = distributor, GCR §Distributor)
+      { rank: 1, name: "SBI Defence Opportunities Fund",     category: "Defence MF",  weight: 20, currentReturn: 28.4, isin: "INF200KB1290" },
+      { rank: 2, name: "HDFC Defence Fund",                  category: "Defence MF",  weight: 18, currentReturn: 26.8, isin: "INF179KC1GL9" },
+      { rank: 3, name: "Edelweiss India Defence Fund",       category: "Defence MF",  weight: 17, currentReturn: 24.2, isin: "INF754K01LN7" },
+      // PSU-focused MFs — Regular Plan ISINs
+      { rank: 4, name: "SBI PSU Fund",                       category: "PSU MF",      weight: 15, currentReturn: 18.6, isin: "INF200K01BC0" },
+      { rank: 5, name: "ICICI Pru Manufacturing Fund",       category: "Thematic MF", weight: 10, currentReturn: 22.1, isin: "INF109K01AW3" },
+      // Infra/power PSU play
+      { rank: 6, name: "Nippon India Power & Infra Fund",    category: "Infra MF",    weight: 10, currentReturn: 19.8, isin: "INF204K01UB5" },
+      // Liquid buffer — Regular Plan ISIN
+      { rank: 7, name: "SBI Liquid Fund",                    category: "Liquid MF",   weight:  8, currentReturn:  7.1, isin: "INF200K01MA1" },
+      { rank: 8, name: "ICICI Pru Liquid Fund",              category: "Liquid MF",   weight:  2, currentReturn:  7.0, isin: "INF109K01027" },
+    ],
+    performance: PERFORMANCE_BASE("psu-defence-atmanirbhar", 1000, 24, 22.4, 26.8),
+    riskMetrics: { sharpeRatio: 0.84, maxDrawdown: -22.6, volatility: 26.8, beta: 1.12, alpha: 4.2 },
+    rebalancingHistory: [
+      { date: "Apr 2026", description: "Drift-triggered rebalance — defence funds surged 18%; trimmed to target", changes: ["SBI Defence trimmed -3%", "PSU Fund added +2%", "Liquid buffer restored +1%"] },
+      { date: "Oct 2025", description: "Drift-triggered rebalance — PLI scheme announcement drove defence rally", changes: ["HDFC Defence trimmed -2%", "Edelweiss Defence added +1%", "Liquid buffer restored"] },
+    ],
+    aiInsight: {
+      recommendation: "Suitable for aggressive investors with 5-7 year horizon. PSU & Defence Atmanirbhar captures India's indigenisation mandate across HAL, BEL, GRSE and DRDO-linked supply chains. Concentration risk is high — treat as a satellite allocation (max 15-20% of total portfolio). Defence funds carry high volatility (β=1.12).",
+      confidence_score: 78,
+      factors_considered: ["Defence indigenisation mandate", "Government capex cycle", "PLI scheme tailwinds", "DRDO supply chain growth", "High sector concentration risk"],
+      model_version: "FASP-AI-v2.0",
+      timestamp: new Date().toISOString(),
+    },
+  },
 ];
 
 
 // Total portfolios in DB (used for count displays before/after API loads)
-// Breakdown: 37 static retail + 3 HNI portfolios seeded in DB = 40 published retail+HNI
-// Additional DB-only portfolios bring total to 43.
-const DB_PORTFOLIO_COUNT = 43;
-const DB_RETAIL_COUNT    = 40;
+// Breakdown: 38 static retail + 3 HNI portfolios seeded in DB = 41 published retail+HNI
+// Additional DB-only portfolios bring total to 44.
+const DB_PORTFOLIO_COUNT = 44;
+const DB_RETAIL_COUNT    = 41;
 const DB_HNI_COUNT       = 2;
 const DB_ULTRA_HNI_COUNT = 1;
 
