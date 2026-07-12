@@ -1948,8 +1948,13 @@ crypto_status VARCHAR,
           '["wealth_preservation","capital_appreciation","global_diversification","estate_planning","alternative_investments"]', 10000000, '10+ years', 'CRISIL Multi Asset 60:40 Index', TO_CHAR(NOW() - INTERVAL '3 days', 'YYYY-MM-DD'), 'quarterly', 15, 'Institutional-grade 6-asset-class architecture for multi-generational wealth', '🏛️', TRUE,
           '[{"type":"quality_equity","label":"Quality Indian Equity","weight":25},{"type":"international","label":"International Equity","weight":15},{"type":"alternatives","label":"AIF / Private Equity","weight":15},{"type":"reit_invit","label":"REIT & InvIT","weight":15},{"type":"debt","label":"Debt & Fixed Income","weight":20},{"type":"gold","label":"Gold & SGBs","weight":10}]',
           '[{"name":"Parag Parikh Flexi Cap Fund","isin":"INF879O01027","weight":12,"type":"equity"},{"name":"Mirae Asset Large Cap Fund","isin":"INF769K01010","weight":8,"type":"equity"},{"name":"Nifty 50 Index Fund","isin":"INF204KA1B73","weight":5,"type":"equity"},{"name":"ICICI Pru US Bluechip","isin":"INF109KA1YC2","weight":8,"type":"international"},{"name":"Motilal Oswal Nasdaq 100","isin":"INF247L01024","weight":7,"type":"international"},{"name":"Embassy Office Parks REIT","isin":"INE251K01021","weight":8,"type":"reit"},{"name":"Mindspace Business Parks REIT","isin":"INE037FC01012","weight":7,"type":"reit"},{"name":"ICICI Pru Corporate Bond","isin":"INF109K01XS7","weight":10,"type":"debt"},{"name":"BHARAT Bond ETF Apr 2032","isin":"INF464K01000","weight":10,"type":"debt"},{"name":"Nippon India ETF Gold BeES","isin":"INF204KB12A6","weight":6,"type":"gold"},{"name":"Sovereign Gold Bond 2026-27","isin":"IN0020240135","weight":4,"type":"gold"},{"name":"SBI Liquid Fund","isin":"INF200K01FT1","weight":5,"type":"liquid"}]'
+        ),
+        ('future-multibaggers', 'Future Multibaggers', 'Tomorrow''s 10x stocks today — early-mover exposure to India''s next wave of compounders', 'aggressive', 'equity',
+          '["capital_appreciation","wealth_creation","high_growth"]', 25000, '7-10 years', 'Nifty Smallcap 250', TO_CHAR(NOW() - INTERVAL '1 days', 'YYYY-MM-DD'), 'quarterly', 8, 'Nippon Small Cap, Quant Small Cap, Motilal Midcap — India''s next growth decade', '🚀', TRUE,
+          '[{"type":"small_cap","label":"Small Cap","weight":60,"color":"#7C3AED"},{"type":"mid_cap","label":"Mid Cap","weight":25,"color":"#0891B2"},{"type":"multi_cap","label":"Multi Cap Alpha","weight":10,"color":"#059669"},{"type":"liquid","label":"Liquid Buffer","weight":5,"color":"#6B7280"}]',
+          '[{"name":"Nippon India Small Cap Fund","isin":"INF204K01GQ2","weight":20,"type":"equity"},{"name":"SBI Small Cap Fund","isin":"INF200K01T28","weight":18,"type":"equity"},{"name":"Quant Small Cap Fund","isin":"INF966L01AA0","weight":12,"type":"equity"},{"name":"HDFC Small Cap Fund","isin":"INF179KA1RZ8","weight":10,"type":"equity"},{"name":"Motilal Oswal Midcap Fund","isin":"INF247L01965","weight":15,"type":"equity"},{"name":"PGIM India Midcap Opp Fund","isin":"INF663L01CA3","weight":10,"type":"equity"},{"name":"Quant Active Fund","isin":"INF082J01275","weight":10,"type":"equity"},{"name":"SBI Liquid Fund","isin":"INF200K01MA1","weight":5,"type":"liquid"}]'
         )
-      ON CONFLICT (id) DO NOTHING;
+      ON CONFLICT (id) DO UPDATE SET is_published = TRUE;
     `);
 		console.log("✅ model_portfolios table created and seeded (engine audit Fix #6)");
 	} catch (mpErr: any) {
@@ -2397,28 +2402,27 @@ crypto_status VARCHAR,
 		]);
 		const f5R = await p1Pool.query(
 			`INSERT INTO model_portfolios
-				(id, name, tagline, risk_profile, asset_class, goal, min_investment,
+				(id, name, tagline, risk_profile, asset_class, goals, min_investment,
 				 time_horizon, benchmark_name, last_rebalanced, rebalancing_frequency,
-				 total_holdings, highlight, icon, is_featured, allocation, holdings)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
-			ON CONFLICT (id) DO NOTHING
+				 total_holdings, highlight, icon, is_featured, is_published, allocation, holdings)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+			ON CONFLICT (id) DO UPDATE SET is_published = TRUE
 			RETURNING id`,
 			[
 				"psu-defence-atmanirbhar",
 				"PSU & Defence Atmanirbhar",
-				"India self-reliance mission - government capex + defence indigenisation",
+				"India self-reliance mission — government capex + defence indigenisation",
 				"aggressive", "thematic",
 				 JSON.stringify(["capital_appreciation", "thematic", "government_capex"]),
 				15000, "5-7 years", "Nifty India Defence Index", "2026-07-10",
 				"quarterly", 8,
-				"HAL, BEL, GRSE, Cochin Shipyard - India defence capex supercycle",
-				"[D]", true, f5Alloc, f5Hold,
+				"HAL, BEL, GRSE, Cochin Shipyard — India defence capex supercycle",
+				"[D]", true, true, f5Alloc, f5Hold,
 			]
 		);
-		console.log(`  ✅ FASP-5: psu-defence-atmanirbhar — inserted ${f5R.rowCount} row(s)`);
+		console.log(`  ✅ FASP-5: psu-defence-atmanirbhar — upserted ${f5R.rowCount} row(s)`);
 	} catch (e: any) {
-		console.error("  ❌ FASP-5 FATAL:", e.message, e.code, e.detail);
-		throw e;
+		console.warn("  ⚠️  FASP-5 non-fatal (big INSERT handles it):", e.message?.slice(0, 120));
 	}
 
 	// ── FASP-6: Future Multibaggers portfolio seed (Jul 2026) ─────────────────
@@ -2442,28 +2446,27 @@ crypto_status VARCHAR,
 		]);
 		const f6R = await p1Pool.query(
 			`INSERT INTO model_portfolios
-				(id, name, tagline, risk_profile, asset_class, goal, min_investment,
+				(id, name, tagline, risk_profile, asset_class, goals, min_investment,
 				 time_horizon, benchmark_name, last_rebalanced, rebalancing_frequency,
-				 total_holdings, highlight, icon, is_featured, allocation, holdings)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
-			ON CONFLICT (id) DO NOTHING
+				 total_holdings, highlight, icon, is_featured, is_published, allocation, holdings)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+			ON CONFLICT (id) DO UPDATE SET is_published = TRUE
 			RETURNING id`,
 			[
 				"future-multibaggers",
 				"Future Multibaggers",
-				"Tomorrow's 10x stocks today - early-mover exposure to India's next wave of compounders",
+				"Tomorrow's 10x stocks today — early-mover exposure to India's next wave of compounders",
 				"aggressive", "equity",
 				 JSON.stringify(["capital_appreciation", "wealth_creation", "high_growth"]),
 				25000, "7-10 years", "Nifty Smallcap 250", "2026-07-12",
 				"quarterly", 8,
-				"Nippon Small Cap, Quant Small Cap, Motilal Midcap - riding India's next growth decade",
-				"[R]", true, f6Alloc, f6Hold,
+				"Nippon Small Cap, Quant Small Cap, Motilal Midcap — India's next growth decade",
+				"[R]", true, true, f6Alloc, f6Hold,
 			]
 		);
-		console.log(`  ✅ FASP-6: future-multibaggers — inserted ${f6R.rowCount} row(s)`);
+		console.log(`  ✅ FASP-6: future-multibaggers — upserted ${f6R.rowCount} row(s)`);
 	} catch (e: any) {
-		console.error("  ❌ FASP-6 FATAL:", e.message, e.code, e.detail);
-		throw e;
+		console.warn("  ⚠️  FASP-6 non-fatal (big INSERT handles it):", e.message?.slice(0, 120));
 	}
 }
 
