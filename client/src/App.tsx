@@ -58,6 +58,7 @@ import {
 	UnlistedNegotiations,
 	AdminPanel,
 	AgentDashboard,
+	ReitInvitPage,
 } from "@/routes/lazy-pages";
 
 function IdleTimeoutWrapper() {
@@ -132,6 +133,7 @@ function Router() {
 					<Route path="/terms" component={Terms} />
 					<Route path="/refund-policy" component={RefundPolicy} />
 					<Route path="/disclaimer" component={InvestmentDisclaimer} />
+					<Route path="/reit-invit" component={ReitInvitPage} />
 
 					{/* Agent/Admin routes - bypass profile completion but require authentication */}
 					<Route path="/tester-diagnostics" component={TesterDiagnostics} />
