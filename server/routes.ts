@@ -65,6 +65,7 @@ import adminAgentPayoutRouter from "./routes/admin-agent-payout-routes";
 import adminDatabaseRouter from "./routes/admin-database";
 import adminGlobalInstrumentsRouter from "./routes/admin-global-instruments";
 import instrumentsRouter from "./routes/instruments-1"; // /api/instruments/search, /price/:isin
+import reitInvitRouter from "./routes/reit-invit-routes"; // /api/reit-invit/reits, /invits, /market-overview
 
 import policyStatusRouter from "./routes/admin/policy-status-routes";
 import aiGovernanceRouter from "./routes/admin/ai-governance";
@@ -296,6 +297,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// US Trading & Alpaca Broker Routes
 	app.use("/api/us-trading", usTradingRoutes);
+
+	// REIT & InvIT investment product routes
+	app.use("/api/reit-invit", reitInvitRouter);
 
 	// Business Logic Routes
 	app.use("/api/agent", agentRoutes);
