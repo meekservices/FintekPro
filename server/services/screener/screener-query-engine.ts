@@ -536,16 +536,52 @@ export async function getScreenerStats() {
 }
 
 export async function getScreenerDistribution() {
+	// Always emit all 5 market cap buckets — even when count = 0.
+	// Uses the same LEFT JOIN pattern as rating/score distributions so the UI
+	// never silently hides a segment just because no stocks are classified yet.
 	const marketCapDist = await db.execute(sql`
-    SELECT market_cap_category as category, COUNT(*) as count 
-    FROM listed_stocks WHERE is_active = true AND market_cap_category IS NOT NULL 
-    GROUP BY market_cap_category ORDER BY count DESC
+    SELECT
+      b.category,
+      b.sort_order,
+      COALESCE(d.count, 0) AS count
+    FROM (
+      VALUES
+        ('mega',  1),
+        ('large', 2),
+        ('mid',   3),
+        ('small', 4),
+        ('micro', 5)
+    ) AS b(category, sort_order)
+    LEFT JOIN (
+      SELECT
+        LOWER(TRIM(
+          CASE
+            WHEN LOWER(market_cap_category) IN ('mega cap','mega')   THEN 'mega'
+            WHEN LOWER(market_cap_category) IN ('large cap','large') THEN 'large'
+            WHEN LOWER(market_cap_category) IN ('mid cap','mid')     THEN 'mid'
+            WHEN LOWER(market_cap_category) IN ('small cap','small') THEN 'small'
+            WHEN LOWER(market_cap_category) IN ('micro cap','micro') THEN 'micro'
+            ELSE market_cap_category
+          END
+        )) AS category,
+        COUNT(*) AS count
+      FROM listed_stocks
+      WHERE is_active = true
+        AND market_cap_category IS NOT NULL
+        AND LOWER(TRIM(market_cap_category)) IN ('mega','mega cap','large','large cap','mid','mid cap','small','small cap','micro','micro cap')
+      GROUP BY 1
+    ) d ON d.category = b.category
+    ORDER BY b.sort_order
   `);
 
 	const sectorDist = await db.execute(sql`
     SELECT sector, COUNT(*) as count 
-    FROM listed_stocks WHERE is_active = true AND sector IS NOT NULL 
-    GROUP BY sector ORDER BY count DESC
+    FROM listed_stocks
+    WHERE is_active = true
+      AND sector IS NOT NULL
+      AND TRIM(sector) != ''
+    GROUP BY sector
+    ORDER BY count DESC
   `);
 
 	// ── Pinned: REIT & InvIT (live in separate tables, not screener_stocks) ──

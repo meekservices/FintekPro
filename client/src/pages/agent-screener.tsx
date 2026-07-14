@@ -326,13 +326,27 @@ function DistributionBar({
 }
 
 const MARKET_CAP_COLORS: Record<string, string> = {
-	"Large Cap": "bg-blue-500",
-	"Mid Cap": "bg-emerald-500",
-	"Small Cap": "bg-amber-500",
-	Unknown: "bg-gray-400",
+	// Lowercase codes from DB (canonical after normalisation)
+	mega:  "bg-violet-500",
 	large: "bg-blue-500",
-	mid: "bg-emerald-500",
+	mid:   "bg-emerald-500",
 	small: "bg-amber-500",
+	micro: "bg-rose-500",
+	// Title-case variants (legacy fallback)
+	"Mega Cap":  "bg-violet-500",
+	"Large Cap": "bg-blue-500",
+	"Mid Cap":   "bg-emerald-500",
+	"Small Cap": "bg-amber-500",
+	"Micro Cap": "bg-rose-500",
+	Unknown: "bg-gray-400",
+};
+
+const MARKET_CAP_LABELS: Record<string, string> = {
+	mega:  "Mega Cap",
+	large: "Large Cap",
+	mid:   "Mid Cap",
+	small: "Small Cap",
+	micro: "Micro Cap",
 };
 
 const RATING_COLORS: Record<string, string> = {
@@ -1064,7 +1078,7 @@ export default function AgentScreener() {
 									<span
 										className={`w-1.5 h-1.5 rounded-full ${MARKET_CAP_COLORS[d.category] || "bg-gray-400"}`}
 									/>
-									{d.category}: {Number(d.count).toLocaleString()}
+									{MARKET_CAP_LABELS[d.category] ?? d.category}: {Number(d.count).toLocaleString()}
 								</span>
 							))}
 						</div>
