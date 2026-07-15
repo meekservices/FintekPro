@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 /**
  * Financial Metrics Refresh Scheduler
  *
@@ -74,13 +75,26 @@ export class FinancialMetricsRefreshScheduler {
 
 		// Mutual Fund NAV refresh at 11:00 PM IST (17:30 UTC)
 		// AMFI publishes NAV by 9 PM IST, we wait 2 hours for all AMCs to update
-		// Cron: minute hour day month weekday (UTC)
-		// 11 PM IST = 5:30 PM UTC = 17:30 UTC
 		this.mutualFundCronJob = cron.schedule(
 			"30 17 * * *",
 			async () => {
 				console.log(
 					"[MetricsScheduler] Triggering scheduled mutual fund refresh (11 PM IST)",
+				);
+				await this.refreshMutualFundMetrics();
+			},
+			{
+				timezone: "Asia/Kolkata",
+			},
+		);
+
+		// Second MF refresh pass at 2:00 AM IST to cover the remaining funds
+		// (14,269 funds ÷ 3000/run = 5 runs needed; 2 runs/day = full coverage in 3 nights)
+		cron.schedule(
+			"0 2 * * *",
+			async () => {
+				console.log(
+					"[MetricsScheduler] Triggering second MF refresh pass (2 AM IST)",
 				);
 				await this.refreshMutualFundMetrics();
 			},
@@ -143,10 +157,11 @@ export class FinancialMetricsRefreshScheduler {
 			// Clear audit log before batch update
 			mutualFundMetricsService.clearAuditLog();
 
-			// Refresh returns for schemes that need updating (limit to prevent overload)
+			// Refresh returns for schemes that need updating
+			// 14,269 total funds: batch of 3000 × 2 runs/day = ~6000/day → full coverage in 3 nights
 			const result = await mutualFundMetricsService.refreshAllReturns({
-				limit: 500,
-			});
+				limit: 3000,
+		});
 
 			const completedAt = new Date();
 			const jobResult: RefreshJobResult = {
