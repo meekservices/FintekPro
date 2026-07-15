@@ -238,12 +238,19 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					);
 					await ensureHoldingsRelationalTablePopulated();
 
+					// Phase C — ISIN + schemeCode resolver + sub_category + benchmarkSchemeCode
+					// Idempotent: safe to run every startup. Resolver fires in background via setImmediate.
+					logBootProgress("Step 2d2 (bg): Phase C — ISIN resolver + sub_category + benchmark codes...");
+					const { applyPhaseC_ISINResolverAndColumns } = await import("./startup/schema-repairs");
+					await applyPhaseC_ISINResolverAndColumns();
+
 					// De-duplication: ensure shared route tables (agent_notifications,
 					// partner_team_members, partner_agent_invitations) are created
 					// from a single canonical source — not 11+ scattered route files.
 					logBootProgress("Step 2e (bg): Ensuring shared route tables...");
 					const { ensureSharedRouteTables } = await import("./startup/schema-repairs");
 					await ensureSharedRouteTables();
+
 
 					// ── Instrument Master Sync — single source of truth ─────────────
 					// Upserts from mutual_funds, listed_stocks, bond_catalog, reits,

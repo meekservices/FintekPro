@@ -11383,6 +11383,11 @@ export const modelPortfolios = pgTable("model_portfolios", {
   twrr3Y:               numeric("twrr_3y"),
   /** Blended benchmark return — weighted composite per asset allocation; replaces single-index comparison */
   blendedBenchmarkReturn: numeric("blended_benchmark_return"),
+  /** mfapi.in scheme code for the benchmark index fund used as the portfolio's comparison baseline.
+   *  Populated per-portfolio so the NAV history service fetches real monthly benchmark NAV
+   *  instead of the hardcoded flat 9.6% pa proxy.
+   *  Examples: "118989" = UTI Nifty 50 Index Fund (Regular), "106306" = SBI Magnum Gilt Fund */
+  benchmarkSchemeCode:  varchar("benchmark_scheme_code"),
   /** Per-portfolio drift trigger threshold (%) — overrides global 5% default */
   driftThreshold:       numeric("drift_threshold").default("5"),             // e.g. 2 for Liquid, 7 for Aggressive
   /** Max drawdown beyond which auto-rebalance pauses and an alert fires */

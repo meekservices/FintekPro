@@ -16,6 +16,7 @@
  */
 
 import { sql } from "drizzle-orm";
+import { logger } from "../logger";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -89,18 +90,76 @@ function generateSyntheticNavCurve(
 /**
  * Fetches real mf_monthwise_performance data for a portfolio's holdings,
  * weighted by target allocation, to produce a blended monthly NAV series.
+ *
+ * Source priority for scheme codes:
+ *   1. model_portfolio_holdings (relational table — enriched by Phase C ISIN resolver)
+ *   2. JSONB holdings seed (fallback for portfolios not yet migrated)
+ *
+ * Benchmark source priority:
+ *   1. mf_nav_history for portfolio.benchmark_scheme_code (real monthly NAV)
+ *   2. Hardcoded 0.80%/month flat rate (9.6% pa) — last-resort fallback
+ *
  * Returns null if insufficient data (< 2 months).
  */
 async function fetchRealNavCurve(db: any, portfolio: any): Promise<MonthRow[] | null> {
-  const holdings: any[] = Array.isArray(portfolio.holdings) ? portfolio.holdings : [];
-  if (holdings.length === 0) return null;
+  const pid = portfolio.id as string;
+  const inceptionFilter = portfolio.inception_date ?? portfolio.inceptionDate ?? null;
 
-  const schemeCodes = holdings
-    .map((h: any) => h.schemeCode ?? h.scheme_code)
-    .filter(Boolean);
+  // ── Scheme codes: relational table PRIMARY, JSONB seed FALLBACK ───────────
+  let schemeCodes: string[] = [];
+
+  try {
+    const relResult = await db.execute(sql`
+      SELECT scheme_code
+      FROM model_portfolio_holdings
+      WHERE portfolio_id = ${pid}
+        AND removed_at IS NULL
+        AND scheme_code IS NOT NULL
+    `);
+    schemeCodes = ((relResult as any).rows ?? [])
+      .map((r: any) => r.scheme_code as string)
+      .filter(Boolean);
+  } catch { /* relational table not ready — will use JSONB fallback below */ }
+
+  // JSONB fallback: use seed holdings if relational table yielded nothing
+  if (schemeCodes.length === 0) {
+    const holdings: any[] = Array.isArray(portfolio.holdings) ? portfolio.holdings : [];
+    schemeCodes = holdings
+      .map((h: any) => h.schemeCode ?? h.scheme_code)
+      .filter(Boolean)
+      .map(String);
+  }
 
   if (schemeCodes.length === 0) return null;
 
+  // ── Benchmark NAV series: real from mf_nav_history if available ───────────
+  const benchSchemeCode: string | null =
+    portfolio.benchmark_scheme_code ?? portfolio.benchmarkSchemeCode ?? null;
+
+  let benchNavByMonth: Map<string, number> | null = null;
+
+  if (benchSchemeCode) {
+    try {
+      const benchRes = await db.execute(sql`
+        SELECT
+          DATE_TRUNC('month', nav_date)::DATE AS month_start,
+          AVG(nav::NUMERIC)                  AS avg_bench_nav
+        FROM mf_nav_history
+        WHERE scheme_code = ${benchSchemeCode}
+          AND nav_date >= COALESCE(${inceptionFilter}::DATE, NOW() - INTERVAL '3 years')
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `);
+      const benchRows = ((benchRes as any).rows ?? []) as any[];
+      if (benchRows.length >= 2) {
+        benchNavByMonth = new Map(
+          benchRows.map((r: any) => [r.month_start as string, Number(r.avg_bench_nav)])
+        );
+      }
+    } catch { /* mf_nav_history not populated for benchSchemeCode — fall back to flat */ }
+  }
+
+  // ── Portfolio blended NAV from mf_monthwise_performance ──────────────────
   try {
     const res = await db.execute(sql`
       SELECT
@@ -108,7 +167,7 @@ async function fetchRealNavCurve(db: any, portfolio: any): Promise<MonthRow[] | 
         AVG(nav) AS avg_nav
       FROM mf_monthwise_performance
       WHERE scheme_code = ANY(${schemeCodes})
-        AND nav_date >= COALESCE(${portfolio.inception_date ?? portfolio.inceptionDate ?? null}::DATE, NOW() - INTERVAL '3 years')
+        AND nav_date >= COALESCE(${inceptionFilter}::DATE, NOW() - INTERVAL '3 years')
       GROUP BY 1
       ORDER BY 1 ASC
     `);
@@ -117,17 +176,30 @@ async function fetchRealNavCurve(db: any, portfolio: any): Promise<MonthRow[] | 
     if (rows.length < 2) return null;
 
     const navRows: MonthRow[] = [];
-    let nav   = 1000;
-    let bench = 1000;
+    let nav        = 1000;
+    let bench      = 1000;
+    let prevBenchNav: number | null = null;
 
     for (const r of rows) {
-      const factor = Number(r.avg_nav ?? 1);
+      const monthKey = r.month_start as string;
+      const factor   = Number(r.avg_nav ?? 1);
       if (!isNaN(factor) && factor > 0) {
         nav = nav * (1 + (factor - 1) * 0.01);
       }
-      bench *= 1.0080; // ~9.6% pa benchmark estimate
+
+      // Benchmark: use real monthly NAV movement if available
+      if (benchNavByMonth) {
+        const curBenchNav = benchNavByMonth.get(monthKey) ?? null;
+        if (curBenchNav !== null && prevBenchNav !== null) {
+          bench = bench * (curBenchNav / prevBenchNav);
+        }
+        prevBenchNav = curBenchNav ?? prevBenchNav;
+      } else {
+        bench *= 1.0080; // ~9.6% pa flat — last-resort fallback
+      }
+
       navRows.push({
-        month_start:   r.month_start,
+        month_start:   monthKey,
         portfolio_nav: Math.round(nav * 100) / 100,
         benchmark_nav: Math.round(bench * 100) / 100,
         had_rebalance: false,
@@ -233,19 +305,21 @@ export async function computeAndStorePortfolioNavHistory(
     }
 
     const latencyMs = Date.now() - t0;
-    console.log(JSON.stringify({
+    logger.info("[NavHistory] NAV history computed", {
       event: "NAV_HISTORY_COMPUTED", portfolio_id: pid,
       months_written: written, latency_ms: latencyMs, status: "ok",
-    }));
+    });
 
     return { portfolioId: pid, monthsWritten: written, latencyMs, status: "ok" };
-  } catch (err: any) {
-    const latencyMs = Date.now() - t0;
-    console.error(JSON.stringify({
+  } catch (err: unknown) {
+    const errLatencyMs = Date.now() - t0;
+    logger.error("[NavHistory] NAV history error", {
       event: "NAV_HISTORY_ERROR", portfolio_id: pid,
-      error: err.message, latency_ms: latencyMs, status: "error",
-    }));
-    return { portfolioId: pid, monthsWritten: 0, latencyMs, status: "error", error: err.message };
+      error: err instanceof Error ? err.message : String(err),
+      latency_ms: errLatencyMs, status: "error",
+    });
+    return { portfolioId: pid, monthsWritten: 0, latencyMs: errLatencyMs, status: "error",
+      error: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -259,11 +333,11 @@ export async function refreshAllPortfolioNavHistory(db: any): Promise<{
   total: number; ok: number; errors: number; noData: number;
 }> {
   const t0 = Date.now();
-  console.log("[NavHistory] 🔄 Starting nightly NAV history refresh...");
+  logger.info("[NavHistory] 🔄 Starting nightly NAV history refresh");
 
   const res = await db.execute(sql`
     SELECT id, inception_date, cagr_1y, cagr_3y, cagr_5y,
-           volatility, benchmark_name, holdings, rebalancing_history
+           volatility, benchmark_name, benchmark_scheme_code, holdings, rebalancing_history
     FROM model_portfolios
     WHERE is_published = TRUE
     ORDER BY created_at ASC
@@ -285,11 +359,11 @@ export async function refreshAllPortfolioNavHistory(db: any): Promise<{
     }
   }
 
-  console.log(JSON.stringify({
+  logger.info("[NavHistory] Nightly refresh complete", {
     event: "NAV_HISTORY_REFRESH_COMPLETE",
     total: portfolios.length, ok, errors, noData,
     latency_ms: Date.now() - t0, status: "ok",
-  }));
+  });
 
   return { total: portfolios.length, ok, errors, noData };
 }

@@ -2665,6 +2665,47 @@ export async function applyPhaseB_HoldingsUniqueIndex(): Promise<void> {
   }
 }
 
+// ── Phase C — ISIN resolver + sub_category + benchmarkSchemeCode columns ─────
+// Idempotent: adds columns if missing, then calls the ISIN resolver service.
+// Non-fatal on any step — the resolver is a best-effort enrichment.
+export async function applyPhaseC_ISINResolverAndColumns(): Promise<void> {
+  const { db: migDb } = await import("../db");
+  const { sql: migSql } = await import("drizzle-orm");
+
+  // 1. ADD COLUMN: benchmark_scheme_code on model_portfolios
+  try {
+    await migDb.execute(migSql`
+      ALTER TABLE model_portfolios
+        ADD COLUMN IF NOT EXISTS benchmark_scheme_code VARCHAR(20)
+    `);
+    console.log("  ✅ [Phase C] model_portfolios.benchmark_scheme_code: ready");
+  } catch (e: any) {
+    console.warn("  ⚠️  [Phase C] benchmark_scheme_code column (non-fatal):", e.message?.slice(0, 80));
+  }
+
+  // 2. ADD COLUMN: sub_category on model_portfolio_holdings
+  try {
+    await migDb.execute(migSql`
+      ALTER TABLE model_portfolio_holdings
+        ADD COLUMN IF NOT EXISTS sub_category VARCHAR(50)
+    `);
+    console.log("  ✅ [Phase C] model_portfolio_holdings.sub_category: ready");
+  } catch (e: any) {
+    console.warn("  ⚠️  [Phase C] sub_category column (non-fatal):", e.message?.slice(0, 80));
+  }
+
+  // 3. Run ISIN / sub_category / benchmarkSchemeCode resolver (deferred to bg to not block startup)
+  //    The resolver is self-healing — safe to call at every startup.
+  setImmediate(async () => {
+    try {
+      const { resolveAndBackfillHoldingISINs } = await import("../services/isin-resolver-service");
+      await resolveAndBackfillHoldingISINs();
+    } catch (e: any) {
+      console.warn("  ⚠️  [Phase C] ISIN resolver (non-fatal bg job):", e.message?.slice(0, 120));
+    }
+  });
+}
+
 // ── De-duplication: Consolidated table DDL ────────────────────────────────────
 // agent_notifications was previously created in 11 separate admin route files.
 // partner_team_members + partner_agent_invitations in 2 partner route files.

@@ -35,6 +35,7 @@ import {
 } from "@shared/schema";
 import { eq, isNull, sql, and, desc, asc } from "drizzle-orm";
 import { logger } from "../logger";
+import { deriveSubCategory } from "./isin-resolver-service";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ENGINE_VERSION = "FASP-AI-v3.0"; // Fix 5: bumped to match FASP-AI v3.0 mandate
@@ -210,9 +211,11 @@ export async function migrateHoldingsToRelationalTable(): Promise<{
       const schemeCode = h.schemeCode ? String(h.schemeCode) : null;
 
       // Map seed type to assetClass (broad) and instrumentType (narrow)
-      const type = (h.type ?? "equity").toLowerCase();
+      const type = (h.type ?? h.category ?? "equity").toLowerCase();
       const assetClass = mapTypeToAssetClass(type);
       const instrumentType = type;
+      // Derive sub_category from category field or instrument_type mapping
+      const subCategory = deriveSubCategory(h.category ?? type);
 
       // Fix 2: Pass available seed data so alphaScore isn't always 0 at migration.
       // currentReturn from the seed contributes to the returns1y factor.
@@ -229,7 +232,7 @@ export async function migrateHoldingsToRelationalTable(): Promise<{
         await db.execute(sql`
           INSERT INTO model_portfolio_holdings (
             portfolio_id, isin, instrument_name, instrument_type, asset_class,
-            weight, scheme_code, alpha_score, source, engine_version,
+            sub_category, weight, scheme_code, alpha_score, source, engine_version,
             created_at, updated_at
           ) VALUES (
             ${portfolio.id},
@@ -237,6 +240,7 @@ export async function migrateHoldingsToRelationalTable(): Promise<{
             ${instrumentName},
             ${instrumentType},
             ${assetClass},
+            ${subCategory},
             ${weight},
             ${schemeCode},
             ${alphaScore},
@@ -246,13 +250,14 @@ export async function migrateHoldingsToRelationalTable(): Promise<{
           )
           ON CONFLICT (portfolio_id, instrument_name)
           DO UPDATE SET
-            isin           = EXCLUDED.isin,
+            isin            = COALESCE(model_portfolio_holdings.isin, EXCLUDED.isin),
             instrument_type = EXCLUDED.instrument_type,
-            asset_class    = EXCLUDED.asset_class,
-            weight         = EXCLUDED.weight,
-            scheme_code    = EXCLUDED.scheme_code,
-            engine_version = EXCLUDED.engine_version,
-            updated_at     = NOW()
+            asset_class     = EXCLUDED.asset_class,
+            sub_category    = COALESCE(model_portfolio_holdings.sub_category, EXCLUDED.sub_category),
+            weight          = EXCLUDED.weight,
+            scheme_code     = COALESCE(model_portfolio_holdings.scheme_code, EXCLUDED.scheme_code),
+            engine_version  = EXCLUDED.engine_version,
+            updated_at      = NOW()
         `);
         migrated++;
       } catch (err: unknown) {
