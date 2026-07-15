@@ -32,7 +32,8 @@ export function SectorDistributionPanel({
 	const [showAll, setShowAll] = useState(defaultShowAll);
 
 	const pinnedSectors = sectors.filter((d) => d.pinned);
-	const normalSectors = sectors.filter((d) => !d.pinned);
+	// filter out blank sector entries (stocks with sector="" in DB) to prevent blank first tile
+	const normalSectors = sectors.filter((d) => !d.pinned && d.sector && d.sector.trim() !== "");
 	const total = normalSectors.reduce((s, x) => s + Number(x.count), 0);
 
 	const visibleNormal = showAll

@@ -1044,23 +1044,6 @@ export default function AgentScreener() {
 						</div>
 					</CardContent>
 				</Card>
-				<Card className="border-l-4 border-l-purple-500">
-					<CardContent className="pt-4 pb-3 px-4">
-						<div className="flex items-center gap-2.5">
-							<div className="p-1.5 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
-								<Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-							</div>
-							<div>
-								<div className="text-xl font-bold leading-none">
-									{screenerStats?.apiUsage?.remaining ?? 220}
-								</div>
-								<div className="text-[11px] text-muted-foreground mt-0.5">
-									API Calls Left
-								</div>
-							</div>
-						</div>
-					</CardContent>
-				</Card>
 				<Card className="border-l-4 border-l-indigo-500 hidden lg:block">
 					<CardContent className="pt-4 pb-3 px-4">
 						<div className="space-y-1.5">
@@ -1073,17 +1056,15 @@ export default function AgentScreener() {
 									colorMap={MARKET_CAP_COLORS}
 								/>
 							)}
-							<div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-							{distribution?.marketCap?.slice(0, 3).map((d: any) => (
-								<span key={d.category} className="flex items-center gap-1">
-									<span
-										className={`w-1.5 h-1.5 rounded-full ${MARKET_CAP_COLORS[d.category] || "bg-gray-400"}`}
-									/>
-									{MARKET_CAP_LABELS[d.category] ?? d.category}: {Number(d.count).toLocaleString()}
-								</span>
-							))}
+							<div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground mt-1">
+								{distribution?.marketCap?.map((d: any) => (
+									<span key={d.category} className="flex items-center gap-1">
+										<span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${MARKET_CAP_COLORS[d.category] || "bg-gray-400"}`} />
+										{MARKET_CAP_LABELS[d.category] ?? d.category}: {Number(d.count).toLocaleString()}
+									</span>
+								))}
+							</div>
 						</div>
-					</div>
 				</CardContent>
 			</Card>
 		</div>
@@ -3462,8 +3443,6 @@ export default function AgentScreener() {
 					</TabsContent>
 				</Card>
 			</Tabs>
-
-			{/* Distribution cards — skeleton while loading, real data when ready */}
 			{!distribution ? (
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 					{[1, 2, 3].map((i) => (
@@ -3606,7 +3585,6 @@ export default function AgentScreener() {
 					</Card>
 				</div>
 			)}
-
 			{distribution?.sectors && (
 				<Card>
 					<CardHeader className="pb-2 pt-4 px-4">
