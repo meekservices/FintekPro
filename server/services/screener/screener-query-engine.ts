@@ -3,6 +3,7 @@ import {
 	listedStocks,
 	screenerFinancials,
 	screenerDerivedMetrics,
+	screenerKeyMetrics,
 	screenerTechnicalIndicatorsLatest,
 	screenerShareholding,
 	screenerAnalystConsensus,
@@ -304,32 +305,58 @@ export async function queryScreener(
 	const hasTechnicalFilters = technicalConditions.length > 0;
 	const hasShareholdingFilters = shareholdingConditions.length > 0;
 
-	let sortColumn: any = listedStocks.symbol;
-	let sortDir: any = asc;
-	if (filters.sortOrder === "desc") sortDir = desc;
+	// ── Sort ─────────────────────────────────────────────────────────────────
+	// Default: compositeScore DESC NULLS LAST — enriched stocks surface first.
+	// Using raw sql() for all columns so we can enforce NULLS LAST (PostgreSQL
+	// defaults to NULLS FIRST on DESC, which pushes unenriched stocks to top).
+	type SortDir = "ASC" | "DESC";
+	const dir: SortDir = filters.sortOrder === "asc" ? "ASC" : "DESC";
+
+	let sortExpr: ReturnType<typeof sql>;
 
 	switch (filters.sortBy) {
-		case "companyName": sortColumn = listedStocks.companyName; break;
-		case "currentPrice": sortColumn = listedStocks.currentPrice; break;
-		case "marketCap": sortColumn = listedStocks.marketCapValue; break;
-		case "peRatio": sortColumn = screenerFinancials.peRatio; break;
-		case "forwardPe": sortColumn = screenerFinancials.forwardPe; break;
-		case "pegRatio": sortColumn = screenerFinancials.pegRatio; break;
-		case "roe": sortColumn = screenerFinancials.roe; break;
-		case "compositeScore": sortColumn = screenerDerivedMetrics.compositeScore; break;
-		case "fintekRating": sortColumn = screenerDerivedMetrics.fintekRating; break;
-		case "return1Y": sortColumn = screenerDerivedMetrics.return1Y; break;
-		case "return1M": sortColumn = screenerDerivedMetrics.return1M; break;
-		case "return3M": sortColumn = screenerDerivedMetrics.return3M; break;
-		case "returnVsNifty1Y": sortColumn = screenerDerivedMetrics.returnVsNifty1Y; break;
-		case "analystUpside": sortColumn = screenerAnalystConsensus.upsidePct; break;
-		case "dcfUpside": sortColumn = screenerDcfValuations.upsidePercent; break;
-		case "beta": sortColumn = screenerDerivedMetrics.beta; break;
-		case "sharpe": sortColumn = screenerDerivedMetrics.sharpeRatio1Y; break;
-		case "piotroski": sortColumn = screenerDerivedMetrics.piotroskiScore; break;
-		case "rsi": sortColumn = screenerTechnicalIndicatorsLatest.rsi14; break;
-		case "promoterHolding": sortColumn = screenerShareholding.promoterHolding; break;
-		default: sortColumn = listedStocks.symbol;
+		case "companyName":
+			sortExpr = sql`${listedStocks.companyName} ${sql.raw(dir)} NULLS LAST`; break;
+		case "currentPrice":
+			sortExpr = sql`${listedStocks.currentPrice}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "marketCap":
+			// Prefer nightly-enriched key-metrics market cap; fall back to listed_stocks value
+			sortExpr = sql`COALESCE(${screenerKeyMetrics.marketCap}, ${listedStocks.marketCapValue})::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "peRatio":
+			sortExpr = sql`${screenerFinancials.peRatio}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "forwardPe":
+			sortExpr = sql`${screenerFinancials.forwardPe}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "pegRatio":
+			sortExpr = sql`${screenerFinancials.pegRatio}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "roe":
+			sortExpr = sql`${screenerFinancials.roe}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "fintekRating":
+			sortExpr = sql`${screenerDerivedMetrics.fintekRating} ${sql.raw(dir)} NULLS LAST`; break;
+		case "return1Y":
+			sortExpr = sql`${screenerDerivedMetrics.return1Y}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "return1M":
+			sortExpr = sql`${screenerDerivedMetrics.return1M}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "return3M":
+			sortExpr = sql`${screenerDerivedMetrics.return3M}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "returnVsNifty1Y":
+			sortExpr = sql`${screenerDerivedMetrics.returnVsNifty1Y}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "analystUpside":
+			sortExpr = sql`${screenerAnalystConsensus.upsidePct}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "dcfUpside":
+			sortExpr = sql`${screenerDcfValuations.upsidePercent}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "beta":
+			sortExpr = sql`${screenerDerivedMetrics.beta}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "sharpe":
+			sortExpr = sql`${screenerDerivedMetrics.sharpeRatio1Y}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "piotroski":
+			sortExpr = sql`${screenerDerivedMetrics.piotroskiScore} ${sql.raw(dir)} NULLS LAST`; break;
+		case "rsi":
+			sortExpr = sql`${screenerTechnicalIndicatorsLatest.rsi14}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "promoterHolding":
+			sortExpr = sql`${screenerShareholding.promoterHolding}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		default:
+			// Default: richest data first — compositeScore DESC NULLS LAST
+			sortExpr = sql`${screenerDerivedMetrics.compositeScore}::numeric DESC NULLS LAST`;
 	}
 
 	const baseQuery = db
@@ -341,7 +368,8 @@ export async function queryScreener(
 			industry: listedStocks.industry,
 			exchange: listedStocks.exchange,
 			currentPrice: listedStocks.currentPrice,
-			marketCapValue: listedStocks.marketCapValue,
+			// Market cap: prefer nightly-enriched key-metrics value; fall back to listed_stocks (set on INSERT only)
+			marketCapValue: sql<string>`COALESCE(${screenerKeyMetrics.marketCap}, ${listedStocks.marketCapValue})`,
 			marketCapCategory: listedStocks.marketCapCategory,
 			// Fundamentals
 			peRatio: screenerFinancials.peRatio,
@@ -395,6 +423,7 @@ export async function queryScreener(
 		.from(listedStocks)
 		.leftJoin(screenerFinancials, eq(listedStocks.symbol, screenerFinancials.symbol))
 		.leftJoin(screenerDerivedMetrics, eq(listedStocks.symbol, screenerDerivedMetrics.symbol))
+		.leftJoin(screenerKeyMetrics, eq(listedStocks.symbol, screenerKeyMetrics.symbol))
 		.leftJoin(screenerTechnicalIndicatorsLatest, eq(listedStocks.symbol, screenerTechnicalIndicatorsLatest.symbol))  // hot table: one row/symbol, no date-sort needed
 		.leftJoin(screenerShareholding, eq(listedStocks.symbol, screenerShareholding.symbol))
 		.leftJoin(screenerAnalystConsensus, eq(listedStocks.symbol, screenerAnalystConsensus.symbol))
@@ -408,7 +437,7 @@ export async function queryScreener(
 				...(hasShareholdingFilters ? shareholdingConditions : []),
 			),
 		)
-		.orderBy(sortDir(sortColumn))
+		.orderBy(sortExpr)
 		.limit(limit)
 		.offset(offset);
 
@@ -417,6 +446,7 @@ export async function queryScreener(
 		.from(listedStocks)
 		.leftJoin(screenerFinancials, eq(listedStocks.symbol, screenerFinancials.symbol))
 		.leftJoin(screenerDerivedMetrics, eq(listedStocks.symbol, screenerDerivedMetrics.symbol))
+		.leftJoin(screenerKeyMetrics, eq(listedStocks.symbol, screenerKeyMetrics.symbol))
 		.leftJoin(screenerTechnicalIndicatorsLatest, eq(listedStocks.symbol, screenerTechnicalIndicatorsLatest.symbol))
 		.leftJoin(screenerShareholding, eq(listedStocks.symbol, screenerShareholding.symbol))
 		.where(
