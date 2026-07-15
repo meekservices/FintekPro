@@ -328,6 +328,12 @@ export async function queryScreener(
 			sortExpr = sql`${screenerFinancials.forwardPe}::numeric ${sql.raw(dir)} NULLS LAST`; break;
 		case "pegRatio":
 			sortExpr = sql`${screenerFinancials.pegRatio}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "dividendYield":
+			sortExpr = sql`${screenerFinancials.dividendYield}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "eps":
+			sortExpr = sql`${screenerFinancials.eps}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "debtToEquity":
+			sortExpr = sql`${screenerFinancials.debtToEquity}::numeric ${sql.raw(dir)} NULLS LAST`; break;
 		case "roe":
 			sortExpr = sql`${screenerFinancials.roe}::numeric ${sql.raw(dir)} NULLS LAST`; break;
 		case "fintekRating":

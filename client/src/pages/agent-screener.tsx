@@ -1676,20 +1676,27 @@ export default function AgentScreener() {
 																	sortKey="pegRatio"
 																	align="right"
 																/>
-																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">
-																	Div %
-																</th>
-																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">
-																	EPS
-																</th>
+																<DbSortableHeader
+																	label="Div %"
+																	sortKey="dividendYield"
+																	align="right"
+																/>
+																<DbSortableHeader
+																	label="EPS"
+																	sortKey="eps"
+																	align="right"
+																/>
+
 																<DbSortableHeader
 																	label="ROE"
 																	sortKey="roe"
 																	align="right"
 																/>
-																<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">
-																	D/E
-																</th>
+																<DbSortableHeader
+																	label="D/E"
+																	sortKey="debtToEquity"
+																	align="right"
+																/>
 																<DbSortableHeader
 																	label="α Nifty"
 																	sortKey="returnVsNifty1Y"
