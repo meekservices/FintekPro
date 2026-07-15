@@ -1574,14 +1574,82 @@ export default function AgentScreener() {
 									</div>
 								)}
 
+								{/* ── Active filter chips ─────────────────────────────────────── */}
+								{activeFilterCount > 0 && (
+									<div className="flex flex-wrap items-center gap-1.5 py-1">
+										<span className="text-[10px] text-muted-foreground">Active filters:</span>
+										{dbSearch && (
+											<button type="button" onClick={() => setDbSearch("")} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] hover:bg-primary/20 transition-colors">
+												Search: {dbSearch} <span className="text-[9px] opacity-70">✕</span>
+											</button>
+										)}
+										{dbSector && (
+											<button type="button" onClick={() => { setDbSector(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] hover:bg-blue-500/20 transition-colors">
+												Sector: {dbSector} <span className="text-[9px] opacity-70">✕</span>
+											</button>
+										)}
+										{dbMarketCap && (
+											<button type="button" onClick={() => { setDbMarketCap(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 text-[10px] hover:bg-violet-500/20 transition-colors">
+												Cap: {dbMarketCap} <span className="text-[9px] opacity-70">✕</span>
+											</button>
+										)}
+										{dbMinPE && (
+											<button type="button" onClick={() => { setDbMinPE(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] hover:bg-amber-500/20 transition-colors">
+												Min P/E: {dbMinPE} <span className="text-[9px] opacity-70">✕</span>
+											</button>
+										)}
+										{dbMaxPE && (
+											<button type="button" onClick={() => { setDbMaxPE(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] hover:bg-amber-500/20 transition-colors">
+												Max P/E: {dbMaxPE} <span className="text-[9px] opacity-70">✕</span>
+											</button>
+										)}
+										{dbMinROE && (
+											<button type="button" onClick={() => { setDbMinROE(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] hover:bg-emerald-500/20 transition-colors">
+												Min ROE: {dbMinROE}% <span className="text-[9px] opacity-70">✕</span>
+											</button>
+										)}
+										{dbMaxDE && (
+											<button type="button" onClick={() => { setDbMaxDE(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] hover:bg-red-500/20 transition-colors">
+												Max D/E: {dbMaxDE} <span className="text-[9px] opacity-70">✕</span>
+											</button>
+										)}
+										{dbMinRating && (
+											<button type="button" onClick={() => { setDbMinRating(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] hover:bg-amber-500/20 transition-colors">
+												Rating ≥ {dbMinRating}★ <span className="text-[9px] opacity-70">✕</span>
+											</button>
+										)}
+										{dbMinScore && (
+											<button type="button" onClick={() => { setDbMinScore(""); setDbPage(1); }} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] hover:bg-indigo-500/20 transition-colors">
+												Score ≥ {dbMinScore} <span className="text-[9px] opacity-70">✕</span>
+											</button>
+										)}
+										<button type="button" onClick={resetDbFilters} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] hover:bg-muted/80 transition-colors ml-1">
+											Clear all
+										</button>
+									</div>
+								)}
+								{/* ── Pagination bar ─────────────────────────────────────────── */}
 								<div className="flex items-center justify-between text-xs">
 									<div className="flex items-center gap-3 text-muted-foreground">
 										<span className="font-medium text-foreground">
 											{dbScreenerData?.total?.toLocaleString() ?? 0} stocks
 										</span>
-										<span>
-											Page {dbScreenerData?.page || 1} of{" "}
-											{dbScreenerData?.totalPages || 1}
+										<span>Page {dbScreenerData?.page || 1} of {dbScreenerData?.totalPages || 1}</span>
+										<span className="flex items-center gap-1">
+											Go to
+											<input
+												type="number"
+												min={1}
+												max={dbScreenerData?.totalPages || 1}
+												className="w-12 h-5 text-center text-[10px] border border-border rounded bg-background px-1 focus:outline-none focus:ring-1 focus:ring-primary"
+												onKeyDown={(e) => {
+													if (e.key === "Enter") {
+														const v = Number.parseInt((e.target as HTMLInputElement).value);
+														if (!Number.isNaN(v) && v >= 1 && v <= (dbScreenerData?.totalPages || 1)) setDbPage(v);
+														(e.target as HTMLInputElement).value = "";
+													}
+												}}
+											/>
 										</span>
 									</div>
 									<div className="flex items-center gap-2">
@@ -1751,10 +1819,34 @@ export default function AgentScreener() {
 																					category={stock.marketCapCategory}
 																				/>
 																			</td>
-																			<td className="py-2.5 px-3 text-right font-mono text-xs">
+																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
+																				stock.peRatio
+																					? Number.parseFloat(stock.peRatio) < 0
+																						? "text-red-500 dark:text-red-400"
+																						: Number.parseFloat(stock.peRatio) > 60
+																						? "text-red-500 dark:text-red-400"
+																						: Number.parseFloat(stock.peRatio) > 35
+																						? "text-amber-600 dark:text-amber-400"
+																						: Number.parseFloat(stock.peRatio) <= 25
+																						? "text-emerald-600 dark:text-emerald-400"
+																						: ""
+																					: ""
+																			}`}>
 																				{formatNum(stock.peRatio)}
 																			</td>
-																			<td className="py-2.5 px-3 text-right font-mono text-xs">
+																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
+																				stock.forwardPe
+																					? Number.parseFloat(stock.forwardPe) < 0
+																						? "text-red-500 dark:text-red-400"
+																						: Number.parseFloat(stock.forwardPe) > 60
+																						? "text-red-500 dark:text-red-400"
+																						: Number.parseFloat(stock.forwardPe) > 35
+																						? "text-amber-600 dark:text-amber-400"
+																						: Number.parseFloat(stock.forwardPe) <= 25
+																						? "text-emerald-600 dark:text-emerald-400"
+																						: ""
+																					: ""
+																			}`}>
 																				{formatNum(stock.forwardPe)}
 																			</td>
 																			<td
@@ -1770,24 +1862,50 @@ export default function AgentScreener() {
 																			>
 																				{formatNum(stock.pegRatio)}
 																			</td>
-																			<td className="py-2.5 px-3 text-right font-mono text-xs">
+																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
+																				stock.dividendYield && Number.parseFloat(stock.dividendYield) * 100 >= 5
+																					? "text-emerald-600 dark:text-emerald-400 font-semibold"
+																					: stock.dividendYield && Number.parseFloat(stock.dividendYield) * 100 >= 3
+																					? "text-emerald-500 dark:text-emerald-500"
+																					: ""
+																			}`}>
 																				{stock.dividendYield
 																					? `${(Number.parseFloat(stock.dividendYield) * 100).toFixed(2)}%`
 																					: "-"}
 																			</td>
-																			<td className="py-2.5 px-3 text-right font-mono text-xs">
+																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
+																				stock.eps
+																					? Number.parseFloat(stock.eps) > 0
+																						? "text-emerald-600 dark:text-emerald-400"
+																						: "text-red-500 dark:text-red-400"
+																					: ""
+																			}`}>
 																				{formatNum(stock.eps)}
 																			</td>
-																			<td
-																				className={`py-2.5 px-3 text-right font-mono text-xs ${Number.parseFloat(stock.roe || "0") >= 0.15 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : ""}`}
-																			>
-																				{stock.roe
-																					? formatPercent(stock.roe, 100)
-																					: "-"}
+																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
+																				stock.roe
+																					? Number.parseFloat(stock.roe) < 0
+																						? "text-red-500 dark:text-red-400"
+																						: Number.parseFloat(stock.roe) >= 0.20
+																						? "text-emerald-600 dark:text-emerald-400 font-semibold"
+																						: Number.parseFloat(stock.roe) >= 0.15
+																						? "text-emerald-500 dark:text-emerald-500"
+																						: ""
+																					: ""
+																			}`}>
+																				{stock.roe ? formatPercent(stock.roe, 100) : "-"}
 																			</td>
-																			<td
-																				className={`py-2.5 px-3 text-right font-mono text-xs ${Number.parseFloat(stock.debtToEquity || "0") > 1.5 ? "text-red-600 dark:text-red-400" : ""}`}
-																			>
+																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
+																				stock.debtToEquity
+																					? Number.parseFloat(stock.debtToEquity) > 2
+																						? "text-red-600 dark:text-red-400 font-semibold"
+																						: Number.parseFloat(stock.debtToEquity) > 1.5
+																						? "text-red-500 dark:text-red-400"
+																						: Number.parseFloat(stock.debtToEquity) <= 0.3
+																						? "text-emerald-600 dark:text-emerald-400"
+																						: ""
+																					: ""
+																			}`}>
 																				{formatNum(stock.debtToEquity)}
 																			</td>
 																			{/* Phase 4a: Alpha vs NIFTY 50 — green=outperformed, red=underperformed */}
