@@ -385,6 +385,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 5.09,
     benchmarkName: "NIFTY Arbitrage Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-001",
+    inceptionDate: "2022-04-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 6,
     highlight: "Liquid fund alternative with lower tax for 3M+ horizon",
@@ -429,6 +431,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 0.23,
     benchmarkName: "NIFTY Bank TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-002",
+    inceptionDate: "2021-10-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 10,
     highlight: "Banks NBFCs insurance India credit growth story",
@@ -472,6 +476,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 10.06,
     benchmarkName: "NIFTY 500 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-003",
+    inceptionDate: "2020-07-01",
     rebalancingFrequency: "annual",
     totalHoldings: 8,
     highlight: "Goal-linked investing for education milestones",
@@ -517,6 +523,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 10.89,
     benchmarkName: "CRISIL Short Duration Debt Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-004",
+    inceptionDate: "2020-01-01",
     rebalancingFrequency: "semi_annual",
     totalHoldings: 8,
     highlight: "Low-risk monthly income generator",
@@ -561,6 +569,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: -1.62,
     benchmarkName: "NIFTY India Consumption TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-005",
+    inceptionDate: "2022-07-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 9,
     highlight: "FMCG retail agri-inputs rural India rising",
@@ -604,6 +614,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 4.69,
     benchmarkName: "CRISIL Corporate Bond Fund Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-006",
+    inceptionDate: "2021-04-01",
     rebalancingFrequency: "monthly",
     totalHoldings: 6,
     highlight: "Zero-risk cash management for corporate treasuries",
@@ -648,6 +660,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: -2.02,
     benchmarkName: "CRISIL AA Short Term Bond Fund Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-007",
+    inceptionDate: "2022-01-01",
     rebalancingFrequency: "annual",
     totalHoldings: 6,
     highlight: "Higher yield, managed credit risk",
@@ -692,6 +706,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 4.41,
     benchmarkName: "CRISIL 10 Year Gilt Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-008",
+    inceptionDate: "2021-07-01",
     rebalancingFrequency: "annual",
     totalHoldings: 8,
     highlight: "Staggered maturities for consistent cash flows",
@@ -736,6 +752,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 26.91,
     benchmarkName: "Domestic Gold Price - IBJA (Indian Bullion Jewellers Association)",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-009",
+    inceptionDate: "2022-10-01",
     rebalancingFrequency: "annual",
     totalHoldings: 6,
     highlight: "Sovereign and digital gold for every Indian household",
@@ -778,6 +796,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 6.39,
     benchmarkName: "NIFTY Dividend Opportunities 50 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-010",
+    inceptionDate: "2021-01-01",
     rebalancingFrequency: "semi_annual",
     totalHoldings: 10,
     highlight: "High dividend yield stocks with strong fundamentals",
@@ -824,6 +844,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 4.65,
     benchmarkName: "CRISIL Liquid Fund Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-011",
+    inceptionDate: "2020-10-01",
     rebalancingFrequency: "monthly",
     totalHoldings: 4,
     highlight: "Same-day redemption your financial safety net",
@@ -866,6 +888,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: -1.78,
     benchmarkName: "Nifty100 ESG TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-012",
+    inceptionDate: "2022-04-01",
     rebalancingFrequency: "semi_annual",
     totalHoldings: 9,
     highlight: "SEBI ESG-screened funds for responsible investors",
@@ -912,6 +936,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 1.64,
     benchmarkName: "NIFTY 200 Momentum 30 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-013",
+    inceptionDate: "2023-01-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 6,
     highlight: "Quant-driven factor blend",
@@ -956,6 +982,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 14.72,
     benchmarkName: "NIFTY Healthcare TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-014",
+    inceptionDate: "2021-04-01",
     rebalancingFrequency: "semi_annual",
     totalHoldings: 9,
     highlight: "India 130B pharma and healthcare opportunity",
@@ -999,6 +1027,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: -1.26,
     benchmarkName: "NIFTY 500 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-015",
+    inceptionDate: "2020-07-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 12,
     highlight: "Concentrated high-conviction quality portfolio for HNIs",
@@ -1045,6 +1075,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 8.06,
     benchmarkName: "CRISIL Short Duration Debt Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-016",
+    inceptionDate: "2021-07-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 8,
     highlight: "Targeted corpus build for home down payment",
@@ -1090,6 +1122,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: -2.14,
     benchmarkName: "NIFTY 50 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-017",
+    inceptionDate: "2019-07-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 13,
     highlight: "Balanced equity across cap sizes",
@@ -1136,6 +1170,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 10.07,
     benchmarkName: "NIFTY Infrastructure TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-018",
+    inceptionDate: "2021-10-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 12,
     highlight: "Roads ports power railways India building spree",
@@ -1179,6 +1215,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 13.94,
     benchmarkName: "NIFTY 50 Hybrid Composite Debt 65:35 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-019",
+    inceptionDate: "2022-01-01",
     rebalancingFrequency: "semi_annual",
     totalHoldings: 8,
     highlight: "Beat inflation with real assets",
@@ -1224,6 +1262,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 7.63,
     benchmarkName: "MSCI Emerging Markets Net TRI (USD)",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-020",
+    inceptionDate: "2022-07-01",
     rebalancingFrequency: "semi_annual",
     totalHoldings: 7,
     highlight: "Emerging market alpha beyond India for global investors",
@@ -1267,6 +1307,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 1.28,
     benchmarkName: "NIFTY India Manufacturing TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-021",
+    inceptionDate: "2022-10-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 11,
     highlight: "Chemicals auto electronics defence manufacturing",
@@ -1310,6 +1352,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: -12.18,
     benchmarkName: "NIFTY Midcap 150 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-022",
+    inceptionDate: "2020-04-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 12,
     highlight: "Mid-cap India growth engine",
@@ -1356,6 +1400,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: -5.4,
     benchmarkName: "NIFTY 500 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-023",
+    inceptionDate: "2022-01-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 11,
     highlight: "NRI-friendly global Indian stocks + REITs + SGBs",
@@ -1402,6 +1448,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 5.58,
     benchmarkName: "NIFTY 500 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-024",
+    inceptionDate: "2019-01-01",
     rebalancingFrequency: "annual",
     totalHoldings: 7,
     highlight: "Start with ₹1000/month",
@@ -1447,6 +1495,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 3.79,
     benchmarkName: "NIFTY Smallcap 250 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-025",
+    inceptionDate: "2021-10-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 12,
     highlight: "Bottom-up small cap selection with quality filter",
@@ -1493,6 +1543,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 4.34,
     benchmarkName: "NIFTY 500 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-026",
+    inceptionDate: "2020-01-01",
     rebalancingFrequency: "annual",
     totalHoldings: 7,
     highlight: "ELSS funds for ₹1.5L tax deduction",
@@ -1538,6 +1590,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 11.6,
     benchmarkName: "CRISIL Hybrid 35+65 Aggressive Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-027",
+    inceptionDate: "2022-04-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 8,
     highlight: "Capital-safe milestone planning with moderate growth",
@@ -1583,6 +1637,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 6.75,
     benchmarkName: "CRISIL Hybrid 35+65 Aggressive Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-028",
+    inceptionDate: "2020-10-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 12,
     highlight: "Designed to perform in all market conditions",
@@ -1628,6 +1684,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 3.46,
     benchmarkName: "CRISIL Hybrid 35+65 Aggressive Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-029",
+    inceptionDate: "2021-01-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 7,
     highlight: "Auto-rebalances between equity and debt dynamically",
@@ -1762,6 +1820,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 13.44,
     benchmarkName: "CRISIL Multi Asset 60:40 Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-030",
+    inceptionDate: "2020-07-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 12,
     highlight: "Institutional-grade 6-asset-class architecture for multi-generational wealth",
@@ -1810,6 +1870,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 3.05,
     benchmarkName: "NIFTY 50 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-031",
+    inceptionDate: "2022-07-01",
     rebalancingFrequency: "annual",
     totalHoldings: 3,
     highlight: "Start with Rs 500/month simplest path to wealth",
@@ -1851,6 +1913,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 13.7,
     benchmarkName: "MSCI World Net TRI (USD)",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-032",
+    inceptionDate: "2022-10-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 10,
     highlight: "Invest across US, Europe and Asia alongside India",
@@ -1894,6 +1958,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 12.96,
     benchmarkName: "CRISIL Multi Asset 50:30:20 Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-033",
+    inceptionDate: "2021-07-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 12,
     highlight: "Premium 6-asset-class allocation with international exposure and alternatives for ₹1Cr+ HNIs",
@@ -1942,6 +2008,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 12.32,
     benchmarkName: "CRISIL Hybrid 60:40 Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-034",
+    inceptionDate: "2021-07-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 10,
     highlight: "Balanced 5-asset-class strategy: Large Cap + Mid Cap + Debt + Gold + REIT for HNIs",
@@ -1990,6 +2058,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 8.5,
     benchmarkName: "NIFTY 500 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-035",
+    inceptionDate: "2023-04-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 12,
     highlight: "Equity Debt Gold REIT International all in one",
@@ -2035,6 +2105,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 1.46,
     benchmarkName: "NIFTY 50 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-036",
+    inceptionDate: "2020-04-01",
     rebalancingFrequency: "annual",
     totalHoldings: 5,
     highlight: "Zero fund manager risk just buy the market",
@@ -2078,6 +2150,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 4.73,
     benchmarkName: "CRISIL Composite Bond Fund Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-037",
+    inceptionDate: "2020-10-01",
     rebalancingFrequency: "semi_annual",
     totalHoldings: 8,
     highlight: "Better than FD returns with sovereign and AAA safety",
@@ -2122,6 +2196,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 7.46,
     benchmarkName: "Nifty India REITs & InvITs Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-038",
+    inceptionDate: "2022-07-01",
     rebalancingFrequency: "semi_annual",
     totalHoldings: 7,
     highlight: "Quarterly distributions from premium real assets",
@@ -2165,6 +2241,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 6.01,
     benchmarkName: "NIFTY 500 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-039",
+    inceptionDate: "2019-10-01",
     rebalancingFrequency: "annual",
     totalHoldings: 11,
     highlight: "Glide path from growth to income as you age",
@@ -2210,6 +2288,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 7.17,
     benchmarkName: "CRISIL Composite Bond Fund Index",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-040",
+    inceptionDate: "2020-07-01",
     rebalancingFrequency: "monthly",
     totalHoldings: 9,
     highlight: "Monthly SWP to bank account designed for retirees",
@@ -2254,6 +2334,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 4.71,
     benchmarkName: "NIFTY 500 Value 50 TRI",
     lastRebalanced: "2026-07-06",
+    portfolioCode: "FP-041",
+    inceptionDate: "2020-01-01",
     rebalancingFrequency: "semi_annual",
     totalHoldings: 10,
     highlight: "Low P/E P/B with strong balance sheets",
@@ -2301,14 +2383,16 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 18.2,
     benchmarkName: "Nifty India Defence Index",
     lastRebalanced: "2026-07-10",
+    portfolioCode: "FP-042",
+    inceptionDate: "2024-07-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 8,
     highlight: "HAL, BEL, GRSE, Cochin Shipyard — India's defence capex supercycle",
     icon: "🪖",
     isFeatured: true,
     isNew: true,
-    inceptionDate: "2024-07-01",
     driftThreshold: 7,
+
     allocation: [
       { category: "defence", label: "Defence & Aerospace", weight: 55, color: "#1D4ED8", icon: "🪖" },
       { category: "psu",     label: "PSU Equity",          weight: 30, color: "#059669", icon: "🏛️" },
@@ -2359,14 +2443,16 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     benchmarkCagr1Y: 22.4,
     benchmarkName: "Nifty Smallcap 250",
     lastRebalanced: "2026-07-12",
+    portfolioCode: "FP-043",
+    inceptionDate: "2024-01-01",
     rebalancingFrequency: "quarterly",
     totalHoldings: 8,
     highlight: "Nippon Small Cap, Quant Small Cap, Motilal Midcap — riding India's next growth decade",
     icon: "🚀",
     isFeatured: true,
     isNew: true,
-    inceptionDate: "2024-01-01",
     driftThreshold: 8,
+
     allocation: [
       { category: "small_cap", label: "Small Cap",        weight: 60, color: "#7C3AED", icon: "🔬" },
       { category: "mid_cap",   label: "Mid Cap",          weight: 25, color: "#0891B2", icon: "📈" },
@@ -4317,27 +4403,30 @@ export default function AgentModelPortfoliosPage() {
                   )}
                 </div>
 
+                {/* ── Drift meter — always visible in collapsed state (brief §2) ─── */}
+                <div className="space-y-0.5">
+                  <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full" style={{background: driftScore > 15 ? '#ef4444' : driftScore > 5 ? '#f59e0b' : '#10b981'}} />
+                      Allocation drift
+                    </span>
+                    <span className={`font-semibold tabular-nums text-[9px] ${
+                      driftScore > 15 ? 'text-red-500' : driftScore > 5 ? 'text-amber-500' : 'text-emerald-600 dark:text-emerald-400'
+                    }`}>
+                      {qs ? `${driftAbsPct}% / ${driftThresholdPct}%` : `– / ${driftThresholdPct}%`}
+                    </span>
+                  </div>
+                  <div className="h-1 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${driftStatusColor}`}
+                      style={{ width: `${qs ? driftPct : 0}%` }}
+                    />
+                  </div>
+                </div>
+
                 {/* ── Expandable performance section ───────────────────── */}
                 {isPerfOpen && (
                   <div className="space-y-2.5">
-                    {/* Drift meter — always show even without quant signals */}
-                    <div className="space-y-0.5">
-                      <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                        <span>Current allocation drift</span>
-                        <span className="font-medium text-foreground/80">
-                          {qs ? `${driftAbsPct}% of ${driftThresholdPct}%` : `–% of ${driftThresholdPct}%`}
-                        </span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${driftStatusColor}`}
-                          style={{ width: `${qs ? driftPct : 0}%` }}
-                        />
-                      </div>
-                      <p className="text-[8px] text-muted-foreground/60">
-                        Rebalance trigger at {driftThresholdPct}% drift from target weights
-                      </p>
-                    </div>
 
                     {/* Monthly return bar chart */}
                     {barData.length > 0 && (
@@ -4363,7 +4452,7 @@ export default function AgentModelPortfoliosPage() {
                         {/* Zero-axis bar chart — positive above line, negative below */}
                         <div
                           className="relative flex items-stretch gap-0.5"
-                          style={{ height: "56px" }}
+                          style={{ height: "72px" }}
                           aria-label="Monthly returns bar chart"
                         >
                           {/* Zero reference line at vertical midpoint */}
@@ -4371,8 +4460,7 @@ export default function AgentModelPortfoliosPage() {
 
                           {barData.map((bar, i) => {
                             const isPos = bar.returnPct >= 0;
-                            // Each bar occupies half the container height (28px = top or bottom half)
-                            const halfH = 28; // px
+                            const halfH = 30; // px (72px chart height → each half is 36px, bars use 30px leaving room for labels)
                             const barH  = Math.max(2, Math.min(halfH, (Math.abs(bar.returnPct) / maxBar) * halfH));
                             return (
                               <TooltipProvider key={i}>
@@ -4380,7 +4468,7 @@ export default function AgentModelPortfoliosPage() {
                                   <TooltipTrigger asChild>
                                     <div className="flex-1 relative h-full group/bar">
                                       {/* Return value label — always visible for ≤8 bars, hover-only for denser charts */}
-                                      <span className={`absolute ${isPos ? "bottom-[50%] mb-0.5" : "top-[50%] mt-0.5"} left-1/2 -translate-x-1/2 text-[6px] font-medium whitespace-nowrap z-20 bg-background/90 px-0.5 rounded ${isPos ? "text-emerald-600/80 dark:text-emerald-400/80" : "text-red-500/80"} ${barData.length <= 8 ? "block" : "hidden group-hover/bar:block"}`}>
+                                      <span className={`absolute ${isPos ? "bottom-[50%] mb-0.5" : "top-[50%] mt-0.5"} left-1/2 -translate-x-1/2 text-[8px] font-medium whitespace-nowrap z-20 bg-background/90 px-0.5 rounded ${isPos ? "text-emerald-600/80 dark:text-emerald-400/80" : "text-red-500/80"} ${barData.length <= 8 ? "block" : "hidden group-hover/bar:block"}`}>
                                         {bar.returnPct >= 0 ? "+" : ""}{bar.returnPct}%
                                       </span>
                                       {/* Rebalance dot — above zero line */}
@@ -4402,7 +4490,7 @@ export default function AgentModelPortfoliosPage() {
                                         />
                                       )}
                                       {/* Month label at very bottom */}
-                                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[7px] text-muted-foreground/70 leading-none">
+                                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[8px] text-muted-foreground/70 leading-none">
                                         {bar.label}
                                       </span>
                                     </div>
