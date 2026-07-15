@@ -1140,9 +1140,9 @@ export default function AgentScreener() {
 								{label}
 							</button>
 						))}
-						{/* ── Global / US Stocks — links to US Trading section — */}
+						{/* ── Global / US Stocks — links to Alpaca Hub (agent US trading) — */}
 						<a
-							href="/agent/us-trading"
+							href="/agent/alpaca-hub"
 							className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-150 border bg-background text-rose-600 dark:text-rose-400 border-border hover:bg-muted/60"
 							title="US & International equities via IB/Alpaca — opens US Trading"
 						>
