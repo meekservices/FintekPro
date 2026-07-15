@@ -1213,10 +1213,10 @@ export default function AgentScreener() {
 										{instrumentLoading ? (
 											<div className="flex items-center justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /><span className="ml-2 text-sm text-muted-foreground">Loading funds...</span></div>
 										) : (
-										<div className="border rounded-lg overflow-hidden">
+										<div className="border rounded-lg [overflow:clip]">
 											<div className="overflow-x-auto">
 												<table className="w-full text-sm">
-													<thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10 border-b">
+													<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
 														<tr>
 															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">#</th>
 															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider min-w-[220px]">Scheme Name</th>
@@ -1279,10 +1279,10 @@ export default function AgentScreener() {
 										{instrumentLoading ? (
 											<div className="flex items-center justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /><span className="ml-2 text-sm text-muted-foreground">Loading bonds...</span></div>
 										) : (
-										<div className="border rounded-lg overflow-hidden">
+										<div className="border rounded-lg [overflow:clip]">
 											<div className="overflow-x-auto">
 												<table className="w-full text-sm">
-													<thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10 border-b">
+													<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
 														<tr>
 															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">#</th>
 															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider min-w-[200px]">Issuer / Name</th>
@@ -1334,10 +1334,10 @@ export default function AgentScreener() {
 										{instrumentLoading ? (
 											<div className="flex items-center justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /><span className="ml-2 text-sm text-muted-foreground">Loading ETFs...</span></div>
 										) : (
-										<div className="border rounded-lg overflow-hidden">
+										<div className="border rounded-lg [overflow:clip]">
 											<div className="overflow-x-auto">
 												<table className="w-full text-sm">
-													<thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10 border-b">
+													<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
 														<tr>
 															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Symbol</th>
 															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider min-w-[220px]">Name</th>
@@ -1637,10 +1637,10 @@ export default function AgentScreener() {
 								) : dbScreenerData?.stocks?.length > 0 ? (
 									viewMode === "table" ? (
 										<>
-											<div className="border rounded-lg overflow-hidden">
+											<div className="border rounded-lg [overflow:clip]">
 												<div className="overflow-x-auto">
 													<table className="w-full text-sm">
-														<thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10 border-b">
+														<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
 															<tr>
 																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">
 																	#
@@ -2688,10 +2688,10 @@ export default function AgentScreener() {
 										Running screener...
 									</div>
 								) : runScreenerMutation.data?.results?.length > 0 ? (
-									<div className="border rounded-lg overflow-hidden">
+									<div className="border rounded-lg [overflow:clip]">
 										<div className="overflow-x-auto max-h-[500px]">
 											<table className="w-full text-sm">
-												<thead className="bg-muted/50 text-muted-foreground sticky top-0 z-10 border-b">
+												<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
 													<tr>
 														<SortableHeader label="Name" sortKey="name" />
 														<SortableHeader label="Symbol" sortKey="symbol" />
