@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build": "vite build && npm run build:server",
-    "build:server": "esbuild server/index.ts server/startup/schema-repairs-runner.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "build:server": "esbuild server/index.ts server/startup/schema-repairs-runner.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && esbuild jobs/nav-sync.ts jobs/enrichment.ts jobs/compliance.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/jobs",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "NODE_OPTIONS=--max-old-space-size=8192 tsc",
     "lint": "NODE_ENV=production eslint server/",
