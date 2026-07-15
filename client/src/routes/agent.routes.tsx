@@ -54,6 +54,7 @@ import {
 	AgentRevenueCockpit,
 	AgentUsClientAccounts as _AgentUsClientAccounts,
 	AlpacaHubAgent,
+	AgentGlobalStocks,
 	AgentLeadPipeline,
 	AgentClientProfile,
 	AgentTasks,
@@ -471,6 +472,15 @@ export function AgentRoutes() {
 					<AgentLayout>
 						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
 							<AlpacaHubAgent />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/global-stocks">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentGlobalStocks />
 						</Suspense>
 					</AgentLayout>
 				)}

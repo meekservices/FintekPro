@@ -550,6 +550,89 @@ interface OrderRecord {
 	createdAt: string;
 }
 
+// ─── Curated constituent lists (top 50 NASDAQ-100 + top 50 S&P 500) ──────────
+const NASDAQ100_SYMBOLS = [
+	"AAPL","MSFT","NVDA","AMZN","META","GOOGL","GOOG","TSLA","AVGO","COST",
+	"ASML","NFLX","AMD","AZN","QCOM","LIN","PEP","INTU","CSCO","TMUS",
+	"AMAT","TXN","ISRG","HON","AMGN","BKNG","REGN","SBUX","VRTX","PANW",
+	"ADI","KLAC","MELI","MDLZ","SNPS","CDNS","CSX","ADP","GILD","CRWD",
+	"MAR","CTAS","MU","ORLY","FTNT","ABNB","NXPI","LRCX","MRVL","CEG",
+];
+const SP500_SYMBOLS = [
+	"BRK.B","JPM","V","MA","LLY","UNH","JNJ","WMT","PG","XOM",
+	"CVX","HD","BAC","KO","ABBV","MRK","PFE","TMO","ACN","PM",
+	"MCD","CRM","ABT","RTX","NEE","DHR","TXN","NFLX","UNP","WFC",
+	"SPGI","MS","BMY","GS","CAT","BLK","AXP","DE","AMT","COP",
+	"SYK","VRTX","GILD","DUK","SO","ELV","CI","PLD","CB","LMT",
+];
+
+/**
+ * GET /api/us-trading/market/screener
+ * Returns NASDAQ-100 + S&P 500 listed stocks with live Alpaca prices.
+ * Query params: exchange (NASDAQ|SP500|ALL), search, page, limit
+ */
+router.get(
+	"/market/screener",
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const exchange = ((req.query.exchange as string) || "ALL").toUpperCase();
+			const search   = ((req.query.search   as string) || "").toUpperCase().trim();
+			const page     = Math.max(1, Number.parseInt((req.query.page  as string) || "1",  10));
+			const limit    = Math.min(50, Math.max(5, Number.parseInt((req.query.limit as string) || "20", 10)));
+
+			let universe: string[];
+			if (exchange === "NASDAQ")     universe = NASDAQ100_SYMBOLS;
+			else if (exchange === "SP500") universe = SP500_SYMBOLS;
+			else                           universe = [...new Set([...NASDAQ100_SYMBOLS, ...SP500_SYMBOLS])];
+
+			const filtered = search ? universe.filter((s) => s.includes(search)) : universe;
+			const total    = filtered.length;
+			const paged    = filtered.slice((page - 1) * limit, page * limit);
+
+			let prices: Map<string, any> = new Map();
+			if (alpacaBrokerService.isConfigured() && paged.length > 0) {
+				try { prices = await alpacaMarketDataService.getSnapshots(paged); } catch { /* non-fatal */ }
+			}
+
+			const exchangeRate = await alpacaMarketDataService.getUsdInrRate().catch(() => 84.5);
+
+			const stocks = paged.map((sym) => {
+				const snap      = prices.get(sym);
+				const price     = snap?.latestTrade?.price || snap?.dailyBar?.close || 0;
+				const prev      = snap?.prevDailyBar?.close || snap?.dailyBar?.open || price;
+				const change    = price - prev;
+				const changePct = prev > 0 ? (change / prev) * 100 : 0;
+				const isNasdaq  = NASDAQ100_SYMBOLS.includes(sym);
+				const isSp500   = SP500_SYMBOLS.includes(sym);
+				return {
+					symbol:        sym,
+					exchange:      isNasdaq ? "NASDAQ" : "NYSE",
+					indices:       [...(isNasdaq ? ["NASDAQ-100"] : []), ...(isSp500 ? ["S&P 500"] : [])],
+					price:         price || null,
+					priceINR:      price ? +(price * exchangeRate).toFixed(2) : null,
+					change:        +change.toFixed(4),
+					changePercent: +changePct.toFixed(4),
+					open:          snap?.dailyBar?.open   || null,
+					high:          snap?.dailyBar?.high   || null,
+					low:           snap?.dailyBar?.low    || null,
+					close:         snap?.dailyBar?.close  || null,
+					volume:        snap?.dailyBar?.volume || null,
+					vwap:          snap?.dailyBar?.vwap   || null,
+					dataSource:    snap ? "Alpaca IEX" : "static",
+				};
+			});
+
+			res.json({
+				success: true,
+				data: { stocks, pagination: { page, limit, total, pages: Math.ceil(total / limit) }, exchangeRate: { rate: exchangeRate, currency: "INR" }, universe: exchange, lastUpdated: new Date().toISOString() },
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
+			});
+		} catch (error: unknown) {
+			res.status(500).json({ success: false, error: errorMessage(error), retryable: true });
+		}
+	},
+);
+
 router.get(
 	"/market-data",
 	async (_req: Request, res: Response): Promise<void> => {

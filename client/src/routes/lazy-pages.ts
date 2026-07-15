@@ -525,6 +525,9 @@ export const AgentPerformance = lazyWithRetry(
 export const AlpacaHubAgent = lazyWithRetry(
 	() => import("@/pages/agent/alpaca-hub"),
 );
+export const AgentGlobalStocks = lazyWithRetry(
+	() => import("@/pages/agent/global-stocks"),
+);
 export const AdvisorBrandProfile = lazyWithRetry(
 	() => import("@/pages/agent/advisor-brand-profile"),
 );
