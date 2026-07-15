@@ -320,8 +320,8 @@ export async function queryScreener(
 		case "currentPrice":
 			sortExpr = sql`${listedStocks.currentPrice}::numeric ${sql.raw(dir)} NULLS LAST`; break;
 		case "marketCap":
-			// Prefer nightly-enriched key-metrics market cap; fall back to listed_stocks value
-			sortExpr = sql`COALESCE(${screenerKeyMetrics.marketCap}, ${listedStocks.marketCapValue})::numeric ${sql.raw(dir)} NULLS LAST`; break;
+			// NULLIF excludes zero values so the fallback chain can reach a non-zero source
+			sortExpr = sql`NULLIF(COALESCE(NULLIF(${screenerKeyMetrics.marketCap}::numeric, 0), NULLIF(${listedStocks.marketCapValue}::numeric, 0)), 0) ${sql.raw(dir)} NULLS LAST`; break;
 		case "peRatio":
 			sortExpr = sql`${screenerFinancials.peRatio}::numeric ${sql.raw(dir)} NULLS LAST`; break;
 		case "forwardPe":
@@ -368,8 +368,9 @@ export async function queryScreener(
 			industry: listedStocks.industry,
 			exchange: listedStocks.exchange,
 			currentPrice: listedStocks.currentPrice,
-			// Market cap: prefer nightly-enriched key-metrics value; fall back to listed_stocks (set on INSERT only)
-			marketCapValue: sql<string>`COALESCE(${screenerKeyMetrics.marketCap}, ${listedStocks.marketCapValue})`,
+			// Market cap: NULLIF(0) ensures zero values don't block the fallback chain.
+			// If all sources are 0/NULL the SELECT returns NULL → frontend shows —
+			marketCapValue: sql<string>`NULLIF(COALESCE(NULLIF(${screenerKeyMetrics.marketCap}::numeric, 0), NULLIF(${listedStocks.marketCapValue}::numeric, 0)), 0)`,
 			marketCapCategory: listedStocks.marketCapCategory,
 			// Fundamentals
 			peRatio: screenerFinancials.peRatio,

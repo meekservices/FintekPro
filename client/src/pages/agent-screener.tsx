@@ -110,7 +110,8 @@ function formatCurrency(val: string | number | null | undefined): string {
 function formatMarketCap(val: string | number | null | undefined): string {
 	if (val == null || val === "") return "-";
 	const n = typeof val === "string" ? Number.parseFloat(val) : val;
-	if (Number.isNaN(n)) return "-";
+	// 0 means data not populated — show — rather than ₹0.00 Cr
+	if (Number.isNaN(n) || n === 0) return "-";
 	if (n >= 1000000) return `₹${(n / 100000).toFixed(1)}L Cr`;
 	if (n >= 10000) return `₹${(n / 1000).toFixed(1)}K Cr`;
 	if (n >= 100) return `₹${n.toFixed(0)} Cr`;
