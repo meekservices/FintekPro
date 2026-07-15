@@ -83,6 +83,10 @@ type ReitData = {
 	aiConfidence: string;
 	aiRationale: string;
 	aiTargetPrice: string;
+	// SEBI classification (per SEBI circular Nov 28, 2025)
+	sebiAssetClass?: string;       // 'equity'
+	amfiCapCategory?: string;      // 'Large Cap' | 'Mid Cap' | 'Small Cap'
+	equityIndexEligible?: boolean; // true from July 1, 2026
 };
 
 type InvitData = {
@@ -105,7 +109,10 @@ type InvitData = {
 	aiConfidence: string;
 	aiRationale: string;
 	aiTargetPrice: string;
+	// SEBI classification (per SEBI circular Nov 28, 2025)
+	sebiAssetClass?: string;       // 'hybrid'
 };
+
 
 type Recommendation = {
 	type: "reit" | "invit";
@@ -130,6 +137,13 @@ const REIT_SECTORS = [
 	{ value: "mixed", label: "Mixed Use" },
 ];
 
+const AMFI_CAP_CATEGORIES = [
+	{ value: "all", label: "All Market Caps" },
+	{ value: "Large Cap", label: "Large Cap" },
+	{ value: "Mid Cap", label: "Mid Cap" },
+	{ value: "Small Cap", label: "Small Cap" },
+];
+
 const INVIT_SECTORS = [
 	{ value: "all", label: "All Sectors" },
 	{ value: "power", label: "Power Transmission" },
@@ -152,6 +166,25 @@ const AI_SIGNALS = [
 	{ value: "hold", label: "Hold" },
 	{ value: "sell", label: "Sell" },
 ];
+
+/**
+ * Returns the colour class for AMFI market-cap category badges on REITs.
+ * Per SEBI circular Nov 28, 2025 — REITs classified as equity-related instruments,
+ * with AMFI market-cap band matching equity scrip classification.
+ */
+function getAmfiCapColor(cap?: string): string {
+	switch (cap) {
+		case "Large Cap":
+			return "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300";
+		case "Mid Cap":
+			return "bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-900/30 dark:text-violet-300";
+		case "Small Cap":
+			return "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300";
+		default:
+			return "bg-muted text-muted-foreground";
+	}
+}
+
 
 function getSectorIcon(sector: string) {
 	switch (sector) {
@@ -346,12 +379,35 @@ export default function ReitInvitPage() {
 					data-testid="page-title"
 				>
 					<Building2 className="h-8 w-8 text-primary" />
-					REIT & InvIT Investments
+					REIT &amp; InvIT Investments
 				</h1>
 				<p className="text-muted-foreground">
 					Invest in India's premier real estate and infrastructure trusts with
 					AI-powered recommendations
 				</p>
+			</div>
+
+			{/* SEBI Compliance Banner — per SEBI circular Nov 28, 2025 */}
+			<div
+				className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-sm"
+				data-testid="sebi-classification-banner"
+			>
+				<Info className="h-4 w-4 mt-0.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+				<div className="space-y-1">
+					<p className="font-semibold text-amber-800 dark:text-amber-300">
+						SEBI Classification Update (Circular dated Nov 28, 2025, effective Jan 1, 2026)
+					</p>
+					<p className="text-amber-700 dark:text-amber-400">
+						<span className="font-medium">REITs</span> are now classified as{" "}
+						<span className="inline-flex items-center gap-1 font-semibold text-green-700 dark:text-green-400">
+							✦ equity-related instruments
+						</span>
+						{" "}&amp; eligible for equity indices from July 1, 2026. AMFI classifies them by market cap (Large/Mid/Small Cap).<br />
+						<span className="font-medium">InvITs</span> remain{" "}
+						<span className="font-semibold text-amber-800 dark:text-amber-300">hybrid instruments</span>.
+						<span className="ml-2 text-xs opacity-75">Ref: SEBI/HO/IMD/IMD-I/DOF5/P/CIR/2025/177</span>
+					</p>
+				</div>
 			</div>
 
 			<Tabs
@@ -606,7 +662,7 @@ export default function ReitInvitPage() {
 							</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
 								<div>
 									<Label>Sector</Label>
 									<Select
@@ -622,6 +678,27 @@ export default function ReitInvitPage() {
 											{REIT_SECTORS.map((s: any) => (
 												<SelectItem key={s.value} value={s.value}>
 													{s.label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								{/* AMFI Market Cap filter — per SEBI circular REITs are classified by market cap */}
+								<div>
+									<Label>Market Cap (AMFI)</Label>
+									<Select
+										value={(reitFilters as any).amfiCapCategory || "all"}
+										onValueChange={(v) =>
+											setReitFilters((f: any) => ({ ...f, amfiCapCategory: v }))
+										}
+									>
+										<SelectTrigger data-testid="reit-cap-filter">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											{AMFI_CAP_CATEGORIES.map((c: any) => (
+												<SelectItem key={c.value} value={c.value}>
+													{c.label}
 												</SelectItem>
 											))}
 										</SelectContent>
@@ -693,9 +770,19 @@ export default function ReitInvitPage() {
 													{reit.name}
 												</CardDescription>
 											</div>
-											<Badge className={getSignalColor(reit.aiSignal)}>
-												{reit.aiSignal.toUpperCase()}
-											</Badge>
+											<div className="flex flex-col items-end gap-1">
+												<Badge className={getSignalColor(reit.aiSignal)}>
+													{reit.aiSignal.toUpperCase()}
+												</Badge>
+												{/* SEBI equity classification badge */}
+												<Badge
+													variant="outline"
+													className="text-xs bg-green-50 text-green-700 border-green-300 dark:bg-green-900/20 dark:text-green-400"
+													title="Classified as equity-related instrument per SEBI circular Nov 28, 2025"
+												>
+													✦ Equity
+												</Badge>
+											</div>
 										</div>
 									</CardHeader>
 									<CardContent className="space-y-4">
@@ -746,7 +833,7 @@ export default function ReitInvitPage() {
 											</div>
 										</div>
 
-										<div className="flex items-center gap-2">
+										<div className="flex items-center gap-2 flex-wrap">
 											<Badge
 												variant="outline"
 												className={getRiskColor(reit.riskLevel)}
@@ -762,7 +849,18 @@ export default function ReitInvitPage() {
 												<Building className="h-3 w-3 mr-1" />
 												{reit.totalProperties} Properties
 											</Badge>
+											{/* AMFI market-cap category badge per SEBI Nov 2025 circular */}
+											{reit.amfiCapCategory && (
+												<Badge
+													variant="outline"
+													className={getAmfiCapColor(reit.amfiCapCategory)}
+													title={`AMFI Market Cap Classification (SEBI circular Nov 28, 2025)`}
+												>
+													{reit.amfiCapCategory}
+												</Badge>
+											)}
 										</div>
+
 
 										<div className="pt-2 border-t">
 											<div className="flex items-center gap-2 mb-2">

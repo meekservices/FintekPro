@@ -70,6 +70,25 @@ export const reits = pgTable("reits", {
   aiConfidence: decimal("ai_confidence", { precision: 5, scale: 2 }),
   aiRationale: text("ai_rationale"),
   aiTargetPrice: decimal("ai_target_price", { precision: 15, scale: 4 }),
+
+  // === SEBI Classification (per SEBI circular Nov 28, 2025 — effective Jan 1, 2026) ===
+  // REITs are reclassified as equity-related instruments. AMFI must include them in
+  // scrip classification by market cap (Large/Mid/Small Cap) alongside equity stocks.
+  sebiAssetClass: varchar("sebi_asset_class", { length: 20 }).default("equity"),
+  // 'equity' — per SEBI/HO/IMD/IMD-I/DOF5/P/CIR/2025/177
+
+  amfiCapCategory: varchar("amfi_cap_category", { length: 20 }),
+  // AMFI market-cap band: 'Large Cap' | 'Mid Cap' | 'Small Cap'
+  // Threshold: Large Cap >= ₹20,000 Cr; Mid Cap ₹5,000-19,999 Cr; Small Cap < ₹5,000 Cr
+
+  equityIndexEligible: boolean("equity_index_eligible").default(true),
+  // REITs eligible for equity index inclusion from July 1, 2026 (SEBI circular)
+
+  sebiCircularRef: varchar("sebi_circular_ref", { length: 100 }).default("SEBI/HO/IMD/IMD-I/DOF5/P/CIR/2025/177"),
+  // Circular reference — retained for compliance audit trail
+
+  sebiEffectiveDate: timestamp("sebi_effective_date"),
+  // Date from which SEBI classification is effective (2026-01-01)
   
   // Status
   isActive: boolean("is_active").default(true),
@@ -79,7 +98,10 @@ export const reits = pgTable("reits", {
   index("idx_reits_symbol").on(table.symbol),
   index("idx_reits_sector").on(table.sector),
   index("idx_reits_ai_signal").on(table.aiSignal),
+  index("idx_reits_amfi_cap").on(table.amfiCapCategory),
+  index("idx_reits_sebi_class").on(table.sebiAssetClass),
 ]);
+
 
 // ========================================
 // InvIT (Infrastructure Investment Trust) Tables
@@ -147,6 +169,15 @@ export const invits = pgTable("invits", {
   aiConfidence: decimal("ai_confidence", { precision: 5, scale: 2 }),
   aiRationale: text("ai_rationale"),
   aiTargetPrice: decimal("ai_target_price", { precision: 15, scale: 4 }),
+
+  // === SEBI Classification (per SEBI circular Nov 28, 2025 — effective Jan 1, 2026) ===
+  // InvITs remain classified as HYBRID instruments. They are NOT reclassified as equity.
+  // Only REITs were upgraded to equity-related instruments in this circular.
+  sebiAssetClass: varchar("sebi_asset_class", { length: 20 }).default("hybrid"),
+  // 'hybrid' — per SEBI/HO/IMD/IMD-I/DOF5/P/CIR/2025/177
+
+  sebiCircularRef: varchar("sebi_circular_ref", { length: 100 }).default("SEBI/HO/IMD/IMD-I/DOF5/P/CIR/2025/177"),
+  sebiEffectiveDate: timestamp("sebi_effective_date"),
   
   // Status
   isActive: boolean("is_active").default(true),
@@ -156,7 +187,9 @@ export const invits = pgTable("invits", {
   index("idx_invits_symbol").on(table.symbol),
   index("idx_invits_sector").on(table.sector),
   index("idx_invits_ai_signal").on(table.aiSignal),
+  index("idx_invits_sebi_class").on(table.sebiAssetClass),
 ]);
+
 
 // REIT/InvIT Holdings (Portfolio)
 export const reitInvitHoldings = pgTable("reit_invit_holdings", {

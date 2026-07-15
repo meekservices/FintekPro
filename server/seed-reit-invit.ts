@@ -1,7 +1,22 @@
 import { db } from "./db";
 import { reits, invits, unlistedCompanies } from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { fileURLToPath } from "url";
+import { logger } from "./logger";
+
+
+const SEBI_REIT_CIRCULAR = "SEBI/HO/IMD/IMD-I/DOF5/P/CIR/2025/177";
+const SEBI_EFFECTIVE_DATE = new Date("2026-01-01");
+
+/**
+ * Auto-classify REIT by AMFI market-cap thresholds (SEBI circular Nov 28, 2025).
+ * Large Cap >= ₹20,000 Cr | Mid Cap ₹5,000-19,999 Cr | Small Cap < ₹5,000 Cr
+ */
+function classifyReitByMarketCap(marketCapCr: number): "Large Cap" | "Mid Cap" | "Small Cap" {
+	if (marketCapCr >= 20000) return "Large Cap";
+	if (marketCapCr >= 5000) return "Mid Cap";
+	return "Small Cap";
+}
 
 interface ReitData {
 	symbol: string;
@@ -18,6 +33,12 @@ interface ReitData {
 	minimumInvestment?: number;
 	lotSize?: number;
 	faceValue?: number;
+	// SEBI classification (per SEBI circular Nov 28, 2025 — effective Jan 1, 2026)
+	sebiAssetClass: "equity";        // REITs are equity-related instruments
+	amfiCapCategory: "Large Cap" | "Mid Cap" | "Small Cap"; // AMFI market-cap band
+	equityIndexEligible: boolean;    // Eligible for equity indices from July 1, 2026
+	sebiCircularRef: string;
+	sebiEffectiveDate: Date;
 }
 
 interface InvitData {
@@ -35,7 +56,12 @@ interface InvitData {
 	minimumInvestment?: number;
 	lotSize?: number;
 	faceValue?: number;
+	// SEBI classification (InvITs remain hybrid per SEBI circular Nov 28, 2025)
+	sebiAssetClass: "hybrid";        // InvITs are hybrid instruments
+	sebiCircularRef: string;
+	sebiEffectiveDate: Date;
 }
+
 
 interface UnlistedReitInvitData {
 	name: string;
@@ -62,6 +88,12 @@ const LISTED_REITS: ReitData[] = [
 		minimumInvestment: 10000,
 		lotSize: 1,
 		faceValue: 300,
+		// SEBI classification — equity, Large Cap (~₹34,000 Cr market cap)
+		sebiAssetClass: "equity",
+		amfiCapCategory: classifyReitByMarketCap(34000),
+		equityIndexEligible: true,
+		sebiCircularRef: SEBI_REIT_CIRCULAR,
+		sebiEffectiveDate: SEBI_EFFECTIVE_DATE,
 	},
 	{
 		symbol: "MINDSPACE",
@@ -78,6 +110,12 @@ const LISTED_REITS: ReitData[] = [
 		minimumInvestment: 10000,
 		lotSize: 1,
 		faceValue: 275,
+		// SEBI classification — equity, Large Cap (~₹24,000 Cr market cap)
+		sebiAssetClass: "equity",
+		amfiCapCategory: classifyReitByMarketCap(24000),
+		equityIndexEligible: true,
+		sebiCircularRef: SEBI_REIT_CIRCULAR,
+		sebiEffectiveDate: SEBI_EFFECTIVE_DATE,
 	},
 	{
 		symbol: "BROOKFIELD",
@@ -94,6 +132,12 @@ const LISTED_REITS: ReitData[] = [
 		minimumInvestment: 10000,
 		lotSize: 1,
 		faceValue: 275,
+		// SEBI classification — equity, Mid Cap (~₹11,000 Cr market cap)
+		sebiAssetClass: "equity",
+		amfiCapCategory: classifyReitByMarketCap(11000),
+		equityIndexEligible: true,
+		sebiCircularRef: SEBI_REIT_CIRCULAR,
+		sebiEffectiveDate: SEBI_EFFECTIVE_DATE,
 	},
 	{
 		symbol: "NEXUSSELECT",
@@ -110,8 +154,15 @@ const LISTED_REITS: ReitData[] = [
 		minimumInvestment: 10000,
 		lotSize: 1,
 		faceValue: 100,
+		// SEBI classification — equity, Mid Cap (~₹14,000 Cr market cap)
+		sebiAssetClass: "equity",
+		amfiCapCategory: classifyReitByMarketCap(14000),
+		equityIndexEligible: true,
+		sebiCircularRef: SEBI_REIT_CIRCULAR,
+		sebiEffectiveDate: SEBI_EFFECTIVE_DATE,
 	},
 ];
+
 
 const LISTED_INVITS: InvitData[] = [
 	{
@@ -129,6 +180,9 @@ const LISTED_INVITS: InvitData[] = [
 		minimumInvestment: 10000,
 		lotSize: 1,
 		faceValue: 100,
+		sebiAssetClass: "hybrid",
+		sebiCircularRef: SEBI_REIT_CIRCULAR,
+		sebiEffectiveDate: SEBI_EFFECTIVE_DATE,
 	},
 	{
 		symbol: "IRB",
@@ -145,6 +199,9 @@ const LISTED_INVITS: InvitData[] = [
 		minimumInvestment: 10000,
 		lotSize: 1,
 		faceValue: 100,
+		sebiAssetClass: "hybrid",
+		sebiCircularRef: SEBI_REIT_CIRCULAR,
+		sebiEffectiveDate: SEBI_EFFECTIVE_DATE,
 	},
 	{
 		symbol: "POWERGRID",
@@ -161,6 +218,9 @@ const LISTED_INVITS: InvitData[] = [
 		minimumInvestment: 10000,
 		lotSize: 1,
 		faceValue: 100,
+		sebiAssetClass: "hybrid",
+		sebiCircularRef: SEBI_REIT_CIRCULAR,
+		sebiEffectiveDate: SEBI_EFFECTIVE_DATE,
 	},
 	{
 		symbol: "NHIT",
@@ -177,6 +237,9 @@ const LISTED_INVITS: InvitData[] = [
 		minimumInvestment: 10000,
 		lotSize: 1,
 		faceValue: 100,
+		sebiAssetClass: "hybrid",
+		sebiCircularRef: SEBI_REIT_CIRCULAR,
+		sebiEffectiveDate: SEBI_EFFECTIVE_DATE,
 	},
 	{
 		symbol: "JIOINVIT",
@@ -193,6 +256,9 @@ const LISTED_INVITS: InvitData[] = [
 		minimumInvestment: 100000,
 		lotSize: 1,
 		faceValue: 100,
+		sebiAssetClass: "hybrid",
+		sebiCircularRef: SEBI_REIT_CIRCULAR,
+		sebiEffectiveDate: SEBI_EFFECTIVE_DATE,
 	},
 	{
 		symbol: "ORIENTGREEN",
@@ -209,6 +275,9 @@ const LISTED_INVITS: InvitData[] = [
 		minimumInvestment: 10000,
 		lotSize: 1,
 		faceValue: 100,
+		sebiAssetClass: "hybrid",
+		sebiCircularRef: SEBI_REIT_CIRCULAR,
+		sebiEffectiveDate: SEBI_EFFECTIVE_DATE,
 	},
 	{
 		symbol: "BHINVIT",
@@ -225,8 +294,12 @@ const LISTED_INVITS: InvitData[] = [
 		minimumInvestment: 10000,
 		lotSize: 1,
 		faceValue: 100,
+		sebiAssetClass: "hybrid",
+		sebiCircularRef: SEBI_REIT_CIRCULAR,
+		sebiEffectiveDate: SEBI_EFFECTIVE_DATE,
 	},
 ];
+
 
 const UNLISTED_REITS: UnlistedReitInvitData[] = [
 	{
@@ -443,19 +516,26 @@ export async function seedListedReits(): Promise<number> {
 					lotSize: reit.lotSize,
 					faceValue: reit.faceValue?.toString(),
 					isActive: true,
+					// SEBI classification per circular Nov 28, 2025
+					sebiAssetClass: reit.sebiAssetClass,
+					amfiCapCategory: reit.amfiCapCategory,
+					equityIndexEligible: reit.equityIndexEligible,
+					sebiCircularRef: reit.sebiCircularRef,
+					sebiEffectiveDate: reit.sebiEffectiveDate,
 				});
-				console.log(`✅ Seeded listed REIT: ${reit.name}`);
+				logger.info(`Seeded listed REIT: ${reit.name}`, { event: "seed", entity: "reit", name: reit.name, sebiAssetClass: reit.sebiAssetClass, amfiCapCategory: reit.amfiCapCategory });
 				count++;
 			} else {
-				console.log(`⏭️ Listed REIT already exists: ${reit.name}`);
+				logger.info(`Listed REIT already exists: ${reit.name}`, { event: "seed_skip", entity: "reit", name: reit.name });
 			}
 		} catch (error) {
-			console.error(`❌ Failed to seed REIT ${reit.name}:`, error);
+			logger.error(`Failed to seed REIT ${reit.name}`, { event: "seed_error", entity: "reit", name: reit.name, error });
 		}
 	}
 
 	return count;
 }
+
 
 export async function seedListedInvits(): Promise<number> {
 	let count = 0;
@@ -484,19 +564,24 @@ export async function seedListedInvits(): Promise<number> {
 					lotSize: invit.lotSize,
 					faceValue: invit.faceValue?.toString(),
 					isActive: true,
+					// SEBI classification per circular Nov 28, 2025 — InvITs remain hybrid
+					sebiAssetClass: invit.sebiAssetClass,
+					sebiCircularRef: invit.sebiCircularRef,
+					sebiEffectiveDate: invit.sebiEffectiveDate,
 				});
-				console.log(`✅ Seeded listed InvIT: ${invit.name}`);
+				logger.info(`Seeded listed InvIT: ${invit.name}`, { event: "seed", entity: "invit", name: invit.name, sebiAssetClass: invit.sebiAssetClass });
 				count++;
 			} else {
-				console.log(`⏭️ Listed InvIT already exists: ${invit.name}`);
+				logger.info(`Listed InvIT already exists: ${invit.name}`, { event: "seed_skip", entity: "invit", name: invit.name });
 			}
 		} catch (error) {
-			console.error(`❌ Failed to seed InvIT ${invit.name}:`, error);
+			logger.error(`Failed to seed InvIT ${invit.name}`, { event: "seed_error", entity: "invit", name: invit.name, error });
 		}
 	}
 
 	return count;
 }
+
 
 export async function seedUnlistedReitsInvits(): Promise<number> {
 	let count = 0;
@@ -519,43 +604,40 @@ export async function seedUnlistedReitsInvits(): Promise<number> {
 					status: item.status,
 					pricingStatus: "draft",
 				});
-				console.log(
-					`✅ Seeded unlisted ${item.industry.includes("REIT") ? "REIT" : "InvIT"}: ${item.name}`,
-				);
+				const entityType = item.industry.includes("REIT") ? "REIT" : "InvIT";
+				logger.info(`Seeded unlisted ${entityType}: ${item.name}`, { event: "seed", entity: entityType.toLowerCase(), name: item.name });
 				count++;
 			} else {
-				console.log(`⏭️ Unlisted already exists: ${item.name}`);
+				logger.info(`Unlisted already exists: ${item.name}`, { event: "seed_skip", entity: "unlisted", name: item.name });
 			}
 		} catch (error) {
-			console.error(`❌ Failed to seed unlisted ${item.name}:`, error);
+			logger.error(`Failed to seed unlisted ${item.name}`, { event: "seed_error", entity: "unlisted", name: item.name, error });
 		}
 	}
 
 	return count;
 }
 
+
 export async function seedAllReitsInvits(): Promise<{
 	listedReits: number;
 	listedInvits: number;
 	unlisted: number;
 }> {
-	console.log("🏢 Starting REIT/InvIT Seeding...\n");
+	logger.info("Starting REIT/InvIT Seeding", { event: "seed_start", entity: "reit_invit" });
 
-	console.log("📈 Seeding Listed REITs...");
+	logger.info("Seeding Listed REITs", { event: "seed_phase", phase: "listed_reits" });
 	const listedReits = await seedListedReits();
 
-	console.log("\n🛣️ Seeding Listed InvITs...");
+	logger.info("Seeding Listed InvITs", { event: "seed_phase", phase: "listed_invits" });
 	const listedInvits = await seedListedInvits();
 
-	console.log("\n🔒 Seeding Unlisted REITs & InvITs...");
+	logger.info("Seeding Unlisted REITs & InvITs", { event: "seed_phase", phase: "unlisted" });
 	const unlisted = await seedUnlistedReitsInvits();
 
-	console.log("\n📊 Seeding Summary:");
-	console.log(`   Listed REITs: ${listedReits} added`);
-	console.log(`   Listed InvITs: ${listedInvits} added`);
-	console.log(`   Unlisted REITs/InvITs: ${unlisted} added`);
-	console.log(
-		`   Total: ${listedReits + listedInvits + unlisted} instruments\n`,
+	logger.info(
+		`Seeding summary — REITs: ${listedReits}, InvITs: ${listedInvits}, Unlisted: ${unlisted}`,
+		{ event: "seed_summary", listedReits, listedInvits, unlisted, total: listedReits + listedInvits + unlisted },
 	);
 
 	return { listedReits, listedInvits, unlisted };
@@ -568,12 +650,13 @@ const isMainModule =
 
 if (isMainModule) {
 	seedAllReitsInvits()
-		.then((result) => {
-			console.log("✅ REIT/InvIT seeding completed successfully!");
+		.then((_result) => {
+			logger.info("REIT/InvIT seeding completed successfully", { event: "seed_complete", entity: "reit_invit" });
 			process.exit(0);
 		})
 		.catch((error) => {
-			console.error("❌ REIT/InvIT seeding failed:", error);
+			logger.error("REIT/InvIT seeding failed", { event: "seed_failed", entity: "reit_invit", error });
 			process.exit(1);
 		});
 }
+

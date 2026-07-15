@@ -3311,4 +3311,65 @@ export async function ensureSharedRouteTables(): Promise<void> {
   } catch (e: any) {
     console.warn("  \u26a0\ufe0f  Fix FASP-5 PSU-Defence seed (non-fatal):", e.message?.slice(0, 200));
   }
+
+  // ── Fix SEBI-1: REIT/InvIT SEBI classification columns (Nov 28, 2025 circular) ────────────────
+  // Per SEBI/HO/IMD/IMD-I/DOF5/P/CIR/2025/177 (effective Jan 1, 2026):
+  //   - REITs → equity-related instruments; AMFI classifies by market cap (Large/Mid/Small Cap)
+  //   - InvITs → hybrid instruments (unchanged)
+  //   - REITs eligible for equity indices from July 1, 2026
+  // Columns added: sebi_asset_class, amfi_cap_category, equity_index_eligible,
+  //               sebi_circular_ref, sebi_effective_date
+  try {
+    await migDb.execute(migSql`
+      -- Add SEBI classification columns to reits table
+      ALTER TABLE reits ADD COLUMN IF NOT EXISTS sebi_asset_class    VARCHAR(20)  DEFAULT 'equity';
+      ALTER TABLE reits ADD COLUMN IF NOT EXISTS amfi_cap_category   VARCHAR(20);
+      ALTER TABLE reits ADD COLUMN IF NOT EXISTS equity_index_eligible BOOLEAN    DEFAULT true;
+      ALTER TABLE reits ADD COLUMN IF NOT EXISTS sebi_circular_ref   VARCHAR(100) DEFAULT 'SEBI/HO/IMD/IMD-I/DOF5/P/CIR/2025/177';
+      ALTER TABLE reits ADD COLUMN IF NOT EXISTS sebi_effective_date TIMESTAMP;
+
+      -- Add SEBI classification columns to invits table
+      ALTER TABLE invits ADD COLUMN IF NOT EXISTS sebi_asset_class   VARCHAR(20)  DEFAULT 'hybrid';
+      ALTER TABLE invits ADD COLUMN IF NOT EXISTS sebi_circular_ref  VARCHAR(100) DEFAULT 'SEBI/HO/IMD/IMD-I/DOF5/P/CIR/2025/177';
+      ALTER TABLE invits ADD COLUMN IF NOT EXISTS sebi_effective_date TIMESTAMP;
+    `);
+
+    // Backfill SEBI metadata on all existing REITs
+    await migDb.execute(migSql`
+      UPDATE reits SET
+        sebi_asset_class      = 'equity',
+        equity_index_eligible = true,
+        sebi_circular_ref     = 'SEBI/HO/IMD/IMD-I/DOF5/P/CIR/2025/177',
+        sebi_effective_date   = '2026-01-01 00:00:00'
+      WHERE sebi_asset_class IS NULL OR sebi_asset_class != 'equity';
+    `);
+
+    // Auto-classify AMFI market-cap band from existing market_cap column.
+    // Thresholds (AMFI Jan 2026 scrip list):
+    //   Large Cap  >= INR 200,000,000,000  (₹20,000 Cr)
+    //   Mid Cap    >= INR  50,000,000,000  ( ₹5,000 Cr)
+    //   Small Cap   < INR  50,000,000,000
+    await migDb.execute(migSql`
+      UPDATE reits SET amfi_cap_category =
+        CASE
+          WHEN market_cap >= 200000000000 THEN 'Large Cap'
+          WHEN market_cap >= 50000000000  THEN 'Mid Cap'
+          ELSE 'Small Cap'
+        END
+      WHERE market_cap IS NOT NULL AND amfi_cap_category IS NULL;
+    `);
+
+    // Backfill SEBI metadata on all existing InvITs
+    await migDb.execute(migSql`
+      UPDATE invits SET
+        sebi_asset_class    = 'hybrid',
+        sebi_circular_ref   = 'SEBI/HO/IMD/IMD-I/DOF5/P/CIR/2025/177',
+        sebi_effective_date = '2026-01-01 00:00:00'
+      WHERE sebi_asset_class IS NULL OR sebi_asset_class != 'hybrid';
+    `);
+
+    console.log("  ✅ Fix SEBI-1: REIT/InvIT SEBI classification columns applied (Nov 28, 2025 circular)");
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix SEBI-1 REIT/InvIT classification (non-fatal):", e.message?.slice(0, 200));
+  }
 }
