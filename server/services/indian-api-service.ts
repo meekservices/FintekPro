@@ -20,6 +20,7 @@
 import axios, { AxiosInstance } from "axios";
 import { requestDedupeService } from "./request-deduplication-service";
 import { logger } from "../logger";
+import { CircuitBreaker, CircuitOpenError } from "../utils/circuit-breaker";
 
 const INDIAN_API_KEY = process.env.INDIAN_API_KEY || "";
 const INDIAN_API_BASE_URL = "https://analyst.indianapi.in";
@@ -279,6 +280,13 @@ class IndianAPIService {
 	private requestCount = 0;
 	private windowStart = Date.now();
 
+	private circuitBreaker = new CircuitBreaker({
+		name: "IndianAPI",
+		failureThreshold: 5,
+		cooldownMs: 30_000,
+		successThreshold: 2,
+	});
+
 	constructor() {
 		this.isConfigured = Boolean(INDIAN_API_KEY);
 		this.client = axios.create({
@@ -308,6 +316,7 @@ class IndianAPIService {
 			endpoints_active: 31,
 			rateLimitRemaining: this.getRateLimitRemaining(),
 			source: "indian_api",
+			circuitBreaker: this.circuitBreaker.getStatus(),
 		};
 	}
 
@@ -337,8 +346,12 @@ class IndianAPIService {
 		for (let attempt = 0; attempt <= retries; attempt++) {
 			try {
 				await this.checkRateLimit();
-				return await fn();
+				// Wrap each attempt in the circuit breaker so cascading vendor
+				// failures trip OPEN state and fast-fail subsequent requests.
+				return await this.circuitBreaker.execute(() => fn());
 			} catch (error: any) {
+				// Circuit open — propagate immediately, no retries
+				if (error instanceof CircuitOpenError) throw error;
 				lastError = error;
 				const status = error.response?.status;
 				if (status === 429 || (status && status >= 500)) {

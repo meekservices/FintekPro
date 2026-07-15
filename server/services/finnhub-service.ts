@@ -16,6 +16,7 @@
 import axios, { AxiosInstance } from "axios";
 import { ExternalServiceError, ValidationError } from "../utils/errors";
 import { requestDedupeService } from "./request-deduplication-service";
+import { CircuitBreaker, CircuitOpenError } from "../utils/circuit-breaker";
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || "";
 const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
@@ -124,6 +125,12 @@ class FinnhubService {
 	private isConfigured: boolean;
 	private requestCount: number = 0;
 	private windowStart: number = Date.now();
+	private circuitBreaker = new CircuitBreaker({
+		name: "Finnhub",
+		failureThreshold: 5,
+		cooldownMs: 30_000,
+		successThreshold: 2,
+	});
 
 	constructor() {
 		this.isConfigured = Boolean(FINNHUB_API_KEY);
@@ -153,11 +160,13 @@ class FinnhubService {
 		configured: boolean;
 		baseUrl: string;
 		rateLimitRemaining: number;
+		circuitBreaker: ReturnType<CircuitBreaker["getStatus"]>;
 	} {
 		return {
 			configured: this.isConfigured,
 			baseUrl: FINNHUB_BASE_URL,
 			rateLimitRemaining: this.getRateLimitRemaining(),
+			circuitBreaker: this.circuitBreaker.getStatus(),
 		};
 	}
 
@@ -191,8 +200,11 @@ class FinnhubService {
 		for (let attempt = 0; attempt <= retries; attempt++) {
 			try {
 				await this.checkRateLimit();
-				return await fn();
+				// Wrap each attempt in the circuit breaker
+				return await this.circuitBreaker.execute(() => fn());
 			} catch (error: any) {
+				// Circuit open — fast-fail, no retries
+				if (error instanceof CircuitOpenError) throw error;
 				lastError = error;
 
 				if (error.response?.status === 429) {

@@ -1,6 +1,7 @@
 import yahooFinance from "yahoo-finance2";
 import { pool } from "../db";
 import { callPython } from "../clients/python-client";
+import { distributedCache } from "../utils/distributed-cache";
 
 interface Stock {
 	symbol: string;
@@ -1102,8 +1103,41 @@ class MarketMoversCache {
 		);
 	}
 
+	private async loadFromRedis(): Promise<MarketMoversData | null> {
+		try {
+			const cached = await distributedCache.getJson<MarketMoversData>("market:movers:v1");
+			if (cached && cached.gainers?.length > 0) {
+				console.log("⚡ [MarketMoversCache] Loaded from Redis (L2 cache)");
+				return cached;
+			}
+		} catch (err) {
+			console.warn("[MarketMoversCache] Redis L2 read failed, falling through to DB", err);
+		}
+		return null;
+	}
+
+	private async saveToRedis(data: MarketMoversData): Promise<void> {
+		try {
+			await distributedCache.setJson("market:movers:v1", data, Math.floor(CACHE_TTL_MS / 1000));
+			console.log("💾 [MarketMoversCache] Saved to Redis (L2 cache)");
+		} catch (err) {
+			console.warn("[MarketMoversCache] Redis L2 write failed", err);
+		}
+	}
+
 	private async initializeInBackground(): Promise<void> {
-		// Try to load from database first (much faster, no API calls)
+		// L2: Try Redis first — survives restarts, much faster than DB or API
+		const redisData = await this.loadFromRedis();
+		if (redisData) {
+			this.cache = { data: redisData, timestamp: Date.now(), isRefreshing: false };
+			this.metrics.lastSuccessfulProvider = "redis";
+			this.isInitialized = true;
+			// Background refresh to keep Redis warm without blocking boot
+			setTimeout(() => this.refreshCache().catch(console.error), 5000);
+			return;
+		}
+
+		// L3: Try database if Redis is cold
 		const dbData = await this.loadFromDatabase();
 		if (dbData && dbData.gainers.length > 0) {
 			this.cache = {
@@ -1114,15 +1148,16 @@ class MarketMoversCache {
 			this.metrics.lastSuccessfulProvider = "database";
 			this.isInitialized = true;
 			console.log(
-				"✅ [MarketMoversCache] Initialized from database (fast path)",
+				"✅ [MarketMoversCache] Initialized from database (L3 fast path)",
 			);
-
-			// Schedule a background refresh to update the data
+			// Backfill Redis from DB data immediately
+			await this.saveToRedis(dbData);
+			// Then schedule a full API refresh
 			setTimeout(() => this.refreshCache().catch(console.error), 5000);
 			return;
 		}
 
-		// Fall back to API refresh if database is empty
+		// L4: Full API refresh if both Redis and DB are cold
 		await this.refreshCache();
 		this.isInitialized = true;
 		console.log(
@@ -1473,7 +1508,12 @@ class MarketMoversCache {
 			this.metrics.lastRefreshDuration = Date.now() - startTime;
 			this.metrics.lastSuccessfulProvider = successProvider;
 
-			// Save to database for persistence (non-blocking)
+			// Save to Redis (L2) — survives restarts, serves cold-start instantly
+			this.saveToRedis({ gainers, losers }).catch((err) =>
+				console.warn("⚠️ [MarketMoversCache] Redis save failed:", err),
+			);
+
+			// Save to database (L3) for persistence (non-blocking)
 			this.saveToDatabase(stockQuotes, successProvider || "unknown").catch(
 				(err) =>
 					console.warn("⚠️ [MarketMoversCache] Background DB save failed:", err),
