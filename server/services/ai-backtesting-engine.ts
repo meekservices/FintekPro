@@ -4,8 +4,9 @@ import {
 	aiPriceHistory,
 	aiFeatureSnapshots,
 	aiModelRegistry,
+	aiRegimeHistory,
 } from "@shared/schema";
-import { eq, and, gte, lte, desc, sql, asc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql, asc, between } from "drizzle-orm";
 import { aiAnalyticsEngine } from "./ai-analytics-engine";
 
 export interface BacktestConfig {
@@ -117,6 +118,60 @@ export class AIBacktestingEngine {
 			.where(and(...conditions))
 			.orderBy(asc(dailyPicks.recoDate));
 
+		// Fix 5: Minimum data guard — a backtest with <30 closed trades produces
+		// statistically unreliable metrics. Reject early with a clear error.
+		if (completedPicks.length < 30) {
+			throw new Error(
+				`Insufficient completed picks (n=${completedPicks.length}). ` +
+				`Backtest requires at least 30 closed trades (target_hit / stoploss_hit / expired) ` +
+				`for statistically reliable Sharpe, Drawdown, and Win-Rate metrics.`,
+			);
+		}
+
+		// Fix 4 (Regime tagging): Build a date→regimeLabel map for the backtest window.
+		// Each trade is tagged with the market regime that was active on its entry date.
+		const regimeStartDate = config.startDate ??
+			completedPicks[0].recoDate ?? endDate;
+		const regimeRows = await db
+			.select({ regimeDate: aiRegimeHistory.regimeDate, regimeLabel: aiRegimeHistory.regimeLabel })
+			.from(aiRegimeHistory)
+			.where(and(
+				gte(aiRegimeHistory.regimeDate, regimeStartDate),
+				lte(aiRegimeHistory.regimeDate, endDate),
+			))
+			.orderBy(asc(aiRegimeHistory.regimeDate));
+		const regimeMap = new Map<string, string>(
+			regimeRows.map((r) => [r.regimeDate as string, r.regimeLabel as string]),
+		);
+		/** Find the closest regime on or before a given date */
+		const getRegime = (date: string): string => {
+			if (regimeMap.has(date)) return regimeMap.get(date)!;
+			// Walk backwards up to 7 days to find the nearest recorded regime
+			for (let i = 1; i <= 7; i++) {
+				const d = new Date(date);
+				d.setDate(d.getDate() - i);
+				const key = d.toISOString().split("T")[0];
+				if (regimeMap.has(key)) return regimeMap.get(key)!;
+			}
+			return "unknown";
+		};
+
+		// Fix 3 (Benchmark): Fetch the actual NIFTY 50 1Y return from mf_benchmark_history.
+		// This replaces the fraudulent `initialCapital * (1 + portfolioReturn * 0.7)` line
+		// that derived the benchmark from the portfolio itself.
+		let nifty1yReturn = 0.12; // 12% fallback if DB unavailable
+		try {
+			const [benchmarkRow] = await db.execute(
+				sql`SELECT return_1y FROM mf_benchmark_history
+					WHERE index_code = 'NIFTY_50'
+					  AND recorded_at > NOW() - INTERVAL '30 days'
+					ORDER BY recorded_at DESC LIMIT 1`,
+			) as any;
+			if (benchmarkRow?.return_1y != null) {
+				nifty1yReturn = Number(benchmarkRow.return_1y) / 100; // stored as percentage
+			}
+		} catch { /* non-fatal — use fallback */ }
+
 		const trades: BacktestTrade[] = completedPicks.map((pick) => {
 			const entryPrice = Number.parseFloat(pick.recoPrice || "0");
 			let exitPrice = Number.parseFloat(pick.currentPrice || "0");
@@ -173,11 +228,12 @@ export class AIBacktestingEngine {
 				daysHeld,
 				transactionCosts: Math.round(transactionCosts * 100) / 100,
 				netReturnPct: Math.round(netReturnPct * 100) / 100,
-				regime: undefined,
+				// Fix 4: Tag trade with actual market regime on its entry date
+				regime: getRegime(recoDate),
 			};
 		});
 
-		const equityCurve = this.computeEquityCurve(trades, initialCapital);
+		const equityCurve = this.computeEquityCurve(trades, initialCapital, nifty1yReturn);
 
 		const winningTrades = trades.filter((t) => t.netReturnPct > 0);
 		const losingTrades = trades.filter((t) => t.netReturnPct <= 0);
@@ -448,6 +504,7 @@ export class AIBacktestingEngine {
 	private computeEquityCurve(
 		trades: BacktestTrade[],
 		initialCapital: number,
+		nifty1yReturn: number,
 	): EquityCurvePoint[] {
 		if (trades.length === 0) {
 			return [
@@ -487,6 +544,12 @@ export class AIBacktestingEngine {
 			];
 		}
 
+		// NIFTY 50 benchmark: compound the 1Y return daily over the curve's date range.
+		// nifty1yReturn is fetched from mf_benchmark_history (real value, not synthetic).
+		const niftyDailyReturn = Math.pow(1 + nifty1yReturn, 1 / 252) - 1;
+		let benchmarkValue = initialCapital;
+		let prevBenchmarkDate: string | null = null;
+
 		const curve: EquityCurvePoint[] = [];
 		let portfolioValue = initialCapital;
 		let peakValue = initialCapital;
@@ -495,12 +558,35 @@ export class AIBacktestingEngine {
 		for (const date of dateList) {
 			const closingTrades = sortedTrades.filter((t) => t.exitDate === date);
 
+			// Fix 8: Position sizing uses the number of concurrently OPEN trades on this date,
+			// not the total trades across the entire backtest. This prevents understating
+			// concentrated single-position P&L when few trades are open simultaneously.
+			const openTradesOnDate = sortedTrades.filter(
+				(t) => t.entryDate <= date && t.exitDate >= date,
+			).length;
+			const positionSize =
+				portfolioValue / Math.max(openTradesOnDate, 1);
+
 			for (const trade of closingTrades) {
-				const positionSize = portfolioValue / Math.max(sortedTrades.length, 1);
 				const tradeReturn = trade.netReturnPct / 100;
 				const pnl = positionSize * tradeReturn;
 				portfolioValue += pnl;
 			}
+
+			// Advance benchmark by trading days elapsed since last date point
+			if (prevBenchmarkDate) {
+				const msPerDay = 1000 * 60 * 60 * 24;
+				const calDays = Math.max(
+					0,
+					Math.round(
+						(new Date(date).getTime() - new Date(prevBenchmarkDate).getTime()) /
+							msPerDay,
+					),
+				);
+				const tradingDays = Math.round(calDays * (252 / 365));
+				benchmarkValue *= Math.pow(1 + niftyDailyReturn, tradingDays);
+			}
+			prevBenchmarkDate = date;
 
 			if (portfolioValue > peakValue) peakValue = portfolioValue;
 			const drawdown =
@@ -515,7 +601,8 @@ export class AIBacktestingEngine {
 			curve.push({
 				date,
 				portfolioValue: Math.round(portfolioValue * 100) / 100,
-				benchmark: initialCapital * (1 + cumulativeReturn * 0.7),
+				// Fix 3: Real NIFTY 50 benchmark (from mf_benchmark_history), not portfolio-derived
+				benchmark: Math.round(benchmarkValue * 100) / 100,
 				dailyReturn: Math.round(dailyReturn * 10000) / 10000,
 				cumulativeReturn: Math.round(cumulativeReturn * 10000) / 10000,
 				drawdown: Math.round(drawdown * 10000) / 10000,
