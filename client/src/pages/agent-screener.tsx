@@ -68,15 +68,182 @@ import {
 	Layers,
 	Globe,
 } from "lucide-react";
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectorDistributionPanel } from "@/components/screener/SectorDistributionPanel";
 
-type ScreenerType = "mutual_fund" | "stock" | "bond" | "etf";
+type ScreenerType = "mutual_fund" | "stock" | "bond" | "etf" | "global_stock";
 type ViewMode = "table" | "cards";
+
+// ─── Global Stocks inline panel (NASDAQ-100 + S&P 500) ────────────────────────
+function GlobalStocksPanel() {
+	const [exchange, setExchange] = useState<"ALL" | "NASDAQ" | "SP500">("ALL");
+	const [search, setSearch] = useState("");
+	const [debouncedSearch, setDebouncedSearch] = useState("");
+	const [page, setPage] = useState(1);
+	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const LIMIT = 20;
+
+	const handleSearch = (val: string) => {
+		setSearch(val);
+		if (debounceRef.current) clearTimeout(debounceRef.current);
+		debounceRef.current = setTimeout(() => {
+			setDebouncedSearch(val.toUpperCase().trim());
+			setPage(1);
+		}, 350);
+	};
+
+	const { data, isLoading, isFetching, refetch, dataUpdatedAt } = useQuery<any>({
+		queryKey: ["/api/us-trading/market/screener", exchange, debouncedSearch, page],
+		queryFn: async () => {
+			const p = new URLSearchParams({ exchange, search: debouncedSearch, page: String(page), limit: String(LIMIT) });
+			const r = await fetch(`/api/us-trading/market/screener?${p}`);
+			if (!r.ok) throw new Error(await r.text());
+			return r.json();
+		},
+		refetchInterval: 60_000,
+		staleTime: 30_000,
+	});
+
+	const screener   = data?.data;
+	const stocks     = screener?.stocks ?? [];
+	const pagination = screener?.pagination;
+	const fxRate     = screener?.exchangeRate?.rate ?? 84.5;
+	const lastUpdate = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString("en-IN") : "—";
+
+	const fmtUsd = (n: number | null) => n == null ? "—" : `$${Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+	const fmtInr = (n: number | null) => n == null ? "—" : `₹${Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+	const fmtVol = (n: number | null) => { if (!n) return "—"; if (n >= 1e6) return `${(n/1e6).toFixed(1)}M`; if (n >= 1e3) return `${(n/1e3).toFixed(0)}K`; return String(n); };
+	const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${Number(n).toFixed(2)}%`;
+
+	const TABS = [
+		{ key: "ALL",    label: "All" },
+		{ key: "NASDAQ", label: "NASDAQ-100" },
+		{ key: "SP500",  label: "S&P 500" },
+	] as const;
+
+	return (
+		<div className="space-y-3 pt-1">
+			{/* Header */}
+			<div className="flex items-center justify-between gap-3 flex-wrap">
+				<div className="flex items-center gap-2">
+					{TABS.map(t => (
+						<button key={t.key} type="button"
+							onClick={() => { setExchange(t.key); setPage(1); }}
+							className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+								exchange === t.key
+									? "bg-rose-600 text-white shadow-sm"
+									: "bg-muted/60 text-muted-foreground hover:text-foreground"
+							}`}
+						>{t.label}</button>
+					))}
+				</div>
+				<div className="flex items-center gap-2 ml-auto">
+					<div className="relative">
+						<Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+						<Input value={search} onChange={e => handleSearch(e.target.value)}
+							placeholder="Search symbol…" className="pl-7 h-7 text-xs w-40 bg-background" />
+					</div>
+					<Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => refetch()} disabled={isFetching}>
+						<RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
+						Refresh
+					</Button>
+					<span className="text-[10px] text-muted-foreground whitespace-nowrap">
+						USD/INR {fxRate.toFixed(2)} · {lastUpdate}
+					</span>
+				</div>
+			</div>
+
+			{/* Table */}
+			<div className="rounded-lg border border-border/50 overflow-hidden">
+				<div className="overflow-x-auto">
+					<table className="w-full text-xs">
+						<thead>
+							<tr className="bg-muted/40 border-b border-border/40">
+								<th className="text-left px-3 py-2 font-semibold text-muted-foreground">Symbol</th>
+								<th className="text-left px-2 py-2 font-semibold text-muted-foreground">Index</th>
+								<th className="text-right px-2 py-2 font-semibold text-muted-foreground">Price (USD)</th>
+								<th className="text-right px-2 py-2 font-semibold text-muted-foreground">Price (INR)</th>
+								<th className="text-right px-2 py-2 font-semibold text-muted-foreground">Change</th>
+								<th className="text-right px-2 py-2 font-semibold text-muted-foreground hidden md:table-cell">High</th>
+								<th className="text-right px-2 py-2 font-semibold text-muted-foreground hidden md:table-cell">Low</th>
+								<th className="text-right px-2 py-2 font-semibold text-muted-foreground hidden lg:table-cell">Volume</th>
+							</tr>
+						</thead>
+						<tbody className="divide-y divide-border/20">
+							{isLoading ? Array.from({length: 10}).map((_, i) => (
+								<tr key={i}>
+									{Array.from({length: 8}).map((__, j) => (
+										<td key={j} className="px-2 py-2"><Skeleton className="h-3.5 w-full rounded" /></td>
+									))}
+								</tr>
+							)) : stocks.map((s: any) => {
+								const up = s.changePercent >= 0;
+								return (
+									<tr key={s.symbol} className="hover:bg-muted/20 transition-colors">
+										<td className="px-3 py-2">
+											<div className="flex items-center gap-1.5">
+												<div className="h-6 w-6 rounded bg-gradient-to-br from-rose-500/10 to-violet-500/10 border border-border/40 flex items-center justify-center text-[9px] font-bold">{s.symbol.slice(0,2)}</div>
+												<div>
+													<div className="font-semibold tracking-wide">{s.symbol}</div>
+													<div className="text-[9px] text-muted-foreground">{s.exchange}</div>
+												</div>
+											</div>
+										</td>
+										<td className="px-2 py-2">
+											<div className="flex gap-0.5 flex-wrap">
+												{s.indices?.map((idx: string) => (
+													<span key={idx} className={`px-1 py-0.5 rounded-full text-[8px] font-semibold ${idx === "NASDAQ-100" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}>{idx}</span>
+												))}
+											</div>
+										</td>
+										<td className="px-2 py-2 text-right font-mono font-semibold">{fmtUsd(s.price)}</td>
+										<td className="px-2 py-2 text-right font-mono text-muted-foreground">{fmtInr(s.priceINR)}</td>
+										<td className="px-2 py-2 text-right">
+											<span className={`font-semibold ${up ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+												{fmtPct(s.changePercent)}
+											</span>
+										</td>
+										<td className="px-2 py-2 text-right font-mono text-muted-foreground hidden md:table-cell">{fmtUsd(s.high)}</td>
+										<td className="px-2 py-2 text-right font-mono text-muted-foreground hidden md:table-cell">{fmtUsd(s.low)}</td>
+										<td className="px-2 py-2 text-right font-mono text-muted-foreground hidden lg:table-cell">{fmtVol(s.volume)}</td>
+									</tr>
+								);
+							})}
+						</tbody>
+					</table>
+				</div>
+				{!isLoading && stocks.length === 0 && (
+					<div className="py-10 text-center text-sm text-muted-foreground">No stocks found for "{search}"</div>
+				)}
+			</div>
+
+			{/* Pagination */}
+			{pagination && pagination.pages > 1 && (
+				<div className="flex items-center justify-between text-xs text-muted-foreground">
+					<span>Showing {(pagination.page-1)*pagination.limit+1}–{Math.min(pagination.page*pagination.limit, pagination.total)} of {pagination.total}</span>
+					<div className="flex items-center gap-1.5">
+						<Button size="icon" variant="outline" className="h-6 w-6" disabled={page<=1||isFetching} onClick={() => setPage(p=>p-1)}>
+							<ChevronLeft className="h-3 w-3" />
+						</Button>
+						<span>{pagination.page}/{pagination.pages}</span>
+						<Button size="icon" variant="outline" className="h-6 w-6" disabled={page>=pagination.pages||isFetching} onClick={() => setPage(p=>p+1)}>
+							<ChevronRight className="h-3 w-3" />
+						</Button>
+					</div>
+				</div>
+			)}
+
+			{/* Disclaimer */}
+			<p className="text-[10px] text-muted-foreground border-t border-border/30 pt-2">
+				Prices via Alpaca IEX (15-min delayed during market hours). INR at live USD/INR rate. Not investment advice.
+			</p>
+		</div>
+	);
+}
 
 interface ScreenerCriteria {
 	field: string;
@@ -1140,16 +1307,20 @@ export default function AgentScreener() {
 								{label}
 							</button>
 						))}
-						{/* ── Global / US Stocks — NASDAQ-100 + S&P 500 listed stocks — */}
-						<a
-							href="/agent/global-stocks"
-							className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-150 border bg-background text-rose-600 dark:text-rose-400 border-border hover:bg-muted/60"
+						{/* ── Global Stocks — inline tab like Stocks/MF ── */}
+						<button
+							type="button"
+							onClick={() => setScreenerType("global_stock")}
 							title="NASDAQ-100 + S&P 500 listed stocks with live prices"
+							className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-150 border ${
+								screenerType === "global_stock"
+									? "bg-rose-600 dark:bg-rose-500 text-white border-transparent shadow-sm"
+									: "bg-background text-rose-600 dark:text-rose-400 border-border hover:bg-muted/60"
+							}`}
 						>
 							<Globe className="h-3.5 w-3.5" />
 							Global Stocks
-							<span className="ml-0.5 text-[9px] opacity-60 font-normal">↗</span>
-						</a>
+						</button>
 					</div>
 				</CardHeader>
 
@@ -2661,9 +2832,13 @@ export default function AgentScreener() {
 								)}
 							</div>
 							)}
-						</div>
-					</CardContent>
-				</TabsContent>
+							{/* ── Global Stocks — NASDAQ-100 + S&P 500 (inline panel) ── */}
+								{screenerType === "global_stock" && (
+									<GlobalStocksPanel />
+								)}
+							</div>
+						</CardContent>
+					</TabsContent>
 
 					<TabsContent value="builder" className="m-0">
 						<CardContent className="pt-6">
