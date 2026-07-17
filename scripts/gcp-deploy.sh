@@ -175,16 +175,65 @@ gcloud run services update-traffic $SERVICE_NAME \
 echo "✅ Deployment complete!"
 gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format='value(status.url)'
 
-# ── Update Cloud Run Job image (keeps schema-repairs in sync with app) ────────
+# ── Update ALL Cloud Run Jobs (image + Cloud SQL + secrets) ───────────────────
+# All 3 cron jobs need --add-cloudsql-instances so the /cloudsql socket exists.
+# Without it, the DB connection silently fails and jobs exit(0) in <500ms.
+
 echo ""
-echo "🔧 Updating fintekpro-schema-repairs job to latest image..."
+echo "🔧 Updating fintekpro-schema-repairs job..."
 gcloud run jobs update fintekpro-schema-repairs \
     --image=asia-south1-docker.pkg.dev/${PROJECT_ID}/fintekpro-repo/fintekpro-app:latest \
     --project=$PROJECT_ID \
     --region=$REGION \
+    --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
     --command="node" \
-    --args="dist/startup/schema-repairs-runner.js" 2>&1 | tail -3
-echo "✅ Schema-repairs job image updated — next job execution will use the latest code."
+    --args="dist/startup/schema-repairs-runner.js" \
+    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest" \
+    2>&1 | tail -3
+
+echo ""
+echo "🔧 Updating fintekpro-compliance job..."
+gcloud run jobs update fintekpro-compliance \
+    --image=asia-south1-docker.pkg.dev/${PROJECT_ID}/fintekpro-repo/fintekpro-app:latest \
+    --project=$PROJECT_ID \
+    --region=$REGION \
+    --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
+    --vpc-connector=fintekpro-vpc-connector \
+    --vpc-egress=all \
+    --command="node" \
+    --args="dist/jobs/compliance.js" \
+    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,EMAIL_HOST=EMAIL_HOST:latest,EMAIL_USER=EMAIL_USER:latest,EMAIL_PASS=EMAIL_PASS:latest,EMAIL_PORT=EMAIL_PORT:latest,EMAIL_FROM=EMAIL_FROM:latest,TWILIO_ACCOUNT_SID=TWILIO_ACCOUNT_SID:latest,TWILIO_AUTH_TOKEN=TWILIO_AUTH_TOKEN:latest,TWILIO_PHONE_NUMBER=TWILIO_PHONE_NUMBER:latest,COMPLIANCE_SECRET=COMPLIANCE_SECRET:latest" \
+    2>&1 | tail -3
+
+echo ""
+echo "🔧 Updating fintekpro-enrichment job..."
+gcloud run jobs update fintekpro-enrichment \
+    --image=asia-south1-docker.pkg.dev/${PROJECT_ID}/fintekpro-repo/fintekpro-app:latest \
+    --project=$PROJECT_ID \
+    --region=$REGION \
+    --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
+    --vpc-connector=fintekpro-vpc-connector \
+    --vpc-egress=all \
+    --command="node" \
+    --args="dist/jobs/enrichment.js" \
+    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,FMP_API_KEY=FMP_API_KEY:latest,INDIAN_API_KEY=INDIAN_API_KEY:latest,FINNHUB_API_KEY=FINNHUB_API_KEY:latest,ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest,EMAIL_HOST=EMAIL_HOST:latest,EMAIL_USER=EMAIL_USER:latest,EMAIL_PASS=EMAIL_PASS:latest,EMAIL_PORT=EMAIL_PORT:latest,EMAIL_FROM=EMAIL_FROM:latest" \
+    2>&1 | tail -3
+
+echo ""
+echo "🔧 Updating fintekpro-nav-sync job..."
+gcloud run jobs update fintekpro-nav-sync \
+    --image=asia-south1-docker.pkg.dev/${PROJECT_ID}/fintekpro-repo/fintekpro-app:latest \
+    --project=$PROJECT_ID \
+    --region=$REGION \
+    --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
+    --vpc-connector=fintekpro-vpc-connector \
+    --vpc-egress=all \
+    --command="node" \
+    --args="dist/jobs/nav-sync.js" \
+    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,EMAIL_HOST=EMAIL_HOST:latest,EMAIL_USER=EMAIL_USER:latest,EMAIL_PASS=EMAIL_PASS:latest,EMAIL_PORT=EMAIL_PORT:latest,EMAIL_FROM=EMAIL_FROM:latest" \
+    2>&1 | tail -3
+
+echo "✅ All 4 Cloud Run Jobs updated — next executions will have DB access + latest code."
 
 # ── Firebase Hosting Deploy (serves the static frontend at agent.fintekpro.com) ──
 echo ""
