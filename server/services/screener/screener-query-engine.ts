@@ -598,12 +598,15 @@ export async function getScreenerDistribution() {
           WHEN LOWER(TRIM(market_cap_category)) IN ('mid','mid cap')     THEN 'mid'
           WHEN LOWER(TRIM(market_cap_category)) IN ('small','small cap') THEN 'small'
           WHEN LOWER(TRIM(market_cap_category)) IN ('micro','micro cap') THEN 'micro'
-          -- 2. Derive from market_cap_value (stored in absolute INR) when category missing
-          --    Thresholds mirror categorizeMarketCap() in enrichment-service.ts:
-          --    crores = value / 10_000_000  →  Mega≥1L, Large≥20K, Mid≥5K, Small≥500
-          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 1000000000000 THEN 'mega'
-          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 200000000000  THEN 'large'
-          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 50000000000   THEN 'mid'
+          -- 2. Derive from market_cap_value (absolute INR) — SEBI/AMFI thresholds:
+          --    Mega  >= 5,00,000 Cr  (top blue-chips ≥ ₹5,000,000,000,000)
+          --    Large >= 1,05,000 Cr  (top 100 SEBI large-cap ≥ ₹1,050,000,000,000)
+          --    Mid   >= 34,500 Cr    (rank 101-250 SEBI mid-cap ≥ ₹345,000,000,000)
+          --    Small >= 500 Cr       (rank 251+ down to ₹500 Cr ≥ ₹5,000,000,000)
+          --    Micro < 500 Cr        (everything below ₹500 Cr)
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 5000000000000 THEN 'mega'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 1050000000000 THEN 'large'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 345000000000  THEN 'mid'
           WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 5000000000    THEN 'small'
           WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >  0             THEN 'micro'
         END AS category,
@@ -620,6 +623,7 @@ export async function getScreenerDistribution() {
     ) d ON d.category = b.category
     ORDER BY b.sort_order
   `);
+
 
 	const sectorDist = await db.execute(sql`
     SELECT sector, COUNT(*) as count 

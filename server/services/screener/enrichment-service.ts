@@ -898,9 +898,15 @@ export async function seedFromListedStocks(
           WHEN LOWER(market_cap_category) IN ('mid cap','mid')      THEN 'mid'
           WHEN LOWER(market_cap_category) IN ('small cap','small')  THEN 'small'
           WHEN LOWER(market_cap_category) IN ('micro cap','micro')  THEN 'micro'
-          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 1000000000000 THEN 'mega'
-          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 200000000000  THEN 'large'
-          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 50000000000   THEN 'mid'
+          -- SEBI/AMFI thresholds (INR absolute):
+          --   Mega  >= ₹5,00,000 Cr  (top blue-chips: RIL, TCS, HDFC etc.)
+          --   Large >= ₹1,05,000 Cr  (top 100 — SEBI large-cap definition)
+          --   Mid   >= ₹34,500 Cr    (rank 101-250 — SEBI mid-cap definition)
+          --   Small >= ₹500 Cr       (rank 251+ down to ₹500 Cr)
+          --   Micro < ₹500 Cr        (sub-₹500 Cr listed stocks)
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 5000000000000 THEN 'mega'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 1050000000000 THEN 'large'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 345000000000  THEN 'mid'
           WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 5000000000    THEN 'small'
           WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >  0             THEN 'micro'
           ELSE market_cap_category
@@ -1013,10 +1019,17 @@ export function isProductionEnrichmentAllowed(): boolean {
 
 function categorizeMarketCap(cap: number): string {
 	if (!cap || cap <= 0) return "unknown";
-	const crores = cap / 10000000;
-	if (crores >= 100000) return "mega";
-	if (crores >= 20000) return "large";
-	if (crores >= 5000) return "mid";
-	if (crores >= 500) return "small";
+	// cap is in absolute INR (FMP mktCap field)
+	// SEBI/AMFI classification (rank-based, approximate INR thresholds):
+	//   Mega  >= ₹5,00,000 Cr  — top blue-chips (RIL, TCS, HDFC, INFY etc.)
+	//   Large >= ₹1,05,000 Cr  — top 100 companies (SEBI large-cap)
+	//   Mid   >= ₹34,500 Cr    — rank 101-250 (SEBI mid-cap)
+	//   Small >= ₹500 Cr       — rank 251+ down to ₹500 Cr
+	//   Micro < ₹500 Cr        — sub-₹500 Cr listed stocks
+	const crores = cap / 10_000_000;
+	if (crores >= 500_000) return "mega";
+	if (crores >= 105_000) return "large";
+	if (crores >= 34_500)  return "mid";
+	if (crores >= 500)     return "small";
 	return "micro";
 }
