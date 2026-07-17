@@ -41,10 +41,10 @@ async function run(): Promise<void> {
 		// Phase A: KYC expiry checks
 		logger.info(`[${JOB_NAME}] Phase A: KYC expiry monitoring`);
 		try {
-			const { startKycExpiryMonitor } = await import(
-				"../server/startup/background-schedulers"
+			const { kycExpiryMonitor } = await import(
+				"../server/services/kyc-expiry-monitor"
 			);
-			await startKycExpiryMonitor();
+			await kycExpiryMonitor.runCheck();
 			logger.info(`[${JOB_NAME}] Phase A complete: KYC expiry checks`);
 		} catch (err) {
 			logger.warn(`[${JOB_NAME}] Phase A failed (non-fatal)`, { error: String(err) });
@@ -53,10 +53,10 @@ async function run(): Promise<void> {
 		// Phase B: LRS/TCS compliance scans
 		logger.info(`[${JOB_NAME}] Phase B: LRS/TCS monitoring`);
 		try {
-			const { startKycLrsMonitor } = await import(
-				"../server/startup/background-schedulers"
+			const { kycLrsMonitorService } = await import(
+				"../server/services/kyc-lrs-monitor-service"
 			);
-			await startKycLrsMonitor();
+			await kycLrsMonitorService.runMonitoringCycle();
 			logger.info(`[${JOB_NAME}] Phase B complete: LRS/TCS monitoring`);
 		} catch (err) {
 			logger.warn(`[${JOB_NAME}] Phase B failed (non-fatal)`, { error: String(err) });
@@ -65,10 +65,10 @@ async function run(): Promise<void> {
 		// Phase C: Audit log cleanup
 		logger.info(`[${JOB_NAME}] Phase C: Audit cleanup`);
 		try {
-			const { cleanupExpiredAuditLogs } = await import(
-				"../server/startup/background-schedulers"
+			const { unlistedRegulatoryAuditService } = await import(
+				"../server/services/unlisted-regulatory-audit-service"
 			);
-			await cleanupExpiredAuditLogs();
+			await unlistedRegulatoryAuditService.cleanupExpiredRecords(false);
 			logger.info(`[${JOB_NAME}] Phase C complete: Audit cleanup`);
 		} catch (err) {
 			logger.warn(`[${JOB_NAME}] Phase C failed (non-fatal)`, { error: String(err) });

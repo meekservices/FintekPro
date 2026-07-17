@@ -52,7 +52,7 @@ async function run(): Promise<void> {
 		logger.info(`[${JOB_NAME}] Phase A: AMFI NAV sync`);
 		try {
 			const { amfiNavScheduler } = await import("../server/services/amfi-nav-scheduler");
-			await amfiNavScheduler.runOnce();
+			await amfiNavScheduler.runAMFIMasterSync();
 			logger.info(`[${JOB_NAME}] Phase A complete: AMFI NAV sync`);
 		} catch (err) {
 			logger.warn(`[${JOB_NAME}] Phase A failed (non-fatal)`, { error: String(err) });
@@ -62,7 +62,7 @@ async function run(): Promise<void> {
 		logger.info(`[${JOB_NAME}] Phase B: MF scheme sync`);
 		try {
 			const { mfSyncScheduler } = await import("../server/services/mf-sync-scheduler");
-			await mfSyncScheduler.runOnce();
+			await mfSyncScheduler.runAMFIMasterSync();
 			logger.info(`[${JOB_NAME}] Phase B complete: MF sync`);
 		} catch (err) {
 			logger.warn(`[${JOB_NAME}] Phase B failed (non-fatal)`, { error: String(err) });

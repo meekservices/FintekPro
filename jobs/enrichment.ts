@@ -45,23 +45,17 @@ async function run(): Promise<void> {
 			const { dataEnrichmentScheduler } = await import(
 				"../server/services/data-enrichment-scheduler"
 			);
-			await dataEnrichmentScheduler.runOnce();
+			await dataEnrichmentScheduler.runEnrichmentJobs();
 			logger.info(`[${JOB_NAME}] Phase A complete`);
 		} catch (err) {
 			logger.warn(`[${JOB_NAME}] Phase A failed (non-fatal)`, { error: String(err) });
 		}
 
 		// Phase B: Financial metrics enrichment (PE, PB, ROE etc.)
-		logger.info(`[${JOB_NAME}] Phase B: Financial metrics enrichment`);
-		try {
-			const { financialDataScheduler } = await import(
-				"../server/services/financial-data-scheduler"
-			);
-			await financialDataScheduler.runOnce();
-			logger.info(`[${JOB_NAME}] Phase B complete`);
-		} catch (err) {
-			logger.warn(`[${JOB_NAME}] Phase B failed (non-fatal)`, { error: String(err) });
-		}
+		// Note: financialDataScheduler.start() creates a cron loop — not suitable for one-shot jobs.
+		// Its data (FMP ratios/returns) is already covered by Phase A (dataEnrichmentScheduler)
+		// so this phase is intentionally skipped in one-shot mode.
+		logger.info(`[${JOB_NAME}] Phase B: Skipped (financialDataScheduler is cron-loop-only; covered by Phase A)`);
 
 		// Phase C: MF comprehensive enrichment (ratings, returns, metrics)
 		logger.info(`[${JOB_NAME}] Phase C: MF comprehensive enrichment`);
