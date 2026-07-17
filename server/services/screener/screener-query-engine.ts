@@ -591,21 +591,31 @@ export async function getScreenerDistribution() {
     ) AS b(category, sort_order)
     LEFT JOIN (
       SELECT
-        LOWER(TRIM(
-          CASE
-            WHEN LOWER(market_cap_category) IN ('mega cap','mega')   THEN 'mega'
-            WHEN LOWER(market_cap_category) IN ('large cap','large') THEN 'large'
-            WHEN LOWER(market_cap_category) IN ('mid cap','mid')     THEN 'mid'
-            WHEN LOWER(market_cap_category) IN ('small cap','small') THEN 'small'
-            WHEN LOWER(market_cap_category) IN ('micro cap','micro') THEN 'micro'
-            ELSE market_cap_category
-          END
-        )) AS category,
+        CASE
+          -- 1. Prefer explicit category column (normalised to 5 canonical values)
+          WHEN LOWER(TRIM(market_cap_category)) IN ('mega','mega cap')   THEN 'mega'
+          WHEN LOWER(TRIM(market_cap_category)) IN ('large','large cap') THEN 'large'
+          WHEN LOWER(TRIM(market_cap_category)) IN ('mid','mid cap')     THEN 'mid'
+          WHEN LOWER(TRIM(market_cap_category)) IN ('small','small cap') THEN 'small'
+          WHEN LOWER(TRIM(market_cap_category)) IN ('micro','micro cap') THEN 'micro'
+          -- 2. Derive from market_cap_value (stored in absolute INR) when category missing
+          --    Thresholds mirror categorizeMarketCap() in enrichment-service.ts:
+          --    crores = value / 10_000_000  →  Mega≥1L, Large≥20K, Mid≥5K, Small≥500
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 1000000000000 THEN 'mega'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 200000000000  THEN 'large'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 50000000000   THEN 'mid'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 5000000000    THEN 'small'
+          WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >  0             THEN 'micro'
+        END AS category,
         COUNT(*) AS count
       FROM listed_stocks
       WHERE is_active = true
-        AND market_cap_category IS NOT NULL
-        AND LOWER(TRIM(market_cap_category)) IN ('mega','mega cap','large','large cap','mid','mid cap','small','small cap','micro','micro cap')
+        AND (
+          -- has a recognised category string
+          LOWER(TRIM(market_cap_category)) IN ('mega','mega cap','large','large cap','mid','mid cap','small','small cap','micro','micro cap')
+          -- OR has a positive numeric market cap value we can classify from
+          OR (market_cap_value IS NOT NULL AND market_cap_value::numeric > 0)
+        )
       GROUP BY 1
     ) d ON d.category = b.category
     ORDER BY b.sort_order
