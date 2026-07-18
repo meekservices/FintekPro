@@ -386,7 +386,8 @@ export const pendingTransactions = pgTable("pending_transactions", {
 
   // ── Master Agent (approver) ───────────────────────────────────────────────
   masterAgentUserId: varchar("master_agent_user_id").references(() => users.id).notNull(),
-  masterAgentEuin:   varchar("master_agent_euin"),           // Master agent's EUIN used for IRIS execution
+  masterAgentEuin:   varchar("master_agent_euin"),           // Approver's EUIN used for IRIS execution
+  approverRole:      varchar("approver_role").default("master_agent").notNull(), // "parent_agent" | "partner" | "master_agent" | "admin"
 
   // ── Transaction Payload ───────────────────────────────────────────────────
   transactionType:   varchar("transaction_type").notNull(),  // 'mf_purchase' | 'mf_redemption' | 'sip' | 'stp' | 'switch' | 'bond' | 'fd'
