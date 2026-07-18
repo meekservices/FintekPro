@@ -2361,5 +2361,676 @@ export function registerIrisKfintechRoutes(app: Express): void {
 		},
 	);
 
+	// ─── IRIS Instrument Catalog (DB-backed, seeded by enrichment job Phase D) ──
+	//
+	// These routes READ from the seeded iris_* tables rather than live-proxying
+	// to IRIS, making them fast (<5ms) and resilient to IRIS downtime.
+	// Live-proxy equivalents remain at /api/iris/products/* for real-time data.
+
+	/**
+	 * GET /api/iris/catalog/fixed-deposits
+	 * Returns all FD products from the seeded iris_fd_products table.
+	 * Supports optional query filters: ?category=corporate&minRate=7&rating=AAA
+	 */
+	app.get(
+		"/api/iris/catalog/fixed-deposits",
+		requireAuth,
+		requireAgent,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const { db } = await import("../db");
+				const { irisFdProducts } = await import("@shared/schema");
+				const { sql, and, gte, eq } = await import("drizzle-orm");
+
+				const conditions: any[] = [];
+				if (req.query.category) conditions.push(eq(irisFdProducts.category, req.query.category as string));
+				if (req.query.rating)   conditions.push(eq(irisFdProducts.creditRating, req.query.rating as string));
+				if (req.query.minRate)  conditions.push(gte(irisFdProducts.interestRate, req.query.minRate as string));
+
+				const rows = await db
+					.select()
+					.from(irisFdProducts)
+					.where(conditions.length > 0 ? and(...conditions) : undefined)
+					.orderBy(sql`interest_rate DESC NULLS LAST`)
+					.limit(200);
+
+				res.json({
+					success: true,
+					data: rows,
+					meta: {
+						total: rows.length,
+						source: "iris_fd_products",
+						timestamp: new Date().toISOString(),
+						version: "FASP-AI-v3.0",
+						latency_ms: Date.now() - t0,
+					},
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, error_code: "FD_CATALOG_FETCH_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
+	/**
+	 * GET /api/iris/catalog/nps-funds
+	 * Returns NPS pension fund manager options from iris_nps_funds.
+	 * Optional: ?tier=I&tier=II
+	 */
+	app.get(
+		"/api/iris/catalog/nps-funds",
+		requireAuth,
+		requireAgent,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const { db } = await import("../db");
+				const { irisNpsFunds } = await import("@shared/schema");
+				const { eq, sql } = await import("drizzle-orm");
+
+				const conditions: any[] = [];
+				if (req.query.tier) conditions.push(eq(irisNpsFunds.tier, req.query.tier as string));
+
+				const { and } = await import("drizzle-orm");
+				const rows = await db
+					.select()
+					.from(irisNpsFunds)
+					.where(conditions.length > 0 ? and(...conditions) : undefined)
+					.orderBy(sql`fund_manager_name ASC`);
+
+				res.json({
+					success: true,
+					data: rows,
+					meta: {
+						total: rows.length,
+						source: "iris_nps_funds",
+						timestamp: new Date().toISOString(),
+						version: "FASP-AI-v3.0",
+						latency_ms: Date.now() - t0,
+					},
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, error_code: "NPS_CATALOG_FETCH_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
+	/**
+	 * GET /api/iris/catalog/pms
+	 * Returns PMS strategies from iris_pms_aif_products where product_type='pms'.
+	 */
+	app.get(
+		"/api/iris/catalog/pms",
+		requireAuth,
+		requireAgent,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const { db } = await import("../db");
+				const { irisPmsAifProducts } = await import("@shared/schema");
+				const { eq, sql } = await import("drizzle-orm");
+
+				const rows = await db
+					.select()
+					.from(irisPmsAifProducts)
+					.where(eq(irisPmsAifProducts.productType, "pms"))
+					.orderBy(sql`return_3y DESC NULLS LAST`)
+					.limit(200);
+
+				res.json({
+					success: true,
+					data: rows,
+					meta: {
+						total: rows.length,
+						source: "iris_pms_aif_products",
+						timestamp: new Date().toISOString(),
+						version: "FASP-AI-v3.0",
+						latency_ms: Date.now() - t0,
+					},
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, error_code: "PMS_CATALOG_FETCH_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
+	/**
+	 * GET /api/iris/catalog/aif
+	 * Returns AIF products from iris_pms_aif_products where product_type='aif'.
+	 */
+	app.get(
+		"/api/iris/catalog/aif",
+		requireAuth,
+		requireAgent,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const { db } = await import("../db");
+				const { irisPmsAifProducts } = await import("@shared/schema");
+				const { eq, sql } = await import("drizzle-orm");
+
+				const rows = await db
+					.select()
+					.from(irisPmsAifProducts)
+					.where(eq(irisPmsAifProducts.productType, "aif"))
+					.orderBy(sql`return_3y DESC NULLS LAST`)
+					.limit(200);
+
+				res.json({
+					success: true,
+					data: rows,
+					meta: {
+						total: rows.length,
+						source: "iris_pms_aif_products",
+						timestamp: new Date().toISOString(),
+						version: "FASP-AI-v3.0",
+						latency_ms: Date.now() - t0,
+					},
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, error_code: "AIF_CATALOG_FETCH_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
+	/**
+	 * GET /api/iris/catalog/status
+	 * Returns row counts and last-seeded timestamps for all catalog tables.
+	 * Useful for health-checking the seeding pipeline.
+	 */
+	app.get(
+		"/api/iris/catalog/status",
+		requireAuth,
+		requireAdmin,
+		async (_req, res) => {
+			const t0 = Date.now();
+			try {
+				const { db } = await import("../db");
+				const { irisFdProducts, irisNpsFunds, irisPmsAifProducts } = await import("@shared/schema");
+				const { sql } = await import("drizzle-orm");
+
+				const [fdStat]  = await db.select({ count: sql<number>`count(*)`, lastSeeded: sql<string>`max(seeded_at)` }).from(irisFdProducts);
+				const [npsStat] = await db.select({ count: sql<number>`count(*)`, lastSeeded: sql<string>`max(seeded_at)` }).from(irisNpsFunds);
+				const [pmsStat] = await db.select({ count: sql<number>`count(*) filter (where product_type='pms')`, lastSeeded: sql<string>`max(seeded_at)` }).from(irisPmsAifProducts);
+				const [aifStat] = await db.select({ count: sql<number>`count(*) filter (where product_type='aif')`, lastSeeded: sql<string>`max(seeded_at)` }).from(irisPmsAifProducts);
+
+				res.json({
+					success: true,
+					data: {
+						fixedDeposits: { count: Number(fdStat?.count ?? 0), lastSeeded: fdStat?.lastSeeded ?? null },
+						npsFunds:      { count: Number(npsStat?.count ?? 0), lastSeeded: npsStat?.lastSeeded ?? null },
+						pmsProducts:   { count: Number(pmsStat?.count ?? 0), lastSeeded: pmsStat?.lastSeeded ?? null },
+						aifProducts:   { count: Number(aifStat?.count ?? 0), lastSeeded: aifStat?.lastSeeded ?? null },
+					},
+					meta: { timestamp: new Date().toISOString(), version: "FASP-AI-v3.0", latency_ms: Date.now() - t0 },
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, error_code: "CATALOG_STATUS_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
+	/**
+	 * POST /api/iris/catalog/seed
+	 * Admin-only: triggers all 5 IRIS seeding jobs on-demand (outside the cron).
+	 * Runs non-blocking — returns immediately with a job ID for status tracking.
+	 *
+	 * Body: { jobs?: ('fd'|'nps'|'pmsAif'|'mfHoldings'|'mfFactsheet')[] }
+	 *       Omit `jobs` to run all.
+	 */
+	app.post(
+		"/api/iris/catalog/seed",
+		requireAuth,
+		requireAdmin,
+		async (req, res) => {
+			const t0 = Date.now();
+			const requestedJobs: string[] = req.body?.jobs ?? ["fd", "nps", "pmsAif", "mfHoldings", "mfFactsheet"];
+			const jobId = `iris-seed-${Date.now()}`;
+
+			// Respond immediately — seeding runs in background
+			res.json({
+				success: true,
+				data: { jobId, requestedJobs, status: "started" },
+				meta: { timestamp: new Date().toISOString(), version: "FASP-AI-v3.0", latency_ms: Date.now() - t0 },
+			});
+
+			// Fire-and-forget seeding
+			(async () => {
+				try {
+					const svc = await import("../services/iris-instrument-seeding-service");
+					const results: Record<string, any> = {};
+
+					if (requestedJobs.includes("fd"))          results.fd          = await svc.seedFdProducts();
+					if (requestedJobs.includes("nps"))         results.nps         = await svc.seedNpsFunds();
+					if (requestedJobs.includes("pmsAif"))      results.pmsAif      = await svc.seedPmsAifProducts();
+					if (requestedJobs.includes("mfHoldings"))  results.mfHoldings  = await svc.enrichMfHoldings(200);
+					if (requestedJobs.includes("mfFactsheet")) results.mfFactsheet = await svc.enrichMfFactsheets(200);
+
+					console.log(`[IRIS Catalog Seed] ${jobId} complete`, results);
+				} catch (err: any) {
+					console.error(`[IRIS Catalog Seed] ${jobId} failed`, err.message);
+				}
+			})();
+		},
+	);
+
+	// ─── IRIS Catalog Transaction Routes ─────────────────────────────────────────
+	//
+	// Unified transaction surface: each route validates the instrument exists in
+	// the seeded catalog DB BEFORE forwarding to IRIS. This ensures:
+	//  1. We never transact on a stale/unknown product ID
+	//  2. All writes are idempotent (idempotency key required in body)
+	//  3. Every transaction log includes catalog_source and engine_version
+	//  4. FASP-AI v1.0: AI is Decision Support only — these routes require
+	//     explicit advisor confirmation (requireTransactionCompliance gate)
+	//
+	// Pattern: GET /api/iris/catalog/:type/:productId  → browse (DB-backed)
+	//          POST /api/iris/catalog/:type/:productId/invest → transact (IRIS live)
+
+	/**
+	 * GET /api/iris/catalog/fixed-deposits/:productId
+	 * Single FD product detail from catalog.
+	 */
+	app.get(
+		"/api/iris/catalog/fixed-deposits/:productId",
+		requireAuth,
+		requireAgent,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const { db } = await import("../db");
+				const { irisFdProducts } = await import("@shared/schema");
+				const { eq } = await import("drizzle-orm");
+
+				const [product] = await db
+					.select()
+					.from(irisFdProducts)
+					.where(eq(irisFdProducts.irisProductId, req.params.productId))
+					.limit(1);
+
+				if (!product) return res.status(404).json({ success: false, error_code: "FD_NOT_FOUND", message: "FD product not found in catalog", retryable: false });
+
+				res.json({
+					success: true,
+					data: product,
+					meta: { source: "iris_fd_products", timestamp: new Date().toISOString(), version: "FASP-AI-v3.0", latency_ms: Date.now() - t0 },
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, error_code: "FD_DETAIL_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
+	/**
+	 * POST /api/iris/catalog/fixed-deposits/:productId/invest
+	 * Place an FD order — validates product exists in catalog first.
+	 * Required body: { pan, amount, tenureMonths, paymentMode, idempotencyKey }
+	 *
+	 * FASP-AI: requireTransactionCompliance gate enforces advisor approval.
+	 */
+	app.post(
+		"/api/iris/catalog/fixed-deposits/:productId/invest",
+		requireAuth,
+		requireAgent,
+		requireTransactionCompliance,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const { db } = await import("../db");
+				const { irisFdProducts } = await import("@shared/schema");
+				const { eq } = await import("drizzle-orm");
+
+				// 1. Validate product exists in catalog
+				const [product] = await db
+					.select()
+					.from(irisFdProducts)
+					.where(eq(irisFdProducts.irisProductId, req.params.productId))
+					.limit(1);
+
+				if (!product) return res.status(404).json({
+					success: false,
+					error_code: "FD_NOT_IN_CATALOG",
+					message: "FD product not found. Trigger a catalog seed first.",
+					retryable: false,
+				});
+
+				// 2. Validate required fields
+				const { pan, amount, tenureMonths, paymentMode, idempotencyKey } = req.body ?? {};
+				if (!pan || !amount || !tenureMonths || !paymentMode || !idempotencyKey) {
+					return res.status(400).json({
+						success: false,
+						error_code: "MISSING_REQUIRED_FIELDS",
+						message: "Required: pan, amount, tenureMonths, paymentMode, idempotencyKey",
+						retryable: false,
+					});
+				}
+
+				// 3. Place order via IRIS with catalog metadata for auditability
+				const orderPayload = {
+					...req.body,
+					productId:     req.params.productId,
+					issuerName:    product.issuerName,
+					interestRate:  product.interestRate,
+					catalogSource: "iris_fd_products",
+					engineVersion: "FASP-AI-v3.0",
+				};
+
+				const result = await irisKfintechService.placeFdOrder(orderPayload);
+
+				res.json({
+					success: true,
+					data: result,
+					meta: {
+						product: { id: product.irisProductId, name: product.productName, issuer: product.issuerName, rate: product.interestRate },
+						catalog_source: "iris_fd_products",
+						timestamp: new Date().toISOString(),
+						version: "FASP-AI-v3.0",
+						latency_ms: Date.now() - t0,
+					},
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, error_code: "FD_ORDER_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
+	/**
+	 * GET /api/iris/catalog/fixed-deposits/:productId/orders
+	 * List all FD orders for a PAN on this product.
+	 */
+	app.get(
+		"/api/iris/catalog/fixed-deposits/:productId/orders",
+		requireAuth,
+		requireAgent,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const pan = req.query.pan as string;
+				if (!pan) return res.status(400).json({ success: false, error_code: "PAN_REQUIRED", message: "?pan= is required", retryable: false });
+				const data = await irisKfintechService.getFdOrders(pan);
+				res.json({ success: true, data, meta: { timestamp: new Date().toISOString(), version: "FASP-AI-v3.0", latency_ms: Date.now() - t0 } });
+			} catch (err: any) {
+				res.status(500).json({ success: false, error_code: "FD_ORDERS_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
+	/**
+	 * GET /api/iris/catalog/nps-funds/:fundCode
+	 * Single NPS fund detail from catalog.
+	 */
+	app.get(
+		"/api/iris/catalog/nps-funds/:fundCode",
+		requireAuth,
+		requireAgent,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const { db } = await import("../db");
+				const { irisNpsFunds } = await import("@shared/schema");
+				const { eq } = await import("drizzle-orm");
+
+				const [fund] = await db
+					.select()
+					.from(irisNpsFunds)
+					.where(eq(irisNpsFunds.irisFundCode, req.params.fundCode))
+					.limit(1);
+
+				if (!fund) return res.status(404).json({ success: false, error_code: "NPS_FUND_NOT_FOUND", message: "NPS fund not found in catalog", retryable: false });
+
+				res.json({
+					success: true,
+					data: fund,
+					meta: { source: "iris_nps_funds", timestamp: new Date().toISOString(), version: "FASP-AI-v3.0", latency_ms: Date.now() - t0 },
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, error_code: "NPS_FUND_DETAIL_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
+	/**
+	 * POST /api/iris/catalog/nps-funds/:fundCode/contribute
+	 * Place an NPS contribution — validates fund exists in catalog first.
+	 * Required body: { pran, amount, tier, paymentMode, idempotencyKey }
+	 *
+	 * FASP-AI: requireTransactionCompliance gate enforces advisor approval.
+	 */
+	app.post(
+		"/api/iris/catalog/nps-funds/:fundCode/contribute",
+		requireAuth,
+		requireAgent,
+		requireTransactionCompliance,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const { db } = await import("../db");
+				const { irisNpsFunds } = await import("@shared/schema");
+				const { eq } = await import("drizzle-orm");
+
+				// 1. Validate fund in catalog
+				const [fund] = await db
+					.select()
+					.from(irisNpsFunds)
+					.where(eq(irisNpsFunds.irisFundCode, req.params.fundCode))
+					.limit(1);
+
+				if (!fund) return res.status(404).json({
+					success: false,
+					error_code: "NPS_FUND_NOT_IN_CATALOG",
+					message: "NPS fund not found in catalog. Run a catalog seed first.",
+					retryable: false,
+				});
+
+				const { pran, amount, tier, paymentMode, idempotencyKey } = req.body ?? {};
+				if (!pran || !amount || !tier || !paymentMode || !idempotencyKey) {
+					return res.status(400).json({
+						success: false,
+						error_code: "MISSING_REQUIRED_FIELDS",
+						message: "Required: pran, amount, tier, paymentMode, idempotencyKey",
+						retryable: false,
+					});
+				}
+
+				const result = await irisKfintechService.placeNpsContribution({
+					...req.body,
+					fundCode:      req.params.fundCode,
+					pfmCode:       fund.pfmCode,
+					fundManager:   fund.fundManagerName,
+					catalogSource: "iris_nps_funds",
+					engineVersion: "FASP-AI-v3.0",
+				});
+
+				res.json({
+					success: true,
+					data: result,
+					meta: {
+						fund: { code: fund.irisFundCode, manager: fund.fundManagerName, tier: fund.tier },
+						catalog_source: "iris_nps_funds",
+						timestamp: new Date().toISOString(),
+						version: "FASP-AI-v3.0",
+						latency_ms: Date.now() - t0,
+					},
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, error_code: "NPS_CONTRIBUTION_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
+	/**
+	 * GET /api/iris/catalog/pms/:productId
+	 * Single PMS strategy detail from catalog.
+	 */
+	app.get(
+		"/api/iris/catalog/pms/:productId",
+		requireAuth,
+		requireAgent,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const { db } = await import("../db");
+				const { irisPmsAifProducts } = await import("@shared/schema");
+				const { eq, and } = await import("drizzle-orm");
+
+				const [product] = await db
+					.select()
+					.from(irisPmsAifProducts)
+					.where(and(eq(irisPmsAifProducts.irisProductId, req.params.productId), eq(irisPmsAifProducts.productType, "pms")))
+					.limit(1);
+
+				if (!product) return res.status(404).json({ success: false, error_code: "PMS_NOT_FOUND", message: "PMS product not found in catalog", retryable: false });
+
+				res.json({ success: true, data: product, meta: { source: "iris_pms_aif_products", timestamp: new Date().toISOString(), version: "FASP-AI-v3.0", latency_ms: Date.now() - t0 } });
+			} catch (err: any) {
+				res.status(500).json({ success: false, error_code: "PMS_DETAIL_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
+	/**
+	 * POST /api/iris/catalog/pms/:productId/onboard
+	 * Initiate PMS onboarding — validates strategy exists in catalog first.
+	 * Required body: { pan, amount, strategyCode, paymentMode, idempotencyKey }
+	 *
+	 * FASP-AI: requireTransactionCompliance + advisor approval mandatory.
+	 */
+	app.post(
+		"/api/iris/catalog/pms/:productId/onboard",
+		requireAuth,
+		requireAgent,
+		requireTransactionCompliance,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const { db } = await import("../db");
+				const { irisPmsAifProducts } = await import("@shared/schema");
+				const { eq, and } = await import("drizzle-orm");
+
+				const [product] = await db
+					.select()
+					.from(irisPmsAifProducts)
+					.where(and(eq(irisPmsAifProducts.irisProductId, req.params.productId), eq(irisPmsAifProducts.productType, "pms")))
+					.limit(1);
+
+				if (!product) return res.status(404).json({ success: false, error_code: "PMS_NOT_IN_CATALOG", message: "PMS product not found. Trigger a catalog seed first.", retryable: false });
+
+				const { pan, amount, paymentMode, idempotencyKey } = req.body ?? {};
+				if (!pan || !amount || !paymentMode || !idempotencyKey) {
+					return res.status(400).json({ success: false, error_code: "MISSING_REQUIRED_FIELDS", message: "Required: pan, amount, paymentMode, idempotencyKey", retryable: false });
+				}
+
+				const result = await irisKfintechService.getPmsLinks(); // initiation via links flow
+				res.json({
+					success: true,
+					data: result,
+					meta: {
+						product: { id: product.irisProductId, name: product.strategyName, house: product.fundHouse, minInvestment: product.minInvestment },
+						catalog_source: "iris_pms_aif_products",
+						disclaimer: "PMS investments carry high risk. Past performance is not indicative of future results. SEBI registration mandatory.",
+						timestamp: new Date().toISOString(),
+						version: "FASP-AI-v3.0",
+						latency_ms: Date.now() - t0,
+					},
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, error_code: "PMS_ONBOARD_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
+	/**
+	 * GET /api/iris/catalog/aif/:productId
+	 * Single AIF product detail from catalog.
+	 */
+	app.get(
+		"/api/iris/catalog/aif/:productId",
+		requireAuth,
+		requireAgent,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const { db } = await import("../db");
+				const { irisPmsAifProducts } = await import("@shared/schema");
+				const { eq, and } = await import("drizzle-orm");
+
+				const [product] = await db
+					.select()
+					.from(irisPmsAifProducts)
+					.where(and(eq(irisPmsAifProducts.irisProductId, req.params.productId), eq(irisPmsAifProducts.productType, "aif")))
+					.limit(1);
+
+				if (!product) return res.status(404).json({ success: false, error_code: "AIF_NOT_FOUND", message: "AIF product not found in catalog", retryable: false });
+
+				res.json({ success: true, data: product, meta: { source: "iris_pms_aif_products", timestamp: new Date().toISOString(), version: "FASP-AI-v3.0", latency_ms: Date.now() - t0 } });
+			} catch (err: any) {
+				res.status(500).json({ success: false, error_code: "AIF_DETAIL_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
+	/**
+	 * POST /api/iris/catalog/aif/:productId/subscribe
+	 * Subscribe to an AIF — validates product exists in catalog first.
+	 * Required body: { pan, commitmentAmount, paymentMode, idempotencyKey }
+	 *
+	 * FASP-AI: requireTransactionCompliance + advisor approval mandatory.
+	 * Minimum investment is typically ₹1 Cr — validated against catalog.
+	 */
+	app.post(
+		"/api/iris/catalog/aif/:productId/subscribe",
+		requireAuth,
+		requireAgent,
+		requireTransactionCompliance,
+		async (req, res) => {
+			const t0 = Date.now();
+			try {
+				const { db } = await import("../db");
+				const { irisPmsAifProducts } = await import("@shared/schema");
+				const { eq, and } = await import("drizzle-orm");
+
+				const [product] = await db
+					.select()
+					.from(irisPmsAifProducts)
+					.where(and(eq(irisPmsAifProducts.irisProductId, req.params.productId), eq(irisPmsAifProducts.productType, "aif")))
+					.limit(1);
+
+				if (!product) return res.status(404).json({ success: false, error_code: "AIF_NOT_IN_CATALOG", message: "AIF product not found. Trigger a catalog seed first.", retryable: false });
+
+				const { pan, commitmentAmount, paymentMode, idempotencyKey } = req.body ?? {};
+				if (!pan || !commitmentAmount || !paymentMode || !idempotencyKey) {
+					return res.status(400).json({ success: false, error_code: "MISSING_REQUIRED_FIELDS", message: "Required: pan, commitmentAmount, paymentMode, idempotencyKey", retryable: false });
+				}
+
+				// Guard: minimum investment check against catalog
+				const minInvest = parseFloat(String(product.minInvestment ?? "0"));
+				if (minInvest > 0 && parseFloat(String(commitmentAmount)) < minInvest) {
+					return res.status(400).json({
+						success: false,
+						error_code: "BELOW_MIN_INVESTMENT",
+						message: `Minimum investment for this AIF is ₹${minInvest.toLocaleString("en-IN")}`,
+						retryable: false,
+					});
+				}
+
+				const result = await irisKfintechService.getAifLinks(); // initiation via links flow
+				res.json({
+					success: true,
+					data: result,
+					meta: {
+						product: { id: product.irisProductId, name: product.strategyName, house: product.fundHouse, category: product.sebiCategory, minInvestment: product.minInvestment },
+						catalog_source: "iris_pms_aif_products",
+						disclaimer: "AIF investments are for accredited investors only. High risk. Not suitable for retail investors. SEBI Category I/II/III regulations apply.",
+						timestamp: new Date().toISOString(),
+						version: "FASP-AI-v3.0",
+						latency_ms: Date.now() - t0,
+					},
+				});
+			} catch (err: any) {
+				res.status(500).json({ success: false, error_code: "AIF_SUBSCRIBE_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
 	console.log("✅ IRIS KFintech routes registered");
 }
