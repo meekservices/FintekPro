@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
+import axios from "axios";
 import { usTradingService } from "../services/us-trading-service";
 import { alpacaMarketDataService } from "../services/alpaca-market-data-service";
 import { alpacaBrokerService } from "../services/alpaca-broker-service";
@@ -7,15 +8,166 @@ import { massiveWebSocketService } from "../services/massive-websocket-service";
 import type { AuthRequest } from "../types/broker-types";
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { alpacaAccountGuard } from "../middleware/rbac";
+import { logger } from "../logger";
 
 const router: Router = Router();
 
-// Apply authentication to all routes in this file
-router.use(requireAuth);
+// ─── Symbol Universe (P2: auto-refreshed from FMP daily) ─────────────────────
+
+/** Fallback static lists — used until FMP refreshes or if FMP fails */
+const DEFAULT_NASDAQ100: string[] = [
+	"AAPL","MSFT","NVDA","AMZN","META","GOOGL","GOOG","TSLA","AVGO","COST",
+	"ASML","NFLX","AMD","AZN","QCOM","LIN","PEP","INTU","CSCO","TMUS",
+	"AMAT","TXN","ISRG","HON","AMGN","BKNG","REGN","SBUX","VRTX","PANW",
+	"ADI","KLAC","MELI","MDLZ","SNPS","CDNS","CSX","ADP","GILD","CRWD",
+	"MAR","CTAS","MU","ORLY","FTNT","ABNB","NXPI","LRCX","MRVL","CEG",
+];
+const DEFAULT_SP500: string[] = [
+	"BRK.B","JPM","V","MA","LLY","UNH","JNJ","WMT","PG","XOM",
+	"CVX","HD","BAC","KO","ABBV","MRK","PFE","TMO","ACN","PM",
+	"MCD","CRM","ABT","RTX","NEE","DHR","TXN","NFLX","UNP","WFC",
+	"SPGI","MS","BMY","GS","CAT","BLK","AXP","DE","AMT","COP",
+	"SYK","VRTX","GILD","DUK","SO","ELV","CI","PLD","CB","LMT",
+];
+
+let NASDAQ100_SYMBOLS: string[] = [...DEFAULT_NASDAQ100];
+let SP500_SYMBOLS: string[]    = [...DEFAULT_SP500];
+let _universeLastRefreshed     = 0;
+const UNIVERSE_TTL_MS          = 24 * 60 * 60 * 1000; // 24 h
+
+/**
+ * Fetch up-to-date index constituents from FMP.
+ * Silently falls back to the static defaults on any error.
+ * @returns true if refresh succeeded
+ */
+async function refreshSymbolUniverse(): Promise<boolean> {
+	const fmpKey = process.env.FMP_API_KEY;
+	if (!fmpKey) return false;
+	try {
+		const [nasdaq, sp500] = await Promise.all([
+			axios.get<{ symbol: string }[]>(
+				`https://financialmodelingprep.com/api/v3/nasdaq_constituent?apikey=${fmpKey}`,
+				{ timeout: 15_000 },
+			),
+			axios.get<{ symbol: string }[]>(
+				`https://financialmodelingprep.com/api/v3/sp500_constituent?apikey=${fmpKey}`,
+				{ timeout: 15_000 },
+			),
+		]);
+		const nasdaqSymbols = (nasdaq.data || []).map((s) => s.symbol).filter(Boolean);
+		const sp500Symbols  = (sp500.data  || []).map((s) => s.symbol).filter(Boolean);
+		if (nasdaqSymbols.length > 10) NASDAQ100_SYMBOLS = nasdaqSymbols.slice(0, 100);
+		if (sp500Symbols.length  > 10) SP500_SYMBOLS     = sp500Symbols.slice(0, 100);
+		_universeLastRefreshed = Date.now();
+		logger.info("[GlobalScreener] Symbol universe refreshed", {
+			nasdaq: NASDAQ100_SYMBOLS.length,
+			sp500: SP500_SYMBOLS.length,
+		});
+		return true;
+	} catch (err: any) {
+		logger.warn("[GlobalScreener] FMP universe refresh failed — using static list", {
+			error: err.message,
+		});
+		return false;
+	}
+}
+
+// Kick off first refresh at startup (non-blocking)
+void refreshSymbolUniverse();
+
+// ─── P0: Public market screener — MUST be registered BEFORE router.use(requireAuth) ──
+// Market price data is not user-specific. Any authenticated session (agent/client)
+// can access this without needing a linked Alpaca brokerage account.
 
 function errorMessage(err: unknown): string {
 	return err instanceof Error ? err.message : String(err);
 }
+
+/**
+ * GET /api/us-trading/market/screener
+ * Returns NASDAQ-100 + S&P 500 listed stocks with live Alpaca prices.
+ * Auth: requires valid session (requireAuth applied below), NOT alpacaAccountGuard.
+ * Query params: exchange (NASDAQ|SP500|ALL), search, page, limit
+ */
+router.get(
+	"/market/screener",
+	requireAuth, // session only — no Alpaca account needed for market data
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			// Refresh universe if stale (non-blocking if already fresh)
+			if (Date.now() - _universeLastRefreshed > UNIVERSE_TTL_MS) {
+				void refreshSymbolUniverse();
+			}
+
+			const exchange = ((req.query.exchange as string) || "ALL").toUpperCase();
+			const search   = ((req.query.search   as string) || "").toUpperCase().trim();
+			const page     = Math.max(1, Number.parseInt((req.query.page  as string) || "1",  10));
+			const limit    = Math.min(50, Math.max(5, Number.parseInt((req.query.limit as string) || "20", 10)));
+
+			let universe: string[];
+			if (exchange === "NASDAQ")     universe = NASDAQ100_SYMBOLS;
+			else if (exchange === "SP500") universe = SP500_SYMBOLS;
+			else                           universe = [...new Set([...NASDAQ100_SYMBOLS, ...SP500_SYMBOLS])];
+
+			const filtered = search ? universe.filter((s) => s.includes(search)) : universe;
+			const total    = filtered.length;
+			const paged    = filtered.slice((page - 1) * limit, page * limit);
+
+			let prices: Map<string, any> = new Map();
+			if (paged.length > 0) {
+				try { prices = await alpacaMarketDataService.getSnapshots(paged); } catch { /* non-fatal — Yahoo fallback is inside getSnapshots */ }
+			}
+
+			const exchangeRate = await alpacaMarketDataService.getUsdInrRate().catch(() => 84.5);
+
+			const stocks = paged.map((sym) => {
+				const snap      = prices.get(sym);
+				const price     = snap?.latestTrade?.price || snap?.dailyBar?.close || 0;
+				const prev      = snap?.prevDailyBar?.close || snap?.dailyBar?.open || price;
+				const change    = price - prev;
+				const changePct = prev > 0 ? (change / prev) * 100 : 0;
+				const isNasdaq  = NASDAQ100_SYMBOLS.includes(sym);
+				const isSp500   = SP500_SYMBOLS.includes(sym);
+				return {
+					symbol:        sym,
+					exchange:      isNasdaq ? "NASDAQ" : "NYSE",
+					indices:       [...(isNasdaq ? ["NASDAQ-100"] : []), ...(isSp500 ? ["S&P 500"] : [])],
+					price:         price || null,
+					priceINR:      price ? +(price * exchangeRate).toFixed(2) : null,
+					change:        +change.toFixed(4),
+					changePercent: +changePct.toFixed(4),
+					open:          snap?.dailyBar?.open   || null,
+					high:          snap?.dailyBar?.high   || null,
+					low:           snap?.dailyBar?.low    || null,
+					close:         snap?.dailyBar?.close  || null,
+					volume:        snap?.dailyBar?.volume || null,
+					vwap:          snap?.dailyBar?.vwap   || null,
+					dataSource:    snap ? "Alpaca IEX" : "static",
+				};
+			});
+
+			res.json({
+				success: true,
+				data: {
+					stocks,
+					pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+					exchangeRate: { rate: exchangeRate, currency: "INR" },
+					universe: exchange,
+					universeSize: { nasdaq: NASDAQ100_SYMBOLS.length, sp500: SP500_SYMBOLS.length },
+					lastUpdated: new Date().toISOString(),
+				},
+				meta: { timestamp: new Date().toISOString(), version: "1.1" },
+			});
+		} catch (error: unknown) {
+			res.status(500).json({ success: false, error: errorMessage(error), retryable: true });
+		}
+	},
+);
+
+// ─── All remaining routes require full auth + Alpaca account ──────────────────
+router.use(requireAuth);
+
+// (errorMessage and screener moved above requireAuth — see top of file)
 
 // Test connections (Admin only)
 router.get(
@@ -550,88 +702,7 @@ interface OrderRecord {
 	createdAt: string;
 }
 
-// ─── Curated constituent lists (top 50 NASDAQ-100 + top 50 S&P 500) ──────────
-const NASDAQ100_SYMBOLS = [
-	"AAPL","MSFT","NVDA","AMZN","META","GOOGL","GOOG","TSLA","AVGO","COST",
-	"ASML","NFLX","AMD","AZN","QCOM","LIN","PEP","INTU","CSCO","TMUS",
-	"AMAT","TXN","ISRG","HON","AMGN","BKNG","REGN","SBUX","VRTX","PANW",
-	"ADI","KLAC","MELI","MDLZ","SNPS","CDNS","CSX","ADP","GILD","CRWD",
-	"MAR","CTAS","MU","ORLY","FTNT","ABNB","NXPI","LRCX","MRVL","CEG",
-];
-const SP500_SYMBOLS = [
-	"BRK.B","JPM","V","MA","LLY","UNH","JNJ","WMT","PG","XOM",
-	"CVX","HD","BAC","KO","ABBV","MRK","PFE","TMO","ACN","PM",
-	"MCD","CRM","ABT","RTX","NEE","DHR","TXN","NFLX","UNP","WFC",
-	"SPGI","MS","BMY","GS","CAT","BLK","AXP","DE","AMT","COP",
-	"SYK","VRTX","GILD","DUK","SO","ELV","CI","PLD","CB","LMT",
-];
-
-/**
- * GET /api/us-trading/market/screener
- * Returns NASDAQ-100 + S&P 500 listed stocks with live Alpaca prices.
- * Query params: exchange (NASDAQ|SP500|ALL), search, page, limit
- */
-router.get(
-	"/market/screener",
-	async (req: Request, res: Response): Promise<void> => {
-		try {
-			const exchange = ((req.query.exchange as string) || "ALL").toUpperCase();
-			const search   = ((req.query.search   as string) || "").toUpperCase().trim();
-			const page     = Math.max(1, Number.parseInt((req.query.page  as string) || "1",  10));
-			const limit    = Math.min(50, Math.max(5, Number.parseInt((req.query.limit as string) || "20", 10)));
-
-			let universe: string[];
-			if (exchange === "NASDAQ")     universe = NASDAQ100_SYMBOLS;
-			else if (exchange === "SP500") universe = SP500_SYMBOLS;
-			else                           universe = [...new Set([...NASDAQ100_SYMBOLS, ...SP500_SYMBOLS])];
-
-			const filtered = search ? universe.filter((s) => s.includes(search)) : universe;
-			const total    = filtered.length;
-			const paged    = filtered.slice((page - 1) * limit, page * limit);
-
-			let prices: Map<string, any> = new Map();
-			if (alpacaBrokerService.isConfigured() && paged.length > 0) {
-				try { prices = await alpacaMarketDataService.getSnapshots(paged); } catch { /* non-fatal */ }
-			}
-
-			const exchangeRate = await alpacaMarketDataService.getUsdInrRate().catch(() => 84.5);
-
-			const stocks = paged.map((sym) => {
-				const snap      = prices.get(sym);
-				const price     = snap?.latestTrade?.price || snap?.dailyBar?.close || 0;
-				const prev      = snap?.prevDailyBar?.close || snap?.dailyBar?.open || price;
-				const change    = price - prev;
-				const changePct = prev > 0 ? (change / prev) * 100 : 0;
-				const isNasdaq  = NASDAQ100_SYMBOLS.includes(sym);
-				const isSp500   = SP500_SYMBOLS.includes(sym);
-				return {
-					symbol:        sym,
-					exchange:      isNasdaq ? "NASDAQ" : "NYSE",
-					indices:       [...(isNasdaq ? ["NASDAQ-100"] : []), ...(isSp500 ? ["S&P 500"] : [])],
-					price:         price || null,
-					priceINR:      price ? +(price * exchangeRate).toFixed(2) : null,
-					change:        +change.toFixed(4),
-					changePercent: +changePct.toFixed(4),
-					open:          snap?.dailyBar?.open   || null,
-					high:          snap?.dailyBar?.high   || null,
-					low:           snap?.dailyBar?.low    || null,
-					close:         snap?.dailyBar?.close  || null,
-					volume:        snap?.dailyBar?.volume || null,
-					vwap:          snap?.dailyBar?.vwap   || null,
-					dataSource:    snap ? "Alpaca IEX" : "static",
-				};
-			});
-
-			res.json({
-				success: true,
-				data: { stocks, pagination: { page, limit, total, pages: Math.ceil(total / limit) }, exchangeRate: { rate: exchangeRate, currency: "INR" }, universe: exchange, lastUpdated: new Date().toISOString() },
-				meta: { timestamp: new Date().toISOString(), version: "1.0" },
-			});
-		} catch (error: unknown) {
-			res.status(500).json({ success: false, error: errorMessage(error), retryable: true });
-		}
-	},
-);
+// ─── /market/screener is now registered at the top of this file (before requireAuth) ───
 
 router.get(
 	"/market-data",

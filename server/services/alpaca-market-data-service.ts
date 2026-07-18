@@ -25,6 +25,7 @@ import {
 	validateStockPrice,
 	validateChangePercent,
 } from "./guarded-execution";
+import { distributedCache } from "../utils/distributed-cache";
 
 // ─── Endpoints ─────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,23 @@ const YF_HDRS = {
 	Accept: "application/json",
 	"Accept-Language": "en-US,en;q=0.9",
 };
+
+/** Retry helper: resolve on first success, reject after all attempts fail */
+async function withRetry<T>(
+	fn: () => Promise<T>,
+	attempts = 3,
+	baseDelayMs = 500,
+): Promise<T> {
+	for (let i = 0; i < attempts; i++) {
+		try {
+			return await fn();
+		} catch (err) {
+			if (i === attempts - 1) throw err;
+			await new Promise((r) => setTimeout(r, baseDelayMs * 2 ** i));
+		}
+	}
+	throw new Error("withRetry: unreachable");
+}
 
 // ─── Cache TTLs ────────────────────────────────────────────────────────────────
 
@@ -573,7 +591,8 @@ class AlpacaMarketDataService {
 			const batches = chunk(toFetch, 100);
 			for (const batch of batches) {
 				try {
-					const data = await this.alpacaSnapshots(batch);
+					// P1a: retry up to 2 times with 500ms/1000ms backoff before Yahoo fallback
+					const data = await withRetry(() => this.alpacaSnapshots(batch), 2, 500);
 					const missing: string[] = [];
 					for (const sym of batch) {
 						const raw = data[sym];
@@ -589,7 +608,7 @@ class AlpacaMarketDataService {
 						await this.fetchYahooFallback(missing, result);
 				} catch (err: any) {
 					logger.warn(
-						`MarketData: Alpaca snapshots failed (${err.message}), falling back to Yahoo Finance`,
+						`MarketData: Alpaca snapshots failed after retries (${err.message}), falling back to Yahoo Finance`,
 					);
 					await this.fetchYahooFallback(batch, result);
 				}
@@ -1140,7 +1159,10 @@ class AlpacaMarketDataService {
 		});
 	}
 
-	// ─── USD/INR FX Rate ───────────────────────────────────────────────────────
+	// ─── USD/INR FX Rate (P1b: Redis stale cache) ─────────────────────────────
+	// Chain: in-memory (5 min) → exchangerate-api.com → open.er-api.com
+	//        → Redis stale value → hardcoded last-resort
+	private static readonly FX_REDIS_KEY = "fx:usd_inr";
 
 	async getUsdInrRate(): Promise<number> {
 		if (this.fxCache && this.valid(this.fxCache.cachedAt, FX_CACHE_TTL))
@@ -1156,6 +1178,8 @@ class AlpacaMarketDataService {
 				const rate = res.data?.conversion_rate as number;
 				if (rate && rate > 0) {
 					this.fxCache = { data: rate, cachedAt: Date.now() };
+					// Persist to Redis so stale value survives restarts
+					void distributedCache.set(AlpacaMarketDataService.FX_REDIS_KEY, String(rate), 86_400);
 					return rate;
 				}
 			}
@@ -1165,11 +1189,27 @@ class AlpacaMarketDataService {
 			const rate = res.data?.rates?.INR as number;
 			if (rate && rate > 0) {
 				this.fxCache = { data: rate, cachedAt: Date.now() };
+				void distributedCache.set(AlpacaMarketDataService.FX_REDIS_KEY, String(rate), 86_400);
 				return rate;
 			}
 		} catch {
-			/* fall through */
+			/* fall through to stale cache */
 		}
+
+		// P1b: Try Redis stale value before hardcoded default
+		try {
+			const stale = await distributedCache.get(AlpacaMarketDataService.FX_REDIS_KEY);
+			if (stale) {
+				const staleRate = parseFloat(stale);
+				if (staleRate > 0) {
+					logger.warn("[MarketData] FX API down — using Redis stale FX rate", { rate: staleRate });
+					this.fxCache = { data: staleRate, cachedAt: Date.now() - FX_CACHE_TTL + 60_000 }; // re-check in 1 min
+					return staleRate;
+				}
+			}
+		} catch { /* Redis unavailable */ }
+
+		// Absolute last resort — in-memory stale or hardcoded
 		return this.fxCache?.data || 84.0;
 	}
 
