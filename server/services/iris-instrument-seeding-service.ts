@@ -140,7 +140,6 @@ export async function seedFdProducts(): Promise<{
             brochureUrl:     sql`excluded.brochure_url`,
             rawData:         sql`excluded.raw_data`,
             updatedAt:       sql`now()`,
-            seededAt:        sql`now()`,
           },
         });
       seeded++;
@@ -217,7 +216,6 @@ export async function seedNpsFunds(): Promise<{
             return5y:         sql`excluded.return_5y`,
             rawData:          sql`excluded.raw_data`,
             updatedAt:        sql`now()`,
-            seededAt:         sql`now()`,
           },
         });
       seeded++;
@@ -308,7 +306,6 @@ export async function seedPmsAifProducts(): Promise<{
               sharpeRatio:    sql`excluded.sharpe_ratio`,
               rawData:        sql`excluded.raw_data`,
               updatedAt:      sql`now()`,
-              seededAt:       sql`now()`,
             },
           });
 
@@ -373,11 +370,7 @@ export async function enrichMfHoldings(batchSize = 200): Promise<{
               source:            "iris",
             })
             .onConflictDoUpdate({
-              target: [
-                mfSchemeStockHoldings.mfIsin,
-                mfSchemeStockHoldings.stockSymbol,
-                mfSchemeStockHoldings.holdingDate,
-              ],
+              target: sql`(mf_isin, stock_symbol, holding_date)`,
               set: {
                 holdingPercentage: sql`excluded.holding_percentage`,
                 marketValue:       sql`excluded.market_value`,
