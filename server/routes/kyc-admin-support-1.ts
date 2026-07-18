@@ -12,6 +12,7 @@ import { maskPan, maskEmail, maskMobile } from "../utils/pii-utils";
 import { requireAdmin } from "../middleware/roleMiddleware";
 import { eq } from "drizzle-orm";
 import { users } from "../../shared/schema";
+import { logger } from "../logger";
 
 export function registerKYCAdminSupporPart1Routes(app: Express): void {
 	app.post("/api/kyc/manual-submit", async (req: any, res) => {
@@ -77,7 +78,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 				status: submission.status,
 			});
 		} catch (error) {
-			console.error("Manual KYC submission error:", error);
+			logger.error("Manual KYC submission error:", error);
 
 			complianceMonitor.logEvent({
 				userId: req.user?.id,
@@ -98,7 +99,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 		}
 	});
 
-	// Admin: KYC Dashboard Stats
+	// Admin: KYC Dashboard Stats (DB + IRIS enriched)
 	app.get("/api/admin/kyc/dashboard", requireAdmin, async (req, res) => {
 		try {
 			const today = new Date();
@@ -106,92 +107,120 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 			const tomorrow = new Date(today);
 			tomorrow.setDate(tomorrow.getDate() + 1);
 
-			// Get pending KYC count
-			const [{ count: pendingCount }] = await db
-				.select({ count: sql<number>`count(*)` })
-				.from(schema.manualKycSubmissions)
-				.where(eq(schema.manualKycSubmissions.status, "pending"));
-
-			// Get approved today count
-			const [{ count: approvedToday }] = await db
-				.select({ count: sql<number>`count(*)` })
-				.from(schema.manualKycSubmissions)
-				.where(
-					and(
+			// ── DB queries (fast) ──────────────────────────────────────────────
+			const [
+				[{ count: pendingCount }],
+				[{ count: approvedToday }],
+				[{ count: rejectedToday }],
+				[{ count: pendingDocs }],
+			] = await Promise.all([
+				db.select({ count: sql<number>`count(*)` })
+					.from(schema.manualKycSubmissions)
+					.where(eq(schema.manualKycSubmissions.status, "pending")),
+				db.select({ count: sql<number>`count(*)` })
+					.from(schema.manualKycSubmissions)
+					.where(and(
 						eq(schema.manualKycSubmissions.status, "approved"),
 						gte(schema.manualKycSubmissions.reviewedAt, today),
 						lte(schema.manualKycSubmissions.reviewedAt, tomorrow),
-					),
-				);
-
-			// Get rejected today count
-			const [{ count: rejectedToday }] = await db
-				.select({ count: sql<number>`count(*)` })
-				.from(schema.manualKycSubmissions)
-				.where(
-					and(
+					)),
+				db.select({ count: sql<number>`count(*)` })
+					.from(schema.manualKycSubmissions)
+					.where(and(
 						eq(schema.manualKycSubmissions.status, "rejected"),
 						gte(schema.manualKycSubmissions.reviewedAt, today),
 						lte(schema.manualKycSubmissions.reviewedAt, tomorrow),
-					),
-				);
+					)),
+				db.select({ count: sql<number>`count(*)` })
+					.from(schema.manualKycDocuments)
+					.where(eq(schema.manualKycDocuments.verificationStatus, "pending")),
+			]);
 
-			// Get pending documents count
-			const [{ count: pendingDocs }] = await db
-				.select({ count: sql<number>`count(*)` })
-				.from(schema.manualKycDocuments)
-				.where(eq(schema.manualKycDocuments.verificationStatus, "pending"));
-
-			// Get active alerts from compliance monitor
-			const alerts = complianceMonitor.getAlerts(false);
-
-			// Get KYC status counts from users (kyc_tier column may not exist yet)
-			let tier1Count = 0,
-				tier2Count = 0,
-				tier3Count = 0;
+			// ── KYC tier counts ────────────────────────────────────────────────
+			let tier1Count = 0, tier2Count = 0, tier3Count = 0;
 			try {
-				// Try using kycStatus instead since kyc_tier may not exist
-				const [{ count: basicCount }] = await db
-					.select({ count: sql<number>`count(*)` })
-					.from(schema.users)
-					.where(eq(schema.users.kycStatus, "pending"));
-				tier1Count = Number(basicCount) || 0;
-
-				const [{ count: verifiedCount }] = await db
-					.select({ count: sql<number>`count(*)` })
-					.from(schema.users)
-					.where(eq(schema.users.kycStatus, "verified"));
-				tier2Count = Number(verifiedCount) || 0;
-
-				const [{ count: completedCount }] = await db
-					.select({ count: sql<number>`count(*)` })
-					.from(schema.users)
-					.where(eq(schema.users.kycStatus, "completed"));
-				tier3Count = Number(completedCount) || 0;
-			} catch (tierError) {
-				console.log("KYC tier counts not available, using defaults");
+				const [basic, verified, completed] = await Promise.all([
+					db.select({ count: sql<number>`count(*)` }).from(schema.users).where(eq(schema.users.kycStatus, "pending")),
+					db.select({ count: sql<number>`count(*)` }).from(schema.users).where(eq(schema.users.kycStatus, "verified")),
+					db.select({ count: sql<number>`count(*)` }).from(schema.users).where(eq(schema.users.kycStatus, "completed")),
+				]);
+				tier1Count = Number(basic[0]?.count) || 0;
+				tier2Count = Number(verified[0]?.count) || 0;
+				tier3Count = Number(completed[0]?.count) || 0;
+			} catch (_tierErr) {
+				// kycStatus column may not exist yet — silently use defaults
 			}
+
+			// ── IRIS live enrichment (non-blocking — partial failure returns null) ──
+			const irisStats: Record<string, unknown> = { configured: false };
+			try {
+				const { irisKfintechService } = await import("../services/iris-kfintech-service");
+				if (irisKfintechService.isConfigured) {
+					irisStats.configured = true;
+
+					// Vault coverage: users with PAN who have vault entries
+					const [totalWithPan, vaultRows] = await Promise.all([
+						db.select({ count: sql<number>`count(*)` })
+							.from(schema.users)
+							.where(sql`${schema.users.panNumber} IS NOT NULL AND ${schema.users.panNumber} != ''`),
+						db.select({ count: sql<number>`count(*)` })
+							.from(schema.kycVault),
+					]);
+					const totalPanUsers = Number(totalWithPan[0]?.count) || 0;
+					const vaultCovered = Number(vaultRows[0]?.count) || 0;
+					irisStats.vaultCoverageTotal = totalPanUsers;
+					irisStats.vaultCoveredCount = vaultCovered;
+					irisStats.vaultCoveragePct = totalPanUsers > 0
+						? Math.round((vaultCovered / totalPanUsers) * 100)
+						: 0;
+
+					// KRA sync health check (lightweight ping)
+					try {
+						const health = await irisKfintechService.healthCheck?.();
+						irisStats.kraHealthy = health?.status === "ok" || health?.healthy === true;
+						irisStats.kraMessage = health?.message ?? null;
+					} catch (_healthErr) {
+						irisStats.kraHealthy = false;
+					}
+
+					// Recent IRIS-sourced vault writes today
+					const [vaultToday] = await db
+						.select({ count: sql<number>`count(*)` })
+						.from(schema.kycVault)
+						.where(gte(schema.kycVault.updatedAt, today));
+					irisStats.vaultWritesToday = Number(vaultToday?.count) || 0;
+
+					// Pending IRIS KYC: users with PAN but not in vault
+					irisStats.pendingIrisSync = Math.max(0, totalPanUsers - vaultCovered);
+				}
+			} catch (irisErr: any) {
+				irisStats.error = irisErr.message;
+			}
+
+			const alerts = complianceMonitor.getAlerts(false);
 
 			res.json({
 				success: true,
 				data: {
-					pendingKyc: Number(pendingCount) || 0,
-					approvedToday: Number(approvedToday) || 0,
-					rejectedToday: Number(rejectedToday) || 0,
-					pendingDocuments: Number(pendingDocs) || 0,
-					activeAlerts: alerts?.length || 0,
+					// DB-sourced
+					pendingKyc:        Number(pendingCount)   || 0,
+					approvedToday:     Number(approvedToday)  || 0,
+					rejectedToday:     Number(rejectedToday)  || 0,
+					pendingDocuments:  Number(pendingDocs)    || 0,
+					activeAlerts:      alerts?.length         || 0,
 					tier1Count,
 					tier2Count,
 					tier3Count,
+					// IRIS-enriched
+					iris: irisStats,
 				},
+				meta: { timestamp: new Date().toISOString(), version: "1.0" },
 			});
-		} catch (error) {
-			console.error("Error fetching KYC dashboard stats:", error);
-			res
-				.status(500)
-				.json({ success: false, error: "Failed to fetch dashboard stats" });
+		} catch (error: any) {
+			res.status(500).json({ success: false, error: { error_code: "ADMIN_KYC_DASHBOARD_ERROR", message: error.message, retryable: true } });
 		}
 	});
+
 
 	// Admin: KYC Submissions (formatted for compliance page)
 	app.get("/api/admin/kyc/submissions", requireAdmin, async (req, res) => {
@@ -282,7 +311,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 				},
 			});
 		} catch (error) {
-			console.error("Error fetching KYC submissions:", error);
+			logger.error("Error fetching KYC submissions:", error);
 			res
 				.status(500)
 				.json({ success: false, error: "Failed to fetch submissions" });
@@ -383,7 +412,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 				},
 			});
 		} catch (error) {
-			console.error("Error fetching financial dashboard:", error);
+			logger.error("Error fetching financial dashboard:", error);
 			res
 				.status(500)
 				.json({ success: false, error: "Failed to fetch dashboard" });
@@ -459,7 +488,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 				},
 			});
 		} catch (error) {
-			console.error("Error fetching financial orders:", error);
+			logger.error("Error fetching financial orders:", error);
 			res.status(500).json({ success: false, error: "Failed to fetch orders" });
 		}
 	});
@@ -482,7 +511,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 				data: { ...order, createdAt: order.createdAt?.toISOString() || null },
 			});
 		} catch (error) {
-			console.error("Error fetching order details:", error);
+			logger.error("Error fetching order details:", error);
 			res.status(500).json({ success: false, error: "Failed to fetch order" });
 		}
 	});
@@ -511,7 +540,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 					})),
 				});
 			} catch (error) {
-				console.error("Error fetching Cashfree transactions:", error);
+				logger.error("Error fetching Cashfree transactions:", error);
 				res
 					.status(500)
 					.json({ success: false, error: "Failed to fetch transactions" });
@@ -543,7 +572,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 					})),
 				});
 			} catch (error) {
-				console.error("Error fetching PhonePe transactions:", error);
+				logger.error("Error fetching PhonePe transactions:", error);
 				res
 					.status(500)
 					.json({ success: false, error: "Failed to fetch transactions" });
@@ -604,7 +633,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 					},
 				});
 			} catch (error) {
-				console.error("Error fetching payment reconciliation:", error);
+				logger.error("Error fetching payment reconciliation:", error);
 				res
 					.status(500)
 					.json({
@@ -685,7 +714,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 					},
 				});
 			} catch (error) {
-				console.error("Error fetching revenue analytics:", error);
+				logger.error("Error fetching revenue analytics:", error);
 				res
 					.status(500)
 					.json({ success: false, error: "Failed to fetch revenue analytics" });
@@ -699,7 +728,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 			// Refunds table not yet created - return empty array
 			res.json({ success: true, data: [] });
 		} catch (error) {
-			console.error("Error fetching refunds:", error);
+			logger.error("Error fetching refunds:", error);
 			res
 				.status(500)
 				.json({ success: false, error: "Failed to fetch refunds" });
@@ -736,7 +765,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 					data: { orderId, amount, reason, status: "pending" },
 				});
 			} catch (error) {
-				console.error("Error initiating refund:", error);
+				logger.error("Error initiating refund:", error);
 				res
 					.status(500)
 					.json({ success: false, error: "Failed to initiate refund" });
@@ -877,7 +906,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 				},
 			});
 		} catch (error) {
-			console.error("Error fetching duplicates:", error);
+			logger.error("Error fetching duplicates:", error);
 			res
 				.status(500)
 				.json({ success: false, error: "Failed to fetch duplicate accounts" });
@@ -940,7 +969,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 				},
 			});
 		} catch (error) {
-			console.error("Error fetching duplicate stats:", error);
+			logger.error("Error fetching duplicate stats:", error);
 			res
 				.status(500)
 				.json({ success: false, error: "Failed to fetch duplicate stats" });
@@ -961,7 +990,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 			);
 			res.json({ submissions });
 		} catch (error) {
-			console.error("Error fetching manual KYC submissions:", error);
+			logger.error("Error fetching manual KYC submissions:", error);
 			res.status(500).json({ message: "Failed to fetch submissions" });
 		}
 	});
@@ -983,7 +1012,7 @@ export function registerKYCAdminSupporPart1Routes(app: Express): void {
 
 				res.json({ submissions });
 			} catch (error) {
-				console.error("Error fetching admin manual KYC submissions:", error);
+				logger.error("Error fetching admin manual KYC submissions:", error);
 				res.status(500).json({ message: "Failed to fetch submissions" });
 			}
 		},

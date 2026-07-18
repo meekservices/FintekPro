@@ -209,4 +209,91 @@ export function registerClientPortalRoutes(app: Express): void {
       apiErr(res, 502, "CLIENT_TX_ERROR", err.message, true);
     }
   });
+  /**
+   * POST /api/client/kyc/initiate
+   * Client self-service: send eKYC OTP/link via IRIS.
+   * PAN is resolved from the authenticated session — client cannot spoof another PAN.
+   *
+   * Inputs: none (PAN from session)
+   * Outputs: { triggered: true, message } | error
+   * Edge cases:
+   *   - PAN not in profile → 400
+   *   - IRIS not configured → 503
+   *   - IRIS error → 502 retryable
+   */
+  app.post("/api/client/kyc/initiate", requireAuth, async (req: Request, res: Response) => {
+    const startMs = Date.now();
+    const user = (req as any).user;
+    const pan: string | undefined = user?.pan ?? user?.panNumber;
+
+    if (!pan) {
+      return apiErr(res, 400, "CLIENT_KYC_NO_PAN", "PAN not found in your profile. Please update your profile first.", false);
+    }
+    if (!irisKfintechService.isConfigured) {
+      return apiErr(res, 503, "IRIS_NOT_CONFIGURED", "KYC service temporarily unavailable", true);
+    }
+
+    try {
+      const result = await irisKfintechService.sendEkycMail(pan);
+      clientLog("CLIENT_KYC_INITIATE", {
+        user_id: user.id,
+        pan_masked: pan.slice(0, 5) + "*****",
+        latency_ms: Date.now() - startMs,
+        status: "success",
+      });
+      apiOk(res, {
+        triggered: true,
+        message: result?.message ?? "eKYC link sent to your registered email/mobile",
+        pan_masked: pan.slice(0, 5) + "*****",
+      }, { latency_ms: Date.now() - startMs });
+    } catch (err: any) {
+      clientLog("CLIENT_KYC_INITIATE_ERROR", { user_id: user.id, pan_masked: pan.slice(0, 5) + "*****", error: err.message, level: "error" });
+      apiErr(res, 502, "CLIENT_KYC_INITIATE_ERROR", err.message, true);
+    }
+  });
+
+  /**
+   * POST /api/client/kyc/vault-sync
+   * Trigger IRIS KYC → multi-broker vault write-back for the logged-in client.
+   * Call this after eKYC is confirmed completed so all broker onboardings
+   * can reuse the IRIS-verified data without re-collecting PII.
+   *
+   * Outputs: { fieldsWritten, isReusable, alreadyCurrent? }
+   */
+  app.post("/api/client/kyc/vault-sync", requireAuth, async (req: Request, res: Response) => {
+    const startMs = Date.now();
+    const user = (req as any).user;
+    const pan: string | undefined = user?.pan ?? user?.panNumber;
+
+    if (!pan) {
+      return apiErr(res, 400, "CLIENT_KYC_NO_PAN", "PAN not found in your profile.", false);
+    }
+    if (!irisKfintechService.isConfigured) {
+      return apiErr(res, 503, "IRIS_NOT_CONFIGURED", "KYC sync service temporarily unavailable", true);
+    }
+
+    try {
+      const { writeIrisKycToVault } = await import("../services/kyc/iris-kyc-vault-writeback-service");
+      const result = await writeIrisKycToVault(user.id, pan, { agentId: "client-self" });
+      clientLog("CLIENT_KYC_VAULT_SYNC", {
+        user_id: user.id,
+        pan_masked: pan.slice(0, 5) + "*****",
+        fields_written: result.fieldsWritten.length,
+        is_reusable: result.isReusable,
+        latency_ms: Date.now() - startMs,
+        status: result.success ? "success" : "failed",
+      });
+      if (!result.success) {
+        return apiErr(res, 502, "VAULT_SYNC_FAILED", result.error ?? "Vault sync failed", true);
+      }
+      apiOk(res, {
+        fieldsWritten: result.fieldsWritten,
+        isReusable: result.isReusable,
+        alreadyCurrent: result.alreadyCurrent ?? false,
+      }, { latency_ms: Date.now() - startMs });
+    } catch (err: any) {
+      clientLog("CLIENT_KYC_VAULT_SYNC_ERROR", { user_id: user.id, pan_masked: pan.slice(0, 5) + "*****", error: err.message, level: "error" });
+      apiErr(res, 502, "CLIENT_KYC_VAULT_SYNC_ERROR", err.message, true);
+    }
+  });
 }

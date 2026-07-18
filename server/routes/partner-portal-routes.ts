@@ -22,6 +22,7 @@ import {
   irisPmsAifProducts,
   users,
   onboardingInvitations,
+  kycVault,
 } from "@shared/schema";
 import { eq, sql, and, desc } from "drizzle-orm";
 import { irisKfintechService } from "../services/iris-kfintech-service";
@@ -289,6 +290,129 @@ export function registerPartnerPortalEnhancementRoutes(app: Express): void {
 
       partnerLog("PARTNER_ZOHO_SYNC_FAILED", { partner_id: partnerId, error: lastErr?.message }, "error" as any);
       apiErr(res, 502, "PARTNER_ZOHO_SYNC_FAILED", lastErr?.message ?? "Sync failed after 3 attempts", true);
+    },
+  );
+
+  /**
+   * GET /api/partner/portal/clients/:pan/kyc-status
+   * Real-time IRIS KYC status for a client referred by this partner.
+   * Partners can only query clients they referred (invitation check).
+   *
+   * Outputs: { ekyc, kyc, vaultReady }
+   * Edge cases:
+   *   - Client not referred by this partner → 403
+   *   - IRIS not configured → 503
+   */
+  app.get(
+    "/api/partner/portal/clients/:pan/kyc-status",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const { pan } = req.params;
+      const partnerId = (req as any).user?.id;
+      const startMs = Date.now();
+      const panMasked = pan.slice(0, 5) + "*****";
+
+      if (!irisKfintechService.isConfigured) {
+        return apiErr(res, 503, "IRIS_NOT_CONFIGURED", "KYC service temporarily unavailable", true);
+      }
+
+      try {
+        // Verify this client was referred by this partner
+        const invitation = await db
+          .select({ id: onboardingInvitations.id, clientEmail: onboardingInvitations.clientEmail })
+          .from(onboardingInvitations)
+          .where(
+            and(
+              eq(onboardingInvitations.inviterId, partnerId),
+              eq(onboardingInvitations.inviterType, "partner"),
+            ),
+          )
+          .limit(50);
+
+        // Find invitation matching PAN via user lookup
+        const userRow = await db
+          .select({ id: users.id, email: users.email })
+          .from(users)
+          .where(eq(users.panNumber, pan))
+          .limit(1);
+
+        const clientEmail = userRow[0]?.email;
+        const isReferred = invitation.some((inv) => inv.clientEmail === clientEmail);
+
+        if (!isReferred && invitation.length > 0) {
+          return apiErr(res, 403, "CLIENT_NOT_REFERRED", "This client was not referred by your account", false);
+        }
+
+        const [ekyc, kyc] = await Promise.allSettled([
+          irisKfintechService.getEkycStatus(pan),
+          irisKfintechService.getInvestorKycDetails(pan),
+        ]);
+        // Check vault coverage via DB using userId (vault is keyed by userId, not PAN)
+        const vaultReady = userRow.length > 0
+          ? (await db.select({ id: kycVault.id })
+              .from(kycVault)
+              .where(eq(kycVault.userId, userRow[0].id))
+              .limit(1)).length > 0
+          : false;
+
+        partnerLog("PARTNER_CLIENT_KYC_STATUS", {
+          partner_id: partnerId,
+          pan_masked: panMasked,
+          latency_ms: Date.now() - startMs,
+          status: "success",
+        });
+
+        apiOk(res, {
+          pan_masked: panMasked,
+          ekyc: ekyc.status === "fulfilled" ? ekyc.value : null,
+          kyc:  kyc.status  === "fulfilled" ? kyc.value  : null,
+          vaultReady,
+        }, { latency_ms: Date.now() - startMs, source: "iris" });
+
+      } catch (err: any) {
+        partnerLog("PARTNER_CLIENT_KYC_STATUS_ERROR", { partner_id: partnerId, pan_masked: panMasked, error: err.message, level: "error" });
+        apiErr(res, 502, "PARTNER_KYC_STATUS_ERROR", err.message, true);
+      }
+    },
+  );
+
+  /**
+   * POST /api/partner/portal/clients/:pan/kyc/initiate
+   * Partner triggers eKYC link for a referred client who hasn't completed KYC yet.
+   * SEBI compliance: partners can only initiate for clients they referred.
+   *
+   * Outputs: { triggered: true, message }
+   */
+  app.post(
+    "/api/partner/portal/clients/:pan/kyc/initiate",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const { pan } = req.params;
+      const partnerId = (req as any).user?.id;
+      const startMs = Date.now();
+      const panMasked = pan.slice(0, 5) + "*****";
+
+      if (!irisKfintechService.isConfigured) {
+        return apiErr(res, 503, "IRIS_NOT_CONFIGURED", "KYC service temporarily unavailable", true);
+      }
+
+      try {
+        const result = await irisKfintechService.sendEkycMail(pan);
+        partnerLog("PARTNER_CLIENT_KYC_INITIATE", {
+          partner_id: partnerId,
+          pan_masked: panMasked,
+          latency_ms: Date.now() - startMs,
+          status: "success",
+        });
+        apiOk(res, {
+          triggered: true,
+          message: result?.message ?? "eKYC link sent to client's registered email/mobile",
+          pan_masked: panMasked,
+        }, { latency_ms: Date.now() - startMs });
+      } catch (err: any) {
+        partnerLog("PARTNER_CLIENT_KYC_INITIATE_ERROR", { partner_id: partnerId, pan_masked: panMasked, error: err.message }, "error");
+        apiErr(res, 502, "PARTNER_KYC_INITIATE_ERROR", err.message, true);
+      }
     },
   );
 }

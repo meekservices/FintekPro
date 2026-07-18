@@ -292,4 +292,83 @@ export function registerAgentPortalEnhancementRoutes(app: Express): void {
       }
     },
   );
+  /**
+   * POST /api/agent/portal/clients/:pan/kyc/complete
+   * Agent marks a client KYC as complete and triggers IRIS → multi-broker vault write-back.
+   * Call this after the client's eKYC verification is confirmed in IRIS.
+   * Enables seamless onboarding to any broker without re-collecting PII.
+   *
+   * Inputs: :pan (path param)
+   * Outputs: { fieldsWritten, isReusable, alreadyCurrent? }
+   * Edge cases:
+   *   - KYC not yet verified in IRIS → 422 with irisStatus
+   *   - Vault sync failure → 502 retryable
+   */
+  app.post(
+    "/api/agent/portal/clients/:pan/kyc/complete",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const { pan } = req.params;
+      const agentId = (req as any).user?.id;
+      const startMs = Date.now();
+      const panMasked = pan.slice(0, 5) + "*****";
+
+      if (!irisKfintechService.isConfigured) {
+        return apiErr(res, 503, "IRIS_NOT_CONFIGURED", "KYC service temporarily unavailable", true);
+      }
+
+      try {
+        // Verify KYC is actually complete in IRIS before writing to vault
+        const kycStatus: any = await irisKfintechService.getInvestorKycDetails(pan);
+        const status = kycStatus?.kycStatus ?? kycStatus?.status ?? "";
+        if (!["KYC_VERIFIED", "VERIFIED", "COMPLIANT"].includes(String(status).toUpperCase())) {
+          agentLog("AGENT_KYC_COMPLETE_NOT_READY", { agent_id: agentId, pan_masked: panMasked, iris_status: status });
+          return res.status(422).json({
+            success: false,
+            error: {
+              error_code: "KYC_NOT_YET_VERIFIED",
+              message: `Client KYC status is '${status}' — must be VERIFIED before vault sync`,
+              retryable: false,
+            },
+            data: { irisStatus: status },
+            meta: { timestamp: new Date().toISOString(), version: "1.0" },
+          });
+        }
+
+        // Find user by PAN to get userId for vault write
+        const userRow = await db.select({ id: users.id }).from(users).where(eq(users.panNumber, pan)).limit(1);
+        if (!userRow.length) {
+          return apiErr(res, 404, "USER_NOT_FOUND", `No FintekPro user found for PAN ${panMasked}`, false);
+        }
+
+        const { writeIrisKycToVault } = await import("../services/kyc/iris-kyc-vault-writeback-service");
+        const result = await writeIrisKycToVault(userRow[0].id, pan, { agentId });
+
+        agentLog("AGENT_KYC_VAULT_WRITEBACK", {
+          agent_id: agentId,
+          pan_masked: panMasked,
+          fields_written: result.fieldsWritten.length,
+          is_reusable: result.isReusable,
+          latency_ms: Date.now() - startMs,
+          status: result.success ? "success" : "failed",
+        });
+
+        if (!result.success) {
+          return apiErr(res, 502, "VAULT_WRITEBACK_FAILED", result.error ?? "Vault write-back failed", true);
+        }
+
+        apiOk(res, {
+          vaultSynced: true,
+          fieldsWritten: result.fieldsWritten,
+          isReusable: result.isReusable,
+          alreadyCurrent: result.alreadyCurrent ?? false,
+          pan_masked: panMasked,
+        }, { latency_ms: Date.now() - startMs });
+
+      } catch (err: any) {
+        agentLog("AGENT_KYC_VAULT_WRITEBACK_ERROR", { agent_id: agentId, pan_masked: panMasked, error: err.message }, "error" as any);
+        apiErr(res, 502, "AGENT_KYC_COMPLETE_ERROR", err.message, true);
+      }
+    },
+  );
 }
