@@ -151,10 +151,17 @@ export const partners = pgTable("partners", {
   createdBy: varchar("created_by"),
   referredById: varchar("referred_by_id"),
 
+  // Portal auth link — the users.id of the partner's login account.
+  // Nullable: legacy partners without a portal account will not have this set.
+  // Used by EUIN chain resolution to look up a partner by their auth session userId.
+  userId: varchar("user_id").references(() => users.id),
+
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  idxPartnersUserId: uniqueIndex("idx_partners_user_id").on(table.userId),
+}));
 
 export const partnerReferrals = pgTable("partner_referrals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
