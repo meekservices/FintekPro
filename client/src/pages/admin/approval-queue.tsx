@@ -36,265 +36,309 @@ import {
 	AlertCircle,
 	FileText,
 	User,
+	Shield,
+	RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-interface ApprovalRequest {
-	id: number;
-	entityType: string;
-	entityId: string;
-	action: string;
-	requestedBy: number;
-	requestedAt: string;
-	status: "pending" | "approved" | "rejected";
-	requestData: any;
-	priority: "low" | "medium" | "high" | "critical";
-	justification?: string;
+// ─── Types matching /api/master-agent/pending-transactions ────────────────────
+
+interface PendingTransaction {
+	id: string;
+	initiatedByUserId: string;
+	initiatedByRole: "agent" | "partner";
+	clientPan: string | null;
+	transactionType: string;
+	productType: string;
+	status: "pending" | "approved" | "rejected" | "executed" | "cancelled";
+	approverRole: "parent_agent" | "partner" | "master_agent" | "admin";
+	approvalNotes: string | null;
+	rejectionReason: string | null;
+	irisOrderId: string | null;
+	createdAt: string;
+	approvedAt: string | null;
+	executedAt: string | null;
 }
+
+interface DashboardStats {
+	pending: number;
+	approved: number;
+	rejected: number;
+	executed: number;
+	byApproverRole: Record<string, number>;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const approverRoleLabel: Record<string, string> = {
+	parent_agent: "Parent Agent",
+	partner:      "Partner",
+	master_agent: "Master Agent",
+	admin:        "Admin",
+};
+
+const approverRoleColor: Record<string, string> = {
+	parent_agent: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+	partner:      "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+	master_agent: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+	admin:        "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200",
+};
+
+function StatusBadge({ status }: { status: string }) {
+	const map: Record<string, { label: string; cls: string }> = {
+		pending:   { label: "Pending",   cls: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
+		approved:  { label: "Approved",  cls: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+		rejected:  { label: "Rejected",  cls: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+		executed:  { label: "Executed",  cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200" },
+		cancelled: { label: "Cancelled", cls: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200" },
+	};
+	const s = map[status] ?? { label: status, cls: "bg-gray-100 text-gray-800" };
+	return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>{s.label}</span>;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AdminApprovalQueue() {
 	const { toast } = useToast();
-	const [selectedRequest, setSelectedRequest] =
-		useState<ApprovalRequest | null>(null);
-	const [reviewComments, setReviewComments] = useState("");
+	const [selectedTx, setSelectedTx]     = useState<PendingTransaction | null>(null);
+	const [notes, setNotes]               = useState("");
+	const [rejectReason, setRejectReason] = useState("");
+	const [statusTab, setStatusTab]       = useState("pending");
 
-	const { data: requests, isLoading } = useQuery<ApprovalRequest[]>({
-		queryKey: ["/api/admin/approval-requests"],
+	// Dashboard stats
+	const { data: stats, refetch: refetchStats } = useQuery<DashboardStats>({
+		queryKey: ["/api/master-agent/pending-transactions/dashboard"],
 	});
 
-	const processMutation = useMutation({
-		mutationFn: (data: {
-			id: number;
-			status: "approved" | "rejected";
-			comments: string;
-		}) =>
-			apiRequest(`/api/admin/approval-requests/${data.id}/process`, {
+	// Paginated transaction list
+	const { data: txList, isLoading, refetch: refetchList } = useQuery<{ data: PendingTransaction[]; meta: { total: number } }>({
+		queryKey: ["/api/master-agent/pending-transactions", statusTab],
+		queryFn: () => apiRequest(`/api/master-agent/pending-transactions?status=${statusTab}&limit=50`),
+	});
+
+	const approveMutation = useMutation({
+		mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+			apiRequest(`/api/master-agent/pending-transactions/${id}/approve`, {
 				method: "POST",
-				body: JSON.stringify({ status: data.status, comments: data.comments }),
+				body: JSON.stringify({ notes }),
 			}),
-		onSuccess: (_, variables) => {
+		onSuccess: (res: any) => {
 			toast({
-				title: `Request ${variables.status === "approved" ? "Approved" : "Rejected"}`,
-				description: "The workflow has been processed successfully.",
+				title: "Transaction Approved ✅",
+				description: res?.data?.irisOrderId
+					? `IRIS Order: ${res.data.irisOrderId}`
+					: "Approved. Pending IRIS execution.",
 			});
-			setSelectedRequest(null);
-			setReviewComments("");
-			queryClient.invalidateQueries({
-				queryKey: ["/api/admin/approval-requests"],
-			});
+			setSelectedTx(null);
+			setNotes("");
+			refetchStats();
+			refetchList();
 		},
-		onError: (error: any) => {
-			toast({
-				variant: "destructive",
-				title: "Processing Failed",
-				description: error.message || "Failed to process the approval request.",
-			});
+		onError: (err: any) => {
+			toast({ variant: "destructive", title: "Approval Failed", description: err.message });
 		},
 	});
 
-	const getPriorityBadge = (priority: string) => {
-		switch (priority) {
-			case "critical":
-				return <Badge variant="destructive">Critical</Badge>;
-			case "high":
-				return <Badge className="bg-orange-500 text-white">High</Badge>;
-			case "medium":
-				return <Badge variant="secondary">Medium</Badge>;
-			default:
-				return <Badge variant="outline">Low</Badge>;
-		}
-	};
+	const rejectMutation = useMutation({
+		mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+			apiRequest(`/api/master-agent/pending-transactions/${id}/reject`, {
+				method: "POST",
+				body: JSON.stringify({ reason }),
+			}),
+		onSuccess: () => {
+			toast({ title: "Transaction Rejected", description: "Returned to initiating agent." });
+			setSelectedTx(null);
+			setRejectReason("");
+			refetchStats();
+			refetchList();
+		},
+		onError: (err: any) => {
+			toast({ variant: "destructive", title: "Rejection Failed", description: err.message });
+		},
+	});
 
-	if (isLoading)
-		return <div className="p-8 text-center">Loading pending requests...</div>;
+	const rows = txList?.data ?? (Array.isArray(txList) ? txList : []);
 
 	return (
 		<div className="p-6 space-y-6">
+			{/* Header */}
 			<div className="flex justify-between items-center">
 				<div>
-					<h1 className="text-3xl font-bold tracking-tight">
-						Governance Queue
+					<h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+						<Shield className="w-8 h-8 text-amber-600" />
+						EUIN Governance Queue
 					</h1>
-					<p className="text-muted-foreground">
-						Maker-Checker workflow for high-risk administrative changes
+					<p className="text-muted-foreground mt-1">
+						Transactions queued for EUIN-chain approval. Approvers are notified via WhatsApp + Email.
 					</p>
 				</div>
+				<Button variant="outline" size="sm" onClick={() => { refetchStats(); refetchList(); }}>
+					<RefreshCw className="w-4 h-4 mr-2" /> Refresh
+				</Button>
 			</div>
 
-			<Card>
-				<CardHeader>
-					<CardTitle className="flex items-center gap-2">
-						<Clock className="h-5 w-5 text-blue-500" />
-						Pending Approvals
-					</CardTitle>
-					<CardDescription>
-						Requests waiting for second-level authorization (Checker)
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Type</TableHead>
-								<TableHead>Action</TableHead>
-								<TableHead>Requested By</TableHead>
-								<TableHead>Time</TableHead>
-								<TableHead>Priority</TableHead>
-								<TableHead className="text-right">Actions</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{!requests || requests.length === 0 ? (
+			{/* Stats cards */}
+			{stats && (
+				<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+					{[
+						{ label: "Pending",  value: stats.pending,  icon: Clock,       color: "text-yellow-600" },
+						{ label: "Approved", value: stats.approved, icon: CheckCircle2, color: "text-green-600" },
+						{ label: "Rejected", value: stats.rejected, icon: XCircle,      color: "text-red-600" },
+						{ label: "Executed", value: stats.executed, icon: FileText,     color: "text-emerald-600" },
+					].map((s) => (
+						<Card key={s.label}>
+							<CardContent className="pt-6">
+								<div className="flex items-center justify-between">
+									<div>
+										<p className="text-sm text-muted-foreground">{s.label}</p>
+										<p className="text-2xl font-bold">{s.value}</p>
+									</div>
+									<s.icon className={`w-8 h-8 ${s.color} opacity-80`} />
+								</div>
+							</CardContent>
+						</Card>
+					))}
+				</div>
+			)}
+
+			{/* Approver Role Breakdown */}
+			{stats?.byApproverRole && Object.keys(stats.byApproverRole).length > 0 && (
+				<Card>
+					<CardHeader className="pb-3">
+						<CardTitle className="text-sm font-medium">Pending by Approver Type</CardTitle>
+						<CardDescription>Where transactions are currently queued in the EUIN chain</CardDescription>
+					</CardHeader>
+					<CardContent className="flex flex-wrap gap-3">
+						{Object.entries(stats.byApproverRole).map(([role, count]) => (
+							<div key={role} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${approverRoleColor[role] ?? "bg-gray-100 text-gray-800"}`}>
+								<span>{approverRoleLabel[role] ?? role}</span>
+								<span className="font-bold">{count}</span>
+							</div>
+						))}
+					</CardContent>
+				</Card>
+			)}
+
+			<Separator />
+
+			{/* Transaction list with status tabs */}
+			<Tabs value={statusTab} onValueChange={setStatusTab}>
+				<TabsList>
+					<TabsTrigger value="pending">Pending</TabsTrigger>
+					<TabsTrigger value="approved">Approved</TabsTrigger>
+					<TabsTrigger value="rejected">Rejected</TabsTrigger>
+					<TabsTrigger value="executed">Executed</TabsTrigger>
+					<TabsTrigger value="all">All</TabsTrigger>
+				</TabsList>
+
+				<TabsContent value={statusTab} className="mt-4">
+					{isLoading ? (
+						<div className="p-8 text-center text-muted-foreground">Loading transactions…</div>
+					) : rows.length === 0 ? (
+						<div className="p-8 text-center text-muted-foreground">
+							<AlertCircle className="w-10 h-10 mx-auto mb-2 opacity-40" />
+							No {statusTab} transactions.
+						</div>
+					) : (
+						<Table>
+							<TableHeader>
 								<TableRow>
-									<TableCell
-										colSpan={6}
-										className="text-center py-8 text-muted-foreground"
-									>
-										No pending approval requests
-									</TableCell>
+									<TableHead>ID</TableHead>
+									<TableHead>Type</TableHead>
+									<TableHead>Product</TableHead>
+									<TableHead>Initiated By</TableHead>
+									<TableHead>Approver Type</TableHead>
+									<TableHead>Status</TableHead>
+									<TableHead>Queued</TableHead>
+									<TableHead className="text-right">Actions</TableHead>
 								</TableRow>
-							) : (
-								requests.map((request) => (
-									<TableRow key={request.id}>
-										<TableCell className="font-medium">
-											<div className="flex items-center gap-2 uppercase text-xs">
-												<FileText className="h-3 w-3" />
-												{request.entityType.replace("_", " ")}
+							</TableHeader>
+							<TableBody>
+								{rows.map((tx) => (
+									<TableRow key={tx.id}>
+										<TableCell className="font-mono text-xs">{tx.id.slice(0, 8).toUpperCase()}</TableCell>
+										<TableCell className="capitalize">{tx.transactionType.replace(/_/g, " ")}</TableCell>
+										<TableCell className="capitalize">{tx.productType.replace(/_/g, " ")}</TableCell>
+										<TableCell>
+											<div className="flex items-center gap-1.5">
+												<User className="w-3.5 h-3.5 text-muted-foreground" />
+												<span className="capitalize text-sm">{tx.initiatedByRole}</span>
 											</div>
 										</TableCell>
 										<TableCell>
-											<Badge variant="outline">{request.action}</Badge>
+											<span className={`px-2 py-0.5 rounded-full text-xs font-medium ${approverRoleColor[tx.approverRole] ?? ""}`}>
+												{approverRoleLabel[tx.approverRole] ?? tx.approverRole}
+											</span>
 										</TableCell>
-										<TableCell>
-											<div className="flex items-center gap-2">
-												<User className="h-3 w-3" />
-												User #{request.requestedBy}
-											</div>
+										<TableCell><StatusBadge status={tx.status} /></TableCell>
+										<TableCell className="text-xs text-muted-foreground">
+											{format(new Date(tx.createdAt), "dd MMM yy, HH:mm")}
 										</TableCell>
-										<TableCell className="text-sm">
-											{format(new Date(request.requestedAt), "MMM dd, HH:mm")}
-										</TableCell>
-										<TableCell>{getPriorityBadge(request.priority)}</TableCell>
 										<TableCell className="text-right">
-											<Dialog
-												open={selectedRequest?.id === request.id}
-												onOpenChange={(open) =>
-													!open && setSelectedRequest(null)
-												}
-											>
-												<DialogTrigger asChild>
-													<Button
-														size="sm"
-														variant="outline"
-														onClick={() => setSelectedRequest(request)}
-													>
-														Review
-													</Button>
-												</DialogTrigger>
-												<DialogContent className="max-w-xl">
-													<DialogHeader>
-														<DialogTitle>Review Approval Request</DialogTitle>
-														<DialogDescription>
-															ID: #{request.id} | Priority:{" "}
-															{request.priority.toUpperCase()}
-														</DialogDescription>
-													</DialogHeader>
-
-													<div className="space-y-4 py-4">
-														<div className="grid grid-cols-2 gap-4 text-sm">
-															<div className="space-y-1">
-																<span className="text-muted-foreground block">
-																	Entity Type
-																</span>
-																<span className="font-medium">
-																	{request.entityType}
-																</span>
-															</div>
-															<div className="space-y-1">
-																<span className="text-muted-foreground block">
-																	Entity ID
-																</span>
-																<span className="font-medium">
-																	{request.entityId}
-																</span>
-															</div>
-														</div>
-
-														<div className="space-y-1">
-															<span className="text-muted-foreground text-sm block">
-																Justification
-															</span>
-															<div className="p-3 bg-muted rounded-md text-sm border">
-																{request.justification ||
-																	"No justification provided."}
-															</div>
-														</div>
-
-														<div className="space-y-1">
-															<span className="text-muted-foreground text-sm block">
-																Request Data
-															</span>
-															<pre className="p-3 bg-slate-950 text-slate-50 rounded-md text-xs overflow-auto max-h-40">
-																{JSON.stringify(request.requestData, null, 2)}
-															</pre>
-														</div>
-
-														<Separator />
-
-														<div className="space-y-2">
-															<Label>Checker Comments</Label>
-															<Textarea
-																placeholder="Provide reason for approval or rejection..."
-																value={reviewComments}
-																onChange={(e) =>
-																	setReviewComments(e.target.value)
-																}
-															/>
-														</div>
-													</div>
-
-													<DialogFooter className="gap-2">
-														<Button
-															variant="destructive"
-															onClick={() =>
-																processMutation.mutate({
-																	id: request.id,
-																	status: "rejected",
-																	comments: reviewComments,
-																})
-															}
-															disabled={processMutation.isPending}
-														>
-															<XCircle className="mr-2 h-4 w-4" />
-															Reject
+											{tx.status === "pending" && (
+												<Dialog>
+													<DialogTrigger asChild>
+														<Button size="sm" variant="outline" onClick={() => { setSelectedTx(tx); setNotes(""); setRejectReason(""); }}>
+															Review
 														</Button>
-														<Button
-															className="bg-green-600 hover:bg-green-700 text-white"
-															onClick={() =>
-																processMutation.mutate({
-																	id: request.id,
-																	status: "approved",
-																	comments: reviewComments,
-																})
-															}
-															disabled={processMutation.isPending}
-														>
-															<CheckCircle2 className="mr-2 h-4 w-4" />
-															Approve
-														</Button>
-													</DialogFooter>
-												</DialogContent>
-											</Dialog>
+													</DialogTrigger>
+													<DialogContent className="max-w-lg">
+														<DialogHeader>
+															<DialogTitle>Review Transaction</DialogTitle>
+															<DialogDescription>
+																{tx.transactionType.replace(/_/g, " ")} — {tx.productType.replace(/_/g, " ")}
+															</DialogDescription>
+														</DialogHeader>
+														<div className="space-y-3 text-sm">
+															<div className="flex justify-between"><span className="text-muted-foreground">Transaction ID</span><span className="font-mono">{tx.id.slice(0, 8).toUpperCase()}</span></div>
+															<div className="flex justify-between"><span className="text-muted-foreground">Initiated by</span><span className="capitalize">{tx.initiatedByRole}</span></div>
+															<div className="flex justify-between"><span className="text-muted-foreground">Approver type</span><span>{approverRoleLabel[tx.approverRole]}</span></div>
+															{tx.clientPan && <div className="flex justify-between"><span className="text-muted-foreground">Client PAN</span><span className="font-mono">{tx.clientPan}</span></div>}
+															<Separator />
+															<div>
+																<Label htmlFor="approve-notes">Approval Notes (optional)</Label>
+																<Textarea id="approve-notes" className="mt-1" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add context or notes…" />
+															</div>
+															<div>
+																<Label htmlFor="reject-reason" className="text-destructive">Rejection Reason (required to reject)</Label>
+																<Textarea id="reject-reason" className="mt-1 border-destructive" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Minimum 5 characters…" />
+															</div>
+															<p className="text-xs text-muted-foreground">
+																⚠️ SEBI Disclosure: Approval uses your EUIN as executing principal. Market risks apply.
+															</p>
+														</div>
+														<DialogFooter className="gap-2">
+															<Button
+																variant="destructive"
+																disabled={rejectReason.trim().length < 5 || rejectMutation.isPending}
+																onClick={() => rejectMutation.mutate({ id: tx.id, reason: rejectReason.trim() })}
+															>
+																<XCircle className="w-4 h-4 mr-1" /> Reject
+															</Button>
+															<Button
+																disabled={approveMutation.isPending}
+																onClick={() => approveMutation.mutate({ id: tx.id, notes })}
+															>
+																<CheckCircle2 className="w-4 h-4 mr-1" /> Approve
+															</Button>
+														</DialogFooter>
+													</DialogContent>
+												</Dialog>
+											)}
+											{tx.status !== "pending" && tx.irisOrderId && (
+												<span className="text-xs font-mono text-emerald-600">{tx.irisOrderId}</span>
+											)}
 										</TableCell>
 									</TableRow>
-								))
-							)}
-						</TableBody>
-					</Table>
-				</CardContent>
-			</Card>
+								))}
+							</TableBody>
+						</Table>
+					)}
+				</TabsContent>
+			</Tabs>
 		</div>
 	);
 }

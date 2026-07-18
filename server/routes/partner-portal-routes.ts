@@ -23,11 +23,17 @@ import {
   users,
   onboardingInvitations,
   kycVault,
+  pendingTransactions,
 } from "@shared/schema";
 import { eq, sql, and, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { irisKfintechService } from "../services/iris-kfintech-service";
 import { logger } from "../logger";
+import {
+  getMasterAgentPendingStats,
+  approvePendingTransaction,
+  rejectPendingTransaction,
+} from "../services/masterAgentApprovalService";
 
 
 function partnerLog(event: string, extra: Record<string, unknown> = {}, level: "info" | "warn" | "error" = "info") {
@@ -604,4 +610,129 @@ export function registerPartnerPortalEnhancementRoutes(app: Express): void {
       }
     },
   );
+
+
+  // ──────────────────────────────────────────────────────────────
+  // EUIN Chain Approval Queue — Partner (EUIN holder)
+  // Partners with an euinNumber can approve/reject transactions queued
+  // to them from sub-agents they manage (via agentPartnerMappings).
+  // ──────────────────────────────────────────────────────────────
+
+  /**
+   * GET /api/partner/portal/approval-queue/dashboard
+   * Stats for the partner's EUIN approval dashboard.
+   */
+  app.get("/api/partner/portal/approval-queue/dashboard", requireAuth, async (req: Request, res: Response) => {
+    const startMs   = Date.now();
+    const partnerId = (req as any).user?.id as string;
+    try {
+      const stats = await getMasterAgentPendingStats(partnerId);
+      partnerLog("PARTNER_APPROVAL_QUEUE_DASHBOARD", { partner_id: partnerId, latency_ms: Date.now() - startMs, status: "success" });
+      apiOk(res, stats, { latency_ms: Date.now() - startMs });
+    } catch (err: any) {
+      partnerLog("PARTNER_APPROVAL_QUEUE_DASHBOARD_ERROR", { partner_id: partnerId, error: err.message }, "error");
+      apiErr(res, 500, "PARTNER_APPROVAL_QUEUE_DASHBOARD_ERROR", err.message, true);
+    }
+  });
+
+  /**
+   * GET /api/partner/portal/approval-queue
+   * Paginated list of transactions queued to this partner for EUIN approval.
+   */
+  app.get("/api/partner/portal/approval-queue", requireAuth, async (req: Request, res: Response) => {
+    const startMs   = Date.now();
+    const partnerId = (req as any).user?.id as string;
+    const { status = "pending", page = "1", limit = "20" } = req.query as Record<string, string>;
+    const pageNum  = Math.max(1, Number(page));
+    const limitNum = Math.min(100, Math.max(1, Number(limit)));
+    const offset   = (pageNum - 1) * limitNum;
+
+    try {
+      const validStatuses = ["pending", "approved", "rejected", "executed", "cancelled"];
+      const statusFilter  = validStatuses.includes(status) ? status : null;
+      const baseWhere = statusFilter
+        ? and(eq(pendingTransactions.masterAgentUserId, partnerId), eq(pendingTransactions.status, statusFilter))
+        : eq(pendingTransactions.masterAgentUserId, partnerId);
+
+      const [rows, [{ total }]] = await Promise.all([
+        db.select({
+          id:              pendingTransactions.id,
+          initiatedByRole: pendingTransactions.initiatedByRole,
+          transactionType: pendingTransactions.transactionType,
+          productType:     pendingTransactions.productType,
+          status:          pendingTransactions.status,
+          approverRole:    pendingTransactions.approverRole,
+          approvalNotes:   pendingTransactions.approvalNotes,
+          rejectionReason: pendingTransactions.rejectionReason,
+          irisOrderId:     pendingTransactions.irisOrderId,
+          createdAt:       pendingTransactions.createdAt,
+          approvedAt:      pendingTransactions.approvedAt,
+        })
+          .from(pendingTransactions)
+          .where(baseWhere)
+          .orderBy(desc(pendingTransactions.createdAt))
+          .limit(limitNum)
+          .offset(offset),
+        db.select({ total: sql<number>`count(*)` })
+          .from(pendingTransactions)
+          .where(baseWhere),
+      ]);
+
+      partnerLog("PARTNER_APPROVAL_QUEUE_LIST", { partner_id: partnerId, count: rows.length, latency_ms: Date.now() - startMs, status: "success" });
+      apiOk(res, rows, { page: pageNum, limit: limitNum, total: Number(total), totalPages: Math.ceil(Number(total) / limitNum), latency_ms: Date.now() - startMs });
+    } catch (err: any) {
+      partnerLog("PARTNER_APPROVAL_QUEUE_LIST_ERROR", { partner_id: partnerId, error: err.message }, "error");
+      apiErr(res, 500, "PARTNER_APPROVAL_QUEUE_LIST_ERROR", err.message, true);
+    }
+  });
+
+  /**
+   * POST /api/partner/portal/approval-queue/:id/approve
+   * Partner (EUIN holder) approves a pending transaction queued to them.
+   * Inputs: { notes? }
+   */
+  app.post("/api/partner/portal/approval-queue/:id/approve", requireAuth, async (req: Request, res: Response) => {
+    const startMs   = Date.now();
+    const partnerId = (req as any).user?.id as string;
+    const { id }    = req.params;
+    const { notes } = req.body ?? {};
+    try {
+      const result = await approvePendingTransaction(id, partnerId, notes);
+      partnerLog("PARTNER_APPROVAL_APPROVED", { partner_id: partnerId, tx_id: id, iris_order_id: result.irisOrderId, latency_ms: Date.now() - startMs, status: result.success ? "success" : "partial" });
+      if (!result.success) return apiErr(res, 502, "IRIS_EXECUTION_FAILED", result.message, true);
+      apiOk(res, {
+        pendingTransactionId: id,
+        irisOrderId: result.irisOrderId,
+        status: result.irisOrderId ? "executed" : "approved",
+        message: result.message,
+        disclaimer: "SEBI Disclosure: This transaction has been approved using your EUIN as executing principal. Market risks apply.",
+      }, { latency_ms: Date.now() - startMs });
+    } catch (err: any) {
+      partnerLog("PARTNER_APPROVAL_APPROVE_ERROR", { partner_id: partnerId, tx_id: id, error: err.message }, "error");
+      apiErr(res, 500, "PARTNER_APPROVAL_APPROVE_ERROR", err.message, true);
+    }
+  });
+
+  /**
+   * POST /api/partner/portal/approval-queue/:id/reject
+   * Partner rejects a transaction queued to them with a mandatory reason.
+   * Inputs: { reason } (required, min 5 chars)
+   */
+  app.post("/api/partner/portal/approval-queue/:id/reject", requireAuth, async (req: Request, res: Response) => {
+    const startMs   = Date.now();
+    const partnerId = (req as any).user?.id as string;
+    const { id }    = req.params;
+    const { reason } = req.body ?? {};
+    if (!reason || typeof reason !== "string" || reason.trim().length < 5) {
+      return apiErr(res, 400, "REJECTION_REASON_REQUIRED", "A rejection reason of at least 5 characters is required", false);
+    }
+    try {
+      const result = await rejectPendingTransaction(id, partnerId, reason.trim());
+      partnerLog("PARTNER_APPROVAL_REJECTED", { partner_id: partnerId, tx_id: id, reason: reason.trim(), latency_ms: Date.now() - startMs, status: "success" });
+      apiOk(res, { pendingTransactionId: id, status: "rejected", message: result.message }, { latency_ms: Date.now() - startMs });
+    } catch (err: any) {
+      partnerLog("PARTNER_APPROVAL_REJECT_ERROR", { partner_id: partnerId, tx_id: id, error: err.message }, "error");
+      apiErr(res, 500, "PARTNER_APPROVAL_REJECT_ERROR", err.message, true);
+    }
+  });
 }

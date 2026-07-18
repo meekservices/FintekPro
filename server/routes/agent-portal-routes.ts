@@ -19,10 +19,17 @@ import {
   irisNpsFunds,
   irisPmsAifProducts,
   onboardingInvitations,
+  pendingTransactions,
   users,
 } from "@shared/schema";
 import { eq, sql, and, desc } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import {
+  getMasterAgentPendingStats,
+  approvePendingTransaction,
+  rejectPendingTransaction,
+} from "../services/masterAgentApprovalService";
+
 import { logger } from "../logger";
 
 
@@ -515,4 +522,131 @@ export function registerAgentPortalEnhancementRoutes(app: Express): void {
       }
     },
   );
+
+  // ──────────────────────────────────────────────────────────────
+  // EUIN Chain Approval Queue — Agent (EUIN holder)
+  // Parent agents with verified EUIN can approve/reject transactions
+  // queued to them from their sub-agents without EUIN.
+  // Uses the shared /api/master-agent/pending-transactions/* backend.
+  // ──────────────────────────────────────────────────────────────
+
+  /**
+   * GET /api/agent/portal/approval-queue/dashboard
+   * Stats for the agent's EUIN approval dashboard.
+   * Only EUIN-holding agents have pending transactions queued to them.
+   */
+  app.get("/api/agent/portal/approval-queue/dashboard", requireAuth, async (req: Request, res: Response) => {
+    const startMs = Date.now();
+    const agentId = (req as any).user?.id as string;
+    try {
+      const stats = await getMasterAgentPendingStats(agentId);
+      agentLog("AGENT_APPROVAL_QUEUE_DASHBOARD", { agent_id: agentId, latency_ms: Date.now() - startMs, status: "success" });
+      apiOk(res, stats, { latency_ms: Date.now() - startMs });
+    } catch (err: any) {
+      agentLog("AGENT_APPROVAL_QUEUE_DASHBOARD_ERROR", { agent_id: agentId, error: err.message }, "error" as any);
+      apiErr(res, 500, "AGENT_APPROVAL_QUEUE_DASHBOARD_ERROR", err.message, true);
+    }
+  });
+
+  /**
+   * GET /api/agent/portal/approval-queue
+   * Paginated list of transactions queued to this agent for EUIN approval.
+   * Query: status (pending|approved|rejected|executed|all), page, limit
+   */
+  app.get("/api/agent/portal/approval-queue", requireAuth, async (req: Request, res: Response) => {
+    const startMs = Date.now();
+    const agentId = (req as any).user?.id as string;
+    const { status = "pending", page = "1", limit = "20" } = req.query as Record<string, string>;
+    const pageNum  = Math.max(1, Number(page));
+    const limitNum = Math.min(100, Math.max(1, Number(limit)));
+    const offset   = (pageNum - 1) * limitNum;
+
+    try {
+      const validStatuses = ["pending", "approved", "rejected", "executed", "cancelled"];
+      const statusFilter  = validStatuses.includes(status) ? status : null;
+      const baseWhere = statusFilter
+        ? and(eq(pendingTransactions.masterAgentUserId, agentId), eq(pendingTransactions.status, statusFilter))
+        : eq(pendingTransactions.masterAgentUserId, agentId);
+
+      const [rows, [{ total }]] = await Promise.all([
+        db.select({
+          id:                pendingTransactions.id,
+          initiatedByRole:   pendingTransactions.initiatedByRole,
+          transactionType:   pendingTransactions.transactionType,
+          productType:       pendingTransactions.productType,
+          status:            pendingTransactions.status,
+          approverRole:      pendingTransactions.approverRole,
+          approvalNotes:     pendingTransactions.approvalNotes,
+          rejectionReason:   pendingTransactions.rejectionReason,
+          irisOrderId:       pendingTransactions.irisOrderId,
+          createdAt:         pendingTransactions.createdAt,
+          approvedAt:        pendingTransactions.approvedAt,
+        })
+          .from(pendingTransactions)
+          .where(baseWhere)
+          .orderBy(desc(pendingTransactions.createdAt))
+          .limit(limitNum)
+          .offset(offset),
+        db.select({ total: sql<number>`count(*)` })
+          .from(pendingTransactions)
+          .where(baseWhere),
+      ]);
+
+      agentLog("AGENT_APPROVAL_QUEUE_LIST", { agent_id: agentId, count: rows.length, status_filter: status, latency_ms: Date.now() - startMs, status: "success" });
+      apiOk(res, rows, { page: pageNum, limit: limitNum, total: Number(total), totalPages: Math.ceil(Number(total) / limitNum), latency_ms: Date.now() - startMs });
+    } catch (err: any) {
+      agentLog("AGENT_APPROVAL_QUEUE_LIST_ERROR", { agent_id: agentId, error: err.message }, "error" as any);
+      apiErr(res, 500, "AGENT_APPROVAL_QUEUE_LIST_ERROR", err.message, true);
+    }
+  });
+
+  /**
+   * POST /api/agent/portal/approval-queue/:id/approve
+   * Agent (EUIN holder) approves a pending transaction queued to them.
+   * Inputs: { notes? }
+   */
+  app.post("/api/agent/portal/approval-queue/:id/approve", requireAuth, async (req: Request, res: Response) => {
+    const startMs = Date.now();
+    const agentId = (req as any).user?.id as string;
+    const { id }  = req.params;
+    const { notes } = req.body ?? {};
+    try {
+      const result = await approvePendingTransaction(id, agentId, notes);
+      agentLog("AGENT_APPROVAL_APPROVED", { agent_id: agentId, tx_id: id, iris_order_id: result.irisOrderId, latency_ms: Date.now() - startMs, status: result.success ? "success" : "partial" });
+      if (!result.success) return apiErr(res, 502, "IRIS_EXECUTION_FAILED", result.message, true);
+      apiOk(res, {
+        pendingTransactionId: id,
+        irisOrderId: result.irisOrderId,
+        status: result.irisOrderId ? "executed" : "approved",
+        message: result.message,
+        disclaimer: "SEBI Disclosure: This transaction has been approved using your EUIN as executing principal. Market risks apply.",
+      }, { latency_ms: Date.now() - startMs });
+    } catch (err: any) {
+      agentLog("AGENT_APPROVAL_APPROVE_ERROR", { agent_id: agentId, tx_id: id, error: err.message }, "error" as any);
+      apiErr(res, 500, "AGENT_APPROVAL_APPROVE_ERROR", err.message, true);
+    }
+  });
+
+  /**
+   * POST /api/agent/portal/approval-queue/:id/reject
+   * Agent rejects a transaction queued to them with a mandatory reason.
+   * Inputs: { reason } (required, min 5 chars)
+   */
+  app.post("/api/agent/portal/approval-queue/:id/reject", requireAuth, async (req: Request, res: Response) => {
+    const startMs = Date.now();
+    const agentId = (req as any).user?.id as string;
+    const { id }  = req.params;
+    const { reason } = req.body ?? {};
+    if (!reason || typeof reason !== "string" || reason.trim().length < 5) {
+      return apiErr(res, 400, "REJECTION_REASON_REQUIRED", "A rejection reason of at least 5 characters is required", false);
+    }
+    try {
+      const result = await rejectPendingTransaction(id, agentId, reason.trim());
+      agentLog("AGENT_APPROVAL_REJECTED", { agent_id: agentId, tx_id: id, reason: reason.trim(), latency_ms: Date.now() - startMs, status: "success" });
+      apiOk(res, { pendingTransactionId: id, status: "rejected", message: result.message }, { latency_ms: Date.now() - startMs });
+    } catch (err: any) {
+      agentLog("AGENT_APPROVAL_REJECT_ERROR", { agent_id: agentId, tx_id: id, error: err.message }, "error" as any);
+      apiErr(res, 500, "AGENT_APPROVAL_REJECT_ERROR", err.message, true);
+    }
+  });
 }
