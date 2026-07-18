@@ -136,6 +136,7 @@ import { registerDLMRoutes } from "./routes/dlm-routes";
 import { registerRevenueSheetRoutes } from "./routes/revenue-sheet-routes";
 import { registerLoanCommissionRoutes } from "./routes/loan-commission-routes";
 import { registerPartnerHierarchyRoutes } from "./routes/partner/hierarchy-routes";
+import { registerPartnerAgentManagementRoutes } from "./routes/partner/agent-management-routes";
 import { registerEligibilityMatrixRoutes } from "./routes/eligibility-matrix-routes";
 import { registerInvestmentIdeasRoutes } from "./routes/investment-ideas";
 import { registerPreIPORoutes } from "./routes/pre-ipo";
@@ -469,6 +470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	registerRevenueSheetRoutes(app); // /api/revenue-sheet/*
 	registerLoanCommissionRoutes(app); // /api/loan-commission/*
 	registerPartnerHierarchyRoutes(app); // /api/partner/hierarchy/*
+	registerPartnerAgentManagementRoutes(app); // /api/partner/agents/* — partner manages agents (with/without EUIN)
 	registerEligibilityMatrixRoutes(app); // /api/eligibility-matrix/*
 	registerInvestmentIdeasRoutes(app); // /api/investment-alerts/*
 	registerPreIPORoutes(app); // /api/pre-ipo/*

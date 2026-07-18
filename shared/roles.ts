@@ -429,24 +429,37 @@ export const ROLE_DEFINITIONS: Record<RoleId, RoleDefinition> = {
   },
 
   // Level 4: External Distribution Network - Partners
+  /**
+   * Level 4: Partner — Mid-Tier Role
+   * Sits between Admin and Agent in the hierarchy.
+   * Can manage agents WITH EUIN (AMFI-certified, MF transactions enabled)
+   * and agents WITHOUT EUIN (lead/DSA agents, transactions blocked until EUIN verified).
+   */
   partner: {
     id: 'partner',
     name: 'Partner',
-    description: 'Distribution partner (Company/Individual with ARN)',
-    parentRoles: ['bd_head', 'master_agent', 'partner'],
+    description: 'Distribution partner (Company/Individual with ARN) — mid-tier between Admin and Agent',
+    parentRoles: ['bd_head', 'master_agent'],
     portal: 'partner',
     level: 4,
     permissions: [
-      'manage:own_agents',
+      // Agent management (core mid-tier capability)
+      'manage:own_agents',             // CRUD for agents under this partner
+      'invite:agent_with_euin',        // Onboard AMFI-certified agents (EUIN required)
+      'invite:agent_without_euin',     // Onboard DSA/lead agents (no EUIN)
+      'assign:agent_euin',             // Assign/upgrade agent with EUIN number
+      'suspend:agent',                 // Suspend agents
+      'reactivate:agent',              // Reactivate suspended agents
+      // Financial
       'view:own_transactions',
       'view:own_commissions',
       'manage:own_clients',
-      'create:agent',
+      // Network
       'create:sub_agent',
       'create:associate',
       'refer:partner',
     ],
-    canManageRoles: ['agent', 'partner_ops', 'sub_agent', 'associate', 'partner'],
+    canManageRoles: ['agent', 'partner_ops', 'sub_agent', 'associate'],
     isInternal: false,
     requiresCompliance: true,
   },
@@ -668,7 +681,7 @@ export function getPrimaryPortal(roles: RoleId[]): 'admin' | 'partner' | 'agent'
   };
   
   let primaryPortal: 'admin' | 'partner' | 'agent' | 'client' = 'client';
-  let lowestPriority = Infinity;
+  let lowestPriority = Number.POSITIVE_INFINITY;
   
   for (const role of roles) {
     const portal = getPortalForRole(role);
