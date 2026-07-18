@@ -15,7 +15,9 @@
  *     requireTransactionCompliance('MF'),
  *     handler);
  *
- * All 7 gates run sequentially; the first failure short-circuits with HTTP 422.
+ * All 8 gates run sequentially; the first failure short-circuits with HTTP 422.
+ * Gate 8 (EUIN Check) is special — instead of blocking, it queues the transaction
+ * to the FintekPro Master Agent and returns HTTP 202 Accepted (queued).
  * A companion GET /api/compliance/transaction-readiness returns all gate statuses
  * so the frontend can show pre-flight warnings before the user clicks "Invest".
  */
@@ -27,6 +29,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import { logger } from "../logger";
 import { kycSufficiencyService } from "../services/kyc-sufficiency-service";
 import { fatcaCrsService } from "../services/fatca-crs-service";
+import { queueTransactionForMasterApproval } from "../services/masterAgentApprovalService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -480,6 +483,101 @@ async function checkSchemeRules(
  * @param transactionType - 'MF' for mutual funds, 'US_EQUITY' for Alpaca
  * @param options - optional per-gate parameters (amount, action, schemeCode)
  */
+// ─── Gate 8: EUIN Verification (Agent/Partner Executing Role) ────────────────
+/**
+ * Gate 8: EUIN Check
+ *
+ * Only EUIN-verified agents and partners can independently submit transactions to IRIS.
+ * Without a verified EUIN, the transaction is NOT blocked — instead it is:
+ *   1. Stored in pending_transactions table
+ *   2. Assigned to the FintekPro Master Agent for approval
+ *   3. Returns { gate8Queued: true, pendingTransactionId } to the middleware
+ *      which sends HTTP 202 Accepted instead of proceeding to IRIS.
+ *
+ * SEBI compliance: EUIN must appear on all MF order forms.
+ * When agent has no EUIN, Master Agent's EUIN is used as the executing principal.
+ *
+ * Returns passed: true when actor HAS verified EUIN (transaction proceeds normally).
+ * Returns passed: false + gate8Queued: true when no EUIN (transaction is queued).
+ */
+async function checkEuinAndRouteToMasterAgent(
+  actorUserId: string,
+  actorRole: string,
+  transactionType: string,
+  productType: string,
+  payload: Record<string, unknown>,
+  clientPan?: string,
+  clientUserId?: string,
+): Promise<ComplianceGateResult & { gate8Queued?: boolean; pendingTransactionId?: string; masterAgentUserId?: string }> {
+  const GATE = 8;
+  const GATE_NAME = "EUIN Verification";
+
+  // Only MF transactions require EUIN (bonds, FDs, US equity have different rules)
+  if (productType !== "mutual_fund" && !transactionType.startsWith("mf_")) {
+    return { gate: GATE, gateName: GATE_NAME, passed: true, retryable: false };
+  }
+
+  try {
+    // Check if actor has a verified EUIN in customerCareAgents
+    const agentRecord = await db
+      .select({
+        euinNumber:             schema.customerCareAgents.euinNumber,
+        euinVerificationStatus: schema.customerCareAgents.euinVerificationStatus,
+        euinCardVerified:       schema.customerCareAgents.euinCardVerified,
+      })
+      .from(schema.customerCareAgents)
+      .where(
+        and(
+          eq(schema.customerCareAgents.distributorId, actorUserId),
+          eq(schema.customerCareAgents.euinCardVerified, true),
+        ),
+      )
+      .limit(1);
+
+    const hasVerifiedEuin = agentRecord.length > 0 && !!agentRecord[0].euinNumber;
+
+    if (hasVerifiedEuin) {
+      // EUIN verified — transaction can go directly to IRIS
+      return { gate: GATE, gateName: GATE_NAME, passed: true, retryable: false };
+    }
+
+    // No verified EUIN — queue to master agent instead of blocking
+    const role = ["agent", "partner"].includes(actorRole) ? actorRole as "agent" | "partner" : "agent";
+    const queueResult = await queueTransactionForMasterApproval(
+      actorUserId,
+      role,
+      transactionType,
+      productType,
+      payload,
+      clientPan,
+      clientUserId,
+    );
+
+    return {
+      gate:          GATE,
+      gateName:      GATE_NAME,
+      passed:        false,
+      retryable:     false,
+      errorCode:     "NO_EUIN_QUEUED_TO_MASTER_AGENT",
+      message:       `Transaction queued for Master Agent approval (Ref: ${queueResult.pendingTransactionId}). You will be notified once approved.`,
+      gate8Queued:          true,
+      pendingTransactionId: queueResult.pendingTransactionId,
+      masterAgentUserId:    queueResult.masterAgentUserId,
+    };
+  } catch (err: any) {
+    logger.error("[ComplianceGate] Gate 8 EUIN check failed", { actorUserId, err: err.message });
+    // Fail-safe: if we can't determine EUIN status, queue to master agent
+    return {
+      gate:      GATE,
+      gateName:  GATE_NAME,
+      passed:    false,
+      retryable: true,
+      errorCode: "EUIN_CHECK_FAILED",
+      message:   "Could not verify EUIN status. Transaction held pending manual review.",
+    };
+  }
+}
+
 export async function runComplianceChecks(
 	userId: string,
 	transactionType: TransactionType,
@@ -489,9 +587,15 @@ export async function runComplianceChecks(
 		amount?: number;
 		amountUsd?: number;
 		schemeCode?: string;
+		/** Actor role — agent | partner | admin. EUIN gate skips for admin/superadmin/master_agent. */
+		actorRole?: string;
+		/** Original request payload forwarded on master-agent approval */
+		payload?: Record<string, unknown>;
+		clientPan?: string;
+		clientUserId?: string;
 	} = {},
-): Promise<ComplianceCheckResult> {
-	const { action = "any", amount, amountUsd, schemeCode } = options;
+): Promise<ComplianceCheckResult & { gate8Queued?: boolean; pendingTransactionId?: string }> {
+	const { action = "any", amount, amountUsd, schemeCode, actorRole, payload = {}, clientPan, clientUserId } = options;
 
 	const gates: ComplianceGateResult[] = [];
 
@@ -531,9 +635,44 @@ export async function runComplianceChecks(
 	gates.push(g6);
 	if (!g6.passed) return { passed: false, gates, failingGate: g6 };
 
-	// Gate 7: All gates passed — transaction may proceed to IRIS / Alpaca
+	// Gate 7: Client compliance clear
 	gates.push({
 		gate: 7,
+		gateName: "Client Compliance Clear",
+		passed: true,
+		retryable: false,
+	});
+
+	// Gate 8: EUIN Verification — routes no-EUIN actors to Master Agent approval queue
+	// Skip for admin/superadmin/master_agent who always have authority to execute
+	const adminRoles = new Set(["admin", "superadmin", "master_agent"]);
+	if (actorRole && !adminRoles.has(actorRole)) {
+		const g8 = await checkEuinAndRouteToMasterAgent(
+			userId,
+			actorRole,
+			transactionType,
+			"mutual_fund",
+			payload,
+			clientPan,
+			clientUserId,
+		);
+		gates.push(g8);
+
+		if (!g8.passed) {
+			const extended = g8 as ComplianceGateResult & { gate8Queued?: boolean; pendingTransactionId?: string };
+			return {
+				passed:               false,
+				gates,
+				failingGate:          g8,
+				gate8Queued:          extended.gate8Queued,
+				pendingTransactionId: extended.pendingTransactionId,
+			};
+		}
+	}
+
+	// All gates passed — transaction proceeds to IRIS / Alpaca
+	gates.push({
+		gate: 9,
 		gateName: "Submit to Provider",
 		passed: true,
 		retryable: false,
@@ -602,6 +741,10 @@ export function requireTransactionCompliance(
 				amount,
 				amountUsd,
 				schemeCode,
+				actorRole: (req as any).user?.role ?? ((req as any).user?.roles?.[0] as string | undefined),
+				payload:   (req.body ?? {}) as Record<string, unknown>,
+				clientPan: (req.body as any)?.pan as string | undefined,
+				clientUserId: (req.body as any)?.clientUserId as string | undefined,
 			});
 
 			const latencyMs = Date.now() - startMs;
@@ -620,6 +763,21 @@ export function requireTransactionCompliance(
 			});
 
 			if (!result.passed && result.failingGate) {
+				// Gate 8 special case: no EUIN → queued to master agent → return 202 Accepted
+				if ((result as any).gate8Queued) {
+					res.status(202).json({
+						success: false,
+						queued: true,
+						error_code: "NO_EUIN_QUEUED_TO_MASTER_AGENT",
+						message: result.failingGate.message,
+						pending_transaction_id: (result as any).pendingTransactionId,
+						gate: result.failingGate.gate,
+						gate_name: result.failingGate.gateName,
+						meta: { timestamp: new Date().toISOString(), version: "1.0" },
+					});
+					return;
+				}
+				// All other failing gates → 422 Unprocessable
 				const {
 					errorCode,
 					message,

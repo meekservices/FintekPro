@@ -360,3 +360,66 @@ export type OrderLifecycleEvent = typeof orderLifecycleEvents.$inferSelect;
 export type InsertOrderLifecycleEvent = z.infer<typeof insertOrderLifecycleEventSchema>;
 export type OrderDocument = typeof orderDocuments.$inferSelect;
 export type InsertOrderDocument = z.infer<typeof insertOrderDocumentSchema>;
+
+// ─── Pending Transactions (Master Agent Approval Queue) ───────────────────────
+/**
+ * Holds transactions initiated by agents/partners WITHOUT a verified EUIN.
+ * These transactions CANNOT be submitted directly to IRIS/exchange.
+ * They are routed to the FintekPro Master Agent for review and approval.
+ *
+ * Lifecycle: pending → approved (forwarded to IRIS) | rejected (returned to agent)
+ *
+ * SEBI compliance: only EUIN-verified agents can independently execute MF transactions.
+ * Without EUIN, the Master Agent acts as the executing/approving principal.
+ */
+export const pendingTransactions = pgTable("pending_transactions", {
+  id:                varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // ── Originator (the agent/partner without EUIN who submitted) ─────────────
+  initiatedByUserId: varchar("initiated_by_user_id").references(() => users.id).notNull(),
+  initiatedByRole:   varchar("initiated_by_role").notNull(), // 'agent' | 'partner'
+  initiatedByEuin:   varchar("initiated_by_euin"),           // null when no EUIN (this is why it's pending)
+
+  // ── Client ────────────────────────────────────────────────────────────────
+  clientUserId:      varchar("client_user_id").references(() => users.id),
+  clientPan:         varchar("client_pan"),                  // masked in logs, used for IRIS
+
+  // ── Master Agent (approver) ───────────────────────────────────────────────
+  masterAgentUserId: varchar("master_agent_user_id").references(() => users.id).notNull(),
+  masterAgentEuin:   varchar("master_agent_euin"),           // Master agent's EUIN used for IRIS execution
+
+  // ── Transaction Payload ───────────────────────────────────────────────────
+  transactionType:   varchar("transaction_type").notNull(),  // 'mf_purchase' | 'mf_redemption' | 'sip' | 'stp' | 'switch' | 'bond' | 'fd'
+  productType:       varchar("product_type").notNull(),       // 'mutual_fund' | 'bond' | 'fd' | 'nps'
+  payload:           jsonb("payload").notNull(),              // Original request body — forwarded to IRIS on approval
+
+  // ── Status ────────────────────────────────────────────────────────────────
+  status:            varchar("status").default("pending").notNull(), // pending | approved | rejected | cancelled | executed
+  approvalNotes:     text("approval_notes"),
+  rejectionReason:   text("rejection_reason"),
+
+  // ── Approval / Execution ──────────────────────────────────────────────────
+  approvedByUserId:  varchar("approved_by_user_id").references(() => users.id),
+  approvedAt:        timestamp("approved_at"),
+  irisOrderId:       varchar("iris_order_id"),               // Set after IRIS execution
+  irisResponse:      jsonb("iris_response"),                  // Full IRIS API response post-execution
+  executedAt:        timestamp("executed_at"),
+
+  // ── Audit ────────────────────────────────────────────────────────────────
+  source:            varchar("source").default("api").notNull(), // api | system | batch
+  createdAt:         timestamp("created_at").defaultNow().notNull(),
+  updatedAt:         timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_pending_tx_status").on(table.status),
+  index("idx_pending_tx_master_agent").on(table.masterAgentUserId),
+  index("idx_pending_tx_initiator").on(table.initiatedByUserId),
+  index("idx_pending_tx_client").on(table.clientUserId),
+]);
+
+export const insertPendingTransactionSchema = createInsertSchema(pendingTransactions).omit({
+  id: true, createdAt: true, updatedAt: true,
+  approvedAt: true, executedAt: true, irisOrderId: true, irisResponse: true,
+});
+
+export type PendingTransaction = typeof pendingTransactions.$inferSelect;
+export type InsertPendingTransaction = z.infer<typeof insertPendingTransactionSchema>;
