@@ -111,6 +111,17 @@ import { registerStakeholderRoutes } from "./stakeholder-routes";
 import { registerSystemAdminRoutes } from "./routes/system-admin";
 import { registerIrisKfintechRoutes } from "./routes/iris-kfintech-routes";
 import { registerIrisLasRoutes } from "./routes/iris-las-routes";
+import { registerIrisKycRoutes } from "./routes/iris-kyc-routes";
+import { registerIrisStaffRoutes } from "./routes/iris-staff-routes";
+import { registerIrisInvestorProfileRoutes } from "./routes/iris-investor-profile-routes";
+import zohoRouter from "./zoho/routes";
+
+import zohoHealthRouter from "./zoho/health-check";
+import { registerZohoBooksRoutes } from "./routes/zoho-books";
+import { registerClientPortalRoutes } from "./routes/client-portal-routes";
+import { registerAgentPortalEnhancementRoutes } from "./routes/agent-portal-routes";
+import { registerPartnerPortalEnhancementRoutes } from "./routes/partner-portal-routes";
+
 import { registerCasPortfolioUploadRoutes } from "./routes/cas-portfolio-upload-routes";
 import { registerComplianceGateRoutes } from "./routes/compliance-gate-routes";
 import { registerCrmRoutes } from "./routes/crm";
@@ -431,6 +442,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	registerSystemAdminRoutes(app); // /api/admin/system/* routes
 	registerIrisKfintechRoutes(app); // /api/iris/* KFintech integration
 	registerIrisLasRoutes(app);       // /api/iris/las/* LAS/LAMF pledge-and-lend lifecycle
+	registerIrisKycRoutes(app);       // /api/iris/kyc/* — unified KYC + multi-broker vault write-back
+	registerIrisStaffRoutes(app);     // /api/iris/staff/* — employees, RMs, branches, sub-brokers, EUINs, partner
+	registerIrisInvestorProfileRoutes(app); // /api/iris/investors/:pan/* — profile updates, goals, demat, portal
+
+	// ── Zoho API (CRM, Campaigns, Sign, Meeting, Webhook, Books) ──────────────
+	app.use("/api/zoho", zohoRouter);         // /api/zoho/* — CRM, Campaigns, Webhooks, Sign
+	app.use("/api/zoho", zohoHealthRouter);   // /api/zoho/health — connection health
+	registerZohoBooksRoutes(app);             // /api/admin/zoho-books/* — accounting
+
+	// ── Portal feature routes ────────────────────────────────────────────────
+	registerClientPortalRoutes(app);              // /api/client/* — instrument catalog, KYC, portfolio
+	registerAgentPortalEnhancementRoutes(app);    // /api/agent/portal/* — KYC initiation, instruments by KYC level, Zoho sync
+	registerPartnerPortalEnhancementRoutes(app);  // /api/partner/portal/* — dashboard, referrals, catalog, Zoho deal sync
 	registerCasPortfolioUploadRoutes(app); // /api/portfolio/upload-cas-pdf + /api/portfolio/sync-status
 	registerComplianceGateRoutes(app); // GET /api/compliance/transaction-readiness
 	registerCrmRoutes(app); // /api/crm/* client relationship management

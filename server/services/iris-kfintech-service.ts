@@ -651,7 +651,9 @@ class IrisKfintechService {
 		return this.call(`/sif/non-financial/${pan}/bank-mandate`, "POST", body);
 	}
 
-	// Business Hierarchy
+	// ─── Business Hierarchy ───────────────────────────────────────────────────────
+
+	// Sub-Broker / Agent lifecycle
 	async listSubBrokers(params?: any) {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/hierarchy/sub-brokers${qs}`);
@@ -663,11 +665,234 @@ class IrisKfintechService {
 		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
 		return this.call(`/user/hierarchy/sub-brokers/${euinCode}/aum${qs}`);
 	}
+	/**
+	 * Add a new sub-broker / agent under the current distributor hierarchy.
+	 * Body typically includes: euinCode, name, mobile, email, sebiRegNo, amfiRegNo.
+	 */
+	async addSubBroker(body: any) {
+		return this.call("/user/hierarchy/sub-brokers", "POST", body);
+	}
+	/**
+	 * Update an existing sub-broker's profile details.
+	 */
+	async updateSubBroker(euinCode: string, body: any) {
+		return this.call(`/user/hierarchy/sub-brokers/${euinCode}`, "PUT", body);
+	}
+	/**
+	 * Deactivate / offboard a sub-broker from the hierarchy.
+	 */
+	async deactivateSubBroker(euinCode: string) {
+		return this.call(`/user/hierarchy/sub-brokers/${euinCode}`, "DELETE");
+	}
+	/**
+	 * Fetch all investor clients mapped to a specific sub-broker/agent.
+	 */
+	async getSubBrokerClients(euinCode: string, params?: any) {
+		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+		return this.call(`/user/hierarchy/sub-brokers/${euinCode}/clients${qs}`);
+	}
+	/**
+	 * Fetch transaction orders placed by clients of a specific sub-broker.
+	 */
+	async getSubBrokerOrders(euinCode: string, params?: any) {
+		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+		return this.call(`/user/hierarchy/sub-brokers/${euinCode}/orders${qs}`);
+	}
+
+	// Employee / Staff management
+	/**
+	 * List all employees (RIA staff, ARN holders) in the distributor hierarchy.
+	 */
+	async listEmployees(params?: any) {
+		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+		return this.call(`/user/hierarchy/employees${qs}`);
+	}
+	/**
+	 * Get details for a specific employee by their EUIN code.
+	 */
+	async getEmployeeDetails(euinCode: string) {
+		return this.call(`/user/hierarchy/employees/${euinCode}`);
+	}
+	/**
+	 * Add a new employee (RM, ARN staff, support) under the distributor.
+	 * Body: name, mobile, email, euinCode, designation, branchId.
+	 */
 	async addEmployee(body: any) {
 		return this.call("/user/hierarchy/employees", "POST", body);
 	}
+	/**
+	 * Update employee profile details (designation, branch assignment, contact).
+	 */
 	async updateEmployee(euinCode: string, body: any) {
 		return this.call(`/user/hierarchy/employees/${euinCode}`, "PUT", body);
+	}
+	/**
+	 * Deactivate an employee — removes system access and EUIN mapping.
+	 */
+	async deactivateEmployee(euinCode: string) {
+		return this.call(`/user/hierarchy/employees/${euinCode}`, "DELETE");
+	}
+
+	// Relationship Manager (RM) management
+	/**
+	 * List all relationship managers in the distributor hierarchy.
+	 * Returns RM profiles, assigned client counts, AUM.
+	 */
+	async listRelationshipManagers(params?: any) {
+		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+		return this.call(`/user/hierarchy/rms${qs}`);
+	}
+	/**
+	 * Get a specific RM's full profile including assigned clients and AUM.
+	 */
+	async getRelationshipManagerDetails(rmId: string) {
+		return this.call(`/user/hierarchy/rms/${rmId}`);
+	}
+	/**
+	 * Add a new relationship manager.
+	 * Body: name, mobile, email, employeeCode, branchId, maxClientLimit.
+	 */
+	async addRelationshipManager(body: any) {
+		return this.call("/user/hierarchy/rms", "POST", body);
+	}
+	/**
+	 * Update RM profile or reassign to a different branch.
+	 */
+	async updateRelationshipManager(rmId: string, body: any) {
+		return this.call(`/user/hierarchy/rms/${rmId}`, "PUT", body);
+	}
+	/**
+	 * Get all clients currently assigned to an RM.
+	 */
+	async getRmClients(rmId: string, params?: any) {
+		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+		return this.call(`/user/hierarchy/rms/${rmId}/clients${qs}`);
+	}
+	/**
+	 * Get AUM breakdown for a specific RM.
+	 */
+	async getRmAum(rmId: string, params?: any) {
+		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+		return this.call(`/user/hierarchy/rms/${rmId}/aum${qs}`);
+	}
+	/**
+	 * Bulk reassign clients from one RM to another.
+	 * Body: { fromRmId, toRmId, clientPans: [] } or { fromRmId, toRmId } for all.
+	 */
+	async reassignRmClients(body: { fromRmId: string; toRmId: string; clientPans?: string[] }) {
+		return this.call("/user/hierarchy/rms/reassign", "POST", body);
+	}
+
+	// Branch management
+	/**
+	 * List all branches in the distributor's network.
+	 */
+	async listBranches(params?: any) {
+		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+		return this.call(`/user/hierarchy/branches${qs}`);
+	}
+	/**
+	 * Get detailed profile and employee roster for a specific branch.
+	 */
+	async getBranchDetails(branchId: string) {
+		return this.call(`/user/hierarchy/branches/${branchId}`);
+	}
+	/**
+	 * Add a new branch to the distributor network.
+	 * Body: name, city, state, pincode, address, managerId.
+	 */
+	async addBranch(body: any) {
+		return this.call("/user/hierarchy/branches", "POST", body);
+	}
+	/**
+	 * Update branch profile — address, manager, contact.
+	 */
+	async updateBranch(branchId: string, body: any) {
+		return this.call(`/user/hierarchy/branches/${branchId}`, "PUT", body);
+	}
+	/**
+	 * Get the employee/RM roster for a specific branch.
+	 */
+	async getBranchEmployees(branchId: string) {
+		return this.call(`/user/hierarchy/branches/${branchId}/employees`);
+	}
+	/**
+	 * Get AUM and investor count breakdown for a branch.
+	 */
+	async getBranchAum(branchId: string, params?: any) {
+		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+		return this.call(`/user/hierarchy/branches/${branchId}/aum${qs}`);
+	}
+
+	// EUIN Registry management
+	/**
+	 * Get list of all EUINs registered under the distributor.
+	 */
+	async listEuins(params?: any) {
+		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+		return this.call(`/user/hierarchy/euins${qs}`);
+	}
+	/**
+	 * Get full details of a specific EUIN holder.
+	 */
+	async getEuinDetails(euinCode: string) {
+		return this.call(`/user/hierarchy/euins/${euinCode}`);
+	}
+	/**
+	 * Register a new EUIN under the distributor.
+	 * Body: euinCode, name, arnCode, validFrom, validTo.
+	 */
+	async addEuin(body: any) {
+		return this.call("/user/hierarchy/euins", "POST", body);
+	}
+	/**
+	 * Update EUIN details — validity dates, associated employee.
+	 */
+	async updateEuin(euinCode: string, body: any) {
+		return this.call(`/user/hierarchy/euins/${euinCode}`, "PUT", body);
+	}
+	/**
+	 * Deactivate a specific EUIN.
+	 */
+	async deactivateEuin(euinCode: string) {
+		return this.call(`/user/hierarchy/euins/${euinCode}`, "DELETE");
+	}
+
+	// Partner / Distributor profile
+	/**
+	 * Get the distributor's own IRIS partner profile.
+	 * Returns ARN, EUIN list, empanelment status, regulatory details.
+	 */
+	async getPartnerProfile() {
+		return this.call("/user/partner/profile");
+	}
+	/**
+	 * Update the distributor's partner profile details.
+	 * Body: contactEmail, contactMobile, address, gstin, bankDetails.
+	 */
+	async updatePartnerProfile(body: any) {
+		return this.call("/user/partner/profile", "PUT", body);
+	}
+	/**
+	 * Get total commission earned by the distributor across all AMCs.
+	 */
+	async getPartnerCommission(params?: any) {
+		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+		return this.call(`/user/partner/commission${qs}`);
+	}
+	/**
+	 * Get partner-level analytics — AUM trend, investor growth, SIP count over time.
+	 */
+	async getPartnerAnalytics(params?: any) {
+		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+		return this.call(`/user/partner/analytics${qs}`);
+	}
+	/**
+	 * Get partner's GST and TDS statements for accounting.
+	 */
+	async getPartnerGstStatement(params?: any) {
+		const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+		return this.call(`/user/partner/gst-statement${qs}`);
 	}
 
 	// Bulk Reports

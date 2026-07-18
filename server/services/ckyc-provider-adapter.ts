@@ -112,6 +112,75 @@ adapterLoaders.set("manual", async () => {
 	return new ManualCkycAdapter();
 });
 
+/**
+ * IRIS KFintech — preferred provider when IRIS credentials are configured.
+ * Used for investor KYC initiation, eKYC status, and FATCA submission.
+ * Provider code: "iris"
+ */
+adapterLoaders.set("iris", async () => {
+	const { IrisKycAdapter } = await import("./iris/iris-kyc-adapter");
+	// IrisKycAdapter implements BaseEkycProvider, not ICkycProviderAdapter.
+	// Wrap it in a thin shim so it satisfies the ICkycProviderAdapter contract.
+	const adapter = new IrisKycAdapter();
+	return {
+		get providerCode() { return "iris"; },
+		get providerName() { return "IRIS KFintech eKYC"; },
+		isConfigured() {
+			return !!(process.env.IRIS_USERNAME && process.env.IRIS_PASSWORD);
+		},
+		isInMockMode() { return false; },
+		async verify(request: CkycVerificationRequest): Promise<CkycVerificationResult> {
+			const start = Date.now();
+			try {
+				const record = await adapter.lookupByPan(request.panNumber);
+				if (!record) {
+					return {
+						success: true,
+						found: false,
+						provider: "iris",
+						status: "not_found",
+						responseTimeMs: Date.now() - start,
+						message: "Investor not found in IRIS",
+					};
+				}
+				return {
+					success: true,
+					found: true,
+					provider: "iris",
+					kin: record.kraKinNumber,
+					status: record.kycStatus === "active" ? "active" : "inactive",
+					verificationLevel: "normal",
+					data: {
+						fullName:    record.fullLegalName,
+						dateOfBirth: record.dateOfBirth,
+						gender:      record.gender,
+						address: { line1: "", city: "", state: "", pincode: "", country: record.nationality },
+					},
+					responseTimeMs: Date.now() - start,
+					message: `IRIS KYC: ${record.kycStatus}`,
+				};
+			} catch (err: any) {
+				return {
+					success: false,
+					found: false,
+					provider: "iris",
+					responseTimeMs: Date.now() - start,
+					message: err.message,
+					errorCode: "IRIS_KYC_ERROR",
+				};
+			}
+		},
+		async checkHealth(): Promise<CkycProviderHealth> {
+			return {
+				provider: "iris",
+				healthy: !!(process.env.IRIS_USERNAME && process.env.IRIS_PASSWORD),
+				lastChecked: new Date(),
+			};
+		},
+	} satisfies ICkycProviderAdapter;
+});
+
+
 export async function getAdapter(
 	providerCode: string,
 ): Promise<ICkycProviderAdapter> {

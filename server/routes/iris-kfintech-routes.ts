@@ -2040,7 +2040,90 @@ export function registerIrisKfintechRoutes(app: Express): void {
 		},
 	);
 
+	/**
+	 * POST /api/iris/notifications/whatsapp-rich
+	 * Send a structured rich WhatsApp message to an investor.
+	 *
+	 * Body: {
+	 *   pan: string,
+	 *   mobile: string,
+	 *   message: string,
+	 *   templateId?: string,
+	 *   agentName?: string,   // Appended as "— {agentName} via FintekPro"
+	 *   mediaUrl?: string     // Attach image/document
+	 * }
+	 *
+	 * FASP-AI: AI advisory messages MUST include risk disclaimer in body.
+	 */
+	app.post(
+		"/api/iris/notifications/whatsapp-rich",
+		requireAuth,
+		requireAgent,
+		async (req, res) => {
+			const { pan, mobile, message, templateId, agentName, mediaUrl } = req.body ?? {};
+			if (!mobile || !message) {
+				return res.status(400).json({
+					success: false,
+					error: { error_code: "MISSING_FIELDS", message: "mobile and message are required", retryable: false },
+					meta: { timestamp: new Date().toISOString(), version: "iris-v1" },
+				});
+			}
+			await wrap(res, () =>
+				irisKfintechService.sendWhatsAppMessage({
+					pan,
+					mobile,
+					message,
+					templateId,
+					agentName,
+					extra: mediaUrl ? { mediaUrl } : undefined,
+				}),
+			);
+		},
+	);
+
+	/**
+	 * POST /api/iris/notifications/festival-greeting
+	 * Send a festival/occasion greeting to an investor via WhatsApp.
+	 *
+	 * Body: {
+	 *   pan: string,
+	 *   mobile: string,
+	 *   festivalName: string,    // e.g. "Diwali", "Holi", "Eid"
+	 *   message?: string,        // Override default festival message
+	 *   agentName: string,       // Greeting "from" name
+	 *   templateId?: string
+	 * }
+	 *
+	 * Used for: client retention campaigns, seasonal outreach.
+	 */
+	app.post(
+		"/api/iris/notifications/festival-greeting",
+		requireAuth,
+		requireAgent,
+		async (req, res) => {
+			const { pan, mobile, festivalName, message, agentName, templateId } = req.body ?? {};
+			if (!mobile || !festivalName || !agentName) {
+				return res.status(400).json({
+					success: false,
+					error: { error_code: "MISSING_FIELDS", message: "mobile, festivalName, and agentName are required", retryable: false },
+					meta: { timestamp: new Date().toISOString(), version: "iris-v1" },
+				});
+			}
+			await wrap(res, () =>
+				irisKfintechService.sendFestivalGreeting({
+					pan,
+					mobile,
+					festivalName,
+					message: message ?? `Wishing you a very Happy ${festivalName}! 🎉`,
+					agentName,
+					templateId,
+				}),
+			);
+		},
+	);
+
 	// ─── Phase 3: NFO ─────────────────────────────────────────────────────────────
+
 	app.get("/api/iris/nfo/active", requireAuth, async (_req, res) => {
 		await wrap(res, () => irisKfintechService.getNfoSchemes());
 	});
@@ -2165,7 +2248,7 @@ export function registerIrisKfintechRoutes(app: Express): void {
 				}
 				res.json({ success: true, data });
 			} catch (err: any) {
-				console.error("[IRIS Import] Error:", err?.message);
+				logger.error("[IRIS Import] Error: " + (err?.message ?? "unknown"));
 				res
 					.status(500)
 					.json({ success: false, message: err?.message || "Import failed" });
@@ -2221,7 +2304,7 @@ export function registerIrisKfintechRoutes(app: Express): void {
 				const syncResult = await syncIrisHoldingsForPan(req.params.pan);
 				res.json({ success: true, data, syncResult });
 			} catch (err: any) {
-				console.error("[IRIS Refresh] Error:", err?.message);
+				logger.error("[IRIS Refresh] Error: " + (err?.message ?? "unknown"));
 				res
 					.status(500)
 					.json({ success: false, message: err?.message || "Refresh failed" });
@@ -2606,9 +2689,9 @@ export function registerIrisKfintechRoutes(app: Express): void {
 					if (requestedJobs.includes("mfHoldings"))  results.mfHoldings  = await svc.enrichMfHoldings(200);
 					if (requestedJobs.includes("mfFactsheet")) results.mfFactsheet = await svc.enrichMfFactsheets(200);
 
-					console.log(`[IRIS Catalog Seed] ${jobId} complete`, results);
+					logger.info(`[IRIS Catalog Seed] ${jobId} complete`);
 				} catch (err: any) {
-					console.error(`[IRIS Catalog Seed] ${jobId} failed`, err.message);
+					logger.error(`[IRIS Catalog Seed] ${jobId} failed: ${err.message}`);
 				}
 			})();
 		},
@@ -3032,5 +3115,5 @@ export function registerIrisKfintechRoutes(app: Express): void {
 		},
 	);
 
-	console.log("✅ IRIS KFintech routes registered");
+	logger.info("IRIS KFintech routes registered");
 }
