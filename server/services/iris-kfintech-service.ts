@@ -1641,6 +1641,119 @@ class IrisKfintechService {
 	async listPledges(pan: string): Promise<any> {
 		return this.call(`/las/pledge/list?pan=${encodeURIComponent(pan)}`);
 	}
+
+	// ─── ITR Filing via IT Dept IEC 2.0 ERI ──────────────────────────────────
+	// NOTE: IRIS KFintech (iris-api.kfintech.com) is a MF distributor platform
+	// and does NOT expose ITR/ERI endpoints directly.
+	// ITR filing goes through the Income Tax Dept's IEC 2.0 ERI platform.
+	// The methods below call the IT Dept ERI API via IRIS's ERI proxy layer
+	// (endpoint base provided by IRIS upon ERI registration with IT Dept).
+	// Official IT Dept IEC 2.0 ERI API spec:
+	//   https://www.incometax.gov.in → ERI developer section
+	// All requests are POST; data payload is Base64-encoded + digitally signed.
+
+	/**
+	 * Validate ITR data via IT Dept IEC 2.0 ERI before submission.
+	 *
+	 * Purpose : Validate ITR payload; returns validation errors without filing.
+	 * Inputs  : body — ITR data including PAN, AY, income details, deductions
+	 * Outputs : validationStatus, errors[], warningMessages[]
+	 * Endpoint: POST /itrweb/auth/v0.1/returns/validate
+	 */
+	async calculateItrTax(body: Record<string, unknown>): Promise<any> {
+		return this.call("/itrweb/auth/v0.1/returns/validate", "POST", body);
+	}
+
+	/**
+	 * Prepare ITR (alias for validate — pre-submission check).
+	 *
+	 * Purpose : Validate + prepare ITR payload before final submission.
+	 * Inputs  : body — full ITR form data
+	 * Outputs : preparedPayload, validationErrors, readyForFiling
+	 * Endpoint: POST /itrweb/auth/v0.1/returns/validate
+	 */
+	async prepareItr(body: Record<string, unknown>): Promise<any> {
+		return this.call("/itrweb/auth/v0.1/returns/validate", "POST", body);
+	}
+
+	/**
+	 * File ITR electronically via IT Dept IEC 2.0 ERI.
+	 *
+	 * Purpose : Final validation + submission of ITR to IT Dept.
+	 * Inputs  : body — validated ITR payload incl. PAN, AY, ITR form type, digital signature
+	 * Outputs : acknowledgmentNumber, filingDate, status, receiptNumber
+	 * Edge    : SEBI/IT Act compliance — no autonomous filing; human-initiated only.
+	 *           Data must be Base64-encoded + ERI digitally signed.
+	 * Endpoint: POST /itrweb/auth/v0.1/returns/submit
+	 */
+	async fileItr(body: Record<string, unknown>): Promise<any> {
+		return this.call("/itrweb/auth/v0.1/returns/submit", "POST", body);
+	}
+
+	/**
+	 * Get ITR acknowledgement after successful filing/verification.
+	 *
+	 * Purpose : Fetch ITR-V / acknowledgement from IT Dept.
+	 * Inputs  : ackNumber — ITR acknowledgment number
+	 * Outputs : acknowledgementPDF_url, filingDate, status, taxPaid
+	 * Endpoint: POST /itrweb/auth/v0.1/returns/getAcknowledgement
+	 */
+	async getItrStatus(ackNumber: string): Promise<any> {
+		return this.call("/itrweb/auth/v0.1/returns/getAcknowledgement", "POST", { acknowledgementNumber: ackNumber });
+	}
+
+	/**
+	 * Fetch Form 26AS for a taxpayer (TDS / TCS / advance tax paid).
+	 *
+	 * Purpose : Get taxpayer's 26AS for auto-populating ITR deductions.
+	 * Inputs  : pan — taxpayer PAN (masked in logs), assessmentYear — e.g. "2024-25"
+	 * Outputs : tdsDetails, tcsDetails, advanceTaxPaid, selfAssessmentTax
+	 * Note    : Form 26AS is accessed via IT Dept prefill consent flow (requestPrefillOTP first).
+	 * Endpoint: POST /itrweb/auth/v0.1/returns/getPrefill (after OTP consent)
+	 */
+	async getForm26AS(pan: string, assessmentYear: string): Promise<any> {
+		return this.call("/itrweb/auth/v0.1/returns/getPrefill", "POST", { pan, assessmentYear, dataType: "26AS" });
+	}
+
+	/**
+	 * Fetch Annual Information Statement (AIS) for a taxpayer.
+	 *
+	 * Purpose : Comprehensive income statement from IT Dept for ITR pre-fill.
+	 * Inputs  : pan — taxpayer PAN, assessmentYear — e.g. "2024-25"
+	 * Outputs : dividendIncome, interestIncome, capitalGains, saleOfProperty etc.
+	 * Endpoint: POST /itrweb/auth/v0.1/returns/getPrefill (dataType: AIS)
+	 */
+	async getAIS(pan: string, assessmentYear: string): Promise<any> {
+		return this.call("/itrweb/auth/v0.1/returns/getPrefill", "POST", { pan, assessmentYear, dataType: "AIS" });
+	}
+
+	/**
+	 * E-verify ITR via IT Dept IEC 2.0 ERI (EVC / Aadhaar OTP / Net banking).
+	 *
+	 * Purpose : Electronically verify the ITR after filing.
+	 *           Without e-verification ITR is not considered filed. Max 30 days post-filing.
+	 * Inputs  : body — { pan, ackNumber, verificationMode: "EVC"|"ADHAR_OTP"|"BANK_ACCOUNT", evc? }
+	 * Outputs : verificationStatus, verifiedAt, message
+	 * Endpoint: POST /itrweb/auth/v0.1/returns/updateVerMode → then generateEVC / verifyEVC
+	 */
+	async eVerifyItr(body: Record<string, unknown>): Promise<any> {
+		return this.call("/itrweb/auth/v0.1/returns/updateVerMode", "POST", body);
+	}
+
+	/**
+	 * Fetch pre-filled ITR data from IT Dept (26AS + AIS + TIS combined).
+	 *
+	 * Purpose : Auto-populate ITR form. Requires taxpayer OTP consent first via requestPrefillOTP.
+	 * Inputs  : pan — taxpayer PAN, assessmentYear — e.g. "2024-25"
+	 * Outputs : prefillData — personalInfo, incomeDetails, deductions, taxPaid (26AS+AIS+TIS)
+	 * Flow    : 1. POST requestPrefillOTP (sends OTP to taxpayer)
+	 *           2. Taxpayer provides OTP consent
+	 *           3. POST getPrefill → returns pre-filled data
+	 * Endpoint: POST /itrweb/auth/v0.1/returns/getPrefill
+	 */
+	async getPrefillData(pan: string, assessmentYear: string): Promise<any> {
+		return this.call("/itrweb/auth/v0.1/returns/getPrefill", "POST", { pan, assessmentYear, dataType: "ALL" });
+	}
 }
 
 export const irisKfintechService = new IrisKfintechService();
