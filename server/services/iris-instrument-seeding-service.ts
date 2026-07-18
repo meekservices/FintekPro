@@ -48,10 +48,20 @@ function seedLog(
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Parse a numeric field from an IRIS response (handles string/number) */
 function toNum(val: unknown): number | null {
   if (val == null) return null;
   const n = typeof val === "string" ? parseFloat(val) : Number(val);
   return isNaN(n) ? null : n;
+}
+
+/**
+ * Convert number|null to string|null for Drizzle decimal() columns.
+ * Drizzle's decimal type requires string inputs, not number.
+ */
+function toDecStr(val: unknown): string | null {
+  const n = toNum(val);
+  return n == null ? null : String(n);
 }
 
 function resolveProductId(raw: Record<string, any>, prefix: string): string {
@@ -191,13 +201,13 @@ export async function seedNpsFunds(): Promise<{
           shortName:       raw.shortName ?? raw.code ?? null,
           tier:            raw.tier ?? raw.tierType ?? "both",
           schemeType:      raw.schemeType ?? "NPS",
-          equityPct:       toNum(raw.equityPct ?? raw.equityAllocation),
-          corporateBondPct: toNum(raw.corporateBondPct ?? raw.corporateDebtAllocation),
-          govtSecPct:      toNum(raw.govtSecPct ?? raw.governmentSecuritiesAllocation),
-          alternatePct:    toNum(raw.alternatePct ?? raw.alternateAllocation),
-          return1y:        toNum(raw.return1y ?? raw.returns?.oneYear),
-          return3y:        toNum(raw.return3y ?? raw.returns?.threeYear),
-          return5y:        toNum(raw.return5y ?? raw.returns?.fiveYear),
+          equityPct:       toDecStr(raw.equityPct ?? raw.equityAllocation),
+          corporateBondPct: toDecStr(raw.corporateBondPct ?? raw.corporateDebtAllocation),
+          govtSecPct:      toDecStr(raw.govtSecPct ?? raw.governmentSecuritiesAllocation),
+          alternatePct:    toDecStr(raw.alternatePct ?? raw.alternateAllocation),
+          return1y:        toDecStr(raw.return1y ?? raw.returns?.oneYear),
+          return3y:        toDecStr(raw.return3y ?? raw.returns?.threeYear),
+          return5y:        toDecStr(raw.return5y ?? raw.returns?.fiveYear),
           pfmCode:         raw.pfmCode ?? raw.fundCode ?? null,
           rawData:         raw,
           source:          "iris_kfintech",
@@ -278,15 +288,15 @@ export async function seedPmsAifProducts(): Promise<{
             fundHouse:      raw.fundHouse ?? raw.amcName ?? raw.issuer ?? null,
             sebiCategory:   raw.sebiCategory ?? raw.category ?? null,
             strategyType:   raw.strategyType ?? raw.type ?? null,
-            minInvestment:  toNum(raw.minimumInvestment ?? raw.minInvestment),
-            aum:            toNum(raw.aum ?? raw.aumCrores),
+            minInvestment:  toDecStr(raw.minimumInvestment ?? raw.minInvestment),
+            aum:            toDecStr(raw.aum ?? raw.aumCrores),
             lockInMonths:   raw.lockInMonths ?? raw.lockinMonths ?? null,
-            managementFee:  toNum(raw.managementFee ?? raw.managementFees),
-            performanceFee: toNum(raw.performanceFee ?? raw.profitSharingFee),
-            return1y:       toNum(raw.return1y ?? raw.returns?.oneYear),
-            return3y:       toNum(raw.return3y ?? raw.returns?.threeYear),
-            returnSinceInception: toNum(raw.returnSinceInception ?? raw.returns?.sinceInception),
-            sharpeRatio:    toNum(raw.sharpeRatio),
+            managementFee:  toDecStr(raw.managementFee ?? raw.managementFees),
+            performanceFee: toDecStr(raw.performanceFee ?? raw.profitSharingFee),
+            return1y:       toDecStr(raw.return1y ?? raw.returns?.oneYear),
+            return3y:       toDecStr(raw.return3y ?? raw.returns?.threeYear),
+            returnSinceInception: toDecStr(raw.returnSinceInception ?? raw.returns?.sinceInception),
+            sharpeRatio:    toDecStr(raw.sharpeRatio),
             riskLevel:      raw.riskLevel ?? raw.riskCategory ?? null,
             sebiRegNo:      raw.sebiRegNo ?? raw.registrationNumber ?? null,
             rawData:        raw,
@@ -354,23 +364,28 @@ export async function enrichMfHoldings(batchSize = 200): Promise<{
 
       for (const h of holdings) {
         if (!h.symbol && !h.isin && !h.stockName) continue;
+        const mfIsinValue = (isin ?? schemeCode)!; // schemeCode already guarded above
         try {
           await db
             .insert(mfSchemeStockHoldings)
             .values({
-              mfIsin:            isin ?? schemeCode,
+              mfIsin:            mfIsinValue,
               stockSymbol:       h.symbol ?? h.stockSymbol ?? h.isin ?? "",
               stockName:         h.name ?? h.stockName ?? null,
               stockIsin:         h.isin ?? h.stockIsin ?? null,
               sector:            h.sector ?? h.sectorName ?? null,
-              holdingPercentage: h.percentage ?? h.holdingPercentage ?? h.weight ?? 0,
+              holdingPercentage: String(h.percentage ?? h.holdingPercentage ?? h.weight ?? 0),
               holdingDate,
-              marketValue:       toNum(h.marketValue ?? h.value) ?? null,
-              quantity:          toNum(h.quantity ?? h.units) ?? null,
+              marketValue:       toDecStr(h.marketValue ?? h.value),
+              quantity:          toDecStr(h.quantity ?? h.units),
               source:            "iris",
             })
             .onConflictDoUpdate({
-              target: sql`(mf_isin, stock_symbol, holding_date)`,
+              target: [
+                mfSchemeStockHoldings.mfIsin,
+                mfSchemeStockHoldings.stockSymbol,
+                mfSchemeStockHoldings.holdingDate,
+              ],
               set: {
                 holdingPercentage: sql`excluded.holding_percentage`,
                 marketValue:       sql`excluded.market_value`,
