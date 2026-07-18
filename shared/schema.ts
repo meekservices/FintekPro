@@ -11736,3 +11736,167 @@ export type InsertIrisRebalanceExecution = typeof irisRebalanceExecutions.$infer
 export const insertIrisRebalanceExecutionSchema = createInsertSchema(irisRebalanceExecutions).omit({
   id: true, createdAt: true, updatedAt: true,
 });
+
+// ============================================================================
+// IRIS INSTRUMENT CATALOG TABLES
+// Seeded daily by jobs/enrichment.ts Phase D via KFintech IRIS API.
+// Three product verticals not covered by AMFI/MFAPI: FD, NPS, PMS/AIF.
+// ============================================================================
+
+/**
+ * Fixed Deposit product catalog sourced from IRIS KFintech.
+ * Endpoint: GET /user/fixed-deposit/products + /user/fixed-deposit/products/{id}/brochure
+ */
+export const irisFdProducts = pgTable("iris_fd_products", {
+  id:             varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // IRIS primary key
+  irisProductId:  varchar("iris_product_id", { length: 100 }).notNull().unique(),
+
+  // Issuer / product identity
+  issuerName:     text("issuer_name").notNull(),
+  productName:    text("product_name").notNull(),
+  productCode:    varchar("product_code", { length: 50 }),
+  category:       varchar("category", { length: 50 }),   // 'corporate', 'bank', 'nbfc', 'psu'
+
+  // Financial terms
+  interestRate:   decimal("interest_rate",   { precision: 8, scale: 4 }), // % p.a.
+  tenureMonths:   integer("tenure_months"),
+  minInvestment:  decimal("min_investment",  { precision: 15, scale: 2 }),
+  maxInvestment:  decimal("max_investment",  { precision: 15, scale: 2 }),
+  lockInMonths:   integer("lock_in_months").default(0),
+  isCumulative:   boolean("is_cumulative").default(true),
+  payoutFrequency: varchar("payout_frequency", { length: 30 }), // 'monthly','quarterly','annual','on_maturity'
+
+  // Credit / safety
+  creditRating:   varchar("credit_rating", { length: 20 }),  // e.g. 'AAA', 'AA+'
+  ratingAgency:   varchar("rating_agency",  { length: 30 }),
+
+  // Senior-citizen rate
+  seniorCitizenRateExtra: decimal("senior_citizen_rate_extra", { precision: 5, scale: 4 }),
+
+  // Metadata
+  brochureUrl:    text("brochure_url"),
+  rawData:        jsonb("raw_data"),                // Full IRIS API response for audit
+  source:         varchar("source", { length: 20 }).default("iris_kfintech"),
+
+  seededAt:       timestamp("seeded_at").defaultNow().notNull(),
+  updatedAt:      timestamp("updated_at").defaultNow().notNull(),
+  createdAt:      timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("idx_iris_fd_issuer").on(t.issuerName),
+  index("idx_iris_fd_tenure").on(t.tenureMonths),
+  index("idx_iris_fd_category").on(t.category),
+  index("idx_iris_fd_rating").on(t.creditRating),
+  index("idx_iris_fd_updated").on(t.updatedAt),
+]);
+
+export type IrisFdProduct = typeof irisFdProducts.$inferSelect;
+export type InsertIrisFdProduct = typeof irisFdProducts.$inferInsert;
+export const insertIrisFdProductSchema = createInsertSchema(irisFdProducts).omit({
+  id: true, createdAt: true, updatedAt: true, seededAt: true,
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * NPS (National Pension System) fund options sourced from IRIS KFintech.
+ * Endpoint: GET /user/nps/links
+ * Maps Pension Fund Managers → tier allocation breakdowns.
+ */
+export const irisNpsFunds = pgTable("iris_nps_funds", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // IRIS key
+  irisFundCode:    varchar("iris_fund_code",  { length: 100 }).notNull().unique(),
+
+  // Fund identity
+  fundManagerName: text("fund_manager_name").notNull(),
+  shortName:       varchar("short_name",      { length: 50 }),
+  tier:            varchar("tier",            { length: 5 }).notNull(), // 'I', 'II', 'both'
+  schemeType:      varchar("scheme_type",     { length: 10 }).default("NPS"), // 'NPS' | 'APY'
+
+  // Default asset class allocation (Scheme E / C / G / A)
+  equityPct:         decimal("equity_pct",         { precision: 6, scale: 4 }),
+  corporateBondPct:  decimal("corporate_bond_pct",  { precision: 6, scale: 4 }),
+  govtSecPct:        decimal("govt_sec_pct",         { precision: 6, scale: 4 }),
+  alternatePct:      decimal("alternate_pct",        { precision: 6, scale: 4 }),
+
+  // Returns (if available)
+  return1y:  decimal("return_1y", { precision: 8, scale: 4 }),
+  return3y:  decimal("return_3y", { precision: 8, scale: 4 }),
+  return5y:  decimal("return_5y", { precision: 8, scale: 4 }),
+
+  // Metadata
+  pfmCode:   varchar("pfm_code", { length: 20 }),  // PFRDA Pension Fund Manager code
+  rawData:   jsonb("raw_data"),
+  source:    varchar("source", { length: 20 }).default("iris_kfintech"),
+
+  seededAt:  timestamp("seeded_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("idx_iris_nps_tier").on(t.tier),
+  index("idx_iris_nps_manager").on(t.fundManagerName),
+  index("idx_iris_nps_updated").on(t.updatedAt),
+]);
+
+export type IrisNpsFund = typeof irisNpsFunds.$inferSelect;
+export type InsertIrisNpsFund = typeof irisNpsFunds.$inferInsert;
+export const insertIrisNpsFundSchema = createInsertSchema(irisNpsFunds).omit({
+  id: true, createdAt: true, updatedAt: true, seededAt: true,
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * PMS and AIF product catalog sourced from IRIS KFintech.
+ * Endpoints: GET /pms/links + GET /aif/links
+ */
+export const irisPmsAifProducts = pgTable("iris_pms_aif_products", {
+  id:             varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // IRIS key
+  irisProductId:  varchar("iris_product_id",  { length: 100 }).notNull().unique(),
+  productType:    varchar("product_type",     { length: 10 }).notNull(), // 'pms' | 'aif'
+
+  // Identity
+  strategyName:   text("strategy_name").notNull(),
+  fundHouse:      text("fund_house"),
+  sebiCategory:   varchar("sebi_category",    { length: 80 }),  // e.g. 'Category II AIF - Debt'
+  strategyType:   varchar("strategy_type",    { length: 50 }),  // 'long_only', 'multi_asset', etc.
+
+  // Investment terms
+  minInvestment:  decimal("min_investment",   { precision: 15, scale: 2 }),
+  aum:            decimal("aum",              { precision: 20, scale: 2 }),
+  lockInMonths:   integer("lock_in_months"),
+  managementFee:  decimal("management_fee",   { precision: 6,  scale: 4 }), // % p.a.
+  performanceFee: decimal("performance_fee",  { precision: 6,  scale: 4 }), // % of gains above hurdle
+
+  // Performance
+  return1y:       decimal("return_1y",        { precision: 8,  scale: 4 }),
+  return3y:       decimal("return_3y",        { precision: 8,  scale: 4 }),
+  returnSinceInception: decimal("return_since_inception", { precision: 8, scale: 4 }),
+  sharpeRatio:    decimal("sharpe_ratio",     { precision: 8,  scale: 4 }),
+  riskLevel:      varchar("risk_level",       { length: 20 }),
+
+  // Metadata
+  sebiRegNo:      varchar("sebi_reg_no",      { length: 50 }),  // SEBI registration number
+  rawData:        jsonb("raw_data"),
+  source:         varchar("source",           { length: 20 }).default("iris_kfintech"),
+
+  seededAt:       timestamp("seeded_at").defaultNow().notNull(),
+  updatedAt:      timestamp("updated_at").defaultNow().notNull(),
+  createdAt:      timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("idx_iris_pms_aif_type").on(t.productType),
+  index("idx_iris_pms_aif_house").on(t.fundHouse),
+  index("idx_iris_pms_aif_category").on(t.sebiCategory),
+  index("idx_iris_pms_aif_updated").on(t.updatedAt),
+]);
+
+export type IrisPmsAifProduct = typeof irisPmsAifProducts.$inferSelect;
+export type InsertIrisPmsAifProduct = typeof irisPmsAifProducts.$inferInsert;
+export const insertIrisPmsAifProductSchema = createInsertSchema(irisPmsAifProducts).omit({
+  id: true, createdAt: true, updatedAt: true, seededAt: true,
+});

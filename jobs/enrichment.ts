@@ -69,6 +69,24 @@ async function run(): Promise<void> {
 			logger.warn(`[${JOB_NAME}] Phase C failed (non-fatal)`, { error: String(err) });
 		}
 
+		// Phase D: IRIS KFintech instrument seeding
+		//   D1 — Fixed Deposit product catalog (GET /user/fixed-deposit/products)
+		//   D2 — NPS fund options            (GET /user/nps/links)
+		//   D3 — PMS + AIF catalog           (GET /pms/links + /aif/links)
+		//   D4 — MF portfolio-holdings       (GET /sif/schemes/{code}/portfolio-holdings)
+		//   D5 — MF factsheet enrichment     (GET /sif/schemes/{code}/factsheet)
+		// All sub-jobs are independently non-fatal; skipped if IRIS_USERNAME not configured.
+		logger.info(`[${JOB_NAME}] Phase D: IRIS instrument seeding (FD / NPS / PMS+AIF / MF enrichment)`);
+		try {
+			const { runAllSeedingJobs } = await import(
+				"../server/services/iris-instrument-seeding-service"
+			);
+			await runAllSeedingJobs();
+			logger.info(`[${JOB_NAME}] Phase D complete`);
+		} catch (err) {
+			logger.warn(`[${JOB_NAME}] Phase D failed (non-fatal)`, { error: String(err) });
+		}
+
 		const latencyMs = Date.now() - START_TIME;
 		logger.info(`[${JOB_NAME}] Job completed successfully`, {
 			event: "JOB_COMPLETE",
@@ -77,6 +95,7 @@ async function run(): Promise<void> {
 			latency_ms: latencyMs,
 		});
 		process.exit(0);
+
 	} catch (err) {
 		const latencyMs = Date.now() - START_TIME;
 		logger.error(`[${JOB_NAME}] Job failed`, {
