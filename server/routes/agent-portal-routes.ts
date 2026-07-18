@@ -18,9 +18,11 @@ import {
   irisFdProducts,
   irisNpsFunds,
   irisPmsAifProducts,
+  onboardingInvitations,
   users,
 } from "@shared/schema";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, desc } from "drizzle-orm";
+import { nanoid } from "nanoid";
 import { logger } from "../logger";
 
 
@@ -368,6 +370,148 @@ export function registerAgentPortalEnhancementRoutes(app: Express): void {
       } catch (err: any) {
         agentLog("AGENT_KYC_VAULT_WRITEBACK_ERROR", { agent_id: agentId, pan_masked: panMasked, error: err.message }, "error" as any);
         apiErr(res, 502, "AGENT_KYC_COMPLETE_ERROR", err.message, true);
+      }
+    },
+  );
+
+  // ──────────────────────────────────────────────────────────────
+  // GAP 1 FIX: Agent Invite Client
+  // POST /api/agent/portal/clients/invite
+  // Agent sends a referral invitation to a client by email/phone.
+  // Creates an onboardingInvitation entry and returns a referral link.
+  // ──────────────────────────────────────────────────────────────
+  /**
+   * POST /api/agent/portal/clients/invite
+   * Agent invites a new client by email and/or phone.
+   * Creates an onboardingInvitation + returns a shareable referral link.
+   *
+   * Inputs: { email?, phone?, clientName?, message? }
+   * Outputs: { invitationId, referralCode, referralLink, expiresAt }
+   */
+  app.post(
+    "/api/agent/portal/clients/invite",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const agentId = (req as any).user?.id as string;
+      const { email, phone, clientName, message } = req.body ?? {};
+      const startMs = Date.now();
+
+      if (!email && !phone) {
+        return apiErr(res, 400, "EMAIL_OR_PHONE_REQUIRED", "Provide at least email or phone to invite a client", false);
+      }
+
+      try {
+        const referralCode = `AG${nanoid(8).toUpperCase()}`;
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 30); // 30-day expiry
+
+        const [inv] = await db.insert(onboardingInvitations).values({
+          referralCode,
+          inviterId:   agentId,
+          inviterType: "agent",
+          clientEmail: email ?? null,
+          clientMobile: phone ?? null,
+          clientName:  clientName ?? null,
+          status:      "sent",
+          inviteSentAt: new Date(),
+          expiresAt,
+        }).returning({ id: onboardingInvitations.id });
+
+        const baseUrl = process.env.APP_URL ?? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+        const referralLink = `${baseUrl}/onboarding?ref=${referralCode}`;
+
+        agentLog("AGENT_CLIENT_INVITE_SENT", {
+          agent_id:       agentId,
+          invitation_id:  inv.id,
+          referral_code:  referralCode,
+          email_masked:   email ? email.replace(/(.)(.*)(@.*)/, "$1***$3") : null,
+          latency_ms:     Date.now() - startMs,
+          status:         "success",
+        });
+
+        apiOk(res, {
+          invitationId: inv.id,
+          referralCode,
+          referralLink,
+          expiresAt: expiresAt.toISOString(),
+          message: message ?? "Invitation created. Share the referral link with your client.",
+        }, { latency_ms: Date.now() - startMs });
+      } catch (err: any) {
+        agentLog("AGENT_CLIENT_INVITE_ERROR", { agent_id: agentId, error: err.message }, "error" as any);
+        apiErr(res, 500, "AGENT_INVITE_ERROR", err.message, true);
+      }
+    },
+  );
+
+  // ──────────────────────────────────────────────────────────────
+  // GAP 5 FIX: Agent Referral Dashboard
+  // GET /api/agent/portal/referral/dashboard
+  // ──────────────────────────────────────────────────────────────
+  /**
+   * GET /api/agent/portal/referral/dashboard
+   * Agent referral funnel stats: invites sent, opened, in-progress, completed.
+   * Calculates conversion rate (completed / sent).
+   *
+   * Outputs: { total, sent, opened, inProgress, completed, conversionRate, recent }
+   */
+  app.get(
+    "/api/agent/portal/referral/dashboard",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const agentId = (req as any).user?.id as string;
+      const startMs = Date.now();
+
+      try {
+        const [statsRows, recent] = await Promise.all([
+          db.select({
+            status: onboardingInvitations.status,
+            count:  sql<number>`count(*)`,
+          })
+            .from(onboardingInvitations)
+            .where(and(
+              sql`${onboardingInvitations.inviterId} = ${agentId}`,
+              sql`${onboardingInvitations.inviterType} = 'agent'`,
+            ))
+            .groupBy(onboardingInvitations.status),
+
+          db.select({
+            id:             onboardingInvitations.id,
+            referralCode:   onboardingInvitations.referralCode,
+            clientEmail:    onboardingInvitations.clientEmail,
+            clientName:     onboardingInvitations.clientName,
+            status:         onboardingInvitations.status,
+            progressPct:    onboardingInvitations.progressPercentage,
+            inviteSentAt:   onboardingInvitations.inviteSentAt,
+            completedAt:    onboardingInvitations.onboardingCompletedAt,
+          })
+            .from(onboardingInvitations)
+            .where(and(
+              sql`${onboardingInvitations.inviterId} = ${agentId}`,
+              sql`${onboardingInvitations.inviterType} = 'agent'`,
+            ))
+            .orderBy(desc(onboardingInvitations.createdAt))
+            .limit(10),
+        ]);
+
+        const statsMap = Object.fromEntries(statsRows.map((r) => [r.status, Number(r.count)]));
+        const total     = statsRows.reduce((s, r) => s + Number(r.count), 0);
+        const completed = statsMap["completed"] ?? 0;
+
+        agentLog("AGENT_REFERRAL_DASHBOARD", { agent_id: agentId, total, completed, latency_ms: Date.now() - startMs, status: "success" });
+
+        apiOk(res, {
+          total,
+          sent:          statsMap["sent"] ?? 0,
+          opened:        statsMap["opened"] ?? 0,
+          inProgress:    (statsMap["in_progress"] ?? 0) + (statsMap["started"] ?? 0),
+          completed,
+          expired:       statsMap["expired"] ?? 0,
+          conversionRate: total > 0 ? parseFloat(((completed / total) * 100).toFixed(1)) : 0,
+          recent,
+        }, { latency_ms: Date.now() - startMs });
+      } catch (err: any) {
+        agentLog("AGENT_REFERRAL_DASHBOARD_ERROR", { agent_id: agentId, error: err.message }, "error" as any);
+        apiErr(res, 500, "AGENT_REFERRAL_DASHBOARD_ERROR", err.message, true);
       }
     },
   );

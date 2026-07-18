@@ -17,8 +17,12 @@ import {
   irisNpsFunds,
   irisPmsAifProducts,
   mutualFunds,
+  userReferrals,
+  users,
 } from "@shared/schema";
-import { eq, sql, and, gte, lte } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
+import { nanoid } from "nanoid";
+
 import { irisKfintechService } from "../services/iris-kfintech-service";
 import { logger } from "../logger";
 
@@ -294,6 +298,137 @@ export function registerClientPortalRoutes(app: Express): void {
     } catch (err: any) {
       clientLog("CLIENT_KYC_VAULT_SYNC_ERROR", { user_id: user.id, pan_masked: pan.slice(0, 5) + "*****", error: err.message, level: "error" });
       apiErr(res, 502, "CLIENT_KYC_VAULT_SYNC_ERROR", err.message, true);
+    }
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // GAP 6 FIX: Client Referral Section
+  // Clients can refer other clients and earn flat rewards.
+  // Anti-MLM: one-time flat rewards only (₹100 KYC, ₹250 first investment).
+  // ──────────────────────────────────────────────────────────────
+
+  /**
+   * GET /api/client/referral/code
+   * Returns the client's unique referral code (auto-creates if missing).
+   * Outputs: { referralCode, referralLink }
+   */
+  app.get("/api/client/referral/code", requireAuth, async (req: Request, res: Response) => {
+    const startMs = Date.now();
+    const userId  = (req as any).user?.id as string;
+    try {
+      // Fetch existing code from users table
+      const [row] = await db
+        .select({ referralCode: users.referralCode })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      let code = row?.referralCode;
+      if (!code) {
+        code = `CL${nanoid(8).toUpperCase()}`;
+        await db.update(users).set({ referralCode: code } as any).where(eq(users.id, userId));
+      }
+
+      const baseUrl = process.env.APP_URL ?? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+      clientLog("CLIENT_REFERRAL_CODE_FETCHED", { user_id: userId, latency_ms: Date.now() - startMs, status: "success" });
+      apiOk(res, {
+        referralCode: code,
+        referralLink: `${baseUrl}/register?ref=${code}`,
+      }, { latency_ms: Date.now() - startMs });
+    } catch (err: any) {
+      clientLog("CLIENT_REFERRAL_CODE_ERROR", { user_id: userId, error: err.message, level: "error" });
+      apiErr(res, 500, "CLIENT_REFERRAL_CODE_ERROR", err.message, true);
+    }
+  });
+
+  /**
+   * GET /api/client/referral/stats
+   * Returns client's referral pipeline and earned rewards.
+   * Outputs: { total, registered, kycComplete, firstInvestment, rewarded, totalEarned }
+   */
+  app.get("/api/client/referral/stats", requireAuth, async (req: Request, res: Response) => {
+    const startMs = Date.now();
+    const userId  = (req as any).user?.id as string;
+    try {
+      const rows = await db
+        .select({
+          status:              userReferrals.status,
+          count:               sql<number>`count(*)`,
+          totalEarned:         sql<number>`COALESCE(SUM(${userReferrals.referrerRewardAmount}::numeric), 0)`,
+        })
+        .from(userReferrals)
+        .where(eq(userReferrals.referrerId, userId))
+        .groupBy(userReferrals.status);
+
+      const statsMap  = Object.fromEntries(rows.map((r) => [r.status, { count: Number(r.count), earned: Number(r.totalEarned) }]));
+      const totalEarned = rows.reduce((s, r) => s + Number(r.totalEarned), 0);
+      const total       = rows.reduce((s, r) => s + Number(r.count), 0);
+
+      clientLog("CLIENT_REFERRAL_STATS", { user_id: userId, total, total_earned: totalEarned, latency_ms: Date.now() - startMs, status: "success" });
+      apiOk(res, {
+        total,
+        pending:         statsMap["pending"]?.count ?? 0,
+        registered:      statsMap["registered"]?.count ?? 0,
+        kycComplete:     statsMap["kyc_complete"]?.count ?? 0,
+        firstInvestment: statsMap["first_investment"]?.count ?? 0,
+        rewarded:        statsMap["rewarded"]?.count ?? 0,
+        totalEarned,
+        disclaimer: "Referral rewards are flat one-time credits, not investment returns. Subject to FintekPro T&C.",
+      }, { latency_ms: Date.now() - startMs });
+    } catch (err: any) {
+      clientLog("CLIENT_REFERRAL_STATS_ERROR", { user_id: userId, error: err.message, level: "error" });
+      apiErr(res, 500, "CLIENT_REFERRAL_STATS_ERROR", err.message, true);
+    }
+  });
+
+  /**
+   * POST /api/client/referral/invite
+   * Client sends a referral invite by email/phone.
+   * Creates a userReferrals entry. Anti-MLM: flat one-time reward only.
+   *
+   * Inputs: { email?, phone? }
+   * Outputs: { referralId, referralCode, referralLink }
+   */
+  app.post("/api/client/referral/invite", requireAuth, async (req: Request, res: Response) => {
+    const startMs = Date.now();
+    const userId  = (req as any).user?.id as string;
+    const { email, phone } = req.body ?? {};
+
+    if (!email && !phone) {
+      return apiErr(res, 400, "EMAIL_OR_PHONE_REQUIRED", "Provide at least email or phone to send a referral", false);
+    }
+
+    try {
+      // Get/create referral code
+      const [row] = await db.select({ referralCode: users.referralCode }).from(users).where(eq(users.id, userId)).limit(1);
+      let code = row?.referralCode;
+      if (!code) {
+        code = `CL${nanoid(8).toUpperCase()}`;
+        await db.update(users).set({ referralCode: code } as any).where(eq(users.id, userId));
+      }
+
+      // Create referral record
+      const [ref] = await db.insert(userReferrals).values({
+        referrerId:    userId,
+        referralCode:  code,
+        refereeEmail:  email ?? null,
+        refereePhone:  phone ?? null,
+        status:        "pending",
+        inviteSentAt:  new Date(),
+      }).returning({ id: userReferrals.id });
+
+      const baseUrl = process.env.APP_URL ?? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+      clientLog("CLIENT_REFERRAL_INVITE_SENT", { user_id: userId, referral_id: ref.id, email_masked: email ? email.replace(/(.)(.*)(@.*)/, "$1***$3") : null, latency_ms: Date.now() - startMs, status: "success" });
+      apiOk(res, {
+        referralId:   ref.id,
+        referralCode: code,
+        referralLink: `${baseUrl}/register?ref=${code}`,
+        message: "Referral invite created. Share your referral link!",
+        disclaimer: "You earn ₹100 when your friend completes KYC, ₹250 on their first investment. Rewards are non-transferable.",
+      }, { latency_ms: Date.now() - startMs });
+    } catch (err: any) {
+      clientLog("CLIENT_REFERRAL_INVITE_ERROR", { user_id: userId, error: err.message, level: "error" });
+      apiErr(res, 500, "CLIENT_REFERRAL_INVITE_ERROR", err.message, true);
     }
   });
 }

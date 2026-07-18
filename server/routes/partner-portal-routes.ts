@@ -25,6 +25,7 @@ import {
   kycVault,
 } from "@shared/schema";
 import { eq, sql, and, desc } from "drizzle-orm";
+import { nanoid } from "nanoid";
 import { irisKfintechService } from "../services/iris-kfintech-service";
 import { logger } from "../logger";
 
@@ -412,6 +413,194 @@ export function registerPartnerPortalEnhancementRoutes(app: Express): void {
       } catch (err: any) {
         partnerLog("PARTNER_CLIENT_KYC_INITIATE_ERROR", { partner_id: partnerId, pan_masked: panMasked, error: err.message }, "error");
         apiErr(res, 502, "PARTNER_KYC_INITIATE_ERROR", err.message, true);
+      }
+    },
+  );
+
+  // ──────────────────────────────────────────────────────────────
+  // GAP 4 FIX: Partner Referral Code
+  // GET /api/partner/portal/referral-code
+  // Auto-generates if missing; returns shareable link.
+  // ──────────────────────────────────────────────────────────────
+  /**
+   * GET /api/partner/portal/referral-code
+   * Returns partner's unique referral code + shareable onboarding link.
+   * Auto-creates the code if it doesn't exist yet.
+   *
+   * Outputs: { referralCode, referralLink, qrData }
+   */
+  app.get(
+    "/api/partner/portal/referral-code",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const partnerId = (req as any).user?.id as string;
+      const startMs  = Date.now();
+
+      try {
+        // Look for most-recent pending/sent invitation with this partner's code
+        const existing = await db
+          .select({ referralCode: onboardingInvitations.referralCode })
+          .from(onboardingInvitations)
+          .where(and(
+            sql`${onboardingInvitations.inviterId} = ${partnerId}`,
+            sql`${onboardingInvitations.inviterType} = 'partner'`,
+          ))
+          .orderBy(desc(onboardingInvitations.createdAt))
+          .limit(1);
+
+        // Auto-generate a reusable partner referral code (stored in a sentinel record)
+        let code = existing[0]?.referralCode;
+        if (!code) {
+          code = `PT${nanoid(8).toUpperCase()}`;
+          await db.insert(onboardingInvitations).values({
+            referralCode: code,
+            inviterId:    partnerId,
+            inviterType:  "partner",
+            status:       "pending",
+          });
+        }
+
+        const baseUrl = process.env.APP_URL ?? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+        const referralLink = `${baseUrl}/onboarding?ref=${code}`;
+
+        partnerLog("PARTNER_REFERRAL_CODE_FETCHED", { partner_id: partnerId, latency_ms: Date.now() - startMs, status: "success" });
+
+        apiOk(res, {
+          referralCode: code,
+          referralLink,
+          qrData: referralLink, // frontend can render QR from this
+        }, { latency_ms: Date.now() - startMs });
+      } catch (err: any) {
+        partnerLog("PARTNER_REFERRAL_CODE_ERROR", { partner_id: partnerId, error: err.message }, "error");
+        apiErr(res, 500, "PARTNER_REFERRAL_CODE_ERROR", err.message, true);
+      }
+    },
+  );
+
+  /**
+   * POST /api/partner/portal/clients/invite
+   * Partner sends a targeted referral invitation to a specific client (email/phone).
+   * Creates an onboardingInvitation + returns a shareable referral link.
+   *
+   * Inputs: { email?, phone?, clientName? }
+   * Outputs: { invitationId, referralCode, referralLink, expiresAt }
+   */
+  app.post(
+    "/api/partner/portal/clients/invite",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const partnerId = (req as any).user?.id as string;
+      const { email, phone, clientName } = req.body ?? {};
+      const startMs = Date.now();
+
+      if (!email && !phone) {
+        return apiErr(res, 400, "EMAIL_OR_PHONE_REQUIRED", "Provide at least email or phone to invite a client", false);
+      }
+
+      try {
+        const referralCode = `PT${nanoid(8).toUpperCase()}`;
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 30);
+
+        const [inv] = await db.insert(onboardingInvitations).values({
+          referralCode,
+          inviterId:    partnerId,
+          inviterType:  "partner",
+          clientEmail:  email ?? null,
+          clientMobile: phone ?? null,
+          clientName:   clientName ?? null,
+          status:       "sent",
+          inviteSentAt: new Date(),
+          expiresAt,
+        }).returning({ id: onboardingInvitations.id });
+
+        const baseUrl = process.env.APP_URL ?? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+        const referralLink = `${baseUrl}/onboarding?ref=${referralCode}`;
+
+        partnerLog("PARTNER_CLIENT_INVITE_SENT", {
+          partner_id:    partnerId,
+          invitation_id: inv.id,
+          referral_code: referralCode,
+          email_masked:  email ? email.replace(/(.)(.*)(@.*)/, "$1***$3") : null,
+          latency_ms:    Date.now() - startMs,
+          status:        "success",
+        });
+
+        apiOk(res, {
+          invitationId: inv.id,
+          referralCode,
+          referralLink,
+          expiresAt: expiresAt.toISOString(),
+        }, { latency_ms: Date.now() - startMs });
+      } catch (err: any) {
+        partnerLog("PARTNER_CLIENT_INVITE_ERROR", { partner_id: partnerId, error: err.message }, "error");
+        apiErr(res, 500, "PARTNER_INVITE_ERROR", err.message, true);
+      }
+    },
+  );
+
+  /**
+   * GET /api/partner/portal/referral/dashboard
+   * Partner referral funnel: invites sent, opened, completed, conversion rate.
+   */
+  app.get(
+    "/api/partner/portal/referral/dashboard",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const partnerId = (req as any).user?.id as string;
+      const startMs  = Date.now();
+
+      try {
+        const [statsRows, recent] = await Promise.all([
+          db.select({
+            status: onboardingInvitations.status,
+            count:  sql<number>`count(*)`,
+          })
+            .from(onboardingInvitations)
+            .where(and(
+              sql`${onboardingInvitations.inviterId} = ${partnerId}`,
+              sql`${onboardingInvitations.inviterType} = 'partner'`,
+            ))
+            .groupBy(onboardingInvitations.status),
+
+          db.select({
+            id:           onboardingInvitations.id,
+            referralCode: onboardingInvitations.referralCode,
+            clientEmail:  onboardingInvitations.clientEmail,
+            clientName:   onboardingInvitations.clientName,
+            status:       onboardingInvitations.status,
+            progressPct:  onboardingInvitations.progressPercentage,
+            inviteSentAt: onboardingInvitations.inviteSentAt,
+            completedAt:  onboardingInvitations.onboardingCompletedAt,
+          })
+            .from(onboardingInvitations)
+            .where(and(
+              sql`${onboardingInvitations.inviterId} = ${partnerId}`,
+              sql`${onboardingInvitations.inviterType} = 'partner'`,
+            ))
+            .orderBy(desc(onboardingInvitations.createdAt))
+            .limit(10),
+        ]);
+
+        const statsMap  = Object.fromEntries(statsRows.map((r) => [r.status, Number(r.count)]));
+        const total     = statsRows.reduce((s, r) => s + Number(r.count), 0);
+        const completed = statsMap["completed"] ?? 0;
+
+        partnerLog("PARTNER_REFERRAL_DASHBOARD", { partner_id: partnerId, total, completed, latency_ms: Date.now() - startMs, status: "success" });
+
+        apiOk(res, {
+          total,
+          sent:          statsMap["sent"] ?? 0,
+          opened:        statsMap["opened"] ?? 0,
+          inProgress:    (statsMap["in_progress"] ?? 0) + (statsMap["started"] ?? 0),
+          completed,
+          expired:       statsMap["expired"] ?? 0,
+          conversionRate: total > 0 ? parseFloat(((completed / total) * 100).toFixed(1)) : 0,
+          recent,
+        }, { latency_ms: Date.now() - startMs });
+      } catch (err: any) {
+        partnerLog("PARTNER_REFERRAL_DASHBOARD_ERROR", { partner_id: partnerId, error: err.message }, "error");
+        apiErr(res, 500, "PARTNER_REFERRAL_DASHBOARD_ERROR", err.message, true);
       }
     },
   );

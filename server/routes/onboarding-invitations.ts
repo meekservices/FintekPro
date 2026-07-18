@@ -6,10 +6,13 @@ import {
 	users,
 	agents,
 	partners,
+	partnerReferrals,
+	userReferrals,
 } from "@shared/schema";
 import { eq, and, desc, ilike, or, sql, SQL } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { partnerService } from "../partner-service";
+import { ReferralRewardEngine } from "../services/referral-reward-engine";
 
 const router = Router();
 
@@ -688,6 +691,45 @@ router.patch(
 				.update(onboardingInvitations)
 				.set(updates)
 				.where(eq(onboardingInvitations.id, invitation.id));
+
+			// ── Referral Linkage on Completion ────────────────────────────────────
+			// When onboarding reaches 100%, link the client to the inviter's referral
+			// table so partner dashboard and reward engine have accurate data.
+			if (progressPercentage === 100 && linkedUserId) {
+				try {
+					if (invitation.inviterType === "partner") {
+						// Write partnerReferrals row (GAP 2 fix)
+						const existing = await db
+							.select({ id: partnerReferrals.id })
+							.from(partnerReferrals)
+							.where(
+								and(
+									eq(partnerReferrals.partnerId, invitation.inviterId),
+									eq(partnerReferrals.clientId, linkedUserId),
+								),
+							)
+							.limit(1);
+
+						if (!existing.length) {
+							await db.insert(partnerReferrals).values({
+								partnerId:      invitation.inviterId,
+								clientId:       linkedUserId,
+								referralCode:   invitation.referralCode,
+								referralSource: "onboarding_invitation",
+								clientStatus:   "registered",
+								isActive:       true,
+							});
+						}
+					} else if (invitation.inviterType === "agent") {
+						// Agent-referred client: update userReferrals status (GAP 3 fix)
+						const rewardEngine = ReferralRewardEngine.getInstance();
+						await rewardEngine.processKycComplete(linkedUserId).catch(() => null);
+					}
+				} catch (linkErr: any) {
+					// Non-fatal — log but don't block the response
+					console.error("[OnboardingInvitations] Referral linkage failed:", linkErr.message);
+				}
+			}
 
 			res.json({ success: true });
 		} catch (error: any) {
