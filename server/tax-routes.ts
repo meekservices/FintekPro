@@ -8,6 +8,7 @@ import { sandboxITRService } from "./sandbox-itr-service";
 import { emailService } from "./email-service";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import { irisKfintechService } from "./services/iris-kfintech-service";
 
 const upload = multer({
 	storage: multer.memoryStorage(),
@@ -808,15 +809,6 @@ const wizardCalcSchema = z.object({
 
 router.post("/itr/calculate", async (req: Request, res: Response) => {
 	try {
-		if (!sandboxITRService.isConfigured()) {
-			return res.status(503).json({
-				success: false,
-				error: "SANDBOX_API_NOT_CONFIGURED",
-				message:
-					"Tax calculation service unavailable. Sandbox.co.in API credentials not configured.",
-			});
-		}
-
 		const validation = wizardCalcSchema.safeParse(req.body);
 		if (!validation.success) {
 			return res.status(400).json({
@@ -827,18 +819,26 @@ router.post("/itr/calculate", async (req: Request, res: Response) => {
 			});
 		}
 
-		const result = await sandboxITRService.calculateTaxFromWizard(
-			validation.data,
-		);
-		res.json(result);
+		// ── IRIS primary ──────────────────────────────────────────────────────
+		if (irisKfintechService.isConfigured) {
+			try {
+				const result = await irisKfintechService.calculateItrTax(validation.data);
+				console.log("[Tax Route] /itr/calculate → IRIS success");
+				return res.json({ ...result, _provider: "iris" });
+			} catch (irisErr) {
+				console.warn("[Tax Route] /itr/calculate IRIS failed, falling back to Sandbox:", (irisErr as Error).message);
+			}
+		}
+
+		// ── Sandbox fallback ──────────────────────────────────────────────────
+		if (!sandboxITRService.isConfigured()) {
+			return res.status(503).json({ success: false, error: "TAX_SERVICE_UNAVAILABLE", message: "Tax calculation service unavailable. Neither IRIS nor Sandbox credentials are configured." });
+		}
+		const result = await sandboxITRService.calculateTaxFromWizard(validation.data);
+		res.json({ ...result, _provider: "sandbox" });
 	} catch (error) {
 		console.error("[Tax Route] /itr/calculate error:", error);
-		res.status(500).json({
-			success: false,
-			error: "CALCULATION_FAILED",
-			message:
-				error instanceof Error ? error.message : "Tax calculation failed",
-		});
+		res.status(500).json({ success: false, error: "CALCULATION_FAILED", message: error instanceof Error ? error.message : "Tax calculation failed" });
 	}
 });
 
@@ -914,51 +914,52 @@ router.post("/itr/file", async (req: Request, res: Response) => {
 		const reqUser = (req as any).user;
 		const session = (req as any).session;
 		const userId = reqUser?.id || session?.userId || session?.user?.id;
+		if (!userId) return res.status(401).json({ error: "User not authenticated" });
 
-		if (!userId) {
-			return res.status(401).json({ error: "User not authenticated" });
+		// ── IRIS primary ──────────────────────────────────────────────────────
+		if (irisKfintechService.isConfigured) {
+			try {
+				const result = await irisKfintechService.fileItr(req.body);
+				console.log("[Tax Route] /itr/file → IRIS success");
+				return res.json({ ...result, _provider: "iris" });
+			} catch (irisErr) {
+				console.warn("[Tax Route] /itr/file IRIS failed, falling back to Sandbox:", (irisErr as Error).message);
+			}
 		}
 
+		// ── Sandbox fallback ──────────────────────────────────────────────────
 		if (!sandboxITRService.isConfigured()) {
-			return res.status(503).json({
-				success: false,
-				error: "SANDBOX_API_NOT_CONFIGURED",
-				message:
-					"ITR filing service unavailable. Sandbox.co.in API credentials not configured.",
-			});
+			return res.status(503).json({ success: false, error: "TAX_SERVICE_UNAVAILABLE", message: "ITR filing service unavailable. Neither IRIS nor Sandbox credentials are configured." });
 		}
-
 		const result = await sandboxITRService.fileITR(req.body);
-		res.json(result);
+		res.json({ ...result, _provider: "sandbox" });
 	} catch (error) {
 		console.error("[Tax Route] /itr/file error:", error);
-		res.status(500).json({
-			success: false,
-			error: "FILING_FAILED",
-			message: error instanceof Error ? error.message : "ITR filing failed",
-		});
+		res.status(500).json({ success: false, error: "FILING_FAILED", message: error instanceof Error ? error.message : "ITR filing failed" });
 	}
 });
 
 router.get("/itr/status/:ackNumber", async (req: Request, res: Response) => {
 	try {
-		if (!sandboxITRService.isConfigured()) {
-			return res.status(503).json({
-				success: false,
-				error: "SANDBOX_API_NOT_CONFIGURED",
-				message: "Status check service unavailable.",
-			});
+		// ── IRIS primary ──────────────────────────────────────────────────────
+		if (irisKfintechService.isConfigured) {
+			try {
+				const result = await irisKfintechService.getItrStatus(req.params.ackNumber);
+				console.log("[Tax Route] /itr/status → IRIS success");
+				return res.json({ ...result, _provider: "iris" });
+			} catch (irisErr) {
+				console.warn("[Tax Route] /itr/status IRIS failed, falling back to Sandbox:", (irisErr as Error).message);
+			}
 		}
-
+		// ── Sandbox fallback ──────────────────────────────────────────────────
+		if (!sandboxITRService.isConfigured()) {
+			return res.status(503).json({ success: false, error: "TAX_SERVICE_UNAVAILABLE", message: "Status check service unavailable." });
+		}
 		const result = await sandboxITRService.getITRStatus(req.params.ackNumber);
-		res.json(result);
+		res.json({ ...result, _provider: "sandbox" });
 	} catch (error) {
 		console.error("[Tax Route] /itr/status error:", error);
-		res.status(500).json({
-			success: false,
-			error: "STATUS_CHECK_FAILED",
-			message: error instanceof Error ? error.message : "Status check failed",
-		});
+		res.status(500).json({ success: false, error: "STATUS_CHECK_FAILED", message: error instanceof Error ? error.message : "Status check failed" });
 	}
 });
 
@@ -989,27 +990,27 @@ router.get(
 			const reqUser = (req as any).user;
 			const session = (req as any).session;
 			const userId = reqUser?.id || session?.userId || session?.user?.id;
+			if (!userId) return res.status(401).json({ error: "User not authenticated" });
 
-			if (!userId) {
-				return res.status(401).json({ error: "User not authenticated" });
+			// ── IRIS primary ──────────────────────────────────────────────────
+			if (irisKfintechService.isConfigured) {
+				try {
+					const result = await irisKfintechService.getForm26AS(req.params.pan, req.params.assessmentYear);
+					console.log("[Tax Route] /form26as → IRIS success");
+					return res.json({ ...result, _provider: "iris" });
+				} catch (irisErr) {
+					console.warn("[Tax Route] /form26as IRIS failed, falling back to Sandbox:", (irisErr as Error).message);
+				}
 			}
-
+			// ── Sandbox fallback ─────────────────────────────────────────────
 			if (!sandboxITRService.isConfigured()) {
-				return res.status(503).json({
-					success: false,
-					error: "SANDBOX_API_NOT_CONFIGURED",
-					message: "Form 26AS service unavailable.",
-				});
+				return res.status(503).json({ success: false, error: "TAX_SERVICE_UNAVAILABLE", message: "Form 26AS service unavailable." });
 			}
-
-			const result = await sandboxITRService.getForm26AS(
-				req.params.pan,
-				req.params.assessmentYear,
-			);
-			res.json(result);
+			const result = await sandboxITRService.getForm26AS(req.params.pan, req.params.assessmentYear);
+			res.json({ ...result, _provider: "sandbox" });
 		} catch (error) {
 			console.error("[Tax Route] /form26as error:", error);
-			res.status(500).json({ success: false, error: "Form 26AS fetch failed" });
+			res.status(500).json({ success: false, error: "FORM26AS_FETCH_FAILED" });
 		}
 	},
 );
@@ -1019,27 +1020,47 @@ router.get("/ais/:pan/:assessmentYear", async (req: Request, res: Response) => {
 		const reqUser = (req as any).user;
 		const session = (req as any).session;
 		const userId = reqUser?.id || session?.userId || session?.user?.id;
+		if (!userId) return res.status(401).json({ error: "User not authenticated" });
 
-		if (!userId) {
-			return res.status(401).json({ error: "User not authenticated" });
+		// ── IRIS primary ──────────────────────────────────────────────────────
+		if (irisKfintechService.isConfigured) {
+			try {
+				const result = await irisKfintechService.getAIS(req.params.pan, req.params.assessmentYear);
+				console.log("[Tax Route] /ais → IRIS success");
+				return res.json({ ...result, _provider: "iris" });
+			} catch (irisErr) {
+				console.warn("[Tax Route] /ais IRIS failed, falling back to Sandbox:", (irisErr as Error).message);
+			}
 		}
-
+		// ── Sandbox fallback ──────────────────────────────────────────────────
 		if (!sandboxITRService.isConfigured()) {
-			return res.status(503).json({
-				success: false,
-				error: "SANDBOX_API_NOT_CONFIGURED",
-				message: "AIS service unavailable.",
-			});
+			return res.status(503).json({ success: false, error: "TAX_SERVICE_UNAVAILABLE", message: "AIS service unavailable." });
 		}
-
-		const result = await sandboxITRService.getAIS(
-			req.params.pan,
-			req.params.assessmentYear,
-		);
-		res.json(result);
+		const result = await sandboxITRService.getAIS(req.params.pan, req.params.assessmentYear);
+		res.json({ ...result, _provider: "sandbox" });
 	} catch (error) {
 		console.error("[Tax Route] /ais error:", error);
-		res.status(500).json({ success: false, error: "AIS fetch failed" });
+		res.status(500).json({ success: false, error: "AIS_FETCH_FAILED" });
+	}
+});
+
+// Pre-filled ITR data (IRIS only — no Sandbox equivalent)
+router.get("/itr/prefill/:pan/:assessmentYear", async (req: Request, res: Response) => {
+	try {
+		const reqUser = (req as any).user;
+		const session = (req as any).session;
+		const userId = reqUser?.id || session?.userId || session?.user?.id;
+		if (!userId) return res.status(401).json({ error: "User not authenticated" });
+
+		if (!irisKfintechService.isConfigured) {
+			return res.status(503).json({ success: false, error: "IRIS_NOT_CONFIGURED", message: "Pre-filled ITR data requires IRIS KFintech ERI credentials." });
+		}
+		const result = await irisKfintechService.getPrefillData(req.params.pan, req.params.assessmentYear);
+		console.log(`[Tax Route] /itr/prefill → IRIS success (PAN: ${req.params.pan.slice(0, 5)}*****)`); 
+		res.json({ ...result, _provider: "iris" });
+	} catch (error) {
+		console.error("[Tax Route] /itr/prefill error:", error);
+		res.status(500).json({ success: false, error: "PREFILL_FETCH_FAILED", message: error instanceof Error ? error.message : "Pre-fill fetch failed" });
 	}
 });
 
