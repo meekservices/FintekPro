@@ -9,6 +9,7 @@ import { ComplianceAuditPackService } from "../services/compliance-audit-pack-se
 import { isAuthenticated } from "../auth-setup";
 import { requireAdmin, requireAgent } from "../middleware/auth";
 import { requireTransactionCompliance } from "../middleware/transactionComplianceGate";
+import { logger } from "../logger";
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
 	return isAuthenticated(req, res, next);
@@ -3111,6 +3112,99 @@ export function registerIrisKfintechRoutes(app: Express): void {
 				});
 			} catch (err: any) {
 				res.status(500).json({ success: false, error_code: "AIF_SUBSCRIBE_FAILED", message: err.message, retryable: true });
+			}
+		},
+	);
+
+	// ─── ITR Filing (ERI — IRIS KFintech) ──────────────────────────────────────
+	// All ITR routes require auth. PAN is always masked in logs (GCR security).
+
+	app.get(
+		"/api/iris/itr/prefill/:pan/:assessmentYear",
+		requireAuth,
+		async (req: any, res: any) => {
+			const t = Date.now();
+			const uid = req.user?.id;
+			const maskedPan = `${req.params.pan.slice(0, 5)}*****`;
+			try {
+				const result = await irisKfintechService.getPrefillData(req.params.pan, req.params.assessmentYear);
+				logger.info("IRIS_ITR_PREFILL_SUCCESS", { event: "IRIS_ITR_PREFILL_SUCCESS", user_id: uid, pan: maskedPan, assessment_year: req.params.assessmentYear, latency_ms: Date.now() - t, status: "success" });
+				res.json({ success: true, data: result, meta: { timestamp: new Date().toISOString(), version: "v2", provider: "iris" } });
+			} catch (err: any) {
+				logger.error("IRIS_ITR_PREFILL_FAILED", { event: "IRIS_ITR_PREFILL_FAILED", user_id: uid, pan: maskedPan, error: err.message, retryable: true, latency_ms: Date.now() - t, status: "error" });
+				res.status(500).json({ success: false, error_code: "IRIS_ITR_PREFILL_FAILED", message: err.message, retryable: true, meta: { timestamp: new Date().toISOString(), version: "v2" } });
+			}
+		},
+	);
+
+	app.post(
+		"/api/iris/itr/prepare",
+		requireAuth,
+		async (req: any, res: any) => {
+			const t = Date.now();
+			const uid = req.user?.id;
+			const maskedPan = req.body?.pan ? `${String(req.body.pan).slice(0, 5)}*****` : "unknown";
+			try {
+				const result = await irisKfintechService.prepareItr(req.body);
+				logger.info("IRIS_ITR_PREPARE_SUCCESS", { event: "IRIS_ITR_PREPARE_SUCCESS", user_id: uid, pan: maskedPan, itr_form: req.body?.itrForm, assessment_year: req.body?.assessmentYear, latency_ms: Date.now() - t, status: "success" });
+				res.json({ success: true, data: result, meta: { timestamp: new Date().toISOString(), version: "v2", provider: "iris" } });
+			} catch (err: any) {
+				logger.error("IRIS_ITR_PREPARE_FAILED", { event: "IRIS_ITR_PREPARE_FAILED", user_id: uid, pan: maskedPan, error: err.message, retryable: true, latency_ms: Date.now() - t, status: "error" });
+				res.status(500).json({ success: false, error_code: "IRIS_ITR_PREPARE_FAILED", message: err.message, retryable: true, meta: { timestamp: new Date().toISOString(), version: "v2" } });
+			}
+		},
+	);
+
+	app.post(
+		"/api/iris/itr/file",
+		requireAuth,
+		async (req: any, res: any) => {
+			const t = Date.now();
+			const uid = req.user?.id;
+			const maskedPan = req.body?.pan ? `${String(req.body.pan).slice(0, 5)}*****` : "unknown";
+			try {
+				// FASP-AI: User-initiated only — AI must never call this autonomously.
+				const result = await irisKfintechService.fileItr(req.body);
+				logger.info("IRIS_ITR_FILE_SUCCESS", { event: "IRIS_ITR_FILE_SUCCESS", user_id: uid, pan: maskedPan, itr_form: req.body?.itrForm, assessment_year: req.body?.assessmentYear, latency_ms: Date.now() - t, status: "success" });
+				res.json({ success: true, data: result, meta: { timestamp: new Date().toISOString(), version: "v2", provider: "iris" } });
+			} catch (err: any) {
+				logger.error("IRIS_ITR_FILE_FAILED", { event: "IRIS_ITR_FILE_FAILED", user_id: uid, pan: maskedPan, error: err.message, retryable: false, latency_ms: Date.now() - t, status: "error" });
+				res.status(500).json({ success: false, error_code: "IRIS_ITR_FILE_FAILED", message: err.message, retryable: false, meta: { timestamp: new Date().toISOString(), version: "v2" } });
+			}
+		},
+	);
+
+	app.get(
+		"/api/iris/itr/status/:ackNumber",
+		requireAuth,
+		async (req: any, res: any) => {
+			const t = Date.now();
+			const uid = req.user?.id;
+			try {
+				const result = await irisKfintechService.getItrStatus(req.params.ackNumber);
+				logger.info("IRIS_ITR_STATUS_SUCCESS", { event: "IRIS_ITR_STATUS_SUCCESS", user_id: uid, ack_number: req.params.ackNumber, latency_ms: Date.now() - t, status: "success" });
+				res.json({ success: true, data: result, meta: { timestamp: new Date().toISOString(), version: "v2", provider: "iris" } });
+			} catch (err: any) {
+				logger.error("IRIS_ITR_STATUS_FAILED", { event: "IRIS_ITR_STATUS_FAILED", user_id: uid, ack_number: req.params.ackNumber, error: err.message, retryable: true, latency_ms: Date.now() - t, status: "error" });
+				res.status(500).json({ success: false, error_code: "IRIS_ITR_STATUS_FAILED", message: err.message, retryable: true, meta: { timestamp: new Date().toISOString(), version: "v2" } });
+			}
+		},
+	);
+
+	app.post(
+		"/api/iris/itr/e-verify",
+		requireAuth,
+		async (req: any, res: any) => {
+			const t = Date.now();
+			const uid = req.user?.id;
+			const maskedPan = req.body?.pan ? `${String(req.body.pan).slice(0, 5)}*****` : "unknown";
+			try {
+				const result = await irisKfintechService.eVerifyItr(req.body);
+				logger.info("IRIS_ITR_EVERIFY_SUCCESS", { event: "IRIS_ITR_EVERIFY_SUCCESS", user_id: uid, pan: maskedPan, verify_method: req.body?.method, ack_number: req.body?.ackNumber, latency_ms: Date.now() - t, status: "success" });
+				res.json({ success: true, data: result, meta: { timestamp: new Date().toISOString(), version: "v2", provider: "iris" } });
+			} catch (err: any) {
+				logger.error("IRIS_ITR_EVERIFY_FAILED", { event: "IRIS_ITR_EVERIFY_FAILED", user_id: uid, pan: maskedPan, error: err.message, retryable: true, latency_ms: Date.now() - t, status: "error" });
+				res.status(500).json({ success: false, error_code: "IRIS_ITR_EVERIFY_FAILED", message: err.message, retryable: true, meta: { timestamp: new Date().toISOString(), version: "v2" } });
 			}
 		},
 	);
