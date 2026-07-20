@@ -1,5 +1,5 @@
 const SW_URL = new URL(self.location.href);
-const VERSION = SW_URL.searchParams.get('v') || '15';
+const VERSION = SW_URL.searchParams.get('v') || '16';
 // BUILD changes on every deployment — guarantees fresh caches after each publish
 const BUILD = SW_URL.searchParams.get('b') || VERSION;
 const CACHE_PREFIX = 'fintekpro';
@@ -160,29 +160,54 @@ self.addEventListener('message', (event) => {
 
   if (type === 'skipwaiting' || type === 'skip_waiting') {
     console.log('[ServiceWorker] Skip waiting triggered');
-    self.skipWaiting();
+    // Use waitUntil so the message channel stays open until skipWaiting resolves.
+    // Without this, Chrome throws "message channel closed before response received".
+    event.waitUntil(
+      self.skipWaiting().then(() => {
+        // Ack back to the sender if a MessageChannel port was provided
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({ type: 'SKIP_WAITING_DONE' });
+        }
+      })
+    );
     return;
   }
-  
+
   if (type === 'clearcache' || type === 'clear_cache') {
     console.log('[ServiceWorker] Clearing all caches');
-    caches.keys().then((names) => Promise.all(names.map((n) => caches.delete(n))));
+    // Wrap in waitUntil so the async cache deletion completes before the
+    // message channel is torn down — prevents "channel closed" errors.
+    event.waitUntil(
+      caches.keys()
+        .then((names) => Promise.all(names.map((n) => caches.delete(n))))
+        .then(() => {
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({ type: 'CLEAR_CACHE_DONE' });
+          }
+        })
+    );
     return;
   }
-  
+
   if (type === 'getversion' && event.ports && event.ports[0]) {
     event.ports[0].postMessage({ version: VERSION });
     return;
   }
+
   if (data && data.type === 'SYNC_DRAFTS') {
-    self.clients.matchAll().then(clients =>
-      clients.forEach(c => c.postMessage({ type: 'SYNC_DRAFTS' }))
+    event.waitUntil(
+      self.clients.matchAll().then(clients =>
+        clients.forEach(c => c.postMessage({ type: 'SYNC_DRAFTS' }))
+      )
     );
     return;
   }
+
   if (data && data.type === 'SYNC_ACTIONS') {
-    self.clients.matchAll().then(clients =>
-      clients.forEach(c => c.postMessage({ type: 'SYNC_ACTIONS' }))
+    event.waitUntil(
+      self.clients.matchAll().then(clients =>
+        clients.forEach(c => c.postMessage({ type: 'SYNC_ACTIONS' }))
+      )
     );
     return;
   }
