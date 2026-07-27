@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fintekpro-agent-v2'; // bumped 2026-07-09: force evict old JS bundle cache
+const CACHE_NAME = 'fintekpro-agent-v3'; // bumped 2026-07-27: fix SW message handler (SKIP_WAITING/CLEAR_CACHE)
 
 self.addEventListener('install', (event) => {
   console.log('[SW] Service Worker installing...');
@@ -10,8 +10,30 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('message', (event) => {
+  // Legacy: plain string from old clients
   if (event.data === 'skipWaiting') {
     self.skipWaiting();
+    return;
+  }
+
+  // Object format from useVersionCheck.ts → { type: "SKIP_WAITING" | "CLEAR_CACHE" }
+  if (event.data && typeof event.data === 'object') {
+    if (event.data.type === 'SKIP_WAITING') {
+      self.skipWaiting();
+      return;
+    }
+
+    if (event.data.type === 'CLEAR_CACHE') {
+      // Delete all caches so stale JS bundles are purged on force-update
+      event.waitUntil(
+        caches.keys().then((keys) =>
+          Promise.all(keys.map((key) => caches.delete(key)))
+        ).then(() => {
+          console.log('[SW] All caches cleared on force-update request');
+        })
+      );
+      return;
+    }
   }
 });
 

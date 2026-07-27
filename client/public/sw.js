@@ -1,214 +1,125 @@
-const SW_URL = new URL(self.location.href);
-const VERSION = SW_URL.searchParams.get('v') || '16';
-// BUILD changes on every deployment — guarantees fresh caches after each publish
-const BUILD = SW_URL.searchParams.get('b') || VERSION;
-const CACHE_PREFIX = 'fintekpro';
-const SHELL_CACHE = `${CACHE_PREFIX}-shell-${BUILD}`;
-const STATIC_CACHE = `${CACHE_PREFIX}-static-${BUILD}`;
-const EXPECTED_CACHES = [SHELL_CACHE, STATIC_CACHE];
-
-const SHELL_ASSETS = [
-  '/',
-];
-
-const NEVER_CACHE_ROUTES = [
-  '/api/auth',
-  '/api/login',
-  '/api/logout',
-  '/api/orders',
-  '/api/trade',
-  '/api/execute',
-  '/api/payment',
-  '/api/consent',
-  '/api/submit',
-  '/api/transactions',
-  '/api/mca',
-  '/api/wallet',
-  '/api/admin',
-];
+const CACHE_NAME = 'fintekpro-agent-v3'; // bumped 2026-07-27: fix SW message handler (SKIP_WAITING/CLEAR_CACHE)
 
 self.addEventListener('install', (event) => {
-  console.log(`[ServiceWorker] Installing v${VERSION}...`);
-  // skipWaiting() is called immediately so the new SW takes control on the
-  // very next page load without the user needing to click "Refresh Now".
-  // The activate handler then purges old caches and claims all open tabs.
-  self.skipWaiting();
-  event.waitUntil(
-    caches.open(SHELL_CACHE)
-      .then((cache) => cache.addAll(SHELL_ASSETS))
-      .then(() => {
-        console.log('[ServiceWorker] Shell cached, activating immediately');
-      })
-  );
-});
-
-self.addEventListener('activate', (event) => {
-  console.log(`[ServiceWorker] Activating v${VERSION}...`);
-  event.waitUntil(
-    caches.keys().then((cacheNames) =>
-      Promise.all(
-        cacheNames
-          .filter((name) => name.startsWith(CACHE_PREFIX) && !EXPECTED_CACHES.includes(name))
-          .map((name) => {
-            console.log('[ServiceWorker] Deleting stale cache:', name);
-            return caches.delete(name);
-          })
-      )
-    ).then(() => {
-      console.log('[ServiceWorker] Claiming clients');
-      return self.clients.claim();
-    })
-  );
-});
-
-function isNeverCache(url) {
-  return NEVER_CACHE_ROUTES.some(route => url.includes(route));
-}
-
-function isViteHashedAsset(pathname) {
-  return pathname.startsWith('/assets/') && /\.(js|mjs|css)$/.test(pathname);
-}
-
-function isStaticMedia(pathname) {
-  return /\.(png|jpg|jpeg|gif|ico|webp|woff2?|ttf|eot|svg)$/.test(pathname);
-}
-
-function isNavigationRequest(request) {
-  return request.mode === 'navigate';
-}
-
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
-
-  if (!url.protocol.startsWith('http')) return;
-  if (request.method !== 'GET') return;
-  if (url.pathname.startsWith('/api/')) return;
-  if (isNeverCache(url.pathname)) return;
-  if (url.pathname.includes('/src/') || url.pathname.includes('/@') || url.pathname.includes('node_modules')) return;
-
-  if (isNavigationRequest(request)) {
-    event.respondWith(
-      caches.open(SHELL_CACHE).then(async (cache) => {
-        try {
-          const networkResp = await fetch(request);
-          if (networkResp.ok) cache.put(request, networkResp.clone());
-          return networkResp;
-        } catch {
-          const cached = await cache.match('/');
-          return cached || fetch(request);
-        }
-      })
-    );
-    return;
-  }
-
-  if (isViteHashedAsset(url.pathname)) {
-    event.respondWith(
-      caches.open(STATIC_CACHE).then(async (cache) => {
-        const cached = await cache.match(request);
-        if (cached) return cached;
-        try {
-          const networkResp = await fetch(request);
-          if (networkResp.ok) {
-            cache.put(request, networkResp.clone());
-            return networkResp;
-          }
-          // Asset returned 404 — the deploy changed chunk hashes.
-          // Delete all stale caches and tell all open tabs to reload so they
-          // pick up the new HTML and its matching chunks.
-          if (networkResp.status === 404) {
-            console.warn('[ServiceWorker] Chunk 404 detected — clearing caches and reloading clients');
-            const cacheNames = await caches.keys();
-            await Promise.all(cacheNames.filter(n => n.startsWith(CACHE_PREFIX)).map(n => caches.delete(n)));
-            const clients = await self.clients.matchAll({ type: 'window' });
-            clients.forEach(client => client.navigate(client.url));
-          }
-          return networkResp;
-        } catch {
-          return new Response('', { status: 503 });
-        }
-      })
-    );
-    return;
-  }
-
-  if (isStaticMedia(url.pathname)) {
-    event.respondWith(
-      caches.open(STATIC_CACHE).then(async (cache) => {
-        const cached = await cache.match(request);
-        if (cached) return cached;
-        try {
-          const networkResp = await fetch(request);
-          if (networkResp.ok) cache.put(request, networkResp.clone());
-          return networkResp;
-        } catch {
-          return new Response('', { status: 503 });
-        }
-      })
-    );
-    return;
-  }
+  console.log('[SW] Service Worker installing...');
+  // Do NOT call skipWaiting() here — that would immediately activate the new SW,
+  // trigger clients.claim(), fire a controllerchange in every open tab, and cause
+  // an automatic page reload for all users mid-session.
+  // Instead, the new SW enters the 'waiting' state, the UpdateNotificationBanner
+  // appears, and skipWaiting is called only when the user clicks "Refresh Now".
 });
 
 self.addEventListener('message', (event) => {
-  const data = event.data;
-  if (!data) return;
-
-  // Handle both string and object messages
-  const type = (typeof data === 'string' ? data : data.type || '').toLowerCase();
-
-  if (type === 'skipwaiting' || type === 'skip_waiting') {
-    console.log('[ServiceWorker] Skip waiting triggered');
-    // Use waitUntil so the message channel stays open until skipWaiting resolves.
-    // Without this, Chrome throws "message channel closed before response received".
-    event.waitUntil(
-      self.skipWaiting().then(() => {
-        // Ack back to the sender if a MessageChannel port was provided
-        if (event.ports && event.ports[0]) {
-          event.ports[0].postMessage({ type: 'SKIP_WAITING_DONE' });
-        }
-      })
-    );
+  // Legacy: plain string from old clients
+  if (event.data === 'skipWaiting') {
+    self.skipWaiting();
     return;
   }
 
-  if (type === 'clearcache' || type === 'clear_cache') {
-    console.log('[ServiceWorker] Clearing all caches');
-    // Wrap in waitUntil so the async cache deletion completes before the
-    // message channel is torn down — prevents "channel closed" errors.
-    event.waitUntil(
-      caches.keys()
-        .then((names) => Promise.all(names.map((n) => caches.delete(n))))
-        .then(() => {
-          if (event.ports && event.ports[0]) {
-            event.ports[0].postMessage({ type: 'CLEAR_CACHE_DONE' });
-          }
+  // Object format from useVersionCheck.ts → { type: "SKIP_WAITING" | "CLEAR_CACHE" }
+  if (event.data && typeof event.data === 'object') {
+    if (event.data.type === 'SKIP_WAITING') {
+      self.skipWaiting();
+      return;
+    }
+
+    if (event.data.type === 'CLEAR_CACHE') {
+      // Delete all caches so stale JS bundles are purged on force-update
+      event.waitUntil(
+        caches.keys().then((keys) =>
+          Promise.all(keys.map((key) => caches.delete(key)))
+        ).then(() => {
+          console.log('[SW] All caches cleared on force-update request');
         })
-    );
-    return;
+      );
+      return;
+    }
   }
+});
 
-  if (type === 'getversion' && event.ports && event.ports[0]) {
-    event.ports[0].postMessage({ version: VERSION });
-    return;
-  }
+self.addEventListener('activate', (event) => {
+  console.log('[SW] Service Worker activated');
+  event.waitUntil(clients.claim());
+});
 
-  if (data && data.type === 'SYNC_DRAFTS') {
-    event.waitUntil(
-      self.clients.matchAll().then(clients =>
-        clients.forEach(c => c.postMessage({ type: 'SYNC_DRAFTS' }))
-      )
-    );
-    return;
+self.addEventListener('push', (event) => {
+  console.log('[SW] Push notification received');
+  
+  let data = {
+    title: 'FintekPro Agent',
+    body: 'You have a new notification',
+    icon: '/favicon.ico',
+    badge: '/favicon.ico',
+    tag: 'default',
+    data: { url: '/' }
+  };
+  
+  try {
+    if (event.data) {
+      const payload = event.data.json();
+      data = {
+        title: payload.title || data.title,
+        body: payload.body || payload.message || data.body,
+        icon: payload.icon || data.icon,
+        badge: payload.badge || data.badge,
+        tag: payload.tag || payload.type || data.tag,
+        data: {
+          url: payload.url || payload.link || '/',
+          notificationId: payload.id,
+          type: payload.type
+        }
+      };
+    }
+  } catch (e) {
+    console.error('[SW] Error parsing push data:', e);
   }
+  
+  const options = {
+    body: data.body,
+    icon: data.icon,
+    badge: data.badge,
+    tag: data.tag,
+    data: data.data,
+    requireInteraction: true,
+    actions: [
+      { action: 'view', title: 'View' },
+      { action: 'dismiss', title: 'Dismiss' }
+    ]
+  };
+  
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
 
-  if (data && data.type === 'SYNC_ACTIONS') {
-    event.waitUntil(
-      self.clients.matchAll().then(clients =>
-        clients.forEach(c => c.postMessage({ type: 'SYNC_ACTIONS' }))
-      )
-    );
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification clicked:', event.action);
+  
+  event.notification.close();
+  
+  if (event.action === 'dismiss') {
     return;
   }
+  
+  const urlToOpen = event.notification.data?.url || '/';
+  
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((windowClients) => {
+        for (const client of windowClients) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            client.focus();
+            if (urlToOpen !== '/') {
+              client.navigate(urlToOpen);
+            }
+            return;
+          }
+        }
+        return clients.openWindow(urlToOpen);
+      })
+  );
+});
+
+self.addEventListener('notificationclose', (event) => {
+  console.log('[SW] Notification closed');
 });
