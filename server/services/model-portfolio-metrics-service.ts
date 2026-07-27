@@ -343,6 +343,14 @@ export async function computePortfolioCagrFromDB(
 ): Promise<{ cagr1Y: number; cagr3Y: number; cagr5Y: number; coverage: number } | null> {
 	const ENGINE_TS = new Date().toISOString();
 
+	// Fix #9 — Memoize per-instrument DB lookups within this function call.
+	// computePortfolioCagrFromDB fires 4 serial queries per holding (stock symbol,
+	// stock name fallback, MF primary, MF secondary). If multiple portfolios in a
+	// batch share the same instrument (common for large-cap holdings), those queries
+	// repeat. A Map keyed by "symbol" or "name" deduplicates within each call.
+	type ReturnRow = { r1y: number; r3y: number; r5y: number };
+	const _memo = new Map<string, ReturnRow | null>();
+
 	let totalWeight = 0;
 	let coveredWeight = 0;
 	let weighted1Y = 0;
@@ -373,20 +381,28 @@ export async function computePortfolioCagrFromDB(
 			try {
 				// Try symbol match first
 				if (symbol) {
-					const dmRow = await db.execute(sql`
-						SELECT return_1y, return_3y
-						FROM screener_derived_metrics
-						WHERE symbol = ${symbol.toUpperCase()}
-						LIMIT 1
-					`).catch(() => ({ rows: [] }));
-					const r = (dmRow as any).rows?.[0];
-					if (r?.return_1y != null) {
-						const r1y = Number(r.return_1y);
-						const r3y = r?.return_3y != null ? Number(r.return_3y) : r1y * 0.85;
-						const r5y = r1y * 0.6 + 12.8 * 0.4;
-						weighted1Y += r1y * w;
-						weighted3Y += r3y * w;
-						weighted5Y += r5y * w;
+					const memoKey = `sym:${symbol.toUpperCase()}`;
+					let cached = _memo.get(memoKey);
+					if (cached === undefined) {
+						const dmRow = await db.execute(sql`
+							SELECT return_1y, return_3y
+							FROM screener_derived_metrics
+							WHERE symbol = ${symbol.toUpperCase()}
+							LIMIT 1
+						`).catch(() => ({ rows: [] }));
+						const r = (dmRow as any).rows?.[0];
+						if (r?.return_1y != null) {
+							const r1y = Number(r.return_1y);
+							cached = { r1y, r3y: r?.return_3y != null ? Number(r.return_3y) : r1y * 0.85, r5y: r1y * 0.6 + 12.8 * 0.4 };
+						} else {
+							cached = null;
+						}
+						_memo.set(memoKey, cached);
+					}
+					if (cached) {
+						weighted1Y += cached.r1y * w;
+						weighted3Y += cached.r3y * w;
+						weighted5Y += cached.r5y * w;
 						coveredWeight += w;
 						continue;
 					}

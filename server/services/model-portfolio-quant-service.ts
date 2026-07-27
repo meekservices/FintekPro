@@ -401,6 +401,11 @@ export function scorePortfolioAlpha(portfolio: PortfolioQuantInput): PortfolioAl
     factors.push(`Last rebalanced: ${daysSince}d ago`);
   }
   confidence += recencyScore;
+  // Fix #12 — Confidence is intentionally capped at 97 (not 100).
+  // FASP-AI v3.0 / SEBI IA compliance: an AI system MUST NEVER express certainty
+  // about future financial outcomes. A cap of 97 preserves the "always uncertain"
+  // contract required by the advisory disclaimer while still allowing the full
+  // signal range (40–97) to meaningfully differentiate portfolios.
   confidence = Math.min(97, Math.max(40, confidence));
 
   const recommendation = alpha > 2 && sharpeRatio > 1.0
@@ -604,6 +609,9 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
             alpha                   = ${alphaScore.alpha},
             drift_threshold         = ${getDriftThreshold(row.id, row.asset_class) * 100},
             blended_benchmark_return = ${blendedBenchmark},
+            -- Fix #18: also persist to benchmark_cagr_1y so the optimizer reads
+            -- fresh benchmark data on its next cycle (was only updating blended_benchmark_return)
+            benchmark_cagr_1y       = ${blendedBenchmark},
             twrr_1y                 = ${twrr1Y},
             twrr_3y                 = ${twrr3Y},
             updated_at              = NOW()

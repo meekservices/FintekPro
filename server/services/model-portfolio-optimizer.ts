@@ -41,8 +41,20 @@ const RISK_DISCLAIMER =
   "Market investments are subject to risk. Please validate against current market " +
   "conditions and consult a SEBI-registered investment advisor before applying.";
 
-/** Target alpha as fraction of benchmark return (0.20 = portfolio must beat bench by 20%). */
-const TARGET_ALPHA_RATIO = 0.20;
+/**
+ * Fix #16 — Target alpha as fraction of benchmark return, keyed by risk profile.
+ * Conservative portfolios have a lower bar (10%) since their mandate prioritises
+ * capital preservation. Aggressive / thematic mandates must clear 25–30% to justify
+ * elevated risk. The "default" fallback (20%) is used when riskProfile is absent.
+ */
+const TARGET_ALPHA_BY_RISK: Record<string, number> = {
+  conservative:    0.10,
+  moderate:        0.15,
+  aggressive:      0.25,
+  very_aggressive: 0.30,
+  thematic:        0.30,
+  default:         0.20,
+};
 
 /** Minimum confidence to issue a "replace" recommendation. Below → "reduce_weight". */
 const MIN_CONFIDENCE_FOR_REPLACE = 0.60;
@@ -98,6 +110,7 @@ export interface OptimizationSuggestion {
   model_version: string;
   timestamp: string;
   risk_disclaimer: string;
+  // idempotency_key is on the REQUEST (applyApprovedReplacements), not on suggestion output
 }
 
 export interface ApplyResult {
@@ -141,10 +154,33 @@ function compositeScore(
   return returnScore + sharpeScore + alphaScore - betaPenalty + expensebonus;
 }
 
+/**
+ * Fix #3 — Runtime type guard for portfolio holdings stored as JSONB.
+ * Rejects entries missing the mandatory `name` (string) and `weight` (number).
+ * A warning is logged for each rejected holding so they are never silently swallowed.
+ */
+function validateHolding(h: unknown): h is {
+  name: string; weight: number; type?: string;
+  currentReturn?: number | null; rank?: number; symbol?: string;
+} {
+  if (typeof h !== "object" || h === null) return false;
+  const obj = h as Record<string, unknown>;
+  return typeof obj.name === "string" && typeof obj.weight === "number";
+}
+
+// Fix #11 — Named constants for alpha-gap status classification.
+// Source: FASP-AI v3.0 §4.2 — thresholds in percentage-point alpha-gap units.
+/** Portfolio is beating the target by ≥2 pp — outperforming. */
+const ALPHA_GAP_OUTPERFORMING = -2;
+/** Alpha gap within 1 pp of target — on target. */
+const ALPHA_GAP_ON_TARGET     =  1;
+/** Alpha gap ≤ 8 pp — underperforming; above this threshold → critical. */
+const ALPHA_GAP_UNDERPERFORM  =  8;
+
 function classifyStatus(gap: number): AlphaAnalysis["status"] {
-  if (gap <= -2) return "outperforming";
-  if (gap <= 1) return "on_target";
-  if (gap <= 8) return "underperforming";
+  if (gap <= ALPHA_GAP_OUTPERFORMING) return "outperforming";
+  if (gap <= ALPHA_GAP_ON_TARGET)     return "on_target";
+  if (gap <= ALPHA_GAP_UNDERPERFORM)  return "underperforming";
   return "critical";
 }
 
@@ -169,11 +205,24 @@ export async function analyzeAlphaGaps(): Promise<AlphaAnalysis[]> {
     if (benchCagr === 0) continue;
 
     const trueAlpha  = cagr1Y - benchCagr;
-    const targetAlpha = benchCagr * TARGET_ALPHA_RATIO;
+    // Fix #16: use risk-profile-aware alpha ratio instead of a flat 0.20 for all portfolios
+    const riskProfile = String(p.riskProfile ?? "default").toLowerCase();
+    const targetAlpha = benchCagr * (TARGET_ALPHA_BY_RISK[riskProfile] ?? TARGET_ALPHA_BY_RISK.default);
     const alphaGap   = targetAlpha - trueAlpha;
     const status     = classifyStatus(alphaGap);
 
-    const holdings: any[] = Array.isArray(p.holdings) ? p.holdings : [];
+    // Fix #3: validate each holding and emit a structured warning for malformed entries
+    const holdings: any[] = (Array.isArray(p.holdings) ? p.holdings : []).filter((h: unknown) => {
+      if (!validateHolding(h)) {
+        logger.warn("[Optimizer] Malformed holding skipped", {
+          event:       "OPTIMIZER_HOLDING_VALIDATION_FAILED",
+          portfolioId: p.id,
+          holding:     JSON.stringify(h)?.slice(0, 80),
+        });
+        return false;
+      }
+      return true;
+    });
     const returns = holdings
       .map((h: any) => (h.currentReturn != null ? Number(h.currentReturn) : null))
       .filter((r): r is number => r !== null);
@@ -235,11 +284,18 @@ export async function analyzeAlphaGaps(): Promise<AlphaAnalysis[]> {
 /**
  * Generates FASP-AI v3.0 replacement suggestions for underperforming holdings.
  *
+ * Fix #1: Tracks real latency_ms (was always 0) in the AI_ADVICE_GENERATED log.
+ * Fix #2: Batches sector + screener lookups — one bulk sector fetch for all drag
+ *          symbols, then one candidate query per unique sector. Reduces round-trips
+ *          from N×M (holdings × portfolios) to 1 + K (K = unique sectors).
+ *          MF fallback queries remain per-holding (category strings make batching hard).
+ *
  * @param portfolioIds - optional filter; empty = all critical/underperforming
  */
 export async function generateOptimizationSuggestions(
   portfolioIds?: string[]
 ): Promise<OptimizationSuggestion[]> {
+  const t0 = Date.now(); // Fix #1: start timer for real latency tracking
   const analyses = await analyzeAlphaGaps();
   const ts = new Date().toISOString();
   const suggestions: OptimizationSuggestion[] = [];
@@ -251,6 +307,73 @@ export async function generateOptimizationSuggestions(
       (!portfolioIds?.length || portfolioIds.includes(a.portfolioId))
   );
 
+  // ── Fix #2: Batch pre-fetch sectors for ALL drag symbols in one query ─────────
+  // Old approach: one round-trip per drag holding per portfolio (N×M queries).
+  // New approach: one bulk query for all symbols + one candidate query per unique sector.
+  const allDragSymbols = [
+    ...new Set(
+      targets
+        .flatMap((a) => a.alphaDragHoldings.map((d) => d.symbol).filter(Boolean))
+        .map((s) => s!.toUpperCase()),
+    ),
+  ] as string[];
+
+  const sectorMap = new Map<string, { sector: string | null; cap: string | null }>();
+  if (allDragSymbols.length > 0) {
+    try {
+      const sectorRows = await db.execute(sql`
+        SELECT symbol, sector, market_cap_category
+        FROM listed_stocks
+        WHERE symbol = ANY(${allDragSymbols})
+      `).catch(() => ({ rows: [] }));
+      for (const row of (sectorRows as any).rows ?? []) {
+        sectorMap.set(String(row.symbol).toUpperCase(), {
+          sector: (row.sector as string | null) ?? null,
+          cap:    (row.market_cap_category as string | null) ?? null,
+        });
+      }
+    } catch (err) {
+      logger.warn("[Optimizer] Batch sector pre-fetch failed — per-holding fallback active", err as Error);
+    }
+  }
+
+  // ── Pre-fetch screener candidates: one query per unique sector ───────────────
+  // benchFloor and symbol exclusion vary per drag holding → applied as in-memory
+  // post-filters after retrieving a sector's top-20 candidates.
+  const uniqueSectors = [
+    ...new Set([...sectorMap.values()].map((v) => v.sector).filter(Boolean)),
+  ] as string[];
+
+  const candidatesBySector = new Map<string, any[]>();
+  for (const sector of uniqueSectors) {
+    try {
+      const rows = await db.execute(sql`
+        SELECT
+          sdm.symbol, ss.name, sdm.sector,
+          sdm.return_1y, sdm.return_3y,
+          sdm.sharpe_ratio_1y, sdm.beta, sdm.alpha_vs_nifty,
+          ss.isin, ss.market_cap_category
+        FROM screener_derived_metrics sdm
+        LEFT JOIN screener_stocks ss ON ss.symbol = sdm.symbol
+        WHERE sdm.sector = ${sector}
+          AND sdm.alpha_vs_nifty > 0
+          AND sdm.sharpe_ratio_1y > 0
+          AND (sdm.beta IS NULL OR sdm.beta BETWEEN 0.3 AND 2.0)
+          AND sdm.return_1y IS NOT NULL
+        ORDER BY (
+          COALESCE(sdm.return_1y, 0) * 100 * 0.40 +
+          LEAST(10, COALESCE(sdm.sharpe_ratio_1y, 0.5) * 10) * 0.25 +
+          LEAST(8, GREATEST(-8, COALESCE(sdm.alpha_vs_nifty, 0) * 2)) * 0.20 -
+          ABS(COALESCE(sdm.beta, 1.0) - 1.0) * 10 * 0.10
+        ) DESC
+        LIMIT 20
+      `).catch(() => ({ rows: [] }));
+      candidatesBySector.set(sector, (rows as any).rows ?? []);
+    } catch (err) {
+      logger.warn(`[Optimizer] Candidate pre-fetch failed for sector '${sector}'`, err as Error);
+    }
+  }
+
   for (const analysis of targets) {
     // E1: benchmark return as a fraction — all candidates must beat this floor
     const benchFloor = analysis.benchmarkCagr1Y / 100;
@@ -260,52 +383,35 @@ export async function generateOptimizationSuggestions(
       let alternatives: HoldingCandidate[] = [];
 
       // ── E1/A4: Stock — sector + market-cap aligned, BENCHMARK-RELATIVE floor ─
-      // E1: candidate must beat benchmark CAGR, not just the drag holding
-      // E2: alpha_vs_nifty must be > 0 (positive alpha vs index is mandatory)
       if (drag.symbol) {
         try {
-          const sectorRow = await db.execute(sql`
-            SELECT sector, market_cap_category FROM listed_stocks
-            WHERE symbol = ${drag.symbol.toUpperCase()} LIMIT 1
-          `).catch(() => ({ rows: [] }));
-          const sd = (sectorRow as any).rows?.[0];
-          const sector: string | null = sd?.sector ?? null;
-          const cap: string | null    = sd?.market_cap_category ?? null;
+          const symbolUpper = drag.symbol.toUpperCase();
+          // Use pre-fetched sector; fall back to a live query if the symbol was missing
+          let sector: string | null = sectorMap.get(symbolUpper)?.sector ?? null;
+          let cap: string | null    = sectorMap.get(symbolUpper)?.cap    ?? null;
+
+          if (!sector) {
+            // Fallback for symbols not covered by the batch (rare — e.g. newly added drag)
+            const row = await db.execute(sql`
+              SELECT sector, market_cap_category FROM listed_stocks
+              WHERE symbol = ${symbolUpper} LIMIT 1
+            `).catch(() => ({ rows: [] }));
+            const sd = (row as any).rows?.[0];
+            sector = sd?.sector ?? null;
+            cap    = sd?.market_cap_category ?? null;
+          }
 
           if (sector) {
-            const candidateRows = await db.execute(sql`
-              SELECT
-                sdm.symbol, ss.name, sdm.sector,
-                sdm.return_1y, sdm.return_3y,
-                sdm.sharpe_ratio_1y, sdm.beta, sdm.alpha_vs_nifty,
-                ss.isin, ss.market_cap_category
-              FROM screener_derived_metrics sdm
-              LEFT JOIN screener_stocks ss ON ss.symbol = sdm.symbol
-              WHERE sdm.sector = ${sector}
-                AND sdm.symbol   != ${drag.symbol.toUpperCase()}
-                -- E1: must beat the portfolio benchmark return (not just the drag holding)
-                AND sdm.return_1y >  ${benchFloor}
-                -- E2: mandatory positive alpha vs Nifty — never select a sub-benchmark instrument
-                AND sdm.alpha_vs_nifty > 0
-                -- Quality gate: positive Sharpe, sensible beta
-                AND sdm.sharpe_ratio_1y > 0
-                AND (sdm.beta IS NULL OR sdm.beta BETWEEN 0.3 AND 2.0)
-                -- A4: same market-cap bucket (prevents replacing large-cap drag with small-cap)
-                AND (${cap}::text IS NULL OR ss.market_cap_category = ${cap})
-              ORDER BY (
-                -- A1 composite score weights (unchanged)
-                COALESCE(sdm.return_1y, 0) * 100 * 0.40 +
-                LEAST(10, COALESCE(sdm.sharpe_ratio_1y, 0.5) * 10) * 0.25 +
-                LEAST(8, GREATEST(-8, COALESCE(sdm.alpha_vs_nifty, 0) * 2)) * 0.20 -
-                ABS(COALESCE(sdm.beta, 1.0) - 1.0) * 10 * 0.10
-              ) DESC
-              LIMIT 10
-            `).catch(() => ({ rows: [] }));
-
-            // E2: post-filter — discard any candidate where alpha ≤ 0 (NULL also rejected)
-            const rawCandidates = ((candidateRows as any).rows ?? []) as any[];
-            const posAlphaCandidates = rawCandidates.filter(
-              (r) => r.alpha_vs_nifty != null && Number(r.alpha_vs_nifty) > 0
+            // Retrieve pre-fetched candidates and apply per-holding post-filters:
+            //  • exclude the drag holding itself (symbol exclusion)
+            //  • E1: must beat this portfolio's benchmark floor
+            //  • A4: same market-cap bucket
+            const allSectorCandidates = candidatesBySector.get(sector) ?? [];
+            const posAlphaCandidates = allSectorCandidates.filter((r) =>
+              String(r.symbol).toUpperCase() !== symbolUpper &&
+              r.alpha_vs_nifty != null && Number(r.alpha_vs_nifty) > 0 &&
+              Number(r.return_1y) > benchFloor &&
+              (cap === null || r.market_cap_category === cap)
             );
 
             alternatives = posAlphaCandidates.slice(0, 5).map((r: any) => {
@@ -328,7 +434,7 @@ export async function generateOptimizationSuggestions(
             });
 
             if (alternatives.length > 0) {
-              factors.push(`screener:sector:${sector}`, "alpha_floor:benchmark_relative", "alpha_gate:positive_alpha_only");
+              factors.push(`screener:sector:${sector}`, "alpha_floor:benchmark_relative", "alpha_gate:positive_alpha_only", "batch_query:true");
               if (cap) factors.push(`screener:cap:${cap}`);
             } else {
               factors.push("no_positive_alpha_candidates_found");
@@ -337,14 +443,13 @@ export async function generateOptimizationSuggestions(
             factors.push("sector_not_found");
           }
         } catch (err) {
-          logger.warn(`[Optimizer] Screener query failed for ${drag.symbol}`, err as Error);
+          logger.warn(`[Optimizer] Screener lookup failed for ${drag.symbol}`, err as Error);
           factors.push("screener_error");
         }
       }
 
       // ── E4/E5/A3: MF — benchmark floor + positive return + strict Sharpe ────
-      // E4: must beat benchmark CAGR AND have return_1y > 0 (never negative-return MF)
-      // E5: sharpe_ratio > 0.3 (strict — NULL no longer allowed through)
+      // MF queries remain per-holding (category name varies per drag; hard to batch efficiently)
       if (alternatives.length === 0 && !drag.symbol) {
         try {
           const cat = drag.type.toLowerCase()
@@ -356,13 +461,9 @@ export async function generateOptimizationSuggestions(
             WHERE instrument_type = 'mutual_fund'
               AND name ILIKE ${"%" + cat + "%"}
               AND return_1y IS NOT NULL
-              -- E4: beat benchmark CAGR (absolute floor — never below benchmark)
               AND return_1y > ${benchFloor}
-              -- E4: never accept a negative-return fund as a replacement
               AND return_1y > 0
-              -- E5: strict Sharpe gate — NULL funds rejected (unknown risk profile)
               AND sharpe_ratio > 0.3
-              -- A3: Quality filters
               AND (expense_ratio IS NULL OR expense_ratio < 1.5)
               AND (aum_cr IS NULL OR aum_cr > 500)
             ORDER BY (
@@ -405,16 +506,13 @@ export async function generateOptimizationSuggestions(
       if (best?.improvementVsCurrent != null && best.improvementVsCurrent > 10) confidence += 0.15;
       confidence = Math.min(Math.round(confidence * 100) / 100, 1.0);
 
-      // ── E6: Recommendation gate — never issue "replace" for non-positive-alpha candidate ──
-      // Even if confidence is high, downgrade if the best candidate has no confirmed positive alpha.
-      // This prevents the advisor being presented with a "replace" action that could worsen alpha.
+      // ── E6: Recommendation gate ────────────────────────────────────────────
       let recommendation: OptimizationSuggestion["recommendation"] =
         alternatives.length === 0 ? "manual_review"
         : confidence < MIN_CONFIDENCE_FOR_REPLACE ? "reduce_weight"
         : drag.dragScore > 1 ? "replace"
         : "hold";
 
-      // E6: downgrade to reduce_weight if best candidate has no verified positive alpha
       if (recommendation === "replace" && drag.symbol) {
         const bestAlpha = (best as any)?.alpha ?? null;
         if (bestAlpha === null || bestAlpha <= 0) {
@@ -444,7 +542,7 @@ export async function generateOptimizationSuggestions(
     output_summary: `${suggestions.length} suggestions for ${targets.length} portfolios`,
     model_version:  OPTIMIZER_MODEL_VERSION,
     timestamp:      ts,
-    latency_ms:     0,
+    latency_ms:     Date.now() - t0, // Fix #1: real latency (was hardcoded 0)
     status:         "success",
   });
 
@@ -454,22 +552,55 @@ export async function generateOptimizationSuggestions(
 // ── applyApprovedReplacements ─────────────────────────────────────────────────
 
 /**
- * Applies advisor-approved replacements to portfolio JSONB.
- * FASP-AI v3.0: advisor_id is mandatory — no autonomous execution.
+ * Fix #4 — In-memory idempotency guard for applyApprovedReplacements.
+ * Prevents double-apply on network retries or duplicate advisor requests within
+ * the same server process lifetime (keys auto-expire after 24 h).
  *
- * @param portfolioId - portfolio to update
- * @param replacements - [{rank, newSymbol, newName, newWeight?}]
- * @param advisorId - SEBI advisor ID (required for audit trail)
+ * Production recommendation: back this with Redis SETNX or a DB audit_keys table
+ * for cross-instance protection in a horizontally-scaled deployment.
+ */
+const _appliedIdempotencyKeys = new Set<string>();
+
+/**
+ * Applies advisor-approved replacements to portfolio JSONB.
+ * FASP-AI v3.0: advisor_id AND idempotency_key are mandatory — no autonomous execution.
+ *
+ * @param portfolioId    - portfolio to update
+ * @param replacements   - [{rank, newSymbol, newName, newWeight?}]
+ * @param advisorId      - SEBI advisor ID (required for audit trail)
+ * @param idempotencyKey - client-generated UUID; prevents double-apply on retries (GCR mandate)
  */
 export async function applyApprovedReplacements(
   portfolioId: string,
   replacements: { rank: number; newSymbol: string; newName: string; newWeight?: number }[],
-  advisorId: string
+  advisorId: string,
+  idempotencyKey: string,
 ): Promise<ApplyResult> {
   if (!advisorId?.trim()) {
     throw new Error("FASP-AI v3.0: advisor_id is required before applying any AI optimization.");
   }
+  if (!idempotencyKey?.trim()) {
+    throw new Error("FASP-AI v3.0: idempotency_key is required for safe retries (GCR mandate).");
+  }
 
+  // Fix #4: Idempotency guard — prevent double-apply on network retries / duplicate clicks
+  const dedupKey = `${portfolioId}:${idempotencyKey}`;
+  if (_appliedIdempotencyKeys.has(dedupKey)) {
+    logger.warn("[Optimizer] Idempotent replay detected — no changes made", {
+      event:          "AI_PORTFOLIO_OPTIMIZATION_REPLAY",
+      user_id:        advisorId,
+      portfolio_id:   portfolioId,
+      idempotencyKey,
+      retryable:      false,
+      status:         "replay",
+    });
+    throw Object.assign(
+      new Error(`IDEMPOTENT_REPLAY: Operation '${idempotencyKey}' was already applied to portfolio '${portfolioId}'. No changes made.`),
+      { code: "IDEMPOTENT_REPLAY", retryable: false },
+    );
+  }
+
+  const t0 = Date.now();
   const ts = new Date().toISOString();
   const [portfolio] = await db.select().from(modelPortfolios).where(eq(modelPortfolios.id, portfolioId));
   if (!portfolio) throw new Error(`Portfolio not found: ${portfolioId}`);
@@ -499,6 +630,7 @@ export async function applyApprovedReplacements(
       _replacedBy: advisorId,
       _replacedOldName: old.name,
       _replacedOldSymbol: old.symbol ?? null,
+      _idempotencyKey: idempotencyKey,
       _modelVersion: OPTIMIZER_MODEL_VERSION,
     };
     applied.push(`${old.name} → ${rep.newName}`);
@@ -509,16 +641,21 @@ export async function applyApprovedReplacements(
     .set({ holdings: holdings as any, updatedAt: new Date() })
     .where(eq(modelPortfolios.id, portfolioId));
 
+  // Register idempotency key — auto-expire after 24 h to prevent unbounded memory growth
+  _appliedIdempotencyKeys.add(dedupKey);
+  setTimeout(() => _appliedIdempotencyKeys.delete(dedupKey), 24 * 60 * 60 * 1000);
+
   const logPayload = {
-    event: "AI_PORTFOLIO_OPTIMIZATION_APPLIED",
-    user_id: advisorId,
-    portfolio_id: portfolioId,
+    event:               "AI_PORTFOLIO_OPTIMIZATION_APPLIED",
+    user_id:             advisorId,
+    portfolio_id:        portfolioId,
     replacements_applied: applied,
-    model_version: OPTIMIZER_MODEL_VERSION,
-    timestamp: ts,
-    retryable: false,
-    latency_ms: 0,
-    status: "success",
+    idempotency_key:     idempotencyKey,
+    model_version:       OPTIMIZER_MODEL_VERSION,
+    timestamp:           ts,
+    retryable:           false,
+    latency_ms:          Date.now() - t0,
+    status:              "success",
   };
   logger.info("[Optimizer] Optimization applied", logPayload);
 

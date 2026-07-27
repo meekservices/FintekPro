@@ -145,13 +145,20 @@ function computeAlphaScore(h: {
   // ER: 1/er normalised — ER of 0.1% scores highest; cap inverse at 10
   const erNorm = Math.min(1 / Math.max(er, 0.1), 10) / 10;
 
-  // Weights from FASP-AI v2.0 spec
+  // Fix #8 — Weights MUST sum to 1.0.
+  // The original 4-factor weights (0.30 + 0.20 + 0.15 + 0.15 = 0.80) silently
+  // dropped crisilRating's 0.20 share, making the maximum achievable score 8.0/10
+  // instead of 10.0 and biasing all comparisons. Normalised to 1.0 until the
+  // crisilRating JOIN is added (see TODO Sprint 4 below).
+  //
+  // TODO(Sprint 4): JOIN mutual_funds on ISIN to get crisilRating; add:
+  //   crisilNorm = Math.min(Math.max(crisilRating, 0), 5) / 5;
+  //   and use weights: c1y×0.30, sharpe×0.20, alpha×0.175, er×0.175, crisil×0.15
   const score =
-    c1yNorm    * 0.30 +
-    sharpeNorm * 0.20 +
-    alpNorm    * 0.15 +
-    erNorm     * 0.15;
-  // crisilRating not stored per-holding yet — will add when mutual_funds JOIN is added (Sprint 4)
+    c1yNorm    * 0.375 +  // 0.30 / 0.80 — renormalised
+    sharpeNorm * 0.250 +  // 0.20 / 0.80
+    alpNorm    * 0.1875 + // 0.15 / 0.80
+    erNorm     * 0.1875;  // 0.15 / 0.80 — weights now sum to 1.0
   return parseFloat((score * 10).toFixed(2)); // scale 0–10
 }
 
@@ -297,8 +304,9 @@ function mapTypeToAssetClass(type: string): string {
  * Returns active holdings for a portfolio.
  *
  * Primary: model_portfolio_holdings (relational) — when populated.
- * Fallback: model_portfolios.holdings (JSONB) — when relational table is empty
- *           for this portfolio.
+ * Fallback: model_portfolios.holdings (JSONB) — when relational table is empty.
+ *           Fix #7: actually reshapes JSONB array into ModelPortfolioHolding shape
+ *           instead of silently returning [].
  *
  * @param portfolioId - e.g. "all-weather-india"
  * @returns array of holding objects with all enrichment fields
@@ -318,9 +326,52 @@ export async function getHoldingsForPortfolio(portfolioId: string): Promise<Mode
 
     if (rows.length > 0) return rows;
 
-    // Fallback: JSONB — return as ModelPortfolioHolding shape
-    logger.info("[HoldingsSvc] Relational empty for portfolio, using JSONB fallback", { portfolioId });
-    return [];
+    // Fix #7 — Implement the JSONB fallback instead of returning []
+    // The relational table is empty (portfolio not yet migrated or freshly created).
+    // Reshape model_portfolios.holdings JSONB into the ModelPortfolioHolding interface.
+    logger.info("[HoldingsSvc] Relational empty — using JSONB fallback", { portfolioId });
+
+    const [portfolio] = await db
+      .select({ holdings: modelPortfolios.holdings })
+      .from(modelPortfolios)
+      .where(eq(modelPortfolios.id, portfolioId));
+
+    if (!portfolio || !Array.isArray(portfolio.holdings) || portfolio.holdings.length === 0) {
+      return [];
+    }
+
+    const now = new Date().toISOString();
+    // Reshape JSONB holdings to the ModelPortfolioHolding shape.
+    // Fields not present in JSONB default to null — they will be populated
+    // by the next refreshHoldingNAV / migrateHoldingsToRelationalTable run.
+    return (portfolio.holdings as any[]).map((h: any, idx: number) => ({
+      id:              -(idx + 1),            // negative sentinel — not a real DB row
+      portfolioId,
+      instrumentName:  h.name ?? h.instrumentName ?? `Holding ${idx + 1}`,
+      instrumentType:  h.type ?? h.instrumentType ?? "unknown",
+      schemeCode:      h.amfiSchemeCode ?? h.schemeCode ?? null,
+      isin:            h.isin ?? null,
+      targetWeight:    parseFloat(String(h.weight ?? h.targetWeight ?? 0)) || 0,
+      currentWeight:   parseFloat(String(h.currentWeight ?? h.weight ?? 0)) || 0,
+      currentNav:      parseFloat(String(h.currentNav ?? 0)) || null,
+      navDate:         h.navDate ?? null,
+      inceptionNav:    parseFloat(String(h.inceptionNav ?? 0)) || null,
+      inceptionDate:   h.inceptionDate ?? null,
+      cagr1y:          parseFloat(String(h.currentReturn ?? h.cagr1y ?? 0)) || null,
+      cagr3y:          parseFloat(String(h.cagr3y ?? 0)) || null,
+      cagr5y:          parseFloat(String(h.cagr5y ?? 0)) || null,
+      alphaScore:      parseFloat(String(h.alphaScore ?? 0)) || null,
+      sharpeRatio:     parseFloat(String(h.sharpe ?? h.sharpeRatio ?? 0)) || null,
+      alpha:           parseFloat(String(h.alpha ?? 0)) || null,
+      beta:            parseFloat(String(h.beta ?? 0)) || null,
+      expenseRatio:    parseFloat(String(h.expenseRatio ?? 0)) || null,
+      driftPct:        null,
+      driftAlert:      false,
+      removedAt:       null,
+      addedAt:         h._replacedAt ?? now,
+      source:          "jsonb_fallback" as any,
+      notes:           h._replacedBy ? `replaced by ${h._replacedBy}` : null,
+    })) as unknown as ModelPortfolioHolding[];
   } catch (err: unknown) {
     logger.warn("[HoldingsSvc] getHoldingsForPortfolio failed", {
       portfolioId,
@@ -436,7 +487,9 @@ export async function refreshAllHoldingNAVs(): Promise<{
               });
               errors++;
             } else {
-              await sleep(500 * attempt); // exponential backoff
+              // Fix #6: true exponential backoff — 500ms, 1000ms, 2000ms
+              // Original was linear (500*attempt = 500ms, 1000ms) which violates GCR.
+              await sleep(500 * Math.pow(2, attempt - 1));
             }
           }
         }

@@ -60,9 +60,13 @@ function generateSyntheticNavCurve(
   const monthlyBench  = (1 + (annualReturn * 0.85) / 100) ** (1 / 12) - 1;
 
   let state = seed;
+  // Fix #13 — LCG divisor corrected: 0xffffffff (4294967295) produced output in
+  // [0, 1] (inclusive of 1.0 at state=0xffffffff) which can generate NaN in
+  // logarithm-based NAV computations. Correct divisor is 2³² = 4294967296,
+  // yielding uniform [0, 1) output consistent with standard LCG implementations.
   const rand = () => {
     state = (1664525 * state + 1013904223) & 0xffffffff;
-    return (state >>> 0) / 0xffffffff;
+    return (state >>> 0) / 4294967296;
   };
 
   const rows: MonthRow[] = [];
@@ -344,9 +348,19 @@ export async function refreshAllPortfolioNavHistory(db: any): Promise<{
   `);
 
   const portfolios = ((res as any).rows ?? []) as any[];
-  const results = await Promise.allSettled(
-    portfolios.map((p) => computeAndStorePortfolioNavHistory(db, p))
-  );
+
+  // Fix #10 — Chunked concurrency: run at most 5 portfolio NAV computations
+  // concurrently. The original Promise.allSettled(portfolios.map(...)) fired all
+  // N portfolios simultaneously, overwhelming the DB connection pool when N > ~10.
+  const CONCURRENCY = 5;
+  const results: PromiseSettledResult<{ status: string }> [] = [];
+  for (let i = 0; i < portfolios.length; i += CONCURRENCY) {
+    const chunk = portfolios.slice(i, i + CONCURRENCY);
+    const chunkResults = await Promise.allSettled(
+      chunk.map((p) => computeAndStorePortfolioNavHistory(db, p))
+    );
+    results.push(...chunkResults);
+  }
 
   let ok = 0, errors = 0, noData = 0;
   for (const r of results) {

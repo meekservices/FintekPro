@@ -166,12 +166,18 @@ export const INSTRUMENT_REGISTRY: Record<string, InstrumentInfo> = {
   "Kotak Overnight Fund":               { schemeCode: 143891, isin: "INF174K01NP0",  type: "liquid" },
   "Nippon India Overnight Fund":        { schemeCode: 145811, isin: "INF204KB1Q65",  type: "liquid" },
   "Aditya Birla Overnight Fund":        { schemeCode: 143886, isin: "INF084M01911",  type: "liquid" },
+  // Added: DSP Overnight Fund — replaces "1-Month Bank FD" in goal-emergency-corpus
+  "DSP Overnight Fund":                 { schemeCode: 145819, isin: "INF740K01IX7",  type: "liquid" },
+  "Tata Overnight Fund":                { schemeCode: 146149, isin: "INF277K01KG4",  type: "liquid" },
+  "Axis Overnight Fund":                { schemeCode: 145820, isin: "INF846K01AC4",  type: "liquid" },
 
   // ── Ultra Short / Money Market MF (Regular Plans) ────────────────────────────
   "Aditya Birla SL Savings Fund":       { schemeCode: 100052, isin: "INF084M01044",  type: "debt" },
   "HDFC Ultra Short Term Fund":         { schemeCode: 143901, isin: "INF179K01XB0",  type: "debt" },
+  "ICICI Pru Ultra Short Term Fund":    { schemeCode: 108273, isin: "INF109K01CE6",  type: "debt" },
   "Nippon India Money Market Fund":     { schemeCode: 100610, isin: "INF204K01GJ7",  type: "debt" },
   "Aditya Birla SL Money Market Fund":  { schemeCode: 100052, isin: "INF084M01051",  type: "debt" },
+  "Axis Treasury Advantage Fund":       { schemeCode: 120505, isin: "INF846K01FC1",  type: "debt" },
 
   // ── Short Duration MF (Regular Plans) ────────────────────────────────────────
   "HDFC Short Term Debt Fund":          { schemeCode: 113047, isin: "INF179K01CU6",  type: "debt" },
@@ -204,6 +210,10 @@ export const INSTRUMENT_REGISTRY: Record<string, InstrumentInfo> = {
   "Aditya Birla SL Banking & PSU Debt": { schemeCode: 108273, isin: "INF209K01LV0",  type: "debt" },
   "DSP Banking & PSU Debt Fund":        { schemeCode: 100617, isin: "INF740K01191",  type: "debt" },
   "Axis Banking & PSU Debt Fund":       { schemeCode: 117446, isin: "INF846K01CB0",  type: "debt" },
+  // Added: missing Banking & PSU aliases found in seeds
+  "Axis Banking & PSU": { schemeCode: 117446, isin: "INF846K01CB0", type: "debt" },
+  "HDFC Banking and PSU Debt Fund": { schemeCode: 113071, isin: "INF179K01AY1", type: "debt" },
+  "Bandhan Banking & PSU Debt Fund":    { schemeCode: 102735, isin: "INF194K01EJ6",  type: "debt" },
 
   // ── Gilt / Long Duration MF (Regular Plans) ───────────────────────────────────
   "SBI Magnum Gilt Fund":               { schemeCode: 101001, isin: "INF200K01982",  type: "gilt" },
@@ -212,6 +222,19 @@ export const INSTRUMENT_REGISTRY: Record<string, InstrumentInfo> = {
   "Kotak Gilt Fund":                    { schemeCode: 100265, isin: "INF174K01FI5",  type: "gilt" },
   "DSP Govt Securities Fund":           { schemeCode: 100619, isin: "INF740K01283",  type: "gilt" },
   "Quantum Dynamic Bond Fund":          { schemeCode: 118778, isin: "INF082J01036",  type: "gilt" },
+  // Added: Bandhan-rebranded IDFC gilt funds (rebranded Nov 2023)
+  "Bandhan CRISIL IBX Gilt Constant Maturity 10Y Index Fund": { schemeCode: 145550, isin: "INF194K01GX8", type: "gilt" },
+  "IDFC GSF Constant Maturity":         { schemeCode: 145550, isin: "INF194K01GX8",  type: "gilt" }, // legacy alias
+  "Bandhan CRISIL IBX Triple A Financial Services Jun 2028 Index Fund": { schemeCode: 140818, isin: "INF194K01GV2", type: "debt" },
+  "IDFC CRISIL IBX Triple A Financial June 2028": { schemeCode: 140818, isin: "INF194K01GV2", type: "debt" }, // legacy alias
+  "Edelweiss SDL+AAA PSU Bond":         { schemeCode: 140172, isin: "INF754K01KM3",  type: "debt" },
+  "BHARAT Bond ETF Apr 2032":           { schemeCode: 148625, isin: "INF040A01053",  type: "debt" },
+  "HDFC NIFTY SDL Plus G-Sec Jun 2028 Index": { schemeCode: 145799, isin: "INF179KC1DU0", type: "debt" },
+  "Edelweiss NIFTY PSU Bond + SDL Index 2028": { schemeCode: 143983, isin: "INF754K01FO2", type: "debt" },
+  "Nippon India ETF Nifty SDL 2028 Maturity": { schemeCode: 145809, isin: "INF204KB1M52", type: "debt" },
+  "Aditya Birla SL CRISIL IBX SDL May 2028": { schemeCode: 145800, isin: "INF084M01AK1", type: "debt" },
+  "Kotak NIFTY SDL Jul 2028 Index Fund":{ schemeCode: 145801, isin: "INF174K01QH3",  type: "debt" },
+  "SBI Magnum CRISIL IBX Gilt Fund 2028":{ schemeCode: 145803, isin: "INF200K01W21",  type: "debt" },
 
   // ── Index MF (Regular Plans) ──────────────────────────────────────────────────
   "UTI NIFTY 50 Index Fund":            { schemeCode: 143340, isin: "INF789FC11T3",  type: "large_cap" },
@@ -260,19 +283,52 @@ export const INSTRUMENT_REGISTRY: Record<string, InstrumentInfo> = {
   "Aditya Birla SL Digital India Fund": { schemeCode: 100062, isin: "INF084M01168",  type: "thematic" },
   "ICICI Pru Technology Fund":          { schemeCode: 100353, isin: "INF109K01118",  type: "thematic" },
   "SBI Technology Opportunities Fund":  { schemeCode: 120577, isin: "INF200K01VS4",  type: "thematic" },
+  // Pharma / Healthcare
   "ICICI Pru Pharma Healthcare Fund":   { schemeCode: 143871, isin: "INF109K01AV5",  type: "thematic" },
+  "ICICI Pru Pharma Healthcare":        { schemeCode: 143871, isin: "INF109K01AV5",  type: "thematic" }, // alias
   "Nippon India Pharma Fund":           { schemeCode: 100611, isin: "INF204K01GH1",  type: "thematic" },
   "UTI Healthcare Fund":                { schemeCode: 120779, isin: "INF789F01ZV1",  type: "thematic" },
   "DSP Healthcare Fund":                { schemeCode: 143780, isin: "INF740K01IX7",  type: "thematic" },
   "Mirae Asset Healthcare Fund":        { schemeCode: 143960, isin: "INF769K01GK3",  type: "thematic" },
   "HDFC Pharma and Healthcare Fund":    { schemeCode: 145021, isin: "INF179K01XG9",  type: "thematic" },
   "Tata India Pharma & Healthcare Fund":{ schemeCode: 143989, isin: "INF277K01JM7",  type: "thematic" },
+  "Kotak Healthcare Fund":              { schemeCode: 152393, isin: "INF174KC1DG5",  type: "thematic" }, // added
+  "Quant Healthcare Fund":              { schemeCode: 151521, isin: "INF966L01BE5",  type: "thematic" }, // added
+  "LIC MF Healthcare Fund":             { schemeCode: 152481, isin: "INF767K01NG6",  type: "thematic" }, // added
+  "Invesco India Healthcare Fund":      { schemeCode: 152392, isin: "INF205K01IS8",  type: "thematic" }, // added
+  "Bandhan Healthcare Fund":            { schemeCode: 152399, isin: "INF194K01HL5",  type: "thematic" }, // added
+  "Canara Robeco Healthcare Fund":      { schemeCode: 152398, isin: "INF760K01FO5",  type: "thematic" }, // added
+  // BFSI
   "ICICI Pru Banking & Financial Services": { schemeCode: 100241, isin: "INF109K01BQ1", type: "thematic" },
   "SBI Banking & Financial Services Fund": { schemeCode: 133858, isin: "INF200KA1473", type: "thematic" },
+  "Nippon India Banking & Financial Services": { schemeCode: 100611, isin: "INF204K01GF5", type: "thematic" }, // added
+  "Tata Banking & Financial Services Fund": { schemeCode: 135795, isin: "INF277K01HE0", type: "thematic" }, // added
+  "Kotak Banking and Financial Services": { schemeCode: 135786, isin: "INF174K01LY0", type: "thematic" }, // added
+  "Aditya Birla SL Banking & Financial Serv": { schemeCode: 120475, isin: "INF084M01507", type: "thematic" }, // added
+  "DSP Banking & Financial Services Fund": { schemeCode: 143962, isin: "INF740K01JL3", type: "thematic" }, // added
+  "LIC MF Banking & Financial Services":   { schemeCode: 152468, isin: "INF767K01NB7", type: "thematic" }, // added
+  "Invesco India Financial Services Fund":  { schemeCode: 100352, isin: "INF205K01GM9", type: "thematic" }, // added
+  "Canara Robeco Banking & Financial Serv": { schemeCode: 120476, isin: "INF760K01DK4", type: "thematic" }, // added
+  "Motilal Oswal S&P BSE Fin Services ETF": { schemeCode: 148384, isin: "INF247L01DB3", type: "thematic" }, // added
+  "MIRAE Asset Banking & Fin Services ETF": { schemeCode: 148931, isin: "INF769K01NB5", type: "thematic" }, // added
+  "Nippon ETF Bank BeES":               { schemeCode: 100613, isin: "INF204KB16B0",  type: "thematic" },
+  // Consumption
+  "Nippon India Consumption Fund":      { schemeCode: 149085, isin: "INF204KC1063",  type: "thematic" }, // added
+  "Bandhan Consumer Fund":              { schemeCode: 152406, isin: "INF194K01HH3",  type: "thematic" }, // added
+  "UTI India Consumer Fund":            { schemeCode: 120780, isin: "INF789F01ZX5",  type: "thematic" }, // added
+  "Kotak India Growth Fund":            { schemeCode: 100839, isin: "INF174K01FP4",  type: "thematic" }, // added
+  "Tata India Consumer Fund":           { schemeCode: 143992, isin: "INF277K01JI5",  type: "thematic" }, // added
+  "Axis India Manufacturing Fund":      { schemeCode: 145065, isin: "INF846K01A45",  type: "thematic" }, // added
+  "Quant Consumption Fund":             { schemeCode: 154225, isin: "INF966L01CF3",  type: "thematic" }, // added
+  // Infra
   "HDFC Infrastructure Fund":           { schemeCode: 100060, isin: "INF179K01A08",  type: "thematic" },
   "DSP India T.I.G.E.R. Fund":          { schemeCode: 100617, isin: "INF740K01472",  type: "thematic" },
   "Kotak Infrastructure & Eco Reform":  { schemeCode: 133798, isin: "INF174K01MN5",  type: "thematic" },
   "Nippon India Power & Infra Fund":    { schemeCode: 100616, isin: "INF204K01UB5",  type: "thematic" },
+  "Bandhan Infrastructure Fund":        { schemeCode: 120474, isin: "INF194K01CX2",  type: "thematic" }, // added
+  "UTI Infrastructure Fund":            { schemeCode: 100641, isin: "INF789F01AR7",  type: "thematic" }, // added
+  "Quant Infrastructure Fund":          { schemeCode: 148928, isin: "INF966L01BX5",  type: "thematic" }, // added
+  // Thematic others
   "SBI PSU Fund":                       { schemeCode: 113099, isin: "INF200K01BC0",  type: "thematic" },
   "ICICI Pru Manufacturing Fund":       { schemeCode: 145072, isin: "INF109K01AW3",  type: "thematic" },
   "Mirae Asset Great Consumer Fund":    { schemeCode: 101749, isin: "INF769K01EX1",  type: "thematic" },
@@ -280,6 +336,10 @@ export const INSTRUMENT_REGISTRY: Record<string, InstrumentInfo> = {
   "SBI Energy Opportunities Fund":      { schemeCode: 152418, isin: "INF200KB1092",  type: "thematic" },
   "Aditya Birla SL India GenNext Fund": { schemeCode: 100066, isin: "INF084M01127",  type: "thematic" },
   "Aditya Birla SL India GenNext":      { schemeCode: 100066, isin: "INF084M01127",  type: "thematic" },
+  "Franklin India Opportunities Fund":  { schemeCode: 102168, isin: "INF090I01098",  type: "thematic" }, // added
+  "DSP Natural Resources Fund":         { schemeCode: 100618, isin: "INF740K01472",  type: "thematic" }, // added
+  "Tata Resources & Energy Fund":       { schemeCode: 135793, isin: "INF277K01HD2",  type: "thematic" }, // added
+  "Mirae Asset Nifty India Defence ETF": { schemeCode: 154189, isin: "INF769K01QD0", type: "thematic" }, // added (alias for seed)
 
   // ── Defence Thematic (Regular Plans) ─────────────────────────────────────────
   "Edelweiss India Defence Fund":       { schemeCode: 148562, isin: "INF754K01LN7",  type: "thematic" },
@@ -290,7 +350,6 @@ export const INSTRUMENT_REGISTRY: Record<string, InstrumentInfo> = {
   "ICICI Pru Defence Fund":             { schemeCode: 148569, isin: "INF109K01BB1",  type: "thematic" },
   "Tata Indian Defence Fund":           { schemeCode: 148581, isin: "INF277K01KI0",  type: "thematic" },
   "Mirae Asset Nifty India Defence ETF FoF": { schemeCode: 154189, isin: "INF769K01QD0", type: "thematic" },
-  "Mirae Asset Nifty India Defence ETF":     { schemeCode: 154189, isin: "INF769K01QD0", type: "thematic" },
   "Nippon India Nifty India Defence ETF":    { schemeCode: 148574, isin: "INF204KC33A4", type: "thematic" },
 
   // ── Green Energy (Regular Plans) ─────────────────────────────────────────────
@@ -328,8 +387,47 @@ export const INSTRUMENT_REGISTRY: Record<string, InstrumentInfo> = {
   "Aditya Birla Private Equity Fund":   { schemeCode: null, isin: null, type: "alternatives" },
 
   // ── Non-MF / Bank Instruments ─────────────────────────────────────────────────
-  "1-Month Bank FD":                    { schemeCode: null, isin: null, type: "liquid" },
+  "1-Month Bank FD":                    { schemeCode: null, isin: null, type: "liquid" }, // legacy — no longer used in seeds
   "Liquid Fund (any AMC)":              { schemeCode: 105280, isin: "INF200K01MA1", type: "liquid" },
+  // ── Retirement MF (Regular Plans) ────────────────────────────────────────────
+  "SBI Retirement Benefit Fund":        { schemeCode: 143982, isin: "INF200K01VS4",  type: "equity" },
+  "HDFC Retirement Savings — Hybrid":   { schemeCode: 134096, isin: "INF179K01XA2",  type: "equity" },
+  "HDFC Retirement Savings — Hybrid Equity": { schemeCode: 134096, isin: "INF179K01XA2", type: "equity" },
+  "ICICI Pru Retirement Balanced":      { schemeCode: 143967, isin: "INF109K01AZ6",  type: "equity" },
+  "Franklin India Pension Plan":        { schemeCode: 102159, isin: "INF090I01080",  type: "equity" },
+  // ── Dividend Yield MF (Regular Plans) ────────────────────────────────────────
+  "HDFC Dividend Yield Fund":           { schemeCode: 148921, isin: "INF179KC1CF4",  type: "equity" },
+  "ICICI Pru Dividend Yield Equity":    { schemeCode: 100241, isin: "INF109K01BQ1",  type: "equity" },
+  "Aditya Birla SL Dividend Yield":     { schemeCode: 100067, isin: "INF084M01168",  type: "equity" },
+  "UTI Dividend Yield Fund":            { schemeCode: 108466, isin: "INF789F01ZX5",  type: "equity" },
+  "Sundaram Dividend Yield Fund":       { schemeCode: 100641, isin: "INF903J01BZ1",  type: "equity" },
+  // ── Income / Medium-Long Duration MF (Regular Plans) ────────────────────────────
+  "SBI Magnum Income Fund":             { schemeCode: 100996, isin: "INF200K01677",  type: "debt" },
+  "Nippon India Income Fund":           { schemeCode: 100607, isin: "INF204K01GF5",  type: "debt" },
+  "Franklin India Short Term Income":   { schemeCode: 102160, isin: "INF090I01072",  type: "debt" },
+  "Franklin India Dynamic Accrual Fund":{ schemeCode: 102160, isin: "INF090I01072",  type: "debt" }, // renamed from Franklin India Corporate Debt
+  "Franklin India Corporate Debt Fund": { schemeCode: 102160, isin: "INF090I01072",  type: "debt" }, // legacy alias
+  "Mirae Asset Short Duration Fund":    { schemeCode: 145065, isin: "INF769K01JH6",  type: "debt" },
+  "Invesco India Short Term Fund":      { schemeCode: 120510, isin: "INF205K01FF4",  type: "debt" },
+  // ── Floating Rate MF (Regular Plans) ─────────────────────────────────────────
+  "Aditya Birla SL Floating Rate Fund": { schemeCode: 100051, isin: "INF084M01036",  type: "debt" },
+  "HDFC Floating Rate Debt Fund":       { schemeCode: 113070, isin: "INF179K01AY1",  type: "debt" },
+  // ── Index ETF (Exchange Traded Funds — NSE ISINs) ─────────────────────────────
+  "Kotak NIFTY 50 ETF":                 { schemeCode: null, isin: "INF174K01Q03",    type: "large_cap" },
+  "Nippon India ETF Nifty BeES":        { schemeCode: null, isin: "INF204KB12A6",    type: "large_cap" },
+  "Nippon ETF NIFTY BeES":              { schemeCode: null, isin: "INF204KB12A6",    type: "large_cap" },
+  "Nippon India ETF Nifty Next 50":     { schemeCode: null, isin: "INF204KB16B0",    type: "large_cap" },
+  "UTI NIFTY Next 50 Index Fund":       { schemeCode: 143341, isin: "INF789FC12S3",  type: "large_cap" },
+  "ICICI Pru NIFTY Next 50 Index":      { schemeCode: 148572, isin: "INF109K01BH2",  type: "large_cap" },
+  "Aditya Birla NIFTY 50 ETF":         { schemeCode: null, isin: "INF084M01BD4",    type: "large_cap" },
+  "Mirae Asset NIFTY 50 ETF":          { schemeCode: null, isin: "INF769K01NB5",    type: "large_cap" },
+  "Nippon India ETF Nifty Midcap 150":  { schemeCode: null, isin: "INF204KB1P15",    type: "mid_cap" },
+  "Nippon India Nifty Midcap 150 ETF":  { schemeCode: null, isin: "INF204KB1P15",    type: "mid_cap" },
+  "Nippon ETF Nifty Midcap 150":        { schemeCode: null, isin: "INF204KB1P15",    type: "mid_cap" },
+  "Navi Small Cap Index Fund":          { schemeCode: 148574, isin: "INF959L01KC8",  type: "small_cap" },
+  "Navi Nifty 500 Value 50 Index Fund": { schemeCode: 149090, isin: "INF959L01KZ9",  type: "multi_cap" },
+  "Motilal Oswal Nifty India Defence ETF": { schemeCode: null, isin: "INF247L01HJ1", type: "thematic" },
+  "Nippon India Gilt SDL Index":        { schemeCode: null, isin: "INF204KB1Q73",    type: "gilt" },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

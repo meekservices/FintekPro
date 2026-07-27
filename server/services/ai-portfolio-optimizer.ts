@@ -3,6 +3,7 @@ import { dailyPicks, aiPriceHistory } from "@shared/schema";
 import { eq, and, gte, desc, sql, inArray } from "drizzle-orm";
 import { aiAnalyticsEngine } from "./ai-analytics-engine";
 import { aiResponseCacheService } from "./ai-response-cache-service";
+import { logger } from "../logger"; // Fix #14: structured GCR-compliant logging
 
 export interface AssetCandidate {
 	pickId: number;
@@ -309,10 +310,14 @@ export class AIPortfolioOptimizer {
 					returnSeries, // Save for reuse
 				});
 			} catch (err) {
-				console.warn(
-					`[PortfolioOptimizer] Failed to compute metrics for pick ${pick.id}:`,
-					err,
-				);
+				// Fix #14: use structured logger instead of console.warn (GCR v1.0 observability)
+				logger.warn("[AIPortfolioOptimizer] Failed to compute metrics for pick", {
+					event:   "PICK_METRICS_COMPUTE_FAILED",
+					user_id: "system",
+					pick_id: pick.id,
+					error:   err instanceof Error ? err.message : String(err),
+					status:  "warn",
+				});
 			}
 		}
 
@@ -361,10 +366,13 @@ export class AIPortfolioOptimizer {
 				}
 			}
 		} catch (err) {
-			console.warn(
-				`[PortfolioOptimizer] Error fetching return series batch:`,
-				err,
-			);
+			// Fix #14: structured GCR-compliant log
+			logger.warn("[AIPortfolioOptimizer] Error fetching return series batch", {
+				event:   "RETURN_SERIES_BATCH_FETCH_FAILED",
+				user_id: "system",
+				error:   err instanceof Error ? err.message : String(err),
+				status:  "warn",
+			});
 		}
 		return results;
 	}
@@ -816,10 +824,14 @@ export class AIPortfolioOptimizer {
 
 			return this.generateSyntheticReturns(days);
 		} catch (err) {
-			console.warn(
-				`[PortfolioOptimizer] Error fetching return series for ${assetId}:`,
-				err,
-			);
+			// Fix #14: structured GCR-compliant log
+			logger.warn("[AIPortfolioOptimizer] Error fetching return series for asset", {
+				event:    "RETURN_SERIES_FETCH_FAILED",
+				user_id:  "system",
+				asset_id: assetId,
+				error:    err instanceof Error ? err.message : String(err),
+				status:   "warn",
+			});
 			return this.generateSyntheticReturns(days);
 		}
 	}
