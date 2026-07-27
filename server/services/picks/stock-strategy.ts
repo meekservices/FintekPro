@@ -21,6 +21,13 @@ import {
 import { FinancialMetricsCalculator } from "../financial-metrics-calculator";
 import { unifiedAIRecommendationEngine } from "../unified-ai-recommendation-engine";
 import { indianApiService } from "../indian-api-service";
+import {
+	fetchFIISectorSignal,
+	getFIISectorScoreBoost,
+	reorderBroadSectorsByFII,
+	type FIISectorSignal,
+} from "./fii-sector-signal";
+
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
 
@@ -381,7 +388,26 @@ export class StockStrategy extends BaseStrategy {
 				// Non-fatal — proceed without sector dedup
 			}
 
-			for (const broadSector of BROAD_SECTORS) {
+			// ── #7: FII/DII Sector Rotation Signal ─────────────────────────────────────────
+			// Fetch today's FII/DII flow once and reorder sectors by FII priority.
+			// RISK_ON days (FII net buyer): Banking, IT, Auto tried first.
+			// RISK_OFF days (FII net seller): Pharma, FMCG tried first.
+			// Non-fatal: null signal falls back to neutral ordering (unchanged behaviour).
+			let fiiSignal: FIISectorSignal | null = null;
+			try {
+				fiiSignal = await fetchFIISectorSignal();
+				if (fiiSignal) {
+					logger.info(
+						`[StockStrategy] #7 FII sector signal: ${fiiSignal.sentiment} ` +
+						`(FII ₹${fiiSignal.fiiNetCr.toFixed(0)}Cr, DII ₹${fiiSignal.diiNetCr.toFixed(0)}Cr). ` +
+						`Priority: ${fiiSignal.priorityOrder.join(" → ")}`,
+					);
+				}
+			} catch { /* non-fatal */ }
+
+			const orderedSectors = reorderBroadSectorsByFII(BROAD_SECTORS, fiiSignal);
+
+			for (const broadSector of orderedSectors) {
 				// Fix 1: Skip sectors used in the last 2 days
 				if (recentBroadSectors.has(broadSector.id) && results.length > 0) {
 					logger.info(`[StockStrategy] Fix 1: skipping ${broadSector.label} (recently used)`);
@@ -392,6 +418,7 @@ export class StockStrategy extends BaseStrategy {
 						broadSector,
 						context,
 						usedIds,
+						fiiSignal,
 					);
 					if (pick) {
 						results.push(pick);
@@ -442,12 +469,14 @@ export class StockStrategy extends BaseStrategy {
 	 * @param broadSector - One of the 5 BROAD_SECTORS definitions.
 	 * @param context     - Strategy context (today, recentIds, service).
 	 * @param usedIds     - Already-selected stock IDs to exclude (cross-sector dedup).
+	 * @param fiiSignal   - Today's FII/DII sector signal (can be null — degrades gracefully).
 	 * @returns A DailyPickData for the best stock in this sector, or null if none qualify.
 	 */
 	private async pickBestForSector(
 		broadSector: (typeof BROAD_SECTORS)[number],
 		context: StrategyContext,
 		usedIds: Set<string>,
+		fiiSignal: FIISectorSignal | null = null,
 	): Promise<DailyPickData | null> {
 		// Build keyword filter — match any of the sector's keywords in the sector column
 		const sectorConditions = broadSector.keywords.map((kw) =>
@@ -648,6 +677,7 @@ export class StockStrategy extends BaseStrategy {
 					? enrichedSnapshots.get(stock.symbol.toUpperCase()) || null
 					: null,
 				context, // Fix 2: pass context for regime-aware scoring
+				fiiSignal, // #7: FII sector signal for score adjustment
 			),
 		}));
 		const scored = (await runConcurrent(scoringTasks, 4)).sort(
@@ -813,6 +843,8 @@ export class StockStrategy extends BaseStrategy {
 		enriched?: EnrichedStockSnapshot | null,
 		/** Optional StrategyContext — used for Fix 2 market-regime-aware score multipliers */
 		context?: StrategyContext | null,
+		/** Optional FII sector signal — used for #7 sector rotation score boost */
+		fiiSignal?: FIISectorSignal | null,
 	): Promise<number> {
 		let score = 0;
 
@@ -1001,6 +1033,15 @@ export class StockStrategy extends BaseStrategy {
 			if (pe > 0 && pe < 12) score += 8;  // deep value bonus in range-bound markets
 			if (advancedMetrics.roic && advancedMetrics.roic > 25) score += 6; // high ROIC compounder
 		}
+
+		// ── #7: FII/DII Sector Rotation Score Boost ───────────────────────────
+		// FII net buyer days: cyclical sectors (Banking, IT, Auto) get +boost
+		// FII net seller days: defensive sectors (FMCG, Pharma) get +boost
+		// Bounded [−8, +8] — intentionally modest vs 120pt total score.
+		// Non-fatal: fiiSignal=null yields 0 (no impact on existing behaviour).
+		const stockBroadSector = mapToBroadSector(stock.sector);
+		const fiiBoost = getFIISectorScoreBoost(fiiSignal ?? null, stockBroadSector);
+		if (fiiBoost !== 0) score += fiiBoost;
 
 		return Math.max(0, score);
 	}
