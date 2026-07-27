@@ -20,23 +20,27 @@ export class MutualFundStrategy extends BaseStrategy {
 						eq(mutualFunds.isPublished, true),
 						sql`${mutualFunds.nav} IS NOT NULL`,
 						sql`${mutualFunds.nav}::float > 0`,
-						// SEBI best-practice: recommend only Direct Growth plans
-						// Direct plans have 0.5-1.5% lower expense ratio than Regular plans
-						sql`${mutualFunds.schemeName} ILIKE '%Direct%'`,
+						// ── SEBI Distributor Compliance (GCR mandate) ────────────────────────
+						// FintekPro is a SEBI-registered Distributor (RD), NOT an RIA.
+						// Distributors MUST recommend Regular plans — recommending Direct plans
+						// to clients is a SEBI regulatory violation for RDs.
+						// Ref: SEBI Circular SEBI/HO/IMD/IMD-II DOF3/P/CIR/2021/573
+						sql`${mutualFunds.schemeName} ILIKE '%Regular%'`,
 						sql`${mutualFunds.schemeName} ILIKE '%Growth%'`,
-						// Exclude dividend/IDCW options — not ideal for wealth creation
+						// Exclude dividend/IDCW options — not suitable for long-term wealth creation
 						sql`${mutualFunds.schemeName} NOT ILIKE '%IDCW%'`,
 						sql`${mutualFunds.schemeName} NOT ILIKE '%Dividend%'`,
 						sql`${mutualFunds.schemeName} NOT ILIKE '%Payout%'`,
+						// Exclude Direct plans explicitly (belt-and-suspenders)
+						sql`${mutualFunds.schemeName} NOT ILIKE '%Direct%'`,
 						// Exclude ETFs from MF picks (ETFStrategy handles those)
 						sql`(${mutualFunds.category} IS NULL OR ${mutualFunds.category} NOT ILIKE '%ETF%')`,
 						sql`${mutualFunds.schemeName} NOT ILIKE '%ETF%'`,
 						sql`(${mutualFunds.lastUpdated} IS NULL OR ${mutualFunds.lastUpdated} > NOW() - INTERVAL '45 days')`,
-						// ── Fix 3: Minimum ₹200 Cr AUM filter ───────────────────────────────
-						// Funds below ₹200 Cr AUM face redemption pressure and closure risk.
-						// aum column may be NULL for older records — allow NULL through
-						// to avoid dropping all data; the JS post-filter handles NULLs.
-						sql`(${mutualFunds.aum} IS NULL OR ${mutualFunds.aum}::float >= 200)`,
+						// ── Fix 3: Minimum ₹500 Cr AUM filter (Regular plans) ───────────────
+						// Regular plans of large funds always clear ₹500 Cr; this ensures
+						// the pick has adequate liquidity for distributed client execution.
+						sql`(${mutualFunds.aum} IS NULL OR ${mutualFunds.aum}::float >= 500)`,
 					),
 				)
 				.limit(100);
@@ -46,10 +50,11 @@ export class MutualFundStrategy extends BaseStrategy {
 			const nonEtfFunds = funds.filter((fund) => {
 				const name = (fund.schemeName || "").toUpperCase();
 				const cat = (fund.category || "").toUpperCase();
-				// Double-check: filter must be Direct Growth, no IDCW/Regular/Dividend
+				// Double-check: Regular Growth only, no IDCW/Direct/Dividend/Payout
 				if (!(name.includes("ETF") || cat.includes("ETF"))) {
 					if (name.includes("IDCW") || name.includes("DIVIDEND") || name.includes("PAYOUT")) return false;
-					if (!name.includes("DIRECT") || !name.includes("GROWTH")) return false;
+					if (name.includes("DIRECT")) return false;           // belt-and-suspenders: exclude Direct
+					if (!name.includes("REGULAR") || !name.includes("GROWTH")) return false;
 					return true;
 				}
 				return false;
@@ -269,11 +274,16 @@ export class MutualFundStrategy extends BaseStrategy {
 			else if (returns1y > 12) score += 15;
 		}
 
+		// Expense ratio scoring — Regular plan benchmarks (higher ER than Direct is expected).
+		// SEBI Distributor context: Regular plans carry trail commission; compare against
+		// Regular plan category norms (equity Regular avg: 1.5–2.0%, debt: 0.5–1.2%).
 		const expenseRatio = fund.expenseRatio
 			? Number.parseFloat(fund.expenseRatio)
 			: 2;
-		if (expenseRatio < 0.5) score += 15;
-		else if (expenseRatio < 1.5) score += 5;
+		if (expenseRatio < 1.0) score += 15;       // Very low ER for Regular plan (exceptional)
+		else if (expenseRatio < 1.5) score += 8;   // Below-avg Regular plan ER (efficient AMC)
+		else if (expenseRatio < 2.0) score += 3;   // Typical Regular plan ER
+		else if (expenseRatio > 2.5) score -= 10;  // High-cost Regular plan — drag on returns
 
 		return score;
 	}

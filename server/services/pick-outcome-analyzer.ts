@@ -21,9 +21,13 @@
  */
 
 import { db } from "../db";
-import { dailyPicks } from "@shared/schema";
-import { and, sql, gte, isNotNull } from "drizzle-orm";
+import { dailyPicks, adminSettings } from "@shared/schema";
+import { and, sql, gte, isNotNull, eq } from "drizzle-orm";
 import { logger } from "../logger";
+
+// Key used to persist the latest report in adminSettings (JSON blob)
+const EFFICACY_REPORT_KEY = "pick_signal_efficacy_report";
+
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -375,6 +379,36 @@ export class PickOutcomeAnalyzer {
         engine_version: ENGINE_VERSION,
       },
     );
+
+    // ── #9: Persist latest report to adminSettings for dashboard visibility ────────
+    // FASP-AI mandate: scoring weight hints must be VISIBLE to be actionable.
+    // Stored as a JSONB blob under key "pick_signal_efficacy_report".
+    // No schema migration required — adminSettings is a key-value store.
+    try {
+      await db
+        .insert(adminSettings)
+        .values({
+          key: EFFICACY_REPORT_KEY,
+          value: report as any,  // jsonb column accepts object directly
+          description: "Latest Pick of the Day signal efficacy report (auto-generated weekly). " +
+            "FASP-AI v3.0 — review scoringWeightHints and escalate approved changes to engineering.",
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: adminSettings.key,
+          set: {
+            value: JSON.stringify(report),
+            updatedAt: new Date(),
+          },
+        });
+      logger.info(`[PickOutcomeAnalyzer] Efficacy report persisted to adminSettings key='${EFFICACY_REPORT_KEY}'`);
+    } catch (persistErr) {
+      // Non-fatal: log but don't fail the analysis
+      logger.warn(
+        `[PickOutcomeAnalyzer] Failed to persist efficacy report to adminSettings (non-fatal): ` +
+          `${persistErr instanceof Error ? persistErr.message : String(persistErr)}`,
+      );
+    }
 
     return report;
   }

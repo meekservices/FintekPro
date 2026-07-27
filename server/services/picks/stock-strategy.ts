@@ -686,14 +686,24 @@ export class StockStrategy extends BaseStrategy {
 
 		// ── Minimum upside guard ────────────────────────────────────────────
 		// If the live price has already run up to within 5% of the target,
-		// there is no meaningful upside left. Discard this pick so the engine
-		// tries the next-best candidate in the sector.
-		// Catches the YAAP scenario: recommended at ₹152, market already at target.
-		const MIN_UPSIDE_PCT = 0.05; // require at least 5% headroom to target
+		// there is no meaningful upside left.
+		const MIN_UPSIDE_PCT = 0.05;
 		const remainingUpside = (targetPrice - currentPrice) / currentPrice;
 		if (remainingUpside < MIN_UPSIDE_PCT) {
 			logger.warn(
 				`[StockStrategy] ${topStock.symbol}: upside to target is only ${(remainingUpside * 100).toFixed(1)}% — below 5% minimum. Discarding.`,
+			);
+			return null;
+		}
+
+		// ── #2: Reward-to-Risk gate (min 1.5:1) ───────────────────────────────────
+		// ATR stoploss is computed but we must verify the final R:R is adequate.
+		// A 6% target with 5.5% stoploss has R:R of 1.09 — too thin to publish.
+		// Minimum R:R of 1.5:1 ensures the position is worth the risk taken.
+		const rrRatio = (targetPrice - currentPrice) / Math.max(currentPrice - stoplossPrice, 0.01);
+		if (rrRatio < 1.5) {
+			logger.warn(
+				`[StockStrategy] ${topStock.symbol}: R:R ratio ${rrRatio.toFixed(2)} < 1.5 minimum. Discarding.`,
 			);
 			return null;
 		}
@@ -727,10 +737,15 @@ export class StockStrategy extends BaseStrategy {
 				? "BSE"
 				: "NSE";
 		const riskLevel = this.getRiskLevel(volatility ?? 20);
+		// ── #5: Updated score normalisation max (70 → 120) ──────────────────────────
+		// P0 Alpha factors (Beneish, Interest Coverage, Quick Ratio, RSI, Volume,
+		// 52-week positioning) added ~50 pts to the theoretical max score.
+		// Using 70 caused confScore > 100 clipping. 120 reflects current signal set.
+		const STOCK_SCORE_MAX = 120;
 		const confidenceScore = this.getConfidenceScore(
 			"listed_stocks",
 			topScore,
-			70,
+			STOCK_SCORE_MAX,
 		);
 		const suggestedAllocation = calculateSuggestedAllocation(
 			"listed_stocks",
@@ -771,8 +786,8 @@ export class StockStrategy extends BaseStrategy {
 					: undefined,
 				volatility: volatility,
 				sector: topStock.sector || sectorLabel,
-				broadSector: broadSector.id, // ← used by the UI for grouping
-				broadSectorLabel: sectorLabel, // ← human-readable label
+				broadSector: broadSector.id,
+				broadSectorLabel: sectorLabel,
 				broadSectorIcon: broadSector.icon,
 				broadSectorColor: broadSector.color,
 				marketCap: topStock.marketCap || undefined,
@@ -780,18 +795,15 @@ export class StockStrategy extends BaseStrategy {
 				roic: topEnriched?.fundamentals?.roic ?? directRoic ?? null,
 				rsi: topEnriched?.technicals?.rsi ?? directRsi ?? null,
 				suggestedAllocation,
-				// ── Fix A: rawQuantScore sourced at strategy level (pre-governance-floor) ──
-				// topScore is the actual quant score (0–~70). We normalise to 0–100 so
-				// the advisor UI can consistently compare across categories.
-				// This replaces the broken reverse-engineering in pick-of-the-day-service.
-				rawQuantScore: Math.min(100, Math.round((topScore / 70) * 100)),
+				rawQuantScore: Math.min(100, Math.round((topScore / STOCK_SCORE_MAX) * 100)),
 				qualityTier:
-					Math.round((topScore / 70) * 100) >= 80 ? "Premium"
-					: Math.round((topScore / 70) * 100) >= 60 ? "Strong"
-					: Math.round((topScore / 70) * 100) >= 40 ? "Good"
+					Math.round((topScore / STOCK_SCORE_MAX) * 100) >= 80 ? "Premium"
+					: Math.round((topScore / STOCK_SCORE_MAX) * 100) >= 60 ? "Strong"
+					: Math.round((topScore / STOCK_SCORE_MAX) * 100) >= 40 ? "Good"
 					: "Weak",
-				// Fix C: ATR-derived stoploss metadata
 				atr14Pct: atrPct,
+				// #2: expose R:R ratio in keyMetrics for advisor transparency
+				rewardToRiskRatio: Math.round(rrRatio * 100) / 100,
 			},
 		};
 	}
@@ -920,6 +932,33 @@ export class StockStrategy extends BaseStrategy {
 		if (stock.symbol) {
 			const aiBoost = await this.getAIAlphaBoost(stock, enriched);
 			score += aiBoost;
+		}
+
+		// ── #1: Volume / liquidity quality signal ──────────────────────────────────
+		// A stock can score perfectly on fundamentals yet be illiquid (500 shares/day).
+		// Illiquid picks cause advisors to move the stock 2–3% on entry alone.
+		// daily turnover ≈ averageVolume × price gives a proxy for liquidity depth.
+		// Uses curPrice (parsed from stock.currentPrice in 52w block above).
+		const avgVolume = stock.averageVolume ? Number.parseFloat(stock.averageVolume) : null;
+		if (avgVolume !== null && curPrice && curPrice > 0) {
+			const dailyTurnover = avgVolume * curPrice; // in ₹
+			if (dailyTurnover >= 50_000_000) score += 10;      // >₹5 Cr daily — highly liquid
+			else if (dailyTurnover >= 10_000_000) score += 5;  // >₹1 Cr daily — adequate
+			else if (dailyTurnover < 2_000_000) score -= 15;   // <₹20L daily — illiquid trap
+		}
+
+		// ── #4: RSI momentum entry signal ─────────────────────────────────────────
+		// RSI computed from golden_prices and pre-populated in keyMetrics.
+		// Using it in score() lets the engine prefer ideal entry zones and avoid
+		// overbought stocks, even when fundamentals are strong.
+		// RSI 40–65: healthy trend momentum, ideal entry zone
+		// RSI < 30:  oversold — contrarian entry (only for fundamentally sound stocks)
+		// RSI > 75:  overbought — poor entry timing, avoid regardless of fundamentals
+		const rsiForScore = enriched?.technicals?.rsi ?? null;
+		if (rsiForScore !== null) {
+			if (rsiForScore >= 40 && rsiForScore <= 65) score += 8;  // Ideal entry zone
+			else if (rsiForScore < 30) score += 5;                   // Oversold — contrarian entry
+			else if (rsiForScore > 75) score -= 12;                  // Overbought — poor timing
 		}
 
 		// ── Day-change circuit penalty ──────────────────────────────────────
@@ -1430,15 +1469,31 @@ export class StockStrategy extends BaseStrategy {
 		);
 		const pool = fresh.length > 0 ? fresh : candidates;
 
-		// Score without AI (quant-only)
+		// ── #6: Pre-fetch enriched snapshots for fallback pool ────────────────────
+		// Previously score(s, null) was called, losing RSI, ROE, EPS growth, beta,
+		// composite score signals. Fallback picks now score with full signal coverage.
+		const fallbackSymbols = pool.map(s => s.symbol).filter((x): x is string => Boolean(x));
+		let fallbackEnriched: Map<string, EnrichedStockSnapshot> = new Map();
+		try {
+			fallbackEnriched = await getEnrichedStockSnapshots(fallbackSymbols);
+		} catch { /* non-fatal — score degrades to quant-only */ }
+
+		// Score with enriched data (quant + fundamental signals, no AI to preserve speed)
 		const scored = (
 			await runConcurrent(
-				pool.map((s) => async () => ({ s, score: await this.score(s, null) })),
+				pool.map((s) => async () => ({
+					s,
+					score: await this.score(
+						s,
+						s.symbol ? fallbackEnriched.get(s.symbol.toUpperCase()) ?? null : null,
+					),
+				})),
 				4,
 			)
 		).sort((a, b) => b.score - a.score);
 
 		const { s: top } = scored[0];
+		const topFallbackEnriched = top.symbol ? fallbackEnriched.get(top.symbol.toUpperCase()) ?? null : null;
 		// Fetch live price for fallback pick too — same staleness fix as primary path
 		const liveAtGeneration = await this.getLivePrice(top.id).catch(() => null);
 		const currentPrice = (liveAtGeneration ?? 0) > 0
@@ -1466,7 +1521,8 @@ export class StockStrategy extends BaseStrategy {
 		}
 
 		const riskLevel = this.getRiskLevel(volatility ?? 20);
-		const confidenceScore = this.getConfidenceScore("listed_stocks", scored[0].score, 70);
+		const STOCK_SCORE_MAX = 120; // consistent with primary sector path
+		const confidenceScore = this.getConfidenceScore("listed_stocks", scored[0].score, STOCK_SCORE_MAX);
 		const suggestedAllocation = calculateSuggestedAllocation(
 			"listed_stocks",
 			riskLevel,
@@ -1519,15 +1575,14 @@ export class StockStrategy extends BaseStrategy {
 				broadSectorColor: bsMeta.color,
 				marketCap: top.marketCap || undefined,
 				analystRating: top.analystRating || undefined,
-				roic: null,
-				rsi: null,
+				roic: topFallbackEnriched?.fundamentals?.roic ?? null,
+				rsi: topFallbackEnriched?.technicals?.rsi ?? null,
 				suggestedAllocation,
-				// ── Fix A: rawQuantScore from actual score, not reverse-engineered ──
-				rawQuantScore: Math.min(100, Math.round((scored[0].score / 70) * 100)),
+				rawQuantScore: Math.min(100, Math.round((scored[0].score / STOCK_SCORE_MAX) * 100)),
 				qualityTier:
-					Math.round((scored[0].score / 70) * 100) >= 80 ? "Premium"
-					: Math.round((scored[0].score / 70) * 100) >= 60 ? "Strong"
-					: Math.round((scored[0].score / 70) * 100) >= 40 ? "Good"
+					Math.round((scored[0].score / STOCK_SCORE_MAX) * 100) >= 80 ? "Premium"
+					: Math.round((scored[0].score / STOCK_SCORE_MAX) * 100) >= 60 ? "Strong"
+					: Math.round((scored[0].score / STOCK_SCORE_MAX) * 100) >= 40 ? "Good"
 					: "Weak",
 				atr14Pct: atrPctFb,
 			},
