@@ -22,6 +22,18 @@ window.addEventListener("vite:preloadError", () => {
 
 // Global error handlers to prevent unhandled promise rejections
 window.addEventListener("unhandledrejection", (event) => {
+	const msg = event.reason?.message ?? String(event.reason ?? "");
+
+	// Chrome extension noise: fired when a chrome.runtime.onMessage listener
+	// returns `true` (async) but never calls sendResponse before the channel
+	// closes. This comes from browser extensions (e.g. trading platforms,
+	// ad-blockers) — NOT from FintekPro's service worker or application code.
+	// Our sw.js has no `return true` anywhere. Suppress silently.
+	if (msg.includes("message channel closed before a response was received")) {
+		event.preventDefault();
+		return;
+	}
+
 	console.error("Unhandled promise rejection:", event.reason);
 	// Prevent default browser handling
 	event.preventDefault();
