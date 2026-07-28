@@ -89,26 +89,25 @@ export function useVersionCheck(): VersionCheckResult {
 			try {
 				const registration = await navigator.serviceWorker.getRegistration();
 				if (registration) {
-					// If a new SW is waiting, activate it
+					// If a new SW is waiting (legacy — shouldn't happen with skipWaiting-on-install),
+					// still handle it gracefully.
 					const worker = registration.waiting || registration.installing;
 					if (worker) {
 						worker.postMessage({ type: "SKIP_WAITING" });
-						// Small delay to let the SW activate before reload
 						await new Promise((r) => setTimeout(r, 300));
 					}
 					// Tell the active SW to clear all caches so stale bundles are purged
 					if (registration.active) {
 						registration.active.postMessage({ type: "CLEAR_CACHE" });
+						await new Promise((r) => setTimeout(r, 200));
 					}
-					// Small delay to let cache clearing finish
-					await new Promise((r) => setTimeout(r, 200));
 				}
 			} catch (err) {
 				console.error("[VersionCheck] Service worker communication failed:", err);
 			}
 		}
 
-		// Unregister old SW so the next load starts fresh
+		// Unregister old SWs and reload with cache-bust
 		if ("serviceWorker" in navigator) {
 			try {
 				const registrations = await navigator.serviceWorker.getRegistrations();
@@ -120,8 +119,6 @@ export function useVersionCheck(): VersionCheckResult {
 			}
 		}
 
-		// Hard reload — clears HTTP cache
-		sessionStorage.removeItem("versionDismissed");
 		window.location.reload();
 	}, []);
 

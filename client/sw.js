@@ -1,18 +1,31 @@
-const CACHE_NAME = 'fintekpro-agent-v3'; // bumped 2026-07-27: fix SW message handler (SKIP_WAITING/CLEAR_CACHE)
+const CACHE_NAME = 'fintekpro-agent-v4'; // bumped 2026-07-28: skipWaiting on install + MessageChannel port response fix
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Service Worker installing...');
-  // Do NOT call skipWaiting() here — that would immediately activate the new SW,
-  // trigger clients.claim(), fire a controllerchange in every open tab, and cause
-  // an automatic page reload for all users mid-session.
-  // Instead, the new SW enters the 'waiting' state, the UpdateNotificationBanner
-  // appears, and skipWaiting is called only when the user clicks "Refresh Now".
+  console.log('[SW] Service Worker installing — skipping waiting immediately');
+  // Skip waiting immediately so there is never a 'waiting' SW.
+  // This eliminates the race where the active (old) SW receives postMessage
+  // types it doesn't recognise, causing Chrome's "message channel closed"
+  // UnhandledPromiseRejection in the page context.
+  self.skipWaiting();
 });
 
 self.addEventListener('message', (event) => {
+  // ALWAYS respond on the MessageChannel port if one was provided.
+  // Chrome sends internal SW lifecycle messages using MessageChannel and expects
+  // a response (even if empty). Not responding causes:
+  //   "A listener indicated an asynchronous response by returning true,
+  //    but the message channel closed before a response was received"
+  // We respond synchronously here so the channel is never left dangling.
+  const respond = (payload = { ok: true }) => {
+    if (event.ports?.[0]) {
+      event.ports[0].postMessage(payload);
+    }
+  };
+
   // Legacy: plain string from old clients
   if (event.data === 'skipWaiting') {
     self.skipWaiting();
+    respond();
     return;
   }
 
@@ -20,6 +33,7 @@ self.addEventListener('message', (event) => {
   if (event.data && typeof event.data === 'object') {
     if (event.data.type === 'SKIP_WAITING') {
       self.skipWaiting();
+      respond();
       return;
     }
 
@@ -30,11 +44,15 @@ self.addEventListener('message', (event) => {
           Promise.all(keys.map((key) => caches.delete(key)))
         ).then(() => {
           console.log('[SW] All caches cleared on force-update request');
+          respond();
         })
       );
       return;
     }
   }
+
+  // Unknown message — respond with ok so Chrome doesn't hold the channel open
+  respond();
 });
 
 self.addEventListener('activate', (event) => {
