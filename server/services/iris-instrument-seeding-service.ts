@@ -342,8 +342,8 @@ export async function enrichMfHoldings(batchSize = 200): Promise<{
   seedLog("MF_HOLDINGS_START", { batchSize });
 
   if (!irisKfintechService.isConfigured) {
-    seedLog("MF_HOLDINGS_SKIP", { reason: "IRIS not configured" }, "warn");
-    return { processed: 0, holdingsWritten: 0, failed: 0 };
+    seedLog("MF_HOLDINGS_SKIP", { reason: "IRIS not configured — using IndianAPI fallback" }, "warn");
+    return seedMfHoldingsViaIndianApi(batchSize);
   }
 
   const schemes = await db
@@ -412,6 +412,134 @@ export async function enrichMfHoldings(batchSize = 200): Promise<{
   return { processed, holdingsWritten, failed };
 }
 
+// ─── IndianAPI Fallback: MF Holdings ──────────────────────────────────────────
+// Used when IRIS KFintech is not configured (missing IRIS_USERNAME/PASSWORD).
+// IndianAPI provides top-10 holdings per scheme via /api/mutual-fund/<id>/holdings.
+// Source is tagged 'indian_api' so it can be upgraded to 'iris' later.
+
+async function seedMfHoldingsViaIndianApi(batchSize = 200): Promise<{
+  processed: number; holdingsWritten: number; failed: number;
+}> {
+  const { indianApiService } = await import("./indian-api-service");
+  const startMs = Date.now();
+  let processed = 0, holdingsWritten = 0, failed = 0;
+  seedLog("MF_HOLDINGS_INDIANAPI_START", { batchSize });
+
+  const schemes = await db
+    .select({ schemeCode: mutualFunds.schemeCode, isin: mutualFunds.isin })
+    .from(mutualFunds)
+    .where(sql`scheme_code IS NOT NULL AND scheme_status = 'active'`)
+    .orderBy(sql`last_updated ASC NULLS FIRST`)
+    .limit(batchSize);
+
+  for (const { schemeCode, isin } of schemes) {
+    if (!schemeCode) continue;
+    try {
+      const result = await indianApiService.getMFHoldings(schemeCode);
+      if (!result.success || !Array.isArray(result.data)) { processed++; continue; }
+      const holdingDate = new Date().toISOString().split("T")[0];
+      const mfIsinValue = (isin ?? schemeCode)!;
+
+      for (const h of result.data) {
+        if (!h.symbol && !h.isin && !h.name) continue;
+        try {
+          await db
+            .insert(mfSchemeStockHoldings)
+            .values({
+              mfIsin:            mfIsinValue,
+              stockSymbol:       h.symbol ?? h.isin ?? "",
+              stockName:         h.name ?? null,
+              stockIsin:         h.isin ?? null,
+              sector:            h.sector ?? null,
+              holdingPercentage: String(h.percentage ?? h.corpus_per ?? 0),
+              holdingDate,
+              marketValue:       toDecStr(h.value ?? h.marketValue),
+              quantity:          toDecStr(h.quantity),
+              source:            "indian_api",
+            })
+            .onConflictDoUpdate({
+              target: [
+                mfSchemeStockHoldings.mfIsin,
+                mfSchemeStockHoldings.stockSymbol,
+                mfSchemeStockHoldings.holdingDate,
+              ],
+              set: {
+                holdingPercentage: sql`excluded.holding_percentage`,
+                marketValue:       sql`excluded.market_value`,
+                quantity:          sql`excluded.quantity`,
+                sector:            sql`excluded.sector`,
+                source:            sql`excluded.source`,
+                updatedAt:         sql`now()`,
+              },
+            });
+          holdingsWritten++;
+        } catch { /* row conflict — skip */ }
+      }
+      processed++;
+    } catch (err: any) {
+      failed++;
+      seedLog("MF_HOLDINGS_INDIANAPI_FAIL", { schemeCode, error: err.message }, "warn");
+    }
+    await sleep(150); // slightly slower than IRIS to respect IndianAPI rate limits
+  }
+
+  seedLog("MF_HOLDINGS_INDIANAPI_DONE", { processed, holdingsWritten, failed, latency_ms: Date.now() - startMs });
+  return { processed, holdingsWritten, failed };
+}
+
+// ─── IndianAPI Fallback: MF Factsheets ────────────────────────────────────────
+// Provides expense ratio, 1Y/3Y/5Y returns, fund house, category, and scheme type
+// using IndianAPI's getMutualFundDetails() — a richer alternative to IRIS factsheets.
+
+async function seedMfFactsheetsViaIndianApi(batchSize = 200): Promise<{
+  processed: number; updated: number; failed: number;
+}> {
+  const { indianApiService } = await import("./indian-api-service");
+  const startMs = Date.now();
+  let processed = 0, updated = 0, failed = 0;
+  seedLog("MF_FACTSHEET_INDIANAPI_START", { batchSize });
+
+  const schemes = await db
+    .select({ schemeCode: mutualFunds.schemeCode, id: mutualFunds.id })
+    .from(mutualFunds)
+    .where(sql`scheme_code IS NOT NULL AND scheme_status = 'active'`)
+    .orderBy(sql`last_updated ASC NULLS FIRST`)
+    .limit(batchSize);
+
+  for (const { schemeCode, id } of schemes) {
+    if (!schemeCode) continue;
+    try {
+      const result = await indianApiService.getMutualFundDetails(schemeCode);
+      if (!result.success || !result.data) { processed++; continue; }
+      const d = result.data;
+
+      const updateData: Record<string, any> = { updatedAt: new Date() };
+      // MutualFundDetails uses snake_case fields — match the type exactly
+      if (d.expense_ratio != null) updateData.expenseRatio = String(d.expense_ratio);
+      if (d.returns_1y    != null) updateData.return1y = String(d.returns_1y);
+      if (d.returns_3y    != null) updateData.return3y = String(d.returns_3y);
+      if (d.returns_5y    != null) updateData.return5y = String(d.returns_5y);
+      if (d.category)              updateData.category  = d.category;
+
+      if (Object.keys(updateData).length > 1) {
+        await db
+          .update(mutualFunds)
+          .set(updateData)
+          .where(sql`id = ${id}`);
+        updated++;
+      }
+      processed++;
+    } catch (err: any) {
+      failed++;
+      seedLog("MF_FACTSHEET_INDIANAPI_FAIL", { schemeCode, error: err.message }, "warn");
+    }
+    await sleep(150);
+  }
+
+  seedLog("MF_FACTSHEET_INDIANAPI_DONE", { processed, updated, failed, latency_ms: Date.now() - startMs });
+  return { processed, updated, failed };
+}
+
 // ─── Job 4b: MF Factsheet Enrichment ─────────────────────────────────────────
 
 export async function enrichMfFactsheets(batchSize = 200): Promise<{
@@ -422,8 +550,8 @@ export async function enrichMfFactsheets(batchSize = 200): Promise<{
   seedLog("MF_FACTSHEET_START", { batchSize });
 
   if (!irisKfintechService.isConfigured) {
-    seedLog("MF_FACTSHEET_SKIP", { reason: "IRIS not configured" }, "warn");
-    return { processed: 0, updated: 0, failed: 0 };
+    seedLog("MF_FACTSHEET_SKIP", { reason: "IRIS not configured — using IndianAPI fallback" }, "warn");
+    return seedMfFactsheetsViaIndianApi(batchSize);
   }
 
   const schemes = await db
