@@ -128,7 +128,7 @@ function getNifty1YReturn(): number | null {
 				if (first && last && first > 0) {
 					const ret1Y = ((last - first) / first) * 100;
 					_nifty1YCache = { value: Math.round(ret1Y * 10) / 10, ts: Date.now() };
-					logger.info(`[StockStrategy] Nifty 1Y return refreshed: ${_nifty1YCache.value}%`);
+					logger.debug(`[StockStrategy] Nifty 1Y return refreshed: ${_nifty1YCache.value}%`);
 				}
 			}
 		} catch {
@@ -360,21 +360,27 @@ export class StockStrategy extends BaseStrategy {
 
 			// ── Fix 1: 2-day broad-sector dedup ─────────────────────────────────────
 			// Prevents the same broad sector (e.g. IT) from being picked 3 days in a row.
-			// Reads the last 2 days of stock picks from dailyPicks and tracks which
-			// broadSector IDs were used. Non-fatal: if DB fails, proceed without dedup.
+			// Reads ONLY yesterday's stock picks (not today) to avoid blocking all sectors
+			// on the same run day. Uses IST date arithmetic to match how picks are stored.
+			// Non-fatal: if DB fails, proceed without dedup.
 			const recentBroadSectors = new Set<string>();
 			try {
 				const { dailyPicks } = await import("@shared/schema");
-				const { gte, eq } = await import("drizzle-orm");
-				const twoDaysAgo = new Date();
-				twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+				const { gte, lt, eq } = await import("drizzle-orm");
+				// Use IST date (UTC+5:30) — picks are stored as IST dates
+				const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+				const todayIST = new Date(Date.now() + IST_OFFSET_MS).toISOString().split("T")[0];
+				const twoDaysAgoIST = new Date(Date.now() + IST_OFFSET_MS - 2 * 24 * 60 * 60 * 1000)
+					.toISOString().split("T")[0];
+				// Only look at PREVIOUS days — not today's picks (avoids self-blocking)
 				const recentPicks = await db
 					.select({ keyMetrics: dailyPicks.keyMetrics })
 					.from(dailyPicks)
 					.where(
 						and(
 							eq(dailyPicks.category, "listed_stocks"),
-							gte(dailyPicks.recoDate, twoDaysAgo.toISOString().split("T")[0]),
+							gte(dailyPicks.recoDate, twoDaysAgoIST),
+							lt(dailyPicks.recoDate, todayIST), // exclude today
 						),
 					);
 				for (const p of recentPicks) {
@@ -382,7 +388,7 @@ export class StockStrategy extends BaseStrategy {
 					if (km?.broadSector) recentBroadSectors.add(String(km.broadSector));
 				}
 				if (recentBroadSectors.size > 0) {
-					logger.info(`[StockStrategy] Fix 1: excluding ${recentBroadSectors.size} recently-used broad sectors: ${[...recentBroadSectors].join(", ")}`);
+					logger.info(`[StockStrategy] Fix 1: excluding ${recentBroadSectors.size} recently-used broad sectors (yesterday): ${[...recentBroadSectors].join(", ")}`);
 				}
 			} catch {
 				// Non-fatal — proceed without sector dedup
@@ -407,10 +413,16 @@ export class StockStrategy extends BaseStrategy {
 
 			const orderedSectors = reorderBroadSectorsByFII(BROAD_SECTORS, fiiSignal);
 
+			const totalSectors = orderedSectors.length;
 			for (const broadSector of orderedSectors) {
-				// Fix 1: Skip sectors used in the last 2 days
-				if (recentBroadSectors.has(broadSector.id) && results.length > 0) {
-					logger.info(`[StockStrategy] Fix 1: skipping ${broadSector.label} (recently used)`);
+				// Fix 1: Only skip recently-used sectors if there are enough un-used sectors
+				// to still fill a healthy set of picks. If ALL sectors are recently used
+				// (e.g. yesterday had 5 sectors), the dedup is dropped so we don't block
+				// ALL picks and generate nothing.
+				const unusedSectorCount = orderedSectors.filter(s => !recentBroadSectors.has(s.id)).length;
+				const hasEnoughFreshSectors = unusedSectorCount >= 2;
+				if (recentBroadSectors.has(broadSector.id) && hasEnoughFreshSectors) {
+					logger.info(`[StockStrategy] Fix 1: skipping ${broadSector.label} (recently used; ${unusedSectorCount} fresh sectors remain)`);
 					continue;
 				}
 				try {
