@@ -90,7 +90,10 @@ class DistributedCache {
 				);
 				return;
 			}
-			const client = createClient({ url: redisUrl });
+			const client = createClient({
+				url: redisUrl,
+				socket: { connectTimeout: 2000, reconnectStrategy: false },
+			});
 			client.on("error", (err: any) => {
 				if (this.usingRedis) {
 					logger.warn(
@@ -106,7 +109,12 @@ class DistributedCache {
 				);
 				this.usingRedis = true;
 			});
-			await client.connect();
+			await Promise.race([
+				client.connect(),
+				new Promise<void>((_, reject) =>
+					setTimeout(() => reject(new Error("Redis connect timeout")), 2500),
+				),
+			]);
 			this.redisClient = client;
 		} catch (err) {
 			logger.warn("[DistributedCache] Redis init failed — using local LRU", {

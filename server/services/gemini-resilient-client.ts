@@ -24,15 +24,24 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 // ── Redis client (gracefully absent) ─────────────────────────────────────────
 let redisClient: any = null;
 async function getRedis() {
-  if (redisClient) return redisClient;
+  if (redisClient?.isOpen) return redisClient;
   try {
     if (!process.env.REDIS_URL) return null;
     const { createClient } = await import("redis");
-    redisClient = createClient({ url: process.env.REDIS_URL });
+    redisClient = createClient({
+      url: process.env.REDIS_URL,
+      socket: { connectTimeout: 2000, reconnectStrategy: false },
+    });
     redisClient.on("error", () => { redisClient = null; });
-    await redisClient.connect();
+    await Promise.race([
+      redisClient.connect(),
+      new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error("Redis timeout")), 2500),
+      ),
+    ]);
     return redisClient;
   } catch {
+    redisClient = null;
     return null;
   }
 }
