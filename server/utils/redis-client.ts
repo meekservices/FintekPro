@@ -34,15 +34,9 @@ export async function getSharedRedis(): Promise<any> {
     return null;
   }
 
-  // De-duplicate concurrent connect attempts (e.g., parallel enrichment Promise.all)
-  if (_connecting) {
-    // Wait up to 3s for the in-flight connect to finish
-    const deadline = Date.now() + 3000;
-    while (_connecting && Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 50));
-    }
-    return _client?.isOpen ? _client : null;
-  }
+  // If already connecting (e.g. background warm-up in progress), don't queue — return null
+  // The circuit breaker will trip after the in-flight connect resolves, protecting future calls
+  if (_connecting) return null;
 
   if (!process.env.REDIS_URL) return null;
 
