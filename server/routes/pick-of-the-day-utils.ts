@@ -255,64 +255,82 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 		status: string;
 	}[] = [];
 
-	for (const pick of picks) {
-		if (pick.status === "live" && pick.expiryDate) {
-			const expiry = new Date(pick.expiryDate);
-			if (expiry < now) {
-				pick.status = "expired";
-				if (pick.id) expiredPickIds.push(pick.id);
+	// ── Parallel price enrichment with 4-second per-pick timeout ──────────────
+	// CRITICAL: sequential for-await caused 504 timeouts (N picks × 30s = 5+ min).
+	// Promise.all caps the whole enrichment at max(4s, slowest_pick) ≈ 4s.
+	const PRICE_TIMEOUT_MS = 4000;
+
+	await Promise.all(
+		picks.map(async (pick) => {
+			// Expiry check
+			if (pick.status === "live" && pick.expiryDate) {
+				const expiry = new Date(pick.expiryDate);
+				if (expiry < now) {
+					pick.status = "expired";
+					if (pick.id) expiredPickIds.push(pick.id);
+				}
 			}
-		}
 
-		if (pick.recoDate) {
-			pick.daysHeld = Math.floor(
-				(now.getTime() - new Date(pick.recoDate).getTime()) /
-					(1000 * 60 * 60 * 24),
-			);
-		}
+			// Days held
+			if (pick.recoDate) {
+				pick.daysHeld = Math.floor(
+					(now.getTime() - new Date(pick.recoDate).getTime()) /
+						(1000 * 60 * 60 * 24),
+				);
+			}
 
-		if (pick.status === "live" && pick.instrumentId) {
-			try {
-				const freshPrice = await getLiveInstrumentPrice(pick);
-				if (freshPrice !== null && freshPrice > 0) {
-					pick.currentPrice = freshPrice;
-					pick.lastPriceUpdate = now.toISOString();
+			// Live price fetch — timeout after 4s so slow external APIs can't block response
+			if (pick.status === "live" && pick.instrumentId) {
+				try {
+					const freshPrice = await Promise.race([
+						getLiveInstrumentPrice(pick),
+						new Promise<null>((resolve) =>
+							setTimeout(() => resolve(null), PRICE_TIMEOUT_MS),
+						),
+					]);
+					if (freshPrice !== null && freshPrice > 0) {
+						pick.currentPrice = freshPrice;
+						pick.lastPriceUpdate = now.toISOString();
 
-					if (pick.recoPrice) {
-						const recoPrice = Number.parseFloat(pick.recoPrice);
-						if (recoPrice > 0) {
-							pick.returnPct = Number.parseFloat(
-								(((freshPrice - recoPrice) / recoPrice) * 100).toFixed(2),
-							);
+						if (pick.recoPrice) {
+							const recoPrice = Number.parseFloat(pick.recoPrice);
+							if (recoPrice > 0) {
+								pick.returnPct = Number.parseFloat(
+									(((freshPrice - recoPrice) / recoPrice) * 100).toFixed(2),
+								);
+							}
+						}
+
+						let newStatus = "live";
+						if (
+							pick.targetPrice &&
+							freshPrice >= Number.parseFloat(pick.targetPrice)
+						)
+							newStatus = "target_hit";
+						else if (
+							pick.stoplossPrice &&
+							freshPrice <= Number.parseFloat(pick.stoplossPrice)
+						)
+							newStatus = "stoploss_hit";
+						if (newStatus !== pick.status) pick.status = newStatus;
+
+						if (pick.id) {
+							picksToUpdateInDb.push({
+								id: pick.id,
+								currentPrice: freshPrice.toString(),
+								returnPct: pick.returnPct?.toString() ?? "0",
+								daysHeld: pick.daysHeld ?? 0,
+								status: pick.status,
+							});
 						}
 					}
+				} catch { /* price fetch failed — skip, show last known price */ }
+			}
+		}),
+	);
 
-					let newStatus = "live";
-					if (
-						pick.targetPrice &&
-						freshPrice >= Number.parseFloat(pick.targetPrice)
-					)
-						newStatus = "target_hit";
-					else if (
-						pick.stoplossPrice &&
-						freshPrice <= Number.parseFloat(pick.stoplossPrice)
-					)
-						newStatus = "stoploss_hit";
-					if (newStatus !== pick.status) pick.status = newStatus;
-
-					if (pick.id) {
-						picksToUpdateInDb.push({
-							id: pick.id,
-							currentPrice: freshPrice.toString(),
-							returnPct: pick.returnPct?.toString() ?? "0",
-							daysHeld: pick.daysHeld ?? 0,
-							status: pick.status,
-						});
-					}
-				}
-			} catch {}
-		}
-
+	// ── Data source metadata (sync — no I/O) ──────────────────────────────────
+	for (const pick of picks) {
 		const source = DATA_SOURCES[pick.category];
 		pick.priceDataSource = source?.name || "Unknown";
 		pick.priceDataType = source?.type || "Unknown";
