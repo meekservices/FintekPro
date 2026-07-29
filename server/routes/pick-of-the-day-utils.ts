@@ -256,14 +256,21 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 	}[] = [];
 
 	// ── PHASE 1 & 2 run in parallel: price enrichment + secondary metrics ─────
-	// Phase 1: live price fetch, 4s cap per pick
-	// Phase 2: RSI/ROIC/screener DB lookups, 3s cap total
-	// Both are independent (no shared write targets) — run them concurrently.
-	const PRICE_TIMEOUT_MS     = 4000;
-	const SECONDARY_TIMEOUT_MS = 3000;
+	// Phase 1: live price fetch, 2s hard cap (reduced from 4s to avoid timer drift
+	//          under event loop saturation from 24 concurrent HTTP connections).
+	//          Only fetches price for categories that have market APIs.
+	// Phase 2: RSI/ROIC/screener DB lookups, 2s cap total
+	// Both run concurrently — total = max(2s, 2s) = 2s
+	const PRICE_TIMEOUT_MS     = 2000;
+	const SECONDARY_TIMEOUT_MS = 2000;
+
+	// Categories with real-time market price APIs
+	const LIVE_PRICE_CATEGORIES = new Set([
+		"listed_stocks", "global_stocks", "mutual_funds", "reits_invits", "sgb",
+	]);
 
 	await Promise.all([
-	// ── Phase 1: live price fetch (4s cap per pick) ───────────────────────────
+	// ── Phase 1: live price fetch (2s cap per pick, market categories only) ──────
 	Promise.all(
 		picks.map(async (pick) => {
 			// Expiry check
@@ -283,8 +290,8 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 				);
 			}
 
-			// Live price fetch — timeout after 4s so slow external APIs can't block response
-			if (pick.status === "live" && pick.instrumentId) {
+			// Live price fetch — only for market categories with real-time APIs
+			if (pick.status === "live" && pick.instrumentId && LIVE_PRICE_CATEGORIES.has(pick.category)) {
 				try {
 					const freshPrice = await Promise.race([
 						getLiveInstrumentPrice(pick),
