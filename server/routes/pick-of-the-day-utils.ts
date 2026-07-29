@@ -255,12 +255,16 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 		status: string;
 	}[] = [];
 
-	// ── Parallel price enrichment with 4-second per-pick timeout ──────────────
-	// CRITICAL: sequential for-await caused 504 timeouts (N picks × 30s = 5+ min).
-	// Promise.all caps the whole enrichment at max(4s, slowest_pick) ≈ 4s.
-	const PRICE_TIMEOUT_MS = 4000;
+	// ── PHASE 1 & 2 run in parallel: price enrichment + secondary metrics ─────
+	// Phase 1: live price fetch, 4s cap per pick
+	// Phase 2: RSI/ROIC/screener DB lookups, 3s cap total
+	// Both are independent (no shared write targets) — run them concurrently.
+	const PRICE_TIMEOUT_MS     = 4000;
+	const SECONDARY_TIMEOUT_MS = 3000;
 
-	await Promise.all(
+	await Promise.all([
+	// ── Phase 1: live price fetch (4s cap per pick) ───────────────────────────
+	Promise.all(
 		picks.map(async (pick) => {
 			// Expiry check
 			if (pick.status === "live" && pick.expiryDate) {
@@ -327,14 +331,10 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 				} catch { /* price fetch failed — skip, show last known price */ }
 			}
 		}),
-	);
+	),
 
-	// ── Secondary enrichment: RSI, ROIC, screener metrics ─────────────────────
-	// CRITICAL FIX: Previously ran SEQUENTIALLY (for...of loop) with no timeout.
-	// For 5 listed stock picks this meant 5× DB + Yahoo Finance = 30-45s.
-	// Now runs in PARALLEL with a 3-second total cap.
-	const SECONDARY_TIMEOUT_MS = 3000;
-	await Promise.race([
+	// ── Phase 2 (parallel with Phase 1): RSI, ROIC, screener metrics ──────────
+	Promise.race([
 		Promise.all(
 			picks.map(async (pick) => {
 				// ── Data source metadata (sync — no I/O) ──────────────────────
@@ -466,7 +466,8 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 			}),
 		),
 		new Promise<void>((resolve) => setTimeout(resolve, SECONDARY_TIMEOUT_MS)),
-	]);
+	]),
+	]); // ← closes outer Promise.all([ Phase1, Phase2 ]) — both run concurrently
 
 	if (expiredPickIds.length > 0) {
 		try {
