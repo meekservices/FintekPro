@@ -223,33 +223,11 @@ export class PickOfTheDayService {
 	private _isGenerating = false;
 	private readonly DEFAULT_VALIDITY_DAYS = 30;
 
-	// ── Redis client (graceful degradation if unavailable) ────────────────────
-	private _redis: any = null;
+	// ── Redis client (shared circuit-breaker client) ───────────────────────────
+	private _redis: any = null; // kept for backwards-compat reference only
 	private async getRedis(): Promise<any> {
-		if (this._redis?.isOpen) return this._redis;
-		try {
-			if (!process.env.REDIS_URL) return null;
-			const { createClient } = await import("redis");
-			this._redis = createClient({
-				url: process.env.REDIS_URL,
-				socket: {
-					connectTimeout: 2000,  // 2s — bail fast if Redis is down, fall back to DB
-					reconnectStrategy: false, // don't auto-reconnect; re-connect on next request
-				},
-			});
-			this._redis.on("error", () => { this._redis = null; });
-			// Race the connect against a 2.5s timeout so we never block the request
-			await Promise.race([
-				this._redis.connect(),
-				new Promise<void>((_, reject) =>
-					setTimeout(() => reject(new Error("Redis connect timeout")), 2500),
-				),
-			]);
-			return this._redis;
-		} catch {
-			this._redis = null;
-			return null;
-		}
+		const { getSharedRedis } = await import("../utils/redis-client");
+		return getSharedRedis();
 	}
 
 	constructor() {

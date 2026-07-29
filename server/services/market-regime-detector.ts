@@ -43,26 +43,11 @@ export interface RegimeResult {
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 let _memCache: { result: RegimeResult; at: number } | null = null;
 
-// ── Redis ─────────────────────────────────────────────────────────────────────
-let _redis: any = null;
+// ── Redis ─────────────────────────────────────────────────────────────────────────────────
+let _redis: any = null; // legacy var, kept for reference
 async function getRedis() {
-  if (_redis?.isOpen) return _redis;
-  try {
-    if (!process.env.REDIS_URL) return null;
-    const { createClient } = await import("redis");
-    _redis = createClient({
-      url: process.env.REDIS_URL,
-      socket: { connectTimeout: 2000, reconnectStrategy: false },
-    });
-    _redis.on("error", () => { _redis = null; });
-    await Promise.race([
-      _redis.connect(),
-      new Promise<void>((_, reject) =>
-        setTimeout(() => reject(new Error("Redis timeout")), 2500),
-      ),
-    ]);
-    return _redis;
-  } catch { _redis = null; return null; }
+  const { getSharedRedis } = await import("../utils/redis-client");
+  return getSharedRedis();
 }
 
 const REDIS_KEY = "market:regime";

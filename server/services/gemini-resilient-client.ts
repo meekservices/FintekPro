@@ -21,29 +21,11 @@ import { FaspAIv2Service, UserSegment, AdvisoryType } from "./fasp-ai-v2-service
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-// ── Redis client (gracefully absent) ─────────────────────────────────────────
-let redisClient: any = null;
+// ── Redis client (shared circuit-breaker — no per-instance timeout logic) ────────
+let redisClient: any = null; // legacy var, kept for reference
 async function getRedis() {
-  if (redisClient?.isOpen) return redisClient;
-  try {
-    if (!process.env.REDIS_URL) return null;
-    const { createClient } = await import("redis");
-    redisClient = createClient({
-      url: process.env.REDIS_URL,
-      socket: { connectTimeout: 2000, reconnectStrategy: false },
-    });
-    redisClient.on("error", () => { redisClient = null; });
-    await Promise.race([
-      redisClient.connect(),
-      new Promise<void>((_, reject) =>
-        setTimeout(() => reject(new Error("Redis timeout")), 2500),
-      ),
-    ]);
-    return redisClient;
-  } catch {
-    redisClient = null;
-    return null;
-  }
+  const { getSharedRedis } = await import("../utils/redis-client");
+  return getSharedRedis();
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
