@@ -329,67 +329,67 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 		}),
 	);
 
-	// ── Data source metadata (sync — no I/O) ──────────────────────────────────
-	for (const pick of picks) {
-		const source = DATA_SOURCES[pick.category];
-		pick.priceDataSource = source?.name || "Unknown";
-		pick.priceDataType = source?.type || "Unknown";
-		pick.priceRefreshInterval = source?.refreshInterval || "Unknown";
+	// ── Secondary enrichment: RSI, ROIC, screener metrics ─────────────────────
+	// CRITICAL FIX: Previously ran SEQUENTIALLY (for...of loop) with no timeout.
+	// For 5 listed stock picks this meant 5× DB + Yahoo Finance = 30-45s.
+	// Now runs in PARALLEL with a 3-second total cap.
+	const SECONDARY_TIMEOUT_MS = 3000;
+	await Promise.race([
+		Promise.all(
+			picks.map(async (pick) => {
+				// ── Data source metadata (sync — no I/O) ──────────────────────
+				const source = DATA_SOURCES[pick.category];
+				pick.priceDataSource = source?.name || "Unknown";
+				pick.priceDataType = source?.type || "Unknown";
+				pick.priceRefreshInterval = source?.refreshInterval || "Unknown";
 
-		if (pick.lastPriceUpdate || pick.updatedAt || pick.statusUpdatedAt) {
-			const updatedAt =
-				pick.lastPriceUpdate || pick.statusUpdatedAt || pick.updatedAt;
-			pick.lastPriceUpdate = updatedAt;
-			const cat = pick.category;
-			if (
-				!categoryLastUpdated[cat] ||
-				new Date(updatedAt) > new Date(categoryLastUpdated[cat])
-			) {
-				categoryLastUpdated[cat] = updatedAt;
-			}
-		}
+				if (pick.lastPriceUpdate || pick.updatedAt || pick.statusUpdatedAt) {
+					const updatedAt =
+						pick.lastPriceUpdate || pick.statusUpdatedAt || pick.updatedAt;
+					pick.lastPriceUpdate = updatedAt;
+					const cat = pick.category;
+					if (
+						!categoryLastUpdated[cat] ||
+						new Date(updatedAt) > new Date(categoryLastUpdated[cat])
+					) {
+						categoryLastUpdated[cat] = updatedAt;
+					}
+				}
 
-		const ageHours = pick.lastPriceUpdate
-			? (Date.now() - new Date(pick.lastPriceUpdate).getTime()) /
-				(1000 * 60 * 60)
-			: null;
+				const ageHours = pick.lastPriceUpdate
+					? (Date.now() - new Date(pick.lastPriceUpdate).getTime()) / (1000 * 60 * 60)
+					: null;
+				pick.dataFreshness =
+					ageHours === null ? "unknown"
+					: ageHours < 1    ? "live"
+					: ageHours < 6    ? "recent"
+					: ageHours < 24   ? "delayed"
+					:                   "stale";
 
-		if (ageHours === null) {
-			pick.dataFreshness = "unknown";
-		} else if (ageHours < 1) {
-			pick.dataFreshness = "live";
-		} else if (ageHours < 6) {
-			pick.dataFreshness = "recent";
-		} else if (ageHours < 24) {
-			pick.dataFreshness = "delayed";
-		} else {
-			pick.dataFreshness = "stale";
-		}
-
-		// RSI/ROIC enrichment for listed stocks — only fetch if not already cached
-		if (pick.category === "listed_stocks" && pick.symbol && pick.keyMetrics) {
-			const km =
-				typeof pick.keyMetrics === "string"
+				if (pick.category !== "listed_stocks" || !pick.symbol || !pick.keyMetrics) return;
+				const km = typeof pick.keyMetrics === "string"
 					? JSON.parse(pick.keyMetrics)
 					: pick.keyMetrics;
-			const needsRsi = km.rsi == null;
-			const needsRoic = km.roic == null;
-			const needsAllocation = km.suggestedAllocation == null;
+				const needsRsi = km.rsi == null;
+				const needsRoic = km.roic == null;
+				const needsBeta = km.beta == null;
+				const needsSharpe = km.sharpe == null;
+				const needsReturn = km.returns1y == null;
+				const needsAllocation = km.suggestedAllocation == null;
 
-			if (needsAllocation) {
-				km.suggestedAllocation = calculateSuggestedAllocation(
-					pick.category,
-					pick.riskLevel || "medium",
-					pick.confidenceScore || 70,
-					km,
-				);
-			}
+				if (needsAllocation) {
+					km.suggestedAllocation = calculateSuggestedAllocation(
+						pick.category,
+						pick.riskLevel || "medium",
+						pick.confidenceScore || 70,
+						km,
+					);
+				}
 
-			if (needsRsi || needsRoic) {
 				let metricsUpdated = false;
 				try {
+					// ── ROIC ──
 					if (needsRoic) {
-						// Primary: screener_key_metrics (FMP enrichment data)
 						const screenerRoic = await db.execute(
 							sql`SELECT roic FROM screener_key_metrics WHERE symbol = ${pick.symbol.toUpperCase()} AND roic IS NOT NULL ORDER BY date DESC LIMIT 1`,
 						).catch(() => ({ rows: [] }));
@@ -398,19 +398,15 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 							km.roic = Number.parseFloat(skRow.roic);
 							metricsUpdated = true;
 						} else {
-							// Secondary: listed_stocks.roce
 							const stockRow = await db.execute(
 								sql`SELECT roce FROM listed_stocks WHERE symbol = ${pick.symbol} AND roce IS NOT NULL LIMIT 1`,
-							);
+							).catch(() => ({ rows: [] }));
 							const row = (stockRow as any).rows?.[0];
-							if (row?.roce != null) {
-								km.roic = Number.parseFloat(row.roce);
-								metricsUpdated = true;
-							}
+							if (row?.roce != null) { km.roic = Number.parseFloat(row.roce); metricsUpdated = true; }
 						}
 					}
+					// ── RSI ──
 					if (needsRsi) {
-						// Primary: screener_technical_indicators (FMP RSI data stored as rsi_14 column)
 						const screenerRsi = await db.execute(
 							sql`SELECT rsi_14 FROM screener_technical_indicators WHERE symbol = ${pick.symbol.toUpperCase()} AND rsi_14 IS NOT NULL ORDER BY date DESC LIMIT 1`,
 						).catch(() => ({ rows: [] }));
@@ -419,7 +415,6 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 							km.rsi = Math.round(Number.parseFloat(srRow.rsi_14) * 100) / 100;
 							metricsUpdated = true;
 						} else {
-							// Secondary: goldenPrices (live computation from 35d price history)
 							const cutoff = new Date();
 							cutoff.setDate(cutoff.getDate() - 35);
 							const gpRows = await db.execute(sql`
@@ -436,151 +431,42 @@ export async function enrichPicksWithDataSource(picks: any[]) {
 								let gains = 0, losses = 0;
 								for (let i = closes.length - 14; i < closes.length; i++) {
 									const diff = closes[i] - closes[i - 1];
-									if (diff > 0) gains += diff;
-									else losses += Math.abs(diff);
+									if (diff > 0) gains += diff; else losses += Math.abs(diff);
 								}
-								const avgGain = gains / 14;
-								const avgLoss = losses / 14;
-								km.rsi = avgLoss === 0 ? 100 : Math.round((100 - 100 / (1 + avgGain / avgLoss)) * 100) / 100;
+								km.rsi = losses === 0 ? 100 : Math.round((100 - 100 / (1 + gains / 14 / (losses / 14))) * 100) / 100;
 								metricsUpdated = true;
-							} else {
-								// Tertiary: Yahoo Finance (last resort)
-								const yahooFinance = (await import("yahoo-finance2")).default;
-								const suffixes = [".NS", ".BO"];
-								for (const suffix of suffixes) {
-									if (km.rsi != null) break;
-									try {
-										const yahooSymbol = `${pick.symbol}${suffix}`;
-										const endDate = new Date();
-										const startDate = new Date();
-										startDate.setDate(startDate.getDate() - 30);
-										const chartResult = await yahooFinance.chart(yahooSymbol, {
-											period1: startDate,
-											period2: endDate,
-											interval: "1d",
-										});
-										const quotes = chartResult?.quotes;
-										if (quotes && quotes.length >= 15) {
-											const closes2 = quotes
-												.map((q: any) => q.close)
-												.filter((c: any) => c != null);
-											if (closes2.length >= 15) {
-												let gains2 = 0, losses2 = 0;
-												for (let i = 1; i <= 14; i++) {
-													const diff =
-														closes2[closes2.length - i] -
-														closes2[closes2.length - i - 1];
-													if (diff > 0) gains2 += diff;
-													else losses2 += Math.abs(diff);
-												}
-												const avgGain2 = gains2 / 14;
-												const avgLoss2 = losses2 / 14;
-												km.rsi =
-													avgLoss2 === 0
-														? 100
-														: Math.round(
-																(100 - 100 / (1 + avgGain2 / avgLoss2)) * 100,
-															) / 100;
-												metricsUpdated = true;
-											}
-										}
-									} catch {}
-								}
 							}
+							// Yahoo Finance fallback skipped — too slow. DB data preferred.
+						}
+					}
+					// ── Beta / Sharpe / Returns (screener_derived_metrics) ──
+					if (needsBeta || needsSharpe || needsReturn) {
+						const dmRow = await db.execute(sql`
+							SELECT return_1y, return_3y, beta, sharpe_ratio_1y, max_drawdown_1y, volatility_30d
+							FROM screener_derived_metrics
+							WHERE symbol = ${pick.symbol.toUpperCase()}
+							LIMIT 1
+						`).catch(() => ({ rows: [] }));
+						const r = (dmRow as any).rows?.[0];
+						if (r) {
+							if (needsReturn && r.return_1y != null) { km.returns1y = Math.round(Number(r.return_1y) * 10000) / 10000; metricsUpdated = true; }
+							if (r.return_3y != null && km.returns3y == null) { km.returns3y = Math.round(Number(r.return_3y) * 10000) / 10000; metricsUpdated = true; }
+							if (needsBeta && r.beta != null) { km.beta = Math.round(Number(r.beta) * 10000) / 10000; metricsUpdated = true; }
+							if (needsSharpe && r.sharpe_ratio_1y != null) { km.sharpe = Math.round(Number(r.sharpe_ratio_1y) * 10000) / 10000; metricsUpdated = true; }
+							if (r.max_drawdown_1y != null && km.maxDrawdown == null) { km.maxDrawdown = Math.round(Number(r.max_drawdown_1y) * 10000) / 10000; metricsUpdated = true; }
 						}
 					}
 					pick.keyMetrics = km;
-
-					// ✅ Persist updated metrics back to DB so next request skips live fetch
 					if (metricsUpdated && pick.id) {
-						db.update(dailyPicks)
-							.set({ keyMetrics: km, updatedAt: new Date() })
-							.where(eq(dailyPicks.id, pick.id))
-							.catch((err) =>
-								logger.warn(
-									`[PickEnrich] Failed to cache metrics for pick ${pick.id}:`,
-									err,
-								),
-							);
+						db.update(dailyPicks).set({ keyMetrics: km, updatedAt: new Date() }).where(eq(dailyPicks.id, pick.id)).catch(() => {});
 					}
 				} catch (err) {
-					logger.warn(
-						`[PickEnrich] RSI/ROIC enrichment failed for ${pick.symbol}:`,
-						{ error: err instanceof Error ? err.message : String(err) },
-					);
+					logger.warn(`[PickEnrich] Secondary enrichment failed for ${pick.symbol}:`, { error: String(err) });
 				}
-			}
-		}
-
-		// ── screener_derived_metrics enrichment (beta, sharpe, return1y) ──────
-		// Fills missing performance/risk metrics for listed stock picks from the
-		// OHLCV-computed screener_derived_metrics table (80–86% symbol coverage).
-		// Runs AFTER the RSI/ROIC block so it can batch with the same DB round-trip.
-		if (pick.category === "listed_stocks" && pick.symbol && pick.keyMetrics) {
-			const km =
-				typeof pick.keyMetrics === "string"
-					? JSON.parse(pick.keyMetrics)
-					: pick.keyMetrics;
-
-			const needsBeta   = km.beta == null;
-			const needsSharpe = km.sharpe == null;
-			const needsReturn = km.returns1y == null;
-
-			if (needsBeta || needsSharpe || needsReturn) {
-				try {
-					const dmRow = await db.execute(sql`
-            SELECT return_1y, return_3y, beta, sharpe_ratio_1y, max_drawdown_1y, volatility_30d
-            FROM screener_derived_metrics
-            WHERE symbol = ${pick.symbol.toUpperCase()}
-            LIMIT 1
-          `).catch(() => ({ rows: [] }));
-					const r = (dmRow as any).rows?.[0];
-					if (r) {
-						let dmUpdated = false;
-						if (needsReturn && r.return_1y != null) {
-							km.returns1y = Math.round(Number(r.return_1y) * 10000) / 10000;
-							dmUpdated = true;
-						}
-						if (r.return_3y != null && km.returns3y == null) {
-							km.returns3y = Math.round(Number(r.return_3y) * 10000) / 10000;
-							dmUpdated = true;
-						}
-						if (needsBeta && r.beta != null) {
-							km.beta = Math.round(Number(r.beta) * 10000) / 10000;
-							dmUpdated = true;
-						}
-						if (needsSharpe && r.sharpe_ratio_1y != null) {
-							km.sharpe = Math.round(Number(r.sharpe_ratio_1y) * 10000) / 10000;
-							dmUpdated = true;
-						}
-						if (r.max_drawdown_1y != null && km.maxDrawdown == null) {
-							km.maxDrawdown = Math.round(Number(r.max_drawdown_1y) * 10000) / 10000;
-							dmUpdated = true;
-						}
-						pick.keyMetrics = km;
-
-						// Persist so subsequent requests skip this fetch
-						if (dmUpdated && pick.id) {
-							db.update(dailyPicks)
-								.set({ keyMetrics: km, updatedAt: new Date() })
-								.where(eq(dailyPicks.id, pick.id))
-								.catch((err) =>
-									logger.warn(
-										`[PickEnrich] screener_derived_metrics cache write failed for pick ${pick.id}:`,
-										err,
-									),
-								);
-						}
-					}
-				} catch (err) {
-					logger.warn(
-						`[PickEnrich] screener_derived_metrics enrichment failed for ${pick.symbol}:`,
-						{ error: err instanceof Error ? err.message : String(err) },
-					);
-				}
-			}
-		}
-	}
+			}),
+		),
+		new Promise<void>((resolve) => setTimeout(resolve, SECONDARY_TIMEOUT_MS)),
+	]);
 
 	if (expiredPickIds.length > 0) {
 		try {
