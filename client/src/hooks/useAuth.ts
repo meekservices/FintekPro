@@ -24,6 +24,15 @@ export function useAuth() {
 		queryKey: ["/api/user"],
 		queryFn: getQueryFn({ on401: "returnNull" }),
 		retry: false,
+		// Never re-fetch /api/user in the background — session is established at
+		// login and remains valid for 30 days. Background re-fetches cause spurious
+		// 401s on page navigation when the new Cloud Run container is still warming
+		// its DB pool. The session-expired dialog handles true expiry.
+		staleTime: Infinity,
+		gcTime: Infinity,
+		refetchOnMount: false,
+		refetchOnWindowFocus: false,
+		refetchOnReconnect: false,
 	});
 
 	const loginMutation = useMutation({

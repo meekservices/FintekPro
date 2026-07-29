@@ -408,6 +408,10 @@ export const getQueryFn: <T>(options: {
 
 		if (res.status === 401 || res.status === 403) {
 			if (unauthorizedBehavior === "returnNull") {
+				// Log as debug (not error) — 401 on /api/user is expected when not logged in.
+				// Chrome's network panel always shows 4xx in red regardless; this keeps
+				// the JS console clean for developers.
+				console.debug(`[Auth] ${url} → ${res.status} (not logged in — expected)`);
 				return null;
 			}
 			if (res.status === 401 && shouldTriggerSessionExpired(url)) {
