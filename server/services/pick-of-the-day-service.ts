@@ -230,11 +230,24 @@ export class PickOfTheDayService {
 		try {
 			if (!process.env.REDIS_URL) return null;
 			const { createClient } = await import("redis");
-			this._redis = createClient({ url: process.env.REDIS_URL });
+			this._redis = createClient({
+				url: process.env.REDIS_URL,
+				socket: {
+					connectTimeout: 2000,  // 2s — bail fast if Redis is down, fall back to DB
+					reconnectStrategy: false, // don't auto-reconnect; re-connect on next request
+				},
+			});
 			this._redis.on("error", () => { this._redis = null; });
-			await this._redis.connect();
+			// Race the connect against a 2.5s timeout so we never block the request
+			await Promise.race([
+				this._redis.connect(),
+				new Promise<void>((_, reject) =>
+					setTimeout(() => reject(new Error("Redis connect timeout")), 2500),
+				),
+			]);
 			return this._redis;
 		} catch {
+			this._redis = null;
 			return null;
 		}
 	}
