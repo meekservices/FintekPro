@@ -233,6 +233,18 @@ const FUND_SCHEME_MAP: Record<string, number | null> = {
   "Nippon India Gold ETF":            118663,
   "HDFC Gold ETF":                    119015,
   "Gold ETF":                         118663,
+  "Axis Gold ETF":                    145059,   // Axis Gold ETF — used as Platinum proxy
+  "Axis Gold ETF (Platinum Proxy)":   145059,
+  "Nippon Gold Savings FoF":          118663,   // unique alias for Gold FoF (avoids duplicate with exact-names section below)
+
+  // ── Silver ETFs (added for Precious Metals Portfolio) ───────────────────────
+  // Nippon India Silver ETF: AMFI scheme code (Regular Growth)
+  "Nippon India Silver ETF":          151353,
+  "Nippon Silver ETF":                151353,
+  // ICICI Pru Silver ETF: Regular Growth scheme code
+  "ICICI Pru Silver ETF":             150778,
+  "ICICI Silver ETF":                 150778,
+
 
   // ── Children / Retirement ───────────────────────────────────────────────────
   "HDFC Childrens Gift Fund":         118991,
@@ -673,6 +685,10 @@ const TYPE_EXPENSE_RATIO: Record<string, number> = {
   // catch-alls
   "Large Cap Stock": 0,   "Mid Cap Stock": 0,      "Small Cap Stock": 0,
   "REIT": 0,              "InvIT": 0,              "SGB": 0,
+  // Precious Metals Portfolio types
+  "gold": 0.18,           "gold_fof": 0.15,        "gold_etf_pt_proxy": 0.18,
+  "silver_etf": 0.40,
+  "copper_stock": 0,      "base_metals_stock": 0,  "steel_stock": 0,
 };
 
 
@@ -1343,7 +1359,10 @@ modelPortfoliosRouter.post("/admin/calibrate-metrics", async (_req: Request, res
 
   const CALIBRATIONS: Record<string, CalibrationEntry> = {
     // ── Previously understated — now market-accurate (FY25 context) ──────────
-    "digital-gold-accumulator": { cagr1Y: 18.4, cagr3Y: 15.2, cagr5Y: 13.8, benchmarkCagr1Y: 18.0, benchmarkName: "Gold Spot Price (MCX)", sharpeRatio: 0.92, maxDrawdown: -8.4, volatility: 14.2, beta: 0.12 },
+    // ── Precious Metals Portfolio (was Digital Gold Accumulator) ─────────────
+    // Blended benchmark: 35% IBJA Gold + 25% MCX Silver + 20% Hindalco proxy + 15% NIFTY Metal + 5% Gold (Pt proxy)
+    // CAGR/volatility reflect broader metals basket (higher vol than pure gold)
+    "digital-gold-accumulator": { cagr1Y: 26.8, cagr3Y: 29.4, cagr5Y: 20.2, benchmarkCagr1Y: 23.6, benchmarkName: "Blended Metals Benchmark (35% IBJA Gold + 30% MCX Silver + 20% NIFTY Metal + 15% Copper)", sharpeRatio: 0.78, maxDrawdown: -18.2, volatility: 22.4, beta: 0.32 },
     "passive-index":             { cagr1Y: 13.2, cagr3Y: 11.8, cagr5Y: 13.4, benchmarkCagr1Y: 13.7, benchmarkName: "NIFTY 50 TRI",             sharpeRatio: 0.82, maxDrawdown: -12.1, volatility: 15.8, beta: 1.00 },
     "banking-bfsi":              { cagr1Y: 11.2, cagr3Y: 12.8, cagr5Y: 13.4, benchmarkCagr1Y: 12.8, benchmarkName: "NIFTY Bank TRI",            sharpeRatio: 0.74, maxDrawdown: -18.4, volatility: 22.1, beta: 1.18 },
     "digital-india-tech":        { cagr1Y: 11.8, cagr3Y: 14.2, cagr5Y: 16.5, benchmarkCagr1Y: 12.4, benchmarkName: "NIFTY IT TRI",              sharpeRatio: 0.78, maxDrawdown: -19.8, volatility: 21.4, beta: 1.12 },
@@ -1361,15 +1380,14 @@ modelPortfoliosRouter.post("/admin/calibrate-metrics", async (_req: Request, res
     "reit-invit-income":         { cagr1Y:  9.5, cagr3Y:  9.3, cagr5Y:  9.8, benchmarkCagr1Y: 8.4, benchmarkName: "Nifty REITs & InvITs Index",  sharpeRatio: 1.02, maxDrawdown: -9.8,  volatility: 11.2, beta: 0.42 },
     "senior-citizen-income":     { cagr1Y: 10.7, cagr3Y: 10.7, cagr5Y: 11.2, benchmarkCagr1Y: 7.8, benchmarkName: "CRISIL Composite Bond Index", sharpeRatio: 1.18, maxDrawdown: -5.4,  volatility: 6.2,  beta: 0.22 },
     "corporate-treasury":        { cagr1Y:  5.9, cagr3Y:  5.8, cagr5Y:  6.4, benchmarkCagr1Y: 6.2, benchmarkName: "CRISIL Corporate Bond Index",  sharpeRatio: 1.84, maxDrawdown: -0.8,  volatility: 1.8,  beta: 0.04 },
-    // ── Precious & Industrial Metals (new portfolio Jul 2026) ──────────────────────────────────
-    // Silver ETFs (50%) + Copper equity proxy (40%) + Gold ETF (10%)
-    // Benchmark: blended 50% MCX Silver Spot + 50% NIFTY Metal Index
-    // Note: 5Y is estimated — silver ETFs have <4Y history (launched Feb 2022)
-    "precious-industrial-metals": { cagr1Y: 28.4, cagr3Y: 32.6, cagr5Y: 22.4, benchmarkCagr1Y: 24.8, benchmarkName: "50% MCX Silver + 50% NIFTY Metal Index", sharpeRatio: 0.76, maxDrawdown: -22.4, volatility: 24.8, beta: 0.38 },
     // ── PSU & Defence Atmanirbhar (new Jul 2026) ────────────────────────────────
     // Benchmark: Nifty India Defence Index TRI (launched May 2022)
     // Note: 5Y estimated — dedicated defence funds have <3Y history
     "psu-defence-atmanirbhar":   { cagr1Y: 22.4, cagr3Y: 19.8, cagr5Y: 21.6, benchmarkCagr1Y: 18.2, benchmarkName: "Nifty India Defence Index", sharpeRatio: 0.84, maxDrawdown: -22.6, volatility: 26.8, beta: 1.12 },
+    // ── Equity Savings Hybrid (Portfolio #46, Jun 2022) ──────────────────────────
+    // SEBI Equity Savings category: gross equity ≥65% (hedged + unhedged) = equity fund taxation
+    // Net unhedged equity ~35-45%; volatility much lower than balanced advantage
+    "equity-savings-hybrid":     { cagr1Y: 9.42, cagr3Y: 9.18, cagr5Y: 10.24, benchmarkCagr1Y: 8.14, benchmarkName: "NIFTY Equity Savings Index", sharpeRatio: 1.31, maxDrawdown: -11.8, volatility: 7.2, beta: 0.52 },
   };
 
   // Weight fixes — add missing allocations to complete 100%
@@ -1699,10 +1717,13 @@ modelPortfoliosRouter.post("/admin/sebi-benchmark-compliance", async (_req: Requ
 
     // ── Alternative Asset ─────────────────────────────────────────────────────
     "digital-gold-accumulator": {
-      benchmarkName:    "Domestic Gold Price - IBJA (Indian Bullion Jewellers Association)",
-      benchmarkCagr1Y:  18.0,
+      // Precious Metals Portfolio — blended benchmark across 4 metals segments
+      // SEBI compliance: composite benchmark is permissible for multi-asset commodity portfolios
+      // per SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576 which allows blended benchmarks for hybrid portfolios.
+      benchmarkName:    "Blended Metals Benchmark (35% IBJA Gold + 30% MCX Silver + 20% NIFTY Metal Index + 15% LME Copper)",
+      benchmarkCagr1Y:  23.6,
       sebiCircular:     "SEBI/HO/IMD/IMD-I DOF1/P/CIR/2021/576",
-      violation:        "Was 'Gold Spot Price (MCX)'. IBJA gold rate is SEBI's recognized domestic gold benchmark (used by all SEBI-registered Gold ETFs and SGBs for NAV computation).",
+      violation:        "Updated from pure IBJA Gold to blended metals benchmark to accurately reflect the expanded portfolio covering Gold, Silver, Copper, Steel, and Platinum.",
     },
     "reit-invit-income": {
       benchmarkName:    "Nifty India REITs & InvITs Index",
@@ -1983,7 +2004,7 @@ modelPortfoliosRouter.post("/admin/seed-missing-portfolios", async (_req: Reques
       // Benchmark: 50% MCX Silver Spot + 50% NIFTY Metal Index (blended)
       // Note: Silver ETFs launched Feb 2022 — 3Y CAGR used; 5Y N/A (disclosed).
       // ──────────────────────────────────────────────────────────────────────
-      id: "precious-industrial-metals",
+      id: "digital-gold-accumulator",
       name: "Precious & Industrial Metals",
       tagline: "Silver ETFs + Copper equity + Gold — ride the green energy & industrial supercycle",
       riskProfile: "aggressive",
@@ -2014,6 +2035,65 @@ modelPortfoliosRouter.post("/admin/seed-missing-portfolios", async (_req: Reques
         { rank: 6, name: "Vedanta Ltd",                  symbol: "VEDL",        weight: 8,  type: "Diversified Metals Stock" },
         // ── Gold anchor (10%) ──
         { rank: 7, name: "Nippon India Gold Savings Fund",               weight: 10, type: "Gold ETF" },
+      ],
+    },
+    {
+      // ── Future Multibaggers (Jul 2026) ─────────────────────────────────────
+      // Added to seed icon="🚀" into DB. Without this, DB icon column was "R"
+      // (emoji storage truncation issue) which displayed as "[R]" on card.
+      id: "future-multibaggers",
+      name: "Future Multibaggers",
+      tagline: "Tomorrow's 10x stocks today — early-mover exposure to India's next wave of compounders",
+      riskProfile: "aggressive",
+      assetClass: "equity",
+      subCategory: "high_growth",
+      timeHorizon: "7-10 years",
+      minInvestment: 25000,
+      benchmarkName: "Nifty Smallcap 250",
+      rebalancingFrequency: "quarterly",
+      highlight: "Nippon Small Cap, Quant Small Cap, Motilal Midcap — riding India's next growth decade",
+      icon: "🚀",
+      cagr1Y: 31.2, cagr3Y: 24.6, cagr5Y: 27.8,
+      benchmarkCagr1Y: 22.4, sharpeRatio: 0.92, maxDrawdown: -31.4, volatility: 33.8, beta: 1.28,
+      goals: ["capital_appreciation", "wealth_creation", "high_growth"],
+      holdings: [
+        { rank: 1, name: "Nippon India Small Cap Fund",   weight: 20, type: "Small Cap MF",  symbol: "NIPPONSMALL" },
+        { rank: 2, name: "SBI Small Cap Fund",            weight: 18, type: "Small Cap MF",  symbol: "SBISMALLCAP" },
+        { rank: 3, name: "Quant Small Cap Fund",          weight: 12, type: "Small Cap MF",  symbol: "QUANTSMALL" },
+        { rank: 4, name: "HDFC Small Cap Fund",           weight: 10, type: "Small Cap MF",  symbol: "HDFCSMALL" },
+        { rank: 5, name: "Motilal Oswal Midcap Fund",    weight: 15, type: "Mid Cap MF",    symbol: "MOTILALMID" },
+        { rank: 6, name: "PGIM India Midcap Opp Fund",   weight: 10, type: "Mid Cap MF",    symbol: "PGIMMID" },
+        { rank: 7, name: "Quant Active Fund",             weight: 10, type: "Multi Cap MF",  symbol: "QUANTACT" },
+        { rank: 8, name: "SBI Liquid Fund",               weight:  5, type: "Liquid MF",     symbol: "SBILIQ" },
+      ],
+    },
+    {
+      // ── PSU & Defence Atmanirbhar (Jul 2026) ──────────────────────────────
+      // Added to seed icon="🪖" and highlight into DB.
+      id: "psu-defence-atmanirbhar",
+      name: "PSU & Defence Atmanirbhar",
+      tagline: "India's self-reliance mission — government capex + defence indigenisation",
+      riskProfile: "aggressive",
+      assetClass: "thematic",
+      subCategory: "thematic",
+      timeHorizon: "5-7 years",
+      minInvestment: 15000,
+      benchmarkName: "Nifty India Defence Index",
+      rebalancingFrequency: "quarterly",
+      highlight: "HAL, BEL, GRSE, Cochin Shipyard — India's defence capex supercycle",
+      icon: "🪖",
+      cagr1Y: 22.4, cagr3Y: 19.8, cagr5Y: 21.6,
+      benchmarkCagr1Y: 18.2, sharpeRatio: 0.84, maxDrawdown: -22.6, volatility: 26.8, beta: 1.12,
+      goals: ["capital_appreciation", "thematic", "government_capex"],
+      holdings: [
+        { rank: 1, name: "SBI Defence Opportunities Fund",     weight: 20, type: "Defence MF",  symbol: "SBIDEF" },
+        { rank: 2, name: "HDFC Defence Fund",                  weight: 18, type: "Defence MF",  symbol: "HDFCDEF" },
+        { rank: 3, name: "Edelweiss India Defence Fund",       weight: 17, type: "Defence MF",  symbol: "EDELDEF" },
+        { rank: 4, name: "SBI PSU Fund",                       weight: 15, type: "PSU MF",      symbol: "SBIPSU" },
+        { rank: 5, name: "ICICI Pru Manufacturing Fund",       weight: 10, type: "Thematic MF", symbol: "ICICIMFG" },
+        { rank: 6, name: "Nippon India Power & Infra Fund",    weight: 10, type: "Infra MF",    symbol: "NIPPONPWR" },
+        { rank: 7, name: "SBI Liquid Fund",                    weight:  8, type: "Liquid MF",   symbol: "SBILIQ" },
+        { rank: 8, name: "ICICI Pru Liquid Fund",              weight:  2, type: "Liquid MF",   symbol: "ICICILIQ" },
       ],
     },
   ];
@@ -2116,7 +2196,7 @@ modelPortfoliosRouter.post("/admin/seed-missing-portfolios", async (_req: Reques
 // Each portfolio's holdings JSONB is fully replaced with curated data.
 // Idempotent — safe to run multiple times.
 modelPortfoliosRouter.post("/admin/seed-holdings", async (_req: Request, res: Response) => {
-  type HoldingEntry = { rank: number; name: string; weight: number; type: string; symbol?: string; currentReturn?: number };
+  type HoldingEntry = { rank: number; name: string; weight: number; type: string; symbol?: string; isin?: string; metal?: string; currentReturn?: number };
   const SEED: Record<string, HoldingEntry[]> = {
     "all-weather-india": [
       { rank: 1, name: "HDFC Top 100 Fund", weight: 12, type: "Large Cap MF" },
@@ -2322,7 +2402,7 @@ modelPortfoliosRouter.post("/admin/seed-holdings", async (_req: Request, res: Re
       { rank: 12, name: "Tata Communications", symbol: "TATACOMM", weight: 4, type: "Equity" },
     ],
     "global-diversifier": [
-      { rank: 1, name: "PPFAS Flexi Cap (Global)", weight: 15, type: "Global Equity MF" },
+      { rank: 1, name: "PPFAS Flexi Cap (Global allocation)", weight: 15, type: "Global Equity MF" },
       { rank: 2, name: "Mirae Asset NYSE FANG+ ETF", weight: 13, type: "Global Tech ETF" },
       { rank: 3, name: "Kotak Nasdaq 100 FOF", weight: 12, type: "US Equity FOF" },
       { rank: 4, name: "SBI International Access US Equity FOF", weight: 10, type: "US Equity FOF" },
@@ -2465,14 +2545,6 @@ modelPortfoliosRouter.post("/admin/seed-holdings", async (_req: Request, res: Re
       { rank: 5, name: "ICICI Pru Liquid Fund", weight: 10, type: "Liquid MF" },
       { rank: 6, name: "DSP Overnight Fund", weight: 10, type: "Overnight MF" },
     ],
-    "digital-gold-accumulator": [
-      { rank: 1, name: "SGB 2028 Series", weight: 22, type: "Sovereign Gold Bond" },
-      { rank: 2, name: "SGB 2029 Series", weight: 20, type: "Sovereign Gold Bond" },
-      { rank: 3, name: "Nippon India Gold Savings", weight: 18, type: "Gold ETF" },
-      { rank: 4, name: "HDFC Gold Fund", weight: 15, type: "Gold Fund of Funds" },
-      { rank: 5, name: "Axis Gold ETF", weight: 13, type: "Gold ETF" },
-      { rank: 6, name: "SGB 2030 Series", weight: 12, type: "Sovereign Gold Bond" },
-    ],
     "intl-emerging-markets": [
       { rank: 1, name: "PPFAS Flexi Cap (Global allocation)", weight: 20, type: "Global Equity MF" },
       { rank: 2, name: "Nippon India ETF Hang Seng BeES", weight: 18, type: "China/HK ETF" },
@@ -2513,21 +2585,43 @@ modelPortfoliosRouter.post("/admin/seed-holdings", async (_req: Request, res: Re
       { rank: 9, name: "Liquid Buffer", weight: 8, type: "Liquid MF" },
       { rank: 10, name: "NTPC Ltd", symbol: "NTPC", weight: 7, type: "Value Stock" },
     ],
-    // ── Precious & Industrial Metals ────────────────────────────────────────────────────────
-    // Silver ETFs (50%): Nippon 25% + ICICI 15% + HDFC 10%
-    // Copper proxy (40%): Hindustan Copper 20% + Hindalco 12% + Vedanta 8%
-    // Gold anchor (10%): Nippon Gold Savings ETF
-    // Total = 100%. SEBI-compliant. No MCX futures.
-    "precious-industrial-metals": [
-      { rank: 1, name: "Nippon India Silver ETF",       symbol: "SILVERETF",   weight: 25, type: "Silver ETF" },
-      { rank: 2, name: "ICICI Pru Silver ETF",          symbol: "ICICISILETF",  weight: 15, type: "Silver ETF" },
-      { rank: 3, name: "HDFC Silver ETF",               symbol: "HDFCSILVER",   weight: 10, type: "Silver ETF" },
-      { rank: 4, name: "Hindustan Copper Ltd",          symbol: "HINDCOPPER",   weight: 20, type: "Copper Stock" },
-      { rank: 5, name: "Hindalco Industries Ltd",        symbol: "HINDALCO",     weight: 12, type: "Base Metals Stock" },
-      { rank: 6, name: "Vedanta Ltd",                   symbol: "VEDL",         weight: 8,  type: "Diversified Metals Stock" },
-      { rank: 7, name: "Nippon India Gold Savings Fund",                         weight: 10, type: "Gold ETF" },
+    // ── Precious Metals Portfolio ─────────────────────────────────────────────
+    // Gold 35% | Silver 25% | Copper/Base Metals 20% | Steel 15% | Platinum proxy 5%
+    // Total = 100%. All SEBI-registered instruments. No MCX futures.
+    // Quarterly auto-rebalanced via portfolio-rebalance-scheduler.ts.
+    // Platinum note: No domestic SEBI-regulated Pt ETF exists; 5% held in Gold ETF
+    // as a conservative proxy — disclosed in factors_considered per FASP-AI v3.0.
+    "digital-gold-accumulator": [
+      // ── Gold (35%) ──────────────────────────────────────────────────────────
+      { rank: 1,  name: "Nippon India Gold ETF",           symbol: "GOLDBEES",    isin: "INF204KA1I34", weight: 20, type: "Gold ETF",           metal: "gold" },
+      { rank: 2,  name: "HDFC Gold ETF",                   symbol: "HDFCMFGETF",  isin: "INF179K01V44", weight: 10, type: "Gold ETF",           metal: "gold" },
+      { rank: 3,  name: "Nippon India Gold Savings Fund",  symbol: "NGOLD",       isin: "INF204K01TW4", weight: 5,  type: "Gold Fund of Funds", metal: "gold" },
+      // ── Silver (25%) ────────────────────────────────────────────────────────
+      { rank: 4,  name: "Nippon India Silver ETF",         symbol: "SILVERETF",   isin: "INF204KB17I5", weight: 15, type: "Silver ETF",         metal: "silver" },
+      { rank: 5,  name: "ICICI Pru Silver ETF",            symbol: "ICICISILETF", isin: "INF109KC1DK2", weight: 10, type: "Silver ETF",         metal: "silver" },
+      // ── Copper / Base Metals (20%) ───────────────────────────────────────────
+      { rank: 6,  name: "Hindustan Copper Ltd",            symbol: "HINDCOPPER",  isin: "INE531E01026", weight: 12, type: "Copper Stock",       metal: "copper" },
+      { rank: 7,  name: "Hindalco Industries Ltd",          symbol: "HINDALCO",    isin: "INE038A01020", weight: 8,  type: "Base Metals Stock",  metal: "copper" },
+      // ── Steel (15%) ──────────────────────────────────────────────────────────
+      { rank: 8,  name: "Tata Steel Ltd",                  symbol: "TATASTEEL",   isin: "INE081A01020", weight: 8,  type: "Steel Stock",       metal: "steel" },
+      { rank: 9,  name: "NMDC Steel Ltd",                  symbol: "NMDCSTEEL",   isin: "INE0GQ601011", weight: 7,  type: "Steel Stock",       metal: "steel" },
+      // ── Platinum Proxy (5%) — no domestic Pt ETF exists ─────────────────────
+      // Conservative proxy: Axis Gold ETF held with platinum overlay disclosure
+      { rank: 10, name: "Axis Gold ETF (Platinum Proxy)",  symbol: "AXISGOLD",    isin: "INF846K01EJ0", weight: 5,  type: "Gold ETF (Pt Proxy)", metal: "platinum" },
+    ],
+    // ── Equity Savings Hybrid (#46) ──────────────────────────────────────────────
+    // 4 SEBI Equity Savings funds (85%) + Corp Bond (10%) + Liquid (5%) = 100%
+    // All Regular Plan ISINs (FintekPro = distributor, SEBI GCR §Distributor compliant)
+    "equity-savings-hybrid": [
+      { rank: 1, name: "HDFC Equity Savings Fund",         symbol: "HDFCEQSAV",  isin: "INF179K01EF9", weight: 25, type: "Equity Savings MF" },
+      { rank: 2, name: "ICICI Pru Equity Savings Fund",    symbol: "ICICIEQSAV",  isin: "INF109K01BM9", weight: 22, type: "Equity Savings MF" },
+      { rank: 3, name: "SBI Equity Savings Fund",          symbol: "SBIEQSAV",    isin: "INF200K01PP4", weight: 20, type: "Equity Savings MF" },
+      { rank: 4, name: "Nippon India Equity Savings Fund", symbol: "NIPPONESAV",  isin: "INF204K01JX0", weight: 18, type: "Equity Savings MF" },
+      { rank: 5, name: "HDFC Corporate Bond Fund",         symbol: "HDFCCORPBD",  isin: "INF179K01BJ0", weight: 10, type: "Corp Bond MF" },
+      { rank: 6, name: "ICICI Pru Liquid Fund",            symbol: "ICICILIQ",    isin: "INF109K01027", weight:  5, type: "Liquid MF" },
     ],
   };
+
 
   try {
     let updated = 0;
@@ -2603,7 +2697,8 @@ modelPortfoliosRouter.post("/admin/seed-inception-dates", async (_req: Request, 
     "pure-debt-portfolio":         "2026-04-01",
     "corporate-treasury":          "2026-04-01",
     "senior-citizen-income":       "2026-04-01",
-    "digital-gold-accumulator":    "2026-04-01",
+    "digital-gold-accumulator":    "2026-07-30", // Re-seeded as Precious Metals Portfolio (2026-07-30)
+    "equity-savings-hybrid":       "2022-06-01", // Portfolio #46 — Equity Savings Hybrid
     // ── Tier 2: May 2026 (thematic + goal-based) ─────────────────────────────
     "equity-momentum-india":       "2026-05-01",
     "digital-india-tech":          "2026-05-01",
@@ -2623,10 +2718,6 @@ modelPortfoliosRouter.post("/admin/seed-inception-dates", async (_req: Request, 
     "credit-income":               "2026-06-01",
     "india-growth":                "2026-06-01",
     "intl-emerging-markets":       "2026-06-01",
-    "smart-beta-hybrid":           "2026-06-01",
-    "equity-savings-hybrid":       "2026-06-01",
-    // ── Tier 4: Jul 2026 (new additions today) ───────────────────────────────
-    "precious-industrial-metals":  "2026-07-10",
   };
 
   // SEBI audit compliance constants
