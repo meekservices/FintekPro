@@ -66,7 +66,7 @@ interface PortfolioSeed {
 //   - corporate-treasury      → debt management
 //   - credit-income           → credit risk debt
 //   - debt-ladder             → duration bonds
-//   - digital-gold-accumulator→ gold instruments
+//   - digital-gold-accumulator→ Precious Metals Portfolio (Gold/Silver/Copper/Steel/Platinum proxy) — quarterly auto-rebalanced, no MF ISINs
 //   - emergency-fund          → liquid/debt
 //   - pure-debt-portfolio     → debt only
 //   - reit-invit-income       → REITs (already equity-like, keep)
@@ -699,6 +699,7 @@ const STOCK_SEEDS: PortfolioSeed[] = [
  * @param db - Drizzle NodePgDatabase instance
  */
 export async function seedStockPortfolios(db: any): Promise<void> {
+  // eslint-disable-next-line no-console
   console.log(`[Phase E] Starting direct stock seed for ${STOCK_SEEDS.length} portfolios...`);
   let updated = 0;
   let skipped = 0;
@@ -734,18 +735,22 @@ export async function seedStockPortfolios(db: any): Promise<void> {
 
       const rowsAffected = Number((result as any).rowCount ?? 0);
       if (rowsAffected > 0) {
+        // eslint-disable-next-line no-console
         console.log(`  ✅ [StockSeed] ${seed.id} → ${seed.holdings.length} stock holdings seeded`);
         updated++;
       } else {
+        // eslint-disable-next-line no-console
         console.log(`  ⏭️  [StockSeed] ${seed.id} → already stock-based, AI-managed — skipped`);
         skipped++;
       }
     } catch (err: any) {
+      // eslint-disable-next-line no-console
       console.warn(`  ⚠️  [StockSeed] ${seed.id} error: ${err.message}`);
       errors++;
     }
   }
 
+  // eslint-disable-next-line no-console
   console.log(
     `[Phase E] Stock seed complete — ` +
     `updated=${updated}, skipped(AI-managed)=${skipped}, errors=${errors} | ` +
@@ -753,6 +758,7 @@ export async function seedStockPortfolios(db: any): Promise<void> {
   );
 
   // Structured FASP-AI v1.0 log
+  // eslint-disable-next-line no-console
   console.log(JSON.stringify({
     event:          "STOCK_PORTFOLIO_SEED_COMPLETE",
     user_id:        "system",

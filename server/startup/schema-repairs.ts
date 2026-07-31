@@ -698,6 +698,7 @@ crypto_status VARCHAR,
 			const { runSgbRepair } = await import("../db-migrations/sgb-repair");
 			await runSgbRepair();
 		} catch (e: any) {
+			// eslint-disable-next-line no-console
 			console.warn("[Migration] SGB repair sequence skipped:", e?.message);
 		}
 
@@ -708,6 +709,7 @@ crypto_status VARCHAR,
 			);
 			await runGovernanceNcdRepair();
 		} catch (e: any) {
+			// eslint-disable-next-line no-console
 			console.warn("[Migration] Governance/NCD repair skipped:", e?.message);
 		}
 
@@ -717,10 +719,12 @@ crypto_status VARCHAR,
             ADD COLUMN IF NOT EXISTS forensic_hash VARCHAR(64),
             ADD COLUMN IF NOT EXISTS prev_hash VARCHAR(64);
         `);
+			// eslint-disable-next-line no-console
 			console.log(
 				"✅ forensic_hash/prev_hash columns on unlisted_regulatory_audit_log verified",
 			);
 		} catch (e: any) {
+			// eslint-disable-next-line no-console
 			console.warn(
 				"[Migration] unlisted_regulatory_audit_log forensic columns skipped:",
 				e?.message,
@@ -758,10 +762,12 @@ crypto_status VARCHAR,
             ADD COLUMN IF NOT EXISTS w8ben_filed BOOLEAN DEFAULT false,
             ADD COLUMN IF NOT EXISTS w8ben_expiry_date DATE;
         `);
+			// eslint-disable-next-line no-console
 			console.log(
 				"✅ KYC & LRS columns on user_profiles & lrs_compliance_tracking verified",
 			);
 		} catch (e: any) {
+			// eslint-disable-next-line no-console
 			console.error(
 				"[Migration] user_profiles & lrs_compliance_tracking KYC columns error:",
 				e?.message,
@@ -1797,11 +1803,19 @@ crypto_status VARCHAR,
           '[{"type":"reit","label":"Office REIT","weight":40},{"type":"reit","label":"Retail REIT","weight":20},{"type":"invit","label":"InvIT","weight":30},{"type":"liquid","label":"Liquid","weight":10}]',
           '[{"name":"Embassy Office Parks REIT","isin":"INE251K01021","weight":25,"type":"reit"},{"name":"Mindspace Business Parks REIT","isin":"INE037FC01012","weight":20,"type":"reit"},{"name":"Brookfield India REIT","isin":"INE0JD801015","weight":15,"type":"reit"},{"name":"IndiGrid InvIT","isin":"INE219O01021","weight":20,"type":"invit"},{"name":"IRB InvIT","isin":"INE500L20022","weight":10,"type":"invit"},{"name":"Liquid Fund","isin":"INF200K01FT1","weight":10,"type":"liquid"}]'
         ),
-        ('digital-gold-accumulator', 'Digital Gold Accumulator', 'Systematic gold accumulation without physical storage', 'conservative', 'gold',
-          '["inflation_hedge","wealth_preservation","goal_planning"]', 1000, '3+ years', 'MCX Gold', TO_CHAR(NOW() - INTERVAL '18 days', 'YYYY-MM-DD'), 'annual', 5, 'Sovereign & digital gold for every Indian household', '🥇', FALSE,
-          '[{"type":"sgb","label":"Sovereign Gold Bonds","weight":50},{"type":"gold_etf","label":"Gold ETFs","weight":30},{"type":"gold_fund","label":"Gold Savings Fund","weight":20}]',
-          '[{"name":"SGB 2024-25 Series I","isin":"IN0020240021","weight":30,"type":"sgb"},{"name":"SGB 2023-24 Series IV","isin":"IN0020240013","weight":20,"type":"sgb"},{"name":"Nippon India Gold ETF","isin":"INF204KA1I34","weight":20,"type":"gold_etf"},{"name":"HDFC Gold ETF","isin":"INF179K01V44","weight":10,"type":"gold_etf"},{"name":"Nippon Gold Savings Fund","isin":"INF204K01TW4","weight":20,"type":"gold_fund"}]'
+        ('digital-gold-accumulator', 'Precious Metals Portfolio',
+          'Gold · Silver · Platinum · Copper · Steel — the full metals supercycle',
+          'aggressive', 'commodity',
+          '["wealth_creation","inflation_hedge","commodity_exposure","industrial_growth"]',
+          5000, '3-5 years',
+          'Blended Metals Benchmark (35% IBJA Gold + 30% MCX Silver + 20% NIFTY Metal Index + 15% LME Copper)',
+          TO_CHAR(NOW() - INTERVAL '0 days', 'YYYY-MM-DD'), 'quarterly', 10,
+          'Gold · Silver · Platinum · Copper · Steel — ride the precious & industrial metals supercycle',
+          '🪙', TRUE,
+          '[{"type":"gold","label":"Gold (ETF/FoF)","weight":35,"color":"#F59E0B"},{"type":"silver","label":"Silver ETFs","weight":25,"color":"#9CA3AF"},{"type":"copper","label":"Copper & Base Metals","weight":20,"color":"#B45309"},{"type":"steel","label":"Steel Stocks","weight":15,"color":"#6B7280"},{"type":"platinum","label":"Platinum Proxy","weight":5,"color":"#C0C0C0"}]',
+          '[{"name":"Nippon India Gold ETF","symbol":"GOLDBEES","isin":"INF204KA1I34","weight":20,"type":"gold","metal":"gold"},{"name":"HDFC Gold ETF","symbol":"HDFCMFGETF","isin":"INF179K01V44","weight":10,"type":"gold","metal":"gold"},{"name":"Nippon India Gold Savings Fund","symbol":"NGOLD","isin":"INF204K01TW4","weight":5,"type":"gold_fof","metal":"gold"},{"name":"Nippon India Silver ETF","symbol":"SILVERETF","isin":"INF204KB17I5","weight":15,"type":"silver_etf","metal":"silver"},{"name":"ICICI Pru Silver ETF","symbol":"ICICISILETF","isin":"INF109KC1DK2","weight":10,"type":"silver_etf","metal":"silver"},{"name":"Hindustan Copper Ltd","symbol":"HINDCOPPER","isin":"INE531E01026","weight":12,"type":"copper_stock","metal":"copper"},{"name":"Hindalco Industries Ltd","symbol":"HINDALCO","isin":"INE038A01020","weight":8,"type":"base_metals_stock","metal":"copper"},{"name":"Tata Steel Ltd","symbol":"TATASTEEL","isin":"INE081A01020","weight":8,"type":"steel_stock","metal":"steel"},{"name":"NMDC Steel Ltd","symbol":"NMDCSTEEL","isin":"INE0GQ601011","weight":7,"type":"steel_stock","metal":"steel"},{"name":"Axis Gold ETF (Platinum Proxy)","symbol":"AXISGOLD","isin":"INF846K01EJ0","weight":5,"type":"gold_etf_pt_proxy","metal":"platinum","note":"No SEBI-regulated domestic Pt ETF; Gold ETF held as conservative proxy per FASP-AI v3.0 disclosure"}]'
         ),
+
         ('debt-ladder', 'Debt Ladder Portfolio', 'Systematic maturity ladder for predictable income', 'conservative', 'debt',
           '["regular_income","capital_preservation","liquidity"]', 25000, '2-5 years', 'CRISIL Composite Bond Index', TO_CHAR(NOW() - INTERVAL '25 days', 'YYYY-MM-DD'), 'annual', 8, 'Staggered maturities for consistent cash flows', '📊', FALSE,
           '[{"type":"liquid","label":"Liquid (0-3M)","weight":15},{"type":"ultra_short","label":"Ultra Short (3-6M)","weight":20},{"type":"low_duration","label":"Low Duration (6-12M)","weight":25},{"type":"short_duration","label":"Short Duration (1-3Y)","weight":25},{"type":"medium_duration","label":"Medium Duration (3-5Y)","weight":15}]',

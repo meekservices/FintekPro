@@ -129,12 +129,15 @@ UPDATE model_portfolios SET
   engine_version='1.0.0-static', source='static_seed', updated_at=NOW()
 WHERE id='balanced-advantage';
 
+-- Precious Metals Portfolio (was Digital Gold Accumulator) — blended metals basket metrics
 UPDATE model_portfolios SET
-  cagr_1y='4.2', cagr_3y='5.1', cagr_5y='6.8',
-  benchmark_cagr_1y='3.8', benchmark_name='Gold Spot Price',
-  sharpe_ratio='0.84', max_drawdown='-12.4', volatility='12.8', beta='0.08', alpha='0.6',
-  engine_version='1.0.0-static', source='static_seed', updated_at=NOW()
+  cagr_1y='26.8', cagr_3y='29.4', cagr_5y='20.2',
+  benchmark_cagr_1y='23.6',
+  benchmark_name='Blended Metals Benchmark (35% IBJA Gold + 30% MCX Silver + 20% NIFTY Metal Index + 15% LME Copper)',
+  sharpe_ratio='0.78', max_drawdown='-18.2', volatility='22.4', beta='0.32', alpha='3.2',
+  engine_version='FASP-AI v3.0 / precious-metals-v1', source='static_seed', updated_at=NOW()
 WHERE id='digital-gold-accumulator';
+
 
 UPDATE model_portfolios SET
   cagr_1y='14.2', cagr_3y='16.8', cagr_5y='19.4',
