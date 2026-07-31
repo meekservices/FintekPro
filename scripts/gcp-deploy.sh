@@ -260,3 +260,54 @@ npx -y firebase-tools@latest deploy --only hosting --project fintekpro --non-int
 echo ""
 echo "✅ Firebase Hosting deploy complete — frontend is now in sync with backend!"
 
+# ── Post-Deploy Cleanup (keep costs low) ───────────────────────────────────
+# Artifact Registry: keep only 3 most recent image versions per repo.
+# Pricing ~$0.10/GB/month — old images accumulate fast (~447 GB before cleanup).
+# This prunes the fintekpro-repo and cloud-run-source-deploy repos safely.
+echo ""
+echo "🧹 Cleaning up old Docker image versions (keeping 3 latest)..."
+for REGISTRY_IMAGE in \
+  "asia-south1-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}" \
+  "asia-south1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${SERVICE_NAME}"; do
+
+  OLD_DIGESTS=$(gcloud artifacts docker images list "${REGISTRY_IMAGE}" \
+    --format="get(version)" \
+    --sort-by="~UPDATE_TIME" \
+    --limit=1000 2>/dev/null | tail -n +4)
+
+  if [ -z "$OLD_DIGESTS" ]; then
+    echo "  ✅ ${REGISTRY_IMAGE##*/}: already clean (≤3 versions)"
+    continue
+  fi
+
+  CLEANED=0
+  while IFS= read -r digest; do
+    [ -z "$digest" ] && continue
+    gcloud artifacts docker images delete \
+      "${REGISTRY_IMAGE}@${digest}" \
+      --delete-tags --quiet 2>/dev/null && CLEANED=$((CLEANED+1)) || true
+  done <<< "$OLD_DIGESTS"
+  echo "  ✅ ${REGISTRY_IMAGE##*/}: removed ${CLEANED} old image version(s)"
+done
+
+# Cloud Run: prune old revisions (keep 5 latest, delete the rest).
+# Old revisions don't cost compute but clutter the console and slow gcloud CLI.
+echo ""
+echo "🧹 Pruning old Cloud Run revisions (keeping 5 latest)..."
+REVS_TO_DEL=$(gcloud run revisions list \
+  --service=$SERVICE_NAME --region=$REGION \
+  --format="value(metadata.name)" \
+  --sort-by="~metadata.creationTimestamp" \
+  --limit=1000 2>/dev/null | tail -n +6)
+
+PRUNED=0
+while IFS= read -r rev; do
+  [ -z "$rev" ] && continue
+  gcloud run revisions delete "$rev" --region=$REGION --quiet 2>/dev/null \
+    && PRUNED=$((PRUNED+1)) || true
+done <<< "$REVS_TO_DEL"
+echo "  ✅ Removed ${PRUNED} old revision(s) — 5 latest kept"
+
+echo ""
+echo "🎉 Deploy + cleanup complete!"
+echo ""
