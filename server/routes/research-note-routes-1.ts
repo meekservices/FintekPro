@@ -247,10 +247,12 @@ async function persistNewListing(opts: {
                              THEN 'auto_discovered' ELSE listed_stocks.data_source END,
         last_updated  = NOW()
     `);
+  // eslint-disable-next-line no-console
 		console.log(
 			`[ResearchNote] Auto-persisted new listing: ${opts.symbol} (${opts.name})`,
 		);
 	} catch (e: any) {
+  // eslint-disable-next-line no-console
 		console.warn(
 			`[ResearchNote] Auto-persist skipped for ${opts.symbol}:`,
 			e?.message?.slice(0, 80),
@@ -488,7 +490,20 @@ router.post("/preview", async (req: Request, res: Response) => {
 		const { symbol } = req.body;
 		if (!symbol?.trim())
 			return res.status(400).json({ error: "Symbol is required" });
-		const data = await buildReportData(symbol.trim());
+
+		// Hard 55-second timeout — Cloud Run's load balancer cuts connections at 60s
+		// and returns a raw 502. By timing out at 55s we return a clean 504 JSON
+		// instead, which the frontend can handle gracefully.
+		const timeoutMs = 55_000;
+		const timeoutPromise = new Promise<never>((_, reject) =>
+			setTimeout(
+				() => reject(Object.assign(new Error("REPORT_TIMEOUT"), { isTimeout: true })),
+				timeoutMs,
+			),
+		);
+
+		const data = await Promise.race([buildReportData(symbol.trim()), timeoutPromise]);
+
 		res.json({
 			symbol: data.symbol,
 			companyName: data.companyName,
@@ -524,6 +539,20 @@ router.post("/preview", async (req: Request, res: Response) => {
 			keyPoints: (data as any).keyPoints ?? { pros: [], cons: [] },
 		});
 	} catch (err: any) {
+		// Timeout: return 504 so frontend shows "generating, please retry" instead of blank
+		if (err?.isTimeout) {
+   // eslint-disable-next-line no-console
+			console.warn(`[ResearchNote] /preview timed out after 55s for ${req.body?.symbol}`);
+			return res.status(504).json({
+				success: false,
+				error: "REPORT_TIMEOUT",
+				message:
+					"Report data is taking longer than expected. Please try again in a moment.",
+				retryable: true,
+				retryAfter: 10,
+			});
+		}
+
 		// Detect when all AI providers are exhausted (rate-limited) — return 503
 		// with a retryAfter hint so the client can show a friendly "try again" message
 		// instead of a cryptic 500 error.
@@ -534,6 +563,7 @@ router.post("/preview", async (req: Request, res: Response) => {
 			err?.message?.toLowerCase().includes("quota");
 
 		if (isProviderExhaustion) {
+   // eslint-disable-next-line no-console
 			console.warn(
 				`[ResearchNote] AI provider exhaustion on /preview — returning 503 retryAfter`,
 			);

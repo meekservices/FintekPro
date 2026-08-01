@@ -1,21 +1,87 @@
-const CACHE_NAME = 'fintekpro-agent-v4'; // bumped 2026-07-28: skipWaiting on install + MessageChannel port response fix
+const CACHE_NAME = 'fintekpro-agent-v5'; // bumped 2026-08-01: add fetch handler + navigation preload support
 
+// ── Install ──────────────────────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
-  console.log('[SW] Service Worker installing — skipping waiting immediately');
-  // Skip waiting immediately so there is never a 'waiting' SW.
-  // This eliminates the race where the active (old) SW receives postMessage
-  // types it doesn't recognise, causing Chrome's "message channel closed"
-  // UnhandledPromiseRejection in the page context.
+  console.log('[SW] Installing — skip waiting immediately');
+  // Skip waiting so there is never a stale SW sitting in "waiting" state.
+  // This eliminates the race where the active SW receives postMessage
+  // types it does not recognise, causing Chrome's "message channel closed" error.
   self.skipWaiting();
 });
 
+// ── Activate ─────────────────────────────────────────────────────────────────
+self.addEventListener('activate', (event) => {
+  console.log('[SW] Activated — claiming all clients');
+  event.waitUntil(
+    Promise.all([
+      // Claim all open tabs immediately
+      clients.claim(),
+      // Enable navigation preload so navigation requests don't block on the SW
+      // This is the primary fix for "message channel closed" on navigation events
+      self.registration.navigationPreload?.enable?.().catch(() => {}),
+      // Delete old cache versions
+      caches.keys().then((keys) =>
+        Promise.all(
+          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+        )
+      ),
+    ])
+  );
+});
+
+// ── Fetch ─────────────────────────────────────────────────────────────────────
+// IMPORTANT: A Service Worker MUST have a fetch handler when navigation preload
+// is enabled, otherwise Chrome internally queues a navigation preload response
+// and when it gets no reply from the SW, logs:
+//   "A listener indicated an asynchronous response by returning true,
+//    but the message channel closed before a response was received"
+//
+// Strategy:
+//  - API calls (/api/*): always network-only, never cached
+//  - Navigation requests: network-first using preload response when available
+//  - Everything else: network-only (no caching for authenticated app)
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Never intercept API calls — always go to network
+  if (url.pathname.startsWith('/api/')) {
+    return; // Let the browser handle it natively (no event.respondWith)
+  }
+
+  // Navigation requests (page loads) — use preload response if available,
+  // fall back to network fetch. This ensures the channel is always resolved.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      (async () => {
+        try {
+          // Use preload response if available (avoids extra network round-trip)
+          const preloadResponse = await event.preloadResponse;
+          if (preloadResponse) return preloadResponse;
+          // Otherwise fetch from network
+          return await fetch(event.request);
+        } catch {
+          // Offline fallback — return a minimal offline page
+          return new Response(
+            '<!DOCTYPE html><html><body><h1>FintekPro</h1><p>You appear to be offline. Please check your connection.</p></body></html>',
+            { headers: { 'Content-Type': 'text/html' } }
+          );
+        }
+      })()
+    );
+    return;
+  }
+
+  // All other requests (JS/CSS/images): network-only, no caching
+  // The app uses hashed filenames so Firebase Hosting CDN handles caching
+});
+
+// ── Message ───────────────────────────────────────────────────────────────────
 self.addEventListener('message', (event) => {
   // ALWAYS respond on the MessageChannel port if one was provided.
   // Chrome sends internal SW lifecycle messages using MessageChannel and expects
   // a response (even if empty). Not responding causes:
   //   "A listener indicated an asynchronous response by returning true,
   //    but the message channel closed before a response was received"
-  // We respond synchronously here so the channel is never left dangling.
   const respond = (payload = { ok: true }) => {
     if (event.ports?.[0]) {
       event.ports[0].postMessage(payload);
@@ -45,24 +111,18 @@ self.addEventListener('message', (event) => {
         ).then(() => {
           console.log('[SW] All caches cleared on force-update request');
           respond();
-        })
+        }).catch(() => respond())
       );
       return;
     }
   }
 
-  // Unknown message — respond with ok so Chrome doesn't hold the channel open
+  // Unknown message — respond with ok so Chrome never holds the channel open
   respond();
 });
 
-self.addEventListener('activate', (event) => {
-  console.log('[SW] Service Worker activated');
-  event.waitUntil(clients.claim());
-});
-
+// ── Push Notifications ────────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
-  console.log('[SW] Push notification received');
-  
   let data = {
     title: 'FintekPro Agent',
     body: 'You have a new notification',
@@ -71,7 +131,7 @@ self.addEventListener('push', (event) => {
     tag: 'default',
     data: { url: '/' }
   };
-  
+
   try {
     if (event.data) {
       const payload = event.data.json();
@@ -91,7 +151,7 @@ self.addEventListener('push', (event) => {
   } catch (e) {
     console.error('[SW] Error parsing push data:', e);
   }
-  
+
   const options = {
     body: data.body,
     icon: data.icon,
@@ -104,32 +164,30 @@ self.addEventListener('push', (event) => {
       { action: 'dismiss', title: 'Dismiss' }
     ]
   };
-  
+
+  // Always wrap in waitUntil so the push event is never dropped
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification(data.title, options).catch((e) => {
+      console.error('[SW] showNotification failed:', e);
+    })
   );
 });
 
+// ── Notification Click ────────────────────────────────────────────────────────
 self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification clicked:', event.action);
-  
   event.notification.close();
-  
-  if (event.action === 'dismiss') {
-    return;
-  }
-  
+
+  if (event.action === 'dismiss') return;
+
   const urlToOpen = event.notification.data?.url || '/';
-  
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((windowClients) => {
         for (const client of windowClients) {
           if (client.url.includes(self.location.origin) && 'focus' in client) {
             client.focus();
-            if (urlToOpen !== '/') {
-              client.navigate(urlToOpen);
-            }
+            if (urlToOpen !== '/') client.navigate(urlToOpen);
             return;
           }
         }
@@ -138,6 +196,6 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-self.addEventListener('notificationclose', (event) => {
-  console.log('[SW] Notification closed');
+self.addEventListener('notificationclose', () => {
+  // No-op: Chrome requires this listener to be registered in some environments
 });
