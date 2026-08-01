@@ -302,7 +302,27 @@ router.post("/prospects", async (req: Request, res: Response) => {
 				.json({ success: false, message: "Authentication required" });
 		}
 
-		const data = createProspectSchema.parse(req.body);
+		// Use safeParse so Zod validation errors return user-friendly messages
+		// instead of raw JSON ZodError strings reaching the client toast
+		const parsed = createProspectSchema.safeParse(req.body);
+		if (!parsed.success) {
+			const firstError = parsed.error.issues[0];
+			const field = firstError?.path?.join(".") || "field";
+			const msg = firstError?.message || "Invalid input";
+			const fieldLabel: Record<string, string> = {
+				name: "Full Name",
+				email: "Email Address",
+				mobile: "Mobile Number",
+				pan: "PAN Number",
+			};
+			const label = fieldLabel[field] || field;
+			return res.status(400).json({
+				success: false,
+				message: `${label}: ${msg}`,
+				code: "VALIDATION_ERROR",
+			});
+		}
+		const data = parsed.data;
 		const result = await agentProspectWizardService.createProspect(
 			agentId,
 			data,
@@ -357,18 +377,26 @@ router.post("/prospects", async (req: Request, res: Response) => {
 					notes: data.notes,
 					masterAgentZohoAccountId: masterZohoAccountId || undefined,
 				});
+				// eslint-disable-next-line no-console
 				console.log(
 					`[Zoho CRM] Synced prospect ${result} to Zoho Lead ${zohoLeadId}`,
 				);
 			}
 		} catch (zohoError) {
+			// eslint-disable-next-line no-console
 			console.warn("[Zoho CRM] Sync failed (non-blocking):", zohoError);
 		}
 
 		res.json({ success: true, prospectId: result, zohoLeadId });
 	} catch (error: any) {
+		// eslint-disable-next-line no-console
 		console.error("[Agent Wizard] Error creating prospect:", error);
-		res.status(400).json({ success: false, message: error.message });
+		// Prevent raw Zod JSON from reaching the client
+		const message =
+			error?.name === "ZodError"
+				? "Please check your input and try again."
+				: (error?.message ?? "Failed to create prospect.");
+		res.status(400).json({ success: false, message });
 	}
 });
 
@@ -413,6 +441,7 @@ router.post("/request-mapping", async (req: Request, res: Response) => {
 
 		res.json({ success: true, ...result });
 	} catch (error: any) {
+  // eslint-disable-next-line no-console
 		console.error("[Agent Wizard] Error requesting mapping:", error);
 		res.status(400).json({ success: false, message: error.message });
 	}
@@ -435,6 +464,7 @@ router.get("/admin/mapping-requests", async (req: Request, res: Response) => {
 			await agentProspectWizardService.getPendingMappingRequests();
 		res.json({ success: true, requests });
 	} catch (error: any) {
+  // eslint-disable-next-line no-console
 		console.error("[Agent Wizard] Error fetching mapping requests:", error);
 		res.status(500).json({ success: false, message: error.message });
 	}
@@ -471,6 +501,7 @@ router.post(
 			);
 			res.json(result);
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.error("[Agent Wizard] Error processing mapping request:", error);
 			res.status(400).json({ success: false, message: error.message });
 		}
@@ -490,6 +521,7 @@ router.get("/prospects", async (req: Request, res: Response) => {
 			await agentProspectWizardService.getAgentProspects(agentId);
 		res.json({ success: true, prospects });
 	} catch (error: any) {
+  // eslint-disable-next-line no-console
 		console.error("[Agent Wizard] Error fetching prospects:", error);
 		res.status(500).json({ success: false, message: error.message });
 	}
@@ -568,6 +600,7 @@ router.get(
 				}),
 			});
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.error("[Top Ranked] Error:", error);
 			res.status(500).json({ success: false, error: error.message });
 		}
@@ -587,6 +620,7 @@ router.get(
 			const benchmarks = await getSectorBenchmarks();
 			res.json({ success: true, benchmarks });
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.error("[Sector Benchmarks] Error:", error);
 			res.status(500).json({ success: false, error: error.message });
 		}
@@ -617,6 +651,7 @@ router.get("/prospects/:id", async (req: Request, res: Response) => {
 		}
 		res.json({ success: true, prospect });
 	} catch (error: any) {
+  // eslint-disable-next-line no-console
 		console.error("[Agent Wizard] Error fetching prospect:", error);
 		res.status(500).json({ success: false, message: error.message });
 	}
@@ -648,6 +683,7 @@ router.put("/prospects/:id/portfolio", async (req: Request, res: Response) => {
 		);
 		res.json({ success: true });
 	} catch (error: any) {
+  // eslint-disable-next-line no-console
 		console.error("[Agent Wizard] Error updating portfolio:", error);
 		res.status(400).json({ success: false, message: error.message });
 	}
@@ -669,6 +705,7 @@ router.get("/prospects/:id/readiness", async (req: Request, res: Response) => {
 		);
 		res.json({ success: true, readiness });
 	} catch (error: any) {
+  // eslint-disable-next-line no-console
 		console.error("[Agent Wizard] Error checking readiness:", error);
 		res.status(400).json({ success: false, message: error.message });
 	}
@@ -689,6 +726,7 @@ router.post(
 				await prospectReadinessService.evaluateAndAdvanceToReady(req.params.id);
 			res.json({ success: true, readiness });
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.error("[Agent Wizard] Error evaluating readiness:", error);
 			res.status(400).json({ success: false, message: error.message });
 		}
