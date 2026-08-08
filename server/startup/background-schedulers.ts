@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * FintekPro — Background Scheduler Registry
  *
@@ -8,6 +9,7 @@
  * Execution order matters — data must exist before picks can be generated:
  *   AutoPublish → StockSync → MFSync → Enrichment → PickScheduler → AutoHeal loop
  */
+
 
 const SCHEDULER_START_DELAY_MS = 5000;
 const AUDIT_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -872,12 +874,62 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			console.log("[NSEEnrich] 📊 NSE beta enrichment scheduled (weekly Saturday midnight IST)");
 		});
 
+		// ── Phase 5g: Stock Financial Metrics Nightly Refresh ─────────────────────
+		// Populates stock_financial_metrics table for all published listed stocks.
+		// This is a CRITICAL Phase 2 quant-engine fix (BUG-3 root cause):
+		//   stockFinancialMetrics was NEVER populated → Piotroski F-Score, Beneish
+		//   M-Score, Interest Coverage, Quick Ratio (±75pts of the 120pt scoring scale)
+		//   returned {} for every stock, leaving the engine at ~37% signal capacity.
+		//
+		// Schedule: 10:30 PM IST = 17:00 UTC — runs AFTER FMP enrichment batch
+		//   (which populates companyFinancials at ~9 PM IST) and BEFORE next-day
+		//   pick generation (7:30 AM IST). Window: 10 hours of stable data.
+		//
+		// Batch size: 100 stocks per run (100ms throttle per stock ≈ 10s total).
+		// Increments to full universe as the table warms up over nightly runs.
+		runStartupTask("Stock Financial Metrics Refresh", async () => {
+			const msUntilNext1700UTC = (): number => {
+				const now = new Date();
+				const next = new Date();
+				next.setUTCHours(17, 0, 0, 0); // 10:30 PM IST
+				if (next <= now) next.setTime(next.getTime() + 24 * 60 * 60 * 1000);
+				return next.getTime() - now.getTime();
+			};
+
+			const runRefresh = async () => {
+				try {
+					const { FinancialMetricsRefreshService } = await import(
+						"../services/financial-metrics-refresh-service"
+					);
+					const svc = new FinancialMetricsRefreshService();
+					console.log("[MetricsRefresh] 🔄 Starting nightly stockFinancialMetrics refresh (batch=100)...");
+					const result = await svc.refreshAllStockMetrics(100);
+					console.log(`[MetricsRefresh] ✅ Done: ${result.success} success, ${result.failed} failed`);
+				} catch (err) {
+					console.warn("[MetricsRefresh] ⚠️ Nightly refresh failed (non-fatal):", err);
+				}
+			};
+
+			// First run: at next 10:30 PM IST
+			setTimeout(() => {
+				void runRefresh();
+				// Then nightly thereafter
+				setInterval(() => { void runRefresh(); }, 24 * 60 * 60 * 1000);
+			}, msUntilNext1700UTC());
+
+			console.log(
+				`[MetricsRefresh] 📊 Nightly stockFinancialMetrics refresh scheduled — ` +
+				`next run in ${Math.round(msUntilNext1700UTC() / 60000)} min (10:30 PM IST)`,
+			);
+		});
+
 		// ── Phase 5f: Redis Cache Warming ────────────────────────────────────────
 		// Warms the top 5 expensive operations into Redis on boot + daily refresh.
 		// Prevents cold-start latency spikes for regime/pick/screener data.
 		runStartupTask("Redis Cache Warming", async () => {
 			if (!process.env.REDIS_URL) {
 				console.log("[CacheWarm] REDIS_URL not set — skipping Redis warming");
+
 				return;
 			}
 			const warm = async () => {

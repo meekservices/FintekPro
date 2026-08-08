@@ -410,6 +410,62 @@ export class PickOutcomeAnalyzer {
       );
     }
 
+    // ── Phase 3 fix: Auto weight-penalty for proven weak signals ──────────────
+    // FASP-AI v3.0 protocol: DEFENSIVE weight changes (decrease) are automated
+    // when statistical evidence is strong (≥30 picks, lift < 0.7).
+    // OFFENSIVE changes (increase) ALWAYS require explicit human approval.
+    const WEIGHT_PENALTY_MIN_PICKS = 30;
+    const WEIGHT_PENALTY_LIFT_THRESHOLD = 0.7;
+    const WEIGHT_PENALTY_FACTOR = 0.80; // reduce weak signal contribution by 20%
+
+    const autoDowngrades: Record<string, number> = {};
+    for (const entry of signalEfficacy) {
+      if (
+        entry.picksWithSignal >= WEIGHT_PENALTY_MIN_PICKS &&
+        entry.lift < WEIGHT_PENALTY_LIFT_THRESHOLD
+      ) {
+        autoDowngrades[entry.signal] = WEIGHT_PENALTY_FACTOR;
+        logger.warn(
+          `[PickOutcomeAnalyzer] AUTO-DOWNGRADE: signal '${entry.signal}' lift=${entry.lift} ` +
+          `on ${entry.picksWithSignal} picks < threshold ${WEIGHT_PENALTY_LIFT_THRESHOLD} — ` +
+          `writing 20% penalty to adminSettings.`,
+          { event: "SIGNAL_AUTO_DOWNGRADED", user_id: "SYSTEM", latency_ms: 0, status: "alert" },
+        );
+      }
+    }
+
+    if (Object.keys(autoDowngrades).length > 0) {
+      try {
+        const WEIGHT_OVERRIDES_KEY = "pick_scoring_weight_overrides";
+        await db
+          .insert(adminSettings)
+          .values({
+            key: WEIGHT_OVERRIDES_KEY,
+            value: autoDowngrades as any,
+            description:
+              "Auto-generated scoring weight overrides from pick-outcome-analyzer. " +
+              "Signals with lift < 0.7 on ≥30 picks are penalised by 20%. " +
+              "FASP-AI v3.0: only decreases are automated — increases require human approval.",
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: adminSettings.key,
+            set: {
+              value: JSON.stringify(autoDowngrades),
+              updatedAt: new Date(),
+            },
+          });
+        logger.info(
+          `[PickOutcomeAnalyzer] Weight overrides persisted: ${JSON.stringify(autoDowngrades)}`,
+        );
+      } catch (weightErr) {
+        logger.warn(
+          `[PickOutcomeAnalyzer] Failed to persist weight overrides (non-fatal): ` +
+            `${weightErr instanceof Error ? weightErr.message : String(weightErr)}`,
+        );
+      }
+    }
+
     return report;
   }
 

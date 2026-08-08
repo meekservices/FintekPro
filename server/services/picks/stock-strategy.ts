@@ -13,7 +13,9 @@ import {
 	DailyPickData,
 	PickCategory,
 	calculateSuggestedAllocation,
+	SCORER_MIN_THRESHOLD,
 } from "../pick-of-the-day-service";
+
 import {
 	getEnrichedStockSnapshots,
 	EnrichedStockSnapshot,
@@ -343,6 +345,37 @@ async function runConcurrent<T>(
 /** Cached flag: undefined = unchecked, true = has rows, false = empty table */
 let _metricsTableHasData: boolean | undefined;
 
+// ── Phase 3: Weight override cache ─────────────────────────────────────────────
+// Reads pick_scoring_weight_overrides from adminSettings (written by outcome-analyzer).
+// In-memory TTL: 1h — avoids a DB read on every score() call while still
+// picking up nightly auto-downgrade changes before next day's generation run.
+let _weightOverridesCache: { data: Record<string, number>; ts: number } | null = null;
+const WEIGHT_OVERRIDES_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+async function _getWeightOverrides(): Promise<Record<string, number>> {
+	if (
+		_weightOverridesCache !== null &&
+		Date.now() - _weightOverridesCache.ts < WEIGHT_OVERRIDES_CACHE_TTL_MS
+	) {
+		return _weightOverridesCache.data;
+	}
+	try {
+		const { db: wDb } = await import("../../db");
+		const { adminSettings: wSettings } = await import("@shared/schema");
+		const { eq: wEq } = await import("drizzle-orm");
+		const rows = await wDb
+			.select({ value: wSettings.value })
+			.from(wSettings)
+			.where(wEq(wSettings.key, "pick_scoring_weight_overrides"))
+			.limit(1);
+		const data = (rows[0]?.value as Record<string, number>) ?? {};
+		_weightOverridesCache = { data, ts: Date.now() };
+		return data;
+	} catch {
+		return {}; // non-fatal — no overrides applied
+	}
+}
+
 export class StockStrategy extends BaseStrategy {
 	category: PickCategory = "listed_stocks";
 
@@ -358,37 +391,45 @@ export class StockStrategy extends BaseStrategy {
 			const results: DailyPickData[] = [];
 			const usedIds = new Set<string>(context.recentIds ?? []);
 
-			// ── Fix 1: 2-day broad-sector dedup ─────────────────────────────────────
-			// Prevents the same broad sector (e.g. IT) from being picked 3 days in a row.
-			// Reads ONLY yesterday's stock picks (not today) to avoid blocking all sectors
-			// on the same run day. Uses IST date arithmetic to match how picks are stored.
-			// Non-fatal: if DB fails, proceed without dedup.
+			// ── Fix 1 (BUG-2): 3-day broad-sector dedup with max-3 cap ──────────────
+			// Reads previous 3 days' picks to prevent 3-day-in-a-row sector repetition.
+			// Cap: at most 3 sectors excluded — always leaves ≥2 fresh sectors available
+			// regardless of historical pattern, so the engine never self-blocks.
 			const recentBroadSectors = new Set<string>();
 			try {
 				const { dailyPicks } = await import("@shared/schema");
 				const { gte, lt, eq } = await import("drizzle-orm");
-				// Use IST date (UTC+5:30) — picks are stored as IST dates
 				const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 				const todayIST = new Date(Date.now() + IST_OFFSET_MS).toISOString().split("T")[0];
-				const twoDaysAgoIST = new Date(Date.now() + IST_OFFSET_MS - 2 * 24 * 60 * 60 * 1000)
+				// 3-day rolling window (was 2-day — after 2 days ALL 5 sectors were excluded)
+				const threeDaysAgoIST = new Date(Date.now() + IST_OFFSET_MS - 3 * 24 * 60 * 60 * 1000)
 					.toISOString().split("T")[0];
-				// Only look at PREVIOUS days — not today's picks (avoids self-blocking)
 				const recentPicks = await db
 					.select({ keyMetrics: dailyPicks.keyMetrics })
 					.from(dailyPicks)
 					.where(
 						and(
 							eq(dailyPicks.category, "listed_stocks"),
-							gte(dailyPicks.recoDate, twoDaysAgoIST),
-							lt(dailyPicks.recoDate, todayIST), // exclude today
+							gte(dailyPicks.recoDate, threeDaysAgoIST),
+							lt(dailyPicks.recoDate, todayIST),
 						),
 					);
+				const rawSectors = new Set<string>();
 				for (const p of recentPicks) {
 					const km = p.keyMetrics as Record<string, any> | null;
-					if (km?.broadSector) recentBroadSectors.add(String(km.broadSector));
+					if (km?.broadSector) rawSectors.add(String(km.broadSector));
+				}
+				// Cap: exclude at most 3 sectors so at least 2 remain fresh
+				const SECTOR_EXCLUSION_CAP = 3;
+				for (const s of rawSectors) {
+					if (recentBroadSectors.size >= SECTOR_EXCLUSION_CAP) break;
+					recentBroadSectors.add(s);
 				}
 				if (recentBroadSectors.size > 0) {
-					logger.info(`[StockStrategy] Fix 1: excluding ${recentBroadSectors.size} recently-used broad sectors (yesterday): ${[...recentBroadSectors].join(", ")}`);
+					logger.info(
+						`[StockStrategy] BUG-2 fix: excluding ${recentBroadSectors.size} recently-used broad sectors ` +
+						`(cap ${SECTOR_EXCLUSION_CAP}, 3-day window): ${[...recentBroadSectors].join(", ")}`,
+					);
 				}
 			} catch {
 				// Non-fatal — proceed without sector dedup
@@ -419,10 +460,10 @@ export class StockStrategy extends BaseStrategy {
 				// to still fill a healthy set of picks. If ALL sectors are recently used
 				// (e.g. yesterday had 5 sectors), the dedup is dropped so we don't block
 				// ALL picks and generate nothing.
-				const unusedSectorCount = orderedSectors.filter(s => !recentBroadSectors.has(s.id)).length;
-				const hasEnoughFreshSectors = unusedSectorCount >= 2;
-				if (recentBroadSectors.has(broadSector.id) && hasEnoughFreshSectors) {
-					logger.info(`[StockStrategy] Fix 1: skipping ${broadSector.label} (recently used; ${unusedSectorCount} fresh sectors remain)`);
+					// BUG-2 fix: with the cap in place, recentBroadSectors has at most 3 entries
+				// so at least 2 sectors always pass through
+				if (recentBroadSectors.has(broadSector.id)) {
+					logger.info(`[StockStrategy] BUG-2 fix: skipping ${broadSector.label} (in 3-day dedup set)`);
 					continue;
 				}
 				try {
@@ -678,18 +719,35 @@ export class StockStrategy extends BaseStrategy {
 				),
 		);
 
+		// BUG-4 fix: Pre-fetch RSI from golden_prices for ALL candidates in parallel
+		// so score() receives a unified RSI value instead of fetching it per-stock
+		// inconsistently from two different sources (enriched.technicals vs golden_prices).
+		const rsiMap = new Map<string, number | null>();
+		await Promise.allSettled(
+			eligibleStocks
+				.filter((s) => s.symbol)
+				.map(async (s) => {
+					const enriched = s.symbol ? enrichedSnapshots.get(s.symbol.toUpperCase()) || null : null;
+					// Use screener RSI if available; fall back to golden_prices RSI
+					const rsi = enriched?.technicals?.rsi ?? await this.fetchRsiFromGoldenPrices(s);
+					rsiMap.set(s.symbol!, rsi);
+				}),
+		);
+
 		const scoringTasks = eligibleStocks.map((stock) => async () => ({
 			stock,
 			enriched: stock.symbol
 				? enrichedSnapshots.get(stock.symbol.toUpperCase()) || null
 				: null,
+			rsiOverride: stock.symbol ? (rsiMap.get(stock.symbol) ?? null) : null,
 			score: await this.score(
 				stock,
 				stock.symbol
 					? enrichedSnapshots.get(stock.symbol.toUpperCase()) || null
 					: null,
-				context, // Fix 2: pass context for regime-aware scoring
-				fiiSignal, // #7: FII sector signal for score adjustment
+				context,
+				fiiSignal,
+				stock.symbol ? (rsiMap.get(stock.symbol) ?? null) : null, // BUG-4: unified RSI
 			),
 		}));
 		const scored = (await runConcurrent(scoringTasks, 4)).sort(
@@ -701,6 +759,7 @@ export class StockStrategy extends BaseStrategy {
 			stock: topStock,
 			enriched: topEnriched,
 			score: topScore,
+			rsiOverride: topRsiOverride,
 		} = scored[0];
 		// ── Fetch live price at generation time ──────────────────────────────
 		// Fetching live price at pick-generation time (not stale DB value) so that
@@ -726,6 +785,18 @@ export class StockStrategy extends BaseStrategy {
 		const stoplossPrice =
 			Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
 
+		// ── WEAKNESS-3 fix: Minimum quant score gate ──────────────────────────────
+		// Picks with topScore < SCORER_MIN_THRESHOLD have insufficient signal coverage
+		// (e.g. when stockFinancialMetrics is empty AND screener data is stale).
+		// Publishing such picks is worse than not publishing — their confidence score
+		// is artificially floored at 60 masking the true signal weakness.
+		if (topScore < SCORER_MIN_THRESHOLD) {
+			logger.warn(
+				`[StockStrategy] ${topStock.symbol} (${broadSector.label}): quant score ${topScore} below minimum threshold ${SCORER_MIN_THRESHOLD} — skipping sector.`,
+			);
+			return null;
+		}
+
 		// ── Minimum upside guard ────────────────────────────────────────────
 		// If the live price has already run up to within 5% of the target,
 		// there is no meaningful upside left.
@@ -739,9 +810,6 @@ export class StockStrategy extends BaseStrategy {
 		}
 
 		// ── #2: Reward-to-Risk gate (min 1.5:1) ───────────────────────────────────
-		// ATR stoploss is computed but we must verify the final R:R is adequate.
-		// A 6% target with 5.5% stoploss has R:R of 1.09 — too thin to publish.
-		// Minimum R:R of 1.5:1 ensures the position is worth the risk taken.
 		const rrRatio = (targetPrice - currentPrice) / Math.max(currentPrice - stoplossPrice, 0.01);
 		if (rrRatio < 1.5) {
 			logger.warn(
@@ -750,12 +818,13 @@ export class StockStrategy extends BaseStrategy {
 			return null;
 		}
 
-		let directRsi: number | null = null;
+		// BUG-4 fix: Use pre-fetched unified RSI (already computed in rsiMap above)
+		// instead of re-fetching it here for rationale. This ensures score() and
+		// keyMetrics both reflect the same RSI value.
+		const directRsi: number | null = topRsiOverride ?? null;
 		let directRoic: number | null = null;
 		if (!topEnriched?.fundamentals?.roic && topStock.roce)
 			directRoic = Number.parseFloat(topStock.roce);
-		if (!topEnriched?.technicals?.rsi && (topStock.isin || topStock.symbol))
-			directRsi = await this.fetchRsiFromGoldenPrices(topStock);
 
 		const sectorLabel = broadSector.label;
 		const rationale = await context.service.generateRationale({
@@ -857,6 +926,8 @@ export class StockStrategy extends BaseStrategy {
 		context?: StrategyContext | null,
 		/** Optional FII sector signal — used for #7 sector rotation score boost */
 		fiiSignal?: FIISectorSignal | null,
+		/** BUG-4 fix: pre-fetched unified RSI (from screener or golden_prices) */
+		rsiOverride?: number | null,
 	): Promise<number> {
 		let score = 0;
 
@@ -991,14 +1062,15 @@ export class StockStrategy extends BaseStrategy {
 			else if (dailyTurnover < 2_000_000) score -= 15;   // <₹20L daily — illiquid trap
 		}
 
-		// ── #4: RSI momentum entry signal ─────────────────────────────────────────
-		// RSI computed from golden_prices and pre-populated in keyMetrics.
-		// Using it in score() lets the engine prefer ideal entry zones and avoid
-		// overbought stocks, even when fundamentals are strong.
+		// ── #4 / BUG-4 fix: RSI momentum entry signal — unified source ───────────
+		// rsiOverride is pre-fetched in pickBestForSector via rsiMap:
+		//   1. screener_derived_metrics.rsi (enriched.technicals.rsi)  — preferred
+		//   2. golden_prices 14-day RSI calculation                    — fallback
+		// This ensures score() and keyMetrics always use the same RSI.
 		// RSI 40–65: healthy trend momentum, ideal entry zone
 		// RSI < 30:  oversold — contrarian entry (only for fundamentally sound stocks)
 		// RSI > 75:  overbought — poor entry timing, avoid regardless of fundamentals
-		const rsiForScore = enriched?.technicals?.rsi ?? null;
+		const rsiForScore = rsiOverride ?? enriched?.technicals?.rsi ?? null;
 		if (rsiForScore !== null) {
 			if (rsiForScore >= 40 && rsiForScore <= 65) score += 8;  // Ideal entry zone
 			else if (rsiForScore < 30) score += 5;                   // Oversold — contrarian entry
@@ -1054,6 +1126,26 @@ export class StockStrategy extends BaseStrategy {
 		const stockBroadSector = mapToBroadSector(stock.sector);
 		const fiiBoost = getFIISectorScoreBoost(fiiSignal ?? null, stockBroadSector);
 		if (fiiBoost !== 0) score += fiiBoost;
+
+		// ── Phase 3: Apply adaptive weight-override multipliers ───────────────
+		// Weight overrides are auto-written by pick-outcome-analyzer when a signal
+		// has lift < 0.7 on ≥30 closed picks (FASP-AI v3.0 defensive-only rule).
+		// Multiplier (0.80) is applied to the current score proportionally.
+		// Cache TTL: 1h — takes effect on next morning's pick generation run.
+		// Non-fatal: if adminSettings read fails, score is used unchanged.
+		try {
+			const overrides = await _getWeightOverrides();
+			if (Object.keys(overrides).length > 0) {
+				// We apply a blended multiplier: if any signal in overrides is known
+				// to be weak, reduce the overall raw score by the weakest multiplier.
+				// This is a conservative approach — avoids per-signal decomposition complexity.
+				const minMultiplier = Math.min(...Object.values(overrides));
+				if (minMultiplier < 1.0) {
+					const penaltyApplied = Math.round(score * (1 - minMultiplier));
+					score = Math.max(0, score - penaltyApplied);
+				}
+			}
+		} catch { /* non-fatal */ }
 
 		return Math.max(0, score);
 	}
@@ -1173,17 +1265,28 @@ export class StockStrategy extends BaseStrategy {
 		try {
 			if (!stock.id && !stock.symbol) return {};
 
-			// One-time table check: if stockFinancialMetrics is empty, skip all 30
-			// per-stock queries and return {} immediately. Cached for the batch run.
-			if (_metricsTableHasData === false) return {};
+			// ── BUG-3 fix: table-empty check no longer permanently silences all signals ──
+			// Old behaviour: once empty detected, _metricsTableHasData = false FOREVER
+			// per process lifecycle → Piotroski/Beneish/InterestCoverage/QuickRatio
+			// (±75pts of 120pt scale) were permanently dead zeros.
+			// New behaviour: table-empty resets after 1 hour so it re-checks on the next
+			// generation run (FinancialMetricsRefreshService may have populated it by then).
+			if (_metricsTableHasData === false) {
+				// Allow re-check after 1 hour (set to undefined so next call re-queries)
+				setTimeout(() => { _metricsTableHasData = undefined; }, 60 * 60 * 1000);
+				return {};
+			}
 			if (_metricsTableHasData === undefined) {
 				const [{ value }] = await db
 					.select({ value: count() })
 					.from(stockFinancialMetrics);
 				_metricsTableHasData = (value ?? 0) > 0;
 				if (!_metricsTableHasData) {
-					logger.info(
-						"[StockStrategy] stockFinancialMetrics table is empty — skipping advanced metrics for this batch",
+					logger.warn(
+						"[StockStrategy] BUG-3: stockFinancialMetrics table is EMPTY — " +
+						"Piotroski/Beneish/InterestCoverage/QuickRatio signals inactive. " +
+						"Run FinancialMetricsRefreshService.refreshAllStockMetrics() to populate.",
+						{ event: "QUANT_METRICS_TABLE_EMPTY", user_id: "SYSTEM", latency_ms: 0, status: "alert" },
 					);
 					return {};
 				}
