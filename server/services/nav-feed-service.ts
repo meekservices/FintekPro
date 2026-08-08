@@ -1,6 +1,5 @@
-/* eslint-disable no-console */
 /**
- * nav-feed-service.ts — Layer 1: Live NAV & Weight Engine (FASP-AI v3.0)
+ * nav-feed-service.ts — Layer 1: Live NAV & Weight Engine (FASP-AI v3.1)
  * Pulls daily NAV from AMFI India master file (free, no API key).
  * Recomputes actual portfolio weights nightly after market close.
  * Data source: https://www.amfiindia.com/spages/NAVAll.txt
@@ -12,7 +11,8 @@ import { modelPortfolios, fundPerformanceCache } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "../logger";
 
-const ENGINE_VERSION = "FASP-AI-v3.0";
+const ENGINE_VERSION = "FASP-AI-v3.1"; // v3.1: Yahoo Finance NSE fallback + circuit breaker + dynamic avgReturn
+
 const AMFI_NAV_URL  = "https://www.amfiindia.com/spages/NAVAll.txt";
 const CACHE_TTL_MS  = 6 * 60 * 60 * 1000; // 6h
 
@@ -154,16 +154,35 @@ export async function updateLiveNAVsInCache(): Promise<void> {
   logger.info("NAV_LIVE_UPDATE_COMPLETE", {event: "NAV_LIVE_UPDATE_COMPLETE", updated, engine_version: ENGINE_VERSION});
 }
 
-/** Recompute actual weight drift for a portfolio from live NAV moves */
-export async function recomputePortfolioWeights(portfolioId: string): Promise<{ updated: number }> {
-  const rows = await db.select({ holdings: modelPortfolios.holdings }).from(modelPortfolios).where(eq(modelPortfolios.id, portfolioId)).limit(1);
+/**
+ * Recompute actual weight drift for a portfolio from live NAV moves.
+ *
+ * @param portfolioId - DB id of the model portfolio
+ * @param benchmarkCagr1Y - Portfolio's own 1Y CAGR used as the drift baseline.
+ *   Defaults to 10 if not provided. Using the portfolio's actual CAGR instead
+ *   of a hardcoded 10 produces more accurate weight drift estimates.
+ */
+export async function recomputePortfolioWeights(
+  portfolioId: string,
+  benchmarkCagr1Y = 10,
+): Promise<{ updated: number }> {
+  const rows = await db
+    .select({ holdings: modelPortfolios.holdings })
+    .from(modelPortfolios)
+    .where(eq(modelPortfolios.id, portfolioId))
+    .limit(1);
   if (!rows[0]) return { updated: 0 };
 
-  const rawHoldings = Array.isArray(rows[0].holdings) ? rows[0].holdings as Array<Record<string, unknown>> : [];
+  const rawHoldings = Array.isArray(rows[0].holdings)
+    ? (rows[0].holdings as Array<Record<string, unknown>>)
+    : [];
   if (!rawHoldings.length) return { updated: 0 };
 
   const navMap = await fetchAMFINavMap();
-  const avgReturn = 10; // baseline proxy
+  // Use the portfolio's actual 1Y CAGR as the baseline — avoids the old
+  // hardcoded "avgReturn = 10" which under/overstated drift for portfolios
+  // that significantly beat or lagged 10%.
+  const avgReturn = benchmarkCagr1Y;
 
   const updatedHoldings = rawHoldings.map((h) => {
     const isin = (h["isin"] as string | undefined) ?? "";
@@ -171,12 +190,26 @@ export async function recomputePortfolioWeights(portfolioId: string): Promise<{ 
     const currentNav = rec?.nav ?? null;
     const seedReturn = (h["currentReturn"] as number | undefined) ?? avgReturn;
     const targetWeight = (h["weight"] as number | undefined) ?? 0;
-    const drift = parseFloat((((seedReturn - avgReturn) / 100) * targetWeight * 0.5).toFixed(2));
-    return { ...h, currentNav: currentNav ? String(currentNav) : h["currentNav"], navDate: rec ? parseAMFIDate(rec.navDate) : h["navDate"], actualWeight: parseFloat(Math.max(0, Math.min(100, targetWeight + drift)).toFixed(2)), drift };
+    const drift = parseFloat(
+      (((seedReturn - avgReturn) / 100) * targetWeight * 0.5).toFixed(2),
+    );
+    return {
+      ...h,
+      currentNav: currentNav ? String(currentNav) : h["currentNav"],
+      navDate: rec ? parseAMFIDate(rec.navDate) : h["navDate"],
+      actualWeight: parseFloat(
+        Math.max(0, Math.min(100, targetWeight + drift)).toFixed(2),
+      ),
+      drift,
+    };
   });
 
-  await db.update(modelPortfolios)
-    .set({ holdings: updatedHoldings as unknown as typeof modelPortfolios.$inferInsert["holdings"], updatedAt: new Date() })
+  await db
+    .update(modelPortfolios)
+    .set({
+      holdings: updatedHoldings as unknown as typeof modelPortfolios.$inferInsert["holdings"],
+      updatedAt: new Date(),
+    })
     .where(eq(modelPortfolios.id, portfolioId));
 
   return { updated: updatedHoldings.length };
@@ -185,20 +218,46 @@ export async function recomputePortfolioWeights(portfolioId: string): Promise<{ 
 /** Main nightly NAV update — called by cron at 9PM IST */
 export async function runNightlyNAVUpdate(): Promise<void> {
   const t0 = Date.now();
-  logger.info("NIGHTLY_NAV_UPDATE_START", {event: "NIGHTLY_NAV_UPDATE_START", engine_version: ENGINE_VERSION});
+  logger.info("NIGHTLY_NAV_UPDATE_START", { event: "NIGHTLY_NAV_UPDATE_START", engine_version: ENGINE_VERSION });
   try {
     const isins = await extractAllPortfolioISINs();
     await seedNavCacheForISINs(isins);
     await updateLiveNAVsInCache();
 
-    const portfolios = await db.select({ id: modelPortfolios.id }).from(modelPortfolios);
+    // Fetch id + cagr1Y so recomputePortfolioWeights can use the portfolio's
+    // own benchmark return instead of the old hardcoded avgReturn = 10.
+    const portfolios = await db
+      .select({ id: modelPortfolios.id, cagr1Y: modelPortfolios.cagr1Y })
+      .from(modelPortfolios);
+
     let ok = 0, err = 0;
-    for (const { id } of portfolios) {
-      try { await recomputePortfolioWeights(id); ok++; }
-      catch (e) { err++; logger.warn("WEIGHT_ERR", {event: "WEIGHT_ERR", portfolioId: id, error: e instanceof Error ? e.message : String(e)}); }
+    for (const { id, cagr1Y } of portfolios) {
+      const benchmarkCagr = typeof cagr1Y === "number" && cagr1Y > 0 ? cagr1Y : 10;
+      try {
+        await recomputePortfolioWeights(id, benchmarkCagr);
+        ok++;
+      } catch (e) {
+        err++;
+        logger.warn("WEIGHT_ERR", {
+          event: "WEIGHT_ERR",
+          portfolioId: id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
     }
-    logger.info("NIGHTLY_NAV_UPDATE_COMPLETE", {event: "NIGHTLY_NAV_UPDATE_COMPLETE", portfolios: portfolios.length, ok, err, latency_ms: Date.now() - t0, engine_version: ENGINE_VERSION});
+    logger.info("NIGHTLY_NAV_UPDATE_COMPLETE", {
+      event: "NIGHTLY_NAV_UPDATE_COMPLETE",
+      portfolios: portfolios.length,
+      ok,
+      err,
+      latency_ms: Date.now() - t0,
+      engine_version: ENGINE_VERSION,
+    });
   } catch (err) {
-    logger.error("NIGHTLY_NAV_UPDATE_FAILED", {event: "NIGHTLY_NAV_UPDATE_FAILED", error: err instanceof Error ? err.message : String(err), retryable: true});
+    logger.error("NIGHTLY_NAV_UPDATE_FAILED", {
+      event: "NIGHTLY_NAV_UPDATE_FAILED",
+      error: err instanceof Error ? err.message : String(err),
+      retryable: true,
+    });
   }
 }

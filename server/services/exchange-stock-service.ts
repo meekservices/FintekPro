@@ -100,6 +100,7 @@ class ExchangeStockService {
 			this.cache.set(cacheKey, { data: symbols, timestamp: Date.now() });
 			return symbols;
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.error("[Exchange Service] Failed to fetch NSE symbols:", error);
 			throw error;
 		}
@@ -113,6 +114,7 @@ class ExchangeStockService {
 		}
 
 		try {
+   // eslint-disable-next-line no-console
 			console.log(
 				"[Exchange Service] Fetching BSE equity list from BSE India API...",
 			);
@@ -136,6 +138,7 @@ class ExchangeStockService {
 			);
 
 			if (!response.data || !Array.isArray(response.data)) {
+    // eslint-disable-next-line no-console
 				console.warn(
 					"[Exchange Service] BSE API returned unexpected format, using fallback",
 				);
@@ -155,12 +158,14 @@ class ExchangeStockService {
 					group: item.Scrip_grp || item.GROUP_NAME,
 				}));
 
+   // eslint-disable-next-line no-console
 			console.log(
 				`[Exchange Service] Fetched ${scrips.length} BSE scrips from API`,
 			);
 			this.cache.set(cacheKey, { data: scrips, timestamp: Date.now() });
 			return scrips;
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.warn(
 				"[Exchange Service] BSE API failed, using extended fallback list:",
 				error,
@@ -1318,9 +1323,10 @@ class ExchangeStockService {
 	}
 
 	async getNSEStockDetails(symbol: string): Promise<ExchangeStockData | null> {
+		// ── Primary path: stock-nse-india package (scrapes nseindia.com) ──────────
 		try {
 			const details = (await nse.getEquityDetails(symbol)) as any;
-			if (!details) return null;
+			if (!details) throw new Error("empty_response");
 
 			const info = details.info || {};
 			const priceInfo = details.priceInfo || {};
@@ -1336,8 +1342,7 @@ class ExchangeStockService {
 
 			return {
 				symbol: info.symbol || symbol,
-				companyName:
-					info.companyName || metadata.companyName || info.name || symbol,
+				companyName: info.companyName || metadata.companyName || info.name || symbol,
 				isin: metadata.isin || info.isin,
 				exchange: "NSE",
 				sector: metadata.industry || info.industry,
@@ -1350,17 +1355,63 @@ class ExchangeStockService {
 				dayChangePercent: Number.parseFloat(String(priceInfo.pChange || 0)),
 				weekHigh52: Number.parseFloat(String(priceInfo.weekHighLow?.max || 0)),
 				weekLow52: Number.parseFloat(String(priceInfo.weekHighLow?.min || 0)),
-				peRatio: undefined, // Will be populated from other sources if available
+				peRatio: undefined,
 				pbRatio: undefined,
 				dividendYield: undefined,
 				nseCode: "EQ",
 			};
-		} catch (error) {
-			console.warn(
-				`[Exchange Service] Failed to fetch NSE details for ${symbol}:`,
-				error,
-			);
-			return null;
+		} catch (primaryError: any) {
+			// ── Detect 403/429 from NSE India (Cloud Run IPs are often blocked) ────
+			const status = primaryError?.response?.status ?? 0;
+			const msg = String(primaryError?.message ?? "");
+			const isBlocked =
+				status === 403 || status === 429 ||
+				msg.includes("403") || msg.includes("429") ||
+				msg.toLowerCase().includes("rate limit");
+
+			if (isBlocked) {
+				// Re-throw a tagged error so the circuit breaker in syncNSEStocks
+				// can count consecutive 403s and abort early.
+				const tagged = new Error(`NSE_BLOCKED:${status || "403"}`) as any;
+				tagged.isNseBlocked = true;
+				throw tagged;
+			}
+
+			// ── Fallback: Yahoo Finance with .NS suffix (free, no key required) ───
+			// Same pattern used by getBSEStockDetails for BSE stocks.
+			try {
+				const yahooResp = await axios.get(
+					`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.NS`,
+					{
+						timeout: 8_000,
+						headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+					},
+				);
+				const result = yahooResp.data?.chart?.result?.[0];
+				if (!result) return null;
+				const meta = result.meta || {};
+				const currentPrice: number = meta.regularMarketPrice ?? 0;
+				const prevClose: number = meta.previousClose ?? meta.chartPreviousClose ?? 0;
+				return {
+					symbol,
+					companyName: meta.shortName || meta.longName || symbol,
+					exchange: "NSE",
+					currentPrice,
+					previousClose: prevClose,
+					dayChange: currentPrice - prevClose,
+					dayChangePercent: prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0,
+					weekHigh52: meta.fiftyTwoWeekHigh,
+					weekLow52: meta.fiftyTwoWeekLow,
+					marketCap: this.determineMarketCapCategory(meta.marketCap),
+					marketCapValue: meta.marketCap ? meta.marketCap / 10_000_000 : undefined, // crores
+					nseCode: "EQ",
+				};
+			} catch {
+				// Yahoo also failed — log once at warn level (not error) and return null
+    // eslint-disable-next-line no-console
+				console.warn(`[Exchange Service] NSE+Yahoo fallback failed for ${symbol} — skipping`);
+				return null;
+			}
 		}
 	}
 
@@ -1406,6 +1457,7 @@ class ExchangeStockService {
 				marketCapValue: meta.marketCap ? meta.marketCap / 10000000 : undefined, // in crores
 			};
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.warn(
 				`[Exchange Service] Failed to fetch BSE details for ${bseCode}:`,
 				error,
@@ -1445,6 +1497,7 @@ class ExchangeStockService {
 		};
 
 		try {
+   // eslint-disable-next-line no-console
 			console.log("[Exchange Service] Starting NSE stock sync...");
 
 			let targetSymbols: string[];
@@ -1465,19 +1518,39 @@ class ExchangeStockService {
 			this.nseProgress.total = targetSymbols.length;
 			this.nseProgress.status = "fetching_details";
 
+   // eslint-disable-next-line no-console
 			console.log(
 				`[Exchange Service] Syncing ${targetSymbols.length} NSE stocks...`,
 			);
 
+			// ── Circuit breaker ─────────────────────────────────────────────────────
+			// NSE India blocks Cloud Run IPs with 403. If we see >= 5 consecutive
+			// NSE_BLOCKED errors, abort the remaining symbols and log a single
+			// structured warning instead of flooding Cloud Run error logs.
+			const CIRCUIT_BREAKER_THRESHOLD = 5;
+			let consecutiveBlocked = 0;
+			let circuitOpen = false;
+
 			// Process in batches to avoid rate limiting
 			const batchSize = 5;
 			for (let i = 0; i < targetSymbols.length; i += batchSize) {
+				// Circuit breaker: abort if NSE is consistently returning 403
+				if (circuitOpen) {
+					this.nseProgress.processed += targetSymbols.length - i;
+					break;
+				}
+
 				const batch = targetSymbols.slice(i, i + batchSize);
 
 				await Promise.all(
 					batch.map(async (symbol) => {
+						if (circuitOpen) {
+							this.nseProgress.processed++;
+							return;
+						}
 						try {
 							const stockData = await this.getNSEStockDetails(symbol);
+							consecutiveBlocked = 0; // reset on any success
 							if (stockData) {
 								const result = await this.upsertStock(stockData);
 								if (result === "added") {
@@ -1486,11 +1559,26 @@ class ExchangeStockService {
 									this.nseProgress.updated++;
 								}
 							}
-						} catch (error) {
-							console.warn(
-								`[Exchange Service] Error processing ${symbol}:`,
-								error,
-							);
+						} catch (error: any) {
+							if (error?.isNseBlocked) {
+								consecutiveBlocked++;
+								if (consecutiveBlocked >= CIRCUIT_BREAKER_THRESHOLD && !circuitOpen) {
+									circuitOpen = true;
+         // eslint-disable-next-line no-console
+									console.warn(
+										`[Exchange Service] NSE circuit breaker tripped after ${consecutiveBlocked} consecutive 403s — ` +
+										`aborting sync. Processed ${this.nseProgress.processed}/${targetSymbols.length} symbols. ` +
+										`Yahoo Finance fallback was attempted for each blocked symbol.`,
+									);
+								}
+							} else {
+								consecutiveBlocked = 0;
+        // eslint-disable-next-line no-console
+								console.warn(
+									`[Exchange Service] Error processing ${symbol}:`,
+									error,
+								);
+							}
 							this.nseProgress.errors++;
 						}
 						this.nseProgress.processed++;
@@ -1498,13 +1586,14 @@ class ExchangeStockService {
 				);
 
 				// Small delay between batches to avoid rate limiting
-				if (i + batchSize < targetSymbols.length) {
+				if (!circuitOpen && i + batchSize < targetSymbols.length) {
 					await new Promise((resolve) => setTimeout(resolve, 500));
 				}
 			}
 
 			this.nseProgress.status = "complete";
 			this.nseProgress.completedAt = new Date();
+   // eslint-disable-next-line no-console
 			console.log(
 				`[Exchange Service] NSE sync complete. Added/Updated: ${this.nseProgress.added}, Errors: ${this.nseProgress.errors}`,
 			);
@@ -1514,6 +1603,7 @@ class ExchangeStockService {
 			this.nseProgress.status = "error";
 			this.nseProgress.errorMessage =
 				error instanceof Error ? error.message : "Unknown error";
+   // eslint-disable-next-line no-console
 			console.error("[Exchange Service] NSE sync failed:", error);
 			return this.nseProgress;
 		}
@@ -1542,6 +1632,7 @@ class ExchangeStockService {
 		};
 
 		try {
+   // eslint-disable-next-line no-console
 			console.log("[Exchange Service] Starting BSE stock sync...");
 
 			let targetSymbols: BseScripData[];
@@ -1565,6 +1656,7 @@ class ExchangeStockService {
 			this.bseProgress.total = targetSymbols.length;
 			this.bseProgress.status = "fetching_details";
 
+   // eslint-disable-next-line no-console
 			console.log(
 				`[Exchange Service] Syncing ${targetSymbols.length} BSE stocks...`,
 			);
@@ -1601,6 +1693,7 @@ class ExchangeStockService {
 								}
 							}
 						} catch (error) {
+       // eslint-disable-next-line no-console
 							console.warn(
 								`[Exchange Service] Error processing BSE ${scrip.symbol}:`,
 								error,
@@ -1619,6 +1712,7 @@ class ExchangeStockService {
 
 			this.bseProgress.status = "complete";
 			this.bseProgress.completedAt = new Date();
+   // eslint-disable-next-line no-console
 			console.log(
 				`[Exchange Service] BSE sync complete. Added/Updated: ${this.bseProgress.added}, Errors: ${this.bseProgress.errors}`,
 			);
@@ -1628,6 +1722,7 @@ class ExchangeStockService {
 			this.bseProgress.status = "error";
 			this.bseProgress.errorMessage =
 				error instanceof Error ? error.message : "Unknown error";
+   // eslint-disable-next-line no-console
 			console.error("[Exchange Service] BSE sync failed:", error);
 			return this.bseProgress;
 		}
@@ -1647,6 +1742,7 @@ class ExchangeStockService {
 		if (!symbol || symbol.length < 2) return { found: false };
 
 		try {
+   // eslint-disable-next-line no-console
 			console.log(
 				`[Exchange Service] Auto-lookup: "${symbol}" (from query: "${query}")`,
 			);
@@ -1660,6 +1756,7 @@ class ExchangeStockService {
 			}
 
 			if (!stockData) {
+    // eslint-disable-next-line no-console
 				console.log(
 					`[Exchange Service] Auto-lookup: "${symbol}" not found on NSE/BSE`,
 				);
@@ -1700,11 +1797,13 @@ class ExchangeStockService {
           updated_at = NOW()
       `);
 
+   // eslint-disable-next-line no-console
 			console.log(
 				`[Exchange Service] Auto-lookup: "${symbol}" ${action} in database`,
 			);
 			return { found: true, action, stock: stockData };
 		} catch (err: any) {
+   // eslint-disable-next-line no-console
 			console.warn(
 				`[Exchange Service] Auto-lookup failed for "${query}":`,
 				err.message,
