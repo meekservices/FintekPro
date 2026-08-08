@@ -8,11 +8,10 @@ import {
 	insertPortfolioSchema,
 	insertPortfolioHoldingSchema,
 } from "@shared/schema";
-import { NseIndia } from "stock-nse-india";
+import { indianApiService } from "../services/indian-api-service";
 import { AuthRequest } from "../types/broker-types";
 import { isProductionEnvironment } from "../utils/enrichment-guard";
 
-const nseIndia = new NseIndia();
 
 function errorMessage(err: unknown): string {
 	return err instanceof Error ? err.message : String(err);
@@ -100,6 +99,7 @@ export function buildRequireOwnPortfolio(storageRef: typeof storage) {
 			}
 			next();
 		} catch (error: unknown) {
+   // eslint-disable-next-line no-console
 			console.error("Error checking portfolio ownership:", error);
 			res.status(500).json({ error: "Failed to verify portfolio access" });
 		}
@@ -116,6 +116,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 				const portfolio = await storage.createPortfolio(validatedData);
 				res.json(portfolio);
 			} catch (error: unknown) {
+    // eslint-disable-next-line no-console
 				console.error("Error creating portfolio:", error);
 				if (error instanceof z.ZodError) {
 					res
@@ -140,6 +141,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 				const holdings = await storage.getPortfolioHoldings(portfolioId);
 				res.json(holdings);
 			} catch (error: unknown) {
+    // eslint-disable-next-line no-console
 				console.error("Error fetching holdings:", error);
 				res.status(500).json({ error: errorMessage(error) });
 			}
@@ -161,6 +163,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 				const holding = await storage.createPortfolioHolding(validatedData);
 				res.json(holding);
 			} catch (error: unknown) {
+    // eslint-disable-next-line no-console
 				console.error("Error creating holding:", error);
 				if (error instanceof z.ZodError) {
 					res
@@ -208,35 +211,27 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 								holding.assetType === "equity" ||
 								holding.assetType === "etf"
 							) {
-								// Try NSE first
+								// Try IndianAPI (primary NSE source)
 								if (
 									holding.symbol?.includes(".NS") ||
 									(holding.symbol?.length || 0) <= 6
 								) {
 									try {
-										const nseData = await nseIndia.getEquityDetails(
-											holding.symbol?.replace(".NS", "") || "",
-										);
-										if (nseData?.priceInfo?.lastPrice) {
-											currentPrice = Number.parseFloat(
-												nseData.priceInfo.lastPrice.toString(),
-											);
+										const cleanSymbol = holding.symbol?.replace(".NS", "") || "";
+										const nseResult = await indianApiService.getStockQuote(cleanSymbol, "NSE");
+										if (nseResult.success && nseResult.data?.current_price) {
+											currentPrice = nseResult.data.current_price;
 											marketData = {
 												symbol: holding.symbol || "",
-												lastPrice: Number.parseFloat(
-													nseData.priceInfo.lastPrice.toString(),
-												),
-												change: Number.parseFloat(
-													nseData.priceInfo.change?.toString() || "0",
-												),
-												pChange: Number.parseFloat(
-													nseData.priceInfo.pChange?.toString() || "0",
-												),
+												lastPrice: nseResult.data.current_price,
+												change: nseResult.data.change ?? 0,
+												pChange: nseResult.data.change_percent ?? 0,
 											};
 											exchange = "NSE";
 										}
 									} catch (error: unknown) {
 										// Fallback to BSE or simulated data
+										// eslint-disable-next-line no-console
 										console.log(
 											`NSE data unavailable for ${holding.symbol}, using fallback`,
 										);
@@ -268,6 +263,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 										};
 										exchange = isProd ? "BSE (STALE)" : "BSE";
 									} catch (error: unknown) {
+          // eslint-disable-next-line no-console
 										console.log(`BSE data unavailable for ${holding.symbol}`);
 									}
 								}
@@ -315,6 +311,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 										};
 										exchange = "NCDEX";
 									} catch (error: unknown) {
+          // eslint-disable-next-line no-console
 										console.log(
 											`Commodity data unavailable for ${holding.symbol}`,
 										);
@@ -341,6 +338,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 									};
 									exchange = isProd ? "MSEI (STALE)" : "MSEI";
 								} catch (error: unknown) {
+         // eslint-disable-next-line no-console
 									console.log(
 										`Currency data unavailable for ${holding.symbol}`,
 									);
@@ -365,6 +363,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 								exchange = isProd ? "STALE" : "SIMULATED";
 							}
 						} catch (error: unknown) {
+       // eslint-disable-next-line no-console
 							console.error(
 								`Error fetching market data for ${holding.symbol}:`,
 								error,
@@ -411,6 +410,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 
 				res.json(enhancedHoldings);
 			} catch (error: unknown) {
+    // eslint-disable-next-line no-console
 				console.error("Error fetching enhanced holdings:", error);
 				res.status(500).json({ error: errorMessage(error) });
 			}
@@ -536,6 +536,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 
 				res.json(performanceSummary);
 			} catch (error: unknown) {
+    // eslint-disable-next-line no-console
 				console.error("Error calculating portfolio performance:", error);
 				res.status(500).json({ error: errorMessage(error) });
 			}
@@ -555,6 +556,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 				const allocation = await storage.getAssetAllocation(portfolioId);
 				res.json(allocation);
 			} catch (error: unknown) {
+    // eslint-disable-next-line no-console
 				console.error("Error fetching asset allocation:", error);
 				res.status(500).json({ error: errorMessage(error) });
 			}
@@ -630,6 +632,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 
 				res.json({ rebalanceCalculations });
 			} catch (error: unknown) {
+    // eslint-disable-next-line no-console
 				console.error("Error calculating rebalance:", error);
 				res.status(500).json({ error: errorMessage(error) });
 			}
@@ -794,6 +797,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 
 				res.json(suggestions_data);
 			} catch (error: unknown) {
+    // eslint-disable-next-line no-console
 				console.error("Error getting rebalancing suggestions:", error);
 				res.status(500).json({ error: errorMessage(error) });
 			}
@@ -812,6 +816,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 				const performance = await storage.getPortfolioPerformance(portfolioId);
 				res.json(performance);
 			} catch (error: unknown) {
+    // eslint-disable-next-line no-console
 				console.error("Error fetching portfolio performance:", error);
 				res.status(500).json({ error: errorMessage(error) });
 			}
@@ -1015,6 +1020,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 
 				res.json(sortedNews);
 			} catch (error: unknown) {
+    // eslint-disable-next-line no-console
 				console.error("Error fetching portfolio-specific news:", error);
 				res.status(500).json({ error: errorMessage(error) });
 			}
@@ -1033,6 +1039,7 @@ export function registerPortfolioCorPart2Part2Routes(app: Express): void {
 				const summaries = await storage.getPiChatSummaries(portfolioId);
 				res.json(summaries);
 			} catch (error: unknown) {
+    // eslint-disable-next-line no-console
 				console.error("Error fetching Pi Chat summaries:", error);
 				res.status(500).json({ error: errorMessage(error) });
 			}

@@ -11,7 +11,6 @@ import {
 	listedStocks,
 } from "@shared/schema";
 import { eq, ilike, or, and, sql, desc, inArray } from "drizzle-orm";
-import { NseIndia } from "stock-nse-india";
 import { unifiedStockPriceService } from "../services/unified-stock-price-service";
 
 const router = Router();
@@ -719,6 +718,7 @@ router.post(
 				},
 			});
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.error("Save holdings error:", error);
 			res
 				.status(500)
@@ -789,6 +789,7 @@ router.post(
 				holdingsCount: holdings.length,
 			});
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.error("Validate holdings error:", error);
 			res.status(500).json({ error: "Failed to validate holdings" });
 		}
@@ -862,6 +863,7 @@ router.post("/api/valuation/compute", async (req: Request, res: Response) => {
 			},
 		});
 	} catch (error: any) {
+  // eslint-disable-next-line no-console
 		console.error("Compute valuation error:", error);
 		res.status(500).json({ error: "Failed to compute valuation" });
 	}
@@ -1052,6 +1054,7 @@ router.get(
 				message: `No instrument found with ISIN: ${isinUpper}`,
 			});
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.error("ISIN price lookup error:", error);
 			res.status(500).json({ error: "Failed to lookup price" });
 		}
@@ -1144,6 +1147,7 @@ router.post("/api/instruments/prices", async (req: Request, res: Response) => {
 			data: finalResults,
 		});
 	} catch (error: any) {
+  // eslint-disable-next-line no-console
 		console.error("Bulk price lookup error:", error);
 		res.status(500).json({ error: "Failed to lookup prices" });
 	}
@@ -1317,6 +1321,7 @@ router.get(
 				searchTerm,
 			});
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.error("Unified instrument search error:", error);
 			res.status(500).json({ error: "Failed to search instruments" });
 		}
@@ -1376,6 +1381,7 @@ router.post(
 				meta: { timestamp: new Date().toISOString(), version: "1.0" },
 			});
 		} catch (err: any) {
+   // eslint-disable-next-line no-console
 			console.error("[Admin] mark-listed error:", err);
 			res
 				.status(500)

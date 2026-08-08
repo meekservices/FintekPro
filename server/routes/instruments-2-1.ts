@@ -11,7 +11,6 @@ import {
 	listedStocks,
 } from "@shared/schema";
 import { eq, ilike, or, and, sql, desc, inArray } from "drizzle-orm";
-import { NseIndia } from "stock-nse-india";
 import { unifiedStockPriceService } from "../services/unified-stock-price-service";
 
 const router = Router();
@@ -781,6 +780,7 @@ router.post("/api/instruments/sync", async (req: Request, res: Response) => {
 			message: `Synced ${synced.stocks} stocks, ${synced.mutualFunds} MFs, ${synced.bonds} bonds, ${synced.unlisted} unlisted`,
 		});
 	} catch (error: any) {
+		// eslint-disable-next-line no-console
 		console.error("Instrument sync error:", error);
 		res
 			.status(500)

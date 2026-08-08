@@ -12,7 +12,6 @@ import {
 	listedStocks,
 } from "@shared/schema";
 import { eq, ilike, or, and, sql, desc, inArray } from "drizzle-orm";
-import { NseIndia } from "stock-nse-india";
 import { unifiedStockPriceService } from "../services/unified-stock-price-service";
 
 const router = Router();

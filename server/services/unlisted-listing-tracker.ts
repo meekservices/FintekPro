@@ -26,12 +26,12 @@
  */
 
 import axios, { AxiosError } from "axios";
-import { NseIndia } from "stock-nse-india";
-import { db } from "../db";
+import { indianApiService } from "./indian-api-service";
+
 import { unlistedCompanies, unlistedCompanyStatusLog } from "@shared/schema";
 import { eq, and, sql, or, isNull, lt } from "drizzle-orm";
+import { db } from "../db";
 
-const nse = new NseIndia();
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -181,23 +181,28 @@ async function probeNSEByName(
 		}
 		if (!best) return null;
 
-		// Step B: confirm with full equity details
+		// Step B: confirm with IndianAPI stock quote + company profile
 		await sleep(500);
-		const details = (await nse.getEquityDetails(best.symbol)) as any;
-		const meta = details?.metadata;
-		if (!meta?.symbol) return null;
+		const quoteRes = await indianApiService.getStockQuote(best.symbol, "NSE");
+		if (!quoteRes.success || !quoteRes.data) return null;
+		const q = quoteRes.data;
 
 		// Extra guard: if we have a known ISIN, it must match
-		if (knownIsin && meta.isin && meta.isin !== knownIsin) return null;
+		if (knownIsin && q.isin && q.isin !== knownIsin) return null;
 
-		// Extract listing date from NSE (metadata.listingDate or securityInfo.listingDate)
-		const rawDate =
-			details?.securityInfo?.listingDate || details?.info?.listingDate || null;
+		// Listing date: try company profile endpoint for richer metadata
+		let listingDate: string | undefined;
+		try {
+			const profileRes = await indianApiService.getCompanyProfile(best.symbol);
+			if (profileRes.success && profileRes.data) {
+				listingDate = (profileRes.data as any).listing_date ?? undefined;
+			}
+		} catch { /* listing date is optional */ }
 
 		return {
-			symbol: meta.symbol,
-			isin: meta.isin,
-			listingDate: rawDate ?? undefined,
+			symbol: q.symbol || best.symbol,
+			isin: q.isin ?? undefined,
+			listingDate,
 		};
 	} catch {
 		return null;
@@ -280,6 +285,7 @@ async function detectListing(company: {
 				.update(unlistedCompanies)
 				.set({ isin, updatedAt: new Date() })
 				.where(eq(unlistedCompanies.id, company.id));
+   // eslint-disable-next-line no-console
 			console.log(
 				`[ListingTracker] ISIN ${isin} discovered for ${company.name} via Credhive`,
 			);
@@ -380,6 +386,7 @@ export class UnlistedListingTracker {
 				)
 				.limit(100);
 
+   // eslint-disable-next-line no-console
 			console.log(
 				`[ListingTracker] Sweep started — ${candidates.length} candidates to check`,
 			);
@@ -439,6 +446,7 @@ export class UnlistedListingTracker {
 					transitioned.push(transition);
 
 					// Structured audit log
+     // eslint-disable-next-line no-console
 					console.log(
 						JSON.stringify({
 							event: "UNLISTED_COMPANY_LISTED",
@@ -458,6 +466,7 @@ export class UnlistedListingTracker {
 
 					await sleep(1200); // inter-company pause after a transition
 				} catch (err: any) {
+     // eslint-disable-next-line no-console
 					console.error(
 						JSON.stringify({
 							event: "LISTING_TRACKER_COMPANY_ERROR",
@@ -474,6 +483,7 @@ export class UnlistedListingTracker {
 			}
 
 			const latencyMs = Date.now() - sweepStart;
+   // eslint-disable-next-line no-console
 			console.log(
 				JSON.stringify({
 					event: "LISTING_TRACKER_SWEEP_COMPLETE",
@@ -488,6 +498,7 @@ export class UnlistedListingTracker {
 
 			return transitioned;
 		} catch (err: any) {
+   // eslint-disable-next-line no-console
 			console.error("[ListingTracker] Sweep failed:", err?.message);
 			return [];
 		}

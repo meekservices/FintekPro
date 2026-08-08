@@ -14,7 +14,8 @@
  */
 
 import { requestDedupeService } from "./request-deduplication-service";
-import { NseIndia } from "stock-nse-india";
+import { indianApiService } from "./indian-api-service";
+
 import yahooFinance from "yahoo-finance2";
 import axios from "axios";
 import { fetchGFQuote } from "./google-finance-service";
@@ -70,8 +71,8 @@ const CACHE_TTL = {
 
 class UnifiedStockPriceService {
 	private cache: Map<string, CacheEntry> = new Map();
-	private nseClient: NseIndia;
 	private providerHealth: Map<string, ProviderHealth> = new Map();
+
 	private cleanupIntervalId: NodeJS.Timeout | null = null;
 	private metrics = {
 		cacheHits: 0,
@@ -84,8 +85,8 @@ class UnifiedStockPriceService {
 	};
 
 	constructor() {
-		this.nseClient = new NseIndia();
 		this.startCleanupInterval();
+		// eslint-disable-next-line no-console
 		console.log("✅ Unified Stock Price Service initialized");
 	}
 
@@ -102,6 +103,7 @@ class UnifiedStockPriceService {
 				}
 			}
 			if (cleaned > 0) {
+    // eslint-disable-next-line no-console
 				console.log(`[StockPriceCache] Cleaned ${cleaned} expired entries`);
 			}
 		}, 60 * 1000);
@@ -168,6 +170,7 @@ class UnifiedStockPriceService {
 			})
 			.catch((e: any) => {
 				// Non-critical — just log quietly
+    // eslint-disable-next-line no-console
 				console.debug(
 					`[StockPrice] DB write-back skipped for ${sym}: ${e?.message?.slice(0, 50)}`,
 				);
@@ -197,6 +200,7 @@ class UnifiedStockPriceService {
 				: undefined;
 			const lastUpdated = r.last_updated ? new Date(r.last_updated) : null;
 
+   // eslint-disable-next-line no-console
 			console.warn(
 				`[StockPrice] All providers failed for ${symbol} — serving stale DB price ₹${price} (last updated: ${lastUpdated?.toISOString() ?? "unknown"})`,
 			);
@@ -251,6 +255,7 @@ class UnifiedStockPriceService {
 				return null;
 			} catch (error: any) {
 				this.metrics.errors++;
+    // eslint-disable-next-line no-console
 				console.error(
 					`[StockPrice] Failed to fetch ${symbol}: ${error.message}`,
 				);
@@ -292,6 +297,7 @@ class UnifiedStockPriceService {
 			return result;
 		}
 
+  // eslint-disable-next-line no-console
 		console.log(
 			`[StockPrice] Batch fetching ${toFetch.length} symbols (${result.fromCache} from cache)`,
 		);
@@ -350,6 +356,7 @@ class UnifiedStockPriceService {
 		if (health.consecutiveFailures >= threshold) {
 			const cooldownMs = isRateLimit ? 15 * 60 * 1000 : 10 * 60 * 1000;
 			health.cooldownUntil = Date.now() + cooldownMs;
+   // eslint-disable-next-line no-console
 			console.warn(
 				`[StockPrice] Provider ${provider} put on ${cooldownMs / 60000}-minute cooldown after ${health.consecutiveFailures} consecutive failures${isRateLimit ? " (rate limited)" : ""}`,
 			);
@@ -387,6 +394,7 @@ class UnifiedStockPriceService {
 				};
 			}
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.warn(
 				`[StockPrice] Google Finance fetch failed for ${symbol}: ${error.message}`,
 			);
@@ -418,6 +426,7 @@ class UnifiedStockPriceService {
 						const n = typeof v === "number" ? v : Number.parseFloat(v);
 						return Number.isFinite(n) && n > 0 ? n : undefined;
 					};
+     // eslint-disable-next-line no-console
 					console.log(`[StockPrice] Yahoo v8/chart OK for ${yahooSym} — ₹${meta.regularMarketPrice}`);
 					return {
 						symbol,
@@ -429,6 +438,7 @@ class UnifiedStockPriceService {
 				}
 			}
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.warn(`[StockPrice] Yahoo v8/chart failed for ${symbol}: ${error.message?.slice(0, 80)}`);
 		}
 
@@ -462,8 +472,10 @@ class UnifiedStockPriceService {
 				health.lastFailure = Date.now();
 				health.cooldownUntil = Date.now() + 30 * 60 * 1000;
 				this.providerHealth.set("yahoo", health);
+    // eslint-disable-next-line no-console
 				console.warn(`[StockPrice] Yahoo npm rate-limited (429) — 30-min cooldown`);
 			} else {
+    // eslint-disable-next-line no-console
 				console.warn(`[StockPrice] Yahoo npm failed for ${symbol}: ${error.message?.slice(0, 80)}`);
 			}
 		}
@@ -499,6 +511,7 @@ class UnifiedStockPriceService {
 				};
 			}
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.warn(
 				`[StockPrice] FMP fetch failed for ${symbol}: ${error.message}`,
 			);
@@ -588,32 +601,64 @@ class UnifiedStockPriceService {
 		return null;
 	}
 
+	/**
+	 * Fetch live price from IndianAPI (primary) with Yahoo Finance .NS fallback.
+	 * Replaces the old `stock-nse-india` nseClient.getEquityDetails() call
+	 * which was 403ing from Cloud Run IPs.
+	 */
 	private async fetchFromNSE(symbol: string): Promise<StockPrice | null> {
+		// Primary: IndianAPI paid subscription
+		if (indianApiService.isReady()) {
+			try {
+				const result = await indianApiService.getStockQuote(symbol, "NSE");
+				if (result.success && result.data) {
+					const q = result.data;
+					return {
+						symbol,
+						price: q.current_price,
+						previousClose: q.previous_close,
+						change: q.change,
+						changePercent: q.change_percent,
+						high: q.day_high,
+						low: q.day_low,
+						timestamp: Date.now(),
+						source: "NSE",
+					};
+				}
+			} catch (err: any) {
+				if (!String(err?.message).startsWith("RATE_LIMITED:")) {
+					this.recordFailure("nse");
+				}
+			}
+		}
+		// Fallback: Yahoo Finance .NS
 		try {
-			const quote = await this.nseClient.getEquityDetails(symbol);
-			if (quote?.priceInfo) {
+			const resp = await axios.get(
+				`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.NS`,
+				{ timeout: 8_000, headers: { "User-Agent": "Mozilla/5.0" } },
+			);
+			const meta = resp.data?.chart?.result?.[0]?.meta || {};
+			if (meta.regularMarketPrice) {
 				return {
 					symbol,
-					price: quote.priceInfo.lastPrice || 0,
-					previousClose: quote.priceInfo.previousClose,
-					change: quote.priceInfo.change,
-					changePercent: quote.priceInfo.pChange,
-					high: quote.priceInfo.intraDayHighLow?.max,
-					low: quote.priceInfo.intraDayHighLow?.min,
-					open: quote.priceInfo.open,
+					price: meta.regularMarketPrice,
+					previousClose: meta.previousClose ?? meta.chartPreviousClose,
+					change: meta.regularMarketPrice - (meta.previousClose ?? 0),
+					changePercent: meta.regularMarketChangePercent,
 					timestamp: Date.now(),
 					source: "NSE",
 				};
 			}
-		} catch (error: any) {
-			console.warn(
-				`[StockPrice] NSE fetch failed for ${symbol}: ${error.message}`,
-			);
+		} catch (err: any) {
+			if (!String(err?.message).startsWith("RATE_LIMITED:")) {
+				this.recordFailure("yahoo");
+			}
 		}
 		return null;
 	}
 
 	async prefetchWatchlist(symbols: string[]): Promise<void> {
+  // eslint-disable-next-line no-console
 		console.log(`[StockPrice] Prefetching ${symbols.length} symbols...`);
 		await this.getBatchPrices(symbols);
 	}
@@ -621,6 +666,7 @@ class UnifiedStockPriceService {
 	async warmCache(
 		popularSymbols: string[] = ["RELIANCE", "TCS", "INFY", "HDFC", "ICICIBANK"],
 	): Promise<void> {
+  // eslint-disable-next-line no-console
 		console.log(
 			`[StockPrice] Warming cache with ${popularSymbols.length} popular symbols...`,
 		);

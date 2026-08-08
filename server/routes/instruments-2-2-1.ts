@@ -11,7 +11,6 @@ import {
 	listedStocks,
 } from "@shared/schema";
 import { eq, ilike, or, and, sql, desc, inArray } from "drizzle-orm";
-import { NseIndia } from "stock-nse-india";
 import { unifiedStockPriceService } from "../services/unified-stock-price-service";
 
 const router = Router();
@@ -594,13 +593,16 @@ router.post(
 				return res.status(403).json({ error: "Admin access required" });
 			}
 
-			const nseIndia = new NseIndia();
-
-			console.log("Fetching all equity stocks from NSE India...");
-
-			// Get the list of all stocks from NSE
-			const allStocks = await nseIndia.getAllStockSymbols();
-			console.log(`Found ${allStocks.length} stock symbols from NSE`);
+			// Fetch NSE equity list from public CSV (no auth, no scraping, no 403 risk)
+			const csvResp = await (await import("axios")).default.get(
+				"https://archives.nseindia.com/content/equities/EQUITY_L.csv",
+				{ timeout: 15_000, responseType: "text", headers: { "User-Agent": "FintekPro-NSESync/3.1" } },
+			);
+			const allStocks = csvResp.data.split("\n").slice(1)
+				.map((l: string) => l.split(",")[0]?.trim())
+				.filter((s: string) => Boolean(s) && s.length > 0);
+   // eslint-disable-next-line no-console
+			console.log(`Found ${allStocks.length} stock symbols from NSE EQUITY_L.csv`);
 
 			let synced = 0;
 			let errors = 0;
@@ -613,16 +615,17 @@ router.post(
 
 				for (const symbol of batch) {
 					try {
-						// Get detailed equity info for each stock
-						const equityDetails = await nseIndia.getEquityDetails(symbol);
+						// Get detailed equity info via IndianAPI
+						const iApiModule = await import("../services/indian-api-service");
+						const equityRes = await iApiModule.indianApiService.getStockQuote(symbol, "NSE");
 
-						if (!equityDetails || !equityDetails.info) {
+						if (!equityRes.success || !equityRes.data) {
 							skipped++;
 							continue;
 						}
-
-						const info = equityDetails.info;
-						const priceInfo = equityDetails.priceInfo || {};
+						const equityDetails = equityRes.data;
+						const info = { isin: equityDetails.isin, symbol: equityDetails.symbol, companyName: equityDetails.company_name };
+						const priceInfo = { lastPrice: equityDetails.current_price, previousClose: equityDetails.previous_close, pChange: equityDetails.change_percent };
 
 						// Extract ISIN - required field
 						const isin = info.isin;
@@ -695,11 +698,13 @@ router.post(
 						// Add small delay to be respectful to NSE API
 						await new Promise((resolve) => setTimeout(resolve, 100));
 					} catch (e: any) {
+      // eslint-disable-next-line no-console
 						console.error(`Error syncing ${symbol}:`, e.message);
 						errors++;
 					}
 				}
 
+    // eslint-disable-next-line no-console
 				console.log(
 					`Progress: ${Math.min(i + batchSize, allStocks.length)}/${allStocks.length} stocks processed`,
 				);
@@ -714,6 +719,7 @@ router.post(
 				message: `Synced ${synced} stocks from NSE India (${errors} errors, ${skipped} skipped)`,
 			});
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.error("NSE sync error:", error);
 			res
 				.status(500)
@@ -735,6 +741,7 @@ router.post(
 				return res.status(403).json({ error: "Admin access required" });
 			}
 
+   // eslint-disable-next-line no-console
 			console.log("Fetching NSE equity list from archives...");
 
 			// Download the official NSE equity list CSV
@@ -750,6 +757,7 @@ router.post(
 			const csvText = await response.text();
 			const lines = csvText.split("\n").filter((line) => line.trim());
 
+   // eslint-disable-next-line no-console
 			console.log(`Processing ${lines.length - 1} stocks from NSE equity list`);
 
 			let synced = 0;
@@ -825,6 +833,7 @@ router.post(
 
 					synced++;
 				} catch (e: any) {
+     // eslint-disable-next-line no-console
 					console.error(`Error on line ${i}:`, e.message);
 					errors++;
 				}
@@ -838,6 +847,7 @@ router.post(
 				message: `Synced ${synced} stocks from NSE equity list (${errors} errors)`,
 			});
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.error("NSE CSV sync error:", error);
 			res
 				.status(500)
@@ -859,18 +869,13 @@ router.post(
 				return res.status(403).json({ error: "Admin access required" });
 			}
 
-			const nseIndia = new NseIndia();
+			// Use IndianAPI getMostActive as alternative to NIFTY TOTAL MARKET index
+			const { indianApiService } = await import("./indian-api-service");
+			const activeRes = await indianApiService.getMostActive("NSE");
+			const stocks = activeRes.success ? (activeRes.data ?? []) : [];
 
-			console.log("Fetching equity list from NSE India...");
-
-			// Get all equity info from the index endpoint
-			const niftyTotalMarket =
-				await nseIndia.getEquityStockIndices("NIFTY TOTAL MARKET");
-			const stocks = niftyTotalMarket?.data || [];
-
-			console.log(
-				`Found ${stocks.length} stocks from NIFTY Total Market index`,
-			);
+   // eslint-disable-next-line no-console
+			console.log(`Found ${stocks.length} stocks from IndianAPI getMostActive`);
 
 			let synced = 0;
 			let errors = 0;
@@ -933,6 +938,7 @@ router.post(
 
 					synced++;
 				} catch (e: any) {
+     // eslint-disable-next-line no-console
 					console.error(`Error syncing ${stock.symbol}:`, e.message);
 					errors++;
 				}
@@ -946,6 +952,7 @@ router.post(
 				message: `Synced ${synced} stocks from NIFTY Total Market (${errors} errors)`,
 			});
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.error("NSE light sync error:", error);
 			res
 				.status(500)
@@ -970,6 +977,7 @@ router.get("/api/instruments/stats", async (req: Request, res: Response) => {
 
 		res.json({ stats, total });
 	} catch (error: any) {
+  // eslint-disable-next-line no-console
 		console.error("Get instrument stats error:", error);
 		res.status(500).json({ error: "Failed to get stats" });
 	}
@@ -995,6 +1003,7 @@ router.get(
 
 			res.json({ holdings });
 		} catch (error: any) {
+   // eslint-disable-next-line no-console
 			console.error("Get holdings error:", error);
 			res.status(500).json({ error: "Failed to get holdings" });
 		}

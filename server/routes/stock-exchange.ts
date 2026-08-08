@@ -1,69 +1,55 @@
 // @ts-nocheck
 import { Express, Request, Response } from "express";
-import { NseIndia } from "stock-nse-india";
+import axios from "axios";
+import { indianApiService } from "../services/indian-api-service";
 
-const nseIndia = new NseIndia();
 
 export function registerStockExchangeRoutes(app: Express) {
 	app.get("/api/nse/symbols", async (req, res) => {
 		try {
-			const symbols = await nseIndia.getAllStockSymbols();
-			res.json({
-				status: "success",
-				data: symbols,
-			});
+			// Fetch full NSE equity list from public EQUITY_L.csv (no auth, no scraping)
+			const resp = await axios.get<string>(
+				"https://archives.nseindia.com/content/equities/EQUITY_L.csv",
+				{ timeout: 15_000, responseType: "text", headers: { "User-Agent": "FintekPro-NSESync/3.1" } },
+			);
+			const symbols = resp.data.split("\n").slice(1)
+				.map((l: string) => l.split(",")[0]?.trim())
+				.filter((s: string) => Boolean(s) && s.length > 0);
+			res.json({ status: "success", data: symbols, count: symbols.length });
 		} catch (error) {
+			// eslint-disable-next-line no-console
 			console.error("Error fetching NSE symbols:", error);
-			res.status(500).json({
-				status: "error",
-				error: "Failed to fetch NSE stock symbols",
-			});
+			res.status(500).json({ status: "error", error: "Failed to fetch NSE stock symbols" });
 		}
 	});
 
 	app.get("/api/nse/quote/:symbol", async (req, res) => {
 		try {
 			const { symbol } = req.params;
-			const quote = await nseIndia.getEquityDetails(symbol.toUpperCase());
-			res.json({
-				status: "success",
-				data: quote,
-			});
+			const result = await indianApiService.getStockQuote(symbol.toUpperCase(), "NSE");
+			if (!result.success) throw new Error(result.error ?? "IndianAPI error");
+			res.json({ status: "success", data: result.data });
 		} catch (error) {
+			// eslint-disable-next-line no-console
 			console.error("Error fetching NSE quote:", error);
-			res.status(500).json({
-				status: "error",
-				error: "Failed to fetch NSE stock quote",
-			});
+			res.status(500).json({ status: "error", error: "Failed to fetch NSE stock quote" });
 		}
 	});
 
 	app.get("/api/nse/historical/:symbol", async (req, res) => {
 		try {
 			const { symbol } = req.params;
-			const { start, end } = req.query;
-
-			const range = {
-				start: start
-					? new Date(start as string)
-					: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
-				end: end ? new Date(end as string) : new Date(),
-			};
-
-			const historicalData = await nseIndia.getEquityHistoricalData(
+			const { period = "1y" } = req.query;
+			const result = await indianApiService.getHistoricalData(
 				symbol.toUpperCase(),
-				range,
+				String(period),
 			);
-			res.json({
-				status: "success",
-				data: historicalData,
-			});
+			if (!result.success) throw new Error(result.error ?? "IndianAPI error");
+			res.json({ status: "success", data: result.data });
 		} catch (error) {
+			// eslint-disable-next-line no-console
 			console.error("Error fetching NSE historical data:", error);
-			res.status(500).json({
-				status: "error",
-				error: "Failed to fetch NSE historical data",
-			});
+			res.status(500).json({ status: "error", error: "Failed to fetch NSE historical data" });
 		}
 	});
 
@@ -108,31 +94,26 @@ export function registerStockExchangeRoutes(app: Express) {
 		const fetchedAt = new Date().toISOString();
 
 		try {
-			// PRIMARY: NSE India library's getAllIndices() — verified working from datacenter
-			const allIndicesData = await nseIndia.getAllIndices();
-			const items: any[] = allIndicesData?.data || [];
+			// PRIMARY: Yahoo Finance ^NSEI — reliable from Cloud Run IPs
+			const niftyResp = await axios.get(
+				"https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEI?range=1d&interval=1d",
+				{ timeout: 8_000, headers: { "User-Agent": "Mozilla/5.0" } },
+			);
+			const niftyMeta = niftyResp.data?.chart?.result?.[0]?.meta || {};
+			const allIndicesData = { data: [], timestamp: null };
+			const niftyLtp = niftyMeta.regularMarketPrice ?? 0;
+			const niftyPrevClose = niftyMeta.previousClose ?? niftyMeta.chartPreviousClose ?? 0;
+			const niftyChng = niftyLtp - niftyPrevClose;
+			const niftyPctChng = niftyPrevClose > 0 ? (niftyChng / niftyPrevClose) * 100 : 0;
+			const niftyHigh = niftyMeta.regularMarketDayHigh ?? 0;
+			const niftyLow = niftyMeta.regularMarketDayLow ?? 0;
+			const niftyOpen = niftyMeta.regularMarketOpen ?? 0;
+			const nseMarketTimestamp = niftyMeta.regularMarketTime
+				? new Date(niftyMeta.regularMarketTime * 1000).toISOString()
+				: null;
 
-			// The NSE API returns a top-level timestamp for when the data was recorded
-			const nseMarketTimestamp = parseNseTimestamp(allIndicesData?.timestamp);
+			if (!niftyLtp) throw new Error("NIFTY 50 not available from Yahoo Finance");
 
-			const findIdx = (name: string) =>
-				items.find((d: any) =>
-					d.index?.toUpperCase().includes(name.toUpperCase()),
-				);
-
-			const nifty50 = findIdx("NIFTY 50");
-			const midcap = findIdx("NIFTY MIDCAP 100");
-			const smallcap = findIdx("NIFTY SMALLCAP 100");
-
-			if (!nifty50) throw new Error("NIFTY 50 not in NSE allIndices");
-
-			const niftyLtp = nifty50.last ?? 0;
-			const niftyChng = nifty50.variation ?? 0;
-			const niftyPctChng = nifty50.percentChange ?? 0;
-			const niftyPrevClose = nifty50.previousClose ?? 0;
-			const niftyHigh = nifty50.high ?? 0;
-			const niftyLow = nifty50.low ?? 0;
-			const niftyOpen = nifty50.open ?? 0;
 
 			// SENSEX: fetch from Google Finance (BSE index — not in NSE library)
 			let sensexLtp: number | null = null;
@@ -172,6 +153,7 @@ export function registerStockExchangeRoutes(app: Express) {
 					}
 				}
 			} catch (gfErr) {
+    // eslint-disable-next-line no-console
 				console.warn(
 					"[NSE Indices] Google Finance unavailable for SENSEX:",
 					(gfErr as Error).message,
@@ -187,6 +169,7 @@ export function registerStockExchangeRoutes(app: Express) {
 				sensexSource = "estimated";
 				sensexDataQuality = "estimated";
 				sensexDataTimestamp = null;
+    // eslint-disable-next-line no-console
 				console.warn(
 					"[NSE Indices] SENSEX: both Google Finance and BSE unavailable — showing ratio estimate",
 				);
@@ -256,6 +239,7 @@ export function registerStockExchangeRoutes(app: Express) {
 				fetchedAt,
 			});
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.error("[NSE Indices] getAllIndices() failed:", error);
 
 			// Hard failure — return explicit unavailable state, NOT silently stale numbers
@@ -272,11 +256,16 @@ export function registerStockExchangeRoutes(app: Express) {
 	});
 
 	app.get("/api/nse/gainers-losers", async (req, res) => {
-		// Source: NSE library getEquityStockIndices() — exchange-direct, works from datacenter.
-		// Yahoo Finance removed: confirmed rate-limited (429) from datacenter.
-		try {
-			const indexData = await nseIndia.getEquityStockIndices("NIFTY 50");
-			const stocks: any[] = indexData?.data || [];
+		// Source: IndianAPI getMostActive() → NIFTY 50 gainers/losers
+	try {
+		const [activeRes, trendRes] = await Promise.all([
+			indianApiService.getMostActive("NSE"),
+			indianApiService.getTrending("NSE"),
+		]);
+		const stocks: any[] = [
+			...(activeRes.success ? activeRes.data ?? [] : []),
+			...(trendRes.success ? trendRes.data ?? [] : []),
+		];
 			const fetchedAt = new Date().toISOString();
 
 			if (stocks.length === 0) {
@@ -325,6 +314,7 @@ export function registerStockExchangeRoutes(app: Express) {
 				indexCoverage: "NIFTY 50 constituents",
 			});
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.error("[Gainers/Losers] NSE fetch failed:", error);
 			res.json({
 				gainers: [],
@@ -338,17 +328,29 @@ export function registerStockExchangeRoutes(app: Express) {
 
 	app.get("/api/nse/market-status", async (req, res) => {
 		try {
-			const status = await nseIndia.getMarketStatus();
+			// IndianAPI doesn't expose a market-status endpoint directly.
+			// Derive open/closed from IST time: NSE trades Mon–Fri 09:15–15:30 IST.
+			const now = new Date();
+			const istOffset = 5.5 * 60 * 60 * 1000;
+			const ist = new Date(now.getTime() + istOffset);
+			const day = ist.getUTCDay(); // 0=Sun, 6=Sat
+			const h = ist.getUTCHours();
+			const m = ist.getUTCMinutes();
+			const minsSinceMidnight = h * 60 + m;
+			const isWeekday = day >= 1 && day <= 5;
+			const isMarketHours = minsSinceMidnight >= 555 && minsSinceMidnight < 930; // 09:15–15:30
 			res.json({
 				status: "success",
-				data: status,
+				data: {
+					marketStatus: isWeekday && isMarketHours ? "Open" : "Closed",
+					tradingDate: ist.toISOString().split("T")[0],
+					source: "derived_ist",
+				},
 			});
 		} catch (error) {
+			// eslint-disable-next-line no-console
 			console.error("Error fetching market status:", error);
-			res.status(500).json({
-				status: "error",
-				error: "Failed to fetch market status",
-			});
+			res.status(500).json({ status: "error", error: "Failed to fetch market status" });
 		}
 	});
 
@@ -443,6 +445,7 @@ export function registerStockExchangeRoutes(app: Express) {
 				note: "SENSEX via Google Finance · BSE 100/200/500 not available from datacenter",
 			});
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.error("[BSE Indices] Google Finance fetch failed:", error);
 			res.json({
 				status: "unavailable",
@@ -496,6 +499,7 @@ export function registerStockExchangeRoutes(app: Express) {
 				data: turnovers.data || turnovers,
 			});
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.error("Error fetching BSE turnovers:", error);
 			res.status(500).json({
 				status: "error",
@@ -546,6 +550,7 @@ export function registerStockExchangeRoutes(app: Express) {
 				data: gainers.data || gainers,
 			});
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.error("Error fetching BSE gainers:", error);
 			res.status(500).json({
 				status: "error",
@@ -596,6 +601,7 @@ export function registerStockExchangeRoutes(app: Express) {
 				data: losers.data || losers,
 			});
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.error("Error fetching BSE losers:", error);
 			res.status(500).json({
 				status: "error",
@@ -626,6 +632,7 @@ export function registerStockExchangeRoutes(app: Express) {
 				data: quote.data || quote,
 			});
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.error("Error fetching BSE quote:", error);
 			res.status(500).json({
 				status: "error",
@@ -634,5 +641,6 @@ export function registerStockExchangeRoutes(app: Express) {
 		}
 	});
 
+ // eslint-disable-next-line no-console
 	console.log("✅ Stock Exchange (NSE/BSE) routes registered");
 }
