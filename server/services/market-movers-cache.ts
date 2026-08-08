@@ -176,11 +176,13 @@ class FinnhubProvider {
 		if (apiKey && apiKey.length > 0) {
 			this.apiKey = apiKey;
 			this.isAvailable = true;
+   // eslint-disable-next-line no-console
 			console.log(
 				"✅ [FinnhubProvider] Initialized successfully (API key length:",
 				apiKey.length + ")",
 			);
 		} else {
+   // eslint-disable-next-line no-console
 			console.log(
 				"ℹ️ [FinnhubProvider] FINNHUB_API_KEY not set - Finnhub fallback disabled",
 			);
@@ -228,6 +230,7 @@ class FinnhubProvider {
 				previousClose: data.pc || 0,
 			};
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.warn(
 				`⚠️ [FinnhubProvider] Quote fetch error for ${symbol}:`,
 				error,
@@ -263,6 +266,7 @@ class FinnhubProvider {
 				if (errorStr.includes("rate limit") || errorStr.includes("429")) {
 					throw error;
 				}
+    // eslint-disable-next-line no-console
 				console.warn(
 					`⚠️ [FinnhubProvider] Failed to fetch ${stock.symbol}:`,
 					error,
@@ -278,121 +282,83 @@ class FinnhubProvider {
 	}
 }
 
-class NseIndiaProvider {
-	private readonly baseUrl = "https://www.nseindia.com/api";
-	private cookies: string = "";
-	private cookiesExpiry: number = 0;
+/**
+ * IndianAPIMarketProvider
+ *
+ * Replaces the old NseIndiaProvider cookie-based scraper (403-blocked from
+ * Cloud Run IPs). All market-movers and corporate-report data now comes
+ * from IndianAPI (paid subscription, 300 req/min on Growth plan).
+ *
+ * Exported as `nseIndiaProviderInstance` for backward compatibility with
+ * stock-strategy.ts and data-enrichment-service.ts.
+ */
+class IndianAPIMarketProvider {
 	private isAvailable: boolean = true;
 
 	constructor() {
-		console.log("✅ [NseIndiaProvider] Initialized (NSE India API fallback)");
+		// eslint-disable-next-line no-console
+		console.log("✅ [IndianAPIMarketProvider] Initialized (IndianAPI primary source)");
 	}
 
 	isEnabled(): boolean {
 		return this.isAvailable;
 	}
 
-	private async refreshCookies(): Promise<void> {
-		if (Date.now() < this.cookiesExpiry) {
-			return;
-		}
-
-		try {
-			const response = await fetch("https://www.nseindia.com", {
-				headers: {
-					"User-Agent":
-						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-					Accept:
-						"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-					"Accept-Language": "en-US,en;q=0.5",
-				},
-			});
-
-			const setCookieHeaders = response.headers.get("set-cookie");
-			if (setCookieHeaders) {
-				this.cookies = setCookieHeaders
-					.split(",")
-					.map((c) => c.split(";")[0])
-					.join("; ");
-				this.cookiesExpiry = Date.now() + 5 * 60 * 1000;
-			}
-		} catch (error) {
-			console.warn("⚠️ [NseIndiaProvider] Failed to refresh cookies:", error);
-		}
-	}
-
+	/**
+	 * Fetch top market movers (gainers + trending) from IndianAPI.
+	 * Replaces NseIndiaProvider.fetchMarketMovers() which was cookie-scraping
+	 * nseindia.com/api/live-analysis-variations — 403 from Cloud Run.
+	 */
 	async fetchMarketMovers(): Promise<Stock[]> {
 		try {
-			await this.refreshCookies();
+			const { indianApiService } = await import("./indian-api-service");
+			const [activeRes, trendRes] = await Promise.all([
+				indianApiService.getMostActive("NSE"),
+				indianApiService.getTrending("NSE"),
+			]);
 
-			const response = await fetch(
-				`${this.baseUrl}/live-analysis-variations?index=gainers`,
-				{
-					headers: {
-						"User-Agent":
-							"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-						Accept: "application/json",
-						"Accept-Language": "en-US,en;q=0.5",
-						Cookie: this.cookies,
-						Referer: "https://www.nseindia.com/market-data/live-market-indices",
-					},
-				},
-			);
+			const combined = [
+				...(activeRes.success ? (activeRes.data ?? []) : []),
+				...(trendRes.success ? (trendRes.data ?? []) : []),
+			];
 
-			if (!response.ok) {
-				if (response.status === 429) {
-					throw new Error("NSE rate limit exceeded");
-				}
-				throw new Error(`NSE API error: ${response.status}`);
-			}
-
-			const data = await response.json();
+			// De-duplicate by ticker, keep first occurrence (MostActiveStock uses ticker/company fields)
+			const seen = new Set<string>();
 			const stockQuotes: Stock[] = [];
-
-			if (data?.NIFTY?.data) {
-				const parseNum = (v: any): number =>
-					Number.parseFloat(String(v ?? "").replace(/,/g, "")) || 0;
-				for (const item of data.NIFTY.data.slice(0, 15)) {
-					const price = parseNum(item.ltp);
-					const changePct = parseNum(item.perChange) || parseNum(item.pChange);
-					let change = parseNum(item.netPrice) || parseNum(item.change);
-					let prevClose = parseNum(item.previousClose);
-					if (prevClose === 0 && price > 0 && change !== 0) {
-						prevClose = price - change;
-					}
-					if (change === 0 && price > 0 && changePct !== 0) {
-						change = (price * changePct) / (100 + changePct);
-					}
-					if (prevClose === 0 && price > 0 && change !== 0) {
-						prevClose = price - change;
-					}
-					if (change === 0 || prevClose === 0) {
-						console.warn(
-							`⚠️ [NseIndiaProvider] ${item.symbol}: change=${change} prevClose=${prevClose} (raw: netPrice=${item.netPrice} change=${item.change} previousClose=${item.previousClose} ltp=${item.ltp} perChange=${item.perChange})`,
-						);
-					}
-					stockQuotes.push({
-						symbol: item.symbol || "",
-						name: item.symbol || "",
-						price,
-						change: Math.round(change * 100) / 100,
-						changePercent: Math.round(changePct * 100) / 100,
-						previousClose: Math.round(prevClose * 100) / 100,
-					});
-				}
+			for (const item of combined) {
+				if (!item.ticker || seen.has(item.ticker)) continue;
+				seen.add(item.ticker);
+				const price = item.price ?? 0;
+				const changePct = item.percent_change ?? 0;
+				const change = item.net_change ?? (price * changePct) / (100 + (changePct || 1));
+				const previousClose = price - change;
+				stockQuotes.push({
+					symbol: item.ticker,
+					name: item.company ?? item.ticker,
+					price: Math.round(price * 100) / 100,
+					change: Math.round(change * 100) / 100,
+					changePercent: Math.round(changePct * 100) / 100,
+					previousClose: Math.round(previousClose * 100) / 100,
+				});
 			}
 
-			if (stockQuotes.length === 0) {
-				throw new Error("No stock data from NSE API");
-			}
-
+			if (stockQuotes.length === 0) throw new Error("No stock data from IndianAPI");
 			return stockQuotes;
 		} catch (error) {
-			console.warn("⚠️ [NseIndiaProvider] Fetch error:", error);
+			// eslint-disable-next-line no-console
+			console.warn("⚠️ [IndianAPIMarketProvider] fetchMarketMovers error:", error);
 			throw error;
 		}
 	}
 
+	/**
+	 * Fetch corporate reports from IndianAPI.
+	 * Replaces NseIndiaProvider.fetchCorporateReports() which scraped
+	 * nseindia.com/api/corporates/* — 403 from Cloud Run.
+	 *
+	 * Returns the same shape consumed by stock-strategy.ts and
+	 * data-enrichment-service.ts for backward compatibility.
+	 */
 	async fetchCorporateReports(symbol: string): Promise<{
 		quarterlyResults: any[];
 		announcements: any[];
@@ -413,98 +379,67 @@ class NseIndiaProvider {
 		};
 
 		try {
-			await this.refreshCookies();
-			const normalizedSymbol = symbol.toUpperCase().trim();
+			const { indianApiService } = await import("./indian-api-service");
+			const sym = symbol.toUpperCase().trim();
 
-			const headers = {
-				"User-Agent":
-					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-				Accept: "application/json",
-				"Accept-Language": "en-US,en;q=0.5",
-				Cookie: this.cookies,
-				Referer: `https://www.nseindia.com/get-quotes/equity?symbol=${normalizedSymbol}`,
-			};
+			// Fetch corporate actions (dividends, splits, board meetings) and
+			// announcements + P&L in parallel
+			const [corpActRes, announcementsRes, plRes] = await Promise.allSettled([
+				indianApiService.getCorporateActions(sym),
+				indianApiService.getRecentAnnouncements(sym),
+				indianApiService.getProfitLoss(sym, 5),
+			]);
 
-			const [resultsRes, announcementsRes, boardMeetingsRes, actionsRes] =
-				await Promise.allSettled([
-					fetch(
-						`${this.baseUrl}/corporates/financial-results?index=equities&symbol=${normalizedSymbol}`,
-						{ headers },
-					),
-					fetch(
-						`${this.baseUrl}/corporates/announcements?index=equities&symbol=${normalizedSymbol}`,
-						{ headers },
-					),
-					fetch(
-						`${this.baseUrl}/corporates/boardMeetings?index=equities&symbol=${normalizedSymbol}`,
-						{ headers },
-					),
-					fetch(
-						`${this.baseUrl}/corporates/actions?index=equities&symbol=${normalizedSymbol}`,
-						{ headers },
-					),
-				]);
-
-			if (resultsRes.status === "fulfilled" && resultsRes.value.ok) {
-				const data = await resultsRes.value.json();
-				const items = data?.results || data || [];
-				result.quarterlyResults = (Array.isArray(items) ? items : [])
-					.slice(0, 20)
-					.map((r: any) => ({
-						period: r.xbrl_per || r.period,
-						periodEnd: r.to_date || r.toDate,
-						revenue: this.parseNumber(r.income || r.totalIncome),
-						netProfit: this.parseNumber(r.netProfit || r.re_netProfit),
-						eps: this.parseNumber(r.eps || r.re_eps),
-						broadcastDate: r.broadcastDt || r.broadcast_dt,
-						consolidated: r.consolidated === "true" || r.consolidated === true,
-					}));
+			// Map quarterly results from P&L
+			if (plRes.status === "fulfilled" && plRes.value.success) {
+				result.quarterlyResults = (plRes.value.data ?? []).slice(0, 20).map((r: any) => ({
+					period: r.year,
+					periodEnd: r.year,
+					revenue: r.revenue ?? r.net_sales ?? null,
+					netProfit: r.net_profit ?? r.profit_after_tax ?? null,
+					eps: r.eps ?? null,
+					broadcastDate: null,
+					consolidated: false,
+				}));
 			}
 
-			if (
-				announcementsRes.status === "fulfilled" &&
-				announcementsRes.value.ok
-			) {
-				const data = await announcementsRes.value.json();
-				const items = data?.announcements || data || [];
-				result.announcements = (Array.isArray(items) ? items : [])
-					.slice(0, 50)
-					.map((a: any) => ({
-						subject: a.desc || a.subject || a.sm_headline,
-						broadcastDate: a.an_dt || a.announceDate || a.broadcastDt,
-						category: a.attchmntFile ? "attachment" : "text",
-						attachmentLink: a.attchmntFile || null,
-					}));
+			// Map announcements
+			if (announcementsRes.status === "fulfilled" && announcementsRes.value.success) {
+				result.announcements = (announcementsRes.value.data ?? []).slice(0, 50).map((a: any) => ({
+					subject: a.subject ?? a.title ?? a.headline,
+					broadcastDate: a.date ?? a.announced_date,
+					category: a.category ?? "announcement",
+					attachmentLink: a.attachment_url ?? null,
+				}));
 			}
 
-			if (
-				boardMeetingsRes.status === "fulfilled" &&
-				boardMeetingsRes.value.ok
-			) {
-				const data = await boardMeetingsRes.value.json();
-				const items = data?.boardMeetings || data || [];
-				result.boardMeetings = (Array.isArray(items) ? items : [])
-					.slice(0, 20)
-					.map((m: any) => ({
-						meetingDate: m.bm_dt || m.meetingDate,
-						purpose: m.bm_purpose || m.purpose,
-						broadcastDate: m.an_dt || m.broadcastDt,
-					}));
-			}
-
-			if (actionsRes.status === "fulfilled" && actionsRes.value.ok) {
-				const data = await actionsRes.value.json();
-				const items = data?.corporateActions || data || [];
-				result.corporateActions = (Array.isArray(items) ? items : [])
-					.slice(0, 20)
-					.map((c: any) => ({
-						actionType: c.series || c.subject || c.purpose,
-						exDate: c.exDate || c.ex_date,
-						recordDate: c.recordDate || c.record_dt,
-						bcStartDate: c.bcStartDate,
-						bcEndDate: c.bcEndDate,
-						purpose: c.subject || c.purpose,
-					}));
+			// Map board meetings + corporate actions from getCorporateActions
+			if (corpActRes.status === "fulfilled" && corpActRes.value.success) {
+				const ca = corpActRes.value.data;
+				result.boardMeetings = (ca?.board_meetings ?? []).slice(0, 20).map((m: any) => ({
+					meetingDate: m.meeting_date ?? m.date,
+					purpose: m.purpose ?? m.agenda,
+					broadcastDate: m.announced_date ?? null,
+				}));
+				const dividends = (ca?.dividends ?? []).map((d: any) => ({
+					actionType: "Dividend",
+					exDate: d.ex_date,
+					recordDate: d.record_date,
+					purpose: d.details ?? `Dividend ${d.dividend_percent ?? ""}`,
+				}));
+				const splits = (ca?.splits ?? []).map((s: any) => ({
+					actionType: "Split",
+					exDate: s.ex_date ?? s.date,
+					recordDate: s.record_date,
+					purpose: s.purpose ?? `Split ${s.ratio ?? ""}`,
+				}));
+				const bonus = (ca?.bonus ?? []).map((b: any) => ({
+					actionType: "Bonus",
+					exDate: b.ex_date ?? b.date,
+					recordDate: b.record_date,
+					purpose: b.purpose ?? `Bonus ${b.ratio ?? ""}`,
+				}));
+				result.corporateActions = [...dividends, ...splits, ...bonus].slice(0, 20);
 			}
 
 			const totalItems =
@@ -514,15 +449,13 @@ class NseIndiaProvider {
 				result.corporateActions.length;
 			result.success = totalItems > 0;
 
-			console.log(
-				`[NseIndiaProvider] Corporate reports for ${normalizedSymbol}: ${totalItems} total items`,
-			);
+			// eslint-disable-next-line no-console
+			console.log(`[IndianAPIMarketProvider] Corporate reports for ${sym}: ${totalItems} total items`);
 			return result;
 		} catch (error: any) {
 			result.error = error.message;
-			console.warn(
-				`⚠️ [NseIndiaProvider] Corporate reports error: ${error.message}`,
-			);
+			// eslint-disable-next-line no-console
+			console.warn(`⚠️ [IndianAPIMarketProvider] Corporate reports error: ${error.message}`);
 			return result;
 		}
 	}
@@ -539,11 +472,17 @@ class NseIndiaProvider {
 	}
 }
 
+// ─── Deprecated alias: NseIndiaProvider ──────────────────────────────────────
+// Kept for import-site backward compatibility. All logic now in IndianAPIMarketProvider.
+/** @deprecated Use IndianAPIMarketProvider. Will be removed in a future cleanup. */
+type NseIndiaProvider = IndianAPIMarketProvider;
+
 class BseIndiaProvider {
 	private readonly baseUrl = "https://api.bseindia.com/BseIndiaAPI/api";
 	private isAvailable: boolean = true;
 
 	constructor() {
+  // eslint-disable-next-line no-console
 		console.log("✅ [BseIndiaProvider] Initialized (BSE India API fallback)");
 	}
 
@@ -669,9 +608,11 @@ class BseIndiaProvider {
 				throw new Error("No stock data from BSE API");
 			}
 
+   // eslint-disable-next-line no-console
 			console.log(`✅ [BseIndiaProvider] Fetched ${stockQuotes.length} stocks`);
 			return stockQuotes;
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.warn("⚠️ [BseIndiaProvider] Fetch error:", error);
 			throw error;
 		}
@@ -716,6 +657,7 @@ class BseIndiaProvider {
 
 			return null;
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.warn(
 				`⚠️ [BseIndiaProvider] Quote fetch error for ${scripcode}:`,
 				error,
@@ -783,6 +725,7 @@ class BseIndiaProvider {
 						if (!match && searchResults.length === 1) match = searchResults[0];
 						if (match) {
 							resolvedScripcode = match.scrip_cd || match.scripcode;
+       // eslint-disable-next-line no-console
 							console.log(
 								`[BseIndiaProvider] Symbol ${normalizedSymbol} resolved to scripcode ${resolvedScripcode}`,
 							);
@@ -790,6 +733,7 @@ class BseIndiaProvider {
 					}
 				}
 			} catch (e) {
+    // eslint-disable-next-line no-console
 				console.warn(`[BseIndiaProvider] Symbol lookup failed`);
 			}
 		}
@@ -852,12 +796,14 @@ class BseIndiaProvider {
 				result.corporateActions.length;
 			result.success = totalItems > 0;
 
+   // eslint-disable-next-line no-console
 			console.log(
 				`[BseIndiaProvider] Corporate reports for scripcode ${resolvedScripcode}: ${totalItems} total items`,
 			);
 			return result;
 		} catch (error: any) {
 			result.error = error.message;
+   // eslint-disable-next-line no-console
 			console.warn(
 				`⚠️ [BseIndiaProvider] Corporate reports error: ${error.message}`,
 			);
@@ -877,10 +823,11 @@ class BseIndiaProvider {
 	}
 }
 
-const nseIndiaProviderInstance = new NseIndiaProvider();
+const nseIndiaProviderInstance = new IndianAPIMarketProvider();
 const bseIndiaProviderInstance = new BseIndiaProvider();
 
 export { nseIndiaProviderInstance, bseIndiaProviderInstance };
+
 
 class MarketMoversCache {
 	private cache: CacheEntry | null = null;
@@ -944,7 +891,7 @@ class MarketMoversCache {
 	private isInitialized = false;
 	private currentBackoff = INITIAL_BACKOFF_MS;
 	private finnhubProvider: FinnhubProvider;
-	private nseProvider: NseIndiaProvider;
+	private nseProvider: IndianAPIMarketProvider;
 	private bseProvider: BseIndiaProvider;
 	private yahooRateLimited = false;
 
@@ -994,6 +941,7 @@ class MarketMoversCache {
 						previousClose: Number.parseFloat(row.previousClose || 0),
 					}));
 
+     // eslint-disable-next-line no-console
 					console.log(
 						`💾 [MarketMoversCache] Loaded from database: ${gainers.length} gainers, ${losers.length} losers`,
 					);
@@ -1004,6 +952,7 @@ class MarketMoversCache {
 				client.release();
 			}
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.warn("⚠️ [MarketMoversCache] Database load failed:", error);
 			return null;
 		}
@@ -1078,6 +1027,7 @@ class MarketMoversCache {
 					);
 				}
 
+    // eslint-disable-next-line no-console
 				console.log(
 					`💾 [MarketMoversCache] Saved ${stocks.length} stocks to database`,
 				);
@@ -1085,19 +1035,23 @@ class MarketMoversCache {
 				client.release();
 			}
 		} catch (error) {
+   // eslint-disable-next-line no-console
 			console.warn("⚠️ [MarketMoversCache] Database save failed:", error);
 		}
 	}
 
 	async initialize(): Promise<void> {
+  // eslint-disable-next-line no-console
 		console.log("📈 [MarketMoversCache] Starting background initialization...");
 		this.initializeInBackground().catch((err) =>
+   // eslint-disable-next-line no-console
 			console.error(
 				"❌ [MarketMoversCache] Background initialization failed:",
 				err,
 			),
 		);
 		this.startBackgroundRefresh();
+  // eslint-disable-next-line no-console
 		console.log(
 			"✅ [MarketMoversCache] Background initialization started (non-blocking)",
 		);
@@ -1107,10 +1061,12 @@ class MarketMoversCache {
 		try {
 			const cached = await distributedCache.getJson<MarketMoversData>("market:movers:v1");
 			if (cached && cached.gainers?.length > 0) {
+    // eslint-disable-next-line no-console
 				console.log("⚡ [MarketMoversCache] Loaded from Redis (L2 cache)");
 				return cached;
 			}
 		} catch (err) {
+   // eslint-disable-next-line no-console
 			console.warn("[MarketMoversCache] Redis L2 read failed, falling through to DB", err);
 		}
 		return null;
@@ -1119,8 +1075,10 @@ class MarketMoversCache {
 	private async saveToRedis(data: MarketMoversData): Promise<void> {
 		try {
 			await distributedCache.setJson("market:movers:v1", data, Math.floor(CACHE_TTL_MS / 1000));
+   // eslint-disable-next-line no-console
 			console.log("💾 [MarketMoversCache] Saved to Redis (L2 cache)");
 		} catch (err) {
+   // eslint-disable-next-line no-console
 			console.warn("[MarketMoversCache] Redis L2 write failed", err);
 		}
 	}
@@ -1133,6 +1091,7 @@ class MarketMoversCache {
 			this.metrics.lastSuccessfulProvider = "redis";
 			this.isInitialized = true;
 			// Background refresh to keep Redis warm without blocking boot
+   // eslint-disable-next-line no-console
 			setTimeout(() => this.refreshCache().catch(console.error), 5000);
 			return;
 		}
@@ -1147,12 +1106,14 @@ class MarketMoversCache {
 			};
 			this.metrics.lastSuccessfulProvider = "database";
 			this.isInitialized = true;
+   // eslint-disable-next-line no-console
 			console.log(
 				"✅ [MarketMoversCache] Initialized from database (L3 fast path)",
 			);
 			// Backfill Redis from DB data immediately
 			await this.saveToRedis(dbData);
 			// Then schedule a full API refresh
+   // eslint-disable-next-line no-console
 			setTimeout(() => this.refreshCache().catch(console.error), 5000);
 			return;
 		}
@@ -1160,6 +1121,7 @@ class MarketMoversCache {
 		// L4: Full API refresh if both Redis and DB are cold
 		await this.refreshCache();
 		this.isInitialized = true;
+  // eslint-disable-next-line no-console
 		console.log(
 			"✅ [MarketMoversCache] Background initialization completed (API refresh)",
 		);
@@ -1171,6 +1133,7 @@ class MarketMoversCache {
 
 	private applyBackoff(): void {
 		this.metrics.backoffUntil = Date.now() + this.currentBackoff;
+  // eslint-disable-next-line no-console
 		console.log(
 			`⏸️ [MarketMoversCache] Rate limited, backing off for ${Math.round(this.currentBackoff / 1000)}s`,
 		);
@@ -1203,11 +1166,13 @@ class MarketMoversCache {
 		}
 
 		if (this.isRateLimited()) {
+   // eslint-disable-next-line no-console
 			console.log("⏸️ [MarketMoversCache] Skipping crumb init - rate limited");
 			return;
 		}
 
 		try {
+   // eslint-disable-next-line no-console
 			console.log("🔐 [MarketMoversCache] Initializing Yahoo Finance crumb...");
 			const startTime = Date.now();
 
@@ -1219,6 +1184,7 @@ class MarketMoversCache {
 			this.crumbInitTime = Date.now();
 			this.yahooRateLimited = false;
 			this.resetBackoff();
+   // eslint-disable-next-line no-console
 			console.log(
 				`✅ [MarketMoversCache] Yahoo crumb initialized in ${Date.now() - startTime}ms`,
 			);
@@ -1229,6 +1195,7 @@ class MarketMoversCache {
 				this.yahooRateLimited = true;
 				this.applyBackoff();
 			}
+   // eslint-disable-next-line no-console
 			console.warn(
 				"⚠️ [MarketMoversCache] Failed to initialize Yahoo crumb:",
 				error,
@@ -1244,6 +1211,7 @@ class MarketMoversCache {
 				this.bseProvider.isEnabled();
 			if (this.isRateLimited() && !hasFallback) {
 				const remainingMs = this.metrics.backoffUntil - Date.now();
+    // eslint-disable-next-line no-console
 				console.log(
 					`⏸️ [MarketMoversCache] Skipping refresh - rate limited for ${Math.round(remainingMs / 1000)}s more`,
 				);
@@ -1256,6 +1224,7 @@ class MarketMoversCache {
 				: Number.POSITIVE_INFINITY;
 
 			if (cacheAge >= CACHE_TTL_MS && !this.refreshLock) {
+    // eslint-disable-next-line no-console
 				console.log("🔄 [MarketMoversCache] Background refresh triggered");
 				await this.refreshCache();
 			}
@@ -1375,6 +1344,7 @@ class MarketMoversCache {
 
 	private async refreshCache(): Promise<void> {
 		if (this.refreshLock) {
+   // eslint-disable-next-line no-console
 			console.log(
 				"⏳ [MarketMoversCache] Refresh already in progress, skipping",
 			);
@@ -1385,6 +1355,7 @@ class MarketMoversCache {
 		const startTime = Date.now();
 
 		try {
+   // eslint-disable-next-line no-console
 			console.log("📊 [MarketMoversCache] Fetching fresh market data...");
 
 			let stockQuotes: Stock[] = [];
@@ -1393,13 +1364,16 @@ class MarketMoversCache {
 			// Priority 1: NSE India (direct exchange, proven working in production)
 			if (stockQuotes.length === 0 && this.nseProvider.isEnabled()) {
 				try {
+     // eslint-disable-next-line no-console
 					console.log("🔄 [MarketMoversCache] Trying NSE India (primary)...");
 					stockQuotes = await this.fetchFromNse();
 					successProvider = "nse";
+     // eslint-disable-next-line no-console
 					console.log(
 						`✅ [MarketMoversCache] NSE India succeeded with ${stockQuotes.length} stocks`,
 					);
 				} catch (nseError) {
+     // eslint-disable-next-line no-console
 					console.warn("⚠️ [MarketMoversCache] NSE India failed:", nseError);
 					this.metrics.providers.nse.failureCount++;
 					this.metrics.providers.nse.lastFailure = Date.now();
@@ -1409,13 +1383,16 @@ class MarketMoversCache {
 			// Priority 2: BSE India (secondary exchange)
 			if (stockQuotes.length === 0 && this.bseProvider.isEnabled()) {
 				try {
+     // eslint-disable-next-line no-console
 					console.log("🔄 [MarketMoversCache] Trying BSE India fallback...");
 					stockQuotes = await this.fetchFromBse();
 					successProvider = "bse";
+     // eslint-disable-next-line no-console
 					console.log(
 						`✅ [MarketMoversCache] BSE India succeeded with ${stockQuotes.length} stocks`,
 					);
 				} catch (bseError) {
+     // eslint-disable-next-line no-console
 					console.warn("⚠️ [MarketMoversCache] BSE India failed:", bseError);
 					this.metrics.providers.bse.failureCount++;
 					this.metrics.providers.bse.lastFailure = Date.now();
@@ -1425,15 +1402,18 @@ class MarketMoversCache {
 			// Priority 3: Python sidecar/yfinance (datacenter-friendly, NIFTY50 coverage)
 			if (stockQuotes.length === 0) {
 				try {
+     // eslint-disable-next-line no-console
 					console.log(
 						"🔄 [MarketMoversCache] Trying Python/yfinance fallback...",
 					);
 					stockQuotes = await this.fetchFromPython();
 					successProvider = "python";
+     // eslint-disable-next-line no-console
 					console.log(
 						`✅ [MarketMoversCache] Python/yfinance succeeded with ${stockQuotes.length} stocks`,
 					);
 				} catch (pyError: any) {
+     // eslint-disable-next-line no-console
 					console.warn(
 						"⚠️ [MarketMoversCache] Python/yfinance failed:",
 						pyError?.message || pyError,
@@ -1446,15 +1426,18 @@ class MarketMoversCache {
 			// Priority 4: Yahoo Finance (last resort, most rate-limited)
 			if (stockQuotes.length === 0 && !this.yahooRateLimited) {
 				try {
+     // eslint-disable-next-line no-console
 					console.log(
 						"🔄 [MarketMoversCache] Trying Yahoo Finance fallback...",
 					);
 					stockQuotes = await this.fetchFromYahoo();
 					successProvider = "yahoo";
+     // eslint-disable-next-line no-console
 					console.log(
 						`✅ [MarketMoversCache] Yahoo Finance succeeded with ${stockQuotes.length} stocks`,
 					);
 				} catch (yahooError) {
+     // eslint-disable-next-line no-console
 					console.warn(
 						"⚠️ [MarketMoversCache] Yahoo Finance failed:",
 						yahooError,
@@ -1467,13 +1450,16 @@ class MarketMoversCache {
 			// Priority 5: Finnhub (limited Indian stock coverage)
 			if (stockQuotes.length === 0 && this.finnhubProvider.isEnabled()) {
 				try {
+     // eslint-disable-next-line no-console
 					console.log("🔄 [MarketMoversCache] Trying Finnhub fallback...");
 					stockQuotes = await this.fetchFromFinnhub();
 					successProvider = "finnhub";
+     // eslint-disable-next-line no-console
 					console.log(
 						`✅ [MarketMoversCache] Finnhub succeeded with ${stockQuotes.length} stocks`,
 					);
 				} catch (finnhubError) {
+     // eslint-disable-next-line no-console
 					console.warn(
 						"⚠️ [MarketMoversCache] Finnhub fallback failed:",
 						finnhubError,
@@ -1510,15 +1496,18 @@ class MarketMoversCache {
 
 			// Save to Redis (L2) — survives restarts, serves cold-start instantly
 			this.saveToRedis({ gainers, losers }).catch((err) =>
+    // eslint-disable-next-line no-console
 				console.warn("⚠️ [MarketMoversCache] Redis save failed:", err),
 			);
 
 			// Save to database (L3) for persistence (non-blocking)
 			this.saveToDatabase(stockQuotes, successProvider || "unknown").catch(
 				(err) =>
+     // eslint-disable-next-line no-console
 					console.warn("⚠️ [MarketMoversCache] Background DB save failed:", err),
 			);
 
+   // eslint-disable-next-line no-console
 			console.log(
 				`✅ [MarketMoversCache] Cache refreshed in ${this.metrics.lastRefreshDuration}ms via ${successProvider} (${stockQuotes.length} stocks)`,
 			);
@@ -1526,8 +1515,10 @@ class MarketMoversCache {
 			this.metrics.errors++;
 
 			if (this.isRateLimitError(error)) {
+    // eslint-disable-next-line no-console
 				console.warn("⚠️ [MarketMoversCache] Rate limited by all providers");
 			} else {
+    // eslint-disable-next-line no-console
 				console.error("❌ [MarketMoversCache] Refresh failed:", error);
 			}
 
@@ -1538,6 +1529,7 @@ class MarketMoversCache {
 					isRefreshing: false,
 				};
 				this.metrics.lastSuccessfulProvider = "static_fallback";
+    // eslint-disable-next-line no-console
 				console.log("📌 [MarketMoversCache] Using fallback data");
 			}
 		} finally {
@@ -1568,11 +1560,13 @@ class MarketMoversCache {
 
 			if (cacheAge < STALE_TTL_MS) {
 				this.metrics.hits++;
+    // eslint-disable-next-line no-console
 				console.log(
 					`📦 [MarketMoversCache] Serving stale cache (age: ${Math.round(cacheAge / 1000)}s)`,
 				);
 
 				if (!this.refreshLock) {
+     // eslint-disable-next-line no-console
 					this.refreshCache().catch(console.error);
 				}
 
@@ -1592,10 +1586,12 @@ class MarketMoversCache {
 		const cannotFetch =
 			(!this.isInitialized || this.isRateLimited()) && !hasFallback;
 		if (cannotFetch) {
+   // eslint-disable-next-line no-console
 			console.log(
 				"📌 [MarketMoversCache] Returning fallback data (not initialized or all providers unavailable)",
 			);
 			if (!this.refreshLock) {
+    // eslint-disable-next-line no-console
 				this.refreshCache().catch(console.error);
 			}
 			return {
@@ -1608,6 +1604,7 @@ class MarketMoversCache {
 			};
 		}
 
+  // eslint-disable-next-line no-console
 		console.log("🔍 [MarketMoversCache] Cache MISS, fetching fresh data...");
 
 		if (!this.refreshLock) {
