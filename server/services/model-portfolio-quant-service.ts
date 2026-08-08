@@ -515,9 +515,11 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
   needing_rebalance: number;
   errors: number;
   latency_ms: number;
+  drift_triggered_ids: string[]; // BUG-3 FIX: portfolios needing immediate rebalance
 }> {
   const t0 = Date.now();
   let scored = 0, drifting = 0, needingRebalance = 0, errors = 0;
+  const driftTriggeredIds: string[] = []; // BUG-3: collect needs_rebalance portfolio IDs
 
   logger.info("[QuantEngine] Nightly model portfolio rebalance started", {
     event: "NIGHTLY_PORTFOLIO_REBALANCE_START",
@@ -620,7 +622,10 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
 
         scored++;
         if (driftReport.status !== "balanced") drifting++;
-        if (driftReport.status === "needs_rebalance") needingRebalance++;
+        if (driftReport.status === "needs_rebalance") {
+          needingRebalance++;
+          driftTriggeredIds.push(row.id); // BUG-3 FIX: expose for scheduler chaining
+        }
 
         // ── E7: Negative Alpha Detection ────────────────────────────────────────
         // If the portfolio is earning less than its benchmark after scoring, emit a
@@ -689,7 +694,14 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
   }
 
   const latency_ms = Date.now() - t0;
-  const result = { portfolios_scored: scored, drifting, needing_rebalance: needingRebalance, errors, latency_ms };
+  const result = {
+    portfolios_scored: scored,
+    drifting,
+    needing_rebalance: needingRebalance,
+    errors,
+    latency_ms,
+    drift_triggered_ids: driftTriggeredIds, // BUG-3 FIX
+  };
 
   logger.info("[QuantEngine] Nightly model portfolio rebalance complete", {
     event: "NIGHTLY_PORTFOLIO_REBALANCE_COMPLETE",

@@ -573,11 +573,18 @@ export async function autoApplyCalendarRebalancing(): Promise<{
 
     const holdings = (portfolio.holdings as any[]) ?? [];
 
-    // Skip non-equity portfolios (pure debt, gold, REIT)
-    const hasEquity = holdings.some(
-      (h) => (h.type === "equity" || !h.type) && h.isin && h.isin.startsWith("INE")
+    // BUG-2 FIX: Old check used isin.startsWith("INE") — INE* = equity stocks only.
+    // MF ISINs are INF* (e.g. INF846K01EW2). This silently skipped ~80% of portfolios.
+    // New: accept equity stocks (INE*), MF ISINs (INF*), AMFI scheme codes, or any
+    // holding that has a positive weight (fallback for manually-seeded portfolios).
+    const hasRebalancableHoldings = holdings.some(
+      (h) =>
+        (h.isin && (h.isin.startsWith("INE") || h.isin.startsWith("INF"))) ||
+        h.amfiSchemeCode ||                              // mutual fund by AMFI code
+        (h.type && ["equity", "MF", "debt", "hybrid", "gold", "reit"].includes(h.type)) ||
+        (!h.isin && !h.type && Number(h.weight ?? 0) > 0) // fallback: seeded holding
     );
-    if (!hasEquity) {
+    if (!hasRebalancableHoldings) {
       portfoliosSkipped++;
       continue;
     }
@@ -593,6 +600,21 @@ export async function autoApplyCalendarRebalancing(): Promise<{
       const regime = await detectRegime();
       const suggestions = await generateOptimizationSuggestions([portfolio.id]);
 
+      // ── BUG-4 FIX: Weight rebalancing FIRST — before any fund swaps ───────────
+      // Correct holdings back to their target weights WITHOUT changing any ISINs.
+      // This mirrors real PMS operations: rebalance weights, then replace underperformers.
+      const weightResult = applyWeightRebalancing(holdings, regime.regime);
+      let updatedHoldings: any[] = weightResult.updated;
+      const applied: string[] = [...weightResult.changes];
+
+      if (weightResult.corrected > 0) {
+        logger.info("[CalendarRebalance] Weight rebalancing applied", {
+          portfolio_id:    portfolio.id,
+          corrections:     weightResult.corrected,
+          changes:         weightResult.changes.slice(0, 5),
+        });
+      }
+
       // Filter for high-confidence suggestions with actionable recommendations
       const applicableSuggestions = suggestions.filter(
         (s) =>
@@ -600,8 +622,8 @@ export async function autoApplyCalendarRebalancing(): Promise<{
           (s.recommendation === "replace" || s.recommendation === "reduce_weight")
       );
 
-      if (applicableSuggestions.length === 0) {
-        // Portfolio is due but no confident suggestions — update lastRebalanced only
+      if (applicableSuggestions.length === 0 && weightResult.corrected === 0) {
+        // Portfolio is due but no corrections or confident suggestions — update date only
         await db
           .update(modelPortfolios)
           .set({ lastRebalanced: today.toISOString().split("T")[0], updatedAt: today })
@@ -614,9 +636,7 @@ export async function autoApplyCalendarRebalancing(): Promise<{
         continue;
       }
 
-      // Apply up to MAX_AUTO_SWAPS_PER_RUN swaps
-      let updatedHoldings = [...holdings];
-      const applied: string[] = [];
+      // Apply up to MAX_AUTO_SWAPS_PER_RUN fund swaps (after weight correction)
       const swapLimit = Math.min(applicableSuggestions.length, MAX_AUTO_SWAPS_PER_RUN);
 
       for (let i = 0; i < swapLimit; i++) {
@@ -786,6 +806,91 @@ export async function autoApplyCalendarRebalancing(): Promise<{
   });
 
   return summary;
+}
+
+// ── applyWeightRebalancing ───────────────────────────────────────────────────────
+/**
+ * BUG-4 FIX: Weight drift correction — adjusts holding weights back to target
+ * WITHOUT swapping the fund or changing any ISINs.
+ *
+ * Purpose:
+ *   When holdings drift from their target weights due to market returns
+ *   (e.g. equity grew from 60% → 75% in a bull run), trim/add weights back to
+ *   target. This is called BEFORE fund-swap suggestions — matching real PMS ops:
+ *   first rebalance weights, then replace underperformers.
+ *
+ * Guardrails:
+ *   - Max 15% absolute correction per holding per run (prevents extreme swings)
+ *   - In BEAR regime: block weight increases to equity/thematic holdings
+ *   - Minimum holding weight: 1% (never reduce to zero)
+ *   - Normalizes corrected weights to sum = 100%
+ *
+ * Inputs:
+ *   holdings      — array of holdings with .weight and .targetWeight fields
+ *   regime        — market regime for BEAR guardrail
+ * Outputs:
+ *   { updated: holding[], changes: string[], corrected: number }
+ *   corrected = 0 means no drift warranting correction was found
+ */
+export function applyWeightRebalancing(
+  holdings: any[],
+  regime: MarketRegime,
+): { updated: any[]; changes: string[]; corrected: number } {
+  const MAX_CORRECTION_PER_HOLDING = 15;  // % absolute
+  const MIN_HOLDING_WEIGHT = 1;           // %
+  const DRIFT_TOLERANCE = 2;              // % — don't correct within ±2% of target (transaction costs)
+
+  const changes: string[] = [];
+  let corrected = 0;
+
+  const updated = holdings.map((h: any) => {
+    const current = Number(h.weight ?? 0);
+    const target  = Number(h.targetWeight ?? h.weight ?? current); // fall back to current if no target
+    const drift   = current - target; // positive = overweight, negative = underweight
+
+    // Within tolerance — no correction needed
+    if (Math.abs(drift) <= DRIFT_TOLERANCE) return h;
+
+    const equityLike = ["equity", "thematic", "small_cap", "mid_cap"].includes(
+      (h.type ?? h.category ?? "").toLowerCase()
+    );
+
+    // BEAR guardrail: don't increase equity exposure in a bear market
+    if (regime === "BEAR" && drift < 0 && equityLike) {
+      changes.push(`HOLD ${h.name}: skip equity increase in BEAR regime (drift: ${drift.toFixed(1)}%)`);
+      return h;
+    }
+
+    // Apply correction capped at MAX_CORRECTION_PER_HOLDING
+    const correction = Math.sign(-drift) * Math.min(Math.abs(drift), MAX_CORRECTION_PER_HOLDING);
+    const newWeight  = Math.max(MIN_HOLDING_WEIGHT, Math.round((current + correction) * 10) / 10);
+
+    if (newWeight === current) return h; // rounding neutralized the change
+
+    changes.push(
+      `REWEIGHT ${h.name}: ${current.toFixed(1)}% → ${newWeight.toFixed(1)}% (target: ${target.toFixed(1)}%)`
+    );
+    corrected++;
+    return { ...h, weight: newWeight };
+  });
+
+  // Normalize corrected weights to sum = 100%
+  if (corrected > 0) {
+    const total = updated.reduce((s: number, h: any) => s + Number(h.weight ?? 0), 0);
+    if (total > 0 && Math.abs(total - 100) > 0.1) {
+      const scale = 100 / total;
+      return {
+        updated: updated.map((h: any) => ({
+          ...h,
+          weight: Math.round(Number(h.weight) * scale * 10) / 10,
+        })),
+        changes,
+        corrected,
+      };
+    }
+  }
+
+  return { updated, changes, corrected };
 }
 
 // ── Helper: is the portfolio's rebalancing calendar due? ─────────────────────

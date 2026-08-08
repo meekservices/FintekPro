@@ -814,7 +814,65 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			};
 			scheduleNavHistoryRefresh();
 
-			console.log("[PortfolioIntel] 🧠 Portfolio Intelligence Engine active (daily regime + weekly momentum + calendar rebalance + drift refresh + NAV history)");
+			// ── Phase 5g: Nightly Quant Scorer + Drift-Triggered Rebalance ────────
+			// BUG-1 FIX: runNightlyModelPortfolioRebalance() was only admin-triggerable.
+			//   Now wired at 11:30 PM IST (18:00 UTC) — after NAV refresh (00:30 UTC),
+			//   before next calendar rebalance slot (13:30 UTC the following day).
+			//
+			// BUG-3 FIX: After scoring, portfolios with drift_score > 15 (needs_rebalance)
+			//   are passed to autoApplyHighConfidenceSwaps() — closing the feedback loop
+			//   between quant drift detection and actual rebalancing execution.
+			const scheduleNightlyQuantRun = () => {
+				const DAILY_MS_QUANT = 24 * 60 * 60 * 1000;
+				const nowQ = new Date();
+				const nextQ = new Date();
+				nextQ.setUTCHours(18, 0, 0, 0); // 11:30 PM IST = 18:00 UTC
+				if (nextQ <= nowQ) nextQ.setTime(nextQ.getTime() + DAILY_MS_QUANT);
+
+				setTimeout(async () => {
+					const runQuantAndRebalance = async () => {
+						const t0 = Date.now();
+						try {
+							console.log("[QuantEngine] 🔬 Nightly quant scorer starting...");
+							const { runNightlyModelPortfolioRebalance } = await import(
+								"../services/model-portfolio-quant-service"
+							);
+							const result = await runNightlyModelPortfolioRebalance();
+
+							console.log(
+								`[QuantEngine] ✅ Scored ${result.portfolios_scored} portfolios: ` +
+								`${result.drifting} drifting, ${result.needing_rebalance} needing rebalance, ` +
+								`${result.errors} errors (${Date.now() - t0}ms)`
+							);
+
+							// BUG-3: Chain drift-triggered portfolios to auto-apply
+							if (result.needing_rebalance > 0 && result.drift_triggered_ids.length > 0) {
+								const driftIds = result.drift_triggered_ids;
+								if (driftIds.length > 0) {
+									console.log(`[QuantEngine] 🔄 Drift-triggered rebalance for ${driftIds.length} portfolios: ${driftIds.join(", ")}`);
+									const { autoApplyHighConfidenceSwaps } = await import(
+										"../services/portfolio-rebalance-scheduler"
+									);
+									const rebalanceResults = await autoApplyHighConfidenceSwaps(driftIds);
+									const applied = rebalanceResults.filter(r => r.swapsApplied > 0);
+									console.log(
+										`[QuantEngine] ✅ Drift-triggered auto-rebalance: ` +
+										`${applied.length} portfolios updated, ` +
+										`${rebalanceResults.reduce((s, r) => s + r.swapsApplied, 0)} swaps applied`
+									);
+								}
+							}
+						} catch (err) {
+							console.error("[QuantEngine] Nightly quant run failed:", err);
+						}
+					};
+					await runQuantAndRebalance();
+					setInterval(runQuantAndRebalance, DAILY_MS_QUANT);
+				}, Math.max(nextQ.getTime() - nowQ.getTime(), 1000));
+			};
+			scheduleNightlyQuantRun();
+
+			console.log("[PortfolioIntel] 🧠 Portfolio Intelligence Engine active (daily regime + weekly momentum + calendar rebalance + drift refresh + NAV history + nightly quant scorer)");
 		});
 
 		// ── Phase 6: Audit & Compliance Cleanup ──────────────────────────────────
