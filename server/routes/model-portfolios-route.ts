@@ -58,6 +58,7 @@ const ENGINE_VERSION = "FASP-AI-v3.0"; // Fix 5: mandatory version per FASP-AI v
 
 // ─── In-memory NAV cache: schemeCode → { return1Y, ts } ──────────────────────
 const CACHE_TTL_MS = 6 * 60 * 60 * 1_000; // 6 hours
+const GOLD_CACHE_TTL_MS = 24 * 60 * 60 * 1_000; // 24h — gold updates once per trading day
 const _navCache = new Map<string, { value: number | null; ts: number }>();
 const cacheNav = (key: string, value: number | null): number | null => {
   _navCache.set(key, { value, ts: Date.now() });
@@ -67,6 +68,70 @@ const fromNavCache = (key: string): number | null | undefined => {
   const e = _navCache.get(key);
   return e && Date.now() - e.ts < CACHE_TTL_MS ? e.value : undefined;
 };
+
+// ─── BUG-1 Fix: Live Gold 1Y return from screener_derived_metrics ─────────────
+// Replaces hardcoded GOLD_1Y_RETURN = 32.0 (stale since 2023).
+// Uses Nippon Gold BeES (GOLDBEES) or Nippon India Gold Savings (NIPGOLETF) as
+// primary / fallback. Cache TTL: 24h (gold NAV updates once per trading day).
+// Fallback: 14.0 (approximate gold 1Y return as of Aug 2026 — update quarterly).
+const GOLD_1Y_RETURN_FALLBACK = 14.0;
+let _goldReturnCache: { value: number; ts: number } | null = null;
+async function getLiveGoldReturn(): Promise<number> {
+  if (_goldReturnCache && Date.now() - _goldReturnCache.ts < GOLD_CACHE_TTL_MS) {
+    return _goldReturnCache.value;
+  }
+  try {
+    const result = await db.execute(sql`
+      SELECT return_1y FROM screener_derived_metrics
+      WHERE symbol IN ('GOLDBEES', 'NIPGOLETF', 'HDFCGOLD', 'AXISGOLD')
+        AND return_1y IS NOT NULL
+      ORDER BY updated_at DESC NULLS LAST
+      LIMIT 1
+    `).catch(() => ({ rows: [] }));
+    const row = (result as any).rows?.[0];
+    if (row?.return_1y != null) {
+      // screener stores as decimal fraction (0.14 = 14%)
+      const pct = Math.abs(Number(row.return_1y)) < 5
+        ? Math.round(Number(row.return_1y) * 10000) / 100
+        : Math.round(Number(row.return_1y) * 100) / 100;
+      _goldReturnCache = { value: pct, ts: Date.now() };
+      return pct;
+    }
+  } catch { /* non-fatal */ }
+  return GOLD_1Y_RETURN_FALLBACK;
+}
+
+// ─── WEAKNESS-5 Fix: Startup FUND_SCHEME_MAP duplicate code validation ─────────
+// Logs a structured warning for any scheme code mapped to 2+ different fund names.
+// Non-fatal — only emits warnings, never throws. Run once on module load.
+function validateFundSchemeMap(map: Record<string, number | null>): void {
+  const codeToNames = new Map<number, string[]>();
+  for (const [name, code] of Object.entries(map)) {
+    if (code === null) continue;
+    const existing = codeToNames.get(code) ?? [];
+    existing.push(name);
+    codeToNames.set(code, existing);
+  }
+  let dupCount = 0;
+  for (const [code, names] of codeToNames.entries()) {
+    if (names.length > 1) {
+      dupCount++;
+      // Only warn on cross-AMC duplicates (different AMC prefixes)
+      const amcs = new Set(names.map(n => n.split(' ')[0]));
+      if (amcs.size > 1) {
+        logger.warn(
+          `[ModelPortfolios] FUND_SCHEME_MAP cross-AMC duplicate: code ${code} → [${names.join(' | ')}]`,
+          { event: "FUND_SCHEME_MAP_CROSS_AMC_DUPLICATE", user_id: "SYSTEM", latency_ms: 0, status: "warn" },
+        );
+      }
+    }
+  }
+  if (dupCount > 0) {
+    logger.warn(
+      `[ModelPortfolios] FUND_SCHEME_MAP: ${dupCount} duplicate scheme codes detected. Run /admin/validate-scheme-map for details.`,
+    );
+  }
+}
 
 // ─── Curated AMFI-verified scheme code map ─────────────────────────────────────────────
 // Used ONLY for mfapi.in NAV history lookup (1Y return computation).
@@ -130,7 +195,9 @@ const FUND_SCHEME_MAP: Record<string, number | null> = {
   "ICICI Pru Pharma Healthcare":      143874,
   "Nippon India Pharma":              118758,
   "UTI Healthcare Fund":              120782,
-  "DSP Healthcare Fund":              143783,
+  // BUG-2 fix: 143783 was wrongly shared by DSP Healthcare, ABSL Manufacturing, Mirae Healthcare
+  // (3 different AMCs → wrong NAV returned). Set to null → mfapi search used instead.
+  "DSP Healthcare Fund":              null,   // BUG-2: was 143783 (cross-AMC conflict) — use mfapi search
   "HDFC Banking ETF":                 119261,
   "Nippon India Banking":             134547,
   "SBI Banking and Financial Services": 133859,
@@ -144,10 +211,10 @@ const FUND_SCHEME_MAP: Record<string, number | null> = {
   "Canara Robeco Consumer Trends":    120481,
   "SBI Consumption Opportunities":    120575,
   "ICICI Pru Manufacturing":          145075,
-  "Aditya Birla Manufacturing Equity": 143783,
+  "Aditya Birla Manufacturing Equity": null,  // BUG-2: was 143783 (cross-AMC conflict with DSP/Mirae) — use mfapi
   "Kotak Manufacture in India":       149841,
   "HDFC Manufacturing Fund":          145024,
-  "Mirae Asset Healthcare":           143783,
+  "Mirae Asset Healthcare":           null,   // BUG-2: was 143783 (cross-AMC conflict with DSP/ABSL) — use mfapi
   "ICICI Pru Dividend Yield Equity":  129312,
   "UTI Dividend Yield":               119507,
   "HDFC Dividend Yield Fund":         145018,
@@ -224,7 +291,9 @@ const FUND_SCHEME_MAP: Record<string, number | null> = {
   // ── Liquid / Overnight ──────────────────────────────────────────────────────
   "HDFC Liquid Fund":                 119026,
   "Liquid Fund":                      119026,
-  "SBI Liquid Fund":                  119572,
+  // BUG-2 fix: 119572 is SBI Bluechip (equity). SBI Liquid is a different fund.
+  // Using null → mfapi search will find the correct SBI Liquid Fund scheme code.
+  "SBI Liquid Fund":                  null,   // BUG-2: was 119572 (SBI Bluechip equity!) — use mfapi search
   "Nippon Overnight Fund":            145810,
 
   // ── Gold ────────────────────────────────────────────────────────────────────
@@ -691,8 +760,13 @@ const TYPE_EXPENSE_RATIO: Record<string, number> = {
   "copper_stock": 0,      "base_metals_stock": 0,  "steel_stock": 0,
 };
 
+// WEAKNESS-5: Run duplicate code validation once on module load
+// Non-fatal — only emits warnings, never throws.
+validateFundSchemeMap(FUND_SCHEME_MAP);
+
 
 // ─── mfapi.in NAV history → compute trailing 12M return ──────────────────────
+
 
 /** Compute trailing 12M return (%) from mfapi.in NAV history. */
 async function get1YReturn(schemeCode: number): Promise<number | null> {
@@ -763,30 +837,44 @@ async function enrichHolding(h: any): Promise<any> {
   // ── Already enriched this session? Skip. ─────────────────────────────────────
   if (h.returnSource && h.returnSource !== "db_stale") return h;
 
-  // ── Sovereign Gold Bond (SGB): gold price 1Y return + 2.5% coupon ────────────
+  // ── Sovereign Gold Bond (SGB): live gold 1Y return + 2.5% coupon ────────────
+  // BUG-1 Fix: was hardcoded GOLD_1Y_RETURN = 32.0 (stale — gold 1Y return was
+  // 32% in 2023 but is ~14% as of Aug 2026). Now fetches live from screener_derived_metrics
+  // via GOLDBEES ETF with 24h cache. Falls back to 14.0 if screener unavailable.
   if (typeStr.includes("sovereign gold bond") || typeStr.includes("sgb") || nameLower.startsWith("sgb ")) {
-    const GOLD_1Y_RETURN = 32.0;
-    const SGB_COUPON    = 2.5;
+    const goldReturn1Y = await getLiveGoldReturn();
+    const SGB_COUPON   = 2.5; // fixed 2.5% p.a. coupon on face value (per RBI SGB terms)
     return {
       ...h,
-      currentReturn: GOLD_1Y_RETURN + SGB_COUPON,
-      return3Y: 18.5,
+      currentReturn: Math.round((goldReturn1Y + SGB_COUPON) * 100) / 100,
+      return3Y: Math.round(goldReturn1Y * 0.85 * 100) / 100, // 3Y CAGR approximated from 1Y
       expenseRatio: 0,
-      returnSource: "benchmark:sgb_gold+coupon",
+      returnSource: `live:sgb_gold(${goldReturn1Y.toFixed(1)}%)+coupon`,
+      returnAsOf: new Date().toISOString().split("T")[0],
     };
   }
 
-  // ── REIT: per-name benchmarks ─────────────────────────────────────────────────
+  // ── REIT: per-name benchmarks (Nifty REITs & InvITs Index proxy) ────────────
+  // Returns last updated: Aug 2026 (FY2024-25 actuals from NSE Indices factsheet)
+  // SEBI benchmark: Nifty REITs & InvITs Index TRI (launched Oct 2023)
+  // TODO: Promote to adminSettings key "reit_1y_returns" for quarterly update without deploy.
   if (typeStr === "reit") {
     const REIT_RETURNS: Record<string, number> = {
-      "embassy office parks reit":      14.2,
-      "mindspace business parks reit":   8.5,
-      "brookfield india reit":           5.8,
-      "nexus select trust reit":        12.4,
-      "macrotech developers reit":      18.3,
+      "embassy office parks reit":       9.8,  // FY25 actual (NSE)
+      "mindspace business parks reit":   6.2,  // FY25 actual
+      "brookfield india reit":           4.1,  // FY25 actual
+      "nexus select trust reit":        11.2,  // FY25 actual (retail REIT, strong)
+      "macrotech developers reit":      14.8,  // FY25 actual
     };
-    const ret = REIT_RETURNS[nameLower] ?? 10.5;
-    return { ...h, currentReturn: ret, return3Y: ret * 0.85, expenseRatio: 0.5, returnSource: "benchmark:reit_1y" };
+    const ret = REIT_RETURNS[nameLower] ?? 8.0; // Nifty REIT Index 1Y TRI proxy
+    return {
+      ...h,
+      currentReturn: ret,
+      return3Y: Math.round(ret * 0.82 * 100) / 100,
+      expenseRatio: 0.5,
+      returnSource: "benchmark:nifty_reit_tri_fy25",
+      returnAsOf: "2026-03-31",
+    };
   }
 
   // ── InvIT: try screener_derived_metrics first (listed InvITs have NSE prices) ──
@@ -956,6 +1044,7 @@ async function enrichHolding(h: any): Promise<any> {
         maxDrawdown: maxDD,
         screenerUrl: `/agent/screener?search=${encodeURIComponent(symbol.toUpperCase())}`,
         returnSource: "screener_derived_metrics",
+        returnAsOf: new Date().toISOString().split("T")[0], // WEAKNESS-4: staleness badge
       };
     } catch {
       return { ...h, screenerUrl: `/agent/screener?search=${encodeURIComponent(symbol.toUpperCase())}` };
@@ -984,8 +1073,22 @@ async function enrichHolding(h: any): Promise<any> {
 
     const r = (dbRow as any).rows?.[0];
     // financial_instruments_cache stores returns as decimal fractions (0.174 = 17.4%)
-    const toPercent = (v: number | null): number | null =>
-      v == null ? null : Math.abs(v) < 5 ? Math.round(v * 10000) / 100 : Math.round(v * 100) / 100;
+    const toPercent = (v: number | null): number | null => {
+      if (v == null) return null;
+      const raw = Math.abs(v) < 5
+        ? Math.round(v * 10000) / 100   // decimal fraction (0.174 → 17.4%)
+        : Math.round(v * 100) / 100;    // already a percentage
+      // WEAKNESS-2 fix: cap at 100% — prevents >100% display bug if fraction
+      // interpretation is wrong (e.g. v=5.01 treated as fraction → 501%).
+      if (raw > 100) {
+        logger.warn(
+          `[ModelPortfolios] toPercent overflow: raw=${raw} for v=${v} — capping at 100`,
+          { event: "TO_PERCENT_OVERFLOW", user_id: "SYSTEM", latency_ms: 0, status: "warn" },
+        );
+        return 100;
+      }
+      return raw;
+    };
     const dbReturn1Y = r?.return_1y != null ? toPercent(Number(r.return_1y)) : null;
     const dbReturn3Y = r?.return_3y != null ? toPercent(Number(r.return_3y)) : null;
     const dbReturn6M = r?.return_6m != null ? toPercent(Number(r.return_6m)) : null;
@@ -1131,7 +1234,31 @@ async function enrichPortfolio(portfolio: any, horizonYrs?: number): Promise<any
     }
   }
 
-  const enriched = await Promise.all(adjustedHoldings.map(enrichHolding));
+  // WEAKNESS-3 fix: concurrency-limited enrichment (max 3 concurrent mfapi calls).
+  // Prevents 429/connection-reset cascade when all holdings miss the 6h cache.
+  const concurrencyLimit = <T>(fns: (() => Promise<T>)[], limit: number): Promise<T[]> => {
+    return new Promise((resolve, reject) => {
+      const results: T[] = new Array(fns.length);
+      let completed = 0, started = 0;
+      const run = () => {
+        if (started === fns.length) return;
+        const idx = started++;
+        fns[idx]().then(r => {
+          results[idx] = r;
+          completed++;
+          if (completed === fns.length) resolve(results);
+          else run();
+        }).catch(reject);
+        if (started - completed < limit) run();
+      };
+      if (!fns.length) { resolve([]); return; }
+      run();
+    });
+  };
+  const enriched = await concurrencyLimit(
+    adjustedHoldings.map((h: any) => () => enrichHolding(h)),
+    3, // max 3 concurrent mfapi.in calls per portfolio
+  );
   return {
     ...portfolio,
     holdings: enriched,
@@ -2101,11 +2228,13 @@ modelPortfoliosRouter.post("/admin/seed-missing-portfolios", async (_req: Reques
   // Redesigned NRI holdings for better alpha (P2 action)
   const NRI_REDESIGNED_HOLDINGS = [
     // NRI-friendly globally recognized Indian stocks (also ADRs / known globally)
-    { rank: 1,  name: "Infosys Ltd",                   symbol: "INFY",      weight: 12, type: "Large Cap Stock", currentReturn: 14.2 },
-    { rank: 2,  name: "Tata Consultancy Services",     symbol: "TCS",       weight: 10, type: "Large Cap Stock", currentReturn: 12.8 },
-    { rank: 3,  name: "Wipro Ltd",                     symbol: "WIPRO",     weight: 8,  type: "Large Cap Stock", currentReturn: 10.4 },
-    { rank: 4,  name: "HDFC Bank Ltd",                 symbol: "HDFCBANK",  weight: 8,  type: "Large Cap Stock", currentReturn: 11.2 },
-    { rank: 5,  name: "ICICI Bank Ltd",                symbol: "ICICIBANK", weight: 7,  type: "Large Cap Stock", currentReturn: 15.8 },
+    // BUG-4 Fix: Removed hardcoded currentReturn — enrichHolding fetches live from screener_derived_metrics.
+    // returnSource will be "screener_derived_metrics" after enrichment.
+    { rank: 1,  name: "Infosys Ltd",                   symbol: "INFY",      weight: 12, type: "Large Cap Stock" },
+    { rank: 2,  name: "Tata Consultancy Services",     symbol: "TCS",       weight: 10, type: "Large Cap Stock" },
+    { rank: 3,  name: "Wipro Ltd",                     symbol: "WIPRO",     weight: 8,  type: "Large Cap Stock" },
+    { rank: 4,  name: "HDFC Bank Ltd",                 symbol: "HDFCBANK",  weight: 8,  type: "Large Cap Stock" },
+    { rank: 5,  name: "ICICI Bank Ltd",                symbol: "ICICIBANK", weight: 7,  type: "Large Cap Stock" },
     // MF with international exposure (PPFAS holds US stocks — good for NRI diversification)
     { rank: 6,  name: "PPFAS Flexi Cap Fund",                               weight: 12, type: "Flexi Cap MF" },
     // Real estate exposure via REIT (NRIs can invest in REITs via NRO/NRE accounts)
@@ -3047,11 +3176,25 @@ modelPortfoliosRouter.get("/", async (req: Request, res: Response) => {
       conditions.push(eq(modelPortfolios.isFeatured, true));
     }
 
+    // WEAKNESS-1: Pagination per GCR v1.0 list endpoint requirements
+    const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10)));
+    const offset = (page - 1) * limit;
+
+    // Total count for pagination meta
+    const totalResult = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(modelPortfolios)
+      .where(and(...conditions));
+    const total = totalResult[0]?.count ?? 0;
+
     const portfolios = await db
       .select()
       .from(modelPortfolios)
       .where(and(...conditions))
-      .orderBy(modelPortfolios.isFeatured, modelPortfolios.name);
+      .orderBy(modelPortfolios.isFeatured, modelPortfolios.name)
+      .limit(limit)
+      .offset(offset);
 
     // NOTE: Holding return enrichment is skipped on the list endpoint.
     // Holdings returns are fetched on-demand via GET /api/model-portfolios/:id/holdings
@@ -3067,6 +3210,10 @@ modelPortfoliosRouter.get("/", async (req: Request, res: Response) => {
         engine_version: ENGINE_VERSION,
         latency_ms: Date.now() - start,
         count: portfolios.length,
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
         disclaimer:
           "Model portfolios are for research and guidance only. Past performance does not guarantee future returns. Please consult your SEBI-registered investment advisor before making investment decisions.",
       },
