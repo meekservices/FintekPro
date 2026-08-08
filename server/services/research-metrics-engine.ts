@@ -1,3 +1,4 @@
+import { logger } from "../logger";
 /**
  * Research Metrics Engine
  * Calculates portfolio performance metrics: CAGR, Standard Deviation, Sharpe Ratio, Max Drawdown
@@ -504,7 +505,7 @@ export class ResearchMetricsEngine {
 				}
 			}
 		} catch (error: any) {
-			console.error(
+			logger.error(
 				`[ResearchMetricsEngine] Failed to fetch enriched data for ${symbol}:`,
 				error.message,
 			);

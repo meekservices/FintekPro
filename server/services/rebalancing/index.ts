@@ -2,6 +2,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { db } from "../../db";
 import { apreAuditLogs } from "../../../shared/schema/ai";
+import { logger } from "../../logger";
 import { RebalanceEvaluationOutput } from "./types";
 import { PortfolioTargetModel, driftEngine, AssetWeight } from "../drift";
 import { rebalanceOptimizer } from "../../core/rebalance-optimizer";
@@ -79,7 +80,7 @@ export class RebalancePlanner {
 				);
 
 			if (simulatedStressCheck.status === "BLOCK") {
-				this.persistAudit(
+				await this.persistAudit(
 					rebalanceAuditId,
 					targetModel.portfolio_id,
 					plan,
@@ -105,7 +106,7 @@ export class RebalancePlanner {
 			});
 
 			if (aageCheck.decision === "BLOCK") {
-				this.persistAudit(
+				await this.persistAudit(
 					rebalanceAuditId,
 					targetModel.portfolio_id,
 					plan,
@@ -121,7 +122,7 @@ export class RebalancePlanner {
 			}
 
 			// 5. Success Path: Escalate to User/Advisor approval
-			this.persistAudit(
+			await this.persistAudit(
 				rebalanceAuditId,
 				targetModel.portfolio_id,
 				plan,
@@ -138,7 +139,7 @@ export class RebalancePlanner {
 				audit_id: rebalanceAuditId,
 			};
 		} catch (e: any) {
-			console.error("[APRE ROOT FAULT]", e);
+			logger.error("[APRE ROOT FAULT]", e);
 			return {
 				status: "BLOCK",
 				audit_id: rebalanceAuditId,
@@ -149,7 +150,7 @@ export class RebalancePlanner {
 		}
 	}
 
-	private persistAudit(
+	private async persistAudit(
 		id: string,
 		portfolioId: string,
 		plan: any,
@@ -157,20 +158,33 @@ export class RebalancePlanner {
 		decision: string,
 		trigger: string,
 	) {
-		db.insert(apreAuditLogs)
-			.values({
-				id: id,
-				portfolioId: portfolioId,
-				triggerType: trigger,
-				generatedPlan: plan,
-				simulationSummary: sim,
-				governanceDecision: decision,
-				approvalStatus:
-					decision === "APPROVE" ? "pending_user_approval" : "blocked",
-				executionStatus: "not_started",
-			})
-			.execute()
-			.catch((e) => console.error("Failed to commit APRE audit state", e));
+		// BUG-B FIX: Previously fire-and-forget (promise never awaited).
+		// Regulatory audit log MUST be durable — await the DB insert so Cloud Run
+		// scale-in cannot drop in-flight audit records (SEBI IA Reg 22 compliance).
+		try {
+			await db.insert(apreAuditLogs)
+				.values({
+					id: id,
+					portfolioId: portfolioId,
+					triggerType: trigger,
+					generatedPlan: plan,
+					simulationSummary: sim,
+					governanceDecision: decision,
+					approvalStatus:
+						decision === "APPROVE" ? "pending_user_approval" : "blocked",
+					executionStatus: "not_started",
+				})
+				.execute();
+		} catch (e: any) {
+			logger.error("[APRE] Failed to persist audit log", {
+				event:        "APRE_AUDIT_PERSIST_FAILED",
+				error_code:   "APRE_AUDIT_PERSIST_FAILED",
+				retryable:    true,
+				audit_id:     id,
+				portfolio_id: portfolioId,
+				message:      e?.message ?? String(e),
+			});
+		}
 	}
 }
 

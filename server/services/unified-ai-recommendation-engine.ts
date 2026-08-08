@@ -1,3 +1,4 @@
+import { logger } from "../logger";
 // @ts-nocheck
 /**
  * Unified AI Recommendation Engine
@@ -285,7 +286,7 @@ class UnifiedAIRecommendationEngine {
 	} | null = null;
 
 	constructor() {
-		console.log(
+		logger.info(
 			"✅ Unified AI Recommendation Engine initialized via AIService",
 		);
 	}
@@ -374,7 +375,7 @@ class UnifiedAIRecommendationEngine {
 					};
 				}
 			} catch (err: any) {
-				console.warn(
+				logger.warn(
 					`[UnifiedAI] Could not fetch enriched data for ${product.ticker}:`,
 					err.message,
 				);
@@ -1002,7 +1003,7 @@ Provide analysis as JSON with these fields:
 				cacheHit: false,
 			};
 		} catch (error) {
-			console.error("[UnifiedAI] Failed to parse AI response:", error);
+			logger.error("[UnifiedAI] Failed to parse AI response:", error instanceof Error ? error : new Error(String(error)));
 			return this.analyzeWithRules(product, clientProfile);
 		}
 	}
@@ -1140,25 +1141,29 @@ Provide analysis as JSON with these fields:
 			for (const rec of recommendations.slice(0, 5)) {
 				// Track top 5
 				await aiRecommendationTrackingService.recordRecommendation({
-					productId: rec.product.id,
-					productName: rec.product.name,
-					assetType: rec.product.category,
-					sector: rec.product.sector || "General",
-					recommendedPrice: rec.product.currentPrice || rec.product.nav || 0,
-					targetPrice:
+					// symbol: use ISIN as unique identifier (most products have it), fallback to name-slug
+					symbol: rec.product.isin || rec.product.id || rec.product.name.slice(0, 50).replace(/\s+/g, "_"),
+					assetName:          rec.product.name,
+					assetType:          rec.product.category,
+					sector:             rec.product.sector || "General",
+					recommendationType: "buy",
+					entryPrice:         String(rec.product.currentPrice || rec.product.nav || 0),
+					targetPrice:        String(
 						rec.analysis.targetPrice ||
 						(rec.product.currentPrice || 100) * 1.15,
-					stopLoss:
+					),
+					stopLoss:           String(
 						rec.analysis.stopLoss || (rec.product.currentPrice || 100) * 0.9,
-					confidenceScore: rec.analysis.confidenceScore,
-					timeframe: rec.analysis.timeHorizon,
-					source: "unified_ai_engine",
-					aiRationale: rec.analysis.selectionRationale,
-					status: "active",
+					),
+					confidenceScore:    String(rec.analysis.confidenceScore),
+					timeframeInDays:    30,
+					expiryDate:         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+					reasoning:          rec.analysis.selectionRationale,
+					source:             "unified_ai_engine",
 				});
 			}
 		} catch (error) {
-			console.error("[UnifiedAI] Failed to track recommendations:", error);
+			logger.error("[UnifiedAI] Failed to track recommendations:", error instanceof Error ? error : new Error(String(error)));
 		}
 	}
 
@@ -1507,7 +1512,7 @@ Provide analysis as JSON with these fields:
 			result = parse(response.content);
 			modelUsed = response.usage.provider;
 		} catch (error: any) {
-			console.error(
+			logger.error(
 				`[UnifiedAI:runPrompt] AI failed for ${category}:`,
 				error.message,
 			);

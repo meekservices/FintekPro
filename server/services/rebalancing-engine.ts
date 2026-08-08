@@ -1,3 +1,4 @@
+import { logger } from "../logger";
 // GCR-compliant: strict typing enforced — @ts-nocheck removed per audit fix #2
 import {
 	assetAllocationOptimizer,
@@ -1143,10 +1144,7 @@ class AIEnhancedRebalancingService {
 									ranked[0]?.analysis.selectionRationale || trade.rationale;
 							}
 						} catch (error) {
-							console.error(
-								`[AI Rebalancing] Failed to get AI recommendations for ${trade.assetType}:`,
-								error,
-							);
+							logger.error(`[AI Rebalancing] Failed to get AI recommendations for ${trade.assetType}:`, { message: String(error) });
 						}
 					}
 				}
@@ -1317,7 +1315,7 @@ export async function getEnrichedRebalanceReasons(
 			);
 		}
 	} catch (error: any) {
-		console.error(
+		logger.error(
 			`[RebalancingEngine] Error fetching enriched rebalance reasons for ${symbol}:`,
 			error.message,
 		);

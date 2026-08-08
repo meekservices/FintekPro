@@ -92,7 +92,7 @@ class TransactionAutomationEngine {
 		} catch (kycErr) {
 			logger.warn(
 				"[TransactionEngine] KYC check failed, proceeding with caution",
-				{ userId, instrumentType },
+				{ error_code: "KYC_CHECK_FAILED", retryable: false, userId, instrumentType },
 			);
 		}
 
@@ -132,10 +132,13 @@ class TransactionAutomationEngine {
 			);
 		} catch (err) {
 			logger.error("[TransactionEngine] Gateway dispatch failed", {
+				event:          "GATEWAY_DISPATCH_FAILED",
+				error_code:     "GATEWAY_DISPATCH_FAILED",
+				retryable:      true,
 				instrumentType,
-				provider: gateway.provider,
+				provider:       gateway.provider,
 				userId,
-				error: err instanceof Error ? err.message : String(err),
+				message:        err instanceof Error ? err.message : String(err),
 			});
 			return {
 				status: "FAILED",
@@ -310,8 +313,12 @@ class TransactionAutomationEngine {
 		} catch (err) {
 			// Non-fatal — commission check should never block order
 			logger.warn("[TransactionEngine] Commission check failed", {
+				event:          "COMMISSION_CHECK_FAILED",
+				error_code:     "COMMISSION_CHECK_FAILED",
+				retryable:      false,
 				partnerId,
 				instrumentType,
+				message:        err instanceof Error ? (err as Error).message : String(err),
 			});
 		}
 	}

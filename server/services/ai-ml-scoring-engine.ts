@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { logger } from "../logger";
 import { db } from "../db";
 import {
 	dailyPicks,
@@ -7,7 +8,7 @@ import {
 	aiModelRegistry,
 	aiPredictionLogs,
 } from "@shared/schema";
-import { eq, and, gte, lte, desc, sql, inArray, ne } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql, or, ne } from "drizzle-orm";
 import { aiAnalyticsEngine } from "./ai-analytics-engine";
 import * as ss from "simple-statistics";
 
@@ -112,7 +113,12 @@ class AIMLScoringEngine {
 		const query = db
 			.select()
 			.from(dailyPicks)
-			.where(inArray(dailyPicks.status, completedStatuses))
+			// Use or()+eq() — type-safe for pgEnum columns (avoids inArray overload mismatch)
+			.where(or(
+				eq(dailyPicks.status, "target_hit"),
+				eq(dailyPicks.status, "stoploss_hit"),
+				eq(dailyPicks.status, "expired"),
+			))
 			.orderBy(desc(dailyPicks.recoDate))
 			.limit(5000);
 
@@ -349,12 +355,12 @@ class AIMLScoringEngine {
 				createdBy: "system",
 			});
 		} catch (err) {
-			console.error("[AIMLScoringEngine] Failed to persist model:", err);
+			logger.error("[AIMLScoringEngine] Failed to persist model:", err instanceof Error ? err : new Error(String(err)));
 		}
 
 		this.modelCache.set(assetClass, { model, cachedAt: Date.now() });
 
-		console.log(
+		logger.info(
 			`✅ [AIMLScoringEngine] Trained model for ${assetClass}: RMSE=${rmse.toFixed(4)}, R²=${model.trainingMetrics.r2.toFixed(4)}, DA=${(directionalAccuracy * 100).toFixed(1)}%, samples=${n}`,
 		);
 
@@ -496,7 +502,7 @@ class AIMLScoringEngine {
 				predictionDate: today,
 			});
 		} catch (err) {
-			console.warn("[AIMLScoringEngine] Failed to log prediction:", err);
+			logger.warn("[AIMLScoringEngine] Failed to log prediction:", err instanceof Error ? err : new Error(String(err)));
 		}
 
 		return {
@@ -521,19 +527,19 @@ class AIMLScoringEngine {
 				models.push(model);
 			} catch (err: any) {
 				if (err.message?.includes("Insufficient training data")) {
-					console.log(
+					logger.info(
 						`[AIMLScoringEngine] Skipping ${assetClass}: ${err.message}`,
 					);
 				} else {
-					console.error(
+					logger.error(
 						`[AIMLScoringEngine] Error training ${assetClass}:`,
-						err,
+						err instanceof Error ? err : new Error(String(err)),
 					);
 				}
 			}
 		}
 
-		console.log(
+		logger.info(
 			`✅ [AIMLScoringEngine] Trained ${models.length}/${ASSET_CLASSES.length} models`,
 		);
 		return models;
@@ -567,9 +573,9 @@ class AIMLScoringEngine {
 			this.modelCache.set(assetClass, { model, cachedAt: Date.now() });
 			return model;
 		} catch (err) {
-			console.error(
+			logger.error(
 				`[AIMLScoringEngine] Failed to load model for ${assetClass}:`,
-				err,
+				err instanceof Error ? err : new Error(String(err)),
 			);
 			return null;
 		}
@@ -627,7 +633,7 @@ class AIMLScoringEngine {
 				avgActual: ss.mean(actuals),
 			};
 		} catch (err) {
-			console.error("[AIMLScoringEngine] Failed to evaluate model:", err);
+			logger.error("[AIMLScoringEngine] Failed to evaluate model:", err instanceof Error ? err : new Error(String(err)));
 			return { error: "Evaluation failed", details: String(err) };
 		}
 	}

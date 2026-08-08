@@ -8,6 +8,40 @@ import {
 	strategicTargetWeights,
 } from "@shared/schema";
 import { eq, and, desc, gte, sql } from "drizzle-orm";
+import { logger } from "../../logger";
+
+/** PIPELINE_VERSION — bumped on every breaking change to training logic */
+export const PIPELINE_VERSION = "v2.1-deterministic";
+
+/**
+ * seededRng — Mulberry32 PRNG (deterministic, fast, well-distributed)
+ * BUG-A FIX: Replaces Math.random() to satisfy FASP-AI v1.0 / GCR:
+ *   "Same input → same output ALWAYS (no hidden randomness)."
+ */
+function seededRng(seed: number): () => number {
+  let s = seed >>> 0;
+  return function rng(): number {
+    s += 0x6D2B79F5;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function strHash(str: string): number {
+  let h = 0x811C9DC5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+function dailySeed(key: string): number {
+  const dayOfYear = Math.floor(Date.now() / 86_400_000);
+  return (strHash(key) ^ dayOfYear) >>> 0;
+}
+
 import { mvoEngine, type AssetData, type MVOResult } from "./mvo-engine";
 import { blackLittermanEngine } from "./black-litterman-engine";
 import { driftPredictionEngine } from "./drift-prediction-engine";
@@ -64,7 +98,7 @@ class QuantRetrainingPipeline {
 			const activeModel = await this.getActiveModel(modelName);
 			const newVersion = this.generateVersion(modelName);
 
-			console.log(
+			logger.info(
 				`[Retrain] Starting ${modelName} retraining. Active: ${activeModel?.version || "none"}`,
 			);
 
@@ -106,7 +140,7 @@ class QuantRetrainingPipeline {
 						bestConfig = config;
 					}
 				} catch (e: any) {
-					console.warn(
+					logger.warn(
 						`[Retrain] MVO config ${JSON.stringify(config)} failed:`,
 						e.message,
 					);
@@ -184,7 +218,7 @@ class QuantRetrainingPipeline {
 			};
 
 			await this.logRetraining(result);
-			console.log(
+			logger.info(
 				`[Retrain] ${modelName}: ${result.status}. Sharpe=${bestBacktest.sharpeRatio.toFixed(3)}, Duration=${trainingDurationMs}ms`,
 			);
 			return result;
@@ -202,7 +236,7 @@ class QuantRetrainingPipeline {
 				errorMessage: error.message,
 			};
 			await this.logRetraining(result);
-			console.error(`[Retrain] ${modelName} FAILED:`, error.message);
+			logger.error(`[Retrain] ${modelName} FAILED:`, error.message);
 			return result;
 		}
 	}
@@ -213,7 +247,7 @@ class QuantRetrainingPipeline {
 
 		try {
 			const newVersion = this.generateVersion(modelName);
-			console.log(`[Retrain] Starting ${modelName} weekly recalibration`);
+			logger.info(`[Retrain] Starting ${modelName} weekly recalibration`);
 
 			const assetsData: AssetData[] = CATEGORIES.map((cat) => ({
 				category: cat,
@@ -274,7 +308,7 @@ class QuantRetrainingPipeline {
 			};
 
 			await this.logRetraining(result);
-			console.log(
+			logger.info(
 				`[Retrain] ${modelName}: recalibrated. Condition#=${conditionNumber.toFixed(1)}, Duration=${trainingDurationMs}ms`,
 			);
 			return result;
@@ -292,7 +326,7 @@ class QuantRetrainingPipeline {
 				errorMessage: error.message,
 			};
 			await this.logRetraining(result);
-			console.error(`[Retrain] ${modelName} FAILED:`, error.message);
+			logger.error(`[Retrain] ${modelName} FAILED:`, error.message);
 			return result;
 		}
 	}
@@ -304,7 +338,7 @@ class QuantRetrainingPipeline {
 		try {
 			const activeModel = await this.getActiveModel(modelName);
 			const newVersion = this.generateVersion(modelName);
-			console.log(`[Retrain] Starting ${modelName} recalibration`);
+			logger.info(`[Retrain] Starting ${modelName} recalibration`);
 
 			const recentRuns = await db
 				.select()
@@ -390,7 +424,7 @@ class QuantRetrainingPipeline {
 			};
 
 			await this.logRetraining(result);
-			console.log(
+			logger.info(
 				`[Retrain] ${modelName}: recalibrated. Omega=${calibratedOmega.toFixed(4)}, Tau=${calibratedTau.toFixed(4)}`,
 			);
 			return result;
@@ -408,7 +442,7 @@ class QuantRetrainingPipeline {
 				errorMessage: error.message,
 			};
 			await this.logRetraining(result);
-			console.error(`[Retrain] ${modelName} FAILED:`, error.message);
+			logger.error(`[Retrain] ${modelName} FAILED:`, error.message);
 			return result;
 		}
 	}
@@ -420,7 +454,7 @@ class QuantRetrainingPipeline {
 		try {
 			const activeModel = await this.getActiveModel(modelName);
 			const newVersion = this.generateVersion(modelName);
-			console.log(`[Retrain] Starting ${modelName} retraining`);
+			logger.info(`[Retrain] Starting ${modelName} retraining`);
 
 			const historicalDecisions = await db
 				.select()
@@ -509,7 +543,7 @@ class QuantRetrainingPipeline {
 			};
 
 			await this.logRetraining(result);
-			console.log(
+			logger.info(
 				`[Retrain] ${modelName}: ${result.status}. ROC-AUC=${backtest.rocAuc.toFixed(3)}, Precision=${backtest.precision.toFixed(3)}`,
 			);
 			return result;
@@ -527,15 +561,15 @@ class QuantRetrainingPipeline {
 				errorMessage: error.message,
 			};
 			await this.logRetraining(result);
-			console.error(`[Retrain] ${modelName} FAILED:`, error.message);
+			logger.error(`[Retrain] ${modelName} FAILED:`, error.message);
 			return result;
 		}
 	}
 
 	async runFullRetrainingPipeline(): Promise<RetrainingResult[]> {
-		console.log("[Retrain] ═══════════════════════════════════════");
-		console.log("[Retrain] Starting Full Quant Retraining Pipeline");
-		console.log("[Retrain] ═══════════════════════════════════════");
+		logger.info("[Retrain] ═══════════════════════════════════════");
+		logger.info("[Retrain] Starting Full Quant Retraining Pipeline");
+		logger.info("[Retrain] ═══════════════════════════════════════");
 
 		const results: RetrainingResult[] = [];
 
@@ -555,11 +589,11 @@ class QuantRetrainingPipeline {
 		const discarded = results.filter((r) => r.status === "DISCARDED").length;
 		const errors = results.filter((r) => r.status === "ERROR").length;
 
-		console.log("[Retrain] ═══════════════════════════════════════");
-		console.log(
+		logger.info("[Retrain] ═══════════════════════════════════════");
+		logger.info(
 			`[Retrain] Pipeline complete: ${promoted} promoted, ${discarded} discarded, ${errors} errors`,
 		);
-		console.log("[Retrain] ═══════════════════════════════════════");
+		logger.info("[Retrain] ═══════════════════════════════════════");
 
 		return results;
 	}
@@ -660,7 +694,7 @@ class QuantRetrainingPipeline {
 				metrics: result.metrics,
 			});
 		} catch (e) {
-			console.warn("[Retrain] Failed to log retraining result:", e);
+			logger.warn("[Retrain] Failed to log retraining result:", e instanceof Error ? e : new Error(String(e)));
 		}
 	}
 
@@ -739,11 +773,13 @@ class QuantRetrainingPipeline {
 			actualBreach: boolean;
 			probability: number;
 		}> = [];
+		// BUG-A FIX: seeded RNG so training data is reproducible per count+tolerance
+		const rand = seededRng(dailySeed(`drift-${count}-${5}`));
 		for (let i = 0; i < count; i++) {
-			const drift = (Math.random() - 0.3) * 15;
+			const drift = (rand() - 0.3) * 15;
 			const tolerance = 5;
 			const actualBreach = Math.abs(drift) > tolerance;
-			const noise = (Math.random() - 0.5) * 3;
+			const noise = (rand() - 0.5) * 3;
 			const predictedDrift = drift + noise;
 			const probability = Math.min(
 				1,
@@ -775,10 +811,13 @@ class QuantRetrainingPipeline {
 			aif: { mean: 0.00048, vol: 0.0139 },
 		};
 		const p = params[category] || { mean: 0.00035, vol: 0.0095 };
+		// BUG-A FIX: seeded RNG — same category+days → identical synthetic history
+		const rand = seededRng(dailySeed(`${category}-${days}`));
 		const returns: number[] = [];
 		for (let i = 0; i < days; i++) {
-			const u1 = Math.random();
-			const u2 = Math.random();
+			// Box-Muller transform (deterministic with seeded RNG)
+			const u1 = Math.max(1e-10, rand()); // guard log(0)
+			const u2 = rand();
 			const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 			returns.push(p.mean + p.vol * z);
 		}

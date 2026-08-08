@@ -1,3 +1,4 @@
+import { logger } from "../logger";
 import { db } from "../db";
 import { dailyPicks, aiUserInteractions, aiUserProfiles } from "@shared/schema";
 import { eq, and, desc, sql, gte, count } from "drizzle-orm";
@@ -88,7 +89,7 @@ class AIFeedbackEngine {
 	async logInteraction(event: InteractionEvent): Promise<void> {
 		try {
 			if (!event.userId || !event.pickId || !event.interactionType) {
-				console.warn(
+				logger.warn(
 					"[AIFeedbackEngine] Invalid interaction event, missing required fields",
 				);
 				return;
@@ -101,7 +102,7 @@ class AIFeedbackEngine {
 				.limit(1);
 
 			if (!pick) {
-				console.warn(
+				logger.warn(
 					`[AIFeedbackEngine] Pick ${event.pickId} not found, skipping interaction`,
 				);
 				return;
@@ -122,7 +123,7 @@ class AIFeedbackEngine {
 			) {
 				setImmediate(() => {
 					this.updateUserProfile(event.userId).catch((err) =>
-						console.error(
+						logger.error(
 							`[AIFeedbackEngine] Async profile update failed for ${event.userId}:`,
 							err,
 						),
@@ -130,7 +131,7 @@ class AIFeedbackEngine {
 				});
 			}
 		} catch (error) {
-			console.error("[AIFeedbackEngine] Error logging interaction:", error);
+			logger.error("[AIFeedbackEngine] Error logging interaction:", error instanceof Error ? error : new Error(String(error)));
 		}
 	}
 
@@ -166,7 +167,7 @@ class AIFeedbackEngine {
 			for (const userId of usersToUpdate) {
 				setImmediate(() => {
 					this.updateUserProfile(userId).catch((err) =>
-						console.error(
+						logger.error(
 							`[AIFeedbackEngine] Async batch profile update failed for ${userId}:`,
 							err,
 						),
@@ -174,9 +175,9 @@ class AIFeedbackEngine {
 				});
 			}
 		} catch (error) {
-			console.error(
+			logger.error(
 				"[AIFeedbackEngine] Error in batch interaction logging:",
-				error,
+				error instanceof Error ? error : new Error(String(error)),
 			);
 		}
 	}

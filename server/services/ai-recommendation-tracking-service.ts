@@ -1,3 +1,4 @@
+import { logger } from "../logger";
 import { db } from "../db";
 import {
 	aiRecommendationTracking,
@@ -48,7 +49,7 @@ interface TrendDataPoint {
 
 export class AiRecommendationTrackingService {
 	constructor() {
-		console.log("✅ AI Recommendation Tracking Service initialized");
+		logger.info("✅ AI Recommendation Tracking Service initialized");
 	}
 
 	async recordRecommendation(

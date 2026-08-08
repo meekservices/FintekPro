@@ -1,5 +1,45 @@
 import { db } from "../../db";
 import { quantRunLog, strategicTargetWeights } from "@shared/schema";
+import { logger } from "../../logger";
+
+/**
+ * seededRng — Mulberry32 PRNG (deterministic, fast, well-distributed)
+ *
+ * BUG-A FIX: Replaces Math.random() to satisfy FASP-AI v1.0 / GCR determinism rule:
+ *   "Same input → same output ALWAYS (no hidden randomness)."
+ *
+ * Seed derivation: strHash(category) XOR ISO-date-day-of-year
+ *   → same category on the same calendar day always produces identical synthetic returns.
+ *   → different days produce different returns (expected market behaviour).
+ *
+ * @param seed - 32-bit unsigned integer seed
+ * @returns () => number in [0, 1)
+ */
+function seededRng(seed: number): () => number {
+  let s = seed >>> 0;
+  return function rng(): number {
+    s += 0x6D2B79F5;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Simple djb2-style string → uint32 hash for seeding */
+function strHash(str: string): number {
+  let h = 0x811C9DC5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/** Daily seed: stable within one calendar day (UTC), different each day */
+function dailySeed(category: string): number {
+  const dayOfYear = Math.floor(Date.now() / 86_400_000); // days since epoch
+  return (strHash(category) ^ dayOfYear) >>> 0;
+}
 
 export interface AssetData {
 	category: string;
@@ -224,7 +264,7 @@ class MVOEngine {
 		}
 
 		if (escalationRounds > 0) {
-			console.log(
+			logger.info(
 				`[MVO] Gamma escalated ${escalationRounds}x to ${gamma.toFixed(1)}, final turnover: ${(turnover * 100).toFixed(1)}%`,
 			);
 		}
@@ -409,7 +449,7 @@ class MVOEngine {
 				sectorMap,
 				maxPos,
 			);
-			console.warn(
+			logger.warn(
 				`[MVO] Constraint projection non-convergence: ${this._projectionNonConvergenceCount} iterations. Final violations: ${violations.join(", ") || "none"}`,
 			);
 			this._projectionNonConvergenceCount = 0;
@@ -772,10 +812,10 @@ class MVOEngine {
 					fallbackUsed: false,
 				});
 			} catch (e) {
-				console.warn("[MVO] Failed to log run:", e);
+				logger.warn("[MVO] Failed to log run:", e instanceof Error ? e : new Error(String(e)));
 			}
 
-			console.log(
+			logger.info(
 				`[MVO] Transition optimization complete in ${runTimeMs}ms. Sharpe: ${sharpeRatio.toFixed(3)}, Vol: ${(portfolioVolatility * 100).toFixed(1)}%, Turnover: ${(metrics.turnover * 100).toFixed(1)}%, Gamma: ${metrics.gammaUsed.toFixed(1)}`,
 			);
 
@@ -808,13 +848,13 @@ class MVOEngine {
 					fallbackUsed: true,
 				});
 			} catch (reportErr: any) {
-				console.warn(
+				logger.warn(
 					"[MVO] Failed to record error status:",
 					reportErr?.message,
 				);
 			}
 
-			console.error("[MVO] Transition optimization failed:", error.message);
+			logger.error("[MVO] Transition optimization failed:", error.message);
 			throw error;
 		}
 	}
@@ -837,20 +877,23 @@ class MVOEngine {
 
 		try {
 			await db.insert(strategicTargetWeights).values(entries);
-			console.log(
+			logger.info(
 				`[MVO] Persisted ${entries.length} strategic weights for portfolio ${portfolioId}`,
 			);
 		} catch (e) {
-			console.warn("[MVO] Failed to persist weights:", e);
+			logger.warn("[MVO] Failed to persist weights", { error: String(e) });
 		}
 	}
 
 	private generateSyntheticReturns(category: string, length: number): number[] {
 		const params = this.getCategoryReturnParams(category);
+		// BUG-A FIX: Use seeded PRNG so same category + same day → identical returns.
+		const rand = seededRng(dailySeed(category));
 		const returns: number[] = [];
 		for (let i = 0; i < length; i++) {
-			const u1 = Math.random();
-			const u2 = Math.random();
+			// Box-Muller transform (deterministic with seeded RNG)
+			const u1 = Math.max(1e-10, rand()); // guard log(0)
+			const u2 = rand();
 			const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 			returns.push(params.dailyMean + params.dailyVol * z);
 		}
