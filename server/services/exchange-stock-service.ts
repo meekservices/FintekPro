@@ -1,10 +1,9 @@
-import { NseIndia } from "stock-nse-india";
 import axios from "axios";
 import { db } from "../db";
 import { listedStocks } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
-
-const nse = new NseIndia();
+import { indianApiService } from "./indian-api-service";
+import { logger } from "../logger";
 
 interface BseScripData {
 	symbol: string;
@@ -88,6 +87,13 @@ class ExchangeStockService {
 			: { ...this.bseProgress };
 	}
 
+	/**
+	 * Fetch all NSE symbols from the official NSE EQUITY_L.csv file.
+	 *
+	 * Previously used `nse.getAllStockSymbols()` from the `stock-nse-india` package
+	 * which scraped nseindia.com — now blocked with 403 from Cloud Run IPs.
+	 * Direct CSV fetch is public, no auth required, and returns the same data.
+	 */
 	async getAllNSESymbols(): Promise<string[]> {
 		const cacheKey = "nse_symbols";
 		const cached = this.cache.get(cacheKey);
@@ -96,12 +102,27 @@ class ExchangeStockService {
 		}
 
 		try {
-			const symbols = await nse.getAllStockSymbols();
+			// Public NSE CSV — no auth, updated daily, ~2000 NSE-listed equities
+			const resp = await axios.get<string>(
+				"https://archives.nseindia.com/content/equities/EQUITY_L.csv",
+				{
+					timeout: 15_000,
+					responseType: "text",
+					headers: { "User-Agent": "FintekPro-NSESync/3.1" },
+				},
+			);
+			const lines = resp.data.split("\n").slice(1); // skip header
+			const symbols = lines
+				.map((l) => l.split(",")[0]?.trim())
+				.filter((s): s is string => Boolean(s) && s.length > 0);
 			this.cache.set(cacheKey, { data: symbols, timestamp: Date.now() });
+			logger.info("[Exchange Service] NSE symbol list fetched", { count: symbols.length, source: "EQUITY_L.csv" });
 			return symbols;
 		} catch (error) {
-   // eslint-disable-next-line no-console
-			console.error("[Exchange Service] Failed to fetch NSE symbols:", error);
+			logger.error("[Exchange Service] Failed to fetch NSE symbols from EQUITY_L.csv", {
+				error: error instanceof Error ? error.message : String(error),
+				retryable: true,
+			});
 			throw error;
 		}
 	}
@@ -1322,96 +1343,88 @@ class ExchangeStockService {
 		];
 	}
 
+	/**
+	 * Fetch NSE stock details.
+	 *
+	 * Priority chain:
+	 *   1. IndianAPI (paid, subscribed) — `/stock` endpoint
+	 *      Provides: price, change, volume, 52W H/L, PE, PB, sector, ISIN
+	 *   2. Yahoo Finance `.NS` fallback (free) — used if IndianAPI errors/not configured
+	 *
+	 * The old `stock-nse-india` package (which scraped nseindia.com and was
+	 * returning 403 from Cloud Run IPs) has been removed from this path.
+	 */
 	async getNSEStockDetails(symbol: string): Promise<ExchangeStockData | null> {
-		// ── Primary path: stock-nse-india package (scrapes nseindia.com) ──────────
+		// ── Primary: IndianAPI paid subscription ───────────────────────────────
+		if (indianApiService.isReady()) {
+			try {
+				const result = await indianApiService.getStockQuote(symbol, "NSE");
+				if (result.success && result.data) {
+					const q = result.data;
+					return {
+						symbol: q.symbol || symbol,
+						companyName: q.company_name || symbol,
+						isin: q.isin,
+						exchange: "NSE",
+						sector: q.sector,
+						industry: q.industry,
+						marketCap: this.determineMarketCapCategory(
+							q.market_cap ? q.market_cap * 10_000_000 : 0, // crores → raw
+						),
+						marketCapValue: q.market_cap, // already in crores
+						currentPrice: q.current_price,
+						previousClose: q.previous_close,
+						dayChange: q.change,
+						dayChangePercent: q.change_percent,
+						weekHigh52: q.high_52w,
+						weekLow52: q.low_52w,
+						peRatio: q.pe_ratio,   // ✅ richer than stock-nse-india
+						pbRatio: q.pb_ratio,   // ✅ richer than stock-nse-india
+						dividendYield: undefined,
+						nseCode: "EQ",
+					};
+				}
+			} catch (indianApiErr: any) {
+				logger.warn("[Exchange Service] IndianAPI getStockQuote failed, trying Yahoo fallback", {
+					symbol,
+					error: indianApiErr?.message,
+				});
+				// Fall through to Yahoo Finance below
+			}
+		}
+
+		// ── Fallback: Yahoo Finance with .NS suffix (free, no key) ────────────
 		try {
-			const details = (await nse.getEquityDetails(symbol)) as any;
-			if (!details) throw new Error("empty_response");
-
-			const info = details.info || {};
-			const priceInfo = details.priceInfo || {};
-			const metadata = details.metadata || {};
-			const securityInfo = details.securityInfo || {};
-
-			const issuedSize = Number.parseFloat(
-				String(securityInfo.issuedSize || securityInfo.issuedCap || 0),
+			const yahooResp = await axios.get(
+				`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.NS`,
+				{
+					timeout: 8_000,
+					headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+				},
 			);
-			const lastPrice = Number.parseFloat(String(priceInfo.lastPrice || 0));
-			const marketCapValue = issuedSize * lastPrice;
-			const marketCapStr = this.determineMarketCapCategory(marketCapValue);
-
+			const result = yahooResp.data?.chart?.result?.[0];
+			if (!result) return null;
+			const meta = result.meta || {};
+			const currentPrice: number = meta.regularMarketPrice ?? 0;
+			const prevClose: number = meta.previousClose ?? meta.chartPreviousClose ?? 0;
 			return {
-				symbol: info.symbol || symbol,
-				companyName: info.companyName || metadata.companyName || info.name || symbol,
-				isin: metadata.isin || info.isin,
+				symbol,
+				companyName: meta.shortName || meta.longName || symbol,
 				exchange: "NSE",
-				sector: metadata.industry || info.industry,
-				industry: metadata.industry,
-				marketCap: marketCapStr,
-				marketCapValue: marketCapValue / 10000000, // in crores
-				currentPrice: lastPrice,
-				previousClose: Number.parseFloat(String(priceInfo.previousClose || 0)),
-				dayChange: Number.parseFloat(String(priceInfo.change || 0)),
-				dayChangePercent: Number.parseFloat(String(priceInfo.pChange || 0)),
-				weekHigh52: Number.parseFloat(String(priceInfo.weekHighLow?.max || 0)),
-				weekLow52: Number.parseFloat(String(priceInfo.weekHighLow?.min || 0)),
-				peRatio: undefined,
-				pbRatio: undefined,
-				dividendYield: undefined,
+				currentPrice,
+				previousClose: prevClose,
+				dayChange: currentPrice - prevClose,
+				dayChangePercent: prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0,
+				weekHigh52: meta.fiftyTwoWeekHigh,
+				weekLow52: meta.fiftyTwoWeekLow,
+				marketCap: this.determineMarketCapCategory(meta.marketCap),
+				marketCapValue: meta.marketCap ? meta.marketCap / 10_000_000 : undefined,
 				nseCode: "EQ",
 			};
-		} catch (primaryError: any) {
-			// ── Detect 403/429 from NSE India (Cloud Run IPs are often blocked) ────
-			const status = primaryError?.response?.status ?? 0;
-			const msg = String(primaryError?.message ?? "");
-			const isBlocked =
-				status === 403 || status === 429 ||
-				msg.includes("403") || msg.includes("429") ||
-				msg.toLowerCase().includes("rate limit");
-
-			if (isBlocked) {
-				// Re-throw a tagged error so the circuit breaker in syncNSEStocks
-				// can count consecutive 403s and abort early.
-				const tagged = new Error(`NSE_BLOCKED:${status || "403"}`) as any;
-				tagged.isNseBlocked = true;
-				throw tagged;
-			}
-
-			// ── Fallback: Yahoo Finance with .NS suffix (free, no key required) ───
-			// Same pattern used by getBSEStockDetails for BSE stocks.
-			try {
-				const yahooResp = await axios.get(
-					`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.NS`,
-					{
-						timeout: 8_000,
-						headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
-					},
-				);
-				const result = yahooResp.data?.chart?.result?.[0];
-				if (!result) return null;
-				const meta = result.meta || {};
-				const currentPrice: number = meta.regularMarketPrice ?? 0;
-				const prevClose: number = meta.previousClose ?? meta.chartPreviousClose ?? 0;
-				return {
-					symbol,
-					companyName: meta.shortName || meta.longName || symbol,
-					exchange: "NSE",
-					currentPrice,
-					previousClose: prevClose,
-					dayChange: currentPrice - prevClose,
-					dayChangePercent: prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0,
-					weekHigh52: meta.fiftyTwoWeekHigh,
-					weekLow52: meta.fiftyTwoWeekLow,
-					marketCap: this.determineMarketCapCategory(meta.marketCap),
-					marketCapValue: meta.marketCap ? meta.marketCap / 10_000_000 : undefined, // crores
-					nseCode: "EQ",
-				};
-			} catch {
-				// Yahoo also failed — log once at warn level (not error) and return null
-    // eslint-disable-next-line no-console
-				console.warn(`[Exchange Service] NSE+Yahoo fallback failed for ${symbol} — skipping`);
-				return null;
-			}
+		} catch {
+			// eslint-disable-next-line no-console
+			console.warn(`[Exchange Service] IndianAPI + Yahoo both failed for ${symbol} — skipping`);
+			return null;
 		}
 	}
 
