@@ -1,4 +1,7 @@
+/* eslint-disable no-console */
+// Infrastructure file: console is intentional for Cloud Run structured log output.
 import passport from "passport";
+
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express, Response } from "express";
 import session from "express-session";
@@ -1337,6 +1340,7 @@ export function registerAuthRoutes(app: Express) {
 
 	// Check if user has active sessions (used before login to detect session conflicts)
 	app.post("/api/sessions/check", async (req, res) => {
+		const t0 = Date.now();
 		try {
 			const { identifier } = req.body;
 
@@ -1359,34 +1363,59 @@ export function registerAuthRoutes(app: Express) {
 				return apiResponse.success(res, { hasActiveSession: false });
 			}
 
-			console.log(`[Session Check] Checking sessions for user ID: ${user.id}`);
+			// FIX-2: Structured JSON log — auth.ts uses console throughout (no logger import)
+			// JSON to stdout is captured by Cloud Logging as structured log entries.
+			console.log(JSON.stringify({
+				event: "SESSION_CHECK_START",
+				user_id: String(user.id),
+				latency_ms: Date.now() - t0,
+				status: "ok",
+			}));
 
 			// FIX: Use typed Drizzle `sessions` table instead of sql.raw("sessions")
 			// The sessions table has: sid (PK), sess (jsonb), expire (timestamp)
 			// We query JSONB field sess->passport->>'user' for the user's ID
 			// and only count non-expired sessions.
-			const activeSessions = await db
-				.select({ sid: sessions.sid })
-				.from(sessions)
-				.where(
-					and(
-						sql`${sessions.sess}->'passport'->>'user' = ${user.id}`,
-						sql`${sessions.expire} > NOW()`,
-					),
-				);
-
-			console.log(
-				`[Session Check] Found ${activeSessions.length} active session(s) for user ${user.id}`,
-			);
+			// FIX-2: Set 5s statement timeout to prevent long hangs during pool exhaustion.
+			const activeSessions = await db.transaction(async (tx) => {
+				await tx.execute(sql`SET LOCAL statement_timeout = '5000'`);
+				return tx
+					.select({ sid: sessions.sid })
+					.from(sessions)
+					.where(
+						and(
+							sql`${sessions.sess}->'passport'->>'user' = ${user.id}`,
+							sql`${sessions.expire} > NOW()`,
+						),
+					);
+			});
 
 			const hasActiveSession = activeSessions.length > 0;
+
+			console.log(JSON.stringify({
+				event: "SESSION_CHECK_COMPLETE",
+				user_id: String(user.id),
+				session_count: activeSessions.length,
+				has_active_session: hasActiveSession,
+				latency_ms: Date.now() - t0,
+				status: "ok",
+			}));
 
 			return apiResponse.success(res, {
 				hasActiveSession,
 				sessionCount: activeSessions.length,
 			});
 		} catch (error) {
-			console.error("[Session Check] Error:", error);
+			// FIX-2: Structured error log per GCR v1.0
+			console.error(JSON.stringify({
+				event: "SESSION_CHECK_ERROR",
+				user_id: "unknown",
+				error_code: "SESSION_CHECK_FAILED",
+				message: error instanceof Error ? error.message : String(error),
+				retryable: true,
+				latency_ms: Date.now() - t0,
+				status: "error",
+			}));
 			return apiResponse.serverError(res, "Failed to check sessions");
 		}
 	});

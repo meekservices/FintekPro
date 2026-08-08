@@ -1,4 +1,7 @@
+/* eslint-disable no-console */
+// Infrastructure file: console is intentional for Cloud Run structured log output.
 import { pool } from "../db";
+
 import yahooFinance from "yahoo-finance2";
 import axios from "axios";
 import { executeWithRetry } from "../utils/retry";
@@ -182,7 +185,10 @@ interface FetchResult {
 	success: boolean;
 	data?: InstrumentData;
 	error?: string;
+	/** FIX-1: set true when error is transient (ECONNRESET/timeout) — triggers retry */
+	retryable?: boolean;
 }
+
 
 const PRICE_TOLERANCE_PERCENT = 2;
 
@@ -904,44 +910,81 @@ class FinancialDataRepository {
 		}
 	}
 
+	/**
+	 * Fetch latest NAV and metadata for a mutual fund from mfapi.in.
+	 *
+	 * FIX-1: Added AbortSignal.timeout(10_000) to prevent indefinite hangs.
+	 * mfapi.in is a free community API that occasionally drops connections
+	 * after 30-120s of silence, causing 'TypeError: fetch failed' in prod logs
+	 * on every startup (runInitialRefresh calls this for all MF codes concurrently).
+	 *
+	 * Retry: 2 attempts with 1s backoff on ECONNRESET / ETIMEDOUT / fetch failed.
+	 *
+	 * @param schemeCode - AMFI scheme code (numeric string)
+	 * @returns FetchResult with NAV, name, AMC, category on success
+	 */
 	async fetchMutualFundFromMFAPI(schemeCode: string): Promise<FetchResult> {
-		try {
-			const response = await fetch(`https://api.mfapi.in/mf/${schemeCode}`);
-			if (!response.ok) {
-				return { success: false, error: `API returned ${response.status}` };
+		const attemptFetch = async (): Promise<FetchResult> => {
+			try {
+				const response = await fetch(`https://api.mfapi.in/mf/${schemeCode}`, {
+					signal: AbortSignal.timeout(10_000), // FIX-1: was no timeout (indefinite hang)
+					headers: { "Accept": "application/json" },
+				});
+				if (!response.ok) {
+					return { success: false, error: `API returned ${response.status}` };
+				}
+
+				const data = await response.json();
+				if (!data || !data.data || data.data.length === 0) {
+					return { success: false, error: "No NAV data returned" };
+				}
+
+				const latestNav = data.data[0];
+				const meta = data.meta || {};
+
+				const result: InstrumentData = {
+					instrumentType: "mutual_fund",
+					symbol: schemeCode,
+					name: meta.scheme_name || `Scheme ${schemeCode}`,
+					exchange: "AMFI",
+					currency: "INR",
+					country: "IN",
+					nav: Number.parseFloat(latestNav.nav),
+					navDate: convertDateFormat(latestNav.date),
+					amc: meta.fund_house,
+					category: meta.scheme_category,
+					dataSource: "mfapi",
+					confidenceScore: 95,
+				};
+
+				return { success: true, data: result };
+			} catch (error) {
+				const errorStr = String(error);
+				// Retryable: transient network errors only. Non-retryable: 404, parse errors.
+				const isTransient =
+					errorStr.includes("fetch failed") ||
+					errorStr.includes("ECONNRESET") ||
+					errorStr.includes("ETIMEDOUT") ||
+					errorStr.includes("TimeoutError") ||
+					errorStr.includes("AbortError");
+				return { success: false, error: errorStr, retryable: isTransient };
 			}
+		};
 
-			const data = await response.json();
-			if (!data || !data.data || data.data.length === 0) {
-				return { success: false, error: "No NAV data returned" };
-			}
+		// FIX-1: Retry up to 2 times on transient failures (1s initial backoff, 2x multiplier)
+		let lastResult: FetchResult = { success: false, error: "Not attempted" };
+		for (let attempt = 0; attempt < 3; attempt++) {
+			lastResult = await attemptFetch();
+			if (lastResult.success || !lastResult.retryable) break;
 
-			const latestNav = data.data[0];
-			const meta = data.meta || {};
-
-			const result: InstrumentData = {
-				instrumentType: "mutual_fund",
-				symbol: schemeCode,
-				name: meta.scheme_name || `Scheme ${schemeCode}`,
-				exchange: "AMFI",
-				currency: "INR",
-				country: "IN",
-				nav: Number.parseFloat(latestNav.nav),
-				navDate: convertDateFormat(latestNav.date),
-				amc: meta.fund_house,
-				category: meta.scheme_category,
-				dataSource: "mfapi",
-				confidenceScore: 95,
-			};
-
-			return { success: true, data: result };
-		} catch (error) {
-			console.warn(
-				`⚠️ [FinancialDataRepository] MFAPI fetch failed for ${schemeCode}:`,
-				error,
-			);
-			return { success: false, error: String(error) };
+			if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
 		}
+		if (!lastResult.success) {
+			console.warn(
+				`⚠️ [FinancialDataRepository] MFAPI fetch failed for ${schemeCode} after 3 attempts: ${lastResult.error}`,
+			);
+		}
+		return lastResult;
 	}
 
 	async saveToDatabase(instrument: InstrumentData): Promise<boolean> {

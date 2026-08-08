@@ -1,4 +1,7 @@
+/* eslint-disable no-console */
+// Infrastructure file: console is intentional for Cloud Run structured log output.
 import { drizzle } from "drizzle-orm/node-postgres";
+
 import pkg from "pg";
 const { Pool } = pkg;
 import * as schema from "../shared/schema.ts";
@@ -25,18 +28,19 @@ const port = 5432;
 // 1. Initial Load of DATABASE_URL
 const dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
 
-// 3. Build Pool Configuration
-// INFRA-C2: Pool sizing for Cloud Run autoscale.
-// Old: max:3 — with 3+ pods × 3 connections = 9–30 total, hitting Cloud SQL max_connections.
-// New: max:10 per pod. With PgBouncer (Cloud SQL built-in), effective limit = 100 sessions.
-// min:1  — keeps 1 warm connection, avoids first-query cold-start latency.
-// idleTimeoutMillis:60s — was 30s (too aggressive), kills warm connections mid-traffic.
-// connectionTimeoutMillis:10s — increased from 10s to match Cloud SQL socket handshake time.
+// FIX-3: Pool sizing for Cloud Run autoscale on db-f1-micro (max 25 connections).
+// Old: max:10 per pod — during traffic switchover, old+new revision = 20 connections;
+//   remaining 5 slots too few for new revision → proxy timeout → 500/502 on deploy.
+// New: max:5 per pod — two revisions can comfortably coexist within the 25-connection limit.
+// allowExitOnIdle: true — connections drain immediately on SIGTERM (fast switchover).
+// idleTimeoutMillis:60s — kills warm idle connections after 60s of inactivity.
+// connectionTimeoutMillis:10s — matches Cloud SQL socket handshake time.
 const POOL_CONFIG: any = {
-	max: isProduction ? 10 : 8,
-	min: isProduction ? 1  : 1,
+	max: isProduction ? 5 : 8,
+	min: isProduction ? 1 : 1,
 	idleTimeoutMillis: isProduction ? 60_000 : 30_000,
 	connectionTimeoutMillis: 10_000,
+	allowExitOnIdle: true, // FIX-3: immediate idle drain on SIGTERM — prevents deploy hang
 };
 
 // The `pg` library does NOT support `?host=` as a URL query parameter.
