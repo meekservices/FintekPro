@@ -2306,12 +2306,24 @@ modelPortfoliosRouter.post("/admin/seed-missing-portfolios", async (_req: Reques
       WHERE id = 'nri-india-opportunity'
     `);
 
+    // 3. Force-patch PSU & Defence Atmanirbhar icon + name (may already exist with wrong icon)
+    //    Bug: INSERT is skipped for existing rows — icon/name never updated. Fix: explicit UPDATE.
+    await db.execute(sql`
+      UPDATE model_portfolios SET
+        icon        = ${'🪖'},
+        name        = ${'PSU & Defence Atmanirbhar'},
+        highlight   = ${'HAL, BEL, GRSE, Cochin Shipyard — India\u2019s defence capex supercycle'},
+        updated_at  = NOW()
+      WHERE id = 'psu-defence-atmanirbhar'
+    `);
+
     return res.json({
       success: true,
       inserted: inserted.length,
       skipped: skipped.length,
       nriRedesigned: true,
-      message: `Inserted ${inserted.length} new portfolios (${skipped.length} already existed). NRI portfolio redesigned.`,
+      psuDefenceIconPatched: true,
+      message: `Inserted ${inserted.length} new portfolios (${skipped.length} already existed). NRI redesigned. PSU & Defence icon patched.`,
       insertedIds: inserted,
       meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
     });

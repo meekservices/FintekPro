@@ -2445,12 +2445,22 @@ crypto_status VARCHAR,
 				15000, "5-7 years", "Nifty India Defence Index", "2026-07-10",
 				"quarterly", 8,
 				"HAL, BEL, GRSE, Cochin Shipyard — India defence capex supercycle",
-				"[D]", true, true, f5Alloc, f5Hold,
+				"🪖", true, true, f5Alloc, f5Hold,
 			]
 		);
-		console.log(`  ✅ FASP-5: psu-defence-atmanirbhar — upserted ${f5R.rowCount} row(s)`);
+		// Force-patch icon/name in case row already existed with wrong values ([D] placeholder)
+		await p1Pool.query(
+			`UPDATE model_portfolios
+			 SET icon = '🪖',
+			     name = 'PSU & Defence Atmanirbhar',
+			     highlight = 'HAL, BEL, GRSE, Cochin Shipyard — India defence capex supercycle',
+			     updated_at = NOW()
+			 WHERE id = 'psu-defence-atmanirbhar'
+			   AND (icon IS NULL OR icon = '[D]' OR icon = '' OR icon = 'undefined')`
+		);
+		console.log("  ✅ FASP-5: psu-defence-atmanirbhar — upserted", f5R.rowCount, "row(s)");
 	} catch (e: any) {
-		console.warn("  ⚠️  FASP-5 non-fatal (big INSERT handles it):", e.message?.slice(0, 120));
+		console.warn("  ⚠️  FASP-5 non-fatal:", e?.message?.slice(0, 120));
 	}
 
 	// ── FASP-6: Future Multibaggers portfolio seed (Jul 2026) ─────────────────
