@@ -7,6 +7,7 @@ import {
   runFASPAIv3Migrations,
   applyPhaseB_HoldingsUniqueIndex,
   ensureSharedRouteTables,
+  applyFinancialInstrumentsCacheColumns,
 } from "./schema-repairs";
 
 async function main() {
@@ -18,6 +19,8 @@ async function main() {
   await applyPhaseB_HoldingsUniqueIndex();
   console.log("Phase C — ensuring shared route tables...");
   await ensureSharedRouteTables();
+  console.log("Phase C-1 — financial_instruments_cache bond columns...");
+  await applyFinancialInstrumentsCacheColumns();
 
   // ── Phase D: FASP-5 & FASP-6 portfolio seeds ──────────────────────────────
   // Uses Drizzle ORM db.insert().onConflictDoNothing() — same pattern as the

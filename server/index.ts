@@ -251,6 +251,14 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					const { ensureSharedRouteTables } = await import("./startup/schema-repairs");
 					await ensureSharedRouteTables();
 
+					// ── Phase C-1: financial_instruments_cache bond columns ──────────
+					// yield_percent, coupon_rate, maturity_date were defined in the
+					// Drizzle schema but not applied to the live table, causing
+					// "column does not exist" errors in debt/MF instrument saves.
+					logBootProgress("Step 2e-1 (bg): financial_instruments_cache bond columns...");
+					const { applyFinancialInstrumentsCacheColumns } = await import("./startup/schema-repairs");
+					await applyFinancialInstrumentsCacheColumns();
+
 
 					// ── Instrument Master Sync — single source of truth ─────────────
 					// Upserts from mutual_funds, listed_stocks, bond_catalog, reits,

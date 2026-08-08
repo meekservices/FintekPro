@@ -3428,3 +3428,27 @@ export async function ensureSharedRouteTables(): Promise<void> {
     console.warn("  ⚠️  Fix SEBI-1 REIT/InvIT classification (non-fatal):", e.message?.slice(0, 200));
   }
 }
+
+/**
+ * applyFinancialInstrumentsCacheColumns
+ *
+ * Adds the three bond/debt columns that were defined in shared/schema.ts but
+ * never applied to the live financial_instruments_cache table, causing:
+ *   "error: column yield_percent of relation financial_instruments_cache does not exist"
+ *
+ * Safe to run multiple times — all DDL uses IF NOT EXISTS.
+ */
+export async function applyFinancialInstrumentsCacheColumns(): Promise<void> {
+  try {
+    const { pool: migPool } = await import("../db");
+    await migPool.query(`
+      ALTER TABLE financial_instruments_cache
+        ADD COLUMN IF NOT EXISTS yield_percent  DECIMAL(10, 4),
+        ADD COLUMN IF NOT EXISTS coupon_rate    DECIMAL(10, 4),
+        ADD COLUMN IF NOT EXISTS maturity_date  DATE;
+    `);
+    console.log("  ✅ financial_instruments_cache: yield_percent / coupon_rate / maturity_date ensured");
+  } catch (e: any) {
+    console.warn("  ⚠️  financial_instruments_cache column migration (non-fatal):", e.message?.slice(0, 200));
+  }
+}
