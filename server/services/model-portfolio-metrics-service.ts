@@ -457,13 +457,18 @@ export async function computePortfolioCagrFromDB(
 					if (r?.cagr_1y != null) {
 						// model_portfolio_holdings stores CAGR as percentage (e.g. 17.4 = 17.4%)
 						const r1y = Number(r.cagr_1y);
-						const r3y = r?.cagr_3y != null ? Number(r.cagr_3y) : r1y * 0.88;
-						const r5y = r?.cagr_5y != null ? Number(r.cagr_5y) : r1y * 0.82;
-						weighted1Y += r1y * w;
-						weighted3Y += r3y * w;
-						weighted5Y += r5y * w;
-						coveredWeight += w;
-						continue;
+						// Sanity check: skip obviously bad data (stale/corrupt rows)
+						if (r1y < -30 || r1y > 60) {
+							// Fall through to financial_instruments_cache
+						} else {
+							const r3y = r?.cagr_3y != null ? Number(r.cagr_3y) : r1y * 0.88;
+							const r5y = r?.cagr_5y != null ? Number(r.cagr_5y) : r1y * 0.82;
+							weighted1Y += r1y * w;
+							weighted3Y += r3y * w;
+							weighted5Y += r5y * w;
+							coveredWeight += w;
+							continue;
+						}
 					}
 				}
 
@@ -488,9 +493,13 @@ export async function computePortfolioCagrFromDB(
 
 				const r = (ficRow as any).rows?.[0];
 				if (r?.return_1y != null) {
-					// financial_instruments_cache stores returns as decimal fractions (0.174 = 17.4%)
-					// Normalise: multiply by 100 to get percentage for display
-					const normalise = (v: number) => Math.abs(v) < 5 ? v * 100 : v;
+					// financial_instruments_cache stores returns as DECIMAL FRACTIONS (0.174 = 17.4%)
+					// Normalise rule: if |v| < 2, treat as fraction → ×100. Otherwise already in %.
+					// Sanity clamp: [-30%, +60%] — catches stale/corrupt rows before they pollute CAGR.
+					const normalise = (v: number): number => {
+						const pct = Math.abs(v) < 2 ? v * 100 : v;
+						return Math.max(-30, Math.min(60, pct)); // hard sanity clamp
+					};
 					const r1y = normalise(Number(r.return_1y));
 					const r3y = r?.return_3y != null ? normalise(Number(r.return_3y)) : r1y * 0.88;
 					const r5y = r?.return_5y != null ? normalise(Number(r.return_5y)) : r1y * 0.82;
@@ -574,16 +583,13 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 	let skipped = 0;
 
 	for (const p of portfolios) {
-		// ── Calibration-lock guard ────────────────────────────────────────────
-		// If source='calibrated', admin has manually set correct CAGR values.
-		// Nightly recompute must NOT overwrite these. Unlock by removing the
-		// portfolio from CALIBRATIONS in admin/calibrate-metrics, then the next
-		// nightly run will revert to live NAV-based computation.
-		if ((p as any).source === "calibrated") {
-			results.push({ id: p.id, name: p.name, cagr1Y: null, coverage: 0, source: "skipped:calibration_lock" });
-			skipped++;
-			continue;
-		}
+		// ── Calibration-lock guard (smart — yields to reliable live data) ───────
+		// If source='calibrated', admin has set correct values. BUT if today's
+		// live computation has ≥80% coverage AND a sane result (> 2%, < 60%),
+		// prefer the live number — it's more up-to-date than a static entry.
+		// If live data is unreliable (low coverage, negative, or absurdly high),
+		// keep the calibrated value and skip the write.
+		const isCalibrated = (p as any).source === "calibrated";
 
 		const holdings = (Array.isArray(p.holdings) ? p.holdings : []) as Array<{
 			name?: string; type?: string; weight?: number;
@@ -626,23 +632,38 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 		if (totalWeight === 0) { skipped++; continue; }
 		const coverage = Math.round((coveredWeight / totalWeight) * 100);
 
-		// ── Calibration-wins guard ──────────────────────────────────────────────
-		// If coverage < 80%, the computed CAGR is unreliable (too many holdings
-		// have no live currentReturn). Skip the write rather than overwriting a
-		// manually calibrated value with a bad weighted average.
-		// This guards against MF holdings whose schemeCode was missing at time of
-		// enrichment run, causing currentReturn=0 → CAGR goes negative/wrong.
-		// Portfolios with reliable data (≥80% coverage) are still updated normally.
-		if (coverage < 80) {
+		const scale = 1 / coveredWeight;
+		const rawCagr1Y = parseFloat((weighted1Y * scale).toFixed(2));
+		const rawCagr3Y = parseFloat((weighted3Y * scale).toFixed(2));
+		const rawCagr5Y = parseFloat((weighted5Y * scale).toFixed(2));
+
+		// ── Sanity clamp — hard limits before any write ──────────────────────
+		// Catches corrupt financial_instruments_cache / screener data leaking through.
+		const sanityClamp = (v: number, lo = -30, hi = 60) => Math.max(lo, Math.min(hi, v));
+		const cagr1Y = sanityClamp(rawCagr1Y);
+		const cagr3Y = sanityClamp(rawCagr3Y);
+		const cagr5Y = sanityClamp(rawCagr5Y);
+
+		// ── Smart calibration guard ───────────────────────────────────────────
+		// "Calibrated" portfolios → prefer live if reliable; else keep calibrated.
+		// Live data is "reliable" when:
+		//   - coverage ≥ 80% (most holdings have real return data), AND
+		//   - cagr1Y is sane: > 2% (not a bad mfapi batch) and < 60% (not corrupt)
+		// If NOT reliable, skip the write — calibrated value stays as source of truth.
+		// Non-calibrated portfolios use the coverage ≥ 80% guard only.
+		const liveIsReliable = coverage >= 80 && cagr1Y > 2 && cagr1Y < 60;
+		if (isCalibrated && !liveIsReliable) {
+			results.push({ id: p.id, name: p.name, cagr1Y: null, coverage, source: "skipped:calibration_lock" });
+			skipped++;
+			continue;
+		}
+		if (!isCalibrated && coverage < 80) {
 			results.push({ id: p.id, name: p.name, cagr1Y: null, coverage, source: "skipped:insufficient_coverage" });
 			skipped++;
 			continue;
 		}
 
-		const scale = 1 / coveredWeight;
-		const cagr1Y = parseFloat((weighted1Y * scale).toFixed(2));
-		const cagr3Y = parseFloat((weighted3Y * scale).toFixed(2));
-		const cagr5Y = parseFloat((weighted5Y * scale).toFixed(2));
+		const newSource = isCalibrated && liveIsReliable ? "live_computed" : "jsonb_holdings_cagr";
 
 		// ── Step 3: Persist ──────────────────────────────────────────────────
 		await db.execute(sql`
@@ -653,18 +674,19 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 			  cagr_5y        = ${cagr5Y},
 			  engine_version = ${ENGINE_VERSION},
 			  updated_at     = NOW(),
-			  source         = 'jsonb_holdings_cagr'
+			  source         = ${newSource}
 			WHERE id = ${p.id}
 		`);
 
-		results.push({ id: p.id, name: p.name, cagr1Y, coverage, source: "jsonb:currentReturn+screener" });
+		results.push({ id: p.id, name: p.name, cagr1Y, coverage, source: newSource });
 		updated++;
 		logger.info(JSON.stringify({
 			event: "PORTFOLIO_CAGR_UPDATED",
 			portfolio_id: p.id,
 			cagr1Y, cagr3Y, cagr5Y,
 			coverage_pct: coverage,
-			source: "jsonb_holdings_cagr",
+			source: newSource,
+			was_calibrated: isCalibrated,
 			engine_version: ENGINE_VERSION,
 			calculation_timestamp: new Date().toISOString(),
 		}));
