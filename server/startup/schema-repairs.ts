@@ -2499,10 +2499,20 @@ crypto_status VARCHAR,
 				25000, "7-10 years", "Nifty Smallcap 250", "2026-07-12",
 				"quarterly", 8,
 				"Nippon Small Cap, Quant Small Cap, Motilal Midcap — India's next growth decade",
-				"[R]", true, true, f6Alloc, f6Hold,
+				"🚀", true, true, f6Alloc, f6Hold,
 			]
 		);
-		console.log(`  ✅ FASP-6: future-multibaggers — upserted ${f6R.rowCount} row(s)`);
+		// Force-patch icon/name in case row already existed with wrong values ([R] placeholder)
+		await p1Pool.query(
+			`UPDATE model_portfolios
+			 SET icon = '🚀',
+			     name = 'Future Multibaggers',
+			     highlight = 'Nippon Small Cap, Quant Small Cap, Motilal Midcap — India''s next growth decade',
+			     updated_at = NOW()
+			 WHERE id = 'future-multibaggers'
+			   AND (icon IS NULL OR icon = '[R]' OR icon = '' OR icon = 'undefined')`
+		);
+		console.log(`  ✅ FASP-6: future-multibaggers — upserted ${f6R.rowCount} row(s), icon patched to 🚀`);
 	} catch (e: any) {
 		console.warn("  ⚠️  FASP-6 non-fatal (big INSERT handles it):", e.message?.slice(0, 120));
 	}

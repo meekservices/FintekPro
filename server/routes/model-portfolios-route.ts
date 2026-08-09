@@ -2317,12 +2317,23 @@ modelPortfoliosRouter.post("/admin/seed-missing-portfolios", async (_req: Reques
       WHERE id = 'psu-defence-atmanirbhar'
     `);
 
+    // 4. Force-patch Future Multibaggers icon (was '[R]' placeholder — same bug as PSU '[D]')
+    await db.execute(sql`
+      UPDATE model_portfolios SET
+        icon        = ${'🚀'},
+        name        = ${'Future Multibaggers'},
+        highlight   = ${'Nippon Small Cap, Quant Small Cap, Motilal Midcap'},
+        updated_at  = NOW()
+      WHERE id = 'future-multibaggers'
+    `);
+
     return res.json({
       success: true,
       inserted: inserted.length,
       skipped: skipped.length,
       nriRedesigned: true,
       psuDefenceIconPatched: true,
+      futureMultibaggersIconPatched: true,
       message: `Inserted ${inserted.length} new portfolios (${skipped.length} already existed). NRI redesigned. PSU & Defence icon patched.`,
       insertedIds: inserted,
       meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },

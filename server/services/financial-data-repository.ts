@@ -11,6 +11,7 @@ import {
 } from "../clients/python-client";
 import { fetchGFQuoteUS } from "./google-finance-service";
 import { ETF_REGISTRY } from "./financial-data-scheduler";
+import { indianApiService } from "./indian-api-service";
 
 /**
  * Guard against placeholder / dummy API key values stored in Secret Manager.
@@ -1623,6 +1624,31 @@ class FinancialDataRepository {
 			try {
 				const result = await this.fetchMutualFundFromMFAPI(code);
 				if (result.success && result.data) {
+					// ── IndianAPI secondary enrichment ──────────────────────────────────
+					// mfapi provides: NAV, nav_date, fund_house (amc), scheme_category
+					// IndianAPI fills gaps: return_1y/3y/5y, expense_ratio, aum,
+					//   fund_manager, risk_level — critical for MF card display.
+					// Non-blocking: enrichment failure never drops the mfapi data.
+					if (indianApiService.isReady()) {
+						try {
+							const enriched = await indianApiService.getMutualFundDetails(code);
+							if (enriched.success && enriched.data) {
+								const d = enriched.data;
+								// Merge: prefer IndianAPI for performance/cost fields; keep mfapi for NAV
+								result.data.return1y   = d.returns_1y   ?? result.data.return1y;
+								result.data.return3y   = d.returns_3y   ?? result.data.return3y;
+								result.data.return5y   = d.returns_5y   ?? result.data.return5y;
+								result.data.expenseRatio = d.expense_ratio ?? result.data.expenseRatio;
+								result.data.aum        = d.aum          ?? result.data.aum;
+								result.data.riskLevel  = d.risk_rating  ?? result.data.riskLevel;
+								result.data.secondarySource = "indianapi";
+								result.data.confidenceScore = 99; // mfapi NAV + IndianAPI metadata
+							}
+						} catch (_enrichErr) {
+							// Non-fatal — proceed with mfapi-only data
+						}
+					}
+					// ────────────────────────────────────────────────────────────────────
 					await this.saveToDatabase(result.data);
 					success++;
 				} else {
