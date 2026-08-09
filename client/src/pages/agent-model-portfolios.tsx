@@ -3006,27 +3006,38 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
   const cagrRows = liveRows ?? staticRows;
 
   // Absolute = cumulative total return: (1+cagr%)^years - 1
+  // BUG-I fix: guard abs/absB for NaN/null before calling toFixed.
   const absoluteRows = useMemo(() => cagrRows.map((r: any) => {
     const yrs = r.label.includes("5 Year") ? 5 : r.label.includes("3 Year") ? 3 : r.label.includes("2 Year") ? 2 : null;
-    const abs  = yrs != null && r.returnPct   != null ? (Math.pow(1 + r.returnPct  /100, yrs)-1)*100 : r.returnPct;
-    const absB = yrs != null && r.benchmarkPct != null ? (Math.pow(1 + r.benchmarkPct/100, yrs)-1)*100 : r.benchmarkPct;
+    const rp  = r.returnPct    != null && Number.isFinite(Number(r.returnPct))    ? Number(r.returnPct)    : null;
+    const bpv = r.benchmarkPct != null && Number.isFinite(Number(r.benchmarkPct)) ? Number(r.benchmarkPct) : null;
+    const abs  = yrs != null && rp  != null ? (Math.pow(1 + rp  / 100, yrs) - 1) * 100 : rp;
+    const absB = yrs != null && bpv != null ? (Math.pow(1 + bpv / 100, yrs) - 1) * 100 : bpv;
     return { ...r,
-      returnPct:   abs  != null ? Number(abs.toFixed(2))         : null,
-      benchmarkPct:absB != null ? Number(absB.toFixed(2))        : null,
-      alpha:       abs  != null && absB != null ? Number((abs-absB).toFixed(2)) : r.alpha,
+      returnPct:   abs  != null && Number.isFinite(abs)  ? Number(abs.toFixed(2))         : null,
+      benchmarkPct:absB != null && Number.isFinite(absB) ? Number(absB.toFixed(2))        : null,
+      alpha:       abs  != null && absB != null && Number.isFinite(abs) && Number.isFinite(absB) ? Number((abs-absB).toFixed(2)) : r.alpha,
       label: yrs != null ? r.label.replace("(ann.)","(total)") : r.label,
     };
   }), [cagrRows]);
 
   // Monthly rolling: month-on-month NAV changes
+  // BUG-F fix: guard for prev.portfolioNav=0 or prev.benchmarkNav=0 (division → Infinity/NaN).
+  // Filter out NaN/Infinity rows before rendering — they'd show as "NaN%" in the table.
   const rollingData = useMemo(() => {
     if (!performance || performance.length < 2) return [];
     return performance.slice(1).map((pt, i) => {
       const prev = performance![i];
-      const pr = ((pt.portfolioNav  - prev.portfolioNav)  / prev.portfolioNav)  * 100;
-      const br = ((pt.benchmarkNav  - prev.benchmarkNav)  / prev.benchmarkNav)  * 100;
-      return { date: pt.date, portfolio: +pr.toFixed(2), benchmark: +br.toFixed(2), alpha: +(pr-br).toFixed(2) };
-    });
+      const pr = prev.portfolioNav  > 0 ? ((pt.portfolioNav  - prev.portfolioNav)  / prev.portfolioNav)  * 100 : null;
+      const br = prev.benchmarkNav  > 0 ? ((pt.benchmarkNav  - prev.benchmarkNav)  / prev.benchmarkNav)  * 100 : null;
+      if (pr === null || !Number.isFinite(pr)) return null;
+      return {
+        date:      pt.date,
+        portfolio: +pr.toFixed(2),
+        benchmark: br != null && Number.isFinite(br) ? +br.toFixed(2) : 0,
+        alpha:     br != null && Number.isFinite(br) ? +(pr - br).toFixed(2) : +pr.toFixed(2),
+      };
+    }).filter(Boolean);
   }, [performance]);
 
   const renderTableRows = (rows: any[], color: string) => rows.map((r: any, i: number) => {
@@ -3150,13 +3161,14 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
                       <tr key={i} className="border-b last:border-0 hover:bg-muted/5 transition-colors">
                         <td className="px-3 py-1.5 text-[10px]">{m.date}</td>
                         <td className={`px-3 py-1.5 text-right text-[10px] font-semibold ${m.portfolio>=0?"text-indigo-600 dark:text-indigo-400":"text-red-500"}`}>
-                          {m.portfolio>=0?"+":""}{m.portfolio.toFixed(2)}%
+                          {/* BUG-G fix: guard for NaN before toFixed */}
+                          {Number.isFinite(m.portfolio) ? `${m.portfolio>=0?"+":""}${m.portfolio.toFixed(2)}%` : "—"}
                         </td>
                         <td className={`px-3 py-1.5 text-right text-[10px] ${m.benchmark>=0?"text-muted-foreground":"text-red-400"}`}>
-                          {m.benchmark>=0?"+":""}{m.benchmark.toFixed(2)}%
+                          {Number.isFinite(m.benchmark) ? `${m.benchmark>=0?"+":""}${m.benchmark.toFixed(2)}%` : "—"}
                         </td>
                         <td className={`px-3 py-1.5 text-right text-[10px] font-medium ${m.alpha>=0?"text-emerald-600 dark:text-emerald-400":"text-red-500"}`}>
-                          {m.alpha>=0?"+":""}{m.alpha.toFixed(2)}%
+                          {Number.isFinite(m.alpha) ? `${m.alpha>=0?"+":""}${m.alpha.toFixed(2)}%` : "—"}
                         </td>
                       </tr>
                     ))}
