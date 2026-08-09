@@ -4985,9 +4985,15 @@ modelPortfoliosRouter.post("/instruments/isin", async (req: Request, res: Respon
 // ── POST /api/model-portfolios/admin/seed-isin-registry ──────────────────────
 // Runs the ISIN registry seed from instrument-registry.ts on demand.
 // Idempotent (upsert). Safe to call multiple times.
+// Self-healing: calls createISINRegistryTable() first to handle the race where
+// this endpoint is called before the background startup migration completes.
 modelPortfoliosRouter.post("/admin/seed-isin-registry", async (_req: Request, res: Response) => {
   const t0 = Date.now();
   try {
+    // Step 0: ensure the table exists (idempotent — fast no-op if already created)
+    const { createISINRegistryTable } = await import("../startup/schema-repairs");
+    await createISINRegistryTable();
+
     const { INSTRUMENT_REGISTRY }   = await import("../data/instrument-registry");
     const { upsertISINRecord }      = await import("../services/isin-registry-service");
 
