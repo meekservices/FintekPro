@@ -95,6 +95,20 @@ export const INSTRUMENT_REGISTRY: Record<string, InstrumentInfo> = {
   "Parag Parikh Flexi Cap Fund":    { schemeCode: 122640,  isin: "INF879O01019",  type: "flexi_cap" },
   "PPFAS Flexi Cap (Global)":       { schemeCode: 122640,  isin: "INF879O01019",  type: "flexi_cap" },
   "PPFAS Flexi Cap (Global allocation)": { schemeCode: 122640, isin: "INF879O01019", type: "flexi_cap" },
+  // ── HNI Wealth Compounder MF holdings (added for hni-wealth-compounder CAGR) ──
+  // These funds had schemeCode missing, causing currentReturn→0 and CAGR→NaN/negative.
+  "PPFAS Flexi Cap Fund":           { schemeCode: 122640,  isin: "INF879O01019",  type: "flexi_cap" },
+  // "Parag Parikh Flexi Cap Fund" already defined at line 95 above — no duplicate needed
+  "Axis Growth Opportunities Fund": { schemeCode: 140251,  isin: "INF846K01KA9",  type: "flexi_cap" },
+  "Axis Growth Opportunities":      { schemeCode: 140251,  isin: "INF846K01KA9",  type: "flexi_cap" },
+  "Mirae Asset Focused Fund":       { schemeCode: 147621,  isin: "INF769K01EG9",  type: "large_cap" },
+  "Mirae Asset Focused Equity Fund":{ schemeCode: 147621,  isin: "INF769K01EG9",  type: "large_cap" },
+  "Kotak Focused Equity Fund":      { schemeCode: 120599,  isin: "INF174K01LS4",  type: "large_cap" },
+  "Kotak Focused Equity":           { schemeCode: 120599,  isin: "INF174K01LS4",  type: "large_cap" },
+  // ── Gold ETF aliases (Nippon Gold ETF = Nippon India ETF Gold BeES) ──────────
+  "Nippon Gold ETF":                { schemeCode: null,     isin: "INF204KA1I34",  type: "gold" },
+  // ── Ultra Short MF alias: defined fully at line ~190 with correct Regular-plan code ────────
+  // "HDFC Ultra Short Term Fund" duplicate removed — canonical entry at debt section below
   "HDFC Flexi Cap Fund":            { schemeCode: 101762,  isin: "INF179K01608",  type: "flexi_cap" },
   "Kotak Flexi Cap Fund":           { schemeCode: 102735,  isin: "INF174K01FN9",  type: "flexi_cap" },
   "SBI Flexi Cap Fund":             { schemeCode: 103215,  isin: "INF200K01222",  type: "flexi_cap" },
