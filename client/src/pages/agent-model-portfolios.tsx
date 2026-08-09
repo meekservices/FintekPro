@@ -3759,17 +3759,19 @@ export default function AgentModelPortfoliosPage() {
         icon: (() => { const r = p.icon ?? ""; return (r.length > 1 || (r.length === 1 && r.codePointAt(0)! > 127)) ? r : (staticP?.icon ?? "📊"); })(),
         isFeatured: p.isFeatured ?? p.is_featured ?? false,
         isNew: p.isNew ?? p.is_new ?? false,
-        // Metrics: DB value if computed by scheduler, else fall back to curated static values
-        cagr1Y: Number(p.cagr1Y) || staticP?.cagr1Y || 0,
-        cagr3Y: Number(p.cagr3Y) || staticP?.cagr3Y || 0,
-        cagr5Y: Number(p.cagr5Y) || staticP?.cagr5Y || 0,
-        benchmarkCagr1Y: Number(p.benchmarkCagr1Y) || staticP?.benchmarkCagr1Y || 0,
+        // Metrics: DB value if computed by scheduler, else fall back to curated static values.
+        // BUG-4 fix: use ?? not || — || discards valid falsy numbers (e.g. CAGR 0.29% → 0 is falsy)
+        // which caused near-zero return portfolios (Banking BFSI) to silently show static values.
+        cagr1Y: p.cagr1Y != null ? Number(p.cagr1Y) : (staticP?.cagr1Y ?? 0),
+        cagr3Y: p.cagr3Y != null ? Number(p.cagr3Y) : (staticP?.cagr3Y ?? 0),
+        cagr5Y: p.cagr5Y != null ? Number(p.cagr5Y) : (staticP?.cagr5Y ?? 0),
+        benchmarkCagr1Y: p.benchmarkCagr1Y != null ? Number(p.benchmarkCagr1Y) : (staticP?.benchmarkCagr1Y ?? 0),
         riskMetrics: {
-          sharpeRatio: Number(p.sharpeRatio) || staticP?.riskMetrics?.sharpeRatio || 0,
-          maxDrawdown: Number(p.maxDrawdown) || staticP?.riskMetrics?.maxDrawdown || 0,
-          volatility: Number(p.volatility) || staticP?.riskMetrics?.volatility || 0,
-          beta: Number(p.beta) || staticP?.riskMetrics?.beta || 1,
-          alpha: Number(p.alpha) || staticP?.riskMetrics?.alpha || 0,
+          sharpeRatio: p.sharpeRatio != null ? Number(p.sharpeRatio) : (staticP?.riskMetrics?.sharpeRatio ?? 0),
+          maxDrawdown: p.maxDrawdown  != null ? Number(p.maxDrawdown)  : (staticP?.riskMetrics?.maxDrawdown  ?? 0),
+          volatility:  p.volatility   != null ? Number(p.volatility)   : (staticP?.riskMetrics?.volatility   ?? 0),
+          beta:        p.beta         != null ? Number(p.beta)         : (staticP?.riskMetrics?.beta         ?? 1),
+          alpha:       p.alpha        != null ? Number(p.alpha)        : (staticP?.riskMetrics?.alpha        ?? 0),
         },
         allocation: (Array.isArray(p.allocation) && p.allocation.length > 0 ? p.allocation : staticP?.allocation ?? []).map((a: any) => ({
           category: a.label ?? a.category ?? a.type ?? "Other",
@@ -3807,16 +3809,33 @@ export default function AgentModelPortfoliosPage() {
           // Fallback: static seed definition → hardcoded safe default
           return staticP?.goal ?? ["wealth_creation"];
         })(),
-        performance: PERFORMANCE_BASE(
-          p.id ?? "portfolio", 1000, 24,
-          Number(p.cagr1Y) || staticP?.cagr1Y || 12,
-          Number(p.volatility) || staticP?.riskMetrics?.volatility || 6,
-        ),
-        performanceData: PERFORMANCE_BASE(
-          p.id ?? "portfolio", 1000, 24,
-          Number(p.cagr1Y) || staticP?.cagr1Y || 12,
-          Number(p.volatility) || staticP?.riskMetrics?.volatility || 6,
-        ),
+        performance: (() => {
+          // BUG-5 fix: use real NAV history when available; fall back to seeded LCG.
+          const navRows = navHistoryCache[p.id];
+          if (navRows && navRows.length >= 2) {
+            return navRows.map((row: any) => ({
+              month: row.month ?? row.date ?? "",
+              nav: Number(row.nav ?? row.portfolio_nav ?? 0),
+              benchmarkNav: Number(row.benchmark_nav ?? row.benchmarkNav ?? 0) || undefined,
+            })) as any;
+          }
+          const c1y = p.cagr1Y != null ? Number(p.cagr1Y) : (staticP?.cagr1Y ?? 12);
+          const vol  = p.volatility != null ? Number(p.volatility) : (staticP?.riskMetrics?.volatility ?? 6);
+          return PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, c1y, vol);
+        })(),
+        performanceData: (() => {
+          const navRows = navHistoryCache[p.id];
+          if (navRows && navRows.length >= 2) {
+            return navRows.map((row: any) => ({
+              month: row.month ?? row.date ?? "",
+              nav: Number(row.nav ?? row.portfolio_nav ?? 0),
+              benchmarkNav: Number(row.benchmark_nav ?? row.benchmarkNav ?? 0) || undefined,
+            })) as any;
+          }
+          const c1y = p.cagr1Y != null ? Number(p.cagr1Y) : (staticP?.cagr1Y ?? 12);
+          const vol  = p.volatility != null ? Number(p.volatility) : (staticP?.riskMetrics?.volatility ?? 6);
+          return PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, c1y, vol);
+        })(),
         // ── Gap-fix fields (Fix 15) — mapped from DB columns ──────────────────
         // Drizzle .select() returns raw Postgres snake_case column names.
         // Always check both camelCase (manual mappings) and snake_case (ORM default).
@@ -3830,7 +3849,7 @@ export default function AgentModelPortfoliosPage() {
         conflictDisclosure: p.conflictDisclosure ?? staticP?.conflictDisclosure ?? undefined,
       };
     });
-  }, [apiData]);
+  }, [apiData, navHistoryCache]);
 
   // Role-based permissions
   // RETAIL_ONLY_ROLES: the ONLY roles that should see the holdings lock.
@@ -3900,7 +3919,12 @@ export default function AgentModelPortfoliosPage() {
       const data = await res.json();
       if (data.success) {
         setProposals(prev => ({ ...prev, [portfolioId]: (prev[portfolioId] ?? []).filter(p => p.id !== proposalId) }));
+        toast({ title: "✅ Proposal Approved", description: "Rebalance proposal has been approved and queued for execution." });
+      } else {
+        toast({ title: "Approval Failed", description: data.message ?? "Could not approve proposal. Please retry.", variant: "destructive" });
       }
+    } catch {
+      toast({ title: "Network Error", description: "Could not reach the server. Please check your connection.", variant: "destructive" });
     } finally {
       setApprovingProposal(null);
     }
@@ -3913,7 +3937,12 @@ export default function AgentModelPortfoliosPage() {
       const data = await res.json();
       if (data.success) {
         setProposals(prev => ({ ...prev, [portfolioId]: (prev[portfolioId] ?? []).filter(p => p.id !== proposalId) }));
+        toast({ title: "Proposal Rejected", description: "Rebalance proposal has been rejected." });
+      } else {
+        toast({ title: "Rejection Failed", description: data.message ?? "Could not reject proposal. Please retry.", variant: "destructive" });
       }
+    } catch {
+      toast({ title: "Network Error", description: "Could not reach the server. Please check your connection.", variant: "destructive" });
     } finally {
       setRejectingProposal(null);
     }
@@ -3961,6 +3990,19 @@ export default function AgentModelPortfoliosPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiData?.data?.length]);
 
+  // ── Background prefetch NAV history for all visible cards (BUG-5 fix) ────
+  // Populates navHistoryCache so performanceData uses real NAV data immediately,
+  // not just after the user expands a card. Staggered at 500ms per card to
+  // avoid bursting — starts at 200ms offset so quant signals go first.
+  useEffect(() => {
+    if (!apiData?.data?.length) return;
+    const toFetch = (apiData.data as any[]).slice(0, 20);
+    toFetch.forEach((p: any, i: number) => {
+      setTimeout(() => fetchNavHistory(p.id), 200 + i * 500);
+    });
+  // Only run once when API data first loads
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiData?.data?.length]);
 
   // ── Fetch invest preview when amount changes (debounced 600ms) ─────────────
   useEffect(() => {

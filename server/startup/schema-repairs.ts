@@ -2620,13 +2620,21 @@ export async function runFASPAIv3Migrations(): Promise<void> {
         UNIQUE(dedup_key)
       )
     `);
-    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_pa_portfolio_read ON portfolio_alerts(portfolio_id, is_read)`);
-    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_pa_alert_type ON portfolio_alerts(alert_type, severity)`);
-    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_pa_created ON portfolio_alerts(created_at DESC)`);
-    console.log("  ✅ portfolio_alerts: created");
+    console.log("  \u2705 portfolio_alerts: table ready");
   } catch (e: any) {
-    console.warn("  ⚠️  portfolio_alerts (non-fatal):", e.message?.slice(0, 80));
+    console.warn("  \u26a0\ufe0f  portfolio_alerts table (non-fatal):", e.message?.slice(0, 80));
   }
+  // BUG-3 fix: each index gets its own try-catch so one failure doesn't mask others
+  try {
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_pa_portfolio_read ON portfolio_alerts(portfolio_id, is_read)`);
+  } catch { /* already exists or table missing — non-fatal */ }
+  try {
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_pa_alert_type ON portfolio_alerts(alert_type, severity)`);
+  } catch { /* already exists — non-fatal */ }
+  try {
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_pa_created ON portfolio_alerts(created_at DESC)`);
+    console.log("  \u2705 portfolio_alerts: all indexes ensured");
+  } catch { /* already exists — non-fatal */ }
 
   // 4. iris_rebalance_executions — per-leg IRIS execution tracking (FASP-AI-v3.0)
   try {
@@ -2685,6 +2693,8 @@ export async function runFASPAIv3Migrations(): Promise<void> {
 // ── Phase B — model_portfolio_holdings unique index ───────────────────────────
 // Required for ON CONFLICT (portfolio_id, instrument_name) upserts in the
 // Phase B migration service. Non-fatal — no-op if already present.
+// BUG-2 fix: scope index to active holdings (removed_at IS NULL) to avoid
+// failing on historical duplicate instrument entries from past rebalances.
 export async function applyPhaseB_HoldingsUniqueIndex(): Promise<void> {
   const { db: migDb } = await import("../db");
   const { sql: migSql } = await import("drizzle-orm");
@@ -2692,10 +2702,11 @@ export async function applyPhaseB_HoldingsUniqueIndex(): Promise<void> {
     await migDb.execute(migSql`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_mph_portfolio_instrument
       ON model_portfolio_holdings (portfolio_id, instrument_name)
+      WHERE removed_at IS NULL
     `);
-    console.log("  ✅ [Phase B] model_portfolio_holdings unique index: uq_mph_portfolio_instrument");
+    console.log("  \u2705 [Phase B] model_portfolio_holdings unique index: uq_mph_portfolio_instrument (active holdings)");
   } catch (e: any) {
-    console.warn("  ⚠️  [Phase B] uq_mph_portfolio_instrument (non-fatal):", e.message?.slice(0, 80));
+    console.warn("  \u26a0\ufe0f  [Phase B] uq_mph_portfolio_instrument (non-fatal):", e.message?.slice(0, 80));
   }
 }
 
@@ -2816,32 +2827,20 @@ export async function ensureSharedRouteTables(): Promise<void> {
   }
 
   // ── Fix 1: model_portfolio_holdings — inception_nav + inception_date ────────
-  // These columns power the accurate drift formula introduced in FASP-AI v3.0.
-  //
-  // Drift formula (v3.0):
-  //   currentWeight = targetWeight × (currentNAV / inceptionNAV)
-  //   drift         = currentWeight − targetWeight
-  //
-  // inceptionNav  = NAV at the time the holding was added to the portfolio.
-  //                 Populated by refreshHoldingNAV() on first NAV fetch (self-healing:
-  //                 if null, sets inceptionNav = currentNav so drift starts at 0).
-  // inceptionDate = The calendar date inceptionNav was recorded.
-  //
-  // Without these columns, the old formula (nav × weight / Σ(nav × weight)) mixes
-  // ₹/unit with %, making drift dimensionally wrong for every portfolio.
-  //
-  // ADD COLUMN IF NOT EXISTS is idempotent — safe to run on every restart.
+  // BUG-1 fix: migDb.execute(migSql`...`) does NOT support multi-statement
+  // comma-separated ADD COLUMN in a single call. Use pool.query() directly.
   try {
-    await migDb.execute(migSql`
+    const { pool: migPool } = await import("../db");
+    // Step A: Add columns (idempotent)
+    await migPool.query(`
       ALTER TABLE model_portfolio_holdings
         ADD COLUMN IF NOT EXISTS inception_nav  NUMERIC(12, 4),
         ADD COLUMN IF NOT EXISTS inception_date DATE
     `);
-    // Backfill: for any existing holdings where inception_nav is null but
-    // current_nav is already populated, set inception_nav = current_nav.
-    // This means the first drift reading after migration will be 0 (baseline),
-    // and subsequent NAV refreshes will compute real drift from this point.
-    await migDb.execute(migSql`
+    // Step B: Backfill — set inception_nav = current_nav for existing rows
+    // where inception_nav is null but current_nav is already populated.
+    // First drift reading after migration will be 0 (clean baseline).
+    await migPool.query(`
       UPDATE model_portfolio_holdings
       SET
         inception_nav  = current_nav,
@@ -2850,9 +2849,9 @@ export async function ensureSharedRouteTables(): Promise<void> {
         inception_nav IS NULL
         AND current_nav IS NOT NULL
     `);
-    console.log("  ✅ model_portfolio_holdings: inception_nav + inception_date (Fix 1 — v3.0 drift baseline)");
+    console.log("  \u2705 model_portfolio_holdings: inception_nav + inception_date (Fix 1 \u2014 v3.0 drift baseline)");
   } catch (e: any) {
-    console.warn("  ⚠️  model_portfolio_holdings inception_nav migration (non-fatal):", e.message?.slice(0, 120));
+    console.warn("  \u26a0\ufe0f  model_portfolio_holdings inception_nav migration (non-fatal):", e.message?.slice(0, 120));
   }
 
   // ── Fix 14: model_portfolios — quant_risk_metrics JSONB ─────────────────────
