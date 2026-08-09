@@ -162,18 +162,27 @@ const RAW_HOLDINGS: Record<string, Array<{ rank: number; name: string; category:
     {rank:14,name:"L&T Tax Advantage Fund (ELSS)",category:"ELSS",weight:1.0},
   ],
   "hni-alternatives": [
-    {rank:1,name:"Kotak AIF – Growth Fund III",category:"Category III AIF",weight:16.0},
-    {rank:2,name:"IIFL Special Opportunities Fund",category:"Category III AIF",weight:13.0},
-    {rank:3,name:"DSP BlackRock Alt Fund",category:"Category II AIF",weight:12.0},
-    {rank:4,name:"Motilal Oswal AIF PE Fund",category:"Category II AIF",weight:11.0},
-    {rank:5,name:"Embassy Office Parks REIT",category:"REIT",weight:11.0},
-    {rank:6,name:"Nippon India ETF Gold BeES",category:"Gold ETF",weight:11.0},
-    {rank:7,name:"Sovereign Gold Bond 2026-27 Series",category:"SGB",weight:10.0},
-    {rank:8,name:"IndiGrid Infrastructure InvIT",category:"InvIT",weight:7.0},
-    {rank:9,name:"Power Grid Corp InvIT",category:"InvIT",weight:5.0},
-    {rank:10,name:"Aditya Birla Private Equity Fund",category:"Category II AIF",weight:2.0},
-    {rank:11,name:"Quantum Long Term Equity Fund",category:"Large Cap MF",weight:1.0},
-    {rank:12,name:"ICICI Pru Liquid Fund",category:"Liquid MF",weight:1.0},
+    // ── AIF (Category II & III) — trimmed by 10% to accommodate SIF allocation ──
+    {rank:1, name:"Kotak AIF – Growth Fund III",       category:"Category III AIF",  weight:12.0}, // was 16% — -4% for SIF
+    {rank:2, name:"IIFL Special Opportunities Fund",   category:"Category III AIF",  weight:11.0}, // was 13% — -2% for SIF
+    {rank:3, name:"DSP BlackRock Alt Fund",            category:"Category II AIF",   weight:10.0}, // was 12% — -2% for SIF
+    {rank:4, name:"Motilal Oswal AIF PE Fund",         category:"Category II AIF",   weight:9.0},  // was 11% — -2% for SIF
+    // ── SIF — Specialised Investment Fund (SEBI, April 2025) ─────────────────
+    // Min investment ₹10L/investor/AMC — HNI-only allocation. Long-short strategies.
+    // Returns estimated per SID (15–18% target) until mfapi.in NAV history accumulates.
+    {rank:5, name:"ICICI Pru iSIF Equity Long-Short",       category:"SIF",  weight:5.0},
+    {rank:6, name:"Kotak Infinity Hybrid Long-Short SIF",   category:"SIF",  weight:3.0},
+    {rank:7, name:"Mirae Asset Platinum Hybrid Long-Short",  category:"SIF",  weight:2.0},
+    // ── REIT / InvIT / Gold / Cash ───────────────────────────────────────────
+    {rank:8, name:"Embassy Office Parks REIT",             category:"REIT",          weight:11.0},
+    {rank:9, name:"Nippon India ETF Gold BeES",            category:"Gold ETF",      weight:11.0},
+    {rank:10,name:"Sovereign Gold Bond 2026-27 Series",    category:"SGB",           weight:10.0},
+    {rank:11,name:"IndiGrid Infrastructure InvIT",         category:"InvIT",         weight:7.0},
+    {rank:12,name:"Power Grid Corp InvIT",                 category:"InvIT",         weight:5.0},
+    {rank:13,name:"Aditya Birla Private Equity Fund",      category:"Category II AIF",weight:2.0},
+    {rank:14,name:"Quantum Long Term Equity Fund",         category:"Large Cap MF",  weight:1.0},
+    {rank:15,name:"ICICI Pru Liquid Fund",                 category:"Liquid MF",     weight:1.0},
+    // Total: 12+11+10+9 (AIF) + 5+3+2 (SIF) + 11+11+10+7+5+2+1+1 = 100%
   ],
   "retirement-shield": [
     {rank:1,name:"SBI Retirement Benefit Fund",category:"Retirement MF",weight:10.0},
@@ -662,20 +671,25 @@ const RAW_HOLDINGS: Record<string, Array<{ rank: number; name: string; category:
     // International Equity — 15%
     {rank:4, name:"ICICI Pru US Bluechip Fund",        category:"International MF",      weight:8.0},
     {rank:5, name:"Motilal Oswal Nasdaq 100 ETF",      category:"International ETF",     weight:7.0},
-    // REIT & InvIT — 15%
+    // REIT & InvIT — 13% (trimmed by 2% for SIF)
     {rank:6, name:"Embassy Office Parks REIT",         category:"REIT",                  weight:8.0},
-    {rank:7, name:"Mindspace Business Parks REIT",     category:"REIT",                  weight:4.0},
-    {rank:8, name:"IndiGrid Infrastructure InvIT",     category:"InvIT",                 weight:3.0},
-    // AIF / Alternatives — 15% (no schemeCode — managed outside MF universe)
-    {rank:9, name:"Kotak AIF Growth Fund III",         category:"Category III AIF",      weight:8.0},
-    {rank:10,name:"IIFL Special Opportunities AIF",    category:"Category II AIF",       weight:7.0},
+    {rank:7, name:"Mindspace Business Parks REIT",     category:"REIT",                  weight:3.0}, // was 4% — -1% for SIF
+    {rank:8, name:"IndiGrid Infrastructure InvIT",     category:"InvIT",                 weight:2.0}, // was 3% — -1% for SIF
+    // AIF / Alternatives — 9% (trimmed by 6% for SIF)
+    {rank:9, name:"Kotak AIF Growth Fund III",         category:"Category III AIF",      weight:5.0}, // was 8% — -3% for SIF
+    {rank:10,name:"IIFL Special Opportunities AIF",    category:"Category II AIF",       weight:4.0}, // was 7% — -3% for SIF
+    // SIF — Specialised Investment Fund (SEBI, April 2025) — 8%
+    // Min ₹10L/investor/AMC. Long-short hybrid strategies — complements AIF allocation.
+    {rank:11,name:"ICICI Pru iSIF Equity Long-Short",      category:"SIF",              weight:5.0},
+    {rank:12,name:"Kotak Infinity Hybrid Long-Short SIF",  category:"SIF",              weight:3.0},
     // Debt & Fixed Income — 20%
-    {rank:11,name:"ICICI Pru Corporate Bond Fund",     category:"Corporate Bond MF",     weight:8.0},
-    {rank:12,name:"BHARAT Bond ETF Apr 2032",          category:"Target Maturity ETF",   weight:7.0},
-    {rank:13,name:"SBI Magnum Gilt Fund",              category:"Gilt MF",               weight:5.0},
+    {rank:13,name:"ICICI Pru Corporate Bond Fund",     category:"Corporate Bond MF",     weight:8.0},
+    {rank:14,name:"BHARAT Bond ETF Apr 2032",          category:"Target Maturity ETF",   weight:7.0},
+    {rank:15,name:"SBI Magnum Gilt Fund",              category:"Gilt MF",               weight:5.0},
     // Gold & SGBs — 10%
-    {rank:14,name:"Nippon India ETF Gold BeES",        category:"Gold ETF",              weight:6.0},
-    {rank:15,name:"Sovereign Gold Bond 2026-27 Series",category:"SGB",                   weight:4.0},
+    {rank:16,name:"Nippon India ETF Gold BeES",        category:"Gold ETF",              weight:6.0},
+    {rank:17,name:"Sovereign Gold Bond 2026-27 Series",category:"SGB",                   weight:4.0},
+    // Total: 25 (equity) + 15 (intl) + 13 (REIT/InvIT) + 9 (AIF) + 8 (SIF) + 20 (debt) + 10 (gold) = 100%
   ],
 };
 

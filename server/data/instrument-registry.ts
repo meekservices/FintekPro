@@ -386,6 +386,29 @@ export const INSTRUMENT_REGISTRY: Record<string, InstrumentInfo> = {
   "Motilal Oswal AIF PE Fund":          { schemeCode: null, isin: null, type: "alternatives" },
   "Aditya Birla Private Equity Fund":   { schemeCode: null, isin: null, type: "alternatives" },
 
+  // ── SIF — Specialised Investment Fund (SEBI, effective April 1 2025) ─────────
+  // SIF is a new SEBI-regulated asset class bridging MFs and PMS.
+  // Minimum investment: ₹10 lakh/investor/AMC (PAN-level).
+  // Suitable for HNI / accredited investors only — not for retail portfolios.
+  //
+  // ⚠️  schemeCode = null: SIF NAV is not yet tracked on mfapi.in (launched 2025).
+  //     type = "sif": triggers the estimated-return fallback (15–18% target range
+  //     per SID disclosures) in model-portfolio-metrics-service.ts until real
+  //     NAV history accumulates (~12 months post-launch).
+  //
+  // Sources: AMFI SIF registration list (amfiindia.com), scheme SIDs (2025).
+  // SEBI Circular: SEBI/HO/IMD/IMD-PoD-1/P/CIR/2025/8 (February 2025)
+  "ICICI Pru iSIF Equity Long-Short":         { schemeCode: null, isin: null, type: "sif" },
+  "ICICI Pru iSIF Equity Ex-Top 100":         { schemeCode: null, isin: null, type: "sif" },
+  "Kotak Infinity Hybrid Long-Short SIF":     { schemeCode: null, isin: null, type: "sif" },
+  "Kotak Infinity SIF":                       { schemeCode: null, isin: null, type: "sif" },
+  "Mirae Asset Platinum Hybrid Long-Short":   { schemeCode: null, isin: null, type: "sif" },
+  "Mirae Asset Platinum SIF":                 { schemeCode: null, isin: null, type: "sif" },
+  "SBI SIF Equity Long-Short":                { schemeCode: null, isin: null, type: "sif" },
+  "Nippon SIF Equity Opportunities":          { schemeCode: null, isin: null, type: "sif" },
+  "HDFC SIF Dynamic Asset Allocation":        { schemeCode: null, isin: null, type: "sif" },
+  "Axis SIF Flexi Long-Short":                { schemeCode: null, isin: null, type: "sif" },
+
   // ── Non-MF / Bank Instruments ─────────────────────────────────────────────────
   "1-Month Bank FD":                    { schemeCode: null, isin: null, type: "liquid" }, // legacy — no longer used in seeds
   "Liquid Fund (any AMC)":              { schemeCode: 105280, isin: "INF200K01MA1", type: "liquid" },

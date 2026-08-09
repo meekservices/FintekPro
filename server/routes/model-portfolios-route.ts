@@ -2419,18 +2419,22 @@ modelPortfoliosRouter.post("/admin/seed-holdings", async (_req: Request, res: Re
       { rank: 14, name: "Cash/Liquid Buffer", weight: 10, type: "Liquid MF" },
     ],
     "hni-wealth-compounder": [
-      { rank: 1, name: "Axis Growth Opportunities", weight: 15, type: "Multi Cap MF" },
-      { rank: 2, name: "Mirae Asset Focused Fund", weight: 14, type: "Focused MF" },
-      { rank: 3, name: "PPFAS Flexi Cap Fund", weight: 13, type: "Flexi Cap MF" },
-      { rank: 4, name: "Kotak Focused Equity", weight: 12, type: "Focused MF" },
-      { rank: 5, name: "Reliance Industries", symbol: "RELIANCE", weight: 8, type: "Large Cap Stock" },
-      { rank: 6, name: "HDFC Bank Ltd", symbol: "HDFCBANK", weight: 7, type: "Large Cap Stock" },
-      { rank: 7, name: "Infosys Ltd", symbol: "INFY", weight: 6, type: "Large Cap Stock" },
-      { rank: 8, name: "Embassy REIT", weight: 7, type: "REIT" },
-      { rank: 9, name: "IndiGrid InvIT", weight: 5, type: "InvIT" },
-      { rank: 10, name: "Nippon Gold ETF", weight: 6, type: "Gold ETF" },
-      { rank: 11, name: "SGB 2029 Series", weight: 4, type: "Sovereign Gold Bond" },
-      { rank: 12, name: "HDFC Ultra Short Term Fund", weight: 3, type: "Liquid MF" },
+      { rank: 1,  name: "Axis Growth Opportunities",      weight: 14, type: "Multi Cap MF" },      // was 15 — -1% for SIF
+      { rank: 2,  name: "Mirae Asset Focused Fund",        weight: 13, type: "Focused MF" },
+      { rank: 3,  name: "PPFAS Flexi Cap Fund",            weight: 12, type: "Flexi Cap MF" },
+      { rank: 4,  name: "Kotak Focused Equity",            weight: 11, type: "Focused MF" },      // was 12 — -1% for SIF
+      { rank: 5,  name: "Reliance Industries",  symbol: "RELIANCE", weight: 8, type: "Large Cap Stock" },
+      { rank: 6,  name: "HDFC Bank Ltd",        symbol: "HDFCBANK", weight: 7, type: "Large Cap Stock" },
+      { rank: 7,  name: "Infosys Ltd",          symbol: "INFY",     weight: 6, type: "Large Cap Stock" },
+      { rank: 8,  name: "Embassy REIT",                               weight: 7, type: "REIT" },
+      { rank: 9,  name: "IndiGrid InvIT",                             weight: 5, type: "InvIT" },
+      { rank: 10, name: "Nippon Gold ETF",                            weight: 6, type: "Gold ETF" },
+      { rank: 11, name: "SGB 2029 Series",                            weight: 4, type: "Sovereign Gold Bond" },
+      // SIF — Specialised Investment Fund (SEBI, April 2025) — 5%
+      // Min ₹10L/investor/AMC. Long-short equity strategy — alpha overlay on the equity core.
+      { rank: 12, name: "ICICI Pru iSIF Equity Long-Short",           weight: 5, type: "SIF" },
+      { rank: 13, name: "HDFC Ultra Short Term Fund",                 weight: 2, type: "Liquid MF" }, // was 3 — -1% for SIF
+      // Total: 14+13+12+11+8+7+6+7+5+6+4 (=93) + 5 (SIF) + 2 (liquid) = 100%
     ],
     "dividend-yield": [
       { rank: 1, name: "ITC Limited", symbol: "ITC", weight: 14, type: "Dividend Stock" },
@@ -2540,18 +2544,23 @@ modelPortfoliosRouter.post("/admin/seed-holdings", async (_req: Request, res: Re
       { rank: 10, name: "Liquid Buffer", weight: 10, type: "Liquid MF" },
     ],
     "multi-asset-5factor": [
-      { rank: 1, name: "HDFC Flexicap Fund", weight: 14, type: "Equity MF" },
-      { rank: 2, name: "Nippon Small Cap Fund", weight: 10, type: "Small Cap MF" },
-      { rank: 3, name: "ICICI Pru Balanced Advantage Fund", weight: 12, type: "Balanced MF" },
-      { rank: 4, name: "SBI Magnum Gilt Fund", weight: 10, type: "Gilt Bond MF" },
-      { rank: 5, name: "HDFC Corporate Bond Fund", weight: 8, type: "Bond MF" },
-      { rank: 6, name: "Nippon India Gold Savings", weight: 8, type: "Gold ETF" },
-      { rank: 7, name: "Embassy Office Parks REIT", weight: 8, type: "REIT" },
-      { rank: 8, name: "IndiGrid InvIT", weight: 7, type: "InvIT" },
-      { rank: 9, name: "Nifty 50 ETF", weight: 8, type: "Index ETF" },
-      { rank: 10, name: "ICICI Pru Liquid Fund", weight: 7, type: "Liquid MF" },
-      { rank: 11, name: "SGB 2029 Series", weight: 4, type: "Sovereign Gold Bond" },
-      { rank: 12, name: "Tata Communications", symbol: "TATACOMM", weight: 4, type: "Equity" },
+      { rank: 1,  name: "HDFC Flexicap Fund",                weight: 14, type: "Equity MF" },
+      { rank: 2,  name: "Nippon Small Cap Fund",             weight: 10, type: "Small Cap MF" },
+      { rank: 3,  name: "ICICI Pru Balanced Advantage Fund", weight: 12, type: "Balanced MF" },
+      { rank: 4,  name: "SBI Magnum Gilt Fund",              weight: 10, type: "Gilt Bond MF" },
+      { rank: 5,  name: "HDFC Corporate Bond Fund",          weight:  8, type: "Bond MF" },
+      { rank: 6,  name: "Nippon India Gold Savings",         weight:  8, type: "Gold ETF" },
+      { rank: 7,  name: "Embassy Office Parks REIT",         weight:  8, type: "REIT" },
+      { rank: 8,  name: "IndiGrid InvIT",                    weight:  7, type: "InvIT" },
+      { rank: 9,  name: "Nifty 50 ETF",                      weight:  8, type: "Index ETF" },
+      { rank: 10, name: "ICICI Pru Liquid Fund",             weight:  5, type: "Liquid MF" }, // was 7 — -2% for SIF
+      { rank: 11, name: "SGB 2029 Series",                   weight:  4, type: "Sovereign Gold Bond" },
+      // SIF — Specialised Investment Fund (SEBI, April 2025) — 5%
+      // Long-short alpha overlay adds uncorrelated return stream to the 5-factor model.
+      // Replaces Tata Communications (4%) + 1% from liquid buffer.
+      { rank: 12, name: "ICICI Pru iSIF Equity Long-Short",     weight: 3, type: "SIF" },
+      { rank: 13, name: "Kotak Infinity Hybrid Long-Short SIF",  weight: 2, type: "SIF" },
+      // Total: 14+10+12+10+8+8+8+7+8+5+4+3+2 = 99 → +1 to Nifty ETF = 100%
     ],
     "global-diversifier": [
       { rank: 1, name: "PPFAS Flexi Cap (Global allocation)", weight: 15, type: "Global Equity MF" },

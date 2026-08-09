@@ -57,6 +57,13 @@ const ASSET_CLASS_MONTHLY_RETURNS: Record<string, number[]> = {
 	reit:          calibratedMonthly(0.0065, 0.018),  //  8.0% p.a., σ≈ 6.2% p.a.
 	international: calibratedMonthly(0.0085, 0.038),  // 10.2% p.a., σ≈13.2% p.a.
 	liquid:        calibratedMonthly(0.0055, 0.002),  //  6.8% p.a., σ≈ 0.7% p.a.
+	// SIF — Specialised Investment Fund (SEBI, April 2025)
+	// Estimated return: 15–18% target per scheme SIDs (long-short equity/hybrid).
+	// σ is higher than large_cap due to unhedged short exposure (SEBI cap: 25%).
+	// Source tag: "sif_estimated" — real NAV will replace this in ~12 months post-launch.
+	// GCR v1.0: calculation_timestamp + engine_version logged on every SIF return write.
+	sif:           calibratedMonthly(0.0124, 0.052),  // 16.0% p.a. target, σ≈18.0% p.a.
+	alternatives:  calibratedMonthly(0.0140, 0.060),  // 18.0% p.a. (AIF/PE proxy)
 	default:       calibratedMonthly(0.0085, 0.038),  // balanced hybrid proxy
 };
 
