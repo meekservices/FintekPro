@@ -3810,28 +3810,14 @@ export default function AgentModelPortfoliosPage() {
           return staticP?.goal ?? ["wealth_creation"];
         })(),
         performance: (() => {
-          // BUG-5 fix: use real NAV history when available; fall back to seeded LCG.
-          const navRows = navHistoryCache[p.id];
-          if (navRows && navRows.length >= 2) {
-            return navRows.map((row: any) => ({
-              month: row.month ?? row.date ?? "",
-              nav: Number(row.nav ?? row.portfolio_nav ?? 0),
-              benchmarkNav: Number(row.benchmark_nav ?? row.benchmarkNav ?? 0) || undefined,
-            })) as any;
-          }
+          // performance uses PERFORMANCE_BASE (PerformancePoint[] format: { date, portfolioNav, benchmarkNav }).
+          // navHistoryCache provides { month, nav } — different shape, used by the chart component
+          // directly via fetchNavHistory on card expand, NOT through this field.
           const c1y = p.cagr1Y != null ? Number(p.cagr1Y) : (staticP?.cagr1Y ?? 12);
           const vol  = p.volatility != null ? Number(p.volatility) : (staticP?.riskMetrics?.volatility ?? 6);
           return PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, c1y, vol);
         })(),
         performanceData: (() => {
-          const navRows = navHistoryCache[p.id];
-          if (navRows && navRows.length >= 2) {
-            return navRows.map((row: any) => ({
-              month: row.month ?? row.date ?? "",
-              nav: Number(row.nav ?? row.portfolio_nav ?? 0),
-              benchmarkNav: Number(row.benchmark_nav ?? row.benchmarkNav ?? 0) || undefined,
-            })) as any;
-          }
           const c1y = p.cagr1Y != null ? Number(p.cagr1Y) : (staticP?.cagr1Y ?? 12);
           const vol  = p.volatility != null ? Number(p.volatility) : (staticP?.riskMetrics?.volatility ?? 6);
           return PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, c1y, vol);
@@ -3849,7 +3835,7 @@ export default function AgentModelPortfoliosPage() {
         conflictDisclosure: p.conflictDisclosure ?? staticP?.conflictDisclosure ?? undefined,
       };
     });
-  }, [apiData, navHistoryCache]);
+  }, [apiData]);
 
   // Role-based permissions
   // RETAIL_ONLY_ROLES: the ONLY roles that should see the holdings lock.
