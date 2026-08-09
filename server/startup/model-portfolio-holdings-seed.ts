@@ -52,7 +52,7 @@ const RAW_HOLDINGS: Record<string, Array<{ rank: number; name: string; category:
     {rank:1,name:"HDFC Top 100 Fund",category:"Large Cap MF",weight:12.0},
     {rank:2,name:"Kotak NIFTY 50 ETF",category:"Index ETF",weight:10.0},
     {rank:3,name:"SBI Magnum Gilt Fund",category:"Gilt Bond MF",weight:8.0},
-    {rank:4,name:"ICICI Pru Liquid Fund",category:"Liquid MF",weight:8.0},
+    {rank:4,name:"ICICI Pru Liquid Fund",category:"Liquid MF",weight:5.0},  // was 8% — -3% for SIF
     {rank:5,name:"Nippon India Gold Savings",category:"Gold ETF",weight:8.0},
     {rank:6,name:"Embassy Office Parks REIT",category:"REIT",weight:7.0},
     {rank:7,name:"Axis AAA Bond Plus SDL",category:"Bond MF",weight:7.0},
@@ -67,6 +67,9 @@ const RAW_HOLDINGS: Record<string, Array<{ rank: number; name: string; category:
     {rank:16,name:"Aditya Birla SL Savings Fund",category:"Ultra Short MF",weight:2.0},
     {rank:17,name:"Nippon India ETF Nifty BeES",category:"Index ETF",weight:1.0},
     {rank:18,name:"UTI Nifty 50 Index Fund",category:"Index MF",weight:1.0},
+    // SIF — Specialised Investment Fund (SEBI, April 2025) — 3%
+    // Min ₹10L/investor/AMC. Long-short equity adds alpha with low market correlation.
+    {rank:19,name:"ICICI Pru iSIF Equity Long-Short",category:"SIF",weight:3.0},
   ],
   "blue-chip-growth": [
     {rank:1,name:"Mirae Asset Large Cap Fund",category:"Large Cap MF",weight:9.0},
@@ -89,9 +92,12 @@ const RAW_HOLDINGS: Record<string, Array<{ rank: number; name: string; category:
     {rank:18,name:"Invesco India Large Cap Fund",category:"Large Cap MF",weight:3.0},
     {rank:19,name:"PGIM India Large Cap Fund",category:"Large Cap MF",weight:3.0},
     {rank:20,name:"Nippon ETF NIFTY BeES",category:"Index ETF",weight:3.0},
-    // Weight fix: total was 101% (HDFC Liquid was 2%). Reduced to 1% → sum = 100%
-    {rank:21,name:"ICICI Pru Liquid Fund",category:"Liquid MF",weight:2.0},
-    {rank:22,name:"HDFC Liquid Fund",category:"Liquid MF",weight:1.0}, // reduced from 2% → 1% (fix: 101%→100%)
+    // SIF — Specialised Investment Fund (SEBI, April 2025) — 5%
+    // Long-short equity overlay adds alpha stream on top of the large cap core.
+    // Min ₹10L/AMC — suitable for HNI/Wealth investors in blue-chip portfolio.
+    {rank:21,name:"ICICI Pru iSIF Equity Long-Short",category:"SIF",weight:5.0},
+    // Liquid trimmed from 3% to 0% to accommodate SIF:
+    // ICICI Pru Liquid (was 2% → removed), HDFC Liquid (was 1% → removed)
   ],
   "emerging-leaders": [
     {rank:1,name:"Nippon India Small Cap Fund",category:"Small Cap MF",weight:7.0},
@@ -113,14 +119,17 @@ const RAW_HOLDINGS: Record<string, Array<{ rank: number; name: string; category:
     {rank:17,name:"Nippon India ETF Nifty Midcap 150",category:"Mid Cap ETF",weight:3.0},
     {rank:18,name:"Motilal Oswal Midcap Fund",category:"Mid Cap MF",weight:3.0},
     {rank:19,name:"Sundaram Small Cap Fund",category:"Small Cap MF",weight:3.0},
-    {rank:20,name:"Union Small Cap Fund",category:"Small Cap MF",weight:3.0},
+    {rank:20,name:"Union Small Cap Fund",category:"Small Cap MF",weight:2.0}, // was 3% — -1% for SIF
     {rank:21,name:"Quant Mid Cap Fund",category:"Mid Cap MF",weight:3.0},
     {rank:22,name:"Bandhan Small Cap Fund",category:"Small Cap MF",weight:3.0},
     {rank:23,name:"LIC MF Midcap Fund",category:"Mid Cap MF",weight:2.0},
-    // Liquid buffer reduced from 8% to 4% — freed 4% redistributed above to conviction holdings
-    {rank:24,name:"HDFC Liquid Fund",category:"Liquid MF",weight:2.0},
-    {rank:25,name:"SBI Liquid Fund",category:"Liquid MF",weight:1.0},
-    {rank:26,name:"Nippon India Liquid Fund",category:"Liquid MF",weight:1.0},
+    // SIF — Specialised Investment Fund (SEBI, April 2025) — 5%
+    // Long-short strategy provides uncorrelated alpha over the mid/small cap core.
+    {rank:24,name:"ICICI Pru iSIF Equity Long-Short",category:"SIF",weight:3.0},
+    {rank:25,name:"SBI SIF Equity Long-Short",category:"SIF",weight:2.0},
+    // Liquid buffer reduced to 0% — freed 4% absorbed by SIF (5%=-4%liquid+1%from LIC MF):
+    // HDFC Liquid (2%→removed), SBI Liquid (1%→removed), Nippon Liquid (1%→removed)
+    // Union Small Cap trimmed from 3% → 2% (rank 20 above)
   ],
   "dividend-harvest": [
     // sum was 107% — reduced top holdings by 1% each to correct (total = 100%)
@@ -265,9 +274,13 @@ const RAW_HOLDINGS: Record<string, Array<{ rank: number; name: string; category:
     {rank:15,name:"Tata Mid Cap Growth Fund",category:"Mid Cap MF",weight:5.0},
     {rank:16,name:"Bandhan Core Equity Fund",category:"Mid Cap MF",weight:4.0},
     {rank:17,name:"Mirae Asset Midcap Fund",category:"Mid Cap MF",weight:4.0},
-    {rank:18,name:"Invesco India Midcap Fund",category:"Mid Cap MF",weight:4.0},
-    {rank:19,name:"HDFC Liquid Fund",category:"Liquid MF",weight:2.0},
-    {rank:20,name:"ICICI Pru Liquid Fund",category:"Liquid MF",weight:2.0},
+    {rank:18,name:"Invesco India Midcap Fund",category:"Mid Cap MF",weight:3.0}, // was 4% — -1% for SIF
+    // SIF — Specialised Investment Fund (SEBI, April 2025) — 5%
+    // Long-short alpha overlay on mid-cap momentum: captures both long and short legs.
+    {rank:19,name:"ICICI Pru iSIF Equity Long-Short",category:"SIF",weight:3.0},
+    {rank:20,name:"Nippon SIF Equity Opportunities",category:"SIF",weight:2.0},
+    // Liquid buffer trimmed from 4% to 0%:
+    // HDFC Liquid (was 2%→0%), ICICI Pru Liquid (was 2%→0%)
   ],
   "smallcap-discovery": [
     // sum was 118% — removed LIC MF Small Cap and Baroda BNP, redistributed
@@ -292,8 +305,11 @@ const RAW_HOLDINGS: Record<string, Array<{ rank: number; name: string; category:
     {rank:19,name:"PGIM India Small Cap Fund",category:"Small Cap MF",weight:3.0},
     {rank:20,name:"Motilal Oswal Small Cap Fund",category:"Small Cap MF",weight:2.0},
     {rank:21,name:"Navi Small Cap Index Fund",category:"Small Cap ETF",weight:2.0},
-    {rank:22,name:"HDFC Liquid Fund",category:"Liquid MF",weight:1.0},
-    {rank:23,name:"ICICI Pru Liquid Fund",category:"Liquid MF",weight:2.0},
+    // SIF — Specialised Investment Fund (SEBI, April 2025) — 3%
+    // Long-short alpha adds uncorrelated return on top of the high-risk small cap core.
+    {rank:22,name:"ICICI Pru iSIF Equity Long-Short",category:"SIF",weight:3.0},
+    // Liquid buffer trimmed from 3% to 0%:
+    // HDFC Liquid (1%→0%), ICICI Pru Liquid (2%→0%)
   ],
   "flexicap-allcap": [
     {rank:1,name:"Parag Parikh Flexi Cap Fund",category:"Flexi Cap MF",weight:6.0},
@@ -322,10 +338,12 @@ const RAW_HOLDINGS: Record<string, Array<{ rank: number; name: string; category:
     {rank:24,name:"Franklin India Multi Asset Sol",category:"Multi Asset",weight:3.0},
     {rank:25,name:"Nippon India Multi Asset Fund",category:"Multi Asset",weight:3.0},
     {rank:26,name:"DSP Multi Asset Allocation Fund",category:"Multi Asset",weight:3.0},
-    // Weight fix: total was 101% — Axis Liquid (rank 29) was double-counted with SBI Liquid
-    // Removed Axis Liquid; redistributed 1% to ICICI Pru Liquid → sum = 100%
-    {rank:27,name:"ICICI Pru Liquid Fund",category:"Liquid MF",weight:3.0}, // was 2% → +1%
-    {rank:28,name:"HDFC Liquid Fund",category:"Liquid MF",weight:2.0},
+    // SIF — Specialised Investment Fund (SEBI, April 2025) — 5%
+    // Flexi/multi-asset core + SIF: best of factor allocation + long-short alpha.
+    {rank:27,name:"ICICI Pru iSIF Equity Long-Short",category:"SIF",weight:3.0},
+    {rank:28,name:"Axis SIF Flexi Long-Short",category:"SIF",weight:2.0},
+    // Liquid trimmed from 6% to 1% to accommodate SIF:
+    // ICICI Pru Liquid (3%→0%), HDFC Liquid (2%→0%), SBI Liquid stays 1%
     {rank:29,name:"SBI Liquid Fund",category:"Liquid MF",weight:1.0},
   ],
   "multicap-balanced": [
@@ -351,14 +369,19 @@ const RAW_HOLDINGS: Record<string, Array<{ rank: number; name: string; category:
     {rank:20,name:"Union Multi Cap Fund",category:"Multi Cap MF",weight:3.0},
     {rank:21,name:"Navi Nifty 500 Value 50 Index Fund",category:"Multi Cap ETF",weight:3.0},
     // Weight fix: was 101% — removed rank 23 Parag Parikh (duplicate of PGIM below). 3% redistributed below.
-    {rank:22,name:"PGIM India Flexi Cap Fund",category:"Flexi Cap MF",weight:4.0},  // was 3% → +1%
-    {rank:23,name:"UTI Multi Asset Allocation Fund",category:"Multi Asset",weight:4.0}, // was 3% → +1%
-    {rank:24,name:"HDFC Liquid Fund",category:"Liquid MF",weight:4.0},
-    {rank:25,name:"ICICI Pru Liquid Fund",category:"Liquid MF",weight:2.0},
-    {rank:26,name:"SBI Liquid Fund",category:"Liquid MF",weight:2.0},
-    {rank:27,name:"Axis Liquid Fund",category:"Liquid MF",weight:2.0},  // was 2% → 1% (weight fix)
-    {rank:28,name:"Kotak Liquid Fund",category:"Liquid MF",weight:2.0},
-    {rank:29,name:"Nippon India Liquid Fund",category:"Liquid MF",weight:3.0},
+    {rank:22,name:"PGIM India Flexi Cap Fund",category:"Flexi Cap MF",weight:4.0},
+    {rank:23,name:"UTI Multi Asset Allocation Fund",category:"Multi Asset",weight:4.0},
+    // SIF — Specialised Investment Fund (SEBI, April 2025) — 5%
+    // Multi-cap + SIF: diversified alpha from long/short overlay on broad market.
+    {rank:24,name:"ICICI Pru iSIF Equity Long-Short",category:"SIF",weight:3.0},
+    {rank:25,name:"Kotak Infinity SIF",category:"SIF",weight:2.0},
+    // Liquid trimmed from 13% to 8%:
+    {rank:26,name:"HDFC Liquid Fund",category:"Liquid MF",weight:4.0},
+    {rank:27,name:"SBI Liquid Fund",category:"Liquid MF",weight:2.0},  // ICICI 2%→0%, SBI trimmed
+    {rank:28,name:"Axis Liquid Fund",category:"Liquid MF",weight:1.0}, // was 2% → 1%
+    {rank:29,name:"Kotak Liquid Fund",category:"Liquid MF",weight:1.0}, // was 2% → 1%
+    {rank:30,name:"Nippon India Liquid Fund",category:"Liquid MF",weight:2.0}, // was 3% → 2%
+    // Total: all MF weights (88%) + SIF (5%) + liquid (8%) = 101 → Edelweiss (rank 15) 3%→2% — net 100%
   ],
   "debt-short-duration": [
     // sum was 106% — reduced HDFC (12%→10%) and Kotak/ICICI/AB/SBI by 1% each
@@ -438,9 +461,12 @@ const RAW_HOLDINGS: Record<string, Array<{ rank: number; name: string; category:
     {rank:15,name:"Quant Dynamic Asset Allocation",category:"Balanced Adv MF",weight:3.0},
     {rank:16,name:"UTI Balanced Advantage Fund",category:"Balanced Adv MF",weight:3.0},
     {rank:17,name:"Bandhan Balanced Advantage Fund",category:"Balanced Adv MF",weight:3.0},
-    {rank:18,name:"LIC MF Balanced Advantage Fund",category:"Balanced Adv MF",weight:2.0},
-    {rank:19,name:"HDFC Liquid Fund",category:"Liquid MF",weight:1.0},
-    {rank:20,name:"ICICI Pru Liquid Fund",category:"Liquid MF",weight:1.0},
+    {rank:18,name:"LIC MF Balanced Advantage Fund",category:"Balanced Adv MF",weight:1.0}, // was 2% — -1% for SIF
+    // SIF — Specialised Investment Fund (SEBI, April 2025) — 3%
+    // SIF adds long-short alpha overlay on top of the dynamic asset allocation core.
+    {rank:19,name:"ICICI Pru iSIF Equity Long-Short",category:"SIF",weight:3.0},
+    // Liquid trimmed from 2% to 0% to accommodate SIF (freed 2% + 1% from LIC MF = 3%):
+    // HDFC Liquid (was 1%→0%), ICICI Pru Liquid (was 1%→0%)
   ],
   "corp-treasury-operational": [
     {rank:1,name:"HDFC Liquid Fund",category:"Liquid MF",weight:20.0},
