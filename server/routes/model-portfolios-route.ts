@@ -840,6 +840,16 @@ async function enrichHolding(h: any): Promise<any> {
     return { ...h, currentReturn: 7.2, return3Y: 6.8, expenseRatio: 0.5, returnSource: "benchmark:nhai_infra_debt" };
   }
 
+  // ── Silver ETF stale-data auto-heal (BEFORE early-exit) ─────────────────────
+  // If a Silver ETF was previously enriched via a wrong AMFI code, it may have
+  // returnSource="mfapi.in" and a low/negative currentReturn (<10%) that would
+  // survive the early-exit below and never be corrected.
+  // Silver was up ~28-41% MCX in FY25 — any return <10% is definitively wrong.
+  // Clear the stale fields here so the Silver ETF handler below re-fetches correctly.
+  if (typeStr === "silver etf" && h.currentReturn != null && Number(h.currentReturn) < 10) {
+    h = { ...h, returnSource: undefined, currentReturn: undefined };
+  }
+
   // ── Already enriched this session? Skip — BUT only if currentReturn is actually set.
   // If returnSource is stamped but currentReturn is missing (e.g. a Silver ETF was
   // misrouted to the screener path and got returnSource without a return value),
