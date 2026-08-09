@@ -840,12 +840,15 @@ async function enrichHolding(h: any): Promise<any> {
     return { ...h, currentReturn: 7.2, return3Y: 6.8, expenseRatio: 0.5, returnSource: "benchmark:nhai_infra_debt" };
   }
 
-  // ── Silver ETF stale-data auto-heal (BEFORE early-exit) ─────────────────────
-  // If a Silver ETF was previously enriched via a wrong AMFI code, it may have
-  // returnSource="mfapi.in" and a low/negative currentReturn (<10%) that would
-  // survive the early-exit below and never be corrected.
-  // Silver was up ~28-41% MCX in FY25 — any return <10% is definitively wrong.
-  // Clear the stale fields here so the Silver ETF handler below re-fetches correctly.
+  // ── Universal stale-data auto-heal (BEFORE early-exit) ──────────────────────
+  // Any currentReturn > 200% is definitively corrupted — no real MF/ETF returns
+  // more than 200% in a 1-year window. This catches stale JSONB from bad AMFI
+  // codes (e.g. Kotak Nasdaq 100 FOF stored 905.36% from scheme 145549 which
+  // doesn't exist on mfapi). Clear all stale fields so the holding is re-enriched.
+  if (h.currentReturn != null && Number(h.currentReturn) > 200) {
+    h = { ...h, returnSource: undefined, currentReturn: undefined, amfiSchemeCode: undefined };
+  }
+  // Silver ETF too-low guard: wrong AMFI codes return debt-fund data (<10%)
   if (typeStr === "silver etf" && h.currentReturn != null && Number(h.currentReturn) < 10) {
     h = { ...h, returnSource: undefined, currentReturn: undefined };
   }
@@ -855,6 +858,7 @@ async function enrichHolding(h: any): Promise<any> {
   // misrouted to the screener path and got returnSource without a return value),
   // fall through and re-enrich it properly.
   if (h.returnSource && h.returnSource !== "db_stale" && h.currentReturn != null) return h;
+
 
   // ── Sovereign Gold Bond (SGB): live gold 1Y return + 2.5% coupon ────────────
   // BUG-1 Fix: was hardcoded GOLD_1Y_RETURN = 32.0 (stale — gold 1Y return was
@@ -1049,6 +1053,7 @@ async function enrichHolding(h: any): Promise<any> {
       }
     }
     // mfapi name-search fallback (ETFs don't have "Regular Growth" label — take first match)
+    // Sanity bounds: Silver 1Y return must be [10%, 60%]; outside = wrong fund found.
     try {
       const searchRes = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(name)}`, {
         signal: AbortSignal.timeout(6_000),
@@ -1058,7 +1063,9 @@ async function enrichHolding(h: any): Promise<any> {
         const match = results?.[0]; // ETFs: take first result (no Regular/Growth filter needed)
         if (match) {
           const return1Y = await get1YReturn(match.schemeCode);
-          if (return1Y !== null) {
+          // Sanity: Silver ETF 1Y return must be in [10%, 60%].
+          // >60% or <10% means the search matched a completely different fund.
+          if (return1Y !== null && return1Y >= 10 && return1Y <= 60) {
             return {
               ...h,
               amfiSchemeCode: String(match.schemeCode),
