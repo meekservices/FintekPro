@@ -51,6 +51,7 @@ import {
 } from "../services/model-portfolio-quant-service";
 // ⚠️  FintekPro is a SEBI-registered Distributor — use Regular plan ISINs/scheme codes.
 import { getInstrument } from "../data/instrument-registry";
+import { lookupByISIN, lookupByNSESymbol } from "../services/isin-registry-service";
 
 export const modelPortfoliosRouter = Router();
 
@@ -827,6 +828,43 @@ async function enrichHolding(h: any): Promise<any> {
   const symbol: string | undefined = h.symbol;
   const name: string = h.name ?? "";
   const typeStr = (h.type ?? "").toLowerCase();
+
+  // ── Step 0a: ISIN Equalizer — DB-first ISIN lookup (BEFORE name-based anything) ─
+  // If the holding has an ISIN, resolve all API identifiers from the isin_registry
+  // table. This is the primary identification path for multinational instruments.
+  // Advantage: eliminates name-matching ambiguity that caused bugs like Kotak Nasdaq
+  // 100 FOF → wrong scheme 145549 (which doesn't exist on mfapi.in).
+  //
+  // The resolved amfiCode stamps h.amfiSchemeCode so subsequent logic uses the
+  // correct code without re-doing the registry lookup.
+  // Non-blocking: DB failure falls through to in-memory registry (Step 0b).
+  const holdingISIN: string | undefined = h.isin;
+  if (holdingISIN && holdingISIN.length >= 12) {
+    try {
+      const isinRecord = await lookupByISIN(holdingISIN);
+      if (isinRecord?.amfiCode && !h.amfiSchemeCode) {
+        // Stamp the resolved AMFI code onto h so the mfapi lookup path uses it.
+        h = { ...h, amfiSchemeCode: String(isinRecord.amfiCode) };
+      }
+      if (isinRecord?.nseSymbol && !h.symbol) {
+        // For stock holdings identified only by ISIN (e.g. US stocks added manually).
+        h = { ...h, symbol: isinRecord.nseSymbol };
+      }
+    } catch {
+      // DB failure: fall through to name-based lookup below (Step 0b)
+    }
+  }
+
+  // ── Step 0b: NSE symbol ISIN lookup ─────────────────────────────────────────
+  // If holding has an NSE symbol but no ISIN, resolve ISIN from registry.
+  if (!holdingISIN && symbol && symbol.length <= 20) {
+    try {
+      const symbolRecord = await lookupByNSESymbol(symbol);
+      if (symbolRecord?.isin && !h.isin) {
+        h = { ...h, isin: symbolRecord.isin };
+      }
+    } catch { /* non-critical, fall through */ }
+  }
 
   // ── Name-based force-overrides (run BEFORE early-exit to fix stale wrong data) ──
   // These handle instruments that mfapi.in can't find or returns wrong data for.
@@ -4827,10 +4865,180 @@ modelPortfoliosRouter.post("/admin/run-screener", async (req: Request, res: Resp
 // Market-driven, autonomous model portfolio maintenance
 // ══════════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ISIN EQUALIZER — Admin & Lookup Endpoints
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── GET /api/model-portfolios/isin/:isin ─────────────────────────────────────
+// Resolve an ISIN to its full instrument record (AMFI code, NSE symbol, etc.)
+// Used by frontend portfolio cards and admin tooling.
+modelPortfoliosRouter.get("/isin/:isin", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  const { isin } = req.params;
+  try {
+    const { lookupByISIN: lookup } = await import("../services/isin-registry-service");
+    const record = await lookup(isin);
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        error_code: "ISIN_NOT_FOUND",
+        message: `ISIN '${isin}' not found in registry`,
+        retryable: false,
+        meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
+      });
+    }
+    return res.json({
+      success: true,
+      data: record,
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+// ── GET /api/model-portfolios/instruments/search?q= ──────────────────────────
+// Search instruments by name (partial match).
+modelPortfoliosRouter.get("/instruments/search", async (req: Request, res: Response) => {
+  const q = String(req.query.q ?? "").trim();
+  if (q.length < 2) {
+    return res.status(400).json({ success: false, error: "Query must be at least 2 characters" });
+  }
+  try {
+    const { searchByName } = await import("../services/isin-registry-service");
+    const results = await searchByName(q, 30);
+    return res.json({
+      success: true,
+      data: results,
+      meta: { count: results.length, timestamp: new Date().toISOString(), version: ENGINE_VERSION },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+// ── GET /api/model-portfolios/instruments/stats ───────────────────────────────
+// ISIN registry coverage report. Shows total instruments, AMFI coverage %, etc.
+modelPortfoliosRouter.get("/instruments/stats", async (_req: Request, res: Response) => {
+  try {
+    const { getRegistryCoverage } = await import("../services/isin-registry-service");
+    const stats = await getRegistryCoverage();
+    return res.json({
+      success: true,
+      data: {
+        ...stats,
+        amfiCoveragePct:  stats.active > 0 ? Math.round((stats.withAmfiCode  / stats.active) * 100) : 0,
+        nseCoveragePct:   stats.active > 0 ? Math.round((stats.withNseSymbol / stats.active) * 100) : 0,
+        intlCoveragePct:  stats.active > 0 ? Math.round((stats.withCusip     / stats.active) * 100) : 0,
+      },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+// ── POST /api/model-portfolios/instruments/isin ───────────────────────────────
+// Upsert an ISIN record (admin only). Allows adding/fixing instruments at runtime.
+// ⚠️ COMPLIANCE: Caller must ensure amfiCode is Regular Plan–Growth (SEBI Reg 24).
+modelPortfoliosRouter.post("/instruments/isin", async (req: Request, res: Response) => {
+  const body = req.body as Record<string, unknown>;
+  if (!body.isin || !body.canonicalName || !body.instrumentType) {
+    return res.status(400).json({
+      success: false,
+      error: "Required fields: isin, canonicalName, instrumentType",
+    });
+  }
+  try {
+    const { upsertISINRecord } = await import("../services/isin-registry-service");
+    await upsertISINRecord({
+      isin:            String(body.isin),
+      canonicalName:   String(body.canonicalName),
+      instrumentType:  String(body.instrumentType),
+      country:         body.country     ? String(body.country)     : "IN",
+      currency:        body.currency    ? String(body.currency)    : "INR",
+      amc:             body.amc         ? String(body.amc)         : null,
+      amfiCode:        body.amfiCode    ? Number(body.amfiCode)    : null,
+      amfiCodeDirect:  body.amfiCodeDirect ? Number(body.amfiCodeDirect) : null,
+      nseSymbol:       body.nseSymbol   ? String(body.nseSymbol)   : null,
+      bseCode:         body.bseCode     ? Number(body.bseCode)     : null,
+      cusip:           body.cusip       ? String(body.cusip)       : null,
+      bloombergTicker: body.bloombergTicker ? String(body.bloombergTicker) : null,
+      planType:        body.planType    ? String(body.planType)    : "regular",
+      sebiCategory:    body.sebiCategory ? String(body.sebiCategory) : null,
+      expenseRatio:    body.expenseRatio ? Number(body.expenseRatio) : null,
+      isProxy:         Boolean(body.isProxy ?? false),
+      proxyNote:       body.proxyNote   ? String(body.proxyNote)   : null,
+      source:          "admin_api",
+      notes:           body.notes       ? String(body.notes)       : null,
+    });
+    return res.json({
+      success: true,
+      message: `ISIN '${body.isin}' upserted successfully`,
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+// ── POST /api/model-portfolios/admin/seed-isin-registry ──────────────────────
+// Runs the ISIN registry seed from instrument-registry.ts on demand.
+// Idempotent (upsert). Safe to call multiple times.
+modelPortfoliosRouter.post("/admin/seed-isin-registry", async (_req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { INSTRUMENT_REGISTRY }   = await import("../data/instrument-registry");
+    const { upsertISINRecord }      = await import("../services/isin-registry-service");
+
+    const typeMap: Record<string, string> = {
+      large_cap: "mutual_fund", mid_cap: "mutual_fund", small_cap: "mutual_fund",
+      flexi_cap: "mutual_fund", multi_cap: "mutual_fund", equity: "mutual_fund",
+      debt: "mutual_fund", liquid: "mutual_fund", gilt: "mutual_fund",
+      thematic: "mutual_fund", gold: "etf", reit: "reit", invit: "invit",
+      alternatives: "aif", sif: "sif", international: "fof",
+    };
+
+    const seen = new Set<string>();
+    let seeded = 0, skipped = 0;
+
+    for (const [name, info] of Object.entries(INSTRUMENT_REGISTRY)) {
+      const isin = info.isin;
+      if (!isin || seen.has(isin)) { skipped++; continue; }
+      seen.add(isin);
+      const isProxy = name === "Kotak Nasdaq 100 FOF" || name === "Kotak Nasdaq 100 Fund of Fund";
+      await upsertISINRecord({
+        isin,
+        canonicalName:   name,
+        instrumentType:  typeMap[info.type] ?? "mutual_fund",
+        country:         "IN",
+        currency:        "INR",
+        amfiCode:        info.schemeCode,
+        planType:        ["reit","invit","aif","sif"].includes(typeMap[info.type] ?? "") ? "etf" : "regular",
+        isProxy,
+        proxyNote:       isProxy ? "Motilal Oswal Nasdaq 100 FOF Direct (145552) proxy — same index" : null,
+        source:          "seed",
+      });
+      seeded++;
+    }
+
+    return res.json({
+      success: true,
+      seeded,
+      skipped,
+      message: `Seeded ${seeded} ISINs into isin_registry (${skipped} skipped: no ISIN or duplicate)`,
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 // ── GET /api/model-portfolios/admin/alpha-analysis ────────────────────────────
 // Returns per-portfolio alpha vs SEBI-compliant benchmark.
 // Identifies alpha-drag holdings and calculates gap to 20% outperformance target.
 modelPortfoliosRouter.get("/admin/alpha-analysis", async (_req: Request, res: Response) => {
+
   const t0 = Date.now();
   try {
     const { analyzeAlphaGaps } = await import("../services/model-portfolio-optimizer");

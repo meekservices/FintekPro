@@ -11900,3 +11900,75 @@ export type InsertIrisPmsAifProduct = typeof irisPmsAifProducts.$inferInsert;
 export const insertIrisPmsAifProductSchema = createInsertSchema(irisPmsAifProducts).omit({
   id: true, createdAt: true, updatedAt: true, seededAt: true,
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ISIN REGISTRY (ISIN Equalizer)
+// ─────────────────────────────────────────────────────────────────────────────
+// Single DB-level source of truth that maps ISIN (ISO 6166) to every
+// API-specific identifier needed for instrument enrichment.
+//
+// Purpose: Eliminate name-matching fragility in enrichHolding by making ISIN
+// the primary key for all lookups. Given an ISIN, this table resolves:
+//   - amfi_code      → mfapi.in NAV fetch (Indian MF/ETF)
+//   - nse_symbol     → screener_derived_metrics (Indian stocks/ETFs)
+//   - cusip          → Alpha Vantage / Yahoo Finance (US instruments)
+//   - bloomberg_ticker → future Bloomberg/Refinitiv integration
+//
+// ⚠️  DISTRIBUTOR COMPLIANCE (SEBI Reg 24 / ARN):
+//   amfi_code MUST be the Regular Plan–Growth scheme code.
+//   amfi_code_direct is stored for reference only — never used for returns.
+//   Using Direct plan codes for NAV fetch is a compliance violation.
+//
+// Lifecycle: Seeded from instrument-registry.ts at deploy time.
+// Admin API allows runtime upsert (no redeploy needed for new instruments).
+// ─────────────────────────────────────────────────────────────────────────────
+export const isinRegistry = pgTable("isin_registry", {
+  // ── Primary key ─────────────────────────────────────────────────────────
+  isin:              text("isin").primaryKey(),           // ISO 6166 (e.g. INF174K01RZ6, US46090E1038)
+
+  // ── Canonical identity ───────────────────────────────────────────────────
+  canonicalName:     text("canonical_name").notNull(),    // Official fund/stock name
+  instrumentType:    varchar("instrument_type", { length: 50 }).notNull(), // 'mutual_fund','etf','stock','bond','reit','invit','commodity_etf'
+  country:           varchar("country", { length: 2 }).notNull().default("IN"),  // ISO 3166-1 alpha-2
+  currency:          varchar("currency", { length: 3 }).notNull().default("INR"), // ISO 4217
+  amc:               varchar("amc", { length: 100 }),     // Asset Management Company name
+
+  // ── Indian MF / ETF identifiers ──────────────────────────────────────────
+  amfiCode:          integer("amfi_code"),                // mfapi.in Regular Plan–Growth code ← USE THIS for NAV
+  amfiCodeDirect:    integer("amfi_code_direct"),         // Direct plan code — reference only, DO NOT use for returns
+  sebiCategory:      varchar("sebi_category", { length: 100 }), // SEBI fund category (e.g. "Large Cap Fund")
+  planType:          varchar("plan_type", { length: 20 }).default("regular"), // 'regular','direct','etf'
+  expenseRatio:      decimal("expense_ratio", { precision: 5, scale: 4 }), // Approximate TER
+
+  // ── Indian stock / ETF identifiers ───────────────────────────────────────
+  nseSymbol:         varchar("nse_symbol", { length: 50 }), // NSE ticker (e.g. RELIANCE, NIFTYBEES)
+  bseCode:           integer("bse_code"),                 // BSE scrip code
+
+  // ── International identifiers (US, EU, etc.) ─────────────────────────────
+  cusip:             varchar("cusip", { length: 9 }),     // US/CA 9-char identifier
+  sedol:             varchar("sedol", { length: 7 }),     // UK/International 7-char
+  bloombergTicker:   varchar("bloomberg_ticker", { length: 50 }), // e.g. "QQQ US Equity"
+  reutersRic:        varchar("reuters_ric", { length: 50 }), // Refinitiv RIC
+
+  // ── Status & metadata ───────────────────────────────────────────────────
+  isActive:          boolean("is_active").default(true).notNull(),
+  isProxy:           boolean("is_proxy").default(false).notNull(), // true = code is a proxy (not exact fund)
+  proxyNote:         text("proxy_note"),                  // Explanation when isProxy=true
+  source:            varchar("source", { length: 50 }).default("manual"), // 'amfi','nse','manual','seed'
+  notes:             text("notes"),                       // General notes, compliance alerts
+
+  createdAt:         timestamp("created_at").defaultNow().notNull(),
+  updatedAt:         timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("idx_isin_registry_amfi_code").on(t.amfiCode),
+  index("idx_isin_registry_nse_symbol").on(t.nseSymbol),
+  index("idx_isin_registry_type_country").on(t.instrumentType, t.country),
+  index("idx_isin_registry_canonical_name").on(t.canonicalName),
+]);
+
+export type ISINRegistryRecord   = typeof isinRegistry.$inferSelect;
+export type InsertISINRegistry   = typeof isinRegistry.$inferInsert;
+export const insertISINRegistrySchema = createInsertSchema(isinRegistry).omit({
+  createdAt: true, updatedAt: true,
+});
+
