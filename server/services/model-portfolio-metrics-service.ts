@@ -550,7 +550,7 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 }> {
 	// ── Step 0: Fetch all published portfolios (holdings JSONB already has currentReturn) ──
 	const portfolios = await db
-		.select({ id: modelPortfolios.id, name: modelPortfolios.name, holdings: modelPortfolios.holdings })
+		.select({ id: modelPortfolios.id, name: modelPortfolios.name, holdings: modelPortfolios.holdings, source: modelPortfolios.source })
 		.from(modelPortfolios)
 		.where(eq(modelPortfolios.isPublished, true));
 
