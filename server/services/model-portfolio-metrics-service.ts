@@ -607,8 +607,11 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 
 			// Primary: currentReturn already in JSONB from persist-holdings-enrichment (%)
 			if (h.currentReturn != null && !isNaN(Number(h.currentReturn))) {
-				const r1y = Number(h.currentReturn);
-				const r3y = h.return3Y != null ? Number(h.return3Y) : r1y * 0.88;
+				// Sanity: clamp individual holding return to [-30%, +60%] before weighted avg.
+				// Prevents rogue holdings (e.g. FANG+ ETF 120% stored raw) from dominating.
+				const r1yRaw = Number(h.currentReturn);
+				const r1y = Math.max(-30, Math.min(60, r1yRaw));
+				const r3y = h.return3Y != null ? Math.max(-30, Math.min(60, Number(h.return3Y))) : r1y * 0.88;
 				const r5y = r1y * 0.75 + 12.5 * 0.25; // mean reversion toward 12.5% long-run
 				weighted1Y += r1y * w;
 				weighted3Y += r3y * w;
@@ -621,9 +624,12 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 			const name = (h.name ?? "").toLowerCase();
 			const s = screenerMap.get(name);
 			if (s) {
-				const r5y = s.r1y * 0.6 + 12.8 * 0.4;
-				weighted1Y += s.r1y * w;
-				weighted3Y += s.r3y * w;
+				// Clamp screener data too — screener_derived_metrics can have stale returns
+				const sr1y = Math.max(-30, Math.min(60, s.r1y));
+				const sr3y = Math.max(-30, Math.min(60, s.r3y));
+				const r5y = sr1y * 0.6 + 12.8 * 0.4;
+				weighted1Y += sr1y * w;
+				weighted3Y += sr3y * w;
 				weighted5Y += r5y * w;
 				coveredWeight += w;
 			}

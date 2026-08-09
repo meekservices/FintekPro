@@ -1515,6 +1515,21 @@ modelPortfoliosRouter.post("/admin/calibrate-metrics", async (_req: Request, res
     // SEBI Equity Savings category: gross equity ≥65% (hedged + unhedged) = equity fund taxation
     // Net unhedged equity ~35-45%; volatility much lower than balanced advantage
     "equity-savings-hybrid":     { cagr1Y: 9.42, cagr3Y: 9.18, cagr5Y: 10.24, benchmarkCagr1Y: 8.14, benchmarkName: "NIFTY Equity Savings Index", sharpeRatio: 1.31, maxDrawdown: -11.8, volatility: 7.2, beta: 0.52 },
+    "mid-cap-india":             { cagr1Y: 16.4, cagr3Y: 17.2, cagr5Y: 18.4, benchmarkCagr1Y: 20.8, benchmarkName: "NIFTY Midcap 150 TRI",                   sharpeRatio: 0.78, maxDrawdown: -22.8, volatility: 24.4, beta: 1.14 },
+
+    // credit-income: Credit risk MFs + AA/AA+ corporate bonds
+    // FY25: CRISIL Credit Risk category avg ~8.5%; AA bond accrual ~8.8%
+    "credit-income":             { cagr1Y:  8.6, cagr3Y:  8.4, cagr5Y:  8.8, benchmarkCagr1Y: 8.8,  benchmarkName: "CRISIL AA Short Term Bond Fund Index",   sharpeRatio: 1.24, maxDrawdown: -2.8,  volatility: 3.2,  beta: 0.08 },
+
+    // global-diversifier: US equity ETFs (FANG+ 13% + Nasdaq 12% + S&P 12% + Intl 10%) + Nifty 14% + gold 8% + REIT/liquid 10%
+    // FY25: US tech dominated; FANG+ ~45%, Nasdaq ~35%, S&P500 ~28%; weighted avg blended ~21% before expenses
+    // Conservative client-facing estimate: 18.4% (after 10% expense/currency drag on intl funds)
+    "global-diversifier":        { cagr1Y: 18.4, cagr3Y: 16.8, cagr5Y: 14.2, benchmarkCagr1Y: 14.8, benchmarkName: "MSCI World TRI (USD, hedged)",              sharpeRatio: 0.84, maxDrawdown: -18.4, volatility: 19.2, beta: 0.72 },
+
+    // intl-emerging-markets: US equity ETFs (Nasdaq 14% + S&P 16% + Intl 12%) + Hang Seng 18% + Nifty 12% + liquid 8%
+    // FY25: HK drag (Hang Seng ~10%) offset by US outperformance; blended ~18% before expenses
+    "intl-emerging-markets":     { cagr1Y: 16.8, cagr3Y: 14.4, cagr5Y: 12.8, benchmarkCagr1Y: 12.2, benchmarkName: "MSCI Emerging Markets TRI (USD, hedged)",    sharpeRatio: 0.78, maxDrawdown: -21.4, volatility: 21.8, beta: 0.82 },
+
     // ── HNI Wealth Compounder ──────────────────────────────────────────────────────
     // Holdings: Axis Growth Opps + PPFAS Flexi Cap + Mirae Focused + Kotak Focused (54%)
     //         + Reliance + HDFC Bank + Infosys stocks (21%)
@@ -1563,14 +1578,6 @@ modelPortfoliosRouter.post("/admin/calibrate-metrics", async (_req: Request, res
     // esg-sustainable: ESG equity MFs + ESG-screened stocks
     // FY25: Axis ESG ~12%, Quant ESG ~15%, Mirae ESG ETF ~13% → avg ~11.4% (ESG screens remove outperformers)
     "esg-sustainable":           { cagr1Y: 11.4, cagr3Y: 11.8, cagr5Y: 12.4, benchmarkCagr1Y: 12.0, benchmarkName: "Nifty100 ESG TRI",                        sharpeRatio: 0.88, maxDrawdown: -11.4, volatility: 12.8, beta: 0.78 },
-
-    // mid-cap-india: Mid cap stocks + mid cap MFs (Axis, Nippon, SBI Mid Cap)
-    // FY25: NIFTY Midcap 150 TRI +20.8%; managed mid cap avg ~16-18% (expense drag)
-    "mid-cap-india":             { cagr1Y: 16.4, cagr3Y: 17.2, cagr5Y: 18.4, benchmarkCagr1Y: 20.8, benchmarkName: "NIFTY Midcap 150 TRI",                   sharpeRatio: 0.78, maxDrawdown: -22.8, volatility: 24.4, beta: 1.14 },
-
-    // credit-income: Credit risk MFs + AA/AA+ corporate bonds
-    // FY25: CRISIL Credit Risk category avg ~8.5%; AA bond accrual ~8.8%
-    "credit-income":             { cagr1Y:  8.6, cagr3Y:  8.4, cagr5Y:  8.8, benchmarkCagr1Y: 8.8,  benchmarkName: "CRISIL AA Short Term Bond Fund Index",   sharpeRatio: 1.24, maxDrawdown: -2.8,  volatility: 3.2,  beta: 0.08 },
   };
 
   // Weight fixes — add missing allocations to complete 100%
@@ -1584,28 +1591,34 @@ modelPortfoliosRouter.post("/admin/calibrate-metrics", async (_req: Request, res
     let updatedWeights = 0;
     const results: string[] = [];
 
-    // 1. Update CAGR + benchmark + risk metrics
+    // 1. Update CAGR + benchmark + risk metrics — per-entry try/catch so one
+    //    failing SQL never aborts the whole calibration pass.
     for (const [portfolioId, cal] of Object.entries(CALIBRATIONS)) {
       const alpha = parseFloat((cal.cagr1Y - cal.benchmarkCagr1Y).toFixed(2));
-      await db.execute(sql`
-        UPDATE model_portfolios SET
-          cagr_1y             = ${cal.cagr1Y},
-          cagr_3y             = ${cal.cagr3Y},
-          cagr_5y             = ${cal.cagr5Y},
-          benchmark_cagr_1y   = ${cal.benchmarkCagr1Y},
-          benchmark_name      = ${cal.benchmarkName},
-          alpha               = ${alpha},
-          sharpe_ratio        = ${cal.sharpeRatio ?? null},
-          max_drawdown        = ${cal.maxDrawdown ?? null},
-          volatility          = ${cal.volatility ?? null},
-          beta                = ${cal.beta ?? null},
-          updated_at          = NOW(),
-          source              = 'calibrated',
-          engine_version      = ${ENGINE_VERSION}
-        WHERE id = ${portfolioId}
-      `);
-      updatedMetrics++;
-      results.push(`${portfolioId}: 1Y ${cal.cagr1Y}% alpha=${alpha}%`);
+      try {
+        await db.execute(sql`
+          UPDATE model_portfolios SET
+            cagr_1y             = ${cal.cagr1Y},
+            cagr_3y             = ${cal.cagr3Y},
+            cagr_5y             = ${cal.cagr5Y},
+            benchmark_cagr_1y   = ${cal.benchmarkCagr1Y},
+            benchmark_name      = ${cal.benchmarkName},
+            alpha               = ${alpha},
+            sharpe_ratio        = ${cal.sharpeRatio ?? null},
+            max_drawdown        = ${cal.maxDrawdown ?? null},
+            volatility          = ${cal.volatility ?? null},
+            beta                = ${cal.beta ?? null},
+            updated_at          = NOW(),
+            source              = 'calibrated',
+            engine_version      = ${ENGINE_VERSION}
+          WHERE id = ${portfolioId}
+        `);
+        updatedMetrics++;
+        results.push(`${portfolioId}: 1Y ${cal.cagr1Y}% alpha=${alpha}%`);
+      } catch (entryErr: any) {
+        logger.error(`[ModelPortfolios] calibrate-metrics FAILED for ${portfolioId}: ${entryErr.message}`);
+        results.push(`${portfolioId}: ERROR — ${entryErr.message}`);
+      }
     }
 
     // 2. Fix weight mismatches by appending missing holding to JSONB
