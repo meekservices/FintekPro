@@ -306,13 +306,16 @@ const FUND_SCHEME_MAP: Record<string, number | null> = {
   "Axis Gold ETF (Platinum Proxy)":   145059,
   "Nippon Gold Savings FoF":          118663,   // unique alias for Gold FoF (avoids duplicate with exact-names section below)
 
-  // ── Silver ETFs (added for Precious Metals Portfolio) ───────────────────────
+  // Silver ETFs (added for Precious Metals Portfolio) ───────────────────────
   // Nippon India Silver ETF: AMFI scheme code (Regular Growth)
   "Nippon India Silver ETF":          151353,
   "Nippon Silver ETF":                151353,
   // ICICI Pru Silver ETF: Regular Growth scheme code
   "ICICI Pru Silver ETF":             150778,
   "ICICI Silver ETF":                 150778,
+  // HDFC Silver ETF: launched Nov 2022
+  "HDFC Silver ETF":                  150867,
+  "HDFC Mutual Fund Silver ETF":      150867,
 
 
   // ── Children / Retirement ───────────────────────────────────────────────────
@@ -834,8 +837,11 @@ async function enrichHolding(h: any): Promise<any> {
     return { ...h, currentReturn: 7.2, return3Y: 6.8, expenseRatio: 0.5, returnSource: "benchmark:nhai_infra_debt" };
   }
 
-  // ── Already enriched this session? Skip. ─────────────────────────────────────
-  if (h.returnSource && h.returnSource !== "db_stale") return h;
+  // ── Already enriched this session? Skip — BUT only if currentReturn is actually set.
+  // If returnSource is stamped but currentReturn is missing (e.g. a Silver ETF was
+  // misrouted to the screener path and got returnSource without a return value),
+  // fall through and re-enrich it properly.
+  if (h.returnSource && h.returnSource !== "db_stale" && h.currentReturn != null) return h;
 
   // ── Sovereign Gold Bond (SGB): live gold 1Y return + 2.5% coupon ────────────
   // BUG-1 Fix: was hardcoded GOLD_1Y_RETURN = 32.0 (stale — gold 1Y return was
@@ -1009,8 +1015,60 @@ async function enrichHolding(h: any): Promise<any> {
     };
   }
 
+  // ── Silver ETF / Commodity ETF: route through mfapi.in, NOT screener ──────────
+  // Silver ETFs (SILVERETF, ICICISILETF, HDFCSILVER) have short NSE-style symbols
+  // that would make isStock=true, but screener_derived_metrics has no ETF data.
+  // They must go through FUND_SCHEME_MAP → mfapi.in → MCX Silver benchmark.
+  if (typeStr === "silver etf" || typeStr === "commodity etf") {
+    const schemeCode = FUND_SCHEME_MAP[name] ?? null;
+    if (schemeCode) {
+      const return1Y = await get1YReturn(schemeCode);
+      if (return1Y !== null) {
+        return {
+          ...h,
+          amfiSchemeCode: String(schemeCode),
+          currentReturn: return1Y,
+          returnSource: "mfapi.in",
+          expenseRatio: 0.35,
+        };
+      }
+    }
+    // mfapi name-search fallback (ETFs don't have "Regular Growth" label — take first match)
+    try {
+      const searchRes = await fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(name)}`, {
+        signal: AbortSignal.timeout(6_000),
+      });
+      if (searchRes.ok) {
+        const results = (await searchRes.json()) as { schemeCode: number; schemeName: string }[];
+        const match = results?.[0]; // ETFs: take first result (no Regular/Growth filter needed)
+        if (match) {
+          const return1Y = await get1YReturn(match.schemeCode);
+          if (return1Y !== null) {
+            return {
+              ...h,
+              amfiSchemeCode: String(match.schemeCode),
+              currentReturn: return1Y,
+              returnSource: "mfapi.in:etf_search",
+              expenseRatio: 0.35,
+            };
+          }
+        }
+      }
+    } catch { /* fall through to benchmark */ }
+    // MCX Silver FY25 benchmark (~28-35% 1Y based on silver price appreciation)
+    // Silver: ₹68k/kg Apr-2024 → ₹96k/kg Apr-2025 ≈ +41% MCX; ETF after expense drag ~28%
+    return {
+      ...h,
+      currentReturn: 28.4,
+      return3Y: 31.8,
+      expenseRatio: 0.35,
+      returnSource: "benchmark:mcx_silver_fy25",
+    };
+  }
+
   // ── Stock holding: enrich from screener_derived_metrics ──────────────────────
   // FOF types are explicitly excluded via isFof flag above (they have no NSE symbol).
+  // Silver/Commodity ETFs are excluded above — they must not fall into the stock path.
   const isStock = !isFof && symbol && symbol.length <= 20 && !/^\d+$/.test(symbol) && !symbol.includes(".");
   if (isStock) {
     try {
