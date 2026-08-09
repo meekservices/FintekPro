@@ -307,15 +307,18 @@ const FUND_SCHEME_MAP: Record<string, number | null> = {
   "Nippon Gold Savings FoF":          118663,   // unique alias for Gold FoF (avoids duplicate with exact-names section below)
 
   // Silver ETFs (added for Precious Metals Portfolio) ───────────────────────
-  // Nippon India Silver ETF: AMFI scheme code (Regular Growth)
+  // Nippon India Silver ETF: confirmed code 151353; get1YReturn returns null (mfapi NAV gap)
+  // so this falls through to mfapi name-search → MCX Silver benchmark anyway.
   "Nippon India Silver ETF":          151353,
   "Nippon Silver ETF":                151353,
-  // ICICI Pru Silver ETF: Regular Growth scheme code
-  "ICICI Pru Silver ETF":             150778,
-  "ICICI Silver ETF":                 150778,
-  // HDFC Silver ETF: launched Nov 2022
-  "HDFC Silver ETF":                  150867,
-  "HDFC Mutual Fund Silver ETF":      150867,
+  // ICICI Pru Silver ETF: code 150778 returns data for a DIFFERENT fund (5.53% is not silver).
+  // Set null → falls to mfapi name-search → MCX Silver benchmark.
+  "ICICI Pru Silver ETF":             null,
+  "ICICI Silver ETF":                 null,
+  // HDFC Silver ETF: code 150867 returns data for a DIFFERENT fund (-0.69% is not silver).
+  // Set null → falls to mfapi name-search → MCX Silver benchmark.
+  "HDFC Silver ETF":                  null,
+  "HDFC Mutual Fund Silver ETF":      null,
 
 
   // ── Children / Retirement ───────────────────────────────────────────────────
@@ -1023,7 +1026,9 @@ async function enrichHolding(h: any): Promise<any> {
     const schemeCode = FUND_SCHEME_MAP[name] ?? null;
     if (schemeCode) {
       const return1Y = await get1YReturn(schemeCode);
-      if (return1Y !== null) {
+      // Sanity: Silver ETFs should return >10% in FY25 (MCX Silver up ~28-41%).
+      // If mfapi returns a low/negative value, the code maps to the wrong fund.
+      if (return1Y !== null && return1Y > 10) {
         return {
           ...h,
           amfiSchemeCode: String(schemeCode),
