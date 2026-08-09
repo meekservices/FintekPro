@@ -1554,6 +1554,7 @@ modelPortfoliosRouter.post("/admin/calibrate-metrics", async (_req: Request, res
           volatility          = ${cal.volatility ?? null},
           beta                = ${cal.beta ?? null},
           updated_at          = NOW(),
+          source              = 'calibrated',
           engine_version      = ${ENGINE_VERSION}
         WHERE id = ${portfolioId}
       `);

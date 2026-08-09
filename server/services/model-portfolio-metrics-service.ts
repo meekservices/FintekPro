@@ -574,6 +574,17 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 	let skipped = 0;
 
 	for (const p of portfolios) {
+		// ── Calibration-lock guard ────────────────────────────────────────────
+		// If source='calibrated', admin has manually set correct CAGR values.
+		// Nightly recompute must NOT overwrite these. Unlock by removing the
+		// portfolio from CALIBRATIONS in admin/calibrate-metrics, then the next
+		// nightly run will revert to live NAV-based computation.
+		if ((p as any).source === "calibrated") {
+			results.push({ id: p.id, name: p.name, cagr1Y: null, coverage: 0, source: "skipped:calibration_lock" });
+			skipped++;
+			continue;
+		}
+
 		const holdings = (Array.isArray(p.holdings) ? p.holdings : []) as Array<{
 			name?: string; type?: string; weight?: number;
 			currentReturn?: number; return3Y?: number; return6M?: number;

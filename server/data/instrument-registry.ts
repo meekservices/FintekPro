@@ -99,12 +99,16 @@ export const INSTRUMENT_REGISTRY: Record<string, InstrumentInfo> = {
   // These funds had schemeCode missing, causing currentReturn→0 and CAGR→NaN/negative.
   "PPFAS Flexi Cap Fund":           { schemeCode: 122640,  isin: "INF879O01019",  type: "flexi_cap" },
   // "Parag Parikh Flexi Cap Fund" already defined at line 95 above — no duplicate needed
-  "Axis Growth Opportunities Fund": { schemeCode: 140251,  isin: "INF846K01KA9",  type: "flexi_cap" },
-  "Axis Growth Opportunities":      { schemeCode: 140251,  isin: "INF846K01KA9",  type: "flexi_cap" },
-  "Mirae Asset Focused Fund":       { schemeCode: 147621,  isin: "INF769K01EG9",  type: "large_cap" },
-  "Mirae Asset Focused Equity Fund":{ schemeCode: 147621,  isin: "INF769K01EG9",  type: "large_cap" },
-  "Kotak Focused Equity Fund":      { schemeCode: 120599,  isin: "INF174K01LS4",  type: "large_cap" },
-  "Kotak Focused Equity":           { schemeCode: 120599,  isin: "INF174K01LS4",  type: "large_cap" },
+  // Axis Growth Opportunities Fund: NOT on mfapi.in (Axis merged/renamed it).
+  // schemeCode=null — will use calibrated CAGR from admin/calibrate-metrics.
+  "Axis Growth Opportunities Fund": { schemeCode: null,    isin: "INF846K01KA9",  type: "flexi_cap" },
+  "Axis Growth Opportunities":      { schemeCode: null,    isin: "INF846K01KA9",  type: "flexi_cap" },
+  // Mirae Asset Focused Fund Regular Growth: 147203 — verified 1Y=7.53% on mfapi.in
+  "Mirae Asset Focused Fund":       { schemeCode: 147203,  isin: "INF769K01EG9",  type: "large_cap" },
+  "Mirae Asset Focused Equity Fund":{ schemeCode: 147203,  isin: "INF769K01EG9",  type: "large_cap" },
+  // Kotak Focused Fund Regular Growth: 147477 — verified 1Y=24.75% on mfapi.in
+  "Kotak Focused Equity Fund":      { schemeCode: 147477,  isin: "INF174K01LS4",  type: "large_cap" },
+  "Kotak Focused Equity":           { schemeCode: 147477,  isin: "INF174K01LS4",  type: "large_cap" },
   // ── Gold ETF aliases (Nippon Gold ETF = Nippon India ETF Gold BeES) ──────────
   "Nippon Gold ETF":                { schemeCode: null,     isin: "INF204KA1I34",  type: "gold" },
   // ── Ultra Short MF alias: defined fully at line ~190 with correct Regular-plan code ────────
