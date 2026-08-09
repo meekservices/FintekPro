@@ -111,6 +111,35 @@ export interface OptimizationSuggestion {
   timestamp: string;
   risk_disclaimer: string;
   // idempotency_key is on the REQUEST (applyApprovedReplacements), not on suggestion output
+
+  // ── Profit-guard fields (Phase 2 enrichment) ─────────────────────────────────
+  // Populated by enrichSuggestionWithProfitGuard() when lot data is available.
+  // Optional for backward compatibility — guardrails degrade gracefully when absent.
+
+  /** Asset class: "equity" | "debt" | "gold" | "reit" | "invit" */
+  assetClass?: string;
+  /** Calendar days since earliest lot purchase. Null = lot data unavailable. */
+  holdingPeriodDays?: number | null;
+  /** Exit load % from exitLoadService (0 for stocks/ETFs). */
+  exitLoadPct?: number;
+  /** Exit load in ₹ on the proposed sell amount. */
+  exitLoadCost?: number;
+  /** Actual unrealized gain in ₹ (from holdingLotsV2). Null if unavailable. */
+  unrealizedGainRs?: number | null;
+  /** Estimated tax (₹) if sold today (STCG or LTCG per Finance Act 2024). */
+  estimatedTaxCost?: number;
+  /**
+   * Tax saved (₹) by waiting until LTCG threshold.
+   * = 0 if holding is already in LTCG territory.
+   * Positive = deferral is financially beneficial.
+   */
+  estimatedTaxSaved?: number;
+  /**
+   * Monetary value (₹) of correcting the alpha drag via this replacement.
+   * = driftWeight × portfolioValue × expectedAlphaRecovery.
+   * Used in friction-to-benefit guardrail.
+   */
+  driftBenefitRs?: number;
 }
 
 export interface ApplyResult {

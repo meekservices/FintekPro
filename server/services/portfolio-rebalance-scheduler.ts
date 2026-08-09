@@ -129,6 +129,38 @@ async function scoreMomentum(symbol: string, sector: string | null): Promise<num
   }
 }
 
+// ── Profit-guard thresholds ───────────────────────────────────────────────────
+/**
+ * Days before the LTCG threshold (12m equity / 24m debt) within which a SELL
+ * is deferred by the profit-guard to save STCG→LTCG tax (7.5 pp saving).
+ * Finance Act 2024: STCG equity = 20%, LTCG equity = 12.5%.
+ */
+const PROFIT_GUARD_MATURITY_BUFFER_DAYS = 60;
+
+/** LTCG holding thresholds per asset class (calendar days). */
+const LTCG_THRESHOLD_DAYS: Record<string, number> = {
+  equity: 365,
+  mf:     365,
+  etf:    365,
+  debt:   730,
+  gold:   730,
+  reit:   730,
+  invit:  730,
+  default: 365,
+};
+
+/**
+ * Exit load above this % blocks auto-apply and routes to advisor queue.
+ * Most equity MFs charge 1% within 1 year — even 0.5% materially erodes gain.
+ */
+const EXIT_LOAD_AUTO_BLOCK_PCT = 0.50;
+
+/**
+ * If (tax cost + exit load) / rebalancing benefit > this ratio,
+ * the engine recommends cash-deploy (SIP new money into underweights) instead of selling.
+ */
+const FRICTION_BENEFIT_RATIO_BLOCK = 0.70;
+
 // ── Guardrail checker ─────────────────────────────────────────────────────────
 
 interface GuardrailResult {
@@ -143,6 +175,7 @@ function checkGuardrails(
 ): GuardrailResult {
   const reasons: string[] = [];
 
+  // ── Existing guardrails ────────────────────────────────────────────────────
   if (suggestion.confidence_score < MIN_CONFIDENCE_AUTO_APPLY) {
     reasons.push(`confidence ${suggestion.confidence_score} < threshold ${MIN_CONFIDENCE_AUTO_APPLY}`);
   }
@@ -158,15 +191,90 @@ function checkGuardrails(
   const best = suggestion.alternatives[0];
   if (best) {
     if (!best.isin) reasons.push("replacement_has_no_isin");
-    // Check weight change magnitude
     const currentWeight = suggestion.alphaDragHolding.weight;
     if (currentWeight > MAX_WEIGHT_CHANGE_AUTO) {
       reasons.push(`weight_change_${currentWeight}%_exceeds_auto_limit_${MAX_WEIGHT_CHANGE_AUTO}%`);
     }
-    // In BEAR regime, block if replacement has higher beta than current holding
     if (regime === "BEAR" && best.beta != null && best.beta > 1.2) {
       reasons.push(`bear_regime_blocks_high_beta_${best.beta?.toFixed(2)}`);
     }
+  }
+
+  // ── Guardrail A: LTCG Maturity Window (Profit Lock) ───────────────────────
+  // If holding is within PROFIT_GUARD_MATURITY_BUFFER_DAYS of crossing into LTCG,
+  // defer the SELL — saves up to 7.5% tax (20% STCG → 12.5% LTCG, Finance Act 2024).
+  // Only fires when lot data is available (holdingPeriodDays != null).
+  if (suggestion.holdingPeriodDays != null) {
+    const assetClass  = (suggestion.assetClass ?? "equity").toLowerCase();
+    const ltcgDays    = LTCG_THRESHOLD_DAYS[assetClass] ?? LTCG_THRESHOLD_DAYS.default;
+    const daysToLtcg  = ltcgDays - suggestion.holdingPeriodDays;
+    const taxSaving   = suggestion.estimatedTaxSaved ?? 0;
+
+    if (daysToLtcg > 0 && daysToLtcg <= PROFIT_GUARD_MATURITY_BUFFER_DAYS && taxSaving > 0) {
+      reasons.push(
+        `profit_lock:${daysToLtcg}d_to_ltcg_threshold:defer_saves_₹${Math.round(taxSaving).toLocaleString("en-IN")}_tax`,
+      );
+      logger.info("[ProfitGuard] LTCG maturity window — SELL deferred", {
+        event:        "PROFIT_GUARD_LTCG_MATURITY_DEFERRED",
+        user_id:      "system",
+        portfolioId:  suggestion.portfolioId,
+        holding:      suggestion.alphaDragHolding.name,
+        daysToLtcg,
+        taxSavingRs:  Math.round(taxSaving),
+        model_version: suggestion.model_version,
+        timestamp:    new Date().toISOString(),
+        latency_ms:   0,
+        status:       "deferred",
+      });
+    }
+  }
+
+  // ── Guardrail B: Exit Load Cost ────────────────────────────────────────────
+  // Block auto-apply if exit load exceeds EXIT_LOAD_AUTO_BLOCK_PCT.
+  // Most equity MFs charge 1% within 1yr; even 0.5% materially erodes the gain.
+  // Routes to advisor queue with exact ₹ cost shown.
+  if (suggestion.exitLoadPct != null && suggestion.exitLoadPct > EXIT_LOAD_AUTO_BLOCK_PCT) {
+    reasons.push(
+      `exit_load_${suggestion.exitLoadPct.toFixed(2)}pct_₹${Math.round(suggestion.exitLoadCost ?? 0).toLocaleString("en-IN")}_exceeds_auto_threshold`,
+    );
+    logger.info("[ProfitGuard] Exit load guardrail triggered", {
+      event:        "PROFIT_GUARD_EXIT_LOAD_BLOCKED",
+      user_id:      "system",
+      portfolioId:  suggestion.portfolioId,
+      holding:      suggestion.alphaDragHolding.name,
+      exitLoadPct:  suggestion.exitLoadPct,
+      exitLoadCostRs: Math.round(suggestion.exitLoadCost ?? 0),
+      model_version: suggestion.model_version,
+      timestamp:    new Date().toISOString(),
+      latency_ms:   0,
+      status:       "advisor_queue",
+    });
+  }
+
+  // ── Guardrail C: Friction-to-Benefit Ratio ────────────────────────────────
+  // If (tax + exit load) > 70% of the rebalancing benefit,
+  // block the SELL and recommend cash-deploy instead (put new SIP into underweights).
+  // This avoids destroying notional profit when the rebalancing gain is marginal.
+  const frictionCost  = (suggestion.estimatedTaxCost ?? 0) + (suggestion.exitLoadCost ?? 0);
+  const rebalBenefit  = suggestion.driftBenefitRs ?? 0;
+  if (rebalBenefit > 0 && frictionCost / rebalBenefit > FRICTION_BENEFIT_RATIO_BLOCK) {
+    const frictionPct = Math.round((frictionCost / rebalBenefit) * 100);
+    reasons.push(
+      `friction_cost_${frictionPct}pct_of_benefit:recommend_cash_deploy_instead_of_sell`,
+    );
+    logger.info("[ProfitGuard] Friction exceeds rebalancing benefit — cash-deploy recommended", {
+      event:         "PROFIT_GUARD_CASH_DEPLOY_RECOMMENDED",
+      user_id:       "system",
+      portfolioId:   suggestion.portfolioId,
+      holding:       suggestion.alphaDragHolding.name,
+      frictionCostRs: Math.round(frictionCost),
+      rebalBenefitRs: Math.round(rebalBenefit),
+      frictionPct,
+      model_version: suggestion.model_version,
+      timestamp:     new Date().toISOString(),
+      latency_ms:    0,
+      status:        "cash_deploy",
+    });
   }
 
   return { passed: reasons.length === 0, blockedReasons: reasons };
@@ -995,7 +1103,7 @@ export async function refreshDriftScores(portfolioIds?: string[]): Promise<{
 
         const driftThreshold = Number(p.drift_threshold ?? 5);
         const report = driftEngine.calculateDrift(
-          { portfolio_id: p.id, target_allocation: targetAllocation, rebalance_policy: { frequency: "drift_triggered", drift_threshold: driftThreshold, tax_aware: false } },
+          { portfolio_id: p.id, target_allocation: targetAllocation, rebalance_policy: { frequency: "drift_triggered", drift_threshold: driftThreshold, tax_aware: true } }, // profit-guard enabled
           currentAllocation,
         );
 

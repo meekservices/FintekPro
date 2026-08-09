@@ -748,11 +748,16 @@ class RebalancingEngine {
 	/**
 	 * Computes tax impact of a sell trade using Finance Act 2024 rates.
 	 *
-	 * @param assetType          - Asset class string (from EQUITY_TYPES, DEBT_TYPES, etc.)
-	 * @param tradeValue         - Sell value in ₹
+	 * Phase 2 improvement: uses actual unrealized gain (from holdingLotsV2 enrichment)
+	 * when available. Falls back to conservative 15% proxy when lot data is absent.
+	 *
+	 * @param assetType           - Asset class string (from EQUITY_TYPES, DEBT_TYPES, etc.)
+	 * @param tradeValue          - Sell value in ₹
 	 * @param holdingPeriodMonths - Months held; defaults to 6 (conservative — short-term)
-	 * @param taxBracket         - Slab bracket (10/20/30); used for debt STCG only
-	 * @returns TaxImpact        - Breakdown per Finance Act 2024
+	 * @param taxBracket          - Slab bracket (10/20/30); used for debt STCG only
+	 * @param actualUnrealizedGain - Actual gain in ₹ from holdingLotsV2 (optional).
+	 *                               When provided, replaces the 15% flat proxy.
+	 * @returns TaxImpact          - Breakdown per Finance Act 2024
 	 *
 	 * @version Budget-2024 (effective 23 Jul 2024)
 	 */
@@ -761,10 +766,14 @@ class RebalancingEngine {
 		tradeValue: number,
 		holdingPeriodMonths?: number,
 		taxBracket?: number,
+		actualUnrealizedGain?: number | null,
 	): TaxImpact {
-		// Assume 15% embedded gain on sells (conservative average for rebalance guidance)
-		const assumedGainPercentage = 0.15;
-		const taxableAmount = tradeValue * assumedGainPercentage;
+		// Phase 2: use actual unrealized gain when available.
+		// Phase 1 fallback: 15% of trade value (conservative average for rebalance guidance).
+		const assumedGainPercentage = 0.15; // still used as fallback proxy
+		const taxableAmount = actualUnrealizedGain != null
+			? Math.max(0, actualUnrealizedGain)          // actual gain (never negative)
+			: tradeValue * assumedGainPercentage;         // fallback proxy
 
 		const isEquity = EQUITY_TYPES.includes(assetType);
 		const isGoldOrReit = ["gold", "reit", "invit", "sgb"].includes(assetType.toLowerCase());
@@ -830,6 +839,84 @@ class RebalancingEngine {
 			estimatedTax: Math.round(estimatedTax),
 			taxEfficiency,
 		};
+	}
+
+	/**
+	 * LTCG Exemption Harvester — identifies sell+rebuy opportunities that crystallize
+	 * notional profit tax-free within the ₹1.25L annual LTCG exemption (s.112A).
+	 *
+	 * Logic:
+	 *   1. Compute remaining exemption = ₹1,25,000 − ltcgGainsSoFarThisFY
+	 *   2. Find equity holdings in LTCG territory (held ≥ 12 months) with unrealized
+	 *      LTCG gains that fit within the remaining exemption.
+	 *   3. Return a "harvest" action for each: sell → rebuy at current market price.
+	 *      This resets the cost basis without triggering a tax liability.
+	 *
+	 * This is tax-neutral today but saves tax on future gains (higher cost basis).
+	 *
+	 * FASP-AI compliance: harvest actions are NEVER auto-executed.
+	 * They are surfaced as advisor-confirmed recommendations only.
+	 *
+	 * @param portfolioHoldings   - Holdings with unrealizedGain and holdingPeriodDays
+	 * @param ltcgGainsSoFarThisFY - LTCG gains already booked this financial year (₹)
+	 * @returns Array of harvest candidates sorted by gain (largest first)
+	 */
+	public harvestLtcgExemption(
+		portfolioHoldings: Array<{
+			asset: string;
+			assetType: string;
+			unrealizedGain: number;
+			holdingPeriodDays: number;
+			currentValue: number;
+		}>,
+		ltcgGainsSoFarThisFY: number,
+	): Array<{
+		asset: string;
+		harvestableGain: number;
+		taxSaved: number;
+		action: "sell_and_rebuy";
+		reasoning: string;
+	}> {
+		const exemptionRemaining = Math.max(0, EQUITY_LTCG_EXEMPTION - ltcgGainsSoFarThisFY);
+		if (exemptionRemaining <= 0) return []; // Exemption fully used
+
+		const candidates = portfolioHoldings
+			.filter(h =>
+				EQUITY_TYPES.includes(h.assetType) &&  // equity LTCG only (s.112A)
+				h.holdingPeriodDays >= 365 &&            // must be in LTCG territory
+				h.unrealizedGain > 0,                    // must have positive gain to harvest
+			)
+			.sort((a, b) => b.unrealizedGain - a.unrealizedGain); // largest gain first
+
+		const harvests: Array<{
+			asset: string;
+			harvestableGain: number;
+			taxSaved: number;
+			action: "sell_and_rebuy";
+			reasoning: string;
+		}> = [];
+
+		let remainingExemption = exemptionRemaining;
+
+		for (const h of candidates) {
+			if (remainingExemption <= 0) break;
+			const harvestableGain = Math.min(h.unrealizedGain, remainingExemption);
+			const taxSaved = harvestableGain * EQUITY_LTCG_RATE; // 12.5% saved
+
+			harvests.push({
+				asset:           h.asset,
+				harvestableGain: Math.round(harvestableGain),
+				taxSaved:        Math.round(taxSaved),
+				action:          "sell_and_rebuy",
+				reasoning: `Harvest ₹${Math.round(harvestableGain).toLocaleString("en-IN")} LTCG gain tax-free within ₹1.25L exemption. ` +
+						   `Sell + immediate rebuy resets cost basis. Saves ₹${Math.round(taxSaved).toLocaleString("en-IN")} in future tax. ` +
+						   `Requires advisor confirmation — not auto-executed.`,
+			});
+
+			remainingExemption -= harvestableGain;
+		}
+
+		return harvests;
 	}
 
 	private generateTradeRationale(
