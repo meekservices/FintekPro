@@ -96,6 +96,7 @@ import { registerAgentProspectAcquisitionPart1Routes } from "./routes/agent-pros
 import testerDiagnosticsRoutes from "./routes/tester-diagnostics-routes";
 import researchNoteRouter from "./routes/research-note-routes";
 import researchWorkspaceRouter from "./routes/research-workspace";
+import smallcaseRouter from "./routes/smallcase-routes";
 import screenerRouter from "./routes/screener-routes";
 import { instrumentScreenerRouter } from "./routes/instrument-screener-routes";
 import errorTrackingRouter from "./routes/error-tracking-routes";
@@ -415,6 +416,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	// Research Lists / Saved Screeners (/api/research-lists/screeners, etc.)
 	app.use("/api/research-lists", researchWorkspaceRouter);
+
+	// Smallcase Gateway routes (/api/smallcase/auth/token, /transaction/create, etc.)
+	// Gracefully inactive when SMALLCASE_GATEWAY_NAME / SMALLCASE_SECRET not set.
+	app.use("/api/smallcase", smallcaseRouter);
 
 	// Stock Screener routes (/api/screener/stocks, /stats, /distribution, etc.)
 	app.use("/", screenerRouter);
