@@ -615,7 +615,14 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 		if (totalWeight === 0) { skipped++; continue; }
 		const coverage = Math.round((coveredWeight / totalWeight) * 100);
 
-		if (coverage < 50) {
+		// ── Calibration-wins guard ──────────────────────────────────────────────
+		// If coverage < 80%, the computed CAGR is unreliable (too many holdings
+		// have no live currentReturn). Skip the write rather than overwriting a
+		// manually calibrated value with a bad weighted average.
+		// This guards against MF holdings whose schemeCode was missing at time of
+		// enrichment run, causing currentReturn=0 → CAGR goes negative/wrong.
+		// Portfolios with reliable data (≥80% coverage) are still updated normally.
+		if (coverage < 80) {
 			results.push({ id: p.id, name: p.name, cagr1Y: null, coverage, source: "skipped:insufficient_coverage" });
 			skipped++;
 			continue;
