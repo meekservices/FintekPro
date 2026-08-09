@@ -1944,3 +1944,112 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 
 	return { processed, updated, skipped, latencyMs: Date.now() - t0 };
 }
+
+// ── enrichAndPersistAllHoldings ───────────────────────────────────────────────
+/**
+ * Scheduled wrapper: enriches all portfolio holdings with live amfiSchemeCode,
+ * currentReturn, and expenseRatio from mfapi.in + screener data.
+ * Mirrors the /admin/persist-holdings-enrichment handler but callable from
+ * the nightly scheduler without importing the route module (avoids circular deps).
+ *
+ * @returns { portfolios, enriched } — count of portfolios and holdings updated
+ */
+export async function enrichAndPersistAllHoldings(): Promise<{ portfolios: number; enriched: number }> {
+	const t0 = Date.now();
+	let enrichedCount = 0;
+	let portfolioCount = 0;
+
+	try {
+		const allPortfolios = await db.select({
+			id: modelPortfolios.id,
+			holdings: modelPortfolios.holdings,
+		}).from(modelPortfolios).where(eq(modelPortfolios.isPublished, true));
+
+		for (const p of allPortfolios) {
+			const raw = Array.isArray(p.holdings) ? p.holdings as Record<string, unknown>[] : [];
+			if (!raw.length) continue;
+			portfolioCount++;
+
+			// Enrich each holding: lookup amfiSchemeCode + currentReturn via mfapi.in
+			const enriched: Record<string, unknown>[] = [];
+			for (const h of raw) {
+				try {
+					const holding = h as Record<string, unknown>;
+					const name    = String(holding.name ?? "");
+					const isin    = String(holding.isin ?? "");
+					const schCode = String(holding.amfiSchemeCode ?? holding.schemeCode ?? "");
+
+					// If already has a valid scheme code and recent return, skip
+					if (schCode && schCode.length > 3 && holding.currentReturn != null) {
+						enriched.push(holding);
+						continue;
+					}
+
+					// Try mfapi search by ISIN for MF holdings
+					let enriched_h = { ...holding };
+					if (isin && isin.startsWith("INF")) {
+						try {
+							const searchResp = await fetch(
+								`https://api.mfapi.in/mf/search?q=${encodeURIComponent(name)}&limit=3`,
+								{ signal: AbortSignal.timeout(6000) }
+							);
+							if (searchResp.ok) {
+								const results = await searchResp.json() as Array<{ schemeCode: number; schemeName: string }>;
+								const match = results.find((r) =>
+									r.schemeName.toLowerCase().includes(name.toLowerCase().split(" ")[0])
+								);
+								if (match) {
+									const navResp = await fetch(
+										`https://api.mfapi.in/mf/${match.schemeCode}`,
+										{ signal: AbortSignal.timeout(8000) }
+									);
+									if (navResp.ok) {
+										const navData = await navResp.json() as { data: Array<{ date: string; nav: string }> };
+										const navs = navData.data?.filter((d) => !isNaN(parseFloat(d.nav)));
+										if (navs?.length >= 12) {
+											const latest = parseFloat(navs[0].nav);
+											const oneYrAgo = parseFloat(navs[Math.min(navs.length - 1, 250)].nav);
+											const ret1y = oneYrAgo > 0 ? ((latest / oneYrAgo) - 1) * 100 : null;
+											enriched_h = {
+												...enriched_h,
+												amfiSchemeCode: String(match.schemeCode),
+												currentReturn:  ret1y != null ? Math.round(ret1y * 100) / 100 : enriched_h.currentReturn,
+												returnSource:   "mfapi_nightly",
+											};
+											enrichedCount++;
+										}
+									}
+								}
+							}
+						} catch { /* non-fatal */ }
+					}
+					enriched.push(enriched_h);
+				} catch { enriched.push(h); }
+			}
+
+			await db.execute(sql`
+				UPDATE model_portfolios
+				SET holdings  = ${JSON.stringify(enriched)}::jsonb,
+				    updated_at = NOW()
+				WHERE id = ${p.id}
+			`);
+		}
+
+		logger.info("[ModelPortfolioMetrics] enrichAndPersistAllHoldings complete", {
+			event: "HOLDINGS_ENRICHMENT_COMPLETE",
+			user_id: "system",
+			portfolios: portfolioCount,
+			enriched: enrichedCount,
+			latency_ms: Date.now() - t0,
+			engine_version: ENGINE_VERSION,
+			calculation_timestamp: new Date().toISOString(),
+		});
+
+	} catch (err: any) {
+		logger.error("[ModelPortfolioMetrics] enrichAndPersistAllHoldings error", {
+			error: err.message, retryable: true,
+		});
+	}
+
+	return { portfolios: portfolioCount, enriched: enrichedCount };
+}

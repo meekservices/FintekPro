@@ -3098,7 +3098,18 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
             <th className="text-right px-3 py-1.5 text-[10px] font-medium text-muted-foreground">Benchmark</th>
             <th className="text-right px-3 py-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Alpha</th>
           </tr></thead>
-          <tbody>{renderTableRows(cagrRows, "text-indigo-600 dark:text-indigo-400")}</tbody>
+          <tbody>
+            {cagrRows.length > 0
+              ? renderTableRows(cagrRows, "text-indigo-600 dark:text-indigo-400")
+              /* Fix F: empty state — server responded but no NAV data yet */
+              : liveData !== null
+                ? (
+                  <tr><td colSpan={4} className="px-3 py-4 text-center text-[10px] text-muted-foreground">
+                    NAV data unavailable — period returns will populate after the first nightly sync.
+                  </td></tr>
+                ) : null
+            }
+          </tbody>
         </table>
       )}
 
@@ -3822,14 +3833,36 @@ export default function AgentModelPortfoliosPage() {
           return staticP?.goal ?? ["wealth_creation"];
         })(),
         performance: (() => {
-          // performance uses PERFORMANCE_BASE (PerformancePoint[] format: { date, portfolioNav, benchmarkNav }).
-          // navHistoryCache provides { month, nav } — different shape, used by the chart component
-          // directly via fetchNavHistory on card expand, NOT through this field.
+          // Fix E: use real NAV history when navHistoryCache has data for this portfolio.
+          // navHistoryCache rows: { month_start, nav, monthly_return, benchmark_return, ... }
+          // PerformancePoint: { date, portfolioNav, benchmarkNav }
+          // IMPORTANT: field names must match exactly — prior attempt used wrong names → NaN.
+          const navRows = navHistoryCache[p.id];
+          if (navRows && navRows.length >= 2) {
+            return navRows
+              .filter((r: any) => r.nav != null && Number(r.nav) > 0)
+              .map((r: any) => ({
+                date:         new Date(r.month_start).toLocaleString("en-IN", { month: "short", year: "2-digit" }),
+                portfolioNav: Math.round(Number(r.nav) * 100) / 100,
+                benchmarkNav: r.benchmark_return != null ? Math.round((1000 * (1 + Number(r.benchmark_return) / 100)) * 100) / 100 : undefined,
+              })) as PerformancePoint[];
+          }
+          // Fallback: seeded deterministic curve (used until first nightly NAV refresh runs)
           const c1y = p.cagr1Y != null ? Number(p.cagr1Y) : (staticP?.cagr1Y ?? 12);
           const vol  = p.volatility != null ? Number(p.volatility) : (staticP?.riskMetrics?.volatility ?? 6);
           return PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, c1y, vol);
         })(),
         performanceData: (() => {
+          const navRows = navHistoryCache[p.id];
+          if (navRows && navRows.length >= 2) {
+            return navRows
+              .filter((r: any) => r.nav != null && Number(r.nav) > 0)
+              .map((r: any) => ({
+                date:         new Date(r.month_start).toLocaleString("en-IN", { month: "short", year: "2-digit" }),
+                portfolioNav: Math.round(Number(r.nav) * 100) / 100,
+                benchmarkNav: r.benchmark_return != null ? Math.round((1000 * (1 + Number(r.benchmark_return) / 100)) * 100) / 100 : undefined,
+              })) as PerformancePoint[];
+          }
           const c1y = p.cagr1Y != null ? Number(p.cagr1Y) : (staticP?.cagr1Y ?? 12);
           const vol  = p.volatility != null ? Number(p.volatility) : (staticP?.riskMetrics?.volatility ?? 6);
           return PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, c1y, vol);

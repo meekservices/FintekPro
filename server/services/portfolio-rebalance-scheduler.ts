@@ -711,6 +711,25 @@ export async function autoApplyCalendarRebalancing(): Promise<{
         ),
         marketRegime: regime.regime,
         engine:       MODEL_VERSION,
+        // Fix G: NAV at decision — SEBI audit trail requires recording the price in effect
+        // at the time of the swap recommendation. Fetched from mf_nav_history; non-fatal if absent.
+        navAtDecision: await (async () => {
+          try {
+            const firstSuggestion = applicableSuggestions[0];
+            // The replacement candidate is at .alternatives[0] (HoldingCandidate)
+            const best = firstSuggestion?.alternatives?.[0];
+            const isin = best?.isin ?? null;  // HoldingCandidate has isin; AlphaDragHolding does not
+            if (!isin) return null;
+            const navRow = await db.execute(sql`
+              SELECT nav_date, nav FROM mf_nav_history
+              WHERE isin = ${String(isin)}
+              ORDER BY nav_date DESC LIMIT 1
+            `);
+            const r = (navRow as any).rows?.[0];
+            return r ? { navDate: r.nav_date, nav: Number(r.nav) } : null;
+          } catch { return null; }
+        })(),
+
       };
 
       // Keep only the last 24 events to prevent unbounded JSONB growth

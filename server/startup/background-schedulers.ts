@@ -804,6 +804,49 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 								`${summary.ok}/${summary.total} portfolios, ` +
 								`${summary.errors} errors, ${summary.noData} no data`
 							);
+
+							// ── Fix A: Holdings enrichment (nightly) ──────────────────
+							// Populates amfiSchemeCode + currentReturn so CAGR computation
+							// achieves ≥50% coverage. Previously admin-only.
+							try {
+								console.log("[NavHistory] 🔄 Holdings enrichment starting...");
+								const { enrichAndPersistAllHoldings } = await import(
+									"../services/model-portfolio-metrics-service"
+								);
+								const enrichResult = await enrichAndPersistAllHoldings();
+								console.log(`[NavHistory] ✅ Holdings enrichment: ${enrichResult.enriched} holdings across ${enrichResult.portfolios} portfolios`);
+							} catch (enrichErr) {
+								console.warn("[NavHistory] Holdings enrichment failed (non-fatal):", enrichErr);
+							}
+
+							// ── Fix B: TWRR period computation (nightly) ───────────────
+							// Populates return_1m, return_3m, return_6m, return_ytd,
+							// cagr_2y, return_since_inception. Previously admin-only.
+							try {
+								console.log("[NavHistory] 🔄 TWRR period computation starting...");
+								const { computeAndPersistAllPortfolioTWRRPeriods } = await import(
+									"../services/model-portfolio-metrics-service"
+								);
+								const twrrResult = await computeAndPersistAllPortfolioTWRRPeriods();
+								console.log(`[NavHistory] ✅ TWRR periods: ${twrrResult.updated}/${twrrResult.processed} portfolios (${twrrResult.skipped} skipped, ${twrrResult.latencyMs}ms)`);
+							} catch (twrrErr) {
+								console.warn("[NavHistory] TWRR computation failed (non-fatal):", twrrErr);
+							}
+
+							// ── Fix C: CAGR/Sharpe/Drawdown computation (nightly) ──────
+							// Populates cagr_1y, cagr_3y, cagr_5y, sharpe_ratio,
+							// max_drawdown, alpha. Previously only via /admin/calibrate-metrics.
+							try {
+								console.log("[NavHistory] 🔄 CAGR/Sharpe/Drawdown computation starting...");
+								const { computeAndPersistAllPortfolioCAGRs } = await import(
+									"../services/model-portfolio-metrics-service"
+								);
+								const cagrResult = await computeAndPersistAllPortfolioCAGRs();
+								console.log(`[NavHistory] ✅ CAGR: ${cagrResult.updated}/${cagrResult.processed} portfolios (${cagrResult.skipped} skipped)`);
+							} catch (cagrErr) {
+								console.warn("[NavHistory] CAGR computation failed (non-fatal):", cagrErr);
+							}
+
 						} catch (err) {
 							console.error("[NavHistory] Nightly refresh failed:", err);
 						}
