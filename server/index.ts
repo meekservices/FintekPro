@@ -259,6 +259,13 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					const { applyFinancialInstrumentsCacheColumns } = await import("./startup/schema-repairs");
 					await applyFinancialInstrumentsCacheColumns();
 
+				// ── ISIN Equalizer — isin_registry table ─────────────────────
+				// Creates the isin_registry table on first boot (idempotent).
+				// enrichHolding uses this for DB-first ISIN resolution (Step 0a).
+				// Non-fatal: falls back to in-memory instrument-registry if missing.
+				logBootProgress("Step 2e-2 (bg): ISIN Equalizer — creating isin_registry table...");
+				const { createISINRegistryTable } = await import("./startup/schema-repairs");
+				await createISINRegistryTable();
 
 					// ── Instrument Master Sync — single source of truth ─────────────
 					// Upserts from mutual_funds, listed_stocks, bond_catalog, reits,

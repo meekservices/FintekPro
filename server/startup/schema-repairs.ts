@@ -3493,3 +3493,98 @@ export async function applyFinancialInstrumentsCacheColumns(): Promise<void> {
   }
 }
 
+// ── ISIN Registry — DB-level ISIN Equalizer table ─────────────────────────────
+// Creates isin_registry table + indexes + updated_at trigger on first boot.
+// Idempotent: uses IF NOT EXISTS. Tracked in schema_migration_log to skip on
+// subsequent boots. Non-fatal if it fails (enrichHolding falls back to name-based).
+export async function createISINRegistryTable(): Promise<void> {
+  const { db: migDb }       = await import("../db");
+  const { pool: migPool }   = await import("../db");
+  const { sql: migSql }     = await import("drizzle-orm");
+
+  // Check migration log to avoid re-running on warm restarts
+  const MIGRATION_ID = "isin_registry_v1_create";
+  try {
+    const rows = await migDb.execute(
+      migSql`SELECT 1 FROM schema_migration_log WHERE migration_id = ${MIGRATION_ID} LIMIT 1`,
+    );
+    if ((rows as any).rows?.length > 0) {
+      console.log("  ✅ [ISIN Equalizer] isin_registry: already applied (skipping)");
+      return;
+    }
+  } catch { /* schema_migration_log may not exist yet — proceed */ }
+
+  try {
+    // Create the isin_registry table
+    await migPool.query(`
+      CREATE TABLE IF NOT EXISTS isin_registry (
+        isin                TEXT        PRIMARY KEY,
+        canonical_name      TEXT        NOT NULL,
+        instrument_type     VARCHAR(50) NOT NULL,
+        country             VARCHAR(2)  NOT NULL DEFAULT 'IN',
+        currency            VARCHAR(3)  NOT NULL DEFAULT 'INR',
+        amc                 VARCHAR(100),
+        amfi_code           INTEGER,
+        amfi_code_direct    INTEGER,
+        sebi_category       VARCHAR(100),
+        plan_type           VARCHAR(20) DEFAULT 'regular',
+        expense_ratio       DECIMAL(5,4),
+        nse_symbol          VARCHAR(50),
+        bse_code            INTEGER,
+        cusip               VARCHAR(9),
+        sedol               VARCHAR(7),
+        bloomberg_ticker    VARCHAR(50),
+        reuters_ric         VARCHAR(50),
+        is_active           BOOLEAN     NOT NULL DEFAULT TRUE,
+        is_proxy            BOOLEAN     NOT NULL DEFAULT FALSE,
+        proxy_note          TEXT,
+        source              VARCHAR(50) DEFAULT 'manual',
+        notes               TEXT,
+        created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    console.log("  ✅ [ISIN Equalizer] isin_registry: table ready");
+  } catch (e: any) {
+    console.warn("  ⚠️  [ISIN Equalizer] isin_registry table (non-fatal):", e.message?.slice(0, 80));
+  }
+
+  // Create indexes (each in its own try-catch)
+  const indexes: [string, string][] = [
+    ["idx_isin_registry_amfi_code",       "CREATE INDEX IF NOT EXISTS idx_isin_registry_amfi_code ON isin_registry(amfi_code) WHERE amfi_code IS NOT NULL"],
+    ["idx_isin_registry_nse_symbol",      "CREATE INDEX IF NOT EXISTS idx_isin_registry_nse_symbol ON isin_registry(nse_symbol) WHERE nse_symbol IS NOT NULL"],
+    ["idx_isin_registry_type_country",    "CREATE INDEX IF NOT EXISTS idx_isin_registry_type_country ON isin_registry(instrument_type, country)"],
+    ["idx_isin_registry_canonical_name",  "CREATE INDEX IF NOT EXISTS idx_isin_registry_canonical_name ON isin_registry(canonical_name)"],
+  ];
+  for (const [name, ddl] of indexes) {
+    try { await migPool.query(ddl); } catch { /* already exists — non-fatal */ }
+    void name;
+  }
+  console.log("  ✅ [ISIN Equalizer] isin_registry: all indexes ensured");
+
+  // updated_at auto-trigger
+  try {
+    await migPool.query(`
+      CREATE OR REPLACE FUNCTION update_isin_registry_updated_at()
+      RETURNS TRIGGER AS $$
+      BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+      $$ LANGUAGE plpgsql
+    `);
+    await migPool.query(`
+      DROP TRIGGER IF EXISTS trg_isin_registry_updated_at ON isin_registry;
+      CREATE TRIGGER trg_isin_registry_updated_at
+        BEFORE UPDATE ON isin_registry
+        FOR EACH ROW EXECUTE FUNCTION update_isin_registry_updated_at()
+    `);
+    console.log("  ✅ [ISIN Equalizer] isin_registry: updated_at trigger ready");
+  } catch { /* non-fatal */ }
+
+  // Mark applied
+  try {
+    await migDb.execute(migSql`
+      INSERT INTO schema_migration_log (migration_id)
+      VALUES (${MIGRATION_ID})
+      ON CONFLICT (migration_id) DO NOTHING
+    `);
+  } catch { /* non-fatal */ }
+}
