@@ -3037,7 +3037,7 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
         benchmark: br != null && Number.isFinite(br) ? +br.toFixed(2) : 0,
         alpha:     br != null && Number.isFinite(br) ? +(pr - br).toFixed(2) : +pr.toFixed(2),
       };
-    }).filter(Boolean);
+    }).filter((x): x is { date: string; portfolio: number; benchmark: number; alpha: number } => x !== null);
   }, [performance]);
 
   const renderTableRows = (rows: any[], color: string) => rows.map((r: any, i: number) => {
