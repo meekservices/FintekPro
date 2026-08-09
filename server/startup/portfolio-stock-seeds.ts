@@ -528,8 +528,8 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { rank: 4,  name: "Larsen & Toubro",            symbol: "LT",         isin: "INE018A01030", weight: 7,  type: "equity", sector: "Engineering" },
       { rank: 5,  name: "Bajaj Finance",              symbol: "BAJFINANCE", isin: "INE296A01024", weight: 8,  type: "equity", sector: "NBFC" },
       { rank: 6,  name: "ICICI Bank",                 symbol: "ICICIBANK",  isin: "INE090A01021", weight: 7,  type: "equity", sector: "Banking" },
-      { rank: 7,  name: "IRFC",                       symbol: "IRFC",       isin: "INE053F01010", weight: 15, type: "debt",   sector: "Sovereign" },
-      { rank: 8,  name: "REC Limited",                symbol: "REC",        isin: "INE020B01018", weight: 15, type: "debt",   sector: "Sovereign" },
+      { rank: 7,  name: "IRFC",                       symbol: "IRFC",       isin: "INE053F01010", weight: 15, type: "equity", sector: "PSU Financing" },
+      { rank: 8,  name: "REC Limited",                symbol: "REC",        isin: "INE020B01018", weight: 15, type: "equity", sector: "PSU Financing" },
       { rank: 9,  name: "Power Grid Corporation",     symbol: "POWERGRID",  isin: "INE752E01010", weight: 10, type: "debt",   sector: "Power" },
       { rank: 10, name: "Sovereign Gold Bond FY27",   symbol: "SGB",        isin: null,           weight: 8,  type: "gold",   sector: "Gold" },
     ],
@@ -551,7 +551,7 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { rank: 5, name: "NMDC (Iron Ore)",           symbol: "NMDC",     isin: "INE584A01023", weight: 8,  type: "equity", sector: "Metals" },
       { rank: 6, name: "NTPC",                      symbol: "NTPC",     isin: "INE733E01010", weight: 12, type: "equity", sector: "Power" },
       { rank: 7, name: "Sovereign Gold Bond FY27",  symbol: "SGB",      isin: null,           weight: 20, type: "gold",   sector: "Gold" },
-      { rank: 8, name: "IRFC (5Y Bond Proxy)",      symbol: "IRFC",     isin: "INE053F01010", weight: 20, type: "debt",   sector: "Sovereign" },
+      { rank: 8, name: "IRFC",                       symbol: "IRFC",     isin: "INE053F01010", weight: 20, type: "equity", sector: "PSU Financing" },
     ],
     allocation: [
       { type: "real_assets_equity",    label: "Real-Asset Equity",       weight: 60, color: "#D97706" },
@@ -569,8 +569,8 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { rank: 3,  name: "Tata Consultancy Services", symbol: "TCS",       isin: "INE467B01029", weight: 7,  type: "equity",    sector: "IT" },
       { rank: 4,  name: "Bajaj Finance",             symbol: "BAJFINANCE",isin: "INE296A01024", weight: 7,  type: "equity",    sector: "NBFC" },
       { rank: 5,  name: "Sun Pharmaceutical",        symbol: "SUNPHARMA", isin: "INE044A01036", weight: 5,  type: "equity",    sector: "Pharma" },
-      { rank: 6,  name: "IRFC",                      symbol: "IRFC",      isin: "INE053F01010", weight: 15, type: "debt",      sector: "Sovereign" },
-      { rank: 7,  name: "REC Limited",               symbol: "REC",       isin: "INE020B01018", weight: 10, type: "debt",      sector: "Sovereign" },
+      { rank: 6,  name: "IRFC",                      symbol: "IRFC",      isin: "INE053F01010", weight: 15, type: "equity", sector: "PSU Financing" },
+      { rank: 7,  name: "REC Limited",               symbol: "REC",       isin: "INE020B01018", weight: 10, type: "equity", sector: "PSU Financing" },
       { rank: 8,  name: "Power Grid Corporation",    symbol: "POWERGRID", isin: "INE752E01010", weight: 10, type: "debt",      sector: "Power" },
       { rank: 9,  name: "NTPC (Dividend Yield)",     symbol: "NTPC",      isin: "INE733E01010", weight: 10, type: "debt",      sector: "Power" },
       { rank: 10, name: "NMDC",                      symbol: "NMDC",      isin: "INE584A01023", weight: 5,  type: "commodity", sector: "Metals" },
@@ -597,8 +597,8 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { rank: 4, name: "Infosys",                   symbol: "INFY",       isin: "INE009A01021", weight: 10, type: "equity", sector: "IT" },
       { rank: 5, name: "Titan Company",             symbol: "TITAN",      isin: "INE280A01028", weight: 10, type: "equity", sector: "Consumer" },
       { rank: 6, name: "Bajaj Finance",             symbol: "BAJFINANCE", isin: "INE296A01024", weight: 10, type: "equity", sector: "NBFC" },
-      { rank: 7, name: "IRFC",                      symbol: "IRFC",       isin: "INE053F01010", weight: 20, type: "debt",   sector: "Sovereign" },
-      { rank: 8, name: "REC Limited",               symbol: "REC",        isin: "INE020B01018", weight: 20, type: "debt",   sector: "Sovereign" },
+      { rank: 7, name: "IRFC",                      symbol: "IRFC",       isin: "INE053F01010", weight: 20, type: "equity", sector: "PSU Financing" },
+      { rank: 8, name: "REC Limited",               symbol: "REC",        isin: "INE020B01018", weight: 20, type: "equity", sector: "PSU Financing" },
     ],
     allocation: [
       { type: "equity_growth",   label: "Equity Growth (Long Term)", weight: 60, color: "#1D4ED8" },
@@ -614,8 +614,8 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { rank: 2, name: "HDFC Bank",             symbol: "HDFCBANK",  isin: "INE040A01034", weight: 10, type: "equity", sector: "Banking" },
       { rank: 3, name: "Infosys",               symbol: "INFY",      isin: "INE009A01021", weight: 10, type: "equity", sector: "IT" },
       { rank: 4, name: "ICICI Bank",            symbol: "ICICIBANK", isin: "INE090A01021", weight: 10, type: "equity", sector: "Banking" },
-      { rank: 5, name: "IRFC",                  symbol: "IRFC",      isin: "INE053F01010", weight: 25, type: "debt",   sector: "Sovereign" },
-      { rank: 6, name: "REC Limited",           symbol: "REC",       isin: "INE020B01018", weight: 15, type: "debt",   sector: "Sovereign" },
+      { rank: 5, name: "IRFC",                  symbol: "IRFC",      isin: "INE053F01010", weight: 25, type: "equity", sector: "PSU Financing" },
+      { rank: 6, name: "REC Limited",           symbol: "REC",       isin: "INE020B01018", weight: 15, type: "equity", sector: "PSU Financing" },
       { rank: 7, name: "NHPC",                  symbol: "NHPC",      isin: "INE848E01016", weight: 10, type: "debt",   sector: "Power" },
       { rank: 8, name: "Sovereign Gold Bond FY27",symbol: "SGB",     isin: null,           weight: 10, type: "gold",   sector: "Gold" },
     ],
@@ -634,8 +634,8 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { rank: 2, name: "Tata Consultancy Services",symbol: "TCS",      isin: "INE467B01029", weight: 12, type: "equity", sector: "IT" },
       { rank: 3, name: "Titan Company",            symbol: "TITAN",    isin: "INE280A01028", weight: 10, type: "equity", sector: "Consumer" },
       { rank: 4, name: "Infosys",                  symbol: "INFY",     isin: "INE009A01021", weight: 10, type: "equity", sector: "IT" },
-      { rank: 5, name: "IRFC",                     symbol: "IRFC",     isin: "INE053F01010", weight: 20, type: "debt",   sector: "Sovereign" },
-      { rank: 6, name: "REC Limited",              symbol: "REC",      isin: "INE020B01018", weight: 16, type: "debt",   sector: "Sovereign" },
+      { rank: 5, name: "IRFC",                     symbol: "IRFC",     isin: "INE053F01010", weight: 20, type: "equity", sector: "PSU Financing" },
+      { rank: 6, name: "REC Limited",              symbol: "REC",      isin: "INE020B01018", weight: 16, type: "equity", sector: "PSU Financing" },
       { rank: 7, name: "Sovereign Gold Bond FY27", symbol: "SGB",      isin: null,           weight: 20, type: "gold",   sector: "Gold" },
     ],
     allocation: [
@@ -654,8 +654,8 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { rank: 3,  name: "ITC",                   symbol: "ITC",       isin: "INE154A01025", weight: 8,  type: "equity", sector: "FMCG" },
       { rank: 4,  name: "Power Grid Corporation",symbol: "POWERGRID", isin: "INE752E01010", weight: 8,  type: "equity", sector: "Power" },
       { rank: 5,  name: "HDFC Bank",             symbol: "HDFCBANK",  isin: "INE040A01034", weight: 8,  type: "equity", sector: "Banking" },
-      { rank: 6,  name: "IRFC",                  symbol: "IRFC",      isin: "INE053F01010", weight: 20, type: "debt",   sector: "Sovereign" },
-      { rank: 7,  name: "REC Limited",           symbol: "REC",       isin: "INE020B01018", weight: 15, type: "debt",   sector: "Sovereign" },
+      { rank: 6,  name: "IRFC",                  symbol: "IRFC",      isin: "INE053F01010", weight: 20, type: "equity", sector: "PSU Financing" },
+      { rank: 7,  name: "REC Limited",           symbol: "REC",       isin: "INE020B01018", weight: 15, type: "equity", sector: "PSU Financing" },
       { rank: 8,  name: "NHPC",                  symbol: "NHPC",      isin: "INE848E01016", weight: 10, type: "debt",   sector: "Power" },
       { rank: 9,  name: "GAIL",                  symbol: "GAIL",      isin: "INE129A01019", weight: 7,  type: "debt",   sector: "Gas" },
       { rank: 10, name: "Sovereign Gold Bond FY27",symbol: "SGB",     isin: null,           weight: 8,  type: "gold",   sector: "Gold" },
@@ -675,8 +675,8 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { rank: 2, name: "NTPC",                  symbol: "NTPC",      isin: "INE733E01010", weight: 10, type: "equity", sector: "Power" },
       { rank: 3, name: "Power Grid Corporation",symbol: "POWERGRID", isin: "INE752E01010", weight: 8,  type: "equity", sector: "Power" },
       { rank: 4, name: "Indian Oil Corporation",symbol: "IOC",       isin: "INE242A01010", weight: 10, type: "equity", sector: "Energy" },
-      { rank: 5, name: "IRFC",                  symbol: "IRFC",      isin: "INE053F01010", weight: 20, type: "debt",   sector: "Sovereign" },
-      { rank: 6, name: "REC Limited",           symbol: "REC",       isin: "INE020B01018", weight: 15, type: "debt",   sector: "Sovereign" },
+      { rank: 5, name: "IRFC",                  symbol: "IRFC",      isin: "INE053F01010", weight: 20, type: "equity", sector: "PSU Financing" },
+      { rank: 6, name: "REC Limited",           symbol: "REC",       isin: "INE020B01018", weight: 15, type: "equity", sector: "PSU Financing" },
       { rank: 7, name: "NHPC",                  symbol: "NHPC",      isin: "INE848E01016", weight: 12, type: "debt",   sector: "Power" },
       { rank: 8, name: "GAIL",                  symbol: "GAIL",      isin: "INE129A01019", weight: 10, type: "debt",   sector: "Gas" },
       { rank: 9, name: "Sovereign Gold Bond FY27",symbol: "SGB",     isin: null,           weight: 5,  type: "gold",   sector: "Gold" },
@@ -770,3 +770,92 @@ export async function seedStockPortfolios(db: any): Promise<void> {
     latency_ms:     0,
   }));
 }
+
+/**
+ * @function seedListedStocksFromPortfolios
+ * @description Upserts every unique stock from PORTFOLIO_STOCKS into the
+ * `listed_stocks` table so that the research note /search endpoint can
+ * locate all portfolio companies (e.g. Kaynes Technology) without relying
+ * solely on external NSE/Yahoo Finance fallbacks.
+ *
+ * Safe to call on every startup — uses ON CONFLICT (symbol) DO UPDATE to
+ * preserve any existing price/fundamentals data already in the table.
+ * Only inserts company_name, isin, sector, nse_code, and is_active.
+ * Does NOT overwrite price or fundamentals if they already exist.
+ *
+ * @param db - Drizzle database instance
+ */
+export async function seedListedStocksFromPortfolios(db: any): Promise<void> {
+  // Deduplicate by symbol across all portfolio stock definitions
+  const seen = new Set<string>();
+  const toSeed: Array<{ symbol: string; name: string; isin: string | null; sector: string }> = [];
+
+  for (const portfolio of STOCK_SEEDS) {
+    for (const h of portfolio.holdings) {
+      if (!h.symbol || seen.has(h.symbol.toUpperCase())) continue;
+      seen.add(h.symbol.toUpperCase());
+      toSeed.push({
+        symbol: h.symbol.toUpperCase(),
+        name:   h.name,
+        isin:   h.isin ?? null,
+        sector: h.sector ?? "Equity",
+      });
+    }
+  }
+
+  let inserted = 0;
+  let errors   = 0;
+
+  for (const s of toSeed) {
+    try {
+      await db.execute(sql`
+        INSERT INTO listed_stocks (
+          symbol, company_name, isin, sector, industry,
+          nse_code, is_active, data_source, last_updated, created_at
+        ) VALUES (
+          ${s.symbol},
+          ${s.name},
+          ${s.isin},
+          ${s.sector},
+          ${s.sector},
+          'EQ',
+          true,
+          'portfolio_seed',
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (symbol) DO UPDATE SET
+          company_name  = COALESCE(listed_stocks.company_name, EXCLUDED.company_name),
+          isin          = COALESCE(listed_stocks.isin, EXCLUDED.isin),
+          sector        = COALESCE(listed_stocks.sector, EXCLUDED.sector),
+          is_active     = true,
+          last_updated  = NOW()
+      `);
+      inserted++;
+    } catch (e: any) {
+      errors++;
+      // eslint-disable-next-line no-console
+      console.warn(`[ListedStocksSeed] Skipped ${s.symbol}: ${e?.message?.slice(0, 80)}`);
+    }
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(
+    `[ListedStocksSeed] Upserted ${inserted}/${toSeed.length} portfolio stocks → listed_stocks | errors=${errors}`,
+  );
+
+  // FASP-AI v1.0 structured log
+  // eslint-disable-next-line no-console
+  console.log(JSON.stringify({
+    event:          "LISTED_STOCKS_PORTFOLIO_SEED_COMPLETE",
+    user_id:        "system",
+    total:          toSeed.length,
+    inserted,
+    errors,
+    engine_version: ENGINE_VERSION,
+    timestamp:      new Date().toISOString(),
+    status:         errors === 0 ? "success" : "partial",
+    latency_ms:     0,
+  }));
+}
+

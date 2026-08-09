@@ -128,6 +128,21 @@ async function main() {
     // Non-fatal: schema repair job continues even if stock seed fails
   }
 
+  // ── Phase E-2: Sync portfolio stocks → listed_stocks ─────────────────────────
+  // Ensures every stock referenced in any model portfolio is discoverable by the
+  // research note /search endpoint (listed_stocks table). Fixes: "company not found"
+  // for stocks like Kaynes Technology that exist in portfolio seeds but not in listed_stocks.
+  // Uses ON CONFLICT DO UPDATE — safe to run on every startup, never overwrites price data.
+  console.log("Phase E-2 — syncing portfolio stocks → listed_stocks for research note search...");
+  try {
+    const { db: listedSeedDb } = await import("../db");
+    const { seedListedStocksFromPortfolios } = await import("./portfolio-stock-seeds");
+    await seedListedStocksFromPortfolios(listedSeedDb);
+  } catch (e: any) {
+    console.error("  ❌ Phase E-2 error:", e.message);
+    // Non-fatal
+  }
+
   // ── Phase F: Populate portfolioCode (FP-NNN) + inceptionDate + rebalancingMode ─
   // portfolioCode — stable FP-NNN code printed on cards, reports and audit logs.
   // inceptionDate — required for inception-based rolling bar chart.
