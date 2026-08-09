@@ -3451,14 +3451,36 @@ export async function ensureSharedRouteTables(): Promise<void> {
 export async function applyFinancialInstrumentsCacheColumns(): Promise<void> {
   try {
     const { pool: migPool } = await import("../db");
+    // Phase 1: bond/debt columns (original)
     await migPool.query(`
       ALTER TABLE financial_instruments_cache
         ADD COLUMN IF NOT EXISTS yield_percent  DECIMAL(10, 4),
         ADD COLUMN IF NOT EXISTS coupon_rate    DECIMAL(10, 4),
         ADD COLUMN IF NOT EXISTS maturity_date  DATE;
     `);
-    console.log("  ✅ financial_instruments_cache: yield_percent / coupon_rate / maturity_date ensured");
+    // Phase 2: classification + fund columns (root cause of "column category does not exist")
+    // These are in shared/schema.ts and the raw SQL INSERT but were never migrated to DB.
+    await migPool.query(`
+      ALTER TABLE financial_instruments_cache
+        ADD COLUMN IF NOT EXISTS category            VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS sector              VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS sub_sector          VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS amc                 VARCHAR(200),
+        ADD COLUMN IF NOT EXISTS fund_manager        VARCHAR(200),
+        ADD COLUMN IF NOT EXISTS expense_ratio       DECIMAL(6, 4),
+        ADD COLUMN IF NOT EXISTS aum                 DECIMAL(20, 2),
+        ADD COLUMN IF NOT EXISTS risk_level          VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS volatility          DECIMAL(10, 4),
+        ADD COLUMN IF NOT EXISTS sharpe_ratio        DECIMAL(10, 4),
+        ADD COLUMN IF NOT EXISTS beta                DECIMAL(10, 4),
+        ADD COLUMN IF NOT EXISTS secondary_source    VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS is_verified         BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS verification_notes  TEXT,
+        ADD COLUMN IF NOT EXISTS price_updated_at    TIMESTAMPTZ;
+    `);
+    console.log("  ✅ financial_instruments_cache: all missing columns ensured (Phase 1 + 2)");
   } catch (e: any) {
     console.warn("  ⚠️  financial_instruments_cache column migration (non-fatal):", e.message?.slice(0, 200));
   }
 }
+
