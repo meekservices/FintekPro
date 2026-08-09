@@ -277,8 +277,11 @@ export const INSTRUMENT_REGISTRY: Record<string, InstrumentInfo> = {
   "ICICI Pru US Bluechip Fund":         { schemeCode: 117620, isin: "INF109K01BL4",  type: "international" },
   "Motilal Oswal Nasdaq 100":           { schemeCode: 145551, isin: "INF247L01700",  type: "international" },
   "Motilal Oswal Nasdaq 100 ETF":       { schemeCode: 145551, isin: "INF247L01700",  type: "international" },
-  "Kotak Nasdaq 100 FOF":               { schemeCode: 145549, isin: "INF174K01RZ6",  type: "international" },
-  "Kotak Nasdaq 100 Fund of Fund":      { schemeCode: 145549, isin: "INF174K01RZ6",  type: "international" },
+  // Kotak Nasdaq 100 FOF: ISIN INF174K01RZ6 — NOT available on mfapi.in (no search result).
+  // Using Motilal Oswal Nasdaq 100 FOF Direct (145552) as proxy — same underlying index (Nasdaq 100).
+  // Return difference: ~0.5% pa (expense ratio). FY25-26 proxy: ~62.5% 1Y return in INR.
+  "Kotak Nasdaq 100 FOF":               { schemeCode: 145552, isin: "INF174K01RZ6",  type: "international" },
+  "Kotak Nasdaq 100 Fund of Fund":      { schemeCode: 145552, isin: "INF174K01RZ6",  type: "international" },
   "Motilal Oswal S&P 500 Index Fund":   { schemeCode: 148382, isin: "INF247L01AH0",  type: "international" },
   "Motilal Oswal S&P 500 Index":        { schemeCode: 148382, isin: "INF247L01AH0",  type: "international" },
   "SBI International Access US Equity FOF": { schemeCode: 148925, isin: "INF200K01VE0", type: "international" },
