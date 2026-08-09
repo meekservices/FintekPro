@@ -759,7 +759,7 @@ async function refreshPortfolioMetrics(
 			}
 			// Normalise
 			const wSum = Object.values(weights).reduce((s, v) => s + v, 0);
-			if (wSum > 0) Object.keys(weights).forEach((k) => (weights[k] /= wSum));
+			if (wSum > 0) for (const k of Object.keys(weights)) { weights[k] /= wSum; }
 
 			// Build monthly returns (real DB data per holding: screener equity return > MF NAV > asset class fallback)
 			const monthlyReturns = await buildMonthlyReturns(

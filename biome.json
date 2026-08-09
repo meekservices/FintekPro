@@ -1,86 +1,85 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
-  "organizeImports": {
-    "enabled": false
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
+	"$schema": "https://biomejs.dev/schemas/2.5.7/schema.json",
+	"assist": { "actions": { "source": { "organizeImports": "off" } } },
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
 
-      "complexity": {
-        "noBannedTypes": "off",
-        "noUselessTypeConstraint": "off",
-        "noForEach": "off",
-        "noStaticOnlyClass": "off",
-        "noUselessCatch": "off"
-      },
+			"complexity": {
+				"noBannedTypes": "off",
+				"noUselessTypeConstraint": "off",
+				"noForEach": "off",
+				"noStaticOnlyClass": "off",
+				"noUselessCatch": "off"
+			},
 
-      "suspicious": {
-        "noExplicitAny": "off",
-        "noArrayIndexKey": "off",
-        "noImplicitAnyLet": "off",
-        "noRedeclare": "off",
-        "noAssignInExpressions": "off",
-        "noPrototypeBuiltins": "off",
-        "noShadowRestrictedNames": "off",
-        "noAsyncPromiseExecutor": "off"
-      },
+			"suspicious": {
+				"noExplicitAny": "off",
+				"noArrayIndexKey": "off",
+				"noImplicitAnyLet": "off",
+				"noRedeclare": "off",
+				"noAssignInExpressions": "off",
+				"noPrototypeBuiltins": "off",
+				"noShadowRestrictedNames": "off",
+				"noAsyncPromiseExecutor": "off"
+			},
 
-      "correctness": {
-        "useExhaustiveDependencies": "off",
-        "noVoidTypeReturn": "off"
-      },
+			"correctness": {
+				"useExhaustiveDependencies": "off",
+				"noVoidTypeReturn": "off"
+			},
 
-      "performance": {
-        "noAccumulatingSpread": "off"
-      },
+			"performance": {
+				"noAccumulatingSpread": "off"
+			},
 
-      "a11y": {
-        "noSvgWithoutTitle": "off",
-        "useKeyWithClickEvents": "off",
-        "useButtonType": "off",
-        "useAriaPropsForRole": "off",
-        "useValidAnchor": "off",
-        "noRedundantAlt": "off"
-      },
+			"a11y": {
+				"noSvgWithoutTitle": "off",
+				"useKeyWithClickEvents": "off",
+				"useButtonType": "off",
+				"useAriaPropsForRole": "off",
+				"useValidAnchor": "off",
+				"noRedundantAlt": "off"
+			},
 
-      "style": {
-        "useBlockStatements": "off",
-        "noNonNullAssertion": "off",
-        "useConsistentArrayType": "off",
-        "useShorthandFunctionType": "off",
-        "noInferrableTypes": "off",
-        "useAsConstAssertion": "off",
-        "useNodejsImportProtocol": "off",
-        "noUnusedTemplateLiteral": "off",
-        "useTemplate": "off",
-        "useSingleVarDeclarator": "off",
-        "useImportType": "off",
-        "noParameterAssign": "off",
-        "useSelfClosingElements": "off",
-        "useDefaultParameterLast": "off",
-        "noUselessElse": "off",
-        "useExponentiationOperator": "off",
-        "useNamingConvention": "off",
-        "useEnumInitializers": "off",
-        "useConst": "off"
-      },
+			"style": {
+				"useBlockStatements": "off",
+				"noNonNullAssertion": "off",
+				"useConsistentArrayType": "off",
+				"useShorthandFunctionType": "off",
+				"noInferrableTypes": "off",
+				"useAsConstAssertion": "off",
+				"useNodejsImportProtocol": "off",
+				"noUnusedTemplateLiteral": "off",
+				"useTemplate": "off",
+				"useSingleVarDeclarator": "off",
+				"useImportType": "off",
+				"noParameterAssign": "off",
+				"useSelfClosingElements": "off",
+				"useDefaultParameterLast": "off",
+				"noUselessElse": "off",
+				"useExponentiationOperator": "off",
+				"useNamingConvention": "off",
+				"useEnumInitializers": "off",
+				"useConst": "off"
+			},
 
-      "nursery": {
-        "recommended": false
-      }
-    }
-  },
-  "formatter": {
-    "enabled": false
-  },
-  "files": {
-    "ignore": [
-      "node_modules/**",
-      "dist/**",
-      "build/**",
-      ".git/**"
-    ]
-  }
+			"nursery": {
+				"preset": "none"
+			}
+		}
+	},
+	"formatter": {
+		"enabled": false
+	},
+	"files": {
+		"includes": [
+			"**",
+			"!**/node_modules/**",
+			"!**/dist/**",
+			"!**/build/**",
+			"!**/.git/**"
+		]
+	}
 }
