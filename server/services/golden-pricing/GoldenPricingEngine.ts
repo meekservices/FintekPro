@@ -9,10 +9,10 @@
  *   NSE_BHAVCOPY(98) → INDIAN_API(93) → YAHOO_FINANCE(82) → FMP(85)
  *   → ALPHAVANTAGE(80) → LAST_TRADE(70) → MODEL_PRICE(60) → BROKER_QUOTE(50)
  *
- * Indian Sources:
- *   IndianAPI.in /stock         → live NSE+BSE dual quote (API key in Secret Manager)
- *   IndianAPI.in /historical_data → EOD close backfill (daily prices, 1m-1y range)
- *   IndianAPI.in /nse_stock_batch_live_price → bulk 5000-stock pricing runs
+ * Indian Sources (base: stock.indianapi.in — confirmed working 2026-08):
+ *   /stock              → live NSE+BSE dual quote (API key in Secret Manager)
+ *   /historical_data    → EOD close backfill (daily prices, 1m-1y range)
+ *   NOTE: /nse_stock_batch_live_price is not available on current plan (404)
  *
  * Asset-class specialisations:
  *   Mutual Funds  → AMFI_NAV
@@ -236,7 +236,7 @@ async function fetchIndianAPIPrice(
 	if (!apiKey) return null;
 
 	try {
-		const url = `https://analyst.indianapi.in/stock?name=${encodeURIComponent(symbol.toUpperCase())}`;
+		const url = `https://stock.indianapi.in/stock?name=${encodeURIComponent(symbol.toUpperCase())}`;
 		const resp = await fetch(url, {
 			headers: { "X-API-Key": apiKey },
 			signal: AbortSignal.timeout(8000),
@@ -269,9 +269,9 @@ async function fetchIndianAPIPrice(
 }
 
 /**
- * IndianAPI.in /historical_data — EOD close prices for a symbol over a period.
- * Returns array of { metric, label, values: [[date, price], ...] }.
- * Used for backfilling historical_nav_data for equity instruments.
+ * stock.indianapi.in /historical_data — EOD close prices for a symbol over a period.
+ * Response shape (2026-08): { datasets: [{ metric, label, values: [[date, price], ...] }] }
+ * Handles both old (raw array) and new ({datasets:[...]}) response formats.
  *
  * @param symbol  NSE symbol e.g. "RELIANCE"
  * @param period  "1m" | "3m" | "6m" | "1y"
@@ -286,7 +286,7 @@ export async function fetchIndianAPIHistorical(
 
 	try {
 		const url = [
-			`https://analyst.indianapi.in/historical_data`,
+			`https://stock.indianapi.in/historical_data`,
 			`?stock_name=${encodeURIComponent(symbol.toUpperCase())}`,
 			`&period=${period}&filter=default`,
 		].join("");
@@ -295,18 +295,23 @@ export async function fetchIndianAPIHistorical(
 			signal: AbortSignal.timeout(15000),
 		});
 		if (!resp.ok) return [];
-		const raw = (await resp.json()) as any[];
+		const raw = (await resp.json()) as any;
 
-		// raw = [{ metric, label, values: [[date, priceStr], ...] }, ...]
-		const priceDataset = Array.isArray(raw)
-			? raw.find((d: any) => d?.metric === "Price" || d?.label?.toLowerCase().includes("price"))
-			: null;
+		// API returns { datasets: [...] } wrapper (2026-08 format) or raw array (legacy)
+		const datasets: any[] = Array.isArray(raw)
+			? raw
+			: Array.isArray(raw?.datasets)
+			? raw.datasets
+			: [];
+		const priceDataset = datasets.find(
+			(d: any) => d?.metric === "Price" || d?.label?.toLowerCase().includes("price"),
+		);
 		if (!priceDataset?.values) return [];
 
 		return (priceDataset.values as [string, string][])
 			.map(([date, priceStr]) => ({
 				date,
-				close: Number.parseFloat(priceStr.replace(/,/g, "")),
+				close: Number.parseFloat(String(priceStr).replace(/,/g, "")),
 			}))
 			.filter((r) => r.close > 0)
 			.sort((a, b) => a.date.localeCompare(b.date));
@@ -388,8 +393,9 @@ export async function fetchIndianAPIBatchPrices(
 	for (let i = 0; i < symbols.length; i += CHUNK_SIZE) {
 		const chunk = symbols.slice(i, i + CHUNK_SIZE);
 		try {
+			// NOTE: batch endpoint returns 404 on current plan; per-symbol fetch is fallback
 			const resp = await fetch(
-				"https://analyst.indianapi.in/nse_stock_batch_live_price",
+				"https://stock.indianapi.in/nse_stock_batch_live_price",
 				{
 					method: "POST",
 					headers: {

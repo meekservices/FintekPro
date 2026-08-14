@@ -23,7 +23,7 @@ import { logger } from "../logger";
 import { CircuitBreaker, CircuitOpenError } from "../utils/circuit-breaker";
 
 const INDIAN_API_KEY = process.env.INDIAN_API_KEY || "";
-const INDIAN_API_BASE_URL = "https://analyst.indianapi.in";
+const INDIAN_API_BASE_URL = "https://stock.indianapi.in";
 const MRCHARTIST_BASE_URL = "https://api.mrchartist.in";
 const ENGINE_VERSION = "2.0.0";
 
