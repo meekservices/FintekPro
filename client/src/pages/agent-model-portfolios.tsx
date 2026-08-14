@@ -3878,6 +3878,19 @@ export default function AgentModelPortfoliosPage() {
         driftThreshold:         p.driftThreshold        != null ? Number(p.driftThreshold)         : staticP?.driftThreshold         ?? 5,
         maxDrawdownThreshold:   p.maxDrawdownThreshold  != null ? Number(p.maxDrawdownThreshold)   : staticP?.maxDrawdownThreshold   ?? 20,
         conflictDisclosure: p.conflictDisclosure ?? staticP?.conflictDisclosure ?? undefined,
+        // ── Bug A fix: period-return fields were never mapped from the API response.
+        // These 8 fields power the 1M/3M/6M/YTD/SI pill badges on each card.
+        // Without this mapping the nightly TWRR values stored in model_portfolios
+        // were fetched by the DB but then silently dropped → "Period returns computing…" forever.
+        // Rule: use ?? not || — 0.00% is a valid return, not a missing value.
+        return1m:                p.return1m                != null ? Number(p.return1m)                : (staticP?.return1m                ?? undefined),
+        return3m:                p.return3m                != null ? Number(p.return3m)                : (staticP?.return3m                ?? undefined),
+        return6m:                p.return6m                != null ? Number(p.return6m)                : (staticP?.return6m                ?? undefined),
+        returnYtd:               p.returnYtd               != null ? Number(p.returnYtd)               : (staticP?.returnYtd               ?? undefined),
+        cagr2y:                  p.cagr2y                  != null ? Number(p.cagr2y)                  : (staticP?.cagr2y                  ?? undefined),
+        returnSinceInception:    p.returnSinceInception    != null ? Number(p.returnSinceInception)    : (staticP?.returnSinceInception    ?? undefined),
+        benchmarkSinceInception: p.benchmarkSinceInception != null ? Number(p.benchmarkSinceInception) : (staticP?.benchmarkSinceInception ?? undefined),
+        periodsComputedAt:       p.periodsComputedAt       ?? staticP?.periodsComputedAt               ?? null,
       };
     });
   }, [apiData]);

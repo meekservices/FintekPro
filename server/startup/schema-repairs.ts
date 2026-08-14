@@ -3334,6 +3334,10 @@ export async function ensureSharedRouteTables(): Promise<void> {
 
   // ── Fix FASP-4: Materialised period return columns on model_portfolios ──────────
   // ADD COLUMN IF NOT EXISTS — safe to run on every boot.
+  // Bug D fix: migDb.execute({sql, params}) is invalid — Drizzle only accepts
+  // tagged sql`` templates. The plain-object form throws "query.getSQL is not a
+  // function" on every boot → ALTER TABLE never runs. Use migPool.query() (raw pg)
+  // instead — same pattern as server/index.ts line 191 for identical columns.
   const phase4Cols: Array<[string, string]> = [
     ["return_1m",                "NUMERIC(8,4)"],
     ["return_3m",                "NUMERIC(8,4)"],
@@ -3347,8 +3351,7 @@ export async function ensureSharedRouteTables(): Promise<void> {
   let p4ok = 0;
   for (const [col, colType] of phase4Cols) {
     try {
-      // Use raw string to avoid drizzle template literal parsing of SQL identifiers
-      await migDb.execute({ sql: `ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS "${col}" ${colType}`, params: [] } as any);
+      await migPool.query(`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS "${col}" ${colType}`);
       p4ok++;
     } catch (e: any) {
       console.warn(`  ⚠️  Fix FASP-4 col ${col} (non-fatal):`, e.message?.slice(0, 80));

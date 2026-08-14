@@ -100,10 +100,13 @@ function generateSyntheticNavCurve(
  *   2. JSONB holdings seed (fallback for portfolios not yet migrated)
  *
  * Benchmark source priority:
- *   1. mf_nav_history for portfolio.benchmark_scheme_code (real monthly NAV)
+ *   1. benchmark_return column of mf_monthwise_performance (real monthly %)
  *   2. Hardcoded 0.80%/month flat rate (9.6% pa) — last-resort fallback
  *
  * Returns null if insufficient data (< 2 months).
+ *
+ * Bug C fix: previous version queried non-existent columns nav_date + nav.
+ * mf_monthwise_performance has month_year (date) + return_percent (numeric).
  */
 async function fetchRealNavCurve(db: any, portfolio: any): Promise<MonthRow[] | null> {
   const pid = portfolio.id as string;
@@ -127,84 +130,55 @@ async function fetchRealNavCurve(db: any, portfolio: any): Promise<MonthRow[] | 
 
   // JSONB fallback: use seed holdings if relational table yielded nothing
   if (schemeCodes.length === 0) {
-    const holdings: any[] = Array.isArray(portfolio.holdings) ? portfolio.holdings : [];
+    // Bug B-style safe parse: pg returns JSONB as already-parsed object
+    const rawH = portfolio.holdings;
+    const holdings: any[] = Array.isArray(rawH)
+      ? rawH
+      : typeof rawH === "string"
+      ? (() => { try { return JSON.parse(rawH); } catch { return []; } })()
+      : [];
     schemeCodes = holdings
-      .map((h: any) => h.schemeCode ?? h.scheme_code)
+      .map((h: any) => h.schemeCode ?? h.scheme_code ?? h.amfiSchemeCode)
       .filter(Boolean)
       .map(String);
   }
 
   if (schemeCodes.length === 0) return null;
 
-  // ── Benchmark NAV series: real from mf_nav_history if available ───────────
-  const benchSchemeCode: string | null =
-    portfolio.benchmark_scheme_code ?? portfolio.benchmarkSchemeCode ?? null;
-
-  let benchNavByMonth: Map<string, number> | null = null;
-
-  if (benchSchemeCode) {
-    try {
-      const benchRes = await db.execute(sql`
-        SELECT
-          DATE_TRUNC('month', nav_date)::DATE AS month_start,
-          AVG(nav::NUMERIC)                  AS avg_bench_nav
-        FROM mf_nav_history
-        WHERE scheme_code = ${benchSchemeCode}
-          AND nav_date >= COALESCE(${inceptionFilter}::DATE, NOW() - INTERVAL '3 years')
-        GROUP BY 1
-        ORDER BY 1 ASC
-      `);
-      const benchRows = ((benchRes as any).rows ?? []) as any[];
-      if (benchRows.length >= 2) {
-        benchNavByMonth = new Map(
-          benchRows.map((r: any) => [r.month_start as string, Number(r.avg_bench_nav)])
-        );
-      }
-    } catch { /* mf_nav_history not populated for benchSchemeCode — fall back to flat */ }
-  }
-
-  // ── Portfolio blended NAV from mf_monthwise_performance ──────────────────
+  // ── Bug C fix: query month_year + return_percent (not nav_date + nav) ─────
+  // Fetch monthly return_percent per scheme, group by month, average across
+  // all scheme codes (equal-weight blend — good enough for chart accuracy).
   try {
     const res = await db.execute(sql`
       SELECT
-        DATE_TRUNC('month', nav_date)::DATE AS month_start,
-        AVG(nav) AS avg_nav
+        month_year::TEXT                        AS month_start,
+        AVG(return_percent::NUMERIC)            AS avg_return_pct,
+        AVG(benchmark_return::NUMERIC)          AS avg_bench_pct
       FROM mf_monthwise_performance
       WHERE scheme_code = ANY(${schemeCodes})
-        AND nav_date >= COALESCE(${inceptionFilter}::DATE, NOW() - INTERVAL '3 years')
-      GROUP BY 1
-      ORDER BY 1 ASC
+        AND month_year >= COALESCE(${inceptionFilter}::DATE, NOW() - INTERVAL '3 years')
+      GROUP BY month_year
+      ORDER BY month_year ASC
     `);
 
     const rows = ((res as any).rows ?? []) as any[];
     if (rows.length < 2) return null;
 
     const navRows: MonthRow[] = [];
-    let nav        = 1000;
-    let bench      = 1000;
-    let prevBenchNav: number | null = null;
+    let nav   = 1000;
+    let bench = 1000;
 
     for (const r of rows) {
-      const monthKey = r.month_start as string;
-      const factor   = Number(r.avg_nav ?? 1);
-      if (!isNaN(factor) && factor > 0) {
-        nav = nav * (1 + (factor - 1) * 0.01);
-      }
+      // return_percent is a monthly % — e.g. 1.5 for 1.5%, -2.3 for -2.3%
+      const returnPct = Number(r.avg_return_pct ?? 0);
+      const benchPct  = Number(r.avg_bench_pct  ?? 0.80); // fallback: ~9.6% pa
 
-      // Benchmark: use real monthly NAV movement if available
-      if (benchNavByMonth) {
-        const curBenchNav = benchNavByMonth.get(monthKey) ?? null;
-        if (curBenchNav !== null && prevBenchNav !== null) {
-          bench = bench * (curBenchNav / prevBenchNav);
-        }
-        prevBenchNav = curBenchNav ?? prevBenchNav;
-      } else {
-        bench *= 1.0080; // ~9.6% pa flat — last-resort fallback
-      }
+      if (!isNaN(returnPct)) nav   *= (1 + returnPct / 100);
+      if (!isNaN(benchPct))  bench *= (1 + benchPct  / 100);
 
       navRows.push({
-        month_start:   monthKey,
-        portfolio_nav: Math.round(nav * 100) / 100,
+        month_start:   r.month_start,
+        portfolio_nav: Math.round(nav   * 100) / 100,
         benchmark_nav: Math.round(bench * 100) / 100,
         had_rebalance: false,
       });
@@ -215,6 +189,7 @@ async function fetchRealNavCurve(db: any, portfolio: any): Promise<MonthRow[] | 
     return null;
   }
 }
+
 
 // ─── Core: compute + write history for one portfolio ─────────────────────────
 

@@ -1008,10 +1008,29 @@ export async function refreshAllModelPortfolioMetrics(): Promise<void> {
 			latency_ms: Date.now() - start,
 			status: "success",
 		});
+
+		// ── Chain TWRR period computation (Bug B fix: JSONB safe parse now active) ──
+		// Populates return_1m, return_3m, return_6m, return_ytd, cagr_2y,
+		// return_since_inception, benchmark_since_inception on model_portfolios.
+		// Previously ran as a completely separate nightly step but the trigger endpoint
+		// was not reachable due to a Docker layer cache issue. Chaining here ensures
+		// period returns are populated every time trigger-metrics-refresh is called.
+		logger.info("[ModelPortfolioMetrics] 🔄 Chaining TWRR period computation...");
+		const twrrResult = await computeAndPersistAllPortfolioTWRRPeriods();
+		logger.info("[ModelPortfolioMetrics] ✅ TWRR periods chained", {
+			event: "MODEL_PORTFOLIO_TWRR_CHAINED",
+			user_id: "system",
+			processed: twrrResult.processed,
+			updated: twrrResult.updated,
+			skipped: twrrResult.skipped,
+			latency_ms: twrrResult.latencyMs,
+			status: "success",
+		});
 	} catch (err) {
 		logger.error("[ModelPortfolioMetrics] Fatal error during refresh:", err instanceof Error ? err : new Error(String(err)));
 	}
 }
+
 
 /**
  * Start the daily metrics scheduler.
@@ -1878,7 +1897,15 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 			processed++;
 			try {
 				// ── 1. Find primary MF holding ────────────────────────────────────
-				const holdings = JSON.parse(port.holdings ?? "[]") as any[];
+				// Bug B fix: pg driver returns JSONB columns as already-parsed JS objects.
+				// JSON.parse on a JS array calls .toString() → "[object Object]" → SyntaxError
+				// → caught → every portfolio skipped → return_1m/ytd never written to DB.
+				const rawHoldings = port.holdings;
+				const holdings: any[] = Array.isArray(rawHoldings)
+					? rawHoldings
+					: typeof rawHoldings === "string"
+					? (() => { try { return JSON.parse(rawHoldings); } catch { return []; } })()
+					: [];
 				const mfHoldings = holdings.filter((h: any) =>
 					(h.amfiSchemeCode || h.schemeCode) && Number(h.weight ?? 0) > 0
 				);

@@ -29,7 +29,7 @@ import { db } from "../db";
 import { modelPortfolios } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { logger } from "../logger";
-import { refreshAllModelPortfolioMetrics, computeAndPersistAllPortfolioCAGRs } from "../services/model-portfolio-metrics-service";
+import { refreshAllModelPortfolioMetrics, computeAndPersistAllPortfolioCAGRs, computeAndPersistAllPortfolioTWRRPeriods } from "../services/model-portfolio-metrics-service";
 import {
   migrateHoldingsToRelationalTable,
   getHoldingsForPortfolio,
@@ -1449,6 +1449,39 @@ modelPortfoliosRouter.post("/admin/trigger-metrics-refresh", async (_req: Reques
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return res.status(500).json({ success: false, error: msg });
+  }
+});
+
+// ── POST /api/model-portfolios/admin/trigger-twrr-periods ──────────────────────
+// Immediately runs the TWRR period-return computation for all published portfolios.
+// Populates: return_1m, return_3m, return_6m, return_ytd, cagr_2y,
+//            return_since_inception, benchmark_since_inception, periods_computed_at.
+// Normally runs nightly after the NAV history refresh. Call this after a Bug B / Bug C fix
+// to backfill period returns without waiting for the next cron window.
+// Non-blocking — fire-and-forget; logs progress via [PortfolioTWRR] structured events.
+modelPortfoliosRouter.post("/admin/trigger-twrr-periods", async (_req: Request, res: Response) => {
+  try {
+    computeAndPersistAllPortfolioTWRRPeriods()
+      .then((r) => logger.info("[ModelPortfolios] TWRR backfill complete", {
+        event: "ADMIN_TWRR_BACKFILL_DONE",
+        user_id: "admin",
+        processed: r.processed, updated: r.updated, skipped: r.skipped,
+        latency_ms: r.latencyMs, status: "success",
+      }))
+      .catch((err: Error) => logger.error("[ModelPortfolios] TWRR backfill error", {
+        event: "ADMIN_TWRR_BACKFILL_ERROR",
+        user_id: "admin",
+        error: err.message, retryable: true,
+      }));
+    return res.json({
+      success: true,
+      message: "TWRR period computation started in background. Populates return_1m/3m/6m/ytd/SI on all published portfolios.",
+      estimatedDuration: "30-120 seconds depending on mf_monthwise_performance coverage",
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ success: false, error: msg, meta: { timestamp: new Date().toISOString() } });
   }
 });
 
