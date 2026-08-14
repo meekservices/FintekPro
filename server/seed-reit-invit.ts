@@ -140,7 +140,7 @@ const LISTED_REITS: ReitData[] = [
 		sebiEffectiveDate: SEBI_EFFECTIVE_DATE,
 	},
 	{
-		symbol: "NEXUS",
+		symbol: "NXST",
 		name: "Nexus Select Trust",
 		sponsor: "Blackstone",
 		manager: "Nexus Select Mall Management",

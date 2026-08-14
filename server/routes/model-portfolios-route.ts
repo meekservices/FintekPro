@@ -2866,7 +2866,7 @@ modelPortfoliosRouter.post("/admin/seed-holdings", async (_req: Request, res: Re
       { rank: 4, name: "IndiGrid InvIT",                 symbol: "INDIGRID",  isin: "INE219X07025", weight: 14, type: "InvIT" },
       { rank: 5, name: "IRB InvIT Fund",                 symbol: "IRBINVIT",  isin: "INE761T23010", weight: 12, type: "InvIT" },
       { rank: 6, name: "Powergrid Infrastructure InvIT", symbol: "PGINFRA",   isin: "INE977K08013", weight: 10, type: "InvIT" },
-      { rank: 7, name: "Nexus Select Trust REIT",        symbol: "NEXUSMALL", isin: "INE0CJ07019",  weight:  9, type: "REIT" },
+      { rank: 7, name: "Nexus Select Trust REIT",        symbol: "NXST",      isin: "INE0CJ07019",  weight:  9, type: "REIT" },
     ],
     "pure-debt-portfolio": [
       { rank: 1, name: "SBI Magnum Gilt Fund", weight: 22, type: "Gilt Bond MF" },

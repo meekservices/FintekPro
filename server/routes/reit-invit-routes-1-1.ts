@@ -828,9 +828,9 @@ router.post("/admin/seed-all", async (_req: Request, res: Response) => {
     try {
       const refreshed = await reitInvitDataService.refreshAll();
       priceResult = {
-        reitsUpdated:  refreshed.reits?.updated  ?? 0,
-        invitsUpdated: refreshed.invits?.updated  ?? 0,
-        errors:        (refreshed.reits?.errors?.length ?? 0) + (refreshed.invits?.errors?.length ?? 0),
+        reitsUpdated:  refreshed.reits.success,
+        invitsUpdated: refreshed.invits.success,
+        errors:        refreshed.reits.failed + refreshed.invits.failed,
       };
     } catch (priceErr) {
       // Non-fatal — seed already committed; price refresh can be retried
@@ -872,10 +872,10 @@ router.post("/admin/refresh-prices", async (_req: Request, res: Response) => {
     return res.json({
       success: true,
       data: {
-        reitsUpdated:  refreshed.reits?.updated  ?? 0,
-        reitErrors:    refreshed.reits?.errors   ?? [],
-        invitsUpdated: refreshed.invits?.updated  ?? 0,
-        invitErrors:   refreshed.invits?.errors   ?? [],
+        reitsUpdated:  refreshed.reits.success,
+        reitsFailed:   refreshed.reits.failed,
+        invitsUpdated: refreshed.invits.success,
+        invitsFailed:  refreshed.invits.failed,
       },
       meta: {
         timestamp: new Date().toISOString(),
