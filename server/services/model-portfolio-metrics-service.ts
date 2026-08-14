@@ -1906,6 +1906,17 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 					: typeof rawHoldings === "string"
 					? (() => { try { return JSON.parse(rawHoldings); } catch { return []; } })()
 					: [];
+				// Diagnostic: log holdings structure for every portfolio so we can trace silent skips
+				logger.info("[PortfolioTWRR] holdings probe", {
+					event: "PORTFOLIO_TWRR_HOLDINGS_PROBE",
+					portfolio_id: port.id,
+					raw_type: typeof rawHoldings,
+					is_array: Array.isArray(rawHoldings),
+					length: holdings.length,
+					has_amfi: holdings.some((h: any) => !!(h.amfiSchemeCode || h.schemeCode)),
+					has_symbol: holdings.some((h: any) => !!h.symbol),
+					sample_keys: holdings[0] ? Object.keys(holdings[0]).join(",") : "EMPTY",
+				});
 				const mfHoldings = holdings.filter((h: any) =>
 					(h.amfiSchemeCode || h.schemeCode) && Number(h.weight ?? 0) > 0
 				);
