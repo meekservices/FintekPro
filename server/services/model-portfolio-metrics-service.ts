@@ -2194,6 +2194,204 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 	return { processed, updated, skipped, latencyMs: Date.now() - t0 };
 }
 
+// ── computeAndPersistDividendYields ──────────────────────────────────────────
+/**
+ * Computes estimated portfolio-level dividend/distribution yield for every
+ * published portfolio and persists it in model_portfolios.portfolio_dividend_yield.
+ *
+ * Yield per holding type:
+ *   REIT       → reits.distribution_yield (DB) or static table fallback
+ *   InvIT      → invits.distribution_yield (DB) or static table fallback
+ *   Stock      → financial_instruments_cache.dividend_yield or static fallback
+ *   Bond/Gilt  → 7.0%  (investment-grade credit approximation)
+ *   Liquid MF  → 6.5%  (liquid fund gross yield approximation)
+ *   Gold / ETF → 0%
+ *   Equity MF  → 0%    (growth plan, no distribution yield applicable)
+ *
+ * @returns { processed, updated, skipped }
+ */
+export async function computeAndPersistDividendYields(): Promise<{
+	processed: number;
+	updated: number;
+	skipped: number;
+}> {
+	const t0 = Date.now();
+	let processed = 0, updated = 0, skipped = 0;
+
+	// ── Static fallback yield table (% p.a.) ─────────────────────────────────
+	// Used when the live DB value is null (e.g. not yet enriched by price refresh)
+	const STATIC_REIT_YIELD: Record<string, number> = {
+		EMBASSY:   7.0,  // Embassy Office Parks REIT
+		MINDSPACE: 6.8,  // Mindspace Business Parks REIT
+		BIRET:     7.5,  // Brookfield India Real Estate Trust
+		NXST:      5.5,  // Nexus Select Trust
+	};
+	const STATIC_INVIT_YIELD: Record<string, number> = {
+		INDIGRID:  9.0,  // India Grid Trust
+		IRBINVIT:  11.0, // IRB InvIT Fund
+		PGINFRA:   8.0,  // PowerGrid Infrastructure InvIT
+		NHIT:      7.5,  // National Highways Infra Trust
+		BHINVIT:   8.0,  // Bharat Highway InvIT
+		JIOINVIT:  8.5,  // Jio Digital Fibre InvIT
+	};
+	const STATIC_STOCK_YIELD: Record<string, number> = {
+		ITC:        3.2,  COALINDIA:  6.0,  ONGC:       5.0,
+		HINDZINC:   7.0,  NTPC:       4.5,  POWERGRID:  4.5,
+		HDFCBANK:   1.2,  INFY:       2.5,  RELIANCE:   0.4,
+		BAJFINANCE: 0.4,  HDFC:       1.1,  TCS:        1.6,
+		WIPRO:      0.3,  MARUTI:     0.8,  AXISBANK:   0.1,
+	};
+
+	try {
+		// Pre-load REIT/InvIT distribution yields from DB
+		const [reitRows, invitRows] = await Promise.all([
+			db.execute(sql`SELECT symbol, distribution_yield FROM reits WHERE distribution_yield IS NOT NULL`),
+			db.execute(sql`SELECT symbol, distribution_yield FROM invits WHERE distribution_yield IS NOT NULL`),
+		]);
+		const reitYieldMap = new Map<string, number>(
+			(reitRows.rows as any[]).map((r) => [String(r.symbol).toUpperCase(), Number(r.distribution_yield)])
+		);
+		const invitYieldMap = new Map<string, number>(
+			(invitRows.rows as any[]).map((r) => [String(r.symbol).toUpperCase(), Number(r.distribution_yield)])
+		);
+
+		// Pre-load stock dividend yields from financial_instruments_cache
+		const ficRows = await db.execute(sql`
+			SELECT symbol, dividend_yield
+			FROM financial_instruments_cache
+			WHERE dividend_yield IS NOT NULL AND dividend_yield > 0
+		`);
+		const stockYieldMap = new Map<string, number>(
+			(ficRows.rows as any[]).map((r) => [String(r.symbol).toUpperCase(), Number(r.dividend_yield)])
+		);
+
+		// Fetch all published portfolios
+		const portfolios = await db.execute(sql`
+			SELECT id, holdings FROM model_portfolios WHERE is_published = true
+		`);
+
+		for (const port of portfolios.rows as any[]) {
+			processed++;
+			try {
+				const rawHoldings = port.holdings;
+				const holdings: any[] = Array.isArray(rawHoldings)
+					? rawHoldings
+					: typeof rawHoldings === "string"
+					? (() => { try { return JSON.parse(rawHoldings); } catch { return []; } })()
+					: [];
+
+				if (!holdings.length) { skipped++; continue; }
+
+				let weightedYield = 0;
+				let totalWeight = 0;
+
+				for (const h of holdings) {
+					const weight = Number(h.weight ?? 0);
+					if (weight <= 0) continue;
+					totalWeight += weight;
+
+					const type  = String(h.type  ?? "").toLowerCase();
+					const sym   = String(h.symbol ?? "").toUpperCase();
+					let yieldPct = 0;
+
+					if (type.includes("reit")) {
+						// REIT: DB → static fallback
+						yieldPct = reitYieldMap.get(sym) ?? STATIC_REIT_YIELD[sym] ?? 6.5;
+
+					} else if (type.includes("invit")) {
+						// InvIT: DB → static fallback
+						yieldPct = invitYieldMap.get(sym) ?? STATIC_INVIT_YIELD[sym] ?? 8.5;
+
+					} else if (
+						type.includes("stock") ||
+						type.includes("equity") ||
+						type.includes("psu") ||
+						type.includes("infrastructure stock") ||
+						type.includes("large cap stock") ||
+						type.includes("mid cap stock")
+					) {
+						// Stock: financial_instruments_cache → static fallback → 0
+						yieldPct = stockYieldMap.get(sym) ?? STATIC_STOCK_YIELD[sym] ?? 0;
+
+					} else if (
+						type.includes("bond") ||
+						type.includes("gilt") ||
+						type.includes("corporate bond") ||
+						type.includes("psu bond") ||
+						type.includes("debt")
+					) {
+						// Fixed income ~ 7%
+						yieldPct = 7.0;
+
+					} else if (type.includes("liquid")) {
+						yieldPct = 6.5;
+
+					} else if (
+						type.includes("gold") ||
+						type.includes("etf") && !type.includes("bond") && !type.includes("liquid")
+					) {
+						yieldPct = 0;
+
+					} else if (type.includes("sovereign gold bond") || type.includes("sgb")) {
+						yieldPct = 2.5; // SGB pays 2.5% p.a. interest
+
+					} else if (type.includes("retirement mf") || type.includes("mf") || type.includes("fund")) {
+						// Equity/hybrid MFs in growth plan — no distribution
+						yieldPct = 0;
+
+					} else if (type.includes("sif")) {
+						// Specialised Investment Funds — treat as equity (0% yield)
+						yieldPct = 0;
+					}
+
+					weightedYield += weight * yieldPct;
+				}
+
+				if (totalWeight <= 0) { skipped++; continue; }
+
+				// Weighted average yield
+				const portfolioDividendYield = Math.round((weightedYield / totalWeight) * 100) / 100;
+
+				await db.execute(sql`
+					UPDATE model_portfolios
+					SET portfolio_dividend_yield = ${portfolioDividendYield},
+					    updated_at               = NOW()
+					WHERE id = ${port.id}
+				`);
+
+				updated++;
+				logger.info("[DividendYield] computed", {
+					event: "PORTFOLIO_DIVIDEND_YIELD_UPDATED",
+					user_id: "system",
+					portfolio_id: port.id,
+					portfolio_dividend_yield: portfolioDividendYield,
+					total_weight: totalWeight,
+					status: "success",
+					latency_ms: Date.now() - t0,
+				});
+
+			} catch (rowErr: any) {
+				skipped++;
+				logger.warn("[DividendYield] row error (non-fatal)", {
+					portfolio_id: port.id, error: rowErr.message?.slice(0, 80),
+				});
+			}
+		}
+
+		logger.info("[DividendYield] all portfolios computed", {
+			event: "PORTFOLIO_DIVIDEND_YIELD_ALL_COMPLETE",
+			user_id: "system",
+			processed, updated, skipped,
+			latency_ms: Date.now() - t0,
+		});
+
+	} catch (err: any) {
+		logger.error("[DividendYield] fatal error", { error: err.message, retryable: true });
+	}
+
+	return { processed, updated, skipped };
+}
+
 // ── enrichAndPersistAllHoldings ───────────────────────────────────────────────
 /**
  * Scheduled wrapper: enriches all portfolio holdings with live amfiSchemeCode,

@@ -182,6 +182,12 @@ async function main() {
       ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS rebalancing_mode VARCHAR DEFAULT 'drift_triggered'
     `).catch(() => {/* column may already exist */});
 
+    // 2b. Ensure portfolio_dividend_yield column exists
+    await phFDb.execute(phFSql`
+      ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS portfolio_dividend_yield NUMERIC(8,4)
+    `).catch(() => {/* column may already exist */});
+    console.log("  ✅ Phase F.2b: portfolio_dividend_yield column ensured");
+
     // 3. Assign FP-NNN codes to all portfolios that don't have one yet.
     //    Uses a deterministic ordering by created_at so codes never change on re-runs.
     const uncodedRes = await phFDb.execute(phFSql`

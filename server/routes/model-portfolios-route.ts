@@ -29,7 +29,7 @@ import { db } from "../db";
 import { modelPortfolios } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { logger } from "../logger";
-import { refreshAllModelPortfolioMetrics, computeAndPersistAllPortfolioCAGRs, computeAndPersistAllPortfolioTWRRPeriods } from "../services/model-portfolio-metrics-service";
+import { refreshAllModelPortfolioMetrics, computeAndPersistAllPortfolioCAGRs, computeAndPersistAllPortfolioTWRRPeriods, computeAndPersistDividendYields } from "../services/model-portfolio-metrics-service";
 import {
   migrateHoldingsToRelationalTable,
   getHoldingsForPortfolio,
@@ -1462,6 +1462,12 @@ modelPortfoliosRouter.post("/admin/trigger-metrics-refresh", async (_req: Reques
 modelPortfoliosRouter.post("/admin/trigger-twrr-periods", async (_req: Request, res: Response) => {
   try {
     const result = await computeAndPersistAllPortfolioTWRRPeriods();
+
+    // Also compute dividend yields — non-fatal, fire-and-forget
+    computeAndPersistDividendYields().catch((e) =>
+      logger.warn("[ModelPortfolios] dividend yield computation failed (non-fatal)", { error: String(e).slice(0, 120) })
+    );
+
     logger.info("[ModelPortfolios] TWRR backfill complete", {
       event: "ADMIN_TWRR_BACKFILL_DONE",
       user_id: "admin",
@@ -1489,7 +1495,36 @@ modelPortfoliosRouter.post("/admin/trigger-twrr-periods", async (_req: Request, 
 });
 
 
-// ── POST /api/model-portfolios/admin/recompute-cagr-from-holdings ──────────────
+// ── POST /api/model-portfolios/admin/compute-dividend-yield ───────────────────
+// On-demand computation of portfolio_dividend_yield for all published portfolios.
+// Automatically called (fire-and-forget) by trigger-twrr-periods.
+// Uses 3-tier lookup: REIT/InvIT DB → stock financial_instruments_cache → static table.
+modelPortfoliosRouter.post("/admin/compute-dividend-yield", async (_req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const result = await computeAndPersistDividendYields();
+    return res.json({
+      success: true,
+      data: result,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: ENGINE_VERSION,
+        latency_ms: Date.now() - t0,
+        message: `Computed portfolio_dividend_yield for ${result.updated}/${result.processed} portfolios.`,
+      },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({
+      success: false,
+      error_code: "DIVIDEND_YIELD_COMPUTE_ERROR",
+      message: msg,
+      retryable: true,
+      meta: { timestamp: new Date().toISOString() },
+    });
+  }
+});
+
 // Recomputes 1Y/3Y/5Y CAGR for all portfolios from actual holding returns stored in:
 //   - financial_instruments_cache (MFs: return_1y, return_3y, return_5y)
 //   - screener_derived_metrics    (Stocks: return_1y, return_3y)

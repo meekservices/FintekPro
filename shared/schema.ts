@@ -11409,6 +11409,10 @@ export const modelPortfolios = pgTable("model_portfolios", {
   returnSinceInception: numeric("return_since_inception"),
   /** Benchmark since-inception TWRR — for direct comparison on the AI tab */
   benchmarkSinceInception: numeric("benchmark_since_inception"),
+  /** Estimated forward dividend/distribution yield — weighted avg of constituent yields.
+   *  REITs: distributionYield | InvITs: distributionYield | Stocks: dividendYield | Bonds: ~7% | Gold/Liquid: ~0-6.5%.
+   *  Populated nightly alongside TWRR period returns. */
+  portfolioDividendYield: numeric("portfolio_dividend_yield"),
   /** Timestamp when period returns were last computed by the nightly job */
   periodsComputedAt:    timestamp("periods_computed_at"),
 }, (table) => [
