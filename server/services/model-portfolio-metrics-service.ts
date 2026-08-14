@@ -1906,17 +1906,6 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 					: typeof rawHoldings === "string"
 					? (() => { try { return JSON.parse(rawHoldings); } catch { return []; } })()
 					: [];
-				// Diagnostic: log holdings structure for every portfolio so we can trace silent skips
-				logger.info("[PortfolioTWRR] holdings probe", {
-					event: "PORTFOLIO_TWRR_HOLDINGS_PROBE",
-					portfolio_id: port.id,
-					raw_type: typeof rawHoldings,
-					is_array: Array.isArray(rawHoldings),
-					length: holdings.length,
-					has_amfi: holdings.some((h: any) => !!(h.amfiSchemeCode || h.schemeCode)),
-					has_symbol: holdings.some((h: any) => !!h.symbol),
-					sample_keys: holdings[0] ? Object.keys(holdings[0]).join(",") : "EMPTY",
-				});
 				const mfHoldings = holdings.filter((h: any) =>
 					(h.amfiSchemeCode || h.schemeCode) && Number(h.weight ?? 0) > 0
 				);
@@ -1934,30 +1923,37 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 
 					if (!stockHoldings.length) { skipped++; continue; }
 
+					const indiaApiAvailable = !!process.env.INDIAN_API_KEY;
 					logger.info("[PortfolioTWRR] stock path entered", {
 						event: "PORTFOLIO_TWRR_STOCK_START",
 						user_id: "system",
 						portfolio_id: port.id,
-						api_key_present: !!process.env.INDIAN_API_KEY,
-						api_key_len: (process.env.INDIAN_API_KEY ?? "").length,
+						primary_source: indiaApiAvailable ? "INDIAN_API" : "YAHOO_FINANCE",
+						indiaapi_key_present: indiaApiAvailable,
 						stock_holdings: stockHoldings.map((h: any) => h.symbol),
 					});
 
-
 					const totalWeight = stockHoldings.reduce((s: number, h: any) => s + Number(h.weight), 0);
 
-					// Fetch all 5 holdings in PARALLEL — reduces per-portfolio wall-clock from ~7.5s to ~1.5s,
-					// preventing Cloud Run from killing the background task before all portfolios are processed.
+					// Fetch all 5 holdings in PARALLEL — reduces per-portfolio wall-clock from ~7.5s to ~1.5s.
+					// Source hierarchy: IndianAPI.in (93) primary → Yahoo Finance (82) fallback.
+					// IndianAPI provides NSE+BSE native data; Yahoo is a free public fallback.
 					type HoldingResult = { wFrac: number; r1m: number|null; r3m: number|null; r6m: number|null; rYtd: number|null };
 					const holdingResults = await Promise.allSettled<HoldingResult>(
 						stockHoldings.map(async (h: any): Promise<HoldingResult> => {
 							const sym = String(h.symbol).toUpperCase().replace(/\.NS$|\.BO$/i, "");
-							const navData = await fetchYahooHistorical(sym, "1y");
-							logger.info("[PortfolioTWRR] IndiaAPI historical fetch", {
+							// IndiaAPI primary (conf=93) — returns [] if key absent/403
+							let navData = indiaApiAvailable
+								? await fetchIndianAPIHistorical(sym, "1y")
+								: [];
+							const usedSource = navData.length >= 5 ? "INDIAN_API" : "YAHOO_FINANCE";
+							// Yahoo Finance fallback (conf=82) — free, no key, works from Cloud Run
+							if (navData.length < 5) navData = await fetchYahooHistorical(sym, "1y");
+							logger.info("[PortfolioTWRR] historical nav fetch", {
 								event: "PORTFOLIO_TWRR_STOCK_NAV_FETCH",
 								user_id: "system",
 								portfolio_id: port.id,
-								source: "yahoo_finance",
+								source: usedSource,
 								symbol: sym,
 								rows: navData.length,
 								first_date: navData[0]?.date ?? null,
