@@ -1935,12 +1935,11 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 
 					const totalWeight = stockHoldings.reduce((s: number, h: any) => s + Number(h.weight), 0);
 
-					// Weighted return accumulators (coverage-weighted, scaled at the end)
-					let wRet1m = 0, wRet3m = 0, wRet6m = 0, wRetYtd = 0, wCov = 0;
-
-					for (const h of stockHoldings) {
-						try {
-							// Strip exchange suffixes that IndiaAPI doesn't expect
+					// Fetch all 5 holdings in PARALLEL — reduces per-portfolio wall-clock from ~7.5s to ~1.5s,
+					// preventing Cloud Run from killing the background task before all portfolios are processed.
+					type HoldingResult = { wFrac: number; r1m: number|null; r3m: number|null; r6m: number|null; rYtd: number|null };
+					const holdingResults = await Promise.allSettled<HoldingResult>(
+						stockHoldings.map(async (h: any): Promise<HoldingResult> => {
 							const sym = String(h.symbol).toUpperCase().replace(/\.NS$|\.BO$/i, "");
 							const navData = await fetchYahooHistorical(sym, "1y");
 							logger.info("[PortfolioTWRR] IndiaAPI historical fetch", {
@@ -1953,39 +1952,43 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 								first_date: navData[0]?.date ?? null,
 								last_date: navData[navData.length - 1]?.date ?? null,
 							});
-
-							if (navData.length < 5) continue;
-
+							if (navData.length < 5) return { wFrac: 0, r1m: null, r3m: null, r6m: null, rYtd: null };
 							const latestClose = navData[navData.length - 1].close;
-							const latestDateStr = navData[navData.length - 1].date; // YYYY-MM-DD
+							const latestDateStr = navData[navData.length - 1].date;
 							const nowStock = new Date(latestDateStr);
 							const wFrac = Number(h.weight) / totalWeight;
-
-							/** Price on or before a given ISO date (navData is ascending). */
 							const priceAt = (iso: string): number | null => {
 								let best: number | null = null;
 								for (const e of navData) { if (e.date <= iso) best = e.close; else break; }
 								return best;
 							};
 							const agoStock = (d: number) => {
-								const t = new Date(nowStock); t.setDate(t.getDate() - d);
-								return t.toISOString().slice(0, 10);
+								const ts = new Date(nowStock); ts.setDate(ts.getDate() - d);
+								return ts.toISOString().slice(0, 10);
 							};
 							const yearStartStock = `${nowStock.getFullYear()}-01-01`;
 							const stockRet = (start: number | null) =>
 								start && start > 0 ? (latestClose / start - 1) * 100 : null;
+							return {
+								wFrac,
+								r1m:  stockRet(priceAt(agoStock(30))),
+								r3m:  stockRet(priceAt(agoStock(91))),
+								r6m:  stockRet(priceAt(agoStock(182))),
+								rYtd: stockRet(priceAt(yearStartStock)),
+							};
+						}),
+					);
 
-							const r1m  = stockRet(priceAt(agoStock(30)));
-							const r3m  = stockRet(priceAt(agoStock(91)));
-							const r6m  = stockRet(priceAt(agoStock(182)));
-							const rYtd = stockRet(priceAt(yearStartStock));
-
-							if (r1m  !== null) wRet1m  += wFrac * r1m;
-							if (r3m  !== null) wRet3m  += wFrac * r3m;
-							if (r6m  !== null) wRet6m  += wFrac * r6m;
-							if (rYtd !== null) wRetYtd += wFrac * rYtd;
-							wCov += wFrac; // track coverage for scaling
-						} catch { /* skip this holding, continue to next */ }
+					// Weighted return accumulators (coverage-weighted, scaled at the end)
+					let wRet1m = 0, wRet3m = 0, wRet6m = 0, wRetYtd = 0, wCov = 0;
+					for (const res of holdingResults) {
+						if (res.status !== "fulfilled" || res.value.wFrac === 0) continue;
+						const { wFrac, r1m, r3m, r6m, rYtd } = res.value;
+						if (r1m  !== null) wRet1m  += wFrac * r1m;
+						if (r3m  !== null) wRet3m  += wFrac * r3m;
+						if (r6m  !== null) wRet6m  += wFrac * r6m;
+						if (rYtd !== null) wRetYtd += wFrac * rYtd;
+						wCov += wFrac;
 					}
 
 					// Need at least 40% weight coverage to produce a meaningful portfolio return
