@@ -1897,9 +1897,7 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 			processed++;
 			try {
 				// ── 1. Find primary MF holding ────────────────────────────────────
-				// Bug B fix: pg driver returns JSONB columns as already-parsed JS objects.
-				// JSON.parse on a JS array calls .toString() → "[object Object]" → SyntaxError
-				// → caught → every portfolio skipped → return_1m/ytd never written to DB.
+				// Bug B fix: pg driver returns JSONB as already-parsed JS objects (not strings).
 				const rawHoldings = port.holdings;
 				const holdings: any[] = Array.isArray(rawHoldings)
 					? rawHoldings
@@ -1911,63 +1909,58 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 				);
 				if (!mfHoldings.length) { skipped++; continue; }
 
-				// Sort by weight descending — use the highest-weight MF as proxy
 				mfHoldings.sort((a: any, b: any) => Number(b.weight ?? 0) - Number(a.weight ?? 0));
-				const primaryScheme: string = mfHoldings[0].amfiSchemeCode ?? mfHoldings[0].schemeCode;
+				const primaryScheme: string = String(mfHoldings[0].amfiSchemeCode ?? mfHoldings[0].schemeCode);
 
-				// ── 2. Fetch all monthly returns (ascending) ──────────────────────
-				const navRows = await db.execute(sql`
-					SELECT month_year, return_percent, benchmark_return
-					FROM mf_monthwise_performance
-					WHERE scheme_code = ${primaryScheme}
-					ORDER BY month_year ASC
-				`);
-				const navData = navRows.rows as Array<{ month_year: string; return_percent: string | null; benchmark_return: string | null }>;
+				// Fetch daily NAV
+				const navResp = await fetch(`https://api.mfapi.in/mf/${primaryScheme}`);
+				if (!navResp.ok) { skipped++; continue; }
+				const navJson = await navResp.json() as { data: Array<{ date: string; nav: string }> };
+				const navs = navJson.data
+					.map((d) => ({ date: d.date.split("-").reverse().join("-"), nav: parseFloat(d.nav) }))
+					.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+				
+				if (navs.length < 2) { skipped++; continue; }
 
-				if (!navData.length) { skipped++; continue; }
+				// ── 4. Compute period returns from daily NAV ────────────────────────
+				const latestNAV = navs[navs.length - 1].nav;
+				const latestDateStr = navs[navs.length - 1].date;
+				const now = new Date(latestDateStr);
 
-				// ── 3. Geometric chain helper ─────────────────────────────────────
-				const geomChain = (rows: typeof navData, field: "return_percent" | "benchmark_return" = "return_percent"): number | null => {
-					if (!rows.length) return null;
-					let cum = 1;
-					for (const r of rows) {
-						const rp = Number(r[field] ?? 0);
-						cum *= (1 + rp / 100);
-					}
-					return Math.round((cum - 1) * 10000) / 100;
+				/** NAV on or before a given YYYY-MM-DD date string (linear scan, navs is sorted asc). */
+				const navAtOrBefore = (iso: string): number | null => {
+					let best: number | null = null;
+					for (const e of navs) { if (e.date <= iso) best = e.nav; else break; }
+					return best;
 				};
+				/** Return % between two NAVs; null if startNAV is absent/zero. */
+				const ret = (startNAV: number | null): number | null =>
+					startNAV && startNAV > 0 ? Math.round(((latestNAV / startNAV) - 1) * 10000) / 100 : null;
+				/** Annualise a cumulative return over `yrs` years. */
+				const ann = (total: number | null, yrs: number): number | null =>
+					total !== null ? Math.round((Math.pow(1 + total / 100, 1 / yrs) - 1) * 10000) / 100 : null;
 
-				const annualise = (total: number | null, years: number): number | null => {
-					if (total === null) return null;
-					return Math.round((Math.pow(1 + total / 100, 1 / years) - 1) * 10000) / 100;
-				};
-
-				// ── 4. Compute each period ────────────────────────────────────────
-				const now = new Date();
-				const cutoff = (months: number) => {
-					const d = new Date(now);
-					d.setMonth(d.getMonth() - months);
-					return d.toISOString().slice(0, 10);
-				};
+				const daysAgo = (d: number) => { const t = new Date(now); t.setDate(t.getDate() - d); return t.toISOString().slice(0, 10); };
 				const yearStart = `${now.getFullYear()}-01-01`;
 
-				const slice = (fromDate: string) =>
-					navData.filter((r) => r.month_year >= fromDate);
+				const return1m  = ret(navAtOrBefore(daysAgo(30)));
+				const return3m  = ret(navAtOrBefore(daysAgo(91)));
+				const return6m  = ret(navAtOrBefore(daysAgo(182)));
+				const returnYtd = ret(navAtOrBefore(yearStart));
+				const cagr2y    = ann(ret(navAtOrBefore(daysAgo(730))), 2);
 
-				const rows1m  = slice(cutoff(1));
-				const rows3m  = slice(cutoff(3));
-				const rows6m  = slice(cutoff(6));
-				const rowsYtd = navData.filter((r) => r.month_year >= yearStart);
-				const rows2y  = slice(cutoff(24));
-				const rowsAll = navData; // since inception
+				// Since inception: use stored inception_date or first NAV date
+				const inceptionIso: string = port.inception_date
+					? new Date(port.inception_date).toISOString().slice(0, 10)
+					: navs[0].date;
+				const returnSinceInception = ret(navAtOrBefore(inceptionIso));
 
-				const return1m  = geomChain(rows1m);
-				const return3m  = geomChain(rows3m);
-				const return6m  = geomChain(rows6m);
-				const returnYtd = geomChain(rowsYtd);
-				const cagr2y    = annualise(geomChain(rows2y), 2);
-				const returnSinceInception = geomChain(rowsAll);
-				const benchmarkSinceInception = geomChain(rowsAll, "benchmark_return");
+				// Benchmark SI: synthetic flat-rate using stored benchmark_cagr_1y
+				const benchCagr1y = Number(port.benchmark_cagr_1y ?? 0) || 8;
+				const inceptionYrs = (now.getTime() - new Date(inceptionIso).getTime()) / (365.25 * 86400000);
+				const benchmarkSinceInception = inceptionYrs > 0
+					? Math.round((Math.pow(1 + benchCagr1y / 100, inceptionYrs) - 1) * 10000) / 100
+					: null;
 
 				// ── 5. Persist ────────────────────────────────────────────────────
 				await db.execute(sql`
@@ -1997,7 +1990,7 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 					return_ytd: returnYtd,
 					cagr_2y: cagr2y,
 					return_since_inception: returnSinceInception,
-					nav_bars_used: navData.length,
+					nav_bars_used: navs.length,
 					status: "success",
 					latency_ms: Date.now() - t0,
 				});
