@@ -810,4 +810,89 @@ function isKycSufficient(userTier: string, requiredTier: string): boolean {
 	return userLevel >= requiredLevel;
 }
 
+
+/**
+ * POST /api/reits-invits/admin/seed-all
+ * Seeds the full REIT/InvIT catalog (listed + unlisted) into the DB,
+ * then immediately enriches current prices via IndiaAPI → Yahoo Finance fallback.
+ * Idempotent — existing records are skipped on conflict (upsert by symbol).
+ */
+router.post("/admin/seed-all", async (_req: Request, res: Response) => {
+  const startMs = Date.now();
+  try {
+    const { seedAllReitsInvits } = await import("../seed-reit-invit");
+    const seedResult = await seedAllReitsInvits();
+
+    // Price enrichment — refresh live prices for all seeded instruments
+    let priceResult = { reitsUpdated: 0, invitsUpdated: 0, errors: 0 };
+    try {
+      const refreshed = await reitInvitDataService.refreshAll();
+      priceResult = {
+        reitsUpdated:  refreshed.reits?.updated  ?? 0,
+        invitsUpdated: refreshed.invits?.updated  ?? 0,
+        errors:        (refreshed.reits?.errors?.length ?? 0) + (refreshed.invits?.errors?.length ?? 0),
+      };
+    } catch (priceErr) {
+      // Non-fatal — seed already committed; price refresh can be retried
+      console.warn("[REIT/InvIT] Price refresh failed (non-fatal):", priceErr);
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        seed: seedResult,
+        prices: priceResult,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "1.0",
+        latency_ms: Date.now() - startMs,
+      },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({
+      success: false,
+      error_code: "REIT_INVIT_SEED_ERROR",
+      message: msg,
+      retryable: true,
+      meta: { timestamp: new Date().toISOString(), version: "1.0" },
+    });
+  }
+});
+
+/**
+ * POST /api/reits-invits/admin/refresh-prices
+ * Refreshes live prices for all existing REIT/InvIT records without re-seeding.
+ */
+router.post("/admin/refresh-prices", async (_req: Request, res: Response) => {
+  const startMs = Date.now();
+  try {
+    const refreshed = await reitInvitDataService.refreshAll();
+    return res.json({
+      success: true,
+      data: {
+        reitsUpdated:  refreshed.reits?.updated  ?? 0,
+        reitErrors:    refreshed.reits?.errors   ?? [],
+        invitsUpdated: refreshed.invits?.updated  ?? 0,
+        invitErrors:   refreshed.invits?.errors   ?? [],
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "1.0",
+        latency_ms: Date.now() - startMs,
+      },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({
+      success: false,
+      error_code: "REIT_INVIT_PRICE_REFRESH_ERROR",
+      message: msg,
+      retryable: true,
+      meta: { timestamp: new Date().toISOString(), version: "1.0" },
+    });
+  }
+});
+
 export default router;
