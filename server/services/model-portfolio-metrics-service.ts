@@ -2005,27 +2005,36 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 					const returnYtd = Math.round(wRetYtd * scale * 100) / 100;
 
 					// ── 2Y CAGR + SI: use financial_instruments_cache returns_3y/5y as proxy ─────
-					// IndiaAPI historical_data only supports up to 1y window.
-					const syms = stockHoldings.map((h: any) => String(h.symbol).toUpperCase());
-					const cacheRows = await db.execute(
-						sql`SELECT symbol, returns_3y, returns_5y
-						    FROM financial_instruments_cache
-						    WHERE symbol IN (${sql.raw(syms.map(s => `'${s.replace(/'/g, "''")}'`).join(","))})`
-					);
-					const retMap = new Map((cacheRows.rows as any[]).map((r) => [String(r.symbol).toUpperCase(), r]));
-
-					let w3y = 0, w5y = 0, wt3y = 0, wt5y = 0;
-					for (const h of stockHoldings) {
-						const row = retMap.get(String(h.symbol).toUpperCase());
-						const wf = Number(h.weight) / totalWeight;
-						if (row?.returns_3y != null) { w3y += wf * Number(row.returns_3y); wt3y += wf; }
-						if (row?.returns_5y != null) { w5y += wf * Number(row.returns_5y); wt5y += wf; }
+					// Isolated try/catch: cache failure MUST NOT abort the primary return UPDATE.
+					let cagr2y: number | null = null;
+					let returnSinceInception: number | null = null;
+					try {
+						const syms = stockHoldings.map((h: any) => String(h.symbol).toUpperCase());
+						const cacheRows = await db.execute(
+							sql`SELECT symbol, returns_3y, returns_5y
+							    FROM financial_instruments_cache
+							    WHERE symbol IN (${sql.raw(syms.map(s => `'${s.replace(/'/g, "''")}'`).join(","))})`
+						);
+						const retMap = new Map((cacheRows.rows as any[]).map((r) => [String(r.symbol).toUpperCase(), r]));
+						let w3y = 0, w5y = 0, wt3y = 0, wt5y = 0;
+						for (const h of stockHoldings) {
+							const row = retMap.get(String(h.symbol).toUpperCase());
+							const wf = Number(h.weight) / totalWeight;
+							if (row?.returns_3y != null) { w3y += wf * Number(row.returns_3y); wt3y += wf; }
+							if (row?.returns_5y != null) { w5y += wf * Number(row.returns_5y); wt5y += wf; }
+						}
+						cagr2y = wt3y >= 0.3 ? Math.round(w3y / wt3y * 100) / 100 : null;
+						returnSinceInception = wt5y >= 0.3
+							? Math.round(w5y / wt5y * 100) / 100
+							: cagr2y;
+					} catch (cacheErr) {
+						// Non-fatal: cagr_2y/return_since_inception remain null; primary returns still persist.
+						logger.warn("[PortfolioTWRR] CAGR cache lookup failed (non-fatal)", {
+							event: "PORTFOLIO_TWRR_CAGR_CACHE_MISS",
+							portfolio_id: port.id,
+							error: String(cacheErr).slice(0, 120),
+						});
 					}
-					const cagr2y = wt3y >= 0.3
-						? Math.round(w3y / wt3y * 100) / 100 : null;
-					const returnSinceInception = wt5y >= 0.3
-						? Math.round(w5y / wt5y * 100) / 100
-						: cagr2y;
 
 					// Benchmark SI: synthetic flat-rate
 					const benchCagr1yStock = Number(port.benchmark_cagr_1y ?? 0) || 10;
