@@ -1921,6 +1921,16 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 
 					if (!stockHoldings.length) { skipped++; continue; }
 
+					logger.info("[PortfolioTWRR] stock path entered", {
+						event: "PORTFOLIO_TWRR_STOCK_START",
+						user_id: "system",
+						portfolio_id: port.id,
+						api_key_present: !!process.env.INDIAN_API_KEY,
+						api_key_len: (process.env.INDIAN_API_KEY ?? "").length,
+						stock_holdings: stockHoldings.map((h: any) => h.symbol),
+					});
+
+
 					const totalWeight = stockHoldings.reduce((s: number, h: any) => s + Number(h.weight), 0);
 
 					// Weighted return accumulators (coverage-weighted, scaled at the end)
@@ -1931,6 +1941,16 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 							// Strip exchange suffixes that IndiaAPI doesn't expect
 							const sym = String(h.symbol).toUpperCase().replace(/\.NS$|\.BO$/i, "");
 							const navData = await fetchIndianAPIHistorical(sym, "1y");
+							logger.info("[PortfolioTWRR] IndiaAPI historical fetch", {
+								event: "PORTFOLIO_TWRR_STOCK_NAV_FETCH",
+								user_id: "system",
+								portfolio_id: port.id,
+								symbol: sym,
+								rows: navData.length,
+								first_date: navData[0]?.date ?? null,
+								last_date: navData[navData.length - 1]?.date ?? null,
+							});
+
 							if (navData.length < 5) continue;
 
 							const latestClose = navData[navData.length - 1].close;
@@ -1966,6 +1986,13 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 					}
 
 					// Need at least 40% weight coverage to produce a meaningful portfolio return
+					logger.info("[PortfolioTWRR] stock coverage result", {
+						event: "PORTFOLIO_TWRR_STOCK_COVERAGE",
+						user_id: "system",
+						portfolio_id: port.id,
+						wCov: Math.round(wCov * 100) / 100,
+						will_skip: wCov < 0.4,
+					});
 					if (wCov < 0.4) { skipped++; continue; }
 
 					const scale = 1 / wCov;
