@@ -316,6 +316,60 @@ export async function fetchIndianAPIHistorical(
 }
 
 /**
+ * Fetch daily historical close prices from Yahoo Finance v8/chart API.
+ * No API key required. Tries NSE (.NS) suffix first, falls back to BSE (.BO).
+ *
+ * @param symbol  NSE/BSE symbol WITHOUT exchange suffix (e.g. "HDFCBANK")
+ * @param period  "1m" | "3m" | "6m" | "1y"
+ * @returns Array of {date: "YYYY-MM-DD", close: number} sorted ascending by date
+ */
+export async function fetchYahooHistorical(
+	symbol: string,
+	period: "1m" | "3m" | "6m" | "1y" = "1y",
+): Promise<{ date: string; close: number }[]> {
+	const rangeMap: Record<string, string> = {
+		"1m": "1mo",
+		"3m": "3mo",
+		"6m": "6mo",
+		"1y": "1y",
+	};
+	const range = rangeMap[period] ?? "1y";
+
+	for (const suffix of [".NS", ".BO"]) {
+		try {
+			const ticker = `${symbol.toUpperCase()}${suffix}`;
+			const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range}`;
+			const resp = await fetch(url, {
+				headers: { "User-Agent": "Mozilla/5.0 (compatible; FintekPro/1.0)" },
+				signal: AbortSignal.timeout(15000),
+			});
+			if (!resp.ok) continue;
+			const raw = (await resp.json()) as any;
+			const result = raw?.chart?.result?.[0];
+			if (!result) continue;
+
+			const timestamps: number[] = result.timestamp ?? [];
+			const closes: (number | null)[] = result.indicators?.quote?.[0]?.close ?? [];
+			if (timestamps.length === 0) continue;
+
+			const rows = timestamps
+				.map((ts: number, i: number) => ({
+					date: new Date(ts * 1000).toISOString().slice(0, 10),
+					close: closes[i] ?? 0,
+				}))
+				.filter((r) => r.close > 0)
+				.sort((a, b) => a.date.localeCompare(b.date));
+
+			if (rows.length >= 5) return rows;
+		} catch {
+			continue;
+		}
+	}
+	return [];
+}
+
+
+/**
  * IndianAPI.in /nse_stock_batch_live_price — bulk live prices for up to 500 NSE symbols.
  * Used by the EOD Golden Pricing Engine batch run for all listed stocks.
  *

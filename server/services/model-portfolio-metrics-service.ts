@@ -26,7 +26,8 @@ import { eq, sql, and, isNull } from "drizzle-orm";
 import { logger } from "../logger";
 import { callPython } from "../clients/python-client";
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
-import { fetchIndianAPIHistorical } from "./golden-pricing/GoldenPricingEngine";
+import { fetchIndianAPIHistorical, fetchYahooHistorical } from "./golden-pricing/GoldenPricingEngine";
+
 
 
 const ENGINE_VERSION = "FASP-AI-v3.0"; // Fix 5 (partial): mandatory version per system rules
@@ -1909,10 +1910,11 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 					(h.amfiSchemeCode || h.schemeCode) && Number(h.weight ?? 0) > 0
 				);
 				if (!mfHoldings.length) {
-					// ── Stock portfolio path: IndiaAPI daily price history ─────────────────
+					// ── Stock portfolio path: Yahoo Finance daily price history ─────────────
 					// No amfiSchemeCode holdings → equity/ETF portfolio. Compute weighted
-					// period returns from IndiaAPI /historical_data (paid subscription).
-					if (!process.env.INDIAN_API_KEY) { skipped++; continue; }
+					// period returns from Yahoo Finance /v8/finance/chart (free, no key).
+					// IndiaAPI was the original source but the subscription expired (403).
+
 
 					const stockHoldings = holdings
 						.filter((h: any) => h.symbol && Number(h.weight ?? 0) > 0)
@@ -1940,11 +1942,12 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 						try {
 							// Strip exchange suffixes that IndiaAPI doesn't expect
 							const sym = String(h.symbol).toUpperCase().replace(/\.NS$|\.BO$/i, "");
-							const navData = await fetchIndianAPIHistorical(sym, "1y");
+							const navData = await fetchYahooHistorical(sym, "1y");
 							logger.info("[PortfolioTWRR] IndiaAPI historical fetch", {
 								event: "PORTFOLIO_TWRR_STOCK_NAV_FETCH",
 								user_id: "system",
 								portfolio_id: port.id,
+								source: "yahoo_finance",
 								symbol: sym,
 								rows: navData.length,
 								first_date: navData[0]?.date ?? null,
