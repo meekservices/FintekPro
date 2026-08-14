@@ -26,6 +26,7 @@ import { eq, sql, and, isNull } from "drizzle-orm";
 import { logger } from "../logger";
 import { callPython } from "../clients/python-client";
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
+import { fetchIndianAPIHistorical } from "./golden-pricing/GoldenPricingEngine";
 
 
 const ENGINE_VERSION = "FASP-AI-v3.0"; // Fix 5 (partial): mandatory version per system rules
@@ -1907,7 +1908,133 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 				const mfHoldings = holdings.filter((h: any) =>
 					(h.amfiSchemeCode || h.schemeCode) && Number(h.weight ?? 0) > 0
 				);
-				if (!mfHoldings.length) { skipped++; continue; }
+				if (!mfHoldings.length) {
+					// ── Stock portfolio path: IndiaAPI daily price history ─────────────────
+					// No amfiSchemeCode holdings → equity/ETF portfolio. Compute weighted
+					// period returns from IndiaAPI /historical_data (paid subscription).
+					if (!process.env.INDIAN_API_KEY) { skipped++; continue; }
+
+					const stockHoldings = holdings
+						.filter((h: any) => h.symbol && Number(h.weight ?? 0) > 0)
+						.sort((a: any, b: any) => Number(b.weight ?? 0) - Number(a.weight ?? 0))
+						.slice(0, 5); // cap at top-5 to stay within 300 req/min limit
+
+					if (!stockHoldings.length) { skipped++; continue; }
+
+					const totalWeight = stockHoldings.reduce((s: number, h: any) => s + Number(h.weight), 0);
+
+					// Weighted return accumulators (coverage-weighted, scaled at the end)
+					let wRet1m = 0, wRet3m = 0, wRet6m = 0, wRetYtd = 0, wCov = 0;
+
+					for (const h of stockHoldings) {
+						try {
+							// Strip exchange suffixes that IndiaAPI doesn't expect
+							const sym = String(h.symbol).toUpperCase().replace(/\.NS$|\.BO$/i, "");
+							const navData = await fetchIndianAPIHistorical(sym, "1y");
+							if (navData.length < 5) continue;
+
+							const latestClose = navData[navData.length - 1].close;
+							const latestDateStr = navData[navData.length - 1].date; // YYYY-MM-DD
+							const nowStock = new Date(latestDateStr);
+							const wFrac = Number(h.weight) / totalWeight;
+
+							/** Price on or before a given ISO date (navData is ascending). */
+							const priceAt = (iso: string): number | null => {
+								let best: number | null = null;
+								for (const e of navData) { if (e.date <= iso) best = e.close; else break; }
+								return best;
+							};
+							const agoStock = (d: number) => {
+								const t = new Date(nowStock); t.setDate(t.getDate() - d);
+								return t.toISOString().slice(0, 10);
+							};
+							const yearStartStock = `${nowStock.getFullYear()}-01-01`;
+							const stockRet = (start: number | null) =>
+								start && start > 0 ? (latestClose / start - 1) * 100 : null;
+
+							const r1m  = stockRet(priceAt(agoStock(30)));
+							const r3m  = stockRet(priceAt(agoStock(91)));
+							const r6m  = stockRet(priceAt(agoStock(182)));
+							const rYtd = stockRet(priceAt(yearStartStock));
+
+							if (r1m  !== null) wRet1m  += wFrac * r1m;
+							if (r3m  !== null) wRet3m  += wFrac * r3m;
+							if (r6m  !== null) wRet6m  += wFrac * r6m;
+							if (rYtd !== null) wRetYtd += wFrac * rYtd;
+							wCov += wFrac; // track coverage for scaling
+						} catch { /* skip this holding, continue to next */ }
+					}
+
+					// Need at least 40% weight coverage to produce a meaningful portfolio return
+					if (wCov < 0.4) { skipped++; continue; }
+
+					const scale = 1 / wCov;
+					const return1m  = Math.round(wRet1m  * scale * 100) / 100;
+					const return3m  = Math.round(wRet3m  * scale * 100) / 100;
+					const return6m  = Math.round(wRet6m  * scale * 100) / 100;
+					const returnYtd = Math.round(wRetYtd * scale * 100) / 100;
+
+					// ── 2Y CAGR + SI: use financial_instruments_cache returns_3y/5y as proxy ─────
+					// IndiaAPI historical_data only supports up to 1y window.
+					const syms = stockHoldings.map((h: any) => String(h.symbol).toUpperCase());
+					const cacheRows = await db.execute(
+						sql`SELECT symbol, returns_3y, returns_5y
+						    FROM financial_instruments_cache
+						    WHERE symbol IN (${sql.raw(syms.map(s => `'${s.replace(/'/g, "''")}'`).join(","))})`
+					);
+					const retMap = new Map((cacheRows.rows as any[]).map((r) => [String(r.symbol).toUpperCase(), r]));
+
+					let w3y = 0, w5y = 0, wt3y = 0, wt5y = 0;
+					for (const h of stockHoldings) {
+						const row = retMap.get(String(h.symbol).toUpperCase());
+						const wf = Number(h.weight) / totalWeight;
+						if (row?.returns_3y != null) { w3y += wf * Number(row.returns_3y); wt3y += wf; }
+						if (row?.returns_5y != null) { w5y += wf * Number(row.returns_5y); wt5y += wf; }
+					}
+					const cagr2y = wt3y >= 0.3
+						? Math.round(w3y / wt3y * 100) / 100 : null;
+					const returnSinceInception = wt5y >= 0.3
+						? Math.round(w5y / wt5y * 100) / 100
+						: cagr2y;
+
+					// Benchmark SI: synthetic flat-rate
+					const benchCagr1yStock = Number(port.benchmark_cagr_1y ?? 0) || 10;
+					const inceptionIsoStock = port.inception_date
+						? new Date(port.inception_date).toISOString().slice(0, 10) : null;
+					const inceptionYrsStock = inceptionIsoStock
+						? (Date.now() - new Date(inceptionIsoStock).getTime()) / (365.25 * 86400000) : null;
+					const benchmarkSinceInception = inceptionYrsStock && inceptionYrsStock > 0
+						? Math.round((Math.pow(1 + benchCagr1yStock / 100, inceptionYrsStock) - 1) * 10000) / 100
+						: null;
+
+					await db.execute(sql`
+						UPDATE model_portfolios SET
+						  return_1m                 = ${return1m},
+						  return_3m                 = ${return3m},
+						  return_6m                 = ${return6m},
+						  return_ytd                = ${returnYtd},
+						  cagr_2y                   = ${cagr2y},
+						  return_since_inception    = ${returnSinceInception},
+						  benchmark_since_inception = ${benchmarkSinceInception},
+						  periods_computed_at        = NOW(),
+						  updated_at                = NOW()
+						WHERE id = ${port.id}
+					`);
+
+					updated++;
+					logger.info("[PortfolioTWRR] stock period returns computed", {
+						event: "PORTFOLIO_TWRR_STOCK_PERIODS_UPDATED",
+						user_id: "system",
+						portfolio_id: port.id,
+						holdings_used: stockHoldings.length,
+						coverage_pct: Math.round(wCov * 100),
+						return_1m: return1m,
+						return_ytd: returnYtd,
+						status: "success",
+						latency_ms: Date.now() - t0,
+					});
+					continue; // skip the MF path below
+				}
 
 				mfHoldings.sort((a: any, b: any) => Number(b.weight ?? 0) - Number(a.weight ?? 0));
 				const primaryScheme: string = String(mfHoldings[0].amfiSchemeCode ?? mfHoldings[0].schemeCode);
