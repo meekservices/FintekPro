@@ -2243,6 +2243,16 @@ export async function computeAndPersistDividendYields(): Promise<{
 	};
 
 	try {
+		// ── Self-heal: ensure column exists (idempotent) ──────────────────────────
+		// This removes the hard dependency on schema-repairs running before the first
+		// compute call. The ALTER TABLE is a no-op if the column already exists.
+		await db.execute(sql`
+			ALTER TABLE model_portfolios
+			ADD COLUMN IF NOT EXISTS portfolio_dividend_yield NUMERIC(8,4)
+		`).catch((e) =>
+			logger.warn("[DividendYield] ALTER TABLE no-op or already exists", { error: String(e).slice(0, 80) })
+		);
+
 		// Pre-load REIT/InvIT distribution yields from DB
 		const [reitRows, invitRows] = await Promise.all([
 			db.execute(sql`SELECT symbol, distribution_yield FROM reits WHERE distribution_yield IS NOT NULL`),
