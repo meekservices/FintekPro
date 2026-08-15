@@ -378,6 +378,15 @@ export default function ResearchNoteGenerator() {
 		useState<CompanySearchResult | null>(null);
 	const [showDropdown, setShowDropdown] = useState(false);
 	const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+	/** Recent searches — persisted to localStorage, max 5 entries */
+	const [recentSearches, setRecentSearches] = useState<CompanySearchResult[]>(() => {
+		try {
+			const raw = localStorage.getItem("rng_recent_searches");
+			return raw ? (JSON.parse(raw) as CompanySearchResult[]) : [];
+		} catch {
+			return [];
+		}
+	});
 	const { toast } = useToast();
 	const dropdownRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -505,6 +514,12 @@ export default function ResearchNoteGenerator() {
 		setSearchText(company.company_name);
 		setShowDropdown(false);
 		setPreviewData(null);
+		// ── Persist to recent searches (deduped, max 5) ──────────────────
+		setRecentSearches(prev => {
+			const deduped = [company, ...prev.filter(r => r.symbol !== company.symbol)].slice(0, 5);
+			try { localStorage.setItem("rng_recent_searches", JSON.stringify(deduped)); } catch {}
+			return deduped;
+		});
 	};
 	const handleClear = () => {
 		setSelectedCompany(null);
@@ -748,21 +763,43 @@ export default function ResearchNoteGenerator() {
 
 					{!selectedCompany && (
 						<div className="mt-3 flex flex-wrap gap-2">
-							{["RELIANCE", "TCS", "INFY", "HDFCBANK", "AJAXENGG"].map((s) => (
-								<button
-									key={s}
-									className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors font-mono"
-									onClick={() => {
-										setSearchText(s);
-										setSelectedCompany(null);
-										setShowDropdown(true);
-										setDebouncedSearch(s);
-									}}
-									type="button"
-								>
-									{s}
-								</button>
-							))}
+							{/* Show last searched companies, or fallback defaults */}
+							{recentSearches.length > 0 ? (
+								<>
+									<span className="text-[10px] text-muted-foreground self-center mr-0.5">Recent:</span>
+									{recentSearches.map((r) => (
+										<button
+											key={r.symbol}
+											className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors font-mono flex items-center gap-1"
+											onClick={() => handleSelect(r)}
+											title={r.company_name}
+											type="button"
+										>
+											{r.symbol}
+											{r.type === "unlisted" && (
+												<span className="text-[9px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-1 rounded">U</span>
+											)}
+										</button>
+									))}
+								</>
+							) : (
+								// First-visit fallback: show popular defaults
+								["RELIANCE", "TCS", "INFY", "HDFCBANK", "AJAXENGG"].map((s) => (
+									<button
+										key={s}
+										className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors font-mono"
+										onClick={() => {
+											setSearchText(s);
+											setSelectedCompany(null);
+											setShowDropdown(true);
+											setDebouncedSearch(s);
+										}}
+										type="button"
+									>
+										{s}
+									</button>
+								))
+							)}
 						</div>
 					)}
 				</CardContent>
