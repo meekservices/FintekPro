@@ -262,6 +262,10 @@ type ModelPortfolio = {
   benchmarkSinceInception?: number | null;
   /** When period returns were last computed */
   periodsComputedAt?: string | null;
+  /** Estimated forward income / distribution yield (%) — weighted across holdings.
+   *  Reflects dividend yield for equity, distribution yield for REIT/InvIT, coupon for bonds.
+   *  Computed nightly by computeAndPersistDividendYields(). */
+  portfolioDividendYield?: number | null;
 };
 
 // ─── Seed Data — 22 Curated Model Portfolios ─────────────────────────────────
@@ -2947,7 +2951,7 @@ const getConfidenceColor = (score: number): string => {
 
 function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, benchmarkCagr1Y,
   return1m, return3m, return6m, returnYtd, cagr2y, returnSinceInception, benchmarkSinceInception,
-  performance,
+  performance, portfolioDividendYield,
 }: {
   portfolioId: string;
   twrr1Y?: number | null;
@@ -2957,6 +2961,8 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
   returnYtd?: number | null; cagr2y?: number | null;
   returnSinceInception?: number | null; benchmarkSinceInception?: number | null;
   performance?: Array<{ date: string; portfolioNav: number; benchmarkNav: number }>;
+  /** Estimated income/distribution yield (%) — shown below the CAGR table */
+  portfolioDividendYield?: number | null;
 }) {
   const [liveData, setLiveData] = useState<any>(null);
   const [perfView, setPerfView] = useState<"cagr" | "absolute" | "rolling">("cagr");
@@ -3891,6 +3897,8 @@ export default function AgentModelPortfoliosPage() {
         returnSinceInception:    p.returnSinceInception    != null ? Number(p.returnSinceInception)    : (staticP?.returnSinceInception    ?? undefined),
         benchmarkSinceInception: p.benchmarkSinceInception != null ? Number(p.benchmarkSinceInception) : (staticP?.benchmarkSinceInception ?? undefined),
         periodsComputedAt:       p.periodsComputedAt       ?? staticP?.periodsComputedAt               ?? null,
+        // ── Phase F.2b: income/distribution yield for dividend-heavy & REIT/InvIT portfolios
+        portfolioDividendYield:  p.portfolioDividendYield  != null ? Number(p.portfolioDividendYield)  : null,
       };
     });
   }, [apiData]);
@@ -4829,6 +4837,17 @@ export default function AgentModelPortfoliosPage() {
                         </span>
                       );
                     })}
+                  {/* ── Income / Distribution Yield badge (REIT, InvIT, dividend funds) ── */}
+                  {portfolio.portfolioDividendYield != null &&
+                   Number(portfolio.portfolioDividendYield) > 0.1 && (
+                    <span
+                      title={`Estimated income/distribution yield: ${Number(portfolio.portfolioDividendYield).toFixed(2)}% p.a. Weighted average across holdings (dividends, REIT distributions, bond coupons). Not a guaranteed return.`}
+                      className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 flex items-center gap-0.5"
+                    >
+                      <span>💰</span>
+                      <span>Yield {Number(portfolio.portfolioDividendYield).toFixed(1)}%</span>
+                    </span>
+                  )}
                   {/* Show calibrated projections for new portfolios, or "computing…" for older ones awaiting scheduler */}
                   {!portfolio.return1m && !portfolio.return3m && !portfolio.returnYtd && (
                     isEstimated ? (
@@ -5541,6 +5560,7 @@ export default function AgentModelPortfoliosPage() {
                       cagr2y={selectedPortfolio.cagr2y}
                       returnSinceInception={selectedPortfolio.returnSinceInception}
                       benchmarkSinceInception={selectedPortfolio.benchmarkSinceInception}
+                      portfolioDividendYield={selectedPortfolio.portfolioDividendYield ?? null}
                       performance={selectedPortfolio.performance}
                     />
 
