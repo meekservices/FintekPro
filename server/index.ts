@@ -28,6 +28,14 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * Schema-ready gate — resolves once background migrations complete (or are skipped).
+ * Data-fetching schedulers MUST await this before querying tables that depend
+ * on migration-added columns (e.g. confidence_score on financial_instruments_cache).
+ */
+let _resolveSchemaReady!: () => void;
+export const schemaReady = new Promise<void>((r) => { _resolveSchemaReady = r; });
+
 const app = express();
 
 validateRuntimeEnv();
@@ -209,8 +217,10 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 		// CRITICAL FIX: Deferred to fire-and-forget so routesReady=true is set within
 		// ~2-3s of boot. Previously ran synchronously, causing 3-4 min of 503s on
 		// ALL API calls (including /api/login) before routes were registered.
+		// The promise is captured in schemaReady so schedulers can await it before
+		// querying tables that depend on migration-added columns.
 		if (process.env.RUN_STARTUP_MIGRATIONS === "true") {
-			void (async () => {
+			const migrationWork = (async () => {
 				try {
 					logBootProgress("Step 2 (bg): Checking schema migrations...");
 					const { runStartupSchemaRepairs } = await import(
@@ -300,10 +310,12 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					logger.warn("[Boot] Background migration error (non-fatal):", { error: migErr?.message });
 				}
 			})();
+			migrationWork.then(() => _resolveSchemaReady()).catch(() => _resolveSchemaReady());
 		} else {
 			logBootProgress(
 				"Step 2: Skipping startup schema repairs (run npm run db:repair or Cloud Run job)...",
 			);
+			_resolveSchemaReady();
 		}
 
 		logBootProgress("Step 3: Initializing Middleware & Auth...");

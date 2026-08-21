@@ -373,22 +373,23 @@ class AuditLogService {
 			for (let i = 0; i < rows.length; i++) {
 				const row = rows[i] as any;
 
-				// Reconstruct the entry for checksum verification
-				// Note: Field names in result.rows might be snake_case depending on driver,
-				// but Drizzle usually returns camelCase if using the ORM.
-				// Since we are using db.execute(sql`...`), we might get snake_case.
-
+				// Reconstruct the entry exactly as it was built during log():
+				// The log() method uses `...options` spread which leaves missing
+				// optional fields as `undefined`. JSON.stringify SKIPS undefined
+				// keys but INCLUDES null keys. DB returns null for missing columns,
+				// so we must conditionally include fields only when non-null to
+				// match the original serialised form.
 				const entry: Omit<AuditLogEntry, "checksum" | "previousChecksum"> = {
 					id: row.id,
 					timestamp: new Date(row.timestamp),
 					eventType: row.event_type,
 					action: row.action,
-					userId: row.user_id,
-					userRole: row.user_role,
-					entityType: row.entity_type,
-					entityId: row.entity_id,
-					previousState: row.previous_state,
-					newState: row.new_state,
+					...(row.user_id != null && { userId: row.user_id }),
+					...(row.user_role != null && { userRole: row.user_role }),
+					...(row.entity_type != null && { entityType: row.entity_type }),
+					...(row.entity_id != null && { entityId: row.entity_id }),
+					...(row.previous_state != null && { previousState: row.previous_state }),
+					...(row.new_state != null && { newState: row.new_state }),
 					metadata: row.metadata || {},
 				};
 
