@@ -2973,9 +2973,10 @@ export async function ensureSharedRouteTables(): Promise<void> {
         updated_at          TIMESTAMPTZ   DEFAULT NOW()
       )
     `);
-    await migDb.execute(migSql`CREATE UNIQUE INDEX IF NOT EXISTS idx_fic_symbol_type ON financial_instruments_cache(symbol, instrument_type)`);
+    await migDb.execute(migSql`DROP INDEX IF EXISTS idx_fic_symbol_type`);
+    await migDb.execute(migSql`CREATE UNIQUE INDEX IF NOT EXISTS idx_fic_type_symbol_exchange ON financial_instruments_cache(instrument_type, symbol, exchange)`);
     await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_fic_isin ON financial_instruments_cache(isin)`);
-    console.log("  ✅ Fix IM-1: financial_instruments_cache ensured (active table, never drop)");
+    console.log("  ✅ Fix IM-1: financial_instruments_cache ensured + 3-col unique index (instrument_type, symbol, exchange)");
   } catch (e: any) {
     console.warn("  ⚠️  Fix IM-1 financial_instruments_cache (non-fatal):", e.message?.slice(0, 120));
   }
@@ -3392,6 +3393,132 @@ export async function ensureSharedRouteTables(): Promise<void> {
     console.log("  ✅ Fix FASP-5: psu-defence-atmanirbhar seeded (or already existed — idempotent)");
   } catch (e: any) {
     console.warn("  \u26a0\ufe0f  Fix FASP-5 PSU-Defence seed (non-fatal):", e.message?.slice(0, 200));
+  }
+
+  // ── Fix SFM-1: CREATE TABLE stock_financial_metrics ──────────────────────────
+  // The Drizzle schema defines this table but it was never physically created
+  // in production. All FinancialMetricsRefreshService queries crash with
+  // "Failed query: select ... from stock_financial_metrics".
+  // This creates the table with all columns from the shared/schema.ts definition.
+  try {
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS stock_financial_metrics (
+        id                        SERIAL PRIMARY KEY,
+        stock_id                  VARCHAR REFERENCES listed_stocks(id),
+        isin                      VARCHAR,
+        symbol                    VARCHAR NOT NULL,
+        fiscal_year               VARCHAR(10) NOT NULL,
+        fiscal_year_end           DATE,
+        -- Valuation
+        trailing_pe               DECIMAL(12,4),
+        forward_pe                DECIMAL(12,4),
+        peg_ratio                 DECIMAL(10,4),
+        peg_ratio_null_reason     VARCHAR(32),
+        price_to_book             DECIMAL(10,4),
+        price_to_sales            DECIMAL(10,4),
+        price_to_fcf              DECIMAL(12,4),
+        ev_to_ebitda              DECIMAL(12,4),
+        ev_to_sales               DECIMAL(12,4),
+        ev_to_ebit                DECIMAL(12,4),
+        enterprise_value          DECIMAL(20,2),
+        earnings_yield            DECIMAL(10,4),
+        -- Profitability
+        gross_margin              DECIMAL(10,4),
+        operating_margin          DECIMAL(10,4),
+        net_margin                DECIMAL(10,4),
+        ebitda_margin             DECIMAL(10,4),
+        fcf_margin                DECIMAL(10,4),
+        roe                       DECIMAL(10,4),
+        roa                       DECIMAL(10,4),
+        roce                      DECIMAL(10,4),
+        roic                      DECIMAL(10,4),
+        -- Growth YoY
+        revenue_growth_yoy        DECIMAL(10,4),
+        eps_growth_yoy            DECIMAL(10,4),
+        net_income_growth_yoy     DECIMAL(10,4),
+        ebitda_growth_yoy         DECIMAL(10,4),
+        book_value_growth_yoy     DECIMAL(10,4),
+        ocf_growth_yoy            DECIMAL(10,4),
+        fcf_growth_yoy            DECIMAL(10,4),
+        -- CAGR
+        revenue_cagr_3y           DECIMAL(10,4),
+        revenue_cagr_5y           DECIMAL(10,4),
+        eps_cagr_3y               DECIMAL(10,4),
+        eps_cagr_5y               DECIMAL(10,4),
+        pat_cagr_3y               DECIMAL(10,4),
+        pat_cagr_5y               DECIMAL(10,4),
+        -- Leverage & Solvency
+        debt_to_equity            DECIMAL(10,4),
+        debt_to_assets            DECIMAL(10,4),
+        interest_coverage         DECIMAL(12,4),
+        current_ratio             DECIMAL(10,4),
+        quick_ratio               DECIMAL(10,4),
+        cash_ratio                DECIMAL(10,4),
+        net_debt                  DECIMAL(20,2),
+        net_debt_to_ebitda        DECIMAL(10,4),
+        -- Efficiency
+        asset_turnover            DECIMAL(10,4),
+        inventory_turnover        DECIMAL(10,4),
+        receivables_turnover      DECIMAL(10,4),
+        payables_turnover         DECIMAL(10,4),
+        inventory_days            DECIMAL(10,2),
+        receivable_days           DECIMAL(10,2),
+        payable_days              DECIMAL(10,2),
+        cash_conversion_cycle     DECIMAL(10,2),
+        working_capital_turnover  DECIMAL(10,4),
+        -- Quality Scores
+        piotroski_f_score         INTEGER,
+        altman_z_score            DECIMAL(10,4),
+        beneish_m_score           DECIMAL(10,4),
+        accrual_ratio             DECIMAL(10,4),
+        earnings_quality          DECIMAL(10,4),
+        -- Dividend
+        dividend_yield            DECIMAL(10,4),
+        dividend_payout_ratio     DECIMAL(10,4),
+        dividend_cover_ratio      DECIMAL(10,4),
+        dividend_growth_rate      DECIMAL(10,4),
+        dividend_streak           INTEGER,
+        -- Raw Financial Data
+        revenue                   DECIMAL(20,2),
+        ebitda                    DECIMAL(20,2),
+        ebit                      DECIMAL(20,2),
+        net_income                DECIMAL(20,2),
+        eps                       DECIMAL(15,4),
+        book_value_per_share      DECIMAL(15,4),
+        free_cash_flow            DECIMAL(20,2),
+        operating_cash_flow       DECIMAL(20,2),
+        total_assets              DECIMAL(20,2),
+        total_liabilities         DECIMAL(20,2),
+        total_equity              DECIMAL(20,2),
+        total_debt                DECIMAL(20,2),
+        cash                      DECIMAL(20,2),
+        market_cap                DECIMAL(20,2),
+        shares_outstanding        DECIMAL(15,0),
+        -- Analyst Estimates
+        eps_estimate_next_year    DECIMAL(15,4),
+        revenue_estimate_next_year DECIMAL(20,2),
+        target_price_consensus    DECIMAL(15,2),
+        number_of_analysts        INTEGER,
+        -- Metadata
+        data_source               VARCHAR(50),
+        data_quality              VARCHAR(20),
+        calculated_at             TIMESTAMPTZ DEFAULT NOW(),
+        last_updated              TIMESTAMPTZ DEFAULT NOW(),
+        created_at                TIMESTAMPTZ DEFAULT NOW(),
+        -- Dividend columns (FASP dividend migration)
+        dividend_per_share        DECIMAL(12,4),
+        dividend_yield_pct        DECIMAL(8,4)
+      )
+    `);
+    // Indexes matching Drizzle schema definition
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_stock_metrics_stock    ON stock_financial_metrics(stock_id)`);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_stock_metrics_symbol   ON stock_financial_metrics(symbol)`);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_stock_metrics_isin     ON stock_financial_metrics(isin)`);
+    await migDb.execute(migSql`CREATE INDEX IF NOT EXISTS idx_stock_metrics_fy       ON stock_financial_metrics(fiscal_year)`);
+    await migDb.execute(migSql`CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_metrics_stock_fy ON stock_financial_metrics(stock_id, fiscal_year)`);
+    console.log("  ✅ Fix SFM-1: stock_financial_metrics table + indexes created");
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix SFM-1 stock_financial_metrics (non-fatal):", e.message?.slice(0, 200));
   }
 
   // ── Fix SEBI-1: REIT/InvIT SEBI classification columns (Nov 28, 2025 circular) ────────────────
