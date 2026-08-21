@@ -30,8 +30,9 @@
 import { db } from "../db";
 import { prospectLeads } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { credhiveService, CredhiveDirector } from "./credhive-service";
 import { logger } from "../logger";
+import { credhiveService, CredhiveDirector, CredhiveDirectorsResponse, CredhiveProfileResponse } from "./credhive-service";
+import { bulkpeAdapter } from "./vendor-adapters/bulkpe.adapter";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -254,7 +255,7 @@ export async function enrichProspectContacts(
   // 4. Fetch directors from CredHive (with retry)
   let rawDirectors: CredhiveDirector[] = [];
   try {
-    const result = await withRetry(
+    const result = await withRetry<CredhiveDirectorsResponse>(
       () => credhiveService.getDirectors(lead.cin!),
       "CREDHIVE_DIRECTORS",
     );
@@ -302,7 +303,7 @@ export async function enrichProspectContacts(
   // 5. Fetch company profile for email contacts
   let profileEmail: string | null = null;
   try {
-    const profile = await withRetry(
+    const profile = await withRetry<CredhiveProfileResponse>(
       () => credhiveService.getCompanyProfile(lead.cin!),
       "CREDHIVE_PROFILE",
     );
@@ -391,18 +392,34 @@ export async function enrichProspectContacts(
 
   // 7. Map top-3 active directors to the 3 contact tiers
   //    Each director gets: name, designation, DIN, email (shared from profile),
-  //    phone (null until CredHive premium DIN-level endpoint is subscribed).
+  //    phone from Bulkpe DIN lookup (synchronous — no webhook needed).
   const [primaryDir, secondaryDir, tertiaryDir] = enrichedDirectors;
 
-  const emailForDirector = profileEmail ?? undefined; // shared profile email for all tiers
+  const emailForDirector = profileEmail ?? undefined;
 
-  // Preserve existing richer data — never overwrite with null
+  // 7b. Bulkpe phone lookup — fire for all 3 tiers in parallel using DIN
+  //     Only looks up tiers that don't already have a phone stored.
+  const bulkpeTiers = [
+    { tier: "primary" as const,   din: primaryDir?.din,   name: primaryDir?.name,   existingPhone: lead.primaryMobile },
+    { tier: "secondary" as const, din: secondaryDir?.din, name: secondaryDir?.name, existingPhone: lead.secondaryMobile },
+    { tier: "tertiary" as const,  din: tertiaryDir?.din,  name: tertiaryDir?.name,  existingPhone: lead.tertiaryMobile },
+  ];
+
+  const bulkpeResults = await bulkpeAdapter.lookupAllTiers(leadId, bulkpeTiers);
+
+  // Map Bulkpe results back to a tier → phone dict
+  const bulkpePhones: Partial<Record<"primary" | "secondary" | "tertiary", string>> = {};
+  for (const r of bulkpeResults) {
+    if (r.success && r.phone) bulkpePhones[r.contactTier] = r.phone;
+  }
+
+  // Preserve existing data — Bulkpe fills in what's missing
   const primaryEmail   = lead.primaryEmail   ?? primaryDir?.email   ?? emailForDirector ?? null;
-  const primaryMobile  = lead.primaryMobile  ?? primaryDir?.phone   ?? null;
+  const primaryMobile  = lead.primaryMobile  ?? bulkpePhones.primary   ?? null;
   const secondaryEmail = lead.secondaryEmail ?? secondaryDir?.email ?? emailForDirector ?? null;
-  const secondaryMobile= lead.secondaryMobile ?? secondaryDir?.phone ?? null;
+  const secondaryMobile= lead.secondaryMobile ?? bulkpePhones.secondary ?? null;
   const tertiaryEmail  = lead.tertiaryEmail  ?? tertiaryDir?.email  ?? emailForDirector ?? null;
-  const tertiaryMobile = lead.tertiaryMobile ?? tertiaryDir?.phone  ?? null;
+  const tertiaryMobile = lead.tertiaryMobile ?? bulkpePhones.tertiary  ?? null;
 
   // 8. Build enrichment sources list
   const existingSources: string[] =

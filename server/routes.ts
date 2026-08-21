@@ -168,7 +168,8 @@ import { modelPortfoliosRouter } from "./routes/model-portfolios-route"; // /api
 import { agentLeadInboxRouter } from "./routes/agent-lead-inbox"; // /api/agent/leads
 import { exploriumWebhookRouter } from "./routes/explorium-webhook-routes"; // /api/webhooks/explorium
 import { agentGeoCoverageRouter } from "./routes/agent-geo-coverage-routes"; // /api/agent/geo-coverage
-import { registerEasyLeadzWebhookRoutes } from "./routes/easyleadz-callback-routes"; // /api/webhooks/easyleadz
+// EasyLeadz replaced by Bulkpe (synchronous DIN-based lookup — no webhook needed)
+// import { registerEasyLeadzWebhookRoutes } from "./routes/easyleadz-callback-routes";
 import { registerTruecallerBusinessRoutes } from "./routes/truecaller-business-routes"; // /api/calling/*
 
 const __filename = fileURLToPath(import.meta.url);
@@ -554,8 +555,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/agent/geo-coverage", agentGeoCoverageRouter);
 
 	// ── Phone Enrichment & Calling ─────────────────────────────────────────────
-	// EasyLeadz: async director phone lookup callbacks
-	registerEasyLeadzWebhookRoutes(app);    // POST /api/webhooks/easyleadz
+	// Bulkpe replaced EasyLeadz — phone lookup is now synchronous inline in the enricher
+	// No webhook endpoint needed.
 	// Truecaller Business: verified caller ID for outbound agent calls
 	registerTruecallerBusinessRoutes(app);  // POST /api/calling/pre-call-setup
 	                                        // POST /api/calling/register-agent-number
