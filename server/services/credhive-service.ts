@@ -91,6 +91,13 @@ export interface CredhiveDirector {
 	date_of_appointment?: string;
 	date_of_cessation?: string;
 	is_active: boolean;
+	// Contact fields — present when CredHive includes them in the director response
+	mobile?: string;                 // raw mobile as returned by CredHive
+	email?: string;                  // director-level email if available
+	// Enrichment metadata
+	shareholding_percentage?: number; // % shareholding if CredHive provides it
+	is_promoter?: boolean;           // promoter/founder flag from MCA/CredHive
+	executive_type?: string;          // "Executive" | "Non-Executive" | "Independent"
 }
 
 export interface CredhiveComplianceSignal {
@@ -431,10 +438,19 @@ class CredhiveService {
 				date_of_appointment: r.date_of_appointment || r.begin_date,
 				date_of_cessation: r.date_of_cessation || r.end_date,
 				is_active: r.is_active !== false && !r.date_of_cessation && !r.end_date,
+				// Preserve contact fields if CredHive returns them
+				mobile: r.mobile || r.phone || r.contact_number || r.mobile_number || r.director_mobile || undefined,
+				email: r.email || r.director_email || r.contact_email || undefined,
+				// Enrichment metadata
+				shareholding_percentage: typeof r.shareholding_percentage === "number" ? r.shareholding_percentage
+					: typeof r.shareholding === "number" ? r.shareholding : undefined,
+				is_promoter: r.is_promoter === true || r.promoter === true || r.promoter_flag === true || undefined,
+				executive_type: r.executive_type || r.director_type || r.executive_non_executive || undefined,
 			}));
 
-			// Cache for 24 hours
-			await distributedCache.setJson(cacheKey, mapped, 86400);
+			// Cache for 30 days (configurable via DIRECTOR_DATA_CACHE_TTL)
+			const ttl = parseInt(process.env.DIRECTOR_DATA_CACHE_TTL ?? "2592000", 10);
+			await distributedCache.setJson(cacheKey, mapped, ttl);
 
 			return { success: true, data: mapped };
 		} catch (err: any) {

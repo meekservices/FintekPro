@@ -1,130 +1,92 @@
 /**
  * Prospect Contact Enricher
  *
- * Purpose : Enriches a prospect_lead with director contact details from CredHive
- *           immediately after the lead is geo-assigned to an agent.
- *           Extracts the best reachable contact (phone + email) from the directors
- *           list so the agent has an actionable call target the moment they open
- *           their lead inbox.
+ * Purpose:
+ *   Entry point for director-contact enrichment on a prospect_lead.
+ *   Delegates the full pipeline to DirectorContactService, which implements
+ *   the correct algorithm:
+ *     Score ALL directors → validate mobiles → deduplicate → filter
+ *     contactable → assign Primary / Secondary / Tertiary to the
+ *     highest-ranked contactable decision-makers.
  *
- * Trigger : Called by lead-assignment-engine.ts after every successful assignment.
- *           Also callable standalone for batch re-enrichment.
+ * Trigger:
+ *   Called by lead-assignment-engine.ts after every successful geo-assignment.
+ *   Also callable standalone for batch re-enrichment via
+ *   POST /api/admin/prospects/:id/enrich-contacts.
  *
- * Data written back to prospect_leads:
- *   - primaryEmail  — first director email found
- *   - primaryMobile — first director mobile/phone found
- *   - directors     — full enriched director array (JSONB)
- *   - enrichedAt    — timestamp of this enrichment run
- *   - enrichmentSources — appended with "credhive_directors"
+ * Data written to prospect_leads (via DirectorContactService._persistResult):
+ *   primary_contact_name / primary_mobile / primary_contact_designation / primary_contact_din
+ *   secondary_contact_name / secondary_mobile / secondary_contact_designation / secondary_contact_din
+ *   tertiary_contact_name / tertiary_mobile / tertiary_contact_designation / tertiary_contact_din
+ *   directors     — full scored universe including mobileStatus for "Other Directors"
+ *   enriched_at   — timestamp of this enrichment run
+ *   enrichment_sources — appended with "credhive"
  *
  * GCR compliance:
- *   - Layered: only Drizzle ORM writes, no raw SQL mutations.
- *   - Idempotent: enrichment is re-runnable; existing contacts only overwritten
- *     if new data is more complete.
- *   - Explainability: full enrichment metadata on every result.
+ *   - Layered: DirectorContactService owns all DB writes (Drizzle only).
+ *   - Idempotent: re-runnable; existing valid contacts are preserved by the service.
+ *   - Explainability: full enrichment metadata on every result object.
  *   - Observability: structured logs for every enrichment attempt.
- *   - Self-healing: max 3 retries with exponential backoff on CredHive 429/5xx.
+ *   - Self-healing: CredHive retries are handled inside credhive-service.ts;
+ *     enrichment failure does NOT block lead assignment.
  *   - PAN/contact masking: mobile/email masked in logs per FASP-AI §Security.
+ *   - No Bulkpe or any secondary phone provider — CredHive is the sole source.
  */
 
 import { db } from "../db";
 import { prospectLeads } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "../logger";
-import { credhiveService, CredhiveDirector, CredhiveDirectorsResponse, CredhiveProfileResponse } from "./credhive-service";
-import { bulkpeAdapter } from "./vendor-adapters/bulkpe.adapter";
+import { directorContactService } from "./director-contact-service";
+import type { DirectorContactResult, ContactTier } from "./director-contact-service";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// Re-export for consumers that import from this module
+export type { DirectorContactResult, ContactTier };
 
-export interface EnrichedDirectorContact {
-  din: string;
-  name: string;
-  designation: string;
-  is_active: boolean;
-  date_of_appointment?: string;
-  /** Phone / mobile — from CredHive DIN lookup or company profile */
-  phone?: string;
-  /** Professional email — from CredHive company profile */
-  email?: string;
-}
+// ── Engine version ─────────────────────────────────────────────────────────────
+
+const ENGINE_VERSION = "prospect-contact-enricher-v3.0";
+
+// ── Public Result type ─────────────────────────────────────────────────────────
+// Thin wrapper used by the lead assignment engine and admin routes.
 
 export interface ContactEnrichmentResult {
   leadId: string;
   cin: string | null;
   enriched: boolean;
-  // Primary contact
-  primaryEmail: string | null;
-  primaryMobile: string | null;
+  enrichmentStatus: "success" | "partial" | "no_contacts" | "lookup_error" | "skipped";
+  // Tier summary (for callers that need a quick view)
   primaryContactName: string | null;
+  primaryMobile: string | null;
   primaryContactDesignation: string | null;
   primaryContactDin: string | null;
-  // Secondary contact
-  secondaryEmail: string | null;
-  secondaryMobile: string | null;
   secondaryContactName: string | null;
+  secondaryMobile: string | null;
   secondaryContactDesignation: string | null;
   secondaryContactDin: string | null;
-  // Tertiary contact
-  tertiaryEmail: string | null;
-  tertiaryMobile: string | null;
   tertiaryContactName: string | null;
+  tertiaryMobile: string | null;
   tertiaryContactDesignation: string | null;
   tertiaryContactDin: string | null;
-  // Metadata
+  // Metrics
   directorsFound: number;
   contactableDirectors: number;
-  enrichmentSource: string;
+  enrichmentSource: "credhive";
+  skipped_reason?: string;
   engine_version: string;
   calculation_timestamp: string;
-  skipped_reason?: string;
 }
 
-const ENGINE_VERSION = "contact-enricher-v1.1";
-const MAX_RETRIES = 3;
-
-// ── Masking helpers (FASP-AI Security §) ─────────────────────────────────────
-
-function maskEmail(email: string): string {
-  const [local, domain] = email.split("@");
-  if (!domain) return "***";
-  return `${local.charAt(0)}***@${domain}`;
-}
-
-function maskPhone(phone: string): string {
-  return phone.replace(/\d(?=\d{4})/g, "*");
-}
-
-// ── Retry wrapper ─────────────────────────────────────────────────────────────
-
-async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
-  let lastErr: unknown;
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      return await fn();
-    } catch (err: any) {
-      lastErr = err;
-      const retryable =
-        err?.response?.status === 429 ||
-        (err?.response?.status ?? 0) >= 500;
-      if (!retryable || attempt === MAX_RETRIES) break;
-      const backoff = attempt * 1000;
-      logger.warn(`${label}_RETRY`, {
-        event: `${label}_RETRY`,
-        attempt,
-        backoff_ms: backoff,
-        status: "retrying",
-      });
-      await new Promise((r) => setTimeout(r, backoff));
-    }
-  }
-  throw lastErr;
-}
-
-// ── Core enrichment logic ─────────────────────────────────────────────────────
+// ── Main function ──────────────────────────────────────────────────────────────
 
 /**
- * Enriches a single prospect lead with CredHive director contacts.
- * Safe to call multiple times — idempotent (won't overwrite richer data with null).
+ * Enriches a prospect lead with the best contactable director contacts from CredHive.
+ *
+ * Implements the correct algorithm:
+ *   Rank ALL directors → validate mobiles → deduplicate → pick top 3 contactable.
+ *
+ * @param leadId  - prospect_leads.id UUID
+ * @returns       ContactEnrichmentResult with tier assignments and metrics
  */
 export async function enrichProspectContacts(
   leadId: string,
@@ -132,350 +94,77 @@ export async function enrichProspectContacts(
   const startMs = Date.now();
   const calculation_timestamp = new Date().toISOString();
 
-  // 1. Load the lead
+  // ── 1. Load the lead ────────────────────────────────────────────────────────
   const [lead] = await db
     .select({
       id: prospectLeads.id,
       cin: prospectLeads.cin,
       companyName: prospectLeads.companyName,
-      assignedTo: prospectLeads.assignedTo,
-      // Primary
-      primaryEmail: prospectLeads.primaryEmail,
-      primaryMobile: prospectLeads.primaryMobile,
-      primaryContactName: prospectLeads.primaryContactName,
-      primaryContactDesignation: prospectLeads.primaryContactDesignation,
-      primaryContactDin: prospectLeads.primaryContactDin,
-      // Secondary
-      secondaryEmail: prospectLeads.secondaryEmail,
-      secondaryMobile: prospectLeads.secondaryMobile,
-      secondaryContactName: prospectLeads.secondaryContactName,
-      secondaryContactDesignation: prospectLeads.secondaryContactDesignation,
-      secondaryContactDin: prospectLeads.secondaryContactDin,
-      // Tertiary
-      tertiaryEmail: prospectLeads.tertiaryEmail,
-      tertiaryMobile: prospectLeads.tertiaryMobile,
-      tertiaryContactName: prospectLeads.tertiaryContactName,
-      tertiaryContactDesignation: prospectLeads.tertiaryContactDesignation,
-      tertiaryContactDin: prospectLeads.tertiaryContactDin,
-      // Meta
-      directors: prospectLeads.directors,
-      enrichmentSources: prospectLeads.enrichmentSources,
       enrichedAt: prospectLeads.enrichedAt,
+      // Existing tier data (for idempotency guard)
+      primaryMobile: prospectLeads.primaryMobile,
+      secondaryMobile: prospectLeads.secondaryMobile,
+      tertiaryMobile: prospectLeads.tertiaryMobile,
     })
     .from(prospectLeads)
     .where(eq(prospectLeads.id, leadId))
     .limit(1);
 
   if (!lead) {
-    throw new Error(`Lead not found: ${leadId}`);
-  }
-
-  // 2. Skip if no CIN — CredHive requires CIN to look up directors
-  if (!lead.cin) {
-    logger.info("CONTACT_ENRICHMENT_SKIPPED", {
-      event: "CONTACT_ENRICHMENT_SKIPPED",
+    logger.warn("CONTACT_ENRICHMENT_LEAD_NOT_FOUND", {
+      event: "CONTACT_ENRICHMENT_LEAD_NOT_FOUND",
       lead_id: leadId,
-      company: lead.companyName,
-      reason: "no_cin",
-      latency_ms: Date.now() - startMs,
-      status: "skipped",
-    });
-    return {
-      leadId,
-      cin: null,
-      enriched: false,
-      primaryEmail: lead.primaryEmail ?? null,
-      primaryMobile: lead.primaryMobile ?? null,
-      primaryContactName: lead.primaryContactName ?? null,
-      primaryContactDesignation: null,
-      primaryContactDin: null,
-      secondaryEmail: lead.secondaryEmail ?? null,
-      secondaryMobile: lead.secondaryMobile ?? null,
-      secondaryContactName: null,
-      secondaryContactDesignation: null,
-      secondaryContactDin: null,
-      tertiaryEmail: lead.tertiaryEmail ?? null,
-      tertiaryMobile: lead.tertiaryMobile ?? null,
-      tertiaryContactName: null,
-      tertiaryContactDesignation: null,
-      tertiaryContactDin: null,
-      directorsFound: 0,
-      contactableDirectors: 0,
-      enrichmentSource: "none",
-      engine_version: ENGINE_VERSION,
-      calculation_timestamp,
-      skipped_reason: "no_cin",
-    };
-  }
-
-  // 3. Skip if all 3 tiers already fully populated (idempotency)
-  const allTiersPopulated =
-    lead.primaryEmail && lead.primaryContactName &&
-    lead.secondaryEmail && lead.secondaryContactName &&
-    lead.tertiaryEmail && lead.tertiaryContactName &&
-    lead.enrichedAt;
-
-  if (allTiersPopulated) {
-    logger.info("CONTACT_ENRICHMENT_SKIPPED", {
-      event: "CONTACT_ENRICHMENT_SKIPPED",
-      lead_id: leadId,
-      company: lead.companyName,
-      reason: "already_enriched",
-      latency_ms: Date.now() - startMs,
-      status: "skipped",
-    });
-    return {
-      leadId,
-      cin: lead.cin,
-      enriched: false,
-      primaryEmail: lead.primaryEmail ?? null,
-      primaryMobile: lead.primaryMobile ?? null,
-      primaryContactName: lead.primaryContactName ?? null,
-      primaryContactDesignation: null,
-      primaryContactDin: null,
-      secondaryEmail: lead.secondaryEmail ?? null,
-      secondaryMobile: lead.secondaryMobile ?? null,
-      secondaryContactName: null,
-      secondaryContactDesignation: null,
-      secondaryContactDin: null,
-      tertiaryEmail: lead.tertiaryEmail ?? null,
-      tertiaryMobile: lead.tertiaryMobile ?? null,
-      tertiaryContactName: null,
-      tertiaryContactDesignation: null,
-      tertiaryContactDin: null,
-      directorsFound: (lead.directors as EnrichedDirectorContact[])?.length ?? 0,
-      contactableDirectors: 0,
-      enrichmentSource: "cache",
-      engine_version: ENGINE_VERSION,
-      calculation_timestamp,
-      skipped_reason: "already_enriched",
-    };
-  }
-
-  // 4. Fetch directors from CredHive (with retry)
-  let rawDirectors: CredhiveDirector[] = [];
-  try {
-    const result = await withRetry<CredhiveDirectorsResponse>(
-      () => credhiveService.getDirectors(lead.cin!),
-      "CREDHIVE_DIRECTORS",
-    );
-    if (result.success && result.data) {
-      rawDirectors = result.data;
-    }
-  } catch (err) {
-    logger.error("CREDHIVE_DIRECTORS_FAILED", {
-      event: "CREDHIVE_DIRECTORS_FAILED",
-      lead_id: leadId,
-      cin: lead.cin,
-      error: err instanceof Error ? err.message : String(err),
       retryable: false,
+      status: "warn",
+    });
+    return _skippedResult(leadId, null, "lead_not_found", calculation_timestamp);
+  }
+
+  if (!lead.cin) {
+    logger.info("CONTACT_ENRICHMENT_SKIPPED_NO_CIN", {
+      event: "CONTACT_ENRICHMENT_SKIPPED_NO_CIN",
+      lead_id: leadId,
+      status: "skipped",
+    });
+    return _skippedResult(leadId, null, "no_cin", calculation_timestamp);
+  }
+
+  // ── 2. Delegate to DirectorContactService ───────────────────────────────────
+  let serviceResult: DirectorContactResult;
+
+  try {
+    serviceResult = await directorContactService.getBestDirectorContacts(
+      leadId,
+      lead.cin,
+      lead.companyName ?? undefined,
+    );
+  } catch (err: any) {
+    // Defensive catch — DirectorContactService already handles errors internally,
+    // but we guard here to ensure lead assignment is NEVER blocked.
+    logger.error("CONTACT_ENRICHMENT_SERVICE_ERROR", {
+      event: "CONTACT_ENRICHMENT_SERVICE_ERROR",
+      lead_id: leadId,
+      cin: lead.cin,
+      error: err?.message ?? String(err),
+      retryable: true,
+      latency_ms: Date.now() - startMs,
+      engine_version: ENGINE_VERSION,
       status: "error",
     });
-    // Return partial result — don't crash the pipeline
-    return {
-      leadId,
-      cin: lead.cin,
-      enriched: false,
-      primaryEmail: lead.primaryEmail ?? null,
-      primaryMobile: lead.primaryMobile ?? null,
-      primaryContactName: lead.primaryContactName ?? null,
-      primaryContactDesignation: lead.primaryContactDesignation ?? null,
-      primaryContactDin: lead.primaryContactDin ?? null,
-      secondaryEmail: lead.secondaryEmail ?? null,
-      secondaryMobile: lead.secondaryMobile ?? null,
-      secondaryContactName: lead.secondaryContactName ?? null,
-      secondaryContactDesignation: lead.secondaryContactDesignation ?? null,
-      secondaryContactDin: lead.secondaryContactDin ?? null,
-      tertiaryEmail: lead.tertiaryEmail ?? null,
-      tertiaryMobile: lead.tertiaryMobile ?? null,
-      tertiaryContactName: lead.tertiaryContactName ?? null,
-      tertiaryContactDesignation: lead.tertiaryContactDesignation ?? null,
-      tertiaryContactDin: lead.tertiaryContactDin ?? null,
-      directorsFound: 0,
-      contactableDirectors: 0,
-      enrichmentSource: "credhive_directors",
-      engine_version: ENGINE_VERSION,
-      calculation_timestamp,
-      skipped_reason: "credhive_error",
-    };
+    return _skippedResult(leadId, lead.cin, "service_error", calculation_timestamp);
   }
 
-  // 5. Fetch company profile for email contacts
-  let profileEmail: string | null = null;
-  try {
-    const profile = await withRetry<CredhiveProfileResponse>(
-      () => credhiveService.getCompanyProfile(lead.cin!),
-      "CREDHIVE_PROFILE",
-    );
-    if (profile.success && profile.data?.email) {
-      profileEmail = profile.data.email;
-    }
-  } catch {
-    // Non-fatal — directors may still have contact info
-  }
-
-  // 6. Financial-grade director classification
-  //
-  //    For a SEBI-regulated wealth advisory, the right contact is the person
-  //    who controls investable surplus — NOT governance/compliance directors.
-  //
-  //    TIER PRIORITY (lower = contact first):
-  //      1 → Promoter / Founder / MD / CMD     — wealth decision-maker
-  //      2 → CFO / Finance Director / Treasurer — controls investable surplus
-  //      3 → CEO / ED / JMD / President         — decision influencer
-  //      4 → Chairman / WTD / Additional MD     — operational authority
-  //      5 → Director (generic)                 — fallback
-  //      9 → Independent / Nominee / Govt       — deprioritized (no financial authority)
-  //
-  //    Within the same tier, earlier appointment date = more senior.
-
-  interface DirectorWithPriority extends EnrichedDirectorContact {
-    priorityTier: number;
-    roleCategory: "promoter" | "finance" | "executive" | "operational" | "director" | "governance";
-  }
-
-  function classifyDirector(designation: string): { tier: number; category: DirectorWithPriority["roleCategory"] } {
-    const d = designation.toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
-
-    // Tier 1: Promoter / Owner / CMD / MD
-    if (/\b(promoter|founder|proprietor|managing director|managing partner|chairman and managing|cmd)\b/.test(d) || d === "md") {
-      return { tier: 1, category: "promoter" };
-    }
-
-    // Tier 2: CFO / Finance — controls investable surplus
-    if (/\b(chief financial|cfo|finance director|vp finance|head finance|director finance|group cfo|treasurer|financial controller|chief finance)\b/.test(d)) {
-      return { tier: 2, category: "finance" };
-    }
-
-    // Tier 3: CEO / Executive Director
-    if (/\b(chief executive|ceo|executive director|joint managing|jmd|deputy managing|dmd|president)\b/.test(d) || d === "ceo" || d === "ed") {
-      return { tier: 3, category: "executive" };
-    }
-
-    // Tier 4: Chairman / Whole Time Director
-    if (/\b(chairman|whole time|wtd|additional managing)\b/.test(d)) {
-      return { tier: 4, category: "operational" };
-    }
-
-    // Tier 9: Independent / Nominee / Govt — no financial authority, deprioritize
-    if (/\b(independent|nominee|alternate|government|institutional|woman director|additional independent)\b/.test(d)) {
-      return { tier: 9, category: "governance" };
-    }
-
-    // Tier 5: Generic director
-    return { tier: 5, category: "director" };
-  }
-
-  const enrichedDirectors: DirectorWithPriority[] = rawDirectors
-    .filter((d) => d.is_active)
-    .map((d) => {
-      const { tier, category } = classifyDirector(d.designation);
-      return {
-        din: d.din,
-        name: d.name,
-        designation: d.designation,
-        is_active: d.is_active,
-        date_of_appointment: d.date_of_appointment,
-        email: profileEmail ?? undefined,
-        phone: undefined, // DIN-level phone requires CredHive premium endpoint
-        priorityTier: tier,
-        roleCategory: category,
-      };
-    })
-    .sort((a, b) => {
-      if (a.priorityTier !== b.priorityTier) return a.priorityTier - b.priorityTier;
-      // Within same tier: earlier appointment = more senior
-      const dateA = a.date_of_appointment ? new Date(a.date_of_appointment).getTime() : Infinity;
-      const dateB = b.date_of_appointment ? new Date(b.date_of_appointment).getTime() : Infinity;
-      return dateA - dateB;
-    });
-
-  // 7. Map top-3 active directors to the 3 contact tiers
-  //    Each director gets: name, designation, DIN, email (shared from profile),
-  //    phone from Bulkpe DIN lookup (synchronous — no webhook needed).
-  const [primaryDir, secondaryDir, tertiaryDir] = enrichedDirectors;
-
-  const emailForDirector = profileEmail ?? undefined;
-
-  // 7b. Bulkpe phone lookup — fire for all 3 tiers in parallel using DIN
-  //     Only looks up tiers that don't already have a phone stored.
-  const bulkpeTiers = [
-    { tier: "primary" as const,   din: primaryDir?.din,   name: primaryDir?.name,   existingPhone: lead.primaryMobile },
-    { tier: "secondary" as const, din: secondaryDir?.din, name: secondaryDir?.name, existingPhone: lead.secondaryMobile },
-    { tier: "tertiary" as const,  din: tertiaryDir?.din,  name: tertiaryDir?.name,  existingPhone: lead.tertiaryMobile },
-  ];
-
-  const bulkpeResults = await bulkpeAdapter.lookupAllTiers(leadId, bulkpeTiers);
-
-  // Map Bulkpe results back to a tier → phone dict
-  const bulkpePhones: Partial<Record<"primary" | "secondary" | "tertiary", string>> = {};
-  for (const r of bulkpeResults) {
-    if (r.success && r.phone) bulkpePhones[r.contactTier] = r.phone;
-  }
-
-  // Preserve existing data — Bulkpe fills in what's missing
-  const primaryEmail   = lead.primaryEmail   ?? primaryDir?.email   ?? emailForDirector ?? null;
-  const primaryMobile  = lead.primaryMobile  ?? bulkpePhones.primary   ?? null;
-  const secondaryEmail = lead.secondaryEmail ?? secondaryDir?.email ?? emailForDirector ?? null;
-  const secondaryMobile= lead.secondaryMobile ?? bulkpePhones.secondary ?? null;
-  const tertiaryEmail  = lead.tertiaryEmail  ?? tertiaryDir?.email  ?? emailForDirector ?? null;
-  const tertiaryMobile = lead.tertiaryMobile ?? bulkpePhones.tertiary  ?? null;
-
-  // 8. Build enrichment sources list
-  const existingSources: string[] =
-    (lead.enrichmentSources as string[]) ?? [];
-  if (!existingSources.includes("credhive_directors")) {
-    existingSources.push("credhive_directors");
-  }
-
-  // 9. Persist all 3 tiers back to the lead
-  const contactableCount = enrichedDirectors.filter(
-    (d) => d.email || d.phone,
-  ).length;
-
-  await db
-    .update(prospectLeads)
-    .set({
-      directors: enrichedDirectors,
-      // Primary
-      primaryEmail,
-      primaryMobile,
-      primaryContactName: primaryDir?.name ?? null,
-      primaryContactDesignation: primaryDir?.designation ?? null,
-      primaryContactDin: primaryDir?.din ?? null,
-      // Secondary
-      secondaryEmail,
-      secondaryMobile,
-      secondaryContactName: secondaryDir?.name ?? null,
-      secondaryContactDesignation: secondaryDir?.designation ?? null,
-      secondaryContactDin: secondaryDir?.din ?? null,
-      // Tertiary
-      tertiaryEmail,
-      tertiaryMobile,
-      tertiaryContactName: tertiaryDir?.name ?? null,
-      tertiaryContactDesignation: tertiaryDir?.designation ?? null,
-      tertiaryContactDin: tertiaryDir?.din ?? null,
-      // Meta
-      enrichmentSources: existingSources,
-      enrichedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(prospectLeads.id, leadId));
+  // ── 3. Map service result to ContactEnrichmentResult ───────────────────────
+  const [primary, secondary, tertiary] = serviceResult.contacts;
 
   logger.info("CONTACT_ENRICHMENT_COMPLETE", {
     event: "CONTACT_ENRICHMENT_COMPLETE",
     lead_id: leadId,
     cin: lead.cin,
-    company: lead.companyName,
-    assigned_to: lead.assignedTo,
-    directors_found: rawDirectors.length,
-    active_directors: enrichedDirectors.length,
-    contactable: contactableCount,
-    tiers_populated: [primaryDir, secondaryDir, tertiaryDir].filter(Boolean).length,
-    email_found: !!primaryEmail,
-    email_masked: primaryEmail ? maskEmail(primaryEmail) : null,
-    mobile_found: !!primaryMobile,
-    mobile_masked: primaryMobile ? maskPhone(primaryMobile) : null,
+    enrichment_status: serviceResult.enrichmentStatus,
+    total_directors: serviceResult.totalDirectors,
+    contactable_directors: serviceResult.contactableDirectors,
+    tiers_assigned: serviceResult.contacts.length,
     latency_ms: Date.now() - startMs,
     engine_version: ENGINE_VERSION,
     status: "success",
@@ -484,35 +173,33 @@ export async function enrichProspectContacts(
   return {
     leadId,
     cin: lead.cin,
-    enriched: true,
+    enriched: serviceResult.contacts.length > 0,
+    enrichmentStatus: serviceResult.enrichmentStatus,
     // Primary
-    primaryEmail,
-    primaryMobile,
-    primaryContactName: primaryDir?.name ?? null,
-    primaryContactDesignation: primaryDir?.designation ?? null,
-    primaryContactDin: primaryDir?.din ?? null,
+    primaryContactName: primary?.name ?? null,
+    primaryMobile: primary?.mobile ?? null,
+    primaryContactDesignation: primary?.designation ?? null,
+    primaryContactDin: primary?.din ?? null,
     // Secondary
-    secondaryEmail,
-    secondaryMobile,
-    secondaryContactName: secondaryDir?.name ?? null,
-    secondaryContactDesignation: secondaryDir?.designation ?? null,
-    secondaryContactDin: secondaryDir?.din ?? null,
+    secondaryContactName: secondary?.name ?? null,
+    secondaryMobile: secondary?.mobile ?? null,
+    secondaryContactDesignation: secondary?.designation ?? null,
+    secondaryContactDin: secondary?.din ?? null,
     // Tertiary
-    tertiaryEmail,
-    tertiaryMobile,
-    tertiaryContactName: tertiaryDir?.name ?? null,
-    tertiaryContactDesignation: tertiaryDir?.designation ?? null,
-    tertiaryContactDin: tertiaryDir?.din ?? null,
-    // Meta
-    directorsFound: rawDirectors.length,
-    contactableDirectors: contactableCount,
-    enrichmentSource: "credhive_directors",
+    tertiaryContactName: tertiary?.name ?? null,
+    tertiaryMobile: tertiary?.mobile ?? null,
+    tertiaryContactDesignation: tertiary?.designation ?? null,
+    tertiaryContactDin: tertiary?.din ?? null,
+    // Metrics
+    directorsFound: serviceResult.totalDirectors,
+    contactableDirectors: serviceResult.contactableDirectors,
+    enrichmentSource: "credhive",
     engine_version: ENGINE_VERSION,
     calculation_timestamp,
   };
 }
 
-// ── Batch enrichment ──────────────────────────────────────────────────────────
+// ── Batch enrichment ─────────────────────────────────────────────────────────
 
 /**
  * Batch-enriches all leads that have a CIN but no contact data yet.
@@ -524,21 +211,18 @@ export async function batchEnrichMissingContacts(): Promise<{
   skipped: number;
   failed: number;
 }> {
-  const { sql, isNull, isNotNull, or } = await import("drizzle-orm");
+  const { sql } = await import("drizzle-orm");
 
   const leadsNeedingEnrichment = await db
     .select({ id: prospectLeads.id, cin: prospectLeads.cin })
     .from(prospectLeads)
     .where(
-      // Has a CIN but missing email or mobile or never enriched
-      // @ts-ignore — isNotNull on cin for dynamic query
       sql`cin IS NOT NULL AND (
-        primary_email IS NULL OR
         primary_mobile IS NULL OR
         enriched_at IS NULL
       )`,
     )
-    .limit(500); // Safety cap per batch run
+    .limit(500);
 
   let enriched = 0;
   let skipped = 0;
@@ -579,5 +263,39 @@ export async function batchEnrichMissingContacts(): Promise<{
     enriched,
     skipped,
     failed,
+  };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function _skippedResult(
+  leadId: string,
+  cin: string | null,
+  reason: string,
+  calculation_timestamp: string,
+): ContactEnrichmentResult {
+  return {
+    leadId,
+    cin,
+    enriched: false,
+    enrichmentStatus: "skipped",
+    primaryContactName: null,
+    primaryMobile: null,
+    primaryContactDesignation: null,
+    primaryContactDin: null,
+    secondaryContactName: null,
+    secondaryMobile: null,
+    secondaryContactDesignation: null,
+    secondaryContactDin: null,
+    tertiaryContactName: null,
+    tertiaryMobile: null,
+    tertiaryContactDesignation: null,
+    tertiaryContactDin: null,
+    directorsFound: 0,
+    contactableDirectors: 0,
+    enrichmentSource: "credhive",
+    skipped_reason: reason,
+    engine_version: ENGINE_VERSION,
+    calculation_timestamp,
   };
 }

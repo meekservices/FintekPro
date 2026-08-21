@@ -168,7 +168,8 @@ import { modelPortfoliosRouter } from "./routes/model-portfolios-route"; // /api
 import { agentLeadInboxRouter } from "./routes/agent-lead-inbox"; // /api/agent/leads
 import { exploriumWebhookRouter } from "./routes/explorium-webhook-routes"; // /api/webhooks/explorium
 import { agentGeoCoverageRouter } from "./routes/agent-geo-coverage-routes"; // /api/agent/geo-coverage
-// EasyLeadz replaced by Bulkpe (synchronous DIN-based lookup — no webhook needed)
+// Director phone enrichment is CredHive-only — no external phone provider needed.
+// EasyLeadz webhook route is deprecated (kept as dead file for historical reference).
 // import { registerEasyLeadzWebhookRoutes } from "./routes/easyleadz-callback-routes";
 import { registerTruecallerBusinessRoutes } from "./routes/truecaller-business-routes"; // /api/calling/*
 
@@ -555,8 +556,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/agent/geo-coverage", agentGeoCoverageRouter);
 
 	// ── Phone Enrichment & Calling ─────────────────────────────────────────────
-	// Bulkpe replaced EasyLeadz — phone lookup is now synchronous inline in the enricher
-	// No webhook endpoint needed.
+	// Director contact enrichment is handled in-process by DirectorContactService
+	// (CredHive-only). No external phone-provider webhook endpoint needed.
 	// Truecaller Business: verified caller ID for outbound agent calls
 	registerTruecallerBusinessRoutes(app);  // POST /api/calling/pre-call-setup
 	                                        // POST /api/calling/register-agent-number
