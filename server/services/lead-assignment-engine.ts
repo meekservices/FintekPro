@@ -3,12 +3,16 @@
  *
  * Purpose : Assigns incoming prospect leads to the best-matched agent
  *           based on geographic coverage (city → state → national fallback).
+ *           After each successful assignment, automatically triggers CredHive
+ *           director contact enrichment (async, non-blocking) so the agent's
+ *           inbox immediately shows a name + contact to call.
  * Inputs  : leadId — ID of an unassigned ProspectLead row
  * Outputs : Mutates assignedTo on the lead; returns the assigned agent ID.
  * Edge cases:
  *   - No agents available → lead stays unassigned, warning logged.
  *   - Multiple agents with identical scores → picks lowest createdAt (first registered).
  *   - Agent operatingCities / operatingStates JSONB may be null → treated as [].
+ *   - Enrichment failure is non-blocking — assignment succeeds even if CredHive is down.
  *
  * GCR compliance:
  *   - Layered: this service only touches DB via Drizzle ORM.
@@ -22,6 +26,7 @@ import { prospectLeads } from "@shared/schema";
 import { users } from "@shared/schema";
 import { eq, isNull, and } from "drizzle-orm";
 import { logger } from "../logger";
+import { enrichProspectContacts } from "./prospect-contact-enricher";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -220,6 +225,21 @@ export async function assignLead(leadId: string): Promise<AssignmentResult> {
     latency_ms: Date.now() - startMs,
     engine_version: ENGINE_VERSION,
     status: "success",
+  });
+
+  // ── Auto-trigger CredHive contact enrichment (async, non-blocking) ──────────
+  // Fires in the background — assignment result returns immediately to the caller.
+  // If CredHive is down or the lead has no CIN, enrichment is skipped gracefully.
+  setImmediate(() => {
+    enrichProspectContacts(leadId).catch((err) =>
+      logger.warn("CONTACT_ENRICHMENT_BACKGROUND_ERROR", {
+        event: "CONTACT_ENRICHMENT_BACKGROUND_ERROR",
+        lead_id: leadId,
+        error: err instanceof Error ? err.message : String(err),
+        retryable: true,
+        status: "warn",
+      }),
+    );
   });
 
   return {

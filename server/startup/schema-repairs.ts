@@ -3625,3 +3625,63 @@ export async function runGeoCoverageColumnsRepair() {
     console.warn("  ⚠️ [GeoCoverage] Column migration non-fatal error:", err?.message?.slice(0, 80));
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MIGRATION: 3-Tier Contact Columns on prospect_leads
+// Adds secondary and tertiary contact columns (name, email, mobile, designation, DIN)
+// alongside the new primaryContactName / primaryContactDesignation / primaryContactDin.
+// Populated automatically by prospect-contact-enricher.ts after lead assignment.
+// Safe to re-run: uses ADD COLUMN IF NOT EXISTS.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function runThreeTierContactColumnsRepair() {
+  try {
+    const { pool: migPool } = await import("../db");
+
+    await migPool.query(`
+      ALTER TABLE prospect_leads
+        ADD COLUMN IF NOT EXISTS primary_contact_name        VARCHAR,
+        ADD COLUMN IF NOT EXISTS primary_contact_designation VARCHAR,
+        ADD COLUMN IF NOT EXISTS primary_contact_din         VARCHAR,
+        ADD COLUMN IF NOT EXISTS secondary_email             VARCHAR,
+        ADD COLUMN IF NOT EXISTS secondary_mobile            VARCHAR,
+        ADD COLUMN IF NOT EXISTS secondary_contact_name      VARCHAR,
+        ADD COLUMN IF NOT EXISTS secondary_contact_designation VARCHAR,
+        ADD COLUMN IF NOT EXISTS secondary_contact_din       VARCHAR,
+        ADD COLUMN IF NOT EXISTS tertiary_email              VARCHAR,
+        ADD COLUMN IF NOT EXISTS tertiary_mobile             VARCHAR,
+        ADD COLUMN IF NOT EXISTS tertiary_contact_name       VARCHAR,
+        ADD COLUMN IF NOT EXISTS tertiary_contact_designation VARCHAR,
+        ADD COLUMN IF NOT EXISTS tertiary_contact_din        VARCHAR
+    `);
+    console.log("  ✅ [3TierContacts] 13 secondary/tertiary contact columns added to prospect_leads");
+
+    // Index on secondary/tertiary emails for dedup queries
+    await migPool.query(`
+      CREATE INDEX IF NOT EXISTS idx_prospect_secondary_email ON prospect_leads (secondary_email);
+      CREATE INDEX IF NOT EXISTS idx_prospect_tertiary_email  ON prospect_leads (tertiary_email);
+    `);
+    console.log("  ✅ [3TierContacts] Indexes on secondary_email + tertiary_email created");
+  } catch (err: any) {
+    console.warn("  ⚠️ [3TierContacts] Column migration non-fatal error:", err?.message?.slice(0, 120));
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MIGRATION: Truecaller Registration Flag on users
+// Adds truecaller_registered boolean to track which agent numbers are verified
+// with Truecaller Business (so their calls show FintekPro branding).
+// Safe to re-run: uses ADD COLUMN IF NOT EXISTS.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function runTruecallerRegistrationColumnRepair() {
+  try {
+    const { pool: migPool } = await import("../db");
+
+    await migPool.query(`
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS truecaller_registered BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+    console.log("  ✅ [Truecaller] users.truecaller_registered column added");
+  } catch (err: any) {
+    console.warn("  ⚠️ [Truecaller] Column migration non-fatal error:", err?.message?.slice(0, 80));
+  }
+}

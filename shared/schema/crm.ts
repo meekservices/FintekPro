@@ -283,11 +283,31 @@ export const prospectLeads = pgTable("prospect_leads", {
   companyName: varchar("company_name").notNull(),
   registrationNumber: varchar("registration_number"),
   
-  // Contact details
+  // ── Contact details (3-tier: Primary → Secondary → Tertiary) ──────────────
+  // Primary = highest-priority active director (MD/CEO/CMD first)
+  // Secondary = second active director
+  // Tertiary = third active director OR authorized signatory
+  // Populated automatically by prospect-contact-enricher.ts after geo-assignment
   primaryEmail: varchar("primary_email"),
   primaryMobile: varchar("primary_mobile"),
+  primaryContactName: varchar("primary_contact_name"),       // director name
+  primaryContactDesignation: varchar("primary_contact_designation"), // e.g. Managing Director
+  primaryContactDin: varchar("primary_contact_din"),         // DIN for MCA cross-ref
+
+  secondaryEmail: varchar("secondary_email"),
+  secondaryMobile: varchar("secondary_mobile"),
+  secondaryContactName: varchar("secondary_contact_name"),
+  secondaryContactDesignation: varchar("secondary_contact_designation"),
+  secondaryContactDin: varchar("secondary_contact_din"),
+
+  tertiaryEmail: varchar("tertiary_email"),
+  tertiaryMobile: varchar("tertiary_mobile"),
+  tertiaryContactName: varchar("tertiary_contact_name"),
+  tertiaryContactDesignation: varchar("tertiary_contact_designation"),
+  tertiaryContactDin: varchar("tertiary_contact_din"),
+
   website: varchar("website"),
-  
+
   // Address
   address: text("address"),
   city: varchar("city"),

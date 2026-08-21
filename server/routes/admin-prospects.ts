@@ -31,6 +31,8 @@ import { ZohoCRMService } from "../zoho/services/crm";
 import { getZohoConnectionId } from "../zoho/connection-resolver";
 import { apiResponse } from "../utils/responses";
 import { requireAdmin } from "../middleware/roleMiddleware";
+import { batchEnrichMissingContacts, enrichProspectContacts } from "../services/prospect-contact-enricher";
+import { logger } from "../logger";
 
 const router = Router();
 
@@ -773,3 +775,78 @@ function mapZohoLeadStatus(status: string | undefined): string {
 export function registerAdminProspectRoutes(app: any) {
 	app.use("/api/admin/prospects", router);
 }
+
+// ── Contact Enrichment Endpoints ─────────────────────────────────────────────
+
+/**
+ * POST /api/admin/prospects/enrich-contacts
+ * Batch-enriches all leads missing director contact data from CredHive.
+ * Processes up to 500 leads per run with 200ms rate-limit delay between calls.
+ */
+router.post(
+	"/enrich-contacts",
+	requireAdmin,
+	async (req: any, res: Response) => {
+		try {
+			const result = await batchEnrichMissingContacts();
+
+			logger.info("ADMIN_BATCH_ENRICH_TRIGGERED", {
+				event: "ADMIN_BATCH_ENRICH_TRIGGERED",
+				user_id: req.user?.id,
+				...result,
+				status: "success",
+			});
+
+			res.json(
+				apiResponse(true, result, {
+					timestamp: new Date().toISOString(),
+					version: "1.0",
+				}),
+			);
+		} catch (err: any) {
+			res.status(500).json(
+				apiResponse(false, null, {
+					timestamp: new Date().toISOString(),
+					version: "1.0",
+				}, { error_code: "ENRICH_FAILED", message: err.message, retryable: true }),
+			);
+		}
+	},
+);
+
+/**
+ * POST /api/admin/prospects/:id/enrich-contacts
+ * Force re-enriches a single lead from CredHive.
+ */
+router.post(
+	"/:id/enrich-contacts",
+	requireAdmin,
+	async (req: any, res: Response) => {
+		try {
+			const { id } = req.params;
+			const result = await enrichProspectContacts(id);
+
+			logger.info("ADMIN_SINGLE_ENRICH_TRIGGERED", {
+				event: "ADMIN_SINGLE_ENRICH_TRIGGERED",
+				user_id: req.user?.id,
+				lead_id: id,
+				enriched: result.enriched,
+				status: "success",
+			});
+
+			res.json(
+				apiResponse(true, result, {
+					timestamp: new Date().toISOString(),
+					version: "1.0",
+				}),
+			);
+		} catch (err: any) {
+			res.status(500).json(
+				apiResponse(false, null, {
+					timestamp: new Date().toISOString(),
+					version: "1.0",
+				}, { error_code: "ENRICH_FAILED", message: err.message, retryable: true }),
+			);
+		}
+	},
+);

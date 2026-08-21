@@ -9,6 +9,8 @@ import {
   ensureSharedRouteTables,
   applyFinancialInstrumentsCacheColumns,
   runGeoCoverageColumnsRepair,
+  runThreeTierContactColumnsRepair,
+  runTruecallerRegistrationColumnRepair,
 } from "./schema-repairs";
 
 async function main() {
@@ -238,6 +240,12 @@ async function main() {
 
   console.log("Phase G — ensuring agent geo coverage columns (operating_cities + operating_states)...");
   await runGeoCoverageColumnsRepair();
+
+  console.log("Phase H — adding 3-tier contact columns to prospect_leads...");
+  await runThreeTierContactColumnsRepair();
+
+  console.log("Phase I — adding Truecaller registration flag to users...");
+  await runTruecallerRegistrationColumnRepair();
 
   console.log("FintekPro schema repair job complete.");
 }
