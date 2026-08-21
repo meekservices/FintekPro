@@ -798,18 +798,10 @@ router.post(
 			});
 
 			res.json(
-				apiResponse(true, result, {
-					timestamp: new Date().toISOString(),
-					version: "1.0",
-				}),
+				apiResponse.success(res, result),
 			);
 		} catch (err: any) {
-			res.status(500).json(
-				apiResponse(false, null, {
-					timestamp: new Date().toISOString(),
-					version: "1.0",
-				}, { error_code: "ENRICH_FAILED", message: err.message, retryable: true }),
-			);
+			apiResponse.serverError(res, err.message ?? "Contact enrichment failed");
 		}
 	},
 );
@@ -835,18 +827,10 @@ router.post(
 			});
 
 			res.json(
-				apiResponse(true, result, {
-					timestamp: new Date().toISOString(),
-					version: "1.0",
-				}),
+				apiResponse.success(res, result),
 			);
 		} catch (err: any) {
-			res.status(500).json(
-				apiResponse(false, null, {
-					timestamp: new Date().toISOString(),
-					version: "1.0",
-				}, { error_code: "ENRICH_FAILED", message: err.message, retryable: true }),
-			);
+			apiResponse.serverError(res, err.message ?? "Contact enrichment failed");
 		}
 	},
 );

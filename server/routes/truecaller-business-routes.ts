@@ -15,7 +15,7 @@
  *   - Authentication: all routes require a logged-in agent/admin session.
  *   - Truecaller failure is NON-BLOCKING — call proceeds regardless.
  *   - Structured logs on every request.
- *   - API response schema: { success, data, meta: { timestamp, version } }.
+ *   - API response schema via apiResponse utility.
  */
 
 import { Router, Request, Response } from "express";
@@ -53,50 +53,44 @@ router.post(
   requireAuth,
   async (req: any, res: Response) => {
     const startMs = Date.now();
-    const {
-      callerNumber,
-      calleeNumber,
-      callReason,
-      fintekCallId,
-      leadId,
-    } = req.body;
+    const { callerNumber, calleeNumber, callReason, fintekCallId, leadId } =
+      req.body;
 
     if (!callerNumber || !calleeNumber) {
-      return res.status(400).json(
-        apiResponse(false, null, {
-          timestamp: new Date().toISOString(),
-          version: "1.0",
-        }, {
-          error_code: "MISSING_NUMBERS",
-          message: "callerNumber and calleeNumber are required",
-          retryable: false,
-        }),
+      return apiResponse.badRequest(
+        res,
+        "callerNumber and calleeNumber are required",
       );
     }
 
     const agentId = req.user?.id;
 
-    // Fetch agent's name for Truecaller display
+    // Fetch agent's display name for Truecaller
     let agentName: string | undefined;
     try {
       const [agent] = await db
-        .select({ name: users.name })
+        .select({
+          firstName: users.firstName,
+          lastName: users.lastName,
+        })
         .from(users)
         .where(eq(users.id, agentId))
         .limit(1);
-      agentName = agent?.name ?? undefined;
+      if (agent) {
+        agentName = [agent.firstName, agent.lastName].filter(Boolean).join(" ") || undefined;
+      }
     } catch {
-      // Non-fatal
+      // Non-fatal — Truecaller will use brand name as fallback
     }
 
-    // Fire Truecaller personalization (non-blocking — failure doesn't stop call)
-    const truecallerResult = await truecallerBusinessAdapter.setCallPersonalization({
-      callerNumber,
-      calleeNumber,
-      callReason: callReason ?? "Investment Advisory Call",
-      agentName,
-      fintekCallId,
-    });
+    const truecallerResult =
+      await truecallerBusinessAdapter.setCallPersonalization({
+        callerNumber,
+        calleeNumber,
+        callReason: callReason ?? "Investment Advisory Call",
+        agentName,
+        fintekCallId,
+      });
 
     logger.info("PRE_CALL_SETUP_COMPLETE", {
       event: "PRE_CALL_SETUP_COMPLETE",
@@ -110,25 +104,16 @@ router.post(
       status: "success",
     });
 
-    return res.json(
-      apiResponse(
-        true,
-        {
-          truecaller_verified: truecallerResult.success,
-          truecaller_record_id: truecallerResult.truecallerRecordId,
-          call_reason: truecallerResult.callReason,
-          caller_number: callerNumber,
-          callee_number: calleeNumber,
-          brand_name: "FintekPro",
-          // Always tell the UI to proceed — Truecaller is enhancement only
-          proceed_with_call: true,
-        },
-        {
-          timestamp: new Date().toISOString(),
-          version: "1.0",
-        },
-      ),
-    );
+    return apiResponse.success(res, {
+      truecaller_verified: truecallerResult.success,
+      truecaller_record_id: truecallerResult.truecallerRecordId,
+      call_reason: truecallerResult.callReason,
+      caller_number: callerNumber,
+      callee_number: calleeNumber,
+      brand_name: "FintekPro",
+      // Always tell the UI to proceed — Truecaller is enhancement only
+      proceed_with_call: true,
+    });
   },
 );
 
@@ -151,15 +136,9 @@ router.post(
     const { agentId, phoneNumber, featureSetId } = req.body;
 
     if (!agentId || !phoneNumber || !featureSetId) {
-      return res.status(400).json(
-        apiResponse(false, null, {
-          timestamp: new Date().toISOString(),
-          version: "1.0",
-        }, {
-          error_code: "MISSING_FIELDS",
-          message: "agentId, phoneNumber, featureSetId are required",
-          retryable: false,
-        }),
+      return apiResponse.badRequest(
+        res,
+        "agentId, phoneNumber, featureSetId are required",
       );
     }
 
@@ -170,23 +149,23 @@ router.post(
 
     if (result.success) {
       // Mark agent as Truecaller-registered in DB
-      // Note: this requires users.truecaller_registered column (added by schema-repairs)
+      // truecaller_registered column is added by Phase I schema migration
       try {
         await db
           .update(users)
           .set({ truecallerRegistered: true, updatedAt: new Date() })
           .where(eq(users.id, agentId));
-      } catch {
-        // Non-fatal if column not yet migrated
+      } catch (err: any) {
+        // Column may not exist yet if migration hasn't run — non-fatal
+        logger.warn("TRUECALLER_DB_FLAG_SKIPPED", {
+          event: "TRUECALLER_DB_FLAG_SKIPPED",
+          reason: err?.message?.slice(0, 80),
+          status: "warn",
+        });
       }
     }
 
-    return res.json(
-      apiResponse(true, result, {
-        timestamp: new Date().toISOString(),
-        version: "1.0",
-      }),
-    );
+    return apiResponse.success(res, result);
   },
 );
 
@@ -196,31 +175,18 @@ router.post(
  * GET /api/calling/truecaller-status
  * Returns Truecaller integration configuration status.
  */
-router.get(
-  "/truecaller-status",
-  requireAuth,
-  async (_req: Request, res: Response) => {
-    return res.json(
-      apiResponse(
-        true,
-        {
-          configured: truecallerBusinessAdapter.available,
-          features: {
-            verified_caller_id: truecallerBusinessAdapter.available,
-            call_reason: truecallerBusinessAdapter.available,
-            video_caller_id: false, // requires Truecaller Enterprise plan
-          },
-          brand_name: "FintekPro",
-          default_call_reason: "Investment Advisory Call",
-        },
-        {
-          timestamp: new Date().toISOString(),
-          version: "1.0",
-        },
-      ),
-    );
-  },
-);
+router.get("/truecaller-status", requireAuth, async (_req: Request, res: Response) => {
+  return apiResponse.success(res, {
+    configured: truecallerBusinessAdapter.available,
+    features: {
+      verified_caller_id: truecallerBusinessAdapter.available,
+      call_reason: truecallerBusinessAdapter.available,
+      video_caller_id: false,
+    },
+    brand_name: "FintekPro",
+    default_call_reason: "Investment Advisory Call",
+  });
+});
 
 export function registerTruecallerBusinessRoutes(app: any) {
   app.use("/api/calling", router);

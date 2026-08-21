@@ -1,5 +1,6 @@
 export * from "./enums";
 export * from "./users";
+export * from "./crm";
 export * from "./proposals-base";
 export * from "./agents";
 export * from "./ai";

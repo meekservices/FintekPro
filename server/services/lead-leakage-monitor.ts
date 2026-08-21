@@ -46,6 +46,8 @@ export interface StaleLead {
   lastContactedAt: Date | null;
   daysSinceContact: number;
   staleDayThreshold: number;
+  /** Urgency category derived from daysSinceContact vs threshold */
+  staleness: "stale_hot" | "stale_warm" | "stale_cold";
 }
 
 export interface PipelineHealth {
@@ -117,6 +119,9 @@ export async function getAgentStaleSummary(agentId: string): Promise<StaleLead[]
           lastContactedAt: row.lastContactedAt,
           daysSinceContact: daysSince,
           staleDayThreshold: threshold,
+          staleness: daysSince >= threshold * 2 ? "stale_hot"
+            : daysSince >= threshold * 1.5 ? "stale_warm"
+            : "stale_cold",
         });
       }
     }

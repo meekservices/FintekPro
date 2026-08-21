@@ -11,8 +11,6 @@
  * dispatching the enrichment request (see easyleadz.adapter.ts).
  *
  * Security:
- *   - Validates that the request comes from EasyLeadz IP range (best-effort;
- *     EasyLeadz doesn't provide HMAC signing).
  *   - Lead ID is validated against DB before writing.
  *   - Mobile numbers are masked in all logs.
  *
@@ -28,7 +26,10 @@ import { db } from "../db";
 import { prospectLeads } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "../logger";
-import type { ContactTier, EasyLeadzWebhookPayload } from "../services/vendor-adapters/easyleadz.adapter";
+import type {
+  ContactTier,
+  EasyLeadzWebhookPayload,
+} from "../services/vendor-adapters/easyleadz.adapter";
 import { apiResponse } from "../utils/responses";
 
 const router = Router();
@@ -46,7 +47,6 @@ async function buildPhoneUpdate(
   tier: ContactTier,
   phone: string,
 ): Promise<Record<string, unknown> | null> {
-  // Load only the relevant tier's current phone
   const [lead] = await db
     .select({
       primaryMobile: prospectLeads.primaryMobile,
@@ -81,16 +81,10 @@ async function buildPhoneUpdate(
 /**
  * POST /api/webhooks/easyleadz
  * Receives director phone number from EasyLeadz async callback.
- *
- * Query params (embedded by FintekPro at dispatch time):
- *   lead_id     — prospect_leads.id to update
- *   contact_tier — "primary" | "secondary" | "tertiary"
- *   din          — optional director DIN for logging
  */
 router.post("/", async (req: Request, res: Response) => {
   const startMs = Date.now();
 
-  // Extract routing metadata from query string (set by us at dispatch time)
   const leadId = (req.query.lead_id as string) ?? "";
   const contactTier = (req.query.contact_tier as ContactTier) ?? "primary";
   const din = (req.query.din as string) ?? "";
@@ -101,13 +95,12 @@ router.post("/", async (req: Request, res: Response) => {
     event: "EASYLEADZ_WEBHOOK_RECEIVED",
     lead_id: leadId,
     contact_tier: contactTier,
-    din: din,
+    din,
     request_id: body?.request_id,
     status_from_easyleadz: body?.status,
     status: "processing",
   });
 
-  // Validate required routing metadata
   if (!leadId || !["primary", "secondary", "tertiary"].includes(contactTier)) {
     logger.warn("EASYLEADZ_WEBHOOK_BAD_METADATA", {
       event: "EASYLEADZ_WEBHOOK_BAD_METADATA",
@@ -115,12 +108,7 @@ router.post("/", async (req: Request, res: Response) => {
       contact_tier: contactTier,
       status: "warn",
     });
-    return res.status(400).json(
-      apiResponse(false, null, {
-        timestamp: new Date().toISOString(),
-        version: "1.0",
-      }),
-    );
+    return apiResponse.badRequest(res, "Missing or invalid lead_id / contact_tier");
   }
 
   // EasyLeadz status "0" = phone not found
@@ -135,11 +123,8 @@ router.post("/", async (req: Request, res: Response) => {
       latency_ms: Date.now() - startMs,
       status: "not_found",
     });
-    // Still return 200 — EasyLeadz expects 2xx to know we got the callback
-    return res.json(apiResponse(true, { received: true, phone_found: false }, {
-      timestamp: new Date().toISOString(),
-      version: "1.0",
-    }));
+    // 200 — EasyLeadz expects 2xx to acknowledge the callback
+    return apiResponse.success(res, { received: true, phone_found: false });
   }
 
   const phone = body?.data?.phone;
@@ -150,13 +135,9 @@ router.post("/", async (req: Request, res: Response) => {
       request_id: body?.request_id,
       status: "warn",
     });
-    return res.json(apiResponse(true, { received: true, phone_found: false }, {
-      timestamp: new Date().toISOString(),
-      version: "1.0",
-    }));
+    return apiResponse.success(res, { received: true, phone_found: false });
   }
 
-  // Build the Drizzle update (with idempotency check)
   const update = await buildPhoneUpdate(leadId, contactTier, phone);
   if (!update) {
     logger.info("EASYLEADZ_WEBHOOK_SKIPPED_IDEMPOTENT", {
@@ -167,13 +148,13 @@ router.post("/", async (req: Request, res: Response) => {
       latency_ms: Date.now() - startMs,
       status: "skipped",
     });
-    return res.json(apiResponse(true, { received: true, phone_found: true, stored: false }, {
-      timestamp: new Date().toISOString(),
-      version: "1.0",
-    }));
+    return apiResponse.success(res, {
+      received: true,
+      phone_found: true,
+      stored: false,
+    });
   }
 
-  // Persist the phone number
   await db
     .update(prospectLeads)
     .set(update)
@@ -190,15 +171,12 @@ router.post("/", async (req: Request, res: Response) => {
     status: "success",
   });
 
-  return res.json(apiResponse(true, {
+  return apiResponse.success(res, {
     received: true,
     phone_found: true,
     stored: true,
     tier: contactTier,
-  }, {
-    timestamp: new Date().toISOString(),
-    version: "1.0",
-  }));
+  });
 });
 
 export function registerEasyLeadzWebhookRoutes(app: any) {
