@@ -8,9 +8,8 @@ import session from "express-session";
 import { createHash, scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User as UserType } from "@shared/schema";
+import { User as UserType, userTrustedDevices, users } from "@shared/schema";
 import { db } from "./db";
-import { userTrustedDevices, users } from "@shared/schema/users";
 import { sessions } from "@shared/schema";
 
 declare global {

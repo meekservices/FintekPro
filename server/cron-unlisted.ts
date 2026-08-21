@@ -90,8 +90,8 @@ export function initializeUnlistedCrons(): void {
 			listedOn: "2022-05-24",
 		},
 		{
-			nameFragment: "Zomato",
-			symbol: "ZOMATO",
+			nameFragment: "Eternal",
+			symbol: "ETERNAL",
 			exchange: "NSE",
 			listedOn: "2021-07-23",
 		},

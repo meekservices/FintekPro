@@ -206,55 +206,145 @@ async function resolveFromDB(input: string): Promise<CompanyInfo | null> {
 }
 
 /**
- * Silently persists a newly-discovered listed company into listed_stocks so that
- * future searches and reports are served from the local DB (faster, no external calls).
+ * Enriches listed_stocks with all fields available from a live research session.
+ * Works for BOTH externally-resolved (new symbols) AND existing DB rows (stale data).
  * Fire-and-forget — never throws.
+ *
+ * @param opts - Symbol metadata and live financial data from the research engine
  */
-async function persistNewListing(opts: {
+async function persistResearchData(opts: {
 	symbol: string;
 	name: string;
 	exchange: string;
 	sector: string | null;
+	industry: string | null;
+	isin: string | null;
 	price: number | null;
+	marketCap: number | null;
+	pe: number | null;
+	dividendYield: number | null;
+	resolvedExternally: boolean;
 }): Promise<void> {
 	try {
 		const isBse = opts.exchange?.toUpperCase() === "BSE";
 		await db.execute(sql`
       INSERT INTO listed_stocks (
         symbol, company_name, sector, industry,
-        nse_code, bse_code,
+        nse_code, bse_code, isin,
         current_price, previous_close,
+        market_cap_value, pe_ratio, dividend_yield,
         is_active, data_source, last_updated, created_at
       ) VALUES (
         ${opts.symbol},
         ${opts.name},
         ${opts.sector},
-        ${opts.sector},
+        ${opts.industry},
         ${isBse ? null : "EQ"},
         ${isBse ? opts.symbol : null},
+        ${opts.isin},
         ${opts.price},
         ${opts.price},
+        ${opts.marketCap},
+        ${opts.pe},
+        ${opts.dividendYield},
         true,
         'auto_discovered',
         NOW(),
         NOW()
       )
       ON CONFLICT (symbol) DO UPDATE SET
-        company_name  = EXCLUDED.company_name,
-        sector        = COALESCE(listed_stocks.sector, EXCLUDED.sector),
-        current_price = COALESCE(EXCLUDED.current_price, listed_stocks.current_price),
-        data_source   = CASE WHEN listed_stocks.data_source = 'auto_discovered'
-                             THEN 'auto_discovered' ELSE listed_stocks.data_source END,
-        last_updated  = NOW()
+        company_name      = EXCLUDED.company_name,
+        sector            = COALESCE(listed_stocks.sector,            EXCLUDED.sector),
+        industry          = COALESCE(listed_stocks.industry,          EXCLUDED.industry),
+        isin              = COALESCE(listed_stocks.isin,              EXCLUDED.isin),
+        current_price     = COALESCE(EXCLUDED.current_price,          listed_stocks.current_price),
+        market_cap_value  = COALESCE(EXCLUDED.market_cap_value,       listed_stocks.market_cap_value),
+        pe_ratio          = COALESCE(EXCLUDED.pe_ratio,               listed_stocks.pe_ratio),
+        dividend_yield    = COALESCE(EXCLUDED.dividend_yield,         listed_stocks.dividend_yield),
+        data_source       = CASE
+                              WHEN listed_stocks.data_source = 'auto_discovered' THEN 'auto_discovered'
+                              ELSE listed_stocks.data_source
+                            END,
+        last_updated      = NOW()
     `);
-  // eslint-disable-next-line no-console
 		console.log(
-			`[ResearchNote] Auto-persisted new listing: ${opts.symbol} (${opts.name})`,
+			`[ResearchNote] Persisted ${opts.resolvedExternally ? "new" : "enriched"} listing: ${opts.symbol} (${opts.name})`,
 		);
 	} catch (e: any) {
-  // eslint-disable-next-line no-console
 		console.warn(
-			`[ResearchNote] Auto-persist skipped for ${opts.symbol}:`,
+			`[ResearchNote] persistResearchData skipped for ${opts.symbol}:`,
+			e?.message?.slice(0, 80),
+		);
+	}
+}
+
+/**
+ * Upserts live fundamentals into financial_instruments_cache.
+ * Ensures screener, dividend-yield compute, and other consumers always have
+ * fresh data for stocks researched via the Research Note tool.
+ * Fire-and-forget — never throws.
+ */
+async function upsertInstrumentCache(opts: {
+	symbol: string;
+	name: string;
+	exchange: string;
+	sector: string | null;
+	isin: string | null;
+	price: number | null;
+	previousClose: number | null;
+	marketCap: number | null;
+	pe: number | null;
+	dividendYield: number | null;
+	returns1M: number | null;
+	returns6M: number | null;
+	returns1Y: number | null;
+}): Promise<void> {
+	try {
+		await db.execute(sql`
+      INSERT INTO financial_instruments_cache (
+        id, instrument_type, symbol, isin, name,
+        exchange, currency, country,
+        current_price, previous_close,
+        market_cap, pe_ratio, dividend_yield,
+        return_1m, return_6m, return_1y,
+        fetched_at, updated_at, created_at
+      ) VALUES (
+        gen_random_uuid(),
+        'EQUITY',
+        ${opts.symbol},
+        ${opts.isin},
+        ${opts.name},
+        ${opts.exchange ?? 'NSE'},
+        'INR', 'IN',
+        ${opts.price},
+        ${opts.previousClose},
+        ${opts.marketCap},
+        ${opts.pe},
+        ${opts.dividendYield},
+        ${opts.returns1M},
+        ${opts.returns6M},
+        ${opts.returns1Y},
+        NOW(), NOW(), NOW()
+      )
+      ON CONFLICT (instrument_type, symbol, exchange)
+      DO UPDATE SET
+        name           = EXCLUDED.name,
+        isin           = COALESCE(EXCLUDED.isin,           financial_instruments_cache.isin),
+        current_price  = COALESCE(EXCLUDED.current_price,  financial_instruments_cache.current_price),
+        previous_close = COALESCE(EXCLUDED.previous_close, financial_instruments_cache.previous_close),
+        market_cap     = COALESCE(EXCLUDED.market_cap,     financial_instruments_cache.market_cap),
+        pe_ratio       = COALESCE(EXCLUDED.pe_ratio,       financial_instruments_cache.pe_ratio),
+        dividend_yield = COALESCE(EXCLUDED.dividend_yield, financial_instruments_cache.dividend_yield),
+        return_1m      = COALESCE(EXCLUDED.return_1m,      financial_instruments_cache.return_1m),
+        return_6m      = COALESCE(EXCLUDED.return_6m,      financial_instruments_cache.return_6m),
+        return_1y      = COALESCE(EXCLUDED.return_1y,      financial_instruments_cache.return_1y),
+        fetched_at     = NOW(),
+        updated_at     = NOW()
+    `);
+		console.log(`[ResearchNote] upsertInstrumentCache: ${opts.symbol}`);
+	} catch (e: any) {
+		console.warn(
+			`[ResearchNote] upsertInstrumentCache skipped for ${opts.symbol}:`,
 			e?.message?.slice(0, 80),
 		);
 	}
@@ -316,14 +406,38 @@ async function buildReportData(
 		}
 	}
 
-	// Auto-persist: if this company wasn't in our DB, save it now so future queries are fast
-	if (resolvedExternally && financials.price !== null) {
-		persistNewListing({
+	// ── Post-research persistence: runs for ALL symbols (new + existing) ──────
+	// Fires after financials are available so we always persist live data.
+	// Both calls are fire-and-forget — never block the response.
+	if (financials.price !== null) {
+		const isin = (company as CompanyInfo).isin ?? null;
+		persistResearchData({
 			symbol: cleanSym,
 			name: company.name,
 			exchange: company.exchange ?? "NSE",
 			sector: effectiveSector,
+			industry: industry ?? null,
+			isin,
 			price: financials.price,
+			marketCap: financials.marketCap ?? null,
+			pe: financials.pe ?? null,
+			dividendYield: financials.dividendYield ?? null,
+			resolvedExternally,
+		}).catch(() => {});
+		upsertInstrumentCache({
+			symbol: cleanSym,
+			name: company.name,
+			exchange: company.exchange ?? "NSE",
+			sector: effectiveSector,
+			isin,
+			price: financials.price,
+			previousClose: financials.previousClose ?? null,
+			marketCap: financials.marketCap ?? null,
+			pe: financials.pe ?? null,
+			dividendYield: financials.dividendYield ?? null,
+			returns1M: financials.returns1M ?? null,
+			returns6M: financials.returns6M ?? null,
+			returns1Y: financials.returns1Y ?? null,
 		}).catch(() => {});
 	}
 

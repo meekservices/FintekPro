@@ -165,6 +165,9 @@ import stockIntersectionRouter from "./routes/stock-intersection";
 import { registerAgentAdvisoryPart4Routes } from "./routes/agent-advisory-4";
 import overlapIntelligenceRouter from "./routes/overlap-intelligence"; // /api/portfolio/intelligence, /simulate-impact, /optimize-sip, /goal-based-score
 import { modelPortfoliosRouter } from "./routes/model-portfolios-route"; // /api/model-portfolios — engine audit Fix #6
+import { agentLeadInboxRouter } from "./routes/agent-lead-inbox"; // /api/agent/leads
+import { exploriumWebhookRouter } from "./routes/explorium-webhook-routes"; // /api/webhooks/explorium
+import { agentGeoCoverageRouter } from "./routes/agent-geo-coverage-routes"; // /api/agent/geo-coverage
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -542,6 +545,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 			return apiResponse.serverError(res);
 		}
 	});
+
+	// ── Lead Pipeline & Geo Routes ─────────────────────────────────────────────
+	app.use("/api/agent/leads", agentLeadInboxRouter);
+	app.use("/api/webhooks", exploriumWebhookRouter);
+	app.use("/api/agent/geo-coverage", agentGeoCoverageRouter);
 
 	const httpServer = createServer(app);
 	return httpServer;

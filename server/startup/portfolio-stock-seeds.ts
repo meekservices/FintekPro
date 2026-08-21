@@ -199,13 +199,13 @@ const STOCK_SEEDS: PortfolioSeed[] = [
 
   {
     id: "factor-alpha",
-    highlight: "Bajaj Finance, Zomato, Naukri — quant-driven momentum leaders",
+    highlight: "Bajaj Finance, Eternal, Naukri — quant-driven momentum leaders",
     holdings: [
       { rank: 1, name: "Reliance Industries",  symbol: "RELIANCE",   isin: "INE002A01018", weight: 15, type: "equity", sector: "Energy" },
       { rank: 2, name: "Bajaj Finance",        symbol: "BAJFINANCE", isin: "INE296A01024", weight: 15, type: "equity", sector: "NBFC" },
       { rank: 3, name: "Titan Company",        symbol: "TITAN",      isin: "INE280A01028", weight: 14, type: "equity", sector: "Consumer" },
       { rank: 4, name: "Persistent Systems",   symbol: "PERSISTENT", isin: "INE262H01021", weight: 14, type: "equity", sector: "IT" },
-      { rank: 5, name: "Zomato",               symbol: "ZOMATO",     isin: "INE758T01015", weight: 14, type: "equity", sector: "Consumer Tech" },
+      { rank: 5, name: "Eternal",              symbol: "ETERNAL",    isin: "INE758T01015", weight: 14, type: "equity", sector: "Consumer Tech" },
       { rank: 6, name: "Info Edge (Naukri)",   symbol: "NAUKRI",     isin: "INE663F01024", weight: 14, type: "equity", sector: "Internet" },
       { rank: 7, name: "Angel One",            symbol: "ANGELONE",   isin: "INE732I01013", weight: 14, type: "equity", sector: "Capital Markets" },
     ],
@@ -318,7 +318,7 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { rank: 8,  name: "Dixon Technologies",         symbol: "DIXON",      isin: "INE935N01020", weight: 7,  type: "equity", sector: "Electronics" },
       { rank: 9,  name: "Titan Company",              symbol: "TITAN",      isin: "INE280A01028", weight: 7,  type: "equity", sector: "Consumer" },
       { rank: 10, name: "Avenue Supermarts",          symbol: "DMART",      isin: "INE192R01011", weight: 7,  type: "equity", sector: "Retail" },
-      { rank: 11, name: "Zomato",                     symbol: "ZOMATO",     isin: "INE758T01015", weight: 7,  type: "equity", sector: "Consumer Tech" },
+      { rank: 11, name: "Eternal",                    symbol: "ETERNAL",    isin: "INE758T01015", weight: 7,  type: "equity", sector: "Consumer Tech" },
       { rank: 12, name: "Bharti Airtel",              symbol: "BHARTIARTL", isin: "INE397D01024", weight: 6,  type: "equity", sector: "Telecom" },
       { rank: 13, name: "Larsen & Toubro",            symbol: "LT",         isin: "INE018A01030", weight: 6,  type: "equity", sector: "Engineering" },
       { rank: 14, name: "Sun Pharmaceutical",         symbol: "SUNPHARMA",  isin: "INE044A01036", weight: 7,  type: "equity", sector: "Pharma" },
@@ -482,7 +482,7 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { rank: 6,  name: "Mphasis",                   symbol: "MPHASIS",     isin: "INE356A01018", weight: 10, type: "equity", sector: "IT" },
       { rank: 7,  name: "Persistent Systems",        symbol: "PERSISTENT",  isin: "INE262H01021", weight: 10, type: "equity", sector: "IT" },
       { rank: 8,  name: "Tech Mahindra",             symbol: "TECHM",       isin: "INE669C01036", weight: 10, type: "equity", sector: "IT" },
-      { rank: 9,  name: "Zomato",                    symbol: "ZOMATO",      isin: "INE758T01015", weight: 5,  type: "equity", sector: "Consumer Tech" },
+      { rank: 9,  name: "Eternal",                   symbol: "ETERNAL",     isin: "INE758T01015", weight: 5,  type: "equity", sector: "Consumer Tech" },
       { rank: 10, name: "Bharti Airtel",             symbol: "BHARTIARTL",  isin: "INE397D01024", weight: 5,  type: "equity", sector: "Telecom" },
     ],
     allocation: [
@@ -501,7 +501,7 @@ const STOCK_SEEDS: PortfolioSeed[] = [
       { rank: 2, name: "Kaynes Technology",           symbol: "KAYNES",     isin: "INE918L01017", weight: 14, type: "equity", sector: "Electronics" },
       { rank: 3, name: "Dixon Technologies",          symbol: "DIXON",      isin: "INE935N01020", weight: 14, type: "equity", sector: "Electronics" },
       { rank: 4, name: "Angel One",                   symbol: "ANGELONE",   isin: "INE732I01013", weight: 12, type: "equity", sector: "Capital Markets" },
-      { rank: 5, name: "Zomato",                      symbol: "ZOMATO",     isin: "INE758T01015", weight: 12, type: "equity", sector: "Consumer Tech" },
+      { rank: 5, name: "Eternal",                     symbol: "ETERNAL",    isin: "INE758T01015", weight: 12, type: "equity", sector: "Consumer Tech" },
       { rank: 6, name: "CAMS",                        symbol: "CAMS",       isin: "INE596I01012", weight: 10, type: "equity", sector: "Financial Services" },
       { rank: 7, name: "Info Edge (Naukri)",          symbol: "NAUKRI",     isin: "INE663F01024", weight: 10, type: "equity", sector: "Internet" },
       { rank: 8, name: "Varun Beverages",             symbol: "VBL",        isin: "INE200M01013", weight: 8,  type: "equity", sector: "Beverages" },

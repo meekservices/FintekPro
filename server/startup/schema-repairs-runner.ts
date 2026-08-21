@@ -8,6 +8,7 @@ import {
   applyPhaseB_HoldingsUniqueIndex,
   ensureSharedRouteTables,
   applyFinancialInstrumentsCacheColumns,
+  runGeoCoverageColumnsRepair,
 } from "./schema-repairs";
 
 async function main() {
@@ -234,6 +235,9 @@ async function main() {
     console.error("  ❌ Phase F error:", e.message, "|", e.code);
     // Non-fatal
   }
+
+  console.log("Phase G — ensuring agent geo coverage columns (operating_cities + operating_states)...");
+  await runGeoCoverageColumnsRepair();
 
   console.log("FintekPro schema repair job complete.");
 }

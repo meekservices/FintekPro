@@ -135,6 +135,9 @@ export const users = pgTable("users", {
   isPinSet: boolean("is_pin_set").default(false),
   loginPin: text("login_pin"),
   shareableProfileEnabled: boolean("shareable_profile_enabled").default(false),
+  // Agent geo coverage — used by Lead Assignment Engine for geo-priority routing
+  operatingCities: jsonb("operating_cities").$type<string[]>().default([]),
+  operatingStates: jsonb("operating_states").$type<string[]>().default([]),
 }, (table) => [
   index("idx_users_email").on(table.email),
   index("idx_users_mobile").on(table.mobile),

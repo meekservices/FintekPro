@@ -3596,3 +3596,32 @@ export async function createISINRegistryTable(): Promise<void> {
     `);
   } catch { /* non-fatal */ }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MIGRATION: Agent Geo Coverage Columns (Lead Pipeline v2)
+// Adds operating_cities and operating_states JSONB columns to the users table.
+// These enable geo-priority lead routing in the Lead Assignment Engine.
+// Safe to re-run: uses ADD COLUMN IF NOT EXISTS.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function runGeoCoverageColumnsRepair() {
+  try {
+    const { pool: migPool } = await import("../db");
+
+    await migPool.query(`
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS operating_cities JSONB NOT NULL DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS operating_states JSONB NOT NULL DEFAULT '[]'::jsonb
+    `);
+    console.log("  ✅ [GeoCoverage] users.operating_cities + users.operating_states columns ensured");
+
+    // Index for fast geo-filter queries (GIN index on JSONB arrays)
+    await migPool.query(`
+      CREATE INDEX IF NOT EXISTS idx_users_operating_cities ON users USING GIN (operating_cities);
+      CREATE INDEX IF NOT EXISTS idx_users_operating_states ON users USING GIN (operating_states);
+    `);
+    console.log("  ✅ [GeoCoverage] GIN indexes on operating_cities + operating_states created");
+  } catch (err: any) {
+    // Non-fatal — existing columns will just show an idempotency message
+    console.warn("  ⚠️ [GeoCoverage] Column migration non-fatal error:", err?.message?.slice(0, 80));
+  }
+}
