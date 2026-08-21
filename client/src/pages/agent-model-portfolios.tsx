@@ -4696,7 +4696,13 @@ export default function AgentModelPortfoliosPage() {
                 <div className="flex items-start gap-3">
                   <div className="text-2xl leading-none mt-0.5">{portfolio.icon}</div>
                   <div className="flex-1 min-w-0">
-                    <CardTitle className="text-[14px] font-semibold leading-tight">{portfolio.name}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-[14px] font-semibold leading-tight">{portfolio.name}</CardTitle>
+                      <span className="inline-flex items-center gap-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-full px-1.5 py-0.5 text-[9px] font-semibold shrink-0" title="Fully managed by FASP-AI v3.0">
+                        <Sparkles className="h-2.5 w-2.5" />
+                        AI
+                      </span>
+                    </div>
                     <CardDescription className="text-[11px] mt-0.5 leading-snug">{portfolio.tagline}</CardDescription>
                     {/* Code + inception row */}
                     <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
@@ -5302,7 +5308,7 @@ export default function AgentModelPortfoliosPage() {
                           <BrainCircuit className="h-4 w-4" />
                           AI Insight
                           <Badge variant="outline" className="text-[9px] ml-1 border-indigo-400 text-indigo-600 font-mono">
-                            FASP-AI v2.0
+                            FASP-AI v3.0
                           </Badge>
                           <Badge variant="outline" className="text-[9px] ml-auto border-green-400 text-green-600">
                             SEBI Compliant
@@ -5344,7 +5350,7 @@ export default function AgentModelPortfoliosPage() {
                              {/* v2.0: Confidence Breakdown */}
                              <div className="rounded-lg bg-indigo-100/60 dark:bg-indigo-900/30 p-2 space-y-1.5">
                                <p className="text-[9px] font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">
-                                 Confidence Breakdown (FASP-AI v2.0)
+                                 Confidence Breakdown (FASP-AI v3.0)
                                </p>
                                {[
                                  { factor: "Response Completeness", weight: 20, score: selectedPortfolio.aiInsight.confidence_score > 80 ? 95 : 72, evidence: "Full recommendation with supporting rationale" },
@@ -5918,7 +5924,7 @@ export default function AgentModelPortfoliosPage() {
           </div>
           <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
             <span className="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded px-2 py-0.5 font-medium">
-              🤖 AI insights: FASP-AI v1.0 compliant
+              🤖 AI insights: FASP-AI v3.0 compliant
             </span>
           </div>
         </div>
@@ -5931,7 +5937,7 @@ export default function AgentModelPortfoliosPage() {
           <p className="text-[10px] text-muted-foreground mt-1.5">
             <strong>For RIA Partners:</strong> FintekPro is a decision support system for SEBI-registered advisors.
             Final investment decisions MUST be confirmed by the advisor or client.
-            AI advisory outputs are logged per FASP-AI v1.0 compliance framework.
+            AI advisory outputs are logged per FASP-AI v3.0 compliance framework.
             All AI recommendations include confidence scores and mandatory disclaimers.
           </p>
           <div className="flex flex-wrap items-center gap-3 mt-2">

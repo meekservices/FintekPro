@@ -391,6 +391,31 @@ export default function ResearchNoteGenerator() {
 	const dropdownRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 
+	// ── Hydrate recent searches from stored reports if localStorage is empty ──
+	useEffect(() => {
+		if (recentSearches.length > 0) return;
+		(async () => {
+			try {
+				const res = await fetch("/api/research-note/stored", { credentials: "include" });
+				if (!res.ok) return;
+				const reports: { label: string; key: string }[] = await res.json();
+				// Extract unique symbols from report labels (format: "SYMBOL - Company Name" or just "SYMBOL")
+				const seen = new Set<string>();
+				const hydrated: CompanySearchResult[] = [];
+				for (const r of reports) {
+					const symbol = (r.label || "").split(/[\s\-–—]/)[0].trim().toUpperCase();
+					if (!symbol || seen.has(symbol) || hydrated.length >= 5) continue;
+					seen.add(symbol);
+					hydrated.push({ symbol, company_name: r.label, isin: null, sector: null, nse_code: symbol, bse_code: null, type: "listed" as const });
+				}
+				if (hydrated.length > 0) {
+					setRecentSearches(hydrated);
+					try { localStorage.setItem("rng_recent_searches", JSON.stringify(hydrated)); } catch {}
+				}
+			} catch { /* silent — fallback to hardcoded defaults */ }
+		})();
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+
 	useEffect(() => {
 		const t = setTimeout(() => setDebouncedSearch(searchText), 280);
 		return () => clearTimeout(t);
