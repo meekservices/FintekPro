@@ -17,6 +17,7 @@ import { registerAuthEventConsumers } from "./services/auth-event-consumers";
 import { startBackgroundSchedulers } from "./startup/background-schedulers";
 import { validateRuntimeEnv } from "./config/runtime-env";
 import { registerPrebootMiddleware } from "./startup/preboot-middleware";
+import { markSchemaReady } from "./utils/schema-gate";
 import {
 	authLimiter,
 	otpLimiter,
@@ -27,14 +28,6 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-/**
- * Schema-ready gate — resolves once background migrations complete (or are skipped).
- * Data-fetching schedulers MUST await this before querying tables that depend
- * on migration-added columns (e.g. confidence_score on financial_instruments_cache).
- */
-let _resolveSchemaReady!: () => void;
-export const schemaReady = new Promise<void>((r) => { _resolveSchemaReady = r; });
 
 const app = express();
 
@@ -310,12 +303,12 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					logger.warn("[Boot] Background migration error (non-fatal):", { error: migErr?.message });
 				}
 			})();
-			migrationWork.then(() => _resolveSchemaReady()).catch(() => _resolveSchemaReady());
+			migrationWork.then(() => markSchemaReady()).catch(() => markSchemaReady());
 		} else {
 			logBootProgress(
 				"Step 2: Skipping startup schema repairs (run npm run db:repair or Cloud Run job)...",
 			);
-			_resolveSchemaReady();
+			markSchemaReady();
 		}
 
 		logBootProgress("Step 3: Initializing Middleware & Auth...");

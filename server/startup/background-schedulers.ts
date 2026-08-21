@@ -286,7 +286,7 @@ async function startFinancialDataScheduler() {
 		// Wait for background migrations to finish before querying
 		// financial_instruments_cache — the confidence_score column (among others)
 		// is added by Step 2e-1 and queries will fail if we start too early.
-		const { schemaReady } = await import("../index");
+		const { schemaReady } = await import("../utils/schema-gate");
 		await schemaReady;
 		const { financialDataScheduler } = await import(
 			"../services/financial-data-scheduler"

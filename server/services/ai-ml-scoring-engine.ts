@@ -12,6 +12,36 @@ import { eq, and, gte, lte, desc, sql, or, ne } from "drizzle-orm";
 import { aiAnalyticsEngine } from "./ai-analytics-engine";
 import * as ss from "simple-statistics";
 
+/**
+ * seededRng — Mulberry32 PRNG (deterministic, fast, well-distributed)
+ *
+ * FASP-AI v3.0 / GCR determinism rule:
+ *   "Same input → same output ALWAYS (no hidden randomness)."
+ *
+ * @param seed - 32-bit unsigned integer seed
+ * @returns () => number in [0, 1)
+ */
+function seededRng(seed: number): () => number {
+  let s = seed >>> 0;
+  return function rng(): number {
+    s += 0x6D2B79F5;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** djb2-style string/number → uint32 hash for seeding */
+function seedHash(val: number | string): number {
+  const str = String(val);
+  let h = 0x811C9DC5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
 export interface TrainingExample {
 	assetId: string;
 	assetClass: string;
@@ -245,8 +275,10 @@ class AIMLScoringEngine {
 		for (let round = 0; round < maxStumps; round++) {
 			const bagSize = Math.max(Math.floor(n * baggingFraction), minSamples);
 			const sampleIndices: number[] = [];
+			// Deterministic bootstrap: seed from round index + dataset size
+			const rng = seededRng(seedHash(`${round}-${n}`));
 			for (let s = 0; s < bagSize; s++) {
-				sampleIndices.push(allIndices[Math.floor(Math.random() * n)]);
+				sampleIndices.push(allIndices[Math.floor(rng() * n)]);
 			}
 
 			const stump = this.findBestStump(
@@ -651,7 +683,13 @@ class AIMLScoringEngine {
 		const maxStumps = config.maxStumps ?? 50;
 		const learningRate = config.learningRate ?? 0.1;
 
-		const shuffled = [...examples].sort(() => Math.random() - 0.5);
+		// Deterministic Fisher-Yates shuffle seeded by dataset size
+		const shuffled = [...examples];
+		const rng = seededRng(seedHash(examples.length));
+		for (let i = shuffled.length - 1; i > 0; i--) {
+			const j = Math.floor(rng() * (i + 1));
+			[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+		}
 		const foldSize = Math.floor(shuffled.length / nFolds);
 
 		const foldRmses: number[] = [];
