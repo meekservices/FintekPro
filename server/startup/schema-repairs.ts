@@ -3491,6 +3491,7 @@ export async function applyFinancialInstrumentsCacheColumns(): Promise<void> {
         ADD COLUMN IF NOT EXISTS sharpe_ratio        DECIMAL(10, 4),
         ADD COLUMN IF NOT EXISTS beta                DECIMAL(10, 4),
         ADD COLUMN IF NOT EXISTS secondary_source    VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS confidence_score    INTEGER DEFAULT 100,
         ADD COLUMN IF NOT EXISTS is_verified         BOOLEAN DEFAULT FALSE,
         ADD COLUMN IF NOT EXISTS verification_notes  TEXT,
         ADD COLUMN IF NOT EXISTS price_updated_at    TIMESTAMPTZ;
@@ -3498,6 +3499,50 @@ export async function applyFinancialInstrumentsCacheColumns(): Promise<void> {
     console.log("  ✅ financial_instruments_cache: all missing columns ensured (Phase 1 + 2)");
   } catch (e: any) {
     console.warn("  ⚠️  financial_instruments_cache column migration (non-fatal):", e.message?.slice(0, 200));
+  }
+}
+
+/**
+ * ensureAssetMetadataCacheTable
+ *
+ * Creates the asset_metadata_cache table that HistoricalNav queries via Drizzle.
+ * The Drizzle schema (shared/schema.ts L8851) defines the table but no migration
+ * ever created it in production, causing:
+ *   "Failed query: select ... from asset_metadata_cache where ..."
+ *
+ * Safe to run multiple times — uses CREATE TABLE IF NOT EXISTS.
+ */
+export async function ensureAssetMetadataCacheTable(): Promise<void> {
+  try {
+    const { pool: migPool } = await import("../db");
+    await migPool.query(`
+      CREATE TABLE IF NOT EXISTS asset_metadata_cache (
+        id              VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        identifier      VARCHAR(50)  NOT NULL,
+        identifier_type VARCHAR(20)  NOT NULL,
+        name            VARCHAR(300) NOT NULL,
+        category        VARCHAR(100),
+        sub_category    VARCHAR(100),
+        amc_name        VARCHAR(200),
+        scheme_type     VARCHAR(50),
+        isin            VARCHAR(20),
+        exchange        VARCHAR(20),
+        sector          VARCHAR(100),
+        industry        VARCHAR(100),
+        latest_nav      NUMERIC,
+        latest_nav_date DATE,
+        source          VARCHAR(30)  NOT NULL,
+        last_updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+        created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_asset_metadata_identifier
+        ON asset_metadata_cache(identifier, identifier_type);
+      CREATE INDEX IF NOT EXISTS idx_asset_metadata_name
+        ON asset_metadata_cache(name);
+    `);
+    console.log("  ✅ asset_metadata_cache table ensured");
+  } catch (e: any) {
+    console.warn("  ⚠️  asset_metadata_cache table creation (non-fatal):", e.message?.slice(0, 200));
   }
 }
 

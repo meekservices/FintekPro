@@ -218,6 +218,14 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					);
 					await runStartupSchemaRepairs();
 
+					// ── CRITICAL: users table columns must exist before any login ──
+					// Drizzle SELECTs all schema-defined columns; missing columns
+					// cause 500 on /api/login and /api/sessions/check.
+					logBootProgress("Step 2-users (bg): ensuring users table columns...");
+					const { runGeoCoverageColumnsRepair, runTruecallerRegistrationColumnRepair } = await import("./startup/schema-repairs");
+					await runGeoCoverageColumnsRepair();
+					await runTruecallerRegistrationColumnRepair();
+
 					// Seed model portfolio holdings (idempotent)
 					logBootProgress("Step 2b (bg): Seeding model portfolio holdings...");
 					const { seedModelPortfolioHoldings } = await import(
@@ -258,6 +266,14 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 					logBootProgress("Step 2e-1 (bg): financial_instruments_cache bond columns...");
 					const { applyFinancialInstrumentsCacheColumns } = await import("./startup/schema-repairs");
 					await applyFinancialInstrumentsCacheColumns();
+
+					// ── Phase C-2: asset_metadata_cache table ──────────────────────
+					// HistoricalNav queries this table via Drizzle ORM to fetch scheme
+					// metadata. The Drizzle schema defines it but no migration ever
+					// created it in production, causing query failures.
+					logBootProgress("Step 2e-1b (bg): ensuring asset_metadata_cache table...");
+					const { ensureAssetMetadataCacheTable } = await import("./startup/schema-repairs");
+					await ensureAssetMetadataCacheTable();
 
 				// ── ISIN Equalizer — isin_registry table ─────────────────────
 				// Creates the isin_registry table on first boot (idempotent).

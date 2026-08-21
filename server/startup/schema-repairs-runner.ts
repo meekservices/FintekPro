@@ -8,6 +8,7 @@ import {
   applyPhaseB_HoldingsUniqueIndex,
   ensureSharedRouteTables,
   applyFinancialInstrumentsCacheColumns,
+  ensureAssetMetadataCacheTable,
   runGeoCoverageColumnsRepair,
   runThreeTierContactColumnsRepair,
   runTruecallerRegistrationColumnRepair,
@@ -24,6 +25,8 @@ async function main() {
   await ensureSharedRouteTables();
   console.log("Phase C-1 — financial_instruments_cache bond columns...");
   await applyFinancialInstrumentsCacheColumns();
+  console.log("Phase C-2 — ensuring asset_metadata_cache table...");
+  await ensureAssetMetadataCacheTable();
 
   // ── Phase D: FASP-5 & FASP-6 portfolio seeds ──────────────────────────────
   // Uses Drizzle ORM db.insert().onConflictDoNothing() — same pattern as the
