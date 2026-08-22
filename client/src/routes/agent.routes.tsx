@@ -102,6 +102,7 @@ import {
 	AlpacaMarketExplorer,
 	AgentFieldView,
 	AgentModelPortfolios,
+	ReitInvitPage,
 } from "@/routes/lazy-pages";
 
 // AgentRoot: shows AuthPage if not logged in, FieldAgentPortal if logged in.
@@ -837,6 +838,8 @@ export function AgentRoutes() {
 					</AgentLayout>
 				)}
 			</Route>
+			{/* REIT/InVIT page — shared across portals */}
+			<Route path="/reit-invit" component={ReitInvitPage} />
 			<Route>
 				{() => (
 					<AgentLayout>

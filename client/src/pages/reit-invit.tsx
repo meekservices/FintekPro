@@ -265,7 +265,9 @@ function buildQueryString(filters: Record<string, string>): string {
 }
 
 export default function ReitInvitPage() {
-	const [activeTab, setActiveTab] = useState("overview");
+	const validTabs = ["overview", "reits", "invits", "unlisted-reits", "unlisted-invits", "comparison"];
+	const urlTab = new URLSearchParams(window.location.search).get("tab") ?? "";
+	const [activeTab, setActiveTab] = useState(validTabs.includes(urlTab) ? urlTab : "overview");
 	const [selectedReit, setSelectedReit] = useState<ReitData | null>(null);
 	const [selectedInvit, setSelectedInvit] = useState<InvitData | null>(null);
 	const [reitFilters, setReitFilters] = useState({
