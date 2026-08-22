@@ -1083,7 +1083,7 @@ export async function syncReitInvitToListedStocks(): Promise<{
 				current_price, market_cap_value, market_cap_category,
 				country, currency, is_active, data_source, dividend_yield,
 				returns_1m, returns_3m, returns_6m, returns_1y, returns_3y,
-				created_at, updated_at
+				created_at, last_updated
 			)
 			SELECT
 				r.symbol,
@@ -1124,7 +1124,7 @@ export async function syncReitInvitToListedStocks(): Promise<{
 				returns_3y     = EXCLUDED.returns_3y,
 				is_active      = EXCLUDED.is_active,
 				data_source    = 'reit-sync',
-				updated_at     = NOW()
+				last_updated     = NOW()
 		`);
 		reitsProcessed = (reitResult as any).rowCount ?? 0;
 		logger.info(`[REIT-Sync] Upserted ${reitsProcessed} REITs into listed_stocks`);
@@ -1136,7 +1136,7 @@ export async function syncReitInvitToListedStocks(): Promise<{
 				current_price, market_cap_value, market_cap_category,
 				country, currency, is_active, data_source, dividend_yield,
 				returns_1m, returns_3m, returns_6m, returns_1y, returns_3y,
-				created_at, updated_at
+				created_at, last_updated
 			)
 			SELECT
 				i.symbol,
@@ -1177,7 +1177,7 @@ export async function syncReitInvitToListedStocks(): Promise<{
 				returns_3y     = EXCLUDED.returns_3y,
 				is_active      = EXCLUDED.is_active,
 				data_source    = 'invit-sync',
-				updated_at     = NOW()
+				last_updated     = NOW()
 		`);
 		invitsProcessed = (invitResult as any).rowCount ?? 0;
 		logger.info(`[InvIT-Sync] Upserted ${invitsProcessed} InvITs into listed_stocks`);
