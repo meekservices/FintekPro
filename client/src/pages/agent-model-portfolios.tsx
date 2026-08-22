@@ -339,8 +339,14 @@ const computeMonthlyBarData = (
 };
 
 /**
- * P1: PERFORMANCE_BASE now accepts portfolioId to mix into the LCG seed.
- * portfolios with same return+volatility will get distinct, stable NAV curves.
+ * Generates a deterministic monthly NAV curve for portfolio vs benchmark.
+ *
+ * @param portfolioId  - Unique ID (mixed into LCG seed for curve uniqueness)
+ * @param startNav     - Starting NAV (e.g. 1000)
+ * @param months       - Number of trailing months to generate
+ * @param annualReturn - Portfolio's 1Y CAGR (%)
+ * @param volatility   - Portfolio volatility / std-dev (%)
+ * @param benchmarkReturn - Actual benchmark 1Y CAGR (%) — from benchmarkCagr1Y
  */
 const PERFORMANCE_BASE = (
   portfolioId: string,
@@ -348,18 +354,15 @@ const PERFORMANCE_BASE = (
   months: number,
   annualReturn: number,
   volatility: number,
+  benchmarkReturn: number,
 ): PerformancePoint[] => {
   const pts: PerformancePoint[] = [];
   const monthlyReturn = annualReturn / 12 / 100;
-  // Benchmark always underperforms by ~2% absolute alpha.
-  // For negative returns: benchmark = annualReturn - 2 (i.e. benchmark loses MORE)
-  // For positive returns: benchmark = annualReturn - 2 (benchmark gains LESS)
-  // This ensures the portfolio NAV curve is ALWAYS above benchmark.
-  const benchReturn = (annualReturn - Math.abs(annualReturn) * 0.15 - 1.5) / 12 / 100;
+  const benchMonthly = benchmarkReturn / 12 / 100;
   let nav = startNav;
   let bench = startNav;
   const now = new Date();
-  // P1: Mix portfolio ID hash into seed — guarantees curve uniqueness even when
+  // Mix portfolio ID hash into seed — guarantees curve uniqueness even when
   // annualReturn and volatility are identical across portfolios.
   const idHash = hashPortfolioId(portfolioId);
   const seed = (Math.round(annualReturn * 100 + volatility * 13) + idHash) & 0xffffffff;
@@ -369,7 +372,7 @@ const PERFORMANCE_BASE = (
     d.setMonth(d.getMonth() - i);
     const noise = (rand() - 0.48) * volatility * 0.01 * startNav;
     nav = nav * (1 + monthlyReturn) + noise;
-    bench = bench * (1 + benchReturn) + noise * 0.6;
+    bench = bench * (1 + benchMonthly) + noise * 0.6;
     pts.push({
       date: d.toLocaleString("en-IN", { month: "short", year: "2-digit" }),
       portfolioNav: Math.round(nav * 100) / 100,
@@ -422,7 +425,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Axis Bluechip Fund", category: "Large Cap MF", weight: 2.5, currentReturn: 12.8 },
       { rank: 15, name: "HDFC Short Term Debt Fund", category: "Short Term MF", weight: 2.2, currentReturn: 7.8 },
     ],
-    performance: PERFORMANCE_BASE("arbitrage-liquid-hybrid", 1000, 24, 6.36, 3.2),
+    performance: PERFORMANCE_BASE("arbitrage-liquid-hybrid", 1000, 24, 6.36, 3.2, 5.09),
     riskMetrics: { sharpeRatio: 0.82, maxDrawdown: -2.4, volatility: 3.2, beta: 0.4, alpha: 1.27 },
     rebalancingHistory: [
       { date: "Jul 2026", type: "QUARTERLY", rationale: "Quarterly drift check — Balanced Advantage trimmed as equity-debt ratio drifted +3% above target due to equity rally", action_taken: "Rebalanced equity allocation from 58% to 55%, restored liquid buffer", sebi_compliant: true, engine_version: "FASP-AI-v3.0" },
@@ -478,7 +481,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Axis Banking & PSU Debt Fund",          category: "Banking MF",  weight: 3, currentReturn: 7.5 },
       { rank: 15, name: "ICICI Pru Liquid Fund",                  category: "Liquid MF",   weight: 2, currentReturn: 7.0, isin: "INF109K01027" },
     ],
-    performance: PERFORMANCE_BASE("banking-bfsi", 1000, 24, 12.8, 17.4),
+    performance: PERFORMANCE_BASE("banking-bfsi", 1000, 24, 12.8, 17.4, 10.6),
     riskMetrics: { sharpeRatio: 0.74, maxDrawdown: -18.4, volatility: 17.4, beta: 0.92, alpha: 0.06 },
     rebalancingHistory: [
       { date: "Jul 2026", type: "HOLDINGS_UPGRADE", rationale: "Holdings basket corrected to actual BFSI-sector funds. Prior basket contained healthcare/infra/tech MFs which misrepresented the portfolio. All holdings now SEBI-category Banking & Financial Services or Banking ETFs.", action_taken: "Replaced all 5 prior holdings with 7 BFSI-aligned instruments", sebi_compliant: true, engine_version: "FASP-AI-v3.0" },
@@ -533,7 +536,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "ICICI Pru Short Term Fund", category: "Short Term MF", weight: 2.8, currentReturn: 7.5 },
       { rank: 15, name: "Axis Bluechip Fund", category: "Large Cap MF", weight: 2.5, currentReturn: 12.8 },
     ],
-    performance: PERFORMANCE_BASE("childrens-education", 1000, 24, 12.58, 10.8),
+    performance: PERFORMANCE_BASE("childrens-education", 1000, 24, 12.58, 10.8, 10.06),
     riskMetrics: { sharpeRatio: 0.92, maxDrawdown: -9.4, volatility: 10.8, beta: 0.81, alpha: 2.52 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -594,7 +597,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Axis Short Term Fund", category: "Short Term MF", weight: 2.5, currentReturn: 7.4 },
       { rank: 15, name: "ICICI Pru Corporate Bond Fund", category: "Corp Bond MF", weight: 2.2, currentReturn: 7.9 },
     ],
-    performance: PERFORMANCE_BASE("conservative-income", 1000, 24, 8.2, 4.2),
+    performance: PERFORMANCE_BASE("conservative-income", 1000, 24, 8.2, 4.2, 7.1),
     riskMetrics: { sharpeRatio: 1.68, maxDrawdown: -2.8, volatility: 4.2, beta: 0.72, alpha: 1.1 },
     rebalancingHistory: [
       { date: "Jul 2026", type: "CAGR_RECALIBRATION", rationale: "1Y CAGR recalibrated from 13.61% to 8.2% to reflect actual CRISIL Short Duration Debt Index performance. Prior value was erroneous — no SEBI-compliant short-duration debt portfolio has achieved 13%+ in the current rate environment.", action_taken: "CAGR corrected; performance chart recalibrated; Sharpe ratio updated", sebi_compliant: true, engine_version: "FASP-AI-v3.0" },
@@ -649,7 +652,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Nippon India Pharma Fund", category: "Pharma MF", weight: 2.3, currentReturn: 20.1 },
       { rank: 15, name: "DSP India T.I.G.E.R. Fund", category: "Infra MF", weight: 2, currentReturn: 16.8 },
     ],
-    performance: PERFORMANCE_BASE("consumption-rural", 1000, 24, 1.2, 13.4),
+    performance: PERFORMANCE_BASE("consumption-rural", 1000, 24, 1.2, 13.4, -1.62),
     riskMetrics: { sharpeRatio: 1.58, maxDrawdown: -14.8, volatility: 13.4, beta: 0.83, alpha: 2.8 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -710,7 +713,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Axis Short Term Fund", category: "Short Term MF", weight: 2.5, currentReturn: 7.4 },
       { rank: 15, name: "ICICI Pru Corporate Bond Fund", category: "Corp Bond MF", weight: 2.2, currentReturn: 7.9 },
     ],
-    performance: PERFORMANCE_BASE("corporate-treasury", 1000, 24, 5.86, 1.8),
+    performance: PERFORMANCE_BASE("corporate-treasury", 1000, 24, 5.86, 1.8, 4.69),
     riskMetrics: { sharpeRatio: 1.84, maxDrawdown: -0.8, volatility: 1.8, beta: 0.72, alpha: 1.17 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -771,7 +774,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Axis Short Term Fund", category: "Short Term MF", weight: 2.5, currentReturn: 7.4 },
       { rank: 15, name: "ICICI Pru Corporate Bond Fund", category: "Corp Bond MF", weight: 2.2, currentReturn: 7.9 },
     ],
-    performance: PERFORMANCE_BASE("credit-income", 1000, 24, 7.8, 3.2),
+    performance: PERFORMANCE_BASE("credit-income", 1000, 24, 7.8, 3.2, 7.1),
     riskMetrics: { sharpeRatio: 1.24, maxDrawdown: -2.8, volatility: 3.2, beta: 0.73, alpha: 0.7 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -832,7 +835,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Axis Short Term Fund", category: "Short Term MF", weight: 2.5, currentReturn: 7.4 },
       { rank: 15, name: "ICICI Pru Corporate Bond Fund", category: "Corp Bond MF", weight: 2.2, currentReturn: 7.9 },
     ],
-    performance: PERFORMANCE_BASE("debt-ladder", 1000, 24, 5.51, 5.4),
+    performance: PERFORMANCE_BASE("debt-ladder", 1000, 24, 5.51, 5.4, 4.41),
     riskMetrics: { sharpeRatio: 1.82, maxDrawdown: -6.8, volatility: 5.4, beta: 0.75, alpha: 1.1 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -904,7 +907,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Axis Gold ETF (Platinum Proxy)", category: "Gold ETF (Pt Proxy)",weight: 3,  currentReturn: 26.0, symbol: "AXISGOLD",    metal: "platinum" },
       { rank: 15, name: "Coal India Ltd",                 category: "Mining Stock",       weight: 2,  currentReturn: 16.4, symbol: "COALINDIA",   metal: "coal" },
     ],
-    performance: PERFORMANCE_BASE("digital-gold-accumulator", 5000, 24, 26.8, 22.4),
+    performance: PERFORMANCE_BASE("digital-gold-accumulator", 5000, 24, 26.8, 22.4, 23.6),
     riskMetrics: { sharpeRatio: 0.78, maxDrawdown: -18.2, volatility: 22.4, beta: 0.32, alpha: 3.2 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Portfolio upgraded from Digital Gold Accumulator to Precious Metals Portfolio. Expanded to 5 metals (Gold, Silver, Copper, Steel, Platinum). Rebalancing cadence changed to quarterly.", changes: ["Added Silver ETFs (25%)", "Added Copper stocks (20%)", "Added Steel stocks (15%)", "Added Platinum proxy (5%)", "Reduced Gold to 35%"] },
@@ -967,7 +970,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "SBI Magnum Gilt Fund",              category: "Gilt MF",           weight: 3, currentReturn: 7.8 },
       { rank: 15, name: "HDFC Liquid Fund",                   category: "Liquid MF",         weight: 3, currentReturn:  7.5, isin: "INF179K01UM3" },
     ],
-    performance: PERFORMANCE_BASE("dividend-yield", 1000, 24, 7.99, 12.2),
+    performance: PERFORMANCE_BASE("dividend-yield", 1000, 24, 7.99, 12.2, 6.39),
     riskMetrics: { sharpeRatio: 0.84, maxDrawdown: -11.8, volatility: 12.2, beta: 0.83, alpha: 1.6 },
     rebalancingHistory: [
       { date: "Jul 2026", type: "HOLDINGS_UPGRADE", rationale: "Holdings corrected from generic large-cap growth funds to SEBI Dividend Yield category funds. Previous basket did not track the portfolio's stated objective of dividend income generation.", action_taken: "Replaced 8 growth MFs with 5 SEBI-category Dividend Yield funds + 1 liquid buffer", sebi_compliant: true, engine_version: "FASP-AI-v3.0" },
@@ -1023,7 +1026,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "ICICI Pru Overnight Fund",     category: "Overnight MF",   weight: 2, currentReturn: 6.5 },
       { rank: 15, name: "Tata Liquid Fund",             category: "Liquid MF",      weight: 2, currentReturn: 6.9 },
     ],
-    performance: PERFORMANCE_BASE("emergency-fund", 1000, 24, 5.81, 1.0),
+    performance: PERFORMANCE_BASE("emergency-fund", 1000, 24, 5.81, 1.0, 4.65),
     riskMetrics: { sharpeRatio: 1.82, maxDrawdown: -0.2, volatility: 1.0, beta: 0.05, alpha: 1.16 },
     rebalancingHistory: [
       { date: "Jul 2026", type: "HOLDINGS_UPGRADE", rationale: "Holdings upgraded to pure overnight + liquid funds only. Prior basket included gilt and corporate bond funds with duration risk (up to -6.8% MDD) which is inappropriate for an emergency fund requiring same-day redemption.", action_taken: "Replaced 4 duration-risk holdings with 4 overnight/liquid-only funds. Weights corrected to sum to 100%.", sebi_compliant: true, engine_version: "FASP-AI-v3.0" },
@@ -1078,7 +1081,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Kotak Emerging Equity Fund", category: "Mid Cap MF", weight: 3.2, currentReturn: 16.9 },
       { rank: 15, name: "Axis Midcap Fund", category: "Mid Cap MF", weight: 2.9, currentReturn: 15.7 },
     ],
-    performance: PERFORMANCE_BASE("esg-sustainable", 1000, 24, 3.5, 14.2),
+    performance: PERFORMANCE_BASE("esg-sustainable", 1000, 24, 3.5, 14.2, 1.2),
     riskMetrics: { sharpeRatio: 1.58, maxDrawdown: -16.3, volatility: 14.2, beta: 0.84, alpha: 2.3 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1139,7 +1142,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "SBI Small Cap Fund", category: "Small Cap MF", weight: 2.5, currentReturn: 22.1 },
       { rank: 15, name: "Quant Small Cap Fund", category: "Small Cap MF", weight: 2.2, currentReturn: 24.5 },
     ],
-    performance: PERFORMANCE_BASE("factor-alpha", 1000, 24, 14.5, 20.4),
+    performance: PERFORMANCE_BASE("factor-alpha", 1000, 24, 14.5, 20.4, 11.8),
     riskMetrics: { sharpeRatio: 0.96, maxDrawdown: -19.8, volatility: 20.4, beta: 0.9, alpha: 0.41 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1200,7 +1203,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Nippon India Pharma Fund", category: "Pharma MF", weight: 2.3, currentReturn: 20.1 },
       { rank: 15, name: "DSP India T.I.G.E.R. Fund", category: "Infra MF", weight: 2, currentReturn: 16.8 },
     ],
-    performance: PERFORMANCE_BASE("healthcare-pharma", 1000, 24, 18.4, 17.2),
+    performance: PERFORMANCE_BASE("healthcare-pharma", 1000, 24, 18.4, 17.2, 14.72),
     riskMetrics: { sharpeRatio: 1.74, maxDrawdown: -18.4, volatility: 17.2, beta: 0.87, alpha: 3.68 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1261,7 +1264,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Kotak Emerging Equity Fund", category: "Mid Cap MF", weight: 3.2, currentReturn: 16.9 },
       { rank: 15, name: "Axis Midcap Fund", category: "Mid Cap MF", weight: 2.9, currentReturn: 15.7 },
     ],
-    performance: PERFORMANCE_BASE("hni-wealth-compounder", 1000, 24, 5.8, 17.4),
+    performance: PERFORMANCE_BASE("hni-wealth-compounder", 1000, 24, 5.8, 17.4, 3.2),
     riskMetrics: { sharpeRatio: 1.91, maxDrawdown: -22.1, volatility: 17.4, beta: 0.87, alpha: 2.6 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1322,7 +1325,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "ICICI Pru Short Term Fund", category: "Short Term MF", weight: 2.8, currentReturn: 7.5 },
       { rank: 15, name: "Axis Bluechip Fund", category: "Large Cap MF", weight: 2.5, currentReturn: 12.8 },
     ],
-    performance: PERFORMANCE_BASE("home-purchase", 1000, 24, 10.07, 2.46),
+    performance: PERFORMANCE_BASE("home-purchase", 1000, 24, 10.07, 2.46, 8.06),
     riskMetrics: { sharpeRatio: 0.65, maxDrawdown: 0.89, volatility: 2.46, beta: 0.72, alpha: 2.01 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1383,7 +1386,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Kotak Emerging Equity Fund", category: "Mid Cap MF", weight: 3.2, currentReturn: 16.9 },
       { rank: 15, name: "Axis Midcap Fund", category: "Mid Cap MF", weight: 2.9, currentReturn: 15.7 },
     ],
-    performance: PERFORMANCE_BASE("india-growth", 1000, 24, 1.5, 13.4),
+    performance: PERFORMANCE_BASE("india-growth", 1000, 24, 1.5, 13.4, -2.14),
     riskMetrics: { sharpeRatio: 1.78, maxDrawdown: -14.2, volatility: 13.4, beta: 0.83, alpha: 3.6 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1444,7 +1447,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Nippon India Pharma Fund", category: "Pharma MF", weight: 2.3, currentReturn: 20.1 },
       { rank: 15, name: "DSP India T.I.G.E.R. Fund", category: "Infra MF", weight: 2, currentReturn: 16.8 },
     ],
-    performance: PERFORMANCE_BASE("india-infrastructure", 1000, 24, 12.59, 18.2),
+    performance: PERFORMANCE_BASE("india-infrastructure", 1000, 24, 12.59, 18.2, 10.07),
     riskMetrics: { sharpeRatio: 0.72, maxDrawdown: -16.4, volatility: 18.2, beta: 0.88, alpha: 2.52 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1505,7 +1508,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Axis Bluechip Fund", category: "Large Cap MF", weight: 2.8, currentReturn: 12.8 },
       { rank: 15, name: "HDFC Short Term Debt Fund", category: "Short Term MF", weight: 2.5, currentReturn: 7.8 },
     ],
-    performance: PERFORMANCE_BASE("inflation-beater", 1000, 24, 17.42, 9.8),
+    performance: PERFORMANCE_BASE("inflation-beater", 1000, 24, 17.42, 9.8, 13.94),
     riskMetrics: { sharpeRatio: 1.14, maxDrawdown: -8.4, volatility: 9.8, beta: 0.8, alpha: 3.48 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1566,7 +1569,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "SBI Healthcare Opp Fund", category: "Pharma MF", weight: 2.3, currentReturn: 22.3 },
       { rank: 15, name: "Nippon India Pharma Fund", category: "Pharma MF", weight: 2, currentReturn: 20.1 },
     ],
-    performance: PERFORMANCE_BASE("intl-emerging-markets", 1000, 24, 9.54, 16.2),
+    performance: PERFORMANCE_BASE("intl-emerging-markets", 1000, 24, 9.54, 16.2, 7.63),
     riskMetrics: { sharpeRatio: 1.38, maxDrawdown: -18.4, volatility: 16.2, beta: 0.86, alpha: 1.91 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1627,7 +1630,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Nippon India Pharma Fund", category: "Pharma MF", weight: 2.3, currentReturn: 20.1 },
       { rank: 15, name: "DSP India T.I.G.E.R. Fund", category: "Infra MF", weight: 2, currentReturn: 16.8 },
     ],
-    performance: PERFORMANCE_BASE("manufacturing-make-in-india", 1000, 24, 16.2, 18.8),
+    performance: PERFORMANCE_BASE("manufacturing-make-in-india", 1000, 24, 16.2, 18.8, 13.5),
     riskMetrics: { sharpeRatio: 1.72, maxDrawdown: -21.2, volatility: 18.8, beta: 0.89, alpha: 0.32 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1688,7 +1691,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Kotak Emerging Equity Fund", category: "Mid Cap MF", weight: 3.2, currentReturn: 16.9 },
       { rank: 15, name: "Axis Midcap Fund", category: "Mid Cap MF", weight: 2.9, currentReturn: 15.7 },
     ],
-    performance: PERFORMANCE_BASE("mid-cap-india", 1000, 24, -9.5, 24.8),
+    performance: PERFORMANCE_BASE("mid-cap-india", 1000, 24, -9.5, 24.8, -12.18),
     riskMetrics: { sharpeRatio: 1.12, maxDrawdown: -24.2, volatility: 24.8, beta: 0.95, alpha: 2.7 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1749,7 +1752,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Kotak Emerging Equity Fund", category: "Mid Cap MF", weight: 3.2, currentReturn: 16.9 },
       { rank: 15, name: "Axis Midcap Fund", category: "Mid Cap MF", weight: 2.9, currentReturn: 15.7 },
     ],
-    performance: PERFORMANCE_BASE("nri-india-opportunity", 1000, 24, -3.2, 13.4),
+    performance: PERFORMANCE_BASE("nri-india-opportunity", 1000, 24, -3.2, 13.4, -5.4),
     riskMetrics: { sharpeRatio: 1.15, maxDrawdown: -11.2, volatility: 13.4, beta: 0.83, alpha: 2.2 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1810,7 +1813,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "HDFC Mid-Cap Opportunities", category: "Mid Cap MF", weight: 2.8, currentReturn: 17.6 },
       { rank: 15, name: "Kotak Emerging Equity Fund", category: "Mid Cap MF", weight: 2.5, currentReturn: 16.9 },
     ],
-    performance: PERFORMANCE_BASE("sip-wealth-builder", 1000, 24, 6.98, 12.2),
+    performance: PERFORMANCE_BASE("sip-wealth-builder", 1000, 24, 6.98, 12.2, 5.58),
     riskMetrics: { sharpeRatio: 1.08, maxDrawdown: -11.4, volatility: 12.2, beta: 0.82, alpha: 1.4 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1871,7 +1874,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Kotak Emerging Equity Fund", category: "Mid Cap MF", weight: 3.2, currentReturn: 16.9 },
       { rank: 15, name: "Axis Midcap Fund", category: "Mid Cap MF", weight: 2.9, currentReturn: 15.7 },
     ],
-    performance: PERFORMANCE_BASE("small-cap-alpha", 1000, 24, 4.74, 24.3),
+    performance: PERFORMANCE_BASE("small-cap-alpha", 1000, 24, 4.74, 24.3, 3.79),
     riskMetrics: { sharpeRatio: 1.32, maxDrawdown: -31.2, volatility: 24.3, beta: 0.94, alpha: 0.95 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1932,7 +1935,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Axis Midcap Fund", category: "Mid Cap MF", weight: 2.8, currentReturn: 15.7 },
       { rank: 15, name: "SBI Small Cap Fund", category: "Small Cap MF", weight: 2.5, currentReturn: 22.1 },
     ],
-    performance: PERFORMANCE_BASE("tax-saver-elss", 1000, 24, 5.42, 14.1),
+    performance: PERFORMANCE_BASE("tax-saver-elss", 1000, 24, 5.42, 14.1, 4.34),
     riskMetrics: { sharpeRatio: 1.69, maxDrawdown: -16.2, volatility: 14.1, beta: 0.84, alpha: 1.08 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -1993,7 +1996,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "ICICI Pru Short Term Fund", category: "Short Term MF", weight: 2.8, currentReturn: 7.5 },
       { rank: 15, name: "Axis Bluechip Fund", category: "Large Cap MF", weight: 2.5, currentReturn: 12.8 },
     ],
-    performance: PERFORMANCE_BASE("wedding-milestone", 1000, 24, 14.5, 7.8),
+    performance: PERFORMANCE_BASE("wedding-milestone", 1000, 24, 14.5, 7.8, 11.6),
     riskMetrics: { sharpeRatio: 1.58, maxDrawdown: -8.2, volatility: 7.8, beta: 0.78, alpha: 2.9 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2054,7 +2057,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Axis Bluechip Fund", category: "Large Cap MF", weight: 2.8, currentReturn: 12.8 },
       { rank: 15, name: "HDFC Short Term Debt Fund", category: "Short Term MF", weight: 2.5, currentReturn: 7.8 },
     ],
-    performance: PERFORMANCE_BASE("all-weather-india", 1000, 24, 8.44, 7.2),
+    performance: PERFORMANCE_BASE("all-weather-india", 1000, 24, 8.44, 7.2, 6.75),
     riskMetrics: { sharpeRatio: 1.42, maxDrawdown: -6.8, volatility: 7.2, beta: 0.77, alpha: 1.69 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2115,7 +2118,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Axis Bluechip Fund", category: "Large Cap MF", weight: 2.8, currentReturn: 12.8 },
       { rank: 15, name: "HDFC Short Term Debt Fund", category: "Short Term MF", weight: 2.5, currentReturn: 7.8 },
     ],
-    performance: PERFORMANCE_BASE("balanced-advantage", 1000, 24, 4.32, 8.1),
+    performance: PERFORMANCE_BASE("balanced-advantage", 1000, 24, 4.32, 8.1, 3.46),
     riskMetrics: { sharpeRatio: 1.64, maxDrawdown: -8.4, volatility: 8.1, beta: 0.78, alpha: 0.86 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2174,7 +2177,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Nippon India Pharma Fund", category: "Pharma MF", weight: 2.3, currentReturn: 20.1 },
       { rank: 15, name: "DSP India T.I.G.E.R. Fund", category: "Infra MF", weight: 2, currentReturn: 16.8 },
     ],
-    performance: PERFORMANCE_BASE("digital-india-tech", 1000, 24, -17.2, 21.4),
+    performance: PERFORMANCE_BASE("digital-india-tech", 1000, 24, -17.2, 21.4, -20.71),
     riskMetrics: { sharpeRatio: 0.92, maxDrawdown: -19.8, volatility: 21.4, beta: 0.91, alpha: 3.5 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2233,7 +2236,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Kotak Emerging Equity Fund", category: "Mid Cap MF", weight: 3.2, currentReturn: 16.9 },
       { rank: 15, name: "Axis Midcap Fund", category: "Mid Cap MF", weight: 2.9, currentReturn: 15.7 },
     ],
-    performance: PERFORMANCE_BASE("equity-momentum-india", 1000, 24, 7.57, 18.7),
+    performance: PERFORMANCE_BASE("equity-momentum-india", 1000, 24, 7.57, 18.7, 6.06),
     riskMetrics: { sharpeRatio: 1.51, maxDrawdown: -22.4, volatility: 18.7, beta: 0.89, alpha: 1.51 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2294,7 +2297,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "SBI Focused Equity Fund", category: "Focused MF", weight: 4.3, currentReturn: 14.5 },
       { rank: 15, name: "Nippon India Growth Fund", category: "Mid Cap MF", weight: 4, currentReturn: 18.3 },
     ],
-    performance: PERFORMANCE_BASE("family-office", 1000, 24, 16.8, 11.3),
+    performance: PERFORMANCE_BASE("family-office", 1000, 24, 16.8, 11.3, 13.44),
     riskMetrics: { sharpeRatio: 1.42, maxDrawdown: -14.2, volatility: 11.3, beta: 0.81, alpha: 3.36 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2355,7 +2358,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "HDFC Small Cap Fund", category: "Small Cap MF", weight: 4.1, currentReturn: 19.8 },
       { rank: 15, name: "DSP Small Cap Fund", category: "Small Cap MF", weight: 3.8, currentReturn: 20.6 },
     ],
-    performance: PERFORMANCE_BASE("first-time-investor", 1000, 24, 3.81, 6.8),
+    performance: PERFORMANCE_BASE("first-time-investor", 1000, 24, 3.81, 6.8, 3.05),
     riskMetrics: { sharpeRatio: 0.94, maxDrawdown: -5.2, volatility: 6.8, beta: 0.77, alpha: 0.76 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2416,7 +2419,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "Kotak Emerging Equity Fund", category: "Mid Cap MF", weight: 2.3, currentReturn: 16.9 },
       { rank: 15, name: "Axis Midcap Fund", category: "Mid Cap MF", weight: 2, currentReturn: 15.7 },
     ],
-    performance: PERFORMANCE_BASE("global-diversifier", 1000, 24, 17.13, 13.8),
+    performance: PERFORMANCE_BASE("global-diversifier", 1000, 24, 17.13, 13.8, 13.7),
     riskMetrics: { sharpeRatio: 1.52, maxDrawdown: -15.2, volatility: 13.8, beta: 0.84, alpha: 3.43 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2477,7 +2480,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 14, name: "SBI Focused Equity Fund", category: "Focused MF", weight: 4.3, currentReturn: 14.5 },
       { rank: 15, name: "Nippon India Growth Fund", category: "Mid Cap MF", weight: 4, currentReturn: 18.3 },
     ],
-    performance: PERFORMANCE_BASE("hni-1cr-multi-asset", 1000, 24, 16.2, 10.8),
+    performance: PERFORMANCE_BASE("hni-1cr-multi-asset", 1000, 24, 16.2, 10.8, 12.96),
     riskMetrics: { sharpeRatio: 1.35, maxDrawdown: -14.0, volatility: 10.8, beta: 0.81, alpha: 3.24 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2533,7 +2536,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 9, name: "HDFC Liquid Fund", category: "Liquid MF", weight: 5, currentReturn: 7.5 },
       { rank: 10, name: "Quantum Gold Fund ETF", category: "Gold ETF", weight: 5, currentReturn: 10.9 },
     ],
-    performance: PERFORMANCE_BASE("hni-50l-multi-asset", 1000, 24, 15.4, 10.2),
+    performance: PERFORMANCE_BASE("hni-50l-multi-asset", 1000, 24, 15.4, 10.2, 12.32),
     riskMetrics: { sharpeRatio: 1.28, maxDrawdown: -13.6, volatility: 10.2, beta: 0.8, alpha: 3.08 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2586,7 +2589,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 6, name: "HDFC Liquid Fund", category: "Liquid MF", weight: 10, currentReturn: 7.5 },
       { rank: 7, name: "HDFC Corporate Bond Fund", category: "Corp Bond MF", weight: 10, currentReturn: 8.1 },
     ],
-    performance: PERFORMANCE_BASE("multi-asset-5factor", 1000, 24, 10.62, 9.4),
+    performance: PERFORMANCE_BASE("multi-asset-5factor", 1000, 24, 10.62, 9.4, 8.5),
     riskMetrics: { sharpeRatio: 1.12, maxDrawdown: -8.8, volatility: 9.4, beta: 0.79, alpha: 2.12 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2637,7 +2640,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 4, name: "Nippon ETF Nifty BeES", category: "Index ETF", weight: 12, currentReturn: 12.7 },
       { rank: 5, name: "Axis Small Cap Fund", category: "Small Cap MF", weight: 10, currentReturn: 22.3 },
     ],
-    performance: PERFORMANCE_BASE("passive-index", 1000, 24, 1.83, 15.8),
+    performance: PERFORMANCE_BASE("passive-index", 1000, 24, 1.83, 15.8, 1.46),
     riskMetrics: { sharpeRatio: 0.82, maxDrawdown: -12.1, volatility: 15.8, beta: 0.86, alpha: 0.37 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2689,7 +2692,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 5, name: "Nippon India Short Term", category: "Short Term MF", weight: 12, currentReturn: 7.6 },
       { rank: 6, name: "Kotak Savings Fund", category: "Ultra Short MF", weight: 8, currentReturn: 7.2 },
     ],
-    performance: PERFORMANCE_BASE("pure-debt-portfolio", 1000, 24, 5.91, 5.4),
+    performance: PERFORMANCE_BASE("pure-debt-portfolio", 1000, 24, 5.91, 5.4, 4.73),
     riskMetrics: { sharpeRatio: 1.28, maxDrawdown: -4.8, volatility: 5.4, beta: 0.75, alpha: 1.18 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2740,7 +2743,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 4, name: "IRB InvIT Fund", category: "InvIT", weight: 15, currentReturn: 10.4 },
       { rank: 5, name: "PowerGrid InvIT", category: "InvIT", weight: 10, currentReturn: 9.8 },
     ],
-    performance: PERFORMANCE_BASE("reit-invit-income", 1000, 24, 9.33, 11.2),
+    performance: PERFORMANCE_BASE("reit-invit-income", 1000, 24, 9.33, 11.2, 7.46),
     riskMetrics: { sharpeRatio: 1.02, maxDrawdown: -9.8, volatility: 11.2, beta: 0.81, alpha: 1.87 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2793,7 +2796,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 6, name: "ICICI Pru Liquid Fund", category: "Liquid MF", weight: 10, currentReturn: 7.5 },
       { rank: 7, name: "Parag Parikh Flexi Cap", category: "Flexi Cap MF", weight: 5, currentReturn: 16.8 },
     ],
-    performance: PERFORMANCE_BASE("retirement-builder", 1000, 24, 7.51, 9.2),
+    performance: PERFORMANCE_BASE("retirement-builder", 1000, 24, 7.51, 9.2, 6.01),
     riskMetrics: { sharpeRatio: 0.96, maxDrawdown: -8.2, volatility: 9.2, beta: 0.79, alpha: 1.5 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2845,7 +2848,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 5, name: "Nippon India Short Term", category: "Short Term MF", weight: 12, currentReturn: 7.6 },
       { rank: 6, name: "Kotak Savings Fund", category: "Ultra Short MF", weight: 8, currentReturn: 7.2 },
     ],
-    performance: PERFORMANCE_BASE("senior-citizen-income", 1000, 24, 8.96, 6.2),
+    performance: PERFORMANCE_BASE("senior-citizen-income", 1000, 24, 8.96, 6.2, 7.17),
     riskMetrics: { sharpeRatio: 1.18, maxDrawdown: -5.4, volatility: 6.2, beta: 0.76, alpha: 1.79 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2898,7 +2901,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 5, name: "ICICI Pru Value Discovery",     category: "Value MF",          weight: 12, currentReturn: 14.6, isin: "INF109K01BR8" },
       { rank: 6, name: "HDFC Liquid Fund",              category: "Liquid MF",         weight:  5, currentReturn:  7.5, isin: "INF179K01UM3" },
     ],
-    performance: PERFORMANCE_BASE("value-investing", 1000, 24, 5.89, 14.2),
+    performance: PERFORMANCE_BASE("value-investing", 1000, 24, 5.89, 14.2, 4.71),
     riskMetrics: { sharpeRatio: 0.68, maxDrawdown: -14.2, volatility: 16.8, beta: 0.87, alpha: 1.18 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
@@ -2963,7 +2966,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 7, name: "SBI Liquid Fund",                    category: "Liquid MF",   weight:  8, currentReturn:  7.1, isin: "INF200K01MA1" },
       { rank: 8, name: "ICICI Pru Liquid Fund",              category: "Liquid MF",   weight:  2, currentReturn:  7.0, isin: "INF109K01027" },
     ],
-    performance: PERFORMANCE_BASE("psu-defence-atmanirbhar", 1000, 24, 22.4, 26.8),
+    performance: PERFORMANCE_BASE("psu-defence-atmanirbhar", 1000, 24, 22.4, 26.8, 18.2),
     riskMetrics: { sharpeRatio: 0.84, maxDrawdown: -22.6, volatility: 26.8, beta: 1.12, alpha: 4.2 },
     rebalancingHistory: [
       { date: "Apr 2026", description: "Drift-triggered rebalance — defence funds surged 18%; trimmed to target", changes: ["SBI Defence trimmed -3%", "PSU Fund added +2%", "Liquid buffer restored +1%"] },
@@ -3030,7 +3033,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       // Liquidity buffer
       { rank: 8, name: "SBI Liquid Fund",               category: "Liquid MF",     weight:  5, currentReturn:  7.1, isin: "INF200K01MA1" },
     ],
-    performance: PERFORMANCE_BASE("future-multibaggers", 1000, 30, 31.2, 22.4),
+    performance: PERFORMANCE_BASE("future-multibaggers", 1000, 30, 31.2, 22.4, 22.4),
     riskMetrics: { sharpeRatio: 0.92, maxDrawdown: -31.4, volatility: 33.8, beta: 1.28, alpha: 8.8 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Portfolio inception — equal-weight small cap basket with mid cap kicker", changes: ["Nippon Small Cap 20%", "SBI Small Cap 18%", "Quant Small Cap 12%", "Motilal Midcap 15%"] },
@@ -3095,7 +3098,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { rank: 5, name: "HDFC Corporate Bond Fund",          category: "Corp Bond MF",      weight: 10, currentReturn:  8.1, isin: "INF179K01BJ0" },
       { rank: 6, name: "ICICI Pru Liquid Fund",             category: "Liquid MF",         weight:  5, currentReturn:  7.5, isin: "INF109K01027" },
     ],
-    performance: PERFORMANCE_BASE("equity-savings-hybrid", 1000, 24, 9.42, 7.2),
+    performance: PERFORMANCE_BASE("equity-savings-hybrid", 1000, 24, 9.42, 7.2, 8.14),
     riskMetrics: { sharpeRatio: 1.31, maxDrawdown: -11.8, volatility: 7.2, beta: 0.52, alpha: 1.28 },
     rebalancingHistory: [
       { date: "Jul 2026", description: "Quarterly review — equity savings funds weight-optimised", changes: ["HDFC Equity Savings trimmed -2%", "ICICI Pru Equity Savings added +2%", "Weights stabilised"] },
@@ -4151,7 +4154,8 @@ export default function AgentModelPortfoliosPage() {
           // Fallback: seeded deterministic curve (used until first nightly NAV refresh runs)
           const c1y = p.cagr1Y != null ? Number(p.cagr1Y) : (staticP?.cagr1Y ?? 12);
           const vol  = p.volatility != null ? Number(p.volatility) : (staticP?.riskMetrics?.volatility ?? 6);
-          return PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, c1y, vol);
+          const bench1y = p.benchmarkCagr1Y != null ? Number(p.benchmarkCagr1Y) : (p.benchmark_cagr_1y != null ? Number(p.benchmark_cagr_1y) : (staticP?.benchmarkCagr1Y ?? c1y * 0.8));
+          return PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, c1y, vol, bench1y);
         })(),
         performanceData: (() => {
           const navRows = navHistoryCache[p.id];
@@ -4166,7 +4170,8 @@ export default function AgentModelPortfoliosPage() {
           }
           const c1y = p.cagr1Y != null ? Number(p.cagr1Y) : (staticP?.cagr1Y ?? 12);
           const vol  = p.volatility != null ? Number(p.volatility) : (staticP?.riskMetrics?.volatility ?? 6);
-          return PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, c1y, vol);
+          const bench1y = p.benchmarkCagr1Y != null ? Number(p.benchmarkCagr1Y) : (p.benchmark_cagr_1y != null ? Number(p.benchmark_cagr_1y) : (staticP?.benchmarkCagr1Y ?? c1y * 0.8));
+          return PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, c1y, vol, bench1y);
         })(),
         // ── Gap-fix fields (Fix 15) — mapped from DB columns ──────────────────
         // Drizzle .select() returns raw Postgres snake_case column names.
