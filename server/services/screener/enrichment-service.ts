@@ -12,7 +12,10 @@ import {
 	screenerFinancials,
 	screenerPriceHistory,
 	screenerDerivedMetrics,
+	reits,
+	invits,
 } from "@shared/schema";
+import { logger } from "../../logger";
 import { eq, and, sql, lt, isNull, asc } from "drizzle-orm";
 import { getDataProvider } from "./fmp-provider";
 import { getProviderRegistry } from "./data-provider-registry";
@@ -89,7 +92,7 @@ export async function enrichStockProfiles(
 					.update(listedStocks)
 					.set({
 						companyName: profile.companyName || stock.companyName,
-						sector: profile.sector || stock.sector,
+						sector: isLockedSector(stock.sector) ? stock.sector : (profile.sector || stock.sector),
 						industry: profile.industry || stock.industry,
 						currentPrice: profile.price?.toString(),
 						marketCapValue: profile.marketCap?.toString(),
@@ -1032,4 +1035,172 @@ function categorizeMarketCap(cap: number): string {
 	if (crores >= 34_500)  return "mid";
 	if (crores >= 500)     return "small";
 	return "micro";
+}
+
+// ── Locked sector guard ───────────────────────────────────────────────────────
+// REITs and InVITs are synced from dedicated tables with curated Indian exchange
+// sectors. FMP enrichment must NOT overwrite these with US GICS classifications.
+const LOCKED_SECTORS = new Set(["REIT", "InvIT"]);
+
+/**
+ * Returns true if the sector is "locked" — assigned by our own sync pipeline
+ * and must not be overwritten by external data providers (FMP, Alpha Vantage).
+ *
+ * @param sector - Current sector value from listed_stocks
+ * @returns true if sector must be preserved during enrichment
+ */
+export function isLockedSector(sector: string | null | undefined): boolean {
+	return !!sector && LOCKED_SECTORS.has(sector);
+}
+
+// ── REIT/InVIT → listed_stocks sync ──────────────────────────────────────────
+/**
+ * Syncs all active REITs and InVITs from the dedicated `reits` / `invits` tables
+ * into `listed_stocks` so the screener can filter them by sector = 'REIT' / 'InvIT'.
+ *
+ * Uses INSERT ... ON CONFLICT (symbol) DO UPDATE to upsert — if a stock already
+ * exists in listed_stocks (e.g. seeded via FMP), its sector is corrected to REIT/InvIT.
+ *
+ * @returns Summary of how many rows were synced
+ */
+export async function syncReitInvitToListedStocks(): Promise<{
+	reitsProcessed: number;
+	invitsProcessed: number;
+	errors: number;
+}> {
+	let reitsProcessed = 0;
+	let invitsProcessed = 0;
+	let errors = 0;
+
+	try {
+		// ── Sync REITs ──────────────────────────────────────────────────────
+		const reitResult = await db.execute(sql`
+			INSERT INTO listed_stocks (
+				symbol, company_name, exchange, isin, sector, broad_sector, industry,
+				current_price, market_cap_value, market_cap_category,
+				country, currency, is_active, data_source, dividend_yield,
+				returns_1m, returns_3m, returns_6m, returns_1y, returns_3y,
+				created_at, updated_at
+			)
+			SELECT
+				r.symbol,
+				r.name,
+				COALESCE(r.exchange, 'NSE'),
+				r.isin_code,
+				'REIT',
+				'Real Estate',
+				COALESCE(r.sector, 'Real Estate Investment Trust'),
+				r.current_price,
+				r.market_cap,
+				CASE
+					WHEN r.market_cap IS NOT NULL AND r.market_cap::numeric >= 5000000000000 THEN 'mega'
+					WHEN r.market_cap IS NOT NULL AND r.market_cap::numeric >= 1050000000000 THEN 'large'
+					WHEN r.market_cap IS NOT NULL AND r.market_cap::numeric >= 345000000000  THEN 'mid'
+					WHEN r.market_cap IS NOT NULL AND r.market_cap::numeric >= 5000000000    THEN 'small'
+					WHEN r.market_cap IS NOT NULL AND r.market_cap::numeric > 0              THEN 'micro'
+					ELSE 'unknown'
+				END,
+				'IN',
+				'INR',
+				r.is_active,
+				'reit-sync',
+				r.distribution_yield,
+				r.returns_1m,
+				r.returns_3m,
+				r.returns_6m,
+				r.returns_1y,
+				r.returns_3y,
+				NOW(),
+				NOW()
+			FROM reits r
+			WHERE r.is_active = true
+			ON CONFLICT (symbol) DO UPDATE SET
+				company_name   = EXCLUDED.company_name,
+				sector         = 'REIT',
+				broad_sector   = 'Real Estate',
+				industry       = EXCLUDED.industry,
+				current_price  = EXCLUDED.current_price,
+				market_cap_value = EXCLUDED.market_cap_value,
+				market_cap_category = EXCLUDED.market_cap_category,
+				dividend_yield = EXCLUDED.dividend_yield,
+				returns_1m     = EXCLUDED.returns_1m,
+				returns_3m     = EXCLUDED.returns_3m,
+				returns_6m     = EXCLUDED.returns_6m,
+				returns_1y     = EXCLUDED.returns_1y,
+				returns_3y     = EXCLUDED.returns_3y,
+				is_active      = EXCLUDED.is_active,
+				data_source    = 'reit-sync',
+				updated_at     = NOW()
+		`);
+		reitsProcessed = (reitResult as any).rowCount ?? 0;
+		logger.info(`[REIT-Sync] Upserted ${reitsProcessed} REITs into listed_stocks`);
+
+		// ── Sync InvITs ────────────────────────────────────────────────────
+		const invitResult = await db.execute(sql`
+			INSERT INTO listed_stocks (
+				symbol, company_name, exchange, isin, sector, broad_sector, industry,
+				current_price, market_cap_value, market_cap_category,
+				country, currency, is_active, data_source, dividend_yield,
+				returns_1m, returns_3m, returns_6m, returns_1y, returns_3y,
+				created_at, updated_at
+			)
+			SELECT
+				i.symbol,
+				i.name,
+				COALESCE(i.exchange, 'NSE'),
+				i.isin_code,
+				'InvIT',
+				'Infrastructure',
+				COALESCE(i.sector, 'Infrastructure Investment Trust'),
+				i.current_price,
+				i.market_cap,
+				CASE
+					WHEN i.market_cap IS NOT NULL AND i.market_cap::numeric >= 5000000000000 THEN 'mega'
+					WHEN i.market_cap IS NOT NULL AND i.market_cap::numeric >= 1050000000000 THEN 'large'
+					WHEN i.market_cap IS NOT NULL AND i.market_cap::numeric >= 345000000000  THEN 'mid'
+					WHEN i.market_cap IS NOT NULL AND i.market_cap::numeric >= 5000000000    THEN 'small'
+					WHEN i.market_cap IS NOT NULL AND i.market_cap::numeric > 0              THEN 'micro'
+					ELSE 'unknown'
+				END,
+				'IN',
+				'INR',
+				i.is_active,
+				'invit-sync',
+				i.distribution_yield,
+				i.returns_1m,
+				i.returns_3m,
+				i.returns_6m,
+				i.returns_1y,
+				i.returns_3y,
+				NOW(),
+				NOW()
+			FROM invits i
+			WHERE i.is_active = true
+			ON CONFLICT (symbol) DO UPDATE SET
+				company_name   = EXCLUDED.company_name,
+				sector         = 'InvIT',
+				broad_sector   = 'Infrastructure',
+				industry       = EXCLUDED.industry,
+				current_price  = EXCLUDED.current_price,
+				market_cap_value = EXCLUDED.market_cap_value,
+				market_cap_category = EXCLUDED.market_cap_category,
+				dividend_yield = EXCLUDED.dividend_yield,
+				returns_1m     = EXCLUDED.returns_1m,
+				returns_3m     = EXCLUDED.returns_3m,
+				returns_6m     = EXCLUDED.returns_6m,
+				returns_1y     = EXCLUDED.returns_1y,
+				returns_3y     = EXCLUDED.returns_3y,
+				is_active      = EXCLUDED.is_active,
+				data_source    = 'invit-sync',
+				updated_at     = NOW()
+		`);
+		invitsProcessed = (invitResult as any).rowCount ?? 0;
+		logger.info(`[InvIT-Sync] Upserted ${invitsProcessed} InvITs into listed_stocks`);
+
+	} catch (err: any) {
+		logger.error(`[REIT/InvIT-Sync] Error: ${err.message}`);
+		errors++;
+	}
+
+	return { reitsProcessed, invitsProcessed, errors };
 }

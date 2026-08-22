@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -31,7 +30,6 @@ export function SectorDistributionPanel({
 	collapseThreshold = DEFAULT_THRESHOLD,
 }: SectorDistributionPanelProps) {
 	const [showAll, setShowAll] = useState(defaultShowAll);
-	const [, navigate] = useLocation();
 
 	const pinnedSectors = sectors.filter((d) => d.pinned);
 	// filter out blank sector entries (stocks with sector="" in DB) to prevent blank first tile
@@ -63,11 +61,7 @@ export function SectorDistributionPanel({
 						: "bg-muted/30 hover:bg-muted/50"
 				}`}
 				onClick={() => {
-					if (isReit) {
-						navigate("/reit-invit?tab=reits");
-					} else if (isInvit) {
-						navigate("/reit-invit?tab=invits");
-					} else if (onSectorClick) {
+					if (onSectorClick) {
 						onSectorClick(d.sector);
 					}
 				}}

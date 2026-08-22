@@ -635,14 +635,6 @@ export async function getScreenerDistribution() {
     ORDER BY count DESC
   `);
 
-	// ── Pinned: REIT & InvIT (live in separate tables, not screener_stocks) ──
-	const reitCount = await db.execute(sql`
-    SELECT COUNT(*) as count FROM reits WHERE is_active = true
-  `);
-	const invitCount = await db.execute(sql`
-    SELECT COUNT(*) as count FROM invits WHERE is_active = true
-  `);
-
 	// Always show all 5 star buckets (1-5) even when count = 0
 	const ratingDist = await db.execute(sql`
     SELECT
@@ -690,14 +682,20 @@ export async function getScreenerDistribution() {
     ORDER BY r.sort_order
   `);
 
+	// ── Build sector list: mark REIT and InvIT as pinned ──
+	// REIT/InvIT are now IN listed_stocks (synced from reits/invits tables),
+	// so they appear naturally in the sectorDist query. We just mark them as
+	// pinned so the UI renders them at the bottom with special styling.
+	const PINNED_SECTORS = new Set(["REIT", "InvIT"]);
+	const sectorRows: any[] = ((sectorDist as any).rows || sectorDist);
+	const sectors = sectorRows.map((row: any) => ({
+		...row,
+		pinned: PINNED_SECTORS.has(row.sector) ? true : undefined,
+	}));
+
 	return {
 		marketCap: (marketCapDist as any).rows || marketCapDist,
-		sectors: [
-			...((sectorDist as any).rows || sectorDist),
-			// Always include REIT and InvIT — pinned regardless of stock count
-			{ sector: "REIT",  count: Number(((reitCount  as any).rows?.[0] || {}).count ?? 0), pinned: true },
-			{ sector: "InvIT", count: Number(((invitCount as any).rows?.[0] || {}).count ?? 0), pinned: true },
-		],
+		sectors,
 		ratings: (ratingDist as any).rows || ratingDist,
 		scoreRanges: (scoreDistribution as any).rows || scoreDistribution,
 	};

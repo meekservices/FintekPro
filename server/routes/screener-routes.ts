@@ -31,6 +31,7 @@ import {
 	isProductionEnrichmentAllowed,
 	runDailyEnrichmentBatch,
 	getEnrichmentProgress,
+	syncReitInvitToListedStocks,
 } from "../services/screener/enrichment-service";
 import { recalculateAllMetrics, runOHLCVReturnPass } from "../services/screener/derived-metrics-engine";
 import { ingestPriceHistory, ingestBenchmarkSymbols } from "../services/screener/screener-price-history-service";
@@ -326,6 +327,17 @@ router.post("/api/screener/admin/seed-unlisted", async (req, res) => {
 		res
 			.status(500)
 			.json({ error: "Unlisted seed failed", message: err.message });
+	}
+});
+
+// Sync REITs/InvITs from dedicated tables into listed_stocks for screener filtering
+router.post("/api/screener/admin/sync-reit-invit", async (_req, res) => {
+	try {
+		const result = await syncReitInvitToListedStocks();
+		invalidateDistributionCache();
+		res.json({ success: true, ...result });
+	} catch (err: any) {
+		res.status(500).json({ error: "REIT/InvIT sync failed", message: err.message });
 	}
 });
 

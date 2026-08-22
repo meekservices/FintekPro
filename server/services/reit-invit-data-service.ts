@@ -507,6 +507,17 @@ class ReitInvitDataService {
 				`   InvITs: ${invitResults.success}/${invitResults.total} updated`,
 			);
 
+			// ── Sync refreshed REIT/InvIT data into listed_stocks for screener ──
+			try {
+				const { syncReitInvitToListedStocks } = await import("./screener/enrichment-service");
+				const syncResult = await syncReitInvitToListedStocks();
+				console.log(
+					`   📋 Synced to listed_stocks: ${syncResult.reitsProcessed} REITs, ${syncResult.invitsProcessed} InvITs`,
+				);
+			} catch (syncErr: any) {
+				console.error(`   ⚠️ [ReitInvitDataService] listed_stocks sync failed: ${syncErr.message}`);
+			}
+
 			return {
 				reits: {
 					total: reitResults.total,
