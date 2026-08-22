@@ -1074,9 +1074,29 @@ export async function syncReitInvitToListedStocks(): Promise<{
 
 	try {
 		// ── Sync REITs ──────────────────────────────────────────────────────
-		// NOTE: isin excluded from INSERT to avoid unique constraint violations.
-		// market_cap_category is set to 'unknown' initially, then computed via
-		// a follow-up UPDATE using the market_cap_value.
+		// Step 1: UPDATE existing rows in listed_stocks that match REIT symbols
+		await db.execute(sql`
+			UPDATE listed_stocks ls SET
+				company_name   = r.name,
+				sector         = 'REIT',
+				broad_sector   = 'Real Estate',
+				industry       = COALESCE(r.sector, 'Real Estate Investment Trust'),
+				current_price  = r.current_price,
+				market_cap_value = r.market_cap,
+				dividend_yield = r.distribution_yield,
+				returns_1m     = r.returns_1m,
+				returns_3m     = r.returns_3m,
+				returns_6m     = r.returns_6m,
+				returns_1y     = r.returns_1y,
+				returns_3y     = r.returns_3y,
+				is_active      = r.is_active,
+				data_source    = 'reit-sync',
+				last_updated   = NOW()
+			FROM reits r
+			WHERE ls.symbol = r.symbol AND r.is_active = true
+		`);
+
+		// Step 2: INSERT new REITs that don't exist yet in listed_stocks
 		const reitResult = await db.execute(sql`
 			INSERT INTO listed_stocks (
 				symbol, company_name, exchange, sector, broad_sector, industry,
@@ -1109,27 +1129,37 @@ export async function syncReitInvitToListedStocks(): Promise<{
 				NOW()
 			FROM reits r
 			WHERE r.is_active = true
-			ON CONFLICT (symbol) DO UPDATE SET
-				company_name   = EXCLUDED.company_name,
-				sector         = 'REIT',
-				broad_sector   = 'Real Estate',
-				industry       = EXCLUDED.industry,
-				current_price  = EXCLUDED.current_price,
-				market_cap_value = EXCLUDED.market_cap_value,
-				dividend_yield = EXCLUDED.dividend_yield,
-				returns_1m     = EXCLUDED.returns_1m,
-				returns_3m     = EXCLUDED.returns_3m,
-				returns_6m     = EXCLUDED.returns_6m,
-				returns_1y     = EXCLUDED.returns_1y,
-				returns_3y     = EXCLUDED.returns_3y,
-				is_active      = EXCLUDED.is_active,
-				data_source    = 'reit-sync',
-				last_updated     = NOW()
+			  AND NOT EXISTS (
+				SELECT 1 FROM listed_stocks ls WHERE ls.symbol = r.symbol
+			  )
 		`);
 		reitsProcessed = (reitResult as any).rowCount ?? 0;
-		logger.info(`[REIT-Sync] Upserted ${reitsProcessed} REITs into listed_stocks`);
+		logger.info(`[REIT-Sync] Inserted ${reitsProcessed} new REITs, updated existing into listed_stocks`);
 
 		// ── Sync InvITs ────────────────────────────────────────────────────
+		// Step 1: UPDATE existing rows
+		await db.execute(sql`
+			UPDATE listed_stocks ls SET
+				company_name   = i.name,
+				sector         = 'InvIT',
+				broad_sector   = 'Infrastructure',
+				industry       = COALESCE(i.sector, 'Infrastructure Investment Trust'),
+				current_price  = i.current_price,
+				market_cap_value = i.market_cap,
+				dividend_yield = i.distribution_yield,
+				returns_1m     = i.returns_1m,
+				returns_3m     = i.returns_3m,
+				returns_6m     = i.returns_6m,
+				returns_1y     = i.returns_1y,
+				returns_3y     = i.returns_3y,
+				is_active      = i.is_active,
+				data_source    = 'invit-sync',
+				last_updated   = NOW()
+			FROM invits i
+			WHERE ls.symbol = i.symbol AND i.is_active = true
+		`);
+
+		// Step 2: INSERT new InvITs
 		const invitResult = await db.execute(sql`
 			INSERT INTO listed_stocks (
 				symbol, company_name, exchange, sector, broad_sector, industry,
@@ -1162,25 +1192,12 @@ export async function syncReitInvitToListedStocks(): Promise<{
 				NOW()
 			FROM invits i
 			WHERE i.is_active = true
-			ON CONFLICT (symbol) DO UPDATE SET
-				company_name   = EXCLUDED.company_name,
-				sector         = 'InvIT',
-				broad_sector   = 'Infrastructure',
-				industry       = EXCLUDED.industry,
-				current_price  = EXCLUDED.current_price,
-				market_cap_value = EXCLUDED.market_cap_value,
-				dividend_yield = EXCLUDED.dividend_yield,
-				returns_1m     = EXCLUDED.returns_1m,
-				returns_3m     = EXCLUDED.returns_3m,
-				returns_6m     = EXCLUDED.returns_6m,
-				returns_1y     = EXCLUDED.returns_1y,
-				returns_3y     = EXCLUDED.returns_3y,
-				is_active      = EXCLUDED.is_active,
-				data_source    = 'invit-sync',
-				last_updated     = NOW()
+			  AND NOT EXISTS (
+				SELECT 1 FROM listed_stocks ls WHERE ls.symbol = i.symbol
+			  )
 		`);
 		invitsProcessed = (invitResult as any).rowCount ?? 0;
-		logger.info(`[InvIT-Sync] Upserted ${invitsProcessed} InvITs into listed_stocks`);
+		logger.info(`[InvIT-Sync] Inserted ${invitsProcessed} new InvITs, updated existing into listed_stocks`);
 
 		// ── Compute market_cap_category for synced rows ──────────────────
 		await db.execute(sql`
