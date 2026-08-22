@@ -5,16 +5,18 @@
  * - After every successful API fetch, write price to listed_stocks (async, non-blocking)
  * - If all providers fail, serve last-known price from listed_stocks (stale-serve)
  *
- * Load-sharing strategy (confirmed working from datacenter):
- *   NSE library  → PRIMARY for all NSE-listed stocks (exchange-direct, best quality)
- *   Google Finance HTML → SECONDARY for NSE stocks + PRIMARY for BSE stocks
- *   Yahoo Finance → LAST RESORT only — rate-limited (429) from datacenter; 30-min cooldown after first failure
- *   BSE API direct → REMOVED — 301-redirect blocked from datacenter
- *   FMP → Available if FMP_API_KEY is set (optional)
+ * Provider chain (in priority order):
+ *   Tier 0: Upstox         → Licensed NSE/BSE feed (SEBI-grade). Active when UPSTOX_ACCESS_TOKEN is set.
+ *   Tier 1: IndianAPI/NSE  → Paid subscription (₹799/mo). Exchange-direct, best India coverage.
+ *   Tier 2: Yahoo Finance  → v8/chart open endpoint (no auth). Rate-limited (429) from datacenter.
+ *   Tier 3: FMP            → Optional. Active when FMP_API_KEY is set.
+ *   Tier 4: Google Finance → HTML scraper. May be geo-blocked from Cloud Run.
+ *   Tier 5: DB stale-serve → Last resort. Serves last known price from listed_stocks.
  */
 
 import { requestDedupeService } from "./request-deduplication-service";
 import { indianApiService } from "./indian-api-service";
+import { upstoxMarketDataService } from "./upstox-market-data-service";
 
 import yahooFinance from "yahoo-finance2";
 import axios from "axios";
@@ -36,6 +38,7 @@ interface StockPrice {
 	volume?: number;
 	timestamp: number;
 	source:
+		| "UPSTOX"
 		| "NSE"
 		| "BSE"
 		| "YAHOO"
@@ -522,17 +525,57 @@ class UnifiedStockPriceService {
 	/**
 	 * Fetch from available sources with priority-based fallback.
 	 *
-	 * Confirmed working from Cloud Run (asia-south1):
-	 *   1. NSE library   — exchange-direct, best data quality
-	 *   2. Yahoo Finance v8/chart API — open endpoint, no auth required
+	 * Provider chain (in priority order):
+	 *   0. Upstox        — licensed NSE/BSE feed, SEBI-compliant. Tier 0 (best)
+	 *   1. IndianAPI/NSE — exchange-direct, Tier 1
+	 *   2. Yahoo Finance v8/chart — open endpoint, no auth
 	 *   3. FMP           — optional, requires FMP_API_KEY
-	 *   4. Google Finance HTML — may be geo-blocked from datacenter
+	 *   4. Google Finance HTML — geo-restricted fallback
 	 */
 	private async fetchFromSource(
 		symbol: string,
 		exchange?: "NSE" | "BSE",
 	): Promise<StockPrice | null> {
-		// 1. NSE library (exchange-direct, highest quality)
+		// 0. Upstox — licensed NSE/BSE feed (Tier 0, highest priority)
+		if (
+			upstoxMarketDataService.isReady() &&
+			!this.isProviderCoolingDown("upstox")
+		) {
+			try {
+				const result = await upstoxMarketDataService.getLTP(
+					symbol,
+					exchange ?? "NSE"
+				);
+				if (result.success && result.data) {
+					const q = result.data;
+					this.recordSuccess("upstox");
+					return {
+						symbol,
+						price: q.last_price,
+						previousClose: q.previous_close,
+						change: q.change,
+						changePercent: q.change_percent,
+						high: q.high_price,
+						low: q.low_price,
+						open: q.open_price,
+						timestamp: q.timestamp,
+						source: "UPSTOX" as const,
+					};
+				}
+				// AUTH_EXPIRED → cooldown so we don't hammer with 401s
+				if (result.error?.error_code === "AUTH_EXPIRED") {
+					this.recordFailure("upstox", true);
+				} else {
+					this.recordFailure("upstox");
+				}
+			} catch (err: any) {
+				// eslint-disable-next-line no-console
+				console.warn(`[StockPrice] Upstox fetch failed for ${symbol}: ${err?.message}`);
+				this.recordFailure("upstox", this.isRateLimitError(err));
+			}
+		}
+
+		// 1. IndianAPI/NSE library (exchange-direct, Tier 1)
 		if (
 			(exchange === "NSE" || !exchange) &&
 			!this.isProviderCoolingDown("nse")
