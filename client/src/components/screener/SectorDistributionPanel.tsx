@@ -61,11 +61,7 @@ export function SectorDistributionPanel({
 						: "bg-muted/30 hover:bg-muted/50"
 				}`}
 				onClick={() => {
-					if (isReit) {
-						window.location.href = "/reit-invit?tab=reits";
-					} else if (isInvit) {
-						window.location.href = "/reit-invit?tab=invits";
-					} else if (onSectorClick) {
+					if (onSectorClick) {
 						onSectorClick(d.sector);
 					}
 				}}
