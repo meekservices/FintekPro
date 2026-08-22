@@ -1074,10 +1074,9 @@ export async function syncReitInvitToListedStocks(): Promise<{
 
 	try {
 		// ── Sync REITs ──────────────────────────────────────────────────────
-		// NOTE: isin excluded from INSERT to avoid unique constraint violations
-		// (multiple REIT symbols may share ISINs or an ISIN may already exist
-		// under a different symbol). ISIN is set via ON CONFLICT update only
-		// when the existing row has no ISIN.
+		// NOTE: isin excluded from INSERT to avoid unique constraint violations.
+		// market_cap_category is set to 'unknown' initially, then computed via
+		// a follow-up UPDATE using the market_cap_value.
 		const reitResult = await db.execute(sql`
 			INSERT INTO listed_stocks (
 				symbol, company_name, exchange, sector, broad_sector, industry,
@@ -1095,14 +1094,7 @@ export async function syncReitInvitToListedStocks(): Promise<{
 				COALESCE(r.sector, 'Real Estate Investment Trust'),
 				r.current_price,
 				r.market_cap,
-				CASE
-					WHEN r.market_cap IS NOT NULL AND r.market_cap::numeric >= 5000000000000 THEN 'mega'
-					WHEN r.market_cap IS NOT NULL AND r.market_cap::numeric >= 1050000000000 THEN 'large'
-					WHEN r.market_cap IS NOT NULL AND r.market_cap::numeric >= 345000000000  THEN 'mid'
-					WHEN r.market_cap IS NOT NULL AND r.market_cap::numeric >= 5000000000    THEN 'small'
-					WHEN r.market_cap IS NOT NULL AND r.market_cap::numeric > 0              THEN 'micro'
-					ELSE 'unknown'
-				END,
+				'unknown',
 				'IN',
 				'INR',
 				r.is_active,
@@ -1124,7 +1116,6 @@ export async function syncReitInvitToListedStocks(): Promise<{
 				industry       = EXCLUDED.industry,
 				current_price  = EXCLUDED.current_price,
 				market_cap_value = EXCLUDED.market_cap_value,
-				market_cap_category = EXCLUDED.market_cap_category,
 				dividend_yield = EXCLUDED.dividend_yield,
 				returns_1m     = EXCLUDED.returns_1m,
 				returns_3m     = EXCLUDED.returns_3m,
@@ -1156,14 +1147,7 @@ export async function syncReitInvitToListedStocks(): Promise<{
 				COALESCE(i.sector, 'Infrastructure Investment Trust'),
 				i.current_price,
 				i.market_cap,
-				CASE
-					WHEN i.market_cap IS NOT NULL AND i.market_cap::numeric >= 5000000000000 THEN 'mega'
-					WHEN i.market_cap IS NOT NULL AND i.market_cap::numeric >= 1050000000000 THEN 'large'
-					WHEN i.market_cap IS NOT NULL AND i.market_cap::numeric >= 345000000000  THEN 'mid'
-					WHEN i.market_cap IS NOT NULL AND i.market_cap::numeric >= 5000000000    THEN 'small'
-					WHEN i.market_cap IS NOT NULL AND i.market_cap::numeric > 0              THEN 'micro'
-					ELSE 'unknown'
-				END,
+				'unknown',
 				'IN',
 				'INR',
 				i.is_active,
@@ -1185,7 +1169,6 @@ export async function syncReitInvitToListedStocks(): Promise<{
 				industry       = EXCLUDED.industry,
 				current_price  = EXCLUDED.current_price,
 				market_cap_value = EXCLUDED.market_cap_value,
-				market_cap_category = EXCLUDED.market_cap_category,
 				dividend_yield = EXCLUDED.dividend_yield,
 				returns_1m     = EXCLUDED.returns_1m,
 				returns_3m     = EXCLUDED.returns_3m,
@@ -1199,8 +1182,22 @@ export async function syncReitInvitToListedStocks(): Promise<{
 		invitsProcessed = (invitResult as any).rowCount ?? 0;
 		logger.info(`[InvIT-Sync] Upserted ${invitsProcessed} InvITs into listed_stocks`);
 
+		// ── Compute market_cap_category for synced rows ──────────────────
+		await db.execute(sql`
+			UPDATE listed_stocks SET market_cap_category = CASE
+				WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 50000000000 THEN 'large'
+				WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 10000000000 THEN 'mid'
+				WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric >= 500000000   THEN 'small'
+				WHEN market_cap_value IS NOT NULL AND market_cap_value::numeric > 0            THEN 'micro'
+				ELSE 'unknown'
+			END
+			WHERE data_source IN ('reit-sync', 'invit-sync')
+			  AND (market_cap_category IS NULL OR market_cap_category = 'unknown')
+		`);
+
 	} catch (err: any) {
 		logger.error(`[REIT/InvIT-Sync] Error: ${err.message}`);
+		if (err.cause) logger.error(`[REIT/InvIT-Sync] Cause: ${err.cause}`);
 		errors++;
 	}
 
