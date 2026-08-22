@@ -1074,9 +1074,13 @@ export async function syncReitInvitToListedStocks(): Promise<{
 
 	try {
 		// ── Sync REITs ──────────────────────────────────────────────────────
+		// NOTE: isin excluded from INSERT to avoid unique constraint violations
+		// (multiple REIT symbols may share ISINs or an ISIN may already exist
+		// under a different symbol). ISIN is set via ON CONFLICT update only
+		// when the existing row has no ISIN.
 		const reitResult = await db.execute(sql`
 			INSERT INTO listed_stocks (
-				symbol, company_name, exchange, isin, sector, broad_sector, industry,
+				symbol, company_name, exchange, sector, broad_sector, industry,
 				current_price, market_cap_value, market_cap_category,
 				country, currency, is_active, data_source, dividend_yield,
 				returns_1m, returns_3m, returns_6m, returns_1y, returns_3y,
@@ -1086,7 +1090,6 @@ export async function syncReitInvitToListedStocks(): Promise<{
 				r.symbol,
 				r.name,
 				COALESCE(r.exchange, 'NSE'),
-				r.isin_code,
 				'REIT',
 				'Real Estate',
 				COALESCE(r.sector, 'Real Estate Investment Trust'),
@@ -1138,7 +1141,7 @@ export async function syncReitInvitToListedStocks(): Promise<{
 		// ── Sync InvITs ────────────────────────────────────────────────────
 		const invitResult = await db.execute(sql`
 			INSERT INTO listed_stocks (
-				symbol, company_name, exchange, isin, sector, broad_sector, industry,
+				symbol, company_name, exchange, sector, broad_sector, industry,
 				current_price, market_cap_value, market_cap_category,
 				country, currency, is_active, data_source, dividend_yield,
 				returns_1m, returns_3m, returns_6m, returns_1y, returns_3y,
@@ -1148,7 +1151,6 @@ export async function syncReitInvitToListedStocks(): Promise<{
 				i.symbol,
 				i.name,
 				COALESCE(i.exchange, 'NSE'),
-				i.isin_code,
 				'InvIT',
 				'Infrastructure',
 				COALESCE(i.sector, 'Infrastructure Investment Trust'),
