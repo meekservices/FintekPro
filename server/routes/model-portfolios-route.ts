@@ -16,7 +16,7 @@
  *
  * GCR Compliance:
  *   - All responses include engine_version + calculation_timestamp
- *   - AI insights are Decision Support only (FASP-AI v1.0)
+ *   - AI insights are Decision Support only (FASP-AI v3.0)
  *   - Mandatory SEBI risk disclaimers on every advisory output
  *
  * @inputs  - Query params: riskProfile, assetClass, featured
