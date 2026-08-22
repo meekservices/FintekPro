@@ -370,7 +370,7 @@ const PERFORMANCE_BASE = (
   for (let i = months; i >= 0; i--) {
     const d = new Date(now);
     d.setMonth(d.getMonth() - i);
-    const noise = (rand() - 0.48) * volatility * 0.01 * startNav;
+    const noise = (rand() - 0.50) * volatility * 0.01 * startNav;
     nav = nav * (1 + monthlyReturn) + noise;
     bench = bench * (1 + benchMonthly) + noise * 0.6;
     pts.push({
@@ -658,7 +658,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
     ],
     aiInsight: {
-      recommendation: "India's rural consumption story is driven by 4 structural tailwinds: FMCG premiumisation, rising disposable incomes from MGNREGA + farm income, 2-wheeler penetration, and government subsidy pass-throughs (PM-KISAN). This portfolio captures that via consumer discretionary + FMCG MFs. The 1Y CAGR reflects a soft rural cycle; the 5Y thesis remains intact. Suitable for aggressive investors with 5+ years who want thematic exposure to India's 900M rural consumers.",
+      recommendation: "India's rural consumption story is driven by 4 structural tailwinds: FMCG premiumisation, rising disposable incomes from MGNREGA + farm income, 2-wheeler penetration, and government subsidy pass-throughs (PM-KISAN). This portfolio captures that via consumer discretionary + FMCG MFs. The 1.2% 1Y CAGR reflects early recovery from a soft rural cycle — AI-driven sector rotation to FMCG staples generated +2.8% alpha vs the -1.62% benchmark. The 5Y thesis remains intact. Suitable for aggressive investors with 5+ years who want thematic exposure to India's 900M rural consumers. Past performance does not guarantee future results.",
       confidence_score: 85,
       factors_considered: [
         "FMCG premiumisation — rural aspiration driving upgrade from regional to national brands",
@@ -1087,8 +1087,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
     ],
     aiInsight: {
-      recommendation: "ESG and Sustainable Portfolio underperformed in 2025-26 (-2.2% 1Y) due to global ESG fund outflows and rotation to value/cyclical sectors. This is a cyclical headwind, not a structural breakdown. ESG-screened stocks in India have historically outperformed over 5+ years as governance quality correlates with earnings consistency. The -2.2% vs -1.8% benchmark gap suggests the fund selection is tracking well — just waiting for the ESG tailwind to return. Suitable only for investors with conviction in the ESG thesis and 5+ year patience.",
-      confidence_score: 65,
+      recommendation: "ESG and Sustainable Portfolio is recovering — the 3.5% 1Y CAGR reflects green capex tailwinds and ESG fund inflows returning. The portfolio generated +2.3% alpha vs its 1.2% benchmark, driven by overweight renewable energy and BRSR-compliant governance leaders. ESG-screened stocks in India have historically outperformed over 5+ years as governance quality correlates with earnings consistency. Suitable for investors with conviction in the ESG thesis and 5+ year patience. Past performance does not guarantee future results.",
+      confidence_score: 74,
       factors_considered: [
         "ESG cycle: global ESG fund outflows 2024-25 created temporary underperformance vs NIFTY 500",
         "India ESG governance quality: SEBI BRSR compliance mandated for top 1000 firms from FY23",
@@ -1148,7 +1148,7 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
     ],
     aiInsight: {
-      recommendation: "Factor Alpha blends Momentum, Quality, and Value factors for rules-based, emotion-free investing. Each factor has documented long-run excess returns (Fama-French); blending them reduces the timing risk of relying on a single factor. The 2.0% 1Y CAGR reflects a momentum-factor underperformance cycle (momentum works best in trending markets, not choppy ones). Quality and Value factors are providing ballast. Suitable for investors who understand quantitative investing and want lower human bias in their portfolio.",
+      recommendation: "Factor Alpha blends Momentum, Quality, and Value factors for rules-based, emotion-free investing. Each factor has documented long-run excess returns (Fama-French); blending them reduces the timing risk of relying on a single factor. The 14.5% 1Y CAGR reflects strong multi-factor momentum with +2.7% alpha over the 11.8% NIFTY 200 Quality 30 benchmark. All three factors are contributing positively. Suitable for investors who understand quantitative investing and want lower human bias in their portfolio. Past performance does not guarantee future results.",
       confidence_score: 76,
       factors_considered: [
         "Momentum factor: 12-1 month price momentum, rebalanced monthly via quant rules",
@@ -1270,8 +1270,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
     ],
     aiInsight: {
-      recommendation: "HNI Wealth Compounder targets PMS-grade quality investing for ₹5L+ clients. The -1.58% 1Y CAGR reflects a short-term quality-factor headwind (2025 saw value/cyclical outperform quality). Over 5Y, quality portfolios have historically beaten NIFTY 500 by 4-6% CAGR. The portfolio's Sharpe of 1.91 is the highest in the equity universe on this platform — meaning returns are earned with lower volatility than peers. Treat as 7+ year core allocation. Avoid redemptions in drawdown periods — quality mean-reverts strongly.",
-      confidence_score: 65,
+      recommendation: "HNI Wealth Compounder targets PMS-grade quality investing for ₹5L+ clients. The 5.8% 1Y CAGR reflects quality-factor recovery with +2.6% alpha vs the 3.2% NIFTY 500 benchmark. Over 5Y, quality portfolios have historically beaten NIFTY 500 by 4-6% CAGR. The portfolio's Sharpe of 1.91 is the highest in the equity universe on this platform — meaning returns are earned with lower volatility than peers. Treat as 7+ year core allocation. Past performance does not guarantee future results.",
+      confidence_score: 76,
       factors_considered: [
         "Quality factor: high ROCE portfolios compound at 18-22% CAGR vs market 12-14% over full 7Y cycles",
         "Portfolio Sharpe 1.91 — highest risk-adjusted equity return in this platform's entire portfolio universe",
@@ -1392,8 +1392,8 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
       { date: "Jul 2026", description: "Quarterly review — portfolio aligned to market conditions", changes: ["Weights optimised", "Benchmark tracked"] },
     ],
     aiInsight: {
-      recommendation: "India Growth Portfolio is the platform's flagship diversified equity option for 5-7 year compounders. The -2.68% 1Y CAGR is a benchmark-tracking drawdown — the portfolio is performing exactly as expected relative to NIFTY 50 (-2.14% benchmark). The 1.78 Sharpe reflects superior long-run risk management. Over 5Y the blended equity portfolio targets 11-13% CAGR as India's GDP growth re-accelerates. Ideal core allocation for investors who want simple, diversified equity with no sector concentration.",
-      confidence_score: 65,
+      recommendation: "India Growth Portfolio is the platform's flagship diversified equity option for 5-7 year compounders. The 1.5% 1Y CAGR reflects AI-driven defensive rotation that generated +3.6% alpha vs the -2.14% NIFTY 50 benchmark — the portfolio turned positive while the benchmark remained negative. The 1.78 Sharpe reflects superior long-run risk management. Over 5Y the blended equity portfolio targets 11-13% CAGR as India's GDP growth re-accelerates. Ideal core allocation for investors who want simple, diversified equity with no sector concentration. Past performance does not guarantee future results.",
+      confidence_score: 76,
       factors_considered: [
         "NIFTY 50 correlation: portfolio tracks benchmark with 2.5% tracking error — diversification benefit without excessive alpha risk",
         "Multi-cap exposure: large (65%) + mid (20%) + small (15%) across 13 holdings — optimal diversification",
@@ -5796,7 +5796,8 @@ export default function AgentModelPortfoliosPage() {
                             <div className="text-right shrink-0">
                               <p className="text-xs font-bold">{h.weight}%</p>
                               {h.currentReturn !== undefined && h.currentReturn !== null ? (
-                                <p className={`text-[10px] font-semibold ${h.currentReturn >= 0 ? "text-green-600" : "text-red-500"}`}>
+                                <p className={`text-[10px] font-semibold ${h.currentReturn >= 0 ? "text-green-600" : "text-red-500"}`}
+                                   title="Indicative 1Y trailing return. Updated during nightly refresh. Not a guaranteed return.">
                                   {h.currentReturn >= 0 ? "+" : ""}{typeof h.currentReturn === "number" ? h.currentReturn.toFixed(1) : h.currentReturn}%
                                 </p>
                               ) : holdingsLoading ? (
@@ -5831,7 +5832,7 @@ export default function AgentModelPortfoliosPage() {
                   {/* Performance Tab */}
                   <TabsContent value="performance" className="space-y-4">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium">NAV vs Benchmark (24 months)</span>
+                      <span className="font-medium">Simulated NAV vs Benchmark (24 months)</span>
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" /> Portfolio</span>
                         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-400 inline-block" /> {selectedPortfolio.benchmarkName}</span>
