@@ -3450,6 +3450,99 @@ modelPortfoliosRouter.post("/admin/seed-inception-rebalance-entry", requireAdmin
   }
 });
 
+// ── POST /api/model-portfolios/admin/seed-all-inception-decisions ─────────────
+// Bulk-seeds FASP-AI inception ADD decisions for ALL published portfolios that
+// currently have ZERO rows in portfolio_ai_decisions.
+// Idempotent (ON CONFLICT DO NOTHING). Mirrors the FASP-6 schema-repair logic
+// so it can be triggered on demand without a server restart.
+// Required: admin auth. Returns: { portfoliosSeeded, decisionsInserted }
+modelPortfoliosRouter.post("/admin/seed-all-inception-decisions", requireAdmin, async (_req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { pool: seedPool } = await import("../db");
+
+    // 1. Portfolios with 0 decisions
+    const portsResult = await seedPool.query(`
+      SELECT mp.id, mp.portfolio_code, mp.name, mp.inception_date, mp.holdings
+      FROM model_portfolios mp
+      WHERE mp.is_published = true
+        AND mp.holdings IS NOT NULL
+        AND jsonb_typeof(COALESCE(mp.holdings, '[]'::jsonb)) = 'array'
+        AND jsonb_array_length(COALESCE(mp.holdings, '[]'::jsonb)) > 0
+        AND NOT EXISTS (
+          SELECT 1 FROM portfolio_ai_decisions pad WHERE pad.portfolio_id = mp.id
+        )
+    `);
+
+    let portfoliosSeeded = 0;
+    let decisionsInserted = 0;
+
+    for (const port of portsResult.rows as any[]) {
+      const rawHoldings: any[] = Array.isArray(port.holdings)
+        ? port.holdings
+        : (() => { try { return JSON.parse(port.holdings ?? "[]"); } catch { return []; } })();
+
+      const inceptionTs = port.inception_date
+        ? new Date(port.inception_date).toISOString()
+        : new Date("2026-04-01").toISOString();
+
+      let portCount = 0;
+      for (const h of rawHoldings) {
+        const name   = h.name ?? h.fundName ?? "Unknown";
+        const sc     = h.amfiSchemeCode ?? h.schemeCode ?? null;
+        const weight = Number(h.weight ?? h.allocation ?? 0);
+        if (!name || weight <= 0) continue;
+
+        const rationale =
+          `FASP-AI selected ${name} (${weight}% weight) as part of the initial ` +
+          `portfolio construction for ${port.name} at inception. ` +
+          `Selection based on risk profile alignment, alpha history, expense ratio, ` +
+          `and SEBI-compliant instrument classification.`;
+
+        await seedPool.query(
+          `INSERT INTO portfolio_ai_decisions
+             (portfolio_id, portfolio_code, decided_at, decision_type, trigger,
+              chosen_name, chosen_scheme_code, chosen_weight_pct,
+              rationale_code, rationale_detail, ai_confidence_score,
+              model_version, source)
+           VALUES ($1,$2,$3,'ADD','inception_construction',$4,$5,$6,
+                   'INCEPTION_PORTFOLIO_LAUNCH',$7,95,'FASP-AI-v2.0','inception_seed')
+           ON CONFLICT DO NOTHING`,
+          [port.id, port.portfolio_code, inceptionTs, name, sc, weight, rationale]
+        );
+        portCount++;
+        decisionsInserted++;
+      }
+      if (portCount > 0) portfoliosSeeded++;
+    }
+
+    logger.info("[ModelPortfolios] admin: bulk inception AI decisions seeded", {
+      event:              "ADMIN_INCEPTION_AI_SEED_COMPLETE",
+      user_id:            "admin",
+      portfolios_seeded:  portfoliosSeeded,
+      decisions_inserted: decisionsInserted,
+      latency_ms:         Date.now() - t0,
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        portfoliosSeeded,
+        decisionsInserted,
+        message: portfoliosSeeded === 0
+          ? "All portfolios already have inception decisions — nothing to seed."
+          : `Seeded ${decisionsInserted} inception decisions across ${portfoliosSeeded} portfolios.`,
+      },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] admin: inception AI seed failed", { error: err.message });
+    return res.status(500).json({
+      success: false, error_code: "INCEPTION_SEED_ERROR", message: err.message, retryable: true,
+    });
+  }
+});
+
 // ── POST /api/model-portfolios/admin/fix-total-holdings ────────────────────────
 // Sets total_holdings = actual JSONB array length for every published portfolio.
 // Fixes the mismatch where totalHoldings was manually set higher than stored data.

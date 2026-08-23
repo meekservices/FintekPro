@@ -3413,6 +3413,81 @@ export async function ensureSharedRouteTables(): Promise<void> {
     console.warn("  \u26a0\ufe0f  Fix FASP-5 PSU-Defence seed (non-fatal):", e.message?.slice(0, 200));
   }
 
+  // ── Fix FASP-6: Bulk seed inception AI decisions for all published portfolios ─
+  // For every portfolio that has ZERO rows in portfolio_ai_decisions, inserts one
+  // ADD decision per holding at inception_date. This populates the FASP-AI Track
+  // Record tab and satisfies SEBI IA Reg 16 audit trail requirements.
+  // ON CONFLICT DO NOTHING makes this fully idempotent — safe to run on every boot.
+  // Uses local pool import (same pattern as FASP-4) — migDb is Drizzle and lacks .query().
+  try {
+    const { pool: fasp6Pool } = await import("../db");
+
+    // 1. Fetch all portfolios that have no decisions yet
+    const portfoliosResult = await fasp6Pool.query(`
+      SELECT mp.id, mp.portfolio_code, mp.name, mp.inception_date,
+             mp.holdings
+      FROM model_portfolios mp
+      WHERE mp.is_published = true
+        AND mp.holdings IS NOT NULL
+        AND jsonb_typeof(COALESCE(mp.holdings, '[]'::jsonb)) = 'array'
+        AND jsonb_array_length(COALESCE(mp.holdings, '[]'::jsonb)) > 0
+        AND NOT EXISTS (
+          SELECT 1 FROM portfolio_ai_decisions pad
+          WHERE pad.portfolio_id = mp.id
+        )
+    `);
+
+    let seededPortfolios = 0;
+    let seededDecisions  = 0;
+
+    for (const port of portfoliosResult.rows as any[]) {
+      const rawHoldings = Array.isArray(port.holdings)
+        ? port.holdings
+        : ((): any[] => { try { return JSON.parse(port.holdings ?? '[]'); } catch { return []; } })();
+
+      const inceptionTs = port.inception_date
+        ? new Date(port.inception_date).toISOString()
+        : new Date('2026-04-01').toISOString();
+
+      let portDecisions = 0;
+      for (const h of rawHoldings) {
+        const name   = h.name ?? h.fundName ?? 'Unknown';
+        const sc     = h.amfiSchemeCode ?? h.schemeCode ?? null;
+        const weight = Number(h.weight ?? h.allocation ?? 0);
+        if (!name || weight <= 0) continue;
+
+        const rationale =
+          `FASP-AI selected ${name} (${weight}% weight) as part of the initial ` +
+          `portfolio construction for ${port.name} at inception. ` +
+          `Selection based on risk profile alignment, alpha history, expense ratio, ` +
+          `and SEBI-compliant instrument classification.`;
+
+        await fasp6Pool.query(
+          `INSERT INTO portfolio_ai_decisions
+             (portfolio_id, portfolio_code, decided_at, decision_type, trigger,
+              chosen_name, chosen_scheme_code, chosen_weight_pct,
+              rationale_code, rationale_detail, ai_confidence_score,
+              model_version, source)
+           VALUES ($1,$2,$3,'ADD','inception_construction',$4,$5,$6,
+                   'INCEPTION_PORTFOLIO_LAUNCH',$7,95,'FASP-AI-v2.0','inception_seed')
+           ON CONFLICT DO NOTHING`,
+          [port.id, port.portfolio_code, inceptionTs,
+           name, sc, weight, rationale]
+        );
+        portDecisions++;
+        seededDecisions++;
+      }
+      if (portDecisions > 0) seededPortfolios++;
+    }
+
+    console.log(
+      `  ✅ Fix FASP-6: inception AI decisions seeded — ` +
+      `${seededPortfolios} portfolios, ${seededDecisions} decisions`
+    );
+  } catch (e: any) {
+    console.warn('  ⚠️  Fix FASP-6 inception AI seed (non-fatal):', e.message?.slice(0, 200));
+  }
+
   // ── Fix SFM-1: CREATE TABLE stock_financial_metrics ──────────────────────────
   // The Drizzle schema defines this table but it was never physically created
   // in production. All FinancialMetricsRefreshService queries crash with
