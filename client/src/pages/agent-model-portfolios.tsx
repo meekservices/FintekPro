@@ -4901,17 +4901,42 @@ export default function AgentModelPortfoliosPage() {
           const display1Y  = portfolio.twrr1Y  ?? portfolio.cagr1Y ?? 0;
           const display3Y  = portfolio.twrr3Y  ?? portfolio.cagr3Y ?? 0;
           const isUsingTWRR = portfolio.twrr1Y != null;
-          // Alpha vs blended or single-index benchmark
-          const benchmarkReturn  = portfolio.blendedBenchmarkReturn ?? portfolio.benchmarkCagr1Y ?? 0;
-          const alphaVsBenchmark = display1Y - benchmarkReturn;
-          // Avg return label:
-          //   < 1M since inception → "Est. 1Y" (calibrated projection, scheduler hasn't run yet)
-          //   1–11M since inception → "NM avg" (partial-period avg)
-          //   ≥ 12M → "1Y" (full-year return)
+
+          // Inception age in months
           const inceptionMonths = portfolio.inceptionDate
             ? Math.round((Date.now() - new Date(portfolio.inceptionDate).getTime()) / (30 * 24 * 3600 * 1000))
             : 12;
-          const returnLabel = inceptionMonths < 1 ? "Est. 1Y" : inceptionMonths < 12 ? `${inceptionMonths}M avg` : "1Y";
+
+          // ── Genuine CAGR-basis alpha ─────────────────────────────────────────
+          // When the portfolio is < 12 months old, the raw return (e.g. +0.00% over 5M)
+          // cannot be fairly compared against the 1Y benchmark CAGR.
+          // Solution: annualise BOTH portfolio return and benchmark to the SAME partial
+          // period so the alpha is apples-to-apples.
+          const rawBenchmark1Y = portfolio.blendedBenchmarkReturn ?? portfolio.benchmarkCagr1Y ?? 0;
+          const isPartialPeriod = inceptionMonths > 0 && inceptionMonths < 12;
+
+          // Annualise: CAGR = (1 + r)^(12/n) – 1
+          const annualise = (pct: number, months: number): number => {
+            if (months <= 0) return pct;
+            if (months >= 12) return pct;
+            return (Math.pow(1 + pct / 100, 12 / months) - 1) * 100;
+          };
+
+          // De-annualise 1Y benchmark to the partial period, then re-annualise for display:
+          // Step 1: convert 1Y benchmark CAGR → partial-period total return
+          const benchmarkPartial = isPartialPeriod
+            ? (Math.pow(1 + rawBenchmark1Y / 100, inceptionMonths / 12) - 1) * 100
+            : rawBenchmark1Y;
+          // Step 2: annualise both to CAGR for a fair comparison label
+          const portfolioCagr   = isPartialPeriod ? annualise(display1Y, inceptionMonths) : display1Y;
+          const benchmarkCagr   = isPartialPeriod ? annualise(benchmarkPartial, inceptionMonths) : rawBenchmark1Y;
+          const alphaVsBenchmark = portfolioCagr - benchmarkCagr;
+
+          // Return label:
+          //   < 1M since inception → "Est. 1Y" (calibrated projection)
+          //   1–11M → "NM CAGR" (annualised partial period — honest basis)
+          //   ≥ 12M → "1Y CAGR"
+          const returnLabel = inceptionMonths < 1 ? "Est. 1Y" : inceptionMonths < 12 ? `${inceptionMonths}M CAGR` : "1Y CAGR";
           const isEstimated  = inceptionMonths < 1; // drives the tooltip/badge below
 
           // Drift from quantSignals cache
@@ -5086,15 +5111,26 @@ export default function AgentModelPortfoliosPage() {
                           </span>
                         )}
                       </p>
-                      <p className="text-[13px] font-bold text-emerald-600">
-                        {display1Y >= 0 ? "+" : ""}{display1Y.toFixed(2)}%
+                      <p
+                        className="text-[13px] font-bold text-emerald-600"
+                        title={isPartialPeriod ? `${inceptionMonths}M cumulative: ${display1Y >= 0 ? "+" : ""}${display1Y.toFixed(2)}% → annualised to CAGR for fair comparison` : undefined}
+                      >
+                        {portfolioCagr >= 0 ? "+" : ""}{portfolioCagr.toFixed(2)}%
                       </p>
                     </div>
 
-                    {/* Alpha */}
+                    {/* Alpha — always CAGR basis so comparison is genuine */}
                     <div>
                       <p className="text-[9px] text-muted-foreground">
                         Vs {portfolio.blendedBenchmarkReturn != null ? "benchmark" : portfolio.benchmarkName}
+                        {isPartialPeriod && (
+                          <span
+                            title={`Both portfolio (${portfolioCagr.toFixed(1)}% p.a.) and benchmark (${benchmarkCagr.toFixed(1)}% p.a.) annualised to CAGR over ${inceptionMonths}M for fair comparison`}
+                            className="ml-0.5 text-[8px] text-muted-foreground/70 italic"
+                          >
+                            (CAGR)
+                          </span>
+                        )}
                       </p>
                       <p className={`text-[13px] font-bold ${alphaVsBenchmark >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                         {alphaVsBenchmark >= 0 ? "+" : ""}{alphaVsBenchmark.toFixed(2)}% alpha
