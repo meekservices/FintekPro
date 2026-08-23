@@ -12,21 +12,23 @@
  * FintekPro GCR v1.0: All notifications are logged with structured events.
  */
 
-import * as admin from "firebase-admin";
+import { initializeApp, getApps, App, applicationDefault } from "firebase-admin/app";
+import { getMessaging, Message } from "firebase-admin/messaging";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
 
 // ── Firebase Init (singleton) ─────────────────────────────────────────────
-let _app: admin.app.App | null = null;
+let _app: App | null = null;
 
-function getFirebaseApp(): admin.app.App {
+function getFirebaseApp(): App {
 	if (_app) return _app;
-	if (admin.apps.length > 0) {
-		_app = admin.apps[0]!;
+	const existing = getApps();
+	if (existing.length > 0) {
+		_app = existing[0]!;
 		return _app;
 	}
-	_app = admin.initializeApp({
-		credential: admin.credential.applicationDefault(),
+	_app = initializeApp({
+		credential: applicationDefault(),
 		projectId: "fintekpro",
 	});
 	console.log(
@@ -77,12 +79,12 @@ export async function sendPushToUser(
 		}
 
 		const app = getFirebaseApp();
-		const messaging = admin.messaging(app);
+		const messaging = getMessaging(app);
 
 		// Send to all tokens in parallel
 		const results = await Promise.allSettled(
 			tokens.map(async ({ token, platform }) => {
-				const msg: admin.messaging.Message = {
+				const msg: Message = {
 					token,
 					notification: {
 						title: payload.title,

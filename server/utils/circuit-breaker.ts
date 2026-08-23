@@ -10,6 +10,7 @@
  *   failureThreshold  — consecutive failures before tripping OPEN (default 5)
  *   cooldownMs        — time in OPEN state before moving to HALF-OPEN (default 30s)
  *   successThreshold  — consecutive successes in HALF-OPEN to close (default 2)
+ *   resetAfterMs      — time before a permanently open circuit resets (default 24h)
  *
  * Usage:
  *   const cb = new CircuitBreaker({ name: "IndianAPI", failureThreshold: 5 });
@@ -31,24 +32,29 @@ export interface CircuitBreakerOptions {
 	cooldownMs?: number;
 	/** Consecutive successes in HALF_OPEN state to close the circuit (default: 2) */
 	successThreshold?: number;
+	/** Reset time for permanently open circuit (default: 24h) */
+	resetAfterMs?: number;
 }
 
 export class CircuitBreaker {
 	private readonly name: string;
 	private readonly failureThreshold: number;
-	private readonly cooldownMs: number;
+	private readonly initialCooldownMs: number;
 	private readonly successThreshold: number;
+	private readonly resetAfterMs: number;
 
 	private state: CircuitState = "CLOSED";
 	private consecutiveFailures = 0;
 	private consecutiveSuccesses = 0;
 	private openedAt: number | null = null;
+	private backoffAttempts = 0;
 
 	constructor(opts: CircuitBreakerOptions) {
 		this.name = opts.name;
 		this.failureThreshold = opts.failureThreshold ?? 5;
-		this.cooldownMs = opts.cooldownMs ?? 30_000;
+		this.initialCooldownMs = opts.cooldownMs ?? 30_000;
 		this.successThreshold = opts.successThreshold ?? 2;
+		this.resetAfterMs = opts.resetAfterMs ?? 86_400_000;
 	}
 
 	getState(): CircuitState {
@@ -64,7 +70,7 @@ export class CircuitBreaker {
 			openedAt: this.openedAt ? new Date(this.openedAt).toISOString() : null,
 			cooldownRemainingMs:
 				this.state === "OPEN" && this.openedAt
-					? Math.max(0, this.cooldownMs - (Date.now() - this.openedAt))
+					? Math.max(0, this.getEffectiveCooldown() - (Date.now() - this.openedAt))
 					: 0,
 		};
 	}
@@ -82,7 +88,7 @@ export class CircuitBreaker {
 
 		if (this.state === "OPEN") {
 			const remaining = this.openedAt
-				? Math.ceil((this.cooldownMs - (Date.now() - this.openedAt)) / 1000)
+				? Math.ceil((this.getEffectiveCooldown() - (Date.now() - this.openedAt)) / 1000)
 				: 0;
 			throw new CircuitOpenError(
 				`[CircuitBreaker:${this.name}] Circuit OPEN — cooldown ${remaining}s remaining`,
@@ -100,15 +106,27 @@ export class CircuitBreaker {
 		}
 	}
 
+	private getEffectiveCooldown(): number {
+		if (this.backoffAttempts === 0) return this.initialCooldownMs;
+		// Exponential: 30s → 60s → 2m → 5m → 15m → 60m (capped)
+		const caps = [30_000, 60_000, 120_000, 300_000, 900_000, 3_600_000];
+		return caps[Math.min(this.backoffAttempts - 1, caps.length - 1)];
+	}
+
 	private transitionIfNeeded(): void {
-		if (
-			this.state === "OPEN" &&
-			this.openedAt !== null &&
-			Date.now() - this.openedAt >= this.cooldownMs
-		) {
-			this.state = "HALF_OPEN";
-			this.consecutiveSuccesses = 0;
-			logger.info(`[CircuitBreaker:${this.name}] → HALF_OPEN (probe allowed)`);
+		if (this.state === "OPEN" && this.openedAt !== null) {
+			const now = Date.now();
+			if (now - this.openedAt >= this.resetAfterMs) {
+				this.state = "CLOSED";
+				this.consecutiveFailures = 0;
+				this.backoffAttempts = 0;
+				this.openedAt = null;
+				logger.info(`[CircuitBreaker:${this.name}] → CLOSED (forced reset after long period)`);
+			} else if (now - this.openedAt >= this.getEffectiveCooldown()) {
+				this.state = "HALF_OPEN";
+				this.consecutiveSuccesses = 0;
+				logger.info(`[CircuitBreaker:${this.name}] → HALF_OPEN (probe allowed)`);
+			}
 		}
 	}
 
@@ -118,6 +136,7 @@ export class CircuitBreaker {
 			if (this.consecutiveSuccesses >= this.successThreshold) {
 				this.state = "CLOSED";
 				this.consecutiveFailures = 0;
+				this.backoffAttempts = 0;
 				this.openedAt = null;
 				logger.info(`[CircuitBreaker:${this.name}] → CLOSED (recovered)`);
 			}
@@ -137,10 +156,11 @@ export class CircuitBreaker {
 			this.state === "HALF_OPEN" ||
 			(this.state === "CLOSED" && this.consecutiveFailures >= this.failureThreshold)
 		) {
+			if (this.state === "HALF_OPEN") this.backoffAttempts++;
 			this.state = "OPEN";
 			this.openedAt = Date.now();
 			logger.error(
-				`[CircuitBreaker:${this.name}] → OPEN after ${this.consecutiveFailures} failures. Cooldown: ${this.cooldownMs / 1000}s`,
+				`[CircuitBreaker:${this.name}] → OPEN after ${this.consecutiveFailures} failures. Cooldown: ${this.getEffectiveCooldown() / 1000}s`,
 				{ error_code: "CIRCUIT_OPEN", retryable: false },
 			);
 		}
