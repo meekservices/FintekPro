@@ -778,6 +778,49 @@ class UnifiedStockPriceService {
 		};
 	}
 
+	/**
+	 * Returns the current health state of each pricing provider.
+	 * Used by GET /admin/pricing-status and meta.dataSource in API responses.
+	 * @outputs { provider, active, coolingDown, consecutiveFailures, cooldownRemainingMs }[]
+	 */
+	getProviderHealth(): Array<{
+		provider: string;
+		active: boolean;
+		coolingDown: boolean;
+		consecutiveFailures: number;
+		cooldownRemainingMs: number;
+	}> {
+		const now = Date.now();
+		const providers = ["upstox", "indianapi", "indianapi_batch", "yahoo", "fmp", "google_finance"];
+		return providers.map((p) => {
+			const h = this.providerHealth.get(p);
+			const coolingDown = h ? now < h.cooldownUntil : false;
+			return {
+				provider: p,
+				active: !coolingDown,
+				coolingDown,
+				consecutiveFailures: h?.consecutiveFailures ?? 0,
+				cooldownRemainingMs: h && coolingDown ? Math.max(0, h.cooldownUntil - now) : 0,
+			};
+		});
+	}
+
+	/**
+	 * Returns the name of the highest-priority active pricing provider.
+	 * @outputs "UPSTOX" | "IndianAPI/NSE" | "Yahoo Finance" | "FMP" | "Google Finance" | "DB_STALE"
+	 */
+	getActivePricingTier(): string {
+		const health = this.getProviderHealth();
+		const upstox = process.env.UPSTOX_ACCESS_TOKEN;
+		if (upstox && health.find(h => h.provider === "upstox")?.active) return "UPSTOX (Tier 0)";
+		if (health.find(h => h.provider === "indianapi")?.active) return "IndianAPI/NSE (Tier 1)";
+		if (health.find(h => h.provider === "indianapi_batch")?.active) return "IndianAPI Batch (Tier 1.5)";
+		if (health.find(h => h.provider === "yahoo")?.active) return "Yahoo Finance (Tier 2)";
+		if (health.find(h => h.provider === "fmp")?.active) return "FMP (Tier 3)";
+		if (health.find(h => h.provider === "google_finance")?.active) return "Google Finance (Tier 4)";
+		return "DB_STALE (Tier 5)";
+	}
+
 	resetMetrics(): void {
 		this.metrics = {
 			cacheHits: 0,

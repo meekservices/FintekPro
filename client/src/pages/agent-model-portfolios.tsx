@@ -4376,6 +4376,17 @@ export default function AgentModelPortfoliosPage() {
   const { data: holdingsData, isLoading: holdingsLoading } = useQuery<{
     success: boolean;
     data: any[];
+    meta?: {
+      dataSource?: {
+        returns?: string;
+        prices?: string;
+        freshness?: "live" | "mostly-live" | "degraded";
+        livePct?: number;
+        stalePct?: number;
+        lastRefreshed?: string;
+        note?: string;
+      };
+    };
   }>({
     queryKey: ["/api/model-portfolios", selectedPortfolio?.id, "holdings"],
     enabled: activeDetailTab === "holdings" && !!selectedPortfolio?.id && !!user && canViewFullHoldings,
@@ -4413,6 +4424,8 @@ export default function AgentModelPortfoliosPage() {
   // primary display list. This ensures all DB holdings are shown, including
   // any that weren't pre-loaded in the list endpoint (which skips enrichment).
   const enrichedHoldings = holdingsData?.data ?? null;
+  // H-MP5: dataSource meta for the banner
+  const dataSourceMeta = holdingsData?.meta?.dataSource ?? null;
   const displayHoldings: Holding[] = (enrichedHoldings && enrichedHoldings.length > 0)
     ? enrichedHoldings.map((h: any, idx: number) => ({
         rank: h.rank ?? idx + 1,
@@ -5698,6 +5711,35 @@ export default function AgentModelPortfoliosPage() {
 
                   {/* Holdings Tab — role-gated: agents/partners/admins see full list, clients see top 5 */}
                   <TabsContent value="holdings" className="space-y-3">
+                    {/* H-MP5: DataSource Status Banner */}
+                    {dataSourceMeta && (() => {
+                      const freshness = dataSourceMeta.freshness ?? "live";
+                      const isLive   = freshness === "live";
+                      const isMostly = freshness === "mostly-live";
+                      const bannerKey = `mp_ds_dismissed_${selectedPortfolio?.id}`;
+                      const colours = isLive
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300"
+                        : isMostly
+                        ? "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300"
+                        : "bg-red-50 border-red-200 text-red-800 dark:bg-red-950/40 dark:border-red-800 dark:text-red-300";
+                      return (
+                        <div id="datasource-status-banner" className={`flex items-center justify-between gap-2 text-[10px] rounded-md border px-3 py-1.5 ${colours}`}>
+                          <span className="flex items-center gap-1.5 flex-wrap">
+                            <span>{isLive ? "📡" : isMostly ? "⚠️" : "🔴"}</span>
+                            <span><strong>Returns:</strong> {dataSourceMeta.returns ?? "mfapi.in"}</span>
+                            <span className="opacity-40">·</span>
+                            <span><strong>Prices:</strong> {dataSourceMeta.prices ?? "IndianAPI/NSE"}</span>
+                            {dataSourceMeta.livePct != null && <><span className="opacity-40">·</span><span>{dataSourceMeta.livePct}% live</span></>}
+                            {dataSourceMeta.lastRefreshed && (
+                              <><span className="opacity-40">·</span>
+                              <span>{new Date(dataSourceMeta.lastRefreshed).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Kolkata"})} IST</span></>
+                            )}
+                          </span>
+                          <button id="dismiss-datasource-banner" aria-label="Dismiss" className="opacity-50 hover:opacity-100 transition-opacity shrink-0"
+                            onClick={() => { sessionStorage.setItem(bannerKey,"1"); const el=document.getElementById("datasource-status-banner"); if(el) el.style.display="none"; }}>✕</button>
+                        </div>
+                      );
+                    })()}
                     {/* Header row */}
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-muted-foreground">

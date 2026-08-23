@@ -52,10 +52,39 @@ import {
 // ⚠️  FintekPro is a SEBI-registered Distributor — use Regular plan ISINs/scheme codes.
 import { getInstrument } from "../data/instrument-registry";
 import { lookupByISIN, lookupByNSESymbol } from "../services/isin-registry-service";
+import { unifiedStockPriceService } from "../services/unified-stock-price-service";
 
 export const modelPortfoliosRouter = Router();
 
 const ENGINE_VERSION = "FASP-AI-v3.0"; // Fix 5: mandatory version per FASP-AI v3.0
+
+// ─── H-MP5: dataSource meta builder ──────────────────────────────────────────
+/**
+ * Builds the meta.dataSource object included in every model-portfolio API response.
+ * Provides frontend visibility into which pricing/returns tier is active.
+ * @outputs { returns, prices, freshness, lastRefreshed, activeTier }
+ */
+function buildDataSourceMeta(enrichedHoldings?: any[]): Record<string, unknown> {
+  const activeTier = unifiedStockPriceService.getActivePricingTier();
+  // Summarise return source coverage across enriched holdings
+  let livePct = 0;
+  let stalePct = 0;
+  if (enrichedHoldings && enrichedHoldings.length > 0) {
+    const live   = enrichedHoldings.filter(h => h?.returnSource && h.returnSource !== "db_stale" && h?.currentReturn != null).length;
+    const stale  = enrichedHoldings.filter(h => !h?.returnSource || h?.currentReturn == null).length;
+    livePct  = Math.round((live  / enrichedHoldings.length) * 100);
+    stalePct = Math.round((stale / enrichedHoldings.length) * 100);
+  }
+  return {
+    returns:    "mfapi.in (trailing 12M NAV)",
+    prices:     activeTier,
+    freshness:  stalePct === 0 ? "live" : stalePct < 30 ? "mostly-live" : "degraded",
+    livePct,
+    stalePct,
+    lastRefreshed: new Date().toISOString(),
+    note: "Returns enriched nightly at 07:30 IST. Prices from active pricing tier.",
+  };
+}
 
 // ─── In-memory NAV cache: schemeCode → { return1Y, ts } ──────────────────────
 const CACHE_TTL_MS = 6 * 60 * 60 * 1_000; // 6 hours
@@ -1701,6 +1730,53 @@ modelPortfoliosRouter.post("/admin/persist-holdings-enrichment", async (_req: Re
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.error("[ModelPortfolios] persist-holdings-enrichment error", new Error(msg));
+    return res.status(500).json({ success: false, error: msg });
+  }
+});
+
+// ── GET /api/model-portfolios/admin/pricing-status ────────────────────────────
+// H-MP5: Returns live pricing provider health (which tier is active/cooling-down)
+// and mfapi.in NAV cache stats. Used by the UI DataSource banner.
+modelPortfoliosRouter.get("/admin/pricing-status", async (_req: Request, res: Response) => {
+  try {
+    const providerHealth = unifiedStockPriceService.getProviderHealth();
+    const activeTier     = unifiedStockPriceService.getActivePricingTier();
+    const metrics        = unifiedStockPriceService.getMetrics();
+
+    // Count how many portfolios have at least one enriched holding
+    const enrichedStats = await db.execute(sql`
+      SELECT
+        COUNT(*)::int                                                          AS total_portfolios,
+        COUNT(*) FILTER (WHERE jsonb_array_length(COALESCE(holdings,'[]'::jsonb)) > 0
+          AND holdings @> '[{"returnSource": "mfapi.in"}]'::jsonb)::int       AS portfolios_with_live_returns,
+        COUNT(*) FILTER (WHERE jsonb_array_length(COALESCE(holdings,'[]'::jsonb)) = 0)::int AS empty_portfolios
+      FROM model_portfolios WHERE is_published = true
+    `);
+    const stats = enrichedStats.rows[0] as Record<string, number>;
+
+    logger.info("[ModelPortfolios] pricing-status queried", { event: "PRICING_STATUS_QUERIED", activeTier });
+
+    return res.json({
+      success: true,
+      data: {
+        activePricingTier: activeTier,
+        providerHealth,
+        stockPriceMetrics: metrics,
+        holdingEnrichmentStats: {
+          totalPortfolios:          stats.total_portfolios,
+          portfoliosWithLiveReturns: stats.portfolios_with_live_returns,
+          emptyPortfolios:          stats.empty_portfolios,
+          coveragePct: stats.total_portfolios > 0
+            ? Math.round((stats.portfolios_with_live_returns / stats.total_portfolios) * 100)
+            : 0,
+        },
+        mfapiCacheNote: "mfapi.in NAV results cached 6h per scheme code in-memory",
+      },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error("[ModelPortfolios] pricing-status error", new Error(msg));
     return res.status(500).json({ success: false, error: msg });
   }
 });
@@ -3555,6 +3631,8 @@ modelPortfoliosRouter.get("/", async (req: Request, res: Response) => {
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+        // H-MP5: data source transparency
+        dataSource: buildDataSourceMeta(),
         disclaimer:
           "Model portfolios are for research and guidance only. Past performance does not guarantee future returns. Please consult your SEBI-registered investment advisor before making investment decisions.",
       },
@@ -3608,6 +3686,8 @@ modelPortfoliosRouter.get("/:id", async (req: Request, res: Response) => {
         version: ENGINE_VERSION,
         engine_version: ENGINE_VERSION,
         latency_ms: Date.now() - start,
+        // H-MP5: data source transparency
+        dataSource: buildDataSourceMeta(Array.isArray(enriched?.holdings) ? enriched.holdings : []),
         disclaimer:
           "Model portfolios are for research and guidance only. Past performance does not guarantee future returns.",
       },
@@ -3655,6 +3735,27 @@ modelPortfoliosRouter.get("/:id/holdings", isAuthenticated, async (req: Request,
     // Cached 6h per scheme code — subsequent opens are instant
     const enriched = await Promise.all(rawHoldings.map(enrichHolding));
 
+    // ── H-MP2: Fire-and-forget DB write-back ─────────────────────────────────
+    // After enriching, persist freshly resolved currentReturn/returnSource back
+    // to model_portfolios.holdings JSONB so a Cloud Run cold-start serves
+    // instant cached data (no mfapi round-trip on first request post-restart).
+    // Only persists if at least one holding was newly enriched this request.
+    const hasNewEnrichment = enriched.some(
+      (h: any) => h?.returnSource && h.returnSource !== "db_stale" && h?.currentReturn != null
+    );
+    if (hasNewEnrichment) {
+      db.update(modelPortfolios)
+        .set({
+          holdings: enriched as unknown as typeof modelPortfolios.$inferInsert["holdings"],
+          updatedAt: new Date(),
+        })
+        .where(eq(modelPortfolios.id, id))
+        .execute()
+        .catch((err: Error) =>
+          logger.warn("[ModelPortfolios] H-MP2 write-back failed (non-fatal)", { portfolioId: id, error: err.message })
+        );
+    }
+
     return res.json({
       success: true,
       data: enriched,
@@ -3665,6 +3766,8 @@ modelPortfoliosRouter.get("/:id/holdings", isAuthenticated, async (req: Request,
         latency_ms: Date.now() - start,
         count: enriched.length,
         returnSource: "mfapi.in (trailing 12M NAV)",
+        // H-MP5: data source transparency
+        dataSource: buildDataSourceMeta(enriched),
         disclaimer: "Returns as of last market close. Past performance is not indicative of future results.",
       },
     });
