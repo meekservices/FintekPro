@@ -10,7 +10,7 @@
  * - FII/DII institutional flows (via MrChartist free API)
  *
  * Auth: X-API-Key header
- * Base URL: https://analyst.indianapi.in
+ * Base URL: https://dev.indianapi.in  (marketplace gateway — accepts sk-live-* keys)
  * Enrichment chain priority: 0.88
  * (Slots between NSE/BSE 0.90 and Finnhub 0.75 — India-native, SEBI-safe)
  *
@@ -23,7 +23,7 @@ import { logger } from "../logger";
 import { CircuitBreaker, CircuitOpenError } from "../utils/circuit-breaker";
 
 const INDIAN_API_KEY = process.env.INDIAN_API_KEY || "";
-const INDIAN_API_BASE_URL = "https://stock.indianapi.in";
+const INDIAN_API_BASE_URL = "https://dev.indianapi.in";
 const MRCHARTIST_BASE_URL = "https://api.mrchartist.in";
 const ENGINE_VERSION = "2.0.0";
 
