@@ -3334,7 +3334,23 @@ export async function ensureSharedRouteTables(): Promise<void> {
     console.warn("  \u26a0\ufe0f  Fix FASP-3 inception_date backfill (non-fatal):", e.message?.slice(0, 120));
   }
 
-  // ── Fix FASP-4: Materialised period return columns on model_portfolios ──────────
+  // ── Fix FASP-3b: Sync total_holdings from JSONB array length ──────────────
+  // Prevents stale label mismatch ("20 holdings · 8 instruments") on holdings tab.
+  try {
+    await migDb.execute(migSql`
+      UPDATE model_portfolios
+      SET total_holdings = jsonb_array_length(COALESCE(holdings, '[]'::jsonb))
+      WHERE holdings IS NOT NULL
+        AND jsonb_typeof(COALESCE(holdings, '[]'::jsonb)) = 'array'
+        AND (total_holdings IS NULL
+          OR total_holdings != jsonb_array_length(COALESCE(holdings, '[]'::jsonb)))
+    `);
+    console.log("  ✅ Fix FASP-3b: total_holdings synced from JSONB array length");
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix FASP-3b total_holdings sync (non-fatal):", e.message?.slice(0, 80));
+  }
+
+    // ── Fix FASP-4: Materialised period return columns on model_portfolios ──────────
   // ADD COLUMN IF NOT EXISTS — safe to run on every boot.
   // Bug D fix (scope): migPool was declared inside a sibling try-block's scope so
   // it was undefined here. Import pool locally so this block is self-contained.

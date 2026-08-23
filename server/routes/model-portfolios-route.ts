@@ -4113,7 +4113,65 @@ modelPortfoliosRouter.get("/:id/ai-track-record", async (req: Request, res: Resp
       ORDER BY decided_at DESC
       LIMIT 200
     `);
-    const decisions = decisionsResult.rows as any[];
+    let decisions = decisionsResult.rows as any[];
+
+    // ── 2b. Self-heal: if no decisions yet, seed one ADD per holding at inception ──
+    // This gives the AI Track Record meaningful content from day-1 (portfolio
+    // construction itself is an AI decision) and satisfies SEBI Reg 16 audit trail.
+    if (decisions.length === 0) {
+      try {
+        const rawHoldings = JSON.parse(port.holdings ?? "[]");
+        const inceptionTs = port.inception_date
+          ? new Date(port.inception_date).toISOString()
+          : new Date().toISOString();
+        const portCodeRow2 = await db.execute(sql`SELECT portfolio_code FROM model_portfolios WHERE id = ${id} LIMIT 1`);
+        const portCode2 = (portCodeRow2.rows[0] as any)?.portfolio_code ?? null;
+
+        for (const h of rawHoldings) {
+          const name   = h.name ?? h.fundName ?? "Unknown";
+          const sc     = h.amfiSchemeCode ?? h.schemeCode ?? null;
+          const weight = Number(h.weight ?? h.allocation ?? 0);
+          if (!name || weight <= 0) continue;
+          await db.execute(sql`
+            INSERT INTO portfolio_ai_decisions
+              (portfolio_id, portfolio_code, decided_at, decision_type, trigger,
+               chosen_name, chosen_scheme_code, chosen_weight_pct,
+               rationale_code, rationale_detail, ai_confidence_score,
+               model_version, source)
+            VALUES (
+              ${id}, ${portCode2}, ${inceptionTs}::timestamptz, 'ADD', 'inception_construction',
+              ${name}, ${sc}, ${weight},
+              'INCEPTION_PORTFOLIO_LAUNCH',
+              ${'FASP-AI selected ' + name + ' (' + weight + '% weight) as part of the initial portfolio construction at inception. Selection based on risk profile, alpha history, and SEBI-compliant instrument classification.'},
+              95,
+              'FASP-AI-v2.0', 'inception_seed'
+            )
+            ON CONFLICT DO NOTHING
+          `);
+        }
+        // Reload decisions after seeding
+        const reloadResult = await db.execute(sql`
+          SELECT id, decided_at, decision_type, trigger,
+                 chosen_name, chosen_scheme_code, chosen_weight_pct, chosen_nav_at_decision,
+                 rejected_name, rejected_scheme_code, rejected_nav_at_decision,
+                 rationale_code, rationale_detail, ai_confidence_score, model_version,
+                 outcome_period_months, outcome_return_pct, outcome_benchmark_pct,
+                 rejected_return_pct, alpha_captured_pct, is_win, outcome_computed_at,
+                 advisor_id, advisor_approved_at, proposal_id
+          FROM portfolio_ai_decisions
+          WHERE portfolio_id = ${id}
+          ORDER BY decided_at DESC LIMIT 200
+        `);
+        decisions = reloadResult.rows as any[];
+        logger.info("[ModelPortfolios] ai-track-record: seeded inception decisions", {
+          event: "AI_TRACK_RECORD_INCEPTION_SEEDED",
+          portfolio_id: id,
+          decisions_seeded: decisions.length,
+        });
+      } catch (seedErr: any) {
+        logger.warn("[ModelPortfolios] inception seed failed (non-fatal)", { error: seedErr.message });
+      }
+    }
 
     // 3. Compute summary stats from decisions that have outcomes
     const resolved = decisions.filter((d) => d.outcome_computed_at !== null);

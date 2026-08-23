@@ -3829,7 +3829,14 @@ function AiTrackRecordTab({ portfolioId }: { portfolioId: string }) {
         </div>
 
         {summary.totalDecisions === 0 ? (
-          <p className="text-xs text-muted-foreground">No AI decisions recorded yet. Decisions are logged as drift-triggered rebalances occur.</p>
+          <div className="text-center py-3 space-y-2">
+            <div className="text-2xl">🤖</div>
+            <p className="text-xs font-semibold text-muted-foreground">Building AI history…</p>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              Inception portfolio construction decisions will appear here once indexed.
+              Drift-triggered rebalance decisions are added automatically.
+            </p>
+          </div>
         ) : (
           <>
             <div className="grid grid-cols-3 gap-2 text-center">
@@ -3987,7 +3994,7 @@ function AiTrackRecordTab({ portfolioId }: { portfolioId: string }) {
 
       {decisions && decisions.length === 0 && summary.totalDecisions === 0 && (
         <p className="text-xs text-muted-foreground text-center py-4">
-          AI decisions will appear here as FASP-AI detects drift and generates rebalancing actions.
+          ↑ Inception decisions will appear above once the AI track record is indexed for this portfolio.
         </p>
       )}
 
@@ -5784,7 +5791,7 @@ export default function AgentModelPortfoliosPage() {
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-muted-foreground">
                         {canViewFullHoldings
-                          ? `Showing all ${displayHoldings.length} holdings · ${selectedPortfolio.totalHoldings} total instruments`
+                          ? `Showing all ${displayHoldings.length} instrument${displayHoldings.length !== 1 ? "s" : ""}`
                           : `Top 5 of ${selectedPortfolio.totalHoldings} holdings · full list for registered advisors`}
                       </p>
                       {canViewFullHoldings && displayHoldings.length > 8 && (
