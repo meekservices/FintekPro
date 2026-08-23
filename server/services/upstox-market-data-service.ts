@@ -40,6 +40,7 @@
 
 import axios, { type AxiosInstance } from "axios";
 import { logger } from "../logger";
+import { opsAlertService } from "./ops-alert-service";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -100,8 +101,18 @@ class UpstoxMarketDataService {
   private client: AxiosInstance | null = null;
   private accessToken: string | null = null;
 
+  /** Tracks the first moment an AUTH_EXPIRED error was detected this process lifetime. */
+  private tokenExpiredAt: number | null = null;
+
   /** Exponential backoff delays (ms): 400ms → 800ms → 1600ms */
   private readonly RETRY_DELAYS = [400, 800, 1600];
+
+  /**
+   * Days until token needs rotation.
+   * Upstox tokens are valid for ~1 year. We warn at 30 days before expiry.
+   */
+  private static readonly TOKEN_LIFETIME_DAYS = 365;
+  private static readonly TOKEN_WARN_DAYS_BEFORE = 30;
 
   constructor() {
     this.init();
@@ -131,11 +142,104 @@ class UpstoxMarketDataService {
       event: "UPSTOX_SERVICE_READY",
       status: "SUCCESS",
     });
+
+    // ── Proactive yearly-rotation warning ──────────────────────────────────
+    // UPSTOX_TOKEN_ISSUED_AT lets us compute days-since-issued and warn 30
+    // days before the 1-year mark. Set it when rotating the token.
+    const issuedAtStr = process.env.UPSTOX_TOKEN_ISSUED_AT;
+    if (issuedAtStr) {
+      const issuedAt = new Date(issuedAtStr);
+      if (!Number.isNaN(issuedAt.getTime())) {
+        const daysSince = (Date.now() - issuedAt.getTime()) / 86_400_000;
+        const daysRemaining =
+          UpstoxMarketDataService.TOKEN_LIFETIME_DAYS - daysSince;
+        const warnThreshold =
+          UpstoxMarketDataService.TOKEN_LIFETIME_DAYS -
+          UpstoxMarketDataService.TOKEN_WARN_DAYS_BEFORE;
+
+        logger.info("[Upstox] Token age check", {
+          event: "UPSTOX_TOKEN_AGE_CHECK",
+          issued_at: issuedAtStr,
+          days_since_issued: Math.round(daysSince),
+          days_remaining: Math.round(daysRemaining),
+        });
+
+        if (daysSince > warnThreshold) {
+          const expiryDate = new Date(
+            issuedAt.getTime() +
+              UpstoxMarketDataService.TOKEN_LIFETIME_DAYS * 86_400_000,
+          ).toDateString();
+          // Non-blocking — fire and forget
+          opsAlertService
+            .fire({
+              code: "UPSTOX_TOKEN_EXPIRY_WARNING",
+              severity: "WARNING",
+              title: `⚠️ Upstox Token Expires in ~${Math.ceil(daysRemaining)} Days`,
+              message:
+                `Token issued ${Math.round(daysSince)} days ago. ` +
+                `Estimated expiry: ${expiryDate}. ` +
+                `Rotate before expiry to avoid pricing degradation.`,
+              action:
+                "gcloud run services update fintekpro-app " +
+                "--region=asia-south1 " +
+                '--update-env-vars="UPSTOX_ACCESS_TOKEN=<new_token>,UPSTOX_TOKEN_ISSUED_AT=<today_iso>"',
+            })
+            .catch(() => {/* webhook failure already logged inside opsAlertService */});
+        }
+      } else {
+        logger.warn("[Upstox] UPSTOX_TOKEN_ISSUED_AT is not a valid ISO date — token age check skipped", {
+          event: "UPSTOX_TOKEN_ISSUED_AT_INVALID",
+          value: issuedAtStr,
+        });
+      }
+    }
   }
 
   /** Returns true if UPSTOX_ACCESS_TOKEN is configured. */
   isReady(): boolean {
     return this.client !== null && this.accessToken !== null;
+  }
+
+  /**
+   * Probe the token with a canary getLTP call for RELIANCE.
+   * Used by eodPricingHealthCheck() at startup.
+   *
+   * @returns "ok" | "expired" | "inactive"
+   */
+  async probeToken(): Promise<"ok" | "expired" | "inactive"> {
+    if (!this.isReady()) return "inactive";
+    try {
+      const r = await this.getLTP("RELIANCE", "NSE");
+      if (r.error?.error_code === "AUTH_EXPIRED") return "expired";
+      return r.success ? "ok" : "inactive";
+    } catch {
+      return "inactive";
+    }
+  }
+
+  /**
+   * Returns token health metadata for observability.
+   */
+  getTokenHealth(): {
+    configured: boolean;
+    expiredSince: string | null;
+    daysSinceIssued: number | null;
+  } {
+    const issuedAtStr = process.env.UPSTOX_TOKEN_ISSUED_AT;
+    let daysSinceIssued: number | null = null;
+    if (issuedAtStr) {
+      const issuedAt = new Date(issuedAtStr);
+      if (!Number.isNaN(issuedAt.getTime())) {
+        daysSinceIssued = Math.round((Date.now() - issuedAt.getTime()) / 86_400_000);
+      }
+    }
+    return {
+      configured: this.isReady(),
+      expiredSince: this.tokenExpiredAt
+        ? new Date(this.tokenExpiredAt).toISOString()
+        : null,
+      daysSinceIssued,
+    };
   }
 
   // ── Single LTP ─────────────────────────────────────────────────────────────
@@ -421,6 +525,26 @@ class UpstoxMarketDataService {
           retryable: false,
           latency_ms: Date.now() - t0,
         });
+
+        // Fire CRITICAL ops alert once per process lifetime (dedup prevents storms).
+        if (!this.tokenExpiredAt) {
+          this.tokenExpiredAt = Date.now();
+          opsAlertService
+            .fire({
+              code: "UPSTOX_TOKEN_EXPIRED",
+              severity: "CRITICAL",
+              title: "🚨 Upstox Access Token EXPIRED — Pricing Degraded to Tier 1",
+              message:
+                "Live stock pricing has fallen back to IndianAPI (Tier 1) or Yahoo (Tier 2). " +
+                "SEBI-grade Upstox data is unavailable until the token is rotated.",
+              action:
+                "gcloud run services update fintekpro-app " +
+                "--region=asia-south1 " +
+                '--update-env-vars="UPSTOX_ACCESS_TOKEN=<new_token>,UPSTOX_TOKEN_ISSUED_AT=<today_iso>"',
+            })
+            .catch(() => {/* webhook failure already logged inside opsAlertService */});
+        }
+
         return {
           success: false,
           error: {

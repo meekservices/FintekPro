@@ -243,8 +243,15 @@ export async function generateClientRebalanceProposal(
   const legs            = buildTradeLegs(holdings, targetAlloc, totalValue);
   const largestDrift    = driftReport.largest_drift;
   const driftSeverity   = largestDrift > 15 ? "high" : largestDrift > 7 ? "medium" : "low";
-  const confidenceScore = Math.max(0, Math.min(100, Math.round(90 - largestDrift)));
+  // H-E3 FIX: Old formula `90 - largestDrift` was inverted — higher drift = lower confidence.
+  // A 20% drift (portfolio clearly off-target) produced confidence 70; a 5% drift gave 85.
+  // Correct logic: confidence = data coverage + drift clarity.
+  // Larger, clearer drift → more signal → higher confidence that rebalancing is needed.
+  const dataCoverageScore = Math.min(40, holdings.length * 5); // up to +40 for 8+ holdings
+  const driftClarityScore = Math.min(40, Math.round(largestDrift * 2)); // up to +40 for 20%+ drift
+  const confidenceScore   = Math.min(100, Math.max(0, 20 + dataCoverageScore + driftClarityScore));
   const advisoryOnly    = confidenceScore < CONFIDENCE_EXECUTION_THRESHOLD;
+
 
   const factorsConsidered = [
     `Drift threshold: ${driftThreshold}%`, `Largest drift: ${largestDrift.toFixed(1)}%`,

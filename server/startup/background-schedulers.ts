@@ -16,6 +16,13 @@ const AUDIT_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
+// EOD pricing health check imports (loaded at startup, not in hot path)
+import { opsAlertService } from "../services/ops-alert-service";
+import { upstoxMarketDataService } from "../services/upstox-market-data-service";
+import { indianApiService } from "../services/indian-api-service";
+import { unifiedStockPriceService } from "../services/unified-stock-price-service";
+
+
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER
 // ─────────────────────────────────────────────────────────────────────────────
@@ -440,6 +447,54 @@ async function startDataHealthMonitor() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// EOD PRICING HEALTH CHECK
+// Runs once at startup — validates the pricing provider stack before any
+// market data ops begin. Fires an ops alert if the stack is degraded.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function eodPricingHealthCheck(): Promise<void> {
+	const t0 = Date.now();
+
+	// 1. Upstox token probe — single getLTP("RELIANCE") to validate the Bearer token
+	const upstoxStatus = await upstoxMarketDataService.probeToken();
+
+	// 2. IndianAPI key configured?
+	const indianApiOk = indianApiService.isReady();
+
+	// 3. Canary price — RELIANCE on NSE (most liquid Indian equity, always available)
+	const canary = await unifiedStockPriceService
+		.getPrice("RELIANCE", "NSE")
+		.catch(() => null);
+
+	const tokenHealth = upstoxMarketDataService.getTokenHealth();
+	const status =
+		upstoxStatus !== "expired" && canary !== null ? "OK" : "DEGRADED";
+
+	console.log(
+		`[EODPricingHealthCheck] status=${status} upstox=${upstoxStatus} ` +
+		`indianApi=${indianApiOk ? "OK" : "MISSING_KEY"} ` +
+		`canary=${canary ? `₹${canary.price} via ${canary.source}` : "FAILED"} ` +
+		`latency=${Date.now() - t0}ms`,
+	);
+
+	if (status === "DEGRADED") {
+		await opsAlertService.fire({
+			code: "EOD_PRICING_DEGRADED",
+			severity: "CRITICAL",
+			title: "🚨 EOD Pricing Stack DEGRADED at Startup",
+			message:
+				`Upstox: ${upstoxStatus} | ` +
+				`IndianAPI: ${indianApiOk ? "configured" : "MISSING_KEY"} | ` +
+				`Canary (RELIANCE): ${canary ? `₹${canary.price} via ${canary.source}` : "FAILED"} | ` +
+				`Token issued ${tokenHealth.daysSinceIssued ?? "unknown"} days ago`,
+			action:
+				"1. Check UPSTOX_ACCESS_TOKEN (expired → rotate via gcloud run services update) " +
+				"2. Check INDIAN_API_KEY is set and valid ",
+		});
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN ENTRY POINT
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -453,6 +508,11 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 
 	return setTimeout(async () => {
 		console.log("🚀 [Schedulers] Initializing all background services...");
+
+		// ── Phase 0: EOD Pricing Health Check ─────────────────────────────────────
+		// Validates Upstox token, IndianAPI key, and canary price BEFORE data ops.
+		// Non-blocking — errors are logged + alerted, never crash the scheduler.
+		await runStartupTask("EOD Pricing Health Check", eodPricingHealthCheck);
 
 		// ── Phase 1: Publish existing data so it's queryable ──────────────────────
 		await runStartupTask(
@@ -672,7 +732,9 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 				const now = new Date();
 				const next = new Date();
 				// Next Sunday
-				const daysToSunday = (7 - now.getUTCDay()) % 7 || 7;
+				// L-E3: Fix Sunday off-by-one — when today IS Sunday and time hasn't passed, fire today (0 days); otherwise next Sunday (7 days)
+				const nowDay = now.getUTCDay(); // 0=Sun
+				const daysToSunday = nowDay === 0 ? 0 : 7 - nowDay;
 				next.setTime(now.getTime() + daysToSunday * DAILY_MS);
 				next.setUTCHours(17, 30, 0, 0);
 
@@ -686,14 +748,19 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 						const applied = results.filter(r => r.swapsApplied > 0);
 						console.log(`[PortfolioIntel] ✅ Weekly rebalance: ${applied.length} portfolios updated, ${results.reduce((s, r) => s + r.swapsApplied, 0)} swaps applied`);
 
-						// Re-enrich updated holdings
+						// C-E3: Replace fragile localhost:5000 self-HTTP calls with direct service imports
 						if (applied.length > 0) {
-							const { default: fetch } = await import("node-fetch").catch(() => ({ default: null as any }));
-							if (fetch) {
-								await fetch("http://localhost:5000/api/model-portfolios/admin/persist-holdings-enrichment", { method: "POST" })
-									.catch(() => { /* non-fatal */ });
-								await fetch("http://localhost:5000/api/model-portfolios/admin/recompute-cagr-from-holdings", { method: "POST" })
-									.catch(() => { /* non-fatal */ });
+							try {
+								const { enrichAndPersistAllHoldings } = await import("../services/model-portfolio-metrics-service");
+								await enrichAndPersistAllHoldings();
+							} catch (enrichErr: any) {
+								console.warn("[PortfolioIntel] Post-rebalance enrichment failed (non-fatal):", enrichErr?.message);
+							}
+							try {
+								const { computeAndPersistAllPortfolioCAGRs } = await import("../services/model-portfolio-metrics-service");
+								await computeAndPersistAllPortfolioCAGRs();
+							} catch (cagrErr: any) {
+								console.warn("[PortfolioIntel] Post-rebalance CAGR recompute failed (non-fatal):", cagrErr?.message);
 							}
 						}
 					} catch (err) {

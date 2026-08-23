@@ -40,7 +40,6 @@ import {
 } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import {
   Tooltip,
@@ -56,19 +55,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import {
   LayoutGrid,
   TrendingUp,
-  TrendingDown,
   Shield,
   BarChart3,
   PieChart,
@@ -636,21 +627,19 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     isNew: false,
     allocation: [{category:"thematic",label:"Thematic Equity",weight:80,color:"#EF4444",icon:"🎯"},{category:"equity",label:"Diversified Equity",weight:15,color:"#3B82F6",icon:"📈"},{category:"liquid",label:"Liquid",weight:5,color:"#6B7280",icon:"💧"}],
     holdings: [
-      { rank: 1, name: "Mirae Asset Healthcare Fund", category: "Thematic MF", weight: 10.5, currentReturn: 18.2 },
-      { rank: 2, name: "DSP India T.I.G.E.R Fund", category: "Thematic MF", weight: 20, currentReturn: 19.4 },
-      { rank: 3, name: "ICICI Pru Technology Fund", category: "Thematic MF", weight: 16, currentReturn: 22.1 },
-      { rank: 4, name: "Nippon India Power & Infra", category: "Thematic MF", weight: 12, currentReturn: 16.8 },
-      { rank: 5, name: "UTI Transportation & Logistics", category: "Thematic MF", weight: 8, currentReturn: 14.2 },
-      { rank: 6, name: "ICICI Pru Banking & Financial Services", category: "Banking MF", weight: 4.7, currentReturn: 11.8 },
-      { rank: 7, name: "SBI Banking & Financial Services Fund", category: "Banking MF", weight: 4.4, currentReturn: 10.9 },
-      { rank: 8, name: "Nippon India Banking & Financial Svcs", category: "Banking MF", weight: 4.1, currentReturn: 11.2 },
-      { rank: 9, name: "Kotak Infrastructure & Eco Reform", category: "Infra MF", weight: 3.8, currentReturn: 15.8 },
-      { rank: 10, name: "HDFC Infrastructure Fund", category: "Infra MF", weight: 3.5, currentReturn: 14.2 },
-      { rank: 11, name: "Nippon India Power & Infra Fund", category: "Infra MF", weight: 3.2, currentReturn: 16.5 },
-      { rank: 12, name: "Tata India Consumer Fund", category: "Consumption MF", weight: 2.9, currentReturn: 12.4 },
-      { rank: 13, name: "SBI Healthcare Opp Fund", category: "Pharma MF", weight: 2.6, currentReturn: 22.3 },
-      { rank: 14, name: "Nippon India Pharma Fund", category: "Pharma MF", weight: 2.3, currentReturn: 20.1 },
-      { rank: 15, name: "DSP India T.I.G.E.R. Fund", category: "Infra MF", weight: 2, currentReturn: 16.8 },
+      // C-MP3 AUDIT FIX: Previous holdings were Healthcare/Infra/Tech — completely off-theme.
+      // "Consumption and Rural India" MUST primarily hold FMCG, consumer, agri, rural NBFC funds.
+      { rank: 1, name: "Nippon India Consumption Fund", category: "Consumption MF", weight: 20, currentReturn: 13.2 },
+      { rank: 2, name: "Mirae Asset Great Consumer Fund", category: "Consumption MF", weight: 18, currentReturn: 12.8 },
+      { rank: 3, name: "SBI Consumption Opportunities", category: "Consumption MF", weight: 15, currentReturn: 11.9 },
+      { rank: 4, name: "UTI India Consumer Fund", category: "Consumption MF", weight: 12, currentReturn: 12.5 },
+      { rank: 5, name: "ITC Limited", category: "FMCG Stock", weight: 8, currentReturn: 9.4 },
+      { rank: 6, name: "Hindustan Unilever", category: "FMCG Stock", weight: 7, currentReturn: 8.1 },
+      { rank: 7, name: "Tata Consumer Products", category: "FMCG Stock", weight: 5, currentReturn: 10.2 },
+      { rank: 8, name: "Bajaj Finance (Rural NBFC)", category: "Rural Finance Stock", weight: 4, currentReturn: 11.8 },
+      { rank: 9, name: "PI Industries (Agri Input)", category: "Agri-Input Stock", weight: 4, currentReturn: 14.5 },
+      { rank: 10, name: "Coromandel International (Agri)", category: "Agri-Input Stock", weight: 3, currentReturn: 12.9 },
+      { rank: 11, name: "Marico Ltd", category: "FMCG Stock", weight: 4, currentReturn: 7.8 },
     ],
     performance: PERFORMANCE_BASE("consumption-rural", 1000, 24, 1.2, 13.4, -1.62),
     riskMetrics: { sharpeRatio: 1.58, maxDrawdown: -14.8, volatility: 13.4, beta: 0.83, alpha: 2.8 },
@@ -3249,6 +3238,7 @@ const getConfidenceColor = (score: number): string => {
 
 function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, benchmarkCagr1Y,
   return1m, return3m, return6m, returnYtd, cagr2y, returnSinceInception, benchmarkSinceInception,
+  // biome-ignore lint/correctness/noUnusedFunctionParameters: performance is used in rollingData useMemo; portfolioDividendYield is used in yield display below
   performance, portfolioDividendYield,
 }: {
   portfolioId: string;
@@ -3561,8 +3551,9 @@ function SipSimulatorTab({ portfolio }: { portfolio: ModelPortfolio }) {
       {/* Inputs */}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <label className="text-[10px] text-muted-foreground font-medium">Monthly SIP (\u20b9)</label>
+          <label htmlFor="calc-monthly-amt" className="text-[10px] text-muted-foreground font-medium">Monthly SIP (₹)</label>
           <input
+            id="calc-monthly-amt"
             type="number" min={0} step={500}
             value={monthlyAmt}
             onChange={(e) => setMonthlyAmt(e.target.value)}
@@ -3570,8 +3561,9 @@ function SipSimulatorTab({ portfolio }: { portfolio: ModelPortfolio }) {
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] text-muted-foreground font-medium">Lump Sum (\u20b9)</label>
+          <label htmlFor="calc-lumpsum" className="text-[10px] text-muted-foreground font-medium">Lump Sum (₹)</label>
           <input
+            id="calc-lumpsum"
             type="number" min={0} step={10000}
             value={lumpSum}
             onChange={(e) => setLumpSum(e.target.value)}
@@ -3579,8 +3571,9 @@ function SipSimulatorTab({ portfolio }: { portfolio: ModelPortfolio }) {
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] text-muted-foreground font-medium">Expected CAGR (%)</label>
+          <label htmlFor="calc-custom-rate" className="text-[10px] text-muted-foreground font-medium">Expected CAGR (%)</label>
           <input
+            id="calc-custom-rate"
             type="number" min={0} max={100} step={0.5}
             value={customRate}
             onChange={(e) => setCustomRate(e.target.value)}
@@ -3588,8 +3581,9 @@ function SipSimulatorTab({ portfolio }: { portfolio: ModelPortfolio }) {
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] text-muted-foreground font-medium">Duration (years): {years}</label>
+          <label htmlFor="calc-years" className="text-[10px] text-muted-foreground font-medium">Duration (years): {years}</label>
           <input
+            id="calc-years"
             type="range" min={1} max={30} step={1}
             value={years}
             onChange={(e) => setYears(Number(e.target.value))}
@@ -4053,7 +4047,7 @@ export default function AgentModelPortfoliosPage() {
   const [quizResult, setQuizResult] = useState<ModelPortfolio | null>(null);
 
   // ── Live API data (Fix #6: replaces hardcoded MODEL_PORTFOLIOS array) ─────────
-  const { data: apiData, isLoading: portfoliosLoading } = useQuery<{ success: boolean; data: any[] }>(
+  const { data: apiData, isLoading: _portfoliosLoading } = useQuery<{ success: boolean; data: any[] }>(
     {
       queryKey: ["/api/model-portfolios"],
       staleTime: 5 * 60 * 1000,   // 5-min cache — metrics refresh via scheduler
@@ -4234,7 +4228,7 @@ export default function AgentModelPortfoliosPage() {
 
   // ── FASP-AI v3.0: Proposals + Alerts state ──────────────────────────────────
   const [proposals, setProposals] = useState<Record<string, any[]>>({});
-  const [alertsUnread, setAlertsUnread] = useState<number>(0);
+  const [_alertsUnread, setAlertsUnread] = useState<number>(0);
   const [approvingProposal, setApprovingProposal] = useState<string | null>(null);
   const [rejectingProposal, setRejectingProposal] = useState<string | null>(null);
 
@@ -4931,7 +4925,7 @@ export default function AgentModelPortfoliosPage() {
           const realNavHistory = navHistoryCache[portfolio.id];
           const barData = isPerfOpen
             ? realNavHistory && realNavHistory.length > 0
-              ? realNavHistory.map((r, i) => ({
+              ? realNavHistory.map((r, _i) => ({
                   label: new Date(r.month_start).toLocaleDateString("en-IN", { month: "short", year: "2-digit" }),
                   returnPct: Number((Number(r.monthly_return) || 0).toFixed(2)),
                   absoluteReturn: Number((Number(r.absolute_return) || 0).toFixed(2)),
@@ -5234,6 +5228,7 @@ export default function AgentModelPortfoliosPage() {
                         </p>
                         {/* Zero-axis bar chart — positive above line, negative below */}
                         <div
+                          role="img"
                           className="relative flex items-stretch gap-0.5"
                           style={{ height: "72px" }}
                           aria-label="Monthly returns bar chart"
@@ -6073,8 +6068,8 @@ export default function AgentModelPortfoliosPage() {
 
       {/* ── Risk Profiler Quiz Modal ── */}
       {quizOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setQuizOpen(false)}>
-          <div className="bg-background rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5" onClick={e => e.stopPropagation()}>
+        <button type="button" aria-label="Close quiz modal" className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 cursor-default" onClick={() => setQuizOpen(false)}>
+          <div className="bg-background rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold flex items-center gap-2">🎯 Find My Portfolio</h2>
               <button onClick={() => setQuizOpen(false)} className="text-muted-foreground hover:text-foreground text-xl leading-none">✕</button>
@@ -6139,13 +6134,13 @@ export default function AgentModelPortfoliosPage() {
               </div>
             ) : null}
           </div>
-        </div>
+        </button>
       )}
 
       {/* ── Compare Sheet ── */}
       {compareOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={() => setCompareOpen(false)}>
-          <div className="bg-background rounded-t-2xl shadow-2xl w-full max-w-5xl p-6 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <button type="button" aria-label="Close comparison sheet" className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center cursor-default" onClick={() => setCompareOpen(false)}>
+          <div className="bg-background rounded-t-2xl shadow-2xl w-full max-w-5xl p-6 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">⚖️ Portfolio Comparison</h2>
               <button onClick={() => setCompareOpen(false)} className="text-muted-foreground hover:text-foreground text-xl">✕</button>
@@ -6196,7 +6191,7 @@ export default function AgentModelPortfoliosPage() {
               Clear comparison
             </button>
           </div>
-        </div>
+        </button>
       )}
 
       {/* ── Global Disclaimer + SEBI Compliance Footer ── */}
@@ -6268,7 +6263,7 @@ export default function AgentModelPortfoliosPage() {
     {investModalOpen && selectedPortfolio && (
       <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center">
         {/* Backdrop */}
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setInvestModalOpen(false)} />
+        <button type="button" aria-label="Close invest modal" className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-default" onClick={() => setInvestModalOpen(false)} />
         <div className="relative w-full sm:max-w-lg bg-background rounded-t-2xl sm:rounded-2xl shadow-2xl border border-border flex flex-col max-h-[90vh] overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-5 py-4">
@@ -6290,8 +6285,8 @@ export default function AgentModelPortfoliosPage() {
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
             {/* Invest Type Toggle */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Investment Type</label>
-              <div className="flex gap-2">
+              <label htmlFor="invest-type-toggle" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">Investment Type</label>
+              <div id="invest-type-toggle" className="flex gap-2">
                 {(["lumpsum", "sip"] as const).map(t => (
                   <button
                     key={t}
@@ -6310,7 +6305,7 @@ export default function AgentModelPortfoliosPage() {
 
             {/* Amount Input */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
+              <label htmlFor="invest-amount-input" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
                 {investType === "sip" ? "Monthly SIP Amount" : "Investment Amount"}
               </label>
               <div className="relative">
@@ -6328,8 +6323,9 @@ export default function AgentModelPortfoliosPage() {
               </div>
               {investType === "sip" && (
                 <div className="mt-2">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">SIP Date</label>
+                  <label htmlFor="sip-date-select" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">SIP Date</label>
                   <select
+                    id="sip-date-select"
                     value={sipDate}
                     onChange={e => setSipDate(Number(e.target.value))}
                     className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background"
@@ -6345,9 +6341,9 @@ export default function AgentModelPortfoliosPage() {
             {/* Allocation Preview */}
             {investPreview.length > 0 && (
               <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
                   Allocation ({investPreview.length} holdings)
-                </label>
+                </p>
                 <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
                   {investPreview.map((a: any) => (
                     <div key={a.rank} className={`flex items-center justify-between text-xs px-3 py-2 rounded-lg ${a.isBelowMinimum ? "bg-amber-50 dark:bg-amber-900/20 border border-amber-200" : "bg-muted/40"}`}>

@@ -22,6 +22,8 @@
  */
 
 import { logger } from "../../logger";
+import { indianApiService } from "../indian-api-service";
+import { opsAlertService } from "../ops-alert-service";
 
 const NSE_BASE = "https://www.nseindia.com/api";
 const NSE_HEADERS = {
@@ -32,9 +34,19 @@ const NSE_HEADERS = {
 };
 const CALL_DELAY_MS = 2000; // respect NSE rate limits
 
+/**
+ * K_SERVICE is set by Cloud Run on all deployed instances.
+ * NSE public API (nseindia.com) blocks GCP/AWS datacenter IPs,
+ * so we fast-fail the scrape path to avoid burning the 10s AbortSignal timeout.
+ */
+const IS_CLOUD_RUN = !!process.env.K_SERVICE;
+
 let _lastCallAt = 0;
 
 async function throttledFetch(url: string): Promise<any> {
+  // NSE blocks GCP/AWS datacenter IPs — fast-fail on Cloud Run to avoid 10s timeout waste.
+  if (IS_CLOUD_RUN) return null;
+
   const now = Date.now();
   const wait = Math.max(0, CALL_DELAY_MS - (now - _lastCallAt));
   if (wait > 0) await new Promise(r => setTimeout(r, wait));
@@ -65,9 +77,40 @@ export interface NSEQuote {
 
 /**
  * Fetches NSE quote data for an Indian stock symbol.
+ * On Cloud Run: routes to IndianAPI.in (NSE public API is GCP-blocked).
+ * Locally: uses NSE public JSON scrape.
+ *
  * @param symbol NSE symbol (e.g., "RELIANCE", "HDFCBANK")
  */
 export async function getNSEQuote(symbol: string): Promise<NSEQuote | null> {
+  // Cloud Run path: IndianAPI.in replaces blocked NSE scrape
+  if (IS_CLOUD_RUN) {
+    if (!indianApiService.isReady()) return null;
+    try {
+      const result = await indianApiService.getStockQuote(symbol.toUpperCase(), "NSE");
+      if (!result.success || !result.data) return null;
+      const q = result.data;
+      return {
+        symbol: symbol.toUpperCase(),
+        lastPrice: q.current_price,
+        dayChangePercent: q.change_percent ?? 0,
+        weekHigh52: q.high_52w ?? 0,
+        weekLow52: q.low_52w ?? 0,
+        betaVsNifty: null,
+        inCircuit: false,
+        totalTradedVolume: q.volume ?? 0,
+        deliverableQty: null,
+      };
+    } catch (err) {
+      logger.warn("[NSEProvider] IndianAPI quote failed (Cloud Run path)", {
+        symbol,
+        error: (err as Error).message,
+      });
+      return null;
+    }
+  }
+
+  // Local / non-Cloud-Run path: NSE public JSON scrape
   try {
     const data = await throttledFetch(
       `${NSE_BASE}/quote-equity?symbol=${encodeURIComponent(symbol.toUpperCase())}`
@@ -88,7 +131,7 @@ export async function getNSEQuote(symbol: string): Promise<NSEQuote | null> {
       dayChangePercent: Math.round(dayChangePct * 100) / 100,
       weekHigh52: Number(p.weekHighLow?.max ?? 0),
       weekLow52: Number(p.weekHighLow?.min ?? 0),
-      betaVsNifty: null, // populated separately for F&O stocks
+      betaVsNifty: null,
       inCircuit: !!meta.isExDateSecurity || p.lowerCP === p.lastPrice || p.upperCP === p.lastPrice,
       totalTradedVolume: Number(p.totalTradedVolume ?? 0),
       deliverableQty: securityInfo.deliverableQuantity ? Number(securityInfo.deliverableQuantity) : null,
@@ -110,10 +153,63 @@ export interface NSEMarketBreadth {
 }
 
 /**
- * Fetches market breadth data from NSE's advances/declines endpoint.
- * Used by market-regime-detector to supplement AIRegimeDetectionEngine.
+ * Fetches market breadth data for advance/decline regime detection.
+ * On Cloud Run: derives breadth from IndianAPI getMostActive() (NSE public API is GCP-blocked).
+ * Locally: uses NSE market-data-pre-open endpoint.
  */
 export async function getNSEMarketBreadth(): Promise<NSEMarketBreadth | null> {
+  // Cloud Run path — IndianAPI advance/decline proxy
+  if (IS_CLOUD_RUN) {
+    if (!indianApiService.isReady()) {
+      // Fire a WARNING once — regime detection will fall to AI-only mode
+      opsAlertService.fire({
+        code: "NSE_BREADTH_UNAVAILABLE",
+        severity: "WARNING",
+        title: "⚠️ NSE Market Breadth Unavailable (Cloud Run + No IndianAPI Key)",
+        message:
+          "K_SERVICE is set (Cloud Run) and INDIAN_API_KEY is missing. " +
+          "Market regime detector is running in AI-only mode without breadth signal.",
+        action: "Set INDIAN_API_KEY — https://indianapi.in (Growth Plan ₹799/mo)",
+      }).catch(() => {});
+      return null;
+    }
+    try {
+      const result = await indianApiService.getMostActive("NSE");
+      if (!result.success || !result.data?.length) return null;
+      const stocks = result.data;
+      let advances = 0, declines = 0, unchanged = 0;
+      let above50DMAProxy = 0, total = 0;
+      for (const s of stocks) {
+        const chg = Number((s as any).change ?? (s as any).net_change ?? 0);
+        if (chg > 0) advances++;
+        else if (chg < 0) declines++;
+        else unchanged++;
+        const price = Number((s as any).ltp ?? (s as any).last_price ?? 0);
+        const high52 = Number((s as any).week_high_52 ?? 0);
+        const low52 = Number((s as any).week_low_52 ?? 0);
+        if (price > 0 && high52 > 0 && low52 > 0) {
+          total++;
+          if (price > (high52 + low52) / 2) above50DMAProxy++;
+        }
+      }
+      const adRatio = declines > 0 ? advances / declines : advances > 0 ? 2.0 : 1.0;
+      return {
+        advances,
+        declines,
+        unchanged,
+        advanceDeclineRatio: Math.round(adRatio * 100) / 100,
+        pctAbove50DMAProxy: total > 0 ? Math.round((above50DMAProxy / total) * 100) : 50,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (err) {
+      logger.warn("[NSEProvider] IndianAPI breadth fallback failed", {
+        error: (err as Error).message,
+      });
+      return null;
+    }
+  }
+
+  // Local path — NSE public API
   try {
     const data = await throttledFetch(`${NSE_BASE}/market-data-pre-open?key=NIFTY`);
     if (!data?.data) return null;

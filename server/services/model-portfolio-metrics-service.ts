@@ -522,6 +522,10 @@ export async function computePortfolioCagrFromDB(
 		return null;
 	}
 
+	// H-MP3 FIX: explicit guard before division \u2014 coverage < 50 check above is not sufficient
+	// if coveredWeight somehow rounds to zero (e.g. all holdings filtered out).
+	if (coveredWeight <= 0) return null;
+
 	// Normalise to 100% of covered weight
 	const scale = 1 / coveredWeight;
 	return {
@@ -738,9 +742,11 @@ Sharpe Ratio: ${portfolio.sharpeRatio}
 Max Drawdown: ${portfolio.maxDrawdown}%
 Allocation: ${allocationSummary}
 
-Write a 2-3 sentence investment insight about this portfolio's strategy and suitability. 
+Write a 2-3 sentence investment insight about this portfolio's strategy and suitability.
 Do NOT promise returns. Use measured language. Be specific about the risk-return profile.
-Output JSON only: {"summary": "...", "strengths": ["..."], "considerations": ["..."], "suitableFor": "..."}`;
+M-MP6 SEBI COMPLIANCE: FintekPro is a SEBI-registered MF Distributor (ARN holder) earning trail commission on Regular plan recommendations. You MUST include a brief distributor disclosure note in the "considerations" array, for example: "FintekPro earns trail commission on Regular plan MF recommendations per SEBI Circular SEBI/HO/IMD/DF2/CIR/P/2021/655."
+Output JSON only: {"summary": "...", "strengths": ["..."], "considerations": ["...", "FintekPro distributor disclosure here"], "suitableFor": "..."}`;
+
 
 		const { result } = await unifiedAIRecommendationEngine.runPrompt<string>({
 			prompt,

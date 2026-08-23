@@ -96,7 +96,10 @@ const BENCHMARK_RETURN_BY_TYPE: Record<string, number> = {
   reit:           8.0,
   international: 10.2,
   hybrid:         9.5,
+  thematic:      13.5,  // M-MP3 FIX: Banking/BFSI/Pharma/Defence use thematic; was falling to hybrid 9.5% (understating by ~4%)
+  commodity:      8.5,  // L-MP2 FIX: prevents 5% flat fallback in getDriftThreshold for commodity portfolios
 };
+
 
 /**
  * computeTWRR — Time-Weighted Rate of Return (SEBI IA Regs mandated metric)
@@ -374,9 +377,19 @@ export function computePortfolioDrift(portfolio: PortfolioQuantInput): Portfolio
 export function scorePortfolioAlpha(portfolio: PortfolioQuantInput): PortfolioAlphaScore {
   const alpha = parseFloat((portfolio.cagr1Y - portfolio.benchmarkCagr1Y).toFixed(2));
   const excessReturn3Y = parseFloat((portfolio.cagr3Y - portfolio.benchmarkCagr1Y).toFixed(2));
-  const volatility = portfolio.volatility ?? 12;
+  // M-MP2 FIX: Asset-class-aware volatility fallbacks.
+  // A flat 12% is wrong for liquid (σ≈0.5%), overnight (σ≈0.3%), and small-cap (σ≈22%) portfolios.
+  const VOLATILITY_DEFAULTS: Record<string, number> = {
+    liquid: 0.8, overnight: 0.3, debt: 4.5, conservative: 6.0, hybrid: 10.0,
+    equity: 14.0, large_cap: 12.0, mid_cap: 18.0, small_cap: 22.0,
+    thematic: 20.0, gold: 15.0, international: 16.0, reit: 12.0, commodity: 18.0,
+  };
+  const assetClassKey = (portfolio as any).assetClass ?? (portfolio as any).asset_class ?? "";
+  const riskProfileKey = (portfolio as any).riskProfile ?? (portfolio as any).risk_profile ?? "";
+  const volatility = portfolio.volatility ?? VOLATILITY_DEFAULTS[assetClassKey] ?? VOLATILITY_DEFAULTS[riskProfileKey] ?? 12;
   const sharpeRatio = portfolio.sharpeRatio ??
     parseFloat(((portfolio.cagr1Y - RISK_FREE_RATE) / volatility).toFixed(2));
+
 
   let confidence = 50;
   const factors: string[] = [];
@@ -611,14 +624,15 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
             alpha                   = ${alphaScore.alpha},
             drift_threshold         = ${getDriftThreshold(row.id, row.asset_class) * 100},
             blended_benchmark_return = ${blendedBenchmark},
-            -- Fix #18: also persist to benchmark_cagr_1y so the optimizer reads
-            -- fresh benchmark data on its next cycle (was only updating blended_benchmark_return)
-            benchmark_cagr_1y       = ${blendedBenchmark},
+            -- C-MP2 FIX: DO NOT overwrite benchmark_cagr_1y with synthetic blended value.
+            -- benchmark_cagr_1y stores the SEBI-mandated official benchmark (e.g. "NIFTY 50 TRI").
+            -- The blended synthetic result is analytics-only and goes only into blended_benchmark_return.
             twrr_1y                 = ${twrr1Y},
             twrr_3y                 = ${twrr3Y},
             updated_at              = NOW()
           WHERE id = ${row.id}
         `);
+
 
         scored++;
         if (driftReport.status !== "balanced") drifting++;

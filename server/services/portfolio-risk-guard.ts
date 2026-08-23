@@ -95,6 +95,7 @@ export function checkRiskBudget(
     sharpe?: number | null;
   }>
 ): RiskReport {
+  const _guardStart = Date.now(); // C-E4: capture for real latency
   const ts = new Date().toISOString();
   const budget = RISK_BUDGETS[riskProfile] ?? DEFAULT_BUDGET;
   const hardBreaches: RiskBreach[] = [];
@@ -225,7 +226,7 @@ export function checkRiskBudget(
       user_id: "system",
       portfolio_id: portfolioId,
       breaches: hardBreaches.map(b => b.field),
-      latency_ms: 0,
+      latency_ms: Date.now() - _guardStart,  // C-E4: real latency
       status: "blocked",
     });
   }

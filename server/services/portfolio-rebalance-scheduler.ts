@@ -31,6 +31,10 @@ import { sql, eq } from "drizzle-orm";
 import { modelPortfolios, faspAdvisoryOutputs } from "../../shared/schema";
 import { logger } from "../logger";
 import { detectRegime, MarketRegime } from "./market-regime-detector";
+import {
+	getEnrichedStockSnapshot,
+	getEnrichedStockSnapshots,
+} from "./screener/enriched-stock-data";
 import { checkRiskBudget, buildPortfolioRiskSummary, RiskReport } from "./portfolio-risk-guard";
 import { FaspAIv2Service } from "./fasp-ai-v2-service";
 import {
@@ -59,9 +63,11 @@ export type TriggerType =
   | "calendar_quarterly"
   | "alpha_breach"
   | "risk_breach"
+  | "risk_warning"
   | "momentum_signal"
   | "market_regime_shift"
-  | "weight_drift";
+  | "weight_drift"
+  | `regime:${string}`;  // H-E5: regime-keyed triggers e.g. "regime:BEAR"
 
 export interface RebalanceCandidate {
   portfolioId: string;
@@ -288,6 +294,7 @@ function checkGuardrails(
  * Does NOT auto-apply — call autoApplyHighConfidenceSwaps() for that.
  */
 export async function runRebalanceScan(): Promise<RebalanceQueue> {
+  const t0 = Date.now(); // needed for latency_ms in the completion log
   const ts = new Date().toISOString();
   const [regime, analyses, suggestions] = await Promise.all([
     detectRegime(),
@@ -391,7 +398,7 @@ export async function runRebalanceScan(): Promise<RebalanceQueue> {
     queuedForAdvisor,
     model_version: MODEL_VERSION,
     timestamp: ts,
-    latency_ms: 0,
+    latency_ms: Date.now() - t0,  // C-E4: real latency
     status: "success",
   });
 
@@ -420,6 +427,7 @@ export async function runRebalanceScan(): Promise<RebalanceQueue> {
 export async function autoApplyHighConfidenceSwaps(
   portfolioIds?: string[]
 ): Promise<AutoApplyResult[]> {
+  const _autoApplyStart = Date.now(); // C-E4: capture start for real latency
   const [regime, suggestions] = await Promise.all([
     detectRegime(),
     generateOptimizationSuggestions(portfolioIds),
@@ -572,7 +580,15 @@ export async function autoApplyHighConfidenceSwaps(
       swapsApplied: applied.length,
       swapsQueued: queued.length,
       holdingsChanged: applied,
-      triggers: ["alpha_breach", "momentum_signal"],
+      // H-E5: Derive actual triggers from suggestion factors + regime, not hardcoded list
+      triggers: [...new Set([
+        ...(riskReport.hardBreaches.length > 0 ? ["risk_breach" as TriggerType] : []),
+        ...(riskReport.softWarnings.length > 0 ? ["risk_warning" as TriggerType] : []),
+        ...(factors.some(f => f.startsWith("regime")) ? [`regime:${regime.regime}` as TriggerType] : []),
+        ...(pSuggestions.flatMap(s => s.factors_considered)
+          .filter(f => f.includes("alpha") || f.includes("momentum"))
+          .map(f => (f.includes("alpha") ? "alpha_breach" : "momentum_signal") as TriggerType)),
+      ])],
       riskReport,
       marketRegime: regime.regime,
       confidence_score: Math.round(avgConfidence * 100) / 100,
@@ -592,7 +608,7 @@ export async function autoApplyHighConfidenceSwaps(
       market_regime: regime.regime,
       model_version: MODEL_VERSION,
       timestamp: result.timestamp,
-      latency_ms: 0,
+      latency_ms: Date.now() - _autoApplyStart,  // C-E4: real latency
       status: "success",
     });
 
@@ -644,7 +660,7 @@ export async function autoApplyCalendarRebalancing(): Promise<{
     user_id: "system",
     timestamp: today.toISOString(),
     model_version: MODEL_VERSION,
-    latency_ms: 0,
+    latency_ms: 0,  // correct: 0 at start
     status: "running",
   });
 

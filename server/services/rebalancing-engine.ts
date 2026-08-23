@@ -16,6 +16,7 @@ import {
 	type ClientProfile,
 	type ProductCategory,
 } from "./unified-ai-recommendation-engine";
+import { selectTopFundsByAlphaScore } from "./model-portfolio-metrics-service"; // L-E4: static import (was dynamic in hot path)
 import {
 	getEnrichedStockSnapshot,
 	getEnrichedStockSnapshots,
@@ -290,8 +291,7 @@ class RebalancingEngine {
 		// should be upgraded to better-alpha alternatives using the alpha engine.
 		const alphaUpgradeRecs: string[] = [];
 		try {
-			const { selectTopFundsByAlphaScore } = await import("./model-portfolio-metrics-service");
-			// Pull current holdings alpha scores from model_portfolio_holdings if available
+			// L-E4: selectTopFundsByAlphaScore is now statically imported at file top
 			const { db } = await import("../db");
 			const { modelPortfolioHoldings } = await import("@shared/schema");
 			const { isNull } = await import("drizzle-orm");

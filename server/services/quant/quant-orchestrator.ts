@@ -1,4 +1,4 @@
-// @ts-nocheck
+// GCR-compliant: strict typing enforced — @ts-nocheck removed (Audit C-E1)
 import { db } from "../../db";
 import {
 	quantGovernancePolicy,
@@ -25,7 +25,8 @@ import {
 	callPython,
 	isPythonServiceConfigured,
 } from "../../clients/python-client";
-import { marketRegimeDetector } from "../risk";
+// H-E2: Use upgraded market-regime-detector (Redis + AI signals + NSE breadth)
+import { detectRegime as detectMarketRegime } from "../market-regime-detector";
 
 export interface QuantInput {
 	assetsData: AssetData[];
@@ -106,7 +107,12 @@ class QuantOrchestrator {
 			return result;
 		}
 
-		const isBlackSwan = marketRegimeDetector.detectBlackSwanEvent();
+		// H-E2: Unified regime detector (was marketRegimeDetector.detectBlackSwanEvent() from stale ../risk path)
+		let isBlackSwan = false;
+		try {
+			const regimeResult = await detectMarketRegime();
+			isBlackSwan = regimeResult.vixProxy > 30 || regimeResult.regime === "HIGH_VOL";
+		} catch { /* non-fatal — default false */ }
 
 		const tc: Partial<TransitionConstraints> = {
 			gamma: 5.0,
@@ -504,7 +510,21 @@ class QuantOrchestrator {
 				: "STABLE") as "OVERWEIGHT" | "UNDERWEIGHT" | "STABLE",
 			timeToBreachDays: p.daysToBreachMean ?? null,
 			confidence: p.rSquared ?? 0.5,
-			features: {},
+			// Type cast: Python model provides predictions without full DriftFeatures internals;
+			// features here serve as explainability metadata only, not for downstream ML scoring.
+			features: {
+				category: p.category ?? "",
+				currentWeight: p.currentWeight ?? 0,
+				targetWeight: p.targetWeight ?? 0,
+				currentDrift: p.currentDrift ?? 0,
+				historicalDriftMean: p.historicalDriftMean ?? 0,
+				historicalDriftStd: p.historicalDriftStd ?? 0,
+				driftVelocity: p.driftVelocity ?? 0,
+				driftAcceleration: p.driftAcceleration ?? 0,
+				categoryVolatility: p.categoryVolatility ?? 12,
+				daysSinceLastRebalance: p.daysSinceLastRebalance ?? 0,
+				marketRegime: (p.marketRegime ?? "NORMAL") as "LOW_VOL" | "NORMAL" | "HIGH_VOL" | "CRISIS",
+			},
 			triggerPreemptive: p.breachProbability >= policyTrigger,
 		}));
 

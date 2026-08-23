@@ -124,8 +124,8 @@ if [[ -n "$SERVER_STAGED" ]]; then
     WATCHDOG_PID=$!
     wait "$ESLINT_PID" 2>/dev/null
     ESLINT_EXIT=$?
-    # Cancel watchdog if ESLint finished in time
-    kill "$WATCHDOG_PID" 2>/dev/null
+    # Cancel watchdog if ESLint finished in time (|| true: PID may already be dead if watchdog fired)
+    kill "$WATCHDOG_PID" 2>/dev/null || true
     wait "$WATCHDOG_PID" 2>/dev/null || true
 
     if [[ $ESLINT_EXIT -eq 0 ]]; then

@@ -1,5 +1,5 @@
 import { logger } from "../logger";
-// @ts-nocheck
+// GCR-compliant: strict typing enforced — @ts-nocheck removed (Audit C-E2)
 /**
  * Unified AI Recommendation Engine
  *

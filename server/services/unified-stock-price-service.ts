@@ -588,7 +588,23 @@ class UnifiedStockPriceService {
 			this.recordFailure("nse");
 		}
 
-		// 2. Yahoo Finance v8/chart API (PRIMARY fallback — open endpoint, works from Cloud Run)
+		// 1.5 IndianAPI Batch — single-symbol batch call as Tier 1.5 bridge.
+		// When INDIAN_API_KEY is set, getBatchLivePriceNSE is a dedicated endpoint
+		// that gives us a second IndianAPI path (different endpoint, different error surface).
+		// When INDIAN_API_KEY is NOT set, this is skipped and we fall to Yahoo.
+		if (
+			(exchange === "NSE" || !exchange) &&
+			!this.isProviderCoolingDown("indianapi_batch")
+		) {
+			const batchPrice = await this.fetchFromIndianAPIBatch(symbol);
+			if (batchPrice) {
+				this.recordSuccess("indianapi_batch");
+				return batchPrice;
+			}
+			this.recordFailure("indianapi_batch");
+		}
+
+		// 2. Yahoo Finance v8/chart API (fallback — open endpoint, works from Cloud Run)
 		if (!this.isProviderCoolingDown("yahoo")) {
 			try {
 				const yahooPrice = await this.fetchFromYahoo(symbol);
@@ -614,7 +630,7 @@ class UnifiedStockPriceService {
 			this.recordFailure("fmp");
 		}
 
-		// 3. Google Finance HTML (works from datacenter — primary for BSE, secondary for NSE)
+		// 4. Google Finance HTML (works from datacenter — primary for BSE, secondary for NSE)
 		if (!this.isProviderCoolingDown("google_finance")) {
 			const gfExchange = exchange || "NSE";
 			const gfPrice = await this.fetchFromGoogleFinance(symbol, gfExchange);
@@ -625,7 +641,7 @@ class UnifiedStockPriceService {
 			this.recordFailure("google_finance");
 		}
 
-		// 4. Yahoo Finance (LAST RESORT — rate-limited from datacenter, 30-min cooldown)
+		// 5. Yahoo Finance npm library (LAST RESORT — rate-limited from datacenter, 30-min cooldown)
 		if (!this.isProviderCoolingDown("yahoo")) {
 			try {
 				const yahooPrice = await this.fetchFromYahoo(symbol);
@@ -642,6 +658,35 @@ class UnifiedStockPriceService {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Tier 1.5b — IndianAPI batch endpoint single-symbol lookup.
+	 * Uses getBatchLivePriceNSE([symbol]) as a second IndianAPI surface
+	 * distinct from the getStockQuote() path in fetchFromNSE().
+	 * Provides redundancy when the quote endpoint is rate-limited but
+	 * the batch endpoint still responds.
+	 * Returns null silently if INDIAN_API_KEY is not configured.
+	 */
+	private async fetchFromIndianAPIBatch(
+		symbol: string,
+	): Promise<StockPrice | null> {
+		try {
+			const result = await indianApiService.getBatchLivePriceNSE([
+				symbol.toUpperCase(),
+			]);
+			if (!result.success || !result.data) return null;
+			const price = result.data[symbol.toUpperCase()];
+			if (typeof price !== "number" || price <= 0) return null;
+			return {
+				symbol,
+				price,
+				timestamp: Date.now(),
+				source: "NSE" as const,
+			};
+		} catch {
+			return null;
+		}
 	}
 
 	/**

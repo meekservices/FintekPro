@@ -17,6 +17,9 @@
 
 import { sql } from "drizzle-orm";
 import { logger } from "../logger";
+import { db as _dbType } from "../db"; // L-MP4: import for typeof — do NOT use the singleton directly (callers pass their own)
+type DbClient = typeof _dbType;
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,14 +62,20 @@ function generateSyntheticNavCurve(
   const monthlyReturn = (1 + annualReturn / 100) ** (1 / 12) - 1;
   const monthlyBench  = (1 + (annualReturn * 0.85) / 100) ** (1 / 12) - 1;
 
+  // Portfolio LCG state
   let state = seed;
-  // Fix #13 — LCG divisor corrected: 0xffffffff (4294967295) produced output in
-  // [0, 1] (inclusive of 1.0 at state=0xffffffff) which can generate NaN in
-  // logarithm-based NAV computations. Correct divisor is 2³² = 4294967296,
-  // yielding uniform [0, 1) output consistent with standard LCG implementations.
   const rand = () => {
     state = (1664525 * state + 1013904223) & 0xffffffff;
     return (state >>> 0) / 4294967296;
+  };
+
+  // H-MP1 FIX: Independent LCG state for benchmark noise.
+  // Old code drew benchmark noise from the SAME rand() sequence as portfolio noise,
+  // creating artificial correlation. Real benchmarks are independent of portfolio noise.
+  let benchState = (seed ^ 0xDEADBEEF) >>> 0; // XOR with magic to create independent seed
+  const benchRand = () => {
+    benchState = (1664525 * benchState + 1013904223) & 0xffffffff;
+    return (benchState >>> 0) / 4294967296;
   };
 
   const rows: MonthRow[] = [];
@@ -78,7 +87,7 @@ function generateSyntheticNavCurve(
   while (cur <= now) {
     const noise = (rand() - 0.5) * 2 * volatility / 100;
     nav   *= (1 + monthlyReturn + noise);
-    bench *= (1 + monthlyBench  + (rand() - 0.5) * 2 * (volatility * 0.7) / 100);
+    bench *= (1 + monthlyBench  + (benchRand() - 0.5) * 2 * (volatility * 0.7) / 100);  // independent stream
     rows.push({
       month_start:    cur.toISOString().slice(0, 10),
       portfolio_nav:  Math.round(nav * 100) / 100,
@@ -90,6 +99,7 @@ function generateSyntheticNavCurve(
 
   return rows;
 }
+
 
 /**
  * Fetches real mf_monthwise_performance data for a portfolio's holdings,
@@ -108,7 +118,7 @@ function generateSyntheticNavCurve(
  * Bug C fix: previous version queried non-existent columns nav_date + nav.
  * mf_monthwise_performance has month_year (date) + return_percent (numeric).
  */
-async function fetchRealNavCurve(db: any, portfolio: any): Promise<MonthRow[] | null> {
+async function fetchRealNavCurve(db: DbClient, portfolio: any): Promise<MonthRow[] | null> {
   const pid = portfolio.id as string;
   const inceptionFilter = portfolio.inception_date ?? portfolio.inceptionDate ?? null;
 
@@ -197,7 +207,7 @@ async function fetchRealNavCurve(db: any, portfolio: any): Promise<MonthRow[] | 
  * Computes monthly NAV history for a single portfolio and upserts to model_portfolio_nav_history.
  */
 export async function computeAndStorePortfolioNavHistory(
-  db: any,
+  db: DbClient,
   portfolio: any,
 ): Promise<NavHistoryResult> {
   const t0  = Date.now();
@@ -308,7 +318,7 @@ export async function computeAndStorePortfolioNavHistory(
  * Refreshes NAV history for every published model portfolio.
  * Called nightly by background-schedulers at 6 AM IST.
  */
-export async function refreshAllPortfolioNavHistory(db: any): Promise<{
+export async function refreshAllPortfolioNavHistory(db: DbClient): Promise<{
   total: number; ok: number; errors: number; noData: number;
 }> {
   const t0 = Date.now();
@@ -363,7 +373,7 @@ export async function refreshAllPortfolioNavHistory(db: any): Promise<{
  * Returns NAV history rows for a portfolio (oldest-first, limited to `limit` months).
  * Consumed by GET /api/model-portfolios/:id/nav-history.
  */
-export async function getPortfolioNavHistory(db: any, portfolioId: string, limit = 36): Promise<any[]> {
+export async function getPortfolioNavHistory(db: DbClient, portfolioId: string, limit = 36): Promise<any[]> {
   try {
     const res = await db.execute(sql`
       SELECT month_start, nav, monthly_return, absolute_return,

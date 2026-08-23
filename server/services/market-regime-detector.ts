@@ -44,7 +44,7 @@ const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 let _memCache: { result: RegimeResult; at: number } | null = null;
 
 // ── Redis ─────────────────────────────────────────────────────────────────────────────────
-let _redis: any = null; // legacy var, kept for reference
+// L-E5: Removed legacy `_redis` dead code variable (was: let _redis: any = null)
 async function getRedis() {
   const { getSharedRedis } = await import("../utils/redis-client");
   return getSharedRedis();
@@ -89,7 +89,17 @@ export async function detectRegime(forceRefresh = false): Promise<RegimeResult> 
           });
           return r;
         }
-      } catch { /* fall through */ }
+      } catch (redisErr: any) {
+        // M-4: Log Redis errors instead of silently falling through — enables observability
+        // of transient Redis failures that could cause stale in-memory cache usage across pods.
+        logger.warn("[MarketRegime] Redis get failed — falling to in-memory cache", {
+          event: "REGIME_REDIS_ERROR",
+          user_id: "system",
+          error: redisErr?.message,
+          latency_ms: 0,
+          status: "degraded",
+        });
+      }
     }
 
     // 2. In-memory cache fallback

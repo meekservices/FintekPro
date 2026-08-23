@@ -98,12 +98,23 @@ async function fetchNavFromMfapi(
     const latestNav = parseFloat(data[0].nav);
     const nav = isNaN(latestNav) ? null : latestNav;
 
-    // Trailing 12M: find the data point closest to 252 trading days ago (~1 year)
+    // Trailing 12M: find the data point closest to 365 calendar days ago
+    // M-MP5 FIX: was data[252] index — mfapi returns 1 row per NAV declaration day (not trading day),
+    // so index 252 is NOT guaranteed to be 365 days ago (especially for irregular NAV funds).
     let return1y: number | null = null;
-    if (data.length >= 252) {
-      const oneYearAgoNav = parseFloat(data[252].nav);
-      if (!isNaN(oneYearAgoNav) && oneYearAgoNav > 0 && nav !== null) {
-        return1y = parseFloat((((nav - oneYearAgoNav) / oneYearAgoNav) * 100).toFixed(2));
+    if (data.length >= 2) {
+      const oneYearAgoDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+      // mfapi date format: DD-MM-YYYY — parse to Date for comparison
+      const parseNavDate = (d: string): Date => {
+        const [day, month, year] = d.split("-").map(Number);
+        return new Date(year, month - 1, day);
+      };
+      const oneYearEntry = data.find(d => parseNavDate(d.date) <= oneYearAgoDate);
+      if (oneYearEntry) {
+        const oneYearAgoNav = parseFloat(oneYearEntry.nav);
+        if (!isNaN(oneYearAgoNav) && oneYearAgoNav > 0 && nav !== null) {
+          return1y = parseFloat((((nav - oneYearAgoNav) / oneYearAgoNav) * 100).toFixed(2));
+        }
       }
     }
 

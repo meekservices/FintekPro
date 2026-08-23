@@ -237,11 +237,11 @@ const FUND_SCHEME_MAP: Record<string, number | null> = {
   // Motilal Oswal S&P 500 Index Fund Direct Growth (confirmed AMFI code)
   "Motilal Oswal S&P 500 Index Fund": 145552, // same Motilal Oswal Nasdaq 100 FoF series
   "Motilal Oswal S&P 500 Index":      145552,
-  // SBI International Access US Equity FoF — use Mirae Asset NYSE FANG+ FoF as proxy
-  // (both are US-focused equity FOFs; similar 1Y performance band)
-  "SBI International Access US Equity FOF": 148928,
-  "SBI International Access US Equity":     148928,
-  "SBI Intl Access US Equity":              148928,
+  // AUDIT M-MP1 FIX: SBI International Access US Equity tracks S&P 500; Mirae FANG+ (148928) tracks 10 mega-caps.
+  // Returns can differ 5-15% annually. Setting null so mfapi name search runs instead.
+  "SBI International Access US Equity FOF": null,
+  "SBI International Access US Equity":     null,
+  "SBI Intl Access US Equity":              null,
 
   // ── Index Funds ─────────────────────────────────────────────────────────────
   "Nifty 50 Index Fund":              120716, // UTI Nifty 50 Index Fund - Direct Growth
@@ -394,7 +394,7 @@ const FUND_SCHEME_MAP: Record<string, number | null> = {
   "HDFC Overnight Fund":                           119110,
   "Kotak Money Market Fund":                       119746,
   "Nippon India Ultra Short Term":                 145810,
-  "SBI Savings Fund":                              119572,
+  "SBI Savings Fund":                              null,  // AUDIT C-MP4 FIX: was 119572 (SBI Bluechip EQUITY!) — this is an ultra-short DEBT fund. null = fall to mfapi name search.
   "Liquid Buffer":                                 120197,
   "Liquid Buffer (Cash)":                          120197,
   "Liquid/Cash Buffer":                            120197,
