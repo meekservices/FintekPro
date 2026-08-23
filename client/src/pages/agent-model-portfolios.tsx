@@ -247,6 +247,7 @@ type ModelPortfolio = {
   returnYtd?: number | null;
   /** 2-Year annualised TWRR */
   cagr2y?: number | null;
+  cagr3y?: number | null;
   /** Since-inception TWRR */
   returnSinceInception?: number | null;
   /** Benchmark since-inception */
@@ -3237,7 +3238,7 @@ const getConfidenceColor = (score: number): string => {
 // 3-view performance table: CAGR (annualised) | Absolute (cumulative) | Monthly Rolling
 
 function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, benchmarkCagr1Y,
-  return1m, return3m, return6m, returnYtd, cagr2y, returnSinceInception, benchmarkSinceInception,
+  return1m, return3m, return6m, returnYtd, cagr2y, cagr3y, returnSinceInception, benchmarkSinceInception,
   // biome-ignore lint/correctness/noUnusedFunctionParameters: performance is used in rollingData useMemo; portfolioDividendYield is used in yield display below
   performance, portfolioDividendYield,
 }: {
@@ -3246,7 +3247,7 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
   cagr1Y: number; cagr3Y: number; cagr5Y: number;
   benchmarkCagr1Y?: number | null;
   return1m?: number | null; return3m?: number | null; return6m?: number | null;
-  returnYtd?: number | null; cagr2y?: number | null;
+  returnYtd?: number | null; cagr2y?: number | null; cagr3y?: number | null;
   returnSinceInception?: number | null; benchmarkSinceInception?: number | null;
   performance?: Array<{ date: string; portfolioNav: number; benchmarkNav: number }>;
   /** Estimated income/distribution yield (%) — shown below the CAGR table */
@@ -3272,6 +3273,7 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
     { label: "YTD",            returnPct: returnYtd,             benchmarkPct: null,                       alpha: null },
     { label: "1 Year",         returnPct: cagr1Y,                benchmarkPct: benchmarkCagr1Y,            alpha: benchmarkCagr1Y != null ? cagr1Y - benchmarkCagr1Y : null },
     { label: "2 Years (ann.)", returnPct: cagr2y,                benchmarkPct: null,                       alpha: null },
+    { label: "3 Years (ann.)", returnPct: cagr3y,                benchmarkPct: null,                       alpha: null },
     { label: "3 Years (ann.)", returnPct: cagr3Y,                benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 1.4 : null, alpha: benchmarkCagr1Y != null && cagr3Y != null ? cagr3Y - (benchmarkCagr1Y - 1.4) : null },
     { label: "5 Years (ann.)", returnPct: cagr5Y,                benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 2.1 : null, alpha: benchmarkCagr1Y != null && cagr5Y != null ? cagr5Y - (benchmarkCagr1Y - 2.1) : null },
     { label: "Since Inception",returnPct: returnSinceInception,  benchmarkPct: benchmarkSinceInception,    alpha: returnSinceInception != null && benchmarkSinceInception != null ? Number(returnSinceInception) - Number(benchmarkSinceInception) : null },
@@ -4188,6 +4190,7 @@ export default function AgentModelPortfoliosPage() {
         return6m:                p.return6m                != null ? Number(p.return6m)                : (staticP?.return6m                ?? undefined),
         returnYtd:               p.returnYtd               != null ? Number(p.returnYtd)               : (staticP?.returnYtd               ?? undefined),
         cagr2y:                  p.cagr2y                  != null ? Number(p.cagr2y)                  : (staticP?.cagr2y                  ?? undefined),
+        cagr3y:                  p.cagr3y                  != null ? Number(p.cagr3y)                  : (staticP?.cagr3y                  ?? undefined),
         returnSinceInception:    p.returnSinceInception    != null ? Number(p.returnSinceInception)    : (staticP?.returnSinceInception    ?? undefined),
         benchmarkSinceInception: p.benchmarkSinceInception != null ? Number(p.benchmarkSinceInception) : (staticP?.benchmarkSinceInception ?? undefined),
         periodsComputedAt:       p.periodsComputedAt       ?? staticP?.periodsComputedAt               ?? null,
@@ -5166,6 +5169,7 @@ export default function AgentModelPortfoliosPage() {
                     { label: "6M",  val: portfolio.return6m },
                     { label: "YTD", val: portfolio.returnYtd },
                     { label: "2Y",  val: portfolio.cagr2y },
+                    { label: "3Y",  val: portfolio.cagr3y },
                     { label: "SI",  val: portfolio.returnSinceInception },
                   ]
                     .filter((p) => p.val != null && !Number.isNaN(Number(p.val)))

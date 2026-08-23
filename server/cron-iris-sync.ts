@@ -228,7 +228,47 @@ export function initializeIrisSyncCrons(): void {
     }
   }, { timezone: "Asia/Kolkata" });
 
-  logger.info("[CRON][PortfolioSync] All-registrar sync crons initialized", {
+  // ── Alert maintenance: 3:00 AM IST — expire stale + create drift alerts ────
+  cron.schedule("30 21 * * *", async () => {
+    try {
+      const { expireStaleAlerts, createDriftAlert } = await import("./services/portfolio-alert-service");
+      const { pool: alertPool } = await import("./db");
+
+      // 1. Expire alerts older than 7 days
+      const expired = await expireStaleAlerts();
+      logger.info("[CRON][Alerts] Stale alerts expired", {
+        event: "CRON_ALERTS_EXPIRE_COMPLETE",
+        expired_count: expired,
+        timestamp: new Date().toISOString(),
+      });
+
+      // 2. Create drift alerts for any portfolio over threshold
+      const driftRows = await alertPool.query(`
+        SELECT mp.id, mp.name,
+               COALESCE(mp.drift_score, 0) AS drift_score,
+               COALESCE(mp.drift_threshold, 5) AS drift_threshold
+        FROM model_portfolios mp
+        WHERE mp.is_published = true
+          AND COALESCE(mp.drift_score, 0) > COALESCE(mp.drift_threshold, 5) * 10
+      `);
+      for (const row of driftRows.rows as Array<{ id: string; name: string; drift_score: number; drift_threshold: number }>) {
+        await createDriftAlert(row.id, row.name, row.drift_score ?? row.drift_threshold * 10);
+      }
+      logger.info("[CRON][Alerts] Drift alerts created", {
+        event: "CRON_ALERTS_DRIFT_COMPLETE",
+        portfolios_checked: driftRows.rows.length,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      logger.error("[CRON][Alerts] Alert maintenance failed", {
+        event: "CRON_ALERTS_FAILED",
+        error: err instanceof Error ? err.message : String(err),
+        retryable: true,
+      });
+    }
+  }, { timezone: "Asia/Kolkata" });
+
+    logger.info("[CRON][PortfolioSync] All-registrar sync crons initialized", {
     event: "CRON_ALL_REGISTRAR_SYNC_INIT",
     schedules: [
       "nightly_all_registrar@02:30_IST",
@@ -237,6 +277,7 @@ export function initializeIrisSyncCrons(): void {
       "weekly_rolling_returns@06:00_IST_Sunday",
       "weekly_fund_screener@07:00_IST_Sunday",
       "nightly_ai_outcome_compute@02:00_IST",
+      "nightly_alert_maintenance@03:00_IST",
     ],
     registrars: ["kfintech_iris", "cams", "mfcentral"],
     faspaiv3: "nav_feed+rolling_returns+fund_screener+ai_outcome_compute",

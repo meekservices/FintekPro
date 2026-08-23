@@ -2133,6 +2133,7 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 				const return6m  = ret(navAtOrBefore(daysAgo(182)));
 				const returnYtd = ret(navAtOrBefore(yearStart));
 				const cagr2y    = ann(ret(navAtOrBefore(daysAgo(730))), 2);
+				const cagr3y    = ann(ret(navAtOrBefore(daysAgo(1095))), 3);
 
 				// Since inception: use stored inception_date or first NAV date
 				const inceptionIso: string = port.inception_date
@@ -2156,6 +2157,7 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 					  return_6m                = ${return6m},
 					  return_ytd               = ${returnYtd},
 					  cagr_2y                  = ${cagr2y},
+					  cagr_3y                  = ${cagr3y},
 					  return_since_inception   = ${returnSinceInception},
 					  benchmark_since_inception = ${benchmarkSinceInception},
 					  periods_computed_at       = NOW(),
@@ -2174,6 +2176,7 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 					return_6m: return6m,
 					return_ytd: returnYtd,
 					cagr_2y: cagr2y,
+					cagr_3y: cagr3y,
 					return_since_inception: returnSinceInception,
 					nav_bars_used: navs.length,
 					status: "success",

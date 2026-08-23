@@ -24,6 +24,7 @@
  */
 import { Router, Request, Response, NextFunction } from "express";
 import { isAuthenticated } from "../auth-setup";
+import { requireAdmin } from "../middleware/auth";
 import fetch from "node-fetch";
 import { db } from "../db";
 import { modelPortfolios } from "@shared/schema";
@@ -1463,7 +1464,7 @@ async function enrichPortfolio(portfolio: any, horizonYrs?: number): Promise<any
 // Immediately runs the nightly model-portfolio metrics refresh (mfapi.in CAGRs,
 // AI insights, risk metrics). Normally runs at 06:00 IST via scheduler.
 // Non-blocking — starts async, returns immediately.
-modelPortfoliosRouter.post("/admin/trigger-metrics-refresh", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/trigger-metrics-refresh", requireAdmin, async (_req: Request, res: Response) => {
   try {
     // Fire-and-forget so the HTTP call returns before the ~5 min refresh completes
     refreshAllModelPortfolioMetrics().catch((err: Error) =>
@@ -1488,7 +1489,7 @@ modelPortfoliosRouter.post("/admin/trigger-metrics-refresh", async (_req: Reques
 // Normally runs nightly after the NAV history refresh. Call this after a Bug B / Bug C fix
 // to backfill period returns without waiting for the next cron window.
 // Synchronous — awaits full completion so Cloud Run keeps CPU allocated throughout.
-modelPortfoliosRouter.post("/admin/trigger-twrr-periods", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/trigger-twrr-periods", requireAdmin, async (_req: Request, res: Response) => {
   try {
     const result = await computeAndPersistAllPortfolioTWRRPeriods();
 
@@ -1528,7 +1529,7 @@ modelPortfoliosRouter.post("/admin/trigger-twrr-periods", async (_req: Request, 
 // On-demand computation of portfolio_dividend_yield for all published portfolios.
 // Automatically called (fire-and-forget) by trigger-twrr-periods.
 // Uses 3-tier lookup: REIT/InvIT DB → stock financial_instruments_cache → static table.
-modelPortfoliosRouter.post("/admin/compute-dividend-yield", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/compute-dividend-yield", requireAdmin, async (_req: Request, res: Response) => {
   const t0 = Date.now();
   try {
     const result = await computeAndPersistDividendYields();
@@ -1563,7 +1564,7 @@ modelPortfoliosRouter.post("/admin/compute-dividend-yield", async (_req: Request
 // Idempotent — safe to run multiple times.
 //
 // GCR: structured log per portfolio; engine_version + calculation_timestamp on every write.
-modelPortfoliosRouter.post("/admin/recompute-cagr-from-holdings", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/recompute-cagr-from-holdings", requireAdmin, async (_req: Request, res: Response) => {
   const t0 = Date.now();
   try {
     const result = await computeAndPersistAllPortfolioCAGRs();
@@ -1593,7 +1594,7 @@ modelPortfoliosRouter.post("/admin/recompute-cagr-from-holdings", async (_req: R
 });
 
 // ── GET /api/model-portfolios/admin/debug-cagr-data ────────────────────────────
-modelPortfoliosRouter.get("/admin/debug-cagr-data", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.get("/admin/debug-cagr-data", requireAdmin, async (_req: Request, res: Response) => {
   try {
     const [tables, ficData, holdingsSample] = await Promise.all([
       db.execute(sql`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`),
@@ -1618,7 +1619,7 @@ modelPortfoliosRouter.get("/admin/debug-cagr-data", async (_req: Request, res: R
 // Phase B: Migrates all holdings from model_portfolios.holdings (JSONB) to the
 // model_portfolio_holdings relational table. Idempotent — safe to run multiple
 // times. Uses ON CONFLICT (portfolio_id, instrument_name) DO UPDATE.
-modelPortfoliosRouter.post("/admin/migrate-to-relational", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/migrate-to-relational", requireAdmin, async (_req: Request, res: Response) => {
   try {
     const result = await migrateHoldingsToRelationalTable();
     return res.json({
@@ -1641,7 +1642,7 @@ modelPortfoliosRouter.post("/admin/migrate-to-relational", async (_req: Request,
 // Triggers an on-demand nightly NAV refresh for all active holdings.
 // Production: runs automatically at 1:30 AM IST via cron-enrichment.ts.
 // Use this endpoint to trigger it manually (e.g. after a rebalance event).
-modelPortfoliosRouter.post("/admin/refresh-holding-navs", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/refresh-holding-navs", requireAdmin, async (_req: Request, res: Response) => {
   try {
     // Fire-and-forget — can take 25-60s for full 566-holding refresh
     void refreshAllHoldingNAVs().then((result) => {
@@ -1666,6 +1667,7 @@ modelPortfoliosRouter.post("/admin/refresh-holding-navs", async (_req: Request, 
 // Returns top N funds by alpha score for a given asset class.
 // Used by Pick of the Day engine and rebalancing substitution logic.
 modelPortfoliosRouter.get("/top-funds/:assetClass", async (req: Request, res: Response) => {
+  const t0 = Date.now();
   try {
     const { assetClass } = req.params;
     const limit = Math.min(parseInt(String(req.query.limit ?? "10"), 10), 50);
@@ -1690,7 +1692,7 @@ modelPortfoliosRouter.get("/top-funds/:assetClass", async (req: Request, res: Re
 // expenseRatio) into the DB holdings JSONB so agent queries always see real data
 // without re-fetching mfapi.in on every request.
 // Uses the existing enrichHolding pipeline (cache-aware, 6h TTL).
-modelPortfoliosRouter.post("/admin/persist-holdings-enrichment", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/persist-holdings-enrichment", requireAdmin, async (_req: Request, res: Response) => {
   try {
     const allPortfolios = await db.select().from(modelPortfolios);
     let enrichedCount = 0;
@@ -1737,7 +1739,7 @@ modelPortfoliosRouter.post("/admin/persist-holdings-enrichment", async (_req: Re
 // ── GET /api/model-portfolios/admin/pricing-status ────────────────────────────
 // H-MP5: Returns live pricing provider health (which tier is active/cooling-down)
 // and mfapi.in NAV cache stats. Used by the UI DataSource banner.
-modelPortfoliosRouter.get("/admin/pricing-status", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.get("/admin/pricing-status", requireAdmin, async (_req: Request, res: Response) => {
   try {
     const providerHealth = unifiedStockPriceService.getProviderHealth();
     const activeTier     = unifiedStockPriceService.getActivePricingTier();
@@ -1786,7 +1788,7 @@ modelPortfoliosRouter.get("/admin/pricing-status", async (_req: Request, res: Re
 // Based on FY25 Indian market context (Gold +18%, Nifty 50 +13%, etc.)
 // Also fixes india-growth (90%→100%) and equity-momentum-india (96%→100%) weight gaps.
 // Idempotent — safe to run multiple times.
-modelPortfoliosRouter.post("/admin/calibrate-metrics", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/calibrate-metrics", requireAdmin, async (_req: Request, res: Response) => {
   type CalibrationEntry = {
     cagr1Y: number; cagr3Y: number; cagr5Y: number;
     benchmarkCagr1Y: number; benchmarkName: string;
@@ -1996,7 +1998,7 @@ modelPortfoliosRouter.post("/admin/calibrate-metrics", async (_req: Request, res
 //
 // Idempotent — safe to re-run after any DB restore.
 // ───────────────────────────────────────────────────────────────────────────────
-modelPortfoliosRouter.post("/admin/sebi-benchmark-compliance", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/sebi-benchmark-compliance", requireAdmin, async (_req: Request, res: Response) => {
   const t0 = Date.now();
 
   // ── SEBI-compliant benchmark table (all 40 portfolios) ───────────────────────
@@ -2356,7 +2358,7 @@ modelPortfoliosRouter.post("/admin/sebi-benchmark-compliance", async (_req: Requ
 // Inserts 5 new model portfolio categories not yet in DB.
 // Also redesigns nri-india-opportunity holdings for better alpha.
 // Idempotent via ON CONFLICT DO NOTHING.
-modelPortfoliosRouter.post("/admin/seed-missing-portfolios", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/seed-missing-portfolios", requireAdmin, async (_req: Request, res: Response) => {
   type NewPortfolio = {
     id: string; name: string; tagline: string; riskProfile: string;
     assetClass: string; subCategory: string; timeHorizon: string;
@@ -2726,7 +2728,7 @@ modelPortfoliosRouter.post("/admin/seed-missing-portfolios", async (_req: Reques
 // Upserts complete (100%-weighted) holdings for all model portfolios.
 // Each portfolio's holdings JSONB is fully replaced with curated data.
 // Idempotent — safe to run multiple times.
-modelPortfoliosRouter.post("/admin/seed-holdings", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/seed-holdings", requireAdmin, async (_req: Request, res: Response) => {
   type HoldingEntry = { rank: number; name: string; weight: number; type: string; symbol?: string; isin?: string; metal?: string; currentReturn?: number };
   const SEED: Record<string, HoldingEntry[]> = {
     "all-weather-india": [
@@ -3217,7 +3219,7 @@ modelPortfoliosRouter.post("/admin/seed-holdings", async (_req: Request, res: Re
 // @outputs  : { success, updated, meta }
 // @edge case: Portfolio IDs not in INCEPTION_MAP get created_at as inception date,
 //             which is a reasonable proxy for when the strategy was activated on the platform.
-modelPortfoliosRouter.post("/admin/seed-inception-dates", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/seed-inception-dates", requireAdmin, async (_req: Request, res: Response) => {
   const t0 = Date.now();
 
   // SEBI-COMPLIANT inception dates — max 2026-04-01 (platform go-live).
@@ -3353,7 +3355,7 @@ modelPortfoliosRouter.post("/admin/seed-inception-dates", async (_req: Request, 
 // @inputs   : None
 // @outputs  : { success, updated, skipped, meta }
 // @edge case: Skips portfolios that already have a 2026-07-10 entry (idempotent)
-modelPortfoliosRouter.post("/admin/seed-inception-rebalance-entry", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/seed-inception-rebalance-entry", requireAdmin, async (_req: Request, res: Response) => {
   const t0 = Date.now();
   const INCEPTION_REBALANCE_DATE = "2026-07-10";
 
@@ -3451,7 +3453,7 @@ modelPortfoliosRouter.post("/admin/seed-inception-rebalance-entry", async (_req:
 // ── POST /api/model-portfolios/admin/fix-total-holdings ────────────────────────
 // Sets total_holdings = actual JSONB array length for every published portfolio.
 // Fixes the mismatch where totalHoldings was manually set higher than stored data.
-modelPortfoliosRouter.post("/admin/fix-total-holdings", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/fix-total-holdings", requireAdmin, async (_req: Request, res: Response) => {
   try {
     const result = await db.execute(sql`
       UPDATE model_portfolios
@@ -4848,7 +4850,7 @@ modelPortfoliosRouter.post("/:id/invest", async (req: Request, res: Response) =>
  * Admin trigger for the nightly quant rebalance batch.
  * Also triggered by cron at 3:30 AM IST.
  */
-modelPortfoliosRouter.post("/admin/run-nightly-quant", async (req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/run-nightly-quant", requireAdmin, async (req: Request, res: Response) => {
   const t0 = Date.now();
   try {
     const result = await runNightlyModelPortfolioRebalance();
@@ -5049,7 +5051,7 @@ modelPortfoliosRouter.get("/fund-performance/:isin", async (req: Request, res: R
  * ─────────────────────────────────────────────────
  * Manual trigger for nightly NAV update (admin only).
  */
-modelPortfoliosRouter.post("/admin/run-nav-update", async (req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/run-nav-update", requireAdmin, async (req: Request, res: Response) => {
   const t0 = Date.now();
   try {
     const { runNightlyNAVUpdate } = await import("../services/nav-feed-service");
@@ -5069,7 +5071,7 @@ modelPortfoliosRouter.post("/admin/run-nav-update", async (req: Request, res: Re
  * ───────────────────────────────────────────────
  * Manual trigger for weekly fund screener (admin only).
  */
-modelPortfoliosRouter.post("/admin/run-screener", async (req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/run-screener", requireAdmin, async (req: Request, res: Response) => {
   const t0 = Date.now();
   try {
     const { runWeeklyScreener } = await import("../services/fund-screener-service");
@@ -5124,6 +5126,7 @@ modelPortfoliosRouter.get("/isin/:isin", async (req: Request, res: Response) => 
 // ── GET /api/model-portfolios/instruments/search?q= ──────────────────────────
 // Search instruments by name (partial match).
 modelPortfoliosRouter.get("/instruments/search", async (req: Request, res: Response) => {
+  const t0 = Date.now();
   const q = String(req.query.q ?? "").trim();
   if (q.length < 2) {
     return res.status(400).json({ success: false, error: "Query must be at least 2 characters" });
@@ -5144,6 +5147,7 @@ modelPortfoliosRouter.get("/instruments/search", async (req: Request, res: Respo
 // ── GET /api/model-portfolios/instruments/stats ───────────────────────────────
 // ISIN registry coverage report. Shows total instruments, AMFI coverage %, etc.
 modelPortfoliosRouter.get("/instruments/stats", async (_req: Request, res: Response) => {
+  const t0 = Date.now();
   try {
     const { getRegistryCoverage } = await import("../services/isin-registry-service");
     const stats = await getRegistryCoverage();
@@ -5211,7 +5215,7 @@ modelPortfoliosRouter.post("/instruments/isin", async (req: Request, res: Respon
 // Idempotent (upsert). Safe to call multiple times.
 // Self-healing: calls createISINRegistryTable() first to handle the race where
 // this endpoint is called before the background startup migration completes.
-modelPortfoliosRouter.post("/admin/seed-isin-registry", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/seed-isin-registry", requireAdmin, async (_req: Request, res: Response) => {
   const t0 = Date.now();
   try {
     // Step 0: ensure the table exists (idempotent — fast no-op if already created)
@@ -5267,7 +5271,7 @@ modelPortfoliosRouter.post("/admin/seed-isin-registry", async (_req: Request, re
 // ── GET /api/model-portfolios/admin/alpha-analysis ────────────────────────────
 // Returns per-portfolio alpha vs SEBI-compliant benchmark.
 // Identifies alpha-drag holdings and calculates gap to 20% outperformance target.
-modelPortfoliosRouter.get("/admin/alpha-analysis", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.get("/admin/alpha-analysis", requireAdmin, async (_req: Request, res: Response) => {
 
   const t0 = Date.now();
   try {
@@ -5293,7 +5297,7 @@ modelPortfoliosRouter.get("/admin/alpha-analysis", async (_req: Request, res: Re
 // Generates FASP-AI v3.0 holding replacement suggestions (read-only, no auto-apply).
 // Each suggestion includes confidence_score, factors_considered, risk_disclaimer.
 // Body: { portfolioIds?: string[] }  — empty = all underperforming
-modelPortfoliosRouter.post("/admin/optimize-alpha", async (req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/optimize-alpha", requireAdmin, async (req: Request, res: Response) => {
   const t0 = Date.now();
   try {
     const { portfolioIds } = req.body as { portfolioIds?: string[] };
@@ -5321,7 +5325,7 @@ modelPortfoliosRouter.post("/admin/optimize-alpha", async (req: Request, res: Re
 // ── POST /api/model-portfolios/admin/apply-optimization ──────────────────────
 // Applies advisor-approved holding replacements. REQUIRES advisor_id.
 // Body: { portfolioId: string, replacements: [{rank, newSymbol, newName, newWeight?}], advisorId: string }
-modelPortfoliosRouter.post("/admin/apply-optimization", async (req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/apply-optimization", requireAdmin, async (req: Request, res: Response) => {
   const t0 = Date.now();
   try {
     const { portfolioId, replacements, advisorId, idempotencyKey } = req.body as {
@@ -5356,7 +5360,7 @@ modelPortfoliosRouter.post("/admin/apply-optimization", async (req: Request, res
 // ── GET /api/model-portfolios/admin/risk-report ───────────────────────────────
 // Returns risk budget status for all 40 portfolios.
 // Flags hard breaches (auto-apply blocked) and soft warnings.
-modelPortfoliosRouter.get("/admin/risk-report", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.get("/admin/risk-report", requireAdmin, async (_req: Request, res: Response) => {
   const t0 = Date.now();
   try {
     const { buildPortfolioRiskSummary } = await import("../services/portfolio-risk-guard");
@@ -5393,7 +5397,7 @@ modelPortfoliosRouter.get("/admin/risk-report", async (_req: Request, res: Respo
 // ── GET /api/model-portfolios/admin/rebalance-queue ───────────────────────────
 // Returns portfolios that need rebalancing, sorted by urgency.
 // Also returns current market regime (BULL/BEAR/NEUTRAL).
-modelPortfoliosRouter.get("/admin/rebalance-queue", async (_req: Request, res: Response) => {
+modelPortfoliosRouter.get("/admin/rebalance-queue", requireAdmin, async (_req: Request, res: Response) => {
   const t0 = Date.now();
   try {
     const { runRebalanceScan } = await import("../services/portfolio-rebalance-scheduler");
@@ -5412,7 +5416,7 @@ modelPortfoliosRouter.get("/admin/rebalance-queue", async (_req: Request, res: R
 // Manually triggers the full rebalance scan + auto-applies high-confidence swaps.
 // Body: { portfolioIds?: string[] }  — empty = all eligible
 // This is what the weekly cron calls; also available for on-demand admin override.
-modelPortfoliosRouter.post("/admin/run-rebalance-scan", async (req: Request, res: Response) => {
+modelPortfoliosRouter.post("/admin/run-rebalance-scan", requireAdmin, async (req: Request, res: Response) => {
   const t0 = Date.now();
   try {
     const { portfolioIds } = req.body as { portfolioIds?: string[] };
