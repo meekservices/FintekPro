@@ -3543,7 +3543,7 @@ function SipSimulatorTab({ portfolio }: { portfolio: ModelPortfolio }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <span className="text-lg">\ud83d\udcb0</span>
+        <span className="text-lg">💰</span>
         <div>
           <p className="text-sm font-semibold">SIP + Lump-Sum Simulator</p>
           <p className="text-[11px] text-muted-foreground">Based on {portfolio.name} historical {Math.round(expectedReturn * 10) / 10}% CAGR</p>
