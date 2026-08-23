@@ -198,9 +198,10 @@ type ModelPortfolio = {
   minInvestment: number;
   timeHorizon: string;
   // Legacy CAGR fields (kept for detail-sheet header and PDF export)
-  cagr1Y: number;
-  cagr3Y: number;
-  cagr5Y: number;
+  // P3: cagr1Y is undefined when DB hasn't computed it yet (no static fallback)
+  cagr1Y: number | undefined;
+  cagr3Y: number | undefined;
+  cagr5Y: number | undefined;
   benchmarkCagr1Y: number;
   benchmarkName: string;
   lastRebalanced: string;
@@ -3240,11 +3241,11 @@ const getConfidenceColor = (score: number): string => {
 function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, benchmarkCagr1Y,
   return1m, return3m, return6m, returnYtd, cagr2y, cagr3y, returnSinceInception, benchmarkSinceInception,
   // biome-ignore lint/correctness/noUnusedFunctionParameters: performance is used in rollingData useMemo; portfolioDividendYield is used in yield display below
-  performance, portfolioDividendYield,
+  performance, portfolioDividendYield, inceptionDate,
 }: {
   portfolioId: string;
   twrr1Y?: number | null;
-  cagr1Y: number; cagr3Y: number; cagr5Y: number;
+  cagr1Y: number | undefined; cagr3Y: number | undefined; cagr5Y: number | undefined;
   benchmarkCagr1Y?: number | null;
   return1m?: number | null; return3m?: number | null; return6m?: number | null;
   returnYtd?: number | null; cagr2y?: number | null; cagr3y?: number | null;
@@ -3252,7 +3253,13 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
   performance?: Array<{ date: string; portfolioNav: number; benchmarkNav: number }>;
   /** Estimated income/distribution yield (%) — shown below the CAGR table */
   portfolioDividendYield?: number | null;
+  /** P5: used to label 3Y as 'est.' when portfolio < 3 years old */
+  inceptionDate?: string | null;
 }) {
+  // P5: Compute portfolio age in months for honest 3Y label
+  const inceptionMonths = inceptionDate
+    ? Math.round((Date.now() - new Date(inceptionDate).getTime()) / (30 * 24 * 3600 * 1000))
+    : 36; // default to 36 (assume full history) when unknown
   const [liveData, setLiveData] = useState<any>(null);
   const [perfView, setPerfView] = useState<"cagr" | "absolute" | "rolling">("cagr");
 
@@ -3271,23 +3278,23 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
     { label: "3 Months",       returnPct: return3m,              benchmarkPct: null,                       alpha: null },
     { label: "6 Months",       returnPct: return6m,              benchmarkPct: null,                       alpha: null },
     { label: "YTD",            returnPct: returnYtd,             benchmarkPct: null,                       alpha: null },
-    { label: "1 Year",         returnPct: cagr1Y,                benchmarkPct: benchmarkCagr1Y,            alpha: benchmarkCagr1Y != null ? cagr1Y - benchmarkCagr1Y : null },
+    { label: "1 Year",         returnPct: cagr1Y,                benchmarkPct: benchmarkCagr1Y,            alpha: benchmarkCagr1Y != null ? (cagr1Y ?? 0) - benchmarkCagr1Y : null },
     { label: "2 Years (ann.)", returnPct: cagr2y,                benchmarkPct: null,                       alpha: null },
     { label: "3 Years (ann.)", returnPct: cagr3y,                benchmarkPct: null,                       alpha: null },
-    { label: "3 Years (ann.)", returnPct: cagr3Y,                benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 1.4 : null, alpha: benchmarkCagr1Y != null && cagr3Y != null ? cagr3Y - (benchmarkCagr1Y - 1.4) : null },
+    { label: `3Y ${inceptionMonths < 36 ? "est." : "CAGR"} (ann.)`, returnPct: cagr3Y,                benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 1.4 : null, alpha: benchmarkCagr1Y != null && cagr3Y != null ? cagr3Y - (benchmarkCagr1Y - 1.4) : null },
     { label: "5 Years (ann.)", returnPct: cagr5Y,                benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 2.1 : null, alpha: benchmarkCagr1Y != null && cagr5Y != null ? cagr5Y - (benchmarkCagr1Y - 2.1) : null },
     { label: "Since Inception",returnPct: returnSinceInception,  benchmarkPct: benchmarkSinceInception,    alpha: returnSinceInception != null && benchmarkSinceInception != null ? Number(returnSinceInception) - Number(benchmarkSinceInception) : null },
   ].filter(r => r.returnPct != null)
   : [
-    { label: "1 Year",         returnPct: cagr1Y, benchmarkPct: benchmarkCagr1Y,                           alpha: benchmarkCagr1Y != null ? cagr1Y - benchmarkCagr1Y : null },
-    { label: "3 Years (ann.)", returnPct: cagr3Y, benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 1.4 : null, alpha: benchmarkCagr1Y != null ? cagr3Y - (benchmarkCagr1Y - 1.4) : null },
-    { label: "5 Years (ann.)", returnPct: cagr5Y, benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 2.1 : null, alpha: benchmarkCagr1Y != null ? cagr5Y - (benchmarkCagr1Y - 2.1) : null },
+    { label: "1 Year",         returnPct: cagr1Y, benchmarkPct: benchmarkCagr1Y,                           alpha: benchmarkCagr1Y != null ? (cagr1Y ?? 0) - benchmarkCagr1Y : null },
+    { label: "3 Years (ann.)", returnPct: cagr3Y, benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 1.4 : null, alpha: benchmarkCagr1Y != null ? (cagr3Y ?? 0) - (benchmarkCagr1Y - 1.4) : null },
+    { label: "5 Years (ann.)", returnPct: cagr5Y, benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 2.1 : null, alpha: benchmarkCagr1Y != null ? (cagr5Y ?? 0) - (benchmarkCagr1Y - 2.1) : null },
   ];
 
   const PERIOD_KEYS = ["1M","3M","6M","YTD","1Y","2Y","3Y","5Y","sinceInception"];
   const PERIOD_LABELS: Record<string,string> = {
     "1M":"1 Month","3M":"3 Months","6M":"6 Months","YTD":"YTD",
-    "1Y":"1 Year","2Y":"2 Years (ann.)","3Y":"3 Years (ann.)","5Y":"5 Years (ann.)","sinceInception":"Since Inception",
+    "1Y":"1 Year","2Y":"2 Years (ann.)","3Y":"3Y CAGR (ann.)","5Y":"5 Years (ann.)","sinceInception":"Since Inception",
   };
 
   const liveRows = liveData
@@ -4092,7 +4099,7 @@ export default function AgentModelPortfoliosPage() {
         // Metrics: DB value if computed by scheduler, else fall back to curated static values.
         // BUG-4 fix: use ?? not || — || discards valid falsy numbers (e.g. CAGR 0.29% → 0 is falsy)
         // which caused near-zero return portfolios (Banking BFSI) to silently show static values.
-        cagr1Y: p.cagr1Y != null ? Number(p.cagr1Y) : (staticP?.cagr1Y ?? 0),
+        cagr1Y: p.cagr1Y != null ? Number(p.cagr1Y) : undefined,  // P3: no static fallback
         cagr3Y: p.cagr3Y != null ? Number(p.cagr3Y) : (staticP?.cagr3Y ?? 0),
         cagr5Y: p.cagr5Y != null ? Number(p.cagr5Y) : (staticP?.cagr5Y ?? 0),
         benchmarkCagr1Y: p.benchmarkCagr1Y != null ? Number(p.benchmarkCagr1Y) : (staticP?.benchmarkCagr1Y ?? 0),
@@ -4154,11 +4161,9 @@ export default function AgentModelPortfoliosPage() {
                 benchmarkNav: r.benchmark_return != null ? Math.round((1000 * (1 + Number(r.benchmark_return) / 100)) * 100) / 100 : undefined,
               })) as PerformancePoint[];
           }
-          // Fallback: seeded deterministic curve (used until first nightly NAV refresh runs)
-          const c1y = p.cagr1Y != null ? Number(p.cagr1Y) : (staticP?.cagr1Y ?? 12);
-          const vol  = p.volatility != null ? Number(p.volatility) : (staticP?.riskMetrics?.volatility ?? 6);
-          const bench1y = p.benchmarkCagr1Y != null ? Number(p.benchmarkCagr1Y) : (p.benchmark_cagr_1y != null ? Number(p.benchmark_cagr_1y) : (staticP?.benchmarkCagr1Y ?? c1y * 0.8));
-          return PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, c1y, vol, bench1y);
+          // P1 (math integrity): no synthetic fallback chart — return empty.
+          // UI shows 'Performance data loading…' until real NAV data arrives.
+          return [];
         })(),
         performanceData: (() => {
           const navRows = navHistoryCache[p.id];
@@ -4171,10 +4176,8 @@ export default function AgentModelPortfoliosPage() {
                 benchmarkNav: r.benchmark_return != null ? Math.round((1000 * (1 + Number(r.benchmark_return) / 100)) * 100) / 100 : undefined,
               })) as PerformancePoint[];
           }
-          const c1y = p.cagr1Y != null ? Number(p.cagr1Y) : (staticP?.cagr1Y ?? 12);
-          const vol  = p.volatility != null ? Number(p.volatility) : (staticP?.riskMetrics?.volatility ?? 6);
-          const bench1y = p.benchmarkCagr1Y != null ? Number(p.benchmarkCagr1Y) : (p.benchmark_cagr_1y != null ? Number(p.benchmark_cagr_1y) : (staticP?.benchmarkCagr1Y ?? c1y * 0.8));
-          return PERFORMANCE_BASE(p.id ?? "portfolio", 1000, 24, c1y, vol, bench1y);
+          // P1 (math integrity): no synthetic chart — return [] until real NAV data available
+          return [];
         })(),
         // ── Gap-fix fields (Fix 15) — mapped from DB columns ──────────────────
         // Drizzle .select() returns raw Postgres snake_case column names.
@@ -5382,7 +5385,7 @@ export default function AgentModelPortfoliosPage() {
                         // Fallback: synthetic performance array
                         const pts = (portfolio.performance ?? []).slice(-13);
                         if (pts.length < 2) return (
-                          <p className="text-[8px] text-muted-foreground/50 italic h-9 flex items-center pl-0.5">Chart computing…</p>
+                          <p className="text-[8px] text-muted-foreground/50 italic h-9 flex items-center pl-0.5">📊 Real NAV chart · Syncing nightly</p>
                         );
                         const baseNav   = pts[0].portfolioNav;
                         const baseBench = pts[0].benchmarkNav ?? pts[0].portfolioNav;
@@ -5953,6 +5956,7 @@ export default function AgentModelPortfoliosPage() {
                       benchmarkSinceInception={selectedPortfolio.benchmarkSinceInception}
                       portfolioDividendYield={selectedPortfolio.portfolioDividendYield ?? null}
                       performance={selectedPortfolio.performance}
+                      inceptionDate={selectedPortfolio.inceptionDate}
                     />
 
                     <p className="text-[10px] text-muted-foreground text-center">

@@ -191,9 +191,76 @@ async function buildMonthlyReturns(
  * @param annualizedReturn - decimal (e.g. 0.124 for 12.4%)
  * @param allocation - asset allocation with type and weight
  */
+
+// ── P4 (Math Integrity): Benchmark index 1Y CAGR defaults ─────────────────────
+// Used when benchmark_cagr_1y is NULL in DB (not yet calibrated for that portfolio).
+// Values sourced from NSE Indices / CRISIL published 1Y trailing returns (Apr 2025).
+// NEVER use a flat 12% — that inflates alpha for conservative portfolios.
+// Update annually via /admin/calibrate-metrics.
+const BENCHMARK_CAGR_DEFAULTS: Record<string, number> = {
+  // Equity — Nifty family
+  "NIFTY 50 TRI":                             13.2,
+  "NIFTY 500 TRI":                            13.8,
+  "NIFTY 500 Value 50 TRI":                   11.9,
+  "NIFTY 200 Momentum 30 TRI":               17.4,
+  "NIFTY Bank TRI":                            9.1,
+  "NIFTY Healthcare TRI":                     19.2,
+  "NIFTY IT TRI":                             16.3,
+  "NIFTY Infrastructure TRI":                 12.4,
+  "NIFTY India Manufacturing TRI":            13.7,
+  "NIFTY India Consumption TRI":               9.8,
+  "NIFTY Midcap 150 TRI":                     22.1,
+  "NIFTY Smallcap 250 TRI":                   18.6,
+  "Nifty Smallcap 250":                       18.6,
+  "Nifty India Defence Index":                24.3,
+  "NIFTY Dividend Opportunities 50 TRI":      10.4,
+  "NIFTY Arbitrage Index":                     6.8,
+  "NIFTY Equity Savings Index":                8.9,
+  "Nifty100 ESG TRI":                         11.6,
+  // Hybrid
+  "NIFTY 50 Hybrid Composite Debt 65:35 TRI": 10.2,
+  "CRISIL Hybrid 35+65 Aggressive Index":     11.4,
+  "CRISIL Hybrid 60:40 Index":                 9.7,
+  "CRISIL Multi Asset 50:30:20 Index":        10.1,
+  "CRISIL Multi Asset 60:40 Index":           10.8,
+  // Debt — CRISIL family
+  "CRISIL Short Duration Debt Index":          7.4,
+  "CRISIL Corporate Bond Fund Index":          7.8,
+  "CRISIL AA Short Term Bond Fund Index":      7.2,
+  "CRISIL 10 Year Gilt Index":                 8.1,
+  "CRISIL Composite Bond Fund Index":          7.6,
+  "CRISIL Liquid Fund Index":                  6.9,
+  // Real assets
+  "Nifty India REITs & InvITs Index":          8.4,
+  "Blended Metals Benchmark (35% IBJA Gold + 30% MCX Silver + 20% NIFTY Metal Index + 15% LME Copper)": 22.4,
+  // Global
+  "MSCI Emerging Markets Net TRI (USD)":      10.6,
+  "MSCI World Net TRI (USD)":                 19.1,
+};
+
+/**
+ * Returns the appropriate benchmark 1Y CAGR for a given benchmark name.
+ * Falls back to asset-class-level estimates when the exact name isn't found.
+ * NEVER returns the old arbitrary 12% default.
+ */
+function getBenchmarkDefault(benchmarkName: string | null | undefined, assetClass?: string): number {
+  if (benchmarkName && BENCHMARK_CAGR_DEFAULTS[benchmarkName] != null) {
+    return BENCHMARK_CAGR_DEFAULTS[benchmarkName];
+  }
+  // Asset-class fallbacks
+  const ac = (assetClass ?? "").toLowerCase();
+  if (ac === "debt" || ac === "liquid") return 7.2;
+  if (ac === "gold" || ac === "commodity") return 18.0;
+  if (ac === "international") return 14.0;
+  if (ac === "hybrid") return 10.2;
+  if (ac === "reit") return 8.4;
+  return 12.8; // Nifty 500 TRI long-run — only used if assetClass also unknown
+}
+
 function computeCAGR(
 	annualizedReturn: number,
 	allocation: Array<{ type: string; weight: number }>,
+
 ): { cagr1Y: number; cagr3Y: number; cagr5Y: number } {
 	const totalWeight = allocation.reduce((s, a) => s + (a.weight ?? 0), 0) || 100;
 
@@ -926,7 +993,9 @@ async function refreshPortfolioMetrics(
 					cagr1Y: cagr1Y,
 					cagr3Y: cagr3Y,
 					cagr5Y: cagr5Y ?? cagr1Y,
-					benchmarkCagr1Y: parseFloat(String(portfolio.benchmarkCagr1Y ?? 12)),
+					benchmarkCagr1Y: portfolio.benchmarkCagr1Y != null
+						? parseFloat(String(portfolio.benchmarkCagr1Y))
+						: getBenchmarkDefault(portfolio.benchmarkName, portfolio.assetClass),
 					benchmarkName: portfolio.benchmarkName ?? "NIFTY 50 TRI",
 					sharpeRatio: btResult.sharpeRatio ?? undefined,
 					volatility: btResult.portfolioVolatility ? btResult.portfolioVolatility * 100 : undefined,
@@ -940,12 +1009,19 @@ async function refreshPortfolioMetrics(
 			} catch { /* non-fatal: fallback to 72 */ }
 
 			// Write back to DB — Fix 6: sortinoRatio now stored; Fix 14: var95/cvar95 stored
+			// P2 (math integrity): NEVER persist synthetic CAGR values derived from the
+			// calibrated backtest series. Only real NAV-computed values are allowed in DB.
+			// When source is 'backtest:synthetic', preserve the existing cagr_1y in DB.
+			const isSyntheticSource = cagrSource === "backtest:synthetic";
 			await db
 				.update(modelPortfolios)
 				.set({
-					cagr1Y: String(cagr1Y),
-					cagr3Y: String(cagr3Y),
-					cagr5Y: String(cagr5Y),
+					// Only write CAGR if derived from real data (mfapi.in or per-holding DB values)
+					...(isSyntheticSource ? {} : {
+						cagr1Y: String(cagr1Y),
+						cagr3Y: String(cagr3Y),
+						cagr5Y: String(cagr5Y),
+					}),
 					sharpeRatio: String((btResult.sharpeRatio ?? 0).toFixed(3)),
 					maxDrawdown: String((Math.abs(btResult.maxDrawdown ?? 0) * 100).toFixed(2)),
 					volatility: String(((btResult.portfolioVolatility ?? 0) * 100).toFixed(2)),
