@@ -486,14 +486,23 @@ class IndianAPIService {
 		if (!this.isConfigured) return this.notConfigured();
 		try {
 			const r = await this.retryWithBackoff(() =>
-				this.client.post("/nse_stock_batch_live_price", { stock_ids: symbols }),
+				// API expects { stock_symbols: string[] } and returns { TICKER: { ltp, ... } }
+				this.client.post("/nse_stock_batch_live_price", { stock_symbols: symbols }),
 			);
 			const prices: Record<string, number> = {};
-			(r.data ?? []).forEach((item: any) => {
-				if (item.symbol ?? item.ticker) {
-					prices[item.symbol ?? item.ticker] = Number(item.price ?? item.lastPrice ?? 0);
+			const raw = r.data ?? {};
+			if (typeof raw === "object" && !Array.isArray(raw)) {
+				// Response: { "RELIANCE": { ltp: 1309.8, close: 1316, ... }, ... }
+				for (const [ticker, info] of Object.entries(raw as Record<string, any>)) {
+					prices[ticker] = Number(info.ltp ?? info.close ?? info.price ?? 0);
 				}
-			});
+			} else {
+				(raw as any[]).forEach((item: any) => {
+					if (item.symbol ?? item.ticker) {
+						prices[item.symbol ?? item.ticker] = Number(item.ltp ?? item.price ?? item.lastPrice ?? 0);
+					}
+				});
+			}
 			return this.makeResult(prices);
 		} catch (error: any) {
 			logger.error(`[IndianAPI] getBatchLivePriceNSE() error: ${error.message}`);
@@ -505,7 +514,8 @@ class IndianAPIService {
 		if (!this.isConfigured) return this.notConfigured();
 		try {
 			const r = await this.retryWithBackoff(() =>
-				this.client.post("/bse_stock_batch_live_price", { stock_ids: symbols }),
+				// API expects { stock_symbols: string[] }
+				this.client.post("/bse_stock_batch_live_price", { stock_symbols: symbols }),
 			);
 			const prices: Record<string, number> = {};
 			(r.data ?? []).forEach((item: any) => {
@@ -653,7 +663,8 @@ class IndianAPIService {
 		return requestDedupeService.dedupe(key, async () => {
 			try {
 				const r = await this.retryWithBackoff(() =>
-					this.client.get("/statement", { params: { stock_name: symbol.toUpperCase(), stats: "profit-loss" } }),
+					// Valid stats: quarter_results, yoy_results, balancesheet, cashflow
+				this.client.get("/statement", { params: { stock_name: symbol.toUpperCase(), stats: "quarter_results" } }),
 				);
 				const rawList: any[] = (r.data?.profit_loss ?? r.data?.incomeStatement ?? r.data ?? []).slice(0, years);
 				return this.makeResult<IndianAPIProfitLoss[]>(rawList.map((row: any) => ({
@@ -681,7 +692,7 @@ class IndianAPIService {
 		return requestDedupeService.dedupe(key, async () => {
 			try {
 				const r = await this.retryWithBackoff(() =>
-					this.client.get("/statement", { params: { stock_name: symbol.toUpperCase(), stats: "balance-sheet" } }),
+					this.client.get("/statement", { params: { stock_name: symbol.toUpperCase(), stats: "balancesheet" } }),
 				);
 				const rawList: any[] = (r.data?.balance_sheet ?? r.data?.balanceSheet ?? r.data ?? []).slice(0, years);
 				return this.makeResult<IndianAPIBalanceSheet[]>(rawList.map((row: any) => ({
@@ -709,7 +720,7 @@ class IndianAPIService {
 		return requestDedupeService.dedupe(key, async () => {
 			try {
 				const r = await this.retryWithBackoff(() =>
-					this.client.get("/statement", { params: { stock_name: symbol.toUpperCase(), stats: "cash-flow" } }),
+					this.client.get("/statement", { params: { stock_name: symbol.toUpperCase(), stats: "cashflow" } }),
 				);
 				const rawList: any[] = (r.data?.cash_flow ?? r.data?.cashFlow ?? r.data ?? []).slice(0, years);
 				return this.makeResult<IndianAPICashFlow[]>(rawList.map((row: any) => ({
@@ -887,7 +898,8 @@ class IndianAPIService {
 			try {
 				const r = await this.retryWithBackoff(() =>
 					this.client.get("/historical_data", {
-						params: { stock_name: symbol.toUpperCase(), period, filter: "default" },
+						// API requires: stock_name, period (e.g. "1yr"), filter (e.g. "default")
+						params: { stock_name: symbol.toUpperCase(), period: period === "1y" ? "1yr" : period, filter: "default" },
 					}),
 				);
 				const data = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.prices ?? []);
