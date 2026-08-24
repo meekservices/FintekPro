@@ -4158,7 +4158,11 @@ export default function AgentModelPortfoliosPage() {
               .map((r: any) => ({
                 date:         new Date(r.month_start).toLocaleString("en-IN", { month: "short", year: "2-digit" }),
                 portfolioNav: Math.round(Number(r.nav) * 100) / 100,
-                benchmarkNav: r.benchmark_return != null ? Math.round((1000 * (1 + Number(r.benchmark_return) / 100)) * 100) / 100 : undefined,
+                // benchmark_cum_return is cumulative % from inception (e.g. 8.5 = +8.5%)
+                // Reconstruct benchmark NAV: 1000 * (1 + cum_return / 100)
+                benchmarkNav: r.benchmark_cum_return != null
+                  ? Math.round(1000 * (1 + Number(r.benchmark_cum_return) / 100) * 100) / 100
+                  : undefined,
               })) as PerformancePoint[];
           }
           // P1 (math integrity): no synthetic fallback chart — return empty.
@@ -4996,7 +5000,12 @@ export default function AgentModelPortfoliosPage() {
               key={portfolio.id}
               id={`portfolio-card-${portfolio.id}`}
               className="relative hover:shadow-lg transition-all duration-200 cursor-pointer border-border/60 group overflow-hidden"
-              onClick={() => setSelectedPortfolio(portfolio)}
+              onClick={() => {
+                setSelectedPortfolio(portfolio);
+                // Eagerly fetch NAV history so the Performance tab
+                // has real monthly data immediately when the drawer opens.
+                fetchNavHistory(portfolio.id);
+              }}
             >
               {/* ── Top badge row ─────────────────────────────────────────── */}
               <div className="flex items-center justify-between px-4 pt-3 pb-0 gap-2">
@@ -5453,7 +5462,11 @@ export default function AgentModelPortfoliosPage() {
                   id={`view-portfolio-${portfolio.id}`}
                   className="w-full h-8 text-xs gap-1 group-hover:bg-indigo-600 group-hover:text-white transition-colors"
                   variant="outline"
-                  onClick={(e) => { e.stopPropagation(); setSelectedPortfolio(portfolio); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPortfolio(portfolio);
+                    fetchNavHistory(portfolio.id);
+                  }}
                 >
                   View full portfolio
                   <ChevronRight className="h-3 w-3" />
