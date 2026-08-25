@@ -201,6 +201,27 @@ class UpstoxMarketDataService {
   }
 
   /**
+   * Hot-reload the service with a new token (in-process, no restart required).
+   * Called by the admin token-rotation endpoint after updating the secret.
+   *
+   * @param newToken  The new Upstox access token
+   * @param issuedAt  ISO date string YYYY-MM-DD for the token issue date
+   */
+  hotReload(newToken: string, issuedAt: string): void {
+    process.env.UPSTOX_ACCESS_TOKEN = newToken;
+    process.env.UPSTOX_TOKEN_ISSUED_AT = issuedAt;
+    this.tokenExpiredAt = null; // clear any existing expiry flag
+    this.client = null;
+    this.accessToken = null;
+    this.init();
+    logger.info("[Upstox] Service hot-reloaded with new token", {
+      event: "UPSTOX_TOKEN_HOT_RELOAD",
+      issued_at: issuedAt,
+      status: "SUCCESS",
+    });
+  }
+
+  /**
    * Probe the token with a canary getLTP call for RELIANCE.
    * Used by eodPricingHealthCheck() at startup.
    *

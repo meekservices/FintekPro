@@ -30,6 +30,7 @@ import {
 	KycV2ManagementPage,
 	FinancialOperationsPage,
 	APIConfiguration,
+	UpstoxTokenManager,
 	ProductionReadiness,
 	ActivityCentre,
 	CkycDeferredDashboard,
@@ -233,7 +234,6 @@ function AdminRoot() {
 	const [, navigate] = useLocation();
 	const { withPortalParams } = useSubdomain();
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: withPortalParams is a stable subdomain helper — intentionally excluded to prevent infinite re-renders
 	useEffect(() => {
 		if (!isLoading && !user) {
 			navigate(withPortalParams("/auth"));
@@ -327,6 +327,13 @@ export function AdminRoutes() {
 				{() => (
 					<AdminLayout>
 						<APIConfiguration />
+					</AdminLayout>
+				)}
+			</Route>
+			<Route path="/admin/upstox-token">
+				{() => (
+					<AdminLayout>
+						<UpstoxTokenManager />
 					</AdminLayout>
 				)}
 			</Route>

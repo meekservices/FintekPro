@@ -185,6 +185,9 @@ export const FinancialOperationsPage = lazyWithRetry(
 export const APIConfiguration = lazyWithRetry(
 	() => import("@/pages/admin/api-configuration"),
 );
+export const UpstoxTokenManager = lazyWithRetry(
+	() => import("@/pages/admin/upstox-token-manager"),
+);
 export const ProductionReadiness = lazyWithRetry(
 	() => import("@/pages/admin/production-readiness"),
 );

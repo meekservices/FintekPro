@@ -93,6 +93,7 @@ import {
 	Link as LinkIcon,
 	FileBarChart,
 	Boxes,
+	Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
@@ -446,6 +447,20 @@ const navCategories: NavCategory[] = [
 				href: "/admin/iris",
 				icon: Radio,
 				description: "MF, SIP & investor oversight via IRIS",
+			},
+			{
+				title: "Upstox (Market Data)",
+				href: "/admin/upstox-token",
+				icon: Zap,
+				description: "NSE/BSE live data feed · Token rotation",
+				children: [
+					{
+						title: "Token Manager",
+						href: "/admin/upstox-token",
+						icon: Key,
+						description: "Rotate & validate access token",
+					},
+				],
 			},
 		],
 	},
@@ -1269,8 +1284,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 			<div className="flex min-h-0">
 				{/* Mobile backdrop overlay */}
 				{sidebarOpen && (
-					<div
-						className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+					<button
+						type="button"
+						className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden w-full h-full border-0 p-0 cursor-default"
+						aria-label="Close sidebar"
 						onClick={() => setSidebarOpen(false)}
 					/>
 				)}

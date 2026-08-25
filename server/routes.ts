@@ -110,6 +110,7 @@ import { registerPartnerPortalRoutes } from "./routes/partner/index";
 import { registerUserManagementRoutes } from "./user-management-routes";
 import { registerStakeholderRoutes } from "./stakeholder-routes";
 import { registerSystemAdminRoutes } from "./routes/system-admin";
+import { registerUpstoxTokenRoutes } from "./routes/upstox-token-routes";
 import { registerIrisKfintechRoutes } from "./routes/iris-kfintech-routes";
 import { registerIrisLasRoutes } from "./routes/iris-las-routes";
 import { registerIrisKycRoutes } from "./routes/iris-kyc-routes";
@@ -454,6 +455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	registerUserManagementRoutes(app); // /api/admin/users and user management
 	registerStakeholderRoutes(app); // /api/admin/stakeholders
 	registerSystemAdminRoutes(app); // /api/admin/system/* routes
+	registerUpstoxTokenRoutes(app); // /api/admin/upstox/* — token rotation & health
 	registerIrisKfintechRoutes(app); // /api/iris/* KFintech integration
 	registerIrisLasRoutes(app);       // /api/iris/las/* LAS/LAMF pledge-and-lend lifecycle
 	registerIrisKycRoutes(app);       // /api/iris/kyc/* — unified KYC + multi-broker vault write-back
