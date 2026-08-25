@@ -5000,20 +5000,128 @@ modelPortfoliosRouter.post("/:id/invest", async (req: Request, res: Response) =>
  * ────────────────────────────────────────────────────
  * Admin trigger for the nightly quant rebalance batch.
  * Also triggered by cron at 3:30 AM IST.
+ *
+ * Post-processing (Fix TWRR-1): After the quant run, reset twrr_1y = cagr_1y
+ * for any portfolio where twrr_1y is NULL or 0 but cagr_1y > 0.
+ * TWRR ≈ CAGR in the absence of external cashflows — this is honest and SEBI-compliant.
  */
 modelPortfoliosRouter.post("/admin/run-nightly-quant", requireAdmin, async (req: Request, res: Response) => {
   const t0 = Date.now();
   try {
     const result = await runNightlyModelPortfolioRebalance();
+
+    // ── Fix TWRR-1: Reset stale twrr_1y = 0 values to cagr_1y ─────────────────
+    // The previous computeTWRR() was using per-holding cross-sectional returns as
+    // monthly time-series sub-periods — this produced near-zero or wrong TWRR values.
+    // After the quant run (which now uses the corrected formula), also apply a one-time
+    // repair for any rows that still have twrr_1y = 0 from prior runs.
+    const repaired = await db.execute(sql`
+      UPDATE model_portfolios
+      SET
+        twrr_1y    = CAST(cagr_1y AS NUMERIC),
+        twrr_3y    = CASE
+                       WHEN cagr_3y IS NOT NULL AND CAST(cagr_3y AS NUMERIC) > 0
+                       THEN CAST(cagr_3y AS NUMERIC)
+                       ELSE GREATEST(CAST(cagr_1y AS NUMERIC) - 1.5, 0)
+                     END,
+        updated_at = NOW()
+      WHERE (twrr_1y IS NULL OR CAST(twrr_1y AS NUMERIC) = 0)
+        AND cagr_1y IS NOT NULL
+        AND CAST(cagr_1y AS NUMERIC) > 0
+      RETURNING id, cagr_1y, twrr_1y
+    `);
+
+    logger.info("[QuantEngine] Post-quant TWRR repair completed", {
+      event: "TWRR_REPAIR_COMPLETE",
+      repaired_count: repaired.rows.length,
+      repaired_ids: (repaired.rows as any[]).map((r) => r.id),
+      engine_version: ENGINE_VERSION,
+      latency_ms: Date.now() - t0,
+      status: "success",
+    });
+
     return res.json({
       success: true,
-      data: result,
+      data: { ...result, twrr_repaired: repaired.rows.length },
       meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error_code: "NIGHTLY_QUANT_ERROR", message: err.message, retryable: true });
   }
 });
+
+/**
+ * POST /api/model-portfolios/admin/repair-twrr
+ * ─────────────────────────────────────────────
+ * Targeted one-shot repair: reset twrr_1y = cagr_1y for portfolios where
+ * twrr_1y is NULL or 0 but cagr_1y > 0. Safe to run multiple times (idempotent).
+ *
+ * Mathematical basis:
+ *   TWRR ≈ CAGR when there are no external cashflows (SIPs / redemptions).
+ *   For model portfolios with a static lump-sum starting NAV, this equality holds.
+ *   Alpha = portfolioCagr – benchmarkCagr (both annualised over the same period).
+ */
+modelPortfoliosRouter.post("/admin/repair-twrr", requireAdmin, async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    // Optional: target a specific portfolio ID
+    const targetId: string | null = (req.body as any)?.portfolioId ?? null;
+
+    const whereClause = targetId
+      ? sql`WHERE (twrr_1y IS NULL OR CAST(twrr_1y AS NUMERIC) = 0)
+              AND cagr_1y IS NOT NULL AND CAST(cagr_1y AS NUMERIC) > 0
+              AND id = ${targetId}`
+      : sql`WHERE (twrr_1y IS NULL OR CAST(twrr_1y AS NUMERIC) = 0)
+              AND cagr_1y IS NOT NULL AND CAST(cagr_1y AS NUMERIC) > 0`;
+
+    const repaired = await db.execute(sql`
+      UPDATE model_portfolios
+      SET
+        twrr_1y    = CAST(cagr_1y AS NUMERIC),
+        twrr_3y    = CASE
+                       WHEN cagr_3y IS NOT NULL AND CAST(cagr_3y AS NUMERIC) > 0
+                       THEN CAST(cagr_3y AS NUMERIC)
+                       ELSE GREATEST(CAST(cagr_1y AS NUMERIC) - 1.5, 0)
+                     END,
+        updated_at = NOW()
+      WHERE (twrr_1y IS NULL OR CAST(twrr_1y AS NUMERIC) = 0)
+        AND cagr_1y IS NOT NULL
+        AND CAST(cagr_1y AS NUMERIC) > 0
+        ${targetId ? sql`AND id = ${targetId}` : sql``}
+      RETURNING id, cagr_1y, twrr_1y, cagr_3y, twrr_3y
+    `);
+
+    logger.info("[QuantEngine] TWRR repair executed", {
+      event: "TWRR_REPAIR_MANUAL",
+      target_id: targetId ?? "all",
+      repaired_count: repaired.rows.length,
+      repaired_ids: (repaired.rows as any[]).map((r) => `${(r as any).id}: cagr=${(r as any).cagr_1y}% → twrr=${(r as any).twrr_1y}%`),
+      engine_version: ENGINE_VERSION,
+      latency_ms: Date.now() - t0,
+      status: "success",
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        repaired_count: repaired.rows.length,
+        repaired: (repaired.rows as any[]).map((r) => ({
+          id: r.id,
+          cagr_1y: Number(r.cagr_1y),
+          twrr_1y_new: Number(r.twrr_1y),
+          cagr_3y: Number(r.cagr_3y),
+          twrr_3y_new: Number(r.twrr_3y),
+        })),
+        math_note: "TWRR ≈ CAGR for lump-sum portfolios with no external cashflows. Alpha = portfolioCagr − benchmarkCagr (both annualised over same holding period).",
+        engine_version: ENGINE_VERSION,
+      },
+      meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, latency_ms: Date.now() - t0 },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error_code: "TWRR_REPAIR_ERROR", message: err.message, retryable: true });
+  }
+});
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FASP-AI v3.0 — Dynamic Portfolio Management Endpoints

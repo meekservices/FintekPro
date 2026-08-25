@@ -4914,10 +4914,22 @@ export default function AgentModelPortfoliosPage() {
         {filtered.map((portfolio) => {
           const risk = RISK_CONFIG[portfolio.riskProfile];
           // ── Per-card computed values ────────────────────────────────────────
-          // TWRR if scheduler has run, else CAGR fallback
-          const display1Y  = portfolio.twrr1Y  ?? portfolio.cagr1Y ?? 0;
+          // TWRR if scheduler has run, else CAGR fallback.
+          //
+          // Stale-TWRR Guard (Fix TWRR-1 frontend):
+          // If twrr1Y is 0.00 but cagr1Y > 0, the TWRR in DB was set by the old
+          // buggy computeTWRR() that used cross-sectional holding returns as time
+          // sub-periods. In this case, the TWRR is stale, NOT a genuine 0% return.
+          // Fall back to cagr1Y until the nightly quant repair runs.
+          // A genuine 0% TWRR is treated as stale if cagr1Y > 0 (the portfolio
+          // should not have earned exactly 0% while its holdings earned 10%+).
+          const rawTwrr1Y = portfolio.twrr1Y;
+          const isTwrrStale = rawTwrr1Y != null && rawTwrr1Y === 0 && (portfolio.cagr1Y ?? 0) > 0;
+          const display1Y  = isTwrrStale
+            ? (portfolio.cagr1Y ?? 0)          // stale 0 — use cagr1Y
+            : (rawTwrr1Y ?? portfolio.cagr1Y ?? 0); // genuine TWRR or CAGR
           const display3Y  = portfolio.twrr3Y  ?? portfolio.cagr3Y ?? 0;
-          const isUsingTWRR = portfolio.twrr1Y != null;
+          const isUsingTWRR = rawTwrr1Y != null && !isTwrrStale;
 
           // Inception age in months
           const inceptionMonths = portfolio.inceptionDate
@@ -4925,10 +4937,15 @@ export default function AgentModelPortfoliosPage() {
             : 12;
 
           // ── Genuine CAGR-basis alpha ─────────────────────────────────────────
-          // When the portfolio is < 12 months old, the raw return (e.g. +0.00% over 5M)
+          // When the portfolio is < 12 months old, the raw return (e.g. +4.12% over 4M)
           // cannot be fairly compared against the 1Y benchmark CAGR.
           // Solution: annualise BOTH portfolio return and benchmark to the SAME partial
           // period so the alpha is apples-to-apples.
+          //
+          // Correct math for 4M period:
+          //   Portfolio 4M cumulative return  → annualise → CAGR (e.g. 4.12% → 12.8%)
+          //   Benchmark 1Y CAGR de-annualised → partial return → re-annualise → same CAGR (e.g. 10.6%)
+          //   Alpha = 12.8% − 10.6% = +2.2%  ✅
           const rawBenchmark1Y = portfolio.blendedBenchmarkReturn ?? portfolio.benchmarkCagr1Y ?? 0;
           const isPartialPeriod = inceptionMonths > 0 && inceptionMonths < 12;
 

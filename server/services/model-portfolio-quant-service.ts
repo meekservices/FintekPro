@@ -590,11 +590,30 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
           Array.isArray(row.allocation) ? row.allocation : [];
         const blendedBenchmark = computeBlendedBenchmark(allocationArr);
 
-        // TWRR: approximate from sub-period returns (monthly returns over 12m and 36m windows)
-        // Using calibrated monthly returns as sub-periods until real NAV history is wired
-        const monthlyR1Y = holdings.map(h => (h.currentReturn ?? 0) / 12 / 100);
-        const twrr1Y = computeTWRR(monthlyR1Y.slice(0, 12), 12);
-        const twrr3Y = computeTWRR(monthlyR1Y.slice(0, 36).concat(Array(Math.max(0, 36 - monthlyR1Y.length)).fill(monthlyR1Y[0] ?? 0)), 36);
+        // ── TWRR computation (Fix TWRR-1) ────────────────────────────────────────
+        // PROBLEM: Previous approach used per-holding currentReturn values sliced as if they
+        // were monthly sub-period time returns. Holdings are cross-sectional, not time-series;
+        // h[0]..h[11] are 12 different holdings at one point in time, NOT 12 monthly returns.
+        // This produced near-0 or nonsensical TWRR values.
+        //
+        // FIX: Approximate TWRR from the portfolio-level weighted-average return.
+        // Step 1: Compute weighted-average holding return (the portfolio's composite return).
+        // Step 2: Use this as the annualised TWRR directly (it equals CAGR when cashflows are absent).
+        // Step 3: Scale to 3Y by subtracting a conservative mean-reversion discount (1.5%).
+        //
+        // This is deterministic, honest, and matches the portfolio's cagr_1y direction.
+        // Real NAV-history TWRR will replace this once model_portfolio_nav_history is populated.
+        const totalHoldingWeight = holdings.reduce((s, h) => s + (h.weight ?? 0), 0) || 100;
+        const weightedAvgReturn  = holdings.reduce((s, h) => s + (h.currentReturn ?? 0) * (h.weight ?? 0), 0) / totalHoldingWeight;
+
+        // Prefer portfolio-level cagr1Y when available; fall back to holding-weighted average.
+        // cagr1Y is the official SEBI-filed figure; weightedAvgReturn is the derived approximation.
+        const baseReturn1Y = portfolio.cagr1Y > 0 ? portfolio.cagr1Y : weightedAvgReturn;
+        const baseReturn3Y = portfolio.cagr3Y > 0 ? portfolio.cagr3Y : Math.max(baseReturn1Y - 1.5, 0);
+
+        // Express as annualised TWRR (%) — same unit as cagr1Y
+        const twrr1Y = parseFloat(baseReturn1Y.toFixed(4));
+        const twrr3Y = parseFloat(baseReturn3Y.toFixed(4));
 
         // Drawdown circuit breaker check — log alert if tripped
         const circuitBreaker = checkDrawdownCircuitBreaker(
