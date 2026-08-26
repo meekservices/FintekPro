@@ -347,7 +347,7 @@ export class AIRegimeDetectionEngine {
 				breadthScore: Number.parseFloat(row.breadthScore || "0"),
 			};
 		} catch (error) {
-			console.error("[RegimeDetection] Error fetching current regime:", error);
+			logger.error("[RegimeDetection] Error fetching current regime:", error instanceof Error ? error : new Error(String(error)));
 			return null;
 		}
 	}
@@ -373,7 +373,7 @@ export class AIRegimeDetectionEngine {
 				breadthScore: Number.parseFloat(row.breadthScore || "0"),
 			}));
 		} catch (error) {
-			console.error("[RegimeDetection] Error fetching regime history:", error);
+			logger.error("[RegimeDetection] Error fetching regime history:", error instanceof Error ? error : new Error(String(error)));
 			return [];
 		}
 	}
@@ -407,9 +407,9 @@ export class AIRegimeDetectionEngine {
 				}
 			}
 		} catch (error) {
-			console.error(
+			logger.error(
 				"[RegimeDetection] Error fetching regime distribution:",
-				error,
+				error instanceof Error ? error : new Error(String(error)),
 			);
 		}
 		return distribution;
@@ -465,7 +465,7 @@ export class AIRegimeDetectionEngine {
 
 			return this.generateSyntheticNiftyPrices(days);
 		} catch (error) {
-			console.error("[RegimeDetection] Error fetching Nifty prices:", error);
+			logger.error("[RegimeDetection] Error fetching Nifty prices:", error instanceof Error ? error : new Error(String(error)));
 			return this.generateSyntheticNiftyPrices(days);
 		}
 	}
@@ -561,9 +561,9 @@ export class AIRegimeDetectionEngine {
 
 			return { advances, declines, ratio, pctAbove50DMA, pctAbove200DMA };
 		} catch (error) {
-			console.error(
+			logger.error(
 				"[RegimeDetection] Error estimating market breadth:",
-				error,
+				error instanceof Error ? error : new Error(String(error)),
 			);
 			return {
 				advances: 50,

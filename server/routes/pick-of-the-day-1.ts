@@ -171,7 +171,7 @@ router.get("/live", async (req, res) => {
 			disclaimer: REGULATORY_DISCLAIMER,
 		});
 	} catch (error) {
-		console.error("[API] Error fetching live picks:", error);
+		logger.error("[API] Error fetching live picks:", error instanceof Error ? error : new Error(String(error)));
 		res
 			.status(500)
 			.json({ success: false, error: "Failed to fetch live picks" });
@@ -195,7 +195,7 @@ router.get("/history", async (req, res) => {
 			disclaimer: REGULATORY_DISCLAIMER,
 		});
 	} catch (error) {
-		console.error("[API] Error fetching pick history:", error);
+		logger.error("[API] Error fetching pick history:", error instanceof Error ? error : new Error(String(error)));
 		res.status(500).json({ success: false, error: "Failed to fetch history" });
 	}
 });
@@ -216,7 +216,7 @@ router.get("/stats", async (req, res) => {
 			disclaimer: REGULATORY_DISCLAIMER,
 		});
 	} catch (error) {
-		console.error("[API] Error fetching pick stats:", error);
+		logger.error("[API] Error fetching pick stats:", error instanceof Error ? error : new Error(String(error)));
 		res.status(500).json({ success: false, error: "Failed to fetch stats" });
 	}
 });
@@ -230,7 +230,7 @@ router.post("/generate", requireAdmin, async (req, res) => {
 			picks,
 		});
 	} catch (error) {
-		console.error("[API] Error generating picks:", error);
+		logger.error("[API] Error generating picks:", error instanceof Error ? error : new Error(String(error)));
 		res.status(500).json({ success: false, error: "Failed to generate picks" });
 	}
 });
@@ -276,7 +276,7 @@ router.post("/catchup", requireAuth, async (req, res) => {
 			});
 		}
 
-		console.log(
+		logger.info(
 			`[CatchUp] Agent triggered: Missing categories for ${today}: [${missing.join(", ")}]`,
 		);
 		const picks = await pickOfTheDayService.generateDailyPicks();
@@ -288,7 +288,7 @@ router.post("/catchup", requireAuth, async (req, res) => {
 			generated: picks.length,
 		});
 	} catch (error) {
-		console.error("[API] Error in catch-up generation:", error);
+		logger.error("[API] Error in catch-up generation:", error instanceof Error ? error : new Error(String(error)));
 		res
 			.status(500)
 			.json({ success: false, error: "Failed to generate catch-up picks" });
@@ -304,7 +304,7 @@ router.post("/update-statuses", requireAdmin, async (req, res) => {
 			details: result.details,
 		});
 	} catch (error) {
-		console.error("[API] Error updating pick statuses:", error);
+		logger.error("[API] Error updating pick statuses:", error instanceof Error ? error : new Error(String(error)));
 		res
 			.status(500)
 			.json({ success: false, error: "Failed to update statuses" });
@@ -332,7 +332,7 @@ router.get("/admin/list", requireAdmin, async (req, res) => {
 
 		res.json({ success: true, picks });
 	} catch (error) {
-		console.error("[API] Error listing picks:", error);
+		logger.error("[API] Error listing picks:", error instanceof Error ? error : new Error(String(error)));
 		res.status(500).json({ success: false, error: "Failed to list picks" });
 	}
 });
@@ -351,7 +351,7 @@ router.get("/admin/:id", requireAdmin, async (req, res) => {
 
 		res.json({ success: true, pick });
 	} catch (error) {
-		console.error("[API] Error fetching pick:", error);
+		logger.error("[API] Error fetching pick:", error instanceof Error ? error : new Error(String(error)));
 		res.status(500).json({ success: false, error: "Failed to fetch pick" });
 	}
 });
@@ -402,7 +402,7 @@ router.post("/admin/create", requireAdmin, async (req, res) => {
 
 		res.json({ success: true, pick: newPick });
 	} catch (error) {
-		console.error("[API] Error creating pick:", error);
+		logger.error("[API] Error creating pick:", error instanceof Error ? error : new Error(String(error)));
 		res.status(500).json({ success: false, error: "Failed to create pick" });
 	}
 });
@@ -432,7 +432,7 @@ router.patch("/admin/:id", requireAdmin, async (req, res) => {
 
 		res.json({ success: true, pick: updated });
 	} catch (error) {
-		console.error("[API] Error updating pick:", error);
+		logger.error("[API] Error updating pick:", error instanceof Error ? error : new Error(String(error)));
 		res.status(500).json({ success: false, error: "Failed to update pick" });
 	}
 });
@@ -452,7 +452,7 @@ router.delete("/admin/:id", requireAdmin, async (req, res) => {
 
 		res.json({ success: true, message: "Pick deleted" });
 	} catch (error) {
-		console.error("[API] Error deleting pick:", error);
+		logger.error("[API] Error deleting pick:", error instanceof Error ? error : new Error(String(error)));
 		res.status(500).json({ success: false, error: "Failed to delete pick" });
 	}
 });
@@ -475,14 +475,14 @@ router.post("/admin/force-generate", requireAdmin, async (req, res) => {
 		const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 		const todayIST = new Date(Date.now() + IST_OFFSET_MS).toISOString().split("T")[0];
 
-		console.info(JSON.stringify({
+		logger.info("[API] Response info", {
 			event: "PICKS_FORCE_GENERATE_TRIGGERED",
 			user_id: (req as any).user?.id,
 			date: todayIST,
 			overwrite,
 			latency_ms: Date.now() - startTime,
 			status: "triggered",
-		}));
+		});
 
 		if (overwrite) {
 			// Delete today's picks first so fresh ones are created
@@ -490,7 +490,7 @@ router.post("/admin/force-generate", requireAdmin, async (req, res) => {
 				.delete(dailyPicks)
 				.where(eq(dailyPicks.recoDate, todayIST))
 				.returning();
-			console.info(`[ForceGenerate] Cleared ${deleted.length} existing picks for ${todayIST}`);
+			logger.info(`[ForceGenerate] Cleared ${deleted.length} existing picks for ${todayIST}`);
 		}
 
 		// Run generation (bypasses holiday guard — admin's intent is explicit)
@@ -503,14 +503,14 @@ router.post("/admin/force-generate", requireAdmin, async (req, res) => {
 			.where(eq(dailyPicks.recoDate, todayIST));
 		const picksGenerated = Number(result?.count ?? 0);
 
-		console.info(JSON.stringify({
+		logger.info("[API] Response info", {
 			event: "PICKS_FORCE_GENERATE_COMPLETE",
 			user_id: (req as any).user?.id,
 			date: todayIST,
 			picks_generated: picksGenerated,
 			latency_ms: Date.now() - startTime,
 			status: "success",
-		}));
+		});
 
 		res.json({
 			success: true,
@@ -520,7 +520,7 @@ router.post("/admin/force-generate", requireAdmin, async (req, res) => {
 			latency_ms: Date.now() - startTime,
 		});
 	} catch (error: any) {
-		console.error(JSON.stringify({
+		logger.error("[API] Response error", {
 			event: "PICKS_FORCE_GENERATE_ERROR",
 			user_id: (req as any).user?.id,
 			error_code: "FORCE_GENERATE_FAILED",
@@ -528,7 +528,7 @@ router.post("/admin/force-generate", requireAdmin, async (req, res) => {
 			retryable: true,
 			latency_ms: Date.now() - startTime,
 			status: "error",
-		}));
+		});
 		res.status(500).json({
 			success: false,
 			error_code: "FORCE_GENERATE_FAILED",
@@ -568,14 +568,14 @@ router.get("/signal-efficacy", requireAdmin, async (req: Request, res: Response)
 		});
 	} catch (error) {
 		const err = error instanceof Error ? error : new Error(String(error));
-		console.error(JSON.stringify({
+		logger.error("[API] Response error", {
 			event: "SIGNAL_EFFICACY_ERROR",
 			error_code: "ANALYSIS_FAILED",
 			message: err.message,
 			retryable: true,
 			latency_ms: Date.now() - start,
 			status: "error",
-		}));
+		});
 		res.status(500).json({
 			success: false,
 			error_code: "ANALYSIS_FAILED",
@@ -626,13 +626,13 @@ router.post("/pre-generate", requireAdmin, async (req: Request, res: Response) =
 	const start = Date.now();
 	try {
 		const result = await pickOfTheDayService.triggerPreGeneration();
-		console.log(JSON.stringify({
+		logger.info("[API] Response info", {
 			event: "PRE_GENERATION_TRIGGERED",
 			user_id: (req as any).user?.id,
 			cached: result.cached,
 			latency_ms: Date.now() - start,
 			status: "success",
-		}));
+		});
 		res.json({
 			success: true,
 			data: result,
