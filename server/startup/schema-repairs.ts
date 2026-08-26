@@ -3950,3 +3950,27 @@ export async function runTruecallerRegistrationColumnRepair() {
     console.warn("  ⚠️ [Truecaller] Column migration non-fatal error:", err?.message?.slice(0, 80));
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MIGRATION: VWAP Storage on listed_stocks
+// Adds last_vwap column to persist Volume-Weighted Average Price from the last
+// live NSE trading session. This is the fallback value shown in the Research
+// Note Financial Snapshot when the market is closed (NSE returns vwap=0).
+// Without this column the write-through in dataService.ts silently failed,
+// causing VWAP = N/A in all research notes regardless of market status.
+// Safe to re-run: uses ADD COLUMN IF NOT EXISTS.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function runVwapColumnRepair() {
+  try {
+    const { pool: migPool } = await import("../db");
+
+    await migPool.query(`
+      ALTER TABLE listed_stocks
+        ADD COLUMN IF NOT EXISTS last_vwap DECIMAL(15, 2)
+    `);
+    console.log("  ✅ [VWAP] listed_stocks.last_vwap column added");
+  } catch (err: any) {
+    console.warn("  ⚠️ [VWAP] Column migration non-fatal error:", err?.message?.slice(0, 80));
+  }
+}
+

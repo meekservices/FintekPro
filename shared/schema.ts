@@ -984,9 +984,14 @@ export const listedStocks = pgTable("listed_stocks", {
   dayChangePercent: decimal("day_change_percent", { precision: 8, scale: 4 }),
   weekHigh52: decimal("week_high_52", { precision: 15, scale: 2 }),
   weekLow52: decimal("week_low_52", { precision: 15, scale: 2 }),
+  // VWAP: Volume-Weighted Average Price from the last live trading session.
+  // Written by the NSE write-through in dataService.ts whenever a live
+  // price fetch returns vwap > 0. Used as a staleness-aware fallback when
+  // the market is closed and NSE/Moneycontrol return vwap = 0.
+  lastVwap: decimal("last_vwap", { precision: 15, scale: 2 }),
   
   // Fundamentals
-  marketCapValue: decimal("market_cap_value", { precision: 20, scale: 2 }), // Market cap in crores
+  marketCapValue: decimal("market_cap_value", { precision: 20, scale: 2 }), // Absolute market cap in ₹ (e.g. 1.67e12 for ₹1.67T). NOT in crores.
   peRatio: decimal("pe_ratio", { precision: 10, scale: 2 }),
   pbRatio: decimal("pb_ratio", { precision: 10, scale: 2 }),
   dividendYield: decimal("dividend_yield", { precision: 8, scale: 4 }),

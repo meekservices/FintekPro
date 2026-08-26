@@ -379,11 +379,17 @@ async function fetchFromNSE(
 			: prevClose && prevClose > 0
 				? prevClose
 				: null;
+	// Bug 2 fix: market_cap_value stores absolute ₹ (price × issued shares).
+	// issuedSize from NSE is a raw share count (e.g. 2,300,000,000 for 2.3B shares).
+	// Resulting market cap is absolute ₹ (e.g. ₹1.67T). NOT in crores.
+	const marketCap: number | null =
+		price !== null && issuedSize !== null && issuedSize > 0
+			? price * issuedSize
+			: null;
 	return {
 		price,
 		previousClose: prevClose,
-		marketCap:
-			price !== null && issuedSize !== null ? price * issuedSize : null,
+		marketCap,
 		pe: pfNse(meta.pdSymbolPe),
 		fiftyTwoWeekHigh: pfNse(whl.max),
 		fiftyTwoWeekLow: pfNse(whl.min),
@@ -445,10 +451,10 @@ async function fetchFromMoneycontrol(
 
 	const price = pf(d.pricecurrent);
 
-	// MKTCAP from Moneycontrol is in Crores (₹ Cr) — convert to absolute ₹
-	// (for consistency with NSE which returns absolute market cap)
+	// Bug 2 fix: Moneycontrol MKTCAP is in Crores — convert to absolute ₹
+	// so market_cap_value is always stored as absolute ₹ (consistent with NSE).
 	const mktCapCr = pf(d.MKTCAP);
-	const marketCap = mktCapCr !== null ? mktCapCr * 1e7 : null; // Cr → ₹
+	const marketCap = mktCapCr !== null ? mktCapCr * 1e7 : null; // Crores → absolute ₹
 
 	return {
 		price,
@@ -459,7 +465,7 @@ async function fetchFromMoneycontrol(
 		fiftyTwoWeekHigh: pf(d["52H"]),
 		fiftyTwoWeekLow: pf(d["52L"]),
 		faceValue: pf(d.FV),
-		vwap: null, // not in Moneycontrol pricefeed
+		vwap: null, // not in Moneycontrol pricefeed — dbVwap fallback handles this
 		currency: "INR",
 	};
 }
@@ -1376,8 +1382,10 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 			dbMarketCap: pf(r.market_cap_value),
 			dbPeRatio: pf(r.pe_ratio),
 			dbFaceValue: pf(r.face_value),
-			dbFiftyTwoWeekHigh: pf(r.fifty_two_week_high),
-			dbFiftyTwoWeekLow: pf(r.fifty_two_week_low),
+			// Bug 3 fix: use the actual SQL column name returned by PostgreSQL (week_high_52 / week_low_52)
+			// NOT the camelCase alias r.fifty_two_week_high which was never populated.
+			dbFiftyTwoWeekHigh: pf(r.week_high_52),
+			dbFiftyTwoWeekLow: pf(r.week_low_52),
 			dbVwap: pf(r.last_vwap),
 		};
 	} catch (e: any) {
@@ -1586,11 +1594,14 @@ function buildFull(
 		bookValue,
 		faceValue: base.faceValue ?? dbData.dbFaceValue ?? null,
 		vwap:
-			// Use live NSE VWAP when market is open (vwap > 0).
-			// When market is closed (NSE returns 0) or NSE fails entirely,
-			// fall back to the last VWAP persisted from a real session.
+			// Priority order:
+			// 1. Live NSE VWAP (market open, vwap > 0)
+			// 2. DB last_vwap — last VWAP from a real live session (Bug 1 fix: column now exists)
+			// 3. previousClose — best proxy when market is closed and no VWAP stored yet
+			// 4. null
 			(base.vwap && base.vwap > 0 ? base.vwap : null) ??
 			dbData.dbVwap ??
+			(base.previousClose && base.previousClose > 0 ? base.previousClose : null) ??
 			null,
 		operatingCashFlow:
 			screener.operatingCashFlow ?? dbData.operatingCashFlow ?? null,

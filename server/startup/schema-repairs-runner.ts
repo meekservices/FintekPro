@@ -12,6 +12,7 @@ import {
   runGeoCoverageColumnsRepair,
   runThreeTierContactColumnsRepair,
   runTruecallerRegistrationColumnRepair,
+  runVwapColumnRepair,
 } from "./schema-repairs";
 
 async function main() {
@@ -249,6 +250,9 @@ async function main() {
 
   console.log("Phase I — adding Truecaller registration flag to users...");
   await runTruecallerRegistrationColumnRepair();
+
+  console.log("Phase J — adding VWAP column to listed_stocks (fixes N/A in Research Note)...");
+  await runVwapColumnRepair();
 
   console.log("FintekPro schema repair job complete.");
 }
