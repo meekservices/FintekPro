@@ -16,6 +16,8 @@ import yahooFinance from "yahoo-finance2";
 import { db } from "../../db";
 import { sql } from "drizzle-orm";
 import { callPython } from "../../clients/python-client";
+import { logger } from "../../logger";
+
 
 export interface FinancialData {
 	price: number | null;
@@ -274,7 +276,7 @@ function setHistCache(symbol: string, data: HistoricalSlice): void {
 	const exp = expectedQtrScore();
 	const cached = data.latestQtr ? qtrScore(data.latestQtr) ?? "?" : "unknown";
 	const valid = data.latestQtr && typeof cached === "number" && cached >= exp;
-	console.log(
+	logger.info(
 		`[ResearchNote] histCache SET for ${symbol} | latestQtr="${data.latestQtr ?? "none"}" | ` +
 			`expected≥${exp} | filing-valid=${valid} | safety-cap=90d`,
 	);
@@ -329,7 +331,7 @@ async function refreshNseCookies(): Promise<void> {
 			nseCookieExpiry = Date.now() + 5 * 60 * 1000;
 		}
 	} catch (e: any) {
-		console.warn("[ResearchNote] NSE cookie refresh failed:", e?.message);
+		logger.warn("[ResearchNote] NSE cookie refresh failed:", e?.message);
 	}
 }
 
@@ -695,7 +697,7 @@ async function fetchFundamentalsFromPython(
 			result.cfHistory,
 			result.quarterlyHistory,
 		].filter(Boolean).length;
-		console.log(
+		logger.info(
 			`[ResearchNote] Python/yfinance fundamentals for ${nseSymbol}: ` +
 				`ROE=${result.roe !== null ? (result.roe * 100).toFixed(1) + "%" : "N/A"}, ` +
 				`Rev=${result.revenue !== null ? "₹" + result.revenue.toFixed(0) + "Cr" : "N/A"}, ` +
@@ -703,7 +705,7 @@ async function fetchFundamentalsFromPython(
 		);
 		return result;
 	} catch (e: any) {
-		console.warn(
+		logger.warn(
 			`[ResearchNote] Python fundamentals failed for ${nseSymbol}:`,
 			e?.message?.slice(0, 80),
 		);
@@ -1098,7 +1100,7 @@ function parseScreenerHtml(html: string, nseSymbol: string): ScreenerData {
 		}
 	}
 	if (pros.length > 0 || cons.length > 0) {
-		console.log(
+		logger.info(
 			`[ResearchNote] Screener.in ${nseSymbol}: ${pros.length} pros, ${cons.length} cons`,
 		);
 	}
@@ -1124,19 +1126,19 @@ function parseScreenerHtml(html: string, nseSymbol: string): ScreenerData {
 		? computeCagr(profitRow.values, 5, plHeaders)
 		: null;
 
-	console.log(
-		`[ResearchNote] Screener.in ${nseSymbol} → ROE:${roe !== null ? (roe * 100).toFixed(2) + "%" : "N/A"}`,
-		`ROCE:${roce !== null ? (roce * 100).toFixed(2) + "%" : "N/A"}`,
-		`PE:${pe ?? "N/A"} PB:${pb ?? "N/A"}`,
-		`DY:${dividendYield !== null ? (dividendYield * 100).toFixed(2) + "%" : "N/A"}`,
-		`D/E:${debtToEquity ?? "N/A"}`,
-		`Rev:${revenue !== null ? "₹" + revenue.toFixed(0) + "Cr" : "N/A"}`,
-		`OPM:${operatingMargin !== null ? (operatingMargin * 100).toFixed(1) + "%" : "N/A"}`,
-		`CFO:${operatingCashFlow !== null ? "₹" + operatingCashFlow.toFixed(0) + "Cr" : "N/A"}`,
-		`FCF:${freeCashFlow !== null ? "₹" + freeCashFlow.toFixed(0) + "Cr" : "N/A"}`,
-		`PLHist:${plHistory?.rows.length ?? 0}rows`,
-		`Qtrs:${quarterlyHistory?.rows.length ?? 0}rows`,
+	logger.info(
+		`[ResearchNote] Screener.in ${nseSymbol} → ROE:${roe !== null ? (roe * 100).toFixed(2) + "%" : "N/A"} ` +
+		`ROCE:${roce !== null ? (roce * 100).toFixed(2) + "%" : "N/A"} ` +
+		`PE:${pe ?? "N/A"} PB:${pb ?? "N/A"} ` +
+		`DY:${dividendYield !== null ? (dividendYield * 100).toFixed(2) + "%" : "N/A"} ` +
+		`D/E:${debtToEquity ?? "N/A"} ` +
+		`Rev:${revenue !== null ? "₹" + revenue.toFixed(0) + "Cr" : "N/A"} ` +
+		`OPM:${operatingMargin !== null ? (operatingMargin * 100).toFixed(1) + "%" : "N/A"} ` +
+		`CFO:${operatingCashFlow !== null ? "₹" + operatingCashFlow.toFixed(0) + "Cr" : "N/A"} ` +
+		`FCF:${freeCashFlow !== null ? "₹" + freeCashFlow.toFixed(0) + "Cr" : "N/A"} ` +
+		`PLHist:${plHistory?.rows.length ?? 0}rows Qtrs:${quarterlyHistory?.rows.length ?? 0}rows`,
 	);
+
 
 	return {
 		roe,
@@ -1195,7 +1197,7 @@ export async function fetchFromScreener(
 		const html = await pageRes.text();
 		return parseScreenerHtml(html, nseSymbol);
 	} catch (e: any) {
-		console.warn("[ResearchNote] Screener.in fetch failed:", e?.message);
+		logger.warn("[ResearchNote] Screener.in fetch failed:", e?.message);
 		return emptyScreenerData();
 	}
 }
@@ -1212,13 +1214,13 @@ async function fetchFromScreenerDirect(symbol: string): Promise<ScreenerData> {
 	];
 	for (const url of urls) {
 		try {
-			console.log(`[ResearchNote] Screener direct: ${url}`);
+			logger.info(`[ResearchNote] Screener direct: ${url}`);
 			const res = await fetch(url, {
 				headers: { ...BROWSER_HEADERS, Referer: "https://www.screener.in/" },
 				signal: AbortSignal.timeout(15_000),
 			});
 			if (!res.ok) {
-				console.warn(
+				logger.warn(
 					`[ResearchNote] Screener direct ${url} → HTTP ${res.status}`,
 				);
 				continue;
@@ -1231,16 +1233,16 @@ async function fetchFromScreenerDirect(symbol: string): Promise<ScreenerData> {
 				result.pe !== null ||
 				result.bookValue !== null
 			) {
-				console.log(
+				logger.info(
 					`[ResearchNote] Screener direct succeeded for ${symbol} via ${url}`,
 				);
 				return result;
 			}
-			console.warn(
+			logger.warn(
 				`[ResearchNote] Screener direct ${url} returned empty metrics — trying next`,
 			);
 		} catch (e: any) {
-			console.warn(
+			logger.warn(
 				`[ResearchNote] Screener direct failed for ${url}:`,
 				e?.message,
 			);
@@ -1389,7 +1391,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 			dbVwap: pf(r.last_vwap),
 		};
 	} catch (e: any) {
-		console.warn("[ResearchNote] DB read failed:", e?.message);
+		logger.warn("[ResearchNote] DB read failed:", e?.message);
 		return empty;
 	}
 }
@@ -1452,7 +1454,7 @@ async function writeScreenerToDB(
       `);
 		}
 	} catch (e: any) {
-		console.warn(
+		logger.warn(
 			"[ResearchNote] DB write-back failed:",
 			e?.message?.slice(0, 80),
 		);
@@ -1496,7 +1498,7 @@ async function fetchFromYahoo(symbol: string): Promise<Partial<FinancialData>> {
 			}
 		}
 	} catch (e: any) {
-		console.warn(`[ResearchNote] Yahoo v8/chart failed for ${symbol}:`, e?.message?.slice(0, 60));
+		logger.warn(`[ResearchNote] Yahoo v8/chart failed for ${symbol}:`, e?.message?.slice(0, 60));
 	}
 
 	// Secondary fallback: yahoo-finance2 npm package
@@ -1649,7 +1651,7 @@ async function fetchPythonReturns(
 			result.status === "no_price_history" ||
 			result.status === "isin_not_found"
 		) {
-			console.warn(
+			logger.warn(
 				`[ResearchNote] Python returns: ${result?.status ?? "unavailable"} for ${nseSymbol}`,
 			);
 			return empty;
@@ -1665,14 +1667,14 @@ async function fetchPythonReturns(
 			returns6M: pf((raw as any).return_6m),
 			returns1Y: pf((raw as any).return_1y),
 		};
-		console.log(
+		logger.info(
 			`[ResearchNote] Python returns ${nseSymbol}: 1M=${returns.returns1M !== null ? (returns.returns1M * 100).toFixed(1) + "%" : "N/A"}, ` +
 				`6M=${returns.returns6M !== null ? (returns.returns6M * 100).toFixed(1) + "%" : "N/A"}, ` +
 				`1Y=${returns.returns1Y !== null ? (returns.returns1Y * 100).toFixed(1) + "%" : "N/A"}`,
 		);
 		return returns;
 	} catch (e: any) {
-		console.warn(
+		logger.warn(
 			`[ResearchNote] Python returns fetch failed for ${nseSymbol}:`,
 			e?.message?.slice(0, 80),
 		);
@@ -1706,7 +1708,7 @@ export async function getFinancialData(
 					cachedHist.quarterlyHistory,
 				].filter(Boolean).length
 			: 0;
-		console.log(
+		logger.info(
 			`[ResearchNote] Cache HIT for ${symbol}${cachedHist ? ` + histCache (${tableCount}/4 tables)` : ""}`,
 		);
 		return { ...(cached.data as any), _screenerData: mergedScreener };
@@ -1832,12 +1834,12 @@ export async function getFinancialData(
 				cachedHist.cfHistory,
 				cachedHist.quarterlyHistory,
 			].filter(Boolean).length;
-			console.log(
+			logger.info(
 				`[ResearchNote] DB HIT (fresh, ${ageHours}h) + histCache HIT for ${nseSymbol} (${tableCount}/4 tables)`,
 			);
 		} else {
 			// histCache miss — fetch Screener.in tables now, then cache them
-			console.log(
+			logger.info(
 				`[ResearchNote] DB HIT (fresh, ${ageHours}h) + histCache MISS for ${nseSymbol} — fetching Screener.in tables`,
 			);
 			const screenerResult = await fetchFromScreener(nseSymbol);
@@ -1853,7 +1855,7 @@ export async function getFinancialData(
 					screenerResult.cfHistory,
 					screenerResult.quarterlyHistory,
 				].filter(Boolean).length;
-				console.log(
+				logger.info(
 					`[ResearchNote] Screener.in tables fetched for ${nseSymbol}: ${tableCount}/4 tables cached`,
 				);
 			} else {
@@ -1867,12 +1869,12 @@ export async function getFinancialData(
 						),
 					);
 					setHistCache(nseSymbol, screenerToHistSlice(screener));
-					console.log(
+					logger.info(
 						`[ResearchNote] Python fallback tables for ${nseSymbol}: cached`,
 					);
 				} else {
 					screener = dbScreener;
-					console.log(
+					logger.info(
 						`[ResearchNote] No historical tables available for ${nseSymbol} — serving metrics only`,
 					);
 				}
@@ -1883,7 +1885,7 @@ export async function getFinancialData(
 		const staleReason = !dbData.lastUpdated
 			? "no DB record"
 			: `stale (${Math.round((Date.now() - dbData.lastUpdated.getTime()) / 3600000)}h old)`;
-		console.log(
+		logger.info(
 			`[ResearchNote] DB MISS (${staleReason}) for ${nseSymbol} — fetching from Screener.in`,
 		);
 		const screenerResult = await fetchFromScreener(nseSymbol);
@@ -1922,7 +1924,7 @@ export async function getFinancialData(
 					screener.cfHistory,
 					screener.quarterlyHistory,
 				].filter(Boolean).length;
-				console.log(
+				logger.info(
 					`[ResearchNote] Python enriched missing history for ${nseSymbol}: ${histCount}/4 tables`,
 				);
 			} else {
@@ -1966,7 +1968,7 @@ export async function getFinancialData(
 				    last_updated    = NOW()
 				WHERE symbol = ${nseSymbol.toUpperCase()}
 			`).catch((e: any) =>
-				console.warn("[ResearchNote] VWAP write-through failed:", e?.message?.slice(0, 80)),
+				logger.warn("[ResearchNote] VWAP write-through failed:", e?.message?.slice(0, 80)),
 			);
 		}
 		let data = buildFull(nseResult.value, dbData, screener);
@@ -1980,7 +1982,7 @@ export async function getFinancialData(
 			data = { ...data, ...returns };
 		}
 		cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
-		console.log(
+		logger.info(
 			`[ResearchNote] Fetched ${symbol} — ₹${data.price} | ROE:${data.roe !== null ? (data.roe * 100).toFixed(1) + "%" : "N/A"} | Rev:${data.revenue !== null ? "₹" + data.revenue.toFixed(0) + "Cr" : "N/A"} | OPM:${data.operatingMargin !== null ? (data.operatingMargin * 100).toFixed(1) + "%" : "N/A"} | src:${fundamentalsSource.source}`,
 		);
 		return {
@@ -1990,7 +1992,7 @@ export async function getFinancialData(
 		} as any;
 	}
 
-	console.warn(
+	logger.warn(
 		`[ResearchNote] NSE failed for ${nseSymbol}:`,
 		(nseResult as any).reason?.message,
 	);
@@ -2003,7 +2005,7 @@ export async function getFinancialData(
 		: ["nse", "bse"];
 	for (const mcExchange of gfExchanges) {
 		try {
-			console.log(`[ResearchNote] Moneycontrol fallback: ${nseSymbol} (${mcExchange.toUpperCase()})`);
+			logger.info(`[ResearchNote] Moneycontrol fallback: ${nseSymbol} (${mcExchange.toUpperCase()})`);
 			const mcData = await fetchFromMoneycontrol(nseSymbol, mcExchange);
 			if (mcData.price !== null) {
 				let data = buildFull(mcData, dbData, screener);
@@ -2017,7 +2019,7 @@ export async function getFinancialData(
 					data = { ...data, ...returns };
 				}
 				cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
-				console.log(
+				logger.info(
 					`[ResearchNote] Moneycontrol OK for ${nseSymbol} (${mcExchange.toUpperCase()}) — ₹${data.price}`,
 				);
 				return {
@@ -2027,7 +2029,7 @@ export async function getFinancialData(
 				} as any;
 			}
 		} catch (e: any) {
-			console.warn(
+			logger.warn(
 				`[ResearchNote] Moneycontrol failed for ${nseSymbol} (${mcExchange.toUpperCase()}):`,
 				e?.message?.slice(0, 80),
 			);
@@ -2042,7 +2044,7 @@ export async function getFinancialData(
 	let rateLimited = false;
 	for (const ySym of yahooSymbols) {
 		try {
-			console.log(`[ResearchNote] Yahoo fallback: ${ySym}`);
+			logger.info(`[ResearchNote] Yahoo fallback: ${ySym}`);
 			const yData = await fetchFromYahoo(ySym);
 			const data = buildFull(yData, dbData, screener);
 			cache.set(symbol, { data, expiresAt: Date.now() + CACHE_TTL_MS });
@@ -2054,12 +2056,12 @@ export async function getFinancialData(
 		} catch (e: any) {
 			if (isRateLimit(e)) {
 				rateLimited = true;
-				console.warn(
+				logger.warn(
 					`[ResearchNote] Yahoo rate-limited for ${ySym}, trying next exchange...`,
 				);
 				continue;
 			}
-			console.warn(`[ResearchNote] Yahoo failed for ${ySym}:`, e?.message);
+			logger.warn(`[ResearchNote] Yahoo failed for ${ySym}:`, e?.message);
 		}
 	}
 	// Don't throw on rate limit here — try Screener.in direct ticker URL before giving up.
@@ -2067,7 +2069,7 @@ export async function getFinancialData(
 	// Screener direct-URL fallback: bypass the search step and hit /company/{SYMBOL}/ directly.
 	// This is especially useful for InvITs / BSE-only stocks where the search API returns nothing.
 	try {
-		console.log(
+		logger.info(
 			`[ResearchNote] Trying Screener direct ticker fallback for ${nseSymbol}`,
 		);
 		const directScreener = await fetchFromScreenerDirect(nseSymbol);
@@ -2090,7 +2092,7 @@ export async function getFinancialData(
 			} as any;
 		}
 	} catch (e: any) {
-		console.warn(
+		logger.warn(
 			`[ResearchNote] Screener direct fallback threw for ${nseSymbol}:`,
 			e?.message,
 		);
@@ -2104,7 +2106,7 @@ export async function getFinancialData(
 		dbData.existsInListedStocks
 	) {
 		const reason = rateLimited ? "rate-limited" : "all sources failed";
-		console.warn(
+		logger.warn(
 			`[ResearchNote] ${reason} for ${nseSymbol} — serving stale/partial DB data (existsInDB: ${dbData.existsInListedStocks})`,
 		);
 		const staleData = buildFull({}, dbData, screener);
