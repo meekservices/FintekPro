@@ -182,6 +182,45 @@ gcloud run services update-traffic $SERVICE_NAME \
 echo "✅ Deployment complete!"
 gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --format='value(status.url)'
 
+# ── Git Push: keep GitHub in sync with production ──────────────────────────
+# gcloud builds submit deploys from a source tarball sent to Cloud Build —
+# it does NOT push to GitHub. Without this step, GitHub silently falls behind
+# production every time we deploy, causing "unsync code changes" confusion.
+#
+# Guards:
+#   • CI=true  → skip (CI runners push via their own pipeline)
+#   • detached HEAD or no origin → skip (unusual local states)
+#   • dirty working tree → warn only, still push committed HEAD
+if [ "${CI:-false}" = "true" ]; then
+  echo ""
+  echo "ℹ️  CI environment detected — skipping git push (CI pipeline handles this)"
+else
+  CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+  HAS_ORIGIN=$(git remote get-url origin 2>/dev/null || echo "")
+
+  if [ -z "$CURRENT_BRANCH" ]; then
+    echo ""
+    echo "⚠️  Detached HEAD — skipping git push. Run: git push origin main manually."
+  elif [ -z "$HAS_ORIGIN" ]; then
+    echo ""
+    echo "⚠️  No 'origin' remote found — skipping git push."
+  else
+    # Warn if working tree is dirty (uncommitted changes exist)
+    if ! git diff --quiet || ! git diff --cached --quiet; then
+      echo ""
+      echo "⚠️  Working tree has uncommitted changes — pushing committed HEAD only."
+    fi
+
+    echo ""
+    echo "🔄 Pushing ${CURRENT_BRANCH} → origin (keeping GitHub in sync with production)..."
+    if git push origin "$CURRENT_BRANCH" 2>&1; then
+      echo "✅ GitHub sync complete — origin/${CURRENT_BRANCH} is up to date."
+    else
+      echo "⚠️  git push failed (non-fatal). Run: git push origin ${CURRENT_BRANCH} manually."
+    fi
+  fi
+fi
+
 # ── Update ALL Cloud Run Jobs (image + Cloud SQL + secrets) ───────────────────
 # All 3 cron jobs need --add-cloudsql-instances so the /cloudsql socket exists.
 # Without it, the DB connection silently fails and jobs exit(0) in <500ms.
@@ -314,3 +353,15 @@ echo "  ✅ Removed ${PRUNED} old revision(s) — 5 latest kept"
 echo ""
 echo "🎉 Deploy + cleanup complete!"
 echo ""
+
+# ── Final GitHub sync status reminder ──────────────────────────────────────
+if [ "${CI:-false}" != "true" ]; then
+  AHEAD=$(git rev-list --count origin/$(git symbolic-ref --short HEAD 2>/dev/null || echo main)..HEAD 2>/dev/null || echo "?")
+  if [ "$AHEAD" = "0" ]; then
+    echo "✅ GitHub is fully in sync with production (0 commits ahead)."
+  elif [ "$AHEAD" = "?" ]; then
+    echo "ℹ️  Could not check GitHub sync status."
+  else
+    echo "⚠️  GitHub is still ${AHEAD} commit(s) behind. Run: git push origin main"
+  fi
+fi
