@@ -4924,7 +4924,9 @@ export default function AgentModelPortfoliosPage() {
           // A genuine 0% TWRR is treated as stale if cagr1Y > 0 (the portfolio
           // should not have earned exactly 0% while its holdings earned 10%+).
           const rawTwrr1Y = portfolio.twrr1Y;
-          const isTwrrStale = rawTwrr1Y != null && rawTwrr1Y === 0 && (portfolio.cagr1Y ?? 0) > 0;
+          // Stale when twrr_1y is exactly 0 but cagr_1y is any non-zero value
+          // (negative-return portfolios also need the fallback)
+          const isTwrrStale = rawTwrr1Y != null && rawTwrr1Y === 0 && (portfolio.cagr1Y ?? 0) !== 0;
           const display1Y  = isTwrrStale
             ? (portfolio.cagr1Y ?? 0)          // stale 0 — use cagr1Y
             : (rawTwrr1Y ?? portfolio.cagr1Y ?? 0); // genuine TWRR or CAGR
