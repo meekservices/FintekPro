@@ -35,6 +35,9 @@ import { aiGovernanceEngine } from "./ai-governance";
 import { marketHolidayService } from "./market-holiday-service";
 import { FaspAIv2Service } from "./fasp-ai-v2-service";
 import { pickOutcomeAnalyzer } from "./pick-outcome-analyzer";
+import { telemetryBus } from "./engine-telemetry-bus";
+import { scorerCalibrationService } from "./scorer-calibration-service";
+
 
 // --- Strategy Imports ---
 import { IPickStrategy } from "./picks/types";
@@ -278,6 +281,16 @@ export class PickOfTheDayService {
 		// 1. Systemic Resilience Check: Detect Black Swan Regime
 		const isBlackSwan = marketRegimeDetector.detectBlackSwanEvent();
 
+		// ── Engine Telemetry Bus: read shared regime for richer context ──
+		// The regime from AIRegimeDetectionEngine is shared via the bus so all
+		// engines use the same signal (bull/bear/sideways/high_vol/unknown).
+		const sharedRegime = telemetryBus.getLatestRegime();
+		const regimeForContext = isBlackSwan ? "BLACK_SWAN" : (sharedRegime !== "unknown" ? sharedRegime : "NORMAL");
+
+		// ── Alpha Self-Calibration: fetch calibrated min threshold ──
+		const calibratedMinThreshold = await scorerCalibrationService.getMinThreshold();
+		logger.info(`[PickOfTheDay] Calibrated SCORER_MIN_THRESHOLD: ${calibratedMinThreshold} (default: ${SCORER_MIN_THRESHOLD})`);
+
 		// Ordered by priority
 		let categories: PickCategory[] = [
 			"listed_stocks",
@@ -307,9 +320,11 @@ export class PickOfTheDayService {
 
 				const result = await strategy.generate({
 					today,
-					regime: isBlackSwan ? "BLACK_SWAN" : "NORMAL",
+					regime: regimeForContext,
 					recentIds,
 					service: this,
+					// Pass calibrated threshold so stock-strategy can gate properly
+					minThreshold: calibratedMinThreshold,
 				});
 
 				// StockStrategy now returns DailyPickData[] (one per sector).
@@ -322,13 +337,15 @@ export class PickOfTheDayService {
 
 				for (const pick of picks) {
 					// ── FASP-AI v2.0: Compute multi-factor confidence ──────────────────────
-					const rawScore = Math.max(pick.confidenceScore ?? 60, 60); // 0–100
+					const rawScore = Math.max(pick.confidenceScore ?? 60, 60);
 					const confidence = FaspAIv2Service.computeConfidence({
 						responseLength: (pick.rationale ?? "").length,
-						hasStructuredData: true, // picks are fully structured
+						hasStructuredData: true,
 						factorCount: 4 + (pick.sectorCategory ? 1 : 0) + (pick.timeHorizon ? 1 : 0),
-						userSegment: "retail", // picks are retail-facing by default
-						marketVolatility: isBlackSwan ? "high" : "normal",
+						// userSegment always "retail" for FASP-AI governance scoring —
+						// role-adaptive depth is handled by advisory-output-formatter at the API layer
+						userSegment: "retail",
+						marketVolatility: isBlackSwan ? "high" : (sharedRegime === "high_vol" ? "high" : "normal"),
 					});
 
 					const governanceOutput = {
@@ -533,6 +550,28 @@ export class PickOfTheDayService {
 				);
 			}
 		}
+
+		const picksCount = generated.length;
+		const generationLatencyMs = Date.now() - new Date(`${today}T00:00:00+05:30`).getTime();
+
+		// ── Telemetry Bus: report picks generation quality ──
+		telemetryBus.report({
+			engineId: "picks-engine",
+			engineName: "Pick of the Day Engine",
+			category: "Alpha Generation",
+			reportedAt: new Date().toISOString(),
+			latencyMs: Math.min(generationLatencyMs, 300_000), // cap at 5 min
+			qualityScore: Math.min(100, Math.round((picksCount / 10) * 100)), // 10 cats = 100%
+			itemsProcessed: picksCount,
+			errorCount: 0,
+			meta: {
+				regime: regimeForContext,
+				isBlackSwan,
+				calibratedMinThreshold,
+				date: today,
+				scorerVersion: SCORER_VERSION,
+			},
+		});
 
 		return generated;
 	}

@@ -6,6 +6,8 @@ import { stockIntersectionAnalysisService } from "../services/stock-intersection
 import { aiService } from "../services/ai-service";
 import { pickOfTheDayService } from "../services/pick-of-the-day-service";
 import { logger } from "../logger";
+import { telemetryBus } from "../services/engine-telemetry-bus";
+import { scorerCalibrationService } from "../services/scorer-calibration-service";
 
 const router = Router();
 
@@ -743,10 +745,149 @@ router.get("/run", async (req: Request, res: Response) => {
 			},
 			categoryBreakdown,
 			results,
+			// Telemetry bus statuses: self-reported quality scores from each engine
+			telemetryStatuses: telemetryBus.getAllStatuses(),
+			alphaSignal: telemetryBus.getAlphaSignal(),
+			calibration: scorerCalibrationService.getCalibrationMeta(),
 		});
 	} catch (error: any) {
 		logger.error("[EngineHealthCheck] Error:", { error: error?.message });
 		res.status(500).json({ success: false, error: error.message });
+	}
+});
+
+/**
+ * POST /api/admin/engines/self-heal
+ * Admin-only: runs a full engine health check and attempts recovery
+ * for each failed engine via known repair actions.
+ *
+ * Recovery map:
+ *   picks-engine        → trigger manual pick generation for today
+ *   scorer-calibration  → force calibration with latest performance stats
+ *   ai-regime-detection → flush Redis regime cache (forces fresh detection)
+ *   [any]               → flush Redis telemetry cache for that engine
+ *
+ * GCR v1.0: admin-only, structured logs, returns { success, data, meta }
+ */
+router.post("/self-heal", async (req: Request, res: Response) => {
+	const healStart = Date.now();
+	try {
+		// 1. Capture before state
+		const before = telemetryBus.getAllStatuses();
+		const failedBefore = before.filter(
+			(s) => s.health === "critical" || s.health === "unknown",
+		);
+
+		const repairLog: Array<{ engineId: string; action: string; result: string }> = [];
+
+		// 2. Attempt recovery for each failed/unknown engine
+		for (const engine of failedBefore) {
+			try {
+				let action = "flush_redis_cache";
+				let result = "Cache flush attempted";
+
+				switch (engine.engineId) {
+					case "picks-engine": {
+						// Trigger pick generation for today if none generated yet
+						action = "trigger_pick_generation";
+						const todayPicks = await pickOfTheDayService.getTodaysPicks();
+						if (todayPicks.length === 0) {
+							void pickOfTheDayService.generateDailyPicks();
+							result = "Pick generation triggered (async)";
+						} else {
+							result = `Picks already exist today (${todayPicks.length}) — no action needed`;
+						}
+						break;
+					}
+					case "scorer-calibration": {
+						// Force calibration with latest performance stats
+						action = "force_calibration";
+						const stats = await pickOfTheDayService.getPerformanceStats();
+						const cal = await scorerCalibrationService.calibrate(
+							stats.hitRate ?? 0,
+							stats.totalPicks ?? 0,
+						);
+						result = `Calibrated: threshold ${cal.previousThreshold}→${cal.newThreshold} (action: ${cal.action})`;
+						break;
+					}
+					case "ai-regime-detection": {
+						// Flush Redis regime cache to force fresh detection on next call
+						action = "flush_regime_cache";
+						try {
+							const { getSharedRedis } = await import("../utils/redis-client");
+							const redis = await getSharedRedis();
+							if (redis) {
+								await redis.del("telemetry:engine:ai-regime-detection");
+								result = "Redis regime cache flushed";
+							} else {
+								result = "Redis unavailable — skipped";
+							}
+						} catch {
+							result = "Redis flush failed (non-fatal)";
+						}
+						break;
+					}
+					default: {
+						// Generic: flush telemetry cache for this engine
+						try {
+							const { getSharedRedis } = await import("../utils/redis-client");
+							const redis = await getSharedRedis();
+							if (redis) {
+								await redis.del(`telemetry:engine:${engine.engineId}`);
+								result = `Redis cache flushed for ${engine.engineId}`;
+							} else {
+								result = "Redis unavailable";
+							}
+						} catch {
+							result = "Flush failed (non-fatal)";
+						}
+					}
+				}
+
+				repairLog.push({ engineId: engine.engineId, action, result });
+				logger.info("[SelfHeal] Repair attempted", {
+					event: "ENGINE_SELF_HEAL",
+					user_id: (req as any).user?.id ?? "ADMIN",
+					latency_ms: Date.now() - healStart,
+					status: "success",
+					engineId: engine.engineId,
+					action,
+					result,
+				});
+			} catch (repairErr) {
+				repairLog.push({
+					engineId: engine.engineId,
+					action: "repair",
+					result: `Failed: ${repairErr instanceof Error ? repairErr.message : String(repairErr)}`,
+				});
+			}
+		}
+
+		// 3. Capture after state
+		const after = telemetryBus.getAllStatuses();
+		const alphaSignal = telemetryBus.getAlphaSignal();
+
+		res.json({
+			success: true,
+			data: {
+				repairedEngines: repairLog.length,
+				repairLog,
+				beforeStatuses: before,
+				afterStatuses: after,
+				alphaSignal,
+			},
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "1.0.0",
+				latencyMs: Date.now() - healStart,
+			},
+		});
+	} catch (error: any) {
+		logger.error("[SelfHeal] Error:", { error: error?.message });
+		res.status(500).json({
+			success: false,
+			error: { error_code: "SELF_HEAL_FAILED", message: error.message, retryable: true },
+		});
 	}
 });
 

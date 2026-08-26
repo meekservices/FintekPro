@@ -11,6 +11,11 @@ export interface StrategyContext {
 	regime: string | null;
 	recentIds: Set<string>;
 	service: PickOfTheDayService;
+	/**
+	 * Calibrated minimum quant score threshold from ScorerCalibrationService.
+	 * If not provided, each strategy falls back to its own default.
+	 */
+	minThreshold?: number;
 }
 
 export interface IPickStrategy {

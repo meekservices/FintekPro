@@ -2,6 +2,8 @@ import { db } from "../db";
 import { aiRegimeHistory, aiPriceHistory, listedStocks } from "@shared/schema";
 import { eq, desc, sql, gte, lte, and, asc } from "drizzle-orm";
 import { aiAnalyticsEngine } from "./ai-analytics-engine";
+import { telemetryBus } from "./engine-telemetry-bus";
+import { logger } from "../logger";
 
 export type RegimeLabel = "bull" | "bear" | "sideways" | "high_vol";
 
@@ -230,7 +232,8 @@ export class AIRegimeDetectionEngine {
 						)
 					: 0;
 
-			return {
+			const t0 = Date.now();
+			const detectionResult = {
 				regimeLabel: winningRegime,
 				confidence,
 				signals,
@@ -253,8 +256,30 @@ export class AIRegimeDetectionEngine {
 					momentum: momentumResult.momentum,
 				},
 			};
+
+			// ── Regime Propagation: publish to telemetry bus ──
+			// All other engines (pick engine, portfolio optimizer) read the shared
+			// regime via telemetryBus.getLatestRegime() instead of computing their own.
+			telemetryBus.report({
+				engineId: "ai-regime-detection",
+				engineName: "AI Regime Detection Engine",
+				category: "Risk & Regime",
+				reportedAt: new Date().toISOString(),
+				latencyMs: Date.now() - t0,
+				qualityScore: Math.min(100, Math.round(confidence)),
+				itemsProcessed: signals.length,
+				errorCount: 0,
+				meta: {
+					regime: winningRegime,
+					confidence,
+					niftyClose: currentPrice,
+					indiaVix,
+				},
+			});
+
+			return detectionResult;
 		} catch (error) {
-			console.error("[RegimeDetection] Error detecting regime:", error);
+			logger.error("[RegimeDetection] Error detecting regime:", error instanceof Error ? error : new Error(String(error)));
 			return this.generateDefaultRegime();
 		}
 	}
@@ -294,11 +319,11 @@ export class AIRegimeDetectionEngine {
           india_vix = EXCLUDED.india_vix,
           advance_decline_ratio = EXCLUDED.advance_decline_ratio
       `);
-			console.log(
+			logger.info(
 				`[RegimeDetection] Persisted regime: ${result.regimeLabel} (${result.confidence}%) for ${today}`,
 			);
 		} catch (error) {
-			console.error("[RegimeDetection] Error persisting regime:", error);
+			logger.error("[RegimeDetection] Error persisting regime:", error instanceof Error ? error : new Error(String(error)));
 		}
 	}
 

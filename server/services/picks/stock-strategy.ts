@@ -785,17 +785,18 @@ export class StockStrategy extends BaseStrategy {
 		const stoplossPrice =
 			Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
 
-		// ── WEAKNESS-3 fix: Minimum quant score gate ──────────────────────────────
-		// Picks with topScore < SCORER_MIN_THRESHOLD have insufficient signal coverage
-		// (e.g. when stockFinancialMetrics is empty AND screener data is stale).
-		// Publishing such picks is worse than not publishing — their confidence score
-		// is artificially floored at 60 masking the true signal weakness.
-		if (topScore < SCORER_MIN_THRESHOLD) {
+		// ── WEAKNESS-3 fix: Minimum quant score gate (self-calibrating) ──────────
+		// Picks with topScore < effectiveMinThreshold have insufficient signal coverage.
+		// The effective threshold comes from ScorerCalibrationService (auto-adjusts
+		// based on rolling 90-day hit rate) or falls back to SCORER_MIN_THRESHOLD.
+		const effectiveMinThreshold = context.minThreshold ?? SCORER_MIN_THRESHOLD;
+		if (topScore < effectiveMinThreshold) {
 			logger.warn(
-				`[StockStrategy] ${topStock.symbol} (${broadSector.label}): quant score ${topScore} below minimum threshold ${SCORER_MIN_THRESHOLD} — skipping sector.`,
+				`[StockStrategy] ${topStock.symbol} (${broadSector.label}): quant score ${topScore} below calibrated threshold ${effectiveMinThreshold} — skipping sector.`,
 			);
 			return null;
 		}
+
 
 		// ── Minimum upside guard ────────────────────────────────────────────
 		// If the live price has already run up to within 5% of the target,

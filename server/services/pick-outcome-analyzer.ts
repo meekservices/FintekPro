@@ -24,6 +24,8 @@ import { db } from "../db";
 import { dailyPicks, adminSettings } from "@shared/schema";
 import { and, sql, gte, isNotNull, eq } from "drizzle-orm";
 import { logger } from "../logger";
+import { scorerCalibrationService } from "./scorer-calibration-service";
+import { telemetryBus } from "./engine-telemetry-bus";
 
 // Key used to persist the latest report in adminSettings (JSON blob)
 const EFFICACY_REPORT_KEY = "pick_signal_efficacy_report";
@@ -465,6 +467,38 @@ export class PickOutcomeAnalyzer {
         );
       }
     }
+
+    // ── Alpha Self-Calibration Feedback Loop ──
+    // Wire overallHitRate into ScorerCalibrationService so the stock-strategy
+    // minimum threshold auto-adjusts based on real pick performance.
+    try {
+      const calibration = await scorerCalibrationService.calibrate(overallHitRate, totalClosed);
+      logger.info("[PickOutcomeAnalyzer] Scorer calibration applied", calibration);
+    } catch (calErr) {
+      logger.warn("[PickOutcomeAnalyzer] Scorer calibration failed (non-fatal)", {
+        error_code: "SCORER_CALIBRATION_FAILED",
+        message: calErr instanceof Error ? calErr.message : String(calErr),
+        retryable: true,
+      });
+    }
+
+    // Report to telemetry bus
+    telemetryBus.report({
+      engineId: "pick-outcome-analyzer",
+      engineName: "Pick Outcome Analyzer",
+      category: "Alpha Generation",
+      reportedAt: new Date().toISOString(),
+      latencyMs: Date.now() - new Date(report.generatedAt).getTime(),
+      qualityScore: Math.min(100, Math.round(overallHitRate * 1.5)), // quality ∝ hit rate
+      itemsProcessed: totalClosed,
+      errorCount: 0,
+      meta: {
+        overallHitRate,
+        overallAvgReturn,
+        totalClosed,
+        windowDays,
+      },
+    });
 
     return report;
   }

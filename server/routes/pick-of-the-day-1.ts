@@ -29,6 +29,8 @@ import {
 	DATA_SOURCES,
 	enrichPicksWithDataSource,
 } from "./pick-of-the-day-utils";
+import { formatPicksForRole } from "../services/advisory-output-formatter";
+import { logger } from "../logger";
 
 const watchlistAddSchema = z.object({
 	pickId: z.number(),
@@ -119,7 +121,8 @@ router.get("/today", async (req, res) => {
 			date: new Date(Date.now() + 5.5 * 60 * 60 * 1000)
 				.toISOString()
 				.split("T")[0],
-			picks,
+			// Role-adaptive depth: admin/agent see full scoring; retail sees headline rationale
+			picks: formatPicksForRole(picks as any, (req as any).user?.role),
 			categoryLastUpdated,
 			lastRefreshedAt: new Date().toISOString(),
 			dataSources: DATA_SOURCES,
@@ -132,9 +135,14 @@ router.get("/today", async (req, res) => {
 					: isFallback
 						? `Showing most recent picks from ${fallbackDate}. Today's picks will be generated shortly.`
 						: undefined,
+			meta: {
+				timestamp: new Date().toISOString(),
+				version: "3.0.0",
+				outputDepth: (req as any).user?.role ?? "public",
+			},
 		});
 	} catch (error) {
-		console.error("[API] Error fetching today's picks:", error);
+		logger.error("[API] Error fetching today's picks:", error instanceof Error ? error : new Error(String(error)));
 		res
 			.status(500)
 			.json({ success: false, error: "Failed to fetch today's picks" });
