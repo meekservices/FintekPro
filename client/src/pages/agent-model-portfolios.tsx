@@ -229,6 +229,17 @@ type ModelPortfolio = {
   /** TWRR (Time-Weighted Rate of Return) — SEBI IA Regs mandated metric */
   twrr1Y?: number;
   twrr3Y?: number;
+  /**
+   * isEstablishing: true when portfolio age < 6 months.
+   * Annualising a 2-4 month return amplifies losses 3-6×.
+   * UI should show "Establishing" badge instead of a scary annualised figure.
+   */
+  isEstablishing?: boolean;
+  /**
+   * circuitBreakerTripped: true when max drawdown exceeds risk-profile threshold.
+   * Auto-rebalance is paused; advisor confirmation required.
+   */
+  circuitBreakerTripped?: boolean;
   /** Weighted composite benchmark return across all allocation types */
   blendedBenchmarkReturn?: number;
   /** Per-portfolio drift trigger threshold (%) — varies by asset class */
@@ -4210,6 +4221,9 @@ export default function AgentModelPortfoliosPage() {
         periodsComputedAt:       p.periodsComputedAt       ?? staticP?.periodsComputedAt               ?? null,
         // ── Phase F.2b: income/distribution yield for dividend-heavy & REIT/InvIT portfolios
         portfolioDividendYield:  p.portfolioDividendYield  != null ? Number(p.portfolioDividendYield)  : null,
+        // ── Fix F1/F5: Portfolio maturity + circuit breaker flags from nightly quant engine
+        isEstablishing:       p.isEstablishing       ?? p.is_establishing        ?? false,
+        circuitBreakerTripped: p.circuitBreakerTripped ?? p.circuit_breaker_tripped ?? false,
       };
     });
   }, [apiData]);
@@ -5051,6 +5065,24 @@ export default function AgentModelPortfoliosPage() {
                   {canViewFullHoldings && pendingProposals.length > 0 && (
                     <span title={`${pendingProposals.length} rebalance proposal(s) pending`} className="bg-amber-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full animate-pulse">
                       ⚡ {pendingProposals.length}P
+                    </span>
+                  )}
+                {/* Establishing: <6 month old portfolio — annualised CAGR can be misleading */}
+                  {portfolio.isEstablishing && (
+                    <span
+                      title="Portfolio < 6 months old. Annualised CAGR for short periods amplifies small returns 3–6×. Returns will stabilise as history accumulates."
+                      className="bg-orange-500/90 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
+                    >
+                      🌱 Establishing
+                    </span>
+                  )}
+                  {/* Circuit Breaker: drawdown > risk-profile threshold — auto-rebalance paused */}
+                  {portfolio.circuitBreakerTripped && (
+                    <span
+                      title="Drawdown exceeded risk threshold. Auto-rebalance paused — advisor confirmation required before next rebalance."
+                      className="bg-red-700 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 animate-pulse"
+                    >
+                      🔴 Circuit Breaker
                     </span>
                   )}
                   {portfolio.isFeatured && (

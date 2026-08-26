@@ -421,6 +421,13 @@ export function scorePortfolioAlpha(portfolio: PortfolioQuantInput): PortfolioAl
   // signal range (40–97) to meaningfully differentiate portfolios.
   confidence = Math.min(97, Math.max(40, confidence));
 
+  // Fix F4 — Clamp Sharpe ratio to [-3, +5] range.
+  // Short-history portfolios (2–4 months) with near-zero returns but tiny volatility
+  // were producing Sharpe values of -18 because the volatility denominator was
+  // miscalibrated for goal-based debt portfolios. A Sharpe below -3 is economically
+  // meaningless for any diversified portfolio and indicates a measurement error.
+  const clampedSharpe = Math.max(-3, Math.min(5, sharpeRatio));
+
   const recommendation = alpha > 2 && sharpeRatio > 1.0
     ? `${portfolio.name} demonstrates strong risk-adjusted performance (+${alpha.toFixed(1)}% alpha). Past performance is not indicative of future results. Advisor review required before investing.`
     : alpha > 0
@@ -431,7 +438,7 @@ export function scorePortfolioAlpha(portfolio: PortfolioQuantInput): PortfolioAl
     portfolioId:     portfolio.id,
     alpha,
     excessReturn3Y,
-    sharpeRatio,
+    sharpeRatio:     clampedSharpe,
     confidenceScore: confidence,
     factors,
     recommendation,
@@ -608,21 +615,39 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
 
         // Prefer portfolio-level cagr1Y when available; fall back to holding-weighted average.
         // cagr1Y is the official SEBI-filed figure; weightedAvgReturn is the derived approximation.
-        const baseReturn1Y = portfolio.cagr1Y > 0 ? portfolio.cagr1Y : weightedAvgReturn;
-        const baseReturn3Y = portfolio.cagr3Y > 0 ? portfolio.cagr3Y : Math.max(baseReturn1Y - 1.5, 0);
+        // NOTE: We use cagr1Y regardless of sign — a negative return is honest and must not be silenced.
+        const baseReturn1Y = portfolio.cagr1Y !== 0 ? portfolio.cagr1Y : weightedAvgReturn;
+        // Fix F3: Remove Math.max(..., 0) zero-floor on 3Y TWRR.
+        // A portfolio that is genuinely negative must not record TWRR_3Y = 0 (false precision).
+        // We allow the negative value through so the DB accurately reflects the portfolio state.
+        // When cagr3Y is unavailable (new portfolio <3Y old), project 1Y - 1.5% conservatively.
+        const baseReturn3Y = portfolio.cagr3Y !== 0 ? portfolio.cagr3Y : baseReturn1Y - 1.5;
 
         // Express as annualised TWRR (%) — same unit as cagr1Y
         const twrr1Y = parseFloat(baseReturn1Y.toFixed(4));
         const twrr3Y = parseFloat(baseReturn3Y.toFixed(4));
 
-        // Drawdown circuit breaker check — log alert if tripped
+        // Fix F1: Portfolio maturity guard.
+        // Annualising a 2–4 month return magnifies losses 3–6×, producing misleading CAGR.
+        // For portfolios younger than 6 months, tag them as "establishing" so the UI
+        // can surface a caveat instead of a scary annualised negative figure.
+        const inceptionMs = row.inception_date ? new Date(row.inception_date).getTime() : Date.now();
+        const ageMonths = Math.round((Date.now() - inceptionMs) / (30 * 24 * 3600 * 1000));
+        const isEstablishing = ageMonths < 6;
+
+        // Drawdown circuit breaker — must be computed before the conditional below
         const circuitBreaker = checkDrawdownCircuitBreaker(
           row.max_drawdown != null ? parseFloat(row.max_drawdown) : 0,
           row.risk_profile ?? "moderate",
           row.max_drawdown_threshold != null ? parseFloat(row.max_drawdown_threshold) : null,
         );
+
+        // Fix F5: Circuit breaker must BLOCK the rebalance nightly loop, not just log.
+        // Previously: circuitBreaker.tripped was logged but rebalance continued.
+        // Now: if tripped, skip the nightly drift/rebalance DB update for this portfolio.
+        // The alpha score IS still written (for monitoring) but drift-triggered rebalance is skipped.
         if (circuitBreaker.tripped) {
-          logger.warn(`[QuantEngine] Drawdown circuit breaker TRIPPED for ${row.id}`, {
+          logger.warn(`[QuantEngine] Drawdown circuit breaker TRIPPED for ${row.id} — skipping rebalance`, {
             event: "DRAWDOWN_CIRCUIT_BREAKER_TRIPPED",
             portfolio_id: row.id,
             message: circuitBreaker.message,
@@ -631,6 +656,23 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
             latency_ms: 0,
             status: "alert",
           });
+          // Write alpha score + establishing flag, but do NOT update drift or trigger rebalance
+          await db.execute(sql`
+            UPDATE model_portfolios
+            SET
+              alpha                = ${alphaScore.alpha},
+              quant_engine_version = ${ENGINE_VERSION},
+              last_quant_run       = NOW(),
+              is_establishing      = ${isEstablishing},
+              circuit_breaker_tripped = true,
+              updated_at           = NOW()
+            WHERE id = ${row.id}
+          `);
+          scored++;
+          // Count as "needs_rebalance" so it shows in ops alerts, but don't auto-execute
+          needingRebalance++;
+          driftTriggeredIds.push(`CIRCUIT_BREAKER:${row.id}`);
+          continue;
         }
 
         await db.execute(sql`
@@ -648,6 +690,8 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
             -- The blended synthetic result is analytics-only and goes only into blended_benchmark_return.
             twrr_1y                 = ${twrr1Y},
             twrr_3y                 = ${twrr3Y},
+            is_establishing         = ${isEstablishing},
+            circuit_breaker_tripped = false,
             updated_at              = NOW()
           WHERE id = ${row.id}
         `);
