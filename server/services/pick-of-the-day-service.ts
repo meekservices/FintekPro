@@ -559,6 +559,36 @@ export class PickOfTheDayService {
 		}
 	}
 
+	/**
+	 * Categories where no live exchange price is available.
+	 * For these, returnPct is estimated from the annualised target yield accrued
+	 * over daysHeld (simple daily accrual: yieldPa * daysHeld / 365).
+	 * This gives users a meaningful current return rather than always showing 0%.
+	 */
+	private static readonly NO_LIVE_PRICE_CATEGORIES: ReadonlySet<PickCategory> = new Set([
+		"bonds",
+		"sgb",
+		"fixed_deposits",
+		"unlisted",
+	] as PickCategory[]);
+
+	/**
+	 * Estimates returnPct for instruments without a live exchange price.
+	 * Uses the pick's annualised target yield: (targetPrice/recoPrice - 1) * 365/daysHeld.
+	 * Falls back to 0 if days held is 0 or prices are invalid.
+	 *
+	 * @param recoPrice   - Price at recommendation (number)
+	 * @param targetPrice - Target price (used as proxy for yield basis)
+	 * @param daysHeld    - Days since recommendation
+	 */
+	private estimateYieldReturn(recoPrice: number, targetPrice: number, daysHeld: number): number {
+		if (recoPrice <= 0 || targetPrice <= 0 || daysHeld <= 0) return 0;
+		// annualised yield implied by reco→target
+		const impliedYieldPa = (targetPrice / recoPrice - 1);
+		// daily accrual (simple interest — conservative for debt instruments)
+		return Number((impliedYieldPa * (daysHeld / 365) * 100).toFixed(2));
+	}
+
 	async refreshLivePicks(): Promise<PickUpdateResult> {
 		let updated = 0;
 		let errors = 0;
@@ -578,28 +608,35 @@ export class PickOfTheDayService {
 					const category = pick.category as PickCategory;
 					const strategy = this.getStrategy(category);
 
+					const recoDate = new Date(pick.recoDate);
+					const daysHeld = Math.floor(
+						(Date.now() - recoDate.getTime()) / (1000 * 60 * 60 * 24),
+					);
+
+					// ── Fix 1: Expiry check runs unconditionally ────────────────────────────
+					// Previously expiry was inside the `if (livePrice != null)` block,
+					// so bonds/SGB/unlisted/FD/REIT picks never expired (getLivePrice→null).
+					// Now: check expiry first regardless of whether we have a live price.
+					const expiryDate = new Date(pick.expiryDate);
+					const isExpired = new Date() > expiryDate;
+
 					const livePrice = await strategy.getLivePrice(
 						pick.instrumentId || pick.symbol || "",
 					);
+
 					if (livePrice != null) {
+						// ── Exchange-traded instrument: use actual live price ──────────────
 						const recoPrice = Number.parseFloat(pick.recoPrice);
 						const returnPct = ((livePrice - recoPrice) / recoPrice) * 100;
 
-						const recoDate = new Date(pick.recoDate);
-						const daysHeld = Math.floor(
-							(Date.now() - recoDate.getTime()) / (1000 * 60 * 60 * 24),
-						);
-
 						const targetPrice = Number.parseFloat(pick.targetPrice);
 						const stoplossPrice = Number.parseFloat(pick.stoplossPrice);
-						let newStatus: PickStatus = "live";
+						let newStatus: PickStatus = isExpired ? "expired" : "live";
 
-						if (livePrice >= targetPrice) newStatus = "target_hit";
-						else if (livePrice <= stoplossPrice) newStatus = "stoploss_hit";
-
-						const expiryDate = new Date(pick.expiryDate);
-						if (new Date() > expiryDate && newStatus === "live")
-							newStatus = "expired";
+						if (!isExpired) {
+							if (livePrice >= targetPrice) newStatus = "target_hit";
+							else if (livePrice <= stoplossPrice) newStatus = "stoploss_hit";
+						}
 
 						await db
 							.update(dailyPicks)
@@ -629,6 +666,45 @@ export class PickOfTheDayService {
 								livePrice,
 								returnPct,
 							);
+						}
+					} else {
+						// ── Fix 2: No live price (bonds/SGB/unlisted/FD/REIT) ─────────────
+						// Compute yield-based return so the user sees meaningful progress,
+						// and always expire picks past their expiry date.
+						const newStatus: PickStatus = isExpired ? "expired" : "live";
+						const needsUpdate =
+							newStatus !== pick.status || // status transition (expiry)
+							PickOfTheDayService.NO_LIVE_PRICE_CATEGORIES.has(category); // yield accrual
+
+						if (needsUpdate) {
+							const recoPrice = Number.parseFloat(pick.recoPrice);
+							const targetPrice = Number.parseFloat(pick.targetPrice);
+							// Estimated accrued yield (simple daily accrual)
+							const estimatedReturn = this.estimateYieldReturn(recoPrice, targetPrice, daysHeld);
+
+							await db
+								.update(dailyPicks)
+								.set({
+									returnPct: estimatedReturn.toFixed(2),
+									daysHeld,
+									status: newStatus,
+									updatedAt: new Date(),
+									...(newStatus !== pick.status
+										? { statusUpdatedAt: new Date() }
+										: {}),
+								})
+								.where(eq(dailyPicks.id, pick.id));
+
+							updated++;
+							if (newStatus !== pick.status) {
+								details.push(
+									`${pick.instrumentName}: ${pick.status} -> ${newStatus} (yield-based, no live price)`,
+								);
+								logger.info(
+									`[PickOfTheDay] No-price expiry: ${pick.instrumentName} (${category}) -> ${newStatus} after ${daysHeld}d`,
+									{ event: "PICK_EXPIRED_NO_PRICE", user_id: "SYSTEM", latency_ms: 0, status: "success" },
+								);
+							}
 						}
 					}
 				} catch (err) {
@@ -1278,6 +1354,20 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 		};
 		scheduleEODRefresh();
 
+		// ── 11:00 AM IST ── Early-morning price refresh (Fix 4: catches opening volatility)
+		const scheduleMorningRefresh = () => {
+			const delayMs = msUntilIst(11, 0);
+			setTimeout(() => {
+				if (this.isNSETradingDay(todayIST())) {
+					this.refreshLivePicks().catch((err) =>
+						logger.error("[PickOfTheDay] 11AM refresh error:", err instanceof Error ? err : new Error(String(err))),
+					);
+				}
+				scheduleMorningRefresh();
+			}, delayMs);
+		};
+		scheduleMorningRefresh();
+
 		// ── 12:30 PM IST ── Mid-day price refresh (market days only)
 		const scheduleMidDayRefresh = () => {
 			const delayMs = msUntilIst(12, 30);
@@ -1307,7 +1397,7 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 		scheduleMidAfternoonRefresh();
 
 		logger.info(
-			`📅 [PickOfTheDay] Market-aware scheduler started: Generation@9:20AM, Refresh@12:30PM+2:30PM+4:00PM IST (NSE trading days only)`,
+			`📅 [PickOfTheDay] Market-aware scheduler started: Generation@9:20AM, Refresh@11AM+12:30PM+2:30PM+4:00PM IST (NSE trading days only)`,
 		);
 
 		// ── Auto-heal: every 6 hours ── Catch any generation failures silently
