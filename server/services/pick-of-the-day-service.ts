@@ -467,6 +467,19 @@ export class PickOfTheDayService {
 						}
 					}
 
+					// ── Dedup guard: prevent duplicate same-name picks per category per day ──
+					// Protects against derivative/SGB races where both generate() and
+					// generateFallbackPick() produce the same instrumentName on the same day.
+					const isDuplicate = generated.some(
+						(g) => g.category === pick.category && g.instrumentName === pick.instrumentName,
+					);
+					if (isDuplicate) {
+						logger.info(
+							`[PickOfTheDay] Dedup: skipping duplicate ${pick.category} pick "${pick.instrumentName}"`,
+						);
+						continue;
+					}
+
 					await this.savePick(pick);
 
 					// ── FASP-AI v2.0: Persist to immutable advisory audit trail ──────────

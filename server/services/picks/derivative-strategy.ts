@@ -291,23 +291,23 @@ export class DerivativeStrategy extends BaseStrategy {
 		context: StrategyContext,
 	): Promise<DailyPickData | null> {
 		try {
-			// Phase 1 fix: Updated approximate index levels for June 2025
+			// Updated approximate index levels — Aug 2026
 			const FALLBACK_INDEX = [
 				{
 					symbol: "NIFTY",
-					spotPrice: 24800,
+					spotPrice: 25200,
 					lotSize: 25,
 					sector: "Index Derivatives",
 				},
 				{
 					symbol: "BANKNIFTY",
-					spotPrice: 53000,
+					spotPrice: 54500,
 					lotSize: 15,
 					sector: "Index Derivatives",
 				},
 				{
 					symbol: "FINNIFTY",
-					spotPrice: 23500,
+					spotPrice: 24000,
 					lotSize: 40,
 					sector: "Index Derivatives",
 				},
@@ -397,20 +397,21 @@ export class DerivativeStrategy extends BaseStrategy {
 		return 10;
 	}
 
-	async getLivePrice(instrumentId: string): Promise<number | null> {
-		try {
-			// Returns the current option premium * lot size (NOT the spot/index level)
-			const chain = await derivativesService.getOptionsChain(instrumentId);
-			const spotPrice = chain.underlyingValue;
-			if (!spotPrice) return null;
-			// Approximate current ATM straddle value as ~0.45% of spot * lot (conservative)
-			// This avoids returning the raw index level (e.g. 23500) as the "current price"
-			const lotSizes: Record<string, number> = { NIFTY: 25, BANKNIFTY: 15, FINNIFTY: 40 };
-			const lotSize = lotSizes[instrumentId] || 50;
-			const approxPremium = spotPrice * 0.0045;
-			return Math.round(approxPremium * lotSize * 100) / 100;
-		} catch {
-			return null;
-		}
+	async getLivePrice(_instrumentId: string): Promise<number | null> {
+		// ── Fix: Derivatives return null for getLivePrice ──────────────────────────
+		// The approximate formula (0.45% of spot × lot) produces a premium that
+		// differs from the premium saved at reco time (which was also approximated
+		// from a different spot level or a different expiry's actual chain data).
+		// Comparing the two causes instant "stoploss_hit" within minutes of generation.
+		//
+		// Correct approach: derivatives are treated like debt instruments — no live
+		// exchange price, so refreshLivePicks() uses estimateYieldReturn() (yield
+		// accrual from recoPrice → targetPrice over daysHeld). This is conservative
+		// but safe — derivatives expire in 7 days; the expiry mechanism marks them
+		// "expired" correctly once expiryDate passes.
+		//
+		// A future enhancement would be to fetch real-time option premium via NSE
+		// API and compare using the SAME ATM strike saved at reco time.
+		return null;
 	}
 }

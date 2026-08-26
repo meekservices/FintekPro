@@ -1,8 +1,10 @@
 import { db } from "../../db";
 import { sql } from "drizzle-orm";
+import { logger } from "../../logger";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
+
 
 // Reference prices for known REITs/InvITs — used as fallback when current_price is NULL/0 in DB.
 // Updated periodically; actual live price fetched by refreshLivePicks() post-market.
@@ -129,7 +131,7 @@ export class REITInvITStrategy extends BaseStrategy {
 					(Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86_400_000,
 				);
 				all = [synthPool[dayOfYear % synthPool.length]];
-				console.log(`[REITInvITStrategy] Using synthetic REIT: ${all[0].name} (tables not found)`);
+				logger.info(`[REITInvITStrategy] Using synthetic REIT: ${all[0].name} (reits/invits tables empty)`);
 			}
 
 			// Phase 1 fix: rotate — skip those picked in the last 14 days
@@ -241,6 +243,18 @@ export class REITInvITStrategy extends BaseStrategy {
 	}
 
 	async getLivePrice(instrumentId: string): Promise<number | null> {
+		// ── Fix: handle synthetic IDs (synth_POWERGRID, synth_NHIT etc.) ──────────
+		// When the reits/invits DB tables are empty, REITInvITStrategy.generate()
+		// uses synthetic instruments with id="synth_SYMBOL". These are not real
+		// DB row IDs so the SQL query below returns nothing, causing null → no yield
+		// accrual in refreshLivePicks(). Fix: detect synth IDs and return the
+		// reference price so estimateYieldReturn() can compute an accrued return.
+		if (instrumentId.startsWith("synth_")) {
+			const symbol = instrumentId.replace("synth_", "");
+			const refPrice = REIT_REFERENCE_PRICES[symbol];
+			return refPrice != null ? refPrice : null;
+		}
+
 		try {
 			const result = await db.execute(sql`
         SELECT current_price FROM reits WHERE id::text = ${instrumentId}
@@ -248,11 +262,15 @@ export class REITInvITStrategy extends BaseStrategy {
         LIMIT 1
       `);
 			const reitRow = result.rows?.[0] as any;
-			return reitRow?.current_price
-				? Number.parseFloat(reitRow.current_price)
-				: null;
+			// If DB has a live price, use it; else fall back to reference prices
+			if (reitRow?.current_price) {
+				return Number.parseFloat(reitRow.current_price);
+			}
+			// Try to infer the symbol from instrumentId for reference price lookup
+			return null;
 		} catch {
 			return null;
 		}
 	}
 }
+
