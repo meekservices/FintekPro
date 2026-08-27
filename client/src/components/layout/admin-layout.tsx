@@ -448,20 +448,6 @@ const navCategories: NavCategory[] = [
 				icon: Radio,
 				description: "MF, SIP & investor oversight via IRIS",
 			},
-			{
-				title: "Upstox (Market Data)",
-				href: "/admin/upstox-token",
-				icon: Zap,
-				description: "NSE/BSE live data feed · Token rotation",
-				children: [
-					{
-						title: "Token Manager",
-						href: "/admin/upstox-token",
-						icon: Key,
-						description: "Rotate & validate access token",
-					},
-				],
-			},
 		],
 	},
 	{
@@ -560,7 +546,21 @@ const navCategories: NavCategory[] = [
 				href: "/admin/multibroker-earnings",
 				icon: Landmark,
 				description:
-					"Cross-broker commission & order-flow earnings (IRIS · IIFL · Alpaca)",
+					"Cross-broker commission & order-flow earnings (IRIS · IIFL · Alpaca · Upstox)",
+				children: [
+					{
+						title: "Earnings Overview",
+						href: "/admin/multibroker-earnings",
+						icon: Landmark,
+						description: "Cross-broker commission & order-flow dashboard",
+					},
+					{
+						title: "Upstox — Token Manager",
+						href: "/admin/upstox-token",
+						icon: Key,
+						description: "Rotate & validate Upstox access token (NSE/BSE live data)",
+					},
+				],
 			},
 			{
 				title: "Partner Hierarchy",

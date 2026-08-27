@@ -481,8 +481,27 @@ export async function generateOptimizationSuggestions(
       // MF queries remain per-holding (category name varies per drag; hard to batch efficiently)
       if (alternatives.length === 0 && !drag.symbol) {
         try {
-          const cat = drag.type.toLowerCase()
-            .replace(" mf", "").replace("mutual fund", "").replace("fund", "").trim();
+          const rawType = drag.type.toLowerCase();
+          // BUG-4 FIX: Map generic MF types to SEBI category search terms.
+          // If the type strips to an empty string (e.g. 'mf', 'mutual_fund'),
+          // ILIKE '%%' would match EVERY fund in the DB — producing random suggestions.
+          const MF_TYPE_MAP: Record<string, string> = {
+            mf: "equity", "mutual fund": "equity", "mutual_fund": "equity",
+            "equity mf": "equity", "debt mf": "debt",
+            "hybrid mf": "hybrid", "index mf": "index",
+            "large cap": "large cap", "large_cap": "large cap",
+            "mid cap": "mid cap", "mid_cap": "mid cap",
+            "small cap": "small cap", "small_cap": "small cap",
+            "flexi cap": "flexi cap", "flexi_cap": "flexi cap",
+          };
+          const cat = MF_TYPE_MAP[rawType] ??
+            rawType
+              .replace(" mf", "").replace("mutual fund", "").replace("fund", "").trim();
+
+          // BUG-4 FIX: Guard against empty category — skip MF branch to avoid '%%' query
+          if (cat.length < 2) {
+            factors.push("mf_category_unresolvable:manual_review");
+          } else {
           const mfRows = await db.execute(sql`
             SELECT name, isin, return_1y, return_3y, expense_ratio,
                    sharpe_ratio, aum_cr, sebi_category
@@ -495,10 +514,14 @@ export async function generateOptimizationSuggestions(
               AND sharpe_ratio > 0.3
               AND (expense_ratio IS NULL OR expense_ratio < 1.5)
               AND (aum_cr IS NULL OR aum_cr > 500)
+              -- UPG-3: return_3y quality gate — if available must be positive
+              AND (return_3y IS NULL OR return_3y > 0)
             ORDER BY (
-              COALESCE(return_1y, 0) * 100 * 0.45 +
+              COALESCE(return_1y, 0) * 100 * 0.40 +
               LEAST(10, COALESCE(sharpe_ratio, 0.5) * 10) * 0.30 -
-              COALESCE(expense_ratio, 1.0) * 5 * 0.25
+              COALESCE(expense_ratio, 1.0) * 5 * 0.25 +
+              -- UPG-3: bonus 2 pts for instruments with verified 3Y track record
+              CASE WHEN return_3y IS NOT NULL AND return_3y > 0 THEN 2.0 ELSE 0 END * 0.05
             ) DESC
             LIMIT 5
           `).catch(() => ({ rows: [] }));
@@ -520,7 +543,8 @@ export async function generateOptimizationSuggestions(
               improvementVsCurrent: Math.round((r1y - (drag.currentReturn ?? 0)) * 100) / 100,
             };
           });
-          if (alternatives.length > 0) factors.push(`mf_db:category:${cat}`, "alpha_floor:benchmark_relative", "sharpe_gate:strict");
+          if (alternatives.length > 0) factors.push(`mf_db:category:${cat}`, "alpha_floor:benchmark_relative", "sharpe_gate:strict", "return3y_gate:positive");
+          } // end BUG-4 guard
         } catch { /* silent */ }
       }
 
@@ -581,14 +605,66 @@ export async function generateOptimizationSuggestions(
 // ── applyApprovedReplacements ─────────────────────────────────────────────────
 
 /**
- * Fix #4 — In-memory idempotency guard for applyApprovedReplacements.
- * Prevents double-apply on network retries or duplicate advisor requests within
- * the same server process lifetime (keys auto-expire after 24 h).
+ * Fix #4 — DB-backed idempotency guard for applyApprovedReplacements (BUG-8).
+ * Upgrades from a process-local Set (lost on restart) to DB-backed lookup with
+ * an in-memory cache as a fast-path. Falls back to in-memory-only if DB write fails.
  *
- * Production recommendation: back this with Redis SETNX or a DB audit_keys table
- * for cross-instance protection in a horizontally-scaled deployment.
+ * Protection layers:
+ *  1. In-memory Set — fast-path for same-process retries (< 24h TTL)
+ *  2. portfolio_idempotency_keys DB table — survives Cloud Run restarts + scale-out
+ *
+ * Production note: The DB table was created by the FASP-7 migration in schema-repairs.ts.
  */
 const _appliedIdempotencyKeys = new Set<string>();
+
+async function checkAndRegisterIdempotencyKey(
+  portfolioId: string,
+  idempotencyKey: string,
+  advisorId: string,
+): Promise<{ isDuplicate: boolean }> {
+  const dedupKey = `${portfolioId}:${idempotencyKey}`;
+
+  // Fast path: in-memory cache
+  if (_appliedIdempotencyKeys.has(dedupKey)) {
+    return { isDuplicate: true };
+  }
+
+  // DB check (cross-restart + cross-instance protection)
+  try {
+    const existing = await db.execute(sql`
+      SELECT id FROM portfolio_idempotency_keys
+      WHERE portfolio_id = ${portfolioId}
+        AND idempotency_key = ${idempotencyKey}
+        AND expires_at > NOW()
+      LIMIT 1
+    `);
+    if ((existing.rows as any[]).length > 0) {
+      _appliedIdempotencyKeys.add(dedupKey); // backfill in-memory
+      return { isDuplicate: true };
+    }
+
+    // Register in DB (expires after 24h)
+    await db.execute(sql`
+      INSERT INTO portfolio_idempotency_keys
+        (portfolio_id, idempotency_key, advisor_id, expires_at)
+      VALUES (
+        ${portfolioId}, ${idempotencyKey}, ${advisorId},
+        NOW() + INTERVAL '24 hours'
+      )
+      ON CONFLICT (portfolio_id, idempotency_key) DO NOTHING
+    `);
+  } catch (dbErr: any) {
+    // DB failure is non-fatal — fall back to in-memory-only for this request
+    logger.warn("[Optimizer] Idempotency DB check/register failed — in-memory fallback active", {
+      error: dbErr.message, portfolio_id: portfolioId, retryable: true,
+    });
+  }
+
+  // Register in-memory (auto-expire after 24h)
+  _appliedIdempotencyKeys.add(dedupKey);
+  setTimeout(() => _appliedIdempotencyKeys.delete(dedupKey), 24 * 60 * 60 * 1000);
+  return { isDuplicate: false };
+}
 
 /**
  * Applies advisor-approved replacements to portfolio JSONB.
@@ -612,9 +688,9 @@ export async function applyApprovedReplacements(
     throw new Error("FASP-AI v3.0: idempotency_key is required for safe retries (GCR mandate).");
   }
 
-  // Fix #4: Idempotency guard — prevent double-apply on network retries / duplicate clicks
-  const dedupKey = `${portfolioId}:${idempotencyKey}`;
-  if (_appliedIdempotencyKeys.has(dedupKey)) {
+  // BUG-8 FIX: DB-backed idempotency (survives restarts + Cloud Run scale-out)
+  const { isDuplicate } = await checkAndRegisterIdempotencyKey(portfolioId, idempotencyKey, advisorId);
+  if (isDuplicate) {
     logger.warn("[Optimizer] Idempotent replay detected — no changes made", {
       event:          "AI_PORTFOLIO_OPTIMIZATION_REPLAY",
       user_id:        advisorId,
@@ -665,14 +741,39 @@ export async function applyApprovedReplacements(
     applied.push(`${old.name} → ${rep.newName}`);
   }
 
+  // BUG-5 FIX: Normalize holding weights after replacements.
+  // If newWeight differs from old.weight, the total no longer sums to 100,
+  // which poisons the next nightly drift calculation.
+  // Strategy: proportionally scale all non-replaced holdings so total = 100.
+  const totalWeightAfter = holdings.reduce((s: number, h: any) => s + (Number(h.weight) || 0), 0);
+  if (Math.abs(totalWeightAfter - 100) > 0.01 && totalWeightAfter > 0) {
+    const scale = 100 / totalWeightAfter;
+    for (const h of holdings as any[]) {
+      h.weight = Math.round(Number(h.weight) * scale * 100) / 100;
+    }
+    // Fix any residual rounding error on the largest-weight holding
+    const weightSum = holdings.reduce((s: number, h: any) => s + (Number(h.weight) || 0), 0);
+    const residual = Math.round((100 - weightSum) * 100) / 100;
+    if (residual !== 0 && holdings.length > 0) {
+      const largest = (holdings as any[]).reduce((m: any, h: any) => Number(h.weight) > Number(m.weight) ? h : m, holdings[0]);
+      largest.weight = Math.round((Number(largest.weight) + residual) * 100) / 100;
+    }
+    logger.info("[Optimizer] Holdings weights normalized after replacement", {
+      event: "HOLDINGS_WEIGHT_NORMALIZED",
+      portfolio_id: portfolioId,
+      weight_before: totalWeightAfter,
+      weight_after: 100,
+      advisor_id: advisorId,
+    });
+  }
+
   await db
     .update(modelPortfolios)
     .set({ holdings: holdings as any, updatedAt: new Date() })
     .where(eq(modelPortfolios.id, portfolioId));
 
-  // Register idempotency key — auto-expire after 24 h to prevent unbounded memory growth
-  _appliedIdempotencyKeys.add(dedupKey);
-  setTimeout(() => _appliedIdempotencyKeys.delete(dedupKey), 24 * 60 * 60 * 1000);
+  // BUG-8 FIX: Idempotency key is now registered by checkAndRegisterIdempotencyKey() above.
+  // The in-memory fallback auto-expire is also handled there. Nothing more to do here.
 
   const logPayload = {
     event:               "AI_PORTFOLIO_OPTIMIZATION_APPLIED",

@@ -4577,10 +4577,14 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
             drift_score = ${quantResult.driftReport.driftScore},
             last_quant_run = NOW(),
             alpha = ${quantResult.alphaScore.alpha},
+            -- BUG-2 FIX: Reset needs_rebalance flag after a successful manual rebalance
+            -- so the advisor dashboard badge clears and the pending plan is no longer stale.
+            needs_rebalance = false,
+            pending_rebalance_plan = NULL,
+            source = 'api',
             updated_at = NOW()
         WHERE id = ${id}
       `);
-
       // ── Write portfolio_rebalance_events (SEBI audit + bar-chart dot source) ──
       try {
         await db.execute(sql`
@@ -4611,6 +4615,12 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const action = _rawAction as any;
             const dtype = (action.action === "BUY" || action.action === "ADD") ? "ADD" : "TRIM";
+            // BUG-1 FIX: rebalanceOptimizer.generateOptimizedPlan returns { action, asset, quantity_proxy, reason }.
+            // There is NO `holding` field — action.holding was always undefined, causing every row
+            // to be inserted with chosen_name='Unknown' and chosen_scheme_code=null.
+            // Use action.asset (the holding name string) instead.
+            const chosenName = String(action.asset ?? "Unknown");
+            const rationaleDetail = `Drift ${quantResult.driftReport.driftScore}/100. ${action.action} ${chosenName}: ${action.reason ?? ""}. ΔQty-proxy: ${action.quantity_proxy ?? 0}`;
             await db.execute(sql`
               INSERT INTO portfolio_ai_decisions
                 (portfolio_id, portfolio_code, decision_type, trigger,
@@ -4619,12 +4629,12 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
                  model_version, advisor_id, source)
               VALUES (
                 ${id}, ${portCode}, ${dtype}, 'drift_threshold',
-                ${String(action.holding?.name ?? "Unknown")},
-                ${action.holding?.schemeCode ?? action.holding?.amfiSchemeCode ?? null},
+                ${chosenName},
+                null,
                 ${action.targetWeight ?? null},
                 'DRIFT_CORRECTION',
-                ${`Drift ${quantResult.driftReport.driftScore}/20. ${action.action} ${action.holding?.name ?? ""}. ΔWeight: ${action.changeAmount ?? 0}`},
-                ${Math.round((1 - Math.min(20, quantResult.driftReport.driftScore) / 20) * 100)},
+                ${rationaleDetail},
+                ${Math.round((1 - Math.min(100, quantResult.driftReport.driftScore) / 100) * 100)},
                 'FASP-AI-v2.0', ${(req.user as any)?.id ?? null}, 'fasp_ai'
               )
             `);

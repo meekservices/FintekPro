@@ -326,20 +326,22 @@ export class AIService {
 		const cerebras = process.env.CEREBRAS_API_KEY;
 
 		if (capability === AICapability.SUPERIOR) {
-			// Quality-first: Cerebras 120B has highest quality, latency acceptable
-			// Cerebras 120B → Gemini Flash → Groq 70B
+			// Quality-first chain (updated 2026-08-27):
+			//   Cerebras 120B (best quality, paid) → Groq 70B (14,400 req/day FREE) → Gemini (20 req/day free)
+			// Gemini free tier hard-limits at 20 req/day — exhausted by the 9:20 AM pick cron.
+			// Groq llama-3.3-70b-versatile is the new primary free-tier engine for quality tasks.
 			if (cerebras && this.isProviderHealthy("cerebras")) {
 				initialProvider = "cerebras";
 				initialModel = "gpt-oss-120b";
-			} else if (gemini) {
-				initialProvider = "gemini";
-				initialModel = "gemini-2.5-flash";
 			} else if (groq && this.isProviderHealthy("groq")) {
 				initialProvider = "groq";
 				initialModel = "llama-3.3-70b-versatile";
-			} else {
+			} else if (gemini) {
 				initialProvider = "gemini";
 				initialModel = "gemini-2.5-flash";
+			} else {
+				initialProvider = "groq";
+				initialModel = "llama-3.3-70b-versatile";
 			}
 		} else if (capability === AICapability.OPTIMIZED) {
 			// Speed-first: Groq 8b is the fastest at 106ms (beats Cerebras 373ms)
@@ -389,15 +391,15 @@ export class AIService {
 		];
 
 		const qualityFallbackChain: { provider: AIProvider; model: AIModel }[] = [
-			// Cerebras — best quality (gpt-oss-120b)
+			// Cerebras — best quality (gpt-oss-120b), paid
 			{ provider: "cerebras", model: "gpt-oss-120b" },
 			{ provider: "cerebras", model: "zai-glm-4.7" },
-			// Groq — quality models
+			// Groq — free tier primary (14,400 req/day), excellent quality
 			{ provider: "groq", model: "llama-3.3-70b-versatile" },
 			{ provider: "groq", model: "meta-llama/llama-4-scout-17b-16e-instruct" },
 			{ provider: "groq", model: "qwen/qwen3-32b" },
 			{ provider: "groq", model: "llama-3.1-8b-instant" },
-			// Gemini — unlimited quota
+			// Gemini — last resort (20 req/day hard cap on free tier)
 			{ provider: "gemini", model: "gemini-2.5-flash" },
 			{ provider: "gemini", model: "gemini-2.5-flash-lite" },
 			// Cloudflare — always-on backstop

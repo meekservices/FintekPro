@@ -376,7 +376,12 @@ export function computePortfolioDrift(portfolio: PortfolioQuantInput): Portfolio
  */
 export function scorePortfolioAlpha(portfolio: PortfolioQuantInput): PortfolioAlphaScore {
   const alpha = parseFloat((portfolio.cagr1Y - portfolio.benchmarkCagr1Y).toFixed(2));
-  const excessReturn3Y = parseFloat((portfolio.cagr3Y - portfolio.benchmarkCagr1Y).toFixed(2));
+  // BUG-3 FIX: Use a consistent 3Y benchmark proxy.
+  // benchmarkCagr1Y is a 1Y figure; directly subtracting it from cagr3Y (3Y annualised) produces
+  // a period mismatch. We apply a 0.95 mean-reversion factor as a conservative 3Y proxy until
+  // benchmarkCagr3Y is available as a separate DB column.
+  const benchmarkCagr3YProxy = portfolio.benchmarkCagr1Y * 0.95;
+  const excessReturn3Y = parseFloat((portfolio.cagr3Y - benchmarkCagr3YProxy).toFixed(2));
   // M-MP2 FIX: Asset-class-aware volatility fallbacks.
   // A flat 12% is wrong for liquid (σ≈0.5%), overnight (σ≈0.3%), and small-cap (σ≈22%) portfolios.
   const VOLATILITY_DEFAULTS: Record<string, number> = {
@@ -573,6 +578,23 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
 
         if (holdings.length === 0) continue;
 
+        // UPG-4: Weight-sum validation — guard against malformed holdings data
+        // that would produce junk drift scores and misleading rebalance suggestions.
+        const holdingWeightSum = holdings.reduce((s, h) => s + (h.weight ?? 0), 0);
+        if (holdingWeightSum < 95 || holdingWeightSum > 105) {
+          logger.warn(`[QuantEngine] PORTFOLIO_WEIGHT_ANOMALY — skipping portfolio ${row.id}`, {
+            event:        "PORTFOLIO_WEIGHT_ANOMALY",
+            portfolio_id: row.id,
+            weight_sum:   holdingWeightSum,
+            holdings_count: holdings.length,
+            latency_ms:   Date.now() - t0,
+            status:       "alert",
+            retryable:    false,
+          });
+          errors++;
+          continue;
+        }
+
         const portfolio: PortfolioQuantInput = {
           id:              row.id,
           name:            row.name,
@@ -675,6 +697,28 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
           continue;
         }
 
+        // BUG-2/UPG-2: Determine if this portfolio needs rebalancing.
+        // When true: persist the full rebalance plan to pending_rebalance_plan JSONB
+        // so advisors can review it without re-running the computation.
+        const needsRebalance = driftReport.status === "needs_rebalance";
+        let pendingPlanJson: string | null = null;
+        if (needsRebalance) {
+          try {
+            const quantResult = runPortfolioRebalance(portfolio);
+            pendingPlanJson = JSON.stringify({
+              driftReport:   quantResult.driftReport,
+              alphaScore:    quantResult.alphaScore,
+              rebalancePlan: quantResult.rebalancePlan,
+              timestamp:     new Date().toISOString(),
+              engineVersion: ENGINE_VERSION,
+            });
+          } catch (planErr: any) {
+            logger.warn(`[QuantEngine] pending plan generation failed for ${row.id} (non-fatal)`, {
+              error: planErr.message, portfolio_id: row.id,
+            });
+          }
+        }
+
         await db.execute(sql`
           UPDATE model_portfolios
           SET
@@ -692,6 +736,9 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
             twrr_3y                 = ${twrr3Y},
             is_establishing         = ${isEstablishing},
             circuit_breaker_tripped = false,
+            needs_rebalance         = ${needsRebalance},
+            pending_rebalance_plan  = ${pendingPlanJson ? sql`${pendingPlanJson}::jsonb` : sql`NULL`},
+            source                  = 'nightly_cron',
             updated_at              = NOW()
           WHERE id = ${row.id}
         `);

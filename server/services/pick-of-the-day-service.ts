@@ -367,7 +367,7 @@ export class PickOfTheDayService {
 						model_version: FASP_AI_VERSION,
 						scorer_version: SCORER_VERSION,
 						engine_version: "fasp-engine-v3.0",
-						base_model: "gemini-2.5-flash",
+						base_model: "groq/llama-3.3-70b-versatile",
 						sebi_circular_ref: FaspAIv2Service.getSebiRef("stock_pick"),
 						confidence_threshold: confidence.threshold,
 						meets_threshold: confidence.meetsThreshold,

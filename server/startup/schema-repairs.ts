@@ -3383,6 +3383,55 @@ export async function ensureSharedRouteTables(): Promise<void> {
   }
   console.log(`  ✅ Fix FASP-4: ${p4ok}/${phase4Cols.length} period columns ensured`);
 
+  // ── Fix FASP-7: Quant Engine Runtime State columns + idempotency table ─────
+  // BUG-7: circuit_breaker_tripped and is_establishing written by nightly loop via
+  //        raw SQL but were never declared in Drizzle schema or ADD COLUMN guards.
+  // BUG-2: needs_rebalance — boolean flag for advisor dashboard alerts.
+  // UPG-2: pending_rebalance_plan — pre-computed plan for advisor review.
+  // BUG-8: portfolio_idempotency_keys — DB-backed idempotency for applyApprovedReplacements.
+  const phase7Cols: Array<[string, string]> = [
+    ["circuit_breaker_tripped", "BOOLEAN NOT NULL DEFAULT FALSE"],
+    ["is_establishing",         "BOOLEAN NOT NULL DEFAULT FALSE"],
+    ["needs_rebalance",         "BOOLEAN NOT NULL DEFAULT FALSE"],
+    ["pending_rebalance_plan",  "JSONB"],
+  ];
+  let p7ok = 0;
+  try {
+    const { pool: fasp7Pool } = await import("../db");
+    for (const [col, colType] of phase7Cols) {
+      try {
+        await fasp7Pool.query(`ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS "${col}" ${colType}`);
+        p7ok++;
+      } catch (e: any) {
+        console.warn(`  ⚠️  Fix FASP-7 col ${col} (non-fatal):`, e.message?.slice(0, 80));
+      }
+    }
+    // Create portfolio_idempotency_keys table for cross-restart idempotency (BUG-8)
+    try {
+      await fasp7Pool.query(`
+        CREATE TABLE IF NOT EXISTS portfolio_idempotency_keys (
+          id              SERIAL PRIMARY KEY,
+          portfolio_id    VARCHAR(100) NOT NULL,
+          idempotency_key VARCHAR(255) NOT NULL,
+          advisor_id      VARCHAR(100),
+          applied_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+          expires_at      TIMESTAMPTZ  NOT NULL,
+          UNIQUE (portfolio_id, idempotency_key)
+        )
+      `);
+      await fasp7Pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_port_idempotency_expires
+        ON portfolio_idempotency_keys (expires_at)
+      `);
+      p7ok++;
+    } catch (e: any) {
+      console.warn("  ⚠️  Fix FASP-7 idempotency table (non-fatal):", e.message?.slice(0, 80));
+    }
+  } catch (e: any) {
+    console.warn("  ⚠️  Fix FASP-7 pool import (non-fatal):", e.message?.slice(0, 80));
+  }
+  console.log(`  ✅ Fix FASP-7: ${p7ok}/${phase7Cols.length + 1} quant-runtime columns + idempotency table ensured`);
+
   // ── Fix FASP-5: PSU & Defence Atmanirbhar portfolio seed (Jul 2026) ───────────
   // Uses migDb/migSql already in scope (Neon HTTP driver) — same as all other blocks.
   // Previous approach imported ../db (pg pool) which failed silently here.

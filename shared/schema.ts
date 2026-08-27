@@ -11420,6 +11420,24 @@ export const modelPortfolios = pgTable("model_portfolios", {
   portfolioDividendYield: numeric("portfolio_dividend_yield"),
   /** Timestamp when period returns were last computed by the nightly job */
   periodsComputedAt:    timestamp("periods_computed_at"),
+
+  // ── Quant Engine Runtime State (FASP-AI-v3.0) ──────────────────────────────
+  /** True when drawdown circuit breaker is active — auto-rebalance paused, advisor alert required */
+  circuitBreakerTripped: boolean("circuit_breaker_tripped").default(false),
+  /** True when portfolio is < 6 months old — annualising short-period returns would be misleading */
+  isEstablishing:        boolean("is_establishing").default(false),
+  /**
+   * True when nightly drift check classifies portfolio as "needs_rebalance" (driftScore > 15).
+   * Reset to false when manual rebalance completes. Visible in advisor dashboard as an alert badge.
+   */
+  needsRebalance:        boolean("needs_rebalance").default(false),
+  /**
+   * Latest pre-computed rebalance plan from nightly loop.
+   * Populated when needsRebalance = true and circuit breaker is not tripped.
+   * Allows advisors to review the plan without re-running the computation.
+   * Schema: { driftReport, alphaScore, rebalancePlan, timestamp, engineVersion }
+   */
+  pendingRebalancePlan:  jsonb("pending_rebalance_plan"),
 }, (table) => [
   index("idx_model_portfolios_risk").on(table.riskProfile),
   index("idx_model_portfolios_asset").on(table.assetClass),
