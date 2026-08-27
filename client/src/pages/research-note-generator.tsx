@@ -328,20 +328,21 @@ function ScoreBar({
 	score,
 	weight,
 }: { label: string; score: number; weight: string }) {
+	const safeScore = Number.isFinite(score) ? score : 0;
 	const color =
-		score >= 65 ? "bg-green-500" : score >= 45 ? "bg-amber-400" : "bg-red-500";
+		safeScore >= 65 ? "bg-green-500" : safeScore >= 45 ? "bg-amber-400" : "bg-red-500";
 	return (
 		<div className="space-y-1">
 			<div className="flex justify-between text-sm">
 				<span className="text-muted-foreground">
 					{label} <span className="text-xs">({weight})</span>
 				</span>
-				<span className="font-semibold">{score}/100</span>
+				<span className="font-semibold">{Number.isFinite(score) ? score : "—"}/100</span>
 			</div>
 			<div className="h-2 bg-muted rounded-full overflow-hidden">
 				<div
 					className={`h-full rounded-full transition-all ${color}`}
-					style={{ width: `${score}%` }}
+					style={{ width: `${safeScore}%` }}
 				/>
 			</div>
 		</div>
@@ -904,7 +905,7 @@ export default function ResearchNoteGenerator() {
 								<div className="flex flex-col items-end gap-2">
 									<RatingBadge rating={d.rating.rating} />
 									<span className="text-sm font-medium text-muted-foreground">
-										Score: {d.rating.score}/100
+										Score: {Number.isFinite(d.rating.score) ? d.rating.score : "—"}/100
 									</span>
 								</div>
 							</div>
