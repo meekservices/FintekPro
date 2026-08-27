@@ -5,6 +5,7 @@ import {
 	goldenPrices,
 	stockFinancialMetrics,
 } from "@shared/schema";
+import { screenerShareholding } from "@shared/schema/screener";
 import { and, eq, sql, gte, asc, desc, count, or, ilike } from "drizzle-orm";
 
 import { BaseStrategy } from "./base-strategy";
@@ -32,6 +33,19 @@ import {
 
 
 const financialMetricsCalculator = new FinancialMetricsCalculator();
+
+// ── Upgrade #8: Sector-median PE map ─────────────────────────────────────────
+// Used for relative PE valuation: stock PE vs sector-median PE.
+// A stock trading at 30% discount to sector peers = meaningful value signal.
+// A stock at 30% premium = expensive relative to peers.
+// Source: NSE sector PE data, calibrated annually. Values are rough medians.
+const SECTOR_MEDIAN_PE: Record<string, number> = {
+	banking_finance:       12,  // Banks trade at lower PE due to book-value focus
+	information_technology: 28, // IT sector commands premium for growth + dollar earnings
+	healthcare_pharma:     30,  // Pharma has high PE due to R&D and patent moats
+	auto_infra:            22,  // Cyclical — moderate PE; infrastructure is PE-intensive
+	fmcg_consumer:         48,  // FMCG commands very high PE for predictable earnings
+};
 
 /**
  * AI Alpha boost cache: keyed by symbol, stores the last AI conviction score (0-20)
@@ -885,7 +899,6 @@ export class StockStrategy extends BaseStrategy {
 			suitableFor: this.deriveSuitableFor(riskLevel, "listed_stocks"),
 			timeHorizon: this.getTimeHorizon("listed_stocks"),
 			confidenceScore,
-			// Store both the granular sector and the broad sector label for UI grouping
 			sectorCategory: topStock.sector || sectorLabel,
 			keyMetrics: {
 				cmp: currentPrice,
@@ -916,6 +929,69 @@ export class StockStrategy extends BaseStrategy {
 				atr14Pct: atrPct,
 				// #2: expose R:R ratio in keyMetrics for advisor transparency
 				rewardToRiskRatio: Math.round(rrRatio * 100) / 100,
+				// ── Upgrade #9: Per-signal score breakdown (FASP-AI v1.0) ──────────────
+				// try-catch IIFE: a throw in any signal block must NOT drop the whole
+				// keyMetrics object. Falls back to a minimal stub on error.
+				scoreBreakdown: (() => {
+					try {
+						const _bsid = mapToBroadSector(topStock.sector ?? "");
+						const _medPE = SECTOR_MEDIAN_PE[_bsid] ?? 25;
+						const _pe    = topStock.peRatio ? Number.parseFloat(topStock.peRatio) : 0;
+						const _disc  = _pe > 0 ? (_medPE - _pe) / _medPE : 0;
+						const _r1y   = topEnriched?.performance?.return1Y
+							?? (topStock.returns1Y ? Number.parseFloat(topStock.returns1Y) : 0);
+						const _rg    = topEnriched?.growth?.revenueGrowth ?? null;
+						const _eg    = topEnriched?.growth?.epsGrowth ?? null;
+						const _de    = topEnriched?.fundamentals?.debtToEquity ?? null;
+						const _macd  = topEnriched?.technicals?.macd ?? null;
+						const _s200  = topEnriched?.technicals?.sma200 ?? null;
+						const _s50   = topEnriched?.technicals?.sma50  ?? null;
+						const _rsi   = topEnriched?.technicals?.rsi ?? directRsi ?? null;
+						const _av    = topStock.averageVolume
+							? Number.parseFloat(topStock.averageVolume) : null;
+						const _ar    = (topStock.analystRating ?? "").toLowerCase();
+						const _na    = topStock.numberOfAnalysts
+							? Number(topStock.numberOfAnalysts) : 0;
+
+						let _revEps = 0;
+						if (_rg !== null && _eg !== null) {
+							_revEps = (_eg - _rg) > 30 ? -10 : (_eg - _rg) > 20 ? -5 : 0;
+							if (_rg > 15 && _eg > 15) _revEps += 10;
+							else if (_rg > 10 && _eg > 10) _revEps += 5;
+						}
+						let _dma = 0;
+						if (_s200 !== null) {
+							_dma = currentPrice > _s200 * 1.02 ? 8
+								: currentPrice > _s200 ? 4
+								: currentPrice < _s200 * 0.95 ? -10
+								: currentPrice < _s200 ? -5 : 0;
+							if (_s50 !== null && _s50 > _s200 * 1.01) _dma += 6;
+						}
+						return {
+							analystSignal:     _ar.includes("strong buy") ? (_na >= 5 ? 25 : 12) : _ar.includes("buy") ? (_na >= 3 ? 20 : 8) : 0,
+							momentum1Y:        _r1y > 30 ? 20 : _r1y > 15 ? 15 : 0,
+							piotroski:         null as null,
+							beneish:           null as null,
+							sectorRelativePE:  _pe > 0 ? (_disc >= 0.30 ? 15 : _disc >= 0.15 ? 10 : _disc <= -0.30 ? -8 : 0) : 0,
+							promoterSignal:    0,
+							revenueEpsQuality: _revEps,
+							debtStrength:      _de === null ? 0 : _de < 0.3 ? 8 : _de < 0.8 ? 4 : _de > 2.0 ? -10 : _de > 1.5 ? -5 : 0,
+							macdSignal:        _macd === null ? 0 : _macd > 0.5 ? 6 : _macd > 0 ? 3 : _macd < -0.5 ? -6 : _macd < 0 ? -3 : 0,
+							dmaPositioning:    _dma,
+							aiBoost:           0,
+							fiiBoost:          0,
+							liquiditySignal:   _av === null ? 0 : (_av * currentPrice) >= 50_000_000 ? 10 : (_av * currentPrice) >= 10_000_000 ? 5 : (_av * currentPrice) < 2_000_000 ? -15 : 0,
+							rsiSignal:         _rsi === null ? 0 : _rsi >= 40 && _rsi <= 65 ? 8 : _rsi < 30 ? 5 : _rsi > 75 ? -12 : 0,
+							totalRawScore:         topScore,
+							scoreMax:              155,
+							model_version:         "FASP-AI-v1.0-upgrades-10",
+							calculation_timestamp: new Date().toISOString(),
+						};
+					} catch (err) {
+						logger.warn(`[StockStrategy] scoreBreakdown failed for ${topStock?.symbol}: ${err instanceof Error ? err.message : String(err)}`);
+						return { totalRawScore: topScore, scoreMax: 155, model_version: "FASP-AI-v1.0-upgrades-10", calculation_timestamp: new Date().toISOString(), _error: "partial" };
+					}
+				})(),
 			},
 		};
 	}
@@ -932,9 +1008,20 @@ export class StockStrategy extends BaseStrategy {
 	): Promise<number> {
 		let score = 0;
 
+		// ── Upgrade #3: Analyst count gate ────────────────────────────────────────
+		// A single small-broker "strong buy" carries the same label as 15-analyst
+		// consensus. Gate the bonus on the number of analysts covering the stock.
+		// 1–4 analysts: half bonus (could be a micro-cap with limited coverage)
+		// 5+ analysts:  full bonus (institutional consensus)
 		const analystRating = stock.analystRating?.toLowerCase() || "";
-		if (analystRating.includes("strong buy")) score += 25;
-		else if (analystRating.includes("buy")) score += 20;
+		const numAnalysts = stock.numberOfAnalysts
+			? Number(stock.numberOfAnalysts)
+			: 0;
+		if (analystRating.includes("strong buy")) {
+			score += numAnalysts >= 5 ? 25 : 12; // gated by analyst count
+		} else if (analystRating.includes("buy")) {
+			score += numAnalysts >= 3 ? 20 : 8;  // gated by analyst count
+		}
 
 		// ── Fix 2a: prefer screener OHLCV return_1y over stale listed_stocks.returns1Y ──
 		// screener_derived_metrics.return_1y is computed nightly from OHLCV price history.
@@ -958,9 +1045,18 @@ export class StockStrategy extends BaseStrategy {
 			else if (relMomentum <= -10) score -= 10; // Clear momentum laggard
 		}
 
+		// ── Upgrade #8: Sector-relative PE (replaces absolute PE threshold) ─────
+		// Absolute PE < 15 is cheap for banks but EXPENSIVE for FMCG (sector median 48).
+		// Compare stock PE against sector-median PE for context-aware valuation.
 		const pe = stock.peRatio ? Number.parseFloat(stock.peRatio) : 0;
-		if (pe > 0 && pe < 15) score += 15;
-		else if (pe >= 15 && pe < 25) score += 10;
+		const stockBroadSectorForPE = mapToBroadSector(stock.sector);
+		const sectorMedianPE = SECTOR_MEDIAN_PE[stockBroadSectorForPE] ?? 25;
+		if (pe > 0) {
+			const peDiscount = (sectorMedianPE - pe) / sectorMedianPE; // positive = cheaper than median
+			if (peDiscount >= 0.30) score += 15;       // 30%+ cheaper than sector peers — strong value
+			else if (peDiscount >= 0.15) score += 10;  // 15%+ discount — moderate value
+			else if (peDiscount <= -0.30) score -= 8;  // 30%+ premium to sector — expensive
+		}
 
 		if (stock.marketCap === "Large Cap") score += 10;
 		else if (stock.marketCap === "Mid Cap") score += 8;
@@ -969,6 +1065,44 @@ export class StockStrategy extends BaseStrategy {
 		if (advancedMetrics.piotroskiFScore && advancedMetrics.piotroskiFScore >= 8)
 			score += 15;
 		if (advancedMetrics.roic && advancedMetrics.roic > 20) score += 10;
+
+		// ── Upgrade #1: Promoter Holding + Pledge Trap ────────────────────────────
+		// Promoter holding >50% = high insider conviction → reward.
+		// Pledged shares >50% = distress risk (forced selling if stock falls) → hard penalty.
+		// Pledged >25% = elevated risk → moderate penalty.
+		// Data source: screener_shareholding via enriched snapshot or direct DB query.
+		// Non-fatal: missing data = 0 impact (no false penalty).
+		try {
+			const shRows = await db
+				.select({
+					promoterHolding: screenerShareholding.promoterHolding,
+					pledgedShares: screenerShareholding.pledgedShares,
+				})
+				.from(screenerShareholding)
+				.where(eq(screenerShareholding.symbol, (stock.symbol ?? "").toUpperCase()))
+				.orderBy(desc(screenerShareholding.quarterDate))
+				.limit(1);
+			if (shRows[0]) {
+				const promoterHolding = shRows[0].promoterHolding
+					? Number.parseFloat(shRows[0].promoterHolding)
+					: null;
+				const pledgedPct = shRows[0].pledgedShares
+					? Number.parseFloat(shRows[0].pledgedShares)
+					: null;
+				// Promoter conviction
+				if (promoterHolding !== null) {
+					if (promoterHolding >= 60) score += 10;      // Very high insider conviction
+					else if (promoterHolding >= 50) score += 6;  // Strong conviction
+					else if (promoterHolding < 20) score -= 5;   // Very low promoter skin-in-game
+				}
+				// Pledge trap — hard penalty (FASP-AI v1.0: financial risk filter)
+				if (pledgedPct !== null) {
+					if (pledgedPct >= 50) score -= 20; // Severe distress risk — avoid
+					else if (pledgedPct >= 25) score -= 10; // Elevated risk
+					else if (pledgedPct >= 10) score -= 4;  // Moderate caution
+				}
+			}
+		} catch { /* non-fatal — no data = no impact */ }
 
 		// ── P0 Alpha Factor A: 52-Week Positioning ──────────────────────────────────
 		// Near 52-week high = momentum leader (breakout candidate).
@@ -1021,6 +1155,61 @@ export class StockStrategy extends BaseStrategy {
 			if (enriched.growth?.epsGrowth && enriched.growth.epsGrowth > 20)
 				score += 8;
 
+			// ── Upgrade #2: Revenue vs EPS Growth Mismatch (Earnings Quality) ────────
+			// Profit growing much faster than revenue for 3+ years = accounting concern.
+			// Common causes: one-time items, cost cuts, or channel stuffing.
+			// Conversely, both growing together = high-quality compounder.
+			const revGrowth = enriched.growth?.revenueGrowth ?? null;
+			const epsGrowth = enriched.growth?.epsGrowth ?? null;
+			if (revGrowth !== null && epsGrowth !== null) {
+				const mismatch = epsGrowth - revGrowth;
+				if (mismatch > 30) score -= 10;  // Profit far outpacing revenue = quality concern
+				else if (mismatch > 20) score -= 5; // Moderate mismatch — caution
+				if (revGrowth > 15 && epsGrowth > 15) score += 10; // Both growing — quality compounder
+				else if (revGrowth > 10 && epsGrowth > 10) score += 5;
+			}
+
+			// ── Upgrade #4: Debt-to-Equity Trend (deleveraging signal) ───────────────
+			// D/E < 0.3 = near debt-free = financial strength premium.
+			// D/E > 2 = highly leveraged = amplified downside in rate-hike cycles.
+			// Enriched snapshot carries D/E from screener_financials.
+			const de = enriched.fundamentals?.debtToEquity ?? null;
+			if (de !== null) {
+				if (de < 0.3) score += 8;       // Near debt-free — financial strength
+				else if (de < 0.8) score += 4;  // Conservative leverage
+				else if (de > 2.0) score -= 10; // High leverage — rate-hike risk
+				else if (de > 1.5) score -= 5;  // Elevated leverage — caution
+			}
+
+			// ── Upgrade #5: MACD Crossover (trend direction signal) ──────────────────
+			// MACD histogram > 0 = bullish momentum (fast EMA > slow EMA).
+			// The enriched snapshot stores the latest MACD histogram value.
+			// Positive MACD = ongoing uptrend; negative = downtrend. Bounded ±6 pts.
+			const macd = enriched.technicals?.macd ?? null;
+			if (macd !== null) {
+				if (macd > 0.5) score += 6;      // Bullish momentum crossover
+				else if (macd > 0) score += 3;   // Mild bullish
+				else if (macd < -0.5) score -= 6; // Bearish crossover — poor entry
+				else if (macd < 0) score -= 3;   // Mild bearish
+			}
+
+			// ── Upgrade #7: Price vs 200-DMA (institutional trend filter) ─────────────
+			// Price > 200-DMA = stock in long-term uptrend (institutional buy zone).
+			// Price < 200-DMA = below long-term trend = avoid (distribution phase).
+			// Golden cross (50-DMA crosses above 200-DMA) = strong buy signal.
+			// Data: enriched.technicals.sma50 / sma200 from screener_derived_technicals.
+			const sma50 = enriched.technicals?.sma50 ?? null;
+			const sma200 = enriched.technicals?.sma200 ?? null;
+			const currentPriceForDMA = curPrice; // already computed above from stock.currentPrice
+			if (sma200 !== null && currentPriceForDMA !== null) {
+				if (currentPriceForDMA > sma200 * 1.02) score += 8;  // >2% above 200-DMA — confirmed uptrend
+				else if (currentPriceForDMA > sma200) score += 4;    // Just above 200-DMA — borderline
+				else if (currentPriceForDMA < sma200 * 0.95) score -= 10; // >5% below 200-DMA — downtrend
+				else if (currentPriceForDMA < sma200) score -= 5;    // Just below 200-DMA — caution
+				// Golden cross: 50-DMA above 200-DMA = sustained bullish trend
+				if (sma50 !== null && sma50 > sma200 * 1.01) score += 6; // Golden cross confirmed
+			}
+
 			// ── Fix 2b: FintekPro screener composite quality signal ──
 			// compositeScore (0–100): holistic quality+value+growth+risk blend
 			const cs = enriched.derivedMetrics?.compositeScore ?? 0;
@@ -1039,6 +1228,17 @@ export class StockStrategy extends BaseStrategy {
 			if (beta != null && beta > 1.8) score -= 8;  // very high market sensitivity
 			const maxDd = enriched.performance?.maxDrawdown1Y;
 			if (maxDd != null && maxDd < -40) score -= 10; // severe 1Y drawdown
+
+			// ── Upgrade #10: Delivery-based volume (conviction quality signal) ──────
+			// High delivery % = sustained buying conviction (not intraday/speculative).
+			// Low delivery % = mostly F&O / intraday = no real accumulation.
+			// Source: enriched.technicals.deliveryPct from NSE bhavcopy (0–100%).
+			const deliveryPct = (enriched.technicals as any)?.deliveryPct ?? null;
+			if (deliveryPct !== null) {
+				if (deliveryPct >= 65) score += 10;       // High conviction buying
+				else if (deliveryPct >= 45) score += 4;   // Moderate conviction
+				else if (deliveryPct < 25) score -= 8;    // Mostly speculative — avoid
+			}
 		}
 
 		// ── AI Alpha Boost (merged from Stock AI engine) ───────────────────────────

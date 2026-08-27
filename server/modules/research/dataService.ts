@@ -939,7 +939,7 @@ function parseScreenerHtml(html: string, nseSymbol: string): ScreenerData {
 		"balance-sheet",
 		"Reserves",
 	);
-	// Borrowings: try multiple label variants
+	// Borrowings: try multiple label variants (non-bank companies)
 	const [, borrowings1] = extractTableLastTwoRows(
 		html,
 		"balance-sheet",
@@ -955,14 +955,40 @@ function parseScreenerHtml(html: string, nseSymbol: string): ScreenerData {
 		"balance-sheet",
 		"Long Term Borrowing",
 	);
-	const borrowings = borrowings1 ?? borrowings2 ?? borrowings3 ?? null;
+	// ── Bank/NBFC D/E fix ─────────────────────────────────────────────────────
+	// Screener balance sheets for banks/NBFCs use "Borrowings" to mean
+	// interbank/market borrowings (NOT deposits — deposits are a bank's product,
+	// not traditional debt). If the standard rows all return null, check if this
+	// is a banking stock by detecting the "Deposits" row that only banks have.
+	// For banks, D/E = Borrowings / Networth (where Borrowings = interbank only).
+	// "Other Liabilities" is an additional fallback for NBFCs.
+	const [, deposits] = extractTableLastTwoRows(
+		html,
+		"balance-sheet",
+		"Deposits",
+	);
+	const [, otherLiabilities] = extractTableLastTwoRows(
+		html,
+		"balance-sheet",
+		"Other Liabilities",
+	);
+	const isBankingStock = deposits !== null && deposits > 0;
+
+	let borrowings: number | null;
+	if (isBankingStock) {
+		// For banks: use Borrowings (interbank) if available, else 0 (no traditional D/E debt)
+		borrowings = borrowings1 ?? borrowings2 ?? borrowings3 ?? 0;
+	} else {
+		// Non-bank: standard fallback chain including Other Liabilities for NBFCs
+		borrowings = borrowings1 ?? borrowings2 ?? borrowings3 ?? otherLiabilities ?? null;
+	}
 
 	const totalEquity = (equityCapital ?? 0) + (reserves ?? 0);
 	const debtToEquity: number | null =
 		borrowings !== null && totalEquity > 0
 			? Math.round((borrowings / totalEquity) * 1000) / 1000
 			: borrowings === 0
-				? 0 // zero debt → D/E = 0
+				? 0 // zero debt (or bank with no interbank borrowings) → D/E = 0
 				: null;
 
 	// ─── Extended historical tables ───────────────────────────────────────────
@@ -1401,9 +1427,12 @@ function isDbFresh(dbData: DBData): boolean {
 	if (!dbData.lastUpdated) return false;
 	if (dbData.roe === null && dbData.roce === null) return false; // no useful fundamentals stored
 	if (dbData.revenue === null) return false; // re-scrape if new fields missing
+	// ── D/E fix: re-scrape if debtToEquity is missing (banks used to store null) ──
+	if (dbData.debtToEquity === null) return false;
 	const ageMs = Date.now() - dbData.lastUpdated.getTime();
 	return ageMs < dbFreshnessHours() * 60 * 60 * 1000;
 }
+
 
 // ─── DB write-back (persist Screener.in results) ──────────────────────────────
 
