@@ -2099,29 +2099,48 @@ export async function computeAndPersistAllPortfolioTWRRPeriods(): Promise<{
 					const return6m  = Math.round(wRet6m  * scale * 100) / 100;
 					const returnYtd = Math.round(wRetYtd * scale * 100) / 100;
 
-					// ── 2Y CAGR + SI: use financial_instruments_cache returns_3y/5y as proxy ─────
+					// ── 2Y CAGR + SI: use financial_instruments_cache return_3y/5y as proxy ──────
+					// FIX (2026-08-27): Column names are return_3y/return_5y (no trailing 's').
+					//   Previous query used `returns_3y`/`returns_5y` — those columns don't exist,
+					//   causing wt3y/wt5y to always be 0, making returnSinceInception null for all
+					//   stock portfolios.
+					// Fallback chain: 5Y weighted avg → 3Y weighted avg → 1Y weighted avg
+					//   Coverage threshold is 10% (vs 40% for TWRR primary — lower is acceptable
+					//   for a long-run proxy).
 					// Isolated try/catch: cache failure MUST NOT abort the primary return UPDATE.
 					let cagr2y: number | null = null;
 					let returnSinceInception: number | null = null;
 					try {
 						const syms = stockHoldings.map((h: any) => String(h.symbol).toUpperCase());
 						const cacheRows = await db.execute(
-							sql`SELECT symbol, returns_3y, returns_5y
+							sql`SELECT symbol, return_1y, return_3y, return_5y
 							    FROM financial_instruments_cache
 							    WHERE symbol IN (${sql.raw(syms.map(s => `'${s.replace(/'/g, "''")}'`).join(","))})`
 						);
 						const retMap = new Map((cacheRows.rows as any[]).map((r) => [String(r.symbol).toUpperCase(), r]));
-						let w3y = 0, w5y = 0, wt3y = 0, wt5y = 0;
+						let w1y = 0, w3y = 0, w5y = 0, wt1y = 0, wt3y = 0, wt5y = 0;
 						for (const h of stockHoldings) {
 							const row = retMap.get(String(h.symbol).toUpperCase());
 							const wf = Number(h.weight) / totalWeight;
-							if (row?.returns_3y != null) { w3y += wf * Number(row.returns_3y); wt3y += wf; }
-							if (row?.returns_5y != null) { w5y += wf * Number(row.returns_5y); wt5y += wf; }
+							if (row?.return_1y != null) { w1y += wf * Number(row.return_1y); wt1y += wf; }
+							if (row?.return_3y != null) { w3y += wf * Number(row.return_3y); wt3y += wf; }
+							if (row?.return_5y != null) { w5y += wf * Number(row.return_5y); wt5y += wf; }
 						}
-						cagr2y = wt3y >= 0.3 ? Math.round(w3y / wt3y * 100) / 100 : null;
-						returnSinceInception = wt5y >= 0.3
-							? Math.round(w5y / wt5y * 100) / 100
-							: cagr2y;
+						// 10% coverage threshold for the long-run proxy (not TWRR primary)
+						const SIR_COV_THRESHOLD = 0.10;
+						cagr2y = wt3y >= SIR_COV_THRESHOLD ? Math.round(w3y / wt3y * 100) / 100 : null;
+						returnSinceInception =
+							wt5y >= SIR_COV_THRESHOLD ? Math.round(w5y / wt5y * 100) / 100
+							: wt3y >= SIR_COV_THRESHOLD ? Math.round(w3y / wt3y * 100) / 100
+							: wt1y >= SIR_COV_THRESHOLD ? Math.round(w1y / wt1y * 100) / 100
+							: null;
+						logger.info("[PortfolioTWRR] SIR cache coverage", {
+							event: "PORTFOLIO_TWRR_SIR_CACHE_COVERAGE",
+							user_id: "system",
+							portfolio_id: port.id,
+							wt1y: Math.round(wt1y * 100), wt3y: Math.round(wt3y * 100), wt5y: Math.round(wt5y * 100),
+							returnSinceInception, source: wt5y >= SIR_COV_THRESHOLD ? "5y" : wt3y >= SIR_COV_THRESHOLD ? "3y" : wt1y >= SIR_COV_THRESHOLD ? "1y" : "null",
+						});
 					} catch (cacheErr) {
 						// Non-fatal: cagr_2y/return_since_inception remain null; primary returns still persist.
 						logger.warn("[PortfolioTWRR] CAGR cache lookup failed (non-fatal)", {
