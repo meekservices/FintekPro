@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { logger } from "./logger";
 
 // Extend Express Request interface to include subdomain info
 declare global {
@@ -42,13 +43,19 @@ export function subdomainDetection(
 		process.env.DEBUG_SUBDOMAIN === "true" ||
 		process.env.NODE_ENV !== "production";
 	if (debugEnabled) {
-		console.log(`[SUBDOMAIN_DEBUG] Request Path: ${req.path}`);
-		console.log(
-			`[SUBDOMAIN_DEBUG] Host: ${req.get("host")} | X-Forwarded-Host: ${xForwardedHost} | req.hostname: ${req.hostname} | Using: ${hostname}`,
-		);
-		console.log(
-			`[SUBDOMAIN_DEBUG] X-Forwarded-Proto: ${req.get("x-forwarded-proto")} | Origin: ${req.get("origin")}`,
-		);
+		logger.info("SUBDOMAIN_DEBUG", { event: "SUBDOMAIN_DEBUG", path: req.path });
+		logger.info("SUBDOMAIN_DEBUG", {
+			event: "SUBDOMAIN_DEBUG",
+			host: req.get("host"),
+			xForwardedHost,
+			reqHostname: req.hostname,
+			using: hostname,
+		});
+		logger.info("SUBDOMAIN_DEBUG", {
+			event: "SUBDOMAIN_DEBUG",
+			xForwardedProto: req.get("x-forwarded-proto"),
+			origin: req.get("origin"),
+		});
 	}
 
 	// Extract subdomain
@@ -68,26 +75,18 @@ export function subdomainDetection(
 			.split(":")[0]
 			.toLowerCase();
 		const forwardedParts = (xForwardedHost || originHost || "").split(".");
-		if (
-			forwardedParts.length > 2 &&
+		if (forwardedParts.length > 2 &&
 			forwardedParts[0] !== "www" &&
 			["admin", "partner", "agent"].includes(forwardedParts[0])
 		) {
 			subdomain = forwardedParts[0];
-			console.log(
-				`[SUBDOMAIN_DEBUG] ☁️ GCP Internal URL: recovered subdomain '${subdomain}' from X-Forwarded-Host/Origin.`,
-			);
+			logger.info("SUBDOMAIN_GCP_RECOVERED", { event: "SUBDOMAIN_GCP_RECOVERED", subdomain, hostname });
 		} else {
 			subdomain = "";
-			console.log(
-				`[SUBDOMAIN_DEBUG] ☁️ GCP Internal URL detected: ${hostname}. Defaulting to main portal context.`,
-			);
+			logger.info("SUBDOMAIN_GCP_DEFAULT", { event: "SUBDOMAIN_GCP_DEFAULT", hostname });
 		}
 		if (debugEnabled) {
-			console.log(
-				`[SUBDOMAIN_DEBUG] Full headers for internal request:`,
-				JSON.stringify(req.headers),
-			);
+			logger.info("SUBDOMAIN_GCP_HEADERS", { event: "SUBDOMAIN_GCP_HEADERS", headers: req.headers });
 		}
 	}
 	// For localhost development (admin.localhost, partner.localhost, agent.localhost, or just localhost)
@@ -137,13 +136,10 @@ export function subdomainDetection(
 
 	// Log only for portal requests to reduce noise (disabled by default)
 	// Enable with DEBUG_SUBDOMAIN=true for troubleshooting
-	if (
-		process.env.DEBUG_SUBDOMAIN === "true" &&
+	if (process.env.DEBUG_SUBDOMAIN === "true" &&
 		(req.isAdminPortal || req.isPartnerPortal || req.isAgentPortal)
 	) {
-		console.log(
-			`🌐 [SUBDOMAIN] Detected Portal: ${subdomain} | Final Hostname: ${hostname}`,
-		);
+		logger.info("SUBDOMAIN_DETECTED", { event: "SUBDOMAIN_DETECTED", subdomain, hostname });
 	}
 
 	next();
@@ -306,9 +302,11 @@ export function stampSessionPortal(req: Request, portalType?: string) {
 		(req.session as any).portalType = finalPortalType;
 
 		if (process.env.DEBUG_SUBDOMAIN === "true") {
-			console.log(
-				`[SUBDOMAIN_STAMP] Session ${req.sessionID} stamped with portal: ${finalPortalType}`,
-			);
+			logger.info("SUBDOMAIN_STAMP", {
+				event: "SUBDOMAIN_STAMP",
+				sessionId: req.sessionID,
+				portal: finalPortalType,
+			});
 		}
 	}
 }
@@ -353,7 +351,9 @@ export function validateSessionPortal(
 		let hasSessionPortalRole = false;
 		if (sessionPortal === "admin") {
 			hasSessionPortalRole =
-				userRoles.includes("admin") || userRoles.includes("super_admin");
+				userRoles.includes("admin") ||
+				userRoles.includes("superadmin") ||
+				userRoles.includes("super_admin");
 		} else if (sessionPortal === "partner") {
 			hasSessionPortalRole =
 				userRoles.includes("partner") ||
@@ -391,7 +391,9 @@ export function validateSessionPortal(
 
 		if (currentPortal === "admin") {
 			hasAccess =
-				userRoles.includes("admin") || userRoles.includes("super_admin");
+				userRoles.includes("admin") ||
+				userRoles.includes("superadmin") ||
+				userRoles.includes("super_admin");
 		} else if (currentPortal === "partner") {
 			hasAccess =
 				userRoles.includes("partner") ||
@@ -408,18 +410,24 @@ export function validateSessionPortal(
 		}
 
 		if (hasAccess) {
-			console.log(
-				`🔄 [PORTAL_SWITCH] User ${req.user.id} switching from ${sessionPortal} to ${currentPortal || "main"}`,
-			);
+			logger.info("PORTAL_SWITCH", {
+				event: "PORTAL_SWITCH",
+				user_id: req.user.id,
+				from: sessionPortal,
+				to: currentPortal || "main",
+			});
 			(req.session as any).portalType = currentPortal;
 			return next();
 		}
 
-		console.warn(
-			`⚠️ [PORTAL_MISMATCH] User ${req.user.id} session portal: ${sessionPortal}, current: ${currentPortal || "main"}`,
-		);
+		logger.warn("PORTAL_MISMATCH", {
+			event: "PORTAL_MISMATCH",
+			user_id: req.user.id,
+			sessionPortal,
+			currentPortal: currentPortal || "main",
+		});
 		req.logout((err) => {
-			if (err) console.error("[PortalValidation] Logout error:", err);
+			if (err) logger.error("PORTAL_LOGOUT_ERROR", { event: "PORTAL_LOGOUT_ERROR", error: String(err) });
 			res.status(403).json({
 				error: "Portal mismatch",
 				message:

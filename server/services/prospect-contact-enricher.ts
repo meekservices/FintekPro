@@ -30,7 +30,8 @@
  *   - Self-healing: CredHive retries are handled inside credhive-service.ts;
  *     enrichment failure does NOT block lead assignment.
  *   - PAN/contact masking: mobile/email masked in logs per FASP-AI §Security.
- *   - No Bulkpe or any secondary phone provider — CredHive is the sole source.
+ *   - Provider chain: CredHive (primary) → Probe42 (fallback). If both fail,
+ *     enrichment returns lookup_error but lead assignment is NOT blocked.
  */
 
 import { db } from "../db";
@@ -38,7 +39,7 @@ import { prospectLeads } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { logger } from "../logger";
 import { directorContactService } from "./director-contact-service";
-import type { DirectorContactResult, ContactTier } from "./director-contact-service";
+import type { DirectorContactResult, ContactTier, DirectorDataSource } from "./director-contact-service";
 
 // Re-export for consumers that import from this module
 export type { DirectorContactResult, ContactTier };
@@ -71,7 +72,8 @@ export interface ContactEnrichmentResult {
   // Metrics
   directorsFound: number;
   contactableDirectors: number;
-  enrichmentSource: "credhive";
+  /** Which external provider successfully returned director data */
+  enrichmentSource: DirectorDataSource;
   skipped_reason?: string;
   engine_version: string;
   calculation_timestamp: string;
@@ -193,7 +195,7 @@ export async function enrichProspectContacts(
     // Metrics
     directorsFound: serviceResult.totalDirectors,
     contactableDirectors: serviceResult.contactableDirectors,
-    enrichmentSource: "credhive",
+    enrichmentSource: serviceResult.enrichmentSource,
     engine_version: ENGINE_VERSION,
     calculation_timestamp,
   };
@@ -293,7 +295,7 @@ function _skippedResult(
     tertiaryContactDin: null,
     directorsFound: 0,
     contactableDirectors: 0,
-    enrichmentSource: "credhive",
+    enrichmentSource: "credhive" as DirectorDataSource,
     skipped_reason: reason,
     engine_version: ENGINE_VERSION,
     calculation_timestamp,

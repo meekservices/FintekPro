@@ -39,6 +39,7 @@ import {
   credhiveService,
   type CredhiveDirector,
 } from "./credhive-service";
+import { probe42Service } from "./probe42-service";
 import {
   runDirectorContactPipeline,
   normalizeIndianMobile,
@@ -50,6 +51,7 @@ import {
   type DirectorContactTier,
   type MobileStatus,
   type PipelineResult,
+  type DirectorDataSource,
 } from "./director-contact-logic";
 
 // Re-export pure types/functions for consumers
@@ -63,6 +65,7 @@ export type {
   ContactTier,
   DirectorContactTier,
   MobileStatus,
+  DirectorDataSource,
 };
 
 // ── Service-level result type ─────────────────────────────────────────────────
@@ -74,7 +77,8 @@ export interface DirectorContactResult {
   allDirectors: ScoredDirector[];
   totalDirectors: number;
   contactableDirectors: number;
-  enrichmentSource: "credhive";
+  /** Which external provider successfully returned director data */
+  enrichmentSource: DirectorDataSource;
   lookupAt: string;
   enrichmentStatus: "success" | "partial" | "no_contacts" | "lookup_error";
   engine_version: string;
@@ -101,39 +105,47 @@ export class DirectorContactService {
     const startMs = Date.now();
     const lookupAt = new Date().toISOString();
 
-    // ── Step 1: Fetch directors from CredHive ─────────────────────────────────
-    let rawDirectors: CredhiveDirector[] = [];
+    // ── Step 1: Fetch directors from CredHive (primary) ───────────────────────
+    let rawDirectors: CredhiveDirector[] | null = await this._fetchFromCredhive(
+      leadId, cin, companyName, startMs,
+    );
+    let enrichmentSource: DirectorDataSource = "credhive";
 
-    try {
-      const result = await credhiveService.getDirectors(cin);
-
-      if (!result.success || !result.data) {
-        const errorResult = this._buildErrorResult(
-          leadId, cin, lookupAt,
-          result.error ?? "CredHive directors fetch returned no data",
-        );
-        await this._persistResult(leadId, errorResult);
-        return errorResult;
+    // ── Step 2: Fall back to Probe42 if CredHive returned nothing ─────────────
+    if (!rawDirectors) {
+      if (probe42Service.isAvailable()) {
+        logger.info("DIRECTOR_CONTACT_PROBE42_FALLBACK", {
+          event: "DIRECTOR_CONTACT_PROBE42_FALLBACK",
+          lead_id: leadId,
+          cin,
+          company: companyName,
+          reason: "credhive_unavailable_or_failed",
+          engine_version: ENGINE_VERSION,
+          status: "info",
+        });
+        rawDirectors = await this._fetchFromProbe42(leadId, cin, companyName, startMs);
+        enrichmentSource = "probe42";
+      } else {
+        logger.warn("DIRECTOR_CONTACT_NO_PROVIDER", {
+          event: "DIRECTOR_CONTACT_NO_PROVIDER",
+          lead_id: leadId,
+          cin,
+          reason: "credhive_failed_and_probe42_not_configured",
+          engine_version: ENGINE_VERSION,
+          status: "warn",
+        });
       }
+    }
 
-      rawDirectors = result.data;
-    } catch (err: any) {
-      logger.error("DIRECTOR_CONTACT_CREDHIVE_FETCH_FAILED", {
-        event: "DIRECTOR_CONTACT_CREDHIVE_FETCH_FAILED",
-        lead_id: leadId, cin, company: companyName,
-        error: err?.message ?? String(err),
-        retryable: true,
-        latency_ms: Date.now() - startMs,
-        engine_version: ENGINE_VERSION,
-        status: "error",
-      });
-      const errorResult = this._buildErrorResult(leadId, cin, lookupAt, err?.message);
+    // ── Step 3: If both providers failed, return error result ─────────────────
+    if (!rawDirectors) {
+      const errorResult = this._buildErrorResult(leadId, cin, lookupAt, "All providers failed");
       await this._persistResult(leadId, errorResult);
       return errorResult;
     }
 
     // ── Steps 2-5: Pure pipeline (score → validate → dedup → tier) ───────────
-    const pipeline = runDirectorContactPipeline(rawDirectors, lookupAt);
+    const pipeline = runDirectorContactPipeline(rawDirectors, lookupAt, enrichmentSource);
 
     const enrichmentStatus =
       pipeline.contacts.length === 0 ? "no_contacts"
@@ -158,7 +170,7 @@ export class DirectorContactService {
       allDirectors: pipeline.allDirectors,
       totalDirectors: pipeline.totalDirectors,
       contactableDirectors: pipeline.contactableDirectors,
-      enrichmentSource: "credhive",
+      enrichmentSource,
       lookupAt,
       enrichmentStatus,
       engine_version: ENGINE_VERSION,
@@ -188,7 +200,8 @@ export class DirectorContactService {
       .limit(1);
 
     const sources: string[] = (existing?.enrichmentSources as string[]) ?? [];
-    if (!sources.includes("credhive")) sources.push("credhive");
+    const sourceLabel = result.enrichmentSource; // "credhive" | "probe42"
+    if (!sources.includes(sourceLabel)) sources.push(sourceLabel);
 
     await db
       .update(prospectLeads)
@@ -230,6 +243,95 @@ export class DirectorContactService {
     });
   }
 
+  // ── Provider fetch helpers ────────────────────────────────────────────────
+
+  /**
+   * Attempt to fetch directors from CredHive.
+   * Returns the director array on success, or null if the service is
+   * unavailable / returns an error (so the caller can fall back to Probe42).
+   */
+  private async _fetchFromCredhive(
+    leadId: string,
+    cin: string,
+    companyName: string | undefined,
+    startMs: number,
+  ): Promise<CredhiveDirector[] | null> {
+    if (!credhiveService.isAvailable()) {
+      logger.warn("DIRECTOR_CONTACT_CREDHIVE_UNAVAILABLE", {
+        event: "DIRECTOR_CONTACT_CREDHIVE_UNAVAILABLE",
+        lead_id: leadId, cin,
+        reason: "CREDHIVE_API_KEY not configured",
+        engine_version: ENGINE_VERSION,
+        status: "warn",
+      });
+      return null;
+    }
+    try {
+      const result = await credhiveService.getDirectors(cin);
+      if (!result.success || !result.data) {
+        logger.warn("DIRECTOR_CONTACT_CREDHIVE_NO_DATA", {
+          event: "DIRECTOR_CONTACT_CREDHIVE_NO_DATA",
+          lead_id: leadId, cin, company: companyName,
+          error: result.error ?? "no data returned",
+          latency_ms: Date.now() - startMs,
+          engine_version: ENGINE_VERSION,
+          status: "warn",
+        });
+        return null;
+      }
+      return result.data;
+    } catch (err: any) {
+      logger.error("DIRECTOR_CONTACT_CREDHIVE_FETCH_FAILED", {
+        event: "DIRECTOR_CONTACT_CREDHIVE_FETCH_FAILED",
+        lead_id: leadId, cin, company: companyName,
+        error: err?.message ?? String(err),
+        retryable: true,
+        latency_ms: Date.now() - startMs,
+        engine_version: ENGINE_VERSION,
+        status: "error",
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Attempt to fetch directors from Probe42 (secondary fallback).
+   * Returns the director array on success, or null on failure.
+   */
+  private async _fetchFromProbe42(
+    leadId: string,
+    cin: string,
+    companyName: string | undefined,
+    startMs: number,
+  ): Promise<CredhiveDirector[] | null> {
+    try {
+      const result = await probe42Service.getDirectors(cin);
+      if (!result.success || !result.data) {
+        logger.warn("DIRECTOR_CONTACT_PROBE42_NO_DATA", {
+          event: "DIRECTOR_CONTACT_PROBE42_NO_DATA",
+          lead_id: leadId, cin, company: companyName,
+          error: result.error ?? "no data returned",
+          latency_ms: Date.now() - startMs,
+          engine_version: ENGINE_VERSION,
+          status: "warn",
+        });
+        return null;
+      }
+      return result.data;
+    } catch (err: any) {
+      logger.error("DIRECTOR_CONTACT_PROBE42_FETCH_FAILED", {
+        event: "DIRECTOR_CONTACT_PROBE42_FETCH_FAILED",
+        lead_id: leadId, cin, company: companyName,
+        error: err?.message ?? String(err),
+        retryable: true,
+        latency_ms: Date.now() - startMs,
+        engine_version: ENGINE_VERSION,
+        status: "error",
+      });
+      return null;
+    }
+  }
+
   // ── Error result builder ─────────────────────────────────────────────────────
 
   private _buildErrorResult(
@@ -243,7 +345,7 @@ export class DirectorContactService {
       lead_id: leadId,
       cin,
       error: errorMessage,
-      error_code: "CREDHIVE_LOOKUP_FAILED",
+      error_code: "ALL_PROVIDERS_FAILED",
       retryable: true,
       engine_version: ENGINE_VERSION,
       status: "error",
@@ -256,7 +358,7 @@ export class DirectorContactService {
       allDirectors: [],
       totalDirectors: 0,
       contactableDirectors: 0,
-      enrichmentSource: "credhive",
+      enrichmentSource: "credhive",  // default; both providers failed
       lookupAt,
       enrichmentStatus: "lookup_error",
       engine_version: ENGINE_VERSION,

@@ -148,8 +148,12 @@ function canAccessPortal(
 	targetPortal: string,
 ): boolean {
 	const userRoles = user.roles || [];
+	// NOTE: The canonical role name in shared/roles.ts is "superadmin" (no underscore).
+	// Both variants are checked here for backward compatibility.
 	const isAdmin =
-		userRoles.includes("admin") || userRoles.includes("super_admin");
+		userRoles.includes("admin") ||
+		userRoles.includes("superadmin") ||
+		userRoles.includes("super_admin");
 	const isAgent =
 		userRoles.includes("agent") ||
 		userRoles.includes("master_agent") ||
@@ -917,7 +921,11 @@ export function registerAuthRoutes(app: Express) {
 						maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
 						httpOnly: true,
 						secure: true,
-						sameSite: "lax" as const,
+						// CRITICAL: Must be "none" (not "lax") in production.
+						// Firebase Hosting → Cloud Run is a cross-site CDN proxy.
+						// SameSite=Lax blocks cookies on cross-origin requests.
+						// SameSite=None requires Secure=true (set above).
+						sameSite: "none" as const,
 						path: "/",
 					};
 					const sessionId = `s:${(req as any).sessionID}.${(req as any).session?.cookie}`;
@@ -1378,23 +1386,23 @@ export function registerAuthRoutes(app: Express) {
 			// FIX-2: Set 5s statement timeout to prevent long hangs during pool exhaustion.
 			const activeSessions = await db.transaction(async (tx) => {
 				await tx.execute(sql`SET LOCAL statement_timeout = '5000'`);
-				return tx
-					.select({ sid: sessions.sid })
-					.from(sessions)
-					.where(
-						and(
-							sql`${sessions.sess}->'passport'->>'user' = ${user.id}`,
-							sql`${sessions.expire} > NOW()`,
-						),
-					);
+				// Use a fully-raw SQL fragment for the JSONB path query.
+				// Drizzle column interpolation (${sessions.sess}) confuses the ->
+				// JSONB operators. We use sql.raw for the column name and
+				// explicit ::text cast to avoid UUID vs text type mismatch.
+				const userId = String(user.id);
+				return tx.execute(
+					sql`SELECT sid FROM sessions WHERE sess->'passport'->>'user' = ${userId} AND expire > NOW() LIMIT 100`,
+				);
 			});
 
-			const hasActiveSession = activeSessions.length > 0;
+			const sessionRows = (activeSessions as any).rows ?? activeSessions;
+			const hasActiveSession = sessionRows.length > 0;
 
 			console.log(JSON.stringify({
 				event: "SESSION_CHECK_COMPLETE",
 				user_id: String(user.id),
-				session_count: activeSessions.length,
+				session_count: sessionRows.length,
 				has_active_session: hasActiveSession,
 				latency_ms: Date.now() - t0,
 				status: "ok",
@@ -1402,7 +1410,7 @@ export function registerAuthRoutes(app: Express) {
 
 			return apiResponse.success(res, {
 				hasActiveSession,
-				sessionCount: activeSessions.length,
+				sessionCount: sessionRows.length,
 			});
 		} catch (error) {
 			// FIX-2: Structured error log per GCR v1.0

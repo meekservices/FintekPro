@@ -40,10 +40,13 @@ export const DECISION_MAKER_SCORE_RULES: Array<{
 
 export type MobileStatus =
   | "found"         // valid, unique, normalised mobile
-  | "not_found"     // CredHive returned no mobile for this director
+  | "not_found"     // primary/fallback provider returned no mobile for this director
   | "invalid"       // mobile present but fails structural validation
   | "duplicate"     // higher-ranked director already owns this number
-  | "lookup_error"; // CredHive API call itself failed
+  | "lookup_error"; // API call itself failed
+
+/** Which external provider supplied the director data */
+export type DirectorDataSource = "credhive" | "probe42";
 
 // ── Indian mobile normaliser ───────────────────────────────────────────────────
 
@@ -137,7 +140,8 @@ export interface ScoredDirector extends DirectorInput {
   mobileRaw?: string;
   mobileNormalized?: string;
   mobileStatus: MobileStatus;
-  contactSource: "credhive";
+  contactSource: DirectorDataSource;
+  /** ISO timestamp of the provider fetch that returned this director */
   credhiveLookupAt: string;
 }
 
@@ -152,7 +156,7 @@ export interface DirectorContactTier {
   mobile: string;
   mobileRaw: string;
   email?: string;
-  source: "credhive";
+  source: DirectorDataSource;
   credhiveLookupAt: string;
 }
 
@@ -184,6 +188,7 @@ export interface PipelineResult {
 export function runDirectorContactPipeline(
   rawDirectors: DirectorInput[],
   lookupAt: string,
+  source: DirectorDataSource = "credhive",
 ): PipelineResult {
   // Step 1 + 2: Score and sort
   const sorted = rawDirectors
@@ -197,7 +202,7 @@ export function runDirectorContactPipeline(
         mobileRaw: d.mobile,
         mobileNormalized: undefined as string | undefined,
         mobileStatus: "not_found" as MobileStatus,
-        contactSource: "credhive" as const,
+        contactSource: source,
         credhiveLookupAt: lookupAt,
       };
     })
@@ -250,7 +255,7 @@ export function runDirectorContactPipeline(
     mobile: d.mobileNormalized!,
     mobileRaw: d.mobileRaw!,
     email: d.email,
-    source: "credhive" as const,
+    source,
     credhiveLookupAt: lookupAt,
   }));
 
