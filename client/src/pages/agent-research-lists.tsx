@@ -181,6 +181,9 @@ export default function AgentResearchLists() {
 		return colors[universe] || "bg-muted";
 	};
 
+	const getUniverseLabel = (value: string) =>
+		universeTypes.find((t) => t.value === value)?.label ?? value;
+
 	return (
 		<div className="p-4 md:p-6 space-y-6">
 			<div className="flex items-center justify-between">
@@ -237,7 +240,7 @@ export default function AgentResearchLists() {
 										onValueChange={setNewListUniverse}
 									>
 										<SelectTrigger>
-											<SelectValue />
+											<SelectValue placeholder="Select universe" />
 										</SelectTrigger>
 										<SelectContent>
 											{universeTypes.map((type) => (
@@ -386,7 +389,7 @@ export default function AgentResearchLists() {
 												<Badge
 													className={`${getUniverseColor(list.universeType)} text-foreground`}
 												>
-													{list.universeType}
+													{getUniverseLabel(list.universeType)}
 												</Badge>
 											</TableCell>
 											<TableCell className="text-center">
