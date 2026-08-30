@@ -48,6 +48,12 @@ export function NetworkStatusBanner({
 		return null;
 	}
 
+	// Don't render anything until the first health check completes.
+	// This prevents the false "You are offline" flash on page load.
+	if (status === "initializing") {
+		return null;
+	}
+
 	if (status === "online" && !showWhenOnline) {
 		return null;
 	}
@@ -92,6 +98,16 @@ export function NetworkStatusBanner({
 					textColor: "text-foreground",
 					title: "Connected",
 					message: "All features available.",
+					dismissible: true,
+				};
+			default:
+				// "initializing" — never reached due to early return above
+				return {
+					icon: Wifi,
+					bgColor: "bg-muted",
+					textColor: "text-muted-foreground",
+					title: "",
+					message: "",
 					dismissible: true,
 				};
 		}

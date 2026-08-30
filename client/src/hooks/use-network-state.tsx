@@ -8,7 +8,7 @@ import {
 	useRef,
 } from "react";
 
-export type NetworkStatus = "online" | "offline" | "slow" | "server-error";
+export type NetworkStatus = "online" | "offline" | "slow" | "server-error" | "initializing";
 
 interface NetworkState {
 	status: NetworkStatus;
@@ -44,9 +44,13 @@ const SLOW_THRESHOLD_MS = 4500; // raised from 2000 – genuine slow only
 
 export function NetworkProvider({ children }: NetworkProviderProps) {
 	const [state, setState] = useState<NetworkState>(() => ({
-		status: navigator.onLine ? "online" : "offline",
-		isOnline: navigator.onLine,
-		isOffline: !navigator.onLine,
+		// Start as 'initializing' — never trust navigator.onLine alone.
+		// navigator.onLine is unreliable in Chrome (extensions, service workers,
+		// and certain network environments cause false negatives on load).
+		// The real status is determined after the first /api/health check.
+		status: "initializing" as NetworkStatus,
+		isOnline: true, // optimistic until proven otherwise
+		isOffline: false,
 		isSlow: false,
 		isServerError: false,
 		effectiveType: null,
