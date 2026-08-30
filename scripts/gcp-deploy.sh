@@ -69,6 +69,30 @@ if [[ "$_OS" == "Darwin" && "$_ARCH" == "arm64" ]]; then
   if [[ ! -f "$_CB_GITHUB" ]]; then
     echo "❌ cloudbuild-github.yaml not found at ${_CB_GITHUB}" && exit 1
   fi
+
+  # ── MANDATORY: push to GitHub BEFORE Cloud Build ─────────────────────────
+  # Cloud Build clones from GitHub (not local files). If local commits are not
+  # pushed first, Cloud Build builds a stale commit → container crash at runtime.
+  CURRENT_BRANCH_PRE="$(git rev-parse --abbrev-ref HEAD)"
+  HAS_ORIGIN_PRE="$(git remote | grep -c '^origin$' || true)"
+  if [[ "$HAS_ORIGIN_PRE" -gt 0 ]]; then
+    LOCAL_SHA="$(git rev-parse HEAD)"
+    REMOTE_SHA="$(git ls-remote origin "refs/heads/${CURRENT_BRANCH_PRE}" 2>/dev/null | awk '{print $1}')"
+    if [[ "$LOCAL_SHA" != "$REMOTE_SHA" ]]; then
+      echo ""
+      echo "📤 Pushing ${CURRENT_BRANCH_PRE} → origin before Cloud Build..."
+      echo "   (GitHub-clone builds require all commits to be pushed first)"
+      if ! git push origin "${CURRENT_BRANCH_PRE}" 2>&1; then
+        echo ""
+        echo "❌ git push failed — cannot deploy. Fix push errors and retry."
+        exit 1
+      fi
+      echo "✅ GitHub sync complete — Cloud Build will clone the correct HEAD."
+    else
+      echo "✅ GitHub already up to date — Cloud Build will clone correct HEAD."
+    fi
+  fi
+
   gcloud builds submit \
     --config="${_CB_GITHUB}" \
     --project="${PROJECT_ID}" \
