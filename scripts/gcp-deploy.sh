@@ -206,10 +206,31 @@ else
     echo ""
     echo "⚠️  No 'origin' remote found — skipping git push."
   else
-    # Warn if working tree is dirty (uncommitted changes exist)
-    if ! git diff --quiet || ! git diff --cached --quiet; then
+    # ── Dirty-tree guard ─────────────────────────────────────────────────────
+    # Block deploy if uncommitted changes exist (client/server/shared).
+    # Prevents "code works locally but not in prod" bugs where local edits
+    # were never committed. Override with FORCE_DEPLOY=1 if intentional.
+    DIRTY_FILES=$(git diff --name-only; git diff --cached --name-only)
+    if [ -n "$DIRTY_FILES" ]; then
       echo ""
-      echo "⚠️  Working tree has uncommitted changes — pushing committed HEAD only."
+      echo "┌─────────────────────────────────────────────────────────────┐"
+      echo "│  ⚠️  UNCOMMITTED CHANGES DETECTED — deploy blocked          │"
+      echo "└─────────────────────────────────────────────────────────────┘"
+      echo ""
+      echo "The following files have local changes not yet committed:"
+      echo "$DIRTY_FILES" | sed 's/^/  • /'
+      echo ""
+      if [ "${FORCE_DEPLOY:-0}" = "1" ]; then
+        echo "⚠️  FORCE_DEPLOY=1 set — deploying committed HEAD only (changes excluded)."
+      else
+        echo "Fix options:"
+        echo "  1. Commit all:  git add -A && git commit -m 'chore: commit pending changes'"
+        echo "  2. Force-skip:  FORCE_DEPLOY=1 bash scripts/gcp-deploy.sh"
+        echo "  3. Stash:       git stash && bash scripts/gcp-deploy.sh"
+        echo ""
+        echo "❌ Aborting deploy. Commit or stash your changes first."
+        exit 1
+      fi
     fi
 
     echo ""
