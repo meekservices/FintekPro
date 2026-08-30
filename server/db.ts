@@ -1,8 +1,12 @@
 /* eslint-disable no-console */
 // Infrastructure file: console is intentional for Cloud Run structured log output.
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+// pg is a CommonJS module — use default import + destructure for ESM bundle compatibility.
+// Named import `import { Pool } from 'pg'` fails at runtime when bundled with esbuild.
+import pgPkg from "pg";
+const { Pool } = pgPkg;
 import * as schema from "../shared/schema";
+// fs is available as named exports in Node ESM — direct named import is fine.
 import { existsSync, readdirSync } from "fs";
 
 /**
