@@ -234,13 +234,11 @@ export default function AdminProspectDashboardPage() {
 		],
 		queryFn: async () => {
 			const params = new URLSearchParams();
-			if (b2bSearch) params.set("search", b2bSearch);
+			if (b2bSearch?.trim()) params.set("search", b2bSearch.trim());
 			if (b2bStatus !== "all") params.set("status", b2bStatus);
 			if (b2bQuality !== "all") params.set("quality", b2bQuality);
 			if (b2bAssigned !== "all") params.set("assignedTo", b2bAssigned);
-			const response = await fetch(`/api/admin/prospects/b2b-leads?${params}`);
-			if (!response.ok) throw new Error("Failed to fetch B2B leads");
-			return response.json();
+			return await apiRequest(`/api/admin/prospects/b2b-leads?${params}`);
 		},
 	});
 
@@ -257,14 +255,12 @@ export default function AdminProspectDashboardPage() {
 		],
 		queryFn: async () => {
 			const params = new URLSearchParams();
-			if (individualSearch) params.set("search", individualSearch);
+			if (individualSearch?.trim()) params.set("search", individualSearch.trim());
 			if (individualState !== "all") params.set("state", individualState);
 			if (individualAgent !== "all") params.set("agentId", individualAgent);
-			const response = await fetch(
+			return await apiRequest(
 				`/api/admin/prospects/individual-prospects?${params}`,
 			);
-			if (!response.ok) throw new Error("Failed to fetch prospects");
-			return response.json();
 		},
 	});
 
@@ -290,14 +286,16 @@ export default function AdminProspectDashboardPage() {
 		onSuccess: () => {
 			toast({ title: "Success", description: "B2B lead created successfully" });
 			setIsCreateB2BOpen(false);
-			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects/b2b-leads"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects/metrics"] });
 			refetchB2B();
 			refetchMetrics();
 		},
 		onError: (error: any) => {
+			const isDuplicate = error.status === 409 || error.code === "DUPLICATE_LEAD";
 			toast({
-				title: "Error",
-				description: error.message,
+				title: isDuplicate ? "Duplicate Lead" : "Error",
+				description: error.userMessage || error.message,
 				variant: "destructive",
 			});
 		},
@@ -317,14 +315,16 @@ export default function AdminProspectDashboardPage() {
 		onSuccess: () => {
 			toast({ title: "Success", description: "Prospect created successfully" });
 			setIsCreateIndividualOpen(false);
-			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects/individual-prospects"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects/metrics"] });
 			refetchIndividual();
 			refetchMetrics();
 		},
 		onError: (error: any) => {
+			const isDuplicate = error.status === 409 || error.code === "DUPLICATE_PROSPECT";
 			toast({
-				title: "Error",
-				description: error.message,
+				title: isDuplicate ? "Duplicate Prospect" : "Error",
+				description: error.userMessage || error.message,
 				variant: "destructive",
 			});
 		},
@@ -359,7 +359,9 @@ export default function AdminProspectDashboardPage() {
 			});
 			setIsAssignOpen(false);
 			setAssignTarget(null);
-			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects/b2b-leads"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects/individual-prospects"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects/metrics"] });
 			refetchB2B();
 			refetchIndividual();
 			refetchMetrics();
@@ -394,7 +396,8 @@ export default function AdminProspectDashboardPage() {
 				description: `${data.succeeded} leads assigned successfully`,
 			});
 			setSelectedLeads([]);
-			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects/b2b-leads"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects/metrics"] });
 			refetchB2B();
 			refetchMetrics();
 		},
@@ -497,7 +500,7 @@ export default function AdminProspectDashboardPage() {
 	const updateLeadMutation = useMutation({
 		mutationFn: async (data: { id: string; updates: Partial<B2BLead> }) => {
 			const response = await apiRequest(
-				`/api/admin/marketing/leads/${data.id}`,
+				`/api/admin/prospects/b2b-leads/${data.id}`,
 				{
 					method: "PATCH",
 					body: JSON.stringify(data.updates),
@@ -509,7 +512,7 @@ export default function AdminProspectDashboardPage() {
 			toast({ title: "Success", description: "Lead updated successfully" });
 			setIsEditLeadOpen(false);
 			setEditingLead(null);
-			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects"] });
+			queryClient.invalidateQueries({ queryKey: ["/api/admin/prospects/b2b-leads"] });
 			refetchB2B();
 		},
 		onError: (error: any) => {
@@ -602,7 +605,7 @@ export default function AdminProspectDashboardPage() {
 					) : (
 						<>
 							<div className="grid gap-4 md:grid-cols-4">
-								<Card>
+								<Card className="border-l-4 border-l-blue-500">
 									<CardHeader className="pb-2">
 										<CardTitle className="text-sm font-medium text-muted-foreground">
 											Total Prospects
@@ -619,7 +622,7 @@ export default function AdminProspectDashboardPage() {
 									</CardContent>
 								</Card>
 
-								<Card>
+								<Card className="border-l-4 border-l-red-500">
 									<CardHeader className="pb-2">
 										<CardTitle className="text-sm font-medium text-muted-foreground">
 											Hot Leads
@@ -635,7 +638,7 @@ export default function AdminProspectDashboardPage() {
 									</CardContent>
 								</Card>
 
-								<Card>
+								<Card className="border-l-4 border-l-orange-500">
 									<CardHeader className="pb-2">
 										<CardTitle className="text-sm font-medium text-muted-foreground">
 											Unassigned
@@ -651,7 +654,7 @@ export default function AdminProspectDashboardPage() {
 									</CardContent>
 								</Card>
 
-								<Card>
+								<Card className="border-l-4 border-l-green-500">
 									<CardHeader className="pb-2">
 										<CardTitle className="text-sm font-medium text-muted-foreground">
 											Active Clients
@@ -1500,6 +1503,26 @@ function CreateB2BDialog({
 		notes: "",
 	});
 
+	useEffect(() => {
+		if (open) {
+			setFormData({
+				companyName: "",
+				cin: "",
+				primaryEmail: "",
+				primaryMobile: "",
+				address: "",
+				city: "",
+				state: "",
+				pincode: "",
+				industrySegment: "",
+				companyCategory: "mid_market",
+				leadQuality: "warm",
+				assignedTo: "",
+				notes: "",
+			});
+		}
+	}, [open]);
+
 	const handleSubmit = () => {
 		onSubmit({
 			...formData,
@@ -1735,6 +1758,20 @@ function CreateIndividualDialog({
 		indicativeRiskProfile: "",
 		agentId: "",
 	});
+
+	useEffect(() => {
+		if (open) {
+			setFormData({
+				name: "",
+				email: "",
+				mobile: "",
+				pan: "",
+				clientType: "individual",
+				indicativeRiskProfile: "",
+				agentId: "",
+			});
+		}
+	}, [open]);
 
 	const handleSubmit = () => {
 		onSubmit(formData);

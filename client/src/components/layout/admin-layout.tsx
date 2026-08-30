@@ -170,10 +170,10 @@ const navCategories: NavCategory[] = [
 		icon: Users,
 		items: [
 			{
-				title: "Lead Pipeline",
+				title: "Zoho Integration",
 				href: "/admin/zoho-dashboard",
 				icon: Workflow,
-				description: "Pipeline synced from Zoho CRM",
+				description: "CRM sync, Books, Campaigns & more",
 			},
 			{
 				title: "Stakeholders",
@@ -977,7 +977,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 	}
 
 	const isAdmin =
-		user.roles?.includes("admin") || user.roles?.includes("superadmin");
+		user.roles?.includes("admin") ||
+		user.roles?.includes("superadmin") ||
+		user.roles?.includes("tester"); // Tester role has universal portal access (QA/dev)
+
 
 	if (!isAdmin) {
 		return (
@@ -1021,7 +1024,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 	}
 
 	return (
-		<div className="min-h-screen bg-background text-foreground">
+		<div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
 			<Dialog open={searchOpen} onOpenChange={setSearchOpen}>
 				<DialogContent
 					className="bg-background border-border p-0 max-w-lg"
@@ -1281,7 +1284,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 				</div>
 			</header>
 
-			<div className="flex min-h-0">
+			<div className="flex flex-1 overflow-hidden">
 				{/* Mobile backdrop overlay */}
 				{sidebarOpen && (
 					<button

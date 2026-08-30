@@ -140,13 +140,20 @@ router.get("/b2b-leads", requireAdmin, async (req: any, res: Response) => {
 			conditions.push(eq(prospectLeads.source, source as string));
 		}
 		if (search) {
-			conditions.push(
-				or(
-					ilike(prospectLeads.companyName, `%${search}%`),
-					ilike(prospectLeads.primaryEmail, `%${search}%`),
-					ilike(prospectLeads.cin, `%${search}%`),
-				),
-			);
+			const s = (search as string).trim();
+			if (s) {
+				conditions.push(
+					or(
+						ilike(prospectLeads.companyName, `%${s}%`),
+						ilike(prospectLeads.primaryEmail, `%${s}%`),
+						ilike(prospectLeads.primaryMobile, `%${s}%`),
+						ilike(prospectLeads.cin, `%${s}%`),
+						ilike(prospectLeads.city, `%${s}%`),
+						ilike(prospectLeads.state, `%${s}%`),
+						ilike(prospectLeads.industrySegment, `%${s}%`),
+					),
+				);
+			}
 		}
 
 		const leads = await db
@@ -199,6 +206,184 @@ router.get("/b2b-leads", requireAdmin, async (req: any, res: Response) => {
 	} catch (error) {
 		console.error("Error fetching B2B leads:", error);
 		return apiResponse.serverError(res, "Failed to fetch B2B leads");
+	}
+});
+
+/**
+ * Update B2B prospect lead
+ */
+router.patch("/b2b-leads/:id", requireAdmin, async (req: any, res: Response) => {
+	try {
+		const { id } = req.params;
+		const updates = req.body;
+
+		const [existing] = await db
+			.select()
+			.from(prospectLeads)
+			.where(eq(prospectLeads.id, id))
+			.limit(1);
+
+		if (!existing) {
+			return apiResponse.notFound(res, "Lead not found");
+		}
+
+		const cleanUpdates: any = { updatedAt: new Date() };
+		if (updates.companyName !== undefined) cleanUpdates.companyName = updates.companyName.trim();
+		if (updates.cin !== undefined) cleanUpdates.cin = updates.cin?.trim() || null;
+		if (updates.primaryEmail !== undefined) cleanUpdates.primaryEmail = updates.primaryEmail?.trim() || null;
+		if (updates.primaryMobile !== undefined) cleanUpdates.primaryMobile = updates.primaryMobile?.trim() || null;
+		if (updates.address !== undefined) cleanUpdates.address = updates.address?.trim() || null;
+		if (updates.city !== undefined) cleanUpdates.city = updates.city?.trim() || null;
+		if (updates.state !== undefined) cleanUpdates.state = updates.state?.trim() || null;
+		if (updates.pincode !== undefined) cleanUpdates.pincode = updates.pincode?.trim() || null;
+		if (updates.industrySegment !== undefined) cleanUpdates.industrySegment = updates.industrySegment?.trim() || null;
+		if (updates.companyCategory !== undefined) cleanUpdates.companyCategory = updates.companyCategory;
+		if (updates.leadQuality !== undefined) cleanUpdates.leadQuality = updates.leadQuality;
+		if (updates.status !== undefined) cleanUpdates.status = updates.status;
+		if (updates.notes !== undefined) cleanUpdates.notes = updates.notes?.trim() || null;
+
+		const [updated] = await db
+			.update(prospectLeads)
+			.set(cleanUpdates)
+			.where(eq(prospectLeads.id, id))
+			.returning();
+
+		res.json(updated);
+	} catch (error) {
+		console.error("Error updating B2B lead:", error);
+		return apiResponse.serverError(res, "Failed to update B2B lead");
+	}
+});
+
+/**
+ * Delete B2B prospect lead
+ */
+router.delete("/b2b-leads/:id", requireAdmin, async (req: any, res: Response) => {
+	try {
+		const { id } = req.params;
+		await db.delete(prospectLeads).where(eq(prospectLeads.id, id));
+		res.json({ success: true, message: "Lead deleted successfully" });
+	} catch (error) {
+		console.error("Error deleting B2B lead:", error);
+		return apiResponse.serverError(res, "Failed to delete B2B lead");
+	}
+});
+
+/**
+ * Create new B2B prospect lead
+ */
+/**
+ * Create new B2B prospect lead (dedup-guarded)
+ *
+ * Purpose : Insert a new B2B company lead, rejecting the request if an
+ *           identical lead already exists so the DB stays clean.
+ * Dedup rules (checked in priority order):
+ *   1. CIN match          – same registered company (definitive)
+ *   2. Primary email match – same contact person at different companies
+ *   3. Normalised company name match – fuzzy-safe exact-lower match
+ * Outputs : 201 newLead | 409 Conflict with existing lead id
+ */
+router.post("/b2b-leads", requireAdmin, async (req: any, res: Response) => {
+	try {
+		const {
+			companyName,
+			cin,
+			primaryEmail,
+			primaryMobile,
+			address,
+			city,
+			state,
+			pincode,
+			industrySegment,
+			companyCategory,
+			leadQuality,
+			assignedTo,
+			notes,
+		} = req.body;
+
+		if (!companyName?.trim()) {
+			return apiResponse.badRequest(res, "Company name is required");
+		}
+
+		const cleanCin = cin?.trim() || null;
+		const cleanEmail = primaryEmail?.trim().toLowerCase() || null;
+		const cleanCompanyName = companyName.trim().toLowerCase();
+
+		// ── Duplicate detection ─────────────────────────────────────────────
+		// Build OR conditions for all available identifiers
+		const dupConditions: any[] = [
+			ilike(prospectLeads.companyName, cleanCompanyName),
+		];
+		if (cleanCin) dupConditions.push(ilike(prospectLeads.cin, cleanCin));
+		if (cleanEmail) dupConditions.push(ilike(prospectLeads.primaryEmail, cleanEmail));
+
+		const [existing] = await db
+			.select({ id: prospectLeads.id, companyName: prospectLeads.companyName, cin: prospectLeads.cin })
+			.from(prospectLeads)
+			.where(or(...dupConditions))
+			.limit(1);
+
+		if (existing) {
+			return res.status(409).json({
+				success: false,
+				error: "DUPLICATE_LEAD",
+				message: `A lead for "${existing.companyName}" already exists${
+					existing.cin ? ` (CIN: ${existing.cin})` : ""
+				}.`,
+				existingId: existing.id,
+			});
+		}
+
+		// ── Insert ──────────────────────────────────────────────────────────
+		const cleanAssignedTo = assignedTo?.trim() || null;
+
+		const [newLead] = await db
+			.insert(prospectLeads)
+			.values({
+				companyName: companyName.trim(),
+				cin: cleanCin,
+				primaryEmail: cleanEmail,
+				primaryMobile: primaryMobile?.trim() || null,
+				address: address?.trim() || null,
+				city: city?.trim() || null,
+				state: state?.trim() || null,
+				pincode: pincode?.trim() || null,
+				industrySegment: industrySegment?.trim() || null,
+				companyCategory: companyCategory || "mid_market",
+				leadQuality: leadQuality || "warm",
+				leadScore: leadQuality === "hot" ? 80 : leadQuality === "warm" ? 50 : 20,
+				assignedTo: cleanAssignedTo,
+				source: "manual",
+				status: "new",
+				notes: notes?.trim() || null,
+			})
+			.returning();
+
+		if (cleanAssignedTo) {
+			await db.insert(leadActivities).values({
+				leadId: newLead.id,
+				activityType: "assignment",
+				description: "Lead assigned to agent by admin",
+				performedBy: req.user.id,
+				metadata: { assignedTo: cleanAssignedTo, assignedBy: req.user.id },
+			} as any);
+		}
+
+		logger.info("B2B_LEAD_CREATED", {
+			event: "B2B_LEAD_CREATED",
+			user_id: req.user?.id,
+			lead_id: newLead.id,
+			companyName: newLead.companyName,
+			cin: newLead.cin,
+			source: "manual",
+			status: "success",
+			latency_ms: 0,
+		});
+
+		res.status(201).json(newLead);
+	} catch (error) {
+		console.error("Error creating B2B lead:", error);
+		return apiResponse.serverError(res, "Failed to create B2B lead");
 	}
 });
 
@@ -316,73 +501,20 @@ router.get("/agents", requireAdmin, async (req: any, res: Response) => {
 	}
 });
 
-/**
- * Create new B2B prospect lead
- */
-router.post("/b2b-leads", requireAdmin, async (req: any, res: Response) => {
-	try {
-		const {
-			companyName,
-			cin,
-			primaryEmail,
-			primaryMobile,
-			address,
-			city,
-			state,
-			pincode,
-			industrySegment,
-			companyCategory,
-			leadQuality,
-			assignedTo,
-			notes,
-		} = req.body;
-
-		if (!companyName) {
-			return apiResponse.badRequest(res, "Company name is required");
-		}
-
-		const [newLead] = await db
-			.insert(prospectLeads)
-			.values({
-				companyName,
-				cin,
-				primaryEmail,
-				primaryMobile,
-				address,
-				city,
-				state,
-				pincode,
-				industrySegment,
-				companyCategory: companyCategory || "mid_market",
-				leadQuality: leadQuality || "warm",
-				leadScore:
-					leadQuality === "hot" ? 80 : leadQuality === "warm" ? 50 : 20,
-				assignedTo,
-				source: "manual",
-				status: "new",
-				notes,
-			})
-			.returning();
-
-		if (assignedTo) {
-			await db.insert(leadActivities).values({
-				leadId: newLead.id,
-				activityType: "assignment",
-				description: `Lead assigned to agent by admin`,
-				performedBy: req.user.id,
-				metadata: { assignedTo, assignedBy: req.user.id },
-			} as any);
-		}
-
-		res.status(201).json(newLead);
-	} catch (error) {
-		console.error("Error creating B2B lead:", error);
-		return apiResponse.serverError(res, "Failed to create B2B lead");
-	}
-});
+// NOTE: Duplicate POST /b2b-leads removed — single canonical handler above (line ~275)
 
 /**
  * Create new individual prospect
+ */
+/**
+ * Create new individual prospect (dedup-guarded)
+ *
+ * Purpose : Insert a new individual prospect, rejecting duplicates.
+ * Dedup rules (any match = conflict):
+ *   1. Email match      – same person
+ *   2. Mobile match     – same person via phone
+ *   3. PAN match        – definitive identity proof
+ * Outputs : 201 newProspect | 409 Conflict with existing prospect id
  */
 router.post(
 	"/individual-prospects",
@@ -399,7 +531,7 @@ router.post(
 				agentId,
 			} = req.body;
 
-			if (!name || !agentId) {
+			if (!name?.trim() || !agentId) {
 				return apiResponse.badRequest(
 					res,
 					"Name and agent assignment are required",
@@ -416,14 +548,38 @@ router.post(
 				return apiResponse.badRequest(res, "Invalid agent ID");
 			}
 
+			// ── Duplicate detection ───────────────────────────────────────────
+			const dupConditions: any[] = [];
+			if (email?.trim()) dupConditions.push(ilike(prospectClients.email, email.trim()));
+			if (mobile?.trim()) dupConditions.push(ilike(prospectClients.mobile, mobile.trim()));
+			if (pan?.trim()) dupConditions.push(ilike(prospectClients.pan, pan.trim().toUpperCase()));
+
+			if (dupConditions.length > 0) {
+				const [existing] = await db
+					.select({ id: prospectClients.id, name: prospectClients.name })
+					.from(prospectClients)
+					.where(or(...dupConditions))
+					.limit(1);
+
+				if (existing) {
+					return res.status(409).json({
+						success: false,
+						error: "DUPLICATE_PROSPECT",
+						message: `A prospect named "${existing.name}" already exists with matching email, mobile, or PAN.`,
+						existingId: existing.id,
+					});
+				}
+			}
+
+			// ── Insert ────────────────────────────────────────────────────────
 			const [newProspect] = await db
 				.insert(prospectClients)
 				.values({
 					agentId,
-					name,
-					email,
-					mobile,
-					pan,
+					name: name.trim(),
+					email: email?.trim() || null,
+					mobile: mobile?.trim() || null,
+					pan: pan?.trim().toUpperCase() || null,
 					clientType: clientType || "individual",
 					indicativeRiskProfile,
 					state: "prospect",
@@ -690,12 +846,20 @@ router.post(
 
 			for (const record of records) {
 				const email = record.Email;
+				const zohoId = record.id as string | undefined;
 
-				if (email) {
+				// ── Dedup: check CIN, email, and Zoho record ID ──────────────────
+				const zohoIdNote = zohoId ? `Zoho ID: ${zohoId}` : null;
+				const dupConditions: any[] = [];
+				if (email) dupConditions.push(ilike(prospectLeads.primaryEmail, email));
+				// Check if already imported via notes field containing same Zoho ID
+				if (zohoIdNote) dupConditions.push(sql`${prospectLeads.notes} ILIKE ${'%' + zohoIdNote + '%'}`);
+
+				if (dupConditions.length > 0) {
 					const [existing] = await db
 						.select({ id: prospectLeads.id })
 						.from(prospectLeads)
-						.where(ilike(prospectLeads.primaryEmail, email))
+						.where(or(...dupConditions))
 						.limit(1);
 
 					if (existing) {

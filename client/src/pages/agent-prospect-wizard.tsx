@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useSearch } from "wouter";
+import { useSearch, useParams } from "wouter";
 import {
 	Card,
 	CardContent,
@@ -928,15 +928,18 @@ interface ExistingProspect {
 export default function AgentProspectWizard() {
 	const { toast } = useToast();
 	const searchString = useSearch();
+	const params = useParams<{ id?: string; prospectId?: string }>();
 	const urlParams = new URLSearchParams(searchString);
 	const urlProspectId = urlParams.get("prospectId");
+	const routeProspectId = params?.id || params?.prospectId;
+	const effectiveProspectId = routeProspectId || urlProspectId;
 	const zohoLeadId = urlParams.get("leadId");
 	const zohoSource = urlParams.get("source");
 
 	const [currentStep, setCurrentStep] = useState(1);
 	const [showShareDialog, setShowShareDialog] = useState(false);
 	const [prospectMode, setProspectMode] = useState<"new" | "existing">(
-		urlProspectId ? "existing" : "new",
+		effectiveProspectId ? "existing" : "new",
 	);
 	const [prospectSearch, setProspectSearch] = useState("");
 
@@ -1410,7 +1413,7 @@ export default function AgentProspectWizard() {
 			currentExitLoadAmount: number;
 		}>;
 	} | null>(null);
-	const [prospectId, setProspectId] = useState<string | null>(urlProspectId);
+	const [prospectId, setProspectId] = useState<string | null>(effectiveProspectId || null);
 	const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
 	// Proposal Section Selection State - Agent can toggle which sections to include
@@ -2311,14 +2314,29 @@ export default function AgentProspectWizard() {
 		}
 	};
 
+	const { data: directProspectData } = useQuery<{ success: boolean; prospect: ExistingProspect }>({
+		queryKey: ["/api/agent-wizard/prospects", effectiveProspectId, "direct"],
+		queryFn: async () => {
+			if (!effectiveProspectId) return null;
+			const res = await fetch(`/api/agent-wizard/prospects/${effectiveProspectId}`, { credentials: "include" });
+			if (!res.ok) return null;
+			return res.json();
+		},
+		enabled: !!effectiveProspectId,
+	});
+
 	useEffect(() => {
-		if (urlProspectId && existingProspects.length > 0 && currentStep === 1) {
-			const found = existingProspects.find((p) => p.id === urlProspectId);
-			if (found) {
-				selectExistingProspect(found, true);
+		if (effectiveProspectId && currentStep === 1) {
+			if (directProspectData?.prospect) {
+				selectExistingProspect(directProspectData.prospect, true);
+			} else if (existingProspects.length > 0) {
+				const found = existingProspects.find((p) => p.id === effectiveProspectId);
+				if (found) {
+					selectExistingProspect(found, true);
+				}
 			}
 		}
-	}, [urlProspectId, existingProspects]);
+	}, [effectiveProspectId, directProspectData, existingProspects, currentStep]);
 
 	// Load saved holdings when prospect is selected
 	useEffect(() => {

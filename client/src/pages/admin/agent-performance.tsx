@@ -43,6 +43,8 @@ import {
 	Clock,
 	UserX,
 	Loader2,
+	BarChart2,
+	CheckCircle2,
 } from "lucide-react";
 import {
 	BarChart,
@@ -282,7 +284,7 @@ export default function AgentPerformanceDashboard() {
 			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-				<Card className="bg-card border-border">
+				<Card className="bg-card border-border border-l-4 border-l-blue-500">
 					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 						<CardTitle className="text-sm font-medium text-muted-foreground">
 							Total Agents
@@ -306,7 +308,7 @@ export default function AgentPerformanceDashboard() {
 					</CardContent>
 				</Card>
 
-				<Card className="bg-card border-border">
+				<Card className="bg-card border-border border-l-4 border-l-emerald-500">
 					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 						<CardTitle className="text-sm font-medium text-muted-foreground">
 							Total AUM
@@ -330,7 +332,7 @@ export default function AgentPerformanceDashboard() {
 					</CardContent>
 				</Card>
 
-				<Card className="bg-card border-border">
+				<Card className="bg-card border-border border-l-4 border-l-purple-500">
 					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 						<CardTitle className="text-sm font-medium text-muted-foreground">
 							Total Revenue MTD
@@ -354,7 +356,7 @@ export default function AgentPerformanceDashboard() {
 					</CardContent>
 				</Card>
 
-				<Card className="bg-card border-border">
+				<Card className="bg-card border-border border-l-4 border-l-amber-500">
 					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 						<CardTitle className="text-sm font-medium text-muted-foreground">
 							Avg Conversion Rate
@@ -451,9 +453,17 @@ export default function AgentPerformanceDashboard() {
 					<CardContent>
 						<div className="space-y-4">
 							{agentsNeedingAttention.length === 0 ? (
-								<p className="text-muted-foreground text-center py-8">
-									All agents are performing well!
-								</p>
+								<div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+									<div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center">
+										<CheckCircle2 className="h-6 w-6 text-green-500" />
+									</div>
+									<div>
+										<p className="font-medium text-foreground">All agents performing well</p>
+										<p className="text-xs text-muted-foreground mt-1">
+											No agents require attention right now. Check back after the next performance cycle.
+										</p>
+									</div>
+								</div>
 							) : (
 								agentsNeedingAttention.map((agent) => (
 									<div

@@ -182,6 +182,36 @@ export function AgentRoutes() {
 					</AgentLayout>
 				)}
 			</Route>
+			<Route path="/agent/prospect-wizard">
+				{() => (
+					<AgentLayout>
+						<AgentProspectWizard />
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/prospects">
+				{() => (
+					<AgentLayout>
+						<Suspense fallback={<LoadingState variant="agent-dashboard" />}>
+							<AgentHniLeaderboard />
+						</Suspense>
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/prospects/:id">
+				{() => (
+					<AgentLayout>
+						<AgentProspectWizard />
+					</AgentLayout>
+				)}
+			</Route>
+			<Route path="/agent/prospects/:id/proposal">
+				{() => (
+					<AgentLayout>
+						<AgentProspectWizard />
+					</AgentLayout>
+				)}
+			</Route>
 			<Route path="/agent/zoho-crm">
 				{() => (
 					<AgentLayout>

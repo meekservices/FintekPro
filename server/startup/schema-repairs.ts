@@ -4023,3 +4023,75 @@ export async function runVwapColumnRepair() {
   }
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MIGRATION: prospect_leads deduplication + CIN uniqueness
+// ─────────────────────────────────────────────────────────────────────────────
+// Cleans up duplicate company leads that existed prior to the dedup guard
+// added to POST /api/admin/prospects/b2b-leads, then enforces uniqueness at the
+// DB level via a partial unique index on UPPER(cin) WHERE cin IS NOT NULL.
+//
+// Strategy:
+//   1. For each group sharing the same CIN, keep the oldest row; delete the rest.
+//   2. For each group sharing the same normalised company name (no CIN), keep oldest.
+//   3. Create a partial unique index on UPPER(cin) to prevent future CIN duplicates.
+//
+// Safe to re-run: uses IF NOT EXISTS and non-fatal catch.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function runProspectLeadsDedupRepair() {
+  try {
+    const { pool: migPool } = await import("../db");
+
+    // Step 1 – Remove CIN duplicates (keep oldest per CIN)
+    const cinDedupResult = await migPool.query(`
+      DELETE FROM prospect_leads
+      WHERE id IN (
+        SELECT id FROM (
+          SELECT id,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY UPPER(TRIM(cin))
+                   ORDER BY created_at ASC
+                 ) AS rn
+          FROM prospect_leads
+          WHERE cin IS NOT NULL AND TRIM(cin) <> ''
+        ) sub
+        WHERE rn > 1
+      )
+    `);
+    const cinRemoved = cinDedupResult.rowCount ?? 0;
+    if (cinRemoved > 0) {
+      console.log(`  ✅ [ProspectDedup] Removed ${cinRemoved} duplicate CIN rows`);
+    }
+
+    // Step 2 – Remove company-name duplicates (no CIN, keep oldest)
+    const nameDedupResult = await migPool.query(`
+      DELETE FROM prospect_leads
+      WHERE id IN (
+        SELECT id FROM (
+          SELECT id,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY LOWER(TRIM(company_name))
+                   ORDER BY created_at ASC
+                 ) AS rn
+          FROM prospect_leads
+          WHERE cin IS NULL OR TRIM(cin) = ''
+        ) sub
+        WHERE rn > 1
+      )
+    `);
+    const nameRemoved = nameDedupResult.rowCount ?? 0;
+    if (nameRemoved > 0) {
+      console.log(`  ✅ [ProspectDedup] Removed ${nameRemoved} duplicate company-name rows`);
+    }
+
+    // Step 3 – Partial unique index on CIN (non-null, non-empty)
+    await migPool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uidx_prospect_leads_cin
+        ON prospect_leads (UPPER(TRIM(cin)))
+        WHERE cin IS NOT NULL AND TRIM(cin) <> ''
+    `);
+    console.log("  ✅ [ProspectDedup] Partial unique index uidx_prospect_leads_cin ensured");
+  } catch (err: any) {
+    console.warn("  ⚠️ [ProspectDedup] Non-fatal error:", err?.message?.slice(0, 120));
+  }
+}

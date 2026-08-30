@@ -234,28 +234,38 @@ export default function ZohoDashboardPage() {
 						<Activity className="h-4 w-4 text-muted-foreground" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">{connectionHealth.status}</div>
+						<div className="text-2xl font-bold">
+							{activeConnections.length === 0 ? "Not Set Up" : connectionHealth.status}
+						</div>
 						<p className="text-xs text-muted-foreground mt-1">
 							{activeConnections.length} active connection
 							{activeConnections.length !== 1 ? "s" : ""}
 						</p>
 						<Badge
 							variant={
-								connectionHealth.color === "green"
-									? "default"
-									: connectionHealth.color === "yellow"
-										? "secondary"
-										: "destructive"
+								activeConnections.length === 0
+									? "secondary"
+									: connectionHealth.color === "green"
+										? "default"
+										: connectionHealth.color === "yellow"
+											? "secondary"
+											: "destructive"
 							}
 							className="mt-2"
 						>
-							{connectionHealth.color === "green" && (
-								<CheckCircle className="w-3 h-3 mr-1" />
+							{activeConnections.length === 0 ? (
+								<span className="text-muted-foreground">Not configured</span>
+							) : (
+								<>
+									{connectionHealth.color === "green" && (
+										<CheckCircle className="w-3 h-3 mr-1" />
+									)}
+									{connectionHealth.color !== "green" && (
+										<AlertCircle className="w-3 h-3 mr-1" />
+									)}
+									{connectionHealth.status}
+								</>
 							)}
-							{connectionHealth.color !== "green" && (
-								<AlertCircle className="w-3 h-3 mr-1" />
-							)}
-							{connectionHealth.status}
 						</Badge>
 					</CardContent>
 				</Card>

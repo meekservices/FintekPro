@@ -19,7 +19,9 @@ export function LayoutResolver({ children, forceLayout }: LayoutResolverProps) {
 
 	const userRoles = (user as any)?.roles || [];
 	const isAdmin =
-		userRoles.includes("admin") || userRoles.includes("superadmin");
+		userRoles.includes("admin") ||
+		userRoles.includes("superadmin") ||
+		userRoles.includes("tester"); // Tester role has universal portal access
 
 	const isAdminPath = location.startsWith("/admin");
 	if (isAdminPath) {

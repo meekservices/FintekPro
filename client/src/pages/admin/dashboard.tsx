@@ -203,7 +203,8 @@ export default function AdminDashboard() {
 
 			{/* Primary Metrics */}
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-				<Card className="bg-card border-border">
+				{/* Total Users */}
+				<Card className="bg-card border-border border-l-4 border-l-blue-500">
 					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 						<CardTitle className="text-sm font-medium text-muted-foreground">
 							Total Users
@@ -240,7 +241,8 @@ export default function AdminDashboard() {
 					</CardContent>
 				</Card>
 
-				<Card className="bg-card border-border">
+				{/* Active Users */}
+				<Card className="bg-card border-border border-l-4 border-l-green-500">
 					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 						<CardTitle className="text-sm font-medium text-muted-foreground">
 							Active Users
@@ -266,7 +268,8 @@ export default function AdminDashboard() {
 					</CardContent>
 				</Card>
 
-				<Card className="bg-card border-border">
+				{/* Business Clients */}
+				<Card className="bg-card border-border border-l-4 border-l-purple-500">
 					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 						<CardTitle className="text-sm font-medium text-muted-foreground">
 							Business Clients
@@ -292,12 +295,13 @@ export default function AdminDashboard() {
 					</CardContent>
 				</Card>
 
-				<Card className="bg-card border-border">
+				{/* Platform Revenue */}
+				<Card className="bg-card border-border border-l-4 border-l-amber-500">
 					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 						<CardTitle className="text-sm font-medium text-muted-foreground">
 							Platform Revenue
 						</CardTitle>
-						<DollarSign className="h-4 w-4 text-yellow-400" />
+						<DollarSign className="h-4 w-4 text-amber-400" />
 					</CardHeader>
 					<CardContent>
 						{dashboardLoading ? (
@@ -310,7 +314,7 @@ export default function AdminDashboard() {
 								>
 									{formatCurrency(dashboardData?.platformInsights?.revenue)}
 								</div>
-								<p className="text-xs text-yellow-400 mt-1">Monthly revenue</p>
+								<p className="text-xs text-amber-400 mt-1">Monthly revenue</p>
 							</>
 						)}
 					</CardContent>
@@ -318,10 +322,10 @@ export default function AdminDashboard() {
 			</div>
 
 			{/* Quick Actions Panel */}
-			<Card className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 border-blue-800">
+			<Card className="bg-card border-border border-t-4 border-t-blue-500/40">
 				<CardHeader>
 					<CardTitle className="text-foreground flex items-center gap-2">
-						<Clock className="w-5 h-5" />
+						<Clock className="w-5 h-5 text-blue-400" />
 						Quick Actions
 					</CardTitle>
 					<CardDescription className="text-muted-foreground">
@@ -332,23 +336,23 @@ export default function AdminDashboard() {
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 						<Link href="/admin/kyc-compliance">
 							<div
-								className="bg-card/80 rounded-lg p-4 hover:bg-muted/80 transition-colors cursor-pointer border border-border"
+								className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-4 hover:bg-orange-100 dark:hover:bg-orange-950/40 transition-colors cursor-pointer border border-orange-200 dark:border-orange-900"
 								data-testid="link-pending-kyc"
 							>
 								<div className="flex items-center justify-between mb-2">
-									<FileCheck className="w-8 h-8 text-orange-400" />
+									<FileCheck className="w-8 h-8 text-orange-500" />
 									{kycLoading ? (
 										<Skeleton className="h-8 w-12 bg-muted" />
 									) : (
-										<span className="text-2xl font-bold text-orange-400">
+										<span className="text-2xl font-bold text-orange-500">
 											{kycStats?.pendingKyc || 0}
 										</span>
 									)}
 								</div>
-								<p className="text-sm text-muted-foreground">
+								<p className="text-sm font-medium text-foreground">
 									Pending KYC Reviews
 								</p>
-								<div className="flex items-center gap-1 mt-2 text-xs text-blue-400">
+								<div className="flex items-center gap-1 mt-2 text-xs text-orange-500 font-medium">
 									Review Now <ArrowRight className="w-3 h-3" />
 								</div>
 							</div>
@@ -356,21 +360,21 @@ export default function AdminDashboard() {
 
 						<Link href="/admin/duplicates">
 							<div
-								className="bg-card/80 rounded-lg p-4 hover:bg-muted/80 transition-colors cursor-pointer border border-border"
+								className="bg-red-50 dark:bg-red-950/20 rounded-lg p-4 hover:bg-red-100 dark:hover:bg-red-950/40 transition-colors cursor-pointer border border-red-200 dark:border-red-900"
 								data-testid="link-compliance-alerts"
 							>
 								<div className="flex items-center justify-between mb-2">
-									<AlertTriangle className="w-8 h-8 text-red-400" />
+									<AlertTriangle className="w-8 h-8 text-red-500" />
 									{kycLoading ? (
 										<Skeleton className="h-8 w-12 bg-muted" />
 									) : (
-										<span className="text-2xl font-bold text-red-400">
+										<span className="text-2xl font-bold text-red-500">
 											{kycStats?.activeAlerts || 0}
 										</span>
 									)}
 								</div>
-								<p className="text-sm text-muted-foreground">Active Alerts</p>
-								<div className="flex items-center gap-1 mt-2 text-xs text-blue-400">
+								<p className="text-sm font-medium text-foreground">Active Alerts</p>
+								<div className="flex items-center gap-1 mt-2 text-xs text-red-500 font-medium">
 									View Alerts <ArrowRight className="w-3 h-3" />
 								</div>
 							</div>
@@ -378,23 +382,23 @@ export default function AdminDashboard() {
 
 						<Link href="/admin/stakeholders">
 							<div
-								className="bg-card/80 rounded-lg p-4 hover:bg-muted/80 transition-colors cursor-pointer border border-border"
+								className="bg-green-50 dark:bg-green-950/20 rounded-lg p-4 hover:bg-green-100 dark:hover:bg-green-950/40 transition-colors cursor-pointer border border-green-200 dark:border-green-900"
 								data-testid="link-new-registrations"
 							>
 								<div className="flex items-center justify-between mb-2">
-									<UserPlus className="w-8 h-8 text-green-400" />
+									<UserPlus className="w-8 h-8 text-green-500" />
 									{dashboardLoading ? (
 										<Skeleton className="h-8 w-12 bg-muted" />
 									) : (
-										<span className="text-2xl font-bold text-green-400">
+										<span className="text-2xl font-bold text-green-500">
 											{dashboardData?.newClientsToday || 0}
 										</span>
 									)}
 								</div>
-								<p className="text-sm text-muted-foreground">
+								<p className="text-sm font-medium text-foreground">
 									New Registrations Today
 								</p>
-								<div className="flex items-center gap-1 mt-2 text-xs text-blue-400">
+								<div className="flex items-center gap-1 mt-2 text-xs text-green-500 font-medium">
 									View Users <ArrowRight className="w-3 h-3" />
 								</div>
 							</div>
@@ -402,21 +406,21 @@ export default function AdminDashboard() {
 
 						<Link href="/admin/unlisted/orders">
 							<div
-								className="bg-card/80 rounded-lg p-4 hover:bg-muted/80 transition-colors cursor-pointer border border-border"
+								className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-950/40 transition-colors cursor-pointer border border-blue-200 dark:border-blue-900"
 								data-testid="link-pending-orders"
 							>
 								<div className="flex items-center justify-between mb-2">
-									<Briefcase className="w-8 h-8 text-blue-400" />
+									<Briefcase className="w-8 h-8 text-blue-500" />
 									{ordersLoading ? (
 										<Skeleton className="h-8 w-12 bg-muted" />
 									) : (
-										<span className="text-2xl font-bold text-blue-400">
+										<span className="text-2xl font-bold text-blue-500">
 											{pendingOrdersData?.total || 0}
 										</span>
 									)}
 								</div>
-								<p className="text-sm text-muted-foreground">Pending Orders</p>
-								<div className="flex items-center gap-1 mt-2 text-xs text-blue-400">
+								<p className="text-sm font-medium text-foreground">Pending Orders</p>
+								<div className="flex items-center gap-1 mt-2 text-xs text-blue-500 font-medium">
 									Manage Orders <ArrowRight className="w-3 h-3" />
 								</div>
 							</div>

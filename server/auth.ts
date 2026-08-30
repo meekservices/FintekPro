@@ -148,6 +148,10 @@ function canAccessPortal(
 	targetPortal: string,
 ): boolean {
 	const userRoles = user.roles || [];
+
+	// Tester role has universal access to all portals (QA/dev use only)
+	if (userRoles.includes("tester")) return true;
+
 	// NOTE: The canonical role name in shared/roles.ts is "superadmin" (no underscore).
 	// Both variants are checked here for backward compatibility.
 	const isAdmin =
@@ -165,6 +169,7 @@ function canAccessPortal(
 	if (targetPortal === "partner") return isPartner || isAgent || isAdmin;
 	return true;
 }
+
 
 function portalDeniedMessage(targetPortal: string): string {
 	return `You do not have permission to access the ${targetPortal} portal`;
@@ -1135,8 +1140,85 @@ export function registerAuthRoutes(app: Express) {
 		}
 	});
 
+	/**
+	 * POST /api/admin/test-account/set-pin
+	 *
+	 * Purpose  : Admin-only shortcut to apply a fixed PIN to the sandbox test
+	 *            account (test@fintekpro.com) without requiring the test user
+	 *            to be logged in or have a verified mobile number.
+	 * Security : Requires an authenticated superadmin/admin session.
+	 * Inputs   : { pin: string (4 digits), email?: string (default: test@fintekpro.com) }
+	 * Outputs  : { success: true }
+	 */
+	app.post("/api/admin/test-account/set-pin", async (req, res) => {
+		try {
+			if (!req.isAuthenticated() || !req.user) {
+				return apiResponse.unauthorized(res);
+			}
+
+			const callerRoles: string[] = (req.user as any).roles ?? [];
+			const isAdmin =
+				callerRoles.includes("admin") ||
+				callerRoles.includes("superadmin") ||
+				callerRoles.includes("super_admin");
+			if (!isAdmin) {
+				return apiResponse.forbidden(
+					res,
+					"Only admins can set the test account PIN policy",
+				);
+			}
+
+			const targetEmail: string =
+				(req.body.email as string) ?? "test@fintekpro.com";
+			const { pin } = req.body as { pin: string };
+
+			if (!pin || !/^\d{4}$/.test(pin)) {
+				return apiResponse.badRequest(
+					res,
+					"Invalid PIN. Must be exactly 4 digits.",
+				);
+			}
+
+			// Verify this is a known tester account before mutating
+			const targetUser = await storage.getUserByEmail(targetEmail);
+			if (!targetUser) {
+				return apiResponse.notFound(
+					res,
+					`Test account not found: ${targetEmail}`,
+				);
+			}
+			if (!isTesterAccount(targetUser)) {
+				return apiResponse.forbidden(
+					res,
+					"Fixed PIN policy can only be applied to designated tester accounts",
+				);
+			}
+
+			const hashedPin = await hashPin(pin);
+			await storage.updateUser(targetUser.id, {
+				loginPin: hashedPin,
+				isPinSet: true,
+				updatedAt: new Date(),
+			} as any);
+
+			console.log(
+				`🧪 [ADMIN] Fixed PIN policy applied to tester account ${targetEmail} by admin ${(req.user as any).email}`,
+			);
+
+			return apiResponse.success(
+				res,
+				{ email: targetEmail, isPinSet: true },
+				`Fixed PIN applied to ${targetEmail}. Login with this PIN — OTP and device checks are bypassed for tester accounts.`,
+			);
+		} catch (error) {
+			console.error("[ADMIN/SET_TEST_PIN] Error:", error);
+			return apiResponse.serverError(res, "Failed to set test account PIN");
+		}
+	});
+
 	// Set 4-digit login PIN
 	app.post("/api/login/set-pin", async (req, res) => {
+
 		try {
 			if (!req.isAuthenticated() || !req.user) {
 				return apiResponse.unauthorized(res);
@@ -1224,17 +1306,28 @@ export function registerAuthRoutes(app: Express) {
 				);
 			}
 
-			if (!user.mobile || !user.isMobileVerified) {
-				return apiResponse.forbidden(
-					res,
-					"Mobile verification is required before PIN login",
-				);
-			}
+			// Tester accounts (e.g. test@fintekpro.com) bypass mobile-verification
+			// and trusted-device checks when ALLOW_TESTER_BYPASS=true.
+			// This lets QA/admin log in with a fixed PIN without OTP delivery.
+			const isTester = canUseFixedTesterOtp(user);
 
-			if (!(await isTrustedPinDevice(req, user.id))) {
-				return apiResponse.forbidden(
-					res,
-					"New device detected. Please verify with OTP before using PIN login.",
+			if (!isTester) {
+				if (!user.mobile || !user.isMobileVerified) {
+					return apiResponse.forbidden(
+						res,
+						"Mobile verification is required before PIN login",
+					);
+				}
+
+				if (!(await isTrustedPinDevice(req, user.id))) {
+					return apiResponse.forbidden(
+						res,
+						"New device detected. Please verify with OTP before using PIN login.",
+					);
+				}
+			} else {
+				console.log(
+					`🧪 [PIN_VERIFY] Tester account ${user.email} — skipping mobile & device checks`,
 				);
 			}
 

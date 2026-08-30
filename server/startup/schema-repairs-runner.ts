@@ -13,6 +13,7 @@ import {
   runThreeTierContactColumnsRepair,
   runTruecallerRegistrationColumnRepair,
   runVwapColumnRepair,
+  runProspectLeadsDedupRepair,
 } from "./schema-repairs";
 
 async function main() {
@@ -253,6 +254,9 @@ async function main() {
 
   console.log("Phase J — adding VWAP column to listed_stocks (fixes N/A in Research Note)...");
   await runVwapColumnRepair();
+
+  console.log("Phase K — deduplicating prospect_leads + enforcing CIN uniqueness...");
+  await runProspectLeadsDedupRepair();
 
   console.log("FintekPro schema repair job complete.");
 }
