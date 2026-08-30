@@ -466,3 +466,106 @@ export function logCronJob(
 	}
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GCR v1.0 §5 / FASP-AI v1.0 — Domain-Specific Structured Log Helpers
+//
+// These typed wrappers standardise the log shape for rebalancing, Black Swan,
+// and model-upgrade events. Using helpers instead of ad-hoc logger.info() calls
+// guarantees every event has the mandatory { engine_version, latency_ms } fields.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface RebalanceEventPayload {
+	portfolio_id: string;
+	event:
+		| "REBALANCE_QUEUED_FOR_APPROVAL"
+		| "AUTO_REBALANCE_APPLIED"
+		| "REBALANCE_SCAN_COMPLETE"
+		| "REBALANCE_NO_ACTION"
+		| "CALENDAR_REBALANCE_RUN_START"
+		| "CALENDAR_REBALANCE_RUN_COMPLETE";
+	triggers?: string[];
+	swaps_applied?: number;
+	swaps_queued?: number;
+	engine_version: string;
+	model_version?: string;
+	latency_ms: number;
+	status: "success" | "skipped" | "error" | "suspended";
+	[key: string]: unknown;
+}
+
+/**
+ * Emits a GCR-compliant structured log event for rebalancing operations.
+ *
+ * @param payload - Rebalance event data including portfolio_id, event name, and audit fields.
+ *
+ * @example
+ * logRebalanceEvent({
+ *   portfolio_id: pid,
+ *   event: "AUTO_REBALANCE_APPLIED",
+ *   triggers: ["alpha_breach"],
+ *   swaps_applied: 2,
+ *   engine_version: MODEL_VERSION,
+ *   latency_ms: Date.now() - t0,
+ *   status: "success",
+ * });
+ */
+export function logRebalanceEvent(payload: RebalanceEventPayload): void {
+	logger.info(`[Rebalance] ${payload.event}`, {
+		...payload,
+		user_id: payload.user_id ?? "system",
+		timestamp: new Date().toISOString(),
+	});
+}
+
+/**
+ * Emits a REBALANCE_SUSPENDED_BLACK_SWAN log event — FASP-AI §24.1.
+ * Used whenever the 10σ Black Swan gate fires and suspends all auto-rebalancing.
+ *
+ * @param callerFn - The function name that was suspended (for tracing).
+ * @param volatilitySigma - Current measured volatility level in σ units.
+ * @param engineVersion - Model/engine version string for audit trail.
+ */
+export function logBlackSwanTrigger(
+	callerFn: string,
+	volatilitySigma: number,
+	engineVersion: string,
+): void {
+	logger.warn(`[BlackSwan] Auto-rebalancing suspended by 10σ gate — ${callerFn}`, {
+		event: "REBALANCE_SUSPENDED_BLACK_SWAN",
+		user_id: "system",
+		caller: callerFn,
+		volatility_sigma: volatilitySigma,
+		sigma_threshold: 10,
+		engine_version: engineVersion,
+		latency_ms: 0,
+		status: "suspended",
+		timestamp: new Date().toISOString(),
+	});
+}
+
+export interface ModelUpgradeEventPayload {
+	model_name: string;
+	old_version: string;
+	new_version: string;
+	upgrade_reason: string;
+	engine_version: string;
+	latency_ms?: number;
+	[key: string]: unknown;
+}
+
+/**
+ * Emits a MODEL_VERSION_UPGRADED structured log event.
+ * Required by GCR §3.2 whenever model algorithm or thresholds change.
+ *
+ * @param payload - Model upgrade metadata including old/new versions and reason.
+ */
+export function logModelUpgradeEvent(payload: ModelUpgradeEventPayload): void {
+	logger.info(`[ModelGovernance] Model upgraded: ${payload.model_name}`, {
+		...payload,
+		event: "MODEL_VERSION_UPGRADED",
+		user_id: "system",
+		timestamp: new Date().toISOString(),
+		latency_ms: payload.latency_ms ?? 0,
+		status: "success",
+	});
+}

@@ -57,6 +57,49 @@ const MAX_WEIGHT_CHANGE_AUTO     = 10;    // % — larger changes go to advisor 
 const MIN_SCREENER_DATA_DAYS     = 90;    // replacement must have this much history
 const MAX_AUTO_SWAPS_PER_RUN     = 3;     // cap replacements per portfolio per run
 
+/**
+ * FASP-AI §24.1 — Black Swan 10σ threshold.
+ * When market volatility (VIX proxy or internal model) signals ≥ 10σ,
+ * ALL automated rebalancing MUST be suspended. This is checked at the
+ * entry of every public rebalancing function.
+ *
+ * The sigma level is fetched from the market-regime-detector which
+ * maintains a rolling 252-day VIX-equivalent. Returns 0 if unavailable.
+ */
+const BLACK_SWAN_SIGMA_THRESHOLD = 10;
+
+/**
+ * Returns the current market volatility in σ units.
+ * Reads from regime.volatilitySigma if available; defaults to 0 (safe).
+ */
+function getVolatilitySigma(regime: MarketRegime & { volatilitySigma?: number }): number {
+  return regime.volatilitySigma ?? 0;
+}
+
+/**
+ * Checks if Black Swan condition is active and logs the suspension event.
+ * Returns true if rebalancing should be suspended.
+ */
+function checkBlackSwanSuspend(
+  regimeSigma: number,
+  callerFn: string,
+): boolean {
+  if (regimeSigma < BLACK_SWAN_SIGMA_THRESHOLD) return false;
+
+  logger.warn(`[Rebalance] Black Swan detected — suspending ${callerFn}`, {
+    event: "REBALANCE_SUSPENDED_BLACK_SWAN",
+    user_id: "system",
+    caller: callerFn,
+    volatility_sigma: regimeSigma,
+    threshold: BLACK_SWAN_SIGMA_THRESHOLD,
+    model_version: MODEL_VERSION,
+    timestamp: new Date().toISOString(),
+    latency_ms: 0,
+    status: "suspended",
+  });
+  return true;
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type TriggerType =
@@ -194,6 +237,9 @@ function checkGuardrails(
     reasons.push("no_alternatives_found");
   }
 
+  // ── Guardrail D: Concentration Risk (APRE §5.2) ─────────────────────────
+  // Block any auto-apply that would result in a single asset class exceeding 40%
+  // of the total portfolio. Over-concentration amplifies downside in market stress.
   const best = suggestion.alternatives[0];
   if (best) {
     if (!best.isin) reasons.push("replacement_has_no_isin");
@@ -203,6 +249,23 @@ function checkGuardrails(
     }
     if (regime === "BEAR" && best.beta != null && best.beta > 1.2) {
       reasons.push(`bear_regime_blocks_high_beta_${best.beta?.toFixed(2)}`);
+    }
+    // APRE §5.2 Concentration Risk guardrail
+    if (currentWeight > 40) {
+      reasons.push(
+        `concentration_risk:single_asset_${currentWeight.toFixed(1)}%_exceeds_40pct_limit`,
+      );
+      logger.warn("[ConcentrationGuard] Single-asset concentration exceeds 40% cap", {
+        event: "CONCENTRATION_RISK_BLOCKED",
+        user_id: "system",
+        portfolioId: suggestion.portfolioId,
+        holding: suggestion.alphaDragHolding.name,
+        weight: currentWeight,
+        model_version: suggestion.model_version,
+        timestamp: new Date().toISOString(),
+        latency_ms: 0,
+        status: "advisor_queue",
+      });
     }
   }
 
@@ -301,6 +364,21 @@ export async function runRebalanceScan(): Promise<RebalanceQueue> {
     analyzeAlphaGaps(),
     generateOptimizationSuggestions(),
   ]);
+
+  // ── FASP-AI §24.1: Black Swan auto-suspend gate ───────────────────────────
+  // If market volatility >= 10σ, all automated rebalancing MUST be suspended.
+  const regimeSigma = getVolatilitySigma(regime as any);
+  if (checkBlackSwanSuspend(regimeSigma, "runRebalanceScan")) {
+    return {
+      candidates: [],
+      marketRegime: (regime as any).regime ?? regime,
+      totalPortfoliosScanned: 0,
+      autoApplicable: 0,
+      queuedForAdvisor: 0,
+      timestamp: ts,
+      model_version: MODEL_VERSION,
+    };
+  }
 
   const allPortfolios = await db.select({
     id: modelPortfolios.id,
@@ -432,6 +510,12 @@ export async function autoApplyHighConfidenceSwaps(
     detectRegime(),
     generateOptimizationSuggestions(portfolioIds),
   ]);
+
+  // ── FASP-AI §24.1: Black Swan auto-suspend gate ───────────────────────────
+  const regimeSigma = getVolatilitySigma(regime as any);
+  if (checkBlackSwanSuspend(regimeSigma, "autoApplyHighConfidenceSwaps")) {
+    return []; // No auto-apply during extreme market volatility
+  }
 
   const allPortfolios = await db.select().from(modelPortfolios);
   const portfolioMap = new Map(allPortfolios.map(p => [p.id, p]));

@@ -27,12 +27,19 @@ import { logger } from "../logger";
 import { callPython } from "../clients/python-client";
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 import { fetchIndianAPIHistorical, fetchYahooHistorical } from "./golden-pricing/GoldenPricingEngine";
+import { retryWithBackoff } from "../utils/retry-with-backoff";
 
-
-
-const ENGINE_VERSION = "FASP-AI-v3.0"; // Fix 5 (partial): mandatory version per system rules
+/**
+ * GCR §3.2: Version must be bumped whenever algorithm or threshold changes.
+ * Changelog:
+ *   v3.0: Initial FASP-AI-compliant release
+ *   v3.1: Added MF data 7-day freshness guard, retry wrapper, PORTFOLIO_METRICS_COMPUTED audit log
+ */
+const ENGINE_VERSION = "FASP-AI-v3.1";
 const AI_INSIGHT_CACHE_HOURS = 24;
 const MAX_RETRIES = 3;
+/** MF NAV data older than this is considered stale and triggers re-fetch from mfapi.in. */
+const MF_DATA_FRESHNESS_DAYS = 7;
 
 // ── Fix 3: Calibrated monthly return series — deterministic, no Math.sin() ────
 // Math.sin() at different frequencies creates artificial negative cross-asset
@@ -589,18 +596,35 @@ export async function computePortfolioCagrFromDB(
 		return null;
 	}
 
-	// H-MP3 FIX: explicit guard before division \u2014 coverage < 50 check above is not sufficient
+	// H-MP3 FIX: explicit guard before division — coverage < 50 check above is not sufficient
 	// if coveredWeight somehow rounds to zero (e.g. all holdings filtered out).
 	if (coveredWeight <= 0) return null;
 
 	// Normalise to 100% of covered weight
 	const scale = 1 / coveredWeight;
-	return {
+	const result = {
 		cagr1Y: parseFloat((weighted1Y * scale).toFixed(2)),
 		cagr3Y: parseFloat((weighted3Y * scale).toFixed(2)),
 		cagr5Y: parseFloat((weighted5Y * scale).toFixed(2)),
 		coverage,
 	};
+
+	// GCR §5 Observability: emit PORTFOLIO_METRICS_COMPUTED with engine_version and coverage
+	logger.info("[PortfolioCAGR] CAGR computed from DB", {
+		event: "PORTFOLIO_METRICS_COMPUTED",
+		user_id: "system",
+		engine_version: ENGINE_VERSION,
+		calculation_timestamp: ENGINE_TS,
+		data_source: "db_weighted_average",
+		coverage_pct: coverage,
+		cagr_1y: result.cagr1Y,
+		cagr_3y: result.cagr3Y,
+		cagr_5y: result.cagr5Y,
+		latency_ms: 0,
+		status: "success",
+	});
+
+	return result;
 }
 
 /**

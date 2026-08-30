@@ -1,11 +1,9 @@
 /* eslint-disable no-console */
 // Infrastructure file: console is intentional for Cloud Run structured log output.
 import { drizzle } from "drizzle-orm/node-postgres";
-
-import pkg from "pg";
-const { Pool } = pkg;
-import * as schema from "../shared/schema.ts";
-import fs from "fs";
+import { Pool } from "pg";
+import * as schema from "../shared/schema";
+import { existsSync, readdirSync } from "fs";
 
 /**
  * DATABASE CONNECTION LOGIC
@@ -80,8 +78,8 @@ if (isProduction) {
 		const rootDir = "/cloudsql";
 		const socketPath = `/cloudsql/${instanceConnectionName}`;
 
-		if (fs.existsSync(rootDir)) {
-			const contents = fs.readdirSync(rootDir);
+		if (existsSync(rootDir)) {
+			const contents = readdirSync(rootDir);
 			console.log(`[DB] ✅ ${rootDir} exists. Found: ${contents.join(", ")}`);
 		} else {
 			console.warn(
@@ -93,7 +91,7 @@ if (isProduction) {
 			console.log(
 				`[DB] 🚀 Unix socket already configured: ${POOL_CONFIG.host}`,
 			);
-		} else if (fs.existsSync(socketPath)) {
+		} else if (existsSync(socketPath)) {
 			console.log(`[DB] 🔧 Injecting Unix Socket host override: ${socketPath}`);
 			POOL_CONFIG.host = socketPath;
 			POOL_CONFIG.port = undefined;

@@ -1,4 +1,15 @@
-// @ts-nocheck
+/**
+ * @file ai-model-governance.ts
+ * @description AI Model Governance — model health monitoring and drift detection.
+ *
+ * Purpose:
+ *   Monitors registered AI models for feature drift (PSI, KS-test), performance decay
+ *   (Sharpe decay, directional accuracy drop), and staleness. Triggers retrain alerts.
+ *
+ * GCR v1.0: strict TypeScript — @ts-nocheck removed (was a policy violation).
+ * GCR §5 Observability: MODEL_GOVERNANCE_RUN event logged with latency_ms, engine_version.
+ * GCR §3.2: engine_version + calculation_timestamp on every GovernanceSummary output.
+ */
 import { db } from "../db";
 import {
 	aiModelRegistry,
@@ -9,7 +20,11 @@ import {
 import { eq, and, desc, sql, gte, lte, ne } from "drizzle-orm";
 import { aiMLScoringEngine } from "./ai-ml-scoring-engine";
 import { aiBacktestingEngine } from "./ai-backtesting-engine";
+import { logger } from "../logger";
 import * as ss from "simple-statistics";
+
+/** GCR §3.2: version tag for every governance output. Bump on algorithm or threshold changes. */
+const GOVERNANCE_ENGINE_VERSION = "model-governance-v1.1";
 
 export interface DriftMetrics {
 	featureName: string;
@@ -61,6 +76,9 @@ export interface GovernanceSummary {
 	staleModels: number;
 	modelsNeedingRetrain: string[];
 	lastGovernanceRun: string;
+	/** GCR v1.0 §3.2: mandatory version + timestamp for every financial/AI output. */
+	engine_version: string;
+	calculation_timestamp: string;
 	reports: ModelHealthReport[];
 }
 
@@ -68,6 +86,7 @@ class AIModelGovernance {
 	async runGovernanceCheck(
 		config?: GovernanceConfig,
 	): Promise<GovernanceSummary> {
+		const t0 = Date.now();
 		const cfg = this.resolveConfig(config);
 
 		const activeModels = await db
@@ -92,9 +111,16 @@ class AIModelGovernance {
 				);
 				reports.push(report);
 			} catch (err) {
-				console.error(
-					`[AIModelGovernance] Error checking model ${model.modelName}:`,
-					err,
+				logger.warn(
+					`[AIModelGovernance] Error checking model ${model.modelName}`,
+					{
+						event: "MODEL_HEALTH_CHECK_ERROR",
+						user_id: "system",
+						model_name: model.modelName,
+						error: err instanceof Error ? err.message : String(err),
+						latency_ms: 0,
+						status: "error",
+					},
 				);
 			}
 		}
@@ -109,6 +135,8 @@ class AIModelGovernance {
 			.filter((r) => r.needsRetrain)
 			.map((r) => `${r.modelName}@${r.modelVersion}`);
 
+		const calculationTimestamp = new Date().toISOString();
+
 		const summary: GovernanceSummary = {
 			totalModels: reports.length,
 			healthyModels,
@@ -116,13 +144,26 @@ class AIModelGovernance {
 			criticalModels,
 			staleModels,
 			modelsNeedingRetrain,
-			lastGovernanceRun: new Date().toISOString(),
+			lastGovernanceRun: calculationTimestamp,
+			engine_version: GOVERNANCE_ENGINE_VERSION,
+			calculation_timestamp: calculationTimestamp,
 			reports,
 		};
 
-		console.log(
-			`[AIModelGovernance] Governance check complete: ${healthyModels} healthy, ${warningModels} warning, ${criticalModels} critical, ${staleModels} stale`,
-		);
+		// GCR §5 Observability: structured log replacing raw console.log
+		logger.info("[AIModelGovernance] Governance check complete", {
+			event: "MODEL_GOVERNANCE_RUN",
+			user_id: "system",
+			engine_version: GOVERNANCE_ENGINE_VERSION,
+			total_models: reports.length,
+			healthy: healthyModels,
+			warning: warningModels,
+			critical: criticalModels,
+			stale: staleModels,
+			models_needing_retrain: modelsNeedingRetrain.length,
+			latency_ms: Date.now() - t0,
+			status: "success",
+		});
 
 		return summary;
 	}
@@ -338,10 +379,9 @@ class AIModelGovernance {
 				.orderBy(desc(aiFeatureSnapshots.snapshotDate))
 				.limit(1000);
 		} catch (err) {
-			console.warn(
-				"[AIModelGovernance] Failed to fetch feature snapshots:",
-				err,
-			);
+			logger.warn("AI_GOVERNANCE_FEATURE_FETCH_FAILED", {
+				error: err instanceof Error ? err.message : String(err),
+			});
 			return [];
 		}
 
@@ -511,10 +551,9 @@ class AIModelGovernance {
 				predictionCount: recentLogs.length,
 			};
 		} catch (err) {
-			console.error(
-				"[AIModelGovernance] Failed to compute performance decay:",
-				err,
-			);
+			logger.error("AI_GOVERNANCE_PERF_DECAY_FAILED", {
+				error: err instanceof Error ? err.message : String(err),
+			});
 			return {
 				recentSharpe: 0,
 				recentDirectionalAccuracy: 0,
@@ -526,13 +565,18 @@ class AIModelGovernance {
 
 	async triggerRetrain(assetClass: string): Promise<any> {
 		try {
-			console.log(`[AIModelGovernance] Triggering retrain for ${assetClass}`);
+			logger.info("AI_GOVERNANCE_RETRAIN_STARTED", {
+				asset_class: assetClass,
+				engine_version: GOVERNANCE_ENGINE_VERSION,
+			});
 
 			const result = await aiMLScoringEngine.trainModel({ assetClass });
 
-			console.log(
-				`[AIModelGovernance] Retrain complete for ${assetClass}: ${result.version}`,
-			);
+			logger.info("AI_GOVERNANCE_RETRAIN_COMPLETE", {
+				asset_class: assetClass,
+				new_version: result.version,
+				engine_version: GOVERNANCE_ENGINE_VERSION,
+			});
 
 			return {
 				success: true,
@@ -542,10 +586,10 @@ class AIModelGovernance {
 				trainingMetrics: result.trainingMetrics,
 			};
 		} catch (err: any) {
-			console.error(
-				`[AIModelGovernance] Retrain failed for ${assetClass}:`,
-				err,
-			);
+			logger.error("AI_GOVERNANCE_RETRAIN_FAILED", {
+				asset_class: assetClass,
+				error: err.message || String(err),
+			});
 			return {
 				success: false,
 				assetClass,
@@ -637,9 +681,12 @@ class AIModelGovernance {
 
 			(aiMLScoringEngine as any).modelCache?.clear?.();
 
-			console.log(
-				`[AIModelGovernance] Rolled back ${assetClass} from ${currentModel.modelVersion} to ${targetModel.modelVersion}`,
-			);
+			logger.info("AI_GOVERNANCE_ROLLBACK_COMPLETE", {
+				asset_class: assetClass,
+				previous_version: currentModel.modelVersion,
+				activated_version: targetModel.modelVersion,
+				engine_version: GOVERNANCE_ENGINE_VERSION,
+			});
 
 			return {
 				success: true,
@@ -649,10 +696,10 @@ class AIModelGovernance {
 				activatedModelName: targetModel.modelName,
 			};
 		} catch (err: any) {
-			console.error(
-				`[AIModelGovernance] Rollback failed for ${assetClass}:`,
-				err,
-			);
+			logger.error("AI_GOVERNANCE_ROLLBACK_FAILED", {
+				asset_class: assetClass,
+				error: err.message || String(err),
+			});
 			return { success: false, error: err.message || String(err) };
 		}
 	}
@@ -748,18 +795,20 @@ class AIModelGovernance {
 						isCorrectDirection,
 						outcomeDate,
 					})
-					.where(eq(aiPredictionLogs.id, log.id));
+					.where(eq(aiPredictionLogs.id, (log as any).id));
 
 				updated++;
 			}
 
-			console.log(`[AIModelGovernance] Updated ${updated} prediction outcomes`);
+			logger.info("AI_GOVERNANCE_OUTCOMES_UPDATED", {
+				updated_count: updated,
+				engine_version: GOVERNANCE_ENGINE_VERSION,
+			});
 			return { updated };
 		} catch (err) {
-			console.error(
-				"[AIModelGovernance] Failed to update prediction outcomes:",
-				err,
-			);
+			logger.error("AI_GOVERNANCE_OUTCOMES_UPDATE_FAILED", {
+				error: err instanceof Error ? err.message : String(err),
+			});
 			return { updated: 0 };
 		}
 	}
