@@ -75,6 +75,7 @@ export interface ScreenerData {
 	operatingCashFlow: number | null;
 	freeCashFlow: number | null;
 	operatingMargin: number | null; // decimal fraction
+	marketCapCr: number | null; // Market Cap in ₹ Crores — scraped from Screener.in #top section
 	// Extended historical data
 	plHistory: HistoricalTable | null;
 	bsHistory: HistoricalTable | null;
@@ -666,6 +667,7 @@ async function fetchFundamentalsFromPython(
 			operatingCashFlow: pf(resp.operatingCashFlow),
 			freeCashFlow: pf(resp.freeCashFlow),
 			operatingMargin: pf(resp.operatingMargin),
+			marketCapCr: pf(resp.marketCapCr) ?? null,
 			// Historical tables — now populated by the extended Python sidecar
 			plHistory: parseHistory(resp.plHistory),
 			bsHistory: parseHistory(resp.bsHistory),
@@ -742,6 +744,7 @@ function mergeScreenerWithPython(
 		),
 		freeCashFlow: pick(screener.freeCashFlow, python.freeCashFlow),
 		operatingMargin: pick(screener.operatingMargin, python.operatingMargin),
+		marketCapCr: pick(screener.marketCapCr, python.marketCapCr),
 		// Historical tables: Screener.in first; Python-derived as fallback when Screener timed out
 		plHistory: pick(screener.plHistory, python.plHistory),
 		bsHistory: pick(screener.bsHistory, python.bsHistory),
@@ -778,6 +781,7 @@ function emptyScreenerData(): ScreenerData {
 		operatingCashFlow: null,
 		freeCashFlow: null,
 		operatingMargin: null,
+		marketCapCr: null,
 		plHistory: null,
 		bsHistory: null,
 		cfHistory: null,
@@ -816,12 +820,19 @@ function parseScreenerHtml(html: string, nseSymbol: string): ScreenerData {
 	let bookValue: number | null = null;
 	let pe: number | null = null;
 	let pb: number | null = null;
+	let marketCapCr: number | null = null;
 
 	for (const item of liItems) {
+		const lower = item.toLowerCase();
+		// Market Cap: "Market Cap ₹1,234 Cr" — must check before generic numMatch to handle commas
+		if (/market cap/.test(lower) && marketCapCr === null) {
+			const mcMatch = item.match(/(?:₹|Rs\.?)?\s*([\d,\.]+)\s*(?:Cr|cr)?/i);
+			if (mcMatch) marketCapCr = parseNum(mcMatch[1]);
+			continue;
+		}
 		const numMatch = item.match(/([\d,\.]+)\s*%?$/);
 		if (!numMatch) continue;
 		const val = parseNum(numMatch[1]);
-		const lower = item.toLowerCase();
 		if (/\broe\b/.test(lower) && roe === null)
 			roe = val !== null ? val / 100 : null;
 		else if (/\broce\b/.test(lower) && roce === null)
@@ -1181,6 +1192,7 @@ function parseScreenerHtml(html: string, nseSymbol: string): ScreenerData {
 		operatingCashFlow,
 		freeCashFlow,
 		operatingMargin,
+		marketCapCr,
 		plHistory,
 		bsHistory,
 		cfHistory,
@@ -1307,6 +1319,7 @@ interface DBData {
 	dbFiftyTwoWeekHigh: number | null;
 	dbFiftyTwoWeekLow: number | null;
 	dbVwap: number | null; // listed_stocks.last_vwap — last VWAP from a live NSE session
+	dbPreviousClose: number | null; // listed_stocks.previous_close — last market-close price from DB
 }
 
 async function fetchFromDB(nseSymbol: string): Promise<DBData> {
@@ -1337,6 +1350,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 		dbFiftyTwoWeekHigh: null,
 		dbFiftyTwoWeekLow: null,
 		dbVwap: null,
+		dbPreviousClose: null,
 	};
 	try {
 		const rows = await db.execute(sql`
@@ -1346,7 +1360,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
              sf.revenue, sf.net_income, sf.operating_margin,
              sf.last_updated,
              ls.returns_1m, ls.returns_6m, ls.returns_1y, ls.beta,
-             ls.current_price, ls.market_cap_value, ls.pe_ratio,
+             ls.current_price, ls.previous_close, ls.market_cap_value, ls.pe_ratio,
              ls.face_value, ls.week_high_52, ls.week_low_52,
              ls.last_vwap
       FROM screener_financials sf
@@ -1358,7 +1372,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 		const r = ((rows as any).rows ?? rows)[0] as any;
 		if (!r) {
 			const lsRows = await db.execute(sql`
-        SELECT returns_1m, returns_6m, returns_1y, current_price,
+        SELECT returns_1m, returns_6m, returns_1y, current_price, previous_close,
                market_cap_value, pe_ratio, face_value,
                week_high_52, week_low_52, last_vwap
         FROM listed_stocks WHERE symbol = ${nseSymbol.toUpperCase()} LIMIT 1
@@ -1374,6 +1388,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 					returns6M: pf(lr.returns_6m),
 					returns1Y: pf(lr.returns_1y),
 					dbPrice: pf(lr.current_price),
+					dbPreviousClose: pf(lr.previous_close),
 					dbMarketCap: pf(lr.market_cap_value),
 					dbPeRatio: pf(lr.pe_ratio),
 					dbFaceValue: pf(lr.face_value),
@@ -1407,6 +1422,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 			lastUpdated: r.last_updated ? new Date(r.last_updated) : null,
 			existsInListedStocks: true,
 			dbPrice: pf(r.current_price),
+			dbPreviousClose: pf(r.previous_close),
 			dbMarketCap: pf(r.market_cap_value),
 			dbPeRatio: pf(r.pe_ratio),
 			dbFaceValue: pf(r.face_value),
@@ -1570,10 +1586,12 @@ function buildFull(
 	dbData: DBData,
 	screener: ScreenerData,
 ): FinancialData {
-	// Use live price from NSE/Yahoo when available; fall back to DB cached price.
-	// dbData.dbPrice is populated from listed_stocks.current_price and is updated
-	// by the background price-sync cron, so it is usually only minutes/hours stale.
-	const price = base.price ?? dbData.dbPrice ?? null;
+	// Price fallback chain (highest quality first):
+	//  1. Live price from NSE / Moneycontrol / Yahoo (base.price)
+	//  2. DB current_price — written by background price-sync cron (dbData.dbPrice)
+	//  3. DB last_vwap — last VWAP from a real live NSE session (dbData.dbVwap)
+	//  4. DB previous_close — last market close stored in listed_stocks (dbData.dbPreviousClose)
+	const price = base.price ?? dbData.dbPrice ?? dbData.dbVwap ?? dbData.dbPreviousClose ?? null;
 
 	const roe =
 		screener.roe ??
@@ -1594,7 +1612,15 @@ function buildFull(
 	return {
 		price,
 		previousClose: base.previousClose ?? null,
-		marketCap: base.marketCap ?? dbData.dbMarketCap ?? null,
+		// Market Cap fallback chain:
+		// 1. Live price API (NSE: price × issuedSize, Moneycontrol MKTCAP, Yahoo marketCap)
+		// 2. DB market_cap_value — written on every successful NSE live fetch
+		// 3. Screener.in #top section "Market Cap ₹X Cr" — always present on Screener page
+		marketCap:
+			base.marketCap ??
+			dbData.dbMarketCap ??
+			(screener.marketCapCr !== null ? Math.round(screener.marketCapCr * 1e7) : null) ??
+			null,
 		pe: (() => {
 			const eps = dbData.eps ?? base.eps ?? null;
 			// NSE → DB cached PE → screener → compute from price/EPS as last resort
@@ -1628,11 +1654,14 @@ function buildFull(
 			// Priority order:
 			// 1. Live NSE VWAP (market open, vwap > 0)
 			// 2. DB last_vwap — last VWAP from a real live session (Bug 1 fix: column now exists)
-			// 3. previousClose — best proxy when market is closed and no VWAP stored yet
-			// 4. null
+			// 3. live previousClose from NSE response — best proxy when market is closed
+			// 4. DB previous_close — last close stored in listed_stocks (new fallback)
+			// 5. DB current_price — last known price (final proxy before null)
 			(base.vwap && base.vwap > 0 ? base.vwap : null) ??
 			dbData.dbVwap ??
 			(base.previousClose && base.previousClose > 0 ? base.previousClose : null) ??
+			dbData.dbPreviousClose ??
+			dbData.dbPrice ??
 			null,
 		operatingCashFlow:
 			screener.operatingCashFlow ?? dbData.operatingCashFlow ?? null,
@@ -1774,6 +1803,7 @@ export async function getFinancialData(
 					lastUpdated: null,
 					existsInListedStocks: false,
 					dbPrice: null,
+					dbPreviousClose: null,
 					dbMarketCap: null,
 					dbPeRatio: null,
 					dbFaceValue: null,
@@ -1798,6 +1828,7 @@ export async function getFinancialData(
 		operatingCashFlow: null,
 		freeCashFlow: null,
 		operatingMargin: null,
+		marketCapCr: null,
 		plHistory: null,
 		bsHistory: null,
 		cfHistory: null,
@@ -1831,6 +1862,7 @@ export async function getFinancialData(
 			operatingCashFlow: dbData.operatingCashFlow,
 			freeCashFlow: dbData.freeCashFlow,
 			operatingMargin: dbData.operatingMargin,
+			marketCapCr: null, // not stored in screener_financials — comes from live Screener scrape
 			plHistory: null,
 			bsHistory: null,
 			cfHistory: null,
