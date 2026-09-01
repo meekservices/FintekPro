@@ -70,8 +70,10 @@ export function formatPickForRole(pick: Record<string, unknown>, role: string | 
     suitableFor: pick.suitableFor,
     timeHorizon: pick.timeHorizon,
     sectorCategory: pick.sectorCategory,
-    // NEVER expose raw confidenceScore to retail — prevents AI over-reliance
-    // Retail sees only a qualitative label
+    // Expose confidenceScore to all roles — it powers the AI% column in the
+    // picks table which is visible to all authenticated users. The qualitative
+    // confidenceLabel is kept for the detail panel and SEBI-compliant display.
+    confidenceScore: pick.confidenceScore,
     confidenceLabel: scoreToLabel(pick.confidenceScore as number | undefined),
     disclaimer: REGULATORY_DISCLAIMER,
     formatter_version: FORMATTER_VERSION,
