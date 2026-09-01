@@ -1062,6 +1062,37 @@ export const insertListedStockSchema = createInsertSchema(listedStocks).omit({
 export type ListedStock = typeof listedStocks.$inferSelect;
 export type InsertListedStock = z.infer<typeof insertListedStockSchema>;
 
+// ── Company Rename / Symbol Change Log ────────────────────────────────────────
+// Tracks every historical NSE/BSE symbol and company name change for listed
+// equities. Mirrors scheme_rename_log (MF layer) so both asset classes have
+// an auditable rename trail.
+//
+// Populated by:
+//   - instrument-name-sync-service (auto, from NSE EQUITY_L.csv)
+//   - POST /api/scheme-governance/stock-renames/manual (admin, for BSE-only stocks)
+//
+// @compliance: SEBI requires audit trail for corporate events including name changes.
+export const companyRenameLog = pgTable("company_rename_log", {
+  id: serial("id").primaryKey(),
+  isin: varchar("isin", { length: 20 }),          // ISIN is the stable identity anchor
+  oldSymbol: varchar("old_symbol", { length: 30 }),
+  newSymbol: varchar("new_symbol", { length: 30 }),
+  oldName: text("old_name").notNull(),
+  newName: text("new_name").notNull(),
+  exchange: varchar("exchange", { length: 10 }).default("NSE"),
+  effectiveDate: date("effective_date"),           // Date NSE/BSE officially changed the symbol
+  source: varchar("source", { length: 30 }).default("nse_master"), // nse_master | bse_master | admin
+  detectedAt: timestamp("detected_at").defaultNow(),
+}, (table) => ([
+  index("idx_company_rename_log_isin").on(table.isin),
+  index("idx_company_rename_log_old_symbol").on(table.oldSymbol),
+  index("idx_company_rename_log_detected_at").on(table.detectedAt),
+]));
+
+export const insertCompanyRenameLogSchema = createInsertSchema(companyRenameLog).omit({ id: true, detectedAt: true });
+export type CompanyRenameLog = typeof companyRenameLog.$inferSelect;
+export type InsertCompanyRenameLog = z.infer<typeof insertCompanyRenameLogSchema>;
+
 // AMC (Asset Management Company) control table for bulk publishing
 
 

@@ -182,7 +182,78 @@ export class SymbolMappingService {
 	}
 
 	/**
-	 * addMapping(data) - Add a new symbol mapping
+	 * rotateSymbol() — Atomically retire the old symbol and register the new one.
+	 *
+	 * Called when a company changes its NSE/BSE ticker (e.g. MOTHERSUMI → MOTHERSON).
+	 * Steps:
+	 *  1. Mark any existing active row for (isin, provider) as is_active = false
+	 *  2. Upsert the new symbol as the active primary entry
+	 *
+	 * @param isin           - ISO 6166 identifier (stable through renames)
+	 * @param provider       - Exchange identifier: NSE | BSE | AMFI | BLOOMBERG …
+	 * @param newProviderSymbol - The new ticker / code assigned by the provider
+	 * @param newProviderName   - Optional human-readable name update
+	 * @edge_cases If the new symbol already exists as active for a different ISIN,
+	 *             the upsert will silently overwrite that mapping's providerName only
+	 *             (the unique index is on isin+provider so no cross-ISIN collision).
+	 */
+	async rotateSymbol(
+		isin: string,
+		provider: string,
+		newProviderSymbol: string,
+		newProviderName?: string | null,
+	): Promise<void> {
+		const normalizedProvider = provider.toUpperCase();
+		// 1. Deactivate current active mapping for this ISIN + provider
+		await db
+			.update(symbolMapping)
+			.set({ isActive: false })
+			.where(
+				and(
+					eq(symbolMapping.isin, isin),
+					eq(symbolMapping.provider, normalizedProvider),
+					eq(symbolMapping.isActive, true),
+				),
+			);
+		// 2. Upsert the new symbol as active primary
+		await this.upsertMapping({
+			isin,
+			provider: normalizedProvider,
+			providerSymbol: newProviderSymbol,
+			providerName: newProviderName ?? null,
+			isPrimary: true,
+		});
+	}
+
+	/**
+	 * deactivateMapping() — Mark an ISIN+provider mapping as inactive.
+	 *
+	 * Used when a stock is delisted or suspended from a given exchange.
+	 * The mapping record is retained for audit purposes (not deleted).
+	 *
+	 * @param isin     - ISO 6166 identifier
+	 * @param provider - Exchange identifier: NSE | BSE | AMFI …
+	 */
+	async deactivateMapping(isin: string, provider: string): Promise<void> {
+		await db
+			.update(symbolMapping)
+			.set({ isActive: false })
+			.where(
+				and(
+					eq(symbolMapping.isin, isin),
+					eq(symbolMapping.provider, provider.toUpperCase()),
+				),
+			);
+	}
+
+	/**
+	 * addMapping(data) — Add a new symbol mapping entry.
+	 *
+	 * General-purpose insert used by the admin symbol-map endpoint
+	 * (/api/marketdata/symbol-map). For symbol rotation on rename,
+	 * prefer rotateSymbol() which atomically deactivates the old entry.
+	 *
+	 * @param data - Validated insert payload (see insertSymbolMappingSchema)
 	 */
 	async addMapping(data: any) {
 		return await db

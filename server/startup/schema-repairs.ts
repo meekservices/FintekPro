@@ -1644,6 +1644,27 @@ crypto_status VARCHAR,
     `);
 		console.log("✅ corporate_actions_cache table created");
 
+		// company_rename_log: audit trail for NSE/BSE equity symbol + name changes
+		// Mirrors scheme_rename_log for mutual funds.
+		await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS company_rename_log (
+        id             SERIAL PRIMARY KEY,
+        isin           VARCHAR(20),
+        old_symbol     VARCHAR(30),
+        new_symbol     VARCHAR(30),
+        old_name       TEXT NOT NULL,
+        new_name       TEXT NOT NULL,
+        exchange       VARCHAR(10) NOT NULL DEFAULT 'NSE',
+        effective_date DATE,
+        source         VARCHAR(30) NOT NULL DEFAULT 'nse_master',
+        detected_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_company_rename_log_isin       ON company_rename_log(isin);
+      CREATE INDEX IF NOT EXISTS idx_company_rename_log_old_symbol ON company_rename_log(old_symbol);
+      CREATE INDEX IF NOT EXISTS idx_company_rename_log_detected   ON company_rename_log(detected_at DESC);
+    `);
+		console.log("✅ company_rename_log table created");
+
 	} catch (divErr: any) {
 		console.warn("[Migration] Dividend column additions skipped (non-fatal):", divErr?.message);
 	}

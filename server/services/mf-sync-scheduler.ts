@@ -101,13 +101,14 @@ class MFSyncScheduler {
 		updated: number;
 		added: number;
 		errors: number;
+		renamed: number;
 	}> {
 		console.log("[MF Sync] Starting AMFI master sync...");
 		const startTime = Date.now();
 		let updated = 0;
 		const added = 0;
 		let errors = 0;
-		const renamed = 0;
+		let renamed = 0;
 
 		try {
 			// Fetch AMFI master data
@@ -125,6 +126,31 @@ class MFSyncScheduler {
 			const funds = this.parseAMFIData(response.data);
 			console.log(`[MF Sync] Parsed ${funds.length} funds from AMFI`);
 
+			// ── Rename detection: snapshot all current (schemeCode → schemeName) ──
+			// Must happen BEFORE the upsert loop, otherwise we'd compare new vs new.
+			const existingRows = await db
+				.select({
+					schemeCode: mutualFunds.schemeCode,
+					schemeName: mutualFunds.schemeName,
+					isin: mutualFunds.isin,
+				})
+				.from(mutualFunds);
+
+			const currentNameMap = new Map<string, { name: string; isin: string | null }>();
+			for (const row of existingRows) {
+				currentNameMap.set(row.schemeCode, {
+					name: row.schemeName,
+					isin: row.isin ?? null,
+				});
+			}
+
+			const renameInserts: Array<{
+				schemeCode: string;
+				oldName: string;
+				newName: string;
+				isin: string | null;
+			}> = [];
+
 			const batchSize = 50;
 			for (let i = 0; i < funds.length; i += batchSize) {
 				const batch = funds.slice(i, i + batchSize);
@@ -137,6 +163,20 @@ class MFSyncScheduler {
 						const isinGrowth = fund.isinGrowth || null;
 						const isinDiv = fund.isinDiv || null;
 						const primaryIsin = isinGrowth || isinDiv || null;
+
+						// ── Rename detection per fund ──────────────────────────────
+						const existing = currentNameMap.get(fund.schemeCode);
+						if (
+							existing &&
+							existing.name.trim().toLowerCase() !== fund.schemeName.trim().toLowerCase()
+						) {
+							renameInserts.push({
+								schemeCode: fund.schemeCode,
+								oldName: existing.name,
+								newName: fund.schemeName,
+								isin: existing.isin ?? primaryIsin,
+							});
+						}
 
 						return {
 							schemeCode: fund.schemeCode,
@@ -194,6 +234,25 @@ class MFSyncScheduler {
 				}
 			}
 
+			// ── Persist rename log entries ─────────────────────────────────────
+			if (renameInserts.length > 0) {
+				try {
+					for (const r of renameInserts) {
+						await db.insert(schemeRenameLog).values({
+							schemeCode: r.schemeCode,
+							oldName: r.oldName,
+							newName: r.newName,
+							isin: r.isin ?? undefined,
+							syncSource: "AMFI",
+						}).onConflictDoNothing();
+					}
+					renamed = renameInserts.length;
+					console.log(`[MF Sync] Logged ${renamed} scheme rename(s) to scheme_rename_log`);
+				} catch (renameErr: any) {
+					console.warn("[MF Sync] Failed to persist rename log (non-fatal):", renameErr?.message);
+				}
+			}
+
 			const duration = Date.now() - startTime;
 			console.log(
 				`[MF Sync] AMFI sync complete in ${duration}ms: ${updated} updated, ${added} added, ${renamed} renames detected, ${errors} errors`,
@@ -205,8 +264,9 @@ class MFSyncScheduler {
 			console.error("[MF Sync] AMFI master sync failed:", error);
 		}
 
-		return { updated, added, errors };
+		return { updated, added, errors, renamed };
 	}
+
 
 	async runNAVRefresh(
 		batchSize: number = 500,
@@ -552,6 +612,7 @@ class MFSyncScheduler {
 		updated: number;
 		added: number;
 		errors: number;
+		renamed: number;
 	}> {
 		return this.runAMFIMasterSync();
 	}
