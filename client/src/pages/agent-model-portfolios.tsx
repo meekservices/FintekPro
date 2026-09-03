@@ -126,6 +126,7 @@ type Holding = {
   weight: number;
   currentReturn?: number;
   isin?: string;
+  sector?: string;          // NSE sector label for direct stock/ETF holdings
   // Enriched fields (stock holdings from screener_derived_metrics)
   beta?: number;
   sharpe?: number;
@@ -3008,48 +3009,51 @@ const MODEL_PORTFOLIOS: ModelPortfolio[] = [
     portfolioCode: "FP-043",
     inceptionDate: "2024-01-01",
     rebalancingFrequency: "quarterly",
-    totalHoldings: 8,
-    highlight: "Nippon Small Cap, Quant Small Cap, Motilal Midcap — riding India's next growth decade",
+    totalHoldings: 9,
+    highlight: "Happiest Minds, Kaynes, Dixon, Angel One — tomorrow's 10x stocks today",
     icon: "🚀",
     isFeatured: true,
     isNew: true,
     driftThreshold: 8,
 
     allocation: [
-      { category: "small_cap", label: "Small Cap",        weight: 60, color: "#7C3AED", icon: "🔬" },
-      { category: "mid_cap",   label: "Mid Cap",          weight: 25, color: "#0891B2", icon: "📈" },
-      { category: "multi_cap", label: "Multi Cap Alpha",  weight: 10, color: "#059669", icon: "⚡" },
-      { category: "liquid",    label: "Liquid Buffer",    weight:  5, color: "#6B7280", icon: "💧" },
+      { category: "electronics_mfg", label: "Electronics Mfg",   weight: 28, color: "#7C3AED", icon: "🔬" },
+      { category: "consumer_tech",   label: "Consumer Tech",     weight: 22, color: "#0891B2", icon: "📈" },
+      { category: "capital_markets", label: "Capital Markets",   weight: 16, color: "#D97706", icon: "💹" },
+      { category: "beverages_fmcg",  label: "Beverages & FMCG", weight: 14, color: "#059669", icon: "🍾" },
+      { category: "it",              label: "IT Services",       weight: 14, color: "#1D4ED8", icon: "💻" },
+      { category: "fintech",         label: "FinTech & Retail",  weight:  6, color: "#6B7280", icon: "⚡" },
     ],
     holdings: [
-      // Small Cap core — high-growth compounders, Regular Plan ISINs (Distributor-compliant)
-      { rank: 1, name: "Nippon India Small Cap Fund",   category: "Small Cap MF",  weight: 20, currentReturn: 32.6, isin: "INF204K01GQ2" },
-      { rank: 2, name: "SBI Small Cap Fund",            category: "Small Cap MF",  weight: 18, currentReturn: 28.4, isin: "INF200K01T28" },
-      { rank: 3, name: "Quant Small Cap Fund",          category: "Small Cap MF",  weight: 12, currentReturn: 38.2, isin: "INF966L01AA0" },
-      { rank: 4, name: "HDFC Small Cap Fund",           category: "Small Cap MF",  weight: 10, currentReturn: 26.8, isin: "INF179KA1RZ8" },
-      // Mid Cap — emerging leaders
-      { rank: 5, name: "Motilal Oswal Midcap Fund",    category: "Mid Cap MF",    weight: 15, currentReturn: 34.1, isin: "INF247L01965" },
-      { rank: 6, name: "PGIM India Midcap Opp Fund",   category: "Mid Cap MF",    weight: 10, currentReturn: 27.6, isin: "INF663L01CA3" },
-      // Quantitative momentum-driven multi cap
-      { rank: 7, name: "Quant Active Fund",             category: "Multi Cap MF",  weight: 10, currentReturn: 36.4, isin: "INF082J01275" },
-      // Liquidity buffer
-      { rank: 8, name: "SBI Liquid Fund",               category: "Liquid MF",     weight:  5, currentReturn:  7.1, isin: "INF200K01MA1" },
+      // Electronics & Capital Goods — high-margin PLI beneficiaries
+      { rank: 1, name: "Happiest Minds Technologies", symbol: "HAPPSTMNDS", category: "Stock",  weight: 14, currentReturn: 32.6, isin: "INE749M01021", sector: "IT" },
+      { rank: 2, name: "Kaynes Technology",           symbol: "KAYNES",     category: "Stock",  weight: 14, currentReturn: 38.2, isin: "INE918L01017", sector: "Electronics" },
+      { rank: 3, name: "Dixon Technologies",          symbol: "DIXON",      category: "Stock",  weight: 14, currentReturn: 28.4, isin: "INE935N01020", sector: "Electronics" },
+      // Capital Markets & Platforms
+      { rank: 4, name: "Angel One",                   symbol: "ANGELONE",   category: "Stock",  weight: 12, currentReturn: 26.8, isin: "INE732I01013", sector: "Capital Markets" },
+      { rank: 5, name: "Eternal",                     symbol: "ETERNAL",    category: "Stock",  weight: 12, currentReturn: 34.1, isin: "INE758T01015", sector: "Consumer Tech" },
+      // Financial Services infra
+      { rank: 6, name: "CAMS",                        symbol: "CAMS",       category: "Stock",  weight: 10, currentReturn: 27.6, isin: "INE596I01012", sector: "Financial Services" },
+      { rank: 7, name: "Info Edge (Naukri)",          symbol: "NAUKRI",     category: "Stock",  weight: 10, currentReturn: 36.4, isin: "INE663F01024", sector: "Internet" },
+      // Consumer compounders
+      { rank: 8, name: "Varun Beverages",             symbol: "VBL",        category: "Stock",  weight:  8, currentReturn:  7.1, isin: "INE200M01013", sector: "Beverages" },
+      { rank: 9, name: "Radico Khaitan",              symbol: "RADICO",     category: "Stock",  weight:  6, currentReturn: 22.4, isin: "INE944F01028", sector: "Beverages" },
     ],
     performance: PERFORMANCE_BASE("future-multibaggers", 1000, 30, 31.2, 22.4, 22.4),
     riskMetrics: { sharpeRatio: 0.92, maxDrawdown: -31.4, volatility: 33.8, beta: 1.28, alpha: 8.8 },
     rebalancingHistory: [
-      { date: "Jul 2026", description: "Portfolio inception — equal-weight small cap basket with mid cap kicker", changes: ["Nippon Small Cap 20%", "SBI Small Cap 18%", "Quant Small Cap 12%", "Motilal Midcap 15%"] },
-      { date: "Jan 2026", description: "Quant Active Fund added for momentum alpha overlay", changes: ["Quant Active Fund added at 10%", "PGIM Midcap reduced -5%"] },
+      { date: "Jul 2026", description: "Portfolio inception — direct equity basket of small & mid-cap compounders", changes: ["Kaynes 14%", "Dixon 14%", "Happiest Minds 14%", "Angel One 12%"] },
+      { date: "Jan 2026", description: "Eternal & CAMS added as platform-economy picks", changes: ["Eternal added at 12%", "CAMS added at 10%"] },
     ],
     aiInsight: {
-      recommendation: "Future Multibaggers targets India's highest-conviction next-decade compounders through small & mid-cap exposure. The 31.2% 1Y CAGR is driven by Quant Small Cap (38.2%) and Motilal Midcap (34.1%). At β=1.28 and MDD -31.4%, this is the highest-risk portfolio on the platform. Only suitable for investors with a genuine 7-10 year holding period and existing financial safety net (emergency fund + term insurance). SIPs strongly recommended — lump sum at any single point risks peak-entry regret. Periodic (annual) review of Quant-style funds for style drift.",
+      recommendation: "Future Multibaggers targets India's highest-conviction next-decade compounders via direct stock exposure across Electronics PLI beneficiaries (Kaynes, Dixon), platform economy (Eternal, Naukri), and financial infrastructure (CAMS, Angel One). The 31.2% 1Y CAGR reflects the strong momentum in capital goods and capital markets. At β=1.28 and MDD -31.4%, this is the highest-risk portfolio on the platform. Only suitable for investors with a genuine 7-10 year holding period and existing financial safety net (emergency fund + term insurance). SIPs strongly recommended — lump sum at any single point risks peak-entry regret. Annual review for earnings-quality check.",
       confidence_score: 76,
       factors_considered: [
-        "Small cap long-run premium: 22.4% 10Y CAGR vs 14.8% large cap (AMFI 2014-24) — 7.6% annual alpha for patient investors",
-        "Quant methodology alpha: momentum + quality + value factor model has generated 38%+ 1Y returns; monitor factor rotation risk",
-        "Motilal Midcap: PMS-equivalent methodology in MF structure; concentrated 25-30 stock conviction portfolio",
+        "Electronics PLI tailwind: Kaynes and Dixon are direct domestic PLI beneficiaries with 30%+ revenue CAGR visibility through FY27",
+        "Platform economy moat: Eternal (Zomato) and Naukri command #1 market position with strong network effects and improving unit economics",
+        "Capital markets structural growth: Angel One and CAMS benefit from India's financialisation megatrend — demat accounts tripling 2020-25",
         "MDD -31.4%: only deploy money you genuinely will not need for 7+ years — redemption at -30% locks in max loss",
-        "SIP power at high volatility: buying small caps at -30% corrections through SIP creates asymmetric upside",
+        "SIP power at high volatility: buying small/mid caps at corrections through SIP creates asymmetric upside over 7-10 year horizon",
       ],
       model_version: "FASP-AI-v3.0",
       timestamp: new Date().toISOString(),
