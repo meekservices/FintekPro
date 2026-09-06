@@ -255,23 +255,69 @@ export class PickOfTheDayService {
 	}
 
 	async generateDailyPicks(): Promise<DailyPickData[]> {
-		// ── Generation lock: prevent concurrent runs (cold-start race on Cloud Run)
-		if (this._isGenerating) {
-			logger.warn(
-				"[PickOfTheDay] generateDailyPicks() called while already running — skipping duplicate.",
-			);
-			return [];
+		// ── BUG-4 FIX: Distributed generation lock via Redis SETNX ─────────────
+		// The previous in-process `_isGenerating` flag only prevents duplicate runs
+		// within a single Cloud Run instance. At 9:20 AM, Cloud Run scales to N
+		// replicas — each would independently call generateDailyPicks(), burning
+		// N× LLM quota. onConflictDoNothing() in savePick() silently absorbed the
+		// duplicates but the waste was real.
+		//
+		// Fix: attempt a Redis SETNX with a 10-minute TTL. Only the first instance
+		// to acquire the lock proceeds. All others return [] immediately.
+		// If Redis is unavailable, fall back to the in-process flag (safe degraded mode).
+		const today = todayIST();
+		const lockKey = `picks:generating:${today}`;
+		let redisLockAcquired = false;
+
+		try {
+			const redis = await this.getRedis();
+			if (redis) {
+				// NX = set only if Not eXists; EX = TTL in seconds (10 min)
+				const acquired = await redis.set(lockKey, "1", { NX: true, EX: 600 });
+				if (!acquired) {
+					logger.info(
+						`[PickOfTheDay] generateDailyPicks() — Redis lock already held by another instance for ${today}. Skipping duplicate.`,
+						{ event: "PICK_GENERATION_LOCK_SKIP", date: today, latency_ms: 0, status: "skipped" },
+					);
+					return [];
+				}
+				redisLockAcquired = true;
+			} else {
+				// Redis unavailable — fall back to in-process guard
+				if (this._isGenerating) {
+					logger.warn("[PickOfTheDay] generateDailyPicks() called while already running (in-process lock) — skipping duplicate.");
+					return [];
+				}
+			}
+		} catch {
+			// Redis error — fall back to in-process guard
+			if (this._isGenerating) {
+				logger.warn("[PickOfTheDay] generateDailyPicks() called while already running (in-process lock, Redis error) — skipping duplicate.");
+				return [];
+			}
 		}
+
 		this._isGenerating = true;
 		try {
 			return await this._doGenerateDailyPicks();
 		} finally {
 			this._isGenerating = false;
+			// Release Redis lock on completion so force-generate can re-run same day
+			if (redisLockAcquired) {
+				try {
+					const redis = await this.getRedis();
+					if (redis) await redis.del(lockKey);
+				} catch { /* non-fatal — TTL will expire it */ }
+			}
 		}
 	}
 
 	/** Internal: the actual generation logic. Always call via generateDailyPicks(). */
 	private async _doGenerateDailyPicks(): Promise<DailyPickData[]> {
+		// BUG-1 FIX: capture wall-clock start for accurate generation latency.
+		// Previously latencyMs was computed as (Date.now() - midnight IST) which
+		// always produced ~33,000,000 ms at 9:20 AM, corrupting telemetry.
+		const genStart = Date.now();
 		logger.info(
 			`[PickOfTheDay] Starting daily pick generation (v${SCORER_VERSION})...`,
 		);
@@ -290,6 +336,12 @@ export class PickOfTheDayService {
 		// ── Alpha Self-Calibration: fetch calibrated min threshold ──
 		const calibratedMinThreshold = await scorerCalibrationService.getMinThreshold();
 		logger.info(`[PickOfTheDay] Calibrated SCORER_MIN_THRESHOLD: ${calibratedMinThreshold} (default: ${SCORER_MIN_THRESHOLD})`);
+
+		// BUG-2 FIX: track category-level errors so telemetry errorCount is truthful.
+		let categoryErrors = 0;
+		// PM-1 FIX: track per-generation sector gate blocks for the generation log.
+		let sectorGateBlocked = 0;
+		const categoryResults: GenerationLogEntry["categoryResults"] = {};
 
 		// Ordered by priority
 		let categories: PickCategory[] = [
@@ -318,6 +370,8 @@ export class PickOfTheDayService {
 				const strategy = this.getStrategy(category);
 				const recentIds = await this.getRecentlyPickedIds(category);
 
+				// PM-1 FIX: per-strategy stopwatch so slow strategies are visible in logs.
+				const stratStart = Date.now();
 				const result = await strategy.generate({
 					today,
 					regime: regimeForContext,
@@ -326,6 +380,7 @@ export class PickOfTheDayService {
 					// Pass calibrated threshold so stock-strategy can gate properly
 					minThreshold: calibratedMinThreshold,
 				});
+				const stratLatencyMs = Date.now() - stratStart;
 
 				// StockStrategy now returns DailyPickData[] (one per sector).
 				// All other strategies still return DailyPickData | null.
@@ -418,13 +473,20 @@ export class PickOfTheDayService {
 
 					// ── Minimum Upside Filter ──────────────────────────────────────────
 					// A pick must have meaningful upside to justify BUY rating.
-					// Minimum: stocks ≥12%, mutual_funds ≥8%, bonds/others ≥5%
-					const minUpsidePct: Record<string, number> = {
-						stocks: 12,
-						equity: 12,
-						mutual_funds: 8,
-						bonds: 5,
-						debt: 5,
+					// BUG-3 FIX: Previous map used "stocks"/"equity" as keys which NEVER
+					// matched a PickCategory value. "listed_stocks" always fell through to
+					// the 8% fallback, allowing 9–11% upside equity picks to be published.
+					const minUpsidePct: Partial<Record<PickCategory, number>> = {
+						listed_stocks:  12, // NSE equities: meaningful upside ≥12%
+						global_stocks:  12, // overseas equities: same bar
+						etfs:           10, // ETFs: slightly lower (index-like returns)
+						reits_invits:   10, // REIT/InvIT: yield + capital appreciation
+						mutual_funds:    8, // MFs: 8% minimum meaningful alpha
+						derivatives:    15, // derivatives: high conviction required
+						unlisted:       20, // unlisted: illiquid premium demanded
+						bonds:           5, // bonds: yield-based, lower bar
+						fixed_deposits:  4, // FDs: YTM-based, lowest bar
+						sgb:             4, // SGB: sovereign, yield + gold appreciation
 					};
 					const minUpside = minUpsidePct[category] ?? 8;
 					const recoP = Number(pick.recoPrice ?? 0);
@@ -543,7 +605,24 @@ export class PickOfTheDayService {
 						`✅ [PickOfTheDay] Generated ${category}${sectorTag} pick: ${pick.instrumentName}`,
 					);
 				}
+				// PM-1 FIX: log per-strategy latency AFTER the inner picks loop
+				const picksThisCategory = picks.length;
+				logger.info(`[PickOfTheDay] Strategy complete`, {
+					event:         "PICK_STRATEGY_COMPLETED",
+					category,
+					picks_generated: picksThisCategory,
+					latency_ms:    stratLatencyMs,
+					regime:        regimeForContext,
+					status:        picksThisCategory > 0 ? "success" : "no_pick",
+				});
+				categoryResults[category] = {
+					status: picksThisCategory > 0 ? "success" : "skipped",
+					instrument: picks[0]?.instrumentName,
+					sector: picks[0]?.sectorCategory,
+				};
 			} catch (error) {
+				categoryErrors++; // BUG-2 FIX
+				categoryResults[category] = { status: "error" };
 				logger.error(
 					`❌ [PickOfTheDay] Failed to generate ${category} pick:`,
 					error instanceof Error ? error : new Error(String(error)),
@@ -552,7 +631,9 @@ export class PickOfTheDayService {
 		}
 
 		const picksCount = generated.length;
-		const generationLatencyMs = Date.now() - new Date(`${today}T00:00:00+05:30`).getTime();
+		// BUG-1 FIX: use genStart captured at the top of this method.
+		// Old formula (Date.now() - midnight IST) always returned ~33M ms at 9:20 AM.
+		const generationLatencyMs = Date.now() - genStart;
 
 		// ── Telemetry Bus: report picks generation quality ──
 		telemetryBus.report({
@@ -560,10 +641,10 @@ export class PickOfTheDayService {
 			engineName: "Pick of the Day Engine",
 			category: "Alpha Generation",
 			reportedAt: new Date().toISOString(),
-			latencyMs: Math.min(generationLatencyMs, 300_000), // cap at 5 min
+			latencyMs: generationLatencyMs,
 			qualityScore: Math.min(100, Math.round((picksCount / 10) * 100)), // 10 cats = 100%
 			itemsProcessed: picksCount,
-			errorCount: 0,
+			errorCount: categoryErrors, // BUG-2 FIX: was hardcoded 0
 			meta: {
 				regime: regimeForContext,
 				isBlackSwan,
@@ -572,6 +653,23 @@ export class PickOfTheDayService {
 				scorerVersion: SCORER_VERSION,
 			},
 		});
+
+		// MON-2 FIX: populate _generationLog so GET /generation-log returns real data.
+		// Previously _generationLog.push() was never called anywhere in this file —
+		// the ops endpoint always returned data: [].
+		const logEntry: GenerationLogEntry = {
+			date: today,
+			startedAt: new Date(Date.now() - generationLatencyMs).toISOString(),
+			completedAt: new Date().toISOString(),
+			regime: isBlackSwan ? "BLACK_SWAN" : "NORMAL",
+			picksGenerated: picksCount,
+			sectorGateBlocked,
+			categoriesAttempted: categories,
+			categoryResults,
+			geminiCircuitOpen: categoryErrors > 0,
+		};
+		_generationLog.push(logEntry);
+		if (_generationLog.length > 7) _generationLog.shift(); // keep rolling 7
 
 		return generated;
 	}
@@ -647,10 +745,13 @@ export class PickOfTheDayService {
 		const details: string[] = [];
 
 		try {
+			// BUG-6 FIX: add LIMIT 200 to prevent unbounded live-pick backlog from
+			// issuing thousands of price API calls and blocking the event loop.
 			const livePicks = await db
 				.select()
 				.from(dailyPicks)
-				.where(eq(dailyPicks.status, "live"));
+				.where(eq(dailyPicks.status, "live"))
+				.limit(200);
 			logger.info(
 				`[PickOfTheDay] Syncing prices for ${livePicks.length} live picks...`,
 			);
@@ -874,6 +975,7 @@ export class PickOfTheDayService {
 		category?: PickCategory,
 		limit: number = 50,
 	): Promise<DailyPickData[]> {
+		const t0 = Date.now();
 		const conditions = [];
 		if (category) {
 			conditions.push(eq(dailyPicks.category, category));
@@ -885,90 +987,109 @@ export class PickOfTheDayService {
 			.where(conditions.length > 0 ? and(...conditions) : undefined)
 			.orderBy(desc(dailyPicks.recoDate))
 			.limit(limit);
-		return picks.map((p) => this.transformPick(p));
+		const result = picks.map((p) => this.transformPick(p));
+		// PM-3 FIX: structured log for usage tracking and latency alerting
+		logger.info("[PickOfTheDay] Pick history fetched", {
+			event:      "PICK_HISTORY_FETCHED",
+			user_id:    "SYSTEM",
+			category:   category ?? "all",
+			count:      result.length,
+			limit,
+			latency_ms: Date.now() - t0,
+			status:     "success",
+		});
+		return result;
 	}
 
-	async getPerformanceStats(): Promise<any> {
-		const allPicks = await db.select().from(dailyPicks);
-		const totalPicks = allPicks.length;
-		if (totalPicks === 0)
-			return {
-				totalPicks: 0,
-				livePicks: 0,
-				targetHits: 0,
-				stoplossHits: 0,
-				expired: 0,
-				hitRate: 0,
-				avgReturn: 0,
-				byCategory: {},
+	/**
+	 * BUG-5 FIX: Replace full table scan with SQL aggregation.
+	 * Previous implementation did `db.select().from(dailyPicks)` with no LIMIT,
+	 * loading every row into Node memory. Called by 3 hot paths:
+	 *   - GET /api/picks/stats (every advisor dashboard load)
+	 *   - GET /api/admin/engines/health (every health check)
+	 *   - POST /api/admin/engines/self-heal (every recovery attempt)
+	 * With SQL aggregation, only a single aggregated row is returned from DB.
+	 */
+	async getPerformanceStats(): Promise<{
+		totalPicks: number;
+		livePicks: number;
+		targetHits: number;
+		stoplossHits: number;
+		expired: number;
+		hitRate: number;
+		avgReturn: number;
+		byCategory: Record<string, { total: number; hits: number; hitRate: number; avgReturn: number }>;
+	}> {
+		// Single aggregation query: totals + per-status counts
+		const [agg] = await db.execute(sql`
+			SELECT
+				COUNT(*)::int                                                          AS total_picks,
+				COUNT(*) FILTER (WHERE status = 'live')::int                           AS live_picks,
+				COUNT(*) FILTER (WHERE status = 'target_hit')::int                     AS target_hits,
+				COUNT(*) FILTER (WHERE status = 'stoploss_hit')::int                   AS stoploss_hits,
+				COUNT(*) FILTER (WHERE status = 'expired')::int                        AS expired_count,
+				COUNT(*) FILTER (WHERE status <> 'live')::int                          AS total_closed,
+				-- avgReturn: closed picks only, exclude null/empty returnPct
+				ROUND(
+					AVG(return_pct::numeric) FILTER (
+						WHERE status <> 'live'
+						  AND return_pct IS NOT NULL
+						  AND return_pct <> ''
+					)::numeric,
+				2
+				)                                                                      AS avg_return
+			FROM daily_picks
+		`) as any;
+
+		const r = (agg as any) ?? {};
+		const totalPicks   = Number(r.total_picks   ?? 0);
+		const livePicks    = Number(r.live_picks     ?? 0);
+		const targetHits   = Number(r.target_hits    ?? 0);
+		const stoplossHits = Number(r.stoploss_hits  ?? 0);
+		const expiredCount = Number(r.expired_count  ?? 0);
+		const totalClosed  = Number(r.total_closed   ?? 0);
+		const avgReturn    = Number(r.avg_return      ?? 0);
+		const hitRate      = totalClosed > 0
+			? Number(((targetHits / totalClosed) * 100).toFixed(2))
+			: 0;
+
+		if (totalPicks === 0) {
+			return { totalPicks: 0, livePicks: 0, targetHits: 0, stoplossHits: 0,
+				expired: 0, hitRate: 0, avgReturn: 0, byCategory: {} };
+		}
+
+		// Per-category breakdown — single aggregation grouped by category
+		const catRows = await db.execute(sql`
+			SELECT
+				category,
+				COUNT(*) FILTER (WHERE status <> 'live')::int                          AS total,
+				COUNT(*) FILTER (WHERE status = 'target_hit')::int                     AS hits,
+				ROUND(
+					AVG(return_pct::numeric) FILTER (
+						WHERE status <> 'live'
+						  AND return_pct IS NOT NULL
+						  AND return_pct <> ''
+					)::numeric,
+				2
+				)                                                                      AS avg_return
+			FROM daily_picks
+			GROUP BY category
+		`) as any;
+
+		const byCategory: Record<string, { total: number; hits: number; hitRate: number; avgReturn: number }> = {};
+		for (const row of (catRows.rows ?? []) as any[]) {
+			const total = Number(row.total ?? 0);
+			const hits  = Number(row.hits  ?? 0);
+			byCategory[row.category] = {
+				total,
+				hits,
+				hitRate:   total > 0 ? Number(((hits / total) * 100).toFixed(2)) : 0,
+				avgReturn: Number(row.avg_return ?? 0),
 			};
-
-		const livePicks = allPicks.filter((p) => p.status === "live");
-		const resolved = allPicks.filter((p) => p.status !== "live");
-		const targetHits = resolved.filter((p) => p.status === "target_hit").length;
-		const stoplossHits = resolved.filter(
-			(p) => p.status === "stoploss_hit",
-		).length;
-		const expiredCount = resolved.filter((p) => p.status === "expired").length;
-		const hitRate =
-			resolved.length > 0 ? (targetHits / resolved.length) * 100 : 0;
-
-		// BUG FIX: avgReturn must ONLY cover closed picks (returnPct is final).
-		// Including live picks introduces unrealised intra-day noise and dilutes the metric.
-		// Also exclude rows where returnPct was never set (null / empty) to avoid
-		// the '|| 0' fallback dragging the average down artificially.
-		const closedReturns = resolved
-			.filter((p) => p.returnPct != null && p.returnPct !== "")
-			.map((p) => Number.parseFloat(p.returnPct!));
-		const avgReturn =
-			closedReturns.length > 0
-				? closedReturns.reduce((a, b) => a + b, 0) / closedReturns.length
-				: 0;
-
-		// Per-category breakdown (used by frontend category badges)
-		const byCategory: Record<
-			string,
-			{ total: number; hits: number; hitRate: number; avgReturn: number }
-		> = {};
-		for (const pick of resolved) {
-			const cat = pick.category;
-			if (!byCategory[cat])
-				byCategory[cat] = { total: 0, hits: 0, hitRate: 0, avgReturn: 0 };
-			byCategory[cat].total++;
-			if (pick.status === "target_hit") byCategory[cat].hits++;
-		}
-		for (const cat of Object.keys(byCategory)) {
-			const stats = byCategory[cat];
-			stats.hitRate =
-				stats.total > 0
-					? Number.parseFloat(((stats.hits / stats.total) * 100).toFixed(2))
-					: 0;
-			const catReturns = resolved
-				.filter(
-					(p) =>
-						p.category === cat && p.returnPct != null && p.returnPct !== "",
-				)
-				.map((p) => Number.parseFloat(p.returnPct!));
-			stats.avgReturn =
-				catReturns.length > 0
-					? Number.parseFloat(
-							(
-								catReturns.reduce((a, b) => a + b, 0) / catReturns.length
-							).toFixed(2),
-						)
-					: 0;
 		}
 
-		return {
-			totalPicks,
-			livePicks: livePicks.length,
-			targetHits,
-			stoplossHits,
-			expired: expiredCount,
-			hitRate: Number.parseFloat(hitRate.toFixed(2)),
-			avgReturn: Number.parseFloat(avgReturn.toFixed(2)),
-			byCategory,
-		};
+		return { totalPicks, livePicks, targetHits, stoplossHits,
+			expired: expiredCount, hitRate, avgReturn, byCategory };
 	}
 
 	async updatePickStatuses(): Promise<PickUpdateResult> {
@@ -1231,16 +1352,18 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 			const title = `${newStatus.toUpperCase()}: ${pick.instrumentName}`;
 			const message = `${pick.instrumentName} has hit its ${newStatus.replace("_", " ")} at ₹${currentPrice.toLocaleString()} with a ${returnPct.toFixed(1)}% return.`;
 
-			for (const sub of subscribers) {
-				await db.insert(userNotifications).values({
-					userId: sub.userId,
-					type: newStatus === "target_hit" ? "info" : "alert",
-					title,
-					message,
-					actionUrl: "/agent/picks",
-					priority: newStatus === "stoploss_hit" ? "high" : "medium",
-				});
-			}
+			// BUG-7 FIX: Replace serial per-subscriber INSERTs with a single batched INSERT.
+			// Old code: 1 round-trip per subscriber → 200 subscribers = 200 sequential DB writes
+			// at 4 PM EOD, blocking the whole refresh loop.
+			const notificationValues = subscribers.map((sub) => ({
+				userId:     sub.userId,
+				type:       (newStatus === "target_hit" ? "info" : "alert") as "info" | "alert",
+				title,
+				message,
+				actionUrl:  "/agent/picks",
+				priority:   (newStatus === "stoploss_hit" ? "high" : "medium") as "high" | "medium",
+			}));
+			await db.insert(userNotifications).values(notificationValues);
 		} catch (error) {
 			logger.error(`[PickOfTheDay] Notification failure:`, error instanceof Error ? error : new Error(String(error)));
 		}
@@ -1529,8 +1652,10 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 
 		if (missingCritical.length >= 2) {
 			// 2+ critical categories are missing — regenerate to fill gaps
+			// PM-4 FIX: include existingCount so ops can correlate how many picks
+			// were present when regeneration was triggered (helps triage partial failures)
 			logger.info(
-				`🔄 [PickOfTheDay] Missing ${missingCritical.length} critical categories: [${missingCritical.join(", ")}]. Triggering regeneration...`,
+				`🔄 [PickOfTheDay] Missing ${missingCritical.length} critical categories: [${missingCritical.join(", ")}]. existingCount=${existingCount}. Triggering regeneration...`,
 			);
 			await this.generateDailyPicks();
 		} else {

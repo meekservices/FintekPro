@@ -473,9 +473,20 @@ export class AIRegimeDetectionEngine {
 	private generateSyntheticNiftyPrices(
 		days: number,
 	): { date: string; close: number }[] {
+		// BUG-3 FIX: Replace Math.random() with a deterministic day-seed formula.
+		// GCR v1.0 mandates "same input → same output ALWAYS (no hidden randomness)".
+		// The previous implementation produced different regime labels on each invocation,
+		// making the synthetic fallback unreproducible and untestable.
+		//
+		// New formula: dailyReturn = ((dayOfYear * 1013 + dayIndex * 37) % 201 - 100) / 10000
+		//   - dayOfYear: 1–366, provides date-anchored variance
+		//   - dayIndex:  loop counter, keeps adjacent days distinct
+		//   - Result: ±1% range (conservative, appropriate for a flat/sideways synthetic baseline)
+		//   - Fully deterministic: same date → same price series every run
 		const basePrice = 22000;
 		const result: { date: string; close: number }[] = [];
 		let price = basePrice;
+		let dayIndex = 0;
 
 		for (let i = days; i >= 0; i--) {
 			const d = new Date();
@@ -483,12 +494,17 @@ export class AIRegimeDetectionEngine {
 			const dayOfWeek = d.getDay();
 			if (dayOfWeek === 0 || dayOfWeek === 6) continue;
 
-			const dailyReturn = (Math.random() - 0.5) * 0.02;
-			price = price * (1 + dailyReturn);
+			// Deterministic seed: combine day-of-year with loop counter
+			const dayOfYear = Math.floor(
+				(d.getTime() - new Date(d.getFullYear(), 0, 0).getTime()) / 86_400_000,
+			);
+			const pseudoRand = ((dayOfYear * 1013 + dayIndex * 37) % 201 - 100) / 10000;
+			price = price * (1 + pseudoRand);
 			result.push({
 				date: d.toISOString().split("T")[0],
 				close: Math.round(price * 100) / 100,
 			});
+			dayIndex++;
 		}
 		return result;
 	}

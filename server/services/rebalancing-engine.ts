@@ -217,8 +217,13 @@ class RebalancingEngine {
 						pyAllocations[alloc.assetType] = alloc.allocation;
 					}
 				}
-			} catch {
-				// sidecar unavailable — fall through to TS optimizer
+			} catch (rebErr: unknown) {
+				// BUG-REB-1 FIX: Log when Python MVO is unavailable so ops can detect degradation.
+				// Previously a silent catch — could persist for days undetected.
+				logger.warn("[RebalancingEngine] Python MVO optimizer unavailable, falling back to TS optimizer", {
+					error: rebErr instanceof Error ? rebErr.message : String(rebErr),
+					fallback: "asset-allocation-optimizer",
+				});
 			}
 
 			if (pyAllocations) {
@@ -377,7 +382,7 @@ class RebalancingEngine {
 			...stockSignalRecs,
 		];
 
-		return {
+		const result: RebalanceAnalysis = {
 			needsRebalance,
 			urgency,
 			driftAnalysis,
@@ -388,6 +393,24 @@ class RebalancingEngine {
 			engine_version: REBALANCING_ENGINE_VERSION,
 			calculation_timestamp: new Date().toISOString(),
 		};
+
+		// PM-REB-1 FIX: Emit structured log for rebalance audit trail.
+		// FASP-AI v1.0: every advisory output must be logged.
+		logger.info("[RebalancingEngine] REBALANCE_ANALYSIS_COMPLETED", {
+			event: "REBALANCE_ANALYSIS_COMPLETED",
+			engine_version: REBALANCING_ENGINE_VERSION,
+			needs_rebalance: needsRebalance,
+			urgency,
+			trade_count: trades.length,
+			total_buy_value: summary.totalBuyValue,
+			total_sell_value: summary.totalSellValue,
+			estimated_total_tax: summary.estimatedTotalTax,
+			risk_score: input.riskScore,
+			segment: input.segment,
+			calculation_timestamp: result.calculation_timestamp,
+		});
+
+		return result;
 	}
 
 	private analyzeDrift(

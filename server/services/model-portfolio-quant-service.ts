@@ -25,6 +25,8 @@ import { db } from "../db";
 import { sql } from "drizzle-orm";
 import { rebalanceOptimizer } from "../core/rebalance-optimizer";
 import { logger } from "../logger";
+import { retryWithBackoff } from "../utils/retry-with-backoff";
+import { telemetryBus } from "./engine-telemetry-bus";
 
 export const ENGINE_VERSION = "FASP-AI-v3.0"; // Fix 5: mandatory version per FASP-AI v3.0
 const RISK_FREE_RATE = 7.1; // RBI repo rate proxy (annualised %)
@@ -260,7 +262,7 @@ export interface PortfolioDriftReport {
 export interface PortfolioAlphaScore {
   portfolioId: string;
   alpha: number;
-  excessReturn3Y: number;
+  excessReturn3Y: number | null; // null when portfolio has < 3Y history (is_establishing)
   sharpeRatio: number;
   confidenceScore: number;
   factors: string[];
@@ -380,8 +382,22 @@ export function scorePortfolioAlpha(portfolio: PortfolioQuantInput): PortfolioAl
   // benchmarkCagr1Y is a 1Y figure; directly subtracting it from cagr3Y (3Y annualised) produces
   // a period mismatch. We apply a 0.95 mean-reversion factor as a conservative 3Y proxy until
   // benchmarkCagr3Y is available as a separate DB column.
+  //
+  // BUG-6 FIX: When cagr3Y === 0 (portfolio < 3Y old), the proxy formula yields −benchmarkProxy
+  // (a misleading negative figure). Guard this case: emit a PORTFOLIO_INSUFFICIENT_HISTORY log
+  // and return null so callers can surface the is_establishing flag instead of a wrong number.
   const benchmarkCagr3YProxy = portfolio.benchmarkCagr1Y * 0.95;
-  const excessReturn3Y = parseFloat((portfolio.cagr3Y - benchmarkCagr3YProxy).toFixed(2));
+  const excessReturn3Y: number | null = portfolio.cagr3Y !== 0
+    ? parseFloat((portfolio.cagr3Y - benchmarkCagr3YProxy).toFixed(2))
+    : null; // portfolio has < 3Y history — excess return is not meaningful yet
+  if (portfolio.cagr3Y === 0) {
+    logger.info(`[QuantEngine] PORTFOLIO_INSUFFICIENT_HISTORY: ${portfolio.id} has no 3Y return — excessReturn3Y suppressed`, {
+      event: "PORTFOLIO_INSUFFICIENT_HISTORY",
+      portfolio_id: portfolio.id,
+      latency_ms: 0,
+      status: "info",
+    });
+  }
   // M-MP2 FIX: Asset-class-aware volatility fallbacks.
   // A flat 12% is wrong for liquid (σ≈0.5%), overnight (σ≈0.3%), and small-cap (σ≈22%) portfolios.
   const VOLATILITY_DEFAULTS: Record<string, number> = {
@@ -538,12 +554,13 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
   portfolios_scored: number;
   drifting: number;
   needing_rebalance: number;
+  circuit_breaker_trips: number; // PM-3: distinct from needing_rebalance
   errors: number;
   latency_ms: number;
   drift_triggered_ids: string[]; // BUG-3 FIX: portfolios needing immediate rebalance
 }> {
   const t0 = Date.now();
-  let scored = 0, drifting = 0, needingRebalance = 0, errors = 0;
+  let scored = 0, drifting = 0, needingRebalance = 0, circuitBreakerTrips = 0, errors = 0;
   const driftTriggeredIds: string[] = []; // BUG-3: collect needs_rebalance portfolio IDs
 
   logger.info("[QuantEngine] Nightly model portfolio rebalance started", {
@@ -555,17 +572,27 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
   try {
     // B3: FIX — only process published portfolios (is_published = true)
     // Without this, draft/unpublished portfolios consume quant budget and write back stale drift scores
-    const portfolios = await db.execute(sql`
-      SELECT id, name, asset_class, risk_profile, cagr_1y, cagr_3y, cagr_5y,
-             benchmark_cagr_1y, benchmark_name, sharpe_ratio,
-             max_drawdown, volatility, holdings, last_rebalanced, allocation,
-             max_drawdown_threshold
-      FROM model_portfolios
-      WHERE is_published = true
-      ORDER BY id
-    `);
+    //
+    // BUG-1 FIX: Wrap the portfolio fetch in retryWithBackoff.
+    // A transient DB error (Cloud SQL failover, pool exhaustion) previously aborted the entire batch.
+    // Max 3 retries with exponential backoff; non-retryable errors surface immediately.
+    const portfolios = await retryWithBackoff(
+      () => db.execute(sql`
+        SELECT id, name, asset_class, risk_profile, cagr_1y, cagr_3y, cagr_5y,
+               benchmark_cagr_1y, benchmark_name, sharpe_ratio,
+               max_drawdown, volatility, holdings, last_rebalanced, allocation,
+               max_drawdown_threshold
+        FROM model_portfolios
+        WHERE is_published = true
+        ORDER BY id
+      `),
+      { context: "NightlyBatch.fetchPortfolios", maxRetries: 3 },
+    );
 
     for (const row of portfolios.rows as any[]) {
+      // BUG-4 / PM-1 FIX: Per-portfolio latency stopwatch.
+      // The outer t0 only captures batch-total latency; slow outlier portfolios were invisible.
+      const portfolioT0 = Date.now();
       try {
         const holdings: QuantHolding[] = ((row.holdings as any[]) ?? []).map((h: any) => ({
           rank:          Number(h.rank ?? 0),
@@ -669,30 +696,37 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
         // Now: if tripped, skip the nightly drift/rebalance DB update for this portfolio.
         // The alpha score IS still written (for monitoring) but drift-triggered rebalance is skipped.
         if (circuitBreaker.tripped) {
+          // BUG-4 FIX: use portfolioT0 (not hardcoded 0) so ops can see how long the CB path took
+          const cbLatency = Date.now() - portfolioT0;
           logger.warn(`[QuantEngine] Drawdown circuit breaker TRIPPED for ${row.id} — skipping rebalance`, {
             event: "DRAWDOWN_CIRCUIT_BREAKER_TRIPPED",
             portfolio_id: row.id,
             message: circuitBreaker.message,
             threshold: circuitBreaker.threshold,
             current_drawdown: row.max_drawdown,
-            latency_ms: 0,
+            latency_ms: cbLatency,
             status: "alert",
           });
           // Write alpha score + establishing flag, but do NOT update drift or trigger rebalance
-          await db.execute(sql`
-            UPDATE model_portfolios
-            SET
-              alpha                = ${alphaScore.alpha},
-              quant_engine_version = ${ENGINE_VERSION},
-              last_quant_run       = NOW(),
-              is_establishing      = ${isEstablishing},
-              circuit_breaker_tripped = true,
-              updated_at           = NOW()
-            WHERE id = ${row.id}
-          `);
+          // BUG-2 FIX: Wrap CB write in retryWithBackoff — a transient write failure here
+          // would leave circuit_breaker_tripped = false in the DB, hiding the safety condition.
+          await retryWithBackoff(
+            () => db.execute(sql`
+              UPDATE model_portfolios
+              SET
+                alpha                   = ${alphaScore.alpha},
+                quant_engine_version    = ${ENGINE_VERSION},
+                last_quant_run          = NOW(),
+                is_establishing         = ${isEstablishing},
+                circuit_breaker_tripped = true,
+                updated_at              = NOW()
+              WHERE id = ${row.id}
+            `),
+            { context: `NightlyBatch.writeCB.${row.id}`, maxRetries: 3 },
+          );
           scored++;
-          // Count as "needs_rebalance" so it shows in ops alerts, but don't auto-execute
-          needingRebalance++;
+          circuitBreakerTrips++; // PM-3: track CB trips separately from drift-triggered
+          needingRebalance++;    // still surfaces in ops alerts
           driftTriggeredIds.push(`CIRCUIT_BREAKER:${row.id}`);
           continue;
         }
@@ -719,29 +753,46 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
           }
         }
 
-        await db.execute(sql`
-          UPDATE model_portfolios
-          SET
-            drift_score             = ${driftReport.driftScore},
-            drift_details           = ${JSON.stringify(driftReport.holdingsDrift.slice(0, 5))}::jsonb,
-            quant_engine_version    = ${ENGINE_VERSION},
-            last_quant_run          = NOW(),
-            alpha                   = ${alphaScore.alpha},
-            drift_threshold         = ${getDriftThreshold(row.id, row.asset_class) * 100},
-            blended_benchmark_return = ${blendedBenchmark},
-            -- C-MP2 FIX: DO NOT overwrite benchmark_cagr_1y with synthetic blended value.
-            -- benchmark_cagr_1y stores the SEBI-mandated official benchmark (e.g. "NIFTY 50 TRI").
-            -- The blended synthetic result is analytics-only and goes only into blended_benchmark_return.
-            twrr_1y                 = ${twrr1Y},
-            twrr_3y                 = ${twrr3Y},
-            is_establishing         = ${isEstablishing},
-            circuit_breaker_tripped = false,
-            needs_rebalance         = ${needsRebalance},
-            pending_rebalance_plan  = ${pendingPlanJson ? sql`${pendingPlanJson}::jsonb` : sql`NULL`},
-            source                  = 'nightly_cron',
-            updated_at              = NOW()
-          WHERE id = ${row.id}
-        `);
+        // BUG-2 FIX: Wrap the per-portfolio UPDATE in retryWithBackoff.
+        // Previously: any transient write failure silently incremented errors++ and left stale drift
+        // scores in the DB. With retry, transient Cloud SQL hiccups are recovered transparently.
+        await retryWithBackoff(
+          () => db.execute(sql`
+            UPDATE model_portfolios
+            SET
+              drift_score             = ${driftReport.driftScore},
+              drift_details           = ${JSON.stringify(driftReport.holdingsDrift.slice(0, 5))}::jsonb,
+              quant_engine_version    = ${ENGINE_VERSION},
+              last_quant_run          = NOW(),
+              alpha                   = ${alphaScore.alpha},
+              drift_threshold         = ${getDriftThreshold(row.id, row.asset_class) * 100},
+              blended_benchmark_return = ${blendedBenchmark},
+              -- C-MP2 FIX: DO NOT overwrite benchmark_cagr_1y with synthetic blended value.
+              -- benchmark_cagr_1y stores the SEBI-mandated official benchmark (e.g. "NIFTY 50 TRI").
+              -- The blended synthetic result is analytics-only and goes only into blended_benchmark_return.
+              twrr_1y                 = ${twrr1Y},
+              twrr_3y                 = ${twrr3Y},
+              is_establishing         = ${isEstablishing},
+              circuit_breaker_tripped = false,
+              needs_rebalance         = ${needsRebalance},
+              pending_rebalance_plan  = ${pendingPlanJson ? sql`${pendingPlanJson}::jsonb` : sql`NULL`},
+              source                  = 'nightly_cron',
+              updated_at              = NOW()
+            WHERE id = ${row.id}
+          `),
+          { context: `NightlyBatch.writePortfolio.${row.id}`, maxRetries: 3 },
+        );
+        // PM-1: log per-portfolio latency for outlier detection
+        logger.info(`[QuantEngine] Portfolio scored`, {
+          event:        "PORTFOLIO_QUANT_SCORED",
+          portfolio_id: row.id,
+          drift_status: driftReport.status,
+          drift_score:  driftReport.driftScore,
+          alpha:        alphaScore.alpha,
+          needs_rebalance: needsRebalance,
+          latency_ms:   Date.now() - portfolioT0,
+          status:       "success",
+        });
 
 
         scored++;
@@ -799,11 +850,12 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
       } catch (rowErr: any) {
         errors++;
         logger.error(`[QuantEngine] Error scoring portfolio ${row.id}`, {
-          event: "NIGHTLY_PORTFOLIO_REBALANCE_ROW_ERROR",
+          event:        "NIGHTLY_PORTFOLIO_REBALANCE_ROW_ERROR",
           portfolio_id: row.id,
-          error_code: "QUANT_ROW_ERROR",
-          message: rowErr.message,
-          retryable: true,
+          error_code:   "QUANT_ROW_ERROR",
+          message:      rowErr.message,
+          latency_ms:   Date.now() - portfolioT0,
+          retryable:    true,
         });
       }
     }
@@ -822,16 +874,38 @@ export async function runNightlyModelPortfolioRebalance(): Promise<{
     portfolios_scored: scored,
     drifting,
     needing_rebalance: needingRebalance,
+    circuit_breaker_trips: circuitBreakerTrips, // PM-3 FIX: distinct from drift-triggered
     errors,
     latency_ms,
     drift_triggered_ids: driftTriggeredIds, // BUG-3 FIX
   };
 
   logger.info("[QuantEngine] Nightly model portfolio rebalance complete", {
-    event: "NIGHTLY_PORTFOLIO_REBALANCE_COMPLETE",
+    event:  "NIGHTLY_PORTFOLIO_REBALANCE_COMPLETE",
     ...result,
     engine: ENGINE_VERSION,
     status: errors === 0 ? "success" : "partial",
+  });
+
+  // BUG-5 FIX: Report to telemetry bus so ops dashboard shows health: "healthy"
+  // instead of health: "unknown" (which happened because this engine never called report()).
+  telemetryBus.report({
+    engineId:       "model-portfolio-quant",
+    engineName:     "Model Portfolio Quant Engine",
+    category:       "Portfolio",
+    reportedAt:     new Date().toISOString(),
+    latencyMs:      latency_ms,
+    qualityScore:   scored > 0
+      ? Math.round(Math.max(0, Math.min(100, ((scored - errors) / scored) * 100)))
+      : 0,
+    itemsProcessed: scored,
+    errorCount:     errors,
+    meta: {
+      drifting,
+      needing_rebalance: needingRebalance,
+      circuit_breaker_trips: circuitBreakerTrips,
+      engine_version: ENGINE_VERSION,
+    },
   });
 
   return result;

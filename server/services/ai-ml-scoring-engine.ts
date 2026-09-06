@@ -1,4 +1,5 @@
 // @ts-nocheck
+// NOTE: @ts-nocheck maintained for compatibility — targeted type fixes tracked in CC-1 backlog
 import { logger } from "../logger";
 import { db } from "../db";
 import {
@@ -332,7 +333,11 @@ class AIMLScoringEngine {
 		const cvMetrics = this.crossValidate(examples, config);
 
 		const modelName = `scoring_${assetClass}`;
-		const modelVersion = `v${Date.now()}`;
+		// BUG-ML-1 FIX: deterministic version — same inputs always produce the same version string.
+		// FASP-AI v1.0: "Same input → same output ALWAYS (no hidden randomness)."
+		const earliestDate = examples[examples.length - 1]?.date || "unknown";
+		const latestDate   = examples[0]?.date || "unknown";
+		const modelVersion = `${assetClass}_n${n}_${earliestDate}_to_${latestDate}_s${maxStumps}`;
 
 		const model: ScoringModel = {
 			name: modelName,
@@ -355,37 +360,66 @@ class AIMLScoringEngine {
 		};
 
 		try {
-			await db
-				.update(aiModelRegistry)
-				.set({ isActive: false, deactivatedAt: new Date() })
+			// BUG-ML-3 FIX: Quality gate — only promote if new model is not worse than current
+			// by more than 2% directional accuracy. Prevents noisy retrains from degrading scoring.
+			const currentActive = await db
+				.select({ performanceMetrics: aiModelRegistry.performanceMetrics })
+				.from(aiModelRegistry)
 				.where(
 					and(
 						eq(aiModelRegistry.assetClass, assetClass),
 						eq(aiModelRegistry.modelType, "scoring"),
 						eq(aiModelRegistry.isActive, true),
 					),
-				);
+				)
+				.limit(1);
 
-			await db.insert(aiModelRegistry).values({
-				modelName,
-				modelVersion,
-				assetClass,
-				modelType: "scoring",
-				parameters: model as any,
-				performanceMetrics: {
-					rmse,
-					mae,
-					r2: model.trainingMetrics.r2,
-					directionalAccuracy,
-					sampleSize: n,
-					cv: cvMetrics,
-				},
-				isActive: true,
-				activatedAt: new Date(),
-				trainedOnWindow: `${examples[examples.length - 1]?.date || "unknown"} to ${examples[0]?.date || "unknown"}`,
-				notes: `Trained with ${maxStumps} stumps, lr=${learningRate}, ${n} samples`,
-				createdBy: "system",
-			});
+			const currentDA: number =
+				(currentActive[0]?.performanceMetrics as any)?.directionalAccuracy ?? 0;
+			const QUALITY_GATE_TOLERANCE = 0.02; // allow up to 2% DA regression
+
+			if (currentDA > 0 && directionalAccuracy < currentDA - QUALITY_GATE_TOLERANCE) {
+				logger.warn(
+					`[AIMLScoringEngine] Quality gate REJECTED new model for ${assetClass}: ` +
+					`new DA=${(directionalAccuracy * 100).toFixed(1)}% < current DA=${(currentDA * 100).toFixed(1)}% - 2% tolerance. ` +
+					`Keeping current active model.`,
+				);
+			} else {
+				// New model passes quality gate — deactivate old, promote new
+				await db
+					.update(aiModelRegistry)
+					.set({ isActive: false, deactivatedAt: new Date() })
+					.where(
+						and(
+							eq(aiModelRegistry.assetClass, assetClass),
+							eq(aiModelRegistry.modelType, "scoring"),
+							eq(aiModelRegistry.isActive, true),
+						),
+					);
+
+				await db.insert(aiModelRegistry).values({
+					modelName,
+					modelVersion,
+					assetClass,
+					modelType: "scoring",
+					parameters: model as any,
+					performanceMetrics: {
+						rmse,
+						mae,
+						r2: model.trainingMetrics.r2,
+						directionalAccuracy,
+						sampleSize: n,
+						cv: cvMetrics,
+					},
+					isActive: true,
+					activatedAt: new Date(),
+					trainedOnWindow: `${earliestDate} to ${latestDate}`,
+					notes: `Trained with ${maxStumps} stumps, lr=${learningRate}, ${n} samples`,
+					createdBy: "system",
+				});
+
+				logger.info(`[AIMLScoringEngine] Model promoted: ${modelVersion} (DA: ${(directionalAccuracy*100).toFixed(1)}% >= prev ${(currentDA*100).toFixed(1)}% - 2%)`);
+			}
 		} catch (err) {
 			logger.error("[AIMLScoringEngine] Failed to persist model:", err instanceof Error ? err : new Error(String(err)));
 		}
@@ -395,6 +429,23 @@ class AIMLScoringEngine {
 		logger.info(
 			`✅ [AIMLScoringEngine] Trained model for ${assetClass}: RMSE=${rmse.toFixed(4)}, R²=${model.trainingMetrics.r2.toFixed(4)}, DA=${(directionalAccuracy * 100).toFixed(1)}%, samples=${n}`,
 		);
+
+		// PM-ML-1 FIX: Emit structured telemetry for ops dashboard visibility
+		try {
+			const { engineTelemetryBus } = await import("./engine-telemetry-bus");
+			engineTelemetryBus.report({
+				engine: "ai-ml-scoring-engine",
+				event: "MODEL_TRAINED",
+				model_version: modelVersion,
+				asset_class: assetClass,
+				rmse,
+				mae,
+				r2: model.trainingMetrics.r2,
+				directional_accuracy: directionalAccuracy,
+				sample_size: n,
+				timestamp: new Date().toISOString(),
+			});
+		} catch { /* telemetry is best-effort */ }
 
 		return model;
 	}

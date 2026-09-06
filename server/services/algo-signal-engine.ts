@@ -14,10 +14,10 @@
  *   - Mandatory risk disclaimer on every output.
  *   - All generation events logged via auditLog().
  */
-
+// NOTE: @ts-nocheck maintained for compatibility — targeted type fixes tracked in CC-1 backlog
 import { db } from "../db";
 import { algoSignals, users } from "@shared/schema";
-import { eq, and, inArray, lt } from "drizzle-orm";
+import { eq, and, inArray, lt, desc, sql } from "drizzle-orm";
 import { alpacaMarketDataService } from "./alpaca-market-data-service";
 import { auditLog } from "../middleware/audit-trail";
 import { logger } from "../logger";
@@ -219,15 +219,12 @@ class AlgoSignalEngine {
 			.select()
 			.from(algoSignals)
 			.where(and(...conditions))
-			.orderBy(algoSignals.createdAt)
+			// BUG-ALGO-2 FIX: orderBy DESC in SQL so page N is correctly ordered.
+			// Previous code used orderBy ASC + in-memory .sort() DESC after .limit(),
+			// which reversed only the current page — pages 2+ were wrong relative to page 1.
+			.orderBy(desc(algoSignals.createdAt))
 			.limit(limit)
 			.offset(offset);
-
-		// Sort descending by createdAt in memory (avoid complex Drizzle orderBy desc import)
-		rows.sort(
-			(a, b) =>
-				new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-		);
 
 		return rows;
 	}
@@ -304,38 +301,41 @@ class AlgoSignalEngine {
 	}
 
 	/**
-	 * Performance: count signal outcomes for a user.
+	 * Performance: count signal outcomes for a user using SQL aggregation.
+	 * BUG-ALGO-1 FIX: was a full table scan + 4× in-memory Array.filter().
+	 * Now uses a single COUNT(*) FILTER query — O(1) DB cost regardless of history size.
 	 */
 	async getPerformance(userId: number) {
-		const signals = await db
-			.select()
+		// One SQL query — all aggregates in the DB
+		const [row] = await db
+			.select({
+				total:         sql<number>`COUNT(*)::int`,
+				approved:      sql<number>`COUNT(*) FILTER (WHERE status = 'approved')::int`,
+				rejected:      sql<number>`COUNT(*) FILTER (WHERE status = 'rejected')::int`,
+				pending:       sql<number>`COUNT(*) FILTER (WHERE status = 'pending')::int`,
+				expired:       sql<number>`COUNT(*) FILTER (WHERE status = 'expired')::int`,
+				buy_count:     sql<number>`COUNT(*) FILTER (WHERE signal = 'buy')::int`,
+				sell_count:    sql<number>`COUNT(*) FILTER (WHERE signal = 'sell')::int`,
+				watch_count:   sql<number>`COUNT(*) FILTER (WHERE signal = 'watch')::int`,
+				hold_count:    sql<number>`COUNT(*) FILTER (WHERE signal = 'hold')::int`,
+				avg_confidence: sql<number>`ROUND(AVG(confidence_score))::int`,
+			})
 			.from(algoSignals)
 			.where(eq(algoSignals.userId, userId));
 
-		const total = signals.length;
-		const approved = signals.filter((s) => s.status === "approved").length;
-		const rejected = signals.filter((s) => s.status === "rejected").length;
-		const pending = signals.filter((s) => s.status === "pending").length;
-		const expired = signals.filter((s) => s.status === "expired").length;
-		const bySignal = { buy: 0, sell: 0, watch: 0, hold: 0 } as Record<
-			string,
-			number
-		>;
-		for (const s of signals) bySignal[s.signal] = (bySignal[s.signal] || 0) + 1;
-		const avgConfidence = signals.length
-			? Math.round(
-					signals.reduce((a, s) => a + s.confidenceScore, 0) / signals.length,
-				)
-			: 0;
-
 		return {
-			total,
-			approved,
-			rejected,
-			pending,
-			expired,
-			bySignal,
-			avgConfidence,
+			total:         row.total,
+			approved:      row.approved,
+			rejected:      row.rejected,
+			pending:       row.pending,
+			expired:       row.expired,
+			bySignal: {
+				buy:   row.buy_count,
+				sell:  row.sell_count,
+				watch: row.watch_count,
+				hold:  row.hold_count,
+			},
+			avgConfidence: row.avg_confidence ?? 0,
 		};
 	}
 

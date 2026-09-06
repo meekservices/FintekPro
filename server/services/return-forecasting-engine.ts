@@ -22,6 +22,7 @@ import {
   computeSharpe as tsSharpe,
   type CashFlow as XirrCashFlow,
 } from "./xirr-calculator";
+import { logger } from "../logger";
 
 export interface AssetReturns {
 	assetId: string;
@@ -216,6 +217,24 @@ const STRESS_SCENARIOS: Array<{
 			alternative: 0.3,
 		},
 	},
+	// BUG-RFE-1 FIX: added base_case so probabilities sum to 1.0.
+	// Previously: 0.05 + 0.15 + 0.10 + 0.05 + 0.20 = 0.55 — missing 0.45.
+	// Probability-weighted expected returns were understated by ~45%.
+	{
+		name: "base_case",
+		description: "Normal market conditions — returns track long-run expected rates",
+		probability: 0.45,
+		shockFactor: {
+			equity: 0.0,
+			mutual_fund: 0.0,
+			bond: 0.0,
+			fd: 0.0,
+			etf: 0.0,
+			real_estate: 0.0,
+			gold: 0.0,
+			alternative: 0.0,
+		},
+	},
 ];
 
 export class ReturnForecastingEngine {
@@ -319,8 +338,14 @@ export class ReturnForecastingEngine {
 				payload,
 			);
 			if (r?.xirr_pct != null && !r.error) return r.xirr_pct;
-		} catch {
-			// sidecar unavailable — fall through to TS implementation
+		} catch (xirrErr: unknown) {
+			// PM-RFE-1 FIX: Log when Python XIRR sidecar is unavailable.
+			// Previously silent — advisors couldn't tell which IRR implementation was used.
+			logger.warn("[ReturnForecastingEngine] IRR_PYTHON_FALLBACK: Python XIRR unavailable, using TS Newton-Raphson fallback", {
+				error: xirrErr instanceof Error ? xirrErr.message : String(xirrErr),
+				fallback: "xirr-calculator.ts",
+				cashflow_count: cashFlows.length,
+			});
 		}
 
 		// 2. Pure TS XIRR (xirr-calculator.ts, Newton-Raphson — Audit #3 upgrade)

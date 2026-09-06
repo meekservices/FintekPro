@@ -1,4 +1,5 @@
 // @ts-nocheck
+// NOTE: @ts-nocheck maintained for compatibility — targeted type fixes tracked in CC-1 backlog
 import { db } from "../db";
 import {
 	financialGoals,
@@ -65,7 +66,15 @@ export class GoalPlanningEngine {
 			yearsRemaining,
 		);
 
-		const monthlyRate = expectedReturnRate / 100 / 12;
+		// BUG-GOAL-1 FIX: Use real (inflation-adjusted) return rate for SIP computation.
+		// Using nominal rate overstates the purchasing power of future SIP contributions
+		// and under-states the required SIP amount shown to investors.
+		// Real return = ((1 + nominal) / (1 + inflation)) - 1  [Fisher equation]
+		const nominalMonthlyRate = expectedReturnRate / 100 / 12;
+		const realAnnualRate =
+			((1 + expectedReturnRate / 100) / (1 + inflationRate / 100)) - 1;
+		const monthlyRate = realAnnualRate / 12; // real monthly rate for SIP formula
+
 		const futureValueOfCurrentSavings =
 			currentSavings * (1 + monthlyRate) ** monthsRemaining;
 		const remainingTarget = Math.max(

@@ -686,11 +686,13 @@ router.get("/run", async (req: Request, res: Response) => {
 			testEngine("Pick of the Day Engine", "AI Services", async () => {
 				const stats = await pickOfTheDayService.getPerformanceStats();
 				const todaysPicks = await pickOfTheDayService.getTodaysPicks();
+				// MON-1 FIX: getPerformanceStats() returns { totalPicks, livePicks, hitRate }
+				// Previous code read stats.total / stats.winRate / stats.live — all undefined.
 				return {
-					totalPicks: stats.total,
-					winRate: stats.winRate,
+					totalPicks:      stats.totalPicks,
+					hitRate:         stats.hitRate,
 					todaysPicksCount: todaysPicks.length,
-					hasLivePicks: stats.live > 0,
+					hasLivePicks:    stats.livePicks > 0,
 				};
 			}),
 		]);
@@ -803,11 +805,18 @@ router.post("/self-heal", async (req: Request, res: Response) => {
 						// Force calibration with latest performance stats
 						action = "force_calibration";
 						const stats = await pickOfTheDayService.getPerformanceStats();
+						// MON-1 FIX: use stats.hitRate (was stats.hitRate — OK here) but
+						// MON-3 FIX: pass totalClosed (not totalPicks) so calibrate() correctly
+						// gates on closed picks ≥20. totalPicks includes live picks — a system
+						// with 5 closed + 50 live would incorrectly pass the gate.
+						const totalClosed = (stats.targetHits ?? 0)
+							+ (stats.stoplossHits ?? 0)
+							+ (stats.expired ?? 0);
 						const cal = await scorerCalibrationService.calibrate(
 							stats.hitRate ?? 0,
-							stats.totalPicks ?? 0,
+							totalClosed,
 						);
-						result = `Calibrated: threshold ${cal.previousThreshold}→${cal.newThreshold} (action: ${cal.action})`;
+						result = `Calibrated: threshold ${cal.previousThreshold}→${cal.newThreshold} (action: ${cal.action}, closedPicks: ${totalClosed})`;
 						break;
 					}
 					case "ai-regime-detection": {

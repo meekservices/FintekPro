@@ -25,6 +25,8 @@ interface RiskAssessmentResult {
 	}[];
 	assessmentDate: Date;
 	nextReviewDate: Date;
+	/** PM-RISK-1: engine version for SEBI IA traceability */
+	engine_version: string;
 }
 
 interface ProductEligibility {
@@ -51,6 +53,8 @@ interface SuitabilityCheck {
 
 class RiskSuitabilityEngine {
 	private static instance: RiskSuitabilityEngine;
+	/** PM-RISK-1: version bump when scoring methodology, weights, or thresholds change */
+	private static readonly ENGINE_VERSION = "risk-suitability-v1.1";
 
 	private readonly riskCategoryThresholds = {
 		conservative: { min: 0, max: 25 },
@@ -203,6 +207,8 @@ class RiskSuitabilityEngine {
 			riskFactors,
 			assessmentDate: new Date(),
 			nextReviewDate,
+			// PM-RISK-1 FIX: include engine version for SEBI IA audit trail
+			engine_version: RiskSuitabilityEngine.ENGINE_VERSION,
 		};
 	}
 
@@ -334,6 +340,8 @@ class RiskSuitabilityEngine {
 			riskFactors: [],
 			assessmentDate: p.assessmentDate || new Date(),
 			nextReviewDate: p.reviewDate || new Date(),
+			// PM-RISK-1: stored assessments may predate versioning; use 'stored' sentinel
+			engine_version: (p as any).engineVersion || "risk-suitability-stored",
 		};
 	}
 
