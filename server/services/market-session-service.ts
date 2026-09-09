@@ -16,7 +16,8 @@ import { db } from "../db";
 import { sql } from "drizzle-orm";
 import { logger } from "../logger";
 
-export const MARKET_SESSION_VERSION = "market-session-v1.0-CAS-Aug2026";
+export const MARKET_SESSION_VERSION = "market-session-v2.0-CAS-Aug2026-PreOpen-Sep2026";
+
 
 // ---------------------------------------------------------------------------
 // Session timing constants (all times in IST, 24-hour)
@@ -74,6 +75,31 @@ export const MARKET_SESSIONS = {
 	CAS_PROHIBITED_ORDER_TYPES: ["stop_loss", "ioc", "disclosed_quantity"] as const,
 } as const;
 
+// ---------------------------------------------------------------------------
+// Pre-open Call Auction Session Phases (effective September 7, 2026)
+// ---------------------------------------------------------------------------
+// Per NSE Circular (Sep 2026) — two-phase restructure to reduce price distortion
+// from late-arriving market orders.
+//
+// Phase 1: 09:00–09:05 — Market AND limit orders accepted
+// Phase 2: 09:05–09:10 — Limit orders ONLY
+// Matching:  09:10–09:15 — Matching & price determination (no new orders)
+//
+// ALSO new (Sep 7, 2026): Gold & Silver ETFs now participate in pre-open
+// call auction (SEBI/HO/47/11/11(1)2026-MRD-POD3/I/13804/2026)
+// ---------------------------------------------------------------------------
+
+export const PRE_OPEN_SESSIONS = {
+	PHASE_1: { startHHMM: "09:00", endHHMM: "09:05", ordersAllowed: ["market", "limit"] as const },
+	PHASE_2: { startHHMM: "09:05", endHHMM: "09:10", ordersAllowed: ["limit"] as const },
+	MATCHING: { startHHMM: "09:10", endHHMM: "09:15", ordersAllowed: [] as const },
+	/** Effective date of pre-open two-phase restructure */
+	EFFECTIVE_DATE: new Date("2026-09-07T00:00:00+05:30"),
+} as const;
+
+export type PreOpenPhase = "phase1" | "phase2" | "matching" | null;
+
+
 export type MarketSession =
 	| "pre_open"
 	| "continuous"
@@ -83,6 +109,7 @@ export type MarketSession =
 	| "cas_matching"
 	| "fno_extended"
 	| "closed";
+
 
 // ---------------------------------------------------------------------------
 // Time helper: convert HH:MM string to minutes-since-midnight
@@ -224,3 +251,61 @@ export const CAS_WINDOW_DISCLAIMER =
 	"significantly from the current last traded price. " +
 	"Stop-loss, IOC, and disclosed-quantity orders are not permitted during this window. " +
 	"(NSE/BSE Circular, effective August 3, 2026)";
+
+// ---------------------------------------------------------------------------
+// Pre-Open Phase API (Sep 7, 2026 two-phase restructure)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the current pre-open session phase for NSE/BSE.
+ *
+ * Phases (effective Sep 7, 2026):
+ *   phase1  — 09:00–09:05 IST: market + limit orders accepted
+ *   phase2  — 09:05–09:10 IST: limit orders only
+ *   matching — 09:10–09:15 IST: matching & price determination, no new orders
+ *   null    — not in pre-open window (or framework not yet effective)
+ *
+ * @param nowIST - Optional time override for testing
+ * GCR: Informational only — never executes orders.
+ */
+export function getPreOpenPhase(nowIST?: Date): PreOpenPhase {
+	const now = nowIST ?? new Date();
+
+	// Only apply two-phase structure from Sep 7, 2026 onwards
+	if (now < PRE_OPEN_SESSIONS.EFFECTIVE_DATE) return null;
+
+	const mins = nowIST
+		? nowIST.getHours() * 60 + nowIST.getMinutes()
+		: nowISTMinutes();
+
+	const PHASE1_START = toMinutes(PRE_OPEN_SESSIONS.PHASE_1.startHHMM); // 540 (09:00)
+	const PHASE1_END   = toMinutes(PRE_OPEN_SESSIONS.PHASE_1.endHHMM);   // 545 (09:05)
+	const PHASE2_END   = toMinutes(PRE_OPEN_SESSIONS.PHASE_2.endHHMM);   // 550 (09:10)
+	const MATCH_END    = toMinutes(PRE_OPEN_SESSIONS.MATCHING.endHHMM);  // 555 (09:15)
+
+	if (mins < PHASE1_START || mins >= MATCH_END) return null;
+	if (mins < PHASE1_END)  return "phase1";
+	if (mins < PHASE2_END)  return "phase2";
+	return "matching";
+}
+
+/**
+ * Human-readable description of the current pre-open phase.
+ * Returns null when not in pre-open.
+ */
+export function describePreOpenPhase(phase: PreOpenPhase): string | null {
+	if (!phase) return null;
+	const descriptions: Record<NonNullable<PreOpenPhase>, string> = {
+		phase1:   "Pre-open Phase 1 (09:00–09:05 IST) — Market & limit orders accepted",
+		phase2:   "Pre-open Phase 2 (09:05–09:10 IST) — Limit orders only",
+		matching: "Pre-open Matching (09:10–09:15 IST) — Price determination, no new orders",
+	};
+	return descriptions[phase];
+}
+
+export const PRE_OPEN_PHASE_DISCLAIMER =
+	"ℹ️ The pre-open session is now two-phase (NSE/BSE, effective Sep 7, 2026): " +
+	"Phase 1 (09:00–09:05): market + limit orders. " +
+	"Phase 2 (09:05–09:10): limit orders only. " +
+	"Matching (09:10–09:15): price determination — no new orders accepted.";
+

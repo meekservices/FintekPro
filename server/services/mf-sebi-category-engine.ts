@@ -1,14 +1,11 @@
+/* eslint-disable no-console */
 import { db } from "../db";
 import {
 	mfCategoryRules,
 	mutualFunds,
-	mfEnrichmentAuditLogs,
-	mfTaxonomyVersions,
-	mfCategoryMaster,
-	mfSubcategoryMaster,
 	mfCategorizationAuditLog,
 } from "@shared/schema";
-import { eq, and, sql, isNull, or } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 interface CategoryRule {
 	category: string;
@@ -420,7 +417,39 @@ const SEBI_2017_RULES: CategoryRule[] = [
 			notes: "Tracking error to be monitored",
 		},
 	},
+	{
+		category: "Lifecycle",
+		subCategory: "Life Cycle Fund",
+		sebiCircularRef: "SEBI/HO/IMD/CIR/P/2026/26",
+		effectiveDate: "2026-02-26",
+		rules: {
+			description: "Target-date glide path fund (decreasing equity towards maturity)",
+			minEquityPercent: 20,
+			maxEquityPercent: 80,
+			notes: "Monotonically decreasing equity glide path to maturity (5-30 yr horizon)",
+		},
+	},
+	{
+		category: "SIF",
+		subCategory: "Specialised Investment Fund",
+		sebiCircularRef: "SEBI/HO/IMD/CIR/P/2026/26",
+		effectiveDate: "2026-04-01",
+		rules: {
+			description: "Specialised Investment Fund (min ₹10L investment, alternative & long-short strategies)",
+			notes: "Minimum ticket size ₹10,00,000 per investor; unhedged derivative exposure permitted",
+		},
+	},
 ];
+
+// ── SEBI MF Regulations 2026 Constants ───────────────────────────────────────
+export const SEBI_MF_REGS_2026 = {
+	CIRCULAR_REF: "SEBI-MF-REGS-2026-v1",
+	EFFECTIVE_DATE: "2026-04-01",
+	MAX_ALTERNATIVE_ASSET_PCT: 35, // Gold, Silver, REITs, InvITs permitted up to 35% in eligible equity funds
+	SIF_MIN_INVESTMENT_INR: 1000000, // ₹10 Lakhs minimum for Specialised Investment Funds
+	SECTORAL_THEMATIC_MAX_OVERLAP_PCT: 50, // Sectoral/Thematic funds must not overlap >50% with peers in same theme
+	LIFE_CYCLE_FUND_MIN_DURATION_YEARS: 5,
+} as const;
 
 // ── SEBI 2026 Taxonomy Data ───────────────────────────────────────────────────
 const SEBI_2026_CIRCULAR_REF = "SEBI/HO/IMD/CIR/P/2026/26";
@@ -467,6 +496,12 @@ const SEBI_2026_CATEGORIES = [
 		groupCode: "OTHER",
 		groupName: "Other Schemes",
 		description: "Index funds, ETFs, Fund of Funds and passive schemes",
+	},
+	{
+		groupCode: "SIF",
+		groupName: "Specialised Investment Funds (SIF)",
+		description:
+			"New asset class bridging Mutual Funds and PMS/AIF (min ₹10 Lakhs ticket, allows unhedged derivative strategies, long-short, inverse exposure) under SEBI MF Regulations 2026",
 	},
 ];
 
@@ -741,6 +776,29 @@ const SEBI_2026_SUBCATEGORIES: SubcategoryDef[] = [
 		subcategoryName: "Fund of Funds (Overseas)",
 		notes: "Min 95% in overseas funds",
 	},
+	// SIF — Specialised Investment Funds (SEBI MF Regulations 2026)
+	{
+		groupCode: "SIF",
+		subcategoryCode: "SIF_EQUITY_LONG_SHORT",
+		subcategoryName: "SIF Equity Long-Short Fund",
+		minEquityPct: 50,
+		notes:
+			"Min investment ₹10 Lakhs. Allows unhedged long and short equity derivatives exposure.",
+	},
+	{
+		groupCode: "SIF",
+		subcategoryCode: "SIF_INVERSE_HEDGED",
+		subcategoryName: "SIF Inverse / Hedged Strategy",
+		notes:
+			"Min investment ₹10 Lakhs. Allows dynamic derivative hedging and inverse market exposure.",
+	},
+	{
+		groupCode: "SIF",
+		subcategoryCode: "SIF_HYBRID_MULTI_ASSET",
+		subcategoryName: "SIF Multi-Asset Alternative Strategy",
+		notes:
+			"Min investment ₹10 Lakhs. Alternative strategy across equities, debt, commodities and derivatives.",
+	},
 ];
 
 class SEBICategoryEngine {
@@ -889,19 +947,67 @@ class SEBICategoryEngine {
 		lifecycleMetadata?: any;
 		category?: string | null;
 		schemeSubCategory?: string | null;
+		schemeName?: string | null;
 	}): boolean {
 		if (fund.lifecycleMetadata && typeof fund.lifecycleMetadata === "object")
 			return true;
 		const cat = (fund.category || "").toLowerCase();
 		const sub = (fund.schemeSubCategory || "").toLowerCase();
+		const name = (fund.schemeName || "").toLowerCase();
 		return (
 			cat.includes("lifecycle") ||
 			cat.includes("life cycle") ||
 			sub.includes("lifecycle") ||
 			sub.includes("life cycle") ||
 			sub.includes("target date") ||
-			sub.includes("target maturity")
+			sub.includes("target maturity") ||
+			name.includes("lifecycle") ||
+			name.includes("life cycle") ||
+			name.includes("target date") ||
+			name.includes("target maturity")
 		);
+	}
+
+	// ── Specialised Investment Fund (SIF) detection (SEBI 2026) ───────────────
+	isSIFFund(fund: {
+		category?: string | null;
+		schemeSubCategory?: string | null;
+		schemeName?: string | null;
+	}): boolean {
+		const cat = (fund.category || "").toLowerCase();
+		const sub = (fund.schemeSubCategory || "").toLowerCase();
+		const name = (fund.schemeName || "").toLowerCase();
+		return (
+			cat === "sif" ||
+			cat.includes("specialised") ||
+			cat.includes("specialized") ||
+			sub.includes("sif") ||
+			sub.includes("specialised") ||
+			name.includes("sif ") ||
+			name.includes("specialised investment") ||
+			name.includes("specialized investment")
+		);
+	}
+
+	// ── Portfolio Overlap Validation (SEBI Sectoral/Thematic 50% cap) ─────────
+	validatePortfolioOverlap(
+		overlapPct: number,
+		category: string,
+	): { compliant: boolean; maxAllowedPct: number; message: string } {
+		const isSectoralOrThematic =
+			category.toLowerCase().includes("sector") ||
+			category.toLowerCase().includes("thematic");
+		const maxAllowedPct = isSectoralOrThematic
+			? SEBI_MF_REGS_2026.SECTORAL_THEMATIC_MAX_OVERLAP_PCT
+			: 60;
+		const compliant = overlapPct <= maxAllowedPct;
+		return {
+			compliant,
+			maxAllowedPct,
+			message: compliant
+				? `Portfolio overlap (${overlapPct}%) is within SEBI limit of ${maxAllowedPct}%.`
+				: `Portfolio overlap breach: ${overlapPct}% exceeds maximum allowable SEBI threshold of ${maxAllowedPct}% for ${category}.`,
+		};
 	}
 
 	// ── Categorization audit log ──────────────────────────────────────────────
@@ -939,6 +1045,7 @@ class SEBICategoryEngine {
 		rule: any | null;
 		issues: string[];
 		isLifecycle: boolean;
+		isSIF: boolean;
 	}> {
 		const [fund] = await db
 			.select({
@@ -962,10 +1069,12 @@ class SEBICategoryEngine {
 				rule: null,
 				issues: ["Scheme not found"],
 				isLifecycle: false,
+				isSIF: false,
 			};
 
 		const issues: string[] = [];
 		const isLifecycle = this.isLifecycleFund(fund);
+		const isSIF = this.isSIFFund(fund);
 
 		if (!fund.category) issues.push("Missing category");
 		if (!fund.schemeSubCategory) issues.push("Missing sub-category");
@@ -974,6 +1083,13 @@ class SEBICategoryEngine {
 		if (isLifecycle && fund.category !== "Lifecycle") {
 			issues.push(
 				"Lifecycle fund must be classified under Lifecycle category (SEBI 2026)",
+			);
+		}
+
+		// If SIF and not yet tagged
+		if (isSIF && fund.category !== "SIF") {
+			issues.push(
+				"Specialised Investment Fund must be classified under SIF category (SEBI MF Regulations 2026)",
 			);
 		}
 
@@ -1011,6 +1127,7 @@ class SEBICategoryEngine {
 			rule,
 			issues,
 			isLifecycle,
+			isSIF,
 		};
 	}
 

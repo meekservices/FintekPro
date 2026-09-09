@@ -17,6 +17,7 @@ import { existsSync, readdirSync } from "fs";
  */
 
 const isProduction = process.env.NODE_ENV === "production";
+const isTest = process.env.NODE_ENV === "test";
 const instanceConnectionName =
 	process.env.INSTANCE_CONNECTION_NAME || "fintekpro:asia-south1:fintekpro-db";
 
@@ -39,9 +40,9 @@ const dbUrl = process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL;
 // connectionTimeoutMillis:10s — matches Cloud SQL socket handshake time.
 const POOL_CONFIG: any = {
 	max: isProduction ? 5 : 8,
-	min: isProduction ? 1 : 1,
+	min: isTest ? 0 : 1,
 	idleTimeoutMillis: isProduction ? 60_000 : 30_000,
-	connectionTimeoutMillis: 10_000,
+	connectionTimeoutMillis: isTest ? 1_000 : 10_000,
 	allowExitOnIdle: true, // FIX-3: immediate idle drain on SIGTERM — prevents deploy hang
 };
 

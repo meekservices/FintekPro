@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Derivatives Service — FintekPro
  *
@@ -122,6 +123,58 @@ interface StrategyPayoff {
 	payoffData: { price: number; profit: number }[];
 }
 
+// ── SEBI Index Derivatives Framework (Circular SEBI/HO/MRD/POD1/CIR/P/2024/132) ──
+export const SEBI_FNO_FRAMEWORK_2026 = {
+	CIRCULAR_REF: "SEBI/HO/MRD/POD1/CIR/P/2024/132",
+	ALLOWED_WEEKLY_EXPIRY_INDICES: ["NIFTY", "SENSEX"] as const,
+	DISCONTINUED_WEEKLY_EXPIRY_INDICES: [
+		"BANKNIFTY",
+		"FINNIFTY",
+		"MIDCPNIFTY",
+		"BANKEX",
+	] as const,
+	CASH_MARGIN_MIN_PCT: 50, // >=50% margin must be in cash or cash-equivalent
+	EXPIRY_DAY_ELM_SURCHARGE_PCT: 2, // Extreme Loss Margin (ELM) surcharge of 2% on short index options on expiry day
+	LOT_SIZES: {
+		NIFTY: 65,
+		BANKNIFTY: 30,
+		SENSEX: 20,
+		FINNIFTY: 65,
+		MIDCPNIFTY: 120,
+	},
+	CASH_MARGIN_DISCLAIMER:
+		"⚠️ Regulatory Notice (SEBI): At least 50% of derivative margin requirements must be funded through cash or approved cash equivalents. Collateral haircut applies to non-cash securities.",
+	EXPIRY_DAY_ELM_DISCLAIMER:
+		"⚠️ Expiry Day ELM Surcharge (SEBI): An additional 2% Extreme Loss Margin (ELM) applies on all short options positions expiring on the trade date.",
+} as const;
+
+export function validateWeeklyExpiryEligibility(
+	symbol: string,
+	isWeekly: boolean = true,
+): {
+	allowed: boolean;
+	error?: string;
+	message: string;
+} {
+	const upper = symbol.toUpperCase();
+	if (
+		isWeekly &&
+		(
+			SEBI_FNO_FRAMEWORK_2026.DISCONTINUED_WEEKLY_EXPIRY_INDICES as readonly string[]
+		).includes(upper)
+	) {
+		return {
+			allowed: false,
+			error: "WEEKLY_EXPIRY_DISCONTINUED",
+			message: `SEBI Index Derivatives Framework: Weekly expiry contracts for ${upper} have been discontinued. Only monthly contracts are permitted. Weekly contracts are restricted to NIFTY (NSE) and SENSEX (BSE).`,
+		};
+	}
+	return {
+		allowed: true,
+		message: `Contract for ${upper} is compliant with SEBI index derivatives framework.`,
+	};
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const NSE_SYMBOLS = [
@@ -158,10 +211,11 @@ const NSE_SYMBOLS = [
 ];
 
 const LOT_SIZES: Record<string, number> = {
-	NIFTY: 50,
-	BANKNIFTY: 15,
-	FINNIFTY: 40,
-	MIDCPNIFTY: 75,
+	NIFTY: 65,
+	BANKNIFTY: 30,
+	SENSEX: 20,
+	FINNIFTY: 65,
+	MIDCPNIFTY: 120,
 	RELIANCE: 250,
 	TCS: 150,
 	INFY: 300,

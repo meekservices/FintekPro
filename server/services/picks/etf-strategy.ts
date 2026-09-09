@@ -5,6 +5,10 @@ import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
 import { logger } from "../../logger";
+import {
+	buildETFRegulatoryMeta,
+	isETFFrameworkActive,
+} from "../etf-trading-framework";
 
 
 /** Detect ETF type from name for accurate sectorCategory display. */
@@ -80,6 +84,13 @@ function scoreETF(etf: any): number {
 	else if (etfType === "Smallcap ETF") score += 10;
 	else if (etfType === "Index ETF") score += 8;
 	else if (etfType === "Liquid ETF") score -= 20; // not suitable as a "pick"
+
+	// ── SEBI Sep 2026: Commodity ETF price band awareness ───────────────────────
+	// Gold/Silver ETFs now have ±6% initial price band (vs ±10% for equity ETFs).
+	// Tighter band = higher short-term volatility risk → small score adjustment.
+	if (isETFFrameworkActive() && etfType === "Commodity ETF") {
+		score -= 3; // Tighter band relative to equity ETFs; pre-open auction adds price uncertainty
+	}
 
 	// Price-based liquidity proxy: higher-priced ETFs tend to be more established
 	const price = Number.parseFloat(etf.lastPrice || "0");
@@ -231,6 +242,10 @@ export class ETFStrategy extends BaseStrategy {
 					issuer: topEtf.issuer || undefined,
 					etfType,
 					expenseRatio: expenseRatio ? Number.parseFloat(expenseRatio) : null,
+					// ── SEBI ETF Trading Framework (Sep 7, 2026) ─────────────────────
+					// Circular: SEBI/HO/47/11/11(1)2026-MRD-POD3/I/13804/2026
+					// Adds price band category, pre-open auction flag, base price method
+					...buildETFRegulatoryMeta(topEtf.name ?? ""),
 				},
 			};
 		} catch (error) {

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Regulatory Investability Service
  *
@@ -23,7 +24,12 @@ export interface InvestabilityResult {
 		| "overseas_mf"
 		| "overseas_etf"
 		| "fund_house"
-		| "discontinued";
+		| "discontinued"
+		| "sif"
+		| "life_cycle_fund";
+	berNote?: string;
+	lifecycleNote?: string;
+	minInvestmentRequired?: number;
 }
 
 export interface RegulatoryStatus {
@@ -147,6 +153,48 @@ class RegulatoryInvestabilityService {
 		return false;
 	}
 
+	isSIFFund(fund: {
+		schemeName?: string;
+		name?: string;
+		category?: string;
+		schemeSubCategory?: string;
+	}): boolean {
+		const cat = (fund.category || "").toLowerCase();
+		const sub = (fund.schemeSubCategory || "").toLowerCase();
+		const name = (fund.schemeName || fund.name || "").toLowerCase();
+		return (
+			cat === "sif" ||
+			cat.includes("specialised") ||
+			cat.includes("specialized") ||
+			sub.includes("sif") ||
+			sub.includes("specialised") ||
+			name.includes("sif ") ||
+			name.includes("specialised investment") ||
+			name.includes("specialized investment")
+		);
+	}
+
+	isLifecycleFund(fund: {
+		schemeName?: string;
+		name?: string;
+		category?: string;
+		schemeSubCategory?: string;
+	}): boolean {
+		const cat = (fund.category || "").toLowerCase();
+		const sub = (fund.schemeSubCategory || "").toLowerCase();
+		const name = (fund.schemeName || fund.name || "").toLowerCase();
+		return (
+			cat.includes("lifecycle") ||
+			cat.includes("life cycle") ||
+			sub.includes("lifecycle") ||
+			sub.includes("life cycle") ||
+			sub.includes("target date") ||
+			sub.includes("target maturity") ||
+			name.includes("lifecycle") ||
+			name.includes("life cycle")
+		);
+	}
+
 	/**
 	 * Async version: checks scheme_transaction_rules for per-fund status.
 	 * Falls back to the legacy binary flag only if the emergency override is set.
@@ -155,11 +203,33 @@ class RegulatoryInvestabilityService {
 		schemeName?: string;
 		name?: string;
 		category?: string;
+		schemeSubCategory?: string;
 		extendedData?: any;
 		purchaseAllowed?: boolean;
+		amount?: number;
 	}): Promise<InvestabilityResult> {
 		const extendedData = fund.extendedData || {};
 		const fundName = fund.schemeName || fund.name || "";
+		const berNote =
+			"Base Expense Ratio (BER) transparency applies per SEBI MF Regulations 2026. All commissions and ancillary expenses are unbundled.";
+		const lifecycleNote = this.isLifecycleFund(fund)
+			? "Life Cycle Fund (SEBI 2026): Target-maturity glide path with recommended 5-year minimum holding horizon."
+			: undefined;
+
+		// 0. SEBI MF Regulations 2026: SIF Minimum Ticket Check (₹10 Lakhs)
+		if (this.isSIFFund(fund)) {
+			if (fund.amount !== undefined && fund.amount < 1000000) {
+				return {
+					investable: false,
+					reason:
+						"Specialised Investment Funds (SIF) require a minimum ticket of ₹10,00,000 under SEBI MF Regulations 2026.",
+					restrictionType: "sif",
+					minInvestmentRequired: 1000000,
+					berNote,
+					lifecycleNote,
+				};
+			}
+		}
 
 		// 1. Explicit purchaseAllowed=false on fund object (data from FMP/extended enrichment)
 		if (
@@ -170,6 +240,9 @@ class RegulatoryInvestabilityService {
 				investable: false,
 				reason: "Fresh investment not allowed by fund house (AMC restriction)",
 				restrictionType: "fund_house",
+				berNote,
+				lifecycleNote,
+				minInvestmentRequired: this.isSIFFund(fund) ? 1000000 : undefined,
 			};
 		}
 
@@ -183,6 +256,8 @@ class RegulatoryInvestabilityService {
 					investable: false,
 					reason: "SEBI overseas ETF limit reached — emergency freeze active",
 					restrictionType: "overseas_etf",
+					berNote,
+					lifecycleNote,
 				};
 			}
 			if (this.overseasInvestmentFrozen) {
@@ -191,6 +266,8 @@ class RegulatoryInvestabilityService {
 					reason:
 						"SEBI overseas investment limit reached — emergency freeze active",
 					restrictionType: "overseas_mf",
+					berNote,
+					lifecycleNote,
 				};
 			}
 
@@ -223,24 +300,48 @@ class RegulatoryInvestabilityService {
 								rule.subscriptionStatus === "DISCONTINUED"
 									? "discontinued"
 									: "overseas_mf",
+							berNote,
+							lifecycleNote,
 						};
 					}
-					return { investable: true, reason: null };
+					return {
+						investable: true,
+						reason: null,
+						berNote,
+						lifecycleNote,
+						minInvestmentRequired: this.isSIFFund(fund) ? 1000000 : undefined,
+					};
 				}
 
 				// 4. No DB row — fund has not been synced yet, default to investable for open-ended
-				// (avoids false positives while sync is pending)
-				return { investable: true, reason: null };
+				return {
+					investable: true,
+					reason: null,
+					berNote,
+					lifecycleNote,
+					minInvestmentRequired: this.isSIFFund(fund) ? 1000000 : undefined,
+				};
 			} catch (dbErr: any) {
-				// DB error — don't block on infra issue, log and pass
 				console.warn(
 					`[Regulatory] DB lookup failed for "${fundName}": ${dbErr.message}`,
 				);
-				return { investable: true, reason: null };
+				return {
+					investable: true,
+					reason: null,
+					berNote,
+					lifecycleNote,
+					minInvestmentRequired: this.isSIFFund(fund) ? 1000000 : undefined,
+				};
 			}
 		}
 
-		return { investable: true, reason: null };
+		return {
+			investable: true,
+			reason: null,
+			berNote,
+			lifecycleNote,
+			minInvestmentRequired: this.isSIFFund(fund) ? 1000000 : undefined,
+		};
 	}
 
 	/**
@@ -251,11 +352,33 @@ class RegulatoryInvestabilityService {
 		schemeName?: string;
 		name?: string;
 		category?: string;
+		schemeSubCategory?: string;
 		extendedData?: any;
 		purchaseAllowed?: boolean;
+		amount?: number;
 	}): InvestabilityResult {
 		const extendedData = fund.extendedData || {};
 		const schemeName = (fund.schemeName || fund.name || "").toLowerCase();
+		const berNote =
+			"Base Expense Ratio (BER) transparency applies per SEBI MF Regulations 2026. All commissions and ancillary expenses are unbundled.";
+		const lifecycleNote = this.isLifecycleFund(fund)
+			? "Life Cycle Fund (SEBI 2026): Target-maturity glide path with recommended 5-year minimum holding horizon."
+			: undefined;
+
+		// SIF check
+		if (this.isSIFFund(fund)) {
+			if (fund.amount !== undefined && fund.amount < 1000000) {
+				return {
+					investable: false,
+					reason:
+						"Specialised Investment Funds (SIF) require a minimum ticket of ₹10,00,000 under SEBI MF Regulations 2026.",
+					restrictionType: "sif",
+					minInvestmentRequired: 1000000,
+					berNote,
+					lifecycleNote,
+				};
+			}
+		}
 
 		if (
 			extendedData.purchaseAllowed === false ||
@@ -265,6 +388,9 @@ class RegulatoryInvestabilityService {
 				investable: false,
 				reason: "Fresh investment not allowed by fund house (AMC restriction)",
 				restrictionType: "fund_house",
+				berNote,
+				lifecycleNote,
+				minInvestmentRequired: this.isSIFFund(fund) ? 1000000 : undefined,
 			};
 		}
 
@@ -275,6 +401,8 @@ class RegulatoryInvestabilityService {
 					investable: false,
 					reason: "SEBI overseas ETF limit reached — emergency freeze active",
 					restrictionType: "overseas_etf",
+					berNote,
+					lifecycleNote,
 				};
 			}
 			if (this.overseasInvestmentFrozen) {
@@ -283,11 +411,19 @@ class RegulatoryInvestabilityService {
 					reason:
 						"SEBI overseas investment limit reached — emergency freeze active",
 					restrictionType: "overseas_mf",
+					berNote,
+					lifecycleNote,
 				};
 			}
 		}
 
-		return { investable: true, reason: null };
+		return {
+			investable: true,
+			reason: null,
+			berNote,
+			lifecycleNote,
+			minInvestmentRequired: this.isSIFFund(fund) ? 1000000 : undefined,
+		};
 	}
 
 	isETFInvestable(etf: {
@@ -366,8 +502,10 @@ export function isFundInvestable(fund: {
 	schemeName?: string;
 	name?: string;
 	category?: string;
+	schemeSubCategory?: string;
 	extendedData?: any;
 	purchaseAllowed?: boolean;
+	amount?: number;
 }): InvestabilityResult {
 	return regulatoryInvestabilityService.isFundInvestable(fund);
 }
@@ -376,8 +514,10 @@ export async function isFundInvestableAsync(fund: {
 	schemeName?: string;
 	name?: string;
 	category?: string;
+	schemeSubCategory?: string;
 	extendedData?: any;
 	purchaseAllowed?: boolean;
+	amount?: number;
 }): Promise<InvestabilityResult> {
 	return regulatoryInvestabilityService.isFundInvestableAsync(fund);
 }

@@ -1,9 +1,39 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 /** GCR: bump when any fee structure, GST rate, or waiver logic changes */
-export const FEE_CALCULATOR_ENGINE_VERSION = "1.0.0-FASP";
+export const FEE_CALCULATOR_ENGINE_VERSION = "2.0.0-SEBI-MASTER-CIRCULAR-2026";
 import { db } from "../db";
 import { platformFeeConfig, type PlatformFeeConfig } from "@shared/schema";
 import { eq, and, isNull, lte, or, gte } from "drizzle-orm";
+
+/**
+ * SEBI Master Circular for Investment Advisers (effective Feb 6, 2026)
+ * Fee Caps per individual client / family of clients across all services:
+ * - Fixed Fee mode: Maximum ₹1,51,000 per annum per family across all schemes
+ * - AUA-based mode: Maximum 2.5% of Assets Under Advice (AUA) per annum per family
+ * - Advance fees: Maximum 1 year in advance (charging fees >1 year in advance prohibited)
+ * - Supervisory body: BSE Administration & Supervision Ltd (BASL) / IAASB
+ */
+export const IA_FEE_CAPS_2026 = {
+	CIRCULAR_REF: "SEBI/HO/MIRSD/MIRSD-PoD-1/P/CIR/2026/16",
+	EFFECTIVE_DATE: "2026-02-06",
+	SUPERVISORY_BODY: "BASL (BSE Administration & Supervision Ltd) / IAASB",
+	FIXED_FEE_MAX_PER_ANNUM_INR: 151000,
+	AUA_FEE_MAX_PERCENT: 2.5,
+	MAX_ADVANCE_FEE_MONTHS: 12,
+} as const;
+
+export interface IAFeeComplianceCheck {
+	compliant: boolean;
+	feeMode: "fixed" | "aua";
+	proposedFee: number;
+	maxPermissibleFee: number;
+	aua?: number;
+	advanceMonths?: number;
+	message: string;
+	supervisoryBody: string;
+	regulatoryRef: string;
+}
 
 export interface FeeCalculationInput {
 	transactionAmount: number;
@@ -520,6 +550,87 @@ class FeeCalculatorService {
 			totalWaivers: Math.round(totalWaivers * 100) / 100,
 			grandTotal: Math.round((totalFees + totalGst) * 100) / 100,
 			breakdown,
+		};
+	}
+
+	/**
+	 * Validates proposed Investment Adviser fees against SEBI Master Circular 2026 statutory ceilings.
+	 * Mandates fixed fee <= ₹1,51,000 p.a. per family OR AUA fee <= 2.5% of AUA, and advance <= 12 months.
+	 */
+	validateIAFeeCompliance(input: {
+		feeMode: "fixed" | "aua";
+		proposedFeePerAnnum: number;
+		aua?: number;
+		advanceMonths?: number;
+	}): IAFeeComplianceCheck {
+		return validateIAFeeCompliance(input);
+	}
+}
+
+/**
+ * Validates proposed Investment Adviser fees against SEBI Master Circular 2026 statutory ceilings.
+ */
+export function validateIAFeeCompliance(input: {
+	feeMode: "fixed" | "aua";
+	proposedFeePerAnnum: number;
+	aua?: number;
+	advanceMonths?: number;
+}): IAFeeComplianceCheck {
+	const { feeMode, proposedFeePerAnnum, aua = 0, advanceMonths = 12 } = input;
+	const ref = IA_FEE_CAPS_2026.CIRCULAR_REF;
+	const body = IA_FEE_CAPS_2026.SUPERVISORY_BODY;
+
+	// Check advance payment duration
+	if (advanceMonths > IA_FEE_CAPS_2026.MAX_ADVANCE_FEE_MONTHS) {
+		const maxPermissible =
+			feeMode === "fixed"
+				? IA_FEE_CAPS_2026.FIXED_FEE_MAX_PER_ANNUM_INR
+				: (aua * IA_FEE_CAPS_2026.AUA_FEE_MAX_PERCENT) / 100;
+		return {
+			compliant: false,
+			feeMode,
+			proposedFee: proposedFeePerAnnum,
+			maxPermissibleFee: maxPermissible,
+			aua,
+			advanceMonths,
+			message: `Prohibited advance fee duration: SEBI caps advance advisory fees to a maximum of ${IA_FEE_CAPS_2026.MAX_ADVANCE_FEE_MONTHS} months (${advanceMonths} requested).`,
+			supervisoryBody: body,
+			regulatoryRef: ref,
+		};
+	}
+
+	if (feeMode === "fixed") {
+		const maxFee = IA_FEE_CAPS_2026.FIXED_FEE_MAX_PER_ANNUM_INR;
+		const compliant = proposedFeePerAnnum <= maxFee;
+		return {
+			compliant,
+			feeMode,
+			proposedFee: proposedFeePerAnnum,
+			maxPermissibleFee: maxFee,
+			advanceMonths,
+			message: compliant
+				? `Fixed IA fee of ₹${proposedFeePerAnnum.toLocaleString("en-IN")}/yr complies with SEBI ceiling (max ₹${maxFee.toLocaleString("en-IN")}/yr per family).`
+				: `Fixed IA fee breach: Proposed ₹${proposedFeePerAnnum.toLocaleString("en-IN")}/yr exceeds SEBI statutory ceiling of ₹${maxFee.toLocaleString("en-IN")}/yr per family.`,
+			supervisoryBody: body,
+			regulatoryRef: ref,
+		};
+	} else {
+		// AUA mode
+		const maxFee = (aua * IA_FEE_CAPS_2026.AUA_FEE_MAX_PERCENT) / 100;
+		const effectiveRatePct = aua > 0 ? (proposedFeePerAnnum / aua) * 100 : 0;
+		const compliant = effectiveRatePct <= IA_FEE_CAPS_2026.AUA_FEE_MAX_PERCENT;
+		return {
+			compliant,
+			feeMode,
+			proposedFee: proposedFeePerAnnum,
+			maxPermissibleFee: Math.round(maxFee * 100) / 100,
+			aua,
+			advanceMonths,
+			message: compliant
+				? `AUA-based IA fee (${effectiveRatePct.toFixed(2)}%) complies with SEBI cap (max ${IA_FEE_CAPS_2026.AUA_FEE_MAX_PERCENT}% of AUA).`
+				: `AUA-based IA fee breach: ${effectiveRatePct.toFixed(2)}% exceeds SEBI statutory ceiling of ${IA_FEE_CAPS_2026.AUA_FEE_MAX_PERCENT}% of AUA. Max permissible is ₹${Math.round(maxFee).toLocaleString("en-IN")}.`,
+			supervisoryBody: body,
+			regulatoryRef: ref,
 		};
 	}
 }

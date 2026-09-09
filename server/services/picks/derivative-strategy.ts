@@ -2,7 +2,11 @@ import { logger } from "../../logger";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
-import { derivativesService } from "../derivatives-service";
+import {
+	derivativesService,
+	SEBI_FNO_FRAMEWORK_2026,
+	validateWeeklyExpiryEligibility,
+} from "../derivatives-service";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type MarketOutlook = "bullish" | "bearish" | "neutral";
@@ -145,7 +149,15 @@ export class DerivativeStrategy extends BaseStrategy {
 	async generate(context: StrategyContext): Promise<DailyPickData | null> {
 		try {
 			const { lotSizes } = await derivativesService.getAvailableSymbols();
-			const indexSymbols = ["NIFTY", "BANKNIFTY", "FINNIFTY"];
+			// SEBI Index Derivatives Framework (Circular SEBI/HO/MRD/POD1/CIR/P/2024/132):
+			// Weekly expiry contracts permitted ONLY on one benchmark per exchange: NIFTY 50 on NSE, SENSEX on BSE.
+			// BankNifty, FinNifty, MidcapNifty weekly contracts are discontinued.
+			const candidateIndices = ["NIFTY", "BANKNIFTY", "FINNIFTY"];
+			const validWeeklyIndices = candidateIndices.filter(
+				(sym) => validateWeeklyExpiryEligibility(sym, true).allowed,
+			);
+			const indexSymbols =
+				validWeeklyIndices.length > 0 ? validWeeklyIndices : ["NIFTY"];
 
 			// Deterministic rotation by IST day-of-year — no Math.random()
 			const istDay = Math.floor((Date.now() + 5.5 * 3600000) / 86400000);
@@ -153,7 +165,12 @@ export class DerivativeStrategy extends BaseStrategy {
 
 			const chain = await derivativesService.getOptionsChain(selectedSymbol);
 			const spotPrice = chain.underlyingValue;
-			const lotSize = lotSizes[selectedSymbol] || 50;
+			const lotSize =
+				lotSizes[selectedSymbol] ||
+				SEBI_FNO_FRAMEWORK_2026.LOT_SIZES[
+					selectedSymbol as keyof typeof SEBI_FNO_FRAMEWORK_2026.LOT_SIZES
+				] ||
+				65;
 
 			// ATM strike
 			const strikeInterval = this.getStrikeInterval(selectedSymbol, spotPrice);
@@ -259,11 +276,18 @@ export class DerivativeStrategy extends BaseStrategy {
 					iv,
 					ivRegime: ivRegimeLabel,
 					volPreference: strategy.volPreference,
+					regulatoryNote: `${SEBI_FNO_FRAMEWORK_2026.CASH_MARGIN_DISCLAIMER} ${SEBI_FNO_FRAMEWORK_2026.EXPIRY_DAY_ELM_DISCLAIMER}`,
+					cashMarginRequiredPct: SEBI_FNO_FRAMEWORK_2026.CASH_MARGIN_MIN_PCT,
+					expiryDayELMPct:
+						SEBI_FNO_FRAMEWORK_2026.EXPIRY_DAY_ELM_SURCHARGE_PCT,
+					sebiCircularRef: SEBI_FNO_FRAMEWORK_2026.CIRCULAR_REF,
 				},
 			};
 		} catch (error) {
-			logger.error("[DerivativeStrategy] NSE API error, using curated fallback:",
-				error instanceof Error ? error : new Error(String(error)));
+			logger.error(
+				"[DerivativeStrategy] NSE API error, using curated fallback:",
+				error instanceof Error ? error : new Error(String(error)),
+			);
 			return this.generateFallbackPick(context);
 		}
 	}
@@ -291,24 +315,13 @@ export class DerivativeStrategy extends BaseStrategy {
 		context: StrategyContext,
 	): Promise<DailyPickData | null> {
 		try {
-			// Updated approximate index levels — Aug 2026
+			// Per SEBI Index Derivatives Framework (Nov 2024 / 2026):
+			// Weekly expiry contracts permitted only on NIFTY 50 on NSE (lot size 65).
 			const FALLBACK_INDEX = [
 				{
 					symbol: "NIFTY",
 					spotPrice: 25200,
-					lotSize: 25,
-					sector: "Index Derivatives",
-				},
-				{
-					symbol: "BANKNIFTY",
-					spotPrice: 54500,
-					lotSize: 15,
-					sector: "Index Derivatives",
-				},
-				{
-					symbol: "FINNIFTY",
-					spotPrice: 24000,
-					lotSize: 40,
+					lotSize: SEBI_FNO_FRAMEWORK_2026.LOT_SIZES.NIFTY, // 65
 					sector: "Index Derivatives",
 				},
 			];
@@ -375,6 +388,11 @@ export class DerivativeStrategy extends BaseStrategy {
 					premiumPerUnit: approxPremium,
 					iv: 18,
 					dataSource: "fallback_curated",
+					regulatoryNote: `${SEBI_FNO_FRAMEWORK_2026.CASH_MARGIN_DISCLAIMER} ${SEBI_FNO_FRAMEWORK_2026.EXPIRY_DAY_ELM_DISCLAIMER}`,
+					cashMarginRequiredPct: SEBI_FNO_FRAMEWORK_2026.CASH_MARGIN_MIN_PCT,
+					expiryDayELMPct:
+						SEBI_FNO_FRAMEWORK_2026.EXPIRY_DAY_ELM_SURCHARGE_PCT,
+					sebiCircularRef: SEBI_FNO_FRAMEWORK_2026.CIRCULAR_REF,
 				},
 			};
 		} catch (err) {
