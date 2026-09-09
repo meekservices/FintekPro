@@ -1,29 +1,27 @@
 import { Router } from "express";
 import { db } from "../db";
+import { logger } from "../logger";
 import {
 	researchLists,
 	researchListItems,
 	savedScreeners,
-	researchListProposalAttachments,
 	researchAuditLog,
 	mutualFunds,
 	listedStocks,
 	agents,
 	insertResearchListSchema,
 	insertResearchListItemSchema,
-	insertSavedScreenerSchema,
+	instrumentMaster,
 } from "@shared/schema";
 import {
 	eq,
 	and,
 	or,
 	desc,
-	asc,
 	sql,
 	ilike,
 	gte,
 	lte,
-	inArray,
 } from "drizzle-orm";
 import { z } from "zod";
 
@@ -138,7 +136,60 @@ async function logResearchAudit(
 			ipAddress,
 		});
 	} catch (error) {
-		console.error("[ResearchAudit] Failed to log:", error);
+		logger.error("[ResearchAudit] Failed to log", { error: String(error) });
+	}
+}
+
+// Helper: Recalculate and update list cached metrics
+async function updateListCachedMetrics(listId: string): Promise<void> {
+	try {
+		const allItems = await db
+			.select({
+				snapshotMetrics: researchListItems.snapshotMetrics,
+				rating: researchListItems.rating,
+			})
+			.from(researchListItems)
+			.where(eq(researchListItems.researchListId, listId));
+
+		let returnSum = 0;
+		let returnCount = 0;
+		let expSum = 0;
+		let expCount = 0;
+		let ratingSum = 0;
+		let ratingCount = 0;
+
+		for (const it of allItems) {
+			const sm = it.snapshotMetrics as any;
+			if (sm?.returns3y !== undefined && sm?.returns3y !== null && !Number.isNaN(Number(sm.returns3y))) {
+				returnSum += Number(sm.returns3y);
+				returnCount++;
+			}
+			if (sm?.expenseRatio !== undefined && sm?.expenseRatio !== null && !Number.isNaN(Number(sm.expenseRatio))) {
+				expSum += Number(sm.expenseRatio);
+				expCount++;
+			}
+			if (it.rating && !Number.isNaN(Number(it.rating))) {
+				ratingSum += Number(it.rating);
+				ratingCount++;
+			}
+		}
+
+		const cachedMetrics = {
+			avgReturn3y: returnCount > 0 ? Number((returnSum / returnCount).toFixed(2)) : null,
+			avgExpenseRatio: expCount > 0 ? Number((expSum / expCount).toFixed(2)) : null,
+			avgRating: ratingCount > 0 ? Number((ratingSum / ratingCount).toFixed(1)) : null,
+			itemCount: allItems.length,
+		};
+
+		await db
+			.update(researchLists)
+			.set({
+				cachedMetrics,
+				updatedAt: new Date(),
+			})
+			.where(eq(researchLists.id, listId));
+	} catch (err) {
+		logger.warn("[ResearchLists] Error updating cached metrics", { error: String(err) });
 	}
 }
 
@@ -185,7 +236,7 @@ router.get("/", async (req, res) => {
 
 		res.json({ success: true, lists });
 	} catch (error) {
-		console.error("[ResearchLists] Error fetching lists:", error);
+		logger.error("[ResearchLists] Error fetching lists", { error: String(error) });
 		res.status(500).json({ error: "Failed to fetch research lists" });
 	}
 });
@@ -233,7 +284,7 @@ router.get("/:id", async (req, res, next) => {
 
 		res.json({ success: true, list, items });
 	} catch (error) {
-		console.error("[ResearchLists] Error fetching list:", error);
+		logger.error("[ResearchLists] Error fetching list", { error: String(error) });
 		res.status(500).json({ error: "Failed to fetch research list" });
 	}
 });
@@ -278,7 +329,7 @@ router.post("/", async (req, res) => {
 
 		res.status(201).json({ success: true, list: newList });
 	} catch (error) {
-		console.error("[ResearchLists] Error creating list:", error);
+		logger.error("[ResearchLists] Error creating list", { error: String(error) });
 		if (error instanceof z.ZodError) {
 			return res
 				.status(400)
@@ -319,15 +370,15 @@ router.put("/:id", async (req, res) => {
 
 		// RBAC: Check edit permissions
 		const isOwner = existingList.createdByAgentId === agent.agentId;
-		const isOrgList = existingList.visibility === "org";
+		const isSharedList = existingList.visibility === "org" || existingList.visibility === "team";
 
 		if (!isOwner) {
-			// Not the owner - check if they can edit org lists
-			if (!isOrgList || !existingList.isEditable) {
+			// Not the owner - check if they can edit shared lists
+			if (!isSharedList || !existingList.isEditable) {
 				return res.status(403).json({ error: "Cannot edit this list" });
 			}
 			// Sub-agents cannot edit org lists even if editable
-			if (!agent.canEditOrg) {
+			if (existingList.visibility === "org" && !agent.canEditOrg) {
 				return res.status(403).json({
 					error: "Permission denied",
 					message: "Sub-agents cannot edit organization lists",
@@ -372,7 +423,7 @@ router.put("/:id", async (req, res) => {
 
 		res.json({ success: true, list: updatedList });
 	} catch (error) {
-		console.error("[ResearchLists] Error updating list:", error);
+		logger.error("[ResearchLists] Error updating list", { error: String(error) });
 		res.status(500).json({ error: "Failed to update research list" });
 	}
 });
@@ -430,7 +481,7 @@ router.delete("/:id", async (req, res) => {
 
 		res.json({ success: true, message: "Research list deleted" });
 	} catch (error) {
-		console.error("[ResearchLists] Error deleting list:", error);
+		logger.error("[ResearchLists] Error deleting list", { error: String(error) });
 		res.status(500).json({ error: "Failed to delete research list" });
 	}
 });
@@ -470,13 +521,13 @@ router.post("/:id/items", async (req, res) => {
 
 		// RBAC: Check edit permissions
 		const isOwner = list.createdByAgentId === agent.agentId;
-		const isOrgList = list.visibility === "org";
+		const isSharedList = list.visibility === "org" || list.visibility === "team";
 
 		if (!isOwner) {
-			if (!isOrgList || !list.isEditable) {
+			if (!isSharedList || !list.isEditable) {
 				return res.status(403).json({ error: "This list is not editable" });
 			}
-			if (!agent.canEditOrg) {
+			if (list.visibility === "org" && !agent.canEditOrg) {
 				return res.status(403).json({
 					error: "Permission denied",
 					message: "Sub-agents cannot add items to organization lists",
@@ -485,10 +536,35 @@ router.post("/:id/items", async (req, res) => {
 			}
 		}
 
+		// Resolve valid agent ID or null for FK safety
+		let agentIdToUse: string | null = agent.agentId;
+		try {
+			const [existingAgent] = await db
+				.select({ id: agents.id })
+				.from(agents)
+				.where(or(eq(agents.id, agent.agentId), eq(agents.userId, agent.agentId)))
+				.limit(1);
+			if (existingAgent) {
+				agentIdToUse = existingAgent.id;
+			} else {
+				agentIdToUse = null;
+			}
+		} catch {
+			agentIdToUse = null;
+		}
+
+		const rawInstrumentId =
+			req.body.instrumentId ||
+			req.body.instrumentSymbol ||
+			req.body.symbol ||
+			req.body.isin ||
+			`inst_${Date.now()}`;
+
 		const validatedData = insertResearchListItemSchema.parse({
 			...req.body,
+			instrumentId: String(rawInstrumentId),
 			researchListId: id,
-			addedByAgentId: agent.agentId,
+			addedByAgentId: agentIdToUse,
 		});
 
 		const [newItem] = await db
@@ -496,11 +572,8 @@ router.post("/:id/items", async (req, res) => {
 			.values(validatedData)
 			.returning();
 
-		// Update list's updatedAt
-		await db
-			.update(researchLists)
-			.set({ updatedAt: new Date() })
-			.where(eq(researchLists.id, id));
+		// Recalculate and update cached metrics and updatedAt
+		await updateListCachedMetrics(id);
 
 		await logResearchAudit(
 			"research_list_item",
@@ -515,7 +588,7 @@ router.post("/:id/items", async (req, res) => {
 
 		res.status(201).json({ success: true, item: newItem });
 	} catch (error) {
-		console.error("[ResearchListItems] Error adding item:", error);
+		logger.error("[ResearchListItems] Error adding item", { error: String(error) });
 		if (error instanceof z.ZodError) {
 			return res
 				.status(400)
@@ -556,13 +629,13 @@ router.delete("/:id/items/:itemId", async (req, res) => {
 
 		// RBAC: Check edit permissions
 		const isOwner = list.createdByAgentId === agent.agentId;
-		const isOrgList = list.visibility === "org";
+		const isSharedList = list.visibility === "org" || list.visibility === "team";
 
 		if (!isOwner) {
-			if (!isOrgList || !list.isEditable) {
+			if (!isSharedList || !list.isEditable) {
 				return res.status(403).json({ error: "This list is not editable" });
 			}
-			if (!agent.canEditOrg) {
+			if (list.visibility === "org" && !agent.canEditOrg) {
 				return res.status(403).json({
 					error: "Permission denied",
 					message: "Sub-agents cannot remove items from organization lists",
@@ -587,11 +660,8 @@ router.delete("/:id/items/:itemId", async (req, res) => {
 
 		await db.delete(researchListItems).where(eq(researchListItems.id, itemId));
 
-		// Update list's updatedAt
-		await db
-			.update(researchLists)
-			.set({ updatedAt: new Date() })
-			.where(eq(researchLists.id, id));
+		// Recalculate and update cached metrics and updatedAt
+		await updateListCachedMetrics(id);
 
 		await logResearchAudit(
 			"research_list_item",
@@ -606,7 +676,7 @@ router.delete("/:id/items/:itemId", async (req, res) => {
 
 		res.json({ success: true, message: "Item removed from list" });
 	} catch (error) {
-		console.error("[ResearchListItems] Error removing item:", error);
+		logger.error("[ResearchListItems] Error removing item", { error: String(error) });
 		res.status(500).json({ error: "Failed to remove item from research list" });
 	}
 });
@@ -629,7 +699,7 @@ router.get("/:id/items", async (req, res) => {
 
 		res.json({ success: true, items });
 	} catch (error) {
-		console.error("[ResearchListItems] Error fetching items:", error);
+		logger.error("[ResearchListItems] Error fetching items", { error: String(error) });
 		res.status(500).json({ error: "Failed to fetch research list items" });
 	}
 });
@@ -656,10 +726,16 @@ router.get("/instruments/search", async (req, res) => {
 
 		const limitNum = Math.min(Number.parseInt(limit as string) || 50, 100);
 		const offsetNum = Number.parseInt(offset as string) || 0;
+		const queryTrimmed = String(query || "").trim();
+		const universeNorm = String(universe || "MF").toUpperCase();
 
 		let instruments: any[] = [];
 
-		if (universe === "MF") {
+		if (
+			universeNorm === "MF" ||
+			universeNorm === "MUTUAL_FUND" ||
+			universeNorm === "MUTUAL_FUNDS"
+		) {
 			let queryBuilder = db
 				.select({
 					id: mutualFunds.id,
@@ -684,12 +760,12 @@ router.get("/instruments/search", async (req, res) => {
 			// Apply filters
 			const conditions: any[] = [];
 
-			if (query) {
+			if (queryTrimmed) {
 				conditions.push(
 					or(
-						ilike(mutualFunds.schemeName, `%${query}%`),
-						ilike(mutualFunds.schemeCode, `%${query}%`),
-						ilike(mutualFunds.fundHouse, `%${query}%`),
+						ilike(mutualFunds.schemeName, `%${queryTrimmed}%`),
+						ilike(mutualFunds.schemeCode, `%${queryTrimmed}%`),
+						ilike(mutualFunds.fundHouse, `%${queryTrimmed}%`),
 					),
 				);
 			}
@@ -717,7 +793,60 @@ router.get("/instruments/search", async (req, res) => {
 			}
 
 			instruments = await queryBuilder;
-		} else if (universe === "STOCK") {
+
+			// Fallback to instrumentMaster if search query provided
+			if (queryTrimmed && instruments.length < limitNum) {
+				try {
+					const existingCodes = new Set(
+						instruments.map((i) => (i.symbol || "").toUpperCase()).filter(Boolean),
+					);
+					const remaining = limitNum - instruments.length;
+					const imMFs = await db
+						.select({
+							id: instrumentMaster.id,
+							name: instrumentMaster.name,
+							symbol: instrumentMaster.symbol,
+							isin: instrumentMaster.isin,
+							category: instrumentMaster.category,
+							fundHouse: instrumentMaster.issuer,
+							nav: instrumentMaster.lastPrice,
+							riskLevel: instrumentMaster.riskLevel,
+							type: sql<string>`'mutual_fund'`.as("type"),
+						})
+						.from(instrumentMaster)
+						.where(
+							and(
+								eq(instrumentMaster.assetClass, "mutual_fund"),
+								or(
+									ilike(instrumentMaster.name, `%${queryTrimmed}%`),
+									ilike(instrumentMaster.symbol, `%${queryTrimmed}%`),
+									ilike(instrumentMaster.isin, `%${queryTrimmed}%`),
+								),
+							),
+						)
+						.limit(remaining);
+
+					for (const mf of imMFs) {
+						if (mf.symbol && existingCodes.has(mf.symbol.toUpperCase())) continue;
+						instruments.push({
+							...mf,
+							expenseRatio: null,
+							aum: null,
+							returns1y: null,
+							returns3y: null,
+							returns5y: null,
+							rating: null,
+						});
+					}
+				} catch (imErr) {
+					logger.warn("[InstrumentSearch] instrumentMaster MF fallback failed", { error: String(imErr) });
+				}
+			}
+		} else if (
+			universeNorm === "STOCK" ||
+			universeNorm === "STOCKS" ||
+			universeNorm === "EQUITY"
+		) {
 			let queryBuilder = db
 				.select({
 					id: listedStocks.id,
@@ -740,11 +869,12 @@ router.get("/instruments/search", async (req, res) => {
 
 			const conditions: any[] = [];
 
-			if (query) {
+			if (queryTrimmed) {
 				conditions.push(
 					or(
-						ilike(listedStocks.companyName, `%${query}%`),
-						ilike(listedStocks.symbol, `%${query}%`),
+						ilike(listedStocks.companyName, `%${queryTrimmed}%`),
+						ilike(listedStocks.symbol, `%${queryTrimmed}%`),
+						ilike(listedStocks.isin, `%${queryTrimmed}%`),
 					),
 				);
 			}
@@ -762,6 +892,101 @@ router.get("/instruments/search", async (req, res) => {
 			}
 
 			instruments = await queryBuilder;
+
+			// If query provided and fewer results than limit, enrich from instrumentMaster
+			if (queryTrimmed && instruments.length < limitNum) {
+				try {
+					const existingSymbols = new Set(
+						instruments.map((i) => (i.symbol || "").toUpperCase()).filter(Boolean),
+					);
+					const remaining = limitNum - instruments.length;
+					const imStocks = await db
+						.select({
+							id: instrumentMaster.id,
+							name: instrumentMaster.name,
+							symbol: instrumentMaster.symbol,
+							isin: instrumentMaster.isin,
+							sector: instrumentMaster.sector,
+							industry: instrumentMaster.category,
+							currentPrice: instrumentMaster.lastPrice,
+							type: sql<string>`'stock'`.as("type"),
+						})
+						.from(instrumentMaster)
+						.where(
+							and(
+								eq(instrumentMaster.assetClass, "equity"),
+								or(
+									ilike(instrumentMaster.name, `%${queryTrimmed}%`),
+									ilike(instrumentMaster.symbol, `%${queryTrimmed}%`),
+									ilike(instrumentMaster.isin, `%${queryTrimmed}%`),
+								),
+							),
+						)
+						.limit(remaining);
+
+					for (const s of imStocks) {
+						if (s.symbol && existingSymbols.has(s.symbol.toUpperCase())) continue;
+						instruments.push({
+							...s,
+							marketCap: null,
+							dayChange: null,
+							dayChangePercent: null,
+							weekHigh52: null,
+							weekLow52: null,
+						});
+					}
+				} catch (imErr) {
+					logger.warn("[InstrumentSearch] instrumentMaster stock fallback failed", { error: String(imErr) });
+				}
+			}
+		} else {
+			// Fallback for ETF, BOND, etc.
+			try {
+				const assetClassMap: Record<string, string> = {
+					ETF: "etf",
+					BOND: "bond",
+					FD: "fd",
+				};
+				const targetAsset = assetClassMap[universeNorm] || "equity";
+				const conditions: any[] = [eq(instrumentMaster.assetClass, targetAsset as any)];
+
+				if (queryTrimmed) {
+					conditions.push(
+						or(
+							ilike(instrumentMaster.name, `%${queryTrimmed}%`),
+							ilike(instrumentMaster.symbol, `%${queryTrimmed}%`),
+							ilike(instrumentMaster.isin, `%${queryTrimmed}%`),
+						),
+					);
+				}
+
+				const imResults = await db
+					.select({
+						id: instrumentMaster.id,
+						name: instrumentMaster.name,
+						symbol: instrumentMaster.symbol,
+						isin: instrumentMaster.isin,
+						sector: instrumentMaster.sector,
+						industry: instrumentMaster.category,
+						currentPrice: instrumentMaster.lastPrice,
+						type: sql<string>`'instrument'`.as("type"),
+					})
+					.from(instrumentMaster)
+					.where(and(...conditions))
+					.limit(limitNum)
+					.offset(offsetNum);
+
+				instruments = imResults.map((it) => ({
+					...it,
+					marketCap: null,
+					dayChange: null,
+					dayChangePercent: null,
+					weekHigh52: null,
+					weekLow52: null,
+				}));
+			} catch (e) {
+				logger.warn("[InstrumentSearch] Generic search failed", { error: String(e) });
+			}
 		}
 
 		res.json({
@@ -774,7 +999,7 @@ router.get("/instruments/search", async (req, res) => {
 			},
 		});
 	} catch (error) {
-		console.error("[InstrumentSearch] Error:", error);
+		logger.error("[InstrumentSearch] Error", { error: String(error) });
 		res.status(500).json({ error: "Failed to search instruments" });
 	}
 });
@@ -805,7 +1030,7 @@ router.get("/screeners", async (req, res) => {
 
 		res.json({ success: true, screeners });
 	} catch (error) {
-		console.error("[Screeners] Error fetching screeners:", error);
+		logger.error("[Screeners] Error fetching screeners", { error: String(error) });
 		res.status(500).json({ error: "Failed to fetch screeners" });
 	}
 });
