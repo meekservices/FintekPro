@@ -7,6 +7,11 @@ import {
 	fifoLotLedgerService,
 	LotLedgerResult,
 } from "./fifo-lot-ledger-service";
+import {
+	validateCASTimeliness,
+	SEBI_CAS_CIRCULAR,
+	CAS_REGULATORY_VERSION,
+} from "./cas-regulatory-config";
 
 /**
  * Parse CAS statement date format (DD-Mon-YYYY or DD/Mon/YYYY)
@@ -247,7 +252,8 @@ class CASStatementService {
 
 	private constructor() {
 		console.log(
-			"✅ CAS Statement Service initialized (v4 - Multi-Scheme Parser)",
+			// CAS-REG-v5: bumped from v4. Now SEBI CIR/2025/16 compliant (dispatch timeliness validation).
+			`✅ CAS Statement Service initialized (v5 - SEBI ${SEBI_CAS_CIRCULAR.circularNo} compliant | ${CAS_REGULATORY_VERSION})`,
 		);
 	}
 
@@ -292,6 +298,17 @@ class CASStatementService {
 
 			result.investor = this.extractInvestorInfo(text);
 			result.statementPeriod = this.extractStatementPeriod(text);
+
+			// CAS-REG-v5 FIX: Validate CAS dispatch timeliness per SEBI/HO/MRD/PoD1/CIR/P/2025/16.
+			// This is a WARNING only — SEBI obligation is on depositories, not investors.
+			// An out-of-window upload is flagged but never blocked.
+			if (result.statementPeriod?.to) {
+				const statementEndDate = parseCASDate(result.statementPeriod.to);
+				const timeliness = validateCASTimeliness(statementEndDate, new Date());
+				if (timeliness.warning) {
+					result.warnings.push(timeliness.warning);
+				}
+			}
 
 			console.log(
 				"[CAS Service v4] Investor:",

@@ -14,6 +14,7 @@ import {
   runTruecallerRegistrationColumnRepair,
   runVwapColumnRepair,
   runProspectLeadsDedupRepair,
+  runFnOContractFlagRepair,
 } from "./schema-repairs";
 
 async function main() {
@@ -257,6 +258,9 @@ async function main() {
 
   console.log("Phase K — deduplicating prospect_leads + enforcing CIN uniqueness...");
   await runProspectLeadsDedupRepair();
+
+  console.log("Phase L — adding has_fno_contract to listed_stocks (NSE/BSE Closing Auction Session, Aug 2026)...");
+  await runFnOContractFlagRepair();
 
   console.log("FintekPro schema repair job complete.");
 }

@@ -37,6 +37,10 @@ import { FaspAIv2Service } from "./fasp-ai-v2-service";
 import { pickOutcomeAnalyzer } from "./pick-outcome-analyzer";
 import { telemetryBus } from "./engine-telemetry-bus";
 import { scorerCalibrationService } from "./scorer-calibration-service";
+import {
+	isClosingAuctionWindow,
+	CAS_WINDOW_DISCLAIMER,
+} from "./market-session-service";
 
 
 // --- Strategy Imports ---
@@ -524,6 +528,25 @@ export class PickOfTheDayService {
 					// Attach portfolio signal and raw quant score to keyMetrics
 					if (pick.keyMetrics && typeof pick.keyMetrics === "object") {
 						(pick.keyMetrics as any).portfolio_signal = portfolioSignal;
+
+						// ── NSE/BSE CAS Window Caution (effective Aug 3, 2026) ───────────────
+						// For listed_stocks picks generated during the Closing Auction Session
+						// (3:15–3:35 PM IST), the reco price on the screen may differ from the
+						// final closing price set by the auction. Attach a caution flag.
+						// This is informational only — picks are NEVER blocked by this.
+						if (category === "listed_stocks" && isClosingAuctionWindow()) {
+							(pick.keyMetrics as any).casWindowCaution = CAS_WINDOW_DISCLAIMER;
+							logger.warn(
+								`[PickOfTheDay] CAS Window: pick generated during auction session for ${pick.instrumentName}`,
+								{
+									event: "PICK_GENERATED_DURING_CAS_WINDOW",
+									instrument: pick.instrumentName,
+									symbol: pick.symbol,
+									category,
+									regulatory_ref: "NSE/BSE Circular Aug 2026",
+								},
+							);
+						}
 
 						// ── Fix A: rawQuantScore — strategy-sourced value takes priority ────────
 						// stock-strategy sets rawQuantScore directly (pre-governance-floor).

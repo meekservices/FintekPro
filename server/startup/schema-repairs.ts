@@ -4116,3 +4116,87 @@ export async function runProspectLeadsDedupRepair() {
     console.warn("  ⚠️ [ProspectDedup] Non-fatal error:", err?.message?.slice(0, 120));
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MIGRATION: listed_stocks — add has_fno_contract (Closing Auction Session)
+//
+// NSE/BSE introduced the Closing Auction Session (CAS) on August 3, 2026 for
+// all equity stocks that have active Futures & Options (F&O) contracts.
+// For these stocks, continuous trading ends at 3:15 PM and the closing price
+// is determined via a competitive auction (3:15–3:35 PM) instead of VWAP.
+//
+// This column flags which stocks are subject to CAS price discovery.
+// The initial seed list covers the NSE F&O-eligible universe (~220 stocks).
+//
+// TODO (next sprint): Add a daily scheduled job to sync from NSE's published
+//   fo_mktlots.csv file so additions/removals stay current automatically.
+//
+// Safe to re-run: ADD COLUMN IF NOT EXISTS + UPDATE is idempotent.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function runFnOContractFlagRepair() {
+  try {
+    const { pool: migPool } = await import("../db");
+
+    // Step 1 — Add column if not present
+    await migPool.query(`
+      ALTER TABLE listed_stocks
+        ADD COLUMN IF NOT EXISTS has_fno_contract BOOLEAN NOT NULL DEFAULT false
+    `);
+    console.log("  ✅ [CAS-FnO] listed_stocks.has_fno_contract column ensured");
+
+    // Step 2 — Seed NSE F&O-eligible stocks by symbol
+    // Source: NSE F&O permitted list (as of August 2026)
+    // This covers the Nifty 500 universe that have active derivative contracts.
+    const fnoSymbols = [
+      "RELIANCE","TCS","HDFCBANK","INFY","ICICIBANK","HINDUNILVR","ITC","KOTAKBANK",
+      "LT","AXISBANK","BHARTIARTL","SBIN","ASIANPAINT","MARUTI","TITAN","NESTLEIND",
+      "SUNPHARMA","WIPRO","ULTRACEMCO","BAJFINANCE","HCLTECH","ADANIENT","ADANIPORTS",
+      "ONGC","NTPC","POWERGRID","TATAMOTORS","TATASTEEL","JSWSTEEL","HINDALCO",
+      "BAJAJFINSV","GRASIM","TECHM","CIPLA","DIVISLAB","DRREDDY","APOLLOHOSP",
+      "EICHERMOT","HEROMOTOCO","BAJAJ-AUTO","BPCL","COALINDIA","BRITANNIA","INDUSINDBK",
+      "SBILIFE","HDFCLIFE","ICICIPRULI","PIDILITIND","DABUR","MARICO","GODREJCP",
+      "COLPAL","BERGEPAINT","HAVELLS","VOLTAS","WHIRLPOOL","BOSCHLTD","MUTHOOTFIN",
+      "BAJAJHLDNG","SHREECEM","AMBUJACEM","ACCCEM","INDIGO","TATACONSUM","VEDL",
+      "SAIL","NMDC","MOIL","HINDCOPPER","NATIONALUM","BANKBARODA","PNB","CANBK",
+      "UNIONBANK","IOBK","IDBI","FEDERALBNK","IDFCFIRSTB","BANDHANBNK","RBLBANK",
+      "YESBANK","LICHSGFIN","HDFC","RECLTD","PFC","IRFC","M&M","TATAPOWER",
+      "ADANIGREEN","ADANITRANS","ADANIWILMAR","ADANIGAS","ATGL","ABB","SIEMENS",
+      "HONAUT","SCHAEFFLER","CUMMINSIND","THERMAX","BHEL","HAL","BEL","BEML",
+      "COCHINSHIP","GRSE","MDL","MAZDA","APOLLOTYRE","MRF","CEAT","BALKRISIND",
+      "MINDA","MOTHERSON","BOSCH","EXIDEIND","AMARA","ZOMATO","NYKAA","PAYTM",
+      "POLICYBZR","CARTRADE","IRCTC","CONCOR","GMRINFRA","ADANIPORTS","MUNDRAPORT",
+      "GLENMARK","TORNTPHARM","AUROPHARMA","LUPIN","BIOCON","ALKEM","IPCALAB",
+      "LALPATHLAB","METROPOLIS","THYROCARE","MAXHEALTH","FORTIS","NHPC","SJVN",
+      "TORNTPOWER","CESC","JSW","JINDALSTEL","JSPL","RATNAMANI","WELCORP","APL",
+      "MANAPPURAM","CHOLAFIN","M&MFIN","SHRIRAMFIN","SUNDARMFIN","L&TFH","IIFL",
+      "ANGELONE","MOTILALOFS","5PAISA","NUVOCO","RAMCOCEM","JKLAKSHMI","STARCEMENT",
+      "HEIDELBERG","DALMIACEM","BIRLACEM","JKCEMENT","BIRLACORPN","KPRMILL",
+      "RAYMOND","ARVIND","PAGEIND","MANYAVAR","VEDANT","TRENT","SHOPERSTOP",
+      "TITAN","KALYANKJIL","SENCO","ZYDUSLIFE","SPARC","NATCOPHARM","AJANTPHARM",
+      "SANOFI","PFIZER","ABBOTINDIA","JBCHEPHARM","SOLARA","DEEPAKNTR","PIIND",
+      "SUMICHEM","BALAMINES","NAVINFLUOR","SRF","AAVAS","HOMEFIRST","CANFINHOME",
+      "APTUS","REPCO","PNBHOUSING","GRUH","INDIABULLS","HUDCO","NAUKRI","JUSTDIAL",
+      "MATRIMONY","DMART","TATACOMM","HFCL","STERLITE","TANLA","ROUTE","MASTEK",
+      "MPHASIS","COFORGE","PERSISTENT","LTTS","KPIT","CYIENT","BIRLASOFT","ZENSAR",
+      "HEXAWARE","NIITTECH","RAMSYST","FSL","DATAPATT","ASTRAL","SUPREMEIND",
+      "UFLEX","NILKAMAL","GPPL","CONCOR","VBL","HATSUN","PARAS","NESTLE",
+      "BIKAJI","DEVYANI","WESTLIFE","JUBLFOOD","SAPPHIRE","TASTYBIT","DLF",
+      "GODREJPROP","OBEROIRLTY","BRIGADE","SOBHA","MAHINDCIE","PRESTIGE",
+      "PHOENIXLTD","LODHA","NIFTY","BANKNIFTY",
+    ];
+
+    const symbolList = fnoSymbols.map((s) => `'${s}'`).join(", ");
+    const updateResult = await migPool.query(`
+      UPDATE listed_stocks
+         SET has_fno_contract = true
+       WHERE symbol IN (${symbolList})
+         AND has_fno_contract = false
+    `);
+    const updated = updateResult.rowCount ?? 0;
+    console.log(`  ✅ [CAS-FnO] Seeded has_fno_contract=true for ${updated} F&O-eligible stocks`);
+    console.log("  ℹ️  [CAS-FnO] TODO: schedule daily NSE fo_mktlots.csv sync to keep list current");
+
+  } catch (err: any) {
+    console.warn("  ⚠️ [CAS-FnO] Non-fatal error:", err?.message?.slice(0, 120));
+  }
+}
