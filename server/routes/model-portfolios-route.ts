@@ -54,6 +54,7 @@ import {
 import { getInstrument } from "../data/instrument-registry";
 import { lookupByISIN, lookupByNSESymbol } from "../services/isin-registry-service";
 import { unifiedStockPriceService } from "../services/unified-stock-price-service";
+import { modelPortfolioAlgoService } from "../services/model-portfolio-algo-service";
 
 export const modelPortfoliosRouter = Router();
 
@@ -5731,6 +5732,240 @@ modelPortfoliosRouter.post("/admin/run-rebalance-scan", requireAdmin, async (req
   } catch (err: any) {
     logger.error("[ModelPortfolios] run-rebalance-scan error:", err);
     return res.status(500).json({ success: false, error: err.message, retryable: true });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODEL PORTFOLIO ALGO TRADING ROUTES (Strictly Restricted to Model Portfolios)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/model-portfolios/algo-trading/status
+ * Lists all published model portfolios and their algorithmic trading status.
+ */
+modelPortfoliosRouter.get("/algo-trading/status", async (_req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const data = await modelPortfolioAlgoService.getAllAlgoPortfolios();
+    return res.json({
+      success: true,
+      data,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "FASP-AI-v3.0-ALGO",
+        latency_ms: Date.now() - t0,
+        total: data.length,
+        enabledCount: data.filter((p) => p.algoTradingEnabled).length,
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] algo-trading/status error", err);
+    return res.status(500).json({
+      success: false,
+      error_code: "ALGO_STATUS_FETCH_FAILED",
+      message: err.message,
+      retryable: true,
+    });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/algo-trading/sweep
+ * Triggers batch evaluation across all model portfolios with algo trading enabled.
+ */
+modelPortfoliosRouter.post("/algo-trading/sweep", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const sweepResult = await modelPortfolioAlgoService.runAlgoTradingBatchSweep();
+    return res.json({
+      success: true,
+      data: sweepResult,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "FASP-AI-v3.0-ALGO",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (err: any) {
+    logger.error("[ModelPortfolios] algo-trading/sweep error", err);
+    return res.status(500).json({
+      success: false,
+      error_code: "ALGO_SWEEP_FAILED",
+      message: err.message,
+      retryable: true,
+    });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/:id/algo-trading/enable
+ * Enables algorithmic trading for a specific model portfolio.
+ * Body: { rebalanceThresholdPct?: number, maxTradeAmount?: number, autoExecute?: boolean }
+ */
+modelPortfoliosRouter.post("/:id/algo-trading/enable", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const actorId = (req as any).user?.id?.toString() || "advisor";
+    const config = req.body || {};
+
+    const result = await modelPortfolioAlgoService.enableAlgoTrading(id, config, actorId);
+
+    return res.json({
+      success: true,
+      data: {
+        portfolioId: result.portfolio.id,
+        name: result.portfolio.name,
+        algoTradingEnabled: result.portfolio.algoTradingEnabled,
+        algoConfig: result.portfolio.algoConfig,
+        lastAlgoStatus: result.portfolio.lastAlgoStatus,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "FASP-AI-v3.0-ALGO",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (err: any) {
+    logger.error(`[ModelPortfolios] Failed to enable algo trading for ${req.params.id}`, err);
+    const status = err.message.includes("not found") ? 404 : 500;
+    return res.status(status).json({
+      success: false,
+      error_code: "ALGO_ENABLE_FAILED",
+      message: err.message,
+      retryable: false,
+    });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/:id/algo-trading/disable
+ * Disables algorithmic trading for a specific model portfolio.
+ * Body: { reason?: string }
+ */
+modelPortfoliosRouter.post("/:id/algo-trading/disable", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const actorId = (req as any).user?.id?.toString() || "advisor";
+    const reason = req.body?.reason || "Advisor manual disable";
+
+    const result = await modelPortfolioAlgoService.disableAlgoTrading(id, reason, actorId);
+
+    return res.json({
+      success: true,
+      data: {
+        portfolioId: result.portfolio.id,
+        name: result.portfolio.name,
+        algoTradingEnabled: result.portfolio.algoTradingEnabled,
+        lastAlgoStatus: result.portfolio.lastAlgoStatus,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "FASP-AI-v3.0-ALGO",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (err: any) {
+    logger.error(`[ModelPortfolios] Failed to disable algo trading for ${req.params.id}`, err);
+    const status = err.message.includes("not found") ? 404 : 500;
+    return res.status(status).json({
+      success: false,
+      error_code: "ALGO_DISABLE_FAILED",
+      message: err.message,
+      retryable: false,
+    });
+  }
+});
+
+/**
+ * POST /api/model-portfolios/:id/algo-trading/execute
+ * Triggers algorithmic rebalancing and trade execution for a specific model portfolio.
+ * Body: { totalPortfolioValue?: number, forceExecution?: boolean, clientPan?: string }
+ */
+modelPortfoliosRouter.post("/:id/algo-trading/execute", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const actorId = (req as any).user?.id?.toString() || "system";
+    const actorType = (req as any).user?.role === "advisor" ? "agent" : "system";
+    const { totalPortfolioValue, forceExecution, clientPan, userId } = req.body || {};
+
+    const executionResult = await modelPortfolioAlgoService.executeModelPortfolioAlgo(id, {
+      totalPortfolioValue: totalPortfolioValue ? Number(totalPortfolioValue) : undefined,
+      actorId,
+      actorType,
+      clientPan,
+      userId,
+      forceExecution: Boolean(forceExecution),
+    });
+
+    const httpStatus = executionResult.status === "RMS_BLOCKED" ? 400 :
+                       executionResult.status === "CIRCUIT_BREAKER_BLOCKED" ? 409 : 200;
+
+    return res.status(httpStatus).json({
+      success: executionResult.success,
+      data: executionResult,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: "FASP-AI-v3.0-ALGO",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (err: any) {
+    logger.error(`[ModelPortfolios] Algo execution error on ${req.params.id}`, err);
+    const status = err.message.includes("not found") ? 404 : 500;
+    return res.status(status).json({
+      success: false,
+      error_code: "ALGO_EXECUTION_FAILED",
+      message: err.message,
+      retryable: false,
+    });
+  }
+});
+
+/**
+ * GET /api/model-portfolios/:id/algo-trading/transactions
+ * Returns recorded transactions for a specific model portfolio.
+ * Query: page, limit, action, status
+ */
+modelPortfoliosRouter.get("/:id/algo-trading/transactions", async (req: Request, res: Response) => {
+  const t0 = Date.now();
+  try {
+    const { id } = req.params;
+    const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+    const action = req.query.action as string | undefined;
+    const status = req.query.status as string | undefined;
+
+    const { transactions, total } = await modelPortfolioAlgoService.getPortfolioTransactions(id, {
+      page,
+      limit,
+      action,
+      status,
+    });
+
+    return res.json({
+      success: true,
+      data: transactions,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        timestamp: new Date().toISOString(),
+        version: "FASP-AI-v3.0-ALGO",
+        latency_ms: Date.now() - t0,
+      },
+    });
+  } catch (err: any) {
+    logger.error(`[ModelPortfolios] Failed to fetch transactions for ${req.params.id}`, err);
+    return res.status(500).json({
+      success: false,
+      error_code: "TRANSACTIONS_FETCH_FAILED",
+      message: err.message,
+      retryable: true,
+    });
   }
 });
 

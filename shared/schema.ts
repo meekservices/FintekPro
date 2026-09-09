@@ -11469,10 +11469,21 @@ export const modelPortfolios = pgTable("model_portfolios", {
    * Schema: { driftReport, alphaScore, rebalancePlan, timestamp, engineVersion }
    */
   pendingRebalancePlan:  jsonb("pending_rebalance_plan"),
+
+  // ── Algo Trading Engine State (Restricted strictly to Model Portfolios) ───────
+  /** Whether algorithmic trading is enabled for this model portfolio */
+  algoTradingEnabled:    boolean("algo_trading_enabled").default(false),
+  /** Algorithmic trading parameters (rebalance threshold, max single trade, auto-execute flag) */
+  algoConfig:            jsonb("algo_config"),
+  /** Timestamp of the most recent algorithmic evaluation or rebalance execution */
+  lastAlgoRunAt:         timestamp("last_algo_run_at"),
+  /** Outcome status of the latest algo run (e.g. EXECUTED, NO_DRIFT, CIRCUIT_BREAKER, RMS_BLOCKED, ERROR) */
+  lastAlgoStatus:        varchar("last_algo_status", { length: 50 }),
 }, (table) => [
   index("idx_model_portfolios_risk").on(table.riskProfile),
   index("idx_model_portfolios_asset").on(table.assetClass),
   index("idx_model_portfolios_published").on(table.isPublished),
+  index("idx_model_portfolios_algo").on(table.algoTradingEnabled),
 ]);
 
 export const insertModelPortfolioSchema = createInsertSchema(modelPortfolios).omit({
@@ -11792,6 +11803,62 @@ export const irisRebalanceExecutions = pgTable("iris_rebalance_executions", {
 export type IrisRebalanceExecution = typeof irisRebalanceExecutions.$inferSelect;
 export type InsertIrisRebalanceExecution = typeof irisRebalanceExecutions.$inferInsert;
 export const insertIrisRebalanceExecutionSchema = createInsertSchema(irisRebalanceExecutions).omit({
+  id: true, createdAt: true, updatedAt: true,
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODEL PORTFOLIO ALGO TRADING TRANSACTIONS (FASP-AI v3.0)
+// Dedicated transaction ledger recording every algorithmic rebalance & trade execution
+// strictly for Model Portfolios.
+// ─────────────────────────────────────────────────────────────────────────────
+export const modelPortfolioTransactions = pgTable("model_portfolio_transactions", {
+  id:                 varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  transactionNumber:  varchar("transaction_number", { length: 100 }).notNull().unique(), // e.g. MPT-YYYYMMDD-XXXX
+  portfolioId:        varchar("portfolio_id").notNull().references(() => modelPortfolios.id, { onDelete: "cascade" }),
+  portfolioCode:      varchar("portfolio_code", { length: 50 }),
+  userId:             varchar("user_id"),
+  clientPan:          varchar("client_pan", { length: 20 }),
+  // Transaction action & instrument
+  action:             varchar("action", { length: 30 }).notNull(), // BUY | SELL | SWITCH | TRIM | REBALANCE
+  instrumentName:     varchar("instrument_name", { length: 300 }).notNull(),
+  isin:               varchar("isin", { length: 20 }),
+  schemeCode:         varchar("scheme_code", { length: 50 }),
+  assetClass:         varchar("asset_class", { length: 50 }),
+  // Execution financials
+  amount:             decimal("amount", { precision: 18, scale: 2 }).notNull(),
+  units:              decimal("units", { precision: 18, scale: 4 }),
+  nav:                decimal("nav", { precision: 12, scale: 4 }),
+  targetWeightPct:    decimal("target_weight_pct", { precision: 6, scale: 2 }),
+  executedWeightPct:  decimal("executed_weight_pct", { precision: 6, scale: 2 }),
+  driftBeforePct:     decimal("drift_before_pct", { precision: 6, scale: 2 }),
+  // Execution status & channel
+  executionStatus:    varchar("execution_status", { length: 30 }).notNull().default("executed"), // initiated | submitted | executed | failed | cancelled
+  executionChannel:   varchar("execution_channel", { length: 50 }).default("ALGO_AUTO"), // ALGO_AUTO | ADVISOR_APPROVED | DRIFT_REBALANCE
+  brokerOrderId:      varchar("broker_order_id", { length: 100 }),
+  unifiedOrderId:     varchar("unified_order_id", { length: 100 }),
+  proposalId:         uuid("proposal_id"),
+  // Compliance & Explainability (FASP-AI v3.0 / SEBI Reg 16)
+  rationale:          text("rationale"),
+  confidenceScore:    integer("confidence_score").default(85),
+  factorsConsidered:  jsonb("factors_considered"),
+  idempotencyKey:     varchar("idempotency_key", { length: 100 }).unique(),
+  engineVersion:      varchar("engine_version", { length: 30 }).default("FASP-AI-v3.0").notNull(),
+  source:             varchar("source", { length: 20 }).default("algo").notNull(),
+  executedAt:         timestamp("executed_at").defaultNow(),
+  createdAt:          timestamp("created_at").defaultNow(),
+  updatedAt:          timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_mpt_portfolio_id").on(table.portfolioId),
+  index("idx_mpt_execution_status").on(table.executionStatus),
+  index("idx_mpt_created_at").on(table.createdAt),
+  index("idx_mpt_user_id").on(table.userId),
+  index("idx_mpt_isin").on(table.isin),
+  index("idx_mpt_trans_num").on(table.transactionNumber),
+]);
+
+export type ModelPortfolioTransaction = typeof modelPortfolioTransactions.$inferSelect;
+export type InsertModelPortfolioTransaction = typeof modelPortfolioTransactions.$inferInsert;
+export const insertModelPortfolioTransactionSchema = createInsertSchema(modelPortfolioTransactions).omit({
   id: true, createdAt: true, updatedAt: true,
 });
 

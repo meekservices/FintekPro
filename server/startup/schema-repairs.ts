@@ -2709,6 +2709,61 @@ export async function runFASPAIv3Migrations(): Promise<void> {
   }
   console.log("  ✅ rebalance_proposals: client rebalancing columns patched");
 
+  // 5. model_portfolio_transactions & model_portfolios algo columns (FASP-AI-v3.0 ALGO)
+  try {
+    await migDb.execute(migSql`
+      ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS algo_trading_enabled BOOLEAN DEFAULT FALSE;
+      ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS algo_config JSONB;
+      ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS last_algo_run_at TIMESTAMP;
+      ALTER TABLE model_portfolios ADD COLUMN IF NOT EXISTS last_algo_status VARCHAR(50);
+      CREATE INDEX IF NOT EXISTS idx_model_portfolios_algo ON model_portfolios(algo_trading_enabled);
+    `);
+    await migDb.execute(migSql`
+      CREATE TABLE IF NOT EXISTS model_portfolio_transactions (
+        id                   VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::varchar,
+        transaction_number   VARCHAR(100) NOT NULL UNIQUE,
+        portfolio_id         VARCHAR NOT NULL REFERENCES model_portfolios(id) ON DELETE CASCADE,
+        portfolio_code       VARCHAR(50),
+        user_id              VARCHAR,
+        client_pan           VARCHAR(20),
+        action               VARCHAR(30) NOT NULL,
+        instrument_name      VARCHAR(300) NOT NULL,
+        isin                 VARCHAR(20),
+        scheme_code          VARCHAR(50),
+        asset_class          VARCHAR(50),
+        amount               NUMERIC(18,2) NOT NULL,
+        units                NUMERIC(18,4),
+        nav                  NUMERIC(12,4),
+        target_weight_pct    NUMERIC(6,2),
+        executed_weight_pct  NUMERIC(6,2),
+        drift_before_pct     NUMERIC(6,2),
+        execution_status     VARCHAR(30) NOT NULL DEFAULT 'executed',
+        execution_channel    VARCHAR(50) DEFAULT 'ALGO_AUTO',
+        broker_order_id      VARCHAR(100),
+        unified_order_id     VARCHAR(100),
+        proposal_id          UUID,
+        rationale            TEXT,
+        confidence_score     INTEGER DEFAULT 85,
+        factors_considered   JSONB,
+        idempotency_key      VARCHAR(100) UNIQUE,
+        engine_version       VARCHAR(30) NOT NULL DEFAULT 'FASP-AI-v3.0',
+        source               VARCHAR(20) NOT NULL DEFAULT 'algo',
+        executed_at          TIMESTAMP DEFAULT NOW(),
+        created_at           TIMESTAMP DEFAULT NOW(),
+        updated_at           TIMESTAMP DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_mpt_portfolio_id ON model_portfolio_transactions(portfolio_id);
+      CREATE INDEX IF NOT EXISTS idx_mpt_execution_status ON model_portfolio_transactions(execution_status);
+      CREATE INDEX IF NOT EXISTS idx_mpt_created_at ON model_portfolio_transactions(created_at);
+      CREATE INDEX IF NOT EXISTS idx_mpt_user_id ON model_portfolio_transactions(user_id);
+      CREATE INDEX IF NOT EXISTS idx_mpt_isin ON model_portfolio_transactions(isin);
+      CREATE INDEX IF NOT EXISTS idx_mpt_trans_num ON model_portfolio_transactions(transaction_number);
+    `);
+    console.log("  ✅ model_portfolio_transactions & algo columns: created");
+  } catch (e: any) {
+    console.warn("  ⚠️  model_portfolio_transactions (non-fatal):", e.message?.slice(0, 80));
+  }
+
   console.log("  ✅ [FASP-AI v3.0] All dynamic portfolio management tables created");
 }
 
