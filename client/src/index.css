@@ -150,9 +150,9 @@
   background: hsl(var(--muted-foreground));
 }
 
-/* Custom radix select styling */
+/* Custom radix select / popper styling - must layer above modals (z-modal: 80) and backdrops (z-modal-backdrop: 70) */
 [data-radix-popper-content-wrapper] {
-  z-index: 50 !important;
+  z-index: 95 !important;
 }
 
 /* Radix UI Combobox / Command styling */

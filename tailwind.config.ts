@@ -122,8 +122,8 @@ export default {
         scroll: "scroll 30s linear infinite",
       },
       zIndex: {
-        "dropdown": "90",
-        "popover": "60",
+        "dropdown": "95",
+        "popover": "95",
         "modal-backdrop": "70",
         "modal": "80",
         "toast": "100",

@@ -239,7 +239,7 @@ export default function AgentResearchLists() {
 										value={newListUniverse}
 										onValueChange={setNewListUniverse}
 									>
-										<SelectTrigger>
+										<SelectTrigger data-testid="select-universe-type">
 											<SelectValue placeholder="Select universe" />
 										</SelectTrigger>
 										<SelectContent>
@@ -257,7 +257,7 @@ export default function AgentResearchLists() {
 										value={newListVisibility}
 										onValueChange={setNewListVisibility}
 									>
-										<SelectTrigger>
+										<SelectTrigger data-testid="select-visibility">
 											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
