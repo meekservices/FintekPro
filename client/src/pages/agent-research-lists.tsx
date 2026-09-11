@@ -3,9 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
-	CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +41,6 @@ import {
 	Plus,
 	ListChecks,
 	Eye,
-	Edit,
 	Trash2,
 	Share2,
 	Filter,
@@ -171,14 +168,14 @@ export default function AgentResearchLists() {
 
 	const getUniverseColor = (universe: string) => {
 		const colors: Record<string, string> = {
-			MF: "bg-blue-500",
-			STOCK: "bg-green-500",
-			BOND: "bg-amber-500",
-			ETF: "bg-purple-500",
-			FD: "bg-cyan-500",
-			MIXED: "bg-muted",
+			MF: "bg-blue-500/20 text-blue-400 border border-blue-500/30",
+			STOCK: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+			BOND: "bg-amber-500/20 text-amber-400 border border-amber-500/30",
+			ETF: "bg-purple-500/20 text-purple-400 border border-purple-500/30",
+			FD: "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30",
+			MIXED: "bg-muted text-muted-foreground",
 		};
-		return colors[universe] || "bg-muted";
+		return colors[universe] || "bg-muted text-muted-foreground";
 	};
 
 	const getUniverseLabel = (value: string) =>
@@ -387,15 +384,16 @@ export default function AgentResearchLists() {
 											</TableCell>
 											<TableCell>
 												<Badge
-													className={`${getUniverseColor(list.universeType)} text-foreground`}
+													variant="outline"
+													className={`${getUniverseColor(list.universeType)} font-medium text-xs`}
 												>
 													{getUniverseLabel(list.universeType)}
 												</Badge>
 											</TableCell>
 											<TableCell className="text-center">
-												<span className="text-muted-foreground">
-													{list.itemCount}
-												</span>
+												<Badge variant="secondary" className="font-semibold text-xs px-2 py-0.5">
+													{Number(list.itemCount || list.cachedMetrics?.itemCount || 0)}
+												</Badge>
 											</TableCell>
 											<TableCell>
 												<Badge

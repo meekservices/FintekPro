@@ -223,7 +223,7 @@ router.get("/", async (req, res) => {
 				createdAt: researchLists.createdAt,
 				updatedAt: researchLists.updatedAt,
 				itemCount:
-					sql<number>`(SELECT COUNT(*) FROM research_list_items WHERE research_list_id = ${researchLists.id})`.as(
+					sql<number>`COALESCE((SELECT COUNT(*)::int FROM research_list_items WHERE research_list_items.research_list_id = research_lists.id), 0)`.mapWith(Number).as(
 						"item_count",
 					),
 			})
@@ -285,10 +285,130 @@ router.get("/:id", async (req, res, next) => {
 			.where(eq(researchListItems.researchListId, id))
 			.orderBy(desc(researchListItems.addedAt));
 
+		// Enrich missing sectors on the fly
+		for (const item of items) {
+			const sm = (item.snapshotMetrics as Record<string, any>) || {};
+			if (!sm.sector || sm.sector === "—") {
+				if (item.instrumentSymbol) {
+					try {
+						const [stock] = await db
+							.select({ sector: listedStocks.sector, industry: listedStocks.industry, marketCap: listedStocks.marketCap })
+							.from(listedStocks)
+							.where(eq(listedStocks.symbol, item.instrumentSymbol))
+							.limit(1);
+						if (stock?.sector) {
+							sm.sector = stock.sector;
+							sm.industry = stock.industry || sm.industry;
+							sm.marketCap = sm.marketCap || stock.marketCap;
+							item.snapshotMetrics = sm;
+						} else {
+							const [im] = await db
+								.select({ sector: instrumentMaster.sector, category: instrumentMaster.category })
+								.from(instrumentMaster)
+								.where(eq(instrumentMaster.symbol, item.instrumentSymbol))
+								.limit(1);
+							if (im?.sector) {
+								sm.sector = im.sector;
+								sm.category = im.category || sm.category;
+								item.snapshotMetrics = sm;
+							}
+						}
+					} catch {
+						// Non-critical fallback
+					}
+				}
+			}
+		}
+
 		res.json({ success: true, list, items });
 	} catch (error) {
 		logger.error("[ResearchLists] Error fetching list", { error: String(error) });
 		res.status(500).json({ error: "Failed to fetch research list" });
+	}
+});
+
+// POST /api/research-lists/:id/refresh-quotes - Live quotes and metrics refresh
+router.post("/:id/refresh-quotes", async (req, res) => {
+	try {
+		const agent = getAgentFromSession(req);
+		if (!agent) {
+			return res.status(401).json({ error: "Unauthorized" });
+		}
+		const { id } = req.params;
+		const [list] = await db.select().from(researchLists).where(eq(researchLists.id, id));
+		if (!list) return res.status(404).json({ error: "Research list not found" });
+
+		const items = await db.select().from(researchListItems).where(eq(researchListItems.researchListId, id));
+
+		for (const it of items) {
+			const sm = (it.snapshotMetrics as Record<string, any>) || {};
+			let updated = false;
+
+			if (it.instrumentSymbol || it.instrumentIsin) {
+				if (list.universeType.toUpperCase().includes("STOCK")) {
+					const [stock] = await db
+						.select()
+						.from(listedStocks)
+						.where(
+							or(
+								it.instrumentSymbol ? eq(listedStocks.symbol, it.instrumentSymbol) : undefined,
+								it.instrumentIsin ? eq(listedStocks.isin, it.instrumentIsin) : undefined,
+							),
+						)
+						.limit(1);
+
+					if (stock) {
+						if (stock.currentPrice) sm.currentPrice = Number(stock.currentPrice);
+						if (stock.dayChange) sm.dayChange = Number(stock.dayChange);
+						if (stock.dayChangePercent) sm.dayChangePercent = Number(stock.dayChangePercent);
+						if (stock.weekHigh52) sm.weekHigh52 = Number(stock.weekHigh52);
+						if (stock.weekLow52) sm.weekLow52 = Number(stock.weekLow52);
+						if (stock.sector) sm.sector = stock.sector;
+						if (stock.industry) sm.industry = stock.industry;
+						if (stock.marketCap) sm.marketCap = stock.marketCap;
+						updated = true;
+					}
+				}
+
+				if (!sm.sector || sm.sector === "—") {
+					const [im] = await db
+						.select()
+						.from(instrumentMaster)
+						.where(
+							or(
+								it.instrumentSymbol ? eq(instrumentMaster.symbol, it.instrumentSymbol) : undefined,
+								it.instrumentIsin ? eq(instrumentMaster.isin, it.instrumentIsin) : undefined,
+							),
+						)
+						.limit(1);
+					if (im) {
+						if (im.sector) sm.sector = im.sector;
+						if (im.lastPrice) sm.currentPrice = Number(im.lastPrice);
+						updated = true;
+					}
+				}
+			}
+
+			if (updated) {
+				await db
+					.update(researchListItems)
+					.set({ snapshotMetrics: sm, updatedAt: new Date() })
+					.where(eq(researchListItems.id, it.id));
+			}
+		}
+
+		await updateListCachedMetrics(id);
+
+		const updatedItems = await db
+			.select()
+			.from(researchListItems)
+			.where(eq(researchListItems.researchListId, id))
+			.orderBy(desc(researchListItems.addedAt));
+
+		res.json({ success: true, message: "Market quotes refreshed successfully", items: updatedItems });
+	} catch (error) {
+		logger.error("[ResearchLists] Error refreshing quotes", { error: String(error) });
+		res.status(500).json({ error: "Failed to refresh market quotes" });
 	}
 });
 

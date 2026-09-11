@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
 	Table,
@@ -33,7 +34,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -43,7 +44,6 @@ import {
 	Plus,
 	Search,
 	Trash2,
-	Download,
 	FileText,
 	TrendingUp,
 	Shield as LucideShield,
@@ -58,7 +58,8 @@ import {
 	Copy,
 	Check,
 	Info,
-	CheckCircle,
+	RefreshCw,
+	Pencil,
 } from "lucide-react";
 import {
 	PieChart,
@@ -72,7 +73,6 @@ import {
 	Tooltip,
 	AreaChart,
 	Area,
-	Legend,
 } from "recharts";
 
 interface ResearchListItem {
@@ -126,6 +126,19 @@ function formatNumber(val: any, decimals = 2): string {
 	return Number(val).toFixed(decimals);
 }
 
+function getUniverseBadgeClass(universe: string): string {
+	const u = universe?.toUpperCase() || "";
+	if (u.includes("STOCK") || u.includes("EQUITY"))
+		return "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+	if (u.includes("MF") || u.includes("MUTUAL"))
+		return "bg-blue-500/20 text-blue-400 border border-blue-500/30";
+	if (u.includes("ETF"))
+		return "bg-purple-500/20 text-purple-400 border border-purple-500/30";
+	if (u.includes("BOND"))
+		return "bg-amber-500/20 text-amber-400 border border-amber-500/30";
+	return "bg-muted text-muted-foreground";
+}
+
 export default function AgentResearchListDetail() {
 	const { id } = useParams<{ id: string }>();
 	const { toast } = useToast();
@@ -137,6 +150,11 @@ export default function AgentResearchListDetail() {
 	const [isProposalDialogOpen, setIsProposalDialogOpen] = useState(false);
 	const [isAiMemoDialogOpen, setIsAiMemoDialogOpen] = useState(false);
 	const [isCopiedMemo, setIsCopiedMemo] = useState(false);
+	const [editingNoteItem, setEditingNoteItem] = useState<{
+		id: string;
+		name: string;
+		notes: string;
+	} | null>(null);
 
 	// Table & Search states
 	const [searchQuery, setSearchQuery] = useState("");
@@ -178,9 +196,11 @@ export default function AgentResearchListDetail() {
 	const list = data?.list;
 	const items = data?.items || [];
 	const universe = list?.universeType || "MF";
+	const isStockUniverse =
+		universe === "STOCK" || universe === "STOCKS" || universe === "EQUITY";
 
 	// Fetch X-Ray Analytics
-	const { data: analyticsData, isLoading: isAnalyticsLoading } = useQuery<{
+	const { data: analyticsData } = useQuery<{
 		success: boolean;
 		analytics: any;
 	}>({
@@ -226,7 +246,7 @@ export default function AgentResearchListDetail() {
 				instrument.id || instrument.symbol || instrument.isin || "",
 			);
 			const instType =
-				instrument.type || (universe === "STOCK" ? "stock" : "mutual_fund");
+				instrument.type || (isStockUniverse ? "stock" : "mutual_fund");
 			return apiRequest(`/api/research-lists/${id}/items`, {
 				method: "POST",
 				body: JSON.stringify({
@@ -258,7 +278,12 @@ export default function AgentResearchListDetail() {
 							? Number(instrument.currentPrice)
 							: undefined,
 						marketCap: instrument.marketCap,
-						sector: instrument.sector,
+						sector:
+							instrument.sector ||
+							instrument.industry ||
+							instrument.category ||
+							(isStockUniverse ? "Equity" : "Diversified"),
+						industry: instrument.industry || instrument.category,
 						dayChangePercent: instrument.dayChangePercent,
 						dayChange: instrument.dayChange,
 						weekHigh52: instrument.weekHigh52,
@@ -304,6 +329,67 @@ export default function AgentResearchListDetail() {
 			toast({
 				title: "Error",
 				description: error?.message || "Failed to remove instrument",
+				variant: "destructive",
+			});
+		},
+	});
+
+	// Single Item Update (Rating, Notes, Target Weight)
+	const updateItemMutation = useMutation({
+		mutationFn: async ({
+			itemId,
+			rating,
+			notes,
+			targetWeight,
+		}: {
+			itemId: string;
+			rating?: number;
+			notes?: string;
+			targetWeight?: number;
+		}) => {
+			return apiRequest(`/api/research-lists/${id}/items/${itemId}`, {
+				method: "PUT",
+				body: JSON.stringify({ rating, notes, targetWeight }),
+			});
+		},
+		onSuccess: () => {
+			toast({ title: "Updated", description: "Instrument details saved" });
+			queryClient.invalidateQueries({ queryKey: ["/api/research-lists", id] });
+			queryClient.invalidateQueries({
+				queryKey: ["/api/research-lists", id, "analytics"],
+			});
+			setEditingNoteItem(null);
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Error",
+				description: err?.message || "Failed to update item",
+				variant: "destructive",
+			});
+		},
+	});
+
+	// Refresh Quotes
+	const refreshQuotesMutation = useMutation({
+		mutationFn: async () => {
+			return apiRequest(`/api/research-lists/${id}/refresh-quotes`, {
+				method: "POST",
+			});
+		},
+		onSuccess: () => {
+			toast({
+				title: "Quotes Refreshed",
+				description: "Latest market prices and day changes updated",
+			});
+			queryClient.invalidateQueries({ queryKey: ["/api/research-lists", id] });
+			queryClient.invalidateQueries({
+				queryKey: ["/api/research-lists", id, "analytics"],
+			});
+		},
+		onError: (err: any) => {
+			toast({
+				title: "Error",
+				description: err?.message || "Failed to refresh quotes",
 				variant: "destructive",
 			});
 		},
@@ -507,7 +593,10 @@ export default function AgentResearchListDetail() {
 							<h1 className="text-2xl font-bold text-foreground">
 								{list.name}
 							</h1>
-							<Badge className="bg-blue-500 text-white">
+							<Badge
+								variant="outline"
+								className={`${getUniverseBadgeClass(list.universeType)} font-medium text-xs`}
+							>
 								{list.universeType}
 							</Badge>
 							<Badge
@@ -527,17 +616,36 @@ export default function AgentResearchListDetail() {
 				<div className="flex items-center gap-2 flex-wrap">
 					<Button
 						variant="outline"
-						className="gap-2 border-border bg-card/60 hover:bg-muted"
+						size="sm"
+						className="gap-1.5 border-border bg-card/60 hover:bg-muted text-xs h-9"
+						disabled={refreshQuotesMutation.isPending || items.length === 0}
+						onClick={() => refreshQuotesMutation.mutate()}
+					>
+						<RefreshCw
+							className={`h-3.5 w-3.5 ${
+								refreshQuotesMutation.isPending
+									? "animate-spin text-primary"
+									: "text-muted-foreground"
+							}`}
+						/>
+						{refreshQuotesMutation.isPending ? "Refreshing..." : "Refresh Quotes"}
+					</Button>
+
+					<Button
+						variant="outline"
+						size="sm"
+						className="gap-2 border-border bg-card/60 hover:bg-muted text-xs h-9"
 						disabled={generateMemoMutation.isPending || items.length === 0}
 						onClick={() => generateMemoMutation.mutate()}
 					>
-						<Sparkles className="h-4 w-4 text-purple-400" />
+						<Sparkles className="h-3.5 w-3.5 text-purple-400" />
 						{generateMemoMutation.isPending ? "Analyzing..." : "AI Research Memo"}
 					</Button>
 
 					<Button
 						variant="outline"
-						className="gap-2 border-border bg-card/60 hover:bg-muted"
+						size="sm"
+						className="gap-2 border-border bg-card/60 hover:bg-muted text-xs h-9"
 						disabled={items.length === 0}
 						onClick={() => {
 							setPortfolioForm({
@@ -546,19 +654,19 @@ export default function AgentResearchListDetail() {
 									analytics?.compositeRiskTier?.toLowerCase() || "moderate",
 								minInvestment: 10000,
 								timeHorizon: "3-5 years",
-								benchmarkName:
-									list.universeType === "MF" ? "NIFTY 50 TRI" : "NIFTY 50",
+								benchmarkName: isStockUniverse ? "NIFTY 50" : "NIFTY 50 TRI",
 							});
 							setIsModelPortfolioDialogOpen(true);
 						}}
 					>
-						<Briefcase className="h-4 w-4 text-blue-400" />
+						<Briefcase className="h-3.5 w-3.5 text-blue-400" />
 						Convert to Portfolio
 					</Button>
 
 					<Button
 						variant="outline"
-						className="gap-2 border-border bg-card/60 hover:bg-muted"
+						size="sm"
+						className="gap-2 border-border bg-card/60 hover:bg-muted text-xs h-9"
 						disabled={items.length === 0}
 						onClick={() => {
 							setProposalForm({
@@ -570,22 +678,25 @@ export default function AgentResearchListDetail() {
 							setIsProposalDialogOpen(true);
 						}}
 					>
-						<FilePlus2 className="h-4 w-4 text-emerald-400" />
+						<FilePlus2 className="h-3.5 w-3.5 text-emerald-400" />
 						Create Proposal
 					</Button>
 				</div>
 			</div>
 
-			{/* KPI Cards */}
+			{/* Adaptive KPI Cards (Tailored for Stocks vs Mutual Funds) */}
 			<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
 				<Card className="bg-card/50 border-border">
 					<CardContent className="pt-6">
 						<div className="text-2xl font-bold text-foreground">
 							{items.length}
 						</div>
-						<p className="text-sm text-muted-foreground">Total Instruments</p>
+						<p className="text-sm text-muted-foreground">
+							{isStockUniverse ? "Total Stocks" : "Total Instruments"}
+						</p>
 					</CardContent>
 				</Card>
+
 				<Card className="bg-card/50 border-border">
 					<CardContent className="pt-6">
 						<div className="text-2xl font-bold text-green-400">
@@ -594,20 +705,39 @@ export default function AgentResearchListDetail() {
 						<p className="text-sm text-muted-foreground">Avg 3Y Return</p>
 					</CardContent>
 				</Card>
+
 				<Card className="bg-card/50 border-border">
 					<CardContent className="pt-6">
-						<div className="text-2xl font-bold text-amber-400">
-							{formatNumber(list.cachedMetrics?.avgExpenseRatio, 2)}%
-						</div>
-						<p className="text-sm text-muted-foreground">Avg Expense Ratio</p>
+						{isStockUniverse ? (
+							<>
+								<div
+									className={`text-2xl font-bold ${
+										Math.abs(totalWeight - 100) < 0.5
+											? "text-emerald-400"
+											: "text-amber-400"
+									}`}
+								>
+									{totalWeight.toFixed(1)}%
+								</div>
+								<p className="text-sm text-muted-foreground">Target Allocated</p>
+							</>
+						) : (
+							<>
+								<div className="text-2xl font-bold text-amber-400">
+									{formatNumber(list.cachedMetrics?.avgExpenseRatio, 2)}%
+								</div>
+								<p className="text-sm text-muted-foreground">Avg Expense Ratio</p>
+							</>
+						)}
 					</CardContent>
 				</Card>
+
 				<Card className="bg-card/50 border-border">
 					<CardContent className="pt-6">
 						<div className="text-2xl font-bold text-blue-400">
-							{formatNumber(list.cachedMetrics?.avgRating, 1)}
+							{formatNumber(list.cachedMetrics?.avgRating, 1)} / 5
 						</div>
-						<p className="text-sm text-muted-foreground">Avg Rating</p>
+						<p className="text-sm text-muted-foreground">Avg Advisor Rating</p>
 					</CardContent>
 				</Card>
 			</div>
@@ -694,7 +824,7 @@ export default function AgentResearchListDetail() {
 							<div className="relative">
 								<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 								<Input
-									placeholder="Filter list or search catalog..."
+									placeholder="Filter list (e.g. name, symbol)..."
 									value={searchQuery}
 									onChange={(e) => setSearchQuery(e.target.value)}
 									onKeyDown={(e) => {
@@ -706,7 +836,7 @@ export default function AgentResearchListDetail() {
 											openAddDialog(searchQuery.trim());
 										}
 									}}
-									className="pl-10 w-[220px] bg-background border-border"
+									className="pl-10 w-[280px] bg-background border-border"
 								/>
 							</div>
 							{list.isEditable && (
@@ -1014,7 +1144,7 @@ export default function AgentResearchListDetail() {
 									</p>
 									<p className="text-sm text-muted-foreground mt-1">
 										Start building your research list by adding{" "}
-										{list.universeType === "MF" ? "mutual funds" : "stocks"}.
+										{isStockUniverse ? "stocks" : "mutual funds"}.
 									</p>
 									{list.isEditable && (
 										<Button
@@ -1095,7 +1225,7 @@ export default function AgentResearchListDetail() {
 													Expense Ratio
 												</TableHead>
 												<TableHead className="text-muted-foreground">
-													Notes
+													Advisor Notes
 												</TableHead>
 											</>
 										)}
@@ -1254,22 +1384,63 @@ export default function AgentResearchListDetail() {
 														<TableCell className="text-right text-muted-foreground font-medium">
 															{formatNumber(metrics.expenseRatio, 2)}%
 														</TableCell>
-														<TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">
-															{item.notes || "—"}
+														<TableCell className="text-xs text-muted-foreground max-w-[180px]">
+															<button
+																type="button"
+																onClick={() =>
+																	setEditingNoteItem({
+																		id: item.id,
+																		name:
+																			item.instrumentName ||
+																			item.instrumentSymbol ||
+																			"Instrument",
+																		notes: item.notes || "",
+																	})
+																}
+																className="flex items-center gap-1.5 hover:text-foreground text-left group w-full"
+															>
+																<span className="truncate">
+																	{item.notes || (
+																		<span className="italic text-muted-foreground/50">
+																			Add notes...
+																		</span>
+																	)}
+																</span>
+																<Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100 text-primary shrink-0" />
+															</button>
 														</TableCell>
 													</>
 												)}
+												{/* Interactive In-Line Star Rating */}
 												<TableCell className="text-center">
-													<div className="flex items-center justify-center gap-0.5">
+													<div
+														className="flex items-center justify-center gap-0.5 cursor-pointer"
+														title="Click star to update rating"
+													>
 														{[1, 2, 3, 4, 5].map((star) => (
-															<Star
+															<button
+																type="button"
 																key={star}
-																className={`h-3 w-3 ${
-																	star <= (item.rating || 0)
-																		? "text-amber-400 fill-amber-400"
-																		: "text-muted-foreground/40"
-																}`}
-															/>
+																disabled={
+																	!list.isEditable ||
+																	updateItemMutation.isPending
+																}
+																onClick={() =>
+																	updateItemMutation.mutate({
+																		itemId: item.id,
+																		rating: star,
+																	})
+																}
+																className="p-0.5 hover:scale-125 transition-transform"
+															>
+																<Star
+																	className={`h-3.5 w-3.5 ${
+																		star <= (item.rating || 0)
+																			? "text-amber-400 fill-amber-400"
+																			: "text-muted-foreground/30 hover:text-amber-300"
+																	}`}
+																/>
+															</button>
 														))}
 													</div>
 												</TableCell>
@@ -1299,6 +1470,52 @@ export default function AgentResearchListDetail() {
 				</CardContent>
 			</Card>
 
+			{/* Modal: Edit Notes Dialog */}
+			<Dialog
+				open={!!editingNoteItem}
+				onOpenChange={(open) => !open && setEditingNoteItem(null)}
+			>
+				<DialogContent className="sm:max-w-[450px]">
+					<DialogHeader>
+						<DialogTitle>Advisor Rationale</DialogTitle>
+						<DialogDescription>
+							Investment thesis & notes for {editingNoteItem?.name}
+						</DialogDescription>
+					</DialogHeader>
+					<div className="py-3">
+						<Textarea
+							rows={4}
+							placeholder="e.g. Robust balance sheet, strong ROCE expansion, attractive entry valuation..."
+							value={editingNoteItem?.notes || ""}
+							onChange={(e) =>
+								setEditingNoteItem((prev) =>
+									prev ? { ...prev, notes: e.target.value } : null,
+								)
+							}
+							className="text-sm"
+						/>
+					</div>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setEditingNoteItem(null)}>
+							Cancel
+						</Button>
+						<Button
+							disabled={updateItemMutation.isPending}
+							onClick={() => {
+								if (editingNoteItem) {
+									updateItemMutation.mutate({
+										itemId: editingNoteItem.id,
+										notes: editingNoteItem.notes,
+									});
+								}
+							}}
+						>
+							{updateItemMutation.isPending ? "Saving..." : "Save Note"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
 			{/* Modal: Add Instrument Dialog */}
 			<Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
 				<DialogContent className="sm:max-w-[650px]">
@@ -1306,7 +1523,7 @@ export default function AgentResearchListDetail() {
 						<DialogTitle>Add Instrument to {list.name}</DialogTitle>
 						<DialogDescription>
 							Search and add{" "}
-							{list.universeType === "MF" ? "mutual funds" : "stocks"} to your
+							{isStockUniverse ? "stocks" : "mutual funds"} to your
 							research list.
 						</DialogDescription>
 					</DialogHeader>
@@ -1315,9 +1532,9 @@ export default function AgentResearchListDetail() {
 							<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 							<Input
 								placeholder={`Search ${
-									list.universeType === "MF"
-										? "mutual funds by name or AMC"
-										: "stocks by name or symbol (e.g. PERSISTENT, RELIANCE)"
+									isStockUniverse
+										? "stocks by name or symbol (e.g. PERSISTENT, RELIANCE)"
+										: "mutual funds by name or AMC"
 								}...`}
 								value={instrumentSearch}
 								onChange={(e) => setInstrumentSearch(e.target.value)}
@@ -1330,7 +1547,7 @@ export default function AgentResearchListDetail() {
 							<div className="text-center py-6 text-muted-foreground flex items-center justify-center gap-2">
 								<div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
 								Searching{" "}
-								{list.universeType === "MF" ? "mutual funds" : "stocks"}...
+								{isStockUniverse ? "stocks" : "mutual funds"}...
 							</div>
 						)}
 
@@ -1433,7 +1650,7 @@ export default function AgentResearchListDetail() {
 							instrumentSearch.trim().length >= 2 &&
 							searchResults?.instruments?.length === 0 && (
 								<div className="text-center py-6 text-muted-foreground">
-									No {list.universeType === "MF" ? "mutual funds" : "stocks"}{" "}
+									No {isStockUniverse ? "stocks" : "mutual funds"}{" "}
 									found matching "{instrumentSearch}"
 								</div>
 							)}
