@@ -25,6 +25,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getRegulatoryStageConfig } from "@shared/regulatory-stage";
 import type {
 	UnlistedCompany,
 	CompanyRatios,
@@ -391,17 +392,22 @@ function CompanyCard({ company, isInWatchlist }: CompanyCardProps) {
 						</div>
 					)}
 
-					{/* Listing Stage */}
-					{company.listingStage && (
-						<div className="pt-2">
-							<Badge
-								variant="outline"
-								className="w-full justify-center capitalize"
-							>
-								{company.listingStage.replace("_", " ")}
-							</Badge>
-						</div>
-					)}
+					{/* Regulatory Stage */}
+					{(() => {
+						const stageCfg = getRegulatoryStageConfig(company.listingStage, "unlisted", company.name);
+						return (
+							<div className="pt-2">
+								<Badge
+									variant="outline"
+									className={`w-full justify-center text-xs font-semibold border ${stageCfg.badgeBg} ${stageCfg.badgeText} ${stageCfg.badgeBorder}`}
+									title={`${stageCfg.label} — ${stageCfg.actOrRegulation}`}
+								>
+									<span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${stageCfg.dotColor}`} />
+									{stageCfg.badgeLabel}
+								</Badge>
+							</div>
+						);
+					})()}
 
 					{/* Actions */}
 					<div className="flex gap-2 pt-2">

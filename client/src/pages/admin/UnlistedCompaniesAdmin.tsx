@@ -529,10 +529,11 @@ function CompanyListView({
 				queryKey: ["/api/unlisted/admin/companies"],
 			});
 			const stageLabels: Record<string, string> = {
-				unlisted: "Unlisted",
-				pre_ipo: "Pre-IPO",
-				growth: "Growth",
-				mature: "Mature",
+				unlisted: "Unlisted Equity (MCA)",
+				pre_ipo: "Pre-IPO (SEBI ICDR)",
+				ipo: "Live IPO (Public Issue)",
+				privately_listed: "Privately Listed (Institutional)",
+				listed: "NSE / BSE Listed",
 			};
 			toast({
 				title: "Stage updated",
@@ -715,12 +716,12 @@ function CompanyListView({
 								<SelectValue placeholder="Stage" />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value="all">All Stages</SelectItem>
-								<SelectItem value="pre_ipo">Pre-IPO</SelectItem>
-								<SelectItem value="growth">Growth</SelectItem>
-								<SelectItem value="mature">Mature</SelectItem>
-								<SelectItem value="unlisted">Unlisted</SelectItem>
-								<SelectItem value="listed">Listed</SelectItem>
+								<SelectItem value="all">All Regulatory Stages</SelectItem>
+								<SelectItem value="unlisted">Unlisted Equity (MCA)</SelectItem>
+								<SelectItem value="pre_ipo">Pre-IPO (SEBI ICDR)</SelectItem>
+								<SelectItem value="ipo">Live IPO (Public Issue)</SelectItem>
+								<SelectItem value="privately_listed">Privately Listed (Institutional)</SelectItem>
+								<SelectItem value="listed">NSE / BSE Listed</SelectItem>
 							</SelectContent>
 						</Select>
 						<Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -1074,16 +1075,18 @@ function CompanyListView({
 													disabled={updatingStageId === company.id}
 												>
 													<SelectTrigger
-														className={`w-28 h-8 text-xs border-0 ${
+														className={`w-36 h-8 text-xs border-0 ${
 															updatingStageId === company.id
 																? "opacity-50"
 																: company.listingStage === "pre_ipo"
-																	? "bg-blue-600/20 text-blue-400"
-																	: company.listingStage === "growth"
-																		? "bg-purple-600/20 text-purple-400"
-																		: company.listingStage === "mature"
-																			? "bg-cyan-600/20 text-cyan-400"
-																			: "bg-muted/20 text-muted-foreground"
+																	? "bg-purple-600/20 text-purple-400 font-semibold"
+																	: company.listingStage === "ipo"
+																		? "bg-emerald-600/20 text-emerald-400 font-semibold"
+																		: company.listingStage === "privately_listed"
+																			? "bg-indigo-600/20 text-indigo-400 font-semibold"
+																			: company.listingStage === "listed"
+																				? "bg-blue-600/20 text-blue-400 font-semibold"
+																				: "bg-muted/20 text-muted-foreground"
 														}`}
 														data-testid={`select-stage-${company.id}`}
 													>
@@ -1098,25 +1101,31 @@ function CompanyListView({
 															value="unlisted"
 															className="text-muted-foreground"
 														>
-															Unlisted
+															Unlisted Equity (MCA)
 														</SelectItem>
 														<SelectItem
 															value="pre_ipo"
-															className="text-blue-400"
+															className="text-purple-400 font-medium"
 														>
-															Pre-IPO
+															Pre-IPO (SEBI ICDR)
 														</SelectItem>
 														<SelectItem
-															value="growth"
-															className="text-purple-400"
+															value="ipo"
+															className="text-emerald-400 font-medium"
 														>
-															Growth
+															Live IPO (Public Issue)
 														</SelectItem>
 														<SelectItem
-															value="mature"
-															className="text-cyan-400"
+															value="privately_listed"
+															className="text-indigo-400 font-medium"
 														>
-															Mature
+															Privately Listed (Institutional)
+														</SelectItem>
+														<SelectItem
+															value="listed"
+															className="text-blue-400 font-medium"
+														>
+															NSE / BSE Listed
 														</SelectItem>
 													</SelectContent>
 												</Select>

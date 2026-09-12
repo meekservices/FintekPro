@@ -124,6 +124,14 @@ import {
 } from "recharts";
 
 import type { ComponentType } from "react";
+import {
+	getRegulatoryStageConfig,
+	normalizeRegulatoryStage,
+	REGULATORY_STAGES,
+	REGULATORY_LIFECYCLE_STEPS,
+	type RegulatoryStage,
+	type RegulatoryStageConfig,
+} from "@shared/regulatory-stage";
 
 // ── Domain types ─────────────────────────────────────────────────────────────
 
@@ -362,6 +370,15 @@ export const isUnlistedOrPreIpo = (p: DailyPick) =>
 	p.category === "unlisted" ||
 	p.category === "pre_ipo" ||
 	isPreIpoPick(p);
+
+/**
+ * Resolves the authoritative regulatory stage configuration for a given pick
+ * strictly according to SEBI & MCA demarcation rules.
+ */
+export const getPickRegulatoryStageInfo = (p: DailyPick): RegulatoryStageConfig => {
+	const kmStage = (p.keyMetrics as any)?.listingStage || (p.keyMetrics as any)?.ipoStatus;
+	return getRegulatoryStageConfig(kmStage, p.category, p.instrumentName);
+};
 
 
 type StatusEntry = {
@@ -4718,8 +4735,8 @@ export default function AgentPicksPage() {
 											if (preIpoPicks.length === 0) return null;
 											const avgGmp = preIpoPicks.reduce((sum, p) => sum + (Number((p.keyMetrics as any)?.gmpPercentage) || 0), 0) / (preIpoPicks.length || 1);
 											const stageCounts = preIpoPicks.reduce((acc, p) => {
-												const s = (p.keyMetrics as any)?.listingStage ?? "unlisted";
-												acc[s] = (acc[s] || 0) + 1;
+												const info = getPickRegulatoryStageInfo(p);
+												acc[info.key] = (acc[info.key] || 0) + 1;
 												return acc;
 											}, {} as Record<string, number>);
 											return (
@@ -4743,11 +4760,18 @@ export default function AgentPicksPage() {
 													</div>
 													{Object.keys(stageCounts).length > 0 && (
 														<div className="flex flex-wrap gap-2 mb-3">
-															{Object.entries(stageCounts).map(([stage, count]) => (
-																<span key={stage} className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 font-medium capitalize">
-																	{stage.replace(/_/g, " ")}: {count}
-																</span>
-															))}
+															{Object.entries(stageCounts).map(([stageKey, count]) => {
+																const config = REGULATORY_STAGES[stageKey as RegulatoryStage] || getRegulatoryStageConfig(stageKey);
+																return (
+																	<span
+																		key={stageKey}
+																		className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold border flex items-center gap-1 shadow-sm ${config.badgeBg} ${config.badgeText} ${config.badgeBorder}`}
+																	>
+																		<span className={`w-1.5 h-1.5 rounded-full ${config.dotColor}`} />
+																		{config.badgeLabel}: {count}
+																	</span>
+																);
+															})}
 														</div>
 													)}
 													<div className="flex items-start gap-1.5 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800">
@@ -6709,7 +6733,9 @@ function PicksTable({
 									? ((_cur - _rec) / _rec) * 100
 									: null;
 						const isPreIpo = isPreIpoPick(pick);
-						const catLabel = isPreIpo ? "Pre-IPO" : (categoryLabels[pick.category] || pick.category);
+						const isUnlisted = pick.category === "unlisted" || isPreIpo;
+						const stageInfo = isUnlisted ? getPickRegulatoryStageInfo(pick) : null;
+						const catLabel = stageInfo ? stageInfo.badgeLabel : (categoryLabels[pick.category] || pick.category);
 						const horizon = pick.timeHorizon
 							? horizonConfig[pick.timeHorizon]
 							: null;
@@ -6735,9 +6761,29 @@ function PicksTable({
 									)}
 								</td>
 								<td className="px-3 py-2.5 whitespace-nowrap">
-									<Badge variant="outline" className="text-[10px] px-1.5 py-0">
-										{catLabel}
-									</Badge>
+									{stageInfo ? (
+										<TooltipProvider>
+											<Tooltip>
+												<TooltipTrigger asChild>
+													<span
+														className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border cursor-help ${stageInfo.badgeBg} ${stageInfo.badgeText} ${stageInfo.badgeBorder}`}
+													>
+														<span className={`w-1.5 h-1.5 rounded-full ${stageInfo.dotColor}`} />
+														{stageInfo.badgeLabel}
+													</span>
+												</TooltipTrigger>
+												<TooltipContent className="text-xs max-w-[240px]">
+													<p className="font-semibold">{stageInfo.label}</p>
+													<p className="text-[11px] text-muted-foreground mt-0.5">{stageInfo.actOrRegulation}</p>
+													<p className="text-[10px] text-muted-foreground mt-1">{stageInfo.description}</p>
+												</TooltipContent>
+											</Tooltip>
+										</TooltipProvider>
+									) : (
+										<Badge variant="outline" className="text-[10px] px-1.5 py-0">
+											{catLabel}
+										</Badge>
+									)}
 								</td>
 								<td className="px-3 py-2.5 whitespace-nowrap">
 									<span
@@ -6977,11 +7023,29 @@ function PickCard({
 											CIN: {pick.keyMetrics.cin}
 										</span>
 									)}
-									{isPreIpo && (
-										<span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 font-medium">
-											Pre-IPO
-										</span>
-									)}
+									{/* Regulatory Stage Badge for Unlisted / Pre-IPO / Privately Listed */}
+									{isUnlistedOrPreIpo(pick) && (() => {
+										const stageInfo = getPickRegulatoryStageInfo(pick);
+										return (
+											<TooltipProvider>
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<span
+															className={`text-xs px-2 py-0.5 rounded-full font-semibold border inline-flex items-center gap-1 cursor-help ${stageInfo.badgeBg} ${stageInfo.badgeText} ${stageInfo.badgeBorder}`}
+														>
+															<span className={`w-1.5 h-1.5 rounded-full ${stageInfo.dotColor}`} />
+															{stageInfo.badgeLabel}
+														</span>
+													</TooltipTrigger>
+													<TooltipContent className="text-xs max-w-[260px]">
+														<p className="font-semibold">{stageInfo.label}</p>
+														<p className="text-[11px] text-muted-foreground mt-0.5">{stageInfo.actOrRegulation}</p>
+														<p className="text-[10px] text-muted-foreground mt-1">{stageInfo.description}</p>
+													</TooltipContent>
+												</Tooltip>
+											</TooltipProvider>
+										);
+									})()}
 									{/* Pre-IPO: GMP badge */}
 									{isPreIpo && (pick.keyMetrics as any)?.gmpPercentage != null && (
 										<TooltipProvider>
@@ -7035,47 +7099,91 @@ function PickCard({
 											</TooltipProvider>
 										);
 									})()}
-									{/* Pre-IPO: Listing Stage Stepper */}
-									{isPreIpo && (() => {
-										const stage = (pick.keyMetrics as any)?.listingStage ?? "unlisted";
-										const stages: { key: string; label: string }[] = [
-											{ key: "unlisted", label: "Unlisted" },
-											{ key: "drhp_filed", label: "DRHP" },
-											{ key: "sebi_approved", label: "SEBI ✓" },
-											{ key: "ipo_announced", label: "IPO Open" },
-											{ key: "listed", label: "Listed" },
-										];
-										const currentIdx = stages.findIndex((s) => s.key === stage);
+									{/* Regulatory Stage Continuum Stepper for Unlisted & Pre-IPO picks */}
+									{isUnlistedOrPreIpo(pick) && (() => {
+										const stageInfo = getPickRegulatoryStageInfo(pick);
+										if (stageInfo.key === "privately_listed") {
+											return (
+												<div className="mt-2.5 px-2.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-[11px] flex items-center justify-between text-indigo-900 dark:text-indigo-200 w-full">
+													<span className="font-semibold flex items-center gap-1">
+														<Building2 className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+														Privately Listed Trust
+													</span>
+													<span className="text-[10px] text-indigo-700/80 dark:text-indigo-300/80 font-medium">
+														SEBI Institutional Segment · Min ₹25L
+													</span>
+												</div>
+											);
+										}
+
+										const currentStepIndex = stageInfo.stepIndex; // 0=Unlisted, 1=Pre-IPO, 2=IPO, 3=Listed
 										return (
-											<div className="mt-2 flex items-center gap-0 w-full">
-												{stages.map((s, i) => (
-													<div key={s.key} className="flex items-center flex-1 min-w-0">
-														<TooltipProvider>
-															<Tooltip>
-																<TooltipTrigger asChild>
-																	<div className="flex flex-col items-center flex-1 cursor-help">
-																		<div className={`w-2.5 h-2.5 rounded-full border-2 ${
-																			i < currentIdx
-																				? "bg-purple-500 border-purple-500"
-																				: i === currentIdx
-																					? "bg-purple-500 border-purple-300 ring-2 ring-purple-300/40"
-																					: "bg-muted border-muted-foreground/30"
-																		}`} />
-																		<span className={`text-[9px] mt-0.5 leading-tight text-center ${
-																			i <= currentIdx ? "text-purple-700 dark:text-purple-300 font-semibold" : "text-muted-foreground/50"
-																		}`}>{s.label}</span>
-																	</div>
-																</TooltipTrigger>
-																<TooltipContent className="text-xs"><p>{s.label} stage</p></TooltipContent>
-															</Tooltip>
-														</TooltipProvider>
-														{i < stages.length - 1 && (
-															<div className={`h-px flex-1 ${
-																i < currentIdx ? "bg-purple-400" : "bg-muted-foreground/20"
-															}`} />
-														)}
-													</div>
-												))}
+											<div className="mt-2.5 pt-2 border-t border-muted/50 w-full">
+												<div className="flex items-center justify-between mb-1.5">
+													<span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+														Lifecycle Transition
+													</span>
+													<span className="text-[10px] font-semibold text-purple-700 dark:text-purple-300">
+														{stageInfo.regulator} Governed
+													</span>
+												</div>
+												<div className="flex items-center gap-0 w-full">
+													{REGULATORY_LIFECYCLE_STEPS.map((s, i) => {
+														const isCurrent = i === currentStepIndex;
+														const isPast = i < currentStepIndex;
+														return (
+															<div key={s.key} className="flex items-center flex-1 min-w-0">
+																<TooltipProvider>
+																	<Tooltip>
+																		<TooltipTrigger asChild>
+																			<div className="flex flex-col items-center flex-1 cursor-help">
+																				<div
+																					className={`w-2.5 h-2.5 rounded-full border-2 transition-all ${
+																						isPast
+																							? "bg-emerald-500 border-emerald-500"
+																							: isCurrent
+																								? "bg-purple-600 border-purple-300 ring-2 ring-purple-300/50 scale-110"
+																								: "bg-muted border-muted-foreground/30"
+																					}`}
+																				/>
+																				<span
+																					className={`text-[9px] mt-1 leading-tight text-center font-medium ${
+																						isCurrent
+																							? "text-purple-700 dark:text-purple-300 font-bold"
+																							: isPast
+																								? "text-emerald-700 dark:text-emerald-400"
+																								: "text-muted-foreground/50"
+																					}`}
+																				>
+																					{s.label}
+																				</span>
+																				<span className="text-[8px] text-muted-foreground/60 leading-none mt-0.5">
+																					{s.subtext}
+																				</span>
+																			</div>
+																		</TooltipTrigger>
+																		<TooltipContent className="text-xs">
+																			<p className="font-semibold">{s.label} Stage</p>
+																			<p className="text-[11px] text-muted-foreground">{s.subtext}</p>
+																			{isCurrent && (
+																				<p className="text-purple-600 dark:text-purple-400 font-semibold mt-1">
+																					● Current Company Stage
+																				</p>
+																			)}
+																		</TooltipContent>
+																	</Tooltip>
+																</TooltipProvider>
+																{i < REGULATORY_LIFECYCLE_STEPS.length - 1 && (
+																	<div
+																		className={`h-0.5 flex-1 mb-5 ${
+																			i < currentStepIndex ? "bg-emerald-500" : "bg-muted-foreground/20"
+																		}`}
+																	/>
+																)}
+															</div>
+														);
+													})}
+												</div>
 											</div>
 										);
 									})()}

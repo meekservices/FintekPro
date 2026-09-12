@@ -344,7 +344,7 @@ const UNLISTED_INVITS: UnlistedReitInvitData[] = [
 		name: "Anzen India Energy Yield Plus Trust",
 		sector: "Infrastructure",
 		industry: "InvIT - Energy",
-		listingStage: "unlisted",
+		listingStage: "privately_listed",
 		status: "active",
 	},
 	{
@@ -365,14 +365,14 @@ const UNLISTED_INVITS: UnlistedReitInvitData[] = [
 		name: "Citius TransNet Investment Trust",
 		sector: "Infrastructure",
 		industry: "InvIT - Roads & Highways",
-		listingStage: "unlisted",
+		listingStage: "privately_listed",
 		status: "active",
 	},
 	{
 		name: "Cube Highways Trust",
 		sector: "Infrastructure",
 		industry: "InvIT - Roads & Highways",
-		listingStage: "unlisted",
+		listingStage: "privately_listed",
 		status: "active",
 	},
 	{
@@ -400,14 +400,14 @@ const UNLISTED_INVITS: UnlistedReitInvitData[] = [
 		name: "Interise Trust",
 		sector: "Infrastructure",
 		industry: "InvIT - Mixed Infrastructure",
-		listingStage: "unlisted",
+		listingStage: "privately_listed",
 		status: "active",
 	},
 	{
 		name: "IRB Infrastructure Trust",
 		sector: "Infrastructure",
 		industry: "InvIT - Roads & Highways",
-		listingStage: "unlisted",
+		listingStage: "privately_listed",
 		status: "active",
 	},
 	{
@@ -435,7 +435,7 @@ const UNLISTED_INVITS: UnlistedReitInvitData[] = [
 		name: "Oriental InfraTrust",
 		sector: "Infrastructure",
 		industry: "InvIT - Roads & Highways",
-		listingStage: "unlisted",
+		listingStage: "privately_listed",
 		status: "active",
 	},
 	{
@@ -463,7 +463,7 @@ const UNLISTED_INVITS: UnlistedReitInvitData[] = [
 		name: "Shrem InvIT",
 		sector: "Infrastructure",
 		industry: "InvIT - Roads & Highways",
-		listingStage: "unlisted",
+		listingStage: "privately_listed",
 		status: "active",
 	},
 	{

@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { getRegulatoryStageConfig } from "@shared/regulatory-stage";
 import {
 	FileText,
 	PresentationIcon,
@@ -726,8 +727,8 @@ export default function ResearchNoteGenerator() {
 																<span className="ml-2">· {c.sector}</span>
 															)}
 															{c.listing_stage && (
-																<span className="ml-2 capitalize">
-																	· {c.listing_stage.replace(/_/g, " ")}
+																<span className="ml-2 font-medium">
+																	· {getRegulatoryStageConfig(c.listing_stage, c.type, c.company_name).badgeLabel}
 																</span>
 															)}
 														</p>
@@ -774,15 +775,19 @@ export default function ResearchNoteGenerator() {
 									className={`text-xs font-mono mt-0.5 ${isUnlistedSelected ? "text-amber-600 dark:text-amber-400" : "text-blue-600 dark:text-blue-400"}`}
 								>
 									{isUnlistedSelected
-										? `CIN: ${selectedCompany.cin || "N/A"} · Unlisted${selectedCompany.listing_stage ? ` · ${selectedCompany.listing_stage.replace(/_/g, " ")}` : ""}`
+										? `CIN: ${selectedCompany.cin || "N/A"} · ${getRegulatoryStageConfig(selectedCompany.listing_stage, "unlisted", selectedCompany.company_name).label}`
 										: `ISIN: ${selectedCompany.isin || "N/A"} · NSE: ${selectedCompany.symbol}`}
 								</p>
 							</div>
 							<Badge
 								variant="outline"
-								className={`text-[10px] shrink-0 ${isUnlistedSelected ? "text-amber-700 border-amber-300" : "text-blue-700 border-blue-300"}`}
+								className={`text-[10px] shrink-0 font-semibold ${
+									isUnlistedSelected
+										? `${getRegulatoryStageConfig(selectedCompany.listing_stage, "unlisted", selectedCompany.company_name).badgeBg} ${getRegulatoryStageConfig(selectedCompany.listing_stage, "unlisted", selectedCompany.company_name).badgeText} ${getRegulatoryStageConfig(selectedCompany.listing_stage, "unlisted", selectedCompany.company_name).badgeBorder}`
+										: "text-blue-700 border-blue-300"
+								}`}
 							>
-								{isUnlistedSelected ? "Unlisted" : "Listed"}
+								{isUnlistedSelected ? getRegulatoryStageConfig(selectedCompany.listing_stage, "unlisted", selectedCompany.company_name).badgeLabel : "NSE / BSE Listed"}
 							</Badge>
 						</div>
 					)}
@@ -892,9 +897,9 @@ export default function ResearchNoteGenerator() {
 											<span> · {d.industry}</span>
 										)}
 										{d.listingStage && (
-											<span className="ml-1 capitalize">
+											<span className="ml-1 font-medium">
 												{" "}
-												· {d.listingStage.replace(/_/g, " ")}
+												· {getRegulatoryStageConfig(d.listingStage, d.isUnlisted ? "unlisted" : "listed", d.companyName).badgeLabel}
 											</span>
 										)}
 									</p>

@@ -58,6 +58,7 @@ import {
 	Clock,
 	Landmark,
 } from "lucide-react";
+import { getRegulatoryStageConfig } from "@shared/regulatory-stage";
 
 // Unlisted Securities Categories Component
 function UnlistedCategoriesSection({ onSelectTab }: { onSelectTab?: (tab: string) => void }) {
@@ -535,9 +536,18 @@ function AIPicksSection() {
 										<div className="flex items-center gap-2 text-sm text-muted-foreground">
 											<span>{rec.sector || "Technology"}</span>
 											<span>•</span>
-											<span className="capitalize">
-												{rec.listingStage?.replace("_", " ") || "Unlisted"}
-											</span>
+											{(() => {
+												const stageCfg = getRegulatoryStageConfig(rec.listingStage, "unlisted", rec.name);
+												return (
+													<span
+														className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${stageCfg.badgeBg} ${stageCfg.badgeText} ${stageCfg.badgeBorder}`}
+														title={`${stageCfg.label} — ${stageCfg.actOrRegulation}`}
+													>
+														<span className={`w-1.5 h-1.5 rounded-full ${stageCfg.dotColor}`} />
+														{stageCfg.badgeLabel}
+													</span>
+												);
+											})()}
 										</div>
 									</div>
 									<Badge className={getSignalColor(rec.aiSignal)}>

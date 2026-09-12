@@ -35,7 +35,7 @@ import { logger } from "../logger";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type LifecycleStage = "unlisted" | "pre_ipo" | "listed" | "inactive" | "growth" | "mature";
+export type LifecycleStage = "unlisted" | "pre_ipo" | "ipo" | "privately_listed" | "listed" | "inactive" | "growth" | "mature";
 
 export type TransitionType =
 	| "promotion"      // unlisted → pre_ipo

@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { LoadingState } from "@/components/LoadingState";
 import { useToast } from "@/hooks/use-toast";
+import { getRegulatoryStageConfig } from "@shared/regulatory-stage";
 import {
 	Building2,
 	TrendingUp,
@@ -488,15 +489,20 @@ export default function UnlistedCompanyDetails() {
 													{company.industry}
 												</Badge>
 											)}
-											{company.listingStage && (
-												<Badge
-													variant="default"
-													className="capitalize"
-													data-testid="badge-listing-stage"
-												>
-													{company.listingStage.replace("_", " ")}
-												</Badge>
-											)}
+											{(() => {
+												const stageCfg = getRegulatoryStageConfig(company.listingStage, "unlisted", company.name);
+												return (
+													<Badge
+														variant="outline"
+														className={`font-semibold border text-xs px-2.5 py-0.5 ${stageCfg.badgeBg} ${stageCfg.badgeText} ${stageCfg.badgeBorder}`}
+														data-testid="badge-listing-stage"
+														title={`${stageCfg.label} · ${stageCfg.actOrRegulation} · ${stageCfg.description}`}
+													>
+														<span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${stageCfg.dotColor}`} />
+														{stageCfg.badgeLabel} ({stageCfg.regulator})
+													</Badge>
+												);
+											})()}
 										</div>
 										{company.description && (
 											<p className="text-sm text-muted-foreground line-clamp-2">

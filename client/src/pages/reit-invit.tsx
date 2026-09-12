@@ -31,6 +31,7 @@ import {
 	DialogFooter,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { getRegulatoryStageConfig } from "@shared/regulatory-stage";
 import {
 	Building2,
 	TrendingUp,
@@ -1160,12 +1161,19 @@ export default function ReitInvitPage() {
 											<CardTitle className="text-base leading-snug">
 												{r.name}
 											</CardTitle>
-											<Badge
-												variant="outline"
-												className="shrink-0 text-amber-700 border-amber-300 bg-amber-50 dark:bg-amber-950/30 capitalize text-[10px]"
-											>
-												{r.listingStage?.replace("_", " ") || "Unlisted"}
-											</Badge>
+											{(() => {
+												const stageCfg = getRegulatoryStageConfig(r.listingStage, "reits_invits", r.name);
+												return (
+													<Badge
+														variant="outline"
+														className={`shrink-0 border text-[10px] font-semibold ${stageCfg.badgeBg} ${stageCfg.badgeText} ${stageCfg.badgeBorder}`}
+														title={`${stageCfg.label} — ${stageCfg.actOrRegulation}`}
+													>
+														<span className={`w-1.5 h-1.5 rounded-full mr-1 ${stageCfg.dotColor}`} />
+														{stageCfg.badgeLabel}
+													</Badge>
+												);
+											})()}
 										</div>
 									</CardHeader>
 									<CardContent className="space-y-3">
@@ -1270,12 +1278,19 @@ export default function ReitInvitPage() {
 											<CardTitle className="text-base leading-snug">
 												{r.name}
 											</CardTitle>
-											<Badge
-												variant="outline"
-												className="shrink-0 text-purple-700 border-purple-300 bg-purple-50 dark:bg-purple-950/30 capitalize text-[10px]"
-											>
-												{r.listingStage?.replace("_", " ") || "Unlisted"}
-											</Badge>
+											{(() => {
+												const stageCfg = getRegulatoryStageConfig(r.listingStage, "reits_invits", r.name);
+												return (
+													<Badge
+														variant="outline"
+														className={`shrink-0 border text-[10px] font-semibold ${stageCfg.badgeBg} ${stageCfg.badgeText} ${stageCfg.badgeBorder}`}
+														title={`${stageCfg.label} — ${stageCfg.actOrRegulation}`}
+													>
+														<span className={`w-1.5 h-1.5 rounded-full mr-1 ${stageCfg.dotColor}`} />
+														{stageCfg.badgeLabel}
+													</Badge>
+												);
+											})()}
 										</div>
 									</CardHeader>
 									<CardContent className="space-y-3">

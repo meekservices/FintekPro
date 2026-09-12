@@ -12097,3 +12097,6 @@ export const insertISINRegistrySchema = createInsertSchema(isinRegistry).omit({
   createdAt: true, updatedAt: true,
 });
 
+// Regulatory Stage Taxonomy & Demarcation (SEBI & MCA)
+export * from "./regulatory-stage";
+
