@@ -226,11 +226,15 @@ export function EnhancedNavigation() {
 			href: "/mutual-funds",
 			description: "Domestic & international funds",
 		},
-		{ name: "IPO & Pre-IPO", href: "/ipo", description: "Public offerings" },
 		{
-			name: "Unlisted Shares",
+			name: "Unlisted & Pre-IPO",
 			href: "/unlisted",
-			description: "Pre-IPO securities",
+			description: "Private equity & pre-IPO runway",
+		},
+		{
+			name: "Public IPOs",
+			href: "/ipo",
+			description: "Mainboard & SME public bidding",
 		},
 		{
 			name: "REIT / InvIT",

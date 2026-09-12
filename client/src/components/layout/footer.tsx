@@ -67,8 +67,8 @@ export function Footer() {
 	const productsLinks = [
 		{ name: "Product Store", href: "/store" },
 		{ name: "Mutual Funds", href: "/mutual-funds" },
-		{ name: "IPO & Pre-IPO", href: "/ipo" },
-		{ name: "Unlisted Shares", href: "/unlisted" },
+		{ name: "Unlisted & Pre-IPO", href: "/unlisted" },
+		{ name: "Public IPOs", href: "/ipo" },
 		{ name: "Bonds & NCDs", href: "/bonds" },
 		{ name: "MLDs", href: "/mlds" },
 		{ name: "Insurance Hub", href: "/insurance" },

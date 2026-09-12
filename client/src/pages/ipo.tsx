@@ -18,7 +18,9 @@ import {
 	Target,
 	BarChart3,
 	AlertTriangle,
+	ArrowRight,
 } from "lucide-react";
+import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { IpoCompany, IpoNews } from "@shared/schema";
@@ -253,6 +255,36 @@ export default function IPO() {
 			<div className="space-y-6">
 				{/* KYC Warning */}
 				<KYCWarningBanner />
+
+				{/* Pre-IPO Runway Discovery Bridge */}
+				<div
+					className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-background dark:from-blue-950/20 dark:via-indigo-950/10 dark:to-background"
+					data-testid="pre-ipo-runway-bridge"
+				>
+					<div className="flex items-center gap-3">
+						<div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400">
+							<TrendingUp className="h-5 w-5" />
+						</div>
+						<div>
+							<h4 className="text-sm font-semibold text-foreground">
+								Looking to invest early before public bidding opens?
+							</h4>
+							<p className="text-xs text-muted-foreground">
+								Discover high-growth private equity companies in the Pre-IPO Runway (Tata Play, NSE, Boat Lifestyle & more).
+							</p>
+						</div>
+					</div>
+					<Link href="/unlisted?tab=pre-ipo">
+						<Button
+							size="sm"
+							variant="outline"
+							className="text-blue-600 border-blue-300 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950/50 shrink-0 cursor-pointer"
+						>
+							Explore Pre-IPO Runway
+							<ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+						</Button>
+					</Link>
+				</div>
 
 				<Tabs defaultValue="upcoming" className="space-y-8">
 					<ScrollableTabsList className="grid w-full grid-cols-5">

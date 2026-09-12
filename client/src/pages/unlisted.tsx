@@ -37,11 +37,31 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { LoadingState } from "@/components/LoadingState";
 import { EmptyState } from "@/components/EmptyState";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+	DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
 import { CartBadge } from "@/components/UnlistedCart";
+import {
+	Rocket,
+	ArrowRight,
+	Share2,
+	Send,
+	Clock,
+	Landmark,
+} from "lucide-react";
 
 // Unlisted Securities Categories Component
-function UnlistedCategoriesSection() {
-	const [selectedCategory, setSelectedCategory] = useState("all");
+function UnlistedCategoriesSection({ onSelectTab }: { onSelectTab?: (tab: string) => void }) {
+	const [_selectedCategory, setSelectedCategory] = useState("all");
 
 	const unlistedCategories = [
 		{
@@ -112,6 +132,13 @@ function UnlistedCategoriesSection() {
 							key={category.id}
 							className="hover:shadow-md transition-shadow cursor-pointer"
 							data-testid={`${category.id}-unlisted`}
+							onClick={() => {
+								if (category.id === "pre-ipo" && onSelectTab) {
+									onSelectTab("pre-ipo");
+								} else {
+									setSelectedCategory(category.id);
+								}
+							}}
 						>
 							<CardContent className="p-6">
 								<div
@@ -393,11 +420,11 @@ function AIPicksSection() {
 					</p>
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 						<div>
-							<label className="block text-sm font-medium mb-2">
+							<Label htmlFor="select-risk-profile-trigger" className="block text-sm font-medium mb-2">
 								Risk Profile
-							</label>
+							</Label>
 							<Select value={riskProfile} onValueChange={setRiskProfile}>
-								<SelectTrigger data-testid="select-unlisted-risk-profile">
+								<SelectTrigger id="select-risk-profile-trigger" data-testid="select-unlisted-risk-profile">
 									<SelectValue placeholder="Select risk profile" />
 								</SelectTrigger>
 								<SelectContent>
@@ -408,11 +435,11 @@ function AIPicksSection() {
 							</Select>
 						</div>
 						<div>
-							<label className="block text-sm font-medium mb-2">
+							<Label htmlFor="select-invest-goal-trigger" className="block text-sm font-medium mb-2">
 								Investment Goal
-							</label>
+							</Label>
 							<Select value={investmentGoal} onValueChange={setInvestmentGoal}>
-								<SelectTrigger data-testid="select-unlisted-investment-goal">
+								<SelectTrigger id="select-invest-goal-trigger" data-testid="select-unlisted-investment-goal">
 									<SelectValue placeholder="Select goal" />
 								</SelectTrigger>
 								<SelectContent>
@@ -653,12 +680,432 @@ function AIPicksSection() {
 	);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Pre-IPO Runway Section: Displays the transition from Unlisted to Pre-IPO to IPO
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface PreIpoDeal {
+	id: string;
+	companyName: string;
+	sector?: string;
+	expectedIssueSize?: string;
+	priceBand?: string;
+	targetListingDate?: string;
+	minTicketSize?: string;
+	leadBankers?: string[];
+	currentStage?: string;
+	stageProgress?: number;
+	gmp?: string;
+	rhpUrl?: string;
+	proposedExchange?: string;
+	description?: string;
+}
+
+function PreIpoRunwaySection() {
+	const { toast } = useToast();
+	const { data: preIpoRes, isLoading } = useQuery<{ success: boolean; data: PreIpoDeal[] }>({
+		queryKey: ["/api/pre-ipo/upcoming"],
+		refetchInterval: 60000,
+	});
+
+	const [interestDialogOpen, setInterestDialogOpen] = useState(false);
+	const [selectedDeal, setSelectedDeal] = useState<PreIpoDeal | null>(null);
+	const [clientName, setClientName] = useState("");
+	const [clientPhone, setClientPhone] = useState("");
+	const [clientEmail, setClientEmail] = useState("");
+	const [investorCategory, setInvestorCategory] = useState("retail");
+	const [lots, setLots] = useState(1);
+	const [riskAck, setRiskAck] = useState(false);
+	const [submitting, setSubmitting] = useState(false);
+
+	const deals = preIpoRes?.data || [];
+
+	const handleOpenInterest = (deal: PreIpoDeal) => {
+		setSelectedDeal(deal);
+		setClientName("");
+		setClientPhone("");
+		setClientEmail("");
+		setInvestorCategory("retail");
+		setLots(1);
+		setRiskAck(false);
+		setInterestDialogOpen(true);
+	};
+
+	const handleSubmitInterest = async () => {
+		if (!selectedDeal) return;
+		if (!clientName.trim() || !clientPhone.trim()) {
+			toast({
+				title: "Required Fields Missing",
+				description: "Please enter your name and phone number.",
+				variant: "destructive",
+			});
+			return;
+		}
+		if (!riskAck) {
+			toast({
+				title: "SEBI Risk Acknowledgment Required",
+				description: "Please confirm that you understand the illiquidity and market risk of pre-IPO securities.",
+				variant: "destructive",
+			});
+			return;
+		}
+
+		setSubmitting(true);
+		try {
+			const res = await fetch("/api/pre-ipo/interest", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					companyId: selectedDeal.id,
+					companyName: selectedDeal.companyName,
+					clientName: clientName.trim(),
+					clientPhone: clientPhone.trim(),
+					clientEmail: clientEmail.trim() || undefined,
+					investorCategory,
+					requestedLots: Number(lots) || 1,
+					estimatedAmount: selectedDeal.minTicketSize,
+				}),
+			});
+			const result = await res.json();
+			if (!res.ok || !result.success) {
+				throw new Error(result.error?.message || "Failed to submit interest");
+			}
+			toast({
+				title: "Allocation Interest Recorded",
+				description: `Interest registered for ${selectedDeal.companyName}. Our institutional desk will reach out.`,
+			});
+			setInterestDialogOpen(false);
+		} catch (err: any) {
+			toast({
+				title: "Submission Error",
+				description: err?.message || "Failed to record allocation interest.",
+				variant: "destructive",
+			});
+		} finally {
+			setSubmitting(false);
+		}
+	};
+
+	const handleShareTeaser = (deal: PreIpoDeal) => {
+		const text = `🚀 *Pre-IPO Opportunity: ${deal.companyName}*\n` +
+			`Sector: ${deal.sector || "Growth Equity"}\n` +
+			`Expected Issue: ${deal.expectedIssueSize || "TBD"}\n` +
+			`Price Band: ${deal.priceBand || "Indicative"}\n` +
+			`Target Date: ${deal.targetListingDate || "Preparing"}\n` +
+			`Min Ticket: ${deal.minTicketSize || "₹10,000"}\n\n` +
+			`Explore allocation: https://app.fintekpro.com/unlisted?tab=pre-ipo\n\n` +
+			`⚠️ *SEBI Regulatory Disclaimer:* Pre-IPO investments carry market & illiquidity risk. For Accredited / HNI investors only.`;
+
+		navigator.clipboard.writeText(text);
+		toast({
+			title: "Teaser Copied to Clipboard",
+			description: `Teaser for ${deal.companyName} copied with SEBI disclaimer.`,
+		});
+	};
+
+	return (
+		<div className="space-y-8" data-testid="pre-ipo-runway-section">
+			{/* 4-Stage Continuum Stepper Card */}
+			<Card className="border-blue-200 dark:border-blue-900/60 bg-gradient-to-r from-blue-50/60 via-indigo-50/30 to-background dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-background">
+				<CardHeader className="pb-3">
+					<div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+						<div>
+							<Badge className="bg-blue-600 text-white hover:bg-blue-700 text-xs mb-1">
+								Private to Public Continuum
+							</Badge>
+							<CardTitle className="text-xl font-bold flex items-center gap-2">
+								<Rocket className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+								Pre-IPO Runway: Transition from Unlisted to Listed
+							</CardTitle>
+						</div>
+						<Link href="/ipo">
+							<Button variant="outline" size="sm" className="text-xs text-blue-600 border-blue-300 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400">
+								View Live Public IPOs
+								<ArrowRight className="w-3.5 h-3.5 ml-1" />
+							</Button>
+						</Link>
+					</div>
+					<p className="text-xs text-muted-foreground mt-1">
+						FintekPro tracks companies as they advance through private growth rounds, DRHP filings, price discovery, and final exchange listing.
+					</p>
+				</CardHeader>
+				<CardContent>
+					{/* Stepper Visualization */}
+					<div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2 pb-1">
+						<div className="p-3 rounded-lg border bg-background/80 relative">
+							<div className="text-xs font-semibold text-muted-foreground mb-1">Stage 1</div>
+							<div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+								<Building2 className="w-4 h-4 text-slate-500" />
+								Unlisted Equity
+							</div>
+							<p className="text-[11px] text-muted-foreground mt-1">
+								Private cap-table shares, secondary trading, and growth rounds.
+							</p>
+						</div>
+
+						<div className="p-3 rounded-lg border border-blue-300 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/40 relative shadow-sm">
+							<Badge className="absolute -top-2.5 right-2 bg-blue-600 text-[10px] text-white py-0 px-1.5">
+								Current Hub
+							</Badge>
+							<div className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">Stage 2</div>
+							<div className="font-bold text-sm text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+								<Rocket className="w-4 h-4 text-blue-600" />
+								Pre-IPO Runway
+							</div>
+							<p className="text-[11px] text-blue-800/80 dark:text-blue-300/80 mt-1">
+								DRHP filed, banker syndicate mandated, price band & GMP tracked.
+							</p>
+						</div>
+
+						<div className="p-3 rounded-lg border bg-background/80 relative">
+							<div className="text-xs font-semibold text-muted-foreground mb-1">Stage 3</div>
+							<div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+								<Clock className="w-4 h-4 text-emerald-600" />
+								Public IPO Bidding
+							</div>
+							<p className="text-[11px] text-muted-foreground mt-1">
+								SEBI Mainboard & SME open bidding, subscription, and allotment.
+							</p>
+						</div>
+
+						<div className="p-3 rounded-lg border bg-background/80 relative">
+							<div className="text-xs font-semibold text-muted-foreground mb-1">Stage 4</div>
+							<div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+								<Landmark className="w-4 h-4 text-indigo-600" />
+								NSE / BSE Listed
+							</div>
+							<p className="text-[11px] text-muted-foreground mt-1">
+								Real-time continuous secondary market liquidity on exchanges.
+							</p>
+						</div>
+					</div>
+				</CardContent>
+			</Card>
+
+			{/* Pre-IPO Deals Grid */}
+			{isLoading ? (
+				<LoadingState variant="card" count={6} />
+			) : deals.length === 0 ? (
+				<EmptyState
+					icon={Rocket}
+					title="No Pre-IPO Deals Available"
+					description="New pre-IPO investment opportunities will appear as companies file their DRHP with SEBI."
+				/>
+			) : (
+				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+					{deals.map((deal) => {
+						const progressPercent = deal.stageProgress ?? 50;
+						const stageLabel = deal.currentStage || "DRHP Prepared";
+
+						return (
+							<Card
+								key={deal.id}
+								className="hover:shadow-lg transition-all duration-200 border-border/80 flex flex-col justify-between"
+								data-testid={`pre-ipo-deal-${deal.id}`}
+							>
+								<CardHeader className="pb-2">
+									<div className="flex items-center justify-between gap-2 mb-2">
+										<Badge variant="outline" className="text-xs uppercase font-medium">
+											{deal.sector || "Unlisted Growth"}
+										</Badge>
+										{deal.gmp && (
+											<Badge className="bg-emerald-600 text-white text-xs font-semibold">
+												{deal.gmp.startsWith("+") ? deal.gmp : `+${deal.gmp}`} GMP
+											</Badge>
+										)}
+									</div>
+									<CardTitle className="text-lg font-bold text-foreground">
+										{deal.companyName}
+									</CardTitle>
+									<p className="text-xs text-muted-foreground">
+										Proposed Exchange: {deal.proposedExchange || "NSE / BSE (Proposed)"}
+									</p>
+								</CardHeader>
+
+								<CardContent className="space-y-4 pt-1">
+									{/* IPO Progress Stepper */}
+									<div className="space-y-1.5 p-2.5 rounded-md bg-muted/40 border">
+										<div className="flex justify-between items-center text-xs">
+											<span className="text-muted-foreground font-medium">IPO Progress</span>
+											<span className="text-blue-600 dark:text-blue-400 font-semibold">{stageLabel}</span>
+										</div>
+										<Progress value={progressPercent} className="h-1.5 bg-muted" />
+										<div className="flex justify-between text-[10px] text-muted-foreground pt-0.5">
+											<span>DRHP Filed</span>
+											<span>SEBI Review</span>
+											<span>Price Band</span>
+											<span>Listing</span>
+										</div>
+									</div>
+
+									{/* 4 Metrics Quadrant */}
+									<div className="grid grid-cols-2 gap-2 text-xs">
+										<div className="p-2 rounded bg-muted/30">
+											<span className="text-muted-foreground block text-[11px]">Expected Issue</span>
+											<span className="font-semibold text-foreground">{deal.expectedIssueSize || "Estimated ₹1,500 Cr"}</span>
+										</div>
+										<div className="p-2 rounded bg-muted/30">
+											<span className="text-muted-foreground block text-[11px]">Price Band</span>
+											<span className="font-semibold text-foreground">{deal.priceBand || "Indicative"}</span>
+										</div>
+										<div className="p-2 rounded bg-muted/30">
+											<span className="text-muted-foreground block text-[11px]">Target Date</span>
+											<span className="font-semibold text-foreground">{deal.targetListingDate || "Expected H2 2025"}</span>
+										</div>
+										<div className="p-2 rounded bg-muted/30">
+											<span className="text-muted-foreground block text-[11px]">Min Ticket</span>
+											<span className="font-semibold text-foreground">{deal.minTicketSize || "₹10,000"}</span>
+										</div>
+									</div>
+
+									{/* Lead Bankers */}
+									{deal.leadBankers && deal.leadBankers.length > 0 && (
+										<div className="text-xs text-muted-foreground flex items-center gap-1.5">
+											<Landmark className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+											<span className="truncate">Bankers: {deal.leadBankers.join(", ")}</span>
+										</div>
+									)}
+
+									{/* CTAs */}
+									<div className="flex gap-2 pt-2">
+										<Button
+											variant="outline"
+											size="sm"
+											className="flex-1 text-xs cursor-pointer"
+											onClick={() => handleShareTeaser(deal)}
+										>
+											<Share2 className="w-3.5 h-3.5 mr-1" />
+											Share Teaser
+										</Button>
+										<Button
+											size="sm"
+											className="flex-1 text-xs bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+											onClick={() => handleOpenInterest(deal)}
+										>
+											<Send className="w-3.5 h-3.5 mr-1" />
+											Request Allocation
+										</Button>
+									</div>
+								</CardContent>
+							</Card>
+						);
+					})}
+				</div>
+			)}
+
+			{/* Allocation Request Modal */}
+			<Dialog open={interestDialogOpen} onOpenChange={setInterestDialogOpen}>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<Rocket className="h-5 w-5 text-blue-600" />
+							Request Pre-IPO Allocation
+						</DialogTitle>
+						<DialogDescription>
+							Submit your interest for <span className="font-semibold text-foreground">{selectedDeal?.companyName}</span>. Our institutional desk will reach out with allocation specifics.
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-4 py-2 text-sm">
+						<div className="space-y-1.5">
+							<Label htmlFor="req-name">Full Name *</Label>
+							<Input
+								id="req-name"
+								placeholder="Enter full name"
+								value={clientName}
+								onChange={(e) => setClientName(e.target.value)}
+							/>
+						</div>
+
+						<div className="grid grid-cols-2 gap-2">
+							<div className="space-y-1.5">
+								<Label htmlFor="req-phone">Phone Number *</Label>
+								<Input
+									id="req-phone"
+									placeholder="+91 98765 43210"
+									value={clientPhone}
+									onChange={(e) => setClientPhone(e.target.value)}
+								/>
+							</div>
+							<div className="space-y-1.5">
+								<Label htmlFor="req-email">Email Address</Label>
+								<Input
+									id="req-email"
+									type="email"
+									placeholder="client@example.com"
+									value={clientEmail}
+									onChange={(e) => setClientEmail(e.target.value)}
+								/>
+							</div>
+						</div>
+
+						<div className="grid grid-cols-2 gap-2">
+							<div className="space-y-1.5">
+								<Label>Investor Category</Label>
+								<Select value={investorCategory} onValueChange={setInvestorCategory}>
+									<SelectTrigger>
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="retail">Retail (&lt; ₹2 Lakhs)</SelectItem>
+										<SelectItem value="hni">HNI (&gt; ₹2 Lakhs)</SelectItem>
+										<SelectItem value="accredited">SEBI Accredited</SelectItem>
+										<SelectItem value="corporate">Corporate / Family Office</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-1.5">
+								<Label htmlFor="req-lots">Requested Lots</Label>
+								<Input
+									id="req-lots"
+									type="number"
+									min={1}
+									max={50}
+									value={lots}
+									onChange={(e) => setLots(Math.max(1, Number(e.target.value) || 1))}
+								/>
+							</div>
+						</div>
+
+						<div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2">
+							<div className="flex items-start gap-2">
+								<Checkbox
+									id="req-ack"
+									checked={riskAck}
+									onCheckedChange={(c) => setRiskAck(Boolean(c))}
+									className="mt-0.5"
+								/>
+								<Label htmlFor="req-ack" className="text-xs text-amber-900 dark:text-amber-200 leading-tight cursor-pointer">
+									I understand that Pre-IPO securities are unlisted, illiquid, and carry substantial market risk. Allocation is subject to availability and regulatory approvals.
+								</Label>
+							</div>
+						</div>
+					</div>
+
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setInterestDialogOpen(false)} disabled={submitting}>
+							Cancel
+						</Button>
+						<Button
+							className="bg-blue-600 hover:bg-blue-700 text-white"
+							onClick={handleSubmitInterest}
+							disabled={submitting}
+						>
+							{submitting ? "Submitting..." : "Submit Allocation Request"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</div>
+	);
+}
+
 // Main Unlisted Securities Page
 export default function Unlisted() {
-	const [, setLocation] = useLocation();
+	const [location, setLocation] = useLocation();
 
 	// Navigation state for responsive layout
-	const [isNavCollapsed, setIsNavCollapsed] = useState(() => {
+	const [_isNavCollapsed, setIsNavCollapsed] = useState(() => {
 		try {
 			const saved = localStorage.getItem("navigation-collapsed");
 			return saved ? JSON.parse(saved) : false;
@@ -683,7 +1130,33 @@ export default function Unlisted() {
 				handleNavChange as EventListener,
 			);
 	}, []);
-	const [selectedTab, setSelectedTab] = useState("explore");
+
+	const [selectedTab, setSelectedTab] = useState(() => {
+		if (typeof window !== "undefined") {
+			const params = new URLSearchParams(window.location.search);
+			return params.get("tab") || "explore";
+		}
+		return "explore";
+	});
+
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			const params = new URLSearchParams(window.location.search);
+			const tab = params.get("tab");
+			if (tab && tab !== selectedTab) {
+				setSelectedTab(tab);
+			}
+		}
+	}, [location]);
+
+	const handleTabChange = (tab: string) => {
+		setSelectedTab(tab);
+		if (typeof window !== "undefined") {
+			const url = new URL(window.location.href);
+			url.searchParams.set("tab", tab);
+			window.history.replaceState({}, "", url.toString());
+		}
+	};
 
 	return (
 		<div className="min-h-screen bg-finance-light" data-testid="unlisted-page">
@@ -693,10 +1166,10 @@ export default function Unlisted() {
 						<Gem className="w-8 h-8 text-finance-blue" />
 						<div>
 							<h1 className="text-3xl font-bold text-foreground">
-								Unlisted Securities
+								Unlisted & Pre-IPO Securities
 							</h1>
 							<p className="text-muted-foreground">
-								Exclusive access to pre-IPO and unlisted equity investments
+								Exclusive access to private equity, late-stage growth rounds, and Pre-IPO pipeline tracking
 							</p>
 						</div>
 					</div>
@@ -704,12 +1177,19 @@ export default function Unlisted() {
 
 				<Tabs
 					value={selectedTab}
-					onValueChange={setSelectedTab}
+					onValueChange={handleTabChange}
 					className="w-full"
 				>
-					<ScrollableTabsList className="grid w-full grid-cols-6">
+					<ScrollableTabsList className="grid w-full grid-cols-8">
 						<TabsTrigger value="explore" data-testid="tab-explore">
 							Explore
+						</TabsTrigger>
+						<TabsTrigger value="pre-ipo" data-testid="tab-pre-ipo" className="gap-1">
+							<Rocket className="w-4 h-4 text-blue-600" />
+							Pre-IPO Runway
+							<Badge variant="secondary" className="ml-1 text-[10px] bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 py-0 px-1">
+								DRHP
+							</Badge>
 						</TabsTrigger>
 						<TabsTrigger value="marketplace" data-testid="tab-marketplace">
 							<Store className="w-4 h-4 mr-1" />
@@ -735,6 +1215,14 @@ export default function Unlisted() {
 					</ScrollableTabsList>
 
 					<TabsContent
+						value="pre-ipo"
+						className="space-y-6"
+						data-testid="pre-ipo-unlisted"
+					>
+						<PreIpoRunwaySection />
+					</TabsContent>
+
+					<TabsContent
 						value="marketplace"
 						className="space-y-6"
 						data-testid="marketplace-unlisted"
@@ -755,7 +1243,7 @@ export default function Unlisted() {
 						className="space-y-6"
 						data-testid="explore-unlisted"
 					>
-						<UnlistedCategoriesSection />
+						<UnlistedCategoriesSection onSelectTab={handleTabChange} />
 
 						{/* Featured Opportunities */}
 						<Card data-testid="card-featured-opportunities">
@@ -861,22 +1349,22 @@ export default function Unlisted() {
 							<CardContent>
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 									<div>
-										<label className="block text-sm font-medium mb-2">
+										<Label htmlFor="unlisted-calc-amount" className="block text-sm font-medium mb-2">
 											Investment Amount
-										</label>
-										<Input placeholder="₹1,00,000" />
+										</Label>
+										<Input id="unlisted-calc-amount" placeholder="₹1,00,000" />
 									</div>
 									<div>
-										<label className="block text-sm font-medium mb-2">
+										<Label htmlFor="unlisted-calc-return" className="block text-sm font-medium mb-2">
 											Expected Return (%)
-										</label>
-										<Input placeholder="25" />
+										</Label>
+										<Input id="unlisted-calc-return" placeholder="25" />
 									</div>
 									<div>
-										<label className="block text-sm font-medium mb-2">
+										<Label htmlFor="unlisted-calc-period" className="block text-sm font-medium mb-2">
 											Time Period (Years)
-										</label>
-										<Input placeholder="2" />
+										</Label>
+										<Input id="unlisted-calc-period" placeholder="2" />
 									</div>
 								</div>
 								<Button className="mt-4">Calculate Returns</Button>
