@@ -76,6 +76,7 @@ export interface ScreenerData {
 	freeCashFlow: number | null;
 	operatingMargin: number | null; // decimal fraction
 	marketCapCr: number | null; // Market Cap in ₹ Crores — scraped from Screener.in #top section
+	faceValue?: number | null; // Face value from Screener.in #top section
 	// Extended historical data
 	plHistory: HistoricalTable | null;
 	bsHistory: HistoricalTable | null;
@@ -668,6 +669,7 @@ async function fetchFundamentalsFromPython(
 			freeCashFlow: pf(resp.freeCashFlow),
 			operatingMargin: pf(resp.operatingMargin),
 			marketCapCr: pf(resp.marketCapCr) ?? null,
+			faceValue: pf(resp.faceValue) ?? null,
 			// Historical tables — now populated by the extended Python sidecar
 			plHistory: parseHistory(resp.plHistory),
 			bsHistory: parseHistory(resp.bsHistory),
@@ -745,6 +747,7 @@ function mergeScreenerWithPython(
 		freeCashFlow: pick(screener.freeCashFlow, python.freeCashFlow),
 		operatingMargin: pick(screener.operatingMargin, python.operatingMargin),
 		marketCapCr: pick(screener.marketCapCr, python.marketCapCr),
+		faceValue: pick(screener.faceValue, null),
 		// Historical tables: Screener.in first; Python-derived as fallback when Screener timed out
 		plHistory: pick(screener.plHistory, python.plHistory),
 		bsHistory: pick(screener.bsHistory, python.bsHistory),
@@ -782,6 +785,7 @@ function emptyScreenerData(): ScreenerData {
 		freeCashFlow: null,
 		operatingMargin: null,
 		marketCapCr: null,
+		faceValue: null,
 		plHistory: null,
 		bsHistory: null,
 		cfHistory: null,
@@ -821,6 +825,7 @@ function parseScreenerHtml(html: string, nseSymbol: string): ScreenerData {
 	let pe: number | null = null;
 	let pb: number | null = null;
 	let marketCapCr: number | null = null;
+	let faceValue: number | null = null;
 
 	for (const item of liItems) {
 		const lower = item.toLowerCase();
@@ -828,6 +833,11 @@ function parseScreenerHtml(html: string, nseSymbol: string): ScreenerData {
 		if (/market cap/.test(lower) && marketCapCr === null) {
 			const mcMatch = item.match(/(?:₹|Rs\.?)?\s*([\d,\.]+)\s*(?:Cr|cr)?/i);
 			if (mcMatch) marketCapCr = parseNum(mcMatch[1]);
+			continue;
+		}
+		if (/face value/.test(lower) && faceValue === null) {
+			const fvMatch = item.match(/(?:₹|Rs\.?)?\s*([\d,\.]+)/i);
+			if (fvMatch) faceValue = parseNum(fvMatch[1]);
 			continue;
 		}
 		const numMatch = item.match(/([\d,\.]+)\s*%?$/);
@@ -1193,6 +1203,7 @@ function parseScreenerHtml(html: string, nseSymbol: string): ScreenerData {
 		freeCashFlow,
 		operatingMargin,
 		marketCapCr,
+		faceValue,
 		plHistory,
 		bsHistory,
 		cfHistory,
@@ -1507,6 +1518,28 @@ async function writeScreenerToDB(
 				WHERE UPPER(symbol) = ${sym} AND (market_cap_value IS NULL OR market_cap_value <= 0)
 			`).catch(() => {});
 		}
+		if (s.faceValue && s.faceValue > 0) {
+			await db.execute(sql`
+				UPDATE listed_stocks
+				SET face_value = ${s.faceValue},
+				    last_updated = now()
+				WHERE UPPER(symbol) = ${sym}
+			`).catch(() => {});
+		}
+		if (s.pe && s.pe > 0) {
+			await db.execute(sql`
+				UPDATE listed_stocks
+				SET pe_ratio = ${s.pe},
+				    last_updated = now()
+				WHERE UPPER(symbol) = ${sym}
+			`).catch(() => {});
+			await db.execute(sql`
+				UPDATE screener_financials
+				SET pe_ratio = ${s.pe},
+				    last_updated = now()
+				WHERE UPPER(symbol) = ${sym}
+			`).catch(() => {});
+		}
 	} catch (e: any) {
 		logger.warn(
 			"[ResearchNote] DB write-back failed:",
@@ -1681,11 +1714,11 @@ function buildFull(
 		})(),
 		pe: (() => {
 			const eps = dbData.eps ?? base.eps ?? null;
-			// NSE → DB cached PE → screener → compute from price/EPS as last resort
+			// Live NSE PE → Screener live PE → DB cached PE → compute from price/EPS as last resort
 			return (
 				base.pe ??
-				dbData.dbPeRatio ??
 				screener.pe ??
+				dbData.dbPeRatio ??
 				(price && eps && eps > 0 ? Math.round((price / eps) * 10) / 10 : null)
 			);
 		})(),
@@ -1707,7 +1740,7 @@ function buildFull(
 		targetMeanPrice: null,
 		currency: base.currency ?? "INR",
 		bookValue,
-		faceValue: base.faceValue ?? dbData.dbFaceValue ?? null,
+		faceValue: base.faceValue ?? screener.faceValue ?? dbData.dbFaceValue ?? null,
 		vwap:
 			// Priority order:
 			// 1. Live NSE VWAP (market open, vwap > 0)
@@ -1887,6 +1920,7 @@ export async function getFinancialData(
 		freeCashFlow: null,
 		operatingMargin: null,
 		marketCapCr: null,
+		faceValue: null,
 		plHistory: null,
 		bsHistory: null,
 		cfHistory: null,
@@ -1924,6 +1958,7 @@ export async function getFinancialData(
 				dbData.dbMarketCap && dbData.dbMarketCap > 0
 					? (dbData.dbMarketCap > 1e6 ? dbData.dbMarketCap / 1e7 : dbData.dbMarketCap)
 					: null,
+			faceValue: dbData.dbFaceValue ?? null,
 			plHistory: null,
 			bsHistory: null,
 			cfHistory: null,
