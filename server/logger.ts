@@ -334,25 +334,33 @@ class Logger {
 
 	error(
 		message: string,
-		contextOrError?: LogContext | Error,
+		contextOrError?: LogContext | Error | unknown,
 		error?: Error,
 	): void {
 		if (contextOrError instanceof Error) {
 			this.log("error", message, undefined, contextOrError);
+		} else if (contextOrError && typeof contextOrError === "object") {
+			this.log("error", message, contextOrError as LogContext, error);
+		} else if (contextOrError !== undefined) {
+			this.log("error", message, undefined, new Error(String(contextOrError)));
 		} else {
-			this.log("error", message, contextOrError, error);
+			this.log("error", message, undefined, error);
 		}
 	}
 
 	fatal(
 		message: string,
-		contextOrError?: LogContext | Error,
+		contextOrError?: LogContext | Error | unknown,
 		error?: Error,
 	): void {
 		if (contextOrError instanceof Error) {
 			this.log("fatal", message, undefined, contextOrError);
+		} else if (contextOrError && typeof contextOrError === "object") {
+			this.log("fatal", message, contextOrError as LogContext, error);
+		} else if (contextOrError !== undefined) {
+			this.log("fatal", message, undefined, new Error(String(contextOrError)));
 		} else {
-			this.log("fatal", message, contextOrError, error);
+			this.log("fatal", message, undefined, error);
 		}
 	}
 
@@ -392,9 +400,9 @@ export const log = {
 	debug: (msg: string, ctx?: LogContext) => logger.debug(msg, ctx),
 	info: (msg: string, ctx?: LogContext) => logger.info(msg, ctx),
 	warn: (msg: string, ctx?: LogContext) => logger.warn(msg, ctx),
-	error: (msg: string, errOrCtx?: Error | LogContext, err?: Error) =>
+	error: (msg: string, errOrCtx?: Error | LogContext | unknown, err?: Error) =>
 		logger.error(msg, errOrCtx, err),
-	fatal: (msg: string, errOrCtx?: Error | LogContext, err?: Error) =>
+	fatal: (msg: string, errOrCtx?: Error | LogContext | unknown, err?: Error) =>
 		logger.fatal(msg, errOrCtx, err),
 	http: (
 		method: string,

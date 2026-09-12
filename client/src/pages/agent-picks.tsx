@@ -1034,7 +1034,20 @@ export default function AgentPicksPage() {
 	};
 
 	const renderUpcomingPreIpoRadar = () => {
-		const ipoList: any[] = upcomingPreIpoRes?.data || [];
+		const rawIpoList: any[] = upcomingPreIpoRes?.data || [];
+		// Duplicate guard: normalize company names to prevent duplicate deal cards
+		const seenIpoNames = new Set<string>();
+		const ipoList = rawIpoList.filter((item: any) => {
+			const name = String(item.companyName || item.name || "")
+				.toLowerCase()
+				.replace(/\([^)]*\)/g, "")
+				.replace(/\b(ltd|limited|pvt|private|technologies|solutions|holdings|india)\b/gi, "")
+				.replace(/[^a-z0-9]/g, "")
+				.trim();
+			if (!name || seenIpoNames.has(name)) return false;
+			seenIpoNames.add(name);
+			return true;
+		});
 
 		return (
 			<div className="space-y-4 mt-6">
@@ -1310,19 +1323,19 @@ export default function AgentPicksPage() {
 		picks.forEach((p) => {
 			counts[p.category] = (counts[p.category] || 0) + 1;
 			if (isPreIpoPick(p)) {
-				counts["pre_ipo"] = (counts["pre_ipo"] || 0) + 1;
+				counts.pre_ipo = (counts.pre_ipo || 0) + 1;
 			}
 		});
 		// Pre-IPO picks persist across days (unlisted assets don't change daily).
 		// Supplement today's pre_ipo count with any active live picks that are pre-IPO
 		// or upcoming Pre-IPO pipeline count so the tab is always visible.
-		if (counts["pre_ipo"] === 0) {
+		if (counts.pre_ipo === 0) {
 			if (supplementPicks) {
 				const livePreIpoCount = supplementPicks.filter(isPreIpoPick).length;
-				if (livePreIpoCount > 0) counts["pre_ipo"] = livePreIpoCount;
+				if (livePreIpoCount > 0) counts.pre_ipo = livePreIpoCount;
 			}
-			if (counts["pre_ipo"] === 0 && upcomingPreIpoRes?.data?.length) {
-				counts["pre_ipo"] = upcomingPreIpoRes.data.length;
+			if (counts.pre_ipo === 0 && upcomingPreIpoRes?.data?.length) {
+				counts.pre_ipo = upcomingPreIpoRes.data.length;
 			}
 		}
 		return counts;

@@ -39,3 +39,47 @@ export function cleanAlphanumeric(str: string): string {
 	if (!str) return "";
 	return str.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
 }
+
+/**
+ * Normalizes company names to eliminate duplicate cards and listings.
+ * Handles corporate entity suffixes (Ltd, Limited, Pvt Ltd), parenthetical aliases,
+ * exchange/product markers, and canonical name aliases.
+ *
+ * Examples:
+ * - "Tata Play Ltd" & "Tata Play" -> "tataplay"
+ * - "Boat Lifestyle (Imagine Marketing Ltd)" & "Imagine Marketing Ltd" -> "boatlifestyle"
+ * - "National Stock Exchange of India (NSE)" & "NSE" -> "nse"
+ * - "Lenskart Solutions Ltd" & "Lenskart" -> "lenskart"
+ */
+export function normalizeCompanyName(name: string): string {
+	if (!name) return "";
+	const lower = name.toLowerCase().trim();
+
+	// Canonical mapping for well-known pre-IPO and unlisted market companies
+	if (lower.includes("tata play")) return "tataplay";
+	if (lower.includes("boat") || lower.includes("imagine marketing")) return "boatlifestyle";
+	if (lower.includes("lenskart")) return "lenskart";
+	if (lower.includes("national stock exchange") || lower.includes(" nse ") || lower.startsWith("nse ") || lower === "nse") return "nse";
+	if (lower.includes("bagmane")) return "bagmaneprimeofficereit";
+	if (lower.includes("swiggy")) return "swiggy";
+	if (lower.includes("ola electric") || lower.includes("ola consumer") || lower.includes("ola")) return "ola";
+	if (lower.includes("firstcry") || lower.includes("brainbees")) return "firstcry";
+	if (lower.includes("reliance retail") || lower.includes("jio platforms") || lower.includes("reliance jio")) return "reliancejio";
+	if (lower.includes("veegaland")) return "veegaland";
+	if (lower.includes("shakti polytarp")) return "shaktipolytarp";
+	if (lower.includes("manika plastech")) return "manikaplastech";
+	if (lower.includes("vama wovenfab") || lower.includes("vama")) return "vamawovenfab";
+	if (lower.includes("century business")) return "centurybusiness";
+	if (lower.includes("injecto polymer")) return "injectopolymers";
+	if (lower.includes("om galaxy")) return "omgalaxy";
+	if (lower.includes("raksan transformer")) return "raksantransformers";
+	if (lower.includes("speedex")) return "speedex";
+	if (lower.includes("panchatv")) return "panchatv";
+
+	return lower
+		.replace(/\([^)]*\)/g, "")
+		.replace(/\b(ltd|limited|pvt|private|corp|corporation|inc|incorporated|llp|holdings|holding|services|service|technologies|technology|solutions|solution|india|company|co)\b/gi, "")
+		.replace(/\b(proposed|bse|nse|reit)\b/gi, "")
+		.replace(/[^a-z0-9]/g, "")
+		.trim();
+}

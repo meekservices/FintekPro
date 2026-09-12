@@ -41,6 +41,13 @@ export default function IPO() {
 	});
 	const listedIpos = Array.isArray(rawListed) ? rawListed : [];
 
+	const { data: rawSme, isLoading: smeLoading } = useQuery({
+		queryKey: ["/api/ipos?status=sme"],
+	});
+	const smeIpos = Array.isArray(rawSme) && rawSme.length > 0
+		? rawSme
+		: ongoingIpos.filter((ipo) => ipo.ipoType === "sme" || ipo.issueType?.includes("SME"));
+
 	const { data: rawIpoNews, isLoading: newsLoading } = useQuery({
 		queryKey: ["/api/ipo-news"],
 	});
@@ -102,22 +109,33 @@ export default function IPO() {
 							</p>
 						</div>
 					</div>
-					<Badge
-						variant={
-							ipo.status === "ongoing"
-								? "default"
-								: ipo.status === "listed"
-									? "secondary"
-									: "outline"
-						}
-						data-testid="ipo-status-badge"
-					>
-						{ipo.status === "upcoming"
-							? "Upcoming"
-							: ipo.status === "ongoing"
-								? "Live"
-								: "Listed"}
-					</Badge>
+					<div className="flex items-center gap-1.5">
+						{(ipo.ipoType === "sme" || ipo.issueType?.includes("SME")) && (
+							<Badge
+								variant="outline"
+								className="text-purple-700 bg-purple-50 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 text-xs font-semibold"
+								data-testid="ipo-sme-badge"
+							>
+								SME
+							</Badge>
+						)}
+						<Badge
+							variant={
+								ipo.status === "ongoing"
+									? "default"
+									: ipo.status === "listed"
+										? "secondary"
+										: "outline"
+							}
+							data-testid="ipo-status-badge"
+						>
+							{ipo.status === "upcoming"
+								? "Upcoming"
+								: ipo.status === "ongoing"
+									? "Live"
+									: "Listed"}
+						</Badge>
+					</div>
 				</div>
 			</CardHeader>
 			<CardContent className="space-y-4">
@@ -353,31 +371,38 @@ export default function IPO() {
 
 					<TabsContent value="sme" className="space-y-6" data-testid="sme-ipos">
 						<div
-							className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6"
+							className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4 mb-6"
 							data-testid="sme-info"
 						>
 							<div className="flex items-center space-x-2">
-								<Building2 className="h-5 w-5 text-blue-600" />
-								<h3 className="font-semibold text-blue-800 dark:text-blue-200">
-									SME IPO Platform
+								<Building2 className="h-5 w-5 text-purple-600" />
+								<h3 className="font-semibold text-purple-800 dark:text-purple-200">
+									SME Board IPO Platform
 								</h3>
 							</div>
-							<p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
-								Small and Medium Enterprises (SME) IPOs offer investment
-								opportunities in emerging companies with growth potential.
+							<p className="text-purple-700 dark:text-purple-300 text-sm mt-1">
+								Emerging small and medium enterprises listed on BSE SME and NSE Emerge.
 							</p>
 						</div>
-						<Card className="border-dashed border-2 border-border">
-							<CardContent className="flex flex-col items-center justify-center py-12">
-								<Building2 className="h-12 w-12 text-muted-foreground mb-4" />
-								<h3 className="text-lg font-semibold text-foreground mb-2">
-									SME IPOs Coming Soon
-								</h3>
-								<p className="text-muted-foreground text-center">
-									SME IPO listings will be displayed here when available
-								</p>
-							</CardContent>
-						</Card>
+						{smeLoading ? (
+							<LoadingState variant="card" count={4} />
+						) : smeIpos.length > 0 ? (
+							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+								{smeIpos.map((ipo: IpoCompany) => renderIpoCard(ipo))}
+							</div>
+						) : (
+							<Card className="border-dashed border-2 border-border">
+								<CardContent className="flex flex-col items-center justify-center py-12">
+									<Building2 className="h-12 w-12 text-muted-foreground mb-4" />
+									<h3 className="text-lg font-semibold text-foreground mb-2">
+										No SME IPOs Currently Open
+									</h3>
+									<p className="text-muted-foreground text-center">
+										SME IPO listings will be displayed here when open for bidding
+									</p>
+								</CardContent>
+							</Card>
+						)}
 					</TabsContent>
 
 					<TabsContent

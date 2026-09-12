@@ -140,23 +140,36 @@ export interface IndianAPICompanyProfile {
 }
 
 export interface IndianAPIIPO {
+	id?: string;
 	company_name: string;
 	symbol?: string;
+	isin?: string;
+	exchange?: string;
+	industry?: string;
+	sector?: string;
 	open_date: string;
 	close_date: string;
 	listing_date?: string;
+	allotment_date?: string;
 	issue_price?: number;
+	price_band_min?: number;
+	price_band_max?: number;
+	cut_off_price?: number;
 	lot_size?: number;
 	issue_size?: number;
+	min_investment?: number;
 	subscription?: {
 		qib?: number;
 		nii?: number;
 		retail?: number;
 		total?: number;
-	};
-	status: "upcoming" | "open" | "allotment" | "listing" | "listed";
+	} | string;
+	total_subscription?: number | string;
+	status: "upcoming" | "open" | "allotment" | "listing" | "listed" | string;
 	gmp?: number;
+	gmp_percentage?: number;
 	issue_type?: string;
+	rhp_url?: string;
 }
 
 export interface IndianAPIFIIDII {
@@ -1072,55 +1085,65 @@ class IndianAPIService {
 
 	async getIPOList(): Promise<IndianAPIResult<IndianAPIIPO[]>> {
 		if (!this.isConfigured) return this.notConfigured();
-		const key = requestDedupeService.createKey("indian_api", "ipo", "list");
-		return requestDedupeService.dedupe(key, async () => {
-			try {
-				const r = await this.retryWithBackoff(() => this.client.get("/ipo"));
-				const rawList: any[] = r.data?.data ?? (Array.isArray(r.data) ? r.data : []);
-				return this.makeResult<IndianAPIIPO[]>(rawList.map((item: any) => ({
-					company_name: item.companyName ?? item.name ?? "",
-					symbol: item.symbol,
-					open_date: item.openDate ?? item.open ?? "",
-					close_date: item.closeDate ?? item.close ?? "",
-					listing_date: item.listingDate,
-					issue_price: item.issuePrice ? Number(item.issuePrice) : undefined,
-					lot_size: item.lotSize ? Number(item.lotSize) : undefined,
-					issue_size: item.issueSize ? Number(item.issueSize) : undefined,
-					subscription: item.subscription,
-					status: item.status ?? "upcoming",
-					gmp: item.gmp ? Number(item.gmp) : undefined,
-				})));
-			} catch (error: any) {
-				logger.error(`[IndianAPI] getIPOList() error: ${error.message}`);
-				return this.makeError(error.message);
-			}
-		}, TTL.IPO);
+		const openRes = await this.getIPOv2("open");
+		if (openRes.success && openRes.data && openRes.data.length > 0) {
+			return openRes;
+		}
+		return this.getIPOv2("upcoming");
 	}
 
 	async getIPOv2(status?: string, issueType?: string): Promise<IndianAPIResult<IndianAPIIPO[]>> {
 		if (!this.isConfigured) return this.notConfigured();
-		const key = requestDedupeService.createKey("indian_api", "ipo_v2", `${status ?? "all"}:${issueType ?? "all"}`);
+		// Map 'ongoing' or 'active' to API standard 'open'
+		const effectiveStatus = status === "ongoing" || status === "active" ? "open" : (status ?? "open");
+		const key = requestDedupeService.createKey("indian_api", "ipo_v2", `${effectiveStatus}:${issueType ?? "all"}`);
 		return requestDedupeService.dedupe(key, async () => {
 			try {
 				const params: Record<string, string> = {};
-				if (status) params.status = status;
-				if (issueType) params.issue_type = issueType;
+				if (effectiveStatus && effectiveStatus !== "all") params.status = effectiveStatus;
+				if (issueType && issueType !== "all") params.issue_type = issueType;
 				const r = await this.retryWithBackoff(() => this.client.get("/ipo/v2", { params }));
-				const rawList: any[] = r.data?.data ?? (Array.isArray(r.data) ? r.data : []);
-				return this.makeResult<IndianAPIIPO[]>(rawList.map((item: any) => ({
-					company_name: item.companyName ?? item.name ?? "",
-					symbol: item.symbol,
-					open_date: item.openDate ?? item.open ?? "",
-					close_date: item.closeDate ?? item.close ?? "",
-					listing_date: item.listingDate,
-					issue_price: item.issuePrice ? Number(item.issuePrice) : undefined,
-					lot_size: item.lotSize ? Number(item.lotSize) : undefined,
-					issue_size: item.issueSize ? Number(item.issueSize) : undefined,
-					subscription: item.subscription,
-					status: item.status ?? status ?? "upcoming",
-					gmp: item.gmp ? Number(item.gmp) : undefined,
-					issue_type: item.issueType ?? issueType,
-				})));
+				// dev.indianapi.in/ipo/v2 returns { summary: {...}, ipos: [...] }
+				const rawList: any[] = r.data?.ipos ?? r.data?.data ?? (Array.isArray(r.data) ? r.data : []);
+				return this.makeResult<IndianAPIIPO[]>(rawList.map((item: any) => {
+					const minP = item.minimumPrice ?? item.min_price;
+					const maxP = item.maximumPrice ?? item.max_price;
+					const cutP = item.cutOffPrice ?? item.issuePrice ?? item.issue_price;
+					const lotS = item.lotSize ?? item.lot_size;
+					const issueS = item.issueSize ?? item.issue_size;
+					const isSme = item.issueType === "SME" || item.is_sme === true;
+					const openD = item.biddingStartDate ?? item.bidding_start_date ?? item.openDate ?? item.timeline?.applicationStartDate ?? item.open ?? "";
+					const closeD = item.biddingEndDate ?? item.bidding_end_date ?? item.closeDate ?? item.timeline?.applicationEndDate ?? item.close ?? "";
+					const listD = item.timeline?.listingDate ?? item.listingDate ?? item.listing_date;
+					const allotD = item.timeline?.allotmentDate ?? item.allotmentDate ?? item.allotment_date;
+					const sub = item.totalSubscription ?? item.subscriptionRate ?? item.subscription;
+
+					return {
+						id: item.id ?? item.symbol ?? (item.name ? item.name.toLowerCase().replace(/[^a-z0-9]/g, "-") : "ipo"),
+						company_name: item.name ?? item.companyName ?? "",
+						symbol: item.symbol,
+						isin: item.isin,
+						exchange: item.listingExchange ?? (isSme ? "BSE" : "BSE,NSE"),
+						industry: item.industry ?? (isSme ? "SME Enterprise" : "General"),
+						open_date: String(openD),
+						close_date: String(closeD),
+						listing_date: listD ? String(listD) : undefined,
+						allotment_date: allotD ? String(allotD) : undefined,
+						issue_price: cutP ? Number(cutP) : undefined,
+						price_band_min: minP ? Number(minP) : undefined,
+						price_band_max: maxP ? Number(maxP) : undefined,
+						cut_off_price: cutP ? Number(cutP) : undefined,
+						lot_size: lotS ? Number(lotS) : undefined,
+						issue_size: issueS ? Number(issueS) : undefined,
+						min_investment: minP && lotS ? Number(minP) * Number(lotS) : undefined,
+						subscription: sub ? String(sub) : undefined,
+						total_subscription: sub ? String(sub) : undefined,
+						status: item.status ?? effectiveStatus,
+						gmp: item.gmp ? Number(item.gmp) : undefined,
+						issue_type: item.issueType ?? (isSme ? "SME" : "Mainboard"),
+						rhp_url: item.rhpUrl ?? item.document_url,
+					};
+				}));
 			} catch (error: any) {
 				logger.error(`[IndianAPI] getIPOv2() error: ${error.message}`);
 				return this.makeError(error.message);
