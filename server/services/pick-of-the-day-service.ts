@@ -48,6 +48,7 @@ import { IPickStrategy } from "./picks/types";
 import { StockStrategy } from "./picks/stock-strategy";
 import { MutualFundStrategy } from "./picks/mutual-fund-strategy";
 import { UnlistedStrategy } from "./picks/unlisted-strategy";
+import { PreIpoStrategy } from "./picks/pre-ipo-strategy";
 import { BondStrategy } from "./picks/bond-strategy";
 import { DerivativeStrategy } from "./picks/derivative-strategy";
 import { GlobalStockStrategy } from "./picks/global-stock-strategy";
@@ -61,12 +62,14 @@ export type PickCategory =
 	| "mutual_funds"
 	| "bonds"
 	| "unlisted"
+	| "pre_ipo"
 	| "global_stocks"
 	| "etfs"
 	| "reits_invits"
 	| "fixed_deposits"
 	| "sgb"
 	| "derivatives";
+
 
 export type PickStatus = "live" | "target_hit" | "stoploss_hit" | "expired";
 
@@ -204,6 +207,7 @@ export function calculateSuggestedAllocation(
 		"listed_stocks",
 		"global_stocks",
 		"unlisted",
+		"pre_ipo",
 		"mutual_funds",
 		"etfs",
 	].includes(category);
@@ -242,6 +246,7 @@ export class PickOfTheDayService {
 		this.strategies.set("listed_stocks", new StockStrategy());
 		this.strategies.set("mutual_funds", new MutualFundStrategy());
 		this.strategies.set("unlisted", new UnlistedStrategy());
+		this.strategies.set("pre_ipo", new PreIpoStrategy());
 		this.strategies.set("bonds", new BondStrategy());
 		this.strategies.set("derivatives", new DerivativeStrategy());
 		this.strategies.set("global_stocks", new GlobalStockStrategy());
@@ -347,12 +352,13 @@ export class PickOfTheDayService {
 		let sectorGateBlocked = 0;
 		const categoryResults: GenerationLogEntry["categoryResults"] = {};
 
-		// Ordered by priority
+		// Ordered by priority. pre_ipo runs after unlisted so both get fresh picks.
 		let categories: PickCategory[] = [
 			"listed_stocks",
 			"mutual_funds",
 			"bonds",
 			"unlisted",
+			"pre_ipo",
 			"global_stocks",
 			"etfs",
 			"reits_invits",

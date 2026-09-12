@@ -110,6 +110,7 @@ import {
 	ArrowUpDown,
 	ChevronUp,
 	ChevronDown,
+	Rocket,
 } from "lucide-react";
 import {
 	LineChart,
@@ -303,6 +304,7 @@ const categoryIcons: Record<string, ComponentType<{ className?: string }>> = {
 	mutual_funds: BarChart3,
 	bonds: Landmark,
 	unlisted: Building2,
+	pre_ipo: Rocket,
 	global_stocks: Globe,
 	etfs: Coins,
 	reits_invits: Building2,
@@ -316,6 +318,7 @@ const categoryLabels: Record<string, string> = {
 	mutual_funds: "Mutual Funds",
 	bonds: "Bonds",
 	unlisted: "Unlisted",
+	pre_ipo: "Pre-IPO",
 	global_stocks: "Global Stocks",
 	etfs: "ETFs",
 	reits_invits: "REITs/InvITs",
@@ -334,6 +337,21 @@ const formatPrice = (price: number, category: string): string => {
 	const symbol = getCurrencySymbol(category);
 	return `${symbol}${price.toLocaleString("en-IN")}`;
 };
+
+/**
+ * Returns true if this pick is a Pre-IPO pick.
+ * Picks are now stored with category = "pre_ipo" by PreIpoStrategy.
+ * The old fallback (detecting pre-IPO via keyMetrics.listingStage inside
+ * unlisted picks) is kept for backward compatibility with historical picks
+ * that were stored before the category split.
+ */
+export const isPreIpoPick = (p: DailyPick) =>
+	p.category === "pre_ipo" ||
+	// Backward compat: old picks stored as unlisted with listingStage metadata
+	(p.category === "unlisted" &&
+		(p.keyMetrics?.listingStage === "pre_ipo" ||
+			p.keyMetrics?.listingStage === "ipo_announced"));
+
 
 type StatusEntry = {
 	color: string;
@@ -418,6 +436,7 @@ const allCategories = [
 	{ key: "mutual_funds", label: "Mutual Funds", icon: BarChart3 },
 	{ key: "bonds", label: "Bonds", icon: Landmark },
 	{ key: "unlisted", label: "Unlisted", icon: Building2 },
+	{ key: "pre_ipo", label: "Pre-IPO", icon: Rocket },
 	{ key: "global_stocks", label: "Global", icon: Globe },
 	{ key: "etfs", label: "ETFs", icon: Coins },
 	{ key: "reits_invits", label: "REITs", icon: Building2 },
@@ -934,8 +953,11 @@ export default function AgentPicksPage() {
 
 	const filteredTodayPicks = todayPicks.filter((p) => {
 		if (isPickExpired(p)) return false;
-		if (todayCategoryFilter !== "all" && p.category !== todayCategoryFilter)
+		if (todayCategoryFilter === "pre_ipo") {
+			if (!isPreIpoPick(p)) return false;
+		} else if (todayCategoryFilter !== "all" && p.category !== todayCategoryFilter) {
 			return false;
+		}
 		if (
 			todayCategoryFilter === "global_stocks" &&
 			!filterByMarket(p, todayMarketFilter)
@@ -946,8 +968,11 @@ export default function AgentPicksPage() {
 
 	const filteredLivePicks = livePicks.filter((p) => {
 		if (isPickExpired(p)) return false;
-		if (liveCategoryFilter !== "all" && p.category !== liveCategoryFilter)
+		if (liveCategoryFilter === "pre_ipo") {
+			if (!isPreIpoPick(p)) return false;
+		} else if (liveCategoryFilter !== "all" && p.category !== liveCategoryFilter) {
 			return false;
+		}
 		if (
 			liveCategoryFilter === "global_stocks" &&
 			!filterByMarket(p, liveMarketFilter)
@@ -965,11 +990,14 @@ export default function AgentPicksPage() {
 	});
 
 	const filteredHistory = historyPicks.filter((pick) => {
-		if (
+		if (historyCategoryFilter === "pre_ipo") {
+			if (!isPreIpoPick(pick)) return false;
+		} else if (
 			historyCategoryFilter !== "all" &&
 			pick.category !== historyCategoryFilter
-		)
+		) {
 			return false;
+		}
 		if (
 			historyCategoryFilter === "global_stocks" &&
 			!filterByMarket(pick, historyMarketFilter)
@@ -991,11 +1019,21 @@ export default function AgentPicksPage() {
 	const nonExpiredTodayPicks = todayPicks.filter((p) => !isPickExpired(p));
 	const nonExpiredLivePicks = livePicks.filter((p) => !isPickExpired(p));
 
-	const getCategoryCounts = (picks: DailyPick[]) => {
+	const getCategoryCounts = (picks: DailyPick[], supplementPicks?: DailyPick[]) => {
 		const counts: Record<string, number> = { all: picks.length };
 		picks.forEach((p) => {
 			counts[p.category] = (counts[p.category] || 0) + 1;
+			if (isPreIpoPick(p)) {
+				counts["pre_ipo"] = (counts["pre_ipo"] || 0) + 1;
+			}
 		});
+		// Pre-IPO picks persist across days (unlisted assets don't change daily).
+		// Supplement today's pre_ipo count with any active live picks that are pre-IPO
+		// so the tab is always visible when pre-IPO opportunities exist.
+		if (supplementPicks && counts["pre_ipo"] === 0) {
+			const livePreIpoCount = supplementPicks.filter(isPreIpoPick).length;
+			if (livePreIpoCount > 0) counts["pre_ipo"] = livePreIpoCount;
+		}
 		return counts;
 	};
 
@@ -1011,7 +1049,8 @@ export default function AgentPicksPage() {
 	};
 
 	// Use non-expired filtered lists for counts so badge numbers match card counts
-	const todayCounts = getCategoryCounts(nonExpiredTodayPicks);
+	// Pass live picks as supplement so pre_ipo tab is visible even on days with no new pre-IPO picks
+	const todayCounts = getCategoryCounts(nonExpiredTodayPicks, nonExpiredLivePicks);
 	const liveCounts = getCategoryCounts(nonExpiredLivePicks);
 	const historyCounts = getCategoryCounts(historyPicks);
 
@@ -2153,12 +2192,20 @@ export default function AgentPicksPage() {
 											variant={isActive ? "default" : "outline"}
 											size="sm"
 											onClick={() => setTodayCategoryFilter(key)}
-											className={`flex items-center gap-1.5 shrink-0 transition-opacity ${
-												count === 0 && key !== "all" && !isActive
-													? "opacity-40 cursor-not-allowed"
-													: ""
+											className={`flex items-center gap-1.5 shrink-0 transition-all ${
+												key === "pre_ipo" && !isActive
+													? "border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950"
+													: count === 0 && key !== "all" && !isActive
+														? "opacity-40 cursor-not-allowed"
+														: ""
 											}`}
-											title={count === 0 && key !== "all" ? "No picks available today" : undefined}
+											title={
+												key === "pre_ipo"
+													? "Pre-IPO opportunities — unlisted companies preparing for public listing"
+													: count === 0 && key !== "all"
+														? "No picks available today"
+														: undefined
+											}
 										>
 											<Icon className="h-3.5 w-3.5" />
 											{label}
@@ -3721,7 +3768,9 @@ export default function AgentPicksPage() {
 							) : filteredTodayPicks.length === 0 ? (
 								<div className="flex flex-col items-center justify-center py-16 px-4 text-center">
 									<div className="w-16 h-16 rounded-2xl bg-muted/60 flex items-center justify-center mb-4">
-										{todayCategoryFilter === "derivatives" ? (
+										{todayCategoryFilter === "pre_ipo" ? (
+											<Rocket className="h-8 w-8 text-muted-foreground/60" />
+										) : todayCategoryFilter === "derivatives" ? (
 											<Activity className="h-8 w-8 text-muted-foreground/60" />
 										) : todayCategoryFilter === "global_stocks" ? (
 											<Globe className="h-8 w-8 text-muted-foreground/60" />
@@ -3740,17 +3789,19 @@ export default function AgentPicksPage() {
 											: "Yet Today"}
 									</h3>
 									<p className="text-sm text-muted-foreground max-w-xs">
-										{todayCategoryFilter === "derivatives"
-											? "F&O picks require live NSE options chain data. They are generated when market conditions indicate a clear directional opportunity."
-											: todayCategoryFilter === "global_stocks"
-												? "Global stock picks are generated from international instruments data. Ensure the global instruments DB is seeded with live prices."
-												: todayCategoryFilter === "sgb"
-													? "Sovereign Gold Bond picks are only generated during active SGB issue windows (open/upcoming tranches)."
-													: todayCategoryFilter === "fixed_deposits"
-														? "Fixed Deposit picks are generated from the instrument master. Ensure FD instruments are seeded in the database."
-														: todayCategoryFilter === "etfs"
-															? 'ETF picks require instruments with assetClass="etf" and a non-null lastPrice in the instrument master.'
-															: "Picks are generated automatically each morning at 9 AM IST based on market analysis."}
+										{todayCategoryFilter === "pre_ipo"
+											? "Pre-IPO picks are selected from high-growth unlisted companies preparing for public listing, backed by institutional funding and MCA financial compliance."
+											: todayCategoryFilter === "derivatives"
+												? "F&O picks require live NSE options chain data. They are generated when market conditions indicate a clear directional opportunity."
+												: todayCategoryFilter === "global_stocks"
+													? "Global stock picks are generated from international instruments data. Ensure the global instruments DB is seeded with live prices."
+													: todayCategoryFilter === "sgb"
+														? "Sovereign Gold Bond picks are only generated during active SGB issue windows (open/upcoming tranches)."
+														: todayCategoryFilter === "fixed_deposits"
+															? "Fixed Deposit picks are generated from the instrument master. Ensure FD instruments are seeded in the database."
+															: todayCategoryFilter === "etfs"
+																? 'ETF picks require instruments with assetClass="etf" and a non-null lastPrice in the instrument master.'
+																: "Picks are generated automatically each morning at 9 AM IST based on market analysis."}
 									</p>
 									<p className="text-xs text-muted-foreground/60 mt-2">
 										Next auto-generation: 9:00 AM IST
@@ -3946,6 +3997,53 @@ export default function AgentPicksPage() {
 											onRowClick={setSelectedPick}
 										/>
 									) : (
+										<div className="space-y-4">
+										{/* Pre-IPO: Pipeline summary banner */}
+										{todayCategoryFilter === "pre_ipo" && filteredTodayPicks.length > 0 && (() => {
+											const preIpoPicks = filteredTodayPicks.filter(isPreIpoPick);
+											const avgGmp = preIpoPicks.reduce((sum, p) => sum + (Number((p.keyMetrics as any)?.gmpPercentage) || 0), 0) / (preIpoPicks.length || 1);
+											const stageCounts = preIpoPicks.reduce((acc, p) => {
+												const s = (p.keyMetrics as any)?.listingStage ?? "unlisted";
+												acc[s] = (acc[s] || 0) + 1;
+												return acc;
+											}, {} as Record<string, number>);
+											return (
+												<div className="rounded-xl border border-purple-200 dark:border-purple-800 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 p-4">
+													<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+														<div className="flex items-center gap-2">
+															<div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-900">
+																<Rocket className="h-4 w-4 text-purple-700 dark:text-purple-300" />
+															</div>
+															<div>
+																<p className="text-sm font-bold text-purple-900 dark:text-purple-100">Pre-IPO Pipeline</p>
+																<p className="text-xs text-purple-600 dark:text-purple-400">{preIpoPicks.length} active pre-IPO pick{preIpoPicks.length !== 1 ? "s" : ""} · Accredited Investors Only</p>
+															</div>
+														</div>
+														{avgGmp > 0 && (
+															<div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800">
+																<TrendingUp className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" />
+																<span className="text-xs font-bold text-emerald-800 dark:text-emerald-200">Avg. GMP +{avgGmp.toFixed(1)}%</span>
+															</div>
+														)}
+													</div>
+													{Object.keys(stageCounts).length > 0 && (
+														<div className="flex flex-wrap gap-2 mb-3">
+															{Object.entries(stageCounts).map(([stage, count]) => (
+																<span key={stage} className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 font-medium capitalize">
+																	{stage.replace(/_/g, " ")}: {count}
+																</span>
+															))}
+														</div>
+													)}
+													<div className="flex items-start gap-1.5 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800">
+														<AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+														<p className="text-[10px] text-amber-800 dark:text-amber-200 leading-relaxed">
+															<span className="font-bold">SEBI Regulatory Disclosure:</span> Pre-IPO investments are speculative, illiquid, and carry high risk including total loss of principal. These recommendations are for informational purposes only and do not constitute investment advice. Suitability is subject to KYC, Accredited Investor eligibility, and individual risk assessment.
+														</p>
+													</div>
+												</div>
+											);
+										})()}
 										<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
 											{filteredTodayPicks.map((pick, index) => (
 												<PickCard
@@ -3966,6 +4064,7 @@ export default function AgentPicksPage() {
 													onClick={setSelectedPick}
 												/>
 											))}
+										</div>
 										</div>
 									);
 								})()
@@ -5408,8 +5507,9 @@ export default function AgentPicksPage() {
 														? !!c.email
 														: !!c.phone && !c.phone.startsWith("+XXXX");
 												return (
-													<div
+													<label
 														key={c.id}
+														htmlFor={`share-client-${c.id}`}
 														className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-muted transition-colors ${
 															!reachable ? "opacity-40 cursor-not-allowed" : ""
 														}`}
@@ -5423,6 +5523,7 @@ export default function AgentPicksPage() {
 														}}
 													>
 														<Checkbox
+															id={`share-client-${c.id}`}
 															checked={shareClientsSelected.includes(c.id)}
 															disabled={!reachable}
 															onCheckedChange={() => {
@@ -5454,7 +5555,7 @@ export default function AgentPicksPage() {
 														>
 															{c.source === "prospect" ? "P" : "C"}
 														</Badge>
-													</div>
+													</label>
 												);
 											})}
 									</div>
@@ -5670,7 +5771,8 @@ function PicksTable({
 								: pick.currentPrice && _rec
 									? ((_cur - _rec) / _rec) * 100
 									: null;
-						const catLabel = categoryLabels[pick.category] || pick.category;
+						const isPreIpo = isPreIpoPick(pick);
+						const catLabel = isPreIpo ? "Pre-IPO" : (categoryLabels[pick.category] || pick.category);
 						const horizon = pick.timeHorizon
 							? horizonConfig[pick.timeHorizon]
 							: null;
@@ -5800,7 +5902,8 @@ function PickCard({
 }: PickCardProps) {
 	const [localBudget, setLocalBudget] = useState("100000");
 	const suggestedAllocation = pick.keyMetrics?.suggestedAllocation || 5;
-	const Icon = categoryIcons[pick.category] || TrendingUp;
+	const isPreIpo = isPreIpoPick(pick);
+	const Icon = categoryIcons[isPreIpo ? "pre_ipo" : pick.category] || TrendingUp;
 	const isExpiredByDate =
 		pick.status === "live" &&
 		pick.expiryDate &&
@@ -5831,7 +5934,7 @@ function PickCard({
 					<div className="flex items-center gap-2 flex-wrap">
 						<span className="font-medium truncate">{pick.instrumentName}</span>
 						<Badge variant="outline" className="text-[10px]">
-							{categoryLabels[pick.category]}
+							{isPreIpo ? "Pre-IPO" : categoryLabels[pick.category]}
 						</Badge>
 						{pick.confidenceScore !== undefined && (
 							<TooltipProvider>
@@ -5881,13 +5984,11 @@ function PickCard({
 			<CardContent className="pt-4">
 				<div className="flex items-start gap-3">
 					{onSelectToggle && (
-						<div
-							className="pt-1.5 shrink-0"
-							onClick={(e) => e.stopPropagation()}
-						>
+						<div className="pt-1.5 shrink-0">
 							<Checkbox
 								checked={isSelected}
 								onCheckedChange={() => onSelectToggle(pick.id)}
+								onClick={(e) => e.stopPropagation()}
 							/>
 						</div>
 					)}
@@ -5934,11 +6035,113 @@ function PickCard({
 											ISIN: {pick.isin}
 										</span>
 									)}
-									{pick.category === "unlisted" && pick.keyMetrics?.cin && (
+									{(pick.category === "unlisted" || isPreIpo) && pick.keyMetrics?.cin && (
 										<span className="text-xs text-orange-600 dark:text-orange-400 font-mono">
 											CIN: {pick.keyMetrics.cin}
 										</span>
 									)}
+									{isPreIpo && (
+										<span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 font-medium">
+											Pre-IPO
+										</span>
+									)}
+									{/* Pre-IPO: GMP badge */}
+									{isPreIpo && (pick.keyMetrics as any)?.gmpPercentage != null && (
+										<TooltipProvider>
+											<Tooltip>
+												<TooltipTrigger asChild>
+													<span className={`text-xs px-1.5 py-0.5 rounded font-bold cursor-help flex items-center gap-0.5 ${
+														Number((pick.keyMetrics as any).gmpPercentage) >= 15
+															? "bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200"
+															: Number((pick.keyMetrics as any).gmpPercentage) >= 5
+																? "bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200"
+																: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"
+													}`}>
+														<TrendingUp className="h-3 w-3" />
+														GMP {(pick.keyMetrics as any).gmpPercentage > 0 ? "+" : ""}{(pick.keyMetrics as any).gmpPercentage}%
+													</span>
+												</TooltipTrigger>
+												<TooltipContent className="text-xs max-w-[200px]">
+													<p className="font-semibold">Grey Market Premium</p>
+													<p className="text-muted-foreground">OTC price premium over the estimated IPO band. Indicative only — not a guarantee of listing gains.</p>
+												</TooltipContent>
+											</Tooltip>
+										</TooltipProvider>
+									)}
+									{/* Pre-IPO: IPO countdown */}
+									{isPreIpo && (pick.keyMetrics as any)?.expectedIpoDate && (() => {
+										const ipoDate = new Date((pick.keyMetrics as any).expectedIpoDate);
+										const daysLeft = Math.ceil((ipoDate.getTime() - Date.now()) / 86400000);
+										if (Number.isNaN(daysLeft)) return null;
+										const isPast = daysLeft < 0;
+										return (
+											<TooltipProvider>
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<span className={`text-xs px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5 cursor-help ${
+															isPast
+																? "bg-muted text-muted-foreground"
+																: daysLeft <= 30
+																	? "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200"
+																	: "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+														}`}>
+															<Calendar className="h-3 w-3" />
+															{isPast ? "IPO Filed" : `IPO ~${daysLeft}d`}
+														</span>
+													</TooltipTrigger>
+													<TooltipContent className="text-xs">
+														<p className="font-semibold">Expected IPO Date</p>
+														<p>{ipoDate.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
+														<p className="text-muted-foreground mt-1">Subject to SEBI approval and market conditions.</p>
+													</TooltipContent>
+												</Tooltip>
+											</TooltipProvider>
+										);
+									})()}
+									{/* Pre-IPO: Listing Stage Stepper */}
+									{isPreIpo && (() => {
+										const stage = (pick.keyMetrics as any)?.listingStage ?? "unlisted";
+										const stages: { key: string; label: string }[] = [
+											{ key: "unlisted", label: "Unlisted" },
+											{ key: "drhp_filed", label: "DRHP" },
+											{ key: "sebi_approved", label: "SEBI ✓" },
+											{ key: "ipo_announced", label: "IPO Open" },
+											{ key: "listed", label: "Listed" },
+										];
+										const currentIdx = stages.findIndex((s) => s.key === stage);
+										return (
+											<div className="mt-2 flex items-center gap-0 w-full">
+												{stages.map((s, i) => (
+													<div key={s.key} className="flex items-center flex-1 min-w-0">
+														<TooltipProvider>
+															<Tooltip>
+																<TooltipTrigger asChild>
+																	<div className="flex flex-col items-center flex-1 cursor-help">
+																		<div className={`w-2.5 h-2.5 rounded-full border-2 ${
+																			i < currentIdx
+																				? "bg-purple-500 border-purple-500"
+																				: i === currentIdx
+																					? "bg-purple-500 border-purple-300 ring-2 ring-purple-300/40"
+																					: "bg-muted border-muted-foreground/30"
+																		}`} />
+																		<span className={`text-[9px] mt-0.5 leading-tight text-center ${
+																			i <= currentIdx ? "text-purple-700 dark:text-purple-300 font-semibold" : "text-muted-foreground/50"
+																		}`}>{s.label}</span>
+																	</div>
+																</TooltipTrigger>
+																<TooltipContent className="text-xs"><p>{s.label} stage</p></TooltipContent>
+															</Tooltip>
+														</TooltipProvider>
+														{i < stages.length - 1 && (
+															<div className={`h-px flex-1 ${
+																i < currentIdx ? "bg-purple-400" : "bg-muted-foreground/20"
+															}`} />
+														)}
+													</div>
+												))}
+											</div>
+										);
+									})()}
 									{pick.category === "sgb" && pick.keyMetrics?.seriesCode && (
 										<span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-1.5 py-0.5 rounded">
 											Series: {pick.keyMetrics.seriesCode}
@@ -6033,8 +6236,8 @@ function PickCard({
 							)}
 						</div>
 
-						{/* #2 Risk/Reward badge */}
-						{Number.parseFloat(upside) > 0 &&
+						{/* #2 Risk/Reward badge — hidden for Pre-IPO (illiquid; no tradeable stoploss) */}
+						{!isPreIpo && Number.parseFloat(upside) > 0 &&
 							Number.parseFloat(downside) > 0 && (
 								<div className="flex items-center gap-2 mt-3">
 									<TooltipProvider>
@@ -6074,43 +6277,9 @@ function PickCard({
 								</div>
 							)}
 
-						<div className="grid grid-cols-3 gap-2 sm:gap-3 mt-4">
-							<div className="bg-muted/30 p-2 sm:p-3 rounded-lg border border-transparent hover:border-border transition-colors">
-								<div className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
-									Entry Price
-								</div>
-								<div className="font-bold text-sm sm:text-base">
-									{formatPrice(pick.recoPrice, pick.category)}
-								</div>
-							</div>
-							<div className="bg-green-50/50 dark:bg-green-900/5 p-2 sm:p-3 rounded-lg border border-green-100 dark:border-green-900/10">
-								<div className="text-[10px] uppercase tracking-widest text-green-600 dark:text-green-400 font-bold mb-1 flex items-center gap-1">
-									<ArrowUpRight className="h-3.5 w-3.5" />
-									Target
-								</div>
-								<div className="font-bold text-sm sm:text-base text-green-600">
-									{formatPrice(pick.targetPrice, pick.category)}
-								</div>
-								<div className="text-[10px] font-medium text-green-600/80 mt-1">
-									+{upside}% Potential
-								</div>
-							</div>
-							<div className="bg-red-50/50 dark:bg-red-900/5 p-2 sm:p-3 rounded-lg border border-red-100 dark:border-red-900/10">
-								<div className="text-[10px] uppercase tracking-widest text-red-600 dark:text-red-400 font-bold mb-1 flex items-center gap-1">
-									<ArrowDownRight className="h-3.5 w-3.5" />
-									Stoploss
-								</div>
-								<div className="font-bold text-sm sm:text-base text-red-600">
-									{formatPrice(pick.stoplossPrice, pick.category)}
-								</div>
-								<div className="text-[10px] font-medium text-red-600/80 mt-1">
-									-{downside}% Max Risk
-								</div>
-							</div>
-						</div>
 
-						{/* #4 Visual price level gauge */}
-						{pick.currentPrice &&
+						{/* #4 Visual price level gauge — hidden for Pre-IPO (illiquid; no exchange price tracking) */}
+						{!isPreIpo && pick.currentPrice &&
 							pick.stoplossPrice &&
 							pick.targetPrice &&
 							(() => {
@@ -6252,35 +6421,35 @@ function PickCard({
 							</div>
 						)}
 
-						{/* Inline Sizing Calculator */}
+						{/* Inline Sizing Calculator — adapted for Pre-IPO (lot size / ticket size) */}
 						<div
-							className="mt-3.5 p-3 rounded-lg border border-dashed bg-muted/20"
-							onClick={(e) => e.stopPropagation()}
+							className={`mt-3.5 p-3 rounded-lg border border-dashed ${isPreIpo ? "bg-purple-50/30 dark:bg-purple-950/10 border-purple-200 dark:border-purple-800" : "bg-muted/20"}`}
 						>
 							<div className="flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
 								<div className="flex items-center gap-2">
 									<Calculator className="h-3.5 w-3.5 text-primary animate-pulse" />
 									<span className="text-xs font-bold text-foreground">
-										Sizing Calculator
+										{isPreIpo ? "Pre-IPO Ticket Calculator" : "Sizing Calculator"}
 									</span>
 								</div>
 								<div className="flex items-center gap-1.5">
 									<span className="text-[9px] text-muted-foreground uppercase font-bold">
-										Budget:
+										{isPreIpo ? "Investment:" : "Budget:"}
 									</span>
 									<input
 										type="number"
 										value={localBudget}
 										onChange={(e) => setLocalBudget(e.target.value)}
+										onClick={(e) => e.stopPropagation()}
 										className="h-6 w-24 px-1.5 py-0.5 text-right text-xs rounded border bg-background text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary"
-										placeholder="1,00,000"
+										placeholder={isPreIpo ? "50,00,000" : "1,00,000"}
 									/>
 								</div>
 							</div>
 							<div className="grid grid-cols-2 gap-4 mt-2.5 pt-2 border-t border-muted">
 								<div>
 									<div className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">
-										Target Size ({suggestedAllocation}%)
+										{isPreIpo ? `Allocation (${suggestedAllocation}%)` : `Target Size (${suggestedAllocation}%)`}
 									</div>
 									<div className="font-bold text-xs sm:text-sm text-primary">
 										{formatPrice(
@@ -6293,7 +6462,7 @@ function PickCard({
 								</div>
 								<div className="text-right">
 									<div className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">
-										Approx. Shares/Units
+										{isPreIpo ? "Approx. Shares (OTC Lot)" : "Approx. Shares/Units"}
 									</div>
 									<div className="font-bold text-xs sm:text-sm text-foreground">
 										{pick.recoPrice > 0
@@ -6306,6 +6475,13 @@ function PickCard({
 									</div>
 								</div>
 							</div>
+							{/* Pre-IPO: min ticket size guard */}
+							{isPreIpo && (pick.keyMetrics as any)?.minTicketSize && Number(localBudget) > 0 && Number(localBudget) * (suggestedAllocation / 100) < Number((pick.keyMetrics as any).minTicketSize) && (
+								<div className="mt-2 flex items-center gap-1.5 text-[10px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">
+									<AlertTriangle className="h-3 w-3 shrink-0" />
+									Allocation below min. ticket size of ₹{Number((pick.keyMetrics as any).minTicketSize).toLocaleString("en-IN")}. Increase budget.
+								</div>
+							)}
 						</div>
 
 						{/* #7 Structured Rationale */}
@@ -6332,7 +6508,7 @@ function PickCard({
 										{whyLike.length > 0 && (
 											<div className="space-y-2">
 												<p className="text-[11px] font-bold uppercase tracking-widest text-primary flex items-center gap-1.5 opacity-80">
-													<TrendingUp className="h-3.5 w-3.5" /> High Conviction
+													<TrendingUp className="h-3.5 w-3.5" /> {isPreIpo ? "IPO Catalyst" : "High Conviction"}
 												</p>
 												<ul className="text-xs text-foreground/90 space-y-1.5 pl-4">
 													{whyLike.map((s, i) => (
@@ -6349,7 +6525,7 @@ function PickCard({
 										{risks.length > 0 && (
 											<div className="space-y-2">
 												<p className="text-[11px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 flex items-center gap-1.5 opacity-80">
-													<AlertTriangle className="h-3.5 w-3.5" /> Market Risks
+													<AlertTriangle className="h-3.5 w-3.5" /> {isPreIpo ? "Listing Risks" : "Market Risks"}
 												</p>
 												<ul className="text-xs text-foreground/90 space-y-1.5 pl-4">
 													{risks.map((s, i) => (
@@ -6366,7 +6542,7 @@ function PickCard({
 										{exits.length > 0 && (
 											<div className="space-y-2">
 												<p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5 opacity-80">
-													<Target className="h-3.5 w-3.5" /> Execution Guide
+													<Target className="h-3.5 w-3.5" /> {isPreIpo ? "Exit Strategy" : "Execution Guide"}
 												</p>
 												<ul className="text-xs text-foreground/90 space-y-1.5 pl-4">
 													{exits.map((s, i) => (
@@ -6391,12 +6567,23 @@ function PickCard({
 							>
 								{pick.riskLevel} risk
 							</Badge>
+							{isPreIpo && (
+								<Badge variant="outline" className="text-[10px] border-amber-400 text-amber-700 dark:text-amber-400">
+									Accredited Investor Only
+								</Badge>
+							)}
 							{pick.suitableFor?.map((profile) => (
 								<Badge key={profile} variant="secondary" className="text-xs">
 									{profile}
 								</Badge>
 							))}
 						</div>
+						{/* SEBI compliance notice for Pre-IPO */}
+						{isPreIpo && (
+							<p className="text-[9px] text-muted-foreground/60 mt-1 leading-relaxed">
+								⚠ Pre-IPO investments are high-risk, illiquid, and subject to SEBI regulations. Past performance does not guarantee listing gains. Invest only if you understand and accept total loss of capital risk.
+							</p>
+						)}
 
 						{showDetails && pick.keyMetrics && (
 							<div className="mt-3 pt-3 border-t grid grid-cols-4 gap-2 text-xs">
@@ -6571,7 +6758,20 @@ function PickCard({
 												onClick={(e) => {
 													e.stopPropagation();
 													const cur = getCurrencySymbol(pick.category);
-													const msg =
+													const gmp = (pick.keyMetrics as any)?.gmpPercentage;
+												const ipoDateStr = (pick.keyMetrics as any)?.expectedIpoDate
+													? new Date((pick.keyMetrics as any).expectedIpoDate).toLocaleDateString("en-IN")
+													: null;
+												const msg = isPreIpo
+													? `🚀 *Pre-IPO: ${pick.instrumentName}*\n` +
+													  `OTC Entry Price: ${cur}${pick.recoPrice.toLocaleString()}\n` +
+													  `IPO/Fair Value Target: ${cur}${pick.targetPrice.toLocaleString()} (+${upside}%)\n` +
+													  (gmp != null ? `GMP: +${gmp}%\n` : "") +
+													  (ipoDateStr ? `Expected IPO Date: ${ipoDateStr}\n` : "") +
+													  (pick.confidenceScore ? `AI Confidence: ${pick.confidenceScore}%\n` : "") +
+													  `\n⚠️ _High risk. Illiquid. Not listed on any exchange. Subject to SEBI regulations. This is NOT investment advice._\n` +
+													  `\n_Powered by FintekPro AI_`
+													:
 														`📊 *${pick.instrumentName}${pick.symbol ? ` (${pick.symbol})` : ""}*\n` +
 														`Category: ${categoryLabels[pick.category] || pick.category}\n` +
 														`Entry: ${cur}${pick.recoPrice.toLocaleString()}\n` +

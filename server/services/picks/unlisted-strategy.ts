@@ -12,6 +12,7 @@ import {
 	PickCategory,
 	ScoreBreakdown,
 } from "../pick-of-the-day-service";
+import { logger } from "../../logger";
 
 export class UnlistedStrategy extends BaseStrategy {
 	category: PickCategory = "unlisted";
@@ -27,9 +28,13 @@ export class UnlistedStrategy extends BaseStrategy {
 				.where(
 					and(
 						eq(unlistedCompanies.status, "active"),
+						// Exclude pre-IPO stage — handled by PreIpoStrategy (category='pre_ipo')
 						or(
 							isNull(unlistedCompanies.listingStage),
-							ne(unlistedCompanies.listingStage, "listed"),
+							and(
+								ne(unlistedCompanies.listingStage, "listed"),
+								ne(unlistedCompanies.listingStage, "pre_ipo"),
+							),
 						),
 					),
 				)
@@ -133,7 +138,7 @@ export class UnlistedStrategy extends BaseStrategy {
 				},
 			};
 		} catch (error) {
-			console.error("[UnlistedStrategy] Error:", error);
+			logger.error("[UnlistedStrategy] Error:", {}, error as Error);
 			return null;
 		}
 	}

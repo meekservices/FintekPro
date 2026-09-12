@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Unlisted Marketplace & Company Intelligence Cron Domain
  *
@@ -18,6 +19,7 @@ import { getCredhiveAnalyticsService } from "./services/credhive-analytics-servi
 import { companyDataRefreshScheduler } from "./services/company-data-refresh-scheduler";
 import { proactiveCacheWarmingService } from "./services/proactive-cache-warming-service";
 import { unlistedListingTracker } from "./services/unlisted-listing-tracker";
+import { instrumentLifecycleManager } from "./services/instrument-lifecycle-manager";
 import { db } from "./db";
 import { users, unlistedCompanies } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -152,11 +154,11 @@ export function initializeUnlistedCrons(): void {
             AND (listing_stage IS NULL OR listing_stage != 'listed')
         `);
 
-				// 2. Expire live unlisted picks for this company
+				// 2. Expire live unlisted AND pre_ipo picks for this company
 				const result = await db.execute(sqlRaw`
           UPDATE daily_picks
           SET status = 'expired', updated_at = NOW()
-          WHERE category = 'unlisted'
+          WHERE category::text IN ('unlisted', 'pre_ipo')
             AND status = 'live'
             AND LOWER(instrument_name) LIKE LOWER(${"%" + co.nameFragment + "%"})
         `);
@@ -217,6 +219,41 @@ export function initializeUnlistedCrons(): void {
 		}
 	})();
 
+	// ── Startup: pre_ipo promotion sweep ──────────────────────────────────────
+	// Checks if any unlisted companies should be promoted to pre_ipo based on
+	// SEBI/NSE IPO signals detected since last server restart.
+	(async () => {
+		try {
+			const promoted = await instrumentLifecycleManager.promoteToPreIpo();
+			if (promoted.length > 0) {
+				console.log(
+					`[LifecycleManager] Startup: ${promoted.length} company(ies) promoted to pre_ipo: ` +
+					promoted.map((p) => p.instrumentName).join(", "),
+				);
+			} else {
+				console.log("[LifecycleManager] Startup pre_ipo sweep: no new promotions");
+			}
+		} catch (err) {
+			console.error("[LifecycleManager] Startup pre_ipo sweep failed:", err);
+		}
+	})();
+
+	// ── Startup: pre_ipo → listed sweep ───────────────────────────────────────
+	// Also checks if any pre_ipo companies have since listed on NSE/BSE.
+	(async () => {
+		try {
+			const listed = await instrumentLifecycleManager.sweepPreIpoListings();
+			if (listed.length > 0) {
+				console.log(
+					`[LifecycleManager] Startup: ${listed.length} pre_ipo company(ies) now listed: ` +
+					listed.map((l) => l.instrumentName).join(", "),
+				);
+			}
+		} catch (err) {
+			console.error("[LifecycleManager] Startup pre_ipo→listed sweep failed:", err);
+		}
+	})();
+
 	if (!isProductionEnvironment()) {
 		console.log(
 			"⏭️ [Credhive Sync] Skipped (development mode - production only)",
@@ -273,6 +310,74 @@ export function initializeUnlistedCrons(): void {
 	);
 	console.log(
 		"📋 [ListingTracker] Daily listing transition sweep scheduled at 7:00 AM IST",
+	);
+
+	// ── Pre-IPO promotion sweep — 9 AM & 6 PM IST ────────────────────────────────
+	// Detects unlisted companies that have filed DRHP or announced IPO date
+	// and promotes them to pre_ipo stage.
+	cron.schedule(
+		"30 3 * * *", // 9:00 AM IST = 3:30 UTC
+		async () => {
+			console.log("[CRON][LifecycleManager] Morning pre_ipo promotion sweep...");
+			try {
+				const promoted = await instrumentLifecycleManager.promoteToPreIpo();
+				console.log(
+					`[CRON][LifecycleManager] Promotion sweep: ${promoted.length} promoted to pre_ipo`,
+				);
+			} catch (err) {
+				console.error("[CRON][LifecycleManager] Morning promotion sweep failed:", err);
+			}
+		},
+		{ timezone: "Asia/Kolkata" },
+	);
+
+	cron.schedule(
+		"30 12 * * *", // 6:00 PM IST = 12:30 UTC
+		async () => {
+			console.log("[CRON][LifecycleManager] Evening pre_ipo promotion sweep...");
+			try {
+				const promoted = await instrumentLifecycleManager.promoteToPreIpo();
+				console.log(
+					`[CRON][LifecycleManager] Evening sweep: ${promoted.length} promoted to pre_ipo`,
+				);
+			} catch (err) {
+				console.error("[CRON][LifecycleManager] Evening promotion sweep failed:", err);
+			}
+		},
+		{ timezone: "Asia/Kolkata" },
+	);
+
+	console.log(
+		"🔄 [LifecycleManager] Pre-IPO promotion sweep scheduled at 9:00 AM & 6:00 PM IST",
+	);
+
+	// ── Weekly name + ISIN reconciliation — Sunday 2 AM IST ──────────────────────
+	// Compares NSE equity master against stored company names and ISIN.
+	cron.schedule(
+		"0 20 * * 6", // Sunday 2:00 AM IST = Saturday 20:30 UTC
+		async () => {
+			console.log(
+				"[CRON][LifecycleManager] Weekly name/ISIN reconciliation...",
+			);
+			try {
+				const [nameChanges, isinChanges] = await Promise.allSettled([
+					instrumentLifecycleManager.reconcileNameChanges(),
+					instrumentLifecycleManager.reconcileIsinChanges(),
+				]);
+				console.log(
+					`[CRON][LifecycleManager] Reconcile done: ` +
+					`${(nameChanges as any).value?.length ?? 0} name changes, ` +
+					`${(isinChanges as any).value?.length ?? 0} ISIN changes`,
+				);
+			} catch (err) {
+				console.error("[CRON][LifecycleManager] Reconciliation failed:", err);
+			}
+		},
+		{ timezone: "Asia/Kolkata" },
+	);
+
+	console.log(
+		"🔍 [LifecycleManager] Weekly name/ISIN reconciliation scheduled at Sunday 2:00 AM IST",
 	);
 
 	// ── Expired unlisted listings / buy-requests — every 12 hours ─────────────

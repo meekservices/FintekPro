@@ -48,6 +48,7 @@ export const pickCategoryEnum = pgEnum("pick_category", [
   "mutual_funds", 
   "bonds",
   "unlisted",
+  "pre_ipo",
   "global_stocks",
   "etfs",
   "reits_invits",

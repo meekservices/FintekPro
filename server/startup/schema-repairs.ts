@@ -396,7 +396,12 @@ before_state JSONB,
           DO $$ 
           BEGIN
               IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'pick_category') THEN
-                  CREATE TYPE pick_category AS ENUM ('listed_stocks', 'mutual_funds', 'bonds', 'unlisted', 'global_stocks', 'etfs', 'reits_invits', 'fixed_deposits', 'sgb', 'derivatives');
+                  CREATE TYPE pick_category AS ENUM ('listed_stocks', 'mutual_funds', 'bonds', 'unlisted', 'pre_ipo', 'global_stocks', 'etfs', 'reits_invits', 'fixed_deposits', 'sgb', 'derivatives');
+              ELSE
+                  -- Idempotent: add pre_ipo if missing (for existing DBs)
+                  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumtypid = 'pick_category'::regtype AND enumlabel = 'pre_ipo') THEN
+                      ALTER TYPE pick_category ADD VALUE 'pre_ipo';
+                  END IF;
               END IF;
               IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'pick_status') THEN
                   CREATE TYPE pick_status AS ENUM ('live', 'target_hit', 'stoploss_hit', 'expired');
@@ -1667,6 +1672,61 @@ crypto_status VARCHAR,
 
 	} catch (divErr: any) {
 		console.warn("[Migration] Dividend column additions skipped (non-fatal):", divErr?.message);
+	}
+
+	// ── Instrument lifecycle tables (v1.0) ─────────────────────────────────────
+	// instrument_lifecycle_events: unified audit log for all stage transitions
+	// isin_change_log: tracks ISIN changes post-restructuring
+	try {
+		const { db: migDb3 } = await import("../db");
+		const { sql: migSql3 } = await import("drizzle-orm");
+
+		await migDb3.execute(migSql3`
+      CREATE TABLE IF NOT EXISTS instrument_lifecycle_events (
+        id              SERIAL PRIMARY KEY,
+        instrument_id   VARCHAR(100) NOT NULL,
+        instrument_name TEXT NOT NULL,
+        isin            VARCHAR(20),
+        source_table    VARCHAR(50) NOT NULL DEFAULT 'unlisted_companies',
+        from_stage      VARCHAR(30) NOT NULL,
+        to_stage        VARCHAR(30) NOT NULL,
+        transition_type VARCHAR(50) NOT NULL,
+        detected_by     VARCHAR(50),
+        exchange        VARCHAR(10),
+        exchange_symbol VARCHAR(30),
+        old_value       TEXT,
+        new_value       TEXT,
+        effective_date  DATE,
+        picks_expired   INTEGER DEFAULT 0,
+        picks_created   INTEGER DEFAULT 0,
+        notes           TEXT,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_ile_instrument_id ON instrument_lifecycle_events(instrument_id);
+      CREATE INDEX IF NOT EXISTS idx_ile_isin ON instrument_lifecycle_events(isin);
+      CREATE INDEX IF NOT EXISTS idx_ile_transition_type ON instrument_lifecycle_events(transition_type);
+      CREATE INDEX IF NOT EXISTS idx_ile_created_at ON instrument_lifecycle_events(created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS isin_change_log (
+        id              SERIAL PRIMARY KEY,
+        instrument_id   VARCHAR(100) NOT NULL,
+        instrument_name TEXT NOT NULL,
+        old_isin        VARCHAR(20) NOT NULL,
+        new_isin        VARCHAR(20),
+        change_reason   VARCHAR(100),
+        source          VARCHAR(30) DEFAULT 'bse_api',
+        detected_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        reconciled      BOOLEAN DEFAULT FALSE,
+        reconciled_at   TIMESTAMPTZ,
+        notes           TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_icl_old_isin ON isin_change_log(old_isin);
+      CREATE INDEX IF NOT EXISTS idx_icl_new_isin ON isin_change_log(new_isin);
+      CREATE INDEX IF NOT EXISTS idx_icl_detected ON isin_change_log(detected_at DESC);
+    `);
+		console.log("✅ instrument_lifecycle_events + isin_change_log tables created");
+	} catch (lifecycleErr: any) {
+		console.warn("[Migration] Lifecycle tables skipped (non-fatal):", lifecycleErr?.message);
 	}
 
 	// ── Picks data integrity backfill ────────────────────────────────────────

@@ -1054,3 +1054,65 @@ export type InsertCompanyRatios = typeof companyRatios.$inferInsert;
 export type Probe42SyncLog = typeof probe42SyncLog.$inferSelect;
 
 export type InsertProbe42SyncLog = typeof probe42SyncLog.$inferInsert;
+
+// ── Instrument Lifecycle Events ──────────────────────────────────────────────
+/**
+ * Unified audit log for all instrument stage transitions across all tables.
+ * Covers: unlisted→pre_ipo, pre_ipo→listed, name changes, ISIN changes,
+ * symbol changes, mergers, demergers.
+ */
+export const instrumentLifecycleEvents = pgTable("instrument_lifecycle_events", {
+  id:             serial("id").primaryKey(),
+  instrumentId:   varchar("instrument_id", { length: 100 }).notNull(),
+  instrumentName: text("instrument_name").notNull(),
+  isin:           varchar("isin", { length: 20 }),
+  sourceTable:    varchar("source_table", { length: 50 }).notNull(),
+  fromStage:      varchar("from_stage", { length: 30 }).notNull(),
+  toStage:        varchar("to_stage", { length: 30 }).notNull(),
+  transitionType: varchar("transition_type", { length: 50 }).notNull(),
+  detectedBy:     varchar("detected_by", { length: 50 }),
+  exchange:       varchar("exchange", { length: 10 }),
+  exchangeSymbol: varchar("exchange_symbol", { length: 30 }),
+  oldValue:       text("old_value"),
+  newValue:       text("new_value"),
+  effectiveDate:  date("effective_date"),
+  picksExpired:   integer("picks_expired").default(0),
+  picksCreated:   integer("picks_created").default(0),
+  notes:          text("notes"),
+  createdAt:      timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertInstrumentLifecycleEventSchema = createInsertSchema(instrumentLifecycleEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InstrumentLifecycleEvent = typeof instrumentLifecycleEvents.$inferSelect;
+export type InsertInstrumentLifecycleEvent = z.infer<typeof insertInstrumentLifecycleEventSchema>;
+
+// ── ISIN Change Log ───────────────────────────────────────────────────────────
+/**
+ * Tracks ISIN changes for instruments (rare — post restructuring, rights issues).
+ * Once detected, all picks and holdings referencing the old ISIN must be reconciled.
+ */
+export const isinChangeLog = pgTable("isin_change_log", {
+  id:             serial("id").primaryKey(),
+  instrumentId:   varchar("instrument_id", { length: 100 }).notNull(),
+  instrumentName: text("instrument_name").notNull(),
+  oldIsin:        varchar("old_isin", { length: 20 }).notNull(),
+  newIsin:        varchar("new_isin", { length: 20 }),
+  changeReason:   varchar("change_reason", { length: 100 }),
+  source:         varchar("source", { length: 30 }).default("bse_api"),
+  detectedAt:     timestamp("detected_at").defaultNow().notNull(),
+  reconciled:     boolean("reconciled").default(false),
+  reconciledAt:   timestamp("reconciled_at"),
+  notes:          text("notes"),
+});
+
+export const insertIsinChangeLogSchema = createInsertSchema(isinChangeLog).omit({
+  id: true,
+  detectedAt: true,
+});
+
+export type IsinChangeLog = typeof isinChangeLog.$inferSelect;
+export type InsertIsinChangeLog = z.infer<typeof insertIsinChangeLogSchema>;
