@@ -661,9 +661,14 @@ function CompanyListView({
 		});
 	};
 
-	// Filter companies by search query
+	const [stageFilter, setStageFilter] = useState("all");
+
+	// Filter companies by search query and listing stage
 	const filteredCompanies =
 		companies?.filter((company) => {
+			if (stageFilter !== "all" && (company.listingStage || "unlisted") !== stageFilter) {
+				return false;
+			}
 			if (!searchQuery) return true;
 			const query = searchQuery.toLowerCase();
 			return (
@@ -702,6 +707,22 @@ function CompanyListView({
 								/>
 							</div>
 						</div>
+						<Select value={stageFilter} onValueChange={setStageFilter}>
+							<SelectTrigger
+								className="w-40 bg-muted border-border text-foreground"
+								data-testid="select-stage-filter"
+							>
+								<SelectValue placeholder="Stage" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="all">All Stages</SelectItem>
+								<SelectItem value="pre_ipo">Pre-IPO</SelectItem>
+								<SelectItem value="growth">Growth</SelectItem>
+								<SelectItem value="mature">Mature</SelectItem>
+								<SelectItem value="unlisted">Unlisted</SelectItem>
+								<SelectItem value="listed">Listed</SelectItem>
+							</SelectContent>
+						</Select>
 						<Select value={statusFilter} onValueChange={setStatusFilter}>
 							<SelectTrigger
 								className="w-40 bg-muted border-border text-foreground"

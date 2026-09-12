@@ -717,6 +717,25 @@ export default function AgentPicksPage() {
 		select: (data) => (Array.isArray(data) ? (data as any[]) : []),
 	});
 
+	// Upcoming Pre-IPOs & DRHP Pipeline
+	const { data: upcomingPreIpoRes, isLoading: loadingUpcomingPreIpo } =
+		useQuery<{ success?: boolean; status?: string; data?: any[] }>({
+			queryKey: ["/api/pre-ipo/upcoming"],
+			refetchInterval: 60000,
+		});
+
+	// Pre-IPO Allocation Interest Modal State
+	const [preIpoInterestCompany, setPreIpoInterestCompany] = useState<any | null>(null);
+	const [preIpoInterestOpen, setPreIpoInterestOpen] = useState(false);
+	const [preIpoClientName, setPreIpoClientName] = useState("");
+	const [preIpoClientPhone, setPreIpoClientPhone] = useState("");
+	const [preIpoClientEmail, setPreIpoClientEmail] = useState("");
+	const [preIpoInvestorCategory, setPreIpoInvestorCategory] = useState("hni");
+	const [preIpoRequestedLots, setPreIpoRequestedLots] = useState(1);
+	const [preIpoNotes, setPreIpoNotes] = useState("");
+	const [preIpoSubmitting, setPreIpoSubmitting] = useState(false);
+	const [preIpoAckChecked, setPreIpoAckChecked] = useState(false);
+
 	const sharePickMutation = useMutation({
 		mutationFn: async ({
 			pickId,
@@ -933,6 +952,273 @@ export default function AgentPicksPage() {
 		},
 	});
 
+	const handleOpenPreIpoInterest = (company: any) => {
+		setPreIpoInterestCompany(company);
+		setPreIpoClientName("");
+		setPreIpoClientPhone("");
+		setPreIpoClientEmail("");
+		setPreIpoInvestorCategory("hni");
+		setPreIpoRequestedLots(1);
+		setPreIpoNotes("");
+		setPreIpoAckChecked(false);
+		setPreIpoInterestOpen(true);
+	};
+
+	const handleSubmitPreIpoInterest = async () => {
+		if (!preIpoInterestCompany) return;
+		if (!preIpoClientName.trim() || !preIpoClientPhone.trim()) {
+			toast({
+				title: "Required Fields Missing",
+				description: "Please provide client name and contact phone number.",
+				variant: "destructive",
+			});
+			return;
+		}
+		if (!preIpoAckChecked) {
+			toast({
+				title: "SEBI Compliance Required",
+				description: "Please confirm that the client meets Accredited / High-Risk suitability requirements.",
+				variant: "destructive",
+			});
+			return;
+		}
+
+		setPreIpoSubmitting(true);
+		try {
+			const res: any = await apiRequest("/api/pre-ipo/interest", {
+				method: "POST",
+				body: JSON.stringify({
+					companyId: preIpoInterestCompany.id,
+					companyName: preIpoInterestCompany.companyName,
+					clientName: preIpoClientName.trim(),
+					clientPhone: preIpoClientPhone.trim(),
+					clientEmail: preIpoClientEmail.trim() || undefined,
+					investorCategory: preIpoInvestorCategory,
+					requestedLots: Number(preIpoRequestedLots) || 1,
+					estimatedAmount: preIpoInterestCompany.minInvestment,
+					agentNotes: preIpoNotes.trim() || undefined,
+				}),
+			});
+
+			toast({
+				title: "Allocation Request Recorded",
+				description: `Application ${res?.data?.applicationId || "received"} submitted for ${preIpoInterestCompany.companyName}. Institutional desk will follow up.`,
+			});
+			setPreIpoInterestOpen(false);
+			setPreIpoInterestCompany(null);
+		} catch (err: any) {
+			toast({
+				title: "Submission Failed",
+				description: err?.message || "Failed to record allocation request.",
+				variant: "destructive",
+			});
+		} finally {
+			setPreIpoSubmitting(false);
+		}
+	};
+
+	const handleSharePreIpoWhatsApp = (item: any) => {
+		const text = `*FintekPro Institutional Pre-IPO Intelligence*\n\n` +
+			`🏢 *${item.companyName}*\n` +
+			`🏷️ Sector: ${item.category}\n` +
+			`📊 Expected Issue Size: ${item.issueSize} (${item.exchange})\n` +
+			`💰 Indicative Price Band: ${item.priceRange}\n` +
+			`🎯 Grey Market Premium (GMP): +${item.gmpPercentage}%\n` +
+			`📅 Target Listing Window: ${item.openDate}\n` +
+			`💼 Minimum Investment: ${item.minInvestment}\n` +
+			(item.leadUnderwriters?.length ? `🏦 Book Running Lead Managers: ${item.leadUnderwriters.slice(0, 3).join(", ")}\n` : "") +
+			`\n📌 *SEBI Regulatory Disclaimer:* Pre-IPO and unlisted investments are speculative, illiquid, and carry high risk including total loss of principal. Offered exclusively to Accredited / HNI investors. This does not constitute an offer to buy or sell securities.\n\n` +
+			`_Interested in institutional allocation? Reply to this message._`;
+
+		window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+	};
+
+	const renderUpcomingPreIpoRadar = () => {
+		const ipoList: any[] = upcomingPreIpoRes?.data || [];
+
+		return (
+			<div className="space-y-4 mt-6">
+				<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-gradient-to-r from-indigo-50/70 via-purple-50/50 to-pink-50/30 dark:from-indigo-950/40 dark:via-purple-950/30 dark:to-pink-950/20">
+					<div className="flex items-center gap-3">
+						<div className="p-2.5 rounded-xl bg-indigo-600 text-white shadow-sm">
+							<Rocket className="h-5 w-5" />
+						</div>
+						<div>
+							<div className="flex items-center gap-2">
+								<h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+									Upcoming Pre-IPO & DRHP Pipeline
+								</h3>
+								<Badge variant="secondary" className="bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-semibold text-xs">
+									{ipoList.length} Opportunities
+								</Badge>
+							</div>
+							<p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+								Institutional tracking of DRHP filings, SEBI clearance, and pre-IPO rounds. Share teasers or book client allocations.
+							</p>
+						</div>
+					</div>
+					<div className="flex items-center gap-2">
+						<Badge variant="outline" className="text-[11px] border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 bg-purple-50/50 dark:bg-purple-950/40">
+							Accredited / HNI Only
+						</Badge>
+					</div>
+				</div>
+
+				{loadingUpcomingPreIpo ? (
+					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+						{[1, 2, 3].map((i) => (
+							<Card key={i} className="p-4 space-y-3">
+								<Skeleton className="h-5 w-3/4" />
+								<Skeleton className="h-4 w-1/2" />
+								<Skeleton className="h-24 w-full" />
+							</Card>
+						))}
+					</div>
+				) : ipoList.length === 0 ? (
+					<Card className="p-8 text-center text-muted-foreground">
+						<p className="text-sm">No upcoming Pre-IPOs found.</p>
+					</Card>
+				) : (
+					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+						{ipoList.map((item: any, idx: number) => {
+							const stageSteps = [
+								{ key: "drhp_filed", label: "DRHP Filed" },
+								{ key: "sebi_review", label: "SEBI Review" },
+								{ key: "pricing", label: "Price Band" },
+								{ key: "listing", label: "Listing" },
+							];
+							const getStageIndex = (status?: string) => {
+								if (!status) return 0;
+								const s = status.toLowerCase();
+								if (s.includes("listed")) return 3;
+								if (s.includes("pric") || s.includes("roadshow") || s.includes("open")) return 2;
+								if (s.includes("sebi") || s.includes("approv") || s.includes("clear")) return 1;
+								return 0;
+							};
+							const currentStageIdx = getStageIndex(item.ipoStatus);
+
+							return (
+								<Card
+									key={item.id || `pre-ipo-${idx}`}
+									className="group hover:shadow-md transition-all border border-slate-200 dark:border-slate-800 flex flex-col justify-between"
+								>
+									<CardHeader className="pb-3">
+										<div className="flex items-start justify-between gap-2">
+											<div>
+												<div className="flex items-center gap-1.5 flex-wrap mb-1">
+													<Badge variant="outline" className="text-[10px] uppercase font-semibold text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30">
+														{item.category || "Pre-IPO"}
+													</Badge>
+													<Badge variant="outline" className="text-[10px] text-slate-600 dark:text-slate-400">
+														{item.exchange || "NSE / BSE"}
+													</Badge>
+												</div>
+												<CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+													{item.companyName}
+												</CardTitle>
+											</div>
+											{item.gmpPercentage > 0 && (
+												<div className="flex flex-col items-end">
+													<span className="text-[10px] text-muted-foreground uppercase font-medium">GMP</span>
+													<Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-bold text-xs">
+														+{item.gmpPercentage}%
+													</Badge>
+												</div>
+											)}
+										</div>
+
+										{/* Stage Stepper */}
+										<div className="pt-2">
+											<div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+												<span className="font-semibold text-slate-700 dark:text-slate-300">IPO Progress</span>
+												<span className="capitalize font-medium text-indigo-600 dark:text-indigo-400">
+													{item.subscriptionStatus || stageSteps[currentStageIdx]?.label}
+												</span>
+											</div>
+											<div className="grid grid-cols-4 gap-1.5">
+												{stageSteps.map((step, sIdx) => {
+													const isPassed = sIdx <= currentStageIdx;
+													const isCurrent = sIdx === currentStageIdx;
+													return (
+														<div key={step.key} className="flex flex-col items-center">
+															<div
+																className={`h-1.5 w-full rounded-full transition-colors ${
+																	isCurrent
+																		? "bg-indigo-600 dark:bg-indigo-400 animate-pulse"
+																		: isPassed
+																		? "bg-indigo-400 dark:bg-indigo-600"
+																		: "bg-slate-200 dark:bg-slate-800"
+																}`}
+															/>
+															<span className={`text-[9px] mt-1 truncate max-w-full text-center ${isCurrent ? "font-bold text-indigo-600 dark:text-indigo-400" : isPassed ? "text-slate-700 dark:text-slate-300" : "text-muted-foreground/60"}`}>
+																{step.label}
+															</span>
+														</div>
+													);
+												})}
+											</div>
+										</div>
+									</CardHeader>
+
+									<CardContent className="space-y-3 pt-0 flex-1 flex flex-col justify-between">
+										{/* Key Metrics Grid */}
+										<div className="grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 text-xs">
+											<div>
+												<p className="text-[10px] text-muted-foreground">Expected Issue</p>
+												<p className="font-bold text-slate-800 dark:text-slate-200">{item.issueSize || "TBA"}</p>
+											</div>
+											<div>
+												<p className="text-[10px] text-muted-foreground">Price Band</p>
+												<p className="font-bold text-slate-800 dark:text-slate-200">{item.priceRange || "On Request"}</p>
+											</div>
+											<div>
+												<p className="text-[10px] text-muted-foreground">Target Date</p>
+												<p className="font-semibold text-slate-800 dark:text-slate-200">{item.openDate || "Upcoming"}</p>
+											</div>
+											<div>
+												<p className="text-[10px] text-muted-foreground">Min Ticket</p>
+												<p className="font-semibold text-slate-800 dark:text-slate-200">{item.minInvestment || "₹15,000"}</p>
+											</div>
+										</div>
+
+										{/* Underwriters & About */}
+										{item.leadUnderwriters && item.leadUnderwriters.length > 0 && (
+											<div className="text-[11px] text-muted-foreground flex items-center gap-1 truncate">
+												<Building2 className="h-3 w-3 shrink-0 text-slate-400" />
+												<span className="truncate">Bankers: {item.leadUnderwriters.slice(0, 2).join(", ")}</span>
+											</div>
+										)}
+
+										{/* Action Buttons */}
+										<div className="pt-2 flex items-center gap-2">
+											<Button
+												size="sm"
+												variant="outline"
+												className="flex-1 text-xs border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+												onClick={() => handleSharePreIpoWhatsApp(item)}
+											>
+												<Send className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+												Share Teaser
+											</Button>
+											<Button
+												size="sm"
+												className="flex-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+												onClick={() => handleOpenPreIpoInterest(item)}
+											>
+												<Target className="h-3.5 w-3.5 mr-1" />
+												Request Allocation
+											</Button>
+										</div>
+									</CardContent>
+								</Card>
+							);
+						})}
+					</div>
+				)}
+			</div>
+		);
+	};
+
 	const todayPicks = Array.isArray(todayData?.picks) ? todayData.picks : [];
 	const isFallback = todayData?.isFallback === true;
 	const fallbackDate = todayData?.fallbackDate;
@@ -1029,10 +1315,15 @@ export default function AgentPicksPage() {
 		});
 		// Pre-IPO picks persist across days (unlisted assets don't change daily).
 		// Supplement today's pre_ipo count with any active live picks that are pre-IPO
-		// so the tab is always visible when pre-IPO opportunities exist.
-		if (supplementPicks && counts["pre_ipo"] === 0) {
-			const livePreIpoCount = supplementPicks.filter(isPreIpoPick).length;
-			if (livePreIpoCount > 0) counts["pre_ipo"] = livePreIpoCount;
+		// or upcoming Pre-IPO pipeline count so the tab is always visible.
+		if (counts["pre_ipo"] === 0) {
+			if (supplementPicks) {
+				const livePreIpoCount = supplementPicks.filter(isPreIpoPick).length;
+				if (livePreIpoCount > 0) counts["pre_ipo"] = livePreIpoCount;
+			}
+			if (counts["pre_ipo"] === 0 && upcomingPreIpoRes?.data?.length) {
+				counts["pre_ipo"] = upcomingPreIpoRes.data.length;
+			}
 		}
 		return counts;
 	};
@@ -3766,6 +4057,32 @@ export default function AgentPicksPage() {
 									</div>
 								</div>
 							) : filteredTodayPicks.length === 0 ? (
+								todayCategoryFilter === "pre_ipo" ? (
+									<div className="space-y-6">
+										<div className="p-4 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+											<div className="flex items-center gap-3">
+												<div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
+													<Rocket className="h-5 w-5" />
+												</div>
+												<div>
+													<h4 className="text-sm font-bold text-purple-950 dark:text-purple-100">Daily Secondary Market Pre-IPO Picks</h4>
+													<p className="text-xs text-purple-700 dark:text-purple-300">No new secondary pick issued today. Browse the active DRHP and upcoming Pre-IPO pipeline below.</p>
+												</div>
+											</div>
+											<Button
+												size="sm"
+												variant="outline"
+												className="border-purple-300 dark:border-purple-700 text-purple-800 dark:text-purple-200 text-xs shrink-0"
+												onClick={() => catchupMutation.mutate()}
+												disabled={catchupMutation.isPending}
+											>
+												<RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${catchupMutation.isPending ? "animate-spin" : ""}`} />
+												Check for New Picks
+											</Button>
+										</div>
+										{renderUpcomingPreIpoRadar()}
+									</div>
+								) : (
 								<div className="flex flex-col items-center justify-center py-16 px-4 text-center">
 									<div className="w-16 h-16 rounded-2xl bg-muted/60 flex items-center justify-center mb-4">
 										{todayCategoryFilter === "pre_ipo" ? (
@@ -3807,6 +4124,7 @@ export default function AgentPicksPage() {
 										Next auto-generation: 9:00 AM IST
 									</p>
 								</div>
+								)
 							) : (
 								(() => {
 									// For listed_stocks: sector-grouped view. For all others: flat grid.
@@ -3992,10 +4310,13 @@ export default function AgentPicksPage() {
 
 									// Flat grid for all other categories
 									return viewMode === "table" ? (
-										<PicksTable
-											picks={filteredTodayPicks}
-											onRowClick={setSelectedPick}
-										/>
+										<div className="space-y-6">
+											<PicksTable
+												picks={filteredTodayPicks}
+												onRowClick={setSelectedPick}
+											/>
+											{todayCategoryFilter === "pre_ipo" && renderUpcomingPreIpoRadar()}
+										</div>
 									) : (
 										<div className="space-y-4">
 										{/* Pre-IPO: Pipeline summary banner */}
@@ -4065,6 +4386,7 @@ export default function AgentPicksPage() {
 												/>
 											))}
 										</div>
+										{todayCategoryFilter === "pre_ipo" && renderUpcomingPreIpoRadar()}
 										</div>
 									);
 								})()
@@ -5588,6 +5910,141 @@ export default function AgentPicksPage() {
 							{sharePickMutation.isPending
 								? "Sending…"
 								: `Share with ${shareClientsSelected.length} contact${shareClientsSelected.length !== 1 ? "s" : ""}`}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Pre-IPO Allocation Interest Modal */}
+			<Dialog open={preIpoInterestOpen} onOpenChange={setPreIpoInterestOpen}>
+				<DialogContent className="max-w-md">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2 text-base font-bold">
+							<Target className="h-5 w-5 text-indigo-600" />
+							Request Allocation — {preIpoInterestCompany?.companyName}
+						</DialogTitle>
+						<DialogDescription className="text-xs">
+							Record institutional pre-IPO allocation interest for your client. Our capital markets desk will coordinate verification and allotment.
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-3 py-2 text-xs">
+						<div className="p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900 grid grid-cols-2 gap-2 text-[11px]">
+							<div>
+								<span className="text-muted-foreground">Price Band:</span>
+								<p className="font-semibold text-slate-800 dark:text-slate-200">{preIpoInterestCompany?.priceRange}</p>
+							</div>
+							<div>
+								<span className="text-muted-foreground">Min Ticket:</span>
+								<p className="font-semibold text-slate-800 dark:text-slate-200">{preIpoInterestCompany?.minInvestment}</p>
+							</div>
+							<div>
+								<span className="text-muted-foreground">GMP:</span>
+								<p className="font-semibold text-emerald-600">+{preIpoInterestCompany?.gmpPercentage}%</p>
+							</div>
+							<div>
+								<span className="text-muted-foreground">Timeline:</span>
+								<p className="font-semibold text-slate-800 dark:text-slate-200">{preIpoInterestCompany?.openDate}</p>
+							</div>
+						</div>
+
+						<div className="space-y-1">
+							<Label className="text-xs">Client Full Name *</Label>
+							<Input
+								placeholder="e.g. Ramesh Kumar"
+								value={preIpoClientName}
+								onChange={(e) => setPreIpoClientName(e.target.value)}
+								className="h-8 text-xs"
+							/>
+						</div>
+
+						<div className="grid grid-cols-2 gap-2">
+							<div className="space-y-1">
+								<Label className="text-xs">Client Mobile / WhatsApp *</Label>
+								<Input
+									placeholder="+91 98765 43210"
+									value={preIpoClientPhone}
+									onChange={(e) => setPreIpoClientPhone(e.target.value)}
+									className="h-8 text-xs"
+								/>
+							</div>
+							<div className="space-y-1">
+								<Label className="text-xs">Client Email</Label>
+								<Input
+									placeholder="client@example.com"
+									value={preIpoClientEmail}
+									onChange={(e) => setPreIpoClientEmail(e.target.value)}
+									className="h-8 text-xs"
+								/>
+							</div>
+						</div>
+
+						<div className="grid grid-cols-2 gap-2">
+							<div className="space-y-1">
+								<Label className="text-xs">Investor Category</Label>
+								<Select value={preIpoInvestorCategory} onValueChange={setPreIpoInvestorCategory}>
+									<SelectTrigger className="h-8 text-xs">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="hni">HNI (&gt; ₹2 Lakhs)</SelectItem>
+										<SelectItem value="ultra_hni">Ultra HNI (&gt; ₹10 Lakhs)</SelectItem>
+										<SelectItem value="retail">Retail Accredited</SelectItem>
+										<SelectItem value="corporate">Corporate / Family Office</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-1">
+								<Label className="text-xs">Requested Lots / Units</Label>
+								<Input
+									type="number"
+									min={1}
+									value={preIpoRequestedLots}
+									onChange={(e) => setPreIpoRequestedLots(Math.max(1, Number(e.target.value) || 1))}
+									className="h-8 text-xs"
+								/>
+							</div>
+						</div>
+
+						<div className="space-y-1">
+							<Label className="text-xs">Advisor Notes (Optional)</Label>
+							<Input
+								placeholder="Specific allotment request or client preferences"
+								value={preIpoNotes}
+								onChange={(e) => setPreIpoNotes(e.target.value)}
+								className="h-8 text-xs"
+							/>
+						</div>
+
+						<div className="flex items-start gap-2 pt-2 border-t">
+							<Checkbox
+								id="pre-ipo-ack"
+								checked={preIpoAckChecked}
+								onCheckedChange={(c) => setPreIpoAckChecked(c === true)}
+								className="mt-0.5"
+							/>
+							<label htmlFor="pre-ipo-ack" className="text-[10px] text-muted-foreground leading-relaxed cursor-pointer">
+								I confirm that this client meets SEBI Accredited Investor eligibility criteria, understands the illiquidity risks of unlisted pre-IPO instruments, and has signed necessary risk disclosures.
+							</label>
+						</div>
+					</div>
+
+					<DialogFooter>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => setPreIpoInterestOpen(false)}
+							disabled={preIpoSubmitting}
+						>
+							Cancel
+						</Button>
+						<Button
+							size="sm"
+							className="bg-indigo-600 hover:bg-indigo-700 text-white"
+							onClick={handleSubmitPreIpoInterest}
+							disabled={preIpoSubmitting}
+						>
+							{preIpoSubmitting ? "Submitting…" : "Confirm Request"}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

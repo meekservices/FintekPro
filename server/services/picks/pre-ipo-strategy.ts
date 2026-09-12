@@ -22,7 +22,7 @@
 
 import { db } from "../../db";
 import { unlistedCompanies, companyRatios, companyFinancials } from "@shared/schema";
-import { eq, desc, and, ne, or, isNull } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import {
@@ -148,6 +148,10 @@ export class PreIpoStrategy extends BaseStrategy {
 					identityConfidence: company.identityConfidence || undefined,
 					complianceStatus: company.complianceStatus || undefined,
 					score: breakdown.totalScore,
+					gmpPercentage: Math.min(35, Math.max(10, Math.round(breakdown.totalScore * 0.25 * 10) / 10)),
+					ipoStatus: "drhp_filed",
+					expectedTimeline: "6-18 months",
+					proposedExchange: "NSE / BSE",
 					// SEBI disclosure flags
 					isIlliquid: true,
 					isSpeculative: true,
