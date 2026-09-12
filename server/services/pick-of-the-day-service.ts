@@ -1058,14 +1058,19 @@ export class PickOfTheDayService {
 				COUNT(*) FILTER (WHERE status = 'stoploss_hit')::int                   AS stoploss_hits,
 				COUNT(*) FILTER (WHERE status = 'expired')::int                        AS expired_count,
 				COUNT(*) FILTER (WHERE status <> 'live')::int                          AS total_closed,
-				-- avgReturn: closed picks only, exclude null/empty returnPct
+				-- avgReturn: closed picks only, exclude non-numeric/empty returnPct safely
 				ROUND(
-					AVG(return_pct::numeric) FILTER (
-						WHERE status <> 'live'
-						  AND return_pct IS NOT NULL
-						  AND return_pct <> ''
-					)::numeric,
-				2
+					COALESCE(
+						AVG(
+							CASE
+								WHEN regexp_replace(return_pct, '[% ,+]', '', 'g') ~ '^-?[0-9]+(\.[0-9]+)?$'
+								THEN regexp_replace(return_pct, '[% ,+]', '', 'g')::numeric
+								ELSE NULL
+							END
+						) FILTER (WHERE status <> 'live'),
+						0
+					),
+					2
 				)                                                                      AS avg_return
 			FROM daily_picks
 		`) as any;
@@ -1094,12 +1099,17 @@ export class PickOfTheDayService {
 				COUNT(*) FILTER (WHERE status <> 'live')::int                          AS total,
 				COUNT(*) FILTER (WHERE status = 'target_hit')::int                     AS hits,
 				ROUND(
-					AVG(return_pct::numeric) FILTER (
-						WHERE status <> 'live'
-						  AND return_pct IS NOT NULL
-						  AND return_pct <> ''
-					)::numeric,
-				2
+					COALESCE(
+						AVG(
+							CASE
+								WHEN regexp_replace(return_pct, '[% ,+]', '', 'g') ~ '^-?[0-9]+(\.[0-9]+)?$'
+								THEN regexp_replace(return_pct, '[% ,+]', '', 'g')::numeric
+								ELSE NULL
+							END
+						) FILTER (WHERE status <> 'live'),
+						0
+					),
+					2
 				)                                                                      AS avg_return
 			FROM daily_picks
 			GROUP BY category
