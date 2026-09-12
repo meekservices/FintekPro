@@ -38,6 +38,7 @@ import { credhiveService } from "../services/credhive-service";
 import { db } from "../db";
 import { sql, eq, desc } from "drizzle-orm";
 import { unlistedCompanies, companyFinancials } from "@shared/schema";
+import { logger } from "../logger";
 
 const router = Router();
 
@@ -181,7 +182,9 @@ async function buildUnlistedReportData(cin: string): Promise<any> {
 		? Number(credhiveProfile.total_shares)
 		: dbCompany?.total_shares
 			? Number(dbCompany.total_shares)
-			: null;
+			: dbCompany?.paid_up_capital && dbCompany?.face_value && Number(dbCompany.face_value) > 0
+				? Math.round(Number(dbCompany.paid_up_capital) / Number(dbCompany.face_value))
+				: null;
 
 	// Last transaction price = admin published price or Credhive data
 	const transactionPrice = dbCompany?.published_buy_price
@@ -381,9 +384,22 @@ async function buildUnlistedReportData(cin: string): Promise<any> {
 		return Number.isFinite(v) && v > 0 ? Number.parseFloat(v.toFixed(2)) : null;
 	})();
 
-	// Implied Market Cap = total shares × transaction price
-	const computedMarketCap: number | null =
-		totalShares && transactionPrice ? totalShares * transactionPrice : null;
+	// Implied Market Cap = total shares × transaction price, with fallback to valuation models or fundamentals
+	const computedMarketCap: number | null = (() => {
+		if (totalShares && transactionPrice && totalShares > 0 && transactionPrice > 0) {
+			return totalShares * transactionPrice;
+		}
+		if (valuation?.mid && Number.isFinite(valuation.mid) && valuation.mid > 0) {
+			return Math.round(valuation.mid);
+		}
+		if (computedPE && latestStmt?.pat && computedPE > 0 && latestStmt.pat > 0) {
+			return Math.round(computedPE * latestStmt.pat);
+		}
+		if (computedPB && latestStmt?.networth && computedPB > 0 && latestStmt.networth > 0) {
+			return Math.round(computedPB * latestStmt.networth);
+		}
+		return null;
+	})();
 
 	return {
 		// Core identity
@@ -823,7 +839,7 @@ router.get("/sector-picks", async (req: Request, res: Response) => {
 			picks: buys,
 		});
 	} catch (err: any) {
-		console.error("Error fetching sector picks:", err);
+		logger.error("Error fetching sector picks:", err);
 		res
 			.status(500)
 			.json({ error: err.message || "Failed to fetch sector picks" });

@@ -67,6 +67,8 @@ interface FinancialData {
 	returns1M: number | null;
 	returns6M: number | null;
 	returns1Y: number | null;
+	revenue?: number | null;
+	netIncome?: number | null;
 }
 
 interface RatingBreakdown {
@@ -278,14 +280,15 @@ function signPct(val: number | null): string {
 	return val >= 0 ? `+${s}%` : `${s}%`;
 }
 
-function fmtCap(val: number | null, currency = "INR"): string {
-	if (!val) return "N/A";
+function fmtCap(val: number | null | undefined, currency = "INR"): string {
+	if (!val || val <= 0 || !Number.isFinite(val)) return "N/A";
 	if (currency === "INR") {
-		// Always display in Crores to match table caption
-		const cr = val / 1e7;
+		// Normalize: if value was passed in Crores (< 1e6), convert to absolute rupees
+		const rupees = val < 1e6 ? val * 1e7 : val;
+		const cr = rupees / 1e7;
 		return `₹${Math.round(cr).toLocaleString("en-IN")} Cr`;
 	}
-	const bn = val / 1e9;
+	const bn = val < 1e6 ? (val * 1e7) / 1e9 : val / 1e9;
 	return `$${bn.toFixed(2)}B`;
 }
 
@@ -571,6 +574,30 @@ export default function ResearchNoteGenerator() {
 	const d = previewData;
 	const f = d?.financials;
 	const cp = f?.currency === "INR" ? "₹" : "$";
+
+	const resolvedMarketCap = (() => {
+		if (!f) return null;
+		if (f.marketCap && f.marketCap > 0) return f.marketCap;
+		if (f.price && f.eps && f.eps > 0 && f.netIncome && f.netIncome > 0) {
+			return Math.round((f.price / f.eps) * (f.netIncome * 1e7));
+		}
+		if (f.pe && f.pe > 0 && f.netIncome && f.netIncome > 0) {
+			return Math.round(f.pe * (f.netIncome * 1e7));
+		}
+		if (
+			f.price &&
+			f.bookValue &&
+			f.bookValue > 0 &&
+			f.roe &&
+			f.roe > 0 &&
+			f.netIncome &&
+			f.netIncome > 0
+		) {
+			const netWorth = (f.netIncome * 1e7) / f.roe;
+			return Math.round((f.price / f.bookValue) * netWorth);
+		}
+		return null;
+	})();
 
 	// Score ALL peers using PE, ROE, PB fundamentals – produces BUY/HOLD/AVOID/STRONG BUY
 	const scoredPeers = (() => {
@@ -1489,7 +1516,7 @@ export default function ResearchNoteGenerator() {
 									/>
 									<MetricCard
 										label={d.isUnlisted ? "Implied Mkt Cap" : "Market Cap"}
-										value={fmtCap(f.marketCap, f.currency)}
+										value={fmtCap(resolvedMarketCap, f.currency)}
 									/>
 									<MetricCard
 										label={d.isUnlisted ? "Implied P/E" : "P/E Ratio"}
@@ -2650,7 +2677,7 @@ export default function ResearchNoteGenerator() {
 													{fmtPct(f.dividendYield)}
 												</td>
 												<td className="text-right py-2">
-													{fmtCap(f.marketCap, f.currency)}
+													{fmtCap(resolvedMarketCap, f.currency)}
 												</td>
 												<td className="text-right py-2">
 													<RatingBadge rating={d.rating.rating} />

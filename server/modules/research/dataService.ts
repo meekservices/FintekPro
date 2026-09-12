@@ -1389,7 +1389,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 					returns1Y: pf(lr.returns_1y),
 					dbPrice: pf(lr.current_price),
 					dbPreviousClose: pf(lr.previous_close),
-					dbMarketCap: pf(lr.market_cap_value),
+					dbMarketCap: pf(lr.market_cap_value) && pf(lr.market_cap_value)! > 0 ? pf(lr.market_cap_value) : null,
 					dbPeRatio: pf(lr.pe_ratio),
 					dbFaceValue: pf(lr.face_value),
 					dbFiftyTwoWeekHigh: pf(lr.week_high_52),
@@ -1423,7 +1423,7 @@ async function fetchFromDB(nseSymbol: string): Promise<DBData> {
 			existsInListedStocks: true,
 			dbPrice: pf(r.current_price),
 			dbPreviousClose: pf(r.previous_close),
-			dbMarketCap: pf(r.market_cap_value),
+			dbMarketCap: pf(r.market_cap_value) && pf(r.market_cap_value)! > 0 ? pf(r.market_cap_value) : null,
 			dbPeRatio: pf(r.pe_ratio),
 			dbFaceValue: pf(r.face_value),
 			// Bug 3 fix: use the actual SQL column name returned by PostgreSQL (week_high_52 / week_low_52)
@@ -1497,6 +1497,15 @@ async function writeScreenerToDB(
           now()
         )
       `);
+		}
+		if (s.marketCapCr && s.marketCapCr > 0) {
+			const mcapVal = Math.round(s.marketCapCr * 1e7);
+			await db.execute(sql`
+				UPDATE listed_stocks
+				SET market_cap_value = ${mcapVal},
+				    last_updated = now()
+				WHERE UPPER(symbol) = ${sym} AND (market_cap_value IS NULL OR market_cap_value <= 0)
+			`).catch(() => {});
 		}
 	} catch (e: any) {
 		logger.warn(
@@ -1612,15 +1621,64 @@ function buildFull(
 	return {
 		price,
 		previousClose: base.previousClose ?? null,
-		// Market Cap fallback chain:
+		// Market Cap fallback chain (multi-tier financial grade):
 		// 1. Live price API (NSE: price × issuedSize, Moneycontrol MKTCAP, Yahoo marketCap)
 		// 2. DB market_cap_value — written on every successful NSE live fetch
-		// 3. Screener.in #top section "Market Cap ₹X Cr" — always present on Screener page
-		marketCap:
-			base.marketCap ??
-			dbData.dbMarketCap ??
-			(screener.marketCapCr !== null ? Math.round(screener.marketCapCr * 1e7) : null) ??
-			null,
+		// 3. Screener.in #top section "Market Cap ₹X Cr"
+		// 4. Mathematical derivation from price, EPS and Net Income (in Cr)
+		// 5. Mathematical derivation from PE and Net Income (in Cr)
+		// 6. Mathematical derivation from P/B, ROE and Net Income
+		// 7. Mathematical derivation from Price, Book Value, ROE and Net Income
+		marketCap: (() => {
+			const normalizeCap = (val: number | null | undefined): number | null => {
+				if (!val || val <= 0 || !Number.isFinite(val)) return null;
+				return val < 1e6 ? Math.round(val * 1e7) : Math.round(val);
+			};
+
+			const liveCap = normalizeCap(base.marketCap);
+			if (liveCap) return liveCap;
+
+			const dbCap = normalizeCap(dbData.dbMarketCap);
+			if (dbCap) return dbCap;
+
+			if (screener.marketCapCr && screener.marketCapCr > 0) {
+				return Math.round(screener.marketCapCr * 1e7);
+			}
+
+			const epsVal = dbData.eps ?? base.eps ?? null;
+			const netIncomeCr = screener.netIncome ?? dbData.netIncome ?? null;
+
+			// 4. Price × (Net Income / EPS)
+			if (price && epsVal && epsVal > 0 && netIncomeCr && netIncomeCr > 0) {
+				const impliedShares = (netIncomeCr * 1e7) / epsVal;
+				return Math.round(price * impliedShares);
+			}
+
+			// 5. PE × Net Income
+			const peVal =
+				base.pe ??
+				dbData.dbPeRatio ??
+				screener.pe ??
+				(price && epsVal && epsVal > 0 ? Math.round((price / epsVal) * 10) / 10 : null);
+			if (peVal && peVal > 0 && netIncomeCr && netIncomeCr > 0) {
+				return Math.round(peVal * (netIncomeCr * 1e7));
+			}
+
+			// 6. PB × Net Worth
+			const roeVal = roe ?? screener.roe ?? dbData.roe ?? null;
+			if (pbRatio && pbRatio > 0 && roeVal && roeVal > 0 && netIncomeCr && netIncomeCr > 0) {
+				const netWorthRupees = (netIncomeCr * 1e7) / roeVal;
+				return Math.round(pbRatio * netWorthRupees);
+			}
+
+			// 7. Price / Book Value × Net Worth
+			if (price && bookValue && bookValue > 0 && roeVal && roeVal > 0 && netIncomeCr && netIncomeCr > 0) {
+				const netWorthRupees = (netIncomeCr * 1e7) / roeVal;
+				return Math.round((price / bookValue) * netWorthRupees);
+			}
+
+			return null;
+		})(),
 		pe: (() => {
 			const eps = dbData.eps ?? base.eps ?? null;
 			// NSE → DB cached PE → screener → compute from price/EPS as last resort
@@ -1862,7 +1920,10 @@ export async function getFinancialData(
 			operatingCashFlow: dbData.operatingCashFlow,
 			freeCashFlow: dbData.freeCashFlow,
 			operatingMargin: dbData.operatingMargin,
-			marketCapCr: null, // not stored in screener_financials — comes from live Screener scrape
+			marketCapCr:
+				dbData.dbMarketCap && dbData.dbMarketCap > 0
+					? (dbData.dbMarketCap > 1e6 ? dbData.dbMarketCap / 1e7 : dbData.dbMarketCap)
+					: null,
 			plHistory: null,
 			bsHistory: null,
 			cfHistory: null,
