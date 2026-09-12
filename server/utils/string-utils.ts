@@ -58,6 +58,7 @@ export function normalizeCompanyName(name: string): string {
 	// Canonical mapping for well-known pre-IPO and unlisted market companies
 	if (lower.includes("tata play")) return "tataplay";
 	if (lower.includes("boat") || lower.includes("imagine marketing")) return "boatlifestyle";
+	if (lower.includes("hero fincorp") || lower.includes("herofincorp")) return "herofincorp";
 	if (lower.includes("lenskart")) return "lenskart";
 	if (lower.includes("national stock exchange") || lower.includes(" nse ") || lower.startsWith("nse ") || lower === "nse") return "nse";
 	if (lower.includes("bagmane")) return "bagmaneprimeofficereit";

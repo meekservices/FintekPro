@@ -313,7 +313,7 @@ const UNLISTED_REITS: UnlistedReitInvitData[] = [
 		name: "Bagmane Prime Office REIT",
 		sector: "Real Estate",
 		industry: "REIT - Office",
-		listingStage: "pre_ipo",
+		listingStage: "privately_listed",
 		status: "active",
 	},
 	{

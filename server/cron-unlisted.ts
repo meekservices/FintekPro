@@ -48,6 +48,12 @@ export function initializeUnlistedCrons(): void {
 	}> = [
 		// ── FY 2024-25 IPOs ──────────────────────────────────────────────────────
 		{
+			nameFragment: "Lenskart",
+			symbol: "LENSKART",
+			exchange: "NSE",
+			listedOn: "2025-01-01",
+		},
+		{
 			nameFragment: "Swiggy",
 			symbol: "SWIGGY",
 			exchange: "NSE",
