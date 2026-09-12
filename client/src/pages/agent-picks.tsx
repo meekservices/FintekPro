@@ -304,6 +304,7 @@ const categoryIcons: Record<string, ComponentType<{ className?: string }>> = {
 	mutual_funds: BarChart3,
 	bonds: Landmark,
 	unlisted: Building2,
+	ipo: Rocket,
 	pre_ipo: Rocket,
 	global_stocks: Globe,
 	etfs: Coins,
@@ -318,6 +319,7 @@ const categoryLabels: Record<string, string> = {
 	mutual_funds: "Mutual Funds",
 	bonds: "Bonds",
 	unlisted: "Unlisted",
+	ipo: "IPO",
 	pre_ipo: "Pre-IPO",
 	global_stocks: "Global Stocks",
 	etfs: "ETFs",
@@ -351,6 +353,15 @@ export const isPreIpoPick = (p: DailyPick) =>
 	(p.category === "unlisted" &&
 		(p.keyMetrics?.listingStage === "pre_ipo" ||
 			p.keyMetrics?.listingStage === "ipo_announced"));
+
+/**
+ * Returns true if this pick belongs under the Unlisted & Pre-IPO tab.
+ * Groups both unlisted assets and pre-IPO pipeline picks together.
+ */
+export const isUnlistedOrPreIpo = (p: DailyPick) =>
+	p.category === "unlisted" ||
+	p.category === "pre_ipo" ||
+	isPreIpoPick(p);
 
 
 type StatusEntry = {
@@ -436,7 +447,7 @@ const allCategories = [
 	{ key: "mutual_funds", label: "Mutual Funds", icon: BarChart3 },
 	{ key: "bonds", label: "Bonds", icon: Landmark },
 	{ key: "unlisted", label: "Unlisted", icon: Building2 },
-	{ key: "pre_ipo", label: "Pre-IPO", icon: Rocket },
+	{ key: "ipo", label: "IPO", icon: Rocket },
 	{ key: "global_stocks", label: "Global", icon: Globe },
 	{ key: "etfs", label: "ETFs", icon: Coins },
 	{ key: "reits_invits", label: "REITs", icon: Building2 },
@@ -723,6 +734,17 @@ export default function AgentPicksPage() {
 			queryKey: ["/api/pre-ipo/upcoming"],
 			refetchInterval: 60000,
 		});
+
+	// Live Current Open IPOs Desk
+	const { data: liveIposRes, isLoading: loadingLiveIpos } =
+		useQuery<{ success?: boolean; status?: string; data?: any[] }>({
+			queryKey: ["/api/pre-ipo/current"],
+			refetchInterval: 60000,
+		});
+
+	// ASBA / Live IPO Application Modal State
+	const [asbaModalIpo, setAsbaModalIpo] = useState<any | null>(null);
+	const [asbaModalOpen, setAsbaModalOpen] = useState(false);
 
 	// Pre-IPO Allocation Interest Modal State
 	const [preIpoInterestCompany, setPreIpoInterestCompany] = useState<any | null>(null);
@@ -1232,6 +1254,341 @@ export default function AgentPicksPage() {
 		);
 	};
 
+	const getCalculatedListingGain = (ipo: any) => {
+		let upperPrice = 0;
+		if (ipo.priceRange) {
+			const matches = String(ipo.priceRange).match(/\d+(?:,\d+)*(?:\.\d+)?/g);
+			if (matches && matches.length > 0) {
+				upperPrice = parseFloat(matches[matches.length - 1].replace(/,/g, "")) || 0;
+			}
+		}
+		if (!upperPrice && ipo.minInvestment && ipo.lotSize) {
+			const minInv = parseFloat(String(ipo.minInvestment).replace(/[^0-9.]/g, "")) || 0;
+			upperPrice = Math.round(minInv / (ipo.lotSize || 1));
+		}
+		if (!upperPrice) upperPrice = 100;
+
+		const gmp = Number(ipo.gmp) || 0;
+		const lotSize = Number(ipo.lotSize) || 1;
+		const gmpPct =
+			ipo.gmpPercentage != null && !isNaN(Number(ipo.gmpPercentage))
+				? Number(ipo.gmpPercentage)
+				: upperPrice > 0
+					? Math.round((gmp / upperPrice) * 1000) / 10
+					: 0;
+
+		const expectedListingPrice = upperPrice + gmp;
+		const gainPerLot = gmp * lotSize;
+		const totalLotInvestment =
+			upperPrice * lotSize > 0
+				? upperPrice * lotSize
+				: parseFloat(String(ipo.minInvestment).replace(/[^0-9.]/g, "")) || 15000;
+		const expectedListingValue = totalLotInvestment + gainPerLot;
+
+		return {
+			upperPrice,
+			gmp,
+			gmpPct,
+			lotSize,
+			expectedListingPrice,
+			gainPerLot,
+			totalLotInvestment,
+			expectedListingValue,
+		};
+	};
+
+	const handleShareIpoWhatsApp = (ipo: any) => {
+		const calc = getCalculatedListingGain(ipo);
+		const closeStr =
+			typeof ipo.dayRemaining === "number"
+				? ipo.dayRemaining === 0
+					? "Closes Today"
+					: ipo.dayRemaining === 1
+						? "Closes in 1 day"
+						: `Closes in ${ipo.dayRemaining} days`
+				: ipo.dayRemaining || "Open for Bidding";
+
+		const text =
+			`🚀 *Live Public IPO Opportunity: ${ipo.companyName}*\n` +
+			`Sector: ${ipo.category} · Exchange: ${ipo.exchange}${ipo.isSme ? " (SME)" : ""}\n\n` +
+			`📊 *Calculated Listing Gain & Metrics:*\n` +
+			`• Issue Price Band: ${ipo.priceRange}\n` +
+			`• Grey Market Premium (GMP): ₹${calc.gmp}/share (+${calc.gmpPct}%)\n` +
+			`• Expected Listing Price: ₹${calc.expectedListingPrice}/share\n` +
+			`• Lot Size: ${calc.lotSize} shares (${ipo.minInvestment || `₹${calc.totalLotInvestment.toLocaleString("en-IN")}`})\n` +
+			`• *Estimated Profit / Lot: ₹${calc.gainPerLot.toLocaleString("en-IN")}*\n` +
+			`• Expected Total Listing Value: ₹${calc.expectedListingValue.toLocaleString("en-IN")}\n\n` +
+			`📈 *Subscription Status:*\n` +
+			`• Demand: ${ipo.subscriptionStatus}\n` +
+			`• Retail: ${ipo.retailSubscription || "1.0x"} | HNI: ${ipo.hniSubscription || "1.0x"} | QIB: ${ipo.institutionalSubscription || "1.0x"}\n\n` +
+			`🗓 *Key Dates:*\n` +
+			`• Issue Closes: ${ipo.closeDate} (${closeStr})\n` +
+			`• Expected Listing Date: ${ipo.listingDate || "Upcoming"}\n\n` +
+			`📌 *SEBI Regulatory Disclaimer:* Grey Market Premium (GMP) is an unofficial sentiment indicator and does not guarantee listing performance. Mutual funds, equity & IPO investments are subject to market risks. Read the Red Herring Prospectus (RHP) carefully before applying via ASBA / UPI.\n\n` +
+			`_Apply via your NetBanking / UPI ASBA or contact our advisor desk for institutional assistance._`;
+
+		window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+	};
+
+	const renderLiveIpoDesk = () => {
+		const rawIpoList: any[] = liveIposRes?.data || [];
+		// Deduplicate by normalized name
+		const seenNames = new Set<string>();
+		const liveIpos = rawIpoList.filter((item: any) => {
+			const name = String(item.companyName || item.name || "")
+				.toLowerCase()
+				.replace(/\([^)]*\)/g, "")
+				.replace(/\b(ltd|limited|pvt|private|technologies|solutions|holdings|india)\b/gi, "")
+				.replace(/[^a-z0-9]/g, "")
+				.trim();
+			if (!name || seenNames.has(name)) return false;
+			seenNames.add(name);
+			return true;
+		});
+
+		return (
+			<div className="space-y-4">
+				{/* Header Banner */}
+				<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-gradient-to-r from-emerald-50/80 via-teal-50/50 to-indigo-50/40 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-indigo-950/20 shadow-sm">
+					<div className="flex items-center gap-3">
+						<div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-sm">
+							<Rocket className="h-5 w-5" />
+						</div>
+						<div>
+							<div className="flex items-center gap-2">
+								<h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+									Live Public IPOs (Mainboard & SME)
+								</h3>
+								<Badge variant="secondary" className="bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 font-semibold text-xs">
+									{liveIpos.length} Active IPOs
+								</Badge>
+							</div>
+							<p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+								Live offerings with calculated listing gains, real-time Grey Market Premium (GMP), and subscription multiples.
+							</p>
+						</div>
+					</div>
+					<div className="flex items-center gap-2">
+						<Badge variant="outline" className="text-[11px] border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/40">
+							ASBA / UPI Enabled
+						</Badge>
+					</div>
+				</div>
+
+				{loadingLiveIpos ? (
+					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+						{[1, 2, 3].map((i) => (
+							<Card key={i} className="p-4 space-y-3">
+								<Skeleton className="h-5 w-3/4" />
+								<Skeleton className="h-4 w-1/2" />
+								<Skeleton className="h-24 w-full" />
+							</Card>
+						))}
+					</div>
+				) : liveIpos.length === 0 ? (
+					<Card className="p-8 text-center text-muted-foreground">
+						<p className="text-sm">No live public IPOs open for subscription right now.</p>
+					</Card>
+				) : (
+					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+						{liveIpos.map((item: any) => {
+							const calc = getCalculatedListingGain(item);
+							const closeStr =
+								typeof item.dayRemaining === "number"
+									? item.dayRemaining === 0
+										? "Closes Today"
+										: item.dayRemaining === 1
+											? "Closes Tomorrow"
+											: `Closes in ${item.dayRemaining} days`
+									: item.dayRemaining || "Open";
+
+							const isClosingToday =
+								item.dayRemaining === 0 ||
+								String(item.dayRemaining).toLowerCase().includes("today");
+
+							return (
+								<Card
+									key={item.id}
+									className="relative overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 transition-all flex flex-col justify-between"
+								>
+									<CardHeader className="p-4 pb-2 space-y-2">
+										<div className="flex items-start justify-between gap-2">
+											<div className="space-y-1 min-w-0">
+												<div className="flex items-center gap-1.5 flex-wrap">
+													<Badge
+														variant="outline"
+														className="text-[10px] font-semibold text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700"
+													>
+														{item.exchange || "NSE / BSE"}
+													</Badge>
+													{item.isSme ? (
+														<Badge className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 font-semibold">
+															SME
+														</Badge>
+													) : (
+														<Badge className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-300 font-semibold">
+															Mainboard
+														</Badge>
+													)}
+												</div>
+												<h4 className="font-bold text-slate-900 dark:text-slate-100 text-base leading-snug truncate">
+													{item.companyName}
+												</h4>
+												<p className="text-xs text-muted-foreground truncate">
+													{item.category || "Equity Public Offering"}
+												</p>
+											</div>
+
+											{/* Day Remaining Badge */}
+											<Badge
+												variant="secondary"
+												className={`text-[11px] font-semibold shrink-0 ${
+													isClosingToday
+														? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 border-red-200"
+														: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200"
+												}`}
+											>
+												<Clock className="h-3 w-3 mr-1 inline" />
+												{closeStr}
+											</Badge>
+										</div>
+
+										{/* Calculated Listing Gain Hero Box */}
+										<div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/15 via-teal-500/10 to-indigo-500/10 border border-emerald-200 dark:border-emerald-800/80">
+											<div className="flex items-center justify-between">
+												<div className="flex items-center gap-1.5">
+													<TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+													<span className="text-xs font-semibold text-emerald-900 dark:text-emerald-200">
+														Calculated Listing Gain
+													</span>
+												</div>
+												<span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
+													+{calc.gmpPct}%
+												</span>
+											</div>
+
+											<div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-emerald-200/60 dark:border-emerald-800/40 text-xs">
+												<div>
+													<p className="text-[10px] text-muted-foreground">Est. Listing Price</p>
+													<p className="font-bold text-slate-900 dark:text-slate-100">
+														₹{calc.expectedListingPrice}
+														<span className="text-[10px] font-normal text-muted-foreground ml-1">
+															(₹{calc.upperPrice} + ₹{calc.gmp})
+														</span>
+													</p>
+												</div>
+												<div>
+													<p className="text-[10px] text-muted-foreground">Est. Profit / Lot</p>
+													<p className="font-bold text-emerald-600 dark:text-emerald-400">
+														+₹{calc.gainPerLot.toLocaleString("en-IN")}
+													</p>
+												</div>
+											</div>
+										</div>
+									</CardHeader>
+
+									<CardContent className="p-4 pt-0 space-y-3 flex-1 flex flex-col justify-between">
+										{/* Key Specs Grid */}
+										<div className="grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 text-xs">
+											<div>
+												<p className="text-[10px] text-muted-foreground">Price Band</p>
+												<p className="font-bold text-slate-800 dark:text-slate-200">{item.priceRange}</p>
+											</div>
+											<div>
+												<p className="text-[10px] text-muted-foreground">Current GMP</p>
+												<p className="font-bold text-emerald-600">₹{calc.gmp} / share</p>
+											</div>
+											<div>
+												<p className="text-[10px] text-muted-foreground">Lot Size</p>
+												<p className="font-semibold text-slate-800 dark:text-slate-200">
+													{calc.lotSize} shares
+												</p>
+											</div>
+											<div>
+												<p className="text-[10px] text-muted-foreground">Min Investment</p>
+												<p className="font-semibold text-slate-800 dark:text-slate-200">
+													{item.minInvestment || `₹${calc.totalLotInvestment.toLocaleString("en-IN")}`}
+												</p>
+											</div>
+										</div>
+
+										{/* Subscription Status Bar */}
+										<div className="space-y-1.5 p-2 rounded-lg bg-slate-50/80 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/60">
+											<div className="flex items-center justify-between text-[11px]">
+												<span className="font-medium text-slate-700 dark:text-slate-300">
+													Demand: {item.subscriptionStatus}
+												</span>
+												<span className="text-[10px] text-muted-foreground">
+													Listing: {item.listingDate || "TBA"}
+												</span>
+											</div>
+											<div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+												<span className="px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800">
+													Retail: <b className="text-foreground">{item.retailSubscription || "1.0x"}</b>
+												</span>
+												<span className="px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800">
+													HNI: <b className="text-foreground">{item.hniSubscription || "1.0x"}</b>
+												</span>
+												<span className="px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800">
+													Inst: <b className="text-foreground">{item.institutionalSubscription || "1.0x"}</b>
+												</span>
+											</div>
+										</div>
+
+										{/* Action Buttons */}
+										<div className="pt-2 flex items-center gap-2">
+											<Button
+												size="sm"
+												variant="outline"
+												className="flex-1 text-xs border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+												onClick={() => handleShareIpoWhatsApp(item)}
+											>
+												<Send className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+												Share
+											</Button>
+											{item.rhpUrl ? (
+												<Button
+													size="sm"
+													variant="outline"
+													className="text-xs shrink-0"
+													asChild
+												>
+													<a href={item.rhpUrl} target="_blank" rel="noopener noreferrer">
+														<FileText className="h-3.5 w-3.5 mr-1" />
+														RHP
+													</a>
+												</Button>
+											) : null}
+											<Button
+												size="sm"
+												className="flex-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+												onClick={() => {
+													setAsbaModalIpo(item);
+													setAsbaModalOpen(true);
+												}}
+											>
+												<Target className="h-3.5 w-3.5 mr-1" />
+												Apply ASBA
+											</Button>
+										</div>
+									</CardContent>
+								</Card>
+							);
+						})}
+					</div>
+				)}
+
+				{/* Regulatory Disclaimer */}
+				<div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-[11px] text-muted-foreground flex items-start gap-2">
+					<Info className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
+					<p className="leading-relaxed">
+						<span className="font-semibold text-slate-700 dark:text-slate-300">SEBI Regulatory Disclosure:</span> Grey Market Premium (GMP) is an unofficial, unregulated indicator reflecting market demand and does not guarantee listing price or post-listing returns. Initial Public Offerings carry market risks. Applications must be made via ASBA / UPI through registered self-certified syndicate banks (SCSBs) or SEBI-registered brokers.
+					</p>
+				</div>
+			</div>
+		);
+	};
+
 	const todayPicks = Array.isArray(todayData?.picks) ? todayData.picks : [];
 	const isFallback = todayData?.isFallback === true;
 	const fallbackDate = todayData?.fallbackDate;
@@ -1252,8 +1609,10 @@ export default function AgentPicksPage() {
 
 	const filteredTodayPicks = todayPicks.filter((p) => {
 		if (isPickExpired(p)) return false;
-		if (todayCategoryFilter === "pre_ipo") {
-			if (!isPreIpoPick(p)) return false;
+		if (todayCategoryFilter === "unlisted") {
+			if (!isUnlistedOrPreIpo(p)) return false;
+		} else if (todayCategoryFilter === "ipo") {
+			if (p.category !== "ipo") return false;
 		} else if (todayCategoryFilter !== "all" && p.category !== todayCategoryFilter) {
 			return false;
 		}
@@ -1267,8 +1626,10 @@ export default function AgentPicksPage() {
 
 	const filteredLivePicks = livePicks.filter((p) => {
 		if (isPickExpired(p)) return false;
-		if (liveCategoryFilter === "pre_ipo") {
-			if (!isPreIpoPick(p)) return false;
+		if (liveCategoryFilter === "unlisted") {
+			if (!isUnlistedOrPreIpo(p)) return false;
+		} else if (liveCategoryFilter === "ipo") {
+			if (p.category !== "ipo") return false;
 		} else if (liveCategoryFilter !== "all" && p.category !== liveCategoryFilter) {
 			return false;
 		}
@@ -1289,8 +1650,10 @@ export default function AgentPicksPage() {
 	});
 
 	const filteredHistory = historyPicks.filter((pick) => {
-		if (historyCategoryFilter === "pre_ipo") {
-			if (!isPreIpoPick(pick)) return false;
+		if (historyCategoryFilter === "unlisted") {
+			if (!isUnlistedOrPreIpo(pick)) return false;
+		} else if (historyCategoryFilter === "ipo") {
+			if (pick.category !== "ipo") return false;
 		} else if (
 			historyCategoryFilter !== "all" &&
 			pick.category !== historyCategoryFilter
@@ -1321,23 +1684,27 @@ export default function AgentPicksPage() {
 	const getCategoryCounts = (picks: DailyPick[], supplementPicks?: DailyPick[]) => {
 		const counts: Record<string, number> = { all: picks.length };
 		picks.forEach((p) => {
-			counts[p.category] = (counts[p.category] || 0) + 1;
-			if (isPreIpoPick(p)) {
-				counts.pre_ipo = (counts.pre_ipo || 0) + 1;
+			if (isUnlistedOrPreIpo(p)) {
+				counts.unlisted = (counts.unlisted || 0) + 1;
+			} else {
+				counts[p.category] = (counts[p.category] || 0) + 1;
 			}
 		});
-		// Pre-IPO picks persist across days (unlisted assets don't change daily).
-		// Supplement today's pre_ipo count with any active live picks that are pre-IPO
-		// or upcoming Pre-IPO pipeline count so the tab is always visible.
-		if (counts.pre_ipo === 0) {
+
+		// Supplement unlisted count with live unlisted/pre-ipo picks or upcoming Pre-IPO pipeline count
+		if (!counts.unlisted) {
 			if (supplementPicks) {
-				const livePreIpoCount = supplementPicks.filter(isPreIpoPick).length;
-				if (livePreIpoCount > 0) counts.pre_ipo = livePreIpoCount;
+				const liveUnlistedCount = supplementPicks.filter(isUnlistedOrPreIpo).length;
+				if (liveUnlistedCount > 0) counts.unlisted = liveUnlistedCount;
 			}
-			if (counts.pre_ipo === 0 && upcomingPreIpoRes?.data?.length) {
-				counts.pre_ipo = upcomingPreIpoRes.data.length;
+			if (!counts.unlisted && upcomingPreIpoRes?.data?.length) {
+				counts.unlisted = upcomingPreIpoRes.data.length;
 			}
 		}
+
+		// IPO count from live open IPOs
+		counts.ipo = liveIposRes?.data?.length ?? 10;
+
 		return counts;
 	};
 
@@ -2497,18 +2864,22 @@ export default function AgentPicksPage() {
 											size="sm"
 											onClick={() => setTodayCategoryFilter(key)}
 											className={`flex items-center gap-1.5 shrink-0 transition-all ${
-												key === "pre_ipo" && !isActive
-													? "border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950"
-													: count === 0 && key !== "all" && !isActive
-														? "opacity-40 cursor-not-allowed"
-														: ""
+												key === "ipo" && !isActive
+													? "border-emerald-400 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+													: key === "unlisted" && !isActive
+														? "border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950"
+														: count === 0 && key !== "all" && !isActive
+															? "opacity-40 cursor-not-allowed"
+															: ""
 											}`}
 											title={
-												key === "pre_ipo"
-													? "Pre-IPO opportunities — unlisted companies preparing for public listing"
-													: count === 0 && key !== "all"
-														? "No picks available today"
-														: undefined
+												key === "ipo"
+													? "Live Public IPOs — open offerings with GMP and calculated listing gains"
+													: key === "unlisted"
+														? "Unlisted & Pre-IPO opportunities — high-growth companies preparing for public listing"
+														: count === 0 && key !== "all"
+															? "No picks available today"
+															: undefined
 											}
 										>
 											<Icon className="h-3.5 w-3.5" />
@@ -4070,16 +4441,16 @@ export default function AgentPicksPage() {
 									</div>
 								</div>
 							) : filteredTodayPicks.length === 0 ? (
-								todayCategoryFilter === "pre_ipo" ? (
+								todayCategoryFilter === "unlisted" ? (
 									<div className="space-y-6">
 										<div className="p-4 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 											<div className="flex items-center gap-3">
 												<div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
-													<Rocket className="h-5 w-5" />
+													<Building2 className="h-5 w-5" />
 												</div>
 												<div>
-													<h4 className="text-sm font-bold text-purple-950 dark:text-purple-100">Daily Secondary Market Pre-IPO Picks</h4>
-													<p className="text-xs text-purple-700 dark:text-purple-300">No new secondary pick issued today. Browse the active DRHP and upcoming Pre-IPO pipeline below.</p>
+													<h4 className="text-sm font-bold text-purple-950 dark:text-purple-100">Unlisted & Pre-IPO Opportunities</h4>
+													<p className="text-xs text-purple-700 dark:text-purple-300">No new secondary market pick issued today. Browse active DRHP filings and the Pre-IPO pipeline below.</p>
 												</div>
 											</div>
 											<Button
@@ -4095,11 +4466,17 @@ export default function AgentPicksPage() {
 										</div>
 										{renderUpcomingPreIpoRadar()}
 									</div>
+								) : todayCategoryFilter === "ipo" ? (
+									<div className="space-y-6">
+										{renderLiveIpoDesk()}
+									</div>
 								) : (
 								<div className="flex flex-col items-center justify-center py-16 px-4 text-center">
 									<div className="w-16 h-16 rounded-2xl bg-muted/60 flex items-center justify-center mb-4">
-										{todayCategoryFilter === "pre_ipo" ? (
+										{todayCategoryFilter === "ipo" ? (
 											<Rocket className="h-8 w-8 text-muted-foreground/60" />
+										) : todayCategoryFilter === "unlisted" ? (
+											<Building2 className="h-8 w-8 text-muted-foreground/60" />
 										) : todayCategoryFilter === "derivatives" ? (
 											<Activity className="h-8 w-8 text-muted-foreground/60" />
 										) : todayCategoryFilter === "global_stocks" ? (
@@ -4119,19 +4496,21 @@ export default function AgentPicksPage() {
 											: "Yet Today"}
 									</h3>
 									<p className="text-sm text-muted-foreground max-w-xs">
-										{todayCategoryFilter === "pre_ipo"
-											? "Pre-IPO picks are selected from high-growth unlisted companies preparing for public listing, backed by institutional funding and MCA financial compliance."
-											: todayCategoryFilter === "derivatives"
-												? "F&O picks require live NSE options chain data. They are generated when market conditions indicate a clear directional opportunity."
-												: todayCategoryFilter === "global_stocks"
-													? "Global stock picks are generated from international instruments data. Ensure the global instruments DB is seeded with live prices."
-													: todayCategoryFilter === "sgb"
-														? "Sovereign Gold Bond picks are only generated during active SGB issue windows (open/upcoming tranches)."
-														: todayCategoryFilter === "fixed_deposits"
-															? "Fixed Deposit picks are generated from the instrument master. Ensure FD instruments are seeded in the database."
-															: todayCategoryFilter === "etfs"
-																? 'ETF picks require instruments with assetClass="etf" and a non-null lastPrice in the instrument master.'
-																: "Picks are generated automatically each morning at 9 AM IST based on market analysis."}
+										{todayCategoryFilter === "ipo"
+											? "Live IPO opportunities are active public offerings open for bidding with calculated listing gains."
+											: todayCategoryFilter === "unlisted"
+												? "Unlisted and Pre-IPO opportunities are selected from high-growth companies preparing for public listing, backed by institutional funding and MCA financial compliance."
+												: todayCategoryFilter === "derivatives"
+													? "F&O picks require live NSE options chain data. They are generated when market conditions indicate a clear directional opportunity."
+													: todayCategoryFilter === "global_stocks"
+														? "Global stock picks are generated from international instruments data. Ensure the global instruments DB is seeded with live prices."
+														: todayCategoryFilter === "sgb"
+															? "Sovereign Gold Bond picks are only generated during active SGB issue windows (open/upcoming tranches)."
+															: todayCategoryFilter === "fixed_deposits"
+																? "Fixed Deposit picks are generated from the instrument master. Ensure FD instruments are seeded in the database."
+																: todayCategoryFilter === "etfs"
+																	? 'ETF picks require instruments with assetClass="etf" and a non-null lastPrice in the instrument master.'
+																	: "Picks are generated automatically each morning at 9 AM IST based on market analysis."}
 									</p>
 									<p className="text-xs text-muted-foreground/60 mt-2">
 										Next auto-generation: 9:00 AM IST
@@ -4328,13 +4707,15 @@ export default function AgentPicksPage() {
 												picks={filteredTodayPicks}
 												onRowClick={setSelectedPick}
 											/>
-											{todayCategoryFilter === "pre_ipo" && renderUpcomingPreIpoRadar()}
+											{todayCategoryFilter === "unlisted" && renderUpcomingPreIpoRadar()}
+											{todayCategoryFilter === "ipo" && renderLiveIpoDesk()}
 										</div>
 									) : (
 										<div className="space-y-4">
-										{/* Pre-IPO: Pipeline summary banner */}
-										{todayCategoryFilter === "pre_ipo" && filteredTodayPicks.length > 0 && (() => {
-											const preIpoPicks = filteredTodayPicks.filter(isPreIpoPick);
+										{/* Unlisted: Pre-IPO Pipeline summary banner */}
+										{todayCategoryFilter === "unlisted" && filteredTodayPicks.length > 0 && (() => {
+											const preIpoPicks = filteredTodayPicks.filter(isUnlistedOrPreIpo);
+											if (preIpoPicks.length === 0) return null;
 											const avgGmp = preIpoPicks.reduce((sum, p) => sum + (Number((p.keyMetrics as any)?.gmpPercentage) || 0), 0) / (preIpoPicks.length || 1);
 											const stageCounts = preIpoPicks.reduce((acc, p) => {
 												const s = (p.keyMetrics as any)?.listingStage ?? "unlisted";
@@ -4346,11 +4727,11 @@ export default function AgentPicksPage() {
 													<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
 														<div className="flex items-center gap-2">
 															<div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-900">
-																<Rocket className="h-4 w-4 text-purple-700 dark:text-purple-300" />
+																<Building2 className="h-4 w-4 text-purple-700 dark:text-purple-300" />
 															</div>
 															<div>
-																<p className="text-sm font-bold text-purple-900 dark:text-purple-100">Pre-IPO Pipeline</p>
-																<p className="text-xs text-purple-600 dark:text-purple-400">{preIpoPicks.length} active pre-IPO pick{preIpoPicks.length !== 1 ? "s" : ""} · Accredited Investors Only</p>
+																<p className="text-sm font-bold text-purple-900 dark:text-purple-100">Unlisted & Pre-IPO Opportunities</p>
+																<p className="text-xs text-purple-600 dark:text-purple-400">{preIpoPicks.length} active unlisted & pre-IPO pick{preIpoPicks.length !== 1 ? "s" : ""} · Accredited Investors Only</p>
 															</div>
 														</div>
 														{avgGmp > 0 && (
@@ -4399,7 +4780,8 @@ export default function AgentPicksPage() {
 												/>
 											))}
 										</div>
-										{todayCategoryFilter === "pre_ipo" && renderUpcomingPreIpoRadar()}
+										{todayCategoryFilter === "unlisted" && renderUpcomingPreIpoRadar()}
+										{todayCategoryFilter === "ipo" && renderLiveIpoDesk()}
 										</div>
 									);
 								})()
@@ -6058,6 +6440,91 @@ export default function AgentPicksPage() {
 							disabled={preIpoSubmitting}
 						>
 							{preIpoSubmitting ? "Submitting…" : "Confirm Request"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* ASBA / Live Public IPO Application Guide Modal */}
+			<Dialog open={asbaModalOpen} onOpenChange={setAsbaModalOpen}>
+				<DialogContent className="max-w-md sm:max-w-lg">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2 text-base font-bold">
+							<Rocket className="h-5 w-5 text-emerald-600" />
+							ASBA / UPI Application Guide: {asbaModalIpo?.companyName}
+						</DialogTitle>
+						<DialogDescription className="text-xs">
+							Step-by-step bidding procedure for live public offerings under SEBI ASBA guidelines.
+						</DialogDescription>
+					</DialogHeader>
+					{asbaModalIpo && (() => {
+						const calc = getCalculatedListingGain(asbaModalIpo);
+						return (
+							<div className="space-y-4 py-2 text-xs">
+								<div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between">
+									<div>
+										<p className="font-semibold text-emerald-950 dark:text-emerald-100">Cut-off Price Bid</p>
+										<p className="text-emerald-700 dark:text-emerald-300">₹{calc.upperPrice} × {calc.lotSize} shares</p>
+									</div>
+									<div className="text-right">
+										<p className="font-bold text-sm text-emerald-900 dark:text-emerald-100">₹{calc.totalLotInvestment.toLocaleString("en-IN")}</p>
+										<p className="text-[10px] text-emerald-700 dark:text-emerald-400">Blocked Amount / Lot</p>
+									</div>
+								</div>
+
+								<div className="space-y-2.5">
+									<h4 className="font-semibold text-slate-900 dark:text-slate-100 text-xs">How to Bid via UPI (Retail / sHNI):</h4>
+									<div className="space-y-2 text-slate-600 dark:text-slate-300">
+										<div className="flex gap-2">
+											<span className="font-bold text-emerald-600 shrink-0">1.</span>
+											<span>Log in to your broker app (Zerodha, Groww, AngelOne, Upstox, etc.) and navigate to the <b>IPO</b> section.</span>
+										</div>
+										<div className="flex gap-2">
+											<span className="font-bold text-emerald-600 shrink-0">2.</span>
+											<span>Select <b>{asbaModalIpo.companyName}</b> and enter your bid at the <b>Cut-off Price (₹{calc.upperPrice})</b> for <b>{calc.lotSize}</b> shares (or multiples).</span>
+										</div>
+										<div className="flex gap-2">
+											<span className="font-bold text-emerald-600 shrink-0">3.</span>
+											<span>Enter your registered <b>UPI ID</b> (BHIM, Google Pay, PhonePe) and submit.</span>
+										</div>
+										<div className="flex gap-2">
+											<span className="font-bold text-emerald-600 shrink-0">4.</span>
+											<span>Accept the <b>UPI Mandate request</b> in your banking app before 5:00 PM on closing date (<b>{asbaModalIpo.closeDate}</b>).</span>
+										</div>
+									</div>
+								</div>
+
+								<div className="space-y-2.5 pt-1">
+									<h4 className="font-semibold text-slate-900 dark:text-slate-100 text-xs">How to Bid via NetBanking ASBA (HNI &gt; ₹2 Lakhs):</h4>
+									<p className="text-slate-600 dark:text-slate-300">
+										Log in to HDFC, ICICI, SBI, Kotak, or Axis NetBanking &rarr; Select <b>e-Services / Invest in IPO (ASBA)</b> &rarr; Choose <b>{asbaModalIpo.companyName}</b> &rarr; Enter your CDSL/NSDL Demat Account Number and PAN.
+									</p>
+								</div>
+
+								<div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[10px] text-amber-800 dark:text-amber-200">
+									<b>Note:</b> Your funds are NOT debited immediately. They remain blocked in your bank account, continuing to earn interest, until allotment is finalized. If not allotted, the hold is unblocked automatically.
+								</div>
+							</div>
+						);
+					})()}
+					<DialogFooter className="flex items-center justify-between sm:justify-between gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => {
+								if (asbaModalIpo) handleShareIpoWhatsApp(asbaModalIpo);
+							}}
+							className="text-xs"
+						>
+							<Send className="h-3.5 w-3.5 mr-1.5 text-emerald-600" />
+							Share with Client
+						</Button>
+						<Button
+							size="sm"
+							onClick={() => setAsbaModalOpen(false)}
+							className="text-xs bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+						>
+							Close
 						</Button>
 					</DialogFooter>
 				</DialogContent>
