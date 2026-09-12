@@ -1049,7 +1049,7 @@ export class PickOfTheDayService {
 		avgReturn: number;
 		byCategory: Record<string, { total: number; hits: number; hitRate: number; avgReturn: number }>;
 	}> {
-		// Single aggregation query: totals + per-status counts
+		// Single aggregation query: totals + per-status counts (no varchar casting in SQL)
 		const [agg] = await db.execute(sql`
 			SELECT
 				COUNT(*)::int                                                          AS total_picks,
@@ -1057,21 +1057,7 @@ export class PickOfTheDayService {
 				COUNT(*) FILTER (WHERE status = 'target_hit')::int                     AS target_hits,
 				COUNT(*) FILTER (WHERE status = 'stoploss_hit')::int                   AS stoploss_hits,
 				COUNT(*) FILTER (WHERE status = 'expired')::int                        AS expired_count,
-				COUNT(*) FILTER (WHERE status <> 'live')::int                          AS total_closed,
-				-- avgReturn: closed picks only, exclude non-numeric/empty returnPct safely
-				ROUND(
-					COALESCE(
-						AVG(
-							CASE
-								WHEN regexp_replace(return_pct, '[% ,+]', '', 'g') ~ '^-?[0-9]+(\.[0-9]+)?$'
-								THEN regexp_replace(return_pct, '[% ,+]', '', 'g')::numeric
-								ELSE NULL
-							END
-						) FILTER (WHERE status <> 'live'),
-						0
-					),
-					2
-				)                                                                      AS avg_return
+				COUNT(*) FILTER (WHERE status <> 'live')::int                          AS total_closed
 			FROM daily_picks
 		`) as any;
 
@@ -1082,48 +1068,63 @@ export class PickOfTheDayService {
 		const stoplossHits = Number(r.stoploss_hits  ?? 0);
 		const expiredCount = Number(r.expired_count  ?? 0);
 		const totalClosed  = Number(r.total_closed   ?? 0);
-		const avgReturn    = Number(r.avg_return      ?? 0);
-		const hitRate      = totalClosed > 0
-			? Number(((targetHits / totalClosed) * 100).toFixed(2))
-			: 0;
 
 		if (totalPicks === 0) {
 			return { totalPicks: 0, livePicks: 0, targetHits: 0, stoplossHits: 0,
 				expired: 0, hitRate: 0, avgReturn: 0, byCategory: {} };
 		}
 
-		// Per-category breakdown — single aggregation grouped by category
+		// Per-category counts query (clean int aggregations)
 		const catRows = await db.execute(sql`
 			SELECT
 				category,
 				COUNT(*) FILTER (WHERE status <> 'live')::int                          AS total,
-				COUNT(*) FILTER (WHERE status = 'target_hit')::int                     AS hits,
-				ROUND(
-					COALESCE(
-						AVG(
-							CASE
-								WHEN regexp_replace(return_pct, '[% ,+]', '', 'g') ~ '^-?[0-9]+(\.[0-9]+)?$'
-								THEN regexp_replace(return_pct, '[% ,+]', '', 'g')::numeric
-								ELSE NULL
-							END
-						) FILTER (WHERE status <> 'live'),
-						0
-					),
-					2
-				)                                                                      AS avg_return
+				COUNT(*) FILTER (WHERE status = 'target_hit')::int                     AS hits
 			FROM daily_picks
 			GROUP BY category
 		`) as any;
 
+		// Fetch closed returns safely to parse in JS (immune to corrupt varchar formats in DB)
+		const returnRows = await db.execute(sql`
+			SELECT category, return_pct
+			FROM daily_picks
+			WHERE status <> 'live'
+			  AND return_pct IS NOT NULL
+			  AND return_pct <> ''
+		`) as any;
+
+		let totalReturnSum = 0;
+		let totalReturnCount = 0;
+		const catReturnMap: Record<string, { sum: number; count: number }> = {};
+
+		for (const row of ((returnRows.rows ?? returnRows) as any[])) {
+			const cleaned = String(row.return_pct ?? "").replace(/[% ,+]/g, "").trim();
+			const val = Number.parseFloat(cleaned);
+			if (Number.isFinite(val)) {
+				totalReturnSum += val;
+				totalReturnCount += 1;
+				if (!catReturnMap[row.category]) {
+					catReturnMap[row.category] = { sum: 0, count: 0 };
+				}
+				catReturnMap[row.category].sum += val;
+				catReturnMap[row.category].count += 1;
+			}
+		}
+
+		const avgReturn = totalReturnCount > 0 ? Number((totalReturnSum / totalReturnCount).toFixed(2)) : 0;
+		const hitRate   = totalClosed > 0 ? Number(((targetHits / totalClosed) * 100).toFixed(2)) : 0;
+
 		const byCategory: Record<string, { total: number; hits: number; hitRate: number; avgReturn: number }> = {};
-		for (const row of (catRows.rows ?? []) as any[]) {
+		for (const row of ((catRows.rows ?? catRows) as any[])) {
 			const total = Number(row.total ?? 0);
 			const hits  = Number(row.hits  ?? 0);
+			const catStats = catReturnMap[row.category];
+			const catAvg = catStats && catStats.count > 0 ? Number((catStats.sum / catStats.count).toFixed(2)) : 0;
 			byCategory[row.category] = {
 				total,
 				hits,
 				hitRate:   total > 0 ? Number(((hits / total) * 100).toFixed(2)) : 0,
-				avgReturn: Number(row.avg_return ?? 0),
+				avgReturn: catAvg,
 			};
 		}
 
