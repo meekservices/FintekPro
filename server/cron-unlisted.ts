@@ -539,7 +539,7 @@ export function initializeUnlistedCrons(): void {
 	cron.schedule("0 */12 * * *", async () => {
 		console.log("[CRON] Starting price suggestion refresh...");
 		try {
-			const companies = await storage.getAllUnlistedCompanies({});
+			const companies = await storage.getAllUnlistedCompanies({ listingStage: "any" }); // Price cron: refresh all stages
 			let refreshed = 0;
 			for (const company of companies) {
 				try {

@@ -147,7 +147,8 @@ class MoneyControlScraperService {
 			const mcCompanies = await this.scrapeUnlistedPrices();
 			result.total = mcCompanies.length;
 
-			const ourCompanies = await storage.getAllUnlistedCompanies({});
+			const ourCompanies = await storage.getAllUnlistedCompanies({ listingStage: "any" }); // Scraper match: all stages
+
 
 			const isinIndex = new Map<string, (typeof ourCompanies)[0]>();
 			const nameIndex = new Map<string, (typeof ourCompanies)[0]>();
@@ -417,7 +418,8 @@ class MoneyControlScraperService {
 			}
 
 			// Step 2: Check if company already exists by ISIN
-			const existingCompanies = await storage.getAllUnlistedCompanies({});
+			const existingCompanies = await storage.getAllUnlistedCompanies({ listingStage: "any" }); // Dedup: all stages
+
 			const existingByISIN = existingCompanies.find(
 				(c) => c.isin?.toUpperCase() === mcCompany.isin.toUpperCase(),
 			);

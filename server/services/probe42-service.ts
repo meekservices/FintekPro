@@ -27,7 +27,7 @@
 import axios, { AxiosInstance } from "axios";
 import { distributedCache } from "../utils/distributed-cache";
 import { logger } from "../logger";
-import type { CredhiveDirector } from "./credhive-service";
+import type { CredhiveDirector, CredhiveFinancialStatement } from "./credhive-service";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -83,6 +83,14 @@ export interface Probe42DirectorsResponse {
   success: boolean;
   /** Normalised to CredhiveDirector shape so the pipeline consumes it unchanged */
   data?: CredhiveDirector[];
+  error?: string;
+  isApiKeyMissing?: boolean;
+}
+
+export interface Probe42FinancialsResponse {
+  success: boolean;
+  /** Normalised to CredhiveFinancialStatement shape */
+  data?: CredhiveFinancialStatement[];
   error?: string;
   isApiKeyMissing?: boolean;
 }
@@ -257,6 +265,74 @@ class Probe42Service {
       return { success: true, data: directors };
     } catch (err: any) {
       return this._handleError<Probe42DirectorsResponse>(err, "PROBE42_DIRECTORS_ERROR", { cin, latency_ms: Date.now() - t0 });
+    }
+  }
+
+  // ── Financials ────────────────────────────────────────────────────────────
+
+  /**
+   * Fetch financial statements (up to 5 years) by CIN.
+   * Result is cached for 24 hours.
+   */
+  async getFinancials(
+    cin: string,
+    forceRefresh = false,
+  ): Promise<Probe42FinancialsResponse> {
+    if (!this.available) {
+      return this._unavailable<Probe42FinancialsResponse>({ data: [] });
+    }
+
+    const cacheKey = `probe42:financials:${cin}`;
+    if (!forceRefresh) {
+      const cached =
+        await distributedCache.getJson<CredhiveFinancialStatement[]>(cacheKey);
+      if (cached) {
+        this._log("PROBE42_FINANCIALS_CACHE_HIT", { cin, count: cached.length });
+        return { success: true, data: cached };
+      }
+    }
+
+    const t0 = Date.now();
+    try {
+      const response = await this._withRetry(() =>
+        this.client.get(`/company/${encodeURIComponent(cin)}/financials`),
+      );
+      const raw: any[] =
+        response.data?.data?.financials ||
+        response.data?.financials ||
+        response.data?.data ||
+        (Array.isArray(response.data) ? response.data : []);
+
+      const mapped: CredhiveFinancialStatement[] = raw.map((r: any) => ({
+        financial_year: r.financial_year || r.fy || r.year || "",
+        period_end: r.period_end || r.balance_sheet_date,
+        revenue: this._num(r.revenue || r.total_revenue || r.net_sales || r.total_income),
+        ebitda: this._num(r.ebitda || r.operating_profit),
+        ebit: this._num(r.ebit || r.operating_income || r.pbit),
+        pbt: this._num(r.pbt || r.profit_before_tax),
+        pat: this._num(r.pat || r.profit_after_tax || r.net_profit),
+        net_profit: this._num(r.net_profit || r.profit_after_tax || r.pat),
+        total_assets: this._num(r.total_assets || r.assets),
+        total_liabilities: this._num(r.total_liabilities || r.liabilities),
+        networth: this._num(r.networth || r.shareholders_equity || r.net_worth || r.shareholders_funds),
+        share_capital: this._num(r.share_capital || r.equity_share_capital || r.paid_up_capital),
+        reserves: this._num(r.reserves || r.reserves_and_surplus),
+        total_debt: this._num(r.total_debt || r.total_borrowings || r.borrowings),
+        long_term_debt: this._num(r.long_term_debt || r.long_term_borrowings),
+        short_term_debt: this._num(r.short_term_debt || r.short_term_borrowings),
+        cash_and_equivalents: this._num(r.cash_and_equivalents || r.cash_and_bank_balances || r.cash_and_bank),
+        operating_cash_flow: this._num(r.operating_cash_flow || r.cash_from_operations),
+        investing_cash_flow: this._num(r.investing_cash_flow || r.cash_from_investing),
+        financing_cash_flow: this._num(r.financing_cash_flow || r.cash_from_financing),
+        free_cash_flow: this._num(r.free_cash_flow),
+        capex: this._num(r.capex || r.capital_expenditure),
+      }));
+
+      await distributedCache.setJson(cacheKey, mapped, CACHE_TTL_S);
+      this._log("PROBE42_FINANCIALS_SUCCESS", { cin, count: mapped.length, latency_ms: Date.now() - t0 });
+      return { success: true, data: mapped };
+    } catch (err: any) {
+      return this._handleError<Probe42FinancialsResponse>(err, "PROBE42_FINANCIALS_ERROR", { cin, latency_ms: Date.now() - t0 });
     }
   }
 

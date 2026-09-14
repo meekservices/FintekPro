@@ -1153,6 +1153,49 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			console.log("[CacheWarm] 🔥 Redis cache warming active");
 		});
 
+		// ── Unlisted & Pre-IPO Lifecycle Sweep & 0-Price Picks Cleanup ────────────
+		// Ensures:
+		// 1. Any unlisted/pre-IPO company that has listed on NSE/BSE (e.g. Swiggy)
+		//    is automatically transitioned to 'transitioned_to_listed' / 'inactive'.
+		// 2. All stale unlisted/pre-IPO picks for listed companies are expired.
+		// 3. All unlisted/pre-IPO picks with entry price <= 0 are expired immediately.
+		runStartupTask("Unlisted Lifecycle & Zero-Price Cleanup", async () => {
+			const { instrumentLifecycleManager } = await import(
+				"../services/instrument-lifecycle-manager"
+			);
+
+			const runSweep = async () => {
+				try {
+					console.log("[LifecycleSweep] 🔄 Running unlisted & pre-IPO lifecycle sweep...");
+					await instrumentLifecycleManager.sweepListedStockOverlap();
+					await instrumentLifecycleManager.sweepPreIpoListings();
+					console.log("[LifecycleSweep] ✅ Lifecycle sweep completed");
+				} catch (err: any) {
+					console.warn("[LifecycleSweep] ⚠️ Sweep failed (non-fatal):", err?.message);
+				}
+			};
+
+			// Run immediately on startup
+			await runSweep();
+
+			// Run daily at 7:00 AM IST (01:30 UTC)
+			const msUntilNext0130UTC = (): number => {
+				const now = new Date();
+				const next = new Date();
+				next.setUTCHours(1, 30, 0, 0); // 7:00 AM IST
+				if (next <= now) next.setTime(next.getTime() + 24 * 60 * 60 * 1000);
+				return next.getTime() - now.getTime();
+			};
+
+			setTimeout(() => {
+				void runSweep();
+				setInterval(() => { void runSweep(); }, 24 * 60 * 60 * 1000);
+			}, msUntilNext0130UTC());
+
+			console.log(
+				`[LifecycleSweep] ⏰ Daily lifecycle sweep scheduled — next run in ${Math.round(msUntilNext0130UTC() / 60000)} min (7:00 AM IST)`,
+			);
+		});
 
 		console.log(
 			"✅ [Schedulers] All background services initialized. Portal is self-operating.",

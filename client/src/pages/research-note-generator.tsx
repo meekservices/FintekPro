@@ -1020,12 +1020,26 @@ export default function ResearchNoteGenerator() {
 										Price · {d.dataQuality.price.source.replace("_", " ")}
 									</span>
 									<span
-										className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${d.dataQuality.fundamentals.source === "SCREENER_LIVE" ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-800" : "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900/40 dark:text-slate-400"}`}
+										className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${
+											d.dataQuality.fundamentals.source === "SCREENER_LIVE"
+												? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-800"
+												: d.dataQuality.fundamentals.source === "CREDHIVE_FALLBACK"
+													? "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-800"
+													: d.dataQuality.fundamentals.source === "PROBE42_FALLBACK"
+														? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-800"
+														: "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900/40 dark:text-slate-400"
+										}`}
 									>
 										Fundamentals ·{" "}
 										{d.dataQuality.fundamentals.source === "DB_CACHE"
 											? `DB Cache${d.dataQuality.fundamentals.ageHours !== null ? ` (${d.dataQuality.fundamentals.ageHours}h ago)` : ""}`
-											: "Screener Live"}
+											: d.dataQuality.fundamentals.source === "CREDHIVE_FALLBACK"
+												? "CredHive Fallback"
+												: d.dataQuality.fundamentals.source === "PROBE42_FALLBACK"
+													? "Probe42 Fallback"
+													: d.dataQuality.fundamentals.source === "PYTHON_YFINANCE"
+														? "Yahoo Finance"
+														: "Screener Live"}
 									</span>
 									<span
 										className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${d.dataQuality.shareholding.source === "NSE_LIVE" ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-800" : "bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-900/40 dark:text-slate-500"}`}
@@ -1945,14 +1959,16 @@ export default function ResearchNoteGenerator() {
 														<th className="text-left py-2 px-2 font-semibold text-muted-foreground min-w-[130px]">
 															Metric
 														</th>
-														{d.plHistory.headers.map((h) => (
-															<th
-																key={h}
-																className="text-right py-2 px-2 font-semibold text-muted-foreground whitespace-nowrap"
-															>
-																{h}
-															</th>
-														))}
+														{d.plHistory.headers
+															.filter((h) => h.toLowerCase() !== "metric")
+															.map((h) => (
+																<th
+																	key={h}
+																	className="text-right py-2 px-2 font-semibold text-muted-foreground whitespace-nowrap"
+																>
+																	{h}
+																</th>
+															))}
 														{showCagrCol && (
 															<th className="text-right py-2 px-2 font-semibold text-blue-700 dark:text-blue-400 whitespace-nowrap">
 																{cagrYrs}Y CAGR
@@ -1964,12 +1980,19 @@ export default function ResearchNoteGenerator() {
 													{d.plHistory.rows.map((row, ri) => {
 														const isPercent =
 															row.label.toLowerCase().includes("opm") ||
+															row.label.toLowerCase().includes("margin") ||
+															row.label.toLowerCase().includes("roe") ||
+															row.label.toLowerCase().includes("roce") ||
 															row.label.toLowerCase().includes("%");
+														const isRatio =
+															row.label.toLowerCase().includes("ratio") ||
+															row.label.toLowerCase().includes("d/e") ||
+															row.label.toLowerCase().includes("debt/equity");
 														const isEps = row.label
 															.toLowerCase()
 															.includes("eps");
 														const computedCagr = (() => {
-															if (isPercent) return null;
+															if (isPercent || isRatio) return null;
 															if (annualIndices.length < 2) return null;
 															const startIdx = annualIndices[0];
 															const endIdx =
@@ -1995,6 +2018,7 @@ export default function ResearchNoteGenerator() {
 																		vi > 0 ? row.values[vi - 1] : null;
 																	const trend =
 																		!isPercent &&
+																		!isRatio &&
 																		v !== null &&
 																		prev !== null &&
 																		prev !== 0
@@ -2008,12 +2032,14 @@ export default function ResearchNoteGenerator() {
 																		v === null
 																			? "—"
 																			: isPercent
-																				? `${v.toFixed(1)}%`
-																				: isEps
-																					? v.toFixed(2)
-																					: v.toLocaleString("en-IN", {
-																							maximumFractionDigits: 0,
-																						});
+																				? `${(Math.abs(v) <= 1 && v !== 0 ? v * 100 : v).toFixed(1)}%`
+																				: isRatio
+																					? `${v.toFixed(2)}x`
+																					: isEps
+																						? v.toFixed(2)
+																						: v.toLocaleString("en-IN", {
+																								maximumFractionDigits: 1,
+																							});
 																	return (
 																		<td
 																			key={vi}
@@ -2201,21 +2227,29 @@ export default function ResearchNoteGenerator() {
 												<th className="text-left py-2 px-2 font-semibold text-muted-foreground min-w-[160px]">
 													Metric
 												</th>
-												{d.ratiosHistory.headers.map((h) => (
-													<th
-														key={h}
-														className="text-right py-2 px-2 font-semibold text-muted-foreground whitespace-nowrap"
-													>
-														{h}
-													</th>
-												))}
+												{d.ratiosHistory.headers
+													.filter((h) => h.toLowerCase() !== "metric")
+													.map((h) => (
+														<th
+															key={h}
+															className="text-right py-2 px-2 font-semibold text-muted-foreground whitespace-nowrap"
+														>
+															{h}
+														</th>
+													))}
 											</tr>
 										</thead>
 										<tbody>
 											{d.ratiosHistory.rows.map((row, ri) => {
 												const isPercent =
+													row.label.toLowerCase().includes("roe") ||
 													row.label.toLowerCase().includes("roce") ||
+													row.label.toLowerCase().includes("margin") ||
 													row.label.toLowerCase().includes("%");
+												const isRatio =
+													row.label.toLowerCase().includes("ratio") ||
+													row.label.toLowerCase().includes("d/e") ||
+													row.label.toLowerCase().includes("debt/equity");
 												return (
 													<tr
 														key={row.label}
@@ -2229,8 +2263,12 @@ export default function ResearchNoteGenerator() {
 																v === null
 																	? "—"
 																	: isPercent
-																		? `${v.toFixed(1)}%`
-																		: v.toFixed(0);
+																		? `${(Math.abs(v) <= 1 && v !== 0 ? v * 100 : v).toFixed(1)}%`
+																		: isRatio
+																			? `${v.toFixed(2)}x`
+																			: v.toLocaleString("en-IN", {
+																					maximumFractionDigits: 2,
+																				});
 															return (
 																<td key={vi} className="text-right py-1.5 px-2">
 																	{display}
@@ -2264,14 +2302,16 @@ export default function ResearchNoteGenerator() {
 												<th className="text-left py-2 px-2 font-semibold text-muted-foreground min-w-[130px]">
 													Metric
 												</th>
-												{d.bsHistory.headers.map((h) => (
-													<th
-														key={h}
-														className="text-right py-2 px-2 font-semibold text-muted-foreground whitespace-nowrap"
-													>
-														{h}
-													</th>
-												))}
+												{d.bsHistory.headers
+													.filter((h) => h.toLowerCase() !== "metric")
+													.map((h) => (
+														<th
+															key={h}
+															className="text-right py-2 px-2 font-semibold text-muted-foreground whitespace-nowrap"
+														>
+															{h}
+														</th>
+													))}
 											</tr>
 										</thead>
 										<tbody>
@@ -2300,7 +2340,7 @@ export default function ResearchNoteGenerator() {
 															>
 																{v !== null
 																	? v.toLocaleString("en-IN", {
-																			maximumFractionDigits: 0,
+																			maximumFractionDigits: 1,
 																		})
 																	: "—"}
 															</td>
@@ -2332,14 +2372,16 @@ export default function ResearchNoteGenerator() {
 												<th className="text-left py-2 px-2 font-semibold text-muted-foreground min-w-[180px]">
 													Metric
 												</th>
-												{d.cfHistory.headers.map((h) => (
-													<th
-														key={h}
-														className="text-right py-2 px-2 font-semibold text-muted-foreground whitespace-nowrap"
-													>
-														{h}
-													</th>
-												))}
+												{d.cfHistory.headers
+													.filter((h) => h.toLowerCase() !== "metric")
+													.map((h) => (
+														<th
+															key={h}
+															className="text-right py-2 px-2 font-semibold text-muted-foreground whitespace-nowrap"
+														>
+															{h}
+														</th>
+													))}
 											</tr>
 										</thead>
 										<tbody>
@@ -2372,7 +2414,7 @@ export default function ResearchNoteGenerator() {
 																>
 																	{v !== null
 																		? v.toLocaleString("en-IN", {
-																				maximumFractionDigits: 0,
+																				maximumFractionDigits: 1,
 																			})
 																		: "—"}
 																</td>

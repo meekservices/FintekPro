@@ -260,6 +260,7 @@ import {
 	ilike,
 	sql,
 	isNotNull,
+	isNull,
 	inArray,
 } from "drizzle-orm";
 import * as schema from "@shared/schema";
@@ -9537,6 +9538,12 @@ export class DatabaseStorage implements IStorage {
 		status?: string;
 		sector?: string;
 		storePublishedOnly?: boolean;
+		/**
+		 * If set, only companies with this listing_stage are returned.
+		 * If not set, defaults to strict-unlisted-only (excludes pre_ipo, ipo, listed).
+		 * Pass 'any' to skip the listing_stage filter entirely (admin use only).
+		 */
+		listingStage?: string | "any";
 	}): Promise<UnlistedCompany[]> {
 		const conditions = [];
 		if (filters?.status) {
@@ -9545,6 +9552,26 @@ export class DatabaseStorage implements IStorage {
 		if (filters?.sector) {
 			conditions.push(eq(schema.unlistedCompanies.sector, filters.sector));
 		}
+
+		// ── Strict Mutual Exclusivity Gate (Unified Instrument Architecture) ──
+		// By default, exclude any company that has graduated to a higher stage.
+		// This ensures each company appears in exactly ONE category:
+		//   unlisted → pre_ipo → ipo → listed
+		if (!filters?.listingStage || filters.listingStage === "unlisted") {
+			// Strictly OTC-only: exclude pre_ipo, ipo, listed, inactive stages
+			conditions.push(
+				or(
+					isNull(schema.unlistedCompanies.listingStage),
+					eq(schema.unlistedCompanies.listingStage, "unlisted"),
+					eq(schema.unlistedCompanies.listingStage, "growth"),
+					eq(schema.unlistedCompanies.listingStage, "mature"),
+				)!,
+			);
+		} else if (filters.listingStage !== "any") {
+			// Caller explicitly requested a specific stage (e.g., 'pre_ipo')
+			conditions.push(eq(schema.unlistedCompanies.listingStage, filters.listingStage));
+		}
+		// If listingStage === 'any', no filter is applied (admin full-list queries)
 
 		// If storePublishedOnly is true, only return companies linked to a store product
 		if (filters?.storePublishedOnly) {

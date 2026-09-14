@@ -262,6 +262,17 @@ async function main() {
   console.log("Phase L — adding has_fno_contract to listed_stocks (NSE/BSE Closing Auction Session, Aug 2026)...");
   await runFnOContractFlagRepair();
 
+  console.log("Phase M — transitioning already-listed unlisted companies & expiring zero-price picks...");
+  const { runUnlistedListedTransitionRepair, runEtfInstrumentClassificationRepair } = await import("./schema-repairs");
+  await runUnlistedListedTransitionRepair();
+
+  console.log("Phase N — classifying ETF instruments in instrument_master & ensuring volume column...");
+  await runEtfInstrumentClassificationRepair();
+
+  console.log("Phase O — synchronizing audited 5-year Screener financials for NSE...");
+  const { repairNSEConsolidatedFinancials } = await import("./schema-repairs");
+  await repairNSEConsolidatedFinancials();
+
   console.log("FintekPro schema repair job complete.");
 }
 

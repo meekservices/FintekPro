@@ -465,7 +465,10 @@ const allCategories = [
 	{ key: "mutual_funds", label: "Mutual Funds", icon: BarChart3 },
 	{ key: "bonds", label: "Bonds", icon: Landmark },
 	{ key: "unlisted", label: "Unlisted", icon: Building2 },
-	{ key: "ipo", label: "IPO", icon: Rocket },
+	// Pre-IPO is a first-class distinct category — separate from OTC unlisted.
+	// Companies in this tab have filed DRHP with SEBI or are in formal Pre-IPO funding.
+	{ key: "pre_ipo", label: "Pre-IPO", icon: Rocket },
+	{ key: "ipo", label: "IPO", icon: Calendar },
 	{ key: "global_stocks", label: "Global", icon: Globe },
 	{ key: "etfs", label: "ETFs", icon: Coins },
 	{ key: "reits_invits", label: "REITs", icon: Building2 },
@@ -473,6 +476,7 @@ const allCategories = [
 	{ key: "sgb", label: "SGBs", icon: Coins },
 	{ key: "derivatives", label: "F&O", icon: Activity },
 ] as const;
+
 
 // ── Broad sector UI metadata (mirrors BROAD_SECTORS in stock-strategy.ts) ──────
 // Kept on the client side to avoid importing server code into the browser bundle.
@@ -1750,7 +1754,11 @@ export default function AgentPicksPage() {
 	const filteredTodayPicks = todayPicks.filter((p) => {
 		if (isPickExpired(p)) return false;
 		if (todayCategoryFilter === "unlisted") {
-			if (!isUnlistedOrPreIpo(p)) return false;
+			// Strict: only genuinely OTC-unlisted picks — pre_ipo is its own tab
+			if (p.category !== "unlisted" || isPreIpoPick(p)) return false;
+		} else if (todayCategoryFilter === "pre_ipo") {
+			// Strict: only pre-IPO picks — includes backward-compat legacy unlisted+pre_ipo picks
+			if (!isPreIpoPick(p)) return false;
 		} else if (todayCategoryFilter === "ipo") {
 			if (p.category !== "ipo") return false;
 		} else if (todayCategoryFilter !== "all" && p.category !== todayCategoryFilter) {
@@ -1767,7 +1775,10 @@ export default function AgentPicksPage() {
 	const filteredLivePicks = livePicks.filter((p) => {
 		if (isPickExpired(p)) return false;
 		if (liveCategoryFilter === "unlisted") {
-			if (!isUnlistedOrPreIpo(p)) return false;
+			// Strict: only genuinely OTC-unlisted picks — pre_ipo is its own tab
+			if (p.category !== "unlisted" || isPreIpoPick(p)) return false;
+		} else if (liveCategoryFilter === "pre_ipo") {
+			if (!isPreIpoPick(p)) return false;
 		} else if (liveCategoryFilter === "ipo") {
 			if (p.category !== "ipo") return false;
 		} else if (liveCategoryFilter !== "all" && p.category !== liveCategoryFilter) {
@@ -1791,7 +1802,10 @@ export default function AgentPicksPage() {
 
 	const filteredHistory = historyPicks.filter((pick) => {
 		if (historyCategoryFilter === "unlisted") {
-			if (!isUnlistedOrPreIpo(pick)) return false;
+			// Strict: only genuinely OTC-unlisted picks — pre_ipo is its own tab
+			if (pick.category !== "unlisted" || isPreIpoPick(pick)) return false;
+		} else if (historyCategoryFilter === "pre_ipo") {
+			if (!isPreIpoPick(pick)) return false;
 		} else if (historyCategoryFilter === "ipo") {
 			if (pick.category !== "ipo") return false;
 		} else if (
@@ -1824,21 +1838,27 @@ export default function AgentPicksPage() {
 	const getCategoryCounts = (picks: DailyPick[], supplementPicks?: DailyPick[]) => {
 		const counts: Record<string, number> = { all: picks.length };
 		picks.forEach((p) => {
-			if (isUnlistedOrPreIpo(p)) {
+			// Strict mutual exclusivity: each pick increments EXACTLY ONE category counter.
+			if (p.category === "pre_ipo" || isPreIpoPick(p)) {
+				// Pre-IPO is its own distinct tab — never counted under unlisted
+				counts.pre_ipo = (counts.pre_ipo || 0) + 1;
+			} else if (p.category === "unlisted") {
 				counts.unlisted = (counts.unlisted || 0) + 1;
 			} else {
 				counts[p.category] = (counts[p.category] || 0) + 1;
 			}
 		});
 
-		// Supplement unlisted count with live unlisted/pre-ipo picks or upcoming Pre-IPO pipeline count
-		if (!counts.unlisted) {
+		// Supplement pre_ipo count with live pre-IPO picks or upcoming pipeline count
+		if (!counts.pre_ipo) {
 			if (supplementPicks) {
-				const liveUnlistedCount = supplementPicks.filter(isUnlistedOrPreIpo).length;
-				if (liveUnlistedCount > 0) counts.unlisted = liveUnlistedCount;
+				const livePreIpoCount = supplementPicks.filter(
+					(p) => p.category === "pre_ipo" || isPreIpoPick(p),
+				).length;
+				if (livePreIpoCount > 0) counts.pre_ipo = livePreIpoCount;
 			}
-			if (!counts.unlisted && upcomingPreIpoRes?.data?.length) {
-				counts.unlisted = upcomingPreIpoRes.data.length;
+			if (!counts.pre_ipo && upcomingPreIpoRes?.data?.length) {
+				counts.pre_ipo = upcomingPreIpoRes.data.length;
 			}
 		}
 
@@ -1936,13 +1956,16 @@ export default function AgentPicksPage() {
 		}).format(value);
 	};
 
-	/** Compact INR: ₹1.07L, ₹2.3Cr — avoids card overflow on small screens */
-	const formatCurrencyCompact = (value: number): string => {
-		if (value >= 10_000_000) return `₹${(value / 10_000_000).toFixed(2)}Cr`;
-		if (value >= 100_000) return `₹${(value / 100_000).toFixed(2)}L`;
-		if (value >= 1_000) return `₹${(value / 1_000).toFixed(1)}K`;
-		return `₹${value.toFixed(0)}`;
+	/** Exact stock price formatting without compact abbreviations (e.g. ₹1,500 instead of ₹1.5K) */
+	const formatExactStockPrice = (value: number | undefined | null): string => {
+		if (value === undefined || value === null || !Number.isFinite(Number(value))) return "—";
+		const num = Number(value);
+		return `₹${num.toLocaleString("en-IN", {
+			minimumFractionDigits: num % 1 === 0 ? 0 : 2,
+			maximumFractionDigits: 2,
+		})}`;
 	};
+	const formatCurrencyCompact = formatExactStockPrice;
 
 	const formatPercentValue = (
 		value: number | string | undefined | null,
@@ -3006,20 +3029,24 @@ export default function AgentPicksPage() {
 											className={`flex items-center gap-1.5 shrink-0 transition-all ${
 												key === "ipo" && !isActive
 													? "border-emerald-400 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950"
-													: key === "unlisted" && !isActive
-														? "border-purple-400 dark:border-purple-600 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950"
-														: count === 0 && key !== "all" && !isActive
-															? "opacity-40 cursor-not-allowed"
-															: ""
+													: key === "pre_ipo" && !isActive
+														? "border-violet-400 dark:border-violet-600 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
+														: key === "unlisted" && !isActive
+															? "border-slate-400 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950"
+															: count === 0 && key !== "all" && !isActive
+																? "opacity-40 cursor-not-allowed"
+																: ""
 											}`}
 											title={
 												key === "ipo"
 													? "Live Public IPOs — open offerings with GMP and calculated listing gains"
-													: key === "unlisted"
-														? "Unlisted & Pre-IPO opportunities — high-growth companies preparing for public listing"
-														: count === 0 && key !== "all"
-															? "No picks available today"
-															: undefined
+													: key === "pre_ipo"
+														? "Pre-IPO Pipeline — DRHP filed or formal Pre-IPO funding stage (SEBI ICDR)"
+														: key === "unlisted"
+															? "Unlisted OTC Equities — private companies traded via off-market demat transfers"
+															: count === 0 && key !== "all"
+																? "No picks available today"
+																: undefined
 											}
 										>
 											<Icon className="h-3.5 w-3.5" />
@@ -3840,7 +3867,7 @@ export default function AgentPicksPage() {
 																					Entry
 																				</p>
 																				<p className="font-semibold text-sm">
-																					{formatCurrencyCompact(
+																					{formatExactStockPrice(
 																						stock.entryPrice ?? stock.currentPrice,
 																					)}
 																				</p>
@@ -3850,7 +3877,7 @@ export default function AgentPicksPage() {
 																					Target
 																				</p>
 																				<p className="font-semibold text-sm text-green-600">
-																					{formatCurrencyCompact(stock.targetPrice)}
+																					{formatExactStockPrice(stock.targetPrice)}
 																				</p>
 																			</div>
 																			<div className="text-center">
@@ -3858,7 +3885,7 @@ export default function AgentPicksPage() {
 																					Stop Loss
 																				</p>
 																				<p className="font-semibold text-sm text-red-600">
-																					{formatCurrencyCompact(stock.stopLoss)}
+																					{formatExactStockPrice(stock.stopLoss)}
 																				</p>
 																			</div>
 																		</div>

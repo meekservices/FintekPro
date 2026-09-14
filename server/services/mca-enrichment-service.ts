@@ -43,7 +43,7 @@ export async function enrichUnlistedCompanyWithMCAData(
 		const { companyFinancials, unlistedCompanies } = await import(
 			"@shared/schema"
 		);
-		const { eq } = await import("drizzle-orm");
+		const { eq, and } = await import("drizzle-orm");
 
 		let financialsStored = 0;
 
@@ -53,7 +53,12 @@ export async function enrichUnlistedCompanyWithMCAData(
 			const [existing] = await db
 				.select()
 				.from(companyFinancials)
-				.where(eq(companyFinancials.companyId, companyId))
+				.where(
+					and(
+						eq(companyFinancials.companyId, companyId),
+						eq(companyFinancials.financialYear, financialYear),
+					),
+				)
 				.limit(1);
 
 			const financialData = {

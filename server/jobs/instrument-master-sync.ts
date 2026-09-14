@@ -25,13 +25,23 @@ async function syncMutualFunds(): Promise<number> {
        last_price, price_updated_at, is_active, source, created_at, updated_at)
     SELECT
       COALESCE(mf.isin, 'MF' || mf.scheme_code)  AS isin,
-      mf.scheme_code::text, mf.scheme_name, 'mutual_fund',
-      mf.plan_type, mf.category, mf.fund_house,
+      mf.scheme_code::text, mf.scheme_name,
+      CASE 
+        WHEN (mf.category ILIKE '%ETF%' OR mf.scheme_name ILIKE '%ETF%') AND mf.scheme_name NOT ILIKE '%FOF%' THEN 'etf'
+        ELSE 'mutual_fund'
+      END AS asset_class,
+      mf.plan_type,
+      CASE 
+        WHEN (mf.category ILIKE '%ETF%' OR mf.scheme_name ILIKE '%ETF%') AND mf.scheme_name NOT ILIKE '%FOF%' THEN 'ETF'
+        ELSE mf.category
+      END AS category,
+      mf.fund_house,
       mf.nav::text, mf.updated_at,
       COALESCE(mf.is_active, true), 'amfi', NOW(), NOW()
     FROM mutual_funds mf WHERE mf.scheme_name IS NOT NULL
     ON CONFLICT (isin) DO UPDATE SET
       name=EXCLUDED.name, sub_type=EXCLUDED.sub_type,
+      asset_class=EXCLUDED.asset_class,
       category=EXCLUDED.category, issuer=EXCLUDED.issuer,
       last_price=EXCLUDED.last_price, price_updated_at=EXCLUDED.price_updated_at,
       updated_at=NOW()

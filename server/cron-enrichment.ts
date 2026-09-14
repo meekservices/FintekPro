@@ -931,19 +931,48 @@ async function runScreenerEnrichmentBatch(
 		logger.info(
 			`[${label}] Enriching ${staleSymbols.length} stocks via Screener.in (1.5s delay each)...`,
 		);
-		const { fetchFromScreener } = await import(
-			"./modules/research/dataService"
-		);
+		const {
+			fetchFromScreener,
+			fetchFundamentalsFromCredhive,
+			fetchFundamentalsFromProbe42,
+		} = await import("./modules/research/dataService");
 		let done = 0,
 			failed = 0;
 		for (const sym of staleSymbols) {
 			try {
-				const s = await fetchFromScreener(sym);
-				const hasData =
+				let s = await fetchFromScreener(sym);
+				let hasData =
 					s.roe !== null ||
 					s.debtToEquity !== null ||
 					s.revenueGrowth !== null ||
 					s.revenue !== null;
+				if (!hasData) {
+					// Fallback 1: CredHive
+					const ch = await fetchFundamentalsFromCredhive(sym);
+					if (
+						ch &&
+						(ch.roe !== null ||
+							ch.debtToEquity !== null ||
+							ch.revenueGrowth !== null ||
+							ch.revenue !== null)
+					) {
+						s = ch;
+						hasData = true;
+					} else {
+						// Fallback 2: Probe42
+						const p42 = await fetchFundamentalsFromProbe42(sym);
+						if (
+							p42 &&
+							(p42.roe !== null ||
+								p42.debtToEquity !== null ||
+								p42.revenueGrowth !== null ||
+								p42.revenue !== null)
+						) {
+							s = p42;
+							hasData = true;
+						}
+					}
+				}
 				if (hasData) {
 					const updRes = await dbConn.execute(sqlTag`
             UPDATE screener_financials SET

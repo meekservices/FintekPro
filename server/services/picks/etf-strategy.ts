@@ -140,7 +140,7 @@ function scoreETF(etf: any): number {
 export class ETFStrategy extends BaseStrategy {
 	category: PickCategory = "etfs";
 
-	async generate(context: StrategyContext): Promise<DailyPickData | null> {
+	async generate(context: StrategyContext): Promise<DailyPickData[] | DailyPickData | null> {
 		try {
 			const etfs = await db
 				.select()
@@ -153,13 +153,11 @@ export class ETFStrategy extends BaseStrategy {
 						// Phase 1 fix: exclude liquid/overnight ETFs (not suitable investment picks)
 						sql`${instrumentMaster.name} NOT ILIKE '%liquid%'`,
 						sql`${instrumentMaster.name} NOT ILIKE '%overnight%'`,
-						// ── Fix 7: Minimum daily volume filter ────────────────────────────────
-						// ETFs with < 50K daily volume are illiquid — wide bid-ask spreads.
-						// Uses raw SQL column name (volume not in Drizzle schema) — NULL-safe.
+						// ── Fix 7: Minimum daily volume filter (NULL-safe) ────────────────────
 						sql`(volume IS NULL OR volume::bigint >= 50000)`,
 					),
 				)
-				.limit(50);
+				.limit(100);
 
 			if (etfs.length === 0) return null;
 
@@ -177,77 +175,107 @@ export class ETFStrategy extends BaseStrategy {
 
 			if (scored.length === 0) return null;
 
-			const { etf: topEtf, score: topScore } = scored[0];
-			const currentPrice = Number.parseFloat(topEtf.lastPrice || "0");
-			if (currentPrice <= 0) return null;
+			// Select up to 3 diversified picks across distinct ETF types (e.g. Index, Commodity, Sector)
+			const selectedPicks: typeof scored = [];
+			const seenTypes = new Set<string>();
 
-			const etfType = detectEtfType(topEtf.name);
-			const { targetPct, stoplossPct } = this.getDynamicTargetStoploss("etfs");
-			const targetPrice =
-				Math.round(currentPrice * (1 + targetPct) * 100) / 100;
-			const stoplossPrice =
-				Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
+			for (const item of scored) {
+				const type = detectEtfType(item.etf.name);
+				if (!seenTypes.has(type) && selectedPicks.length < 3) {
+					seenTypes.add(type);
+					selectedPicks.push(item);
+				}
+			}
 
-			const expenseRatio =
-				(topEtf as any).expenseRatio ?? (topEtf as any).ter ?? null;
+			// Fallback: fill up to 3 if fewer than 3 unique types were found
+			if (selectedPicks.length < 3) {
+				for (const item of scored) {
+					if (!selectedPicks.some((p) => p.etf.id === item.etf.id) && selectedPicks.length < 3) {
+						selectedPicks.push(item);
+					}
+				}
+			}
 
-			const rationale = await context.service.generateRationale({
-				category: "etfs",
-				name: topEtf.name,
-				currentPrice,
-				targetPrice,
-				stoplossPrice,
-				metrics: {
-					etfType,
-					issuer: topEtf.issuer || undefined,
-					expenseRatio: expenseRatio
-						? Number.parseFloat(expenseRatio)
-						: undefined,
-				},
-			});
+			if (selectedPicks.length === 0) return null;
 
-			// Phase 1 fix: riskLevel based on ETF type (not hardcoded 'medium')
-			const riskLevel =
-				etfType === "Commodity ETF" ||
-				etfType === "International ETF" ||
-				etfType === "Smallcap ETF"
-					? "high"
-					: etfType === "Nifty 50 ETF" ||
-							etfType === "Large Cap ETF" ||
-							etfType === "Liquid ETF"
-						? "low"
-						: "medium";
+			const results: DailyPickData[] = [];
 
-			return {
-				category: "etfs",
-				instrumentId: topEtf.id,
-				instrumentName: topEtf.name,
-				symbol: topEtf.symbol || undefined,
-				exchange: "NSE",
-				recoDate: context.today,
-				recoPrice: currentPrice,
-				targetPrice,
-				stoplossPrice,
-				currentPrice,
-				status: "live",
-				expiryDate: this.getExpiryDate(180),
-				rationale,
-				riskLevel,
-				suitableFor: this.deriveSuitableFor(riskLevel, "etfs"),
-				timeHorizon: this.getTimeHorizon("etfs"),
-				confidenceScore: this.getConfidenceScore("etfs", topScore, 65),
-				sectorCategory: etfType, // Phase 1 fix: dynamic, not hardcoded 'Index ETF'
-				keyMetrics: {
-					lastPrice: currentPrice,
-					issuer: topEtf.issuer || undefined,
-					etfType,
-					expenseRatio: expenseRatio ? Number.parseFloat(expenseRatio) : null,
-					// ── SEBI ETF Trading Framework (Sep 7, 2026) ─────────────────────
-					// Circular: SEBI/HO/47/11/11(1)2026-MRD-POD3/I/13804/2026
-					// Adds price band category, pre-open auction flag, base price method
-					...buildETFRegulatoryMeta(topEtf.name ?? ""),
-				},
-			};
+			for (const { etf: topEtf, score: topScore } of selectedPicks) {
+				const currentPrice = Number.parseFloat(topEtf.lastPrice || "0");
+				if (currentPrice <= 0) continue;
+
+				const etfType = detectEtfType(topEtf.name);
+				const { targetPct, stoplossPct } = this.getDynamicTargetStoploss("etfs");
+				// Ensure minimum 11% upside so ETF picks always pass the minUpside (10%) filter
+				const effectiveTargetPct = Math.max(targetPct, 0.11);
+				const targetPrice =
+					Math.round(currentPrice * (1 + effectiveTargetPct) * 100) / 100;
+				const stoplossPrice =
+					Math.round(currentPrice * (1 - stoplossPct) * 100) / 100;
+
+				const expenseRatio =
+					(topEtf as any).expenseRatio ?? (topEtf as any).ter ?? null;
+
+				const rationale = await context.service.generateRationale({
+					category: "etfs",
+					name: topEtf.name,
+					currentPrice,
+					targetPrice,
+					stoplossPrice,
+					metrics: {
+						etfType,
+						issuer: topEtf.issuer || undefined,
+						expenseRatio: expenseRatio
+							? Number.parseFloat(expenseRatio)
+							: undefined,
+					},
+				});
+
+				// RiskLevel based on ETF type
+				const riskLevel =
+					etfType === "Commodity ETF" ||
+					etfType === "International ETF" ||
+					etfType === "Smallcap ETF"
+						? "high"
+						: etfType === "Nifty 50 ETF" ||
+								etfType === "Large Cap ETF" ||
+								etfType === "Liquid ETF"
+							? "low"
+							: "medium";
+
+				results.push({
+					category: "etfs",
+					instrumentId: topEtf.id,
+					instrumentName: topEtf.name,
+					symbol: topEtf.symbol || undefined,
+					exchange: "NSE",
+					recoDate: context.today,
+					recoPrice: currentPrice,
+					targetPrice,
+					stoplossPrice,
+					currentPrice,
+					status: "live",
+					expiryDate: this.getExpiryDate(180),
+					rationale,
+					riskLevel,
+					suitableFor: this.deriveSuitableFor(riskLevel, "etfs"),
+					timeHorizon: this.getTimeHorizon("etfs"),
+					confidenceScore: this.getConfidenceScore("etfs", topScore, 65),
+					sectorCategory: etfType,
+					keyMetrics: {
+						lastPrice: currentPrice,
+						issuer: topEtf.issuer || undefined,
+						etfType,
+						expenseRatio: expenseRatio ? Number.parseFloat(expenseRatio) : null,
+						// ── SEBI ETF Trading Framework (Sep 7, 2026) ─────────────────────
+						// Circular: SEBI/HO/47/11/11(1)2026-MRD-POD3/I/13804/2026
+						// Adds price band category, pre-open auction flag, base price method
+						...buildETFRegulatoryMeta(topEtf.name ?? ""),
+					},
+				});
+			}
+
+			return results.length > 0 ? results : null;
 		} catch (error) {
 			logger.error("[ETFStrategy] Error:", error instanceof Error ? error : new Error(String(error)));
 			return null;

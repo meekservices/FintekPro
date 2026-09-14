@@ -560,7 +560,7 @@ export class DealMatcherService {
 		let expiredRequests = 0;
 
 		// Get all active listings and requests
-		const allCompanies = await this.storage.getAllUnlistedCompanies({});
+		const allCompanies = await this.storage.getAllUnlistedCompanies({ listingStage: "any" }); // Deal matching: all stages
 
 		for (const company of allCompanies) {
 			// Process sell listings

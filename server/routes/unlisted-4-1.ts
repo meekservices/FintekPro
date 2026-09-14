@@ -565,7 +565,7 @@ router.get(
 	async (req: Request, res: Response) => {
 		try {
 			// Get all companies
-			const allCompanies = await storage.getAllUnlistedCompanies({});
+			const allCompanies = await storage.getAllUnlistedCompanies({ listingStage: "any" }); // Admin dashboard: full-spectrum
 			const activeCompanies = allCompanies.filter((c) => c.status === "active");
 			const suspendedCompanies = allCompanies.filter((c) => c.tradingSuspended);
 			const companiesNeedingPricing = allCompanies.filter(

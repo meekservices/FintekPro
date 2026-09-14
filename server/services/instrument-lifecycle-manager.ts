@@ -358,6 +358,116 @@ export class InstrumentLifecycleManager {
 			}
 		}
 
+		// Also run overlap sweep against listed_stocks
+		const overlapTransitions = await this.sweepListedStockOverlap();
+		transitions.push(...overlapTransitions);
+
+		return transitions;
+	}
+
+	/**
+	 * Sweep to detect unlisted companies that already exist in listed_stocks.
+	 * Any active unlisted company that has graduated (e.g. Swiggy, ANANTAM, Roadstar, etc.):
+	 * 1. Has status updated to 'inactive', listingStage to 'transitioned_to_listed'
+	 * 2. All active unlisted/pre_ipo picks for that instrument are expired
+	 * 3. All unlisted/pre_ipo picks with price <= 0 are expired as irregularities
+	 */
+	async sweepListedStockOverlap(): Promise<LifecycleTransition[]> {
+		const transitions: LifecycleTransition[] = [];
+		const sweepStart = Date.now();
+
+		try {
+			// Find unlisted companies that exist in listed_stocks
+			const overlapResult = await db.execute(sql`
+				SELECT u.id, u.name, u.listing_stage, u.isin, l.symbol, l.company_name as listed_name
+				FROM unlisted_companies u
+				JOIN listed_stocks l ON (
+					LOWER(u.name) = LOWER(l.company_name)
+					OR LOWER(u.name) = LOWER(l.symbol)
+					OR (u.isin IS NOT NULL AND u.isin != '' AND u.isin = l.isin)
+				)
+				WHERE u.status = 'active'
+			`);
+
+			const overlapRows = (overlapResult as any).rows ?? [];
+
+			for (const row of overlapRows) {
+				try {
+					// 1. Mark unlisted record as transitioned_to_listed and inactive
+					await db
+						.update(unlistedCompanies)
+						.set({
+							status: "inactive",
+							listingStage: "transitioned_to_listed",
+							updatedAt: new Date(),
+						})
+						.where(eq(unlistedCompanies.id, row.id));
+
+					// 2. Expire all live picks in unlisted and pre_ipo categories
+					const expiredPicks = await expirePicks(row.id, row.name, ["unlisted", "pre_ipo"]);
+
+					// 3. Log status change
+					await db.insert(unlistedCompanyStatusLog).values({
+						companyId: row.id,
+						previousStatus: row.listing_stage ?? "unlisted",
+						newStatus: "transitioned_to_listed",
+						statusSource: "LISTED_STOCKS_OVERLAP_SWEEP",
+						exchangeSymbol: row.symbol,
+						exchangeName: "NSE",
+						notes: `Auto-graduated | Exists in listed_stocks as ${row.symbol} (${row.listed_name})`,
+					} as any);
+
+					const transition: LifecycleTransition = {
+						instrumentId: row.id,
+						instrumentName: row.name,
+						isin: row.isin ?? undefined,
+						fromStage: (row.listing_stage ?? "unlisted") as LifecycleStage,
+						toStage: "listed",
+						transitionType: "listing",
+						detectedBy: "LISTED_STOCKS_OVERLAP_SWEEP",
+						exchange: "NSE",
+						exchangeSymbol: row.symbol,
+						picksExpired: expiredPicks,
+						picksCreated: 0,
+						notes: `Graduated to listed stock: ${row.symbol}`,
+					};
+					transitions.push(transition);
+
+					lifecycleLog("LIFECYCLE_OVERLAP_TRANSITIONED", {
+						companyId: row.id,
+						name: row.name,
+						symbol: row.symbol,
+						picksExpired: expiredPicks,
+					});
+				} catch (err: any) {
+					lifecycleLog("LIFECYCLE_OVERLAP_ERROR", {
+						companyId: row.id,
+						error: err?.message,
+					});
+				}
+			}
+
+			// 4. Also clean up any zero-price or negative-price picks in daily_picks
+			const zeroPriceExpired = await db.execute(sql`
+				UPDATE daily_picks
+				SET status = 'expired', updated_at = NOW()
+				WHERE category::text IN ('unlisted', 'pre_ipo')
+				  AND status = 'live'
+				  AND (reco_price <= 0 OR reco_price IS NULL OR current_price <= 0 OR current_price IS NULL)
+			`);
+			const zeroCount = (zeroPriceExpired as any).rowCount ?? 0;
+			if (zeroCount > 0) {
+				lifecycleLog("LIFECYCLE_ZERO_PRICE_PICKS_EXPIRED", { count: zeroCount });
+			}
+		} catch (err: any) {
+			lifecycleLog("LIFECYCLE_OVERLAP_SWEEP_FAILED", { error: err?.message });
+		}
+
+		lifecycleLog("LIFECYCLE_OVERLAP_SWEEP_DONE", {
+			transitioned: transitions.length,
+			latency_ms: Date.now() - sweepStart,
+		});
+
 		return transitions;
 	}
 
@@ -815,6 +925,19 @@ export class InstrumentLifecycleManager {
 		if (!price || price <= 0) return 0;
 
 		try {
+			// Guard: verify company does not already exist in listed_stocks
+			const listedCheck = await db.execute(sql`
+				SELECT id FROM listed_stocks
+				WHERE LOWER(company_name) = LOWER(${company.name})
+				   OR LOWER(symbol) = LOWER(${company.name})
+				   OR (${company.isin ? sql`isin = ${company.isin}` : sql`false`})
+				LIMIT 1
+			`);
+			if (((listedCheck as any).rows ?? []).length > 0) {
+				logger.warn(`[LifecycleManager] Skipped inserting pre_ipo pick for ${company.name} — already in listed_stocks`);
+				return 0;
+			}
+
 			const today = new Date().toISOString().split("T")[0];
 			const targetPrice = Math.round(price * 1.3 * 100) / 100;
 			const stoplossPrice = Math.round(price * 0.85 * 100) / 100;

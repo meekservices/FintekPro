@@ -136,7 +136,8 @@ class MoneyControlReconciliationService {
 	}> {
 		const mcCompanies =
 			await this.fetchAndCacheMoneyControlCompanies(forceRefresh);
-		const fpCompanies = await storage.getAllUnlistedCompanies({});
+		const fpCompanies = await storage.getAllUnlistedCompanies({ listingStage: "any" }); // Reconciliation: all stages
+
 
 		console.log(
 			`[MC Reconciliation] Comparing ${mcCompanies.length} MoneyControl companies against ${fpCompanies.length} FintekPro companies`,
@@ -240,7 +241,8 @@ class MoneyControlReconciliationService {
 		);
 
 		const existingByIsin = mcCompany.isin
-			? (await storage.getAllUnlistedCompanies({})).find(
+			? (await storage.getAllUnlistedCompanies({ listingStage: "any" })).find(
+
 					(c) => c.isin?.toUpperCase() === mcCompany.isin.toUpperCase(),
 				)
 			: null;

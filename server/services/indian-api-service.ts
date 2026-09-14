@@ -611,24 +611,87 @@ class IndianAPIService {
 					this.client.get("/stock", { params: { name: symbol.toUpperCase() } }),
 				);
 				const raw = r.data;
+
+				// Parse numeric values safely
+				const parseNum = (val: any): number | undefined => {
+					if (val == null) return undefined;
+					if (typeof val === "number" && !Number.isNaN(val)) return val;
+					if (typeof val === "string") {
+						const n = Number.parseFloat(val.replace(/,/g, ""));
+						return Number.isNaN(n) ? undefined : n;
+					}
+					return undefined;
+				};
+
+				// Resolve current price with automatic NSE -> BSE fallback
+				const parsePrice = (
+					rawPrice: any,
+					prefExchange: "NSE" | "BSE",
+				): { price: number; exchangeUsed: "NSE" | "BSE" } => {
+					if (typeof rawPrice === "number" && !Number.isNaN(rawPrice) && rawPrice > 0) {
+						return { price: rawPrice, exchangeUsed: prefExchange };
+					}
+					if (typeof rawPrice === "string") {
+						const n = Number.parseFloat(rawPrice.replace(/,/g, ""));
+						if (!Number.isNaN(n) && n > 0) return { price: n, exchangeUsed: prefExchange };
+					}
+					if (rawPrice && typeof rawPrice === "object") {
+						const primaryKey = prefExchange;
+						const fallbackKey = prefExchange === "NSE" ? "BSE" : "NSE";
+
+						const parseObjVal = (v: any): number => {
+							if (typeof v === "number" && !Number.isNaN(v) && v > 0) return v;
+							if (typeof v === "string") {
+								const n = Number.parseFloat(v.replace(/,/g, ""));
+								if (!Number.isNaN(n) && n > 0) return n;
+							}
+							return 0;
+						};
+
+						const p1 = parseObjVal(rawPrice[primaryKey]);
+						if (p1 > 0) return { price: p1, exchangeUsed: primaryKey };
+
+						// Fallback: if price is not available at primary (e.g. NSE), fetch/use from BSE
+						const p2 = parseObjVal(rawPrice[fallbackKey]);
+						if (p2 > 0) return { price: p2, exchangeUsed: fallbackKey };
+					}
+					return { price: 0, exchangeUsed: prefExchange };
+				};
+
+				const { price: currentPrice, exchangeUsed } = parsePrice(
+					raw.currentPrice ?? raw.lastPrice ?? raw.price_data?.current_price,
+					exchange,
+				);
+
+				const prevClose =
+					parseNum(
+						typeof raw.previousClose === "object"
+							? raw.previousClose?.[exchangeUsed] ?? raw.previousClose?.[exchange]
+							: raw.previousClose ?? raw.price_data?.previous_close,
+					) ?? 0;
+
+				const change = parseNum(raw.change) ?? (currentPrice > 0 && prevClose > 0 ? currentPrice - prevClose : 0);
+				const changePercent = parseNum(raw.percentChange ?? raw.pChange ?? raw.changePercent) ??
+					(prevClose > 0 && change ? (change / prevClose) * 100 : 0);
+
 				return this.makeResult<IndianAPIStockQuote>({
 					symbol: raw.symbol ?? symbol,
 					company_name: raw.companyName ?? raw.name ?? symbol,
-					exchange,
-					current_price: Number(raw.currentPrice ?? raw.lastPrice ?? raw.price_data?.current_price ?? 0),
-					previous_close: Number(raw.previousClose ?? raw.price_data?.previous_close ?? 0),
-					change: Number(raw.change ?? 0),
-					change_percent: Number(raw.pChange ?? raw.changePercent ?? 0),
-					volume: Number(raw.totalTradedVolume ?? raw.volume ?? 0),
-					market_cap: raw.marketCap ? Number(raw.marketCap) : undefined,
-					high_52w: raw["52WeekHigh"] ? Number(raw["52WeekHigh"]) : undefined,
-					low_52w: raw["52WeekLow"] ? Number(raw["52WeekLow"]) : undefined,
-					day_high: raw.dayHigh ? Number(raw.dayHigh) : undefined,
-					day_low: raw.dayLow ? Number(raw.dayLow) : undefined,
-					pe_ratio: raw.pe ? Number(raw.pe) : undefined,
-					pb_ratio: raw.pb ? Number(raw.pb) : undefined,
-					eps: raw.eps ? Number(raw.eps) : undefined,
-					face_value: raw.faceValue ? Number(raw.faceValue) : undefined,
+					exchange: exchangeUsed,
+					current_price: currentPrice,
+					previous_close: prevClose,
+					change,
+					change_percent: changePercent,
+					volume: parseNum(raw.totalTradedVolume ?? raw.volume) ?? 0,
+					market_cap: parseNum(raw.marketCap),
+					high_52w: parseNum(raw.yearHigh ?? raw["52WeekHigh"]),
+					low_52w: parseNum(raw.yearLow ?? raw["52WeekLow"]),
+					day_high: parseNum(raw.dayHigh ?? raw.stockTechnicalData?.dayHigh),
+					day_low: parseNum(raw.dayLow ?? raw.stockTechnicalData?.dayLow),
+					pe_ratio: parseNum(raw.pe ?? raw.keyMetrics?.peRatio),
+					pb_ratio: parseNum(raw.pb ?? raw.keyMetrics?.pbRatio),
+					eps: parseNum(raw.eps ?? raw.keyMetrics?.eps),
+					face_value: parseNum(raw.faceValue),
 					isin: raw.isin ?? undefined,
 					sector: raw.sector ?? undefined,
 					industry: raw.industry ?? undefined,

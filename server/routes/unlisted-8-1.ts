@@ -147,7 +147,8 @@ router.get(
 			}
 
 			const results: UnifiedSearchResult[] = [];
-			const existingCompanies = await storage.getAllUnlistedCompanies({});
+			const existingCompanies = await storage.getAllUnlistedCompanies({ listingStage: "any" }); // Dedup check: all stages
+
 			const existingIsins = new Set(
 				existingCompanies.map((c: UnlistedCompany) => c.isin).filter(Boolean),
 			);
@@ -560,7 +561,8 @@ router.post(
 				return apiResponse.badRequest(res, "Either ISIN or CIN is required");
 			}
 
-			const existingCompanies = await storage.getAllUnlistedCompanies({});
+			const existingCompanies = await storage.getAllUnlistedCompanies({ listingStage: "any" }); // Dedup check: all stages
+
 			const existingCompany = existingCompanies.find(
 				(c: UnlistedCompany) =>
 					(data.isin && c.isin === data.isin) ||
@@ -688,7 +690,8 @@ router.post(
 				return apiResponse.badRequest(res, "Either ISIN or CIN is required");
 			}
 
-			const existingCompanies = await storage.getAllUnlistedCompanies({});
+			const existingCompanies = await storage.getAllUnlistedCompanies({ listingStage: "any" }); // Dedup check: all stages
+
 			let existingCompany = existingCompanies.find(
 				(c: UnlistedCompany) =>
 					(data.isin && c.isin === data.isin) ||

@@ -66,6 +66,7 @@ import adminDatabaseRouter from "./routes/admin-database";
 import adminGlobalInstrumentsRouter from "./routes/admin-global-instruments";
 import adminInstrumentLifecycleRouter from "./routes/admin-instrument-lifecycle";
 import instrumentsRouter from "./routes/instruments-1"; // /api/instruments/search, /price/:isin
+import unifiedInstrumentsRouter from "./routes/unified-instruments-routes"; // /api/instruments/unified
 import schemeGovernanceRouter from "./routes/scheme-governance-routes"; // /api/scheme-governance/*
 import reitInvitRouter from "./routes/reit-invit-routes"; // /api/reit-invit/reits, /invits, /market-overview
 
@@ -416,6 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/api/admin/global-instruments", adminGlobalInstrumentsRouter);
 	app.use("/api/admin/instruments/lifecycle", adminInstrumentLifecycleRouter);
 	app.use(instrumentsRouter); // /api/instruments/search + /api/instruments/price/:isin (proposal builder ISIN lookup)
+	app.use("/api/instruments", unifiedInstrumentsRouter); // /api/instruments/unified (unified catalog — mutual exclusivity guaranteed)
 
 	// Scheme governance: MF rename log, transaction rules, stock rename management
 	app.use("/api/scheme-governance", schemeGovernanceRouter);

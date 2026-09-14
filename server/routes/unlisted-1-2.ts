@@ -553,7 +553,7 @@ router.post(
 	async (req: Request, res: Response) => {
 		try {
 			const { onlyUnsynced } = req.body;
-			const allCompanies = await storage.getAllUnlistedCompanies({});
+			const allCompanies = await storage.getAllUnlistedCompanies({ listingStage: "any" }); // Credhive sync: all stages need CIN enrichment
 			const companies = onlyUnsynced
 				? allCompanies.filter((c) => !c.lastSyncedAt && !!c.cin)
 				: allCompanies.filter((c) => !!c.cin);

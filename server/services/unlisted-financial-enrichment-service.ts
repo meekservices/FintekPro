@@ -27,6 +27,7 @@ import {
 	type UnlistedCompany,
 } from "@shared/schema";
 import { credhiveAdapter } from "./vendor-adapters/credhive.adapter";
+import { probe42Service } from "./probe42-service";
 import type {
 	FinancialStatement,
 	FinancialRatios,
@@ -303,52 +304,85 @@ class UnlistedFinancialEnrichmentService {
 			);
 		}
 
-		// 3. Full financial statements (/kyc endpoint — subscription-dependent)
+		// 3. Full financial statements: CredHive (primary) -> Probe42 (fallback)
 		let financialRows: FinancialStatement[] = [];
+		let finSource = "credhive";
 		try {
 			financialRows = await credhiveAdapter.fetchFinancials(company.cin);
-			if (financialRows.length > 0) {
-				result.financials = "fetched";
-				for (const fin of financialRows) {
-					if (!fin.financialYear) continue;
-					const checksum = checksumFinancials(fin);
-					const existing = await db
-						.select({ id: companyFinancials.id })
-						.from(companyFinancials)
-						.where(
-							and(
-								eq(companyFinancials.companyId, companyId),
-								eq(companyFinancials.financialYear, fin.financialYear),
-							),
-						)
-						.limit(1);
-
-					const finRecord = {
-						companyId,
-						financialYear: fin.financialYear,
-						revenue: fin.revenue?.toString() ?? null,
-						ebitda: fin.ebitda?.toString() ?? null,
-						ebit: fin.ebit?.toString() ?? null,
-						pat: fin.pat?.toString() ?? null,
-						netProfit: fin.netProfit?.toString() ?? null,
-						totalAssets: fin.totalAssets?.toString() ?? null,
-						totalLiabilities: fin.totalLiabilities?.toString() ?? null,
-						networth: fin.networth?.toString() ?? null,
-						totalDebt: fin.totalDebt?.toString() ?? null,
-						operatingCashFlow: fin.operatingCashFlow?.toString() ?? null,
-						dataSource: "credhive",
-						confidenceScore: "0.90",
-					};
-
-					if (existing.length === 0) {
-						await db.insert(companyFinancials).values(finRecord as any);
-						result.financialYearsStored++;
-					}
-				}
-			} else {
-				result.financials = "subscription_blocked";
-			}
 		} catch {
+			financialRows = [];
+		}
+
+		// Fallback to Probe42 if CredHive returned empty or is subscription blocked
+		if (financialRows.length === 0 && probe42Service.isAvailable()) {
+			try {
+				const p42Fin = await probe42Service.getFinancials(company.cin);
+				if (p42Fin.success && p42Fin.data && p42Fin.data.length > 0) {
+					financialRows = p42Fin.data.map((r) => ({
+						financialYear: r.financial_year,
+						revenue: r.revenue ?? null,
+						ebitda: r.ebitda ?? null,
+						ebit: r.ebit ?? null,
+						pat: r.pat ?? null,
+						netProfit: r.net_profit ?? null,
+						totalAssets: r.total_assets ?? null,
+						totalLiabilities: r.total_liabilities ?? null,
+						networth: r.networth ?? null,
+						totalDebt: r.total_debt ?? null,
+						operatingCashFlow: r.operating_cash_flow ?? null,
+						source: "probe42",
+					}));
+					finSource = "probe42";
+				}
+			} catch {
+				/* non-critical fallback */
+			}
+		}
+
+		if (financialRows.length > 0) {
+			result.financials = "fetched";
+			for (const fin of financialRows) {
+				if (!fin.financialYear) continue;
+				const checksum = checksumFinancials(fin);
+				const existing = await db
+					.select({ id: companyFinancials.id })
+					.from(companyFinancials)
+					.where(
+						and(
+							eq(companyFinancials.companyId, companyId),
+							eq(companyFinancials.financialYear, fin.financialYear),
+						),
+					)
+					.limit(1);
+
+				const finRecord = {
+					companyId,
+					financialYear: fin.financialYear,
+					revenue: fin.revenue?.toString() ?? null,
+					ebitda: fin.ebitda?.toString() ?? null,
+					ebit: fin.ebit?.toString() ?? null,
+					pat: fin.pat?.toString() ?? null,
+					netProfit: fin.netProfit?.toString() ?? null,
+					totalAssets: fin.totalAssets?.toString() ?? null,
+					totalLiabilities: fin.totalLiabilities?.toString() ?? null,
+					networth: fin.networth?.toString() ?? null,
+					totalDebt: fin.totalDebt?.toString() ?? null,
+					operatingCashFlow: fin.operatingCashFlow?.toString() ?? null,
+					dataSource: finSource,
+					confidenceScore: "0.90",
+				};
+
+				if (existing.length === 0) {
+					await db.insert(companyFinancials).values(finRecord as any);
+					result.financialYearsStored++;
+				} else {
+					await db
+						.update(companyFinancials)
+						.set({ ...finRecord, updatedAt: new Date() } as any)
+						.where(eq(companyFinancials.id, existing[0].id));
+				}
+			}
+		} else {
 			result.financials = "subscription_blocked";
 		}
 

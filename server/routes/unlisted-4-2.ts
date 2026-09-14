@@ -86,7 +86,10 @@ router.get(
 			if (status && typeof status === "string") filters.status = status;
 			if (sector && typeof sector === "string") filters.sector = sector;
 
-			const companies = await storage.getAllUnlistedCompanies(filters);
+			const companies = await storage.getAllUnlistedCompanies({
+				...filters,
+				listingStage: "any", // Admin: full-spectrum — includes pre_ipo, listed, transitioned
+			});
 			return apiResponse.success(res, companies);
 		} catch (error: any) {
 			console.error("Error fetching unlisted companies (admin):", error);
@@ -334,7 +337,7 @@ router.get(
 	requireAdmin,
 	async (req: Request, res: Response) => {
 		try {
-			const allCompanies = await storage.getAllUnlistedCompanies({});
+			const allCompanies = await storage.getAllUnlistedCompanies({ listingStage: "any" }); // Admin compliance: full-spectrum
 			const allListings = await db.select().from(sellListings);
 			const allBuyRequests = await db.select().from(buyRequests);
 
@@ -401,7 +404,8 @@ router.get(
 			const { type, severity, status } = req.query;
 			const alerts: any[] = [];
 
-			const allCompanies = await storage.getAllUnlistedCompanies({});
+			const allCompanies = await storage.getAllUnlistedCompanies({ listingStage: "any" }); // Admin compliance: full-spectrum
+
 			const allListings = await db.select().from(sellListings);
 			const allBuyRequests = await db.select().from(buyRequests);
 

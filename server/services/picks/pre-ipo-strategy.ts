@@ -19,7 +19,7 @@
  */
 
 import { db } from "../../db";
-import { unlistedCompanies, companyRatios, companyFinancials } from "@shared/schema";
+import { unlistedCompanies, companyRatios, companyFinancials, listedStocks } from "@shared/schema";
 import { eq, asc, and } from "drizzle-orm";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
@@ -34,6 +34,7 @@ import {
 	type YearlyFinancial,
 	type EVResult,
 } from "@shared/enterprise-valuation";
+import { unifiedStockPriceService } from "../unified-stock-price-service";
 
 export class PreIpoStrategy extends BaseStrategy {
 	/** Category key — must match the DB enum value added in schema-repairs */
@@ -48,6 +49,10 @@ export class PreIpoStrategy extends BaseStrategy {
 				.where(
 					and(
 						eq(unlistedCompanies.status, "active"),
+						// Strict Mutual Exclusivity Gate: ONLY pre-IPO companies.
+						// companies that completed listing become status='inactive' via
+						// InstrumentLifecycleManager.sweepPreIpoListings() — they are
+						// excluded here by the status='active' check above.
 						eq(unlistedCompanies.listingStage, "pre_ipo"),
 					),
 				)
@@ -55,87 +60,139 @@ export class PreIpoStrategy extends BaseStrategy {
 
 			if (companies.length === 0) return null;
 
-			// ── 2. Exclude recently picked instruments ─────────────────────────
+			// Guard: Fetch listed stock identifiers to strictly exclude any company that has graduated to listed (e.g. Swiggy)
+			const listedRows = await db
+				.select({
+					symbol: listedStocks.symbol,
+					companyName: listedStocks.companyName,
+					isin: listedStocks.isin,
+				})
+				.from(listedStocks);
+
+			const listedNames = new Set(
+				listedRows.map((r) => r.companyName.toLowerCase().trim()),
+			);
+			const listedSymbols = new Set(
+				listedRows.map((r) => r.symbol.toLowerCase().trim()),
+			);
+			const listedIsins = new Set(
+				listedRows
+					.filter((r) => r.isin)
+					.map((r) => r.isin!.toLowerCase().trim()),
+			);
+
+			// ── 2. Exclude recently picked instruments & already-listed companies ──
 			const freshCompanies = this.filterRecentPicks(
 				companies,
 				context.recentIds,
 				(c) => c.id.toString(),
-			);
+			).filter((c) => {
+				const cName = c.name.toLowerCase().trim();
+				if (listedNames.has(cName)) return false;
+				if (listedSymbols.has(cName)) return false;
+				if (c.isin && listedIsins.has(c.isin.toLowerCase().trim())) return false;
+				return true;
+			});
 
 			if (freshCompanies.length === 0) return null;
 
 			// ── 3. Score each company using EV-aware pre-IPO model ─────────────
-			const scoredRaw = await Promise.all(
-				freshCompanies.map(async (company) => {
-					// 5 years ascending — needed for CAGR and EV computation
-					const ratios = await db
-						.select()
-						.from(companyRatios)
-						.where(eq(companyRatios.companyId, company.id))
-						.orderBy(asc(companyRatios.financialYear))
-						.limit(5);
+			const scoredRaw = (
+				await Promise.all(
+					freshCompanies.map(async (company) => {
+						// 5 years ascending — needed for CAGR and EV computation
+						const ratios = await db
+							.select()
+							.from(companyRatios)
+							.where(eq(companyRatios.companyId, company.id))
+							.orderBy(asc(companyRatios.financialYear))
+							.limit(5);
 
-					const financials = await db
-						.select()
-						.from(companyFinancials)
-						.where(eq(companyFinancials.companyId, company.id))
-						.orderBy(asc(companyFinancials.financialYear))
-						.limit(5);
+						const financials = await db
+							.select()
+							.from(companyFinancials)
+							.where(eq(companyFinancials.companyId, company.id))
+							.orderBy(asc(companyFinancials.financialYear))
+							.limit(5);
 
-					// Map DB rows to EV input format
-					const yearlyData: YearlyFinancial[] = financials.map((f) => ({
-						financialYear: f.financialYear,
-						revenue: f.revenue ? parseFloat(String(f.revenue)) : null,
-						ebitda: f.ebitda ? parseFloat(String(f.ebitda)) : null,
-						pat: f.pat ? parseFloat(String(f.pat)) : null,
-						netProfit: f.netProfit ? parseFloat(String(f.netProfit)) : null,
-						freeCashFlow: f.freeCashFlow ? parseFloat(String(f.freeCashFlow)) : null,
-						totalDebt: f.totalDebt ? parseFloat(String(f.totalDebt)) : null,
-						networth: f.networth ? parseFloat(String(f.networth)) : null,
-						cash: f.operatingCashFlow ? parseFloat(String(f.operatingCashFlow)) : null,
-					}));
+						// Map DB rows to EV input format
+						const yearlyData: YearlyFinancial[] = financials.map((f) => ({
+							financialYear: f.financialYear,
+							revenue: f.revenue ? parseFloat(String(f.revenue)) : null,
+							ebitda: f.ebitda ? parseFloat(String(f.ebitda)) : null,
+							pat: f.pat ? parseFloat(String(f.pat)) : null,
+							netProfit: f.netProfit ? parseFloat(String(f.netProfit)) : null,
+							freeCashFlow: f.freeCashFlow ? parseFloat(String(f.freeCashFlow)) : null,
+							totalDebt: f.totalDebt ? parseFloat(String(f.totalDebt)) : null,
+							networth: f.networth ? parseFloat(String(f.networth)) : null,
+							cash: f.operatingCashFlow ? parseFloat(String(f.operatingCashFlow)) : null,
+						}));
 
-					const currentPrice = parseFloat(
-						company.publishedBuyPrice || company.draftBuyPrice || "0",
-					);
+						let currentPrice = parseFloat(
+							company.publishedBuyPrice || company.draftBuyPrice || "0",
+						);
 
-					let evResult: EVResult | null = null;
-					if (yearlyData.length > 0 && currentPrice > 0) {
-						evResult = calculateEnterpriseValue({
-							companyName: company.name,
-							sector: company.sector,
-							totalSharesOutstanding: company.totalShares ?? 0,
-							currentOtcPricePerShare: currentPrice,
-							yearlyFinancials: yearlyData,
-						});
-					}
+						// If price missing or 0, attempt to resolve via unified stock price (NSE / BSE fallback)
+						if (!currentPrice || currentPrice <= 0 || Number.isNaN(currentPrice)) {
+							try {
+								const symCandidate = company.name.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+								const fetched = await unifiedStockPriceService.getPrice(symCandidate, "NSE");
+								if (fetched?.price && fetched.price > 0) {
+									currentPrice = fetched.price;
+								}
+							} catch {
+								// non-fatal fallback
+							}
+						}
 
-					return {
-						company,
-						breakdown: this.scorePreIpo(
+						// STRICT GUARD: Must have positive price
+						if (!currentPrice || currentPrice <= 0 || Number.isNaN(currentPrice)) {
+							return null;
+						}
+
+						let evResult: EVResult | null = null;
+						if (yearlyData.length > 0 && currentPrice > 0) {
+							evResult = calculateEnterpriseValue({
+								companyName: company.name,
+								sector: company.sector,
+								totalSharesOutstanding: company.totalShares ?? 0,
+								currentOtcPricePerShare: currentPrice,
+								yearlyFinancials: yearlyData,
+							});
+						}
+
+						return {
 							company,
-							ratios[ratios.length - 1],
-							financials[financials.length - 1],
+							currentPrice,
+							breakdown: this.scorePreIpo(
+								company,
+								ratios[ratios.length - 1],
+								financials[financials.length - 1],
+								evResult,
+							),
 							evResult,
-						),
-						evResult,
-					};
-				}),
-			);
+						};
+					}),
+				)
+			).filter((item): item is NonNullable<typeof item> => item !== null && item.currentPrice > 0);
 
 			const scored = scoredRaw.sort(
 				(a, b) => b.breakdown.totalScore - a.breakdown.totalScore,
 			);
 
+			if (scored.length === 0) return null;
+
 			const top = scored[0];
 			const company = top.company;
 			const breakdown = top.breakdown;
 			const ev = top.evResult;
+			const currentPrice = top.currentPrice;
 
-			// ── 4. Price & targets ──────────────────────────────────────────────
-			const currentPrice = Number.parseFloat(
-				company.publishedBuyPrice || company.draftBuyPrice || "0",
-			);
+			// Final guard against 0 price
+			if (!currentPrice || currentPrice <= 0 || Number.isNaN(currentPrice)) {
+				logger.warn(`[PreIpoStrategy] Rejected pick ${company.name} due to non-positive price: ${currentPrice}`);
+				return null;
+			}
 
 			// Pre-IPO: wider target (listing pop potential) & tighter stoploss
 			const { targetPct, stoplossPct } = this.getDynamicTargetStoploss("unlisted");

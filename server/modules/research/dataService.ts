@@ -17,6 +17,9 @@ import { db } from "../../db";
 import { sql } from "drizzle-orm";
 import { callPython } from "../../clients/python-client";
 import { logger } from "../../logger";
+import { credhiveService } from "../../services/credhive-service";
+import { probe42Service } from "../../services/probe42-service";
+import type { CredhiveFinancialStatement } from "../../services/credhive-service";
 
 
 export interface FinancialData {
@@ -95,7 +98,13 @@ export interface ScreenerData {
 // ─── Data quality metadata ────────────────────────────────────────────────────
 
 export interface FundamentalsSource {
-	source: "DB_CACHE" | "SCREENER_LIVE" | "PYTHON_YFINANCE" | "NONE";
+	source:
+		| "DB_CACHE"
+		| "SCREENER_LIVE"
+		| "CREDHIVE_FALLBACK"
+		| "PROBE42_FALLBACK"
+		| "PYTHON_YFINANCE"
+		| "NONE";
 	scrapedAt: string | null; // ISO timestamp of when DB data was last written
 	ageHours: number | null; // how stale the DB data is
 }
@@ -717,9 +726,9 @@ async function fetchFundamentalsFromPython(
 	}
 }
 
-function mergeScreenerWithPython(
-	screener: ScreenerData,
-	python: ScreenerData,
+function mergeScreenerWithFallback(
+	primary: ScreenerData,
+	fallback: ScreenerData,
 ): ScreenerData {
 	const pick = <T>(
 		a: T | null | undefined,
@@ -729,43 +738,446 @@ function mergeScreenerWithPython(
 		return b ?? null;
 	};
 	return {
-		roe: pick(screener.roe, python.roe),
-		roce: pick(screener.roce, python.roce),
-		dividendYield: pick(screener.dividendYield, python.dividendYield),
-		bookValue: pick(screener.bookValue, python.bookValue),
-		revenueGrowth: pick(screener.revenueGrowth, python.revenueGrowth),
-		earningsGrowth: pick(screener.earningsGrowth, python.earningsGrowth),
-		debtToEquity: pick(screener.debtToEquity, python.debtToEquity),
-		pe: pick(screener.pe, python.pe),
-		pb: pick(screener.pb, python.pb),
-		revenue: pick(screener.revenue, python.revenue),
-		netIncome: pick(screener.netIncome, python.netIncome),
+		roe: pick(primary.roe, fallback.roe),
+		roce: pick(primary.roce, fallback.roce),
+		dividendYield: pick(primary.dividendYield, fallback.dividendYield),
+		bookValue: pick(primary.bookValue, fallback.bookValue),
+		revenueGrowth: pick(primary.revenueGrowth, fallback.revenueGrowth),
+		earningsGrowth: pick(primary.earningsGrowth, fallback.earningsGrowth),
+		debtToEquity: pick(primary.debtToEquity, fallback.debtToEquity),
+		pe: pick(primary.pe, fallback.pe),
+		pb: pick(primary.pb, fallback.pb),
+		revenue: pick(primary.revenue, fallback.revenue),
+		netIncome: pick(primary.netIncome, fallback.netIncome),
 		operatingCashFlow: pick(
-			screener.operatingCashFlow,
-			python.operatingCashFlow,
+			primary.operatingCashFlow,
+			fallback.operatingCashFlow,
 		),
-		freeCashFlow: pick(screener.freeCashFlow, python.freeCashFlow),
-		operatingMargin: pick(screener.operatingMargin, python.operatingMargin),
-		marketCapCr: pick(screener.marketCapCr, python.marketCapCr),
-		faceValue: pick(screener.faceValue, null),
-		// Historical tables: Screener.in first; Python-derived as fallback when Screener timed out
-		plHistory: pick(screener.plHistory, python.plHistory),
-		bsHistory: pick(screener.bsHistory, python.bsHistory),
-		cfHistory: pick(screener.cfHistory, python.cfHistory),
-		ratiosHistory: pick(screener.ratiosHistory, python.ratiosHistory),
-		quarterlyHistory: pick(screener.quarterlyHistory, python.quarterlyHistory),
+		freeCashFlow: pick(primary.freeCashFlow, fallback.freeCashFlow),
+		operatingMargin: pick(primary.operatingMargin, fallback.operatingMargin),
+		marketCapCr: pick(primary.marketCapCr, fallback.marketCapCr),
+		faceValue: pick(primary.faceValue, fallback.faceValue),
+		// Historical tables: primary first; fallback when primary timed out / failed
+		plHistory: pick(primary.plHistory, fallback.plHistory),
+		bsHistory: pick(primary.bsHistory, fallback.bsHistory),
+		cfHistory: pick(primary.cfHistory, fallback.cfHistory),
+		ratiosHistory: pick(primary.ratiosHistory, fallback.ratiosHistory),
+		quarterlyHistory: pick(primary.quarterlyHistory, fallback.quarterlyHistory),
 		companyDescription: pick(
-			screener.companyDescription,
-			python.companyDescription,
+			primary.companyDescription,
+			fallback.companyDescription,
 		),
-		salesCagr3Y: pick(screener.salesCagr3Y, python.salesCagr3Y),
-		salesCagr5Y: pick(screener.salesCagr5Y, python.salesCagr5Y),
-		profitCagr3Y: pick(screener.profitCagr3Y, python.profitCagr3Y),
-		profitCagr5Y: pick(screener.profitCagr5Y, python.profitCagr5Y),
-		// Pros/Cons: only Screener.in has these — never in Python
-		pros: screener.pros ?? [],
-		cons: screener.cons ?? [],
+		salesCagr3Y: pick(primary.salesCagr3Y, fallback.salesCagr3Y),
+		salesCagr5Y: pick(primary.salesCagr5Y, fallback.salesCagr5Y),
+		profitCagr3Y: pick(primary.profitCagr3Y, fallback.profitCagr3Y),
+		profitCagr5Y: pick(primary.profitCagr5Y, fallback.profitCagr5Y),
+		// Pros/Cons: keep from whichever has them
+		pros: (primary.pros && primary.pros.length > 0) ? primary.pros : (fallback.pros ?? []),
+		cons: (primary.cons && primary.cons.length > 0) ? primary.cons : (fallback.cons ?? []),
 	};
+}
+
+const mergeScreenerWithPython = mergeScreenerWithFallback;
+
+/**
+ * Look up CIN and company name from listed_stocks for an NSE symbol.
+ */
+export async function getCompanyIdentityForListedStock(
+	nseSymbol: string,
+): Promise<{ cin: string | null; companyName: string | null }> {
+	try {
+		const rows = await db.execute(sql`
+			SELECT cin, company_name
+			FROM listed_stocks
+			WHERE symbol = ${nseSymbol.toUpperCase()}
+			LIMIT 1
+		`);
+		const r = ((rows as any).rows ?? rows)[0] as any;
+		return {
+			cin: r?.cin ?? null,
+			companyName: r?.company_name ?? null,
+		};
+	} catch (e: any) {
+		logger.warn(`[ResearchNote] Failed to query listed_stocks for ${nseSymbol}:`, e?.message);
+		return { cin: null, companyName: null };
+	}
+}
+
+/**
+ * Normalises multi-year Credhive/Probe42 financial statements into ScreenerData format.
+ * Financial figures are converted to ₹ Crores.
+ */
+export function mapStatementsToScreenerData(
+	statements: CredhiveFinancialStatement[],
+	nseSymbol: string,
+	sourceName: "CREDHIVE" | "PROBE42",
+): ScreenerData {
+	const sorted = [...statements].sort((a, b) =>
+		(b.financial_year || "").localeCompare(a.financial_year || ""),
+	);
+	const fyLabels = sorted.map((s) => s.financial_year || "").filter(Boolean);
+
+	// Credhive / Probe42 values are in raw INR (Rupees); convert to ₹ Crores
+	const toCr = (v: number | undefined | null): number | null => {
+		if (v === undefined || v === null) return null;
+		const n = Number(v);
+		if (!Number.isFinite(n)) return null;
+		return Math.abs(n) > 10_000_000 ? n / 1e7 : n;
+	};
+
+	// ── Historical tables ─────────────────────────────────────────────────────
+	// IMPORTANT: headers must strictly be fyLabels — NOT containing "Metric"
+	const plHistory: HistoricalTable | null =
+		fyLabels.length > 0
+			? {
+					headers: fyLabels,
+					rows: [
+						{
+							label: "Revenue (₹ Cr)",
+							values: sorted.map((s) => toCr(s.revenue)),
+						},
+						{
+							label: "EBITDA (₹ Cr)",
+							values: sorted.map((s) => toCr(s.ebitda)),
+						},
+						{
+							label: "EBIT (₹ Cr)",
+							values: sorted.map((s) => toCr(s.ebit)),
+						},
+						{
+							label: "PAT (₹ Cr)",
+							values: sorted.map((s) => toCr(s.pat ?? s.net_profit)),
+						},
+						{
+							label: "EBITDA Margin (%)",
+							values: sorted.map((s) =>
+								s.revenue && s.ebitda ? (s.ebitda / s.revenue) * 100 : null,
+							),
+						},
+						{
+							label: "Net Margin (%)",
+							values: sorted.map((s) =>
+								s.revenue && (s.pat ?? s.net_profit)
+									? ((s.pat ?? s.net_profit)! / s.revenue) * 100
+									: null,
+							),
+						},
+					],
+				}
+			: null;
+
+	const bsHistory: HistoricalTable | null =
+		fyLabels.length > 0
+			? {
+					headers: fyLabels,
+					rows: [
+						{
+							label: "Total Assets (₹ Cr)",
+							values: sorted.map((s) => toCr(s.total_assets)),
+						},
+						{
+							label: "Networth (₹ Cr)",
+							values: sorted.map((s) => toCr(s.networth)),
+						},
+						{
+							label: "Total Debt (₹ Cr)",
+							values: sorted.map((s) => toCr(s.total_debt)),
+						},
+						{
+							label: "Share Capital (₹ Cr)",
+							values: sorted.map((s) => toCr(s.share_capital)),
+						},
+					],
+				}
+			: null;
+
+	const cfHistory: HistoricalTable | null =
+		fyLabels.length > 0
+			? {
+					headers: fyLabels,
+					rows: [
+						{
+							label: "Operating CF (₹ Cr)",
+							values: sorted.map((s) => toCr(s.operating_cash_flow)),
+						},
+						{
+							label: "Investing CF (₹ Cr)",
+							values: sorted.map((s) => toCr(s.investing_cash_flow)),
+						},
+						{
+							label: "Financing CF (₹ Cr)",
+							values: sorted.map((s) => toCr(s.financing_cash_flow)),
+						},
+						{
+							label: "Free CF (₹ Cr)",
+							values: sorted.map((s) => toCr(s.free_cash_flow)),
+						},
+					],
+				}
+			: null;
+
+	const ratiosHistory: HistoricalTable | null =
+		fyLabels.length > 0
+			? {
+					headers: fyLabels,
+					rows: [
+						{
+							label: "ROE (%)",
+							values: sorted.map((s) => {
+								const pat = s.pat ?? s.net_profit;
+								if (!s.networth || !pat) return null;
+								const v = (pat / s.networth) * 100;
+								return Number.isFinite(v) ? v : null;
+							}),
+						},
+						{
+							label: "ROCE (%)",
+							values: sorted.map((s) => {
+								const ce = (s.networth || 0) + (s.total_debt || 0);
+								if (!ce || !s.ebit) return null;
+								const v = (s.ebit / ce) * 100;
+								return Number.isFinite(v) ? v : null;
+							}),
+						},
+						{
+							label: "D/E Ratio",
+							values: sorted.map((s) => {
+								if (!s.networth || !s.total_debt) return null;
+								const v = s.total_debt / s.networth;
+								return Number.isFinite(v) ? v : null;
+							}),
+						},
+						{
+							label: "EBITDA Margin (%)",
+							values: sorted.map((s) =>
+								s.revenue && s.ebitda ? (s.ebitda / s.revenue) * 100 : null,
+							),
+						},
+						{
+							label: "Net Margin (%)",
+							values: sorted.map((s) =>
+								s.revenue && (s.pat ?? s.net_profit)
+									? ((s.pat ?? s.net_profit)! / s.revenue) * 100
+									: null,
+							),
+						},
+					],
+				}
+			: null;
+
+	// ── Latest metrics ────────────────────────────────────────────────────────
+	const latest = sorted[0];
+	const prev = sorted[1];
+	const latestPat = latest?.pat ?? latest?.net_profit;
+	const prevPat = prev?.pat ?? prev?.net_profit;
+
+	const roeFraction =
+		latest?.networth && latestPat ? latestPat / latest.networth : null;
+	const ceLatest = (latest?.networth || 0) + (latest?.total_debt || 0);
+	const roceFraction =
+		ceLatest > 0 && latest?.ebit ? latest.ebit / ceLatest : null;
+	const debtToEquity =
+		latest?.networth && latest?.total_debt
+			? latest.total_debt / latest.networth
+			: null;
+	const operatingMargin =
+		latest?.revenue && latest?.ebitda ? latest.ebitda / latest.revenue : null;
+
+	const revenueGrowth =
+		prev?.revenue && latest?.revenue && prev.revenue > 0
+			? (latest.revenue - prev.revenue) / prev.revenue
+			: null;
+	const earningsGrowth =
+		prevPat && latestPat && Math.abs(prevPat) > 0
+			? (latestPat - prevPat) / Math.abs(prevPat)
+			: null;
+
+	// CAGRs
+	const calcCagr = (oldVal?: number | null, newVal?: number | null, years?: number) => {
+		if (!oldVal || !newVal || !years || oldVal <= 0 || newVal <= 0) return null;
+		const r = Math.pow(newVal / oldVal, 1 / years) - 1;
+		return Number.isFinite(r) ? r : null;
+	};
+
+	const s3Y = sorted[3] ?? sorted[2];
+	const s5Y = sorted[5] ?? sorted[4];
+	const salesCagr3Y = calcCagr(s3Y?.revenue, latest?.revenue, sorted.indexOf(s3Y));
+	const salesCagr5Y = calcCagr(s5Y?.revenue, latest?.revenue, sorted.indexOf(s5Y));
+	const profitCagr3Y = calcCagr(s3Y?.pat ?? s3Y?.net_profit, latestPat, sorted.indexOf(s3Y));
+	const profitCagr5Y = calcCagr(s5Y?.pat ?? s5Y?.net_profit, latestPat, sorted.indexOf(s5Y));
+
+	logger.info(
+		`[ResearchNote] ${sourceName} mapped for ${nseSymbol}: ` +
+			`Rev=₹${toCr(latest?.revenue)?.toFixed(0) ?? "N/A"}Cr, ` +
+			`PAT=₹${toCr(latestPat)?.toFixed(0) ?? "N/A"}Cr, ` +
+			`ROE=${roeFraction !== null ? (roeFraction * 100).toFixed(1) + "%" : "N/A"}, ` +
+			`Tables=${[plHistory, bsHistory, cfHistory, ratiosHistory].filter(Boolean).length}/4`,
+	);
+
+	return {
+		roe: roeFraction,
+		roce: roceFraction,
+		dividendYield: null,
+		bookValue: toCr(latest?.networth),
+		revenueGrowth,
+		earningsGrowth,
+		debtToEquity,
+		pe: null,
+		pb: null,
+		revenue: toCr(latest?.revenue),
+		netIncome: toCr(latestPat),
+		operatingCashFlow: toCr(latest?.operating_cash_flow),
+		freeCashFlow: toCr(latest?.free_cash_flow),
+		operatingMargin,
+		marketCapCr: null,
+		faceValue: null,
+		plHistory,
+		bsHistory,
+		cfHistory,
+		ratiosHistory,
+		quarterlyHistory: null,
+		companyDescription: null,
+		salesCagr3Y,
+		salesCagr5Y,
+		profitCagr3Y,
+		profitCagr5Y,
+		pros: [],
+		cons: [],
+	};
+}
+
+/**
+ * Fetch listed company fundamentals from CredHive (Fallback 1).
+ */
+export async function fetchFundamentalsFromCredhive(
+	nseSymbol: string,
+	knownCin?: string,
+): Promise<ScreenerData | null> {
+	if (!credhiveService.isAvailable()) {
+		logger.info(
+			`[ResearchNote] CredHive unavailable (no API key) for ${nseSymbol}`,
+		);
+		return null;
+	}
+
+	try {
+		let cin = knownCin;
+		let compName: string | null = null;
+		if (!cin) {
+			const id = await getCompanyIdentityForListedStock(nseSymbol);
+			cin = id.cin ?? undefined;
+			compName = id.companyName;
+		}
+
+		if (!cin) {
+			const search = await credhiveService.searchCompanies(
+				compName || nseSymbol,
+			);
+			if (search.success && search.data?.length) {
+				cin = search.data[0].cin;
+				if (cin) {
+					db.execute(sql`
+						UPDATE listed_stocks
+						SET cin = ${cin}
+						WHERE symbol = ${nseSymbol.toUpperCase()} AND cin IS NULL
+					`).catch(() => {});
+				}
+			}
+		}
+
+		if (!cin) {
+			logger.info(
+				`[ResearchNote] CredHive fallback: could not find CIN for ${nseSymbol}`,
+			);
+			return null;
+		}
+
+		logger.info(
+			`[ResearchNote] Fetching CredHive financials for ${nseSymbol} (CIN: ${cin})`,
+		);
+		const resp = await credhiveService.getFinancials(cin);
+		if (!resp.success || !resp.data || resp.data.length === 0) {
+			logger.warn(
+				`[ResearchNote] CredHive financials returned empty or failed for ${nseSymbol} (${cin}): ${resp.error ?? "no records"}`,
+			);
+			return null;
+		}
+
+		return mapStatementsToScreenerData(resp.data, nseSymbol, "CREDHIVE");
+	} catch (e: any) {
+		logger.warn(
+			`[ResearchNote] CredHive fundamentals fetch failed for ${nseSymbol}:`,
+			e?.message,
+		);
+		return null;
+	}
+}
+
+/**
+ * Fetch listed company fundamentals from Probe42 (Fallback 2).
+ */
+export async function fetchFundamentalsFromProbe42(
+	nseSymbol: string,
+	knownCin?: string,
+): Promise<ScreenerData | null> {
+	if (!probe42Service.isAvailable()) {
+		logger.info(
+			`[ResearchNote] Probe42 unavailable (no API key) for ${nseSymbol}`,
+		);
+		return null;
+	}
+
+	try {
+		let cin = knownCin;
+		let compName: string | null = null;
+		if (!cin) {
+			const id = await getCompanyIdentityForListedStock(nseSymbol);
+			cin = id.cin ?? undefined;
+			compName = id.companyName;
+		}
+
+		if (!cin) {
+			const search = await probe42Service.searchCompanies(
+				compName || nseSymbol,
+			);
+			if (search.success && search.data?.length) {
+				cin = search.data[0].cin;
+				if (cin) {
+					db.execute(sql`
+						UPDATE listed_stocks
+						SET cin = ${cin}
+						WHERE symbol = ${nseSymbol.toUpperCase()} AND cin IS NULL
+					`).catch(() => {});
+				}
+			}
+		}
+
+		if (!cin) {
+			logger.info(
+				`[ResearchNote] Probe42 fallback: could not find CIN for ${nseSymbol}`,
+			);
+			return null;
+		}
+
+		logger.info(
+			`[ResearchNote] Fetching Probe42 financials for ${nseSymbol} (CIN: ${cin})`,
+		);
+		const resp = await probe42Service.getFinancials(cin);
+		if (!resp.success || !resp.data || resp.data.length === 0) {
+			logger.warn(
+				`[ResearchNote] Probe42 financials returned empty or failed for ${nseSymbol} (${cin}): ${resp.error ?? "no records"}`,
+			);
+			return null;
+		}
+
+		return mapStatementsToScreenerData(resp.data, nseSymbol, "PROBE42");
+	} catch (e: any) {
+		logger.warn(
+			`[ResearchNote] Probe42 fundamentals fetch failed for ${nseSymbol}:`,
+			e?.message,
+		);
+		return null;
+	}
 }
 
 function emptyScreenerData(): ScreenerData {
@@ -2016,24 +2428,54 @@ export async function getFinancialData(
 					`[ResearchNote] Screener.in tables fetched for ${nseSymbol}: ${tableCount}/4 tables cached`,
 				);
 			} else {
-				// Screener.in table fetch failed — try Python, then cache whatever we get
-				const pyData = await fetchFundamentalsFromPython(nseSymbol);
-				if (pyData?.plHistory) {
+				// Screener.in table fetch failed — fallback waterfall: CredHive -> Probe42 -> Python
+				logger.info(
+					`[ResearchNote] Screener.in tables failed for ${nseSymbol} — trying CredHive fallback`,
+				);
+				const chData = await fetchFundamentalsFromCredhive(nseSymbol);
+				if (chData?.plHistory) {
 					screener = applyHistSlice(
 						dbScreener,
-						screenerToHistSlice(
-							mergeScreenerWithPython(screenerResult, pyData),
-						),
+						screenerToHistSlice(mergeScreenerWithFallback(screenerResult, chData)),
 					);
 					setHistCache(nseSymbol, screenerToHistSlice(screener));
 					logger.info(
-						`[ResearchNote] Python fallback tables for ${nseSymbol}: cached`,
+						`[ResearchNote] CredHive fallback tables for ${nseSymbol}: cached`,
 					);
 				} else {
-					screener = dbScreener;
 					logger.info(
-						`[ResearchNote] No historical tables available for ${nseSymbol} — serving metrics only`,
+						`[ResearchNote] CredHive tables unavailable for ${nseSymbol} — trying Probe42 fallback`,
 					);
+					const p42Data = await fetchFundamentalsFromProbe42(nseSymbol);
+					if (p42Data?.plHistory) {
+						screener = applyHistSlice(
+							dbScreener,
+							screenerToHistSlice(mergeScreenerWithFallback(screenerResult, p42Data)),
+						);
+						setHistCache(nseSymbol, screenerToHistSlice(screener));
+						logger.info(
+							`[ResearchNote] Probe42 fallback tables for ${nseSymbol}: cached`,
+						);
+					} else {
+						const pyData = await fetchFundamentalsFromPython(nseSymbol);
+						if (pyData?.plHistory) {
+							screener = applyHistSlice(
+								dbScreener,
+								screenerToHistSlice(
+									mergeScreenerWithFallback(screenerResult, pyData),
+								),
+							);
+							setHistCache(nseSymbol, screenerToHistSlice(screener));
+							logger.info(
+								`[ResearchNote] Python fallback tables for ${nseSymbol}: cached`,
+							);
+						} else {
+							screener = dbScreener;
+							logger.info(
+								`[ResearchNote] No historical tables available for ${nseSymbol} — serving metrics only`,
+							);
+						}
+					}
 				}
 			}
 		}
@@ -2047,45 +2489,95 @@ export async function getFinancialData(
 		);
 		const screenerResult = await fetchFromScreener(nseSymbol);
 
-		// Tier 1: Screener.in completely failed (revenue null) — use Python for everything
+		// Tier 1: Screener.in completely failed (revenue null) — fallback waterfall: CredHive -> Probe42 -> Python
 		if (screenerResult.revenue === null) {
-			const pyData = await fetchFundamentalsFromPython(nseSymbol);
-			if (pyData) {
-				screener = mergeScreenerWithPython(screenerResult, pyData);
+			logger.info(
+				`[ResearchNote] Screener.in failed for ${nseSymbol} — initiating fallback waterfall (CredHive -> Probe42 -> Python)`,
+			);
+			const chData = await fetchFundamentalsFromCredhive(nseSymbol);
+			if (chData && (chData.revenue !== null || chData.plHistory !== null)) {
+				screener = chData;
 				fundamentalsSource = {
-					source: "PYTHON_YFINANCE",
+					source: "CREDHIVE_FALLBACK",
 					scrapedAt: new Date().toISOString(),
 					ageHours: 0,
 				};
+				logger.info(
+					`[ResearchNote] Populated fundamentals from CredHive fallback for ${nseSymbol}`,
+				);
 			} else {
-				screener = screenerResult;
-				fundamentalsSource = {
-					source: "SCREENER_LIVE",
-					scrapedAt: new Date().toISOString(),
-					ageHours: 0,
-				};
+				logger.info(
+					`[ResearchNote] CredHive unavailable or empty for ${nseSymbol} — trying Probe42 fallback`,
+				);
+				const p42Data = await fetchFundamentalsFromProbe42(nseSymbol);
+				if (p42Data && (p42Data.revenue !== null || p42Data.plHistory !== null)) {
+					screener = p42Data;
+					fundamentalsSource = {
+						source: "PROBE42_FALLBACK",
+						scrapedAt: new Date().toISOString(),
+						ageHours: 0,
+					};
+					logger.info(
+						`[ResearchNote] Populated fundamentals from Probe42 fallback for ${nseSymbol}`,
+					);
+				} else {
+					logger.info(
+						`[ResearchNote] Probe42 unavailable or empty for ${nseSymbol} — trying Python/yfinance`,
+					);
+					const pyData = await fetchFundamentalsFromPython(nseSymbol);
+					if (pyData) {
+						screener = mergeScreenerWithFallback(screenerResult, pyData);
+						fundamentalsSource = {
+							source: "PYTHON_YFINANCE",
+							scrapedAt: new Date().toISOString(),
+							ageHours: 0,
+						};
+					} else {
+						screener = screenerResult;
+						fundamentalsSource = {
+							source: "NONE",
+							scrapedAt: new Date().toISOString(),
+							ageHours: 0,
+						};
+					}
+				}
 			}
 			if (screener.plHistory)
 				setHistCache(nseSymbol, screenerToHistSlice(screener));
 			writeScreenerToDB(nseSymbol, screener).catch(() => {});
 		} else if (screenerResult.plHistory === null) {
 			// Tier 2: Screener returned point-in-time ratios but history tables are missing
-			// (happens when Screener HTML parse was partial or tables timed out)
-			// Enrich immediately with Python-derived history — adds ~1-2s on localhost, <50ms if sidecar unreachable
-			const pyData = await fetchFundamentalsFromPython(nseSymbol);
-			if (pyData) {
-				screener = mergeScreenerWithPython(screenerResult, pyData);
-				const histCount = [
-					screener.plHistory,
-					screener.bsHistory,
-					screener.cfHistory,
-					screener.quarterlyHistory,
-				].filter(Boolean).length;
+			// Enrich with CredHive -> Probe42 -> Python
+			const chData = await fetchFundamentalsFromCredhive(nseSymbol);
+			if (chData?.plHistory) {
+				screener = mergeScreenerWithFallback(screenerResult, chData);
 				logger.info(
-					`[ResearchNote] Python enriched missing history for ${nseSymbol}: ${histCount}/4 tables`,
+					`[ResearchNote] CredHive enriched missing history tables for ${nseSymbol}`,
 				);
 			} else {
-				screener = screenerResult;
+				const p42Data = await fetchFundamentalsFromProbe42(nseSymbol);
+				if (p42Data?.plHistory) {
+					screener = mergeScreenerWithFallback(screenerResult, p42Data);
+					logger.info(
+						`[ResearchNote] Probe42 enriched missing history tables for ${nseSymbol}`,
+					);
+				} else {
+					const pyData = await fetchFundamentalsFromPython(nseSymbol);
+					if (pyData) {
+						screener = mergeScreenerWithFallback(screenerResult, pyData);
+						const histCount = [
+							screener.plHistory,
+							screener.bsHistory,
+							screener.cfHistory,
+							screener.quarterlyHistory,
+						].filter(Boolean).length;
+						logger.info(
+							`[ResearchNote] Python enriched missing history for ${nseSymbol}: ${histCount}/4 tables`,
+						);
+					} else {
+						screener = screenerResult;
+					}
+				}
 			}
 			if (screener.plHistory)
 				setHistCache(nseSymbol, screenerToHistSlice(screener));

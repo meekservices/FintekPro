@@ -20,10 +20,10 @@ const sampleCompanies = [
 		industry: "Stock Exchanges",
 		rocState: "Maharashtra",
 		incorporationDate: "1992-11-27",
-		paidUpCapital: "495000000",
-		authorizedCapital: "1000000000",
+		paidUpCapital: "2475000000",
+		authorizedCapital: "5000000000",
 		faceValue: "1.00",
-		totalShares: 495000000,
+		totalShares: 2475000000,
 		status: "active",
 		listingStage: "pre_ipo",
 		website: "https://www.nseindia.com",
@@ -110,18 +110,71 @@ const sampleCompanies = [
 ];
 
 const sampleFinancials = [
+	// National Stock Exchange of India Limited (NSE) — 5-Year Consolidated Audited Financials (Screener.in)
 	{
-		companyIndex: 0, // NSE
+		companyIndex: 0,
+		financialYear: "FY2021-22",
+		revenue: "83130000000", // ₹8,313 Cr
+		ebitda: "66050000000", // ₹6,605 Cr (79% OPM)
+		pat: "51980000000", // ₹5,198 Cr
+		netProfit: "51980000000",
+		totalAssets: "420000000000", // ₹42,000 Cr
+		totalLiabilities: "282000000000",
+		networth: "138000000000", // ₹13,800 Cr
+		totalDebt: "0",
+		freeCashFlow: "45000000000", // ₹4,500 Cr
+	},
+	{
+		companyIndex: 0,
+		financialYear: "FY2022-23",
+		revenue: "118560000000", // ₹11,856 Cr
+		ebitda: "94290000000", // ₹9,429 Cr (80% OPM)
+		pat: "73560000000", // ₹7,356 Cr
+		netProfit: "73560000000",
+		totalAssets: "540000000000", // ₹54,000 Cr
+		totalLiabilities: "345000000000",
+		networth: "195000000000", // ₹19,500 Cr
+		totalDebt: "0",
+		freeCashFlow: "62000000000", // ₹6,200 Cr
+	},
+	{
+		companyIndex: 0,
 		financialYear: "FY2023-24",
-		revenue: "12500000000",
-		ebitda: "7800000000",
-		pat: "5600000000",
-		netProfit: "5600000000",
-		totalAssets: "45000000000",
-		totalLiabilities: "15000000000",
-		networth: "30000000000",
-		totalDebt: "2000000000",
-		freeCashFlow: "4500000000",
+		revenue: "147800000000", // ₹14,780 Cr
+		ebitda: "98730000000", // ₹9,873 Cr (67% OPM)
+		pat: "83060000000", // ₹8,306 Cr
+		netProfit: "83060000000",
+		totalAssets: "650000000000", // ₹65,000 Cr
+		totalLiabilities: "411000000000",
+		networth: "239000000000", // ₹23,900 Cr
+		totalDebt: "0",
+		freeCashFlow: "81000000000", // ₹8,100 Cr
+	},
+	{
+		companyIndex: 0,
+		financialYear: "FY2024-25",
+		revenue: "171410000000", // ₹17,141 Cr
+		ebitda: "126710000000", // ₹12,671 Cr (74% OPM)
+		pat: "121880000000", // ₹12,188 Cr
+		netProfit: "121880000000",
+		totalAssets: "780000000000", // ₹78,000 Cr
+		totalLiabilities: "505000000000",
+		networth: "275000000000", // ₹27,500 Cr
+		totalDebt: "240000000", // ₹24 Cr
+		freeCashFlow: "108000000000", // ₹10,800 Cr
+	},
+	{
+		companyIndex: 0,
+		financialYear: "FY2025-26",
+		revenue: "166010000000", // ₹16,601 Cr (TTM run-rate)
+		ebitda: "112650000000", // ₹11,265 Cr (68% OPM)
+		pat: "103020000000", // ₹10,302 Cr
+		netProfit: "103020000000",
+		totalAssets: "850000000000", // ₹85,000 Cr
+		totalLiabilities: "540000000000",
+		networth: "310000000000", // ₹31,000 Cr
+		totalDebt: "400000000", // ₹40 Cr
+		freeCashFlow: "95000000000", // ₹9,500 Cr
 	},
 	{
 		companyIndex: 1, // Tata Technologies

@@ -286,6 +286,11 @@ server.headersTimeout   = 66_000;  // 66s > keepAliveTimeout (required by Node)
 				const { createISINRegistryTable } = await import("./startup/schema-repairs");
 				await createISINRegistryTable();
 
+				// ── Screener 5-Year Financials Sync for NSE ──────────────────
+				logBootProgress("Step 2e-3 (bg): Syncing Screener 5-year financials for NSE...");
+				const { repairNSEConsolidatedFinancials } = await import("./startup/schema-repairs");
+				await repairNSEConsolidatedFinancials();
+
 					// ── Instrument Master Sync — single source of truth ─────────────
 					// Upserts from mutual_funds, listed_stocks, bond_catalog, reits,
 					// aif_master, mld_master into instrument_master.

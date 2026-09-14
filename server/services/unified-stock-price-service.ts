@@ -110,6 +110,7 @@ class UnifiedStockPriceService {
 				console.log(`[StockPriceCache] Cleaned ${cleaned} expired entries`);
 			}
 		}, 60 * 1000);
+		this.cleanupIntervalId.unref?.();
 	}
 
 	stop(): void {
@@ -588,6 +589,18 @@ class UnifiedStockPriceService {
 			this.recordFailure("nse");
 		}
 
+		// 1.2 BSE Fallback / Direct BSE — If price is not available at NSE, fetch from BSE
+		if (!this.isProviderCoolingDown("bse")) {
+			const bsePrice = await this.fetchFromBSE(symbol);
+			if (bsePrice) {
+				this.recordSuccess("bse");
+				return bsePrice;
+			}
+			if (exchange === "BSE") {
+				this.recordFailure("bse");
+			}
+		}
+
 		// 1.5 IndianAPI Batch — single-symbol batch call as Tier 1.5 bridge.
 		// When INDIAN_API_KEY is set, getBatchLivePriceNSE is a dedicated endpoint
 		// that gives us a second IndianAPI path (different endpoint, different error surface).
@@ -741,6 +754,79 @@ class UnifiedStockPriceService {
 			if (!String(err?.message).startsWith("RATE_LIMITED:")) {
 				this.recordFailure("yahoo");
 			}
+		}
+		return null;
+	}
+
+	/**
+	 * Tier 1 (BSE) — Exchange direct via IndianAPI BSE or Yahoo Finance .BO fallback.
+	 * Used when exchange is BSE, or as fallback when NSE price is unavailable.
+	 */
+	private async fetchFromBSE(symbol: string): Promise<StockPrice | null> {
+		// Primary: IndianAPI paid subscription (BSE)
+		if (indianApiService.isReady()) {
+			try {
+				const result = await indianApiService.getStockQuote(symbol, "BSE");
+				if (result.success && result.data && result.data.current_price > 0) {
+					const q = result.data;
+					return {
+						symbol,
+						price: q.current_price,
+						previousClose: q.previous_close,
+						change: q.change,
+						changePercent: q.change_percent,
+						high: q.day_high,
+						low: q.day_low,
+						timestamp: Date.now(),
+						source: "BSE",
+					};
+				}
+			} catch (err: any) {
+				if (!String(err?.message).startsWith("RATE_LIMITED:")) {
+					this.recordFailure("bse");
+				}
+			}
+		}
+		// Fallback 1: Yahoo Finance .BO
+		try {
+			const bseSym = symbol.endsWith(".BO") ? symbol : `${symbol}.BO`;
+			const resp = await axios.get(
+				`https://query1.finance.yahoo.com/v8/finance/chart/${bseSym}`,
+				{ timeout: 8_000, headers: { "User-Agent": "Mozilla/5.0" } },
+			);
+			const meta = resp.data?.chart?.result?.[0]?.meta || {};
+			if (meta.regularMarketPrice && meta.regularMarketPrice > 0) {
+				return {
+					symbol,
+					price: meta.regularMarketPrice,
+					previousClose: meta.previousClose ?? meta.chartPreviousClose,
+					change: meta.regularMarketPrice - (meta.previousClose ?? 0),
+					changePercent: meta.regularMarketChangePercent,
+					timestamp: Date.now(),
+					source: "BSE",
+				};
+			}
+		} catch {
+			// ignore and try Google Finance
+		}
+		// Fallback 2: Google Finance BSE
+		try {
+			const gfQuote = await fetchGFQuote(symbol, "BSE");
+			if (gfQuote?.price && gfQuote.price > 0) {
+				return {
+					symbol,
+					price: gfQuote.price,
+					previousClose: gfQuote.previousClose ?? undefined,
+					change: gfQuote.change ?? undefined,
+					changePercent: gfQuote.changePercent ?? undefined,
+					timestamp: gfQuote.marketTimestampUnix
+						? gfQuote.marketTimestampUnix * 1000
+						: Date.now(),
+					source: "BSE",
+				};
+			}
+		} catch {
+			// ignore
 		}
 		return null;
 	}

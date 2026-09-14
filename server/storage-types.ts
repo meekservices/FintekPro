@@ -2278,6 +2278,14 @@ export interface IStorage {
 	getAllUnlistedCompanies(filters?: {
 		status?: string;
 		sector?: string;
+		storePublishedOnly?: boolean;
+		/**
+		 * Controls which listing_stage rows are returned.
+		 * - Omit or pass 'unlisted': OTC-only (NULL, 'unlisted', 'growth', 'mature').
+		 * - Pass a specific stage: e.g., 'pre_ipo'.
+		 * - Pass 'any': no listing_stage filter — full-spectrum admin use.
+		 */
+		listingStage?: string | "any";
 	}): Promise<UnlistedCompany[]>;
 	updateUnlistedCompany(
 		id: string,
