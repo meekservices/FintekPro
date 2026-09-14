@@ -1,28 +1,26 @@
 /**
- * Pre-IPO Pick Strategy
+ * Pre-IPO Pick Strategy — EV-Enhanced (FASP-EV-v1.0)
  *
  * Purpose:  Selects investment picks from unlisted companies that are in the
  *           `pre_ipo` listing stage — i.e., companies that have filed DRHP or
  *           are expected to list within 6–24 months. These are categorised as
- *           `category = "pre_ipo"` in daily_picks, keeping them SEPARATE from
- *           generic `unlisted` (growth-stage / mature unlisted) picks.
+ *           `category = "pre_ipo"` in daily_picks.
  *
- * Picking logic:
+ * Picking logic (upgraded):
  *   1. Source: `unlisted_companies` table, filtered to `listing_stage = 'pre_ipo'`
- *              and `status = 'active'`
- *   2. Exclude companies already picked in the last 7 days (recentIds set)
- *   3. Score using a pre-IPO–specific scoring model (GMP potential, DRHP
- *      filing status, sector premium, governance quality)
- *   4. Emit pick with category = "pre_ipo" so the frontend tab works cleanly
+ *   2. Exclude companies already picked in the last 7 days
+ *   3. Fetch 5 years of yearwise P&L + balance sheet + cash flow (ascending)
+ *   4. Compute Enterprise Value via FASP-EV-v1.0 (DCF + Comparables + Book Value)
+ *   5. Score using EV discount-to-fair-value + sector premium + governance
+ *   6. Emit pick with full EV breakdown in keyMetrics
  *
  * FASP-AI v1.0: All outputs include confidence_score, model_version, risk_level.
- * SEBI: These are speculative, illiquid instruments. Expiry set to 180 days.
- *       suitableFor = ["Aggressive"] — accredited/HNI investors only.
+ * SEBI: Speculative, illiquid instruments. suitableFor = ["Aggressive"] only.
  */
 
 import { db } from "../../db";
 import { unlistedCompanies, companyRatios, companyFinancials } from "@shared/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, asc, and } from "drizzle-orm";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import {
@@ -31,6 +29,11 @@ import {
 	ScoreBreakdown,
 } from "../pick-of-the-day-service";
 import { logger } from "../../logger";
+import {
+	calculateEnterpriseValue,
+	type YearlyFinancial,
+	type EVResult,
+} from "@shared/enterprise-valuation";
 
 export class PreIpoStrategy extends BaseStrategy {
 	/** Category key — must match the DB enum value added in schema-repairs */
@@ -61,25 +64,61 @@ export class PreIpoStrategy extends BaseStrategy {
 
 			if (freshCompanies.length === 0) return null;
 
-			// ── 3. Score each company using pre-IPO–specific model ─────────────
+			// ── 3. Score each company using EV-aware pre-IPO model ─────────────
 			const scoredRaw = await Promise.all(
 				freshCompanies.map(async (company) => {
+					// 5 years ascending — needed for CAGR and EV computation
 					const ratios = await db
 						.select()
 						.from(companyRatios)
 						.where(eq(companyRatios.companyId, company.id))
-						.orderBy(desc(companyRatios.financialYear))
-						.limit(1);
+						.orderBy(asc(companyRatios.financialYear))
+						.limit(5);
+
 					const financials = await db
 						.select()
 						.from(companyFinancials)
 						.where(eq(companyFinancials.companyId, company.id))
-						.orderBy(desc(companyFinancials.financialYear))
-						.limit(1);
+						.orderBy(asc(companyFinancials.financialYear))
+						.limit(5);
+
+					// Map DB rows to EV input format
+					const yearlyData: YearlyFinancial[] = financials.map((f) => ({
+						financialYear: f.financialYear,
+						revenue: f.revenue ? parseFloat(String(f.revenue)) : null,
+						ebitda: f.ebitda ? parseFloat(String(f.ebitda)) : null,
+						pat: f.pat ? parseFloat(String(f.pat)) : null,
+						netProfit: f.netProfit ? parseFloat(String(f.netProfit)) : null,
+						freeCashFlow: f.freeCashFlow ? parseFloat(String(f.freeCashFlow)) : null,
+						totalDebt: f.totalDebt ? parseFloat(String(f.totalDebt)) : null,
+						networth: f.networth ? parseFloat(String(f.networth)) : null,
+						cash: f.operatingCashFlow ? parseFloat(String(f.operatingCashFlow)) : null,
+					}));
+
+					const currentPrice = parseFloat(
+						company.publishedBuyPrice || company.draftBuyPrice || "0",
+					);
+
+					let evResult: EVResult | null = null;
+					if (yearlyData.length > 0 && currentPrice > 0) {
+						evResult = calculateEnterpriseValue({
+							companyName: company.name,
+							sector: company.sector,
+							totalSharesOutstanding: company.totalShares ?? 0,
+							currentOtcPricePerShare: currentPrice,
+							yearlyFinancials: yearlyData,
+						});
+					}
 
 					return {
 						company,
-						breakdown: this.scorePreIpo(company, ratios[0], financials[0]),
+						breakdown: this.scorePreIpo(
+							company,
+							ratios[ratios.length - 1],
+							financials[financials.length - 1],
+							evResult,
+						),
+						evResult,
 					};
 				}),
 			);
@@ -91,6 +130,7 @@ export class PreIpoStrategy extends BaseStrategy {
 			const top = scored[0];
 			const company = top.company;
 			const breakdown = top.breakdown;
+			const ev = top.evResult;
 
 			// ── 4. Price & targets ──────────────────────────────────────────────
 			const currentPrice = Number.parseFloat(
@@ -114,10 +154,15 @@ export class PreIpoStrategy extends BaseStrategy {
 					sector: company.sector,
 					score: breakdown.totalScore,
 					identityConfidence: company.identityConfidence,
+					// EV context for richer AI rationale
+					fairSharePrice: ev?.fairSharePrice,
+					discountToPremiumPct: ev?.discountToPremiumPct,
+					revenueCAGR: ev?.revenueCAGR,
+					yearsAnalysed: ev?.yearsAnalysed,
 				},
 			});
 
-			// ── 6. Emit pick with category = "pre_ipo" ─────────────────────────
+			// ── 6. Emit pick with full EV breakdown ──────────────────────────────
 			return {
 				category: "pre_ipo",
 				instrumentId: company.id,
@@ -156,6 +201,21 @@ export class PreIpoStrategy extends BaseStrategy {
 					isIlliquid: true,
 					isSpeculative: true,
 					requiresAccreditedInvestor: true,
+					// Enterprise Valuation metrics (FASP-EV-v1.0)
+					fairSharePrice: ev?.fairSharePrice ?? undefined,
+					blendedEV: ev?.blendedEV ?? undefined,
+					equityValue: ev?.equityValue ?? undefined,
+					discountToPremiumPct: ev?.discountToPremiumPct ?? undefined,
+					revenueCAGR: ev?.revenueCAGR ?? undefined,
+					ebitdaMarginAvg: ev?.ebitdaMarginAvg ?? undefined,
+					yearsAnalysed: ev?.yearsAnalysed ?? undefined,
+					dcfEV: ev?.dcfEV ?? undefined,
+					comparablesEV: ev?.comparablesEV ?? undefined,
+					netDebt: ev?.netDebt ?? undefined,
+					evConfidenceScore: ev?.confidenceScore ?? undefined,
+					evEngineVersion: ev?.engineVersion ?? undefined,
+					evCalculationTimestamp: ev?.calculationTimestamp ?? undefined,
+					evDataGaps: ev?.dataGaps ?? undefined,
 				},
 			};
 		} catch (error) {
@@ -164,28 +224,36 @@ export class PreIpoStrategy extends BaseStrategy {
 		}
 	}
 
-	score(instrument: any): number {
+	score(_instrument: any): number {
 		return 50;
 	}
 
 	/**
-	 * Pre-IPO scoring model.
+	 * Pre-IPO scoring model — EV-aware (FASP-EV-v1.0).
 	 *
-	 * Scoring dimensions differ from generic unlisted:
-	 *  - listingStage is always pre_ipo for this strategy (fixed 15 pts)
-	 *  - GMP proxy: if published_buy_price exists and > 50, signals institutional pricing (bonus)
-	 *  - Sector premium for high-multiple sectors (tech, fintech, consumer, healthcare)
+	 * Scoring dimensions:
+	 *  - listingStage: fixed 15 pts (all companies here are pre_ipo)
+	 *  - Pricing availability: institutional buy price signals readiness
+	 *  - Sector premium: high-growth sectors command valuation premiums
 	 *  - Governance: identity confidence + compliance clearance
-	 *  - Fundamentals: ROE from financials
+	 *  - Fundamentals (EV-aware): OTC discount-to-fair-value is the primary signal
+	 *    * >30% undervalued vs EV → 25 pts (strong buy)
+	 *    * 15–30% undervalued    → 18 pts
+	 *    * 5–15% undervalued     → 12 pts
+	 *    * Near fair value ±5%   → 6 pts
+	 *    * OTC premium           → 0 pts (avoid)
+	 *    * Bonus: revenue CAGR >20% → +5 pts
 	 *
-	 * @param company  Row from unlisted_companies
-	 * @param ratios   Latest row from company_ratios (may be undefined)
+	 * @param company    Row from unlisted_companies
+	 * @param ratios     Latest row from company_ratios (may be undefined)
 	 * @param financials Latest row from company_financials (may be undefined)
+	 * @param evResult   Output of calculateEnterpriseValue() (may be null)
 	 */
 	private scorePreIpo(
 		company: any,
 		ratios: any,
 		financials: any,
+		evResult: EVResult | null,
 	): ScoreBreakdown {
 		// Pre-IPO stage premium (all companies in this strategy are pre_ipo)
 		const listingStageScore = 15;
@@ -207,7 +275,8 @@ export class PreIpoStrategy extends BaseStrategy {
 			sector.includes("consumer") ||
 			sector.includes("healthcare") ||
 			sector.includes("pharma") ||
-			sector.includes("ecommerce")
+			sector.includes("ecommerce") ||
+			sector.includes("market infrastructure")
 		) {
 			sectorScore = 12;
 		} else if (sector.includes("banking") || sector.includes("financial")) {
@@ -221,11 +290,25 @@ export class PreIpoStrategy extends BaseStrategy {
 		if (Number.parseFloat(company.identityConfidence || "0") >= 0.9) governanceScore += 8;
 		if (company.complianceStatus === "cleared") governanceScore += 5;
 
-		// Fundamentals
+		// ── EV-aware fundamentals score ────────────────────────────────────────
 		let fundamentalsScore = 0;
-		const roe = ratios?.roe != null ? Number.parseFloat(ratios.roe) : null;
-		if (roe != null && roe > 20) fundamentalsScore += 20;
-		else if (roe != null && roe > 10) fundamentalsScore += 10;
+		if (evResult !== null) {
+			const d = evResult.discountToPremiumPct; // negative = undervalued
+			if (d <= -30)      fundamentalsScore = 25; // >30% undervalued → strong signal
+			else if (d <= -15) fundamentalsScore = 18;
+			else if (d <= -5)  fundamentalsScore = 12;
+			else if (d <= 5)   fundamentalsScore = 6;  // near fair value
+			else               fundamentalsScore = 0;  // OTC premium → caution
+
+			// Bonus: strong multi-year revenue growth trajectory
+			if (evResult.revenueCAGR !== null && evResult.revenueCAGR > 20) fundamentalsScore += 5;
+			else if (evResult.revenueCAGR !== null && evResult.revenueCAGR > 10) fundamentalsScore += 2;
+		} else {
+			// Legacy fallback when no financial data exists
+			const roe = ratios?.roe != null ? Number.parseFloat(ratios.roe) : null;
+			if (roe != null && roe > 20) fundamentalsScore = 20;
+			else if (roe != null && roe > 10) fundamentalsScore = 10;
+		}
 
 		const totalScore =
 			listingStageScore +
@@ -242,7 +325,7 @@ export class PreIpoStrategy extends BaseStrategy {
 			riskAdjustment: 0,
 			fundamentalsScore,
 			totalScore,
-			scoringVersion: "1.0-preipo",
+			scoringVersion: "2.0-preipo-ev",
 			threshold: 35,
 			riskBand: "Growth",
 		};

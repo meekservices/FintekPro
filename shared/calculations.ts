@@ -264,3 +264,178 @@ export function calculateEmiSchedule(input: EmiCalculationInput): EmiCalculation
     schedule
   };
 }
+
+// ============================================================================
+// IPO Listing Gain & Grey Market Premium (GMP) Engine (FASP-IPO-v1.0)
+// ============================================================================
+
+export interface IpoListingGainInput {
+  /** Cap / Cut-off price of the price band in INR (₹) */
+  issuePrice: number;
+  /** Latest Grey Market Premium quote per share in INR (₹) */
+  gmp: number;
+  /** Number of shares in 1 retail bid lot */
+  lotSize: number;
+  /** Total issue size in ₹ Crores (optional, default: 1000 Cr) */
+  issueSizeCrores?: number;
+  /** QIB subscription multiple, e.g. 45.5 for 45.5x (optional) */
+  qibSubscription?: number;
+  /** Retail subscription multiple, e.g. 12.0 for 12.0x (optional) */
+  retailSubscription?: number;
+  /** Total subscription multiple across all categories (optional) */
+  totalSubscription?: number;
+  /** Issue category: 'mainboard' or 'sme' (default: 'mainboard') */
+  issueType?: "mainboard" | "sme";
+  /** Percentage market index change from close to listing, e.g. -1.5 for -1.5% (optional) */
+  marketDriftPercent?: number;
+}
+
+export interface IpoListingGainResult {
+  engineVersion: "FASP-IPO-v1.0";
+  calculationTimestamp: string;
+  issuePrice: number;
+  rawGmp: number;
+  rawGmpPercent: number;
+  lotSize: number;
+  totalLotInvestment: number;
+  expectedListingPrice: number;
+  expectedListingGainPercent: number;
+  expectedGrossGainPerLot: number;
+  expectedNetPostTaxGainPerLot: number; // Post 20% STCG (Finance Act 2024) + STT/charges
+  priceRange: {
+    bearishPrice: number;
+    bearishGainPercent: number;
+    basePrice: number;
+    baseGainPercent: number;
+    bullishPrice: number;
+    bullishGainPercent: number;
+  };
+  applicationEconomics: {
+    retailAllotmentProbability: number; // 0.0 to 1.0
+    expectedMonetaryValuePerApplication: number; // EV = prob * net_gain
+  };
+  adjustments: {
+    qibMultiplier: number;
+    issueSizeFactor: number;
+    marketDriftApplied: number;
+    regulatoryCapApplied: boolean;
+  };
+  disclaimer: string;
+}
+
+/**
+ * Calculates high-accuracy expected IPO listing gain and listing price
+ * by adjusting raw Grey Market Premium (GMP) with:
+ * 1. Institutional Demand Quality Multiplier (QIB elasticity)
+ * 2. Issue Size Float Scarcity Factor (mega-issue overhang vs micro-issue scarcity)
+ * 3. Market Beta Drift (systematic index movement between close and listing)
+ * 4. Regulatory Circuit Filters (SEBI July 2024 SME +90% listing day cap)
+ * 5. Three-point volatility confidence interval (Bearish / Base / Bullish)
+ * 6. Post-tax net gains (Finance Act 2024 20% STCG + statutory charges)
+ * 7. Retail lottery allotment odds and Expected Monetary Value (EMV)
+ */
+export function calculateIpoListingGain(input: IpoListingGainInput): IpoListingGainResult {
+  const issuePrice = Math.max(1, Number(input.issuePrice) || 100);
+  const rawGmp = Number(input.gmp) || 0;
+  const lotSize = Math.max(1, Number(input.lotSize) || 1);
+  const issueSize = Math.max(10, Number(input.issueSizeCrores) || 1000);
+  const isSme = input.issueType === "sme";
+
+  // 1. Raw GMP Yield
+  const rawYield = rawGmp / issuePrice;
+
+  // 2. QIB Institutional Multiplier (CQIB)
+  let qibMultiplier = 1.0;
+  if (typeof input.qibSubscription === "number" && input.qibSubscription > 0) {
+    const qib = input.qibSubscription;
+    // Log-sigmoid centered at 10x subscription
+    const logDiff = Math.log(1 + qib) - Math.log(1 + 10);
+    qibMultiplier = 1.0 + 0.22 * Math.tanh(logDiff / 2.5);
+  } else if (typeof input.totalSubscription === "number" && input.totalSubscription > 0) {
+    const sub = input.totalSubscription;
+    const logDiff = Math.log(1 + sub) - Math.log(1 + 10);
+    qibMultiplier = 1.0 + 0.15 * Math.tanh(logDiff / 3.0);
+  }
+
+  // 3. Issue Size Float Scarcity Factor (Fsize)
+  const logSize = Math.log10(Math.max(50, issueSize));
+  const minLog = Math.log10(50);
+  const maxLog = Math.log10(25000);
+  const normSize = (logSize - minLog) / (maxLog - minLog);
+  const issueSizeFactor = Math.min(1.08, Math.max(0.88, 1.0 - 0.12 * (normSize - 0.5)));
+
+  // 4. Systematic Market Drift (delta_market)
+  const marketBeta = isSme ? 2.0 : 1.5;
+  const marketDrift = typeof input.marketDriftPercent === "number"
+    ? (input.marketDriftPercent / 100) * marketBeta
+    : 0;
+
+  // 5. Unbounded Return
+  let expectedReturn = (rawYield * qibMultiplier * issueSizeFactor) + marketDrift;
+
+  // 6. Regulatory Circuit Cap Enforcement
+  let regulatoryCapApplied = false;
+  if (isSme && expectedReturn > 0.90) {
+    expectedReturn = 0.90; // SEBI July 2024 SME listing day 90% cap
+    regulatoryCapApplied = true;
+  }
+  expectedReturn = Math.max(-0.40, expectedReturn); // Floor at -40%
+
+  // 7. Expected Prices & Volatility Bounds
+  const expectedListingPrice = Math.round(issuePrice * (1 + expectedReturn) * 100) / 100;
+  const sigma = 0.05 + 0.12 * Math.abs(expectedReturn);
+
+  const bearReturn = Math.max(-0.40, expectedReturn - sigma);
+  const maxBullCap = isSme ? 0.90 : 2.50;
+  const bullReturn = Math.min(maxBullCap, expectedReturn + sigma);
+
+  const bearishPrice = Math.round(issuePrice * (1 + bearReturn) * 100) / 100;
+  const bullishPrice = Math.round(issuePrice * (1 + bullReturn) * 100) / 100;
+
+  // 8. Financial Gains & Taxes
+  const totalLotInvestment = issuePrice * lotSize;
+  const grossGainPerLot = Math.round((expectedListingPrice - issuePrice) * lotSize);
+
+  // Finance Act 2024: 20% STCG + ~0.35% STT/Brokerage/Turnover on gross gain
+  const netPostTaxGainPerLot = grossGainPerLot > 0
+    ? Math.round(grossGainPerLot * 0.795)
+    : grossGainPerLot;
+
+  // 9. Application Economics (Lottery Probability & EV)
+  const retailSub = Math.max(1, Number(input.retailSubscription) || (Number(input.totalSubscription) || 1));
+  const retailProb = Math.round((1.0 / retailSub) * 10000) / 10000;
+  const evPerApplication = Math.round(retailProb * netPostTaxGainPerLot);
+
+  return {
+    engineVersion: "FASP-IPO-v1.0",
+    calculationTimestamp: new Date().toISOString(),
+    issuePrice,
+    rawGmp,
+    rawGmpPercent: Math.round(rawYield * 1000) / 10,
+    lotSize,
+    totalLotInvestment,
+    expectedListingPrice,
+    expectedListingGainPercent: Math.round(expectedReturn * 1000) / 10,
+    expectedGrossGainPerLot: grossGainPerLot,
+    expectedNetPostTaxGainPerLot: netPostTaxGainPerLot,
+    priceRange: {
+      bearishPrice,
+      bearishGainPercent: Math.round(bearReturn * 1000) / 10,
+      basePrice: expectedListingPrice,
+      baseGainPercent: Math.round(expectedReturn * 1000) / 10,
+      bullishPrice,
+      bullishGainPercent: Math.round(bullReturn * 1000) / 10,
+    },
+    applicationEconomics: {
+      retailAllotmentProbability: Math.min(1.0, retailProb),
+      expectedMonetaryValuePerApplication: evPerApplication,
+    },
+    adjustments: {
+      qibMultiplier: Math.round(qibMultiplier * 1000) / 1000,
+      issueSizeFactor: Math.round(issueSizeFactor * 1000) / 1000,
+      marketDriftApplied: Math.round(marketDrift * 10000) / 100,
+      regulatoryCapApplied,
+    },
+    disclaimer: "Grey Market Premium (GMP) is an unregulated OTC indicator and not a guaranteed listing price. Final listing is determined by the stock exchange pre-open call auction.",
+  };
+}

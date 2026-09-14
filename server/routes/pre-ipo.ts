@@ -1,14 +1,19 @@
 import { Express, Request, Response } from "express";
 import { adminService } from "../admin-service";
 import { db } from "../db";
-import { preIpoCompanies, unlistedCompanies } from "@shared/schema";
-import { eq, or, desc } from "drizzle-orm";
+import { preIpoCompanies, unlistedCompanies, companyFinancials } from "@shared/schema";
+import { eq, or, desc, asc } from "drizzle-orm";
 import { logger } from "../logger";
 import { indianApiService } from "../services/indian-api-service";
 import { normalizeCompanyName } from "../utils/string-utils";
+import { calculateIpoListingGain } from "@shared/calculations";
+import {
+	calculateEnterpriseValue,
+	type YearlyFinancial,
+} from "@shared/enterprise-valuation";
 
 // High-conviction curated upcoming Indian Pre-IPO pipeline as standard baseline
-const CURATED_PRE_IPOS = [
+export const CURATED_PRE_IPOS = [
 	{
 		id: "curated-pre-1",
 		companyName: "National Stock Exchange of India (NSE)",
@@ -16,19 +21,19 @@ const CURATED_PRE_IPOS = [
 		category: "Financial Market Infrastructure",
 		exchange: "NSE / BSE",
 		issueSize: "₹18,000 Cr",
-		priceRange: "₹4,800 - ₹5,200",
+		priceRange: "₹1,650 - ₹1,750",
 		lotSize: 10,
-		minInvestment: "₹50,000",
+		minInvestment: "₹17,000",
 		openDate: "Expected Q3 FY26",
 		closeDate: "TBA",
 		listingDate: "Expected 2026",
-		gmp: 650,
-		gmpPercentage: 22.5,
+		gmp: 185,
+		gmpPercentage: 10.9,
 		subscriptionStatus: "Pre-IPO Active",
 		ipoStatus: "sebi_review", // drhp_filed | sebi_approved | sebi_review | pricing | open | listed
 		drhpFilingDate: "2024-11-15",
 		leadUnderwriters: ["Kotak Mahindra Capital", "Morgan Stanley", "Axis Capital", "Citigroup"],
-		currentValuation: "₹2,10,000 Cr",
+		currentValuation: "₹84,000 Cr - ₹86,000 Cr",
 		category_allocation: {
 			retail: "35%",
 			hni: "15%",
@@ -152,7 +157,7 @@ const CURATED_PRE_IPOS = [
 ];
 
 // Curated baseline for live ongoing Indian IPOs (Mainboard & SME)
-const CURATED_LIVE_IPOS = [
+export const CURATED_LIVE_IPOS = [
 	{
 		id: "live-manika-plastech",
 		companyName: "Manika Plastech",
@@ -603,16 +608,27 @@ export function registerPreIPORoutes(app: Express) {
 						liveApiIpos = apiRes.data.map((ipo) => {
 							const lotSize = ipo.lot_size || 50;
 							const priceMin = ipo.price_band_min;
-							const priceMax = ipo.price_band_max;
+							const priceMax = ipo.price_band_max || ipo.cut_off_price || ipo.issue_price;
+							const issuePrice = priceMax || (priceMin ? priceMin : 100);
 							const priceRangeStr = priceMin && priceMax
 								? `₹${priceMin} - ₹${priceMax}`
 								: ipo.issue_price
 									? `₹${ipo.issue_price}`
-									: "Price on Application";
-							const minInvestVal = ipo.min_investment || (priceMin ? priceMin * lotSize : (ipo.issue_price ? ipo.issue_price * lotSize : 15000));
+									: priceMax ? `₹${priceMax}` : "Price on Application";
+							const minInvestVal = ipo.min_investment || (priceMin ? priceMin * lotSize : (ipo.issue_price ? ipo.issue_price * lotSize : issuePrice * lotSize));
 							const subVal = ipo.total_subscription ? Number(ipo.total_subscription) : 0;
+							const isSme = ipo.issue_type === "SME";
 							const gmpVal = ipo.gmp || (priceMax ? Math.round(priceMax * 0.15) : 15);
-							const gmpPctVal = ipo.gmp_percentage || (priceMax ? Number(((gmpVal / priceMax) * 100).toFixed(1)) : 15.0);
+
+							// Institutional listing gain calculation
+							const calc = calculateIpoListingGain({
+								issuePrice,
+								gmp: gmpVal,
+								lotSize,
+								issueSizeCrores: ipo.issue_size ? Number(ipo.issue_size) : undefined,
+								totalSubscription: subVal > 0 ? subVal : undefined,
+								issueType: isSme ? "sme" : "mainboard",
+							});
 
 							return {
 								id: ipo.id || `live-${(ipo.symbol || ipo.company_name).toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
@@ -627,13 +643,20 @@ export function registerPreIPORoutes(app: Express) {
 								closeDate: ipo.close_date,
 								listingDate: ipo.listing_date || "Upcoming",
 								gmp: gmpVal,
-								gmpPercentage: gmpPctVal,
+								gmpPercentage: calc.expectedListingGainPercent,
+								rawGmpPercentage: calc.rawGmpPercent,
+								expectedListingPrice: calc.expectedListingPrice,
+								expectedGrossGainPerLot: calc.expectedGrossGainPerLot,
+								expectedNetPostTaxGainPerLot: calc.expectedNetPostTaxGainPerLot,
+								priceRangeBounds: calc.priceRange,
+								applicationEconomics: calc.applicationEconomics,
+								adjustments: calc.adjustments,
 								subscriptionStatus: subVal > 0 ? `Subscribed ${subVal.toFixed(2)}x` : "Open for Bidding",
 								dayRemaining: calcDaysRemaining(ipo.close_date),
 								retailSubscription: subVal > 0 ? `${(subVal * 1.3).toFixed(1)}x` : "1.0x",
 								hniSubscription: subVal > 0 ? `${(subVal * 0.9).toFixed(1)}x` : "0.8x",
 								institutionalSubscription: subVal > 0 ? `${(subVal * 1.1).toFixed(1)}x` : "1.1x",
-								isSme: ipo.issue_type === "SME",
+								isSme,
 								rhpUrl: ipo.rhp_url || "",
 							};
 						});
@@ -1260,6 +1283,125 @@ export function registerPreIPORoutes(app: Express) {
 		} catch (error: any) {
 			logger.error("Error fetching company details: " + (error?.message || "Unknown error"));
 			res.status(500).json({ error: "Failed to fetch company details" });
+		}
+	});
+
+	// ── Enterprise Valuation endpoint ──────────────────────────────────────────
+	// GET /api/pre-ipo/valuation/:companyId
+	// Returns a full FASP-EV-v1.0 enterprise valuation for a given unlisted /
+	// pre-IPO company using its historical multi-year financial data.
+	app.get("/api/pre-ipo/valuation/:companyId", async (req: Request, res: Response) => {
+		try {
+			const { companyId } = req.params;
+
+			// Fetch the company record
+			const company = await db
+				.select()
+				.from(unlistedCompanies)
+				.where(eq(unlistedCompanies.id, companyId))
+				.limit(1);
+
+			if (!company[0]) {
+				return res.status(404).json({
+					success: false,
+					error: { error_code: "COMPANY_NOT_FOUND", message: `Company ${companyId} not found`, retryable: false },
+				});
+			}
+
+			const co = company[0];
+
+			// Fetch up to 5 years of financials (ascending for CAGR computation)
+			const financials = await db
+				.select()
+				.from(companyFinancials)
+				.where(eq(companyFinancials.companyId, companyId))
+				.orderBy(asc(companyFinancials.financialYear))
+				.limit(5);
+
+			if (financials.length === 0) {
+				return res.status(200).json({
+					success: true,
+					data: null,
+					meta: {
+						timestamp: new Date().toISOString(),
+						version: "1.0",
+						message: "No financial data available for this company yet",
+					},
+				});
+			}
+
+			const yearlyData: YearlyFinancial[] = financials.map((f) => ({
+				financialYear: f.financialYear,
+				revenue: f.revenue ? parseFloat(String(f.revenue)) : null,
+				ebitda: f.ebitda ? parseFloat(String(f.ebitda)) : null,
+				pat: f.pat ? parseFloat(String(f.pat)) : null,
+				netProfit: f.netProfit ? parseFloat(String(f.netProfit)) : null,
+				freeCashFlow: f.freeCashFlow ? parseFloat(String(f.freeCashFlow)) : null,
+				totalDebt: f.totalDebt ? parseFloat(String(f.totalDebt)) : null,
+				networth: f.networth ? parseFloat(String(f.networth)) : null,
+				cash: f.operatingCashFlow ? parseFloat(String(f.operatingCashFlow)) : null,
+			}));
+
+			const otcPrice = parseFloat(
+				co.publishedBuyPrice || co.draftBuyPrice || "0",
+			);
+
+			const evResult = calculateEnterpriseValue({
+				companyName: co.name,
+				sector: co.sector,
+				totalSharesOutstanding: co.totalShares ?? 0,
+				currentOtcPricePerShare: otcPrice,
+				yearlyFinancials: yearlyData,
+			});
+
+			// Attach raw yearwise financials table for frontend display
+			const yearwiseTable = financials.map((f) => ({
+				financialYear: f.financialYear,
+				revenue: f.revenue ? parseFloat(String(f.revenue)) : null,
+				ebitda: f.ebitda ? parseFloat(String(f.ebitda)) : null,
+				pat: f.pat ? parseFloat(String(f.pat)) : null,
+				netProfit: f.netProfit ? parseFloat(String(f.netProfit)) : null,
+				freeCashFlow: f.freeCashFlow ? parseFloat(String(f.freeCashFlow)) : null,
+				totalDebt: f.totalDebt ? parseFloat(String(f.totalDebt)) : null,
+				networth: f.networth ? parseFloat(String(f.networth)) : null,
+				dataSource: f.dataSource,
+				verified: f.verified,
+			}));
+
+			logger.info(`[EV] Valuation computed for ${co.name}`, {
+				event: "EV_COMPUTED",
+				user_id: "system",
+				latency_ms: 0,
+				status: "success",
+				companyId,
+				blendedEV: evResult.blendedEV,
+				fairSharePrice: evResult.fairSharePrice,
+				discountToPremiumPct: evResult.discountToPremiumPct,
+				yearsAnalysed: evResult.yearsAnalysed,
+				engineVersion: evResult.engineVersion,
+			});
+
+			return res.json({
+				success: true,
+				data: {
+					...evResult,
+					yearwiseTable,
+				},
+				meta: {
+					timestamp: new Date().toISOString(),
+					version: "1.0",
+				},
+			});
+		} catch (error: any) {
+			logger.error(`[EV] Valuation endpoint error: ${error?.message}`);
+			return res.status(500).json({
+				success: false,
+				error: {
+					error_code: "EV_COMPUTATION_FAILED",
+					message: error?.message || "Valuation computation failed",
+					retryable: true,
+				},
+			});
 		}
 	});
 

@@ -44,11 +44,14 @@ import {
 	Star,
 	ArrowRight,
 	Building2,
+	FileText,
 } from "lucide-react";
+import { Link } from "wouter";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
+import { calculateIpoListingGain } from "@shared/calculations";
 
 export default function PreIPOPage() {
 	const { toast } = useToast();
@@ -801,8 +804,8 @@ export default function PreIPOPage() {
 														{ipo.category || "Pre-IPO"}
 													</Badge>
 													<Badge variant="outline" className="text-[10px]">
-														{ipo.exchange || "NSE / BSE"}
-													</Badge>
+									<span className="opacity-60">Lists on:</span>&nbsp;{ipo.exchange || "NSE / BSE"}
+								</Badge>
 												</div>
 												<CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">{ipo.companyName}</CardTitle>
 												<CardDescription className="text-xs text-muted-foreground mt-1 max-w-2xl">{ipo.aboutCompany}</CardDescription>
@@ -813,13 +816,25 @@ export default function PreIPOPage() {
 														GMP +{ipo.gmpPercentage}%
 													</Badge>
 												)}
-												<Button
-													size="sm"
-													className="bg-blue-600 hover:bg-blue-700 text-white text-xs shadow-sm"
-													onClick={() => handleOpenInterest(ipo)}
-												>
-													Express Interest
-												</Button>
+												<div className="flex items-center gap-1.5">
+													<Link href={`/research-note-generator?q=${encodeURIComponent(ipo.companyName)}&type=unlisted`}>
+														<Button
+															size="sm"
+															variant="outline"
+															className="text-xs border-slate-300 dark:border-slate-700 hover:border-blue-500 hover:text-blue-600 gap-1 h-8"
+														>
+															<FileText className="h-3 w-3" />
+															Research Note
+														</Button>
+													</Link>
+													<Button
+														size="sm"
+														className="bg-blue-600 hover:bg-blue-700 text-white text-xs shadow-sm h-8"
+														onClick={() => handleOpenInterest(ipo)}
+													>
+														Express Interest
+													</Button>
+												</div>
 											</div>
 										</div>
 
@@ -883,6 +898,92 @@ export default function PreIPOPage() {
 												<span>Lead Underwriters: {ipo.leadUnderwriters.join(", ")}</span>
 											</div>
 										)}
+
+									{/* EV Analysis Summary (FASP-EV-v1.0) */}
+									{ipo.keyMetrics?.fairSharePrice != null && (
+										<div className="mt-3 rounded-lg border border-violet-100 dark:border-violet-900/40 bg-violet-50/50 dark:bg-violet-950/20 p-3 space-y-2">
+											<div className="flex items-center justify-between">
+												<span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide">
+													Enterprise Valuation <span className="font-normal opacity-60">(FASP-EV-v1.0)</span>
+												</span>
+												{ipo.keyMetrics?.evConfidenceScore != null && (
+													<span className="text-[9px] text-muted-foreground">
+														Confidence: {Math.round(Number(ipo.keyMetrics.evConfidenceScore) * 100)}%
+													</span>
+												)}
+											</div>
+											<div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+												<div>
+													<p className="text-[10px] text-muted-foreground">Fair Share Value</p>
+													<p className="font-bold text-slate-900 dark:text-slate-100">
+														₹{Number(ipo.keyMetrics.fairSharePrice).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+													</p>
+												</div>
+												{ipo.keyMetrics?.discountToPremiumPct != null && (
+													<div>
+														<p className="text-[10px] text-muted-foreground">OTC vs Fair Value</p>
+														<p className={`font-bold ${Number(ipo.keyMetrics.discountToPremiumPct) <= -5 ? "text-emerald-600 dark:text-emerald-400" : Number(ipo.keyMetrics.discountToPremiumPct) >= 10 ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
+															{Number(ipo.keyMetrics.discountToPremiumPct) <= 0
+																? `▼ ${Math.abs(Number(ipo.keyMetrics.discountToPremiumPct)).toFixed(1)}% Undervalued`
+																: `▲ ${Number(ipo.keyMetrics.discountToPremiumPct).toFixed(1)}% Premium`}
+														</p>
+													</div>
+												)}
+												{ipo.keyMetrics?.revenueCAGR != null && (
+													<div>
+														<p className="text-[10px] text-muted-foreground">Revenue CAGR</p>
+														<p className="font-semibold text-slate-700 dark:text-slate-300">
+															{Number(ipo.keyMetrics.revenueCAGR) > 0 ? "+" : ""}{Number(ipo.keyMetrics.revenueCAGR).toFixed(1)}% p.a.
+														</p>
+													</div>
+												)}
+												{ipo.keyMetrics?.ebitdaMarginAvg != null && (
+													<div>
+														<p className="text-[10px] text-muted-foreground">Avg EBITDA Margin</p>
+														<p className="font-semibold text-slate-700 dark:text-slate-300">
+															{Number(ipo.keyMetrics.ebitdaMarginAvg).toFixed(1)}%
+														</p>
+													</div>
+												)}
+											</div>
+										</div>
+									)}
+
+									{/* Yearwise Financials Table */}
+									{ipo.yearwiseTable && ipo.yearwiseTable.length > 0 && (
+										<details className="mt-3 group">
+											<summary className="cursor-pointer text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5 select-none">
+												<span className="group-open:rotate-90 transition-transform inline-block">&#9654;</span>
+												Yearwise Financials ({ipo.yearwiseTable.length} year{ipo.yearwiseTable.length > 1 ? "s" : ""})
+											</summary>
+											<div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+												<table className="w-full text-[11px] text-left">
+													<thead>
+														<tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+															<th className="px-3 py-1.5 font-semibold">FY</th>
+															<th className="px-3 py-1.5 font-semibold text-right">Revenue (₹ Cr)</th>
+															<th className="px-3 py-1.5 font-semibold text-right">EBITDA (₹ Cr)</th>
+															<th className="px-3 py-1.5 font-semibold text-right">PAT (₹ Cr)</th>
+															<th className="px-3 py-1.5 font-semibold text-right">Free CF (₹ Cr)</th>
+															<th className="px-3 py-1.5 font-semibold text-right">Net Debt (₹ Cr)</th>
+														</tr>
+													</thead>
+													<tbody>
+														{ipo.yearwiseTable.map((row: any, ridx: number) => (
+															<tr key={ridx} className="border-t border-slate-100 dark:border-slate-800 even:bg-slate-50 dark:even:bg-slate-900/40">
+																<td className="px-3 py-1.5 font-medium">{row.financialYear}</td>
+																<td className="px-3 py-1.5 text-right">{row.revenue != null ? Number(row.revenue).toLocaleString("en-IN", { maximumFractionDigits: 0 }) : "—"}</td>
+																<td className={`px-3 py-1.5 text-right ${row.ebitda != null && Number(row.ebitda) < 0 ? "text-red-600 dark:text-red-400" : ""}`}>{row.ebitda != null ? Number(row.ebitda).toLocaleString("en-IN", { maximumFractionDigits: 0 }) : "—"}</td>
+																<td className={`px-3 py-1.5 text-right ${row.pat != null && Number(row.pat) < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}>{(row.pat ?? row.netProfit) != null ? Number(row.pat ?? row.netProfit).toLocaleString("en-IN", { maximumFractionDigits: 0 }) : "—"}</td>
+																<td className="px-3 py-1.5 text-right">{row.freeCashFlow != null ? Number(row.freeCashFlow).toLocaleString("en-IN", { maximumFractionDigits: 0 }) : "—"}</td>
+																<td className="px-3 py-1.5 text-right">{row.totalDebt != null ? Number(row.totalDebt).toLocaleString("en-IN", { maximumFractionDigits: 0 }) : "—"}</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											</div>
+										</details>
+									)}
 									</CardContent>
 								</Card>
 							);
@@ -893,66 +994,122 @@ export default function PreIPOPage() {
 				{/* Current IPOs Tab */}
 				<TabsContent value="current" className="space-y-6">
 					<div className="grid gap-4">
-						{currentIPOs?.data?.map((ipo: any) => (
-							<Card key={ipo.id} data-testid={`current-ipo-${ipo.id}`}>
-								<CardHeader>
-									<div className="flex justify-between items-start">
-										<div>
-											<CardTitle>{ipo.companyName}</CardTitle>
-											<CardDescription>
-												{ipo.category} • {ipo.exchange}
-											</CardDescription>
+						{currentIPOs?.data?.map((ipo: any) => {
+							const priceMatches = String(ipo.priceRange || "").match(/\d+(?:,\d+)*(?:\.\d+)?/g);
+							const fallbackPrice = priceMatches && priceMatches.length > 0 
+								? parseFloat(priceMatches[priceMatches.length - 1].replace(/,/g, "")) 
+								: 100;
+							const issuePrice = ipo.expectedListingPrice && ipo.gmp
+								? ipo.expectedListingPrice - ipo.gmp
+								: fallbackPrice;
+
+							const calc = calculateIpoListingGain({
+								issuePrice,
+								gmp: Number(ipo.gmp) || 0,
+								lotSize: Number(ipo.lotSize) || 50,
+								issueType: ipo.isSme ? "sme" : "mainboard",
+								totalSubscription: typeof ipo.subscriptionStatus === "string" 
+									? parseFloat(ipo.subscriptionStatus.match(/\d+(?:\.\d+)?/)?.[1] || "1") 
+									: undefined,
+							});
+
+							const expectedPrice = ipo.expectedListingPrice || calc.expectedListingPrice;
+							const gainPct = ipo.gmpPercentage || calc.expectedListingGainPercent;
+							const grossGain = ipo.expectedGrossGainPerLot || calc.expectedGrossGainPerLot;
+							const netGain = ipo.expectedNetPostTaxGainPerLot || calc.expectedNetPostTaxGainPerLot;
+							const bounds = ipo.priceRangeBounds || calc.priceRange;
+							const isCapped = ipo.adjustments?.regulatoryCapApplied || calc.adjustments?.regulatoryCapApplied;
+
+							return (
+								<Card key={ipo.id} data-testid={`current-ipo-${ipo.id}`} className="overflow-hidden border border-slate-200 dark:border-slate-800">
+									<CardHeader className="pb-3">
+										<div className="flex justify-between items-start gap-2">
+											<div>
+												<div className="flex items-center gap-2 flex-wrap mb-1">
+													<CardTitle className="text-base font-bold">{ipo.companyName}</CardTitle>
+													{isCapped && (
+														<Badge variant="outline" className="text-[9px] border-amber-300 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40">
+															SEBI 90% Cap
+														</Badge>
+													)}
+												</div>
+												<CardDescription className="text-xs">
+													{ipo.category} • {ipo.exchange}
+												</CardDescription>
+											</div>
+											<Badge className="bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 shrink-0 text-xs">
+												{ipo.dayRemaining} day{ipo.dayRemaining !== 1 ? "s" : ""} left
+											</Badge>
 										</div>
-										<Badge className="bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300">
-											{ipo.dayRemaining} day{ipo.dayRemaining !== 1 ? "s" : ""}{" "}
-											left
-										</Badge>
-									</div>
-								</CardHeader>
-								<CardContent>
-									<div className="space-y-4">
-										<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+									</CardHeader>
+									<CardContent className="space-y-3">
+										<div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 text-xs">
 											<div>
-												<p className="text-sm text-muted-foreground">
-													Issue Size
-												</p>
-												<p className="font-semibold">{ipo.issueSize}</p>
+												<p className="text-[10px] text-muted-foreground">Issue Size</p>
+												<p className="font-bold text-slate-800 dark:text-slate-200">{ipo.issueSize}</p>
 											</div>
 											<div>
-												<p className="text-sm text-muted-foreground">
-													Price Range
-												</p>
-												<p className="font-semibold">{ipo.priceRange}</p>
+												<p className="text-[10px] text-muted-foreground">Price Range</p>
+												<p className="font-bold text-slate-800 dark:text-slate-200">{ipo.priceRange}</p>
 											</div>
 											<div>
-												<p className="text-sm text-muted-foreground">GMP</p>
-												<p className="font-semibold text-green-600">
-													+₹{ipo.gmp} ({ipo.gmpPercentage}%)
+												<p className="text-[10px] text-muted-foreground">Est. Listing Price</p>
+												<p className="font-bold text-emerald-600">
+													₹{expectedPrice} (+{gainPct}%)
+												</p>
+												<p className="text-[9px] text-muted-foreground">
+													Range: ₹{bounds.bearishPrice} - ₹{bounds.bullishPrice}
 												</p>
 											</div>
 											<div>
-												<p className="text-sm text-muted-foreground">
-													Subscription
-												</p>
-												<p className="font-semibold">
+												<p className="text-[10px] text-muted-foreground">Current Demand</p>
+												<p className="font-bold text-slate-800 dark:text-slate-200">
 													{ipo.subscriptionStatus}
 												</p>
 											</div>
 										</div>
 
-										<div className="space-y-2">
-											<div className="flex justify-between text-sm">
-												<span>Retail: {ipo.retailSubscription}</span>
-												<span>HNI: {ipo.hniSubscription}</span>
-												<span>
-													Institutional: {ipo.institutionalSubscription}
-												</span>
+										{/* Lot Profit & Net Realization */}
+										<div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 text-xs">
+											<div>
+												<span className="text-muted-foreground text-[10px]">Estimated Profit / Lot:</span>
+												<span className="font-bold text-emerald-700 dark:text-emerald-300 ml-1.5">+₹{grossGain.toLocaleString("en-IN")}</span>
+											</div>
+											<div className="text-right">
+												<span className="text-muted-foreground text-[10px]">Net Realization:</span>
+												<span className="font-semibold text-emerald-800 dark:text-emerald-200 ml-1.5">+₹{netGain.toLocaleString("en-IN")} (Post 20% STCG)</span>
 											</div>
 										</div>
-									</div>
-								</CardContent>
-							</Card>
-						))}
+
+										<div className="space-y-1.5">
+											<div className="flex justify-between text-xs text-muted-foreground">
+												<span>Retail: <b className="text-foreground">{ipo.retailSubscription || "1.0x"}</b></span>
+												<span>HNI: <b className="text-foreground">{ipo.hniSubscription || "1.0x"}</b></span>
+												<span>Institutional: <b className="text-foreground">{ipo.institutionalSubscription || "1.0x"}</b></span>
+											</div>
+											{calc.applicationEconomics.retailAllotmentProbability < 1 && (
+												<div className="flex items-center justify-between text-[10px] text-emerald-700 dark:text-emerald-400 pt-1 border-t border-slate-100 dark:border-slate-800">
+													<span>Retail Allotment Chance: ~{(calc.applicationEconomics.retailAllotmentProbability * 100).toFixed(1)}%</span>
+													<span>Application Expected Value (EV): ₹{calc.applicationEconomics.expectedMonetaryValuePerApplication.toLocaleString("en-IN")}</span>
+												</div>
+											)}
+											<div className="flex items-center justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+												<Link href={`/research-note-generator?q=${encodeURIComponent(ipo.companyName)}&type=unlisted`}>
+													<Button
+														size="sm"
+														variant="outline"
+														className="text-xs border-slate-300 dark:border-slate-700 hover:border-blue-500 hover:text-blue-600 gap-1 h-7"
+													>
+														<FileText className="h-3 w-3" />
+														Research Note
+													</Button>
+												</Link>
+											</div>
+										</div>
+									</CardContent>
+								</Card>
+							);
+						})}
 					</div>
 				</TabsContent>
 

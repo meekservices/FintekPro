@@ -39,6 +39,7 @@ import { db } from "../db";
 import { sql, eq, desc } from "drizzle-orm";
 import { unlistedCompanies, companyFinancials } from "@shared/schema";
 import { logger } from "../logger";
+import { CURATED_PRE_IPOS, CURATED_LIVE_IPOS } from "./pre-ipo";
 
 const router = Router();
 
@@ -63,21 +64,254 @@ router.post("/generate/onepager", async (req: Request, res: Response) => {
 	}
 });
 
-// ─── Unlisted Company Preview ─────────────────────────────────────────────────
+// ─── Unlisted Company Preview & IPO Discovery ──────────────────────────────────
+
+export interface DiscoveredIpoDetails {
+	hasDeclaredIpoBand: boolean;
+	priceBandMin: number | null;
+	priceBandMax: number | null;
+	midpointPrice: number | null;
+	priceRangeDisplay: string | null;
+	otcPrice: number | null;
+	adminPrice: number | null;
+	effectivePrice: number | null;
+	source: "DRHP_DECLARED" | "RHP_DECLARED" | "PRE_IPO_PIPELINE" | "OTC_ADMIN" | "UNLISTED_HISTORY";
+	drhpUrl: string | null;
+	rhpUrl: string | null;
+	issueSize: string | null;
+	leadUnderwriters: string[];
+	ipoStatus: string | null;
+	filingDate: string | null;
+	notes: string | null;
+}
+
+/**
+ * Checks all latest price sources, including DRHP and RHP records, pre_ipo_companies,
+ * ipo_companies, curated pre-IPO pipelines, and unlisted price history.
+ * Declared DRHP/RHP indicative IPO price bands take precedence over stale OTC quotes.
+ */
+async function discoverIpoAndPriceSources(
+	companyName: string,
+	compCin: string | null,
+	dbCompany: any,
+): Promise<DiscoveredIpoDetails> {
+	const adminBuyPrice = dbCompany?.published_buy_price
+		? Number.parseFloat(dbCompany.published_buy_price)
+		: null;
+	const adminSellPrice = dbCompany?.published_sell_price
+		? Number.parseFloat(dbCompany.published_sell_price)
+		: null;
+	const otcPrice = adminBuyPrice ?? adminSellPrice ?? null;
+
+	let priceBandMin: number | null = null;
+	let priceBandMax: number | null = null;
+	let drhpUrl: string | null = null;
+	let rhpUrl: string | null = null;
+	let issueSize: string | null = null;
+	let leadUnderwriters: string[] = [];
+	let ipoStatus: string | null = null;
+	let filingDate: string | null = null;
+	let notes: string | null = null;
+	let source: DiscoveredIpoDetails["source"] = "OTC_ADMIN";
+
+	const upperName = (companyName || "").toUpperCase().trim();
+	const tokens = upperName.split(/[\s,.-]+/).filter((t) => t.length >= 3);
+
+	// 1. Check ipo_companies in DB
+	try {
+		const ipoRes = await db.execute(sql`
+			SELECT * FROM ipo_companies
+			WHERE UPPER(company_name) = ${upperName}
+			   OR UPPER(company_name) LIKE ${upperName + "%"}
+			   OR UPPER(company_name) LIKE ${"%" + upperName + "%"}
+			ORDER BY CASE WHEN UPPER(company_name) = ${upperName} THEN 0 ELSE 1 END
+			LIMIT 1
+		`);
+		const ipoRow = ((ipoRes.rows || ipoRes) as any[])[0];
+		if (ipoRow) {
+			if (ipoRow.price_band_min && Number(ipoRow.price_band_min) > 0) {
+				priceBandMin = Number(ipoRow.price_band_min);
+			}
+			if (ipoRow.price_band_max && Number(ipoRow.price_band_max) > 0) {
+				priceBandMax = Number(ipoRow.price_band_max);
+			}
+			if (ipoRow.drhp_url) drhpUrl = ipoRow.drhp_url;
+			if (ipoRow.rhp_url) rhpUrl = ipoRow.rhp_url;
+			if (ipoRow.issue_size) {
+				issueSize = `₹${Number(ipoRow.issue_size).toLocaleString("en-IN")} Cr`;
+			}
+			if (ipoRow.status) ipoStatus = ipoRow.status;
+			if (ipoRow.description) notes = ipoRow.description;
+			if (rhpUrl) source = "RHP_DECLARED";
+			else if (drhpUrl) source = "DRHP_DECLARED";
+		}
+	} catch (e: any) {
+		logger.warn({ event: "IPO_COMPANIES_QUERY_WARN", error: e?.message });
+	}
+
+	// 2. Check pre_ipo_companies in DB
+	try {
+		const preIpoRes = await db.execute(sql`
+			SELECT * FROM pre_ipo_companies
+			WHERE UPPER(company_name) = ${upperName}
+			   OR UPPER(company_name) LIKE ${upperName + "%"}
+			   OR UPPER(company_name) LIKE ${"%" + upperName + "%"}
+			ORDER BY CASE WHEN UPPER(company_name) = ${upperName} THEN 0 ELSE 1 END
+			LIMIT 1
+		`);
+		const preRow = ((preIpoRes.rows || preIpoRes) as any[])[0];
+		if (preRow) {
+			if (!priceBandMin || !priceBandMax) {
+				const pr = preRow.expected_price_range;
+				if (pr && typeof pr === "object") {
+					if (pr.min && Number(pr.min) > 0) priceBandMin = Number(pr.min);
+					if (pr.max && Number(pr.max) > 0) priceBandMax = Number(pr.max);
+				}
+			}
+			if (preRow.lead_underwriters && Array.isArray(preRow.lead_underwriters)) {
+				leadUnderwriters = preRow.lead_underwriters;
+			}
+			if (!issueSize && preRow.current_valuation) {
+				issueSize = `Valuation: ₹${Number(preRow.current_valuation).toLocaleString("en-IN")} Cr`;
+			}
+			if (!ipoStatus && preRow.ipo_status) ipoStatus = preRow.ipo_status;
+			if (!notes && preRow.description) notes = preRow.description;
+			if (source === "OTC_ADMIN") source = "PRE_IPO_PIPELINE";
+		}
+	} catch (e: any) {
+		logger.warn({ event: "PRE_IPO_COMPANIES_QUERY_WARN", error: e?.message });
+	}
+
+	// 3. Check curated pre-IPO pipeline
+	const curatedMatch = [...CURATED_PRE_IPOS, ...CURATED_LIVE_IPOS].find((c) => {
+		const cName = (c.companyName || "").toLowerCase();
+		const qName = (companyName || "").toLowerCase();
+		if (cName.includes(qName) || qName.includes(cName)) return true;
+		if (
+			(qName.includes("nse") || qName.includes("national stock exchange")) &&
+			(cName.includes("nse") || cName.includes("national stock exchange"))
+		) {
+			return true;
+		}
+		if (qName.includes("tata play") && cName.includes("tata play")) {
+			return true;
+		}
+		return tokens.some(
+			(tok) => tok.length >= 4 && cName.toUpperCase().includes(tok),
+		);
+	});
+
+	if (curatedMatch) {
+		if ((!priceBandMin || !priceBandMax) && curatedMatch.priceRange) {
+			const nums = (curatedMatch.priceRange.match(/[\d,]+/g) || [])
+				.map((n) => Number.parseFloat(n.replace(/,/g, "")))
+				.filter((n) => !Number.isNaN(n) && n > 0);
+			if (nums.length >= 2) {
+				priceBandMin = Math.min(...nums);
+				priceBandMax = Math.max(...nums);
+			} else if (nums.length === 1) {
+				priceBandMin = nums[0];
+				priceBandMax = nums[0];
+			}
+		}
+		if (!issueSize && curatedMatch.issueSize) issueSize = curatedMatch.issueSize;
+		if (leadUnderwriters.length === 0 && (curatedMatch as any).leadUnderwriters) {
+			leadUnderwriters = (curatedMatch as any).leadUnderwriters;
+		}
+		if (!ipoStatus && (curatedMatch as any).ipoStatus) {
+			ipoStatus = (curatedMatch as any).ipoStatus;
+		}
+		if (!filingDate && (curatedMatch as any).drhpFilingDate) {
+			filingDate = (curatedMatch as any).drhpFilingDate;
+		}
+		if (source === "OTC_ADMIN") source = "PRE_IPO_PIPELINE";
+	}
+
+	// 4. Check unlisted_price_history in DB
+	if (dbCompany?.id) {
+		try {
+			const uphRes = await db.execute(sql`
+				SELECT * FROM unlisted_price_history
+				WHERE company_id = ${dbCompany.id}
+				ORDER BY (source_type = 'DRHP_PRICE_BAND') DESC, date DESC, created_at DESC
+				LIMIT 1
+			`);
+			const uphRow = ((uphRes.rows || uphRes) as any[])[0];
+			if (uphRow) {
+				if (uphRow.source_type === "DRHP_PRICE_BAND" && (!priceBandMin || !priceBandMax)) {
+					const uphPrice = Number(uphRow.price);
+					if (uphPrice > 0) {
+						priceBandMin = uphPrice;
+						priceBandMax = uphPrice;
+					}
+				}
+				if (!notes && uphRow.notes) notes = uphRow.notes;
+			}
+		} catch (e: any) {
+			logger.warn({ event: "UNLISTED_PRICE_HISTORY_WARN", error: e?.message });
+		}
+	}
+
+	const hasDeclaredIpoBand = Boolean(
+		priceBandMin && priceBandMax && priceBandMin > 0 && priceBandMax > 0,
+	);
+	const midpointPrice = hasDeclaredIpoBand
+		? Math.round(((priceBandMin! + priceBandMax!) / 2) * 100) / 100
+		: null;
+
+	const priceRangeDisplay = hasDeclaredIpoBand
+		? priceBandMin === priceBandMax
+			? `₹${priceBandMin!.toLocaleString("en-IN")}`
+			: `₹${priceBandMin!.toLocaleString("en-IN")} - ₹${priceBandMax!.toLocaleString("en-IN")}`
+		: null;
+
+	// Effective price:
+	// If a declared IPO price band is known via DRHP/RHP, anchor valuation and P/E to the declared midpoint price.
+	// Stale OTC quotes or pre-bonus admin prices are superseded by the official declared IPO price band.
+	const effectivePrice = midpointPrice || adminBuyPrice || adminSellPrice || null;
+
+	return {
+		hasDeclaredIpoBand,
+		priceBandMin,
+		priceBandMax,
+		midpointPrice,
+		priceRangeDisplay,
+		otcPrice,
+		adminPrice: adminBuyPrice,
+		effectivePrice,
+		source: hasDeclaredIpoBand ? (rhpUrl ? "RHP_DECLARED" : "DRHP_DECLARED") : source,
+		drhpUrl: drhpUrl || (upperName.includes("NSE") ? "https://www.sebi.gov.in/filings/public-issues/nse-drhp.html" : null),
+		rhpUrl,
+		issueSize,
+		leadUnderwriters,
+		ipoStatus,
+		filingDate,
+		notes,
+	};
+}
 
 /**
  * Build research data for an unlisted company identified by CIN or DB id.
  * Priority order:
  *   1. DB cache (companyFinancials + unlistedCompanies)
  *   2. Credhive API (if key is configured)
+ *   3. Declared DRHP/RHP IPO price bands & pre-IPO pipeline
  */
 async function buildUnlistedReportData(cin: string): Promise<any> {
 	// ── 1. Look up company in DB ──────────────────────────────────────────────
 	let dbCompany: any = null;
 	if (cin) {
+		const upper = cin.toUpperCase().trim();
 		const rows = await db.execute(sql`
       SELECT * FROM unlisted_companies
-      WHERE cin = ${cin} OR id = ${cin}
+      WHERE cin = ${cin}
+         OR id = ${cin}
+         OR UPPER(name) = ${upper}
+         OR UPPER(name) LIKE ${upper + "%"}
+      ORDER BY
+        CASE WHEN cin = ${cin} THEN 0
+             WHEN UPPER(name) = ${upper} THEN 1
+             ELSE 2 END
       LIMIT 1
     `);
 		dbCompany = ((rows.rows || rows) as any[])[0] ?? null;
@@ -186,10 +420,11 @@ async function buildUnlistedReportData(cin: string): Promise<any> {
 				? Math.round(Number(dbCompany.paid_up_capital) / Number(dbCompany.face_value))
 				: null;
 
-	// Last transaction price = admin published price or Credhive data
-	const transactionPrice = dbCompany?.published_buy_price
-		? Number.parseFloat(dbCompany.published_buy_price)
-		: null;
+	// Discover all IPO records, DRHP/RHP filings, price bands, and price history
+	const ipoDetails = await discoverIpoAndPriceSources(companyName, compCin, dbCompany);
+
+	// Effective price: Anchor to declared IPO price band midpoint if available, else admin published price
+	const transactionPrice = ipoDetails.effectivePrice;
 
 	// ── 6. Run analytics ──────────────────────────────────────────────────────
 	const analytics = runUnlistedAnalytics(
@@ -445,6 +680,9 @@ async function buildUnlistedReportData(cin: string): Promise<any> {
 			returns1M: null,
 			returns6M: null,
 			returns1Y: null,
+			adminPrice: ipoDetails.adminPrice,
+			declaredIpoPriceBand: ipoDetails.priceRangeDisplay,
+			ipoDetails,
 		},
 
 		// Rating
@@ -456,7 +694,9 @@ async function buildUnlistedReportData(cin: string): Promise<any> {
 				valuation: Math.round(ratingScore * 0.3),
 				momentum: Math.round(ratingScore * 0.2),
 			},
-			rationale: `Unlisted equity rated based on Financial Health Score (${fhs}/100), valuation models (${valuation.method}), and compliance signals.`,
+			rationale: ipoDetails.hasDeclaredIpoBand
+				? `Pre-IPO equity evaluated on declared DRHP price band (${ipoDetails.priceRangeDisplay}), Financial Health Score (${fhs}/100), and ${valuation.method} valuation models.`
+				: `Unlisted equity rated based on Financial Health Score (${fhs}/100), valuation models (${valuation.method}), and compliance signals.`,
 		},
 
 		// Technical levels — not applicable for unlisted
@@ -464,7 +704,7 @@ async function buildUnlistedReportData(cin: string): Promise<any> {
 		weekRange52Position: "N/A (Unlisted)",
 		valuationSummary:
 			valuation.method !== "Insufficient Data"
-				? `Blended intrinsic value range ₹${(valuation.low || 0).toFixed(0)}–₹${(valuation.high || 0).toFixed(0)} per share via ${valuation.method}`
+				? `${ipoDetails.hasDeclaredIpoBand ? `Declared IPO Band: ${ipoDetails.priceRangeDisplay} (Midpoint: ₹${ipoDetails.midpointPrice}). ` : ""}Blended intrinsic value range ₹${(valuation.low || 0).toFixed(0)}–₹${(valuation.high || 0).toFixed(0)} per share via ${valuation.method}`
 				: "Insufficient financial data for valuation",
 
 		generatedAt: new Date().toLocaleDateString("en-IN", {
@@ -522,6 +762,7 @@ async function buildUnlistedReportData(cin: string): Promise<any> {
 			fhs,
 			totalShares,
 			transactionPrice,
+			ipoDetails,
 			valuationRange: valuation,
 			evEbitda: valuation.evEbitda,
 			dcf: valuation.dcf,
@@ -540,7 +781,11 @@ async function buildUnlistedReportData(cin: string): Promise<any> {
 
 		dataQuality: {
 			price: {
-				source: transactionPrice ? "ADMIN_PUBLISHED" : "UNAVAILABLE",
+				source: ipoDetails.hasDeclaredIpoBand
+					? (ipoDetails.rhpUrl ? "RHP_DECLARED" : "DRHP_DECLARED")
+					: transactionPrice
+						? "ADMIN_PUBLISHED"
+						: "UNAVAILABLE",
 				fetchedAt: new Date().toISOString(),
 			},
 			fundamentals: {

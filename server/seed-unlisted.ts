@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+import "dotenv/config";
 import { db } from "./db";
 import {
 	unlistedCompanies,
@@ -14,7 +16,7 @@ const sampleCompanies = [
 		name: "National Stock Exchange of India Limited",
 		cin: "U67120MH1992PLC069769",
 		isin: "INE721I01024",
-		sector: "Financial Services",
+		sector: "Market Infrastructure", // Distinct from "Financial Services" to avoid confusion with financial products
 		industry: "Stock Exchanges",
 		rocState: "Maharashtra",
 		incorporationDate: "1992-11-27",
@@ -26,8 +28,8 @@ const sampleCompanies = [
 		listingStage: "pre_ipo",
 		website: "https://www.nseindia.com",
 		description:
-			"National Stock Exchange of India Limited (NSE) is the leading stock exchange of India, located in Mumbai. NSE was established in 1992 as the first dematerialized electronic exchange in the country. It is the 4th largest stock exchange in the world by equity trading volume.",
-		tags: ["pre-ipo", "stock-exchange", "fintech", "blue-chip"],
+			"National Stock Exchange of India Limited (NSE) is the leading stock exchange of India, located in Mumbai. NSE was established in 1992 as the first dematerialized electronic exchange in the country. It is the 4th largest stock exchange in the world by equity trading volume. Note: NSE is a Market Infrastructure Institution (MII) — the exchange itself is an unlisted pre-IPO investment opportunity, distinct from NSE as a trading venue for other securities.",
+		tags: ["pre-ipo", "stock-exchange", "fintech", "blue-chip", "market-infrastructure", "mii"],
 	},
 	{
 		name: "Tata Technologies Limited",
@@ -188,7 +190,7 @@ const sampleFinancials = [
  */
 function calculateRatiosFromFinancials(
 	financial: (typeof sampleFinancials)[0],
-	company: (typeof sampleCompanies)[0],
+	_company: (typeof sampleCompanies)[0],
 ): {
 	companyIndex: number;
 	financialYear: string;
@@ -493,4 +495,22 @@ export async function seedUnlistedMarketplace(userId: string) {
 
 	console.log("Unlisted marketplace seeding complete!");
 	return { companiesCreated: createdCompanyIds.length };
+}
+
+const isMainModule =
+	import.meta.url === `file://${process.argv[1]}` &&
+	!process.argv[1]?.endsWith("dist/index.js");
+if (isMainModule) {
+	(async () => {
+		try {
+			const { users } = await import("@shared/schema");
+			const userRows = await db.select({ id: users.id }).from(users).limit(1);
+			const seedUserId = userRows[0]?.id || "system-seed";
+			await seedUnlistedMarketplace(seedUserId);
+			process.exit(0);
+		} catch (err) {
+			console.error("Seed unlisted marketplace error:", err);
+			process.exit(1);
+		}
+	})();
 }

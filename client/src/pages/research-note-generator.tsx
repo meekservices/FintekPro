@@ -41,7 +41,27 @@ import {
 	CheckCircle2,
 	XCircle,
 	ListChecks,
+	ExternalLink,
 } from "lucide-react";
+
+export interface IpoDetails {
+	hasDeclaredIpoBand: boolean;
+	priceBandMin: number | null;
+	priceBandMax: number | null;
+	midpointPrice: number | null;
+	priceRangeDisplay: string | null;
+	otcPrice: number | null;
+	adminPrice: number | null;
+	effectivePrice: number | null;
+	source: string;
+	drhpUrl?: string | null;
+	rhpUrl?: string | null;
+	issueSize?: string | null;
+	leadUnderwriters?: string[];
+	ipoStatus?: string | null;
+	filingDate?: string | null;
+	notes?: string | null;
+}
 
 interface FinancialData {
 	price: number | null;
@@ -69,6 +89,9 @@ interface FinancialData {
 	returns1Y: number | null;
 	revenue?: number | null;
 	netIncome?: number | null;
+	adminPrice?: number | null;
+	declaredIpoPriceBand?: string | null;
+	ipoDetails?: IpoDetails | null;
 }
 
 interface RatingBreakdown {
@@ -203,6 +226,7 @@ interface UnlistedExtras {
 	};
 	dataSource: string;
 	credhiveAvailable: boolean;
+	ipoDetails?: IpoDetails | null;
 }
 
 interface PreviewData {
@@ -489,6 +513,40 @@ export default function ResearchNoteGenerator() {
 			});
 		},
 	});
+
+	// ── Deep-link query param support (?q=... or ?cin=... or ?symbol=...) ────
+	useEffect(() => {
+		const params = new URLSearchParams(window.location.search);
+		const qParam = params.get("q") || params.get("symbol") || params.get("cin");
+		const cinParam = params.get("cin");
+		const typeParam = params.get("type");
+
+		if (qParam && !searchText) {
+			setSearchText(qParam);
+			setDebouncedSearch(qParam);
+
+			if (cinParam || typeParam === "unlisted") {
+				const isUnlisted = true;
+				const companyTarget = cinParam || qParam;
+				setSelectedCompany({
+					symbol: companyTarget,
+					company_name: qParam,
+					isin: null,
+					sector: null,
+					nse_code: null,
+					bse_code: null,
+					cin: cinParam || qParam,
+					type: "unlisted",
+					listing_stage: "pre_ipo",
+				});
+				previewMutation.mutate({
+					symbol: companyTarget,
+					cin: cinParam || qParam,
+					isUnlisted,
+				});
+			}
+		}
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	const downloadMutation = useMutation({
 		mutationFn: async ({ type }: { type: "ppt" | "pdf" | "onepager" }) => {
@@ -891,9 +949,15 @@ export default function ResearchNoteGenerator() {
 									{d.unlistedExtras?.dataSource === "credhive"
 										? " enriched via Credhive"
 										: " from our database"}
-									. Unlisted securities are highly illiquid. Valuations are
-									indicative and not a solicitation. Past performance and
-									projected returns do not guarantee future results.
+									{d.unlistedExtras?.ipoDetails?.hasDeclaredIpoBand ? (
+										<span>
+											. <strong className="text-emerald-700 dark:text-emerald-300">IPO Price Band Declared: {d.unlistedExtras.ipoDetails.priceRangeDisplay}</strong> (Post-Bonus indicative DRHP/RHP filing). Valuation & P/E metrics are anchored to this declared issue price.
+										</span>
+									) : (
+										<span>
+											. Unlisted securities are highly illiquid. Valuations are indicative and not a solicitation. Past performance and projected returns do not guarantee future results.
+										</span>
+									)}
 									{d.cin && (
 										<span className="ml-2 font-mono text-xs">CIN: {d.cin}</span>
 									)}
@@ -913,6 +977,11 @@ export default function ResearchNoteGenerator() {
 											<span className="text-[10px] font-bold px-2 py-1 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-300 dark:border-amber-700 uppercase tracking-wide">
 												Unlisted
 											</span>
+										)}
+										{d.isUnlisted && d.unlistedExtras?.ipoDetails?.hasDeclaredIpoBand && (
+											<Badge variant="outline" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 text-xs font-semibold">
+												{d.unlistedExtras.ipoDetails.source === "RHP_DECLARED" ? "RHP Declared" : "DRHP Disclosed"}: {d.unlistedExtras.ipoDetails.priceRangeDisplay}
+											</Badge>
 										)}
 									</div>
 									<p className="text-sm text-muted-foreground">
@@ -1499,19 +1568,95 @@ export default function ResearchNoteGenerator() {
 								</CardTitle>
 								{d.isUnlisted && (
 									<p className="text-xs text-muted-foreground mt-0.5">
-										EPS, Book Value and P/B are computed from annual MCA
-										filings.
-										{f.pe !== null
-											? " Implied P/E uses admin-published price."
-											: " Implied P/E and P/B require an admin-published price."}
+										EPS, Book Value and P/B are computed from annual MCA filings.
+										{d.unlistedExtras?.ipoDetails?.hasDeclaredIpoBand
+											? ` Implied P/E and Market Cap anchored to declared DRHP IPO price band (${d.unlistedExtras.ipoDetails.priceRangeDisplay}).`
+											: f.pe !== null
+												? " Implied P/E uses admin-published price."
+												: " Implied P/E and P/B require an admin-published price."}
 									</p>
 								)}
 							</CardHeader>
 							<CardContent>
+								{d.unlistedExtras?.ipoDetails?.hasDeclaredIpoBand && (
+									<div className="mb-3 p-3 rounded-lg border border-emerald-500/30 bg-emerald-50/70 dark:bg-emerald-950/20 text-xs space-y-1.5">
+										<div className="flex items-center justify-between font-semibold text-emerald-800 dark:text-emerald-300">
+											<div className="flex items-center gap-2">
+												<Badge variant="outline" className="border-emerald-500 text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-900/40 text-[11px] font-bold">
+													{d.unlistedExtras.ipoDetails.source === "RHP_DECLARED" ? "RHP Declared" : "DRHP Disclosed Band"}
+												</Badge>
+												<span className="text-sm font-bold tracking-tight">
+													{d.unlistedExtras.ipoDetails.priceRangeDisplay}
+												</span>
+											</div>
+											{d.unlistedExtras.ipoDetails.drhpUrl && (
+												<a
+													href={d.unlistedExtras.ipoDetails.drhpUrl}
+													target="_blank"
+													rel="noreferrer"
+													className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline font-medium text-[11px]"
+												>
+													DRHP Filing <ExternalLink className="h-3 w-3" />
+												</a>
+											)}
+										</div>
+										<div className="grid grid-cols-2 gap-2 text-muted-foreground pt-1 border-t border-emerald-500/20 text-[11px]">
+											<div>
+												<span>Midpoint / Issue Anchor: </span>
+												<strong className="text-foreground">
+													{fmt(d.unlistedExtras.ipoDetails.midpointPrice, cp)}
+												</strong>
+											</div>
+											{d.unlistedExtras.ipoDetails.issueSize && (
+												<div>
+													<span>Issue Size: </span>
+													<strong className="text-foreground">
+														{d.unlistedExtras.ipoDetails.issueSize}
+													</strong>
+												</div>
+											)}
+											{d.unlistedExtras.ipoDetails.ipoStatus && (
+												<div>
+													<span>IPO Status: </span>
+													<strong className="text-foreground capitalize">
+														{d.unlistedExtras.ipoDetails.ipoStatus.replace(/_/g, " ")}
+													</strong>
+												</div>
+											)}
+											{d.unlistedExtras.ipoDetails.adminPrice && d.unlistedExtras.ipoDetails.adminPrice !== d.unlistedExtras.ipoDetails.midpointPrice && (
+												<div>
+													<span>OTC Admin Quote: </span>
+													<strong className="text-foreground">
+														{fmt(d.unlistedExtras.ipoDetails.adminPrice, cp)}
+													</strong>
+												</div>
+											)}
+										</div>
+										{d.unlistedExtras.ipoDetails.leadUnderwriters && d.unlistedExtras.ipoDetails.leadUnderwriters.length > 0 && (
+											<div className="text-[11px] text-muted-foreground pt-0.5 truncate">
+												<span>Lead Underwriters: </span>
+												<span className="text-foreground font-medium">
+													{d.unlistedExtras.ipoDetails.leadUnderwriters.join(", ")}
+												</span>
+											</div>
+										)}
+									</div>
+								)}
 								<div className="grid grid-cols-2 gap-2">
 									<MetricCard
-										label={d.isUnlisted ? "Admin Price" : "Current Price"}
+										label={
+											d.isUnlisted
+												? d.unlistedExtras?.ipoDetails?.hasDeclaredIpoBand
+													? "Declared IPO Price (Mid)"
+													: "Admin Price"
+												: "Current Price"
+										}
 										value={fmt(f.price, cp)}
+										subText={
+											d.unlistedExtras?.ipoDetails?.hasDeclaredIpoBand
+												? `Band: ${d.unlistedExtras.ipoDetails.priceRangeDisplay}`
+												: undefined
+										}
 										highlight
 									/>
 									<MetricCard

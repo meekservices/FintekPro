@@ -1,4 +1,5 @@
 // @ts-nocheck
+/* eslint-disable no-console */
 import { Router, Request, Response } from "express";
 import { resolveCompany, searchExternal } from "../modules/research/resolver";
 import { getFinancialData } from "../modules/research/dataService";
@@ -76,7 +77,7 @@ router.get("/search", async (req: Request, res: Response) => {
 		const pattern = `%${q.toUpperCase()}%`;
 
 		// Run local DB queries + external search in parallel
-		const [listedRows, unlistedRows, externalResults] = await Promise.all([
+		const [listedRows, unlistedRows, preIpoRows, externalResults] = await Promise.all([
 			db.execute(sql`
         SELECT
           symbol,
@@ -86,7 +87,9 @@ router.get("/search", async (req: Request, res: Response) => {
           nse_code,
           bse_code,
           cin,
-          'listed' AS type
+          'listed' AS type,
+          NULL AS unlisted_id,
+          'listed' AS listing_stage
         FROM listed_stocks
         WHERE is_active = true
           AND (
@@ -116,11 +119,12 @@ router.get("/search", async (req: Request, res: Response) => {
           id AS unlisted_id,
           listing_stage
         FROM unlisted_companies
-        WHERE status = 'active'
+        WHERE (status = 'active' OR status = 'pre_ipo')
           AND (
             UPPER(name) LIKE ${pattern}
             OR UPPER(COALESCE(cin, '')) LIKE ${pattern}
             OR UPPER(COALESCE(isin, '')) LIKE ${pattern}
+            OR UPPER(COALESCE(tags::text, '')) LIKE ${pattern}
           )
         ORDER BY
           CASE WHEN UPPER(COALESCE(cin,'')) = ${q.toUpperCase()} THEN 0
@@ -129,20 +133,37 @@ router.get("/search", async (req: Request, res: Response) => {
           name
         LIMIT 7
       `),
+			db.execute(sql`
+        SELECT
+          id AS symbol,
+          NULL AS isin,
+          company_name,
+          sector,
+          NULL AS nse_code,
+          NULL AS bse_code,
+          NULL AS cin,
+          'unlisted' AS type,
+          id AS unlisted_id,
+          COALESCE(ipo_status, 'pre_ipo') AS listing_stage
+        FROM pre_ipo_companies
+        WHERE UPPER(company_name) LIKE ${pattern} OR UPPER(COALESCE(sector, '')) LIKE ${pattern}
+        LIMIT 5
+      `).catch(() => ({ rows: [] })),
 			// External search runs in parallel — never blocks local results
 			searchExternal(q).catch(() => [] as any[]),
 		]);
 
 		const listed = (listedRows.rows || listedRows) as any[];
 		const unlisted = (unlistedRows.rows || unlistedRows) as any[];
+		const preIpos = ((preIpoRows as any)?.rows || preIpoRows || []) as any[];
 		const external = externalResults as any[];
 
-		// Merge: local listed → local unlisted → external, dedup by both symbol and company_name
+		// Merge: local listed → local unlisted → preIpos → external, dedup by both symbol and company_name
 		const seenSym = new Set<string>();
 		const seenName = new Set<string>();
 		const merged: any[] = [];
 
-		for (const r of [...listed, ...unlisted]) {
+		for (const r of [...listed, ...unlisted, ...preIpos]) {
 			const symKey = (r.symbol || "").toUpperCase();
 			const nameKey = (r.company_name || "").toUpperCase();
 			if (!seenSym.has(symKey) && !seenName.has(nameKey)) {

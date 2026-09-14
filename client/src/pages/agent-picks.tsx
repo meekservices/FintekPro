@@ -56,6 +56,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { calculateIpoListingGain } from "@shared/calculations";
 import {
 	TrendingUp,
 	TrendingDown,
@@ -1161,8 +1162,13 @@ export default function AgentPicksPage() {
 													<Badge variant="outline" className="text-[10px] uppercase font-semibold text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30">
 														{item.category || "Pre-IPO"}
 													</Badge>
-													<Badge variant="outline" className="text-[10px] text-slate-600 dark:text-slate-400">
-														{item.exchange || "NSE / BSE"}
+													{/* Instrument type badge — clarifies this is an unlisted equity, not a live IPO */}
+													<Badge variant="outline" className="text-[10px] font-medium text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800 bg-violet-50/40 dark:bg-violet-950/20">
+														Unlisted Equity
+													</Badge>
+													{/* Exchange badge — "Lists on:" prefix prevents confusion with NSE as a company name */}
+													<Badge variant="outline" className="text-[10px] text-slate-500 dark:text-slate-400">
+														<span className="opacity-60">Lists on:</span>&nbsp;{item.exchange || "NSE / BSE"}
 													</Badge>
 												</div>
 												<CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
@@ -1233,7 +1239,64 @@ export default function AgentPicksPage() {
 											</div>
 										</div>
 
-										{/* Underwriters & About */}
+								{/* EV Analysis Row — shown when FASP-EV-v1.0 data is available from backend */}
+								{item.keyMetrics?.fairSharePrice != null && (
+									<div className="rounded-lg border border-violet-100 dark:border-violet-900/40 bg-violet-50/60 dark:bg-violet-950/20 p-2.5 space-y-1.5">
+										<div className="flex items-center justify-between">
+											<span className="text-[10px] font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wide">
+												EV Analysis <span className="font-normal opacity-60">(FASP-EV-v1.0)</span>
+											</span>
+											{item.keyMetrics?.evConfidenceScore != null && (
+												<span className="text-[9px] text-muted-foreground">
+													Confidence: {Math.round(Number(item.keyMetrics.evConfidenceScore) * 100)}%
+												</span>
+											)}
+										</div>
+										<div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+											<div>
+												<p className="text-[9px] text-muted-foreground">Fair Value (Blended EV)</p>
+												<p className="font-bold text-slate-800 dark:text-slate-100">
+													₹{Number(item.keyMetrics.fairSharePrice).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+												</p>
+											</div>
+											<div>
+												<p className="text-[9px] text-muted-foreground">OTC vs Fair Value</p>
+												{item.keyMetrics?.discountToPremiumPct != null ? (
+													<p className={`font-bold ${Number(item.keyMetrics.discountToPremiumPct) <= -5 ? "text-emerald-600 dark:text-emerald-400" : Number(item.keyMetrics.discountToPremiumPct) >= 10 ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
+														{Number(item.keyMetrics.discountToPremiumPct) <= 0
+															? `▼ ${Math.abs(Number(item.keyMetrics.discountToPremiumPct)).toFixed(1)}% Undervalued`
+															: `▲ ${Number(item.keyMetrics.discountToPremiumPct).toFixed(1)}% Premium`}
+													</p>
+												) : <p className="text-muted-foreground">—</p>}
+											</div>
+											{item.keyMetrics?.revenueCAGR != null && (
+												<div>
+													<p className="text-[9px] text-muted-foreground">Revenue CAGR</p>
+													<p className="font-semibold text-slate-700 dark:text-slate-300">
+														{Number(item.keyMetrics.revenueCAGR) > 0 ? "+" : ""}{Number(item.keyMetrics.revenueCAGR).toFixed(1)}% p.a.
+													</p>
+												</div>
+											)}
+											{item.keyMetrics?.ebitdaMarginAvg != null && (
+												<div>
+													<p className="text-[9px] text-muted-foreground">Avg EBITDA Margin</p>
+													<p className="font-semibold text-slate-700 dark:text-slate-300">
+														{Number(item.keyMetrics.ebitdaMarginAvg).toFixed(1)}%
+													</p>
+												</div>
+											)}
+											{item.keyMetrics?.yearsAnalysed != null && (
+												<div className="col-span-2">
+													<p className="text-[9px] text-muted-foreground italic">
+														Based on {item.keyMetrics.yearsAnalysed} year{Number(item.keyMetrics.yearsAnalysed) > 1 ? "s" : ""} of audited financials
+													</p>
+												</div>
+											)}
+										</div>
+									</div>
+								)}
+
+								{/* Underwriters & About */}
 										{item.leadUnderwriters && item.leadUnderwriters.length > 0 && (
 											<div className="text-[11px] text-muted-foreground flex items-center gap-1 truncate">
 												<Building2 className="h-3 w-3 shrink-0 text-slate-400" />
@@ -1273,8 +1336,13 @@ export default function AgentPicksPage() {
 
 	const getCalculatedListingGain = (ipo: any) => {
 		let upperPrice = 0;
-		if (ipo.priceRange) {
-			const matches = String(ipo.priceRange).match(/\d+(?:,\d+)*(?:\.\d+)?/g);
+		if (ipo.priceBandMax || ipo.cutOffPrice || ipo.issuePrice) {
+			upperPrice = Number(ipo.priceBandMax || ipo.cutOffPrice || ipo.issuePrice) || 0;
+		}
+		if (!upperPrice && ipo.priceRange) {
+			// Extract price band portion before brackets/lots e.g. "₹450 - ₹475 (Lot: 30)"
+			const rangePart = String(ipo.priceRange).split("(")[0];
+			const matches = rangePart.match(/\d+(?:,\d+)*(?:\.\d+)?/g);
 			if (matches && matches.length > 0) {
 				upperPrice = parseFloat(matches[matches.length - 1].replace(/,/g, "")) || 0;
 			}
@@ -1287,30 +1355,59 @@ export default function AgentPicksPage() {
 
 		const gmp = Number(ipo.gmp) || 0;
 		const lotSize = Number(ipo.lotSize) || 1;
-		const gmpPct =
-			ipo.gmpPercentage != null && !isNaN(Number(ipo.gmpPercentage))
-				? Number(ipo.gmpPercentage)
-				: upperPrice > 0
-					? Math.round((gmp / upperPrice) * 1000) / 10
-					: 0;
+		const isSme = Boolean(ipo.isSme || ipo.issue_type === "SME" || ipo.category?.toLowerCase()?.includes("sme"));
 
-		const expectedListingPrice = upperPrice + gmp;
-		const gainPerLot = gmp * lotSize;
-		const totalLotInvestment =
-			upperPrice * lotSize > 0
-				? upperPrice * lotSize
-				: parseFloat(String(ipo.minInvestment).replace(/[^0-9.]/g, "")) || 15000;
-		const expectedListingValue = totalLotInvestment + gainPerLot;
+		// Helper to extract subscription numbers
+		const parseSub = (val: any) => {
+			if (typeof val === "number" && !isNaN(val)) return val;
+			if (typeof val === "string") {
+				const m = val.match(/(\d+(?:\.\d+)?)/);
+				return m ? parseFloat(m[1]) : undefined;
+			}
+			return undefined;
+		};
+
+		const totalSub = parseSub(ipo.subscriptionStatus) || parseSub(ipo.totalSubscription) || parseSub(ipo.subscription);
+		const qibSub = parseSub(ipo.institutionalSubscription) || parseSub(ipo.qibSubscription);
+		const retSub = parseSub(ipo.retailSubscription);
+
+		// Issue size in Cr
+		let issueSizeCr: number | undefined = undefined;
+		if (ipo.issueSize) {
+			const m = String(ipo.issueSize).match(/(\d+(?:,\d+)*(?:\.\d+)?)/);
+			if (m) issueSizeCr = parseFloat(m[1].replace(/,/g, ""));
+		}
+
+		const engineRes = calculateIpoListingGain({
+			issuePrice: upperPrice,
+			gmp,
+			lotSize,
+			issueSizeCrores: issueSizeCr,
+			qibSubscription: qibSub,
+			retailSubscription: retSub,
+			totalSubscription: totalSub,
+			issueType: isSme ? "sme" : "mainboard",
+		});
+
+		const totalLotInvestment = upperPrice * lotSize;
+		const expectedListingValue = totalLotInvestment + engineRes.expectedGrossGainPerLot;
 
 		return {
 			upperPrice,
 			gmp,
-			gmpPct,
+			gmpPct: engineRes.expectedListingGainPercent,
+			rawGmpPct: engineRes.rawGmpPercent,
 			lotSize,
-			expectedListingPrice,
-			gainPerLot,
+			expectedListingPrice: engineRes.expectedListingPrice,
+			gainPerLot: engineRes.expectedGrossGainPerLot,
+			netGainPerLot: engineRes.expectedNetPostTaxGainPerLot,
 			totalLotInvestment,
 			expectedListingValue,
+			priceRange: engineRes.priceRange,
+			applicationEconomics: engineRes.applicationEconomics,
+			adjustments: engineRes.adjustments,
+			isSme,
+			disclaimer: engineRes.disclaimer,
 		};
 	};
 
@@ -1325,23 +1422,33 @@ export default function AgentPicksPage() {
 						: `Closes in ${ipo.dayRemaining} days`
 				: ipo.dayRemaining || "Open for Bidding";
 
+		const capNote = calc.adjustments.regulatoryCapApplied
+			? `⚠️ *Note:* Listing gain capped at +90.0% under SEBI SME opening session regulations.\n`
+			: "";
+
 		const text =
 			`🚀 *Live Public IPO Opportunity: ${ipo.companyName}*\n` +
-			`Sector: ${ipo.category} · Exchange: ${ipo.exchange}${ipo.isSme ? " (SME)" : ""}\n\n` +
+			`Sector: ${ipo.category} · Exchange: ${ipo.exchange}${calc.isSme ? " (SME)" : ""}\n\n` +
 			`📊 *Calculated Listing Gain & Metrics:*\n` +
 			`• Issue Price Band: ${ipo.priceRange}\n` +
-			`• Grey Market Premium (GMP): ₹${calc.gmp}/share (+${calc.gmpPct}%)\n` +
-			`• Expected Listing Price: ₹${calc.expectedListingPrice}/share\n` +
+			`• Grey Market Premium (GMP): ₹${calc.gmp}/share (${calc.rawGmpPct > 0 ? `+${calc.rawGmpPct}% raw` : "0%"})\n` +
+			`• *Expected Listing Price: ₹${calc.expectedListingPrice}/share (+${calc.gmpPct}%)*\n` +
+			`• Expected Price Range: ₹${calc.priceRange.bearishPrice} - ₹${calc.priceRange.bullishPrice} (${calc.priceRange.bearishGainPercent}% to +${calc.priceRange.bullishGainPercent}%)\n` +
 			`• Lot Size: ${calc.lotSize} shares (${ipo.minInvestment || `₹${calc.totalLotInvestment.toLocaleString("en-IN")}`})\n` +
-			`• *Estimated Profit / Lot: ₹${calc.gainPerLot.toLocaleString("en-IN")}*\n` +
-			`• Expected Total Listing Value: ₹${calc.expectedListingValue.toLocaleString("en-IN")}\n\n` +
-			`📈 *Subscription Status:*\n` +
+			`• *Estimated Gross Profit / Lot: ₹${calc.gainPerLot.toLocaleString("en-IN")}*\n` +
+			`• Estimated Net Profit / Lot (Post 20% STCG): ₹${calc.netGainPerLot.toLocaleString("en-IN")}\n` +
+			`• Expected Total Listing Value: ₹${calc.expectedListingValue.toLocaleString("en-IN")}\n` +
+			capNote + `\n` +
+			`📈 *Subscription & Allotment Odds:*\n` +
 			`• Demand: ${ipo.subscriptionStatus}\n` +
-			`• Retail: ${ipo.retailSubscription || "1.0x"} | HNI: ${ipo.hniSubscription || "1.0x"} | QIB: ${ipo.institutionalSubscription || "1.0x"}\n\n` +
+			`• Retail: ${ipo.retailSubscription || "1.0x"} | HNI: ${ipo.hniSubscription || "1.0x"} | QIB: ${ipo.institutionalSubscription || "1.0x"}\n` +
+			(calc.applicationEconomics.retailAllotmentProbability < 1
+				? `• Est. Retail Allotment Chance: ${(calc.applicationEconomics.retailAllotmentProbability * 100).toFixed(1)}% (App EV: ₹${calc.applicationEconomics.expectedMonetaryValuePerApplication.toLocaleString("en-IN")})\n\n`
+				: `\n`) +
 			`🗓 *Key Dates:*\n` +
 			`• Issue Closes: ${ipo.closeDate} (${closeStr})\n` +
 			`• Expected Listing Date: ${ipo.listingDate || "Upcoming"}\n\n` +
-			`📌 *SEBI Regulatory Disclaimer:* Grey Market Premium (GMP) is an unofficial sentiment indicator and does not guarantee listing performance. Mutual funds, equity & IPO investments are subject to market risks. Read the Red Herring Prospectus (RHP) carefully before applying via ASBA / UPI.\n\n` +
+			`📌 *SEBI Regulatory Disclaimer:* Grey Market Premium (GMP) is an unofficial OTC sentiment indicator and does not guarantee listing performance. Mutual funds, equity & IPO investments are subject to market risks. Read the Red Herring Prospectus (RHP) carefully before applying via ASBA / UPI.\n\n` +
 			`_Apply via your NetBanking / UPI ASBA or contact our advisor desk for institutional assistance._`;
 
 		window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
@@ -1432,19 +1539,21 @@ export default function AgentPicksPage() {
 										<div className="flex items-start justify-between gap-2">
 											<div className="space-y-1 min-w-0">
 												<div className="flex items-center gap-1.5 flex-wrap">
+													{/* Exchange venue badge — "Lists on:" prefix prevents confusion with NSE as a pre-IPO company */}
 													<Badge
 														variant="outline"
 														className="text-[10px] font-semibold text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700"
 													>
-														{item.exchange || "NSE / BSE"}
+														<span className="opacity-55 font-normal">Lists on:</span>&nbsp;{item.exchange || "NSE / BSE"}
 													</Badge>
+													{/* IPO category badge */}
 													{item.isSme ? (
 														<Badge className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 font-semibold">
-															SME
+															SME IPO
 														</Badge>
 													) : (
 														<Badge className="text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-300 font-semibold">
-															Mainboard
+															Mainboard IPO
 														</Badge>
 													)}
 												</div>
@@ -1473,11 +1582,16 @@ export default function AgentPicksPage() {
 										{/* Calculated Listing Gain Hero Box */}
 										<div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/15 via-teal-500/10 to-indigo-500/10 border border-emerald-200 dark:border-emerald-800/80">
 											<div className="flex items-center justify-between">
-												<div className="flex items-center gap-1.5">
+												<div className="flex items-center gap-1.5 flex-wrap">
 													<TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
 													<span className="text-xs font-semibold text-emerald-900 dark:text-emerald-200">
 														Calculated Listing Gain
 													</span>
+													{calc.adjustments?.regulatoryCapApplied && (
+														<Badge variant="outline" className="text-[9px] border-amber-300 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-1 py-0 font-medium">
+															SEBI 90% Cap
+														</Badge>
+													)}
 												</div>
 												<span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
 													+{calc.gmpPct}%
@@ -1489,15 +1603,18 @@ export default function AgentPicksPage() {
 													<p className="text-[10px] text-muted-foreground">Est. Listing Price</p>
 													<p className="font-bold text-slate-900 dark:text-slate-100">
 														₹{calc.expectedListingPrice}
-														<span className="text-[10px] font-normal text-muted-foreground ml-1">
-															(₹{calc.upperPrice} + ₹{calc.gmp})
-														</span>
+													</p>
+													<p className="text-[10px] text-muted-foreground">
+														Range: ₹{calc.priceRange.bearishPrice} - ₹{calc.priceRange.bullishPrice}
 													</p>
 												</div>
 												<div>
 													<p className="text-[10px] text-muted-foreground">Est. Profit / Lot</p>
 													<p className="font-bold text-emerald-600 dark:text-emerald-400">
 														+₹{calc.gainPerLot.toLocaleString("en-IN")}
+													</p>
+													<p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+														Net: +₹{calc.netGainPerLot.toLocaleString("en-IN")} (Post 20% STCG)
 													</p>
 												</div>
 											</div>
@@ -1550,6 +1667,12 @@ export default function AgentPicksPage() {
 													Inst: <b className="text-foreground">{item.institutionalSubscription || "1.0x"}</b>
 												</span>
 											</div>
+											{calc.applicationEconomics?.retailAllotmentProbability < 1 && (
+												<div className="flex items-center justify-between text-[10px] text-emerald-700 dark:text-emerald-300 font-medium pt-1 border-t border-slate-200/60 dark:border-slate-800/50">
+													<span>Retail Allotment Chance: ~{(calc.applicationEconomics.retailAllotmentProbability * 100).toFixed(1)}%</span>
+													<span>App EV: ₹{calc.applicationEconomics.expectedMonetaryValuePerApplication.toLocaleString("en-IN")}</span>
+												</div>
+											)}
 										</div>
 
 										{/* Action Buttons */}
@@ -6493,6 +6616,19 @@ export default function AgentPicksPage() {
 									<div className="text-right">
 										<p className="font-bold text-sm text-emerald-900 dark:text-emerald-100">₹{calc.totalLotInvestment.toLocaleString("en-IN")}</p>
 										<p className="text-[10px] text-emerald-700 dark:text-emerald-400">Blocked Amount / Lot</p>
+									</div>
+								</div>
+
+								<div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-2 text-[11px]">
+									<div>
+										<p className="text-[10px] text-muted-foreground">Expected Listing Price</p>
+										<p className="font-bold text-emerald-600">₹{calc.expectedListingPrice} (+{calc.gmpPct}%)</p>
+										<p className="text-[10px] text-muted-foreground">Range: ₹{calc.priceRange.bearishPrice} - ₹{calc.priceRange.bullishPrice}</p>
+									</div>
+									<div className="text-right">
+										<p className="text-[10px] text-muted-foreground">Estimated Net Return / Lot</p>
+										<p className="font-bold text-emerald-600">+₹{calc.gainPerLot.toLocaleString("en-IN")}</p>
+										<p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">Net: +₹{calc.netGainPerLot.toLocaleString("en-IN")} (Post 20% STCG)</p>
 									</div>
 								</div>
 

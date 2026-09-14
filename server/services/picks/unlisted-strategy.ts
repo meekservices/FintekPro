@@ -4,7 +4,7 @@ import {
 	companyRatios,
 	companyFinancials,
 } from "@shared/schema";
-import { eq, desc, and, ne, or, isNull } from "drizzle-orm";
+import { eq, asc, and, ne, or, isNull } from "drizzle-orm";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import {
@@ -13,6 +13,11 @@ import {
 	ScoreBreakdown,
 } from "../pick-of-the-day-service";
 import { logger } from "../../logger";
+import {
+	calculateEnterpriseValue,
+	type YearlyFinancial,
+	type EVResult,
+} from "@shared/enterprise-valuation";
 
 export class UnlistedStrategy extends BaseStrategy {
 	category: PickCategory = "unlisted";
@@ -54,22 +59,54 @@ export class UnlistedStrategy extends BaseStrategy {
 						.select()
 						.from(companyRatios)
 						.where(eq(companyRatios.companyId, company.id))
-						.orderBy(desc(companyRatios.financialYear))
-						.limit(1);
+						.orderBy(asc(companyRatios.financialYear))
+						.limit(5); // ← 5-year ascending for CAGR computation
+
+					// 5-year financials ascending — required for yearwise EV analysis
 					const financials = await db
 						.select()
 						.from(companyFinancials)
 						.where(eq(companyFinancials.companyId, company.id))
-						.orderBy(desc(companyFinancials.financialYear))
-						.limit(1);
+						.orderBy(asc(companyFinancials.financialYear))
+						.limit(5);
+
+					// Build EV input from multi-year data
+					const yearlyData: YearlyFinancial[] = financials.map((f) => ({
+						financialYear: f.financialYear,
+						revenue: f.revenue ? parseFloat(String(f.revenue)) : null,
+						ebitda: f.ebitda ? parseFloat(String(f.ebitda)) : null,
+						pat: f.pat ? parseFloat(String(f.pat)) : null,
+						netProfit: f.netProfit ? parseFloat(String(f.netProfit)) : null,
+						freeCashFlow: f.freeCashFlow ? parseFloat(String(f.freeCashFlow)) : null,
+						totalDebt: f.totalDebt ? parseFloat(String(f.totalDebt)) : null,
+						networth: f.networth ? parseFloat(String(f.networth)) : null,
+						cash: f.operatingCashFlow ? parseFloat(String(f.operatingCashFlow)) : null,
+					}));
+
+					const currentPrice = parseFloat(
+						company.publishedBuyPrice || company.draftBuyPrice || "0",
+					);
+
+					let evResult: EVResult | null = null;
+					if (yearlyData.length > 0 && currentPrice > 0) {
+						evResult = calculateEnterpriseValue({
+							companyName: company.name,
+							sector: company.sector,
+							totalSharesOutstanding: company.totalShares ?? 0,
+							currentOtcPricePerShare: currentPrice,
+							yearlyFinancials: yearlyData,
+						});
+					}
 
 					return {
 						company,
 						scoringBreakdown: this.scoreUnlistedWithRatios(
 							company,
-							ratios[0],
-							financials[0],
+							ratios[ratios.length - 1], // latest ratio row for legacy fields
+							financials[financials.length - 1], // latest financial row
+							evResult,
 						),
+						evResult,
 					};
 				}),
 			);
@@ -82,6 +119,7 @@ export class UnlistedStrategy extends BaseStrategy {
 			const top = scoredCompanies[0];
 			const company = top.company;
 			const breakdown = top.scoringBreakdown;
+			const ev = top.evResult;
 
 			const currentPrice = Number.parseFloat(
 				company.publishedBuyPrice || company.draftBuyPrice || "0",
@@ -103,6 +141,10 @@ export class UnlistedStrategy extends BaseStrategy {
 					listingStage: company.listingStage,
 					sector: company.sector,
 					score: breakdown.totalScore,
+					// Pass EV metrics to rationale generator for richer AI output
+					fairSharePrice: ev?.fairSharePrice,
+					discountToPremiumPct: ev?.discountToPremiumPct,
+					revenueCAGR: ev?.revenueCAGR,
 				},
 			});
 
@@ -135,6 +177,17 @@ export class UnlistedStrategy extends BaseStrategy {
 					identityConfidence: company.identityConfidence || undefined,
 					complianceStatus: company.complianceStatus || undefined,
 					score: breakdown.totalScore,
+					// Enterprise Valuation metrics
+					fairSharePrice: ev?.fairSharePrice ?? undefined,
+					blendedEV: ev?.blendedEV ?? undefined,
+					equityValue: ev?.equityValue ?? undefined,
+					discountToPremiumPct: ev?.discountToPremiumPct ?? undefined,
+					revenueCAGR: ev?.revenueCAGR ?? undefined,
+					ebitdaMarginAvg: ev?.ebitdaMarginAvg ?? undefined,
+					yearsAnalysed: ev?.yearsAnalysed ?? undefined,
+					evConfidenceScore: ev?.confidenceScore ?? undefined,
+					evEngineVersion: ev?.engineVersion ?? undefined,
+					evCalculationTimestamp: ev?.calculationTimestamp ?? undefined,
 				},
 			};
 		} catch (error) {
@@ -143,14 +196,25 @@ export class UnlistedStrategy extends BaseStrategy {
 		}
 	}
 
-	score(instrument: any): number {
+	score(_instrument: any): number {
 		return 50;
 	}
 
+	/**
+	 * Scores an unlisted company on 5 dimensions.
+	 * Fundamentals dimension is now EV-aware: rewards companies trading at a
+	 * significant discount to intrinsic enterprise value.
+	 *
+	 * @param company   - Row from unlisted_companies
+	 * @param ratios    - Latest row from company_ratios (may be undefined)
+	 * @param financials - Latest row from company_financials (may be undefined)
+	 * @param evResult  - Output of calculateEnterpriseValue() (may be null)
+	 */
 	private scoreUnlistedWithRatios(
 		company: any,
 		ratios: any,
 		financials: any,
+		evResult: EVResult | null,
 	): ScoreBreakdown {
 		let listingStageScore = 0;
 		if (company.listingStage === "unlisted") listingStageScore = 10;
@@ -180,10 +244,27 @@ export class UnlistedStrategy extends BaseStrategy {
 			governanceScore += 8;
 		if (company.complianceStatus === "cleared") governanceScore += 5;
 
+		// ── EV-aware fundamentals score ────────────────────────────────────────
+		// Primary: discount to EV (most important signal for unlisted picks)
+		// Fallback: single-year ROE if EV not available
 		let fundamentalsScore = 0;
-		const roe = ratios?.roe != null ? Number.parseFloat(ratios.roe) : null;
-		if (roe != null && roe > 20) fundamentalsScore += 20;
-		else if (roe != null && roe > 10) fundamentalsScore += 10;
+		if (evResult !== null) {
+			const d = evResult.discountToPremiumPct; // negative = undervalued
+			if (d <= -30) fundamentalsScore = 25;       // OTC ≥30% below fair value → strong buy
+			else if (d <= -15) fundamentalsScore = 18;  // 15–30% below fair value
+			else if (d <= -5)  fundamentalsScore = 12;  // 5–15% below fair value
+			else if (d <= 10)  fundamentalsScore = 6;   // Near fair value (±10%)
+			else               fundamentalsScore = 0;   // OTC >10% premium → caution
+
+			// Bonus: consistent multi-year revenue growth
+			if (evResult.revenueCAGR !== null && evResult.revenueCAGR > 20) fundamentalsScore += 5;
+			else if (evResult.revenueCAGR !== null && evResult.revenueCAGR > 10) fundamentalsScore += 2;
+		} else {
+			// Legacy fallback when no financial data available
+			const roe = ratios?.roe != null ? Number.parseFloat(ratios.roe) : null;
+			if (roe != null && roe > 20) fundamentalsScore = 20;
+			else if (roe != null && roe > 10) fundamentalsScore = 10;
+		}
 
 		const totalScore =
 			listingStageScore +
@@ -200,7 +281,7 @@ export class UnlistedStrategy extends BaseStrategy {
 			riskAdjustment: 0,
 			fundamentalsScore,
 			totalScore,
-			scoringVersion: "2.5",
+			scoringVersion: "3.0-ev",
 			threshold: 40,
 			riskBand: "Moderate",
 		};
