@@ -50,6 +50,32 @@ export interface GoogleCalendarEventResult {
 }
 
 /**
+ * Interface for OAuth token exchange response
+ */
+export interface GoogleTokenExchangeResult {
+	accessToken?: string | null;
+	refreshToken?: string | null;
+	expiryDate?: number | null;
+	scope?: string | null;
+	tokenType?: string | null;
+}
+
+/**
+ * Interface for connection test diagnostics
+ */
+export interface GoogleCalendarConnectionTestResult {
+	success: boolean;
+	message: string;
+	details?: {
+		calendarId?: string;
+		timeZone?: string;
+		summary?: string;
+		error?: string;
+		statusCode?: number;
+	};
+}
+
+/**
  * Helper to pause execution for a given duration
  */
 async function delay(ms: number): Promise<void> {
@@ -122,9 +148,30 @@ export class GoogleCalendarService {
 	private oauth2Client: OAuth2ClientInstance | null = null;
 	private calendarClient: calendar_v3.Calendar | null = null;
 	private calendarId: string;
+	private clientId: string;
+	private clientSecret: string;
+	private redirectUri: string;
+	private refreshToken: string | null = null;
 
 	constructor() {
 		this.calendarId = process.env.GOOGLE_CALENDAR_ID || "primary";
+		this.clientId =
+			process.env.GOOGLE_CALENDAR_CLIENT_ID ||
+			process.env.GOOGLE_CLIENT_ID ||
+			"";
+		this.clientSecret =
+			process.env.GOOGLE_CALENDAR_CLIENT_SECRET ||
+			process.env.GOOGLE_CLIENT_SECRET ||
+			"";
+		this.redirectUri =
+			process.env.GOOGLE_CALENDAR_REDIRECT_URI ||
+			process.env.GOOGLE_REDIRECT_URI ||
+			"https://developers.google.com/oauthplayground";
+		this.refreshToken =
+			process.env.GOOGLE_CALENDAR_REFRESH_TOKEN ||
+			process.env.GOOGLE_REFRESH_TOKEN ||
+			null;
+
 		this.initializeClient();
 	}
 
@@ -135,34 +182,45 @@ export class GoogleCalendarService {
 	 * Edge cases: Missing credentials will leave client uninitialized; methods check isConfigured().
 	 */
 	private initializeClient(): void {
-		const clientId =
-			process.env.GOOGLE_CALENDAR_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
-		const clientSecret =
+		this.calendarId = process.env.GOOGLE_CALENDAR_ID || this.calendarId || "primary";
+		this.clientId =
+			process.env.GOOGLE_CALENDAR_CLIENT_ID ||
+			process.env.GOOGLE_CLIENT_ID ||
+			this.clientId ||
+			"";
+		this.clientSecret =
 			process.env.GOOGLE_CALENDAR_CLIENT_SECRET ||
-			process.env.GOOGLE_CLIENT_SECRET;
-		const redirectUri =
+			process.env.GOOGLE_CLIENT_SECRET ||
+			this.clientSecret ||
+			"";
+		this.redirectUri =
 			process.env.GOOGLE_CALENDAR_REDIRECT_URI ||
 			process.env.GOOGLE_REDIRECT_URI ||
+			this.redirectUri ||
 			"https://developers.google.com/oauthplayground";
-		const refreshToken =
+		this.refreshToken =
 			process.env.GOOGLE_CALENDAR_REFRESH_TOKEN ||
-			process.env.GOOGLE_REFRESH_TOKEN;
+			process.env.GOOGLE_REFRESH_TOKEN ||
+			this.refreshToken ||
+			null;
 
-		if (clientId && clientSecret && refreshToken) {
+		if (this.clientId && this.clientSecret) {
 			this.oauth2Client = new googleAuth.OAuth2(
-				clientId,
-				clientSecret,
-				redirectUri,
+				this.clientId,
+				this.clientSecret,
+				this.redirectUri,
 			);
 
-			this.oauth2Client.setCredentials({
-				refresh_token: refreshToken,
-			});
+			if (this.refreshToken) {
+				this.oauth2Client.setCredentials({
+					refresh_token: this.refreshToken,
+				});
 
-			this.calendarClient = googleCalendar({
-				version: "v3",
-				auth: this.oauth2Client,
-			});
+				this.calendarClient = googleCalendar({
+					version: "v3",
+					auth: this.oauth2Client,
+				});
+			}
 		}
 	}
 
@@ -173,7 +231,137 @@ export class GoogleCalendarService {
 	 * Edge cases: None.
 	 */
 	public isConfigured(): boolean {
-		return !!(this.calendarClient && this.oauth2Client);
+		if (!this.calendarClient || !this.refreshToken) {
+			this.initializeClient();
+		}
+		return !!(
+			this.calendarClient &&
+			this.oauth2Client &&
+			this.refreshToken
+		);
+	}
+
+	/**
+	 * Purpose: Generates the Google OAuth 2.0 authorization URL for consent.
+	 * Inputs: customRedirectUri (optional), state (optional).
+	 * Outputs: string (OAuth consent URL).
+	 * Edge cases: Throws if clientId or clientSecret are not set.
+	 */
+	public getOAuthUrl(customRedirectUri?: string, state?: string): string {
+		const redirect = customRedirectUri || this.redirectUri;
+		const oauthClient = new googleAuth.OAuth2(
+			this.clientId,
+			this.clientSecret,
+			redirect,
+		);
+
+		const scopes = [
+			"https://www.googleapis.com/auth/calendar",
+			"https://www.googleapis.com/auth/calendar.events",
+			"https://www.googleapis.com/auth/userinfo.email",
+		];
+
+		return oauthClient.generateAuthUrl({
+			access_type: "offline",
+			prompt: "consent",
+			scope: scopes,
+			state,
+		});
+	}
+
+	/**
+	 * Purpose: Exchanges an authorization code for OAuth2 tokens.
+	 * Inputs: code (string authorization code from callback), customRedirectUri (optional).
+	 * Outputs: Promise<GoogleTokenExchangeResult> containing refreshToken and accessToken.
+	 * Edge cases: Throws if code is invalid or expired.
+	 */
+	public async exchangeCodeForTokens(
+		code: string,
+		customRedirectUri?: string,
+	): Promise<GoogleTokenExchangeResult> {
+		const redirect = customRedirectUri || this.redirectUri;
+		const oauthClient = new googleAuth.OAuth2(
+			this.clientId,
+			this.clientSecret,
+			redirect,
+		);
+
+		const { tokens } = await oauthClient.getToken(code);
+
+		if (tokens.refresh_token) {
+			this.refreshToken = tokens.refresh_token;
+			this.oauth2Client = oauthClient;
+			this.oauth2Client.setCredentials(tokens);
+			this.calendarClient = googleCalendar({
+				version: "v3",
+				auth: this.oauth2Client,
+			});
+		}
+
+		return {
+			accessToken: tokens.access_token,
+			refreshToken: tokens.refresh_token,
+			expiryDate: tokens.expiry_date,
+			scope: tokens.scope,
+			tokenType: tokens.token_type,
+		};
+	}
+
+	/**
+	 * Purpose: Tests connection by reading metadata of the primary calendar.
+	 * Inputs: None.
+	 * Outputs: Promise<GoogleCalendarConnectionTestResult>.
+	 * Edge cases: Returns informative error when token is invalid or expired.
+	 */
+	public async testConnection(): Promise<GoogleCalendarConnectionTestResult> {
+		if (!this.clientId || !this.clientSecret) {
+			return {
+				success: false,
+				message:
+					"Google Calendar OAuth credentials not configured (missing GOOGLE_CALENDAR_CLIENT_ID or GOOGLE_CALENDAR_CLIENT_SECRET).",
+			};
+		}
+
+		if (!this.refreshToken) {
+			return {
+				success: false,
+				message:
+					"Google Calendar refresh token missing (GOOGLE_CALENDAR_REFRESH_TOKEN). Please complete OAuth authorization flow.",
+			};
+		}
+
+		if (!this.calendarClient) {
+			this.initializeClient();
+		}
+
+		try {
+			const res = await withRetry(async () => {
+				return await this.calendarClient!.calendars.get({
+					calendarId: this.calendarId,
+				});
+			}, "calendars.get");
+
+			return {
+				success: true,
+				message: "Google Calendar credentials verified successfully.",
+				details: {
+					calendarId: res.data.id || this.calendarId,
+					timeZone: res.data.timeZone || "UTC",
+					summary: res.data.summary || "Primary Calendar",
+				},
+			};
+		} catch (error: any) {
+			const errorMsg = error.response?.data?.error?.message || error.message;
+			const statusCode = error.status || error.response?.status;
+			return {
+				success: false,
+				message: "Failed to connect to Google Calendar API.",
+				details: {
+					error: errorMsg,
+					statusCode,
+				},
+			};
+		}
 	}
 
 	/**
@@ -424,6 +612,44 @@ export class GoogleCalendarService {
 			if (error.status === 404) {
 				return null;
 			}
+			throw error;
+		}
+	}
+
+	/**
+	 * Purpose: Lists upcoming events from the primary calendar.
+	 * Inputs: maxResults (number, default 20), timeMin (Date, default now).
+	 * Outputs: Promise<calendar_v3.Schema$Event[]>.
+	 * Edge cases: Returns empty array on empty calendar or when not configured.
+	 */
+	public async listUpcomingEvents(
+		maxResults: number = 20,
+		timeMin: Date = new Date(),
+	): Promise<calendar_v3.Schema$Event[]> {
+		if (!this.isConfigured() || !this.calendarClient) {
+			throw new Error("Google Calendar credentials are not configured");
+		}
+
+		try {
+			const res = await withRetry(async () => {
+				return await this.calendarClient!.events.list({
+					calendarId: this.calendarId,
+					timeMin: timeMin.toISOString(),
+					maxResults,
+					singleEvents: true,
+					orderBy: "startTime",
+				});
+			}, "events.list");
+
+			return res.data.items || [];
+		} catch (error: any) {
+			console.error(
+				JSON.stringify({
+					event: "GOOGLE_CALENDAR_LIST_ERROR",
+					message: error.message,
+					timestamp: new Date().toISOString(),
+				}),
+			);
 			throw error;
 		}
 	}

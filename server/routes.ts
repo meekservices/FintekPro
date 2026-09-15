@@ -31,6 +31,7 @@ import agentClientOrdersRoutes from "./routes/agent-client-orders";
 import agentMarketAlertsRoutes from "./routes/agent-market-alerts";
 import meetingRoutes from "./routes/meeting-bookings-1";
 import meetingRoutes2 from "./routes/meeting-bookings-2";
+import googleCalendarRoutes from "./routes/google-calendar-routes";
 import unifiedCartRouter from "./routes/unified-cart";
 import { registerKYCWizardRoutes } from "./routes/kyc/index";
 import { registerKycV2ExtensionRoutes } from "./routes/kyc/v2-extensions";
@@ -360,6 +361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 	app.use("/api/meetings", meetingRoutes);
 	app.use("/api/meetings", meetingRoutes2);
+	app.use("/api/google-calendar", googleCalendarRoutes);
 	app.use("/api/unified-cart", unifiedCartRouter);
 
 	// Named export registrations
