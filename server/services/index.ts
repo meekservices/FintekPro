@@ -18,4 +18,5 @@ export { quantOrchestrator } from "./quant/quant-orchestrator";
 export { mfSebiOverlapService } from "./mf-sebi-overlap-service";
 export { mfReturnsSyncService } from "./mf-returns-sync-service";
 export { googleCalendarService, GoogleCalendarService } from "./google-calendar-service";
+export { videoConferencingService, VideoConferencingService } from "./video-conferencing-service";
 

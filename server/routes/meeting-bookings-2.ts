@@ -1,8 +1,10 @@
+/* eslint-disable no-console */
 import { Router } from "express";
 import { db } from "../db";
 import { meetingBookings, users } from "@shared/schema";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
 import { zohoMeetingService } from "../services/zoho-meeting-service";
+import { videoConferencingService, VideoPlatform } from "../services/video-conferencing-service";
 import { meetingNotificationService } from "../services/meeting-notification-service";
 import { z } from "zod";
 
@@ -43,7 +45,16 @@ const agentBookMeetingSchema = z.object({
 	scheduledAt: z.string().transform((val) => new Date(val)),
 	duration: z.number().min(15).max(120).default(30),
 	timezone: z.string().default("Asia/Kolkata"),
+	platform: z.enum(["google", "zoho", "teams", "auto"]).default("auto").optional(),
 	agentNotes: z.string().optional(),
+});
+
+router.get("/providers", (req, res) => {
+	res.json({
+		success: true,
+		providers: videoConferencingService.getAvailableProviders(),
+		defaultProvider: "google",
+	});
 });
 
 router.post("/agent-book", async (req, res) => {
@@ -85,13 +96,15 @@ router.post("/agent-book", async (req, res) => {
 			Boolean,
 		) as string[];
 
-		const zohoMeeting = await zohoMeetingService.createMeeting({
+		const meetingSession = await videoConferencingService.createMeeting({
 			topic: data.topic,
-			agenda: data.description,
+			description: data.description,
 			startTime: data.scheduledAt,
 			duration: data.duration,
 			timezone: data.timezone,
 			participantEmails,
+			platform: (data.platform as VideoPlatform) || "auto",
+			userId: agentId,
 		});
 
 		const [booking] = await db
@@ -104,9 +117,9 @@ router.post("/agent-book", async (req, res) => {
 				scheduledAt: data.scheduledAt,
 				duration: data.duration,
 				timezone: data.timezone,
-				zohoMeetingId: zohoMeeting.meetingId,
-				joinLink: zohoMeeting.joinLink,
-				startLink: zohoMeeting.startLink,
+				zohoMeetingId: meetingSession.meetingId,
+				joinLink: meetingSession.joinLink,
+				startLink: meetingSession.startLink,
 				status: "confirmed",
 				agentNotes: data.agentNotes,
 				confirmedAt: new Date(),
@@ -393,14 +406,15 @@ router.post("/:id/approve", async (req, res) => {
 			? new Date(scheduledAt)
 			: request.scheduledAt;
 
-		// Create Zoho meeting
-		const zohoMeeting = await zohoMeetingService.createMeeting({
+		// Create video meeting session (Google Meet / Teams / Zoho)
+		const meetingSession = await videoConferencingService.createMeeting({
 			topic: request.topic,
-			agenda: request.description || undefined,
+			description: request.description || undefined,
 			startTime: meetingTime,
 			duration: request.duration || 30,
 			timezone: request.timezone || "Asia/Kolkata",
 			participantEmails,
+			userId: user.id,
 		});
 
 		// Update the request with meeting details
@@ -409,9 +423,9 @@ router.post("/:id/approve", async (req, res) => {
 			.set({
 				status: "confirmed",
 				scheduledAt: meetingTime,
-				zohoMeetingId: zohoMeeting.meetingId,
-				joinLink: zohoMeeting.joinLink,
-				startLink: zohoMeeting.startLink,
+				zohoMeetingId: meetingSession.meetingId,
+				joinLink: meetingSession.joinLink,
+				startLink: meetingSession.startLink,
 				agentNotes: agentNotes,
 				confirmedAt: new Date(),
 				updatedAt: new Date(),
@@ -616,28 +630,29 @@ router.patch("/:id/reschedule", async (req, res) => {
 			Boolean,
 		) as string[];
 
-		// Cancel old Zoho meeting if exists
+		// Cancel old video meeting if exists
 		if (booking.zohoMeetingId) {
-			await zohoMeetingService.cancelMeeting(booking.zohoMeetingId);
+			await videoConferencingService.cancelMeeting(booking.zohoMeetingId, undefined, userId);
 		}
 
-		// Create new Zoho meeting
-		const zohoMeeting = await zohoMeetingService.createMeeting({
+		// Create new video meeting
+		const meetingSession = await videoConferencingService.createMeeting({
 			topic: booking.topic,
-			agenda: booking.description || undefined,
+			description: booking.description || undefined,
 			startTime: data.scheduledAt,
 			duration: booking.duration || 30,
 			timezone: booking.timezone || "Asia/Kolkata",
 			participantEmails,
+			userId: userId,
 		});
 
 		const [updated] = await db
 			.update(meetingBookings)
 			.set({
 				scheduledAt: data.scheduledAt,
-				zohoMeetingId: zohoMeeting.meetingId,
-				joinLink: zohoMeeting.joinLink,
-				startLink: zohoMeeting.startLink,
+				zohoMeetingId: meetingSession.meetingId,
+				joinLink: meetingSession.joinLink,
+				startLink: meetingSession.startLink,
 				updatedAt: new Date(),
 			})
 			.where(eq(meetingBookings.id, id))

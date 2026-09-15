@@ -1,8 +1,10 @@
+/* eslint-disable no-console */
 import { Router } from "express";
 import { db } from "../db";
 import { meetingBookings, users } from "@shared/schema";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
 import { zohoMeetingService } from "../services/zoho-meeting-service";
+import { videoConferencingService, VideoPlatform } from "../services/video-conferencing-service";
 import { meetingNotificationService } from "../services/meeting-notification-service";
 import { z } from "zod";
 
@@ -102,6 +104,7 @@ router.post("/schedule", async (req, res) => {
 				scheduledAt: z.string().transform((val) => new Date(val)),
 				duration: z.number().min(15).max(120).default(30),
 				timezone: z.string().default("Asia/Kolkata"),
+				platform: z.enum(["google", "zoho", "teams", "auto"]).default("auto").optional(),
 				agentNotes: z.string().optional(),
 			})
 			.parse(req.body);
@@ -130,13 +133,15 @@ router.post("/schedule", async (req, res) => {
 			Boolean,
 		) as string[];
 
-		const zohoMeeting = await zohoMeetingService.createMeeting({
+		const meetingSession = await videoConferencingService.createMeeting({
 			topic: data.topic,
-			agenda: data.description,
+			description: data.description,
 			startTime: data.scheduledAt,
 			duration: data.duration,
 			timezone: data.timezone,
 			participantEmails,
+			platform: (data.platform as VideoPlatform) || "auto",
+			userId: user.id,
 		});
 
 		const [booking] = await db
@@ -149,9 +154,9 @@ router.post("/schedule", async (req, res) => {
 				scheduledAt: data.scheduledAt,
 				duration: data.duration,
 				timezone: data.timezone,
-				zohoMeetingId: zohoMeeting.meetingId,
-				joinLink: zohoMeeting.joinLink,
-				startLink: zohoMeeting.startLink,
+				zohoMeetingId: meetingSession.meetingId,
+				joinLink: meetingSession.joinLink,
+				startLink: meetingSession.startLink,
 				status: "confirmed",
 				agentNotes: data.agentNotes,
 				confirmedAt: new Date(),
@@ -358,6 +363,7 @@ const bookMeetingSchema = z.object({
 	scheduledAt: z.string().transform((val) => new Date(val)),
 	duration: z.number().min(15).max(120).default(30),
 	timezone: z.string().default("Asia/Kolkata"),
+	platform: z.enum(["google", "zoho", "teams", "auto"]).default("auto").optional(),
 	clientNotes: z.string().optional(),
 });
 
@@ -394,13 +400,15 @@ router.post("/book", async (req, res) => {
 			Boolean,
 		) as string[];
 
-		const zohoMeeting = await zohoMeetingService.createMeeting({
+		const meetingSession = await videoConferencingService.createMeeting({
 			topic: data.topic,
-			agenda: data.description,
+			description: data.description,
 			startTime: data.scheduledAt,
 			duration: data.duration,
 			timezone: data.timezone,
 			participantEmails,
+			platform: (data.platform as VideoPlatform) || "auto",
+			userId: userId,
 		});
 
 		const [booking] = await db
@@ -413,9 +421,9 @@ router.post("/book", async (req, res) => {
 				scheduledAt: data.scheduledAt,
 				duration: data.duration,
 				timezone: data.timezone,
-				zohoMeetingId: zohoMeeting.meetingId,
-				joinLink: zohoMeeting.joinLink,
-				startLink: zohoMeeting.startLink,
+				zohoMeetingId: meetingSession.meetingId,
+				joinLink: meetingSession.joinLink,
+				startLink: meetingSession.startLink,
 				status: "confirmed",
 				clientNotes: data.clientNotes,
 				confirmedAt: new Date(),
@@ -629,7 +637,7 @@ router.patch("/:id/cancel", async (req, res) => {
 		}
 
 		if (booking[0].zohoMeetingId) {
-			await zohoMeetingService.cancelMeeting(booking[0].zohoMeetingId);
+			await videoConferencingService.cancelMeeting(booking[0].zohoMeetingId, undefined, userId);
 		}
 
 		const [updated] = await db

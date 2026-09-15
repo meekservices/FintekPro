@@ -20,6 +20,7 @@ import {
 } from "@shared/schema/admin-copilot";
 import { eq } from "drizzle-orm";
 import { createZohoMeetingService } from "../../zoho/services/meeting";
+import { videoConferencingService, VideoPlatform } from "../video-conferencing-service";
 import { callGemini } from "../../gemini-service";
 import { auditLog } from "../../logger";
 import { createTaskFromSource } from "./taskAgent";
@@ -132,7 +133,8 @@ export async function sendMeetingInvite(
 	meetingActionId: string,
 	connectionId: string,
 	adminUserId: string,
-): Promise<{ zohoMeetingId: string; joiningLink: string }> {
+	platform?: VideoPlatform,
+): Promise<{ zohoMeetingId: string; joiningLink: string; platform: string }> {
 	const start = Date.now();
 
 	const [record] = await db
@@ -145,21 +147,24 @@ export async function sendMeetingInvite(
 	if (record.approvalStatus !== "approved")
 		throw new Error("Meeting invite not yet approved");
 
-	const svc = buildMeetingService(connectionId);
-	const attendees =
-		(record.attendees as { name: string; email: string }[] | null) || [];
+	const rawAttendees = Array.isArray(record.attendees) ? record.attendees : [];
+	const participantEmails = rawAttendees
+		.map((a: any) => (typeof a === "string" ? a : a?.email))
+		.filter(Boolean) as string[];
 
-	const zohoMeeting = await svc.createMeeting({
+	const session = await videoConferencingService.createMeeting({
 		topic: record.title,
-		agenda: record.description || "",
+		description: record.description || "",
 		startTime: record.scheduledAt ? new Date(record.scheduledAt) : new Date(),
 		duration: record.durationMin || 60,
 		timezone: record.timezone || "Asia/Kolkata",
-		participants: attendees.map((a) => ({ email: a.email, name: a.name })),
+		participantEmails,
+		platform: platform || "auto",
+		userId: adminUserId,
 	});
 
-	const meetingKey = zohoMeeting.meeting_key || "";
-	const joiningLink = zohoMeeting.join_url || "";
+	const meetingKey = session.meetingId || "";
+	const joiningLink = session.joinLink || "";
 
 	await db
 		.update(aiMeetingActions)
@@ -179,17 +184,17 @@ export async function sendMeetingInvite(
 		agentAction: "send_invite",
 		entityId: meetingActionId,
 		entityType: "ai_meeting_actions",
-		outputSummary: `Invite sent to ${attendees.length} attendees. Link: ${joiningLink.substring(0, 50)}`,
+		outputSummary: `Invite sent to ${rawAttendees.length} attendees. Link: ${joiningLink.substring(0, 50)}`,
 		latencyMs: Date.now() - start,
 		status: "success",
 		approvalStatus: "approved",
 		externalApiCalled: true,
-		externalService: "zoho_meeting",
+		externalService: session.platform,
 		externalCallStatus: "success",
 		externalCallMs: Date.now() - start,
 	});
 
-	return { zohoMeetingId: meetingKey, joiningLink };
+	return { zohoMeetingId: meetingKey, joiningLink, platform: session.platform };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
