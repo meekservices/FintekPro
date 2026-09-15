@@ -40,6 +40,7 @@ import { db } from "../db";
 import { sql, eq, desc } from "drizzle-orm";
 import { unlistedCompanies, companyFinancials } from "@shared/schema";
 import { objectStorageClient } from "../objectStorage";
+import { buildUnlistedReportData } from "./research-note-routes-2";
 
 const REPORT_BUCKET =
 	process.env.PRIVATE_OBJECT_DIR?.split("/")[1] ||
@@ -183,6 +184,24 @@ router.get("/search", async (req: Request, res: Response) => {
 				merged.push(r);
 			}
 		}
+
+		// Intelligent ranking: exact symbol > exact name > acronym/parentheses > prefix > word match > substring
+		const qUpper = q.toUpperCase();
+		const scoreResult = (r: any): number => {
+			const sym = (r.symbol || "").toUpperCase();
+			const name = (r.company_name || "").toUpperCase();
+			if (sym === qUpper) return 1000;
+			if (name === qUpper) return 950;
+			if (name.includes(`(${qUpper})`)) return 900; // e.g. "National Stock Exchange (NSE)"
+			if (name.startsWith(qUpper + " ")) return 850;
+			if (sym.startsWith(qUpper)) return 800;
+			const words = name.split(/[\s,.-]+/);
+			if (words.includes(qUpper)) return 750;
+			if (name.includes(qUpper)) return 400;
+			return 100;
+		};
+
+		merged.sort((a, b) => scoreResult(b) - scoreResult(a));
 
 		res.json(merged.slice(0, 15));
 	} catch (err: any) {
@@ -625,6 +644,12 @@ router.post("/preview", async (req: Request, res: Response) => {
 		const { symbol } = req.body;
 		if (!symbol?.trim())
 			return res.status(400).json({ error: "Symbol is required" });
+
+		const upperSym = symbol.trim().toUpperCase();
+		if (upperSym === "NSE" || upperSym === "PRE-NSE-01" || upperSym.startsWith("U67120MH1992PLC069769")) {
+			const unlistedData = await buildUnlistedReportData("U67120MH1992PLC069769");
+			return res.json(unlistedData);
+		}
 
 		// Hard 55-second timeout — Cloud Run's load balancer cuts connections at 60s
 		// and returns a raw 502. By timing out at 55s we return a clean 504 JSON

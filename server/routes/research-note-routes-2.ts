@@ -297,7 +297,7 @@ async function discoverIpoAndPriceSources(
  *   2. Credhive API (if key is configured)
  *   3. Declared DRHP/RHP IPO price bands & pre-IPO pipeline
  */
-async function buildUnlistedReportData(cin: string): Promise<any> {
+export async function buildUnlistedReportData(cin: string): Promise<any> {
 	// ── 1. Look up company in DB ──────────────────────────────────────────────
 	let dbCompany: any = null;
 	if (cin) {

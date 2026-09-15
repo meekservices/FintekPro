@@ -80,6 +80,9 @@ export interface ScreenerData {
 	operatingMargin: number | null; // decimal fraction
 	marketCapCr: number | null; // Market Cap in ₹ Crores — scraped from Screener.in #top section
 	faceValue?: number | null; // Face value from Screener.in #top section
+	currentPrice?: number | null; // Live price from Screener.in #top section
+	fiftyTwoWeekHigh?: number | null; // 52W High from Screener.in #top section
+	fiftyTwoWeekLow?: number | null; // 52W Low from Screener.in #top section
 	// Extended historical data
 	plHistory: HistoricalTable | null;
 	bsHistory: HistoricalTable | null;
@@ -456,6 +459,23 @@ async function fetchFromMoneycontrol(
 		throw new Error(`Moneycontrol: ${body?.message ?? "bad response"} for ${sym}`);
 
 	const d = body?.data ?? {};
+
+	// Strict verification: Moneycontrol's pricefeed can map tickers to arbitrary internal companies
+	// (e.g. /nse/equitycash/BSE returns Reliance Infrastructure with NSEID: "RELINFRA").
+	// We MUST reject any response whose NSEID or symbol does not match the requested symbol.
+	const returnedNseId = (d.NSEID || "").trim().toUpperCase();
+	const returnedSymbol = (d.symbol || "").trim().toUpperCase();
+	if (returnedNseId && returnedNseId !== sym) {
+		throw new Error(
+			`Moneycontrol ticker mismatch: expected ${sym}, got ${returnedNseId} (${d.SC_FULLNM ?? "unknown"})`,
+		);
+	}
+	if (!returnedNseId && returnedSymbol && returnedSymbol !== sym) {
+		throw new Error(
+			`Moneycontrol ticker mismatch: expected ${sym}, got ${returnedSymbol} (${d.SC_FULLNM ?? "unknown"})`,
+		);
+	}
+
 	const pf = (v: any): number | null => {
 		if (v === null || v === undefined || v === "" || v === "N/A") return null;
 		const n = typeof v === "number" ? v : Number.parseFloat(String(v).replace(/,/g, ""));
@@ -1198,6 +1218,9 @@ function emptyScreenerData(): ScreenerData {
 		operatingMargin: null,
 		marketCapCr: null,
 		faceValue: null,
+		currentPrice: null,
+		fiftyTwoWeekHigh: null,
+		fiftyTwoWeekLow: null,
 		plHistory: null,
 		bsHistory: null,
 		cfHistory: null,
@@ -1238,9 +1261,27 @@ function parseScreenerHtml(html: string, nseSymbol: string): ScreenerData {
 	let pb: number | null = null;
 	let marketCapCr: number | null = null;
 	let faceValue: number | null = null;
+	let currentPrice: number | null = null;
+	let fiftyTwoWeekHigh: number | null = null;
+	let fiftyTwoWeekLow: number | null = null;
 
 	for (const item of liItems) {
 		const lower = item.toLowerCase();
+		// Current Price: "Current Price ₹ 3,384"
+		if (/current price/.test(lower) && currentPrice === null) {
+			const cpMatch = item.match(/(?:₹|Rs\.?)?\s*([\d,\.]+)/i);
+			if (cpMatch) currentPrice = parseNum(cpMatch[1]);
+			continue;
+		}
+		// High / Low: "High / Low ₹ 4,447 / 2,022"
+		if (/high\s*\/\s*low/.test(lower) && fiftyTwoWeekHigh === null) {
+			const hlMatch = item.match(/(?:₹|Rs\.?)?\s*([\d,\.]+)\s*\/\s*(?:₹|Rs\.?)?\s*([\d,\.]+)/i);
+			if (hlMatch) {
+				fiftyTwoWeekHigh = parseNum(hlMatch[1]);
+				fiftyTwoWeekLow = parseNum(hlMatch[2]);
+			}
+			continue;
+		}
 		// Market Cap: "Market Cap ₹1,234 Cr" — must check before generic numMatch to handle commas
 		if (/market cap/.test(lower) && marketCapCr === null) {
 			const mcMatch = item.match(/(?:₹|Rs\.?)?\s*([\d,\.]+)\s*(?:Cr|cr)?/i);
@@ -1616,6 +1657,9 @@ function parseScreenerHtml(html: string, nseSymbol: string): ScreenerData {
 		operatingMargin,
 		marketCapCr,
 		faceValue,
+		currentPrice,
+		fiftyTwoWeekHigh,
+		fiftyTwoWeekLow,
 		plHistory,
 		bsHistory,
 		cfHistory,
@@ -2042,10 +2086,11 @@ function buildFull(
 ): FinancialData {
 	// Price fallback chain (highest quality first):
 	//  1. Live price from NSE / Moneycontrol / Yahoo (base.price)
-	//  2. DB current_price — written by background price-sync cron (dbData.dbPrice)
-	//  3. DB last_vwap — last VWAP from a real live NSE session (dbData.dbVwap)
-	//  4. DB previous_close — last market close stored in listed_stocks (dbData.dbPreviousClose)
-	const price = base.price ?? dbData.dbPrice ?? dbData.dbVwap ?? dbData.dbPreviousClose ?? null;
+	//  2. Screener.in #top live price (screener.currentPrice)
+	//  3. DB current_price — written by background price-sync cron (dbData.dbPrice)
+	//  4. DB last_vwap — last VWAP from a real live NSE session (dbData.dbVwap)
+	//  5. DB previous_close — last market close stored in listed_stocks (dbData.dbPreviousClose)
+	const price = base.price ?? screener.currentPrice ?? dbData.dbPrice ?? dbData.dbVwap ?? dbData.dbPreviousClose ?? null;
 
 	const roe =
 		screener.roe ??
@@ -2141,8 +2186,8 @@ function buildFull(
 		debtToEquity: screener.debtToEquity ?? dbData.debtToEquity ?? null,
 		revenueGrowth: screener.revenueGrowth ?? dbData.revenueGrowth ?? null,
 		earningsGrowth: screener.earningsGrowth ?? dbData.earningsGrowth ?? null,
-		fiftyTwoWeekHigh: base.fiftyTwoWeekHigh ?? dbData.dbFiftyTwoWeekHigh ?? null,
-		fiftyTwoWeekLow: base.fiftyTwoWeekLow ?? dbData.dbFiftyTwoWeekLow ?? null,
+		fiftyTwoWeekHigh: base.fiftyTwoWeekHigh ?? screener.fiftyTwoWeekHigh ?? dbData.dbFiftyTwoWeekHigh ?? null,
+		fiftyTwoWeekLow: base.fiftyTwoWeekLow ?? screener.fiftyTwoWeekLow ?? dbData.dbFiftyTwoWeekLow ?? null,
 		dividendYield:
 			screener.dividendYield ??
 			dbData.dividendYield ??
