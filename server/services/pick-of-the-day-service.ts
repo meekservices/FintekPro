@@ -1084,13 +1084,12 @@ export class PickOfTheDayService {
 			GROUP BY category
 		`) as any;
 
-		// Fetch closed returns safely to parse in JS (immune to corrupt varchar formats in DB)
+		// Fetch closed returns safely to parse in JS
 		const returnRows = await db.execute(sql`
 			SELECT category, return_pct
 			FROM daily_picks
 			WHERE status <> 'live'
 			  AND return_pct IS NOT NULL
-			  AND return_pct <> ''
 		`) as any;
 
 		let totalReturnSum = 0;
