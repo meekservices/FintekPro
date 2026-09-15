@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fintekpro-agent-v5'; // bumped 2026-08-01: add fetch handler + navigation preload support
+const CACHE_NAME = 'fintekpro-agent-v6'; // bumped 2026-09-15: fix navigation preload message-channel race on SPA routes
 
 // ── Install ──────────────────────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
@@ -30,15 +30,22 @@ self.addEventListener('activate', (event) => {
 });
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
-// IMPORTANT: A Service Worker MUST have a fetch handler when navigation preload
-// is enabled, otherwise Chrome internally queues a navigation preload response
-// and when it gets no reply from the SW, logs:
+// IMPORTANT: Navigation preload opens an internal browser MessageChannel.
+// If the SW calls respondWith() but the preload response is still pending when
+// the tab navigates away (SPA route change), Chrome logs:
 //   "A listener indicated an asynchronous response by returning true,
 //    but the message channel closed before a response was received"
 //
+// Root cause on /agent/picks: React Router intercepts the history navigation
+// before the SW's async preload resolves, tearing down the channel prematurely.
+//
+// Fix: For same-origin navigations (SPA routes), cancel the preload immediately
+// and do NOT call respondWith() — let the browser handle it natively.
+// Only use respondWith() for genuine offline/cross-origin fallback.
+//
 // Strategy:
 //  - API calls (/api/*): always network-only, never cached
-//  - Navigation requests: network-first using preload response when available
+//  - Same-origin navigation (SPA): cancel preload, let browser handle natively
 //  - Everything else: network-only (no caching for authenticated app)
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
@@ -48,32 +55,24 @@ self.addEventListener('fetch', (event) => {
     return; // Let the browser handle it natively (no event.respondWith)
   }
 
-  // Navigation requests (page loads) — use preload response if available,
-  // fall back to network fetch. This ensures the channel is always resolved.
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      (async () => {
-        try {
-          // Use preload response if available (avoids extra network round-trip)
-          const preloadResponse = await event.preloadResponse;
-          if (preloadResponse) return preloadResponse;
-          // Otherwise fetch from network
-          return await fetch(event.request);
-        } catch {
-          // Offline fallback — return a minimal offline page
-          return new Response(
-            '<!DOCTYPE html><html><body><h1>FintekPro</h1><p>You appear to be offline. Please check your connection.</p></body></html>',
-            { headers: { 'Content-Type': 'text/html' } }
-          );
-        }
-      })()
-    );
+  // Same-origin SPA navigations: cancel the preload channel immediately
+  // so Chrome doesn't hold it open waiting for a respondWith that races
+  // against React Router's client-side navigation tear-down.
+  if (event.request.mode === 'navigate' && url.origin === self.location.origin) {
+    // Cancel the preload response to close its MessageChannel cleanly.
+    // This prevents the "message channel closed before a response" error.
+    if (event.preloadResponse) {
+      event.preloadResponse.then((r) => r?.body?.cancel?.()).catch(() => {});
+    }
+    // Do NOT call respondWith — browser fetches the shell HTML natively,
+    // and React Router handles client-side routing as normal.
     return;
   }
 
   // All other requests (JS/CSS/images): network-only, no caching
   // The app uses hashed filenames so Firebase Hosting CDN handles caching
 });
+
 
 // ── Message ───────────────────────────────────────────────────────────────────
 self.addEventListener('message', (event) => {
