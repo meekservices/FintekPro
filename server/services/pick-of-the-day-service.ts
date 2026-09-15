@@ -1050,7 +1050,7 @@ export class PickOfTheDayService {
 		byCategory: Record<string, { total: number; hits: number; hitRate: number; avgReturn: number }>;
 	}> {
 		// Single aggregation query: totals + per-status counts (no varchar casting in SQL)
-		const [agg] = await db.execute(sql`
+		const aggRes = await db.execute(sql`
 			SELECT
 				COUNT(*)::int                                                          AS total_picks,
 				COUNT(*) FILTER (WHERE status = 'live')::int                           AS live_picks,
@@ -1061,7 +1061,7 @@ export class PickOfTheDayService {
 			FROM daily_picks
 		`) as any;
 
-		const r = (agg as any) ?? {};
+		const r = ((aggRes?.rows ?? aggRes) as any[])[0] ?? {};
 		const totalPicks   = Number(r.total_picks   ?? 0);
 		const livePicks    = Number(r.live_picks     ?? 0);
 		const targetHits   = Number(r.target_hits    ?? 0);
