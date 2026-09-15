@@ -29,6 +29,7 @@
     "@google-cloud/secret-manager": "^6.3.0",
     "@google-cloud/storage": "^7.21.0",
     "@google/genai": "^2.16.0",
+    "@googleapis/calendar": "^20.0.0",
     "@hookform/resolvers": "^5.7.1",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@neondatabase/serverless": "^0.10.4",

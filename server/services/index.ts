@@ -17,3 +17,5 @@ export { pickOfTheDayService } from "./pick-of-the-day-service";
 export { quantOrchestrator } from "./quant/quant-orchestrator";
 export { mfSebiOverlapService } from "./mf-sebi-overlap-service";
 export { mfReturnsSyncService } from "./mf-returns-sync-service";
+export { googleCalendarService, GoogleCalendarService } from "./google-calendar-service";
+

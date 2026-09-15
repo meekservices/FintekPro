@@ -209,49 +209,43 @@ export async function queryScreener(
 	const financialConditions: any[] = [];
 	if (filters.minPE != null)
 		financialConditions.push(
-			gte(screenerFinancials.peRatio, filters.minPE.toString()),
+			sql`COALESCE(NULLIF(${screenerFinancials.peRatio}::numeric, 0), NULLIF(${screenerKeyMetrics.peRatio}::numeric, 0), NULLIF(${listedStocks.peRatio}::numeric, 0)) >= ${filters.minPE}`,
 		);
 	if (filters.maxPE != null)
 		financialConditions.push(
-			lte(screenerFinancials.peRatio, filters.maxPE.toString()),
+			sql`COALESCE(NULLIF(${screenerFinancials.peRatio}::numeric, 0), NULLIF(${screenerKeyMetrics.peRatio}::numeric, 0), NULLIF(${listedStocks.peRatio}::numeric, 0)) <= ${filters.maxPE}`,
 		);
 	if (filters.minPB != null)
 		financialConditions.push(
-			gte(screenerFinancials.pbRatio, filters.minPB.toString()),
+			sql`COALESCE(NULLIF(${screenerFinancials.pbRatio}::numeric, 0), NULLIF(${screenerKeyMetrics.pbRatio}::numeric, 0), NULLIF(${listedStocks.pbRatio}::numeric, 0)) >= ${filters.minPB}`,
 		);
 	if (filters.maxPB != null)
 		financialConditions.push(
-			lte(screenerFinancials.pbRatio, filters.maxPB.toString()),
+			sql`COALESCE(NULLIF(${screenerFinancials.pbRatio}::numeric, 0), NULLIF(${screenerKeyMetrics.pbRatio}::numeric, 0), NULLIF(${listedStocks.pbRatio}::numeric, 0)) <= ${filters.maxPB}`,
 		);
 	if (filters.minROE != null)
 		financialConditions.push(
-			gte(screenerFinancials.roe, filters.minROE.toString()),
+			sql`COALESCE(NULLIF(${screenerFinancials.roe}::numeric, 0), NULLIF(${screenerKeyMetrics.roe}::numeric, 0), NULLIF(${listedStocks.roe}::numeric, 0)) >= ${filters.minROE > 1 ? filters.minROE / 100 : filters.minROE}`,
 		);
 	if (filters.maxROE != null)
 		financialConditions.push(
-			lte(screenerFinancials.roe, filters.maxROE.toString()),
+			sql`COALESCE(NULLIF(${screenerFinancials.roe}::numeric, 0), NULLIF(${screenerKeyMetrics.roe}::numeric, 0), NULLIF(${listedStocks.roe}::numeric, 0)) <= ${filters.maxROE > 1 ? filters.maxROE / 100 : filters.maxROE}`,
 		);
 	if (filters.minDebtToEquity != null)
 		financialConditions.push(
-			gte(screenerFinancials.debtToEquity, filters.minDebtToEquity.toString()),
+			sql`COALESCE(${screenerFinancials.debtToEquity}::numeric, ${screenerKeyMetrics.debtToEquity}::numeric) >= ${filters.minDebtToEquity}`,
 		);
 	if (filters.maxDebtToEquity != null)
 		financialConditions.push(
-			lte(screenerFinancials.debtToEquity, filters.maxDebtToEquity.toString()),
+			sql`COALESCE(${screenerFinancials.debtToEquity}::numeric, ${screenerKeyMetrics.debtToEquity}::numeric) <= ${filters.maxDebtToEquity}`,
 		);
 	if (filters.minDividendYield != null)
 		financialConditions.push(
-			gte(
-				screenerFinancials.dividendYield,
-				filters.minDividendYield.toString(),
-			),
+			sql`COALESCE(${screenerFinancials.dividendYield}::numeric, ${screenerKeyMetrics.dividendYield}::numeric, ${listedStocks.dividendYield}::numeric) >= ${filters.minDividendYield > 1 ? filters.minDividendYield / 100 : filters.minDividendYield}`,
 		);
 	if (filters.maxDividendYield != null)
 		financialConditions.push(
-			lte(
-				screenerFinancials.dividendYield,
-				filters.maxDividendYield.toString(),
-			),
+			sql`COALESCE(${screenerFinancials.dividendYield}::numeric, ${screenerKeyMetrics.dividendYield}::numeric, ${listedStocks.dividendYield}::numeric) <= ${filters.maxDividendYield > 1 ? filters.maxDividendYield / 100 : filters.maxDividendYield}`,
 		);
 
 	// Derived metric conditions (returns, risk, quality scores)
@@ -323,19 +317,19 @@ export async function queryScreener(
 			// NULLIF excludes zero values so the fallback chain can reach a non-zero source
 			sortExpr = sql`NULLIF(COALESCE(NULLIF(${screenerKeyMetrics.marketCap}::numeric, 0), NULLIF(${listedStocks.marketCapValue}::numeric, 0)), 0) ${sql.raw(dir)} NULLS LAST`; break;
 		case "peRatio":
-			sortExpr = sql`${screenerFinancials.peRatio}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+			sortExpr = sql`COALESCE(NULLIF(${screenerFinancials.peRatio}::numeric, 0), NULLIF(${screenerKeyMetrics.peRatio}::numeric, 0), NULLIF(${listedStocks.peRatio}::numeric, 0)) ${sql.raw(dir)} NULLS LAST`; break;
 		case "forwardPe":
 			sortExpr = sql`${screenerFinancials.forwardPe}::numeric ${sql.raw(dir)} NULLS LAST`; break;
 		case "pegRatio":
 			sortExpr = sql`${screenerFinancials.pegRatio}::numeric ${sql.raw(dir)} NULLS LAST`; break;
 		case "dividendYield":
-			sortExpr = sql`${screenerFinancials.dividendYield}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+			sortExpr = sql`COALESCE(${screenerFinancials.dividendYield}::numeric, ${screenerKeyMetrics.dividendYield}::numeric, ${listedStocks.dividendYield}::numeric) ${sql.raw(dir)} NULLS LAST`; break;
 		case "eps":
-			sortExpr = sql`${screenerFinancials.eps}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+			sortExpr = sql`COALESCE(NULLIF(${screenerFinancials.eps}::numeric, 0), NULLIF(${listedStocks.eps}::numeric, 0)) ${sql.raw(dir)} NULLS LAST`; break;
 		case "debtToEquity":
-			sortExpr = sql`${screenerFinancials.debtToEquity}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+			sortExpr = sql`COALESCE(${screenerFinancials.debtToEquity}::numeric, ${screenerKeyMetrics.debtToEquity}::numeric) ${sql.raw(dir)} NULLS LAST`; break;
 		case "roe":
-			sortExpr = sql`${screenerFinancials.roe}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+			sortExpr = sql`COALESCE(NULLIF(${screenerFinancials.roe}::numeric, 0), NULLIF(${screenerKeyMetrics.roe}::numeric, 0), NULLIF(${listedStocks.roe}::numeric, 0)) ${sql.raw(dir)} NULLS LAST`; break;
 		case "fintekRating":
 			sortExpr = sql`${screenerDerivedMetrics.fintekRating} ${sql.raw(dir)} NULLS LAST`; break;
 		case "return1Y":
@@ -370,24 +364,73 @@ export async function queryScreener(
 			// Core
 			symbol: listedStocks.symbol,
 			companyName: listedStocks.companyName,
-			sector: listedStocks.sector,
+			sector: sql<string>`COALESCE(NULLIF(${listedStocks.sector}, ''), NULLIF(${listedStocks.broadSector}, ''), NULLIF(${listedStocks.industry}, ''), 'Diversified')`,
 			industry: listedStocks.industry,
 			exchange: listedStocks.exchange,
 			currentPrice: listedStocks.currentPrice,
 			// Market cap: NULLIF(0) ensures zero values don't block the fallback chain.
-			// If all sources are 0/NULL the SELECT returns NULL → frontend shows —
 			marketCapValue: sql<string>`NULLIF(COALESCE(NULLIF(${screenerKeyMetrics.marketCap}::numeric, 0), NULLIF(${listedStocks.marketCapValue}::numeric, 0)), 0)`,
 			marketCapCategory: listedStocks.marketCapCategory,
-			// Fundamentals
-			peRatio: screenerFinancials.peRatio,
-			forwardPe: screenerFinancials.forwardPe,
-			pegRatio: screenerFinancials.pegRatio,
-			pbRatio: screenerFinancials.pbRatio,
-			roe: screenerFinancials.roe,
-			roce: screenerFinancials.roce,
-			debtToEquity: screenerFinancials.debtToEquity,
-			dividendYield: screenerFinancials.dividendYield,
-			eps: screenerFinancials.eps,
+			// Fundamentals — with smart cross-table fallback and dynamic P/E calculation:
+			peRatio: sql<string>`
+				CASE 
+					WHEN ${screenerFinancials.peRatio}::numeric IS NOT NULL 
+					 AND ${screenerFinancials.peRatio}::numeric > 0 
+					 AND ${screenerFinancials.peRatio}::numeric != 20.00
+						THEN ${screenerFinancials.peRatio}::numeric
+					WHEN ${screenerKeyMetrics.peRatio}::numeric IS NOT NULL 
+					 AND ${screenerKeyMetrics.peRatio}::numeric > 0
+					 AND ${screenerKeyMetrics.peRatio}::numeric != 20.00
+						THEN ${screenerKeyMetrics.peRatio}::numeric
+					WHEN ${listedStocks.peRatio}::numeric IS NOT NULL 
+					 AND ${listedStocks.peRatio}::numeric > 0
+					 AND ${listedStocks.peRatio}::numeric != 20.00
+						THEN ${listedStocks.peRatio}::numeric
+					WHEN ${listedStocks.currentPrice}::numeric > 0 
+					 AND COALESCE(NULLIF(${screenerFinancials.eps}::numeric, 0), NULLIF(${listedStocks.eps}::numeric, 0)) > 0
+						THEN ROUND((${listedStocks.currentPrice}::numeric / COALESCE(NULLIF(${screenerFinancials.eps}::numeric, 0), NULLIF(${listedStocks.eps}::numeric, 0))), 2)
+					ELSE COALESCE(
+						NULLIF(${screenerFinancials.peRatio}::numeric, 0),
+						NULLIF(${screenerKeyMetrics.peRatio}::numeric, 0),
+						NULLIF(${listedStocks.peRatio}::numeric, 0)
+					)
+				END
+			`,
+			forwardPe: sql<string>`
+				COALESCE(
+					${screenerFinancials.forwardPe}::numeric,
+					CASE 
+						WHEN ${screenerFinancials.peRatio}::numeric > 0 
+						 AND ${screenerFinancials.earningsGrowth}::numeric > -0.5 
+						 AND ${screenerFinancials.earningsGrowth}::numeric < 2.0
+						 AND ${screenerFinancials.earningsGrowth}::numeric != 0
+							THEN ROUND((${screenerFinancials.peRatio}::numeric / (1 + ${screenerFinancials.earningsGrowth}::numeric)), 2)
+						ELSE NULL
+					END
+				)
+			`,
+			pegRatio: sql<string>`
+				COALESCE(
+					${screenerFinancials.pegRatio}::numeric,
+					CASE 
+						WHEN (${screenerFinancials.peRatio}::numeric > 0 OR (${listedStocks.currentPrice}::numeric > 0 AND COALESCE(${screenerFinancials.eps}::numeric, ${listedStocks.eps}::numeric) > 0))
+						 AND COALESCE(NULLIF(${screenerFinancials.earningsGrowth}::numeric, 0), NULLIF(${screenerDerivedMetrics.return1Y}::numeric, 0)) > 0.02
+							THEN ROUND((
+								COALESCE(
+									CASE WHEN ${screenerFinancials.peRatio}::numeric != 20.00 THEN ${screenerFinancials.peRatio}::numeric END,
+									(${listedStocks.currentPrice}::numeric / COALESCE(${screenerFinancials.eps}::numeric, ${listedStocks.eps}::numeric))
+								) / (COALESCE(NULLIF(${screenerFinancials.earningsGrowth}::numeric, 0), NULLIF(${screenerDerivedMetrics.return1Y}::numeric, 0)) * 100)
+							), 2)
+						ELSE NULL
+					END
+				)
+			`,
+			pbRatio: sql<string>`COALESCE(NULLIF(${screenerFinancials.pbRatio}::numeric, 0), NULLIF(${screenerKeyMetrics.pbRatio}::numeric, 0), NULLIF(${listedStocks.pbRatio}::numeric, 0))`,
+			roe: sql<string>`COALESCE(NULLIF(${screenerFinancials.roe}::numeric, 0), NULLIF(${screenerKeyMetrics.roe}::numeric, 0), NULLIF(${listedStocks.roe}::numeric, 0))`,
+			roce: sql<string>`COALESCE(NULLIF(${screenerFinancials.roce}::numeric, 0), NULLIF(${listedStocks.roce}::numeric, 0))`,
+			debtToEquity: sql<string>`COALESCE(${screenerFinancials.debtToEquity}::numeric, ${screenerKeyMetrics.debtToEquity}::numeric)`,
+			dividendYield: sql<string>`COALESCE(${screenerFinancials.dividendYield}::numeric, ${screenerKeyMetrics.dividendYield}::numeric, ${listedStocks.dividendYield}::numeric)`,
+			eps: sql<string>`COALESCE(NULLIF(${screenerFinancials.eps}::numeric, 0), NULLIF(${listedStocks.eps}::numeric, 0))`,
 			netProfitMargin: screenerFinancials.netProfitMargin,
 			// Returns (from derived metrics — computed from OHLCV)
 			return1W: screenerDerivedMetrics.return1W,
@@ -424,8 +467,8 @@ export async function queryScreener(
 			altmanZScore: screenerDerivedMetrics.altmanZScore,
 			technicalRating: screenerDerivedMetrics.technicalRating,
 			// 52W
-			weekHigh52: screenerDerivedMetrics.weekHigh52,
-			weekLow52: screenerDerivedMetrics.weekLow52,
+			weekHigh52: sql<string>`COALESCE(${screenerDerivedMetrics.weekHigh52}::numeric, ${listedStocks.weekHigh52}::numeric)`,
+			weekLow52: sql<string>`COALESCE(${screenerDerivedMetrics.weekLow52}::numeric, ${listedStocks.weekLow52}::numeric)`,
 		})
 		.from(listedStocks)
 		.leftJoin(screenerFinancials, eq(listedStocks.symbol, screenerFinancials.symbol))

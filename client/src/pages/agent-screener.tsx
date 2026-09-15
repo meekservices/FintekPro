@@ -277,12 +277,26 @@ function formatCurrency(val: string | number | null | undefined): string {
 function formatMarketCap(val: string | number | null | undefined): string {
 	if (val == null || val === "") return "-";
 	const n = typeof val === "string" ? Number.parseFloat(val) : val;
-	// 0 means data not populated — show — rather than ₹0.00 Cr
 	if (Number.isNaN(n) || n === 0) return "-";
-	if (n >= 1000000) return `₹${(n / 100000).toFixed(1)}L Cr`;
-	if (n >= 10000) return `₹${(n / 1000).toFixed(1)}K Cr`;
-	if (n >= 100) return `₹${n.toFixed(0)} Cr`;
-	return `₹${n.toFixed(2)} Cr`;
+
+	// Convert raw Rupees to Crores if n >= 1,000,000 (10 Lakhs)
+	// (listed_stocks.market_cap_value is stored in absolute ₹, e.g. 3.8e11 for ₹38,073 Cr)
+	const cr = n >= 1_000_000 ? n / 10_000_000 : n;
+
+	if (cr >= 100_000) return `₹${(cr / 100_000).toFixed(2)}L Cr`; // e.g. ₹15.98L Cr for Reliance
+	if (cr >= 1_000) return `₹${Math.round(cr).toLocaleString("en-IN")} Cr`; // e.g. ₹38,073 Cr for MCX
+	if (cr >= 1) return `₹${cr.toFixed(1)} Cr`; // e.g. ₹59.4 Cr for GACM Tech
+	return `₹${(cr * 100).toFixed(1)} L`; // sub-crore micro stocks
+}
+
+function formatRoe(val: string | number | null | undefined): string {
+	if (val == null || val === "") return "-";
+	const n = typeof val === "string" ? Number.parseFloat(val) : val;
+	if (Number.isNaN(n) || n === 0) return "-";
+	// If ratio <= 5.0, it's decimal (e.g. 0.5280 -> 52.8%, 1.51 -> 151.0%)
+	// If > 5.0, it's already percentage (e.g. 52.8 -> 52.8%)
+	const pct = Math.abs(n) <= 5 ? n * 100 : n;
+	return `${pct.toFixed(1)}%`;
 }
 
 function formatPercent(
@@ -1862,10 +1876,10 @@ export default function AgentScreener() {
 													<table className="w-full text-sm">
 														<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
 															<tr>
-																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">
+																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8 sticky left-0 z-20 bg-card">
 																	#
 																</th>
-																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">
+																<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider sticky left-8 z-20 bg-card border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
 																	Company
 																</th>
 																<DbSortableHeader
@@ -1955,10 +1969,10 @@ export default function AgentScreener() {
 																			key={stock.symbol}
 																			className={`border-b hover:bg-muted/30 transition-colors ${expandedStock === stock.symbol ? "bg-muted/20" : ""}`}
 																		>
-																			<td className="py-2.5 px-3 text-xs text-muted-foreground">
+																			<td className="py-2.5 px-3 text-xs text-muted-foreground sticky left-0 z-10 bg-background">
 																				{(dbPage - 1) * dbLimit + index + 1}
 																			</td>
-																			<td className="py-2.5 px-3">
+																			<td className="py-2.5 px-3 sticky left-8 z-10 bg-background border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
 																				<div
 																					className="font-medium text-sm truncate max-w-[220px]"
 																					title={stock.companyName}
@@ -2064,7 +2078,7 @@ export default function AgentScreener() {
 																						: ""
 																					: ""
 																			}`}>
-																				{stock.roe ? formatPercent(stock.roe, 100) : "-"}
+																				{formatRoe(stock.roe)}
 																			</td>
 																			<td className={`py-2.5 px-3 text-right font-mono text-xs ${
 																				stock.debtToEquity
@@ -3025,9 +3039,7 @@ export default function AgentScreener() {
 																{formatNum(item.peRatio)}
 															</td>
 															<td className="py-2.5 px-3 text-right font-mono text-xs">
-																{item.roe
-																	? `${Number.parseFloat(item.roe).toFixed(2)}%`
-																	: "-"}
+																{formatRoe(item.roe)}
 															</td>
 														</tr>
 													))}
