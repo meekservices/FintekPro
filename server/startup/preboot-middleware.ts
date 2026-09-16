@@ -14,6 +14,7 @@ const PROD_ORIGINS = [
 	"https://admin.fintekpro.com",
 	"https://agent.fintekpro.com",
 	"https://partner.fintekpro.com",
+	"https://ca.fintekpro.com",
 	"https://ins.fintekpro.com",
 	"https://fintekpro-app-7f3fb64pqq-el.a.run.app",
 	"https://fintekpro-app-124901641600.asia-south1.run.app",

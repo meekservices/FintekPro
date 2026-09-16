@@ -6,6 +6,7 @@ declare global {
 	namespace Express {
 		interface Request {
 			isAdminPortal?: boolean;
+			isCaPortal?: boolean;
 			isPartnerPortal?: boolean;
 			isAgentPortal?: boolean;
 			subdomain?: string;
@@ -17,11 +18,13 @@ declare global {
  * Middleware to detect subdomain from hostname and set portal context
  * Supports:
  * - admin.fintekpro.com → Admin Portal
- * - partner.fintekpro.com → Partner Portal
- * - agent.fintekpro.com → Agent Portal
+ * - ca.fintekpro.com → Partner / CA Portal
+ * - partner.fintekpro.com → Agent / Partner Portal
+ * - agent.fintekpro.com → Agent Portal (legacy alias)
  * - fintekpro.com / www.fintekpro.com → Client Portal
  * - admin.localhost:5000 → Admin Portal (dev)
- * - partner.localhost:5000 → Partner Portal (dev)
+ * - ca.localhost:5000 → Partner / CA Portal (dev)
+ * - partner.localhost:5000 → Agent Portal (dev)
  * - agent.localhost:5000 → Agent Portal (dev)
  * - localhost:5000 → Client Portal (dev)
  */
@@ -77,7 +80,7 @@ export function subdomainDetection(
 		const forwardedParts = (xForwardedHost || originHost || "").split(".");
 		if (forwardedParts.length > 2 &&
 			forwardedParts[0] !== "www" &&
-			["admin", "partner", "agent"].includes(forwardedParts[0])
+			["admin", "partner", "agent", "ca"].includes(forwardedParts[0])
 		) {
 			subdomain = forwardedParts[0];
 			logger.info("SUBDOMAIN_GCP_RECOVERED", { event: "SUBDOMAIN_GCP_RECOVERED", subdomain, hostname });
@@ -89,7 +92,7 @@ export function subdomainDetection(
 			logger.info("SUBDOMAIN_GCP_HEADERS", { event: "SUBDOMAIN_GCP_HEADERS", headers: req.headers });
 		}
 	}
-	// For localhost development (admin.localhost, partner.localhost, agent.localhost, or just localhost)
+	// For localhost development (admin.localhost, ca.localhost, partner.localhost, agent.localhost, or just localhost)
 	else if (
 		hostname.includes("localhost") ||
 		hostname.includes("0.0.0.0") ||
@@ -97,6 +100,8 @@ export function subdomainDetection(
 	) {
 		if (parts[0] === "admin") {
 			subdomain = "admin";
+		} else if (parts[0] === "ca") {
+			subdomain = "ca";
 		} else if (parts[0] === "partner") {
 			subdomain = "partner";
 		} else if (parts[0] === "agent") {
@@ -105,10 +110,10 @@ export function subdomainDetection(
 			subdomain = "";
 		}
 	}
-	// For production domains (e.g. agent.fintekpro.com or fintekpro.com)
+	// For production domains (e.g. partner.fintekpro.com, ca.fintekpro.com or fintekpro.com)
 	else if (parts.length >= 2) {
 		// If we have more than 2 parts, the first part is likely a subdomain
-		// Example: agent.fintekpro.com -> parts = ['agent', 'fintekpro', 'com'] -> length 3
+		// Example: partner.fintekpro.com -> parts = ['partner', 'fintekpro', 'com'] -> length 3
 		if (parts.length > 2 && parts[0] !== "www") {
 			subdomain = parts[0];
 		} else {
@@ -122,6 +127,8 @@ export function subdomainDetection(
 		subdomain = String(req.query.portal);
 	} else if (req.query.admin === "true") {
 		subdomain = "admin";
+	} else if (req.query.ca === "true") {
+		subdomain = "ca";
 	} else if (req.query.partner === "true") {
 		subdomain = "partner";
 	} else if (req.query.agent === "true") {
@@ -131,13 +138,14 @@ export function subdomainDetection(
 	// Set flags on request
 	req.subdomain = subdomain;
 	req.isAdminPortal = subdomain === "admin";
+	req.isCaPortal = subdomain === "ca";
 	req.isPartnerPortal = subdomain === "partner";
 	req.isAgentPortal = subdomain === "agent";
 
 	// Log only for portal requests to reduce noise (disabled by default)
 	// Enable with DEBUG_SUBDOMAIN=true for troubleshooting
 	if (process.env.DEBUG_SUBDOMAIN === "true" &&
-		(req.isAdminPortal || req.isPartnerPortal || req.isAgentPortal)
+		(req.isAdminPortal || req.isCaPortal || req.isPartnerPortal || req.isAgentPortal)
 	) {
 		logger.info("SUBDOMAIN_DETECTED", { event: "SUBDOMAIN_DETECTED", subdomain, hostname });
 	}
@@ -187,20 +195,20 @@ export async function requireAdminPortal(
 }
 
 /**
- * Middleware to restrict routes to partner portal only
- * SECURITY: Requires BOTH partner subdomain AND partner/agent user role
+ * Middleware to restrict routes to partner portal only (ca.fintekpro.com or partner.fintekpro.com)
+ * SECURITY: Requires CA/Partner subdomain AND partner/agent/ca user role
  */
 export async function requirePartnerPortal(
 	req: Request,
 	res: Response,
 	next: NextFunction,
 ) {
-	// First check: Must be on partner subdomain
-	if (!req.isPartnerPortal) {
+	// First check: Must be on CA or partner subdomain
+	if (!req.isCaPortal && !req.isPartnerPortal) {
 		return res.status(403).json({
 			error: "Access denied",
-			message: "This resource is only available on the partner portal",
-			redirectTo: `https://partner.${req.hostname.replace(/^(admin\\.|partner\\.)/, "")}`,
+			message: "This resource is only available on the partner / CA portal",
+			redirectTo: `https://ca.${req.hostname.replace(/^(admin\.|partner\.|agent\.|ca\.)/, "")}`,
 		});
 	}
 
@@ -212,18 +220,24 @@ export async function requirePartnerPortal(
 		});
 	}
 
-	// Third check: User must have agent/partner role
+	// Third check: User must have agent/partner/ca role
 	const userRoles = req.user.roles || [];
 	const isPartner =
 		userRoles.includes("partner") ||
+		userRoles.includes("partner_ops") ||
 		userRoles.includes("agent") ||
 		userRoles.includes("master_agent") ||
-		userRoles.includes("sub_agent");
+		userRoles.includes("sub_agent") ||
+		userRoles.includes("ca") ||
+		userRoles.includes("chartered_accountant") ||
+		userRoles.includes("admin") ||
+		userRoles.includes("super_admin") ||
+		userRoles.includes("superadmin");
 
 	if (!isPartner) {
 		return res.status(403).json({
 			error: "Access denied",
-			message: "Partner privileges required",
+			message: "Partner / CA privileges required",
 		});
 	}
 
@@ -231,20 +245,20 @@ export async function requirePartnerPortal(
 }
 
 /**
- * Middleware to restrict routes to agent portal only
- * SECURITY: Requires BOTH agent subdomain AND agent user role
+ * Middleware to restrict routes to agent portal only (partner.fintekpro.com or agent.fintekpro.com)
+ * SECURITY: Requires agent or partner subdomain AND agent user role
  */
 export async function requireAgentPortal(
 	req: Request,
 	res: Response,
 	next: NextFunction,
 ) {
-	// First check: Must be on agent subdomain
-	if (!req.isAgentPortal) {
+	// First check: Must be on agent or partner subdomain
+	if (!req.isAgentPortal && !req.isPartnerPortal) {
 		return res.status(403).json({
 			error: "Access denied",
-			message: "This resource is only available on the agent portal",
-			redirectTo: `https://agent.${req.hostname.replace(/^(admin\\.|partner\\.|agent\\.)/, "")}`,
+			message: "This resource is only available on the agent / partner portal",
+			redirectTo: `https://partner.${req.hostname.replace(/^(admin\.|partner\.|agent\.|ca\.)/, "")}`,
 		});
 	}
 
@@ -261,7 +275,12 @@ export async function requireAgentPortal(
 	const isAgent =
 		userRoles.includes("agent") ||
 		userRoles.includes("master_agent") ||
-		userRoles.includes("sub_agent");
+		userRoles.includes("sub_agent") ||
+		userRoles.includes("partner") ||
+		userRoles.includes("partner_ops") ||
+		userRoles.includes("admin") ||
+		userRoles.includes("super_admin") ||
+		userRoles.includes("superadmin");
 
 	if (!isAgent) {
 		return res.status(403).json({
@@ -281,12 +300,12 @@ export function requireClientPortal(
 	res: Response,
 	next: NextFunction,
 ) {
-	if (req.isAdminPortal || req.isPartnerPortal || req.isAgentPortal) {
+	if (req.isAdminPortal || req.isCaPortal || req.isPartnerPortal || req.isAgentPortal) {
 		return res.status(403).json({
 			error: "Access denied",
 			message:
-				"This resource is not available on the admin, partner, or agent portal",
-			redirectTo: `https://${req.hostname.replace(/^(admin\\.|partner\\.|agent\\.)/, "")}`,
+				"This resource is not available on the admin, CA, partner, or agent portal",
+			redirectTo: `https://${req.hostname.replace(/^(admin\.|partner\.|agent\.|ca\.)/, "")}`,
 		});
 	}
 	next();
@@ -334,15 +353,13 @@ export function validateSessionPortal(
 	}
 
 	const isPrivilegedPortal = (p: string) =>
-		["admin", "partner", "agent"].includes(p);
+		["admin", "partner", "agent", "ca"].includes(p);
 
 	// ── CLOUD RUN INTERNAL ROUTING SAFEGUARD ────────────────────────────────────
 	// When requests arrive via the Cloud Run internal URL (*.a.run.app), subdomain
-	// detection may fall back to '' / 'main' even though the user is on the agent
-	// portal. In this case currentPortal = '' which creates a false mismatch with
-	// sessionPortal = 'agent'. We handle this by checking if the user actually
-	// has the required role for their stored session portal — if yes, we trust the
-	// session and update currentPortal to match rather than force-logging out.
+	// detection may fall back to '' / 'main' even though the user is on the portal.
+	// In this case currentPortal = '' which creates a false mismatch.
+	// We check if user actually has the required role for their stored session portal.
 	if (
 		(currentPortal === "" || currentPortal === "main") &&
 		isPrivilegedPortal(sessionPortal)
@@ -354,17 +371,21 @@ export function validateSessionPortal(
 				userRoles.includes("admin") ||
 				userRoles.includes("superadmin") ||
 				userRoles.includes("super_admin");
-		} else if (sessionPortal === "partner") {
+		} else if (sessionPortal === "ca") {
 			hasSessionPortalRole =
 				userRoles.includes("partner") ||
-				userRoles.includes("agent") ||
-				userRoles.includes("master_agent") ||
-				userRoles.includes("sub_agent");
-		} else if (sessionPortal === "agent") {
+				userRoles.includes("partner_ops") ||
+				userRoles.includes("ca") ||
+				userRoles.includes("chartered_accountant") ||
+				userRoles.includes("admin") ||
+				userRoles.includes("superadmin");
+		} else if (sessionPortal === "partner" || sessionPortal === "agent") {
 			hasSessionPortalRole =
 				userRoles.includes("agent") ||
 				userRoles.includes("master_agent") ||
 				userRoles.includes("sub_agent") ||
+				userRoles.includes("partner") ||
+				userRoles.includes("partner_ops") ||
 				userRoles.includes("admin") ||
 				userRoles.includes("superadmin");
 		}
@@ -372,10 +393,20 @@ export function validateSessionPortal(
 			// Trust the session's portal binding — the user legitimately belongs there
 			req.subdomain = sessionPortal;
 			req.isAdminPortal = sessionPortal === "admin";
+			req.isCaPortal = sessionPortal === "ca";
 			req.isPartnerPortal = sessionPortal === "partner";
 			req.isAgentPortal = sessionPortal === "agent";
 			return next();
 		}
+	}
+
+	// Also allow partner <-> agent interchange without mismatch
+	const isPartnerAgentInterchange =
+		(sessionPortal === "partner" && currentPortal === "agent") ||
+		(sessionPortal === "agent" && currentPortal === "partner");
+	if (isPartnerAgentInterchange) {
+		(req.session as any).portalType = currentPortal;
+		return next();
 	}
 
 	const isMismatch =
@@ -394,17 +425,23 @@ export function validateSessionPortal(
 				userRoles.includes("admin") ||
 				userRoles.includes("superadmin") ||
 				userRoles.includes("super_admin");
-		} else if (currentPortal === "partner") {
+		} else if (currentPortal === "ca") {
 			hasAccess =
 				userRoles.includes("partner") ||
-				userRoles.includes("agent") ||
-				userRoles.includes("master_agent") ||
-				userRoles.includes("sub_agent");
-		} else if (currentPortal === "agent") {
+				userRoles.includes("partner_ops") ||
+				userRoles.includes("ca") ||
+				userRoles.includes("chartered_accountant") ||
+				userRoles.includes("admin") ||
+				userRoles.includes("superadmin");
+		} else if (currentPortal === "partner" || currentPortal === "agent") {
 			hasAccess =
 				userRoles.includes("agent") ||
 				userRoles.includes("master_agent") ||
-				userRoles.includes("sub_agent");
+				userRoles.includes("sub_agent") ||
+				userRoles.includes("partner") ||
+				userRoles.includes("partner_ops") ||
+				userRoles.includes("admin") ||
+				userRoles.includes("superadmin");
 		} else if (currentPortal === "main" || currentPortal === "") {
 			hasAccess = true;
 		}

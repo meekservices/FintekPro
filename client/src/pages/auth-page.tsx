@@ -2737,18 +2737,29 @@ export default function AuthPage() {
 												</Alert>
 
 												{portalType === "main" && (
-													<p className="text-xs text-center text-muted-foreground">
-														Financial Agent?{" "}
-														<a
-															href="https://agent.fintekpro.com"
-															className="font-medium underline [color:var(--portal-color)]"
-														>
-															Agent Portal
-														</a>
+													<p className="text-xs text-center text-muted-foreground space-x-2">
+														<span>Partner / Agent?{" "}
+															<a
+																href="https://partner.fintekpro.com"
+																className="font-medium underline [color:var(--portal-color)]"
+															>
+																Partner Portal
+															</a>
+														</span>
+														<span>•</span>
+														<span>CA Partner?{" "}
+															<a
+																href="https://ca.fintekpro.com"
+																className="font-medium underline [color:var(--portal-color)]"
+															>
+																CA Portal
+															</a>
+														</span>
 													</p>
 												)}
 												{(portalType === "agent" ||
-													portalType === "partner") && (
+													portalType === "partner" ||
+													portalType === "ca") && (
 													<p className="text-xs text-center text-muted-foreground">
 														Investor / Client?{" "}
 														<a
@@ -3033,17 +3044,29 @@ export default function AuthPage() {
 											</Alert>
 
 											{portalType === "main" && (
-												<p className="text-xs text-center text-muted-foreground">
-													Financial Agent?{" "}
-													<a
-														href="https://agent.fintekpro.com?mode=register"
-														className="font-medium underline [color:var(--portal-color)]"
-													>
-														Register on the Agent Portal
-													</a>
+												<p className="text-xs text-center text-muted-foreground space-x-2">
+													<span>Partner / Agent?{" "}
+														<a
+															href="https://partner.fintekpro.com?mode=register"
+															className="font-medium underline [color:var(--portal-color)]"
+														>
+															Register on Partner Portal
+														</a>
+													</span>
+													<span>•</span>
+													<span>CA Partner?{" "}
+														<a
+															href="https://ca.fintekpro.com?mode=register"
+															className="font-medium underline [color:var(--portal-color)]"
+														>
+															Register as CA
+														</a>
+													</span>
 												</p>
 											)}
-											{(portalType === "agent" || portalType === "partner") && (
+											{(portalType === "agent" ||
+												portalType === "partner" ||
+												portalType === "ca") && (
 												<p className="text-xs text-center text-muted-foreground">
 													Client/Investor?{" "}
 													<a
