@@ -138,23 +138,6 @@ router.get(
 					purpose: "maskable",
 				},
 			],
-			// Wide screenshot triggers Chrome's desktop install UI prompt
-			screenshots: [
-				{
-					src: icon,
-					sizes: "1280x800",
-					type: "image/png",
-					form_factor: "wide",
-					label: `${config.label} - Desktop Dashboard`,
-				},
-				{
-					src: icon,
-					sizes: "1920x1080",
-					type: "image/png",
-					form_factor: "wide",
-					label: `${config.label} - Portfolio & Market Insights`,
-				},
-			],
 			related_applications: [],
 			prefer_related_applications: false,
 			shortcuts: [
