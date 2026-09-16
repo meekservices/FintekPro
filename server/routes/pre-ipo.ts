@@ -513,7 +513,20 @@ export function registerPreIPORoutes(app: Express) {
 				}
 			}
 
-			const combined = Array.from(dedupedMap.values());
+			// Exclude any companies that have graduated to listed status (e.g. HDB Financial, Swiggy)
+			const isConfirmedListedName = (name: string) => {
+				const n = (name || "").toLowerCase();
+				return (
+					n.includes("hdb financial") ||
+					n.includes("hdbfs") ||
+					n.includes("swiggy") ||
+					n.includes("tata technologies")
+				);
+			};
+
+			const combined = Array.from(dedupedMap.values()).filter(
+				(item) => !isConfirmedListedName(item.companyName)
+			);
 
 			res.json({
 				status: "success",

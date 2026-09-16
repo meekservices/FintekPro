@@ -356,21 +356,40 @@ const formatPrice = (price: number, category: string): string => {
  * unlisted picks) is kept for backward compatibility with historical picks
  * that were stored before the category split.
  */
-export const isPreIpoPick = (p: DailyPick) =>
-	p.category === "pre_ipo" ||
-	// Backward compat: old picks stored as unlisted with listingStage metadata
-	(p.category === "unlisted" &&
-		(p.keyMetrics?.listingStage === "pre_ipo" ||
-			p.keyMetrics?.listingStage === "ipo_announced"));
+export const isPreIpoPick = (p: DailyPick) => {
+	// If the instrument is confirmed listed or marked as listed_stocks, it is strictly NOT pre-IPO
+	if (
+		p.category === "listed_stocks" ||
+		p.keyMetrics?.listingStage === "listed" ||
+		p.keyMetrics?.listingStage === "transitioned_to_listed" ||
+		(p.instrumentName && /hdb financial|hdbfs/i.test(p.instrumentName))
+	) {
+		return false;
+	}
+	return (
+		p.category === "pre_ipo" ||
+		// Backward compat: old picks stored as unlisted with listingStage metadata
+		(p.category === "unlisted" &&
+			(p.keyMetrics?.listingStage === "pre_ipo" ||
+				p.keyMetrics?.listingStage === "ipo_announced"))
+	);
+};
 
 /**
  * Returns true if this pick belongs under the Unlisted & Pre-IPO tab.
  * Groups both unlisted assets and pre-IPO pipeline picks together.
  */
-export const isUnlistedOrPreIpo = (p: DailyPick) =>
-	p.category === "unlisted" ||
-	p.category === "pre_ipo" ||
-	isPreIpoPick(p);
+export const isUnlistedOrPreIpo = (p: DailyPick) => {
+	if (
+		p.category === "listed_stocks" ||
+		p.keyMetrics?.listingStage === "listed" ||
+		p.keyMetrics?.listingStage === "transitioned_to_listed" ||
+		(p.instrumentName && /hdb financial|hdbfs/i.test(p.instrumentName))
+	) {
+		return false;
+	}
+	return p.category === "unlisted" || p.category === "pre_ipo" || isPreIpoPick(p);
+};
 
 /**
  * Resolves the authoritative regulatory stage configuration for a given pick
@@ -4608,7 +4627,7 @@ export default function AgentPicksPage() {
 									</div>
 								</div>
 							) : filteredTodayPicks.length === 0 ? (
-								todayCategoryFilter === "unlisted" ? (
+								todayCategoryFilter === "pre_ipo" ? (
 									<div className="space-y-6">
 										<div className="p-4 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 											<div className="flex items-center gap-3">
@@ -4616,8 +4635,8 @@ export default function AgentPicksPage() {
 													<Building2 className="h-5 w-5" />
 												</div>
 												<div>
-													<h4 className="text-sm font-bold text-purple-950 dark:text-purple-100">Unlisted & Pre-IPO Opportunities</h4>
-													<p className="text-xs text-purple-700 dark:text-purple-300">No new secondary market pick issued today. Browse active DRHP filings and the Pre-IPO pipeline below.</p>
+													<h4 className="text-sm font-bold text-purple-950 dark:text-purple-100">Pre-IPO Opportunities</h4>
+													<p className="text-xs text-purple-700 dark:text-purple-300">No new Pre-IPO pick issued today. Browse active DRHP filings and the Pre-IPO pipeline below.</p>
 												</div>
 											</div>
 											<Button
@@ -4874,7 +4893,7 @@ export default function AgentPicksPage() {
 												picks={filteredTodayPicks}
 												onRowClick={setSelectedPick}
 											/>
-											{todayCategoryFilter === "unlisted" && renderUpcomingPreIpoRadar()}
+											{todayCategoryFilter === "pre_ipo" && renderUpcomingPreIpoRadar()}
 											{todayCategoryFilter === "ipo" && renderLiveIpoDesk()}
 										</div>
 									) : (
@@ -4954,7 +4973,7 @@ export default function AgentPicksPage() {
 												/>
 											))}
 										</div>
-										{todayCategoryFilter === "unlisted" && renderUpcomingPreIpoRadar()}
+										{todayCategoryFilter === "pre_ipo" && renderUpcomingPreIpoRadar()}
 										{todayCategoryFilter === "ipo" && renderLiveIpoDesk()}
 										</div>
 									);

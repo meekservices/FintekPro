@@ -169,6 +169,10 @@ const KNOWN_CONFIRMED_LISTED_NAMES = [
 	"traxcn",
 	"urban company",
 	"mobikwik",
+	"hdb financial",
+	"hdbfs",
+	"tata technologies",
+	"tata tech",
 ];
 
 /**

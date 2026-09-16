@@ -1497,6 +1497,23 @@ async function seedScreenerStocks(): Promise<BootstrapResult> {
         )
     `);
 
+		// Ensure HDBFS (HDB Financial Services Ltd) is seeded as a listed stock
+		await db.execute(sql`
+			INSERT INTO listed_stocks (
+				symbol, company_name, isin, bse_code, nse_code, exchange, sector, broad_sector, industry, current_price, previous_close, day_change, day_change_percent, is_active, data_source
+			) VALUES (
+				'HDBFS', 'HDB Financial Services Ltd', 'INE756I01025', '544429', 'EQ', 'NSE', 'Financial Services', 'Financials', 'Non-Banking Financial Company (NBFC)', 678.00, 664.05, 13.95, 2.10, true, 'NSE_BSE_LISTED'
+			)
+			ON CONFLICT (symbol) DO UPDATE SET
+				company_name = EXCLUDED.company_name,
+				isin = EXCLUDED.isin,
+				bse_code = EXCLUDED.bse_code,
+				current_price = EXCLUDED.current_price,
+				day_change_percent = EXCLUDED.day_change_percent,
+				is_active = true,
+				updated_at = NOW();
+		`);
+
 		const newCheck = await db.execute(
 			sql`SELECT COUNT(*) as cnt FROM listed_stocks`,
 		);

@@ -30,12 +30,12 @@ async function seedMarketplace() {
 			name: "HDB Financial Services",
 			sector: "Financial Services",
 			industry: "NBFC",
-			status: "active",
-			listingStage: "mature",
-			publishedBuyPrice: "650.00",
-			publishedSellPrice: "680.00",
+			status: "inactive",
+			listingStage: "listed",
+			publishedBuyPrice: "675.00",
+			publishedSellPrice: "682.00",
 			description:
-				"A subsidiary of HDFC Bank, providing retail and commercial loans.",
+				"A subsidiary of HDFC Bank, providing retail and commercial loans. Transitioned to listed shares trading at ~₹678.",
 		},
 		{
 			name: "Razorpay",

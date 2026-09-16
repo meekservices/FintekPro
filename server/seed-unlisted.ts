@@ -62,12 +62,12 @@ const sampleCompanies = [
 		authorizedCapital: "10000000000",
 		faceValue: "10.00",
 		totalShares: 790000000,
-		status: "active",
-		listingStage: "pre_ipo",
+		status: "inactive",
+		listingStage: "listed",
 		website: "https://www.hdbfs.com",
 		description:
-			"HDB Financial Services is a leading non-banking financial company (NBFC) and a subsidiary of HDFC Bank. It provides various loan products including vehicle loans, personal loans, and business loans.",
-		tags: ["pre-ipo", "nbfc", "hdfc-group", "lending"],
+			"HDB Financial Services is a leading non-banking financial company (NBFC) and subsidiary of HDFC Bank. It has graduated to listed equity status.",
+		tags: ["listed", "nbfc", "hdfc-group", "lending"],
 	},
 	{
 		name: "Swiggy Private Limited",

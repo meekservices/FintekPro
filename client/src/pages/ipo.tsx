@@ -274,7 +274,7 @@ export default function IPO() {
 							</p>
 						</div>
 					</div>
-					<Link href="/unlisted?tab=pre-ipo">
+					<Link href="/pre-ipo">
 						<Button
 							size="sm"
 							variant="outline"
