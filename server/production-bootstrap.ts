@@ -991,6 +991,7 @@ export async function runProductionBootstrap(): Promise<BootstrapResult[]> {
 	results.push(await seedAifFunds());
 	results.push(await seedSEBI2026Taxonomy());
 	results.push(await seedQuantGovernancePolicies());
+	results.push(await seedIpoCompanies());
 	results.push(await triggerMLTraining());
 
 	console.log(
@@ -1657,6 +1658,73 @@ async function seedQuantGovernancePolicies(): Promise<BootstrapResult> {
 			error.message,
 		);
 		return { category: "quant_governance", existing: 0, seeded: 0, total: 0 };
+	}
+}
+
+// ── IPO Companies Seeding ───────────────────────────────────────────────────
+async function seedIpoCompanies(): Promise<BootstrapResult> {
+	try {
+		const existing = await db.execute(
+			sql`SELECT COUNT(*) as cnt FROM ipo_companies`,
+		);
+		const existingCount = Number.parseInt(
+			String((existing.rows[0] as any)?.cnt || "0"),
+		);
+
+		await db.execute(sql`
+			INSERT INTO ipo_companies
+				(id, company_name, sector, industry, logo_url, ipo_type, issue_type,
+				 price_band_min, price_band_max, issue_size, open_date, close_date,
+				 listing_date, status, subscription_status, rhp_url, drhp_url, description)
+			VALUES
+				('ipo-heromotors-01', 'Hero Motors Ltd', 'Automotive & Auto Ancillary', 'Automobiles', '/images/companies/hero.png',
+				 'mainboard', 'Book Built', 79.00, 84.00, 900.00, '2026-09-16', '2026-09-18', '2026-09-23', 'upcoming', NULL,
+				 NULL, 'https://www.sebi.gov.in/filings/public-issues/hero-motors-drhp.html',
+				 'Leading automotive powertrain and transmission systems manufacturer under Hero Group.'),
+				('ipo-jindal-01', 'Jindal Supreme (India) Ltd', 'Steel & Metallurgy', 'Metals', '/images/companies/jindal.png',
+				 'mainboard', 'Book Built', 88.00, 93.00, 320.00, '2026-09-16', '2026-09-18', '2026-09-23', 'upcoming', NULL,
+				 NULL, NULL, 'Specialized steel products and industrial solutions manufacturer.'),
+				('ipo-ssretail-01', 'SS Retail Ltd', 'Retail & Apparel', 'Consumer Discretionary', '/images/companies/ss-retail.png',
+				 'mainboard', 'Book Built', 403.00, 424.00, 450.00, '2026-09-16', '2026-09-18', '2026-09-23', 'upcoming', NULL,
+				 NULL, NULL, 'Multi-brand retail and apparel lifestyle enterprise.')
+			ON CONFLICT (id) DO UPDATE SET
+				status = EXCLUDED.status,
+				price_band_min = EXCLUDED.price_band_min,
+				price_band_max = EXCLUDED.price_band_max,
+				issue_size = EXCLUDED.issue_size,
+				company_name = EXCLUDED.company_name
+		`);
+
+		const final = await db.execute(
+			sql`SELECT COUNT(*) as cnt FROM ipo_companies`,
+		);
+		const finalCount = Number.parseInt(
+			String((final.rows[0] as any)?.cnt || "0"),
+		);
+		const seeded = finalCount - existingCount;
+
+		if (seeded > 0) {
+			console.log(
+				`[ProductionBootstrap] IPO Companies: seeded ${seeded} new entries (${finalCount} total)`,
+			);
+		} else {
+			console.log(
+				`[ProductionBootstrap] IPO Companies: verified all ${finalCount} entries present`,
+			);
+		}
+
+		return {
+			category: "ipo_companies",
+			existing: existingCount,
+			seeded,
+			total: finalCount,
+		};
+	} catch (error: any) {
+		console.error(
+			"[ProductionBootstrap] IPO Companies seeding failed:",
+			error.message,
+		);
+		return { category: "ipo_companies", existing: 0, seeded: 0, total: 0 };
 	}
 }
 

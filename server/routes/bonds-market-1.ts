@@ -312,17 +312,7 @@ export function registerBondsMarkPart1Routes(app: Express): void {
 				logger.warn("IPOS_DB_FETCH_WARN: " + (dbErr?.message || "Unknown error"));
 			}
 
-			// If DB has valid records for this query, return them
-			if (mappedRows.length > 0) {
-				if (statusStr === "sme") {
-					res.json(mappedRows.filter((r) => r.ipoType === "sme" || r.issueType?.includes("SME")));
-					return;
-				}
-				res.json(mappedRows);
-				return;
-			}
-
-			// 2. Otherwise fetch live from IndianAPI
+			// 2. Fetch live from IndianAPI or fallback if DB doesn't have complete listings
 			let liveMapped: any[] = [];
 			const apiTargetStatus = statusStr === "ongoing" || statusStr === "sme" ? "open" : (statusStr || "open");
 
@@ -631,9 +621,12 @@ export function registerBondsMarkPart1Routes(app: Express): void {
 				}
 			}
 
+			// Combine DB records and live/fallback records with database precedence
+			const combinedList = [...mappedRows, ...liveMapped];
+
 			// Apply duplicate guard with normalizeCompanyName
 			const seenNames = new Set<string>();
-			const dedupedResults = liveMapped.filter((item) => {
+			const dedupedResults = combinedList.filter((item) => {
 				const key = normalizeCompanyName(item.companyName);
 				if (!key || seenNames.has(key)) return false;
 				seenNames.add(key);
