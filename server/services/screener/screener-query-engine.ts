@@ -118,6 +118,55 @@ export interface ScreenerResult {
 	eps: string | null;
 	netProfitMargin: string | null;
 
+	// Phase-5 Extended Valuation
+	roic: string | null;              // Return on Invested Capital
+	evToEbitda: string | null;        // EV / EBITDA (Greenblatt)
+	evToRevenue: string | null;       // EV / Sales
+	pfcfRatio: string | null;         // Price / Free Cash Flow
+	earningsYield: string | null;     // E/P = 1/PE (Greenblatt)
+	freeCashFlowYield: string | null; // FCF / Market Cap
+	grahamNumber: string | null;      // √(22.5 × EPS × BVPS)
+	grahamUpside: string | null;      // (grahamNumber - price) / price * 100
+
+	// Phase-5 Profitability
+	operatingMargin: string | null;
+	grossMargin: string | null;
+	fcfMargin: string | null;         // Free Cash Flow / Revenue
+
+	// Phase-5 Safety / Leverage
+	netDebtToEbitda: string | null;   // Net Debt / EBITDA
+	interestCoverage: string | null;  // EBIT / Interest Expense
+	incomeQuality: string | null;     // CFO / Net Income; <0.8 = concern
+
+	// Phase-5 Efficiency
+	assetTurnover: string | null;          // Revenue / Total Assets
+	daysSalesOutstanding: string | null;   // DSO
+	daysPayablesOutstanding: string | null;// DPO
+	daysInventoryOnHand: string | null;    // DIO
+	cashConversionCycle: string | null;    // DSO + DIO - DPO
+
+	// Phase-5 Price Range
+	pctFrom52WHigh: string | null;  // % below 52W high
+	pctFrom52WLow: string | null;   // % above 52W low
+
+	// Phase-5 Growth
+	revenueGrowth3Y: string | null;   // 3Y revenue CAGR
+	earningsGrowth3Y: string | null;  // 3Y earnings CAGR
+
+	// Phase-5 Composite
+	magicFormulaRank: number | null;  // Greenblatt rank; lower = better
+	volatility30D: string | null;
+	sortinoRatio1Y: string | null;
+	momentumScore: string | null;
+
+	// Phase-5 Ownership (from screener_shareholding, latest quarter)
+	promoterHolding: string | null;
+	promoterHoldingChange: string | null; // QoQ change
+	fiiHolding: string | null;
+	fiiHoldingChange: string | null;
+	diiHolding: string | null;
+	pledgedShares: string | null;         // % of promoter holding pledged
+
 	// Returns (from derived metrics — computed from OHLCV)
 	return1W: string | null;
 	return1M: string | null;
@@ -155,6 +204,7 @@ export interface ScreenerResult {
 	valueScore: string | null;
 	riskScore: string | null;
 	piotroskiScore: number | null;
+	piotroskiDetails: unknown | null;
 	altmanZScore: string | null;
 	technicalRating: string | null;
 
@@ -432,6 +482,114 @@ export async function queryScreener(
 			dividendYield: sql<string>`COALESCE(${screenerFinancials.dividendYield}::numeric, ${screenerKeyMetrics.dividendYield}::numeric, ${listedStocks.dividendYield}::numeric)`,
 			eps: sql<string>`COALESCE(NULLIF(${screenerFinancials.eps}::numeric, 0), NULLIF(${listedStocks.eps}::numeric, 0))`,
 			netProfitMargin: screenerFinancials.netProfitMargin,
+
+			// Phase-5: Extended Valuation (from screener_key_metrics)
+			roic: screenerKeyMetrics.roic,
+			evToEbitda: sql<string>`COALESCE(NULLIF(${screenerFinancials.evToEbitda}::numeric, 0), NULLIF(${screenerKeyMetrics.enterpriseValueOverEbitda}::numeric, 0))`,
+			evToRevenue: screenerKeyMetrics.evToSales,
+			pfcfRatio: screenerKeyMetrics.pfcfRatio,
+			earningsYield: screenerKeyMetrics.earningsYield,
+			freeCashFlowYield: screenerKeyMetrics.freeCashFlowYield,
+			grahamNumber: screenerKeyMetrics.grahamNumber,
+			// Graham Upside = (grahamNumber - currentPrice) / currentPrice * 100
+			grahamUpside: sql<string>`
+				CASE
+					WHEN ${screenerKeyMetrics.grahamNumber}::numeric > 0
+					 AND ${listedStocks.currentPrice}::numeric > 0
+						THEN ROUND(((${screenerKeyMetrics.grahamNumber}::numeric - ${listedStocks.currentPrice}::numeric)
+							/ ${listedStocks.currentPrice}::numeric * 100), 2)
+					ELSE NULL
+				END
+			`,
+
+			// Phase-5: Profitability
+			operatingMargin: screenerFinancials.operatingMargin,
+			grossMargin: screenerFinancials.grossMargin,
+			// FCF Margin = freeCashFlow / revenue
+			fcfMargin: sql<string>`
+				CASE
+					WHEN ${screenerFinancials.revenue}::numeric > 0
+					 AND ${screenerFinancials.freeCashFlow}::numeric IS NOT NULL
+						THEN ROUND((${screenerFinancials.freeCashFlow}::numeric / ${screenerFinancials.revenue}::numeric), 4)
+					ELSE NULL
+				END
+			`,
+
+			// Phase-5: Safety / Leverage
+			netDebtToEbitda: screenerKeyMetrics.netDebtToEbitda,
+			interestCoverage: sql<string>`COALESCE(NULLIF(${screenerFinancials.interestCoverage}::numeric, 0), NULLIF(${screenerKeyMetrics.interestCoverage}::numeric, 0))`,
+			incomeQuality: screenerKeyMetrics.incomeQuality,
+
+			// Phase-5: Efficiency
+			// Asset Turnover = revenue / totalAssets
+			assetTurnover: sql<string>`
+				CASE
+					WHEN ${screenerFinancials.totalAssets}::numeric > 0
+					 AND ${screenerFinancials.revenue}::numeric IS NOT NULL
+						THEN ROUND((${screenerFinancials.revenue}::numeric / ${screenerFinancials.totalAssets}::numeric), 4)
+					ELSE NULL
+				END
+			`,
+			daysSalesOutstanding: screenerKeyMetrics.daysSalesOutstanding,
+			daysPayablesOutstanding: screenerKeyMetrics.daysPayablesOutstanding,
+			daysInventoryOnHand: screenerKeyMetrics.daysOfInventoryOnHand,
+			// Cash Conversion Cycle = DSO + DIO - DPO
+			cashConversionCycle: sql<string>`
+				CASE
+					WHEN ${screenerKeyMetrics.daysSalesOutstanding}::numeric IS NOT NULL
+					 AND ${screenerKeyMetrics.daysPayablesOutstanding}::numeric IS NOT NULL
+					 AND ${screenerKeyMetrics.daysOfInventoryOnHand}::numeric IS NOT NULL
+						THEN ROUND((
+							${screenerKeyMetrics.daysSalesOutstanding}::numeric +
+							${screenerKeyMetrics.daysOfInventoryOnHand}::numeric -
+							${screenerKeyMetrics.daysPayablesOutstanding}::numeric
+						), 2)
+					ELSE NULL
+				END
+			`,
+
+			// Phase-5: Price Range %
+			pctFrom52WHigh: sql<string>`
+				CASE
+					WHEN COALESCE(${screenerDerivedMetrics.weekHigh52}::numeric, ${listedStocks.weekHigh52}::numeric) > 0
+					 AND ${listedStocks.currentPrice}::numeric > 0
+						THEN ROUND((
+							(${listedStocks.currentPrice}::numeric - COALESCE(${screenerDerivedMetrics.weekHigh52}::numeric, ${listedStocks.weekHigh52}::numeric))
+							/ COALESCE(${screenerDerivedMetrics.weekHigh52}::numeric, ${listedStocks.weekHigh52}::numeric) * 100
+						), 2)
+					ELSE NULL
+				END
+			`,
+			pctFrom52WLow: sql<string>`
+				CASE
+					WHEN COALESCE(${screenerDerivedMetrics.weekLow52}::numeric, ${listedStocks.weekLow52}::numeric) > 0
+					 AND ${listedStocks.currentPrice}::numeric > 0
+						THEN ROUND((
+							(${listedStocks.currentPrice}::numeric - COALESCE(${screenerDerivedMetrics.weekLow52}::numeric, ${listedStocks.weekLow52}::numeric))
+							/ COALESCE(${screenerDerivedMetrics.weekLow52}::numeric, ${listedStocks.weekLow52}::numeric) * 100
+						), 2)
+					ELSE NULL
+				END
+			`,
+
+			// Phase-5: Growth (3Y CAGR from derived)
+			revenueGrowth3Y: sql<string>`COALESCE(${screenerDerivedMetrics.revenueCagr3Y}, ${screenerDerivedMetrics.revenueGrowth3Y})`,
+			earningsGrowth3Y: sql<string>`COALESCE(${screenerDerivedMetrics.epsCagr3Y}, ${screenerDerivedMetrics.earningsGrowth3Y})`,
+
+			// Phase-5: Composite & Risk
+			magicFormulaRank: screenerDerivedMetrics.magicFormulaRank,
+			volatility30D: screenerDerivedMetrics.volatility30D,
+			sortinoRatio1Y: screenerDerivedMetrics.sortinoRatio1Y,
+			momentumScore: screenerDerivedMetrics.momentumScore,
+
+			// Phase-5: Ownership (from screener_shareholding — latest quarter)
+			promoterHolding: screenerShareholding.promoterHolding,
+			promoterHoldingChange: screenerShareholding.promoterHoldingChange,
+			fiiHolding: screenerShareholding.fiiHolding,
+			fiiHoldingChange: screenerShareholding.fiiHoldingChange,
+			diiHolding: screenerShareholding.diiHolding,
+			pledgedShares: screenerShareholding.pledgedShares,
+
 			// Returns (from derived metrics — computed from OHLCV)
 			return1W: screenerDerivedMetrics.return1W,
 			return1M: screenerDerivedMetrics.return1M,
@@ -464,6 +622,7 @@ export async function queryScreener(
 			valueScore: screenerDerivedMetrics.valueScore,
 			riskScore: screenerDerivedMetrics.riskScore,
 			piotroskiScore: screenerDerivedMetrics.piotroskiScore,
+			piotroskiDetails: screenerDerivedMetrics.piotroskiDetails,
 			altmanZScore: screenerDerivedMetrics.altmanZScore,
 			technicalRating: screenerDerivedMetrics.technicalRating,
 			// 52W

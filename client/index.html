@@ -30,17 +30,29 @@
     <link rel="apple-touch-icon" href="/icon-192.png" id="apple-touch-icon-link" />
     <script>
       (function() {
+        var h = window.location.hostname;
+        var pType = 'main';
+        if (h.startsWith('partner.')) pType = 'partner';
+        else if (h.startsWith('agent.')) pType = 'agent';
+        else if (h.startsWith('admin.')) pType = 'admin';
+
+        var iconMap = { main: '/icon-192.png', partner: '/icon-partner.png', agent: '/icon-agent.png', admin: '/icon-admin.png' };
+        var icon = iconMap[pType] || '/icon-192.png';
+        var fav = document.getElementById('favicon-link');
+        var ati = document.getElementById('apple-touch-icon-link');
+        if (fav) fav.href = icon;
+        if (ati) ati.href = icon;
+
         fetch('/api/system/portal-meta')
           .then(function(r) { return r.json(); })
           .then(function(meta) {
-            var iconMap = { main: '/icon-192.png', partner: '/icon-partner.png', agent: '/icon-agent.png', admin: '/icon-admin.png' };
-            var icon = iconMap[meta.portal_type] || '/icon-192.png';
-            document.getElementById('favicon-link').href = icon;
-            document.getElementById('apple-touch-icon-link').href = icon;
+            var dynIcon = iconMap[meta.portal_type] || icon;
+            if (fav) fav.href = dynIcon;
+            if (ati) ati.href = dynIcon;
             var tc = document.querySelector('meta[name="theme-color"]');
-            if (tc) tc.content = meta.primary_color;
+            if (tc && meta.primary_color) tc.content = meta.primary_color;
             var awt = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-            if (awt) awt.content = meta.label;
+            if (awt && meta.label) awt.content = meta.label;
           })
           .catch(function() {});
       })();

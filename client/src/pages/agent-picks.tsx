@@ -4567,7 +4567,7 @@ export default function AgentPicksPage() {
 																			<span>Other Sectors</span>
 																		</div>
 																	)}
-																	<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+																	<div className="grid gap-4 grid-cols-1">
 																		{group.picks.map((pick, index) => (
 																			<PickCard
 																				key={`today-sector-${pick.id}-${gi}-${index}`}
@@ -4822,7 +4822,7 @@ export default function AgentPicksPage() {
 																		{group.picks.length > 1 ? "s" : ""}
 																	</span>
 																</SectorHeader>
-																<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+																<div className="grid gap-4 grid-cols-1">
 																	{group.picks.map((pick, index) => (
 																		<PickCard
 																			key={`today-gs-${pick.id}-${gi}-${index}`}
@@ -4858,7 +4858,7 @@ export default function AgentPicksPage() {
 												{nonStockPicks.length > 0 && (viewMode === "table" ? (
 													<PicksTable picks={nonStockPicks} onRowClick={setSelectedPick} />
 												) : (
-													<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+													<div className="grid gap-4 grid-cols-1">
 														{nonStockPicks.map((pick, index) => (
 															<PickCard
 																key={`today-ns-${pick.id}-${index}`}
@@ -4952,7 +4952,7 @@ export default function AgentPicksPage() {
 												</div>
 											);
 										})()}
-										<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+										<div className="grid gap-4 grid-cols-1">
 											{filteredTodayPicks.map((pick, index) => (
 												<PickCard
 													key={`today-flat-${pick.id}-${index}`}
@@ -5125,7 +5125,7 @@ export default function AgentPicksPage() {
 									showReturn
 								/>
 							) : (
-								<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+								<div className="grid gap-4 grid-cols-1">
 									{filteredLivePicks.map((pick, index) => (
 										<PickCard
 											key={`live-${pick.id}-${index}`}
@@ -7160,8 +7160,9 @@ function PickCard({
 					<div className="p-2 rounded-full bg-primary/10 shrink-0">
 						<Icon className="h-5 w-5 text-primary" />
 					</div>
-					<div className="flex-1">
-						<div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+					<div className="flex-1 min-w-0">
+						{/* Horizontal 2-column layout: [left: identity+rationale] [right: prices+metrics+actions] */}
+						<div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
 							<div className="min-w-0 flex-1 space-y-1">
 								<h3 className="font-bold text-base sm:text-lg leading-tight break-words text-foreground">
 									{pick.instrumentName}
@@ -7461,7 +7462,51 @@ function PickCard({
 									{pick.sectorCategory}
 								</Badge>
 							)}
+							{/* #2 R/R badge inline with other badges — horizontal layout */}
+							{!isPreIpo && Number.parseFloat(upside) > 0 && Number.parseFloat(downside) > 0 && (
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Badge
+												variant="outline"
+												className={`text-[10px] font-bold cursor-help ${Number.parseFloat(upside) / Number.parseFloat(downside) >= 2 ? "border-green-400 text-green-700 dark:text-green-400" : Number.parseFloat(upside) / Number.parseFloat(downside) >= 1 ? "border-amber-400 text-amber-700 dark:text-amber-400" : "border-muted-foreground text-muted-foreground"}`}
+											>
+												{(Number.parseFloat(upside) / Number.parseFloat(downside)).toFixed(1)}x R/R
+											</Badge>
+										</TooltipTrigger>
+										<TooltipContent className="text-xs space-y-1">
+											<p className="font-semibold">Risk / Reward Ratio</p>
+											<p>Upside: <span className="text-green-600 font-medium">+{upside}%</span></p>
+											<p>Downside: <span className="text-red-600 font-medium">-{downside}%</span></p>
+											<p className="text-muted-foreground pt-1">Ratio ≥2x is generally favourable</p>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+							)}
+							{/* Inline key prices — horizontal mini strip */}
+							{pick.recoPrice && (
+								<span className="text-[10px] font-mono text-muted-foreground border border-dashed border-muted-foreground/30 px-1.5 py-0.5 rounded">
+									Entry {formatPrice(pick.recoPrice, pick.category)}
+								</span>
+							)}
+							{pick.targetPrice && (
+								<span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700 px-1.5 py-0.5 rounded">
+									TGT {formatPrice(pick.targetPrice, pick.category)} <span className="text-[9px]">+{upside}%</span>
+								</span>
+							)}
+							{!isPreIpo && pick.stoplossPrice && (
+								<span className="text-[10px] font-mono text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 px-1.5 py-0.5 rounded">
+									SL {formatPrice(pick.stoplossPrice, pick.category)} <span className="text-[9px]">-{downside}%</span>
+								</span>
+							)}
+							{/* Inline current return */}
+							{pick.currentPrice && currentReturn && (
+								<span className={`text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded ${Number.parseFloat(currentReturn) >= 0 ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800" : "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800"}`}>
+									CMP {formatPrice(pick.currentPrice, pick.category)} ({Number.parseFloat(currentReturn) >= 0 ? "+" : ""}{currentReturn}%)
+								</span>
+							)}
 						</div>
+
 
 						{/* #2 Risk/Reward badge — hidden for Pre-IPO (illiquid; no tradeable stoploss) */}
 						{!isPreIpo && Number.parseFloat(upside) > 0 &&

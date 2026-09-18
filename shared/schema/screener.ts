@@ -154,6 +154,15 @@ export const screenerDerivedMetrics = pgTable("screener_derived_metrics", {
   // Altman Z-Score: < 1.81 distress, 1.81–2.99 grey, > 2.99 safe
   altmanZScore: decimal("altman_z_score", { precision: 8, scale: 4 }),
 
+  // ── Magic Formula (Greenblatt) ────────────────────────────────────────────
+  // Rank 1 = best (highest ROIC + highest Earnings Yield combined decile rank)
+  // Computed nightly across all active stocks with valid ROIC + earnings yield
+  magicFormulaRank: integer("magic_formula_rank"),
+
+  // ── Growth CAGRs (computed from screener_growth_metrics) ─────────────────
+  revenueCagr3Y: decimal("revenue_cagr_3y", { precision: 10, scale: 4 }),  // 3-year CAGR of revenue
+  epsCagr3Y:     decimal("eps_cagr_3y",     { precision: 10, scale: 4 }),  // 3-year CAGR of diluted EPS
+
   // ── Dividends & Price Info ────────────────────────────────────────────────
   dividendPerShare: decimal("dividend_per_share", { precision: 10, scale: 4 }),
   faceValue: decimal("face_value", { precision: 10, scale: 2 }),
@@ -174,6 +183,9 @@ export const screenerDerivedMetrics = pgTable("screener_derived_metrics", {
   index("idx_screener_derived_piotroski").on(table.piotroskiScore),
   index("idx_screener_derived_beta").on(table.beta),
   index("idx_screener_derived_tech_rating").on(table.technicalRating),
+  index("idx_screener_derived_magic_formula").on(table.magicFormulaRank),
+  index("idx_screener_derived_rev_cagr").on(table.revenueCagr3Y),
+  index("idx_screener_derived_eps_cagr").on(table.epsCagr3Y),
 ]);
 
 export const fmpUsageLog = pgTable("fmp_usage_log", {

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { db } from "../../db";
 import {
 	screenerFinancials,
@@ -524,5 +525,139 @@ export async function runOHLCVReturnPass(): Promise<{ processed: number; errors:
 			console.warn("[DerivedMetrics] OHLCV return pass failed (non-fatal):", phase2Err?.message);
 		}
 
+	await runMagicFormulaAndCAGRPass();
+
 	return { processed: returnPassProcessed, errors: returnPassErrors };
 }
+
+/**
+ * Phase 5: Magic Formula Rank + Revenue/EPS CAGR 3Y.
+ *
+ * Magic Formula (Greenblatt):
+ *   - Rank all stocks by ROIC descending (higher ROIC = better rank)
+ *   - Rank all stocks by Earnings Yield (EBIT/EV) descending
+ *   - Sum both ranks; sort ascending = best combined value+quality
+ *   - Final rank 1 = most attractive; stored as magic_formula_rank
+ *
+ * CAGR 3Y:
+ *   - Uses screener_growth_metrics.three_y_revenue_growth_per_share
+ *     and three_y_net_income_growth_per_share (already annualised by FMP)
+ *
+ * Safe to run on every nightly batch after OHLCV pass.
+ * @returns {{ processed: number; errors: number }}
+ */
+export async function runMagicFormulaAndCAGRPass(): Promise<{ processed: number; errors: number }> {
+	let processed = 0;
+	let errors = 0;
+
+	// ── Step 1: Upsert Revenue CAGR 3Y + EPS CAGR 3Y ──────────────────────────
+	// Primary source: screener_growth_metrics (FMP 3Y CAGR)
+	// Fallback source: screener_financials (revenue_growth, earnings_growth)
+	try {
+		const cagrResult = await db.execute(sql`
+			INSERT INTO screener_derived_metrics (symbol, revenue_cagr_3y, eps_cagr_3y, last_calculated)
+			SELECT
+				COALESCE(gm.symbol, sf.symbol) AS symbol,
+				COALESCE(
+					gm.three_y_revenue_growth_per_share::numeric,
+					sf.revenue_growth::numeric
+				) AS revenue_cagr_3y,
+				COALESCE(
+					gm.three_y_net_income_growth_per_share::numeric,
+					sf.earnings_growth::numeric
+				) AS eps_cagr_3y,
+				NOW()
+			FROM (
+				SELECT DISTINCT ON (symbol)
+					symbol, three_y_revenue_growth_per_share, three_y_net_income_growth_per_share
+				FROM screener_growth_metrics
+				WHERE three_y_revenue_growth_per_share IS NOT NULL
+				   OR three_y_net_income_growth_per_share IS NOT NULL
+				ORDER BY symbol, date DESC
+			) gm
+			FULL OUTER JOIN (
+				SELECT DISTINCT ON (symbol)
+					symbol, revenue_growth, earnings_growth
+				FROM screener_financials
+				WHERE revenue_growth IS NOT NULL OR earnings_growth IS NOT NULL
+				ORDER BY symbol, fiscal_year DESC NULLS LAST
+			) sf ON sf.symbol = gm.symbol
+			WHERE COALESCE(gm.symbol, sf.symbol) IS NOT NULL
+			ON CONFLICT (symbol) DO UPDATE SET
+				revenue_cagr_3y = COALESCE(EXCLUDED.revenue_cagr_3y, screener_derived_metrics.revenue_cagr_3y),
+				eps_cagr_3y     = COALESCE(EXCLUDED.eps_cagr_3y, screener_derived_metrics.eps_cagr_3y),
+				last_calculated = NOW()
+		`);
+		const cagrRows = (cagrResult as any)?.rowCount ?? 0;
+		console.log(`[DerivedMetrics] CAGR 3Y pass: ${cagrRows} rows upserted`);
+		processed += cagrRows;
+	} catch (cagrErr: any) {
+		console.error(`[DerivedMetrics] CAGR 3Y pass error: ${cagrErr?.message}`);
+		errors++;
+	}
+
+	// ── Step 2: Magic Formula Rank (Greenblatt) ────────────────────────────────
+	// Rank 1 = best company (highest ROIC/ROCE + highest Earnings Yield)
+	// Primary: screener_key_metrics (pre-computed roic & earnings_yield)
+	// Fallback: screener_financials (roce/roe + 1/pe_ratio)
+	try {
+		const mfResult = await db.execute(sql`
+			WITH pool AS (
+				SELECT
+					ls.symbol,
+					COALESCE(
+						km.roic::numeric,
+						sf.roce::numeric,
+						sf.roe::numeric
+					) AS roic_val,
+					COALESCE(
+						km.earnings_yield::numeric,
+						CASE WHEN sf.pe_ratio::numeric > 0 THEN (1.0 / sf.pe_ratio::numeric) ELSE NULL END,
+						CASE WHEN ls.pe_ratio::numeric > 0 THEN (1.0 / ls.pe_ratio::numeric) ELSE NULL END
+					) AS ey_val
+				FROM listed_stocks ls
+				LEFT JOIN (
+					SELECT DISTINCT ON (symbol) symbol, roic, earnings_yield
+					FROM screener_key_metrics
+					WHERE roic IS NOT NULL OR earnings_yield IS NOT NULL
+					ORDER BY symbol, date DESC
+				) km ON km.symbol = ls.symbol
+				LEFT JOIN (
+					SELECT DISTINCT ON (symbol) symbol, roce, roe, pe_ratio
+					FROM screener_financials
+					ORDER BY symbol, fiscal_year DESC NULLS LAST
+				) sf ON sf.symbol = ls.symbol
+				WHERE ls.is_active = TRUE
+			),
+			ranked AS (
+				SELECT
+					p.symbol,
+					ROW_NUMBER() OVER (ORDER BY p.roic_val DESC NULLS LAST) AS roic_rank,
+					ROW_NUMBER() OVER (ORDER BY p.ey_val DESC NULLS LAST)   AS ey_rank
+				FROM pool p
+				WHERE p.roic_val IS NOT NULL AND p.ey_val IS NOT NULL
+			),
+			combined AS (
+				SELECT
+					symbol,
+					ROW_NUMBER() OVER (ORDER BY (roic_rank + ey_rank) ASC) AS magic_formula_rank
+				FROM ranked
+			)
+			INSERT INTO screener_derived_metrics (symbol, magic_formula_rank, last_calculated)
+			SELECT symbol, magic_formula_rank::integer, NOW()
+			FROM combined
+			ON CONFLICT (symbol) DO UPDATE SET
+				magic_formula_rank = EXCLUDED.magic_formula_rank,
+				last_calculated    = NOW()
+		`);
+		const mfRows = (mfResult as any)?.rowCount ?? 0;
+		console.log(`[DerivedMetrics] Magic Formula rank pass: ${mfRows} stocks ranked`);
+		processed += mfRows;
+	} catch (mfErr: any) {
+		console.error(`[DerivedMetrics] Magic Formula rank error: ${mfErr?.message}`);
+		errors++;
+	}
+
+	return { processed, errors };
+}
+

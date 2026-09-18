@@ -2166,6 +2166,9 @@ crypto_status VARCHAR,
         ADD COLUMN IF NOT EXISTS fintek_rating SMALLINT,
         ADD COLUMN IF NOT EXISTS revenue_growth_3y DECIMAL(10,4),
         ADD COLUMN IF NOT EXISTS earnings_growth_3y DECIMAL(10,4),
+        ADD COLUMN IF NOT EXISTS magic_formula_rank INTEGER,
+        ADD COLUMN IF NOT EXISTS revenue_cagr_3y NUMERIC(10,4),
+        ADD COLUMN IF NOT EXISTS eps_cagr_3y NUMERIC(10,4),
         ADD COLUMN IF NOT EXISTS scoring_metadata JSONB;
     `);
 		console.log("✅ screener_derived_metrics extended with returns + risk + quality + scoring columns");
@@ -2173,9 +2176,15 @@ crypto_status VARCHAR,
 		// Ensure unique constraint exists on symbol (required for ON CONFLICT ... DO NOTHING)
 		await migDb.execute(migSql`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_screener_derived_symbol_uq
-      ON screener_derived_metrics(symbol)
+      ON screener_derived_metrics(symbol);
+      CREATE INDEX IF NOT EXISTS idx_screener_derived_magic_formula
+        ON screener_derived_metrics (magic_formula_rank);
+      CREATE INDEX IF NOT EXISTS idx_screener_derived_rev_cagr
+        ON screener_derived_metrics (revenue_cagr_3y);
+      CREATE INDEX IF NOT EXISTS idx_screener_derived_eps_cagr
+        ON screener_derived_metrics (eps_cagr_3y);
     `);
-		console.log("✅ screener_derived_metrics unique index on symbol ensured");
+		console.log("✅ screener_derived_metrics unique index on symbol + Phase 5 indexes ensured");
 
 		// 3. Extend screener_technical_indicators with new indicators + pivots
 		await migDb.execute(migSql`
