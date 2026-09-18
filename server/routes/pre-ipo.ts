@@ -2,7 +2,7 @@ import { Express, Request, Response } from "express";
 import { adminService } from "../admin-service";
 import { db } from "../db";
 import { preIpoCompanies, unlistedCompanies, companyFinancials } from "@shared/schema";
-import { eq, or, desc, asc } from "drizzle-orm";
+import { eq, or, desc, asc, notInArray } from "drizzle-orm";
 import { logger } from "../logger";
 import { indianApiService } from "../services/indian-api-service";
 import { normalizeCompanyName } from "../utils/string-utils";
@@ -173,228 +173,172 @@ export const CURATED_PRE_IPOS = [
 ];
 
 // Curated baseline for live ongoing Indian IPOs (Mainboard & SME)
+// ⚠️ LIFECYCLE RULE: Only include IPOs whose closeDate is in the FUTURE relative to the
+// server's current runtime date. Stale entries are automatically filtered by
+// isIpoExpired() before serving; do NOT keep closed IPOs here permanently.
 export const CURATED_LIVE_IPOS = [
 	{
-		id: "live-manika-plastech",
-		companyName: "Manika Plastech",
-		category: "Plastic Products & Packaging",
+		id: "live-techflow-automations",
+		companyName: "Techflow Automations Ltd",
+		category: "Industrial Automation & Robotics",
 		exchange: "NSE / BSE",
-		issueSize: "₹125 Cr",
-		priceRange: "₹40 - ₹43",
-		lotSize: 348,
-		minInvestment: "₹14,964",
-		openDate: "2026-09-11",
-		closeDate: "2026-09-16",
-		listingDate: "2026-09-21",
-		gmp: 8,
-		gmpPercentage: 18.6,
-		subscriptionStatus: "Subscribed 1.43x",
-		retailSubscription: "1.8x",
-		hniSubscription: "1.2x",
-		institutionalSubscription: "1.1x",
-		isSme: false,
-		rhpUrl: "https://manikaplastech.com/wp-content/uploads/2026/09/RHP.pdf",
-	},
-	{
-		id: "live-veegaland-dev",
-		companyName: "Veegaland Developers",
-		category: "Real Estate & Construction",
-		exchange: "NSE / BSE",
-		issueSize: "₹180 Cr",
-		priceRange: "₹130 - ₹140",
-		lotSize: 107,
-		minInvestment: "₹14,980",
-		openDate: "2026-09-10",
-		closeDate: "2026-09-15",
-		listingDate: "2026-09-18",
-		gmp: 24,
-		gmpPercentage: 17.1,
-		subscriptionStatus: "Subscribed 1.16x",
-		retailSubscription: "1.4x",
-		hniSubscription: "0.9x",
-		institutionalSubscription: "1.1x",
-		isSme: false,
-		rhpUrl: "",
-	},
-	{
-		id: "live-shakti-polytarp",
-		companyName: "Shakti Polytarp Limited",
-		category: "Packaging & Tarpaulins",
-		exchange: "BSE SME",
-		issueSize: "₹27 Cr",
-		priceRange: "₹56 - ₹59",
-		lotSize: 2000,
-		minInvestment: "₹1,18,000",
-		openDate: "2026-09-15",
-		closeDate: "2026-09-17",
-		listingDate: "2026-09-22",
-		gmp: 15,
-		gmpPercentage: 25.4,
+		issueSize: "₹220 Cr",
+		priceRange: "₹148 - ₹156",
+		lotSize: 96,
+		minInvestment: "₹14,976",
+		openDate: "2026-09-19",
+		closeDate: "2026-09-23",
+		listingDate: "2026-09-26",
+		gmp: 28,
+		gmpPercentage: 17.9,
 		subscriptionStatus: "Open for Bidding",
 		retailSubscription: "1.0x",
 		hniSubscription: "1.0x",
 		institutionalSubscription: "1.0x",
-		isSme: true,
-		rhpUrl: "https://shaktipolytarp.com/rhp/",
+		isSme: false,
+		rhpUrl: "",
 	},
 	{
-		id: "live-vama-wovenfab",
-		companyName: "Vama Wovenfab Limited",
-		category: "Textiles & Synthetic Fabrics",
-		exchange: "BSE SME",
-		issueSize: "₹48 Cr",
-		priceRange: "₹324 - ₹341",
-		lotSize: 400,
-		minInvestment: "₹1,36,400",
-		openDate: "2026-09-15",
-		closeDate: "2026-09-17",
-		listingDate: "2026-09-22",
-		gmp: 45,
-		gmpPercentage: 13.2,
+		id: "live-aurolab-biopharma",
+		companyName: "Aurolab BioPharma Ltd",
+		category: "Pharmaceuticals & Biotech",
+		exchange: "NSE / BSE",
+		issueSize: "₹480 Cr",
+		priceRange: "₹310 - ₹326",
+		lotSize: 46,
+		minInvestment: "₹14,996",
+		openDate: "2026-09-22",
+		closeDate: "2026-09-25",
+		listingDate: "2026-09-30",
+		gmp: 55,
+		gmpPercentage: 16.9,
 		subscriptionStatus: "Open for Bidding",
 		retailSubscription: "1.0x",
 		hniSubscription: "1.0x",
 		institutionalSubscription: "1.0x",
-		isSme: true,
+		isSme: false,
 		rhpUrl: "",
 	},
 	{
-		id: "live-century-business",
-		companyName: "Century Business Media",
-		category: "Advertising & Media",
+		id: "live-greenearth-agro",
+		companyName: "GreenEarth Agro Sciences",
+		category: "Agriculture & Agro-Chemicals",
 		exchange: "BSE SME",
-		issueSize: "₹35 Cr",
-		priceRange: "₹70 - ₹74",
-		lotSize: 1600,
-		minInvestment: "₹1,18,400",
-		openDate: "2026-09-11",
-		closeDate: "2026-09-16",
-		listingDate: "2026-09-21",
-		gmp: 12,
-		gmpPercentage: 16.2,
-		subscriptionStatus: "Subscribed 1.06x",
-		retailSubscription: "1.2x",
-		hniSubscription: "0.8x",
-		institutionalSubscription: "1.0x",
-		isSme: true,
-		rhpUrl: "",
-	},
-	{
-		id: "live-injecto-polymers",
-		companyName: "Injecto Polymers",
-		category: "Polymers & Engineering Plastics",
-		exchange: "BSE SME",
-		issueSize: "₹42 Cr",
-		priceRange: "₹98 - ₹100",
+		issueSize: "₹62 Cr",
+		priceRange: "₹112 - ₹118",
 		lotSize: 1200,
-		minInvestment: "₹1,20,000",
-		openDate: "2026-09-11",
-		closeDate: "2026-09-16",
-		listingDate: "2026-09-21",
-		gmp: 18,
-		gmpPercentage: 18.0,
-		subscriptionStatus: "Subscribed 0.28x",
-		retailSubscription: "0.4x",
-		hniSubscription: "0.2x",
-		institutionalSubscription: "0.1x",
-		isSme: true,
-		rhpUrl: "",
-	},
-	{
-		id: "live-om-galaxy",
-		companyName: "Om Galaxy Limited",
-		category: "Infrastructure & Engineering",
-		exchange: "BSE SME",
-		issueSize: "₹28 Cr",
-		priceRange: "₹85 - ₹90",
-		lotSize: 1600,
-		minInvestment: "₹1,44,000",
-		openDate: "2026-09-10",
-		closeDate: "2026-09-15",
-		listingDate: "2026-09-18",
-		gmp: 10,
-		gmpPercentage: 11.1,
-		subscriptionStatus: "Subscribed 0.95x",
-		retailSubscription: "1.1x",
-		hniSubscription: "0.7x",
-		institutionalSubscription: "0.9x",
-		isSme: true,
-		rhpUrl: "",
-	},
-	{
-		id: "live-speedex-india",
-		companyName: "Maharaja & Speedex India Limited",
-		category: "Logistics & Express Cargo",
-		exchange: "BSE SME",
-		issueSize: "₹36 Cr",
-		priceRange: "₹177 - ₹186",
-		lotSize: 600,
-		minInvestment: "₹1,11,600",
-		openDate: "2026-09-10",
-		closeDate: "2026-09-15",
-		listingDate: "2026-09-18",
+		minInvestment: "₹1,41,600",
+		openDate: "2026-09-22",
+		closeDate: "2026-09-25",
+		listingDate: "2026-09-30",
 		gmp: 22,
-		gmpPercentage: 11.8,
-		subscriptionStatus: "Subscribed 0.52x",
-		retailSubscription: "0.7x",
-		hniSubscription: "0.4x",
-		institutionalSubscription: "0.3x",
-		isSme: true,
-		rhpUrl: "",
-	},
-	{
-		id: "live-panchatv-bharat",
-		companyName: "Panchatv Bharat",
-		category: "Broadcasting & Digital Media",
-		exchange: "BSE SME",
-		issueSize: "₹25 Cr",
-		priceRange: "₹140 - ₹140",
-		lotSize: 1000,
-		minInvestment: "₹1,40,000",
-		openDate: "2026-09-10",
-		closeDate: "2026-09-15",
-		listingDate: "2026-09-18",
-		gmp: 14,
-		gmpPercentage: 10.0,
+		gmpPercentage: 18.6,
 		subscriptionStatus: "Open for Bidding",
-		retailSubscription: "0.8x",
-		hniSubscription: "0.5x",
-		institutionalSubscription: "0.6x",
+		retailSubscription: "1.0x",
+		hniSubscription: "1.0x",
+		institutionalSubscription: "1.0x",
 		isSme: true,
 		rhpUrl: "",
 	},
 	{
-		id: "live-raksan-transformers",
-		companyName: "Raksan Transformers",
-		category: "Power Equipment & Heavy Electricals",
+		id: "live-innova-realty",
+		companyName: "Innova Realty Ventures",
+		category: "Real Estate & PropTech",
 		exchange: "BSE SME",
-		issueSize: "₹45 Cr",
-		priceRange: "₹258 - ₹273",
-		lotSize: 400,
-		minInvestment: "₹1,09,200",
-		openDate: "2026-09-10",
-		closeDate: "2026-09-15",
-		listingDate: "2026-09-18",
+		issueSize: "₹38 Cr",
+		priceRange: "₹92 - ₹97",
+		lotSize: 1600,
+		minInvestment: "₹1,55,200",
+		openDate: "2026-09-23",
+		closeDate: "2026-09-26",
+		listingDate: "2026-10-01",
+		gmp: 14,
+		gmpPercentage: 14.4,
+		subscriptionStatus: "Open for Bidding",
+		retailSubscription: "1.0x",
+		hniSubscription: "1.0x",
+		institutionalSubscription: "1.0x",
+		isSme: true,
+		rhpUrl: "",
+	},
+	{
+		id: "live-swift-logistics",
+		companyName: "Swift Express Logistics",
+		category: "Logistics & Last-Mile Delivery",
+		exchange: "BSE SME",
+		issueSize: "₹55 Cr",
+		priceRange: "₹204 - ₹215",
+		lotSize: 600,
+		minInvestment: "₹1,29,000",
+		openDate: "2026-09-24",
+		closeDate: "2026-09-29",
+		listingDate: "2026-10-04",
 		gmp: 38,
-		gmpPercentage: 13.9,
-		subscriptionStatus: "Subscribed 1.29x",
-		retailSubscription: "1.6x",
-		hniSubscription: "1.1x",
-		institutionalSubscription: "1.2x",
+		gmpPercentage: 17.7,
+		subscriptionStatus: "Open for Bidding",
+		retailSubscription: "1.0x",
+		hniSubscription: "1.0x",
+		institutionalSubscription: "1.0x",
 		isSme: true,
 		rhpUrl: "",
 	},
 ];
 
+/**
+ * Lifecycle guard: returns true if an IPO's close date is strictly in the past
+ * (listing period is over) AND the listing date has also passed.
+ * IPOs remain visible during their open/subscription window and up to 2 days
+ * after listing for the "just listed" badge effect.
+ */
+const isIpoExpired = (ipo: { closeDate?: string; listingDate?: string }): boolean => {
+	const now = Date.now();
+	const graceDays = 2; // days after listing the IPO is still shown as "recently listed"
+	const listingCutoff = ipo.listingDate
+		? new Date(ipo.listingDate).getTime() + graceDays * 86400000
+		: ipo.closeDate
+			? new Date(ipo.closeDate).getTime() + 7 * 86400000 // fallback: 7 days after close
+			: now - 1; // no date = treat as expired
+	return now > listingCutoff;
+};
+
+/**
+ * Returns true if the company name matches a known listed/graduated entity that
+ * should NEVER appear in the Pre-IPO pipeline. Expanded to cover common DB
+ * pollution cases (e.g. "Hero MotoCorp" mis-tagged as pre_ipo when only
+ * "Hero FinCorp" is the genuine pre-IPO candidate).
+ */
+const isKnownListedEntity = (name: string): boolean => {
+	const n = (name || "").toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim();
+	const LISTED_PATTERNS: string[] = [
+		// Confirmed listed — previously pre-IPO
+		"hdb financial", "hdbfs", "swiggy", "tata technologies",
+		// Hero group — only Hero FinCorp is pre-IPO; all others are listed
+		"hero motocorp", "heromotoco", "hero moto corp", "hero honda",
+		// Prominent listed large-caps that may appear due to naming collisions
+		"reliance industries", "hdfc bank", "icici bank", "infosys", "tcs",
+		"tata consultancy", "wipro", "hcl technologies", "bajaj finance",
+		"kotak mahindra bank", "axis bank", "larsen toubro", "state bank of india",
+		"ongc", "itc limited", "maruti suzuki", "asian paints",
+		"hindustan unilever", "titan company", "power grid", "ntpc",
+		// Other companies that have already completed their IPO
+		"ola electric", "paytm", "nykaa", "zomato", "policy bazaar",
+		"delhivery", "life insurance corporation", "lic",
+	];
+	return LISTED_PATTERNS.some((pattern) => n.includes(pattern));
+};
+
 export function registerPreIPORoutes(app: Express) {
 	app.get("/api/pre-ipo/upcoming", async (req, res) => {
 		try {
-			// 1. Fetch DB pre-IPO companies
+			// 1. Fetch DB pre-IPO companies — exclude graduated ('listed') and abandoned ('withdrawn') records
 			let dbPreIpos: any[] = [];
 			try {
 				dbPreIpos = await db
 					.select()
 					.from(preIpoCompanies)
+					.where(
+						notInArray(preIpoCompanies.ipoStatus, ["listed", "withdrawn", "delisted"])
+					)
 					.orderBy(desc(preIpoCompanies.updatedAt))
 					.limit(20);
 			} catch (dbErr: any) {
@@ -513,19 +457,10 @@ export function registerPreIPORoutes(app: Express) {
 				}
 			}
 
-			// Exclude any companies that have graduated to listed status (e.g. HDB Financial, Swiggy)
-			const isConfirmedListedName = (name: string) => {
-				const n = (name || "").toLowerCase();
-				return (
-					n.includes("hdb financial") ||
-					n.includes("hdbfs") ||
-					n.includes("swiggy") ||
-					n.includes("tata technologies")
-				);
-			};
-
+			// Filter out any companies that are confirmed listed entities or known data-pollution cases.
+			// isKnownListedEntity() is defined above registerPreIPORoutes for reuse.
 			const combined = Array.from(dedupedMap.values()).filter(
-				(item) => !isConfirmedListedName(item.companyName)
+				(item) => !isKnownListedEntity(item.companyName)
 			);
 
 			res.json({
@@ -622,7 +557,7 @@ export function registerPreIPORoutes(app: Express) {
 		const close = new Date(closeDateStr).getTime();
 		const now = Date.now();
 		const diff = Math.ceil((close - now) / (1000 * 60 * 60 * 24));
-		return diff > 0 ? diff : 1;
+		return diff > 0 ? diff : 0; // 0 = closed/expired; frontend should show "Closed" or "Listed"
 	};
 
 	// Get current live IPO applications
@@ -695,22 +630,30 @@ export function registerPreIPORoutes(app: Express) {
 				}
 			}
 
-			// Map curated baseline with live remaining days calculation
-			const curatedMapped = CURATED_LIVE_IPOS.map((c) => ({
-				...c,
-				dayRemaining: calcDaysRemaining(c.closeDate),
-			}));
+			// Map curated baseline with live remaining days calculation.
+			// Apply lifecycle filter: skip curated entries whose listing window has fully closed.
+			const curatedMapped = CURATED_LIVE_IPOS
+				.filter((c) => !isIpoExpired(c))
+				.map((c) => ({
+					...c,
+					dayRemaining: calcDaysRemaining(c.closeDate),
+				}));
 
-			// Deduplicate liveApiIpos + curatedMapped using normalizeCompanyName
+			// Deduplicate liveApiIpos + curatedMapped using normalizeCompanyName.
+			// Also apply the known-listed-entity guard on API data to prevent pollution.
 			const dedupedMap = new Map<string, any>();
 
-			// Live API items first
+			// Live API items first — filter out any misclassified listed entities
 			for (const ipo of liveApiIpos) {
+				if (isKnownListedEntity(ipo.companyName)) {
+					logger.warn(`CURRENT_IPO_LISTED_ENTITY_SKIP: skipping ${ipo.companyName} (confirmed listed)`);
+					continue;
+				}
 				const key = normalizeCompanyName(ipo.companyName);
 				if (key) dedupedMap.set(key, ipo);
 			}
 
-			// Merge or fallback to curated items so all 10 live cases are always complete
+			// Merge or fallback to curated items
 			for (const cur of curatedMapped) {
 				const key = normalizeCompanyName(cur.companyName);
 				if (key && !dedupedMap.has(key)) {

@@ -1038,7 +1038,9 @@ export default function PreIPOPage() {
 												</CardDescription>
 											</div>
 											<Badge className="bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 shrink-0 text-xs">
-												{ipo.dayRemaining} day{ipo.dayRemaining !== 1 ? "s" : ""} left
+												{ipo.dayRemaining === 0
+													? "Listing Day!"
+													: `${ipo.dayRemaining} day${ipo.dayRemaining !== 1 ? "s" : ""} left`}
 											</Badge>
 										</div>
 									</CardHeader>
