@@ -39,9 +39,22 @@ export interface ListedEntityEntry {
 
 /**
  * The canonical blocklist. Add entries in descending listingDate order.
- * ISINs and CINs are sourced from official NSE/BSE/MCA filings.
+ *
+ * Two categories of entries:
+ *   A. "Graduated" — companies that were in our Pre-IPO pipeline and have since listed.
+ *      Add these immediately when a tracked pre-IPO company lists.
+ *   B. "Large-cap guard" — long-standing listed companies that could pollute the
+ *      pre-IPO pipeline if a stale DB record exists for them. ISIN is mandatory here.
+ *
+ * ISINs sourced from NSE/BSE official equity master files.
+ * CINs sourced from MCA21 portal (https://www.mca.gov.in).
  */
 export const LISTED_ENTITY_REGISTRY: ListedEntityEntry[] = [
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // A. Graduated Pre-IPOs (tracked in FintekPro pipeline, now listed)
+  // ══════════════════════════════════════════════════════════════════════════
+
   // ── FY2026 Listings ────────────────────────────────────────────────────────
   {
     name: "National Stock Exchange of India Limited",
@@ -145,7 +158,176 @@ export const LISTED_ENTITY_REGISTRY: ListedEntityEntry[] = [
     listedOn: "NSE / BSE",
     listingDate: "2021-07-23",
   },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // B. Large-cap Guard — long-standing listed companies that must NEVER
+  //    appear in the Pre-IPO pipeline due to naming collisions or stale DB
+  //    records. ISINs verified from NSE equity master file.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── Hero Group ─────────────────────────────────────────────────────────────
+  // NOTE: Hero FinCorp Ltd (NBFC subsidiary) IS a genuine pre-IPO — do NOT add it here.
+  //       Only Hero MotoCorp (the listed motorcycle OEM) is blocked.
+  {
+    name: "Hero MotoCorp Limited",
+    isin: "INE158A01026",
+    cin: "L35911DL1984PLC017354",
+    listedOn: "NSE / BSE",
+    listingDate: "1995-01-01",
+    note: "BSE: 500182 | NSE: HEROMOTOCO — long-standing listed company",
+  },
+
+  // ── Reliance & Large Conglomerates ─────────────────────────────────────────
+  {
+    name: "Reliance Industries Limited",
+    isin: "INE002A01018",
+    cin: "L17110MH1973PLC019786",
+    listedOn: "NSE / BSE",
+    listingDate: "1977-01-01",
+    note: "BSE: 500325 | NSE: RELIANCE",
+  },
+  {
+    name: "Tata Consultancy Services Limited",
+    isin: "INE467B01029",
+    cin: "L22210MH1995PLC084781",
+    listedOn: "NSE / BSE",
+    listingDate: "2004-08-25",
+    note: "BSE: 532540 | NSE: TCS",
+  },
+  {
+    name: "Infosys Limited",
+    isin: "INE009A01021",
+    cin: "L85110KA1981PLC013115",
+    listedOn: "NSE / BSE",
+    listingDate: "1993-02-01",
+    note: "BSE: 500209 | NSE: INFY",
+  },
+  {
+    name: "Wipro Limited",
+    isin: "INE075A01022",
+    cin: "L32102KA1945PLC020800",
+    listedOn: "NSE / BSE",
+    listingDate: "1945-01-01",
+    note: "BSE: 507685 | NSE: WIPRO",
+  },
+  {
+    name: "HCL Technologies Limited",
+    isin: "INE860A01027",
+    cin: "L74140DL1991PLC046369",
+    listedOn: "NSE / BSE",
+    listingDate: "1999-11-10",
+    note: "BSE: 532281 | NSE: HCLTECH",
+  },
+  {
+    name: "Larsen & Toubro Limited",
+    isin: "INE018A01030",
+    cin: "L99999MH1946PLC004768",
+    listedOn: "NSE / BSE",
+    listingDate: "1950-01-01",
+    note: "BSE: 500510 | NSE: LT",
+  },
+
+  // ── Banking & Finance ───────────────────────────────────────────────────────
+  {
+    name: "HDFC Bank Limited",
+    isin: "INE040A01034",
+    cin: "L65920MH1994PLC080618",
+    listedOn: "NSE / BSE",
+    listingDate: "1995-05-19",
+    note: "BSE: 500180 | NSE: HDFCBANK",
+  },
+  {
+    name: "ICICI Bank Limited",
+    isin: "INE090A01021",
+    cin: "L65190GJ1994PLC021012",
+    listedOn: "NSE / BSE",
+    listingDate: "1997-09-17",
+    note: "BSE: 532174 | NSE: ICICIBANK",
+  },
+  {
+    name: "Kotak Mahindra Bank Limited",
+    isin: "INE237A01028",
+    cin: "L65110MH1985PLC038137",
+    listedOn: "NSE / BSE",
+    listingDate: "1995-01-01",
+    note: "BSE: 500247 | NSE: KOTAKBANK",
+  },
+  {
+    name: "Axis Bank Limited",
+    isin: "INE238A01034",
+    cin: "L65110GJ1993PLC020769",
+    listedOn: "NSE / BSE",
+    listingDate: "1998-11-02",
+    note: "BSE: 532215 | NSE: AXISBANK",
+  },
+  {
+    name: "State Bank of India",
+    isin: "INE062A01020",
+    cin: "L55230MH1955GOI009661",
+    listedOn: "NSE / BSE",
+    listingDate: "1994-03-01",
+    note: "BSE: 500112 | NSE: SBIN",
+  },
+  {
+    name: "Bajaj Finance Limited",
+    isin: "INE296A01024",
+    cin: "L65910MH1987PLC042961",
+    listedOn: "NSE / BSE",
+    listingDate: "1994-01-01",
+    note: "BSE: 500034 | NSE: BAJFINANCE",
+  },
+
+  // ── Auto & Consumer ────────────────────────────────────────────────────────
+  {
+    name: "Maruti Suzuki India Limited",
+    isin: "INE585B01010",
+    cin: "L34103DL1981PLC011375",
+    listedOn: "NSE / BSE",
+    listingDate: "2003-07-09",
+    note: "BSE: 532500 | NSE: MARUTI",
+  },
+  {
+    name: "Hyundai Motor India Limited",
+    isin: "INE884M01019",
+    cin: "U34100TN1996PLC034553",
+    listedOn: "NSE / BSE",
+    listingDate: "2024-10-22",
+    note: "BSE: 544229 | NSE: HYUNDAIINDIA — IPO Oct 2024",
+  },
+  {
+    name: "Asian Paints Limited",
+    isin: "INE021A01026",
+    cin: "L24220MH1945PLC004598",
+    listedOn: "NSE / BSE",
+    listingDate: "1982-01-01",
+    note: "BSE: 500820 | NSE: ASIANPAINT",
+  },
+  {
+    name: "Hindustan Unilever Limited",
+    isin: "INE030A01027",
+    cin: "L15140MH1933PLC002030",
+    listedOn: "NSE / BSE",
+    listingDate: "1950-01-01",
+    note: "BSE: 500696 | NSE: HINDUNILVR",
+  },
+  {
+    name: "ITC Limited",
+    isin: "INE154A01025",
+    cin: "L16005WB1910PLC001985",
+    listedOn: "NSE / BSE",
+    listingDate: "1970-01-01",
+    note: "BSE: 500875 | NSE: ITC",
+  },
+  {
+    name: "Titan Company Limited",
+    isin: "INE280A01028",
+    cin: "L74999KA1984PLC010556",
+    listedOn: "NSE / BSE",
+    listingDate: "1995-01-01",
+    note: "BSE: 500114 | NSE: TITAN",
+  },
 ];
+
 
 // ── Internal lookup indexes (built once on module load) ─────────────────────
 
