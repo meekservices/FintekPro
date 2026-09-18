@@ -350,34 +350,52 @@ const formatPrice = (price: number, category: string): string => {
 };
 
 /**
+ * Returns true if this pick is a Live or Announced IPO pick.
+ */
+export const isIpoPick = (p: DailyPick) => {
+	if (
+		p.category === "listed_stocks" ||
+		p.keyMetrics?.listingStage === "listed" ||
+		p.keyMetrics?.listingStage === "transitioned_to_listed"
+	) {
+		return false;
+	}
+	const kmStage = (p.keyMetrics as any)?.listingStage || (p.keyMetrics as any)?.ipoStatus;
+	return (
+		p.category === "ipo" ||
+		kmStage === "ipo" ||
+		kmStage === "ipo_open" ||
+		kmStage === "ipo_announced" ||
+		kmStage === "live_ipo"
+	);
+};
+
+/**
  * Returns true if this pick is a Pre-IPO pick.
  * Picks are now stored with category = "pre_ipo" by PreIpoStrategy.
- * The old fallback (detecting pre-IPO via keyMetrics.listingStage inside
- * unlisted picks) is kept for backward compatibility with historical picks
- * that were stored before the category split.
+ * Strictly excludes instruments that have graduated to live IPO or listed stage.
  */
 export const isPreIpoPick = (p: DailyPick) => {
-	// If the instrument is confirmed listed or marked as listed_stocks, it is strictly NOT pre-IPO
+	// If the instrument is confirmed listed, marked as listed_stocks, or graduated to live IPO, it is strictly NOT pre-IPO
 	if (
 		p.category === "listed_stocks" ||
 		p.keyMetrics?.listingStage === "listed" ||
 		p.keyMetrics?.listingStage === "transitioned_to_listed" ||
-		(p.instrumentName && /hdb financial|hdbfs/i.test(p.instrumentName))
+		(p.instrumentName && /hdb financial|hdbfs/i.test(p.instrumentName)) ||
+		isIpoPick(p)
 	) {
 		return false;
 	}
 	return (
 		p.category === "pre_ipo" ||
 		// Backward compat: old picks stored as unlisted with listingStage metadata
-		(p.category === "unlisted" &&
-			(p.keyMetrics?.listingStage === "pre_ipo" ||
-				p.keyMetrics?.listingStage === "ipo_announced"))
+		(p.category === "unlisted" && p.keyMetrics?.listingStage === "pre_ipo")
 	);
 };
 
 /**
- * Returns true if this pick belongs under the Unlisted & Pre-IPO tab.
- * Groups both unlisted assets and pre-IPO pipeline picks together.
+ * Returns true if this pick belongs under the Unlisted & Pre-IPO / IPO groupings.
+ * Groups unlisted assets, pre-IPO pipeline picks, and IPO picks together.
  */
 export const isUnlistedOrPreIpo = (p: DailyPick) => {
 	if (
@@ -388,7 +406,7 @@ export const isUnlistedOrPreIpo = (p: DailyPick) => {
 	) {
 		return false;
 	}
-	return p.category === "unlisted" || p.category === "pre_ipo" || isPreIpoPick(p);
+	return p.category === "unlisted" || p.category === "pre_ipo" || isPreIpoPick(p) || isIpoPick(p);
 };
 
 /**
@@ -1667,6 +1685,19 @@ export default function AgentPicksPage() {
 													{item.minInvestment || `₹${calc.totalLotInvestment.toLocaleString("en-IN")}`}
 												</p>
 											</div>
+											{/* IPO Subscription window dates */}
+											<div>
+												<p className="text-[10px] text-muted-foreground">Opens</p>
+												<p className="font-semibold text-emerald-700 dark:text-emerald-400">
+													{item.openDate || "—"}
+												</p>
+											</div>
+											<div>
+												<p className="text-[10px] text-muted-foreground">Closes</p>
+												<p className="font-semibold text-red-600 dark:text-red-400">
+													{item.closeDate || "—"}
+												</p>
+											</div>
 										</div>
 
 										{/* Subscription Status Bar */}
@@ -1697,6 +1728,83 @@ export default function AgentPicksPage() {
 												</div>
 											)}
 										</div>
+
+								{/* ── IPO Structure Details ───────────────────────────────── */}
+								{(item.issueType || item.registrar || item.sebiObservationLetterDate || item.stakeBeingDiluted) && (
+									<details className="group text-xs border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+										<summary className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-slate-900/60 cursor-pointer select-none list-none font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
+											<span className="flex items-center gap-1.5">
+												<svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+												IPO Structure Details
+											</span>
+											<svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+										</summary>
+										<div className="px-3 py-2.5 space-y-2 bg-white dark:bg-slate-900/30 border-t border-slate-200 dark:border-slate-700">
+											<div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+												{item.issueType && (
+													<>
+														<span className="text-[10px] text-muted-foreground">Issue Type</span>
+														<span className="font-semibold capitalize">{String(item.issueType).replace(/_/g, " ")}</span>
+													</>
+												)}
+												{item.freshIssueAmount && (
+													<>
+														<span className="text-[10px] text-muted-foreground">Fresh Issue</span>
+														<span className="font-semibold text-emerald-700 dark:text-emerald-400">
+															₹{item.freshIssueAmount} Cr
+															{item.freshIssueShares ? <span className="text-[9px] text-muted-foreground ml-1">({Number(item.freshIssueShares).toLocaleString("en-IN")} shares)</span> : null}
+														</span>
+													</>
+												)}
+												{item.ofsAmount && Number(item.ofsAmount) > 0 && (
+													<>
+														<span className="text-[10px] text-muted-foreground">OFS</span>
+														<span className="font-semibold text-amber-700 dark:text-amber-400">
+															₹{item.ofsAmount} Cr
+															{item.ofsShares ? <span className="text-[9px] text-muted-foreground ml-1">({Number(item.ofsShares).toLocaleString("en-IN")} shares)</span> : null}
+														</span>
+													</>
+												)}
+												{item.totalSharesOnOffer && (
+													<>
+														<span className="text-[10px] text-muted-foreground">Total on Offer</span>
+														<span className="font-semibold">{Number(item.totalSharesOnOffer).toLocaleString("en-IN")} shares</span>
+													</>
+												)}
+												{item.stakeBeingDiluted && (
+													<>
+														<span className="text-[10px] text-muted-foreground">Stake Diluted</span>
+														<span className="font-semibold text-rose-600 dark:text-rose-400">{item.stakeBeingDiluted}</span>
+													</>
+												)}
+												{item.sebiObservationLetterDate && (
+													<>
+														<span className="text-[10px] text-muted-foreground">SEBI Obs. Letter</span>
+														<span className="font-semibold">{item.sebiObservationLetterDate}</span>
+													</>
+												)}
+												{item.priceBandAnnouncementDate && (
+													<>
+														<span className="text-[10px] text-muted-foreground">Band Announced</span>
+														<span className="font-semibold">{item.priceBandAnnouncementDate}</span>
+													</>
+												)}
+												{(item.listingVenue || item.exchange) && (
+													<>
+														<span className="text-[10px] text-muted-foreground">Listing Venue</span>
+														<span className="font-semibold">{item.listingVenue || item.exchange}</span>
+													</>
+												)}
+												{item.registrar && (
+													<>
+														<span className="text-[10px] text-muted-foreground">Registrar</span>
+														<span className="font-semibold truncate">{item.registrar}</span>
+													</>
+												)}
+											</div>
+										</div>
+									</details>
+								)}
 
 										{/* Action Buttons */}
 										<div className="pt-2 flex items-center gap-2">
@@ -1773,13 +1881,14 @@ export default function AgentPicksPage() {
 	const filteredTodayPicks = todayPicks.filter((p) => {
 		if (isPickExpired(p)) return false;
 		if (todayCategoryFilter === "unlisted") {
-			// Strict: only genuinely OTC-unlisted picks — pre_ipo is its own tab
-			if (p.category !== "unlisted" || isPreIpoPick(p)) return false;
+			// Strict: only genuinely OTC-unlisted picks — pre_ipo and ipo have their own tabs
+			if (p.category !== "unlisted" || isPreIpoPick(p) || isIpoPick(p)) return false;
 		} else if (todayCategoryFilter === "pre_ipo") {
 			// Strict: only pre-IPO picks — includes backward-compat legacy unlisted+pre_ipo picks
 			if (!isPreIpoPick(p)) return false;
 		} else if (todayCategoryFilter === "ipo") {
-			if (p.category !== "ipo") return false;
+			// Strict: only live / announced IPO picks
+			if (!isIpoPick(p)) return false;
 		} else if (todayCategoryFilter !== "all" && p.category !== todayCategoryFilter) {
 			return false;
 		}
@@ -1794,12 +1903,12 @@ export default function AgentPicksPage() {
 	const filteredLivePicks = livePicks.filter((p) => {
 		if (isPickExpired(p)) return false;
 		if (liveCategoryFilter === "unlisted") {
-			// Strict: only genuinely OTC-unlisted picks — pre_ipo is its own tab
-			if (p.category !== "unlisted" || isPreIpoPick(p)) return false;
+			// Strict: only genuinely OTC-unlisted picks — pre_ipo and ipo have their own tabs
+			if (p.category !== "unlisted" || isPreIpoPick(p) || isIpoPick(p)) return false;
 		} else if (liveCategoryFilter === "pre_ipo") {
 			if (!isPreIpoPick(p)) return false;
 		} else if (liveCategoryFilter === "ipo") {
-			if (p.category !== "ipo") return false;
+			if (!isIpoPick(p)) return false;
 		} else if (liveCategoryFilter !== "all" && p.category !== liveCategoryFilter) {
 			return false;
 		}
@@ -1821,12 +1930,12 @@ export default function AgentPicksPage() {
 
 	const filteredHistory = historyPicks.filter((pick) => {
 		if (historyCategoryFilter === "unlisted") {
-			// Strict: only genuinely OTC-unlisted picks — pre_ipo is its own tab
-			if (pick.category !== "unlisted" || isPreIpoPick(pick)) return false;
+			// Strict: only genuinely OTC-unlisted picks — pre_ipo and ipo have their own tabs
+			if (pick.category !== "unlisted" || isPreIpoPick(pick) || isIpoPick(pick)) return false;
 		} else if (historyCategoryFilter === "pre_ipo") {
 			if (!isPreIpoPick(pick)) return false;
 		} else if (historyCategoryFilter === "ipo") {
-			if (pick.category !== "ipo") return false;
+			if (!isIpoPick(pick)) return false;
 		} else if (
 			historyCategoryFilter !== "all" &&
 			pick.category !== historyCategoryFilter
@@ -1858,8 +1967,11 @@ export default function AgentPicksPage() {
 		const counts: Record<string, number> = { all: picks.length };
 		picks.forEach((p) => {
 			// Strict mutual exclusivity: each pick increments EXACTLY ONE category counter.
-			if (p.category === "pre_ipo" || isPreIpoPick(p)) {
-				// Pre-IPO is its own distinct tab — never counted under unlisted
+			if (isIpoPick(p)) {
+				// Live / announced IPO is its own distinct tab
+				counts.ipo = (counts.ipo || 0) + 1;
+			} else if (p.category === "pre_ipo" || isPreIpoPick(p)) {
+				// Pre-IPO is its own distinct tab — never counted under unlisted or ipo
 				counts.pre_ipo = (counts.pre_ipo || 0) + 1;
 			} else if (p.category === "unlisted") {
 				counts.unlisted = (counts.unlisted || 0) + 1;
@@ -1872,7 +1984,7 @@ export default function AgentPicksPage() {
 		if (!counts.pre_ipo) {
 			if (supplementPicks) {
 				const livePreIpoCount = supplementPicks.filter(
-					(p) => p.category === "pre_ipo" || isPreIpoPick(p),
+					(p) => (p.category === "pre_ipo" || isPreIpoPick(p)) && !isIpoPick(p),
 				).length;
 				if (livePreIpoCount > 0) counts.pre_ipo = livePreIpoCount;
 			}
@@ -1881,8 +1993,12 @@ export default function AgentPicksPage() {
 			}
 		}
 
-		// IPO count from live open IPOs
-		counts.ipo = liveIposRes?.data?.length ?? 10;
+		// Supplement IPO count from live open IPOs
+		if (!counts.ipo && liveIposRes?.data?.length) {
+			counts.ipo = liveIposRes.data.length;
+		} else if (!counts.ipo) {
+			counts.ipo = liveIposRes?.data?.length ?? 5;
+		}
 
 		return counts;
 	};

@@ -2148,11 +2148,30 @@ export const ipoCompanies = pgTable("ipo_companies", {
   
   // IPO Details
   ipoType: varchar("ipo_type").notNull(), // 'mainboard', 'sme'
-  issueType: varchar("issue_type"), // 'Book Built', 'Fixed Price', 'Offer for Sale'
+  issueType: varchar("issue_type"), // 'fresh_issue' | 'ofs' | 'combination' | 'book_built' | 'fixed_price'
   priceBandMin: decimal("price_band_min", { precision: 10, scale: 2 }),
   priceBandMax: decimal("price_band_max", { precision: 10, scale: 2 }),
   issueSize: decimal("issue_size", { precision: 15, scale: 2 }), // in crores
-  
+
+  // ── IPO Offer Structure ─────────────────────────────────────────────────
+  freshIssueShares: bigint("fresh_issue_shares", { mode: "number" }), // number of new shares issued
+  freshIssueAmount: decimal("fresh_issue_amount", { precision: 15, scale: 2 }), // ₹ Cr
+  ofsShares: bigint("ofs_shares", { mode: "number" }),              // shares sold by existing SHs
+  ofsAmount: decimal("ofs_amount", { precision: 15, scale: 2 }),    // ₹ Cr
+  totalSharesOnOffer: bigint("total_shares_on_offer", { mode: "number" }), // fresh + OFS
+  stakeBeingDiluted: decimal("stake_being_diluted", { precision: 6, scale: 3 }), // % post-issue dilution
+
+  // ── SEBI Regulatory Milestones ──────────────────────────────────────────
+  /** Date SEBI issued the observation letter — marks official SEBI clearance */
+  sebiObservationLetterDate: date("sebi_observation_letter_date"),
+  /** Date the final price band was announced (typically T-2 before open) */
+  priceBandAnnouncementDate: date("price_band_announcement_date"),
+
+  // ── Listing & Parties ───────────────────────────────────────────────────
+  listingVenue: varchar("listing_venue"), // 'NSE' | 'BSE' | 'NSE / BSE' | 'BSE SME' | 'NSE SME'
+  /** Registrar & Transfer Agent managing allotment and refunds */
+  registrar: varchar("registrar"), // e.g. 'Link Intime India Pvt Ltd', 'KFin Technologies'
+
   // Important Dates
   openDate: date("open_date"),
   closeDate: date("close_date"),

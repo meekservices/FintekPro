@@ -39,7 +39,8 @@ export type LifecycleStage = "unlisted" | "pre_ipo" | "ipo" | "privately_listed"
 
 export type TransitionType =
 	| "promotion"      // unlisted → pre_ipo
-	| "listing"        // pre_ipo → listed
+	| "ipo_opening"    // pre_ipo → ipo (Live IPO window active)
+	| "listing"        // ipo/pre_ipo → listed
 	| "name_change"
 	| "isin_change"
 	| "symbol_change"
@@ -739,6 +740,13 @@ export class InstrumentLifecycleManager {
 
 		let picksExpired = 0;
 		if (toStage === "listed") {
+			picksExpired = await expirePicks(company[0].id, company[0].name, [
+				"unlisted",
+				"pre_ipo",
+				"ipo",
+			]);
+		} else if (toStage === "ipo") {
+			// Pre-IPO/Unlisted -> Live IPO: expire older unlisted / pre_ipo picks
 			picksExpired = await expirePicks(company[0].id, company[0].name, [
 				"unlisted",
 				"pre_ipo",

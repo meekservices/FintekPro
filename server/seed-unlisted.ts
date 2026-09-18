@@ -25,7 +25,7 @@ const sampleCompanies = [
 		faceValue: "1.00",
 		totalShares: 2475000000,
 		status: "active",
-		listingStage: "pre_ipo",
+		listingStage: "ipo",
 		website: "https://www.nseindia.com",
 		description:
 			"National Stock Exchange of India Limited (NSE) is the leading stock exchange of India, located in Mumbai. NSE was established in 1992 as the first dematerialized electronic exchange in the country. It is the 4th largest stock exchange in the world by equity trading volume. Note: NSE is a Market Infrastructure Institution (MII) — the exchange itself is an unlisted pre-IPO investment opportunity, distinct from NSE as a trading venue for other securities.",

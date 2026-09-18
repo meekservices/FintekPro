@@ -57,7 +57,7 @@ router.post(
 				});
 			}
 
-			const validStages = ["unlisted", "pre_ipo", "listed", "inactive"];
+			const validStages = ["unlisted", "pre_ipo", "ipo", "privately_listed", "listed", "inactive"];
 			if (!validStages.includes(toStage)) {
 				return res.status(400).json({
 					success: false,

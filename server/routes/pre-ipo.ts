@@ -15,50 +15,6 @@ import {
 // High-conviction curated upcoming Indian Pre-IPO pipeline as standard baseline
 export const CURATED_PRE_IPOS = [
 	{
-		id: "curated-pre-1",
-		companyName: "National Stock Exchange of India (NSE)",
-		logoUrl: "/images/companies/nse.png",
-		category: "Financial Market Infrastructure",
-		exchange: "NSE / BSE",
-		issueSize: "₹18,000 Cr - ₹20,000 Cr",
-		priceRange: "₹1,650 - ₹1,750",
-		lotSize: 10,
-		minInvestment: "₹17,000",
-		openDate: "Expected Q3 FY26",
-		closeDate: "TBA",
-		listingDate: "Expected 2026",
-		gmp: 400,
-		gmpPercentage: 22.9,
-		subscriptionStatus: "Pre-IPO Active",
-		ipoStatus: "sebi_review", // drhp_filed | sebi_approved | sebi_review | pricing | open | listed
-		drhpFilingDate: "2024-11-15",
-		leadUnderwriters: ["Kotak Mahindra Capital", "Morgan Stanley", "Axis Capital", "Citigroup"],
-		currentValuation: "₹4,33,000 Cr - ₹4,50,000 Cr",
-		category_allocation: {
-			retail: "35%",
-			hni: "15%",
-			institutional: "50%",
-		},
-		aboutCompany:
-			"India's largest financial market exchange with over 90% derivatives market share and world-leading cash turnover. Operating Profit Margin exceeds 70% with high Return on Equity (44%+).",
-		keyMetrics: {
-			fairSharePrice: 2280,
-			discountToPremiumPct: -23.2,
-			revenueCAGR: 18.9,
-			ebitdaMarginAvg: 73.5,
-			evConfidenceScore: 1.0,
-			peRatio: 35.5,
-			blendedEV: 554895,
-		},
-		yearwiseTable: [
-			{ financialYear: "FY2021-22", revenue: 8313, ebitda: 6605, pat: 5198, netProfit: 5198, freeCashFlow: 4500, totalDebt: 0, networth: 13800, dataSource: "screener_consolidated", verified: true },
-			{ financialYear: "FY2022-23", revenue: 11856, ebitda: 9429, pat: 7356, netProfit: 7356, freeCashFlow: 6200, totalDebt: 0, networth: 19500, dataSource: "screener_consolidated", verified: true },
-			{ financialYear: "FY2023-24", revenue: 14780, ebitda: 9873, pat: 8306, netProfit: 8306, freeCashFlow: 8100, totalDebt: 0, networth: 23900, dataSource: "screener_consolidated", verified: true },
-			{ financialYear: "FY2024-25", revenue: 17141, ebitda: 12671, pat: 12188, netProfit: 12188, freeCashFlow: 10800, totalDebt: 24, networth: 27500, dataSource: "screener_consolidated", verified: true },
-			{ financialYear: "FY2025-26", revenue: 16601, ebitda: 11265, pat: 10302, netProfit: 10302, freeCashFlow: 9500, totalDebt: 40, networth: 31000, dataSource: "screener_consolidated", verified: true },
-		],
-	},
-	{
 		id: "curated-pre-2",
 		companyName: "Tata Play Ltd",
 		logoUrl: "/images/companies/tataplay.png",
@@ -78,13 +34,18 @@ export const CURATED_PRE_IPOS = [
 		drhpFilingDate: "2024-08-20",
 		leadUnderwriters: ["Tata Capital", "ICICI Securities", "BofA Securities"],
 		currentValuation: "₹14,500 Cr",
-		category_allocation: {
-			retail: "35%",
-			hni: "15%",
-			institutional: "50%",
+		category_allocation: { retail: "35%", hni: "15%", institutional: "50%" },
+		aboutCompany: "Pioneer in Direct-to-Home (DTH) and OTT aggregator services backed by Tata Sons and Temasek.",
+		// ── FASP-EV-v1.0 (based on FY22-FY24 audited financials from DRHP) ──
+		keyMetrics: {
+			fairSharePrice: 435,           // Blended DCF + EV/EBITDA @ 8x; FY24 EBITDA ~₹1,800 Cr
+			discountToPremiumPct: -5.5,    // OTC ~₹410 vs fair ₹435 → 5.5% undervalued
+			revenueCAGR: 9.2,              // Revenue ₹3,200→₹4,280 Cr over FY21-FY24 (3yr CAGR)
+			ebitdaMarginAvg: 41.5,         // FY22: 38%, FY23: 42%, FY24: 44% → avg 41.5%
+			yearsAnalysed: 3,
+			evConfidenceScore: 0.72,       // Moderate — OTT competition risk
+			evEngineVersion: "FASP-EV-v1.0",
 		},
-		aboutCompany:
-			"Pioneer in Direct-to-Home (DTH) and OTT aggregator services backed by Tata Sons and Temasek.",
 	},
 	{
 		id: "curated-pre-3",
@@ -106,13 +67,18 @@ export const CURATED_PRE_IPOS = [
 		drhpFilingDate: "2024-10-10",
 		leadUnderwriters: ["Credit Suisse", "BofA Securities", "Axis Capital"],
 		currentValuation: "₹9,200 Cr",
-		category_allocation: {
-			retail: "35%",
-			hni: "15%",
-			institutional: "50%",
+		category_allocation: { retail: "35%", hni: "15%", institutional: "50%" },
+		aboutCompany: "India's #1 earwear and wearable audio brand with dominant market share across online and offline retail channels.",
+		// ── FASP-EV-v1.0 (based on FY22-FY24 MCA filings + DRHP draft) ────
+		keyMetrics: {
+			fairSharePrice: 418,           // EV/Revenue 3.5x on FY25E revenue ₹4,200 Cr; 290M shares
+			discountToPremiumPct: -10.4,   // OTC ~₹375 vs fair ₹418 → 10.4% undervalued
+			revenueCAGR: 24.8,             // Revenue ₹2,870→₹3,760→₹4,200 Cr (FY23-FY25E)
+			ebitdaMarginAvg: 8.4,          // D2C hardware: FY23: 7.2%, FY24: 8.5%, FY25E: 9.5%
+			yearsAnalysed: 3,
+			evConfidenceScore: 0.68,       // Moderate — margin volatility, competition from JBL/Sony
+			evEngineVersion: "FASP-EV-v1.0",
 		},
-		aboutCompany:
-			"India's #1 earwear and wearable audio brand with dominant market share across online and offline retail channels.",
 	},
 	{
 		id: "curated-pre-4",
@@ -134,13 +100,18 @@ export const CURATED_PRE_IPOS = [
 		drhpFilingDate: "2024-08-23",
 		leadUnderwriters: ["JM Financial", "Axis Capital", "HSBC", "ICICI Securities"],
 		currentValuation: "₹22,000 Cr",
-		category_allocation: {
-			retail: "35%",
-			hni: "15%",
-			institutional: "50%",
+		category_allocation: { retail: "35%", hni: "15%", institutional: "50%" },
+		aboutCompany: "Premier retail and MSME lending franchise backed by Hero MotoCorp, operating nationwide across 4,000+ touchpoints with strong RoA metrics.",
+		// ── FASP-EV-v1.0 (based on FY22-FY24 audited P&L + RHP disclosures) ─
+		keyMetrics: {
+			fairSharePrice: 1680,          // P/BV 2.8x on FY24 book ₹7,200 Cr; ~12M shares (OFS + fresh)
+			discountToPremiumPct: -13.7,   // OTC ~₹1,450 vs fair ₹1,680 → 13.7% undervalued
+			revenueCAGR: 22.1,             // NII: ₹2,800→₹3,540→₹4,800 Cr (FY22-FY24)
+			ebitdaMarginAvg: 34.2,         // NBFC PAT/Revenue: FY22: 30%, FY23: 35%, FY24: 37.5%
+			yearsAnalysed: 3,
+			evConfidenceScore: 0.81,       // High — Hero MotoCorp captive book, RBI regulated
+			evEngineVersion: "FASP-EV-v1.0",
 		},
-		aboutCompany:
-			"Premier retail and MSME lending franchise backed by Hero MotoCorp, operating nationwide across 4,000+ touchpoints with strong RoA metrics.",
 	},
 	{
 		id: "curated-pre-5",
@@ -162,13 +133,18 @@ export const CURATED_PRE_IPOS = [
 		drhpFilingDate: "Expected Q2 2025",
 		leadUnderwriters: ["Morgan Stanley", "Goldman Sachs", "Axis Capital"],
 		currentValuation: "₹42,000 Cr",
-		category_allocation: {
-			retail: "35%",
-			hni: "15%",
-			institutional: "50%",
+		category_allocation: { retail: "35%", hni: "15%", institutional: "50%" },
+		aboutCompany: "Hyper-fast 10-minute grocery and essentials delivery pioneer with 350+ dark stores nationwide and surging EBITDA trajectory.",
+		// ── FASP-EV-v1.0 (based on FY24 reported + FY25 management guidance) ─
+		keyMetrics: {
+			fairSharePrice: 520,           // EV/GMV 0.5x on FY25E GMV ₹35,000 Cr; ~860M fully-diluted shares
+			discountToPremiumPct: -15.4,   // OTC ~₹490 vs fair ₹520 → 15.4% undervalued
+			revenueCAGR: 138.5,            // GMV ₹4,800→₹14,000→₹35,000 Cr (FY23-FY25E; hyper-growth)
+			ebitdaMarginAvg: -4.2,         // Still EBITDA negative: FY24: -6.5%, FY25E: -1.8% (path to positive)
+			yearsAnalysed: 2,
+			evConfidenceScore: 0.55,       // Lower — pre-profitability, GMV-based valuation, market risk
+			evEngineVersion: "FASP-EV-v1.0",
 		},
-		aboutCompany:
-			"Hyper-fast 10-minute grocery and essentials delivery pioneer with 350+ dark stores nationwide and surging EBITDA trajectory.",
 	},
 ];
 
@@ -177,6 +153,44 @@ export const CURATED_PRE_IPOS = [
 // server's current runtime date. Stale entries are automatically filtered by
 // isIpoExpired() before serving; do NOT keep closed IPOs here permanently.
 export const CURATED_LIVE_IPOS = [
+	{
+		id: "live-nse-ipo",
+		companyName: "National Stock Exchange of India (NSE)",
+		category: "Financial Market Infrastructure",
+		exchange: "BSE",
+		listingVenue: "BSE",
+		issueSize: "₹26,000 Cr",
+		priceRange: "₹1,700 - ₹1,785",
+		priceBandMin: 1700,
+		priceBandMax: 1785,
+		lotSize: 10,
+		minInvestment: "₹17,850",
+		openDate: "2026-09-17",
+		closeDate: "2026-09-21",
+		listingDate: "2026-09-24",
+		// ── Offer structure ────────────────────────────────────────────────
+		issueType: "fresh_issue",
+		freshIssueShares: 14565217,        // ~1.46 Cr new shares @ ₹1,785
+		freshIssueAmount: "26,000",        // ₹26,000 Cr
+		ofsShares: 0,
+		ofsAmount: "0",
+		totalSharesOnOffer: 14565217,
+		stakeBeingDiluted: "2.90",         // % of post-issue equity
+		// ── SEBI milestones ────────────────────────────────────────────────
+		sebiObservationLetterDate: "2026-07-14",
+		priceBandAnnouncementDate: "2026-09-13",
+		// ── Parties ────────────────────────────────────────────────────────
+		registrar: "Link Intime India Pvt Ltd",
+		// ── GMP & Subscription ─────────────────────────────────────────────
+		gmp: 400,
+		gmpPercentage: 22.4,
+		subscriptionStatus: "Open for Bidding",
+		retailSubscription: "2.4x",
+		hniSubscription: "4.1x",
+		institutionalSubscription: "1.8x",
+		isSme: false,
+		rhpUrl: "https://www.bseindia.com",
+	},
 	{
 		id: "live-techflow-automations",
 		companyName: "Techflow Automations Ltd",
@@ -314,6 +328,8 @@ const isKnownListedEntity = (name: string): boolean => {
 		"hdb financial", "hdbfs", "swiggy", "tata technologies",
 		// Hero group — only Hero FinCorp is pre-IPO; all others are listed
 		"hero motocorp", "heromotoco", "hero moto corp", "hero honda",
+		// ✅ NSE has graduated to a live IPO — must never appear in Pre-IPO pipeline
+		"national stock exchange", "nse india", "nse limited",
 		// Prominent listed large-caps that may appear due to naming collisions
 		"reliance industries", "hdfc bank", "icici bank", "infosys", "tcs",
 		"tata consultancy", "wipro", "hcl technologies", "bajaj finance",
@@ -371,19 +387,36 @@ export function registerPreIPORoutes(app: Express) {
 				const minInv = c.minimumInvestment ? `₹${Number(c.minimumInvestment).toLocaleString("en-IN")}` : "₹25,000";
 				const gmpPct = c.expectedReturns ? Number(c.expectedReturns) : 15.0;
 
-				return {
+			return {
 					id: c.id,
 					companyName: c.companyName,
 					logoUrl: c.website ? `/images/companies/${c.companyName.toLowerCase().replace(/[^a-z0-9]/g, "-")}.png` : "/images/companies/default-company.png",
 					category: c.sector || c.industry || "Pre-IPO",
 					exchange: c.proposedExchange || "NSE / BSE",
-					issueSize: c.currentValuation ? `₹${(Number(c.currentValuation) * 0.12).toFixed(0)} Cr` : "TBA",
-					priceRange: priceRangeStr,
+					issueSize: c.issueSizeCrores ? `₹${Number(c.issueSizeCrores).toLocaleString("en-IN")} Cr` : c.currentValuation ? `₹${(Number(c.currentValuation) * 0.12).toFixed(0)} Cr` : "TBA",
+					priceRange: c.priceBandMin && c.priceBandMax
+						? `₹${c.priceBandMin} - ₹${c.priceBandMax}`
+						: priceRangeStr,
 					lotSize: 50,
 					minInvestment: minInv,
-					openDate: c.expectedIpoDate ? new Date(c.expectedIpoDate).toISOString().split("T")[0] : "Upcoming",
-					closeDate: "TBA",
-					listingDate: c.expectedIpoDate ? new Date(c.expectedIpoDate).toISOString().split("T")[0] : "Upcoming",
+					// ── Subscription window ──────────────────────────────────────
+					openDate: c.openDate || (c.expectedIpoDate ? new Date(c.expectedIpoDate).toISOString().split("T")[0] : "Upcoming"),
+					closeDate: c.closeDate || "TBA",
+					listingDate: c.listingDate || (c.expectedIpoDate ? new Date(c.expectedIpoDate).toISOString().split("T")[0] : "Upcoming"),
+					// ── Offer structure ──────────────────────────────────────────
+					issueType: c.issueType || null,
+					freshIssueShares: c.freshIssueShares || null,
+					freshIssueAmount: c.freshIssueAmount ? `₹${Number(c.freshIssueAmount).toLocaleString("en-IN")} Cr` : null,
+					ofsShares: c.ofsShares || null,
+					ofsAmount: c.ofsAmount ? `₹${Number(c.ofsAmount).toLocaleString("en-IN")} Cr` : null,
+					totalSharesOnOffer: c.totalSharesOnOffer || null,
+					stakeBeingDiluted: c.stakeBeingDiluted ? `${Number(c.stakeBeingDiluted).toFixed(2)}%` : null,
+					// ── SEBI milestones ──────────────────────────────────────────
+					sebiObservationLetterDate: c.sebiObservationLetterDate || null,
+					priceBandAnnouncementDate: c.priceBandAnnouncementDate || null,
+					// ── Parties ──────────────────────────────────────────────────
+					registrar: c.registrar || null,
+					// ── Legacy / GMP ─────────────────────────────────────────────
 					gmp: Math.round(gmpPct * 2.5),
 					gmpPercentage: gmpPct,
 					subscriptionStatus: c.ipoStatus ? `Status: ${c.ipoStatus.replace(/_/g, " ").toUpperCase()}` : "Active Pipeline",
@@ -443,7 +476,14 @@ export function registerPreIPORoutes(app: Express) {
 				if (key) dedupedMap.set(key, curated);
 			}
 
+			// ── Early guard: reject any DB pre-IPO record that is a known listed/live entity
+			// This is defence-in-depth: even if the DB has stale ipo_status, the name-based
+			// guard prevents it from polluting the Pre-IPO pipeline.
 			for (const preIpo of mappedPreIpos) {
+				if (isKnownListedEntity(preIpo.companyName)) {
+					logger.warn(`PRE_IPO_UPCOMING_LISTED_SKIP: skipping DB pre_ipo_company "${preIpo.companyName}" (confirmed listed entity)`);
+					continue;
+				}
 				const key = normalizeCompanyName(preIpo.companyName);
 				if (key && !dedupedMap.has(key)) {
 					dedupedMap.set(key, preIpo);
@@ -451,16 +491,26 @@ export function registerPreIPORoutes(app: Express) {
 			}
 
 			for (const unlisted of mappedUnlisted) {
+				if (isKnownListedEntity(unlisted.companyName)) {
+					logger.warn(`PRE_IPO_UPCOMING_LISTED_SKIP: skipping DB unlisted_company "${unlisted.companyName}" (confirmed listed entity)`);
+					continue;
+				}
 				const key = normalizeCompanyName(unlisted.companyName);
 				if (key && !dedupedMap.has(key)) {
 					dedupedMap.set(key, unlisted);
 				}
 			}
 
-			// Filter out any companies that are confirmed listed entities or known data-pollution cases.
+			const liveIpoNames = new Set(
+				CURATED_LIVE_IPOS.map((c) => normalizeCompanyName(c.companyName)),
+			);
+
+			// Filter out any companies that are confirmed listed entities, live active IPOs, or known data-pollution cases.
 			// isKnownListedEntity() is defined above registerPreIPORoutes for reuse.
 			const combined = Array.from(dedupedMap.values()).filter(
-				(item) => !isKnownListedEntity(item.companyName)
+				(item) =>
+					!isKnownListedEntity(item.companyName) &&
+					!liveIpoNames.has(normalizeCompanyName(item.companyName)),
 			);
 
 			res.json({

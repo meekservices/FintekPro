@@ -30,29 +30,78 @@ export const preIpoCompanies = pgTable("pre_ipo_companies", {
   
   // Pre-IPO Status
   ipoStatus: varchar("ipo_status").notNull().default("preparation"), // 'preparation', 'filed', 'roadshow', 'priced', 'listed', 'withdrawn'
-  expectedIpoDate: timestamp("expected_ipo_date"),
-  expectedPriceRange: jsonb("expected_price_range"), // {min: number, max: number}
-  proposedExchange: varchar("proposed_exchange"), // 'NSE', 'BSE', 'NASDAQ', 'NYSE'
+  expectedIpoDate: timestamp("expected_ipo_date"), // @deprecated — use openDate/closeDate/listingDate
+  expectedPriceRange: jsonb("expected_price_range"), // @deprecated — use priceBandMin/priceBandMax
+  proposedExchange: varchar("proposed_exchange"), // 'NSE', 'BSE', 'NSE / BSE', 'BSE SME'
   leadUnderwriters: text("lead_underwriters").array().default([]),
-  
-  // Company Metrics
+
+  // ── IPO Structure & Offer Details ────────────────────────────────────────
+  /**
+   * Issue classification:
+   *   'fresh_issue'  – company issues new equity (dilutive)
+   *   'ofs'          – existing shareholders sell shares (non-dilutive)
+   *   'combination'  – mix of fresh issue + OFS
+   */
+  issueType: varchar("issue_type"), // 'fresh_issue' | 'ofs' | 'combination' | 'book_built' | 'fixed_price'
+
+  // Fresh Issue tranche
+  freshIssueShares: bigint("fresh_issue_shares", { mode: "number" }), // number of new shares
+  freshIssueAmount: decimal("fresh_issue_amount", { precision: 15, scale: 2 }), // ₹ Cr
+
+  // Offer for Sale tranche
+  ofsShares: bigint("ofs_shares", { mode: "number" }), // existing shares being sold
+  ofsAmount: decimal("ofs_amount", { precision: 15, scale: 2 }), // ₹ Cr
+
+  // Aggregate offer
+  totalSharesOnOffer: bigint("total_shares_on_offer", { mode: "number" }), // freshIssueShares + ofsShares
+  issueSizeCrores: decimal("issue_size_crores", { precision: 15, scale: 2 }), // total issue value ₹ Cr
+
+  // Post-issue equity dilution
+  stakeBeingDiluted: decimal("stake_being_diluted", { precision: 6, scale: 3 }), // % e.g. 12.500
+
+  // ── Price Band ───────────────────────────────────────────────────────────
+  priceBandMin: decimal("price_band_min", { precision: 10, scale: 2 }), // ₹ lower bound
+  priceBandMax: decimal("price_band_max", { precision: 10, scale: 2 }), // ₹ upper bound (cut-off)
+
+  // ── Subscription Window & Listing ────────────────────────────────────────
+  openDate: date("open_date"),    // IPO subscription opens
+  closeDate: date("close_date"),  // IPO subscription closes
+  listingDate: date("listing_date"), // Expected listing on exchange
+
+  // ── SEBI Regulatory Milestones ───────────────────────────────────────────
+  /**
+   * Date SEBI issued the observation letter — marks SEBI clearance.
+   * Required to be displayed per SEBI ICDR Reg. 25(10).
+   */
+  sebiObservationLetterDate: date("sebi_observation_letter_date"),
+  /**
+   * Date the final price band was officially announced by the company.
+   * Typically 2 working days before issue open date.
+   */
+  priceBandAnnouncementDate: date("price_band_announcement_date"),
+
+  // ── Parties to the Issue ─────────────────────────────────────────────────
+  /** Registrar & Transfer Agent (RTA) managing allotment and refunds */
+  registrar: varchar("registrar"), // e.g. 'Link Intime India Pvt Ltd', 'KFin Technologies'
+
+  // ── Company Metrics ──────────────────────────────────────────────────────
   employees: integer("employees"),
   marketPosition: varchar("market_position"), // 'market_leader', 'strong_competitor', 'niche_player'
   competitiveAdvantage: text("competitive_advantage"),
   keyRisks: text("key_risks").array().default([]),
   keyOpportunities: text("key_opportunities").array().default([]),
-  
-  // Investment Metrics
+
+  // ── Investment Metrics ───────────────────────────────────────────────────
   minimumInvestment: decimal("minimum_investment", { precision: 15, scale: 2 }),
   investmentTier: varchar("investment_tier"), // 'tier_1', 'tier_2', 'tier_3' based on company quality
   riskRating: varchar("risk_rating"), // 'low', 'medium', 'high', 'very_high'
   expectedReturns: decimal("expected_returns", { precision: 5, scale: 2 }), // percentage
   lockInPeriod: integer("lock_in_period"), // months
-  
-  // Tracking and Status
+
+  // ── Tracking and Status ──────────────────────────────────────────────────
   isAvailableForInvestment: boolean("is_available_for_investment").default(false),
   investmentDeadline: timestamp("investment_deadline"),
-  
+
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

@@ -4461,6 +4461,7 @@ export async function repairNSEConsolidatedFinancials(poolInstance?: any): Promi
              paid_up_capital = '2475000000',
              authorized_capital = '5000000000',
              face_value = '1.00',
+             listing_stage = 'ipo',
              published_buy_price = '1750.00',
              published_sell_price = '1850.00'
        WHERE id = $1;
