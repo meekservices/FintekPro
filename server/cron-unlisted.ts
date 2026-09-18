@@ -20,6 +20,7 @@ import { companyDataRefreshScheduler } from "./services/company-data-refresh-sch
 import { proactiveCacheWarmingService } from "./services/proactive-cache-warming-service";
 import { unlistedListingTracker } from "./services/unlisted-listing-tracker";
 import { instrumentLifecycleManager } from "./services/instrument-lifecycle-manager";
+import { LISTED_ENTITY_REGISTRY } from "./utils/listed-entity-registry";
 import { db } from "./db";
 import { users, unlistedCompanies } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -27,147 +28,62 @@ import { isProductionEnvironment } from "./utils/enrichment-guard";
 
 export function initializeUnlistedCrons(): void {
 	// ── STEP 0: Force-expire daily_picks for CONFIRMED-LISTED companies ──────────
-	// These companies were previously tracked as unlisted but have since completed
-	// their IPO and listed on NSE/BSE. The tracker may miss them if:
-	//  a) lastSyncedAt is within 20 h (throttle gate), or
-	//  b) the unlistedCompanies record has no ISIN/CIN (name-only), or
-	//  c) their record was never in the unlistedCompanies table.
-	// This runs every startup as a safety net — no admin action required.
+	// Uses the canonical LISTED_ENTITY_REGISTRY (server/utils/listed-entity-registry.ts)
+	// as the SINGLE SOURCE OF TRUTH for known listed/graduated entities.
 	//
-	// How to add entries: { nameFragment: 'first word of company name', symbol: 'NSE_SYMBOL', listedOn: 'YYYY-MM-DD' }
+	// Priority: ISIN match → CIN match → name-fragment substring match.
+	// Any company that completes IPO MUST be added to LISTED_ENTITY_REGISTRY.
 	// ─────────────────────────────────────────────────────────────────────────────
-	// IMPORTANT: Any company that completes IPO MUST be added here immediately.
-	// Transaction restrictions on listed companies are enforced at the API layer
-	// (unlisted buy/sell routes check listing_stage !== 'listed').
-	// ─────────────────────────────────────────────────────────────────────────────
-	const CONFIRMED_LISTED_COMPANIES: Array<{
-		nameFragment: string;
-		symbol: string;
-		exchange: string;
-		listedOn: string;
-	}> = [
-		// ── FY 2024-25 IPOs ──────────────────────────────────────────────────────
-		{
-			nameFragment: "Lenskart",
-			symbol: "LENSKART",
-			exchange: "NSE",
-			listedOn: "2025-01-01",
-		},
-		{
-			nameFragment: "Swiggy",
-			symbol: "SWIGGY",
-			exchange: "NSE",
-			listedOn: "2024-11-13",
-		},
-		{
-			nameFragment: "Hyundai",
-			symbol: "HYUNDAIINDIA",
-			exchange: "NSE",
-			listedOn: "2024-10-22",
-		},
-		{
-			nameFragment: "Ola Electric",
-			symbol: "OLAELECTRIC",
-			exchange: "NSE",
-			listedOn: "2024-08-09",
-		},
-		{
-			nameFragment: "Bajaj Housing",
-			symbol: "BAJAJHFL",
-			exchange: "NSE",
-			listedOn: "2024-09-16",
-		},
-		// ── FY 2023-24 IPOs ──────────────────────────────────────────────────────
-		{
-			nameFragment: "Tata Technologies",
-			symbol: "TATATECH",
-			exchange: "NSE",
-			listedOn: "2023-11-30",
-		},
-		// ── Earlier major IPOs that may still be in DB ───────────────────────────
-		{
-			nameFragment: "LIC",
-			symbol: "LICI",
-			exchange: "NSE",
-			listedOn: "2022-05-17",
-		},
-		{
-			nameFragment: "Delhivery",
-			symbol: "DELHIVERY",
-			exchange: "NSE",
-			listedOn: "2022-05-24",
-		},
-		{
-			nameFragment: "Eternal",
-			symbol: "ETERNAL",
-			exchange: "NSE",
-			listedOn: "2021-07-23",
-		},
-		{
-			nameFragment: "Nykaa",
-			symbol: "NYKAA",
-			exchange: "NSE",
-			listedOn: "2021-11-10",
-		},
-		{
-			nameFragment: "Paytm",
-			symbol: "PAYTM",
-			exchange: "NSE",
-			listedOn: "2021-11-18",
-		},
-		{
-			nameFragment: "PolicyBazaar",
-			symbol: "POLICYBZR",
-			exchange: "NSE",
-			listedOn: "2021-11-15",
-		},
-		{
-			nameFragment: "CarTrade",
-			symbol: "CARTRADE",
-			exchange: "NSE",
-			listedOn: "2021-08-20",
-		},
-		{
-			nameFragment: "MobiKwik",
-			symbol: "MOBIKWIK",
-			exchange: "NSE",
-			listedOn: "2024-12-18",
-		},
-		{
-			nameFragment: "Sagility",
-			symbol: "SAGILITY",
-			exchange: "NSE",
-			listedOn: "2024-11-12",
-		},
-		{
-			nameFragment: "NTPC Green",
-			symbol: "NTPCGREEN",
-			exchange: "NSE",
-			listedOn: "2024-11-27",
-		},
-	];
 
 	(async () => {
 		try {
 			const { sql: sqlRaw } = await import("drizzle-orm");
 			let totalExpired = 0;
-			for (const co of CONFIRMED_LISTED_COMPANIES) {
-				// 1. Mark unlistedCompanies record as listed (if it exists)
-				await db.execute(sqlRaw`
-          UPDATE unlisted_companies
-          SET status = 'inactive', listing_stage = 'listed', updated_at = NOW()
-          WHERE LOWER(name) LIKE LOWER(${"%" + co.nameFragment + "%"})
-            AND (listing_stage IS NULL OR listing_stage != 'listed')
-        `);
 
-				// 2. Expire live unlisted AND pre_ipo picks for this company
+			for (const entry of LISTED_ENTITY_REGISTRY) {
+				// 1. Build the WHERE clause: prefer ISIN/CIN exact match, fall back to name fragment
+				//    We extract the first meaningful word (3+ chars) as the name fragment.
+				const nameFrag = entry.name
+					.replace(/[^a-zA-Z0-9 ]/g, " ")
+					.split(/\s+/)
+					.find((w) => w.length >= 4) ?? entry.name.substring(0, 8);
+
+				// 2. Mark unlisted_companies record as listed (if exists and not already)
+				if (entry.isin) {
+					await db.execute(sqlRaw`
+						UPDATE unlisted_companies
+						SET status = 'inactive', listing_stage = 'transitioned_to_listed', updated_at = NOW()
+						WHERE isin = ${entry.isin}
+						  AND (listing_stage IS NULL OR listing_stage NOT IN ('transitioned_to_listed', 'listed'))
+					`);
+				}
+				if (entry.cin) {
+					await db.execute(sqlRaw`
+						UPDATE unlisted_companies
+						SET status = 'inactive', listing_stage = 'transitioned_to_listed', updated_at = NOW()
+						WHERE cin = ${entry.cin}
+						  AND (listing_stage IS NULL OR listing_stage NOT IN ('transitioned_to_listed', 'listed'))
+					`);
+				}
+				// Name-fragment fallback (covers records with no ISIN/CIN in DB)
+				await db.execute(sqlRaw`
+					UPDATE unlisted_companies
+					SET status = 'inactive', listing_stage = 'transitioned_to_listed', updated_at = NOW()
+					WHERE LOWER(name) LIKE LOWER(${"%" + nameFrag + "%"})
+					  AND (listing_stage IS NULL OR listing_stage NOT IN ('transitioned_to_listed', 'listed'))
+				`);
+
+				// 3. Expire live unlisted AND pre_ipo picks for this company
 				const result = await db.execute(sqlRaw`
-          UPDATE daily_picks
-          SET status = 'expired', updated_at = NOW()
-          WHERE category::text IN ('unlisted', 'pre_ipo')
-            AND status = 'live'
-            AND LOWER(instrument_name) LIKE LOWER(${"%" + co.nameFragment + "%"})
-        `);
+					UPDATE daily_picks
+					SET status = 'expired', updated_at = NOW()
+					WHERE category::text IN ('unlisted', 'pre_ipo')
+					  AND status = 'live'
+					  AND (
+						    (isin IS NOT NULL AND isin = ${entry.isin ?? ""})
+						 OR LOWER(instrument_name) LIKE LOWER(${"%" + nameFrag + "%"})
+					  )
+				`);
 				const count = (result as any).rowCount ?? 0;
 				if (count > 0) {
 					totalExpired += count;
@@ -177,30 +93,23 @@ export function initializeUnlistedCrons(): void {
 							user_id: "system",
 							latency_ms: 0,
 							status: "success",
-							company: co.nameFragment,
-							symbol: co.symbol,
-							exchange: co.exchange,
-							listedOn: co.listedOn,
+							company: entry.name,
+							isin: entry.isin,
+							listedOn: entry.listingDate,
 							picksExpired: count,
 							timestamp: new Date().toISOString(),
 						}),
 					);
 				}
 			}
+
 			if (totalExpired > 0) {
-				console.log(
-					`[ListingTracker] Known-listed cleanup: expired ${totalExpired} stale unlisted pick(s) on startup`,
-				);
+				console.log(`[ListingTracker] Known-listed cleanup: expired ${totalExpired} stale unlisted pick(s) on startup`);
 			} else {
-				console.log(
-					"[ListingTracker] Known-listed cleanup: no stale picks found",
-				);
+				console.log("[ListingTracker] Known-listed cleanup: no stale picks found");
 			}
 		} catch (err: any) {
-			console.error(
-				"[ListingTracker] Known-listed startup cleanup failed:",
-				err?.message,
-			);
+			console.error("[ListingTracker] Known-listed startup cleanup failed:", err?.message);
 		}
 	})();
 

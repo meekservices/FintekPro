@@ -9,6 +9,10 @@ import { users } from './users';
 export const preIpoCompanies = pgTable("pre_ipo_companies", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   companyName: text("company_name").notNull(),
+  /** ISIN assigned post-allotment by CDSL/NSDL. Populated when the company lists. Used for identity-based listed-entity screening. */
+  isin: varchar("isin", { length: 20 }).unique(),
+  /** MCA Corporate Identification Number (21-char). Uniquely identifies the legal entity. Used as secondary screening key. */
+  cin: varchar("cin", { length: 21 }).unique(),
   sector: varchar("sector").notNull(), // 'technology', 'healthcare', 'fintech', 'retail', etc.
   industry: varchar("industry").notNull(), // more specific industry classification
   foundedYear: integer("founded_year"),

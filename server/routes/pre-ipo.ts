@@ -11,6 +11,7 @@ import {
 	calculateEnterpriseValue,
 	type YearlyFinancial,
 } from "@shared/enterprise-valuation";
+import { screenListedEntity } from "../utils/listed-entity-registry";
 
 // High-conviction curated upcoming Indian Pre-IPO pipeline as standard baseline
 export const CURATED_PRE_IPOS = [
@@ -316,31 +317,27 @@ const isIpoExpired = (ipo: { closeDate?: string; listingDate?: string }): boolea
 };
 
 /**
- * Returns true if the company name matches a known listed/graduated entity that
- * should NEVER appear in the Pre-IPO pipeline. Expanded to cover common DB
- * pollution cases (e.g. "Hero MotoCorp" mis-tagged as pre_ipo when only
- * "Hero FinCorp" is the genuine pre-IPO candidate).
+ * Returns true if the company is a known listed/graduated entity that
+ * should NEVER appear in the Pre-IPO pipeline.
+ *
+ * Screening priority (most → least reliable):
+ *   1. ISIN  — globally unique, exchange-assigned (from CDSL/NSDL)
+ *   2. CIN   — MCA-assigned, unique per legal entity
+ *   3. Name  — fuzzy last-resort to catch aliases / stale records
+ *
+ * All three checks delegate to the canonical `listed-entity-registry`
+ * which is the single authoritative blocklist for this platform.
  */
-const isKnownListedEntity = (name: string): boolean => {
-	const n = (name || "").toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim();
-	const LISTED_PATTERNS: string[] = [
-		// Confirmed listed — previously pre-IPO
-		"hdb financial", "hdbfs", "swiggy", "tata technologies",
-		// Hero group — only Hero FinCorp is pre-IPO; all others are listed
-		"hero motocorp", "heromotoco", "hero moto corp", "hero honda",
-		// ✅ NSE has graduated to a live IPO — must never appear in Pre-IPO pipeline
-		"national stock exchange", "nse india", "nse limited",
-		// Prominent listed large-caps that may appear due to naming collisions
-		"reliance industries", "hdfc bank", "icici bank", "infosys", "tcs",
-		"tata consultancy", "wipro", "hcl technologies", "bajaj finance",
-		"kotak mahindra bank", "axis bank", "larsen toubro", "state bank of india",
-		"ongc", "itc limited", "maruti suzuki", "asian paints",
-		"hindustan unilever", "titan company", "power grid", "ntpc",
-		// Other companies that have already completed their IPO
-		"ola electric", "paytm", "nykaa", "zomato", "policy bazaar",
-		"delhivery", "life insurance corporation", "lic",
-	];
-	return LISTED_PATTERNS.some((pattern) => n.includes(pattern));
+const isKnownListedEntity = (
+	name: string,
+	isin?: string | null,
+	cin?: string | null,
+): boolean => {
+	const result = screenListedEntity({ name, isin, cin });
+	if (result.isListed) {
+		logger.debug(`[ListedEntityGuard] BLOCKED "${name}" (matched by ${result.matchedBy}: ${result.entry?.name ?? "unknown"})`);
+	}
+	return result.isListed;
 };
 
 export function registerPreIPORoutes(app: Express) {
