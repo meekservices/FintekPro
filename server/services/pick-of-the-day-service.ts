@@ -588,7 +588,42 @@ export class PickOfTheDayService {
 						continue;
 					}
 
+					// ── Phase 2: Google Search Grounding Check for breaking adverse news ────
+					if (category === "listed_stocks" || category === "unlisted" || category === "pre_ipo") {
+						try {
+							const { pickNewsGrounding } = await import("./picks/pick-news-grounding");
+							const groundCheck = await pickNewsGrounding.verifyCandidate(
+								pick.instrumentName,
+								pick.symbol || pick.instrumentName,
+								category,
+							);
+							(pick.keyMetrics as any).newsGrounding = groundCheck;
+							if (groundCheck.verdict === "DISQUALIFIED") {
+								logger.warn(
+									`⚠️  [PickOfTheDay] VETOED by Google Search Grounding: ${pick.instrumentName} (${pick.symbol}) — ${groundCheck.summary}`,
+									{ event: "PICK_VETOED_NEWS_GROUNDING", symbol: pick.symbol, reason: groundCheck.summary },
+								);
+								continue;
+							}
+						} catch (groundErr) {
+							logger.warn(`[PickOfTheDay] Grounding check error for ${pick.instrumentName} (non-fatal): ${groundErr}`);
+						}
+					}
+
 					await this.savePick(pick);
+
+					// ── Phase 3: GCS Automated 1-Page PDF Investment Note ────────────────
+					try {
+						const { pickPdfGenerator } = await import("./picks/pick-pdf-generator");
+						const pdfResult = await pickPdfGenerator.generateAndUploadPickPDF(pick);
+						if (pdfResult?.url) {
+							(pick.keyMetrics as any).pdfUrl = pdfResult.url;
+							// Re-persist updated keyMetrics containing the GCS PDF URL
+							await this.savePick(pick);
+						}
+					} catch (pdfErr) {
+						logger.warn(`[PickOfTheDay] GCS PDF generation failed for ${pick.instrumentName} (non-fatal): ${pdfErr}`);
+					}
 
 					// ── FASP-AI v2.0: Persist to immutable advisory audit trail ──────────
 					FaspAIv2Service.logAdvisoryOutput({
@@ -699,6 +734,49 @@ export class PickOfTheDayService {
 		};
 		_generationLog.push(logEntry);
 		if (_generationLog.length > 7) _generationLog.shift(); // keep rolling 7
+
+		// ── Phase 3: Redis cache pre-warming & FCM push broadcast ────────────
+		try {
+			// 1. Pre-warm Redis cache for instant sub-20ms market open page loads
+			const redis = await this.getRedis();
+			if (redis) {
+				const cacheKey = `picks:daily:${today}`;
+				await redis.set(cacheKey, JSON.stringify(generated), "EX", 86400);
+				logger.info(`[PickOfTheDay] Pre-warmed Redis cache key: ${cacheKey}`);
+			}
+		} catch (cacheErr) {
+			logger.warn(`[PickOfTheDay] Redis cache pre-warm failed (non-fatal): ${cacheErr}`);
+		}
+
+		try {
+			// 2. Broadcast push notification via FCM to active agents/advisors
+			const topPick = generated.find((p) => p.category === "listed_stocks") || generated[0];
+			if (topPick) {
+				const { notify } = await import("./fcm-notification-service");
+				const { users } = await import("@shared/schema");
+				const { sql } = await import("drizzle-orm");
+				const agentRows = await db
+					.select({ id: users.id })
+					.from(users)
+					.where(sql`'agent' = ANY(${users.roles})`)
+					.limit(200);
+				const agentIds = agentRows.map((a) => String(a.id));
+				if (agentIds.length > 0) {
+					const upside =
+						topPick.recoPrice > 0
+							? Math.round(((topPick.targetPrice - topPick.recoPrice) / topPick.recoPrice) * 100)
+							: 10;
+					notify.broadcastNewPick(
+						agentIds,
+						topPick.symbol || topPick.instrumentName,
+						`Target ₹${Number(topPick.targetPrice).toLocaleString()} (+${upside}%)`,
+					);
+					logger.info(`[PickOfTheDay] Sent FCM push notification to ${agentIds.length} agents for top pick ${topPick.symbol}`);
+				}
+			}
+		} catch (fcmErr) {
+			logger.warn(`[PickOfTheDay] FCM broadcast failed (non-fatal): ${fcmErr}`);
+		}
 
 		return generated;
 	}

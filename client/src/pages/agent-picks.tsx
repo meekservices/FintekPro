@@ -112,6 +112,7 @@ import {
 	ChevronUp,
 	ChevronDown,
 	Rocket,
+	ShieldCheck,
 } from "lucide-react";
 import {
 	LineChart,
@@ -2961,7 +2962,16 @@ export default function AgentPicksPage() {
 					{/* #6 Top Pick of the Day */}
 					{topPickOfDay && !loadingToday && (
 						<div className="relative overflow-hidden rounded-xl border-2 border-amber-400/60 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/20 p-4">
-							<div className="absolute top-3 right-3">
+							<div className="absolute top-3 right-3 flex items-center gap-2">
+								{topPickOfDay.keyMetrics?.newsGrounding && (
+									<Badge
+										variant="outline"
+										className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-[10px] flex items-center gap-1"
+									>
+										<ShieldCheck className="h-3 w-3 text-emerald-600" />
+										Search Grounded: {topPickOfDay.keyMetrics.newsGrounding.verdict}
+									</Badge>
+								)}
 								<Badge className="bg-amber-500 text-white text-xs flex items-center gap-1">
 									<Zap className="h-3 w-3" /> Top Pick of the Day
 								</Badge>
@@ -3000,53 +3010,70 @@ export default function AgentPicksPage() {
 												</Badge>
 											)}
 									</div>
-									<div className="flex flex-wrap gap-4 mt-3 text-sm">
-										<span>
-											<span className="text-muted-foreground text-xs">
-												Entry
-											</span>
-											<br />
-											<strong>
-												{formatPrice(
-													topPickOfDay.recoPrice,
-													topPickOfDay.category,
-												)}
-											</strong>
-										</span>
-										<span>
-											<span className="text-xs text-green-600">Target</span>
-											<br />
-											<strong className="text-green-600">
-												{formatPrice(
-													topPickOfDay.targetPrice,
-													topPickOfDay.category,
-												)}
-											</strong>
-										</span>
-										<span>
-											<span className="text-xs text-red-500">Stoploss</span>
-											<br />
-											<strong className="text-red-500">
-												{formatPrice(
-													topPickOfDay.stoplossPrice,
-													topPickOfDay.category,
-												)}
-											</strong>
-										</span>
-										{topPickOfDay.confidenceScore !== undefined && (
+									<div className="flex flex-wrap items-center justify-between gap-4 mt-3">
+										<div className="flex flex-wrap gap-4 text-sm">
 											<span>
-												<span className="text-xs text-muted-foreground">
-													AI Confidence
+												<span className="text-muted-foreground text-xs">
+													Entry
 												</span>
 												<br />
-												<strong
-													className={getConfidenceColor(
-														topPickOfDay.confidenceScore,
+												<strong>
+													{formatPrice(
+														topPickOfDay.recoPrice,
+														topPickOfDay.category,
 													)}
-												>
-													{topPickOfDay.confidenceScore}%
 												</strong>
 											</span>
+											<span>
+												<span className="text-xs text-green-600">Target</span>
+												<br />
+												<strong className="text-green-600">
+													{formatPrice(
+														topPickOfDay.targetPrice,
+														topPickOfDay.category,
+													)}
+												</strong>
+											</span>
+											<span>
+												<span className="text-xs text-red-500">Stoploss</span>
+												<br />
+												<strong className="text-red-500">
+													{formatPrice(
+														topPickOfDay.stoplossPrice,
+														topPickOfDay.category,
+													)}
+												</strong>
+											</span>
+											{topPickOfDay.confidenceScore !== undefined && (
+												<span>
+													<span className="text-xs text-muted-foreground">
+														AI Confidence
+													</span>
+													<br />
+													<strong
+														className={getConfidenceColor(
+															topPickOfDay.confidenceScore,
+														)}
+													>
+														{topPickOfDay.confidenceScore}%
+													</strong>
+												</span>
+											)}
+										</div>
+										{topPickOfDay.keyMetrics?.pdfUrl && (
+											<Button
+												variant="outline"
+												size="sm"
+												className="h-8 gap-1.5 text-xs bg-white/80 dark:bg-zinc-900/80 hover:bg-white border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200"
+												onClick={() => {
+													if (topPickOfDay.keyMetrics?.pdfUrl) {
+														window.open(topPickOfDay.keyMetrics.pdfUrl, "_blank");
+													}
+												}}
+											>
+												<FileText className="h-3.5 w-3.5 text-amber-600" />
+												Download PDF Note
+											</Button>
 										)}
 									</div>
 								</div>
@@ -6090,8 +6117,73 @@ export default function AgentPicksPage() {
 								</div>
 							)}
 
+							{/* Vertex AI / Gemini 2.0 Search Grounding Section */}
+							{selectedPick.keyMetrics?.newsGrounding && (
+								<div className="rounded-lg border p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+									<div className="flex items-center justify-between mb-2">
+										<h4 className="font-semibold text-sm flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+											<ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+											Pre-Market News Grounding
+										</h4>
+										<Badge
+											variant="outline"
+											className={
+												selectedPick.keyMetrics.newsGrounding.verdict === "CLEARED"
+													? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/50 dark:text-emerald-200 dark:border-emerald-700 font-bold"
+													: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/50 dark:text-amber-200 dark:border-amber-700 font-bold"
+											}
+										>
+											{selectedPick.keyMetrics.newsGrounding.verdict}
+										</Badge>
+									</div>
+									<p className="text-xs text-muted-foreground leading-relaxed">
+										{selectedPick.keyMetrics.newsGrounding.summary}
+									</p>
+									{selectedPick.keyMetrics.newsGrounding.groundedSources?.length > 0 && (
+										<div className="mt-3 pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60">
+											<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+												Live Verified Sources
+											</p>
+											<div className="flex flex-wrap gap-1.5">
+												{selectedPick.keyMetrics.newsGrounding.groundedSources.slice(0, 3).map((url: string, idx: number) => {
+													let hostname = url;
+													try {
+														hostname = new URL(url).hostname.replace(/^www\./, "");
+													} catch {}
+													return (
+														<a
+															key={idx}
+															href={url}
+															target="_blank"
+															rel="noreferrer"
+															className="text-[10px] text-emerald-700 dark:text-emerald-400 underline hover:no-underline flex items-center gap-0.5"
+														>
+															<ExternalLink className="h-2.5 w-2.5" />
+															{hostname}
+														</a>
+													);
+												})}
+											</div>
+										</div>
+									)}
+								</div>
+							)}
+
 							{/* Actions */}
 							<div className="flex flex-col gap-2 pt-2 border-t">
+								{selectedPick.keyMetrics?.pdfUrl && (
+									<Button
+										variant="outline"
+										className="w-full bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 text-amber-900 dark:text-amber-200"
+										onClick={() => {
+											window.open(selectedPick.keyMetrics!.pdfUrl, "_blank");
+										}}
+									>
+										<FileText className="h-4 w-4 mr-2 text-amber-600" />
+										Download Institutional PDF Note
+										<Download className="h-4 w-4 ml-auto text-amber-600" />
+									</Button>
+								)}
 								<Button
 									className="w-full"
 									variant="outline"
@@ -7322,6 +7414,32 @@ function PickCard({
 											CIN: {pick.keyMetrics.cin}
 										</span>
 									)}
+									{/* Vertex AI / Gemini 2.0 Search Grounding clearance badge */}
+									{pick.keyMetrics?.newsGrounding && (
+										<TooltipProvider>
+											<Tooltip>
+												<TooltipTrigger asChild>
+													<span
+														className={`text-xs px-2 py-0.5 rounded-full font-semibold border inline-flex items-center gap-1 cursor-help ${
+															pick.keyMetrics.newsGrounding.verdict === "CLEARED"
+																? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+																: "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+														}`}
+													>
+														<ShieldCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+														{pick.keyMetrics.newsGrounding.verdict === "CLEARED" ? "Search Grounded" : "News Alert"}
+													</span>
+												</TooltipTrigger>
+												<TooltipContent className="text-xs max-w-[280px]">
+													<p className="font-semibold">Gemini 2.0 Search Grounding</p>
+													<p className="text-muted-foreground mt-0.5">{pick.keyMetrics.newsGrounding.summary}</p>
+													<p className="text-[10px] text-muted-foreground mt-1">
+														Scanned corporate filings & financial news for the last 72h.
+													</p>
+												</TooltipContent>
+											</Tooltip>
+										</TooltipProvider>
+									)}
 									{/* Regulatory Stage Badge for Unlisted / Pre-IPO / Privately Listed */}
 									{isUnlistedOrPreIpo(pick) && (() => {
 										const stageInfo = getPickRegulatoryStageInfo(pick);
@@ -8241,6 +8359,30 @@ function PickCard({
 										<TooltipContent>Share via WhatsApp</TooltipContent>
 									</Tooltip>
 								</TooltipProvider>
+
+								{/* #10 Institutional 1-Page PDF Note Download */}
+								{pick.keyMetrics?.pdfUrl && (
+									<TooltipProvider>
+										<Tooltip>
+											<TooltipTrigger asChild>
+												<Button
+													variant="ghost"
+													size="sm"
+													className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+													onClick={(e) => {
+														e.stopPropagation();
+														if (pick.keyMetrics?.pdfUrl) {
+															window.open(pick.keyMetrics.pdfUrl, "_blank");
+														}
+													}}
+												>
+													<FileText className="h-4 w-4" />
+												</Button>
+											</TooltipTrigger>
+											<TooltipContent>Download 1-Page PDF Note</TooltipContent>
+										</Tooltip>
+									</TooltipProvider>
+								)}
 
 								{onShareClients && (
 									<TooltipProvider>
