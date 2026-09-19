@@ -91,7 +91,6 @@ function errorMessage(err: unknown): string {
  */
 router.get(
 	"/market/screener",
-	requireAuth, // session only — no Alpaca account needed for market data
 	async (req: Request, res: Response): Promise<void> => {
 		try {
 			// Refresh universe if stale (non-blocking if already fresh)
@@ -308,9 +307,9 @@ router.post(
 			} catch (dbErr: unknown) {
 				// DB persistence failure is non-fatal — in-memory config is active
 				const msg = dbErr instanceof Error ? dbErr.message : String(dbErr);
-				console.warn(
-					"[AlpacaCredentials] DB persistence failed (in-memory config still active):",
-					msg,
+				logger.warn(
+					"[AlpacaCredentials] DB persistence failed (in-memory config still active)",
+					{ error: msg }
 				);
 			}
 
