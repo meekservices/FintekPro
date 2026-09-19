@@ -638,6 +638,46 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 								console.log(`[FreshnessSentinel] ✅ 100% data freshness verified across all listed stocks (${Date.now() - t0}ms).`);
 							}
 						}
+
+						// 2. Materialize real-time sector performance into screener_sector_performance
+						try {
+							await db.execute(sql`
+								INSERT INTO screener_sector_performance (id, sector, changes_percentage, date, last_updated)
+								SELECT 
+									gen_random_uuid(),
+									sector,
+									ROUND(AVG(CAST(day_change_percent AS DECIMAL)), 2) AS changes_percentage,
+									TO_CHAR(NOW(), 'YYYY-MM-DD') AS date,
+									NOW()
+								FROM listed_stocks
+								WHERE is_active = true 
+								  AND sector IS NOT NULL 
+								  AND TRIM(sector) != '' 
+								  AND day_change_percent IS NOT NULL
+								GROUP BY sector
+								ON CONFLICT (sector, date) DO UPDATE SET
+									changes_percentage = EXCLUDED.changes_percentage,
+									last_updated = NOW();
+							`);
+							console.log("[FreshnessSentinel] 📊 Materialized sector performance metrics.");
+						} catch (_secErr: any) {
+							// Non-fatal if table or index constraint varies
+						}
+
+						// 3. Check and run OHLCV returns pass if returns are uncalculated
+						const missingRetCheck = await db.execute(sql`
+							SELECT count(*) as count FROM screener_derived_metrics WHERE return_1y IS NOT NULL
+						`);
+						const withReturns = Number((missingRetCheck.rows?.[0] as any)?.count || 0);
+						if (withReturns < 100) {
+							console.log("[FreshnessSentinel] Missing returns detected. Running OHLCV return derivation pass...");
+							const { runOHLCVReturnPass } = await import("../services/screener/derived-metrics-engine");
+							runOHLCVReturnPass().then(r => {
+								console.log(`[FreshnessSentinel] ✅ Return derivation complete: ${r.processed} processed, ${r.errors} errors.`);
+							}).catch(e => {
+								console.warn("[FreshnessSentinel] Return pass async error:", e?.message);
+							});
+						}
 					} catch (err: any) {
 						console.warn("[FreshnessSentinel] Sentinel pass encountered non-fatal error:", err?.message);
 					}
@@ -652,6 +692,38 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 				console.log("[FreshnessSentinel] 🕒 Autonomous hourly freshness sentinel scheduled (every 60m).");
 			} catch (err: any) {
 				console.warn("[FreshnessSentinel] Sentinel initialization failed:", err?.message);
+			}
+		});
+
+		// ── Phase 3d: Quarterly Shareholding Ingestion (BSE/NSE public filings) ───
+		// Fetches quarterly Promoter, FII, DII, and Mutual Fund holding percentages.
+		// Runs 45 seconds after boot for initial batch, then weekly.
+		runStartupTask("Quarterly Shareholding Ingestion", async () => {
+			try {
+				const { runShareholdingBatchJob } = await import(
+					"../services/screener/shareholding-service"
+				);
+				setTimeout(async () => {
+					console.log("[ShareholdingSync] 🏛️ Ingesting public shareholding filings for top stocks...");
+					try {
+						const res = await runShareholdingBatchJob(50);
+						console.log(`[ShareholdingSync] ✅ Completed: ${res.succeeded} OK, ${res.failed} failed.`);
+					} catch (err: any) {
+						console.warn("[ShareholdingSync] Batch job error:", err?.message);
+					}
+				}, 45_000);
+
+				// Weekly recurrence
+				const WEEKLY_MS = 7 * 24 * 60 * 60 * 1000;
+				setInterval(async () => {
+					try {
+						await runShareholdingBatchJob(100);
+					} catch (e: any) {
+						console.warn("[ShareholdingSync] Recurring sync error:", e?.message);
+					}
+				}, WEEKLY_MS);
+			} catch (err: any) {
+				console.warn("[ShareholdingSync] Ingestion scheduler failed to start:", err?.message);
 			}
 		});
 

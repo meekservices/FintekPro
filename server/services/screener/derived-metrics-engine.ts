@@ -40,7 +40,34 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
 		.orderBy(desc(screenerFinancials.fiscalYear))
 		.limit(1);
 
-	if (!financials) return;
+	// Fallback to listed_stocks if screener_financials is not populated yet
+	let finObj: any = financials;
+	if (!finObj) {
+		const [stock] = await db
+			.select()
+			.from(listedStocks)
+			.where(eq(listedStocks.symbol, symbol))
+			.limit(1);
+
+		if (stock) {
+			finObj = {
+				fiscalYear: new Date().getFullYear(),
+				peRatio: stock.peRatio,
+				pbRatio: stock.pbRatio,
+				roe: stock.roe ? String(Number(stock.roe) / 100) : null,
+				dividendYield: stock.dividendYield ? String(Number(stock.dividendYield) / 100) : null,
+				revenueGrowth: null,
+				earningsGrowth: null,
+				netProfitMargin: null,
+				operatingMargin: null,
+				debtToEquity: null,
+				currentRatio: null,
+				roa: null,
+			};
+		}
+	}
+
+	if (!finObj) return;
 
 	const growthRows = await db.execute(
 		sql`SELECT * FROM screener_growth_metrics WHERE symbol = ${symbol} ORDER BY date DESC LIMIT 1`,
@@ -63,29 +90,29 @@ export async function calculateDerivedMetrics(symbol: string): Promise<void> {
 	const ratingData = (ratingRows as any).rows?.[0] || null;
 
 	const revGrowth =
-		safeNum(growthData?.revenue_growth) ?? safeNum(financials.revenueGrowth);
+		safeNum(growthData?.revenue_growth) ?? safeNum(finObj.revenueGrowth);
 	const earnGrowth =
 		safeNum(growthData?.net_income_growth) ??
-		safeNum(financials.earningsGrowth);
+		safeNum(finObj.earningsGrowth);
 	const fcfGrowth = safeNum(growthData?.free_cash_flow_growth);
 	const epsGrowth = safeNum(growthData?.eps_growth);
 	// Phase 2b: ret1y/3y/5y removed from screener_financials — always null, real values from OHLCV nightly
 	const ret1y = null;
 	const ret3y = null;
 	const ret5y = null;
-	const roe = safeNum(keyMetricData?.roe) ?? safeNum(financials.roe);
-	const roa = safeNum(financials.roa);
+	const roe = safeNum(keyMetricData?.roe) ?? safeNum(finObj.roe);
+	const roa = safeNum(finObj.roa);
 	const roic = safeNum(keyMetricData?.roic);
-	const npm = safeNum(financials.netProfitMargin);
-	const opm = safeNum(financials.operatingMargin);
-	const pe = safeNum(keyMetricData?.pe_ratio) ?? safeNum(financials.peRatio);
-	const pb = safeNum(keyMetricData?.pb_ratio) ?? safeNum(financials.pbRatio);
+	const npm = safeNum(finObj.netProfitMargin);
+	const opm = safeNum(finObj.operatingMargin);
+	const pe = safeNum(keyMetricData?.pe_ratio) ?? safeNum(finObj.peRatio);
+	const pb = safeNum(keyMetricData?.pb_ratio) ?? safeNum(finObj.pbRatio);
 	const de =
-		safeNum(keyMetricData?.debt_to_equity) ?? safeNum(financials.debtToEquity);
+		safeNum(keyMetricData?.debt_to_equity) ?? safeNum(finObj.debtToEquity);
 	const cr =
-		safeNum(keyMetricData?.current_ratio) ?? safeNum(financials.currentRatio);
+		safeNum(keyMetricData?.current_ratio) ?? safeNum(finObj.currentRatio);
 	const divYield =
-		safeNum(keyMetricData?.dividend_yield) ?? safeNum(financials.dividendYield);
+		safeNum(keyMetricData?.dividend_yield) ?? safeNum(finObj.dividendYield);
 	const grahamNumber = safeNum(keyMetricData?.graham_number);
 
 	// Phase 2b: hasReturns now false at this stage; OHLCV pass will overwrite returns nightly
@@ -486,29 +513,69 @@ export async function runOHLCVReturnPass(): Promise<{ processed: number; errors:
 						{ roa: null, totalDebt: null, totalAssets: null, currentRatio: null, grossMargin: null, revenue: null },
 					) : null;
 
-					// Upsert into derived metrics
+					// Upsert into derived metrics (handles new symbols + existing)
 					await db.execute(sql`
-            UPDATE screener_derived_metrics SET
-              return_1w           = ${returns.return1W},
-              return_1m           = ${returns.return1M},
-              return_3m           = ${returns.return3M},
-              return_6m           = ${returns.return6M},
-              return_1y           = ${returns.return1Y},
-              return_2y           = ${returns.return2Y},
-              return_3y           = ${returns.return3Y},
-              return_5y           = ${returns.return5Y},
-              return_ytd          = ${returns.returnYTD},
-              beta                = ${risk.beta},
-              sharpe_ratio_1y     = ${risk.sharpeRatio1Y},
-              sortino_ratio_1y    = ${risk.sortinoRatio1Y},
-              max_drawdown_1y     = ${risk.maxDrawdown1Y},
-              volatility_30d      = ${risk.volatility30D},
-              return_vs_nifty_1y  = ${risk.returnVsNifty1Y},
-              return_vs_sector_1y = ${risk.returnVsSector1Y},
-              piotroski_score     = ${piotroski?.score ?? null},
-              last_calculated     = NOW()
-            WHERE symbol = ${symbol}
-          `);
+						INSERT INTO screener_derived_metrics (
+							symbol,
+							return_1w,
+							return_1m,
+							return_3m,
+							return_6m,
+							return_1y,
+							return_2y,
+							return_3y,
+							return_5y,
+							return_ytd,
+							beta,
+							sharpe_ratio_1y,
+							sortino_ratio_1y,
+							max_drawdown_1y,
+							volatility_30d,
+							return_vs_nifty_1y,
+							return_vs_sector_1y,
+							piotroski_score,
+							last_calculated
+						) VALUES (
+							${symbol},
+							${returns.return1W},
+							${returns.return1M},
+							${returns.return3M},
+							${returns.return6M},
+							${returns.return1Y},
+							${returns.return2Y},
+							${returns.return3Y},
+							${returns.return5Y},
+							${returns.returnYTD},
+							${risk.beta},
+							${risk.sharpeRatio1Y},
+							${risk.sortinoRatio1Y},
+							${risk.maxDrawdown1Y},
+							${risk.volatility30D},
+							${risk.returnVsNifty1Y},
+							${risk.returnVsSector1Y},
+							${piotroski?.score ?? null},
+							NOW()
+						)
+						ON CONFLICT (symbol) DO UPDATE SET
+							return_1w           = EXCLUDED.return_1w,
+							return_1m           = EXCLUDED.return_1m,
+							return_3m           = EXCLUDED.return_3m,
+							return_6m           = EXCLUDED.return_6m,
+							return_1y           = EXCLUDED.return_1y,
+							return_2y           = EXCLUDED.return_2y,
+							return_3y           = EXCLUDED.return_3y,
+							return_5y           = EXCLUDED.return_5y,
+							return_ytd          = EXCLUDED.return_ytd,
+							beta                = EXCLUDED.beta,
+							sharpe_ratio_1y     = EXCLUDED.sharpe_ratio_1y,
+							sortino_ratio_1y    = EXCLUDED.sortino_ratio_1y,
+							max_drawdown_1y     = EXCLUDED.max_drawdown_1y,
+							volatility_30d      = EXCLUDED.volatility_30d,
+							return_vs_nifty_1y  = EXCLUDED.return_vs_nifty_1y,
+							return_vs_sector_1y = EXCLUDED.return_vs_sector_1y,
+							piotroski_score     = COALESCE(EXCLUDED.piotroski_score, screener_derived_metrics.piotroski_score),
+							last_calculated     = NOW();
+					`);
 					returnPassProcessed++;
 				} catch (symErr: any) {
 					returnPassErrors++;

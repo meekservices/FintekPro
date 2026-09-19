@@ -13,6 +13,11 @@ import {
 	screenerInsiderTrades,
 	screenerStockNews,
 	screenerTechnicalIndicators,
+	screenerTechnicalIndicatorsLatest,
+	screenerPriceHistory,
+	mfSchemeStockHoldings,
+	mutualFunds,
+	preIpoCompanies,
 } from "@shared/schema";
 import {
 	queryScreener,
@@ -869,17 +874,56 @@ router.get("/api/screener/stocks/:symbol/analyst-grades", async (req, res) => {
 	}
 });
 
+// ── In-process memory cache for Sector Performance (5-min TTL) ─────────────
+let _sectorCache: { data: any[]; ts: number } | null = null;
+const SECTOR_CACHE_TTL_MS = 5 * 60 * 1000;
+
 router.get(
 	"/api/screener/stocks/:symbol/institutional-holders",
 	async (req, res) => {
 		try {
-			const symbol = req.params.symbol;
-			const rows = await db
-				.select()
-				.from(screenerInstitutionalHolders)
-				.where(eq(screenerInstitutionalHolders.symbol, symbol))
-				.orderBy(desc(screenerInstitutionalHolders.dateReported))
-				.limit(20);
+			const rawSymbol = req.params.symbol;
+			const cleanSymbol = rawSymbol.toUpperCase().replace(/\.(NS|BO)$/i, "");
+
+			// 1. Primary check: screener_institutional_holders table
+			let rows: any[] = [];
+			try {
+				rows = await db
+					.select()
+					.from(screenerInstitutionalHolders)
+					.where(eq(screenerInstitutionalHolders.symbol, cleanSymbol))
+					.orderBy(desc(screenerInstitutionalHolders.dateReported))
+					.limit(20);
+			} catch {
+				rows = [];
+			}
+
+			// 2. Domestic Institutional Investors Bridge: if table is empty, query Indian Mutual Funds holding this stock
+			if (!rows || rows.length === 0) {
+				const mfHoldings = await db
+					.select({
+						id: mfSchemeStockHoldings.id,
+						symbol: mfSchemeStockHoldings.stockSymbol,
+						holder: mutualFunds.schemeName,
+						amcName: mutualFunds.fundHouse,
+						weightPercent: mfSchemeStockHoldings.holdingPercentage,
+						dateReported: mfSchemeStockHoldings.holdingDate,
+						shares: sql`NULL`,
+						change: sql`NULL`,
+					})
+					.from(mfSchemeStockHoldings)
+					.innerJoin(mutualFunds, eq(mfSchemeStockHoldings.mfIsin, mutualFunds.isin))
+					.where(
+						sql`UPPER(${mfSchemeStockHoldings.stockSymbol}) = ${cleanSymbol}`
+					)
+					.orderBy(desc(sql`CAST(${mfSchemeStockHoldings.holdingPercentage} AS DECIMAL)`))
+					.limit(25);
+
+				if (mfHoldings && mfHoldings.length > 0) {
+					return res.json({ data: mfHoldings, source: "amfi_mutual_funds" });
+				}
+			}
+
 			res.json({ data: rows });
 		} catch (err: any) {
 			res.status(500).json({ error: err.message });
@@ -919,14 +963,95 @@ router.get("/api/screener/stocks/:symbol/news", async (req, res) => {
 
 router.get("/api/screener/stocks/:symbol/technicals", async (req, res) => {
 	try {
-		const symbol = req.params.symbol;
-		const rows = await db
+		const symbol = req.params.symbol.toUpperCase().replace(/\.(NS|BO)$/i, "");
+
+		// 1. Try screener_technical_indicators_latest
+		try {
+			const rows = await db
+				.select()
+				.from(screenerTechnicalIndicatorsLatest)
+				.where(eq(screenerTechnicalIndicatorsLatest.symbol, symbol))
+				.limit(1);
+
+			if (rows && rows.length > 0) {
+				return res.json({ data: rows });
+			}
+		} catch {
+			// Proceed to fallback
+		}
+
+		// 2. Try screener_technical_indicators table
+		try {
+			const rows = await db
+				.select()
+				.from(screenerTechnicalIndicators)
+				.where(eq(screenerTechnicalIndicators.symbol, symbol))
+				.orderBy(desc(screenerTechnicalIndicators.date))
+				.limit(1);
+
+			if (rows && rows.length > 0) {
+				return res.json({ data: rows });
+			}
+		} catch {
+			// Proceed to dynamic derivation
+		}
+
+		// 3. Dynamic derivation from OHLCV price history
+		const priceRows = await db
 			.select()
-			.from(screenerTechnicalIndicators)
-			.where(eq(screenerTechnicalIndicators.symbol, symbol))
-			.orderBy(desc(screenerTechnicalIndicators.date))
-			.limit(1);
-		res.json({ data: rows });
+			.from(screenerPriceHistory)
+			.where(eq(screenerPriceHistory.symbol, symbol))
+			.orderBy(desc(screenerPriceHistory.date))
+			.limit(250);
+
+		if (priceRows && priceRows.length > 0) {
+			const sortedAsc = [...priceRows].reverse();
+			const closes = sortedAsc.map(p => Number(p.close || p.adjClose || 0));
+			const highs = sortedAsc.map(p => Number(p.high || p.close || 0));
+			const lows = sortedAsc.map(p => Number(p.low || p.close || 0));
+
+			const latestClose = closes[closes.length - 1] || 0;
+			const sma20 = closes.length >= 20 ? closes.slice(-20).reduce((a, b) => a + b, 0) / 20 : latestClose;
+			const sma50 = closes.length >= 50 ? closes.slice(-50).reduce((a, b) => a + b, 0) / 50 : latestClose;
+			const sma200 = closes.length >= 200 ? closes.slice(-200).reduce((a, b) => a + b, 0) / 200 : latestClose;
+
+			// Quick RSI 14
+			let rsi14 = 50;
+			if (closes.length >= 15) {
+				let gains = 0, losses = 0;
+				for (let i = closes.length - 14; i < closes.length; i++) {
+					const diff = closes[i] - closes[i - 1];
+					if (diff >= 0) gains += diff; else losses -= diff;
+				}
+				const rs = losses === 0 ? 100 : gains / losses;
+				rsi14 = Math.round((100 - (100 / (1 + rs))) * 100) / 100;
+			}
+
+			const pivots = computePivotLevels(
+				highs[highs.length - 1] || latestClose,
+				lows[lows.length - 1] || latestClose,
+				latestClose
+			);
+
+			const derivedData = {
+				symbol,
+				date: priceRows[0].date,
+				close: latestClose,
+				sma20: Math.round(sma20 * 100) / 100,
+				sma50: Math.round(sma50 * 100) / 100,
+				sma200: Math.round(sma200 * 100) / 100,
+				rsi14,
+				technicalRating: rsi14 > 60 ? "Buy" : rsi14 < 40 ? "Sell" : "Neutral",
+				pivotClassic: pivots.classic.pivot,
+				pivotClassicR1: pivots.classic.r1,
+				pivotClassicS1: pivots.classic.s1,
+				source: "dynamic_ohlcv_derivation"
+			};
+
+			return res.json({ data: [derivedData] });
+		}
+
+		res.json({ data: [] });
 	} catch (err: any) {
 		res.status(500).json({ error: err.message });
 	}
@@ -967,10 +1092,43 @@ router.get("/api/screener/calendar/splits", async (req, res) => {
 
 router.get("/api/screener/calendar/ipos", async (req, res) => {
 	try {
-		const result = await db.execute(
-			sql`SELECT * FROM screener_ipo_calendar ORDER BY date ASC LIMIT 100`,
-		);
-		res.json({ data: (result as any).rows || result });
+		let rows: any[] = [];
+		try {
+			const result = await db.execute(
+				sql`SELECT * FROM screener_ipo_calendar ORDER BY date ASC LIMIT 100`,
+			);
+			rows = (result as any).rows || (Array.isArray(result) ? result : []);
+		} catch {
+			rows = [];
+		}
+
+		// Fallback: Bridge pre_ipo_companies
+		if (!rows || rows.length === 0) {
+			const preIpoRows = await db.execute(
+				sql`
+					SELECT 
+						id,
+						COALESCE(isin, cin, id) AS symbol,
+						company_name AS company,
+						COALESCE(proposed_exchange, 'NSE / BSE') AS exchange,
+						COALESCE(TO_CHAR(expected_ipo_date, 'YYYY-MM-DD'), TO_CHAR(last_round_date, 'YYYY-MM-DD'), 'Upcoming') AS date,
+						CASE 
+							WHEN price_band_min IS NOT NULL AND price_band_max IS NOT NULL THEN '₹' || price_band_min || ' - ₹' || price_band_max
+							ELSE 'TBD'
+						END AS price_range,
+						total_shares_on_offer AS shares,
+						current_valuation AS market_cap,
+						ipo_status AS actions
+					FROM pre_ipo_companies
+					WHERE company_name IS NOT NULL
+					ORDER BY created_at DESC
+					LIMIT 100
+				`,
+			);
+			rows = (preIpoRows as any).rows || (Array.isArray(preIpoRows) ? preIpoRows : []);
+		}
+
+		res.json({ data: rows });
 	} catch (err: any) {
 		res.status(500).json({ error: err.message });
 	}
@@ -989,10 +1147,45 @@ router.get("/api/screener/calendar/economic", async (req, res) => {
 
 router.get("/api/screener/sector-performance", async (req, res) => {
 	try {
-		const result = await db.execute(
-			sql`SELECT * FROM screener_sector_performance ORDER BY date DESC, changes_percentage DESC LIMIT 50`,
-		);
-		res.json({ data: (result as any).rows || result });
+		if (_sectorCache && Date.now() - _sectorCache.ts < SECTOR_CACHE_TTL_MS) {
+			return res.json({ data: _sectorCache.data, cached: true });
+		}
+
+		let rows: any[] = [];
+		try {
+			const result = await db.execute(
+				sql`SELECT * FROM screener_sector_performance ORDER BY date DESC, changes_percentage DESC LIMIT 50`,
+			);
+			rows = (result as any).rows || (Array.isArray(result) ? result : []);
+		} catch {
+			rows = [];
+		}
+
+		// Fallback: On-the-fly aggregation from active listed_stocks
+		if (!rows || rows.length === 0) {
+			const aggResult = await db.execute(
+				sql`
+					SELECT 
+						sector,
+						ROUND(AVG(CAST(day_change_percent AS DECIMAL)), 2) AS changes_percentage,
+						COUNT(*)::integer AS stock_count,
+						MAX(CAST(day_change_percent AS DECIMAL)) AS top_gain,
+						MIN(CAST(day_change_percent AS DECIMAL)) AS top_loss,
+						TO_CHAR(NOW(), 'YYYY-MM-DD') AS date
+					FROM listed_stocks
+					WHERE is_active = true 
+					  AND sector IS NOT NULL 
+					  AND TRIM(sector) != ''
+					  AND day_change_percent IS NOT NULL
+					GROUP BY sector
+					ORDER BY changes_percentage DESC
+				`,
+			);
+			rows = (aggResult as any).rows || (Array.isArray(aggResult) ? aggResult : []);
+		}
+
+		_sectorCache = { data: rows, ts: Date.now() };
+		res.json({ data: rows });
 	} catch (err: any) {
 		res.status(500).json({ error: err.message });
 	}
