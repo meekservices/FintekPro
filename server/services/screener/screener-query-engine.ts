@@ -479,29 +479,96 @@ export async function queryScreener(
 					END
 				)
 			`,
-			pbRatio: sql<string>`COALESCE(NULLIF(${screenerFinancials.pbRatio}::numeric, 0), NULLIF(${screenerKeyMetrics.pbRatio}::numeric, 0), NULLIF(${listedStocks.pbRatio}::numeric, 0))`,
+			pbRatio: sql<string>`
+				COALESCE(
+					NULLIF(${screenerFinancials.pbRatio}::numeric, 0),
+					NULLIF(${screenerKeyMetrics.pbRatio}::numeric, 0),
+					NULLIF(${listedStocks.pbRatio}::numeric, 0),
+					CASE 
+						WHEN COALESCE(NULLIF(${screenerFinancials.bookValue}::numeric, 0), NULLIF(${listedStocks.bookValue}::numeric, 0)) > 0
+						 AND ${listedStocks.currentPrice}::numeric > 0
+							THEN ROUND((${listedStocks.currentPrice}::numeric / COALESCE(NULLIF(${screenerFinancials.bookValue}::numeric, 0), NULLIF(${listedStocks.bookValue}::numeric, 0))), 2)
+					END
+				)
+			`,
 			roe: sql<string>`COALESCE(NULLIF(${screenerFinancials.roe}::numeric, 0), NULLIF(${screenerKeyMetrics.roe}::numeric, 0), NULLIF(${listedStocks.roe}::numeric, 0))`,
 			roce: sql<string>`COALESCE(NULLIF(${screenerFinancials.roce}::numeric, 0), NULLIF(${listedStocks.roce}::numeric, 0))`,
 			debtToEquity: sql<string>`COALESCE(${screenerFinancials.debtToEquity}::numeric, ${screenerKeyMetrics.debtToEquity}::numeric)`,
 			dividendYield: sql<string>`COALESCE(${screenerFinancials.dividendYield}::numeric, ${screenerKeyMetrics.dividendYield}::numeric, ${listedStocks.dividendYield}::numeric)`,
 			eps: sql<string>`COALESCE(NULLIF(${screenerFinancials.eps}::numeric, 0), NULLIF(${listedStocks.eps}::numeric, 0))`,
-			netProfitMargin: screenerFinancials.netProfitMargin,
+			netProfitMargin: sql<string>`
+				COALESCE(
+					${screenerFinancials.netProfitMargin}::numeric,
+					CASE 
+						WHEN ${screenerFinancials.revenue}::numeric > 0
+						 AND ${screenerFinancials.netIncome}::numeric IS NOT NULL
+							THEN ROUND((${screenerFinancials.netIncome}::numeric / ${screenerFinancials.revenue}::numeric), 4)
+					END
+				)
+			`,
 
-			// Phase-5: Extended Valuation (from screener_key_metrics)
+			// Phase-5: Extended Valuation (native math derivation fallback)
 			roic: screenerKeyMetrics.roic,
 			evToEbitda: sql<string>`COALESCE(NULLIF(${screenerFinancials.evToEbitda}::numeric, 0), NULLIF(${screenerKeyMetrics.enterpriseValueOverEbitda}::numeric, 0))`,
 			evToRevenue: screenerKeyMetrics.evToSales,
-			pfcfRatio: screenerKeyMetrics.pfcfRatio,
-			earningsYield: screenerKeyMetrics.earningsYield,
-			freeCashFlowYield: screenerKeyMetrics.freeCashFlowYield,
-			grahamNumber: screenerKeyMetrics.grahamNumber,
+			pfcfRatio: sql<string>`
+				COALESCE(
+					${screenerKeyMetrics.pfcfRatio}::numeric,
+					CASE 
+						WHEN ${screenerFinancials.freeCashFlow}::numeric > 0
+						 AND ${listedStocks.marketCapValue}::numeric > 0
+							THEN ROUND((${listedStocks.marketCapValue}::numeric / ${screenerFinancials.freeCashFlow}::numeric), 2)
+					END
+				)
+			`,
+			earningsYield: sql<string>`
+				COALESCE(
+					${screenerKeyMetrics.earningsYield}::numeric,
+					CASE 
+						WHEN COALESCE(NULLIF(${screenerFinancials.peRatio}::numeric, 0), NULLIF(${listedStocks.peRatio}::numeric, 0)) > 0
+							THEN ROUND((1.0 / COALESCE(NULLIF(${screenerFinancials.peRatio}::numeric, 0), NULLIF(${listedStocks.peRatio}::numeric, 0))), 4)
+					END
+				)
+			`,
+			freeCashFlowYield: sql<string>`
+				COALESCE(
+					${screenerKeyMetrics.freeCashFlowYield}::numeric,
+					CASE 
+						WHEN ${listedStocks.marketCapValue}::numeric > 0
+						 AND ${screenerFinancials.freeCashFlow}::numeric IS NOT NULL
+							THEN ROUND((${screenerFinancials.freeCashFlow}::numeric / ${listedStocks.marketCapValue}::numeric), 4)
+					END
+				)
+			`,
+			grahamNumber: sql<string>`
+				COALESCE(
+					${screenerKeyMetrics.grahamNumber}::numeric,
+					CASE 
+						WHEN COALESCE(NULLIF(${screenerFinancials.eps}::numeric, 0), NULLIF(${listedStocks.eps}::numeric, 0)) > 0
+						 AND COALESCE(NULLIF(${screenerFinancials.bookValue}::numeric, 0), NULLIF(${listedStocks.bookValue}::numeric, 0)) > 0
+							THEN ROUND(SQRT(22.5 * COALESCE(NULLIF(${screenerFinancials.eps}::numeric, 0), NULLIF(${listedStocks.eps}::numeric, 0)) * COALESCE(NULLIF(${screenerFinancials.bookValue}::numeric, 0), NULLIF(${listedStocks.bookValue}::numeric, 0))), 2)
+					END
+				)
+			`,
 			// Graham Upside = (grahamNumber - currentPrice) / currentPrice * 100
 			grahamUpside: sql<string>`
 				CASE
-					WHEN ${screenerKeyMetrics.grahamNumber}::numeric > 0
-					 AND ${listedStocks.currentPrice}::numeric > 0
-						THEN ROUND(((${screenerKeyMetrics.grahamNumber}::numeric - ${listedStocks.currentPrice}::numeric)
-							/ ${listedStocks.currentPrice}::numeric * 100), 2)
+					WHEN COALESCE(
+						${screenerKeyMetrics.grahamNumber}::numeric,
+						CASE 
+							WHEN COALESCE(NULLIF(${screenerFinancials.eps}::numeric, 0), NULLIF(${listedStocks.eps}::numeric, 0)) > 0
+							 AND COALESCE(NULLIF(${screenerFinancials.bookValue}::numeric, 0), NULLIF(${listedStocks.bookValue}::numeric, 0)) > 0
+								THEN ROUND(SQRT(22.5 * COALESCE(NULLIF(${screenerFinancials.eps}::numeric, 0), NULLIF(${listedStocks.eps}::numeric, 0)) * COALESCE(NULLIF(${screenerFinancials.bookValue}::numeric, 0), NULLIF(${listedStocks.bookValue}::numeric, 0))), 2)
+						END
+					) > 0 AND ${listedStocks.currentPrice}::numeric > 0
+						THEN ROUND(((COALESCE(
+							${screenerKeyMetrics.grahamNumber}::numeric,
+							CASE 
+								WHEN COALESCE(NULLIF(${screenerFinancials.eps}::numeric, 0), NULLIF(${listedStocks.eps}::numeric, 0)) > 0
+								 AND COALESCE(NULLIF(${screenerFinancials.bookValue}::numeric, 0), NULLIF(${listedStocks.bookValue}::numeric, 0)) > 0
+									THEN ROUND(SQRT(22.5 * COALESCE(NULLIF(${screenerFinancials.eps}::numeric, 0), NULLIF(${listedStocks.eps}::numeric, 0)) * COALESCE(NULLIF(${screenerFinancials.bookValue}::numeric, 0), NULLIF(${listedStocks.bookValue}::numeric, 0))), 2)
+							END
+						) - ${listedStocks.currentPrice}::numeric) / ${listedStocks.currentPrice}::numeric * 100), 2)
 					ELSE NULL
 				END
 			`,
@@ -628,7 +695,7 @@ export async function queryScreener(
 			piotroskiScore: screenerDerivedMetrics.piotroskiScore,
 			piotroskiDetails: screenerDerivedMetrics.piotroskiDetails,
 			altmanZScore: screenerDerivedMetrics.altmanZScore,
-			technicalRating: screenerDerivedMetrics.technicalRating,
+			technicalRating: sql<string>`COALESCE(${screenerDerivedMetrics.technicalRating}, ${screenerTechnicalIndicatorsLatest.technicalRating})`,
 			// 52W
 			weekHigh52: sql<string>`COALESCE(${screenerDerivedMetrics.weekHigh52}::numeric, ${listedStocks.weekHigh52}::numeric)`,
 			weekLow52: sql<string>`COALESCE(${screenerDerivedMetrics.weekLow52}::numeric, ${listedStocks.weekLow52}::numeric)`,
