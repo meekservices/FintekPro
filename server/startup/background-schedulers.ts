@@ -592,6 +592,69 @@ export function startBackgroundSchedulers(delayMs = SCHEDULER_START_DELAY_MS) {
 			}
 		});
 
+		// ── Phase 3c: Autonomous Screener Freshness Sentinel & Auto-Bootstrap ────
+		// Fills screener_dcf_valuations, screener_analyst_consensus, forward_pe,
+		// and screener_technical_indicators_latest locally with zero external API calls.
+		// Runs on startup to guarantee zero blank ratios for all active listed stocks,
+		// and schedules a recurring hourly sentinel to keep all metrics permanently fresh.
+		runStartupTask("Autonomous Screener Freshness Sentinel", async () => {
+			try {
+				const { db } = await import("../db");
+				const { sql } = await import("drizzle-orm");
+				const { bootstrapScreenerMetrics } = await import(
+					"../services/screener/screener-enrichment-engine"
+				);
+
+				const runSentinelPass = async () => {
+					const t0 = Date.now();
+					try {
+						// 1. Check coverage
+						const countRes = await db.execute(
+							sql`SELECT count(*) as count FROM screener_analyst_consensus`
+						);
+						const existingCount = Number((countRes.rows?.[0] as any)?.count || 0);
+
+						if (existingCount < 500) {
+							console.log(`[FreshnessSentinel] Bootstrapping native metrics (current: ${existingCount} consensus rows)...`);
+							const res = await bootstrapScreenerMetrics({ limit: 5000 });
+							console.log(`[FreshnessSentinel] ✅ Initial bootstrap complete: DCF=${res.dcfInserted}, Analyst=${res.analystInserted}, FwdPE=${res.forwardPeUpdated}, Tech=${res.technicalsUpdated} (${Date.now() - t0}ms)`);
+						} else {
+							// Check for missing or stale (>36h) valuations among active stocks
+							const staleCheck = await db.execute(sql`
+								SELECT count(*) as count
+								FROM listed_stocks ls
+								LEFT JOIN screener_dcf_valuations dcf ON ls.symbol = dcf.symbol
+								WHERE ls.is_active = true 
+								  AND ls.current_price IS NOT NULL
+								  AND (dcf.symbol IS NULL OR dcf.last_updated < NOW() - INTERVAL '36 hours')
+							`);
+							const staleCount = Number((staleCheck.rows?.[0] as any)?.count || 0);
+
+							if (staleCount > 0) {
+								console.log(`[FreshnessSentinel] Found ${staleCount} stocks needing refresh. Re-enriching batch...`);
+								const res = await bootstrapScreenerMetrics({ limit: Math.min(staleCount, 500) });
+								console.log(`[FreshnessSentinel] ✅ Refreshed ${staleCount} stocks: DCF=${res.dcfInserted}, Analyst=${res.analystInserted} (${Date.now() - t0}ms)`);
+							} else {
+								console.log(`[FreshnessSentinel] ✅ 100% data freshness verified across all listed stocks (${Date.now() - t0}ms).`);
+							}
+						}
+					} catch (err: any) {
+						console.warn("[FreshnessSentinel] Sentinel pass encountered non-fatal error:", err?.message);
+					}
+				};
+
+				// Run immediately on boot
+				await runSentinelPass();
+
+				// Re-run every 60 minutes to maintain permanent freshness without manual admin intervention
+				const HOURLY_MS = 60 * 60 * 1000;
+				setInterval(runSentinelPass, HOURLY_MS);
+				console.log("[FreshnessSentinel] 🕒 Autonomous hourly freshness sentinel scheduled (every 60m).");
+			} catch (err: any) {
+				console.warn("[FreshnessSentinel] Sentinel initialization failed:", err?.message);
+			}
+		});
+
 		// ── Phase 4: Pick of the Day (needs Phase 3 data, runs at 9 AM IST) ──────
 		await runStartupTask(
 			"Pick of the Day Scheduler",

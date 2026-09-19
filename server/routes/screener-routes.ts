@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Router } from "express";
 import { db } from "../db";
 import { sql, eq, desc } from "drizzle-orm";
@@ -47,6 +48,7 @@ import {
 	getShareholdingForSymbol,
 	runShareholdingBatchJob,
 } from "../services/screener/shareholding-service";
+import { screenerCache, stockDetailCache, statsCache } from "../utils/lean-cache";
 
 const router = Router();
 
@@ -68,15 +70,27 @@ async function getCachedDistribution(): Promise<unknown> {
 	return data;
 }
 
-/** Call this whenever enrichment runs to force a fresh distribution on next request. */
+/** Call this whenever enrichment runs to force fresh data across all screener layers. */
 export function invalidateDistributionCache(): void {
 	_distCache = null;
+	screenerCache.clear();
+	stockDetailCache.clear();
+	statsCache.clear();
 }
 
 
 router.get("/api/screener/stocks", async (req, res) => {
 	try {
+		// Browser & Edge caching headers: instant 304 / stale-while-revalidate at $0 cost
+		res.setHeader("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
+
 		const f = req.query;
+		const cacheKey = "stocks:" + JSON.stringify(f);
+		const cachedResult = screenerCache.get(cacheKey);
+		if (cachedResult) {
+			return res.json(cachedResult);
+		}
+
 		const p = (k: string) => f[k] ? Number.parseFloat(f[k] as string) : undefined;
 		const pi = (k: string) => f[k] ? Number.parseInt(f[k] as string) : undefined;
 
@@ -146,6 +160,7 @@ router.get("/api/screener/stocks", async (req, res) => {
 			}
 		}
 
+		screenerCache.set(cacheKey, result, 20_000); // 20s TTL
 		res.json(result);
 	} catch (err: any) {
 		const cause = err?.cause ?? {};
@@ -172,10 +187,18 @@ router.get("/api/screener/stocks", async (req, res) => {
 
 router.get("/api/screener/stocks/:symbol", async (req, res) => {
 	try {
-		const result = await getStockDetail(req.params.symbol);
+		res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
+		const sym = req.params.symbol.toUpperCase();
+		const cached = stockDetailCache.get(sym);
+		if (cached) {
+			return res.json(cached);
+		}
+
+		const result = await getStockDetail(sym);
 		if (!result) {
 			return res.status(404).json({ error: "Stock not found" });
 		}
+		stockDetailCache.set(sym, result, 45_000); // 45s TTL
 		res.json(result);
 	} catch (err: any) {
 		res.status(500).json({ error: "Failed to get stock detail", message: err.message });
@@ -253,11 +276,25 @@ router.get("/api/screener/stocks/:symbol/shareholding", async (req, res) => {
 
 router.get("/api/screener/stats", async (req, res) => {
 	try {
+		res.setHeader("Cache-Control", "public, max-age=15, stale-while-revalidate=60");
+		const cached = statsCache.get<any>("screener:stats");
+		if (cached) {
+			return res.json(cached);
+		}
+
 		const [dbStats, apiUsage] = await Promise.all([
 			getScreenerStats(),
 			fmpUsageMonitor.getDailyStats(),
 		]);
-		res.json({ database: dbStats, apiUsage });
+		const responseData = {
+			database: {
+				...dbStats,
+				cacheTelemetry: screenerCache.getStats(),
+			},
+			apiUsage,
+		};
+		statsCache.set("screener:stats", responseData, 15_000); // 15s TTL
+		res.json(responseData);
 	} catch (err: any) {
 		res
 			.status(500)
@@ -267,6 +304,7 @@ router.get("/api/screener/stats", async (req, res) => {
 
 router.get("/api/screener/distribution", async (req, res) => {
 	try {
+		res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
 		const distribution = await getCachedDistribution();
 		res.json(distribution);
 	} catch (err: any) {
@@ -957,6 +995,44 @@ router.get("/api/screener/sector-performance", async (req, res) => {
 		res.json({ data: (result as any).rows || result });
 	} catch (err: any) {
 		res.status(500).json({ error: err.message });
+	}
+});
+
+router.post("/api/screener/admin/enrich/bootstrap", async (req, res) => {
+	try {
+		const { bootstrapScreenerMetrics } = await import("../services/screener/screener-enrichment-engine");
+		const limit = req.body.limit ? Number(req.body.limit) : 5000;
+		const symbols = Array.isArray(req.body.symbols) ? req.body.symbols : undefined;
+
+		const result = await bootstrapScreenerMetrics({ limit, symbols });
+		invalidateDistributionCache();
+
+		res.json({
+			success: true,
+			data: result,
+			meta: { timestamp: new Date().toISOString(), engine: "fintekpro-native-math-v1.0" },
+		});
+	} catch (err: any) {
+		res.status(500).json({ error_code: "BOOTSTRAP_ERROR", message: err.message, retryable: true });
+	}
+});
+
+router.post("/api/screener/admin/enrich/gemini", async (req, res) => {
+	try {
+		const { runGeminiScreenerEnrichment } = await import("../services/screener/gemini-screener-enrichment");
+		const limit = req.body.limit ? Number(req.body.limit) : 50;
+		const symbols = Array.isArray(req.body.symbols) ? req.body.symbols : undefined;
+
+		const result = await runGeminiScreenerEnrichment({ limit, symbols });
+		invalidateDistributionCache();
+
+		res.json({
+			success: true,
+			data: result,
+			meta: { timestamp: new Date().toISOString(), engine: "FASP-EV-v1.0" },
+		});
+	} catch (err: any) {
+		res.status(500).json({ error_code: "GEMINI_ENRICH_ERROR", message: err.message, retryable: true });
 	}
 });
 
