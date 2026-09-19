@@ -274,9 +274,18 @@ async function main() {
   await repairNSEConsolidatedFinancials();
 
   console.log("FintekPro schema repair job complete.");
+  try {
+    const { pool } = await import("../db");
+    if (pool && typeof pool.end === "function") {
+      await pool.end();
+    }
+  } catch {
+    // ignore
+  }
+  process.exit(0);
 }
 
 main().catch((error) => {
   console.error("FintekPro schema repair job failed:", error);
-  process.exitCode = 1;
+  process.exit(1);
 });
