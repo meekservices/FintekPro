@@ -271,7 +271,9 @@ export class GlobalStockStrategy extends BaseStrategy {
 			if (stockSymbol && topStock.market === "us") {
 				try {
 					const yahooFinance = (await import("yahoo-finance2")).default;
-					const q = await (yahooFinance as any).quote(stockSymbol).catch(() => null);
+					const quotePromise = (yahooFinance as any).quote(stockSymbol);
+					const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 3000));
+					const q = await Promise.race([quotePromise, timeoutPromise]).catch(() => null) as any;
 					const yPrice = q?.regularMarketPrice ?? q?.ask ?? q?.bid;
 					if (yPrice && Number.isFinite(Number(yPrice)) && Number(yPrice) > 0) {
 						livePrice = Math.round(Number(yPrice) * 100) / 100;

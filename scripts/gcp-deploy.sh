@@ -335,24 +335,14 @@ gcloud run jobs update fintekpro-picks \
     --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
     --vpc-connector=fintekpro-vpc-connector \
     --vpc-egress=all \
+    --memory=2Gi \
+    --cpu=2 \
+    --set-env-vars="NODE_OPTIONS=--max-old-space-size=1536" \
     --command="node" \
     --args="dist/jobs/picks.js" \
     --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest" \
     --max-retries=1 \
-    --task-timeout=600 \
-    2>&1 | tail -3 || \
-gcloud run jobs create fintekpro-picks \
-    --image=asia-south1-docker.pkg.dev/${PROJECT_ID}/fintekpro-repo/fintekpro-app:latest \
-    --project=$PROJECT_ID \
-    --region=$REGION \
-    --add-cloudsql-instances=fintekpro:asia-south1:fintekpro-db \
-    --vpc-connector=fintekpro-vpc-connector \
-    --vpc-egress=all \
-    --command="node" \
-    --args="dist/jobs/picks.js" \
-    --set-secrets="PRODUCTION_DATABASE_URL=PRODUCTION_DATABASE_URL:latest,DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest" \
-    --max-retries=1 \
-    --task-timeout=600 \
+    --task-timeout=1200 \
     2>&1 | tail -3
 
 echo "✅ All 5 Cloud Run Jobs updated — next executions will have DB access + latest code."
