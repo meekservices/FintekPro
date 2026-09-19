@@ -37,7 +37,12 @@ export class SGBStrategy extends BaseStrategy {
 				return this.buildSyntheticSgbPick(context);
 			}
 
-			const top = all[0];
+			const freshSgb = this.filterRecentPicks(
+				all,
+				context.recentIds,
+				(s) => String(s.id),
+			);
+			const top = freshSgb[0];
 			const currentPrice = Number.parseFloat(String(top.issuePrice ?? "0"));
 			const sgbInterestRate = 2.5; // RBI fixed semi-annual coupon on SGBs
 
@@ -190,35 +195,80 @@ export class SGBStrategy extends BaseStrategy {
 		const stoplossPrice = Math.round(currentPrice * 0.92 * 100) / 100;
 		const sgbInterestRate = 2.5;
 
-		const name = "Sovereign Gold Bond (Secondary Market)";
+		const SGB_SECONDARY_POOL = [
+			{
+				id: "sgb_2023_24_s4",
+				name: "SGB 2023-24 Series IV",
+				series: "2023-24 Series IV",
+				tenureYears: 8,
+			},
+			{
+				id: "sgb_2023_24_s3",
+				name: "SGB 2023-24 Series III",
+				series: "2023-24 Series III",
+				tenureYears: 7,
+			},
+			{
+				id: "sgb_2023_24_s2",
+				name: "SGB 2023-24 Series II",
+				series: "2023-24 Series II",
+				tenureYears: 7,
+			},
+			{
+				id: "sgb_2022_23_s4",
+				name: "SGB 2022-23 Series IV",
+				series: "2022-23 Series IV",
+				tenureYears: 6,
+			},
+			{
+				id: "sgb_2022_23_s3",
+				name: "SGB 2022-23 Series III",
+				series: "2022-23 Series III",
+				tenureYears: 6,
+			},
+			{
+				id: "sgb_2021_22_s10",
+				name: "SGB 2021-22 Series X",
+				series: "2021-22 Series X",
+				tenureYears: 5,
+			},
+		];
+
+		const freshPool = SGB_SECONDARY_POOL.filter(
+			(s) => !context.recentIds.has(s.id) && !context.recentIds.has(s.name) && !context.recentIds.has(s.name.toLowerCase()),
+		);
+		const pool = freshPool.length > 0 ? freshPool : SGB_SECONDARY_POOL;
+		const istDay = Math.floor((Date.now() + 5.5 * 3600000) / 86400000);
+		const chosen = pool[istDay % pool.length];
 
 		let rationale: string;
 		try {
 			rationale = await context.service.generateRationale({
 				category: "sgb",
-				name,
+				name: chosen.name,
 				currentPrice,
 				targetPrice,
 				stoplossPrice,
 				metrics: {
 					issueStatus: "secondary_market",
+					series: chosen.series,
 					issuePrice: currentPrice,
 					sgbInterestRate,
-					tenureYears: 8,
+					tenureYears: chosen.tenureYears,
 					sovereignGuarantee: true,
 					goldSpotPrice: currentPrice,
 				},
 			});
 		} catch {
-			rationale = `Sovereign Gold Bonds (SGBs) are government securities denominated in grams of gold. They offer a fixed interest of 2.5% p.a. plus capital appreciation tied to gold prices. Ideal for long-term wealth preservation with sovereign safety.`;
+			rationale = `Sovereign Gold Bonds (${chosen.name}) are government securities denominated in grams of gold. They offer a fixed interest of 2.5% p.a. plus capital appreciation tied to gold prices with complete sovereign backing.`;
 		}
 
-		logger.info(`[SGBStrategy] Using gold price ₹${currentPrice}/g (source: ${goldPrice ? 'live' : 'benchmark'})`);
+		logger.info(`[SGBStrategy] Picked ${chosen.name} @ gold price ₹${currentPrice}/g (source: ${goldPrice ? 'live' : 'benchmark'})`);
 
 		return {
 			category: "sgb",
-			instrumentId: "synth_sgb_secondary",
-			instrumentName: name,
+			instrumentId: chosen.id,
+			instrumentName: chosen.name,
 			recoDate: context.today,
 			recoPrice: currentPrice,
 			targetPrice,
@@ -234,9 +284,10 @@ export class SGBStrategy extends BaseStrategy {
 			sectorCategory: "Sovereign Gold Bond",
 			keyMetrics: {
 				issueStatus: "secondary_market",
+				series: chosen.series,
 				issuePrice: currentPrice,
 				sgbInterestRate,
-				tenureYears: 8,
+				tenureYears: chosen.tenureYears,
 				sovereignGuarantee: true,
 				investmentType: "Sovereign Gold Bond",
 				suggestedAllocation: 5,

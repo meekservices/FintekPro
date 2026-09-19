@@ -1012,8 +1012,16 @@ export class PickOfTheDayService {
 			.select()
 			.from(dailyPicks)
 			.where(eq(dailyPicks.recoDate, today))
-			.orderBy(dailyPicks.category);
-		const result = picks.map((p) => this.transformPick(p));
+			.orderBy(desc(dailyPicks.id));
+
+		// Dedup guard: keep only the latest pick per (category, symbol || instrumentName)
+		const seen = new Map<string, (typeof picks)[0]>();
+		for (const p of picks) {
+			const identifier = (p.symbol || p.instrumentName).trim().toLowerCase();
+			const key = `${p.category}|||${identifier}`;
+			if (!seen.has(key)) seen.set(key, p);
+		}
+		const result = Array.from(seen.values()).map((p) => this.transformPick(p));
 
 		// Cache write (24h TTL — auto-expires at midnight next day)
 		if (result.length > 0) {
@@ -1058,11 +1066,12 @@ export class PickOfTheDayService {
 			.where(eq(dailyPicks.status, "live"))
 			.orderBy(desc(dailyPicks.recoDate));
 
-		// Dedup guard: keep only the latest pick per (instrumentName, category).
+		// Dedup guard: keep only the latest pick per (category, symbol || instrumentName).
 		// Protects the UI in case the DB accumulates duplicates between cleanup runs.
 		const seen = new Map<string, (typeof picks)[0]>();
 		for (const pick of picks) {
-			const key = `${pick.instrumentName}|||${pick.category}`;
+			const idKey = (pick.symbol || pick.instrumentName).trim().toLowerCase();
+			const key = `${pick.category}|||${idKey}`;
 			if (!seen.has(key)) seen.set(key, pick); // already DESC by recoDate
 		}
 		const result = Array.from(seen.values()).map((p) => this.transformPick(p));
@@ -1230,34 +1239,56 @@ export class PickOfTheDayService {
 
 	async getRecentlyPickedIds(category: PickCategory): Promise<Set<string>> {
 		const cutoff = new Date();
-		cutoff.setDate(cutoff.getDate() - 14); // 2 weeks lookback
+		cutoff.setDate(cutoff.getDate() - 30); // 30 days lookback to prevent monthly repetition
+		const cutoffDate = cutoff.toISOString().split("T")[0];
 
 		const recent = await db
 			.select({
 				instrumentId: dailyPicks.instrumentId,
 				symbol: dailyPicks.symbol,
+				instrumentName: dailyPicks.instrumentName,
+				isin: dailyPicks.isin,
 			})
 			.from(dailyPicks)
 			.where(
 				and(
 					eq(dailyPicks.category, category),
-					gte(dailyPicks.recoDate, cutoff.toISOString().split("T")[0]),
+					or(
+						gte(dailyPicks.recoDate, cutoffDate),
+						eq(dailyPicks.status, "live"),
+					),
 				),
 			);
 
 		const ids = new Set<string>();
+		const addId = (val?: string | null) => {
+			if (!val) return;
+			const trimmed = val.trim();
+			if (!trimmed) return;
+			ids.add(trimmed);
+			ids.add(trimmed.toLowerCase());
+			ids.add(trimmed.toUpperCase());
+		};
+
 		recent.forEach((r) => {
-			if (r.instrumentId) ids.add(r.instrumentId);
-			if (r.symbol) ids.add(r.symbol);
+			addId(r.instrumentId);
+			addId(r.symbol);
+			addId(r.instrumentName);
+			addId(r.isin);
 		});
 
 		// ── Fix J: Cross-sector same-day symbol dedup ─────────────────────────
-		// For listed_stocks: also exclude any symbol already picked TODAY in ANY
+		// For listed_stocks: also exclude any symbol/name already picked TODAY in ANY
 		// other broad sector (prevents RELIANCE appearing in both Energy + Conglomerate).
 		if (category === "listed_stocks") {
 			const today = todayIST();
 			const todayAllStock = await db
-				.select({ instrumentId: dailyPicks.instrumentId, symbol: dailyPicks.symbol })
+				.select({
+					instrumentId: dailyPicks.instrumentId,
+					symbol: dailyPicks.symbol,
+					instrumentName: dailyPicks.instrumentName,
+					isin: dailyPicks.isin,
+				})
 				.from(dailyPicks)
 				.where(
 					and(
@@ -1266,8 +1297,10 @@ export class PickOfTheDayService {
 					),
 				);
 			todayAllStock.forEach((r) => {
-				if (r.instrumentId) ids.add(r.instrumentId);
-				if (r.symbol) ids.add(r.symbol);
+				addId(r.instrumentId);
+				addId(r.symbol);
+				addId(r.instrumentName);
+				addId(r.isin);
 			});
 		}
 
@@ -1418,10 +1451,46 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 	}
 
 	private async savePick(pick: DailyPickData): Promise<void> {
-		// Use Drizzle ORM insert with onConflictDoNothing() for idempotent generation.
-		// No explicit target: PostgreSQL will suppress any unique constraint violation.
-		// (Specifying nullable columns like instrument_id/symbol as a conflict target
-		//  causes PG to error because NULL != NULL breaks the uniqueness check.)
+		// Idempotent upsert: check if this pick already exists for today & category
+		const matchConditions = [
+			eq(dailyPicks.category, pick.category),
+			eq(dailyPicks.recoDate, pick.recoDate),
+		];
+
+		const identityOrs = [eq(dailyPicks.instrumentName, pick.instrumentName)];
+		if (pick.symbol) identityOrs.push(eq(dailyPicks.symbol, pick.symbol));
+		if (pick.instrumentId) identityOrs.push(eq(dailyPicks.instrumentId, pick.instrumentId));
+
+		const existing = await db
+			.select({ id: dailyPicks.id })
+			.from(dailyPicks)
+			.where(and(...matchConditions, or(...identityOrs)))
+			.limit(1);
+
+		if (existing.length > 0) {
+			// Update the existing pick in place (e.g. attaching pdfUrl or fresh metrics)
+			await db
+				.update(dailyPicks)
+				.set({
+					recoPrice: pick.recoPrice.toString(),
+					targetPrice: pick.targetPrice.toString(),
+					stoplossPrice: pick.stoplossPrice.toString(),
+					currentPrice: (pick.currentPrice ?? pick.recoPrice).toString(),
+					status: pick.status,
+					expiryDate: pick.expiryDate,
+					rationale: pick.rationale,
+					riskLevel: pick.riskLevel,
+					suitableFor: pick.suitableFor ?? ["Balanced"],
+					keyMetrics: pick.keyMetrics ?? {},
+					timeHorizon: this.normaliseHorizon(pick.timeHorizon),
+					confidenceScore: pick.confidenceScore ?? 70,
+					sectorCategory: pick.sectorCategory ?? null,
+					updatedAt: new Date(),
+				})
+				.where(eq(dailyPicks.id, existing[0].id));
+			return;
+		}
+
 		await db
 			.insert(dailyPicks)
 			.values({
@@ -1547,8 +1616,16 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 			.select()
 			.from(dailyPicks)
 			.where(eq(dailyPicks.recoDate, recoDate))
-			.orderBy(dailyPicks.category);
-		return picks.map((p) => this.transformPick(p));
+			.orderBy(desc(dailyPicks.id));
+
+		// Dedup guard: keep only the latest pick per (category, symbol || instrumentName)
+		const seen = new Map<string, (typeof picks)[0]>();
+		for (const p of picks) {
+			const identifier = (p.symbol || p.instrumentName).trim().toLowerCase();
+			const key = `${p.category}|||${identifier}`;
+			if (!seen.has(key)) seen.set(key, p);
+		}
+		return Array.from(seen.values()).map((p) => this.transformPick(p));
 	}
 
 	/**

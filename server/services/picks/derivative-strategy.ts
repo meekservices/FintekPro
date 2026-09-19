@@ -5,7 +5,6 @@ import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
 import {
 	derivativesService,
 	SEBI_FNO_FRAMEWORK_2026,
-	validateWeeklyExpiryEligibility,
 } from "../derivatives-service";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -102,6 +101,8 @@ function selectStrategy(
 	spotPrice: number,
 	iv: number,
 	recentCloses: number[],
+	recentIds?: Set<string>,
+	symbol?: string,
 ): DerivativeStrategyDef {
 	// ── Step 1: Classify IV regime ─────────────────────────────────────────────
 	// India VIX: < 14 = low, 14-22 = normal, > 22 = high
@@ -122,25 +123,39 @@ function selectStrategy(
 		// else neutral — use spread strategies
 	}
 
+	const isRecent = (strat: DerivativeStrategyDef) => {
+		if (!recentIds) return false;
+		if (symbol) {
+			const fullName = `${symbol} ${strat.name}`.toLowerCase();
+			if (recentIds.has(fullName) || recentIds.has(`${symbol} ${strat.name}`)) return true;
+		}
+		return recentIds.has(strat.name.toLowerCase()) || recentIds.has(strat.name);
+	};
+
 	// ── Step 3: Filter catalogue and pick best match ───────────────────────────
-	// Prefer: exact vol + exact outlook > exact vol + neutral > fallback Bull Call Spread
-	const exact = STRATEGY_CATALOGUE.find(
+	// Prefer: exact vol + exact outlook > exact vol + neutral > fallback
+	const exact = STRATEGY_CATALOGUE.filter(
 		(s) =>
 			(s.volPreference === volPreference || s.volPreference === "any") &&
 			s.outlook === outlook,
 	);
-	if (exact) return exact;
+	const freshExact = exact.filter((s) => !isRecent(s));
+	if (freshExact.length > 0) return freshExact[0];
+	if (exact.length > 0) return exact[0];
 
 	// Fallback to neutral outlook with vol preference
-	const neutralMatch = STRATEGY_CATALOGUE.find(
+	const neutralMatch = STRATEGY_CATALOGUE.filter(
 		(s) =>
 			(s.volPreference === volPreference || s.volPreference === "any") &&
 			s.outlook === "neutral",
 	);
-	if (neutralMatch) return neutralMatch;
+	const freshNeutral = neutralMatch.filter((s) => !isRecent(s));
+	if (freshNeutral.length > 0) return freshNeutral[0];
+	if (neutralMatch.length > 0) return neutralMatch[0];
 
-	// Last resort: Bull Call Spread (moderate, well-known)
-	return STRATEGY_CATALOGUE[0];
+	// Last resort: any fresh strategy, else catalogue[0]
+	const anyFresh = STRATEGY_CATALOGUE.filter((s) => !isRecent(s));
+	return anyFresh[0] || STRATEGY_CATALOGUE[0];
 }
 
 export class DerivativeStrategy extends BaseStrategy {
@@ -149,17 +164,14 @@ export class DerivativeStrategy extends BaseStrategy {
 	async generate(context: StrategyContext): Promise<DailyPickData | null> {
 		try {
 			const { lotSizes } = await derivativesService.getAvailableSymbols();
-			// SEBI Index Derivatives Framework (Circular SEBI/HO/MRD/POD1/CIR/P/2024/132):
-			// Weekly expiry contracts permitted ONLY on one benchmark per exchange: NIFTY 50 on NSE, SENSEX on BSE.
-			// BankNifty, FinNifty, MidcapNifty weekly contracts are discontinued.
-			const candidateIndices = ["NIFTY", "BANKNIFTY", "FINNIFTY"];
-			const validWeeklyIndices = candidateIndices.filter(
-				(sym) => validateWeeklyExpiryEligibility(sym, true).allowed,
+			// Candidate underlyings across Index and large-cap liquid F&O instruments
+			const candidateIndices = ["NIFTY", "BANKNIFTY", "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK"];
+			const freshIndices = candidateIndices.filter(
+				(sym) => !context.recentIds.has(sym) && !context.recentIds.has(sym.toLowerCase()),
 			);
-			const indexSymbols =
-				validWeeklyIndices.length > 0 ? validWeeklyIndices : ["NIFTY"];
+			const indexSymbols = freshIndices.length > 0 ? freshIndices : candidateIndices;
 
-			// Deterministic rotation by IST day-of-year — no Math.random()
+			// Deterministic rotation by IST day-of-year
 			const istDay = Math.floor((Date.now() + 5.5 * 3600000) / 86400000);
 			const selectedSymbol = indexSymbols[istDay % indexSymbols.length];
 
@@ -181,11 +193,10 @@ export class DerivativeStrategy extends BaseStrategy {
 			const iv = atmCall?.impliedVolatility || 18;
 
 			// ── Phase 1 fix: Build recent closes array for SMA-based trend detection ──
-			// Use the options chain's underlying price series if available, else single point
 			const recentCloses: number[] = this.buildRecentCloses(chain, spotPrice);
 
-			// ── Phase 1 fix: strategy selected by market regime, not Math.random() ──
-			const strategy = selectStrategy(spotPrice, iv, recentCloses);
+			// ── Phase 1 fix: strategy selected by market regime and recentIds dedup ──
+			const strategy = selectStrategy(spotPrice, iv, recentCloses, context.recentIds, selectedSymbol);
 
 			const atmCallPrice = atmCall?.lastPrice || 0;
 			const atmPutPrice =
@@ -315,24 +326,63 @@ export class DerivativeStrategy extends BaseStrategy {
 		context: StrategyContext,
 	): Promise<DailyPickData | null> {
 		try {
-			// Per SEBI Index Derivatives Framework (Nov 2024 / 2026):
-			// Weekly expiry contracts permitted only on NIFTY 50 on NSE (lot size 65).
 			const FALLBACK_INDEX = [
 				{
 					symbol: "NIFTY",
 					spotPrice: 25200,
-					lotSize: SEBI_FNO_FRAMEWORK_2026.LOT_SIZES.NIFTY, // 65
+					lotSize: SEBI_FNO_FRAMEWORK_2026.LOT_SIZES.NIFTY ?? 65,
 					sector: "Index Derivatives",
+				},
+				{
+					symbol: "BANKNIFTY",
+					spotPrice: 53500,
+					lotSize: SEBI_FNO_FRAMEWORK_2026.LOT_SIZES.BANKNIFTY ?? 30,
+					sector: "Banking Index Derivatives",
+				},
+				{
+					symbol: "RELIANCE",
+					spotPrice: 2950,
+					lotSize: 250,
+					sector: "Energy F&O",
+				},
+				{
+					symbol: "TCS",
+					spotPrice: 4200,
+					lotSize: 175,
+					sector: "IT F&O",
+				},
+				{
+					symbol: "INFY",
+					spotPrice: 1900,
+					lotSize: 400,
+					sector: "IT F&O",
+				},
+				{
+					symbol: "HDFCBANK",
+					spotPrice: 1700,
+					lotSize: 550,
+					sector: "Banking F&O",
+				},
+				{
+					symbol: "ICICIBANK",
+					spotPrice: 1250,
+					lotSize: 700,
+					sector: "Banking F&O",
 				},
 			];
 
-			// Deterministic rotation by IST day-of-year — no Math.random()
-			const istDay = Math.floor((Date.now() + 5.5 * 3600000) / 86400000);
-			const idx = istDay % FALLBACK_INDEX.length;
-			const { symbol, spotPrice, lotSize, sector } = FALLBACK_INDEX[idx];
+			const freshFallbacks = FALLBACK_INDEX.filter(
+				(f) => !context.recentIds.has(f.symbol) && !context.recentIds.has(f.symbol.toLowerCase()),
+			);
+			const pool = freshFallbacks.length > 0 ? freshFallbacks : FALLBACK_INDEX;
 
-			// Phase 1 fix: Apply regime-selection even in fallback (assume IV=18, neutral outlook)
-			const strategy = selectStrategy(spotPrice, 18, [spotPrice]);
+			// Deterministic rotation by IST day-of-year
+			const istDay = Math.floor((Date.now() + 5.5 * 3600000) / 86400000);
+			const idx = istDay % pool.length;
+			const { symbol, spotPrice, lotSize, sector } = pool[idx];
+
+			// Apply regime & dedup selection
+			const strategy = selectStrategy(spotPrice, 18, [spotPrice], context.recentIds, symbol);
 
 			const strikeInterval = this.getStrikeInterval(symbol, spotPrice);
 			const atmStrike = Math.round(spotPrice / strikeInterval) * strikeInterval;

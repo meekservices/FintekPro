@@ -191,16 +191,53 @@ export abstract class BaseStrategy implements IPickStrategy {
 	protected filterRecentPicks<T extends { id?: string | number }>(
 		candidates: T[],
 		recentIds: Set<string>,
-		idExtractor: (item: T) => string,
+		idExtractor?: (item: T) => string,
 	): T[] {
-		const filtered = candidates.filter((c) => !recentIds.has(idExtractor(c)));
+		const isUsed = (item: T): boolean => {
+			if (idExtractor) {
+				const id = idExtractor(item);
+				if (id && (recentIds.has(id) || recentIds.has(id.toLowerCase()) || recentIds.has(id.toUpperCase()))) {
+					return true;
+				}
+			}
+			const anyItem = item as any;
+			const candidatesToCheck = [
+				anyItem.id != null ? String(anyItem.id) : null,
+				anyItem.symbol,
+				anyItem.isin,
+				anyItem.schemeCode,
+				anyItem.name,
+				anyItem.instrumentName,
+				anyItem.schemeName,
+				anyItem.companyName,
+				anyItem.issuerName,
+			].filter((x): x is string => typeof x === "string" && x.trim().length > 0);
+
+			for (const val of candidatesToCheck) {
+				const trimmed = val.trim();
+				if (
+					recentIds.has(trimmed) ||
+					recentIds.has(trimmed.toLowerCase()) ||
+					recentIds.has(trimmed.toUpperCase())
+				) {
+					return true;
+				}
+			}
+			return false;
+		};
+
+		const filtered = candidates.filter((c) => !isUsed(c));
 		if (filtered.length === 0) {
 			logger.info(
-				`[PickStrategy:${this.category}] All candidates recently picked, allowing repeats`,
+				`[PickStrategy:${this.category}] All candidates recently picked, rotating candidate pool to prevent stale repetitions`,
 			);
+			if (candidates.length > 1) {
+				// Deterministically cycle through candidate pool by day of month so the same top pick isn't repeated daily
+				const shift = (new Date().getDate() || 1) % candidates.length;
+				return [...candidates.slice(shift), ...candidates.slice(0, shift)];
+			}
 			return candidates;
 		}
 		return filtered;
-
 	}
 }

@@ -248,11 +248,8 @@ export class GlobalStockStrategy extends BaseStrategy {
 			// If DB has data, use it; otherwise fall back to curated pool
 			const candidates = rows.length > 0 ? rows : GLOBAL_FALLBACK_POOL;
 
-			// Phase 1 fix: filter recently-picked IDs
-			const freshCandidates = candidates.filter(
-				(s) => !context.recentIds.has(String(s.id || s.symbol)),
-			);
-			const pool = freshCandidates.length > 0 ? freshCandidates : candidates;
+			// Filter recently-picked IDs and rotate candidate pool if exhausted
+			const pool = this.filterRecentPicks(candidates, context.recentIds);
 
 			// Phase 1 fix: score all candidates, pick top scorer (not random)
 			const scored = pool

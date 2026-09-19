@@ -1,6 +1,7 @@
 import { db } from "../../db";
 import { instrumentMaster } from "@shared/schema";
-import { and, eq, or, sql, desc } from "drizzle-orm";
+import { eq, or, sql, desc } from "drizzle-orm";
+import { logger } from "../../logger";
 import { BaseStrategy } from "./base-strategy";
 import { StrategyContext } from "./types";
 import { DailyPickData, PickCategory } from "../pick-of-the-day-service";
@@ -18,6 +19,7 @@ interface FdCandidate {
 
 /** Well-known high-yield FD options to use when the DB is empty */
 const SYNTHETIC_FD_POOL: Array<{
+	id: string;
 	name: string;
 	issuer: string;
 	interestRate: number;
@@ -25,6 +27,7 @@ const SYNTHETIC_FD_POOL: Array<{
 	riskLevel: "low" | "medium";
 }> = [
 	{
+		id: "synth_fd_sbi_3y",
 		name: "SBI Fixed Deposit - 3 Year",
 		issuer: "State Bank of India",
 		interestRate: 6.8,
@@ -32,6 +35,7 @@ const SYNTHETIC_FD_POOL: Array<{
 		riskLevel: "low",
 	},
 	{
+		id: "synth_fd_hdfc_2y",
 		name: "HDFC Bank FD - 2 Year",
 		issuer: "HDFC Bank",
 		interestRate: 7.0,
@@ -39,6 +43,7 @@ const SYNTHETIC_FD_POOL: Array<{
 		riskLevel: "low",
 	},
 	{
+		id: "synth_fd_shriram_1y",
 		name: "Shriram Finance FD - 1 Year",
 		issuer: "Shriram Finance",
 		interestRate: 8.85,
@@ -46,6 +51,7 @@ const SYNTHETIC_FD_POOL: Array<{
 		riskLevel: "medium",
 	},
 	{
+		id: "synth_fd_bajaj_18m",
 		name: "Bajaj Finance FD - 18 Month",
 		issuer: "Bajaj Finance",
 		interestRate: 8.6,
@@ -53,6 +59,7 @@ const SYNTHETIC_FD_POOL: Array<{
 		riskLevel: "medium",
 	},
 	{
+		id: "synth_fd_icici_1y",
 		name: "ICICI Bank FD - 1 Year",
 		issuer: "ICICI Bank",
 		interestRate: 6.9,
@@ -85,7 +92,7 @@ export class FixedDepositStrategy extends BaseStrategy {
 				.limit(20);
 
 			// ── 2. Exclude recently-picked instruments ──────────────────────────────
-			const freshFds = fds.filter((f) => !context.recentIds.has(f.id));
+			const freshFds = this.filterRecentPicks(fds, context.recentIds);
 
 			// ── 3. Pick best candidate ───────────────────────────────────────────────
 			if (freshFds.length > 0) {
@@ -94,14 +101,10 @@ export class FixedDepositStrategy extends BaseStrategy {
 			}
 
 			// ── 4. Fallback: synthetic FD from well-known issuers ───────────────────
-			// Pick a different synthetic each day by cycling through the pool
-			const dayOfYear = Math.floor(
-				(Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) /
-					86_400_000,
-			);
-			const synth = SYNTHETIC_FD_POOL[dayOfYear % SYNTHETIC_FD_POOL.length];
+			const freshSynth = this.filterRecentPicks(SYNTHETIC_FD_POOL, context.recentIds);
+			const synth = freshSynth[0];
 
-			console.log(
+			logger.info(
 				`[FixedDepositStrategy] No DB instruments found. Using synthetic FD: ${synth.name}`,
 			);
 
@@ -128,7 +131,7 @@ export class FixedDepositStrategy extends BaseStrategy {
 
 			return {
 				category: "fixed_deposits",
-				instrumentId: `synth_fd_${dayOfYear % SYNTHETIC_FD_POOL.length}`,
+				instrumentId: synth.id,
 				instrumentName: synth.name,
 				recoDate: context.today,
 				recoPrice: unitInvestment,
@@ -161,7 +164,7 @@ export class FixedDepositStrategy extends BaseStrategy {
 				},
 			};
 		} catch (error) {
-			console.error("[FixedDepositStrategy] Error:", error);
+			logger.error("[FixedDepositStrategy] Error:", error instanceof Error ? error : new Error(String(error)));
 			return null;
 		}
 	}

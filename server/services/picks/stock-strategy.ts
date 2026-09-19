@@ -491,6 +491,15 @@ export class StockStrategy extends BaseStrategy {
 						results.push(pick);
 						// Prevent the same stock appearing in multiple sectors
 						if (pick.instrumentId) usedIds.add(pick.instrumentId);
+						if (pick.symbol) {
+							usedIds.add(pick.symbol);
+							usedIds.add(pick.symbol.toLowerCase());
+							usedIds.add(pick.symbol.toUpperCase());
+						}
+						if (pick.instrumentName) {
+							usedIds.add(pick.instrumentName);
+							usedIds.add(pick.instrumentName.toLowerCase().trim());
+						}
 					}
 				} catch (sectorErr) {
 					logger.warn(
@@ -673,8 +682,19 @@ export class StockStrategy extends BaseStrategy {
 			);
 		}
 
-		// Exclude stocks already picked for another sector today
-		const freshStocks = stocks.filter((s) => !usedIds.has(s.id));
+		// Exclude stocks already picked for another sector today or in recent 30-day window
+		const freshStocks = stocks.filter((s) => {
+			if (s.id && usedIds.has(s.id)) return false;
+			if (s.symbol) {
+				const sym = s.symbol.trim();
+				if (usedIds.has(sym) || usedIds.has(sym.toLowerCase()) || usedIds.has(sym.toUpperCase())) return false;
+			}
+			if (s.companyName) {
+				const name = s.companyName.trim();
+				if (usedIds.has(name) || usedIds.has(name.toLowerCase())) return false;
+			}
+			return true;
+		});
 		if (freshStocks.length === 0) return null;
 
 		// ── Fix 6: Earnings calendar exclusion (3-day forward) ──────────────────
@@ -1821,10 +1841,28 @@ export class StockStrategy extends BaseStrategy {
 		if (candidates.length === 0) return null;
 
 		// Exclude recently-picked stocks
-		const fresh = candidates.filter(
-			(s) => !context.recentIds.has(s.id),
-		);
-		const pool = fresh.length > 0 ? fresh : candidates;
+		const fresh = candidates.filter((s) => {
+			if (s.id && context.recentIds.has(s.id)) return false;
+			if (s.symbol) {
+				const sym = s.symbol.trim();
+				if (context.recentIds.has(sym) || context.recentIds.has(sym.toLowerCase()) || context.recentIds.has(sym.toUpperCase())) return false;
+			}
+			if (s.companyName) {
+				const name = s.companyName.trim();
+				if (context.recentIds.has(name) || context.recentIds.has(name.toLowerCase())) return false;
+			}
+			return true;
+		});
+		let pool = fresh;
+		if (pool.length === 0) {
+			logger.info("[StockStrategy] All fallback stock candidates recently picked, cycling candidates to prevent repeat");
+			if (candidates.length > 1) {
+				const shift = (new Date().getDate() || 1) % candidates.length;
+				pool = [...candidates.slice(shift), ...candidates.slice(0, shift)];
+			} else {
+				pool = candidates;
+			}
+		}
 
 		// ── #6: Pre-fetch enriched snapshots for fallback pool ────────────────────
 		// Previously score(s, null) was called, losing RSI, ROE, EPS growth, beta,

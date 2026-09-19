@@ -127,19 +127,12 @@ export class REITInvITStrategy extends BaseStrategy {
 						type: symbol.includes("GRID") || symbol.includes("IRB") || symbol.includes("POWER") || symbol.includes("NHIT") || symbol.includes("JIO") || symbol.includes("ORIENT") || symbol.includes("BH") ? "InvIT" : "REIT",
 					}),
 				);
-				const dayOfYear = Math.floor(
-					(Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86_400_000,
-				);
-				all = [synthPool[dayOfYear % synthPool.length]];
-				logger.info(`[REITInvITStrategy] Using synthetic REIT: ${all[0].name} (reits/invits tables empty)`);
+				all = synthPool;
+				logger.info(`[REITInvITStrategy] Using synthetic REIT pool of ${all.length} instruments (reits/invits tables empty)`);
 			}
 
-			// Phase 1 fix: rotate — skip those picked in the last 14 days
-			const recentIds = context.recentIds || new Set<string>();
-			const candidates = all.filter(
-				(r) => !recentIds.has(String(r.id)) && !recentIds.has(r.symbol),
-			);
-			const pool = candidates.length > 0 ? candidates : all;
+			// Rotate & dedup — skip those picked in recent lookback
+			const pool = this.filterRecentPicks(all, context.recentIds);
 
 			// Phase 1 fix: Score all candidates and pick the highest scoring one
 			const scored = pool
