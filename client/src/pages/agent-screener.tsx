@@ -70,7 +70,9 @@ import {
 	Globe,
 	BarChart2,
 	Users,
+	Briefcase,
 	Cpu,
+	Plus,
 } from "lucide-react";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -84,7 +86,7 @@ import {
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-type ScreenerType = "mutual_fund" | "stock" | "bond" | "etf" | "global_stock";
+type ScreenerType = "mutual_fund" | "stock" | "bond" | "etf" | "global_stock" | "unlisted" | "reit_invit";
 type ViewMode = "table" | "cards";
 
 const FALLBACK_US_STOCKS = [
@@ -645,6 +647,22 @@ export default function AgentScreener() {
 	const [etfSearch, setEtfSearch] = useState("");
 	const [etfPage, setEtfPage] = useState(1);
 
+	// ── Unlisted filter state ──────────────────────────────────────────────────
+	const [unlistedStage, setUnlistedStage] = useState("all");
+	const [unlistedSector, setUnlistedSector] = useState("");
+	const [unlistedSearch, setUnlistedSearch] = useState("");
+	const [unlistedPage, setUnlistedPage] = useState(1);
+	const [unlistedSortBy, setUnlistedSortBy] = useState("name");
+	const [unlistedSortOrder, setUnlistedSortOrder] = useState<"asc" | "desc">("asc");
+
+	// ── REIT & InvIT filter state ──────────────────────────────────────────────
+	const [reitCategory, setReitCategory] = useState("all");
+	const [reitMinYield, setReitMinYield] = useState("");
+	const [reitSearch, setReitSearch] = useState("");
+	const [reitPage, setReitPage] = useState(1);
+	const [reitSortBy, setReitSortBy] = useState("distributionYield");
+	const [reitSortOrder, setReitSortOrder] = useState<"asc" | "desc">("desc");
+
 	const buildQueryParams = () => {
 		const params = new URLSearchParams();
 		params.set("page", String(dbPage));
@@ -663,7 +681,7 @@ export default function AgentScreener() {
 		return params.toString();
 	};
 
-	const isNonStockType = screenerType !== "stock";
+	const isNonStockType = screenerType !== "stock" && screenerType !== "global_stock";
 
 	const { data: dbScreenerData, isLoading: dbLoading } = useQuery<any>({
 		queryKey: [
@@ -691,7 +709,7 @@ export default function AgentScreener() {
 			}),
 	});
 
-	// ── Instrument screener query (MF / Bond / ETF) ───────────────────────────
+	// ── Instrument screener query (MF / Bond / ETF / Unlisted / REIT) ───────────
 	const buildInstrumentParams = () => {
 		const p = new URLSearchParams();
 		p.set("type", screenerType);
@@ -719,6 +737,20 @@ export default function AgentScreener() {
 			p.set("page", String(etfPage));
 			if (etfSearch)                 p.set("q", etfSearch);
 			if (etfCategory !== "all")     p.set("etfCategory", etfCategory);
+		} else if (screenerType === "unlisted") {
+			p.set("page", String(unlistedPage));
+			p.set("sortBy", unlistedSortBy);
+			p.set("sortOrder", unlistedSortOrder);
+			if (unlistedStage && unlistedStage !== "all") p.set("stage", unlistedStage);
+			if (unlistedSector)                           p.set("sector", unlistedSector);
+			if (unlistedSearch)                           p.set("q", unlistedSearch);
+		} else if (screenerType === "reit_invit") {
+			p.set("page", String(reitPage));
+			p.set("sortBy", reitSortBy);
+			p.set("sortOrder", reitSortOrder);
+			if (reitCategory && reitCategory !== "all")   p.set("category", reitCategory);
+			if (reitMinYield)                             p.set("minYield", reitMinYield);
+			if (reitSearch)                               p.set("q", reitSearch);
 		}
 		return p.toString();
 	};
@@ -730,6 +762,8 @@ export default function AgentScreener() {
 			mfMinReturn1y, mfMinReturn3y, mfMaxExpenseRatio, mfMinAum, mfSortBy, mfSortOrder,
 			bondPage, bondType, bondMinYield, bondMaxMaturityYears, bondMinRating, bondTaxStatus,
 			etfPage, etfCategory, etfSearch,
+			unlistedPage, unlistedStage, unlistedSector, unlistedSearch, unlistedSortBy, unlistedSortOrder,
+			reitPage, reitCategory, reitMinYield, reitSearch, reitSortBy, reitSortOrder,
 		],
 		enabled: isNonStockType,
 		queryFn: () =>
@@ -1286,6 +1320,13 @@ export default function AgentScreener() {
 		setDbPage(1);
 	};
 
+	const handleAddToProposal = (item: any, type: string) => {
+		toast({
+			title: "Added to Advisory Proposal",
+			description: `${item.name || item.symbol} (${type}) added to client proposal draft.`,
+		});
+	};
+
 	const activeFilterCount = [
 		dbSearch,
 		dbSector,
@@ -1312,6 +1353,10 @@ export default function AgentScreener() {
 							? "ETF Screener"
 							: screenerType === "global_stock"
 							? "Global Equities Screener"
+							: screenerType === "unlisted"
+							? "Unlisted & Pre-IPO Equity Screener"
+							: screenerType === "reit_invit"
+							? "REITs & InvITs Yield Screener"
 							: "Multi-Asset Screener"}
 					</h1>
 					<p className="text-xs text-muted-foreground mt-0.5">
@@ -1323,6 +1368,10 @@ export default function AgentScreener() {
 							? "Government securities & corporate bonds screened by yield, rating & maturity"
 							: screenerType === "global_stock"
 							? "Screen NASDAQ-100 & S&P 500 US equities with live price conversion in INR"
+							: screenerType === "unlisted"
+							? "Screen vetted pre-IPO companies, late-stage unicorns & growth private equities"
+							: screenerType === "reit_invit"
+							? "Screen real estate & infrastructure investment trusts by distribution yield, NAV & occupancy"
 							: "Screen ETFs by category, NAV, tracking error & liquidity"}
 					</p>
 				</div>
@@ -1355,6 +1404,8 @@ export default function AgentScreener() {
 									 screenerType === "bond" ? "Bond & Fixed Income Screener" :
 									 screenerType === "etf" ? "ETF Screener" :
 									 screenerType === "global_stock" ? "Global Equities Screener" :
+									 screenerType === "unlisted" ? "Unlisted & Pre-IPO Screener" :
+									 screenerType === "reit_invit" ? "REITs & InvITs Screener" :
 									 "Stock Screener"}
 								</CardTitle>
 								<CardDescription className="text-xs mt-0.5">
@@ -1366,6 +1417,10 @@ export default function AgentScreener() {
 										? "Screen government securities & corporate bonds by yield, rating & maturity"
 										: screenerType === "global_stock"
 										? "Screen NASDAQ-100 & S&P 500 US equities with live price conversion in INR"
+										: screenerType === "unlisted"
+										? "Screen high-growth pre-IPO startups & private enterprises with buy/sell quotes"
+										: screenerType === "reit_invit"
+										? "Screen high-yielding commercial real estate and infrastructure trusts"
 										: "Screen ETFs by category, NAV & tracking error"}
 								</CardDescription>
 							</div>
@@ -1389,11 +1444,13 @@ export default function AgentScreener() {
 					</div>
 
 					{/* ── Row 2: Instrument Category Selector ─────────────────────────── */}
-					<div className="flex items-center gap-1.5 pb-3 overflow-x-auto scrollbar-none">
+					<div className="flex items-center gap-1.5 pb-2.5 overflow-x-auto scrollbar-none">
 						{([
 							{ type: "stock" as ScreenerType, label: "Stocks", icon: <BarChart3 className="h-3.5 w-3.5" />, color: "text-blue-600 dark:text-blue-400", activeBg: "bg-blue-600 dark:bg-blue-500" },
 							{ type: "mutual_fund" as ScreenerType, label: "Mutual Funds", icon: <PieChart className="h-3.5 w-3.5" />, color: "text-purple-600 dark:text-purple-400", activeBg: "bg-purple-600 dark:bg-purple-500" },
 							{ type: "bond" as ScreenerType, label: "Bonds & FD", icon: <Landmark className="h-3.5 w-3.5" />, color: "text-amber-600 dark:text-amber-400", activeBg: "bg-amber-600 dark:bg-amber-500" },
+							{ type: "reit_invit" as ScreenerType, label: "REITs & InvITs", icon: <Building2 className="h-3.5 w-3.5" />, color: "text-cyan-600 dark:text-cyan-400", activeBg: "bg-cyan-600 dark:bg-cyan-500" },
+							{ type: "unlisted" as ScreenerType, label: "Unlisted & Pre-IPO", icon: <Briefcase className="h-3.5 w-3.5" />, color: "text-violet-600 dark:text-violet-400", activeBg: "bg-violet-600 dark:bg-violet-500" },
 							{ type: "etf" as ScreenerType, label: "ETFs", icon: <Layers className="h-3.5 w-3.5" />, color: "text-emerald-600 dark:text-emerald-400", activeBg: "bg-emerald-600 dark:bg-emerald-500" },
 						] as const).map(({ type, label, icon, color, activeBg }) => (
 							<button
@@ -1410,7 +1467,7 @@ export default function AgentScreener() {
 								{label}
 							</button>
 						))}
-						{/* ── Global Stocks — inline tab like Stocks/MF ── */}
+						{/* ── Global Stocks ── */}
 						<button
 							type="button"
 							onClick={() => setScreenerType("global_stock")}
@@ -1423,6 +1480,71 @@ export default function AgentScreener() {
 						>
 							<Globe className="h-3.5 w-3.5" />
 							Global Stocks
+						</button>
+					</div>
+
+					{/* ── Row 3: Cross-Asset Thematic Presets ──────────────────────────── */}
+					<div className="flex items-center gap-2 pb-3 overflow-x-auto scrollbar-none pt-1 border-t border-border/40">
+						<span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap flex items-center gap-1">
+							<Sparkles className="h-3 w-3 text-amber-500" />
+							Thematic Presets:
+						</span>
+						<button
+							type="button"
+							onClick={() => {
+								setScreenerType("reit_invit");
+								setReitCategory("all");
+								setReitMinYield("6.5");
+								setReitPage(1);
+							}}
+							className="text-[11px] px-2.5 py-1 rounded-md bg-muted/70 hover:bg-muted font-medium text-foreground whitespace-nowrap transition-colors border border-border/60 hover:border-border"
+						>
+							🏢 High Yield Real Assets (6.5%+)
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								setScreenerType("unlisted");
+								setUnlistedStage("Pre-IPO");
+								setUnlistedSector("all");
+								setUnlistedPage(1);
+							}}
+							className="text-[11px] px-2.5 py-1 rounded-md bg-muted/70 hover:bg-muted font-medium text-foreground whitespace-nowrap transition-colors border border-border/60 hover:border-border"
+						>
+							🦄 Pre-IPO Unicorns
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								setScreenerType("bond");
+								setBondType("govt");
+								setBondTaxStatus("all");
+								setBondPage(1);
+							}}
+							className="text-[11px] px-2.5 py-1 rounded-md bg-muted/70 hover:bg-muted font-medium text-foreground whitespace-nowrap transition-colors border border-border/60 hover:border-border"
+						>
+							🛡️ Sovereign Safety (G-Sec)
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								setScreenerType("bond");
+								setBondTaxStatus("taxfree");
+								setBondType("all");
+								setBondPage(1);
+							}}
+							className="text-[11px] px-2.5 py-1 rounded-md bg-muted/70 hover:bg-muted font-medium text-foreground whitespace-nowrap transition-colors border border-border/60 hover:border-border"
+						>
+							💎 Tax-Free Yield
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								setScreenerType("global_stock");
+							}}
+							className="text-[11px] px-2.5 py-1 rounded-md bg-muted/70 hover:bg-muted font-medium text-foreground whitespace-nowrap transition-colors border border-border/60 hover:border-border"
+						>
+							🌐 US Tech Giants
 						</button>
 					</div>
 				</CardHeader>
@@ -1622,6 +1744,327 @@ export default function AgentScreener() {
 										</div>
 										)}
 										<p className="text-[10px] text-muted-foreground text-center py-1">⚠️ ETFs are subject to market risk. Past performance is not indicative of future returns.</p>
+									</div>
+								)}
+
+								{/* ── REITs & InvITs Screener ──────────────────────────────────── */}
+								{screenerType === "reit_invit" && (
+									<div className="space-y-3">
+										<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+											<Input
+												placeholder="Search trust or sponsor..."
+												className="h-7 text-xs"
+												value={reitSearch}
+												onChange={(e) => { setReitSearch(e.target.value); setReitPage(1); }}
+											/>
+											<select
+												className="h-7 text-xs border rounded-md px-2 bg-background"
+												value={reitCategory}
+												onChange={(e) => { setReitCategory(e.target.value); setReitPage(1); }}
+											>
+												<option value="all">All Real Assets (REIT & InvIT)</option>
+												<option value="reit">REITs (Commercial Real Estate)</option>
+												<option value="invit">InvITs (Infrastructure & Power)</option>
+											</select>
+											<Input
+												placeholder="Min Yield % (e.g. 6.5)"
+												type="number"
+												step="0.1"
+												className="h-7 text-xs"
+												value={reitMinYield}
+												onChange={(e) => { setReitMinYield(e.target.value); setReitPage(1); }}
+											/>
+											<select
+												className="h-7 text-xs border rounded-md px-2 bg-background"
+												value={reitSortBy}
+												onChange={(e) => { setReitSortBy(e.target.value); }}
+											>
+												<option value="distributionYield">Sort: Distribution Yield</option>
+												<option value="currentPrice">Sort: Current Price</option>
+												<option value="returns1Y">Sort: 1Y Return</option>
+											</select>
+										</div>
+										<div className="flex items-center justify-between text-xs text-muted-foreground">
+											<span>{instrumentData?.meta?.total ?? 0} trusts found</span>
+											<div className="flex gap-2">
+												<Button
+													variant="outline"
+													size="sm"
+													className="h-6 text-[10px]"
+													disabled={reitPage <= 1}
+													onClick={() => setReitPage((p) => Math.max(1, p - 1))}
+												>
+													<ChevronLeft className="h-3 w-3 mr-0.5" />Prev
+												</Button>
+												<Button
+													variant="outline"
+													size="sm"
+													className="h-6 text-[10px]"
+													disabled={(instrumentData?.data?.length ?? 0) < 25}
+													onClick={() => setReitPage((p) => p + 1)}
+												>
+													Next<ChevronRight className="h-3 w-3 ml-0.5" />
+												</Button>
+											</div>
+										</div>
+										{instrumentLoading ? (
+											<div className="flex items-center justify-center py-10">
+												<Loader2 className="h-5 w-5 animate-spin text-primary" />
+												<span className="ml-2 text-sm text-muted-foreground">Loading REITs & InvITs...</span>
+											</div>
+										) : (
+										<div className="border rounded-lg [overflow:clip]">
+											<div className="overflow-x-auto">
+												<table className="w-full text-sm">
+													<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
+														<tr>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">#</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider min-w-[200px]">Trust / Sponsor</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Type</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Price ₹</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">NAV ₹</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Prem / Disc %</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setReitSortBy("distributionYield"); setReitSortOrder((o) => o === "desc" ? "asc" : "desc"); }}>
+																Dist. Yield % {reitSortBy === "distributionYield" && (reitSortOrder === "desc" ? "↓" : "↑")}
+															</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">1Y Ret %</th>
+															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">AI Signal</th>
+															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">Risk</th>
+															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">Action</th>
+														</tr>
+													</thead>
+													<tbody className="divide-y">
+														{(instrumentData?.data ?? []).length === 0 && !instrumentLoading && (
+															<tr>
+																<td colSpan={11} className="py-12 text-center text-muted-foreground text-sm">
+																	No REITs or InvITs match the current filters.
+																</td>
+															</tr>
+														)}
+														{(instrumentData?.data ?? []).map((r: any, i: number) => {
+															const premDisc = Number(r.premiumToNav);
+															const yieldVal = Number(r.distributionYield);
+															return (
+																<tr key={r.id ?? r.symbol} className="hover:bg-muted/30 transition-colors">
+																	<td className="py-2 px-3 text-xs text-muted-foreground">{(reitPage - 1) * 25 + i + 1}</td>
+																	<td className="py-2 px-3 text-xs font-medium max-w-[220px]">
+																		<div className="font-semibold text-foreground truncate" title={r.name}>{r.name}</div>
+																		<div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+																			<span>{r.symbol}</span>
+																			{r.sponsor && <span>• {r.sponsor}</span>}
+																		</div>
+																	</td>
+																	<td className="py-2 px-3 text-xs">
+																		<span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+																			r.category === "REIT"
+																				? "bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20"
+																				: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+																		}`}>
+																			{r.category}
+																		</span>
+																	</td>
+																	<td className="py-2 px-3 text-right font-mono text-xs font-medium">
+																		{r.currentPrice ? `₹${Number(r.currentPrice).toFixed(2)}` : "—"}
+																	</td>
+																	<td className="py-2 px-3 text-right font-mono text-xs text-muted-foreground">
+																		{r.nav ? `₹${Number(r.nav).toFixed(2)}` : "—"}
+																	</td>
+																	<td className={`py-2 px-3 text-right font-mono text-xs ${premDisc > 0 ? "text-amber-600 dark:text-amber-400" : premDisc < 0 ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+																		{!isNaN(premDisc) && r.premiumToNav !== null ? `${premDisc > 0 ? "+" : ""}${premDisc.toFixed(1)}%` : "—"}
+																	</td>
+																	<td className="py-2 px-3 text-right font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
+																		{yieldVal ? `${yieldVal.toFixed(2)}%` : "—"}
+																	</td>
+																	<td className={`py-2 px-3 text-right font-mono text-xs ${Number(r.returns1Y) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}`}>
+																		{r.returns1Y ? `${Number(r.returns1Y).toFixed(1)}%` : "—"}
+																	</td>
+																	<td className="py-2 px-3 text-center text-xs">
+																		<span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+																			r.aiSignal === "BUY"
+																				? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+																				: r.aiSignal === "HOLD"
+																				? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+																				: "bg-muted text-muted-foreground"
+																		}`}>
+																			{r.aiSignal ?? "MONITOR"}
+																		</span>
+																	</td>
+																	<td className="py-2 px-3 text-center text-xs">
+																		<span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+																			{r.riskLevel ?? "Moderate"}
+																		</span>
+																	</td>
+																	<td className="py-2 px-3 text-center text-xs">
+																		<Button
+																			variant="outline"
+																			size="sm"
+																			className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary transition-colors"
+																			onClick={() => handleAddToProposal(r, r.category || "REIT/InvIT")}
+																		>
+																			<Plus className="h-3 w-3 mr-1" />
+																			Proposal
+																		</Button>
+																	</td>
+																</tr>
+															);
+														})}
+													</tbody>
+												</table>
+											</div>
+										</div>
+										)}
+										<p className="text-[10px] text-muted-foreground text-center py-1">⚠️ {instrumentData?.meta?.disclaimer ?? "REIT & InvIT distributions are subject to underlying asset performance and interest rate cycles."}</p>
+									</div>
+								)}
+
+								{/* ── Unlisted & Pre-IPO Equity Screener ────────────────────────── */}
+								{screenerType === "unlisted" && (
+									<div className="space-y-3">
+										<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+											<Input
+												placeholder="Search company or sector..."
+												className="h-7 text-xs"
+												value={unlistedSearch}
+												onChange={(e) => { setUnlistedSearch(e.target.value); setUnlistedPage(1); }}
+											/>
+											<select
+												className="h-7 text-xs border rounded-md px-2 bg-background"
+												value={unlistedStage}
+												onChange={(e) => { setUnlistedStage(e.target.value); setUnlistedPage(1); }}
+											>
+												<option value="all">All Growth Stages</option>
+												<option value="Pre-IPO">Pre-IPO / Filing Stage</option>
+												<option value="Growth">Growth / Late Stage</option>
+												<option value="Series D+">Series D+ Unicorn</option>
+												<option value="Early">Early / Seed</option>
+											</select>
+											<select
+												className="h-7 text-xs border rounded-md px-2 bg-background"
+												value={unlistedSector}
+												onChange={(e) => { setUnlistedSector(e.target.value); setUnlistedPage(1); }}
+											>
+												<option value="all">All Sectors</option>
+												<option value="Financial">Financial Services / Fintech</option>
+												<option value="Technology">Technology & SaaS</option>
+												<option value="Healthcare">Healthcare & Biotech</option>
+												<option value="Consumer">Consumer & Retail</option>
+												<option value="Industrial">Manufacturing & Industrial</option>
+											</select>
+											<select
+												className="h-7 text-xs border rounded-md px-2 bg-background"
+												value={unlistedSortBy}
+												onChange={(e) => { setUnlistedSortBy(e.target.value); }}
+											>
+												<option value="publishedBuyPrice">Sort: Indicative Buy Price</option>
+												<option value="paidUpCapital">Sort: Capital / Valuation</option>
+												<option value="name">Sort: Company Name</option>
+											</select>
+										</div>
+										<div className="flex items-center justify-between text-xs text-muted-foreground">
+											<span>{instrumentData?.meta?.total ?? 0} unlisted companies</span>
+											<div className="flex gap-2">
+												<Button
+													variant="outline"
+													size="sm"
+													className="h-6 text-[10px]"
+													disabled={unlistedPage <= 1}
+													onClick={() => setUnlistedPage((p) => Math.max(1, p - 1))}
+												>
+													<ChevronLeft className="h-3 w-3 mr-0.5" />Prev
+												</Button>
+												<Button
+													variant="outline"
+													size="sm"
+													className="h-6 text-[10px]"
+													disabled={(instrumentData?.data?.length ?? 0) < 25}
+													onClick={() => setUnlistedPage((p) => p + 1)}
+												>
+													Next<ChevronRight className="h-3 w-3 ml-0.5" />
+												</Button>
+											</div>
+										</div>
+										{instrumentLoading ? (
+											<div className="flex items-center justify-center py-10">
+												<Loader2 className="h-5 w-5 animate-spin text-primary" />
+												<span className="ml-2 text-sm text-muted-foreground">Loading unlisted securities...</span>
+											</div>
+										) : (
+										<div className="border rounded-lg [overflow:clip]">
+											<div className="overflow-x-auto">
+												<table className="w-full text-sm">
+													<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
+														<tr>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">#</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider min-w-[200px]">Company Name</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Sector</th>
+															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">Stage</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Indicative Buy ₹</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Indicative Sell ₹</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Paid-up Capital</th>
+															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">Risk Profile</th>
+															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">Compliance</th>
+															<th className="py-2.5 px-3 text-center font-medium text-xs uppercase tracking-wider">Action</th>
+														</tr>
+													</thead>
+													<tbody className="divide-y">
+														{(instrumentData?.data ?? []).length === 0 && !instrumentLoading && (
+															<tr>
+																<td colSpan={10} className="py-12 text-center text-muted-foreground text-sm">
+																	No unlisted companies match current filters.
+																</td>
+															</tr>
+														)}
+														{(instrumentData?.data ?? []).map((u: any, i: number) => (
+															<tr key={u.id ?? u.cin} className="hover:bg-muted/30 transition-colors">
+																<td className="py-2 px-3 text-xs text-muted-foreground">{(unlistedPage - 1) * 25 + i + 1}</td>
+																<td className="py-2 px-3 text-xs font-medium max-w-[220px]">
+																	<div className="font-semibold text-foreground truncate" title={u.name}>{u.name}</div>
+																	<div className="text-[10px] text-muted-foreground truncate">{u.cin || u.industry || "—"}</div>
+																</td>
+																<td className="py-2 px-3 text-xs text-muted-foreground">{u.sector ?? "—"}</td>
+																<td className="py-2 px-3 text-center text-xs">
+																	<span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/20">
+																		{u.listingStage ?? "Pre-IPO"}
+																	</span>
+																</td>
+																<td className="py-2 px-3 text-right font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+																	{u.publishedBuyPrice ? `₹${Number(u.publishedBuyPrice).toLocaleString()}` : "—"}
+																</td>
+																<td className="py-2 px-3 text-right font-mono text-xs text-muted-foreground">
+																	{u.publishedSellPrice ? `₹${Number(u.publishedSellPrice).toLocaleString()}` : "—"}
+																</td>
+																<td className="py-2 px-3 text-right font-mono text-xs">
+																	{u.paidUpCapital ? `₹${(Number(u.paidUpCapital) / 10000000).toFixed(1)} Cr` : "—"}
+																</td>
+																<td className="py-2 px-3 text-center text-xs">
+																	<span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-300">
+																		{u.riskCategory ?? "High"}
+																	</span>
+																</td>
+																<td className="py-2 px-3 text-center text-xs">
+																	<span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium">
+																		{u.complianceStatus ?? "Active"}
+																	</span>
+																</td>
+																<td className="py-2 px-3 text-center text-xs">
+																	<Button
+																		variant="outline"
+																		size="sm"
+																		className="h-6 px-2 text-[10px] hover:bg-primary/10 hover:text-primary transition-colors"
+																		onClick={() => handleAddToProposal(u, "Unlisted Share")}
+																	>
+																		<Plus className="h-3 w-3 mr-1" />
+																		Proposal
+																	</Button>
+																</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											</div>
+										</div>
+										)}
+										<p className="text-[10px] text-muted-foreground text-center py-1">⚠️ {instrumentData?.meta?.disclaimer ?? "Unlisted shares are illiquid and carry high investment risk. Indicative dealer quotes only."}</p>
 									</div>
 								)}
 

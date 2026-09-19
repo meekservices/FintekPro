@@ -20,10 +20,13 @@ import {
   governmentSecurities,
   corporateBonds,
   listedStocks,
+  unlistedCompanies,
+  reits,
+  invits,
 } from "@shared/schema";
 import { and, eq, gte, lte, ilike, sql, desc, asc, or } from "drizzle-orm";
 import { IRIS_PRODUCT_REGISTRY } from "../services/iris/irisProductRegistry";
-// Structured logging via console (PII-scrubbed by logger.ts interceptor)
+import { logger } from "../logger";
 
 export const instrumentScreenerRouter = Router();
 
@@ -37,6 +40,10 @@ const DISCLAIMERS: Record<string, string> = {
     "ETFs are subject to market risk. NAV may fluctuate. Past performance is not indicative of future returns.",
   stock:
     "Equity investments are subject to market risk. Past performance is not indicative of future returns.",
+  unlisted:
+    "Unlisted and Pre-IPO securities are illiquid and carry high investment risk including loss of capital. Fair values are indicative based on audited DRHP/financial filings. Not a public offer. Regulatory disclosures apply.",
+  reit_invit:
+    "REIT & InvIT investments are subject to market and real estate asset yield fluctuations. Past distributions are not guaranteed. Review offer documents before investing.",
 };
 
 // ─── Bond rating hierarchy (for minRating filter) ────────────────────────────
@@ -567,19 +574,217 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       });
     }
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // UNLISTED & PRE-IPO SHARES
+    // ══════════════════════════════════════════════════════════════════════════
+    if (type === "unlisted") {
+      const {
+        stage,       // 'pre_ipo' | 'growth' | 'mature' | 'all'
+        sector: unlistedSector,
+        q: unlistedSearch,
+      } = req.query as Record<string, string | undefined>;
+
+      const unlistedConditions = [
+        eq(unlistedCompanies.status, "active"),
+      ];
+
+      if (stage && stage !== "all") {
+        unlistedConditions.push(eq(unlistedCompanies.listingStage, stage));
+      }
+      if (unlistedSector && unlistedSector !== "all") {
+        unlistedConditions.push(ilike(unlistedCompanies.sector, `%${unlistedSector}%`));
+      }
+      if (unlistedSearch) {
+        unlistedConditions.push(or(
+          ilike(unlistedCompanies.name, `%${unlistedSearch}%`),
+          ilike(unlistedCompanies.sector, `%${unlistedSearch}%`),
+          ilike(unlistedCompanies.cin, `%${unlistedSearch}%`)
+        )!);
+      }
+
+      const sortCol =
+        sortBy === "publishedBuyPrice" ? unlistedCompanies.publishedBuyPrice :
+        sortBy === "paidUpCapital"     ? unlistedCompanies.paidUpCapital :
+        unlistedCompanies.name;
+
+      const [companies, totalCount] = await Promise.all([
+        db.select({
+          id: unlistedCompanies.id,
+          name: unlistedCompanies.name,
+          cin: unlistedCompanies.cin,
+          isin: unlistedCompanies.isin,
+          sector: unlistedCompanies.sector,
+          industry: unlistedCompanies.industry,
+          listingStage: unlistedCompanies.listingStage,
+          publishedBuyPrice: unlistedCompanies.publishedBuyPrice,
+          publishedSellPrice: unlistedCompanies.publishedSellPrice,
+          paidUpCapital: unlistedCompanies.paidUpCapital,
+          authorizedCapital: unlistedCompanies.authorizedCapital,
+          faceValue: unlistedCompanies.faceValue,
+          complianceStatus: unlistedCompanies.complianceStatus,
+          riskCategory: unlistedCompanies.riskCategory,
+          valuationStatus: unlistedCompanies.valuationStatus,
+          lastValuationDate: unlistedCompanies.lastValuationDate,
+          website: unlistedCompanies.website,
+        })
+          .from(unlistedCompanies)
+          .where(and(...unlistedConditions))
+          .orderBy(sortOrder === "asc" ? asc(sortCol) : desc(sortCol))
+          .limit(limitNum)
+          .offset(offset),
+        db.select({ count: sql<number>`COUNT(*)` })
+          .from(unlistedCompanies)
+          .where(and(...unlistedConditions)),
+      ]);
+
+      return res.json({
+        success: true,
+        type: "unlisted",
+        data: companies,
+        meta: {
+          timestamp: new Date().toISOString(),
+          engine_version: ENGINE_VERSION,
+          page: pageNum,
+          limit: limitNum,
+          total: Number(totalCount[0]?.count ?? 0),
+          disclaimer: DISCLAIMERS.unlisted,
+        },
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // REITs & InvITs
+    // ══════════════════════════════════════════════════════════════════════════
+    if (type === "reit_invit") {
+      const {
+        category: trustCategory = "all", // "all" | "reit" | "invit"
+        minYield,
+        q: trustSearch,
+      } = req.query as Record<string, string | undefined>;
+
+      const items: any[] = [];
+
+      if (trustCategory === "all" || trustCategory === "reit") {
+        const reitConditions = [];
+        if (minYield) reitConditions.push(gte(reits.distributionYield, sql`${minYield}::numeric`));
+        if (trustSearch) {
+          reitConditions.push(or(
+            ilike(reits.name, `%${trustSearch}%`),
+            ilike(reits.symbol, `%${trustSearch}%`),
+            ilike(reits.sector, `%${trustSearch}%`)
+          )!);
+        }
+
+        const reitList = await db.select({
+          id: reits.id,
+          symbol: reits.symbol,
+          name: reits.name,
+          sponsor: reits.sponsor,
+          sector: reits.sector,
+          propertyType: reits.propertyType,
+          exchange: reits.exchange,
+          currentPrice: reits.currentPrice,
+          nav: reits.nav,
+          premiumToNav: reits.premiumToNav,
+          marketCap: reits.marketCap,
+          distributionYield: reits.distributionYield,
+          lastDividend: reits.lastDividend,
+          returns1Y: reits.returns1Y,
+          occupancyRate: reits.occupancyRate,
+          debtToEquity: reits.debtToEquity,
+          riskLevel: reits.riskLevel,
+          aiSignal: reits.aiSignal,
+          aiConfidence: reits.aiConfidence,
+          amfiCapCategory: reits.amfiCapCategory,
+        })
+        .from(reits)
+        .where(reitConditions.length > 0 ? and(...reitConditions) : undefined);
+
+        items.push(...reitList.map(r => ({ ...r, trustType: "REIT" })));
+      }
+
+      if (trustCategory === "all" || trustCategory === "invit") {
+        const invitConditions = [];
+        if (minYield) invitConditions.push(gte(invits.distributionYield, sql`${minYield}::numeric`));
+        if (trustSearch) {
+          invitConditions.push(or(
+            ilike(invits.name, `%${trustSearch}%`),
+            ilike(invits.symbol, `%${trustSearch}%`),
+            ilike(invits.sector, `%${trustSearch}%`)
+          )!);
+        }
+
+        const invitList = await db.select({
+          id: invits.id,
+          symbol: invits.symbol,
+          name: invits.name,
+          sponsor: invits.sponsor,
+          sector: invits.sector,
+          infrastructureType: invits.infrastructureType,
+          exchange: invits.exchange,
+          currentPrice: invits.currentPrice,
+          nav: invits.nav,
+          premiumToNav: invits.premiumToNav,
+          marketCap: invits.marketCap,
+          distributionYield: invits.distributionYield,
+          lastDividend: invits.lastDividend,
+          returns1Y: invits.returns1Y,
+          debtToEquity: invits.debtToEquity,
+          riskLevel: invits.riskLevel,
+          aiSignal: invits.aiSignal,
+          aiConfidence: invits.aiConfidence,
+        })
+        .from(invits)
+        .where(invitConditions.length > 0 ? and(...invitConditions) : undefined);
+
+        items.push(...invitList.map(i => ({ ...i, trustType: "InvIT" })));
+      }
+
+      // Sort
+      if (sortBy === "distributionYield") {
+        items.sort((a, b) => sortOrder === "asc"
+          ? (Number(a.distributionYield) || 0) - (Number(b.distributionYield) || 0)
+          : (Number(b.distributionYield) || 0) - (Number(a.distributionYield) || 0)
+        );
+      } else if (sortBy === "currentPrice") {
+        items.sort((a, b) => sortOrder === "asc"
+          ? (Number(a.currentPrice) || 0) - (Number(b.currentPrice) || 0)
+          : (Number(b.currentPrice) || 0) - (Number(a.currentPrice) || 0)
+        );
+      } else {
+        items.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      }
+
+      const total = items.length;
+      const paginatedData = items.slice(offset, offset + limitNum);
+
+      return res.json({
+        success: true,
+        type: "reit_invit",
+        data: paginatedData,
+        meta: {
+          timestamp: new Date().toISOString(),
+          engine_version: ENGINE_VERSION,
+          page: pageNum,
+          limit: limitNum,
+          total,
+          disclaimer: DISCLAIMERS.reit_invit,
+        },
+      });
+    }
+
     // ── Unknown type ──────────────────────────────────────────────────────────
     return res.status(400).json({
       success: false,
       error_code: "INVALID_INSTRUMENT_TYPE",
-      message: `Invalid type '${type}'. Valid: mutual_fund | bond | etf | stock`,
+      message: `Invalid type '${type}'. Valid: mutual_fund | bond | etf | stock | unlisted | reit_invit`,
       retryable: false,
       meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
     });
 
   } catch (err: any) {
     const cause = err?.cause?.message ?? err?.detail ?? "";
-    // eslint-disable-next-line no-console
-    console.error(JSON.stringify({
+    logger.error("Screener instrument error", {
       event: "SCREENER_INSTRUMENT_ERROR",
       user_id: (req as any).user?.id ?? null,
       latency_ms: Date.now() - start,
@@ -587,7 +792,7 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       message: err.message,
       cause,
       instrument_type: type,
-    }));
+    });
     return res.status(500).json({
       success: false,
       error_code: "INSTRUMENT_SCREENER_ERROR",
@@ -637,13 +842,29 @@ instrumentScreenerRouter.get("/instruments/filters", async (_req: Request, res: 
           { key: "q",           label: "Search",       type: "text" },
         ],
       },
+      unlisted: {
+        sortFields: ["publishedBuyPrice", "paidUpCapital", "name"],
+        filters: [
+          { key: "stage",  label: "Stage",  type: "select", options: ["all", "pre_ipo", "growth", "mature"] },
+          { key: "sector", label: "Sector", type: "text" },
+          { key: "q",      label: "Search", type: "text" },
+        ],
+      },
+      reit_invit: {
+        sortFields: ["distributionYield", "currentPrice", "name"],
+        filters: [
+          { key: "category", label: "Trust Type", type: "select", options: ["all", "reit", "invit"] },
+          { key: "minYield", label: "Min Distribution Yield (%)", type: "number" },
+          { key: "q",        label: "Search", type: "text" },
+        ],
+      },
     },
     meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION },
   });
 });
 
 // ─── GET /api/screener/instruments/:id ───────────────────────────────────────
-/** Unified instrument detail — resolves by scheme code (MF), ISIN (Bond), or symbol (ETF). */
+/** Unified instrument detail — resolves by scheme code (MF), ISIN (Bond), symbol (ETF/REIT), or id (Unlisted). */
 instrumentScreenerRouter.get("/instruments/:id", async (req: Request, res: Response) => {
   const start = Date.now();
   const { id } = req.params;
@@ -677,11 +898,31 @@ instrumentScreenerRouter.get("/instruments/:id", async (req: Request, res: Respo
       return res.json({ success: true, type: "etf", data: etf, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.etf } });
     }
 
-    return res.status(400).json({ success: false, error_code: "INVALID_TYPE", message: "Valid types: mutual_fund | bond | etf" });
+    if (type === "unlisted") {
+      const [comp] = await db
+        .select()
+        .from(unlistedCompanies)
+        .where(or(eq(unlistedCompanies.id, id), eq(unlistedCompanies.cin, id)))
+        .limit(1);
+
+      if (!comp) return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `Unlisted company '${id}' not found`, retryable: false });
+      return res.json({ success: true, type: "unlisted", data: comp, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.unlisted } });
+    }
+
+    if (type === "reit_invit") {
+      const [reit] = await db.select().from(reits).where(or(eq(reits.id, id), eq(reits.symbol, id.toUpperCase()))).limit(1);
+      if (reit) return res.json({ success: true, type: "reit_invit", trustType: "REIT", data: reit, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.reit_invit } });
+
+      const [invit] = await db.select().from(invits).where(or(eq(invits.id, id), eq(invits.symbol, id.toUpperCase()))).limit(1);
+      if (invit) return res.json({ success: true, type: "reit_invit", trustType: "InvIT", data: invit, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION, disclaimer: DISCLAIMERS.reit_invit } });
+
+      return res.status(404).json({ success: false, error_code: "NOT_FOUND", message: `REIT/InvIT '${id}' not found`, retryable: false });
+    }
+
+    return res.status(400).json({ success: false, error_code: "INVALID_TYPE", message: "Valid types: mutual_fund | bond | etf | unlisted | reit_invit" });
 
   } catch (err: any) {
-    // eslint-disable-next-line no-console
-    console.error(JSON.stringify({ event: "INSTRUMENT_DETAIL_ERROR", id, type, message: err.message, latency_ms: Date.now() - start }));
+    logger.error("Instrument detail error", { event: "INSTRUMENT_DETAIL_ERROR", id, type, message: err.message, latency_ms: Date.now() - start });
     return res.status(500).json({ success: false, error_code: "INSTRUMENT_DETAIL_ERROR", message: `Failed to fetch ${type} detail`, retryable: true, meta: { timestamp: new Date().toISOString(), version: ENGINE_VERSION } });
   }
 });
