@@ -25,5 +25,6 @@ export interface IPickStrategy {
 	): Promise<DailyPickData | DailyPickData[] | null>;
 	score(instrument: any, enriched?: any): number | Promise<number>;
 	getLivePrice(instrumentId: string): Promise<number | null>;
+	getLiveQuote?(instrumentId: string): Promise<{ price: number; dayHigh?: number; dayLow?: number } | null>;
 	refresh?(pick: DailyPickData): Promise<number | null>;
 }

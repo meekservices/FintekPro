@@ -589,11 +589,19 @@ export class StockStrategy extends BaseStrategy {
 					or(or(...sectorConditions), or(...broadSectorConditions)),
 				),
 			)
-			// ── Candidate pool: 40 per sector (was 8) ──────────────────────────────
-			// Larger pool gives the multi-factor scorer real differentiation room.
-			// After usedIds dedup + 5% upside guard + circuit filter, 8 candidates
-			// left almost no choice. 40 candidates is processed by runConcurrent(4)
-			// so no extra latency from concurrency.
+			.orderBy(
+				// ── Institutional Quality Floor: Large & Mid Caps First ───────────────
+				sql`CASE 
+					WHEN ${listedStocks.marketCapCategory} = 'Large Cap' OR ${listedStocks.marketCap} = 'Large Cap' THEN 1 
+					WHEN ${listedStocks.marketCapCategory} = 'Mid Cap' OR ${listedStocks.marketCap} = 'Mid Cap' THEN 2 
+					WHEN CAST(${listedStocks.marketCapValue} AS DECIMAL) >= 200000000000 THEN 3
+					WHEN CAST(${listedStocks.marketCapValue} AS DECIMAL) >= 50000000000 THEN 4
+					ELSE 5 
+				END ASC`,
+				sql`COALESCE(CAST(${listedStocks.marketCapValue} AS DECIMAL), 0) DESC`,
+				sql`COALESCE(CAST(${listedStocks.averageVolume} AS DECIMAL), 0) DESC`
+			)
+			// ── Candidate pool: 40 per sector ─────────────────────────────────────
 			.limit(40);
 
 		// Fallback to listedStocks if listedStocks has no sector data
@@ -612,7 +620,17 @@ export class StockStrategy extends BaseStrategy {
 						or(...screenerConditions),
 					),
 				)
-				// Screener fallback also uses the larger 40-candidate pool
+				.orderBy(
+					sql`CASE 
+						WHEN ${listedStocks.marketCapCategory} = 'Large Cap' OR ${listedStocks.marketCap} = 'Large Cap' THEN 1 
+						WHEN ${listedStocks.marketCapCategory} = 'Mid Cap' OR ${listedStocks.marketCap} = 'Mid Cap' THEN 2 
+						WHEN CAST(${listedStocks.marketCapValue} AS DECIMAL) >= 200000000000 THEN 3
+						WHEN CAST(${listedStocks.marketCapValue} AS DECIMAL) >= 50000000000 THEN 4
+						ELSE 5 
+					END ASC`,
+					sql`COALESCE(CAST(${listedStocks.marketCapValue} AS DECIMAL), 0) DESC`,
+					sql`COALESCE(CAST(${listedStocks.averageVolume} AS DECIMAL), 0) DESC`
+				)
 				.limit(40);
 
 			stocks = screenerRows.map(
@@ -1656,9 +1674,9 @@ export class StockStrategy extends BaseStrategy {
 			const isNSEMarketHours = utcMinutes >= NSE_OPEN_UTC && utcMinutes <= NSE_CLOSE_UTC;
 
 			// ── Tier 0: IndianAPI (primary Indian market source, 5-min cache) ────────
-			// Growth plan — 300 req/min dedicated server. Called first during market hours.
+			// Growth plan — 300 req/min dedicated server. Available 24/7 with closing price.
 			// Falls through silently on error so Tier 1 (FMP) is tried next.
-			if (symbol && isNSEMarketHours) {
+			if (symbol) {
 				try {
 					const quoteResult = await indianApiService.getStockQuote(symbol, "NSE");
 					const price = quoteResult.data?.current_price;
@@ -1801,6 +1819,42 @@ export class StockStrategy extends BaseStrategy {
 	}
 
 	/**
+	 * Returns full live quote including dayHigh and dayLow for intraday target tracking.
+	 */
+	async getLiveQuote(instrumentId: string): Promise<{ price: number; dayHigh?: number; dayLow?: number } | null> {
+		try {
+			const stockRow = await db
+				.select({ currentPrice: listedStocks.currentPrice, symbol: listedStocks.symbol })
+				.from(listedStocks)
+				.where(eq(listedStocks.id, instrumentId))
+				.limit(1);
+
+			if (!stockRow[0]) return null;
+			const { symbol, currentPrice: fallbackPrice } = stockRow[0];
+
+			if (symbol) {
+				try {
+					const quoteResult = await indianApiService.getStockQuote(symbol, "NSE");
+					const price = quoteResult.data?.current_price;
+					const dayHigh = quoteResult.data?.day_high;
+					const dayLow = quoteResult.data?.day_low;
+					if (price != null && Number.isFinite(price) && price > 0) {
+						return { price, dayHigh, dayLow };
+					}
+				} catch (err: any) {
+					logger.warn(`[StockStrategy.getLiveQuote] IndianAPI quote failed for ${symbol}: ${err?.message || err}`);
+				}
+			}
+
+			const livePrice = await this.getLivePrice(instrumentId);
+			if (livePrice != null) return { price: livePrice };
+			return fallbackPrice ? { price: Number.parseFloat(fallbackPrice) } : null;
+		} catch {
+			return null;
+		}
+	}
+
+	/**
 	 * Cross-sector fallback: picks the single best available published stock
 	 * without any sector filter, using a template rationale (no AI call).
 	 * Called when all 5 broad-sector picks fail (typically AI quota exhaustion).
@@ -1832,8 +1886,14 @@ export class StockStrategy extends BaseStrategy {
 				),
 			)
 			.orderBy(
-				// Prioritise analyst-rated Buy stocks, then by 1Y returns
+				sql`CASE 
+					WHEN ${listedStocks.marketCapCategory} = 'Large Cap' OR ${listedStocks.marketCap} = 'Large Cap' THEN 1 
+					WHEN ${listedStocks.marketCapCategory} = 'Mid Cap' OR ${listedStocks.marketCap} = 'Mid Cap' THEN 2 
+					ELSE 3 
+				END ASC`,
+				// Prioritise analyst-rated Buy stocks, then market cap and 1Y returns
 				sql`CASE WHEN LOWER(analyst_rating) LIKE '%strong buy%' THEN 0 WHEN LOWER(analyst_rating) LIKE '%buy%' THEN 1 ELSE 2 END`,
+				sql`COALESCE(CAST(${listedStocks.marketCapValue} AS DECIMAL), 0) DESC`,
 				desc(listedStocks.returns1Y),
 			)
 			.limit(20);

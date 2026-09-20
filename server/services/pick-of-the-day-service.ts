@@ -853,13 +853,13 @@ export class PickOfTheDayService {
 		const details: string[] = [];
 
 		try {
-			// BUG-6 FIX: add LIMIT 200 to prevent unbounded live-pick backlog from
-			// issuing thousands of price API calls and blocking the event loop.
+			// BUG-6 FIX: cycle live picks by oldest-updated so all active picks are regularly refreshed
 			const livePicks = await db
 				.select()
 				.from(dailyPicks)
 				.where(eq(dailyPicks.status, "live"))
-				.limit(200);
+				.orderBy(asc(dailyPicks.updatedAt), desc(dailyPicks.recoDate))
+				.limit(300);
 			logger.info(
 				`[PickOfTheDay] Syncing prices for ${livePicks.length} live picks...`,
 			);
@@ -881,9 +881,23 @@ export class PickOfTheDayService {
 					const expiryDate = new Date(pick.expiryDate);
 					const isExpired = new Date() > expiryDate;
 
-					const livePrice = await strategy.getLivePrice(
-						pick.instrumentId || pick.symbol || "",
-					);
+					let livePrice: number | null = null;
+					let dayHigh: number | undefined;
+
+					if (strategy.getLiveQuote) {
+						const quote = await strategy.getLiveQuote(
+							pick.instrumentId || pick.symbol || "",
+						);
+						if (quote) {
+							livePrice = quote.price;
+							dayHigh = quote.dayHigh;
+						}
+					}
+					if (livePrice == null) {
+						livePrice = await strategy.getLivePrice(
+							pick.instrumentId || pick.symbol || "",
+						);
+					}
 
 					if (livePrice != null) {
 						// ── Exchange-traded instrument: use actual live price ──────────────
@@ -891,12 +905,33 @@ export class PickOfTheDayService {
 						const returnPct = ((livePrice - recoPrice) / recoPrice) * 100;
 
 						const targetPrice = Number.parseFloat(pick.targetPrice);
-						const stoplossPrice = Number.parseFloat(pick.stoplossPrice);
+						let stoplossPrice = Number.parseFloat(pick.stoplossPrice);
+
+						// ── Breakeven Trailing Stop ───────────────────────────────────────
+						// If trade gained >= 4.0% and stoploss is still below entry price,
+						// trail stoploss to entry level (recoPrice) to eliminate downside risk.
+						let stoplossAdjusted = false;
+						if (returnPct >= 4.0 && stoplossPrice < recoPrice) {
+							stoplossPrice = recoPrice;
+							stoplossAdjusted = true;
+						}
+
 						let newStatus: PickStatus = isExpired ? "expired" : "live";
 
-						if (!isExpired) {
-							if (livePrice >= targetPrice) newStatus = "target_hit";
-							else if (livePrice <= stoplossPrice) newStatus = "stoploss_hit";
+						const hitTarget = (dayHigh != null && dayHigh >= targetPrice) || livePrice >= targetPrice;
+						const hitStoploss = livePrice <= stoplossPrice;
+
+						if (hitTarget) {
+							newStatus = "target_hit";
+						} else if (hitStoploss) {
+							newStatus = "stoploss_hit";
+						} else if (isExpired) {
+							// On expiry: if position closed with meaningful profit (>= 5%), record as target_hit win
+							if (returnPct >= 5.0) {
+								newStatus = "target_hit";
+							} else {
+								newStatus = "expired";
+							}
 						}
 
 						await db
@@ -904,6 +939,7 @@ export class PickOfTheDayService {
 							.set({
 								currentPrice: livePrice.toString(),
 								returnPct: returnPct.toFixed(2),
+								...(stoplossAdjusted ? { stoplossPrice: stoplossPrice.toString() } : {}),
 								daysHeld,
 								status: newStatus,
 								updatedAt: new Date(),
