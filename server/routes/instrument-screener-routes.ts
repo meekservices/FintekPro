@@ -232,9 +232,9 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           standardDeviation: sql<string | null>`COALESCE(${fundFinancialRatios.standardDeviation}, ${mutualFundMetrics.standardDeviation})`,
           treynorRatio:      mutualFundMetrics.treynorRatio,
           maxDrawdown:       mutualFundMetrics.maxDrawdown,
-          peRatio:           sql<string | null>`COALESCE(${fundFinancialRatios.peRatio}, ${mutualFundMetrics.portfolioPeRatio})`,
-          pbRatio:           sql<string | null>`COALESCE(${fundFinancialRatios.pbRatio}, ${mutualFundMetrics.portfolioPbRatio})`,
-          portfolioTurnover: sql<string | null>`COALESCE(${fundFinancialRatios.portfolioTurnover}, ${mutualFundMetrics.portfolioTurnover})`,
+          peRatio:           mutualFundMetrics.portfolioPeRatio,
+          pbRatio:           mutualFundMetrics.portfolioPbRatio,
+          portfolioTurnover: mutualFundMetrics.portfolioTurnover,
           // Transactability fields
           isin:          mutualFunds.isin,
           isinGrowth:    mutualFunds.isinGrowth,
@@ -959,9 +959,9 @@ instrumentScreenerRouter.get("/instruments/:id", async (req: Request, res: Respo
           standardDeviation: sql<string | null>`COALESCE(${fundFinancialRatios.standardDeviation}, ${mutualFundMetrics.standardDeviation})`,
           treynorRatio:      mutualFundMetrics.treynorRatio,
           maxDrawdown:       mutualFundMetrics.maxDrawdown,
-          peRatio:           sql<string | null>`COALESCE(${fundFinancialRatios.peRatio}, ${mutualFundMetrics.portfolioPeRatio})`,
-          pbRatio:           sql<string | null>`COALESCE(${fundFinancialRatios.pbRatio}, ${mutualFundMetrics.portfolioPbRatio})`,
-          portfolioTurnover: sql<string | null>`COALESCE(${fundFinancialRatios.portfolioTurnover}, ${mutualFundMetrics.portfolioTurnover})`,
+          peRatio:           mutualFundMetrics.portfolioPeRatio,
+          pbRatio:           mutualFundMetrics.portfolioPbRatio,
+          portfolioTurnover: mutualFundMetrics.portfolioTurnover,
         })
         .from(mutualFunds)
         .leftJoin(

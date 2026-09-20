@@ -37,6 +37,17 @@ export async function runStartupSchemaRepairs() {
 			} catch { /* column already exists or table missing — non-fatal */ }
 		}
 		console.log(`  ✅ [CRITICAL] model_portfolios period columns: ${_ccOk}/${_criticalCols.length} ensured`);
+		// ── Fast-path for fund_financial_ratios columns ──────────────────────
+		const _fundRatioCols: Array<[string, string]> = [
+			["pe_ratio", "NUMERIC(10,2)"],
+			["pb_ratio", "NUMERIC(10,2)"],
+			["portfolio_turnover", "NUMERIC(10,2)"],
+		];
+		for (const [col, colType] of _fundRatioCols) {
+			try {
+				await migPool.query(`ALTER TABLE fund_financial_ratios ADD COLUMN IF NOT EXISTS "${col}" ${colType}`);
+			} catch { /* table or col exists */ }
+		}
 		// ── END CRITICAL FAST-PATH ────────────────────────────────────────────
 
 
