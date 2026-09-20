@@ -116,11 +116,15 @@ const BENCHMARK_RETURN_BY_TYPE: Record<string, number> = {
  */
 export function computeTWRR(subPeriodReturns: number[], holdingMonths: number): number {
   if (!subPeriodReturns.length || holdingMonths <= 0) return 0;
-  // Compound sub-period wealth relatives
-  const compounded = subPeriodReturns.reduce((acc, r) => acc * (1 + r), 1);
+  // Compound sub-period wealth relatives with non-finite and crash protection
+  const compounded = subPeriodReturns.reduce((acc, r) => {
+    const validR = isFinite(r) ? r : 0;
+    return acc * Math.max(0.0001, 1 + validR);
+  }, 1);
+  if (compounded <= 0 || !isFinite(compounded)) return 0;
   // Annualise: convert to annual percentage
   const annualised = (Math.pow(compounded, 12 / holdingMonths) - 1) * 100;
-  return parseFloat(annualised.toFixed(4));
+  return isFinite(annualised) ? parseFloat(annualised.toFixed(4)) : 0;
 }
 
 /**
@@ -315,11 +319,17 @@ export function computePortfolioDrift(portfolio: PortfolioQuantInput): Portfolio
   const t = monthsSinceRebalance / 12; // fraction of year
 
   // FIX B2: Compute compound weight evolution
-  // Each holding's value grows at (1 + annualReturn/100)^t
-  const compoundedValues = portfolio.holdings.map((h) => ({
-    holding: h,
-    compoundedValue: (h.weight / 100) * Math.pow(1 + (h.currentReturn ?? 0) / 100, t),
-  }));
+  // Each holding's value grows at (1 + annualReturn/100)^t, guarded against severe drawdowns <= -100%
+  const compoundedValues = portfolio.holdings.map((h) => {
+    const rawReturn = typeof h.currentReturn === "number" && isFinite(h.currentReturn) ? h.currentReturn : 0;
+    const growthFactor = Math.max(0.001, 1 + rawReturn / 100);
+    const weightFraction = Math.max(0, (h.weight ?? 0) / 100);
+    const val = weightFraction * Math.pow(growthFactor, t);
+    return {
+      holding: h,
+      compoundedValue: isFinite(val) ? val : weightFraction,
+    };
+  });
   const totalCompoundedValue = compoundedValues.reduce((s, x) => s + x.compoundedValue, 0) || 1;
 
   for (const { holding: h, compoundedValue } of compoundedValues) {
@@ -407,9 +417,11 @@ export function scorePortfolioAlpha(portfolio: PortfolioQuantInput): PortfolioAl
   };
   const assetClassKey = (portfolio as any).assetClass ?? (portfolio as any).asset_class ?? "";
   const riskProfileKey = (portfolio as any).riskProfile ?? (portfolio as any).risk_profile ?? "";
-  const volatility = portfolio.volatility ?? VOLATILITY_DEFAULTS[assetClassKey] ?? VOLATILITY_DEFAULTS[riskProfileKey] ?? 12;
-  const sharpeRatio = portfolio.sharpeRatio ??
-    parseFloat(((portfolio.cagr1Y - RISK_FREE_RATE) / volatility).toFixed(2));
+  const rawVol = portfolio.volatility ?? VOLATILITY_DEFAULTS[assetClassKey] ?? VOLATILITY_DEFAULTS[riskProfileKey] ?? 12;
+  const volatility = Math.max(0.1, typeof rawVol === "number" && isFinite(rawVol) ? rawVol : 12);
+  const sharpeRatio = portfolio.sharpeRatio !== undefined && isFinite(portfolio.sharpeRatio)
+    ? portfolio.sharpeRatio
+    : parseFloat(((portfolio.cagr1Y - RISK_FREE_RATE) / volatility).toFixed(2));
 
 
   let confidence = 50;
@@ -483,12 +495,21 @@ export function runPortfolioRebalance(
     const driftData = {
       drifting_assets: driftReport.holdingsDrift
         .filter(h => h.exceedsThreshold)
-        .map(h => ({
-          asset: h.asset,
-          delta: h.delta,
-          currentWeight: h.currentWeight / 100,
-          targetWeight: h.targetWeight / 100,
-        })),
+        .map(h => {
+          const matchedHolding = portfolio.holdings.find(ph => ph.name === h.asset);
+          const cat = (matchedHolding?.category ?? "").toLowerCase();
+          const assetClass = cat.includes("debt") ? "debt"
+            : cat.includes("gold") ? "gold"
+            : cat.includes("reit") ? "reit"
+            : "equity";
+          return {
+            asset: h.asset,
+            delta: h.delta,
+            currentWeight: h.currentWeight / 100,
+            targetWeight: h.targetWeight / 100,
+            assetClass,
+          };
+        }),
     };
     const { plan } = rebalanceOptimizer.generateOptimizedPlan(driftData as any, totalPortfolioValue);
     rebalancePlan = { ...plan, holdings_requiring_action: driftReport.driftingCount };

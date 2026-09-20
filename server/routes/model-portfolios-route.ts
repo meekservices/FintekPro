@@ -4019,7 +4019,7 @@ modelPortfoliosRouter.get("/:id/quant-signals", async (req: Request, res: Respon
       UPDATE model_portfolios
       SET drift_score = ${driftReport.driftScore},
           drift_details = ${JSON.stringify(driftReport.holdingsDrift.slice(0, 5))}::jsonb,
-          quant_engine_version = 'FASP-AI-v2.0',
+          quant_engine_version = ${ENGINE_VERSION},
           last_quant_run = NOW(),
           alpha = ${alphaScore.alpha},
           updated_at = NOW()
@@ -4055,9 +4055,9 @@ modelPortfoliosRouter.get("/:id/quant-signals", async (req: Request, res: Respon
       meta: {
         timestamp:     new Date().toISOString(),
         version:       ENGINE_VERSION,
-        engine_version: "FASP-AI-v2.0",
+        engine_version: ENGINE_VERSION,
         latency_ms:    Date.now() - t0,
-        disclaimer:    "FASP-AI v2.0 signals. Past performance is not indicative of future results.",
+        disclaimer:    "FASP-AI v3.0 signals. Past performance is not indicative of future results.",
       },
     });
   } catch (err: any) {
@@ -4530,7 +4530,7 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
   const t0 = Date.now();
   try {
     const { id } = req.params;
-    const { totalPortfolioValue = 1_000_000 } = req.body;
+    const { totalPortfolioValue = 1_000_000, preview = false } = req.body;
 
     const result = await db.execute(sql`
       SELECT id, name, asset_class, cagr_1y, cagr_3y, cagr_5y,
@@ -4570,16 +4570,15 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
 
     const quantResult = runPortfolioRebalance(portfolio, Number(totalPortfolioValue));
 
-    // Update last_rebalanced if rebalancing was needed
-    if (quantResult.rebalancePlan) {
+    // Update DB and log audit event only when executing (preview !== true)
+    if (!preview && quantResult.rebalancePlan) {
       await db.execute(sql`
         UPDATE model_portfolios
         SET last_rebalanced = ${new Date().toISOString().slice(0, 10)},
-            drift_score = ${quantResult.driftReport.driftScore},
+            drift_score = 0,
+            drift_details = '[]'::jsonb,
             last_quant_run = NOW(),
             alpha = ${quantResult.alphaScore.alpha},
-            -- BUG-2 FIX: Reset needs_rebalance flag after a successful manual rebalance
-            -- so the advisor dashboard badge clears and the pending plan is no longer stale.
             needs_rebalance = false,
             pending_rebalance_plan = NULL,
             source = 'api',
@@ -4599,7 +4598,7 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
             ${JSON.stringify(quantResult.driftReport.holdingsDrift.slice(0, 10))}::jsonb,
             'REBALANCED',
             ${(req.user as any)?.id ?? null},
-            'FASP-AI-v2.0', 'api'
+            ${ENGINE_VERSION}, 'api'
           )
         `);
       } catch (logErr: any) {
@@ -4616,10 +4615,6 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const action = _rawAction as any;
             const dtype = (action.action === "BUY" || action.action === "ADD") ? "ADD" : "TRIM";
-            // BUG-1 FIX: rebalanceOptimizer.generateOptimizedPlan returns { action, asset, quantity_proxy, reason }.
-            // There is NO `holding` field — action.holding was always undefined, causing every row
-            // to be inserted with chosen_name='Unknown' and chosen_scheme_code=null.
-            // Use action.asset (the holding name string) instead.
             const chosenName = String(action.asset ?? "Unknown");
             const rationaleDetail = `Drift ${quantResult.driftReport.driftScore}/100. ${action.action} ${chosenName}: ${action.reason ?? ""}. ΔQty-proxy: ${action.quantity_proxy ?? 0}`;
             await db.execute(sql`
@@ -4636,7 +4631,7 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
                 'DRIFT_CORRECTION',
                 ${rationaleDetail},
                 ${Math.round((1 - Math.min(100, quantResult.driftReport.driftScore) / 100) * 100)},
-                'FASP-AI-v2.0', ${(req.user as any)?.id ?? null}, 'fasp_ai'
+                ${ENGINE_VERSION}, ${(req.user as any)?.id ?? null}, 'fasp_ai'
               )
             `);
           }
@@ -4646,12 +4641,13 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
       }
     }
 
-    logger.info("[ModelPortfolios] rebalance triggered", {
-      event: "PORTFOLIO_REBALANCE_TRIGGERED",
+    logger.info(`[ModelPortfolios] rebalance ${preview ? "previewed" : "executed"}`, {
+      event: preview ? "PORTFOLIO_REBALANCE_PREVIEWED" : "PORTFOLIO_REBALANCE_TRIGGERED",
       user_id: (req.user as any)?.id ?? "anon",
       portfolio_id: id,
       drift_score: quantResult.driftReport.driftScore,
       actions_count: quantResult.rebalancePlan?.actions.length ?? 0,
+      preview,
       latency_ms: Date.now() - t0,
       status: "success",
     });
@@ -4660,15 +4656,18 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
       success: true,
       data: {
         portfolioId:   id,
+        executed:      !preview,
         driftReport:   { ...quantResult.driftReport, holdingsDrift: quantResult.driftReport.holdingsDrift.slice(0, 10) },
         alphaScore:    quantResult.alphaScore,
         rebalancePlan: quantResult.rebalancePlan,
-        advisory_note: "FASP-AI v2.0 rebalancing plan. Final execution requires advisor approval. No trades have been executed.",
+        advisory_note: preview
+          ? "FASP-AI v3.0 rebalancing preview. Review trade legs and tax considerations before confirming."
+          : "FASP-AI v3.0 rebalancing executed. Portfolio target weights restored and drift score reset to 0.",
       },
       meta: {
         timestamp: new Date().toISOString(),
         version: ENGINE_VERSION,
-        engine_version: "FASP-AI-v2.0",
+        engine_version: ENGINE_VERSION,
         latency_ms: Date.now() - t0,
         disclaimer: "Mutual Fund investments are subject to market risks. Read all scheme-related documents carefully.",
       },
@@ -4878,7 +4877,7 @@ modelPortfoliosRouter.post("/:id/invest", async (req: Request, res: Response) =>
             investType,
             sipDate: investType === "sip" ? sipDate : null,
             modelPortfolioSource: true,
-            quantEngineVersion: "FASP-AI-v2.0",
+            quantEngineVersion: ENGINE_VERSION,
           })}::jsonb,
           ${now},
           ${now}
@@ -4914,7 +4913,7 @@ modelPortfoliosRouter.post("/:id/invest", async (req: Request, res: Response) =>
         ${alphaScore.alpha},
         ${alphaScore.sharpeRatio},
         ${alphaScore.confidenceScore},
-        'FASP-AI-v2.0',
+        ${ENGINE_VERSION},
         ${alphaScore.recommendation},
         ${riskDisclaimer},
         ${JSON.stringify(cartItemIds)}::jsonb,
@@ -4941,7 +4940,7 @@ modelPortfoliosRouter.post("/:id/invest", async (req: Request, res: Response) =>
             alphaScore,
             cartItemIds,
             riskDisclaimer,
-            quantEngineVersion: "FASP-AI-v2.0",
+            quantEngineVersion: ENGINE_VERSION,
           })}::jsonb,
           ${cartSource},
           ${now}, ${now}
@@ -4978,19 +4977,19 @@ modelPortfoliosRouter.post("/:id/invest", async (req: Request, res: Response) =>
           sharpeRatio: alphaScore.sharpeRatio,
           confidenceScore: alphaScore.confidenceScore,
           recommendation: alphaScore.recommendation,
-          modelVersion: "FASP-AI-v2.0",
+          modelVersion: ENGINE_VERSION,
           timestamp: now,
         },
         nextSteps: agentId
           ? `Proposal ${proposalId} created. Share with client for review and approval.`
           : `Proposal ${proposalId} created. An advisor will review and share the execution plan with you.`,
-        advisory_note: "FASP-AI v2.0 advisory. Final execution requires advisor approval. No trades have been executed.",
+        advisory_note: "FASP-AI v3.0 advisory. Final execution requires advisor approval. No trades have been executed.",
         risk_disclosure: riskDisclaimer,
       },
       meta: {
         timestamp: now,
         version: ENGINE_VERSION,
-        engine_version: "FASP-AI-v2.0",
+        engine_version: ENGINE_VERSION,
         latency_ms: Date.now() - t0,
       },
     });

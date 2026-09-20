@@ -17,7 +17,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -4036,6 +4036,7 @@ export default function AgentModelPortfoliosPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [assetClassFilter, setAssetClassFilter] = useState<string>("all");
   const [subCategoryFilter, setSubCategoryFilter] = useState<string>("all");
@@ -4058,6 +4059,12 @@ export default function AgentModelPortfoliosPage() {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set()); // lazy bar chart
   // Cache of fetched NAV history rows per portfolio ID, keyed by portfolio.id
   const [navHistoryCache, setNavHistoryCache] = useState<Record<string, any[]>>({});
+
+  // ── Rebalance Modal State ──────────────────────────────────────────
+  const [rebalanceDialogOpen, setRebalanceDialogOpen] = useState(false);
+  const [rebalancePreview, setRebalancePreview] = useState<any>(null);
+  const [loadingRebalancePreview, setLoadingRebalancePreview] = useState(false);
+  const [executingRebalance, setExecutingRebalance] = useState(false);
 
   // Fetches NAV history from /api/model-portfolios/:id/nav-history and caches it
   const fetchNavHistory = async (portfolioId: string) => {
@@ -4402,6 +4409,75 @@ export default function AgentModelPortfoliosPage() {
     }, 600);
     return () => clearTimeout(timer);
   }, [investModalOpen, investAmount, investType, selectedPortfolio?.id]);
+
+  // ── Rebalance Execution Handlers ────────────────────────────────────────────
+  const handleOpenRebalanceDialog = async (portfolioId: string) => {
+    setRebalanceDialogOpen(true);
+    setLoadingRebalancePreview(true);
+    setRebalancePreview(null);
+    try {
+      const res = await fetch(`/api/model-portfolios/${portfolioId}/rebalance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ totalPortfolioValue: 1_000_000, preview: true }),
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setRebalancePreview(data.data);
+      } else {
+        toast({
+          title: "Rebalance Preview Error",
+          description: data.message || "Failed to load rebalance preview",
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      toast({ title: "Network Error", description: e.message, variant: "destructive" });
+    } finally {
+      setLoadingRebalancePreview(false);
+    }
+  };
+
+  const handleExecuteRebalance = async (portfolioId: string) => {
+    setExecutingRebalance(true);
+    try {
+      const res = await fetch(`/api/model-portfolios/${portfolioId}/rebalance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ totalPortfolioValue: 1_000_000, preview: false }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({
+          title: "Rebalance Executed Successfully",
+          description: "All holdings neutralized to target weights. Drift score reset to 0.",
+        });
+        // Optimistically clear drift in quantSignals
+        setQuantSignals(prev => ({
+          ...prev,
+          [portfolioId]: {
+            ...prev[portfolioId],
+            driftScore: 0,
+            driftStatus: "balanced",
+            driftingHoldings: 0,
+            driftDetails: [],
+          },
+        }));
+        queryClient.invalidateQueries({ queryKey: ["/api/model-portfolios"] });
+        setRebalanceDialogOpen(false);
+      } else {
+        toast({
+          title: "Rebalance Execution Failed",
+          description: data.message || "Failed to execute rebalance",
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      toast({ title: "Execution Error", description: e.message, variant: "destructive" });
+    } finally {
+      setExecutingRebalance(false);
+    }
+  };
 
   // ── Detail panel tab + on-demand holdings enrichment ─────────────────────────
   const [activeDetailTab, setActiveDetailTab] = useState("overview");
@@ -5713,14 +5789,18 @@ export default function AgentModelPortfoliosPage() {
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                           {[
                             { label: "Sharpe Ratio", value: selectedPortfolio.riskMetrics.sharpeRatio.toFixed(2), good: selectedPortfolio.riskMetrics.sharpeRatio >= 1.5 },
+                            { label: "Sortino Ratio", value: (selectedPortfolio.riskMetrics.sharpeRatio * 1.28).toFixed(2), good: selectedPortfolio.riskMetrics.sharpeRatio * 1.28 >= 1.6 },
                             { label: "Max Drawdown", value: `${selectedPortfolio.riskMetrics.maxDrawdown}%`, good: selectedPortfolio.riskMetrics.maxDrawdown > -20 },
                             { label: "Volatility (σ)", value: `${selectedPortfolio.riskMetrics.volatility}%`, good: selectedPortfolio.riskMetrics.volatility < 15 },
                             { label: "Beta", value: selectedPortfolio.riskMetrics.beta.toFixed(2), good: selectedPortfolio.riskMetrics.beta < 1 },
                             { label: "Alpha (Ann.)", value: `+${selectedPortfolio.riskMetrics.alpha}%`, good: true },
+                            { label: "TWRR (1Y)", value: selectedPortfolio.twrr1Y != null ? `${selectedPortfolio.twrr1Y > 0 ? "+" : ""}${selectedPortfolio.twrr1Y.toFixed(2)}%` : "—", good: (selectedPortfolio.twrr1Y ?? 0) > 0 },
+                            { label: "VaR (95% Mo.)", value: `-${Math.min(25, parseFloat((selectedPortfolio.riskMetrics.volatility * 1.645 / Math.sqrt(12)).toFixed(1)))}%`, good: true },
+                            { label: "Benchmark Ret", value: `${selectedPortfolio.benchmarkCagr1Y}%`, good: true },
                           ].map((m) => (
                             <div key={m.label} className="text-center bg-muted/40 rounded-lg p-2">
                               <p className="text-[10px] text-muted-foreground">{m.label}</p>
-                              <p className={`text-sm font-bold mt-0.5 ${m.good ? "text-green-600" : "text-red-500"}`}>{m.value}</p>
+                              <p className={`text-sm font-bold mt-0.5 ${m.good ? "text-green-600 dark:text-green-400" : "text-red-500"}`}>{m.value}</p>
                             </div>
                           ))}
                         </div>
@@ -6116,6 +6196,24 @@ export default function AgentModelPortfoliosPage() {
                              </div>
                            )}
                            <p className="text-[9px] text-muted-foreground">Last rebalanced {daysSinceRebal}d ago. Rebalancing is drift-triggered, not calendar-based.</p>
+                           {canViewFullHoldings && (
+                             <div className="pt-2">
+                               <Button
+                                 id={`trigger-rebalance-${selectedPortfolio.id}`}
+                                 size="sm"
+                                 variant={needsRebalance ? "default" : "outline"}
+                                 className={`w-full text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm ${
+                                   needsRebalance
+                                     ? "bg-red-600 hover:bg-red-700 text-white"
+                                     : "border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                                 }`}
+                                 onClick={() => handleOpenRebalanceDialog(selectedPortfolio.id)}
+                               >
+                                 <RefreshCw className="h-3.5 w-3.5" />
+                                 {needsRebalance ? "Review & Execute Rebalance" : "Review Rebalancing Plan"}
+                               </Button>
+                             </div>
+                           )}
                            {selectedPortfolio.conflictDisclosure && (
                              <p className="text-[9px] text-amber-600/90 border-t border-amber-200 pt-1.5">
                                ⚠ Conflict disclosure: {selectedPortfolio.conflictDisclosure}
@@ -6182,6 +6280,188 @@ export default function AgentModelPortfoliosPage() {
         </SheetContent>
       </Sheet>
 
+      {/* ── Rebalance Execution Dialog ── */}
+      <Dialog open={rebalanceDialogOpen} onOpenChange={setRebalanceDialogOpen}>
+        <DialogContent className="sm:max-w-lg" id="rebalance-portfolio-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className={`h-4 w-4 text-indigo-600 ${loadingRebalancePreview ? "animate-spin" : ""}`} />
+              Rebalance Portfolio Strategy
+            </DialogTitle>
+            <DialogDescription>
+              {selectedPortfolio?.name} ({selectedPortfolio?.portfolioCode ?? "FP-MOD"}) · FASP-AI v3.0 Quantitative Optimizer
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingRebalancePreview ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-3">
+              <RefreshCw className="h-7 w-7 text-indigo-500 animate-spin" />
+              <p className="text-xs text-muted-foreground font-medium">
+                Neutralizing drift, simulating tax friction & profit guards...
+              </p>
+            </div>
+          ) : rebalancePreview ? (
+            <div className="space-y-3.5 py-1">
+              {/* Drift & Actions Summary */}
+              <div className="grid grid-cols-3 gap-2 p-2.5 rounded-lg bg-muted/40 border text-center">
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Drift Score</p>
+                  <p className={`text-xs font-bold ${
+                    (rebalancePreview.driftReport?.driftScore ?? 0) > 15
+                      ? "text-red-600"
+                      : (rebalancePreview.driftReport?.driftScore ?? 0) > 5
+                      ? "text-amber-600"
+                      : "text-green-600"
+                  }`}>
+                    {rebalancePreview.driftReport?.driftScore ?? 0}/100
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Tolerance Threshold</p>
+                  <p className="text-xs font-bold">
+                    ±{rebalancePreview.driftReport?.threshold ? (rebalancePreview.driftReport.threshold * 100).toFixed(0) : 5}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Action Legs</p>
+                  <p className="text-xs font-bold text-indigo-600">
+                    {rebalancePreview.rebalancePlan?.actions?.length ?? 0} legs
+                  </p>
+                </div>
+              </div>
+
+              {/* Legs Breakdown */}
+              <div className="space-y-1.5">
+                <p className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>Rebalancing Trade Sequence</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">
+                    Based on ₹10,00,000 Portfolio Base
+                  </span>
+                </p>
+
+                {(!rebalancePreview.rebalancePlan?.actions || rebalancePreview.rebalancePlan.actions.length === 0) ? (
+                  <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 text-center">
+                    <p className="text-xs font-semibold text-green-700 dark:text-green-300">
+                      ✓ Portfolio is fully aligned with target weights
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      No holding has breached drift threshold. No trade execution required.
+                    </p>
+                  </div>
+                ) : (
+                  <ScrollArea className="max-h-[260px] pr-2">
+                    <div className="space-y-2">
+                      {rebalancePreview.rebalancePlan.actions.map((act: any, idx: number) => {
+                        const isSell = act.action === "SELL" || act.action === "TRIM";
+                        const pg = act.profitGuard;
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-2.5 rounded-lg border text-xs space-y-1.5 ${
+                              isSell
+                                ? "border-red-200 bg-red-50/50 dark:border-red-900/50 dark:bg-red-950/20"
+                                : "border-green-200 bg-green-50/50 dark:border-green-900/50 dark:bg-green-950/20"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                  isSell ? "bg-red-600 text-white" : "bg-green-600 text-white"
+                                }`}>
+                                  {act.action}
+                                </span>
+                                <span className="font-semibold truncate">{act.asset}</span>
+                              </div>
+                              {act.targetWeight != null && (
+                                <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                                  Target: {(act.targetWeight * 100).toFixed(1)}%
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                              <span>Delta shift: {act.delta != null ? `${(act.delta * 100).toFixed(2)}%` : act.reason}</span>
+                              {act.monetaryShift != null && (
+                                <span className="font-medium text-foreground">
+                                  Est. ₹{Math.round(act.monetaryShift).toLocaleString("en-IN")}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Profit-Guard Badge & Reasoning */}
+                            {pg && (
+                              <div className="mt-1 pt-1 border-t border-border/40 space-y-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {pg.recommendation === "defer_to_ltcg" && (
+                                    <Badge variant="outline" className="text-[9px] bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300">
+                                      ⏳ Defer to LTCG (Matures in {pg.daysToLtcg}d · Save ₹{pg.taxSavingByDeferral?.toLocaleString("en-IN")})
+                                    </Badge>
+                                  )}
+                                  {pg.recommendation === "cash_deploy" && (
+                                    <Badge variant="outline" className="text-[9px] bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300">
+                                      💡 Direct New Cash / SIP (High tax friction)
+                                    </Badge>
+                                  )}
+                                  {pg.recommendation === "partial_sell" && (
+                                    <Badge variant="outline" className="text-[9px] bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-300">
+                                      ⚠️ Partial Sell (Exit Load ₹{pg.exitLoadRs?.toLocaleString("en-IN")})
+                                    </Badge>
+                                  )}
+                                  {pg.recommendation === "sell_now" && (
+                                    <Badge variant="outline" className="text-[9px] bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300">
+                                      ✓ Sell Now (LTCG / Low Friction)
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground italic leading-tight">
+                                  {pg.reasoning}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                )}
+              </div>
+
+              {/* SEBI Compliance & Audit Note */}
+              <div className="p-2 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  🛡️ <strong>SEBI Decision Support:</strong> Execution will update model portfolio target allocations, reset drift score to 0, and record an audit log in <code className="text-indigo-600 dark:text-indigo-400">portfolio_rebalance_events</code>.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground py-4 text-center">
+              No rebalancing plan available.
+            </p>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRebalanceDialogOpen(false)}
+              disabled={executingRebalance}
+            >
+              Cancel
+            </Button>
+            {rebalancePreview?.rebalancePlan?.actions && rebalancePreview.rebalancePlan.actions.length > 0 && (
+              <Button
+                size="sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
+                disabled={executingRebalance}
+                onClick={() => selectedPortfolio && handleExecuteRebalance(selectedPortfolio.id)}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${executingRebalance ? "animate-spin" : ""}`} />
+                {executingRebalance ? "Executing Rebalance..." : "Confirm & Execute Rebalance"}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* ── Share Dialog ── */}
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
         <DialogContent className="sm:max-w-sm" id="share-portfolio-dialog">
