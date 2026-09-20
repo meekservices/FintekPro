@@ -103,6 +103,7 @@ import researchWorkspaceRouter from "./routes/research-workspace";
 import smallcaseRouter from "./routes/smallcase-routes";
 import screenerRouter from "./routes/screener-routes";
 import { instrumentScreenerRouter } from "./routes/instrument-screener-routes";
+import { faspAdvisoryRouter } from "./routes/fasp-advisory-routes";
 import errorTrackingRouter from "./routes/error-tracking-routes";
 import { Router } from "express";
 
@@ -443,6 +444,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 	app.use("/", screenerRouter);
 	// ── Universal instrument screener: MF, Bonds, ETFs ──────────────────────
 	app.use("/api/screener", instrumentScreenerRouter);
+	// ── FASP Grounded Advisory & Research ──────────────────────────────────
+	app.use("/api/advisory", faspAdvisoryRouter);
 
 	app.use("/api/live-mf", liveMFDataRouter);
 	app.use("/api/tester/diagnostics", testerDiagnosticsRoutes);

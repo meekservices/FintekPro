@@ -41,6 +41,7 @@ import {
 	isClosingAuctionWindow,
 	CAS_WINDOW_DISCLAIMER,
 } from "./market-session-service";
+import { faspGroundingService } from "./fasp-grounding-service";
 
 
 // --- Strategy Imports ---
@@ -1414,12 +1415,15 @@ Rules: Be specific. No generic phrases. Risk disclosure tone. Max 20 words per l
 						timeHorizonRationale: parsed.timeHorizonRationale ?? "",
 					});
 				}
-				return rationaleStr;
+				const { sanitized } = faspGroundingService.sanitizeAndValidateCompliance(rationaleStr);
+				return sanitized;
 			} catch {
-				return text;
+				const { sanitized } = faspGroundingService.sanitizeAndValidateCompliance(text);
+				return sanitized;
 			}
 		}
-		return text;
+		const { sanitized } = faspGroundingService.sanitizeAndValidateCompliance(text);
+		return sanitized;
 	}
 
 	/** Fix E: Returns structured rationale for a pick (if AI returned one). */

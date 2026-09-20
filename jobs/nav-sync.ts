@@ -68,6 +68,16 @@ async function run(): Promise<void> {
 			logger.warn(`[${JOB_NAME}] Phase B failed (non-fatal)`, { error: String(err) });
 		}
 
+		// Phase C: MF return metrics calculation (1Y, 3Y, 5Y CAGR)
+		logger.info(`[${JOB_NAME}] Phase C: MF return metrics calculation`);
+		try {
+			const { mutualFundMetricsService } = await import("../server/services/mutual-fund-metrics-service");
+			const result = await mutualFundMetricsService.batchUpdateReturns();
+			logger.info(`[${JOB_NAME}] Phase C complete: ${result.successfulUpdates} schemes updated`);
+		} catch (err) {
+			logger.warn(`[${JOB_NAME}] Phase C failed (non-fatal)`, { error: String(err) });
+		}
+
 		const latencyMs = Date.now() - START_TIME;
 		logger.info(`[${JOB_NAME}] Job completed successfully`, {
 			event: "JOB_COMPLETE",
