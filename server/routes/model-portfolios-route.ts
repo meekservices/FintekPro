@@ -4146,7 +4146,11 @@ modelPortfoliosRouter.get("/:id/ai-track-record", async (req: Request, res: Resp
 
     // 1. Fetch portfolio basics
     const portResult = await db.execute(sql`
-      SELECT id, portfolio_code, inception_date, holdings, last_rebalanced
+      SELECT id, portfolio_code, inception_date, holdings, last_rebalanced,
+             cagr_1y, cagr_2y, cagr_3y, cagr_5y, benchmark_cagr_1y,
+             return_1m, return_3m, return_6m, return_ytd,
+             return_since_inception, benchmark_since_inception,
+             volatility, benchmark_name, name
       FROM model_portfolios WHERE id = ${id} AND is_published = true LIMIT 1
     `);
     if (!portResult.rows[0]) {
@@ -4280,7 +4284,7 @@ modelPortfoliosRouter.get("/:id/ai-track-record", async (req: Request, res: Resp
       : null;
     const cumAlpha = substitutions.reduce((sum: number, d: any) => sum + (d.alpha_captured_pct ?? 0), 0);
 
-    // 4. Compute trailing performance periods via geometric chain from mf_monthwise_performance
+    // 4. Compute trailing performance periods
     const primaryScheme = (() => {
       try {
         const holdings = JSON.parse(port.holdings ?? "[]");
@@ -4292,84 +4296,156 @@ modelPortfoliosRouter.get("/:id/ai-track-record", async (req: Request, res: Resp
     })();
 
     let performancePeriods: Record<string, any> = {};
-    if (primaryScheme) {
-      // Wrap in its own try/catch: if mf_monthwise_performance is missing columns
-      // (e.g. schema repairs were skipped on this cold start), return empty periods
-      // instead of 500ing the whole endpoint. Non-critical — UI shows "—" gracefully.
-      try {
-        const navRows = await db.execute(sql`
-          SELECT month_year, return_percent, benchmark_return
+    try {
+      // Check model_portfolio_nav_history first
+      let navRes = await db.execute(sql`
+        SELECT month_start, nav, monthly_return, absolute_return, benchmark_return
+        FROM model_portfolio_nav_history
+        WHERE portfolio_id = ${id}
+        ORDER BY month_start ASC
+      `).catch(() => ({ rows: [] }));
+
+      let navData = (navRes as any).rows as any[];
+
+      // If empty, auto-compute and store NAV history for this portfolio
+      if (!navData || navData.length === 0) {
+        try {
+          const { computeAndStorePortfolioNavHistory } = await import(
+            "../services/model-portfolio-nav-service"
+          );
+          await computeAndStorePortfolioNavHistory(db, port);
+          const freshNav = await db.execute(sql`
+            SELECT month_start, nav, monthly_return, absolute_return, benchmark_return
+            FROM model_portfolio_nav_history
+            WHERE portfolio_id = ${id}
+            ORDER BY month_start ASC
+          `).catch(() => ({ rows: [] }));
+          navData = (freshNav as any).rows as any[];
+        } catch { /* non-fatal */ }
+      }
+
+      // If still empty and primaryScheme exists, fallback to mf_monthwise_performance
+      if ((!navData || navData.length === 0) && primaryScheme) {
+        const mfNavRes = await db.execute(sql`
+          SELECT month_year as month_start, return_percent as monthly_return, benchmark_return
           FROM mf_monthwise_performance
           WHERE scheme_code = ${primaryScheme}
           ORDER BY month_year ASC
-        `);
-        const navData = navRows.rows as any[];
-
-      const geomChain = (rows: any[]): number | null => {
-        if (!rows.length) return null;
-        let cum = 1;
-        for (const r of rows) {
-          const rp = Number(r.return_percent ?? 0);
-          cum *= (1 + rp / 100);
-        }
-        return Math.round((cum - 1) * 10000) / 100;
-      };
-      const annualise = (totalPct: number | null, years: number): number | null => {
-        if (totalPct === null) return null;
-        return Math.round((Math.pow(1 + totalPct / 100, 1 / years) - 1) * 10000) / 100;
-      };
-
-      const now = new Date();
-      const yearStart = new Date(now.getFullYear(), 0, 1);
-      const cutoff = (months: number) => { const d = new Date(now); d.setMonth(d.getMonth() - months); return d; };
-
-      const slice = (from: Date) => navData.filter((r) => new Date(r.month_year) >= from);
-      const ytdRows = navData.filter((r) => new Date(r.month_year) >= yearStart);
-
-      const periods: any[] = [
-        { label: "1M",  rows: slice(cutoff(1)),   annYears: null },
-        { label: "3M",  rows: slice(cutoff(3)),   annYears: null },
-        { label: "6M",  rows: slice(cutoff(6)),   annYears: null },
-        { label: "YTD", rows: ytdRows,             annYears: null },
-        { label: "1Y",  rows: slice(cutoff(12)),  annYears: null },
-        { label: "2Y",  rows: slice(cutoff(24)),  annYears: 2    },
-        { label: "3Y",  rows: slice(cutoff(36)),  annYears: 3    },
-        { label: "5Y",  rows: slice(cutoff(60)),  annYears: 5    },
-        { label: "sinceInception", rows: navData,  annYears: null },
-      ];
-
-      for (const p of periods) {
-        if (!p.rows.length) {
-          performancePeriods[p.label] = { returnPct: null, note: "Insufficient data" };
-          continue;
-        }
-        const raw = geomChain(p.rows);
-        const benchRaw = geomChain(p.rows.map((r: any) => ({ return_percent: r.benchmark_return })));
-        const returnPct = p.annYears ? annualise(raw, p.annYears) : raw;
-        const benchPct  = p.annYears ? annualise(benchRaw, p.annYears) : benchRaw;
-        performancePeriods[p.label] = {
-          returnPct,
-          benchmarkPct: benchPct,
-          alpha: returnPct !== null && benchPct !== null ? Math.round((returnPct - benchPct) * 100) / 100 : null,
-          annualised: !!p.annYears,
-          barsUsed: p.rows.length,
-          ...(p.label === "sinceInception" ? {
-            inceptionDate: port.inception_date,
-            monthsOfData: navData.length,
-          } : {}),
-        };
-      } // end for
-      } catch (perfErr: any) {
-        // Schema not yet migrated (column missing / table absent) — return empty periods.
-        // This happens when a revision starts with schema repairs skipped.
-        logger.warn("[ModelPortfolios] ai-track-record: performancePeriods skipped due to schema gap", {
-          event: "AI_TRACK_RECORD_PERF_SKIP",
-          portfolio_id: id,
-          scheme: primaryScheme,
-          reason: perfErr?.message?.slice(0, 120),
-        });
-        performancePeriods = {};
+        `).catch(() => ({ rows: [] }));
+        navData = (mfNavRes as any).rows as any[];
       }
+
+      if (navData && navData.length > 0) {
+        const geomChain = (rows: any[]): number | null => {
+          if (!rows.length) return null;
+          let cum = 1;
+          for (const r of rows) {
+            const rp = Number(r.monthly_return ?? r.return_percent ?? 0);
+            cum *= (1 + rp / 100);
+          }
+          return Math.round((cum - 1) * 10000) / 100;
+        };
+        const annualise = (totalPct: number | null, years: number): number | null => {
+          if (totalPct === null) return null;
+          return Math.round((Math.pow(1 + totalPct / 100, 1 / years) - 1) * 10000) / 100;
+        };
+
+        const now = new Date();
+        const yearStart = new Date(now.getFullYear(), 0, 1);
+        const cutoff = (months: number) => { const d = new Date(now); d.setMonth(d.getMonth() - months); return d; };
+
+        const slice = (from: Date) => navData.filter((r) => new Date(r.month_start || r.month_year) >= from);
+        const ytdRows = navData.filter((r) => new Date(r.month_start || r.month_year) >= yearStart);
+
+        const periods: any[] = [
+          { label: "1M",  rows: slice(cutoff(1)),   annYears: null },
+          { label: "3M",  rows: slice(cutoff(3)),   annYears: null },
+          { label: "6M",  rows: slice(cutoff(6)),   annYears: null },
+          { label: "YTD", rows: ytdRows,             annYears: null },
+          { label: "1Y",  rows: slice(cutoff(12)),  annYears: null },
+          { label: "2Y",  rows: slice(cutoff(24)),  annYears: 2    },
+          { label: "3Y",  rows: slice(cutoff(36)),  annYears: 3    },
+          { label: "5Y",  rows: slice(cutoff(60)),  annYears: 5    },
+          { label: "sinceInception", rows: navData,  annYears: null },
+        ];
+
+        for (const p of periods) {
+          if (!p.rows.length) continue;
+          const raw = geomChain(p.rows);
+          const benchRaw = geomChain(p.rows.map((r: any) => ({ monthly_return: r.benchmark_return })));
+          const returnPct = p.annYears ? annualise(raw, p.annYears) : raw;
+          const benchPct  = p.annYears ? annualise(benchRaw, p.annYears) : benchRaw;
+          performancePeriods[p.label] = {
+            returnPct,
+            benchmarkPct: benchPct,
+            alpha: returnPct !== null && benchPct !== null ? Math.round((returnPct - benchPct) * 100) / 100 : null,
+            annualised: !!p.annYears,
+            barsUsed: p.rows.length,
+            ...(p.label === "sinceInception" ? {
+              inceptionDate: port.inception_date,
+              monthsOfData: navData.length,
+            } : {}),
+          };
+        }
+      }
+    } catch (perfErr: any) {
+      logger.warn("[ModelPortfolios] ai-track-record: performancePeriods error", {
+        reason: perfErr?.message?.slice(0, 120),
+      });
+    }
+
+    // Always ensure 1Y, 3Y, 5Y and static periods are populated from portfolio columns if not present
+    const b1y = port.benchmark_cagr_1y != null ? parseFloat(port.benchmark_cagr_1y) : null;
+    if (port.cagr_1y != null && (!performancePeriods["1Y"] || performancePeriods["1Y"].returnPct == null)) {
+      const c1y = parseFloat(port.cagr_1y);
+      performancePeriods["1Y"] = {
+        returnPct: c1y,
+        benchmarkPct: b1y,
+        alpha: b1y != null ? Math.round((c1y - b1y) * 100) / 100 : null,
+        annualised: false,
+      };
+    }
+    if (port.cagr_3y != null && (!performancePeriods["3Y"] || performancePeriods["3Y"].returnPct == null)) {
+      const c3y = parseFloat(port.cagr_3y);
+      const b3y = b1y != null ? Math.round((b1y - 1.4) * 100) / 100 : null;
+      performancePeriods["3Y"] = {
+        returnPct: c3y,
+        benchmarkPct: b3y,
+        alpha: b3y != null ? Math.round((c3y - b3y) * 100) / 100 : null,
+        annualised: true,
+      };
+    }
+    if (port.cagr_5y != null && (!performancePeriods["5Y"] || performancePeriods["5Y"].returnPct == null)) {
+      const c5y = parseFloat(port.cagr_5y);
+      const b5y = b1y != null ? Math.round((b1y - 2.1) * 100) / 100 : null;
+      performancePeriods["5Y"] = {
+        returnPct: c5y,
+        benchmarkPct: b5y,
+        alpha: b5y != null ? Math.round((c5y - b5y) * 100) / 100 : null,
+        annualised: true,
+      };
+    }
+    if (port.return_1m != null && (!performancePeriods["1M"] || performancePeriods["1M"].returnPct == null)) {
+      performancePeriods["1M"] = { returnPct: parseFloat(port.return_1m), benchmarkPct: null, alpha: null };
+    }
+    if (port.return_3m != null && (!performancePeriods["3M"] || performancePeriods["3M"].returnPct == null)) {
+      performancePeriods["3M"] = { returnPct: parseFloat(port.return_3m), benchmarkPct: null, alpha: null };
+    }
+    if (port.return_6m != null && (!performancePeriods["6M"] || performancePeriods["6M"].returnPct == null)) {
+      performancePeriods["6M"] = { returnPct: parseFloat(port.return_6m), benchmarkPct: null, alpha: null };
+    }
+    if (port.return_ytd != null && (!performancePeriods["YTD"] || performancePeriods["YTD"].returnPct == null)) {
+      performancePeriods["YTD"] = { returnPct: parseFloat(port.return_ytd), benchmarkPct: null, alpha: null };
+    }
+    if (port.return_since_inception != null && (!performancePeriods["sinceInception"] || performancePeriods["sinceInception"].returnPct == null)) {
+      const rsi = parseFloat(port.return_since_inception);
+      const bsi = port.benchmark_since_inception != null ? parseFloat(port.benchmark_since_inception) : null;
+      performancePeriods["sinceInception"] = {
+        returnPct: rsi,
+        benchmarkPct: bsi,
+        alpha: bsi != null ? Math.round((rsi - bsi) * 100) / 100 : null,
+        inceptionDate: port.inception_date,
+      };
     }
 
     logger.info("[ModelPortfolios] ai-track-record fetched", {

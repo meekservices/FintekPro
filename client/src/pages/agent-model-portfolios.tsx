@@ -3296,42 +3296,116 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
   }, [portfolioId]);
 
   const isSebi = twrr1Y != null;
-  const hasDbPeriods = return1m != null || return3m != null || returnYtd != null;
 
-  const staticRows = hasDbPeriods ? [
-    { label: "1 Month",        returnPct: return1m,              benchmarkPct: null,                       alpha: null },
-    { label: "3 Months",       returnPct: return3m,              benchmarkPct: null,                       alpha: null },
-    { label: "6 Months",       returnPct: return6m,              benchmarkPct: null,                       alpha: null },
-    { label: "YTD",            returnPct: returnYtd,             benchmarkPct: null,                       alpha: null },
-    { label: "1 Year",         returnPct: cagr1Y,                benchmarkPct: benchmarkCagr1Y,            alpha: benchmarkCagr1Y != null ? (cagr1Y ?? 0) - benchmarkCagr1Y : null },
-    { label: "2 Years (ann.)", returnPct: cagr2y,                benchmarkPct: null,                       alpha: null },
-    { label: "3 Years (ann.)", returnPct: cagr3y,                benchmarkPct: null,                       alpha: null },
-    { label: `3Y ${inceptionMonths < 36 ? "est." : "CAGR"} (ann.)`, returnPct: cagr3Y,                benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 1.4 : null, alpha: benchmarkCagr1Y != null && cagr3Y != null ? cagr3Y - (benchmarkCagr1Y - 1.4) : null },
-    { label: "5 Years (ann.)", returnPct: cagr5Y,                benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 2.1 : null, alpha: benchmarkCagr1Y != null && cagr5Y != null ? cagr5Y - (benchmarkCagr1Y - 2.1) : null },
-    { label: "Since Inception",returnPct: returnSinceInception,  benchmarkPct: benchmarkSinceInception,    alpha: returnSinceInception != null && benchmarkSinceInception != null ? Number(returnSinceInception) - Number(benchmarkSinceInception) : null },
-  ].filter(r => r.returnPct != null)
-  : [
-    { label: "1 Year",         returnPct: cagr1Y, benchmarkPct: benchmarkCagr1Y,                           alpha: benchmarkCagr1Y != null ? (cagr1Y ?? 0) - benchmarkCagr1Y : null },
-    { label: "3 Years (ann.)", returnPct: cagr3Y, benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 1.4 : null, alpha: benchmarkCagr1Y != null ? (cagr3Y ?? 0) - (benchmarkCagr1Y - 1.4) : null },
-    { label: "5 Years (ann.)", returnPct: cagr5Y, benchmarkPct: benchmarkCagr1Y != null ? benchmarkCagr1Y - 2.1 : null, alpha: benchmarkCagr1Y != null ? (cagr5Y ?? 0) - (benchmarkCagr1Y - 2.1) : null },
-  ];
-
-  const PERIOD_KEYS = ["1M","3M","6M","YTD","1Y","2Y","3Y","5Y","sinceInception"];
-  const PERIOD_LABELS: Record<string,string> = {
-    "1M":"1 Month","3M":"3 Months","6M":"6 Months","YTD":"YTD",
-    "1Y":"1 Year","2Y":"2 Years (ann.)","3Y":"3Y CAGR (ann.)","5Y":"5 Years (ann.)","sinceInception":"Since Inception",
+  const PERIOD_KEYS = ["1M", "3M", "6M", "YTD", "1Y", "2Y", "3Y", "5Y", "sinceInception"];
+  const PERIOD_LABELS: Record<string, string> = {
+    "1M": "1 Month",
+    "3M": "3 Months",
+    "6M": "6 Months",
+    "YTD": "YTD",
+    "1Y": "1 Year",
+    "2Y": "2 Years (ann.)",
+    "3Y": "3Y CAGR (ann.)",
+    "5Y": "5 Years (ann.)",
+    "sinceInception": "Since Inception",
   };
 
-  const liveRows = liveData
-    ? PERIOD_KEYS.map(key => {
-        const p = liveData[key]; if (!p) return null;
-        return { label: PERIOD_LABELS[key], returnPct: p.returnPct, benchmarkPct: p.benchmarkPct, alpha: p.alpha, note: p.note,
-          extra: key === "sinceInception" && p.inceptionDate
-            ? `since ${new Date(p.inceptionDate).toLocaleDateString("en-IN",{month:"short",year:"numeric"})} \u00b7 ${p.monthsOfData}M` : undefined };
-      }).filter(Boolean)
-    : null;
+  const staticRows = useMemo(() => {
+    const list: any[] = [];
+    if (return1m != null) list.push({ label: "1 Month", returnPct: return1m, benchmarkPct: null, alpha: null });
+    if (return3m != null) list.push({ label: "3 Months", returnPct: return3m, benchmarkPct: null, alpha: null });
+    if (return6m != null) list.push({ label: "6 Months", returnPct: return6m, benchmarkPct: null, alpha: null });
+    if (returnYtd != null) list.push({ label: "YTD", returnPct: returnYtd, benchmarkPct: null, alpha: null });
+    if (cagr1Y != null) {
+      list.push({
+        label: "1 Year",
+        returnPct: cagr1Y,
+        benchmarkPct: benchmarkCagr1Y ?? null,
+        alpha: benchmarkCagr1Y != null ? Number(((cagr1Y ?? 0) - benchmarkCagr1Y).toFixed(2)) : null,
+      });
+    }
+    if (cagr2y != null) list.push({ label: "2 Years (ann.)", returnPct: cagr2y, benchmarkPct: null, alpha: null });
+    if (cagr3Y != null) {
+      list.push({
+        label: `3Y ${inceptionMonths < 36 ? "est." : "CAGR"} (ann.)`,
+        returnPct: cagr3Y,
+        benchmarkPct: benchmarkCagr1Y != null ? Number((benchmarkCagr1Y - 1.4).toFixed(2)) : null,
+        alpha: benchmarkCagr1Y != null ? Number((cagr3Y - (benchmarkCagr1Y - 1.4)).toFixed(2)) : null,
+      });
+    }
+    if (cagr5Y != null) {
+      list.push({
+        label: "5 Years (ann.)",
+        returnPct: cagr5Y,
+        benchmarkPct: benchmarkCagr1Y != null ? Number((benchmarkCagr1Y - 2.1).toFixed(2)) : null,
+        alpha: benchmarkCagr1Y != null ? Number((cagr5Y - (benchmarkCagr1Y - 2.1)).toFixed(2)) : null,
+      });
+    }
+    if (returnSinceInception != null) {
+      list.push({
+        label: "Since Inception",
+        returnPct: returnSinceInception,
+        benchmarkPct: benchmarkSinceInception ?? null,
+        alpha: benchmarkSinceInception != null ? Number((Number(returnSinceInception) - Number(benchmarkSinceInception)).toFixed(2)) : null,
+      });
+    }
+    return list;
+  }, [return1m, return3m, return6m, returnYtd, cagr1Y, cagr2y, cagr3Y, cagr5Y, benchmarkCagr1Y, returnSinceInception, benchmarkSinceInception, inceptionMonths]);
 
-  const cagrRows = liveRows ?? staticRows;
+  // Derive additional period returns directly from the portfolio's NAV performance curve if available
+  const derivedPerformanceRows = useMemo(() => {
+    if (!performance || performance.length < 2) return [];
+    const sorted = [...performance].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const latest = sorted[sorted.length - 1];
+    const first = sorted[0];
+    if (!latest?.portfolioNav || !first?.portfolioNav || first.portfolioNav <= 0) return [];
+
+    const rows: any[] = [];
+    const sinceInception = ((latest.portfolioNav - first.portfolioNav) / first.portfolioNav) * 100;
+    const benchSinceInception = (latest.benchmarkNav && first.benchmarkNav && first.benchmarkNav > 0)
+      ? ((latest.benchmarkNav - first.benchmarkNav) / first.benchmarkNav) * 100
+      : null;
+
+    rows.push({
+      label: "Since Inception",
+      returnPct: Number(sinceInception.toFixed(2)),
+      benchmarkPct: benchSinceInception != null ? Number(benchSinceInception.toFixed(2)) : null,
+      alpha: benchSinceInception != null ? Number((sinceInception - benchSinceInception).toFixed(2)) : null,
+      extra: `since ${first.date}`,
+    });
+    return rows;
+  }, [performance]);
+
+  const liveRows = useMemo(() => {
+    if (!liveData) return null;
+    const rows = PERIOD_KEYS.map(key => {
+      const p = liveData[key];
+      if (!p || p.returnPct == null) return null;
+      return {
+        label: PERIOD_LABELS[key],
+        returnPct: p.returnPct,
+        benchmarkPct: p.benchmarkPct,
+        alpha: p.alpha,
+        note: p.note,
+        extra: key === "sinceInception" && p.inceptionDate
+          ? `since ${new Date(p.inceptionDate).toLocaleDateString("en-IN", { month: "short", year: "numeric" })} · ${p.monthsOfData || ""}M`
+          : undefined,
+      };
+    }).filter(Boolean);
+    return rows.length > 0 ? rows : null;
+  }, [liveData]);
+
+  // cagrRows uses liveRows if valid rows exist, otherwise staticRows merged with derived performance
+  const cagrRows = useMemo(() => {
+    if (liveRows && liveRows.length > 0) {
+      return liveRows;
+    }
+    const combined = [...staticRows];
+    if (!combined.some(r => r.label.includes("Since Inception")) && derivedPerformanceRows.length > 0) {
+      combined.push(...derivedPerformanceRows);
+    }
+    return combined;
+  }, [liveRows, staticRows, derivedPerformanceRows]);
 
   // Absolute = cumulative total return: (1+cagr%)^years - 1
   // BUG-I fix: guard abs/absB for NaN/null before calling toFixed.
@@ -3402,7 +3476,7 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
       <div className="px-3 py-2 bg-muted/30 border-b flex justify-between items-center gap-2">
         <p className="text-[11px] font-semibold shrink-0">
           Performance
-          {isSebi && <span className="text-[9px] font-normal text-indigo-500 ml-1">TWRR \u00b7 SEBI</span>}
+          {isSebi && <span className="text-[9px] font-normal text-indigo-500 ml-1">TWRR · SEBI</span>}
         </p>
         <div className="flex items-center gap-1">
           {views.map(({key,label}) => (
@@ -3413,7 +3487,7 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
               }`}
             >{label}</button>
           ))}
-          {!liveData && perfView !== "rolling" && <span className="text-[9px] text-muted-foreground animate-pulse ml-1">Loading\u2026</span>}
+          {!liveData && perfView !== "rolling" && <span className="text-[9px] text-muted-foreground animate-pulse ml-1">Loading…</span>}
         </div>
       </div>
 
@@ -3429,13 +3503,11 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
           <tbody>
             {cagrRows.length > 0
               ? renderTableRows(cagrRows, "text-indigo-600 dark:text-indigo-400")
-              /* Fix F: empty state — server responded but no NAV data yet */
-              : liveData !== null
-                ? (
+              : (
                   <tr><td colSpan={4} className="px-3 py-4 text-center text-[10px] text-muted-foreground">
-                    NAV data unavailable — period returns will populate after the first nightly sync.
+                    Calculating period returns from NAV history…
                   </td></tr>
-                ) : null
+                )
             }
           </tbody>
         </table>
@@ -3446,7 +3518,7 @@ function PerformancePeriodTable({ portfolioId, twrr1Y, cagr1Y, cagr3Y, cagr5Y, b
         <>
           <div className="px-3 py-1.5 bg-violet-50/60 dark:bg-violet-950/20 border-b">
             <p className="text-[9px] text-violet-600 dark:text-violet-400 font-medium">
-              Total cumulative return (not annualised). Multi-year = actual wealth grown per \u20b9100 invested.
+              Total cumulative return (not annualised). Multi-year = actual wealth grown per ₹100 invested.
             </p>
           </div>
           <table className="w-full text-xs">
