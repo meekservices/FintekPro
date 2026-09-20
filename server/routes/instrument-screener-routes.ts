@@ -17,6 +17,8 @@ import { Router, type Request, type Response } from "express";
 import { db } from "../db";
 import {
   mutualFunds,
+  mutualFundMetrics,
+  fundFinancialRatios,
   governmentSecurities,
   corporateBonds,
   listedStocks,
@@ -24,7 +26,7 @@ import {
   reits,
   invits,
 } from "@shared/schema";
-import { and, eq, gte, lte, ilike, sql, desc, asc, or } from "drizzle-orm";
+import { and, eq, gte, lte, ilike, sql, desc, asc, or, getTableColumns } from "drizzle-orm";
 import { IRIS_PRODUCT_REGISTRY } from "../services/iris/irisProductRegistry";
 import { logger } from "../logger";
 
@@ -105,6 +107,10 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
     maxExpenseRatio,
     minAum,
     minRating,
+    minSharpe,
+    minAlpha,
+    maxBeta,
+    minSortino,
     // Bond
     bondType = "all",
     minYield,
@@ -156,26 +162,49 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
       if (fundHouse) conditions.push(ilike(mutualFunds.fundHouse, `%${fundHouse}%`));
       if (riskLevel) conditions.push(ilike(mutualFunds.riskLevel, `%${riskLevel}%`));
       if (q) conditions.push(ilike(mutualFunds.schemeName, `%${q}%`));
-      if (minReturn1y) conditions.push(gte(mutualFunds.returns1y, minReturn1y));
-      if (minReturn3y) conditions.push(gte(mutualFunds.returns3y, minReturn3y));
-      if (minReturn5y) conditions.push(gte(mutualFunds.returns5y, minReturn5y));
-      if (maxExpenseRatio) conditions.push(lte(mutualFunds.expenseRatio, maxExpenseRatio));
-      if (minAum) conditions.push(gte(mutualFunds.aum, minAum));
+      if (minReturn1y) conditions.push(gte(sql`COALESCE(${mutualFunds.returns1y}, ${mutualFundMetrics.return1y})::numeric`, minReturn1y as any));
+      if (minReturn3y) conditions.push(gte(sql`COALESCE(${mutualFunds.returns3y}, ${mutualFundMetrics.return3y})::numeric`, minReturn3y as any));
+      if (minReturn5y) conditions.push(gte(sql`COALESCE(${mutualFunds.returns5y}, ${mutualFundMetrics.return5y})::numeric`, minReturn5y as any));
+      if (maxExpenseRatio) conditions.push(lte(sql`COALESCE(${mutualFunds.expenseRatio}, ${mutualFundMetrics.expenseRatio})::numeric`, maxExpenseRatio as any));
+      if (minAum) conditions.push(gte(sql`COALESCE(${mutualFunds.aum}, ${mutualFundMetrics.aum})::numeric`, minAum as any));
       if (minRating) conditions.push(lte(mutualFunds.crisilRating, parseInt(minRating, 10)));
+      if (minSharpe) conditions.push(gte(sql`COALESCE(${fundFinancialRatios.sharpeRatio}, ${mutualFundMetrics.sharpeRatio})::numeric`, minSharpe as any));
+      if (minAlpha) conditions.push(gte(sql`COALESCE(${fundFinancialRatios.alpha}, ${mutualFundMetrics.alpha})::numeric`, minAlpha as any));
+      if (maxBeta) conditions.push(lte(sql`COALESCE(${fundFinancialRatios.beta}, ${mutualFundMetrics.beta})::numeric`, maxBeta as any));
+      if (minSortino) conditions.push(gte(sql`COALESCE(${fundFinancialRatios.sortinoRatio}, ${mutualFundMetrics.sortinoRatio})::numeric`, minSortino as any));
 
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-      // Default sort: by 1Y returns desc
-      const mfSortCol =
-        sortBy === "returns3y" ? mutualFunds.returns3y :
-        sortBy === "returns5y" ? mutualFunds.returns5y :
-        sortBy === "aum"       ? mutualFunds.aum :
-        sortBy === "nav"       ? mutualFunds.nav :
-        sortBy === "expenseRatio" ? mutualFunds.expenseRatio :
-        sortBy === "rating"    ? mutualFunds.crisilRating :
-        mutualFunds.returns1y;
+      // Sort expression — ALWAYS NULLS LAST so funds with data appear first
+      const orderDir = sortOrder === "asc" ? "ASC" : "DESC";
+      let mfSortExpr: any;
 
-      const orderFn = sortOrder === "asc" ? asc : desc;
+      if (sortBy === "returns3y") {
+        mfSortExpr = sql`COALESCE(${mutualFunds.returns3y}, ${mutualFundMetrics.return3y})::numeric ${sql.raw(orderDir)} NULLS LAST`;
+      } else if (sortBy === "returns5y") {
+        mfSortExpr = sql`COALESCE(${mutualFunds.returns5y}, ${mutualFundMetrics.return5y})::numeric ${sql.raw(orderDir)} NULLS LAST`;
+      } else if (sortBy === "aum") {
+        mfSortExpr = sql`COALESCE(${mutualFunds.aum}, ${mutualFundMetrics.aum})::numeric ${sql.raw(orderDir)} NULLS LAST`;
+      } else if (sortBy === "nav") {
+        mfSortExpr = sql`${mutualFunds.nav}::numeric ${sql.raw(orderDir)} NULLS LAST`;
+      } else if (sortBy === "expenseRatio") {
+        mfSortExpr = sql`COALESCE(${mutualFunds.expenseRatio}, ${mutualFundMetrics.expenseRatio})::numeric ${sql.raw(orderDir)} NULLS LAST`;
+      } else if (sortBy === "rating") {
+        mfSortExpr = sql`${mutualFunds.crisilRating} ${sql.raw(orderDir)} NULLS LAST`;
+      } else if (sortBy === "alpha") {
+        mfSortExpr = sql`COALESCE(${fundFinancialRatios.alpha}, ${mutualFundMetrics.alpha})::numeric ${sql.raw(orderDir)} NULLS LAST`;
+      } else if (sortBy === "beta") {
+        mfSortExpr = sql`COALESCE(${fundFinancialRatios.beta}, ${mutualFundMetrics.beta})::numeric ${sql.raw(orderDir)} NULLS LAST`;
+      } else if (sortBy === "sharpeRatio" || sortBy === "sharpe") {
+        mfSortExpr = sql`COALESCE(${fundFinancialRatios.sharpeRatio}, ${mutualFundMetrics.sharpeRatio})::numeric ${sql.raw(orderDir)} NULLS LAST`;
+      } else if (sortBy === "sortinoRatio" || sortBy === "sortino") {
+        mfSortExpr = sql`COALESCE(${fundFinancialRatios.sortinoRatio}, ${mutualFundMetrics.sortinoRatio})::numeric ${sql.raw(orderDir)} NULLS LAST`;
+      } else if (sortBy === "standardDeviation" || sortBy === "volatility") {
+        mfSortExpr = sql`COALESCE(${fundFinancialRatios.standardDeviation}, ${mutualFundMetrics.standardDeviation})::numeric ${sql.raw(orderDir)} NULLS LAST`;
+      } else {
+        // Default: 1Y returns DESC, NULLS LAST
+        mfSortExpr = sql`COALESCE(${mutualFunds.returns1y}, ${mutualFundMetrics.return1y})::numeric ${sql.raw(orderDir)} NULLS LAST`;
+      }
 
       const [funds, countResult] = await Promise.all([
         db.select({
@@ -187,14 +216,25 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           nav:           mutualFunds.nav,
           change:        mutualFunds.change,
           changePercent: mutualFunds.changePercent,
-          expenseRatio:  mutualFunds.expenseRatio,
-          aum:           mutualFunds.aum,
+          expenseRatio:  sql<string | null>`COALESCE(${mutualFunds.expenseRatio}, ${mutualFundMetrics.expenseRatio})`,
+          aum:           sql<string | null>`COALESCE(${mutualFunds.aum}, ${mutualFundMetrics.aum})`,
           riskLevel:     mutualFunds.riskLevel,
-          returns1y:     mutualFunds.returns1y,
-          returns3y:     mutualFunds.returns3y,
-          returns5y:     mutualFunds.returns5y,
+          returns1y:     sql<string | null>`COALESCE(${mutualFunds.returns1y}, ${mutualFundMetrics.return1y})`,
+          returns3y:     sql<string | null>`COALESCE(${mutualFunds.returns3y}, ${mutualFundMetrics.return3y})`,
+          returns5y:     sql<string | null>`COALESCE(${mutualFunds.returns5y}, ${mutualFundMetrics.return5y})`,
           rating:        mutualFunds.crisilRating,
           ratingPercentile: mutualFunds.crisilPercentile,
+          // Ratios available at GCP Cloud SQL
+          alpha:             sql<string | null>`COALESCE(${fundFinancialRatios.alpha}, ${mutualFundMetrics.alpha})`,
+          beta:              sql<string | null>`COALESCE(${fundFinancialRatios.beta}, ${mutualFundMetrics.beta})`,
+          sharpeRatio:       sql<string | null>`COALESCE(${fundFinancialRatios.sharpeRatio}, ${mutualFundMetrics.sharpeRatio})`,
+          sortinoRatio:      sql<string | null>`COALESCE(${fundFinancialRatios.sortinoRatio}, ${mutualFundMetrics.sortinoRatio})`,
+          standardDeviation: sql<string | null>`COALESCE(${fundFinancialRatios.standardDeviation}, ${mutualFundMetrics.standardDeviation})`,
+          treynorRatio:      mutualFundMetrics.treynorRatio,
+          maxDrawdown:       mutualFundMetrics.maxDrawdown,
+          peRatio:           sql<string | null>`COALESCE(${fundFinancialRatios.peRatio}, ${mutualFundMetrics.portfolioPeRatio})`,
+          pbRatio:           sql<string | null>`COALESCE(${fundFinancialRatios.pbRatio}, ${mutualFundMetrics.portfolioPbRatio})`,
+          portfolioTurnover: sql<string | null>`COALESCE(${fundFinancialRatios.portfolioTurnover}, ${mutualFundMetrics.portfolioTurnover})`,
           // Transactability fields
           isin:          mutualFunds.isin,
           isinGrowth:    mutualFunds.isinGrowth,
@@ -202,12 +242,40 @@ instrumentScreenerRouter.get("/instruments", async (req: Request, res: Response)
           planType:      mutualFunds.planType,
         })
           .from(mutualFunds)
+          .leftJoin(
+            fundFinancialRatios,
+            eq(mutualFunds.schemeCode, fundFinancialRatios.schemeCode)
+          )
+          .leftJoin(
+            mutualFundMetrics,
+            and(
+              eq(mutualFunds.schemeCode, mutualFundMetrics.schemeCode),
+              eq(
+                mutualFundMetrics.fiscalYear,
+                sql`(SELECT fiscal_year FROM mutual_fund_metrics m2 WHERE m2.scheme_code = ${mutualFunds.schemeCode} ORDER BY m2.fiscal_year DESC LIMIT 1)`
+              )
+            )
+          )
           .where(whereClause)
-          .orderBy(orderFn(mfSortCol))
+          .orderBy(mfSortExpr)
           .limit(limitNum)
           .offset(offset),
         db.select({ count: sql<number>`COUNT(*)` })
           .from(mutualFunds)
+          .leftJoin(
+            fundFinancialRatios,
+            eq(mutualFunds.schemeCode, fundFinancialRatios.schemeCode)
+          )
+          .leftJoin(
+            mutualFundMetrics,
+            and(
+              eq(mutualFunds.schemeCode, mutualFundMetrics.schemeCode),
+              eq(
+                mutualFundMetrics.fiscalYear,
+                sql`(SELECT fiscal_year FROM mutual_fund_metrics m2 WHERE m2.scheme_code = ${mutualFunds.schemeCode} ORDER BY m2.fiscal_year DESC LIMIT 1)`
+              )
+            )
+          )
           .where(whereClause),
       ]);
 
@@ -810,7 +878,7 @@ instrumentScreenerRouter.get("/instruments/filters", async (_req: Request, res: 
     success: true,
     data: {
       mutual_fund: {
-        sortFields: ["returns1y", "returns3y", "returns5y", "aum", "nav", "expenseRatio", "rating"],
+        sortFields: ["returns1y", "returns3y", "returns5y", "aum", "nav", "expenseRatio", "rating", "alpha", "beta", "sharpeRatio", "sortinoRatio", "standardDeviation", "peRatio"],
         filters: [
           { key: "category",         label: "Category",          type: "select", options: ["Equity", "Debt", "Hybrid", "ELSS", "Index", "Liquid", "Arbitrage", "Thematic", "International", "Gold", "FOF"] },
           { key: "riskLevel",        label: "Risk Level",        type: "select", options: ["Low", "Moderately Low", "Moderate", "Moderately High", "High", "Very High"] },
@@ -821,6 +889,10 @@ instrumentScreenerRouter.get("/instruments/filters", async (_req: Request, res: 
           { key: "maxExpenseRatio",  label: "Max Expense Ratio (%)", type: "number" },
           { key: "minAum",           label: "Min AUM (Cr)",      type: "number" },
           { key: "minRating",        label: "Min FintekPro Rating (1-5)", type: "number" },
+          { key: "minSharpe",        label: "Min Sharpe Ratio",  type: "number" },
+          { key: "minAlpha",         label: "Min Alpha",         type: "number" },
+          { key: "maxBeta",          label: "Max Beta",          type: "number" },
+          { key: "minSortino",       label: "Min Sortino Ratio", type: "number" },
         ],
       },
       bond: {
@@ -873,8 +945,39 @@ instrumentScreenerRouter.get("/instruments/:id", async (req: Request, res: Respo
   try {
     if (type === "mutual_fund") {
       const [fund] = await db
-        .select()
+        .select({
+          ...getTableColumns(mutualFunds),
+          returns1y:         sql<string | null>`COALESCE(${mutualFunds.returns1y}, ${mutualFundMetrics.return1y})`,
+          returns3y:         sql<string | null>`COALESCE(${mutualFunds.returns3y}, ${mutualFundMetrics.return3y})`,
+          returns5y:         sql<string | null>`COALESCE(${mutualFunds.returns5y}, ${mutualFundMetrics.return5y})`,
+          expenseRatio:      sql<string | null>`COALESCE(${mutualFunds.expenseRatio}, ${mutualFundMetrics.expenseRatio})`,
+          aum:               sql<string | null>`COALESCE(${mutualFunds.aum}, ${mutualFundMetrics.aum})`,
+          alpha:             sql<string | null>`COALESCE(${fundFinancialRatios.alpha}, ${mutualFundMetrics.alpha})`,
+          beta:              sql<string | null>`COALESCE(${fundFinancialRatios.beta}, ${mutualFundMetrics.beta})`,
+          sharpeRatio:       sql<string | null>`COALESCE(${fundFinancialRatios.sharpeRatio}, ${mutualFundMetrics.sharpeRatio})`,
+          sortinoRatio:      sql<string | null>`COALESCE(${fundFinancialRatios.sortinoRatio}, ${mutualFundMetrics.sortinoRatio})`,
+          standardDeviation: sql<string | null>`COALESCE(${fundFinancialRatios.standardDeviation}, ${mutualFundMetrics.standardDeviation})`,
+          treynorRatio:      mutualFundMetrics.treynorRatio,
+          maxDrawdown:       mutualFundMetrics.maxDrawdown,
+          peRatio:           sql<string | null>`COALESCE(${fundFinancialRatios.peRatio}, ${mutualFundMetrics.portfolioPeRatio})`,
+          pbRatio:           sql<string | null>`COALESCE(${fundFinancialRatios.pbRatio}, ${mutualFundMetrics.portfolioPbRatio})`,
+          portfolioTurnover: sql<string | null>`COALESCE(${fundFinancialRatios.portfolioTurnover}, ${mutualFundMetrics.portfolioTurnover})`,
+        })
         .from(mutualFunds)
+        .leftJoin(
+          fundFinancialRatios,
+          eq(mutualFunds.schemeCode, fundFinancialRatios.schemeCode)
+        )
+        .leftJoin(
+          mutualFundMetrics,
+          and(
+            eq(mutualFunds.schemeCode, mutualFundMetrics.schemeCode),
+            eq(
+              mutualFundMetrics.fiscalYear,
+              sql`(SELECT fiscal_year FROM mutual_fund_metrics m2 WHERE m2.scheme_code = ${mutualFunds.schemeCode} ORDER BY m2.fiscal_year DESC LIMIT 1)`
+            )
+          )
+        )
         .where(or(eq(mutualFunds.schemeCode, id), eq(mutualFunds.id, id)))
         .limit(1);
 

@@ -629,6 +629,9 @@ export default function AgentScreener() {
 	const [mfMinReturn3y, setMfMinReturn3y] = useState("");
 	const [mfMaxExpenseRatio, setMfMaxExpenseRatio] = useState("");
 	const [mfMinAum, setMfMinAum] = useState("");
+	const [mfMinSharpe, setMfMinSharpe] = useState("");
+	const [mfMinAlpha, setMfMinAlpha] = useState("");
+	const [mfMaxBeta, setMfMaxBeta] = useState("");
 	const [mfSearch, setMfSearch] = useState("");
 	const [mfPage, setMfPage] = useState(1);
 	const [mfSortBy, setMfSortBy] = useState("returns1y");
@@ -726,6 +729,9 @@ export default function AgentScreener() {
 			if (mfMinReturn3y)      p.set("minReturn3y", mfMinReturn3y);
 			if (mfMaxExpenseRatio)  p.set("maxExpenseRatio", mfMaxExpenseRatio);
 			if (mfMinAum)           p.set("minAum", mfMinAum);
+			if (mfMinSharpe)        p.set("minSharpe", mfMinSharpe);
+			if (mfMinAlpha)         p.set("minAlpha", mfMinAlpha);
+			if (mfMaxBeta)          p.set("maxBeta", mfMaxBeta);
 		} else if (screenerType === "bond") {
 			p.set("page", String(bondPage));
 			p.set("bondType", bondType);
@@ -759,7 +765,7 @@ export default function AgentScreener() {
 		queryKey: [
 			"/api/screener/instruments",
 			screenerType, mfPage, mfCategory, mfFundHouse, mfRiskLevel, mfSearch,
-			mfMinReturn1y, mfMinReturn3y, mfMaxExpenseRatio, mfMinAum, mfSortBy, mfSortOrder,
+			mfMinReturn1y, mfMinReturn3y, mfMaxExpenseRatio, mfMinAum, mfMinSharpe, mfMinAlpha, mfMaxBeta, mfSortBy, mfSortOrder,
 			bondPage, bondType, bondMinYield, bondMaxMaturityYears, bondMinRating, bondTaxStatus,
 			etfPage, etfCategory, etfSearch,
 			unlistedPage, unlistedStage, unlistedSector, unlistedSearch, unlistedSortBy, unlistedSortOrder,
@@ -1556,7 +1562,7 @@ export default function AgentScreener() {
 								{/* ── MF Screener ──────────────────────────────────────────────── */}
 								{screenerType === "mutual_fund" && (
 									<div className="space-y-3">
-										<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+										<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
 											<Input placeholder="Search fund..." className="h-7 text-xs" value={mfSearch}
 												onChange={(e) => { setMfSearch(e.target.value); setMfPage(1); }} />
 											<select className="h-7 text-xs border rounded-md px-2 bg-background" value={mfCategory}
@@ -1577,7 +1583,13 @@ export default function AgentScreener() {
 												onChange={(e) => { setMfMinReturn1y(e.target.value); setMfPage(1); }} />
 											<Input placeholder="Min 3Y Return %" type="number" className="h-7 text-xs" value={mfMinReturn3y}
 												onChange={(e) => { setMfMinReturn3y(e.target.value); setMfPage(1); }} />
-											<Input placeholder="Max Expense Ratio %" type="number" className="h-7 text-xs" value={mfMaxExpenseRatio}
+											<Input placeholder="Min Sharpe" type="number" step="0.1" className="h-7 text-xs" value={mfMinSharpe}
+												onChange={(e) => { setMfMinSharpe(e.target.value); setMfPage(1); }} />
+											<Input placeholder="Min Alpha" type="number" step="0.1" className="h-7 text-xs" value={mfMinAlpha}
+												onChange={(e) => { setMfMinAlpha(e.target.value); setMfPage(1); }} />
+											<Input placeholder="Max Beta" type="number" step="0.1" className="h-7 text-xs" value={mfMaxBeta}
+												onChange={(e) => { setMfMaxBeta(e.target.value); setMfPage(1); }} />
+											<Input placeholder="Max Exp Ratio %" type="number" className="h-7 text-xs" value={mfMaxExpenseRatio}
 												onChange={(e) => { setMfMaxExpenseRatio(e.target.value); setMfPage(1); }} />
 										</div>
 										<div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -1596,23 +1608,28 @@ export default function AgentScreener() {
 													<thead className="bg-card text-muted-foreground sticky top-0 z-10 border-b shadow-sm">
 														<tr>
 															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider w-8">#</th>
-															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider min-w-[220px]">Scheme Name</th>
+															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider min-w-[200px]">Scheme Name</th>
 															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Category</th>
 															<th className="py-2.5 px-3 text-left font-medium text-xs uppercase tracking-wider">Risk</th>
-															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">NAV ₹</th>
-															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("returns1y"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>1Y Ret %</th>
-															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("returns3y"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>3Y Ret %</th>
-															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("returns5y"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>5Y Ret %</th>
-															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("aum"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>AUM Cr</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("nav"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>NAV ₹</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("returns1y"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>1Y Ret %{mfSortBy==="returns1y" ? (mfSortOrder==="desc" ? " ▼" : " ▲") : ""}</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("returns3y"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>3Y Ret %{mfSortBy==="returns3y" ? (mfSortOrder==="desc" ? " ▼" : " ▲") : ""}</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("returns5y"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>5Y Ret %{mfSortBy==="returns5y" ? (mfSortOrder==="desc" ? " ▼" : " ▲") : ""}</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("aum"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>AUM Cr{mfSortBy==="aum" ? (mfSortOrder==="desc" ? " ▼" : " ▲") : ""}</th>
 															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("expenseRatio"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>Exp Ratio</th>
-															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider">Rating</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("alpha"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>Alpha{mfSortBy==="alpha" ? (mfSortOrder==="desc" ? " ▼" : " ▲") : ""}</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("beta"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>Beta{mfSortBy==="beta" ? (mfSortOrder==="desc" ? " ▼" : " ▲") : ""}</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("sharpeRatio"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>Sharpe{mfSortBy==="sharpeRatio" ? (mfSortOrder==="desc" ? " ▼" : " ▲") : ""}</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("sortinoRatio"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>Sortino{mfSortBy==="sortinoRatio" ? (mfSortOrder==="desc" ? " ▼" : " ▲") : ""}</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("standardDeviation"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>Vol (σ)</th>
+															<th className="py-2.5 px-3 text-right font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => { setMfSortBy("rating"); setMfSortOrder(o => o==="desc"?"asc":"desc"); }}>Rating</th>
 														</tr>
 													</thead>
 													<tbody className="divide-y">
 														{(instrumentData?.data ?? []).map((f: any, i: number) => (
 															<tr key={f.id ?? f.schemeCode} className="hover:bg-muted/30 transition-colors">
 																<td className="py-2 px-3 text-xs text-muted-foreground">{(mfPage-1)*25+i+1}</td>
-																<td className="py-2 px-3 text-xs font-medium max-w-[240px] truncate" title={f.schemeName}>{f.schemeName}</td>
+																<td className="py-2 px-3 text-xs font-medium max-w-[200px] truncate" title={f.schemeName}>{f.schemeName}</td>
 																<td className="py-2 px-3 text-xs"><span className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-[10px]">{f.category ?? "—"}</span></td>
 																<td className="py-2 px-3 text-xs"><span className={`px-1.5 py-0.5 rounded text-[10px] ${
 																	f.riskLevel?.includes("High") ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400" :
@@ -1620,11 +1637,16 @@ export default function AgentScreener() {
 																	"bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
 																}`}>{f.riskLevel ?? "—"}</span></td>
 																<td className="py-2 px-3 text-right font-mono text-xs">{f.nav ? `₹${Number(f.nav).toFixed(2)}` : "—"}</td>
-																<td className={`py-2 px-3 text-right font-mono text-xs ${Number(f.returns1y) > 0 ? "text-emerald-600 dark:text-emerald-400" : Number(f.returns1y) < 0 ? "text-red-500" : ""}`}>{f.returns1y ? `${Number(f.returns1y).toFixed(2)}%` : "—"}</td>
-																<td className={`py-2 px-3 text-right font-mono text-xs ${Number(f.returns3y) > 0 ? "text-emerald-600 dark:text-emerald-400" : Number(f.returns3y) < 0 ? "text-red-500" : ""}`}>{f.returns3y ? `${Number(f.returns3y).toFixed(2)}%` : "—"}</td>
-																<td className={`py-2 px-3 text-right font-mono text-xs ${Number(f.returns5y) > 0 ? "text-emerald-600 dark:text-emerald-400" : Number(f.returns5y) < 0 ? "text-red-500" : ""}`}>{f.returns5y ? `${Number(f.returns5y).toFixed(2)}%` : "—"}</td>
-																<td className="py-2 px-3 text-right font-mono text-xs">{f.aum ? `₹${Number(f.aum/100).toFixed(0)}Cr` : "—"}</td>
+																<td className={`py-2 px-3 text-right font-mono text-xs ${Number(f.returns1y) > 0 ? "text-emerald-600 dark:text-emerald-400 font-medium" : Number(f.returns1y) < 0 ? "text-red-500" : ""}`}>{f.returns1y != null ? `${Number(f.returns1y).toFixed(2)}%` : "—"}</td>
+																<td className={`py-2 px-3 text-right font-mono text-xs ${Number(f.returns3y) > 0 ? "text-emerald-600 dark:text-emerald-400 font-medium" : Number(f.returns3y) < 0 ? "text-red-500" : ""}`}>{f.returns3y != null ? `${Number(f.returns3y).toFixed(2)}%` : "—"}</td>
+																<td className={`py-2 px-3 text-right font-mono text-xs ${Number(f.returns5y) > 0 ? "text-emerald-600 dark:text-emerald-400 font-medium" : Number(f.returns5y) < 0 ? "text-red-500" : ""}`}>{f.returns5y != null ? `${Number(f.returns5y).toFixed(2)}%` : "—"}</td>
+																<td className="py-2 px-3 text-right font-mono text-xs">{f.aum ? (Number(f.aum) >= 100 ? `₹${Number(f.aum).toLocaleString("en-IN", { maximumFractionDigits: 0 })}Cr` : Number(f.aum) >= 1 ? `₹${Number(f.aum).toFixed(1)}Cr` : `₹${(Number(f.aum)*100).toFixed(0)}L`) : "—"}</td>
 																<td className="py-2 px-3 text-right font-mono text-xs">{f.expenseRatio ? `${Number(f.expenseRatio).toFixed(2)}%` : "—"}</td>
+																<td className={`py-2 px-3 text-right font-mono text-xs ${f.alpha != null ? (Number(f.alpha) > 0 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : Number(f.alpha) < 0 ? "text-red-500" : "") : ""}`}>{f.alpha != null ? `${Number(f.alpha) > 0 ? "+" : ""}${Number(f.alpha).toFixed(2)}` : "—"}</td>
+																<td className="py-2 px-3 text-right font-mono text-xs">{f.beta != null ? Number(f.beta).toFixed(2) : "—"}</td>
+																<td className={`py-2 px-3 text-right font-mono text-xs ${f.sharpeRatio != null && Number(f.sharpeRatio) >= 1 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : ""}`}>{f.sharpeRatio != null ? Number(f.sharpeRatio).toFixed(2) : "—"}</td>
+																<td className={`py-2 px-3 text-right font-mono text-xs ${f.sortinoRatio != null && Number(f.sortinoRatio) >= 1 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : ""}`}>{f.sortinoRatio != null ? Number(f.sortinoRatio).toFixed(2) : "—"}</td>
+																<td className="py-2 px-3 text-right font-mono text-xs">{f.standardDeviation != null ? `${Number(f.standardDeviation).toFixed(1)}%` : "—"}</td>
 																<td className="py-2 px-3 text-right font-mono text-xs">{f.rating ? `★${f.rating}` : "—"}</td>
 															</tr>
 														))}
@@ -2469,6 +2491,21 @@ export default function AgentScreener() {
 																	align="right"
 																/>
 																<DbSortableHeader
+																	label="Beta"
+																	sortKey="beta"
+																	align="right"
+																/>
+																<DbSortableHeader
+																	label="Sharpe"
+																	sortKey="sharpe"
+																	align="right"
+																/>
+																<DbSortableHeader
+																	label="Sortino"
+																	sortKey="sortino"
+																	align="right"
+																/>
+																<DbSortableHeader
 																	label="Analyst↑%"
 																	sortKey="analystUpside"
 																	align="right"
@@ -2639,6 +2676,30 @@ export default function AgentScreener() {
 																					? `${Number.parseFloat(stock.returnVsNifty1Y) > 0 ? "+" : ""}${(Number.parseFloat(stock.returnVsNifty1Y) * 100).toFixed(1)}%`
 																					: "-"}
 																			</td>
+																			{/* Beta */}
+																			<td className="py-2.5 px-3 text-right font-mono text-xs">
+																				{stock.beta ? Number.parseFloat(stock.beta).toFixed(2) : "-"}
+																			</td>
+																			{/* Sharpe 1Y */}
+																			<td
+																				className={`py-2.5 px-3 text-right font-mono text-xs ${
+																					stock.sharpeRatio1Y && Number.parseFloat(stock.sharpeRatio1Y) > 1
+																						? "text-emerald-600 dark:text-emerald-400 font-semibold"
+																						: ""
+																				}`}
+																			>
+																				{stock.sharpeRatio1Y ? Number.parseFloat(stock.sharpeRatio1Y).toFixed(2) : "-"}
+																			</td>
+																			{/* Sortino 1Y */}
+																			<td
+																				className={`py-2.5 px-3 text-right font-mono text-xs ${
+																					stock.sortinoRatio1Y && Number.parseFloat(stock.sortinoRatio1Y) > 1
+																						? "text-emerald-600 dark:text-emerald-400 font-semibold"
+																						: ""
+																				}`}
+																			>
+																				{stock.sortinoRatio1Y ? Number.parseFloat(stock.sortinoRatio1Y).toFixed(2) : "-"}
+																			</td>
 																			{/* Phase 4b: Analyst consensus upside % with Rating Badge */}
 																			<td className="py-2.5 px-3 text-right font-mono text-xs">
 																				{stock.analystUpsidePct ? (
@@ -2741,7 +2802,7 @@ export default function AgentScreener() {
 																		{expandedStock === stock.symbol && (
 																			<tr key={`${stock.symbol}-detail`}>
 																				<td
-																					colSpan={15}
+																					colSpan={19}
 																					className="bg-muted/10 border-b"
 																				>
 																					<div className="p-4">
@@ -2999,6 +3060,70 @@ export default function AgentScreener() {
 																											</div>
 																										)}
 																										{stock.returnVsNifty1Y && (<div className="mt-2 pt-2 border-t"><div className="flex justify-between"><span className="text-muted-foreground">α vs NIFTY (1Y)</span><span className={`font-mono font-semibold ${Number.parseFloat(stock.returnVsNifty1Y) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>{`${Number.parseFloat(stock.returnVsNifty1Y) > 0 ? "+" : ""}${(Number.parseFloat(stock.returnVsNifty1Y) * 100).toFixed(1)}%`}</span></div></div>)}
+																									</div>
+																								</div>
+																								{/* GCP Risk & Volatility Ratios */}
+																								<div className="space-y-3">
+																									<div className="flex items-center justify-between">
+																										<h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+																											<LucideShield className="h-3.5 w-3.5 text-primary" />
+																											GCP Risk & Ratios
+																										</h4>
+																										<Badge variant="outline" className="text-[9px] h-4 bg-primary/5 text-primary border-primary/30">
+																											Risk-Adjusted
+																										</Badge>
+																									</div>
+																									<div className="space-y-1.5 text-xs">
+																										<div className="flex justify-between">
+																											<span className="text-muted-foreground">Beta (vs NIFTY 50)</span>
+																											<span className="font-mono font-semibold">
+																												{(stock.beta ?? stockDetail.derivedMetrics?.beta) ? Number.parseFloat(stock.beta ?? stockDetail.derivedMetrics?.beta).toFixed(2) : "-"}
+																											</span>
+																										</div>
+																										<div className="flex justify-between">
+																											<span className="text-muted-foreground">Sharpe Ratio (1Y)</span>
+																											<span className={`font-mono font-semibold ${(stock.sharpeRatio1Y ?? stockDetail.derivedMetrics?.sharpeRatio1Y) && Number.parseFloat(stock.sharpeRatio1Y ?? stockDetail.derivedMetrics?.sharpeRatio1Y) > 1 ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+																												{(stock.sharpeRatio1Y ?? stockDetail.derivedMetrics?.sharpeRatio1Y) ? Number.parseFloat(stock.sharpeRatio1Y ?? stockDetail.derivedMetrics?.sharpeRatio1Y).toFixed(2) : "-"}
+																											</span>
+																										</div>
+																										<div className="flex justify-between">
+																											<span className="text-muted-foreground">Sortino Ratio (1Y)</span>
+																											<span className={`font-mono font-semibold ${(stock.sortinoRatio1Y ?? stockDetail.derivedMetrics?.sortinoRatio1Y) && Number.parseFloat(stock.sortinoRatio1Y ?? stockDetail.derivedMetrics?.sortinoRatio1Y) > 1 ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+																												{(stock.sortinoRatio1Y ?? stockDetail.derivedMetrics?.sortinoRatio1Y) ? Number.parseFloat(stock.sortinoRatio1Y ?? stockDetail.derivedMetrics?.sortinoRatio1Y).toFixed(2) : "-"}
+																											</span>
+																										</div>
+																										<div className="flex justify-between">
+																											<span className="text-muted-foreground">Volatility (30D Ann.)</span>
+																											<span className="font-mono">
+																												{(stock.volatility30D ?? stockDetail.derivedMetrics?.volatility30D) ? `${(Number.parseFloat(stock.volatility30D ?? stockDetail.derivedMetrics?.volatility30D) * 100).toFixed(1)}%` : "-"}
+																											</span>
+																										</div>
+																										<div className="flex justify-between">
+																											<span className="text-muted-foreground">Max Drawdown (1Y)</span>
+																											<span className="font-mono text-red-500">
+																												{(stock.maxDrawdown1Y ?? stockDetail.derivedMetrics?.maxDrawdown1Y) ? `${(Number.parseFloat(stock.maxDrawdown1Y ?? stockDetail.derivedMetrics?.maxDrawdown1Y) * 100).toFixed(1)}%` : "-"}
+																											</span>
+																										</div>
+																										{(stock.piotroskiScore != null || stock.altmanZScore != null) && (
+																											<div className="mt-2 pt-2 border-t space-y-1.5">
+																												{stock.piotroskiScore != null && (
+																													<div className="flex justify-between items-center">
+																														<span className="text-muted-foreground">Piotroski F-Score</span>
+																														<Badge variant="outline" className={`text-[9px] h-4 font-mono font-semibold ${stock.piotroskiScore >= 7 ? "border-emerald-500 text-emerald-600 bg-emerald-50/50" : stock.piotroskiScore <= 3 ? "border-red-500 text-red-600 bg-red-50/50" : "border-amber-500 text-amber-600"}`}>
+																															{stock.piotroskiScore}/9 {stock.piotroskiScore >= 7 ? "(Strong)" : stock.piotroskiScore <= 3 ? "(Weak)" : ""}
+																														</Badge>
+																													</div>
+																												)}
+																												{stock.altmanZScore != null && (
+																													<div className="flex justify-between items-center">
+																														<span className="text-muted-foreground">Altman Z-Score</span>
+																														<Badge variant="outline" className={`text-[9px] h-4 font-mono font-semibold ${Number.parseFloat(stock.altmanZScore) > 2.99 ? "border-emerald-500 text-emerald-600 bg-emerald-50/50" : Number.parseFloat(stock.altmanZScore) < 1.81 ? "border-red-500 text-red-600 bg-red-50/50" : "border-blue-400 text-blue-600 bg-blue-50/50"}`}>
+																															{Number.parseFloat(stock.altmanZScore).toFixed(2)} {Number.parseFloat(stock.altmanZScore) > 2.99 ? "(Safe)" : Number.parseFloat(stock.altmanZScore) < 1.81 ? "(Distress)" : "(Grey)"}
+																														</Badge>
+																													</div>
+																												)}
+																											</div>
+																										)}
 																									</div>
 																								</div>
 																								{/* Phase 5: Advanced Valuation */}

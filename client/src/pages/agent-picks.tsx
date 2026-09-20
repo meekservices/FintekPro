@@ -6035,29 +6035,55 @@ export default function AgentPicksPage() {
 															"strategy",
 															"expiry",
 															"greeks",
+															"newsGrounding",
+															"pdfUrl",
 														].includes(k) &&
 														(v !== null && v !== undefined
 															? typeof v !== "object"
-															: ["rsi", "roic"].includes(k)),
+															: ["rsi", "roic", "pe", "pb", "sharpe", "sortino", "beta", "alpha"].includes(k.toLowerCase())),
 												)
-												.slice(0, 10)
-												.map(([key, val]) => (
-													<div
-														key={key}
-														className="bg-muted/50 rounded-md px-3 py-2"
-													>
-														<p className="text-xs text-muted-foreground capitalize">
-															{key.replace(/_/g, " ")}
-														</p>
-														<p
-															className={`font-medium text-sm ${val === null || val === undefined ? "text-muted-foreground" : ""}`}
+												.map(([key, val]) => {
+													const formattedVal = (() => {
+														if (val === null || val === undefined) return "N/A";
+														const num = Number(val);
+														if (typeof val === "number" || (!isNaN(num) && typeof val === "string" && val.trim() !== "")) {
+															const lk = key.toLowerCase();
+															if (lk.includes("percent") || lk.includes("return") || lk.includes("cagr") || lk.includes("margin") || lk === "roe" || lk === "roce" || lk === "volatility") {
+																return `${num >= 0 && (lk.includes("return") || lk.includes("alpha")) ? "+" : ""}${num.toFixed(1)}%`;
+															}
+															if (lk === "alpha") {
+																return `${num > 0 ? "+" : ""}${num.toFixed(2)}`;
+															}
+															if (lk === "beta" || lk.includes("sharpe") || lk.includes("sortino")) {
+																return num.toFixed(2);
+															}
+															if (lk.includes("pe") || lk.includes("pb") || lk.includes("ratio") || lk.includes("turnover")) {
+																return `${num.toFixed(1)}×`;
+															}
+															if (num >= 1000) {
+																return num.toLocaleString("en-IN", { maximumFractionDigits: 1 });
+															}
+															return String(val);
+														}
+														return String(val);
+													})();
+
+													return (
+														<div
+															key={key}
+															className="bg-muted/50 rounded-md px-3 py-2"
 														>
-															{val === null || val === undefined
-																? "N/A"
-																: String(val)}
-														</p>
-													</div>
-												))}
+															<p className="text-xs text-muted-foreground capitalize">
+																{key.replace(/_/g, " ")}
+															</p>
+															<p
+																className={`font-medium text-sm ${val === null || val === undefined ? "text-muted-foreground" : ""}`}
+															>
+																{formattedVal}
+															</p>
+														</div>
+													);
+												})}
 										</div>
 										{selectedPick.keyMetrics.greeks && (
 											<div className="mt-2 bg-muted/50 rounded-md px-3 py-2">

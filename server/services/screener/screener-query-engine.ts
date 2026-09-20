@@ -402,6 +402,14 @@ export async function queryScreener(
 			sortExpr = sql`${screenerDerivedMetrics.beta}::numeric ${sql.raw(dir)} NULLS LAST`; break;
 		case "sharpe":
 			sortExpr = sql`${screenerDerivedMetrics.sharpeRatio1Y}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "sortino":
+			sortExpr = sql`${screenerDerivedMetrics.sortinoRatio1Y}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "maxDrawdown":
+			sortExpr = sql`${screenerDerivedMetrics.maxDrawdown1Y}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "volatility":
+			sortExpr = sql`${screenerDerivedMetrics.volatility30D}::numeric ${sql.raw(dir)} NULLS LAST`; break;
+		case "altman":
+			sortExpr = sql`${screenerDerivedMetrics.altmanZScore}::numeric ${sql.raw(dir)} NULLS LAST`; break;
 		case "piotroski":
 			sortExpr = sql`${screenerDerivedMetrics.piotroskiScore} ${sql.raw(dir)} NULLS LAST`; break;
 		case "rsi":
