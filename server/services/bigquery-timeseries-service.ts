@@ -351,7 +351,7 @@ export class BigQueryTimeSeriesService {
 							sortinoRatio: rec.sortino1y != null ? String(rec.sortino1y) : null,
 							standardDeviation: rec.volatility30d != null ? String(rec.volatility30d) : null,
 							maxDrawdown: rec.maxDrawdown1y != null ? String(rec.maxDrawdown1y) : null,
-							source: "bigquery_analytics",
+							lastUpdated: new Date(),
 						})
 						.onConflictDoUpdate({
 							target: [fundFinancialRatios.schemeCode],
@@ -360,8 +360,7 @@ export class BigQueryTimeSeriesService {
 								sortinoRatio: rec.sortino1y != null ? String(rec.sortino1y) : fundFinancialRatios.sortinoRatio,
 								standardDeviation: rec.volatility30d != null ? String(rec.volatility30d) : fundFinancialRatios.standardDeviation,
 								maxDrawdown: rec.maxDrawdown1y != null ? String(rec.maxDrawdown1y) : fundFinancialRatios.maxDrawdown,
-								updatedAt: new Date(),
-								source: "bigquery_analytics",
+								lastUpdated: new Date(),
 							},
 						});
 					updatedCount++;
@@ -373,6 +372,108 @@ export class BigQueryTimeSeriesService {
 
 		logger.info(`[BigQueryWarehouse] Synced ${updatedCount} factor ratios to Cloud SQL PostgreSQL`);
 		return updatedCount;
+	}
+
+	/**
+	 * Ingests calculated model portfolio factor metrics into BigQuery factor_metrics_history.
+	 */
+	public async ingestPortfolioFactorMetrics(records: Array<{
+		calculationDate: string;
+		portfolioId: string;
+		portfolioName: string;
+		cagr1Y?: number;
+		alpha?: number;
+		sharpeRatio?: number;
+		sortinoRatio?: number;
+		maxDrawdown?: number;
+		volatility?: number;
+		engineVersion: string;
+	}>): Promise<{ inserted: number; errors: number }> {
+		if (!records || records.length === 0) return { inserted: 0, errors: 0 };
+		const bq = this.getClient();
+		const table = bq.dataset(BQ_DATASET).table("factor_metrics_history");
+
+		const rows = records.map((r) => ({
+			calculation_date: r.calculationDate,
+			instrument_id: r.portfolioId,
+			instrument_type: "model_portfolio",
+			symbol_or_code: r.portfolioId,
+			alpha_1y: r.alpha ?? null,
+			beta_1y: null,
+			sharpe_1y: r.sharpeRatio ?? null,
+			sortino_1y: r.sortinoRatio ?? null,
+			max_drawdown_1y: r.maxDrawdown ?? null,
+			volatility_30d: r.volatility ?? null,
+			pe_ratio: null,
+			pb_ratio: null,
+			engine_version: r.engineVersion,
+			calculated_at: new Date().toISOString(),
+		}));
+
+		try {
+			await table.insert(rows, { raw: true, skipInvalidRows: true });
+			logger.info(`[BigQueryWarehouse] Ingested ${rows.length} model portfolio factor records to factor_metrics_history`);
+			return { inserted: rows.length, errors: 0 };
+		} catch (err: any) {
+			logger.warn("[BigQueryWarehouse] Non-fatal factor metrics ingestion failure", { error: err?.message });
+			return { inserted: 0, errors: rows.length };
+		}
+	}
+
+	/**
+	 * Queries monthly NAV series for a set of scheme codes from BigQuery daily_nav_timeseries.
+	 */
+	public async getMonthlyNavSeries(schemeCodes: string[]): Promise<Array<{ month_start: string; avg_return_pct: number; avg_bench_pct: number }> | null> {
+		if (!schemeCodes || schemeCodes.length === 0) return null;
+		const bq = this.getClient();
+		const query = `
+			WITH monthly_navs AS (
+				SELECT
+					scheme_code,
+					FORMAT_DATE('%Y-%m-01', nav_date) AS month_start,
+					nav,
+					ROW_NUMBER() OVER (PARTITION BY scheme_code, FORMAT_DATE('%Y-%m-01', nav_date) ORDER BY nav_date DESC) as rn
+				FROM \`${BQ_PROJECT}.${BQ_DATASET}.daily_nav_timeseries\`
+				WHERE scheme_code IN UNNEST(@schemeCodes)
+				  AND nav_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 YEAR)
+			),
+			month_end AS (
+				SELECT scheme_code, month_start, nav
+				FROM monthly_navs
+				WHERE rn = 1
+			),
+			month_returns AS (
+				SELECT
+					scheme_code,
+					month_start,
+					(nav - LAG(nav) OVER (PARTITION BY scheme_code ORDER BY month_start ASC)) /
+						NULLIF(LAG(nav) OVER (PARTITION BY scheme_code ORDER BY month_start ASC), 0) * 100 AS ret_pct
+				FROM month_end
+			)
+			SELECT
+				month_start,
+				AVG(ret_pct) AS avg_return_pct,
+				0.80 AS avg_bench_pct
+			FROM month_returns
+			WHERE ret_pct IS NOT NULL
+			GROUP BY month_start
+			ORDER BY month_start ASC
+		`;
+		try {
+			const [rows] = await bq.query({
+				query,
+				params: { schemeCodes },
+				location: BQ_LOCATION,
+			});
+			if (!rows || rows.length < 2) return null;
+			return (rows as any[]).map((r: any) => ({
+				month_start: String(r.month_start),
+				avg_return_pct: Number(r.avg_return_pct),
+				avg_bench_pct: Number(r.avg_bench_pct),
+			}));
+		} catch {
+			return null;
+		}
 	}
 }
 

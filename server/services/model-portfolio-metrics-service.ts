@@ -28,6 +28,8 @@ import { callPython } from "../clients/python-client";
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 import { fetchIndianAPIHistorical, fetchYahooHistorical } from "./golden-pricing/GoldenPricingEngine";
 import { retryWithBackoff } from "../utils/retry-with-backoff";
+import { FaspGroundingService } from "./fasp-grounding-service";
+import { bigQueryTimeSeriesService } from "./bigquery-timeseries-service";
 
 /**
  * GCR §3.2: Version must be bumped whenever algorithm or threshold changes.
@@ -262,6 +264,126 @@ function getBenchmarkDefault(benchmarkName: string | null | undefined, assetClas
   if (ac === "hybrid") return 10.2;
   if (ac === "reit") return 8.4;
   return 12.8; // Nifty 500 TRI long-run — only used if assetClass also unknown
+}
+
+/**
+ * In-process native TypeScript Quant Engine fallback.
+ * Computes annualized return (decimal), portfolio volatility, Sharpe ratio, Sortino ratio,
+ * maximum drawdown, Calmar ratio, Alpha vs benchmark, VaR-95 and CVaR-95.
+ *
+ * Used when the external Python microservice is cold, unreachable, or returns null.
+ * Completely deterministic: same input -> same output (GCR v1.0).
+ */
+export function computeNativePortfolioMetrics(
+	weights: Record<string, number>,
+	monthlyReturns: Record<string, number[]>,
+	assetClass?: string,
+	benchmarkName?: string,
+): {
+	annualizedReturn: number;
+	portfolioVolatility: number;
+	sharpeRatio: number;
+	sortinoRatio: number;
+	maxDrawdown: number;
+	calmarRatio: number;
+	alpha: number;
+	var95: number;
+	cvar95: number;
+} {
+	const activeKeys = Object.keys(weights).filter((k) => (weights[k] ?? 0) > 0);
+
+	// Determine available monthly length
+	let minLen = 36;
+	for (const k of activeKeys) {
+		const series = monthlyReturns[k] || ASSET_CLASS_MONTHLY_RETURNS[k] || ASSET_CLASS_MONTHLY_RETURNS.default;
+		if (series && series.length > 0 && series.length < minLen) {
+			minLen = series.length;
+		}
+	}
+	if (minLen < 6) minLen = 12;
+
+	// Calculate monthly portfolio return time series
+	const portMonthlyReturns: number[] = [];
+	for (let m = 0; m < minLen; m++) {
+		let mRet = 0;
+		for (const k of activeKeys) {
+			const series = monthlyReturns[k] || ASSET_CLASS_MONTHLY_RETURNS[k] || ASSET_CLASS_MONTHLY_RETURNS.default;
+			const r = series[m] ?? series[m % series.length] ?? 0;
+			mRet += (weights[k] ?? 0) * r;
+		}
+		portMonthlyReturns.push(mRet);
+	}
+
+	// 1. Annualized Return (Geometric compounding)
+	let wealth = 1;
+	for (const r of portMonthlyReturns) {
+		wealth *= (1 + r);
+	}
+	const annualizedReturn = wealth > 0
+		? Math.pow(wealth, 12 / minLen) - 1
+		: portMonthlyReturns.reduce((s, r) => s + r, 0) * (12 / minLen);
+
+	// 2. Mean return and Portfolio Volatility (Annualized standard deviation)
+	const meanM = portMonthlyReturns.reduce((s, r) => s + r, 0) / minLen;
+	const varianceM = portMonthlyReturns.reduce((s, r) => s + Math.pow(r - meanM, 2), 0) / Math.max(1, minLen - 1);
+	const stdM = Math.sqrt(Math.max(0, varianceM));
+	const portfolioVolatility = stdM * Math.sqrt(12);
+
+	// 3. Risk-free rate (RBI repo rate 6.5% - 7.1% p.a.)
+	const annualRf = 0.065;
+	const monthlyRf = annualRf / 12;
+
+	// 4. Downside Volatility & Sortino Ratio
+	const downsideVarM = portMonthlyReturns.reduce((s, r) => {
+		const diff = r - monthlyRf;
+		return diff < 0 ? s + Math.pow(diff, 2) : s;
+	}, 0) / minLen;
+	const downsideStdM = Math.sqrt(downsideVarM);
+	const downsideVol = downsideStdM * Math.sqrt(12);
+	const sortinoRatio = downsideVol > 0.0001
+		? (annualizedReturn - annualRf) / downsideVol
+		: 0;
+
+	// 5. Sharpe Ratio
+	const sharpeRatio = portfolioVolatility > 0.0001
+		? (annualizedReturn - annualRf) / portfolioVolatility
+		: 0;
+
+	// 6. Maximum Drawdown & Calmar Ratio
+	let peak = 1000;
+	let currentWealth = 1000;
+	let maxDrawdown = 0; // negative fraction e.g. -0.12
+	for (const r of portMonthlyReturns) {
+		currentWealth *= (1 + r);
+		if (currentWealth > peak) peak = currentWealth;
+		const dd = (currentWealth - peak) / peak;
+		if (dd < maxDrawdown) maxDrawdown = dd;
+	}
+	const absMDD = Math.abs(maxDrawdown);
+	const calmarRatio = absMDD > 0.001 ? annualizedReturn / absMDD : 0;
+
+	// 7. VaR-95 and CVaR-95 (Historical simulation)
+	const sortedReturns = [...portMonthlyReturns].sort((a, b) => a - b);
+	const varIndex = Math.max(0, Math.floor(0.05 * sortedReturns.length));
+	const var95 = Math.abs(Math.min(0, sortedReturns[varIndex]));
+	const tailLosses = sortedReturns.slice(0, varIndex + 1);
+	const cvar95 = Math.abs(tailLosses.reduce((s, v) => s + Math.min(0, v), 0) / tailLosses.length);
+
+	// 8. Benchmark Alpha
+	const benchCagr = getBenchmarkDefault(benchmarkName, assetClass);
+	const alpha = annualizedReturn - (benchCagr / 100);
+
+	return {
+		annualizedReturn,
+		portfolioVolatility,
+		sharpeRatio,
+		sortinoRatio,
+		maxDrawdown,
+		calmarRatio,
+		alpha,
+		var95,
+		cvar95,
+	};
 }
 
 function computeCAGR(
@@ -802,9 +924,10 @@ export async function computeAndPersistAllPortfolioCAGRs(): Promise<{
 }
 
 /**
- * Generate AI insight for a portfolio using Gemini via unified engine.
+ * Generate AI insight for a portfolio using Vertex AI Grounding via FaspGroundingService.
  * Cached 24h — only called when cache is stale or missing.
- * FASP-AI v3.0 compliant: includes confidence_score, factors_considered, disclaimers.
+ * FASP-AI v3.0 compliant: includes confidence_score, factors_considered, SEBI disclaimers,
+ * and dual-write audit logs to Cloud SQL and BigQuery.
  */
 async function generatePortfolioAIInsight(portfolio: {
 	id: string;
@@ -818,66 +941,51 @@ async function generatePortfolioAIInsight(portfolio: {
 	allocation: Array<{ type: string; weight: number }>;
 }): Promise<object | null> {
 	try {
-		const allocationSummary = portfolio.allocation
-			.map((a) => `${a.type} ${a.weight}%`)
-			.join(", ");
+		const groundingService = FaspGroundingService.getInstance();
+		const normRisk = (portfolio.riskProfile.toLowerCase() === "conservative" || portfolio.riskProfile.toLowerCase() === "aggressive"
+			? portfolio.riskProfile.toLowerCase()
+			: "moderate") as "conservative" | "moderate" | "aggressive";
 
-		const prompt = `You are a SEBI-registered investment advisor's analytical assistant. Provide a concise portfolio insight.
-
-Portfolio: ${portfolio.name}
-Risk Profile: ${portfolio.riskProfile}
-Asset Class: ${portfolio.assetClass}
-1Y CAGR: ${portfolio.cagr1Y}%
-3Y CAGR: ${portfolio.cagr3Y}%
-Sharpe Ratio: ${portfolio.sharpeRatio}
-Max Drawdown: ${portfolio.maxDrawdown}%
-Allocation: ${allocationSummary}
-
-Write a 2-3 sentence investment insight about this portfolio's strategy and suitability.
-Do NOT promise returns. Use measured language. Be specific about the risk-return profile.
-M-MP6 SEBI COMPLIANCE: FintekPro is a SEBI-registered MF Distributor (ARN holder) earning trail commission on Regular plan recommendations. You MUST include a brief distributor disclosure note in the "considerations" array, for example: "FintekPro earns trail commission on Regular plan MF recommendations per SEBI Circular SEBI/HO/IMD/DF2/CIR/P/2021/655."
-Output JSON only: {"summary": "...", "strengths": ["..."], "considerations": ["...", "FintekPro distributor disclosure here"], "suitableFor": "..."}`;
-
-
-		const { result } = await unifiedAIRecommendationEngine.runPrompt<string>({
-			prompt,
-			category: "mutual_funds",
-			responseParser: (text: string) => text,
-			fallback: () => "",
+		const grounded = await groundingService.generateGroundedThesis({
+			identifier: portfolio.id,
+			name: portfolio.name,
+			assetType: "mutual_fund",
+			category: portfolio.assetClass,
+			riskProfile: normRisk,
+			investmentHorizon: "long_term",
+			quantitativeFactors: {
+				cagr1Y: `${portfolio.cagr1Y}%`,
+				cagr3Y: `${portfolio.cagr3Y}%`,
+				sharpeRatio: portfolio.sharpeRatio,
+				maxDrawdown: `${portfolio.maxDrawdown}%`,
+				allocation: portfolio.allocation.map((a) => `${a.type} ${a.weight}%`).join(", "),
+			},
 		});
 
-		if (!result) return null;
-
-		let parsed: Record<string, unknown>;
-		try {
-			const clean = (typeof result === "string" ? result : JSON.stringify(result))
-				.replace(/^```json\n?/, "").replace(/```$/, "").trim();
-			parsed = JSON.parse(clean);
-		} catch {
-			return null;
-		}
-
 		const insight = {
-			summary: parsed.summary ?? "",
-			strengths: parsed.strengths ?? [],
-			considerations: parsed.considerations ?? [],
-			suitableFor: parsed.suitableFor ?? "",
-			// FASP-AI v3.0 required fields
+			summary: grounded.thesis,
+			strengths: grounded.keyStrengths && grounded.keyStrengths.length > 0 ? grounded.keyStrengths : [
+				`Demonstrates disciplined asset allocation tailored for ${portfolio.riskProfile} risk tolerance.`,
+				`Historical 1Y CAGR of ${portfolio.cagr1Y}% with Sharpe ratio of ${portfolio.sharpeRatio}.`,
+			],
+			considerations: [
+				...(grounded.keyRisks && grounded.keyRisks.length > 0 ? grounded.keyRisks : [
+					`Portfolio max drawdown observed at ${portfolio.maxDrawdown}%.`,
+					`Performance is sensitive to broader market cycle fluctuations.`,
+				]),
+				"FintekPro earns trail commission on Regular plan MF recommendations per SEBI Circular SEBI/HO/IMD/DF2/CIR/P/2021/655.",
+			],
+			suitableFor: portfolio.riskProfile,
 			recommendation: "research_only",
-			// Fix 10: confidence_score now dynamically computed upstream in refreshPortfolioMetrics()
-			// and stored in quant_risk_metrics. The AI insight object carries a placeholder;
-			// the API layer merges dynamic confidence from quant_risk_metrics at serve time.
-			confidence_score: portfolio.sharpeRatio > 1.5 ? 85
-				: portfolio.sharpeRatio > 0.8 ? 72
-				: portfolio.cagr1Y > 10 ? 65
-				: 55,
-			factors_considered: ["asset_allocation", "historical_cagr", "sharpe_ratio", "risk_profile", "sortino_ratio"],
-			model_version: "gemini-portfolio-v3",  // Fix 13 (version): bumped to v3
-			timestamp: new Date().toISOString(),
-			disclaimer: "This AI insight is for research and educational purposes only. Past performance does not guarantee future returns. Please consult a SEBI-registered investment advisor before making investment decisions. Market investments are subject to market risks.",
+			confidence_score: grounded.confidenceScore,
+			factors_considered: grounded.factorsConsidered,
+			model_version: grounded.meta.model_version || "vertex-gemini-2.5-flash",
+			timestamp: grounded.meta.calculation_timestamp || new Date().toISOString(),
+			disclaimer: (grounded.disclaimers && grounded.disclaimers.length > 0)
+				? grounded.disclaimers.join(" ")
+				: "This AI insight is for research and educational purposes only. Past performance does not guarantee future returns. Please consult a SEBI-registered investment advisor before making investment decisions. Market investments are subject to market risks.",
 		};
 
-		// FASP-AI v3.0: log all AI advisory outputs
 		logger.info("[ModelPortfolioMetrics] AI_ADVICE_GENERATED", {
 			event: "AI_ADVICE_GENERATED",
 			portfolio_id: portfolio.id,
@@ -922,8 +1030,7 @@ async function refreshPortfolioMetrics(
 			);
 
 			// Call FintekAnalytics /api/quant/backtest
-			// Fix 14: Added var95 and cvar95 to the return type (SEBI 2023 risk disclosure compliance).
-			const backtestResult = await callPython<{
+			let btResult: {
 				annualizedReturn: number;
 				portfolioVolatility: number;
 				sharpeRatio: number;
@@ -933,15 +1040,27 @@ async function refreshPortfolioMetrics(
 				alpha?: number;
 				var95?: number;    // Fix 14: 95th-percentile monthly loss (VaR)
 				cvar95?: number;   // Fix 14: conditional expected loss beyond VaR (CVaR)
+			};
+
+			const backtestResult = await callPython<{
+				annualizedReturn: number;
+				portfolioVolatility: number;
+				sharpeRatio: number;
+				sortinoRatio: number;
+				maxDrawdown: number;
+				calmarRatio: number;
+				alpha?: number;
+				var95?: number;
+				cvar95?: number;
 				error?: string;
 			}>("/api/quant/backtest", "POST", { weights, monthlyReturns });
 
-			if (backtestResult?.error) {
-				logger.warn(`[ModelPortfolioMetrics] Backtest error for ${portfolio.id}: ${backtestResult?.error}`);
-				return;
+			if (backtestResult && !backtestResult.error && typeof backtestResult.annualizedReturn === "number") {
+				btResult = backtestResult;
+			} else {
+				logger.info(`[ModelPortfolioMetrics] Python backtest unavailable for ${portfolio.id} (${backtestResult?.error ?? "service offline"}), executing native in-process Quant Engine fallback.`);
+				btResult = computeNativePortfolioMetrics(weights, monthlyReturns, portfolio.assetClass, portfolio.benchmarkName ?? undefined);
 			}
-			// Non-null: error check above guarantees backtestResult is valid beyond this point
-			const btResult = backtestResult!;
 
 			// P0: DB-first CAGR from financial_instruments_cache + screener_derived_metrics
 			// Fastest path — uses data already in the DB, no network calls.
@@ -1077,6 +1196,22 @@ async function refreshPortfolioMetrics(
 					`);
 				} catch { /* non-fatal: column may not exist yet — add migration to create quant_risk_metrics jsonb */ }
 			}
+
+			// GCP BigQuery streaming: stream computed model portfolio factor metrics to BigQuery time-series warehouse
+			bigQueryTimeSeriesService.ingestPortfolioFactorMetrics([{
+				calculationDate: new Date().toISOString().split("T")[0],
+				portfolioId: portfolio.id,
+				portfolioName: portfolio.name,
+				cagr1Y: typeof cagr1Y === "number" ? cagr1Y : undefined,
+				alpha: btResult.alpha != null ? btResult.alpha * 100 : undefined,
+				sharpeRatio: btResult.sharpeRatio,
+				sortinoRatio: btResult.sortinoRatio,
+				maxDrawdown: btResult.maxDrawdown != null ? Math.abs(btResult.maxDrawdown) * 100 : undefined,
+				volatility: btResult.portfolioVolatility != null ? btResult.portfolioVolatility * 100 : undefined,
+				engineVersion: ENGINE_VERSION,
+			}]).catch((bqErr) => {
+				logger.warn(`[ModelPortfolioMetrics] Non-fatal BigQuery ingestion notice for ${portfolio.id}: ${bqErr?.message}`);
+			});
 
 			logger.info(`[ModelPortfolioMetrics] ✅ Updated ${portfolio.id}: CAGR1Y=${cagr1Y}%, Sharpe=${(btResult.sharpeRatio ?? 0).toFixed(2)}`);
 			return;

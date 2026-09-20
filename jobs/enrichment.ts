@@ -87,6 +87,47 @@ async function run(): Promise<void> {
 			logger.warn(`[${JOB_NAME}] Phase D failed (non-fatal)`, { error: String(err) });
 		}
 
+		// Phase E: Model Portfolio Engine Nightly Execution (GCP Cloud Run Job offload)
+		//   E1 — refreshAllModelPortfolioMetrics: CAGRs, Sharpe, Sortino, VaR-95, Vertex AI insights
+		//   E2 — computeAndPersistAllPortfolioTWRRPeriods: 1M, 3M, 6M, YTD, 2Y, inception returns
+		//   E3 — computeAndPersistDividendYields: trailing portfolio dividend yield
+		//   E4 — refreshAllPortfolioNavHistory: Cloud SQL & BigQuery monthly NAV timeseries
+		//   E5 — runNightlyModelPortfolioRebalance: drift detection & portfolio rebalance triggers
+		logger.info(`[${JOB_NAME}] Phase E: Model Portfolio Engine execution (Metrics, TWRR, NAV, Rebalance)`);
+		try {
+			const {
+				refreshAllModelPortfolioMetrics,
+				computeAndPersistAllPortfolioTWRRPeriods,
+				computeAndPersistDividendYields,
+			} = await import("../server/services/model-portfolio-metrics-service");
+			const { refreshAllPortfolioNavHistory } = await import(
+				"../server/services/model-portfolio-nav-service"
+			);
+			const { runNightlyModelPortfolioRebalance } = await import(
+				"../server/services/model-portfolio-quant-service"
+			);
+			const { db } = await import("../server/db");
+
+			logger.info(`[${JOB_NAME}] Phase E1: Refreshing model portfolio metrics`);
+			await refreshAllModelPortfolioMetrics();
+
+			logger.info(`[${JOB_NAME}] Phase E2: Computing TWRR periods`);
+			await computeAndPersistAllPortfolioTWRRPeriods();
+
+			logger.info(`[${JOB_NAME}] Phase E3: Computing dividend yields`);
+			await computeAndPersistDividendYields();
+
+			logger.info(`[${JOB_NAME}] Phase E4: Refreshing model portfolio NAV histories`);
+			await refreshAllPortfolioNavHistory(db);
+
+			logger.info(`[${JOB_NAME}] Phase E5: Running nightly quant rebalance check`);
+			await runNightlyModelPortfolioRebalance();
+
+			logger.info(`[${JOB_NAME}] Phase E complete`);
+		} catch (err) {
+			logger.warn(`[${JOB_NAME}] Phase E failed (non-fatal)`, { error: String(err) });
+		}
+
 		const latencyMs = Date.now() - START_TIME;
 		logger.info(`[${JOB_NAME}] Job completed successfully`, {
 			event: "JOB_COMPLETE",

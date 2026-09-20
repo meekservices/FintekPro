@@ -18,6 +18,7 @@
 import { sql } from "drizzle-orm";
 import { logger } from "../logger";
 import { db as _dbType } from "../db"; // L-MP4: import for typeof — do NOT use the singleton directly (callers pass their own)
+import { bigQueryTimeSeriesService } from "./bigquery-timeseries-service";
 type DbClient = typeof _dbType;
 
 
@@ -171,8 +172,16 @@ async function fetchRealNavCurve(db: DbClient, portfolio: any): Promise<MonthRow
       ORDER BY month_year ASC
     `);
 
-    const rows = ((res as any).rows ?? []) as any[];
-    if (rows.length < 2) return null;
+    let rows = ((res as any).rows ?? []) as any[];
+    if (rows.length < 2) {
+      // GCP BigQuery fallback: query partitioned daily_nav_timeseries
+      const bqSeries = await bigQueryTimeSeriesService.getMonthlyNavSeries(schemeCodes).catch(() => null);
+      if (bqSeries && bqSeries.length >= 2) {
+        rows = bqSeries;
+      } else {
+        return null;
+      }
+    }
 
     const navRows: MonthRow[] = [];
     let nav   = 1000;
