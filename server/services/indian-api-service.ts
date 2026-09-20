@@ -1014,10 +1014,82 @@ class IndianAPIService {
 						params: { stock_name: symbol.toUpperCase(), period: period === "1y" ? "1yr" : period, filter: "default" },
 					}),
 				);
-				const data = Array.isArray(r.data) ? r.data : (r.data?.data ?? r.data?.prices ?? []);
+				let data: any[] = [];
+				if (r.data?.datasets?.[0]?.values && Array.isArray(r.data.datasets[0].values)) {
+					data = r.data.datasets[0].values
+						.map(([date, close]: any[]) => ({
+							date: String(date),
+							close: Number.parseFloat(close),
+						}))
+						.filter((b: any) => !Number.isNaN(b.close) && b.close > 0);
+				} else if (Array.isArray(r.data)) {
+					data = r.data;
+				} else if (Array.isArray(r.data?.data)) {
+					data = r.data.data;
+				} else if (Array.isArray(r.data?.prices)) {
+					data = r.data.prices;
+				}
 				return this.makeResult<any[]>(data);
 			} catch (error: any) {
 				logger.error(`[IndianAPI] getHistoricalData(${symbol}, ${period}) error: ${error.message}`);
+				return this.makeError(error.message);
+			}
+		}, TTL.MARKET);
+	}
+
+	async calculateHistoricalReturns(symbol: string): Promise<IndianAPIResult<{
+		returns1M?: number;
+		returns3M?: number;
+		returns6M?: number;
+		returns1Y?: number;
+	}>> {
+		if (!this.isConfigured) return this.notConfigured();
+		const key = requestDedupeService.createKey("indian_api", "returns", symbol.toUpperCase());
+		return requestDedupeService.dedupe(key, async () => {
+			try {
+				const histRes = await this.getHistoricalData(symbol, "1yr");
+				const bars = histRes.data || [];
+				if (!bars.length) {
+					return this.makeResult({});
+				}
+
+				// Sort chronological (oldest to newest)
+				const sortedBars = [...bars].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+				const latestBar = sortedBars[sortedBars.length - 1];
+				const latestPrice = latestBar?.close;
+				if (!latestPrice || latestPrice <= 0) {
+					return this.makeResult({});
+				}
+
+				const latestTime = new Date(latestBar.date).getTime();
+
+				const findReturn = (daysAgo: number, toleranceDays: number): number | undefined => {
+					const targetTime = latestTime - daysAgo * 86400000;
+					let closest: { date: string; close: number } | null = null;
+					let minDiff = Number.POSITIVE_INFINITY;
+
+					for (const bar of sortedBars) {
+						const barTime = new Date(bar.date).getTime();
+						const diff = Math.abs(barTime - targetTime);
+						if (diff <= toleranceDays * 86400000 && diff < minDiff) {
+							minDiff = diff;
+							closest = bar;
+						}
+					}
+
+					if (!closest || closest.close <= 0) return undefined;
+					const ret = ((latestPrice - closest.close) / closest.close) * 100;
+					return Math.round(ret * 100) / 100;
+				};
+
+				return this.makeResult({
+					returns1M: findReturn(30, 15),
+					returns3M: findReturn(90, 25),
+					returns6M: findReturn(180, 35),
+					returns1Y: findReturn(365, 45),
+				});
+			} catch (error: any) {
+				logger.error(`[IndianAPI] calculateHistoricalReturns(${symbol}) error: ${error.message}`);
 				return this.makeError(error.message);
 			}
 		}, TTL.MARKET);

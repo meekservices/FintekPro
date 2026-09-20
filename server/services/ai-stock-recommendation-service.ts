@@ -21,6 +21,9 @@ import {
 } from "./screener/enriched-stock-data";
 import { unifiedAIRecommendationEngine } from "./unified-ai-recommendation-engine";
 import { unifiedStockPriceService } from "./unified-stock-price-service";
+import { logger } from "../logger";
+import { getFinancialData } from "../modules/research/dataService";
+import { indianApiService } from "./indian-api-service";
 
 export interface StockRecommendation {
 	id: string;
@@ -132,7 +135,7 @@ class AIStockRecommendationService {
 
 	constructor() {
 		const status = unifiedAIRecommendationEngine.getStatus();
-		console.log(
+		logger.info(
 			`✅ AI Stock Recommendation Service initialized via Unified Engine (primary: ${status.primary})`,
 		);
 	}
@@ -230,13 +233,19 @@ class AIStockRecommendationService {
 				})
 				.slice(0, maxResults);
 
+			await Promise.all(
+				recommendations.map((r) =>
+					this.ensureCompleteRecommendationMetrics(r),
+				),
+			);
+
 			this.recommendationCache.set(cacheKey, {
 				recommendations,
 				timestamp: new Date(),
 			});
 			return recommendations;
 		} catch (error) {
-			console.error("Error generating stock recommendations:", error);
+			logger.error("Error generating stock recommendations:", error);
 			return this.getFallbackRecommendations(filters);
 		}
 	}
@@ -460,9 +469,8 @@ class AIStockRecommendationService {
 				return stock;
 			});
 		} catch (err) {
-			console.warn(
-				"[StockAI] Live price enrichment for default pool failed, using reference prices:",
-				(err as Error).message,
+			logger.warn(
+				`[StockAI] Live price enrichment for default pool failed, using reference prices: ${(err as Error).message}`,
 			);
 			return defaultStocks;
 		}
@@ -611,19 +619,202 @@ class AIStockRecommendationService {
 		},
 	};
 
+	private async enrichStockFundamentalsAndReturns(stock: any): Promise<void> {
+		if (!stock || !stock.symbol) return;
+		const sym = stock.symbol.toUpperCase();
+
+		const hasFundamentals =
+			stock.peRatio != null &&
+			stock.roe != null &&
+			stock.pbRatio != null;
+
+		const hasReturns =
+			stock.returns1M != null &&
+			stock.returns1Y != null;
+
+		if (hasFundamentals && hasReturns) {
+			return;
+		}
+
+		try {
+			let fin: any = null;
+			try {
+				fin = await getFinancialData(sym);
+			} catch (err: any) {
+				logger.warn(`[AI Recommendations] getFinancialData fallback for ${sym}: ${err?.message}`);
+			}
+
+			const toPct = (v: number | null | undefined): number | undefined => {
+				if (v == null || Number.isNaN(v)) return undefined;
+				return Math.abs(v) <= 1 && v !== 0 ? Math.round(v * 10000) / 100 : Math.round(v * 100) / 100;
+			};
+
+			if (fin) {
+				if (stock.peRatio == null && fin.pe != null) stock.peRatio = fin.pe;
+				if (stock.pbRatio == null && fin.pbRatio != null) stock.pbRatio = fin.pbRatio;
+				if (stock.bookValue == null && fin.bookValue != null) stock.bookValue = fin.bookValue;
+				if (stock.roe == null && fin.roe != null) stock.roe = toPct(fin.roe);
+				if (stock.roce == null && fin.roce != null) stock.roce = toPct(fin.roce);
+				if (stock.dividendYield == null && fin.dividendYield != null) stock.dividendYield = toPct(fin.dividendYield);
+				if (stock.debtToEquity == null && fin.debtToEquity != null) stock.debtToEquity = fin.debtToEquity;
+
+				if (stock.eps == null) {
+					if (fin.eps != null) {
+						stock.eps = fin.eps;
+					} else if (stock.currentPrice && stock.peRatio && Number(stock.peRatio) > 0) {
+						stock.eps = Math.round((Number(stock.currentPrice) / Number(stock.peRatio)) * 100) / 100;
+					} else if (fin.price && fin.pe && Number(fin.pe) > 0) {
+						stock.eps = Math.round((Number(fin.price) / Number(fin.pe)) * 100) / 100;
+					}
+				}
+
+				if (stock.pbRatio == null && stock.bookValue && Number(stock.bookValue) > 0) {
+					const curP = Number(stock.currentPrice || fin.price || 0);
+					if (curP > 0) {
+						stock.pbRatio = Math.round((curP / Number(stock.bookValue)) * 100) / 100;
+					}
+				}
+
+				if (stock.returns1M == null && fin.returns1M != null) stock.returns1M = toPct(fin.returns1M);
+				if (stock.returns6M == null && fin.returns6M != null) stock.returns6M = toPct(fin.returns6M);
+				if (stock.returns1Y == null && fin.returns1Y != null) stock.returns1Y = toPct(fin.returns1Y);
+			}
+
+			// Fallback to IndianAPI ratios if PE or ROE are still missing
+			if (stock.peRatio == null || stock.roe == null) {
+				try {
+					const ratioRes = await indianApiService.getRatios(sym);
+					const r = ratioRes?.data;
+					if (r) {
+						if (stock.peRatio == null && r.pe_ratio != null) stock.peRatio = r.pe_ratio;
+						if (stock.pbRatio == null && r.pb_ratio != null) stock.pbRatio = r.pb_ratio;
+						if (stock.roe == null && r.roe != null) stock.roe = r.roe;
+						if (stock.roce == null && r.roce != null) stock.roce = r.roce;
+						if (stock.dividendYield == null && r.dividend_yield != null) stock.dividendYield = r.dividend_yield;
+						if (stock.debtToEquity == null && r.debt_equity != null) stock.debtToEquity = r.debt_equity;
+						if (stock.currentRatio == null && r.current_ratio != null) stock.currentRatio = r.current_ratio;
+					}
+				} catch (err: any) {
+					logger.warn(`[AI Recommendations] IndianAPI ratios fallback for ${sym}: ${err?.message}`);
+				}
+			}
+
+			// Historical returns calculation from IndianAPI price bars if missing
+			if (stock.returns1M == null || stock.returns3M == null || stock.returns1Y == null) {
+				try {
+					const retRes = await indianApiService.calculateHistoricalReturns(sym);
+					const rets = retRes?.data;
+					if (rets) {
+						if (stock.returns1M == null && rets.returns1M != null) stock.returns1M = rets.returns1M;
+						if (stock.returns3M == null && rets.returns3M != null) stock.returns3M = rets.returns3M;
+						if (stock.returns6M == null && rets.returns6M != null) stock.returns6M = rets.returns6M;
+						if (stock.returns1Y == null && rets.returns1Y != null) stock.returns1Y = rets.returns1Y;
+					}
+				} catch (err: any) {
+					logger.warn(`[AI Recommendations] Return calc fallback for ${sym}: ${err?.message}`);
+				}
+			}
+
+			// Fire-and-forget DB write-through to listed_stocks
+			db.execute(sql`
+				UPDATE listed_stocks
+				SET
+					pe_ratio = COALESCE(${stock.peRatio}, pe_ratio),
+					pb_ratio = COALESCE(${stock.pbRatio}, pb_ratio),
+					roe = COALESCE(${stock.roe}, roe),
+					roce = COALESCE(${stock.roce}, roce),
+					eps = COALESCE(${stock.eps}, eps),
+					dividend_yield = COALESCE(${stock.dividendYield}, dividend_yield),
+					book_value = COALESCE(${stock.bookValue}, book_value),
+					returns_1m = COALESCE(${stock.returns1M}, returns_1m),
+					returns_3m = COALESCE(${stock.returns3M}, returns_3m),
+					returns_6m = COALESCE(${stock.returns6M}, returns_6m),
+					returns_1y = COALESCE(${stock.returns1Y}, returns_1y),
+					last_updated = now()
+				WHERE UPPER(symbol) = ${sym}
+			`).catch(() => {});
+		} catch (err: any) {
+			logger.warn(`[AI Recommendations] Enrichment error for ${sym}: ${err?.message}`);
+		}
+	}
+
+	private async ensureCompleteRecommendationMetrics(rec: StockRecommendation): Promise<void> {
+		if (!rec || !rec.symbol) return;
+		const sym = rec.symbol.toUpperCase();
+
+		const f = rec.fundamentals || (rec.fundamentals = {});
+		const ret = rec.returns || (rec.returns = {});
+
+		const needsFundamentals =
+			f.peRatio == null ||
+			f.roe == null ||
+			f.pbRatio == null ||
+			f.roce == null ||
+			f.eps == null ||
+			f.dividendYield == null;
+
+		const needsReturns =
+			ret.returns1M == null ||
+			ret.returns3M == null ||
+			ret.returns6M == null ||
+			ret.returns1Y == null;
+
+		if (!needsFundamentals && !needsReturns) return;
+
+		try {
+			const dummyStock: any = {
+				symbol: sym,
+				currentPrice: rec.currentPrice,
+				peRatio: f.peRatio,
+				pbRatio: f.pbRatio,
+				roe: f.roe,
+				roce: f.roce,
+				eps: f.eps,
+				dividendYield: f.dividendYield,
+				debtToEquity: f.debtToEquity,
+				returns1M: ret.returns1M,
+				returns3M: ret.returns3M,
+				returns6M: ret.returns6M,
+				returns1Y: ret.returns1Y,
+			};
+
+			await this.enrichStockFundamentalsAndReturns(dummyStock);
+
+			if (f.peRatio == null && dummyStock.peRatio != null) f.peRatio = dummyStock.peRatio;
+			if (f.pbRatio == null && dummyStock.pbRatio != null) f.pbRatio = dummyStock.pbRatio;
+			if (f.roe == null && dummyStock.roe != null) f.roe = dummyStock.roe;
+			if (f.roce == null && dummyStock.roce != null) f.roce = dummyStock.roce;
+			if (f.eps == null && dummyStock.eps != null) f.eps = dummyStock.eps;
+			if (f.dividendYield == null && dummyStock.dividendYield != null) f.dividendYield = dummyStock.dividendYield;
+			if (f.debtToEquity == null && dummyStock.debtToEquity != null) f.debtToEquity = dummyStock.debtToEquity;
+
+			if (ret.returns1M == null && dummyStock.returns1M != null) ret.returns1M = dummyStock.returns1M;
+			if (ret.returns3M == null && dummyStock.returns3M != null) ret.returns3M = dummyStock.returns3M;
+			if (ret.returns6M == null && dummyStock.returns6M != null) ret.returns6M = dummyStock.returns6M;
+			if (ret.returns1Y == null && dummyStock.returns1Y != null) ret.returns1Y = dummyStock.returns1Y;
+
+			if (f.eps == null && rec.currentPrice && f.peRatio && Number(f.peRatio) > 0) {
+				f.eps = Math.round((Number(rec.currentPrice) / Number(f.peRatio)) * 100) / 100;
+			}
+		} catch (err: any) {
+			logger.warn(`[AI Recommendations] ensureCompleteRecommendationMetrics error for ${sym}: ${err?.message}`);
+		}
+	}
+
 	private async enhanceWithLiveData(stocks: any[]): Promise<any[]> {
 		try {
 			const yahooFinance = (await import("yahoo-finance2")).default;
 
 			const enhancedStocks = await Promise.all(
 				stocks.map(async (stock) => {
+					// Enrich fundamentals and historical returns using multi-tier engine
+					await this.enrichStockFundamentalsAndReturns(stock);
+
 					let enrichedSnapshot: EnrichedStockSnapshot | null = null;
 					try {
 						enrichedSnapshot = await getEnrichedStockSnapshot(stock.symbol);
 					} catch (err) {
-						console.log(
-							`[EnrichedData] Could not fetch enriched snapshot for ${stock.symbol}`,
-						);
+						// Optional FMP snapshot
 					}
 
 					const ef = enrichedSnapshot?.fundamentals;
@@ -662,8 +853,11 @@ class AIStockRecommendationService {
 						enrichedBase.roe = stock.roe || cachedFundamentals.roe;
 						enrichedBase.dividendYield =
 							stock.dividendYield || cachedFundamentals.dividendYield;
+						enrichedBase.debtToEquity = stock.debtToEquity || cachedFundamentals.debtToEquity;
+						enrichedBase.currentRatio = stock.currentRatio || cachedFundamentals.currentRatio;
 					}
 					enrichedBase.roce = stock.roce || cachedFundamentals.roce;
+					enrichedBase.eps = stock.eps;
 
 					if (eg) {
 						enrichedBase.revenueGrowth = eg.revenueGrowth;
@@ -712,7 +906,7 @@ class AIStockRecommendationService {
 								marketCap: quote?.marketCap,
 								peRatio: quote?.trailingPE || enrichedBase.peRatio,
 								pbRatio: quote?.priceToBook || enrichedBase.pbRatio,
-								eps: quote?.epsTrailingTwelveMonths,
+								eps: quote?.epsTrailingTwelveMonths || enrichedBase.eps,
 								dividendYield: quote?.dividendYield
 									? quote.dividendYield * 100
 									: enrichedBase.dividendYield,
@@ -722,7 +916,6 @@ class AIStockRecommendationService {
 							},
 						};
 					} catch (err) {
-						console.log(`Using cached/enriched data for ${stock.symbol}`);
 						return {
 							...stock,
 							...enrichedBase,
@@ -735,6 +928,7 @@ class AIStockRecommendationService {
 								pbRatio: enrichedBase.pbRatio,
 								roe: enrichedBase.roe,
 								roce: enrichedBase.roce,
+								eps: enrichedBase.eps || stock.eps,
 								dividendYield: enrichedBase.dividendYield,
 							},
 						};
@@ -744,7 +938,7 @@ class AIStockRecommendationService {
 
 			return enhancedStocks;
 		} catch (error) {
-			console.error("Error fetching live data:", error);
+			logger.error("Error fetching live data:", error);
 			return stocks;
 		}
 	}
@@ -1163,9 +1357,8 @@ class AIStockRecommendationService {
 				metrics.roic = enrichedSnap.fundamentals.roic;
 			}
 		} catch (error) {
-			console.warn(
-				"[AIStockRecommendation] Error calculating advanced metrics:",
-				error,
+			logger.warn(
+				`[AIStockRecommendation] Error calculating advanced metrics: ${(error as Error)?.message || String(error)}`,
 			);
 		}
 
@@ -1228,8 +1421,8 @@ class AIStockRecommendationService {
 							filters.timeHorizon || "medium_term",
 						);
 					} catch (error) {
-						console.warn(
-							`AI analysis failed for ${scored.stock.symbol}, using rule-based`,
+						logger.warn(
+							`AI analysis failed for ${scored.stock.symbol}, using rule-based: ${(error as Error)?.message || String(error)}`,
 						);
 						return this.buildRuleBasedRecommendation(
 							scored,
@@ -1521,7 +1714,19 @@ Provide analysis in JSON format:
 				roce: this.safeParseFloat(
 					live.roce ?? stock.roce ?? cachedFundamentals.roce,
 				),
-				eps: this.safeParseFloat(ef?.eps ?? live.eps ?? stock.eps),
+				eps: this.safeParseFloat(
+					ef?.eps ??
+						live.eps ??
+						stock.eps ??
+						(currentPrice && (ef?.peRatio ?? live.peRatio ?? stock.peRatio)
+							? Number(
+									(
+										currentPrice /
+										Number(ef?.peRatio ?? live.peRatio ?? stock.peRatio)
+									).toFixed(2),
+								)
+							: undefined),
+				),
 				dividendYield: this.safeParseFloat(
 					ef?.dividendYield ??
 						live.dividendYield ??
@@ -1559,11 +1764,11 @@ Provide analysis in JSON format:
 			},
 
 			returns: {
-				returns1M: Number.parseFloat(stock.returns1M) || undefined,
-				returns3M: Number.parseFloat(stock.returns3M) || undefined,
-				returns6M: Number.parseFloat(stock.returns6M) || undefined,
-				returns1Y: Number.parseFloat(stock.returns1Y) || undefined,
-				returns3Y: Number.parseFloat(stock.returns3Y) || undefined,
+				returns1M: this.safeParseFloat(stock.returns1M),
+				returns3M: this.safeParseFloat(stock.returns3M),
+				returns6M: this.safeParseFloat(stock.returns6M),
+				returns1Y: this.safeParseFloat(stock.returns1Y),
+				returns3Y: this.safeParseFloat(stock.returns3Y),
 			},
 
 			rationale: aiAnalysis.rationale,
@@ -1719,13 +1924,15 @@ Provide analysis in JSON format:
 
 			const enhanced = await this.enhanceWithLiveData(stocks);
 			const scored = this.scoreStock(enhanced[0], "moderate");
-			return this.buildRuleBasedRecommendation(
+			const rec = this.buildRuleBasedRecommendation(
 				scored,
 				"medium_term",
 				"moderate",
 			);
+			await this.ensureCompleteRecommendationMetrics(rec);
+			return rec;
 		} catch (error) {
-			console.error("Error fetching stock:", error);
+			logger.error("Error fetching stock:", error);
 			return null;
 		}
 	}
@@ -1741,7 +1948,7 @@ Provide analysis in JSON format:
 
 	clearCache(): void {
 		this.recommendationCache.clear();
-		console.log("Stock recommendation cache cleared");
+		logger.info("Stock recommendation cache cleared");
 	}
 }
 

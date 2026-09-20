@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
 	SectorBarSegment,
 	SectorDot,
@@ -780,6 +780,45 @@ export default function AgentPicksPage() {
 	}>({
 		queryKey: ["/api/ai-stock-recommendations/quick"],
 	});
+
+	// Dynamic fetch for complete fundamentals & returns if selected stock has missing metrics
+	const { data: selectedStockDetailRes } = useQuery<{
+		success: boolean;
+		recommendation?: AIStockRecommendation;
+	}>({
+		queryKey: ["/api/ai-stock-recommendations/stock", selectedAIStock?.symbol],
+		queryFn: () =>
+			apiRequest(`/api/ai-stock-recommendations/stock/${selectedAIStock?.symbol}`),
+		enabled: Boolean(
+			selectedAIStock?.symbol &&
+				(selectedAIStock.fundamentals?.peRatio == null ||
+					selectedAIStock.fundamentals?.roe == null ||
+					selectedAIStock.fundamentals?.pbRatio == null ||
+					selectedAIStock.returns?.returns1M == null),
+		),
+	});
+
+	useEffect(() => {
+		const rec = selectedStockDetailRes?.recommendation;
+		if (rec && selectedAIStock?.symbol === rec.symbol) {
+			setSelectedAIStock((prev) => {
+				if (!prev || prev.symbol !== rec.symbol) {
+					return prev;
+				}
+				return {
+					...prev,
+					fundamentals: {
+						...prev.fundamentals,
+						...rec.fundamentals,
+					},
+					returns: {
+						...prev.returns,
+						...rec.returns,
+					},
+				};
+			});
+		}
+	}, [selectedStockDetailRes, selectedAIStock?.symbol]);
 
 	// Contacts for "Share with Clients" dialog (T006)
 	const { data: marketingContacts = [] } = useQuery({
@@ -4279,10 +4318,9 @@ export default function AgentPicksPage() {
 																		ROE
 																	</p>
 																	<p className="text-xl font-bold">
-																		{selectedAIStock.fundamentals.roe?.toFixed(
-																			1,
-																		) || "N/A"}
-																		%
+																		{selectedAIStock.fundamentals.roe != null
+																			? `${selectedAIStock.fundamentals.roe.toFixed(1)}%`
+																			: "N/A"}
 																	</p>
 																</div>
 																<div className="p-4 border rounded-lg text-center">
@@ -4290,10 +4328,9 @@ export default function AgentPicksPage() {
 																		ROCE
 																	</p>
 																	<p className="text-xl font-bold">
-																		{selectedAIStock.fundamentals.roce?.toFixed(
-																			1,
-																		) || "N/A"}
-																		%
+																		{selectedAIStock.fundamentals.roce != null
+																			? `${selectedAIStock.fundamentals.roce.toFixed(1)}%`
+																			: "N/A"}
 																	</p>
 																</div>
 																<div className="p-4 border rounded-lg text-center">
@@ -4301,9 +4338,9 @@ export default function AgentPicksPage() {
 																		EPS
 																	</p>
 																	<p className="text-xl font-bold">
-																		{selectedAIStock.fundamentals.eps?.toFixed(
-																			2,
-																		) || "N/A"}
+																		{selectedAIStock.fundamentals.eps != null
+																			? `₹${selectedAIStock.fundamentals.eps.toFixed(2)}`
+																			: "N/A"}
 																	</p>
 																</div>
 																<div className="p-4 border rounded-lg text-center">
@@ -4311,10 +4348,9 @@ export default function AgentPicksPage() {
 																		Dividend Yield
 																	</p>
 																	<p className="text-xl font-bold">
-																		{selectedAIStock.fundamentals.dividendYield?.toFixed(
-																			2,
-																		) || "N/A"}
-																		%
+																		{selectedAIStock.fundamentals.dividendYield != null
+																			? `${selectedAIStock.fundamentals.dividendYield.toFixed(2)}%`
+																			: "N/A"}
 																	</p>
 																</div>
 															</div>

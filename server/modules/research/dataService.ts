@@ -2146,6 +2146,26 @@ async function writeScreenerToDB(
 				WHERE UPPER(symbol) = ${sym}
 			`).catch(() => {});
 		}
+
+		// Write-through all available fundamental ratios to listed_stocks
+		const roePct = s.roe != null ? (Math.abs(s.roe) <= 1 && s.roe !== 0 ? s.roe * 100 : s.roe) : null;
+		const rocePct = s.roce != null ? (Math.abs(s.roce) <= 1 && s.roce !== 0 ? s.roce * 100 : s.roce) : null;
+		const divPct = s.dividendYield != null ? (Math.abs(s.dividendYield) <= 1 && s.dividendYield !== 0 ? s.dividendYield * 100 : s.dividendYield) : null;
+		const pbVal = s.pb ?? (s.bookValue && s.currentPrice && s.bookValue > 0 ? Math.round((s.currentPrice / s.bookValue) * 100) / 100 : null);
+		const epsVal = (s.pe && s.currentPrice && s.pe > 0) ? Math.round((s.currentPrice / s.pe) * 100) / 100 : null;
+
+		await db.execute(sql`
+			UPDATE listed_stocks
+			SET
+				roe = COALESCE(${roePct}, roe),
+				roce = COALESCE(${rocePct}, roce),
+				dividend_yield = COALESCE(${divPct}, dividend_yield),
+				pb_ratio = COALESCE(${pbVal}, pb_ratio),
+				book_value = COALESCE(${s.bookValue}, book_value),
+				eps = COALESCE(${epsVal}, eps),
+				last_updated = now()
+			WHERE UPPER(symbol) = ${sym}
+		`).catch(() => {});
 	} catch (e: any) {
 		logger.warn(
 			"[ResearchNote] DB write-back failed:",
