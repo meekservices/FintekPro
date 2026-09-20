@@ -275,18 +275,107 @@ export interface PortfolioAlphaScore {
   timestamp: string;
 }
 
+export interface ExtremeRiskMetrics {
+  parametricVar95: number;       // standard Gaussian normal VaR (monthly %)
+  cornishFisherVar95: number;    // fat-tail adjusted Cornish-Fisher VaR (monthly %)
+  cornishFisherVar99: number;    // extreme 99% VaR (monthly %)
+  cvar95: number;                // Expected Shortfall at 95% (monthly %)
+  cvar99: number;                // Expected Shortfall at 99% (monthly %)
+  skewness: number;              // distribution skewness (-0.5 to -1.2 for equity)
+  kurtosis: number;              // excess kurtosis (fat tails: 2.0 to 5.5)
+  tailRiskDescription: string;   // human-readable tail risk classification
+}
+
 export interface QuantRebalanceResult {
   portfolioId: string;
   driftReport: PortfolioDriftReport;
   alphaScore: PortfolioAlphaScore;
-  rebalancePlan: {
-    plan_id: string;
-    actions: Array<{ action: "BUY" | "SELL"; asset: string; quantity_proxy: number; reason: string }>;
-    estimated_cost: number;
-    holdings_requiring_action: number;
-  } | null;
+  extremeRiskMetrics: ExtremeRiskMetrics;
+  rebalancePlan: any | null;
   timestamp: string;
   engineVersion: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// computeCornishFisherRisk — Fat-Tail & Downside Risk Engine
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Purpose  : Computes downside risk adjusted for non-normal distributions (fat tails & skewness).
+ *            Under Indian market conditions, equity returns have negative skewness and excess kurtosis.
+ *            The standard Gaussian normal VaR severely underestimates crash losses.
+ *            Cornish-Fisher polynomial expansion incorporates skewness (S) and kurtosis (K):
+ *              z_cf = z + (z^2 - 1)*S/6 + (z^3 - 3z)*K/24 - (2z^3 - 5z)*S^2/36
+ *            CVaR (Conditional VaR / Expected Shortfall) estimates average losses beyond VaR threshold.
+ */
+export function computeCornishFisherRisk(portfolio: PortfolioQuantInput): ExtremeRiskMetrics {
+  const assetClass = (portfolio.assetClass ?? "").toLowerCase();
+  const rawVol = portfolio.volatility ?? 12;
+  const annualVol = Math.max(0.1, isFinite(rawVol) ? rawVol : 12);
+  const monthlyVol = annualVol / Math.sqrt(12); // monthly volatility (%)
+  const monthlyReturn = (portfolio.cagr1Y ?? 12) / 12; // expected monthly mean return (%)
+
+  // Asset-class skewness and excess kurtosis calibrations for Indian market dynamics
+  let skewness = -0.55;
+  let kurtosis = 2.4; // excess kurtosis
+
+  if (assetClass.includes("small") || assetClass.includes("thematic")) {
+    skewness = -0.85;
+    kurtosis = 4.2;
+  } else if (assetClass.includes("mid")) {
+    skewness = -0.70;
+    kurtosis = 3.2;
+  } else if (assetClass.includes("debt") || assetClass.includes("liquid") || assetClass.includes("conservative")) {
+    skewness = -0.10;
+    kurtosis = 0.8;
+  } else if (assetClass.includes("gold") || assetClass.includes("commodity")) {
+    skewness = -0.30;
+    kurtosis = 2.0;
+  } else if (assetClass.includes("hybrid")) {
+    skewness = -0.40;
+    kurtosis = 1.8;
+  }
+
+  // Cornish-Fisher expansion polynomial:
+  const calcZcf = (z: number, S: number, K: number): number => {
+    const term1 = z;
+    const term2 = ((z * z - 1) * S) / 6;
+    const term3 = ((Math.pow(z, 3) - 3 * z) * K) / 24;
+    const term4 = ((2 * Math.pow(z, 3) - 5 * z) * S * S) / 36;
+    return term1 + term2 + term3 - term4;
+  };
+
+  const z95 = 1.6449;
+  const z99 = 2.3263;
+
+  const zcf95 = calcZcf(z95, skewness, kurtosis);
+  const zcf99 = calcZcf(z99, skewness, kurtosis);
+
+  // VaR = -(mu - z * sigma)
+  const parametricVar95 = parseFloat((z95 * monthlyVol - monthlyReturn).toFixed(2));
+  const cornishFisherVar95 = parseFloat((Math.max(parametricVar95, zcf95 * monthlyVol - monthlyReturn)).toFixed(2));
+  const cornishFisherVar99 = parseFloat((Math.max(cornishFisherVar95 * 1.25, zcf99 * monthlyVol - monthlyReturn)).toFixed(2));
+
+  // Expected Shortfall (CVaR) - average loss in tail beyond VaR
+  const cvar95 = parseFloat((cornishFisherVar95 * 1.28).toFixed(2));
+  const cvar99 = parseFloat((cornishFisherVar99 * 1.35).toFixed(2));
+
+  let tailRiskDescription = "Moderate tail risk — standard macro buffering applies.";
+  if (kurtosis > 3.0) {
+    tailRiskDescription = "High leptokurtosis (fat tails) — elevated risk of gap-down events.";
+  } else if (kurtosis < 1.0) {
+    tailRiskDescription = "Low tail risk — distribution is close to normal with tight drawdown bounds.";
+  }
+
+  return {
+    parametricVar95,
+    cornishFisherVar95,
+    cornishFisherVar99,
+    cvar95,
+    cvar99,
+    skewness,
+    kurtosis,
+    tailRiskDescription,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -486,9 +575,11 @@ export function scorePortfolioAlpha(portfolio: PortfolioQuantInput): PortfolioAl
 export function runPortfolioRebalance(
   portfolio: PortfolioQuantInput,
   totalPortfolioValue: number = 1_000_000,
+  inflowAmountRs?: number,
 ): QuantRebalanceResult {
   const driftReport = computePortfolioDrift(portfolio);
   const alphaScore  = scorePortfolioAlpha(portfolio);
+  const extremeRiskMetrics = computeCornishFisherRisk(portfolio);
   let rebalancePlan: QuantRebalanceResult["rebalancePlan"] = null;
 
   if (driftReport.status !== "balanced") {
@@ -512,6 +603,13 @@ export function runPortfolioRebalance(
         }),
     };
     const { plan } = rebalanceOptimizer.generateOptimizedPlan(driftData as any, totalPortfolioValue);
+    if (inflowAmountRs && inflowAmountRs > 0) {
+      plan.passiveInflowPlan = rebalanceOptimizer.generatePassiveInflowPlan(
+        driftData as any,
+        totalPortfolioValue,
+        inflowAmountRs,
+      );
+    }
     rebalancePlan = { ...plan, holdings_requiring_action: driftReport.driftingCount };
   }
 
@@ -519,6 +617,7 @@ export function runPortfolioRebalance(
     portfolioId:   portfolio.id,
     driftReport,
     alphaScore,
+    extremeRiskMetrics,
     rebalancePlan,
     timestamp:     new Date().toISOString(),
     engineVersion: ENGINE_VERSION,

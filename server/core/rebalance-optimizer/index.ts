@@ -49,10 +49,46 @@ export interface RebalanceAction {
   profitGuard?: ProfitGuardContext;
 }
 
+export interface TaxLossHarvestOpportunity {
+  asset: string;
+  unrealizedLossRs: number;
+  holdingPeriodDays: number | null;
+  lossType: "STCL" | "LTCL";
+  canOffset: "STCG_AND_LTCG" | "LTCG_ONLY";
+  eligibleOffsetAmountRs: number;
+  potentialTaxSavedRs: number;
+  recommendation: "harvest_loss_now" | "hold";
+  reasoning: string;
+}
+
+export interface PassiveInflowAllocation {
+  asset: string;
+  category: string;
+  currentWeight: number; // in %
+  targetWeight: number;  // in %
+  deficitWeight: number; // in %
+  allocatedInflowRs: number;
+  newWeightAfterInflow: number; // in %
+}
+
+export interface PassiveInflowPlan {
+  inflowAmountRs: number;
+  allocations: PassiveInflowAllocation[];
+  initialDriftScore: number;
+  projectedDriftScore: number;
+  driftReductionPct: number;
+  taxSavedVsSellingRs: number;
+  zeroSellExecuted: true;
+}
+
 export interface RebalancePlan {
   plan_id: string;
   actions: RebalanceAction[];
   estimated_cost: number;
+  totalTaxIfSoldNow?: number;
+  taxLossHarvestOpportunities?: TaxLossHarvestOpportunity[];
+  netTaxPayableAfterHarvest?: number;
+  passiveInflowPlan?: PassiveInflowPlan;
 }
 
 // ── Finance Act 2024 constants (mirrors rebalancing-engine.ts) ─────────────────
@@ -218,13 +254,149 @@ export class RebalanceOptimizer {
       }
     }
 
+    // ── Compute Total Tax and Tax-Loss Harvesting Opportunities ─────────────
+    const totalTaxIfSoldNow = actions.reduce(
+      (sum, act) => sum + (act.profitGuard?.taxIfSoldNow ?? 0),
+      0,
+    );
+
+    const taxLossHarvestOpportunities: TaxLossHarvestOpportunity[] = [];
+    let totalTaxSavedFromHarvest = 0;
+
+    for (const drift of sortedDrift) {
+      const actualGain: number | null = (drift as any).unrealizedGain ?? null;
+      const holdingPeriodDays: number | null = (drift as any).holdingPeriodDays ?? null;
+      const assetClass: string = (drift as any).assetClass ?? "equity";
+      const ltcgDays = assetClass === "debt" ? DEBT_LTCG_DAYS : ["gold", "reit"].includes(assetClass) ? GOLD_REIT_LTCG_DAYS : EQUITY_LTCG_DAYS;
+      const isLongTerm = holdingPeriodDays != null ? holdingPeriodDays >= ltcgDays : false;
+
+      // Check if holding has an unrealized loss
+      if (actualGain != null && actualGain < 0) {
+        const loss = Math.abs(actualGain);
+        const lossType: "STCL" | "LTCL" = isLongTerm ? "LTCL" : "STCL";
+        const canOffset: "STCG_AND_LTCG" | "LTCG_ONLY" = isLongTerm ? "LTCG_ONLY" : "STCG_AND_LTCG";
+        const taxRate = isLongTerm ? EQUITY_LTCG_RATE : EQUITY_STCG_RATE;
+        const potentialTaxSaved = Math.round(loss * taxRate);
+
+        totalTaxSavedFromHarvest += potentialTaxSaved;
+
+        taxLossHarvestOpportunities.push({
+          asset: drift.asset,
+          unrealizedLossRs: Math.round(loss),
+          holdingPeriodDays,
+          lossType,
+          canOffset,
+          eligibleOffsetAmountRs: Math.round(loss),
+          potentialTaxSavedRs: potentialTaxSaved,
+          recommendation: "harvest_loss_now",
+          reasoning: isLongTerm
+            ? `LTCL of ₹${Math.round(loss).toLocaleString("en-IN")} can offset LTCG gains at 12.5% under Sec. 70(3).`
+            : `STCL of ₹${Math.round(loss).toLocaleString("en-IN")} can offset both STCG (20%) and LTCG (12.5%) under Sec. 70(2).`,
+        });
+      }
+    }
+
+    const netTaxPayableAfterHarvest = Math.max(0, totalTaxIfSoldNow - totalTaxSavedFromHarvest);
+
+    // Generate passive inflow plan for standard ₹1,00,000 inflow recommendation
+    const passiveInflowPlan = this.generatePassiveInflowPlan(
+      driftData,
+      totalPortfolioValue,
+      Math.min(200_000, Math.max(25_000, Math.round(totalPortfolioValue * 0.10))),
+    );
+
     const plan: RebalancePlan = {
       plan_id: `rebal_${Date.now().toString(36)}_${process.hrtime.bigint().toString(36).slice(-6)}`,
       actions: actions,
       estimated_cost: transactionFees,
+      totalTaxIfSoldNow: Math.round(totalTaxIfSoldNow),
+      taxLossHarvestOpportunities,
+      netTaxPayableAfterHarvest: Math.round(netTaxPayableAfterHarvest),
+      passiveInflowPlan,
     };
 
     return { plan, taxContexts };
+  }
+
+  /**
+   * Generates a "Tax-Zero" Passive Inflow Plan.
+   * Directs 100% of new capital (SIP or lumpsum) solely into underweight assets,
+   * neutralizing drift without triggering any SELL transactions (zero tax, zero exit load).
+   *
+   * @param driftData           - Current portfolio drift matrix
+   * @param totalPortfolioValue - Current portfolio value (₹)
+   * @param inflowAmountRs      - Incoming new capital to deploy (₹)
+   */
+  public generatePassiveInflowPlan(
+    driftData: DriftReport,
+    totalPortfolioValue: number,
+    inflowAmountRs: number,
+  ): PassiveInflowPlan {
+    const underweightAssets = driftData.drifting_assets.filter(d => d.delta < 0);
+    const totalDeficitWeight = underweightAssets.reduce(
+      (sum, d) => sum + Math.abs(d.delta),
+      0,
+    ) || 1;
+
+    const allocations: PassiveInflowAllocation[] = [];
+    let initialDriftSum = 0;
+    let projectedDriftSum = 0;
+    const newTotalValue = totalPortfolioValue + inflowAmountRs;
+
+    for (const drift of driftData.drifting_assets) {
+      const curWeight = (drift.current ?? (drift.target + drift.delta)) * 100;
+      const targetWeight = drift.target * 100;
+      initialDriftSum += Math.abs(curWeight - targetWeight);
+
+      if (drift.delta < 0) {
+        // Underweight asset: allocate proportional share of inflow
+        const deficitWeight = Math.abs(drift.delta) * 100;
+        const share = Math.abs(drift.delta) / totalDeficitWeight;
+        const allocatedInflowRs = Math.round(share * inflowAmountRs);
+        const curHoldingValue = (curWeight / 100) * totalPortfolioValue;
+        const newHoldingValue = curHoldingValue + allocatedInflowRs;
+        const newWeightAfterInflow = parseFloat(((newHoldingValue / newTotalValue) * 100).toFixed(2));
+
+        allocations.push({
+          asset: drift.asset,
+          category: (drift as any).assetClass ?? "equity",
+          currentWeight: parseFloat(curWeight.toFixed(2)),
+          targetWeight: parseFloat(targetWeight.toFixed(2)),
+          deficitWeight: parseFloat(deficitWeight.toFixed(2)),
+          allocatedInflowRs,
+          newWeightAfterInflow,
+        });
+
+        projectedDriftSum += Math.abs(newWeightAfterInflow - targetWeight);
+      } else {
+        // Overweight asset: receives 0 inflow, diluted naturally by expanding base
+        const curHoldingValue = (curWeight / 100) * totalPortfolioValue;
+        const newWeightAfterInflow = (curHoldingValue / newTotalValue) * 100;
+        projectedDriftSum += Math.abs(newWeightAfterInflow - targetWeight);
+      }
+    }
+
+    const initialDriftScore = Math.min(100, Math.round(initialDriftSum * 5));
+    const projectedDriftScore = Math.min(100, Math.max(0, Math.round(projectedDriftSum * 5)));
+    const driftReductionPct = initialDriftScore > 0
+      ? Math.round(((initialDriftScore - projectedDriftScore) / initialDriftScore) * 100)
+      : 100;
+
+    // Estimated tax avoided by not selling overweight assets (proxy 15% gain @ 12.5% LTCG)
+    const totalOverweightValue = driftData.drifting_assets
+      .filter(d => d.delta > 0)
+      .reduce((sum, d) => sum + d.delta * totalPortfolioValue, 0);
+    const taxSavedVsSellingRs = Math.round(totalOverweightValue * 0.15 * EQUITY_LTCG_RATE);
+
+    return {
+      inflowAmountRs,
+      allocations,
+      initialDriftScore,
+      projectedDriftScore,
+      driftReductionPct,
+      taxSavedVsSellingRs,
+      zeroSellExecuted: true,
+    };
   }
 }
 

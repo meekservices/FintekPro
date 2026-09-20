@@ -56,6 +56,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   LayoutGrid,
@@ -89,6 +90,15 @@ import {
   ShieldAlert,
   BookOpen,
   FileText,
+  CheckCircle2,
+  ArrowRight,
+  Scale,
+  Receipt,
+  Sliders,
+  ShieldCheck,
+  Wallet,
+  ArrowDown,
+  ArrowUp,
 } from "lucide-react";
 import {
   LineChart,
@@ -4065,6 +4075,9 @@ export default function AgentModelPortfoliosPage() {
   const [rebalancePreview, setRebalancePreview] = useState<any>(null);
   const [loadingRebalancePreview, setLoadingRebalancePreview] = useState(false);
   const [executingRebalance, setExecutingRebalance] = useState(false);
+  const [rebalanceMode, setRebalanceMode] = useState<"standard" | "passive_inflow">("standard");
+  const [rebalanceViewTab, setRebalanceViewTab] = useState<"trades" | "visualizer" | "tax_harvest">("trades");
+  const [inflowAmount, setInflowAmount] = useState<number>(100000);
 
   // Fetches NAV history from /api/model-portfolios/:id/nav-history and caches it
   const fetchNavHistory = async (portfolioId: string) => {
@@ -4411,15 +4424,22 @@ export default function AgentModelPortfoliosPage() {
   }, [investModalOpen, investAmount, investType, selectedPortfolio?.id]);
 
   // ── Rebalance Execution Handlers ────────────────────────────────────────────
-  const handleOpenRebalanceDialog = async (portfolioId: string) => {
+  const handleOpenRebalanceDialog = async (portfolioId: string, modeOverride?: "standard" | "passive_inflow", inflowOverride?: number) => {
     setRebalanceDialogOpen(true);
     setLoadingRebalancePreview(true);
     setRebalancePreview(null);
+    const modeToUse = modeOverride ?? rebalanceMode;
+    const inflowToUse = inflowOverride ?? inflowAmount;
     try {
       const res = await fetch(`/api/model-portfolios/${portfolioId}/rebalance`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ totalPortfolioValue: 1_000_000, preview: true }),
+        body: JSON.stringify({ 
+          totalPortfolioValue: 1_000_000, 
+          preview: true,
+          mode: modeToUse,
+          inflowAmount: modeToUse === "passive_inflow" ? inflowToUse : undefined,
+        }),
       });
       const data = await res.json();
       if (data.success && data.data) {
@@ -4444,20 +4464,29 @@ export default function AgentModelPortfoliosPage() {
       const res = await fetch(`/api/model-portfolios/${portfolioId}/rebalance`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ totalPortfolioValue: 1_000_000, preview: false }),
+        body: JSON.stringify({ 
+          totalPortfolioValue: 1_000_000, 
+          preview: false,
+          mode: rebalanceMode,
+          inflowAmount: rebalanceMode === "passive_inflow" ? inflowAmount : undefined,
+        }),
       });
       const data = await res.json();
       if (data.success) {
         toast({
-          title: "Rebalance Executed Successfully",
-          description: "All holdings neutralized to target weights. Drift score reset to 0.",
+          title: rebalanceMode === "passive_inflow" ? "Tax-Zero Inflow Deployed" : "Rebalance Executed Successfully",
+          description: rebalanceMode === "passive_inflow"
+            ? "New capital directed to underweight holdings. Zero selling, zero tax."
+            : "All holdings neutralized to target weights. Drift score reset to 0.",
         });
         // Optimistically clear drift in quantSignals
         setQuantSignals(prev => ({
           ...prev,
           [portfolioId]: {
             ...prev[portfolioId],
-            driftScore: 0,
+            driftScore: rebalanceMode === "passive_inflow" 
+              ? (data.data?.passiveInflowPlan?.projectedDriftReduction?.projectedDriftScore ?? 0)
+              : 0,
             driftStatus: "balanced",
             driftingHoldings: 0,
             driftDetails: [],
@@ -6196,6 +6225,31 @@ export default function AgentModelPortfoliosPage() {
                              </div>
                            )}
                            <p className="text-[9px] text-muted-foreground">Last rebalanced {daysSinceRebal}d ago. Rebalancing is drift-triggered, not calendar-based.</p>
+                            {qs?.extremeRiskMetrics && (
+                              <div className="p-2 rounded-lg bg-background/80 border text-[10px] space-y-1">
+                                <div className="flex items-center justify-between text-muted-foreground">
+                                  <span className="font-semibold text-foreground flex items-center gap-1">
+                                    <Activity className="h-3 w-3 text-indigo-500" />
+                                    Cornish-Fisher Fat-Tailed Risk
+                                  </span>
+                                  <span className="text-[9px] font-mono">Skew: {qs.extremeRiskMetrics.skewness ?? 0} · Kurt: {qs.extremeRiskMetrics.excessKurtosis ?? 0}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                                  <div>
+                                    <span className="text-muted-foreground">Fat-Tail VaR (95%): </span>
+                                    <span className="font-bold text-rose-600 dark:text-rose-400">
+                                      {qs.extremeRiskMetrics.cornishFisherVaR95 != null ? `-${(qs.extremeRiskMetrics.cornishFisherVaR95 * 100).toFixed(1)}%` : "N/A"}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Expected Shortfall (CVaR): </span>
+                                    <span className="font-bold text-rose-700 dark:text-rose-300">
+                                      {qs.extremeRiskMetrics.expectedShortfall95 != null ? `-${(qs.extremeRiskMetrics.expectedShortfall95 * 100).toFixed(1)}%` : "N/A"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                            {canViewFullHoldings && (
                              <div className="pt-2">
                                <Button
@@ -6282,28 +6336,123 @@ export default function AgentModelPortfoliosPage() {
 
       {/* ── Rebalance Execution Dialog ── */}
       <Dialog open={rebalanceDialogOpen} onOpenChange={setRebalanceDialogOpen}>
-        <DialogContent className="sm:max-w-lg" id="rebalance-portfolio-dialog">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <RefreshCw className={`h-4 w-4 text-indigo-600 ${loadingRebalancePreview ? "animate-spin" : ""}`} />
-              Rebalance Portfolio Strategy
-            </DialogTitle>
-            <DialogDescription>
-              {selectedPortfolio?.name} ({selectedPortfolio?.portfolioCode ?? "FP-MOD"}) · FASP-AI v3.0 Quantitative Optimizer
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col p-6 overflow-hidden" id="rebalance-portfolio-dialog">
+          <DialogHeader className="space-y-2 pb-2 border-b">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <RefreshCw className={`h-4 w-4 text-indigo-600 ${loadingRebalancePreview ? "animate-spin" : ""}`} />
+                Rebalance & Drift Optimization
+              </DialogTitle>
+              <Badge variant="outline" className="text-[10px] bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border-indigo-200">
+                FASP-AI v3.0 Quant Engine
+              </Badge>
+            </div>
+            <DialogDescription className="text-xs">
+              {selectedPortfolio?.name} ({selectedPortfolio?.portfolioCode ?? "FP-MOD"}) · Drift Neutralization & Capital Efficiency
             </DialogDescription>
+
+            {/* Rebalance Mode Selector */}
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-[11px] font-semibold text-muted-foreground shrink-0">Strategy:</span>
+              <div className="inline-flex rounded-lg bg-muted p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRebalanceMode("standard");
+                    if (selectedPortfolio) handleOpenRebalanceDialog(selectedPortfolio.id, "standard", inflowAmount);
+                  }}
+                  className={`px-3 py-1 rounded-md font-semibold text-[11px] transition-all flex items-center gap-1.5 ${
+                    rebalanceMode === "standard"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Standard Rebalance
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRebalanceMode("passive_inflow");
+                    if (selectedPortfolio) handleOpenRebalanceDialog(selectedPortfolio.id, "passive_inflow", inflowAmount);
+                  }}
+                  className={`px-3 py-1 rounded-md font-semibold text-[11px] transition-all flex items-center gap-1.5 ${
+                    rebalanceMode === "passive_inflow"
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Wallet className="h-3 w-3" />
+                  Tax-Zero Inflow (SIP / Lumpsum)
+                </button>
+              </div>
+            </div>
+
+            {/* Inflow Input (when in passive_inflow mode) */}
+            {rebalanceMode === "passive_inflow" && (
+              <div className="p-2.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1">
+                    <Zap className="h-3.5 w-3.5" />
+                    New Capital Allocation (Zero Sells · ₹0 Tax Friction)
+                  </span>
+                  <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono">
+                    ₹{inflowAmount.toLocaleString("en-IN")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={5000}
+                    step={5000}
+                    value={inflowAmount}
+                    onChange={(e) => setInflowAmount(Math.max(1000, Number(e.target.value) || 0))}
+                    className="h-8 text-xs font-mono w-36"
+                  />
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {[50000, 100000, 250000, 500000].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => {
+                          setInflowAmount(amt);
+                          if (selectedPortfolio) handleOpenRebalanceDialog(selectedPortfolio.id, "passive_inflow", amt);
+                        }}
+                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                          inflowAmount === amt
+                            ? "bg-emerald-700 text-white border-emerald-700 font-bold"
+                            : "bg-background hover:bg-emerald-100 dark:hover:bg-emerald-950 text-foreground border-emerald-300"
+                        }`}
+                      >
+                        ₹{(amt / 1000).toFixed(0)}k
+                      </button>
+                    ))}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-[11px] text-emerald-700 border-emerald-300 hover:bg-emerald-100 ml-auto"
+                    onClick={() => selectedPortfolio && handleOpenRebalanceDialog(selectedPortfolio.id, "passive_inflow", inflowAmount)}
+                  >
+                    Simulate
+                  </Button>
+                </div>
+              </div>
+            )}
           </DialogHeader>
 
           {loadingRebalancePreview ? (
-            <div className="flex flex-col items-center justify-center py-10 gap-3">
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
               <RefreshCw className="h-7 w-7 text-indigo-500 animate-spin" />
               <p className="text-xs text-muted-foreground font-medium">
-                Neutralizing drift, simulating tax friction & profit guards...
+                Simulating fat-tailed VaR, tax harvesting offsets & drift neutralization...
               </p>
             </div>
           ) : rebalancePreview ? (
-            <div className="space-y-3.5 py-1">
-              {/* Drift & Actions Summary */}
-              <div className="grid grid-cols-3 gap-2 p-2.5 rounded-lg bg-muted/40 border text-center">
+            <div className="flex-1 flex flex-col min-h-0 space-y-3 pt-2">
+              {/* Extreme Risk & Drift KPI Ribbon */}
+              <div className="grid grid-cols-4 gap-2 p-2.5 rounded-lg bg-muted/40 border text-center">
+                {/* 1. Drift Score */}
                 <div>
                   <p className="text-[10px] text-muted-foreground">Drift Score</p>
                   <p className={`text-xs font-bold ${
@@ -6313,118 +6462,333 @@ export default function AgentModelPortfoliosPage() {
                       ? "text-amber-600"
                       : "text-green-600"
                   }`}>
-                    {rebalancePreview.driftReport?.driftScore ?? 0}/100
+                    {rebalanceMode === "passive_inflow" && rebalancePreview.passiveInflowPlan?.projectedDriftReduction
+                      ? `${rebalancePreview.passiveInflowPlan.projectedDriftReduction.initialDriftScore} → ${rebalancePreview.passiveInflowPlan.projectedDriftReduction.projectedDriftScore}`
+                      : `${rebalancePreview.driftReport?.driftScore ?? 0}/100 → 0`}
                   </p>
+                  <span className="text-[9px] text-muted-foreground block">
+                    {rebalanceMode === "passive_inflow" && rebalancePreview.passiveInflowPlan?.projectedDriftReduction
+                      ? `-${rebalancePreview.passiveInflowPlan.projectedDriftReduction.driftReductionPercent}% drift`
+                      : "100% neutralized"}
+                  </span>
                 </div>
+
+                {/* 2. Cornish-Fisher VaR (95%) */}
                 <div>
-                  <p className="text-[10px] text-muted-foreground">Tolerance Threshold</p>
-                  <p className="text-xs font-bold">
-                    ±{rebalancePreview.driftReport?.threshold ? (rebalancePreview.driftReport.threshold * 100).toFixed(0) : 5}%
+                  <p className="text-[10px] text-muted-foreground">Cornish-Fisher VaR (95%)</p>
+                  <p className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                    {rebalancePreview.extremeRiskMetrics?.cornishFisherVaR95 != null
+                      ? `-${(rebalancePreview.extremeRiskMetrics.cornishFisherVaR95 * 100).toFixed(1)}%`
+                      : "N/A"}
                   </p>
+                  <span className="text-[9px] text-muted-foreground block font-mono">
+                    Skew: {rebalancePreview.extremeRiskMetrics?.skewness?.toFixed(2) ?? "0.00"}
+                  </span>
                 </div>
+
+                {/* 3. Expected Shortfall (CVaR-95) */}
                 <div>
-                  <p className="text-[10px] text-muted-foreground">Action Legs</p>
-                  <p className="text-xs font-bold text-indigo-600">
-                    {rebalancePreview.rebalancePlan?.actions?.length ?? 0} legs
+                  <p className="text-[10px] text-muted-foreground">Expected Shortfall (CVaR)</p>
+                  <p className="text-xs font-bold text-rose-700 dark:text-rose-300">
+                    {rebalancePreview.extremeRiskMetrics?.expectedShortfall95 != null
+                      ? `-${(rebalancePreview.extremeRiskMetrics.expectedShortfall95 * 100).toFixed(1)}%`
+                      : "N/A"}
                   </p>
+                  <span className="text-[9px] text-muted-foreground block">95% Tail Downside</span>
+                </div>
+
+                {/* 4. Tax Friction / Savings */}
+                <div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {rebalanceMode === "passive_inflow" ? "Tax Liability" : "Net Tax Friction"}
+                  </p>
+                  <p className={`text-xs font-bold ${rebalanceMode === "passive_inflow" ? "text-emerald-600" : "text-amber-600"}`}>
+                    {rebalanceMode === "passive_inflow"
+                      ? "₹0 (Tax-Free)"
+                      : rebalancePreview.rebalancePlan?.netTaxPayableAfterHarvest != null
+                      ? `₹${Math.round(rebalancePreview.rebalancePlan.netTaxPayableAfterHarvest).toLocaleString("en-IN")}`
+                      : `₹${Math.round(rebalancePreview.rebalancePlan?.totalTaxIfSoldNow ?? 0).toLocaleString("en-IN")}`}
+                  </p>
+                  <span className="text-[9px] text-muted-foreground block">
+                    {rebalanceMode === "passive_inflow"
+                      ? `Saved ~₹${rebalancePreview.passiveInflowPlan?.estimatedTaxSavedRs?.toLocaleString("en-IN") ?? 0}`
+                      : rebalancePreview.taxLossHarvestOpportunities?.length > 0
+                      ? `Sec 70/71 saved ₹${Math.round(rebalancePreview.taxLossHarvestOpportunities.reduce((s: number, o: any) => s + (o.taxSavedRs || 0), 0)).toLocaleString("en-IN")}`
+                      : "Direct trim friction"}
+                  </span>
                 </div>
               </div>
 
-              {/* Legs Breakdown */}
-              <div className="space-y-1.5">
-                <p className="text-xs font-bold text-foreground flex items-center justify-between">
-                  <span>Rebalancing Trade Sequence</span>
-                  <span className="text-[10px] font-normal text-muted-foreground">
-                    Based on ₹10,00,000 Portfolio Base
-                  </span>
-                </p>
+              {/* Sub-View Navigation Tabs */}
+              <div className="flex items-center gap-1 border-b pb-1.5">
+                {[
+                  { id: "trades", label: rebalanceMode === "passive_inflow" ? "Inflow Allocation Plan" : "Trade Sequence", icon: Sliders },
+                  { id: "visualizer", label: "Before vs After Visualizer", icon: BarChart3 },
+                  { id: "tax_harvest", label: "Tax-Loss Harvesting (Sec. 70/71)", icon: Receipt },
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setRebalanceViewTab(tab.id as any)}
+                      className={`text-xs px-2.5 py-1 rounded-md font-semibold flex items-center gap-1.5 transition-colors ${
+                        rebalanceViewTab === tab.id
+                          ? "bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-200"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {tab.label}
+                      {tab.id === "tax_harvest" && (rebalancePreview.taxLossHarvestOpportunities?.length ?? 0) > 0 && (
+                        <span className="ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-600 text-white font-bold">
+                          {rebalancePreview.taxLossHarvestOpportunities.length}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
 
-                {(!rebalancePreview.rebalancePlan?.actions || rebalancePreview.rebalancePlan.actions.length === 0) ? (
-                  <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 text-center">
-                    <p className="text-xs font-semibold text-green-700 dark:text-green-300">
-                      ✓ Portfolio is fully aligned with target weights
-                    </p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      No holding has breached drift threshold. No trade execution required.
-                    </p>
-                  </div>
-                ) : (
-                  <ScrollArea className="max-h-[260px] pr-2">
-                    <div className="space-y-2">
-                      {rebalancePreview.rebalancePlan.actions.map((act: any, idx: number) => {
-                        const isSell = act.action === "SELL" || act.action === "TRIM";
-                        const pg = act.profitGuard;
-                        return (
-                          <div
-                            key={idx}
-                            className={`p-2.5 rounded-lg border text-xs space-y-1.5 ${
-                              isSell
-                                ? "border-red-200 bg-red-50/50 dark:border-red-900/50 dark:bg-red-950/20"
-                                : "border-green-200 bg-green-50/50 dark:border-green-900/50 dark:bg-green-950/20"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                  isSell ? "bg-red-600 text-white" : "bg-green-600 text-white"
-                                }`}>
-                                  {act.action}
-                                </span>
-                                <span className="font-semibold truncate">{act.asset}</span>
+              {/* Tab Content Area */}
+              <ScrollArea className="flex-1 max-h-[340px] pr-2">
+                {/* ── Tab 1: Trade Sequence / Inflow Plan ── */}
+                {rebalanceViewTab === "trades" && (
+                  <div className="space-y-2 py-1">
+                    {rebalanceMode === "passive_inflow" ? (
+                      /* Passive Inflow Smart Routing */
+                      <div className="space-y-2.5">
+                        <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 flex items-start gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                          <div className="text-[11px] leading-relaxed text-emerald-900 dark:text-emerald-200">
+                            <strong>Smart Cash Routing Active:</strong> 100% of new capital (₹{inflowAmount.toLocaleString("en-IN")}) is distributed across underweight assets. Overweight holdings are diluted naturally without executing sell orders, triggering <strong>zero capital gains tax</strong> and <strong>zero exit load</strong>.
+                          </div>
+                        </div>
+
+                        {(!rebalancePreview.passiveInflowPlan?.allocations || rebalancePreview.passiveInflowPlan.allocations.length === 0) ? (
+                          <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/20 border text-center">
+                            <p className="text-xs font-semibold text-green-700 dark:text-green-300">
+                              ✓ No underweight assets found. Portfolio is fully balanced.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {rebalancePreview.passiveInflowPlan.allocations.map((alloc: any, idx: number) => (
+                              <div key={idx} className="p-2.5 rounded-lg border border-emerald-200 bg-emerald-50/40 dark:border-emerald-900/50 dark:bg-emerald-950/10 text-xs space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-600 text-white uppercase">
+                                      {alloc.category || "Equity"}
+                                    </span>
+                                    <span className="font-semibold">{alloc.asset}</span>
+                                  </div>
+                                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 font-mono">
+                                    +₹{alloc.allocatedInflowRs.toLocaleString("en-IN")}
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 text-[11px] text-muted-foreground pt-1 border-t border-emerald-100 dark:border-emerald-900/40">
+                                  <span>Current: {alloc.currentWeight}%</span>
+                                  <span>Target: {alloc.targetWeight}%</span>
+                                  <span className="text-foreground font-medium text-right">
+                                    Post-Inflow: {alloc.newWeightAfterInflow}%
+                                  </span>
+                                </div>
                               </div>
-                              {act.targetWeight != null && (
-                                <span className="text-[10px] font-mono text-muted-foreground shrink-0">
-                                  Target: {(act.targetWeight * 100).toFixed(1)}%
-                                </span>
-                              )}
-                            </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* Standard Rebalancing Trade Sequence */
+                      <div>
+                        {(!rebalancePreview.rebalancePlan?.actions || rebalancePreview.rebalancePlan.actions.length === 0) ? (
+                          <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 text-center">
+                            <p className="text-xs font-semibold text-green-700 dark:text-green-300">
+                              ✓ Portfolio is fully aligned with target weights
+                            </p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              No holding has breached drift threshold. No trade execution required.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {rebalancePreview.rebalancePlan.actions.map((act: any, idx: number) => {
+                              const isSell = act.action === "SELL" || act.action === "TRIM";
+                              const pg = act.profitGuard;
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`p-2.5 rounded-lg border text-xs space-y-1.5 ${
+                                    isSell
+                                      ? "border-red-200 bg-red-50/50 dark:border-red-900/50 dark:bg-red-950/20"
+                                      : "border-green-200 bg-green-50/50 dark:border-green-900/50 dark:bg-green-950/20"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                        isSell ? "bg-red-600 text-white" : "bg-green-600 text-white"
+                                      }`}>
+                                        {act.action}
+                                      </span>
+                                      <span className="font-semibold truncate">{act.asset}</span>
+                                    </div>
+                                    {act.targetWeight != null && (
+                                      <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                                        Target: {(act.targetWeight * 100).toFixed(1)}%
+                                      </span>
+                                    )}
+                                  </div>
 
-                            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                              <span>Delta shift: {act.delta != null ? `${(act.delta * 100).toFixed(2)}%` : act.reason}</span>
-                              {act.monetaryShift != null && (
-                                <span className="font-medium text-foreground">
-                                  Est. ₹{Math.round(act.monetaryShift).toLocaleString("en-IN")}
-                                </span>
-                              )}
-                            </div>
+                                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                                    <span>Delta shift: {act.delta != null ? `${(act.delta * 100).toFixed(2)}%` : act.reason}</span>
+                                    {act.monetaryShift != null && (
+                                      <span className="font-medium text-foreground">
+                                        Est. ₹{Math.round(act.monetaryShift).toLocaleString("en-IN")}
+                                      </span>
+                                    )}
+                                  </div>
 
-                            {/* Profit-Guard Badge & Reasoning */}
-                            {pg && (
-                              <div className="mt-1 pt-1 border-t border-border/40 space-y-1">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  {pg.recommendation === "defer_to_ltcg" && (
-                                    <Badge variant="outline" className="text-[9px] bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300">
-                                      ⏳ Defer to LTCG (Matures in {pg.daysToLtcg}d · Save ₹{pg.taxSavingByDeferral?.toLocaleString("en-IN")})
-                                    </Badge>
-                                  )}
-                                  {pg.recommendation === "cash_deploy" && (
-                                    <Badge variant="outline" className="text-[9px] bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300">
-                                      💡 Direct New Cash / SIP (High tax friction)
-                                    </Badge>
-                                  )}
-                                  {pg.recommendation === "partial_sell" && (
-                                    <Badge variant="outline" className="text-[9px] bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-300">
-                                      ⚠️ Partial Sell (Exit Load ₹{pg.exitLoadRs?.toLocaleString("en-IN")})
-                                    </Badge>
-                                  )}
-                                  {pg.recommendation === "sell_now" && (
-                                    <Badge variant="outline" className="text-[9px] bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300">
-                                      ✓ Sell Now (LTCG / Low Friction)
-                                    </Badge>
+                                  {/* Profit-Guard Badge & Reasoning */}
+                                  {pg && (
+                                    <div className="mt-1 pt-1 border-t border-border/40 space-y-1">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        {pg.recommendation === "defer_to_ltcg" && (
+                                          <Badge variant="outline" className="text-[9px] bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300">
+                                            ⏳ Defer to LTCG (Matures in {pg.daysToLtcg}d · Save ₹{pg.taxSavingByDeferral?.toLocaleString("en-IN")})
+                                          </Badge>
+                                        )}
+                                        {pg.recommendation === "cash_deploy" && (
+                                          <Badge variant="outline" className="text-[9px] bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300">
+                                            💡 Direct New Cash / SIP (High tax friction)
+                                          </Badge>
+                                        )}
+                                        {pg.recommendation === "partial_sell" && (
+                                          <Badge variant="outline" className="text-[9px] bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-300">
+                                            ⚠️ Partial Sell (Exit Load ₹{pg.exitLoadRs?.toLocaleString("en-IN")})
+                                          </Badge>
+                                        )}
+                                        {pg.recommendation === "sell_now" && (
+                                          <Badge variant="outline" className="text-[9px] bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300">
+                                            ✓ Sell Now (LTCG / Low Friction)
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-muted-foreground italic leading-tight">
+                                        {pg.reasoning}
+                                      </p>
+                                    </div>
                                   )}
                                 </div>
-                                <p className="text-[10px] text-muted-foreground italic leading-tight">
-                                  {pg.reasoning}
-                                </p>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Tab 2: Before vs After Visualizer ── */}
+                {rebalanceViewTab === "visualizer" && (
+                  <div className="space-y-3 py-1">
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground border-b pb-1">
+                      <span>Holding & Asset Class</span>
+                      <div className="flex items-center gap-4">
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-slate-400 inline-block" /> Current</span>
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-indigo-600 inline-block" /> Target / After</span>
+                        <span>Shift Delta</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {(rebalancePreview.driftReport?.holdingsDrift || []).map((h: any, idx: number) => {
+                        const cur = (h.current ?? (h.target + h.delta)) * 100;
+                        const tgt = (h.target ?? 0) * 100;
+                        const delta = cur - tgt;
+                        const isOver = delta > 0.5;
+                        const isUnder = delta < -0.5;
+
+                        return (
+                          <div key={idx} className="p-2.5 rounded-lg border bg-card/60 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-xs truncate max-w-[240px]">{h.asset}</span>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                  isUnder
+                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                                    : isOver
+                                    ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                                    : "bg-muted text-muted-foreground"
+                                }`}>
+                                  {isUnder ? `+${Math.abs(delta).toFixed(1)}% Underweight` : isOver ? `-${delta.toFixed(1)}% Overweight` : "Balanced"}
+                                </span>
                               </div>
-                            )}
+                            </div>
+
+                            {/* Dual Comparative Progress Bars */}
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                                <span>Before: {cur.toFixed(1)}%</span>
+                                <span>After: {tgt.toFixed(1)}%</span>
+                              </div>
+                              <div className="space-y-1">
+                                <Progress value={Math.min(100, cur * 2)} className="h-1.5 bg-slate-200 dark:bg-slate-800 [&>div]:bg-slate-500" />
+                                <Progress value={Math.min(100, tgt * 2)} className="h-1.5 bg-indigo-100 dark:bg-indigo-950 [&>div]:bg-indigo-600" />
+                              </div>
+                            </div>
                           </div>
                         );
                       })}
                     </div>
-                  </ScrollArea>
+                  </div>
                 )}
-              </div>
+
+                {/* ── Tab 3: Tax-Loss Harvesting (Sec. 70/71) ── */}
+                {rebalanceViewTab === "tax_harvest" && (
+                  <div className="space-y-3 py-1">
+                    <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-[11px] leading-relaxed text-amber-900 dark:text-amber-200">
+                      <div className="flex items-center gap-1.5 font-bold mb-1">
+                        <Scale className="h-3.5 w-3.5 text-amber-600" />
+                        Statutory Income Tax Rules (Sections 70 & 71, IT Act 1961)
+                      </div>
+                      Under Indian tax law, Short-Term Capital Loss (STCL) can offset both STCG (20%) and LTCG (12.5%). Long-Term Capital Loss (LTCL) can only offset LTCG. FASP-AI pairs trims with available loss lots to minimize net tax friction.
+                    </div>
+
+                    {(rebalancePreview.taxLossHarvestOpportunities && rebalancePreview.taxLossHarvestOpportunities.length > 0) ? (
+                      <div className="space-y-2">
+                        <p className="text-xs font-bold text-foreground">Available Harvesting Opportunities</p>
+                        {rebalancePreview.taxLossHarvestOpportunities.map((opp: any, idx: number) => (
+                          <div key={idx} className="p-2.5 rounded-lg border border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20 text-xs space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold">{opp.asset}</span>
+                              <Badge variant="outline" className="text-[9px] bg-emerald-100 text-emerald-800 border-emerald-300">
+                                {opp.lossType} · Sec. 70 Set-off
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 text-[11px] text-muted-foreground pt-1 border-t border-emerald-100 dark:border-emerald-900">
+                              <span>Unrealized Loss: -₹{opp.unrealizedLossRs.toLocaleString("en-IN")}</span>
+                              <span>Applicable Rate: {opp.taxRatePct}%</span>
+                              <span className="text-emerald-700 dark:text-emerald-300 font-bold text-right">
+                                Tax Saved: ₹{opp.taxSavedRs.toLocaleString("en-IN")}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-lg bg-muted/40 border text-center space-y-1">
+                        <p className="text-xs font-semibold text-foreground">
+                          No unabsorbed capital losses available in this portfolio
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Trims will be subject to standard rates (STCG 20% / LTCG 12.5%). To eliminate all tax friction, select the <strong>Tax-Zero Inflow</strong> mode above.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </ScrollArea>
 
               {/* SEBI Compliance & Audit Note */}
               <div className="p-2 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-lg border border-indigo-200 dark:border-indigo-800">
@@ -6439,7 +6803,7 @@ export default function AgentModelPortfoliosPage() {
             </p>
           )}
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 pt-2 border-t mt-auto">
             <Button
               variant="outline"
               size="sm"
@@ -6448,7 +6812,7 @@ export default function AgentModelPortfoliosPage() {
             >
               Cancel
             </Button>
-            {rebalancePreview?.rebalancePlan?.actions && rebalancePreview.rebalancePlan.actions.length > 0 && (
+            {rebalancePreview && (
               <Button
                 size="sm"
                 className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
@@ -6456,7 +6820,11 @@ export default function AgentModelPortfoliosPage() {
                 onClick={() => selectedPortfolio && handleExecuteRebalance(selectedPortfolio.id)}
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${executingRebalance ? "animate-spin" : ""}`} />
-                {executingRebalance ? "Executing Rebalance..." : "Confirm & Execute Rebalance"}
+                {executingRebalance
+                  ? "Executing..."
+                  : rebalanceMode === "passive_inflow"
+                  ? `Deploy ₹${(inflowAmount / 1000).toFixed(0)}k Tax-Zero Inflow`
+                  : "Confirm & Execute Rebalance"}
               </Button>
             )}
           </DialogFooter>

@@ -46,6 +46,7 @@ import {
   checkPortfolioSuitability,
   checkDrawdownCircuitBreaker,
   computeBlendedBenchmark,
+  computeCornishFisherRisk,
   getDriftThreshold,
   type PortfolioQuantInput,
   type QuantHolding,
@@ -4013,6 +4014,7 @@ modelPortfoliosRouter.get("/:id/quant-signals", async (req: Request, res: Respon
 
     const driftReport = computePortfolioDrift(portfolio);
     const alphaScore  = scorePortfolioAlpha(portfolio);
+    const extremeRiskMetrics = computeCornishFisherRisk(portfolio);
 
     // Persist updated drift score
     await db.execute(sql`
@@ -4039,18 +4041,19 @@ modelPortfoliosRouter.get("/:id/quant-signals", async (req: Request, res: Respon
     return res.json({
       success: true,
       data: {
-        portfolioId:     id,
-        driftScore:      driftReport.driftScore,
-        driftStatus:     driftReport.status,
-        driftingHoldings: driftReport.driftingCount,
-        threshold:       driftReport.threshold,
-        alpha:           alphaScore.alpha,
-        excessReturn3Y:  alphaScore.excessReturn3Y,
-        sharpeRatio:     alphaScore.sharpeRatio,
-        confidenceScore: alphaScore.confidenceScore,
-        factors:         alphaScore.factors,
-        recommendation:  alphaScore.recommendation,
-        driftDetails:    driftReport.holdingsDrift.filter(h => h.exceedsThreshold).slice(0, 5),
+        portfolioId:        id,
+        driftScore:         driftReport.driftScore,
+        driftStatus:        driftReport.status,
+        driftingHoldings:   driftReport.driftingCount,
+        threshold:          driftReport.threshold,
+        alpha:              alphaScore.alpha,
+        excessReturn3Y:     alphaScore.excessReturn3Y,
+        sharpeRatio:        alphaScore.sharpeRatio,
+        confidenceScore:    alphaScore.confidenceScore,
+        factors:            alphaScore.factors,
+        recommendation:     alphaScore.recommendation,
+        extremeRiskMetrics,
+        driftDetails:       driftReport.holdingsDrift.filter(h => h.exceedsThreshold).slice(0, 5),
       },
       meta: {
         timestamp:     new Date().toISOString(),
@@ -4530,7 +4533,12 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
   const t0 = Date.now();
   try {
     const { id } = req.params;
-    const { totalPortfolioValue = 1_000_000, preview = false } = req.body;
+    const {
+      totalPortfolioValue = 1_000_000,
+      preview = false,
+      mode = "standard",
+      inflowAmount,
+    } = req.body;
 
     const result = await db.execute(sql`
       SELECT id, name, asset_class, cagr_1y, cagr_3y, cagr_5y,
@@ -4568,7 +4576,11 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
       holdings,
     };
 
-    const quantResult = runPortfolioRebalance(portfolio, Number(totalPortfolioValue));
+    const quantResult = runPortfolioRebalance(
+      portfolio,
+      Number(totalPortfolioValue),
+      inflowAmount != null ? Number(inflowAmount) : undefined,
+    );
 
     // Update DB and log audit event only when executing (preview !== true)
     if (!preview && quantResult.rebalancePlan) {
@@ -4647,6 +4659,7 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
       portfolio_id: id,
       drift_score: quantResult.driftReport.driftScore,
       actions_count: quantResult.rebalancePlan?.actions.length ?? 0,
+      mode,
       preview,
       latency_ms: Date.now() - t0,
       status: "success",
@@ -4657,11 +4670,17 @@ modelPortfoliosRouter.post("/:id/rebalance", async (req: Request, res: Response)
       data: {
         portfolioId:   id,
         executed:      !preview,
+        mode,
         driftReport:   { ...quantResult.driftReport, holdingsDrift: quantResult.driftReport.holdingsDrift.slice(0, 10) },
         alphaScore:    quantResult.alphaScore,
+        extremeRiskMetrics: quantResult.extremeRiskMetrics,
         rebalancePlan: quantResult.rebalancePlan,
+        taxLossHarvestOpportunities: quantResult.rebalancePlan?.taxLossHarvestOpportunities ?? [],
+        passiveInflowPlan: quantResult.rebalancePlan?.passiveInflowPlan ?? null,
         advisory_note: preview
-          ? "FASP-AI v3.0 rebalancing preview. Review trade legs and tax considerations before confirming."
+          ? (mode === "passive_inflow"
+              ? "FASP-AI v3.0 Tax-Zero Passive Inflow Preview. All new capital is allocated to underweight assets without selling."
+              : "FASP-AI v3.0 rebalancing preview. Review trade legs and tax considerations before confirming.")
           : "FASP-AI v3.0 rebalancing executed. Portfolio target weights restored and drift score reset to 0.",
       },
       meta: {
