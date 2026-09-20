@@ -1136,6 +1136,8 @@ export const fundFinancialRatios = pgTable("fund_financial_ratios", {
   beta: decimal("beta", { precision: 10, scale: 2 }),
   standardDeviation: decimal("standard_deviation", { precision: 10, scale: 2 }),
   sortinoRatio: decimal("sortino_ratio", { precision: 10, scale: 2 }),
+  treynorRatio: decimal("treynor_ratio", { precision: 10, scale: 2 }),
+  maxDrawdown: decimal("max_drawdown", { precision: 10, scale: 2 }),
   portfolioTurnover: decimal("portfolio_turnover", { precision: 10, scale: 2 }),
   avgMarketCap: decimal("avg_market_cap", { precision: 20, scale: 2 }),
   lastUpdated: timestamp("last_updated").defaultNow(),

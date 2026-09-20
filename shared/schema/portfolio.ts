@@ -1349,6 +1349,11 @@ export const portfolioMetricsDaily = pgTable("portfolio_metrics_daily", {
   maxDrawdown: numeric("max_drawdown", { precision: 8, scale: 4 }),
   riskScore: integer("risk_score"), // 1-10
   
+  // Aggregate Valuation & Expense Metrics (User Portfolio Level)
+  aggregatePe: numeric("aggregate_pe", { precision: 10, scale: 4 }), // Weighted P/E across client's equity holdings
+  aggregatePb: numeric("aggregate_pb", { precision: 10, scale: 4 }), // Weighted P/B across client's equity holdings
+  weightedExpenseRatio: numeric("weighted_expense_ratio", { precision: 8, scale: 4 }), // Weighted expense ratio across client's MF holdings
+
   // Concentration Metrics
   top5Concentration: numeric("top_5_concentration", { precision: 6, scale: 4 }),
   sectorConcentration: jsonb("sector_concentration"), // { sector: percentage }
