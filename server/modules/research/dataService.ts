@@ -19,6 +19,7 @@ import { callPython } from "../../clients/python-client";
 import { logger } from "../../logger";
 import { credhiveService } from "../../services/credhive-service";
 import { probe42Service } from "../../services/probe42-service";
+import { indianApiService } from "../../services/indian-api-service";
 import type { CredhiveFinancialStatement } from "../../services/credhive-service";
 import { BoundedCache } from "../../utils/bounded-cache";
 
@@ -107,6 +108,7 @@ export interface FundamentalsSource {
 		| "SCREENER_LIVE"
 		| "CREDHIVE_FALLBACK"
 		| "PROBE42_FALLBACK"
+		| "INDIAN_API_FALLBACK"
 		| "PYTHON_YFINANCE"
 		| "NONE";
 	scrapedAt: string | null; // ISO timestamp of when DB data was last written
@@ -1196,6 +1198,149 @@ export async function fetchFundamentalsFromProbe42(
 			`[ResearchNote] Probe42 fundamentals fetch failed for ${nseSymbol}:`,
 			e?.message,
 		);
+		return null;
+	}
+}
+
+/**
+ * Fetch listed company fundamentals from IndianAPI (Fallback 3 — India-native licensed gateway).
+ */
+export async function fetchFundamentalsFromIndianAPI(
+	nseSymbol: string,
+): Promise<ScreenerData | null> {
+	if (!indianApiService.isReady()) {
+		return null;
+	}
+
+	try {
+		logger.info(`[ResearchNote] Fetching IndianAPI fundamentals for ${nseSymbol}`);
+		const [plRes, bsRes, cfRes, ratiosRes] = await Promise.all([
+			indianApiService.getProfitLoss(nseSymbol, 5).catch(() => null),
+			indianApiService.getBalanceSheet(nseSymbol, 5).catch(() => null),
+			indianApiService.getCashFlow(nseSymbol, 5).catch(() => null),
+			indianApiService.getRatios(nseSymbol).catch(() => null),
+		]);
+
+		const pl = plRes?.success && Array.isArray(plRes.data) && plRes.data.length > 0 ? plRes.data : null;
+		const bs = bsRes?.success && Array.isArray(bsRes.data) && bsRes.data.length > 0 ? bsRes.data : null;
+		const cf = cfRes?.success && Array.isArray(cfRes.data) && cfRes.data.length > 0 ? cfRes.data : null;
+		const ratios = ratiosRes?.success && ratiosRes.data ? ratiosRes.data : null;
+
+		if (!pl && !bs && !ratios) return null;
+
+		// Build historical P&L
+		let plHistory: HistoricalTable | null = null;
+		if (pl && pl.length > 0) {
+			const headers = pl.map((p) => p.year);
+			plHistory = {
+				headers,
+				rows: [
+					{ label: "Sales", values: pl.map((p) => p.revenue ?? null) },
+					{ label: "Operating Profit", values: pl.map((p) => p.ebitda ?? null) },
+					{ label: "OPM %", values: pl.map((p) => p.operating_margin ?? null) },
+					{ label: "Net Profit", values: pl.map((p) => p.pat ?? null) },
+					{ label: "EPS in Rs", values: pl.map((p) => p.eps ?? null) },
+				],
+			};
+		}
+
+		// Build historical Balance Sheet
+		let bsHistory: HistoricalTable | null = null;
+		if (bs && bs.length > 0) {
+			const headers = bs.map((b) => b.year);
+			bsHistory = {
+				headers,
+				rows: [
+					{ label: "Equity Capital", values: bs.map(() => null) },
+					{ label: "Reserves", values: bs.map((b) => b.networth ?? null) },
+					{ label: "Borrowings", values: bs.map((b) => b.total_debt ?? null) },
+					{ label: "Total Liabilities", values: bs.map((b) => b.total_liabilities ?? null) },
+					{ label: "Fixed Assets", values: bs.map((b) => b.fixed_assets ?? null) },
+					{ label: "Investments", values: bs.map((b) => b.investments ?? null) },
+					{ label: "Total Assets", values: bs.map((b) => b.total_assets ?? null) },
+				],
+			};
+		}
+
+		// Build historical Cash Flow
+		let cfHistory: HistoricalTable | null = null;
+		if (cf && cf.length > 0) {
+			const headers = cf.map((c) => c.year);
+			cfHistory = {
+				headers,
+				rows: [
+					{ label: "Cash from Operating Activity", values: cf.map((c) => c.operating_cash_flow ?? null) },
+					{ label: "Cash from Investing Activity", values: cf.map((c) => c.investing_cash_flow ?? null) },
+					{ label: "Cash from Financing Activity", values: cf.map((c) => c.financing_cash_flow ?? null) },
+					{ label: "Net Cash Flow", values: cf.map((c) => c.free_cash_flow ?? null) },
+				],
+			};
+		}
+
+		const latestPl = pl ? pl[pl.length - 1] : null;
+		const prevPl = pl && pl.length > 1 ? pl[pl.length - 2] : null;
+		const latestBs = bs ? bs[bs.length - 1] : null;
+
+		const roe = ratios?.roe
+			? ratios.roe / 100
+			: latestBs?.networth && latestPl?.pat
+				? latestPl.pat / latestBs.networth
+				: null;
+		const roce = ratios?.roce ? ratios.roce / 100 : null;
+		const pe = ratios?.pe_ratio ?? null;
+		const pb = ratios?.pb_ratio ?? null;
+		const dividendYield = ratios?.dividend_yield ? ratios.dividend_yield / 100 : null;
+		const debtToEquity =
+			ratios?.debt_equity ??
+			(latestBs?.networth && latestBs?.total_debt
+				? latestBs.total_debt / latestBs.networth
+				: null);
+
+		const revenueGrowth =
+			prevPl?.revenue && latestPl?.revenue && prevPl.revenue > 0
+				? (latestPl.revenue - prevPl.revenue) / prevPl.revenue
+				: null;
+		const earningsGrowth =
+			prevPl?.pat && latestPl?.pat && Math.abs(prevPl.pat) > 0
+				? (latestPl.pat - prevPl.pat) / Math.abs(prevPl.pat)
+				: null;
+
+		const toCr = (v: number | null | undefined) =>
+			v != null && !Number.isNaN(v) ? Math.round((v / 1e7) * 100) / 100 : null;
+
+		return {
+			roe,
+			roce,
+			dividendYield,
+			bookValue: null,
+			revenueGrowth,
+			earningsGrowth,
+			debtToEquity,
+			pe,
+			pb,
+			revenue: toCr(latestPl?.revenue),
+			netIncome: toCr(latestPl?.pat),
+			operatingCashFlow: toCr(cf && cf.length > 0 ? cf[cf.length - 1].operating_cash_flow : null),
+			freeCashFlow: toCr(cf && cf.length > 0 ? cf[cf.length - 1].free_cash_flow : null),
+			operatingMargin: latestPl?.operating_margin ? latestPl.operating_margin / 100 : null,
+			marketCapCr: null,
+			plHistory,
+			bsHistory,
+			cfHistory,
+			ratiosHistory: null,
+			quarterlyHistory: null,
+			salesCagr3Y: null,
+			salesCagr5Y: null,
+			profitCagr3Y: null,
+			profitCagr5Y: null,
+			companyDescription: null,
+			pros: [],
+			cons: [],
+		};
+	} catch (e: any) {
+		logger.warn(`[ResearchNote] IndianAPI fundamentals fetch failed for ${nseSymbol}:`, {
+			error: e?.message,
+		});
 		return null;
 	}
 }
@@ -2567,23 +2712,39 @@ export async function getFinancialData(
 					);
 				} else {
 					logger.info(
-						`[ResearchNote] Probe42 unavailable or empty for ${nseSymbol} — trying Python/yfinance`,
+						`[ResearchNote] Probe42 unavailable or empty for ${nseSymbol} — trying IndianAPI`,
 					);
-					const pyData = await fetchFundamentalsFromPython(nseSymbol);
-					if (pyData) {
-						screener = mergeScreenerWithFallback(screenerResult, pyData);
+					const iapiData = await fetchFundamentalsFromIndianAPI(nseSymbol);
+					if (iapiData && (iapiData.revenue !== null || iapiData.plHistory !== null)) {
+						screener = iapiData;
 						fundamentalsSource = {
-							source: "PYTHON_YFINANCE",
+							source: "INDIAN_API_FALLBACK",
 							scrapedAt: new Date().toISOString(),
 							ageHours: 0,
 						};
+						logger.info(
+							`[ResearchNote] Populated fundamentals from IndianAPI fallback for ${nseSymbol}`,
+						);
 					} else {
-						screener = screenerResult;
-						fundamentalsSource = {
-							source: "NONE",
-							scrapedAt: new Date().toISOString(),
-							ageHours: 0,
-						};
+						logger.info(
+							`[ResearchNote] IndianAPI unavailable or empty for ${nseSymbol} — trying Python/yfinance`,
+						);
+						const pyData = await fetchFundamentalsFromPython(nseSymbol);
+						if (pyData) {
+							screener = mergeScreenerWithFallback(screenerResult, pyData);
+							fundamentalsSource = {
+								source: "PYTHON_YFINANCE",
+								scrapedAt: new Date().toISOString(),
+								ageHours: 0,
+							};
+						} else {
+							screener = screenerResult;
+							fundamentalsSource = {
+								source: "NONE",
+								scrapedAt: new Date().toISOString(),
+								ageHours: 0,
+							};
+						}
 					}
 				}
 			}
@@ -2592,7 +2753,7 @@ export async function getFinancialData(
 			writeScreenerToDB(nseSymbol, screener).catch(() => {});
 		} else if (screenerResult.plHistory === null) {
 			// Tier 2: Screener returned point-in-time ratios but history tables are missing
-			// Enrich with CredHive -> Probe42 -> Python
+			// Enrich with CredHive -> Probe42 -> IndianAPI -> Python
 			const chData = await fetchFundamentalsFromCredhive(nseSymbol);
 			if (chData?.plHistory) {
 				screener = mergeScreenerWithFallback(screenerResult, chData);
@@ -2607,20 +2768,28 @@ export async function getFinancialData(
 						`[ResearchNote] Probe42 enriched missing history tables for ${nseSymbol}`,
 					);
 				} else {
-					const pyData = await fetchFundamentalsFromPython(nseSymbol);
-					if (pyData) {
-						screener = mergeScreenerWithFallback(screenerResult, pyData);
-						const histCount = [
-							screener.plHistory,
-							screener.bsHistory,
-							screener.cfHistory,
-							screener.quarterlyHistory,
-						].filter(Boolean).length;
+					const iapiData = await fetchFundamentalsFromIndianAPI(nseSymbol);
+					if (iapiData?.plHistory) {
+						screener = mergeScreenerWithFallback(screenerResult, iapiData);
 						logger.info(
-							`[ResearchNote] Python enriched missing history for ${nseSymbol}: ${histCount}/4 tables`,
+							`[ResearchNote] IndianAPI enriched missing history tables for ${nseSymbol}`,
 						);
 					} else {
-						screener = screenerResult;
+						const pyData = await fetchFundamentalsFromPython(nseSymbol);
+						if (pyData) {
+							screener = mergeScreenerWithFallback(screenerResult, pyData);
+							const histCount = [
+								screener.plHistory,
+								screener.bsHistory,
+								screener.cfHistory,
+								screener.quarterlyHistory,
+							].filter(Boolean).length;
+							logger.info(
+								`[ResearchNote] Python enriched missing history for ${nseSymbol}: ${histCount}/4 tables`,
+							);
+						} else {
+							screener = screenerResult;
+						}
 					}
 				}
 			}
